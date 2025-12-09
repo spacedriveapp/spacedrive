@@ -66,12 +66,15 @@ impl LibraryAction for EnableIndexingAction {
 			.ok_or_else(|| ActionError::LocationNotFound(self.input.id))?;
 
 		// Parse the index mode
-		let index_mode: IndexMode = self.input.index_mode.as_str().parse().map_err(|e| {
-			ActionError::Validation {
-				field: "index_mode".to_string(),
-				message: format!("Invalid index mode: {}", e),
-			}
-		})?;
+		let index_mode: IndexMode =
+			self.input
+				.index_mode
+				.as_str()
+				.parse()
+				.map_err(|e| ActionError::Validation {
+					field: "index_mode".to_string(),
+					message: format!("Invalid index mode: {}", e),
+				})?;
 
 		// Don't allow setting to None
 		if index_mode == IndexMode::None {

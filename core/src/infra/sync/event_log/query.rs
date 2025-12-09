@@ -182,8 +182,7 @@ impl QueryBuilder {
 	}
 
 	pub fn add_model_type_filter(&mut self, model_type: &str) {
-		self.where_clauses
-			.push("model_types LIKE ?".to_string());
+		self.where_clauses.push("model_types LIKE ?".to_string());
 		self.params.push(format!("%{}%", model_type));
 	}
 

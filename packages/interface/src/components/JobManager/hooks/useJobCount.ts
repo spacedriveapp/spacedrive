@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLibraryQuery, useSpacedriveClient } from "../../../context";
 
 /**
@@ -7,52 +7,60 @@ import { useLibraryQuery, useSpacedriveClient } from "../../../context";
  * Events trigger a refetch rather than incrementing/decrementing counts manually.
  */
 export function useJobCount() {
-  const client = useSpacedriveClient();
+	const client = useSpacedriveClient();
 
-  const { data, refetch } = useLibraryQuery({
-    type: "jobs.list",
-    input: { status: null },
-  });
+	const { data, refetch } = useLibraryQuery({
+		type: "jobs.list",
+		input: { status: null },
+	});
 
-  // Subscribe to job state changes and refetch when they occur
-  useEffect(() => {
-    if (!client) return;
+	// Ref for stable refetch access (prevents effect re-runs when refetch reference changes)
+	const refetchRef = useRef(refetch);
+	useEffect(() => {
+		refetchRef.current = refetch;
+	}, [refetch]);
 
-    let unsubscribe: (() => void) | undefined;
-    let isCancelled = false;
+	// Subscribe to job state changes and refetch when they occur
+	useEffect(() => {
+		if (!client) return;
 
-    const filter = {
-      event_types: [
-        "JobQueued",
-        "JobStarted",
-        "JobCompleted",
-        "JobFailed",
-        "JobCancelled",
-        "JobPaused",
-        "JobResumed",
-      ],
-    };
+		let unsubscribe: (() => void) | undefined;
+		let isCancelled = false;
 
-    client.subscribeFiltered(filter, () => refetch()).then((unsub) => {
-      if (isCancelled) {
-        unsub();
-      } else {
-        unsubscribe = unsub;
-      }
-    });
+		const filter = {
+			event_types: [
+				"JobQueued",
+				"JobStarted",
+				"JobCompleted",
+				"JobFailed",
+				"JobCancelled",
+				"JobPaused",
+				"JobResumed",
+			],
+		};
 
-    return () => {
-      isCancelled = true;
-      unsubscribe?.();
-    };
-  }, [client, refetch]);
+		client
+			.subscribeFiltered(filter, () => refetchRef.current())
+			.then((unsub) => {
+				if (isCancelled) {
+					unsub();
+				} else {
+					unsubscribe = unsub;
+				}
+			});
 
-  const jobs = data?.jobs ?? [];
-  const runningCount = jobs.filter(j => j.status === "running").length;
-  const pausedCount = jobs.filter(j => j.status === "paused").length;
+		return () => {
+			isCancelled = true;
+			unsubscribe?.();
+		};
+	}, [client]);
 
-  return {
-    activeJobCount: runningCount + pausedCount,
-    hasRunningJobs: runningCount > 0,
-  };
+	const jobs = data?.jobs ?? [];
+	const runningCount = jobs.filter((j) => j.status === "running").length;
+	const pausedCount = jobs.filter((j) => j.status === "paused").length;
+
+	return {
+		activeJobCount: runningCount + pausedCount,
+		hasRunningJobs: runningCount > 0,
+	};
 }

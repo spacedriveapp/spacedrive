@@ -1,4 +1,9 @@
-//! Core input types for indexing operations
+//! # Indexing Input Types
+//!
+//! Defines IndexInput, the canonical request shape for all indexing operations regardless
+//! of origin (CLI, API, UI). This type is deserialized from external requests, validated,
+//! and converted into IndexerJobConfig for internal execution. Separating input from config
+//! keeps the public API stable while internal job parameters evolve.
 
 use super::job::{IndexMode, IndexPersistence, IndexScope};
 use serde::{Deserialize, Serialize};
@@ -28,7 +33,7 @@ pub struct IndexInput {
 }
 
 impl IndexInput {
-	/// Create a new input with sane defaults
+	/// Creates an input with defaults: recursive deep indexing of ephemeral entries, excluding hidden files.
 	pub fn new<P: IntoIterator<Item = PathBuf>>(library_id: uuid::Uuid, paths: P) -> Self {
 		Self {
 			library_id,
@@ -65,7 +70,7 @@ impl IndexInput {
 		self
 	}
 
-	/// Validate the input
+	/// Checks that at least one path is provided; other fields are structurally valid via types.
 	pub fn validate(&self) -> Result<(), Vec<String>> {
 		let mut errors = Vec::new();
 

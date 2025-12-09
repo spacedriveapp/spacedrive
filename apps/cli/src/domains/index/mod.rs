@@ -2,6 +2,7 @@ pub mod args;
 
 use anyhow::Result;
 use clap::Subcommand;
+use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 
 use crate::util::prelude::*;
 
@@ -20,6 +21,8 @@ pub enum IndexCmd {
 	Browse(BrowseArgs),
 	/// Verify index integrity for a path
 	Verify(IndexVerifyArgs),
+	/// Show ephemeral index cache status
+	EphemeralCache(EphemeralCacheArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
@@ -232,6 +235,118 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				}
 			);
 		}
+		IndexCmd::EphemeralCache(args) => {
+			let input = args.to_input();
+			let out: sd_core::ops::core::ephemeral_status::EphemeralCacheStatus =
+				execute_core_query!(ctx, input);
+
+			print_output!(
+				ctx,
+				&out,
+				|status: &sd_core::ops::core::ephemeral_status::EphemeralCacheStatus| {
+					println!();
+					println!("╔══════════════════════════════════════════════════════════════╗");
+					println!("║           UNIFIED EPHEMERAL INDEX CACHE                      ║");
+					println!("╠══════════════════════════════════════════════════════════════╣");
+					println!(
+						"║ Indexed Paths: {:3}    In Progress: {:3}                       ║",
+						status.indexed_paths_count, status.indexing_in_progress_count
+					);
+					println!("╚══════════════════════════════════════════════════════════════╝");
+
+					// Show unified index stats
+					let stats = &status.index_stats;
+					println!();
+					let mut stats_table = Table::new();
+					stats_table.load_preset(UTF8_BORDERS_ONLY);
+					stats_table.set_header(vec![
+						Cell::new("SHARED INDEX STATS").add_attribute(Attribute::Bold),
+						Cell::new(""),
+					]);
+
+					stats_table.add_row(vec![
+						"Total entries (shared arena)",
+						&stats.total_entries.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Path index count",
+						&stats.path_index_count.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Unique names (shared)",
+						&stats.unique_names.to_string(),
+					]);
+					stats_table.add_row(vec![
+						"Interned strings (shared)",
+						&stats.interned_strings.to_string(),
+					]);
+					stats_table.add_row(vec!["Content kinds", &stats.content_kinds.to_string()]);
+					stats_table.add_row(vec![
+						"Memory usage",
+						&format_bytes(stats.memory_bytes as u64),
+					]);
+					stats_table.add_row(vec!["Cache age", &format!("{:.1}s", stats.age_seconds)]);
+					stats_table.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
+
+					println!("{}", stats_table);
+
+					// Show indexed paths
+					if status.indexed_paths.is_empty() && status.paths_in_progress.is_empty() {
+						println!("\n  No paths indexed yet.");
+					} else {
+						// Paths in progress
+						if !status.paths_in_progress.is_empty() {
+							println!();
+							let mut progress_table = Table::new();
+							progress_table.load_preset(UTF8_BORDERS_ONLY);
+							progress_table
+								.set_header(vec![Cell::new("INDEXING IN PROGRESS")
+									.add_attribute(Attribute::Bold)]);
+							for path in &status.paths_in_progress {
+								progress_table.add_row(vec![format!("● {}", path.display())]);
+							}
+							println!("{}", progress_table);
+						}
+
+						// Indexed paths
+						if !status.indexed_paths.is_empty() {
+							println!();
+							let mut paths_table = Table::new();
+							paths_table.load_preset(UTF8_BORDERS_ONLY);
+							paths_table.set_header(vec![
+								Cell::new("INDEXED PATHS").add_attribute(Attribute::Bold),
+								Cell::new("Children"),
+							]);
+							for info in &status.indexed_paths {
+								paths_table.add_row(vec![
+									format!("○ {}", info.path.display()),
+									info.child_count.to_string(),
+								]);
+							}
+							println!("{}", paths_table);
+						}
+					}
+					println!();
+				}
+			);
+		}
 	}
 	Ok(())
+}
+
+fn format_bytes(bytes: u64) -> String {
+	const UNITS: &[&str] = &["B", "KB", "MB", "GB", "TB"];
+	let mut size = bytes as f64;
+	let mut unit_index = 0;
+
+	while size >= 1024.0 && unit_index < UNITS.len() - 1 {
+		size /= 1024.0;
+		unit_index += 1;
+	}
+
+	if unit_index == 0 {
+		format!("{} {}", bytes, UNITS[unit_index])
+	} else {
+		format!("{:.1} {}", size, UNITS[unit_index])
+	}
 }

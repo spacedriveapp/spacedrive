@@ -78,8 +78,8 @@ pub struct File {
 	pub accessed_at: Option<DateTime<Utc>>,
 
 	/// Additional computed fields
-	pub content_kind: ContentKind, // This is redundant with ContentIdentity, it lives inside
-	pub is_local: bool, // this is also redundant with SdPath
+	pub content_kind: ContentKind, // Populated by the ephemeral indexer, for when a File does not have a ContentIdentity
+	pub is_local: bool, // this is redundant with SdPath
 
 	/// Video duration (for grid display optimization)
 	pub duration_seconds: Option<f64>,
@@ -425,7 +425,7 @@ impl File {
 	/// This is used for ephemeral indexing where files are discovered but not persisted to the database.
 	pub fn from_ephemeral(
 		id: Uuid,
-		metadata: &crate::ops::indexing::entry::EntryMetadata,
+		metadata: &crate::ops::indexing::database_storage::EntryMetadata,
 		sd_path: SdPath,
 	) -> Self {
 		let is_local = sd_path.is_local();

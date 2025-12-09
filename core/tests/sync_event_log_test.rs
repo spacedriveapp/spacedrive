@@ -77,7 +77,10 @@ impl EventLogTestHarness {
 
 		// Initialize sync service
 		library_alice
-			.init_sync_service(device_alice_id, transport_alice.clone() as Arc<dyn NetworkTransport>)
+			.init_sync_service(
+				device_alice_id,
+				transport_alice.clone() as Arc<dyn NetworkTransport>,
+			)
 			.await?;
 
 		// Start sync service
@@ -105,7 +108,8 @@ impl EventLogTestHarness {
 
 		let stmt = Statement::from_string(
 			DatabaseBackend::Sqlite,
-			"SELECT event_type, summary, correlation_id FROM sync_event_log ORDER BY timestamp".to_string(),
+			"SELECT event_type, summary, correlation_id FROM sync_event_log ORDER BY timestamp"
+				.to_string(),
 		);
 
 		let rows = event_logger.conn().query_all(stmt).await?;
@@ -195,10 +199,7 @@ async fn test_backfill_session_correlation() -> anyhow::Result<()> {
 
 	let events = harness.query_events_api(query).await?;
 
-	tracing::info!(
-		event_count = events.len(),
-		"Events retrieved via query API"
-	);
+	tracing::info!(event_count = events.len(), "Events retrieved via query API");
 
 	// Verify query API works (even if no events yet)
 	assert!(
@@ -240,8 +241,8 @@ async fn test_event_query_filtering() -> anyhow::Result<()> {
 	tokio::time::sleep(Duration::from_millis(200)).await;
 
 	// Test filtering by event type
-	let query = SyncEventQuery::new(library_id)
-		.with_event_types(vec![SyncEventType::StateTransition]);
+	let query =
+		SyncEventQuery::new(library_id).with_event_types(vec![SyncEventType::StateTransition]);
 
 	let events = harness.query_events_api(query).await?;
 
@@ -260,8 +261,8 @@ async fn test_event_query_filtering() -> anyhow::Result<()> {
 	}
 
 	// Test filtering by category
-	let query_category = SyncEventQuery::new(library_id)
-		.with_categories(vec![EventCategory::Lifecycle]);
+	let query_category =
+		SyncEventQuery::new(library_id).with_categories(vec![EventCategory::Lifecycle]);
 
 	let lifecycle_events = harness.query_events_api(query_category).await?;
 
@@ -353,15 +354,12 @@ async fn test_batch_aggregation() -> anyhow::Result<()> {
 
 	// Query batch ingestion events
 	let library_id = harness.library_alice.id();
-	let query = SyncEventQuery::new(library_id)
-		.with_event_types(vec![SyncEventType::BatchIngestion]);
+	let query =
+		SyncEventQuery::new(library_id).with_event_types(vec![SyncEventType::BatchIngestion]);
 
 	let events = harness.query_events_api(query).await?;
 
-	tracing::info!(
-		batch_events = events.len(),
-		"Batch ingestion events logged"
-	);
+	tracing::info!(batch_events = events.len(), "Batch ingestion events logged");
 
 	// Should have one batch event aggregating all the adds
 	assert!(
@@ -417,9 +415,7 @@ async fn test_buffer_overflow_logging() -> anyhow::Result<()> {
 	// For testing, we'll simulate by tracking drops manually
 
 	// Transition to Ready (this checks for dropped count)
-	peer_sync
-		.set_state_for_test(DeviceSyncState::Ready)
-		.await;
+	peer_sync.set_state_for_test(DeviceSyncState::Ready).await;
 
 	tokio::time::sleep(Duration::from_millis(200)).await;
 
@@ -431,17 +427,11 @@ async fn test_buffer_overflow_logging() -> anyhow::Result<()> {
 
 	let error_events = harness.query_events_api(query).await?;
 
-	tracing::info!(
-		error_count = error_events.len(),
-		"Error events logged"
-	);
+	tracing::info!(error_count = error_events.len(), "Error events logged");
 
 	// Note: Buffer overflow only logs if drops actually occurred
 	// This test verifies the infrastructure exists, even if no drops happened
-	assert!(
-		error_events.len() >= 0,
-		"Error event query should work"
-	);
+	assert!(error_events.len() >= 0, "Error event query should work");
 
 	Ok(())
 }

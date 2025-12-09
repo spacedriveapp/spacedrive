@@ -1,17 +1,22 @@
-//! Hierarchical query helpers using closure table
+//! # Closure Table Query Helpers
+//!
+//! Provides O(1) tree traversal operations using a precomputed closure table.
+//! The closure table stores all ancestor-descendant relationships with their depths,
+//! eliminating recursive queries for common operations like "get all children".
+//! Each insert updates the closure table to maintain transitive relationships,
+//! trading write complexity for instant read performance.
+//!
+//! For path resolution, use [`PathResolver::get_full_path`] which provides O(1)
+//! lookups via the `directory_paths` cache table.
 
 use crate::infra::db::entities::{entry, entry_closure};
-use sea_orm::{
-	ColumnTrait, Condition, DbConn, EntityTrait, JoinType, PaginatorTrait, QueryFilter, QueryOrder,
-	QuerySelect, RelationTrait,
-};
-use std::path::PathBuf;
+use sea_orm::{ColumnTrait, DbConn, EntityTrait, PaginatorTrait, QueryFilter, QueryOrder};
 
-/// Hierarchical query helpers for efficient tree operations
+/// Namespace for closure table queries that avoid recursive database operations.
 pub struct HierarchyQuery;
 
 impl HierarchyQuery {
-	/// Get direct children of an entry
+	/// Returns direct children only (depth 1), sorted by name.
 	pub async fn get_children(
 		db: &DbConn,
 		parent_id: i32,
@@ -23,12 +28,14 @@ impl HierarchyQuery {
 			.await
 	}
 
-	/// Get all descendants of an entry (recursive)
+	/// Returns all descendants at any depth using the closure table (not recursive).
+	///
+	/// Excludes the entry itself (depth > 0). Results are ordered by depth (shallowest first).
+	/// Chunks queries to respect SQLite's parameter limit.
 	pub async fn get_descendants(
 		db: &DbConn,
 		ancestor_id: i32,
 	) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
-		// First get all descendant IDs from closure table
 		let descendant_ids = entry_closure::Entity::find()
 			.filter(entry_closure::Column::AncestorId.eq(ancestor_id))
 			.filter(entry_closure::Column::Depth.gt(0))
@@ -39,7 +46,6 @@ impl HierarchyQuery {
 			.map(|ec| ec.descendant_id)
 			.collect::<Vec<i32>>();
 
-		// Then fetch the entries
 		if descendant_ids.is_empty() {
 			return Ok(vec![]);
 		}
@@ -59,12 +65,14 @@ impl HierarchyQuery {
 		}
 	}
 
-	/// Get all ancestors of an entry (path to root)
+	/// Returns all ancestors from root to immediate parent, enabling breadcrumb construction.
+	///
+	/// Excludes the entry itself (depth > 0). Results are ordered deepest-first, so reverse
+	/// iteration builds paths from root downward.
 	pub async fn get_ancestors(
 		db: &DbConn,
 		descendant_id: i32,
 	) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
-		// First get all ancestor IDs from closure table
 		let ancestor_ids = entry_closure::Entity::find()
 			.filter(entry_closure::Column::DescendantId.eq(descendant_id))
 			.filter(entry_closure::Column::Depth.gt(0))
@@ -75,7 +83,6 @@ impl HierarchyQuery {
 			.map(|ec| ec.ancestor_id)
 			.collect::<Vec<i32>>();
 
-		// Then fetch the entries
 		if ancestor_ids.is_empty() {
 			return Ok(vec![]);
 		}
@@ -94,13 +101,14 @@ impl HierarchyQuery {
 		}
 	}
 
-	/// Get entries at a specific depth below an ancestor
+	/// Returns entries at exactly the specified depth (e.g., all grandchildren = depth 2).
+	///
+	/// Useful for level-by-level tree rendering without fetching the entire subtree.
 	pub async fn get_at_depth(
 		db: &DbConn,
 		ancestor_id: i32,
 		depth: i32,
 	) -> Result<Vec<entry::Model>, sea_orm::DbErr> {
-		// First get IDs at the specific depth
 		let entry_ids = entry_closure::Entity::find()
 			.filter(entry_closure::Column::AncestorId.eq(ancestor_id))
 			.filter(entry_closure::Column::Depth.eq(depth))
@@ -110,7 +118,6 @@ impl HierarchyQuery {
 			.map(|ec| ec.descendant_id)
 			.collect::<Vec<i32>>();
 
-		// Then fetch the entries
 		if entry_ids.is_empty() {
 			return Ok(vec![]);
 		}
@@ -130,36 +137,7 @@ impl HierarchyQuery {
 		}
 	}
 
-	/// Build a full path for an entry by traversing ancestors
-	pub async fn build_full_path(
-		db: &DbConn,
-		entry_id: i32,
-		location_path: &str,
-	) -> Result<PathBuf, sea_orm::DbErr> {
-		// Get the entry itself
-		let entry = entry::Entity::find_by_id(entry_id)
-			.one(db)
-			.await?
-			.ok_or_else(|| sea_orm::DbErr::RecordNotFound("Entry not found".to_string()))?;
-
-		// Get all ancestors in order (root to parent)
-		let ancestors = Self::get_ancestors(db, entry_id).await?;
-
-		// Build the path
-		let mut path = PathBuf::from(location_path);
-
-		// Add ancestor names
-		for ancestor in ancestors {
-			path.push(&ancestor.name);
-		}
-
-		// Add the entry's own name
-		path.push(&entry.name);
-
-		Ok(path)
-	}
-
-	/// Count total descendants of an entry
+	/// Counts descendants at any depth without fetching full entry records.
 	pub async fn count_descendants(db: &DbConn, ancestor_id: i32) -> Result<u64, sea_orm::DbErr> {
 		entry_closure::Entity::find()
 			.filter(entry_closure::Column::AncestorId.eq(ancestor_id))
@@ -168,13 +146,16 @@ impl HierarchyQuery {
 			.await
 	}
 
-	/// Get subtree size (total size of all descendant files)
+	/// Sums the size field across all descendants (files and directories).
+	///
+	/// Note: This is a naive sum. For accurate directory subtree sizes, use the
+	/// pre-aggregated aggregate_size field computed during the aggregation phase.
 	pub async fn get_subtree_size(db: &DbConn, ancestor_id: i32) -> Result<i64, sea_orm::DbErr> {
 		let descendants = Self::get_descendants(db, ancestor_id).await?;
 		Ok(descendants.iter().map(|e| e.size).sum())
 	}
 
-	/// Check if an entry is an ancestor of another
+	/// Checks if potential_ancestor_id is anywhere above potential_descendant_id in the tree.
 	pub async fn is_ancestor_of(
 		db: &DbConn,
 		potential_ancestor_id: i32,
@@ -190,17 +171,18 @@ impl HierarchyQuery {
 		Ok(count > 0)
 	}
 
-	/// Find common ancestor of two entries
+	/// Finds the lowest (deepest) ancestor shared by both entries, if any.
+	///
+	/// Returns None if the entries are in different trees (different locations).
+	/// Useful for determining relative path operations.
 	pub async fn find_common_ancestor(
 		db: &DbConn,
 		entry1_id: i32,
 		entry2_id: i32,
 	) -> Result<Option<entry::Model>, sea_orm::DbErr> {
-		// Get ancestors of both entries
 		let ancestors1 = Self::get_ancestors(db, entry1_id).await?;
 		let ancestors2 = Self::get_ancestors(db, entry2_id).await?;
 
-		// Find the first common ancestor (starting from the deepest)
 		for ancestor1 in ancestors1.iter().rev() {
 			for ancestor2 in &ancestors2 {
 				if ancestor1.id == ancestor2.id {

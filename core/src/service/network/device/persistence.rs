@@ -73,8 +73,7 @@ impl DevicePersistence {
 
 	/// Save list of paired device IDs
 	async fn save_device_list(&self, device_ids: &[Uuid]) -> Result<()> {
-		let data =
-			serde_json::to_vec(device_ids).map_err(|e| NetworkingError::Serialization(e))?;
+		let data = serde_json::to_vec(device_ids).map_err(|e| NetworkingError::Serialization(e))?;
 		self.key_manager
 			.set_secret(Self::DEVICE_LIST_KEY, &data)
 			.await
@@ -92,8 +91,7 @@ impl DevicePersistence {
 
 		for (device_id, device) in devices {
 			let key = Self::device_key(*device_id);
-			let data =
-				serde_json::to_vec(device).map_err(|e| NetworkingError::Serialization(e))?;
+			let data = serde_json::to_vec(device).map_err(|e| NetworkingError::Serialization(e))?;
 			self.key_manager
 				.set_secret(&key, &data)
 				.await
@@ -114,18 +112,16 @@ impl DevicePersistence {
 		for device_id in device_ids {
 			let key = Self::device_key(device_id);
 			match self.key_manager.get_secret(&key).await {
-				Ok(data) => {
-					match serde_json::from_slice::<PersistedPairedDevice>(&data) {
-						Ok(device) => {
-							if !device.session_keys.is_expired() {
-								devices.insert(device_id, device);
-							}
-						}
-						Err(e) => {
-							eprintln!("Failed to deserialize device {}: {}", device_id, e);
+				Ok(data) => match serde_json::from_slice::<PersistedPairedDevice>(&data) {
+					Ok(device) => {
+						if !device.session_keys.is_expired() {
+							devices.insert(device_id, device);
 						}
 					}
-				}
+					Err(e) => {
+						eprintln!("Failed to deserialize device {}: {}", device_id, e);
+					}
+				},
 				Err(e) => {
 					eprintln!("Failed to load device {}: {}", device_id, e);
 				}
@@ -279,7 +275,9 @@ impl DevicePersistence {
 		self.key_manager
 			.delete_secret(Self::DEVICE_LIST_KEY)
 			.await
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to clear device list: {}", e)))?;
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to clear device list: {}", e))
+			})?;
 
 		Ok(())
 	}
@@ -413,5 +411,4 @@ mod tests {
 			session_keys.shared_secret
 		);
 	}
-
 }

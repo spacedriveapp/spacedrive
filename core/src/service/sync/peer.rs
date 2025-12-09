@@ -2669,7 +2669,10 @@ impl PeerSync {
 				let event = SyncEventLog::new(
 					self.device_id,
 					SyncEventType::SyncError,
-					format!("Buffer overflow: {} updates dropped during backfill", dropped_count),
+					format!(
+						"Buffer overflow: {} updates dropped during backfill",
+						dropped_count
+					),
 				)
 				.with_severity(EventSeverity::Error)
 				.with_details(json!({

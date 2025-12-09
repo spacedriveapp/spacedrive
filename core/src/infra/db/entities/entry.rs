@@ -336,7 +336,7 @@ impl crate::infra::sync::Syncable for Model {
 
 		// Use delete_subtree_internal to cascade delete entire subtree
 		// This avoids creating tombstones (we're applying a tombstone)
-		crate::ops::indexing::responder::delete_subtree_internal(entry.id, db).await?;
+		crate::ops::indexing::DatabaseStorage::delete_subtree(entry.id, db).await?;
 
 		Ok(())
 	}

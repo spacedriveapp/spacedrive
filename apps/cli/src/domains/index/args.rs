@@ -4,6 +4,7 @@ use uuid::Uuid;
 
 use sd_core::{
 	domain::addressing::SdPath,
+	ops::core::ephemeral_status::EphemeralCacheStatusInput,
 	ops::indexing::{
 		input::IndexInput,
 		job::{IndexMode, IndexPersistence, IndexScope},
@@ -166,6 +167,22 @@ impl IndexVerifyArgs {
 			verify_content: self.verify_content,
 			detailed_report: self.detailed,
 			auto_fix: self.auto_fix,
+		}
+	}
+}
+
+/// Arguments for ephemeral cache status
+#[derive(Args, Debug, Clone)]
+pub struct EphemeralCacheArgs {
+	/// Filter by path substring
+	#[arg(long)]
+	pub filter: Option<String>,
+}
+
+impl EphemeralCacheArgs {
+	pub fn to_input(&self) -> EphemeralCacheStatusInput {
+		EphemeralCacheStatusInput {
+			path_filter: self.filter.clone(),
 		}
 	}
 }

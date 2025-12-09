@@ -1,10 +1,14 @@
-//! Performance metrics and monitoring for the indexer
+//! # Indexer Performance Metrics
+//!
+//! Tracks timing, throughput, database activity, and error counts across all indexing phases.
+//! Metrics are computed at job completion and logged for performance analysis. They're also
+//! serialized for API responses so clients can display progress summaries and detect bottlenecks.
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::time::{Duration, Instant};
 
-/// Comprehensive metrics for indexing operations
+/// Complete snapshot of indexer performance after job completion.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerMetrics {
 	// Timing
@@ -59,7 +63,7 @@ impl Default for IndexerMetrics {
 	}
 }
 
-/// Tracks timing for different phases
+/// Tracks phase transition times to compute per-phase durations without overlapping timers.
 #[derive(Debug)]
 pub struct PhaseTimer {
 	phase_start: Instant,
@@ -109,7 +113,7 @@ impl PhaseTimer {
 }
 
 impl IndexerMetrics {
-	/// Calculate final metrics from state and timer
+	/// Computes metrics after job completion by combining accumulated stats with elapsed timers.
 	pub fn calculate(
 		stats: &super::state::IndexerStats,
 		timer: &PhaseTimer,
@@ -163,7 +167,7 @@ impl IndexerMetrics {
 		}
 	}
 
-	/// Format metrics for logging
+	/// Formats metrics as a multi-line summary suitable for job completion logs.
 	pub fn format_summary(&self) -> String {
 		format!(
 			"Indexing completed in {:.2}s:\n\

@@ -1,13 +1,7 @@
-// @ts-ignore - Expo modules types may not be available in all environments
-const { EventEmitter, NativeModulesProxy } = require("expo-modules-core");
+// TODO: Test if we can rely on Expo's autolinking instead of manually requiring the module
+import { requireNativeModule, EventEmitter } from "expo-modules-core";
 
-const SDMobileCoreModule = NativeModulesProxy?.SDMobileCore;
-
-if (!SDMobileCoreModule) {
-	throw new Error(
-		"SDMobileCore native module not found. Did you run 'cargo xtask build-mobile' and rebuild the app?",
-	);
-}
+const SDMobileCoreModule = requireNativeModule("SDMobileCore");
 
 const emitter = new EventEmitter(SDMobileCoreModule);
 

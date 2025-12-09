@@ -167,10 +167,10 @@ impl VolumeManager {
 
 				// Try to load credentials and recreate the backend
 				let credential_manager = CloudCredentialManager::new(
-				key_manager.clone(),
-				library.db().clone(),
-				library.id(),
-			);
+					key_manager.clone(),
+					library.db().clone(),
+					library.id(),
+				);
 
 				match credential_manager
 					.get_credential(library.id(), &db_volume.fingerprint)

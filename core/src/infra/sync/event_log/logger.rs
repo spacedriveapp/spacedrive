@@ -25,11 +25,7 @@ pub struct SyncEventLogger {
 
 impl SyncEventLogger {
 	/// Create a new event logger
-	pub fn new(
-		library_id: Uuid,
-		device_id: Uuid,
-		conn: Arc<DatabaseConnection>,
-	) -> Self {
+	pub fn new(library_id: Uuid, device_id: Uuid, conn: Arc<DatabaseConnection>) -> Self {
 		Self {
 			library_id,
 			device_id,
@@ -55,10 +51,7 @@ impl SyncEventLogger {
 			.map(|d| serde_json::to_string(d))
 			.transpose()?;
 
-		let model_types_str = event
-			.model_types
-			.as_ref()
-			.map(|types| types.join(","));
+		let model_types_str = event.model_types.as_ref().map(|types| types.join(","));
 
 		self.conn
 			.execute(Statement::from_sql_and_values(
@@ -161,8 +154,7 @@ impl SyncEventLogger {
 			where_clause, limit, offset
 		);
 
-		let param_values: Vec<sea_orm::Value> =
-			params.into_iter().map(|p| p.into()).collect();
+		let param_values: Vec<sea_orm::Value> = params.into_iter().map(|p| p.into()).collect();
 
 		let stmt = Statement::from_sql_and_values(DbBackend::Sqlite, &sql, param_values);
 
@@ -194,8 +186,7 @@ impl SyncEventLogger {
 
 		Ok(SyncEventLog {
 			id: Some(id),
-			timestamp: DateTime::parse_from_rfc3339(&timestamp_str)?
-				.with_timezone(&Utc),
+			timestamp: DateTime::parse_from_rfc3339(&timestamp_str)?.with_timezone(&Utc),
 			device_id: Uuid::parse_str(&device_id_str)?,
 			event_type: SyncEventType::from_str(&event_type_str)
 				.ok_or_else(|| anyhow::anyhow!("Invalid event type: {}", event_type_str))?,
@@ -213,8 +204,7 @@ impl SyncEventLogger {
 			peer_device_id: peer_device_id_str
 				.as_ref()
 				.and_then(|s| Uuid::parse_str(s).ok()),
-			model_types: model_types_str
-				.map(|s| s.split(',').map(|t| t.to_string()).collect()),
+			model_types: model_types_str.map(|s| s.split(',').map(|t| t.to_string()).collect()),
 			record_count: record_count.map(|c| c as u64),
 			duration_ms: duration_ms.map(|d| d as u64),
 		})
