@@ -13,11 +13,11 @@ The indexing system consists of specialized components working together:
 
 **IndexerState** preserves all necessary information to resume indexing from any interruption point. This includes the current phase, directories to process, accumulated statistics, and ephemeral UUID mappings for preserving user metadata across browsing-to-persistent transitions.
 
-**DBWriter** provides the low-level database CRUD layer. All database operations (create, update, move, delete) flow through this module for consistency.
+**DatabaseStorage** provides the low-level database CRUD layer. All database operations (create, update, move, delete) flow through this module for consistency.
 
-**PersistentWriter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the database via `DBWriter`.
+**DatabaseAdapter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the database via `DatabaseStorage`.
 
-**EphemeralWriter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the in-memory `EphemeralIndex`.
+**MemoryAdapter** implements both `ChangeHandler` (for filesystem watcher events) and `IndexPersistence` (for indexer job batches). Both pipelines use the same code to write entries to the in-memory `EphemeralIndex`.
 
 This dual-implementation architecture unifies watcher and job pipelines, eliminating code duplication between real-time filesystem monitoring and batch indexing operations.
 
@@ -164,7 +164,7 @@ The detector tracks paths by inode to identify moves. On Unix systems, inodes pr
 
 ### Real-Time Change Detection
 
-Both `PersistentWriter` and `EphemeralWriter` implement the `ChangeHandler` trait, which defines the interface for responding to filesystem watcher events:
+Both `DatabaseAdapter` and `MemoryAdapter` implement the `ChangeHandler` trait, which defines the interface for responding to filesystem watcher events:
 
 ```rust
 pub trait ChangeHandler {
@@ -176,7 +176,7 @@ pub trait ChangeHandler {
 }
 ```
 
-The watcher routes events to the appropriate handler based on whether the path belongs to a persistent location (`PersistentWriter` → database) or ephemeral session (`EphemeralWriter` → memory).
+The watcher routes events to the appropriate handler based on whether the path belongs to a persistent location (`DatabaseAdapter` → database) or ephemeral session (`MemoryAdapter` → memory).
 
 ## Indexing Modes and Scopes
 

@@ -65,7 +65,7 @@ impl ChangeDetector {
 	) -> Result<(), crate::infra::job::prelude::JobError> {
 		use crate::infra::db::entities;
 		use crate::infra::job::prelude::JobError;
-		use crate::ops::indexing::change_detection::PersistentWriterAdapter;
+		use crate::ops::indexing::change_detection::DatabaseAdapterForJob;
 		use crate::ops::indexing::persistence::IndexPersistence;
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
@@ -77,7 +77,7 @@ impl ChangeDetector {
 
 		// Create a persistent writer adapter to leverage the unified query logic
 		let persistence =
-			PersistentWriterAdapter::new(ctx, location_record.uuid, location_record.entry_id);
+			DatabaseAdapterForJob::new(ctx, location_record.uuid, location_record.entry_id);
 
 		// Use the scoped query method
 		let existing_entries = persistence.get_existing_entries(indexing_path).await?;

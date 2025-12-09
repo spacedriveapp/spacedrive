@@ -23,7 +23,7 @@ use anyhow::Result;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::EphemeralWriter;
+use super::MemoryAdapter;
 
 /// Check if a path falls under an ephemeral watched directory.
 ///
@@ -54,7 +54,7 @@ pub fn find_ephemeral_root_for_events(
 
 /// Process a batch of filesystem events against the ephemeral index.
 ///
-/// Creates an `EphemeralWriter` and processes the events using shared
+/// Creates an `MemoryAdapter` and processes the events using shared
 /// handler logic. The ephemeral index is updated in-place and ResourceChanged
 /// events are emitted for UI updates.
 pub async fn apply_batch(
@@ -70,7 +70,7 @@ pub async fn apply_batch(
 	let index = context.ephemeral_cache().get_global_index();
 	let event_bus = context.events.clone();
 
-	let mut writer = EphemeralWriter::new(index, event_bus, root_path.to_path_buf());
+	let mut writer = MemoryAdapter::new(index, event_bus, root_path.to_path_buf());
 
 	let config = ChangeConfig {
 		rule_toggles,

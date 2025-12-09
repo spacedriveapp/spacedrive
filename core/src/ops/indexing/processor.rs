@@ -5,7 +5,7 @@
 //! happen in a single transaction. This ensures entries either have valid content_id references
 //! or remain unlinked if processing fails.
 
-use super::{db_writer::DBWriter, state::EntryKind};
+use super::{database_storage::DatabaseStorage, state::EntryKind};
 use crate::domain::content_identity::ContentHashGenerator;
 use anyhow::Result;
 use sea_orm::DatabaseConnection;
@@ -150,7 +150,7 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		DBWriter::link_to_content_identity(
+		DatabaseStorage::link_to_content_identity(
 			db,
 			entry.id,
 			&entry.path,

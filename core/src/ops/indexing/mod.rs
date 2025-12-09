@@ -22,7 +22,7 @@
 
 pub mod action;
 pub mod change_detection;
-pub mod db_writer;
+pub mod database_storage;
 pub mod ephemeral;
 pub mod hierarchy;
 pub mod input;
@@ -41,10 +41,10 @@ pub mod verify;
 pub use action::IndexingAction;
 pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, EntryRef, PersistentWriter, PersistentWriterAdapter,
+	ChangeType, EntryRef, DatabaseAdapter, DatabaseAdapterForJob,
 };
-pub use db_writer::{DBWriter, EntryMetadata};
-pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, EphemeralWriter};
+pub use database_storage::{DatabaseStorage, EntryMetadata};
+pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, MemoryAdapter};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};

@@ -1,12 +1,13 @@
 //! Persistent location responder.
 //!
-//! Thin adapter over `PersistentWriter` that translates raw filesystem
+//! Thin adapter over `DatabaseAdapter` that translates raw filesystem
 //! events into database mutations. The watcher calls `apply_batch` with events;
 //! this module delegates to the unified change handling infrastructure.
 
 use crate::context::CoreContext;
+
 use crate::infra::event::FsRawEventKind;
-use crate::ops::indexing::change_detection::{self, ChangeConfig, PersistentWriter};
+use crate::ops::indexing::change_detection::{self, ChangeConfig, DatabaseAdapter};
 use crate::ops::indexing::rules::RuleToggles;
 use anyhow::Result;
 use std::path::Path;
@@ -15,7 +16,7 @@ use uuid::Uuid;
 
 /// Translates a single filesystem event into database mutations.
 ///
-/// Creates a `PersistentWriter` and delegates to the unified change
+/// Creates a `DatabaseAdapter` and delegates to the unified change
 /// handling infrastructure in `change_detection`.
 pub async fn apply(
 	context: &Arc<CoreContext>,
@@ -40,7 +41,7 @@ pub async fn apply(
 
 /// Processes multiple filesystem events as a batch.
 ///
-/// Creates a `PersistentWriter` and delegates to the unified
+/// Creates a `DatabaseAdapter` and delegates to the unified
 /// `change_detection::apply_batch` which handles deduplication, ordering,
 /// and correct processing sequence (removes, renames, creates, modifies).
 pub async fn apply_batch(
@@ -62,7 +63,7 @@ pub async fn apply_batch(
 		location_id
 	);
 
-	let mut handler = PersistentWriter::new(
+	let mut handler = DatabaseAdapter::new(
 		context.clone(),
 		library_id,
 		location_id,

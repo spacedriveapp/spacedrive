@@ -425,7 +425,7 @@ impl File {
 	/// This is used for ephemeral indexing where files are discovered but not persisted to the database.
 	pub fn from_ephemeral(
 		id: Uuid,
-		metadata: &crate::ops::indexing::db_writer::EntryMetadata,
+		metadata: &crate::ops::indexing::database_storage::EntryMetadata,
 		sd_path: SdPath,
 	) -> Self {
 		let is_local = sd_path.is_local();

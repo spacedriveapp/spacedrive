@@ -1,8 +1,8 @@
-//! Unified persistent (database-backed) writer for both watcher and indexer pipelines.
+//! Unified database adapter for both watcher and indexer pipelines.
 //!
-//! This module provides `PersistentWriter`, which implements both `ChangeHandler`
+//! This module provides `DatabaseAdapter`, which implements both `ChangeHandler`
 //! (for the watcher pipeline) and `IndexPersistence` (for the indexer job).
-//! Both pipelines share the same database write logic through `DBWriter`,
+//! Both pipelines share the same database write logic through `DatabaseStorage`,
 //! eliminating code duplication.
 
 use super::handler::ChangeHandler;
@@ -27,7 +27,7 @@ use uuid::Uuid;
 /// - Closure table management
 /// - Directory path tracking
 /// - Entry ID caching for hierarchy construction
-pub struct PersistentWriter {
+pub struct DatabaseAdapter {
 	context: Arc<CoreContext>,
 	library_id: Uuid,
 	location_id: Uuid,
@@ -37,7 +37,7 @@ pub struct PersistentWriter {
 	entry_id_cache: HashMap<PathBuf, i32>,
 }
 
-impl PersistentWriter {
+impl DatabaseAdapter {
 	pub async fn new(
 		context: Arc<CoreContext>,
 		library_id: Uuid,
@@ -144,7 +144,7 @@ impl PersistentWriter {
 }
 
 #[async_trait::async_trait]
-impl ChangeHandler for PersistentWriter {
+impl ChangeHandler for DatabaseAdapter {
 	async fn find_by_path(&self, path: &Path) -> Result<Option<EntryRef>> {
 		let entry_id = match self.resolve_entry_id(path).await? {
 			Some(id) => id,
@@ -205,7 +205,7 @@ impl ChangeHandler for PersistentWriter {
 
 	async fn create(&mut self, metadata: &DirEntry, parent_path: &Path) -> Result<EntryRef> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(&metadata.path));
@@ -216,7 +216,7 @@ impl ChangeHandler for PersistentWriter {
 			state
 				.entry_id_cache
 				.insert(parent_path.to_path_buf(), parent_id);
-		} else if let Ok(Some(parent_id)) = DBWriter::resolve_parent_id(&self.db, parent_path).await
+		} else if let Ok(Some(parent_id)) = DatabaseStorage::resolve_parent_id(&self.db, parent_path).await
 		{
 			// Cache the parent ID for future lookups
 			state
@@ -226,7 +226,7 @@ impl ChangeHandler for PersistentWriter {
 				.insert(parent_path.to_path_buf(), parent_id);
 		}
 
-		let entry_id = DBWriter::create_entry(
+		let entry_id = DatabaseStorage::create_entry(
 			&mut state,
 			&self.db,
 			library.as_deref(),
@@ -253,9 +253,9 @@ impl ChangeHandler for PersistentWriter {
 	}
 
 	async fn update(&mut self, entry: &EntryRef, metadata: &DirEntry) -> Result<()> {
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		DBWriter::update_entry(&self.db, entry.id, metadata)
+		DatabaseStorage::update_entry(&self.db, entry.id, metadata)
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to update entry: {}", e))?;
 
@@ -270,7 +270,7 @@ impl ChangeHandler for PersistentWriter {
 		new_parent_path: &Path,
 	) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(old_path));
@@ -281,7 +281,7 @@ impl ChangeHandler for PersistentWriter {
 				.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
 		} else if let Ok(Some(parent_id)) =
-			DBWriter::resolve_parent_id(&self.db, new_parent_path).await
+			DatabaseStorage::resolve_parent_id(&self.db, new_parent_path).await
 		{
 			state
 				.entry_id_cache
@@ -289,7 +289,7 @@ impl ChangeHandler for PersistentWriter {
 			self.entry_id_cache
 				.insert(new_parent_path.to_path_buf(), parent_id);
 		}
-		DBWriter::move_entry(
+		DatabaseStorage::move_entry(
 			&mut state,
 			&self.db,
 			entry.id,
@@ -658,13 +658,13 @@ impl ChangeHandler for PersistentWriter {
 /// The job system expects an `IndexPersistence` trait, but works with `JobContext`
 /// instead of `CoreContext`. This adapter wraps `PersistentWriter` and delegates
 /// storage operations to `DBWriter`, ensuring both pipelines use identical logic.
-pub struct PersistentWriterAdapter<'a> {
+pub struct DatabaseAdapterForJob<'a> {
 	ctx: &'a JobContext<'a>,
 	library_id: Uuid,
 	location_root_entry_id: Option<i32>,
 }
 
-impl<'a> PersistentWriterAdapter<'a> {
+impl<'a> DatabaseAdapterForJob<'a> {
 	pub fn new(
 		ctx: &'a JobContext<'a>,
 		library_id: Uuid,
@@ -679,7 +679,7 @@ impl<'a> PersistentWriterAdapter<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
+impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 	async fn store_entry(
 		&self,
 		entry: &DirEntry,
@@ -687,7 +687,7 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 		location_root_path: &Path,
 	) -> JobResult<i32> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 		use crate::ops::indexing::state::IndexerState;
 
 		let mut state = IndexerState::new(&SdPath::local(&entry.path));
@@ -698,7 +698,7 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 		if let Some(parent_path) = entry.path.parent() {
 			if !state.entry_id_cache.contains_key(parent_path) {
 				if let Ok(Some(parent_id)) =
-					DBWriter::resolve_parent_id(self.ctx.library_db(), parent_path).await
+					DatabaseStorage::resolve_parent_id(self.ctx.library_db(), parent_path).await
 				{
 					state
 						.entry_id_cache
@@ -707,7 +707,7 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 			}
 		}
 
-		let entry_id = DBWriter::create_entry(
+		let entry_id = DatabaseStorage::create_entry(
 			&mut state,
 			self.ctx.library_db(),
 			Some(self.ctx.library()),
@@ -726,9 +726,9 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 		path: &Path,
 		cas_id: String,
 	) -> JobResult<()> {
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		DBWriter::link_to_content_identity(
+		DatabaseStorage::link_to_content_identity(
 			self.ctx.library_db(),
 			entry_id,
 			path,
@@ -827,9 +827,9 @@ impl<'a> IndexPersistence for PersistentWriterAdapter<'a> {
 	}
 
 	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		DBWriter::update_entry(self.ctx.library_db(), entry_id, entry).await
+		DatabaseStorage::update_entry(self.ctx.library_db(), entry_id, entry).await
 	}
 
 	fn is_persistent(&self) -> bool {

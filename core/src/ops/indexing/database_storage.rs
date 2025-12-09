@@ -1,6 +1,6 @@
-//! # Core Database Writer for Indexing
+//! # Core Database Storage for Indexing
 //!
-//! `core::ops::indexing::db_writer` provides the foundational database operations layer
+//! `core::ops::indexing::database_storage` provides the foundational database operations layer
 //! for the indexing system. All database writes (creates, updates, moves, deletes) flow
 //! through this module, ensuring consistency across both watcher and job pipelines.
 //!
@@ -24,10 +24,10 @@
 //!
 //! ## Example
 //! ```rust,no_run
-//! use spacedrive_core::ops::indexing::{DBWriter, state::DirEntry};
+//! use spacedrive_core::ops::indexing::{DatabaseStorage, state::DirEntry};
 //!
 //! let entry = DirEntry { /* ... */ };
-//! let entry_id = DBWriter::create_entry(
+//! let entry_id = DatabaseStorage::create_entry(
 //!     &mut state,
 //!     &ctx,
 //!     &entry,
@@ -114,12 +114,12 @@ impl From<DirEntry> for EntryMetadata {
 
 /// Core database operations for the indexing system.
 ///
-/// DBWriter provides the foundational layer for all database writes during indexing.
-/// Both the watcher pipeline (`PersistentWriter`) and job pipeline (`PersistentWriterAdapter`)
-/// delegate to these methods, ensuring consistent database operations. All methods come in
-/// both standalone (creates own transaction) and `_in_conn` variants (uses existing transaction)
+/// DatabaseStorage provides the foundational layer for all database writes during indexing.
+/// Both the watcher pipeline (`DatabaseAdapter`) and job pipeline use these methods,
+/// ensuring consistent database operations. All methods come in both standalone
+/// (creates own transaction) and `_in_conn` variants (uses existing transaction)
 /// for flexible batch operations.
-pub struct DBWriter;
+pub struct DatabaseStorage;
 
 /// Result of linking an entry to its content identity.
 ///
@@ -133,7 +133,7 @@ pub struct ContentLinkResult {
 	pub is_new_content: bool,
 }
 
-impl DBWriter {
+impl DatabaseStorage {
 	/// Get platform-specific inode
 	#[cfg(unix)]
 	pub fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
@@ -1034,7 +1034,7 @@ impl DBWriter {
 	/// - Database cleanup operations
 	///
 	/// For watcher-triggered deletions that need sync/events, use
-	/// `PersistentWriter::delete()` instead.
+	/// `DatabaseAdapter::delete()` instead.
 	pub async fn delete_subtree(
 		entry_id: i32,
 		db: &sea_orm::DatabaseConnection,

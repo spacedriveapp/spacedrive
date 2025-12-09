@@ -14,7 +14,7 @@ use crate::{
 	},
 	ops::indexing::{
 		change_detection::{Change, ChangeDetector},
-		db_writer::DBWriter,
+		database_storage::DatabaseStorage,
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 		IndexMode,
 	},
@@ -282,7 +282,7 @@ pub async fn run_processing_phase(
 
 			match change {
 				Some(Change::New(_)) => {
-					match DBWriter::create_entry_in_conn(
+					match DatabaseStorage::create_entry_in_conn(
 						state,
 						&entry,
 						device_id,
@@ -331,7 +331,7 @@ pub async fn run_processing_phase(
 				}
 
 				Some(Change::Modified { entry_id, .. }) => {
-					match DBWriter::update_entry_in_conn(entry_id, &entry, &txn).await {
+					match DatabaseStorage::update_entry_in_conn(entry_id, &entry, &txn).await {
 						Ok(()) => {
 							ctx.log(format!(
 								"Updated entry {}: {}",
@@ -366,7 +366,7 @@ pub async fn run_processing_phase(
 						old_path.display(),
 						new_path.display()
 					));
-					match DBWriter::simple_move_entry_in_conn(
+					match DatabaseStorage::simple_move_entry_in_conn(
 						state, entry_id, &old_path, &new_path, &txn,
 					)
 					.await

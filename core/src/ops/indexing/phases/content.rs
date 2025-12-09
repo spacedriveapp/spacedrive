@@ -11,7 +11,7 @@ use crate::{
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
-		db_writer::DBWriter,
+		database_storage::DatabaseStorage,
 		processor::{ContentHashProcessor, ProcessorEntry},
 		state::{EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
 	},
@@ -127,7 +127,7 @@ pub async fn run_content_phase(
 
 			match hash_result {
 				Ok(content_hash) => {
-					match DBWriter::link_to_content_identity(
+					match DatabaseStorage::link_to_content_identity(
 						ctx.library_db(),
 						entry_id,
 						&path,

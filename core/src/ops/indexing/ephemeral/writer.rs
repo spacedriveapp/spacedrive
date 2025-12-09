@@ -9,7 +9,7 @@ use crate::infra::event::EventBus;
 use crate::infra::job::prelude::{JobError, JobResult};
 use crate::ops::indexing::change_detection::handler::{build_dir_entry, ChangeHandler};
 use crate::ops::indexing::change_detection::types::{ChangeType, EntryRef};
-use crate::ops::indexing::db_writer::EntryMetadata;
+use crate::ops::indexing::database_storage::EntryMetadata;
 use crate::ops::indexing::persistence::IndexPersistence;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 
@@ -32,14 +32,14 @@ use uuid::Uuid;
 /// - UUID generation and tracking
 /// - Event emission for UI updates
 /// - Entry ID generation
-pub struct EphemeralWriter {
+pub struct MemoryAdapter {
 	index: Arc<RwLock<EphemeralIndex>>,
 	event_bus: Arc<EventBus>,
 	root_path: PathBuf,
 	next_id: AtomicI32,
 }
 
-impl EphemeralWriter {
+impl MemoryAdapter {
 	pub fn new(
 		index: Arc<RwLock<EphemeralIndex>>,
 		event_bus: Arc<EventBus>,
@@ -119,7 +119,7 @@ impl EphemeralWriter {
 }
 
 #[async_trait::async_trait]
-impl ChangeHandler for EphemeralWriter {
+impl ChangeHandler for MemoryAdapter {
 	async fn find_by_path(&self, path: &Path) -> Result<Option<EntryRef>> {
 		let index = self.index.read().await;
 
@@ -237,7 +237,7 @@ impl ChangeHandler for EphemeralWriter {
 	}
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 
 		let mut entries = match tokio::fs::read_dir(path).await {
 			Ok(e) => e,
@@ -272,7 +272,7 @@ impl ChangeHandler for EphemeralWriter {
 					modified: metadata.modified().ok(),
 					accessed: metadata.accessed().ok(),
 					created: metadata.created().ok(),
-					inode: DBWriter::get_inode(&metadata),
+					inode: DatabaseStorage::get_inode(&metadata),
 					permissions: None,
 					is_hidden: entry_path
 						.file_name()
@@ -291,16 +291,16 @@ impl ChangeHandler for EphemeralWriter {
 }
 
 #[async_trait::async_trait]
-impl IndexPersistence for EphemeralWriter {
+impl IndexPersistence for MemoryAdapter {
 	async fn store_entry(
 		&self,
 		entry: &DirEntry,
 		_location_id: Option<i32>,
 		_location_root_path: &Path,
 	) -> JobResult<i32> {
-		use crate::ops::indexing::db_writer::DBWriter;
+		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		let metadata = DBWriter::extract_metadata(&entry.path, None)
+		let metadata = DatabaseStorage::extract_metadata(&entry.path, None)
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 
@@ -378,7 +378,7 @@ mod tests {
 		let event_bus = Arc::new(EventBus::new(1024));
 
 		let mut writer =
-			EphemeralWriter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+			MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
@@ -415,7 +415,7 @@ mod tests {
 		));
 		let event_bus = Arc::new(EventBus::new(1024));
 
-		let writer = EphemeralWriter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
@@ -450,7 +450,7 @@ mod tests {
 		let event_bus = Arc::new(EventBus::new(1024));
 		let mut subscriber = event_bus.subscribe();
 
-		let writer = EphemeralWriter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),

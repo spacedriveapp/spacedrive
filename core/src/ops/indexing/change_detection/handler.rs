@@ -175,9 +175,9 @@ pub async fn build_dir_entry(
 	path: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<DirEntry> {
-	use crate::ops::indexing::db_writer::DBWriter;
+	use crate::ops::indexing::database_storage::DatabaseStorage;
 
-	let meta = DBWriter::extract_metadata(path, backend).await?;
+	let meta = DatabaseStorage::extract_metadata(path, backend).await?;
 	Ok(DirEntry {
 		path: meta.path,
 		kind: meta.kind,

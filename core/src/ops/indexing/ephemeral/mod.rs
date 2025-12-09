@@ -53,4 +53,4 @@ pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
-pub use writer::EphemeralWriter;
+pub use writer::MemoryAdapter;

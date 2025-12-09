@@ -613,7 +613,7 @@ impl IndexerJob {
 		ctx: &JobContext<'_>,
 		root_path: &std::path::Path,
 	) -> JobResult<()> {
-		use super::db_writer::DBWriter;
+		use super::database_storage::DatabaseStorage;
 		use super::state::{DirEntry, EntryKind};
 		use tokio::fs;
 
@@ -645,7 +645,7 @@ impl IndexerJob {
 				kind: entry_kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
-				inode: DBWriter::get_inode(&metadata),
+				inode: DatabaseStorage::get_inode(&metadata),
 			};
 
 			state.pending_entries.push(dir_entry);

@@ -5,10 +5,10 @@
 //! This abstraction allows the same indexing pipeline to work for both managed
 //! locations (database-backed) and ephemeral browsing (memory-only).
 //!
-//! For ephemeral storage, use `EphemeralWriter` from `crate::ops::indexing::ephemeral`
+//! For ephemeral storage, use `MemoryAdapter` from `crate::ops::indexing::ephemeral`
 //! which implements both `IndexPersistence` and `ChangeHandler`.
 //!
-//! For persistent storage, use `PersistentWriterAdapter` from `crate::ops::indexing::change_detection`
+//! For persistent storage, use `DatabaseAdapterForJob` from `crate::ops::indexing::change_detection`
 //! which implements `IndexPersistence` and delegates to `DBWriter` for database writes.
 
 use crate::infra::job::prelude::{JobError, JobResult};
@@ -21,8 +21,8 @@ use super::{ephemeral::EphemeralIndex, state::DirEntry};
 
 /// Unified storage interface for persistent and ephemeral indexing.
 ///
-/// Implementations handle either database writes (`PersistentWriterAdapter`) or
-/// in-memory storage (`EphemeralWriter`). The indexing pipeline calls
+/// Implementations handle either database writes (`DatabaseAdapterForJob`) or
+/// in-memory storage (`MemoryAdapter`). The indexing pipeline calls
 /// these methods without knowing which backend is active.
 #[async_trait::async_trait]
 pub trait IndexPersistence: Send + Sync {
@@ -76,7 +76,7 @@ pub trait IndexPersistence: Send + Sync {
 pub struct PersistenceFactory;
 
 impl PersistenceFactory {
-	/// Create a database persistence instance using the unified PersistentWriterAdapter.
+	/// Create a database persistence instance using the unified DatabaseAdapterForJob.
 	///
 	/// This delegates to `DBWriter` for all database operations, ensuring
 	/// consistency between the watcher and indexer pipelines.
@@ -85,27 +85,27 @@ impl PersistenceFactory {
 		library_id: uuid::Uuid,
 		location_root_entry_id: Option<i32>,
 	) -> Box<dyn IndexPersistence + 'a> {
-		use crate::ops::indexing::change_detection::PersistentWriterAdapter;
+		use crate::ops::indexing::change_detection::DatabaseAdapterForJob;
 
-		Box::new(PersistentWriterAdapter::new(
+		Box::new(DatabaseAdapterForJob::new(
 			ctx,
 			library_id,
 			location_root_entry_id,
 		))
 	}
 
-	/// Create an ephemeral persistence instance using the unified EphemeralWriter.
+	/// Create an ephemeral persistence instance using the unified MemoryAdapter.
 	pub fn ephemeral(
 		index: std::sync::Arc<tokio::sync::RwLock<EphemeralIndex>>,
 		event_bus: Option<std::sync::Arc<crate::infra::event::EventBus>>,
 		root_path: PathBuf,
 	) -> Box<dyn IndexPersistence + Send + Sync> {
-		use super::ephemeral::EphemeralWriter;
+		use super::ephemeral::MemoryAdapter;
 
 		let event_bus = event_bus
 			.unwrap_or_else(|| std::sync::Arc::new(crate::infra::event::EventBus::new(1024)));
 
-		Box::new(EphemeralWriter::new(index, event_bus, root_path))
+		Box::new(MemoryAdapter::new(index, event_bus, root_path))
 	}
 }
 
@@ -113,7 +113,7 @@ impl PersistenceFactory {
 mod tests {
 	use super::*;
 	use crate::infra::event::Event;
-	use crate::ops::indexing::ephemeral::EphemeralWriter;
+	use crate::ops::indexing::ephemeral::MemoryAdapter;
 	use crate::ops::indexing::state::{DirEntry, EntryKind};
 	use std::sync::Arc;
 	use tempfile::TempDir;
@@ -175,7 +175,7 @@ mod tests {
 		));
 		let event_bus = Arc::new(crate::infra::event::EventBus::new(1024));
 
-		let writer = EphemeralWriter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
