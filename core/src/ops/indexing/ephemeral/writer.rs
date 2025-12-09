@@ -146,13 +146,28 @@ impl ChangeHandler for MemoryAdapter {
 		let entry_uuid = Uuid::new_v4();
 		let entry_metadata = EntryMetadata::from(metadata.clone());
 
+		tracing::debug!(
+			"MemoryAdapter::create() called for path: {}",
+			metadata.path.display()
+		);
+
 		let (entry_id, content_kind) = self
 			.add_entry_internal(&metadata.path, entry_uuid, entry_metadata.clone())
 			.await?;
 
 		if let Some(content_kind) = content_kind {
+			tracing::debug!(
+				"Emitting ResourceChanged for ephemeral create: {} (content_kind: {:?})",
+				metadata.path.display(),
+				content_kind
+			);
 			self.emit_resource_changed(entry_uuid, &metadata.path, &entry_metadata, content_kind)
 				.await;
+		} else {
+			tracing::warn!(
+				"No content_kind for ephemeral entry, skipping ResourceChanged: {}",
+				metadata.path.display()
+			);
 		}
 
 		Ok(EntryRef {

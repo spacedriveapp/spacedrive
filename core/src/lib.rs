@@ -185,10 +185,8 @@ impl Core {
 			.set_sidecar_manager(services.sidecar_manager.clone())
 			.await;
 
-		// Set location watcher in context so it can be accessed by jobs (for ephemeral watch registration)
-		context
-			.set_location_watcher(services.location_watcher.clone())
-			.await;
+		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
+		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
@@ -227,6 +225,23 @@ impl Core {
 			warn!("Failed to start library filesystem watcher: {}", e);
 		} else {
 			info!("Library filesystem watcher started");
+		}
+
+		// Load locations from all libraries into the filesystem watcher
+		for library in &loaded_libraries {
+			info!("Loading locations for library {}", library.id());
+			match services.fs_watcher.load_library_locations(library).await {
+				Ok(count) => {
+					info!("Loaded {} locations from library {}", count, library.id());
+				}
+				Err(e) => {
+					error!(
+						"Failed to load locations for library {}: {}",
+						library.id(),
+						e
+					);
+				}
+			}
 		}
 
 		// Initialize sidecar manager for each loaded library

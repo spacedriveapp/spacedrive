@@ -2,6 +2,8 @@ import copyOgg from "./copy.ogg";
 import copyMp3 from "./copy.mp3";
 import startupOgg from "./startup.ogg";
 import startupMp3 from "./startup.mp3";
+import pairingOgg from "./pairing.ogg";
+import pairingMp3 from "./pairing.mp3";
 
 /**
  * Play a sound effect
@@ -26,4 +28,5 @@ function playSound(oggSrc: string, mp3Src: string, volume = 0.5) {
 export const sounds = {
 	copy: () => playSound(copyOgg, copyMp3, 0.3),
 	startup: () => playSound(startupOgg, startupMp3, 0.5),
+	pairing: () => playSound(pairingOgg, pairingMp3, 0.5),
 };

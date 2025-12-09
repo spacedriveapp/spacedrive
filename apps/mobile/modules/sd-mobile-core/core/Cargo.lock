@@ -4587,6 +4587,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "num_cpus"
+version = "1.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91df4bbde75afed763b708b7eee1e8e7651e02d97f6d5dd763e89367e957b23b"
+dependencies = [
+ "hermit-abi",
+ "libc",
+]
+
+[[package]]
 name = "num_enum"
 version = "0.7.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4867,7 +4877,7 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.13.0",
+ "itertools 0.14.0",
  "js-sys",
  "libloading",
  "log",
@@ -6336,6 +6346,7 @@ dependencies = [
  "aes-gcm",
  "anyhow",
  "argon2",
+ "async-channel",
  "async-stream",
  "async-trait",
  "backoff",
@@ -6373,10 +6384,13 @@ dependencies = [
  "keyring",
  "libc",
  "local-ip-address",
+ "memmap2 0.9.9",
  "notify",
+ "num_cpus",
  "once_cell",
  "opendal",
  "owo-colors",
+ "parking_lot",
  "rand 0.8.5",
  "ratatui",
  "redb",
@@ -6395,6 +6409,7 @@ dependencies = [
  "serde_cbor",
  "serde_json",
  "sha2",
+ "smallvec",
  "specta 2.0.0-rc.22",
  "specta-serde",
  "specta-swift",

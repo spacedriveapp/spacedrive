@@ -13,7 +13,7 @@ use uuid::Uuid;
 ///
 /// This enum represents changes that can come from either:
 /// - The `ChangeDetector` during batch indexing scans
-/// - The file watcher via `FsRawEventKind` conversion
+/// - The file watcher via `FsEvent` conversion
 #[derive(Debug, Clone)]
 pub enum Change {
 	/// New file/directory (not in storage).
@@ -60,24 +60,24 @@ impl Change {
 		}
 	}
 
-	/// Create a Change from an FsRawEventKind (for watcher integration).
+	/// Create a Change from an FsEvent (for watcher integration).
 	/// Note: These variants don't have entry_ids since they come from the watcher.
-	pub fn from_fs_event(event: crate::infra::event::FsRawEventKind) -> Self {
-		use crate::infra::event::FsRawEventKind;
+	pub fn from_fs_event(event: sd_fs_watcher::FsEvent) -> Self {
+		use sd_fs_watcher::FsEventKind;
 
-		match event {
-			FsRawEventKind::Create { path } => Change::New(path),
-			FsRawEventKind::Modify { path } => Change::Modified {
-				path,
+		match event.kind {
+			FsEventKind::Create => Change::New(event.path),
+			FsEventKind::Modify => Change::Modified {
+				path: event.path,
 				entry_id: 0, // Placeholder - handler will look up real ID
 				old_modified: None,
 				new_modified: None,
 			},
-			FsRawEventKind::Remove { path } => Change::Deleted {
-				path,
+			FsEventKind::Remove => Change::Deleted {
+				path: event.path,
 				entry_id: 0, // Placeholder - handler will look up real ID
 			},
-			FsRawEventKind::Rename { from, to } => Change::Moved {
+			FsEventKind::Rename { from, to } => Change::Moved {
 				old_path: from,
 				new_path: to,
 				entry_id: 0, // Placeholder - handler will look up real ID

@@ -4522,6 +4522,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "inotify"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f37dccff2791ab604f9babef0ba14fbe0be30bd368dc541e2b08d07c8aa908f3"
+dependencies = [
+ "bitflags 2.9.4",
+ "inotify-sys",
+ "libc",
+]
+
+[[package]]
 name = "inotify-sys"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6071,7 +6082,7 @@ dependencies = [
  "crossbeam-channel",
  "filetime",
  "fsevent-sys",
- "inotify",
+ "inotify 0.9.6",
  "kqueue",
  "libc",
  "log 0.4.28",
@@ -6079,6 +6090,30 @@ dependencies = [
  "walkdir",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "notify"
+version = "8.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d3d07927151ff8575b7087f245456e549fea62edf0ec4e565a5ee50c8402bc3"
+dependencies = [
+ "bitflags 2.9.4",
+ "fsevent-sys",
+ "inotify 0.11.0",
+ "kqueue",
+ "libc",
+ "log 0.4.28",
+ "mio 1.0.4",
+ "notify-types",
+ "walkdir",
+ "windows-sys 0.60.2",
+]
+
+[[package]]
+name = "notify-types"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5e0826a989adedc2a244799e823aece04662b66609d96af8dff7ac6df9a8925d"
 
 [[package]]
 name = "ntapi"
@@ -6841,10 +6876,10 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.12.1",
+ "itertools 0.13.0",
  "js-sys",
- "libloading 0.7.4",
- "log 0.3.9",
+ "libloading 0.8.9",
+ "log 0.4.28",
  "maybe-owned",
  "once_cell",
  "utf16string",
@@ -8862,7 +8897,7 @@ dependencies = [
  "libc",
  "local-ip-address",
  "memmap2 0.9.8",
- "notify",
+ "notify 6.1.1",
  "num_cpus",
  "once_cell",
  "opendal",
@@ -8879,6 +8914,7 @@ dependencies = [
  "rmp-serde",
  "rubato",
  "sd-ffmpeg",
+ "sd-fs-watcher",
  "sd-images",
  "sd-media-metadata",
  "sd-task-system",
@@ -8972,6 +9008,23 @@ dependencies = [
  "tokio",
  "tracing",
  "webp",
+]
+
+[[package]]
+name = "sd-fs-watcher"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "futures",
+ "libc",
+ "notify 8.2.0",
+ "serde",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "tracing-test",
 ]
 
 [[package]]

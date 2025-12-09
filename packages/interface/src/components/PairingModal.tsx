@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import QRCode from "qrcode";
 import { useCoreMutation, useCoreQuery } from "../context";
+import { sounds } from "@sd/assets/sounds";
 
 interface PairingModalProps {
   isOpen: boolean;
@@ -86,6 +87,7 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
 
   useEffect(() => {
     if (isCompleted) {
+      sounds.pairing();
       const timer = setTimeout(() => {
         handleClose();
       }, 2000);

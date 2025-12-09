@@ -1,15 +1,14 @@
 //! Persistent location responder.
 //!
-//! Thin adapter over `DatabaseAdapter` that translates raw filesystem
+//! Thin adapter over `DatabaseAdapter` that translates filesystem
 //! events into database mutations. The watcher calls `apply_batch` with events;
 //! this module delegates to the unified change handling infrastructure.
 
 use crate::context::CoreContext;
-
-use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::change_detection::{self, ChangeConfig, DatabaseAdapter};
 use crate::ops::indexing::rules::RuleToggles;
 use anyhow::Result;
+use sd_fs_watcher::FsEvent;
 use std::path::Path;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -22,7 +21,7 @@ pub async fn apply(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
 	location_id: Uuid,
-	kind: FsRawEventKind,
+	event: FsEvent,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
@@ -31,7 +30,7 @@ pub async fn apply(
 		context,
 		library_id,
 		location_id,
-		vec![kind],
+		vec![event],
 		rule_toggles,
 		location_root,
 		volume_backend,
@@ -48,7 +47,7 @@ pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	library_id: Uuid,
 	location_id: Uuid,
-	events: Vec<FsRawEventKind>,
+	events: Vec<FsEvent>,
 	rule_toggles: RuleToggles,
 	location_root: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
