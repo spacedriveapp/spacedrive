@@ -162,6 +162,7 @@ export function ExplorerLayout() {
 		setTagModeActive,
 		viewMode,
 		setSpaceItemId,
+		currentPath,
 	} = useExplorer();
 
 	// Sync route with explorer context for view preferences
@@ -187,15 +188,35 @@ export function ExplorerLayout() {
 		resourceType: "location",
 	});
 
-	// Get current location if we're on a location route
+	// Get current location if we're on a location route or browsing within a location
 	const currentLocation = useMemo(() => {
-		if (!params.locationId || !locationsQuery.data?.locations) return null;
-		return (
-			locationsQuery.data.locations.find(
-				(loc) => loc.id === params.locationId,
-			) || null
-		);
-	}, [params.locationId, locationsQuery.data]);
+		const locations = locationsQuery.data?.locations || [];
+
+		// First try to match by route param (for /location/:id routes)
+		if (params.locationId) {
+			const loc = locations.find((loc) => loc.id === params.locationId);
+			if (loc) return loc;
+		}
+
+		// If no route match, try to find location by matching current path
+		if (currentPath && "Physical" in currentPath) {
+			const pathStr = currentPath.Physical.path;
+			// Find location with longest matching prefix
+			return locations
+				.filter((loc) => {
+					if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
+					const locPath = loc.sd_path.Physical.path;
+					return pathStr.startsWith(locPath);
+				})
+				.sort((a, b) => {
+					const aPath = "Physical" in a.sd_path! ? a.sd_path!.Physical.path : "";
+					const bPath = "Physical" in b.sd_path! ? b.sd_path!.Physical.path : "";
+					return bPath.length - aPath.length;
+				})[0] || null;
+		}
+
+		return null;
+	}, [params.locationId, locationsQuery.data, currentPath]);
 
 	useEffect(() => {
 		// Listen for inspector window close events

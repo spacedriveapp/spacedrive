@@ -1,6 +1,6 @@
 import { useState, memo, useEffect } from "react";
 import clsx from "clsx";
-import { getIcon } from "@sd/assets/util";
+import { getIcon, getBeardedIcon, beardedIconUrls } from "@sd/assets/util";
 import type { File } from "@sd/ts-client";
 import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getContentKind } from "../utils";
@@ -128,6 +128,26 @@ export const Thumb = memo(function Thumb({
 		file.kind === "Directory",
 	);
 
+	// Check if using generic Document icon (not a Spacedrive variant like Document_pdf)
+	const genericDocumentIcon = getIcon("Document", true, null, false);
+	const isUsingGenericIcon = icon === genericDocumentIcon;
+
+	// Get bearded icon for extension overlay
+	const beardedIconName = getBeardedIcon(file.extension, file.name);
+	const beardedIconUrl = beardedIconName ? beardedIconUrls[beardedIconName] : null;
+
+	// Below 60px, show only bearded icon at full size; above, show as overlay at 40%
+	const smallIconThreshold = 60;
+	const isSmallIcon = size < smallIconThreshold;
+	const badgeSize = isSmallIcon ? iconSize : iconSize * 0.4;
+
+	// Only show bearded badge if using generic Document icon (not Spacedrive variants)
+	const showBeardedBadge =
+		beardedIconUrl &&
+		file.kind === "File" &&
+		isUsingGenericIcon &&
+		(contentKind === "code" || contentKind === "document" || contentKind === "config");
+
 	return (
 		<div
 			className={clsx(
@@ -144,21 +164,24 @@ export const Thumb = memo(function Thumb({
 			}}
 		>
 			{/* Always show icon first (instant), then thumbnail loads over it */}
-			<img
-				src={icon}
-				alt=""
-				className={clsx(
-					"object-contain transition-opacity",
-					// Only hide icon if we actually have a thumbnail that loaded
-					thumbLoaded && thumbnailSrc && "opacity-0",
-				)}
-				style={{
-					width: iconSize,
-					height: iconSize,
-					maxWidth: "100%",
-					maxHeight: "100%",
-				}}
-			/>
+			{/* Hide document icon if small and showing bearded badge */}
+			{!(isSmallIcon && showBeardedBadge) && (
+				<img
+					src={icon}
+					alt=""
+					className={clsx(
+						"object-contain transition-opacity",
+						// Only hide icon if we actually have a thumbnail that loaded
+						thumbLoaded && thumbnailSrc && "opacity-0",
+					)}
+					style={{
+						width: iconSize,
+						height: iconSize,
+						maxWidth: "100%",
+						maxHeight: "100%",
+					}}
+				/>
+			)}
 
 			{/* Load thumbnail if available */}
 			{thumbnailSrc && !thumbError && (
@@ -174,6 +197,19 @@ export const Thumb = memo(function Thumb({
 					)}
 					onLoad={() => setThumbLoaded(true)}
 					onError={() => setThumbError(true)}
+				/>
+			)}
+
+			{/* Bearded icon badge overlay (centered, slightly toward bottom) */}
+			{showBeardedBadge && beardedIconUrl && (
+				<img
+					src={beardedIconUrl}
+					alt=""
+					className="absolute left-1/2 top-[55%] -translate-x-1/2 -translate-y-1/2"
+					style={{
+						width: badgeSize,
+						height: badgeSize,
+					}}
 				/>
 			)}
 

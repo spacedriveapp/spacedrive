@@ -140,7 +140,7 @@ export const FileCard = memo(
 								selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
 							)}
 						>
-							{file.name}
+							{file.name}{file.extension && `.${file.extension}`}
 						</div>
 						{showFileSize && file.size > 0 && (
 							<div className="text-xs text-ink-dull mt-0.5">

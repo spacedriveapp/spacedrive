@@ -25,6 +25,12 @@ pub struct Model {
 	pub read_speed_mbps: Option<i32>,
 	pub write_speed_mbps: Option<i32>,
 	pub last_speed_test_at: Option<DateTimeUtc>,
+	/// Total file count from ephemeral indexing (synced across devices)
+	pub total_file_count: Option<i64>,
+	/// Total directory count from ephemeral indexing (synced across devices)
+	pub total_directory_count: Option<i64>,
+	/// Last time volume was ephemeral indexed
+	pub last_indexed_at: Option<DateTimeUtc>,
 	pub file_system: Option<String>,
 	pub mount_point: Option<String>,
 	pub is_removable: Option<bool>,
@@ -85,6 +91,9 @@ impl Model {
 			volume_type: self.volume_type.as_deref().unwrap_or("Unknown").to_string(),
 			is_user_visible: self.is_user_visible,
 			auto_track_eligible: self.auto_track_eligible,
+			total_files: self.total_file_count.map(|c| c as u64),
+			total_directories: self.total_directory_count.map(|c| c as u64),
+			last_stats_update: self.last_indexed_at,
 		}
 	}
 }
@@ -297,6 +306,13 @@ impl Syncable for Model {
 				.map(String::from)),
 			is_user_visible: Set(data.get("is_user_visible").and_then(|v| v.as_bool())),
 			auto_track_eligible: Set(data.get("auto_track_eligible").and_then(|v| v.as_bool())),
+			total_file_count: Set(data.get("total_file_count").and_then(|v| v.as_i64())),
+			total_directory_count: Set(data.get("total_directory_count").and_then(|v| v.as_i64())),
+			last_indexed_at: Set(data
+				.get("last_indexed_at")
+				.and_then(|v| v.as_str())
+				.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+				.map(|dt| dt.into())),
 			cloud_identifier: Set(data
 				.get("cloud_identifier")
 				.and_then(|v| v.as_str())
@@ -319,6 +335,9 @@ impl Syncable for Model {
 						Column::UniqueBytes,
 						Column::ReadSpeedMbps,
 						Column::WriteSpeedMbps,
+						Column::TotalFileCount,
+						Column::TotalDirectoryCount,
+						Column::LastIndexedAt,
 						Column::FileSystem,
 						Column::MountPoint,
 						Column::IsRemovable,

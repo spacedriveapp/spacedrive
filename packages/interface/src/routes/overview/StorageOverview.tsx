@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { HardDrive, Plus } from "@phosphor-icons/react";
+import { HardDrive, Plus, Database } from "@phosphor-icons/react";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
 import ServerIcon from "@sd/assets/icons/Server.png";
@@ -7,7 +7,7 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import { useNormalizedQuery, useLibraryMutation, getDeviceIcon } from "../../context";
+import { useNormalizedQuery, useLibraryMutation, getDeviceIcon, useCoreQuery } from "../../context";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
@@ -193,6 +193,13 @@ interface VolumeBarProps {
 
 function VolumeBar({ volume, index }: VolumeBarProps) {
 	const trackVolume = useLibraryMutation("volumes.track");
+	const indexVolume = useLibraryMutation("volumes.index");
+
+	// Get current device to check if this volume is local
+	const { data: currentDevice } = useCoreQuery({
+		type: "devices.current",
+		input: null,
+	});
 
 	const handleTrack = async () => {
 		try {
@@ -201,6 +208,18 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 			});
 		} catch (error) {
 			console.error("Failed to track volume:", error);
+		}
+	};
+
+	const handleIndex = async () => {
+		try {
+			const result = await indexVolume.mutateAsync({
+				fingerprint: volume.fingerprint,
+				scope: "Recursive",
+			});
+			console.log("Volume indexed:", result.message);
+		} catch (error) {
+			console.error("Failed to index volume:", error);
 		}
 	};
 
@@ -251,17 +270,30 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 									Offline
 								</span>
 							)}
-							{!volume.is_tracked && (
-								<button
-									onClick={handleTrack}
-									disabled={trackVolume.isPending}
-									className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-md border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-									title="Track this volume to enable deduplication and search"
-								>
-									<Plus className="size-3" weight="bold" />
-									{trackVolume.isPending ? "Tracking..." : "Track"}
-								</button>
-							)}
+							<div className="flex items-center gap-2">
+								{!volume.is_tracked && (
+									<button
+										onClick={handleTrack}
+										disabled={trackVolume.isPending}
+										className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-md border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+										title="Track this volume to enable deduplication and search"
+									>
+										<Plus className="size-3" weight="bold" />
+										{trackVolume.isPending ? "Tracking..." : "Track"}
+									</button>
+								)}
+								{currentDevice && volume.device_id === currentDevice.id && (
+									<button
+										onClick={handleIndex}
+										disabled={indexVolume.isPending}
+										className="px-2 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-xs rounded-md border border-sidebar-line hover:border-sidebar-line/50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+										title="Index this volume to browse files without adding as location"
+									>
+										<Database className="size-3" weight="bold" />
+										{indexVolume.isPending ? "Indexing..." : "Index"}
+									</button>
+								)}
+							</div>
 						</div>
 						<div className="text-right">
 							<div className="text-sm font-medium text-ink">
@@ -344,7 +376,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 					</div>
 
 					{/* Bottom badges */}
-					<div className="flex items-center gap-2 text-xs text-ink-dull mt-2">
+					<div className="flex items-center gap-2 text-xs text-ink-dull mt-2 flex-wrap">
 						<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
 							{fileSystem}
 						</span>
@@ -359,6 +391,16 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 						<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
 							{volume.volume_type}
 						</span>
+						{volume.total_file_count != null && (
+							<span className="px-2 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
+								{volume.total_file_count.toLocaleString()} files
+							</span>
+						)}
+						{volume.total_directory_count != null && (
+							<span className="px-2 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
+								{volume.total_directory_count.toLocaleString()} dirs
+							</span>
+						)}
 					</div>
 				</div>
 			</div>

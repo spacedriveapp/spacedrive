@@ -262,6 +262,15 @@ fn should_be_user_visible(mount_point: &PathBuf, name: &str) -> bool {
 		return false;
 	}
 
+	// Hide cryptex volumes (e.g., MetalToolchainCryptex)
+	if mount_str.starts_with("/private/var/run/com.apple.security.cryptexd/") {
+		debug!(
+			"VISIBILITY: Hiding cryptex volume: name='{}' mount='{}'",
+			name, mount_str
+		);
+		return false;
+	}
+
 	true
 }
 

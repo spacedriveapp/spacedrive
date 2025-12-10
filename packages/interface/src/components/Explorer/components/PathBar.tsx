@@ -18,6 +18,7 @@ import {
 } from "@sd/ui";
 import { useSelection } from "../SelectionContext";
 import { useAddStorageDialog } from "./AddStorageModal";
+import { useExplorer } from "../context";
 
 interface PathBarProps {
 	path: SdPath;
@@ -110,6 +111,7 @@ function IndexIndicator({ path }: { path: SdPath }) {
 	const popover = usePopover();
 	const enableIndexing = useLibraryMutation("locations.enable_indexing");
 	const { clearSelection } = useSelection();
+	const { setInspectorVisible } = useExplorer();
 
 	// Fetch all locations
 	const { data: locationsData } = useNormalizedQuery({
@@ -200,6 +202,7 @@ function IndexIndicator({ path }: { path: SdPath }) {
 							<button
 								onClick={() => {
 									clearSelection();
+									setInspectorVisible(true);
 									popover.setOpen(false);
 								}}
 								className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"

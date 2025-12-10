@@ -11,6 +11,7 @@ import {
 	FolderOpen,
 	MagnifyingGlass,
 	Trash,
+	Database,
 } from "@phosphor-icons/react";
 import { Location } from "@sd/assets/icons";
 import type {
@@ -150,6 +151,7 @@ export function SpaceItem({
 	const location = useLocation();
 	const platform = usePlatform();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
+	const indexVolume = useLibraryMutation("volumes.index");
 
 	// Sortable hook (for reordering)
 	const sortableProps = useSortable({
@@ -252,6 +254,30 @@ export function SpaceItem({
 				},
 				condition: () => !!path,
 			},
+			{
+				icon: Database,
+				label: "Index Volume",
+				onClick: async () => {
+					if (typeof item.item_type === "object" && "Volume" in item.item_type) {
+						const volumeItem = item.item_type.Volume;
+						// Extract volume fingerprint from the item
+						// We'll need to get this from the volume data
+						const fingerprint = (item as any).fingerprint || volumeItem.volume_id;
+
+						try {
+							const result = await indexVolume.mutateAsync({
+								fingerprint: fingerprint.toString(),
+								scope: "Recursive",
+							});
+							console.log("Volume indexed:", result.message);
+						} catch (err) {
+							console.error("Failed to index volume:", err);
+						}
+					}
+				},
+				condition: () => typeof item.item_type === "object" && "Volume" in item.item_type,
+			},
+			{ type: "separator" },
 			{
 				icon: MagnifyingGlass,
 				label: "Show in Finder",

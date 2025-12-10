@@ -23,6 +23,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [originalLoaded, setOriginalLoaded] = useState(false);
 	const [originalUrl, setOriginalUrl] = useState<string | null>(null);
+	const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
 		useZoomPan(containerRef);
 
@@ -31,8 +32,21 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		onZoomChange?.(isZoomed);
 	}, [isZoomed, onZoomChange]);
 
+	// Reset and defer original loading by 50ms to ensure thumbnail renders first
 	useEffect(() => {
-		if (!platform.convertFileSrc) {
+		setShouldLoadOriginal(false);
+		setOriginalLoaded(false);
+		setOriginalUrl(null);
+
+		const timer = setTimeout(() => {
+			setShouldLoadOriginal(true);
+		}, 50);
+
+		return () => clearTimeout(timer);
+	}, [file]);
+
+	useEffect(() => {
+		if (!shouldLoadOriginal || !platform.convertFileSrc) {
 			return;
 		}
 
@@ -55,7 +69,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			url,
 		);
 		setOriginalUrl(url);
-	}, [file, platform]);
+	}, [shouldLoadOriginal, file, platform]);
 
 	// Get highest resolution thumbnail first
 	const getHighestResThumbnail = () => {
@@ -128,21 +142,17 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 				className="relative w-full h-full flex items-center justify-center"
 				style={transform}
 			>
-				{/* High-res thumbnail (loads fast, shows immediately) */}
+				{/* High-res thumbnail (always rendered as background layer) */}
 				{thumbnailUrl && (
 					<img
 						src={thumbnailUrl}
 						alt={file.name}
 						className="w-full h-full object-contain"
-						style={{
-							opacity: originalLoaded ? 0 : 1,
-							transition: "opacity 0.3s",
-						}}
 						draggable={false}
 					/>
 				)}
 
-				{/* Original image (loads async, fades in when ready) */}
+				{/* Original image (loads async, fades in over thumbnail when ready) */}
 				{originalUrl && (
 					<img
 						src={originalUrl}
@@ -170,9 +180,22 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const platform = usePlatform();
 	const [videoUrl, setVideoUrl] = useState<string | null>(null);
+	const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+
+	// Reset and defer video loading by 50ms to ensure thumbnail renders first
+	useEffect(() => {
+		setShouldLoadVideo(false);
+		setVideoUrl(null);
+
+		const timer = setTimeout(() => {
+			setShouldLoadVideo(true);
+		}, 50);
+
+		return () => clearTimeout(timer);
+	}, [file]);
 
 	useEffect(() => {
-		if (!platform.convertFileSrc) {
+		if (!shouldLoadVideo || !platform.convertFileSrc) {
 			return;
 		}
 
@@ -192,7 +215,7 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 			url,
 		);
 		setVideoUrl(url);
-	}, [file, platform]);
+	}, [shouldLoadVideo, file, platform]);
 
 	if (!videoUrl) {
 		return (
@@ -214,9 +237,22 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 function AudioRenderer({ file }: ContentRendererProps) {
 	const platform = usePlatform();
 	const [audioUrl, setAudioUrl] = useState<string | null>(null);
+	const [shouldLoadAudio, setShouldLoadAudio] = useState(false);
+
+	// Reset and defer audio loading by 50ms to ensure thumbnail renders first
+	useEffect(() => {
+		setShouldLoadAudio(false);
+		setAudioUrl(null);
+
+		const timer = setTimeout(() => {
+			setShouldLoadAudio(true);
+		}, 50);
+
+		return () => clearTimeout(timer);
+	}, [file]);
 
 	useEffect(() => {
-		if (!platform.convertFileSrc) {
+		if (!shouldLoadAudio || !platform.convertFileSrc) {
 			return;
 		}
 
@@ -236,7 +272,7 @@ function AudioRenderer({ file }: ContentRendererProps) {
 			url,
 		);
 		setAudioUrl(url);
-	}, [file, platform]);
+	}, [shouldLoadAudio, file, platform]);
 
 	if (!audioUrl) {
 		return (
@@ -246,7 +282,6 @@ function AudioRenderer({ file }: ContentRendererProps) {
 					<div className="mt-6 text-ink text-lg font-medium">
 						{file.name}
 					</div>
-					<div className="text-ink-dull text-sm mt-2">Loading...</div>
 				</div>
 			</div>
 		);

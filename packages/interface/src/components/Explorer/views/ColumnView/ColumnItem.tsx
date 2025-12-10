@@ -63,7 +63,7 @@ export const ColumnItem = memo(
 					<div className="[&_*]:!rounded-[3px] flex-shrink-0">
 						<FileComponent.Thumb file={file} size={20} />
 					</div>
-					<span className="text-sm truncate flex-1">{file.name}</span>
+					<span className="text-sm truncate flex-1">{file.name}{file.extension && `.${file.extension}`}</span>
 					{file.kind === "Directory" && (
 						<svg
 							className="size-3 text-ink-dull"

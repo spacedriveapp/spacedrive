@@ -43,6 +43,9 @@ impl CoreQuery for ListPairedDevicesQuery {
 			.await
 			.ok_or_else(|| QueryError::Internal("Networking not initialized".to_string()))?;
 
+		// Get the Iroh endpoint for verifying actual connection status
+		let endpoint = networking.endpoint();
+
 		let device_registry = networking.device_registry();
 		let registry = device_registry.read().await;
 
@@ -53,18 +56,29 @@ impl CoreQuery for ListPairedDevicesQuery {
 		for (device_id, state) in all_devices {
 			use crate::service::network::device::DeviceState;
 
-			let (device_info, is_connected) = match state {
-				DeviceState::Paired { info, .. } => (Some(info), false),
-				DeviceState::Connected { info, .. } => {
-					connected_count += 1;
-					(Some(info), true)
-				}
-				DeviceState::Disconnected { info, .. } => (Some(info), false),
-				_ => (None, false),
+			// Extract device info from state
+			let device_info = match &state {
+				DeviceState::Paired { info, .. } => Some(info.clone()),
+				DeviceState::Connected { info, .. } => Some(info.clone()),
+				DeviceState::Disconnected { info, .. } => Some(info.clone()),
+				_ => None,
 			};
 
+			// Verify actual connection status with Iroh endpoint
+			// This is the source of truth, not the cached DeviceState
+			let is_actually_connected = if let Some(ep) = endpoint {
+				registry.is_node_connected(ep, device_id)
+			} else {
+				// No endpoint available, fall back to cached state
+				matches!(state, DeviceState::Connected { .. })
+			};
+
+			if is_actually_connected {
+				connected_count += 1;
+			}
+
 			// Skip if we only want connected devices and this one isn't connected
-			if self.connected_only && !is_connected {
+			if self.connected_only && !is_actually_connected {
 				continue;
 			}
 
@@ -77,7 +91,7 @@ impl CoreQuery for ListPairedDevicesQuery {
 					device_type: device_type_str,
 					os_version: info.os_version.clone(),
 					app_version: info.app_version.clone(),
-					is_connected,
+					is_connected: is_actually_connected,
 					last_seen: info.last_seen,
 				});
 			}

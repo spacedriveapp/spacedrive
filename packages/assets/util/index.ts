@@ -1,5 +1,8 @@
 import * as icons from '../icons';
 import { LayeredIcons } from '../svgs/ext';
+import beardedIconsMapping from '../svgs/ext/icons.json';
+
+export { beardedIconUrls } from '../svgs/ext/Extras/urls';
 
 // Define a type for icon names. This filters out any names with underscores in them.
 // The use of 'never' is to make sure that icon types with underscores are not included.
@@ -71,4 +74,32 @@ export const getLayeredIcon = (kind: string, extension?: string | null) => {
 			kind && kind in LayeredIcons ? kind : 'Extras'
 		];
 	return extension ? iconKind?.[extension] || LayeredIcons['Extras']?.[extension] : null;
+};
+
+/**
+ * Gets a bearded icon (file extension badge) name for the given extension.
+ * Returns the icon name that can be used to construct the SVG path.
+ *
+ * @param extension - The file extension (without the dot)
+ * @param fileName - Optional full filename for specific file name mappings
+ */
+export const getBeardedIcon = (extension?: string | null, fileName?: string | null): string | null => {
+	if (!extension && !fileName) return null;
+
+	const mapping = beardedIconsMapping as {
+		fileExtensions: Record<string, string>;
+		fileNames: Record<string, string>;
+	};
+
+	// Try filename match first (e.g., "package.json" -> "npm")
+	if (fileName && mapping.fileNames[fileName.toLowerCase()]) {
+		return mapping.fileNames[fileName.toLowerCase()];
+	}
+	// Then try extension match (e.g., "ts" -> "typescript")
+	else if (extension) {
+		const ext = extension.toLowerCase().replace(/^\./, ''); // Remove leading dot if present
+		return mapping.fileExtensions[ext] || null;
+	}
+
+	return null;
 };

@@ -29,6 +29,7 @@ mod m20251117_000003_add_unique_bytes_to_volumes;
 mod m20251129_000001_add_entry_id_to_space_items;
 mod m20251202_000001_add_cloud_config_to_volumes;
 mod m20251204_000001_create_cloud_credentials_table;
+mod m20251209_000001_add_indexing_stats_to_volumes;
 
 pub struct Migrator;
 
@@ -63,6 +64,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251129_000001_add_entry_id_to_space_items::Migration),
 			Box::new(m20251202_000001_add_cloud_config_to_volumes::Migration),
 			Box::new(m20251204_000001_create_cloud_credentials_table::Migration),
+			Box::new(m20251209_000001_add_indexing_stats_to_volumes::Migration),
 		]
 	}
 }
