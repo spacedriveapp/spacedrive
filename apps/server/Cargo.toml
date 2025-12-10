@@ -3,9 +3,14 @@ name    = "sd-server"
 version = "2.0.0-pre.1"
 edition = "2021"
 
+[features]
+default = []
+heif = ["sd-core/heif"]
+ffmpeg = ["sd-core/ffmpeg"]
+
 [dependencies]
 # Spacedrive core
-sd-core = { path = "../../core", features = ["ffmpeg", "heif"] }
+sd-core = { path = "../../core" }
 
 # HTTP server
 axum       = "0.7"

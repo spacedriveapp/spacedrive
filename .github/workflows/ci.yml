@@ -219,8 +219,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
 
+      - name: Setup native dependencies
+        run: cargo xtask setup
+
       - name: Build CLI binaries
-        run: cargo build --release --bin sd-cli --bin sd-daemon --target ${{ matrix.settings.target }}
+        run: cargo build --release --bin sd-cli --bin sd-daemon --features heif,ffmpeg --target ${{ matrix.settings.target }}
 
       - name: Prepare binaries (Unix)
         if: runner.os != 'Windows'
