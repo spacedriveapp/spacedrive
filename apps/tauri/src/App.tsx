@@ -2,14 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
-  Explorer,
-  FloatingControls,
-  LocationCacheDemo,
-  PopoutInspector,
-  QuickPreview,
-  Settings,
-  PlatformProvider,
-  SpacedriveProvider,
+	Explorer,
+	FloatingControls,
+	LocationCacheDemo,
+	PopoutInspector,
+	QuickPreview,
+	Settings,
+	PlatformProvider,
+	SpacedriveProvider,
 } from "@sd/interface";
 import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
 import { sounds } from "@sd/assets/sounds";
@@ -22,188 +22,192 @@ import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
 
 function App() {
-  const [client, setClient] = useState<SpacedriveClient | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [route, setRoute] = useState<string>("/");
+	const [client, setClient] = useState<SpacedriveClient | null>(null);
+	const [error, setError] = useState<string | null>(null);
+	const [route, setRoute] = useState<string>("/");
 
-  useEffect(() => {
-    // React Scan disabled - too heavy for development
-    // Uncomment if you need to debug render performance:
-    // if (import.meta.env.DEV) {
-    //   setTimeout(() => {
-    //     import("react-scan").then(({ scan }) => {
-    //       scan({ enabled: true, log: false });
-    //     });
-    //   }, 2000);
-    // }
+	useEffect(() => {
+		// React Scan disabled - too heavy for development
+		// Uncomment if you need to debug render performance:
+		if (import.meta.env.DEV) {
+			setTimeout(() => {
+				import("react-scan").then(({ scan }) => {
+					scan({ enabled: true, log: false });
+				});
+			}, 2000);
+		}
 
-    // Initialize Tauri native context menu handler
-    initializeContextMenuHandler();
+		// Initialize Tauri native context menu handler
+		initializeContextMenuHandler();
 
-    // Prevent default context menu globally (except in context menu windows)
-    const currentWindow = getCurrentWebviewWindow();
-    const label = currentWindow.label;
+		// Prevent default context menu globally (except in context menu windows)
+		const currentWindow = getCurrentWebviewWindow();
+		const label = currentWindow.label;
 
-    // Prevent default browser context menu globally (except in context menu windows)
-    if (!label.startsWith("context-menu")) {
-      const preventContextMenu = (e: Event) => {
-        // Default behavior: prevent browser context menu
-        // React's onContextMenu handlers can override this with their own preventDefault
-        e.preventDefault();
-      };
-      document.addEventListener("contextmenu", preventContextMenu, {
-        capture: false,
-      });
-    }
+		// Prevent default browser context menu globally (except in context menu windows)
+		if (!label.startsWith("context-menu")) {
+			const preventContextMenu = (e: Event) => {
+				// Default behavior: prevent browser context menu
+				// React's onContextMenu handlers can override this with their own preventDefault
+				e.preventDefault();
+			};
+			document.addEventListener("contextmenu", preventContextMenu, {
+				capture: false,
+			});
+		}
 
-    // Set route based on window label
-    if (label === "floating-controls") {
-      setRoute("/floating-controls");
-    } else if (label.startsWith("drag-overlay")) {
-      setRoute("/drag-overlay");
-    } else if (label.startsWith("context-menu")) {
-      setRoute("/contextmenu");
-    } else if (label.startsWith("drag-demo")) {
-      setRoute("/drag-demo");
-    } else if (label.startsWith("spacedrop")) {
-      setRoute("/spacedrop");
-    } else if (label.startsWith("settings")) {
-      setRoute("/settings");
-    } else if (label.startsWith("inspector")) {
-      setRoute("/inspector");
-    } else if (label.startsWith("quick-preview")) {
-      setRoute("/quick-preview");
-    } else if (label.startsWith("cache-demo")) {
-      setRoute("/cache-demo");
-    }
+		// Set route based on window label
+		if (label === "floating-controls") {
+			setRoute("/floating-controls");
+		} else if (label.startsWith("drag-overlay")) {
+			setRoute("/drag-overlay");
+		} else if (label.startsWith("context-menu")) {
+			setRoute("/contextmenu");
+		} else if (label.startsWith("drag-demo")) {
+			setRoute("/drag-demo");
+		} else if (label.startsWith("spacedrop")) {
+			setRoute("/spacedrop");
+		} else if (label.startsWith("settings")) {
+			setRoute("/settings");
+		} else if (label.startsWith("inspector")) {
+			setRoute("/inspector");
+		} else if (label.startsWith("quick-preview")) {
+			setRoute("/quick-preview");
+		} else if (label.startsWith("cache-demo")) {
+			setRoute("/cache-demo");
+		}
 
-    // Tell Tauri window is ready to be shown
-    invoke("app_ready").catch(console.error);
+		// Tell Tauri window is ready to be shown
+		invoke("app_ready").catch(console.error);
 
-    // Play startup sound
-    // sounds.startup();
+		// Play startup sound
+		// sounds.startup();
 
-    // Create Tauri-based client
-    try {
-      const transport = new TauriTransport(invoke, listen);
-      const spacedrive = new SpacedriveClient(transport);
-      setClient(spacedrive);
+		// Create Tauri-based client
+		try {
+			const transport = new TauriTransport(invoke, listen);
+			const spacedrive = new SpacedriveClient(transport);
+			setClient(spacedrive);
 
-      // Query current library ID from platform state (for popout windows)
-      if (platform.getCurrentLibraryId) {
-        platform
-          .getCurrentLibraryId()
-          .then((libraryId) => {
-            if (libraryId) {
-              spacedrive.setCurrentLibrary(libraryId, false); // Don't emit - already in sync
-            }
-          })
-          .catch(() => {
-            // Library not selected yet - this is fine for initial load
-          });
-      }
+			// Query current library ID from platform state (for popout windows)
+			if (platform.getCurrentLibraryId) {
+				platform
+					.getCurrentLibraryId()
+					.then((libraryId) => {
+						if (libraryId) {
+							spacedrive.setCurrentLibrary(libraryId, false); // Don't emit - already in sync
+						}
+					})
+					.catch(() => {
+						// Library not selected yet - this is fine for initial load
+					});
+			}
 
-      // Listen for library-changed events via platform (emitted when library switches)
-      if (platform.onLibraryIdChanged) {
-        platform.onLibraryIdChanged((newLibraryId) => {
-          spacedrive.setCurrentLibrary(newLibraryId, true); // DO emit - hooks need to know!
-        });
-      }
+			// Listen for library-changed events via platform (emitted when library switches)
+			if (platform.onLibraryIdChanged) {
+				platform.onLibraryIdChanged((newLibraryId) => {
+					spacedrive.setCurrentLibrary(newLibraryId, true); // DO emit - hooks need to know!
+				});
+			}
 
-      // No global subscription needed - each useNormalizedCache creates its own filtered subscription
-    } catch (err) {
-      console.error("Failed to create client:", err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+			// No global subscription needed - each useNormalizedCache creates its own filtered subscription
+		} catch (err) {
+			console.error("Failed to create client:", err);
+			setError(err instanceof Error ? err.message : String(err));
+		}
+	}, []);
 
-  // Routes that don't need the client
-  if (route === "/floating-controls") {
-    return <FloatingControls />;
-  }
+	// Routes that don't need the client
+	if (route === "/floating-controls") {
+		return <FloatingControls />;
+	}
 
-  if (route === "/drag-overlay") {
-    return <DragOverlay />;
-  }
+	if (route === "/drag-overlay") {
+		return <DragOverlay />;
+	}
 
-  if (route === "/contextmenu") {
-    return <ContextMenuWindow />;
-  }
+	if (route === "/contextmenu") {
+		return <ContextMenuWindow />;
+	}
 
-  if (route === "/drag-demo") {
-    return <DragDemo />;
-  }
+	if (route === "/drag-demo") {
+		return <DragDemo />;
+	}
 
-  if (route === "/spacedrop") {
-    return <SpacedropWindow />;
-  }
+	if (route === "/spacedrop") {
+		return <SpacedropWindow />;
+	}
 
-  if (error) {
-    console.log("Rendering error state");
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-950 text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Error</h1>
-          <p className="text-red-400">{error}</p>
-        </div>
-      </div>
-    );
-  }
+	if (error) {
+		console.log("Rendering error state");
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950 text-white">
+				<div className="text-center">
+					<h1 className="text-2xl font-bold mb-4">Error</h1>
+					<p className="text-red-400">{error}</p>
+				</div>
+			</div>
+		);
+	}
 
-  if (!client) {
-    console.log("Rendering loading state");
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-950 text-white">
-        <div className="text-center">
-          <div className="animate-pulse text-xl">Initializing client...</div>
-          <p className="text-gray-400 text-sm mt-2">Check console for logs</p>
-        </div>
-      </div>
-    );
-  }
+	if (!client) {
+		console.log("Rendering loading state");
+		return (
+			<div className="flex h-screen items-center justify-center bg-gray-950 text-white">
+				<div className="text-center">
+					<div className="animate-pulse text-xl">
+						Initializing client...
+					</div>
+					<p className="text-gray-400 text-sm mt-2">
+						Check console for logs
+					</p>
+				</div>
+			</div>
+		);
+	}
 
-  console.log("Rendering Interface with client");
+	console.log("Rendering Interface with client");
 
-  // Route to different UIs based on window type
-  if (route === "/settings") {
-    return (
-      <PlatformProvider platform={platform}>
-        <SpacedriveProvider client={client}>
-          <Settings />
-        </SpacedriveProvider>
-      </PlatformProvider>
-    );
-  }
+	// Route to different UIs based on window type
+	if (route === "/settings") {
+		return (
+			<PlatformProvider platform={platform}>
+				<SpacedriveProvider client={client}>
+					<Settings />
+				</SpacedriveProvider>
+			</PlatformProvider>
+		);
+	}
 
-  if (route === "/inspector") {
-    return (
-      <PlatformProvider platform={platform}>
-        <SpacedriveProvider client={client}>
-          <div className="h-screen bg-app overflow-hidden">
-            <PopoutInspector />
-          </div>
-        </SpacedriveProvider>
-      </PlatformProvider>
-    );
-  }
+	if (route === "/inspector") {
+		return (
+			<PlatformProvider platform={platform}>
+				<SpacedriveProvider client={client}>
+					<div className="h-screen bg-app overflow-hidden">
+						<PopoutInspector />
+					</div>
+				</SpacedriveProvider>
+			</PlatformProvider>
+		);
+	}
 
-  if (route === "/cache-demo") {
-    return <LocationCacheDemo />;
-  }
+	if (route === "/cache-demo") {
+		return <LocationCacheDemo />;
+	}
 
-  if (route === "/quick-preview") {
-    return (
-      <div className="h-screen bg-app overflow-hidden">
-        <QuickPreview />
-      </div>
-    );
-  }
+	if (route === "/quick-preview") {
+		return (
+			<div className="h-screen bg-app overflow-hidden">
+				<QuickPreview />
+			</div>
+		);
+	}
 
-  return (
-    <PlatformProvider platform={platform}>
-      <Explorer client={client} />
-    </PlatformProvider>
-  );
+	return (
+		<PlatformProvider platform={platform}>
+			<Explorer client={client} />
+		</PlatformProvider>
+	);
 }
 
 export default App;

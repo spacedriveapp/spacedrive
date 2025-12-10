@@ -191,10 +191,10 @@ export function useNormalizedQuery<I, O>(
 				JSON.stringify(optionsRef.current.pathScope) !==
 				JSON.stringify(capturedPathScope)
 			) {
-				console.log("[useNormalizedQuery] Dropping stale event", {
-					eventPathScope: capturedPathScope,
-					currentPathScope: optionsRef.current.pathScope,
-				});
+				// console.log("[useNormalizedQuery] Dropping stale event", {
+				// 	eventPathScope: capturedPathScope,
+				// 	currentPathScope: optionsRef.current.pathScope,
+				// });
 				return;
 			}
 

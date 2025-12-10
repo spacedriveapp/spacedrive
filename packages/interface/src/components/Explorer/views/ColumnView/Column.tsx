@@ -1,207 +1,289 @@
-import { useRef, useMemo } from "react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useRef, memo, useCallback } from "react";
+import { useVirtualizer, type VirtualItem } from "@tanstack/react-virtual";
 import clsx from "clsx";
 import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../../context";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
-import { useSelection } from "../../SelectionContext";
 import { useContextMenu } from "../../../../hooks/useContextMenu";
 import { Copy, Trash, Eye, FolderOpen } from "@phosphor-icons/react";
 import { useLibraryMutation } from "../../../../context";
 
+/**
+ * Memoized wrapper for ColumnItem to prevent re-renders when selection changes elsewhere.
+ * Only re-renders when this specific item's `selected` state changes.
+ */
+const ColumnItemWrapper = memo(
+	function ColumnItemWrapper({
+		file,
+		files,
+		virtualRow,
+		selected,
+		onSelectFile,
+		contextMenu,
+	}: {
+		file: File;
+		files: File[];
+		virtualRow: VirtualItem;
+		selected: boolean;
+		onSelectFile: (
+			file: File,
+			files: File[],
+			multi?: boolean,
+			range?: boolean,
+		) => void;
+		contextMenu: ReturnType<typeof useContextMenu>;
+	}) {
+		const handleClick = useCallback(
+			(multi: boolean, range: boolean) => {
+				onSelectFile(file, files, multi, range);
+			},
+			[file, files, onSelectFile],
+		);
+
+		const handleContextMenu = useCallback(
+			async (e: React.MouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
+				if (!selected) {
+					onSelectFile(file, files, false, false);
+				}
+				await contextMenu.show(e);
+			},
+			[file, files, selected, onSelectFile, contextMenu],
+		);
+
+		return (
+			<div
+				style={{
+					position: "absolute",
+					top: 0,
+					left: 0,
+					width: "100%",
+					height: `${virtualRow.size}px`,
+					transform: `translateY(${virtualRow.start}px)`,
+				}}
+			>
+				<ColumnItem
+					file={file}
+					selected={selected}
+					focused={false}
+					onClick={handleClick}
+					onContextMenu={handleContextMenu}
+				/>
+			</div>
+		);
+	},
+	(prev, next) => {
+		// Only re-render if selection state or file changed
+		if (prev.selected !== next.selected) return false;
+		if (prev.file !== next.file) return false;
+		if (prev.virtualRow.start !== next.virtualRow.start) return false;
+		if (prev.virtualRow.size !== next.virtualRow.size) return false;
+		// Ignore: files array, onSelectFile, contextMenu (passed through to handlers)
+		return true;
+	},
+);
+
 interface ColumnProps {
-  path: SdPath;
-  selectedFiles: File[];
-  onSelectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
-  onNavigate: (path: SdPath) => void;
-  nextColumnPath?: SdPath;
-  columnIndex: number;
-  isActive: boolean;
+	path: SdPath;
+	isSelected: (fileId: string) => boolean;
+	selectedFileIds: Set<string>;
+	onSelectFile: (
+		file: File,
+		files: File[],
+		multi?: boolean,
+		range?: boolean,
+	) => void;
+	onNavigate: (path: SdPath) => void;
+	nextColumnPath?: SdPath;
+	columnIndex: number;
+	isActive: boolean;
 }
 
-export function Column({ path, selectedFiles, onSelectFile, onNavigate, nextColumnPath, columnIndex, isActive }: ColumnProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const { viewSettings, sortBy } = useExplorer();
-  const copyFiles = useLibraryMutation("files.copy");
-  const deleteFiles = useLibraryMutation("files.delete");
+export const Column = memo(function Column({
+	path,
+	isSelected,
+	selectedFileIds,
+	onSelectFile,
+	onNavigate,
+	nextColumnPath,
+	columnIndex,
+	isActive,
+}: ColumnProps) {
+	const parentRef = useRef<HTMLDivElement>(null);
+	const { viewSettings, sortBy } = useExplorer();
+	const copyFiles = useLibraryMutation("files.copy");
+	const deleteFiles = useLibraryMutation("files.delete");
 
-  const directoryQuery = useNormalizedQuery({
-    wireMethod: "query:files.directory_listing",
-    input: {
-      path: path,
-      limit: null,
-      include_hidden: false,
-      sort_by: sortBy as any,
-      folders_first: viewSettings.foldersFirst,
-    },
-    resourceType: "file",
-    pathScope: path,
-    // includeDescendants defaults to false for exact directory matching
-  });
+	const directoryQuery = useNormalizedQuery({
+		wireMethod: "query:files.directory_listing",
+		input: {
+			path: path,
+			limit: null,
+			include_hidden: false,
+			sort_by: sortBy as any,
+			folders_first: viewSettings.foldersFirst,
+		},
+		resourceType: "file",
+		pathScope: path,
+		// includeDescendants defaults to false for exact directory matching
+	});
 
-  const files = directoryQuery.data?.files || [];
+	const files = directoryQuery.data?.files || [];
 
-  const rowVirtualizer = useVirtualizer({
-    count: files.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
-    overscan: 10,
-  });
+	const rowVirtualizer = useVirtualizer({
+		count: files.length,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => 32,
+		overscan: 10,
+	});
 
-  const contextMenu = useContextMenu({
-    items: [
-      {
-        icon: Eye,
-        label: "Quick Look",
-        onClick: () => {
-          console.log("Quick Look");
-        },
-        keybind: "Space",
-      },
-      {
-        icon: FolderOpen,
-        label: "Open",
-        onClick: (file: File) => {
-          if (file.kind === "Directory") {
-            onNavigate(file.sd_path);
-          }
-        },
-        keybind: "⌘O",
-      },
-      { type: "separator" },
-      {
-        icon: Copy,
-        label: "Copy",
-        onClick: async (file: File) => {
-          window.__SPACEDRIVE__ = window.__SPACEDRIVE__ || {};
-          window.__SPACEDRIVE__.clipboard = {
-            operation: 'copy',
-            files: [file.sd_path],
-            sourcePath: path,
-          };
-        },
-        keybind: "⌘C",
-      },
-      {
-        icon: Copy,
-        label: "Paste",
-        onClick: async () => {
-          const clipboard = window.__SPACEDRIVE__?.clipboard;
-          if (!clipboard || !clipboard.files) return;
+	const contextMenu = useContextMenu({
+		items: [
+			{
+				icon: Eye,
+				label: "Quick Look",
+				onClick: () => {
+					console.log("Quick Look");
+				},
+				keybind: "Space",
+			},
+			{
+				icon: FolderOpen,
+				label: "Open",
+				onClick: (file: File) => {
+					if (file.kind === "Directory") {
+						onNavigate(file.sd_path);
+					}
+				},
+				keybind: "⌘O",
+			},
+			{ type: "separator" },
+			{
+				icon: Copy,
+				label: "Copy",
+				onClick: async (file: File) => {
+					window.__SPACEDRIVE__ = window.__SPACEDRIVE__ || {};
+					window.__SPACEDRIVE__.clipboard = {
+						operation: "copy",
+						files: [file.sd_path],
+						sourcePath: path,
+					};
+				},
+				keybind: "⌘C",
+			},
+			{
+				icon: Copy,
+				label: "Paste",
+				onClick: async () => {
+					const clipboard = window.__SPACEDRIVE__?.clipboard;
+					if (!clipboard || !clipboard.files) return;
 
-          try {
-            await copyFiles.mutateAsync({
-              sources: { paths: clipboard.files },
-              destination: path,
-              overwrite: false,
-              verify_checksum: false,
-              preserve_timestamps: true,
-              move_files: false,
-              copy_method: "Auto" as const,
-            });
-          } catch (err) {
-            console.error("Failed to paste:", err);
-          }
-        },
-        keybind: "⌘V",
-        condition: () => {
-          const clipboard = window.__SPACEDRIVE__?.clipboard;
-          return !!clipboard && !!clipboard.files && clipboard.files.length > 0;
-        },
-      },
-      { type: "separator" },
-      {
-        icon: Trash,
-        label: "Delete",
-        onClick: async (file: File) => {
-          if (confirm(`Delete "${file.name}"?`)) {
-            try {
-              await deleteFiles.mutateAsync({
-                targets: { paths: [file.sd_path] },
-                permanent: false,
-                recursive: true,
-              });
-            } catch (err) {
-              console.error("Failed to delete:", err);
-            }
-          }
-        },
-        keybind: "⌘⌫",
-        variant: "danger" as const,
-      },
-    ],
-  });
+					try {
+						await copyFiles.mutateAsync({
+							sources: { paths: clipboard.files },
+							destination: path,
+							overwrite: false,
+							verify_checksum: false,
+							preserve_timestamps: true,
+							move_files: false,
+							copy_method: "Auto" as const,
+						});
+					} catch (err) {
+						console.error("Failed to paste:", err);
+					}
+				},
+				keybind: "⌘V",
+				condition: () => {
+					const clipboard = window.__SPACEDRIVE__?.clipboard;
+					return (
+						!!clipboard &&
+						!!clipboard.files &&
+						clipboard.files.length > 0
+					);
+				},
+			},
+			{ type: "separator" },
+			{
+				icon: Trash,
+				label: "Delete",
+				onClick: async (file: File) => {
+					if (confirm(`Delete "${file.name}"?`)) {
+						try {
+							await deleteFiles.mutateAsync({
+								targets: { paths: [file.sd_path] },
+								permanent: false,
+								recursive: true,
+							});
+						} catch (err) {
+							console.error("Failed to delete:", err);
+						}
+					}
+				},
+				keybind: "⌘⌫",
+				variant: "danger" as const,
+			},
+		],
+	});
 
-  if (directoryQuery.isLoading) {
-    return (
-      <div
-        className="shrink-0 border-r border-app-line flex items-center justify-center"
-        style={{ width: `${viewSettings.columnWidth}px` }}
-      >
-        <div className="text-sm text-ink-dull">Loading...</div>
-      </div>
-    );
-  }
+	if (directoryQuery.isLoading) {
+		return (
+			<div
+				className="shrink-0 border-r border-app-line flex items-center justify-center"
+				style={{ width: `${viewSettings.columnWidth}px` }}
+			>
+				<div className="text-sm text-ink-dull">Loading...</div>
+			</div>
+		);
+	}
 
-  return (
-    <div
-      ref={parentRef}
-      className={clsx(
-        "shrink-0 border-r border-app-line overflow-auto",
-        isActive && "bg-app-box/30"
-      )}
-      style={{ width: `${viewSettings.columnWidth}px` }}
-    >
-      <div
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          width: '100%',
-          position: 'relative',
-        }}
-      >
-          {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const file = files[virtualRow.index];
+	return (
+		<div
+			ref={parentRef}
+			className={clsx(
+				"shrink-0 border-r border-app-line overflow-auto",
+				isActive && "bg-app-box/30",
+			)}
+			style={{ width: `${viewSettings.columnWidth}px` }}
+		>
+			<div
+				style={{
+					height: `${rowVirtualizer.getTotalSize()}px`,
+					width: "100%",
+					position: "relative",
+				}}
+			>
+				{rowVirtualizer.getVirtualItems().map((virtualRow) => {
+					const file = files[virtualRow.index];
 
-            // Check if this file is selected
-            const fileIsSelected = selectedFiles.some((f) => f.id === file.id);
+					// Check if this file is selected using O(1) lookup
+					const fileIsSelected = isSelected(file.id);
 
-            // Check if this file is part of the navigation path
-            const isInPath = nextColumnPath && file.sd_path.Physical && nextColumnPath.Physical
-              ? file.sd_path.Physical.path === nextColumnPath.Physical.path &&
-                file.sd_path.Physical.device_slug === nextColumnPath.Physical.device_slug
-              : false;
+					// Check if this file is part of the navigation path
+					const isInPath =
+						nextColumnPath &&
+						file.sd_path.Physical &&
+						nextColumnPath.Physical
+							? file.sd_path.Physical.path ===
+									nextColumnPath.Physical.path &&
+								file.sd_path.Physical.device_slug ===
+									nextColumnPath.Physical.device_slug
+							: false;
 
-            return (
-              <div
-                key={virtualRow.key}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: `${virtualRow.size}px`,
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
-              >
-                <ColumnItem
-                  file={file}
-                  selected={fileIsSelected || isInPath}
-                  focused={false}
-                  onClick={(multi, range) => onSelectFile(file, files, multi, range)}
-                  onContextMenu={async (e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!fileIsSelected) {
-                      onSelectFile(file, files, false, false);
-                    }
-                    await contextMenu.show(e);
-                  }}
-                />
-              </div>
-            );
-          })}
-      </div>
-    </div>
-  );
-}
+					return (
+						<ColumnItemWrapper
+							key={virtualRow.key}
+							file={file}
+							files={files}
+							virtualRow={virtualRow}
+							selected={fileIsSelected || isInPath}
+							onSelectFile={onSelectFile}
+							contextMenu={contextMenu}
+						/>
+					);
+				})}
+			</div>
+		</div>
+	);
+});

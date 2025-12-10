@@ -368,52 +368,78 @@ fn build_mobile() -> Result<()> {
 		);
 	}
 
-	// iOS targets
+	// Check which iOS targets are installed (macOS only)
 	#[cfg(target_os = "macos")]
-	let ios_targets = [
-		("aarch64-apple-ios", "Device", false),
-		("aarch64-apple-ios-sim", "Simulator (arm64)", true),
-	];
+	{
+		let rust_targets = system::get_rust_targets().unwrap_or_default();
+		let ios_targets = [
+			("aarch64-apple-ios", "Device", false),
+			("aarch64-apple-ios-sim", "Simulator (arm64)", true),
+		];
 
-	#[cfg(target_os = "macos")]
-	println!("Building for iOS targets...");
-	#[cfg(target_os = "macos")]
-	for (target, name, _is_sim) in &ios_targets {
-		println!("  Building for iOS {} ({})...", name, target);
+		let available_ios_targets: Vec<_> = ios_targets
+			.iter()
+			.filter(|(target, _, _)| rust_targets.contains(&target.to_string()))
+			.collect();
 
-		let status = Command::new("cargo")
-			.args(["build", "--release", "--target", target])
-			.current_dir(&mobile_core_dir)
-			.env("IPHONEOS_DEPLOYMENT_TARGET", "18.0")
-			.status()
-			.context(format!("Failed to build for {}", target))?;
+		if !available_ios_targets.is_empty() {
+			println!("Building for iOS targets...");
+			for (target, name, _is_sim) in available_ios_targets {
+				println!("  Building for iOS {} ({})...", name, target);
 
-		if !status.success() {
-			anyhow::bail!("Build failed for target: {}", target);
+				let status = Command::new("cargo")
+					.args(["build", "--release", "--target", target])
+					.current_dir(&mobile_core_dir)
+					.env("IPHONEOS_DEPLOYMENT_TARGET", "18.0")
+					.status()
+					.context(format!("Failed to build for {}", target))?;
+
+				if !status.success() {
+					anyhow::bail!("Build failed for target: {}", target);
+				}
+
+				println!("  ✓ {} build complete", name);
+			}
+		} else {
+			println!("No iOS targets installed. Skipping iOS builds.");
+			println!("  To add iOS support, run:");
+			println!("  rustup target add aarch64-apple-ios aarch64-apple-ios-sim");
 		}
-
-		println!("  ✓ {} build complete", name);
 	}
 
+	// Check which Android targets are installed
+	let rust_targets = system::get_rust_targets().unwrap_or_default();
 	let android_targets = [
 		("aarch64-linux-android", "Device", false),
 		("x86_64-linux-android", "Android Emulator", true),
-		// add more as needed
 	];
 
-	println!("Building for Android targets...");
-	for (target, name, _is_emulator) in &android_targets {
-		println!("	Building for Android {} ({}) ...", name, target);
+	let available_android_targets: Vec<_> = android_targets
+		.iter()
+		.filter(|(target, _, _)| rust_targets.contains(&target.to_string()))
+		.collect();
 
-		let status = Command::new("cargo")
-			.args(["build", "--release", "--target", target])
-			.current_dir(&mobile_core_dir)
-			.status()
-			.context(format!("Failed to build for {}", target))?;
+	if !available_android_targets.is_empty() {
+		println!("Building for Android targets...");
+		for (target, name, _is_emulator) in available_android_targets {
+			println!("  Building for Android {} ({})...", name, target);
 
-		if !status.success() {
-			anyhow::bail!("Build failed for target: {}", target);
+			let status = Command::new("cargo")
+				.args(["build", "--release", "--target", target])
+				.current_dir(&mobile_core_dir)
+				.status()
+				.context(format!("Failed to build for {}", target))?;
+
+			if !status.success() {
+				anyhow::bail!("Build failed for target: {}", target);
+			}
+
+			println!("  ✓ {} build complete", name);
 		}
+	} else {
+		println!("No Android targets installed. Skipping Android builds.");
+		println!("  To add Android support, run:");
+		println!("  rustup target add aarch64-linux-android x86_64-linux-android");
 	}
 
 	// Copy built libraries to the iOS module directory
