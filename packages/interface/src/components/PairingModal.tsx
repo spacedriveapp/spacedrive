@@ -25,7 +25,6 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
   const [mode, setMode] = useState<"generate" | "join">(initialMode);
   const [joinCode, setJoinCode] = useState("");
   const [joinNodeId, setJoinNodeId] = useState("");
-  const [autoAccept, setAutoAccept] = useState(false);
 
   const generatePairing = useCoreMutation("network.pair.generate");
   const joinPairing = useCoreMutation("network.pair.join");
@@ -50,7 +49,7 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
   const currentSession = pairingStatus?.sessions?.[0];
 
   const handleGenerate = () => {
-    generatePairing.mutate({ auto_accept: autoAccept });
+    generatePairing.mutate({});
   };
 
   const handleJoin = () => {
@@ -166,8 +165,6 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
               <GenerateMode
                 generatePairing={generatePairing}
                 currentSession={currentSession}
-                autoAccept={autoAccept}
-                setAutoAccept={setAutoAccept}
                 onGenerate={handleGenerate}
                 onCancel={handleCancel}
                 onCopyCode={copyCode}
@@ -211,8 +208,6 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
 function GenerateMode({
   generatePairing,
   currentSession,
-  autoAccept,
-  setAutoAccept,
   onGenerate,
   onCancel,
   onCopyCode,
@@ -245,22 +240,6 @@ function GenerateMode({
                 </p>
               </div>
             </div>
-
-            {/* Auto-accept option */}
-            <label className="flex items-start gap-3 p-4 bg-app-box border border-app-line rounded-lg cursor-pointer hover:bg-app-hover transition-colors">
-              <input
-                type="checkbox"
-                checked={autoAccept}
-                onChange={(e) => setAutoAccept(e.target.checked)}
-                className="mt-0.5 size-4 rounded border-app-line bg-app-box text-accent focus:ring-accent"
-              />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-ink">Auto-accept pairing</span>
-                <p className="text-xs text-ink-dull mt-1">
-                  Complete pairing automatically without manual confirmation
-                </p>
-              </div>
-            </label>
           </div>
 
           {/* Generate Button */}
