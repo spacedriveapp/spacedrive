@@ -96,7 +96,7 @@ pub fn generate_phase_summary(analyzer: &LogAnalyzer, phase_duration_secs: u64) 
 				.join("::");
 			by_module
 				.entry(module_base)
-				.or_insert_with(Vec::new)
+				.or_default()
 				.push((template_id, count));
 		}
 

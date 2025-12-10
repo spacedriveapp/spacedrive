@@ -17,7 +17,7 @@ fn main() {
 
 			// Run actool to compile .icon to Assets.car
 			let output = Command::new("xcrun")
-				.args(&[
+				.args([
 					"actool",
 					&icon_source,
 					"--compile",

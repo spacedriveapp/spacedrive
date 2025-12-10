@@ -241,7 +241,7 @@ fn thumb_scale_filter_args(
 					eprintln!("Warning: Failed to calculate width with pixel aspect ratio");
 					// Keep the original width as fallback
 				}
-			};
+			}
 			if size != 0 {
 				if height > width {
 					width = (width * size) / height;

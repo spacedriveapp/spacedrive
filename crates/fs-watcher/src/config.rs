@@ -110,22 +110,20 @@ impl EventFilters {
 		let path_str = path.to_string_lossy();
 
 		// Check temp files
-		if self.skip_temp_files {
-			if path_str.contains(".tmp")
+		if self.skip_temp_files
+			&& (path_str.contains(".tmp")
 				|| path_str.contains(".temp")
 				|| path_str.ends_with("~")
-				|| path_str.ends_with(".swp")
+				|| path_str.ends_with(".swp"))
 			{
 				return true;
 			}
-		}
 
 		// Check system files
-		if self.skip_system_files {
-			if path_str.contains(".DS_Store") || path_str.contains("Thumbs.db") {
+		if self.skip_system_files
+			&& (path_str.contains(".DS_Store") || path_str.contains("Thumbs.db")) {
 				return true;
 			}
-		}
 
 		// Check hidden files
 		if self.skip_hidden {

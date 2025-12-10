@@ -239,7 +239,7 @@ fn build_ios() -> Result<()> {
 		println!("Building for iOS {} ({})...", platform, arch);
 
 		let status = Command::new("cargo")
-			.args(&["build", "--release", "--target", target])
+			.args(["build", "--release", "--target", target])
 			.current_dir(&ios_core_dir)
 			.env("IPHONEOS_DEPLOYMENT_TARGET", "12.0")
 			.status()
@@ -284,7 +284,7 @@ fn build_ios() -> Result<()> {
 	// Create universal simulator library using lipo
 	println!("Creating universal simulator library...");
 	let status = Command::new("lipo")
-		.args(&[
+		.args([
 			"-create",
 			ios_core_dir
 				.join(format!(

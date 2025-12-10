@@ -28,7 +28,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 	let name = &input.ident;
 
 	// Ensure this is a struct
-	let _data = match &input.data {
+	match &input.data {
 		Data::Struct(DataStruct { .. }) => {}
 		_ => {
 			return syn::Error::new_spanned(&input.ident, "Job can only be derived for structs")

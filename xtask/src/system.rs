@@ -99,7 +99,7 @@ fn detect_libc() -> Result<Libc> {
 /// Get list of installed Rust targets
 pub fn get_rust_targets() -> Result<Vec<String>> {
 	let output = Command::new("rustup")
-		.args(&["target", "list", "--installed"])
+		.args(["target", "list", "--installed"])
 		.output()?;
 
 	if !output.status.success() {
@@ -129,10 +129,9 @@ pub fn get_best_linker() -> Option<String> {
 				return Some("lld".to_string());
 			}
 		}
-	} else if cfg!(target_os = "windows") {
-		if has_linker("lld-link") {
+	} else if cfg!(target_os = "windows")
+		&& has_linker("lld-link") {
 			return Some("lld-link".to_string());
 		}
-	}
 	None
 }
