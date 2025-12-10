@@ -46,7 +46,7 @@ fn generate_swift_api_code() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Generate the API code using the existing binary
 	let output = std::process::Command::new("cargo")
-		.args(&["run", "--bin", "generate_swift_types", "--quiet"])
+		.args(["run", "--bin", "generate_swift_types", "--quiet"])
 		.output()?;
 
 	if !output.status.success() {
