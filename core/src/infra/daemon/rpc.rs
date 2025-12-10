@@ -7,6 +7,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{mpsc, RwLock};
 use uuid::Uuid;
 
+use crate::infra::daemon::event_buffer::EventBuffer;
 use crate::infra::daemon::types::{DaemonError, DaemonRequest, DaemonResponse, EventFilter};
 use crate::infra::event::log_emitter::{set_global_log_bus, LogMessage};
 use crate::infra::event::{Event, EventSubscriber};
@@ -34,6 +35,8 @@ pub struct RpcServer {
 	connection_count: Arc<AtomicUsize>,
 	/// Maximum number of concurrent connections
 	max_connections: usize,
+	/// Event buffer for handling subscription race conditions
+	event_buffer: Arc<EventBuffer>,
 }
 
 impl RpcServer {
@@ -47,6 +50,7 @@ impl RpcServer {
 			connections: Arc::new(RwLock::new(HashMap::new())),
 			connection_count: Arc::new(AtomicUsize::new(0)),
 			max_connections: 100, // Reasonable limit for concurrent connections
+			event_buffer: Arc::new(EventBuffer::new()),
 		}
 	}
 
@@ -82,6 +86,7 @@ impl RpcServer {
 							let shutdown_tx = self.shutdown_tx.clone();
 							let connections = self.connections.clone();
 							let connection_count = self.connection_count.clone();
+							let event_buffer = self.event_buffer.clone();
 
 							// Increment connection counter
 							connection_count.fetch_add(1, Ordering::Relaxed);
@@ -89,7 +94,7 @@ impl RpcServer {
 							// Spawn task for concurrent request handling
 							tokio::spawn(async move {
 								// Convert errors to strings to ensure Send
-								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections, connection_count).await {
+								if let Err(e) = Self::handle_connection(stream, core, shutdown_tx, connections, connection_count, event_buffer).await {
 									eprintln!("Connection error: {}", e);
 								}
 							});
@@ -137,9 +142,13 @@ impl RpcServer {
 		// Start main event broadcaster
 		let mut event_subscriber = core.events.subscribe();
 		let connections = self.connections.clone();
+		let event_buffer = self.event_buffer.clone();
 
 		tokio::spawn(async move {
 			while let Ok(event) = event_subscriber.recv().await {
+				// Add to buffer before broadcasting (for subscription race condition handling)
+				event_buffer.add_event(event.clone()).await;
+
 				let connections_read = connections.read().await;
 
 				// Broadcast event to all subscribed connections
@@ -164,6 +173,16 @@ impl RpcServer {
 							.send(DaemonResponse::Event(event.clone()));
 					}
 				}
+			}
+		});
+
+		// Spawn periodic cleanup task for event buffer
+		let buffer_clone = self.event_buffer.clone();
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(std::time::Duration::from_secs(1));
+			loop {
+				interval.tick().await;
+				buffer_clone.cleanup_expired().await;
 			}
 		});
 
@@ -299,6 +318,7 @@ impl RpcServer {
 		shutdown_tx: mpsc::Sender<()>,
 		connections: Arc<RwLock<HashMap<Uuid, Connection>>>,
 		connection_count: Arc<AtomicUsize>,
+		event_buffer: Arc<EventBuffer>,
 	) -> Result<(), String> {
 		let connection_id = Uuid::new_v4();
 		let (mut reader, mut writer) = stream.into_split();
@@ -327,7 +347,8 @@ impl RpcServer {
 										&shutdown_tx,
 										&connections,
 										connection_id,
-										&response_tx
+										&response_tx,
+										&event_buffer
 									).await;
 
 									// Send response
@@ -411,6 +432,7 @@ impl RpcServer {
 		connections: &Arc<RwLock<HashMap<Uuid, Connection>>>,
 		connection_id: Uuid,
 		response_tx: &mpsc::UnboundedSender<DaemonResponse>,
+		event_buffer: &Arc<EventBuffer>,
 	) -> DaemonResponse {
 		match request {
 			DaemonRequest::Ping => DaemonResponse::Pong,
@@ -443,7 +465,13 @@ impl RpcServer {
 				event_types,
 				filter,
 			} => {
-				// Register connection for event streaming
+				// Step 1: Get buffered events BEFORE registering connection
+				// This prevents race between replay and live events
+				let matching_events = event_buffer
+					.get_matching_events(&event_types, &filter)
+					.await;
+
+				// Step 2: Register connection for event streaming (starts receiving live events)
 				let connection = Connection {
 					id: connection_id,
 					response_tx: response_tx.clone(),
@@ -453,6 +481,13 @@ impl RpcServer {
 				};
 
 				connections.write().await.insert(connection_id, connection);
+
+				// Step 3: Send buffered events in chronological order
+				// This ensures no gaps between buffered and live events
+				for event in matching_events {
+					let _ = response_tx.send(DaemonResponse::Event((*event).clone()));
+				}
+
 				DaemonResponse::Subscribed
 			}
 
