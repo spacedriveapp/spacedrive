@@ -129,9 +129,8 @@ pub fn get_best_linker() -> Option<String> {
 				return Some("lld".to_string());
 			}
 		}
-	} else if cfg!(target_os = "windows")
-		&& has_linker("lld-link") {
-			return Some("lld-link".to_string());
-		}
+	} else if cfg!(target_os = "windows") && has_linker("lld-link") {
+		return Some("lld-link".to_string());
+	}
 	None
 }

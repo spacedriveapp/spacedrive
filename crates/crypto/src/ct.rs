@@ -175,7 +175,9 @@ impl ConstantTimeEqNull for [u8] {
 	#[inline]
 	fn ct_eq_null(&self) -> Choice {
 		let mut x = 1u8;
-		for b in self { b.cmovne(&0, 0u8, &mut x); }
+		for b in self {
+			b.cmovne(&0, 0u8, &mut x);
+		}
 		Choice::from(x)
 	}
 }

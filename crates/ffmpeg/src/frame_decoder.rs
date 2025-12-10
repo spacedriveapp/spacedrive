@@ -92,7 +92,8 @@ impl FrameDecoder {
 		})
 	}
 
-	#[must_use] pub const fn use_embedded(&self) -> bool {
+	#[must_use]
+	pub const fn use_embedded(&self) -> bool {
 		self.embedded
 	}
 
@@ -224,7 +225,8 @@ impl FrameDecoder {
 		})
 	}
 
-	#[must_use] pub fn get_duration_secs(&self) -> Option<f64> {
+	#[must_use]
+	pub fn get_duration_secs(&self) -> Option<f64> {
 		self.format_ctx.duration().map(|duration| {
 			let av_time_base = i64::from(AV_TIME_BASE);
 			#[allow(clippy::cast_precision_loss)]

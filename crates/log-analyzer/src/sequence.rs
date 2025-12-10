@@ -49,11 +49,11 @@ pub fn detect_sequences(groups: &[LogGroup]) -> Vec<SequencePattern> {
 				if !used_indices[current]
 					&& template_ids[current..current + window_size] == *pattern
 				{
-				repetitions += 1;
-				// Mark as used
-				for item in used_indices.iter_mut().skip(current).take(window_size) {
-					*item = true;
-				}
+					repetitions += 1;
+					// Mark as used
+					for item in used_indices.iter_mut().skip(current).take(window_size) {
+						*item = true;
+					}
 					current += window_size;
 				} else {
 					break;

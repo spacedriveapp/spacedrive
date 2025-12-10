@@ -23,7 +23,10 @@ pub struct ServerState {
 }
 
 /// Find library folder by UUID (reads library.json files to match ID)
-async fn find_library_folder(data_dir: &std::path::Path, library_id: &str) -> Result<PathBuf, StatusCode> {
+async fn find_library_folder(
+	data_dir: &std::path::Path,
+	library_id: &str,
+) -> Result<PathBuf, StatusCode> {
 	let libraries_dir = data_dir.join("libraries");
 
 	// Read all .sdlibrary folders

@@ -115,15 +115,16 @@ impl EventFilters {
 				|| path_str.contains(".temp")
 				|| path_str.ends_with("~")
 				|| path_str.ends_with(".swp"))
-			{
-				return true;
-			}
+		{
+			return true;
+		}
 
 		// Check system files
 		if self.skip_system_files
-			&& (path_str.contains(".DS_Store") || path_str.contains("Thumbs.db")) {
-				return true;
-			}
+			&& (path_str.contains(".DS_Store") || path_str.contains("Thumbs.db"))
+		{
+			return true;
+		}
 
 		// Check hidden files
 		if self.skip_hidden {
