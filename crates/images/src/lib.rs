@@ -83,9 +83,10 @@ pub trait ImageHandler {
 	}
 }
 
-/// This takes in a width and a height, and returns a scaled width and height
-/// It is scaled proportionally to the [`TARGET_PX`], so smaller images will be upscaled,
-/// and larger images will be downscaled. This approach also maintains the aspect ratio of the image.
+/// Scales image dimensions proportionally to [`TARGET_PX`].
+///
+/// Takes width and height, returns scaled dimensions. Smaller images are upscaled,
+/// larger images are downscaled while maintaining aspect ratio.
 #[allow(
 	clippy::as_conversions,
 	clippy::cast_precision_loss,
