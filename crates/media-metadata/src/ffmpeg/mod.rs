@@ -30,6 +30,7 @@ pub struct FFmpegMetadata {
 }
 
 impl FFmpegMetadata {
+	#[allow(clippy::unused_async)]
 	pub async fn from_path(path: impl AsRef<Path> + Send) -> Result<Self> {
 		#[cfg(not(feature = "ffmpeg"))]
 		{

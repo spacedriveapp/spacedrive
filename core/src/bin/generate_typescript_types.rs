@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	typescript_code.push_str(&individual_types);
-	typescript_code.push_str("\n");
+	typescript_code.push('\n');
 
 	// Generate operation/query type unions (like Swift enums)
 	typescript_code.push_str("// ===== API Type Unions =====\n\n");

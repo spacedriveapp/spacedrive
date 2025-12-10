@@ -868,20 +868,20 @@ impl TrackedVolume {
 
 impl FileSystem {
 	/// Convert to string for storage
-	pub fn to_string(&self) -> String {
+	pub fn as_str(&self) -> &str {
 		match self {
-			FileSystem::APFS => "APFS".to_string(),
-			FileSystem::NTFS => "NTFS".to_string(),
-			FileSystem::Ext4 => "ext4".to_string(),
-			FileSystem::Btrfs => "btrfs".to_string(),
-			FileSystem::ZFS => "ZFS".to_string(),
-			FileSystem::ReFS => "ReFS".to_string(),
-			FileSystem::FAT32 => "FAT32".to_string(),
-			FileSystem::ExFAT => "exFAT".to_string(),
-			FileSystem::HFSPlus => "HFS+".to_string(),
-			FileSystem::NFS => "NFS".to_string(),
-			FileSystem::SMB => "SMB".to_string(),
-			FileSystem::Other(name) => name.clone(),
+			FileSystem::APFS => "APFS",
+			FileSystem::NTFS => "NTFS",
+			FileSystem::Ext4 => "ext4",
+			FileSystem::Btrfs => "btrfs",
+			FileSystem::ZFS => "ZFS",
+			FileSystem::ReFS => "ReFS",
+			FileSystem::FAT32 => "FAT32",
+			FileSystem::ExFAT => "exFAT",
+			FileSystem::HFSPlus => "HFS+",
+			FileSystem::NFS => "NFS",
+			FileSystem::SMB => "SMB",
+			FileSystem::Other(name) => name.as_str(),
 		}
 	}
 
@@ -922,7 +922,7 @@ impl std::fmt::Display for VolumeType {
 
 impl std::fmt::Display for FileSystem {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.to_string())
+		write!(f, "{}", self.as_str())
 	}
 }
 

@@ -113,10 +113,12 @@ fn generate_swift_api_code(
 		eprintln!("This may cause Swift compilation errors.");
 	}
 
-	if individual_types.contains(": Codable {") && !individual_types.contains(": String, Codable") {
-		if individual_types.contains("case") && individual_types.contains(" = \"") {
-			eprintln!("WARNING: String enums without String raw type detected!");
-		}
+	if individual_types.contains(": Codable {")
+		&& !individual_types.contains(": String, Codable")
+		&& individual_types.contains("case")
+		&& individual_types.contains(" = \"")
+	{
+		eprintln!("WARNING: String enums without String raw type detected!");
 	}
 
 	println!(
@@ -140,7 +142,7 @@ fn generate_swift_api_code(
 	// }
 
 	swift_code.push_str(&individual_types);
-	swift_code.push_str("\n");
+	swift_code.push('\n');
 
 	// Generate the main API enum
 	swift_code.push_str("/// Complete Spacedrive API structure\n");
@@ -284,7 +286,7 @@ fn to_pascal_case(s: &str) -> String {
 					let mut chars = subpart.chars();
 					match chars.next() {
 						None => String::new(),
-						Some(first) => first.to_uppercase().collect::<String>() + &chars.as_str(),
+						Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
 					}
 				})
 				.collect::<String>()

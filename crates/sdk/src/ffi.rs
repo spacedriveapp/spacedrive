@@ -53,7 +53,7 @@ pub extern "C" fn wasm_alloc(size: i32) -> *mut u8 {
 
 /// Free memory allocated by wasm_alloc
 #[no_mangle]
-pub extern "C" fn wasm_free(ptr: *mut u8, size: i32) {
+pub unsafe extern "C" fn wasm_free(ptr: *mut u8, size: i32) {
 	if !ptr.is_null() {
 		let layout = std::alloc::Layout::from_size_align(size as usize, 1).unwrap();
 		unsafe { std::alloc::dealloc(ptr, layout) };

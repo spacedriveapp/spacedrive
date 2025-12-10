@@ -168,6 +168,8 @@ impl<Id: ActorId> ActorsCollection<Id> {
 	}
 
 	#[instrument(skip(self))]
+	/// # Panics
+	/// Panics if the actor is already running.
 	pub async fn start(&self, identifier: Id) {
 		let mut actors_map = self.actors_map.write().await;
 		if let Some(actor) = actors_map.get_mut(&identifier) {
@@ -223,6 +225,8 @@ impl<Id: ActorId> ActorsCollection<Id> {
 	}
 
 	#[instrument(skip(self))]
+	/// # Panics
+	/// Panics if the actor handle finished without setting `is_running` to false.
 	pub async fn stop(&self, identifier: Id) {
 		let mut actors_map = self.actors_map.write().await;
 		if let Some(actor) = actors_map.get_mut(&identifier) {

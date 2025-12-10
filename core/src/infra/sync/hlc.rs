@@ -96,7 +96,7 @@ impl HLC {
 	///
 	/// Format: "{timestamp:016x}-{counter:016x}-{device_id}"
 	/// This format is lexicographically sortable and can be used as a database key.
-	pub fn to_string(&self) -> String {
+	pub fn as_display(&self) -> String {
 		format!(
 			"{:016x}-{:016x}-{}",
 			self.timestamp, self.counter, self.device_id

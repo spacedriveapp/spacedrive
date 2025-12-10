@@ -17,7 +17,7 @@ use crate::platform::EventHandler;
 use crate::Result;
 use std::collections::HashMap;
 use std::os::unix::fs::MetadataExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{debug, trace};
@@ -101,7 +101,7 @@ impl MacOsHandler {
 	}
 
 	/// Try to match a create event with a pending remove (rename detection)
-	async fn try_match_rename(&self, path: &PathBuf, inode: u64) -> Option<PathBuf> {
+	async fn try_match_rename(&self, path: &Path, inode: u64) -> Option<PathBuf> {
 		let mut removes = self.pending_removes.write().await;
 		if let Some(pending) = removes.remove(&inode) {
 			debug!(

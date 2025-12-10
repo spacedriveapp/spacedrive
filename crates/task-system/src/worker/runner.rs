@@ -182,6 +182,7 @@ impl<E: RunError> Runner<E> {
 		handle
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	#[instrument(skip(self, task_work_state))]
 	pub(super) fn new_task(
 		&mut self,
@@ -204,6 +205,7 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	#[instrument(skip(self))]
 	pub(super) fn resume_task(&mut self, task_id: TaskId) -> Result<(), SystemError> {
 		trace!("Resume task request");
@@ -303,6 +305,7 @@ impl<E: RunError> Runner<E> {
 		false
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	#[instrument(skip(self))]
 	pub(super) fn cancel_not_running_task(&mut self, task_id: &TaskId) -> Result<(), SystemError> {
 		trace!("Cancel not running task request");
@@ -397,6 +400,7 @@ impl<E: RunError> Runner<E> {
 		self.is_idle = false;
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	#[instrument(skip(self, task_work_state))]
 	#[inline]
 	fn add_task_when_busy(
@@ -996,6 +1000,7 @@ impl<E: RunError> Runner<E> {
 		}
 	}
 
+	#[allow(clippy::cognitive_complexity)]
 	#[instrument(skip(self))]
 	pub(crate) fn clean_suspended_task(&mut self, task_id: &TaskId) {
 		match self.waiting_suspension {
@@ -1026,6 +1031,7 @@ impl<E: RunError> Runner<E> {
 
 type RunTaskOutput<E> = (Box<dyn Task<E>>, Result<Result<ExecStatus, E>, SystemError>);
 
+#[allow(clippy::cognitive_complexity)]
 #[instrument(skip(task, worktable, interrupter))]
 fn handle_run_task_attempt<E: RunError>(
 	task_id: TaskId,
@@ -1121,6 +1127,7 @@ type PartialTaskWorkState<E> = (
 	Arc<Interrupter>,
 );
 
+#[allow(clippy::cognitive_complexity)]
 async fn emit_task_completed_message<E: RunError>(
 	run_task_output: RunTaskOutput<E>,
 	has_suspended: Arc<AtomicBool>,

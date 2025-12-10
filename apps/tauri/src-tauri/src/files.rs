@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tracing::error;
 
 /// Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.)
@@ -59,7 +59,7 @@ pub async fn get_sidecar_path(
 }
 
 /// Find library folder by UUID (reads library.json files to match ID)
-async fn find_library_folder(data_dir: &PathBuf, library_id: &str) -> Result<PathBuf, String> {
+async fn find_library_folder(data_dir: &Path, library_id: &str) -> Result<PathBuf, String> {
 	let libraries_dir = data_dir.join("libraries");
 
 	// Read all .sdlibrary folders
@@ -92,7 +92,7 @@ async fn find_library_folder(data_dir: &PathBuf, library_id: &str) -> Result<Pat
 }
 
 #[cfg(target_os = "macos")]
-fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
+fn reveal_path(path: &Path) -> Result<(), std::io::Error> {
 	std::process::Command::new("open")
 		.arg("-R")
 		.arg(path)
@@ -102,7 +102,7 @@ fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
 }
 
 #[cfg(target_os = "windows")]
-fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
+fn reveal_path(path: &Path) -> Result<(), std::io::Error> {
 	std::process::Command::new("explorer")
 		.arg("/select,")
 		.arg(path)
@@ -112,7 +112,7 @@ fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
 }
 
 #[cfg(target_os = "linux")]
-fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
+fn reveal_path(path: &Path) -> Result<(), std::io::Error> {
 	// On Linux, we'll try to open the parent directory
 	// Different desktop environments have different file managers
 	if let Some(parent) = path.parent() {
@@ -125,7 +125,7 @@ fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-fn reveal_path(path: &PathBuf) -> Result<(), std::io::Error> {
+fn reveal_path(path: &Path) -> Result<(), std::io::Error> {
 	Err(std::io::Error::new(
 		std::io::ErrorKind::Unsupported,
 		"Reveal is not supported on this platform",

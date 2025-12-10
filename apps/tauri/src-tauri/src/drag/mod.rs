@@ -92,6 +92,7 @@ impl DragCoordinator {
 		Ok(())
 	}
 
+	#[allow(dead_code)]
 	pub fn update_position(&self, app: &AppHandle, x: f64, y: f64) {
 		if let Some((session, _)) = self.state.read().as_ref() {
 			app.emit(
@@ -106,6 +107,7 @@ impl DragCoordinator {
 		}
 	}
 
+	#[allow(dead_code)]
 	pub fn enter_window(&self, app: &AppHandle, window_label: String) {
 		if let Some((session, _)) = self.state.read().as_ref() {
 			app.emit(
@@ -119,6 +121,7 @@ impl DragCoordinator {
 		}
 	}
 
+	#[allow(dead_code)]
 	pub fn leave_window(&self, app: &AppHandle, window_label: String) {
 		if let Some((session, _)) = self.state.read().as_ref() {
 			app.emit(

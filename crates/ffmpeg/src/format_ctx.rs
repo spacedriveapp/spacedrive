@@ -66,6 +66,7 @@ impl FFmpegFormatContext {
 		Some(duration)
 	}
 
+	#[allow(clippy::mut_from_ref)]
 	pub(crate) fn stream(&self, index: u32) -> Option<&mut AVStream> {
 		let streams = self.as_ref().streams;
 		if streams.is_null() {
@@ -128,6 +129,7 @@ impl FFmpegFormatContext {
 		Ok(self)
 	}
 
+	#[allow(clippy::mut_from_ref)]
 	pub(crate) fn find_preferred_video_stream(
 		&self,
 		prefer_embedded_metadata: bool,

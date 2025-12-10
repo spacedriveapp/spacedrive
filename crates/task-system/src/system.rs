@@ -213,6 +213,7 @@ impl<E: RunError> System<E> {
 	///
 	/// If the system message channel is closed for some unknown reason or if we fail to respond to
 	/// oneshot channel with shutdown response.
+	#[allow(clippy::cognitive_complexity)]
 	pub async fn shutdown(&self) {
 		self.has_shutdown.store(true, Ordering::Release);
 		if let Some(handle) = self

@@ -352,15 +352,14 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	let mut buf_reader = BufReader::new(reader);
 	let mut response_line = String::new();
 
-	match tokio::time::timeout(
-		tokio::time::Duration::from_millis(500),
-		buf_reader.read_line(&mut response_line),
+	matches!(
+		tokio::time::timeout(
+			tokio::time::Duration::from_millis(500),
+			buf_reader.read_line(&mut response_line),
+		)
+		.await,
+		Ok(Ok(_)) if !response_line.is_empty()
 	)
-	.await
-	{
-		Ok(Ok(_)) if !response_line.is_empty() => true,
-		_ => false,
-	}
 }
 
 /// Graceful shutdown handler

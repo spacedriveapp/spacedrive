@@ -88,6 +88,7 @@ struct DaemonState {
 
 /// Daemon connection pool - maintains ONE persistent connection for all subscriptions
 /// Multiplexes Subscribe/Unsubscribe messages over a single TCP connection
+#[allow(dead_code)]
 struct DaemonConnectionPool {
 	socket_addr: String,
 	writer: Arc<tokio::sync::Mutex<Option<tokio::net::tcp::OwnedWriteHalf>>>,
@@ -96,6 +97,7 @@ struct DaemonConnectionPool {
 	initialized: Arc<tokio::sync::Mutex<bool>>,
 }
 
+#[allow(dead_code)]
 impl DaemonConnectionPool {
 	fn new(socket_addr: String) -> Self {
 		Self {
@@ -940,13 +942,13 @@ async fn install_daemon_service(
 		// Unload any existing service first
 		tracing::info!("Unloading any existing service");
 		let _ = std::process::Command::new("launchctl")
-			.args(&["unload", plist_path.to_str().unwrap()])
+			.args(["unload", plist_path.to_str().unwrap()])
 			.output();
 
 		// Load the service (this starts the daemon)
 		tracing::info!("Loading service with launchctl");
 		let output = std::process::Command::new("launchctl")
-			.args(&["load", plist_path.to_str().unwrap()])
+			.args(["load", plist_path.to_str().unwrap()])
 			.output()
 			.map_err(|e| format!("Failed to load service: {}", e))?;
 
@@ -1278,7 +1280,7 @@ async fn uninstall_daemon_service() -> Result<(), String> {
 		if plist_path.exists() {
 			// Unload the service
 			let _ = std::process::Command::new("launchctl")
-				.args(&["unload", plist_path.to_str().unwrap()])
+				.args(["unload", plist_path.to_str().unwrap()])
 				.output();
 
 			std::fs::remove_file(&plist_path)
@@ -1792,7 +1794,7 @@ fn main() {
 		])
 		.setup(|app| {
 			// Setup native menu
-			if let Err(e) = setup_menu(&app.handle()) {
+			if let Err(e) = setup_menu(app.handle()) {
 				tracing::warn!("Failed to setup menu: {}", e);
 			}
 			tracing::info!("Spacedrive Tauri app starting...");

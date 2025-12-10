@@ -157,7 +157,7 @@ impl PairingCode {
 	}
 
 	/// Convert to display string (for local pairing - BIP39 words only)
-	pub fn to_string(&self) -> String {
+	pub fn as_display(&self) -> String {
 		self.words.join(" ")
 	}
 
@@ -278,7 +278,7 @@ impl PairingCode {
 
 impl std::fmt::Display for PairingCode {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", self.to_string())
+		write!(f, "{}", self.as_display())
 	}
 }
 

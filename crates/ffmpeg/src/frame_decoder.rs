@@ -244,6 +244,7 @@ impl FrameDecoder {
 		}
 	}
 
+	#[allow(clippy::mut_from_ref)]
 	fn is_packet_for_stream(&self) -> Option<&mut AVPacket> {
 		let packet = (unsafe { self.packet.as_mut() })?;
 

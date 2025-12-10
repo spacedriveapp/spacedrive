@@ -42,7 +42,8 @@ swift!(pub fn end_native_drag(session_id: &SRString));
 swift!(pub fn update_drag_overlay_position(session_id: &SRString, x: f64, y: f64));
 
 // Callback from Swift when drag session ends
-static mut DRAG_ENDED_CALLBACK: Option<Box<dyn Fn(&str, bool) + Send + Sync>> = None;
+type DragEndedCallback = Option<Box<dyn Fn(&str, bool) + Send + Sync>>;
+static mut DRAG_ENDED_CALLBACK: DragEndedCallback = None;
 
 pub fn set_drag_ended_callback<F>(callback: F)
 where
@@ -53,8 +54,12 @@ where
 	}
 }
 
+/// # Safety
+///
+/// This function is called from Swift when a drag session ends.
+/// The `session_id` must be a valid null-terminated C string pointer.
 #[no_mangle]
-pub extern "C" fn rust_drag_ended_callback(session_id: *const std::ffi::c_char, was_dropped: Bool) {
+pub unsafe extern "C" fn rust_drag_ended_callback(session_id: *const std::ffi::c_char, was_dropped: Bool) {
 	let session_id_str = unsafe {
 		std::ffi::CStr::from_ptr(session_id)
 			.to_string_lossy()

@@ -1,5 +1,6 @@
 use std::{
 	ffi::{CStr, CString},
+	fmt::Write,
 	ptr,
 };
 
@@ -218,12 +219,12 @@ fn thumb_scale_filter_args(
 	let mut scale = String::new();
 
 	if let Some(height) = height {
-		scale.push_str(&format!("w={width}:h={height}"));
+		let _ = write!(scale, "w={width}:h={height}");
 		if maintain_aspect_ratio {
 			scale.push_str(":force_original_aspect_ratio=decrease");
 		}
 	} else if !maintain_aspect_ratio {
-		scale.push_str(&format!("w={width}:h={width}"));
+		let _ = write!(scale, "w={width}:h={width}");
 	} else {
 		let size = width;
 		let mut width = codec_ctx.as_ref().width.unsigned_abs();
@@ -252,11 +253,11 @@ fn thumb_scale_filter_args(
 				}
 			}
 
-			scale.push_str(&format!("w={width}:h={height}"));
+			let _ = write!(scale, "w={width}:h={height}");
 		} else if height > width {
-			scale.push_str(&format!("w=-1:h={}", if size == 0 { height } else { size }));
+			let _ = write!(scale, "w=-1:h={}", if size == 0 { height } else { size });
 		} else {
-			scale.push_str(&format!("h=-1:w={}", if size == 0 { width } else { size }));
+			let _ = write!(scale, "h=-1:w={}", if size == 0 { width } else { size });
 		}
 	}
 

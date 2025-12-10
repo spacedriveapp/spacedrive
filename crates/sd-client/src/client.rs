@@ -41,18 +41,10 @@ impl SpacedriveClient {
 	{
 		let is_query = wire_method.starts_with("query:");
 
-		let request = if is_query {
-			QueryRequest {
-				method: wire_method.to_string(),
-				library_id: self.library_id.clone(),
-				payload: serde_json::to_value(input)?,
-			}
-		} else {
-			QueryRequest {
-				method: wire_method.to_string(),
-				library_id: self.library_id.clone(),
-				payload: serde_json::to_value(input)?,
-			}
+		let request = QueryRequest {
+			method: wire_method.to_string(),
+			library_id: self.library_id.clone(),
+			payload: serde_json::to_value(input)?,
 		};
 
 		let request_json = if is_query {
@@ -77,7 +69,9 @@ impl SpacedriveClient {
 		#[derive(serde::Deserialize)]
 		struct MediaListingResponse {
 			files: Vec<File>,
+			#[allow(dead_code)]
 			has_more: bool,
+			#[allow(dead_code)]
 			total_count: usize,
 		}
 
@@ -103,10 +97,7 @@ impl SpacedriveClient {
 		format!(
 			"{}/sidecar/{}/{}/thumb/{}.{}",
 			self.http_base_url,
-			self.library_id
-				.as_ref()
-				.map(|s| s.as_str())
-				.unwrap_or("None"),
+			self.library_id.as_deref().unwrap_or("None"),
 			content_uuid,
 			variant,
 			format

@@ -27,7 +27,9 @@
 				"dragDropEnabled": true,
 				"decorations": true,
 				"windowEffects": {
-					"effects": ["sidebar"],
+					"effects": [
+						"sidebar"
+					],
 					"state": "followsWindowActiveState",
 					"radius": 9
 				}
@@ -42,7 +44,10 @@
 			},
 			"assetProtocol": {
 				"enable": true,
-				"scope": ["$HOME/**", "/Volumes/**"]
+				"scope": [
+					"$HOME/**",
+					"/Volumes/**"
+				]
 			}
 		}
 	},
@@ -62,7 +67,9 @@
 		},
 		"fileAssociations": [
 			{
-				"ext": ["memory"],
+				"ext": [
+					"memory"
+				],
 				"name": "Spacedrive Memory",
 				"description": "Spacedrive Memory File",
 				"role": "Editor",
@@ -71,14 +78,21 @@
 		],
 		"linux": {
 			"deb": {
-				"depends": ["libc6", "libxdo3", "libwebkit2gtk-4.1-0", "libgtk-3-0"]
+				"depends": [
+					"libc6",
+					"libxdo3",
+					"libwebkit2gtk-4.1-0",
+					"libgtk-3-0"
+				]
 			}
 		},
 		"macOS": {
 			"minimumSystemVersion": "10.15",
 			"signingIdentity": "-",
 			"infoPlist": "Info.plist",
-			"frameworks": ["../apps/.deps/Frameworks/Spacedrive.framework"]
+			"frameworks": [
+				"../../.deps/Spacedrive.framework"
+			]
 		},
 		"windows": {
 			"webviewInstallMode": {

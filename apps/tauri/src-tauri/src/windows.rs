@@ -279,17 +279,15 @@ impl SpacedriveWindow {
 				{
 					use tauri::Position;
 					// Get screen size and position window
-					if let Ok(monitor) = window.current_monitor() {
-						if let Some(monitor) = monitor {
-							let size = monitor.size();
-							// Bottom center, 40px from bottom
-							window
-								.set_position(Position::Physical(tauri::PhysicalPosition {
-									x: (size.width as i32) / 2 - 100,
-									y: (size.height as i32) - 120,
-								}))
-								.ok();
-						}
+					if let Ok(Some(monitor)) = window.current_monitor() {
+						let size = monitor.size();
+						// Bottom center, 40px from bottom
+						window
+							.set_position(Position::Physical(tauri::PhysicalPosition {
+								x: (size.width as i32) / 2 - 100,
+								y: (size.height as i32) - 120,
+							}))
+							.ok();
 					}
 				}
 
@@ -362,6 +360,7 @@ impl SpacedriveWindow {
 }
 
 /// Helper to create a window with common configuration
+#[allow(clippy::too_many_arguments)]
 fn create_window(
 	app: &AppHandle,
 	label: &str,
@@ -448,11 +447,7 @@ pub fn apply_macos_styling(app: AppHandle) -> Result<(), String> {
 /// Tauri command to list all open windows
 #[tauri::command]
 pub async fn list_windows(app: AppHandle) -> Result<Vec<String>, String> {
-	Ok(app
-		.webview_windows()
-		.into_iter()
-		.map(|(label, _)| label)
-		.collect())
+	Ok(app.webview_windows().into_keys().collect())
 }
 
 /// Tauri command to position and show context menu with screen boundary detection
