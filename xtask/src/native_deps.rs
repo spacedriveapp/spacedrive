@@ -120,7 +120,7 @@ pub fn symlink_libs_macos(root: &Path, native_deps: &Path) -> Result<()> {
 		use std::os::unix::fs as unix_fs;
 
 		// Create Spacedrive.framework symlink for dylibs (matches v1 behavior)
-		let framework = native_deps.join("Spacedrive.framework");
+		let framework = native_deps.join("Frameworks").join("Spacedrive.framework");
 		if framework.exists() {
 			// Sign all dylibs in the framework (required for macOS 13+)
 			let libs_dir = framework.join("Libraries");
