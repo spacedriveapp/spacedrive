@@ -93,7 +93,7 @@ jobs:
       fail-fast: false # Don't cancel other platforms if one fails
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
@@ -276,7 +276,7 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: oven-sh/setup-bun@v1
         with:
-          bun-version: latest
+          bun-version: "1.3.4"
 
       - name: Install dependencies
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'

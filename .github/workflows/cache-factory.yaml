@@ -8,10 +8,10 @@ on:
     branches:
       - main
   schedule:
-    - cron: '0 0 * * *'
+    - cron: "0 0 * * *"
   pull_request:
     paths:
-      - '.github/workflows/cache-factory.yaml'
+      - ".github/workflows/cache-factory.yaml"
   workflow_dispatch:
 
 # Cancel previous runs of the same workflow on the same branch.
@@ -32,7 +32,7 @@ jobs:
       fail-fast: true
       matrix:
         settings:
-          - host: macos-13
+          - host: macos-15-intel
             target: x86_64-apple-darwin
           - host: macos-14
             target: aarch64-apple-darwin
@@ -50,7 +50,7 @@ jobs:
           #   target: aarch64-unknown-linux-musl
           # - host: ubuntu-22.04
           #   target: armv7-unknown-linux-gnueabihf
-    name: 'Make Cache'
+    name: "Make Cache"
     runs-on: ${{ matrix.settings.host }}
     if: github.repository == 'spacedriveapp/spacedrive'
     permissions: {}
@@ -62,10 +62,10 @@ jobs:
         with:
           swap-size-mb: 4096
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,7 +82,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
-          save-cache: 'true'
+          save-cache: "true"
 
       - name: Compile tests (debug)
         run: cargo test --workspace --all-features --no-run --locked --target ${{ matrix.settings.target }}
