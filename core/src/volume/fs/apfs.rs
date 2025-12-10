@@ -547,6 +547,15 @@ fn should_be_user_visible(mount_point: &PathBuf, role: &ApfsVolumeRole, name: &s
 		return false;
 	}
 
+	// Hide cryptex volumes (e.g., MetalToolchainCryptex)
+	if mount_str.starts_with("/private/var/run/com.apple.security.cryptexd/") {
+		debug!(
+			"VISIBILITY: Hiding cryptex volume: name='{}' mount='{}'",
+			name, mount_str
+		);
+		return false;
+	}
+
 	// Hide the root "/" volume if it's a system volume (prefer showing Data volume instead)
 	// The Data volume is where actual user files live in modern macOS
 	if mount_str.as_ref() == "/" && matches!(role, ApfsVolumeRole::System) {

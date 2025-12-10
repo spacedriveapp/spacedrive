@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import {
 	Files,
@@ -47,6 +47,25 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 	const [conflictResolution, setConflictResolution] = useState<ConflictResolution>("Skip");
 
 	const copyFiles = useLibraryMutation("files.copy");
+
+	// Check if any source is the same as destination
+	const hasSameSourceDest = props.sources.some((source) => {
+		if ("Physical" in source && "Physical" in props.destination) {
+			return source.Physical.path === props.destination.Physical.path;
+		}
+		return false;
+	});
+
+	// Auto-close if invalid operation (must be in useEffect to avoid render loop)
+	useEffect(() => {
+		if (hasSameSourceDest) {
+			dialogManager.setState(props.id, { open: false });
+		}
+	}, [hasSameSourceDest, props.id]);
+
+	if (hasSameSourceDest) {
+		return null;
+	}
 
 	const handleSubmit = async () => {
 		try {

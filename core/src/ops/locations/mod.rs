@@ -10,6 +10,7 @@ pub mod rescan;
 pub mod suggested;
 pub mod trigger_job;
 pub mod update;
+pub mod validate;
 
 pub use add::*;
 pub use enable_indexing::*;
@@ -21,3 +22,7 @@ pub use rescan::*;
 pub use suggested::*;
 pub use trigger_job::*;
 pub use update::*;
+pub use validate::*;
+
+// Register validation query
+crate::register_library_query!(validate::ValidateLocationPathQuery, "locations.validate_path");

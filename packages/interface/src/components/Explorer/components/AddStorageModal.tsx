@@ -22,8 +22,13 @@ import type {
 	VolumeAddCloudInput,
 	CloudServiceType,
 	CloudStorageConfig,
+	ValidateLocationPathInput,
+	RiskLevel,
+	ValidationWarning as PathValidationWarning,
+	VolumeIndexingSuggestion,
+	IndexVolumeInput,
 } from "@sd/ts-client";
-import { useLibraryMutation, useLibraryQuery } from "../../../context";
+import { useLibraryMutation, useLibraryQuery, useCoreQuery, useSpacedriveClient } from "../../../context";
 import { usePlatform } from "../../../platform";
 import clsx from "clsx";
 
@@ -380,10 +385,18 @@ function AddStorageDialog(props: {
 	const [selectedProvider, setSelectedProvider] =
 		useState<CloudProvider | null>(null);
 	const [tab, setTab] = useState<SettingsTab>("preset");
+	const [showWarning, setShowWarning] = useState(false);
+	const [validationResult, setValidationResult] = useState<{
+		riskLevel: RiskLevel;
+		warnings: PathValidationWarning[];
+		suggestion: VolumeIndexingSuggestion | null;
+	} | null>(null);
 
+	const client = useSpacedriveClient();
 	const addLocation = useLibraryMutation("locations.add");
 	const addCloudVolume = useLibraryMutation("volumes.add_cloud");
 	const trackVolume = useLibraryMutation("volumes.track");
+	const indexVolume = useLibraryMutation("volumes.index");
 	const { data: suggestedLocations } = useLibraryQuery({
 		type: "locations.suggested",
 		input: null,
@@ -524,6 +537,36 @@ function AddStorageDialog(props: {
 	};
 
 	const onSubmitLocal = localForm.handleSubmit(async (data) => {
+		// Validate path first
+		const validateInput: ValidateLocationPathInput = {
+			path: {
+				Physical: {
+					device_slug: "local",
+					path: data.path,
+				},
+			},
+		};
+
+		let validation;
+		try {
+			validation = await client.query("locations.validate_path", validateInput);
+		} catch (error) {
+			console.error("Failed to validate path:", error);
+			// Continue anyway if validation fails
+		}
+
+		// Show warning dialog if path is risky
+		if (validation && (validation.risk_level === "medium" || validation.risk_level === "high")) {
+			setValidationResult({
+				riskLevel: validation.risk_level,
+				warnings: validation.warnings,
+				suggestion: validation.suggested_alternative || null,
+			});
+			setShowWarning(true);
+			return; // Wait for user decision
+		}
+
+		// Path is safe or user bypassed warning - proceed with adding location
 		const job_policies: any = {};
 		selectedJobs.forEach((jobId) => {
 			job_policies[jobId] = { enabled: true };
@@ -684,6 +727,78 @@ function AddStorageDialog(props: {
 			});
 		}
 	});
+
+	// Handle warning dialog actions
+	const handleProceedAnyway = async () => {
+		setShowWarning(false);
+		const data = localForm.getValues();
+
+		const job_policies: any = {};
+		selectedJobs.forEach((jobId) => {
+			job_policies[jobId] = { enabled: true };
+		});
+
+		const input: LocationAddInput = {
+			path: {
+				Physical: {
+					device_slug: "local",
+					path: data.path,
+				},
+			},
+			name: data.name || null,
+			mode: data.mode,
+			job_policies,
+		};
+
+		try {
+			const result = await addLocation.mutateAsync(input);
+			dialog.state.open = false;
+
+			if (result?.id && props.onStorageAdded) {
+				props.onStorageAdded(result.id);
+			}
+		} catch (error) {
+			console.error("Failed to add location:", error);
+			localForm.setError("root", {
+				type: "manual",
+				message:
+					error instanceof Error
+						? error.message
+						: "Failed to add location",
+			});
+		}
+	};
+
+	const handleUseVolumeIndexing = async () => {
+		if (!validationResult?.suggestion) return;
+
+		setShowWarning(false);
+
+		try {
+			const result = await indexVolume.mutateAsync({
+				fingerprint: validationResult.suggestion.volume_fingerprint,
+				scope: "Recursive",
+			});
+
+			dialog.state.open = false;
+
+			console.log("Volume indexed:", result.message);
+		} catch (error) {
+			console.error("Failed to index volume:", error);
+			localForm.setError("root", {
+				type: "manual",
+				message:
+					error instanceof Error
+						? error.message
+						: "Failed to index volume",
+			});
+		}
+	};
+
+	const handleCancelWarning = () => {
+		setShowWarning(false);
+		setValidationResult(null);
+	};
 
 	// Render category selection
 	if (step === "category") {
@@ -1326,6 +1441,69 @@ function AddStorageDialog(props: {
 					)}
 				</div>
 			</StorageDialog>
+		);
+	}
+
+	// Render warning dialog for risky paths
+	if (showWarning && validationResult) {
+		return (
+			<Dialog.Root open={showWarning} onOpenChange={setShowWarning}>
+				<Dialog.Portal>
+					<Dialog.Overlay className="fixed inset-0 bg-black/50 backdrop-blur-sm" />
+					<Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] bg-app-box border border-app-line rounded-lg p-6 shadow-2xl">
+						<Dialog.Title className="text-lg font-semibold text-ink mb-4">
+							{validationResult.riskLevel === "high"
+								? "⚠️ High Risk Path Detected"
+								: "⚠️ Warning"}
+						</Dialog.Title>
+
+						<div className="space-y-4 mb-6">
+							{validationResult.warnings.map((warning, i) => (
+								<div key={i} className="space-y-2">
+									<p className="text-sm text-ink">{warning.message}</p>
+									{warning.suggestion && (
+										<p className="text-xs text-ink-dull italic">
+											💡 {warning.suggestion}
+										</p>
+									)}
+								</div>
+							))}
+
+							{validationResult.suggestion && (
+								<div className="bg-accent/10 border border-accent rounded-lg p-4 space-y-3">
+									<p className="text-sm font-medium text-ink">
+										Alternative Suggestion
+									</p>
+									<p className="text-sm text-ink-dull">
+										{validationResult.suggestion.message}
+									</p>
+									<Button
+										onClick={handleUseVolumeIndexing}
+										variant="accent"
+										size="sm"
+										className="w-full"
+									>
+										Index Volume: {validationResult.suggestion.volume_name}
+									</Button>
+								</div>
+							)}
+						</div>
+
+						<div className="flex gap-2 justify-end">
+							<Button onClick={handleCancelWarning} variant="gray" size="sm">
+								Cancel
+							</Button>
+							<Button
+								onClick={handleProceedAnyway}
+								variant="outline"
+								size="sm"
+							>
+								Proceed Anyway
+							</Button>
+						</div>
+					</Dialog.Content>
+				</Dialog.Portal>
+			</Dialog.Root>
 		);
 	}
 

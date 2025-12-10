@@ -894,7 +894,7 @@ impl NetworkingEventLoop {
 		// Lock registry for updates
 		let mut registry = self.device_registry.write().await;
 
-		// Track which devices we've seen as connected
+		// Track which node IDs Iroh reports as connected
 		let mut connected_node_ids = std::collections::HashSet::new();
 
 		// Update devices that Iroh reports as connected
@@ -929,7 +929,42 @@ impl NetworkingEventLoop {
 			}
 		}
 
-		// Mark devices as no longer connected if they're not in Iroh's list
-		// (This is handled by update_device_from_connection when conn_type is None)
+		// Check devices that are marked as Connected in registry but NOT in Iroh's list
+		// These devices have silently disconnected and need to be transitioned back to Paired
+		let all_devices = registry.get_all_devices();
+		for (device_id, state) in all_devices {
+			if let crate::service::network::device::DeviceState::Connected { info, .. } = state {
+				// Get the node_id for this device
+				if let Ok(node_id) = info.network_fingerprint.node_id.parse::<NodeId>() {
+					// If this node is NOT in Iroh's connected list, it's stale
+					if !connected_node_ids.contains(&node_id) {
+						self.logger
+							.info(&format!(
+								"Device {} ({}) is marked Connected but not in Iroh's connection list - transitioning to Paired",
+								device_id, info.device_name
+							))
+							.await;
+
+						// Transition to Paired state via update_device_from_connection with None conn_type
+						if let Err(e) = registry
+							.update_device_from_connection(
+								device_id,
+								node_id,
+								iroh::endpoint::ConnectionType::None,
+								None,
+							)
+							.await
+						{
+							self.logger
+								.warn(&format!(
+									"Failed to transition stale device {} to Paired: {}",
+									device_id, e
+								))
+								.await;
+						}
+					}
+				}
+			}
+		}
 	}
 }

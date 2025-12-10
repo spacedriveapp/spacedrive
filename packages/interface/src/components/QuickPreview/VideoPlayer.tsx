@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Play, Pause, SpeakerHigh, SpeakerSlash, ArrowsOut, ClosedCaptioning, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowCounterClockwise, Gear } from '@phosphor-icons/react';
+import { Play, Pause, SpeakerHigh, SpeakerSlash, ArrowsOut, ClosedCaptioning, MagnifyingGlassPlus, MagnifyingGlassMinus, ArrowCounterClockwise, Gear, Repeat } from '@phosphor-icons/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { File } from '@sd/ts-client';
 import { Subtitles, type SubtitleSettings } from './Subtitles';
@@ -33,6 +33,7 @@ export function VideoPlayer({ src, file, onZoomChange }: VideoPlayerProps) {
 	const [duration, setDuration] = useState(0);
 	const [volume, setVolume] = useState(1);
 	const [muted, setMuted] = useState(false);
+	const [loop, setLoop] = useState(false);
 	const [showControls, setShowControls] = useState(true);
 	const [seeking, setSeeking] = useState(false);
 	const [subtitlesEnabled, setSubtitlesEnabled] = useState(true);
@@ -105,6 +106,10 @@ export function VideoPlayer({ src, file, onZoomChange }: VideoPlayerProps) {
 					e.preventDefault();
 					setSubtitlesEnabled((s) => !s);
 					break;
+				case 'KeyL':
+					e.preventDefault();
+					setLoop((l) => !l);
+					break;
 			}
 		};
 
@@ -122,6 +127,11 @@ export function VideoPlayer({ src, file, onZoomChange }: VideoPlayerProps) {
 		if (!videoRef.current) return;
 		videoRef.current.muted = muted;
 	}, [muted]);
+
+	useEffect(() => {
+		if (!videoRef.current) return;
+		videoRef.current.loop = loop;
+	}, [loop]);
 
 	const togglePlay = () => {
 		if (!videoRef.current) return;
@@ -270,6 +280,19 @@ export function VideoPlayer({ src, file, onZoomChange }: VideoPlayerProps) {
 								className="rounded-md p-2 text-white transition-colors hover:bg-white/10"
 							>
 								{playing ? <Pause size={20} weight="fill" /> : <Play size={20} weight="fill" />}
+							</button>
+
+							{/* Loop */}
+							<button
+								onClick={() => setLoop(!loop)}
+								className={`rounded-md p-2 transition-colors ${
+									loop
+										? 'bg-accent/20 text-accent'
+										: 'text-white hover:bg-white/10'
+								}`}
+								title="Loop (L)"
+							>
+								<Repeat size={20} weight="bold" />
 							</button>
 
 							{/* Time */}
