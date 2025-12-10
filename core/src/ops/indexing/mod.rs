@@ -24,6 +24,7 @@ pub mod action;
 pub mod change_detection;
 pub mod database_storage;
 pub mod ephemeral;
+pub mod handlers;
 pub mod hierarchy;
 pub mod input;
 pub mod job;
@@ -41,10 +42,11 @@ pub mod verify;
 pub use action::IndexingAction;
 pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, EntryRef, DatabaseAdapter, DatabaseAdapterForJob,
+	ChangeType, DatabaseAdapter, DatabaseAdapterForJob, EntryRef,
 };
 pub use database_storage::{DatabaseStorage, EntryMetadata};
 pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, MemoryAdapter};
+pub use handlers::{EphemeralEventHandler, LocationMeta, PersistentEventHandler};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};

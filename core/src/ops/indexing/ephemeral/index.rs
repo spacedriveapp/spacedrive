@@ -250,6 +250,14 @@ impl EphemeralIndex {
 		self.entry_uuids.get(path).copied()
 	}
 
+	/// Get the path for an entry by its UUID
+	pub fn get_path_by_uuid(&self, uuid: Uuid) -> Option<PathBuf> {
+		self.entry_uuids
+			.iter()
+			.find(|(_, &entry_uuid)| entry_uuid == uuid)
+			.map(|(path, _)| path.clone())
+	}
+
 	pub fn get_content_kind(&self, path: &PathBuf) -> ContentKind {
 		self.content_kinds
 			.get(path)
@@ -448,16 +456,33 @@ impl EphemeralIndex {
 	/// For directories, this only removes the directory entry itself, not its children.
 	/// Use `remove_directory_tree` to remove a directory and all its descendants.
 	pub fn remove_entry(&mut self, path: &Path) -> bool {
-		let existed = self.path_index.remove(path).is_some();
+		// Get the entry ID before removing from path_index
+		let entry_id = self.path_index.remove(path);
 		self.entry_uuids.remove(path);
 		self.content_kinds.remove(path);
-		existed
+
+		// Also remove from parent's children list in arena
+		if let Some(id) = entry_id {
+			// Get the parent's entry ID
+			if let Some(parent_path) = path.parent() {
+				if let Some(&parent_id) = self.path_index.get(parent_path) {
+					if let Some(parent_node) = self.arena.get_mut(parent_id) {
+						parent_node.children.retain(|child_id| *child_id != id);
+					}
+				}
+			}
+		}
+
+		entry_id.is_some()
 	}
 
 	/// Remove a directory and all its descendants.
 	///
 	/// Returns the number of entries removed.
 	pub fn remove_directory_tree(&mut self, path: &Path) -> usize {
+		// First, get the entry ID for the root directory to remove from parent
+		let root_id = self.path_index.get(path).copied();
+
 		let prefix = path.to_string_lossy().to_string();
 		let keys_to_remove: Vec<_> = self
 			.path_index
@@ -475,6 +500,18 @@ impl EphemeralIndex {
 			self.entry_uuids.remove(&key);
 			self.content_kinds.remove(&key);
 		}
+
+		// Remove root directory from parent's children list
+		if let Some(id) = root_id {
+			if let Some(parent_path) = path.parent() {
+				if let Some(&parent_id) = self.path_index.get(parent_path) {
+					if let Some(parent_node) = self.arena.get_mut(parent_id) {
+						parent_node.children.retain(|child_id| *child_id != id);
+					}
+				}
+			}
+		}
+
 		count
 	}
 

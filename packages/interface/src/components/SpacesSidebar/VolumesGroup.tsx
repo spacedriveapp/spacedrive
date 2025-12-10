@@ -59,7 +59,7 @@ export function VolumesGroup({
 										item_type: {
 											Volume: {
 												volume_id: volume.id,
-												name: volume.name,
+												name: volume.display_name || volume.name,
 											},
 										},
 									} as any

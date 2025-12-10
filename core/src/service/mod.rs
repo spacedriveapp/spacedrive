@@ -18,19 +18,20 @@ pub mod sidecar_manager;
 pub mod sync;
 pub mod volume_monitor;
 pub mod watcher;
+// NOTE: watcher_old/ is kept as reference during migration but not compiled
 
 use device::DeviceService;
 use file_sharing::FileSharingService;
 use network::NetworkingService;
 use sidecar_manager::SidecarManager;
 use volume_monitor::{VolumeMonitorConfig, VolumeMonitorService};
-use watcher::{LocationWatcher, LocationWatcherConfig};
+use watcher::{FsWatcherService, FsWatcherServiceConfig};
 
 /// Container for all background services
 #[derive(Clone)]
 pub struct Services {
-	/// File system watcher for locations
-	pub location_watcher: Arc<LocationWatcher>,
+	/// Filesystem watcher - detects changes and emits events
+	pub fs_watcher: Arc<FsWatcherService>,
 	/// File sharing service
 	pub file_sharing: Arc<FileSharingService>,
 	/// Device management service
@@ -52,18 +53,15 @@ impl Services {
 	pub fn new(context: Arc<CoreContext>) -> Self {
 		info!("Initializing background services");
 
-		let location_watcher_config = LocationWatcherConfig::default();
-		let location_watcher = Arc::new(LocationWatcher::new(
-			location_watcher_config,
-			context.events.clone(),
-			context.clone(),
-		));
+		let fs_watcher_config = FsWatcherServiceConfig::default();
+		let fs_watcher = Arc::new(FsWatcherService::new(context.clone(), fs_watcher_config));
+
 		let file_sharing = Arc::new(FileSharingService::new(context.clone()));
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
 		let key_manager = context.key_manager.clone();
 		Self {
-			location_watcher,
+			fs_watcher,
 			file_sharing,
 			device,
 			networking: None,     // Initialized separately when needed
@@ -83,7 +81,9 @@ impl Services {
 	pub async fn start_all(&self) -> Result<()> {
 		info!("Starting all background services");
 
-		self.location_watcher.start().await?;
+		// Initialize handlers before starting (connects them to the watcher)
+		self.fs_watcher.init_handlers().await;
+		self.fs_watcher.start().await?;
 
 		// Start volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
@@ -97,10 +97,13 @@ impl Services {
 	pub async fn start_all_with_config(&self, config: &crate::config::ServiceConfig) -> Result<()> {
 		info!("Starting background services based on configuration");
 
-		if config.location_watcher_enabled {
-			self.location_watcher.start().await?;
+		// Initialize handlers (connects them to the watcher)
+		self.fs_watcher.init_handlers().await;
+
+		if config.fs_watcher_enabled {
+			self.fs_watcher.start().await?;
 		} else {
-			info!("Location watcher disabled in configuration");
+			info!("Filesystem watcher disabled in configuration");
 		}
 
 		// Start volume monitor if initialized and enabled
@@ -131,7 +134,7 @@ impl Services {
 	pub async fn stop_all(&self) -> Result<()> {
 		info!("Stopping all background services");
 
-		self.location_watcher.stop().await?;
+		self.fs_watcher.stop().await?;
 
 		// Stop volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {

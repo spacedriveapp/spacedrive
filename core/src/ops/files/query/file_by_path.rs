@@ -44,6 +44,7 @@ impl LibraryQuery for FileByPathQuery {
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
+		// Check database first (primary source of truth)
 		let library_id = session
 			.current_library_id
 			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
@@ -60,130 +61,152 @@ impl LibraryQuery for FileByPathQuery {
 		let sd_path = SdPath::local(self.path.clone());
 
 		// Find the entry by SdPath
-		let entry_model = self.find_entry_by_sd_path(&sd_path, db.conn()).await?;
+		let entry_result = self.find_entry_by_sd_path(&sd_path, db.conn()).await;
 
-		// Only proceed if this is actually a file (not a directory)
-		// if entry_model.kind == 1 {
-		// 	return Ok(None);
-		// }
+		// If found in database, process and return it
+		if let Ok(entry_model) = entry_result {
+			// Only proceed if this is actually a file (not a directory)
+			// if entry_model.kind == 1 {
+			// 	return Ok(None);
+			// }
 
-		// Fetch content identity, sidecars, and media data if file has content_id
-		let (content_identity_domain, sidecars, image_media, video_media, audio_media) =
-			if let Some(content_id) = entry_model.content_id {
-				// Get content identity
-				if let Some(content_identity_model) =
-					content_identity::Entity::find_by_id(content_id)
-						.one(db.conn())
-						.await?
-				{
-					let content_uuid = content_identity_model.uuid;
-
-					// Load media data in parallel
-					let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
-						async {
-							if let Some(image_id) = content_identity_model.image_media_data_id {
-								image_media_data::Entity::find_by_id(image_id)
-									.one(db.conn())
-									.await
-									.ok()
-									.flatten()
-									.map(Into::into)
-							} else {
-								None
-							}
-						},
-						async {
-							if let Some(video_id) = content_identity_model.video_media_data_id {
-								video_media_data::Entity::find_by_id(video_id)
-									.one(db.conn())
-									.await
-									.ok()
-									.flatten()
-									.map(Into::into)
-							} else {
-								None
-							}
-						},
-						async {
-							if let Some(audio_id) = content_identity_model.audio_media_data_id {
-								audio_media_data::Entity::find_by_id(audio_id)
-									.one(db.conn())
-									.await
-									.ok()
-									.flatten()
-									.map(Into::into)
-							} else {
-								None
-							}
-						}
-					);
-
-					// Fetch sidecars for this content UUID
-					let sidecars = if let Some(uuid) = content_uuid {
-						sidecar::Entity::find()
-							.filter(sidecar::Column::ContentUuid.eq(uuid))
-							.all(db.conn())
+			// Fetch content identity, sidecars, and media data if file has content_id
+			let (content_identity_domain, sidecars, image_media, video_media, audio_media) =
+				if let Some(content_id) = entry_model.content_id {
+					// Get content identity
+					if let Some(content_identity_model) =
+						content_identity::Entity::find_by_id(content_id)
+							.one(db.conn())
 							.await?
-							.into_iter()
-							.map(|s| crate::domain::Sidecar {
-								id: s.id,
-								content_uuid: s.content_uuid,
-								kind: s.kind,
-								variant: s.variant,
-								format: s.format,
-								status: s.status,
-								size: s.size,
-								created_at: s.created_at,
-								updated_at: s.updated_at,
-							})
-							.collect()
+					{
+						let content_uuid = content_identity_model.uuid;
+
+						// Load media data in parallel
+						let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
+							async {
+								if let Some(image_id) = content_identity_model.image_media_data_id {
+									image_media_data::Entity::find_by_id(image_id)
+										.one(db.conn())
+										.await
+										.ok()
+										.flatten()
+										.map(Into::into)
+								} else {
+									None
+								}
+							},
+							async {
+								if let Some(video_id) = content_identity_model.video_media_data_id {
+									video_media_data::Entity::find_by_id(video_id)
+										.one(db.conn())
+										.await
+										.ok()
+										.flatten()
+										.map(Into::into)
+								} else {
+									None
+								}
+							},
+							async {
+								if let Some(audio_id) = content_identity_model.audio_media_data_id {
+									audio_media_data::Entity::find_by_id(audio_id)
+										.one(db.conn())
+										.await
+										.ok()
+										.flatten()
+										.map(Into::into)
+								} else {
+									None
+								}
+							}
+						);
+
+						// Fetch sidecars for this content UUID
+						let sidecars = if let Some(uuid) = content_uuid {
+							sidecar::Entity::find()
+								.filter(sidecar::Column::ContentUuid.eq(uuid))
+								.all(db.conn())
+								.await?
+								.into_iter()
+								.map(|s| crate::domain::Sidecar {
+									id: s.id,
+									content_uuid: s.content_uuid,
+									kind: s.kind,
+									variant: s.variant,
+									format: s.format,
+									status: s.status,
+									size: s.size,
+									created_at: s.created_at,
+									updated_at: s.updated_at,
+								})
+								.collect()
+						} else {
+							Vec::new()
+						};
+
+						// Convert content_identity to domain type
+						let content_identity = crate::domain::ContentIdentity {
+							uuid: content_identity_model
+								.uuid
+								.unwrap_or_else(|| Uuid::new_v4()),
+							kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
+							content_hash: content_identity_model.content_hash,
+							integrity_hash: content_identity_model.integrity_hash,
+							mime_type_id: content_identity_model.mime_type_id,
+							text_content: content_identity_model.text_content,
+							total_size: content_identity_model.total_size,
+							entry_count: content_identity_model.entry_count,
+							first_seen_at: content_identity_model.first_seen_at,
+							last_verified_at: content_identity_model.last_verified_at,
+						};
+
+						(
+							Some(content_identity),
+							sidecars,
+							image_media_opt,
+							video_media_opt,
+							audio_media_opt,
+						)
 					} else {
-						Vec::new()
-					};
-
-					// Convert content_identity to domain type
-					let content_identity = crate::domain::ContentIdentity {
-						uuid: content_identity_model
-							.uuid
-							.unwrap_or_else(|| Uuid::new_v4()),
-						kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
-						content_hash: content_identity_model.content_hash,
-						integrity_hash: content_identity_model.integrity_hash,
-						mime_type_id: content_identity_model.mime_type_id,
-						text_content: content_identity_model.text_content,
-						total_size: content_identity_model.total_size,
-						entry_count: content_identity_model.entry_count,
-						first_seen_at: content_identity_model.first_seen_at,
-						last_verified_at: content_identity_model.last_verified_at,
-					};
-
-					(
-						Some(content_identity),
-						sidecars,
-						image_media_opt,
-						video_media_opt,
-						audio_media_opt,
-					)
+						(None, Vec::new(), None, None, None)
+					}
 				} else {
 					(None, Vec::new(), None, None, None)
-				}
-			} else {
-				(None, Vec::new(), None, None, None)
-			};
+				};
 
-		// Convert to File using from_entity_model
-		let mut file = File::from_entity_model(entry_model, sd_path);
-		file.sidecars = sidecars;
-		file.content_identity = content_identity_domain;
-		file.image_media_data = image_media;
-		file.video_media_data = video_media.clone();
-		file.audio_media_data = audio_media;
-		file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
-		if let Some(ref ci) = file.content_identity {
-			file.content_kind = ci.kind;
+			// Convert to File using from_entity_model
+			let mut file = File::from_entity_model(entry_model, sd_path);
+			file.sidecars = sidecars;
+			file.content_identity = content_identity_domain;
+			file.image_media_data = image_media;
+			file.video_media_data = video_media.clone();
+			file.audio_media_data = audio_media;
+			file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
+			if let Some(ref ci) = file.content_identity {
+				file.content_kind = ci.kind;
+			}
+
+			return Ok(Some(file));
 		}
 
-		Ok(Some(file))
+		// Fall back to ephemeral index if not found in database
+		let ephemeral_cache = context.ephemeral_cache();
+		let index = ephemeral_cache.get_global_index();
+		let index_read = index.read().await;
+
+		if let Some(entry_uuid) = index_read.get_entry_uuid(&self.path) {
+			if let Some(metadata) = index_read.get_entry_ref(&self.path) {
+				let content_kind = index_read.get_content_kind(&self.path);
+				let sd_path = SdPath::local(self.path.clone());
+
+				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+				file.content_kind = content_kind;
+
+				return Ok(Some(file));
+			}
+		}
+
+		Ok(None)
 	}
 }
 

@@ -522,11 +522,9 @@ impl JobHandler for IndexerJob {
 
 						// Automatically add filesystem watch for successfully indexed ephemeral paths
 						// This enables real-time updates when files change in browsed directories
-						if let Some(watcher) = ctx.library().core_context().get_location_watcher().await {
-							if let Err(e) = watcher.add_ephemeral_watch(
-								local_path.to_path_buf(),
-								self.config.rule_toggles
-							).await {
+						if let Some(watcher) = ctx.library().core_context().get_fs_watcher().await {
+							if let Err(e) = watcher.watch_ephemeral(local_path.to_path_buf()).await
+							{
 								ctx.log(format!(
 									"Warning: Failed to add ephemeral watch for {}: {}",
 									local_path.display(),

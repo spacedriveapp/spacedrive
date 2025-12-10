@@ -6,7 +6,7 @@ import {
 	useLocation,
 	useParams,
 } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, memo } from "react";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
@@ -29,7 +29,11 @@ import {
 	PREVIEW_LAYER_ID,
 } from "./components/QuickPreview";
 import { createExplorerRouter } from "./router";
-import { useNormalizedQuery, useLibraryMutation, useSpacedriveClient } from "./context";
+import {
+	useNormalizedQuery,
+	useLibraryMutation,
+	useSpacedriveClient,
+} from "./context";
 import { useSidebarStore } from "@sd/ts-client";
 import { useSpaces } from "./components/SpacesSidebar/hooks/useSpaces";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,6 +55,96 @@ import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 
+/**
+ * QuickPreviewSyncer - Syncs selection changes to QuickPreview
+ *
+ * This component is isolated so selection changes only re-render this tiny component,
+ * not the entire ExplorerLayout. When selection changes while QuickPreview is open,
+ * we update the preview to show the newly selected file.
+ */
+function QuickPreviewSyncer() {
+	const { quickPreviewFileId, setQuickPreviewFileId } = useExplorer();
+	const { selectedFiles } = useSelection();
+
+	useEffect(() => {
+		if (!quickPreviewFileId) return;
+
+		// When selection changes and QuickPreview is open, update preview to match selection
+		if (
+			selectedFiles.length === 1 &&
+			selectedFiles[0].id !== quickPreviewFileId
+		) {
+			setQuickPreviewFileId(selectedFiles[0].id);
+		}
+	}, [selectedFiles, quickPreviewFileId, setQuickPreviewFileId]);
+
+	return null;
+}
+
+/**
+ * QuickPreviewController - Handles QuickPreview with navigation
+ *
+ * Isolated component that reads selection state for prev/next navigation.
+ * Only re-renders when quickPreviewFileId changes, not on every selection change.
+ */
+const QuickPreviewController = memo(function QuickPreviewController({
+	sidebarWidth,
+	inspectorWidth,
+}: {
+	sidebarWidth: number;
+	inspectorWidth: number;
+}) {
+	const { quickPreviewFileId, closeQuickPreview, currentFiles } =
+		useExplorer();
+	const { selectFile } = useSelection();
+
+	// Early return if no preview - this component won't re-render on selection changes
+	// because it's memoized and doesn't read selectedFiles directly
+	if (!quickPreviewFileId) return null;
+
+	const currentIndex = currentFiles.findIndex(
+		(f) => f.id === quickPreviewFileId,
+	);
+	const hasPrevious = currentIndex > 0;
+	const hasNext = currentIndex < currentFiles.length - 1;
+
+	const handleNext = () => {
+		if (hasNext && currentFiles[currentIndex + 1]) {
+			selectFile(
+				currentFiles[currentIndex + 1],
+				currentFiles,
+				false,
+				false,
+			);
+		}
+	};
+
+	const handlePrevious = () => {
+		if (hasPrevious && currentFiles[currentIndex - 1]) {
+			selectFile(
+				currentFiles[currentIndex - 1],
+				currentFiles,
+				false,
+				false,
+			);
+		}
+	};
+
+	return (
+		<QuickPreviewFullscreen
+			fileId={quickPreviewFileId}
+			isOpen={!!quickPreviewFileId}
+			onClose={closeQuickPreview}
+			onNext={handleNext}
+			onPrevious={handlePrevious}
+			hasPrevious={hasPrevious}
+			hasNext={hasNext}
+			sidebarWidth={sidebarWidth}
+			inspectorWidth={inspectorWidth}
+		/>
+	);
+});
+
 interface AppProps {
 	client: SpacedriveClient;
 }
@@ -64,15 +158,11 @@ export function ExplorerLayout() {
 		inspectorVisible,
 		setInspectorVisible,
 		quickPreviewFileId,
-		setQuickPreviewFileId,
-		closeQuickPreview,
-		currentFiles,
 		tagModeActive,
 		setTagModeActive,
 		viewMode,
 		setSpaceItemId,
 	} = useExplorer();
-	const { selectedFiles, selectFile } = useSelection();
 
 	// Sync route with explorer context for view preferences
 	useEffect(() => {
@@ -82,19 +172,6 @@ export function ExplorerLayout() {
 		);
 		setSpaceItemId(spaceItemKey);
 	}, [location.pathname, location.search, setSpaceItemId]);
-
-	// Sync QuickPreview with selection - Explorer is source of truth
-	useEffect(() => {
-		if (!quickPreviewFileId) return;
-
-		// When selection changes and QuickPreview is open, update preview to match selection
-		if (
-			selectedFiles.length === 1 &&
-			selectedFiles[0].id !== quickPreviewFileId
-		) {
-			setQuickPreviewFileId(selectedFiles[0].id);
-		}
-	}, [selectedFiles, quickPreviewFileId, setQuickPreviewFileId]);
 
 	// Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
 	const isOverview = location.pathname === "/";
@@ -208,6 +285,9 @@ export function ExplorerLayout() {
 			{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
 			<KeyboardHandler />
 
+			{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
+			<QuickPreviewSyncer />
+
 			<AnimatePresence initial={false}>
 				{/* Hide inspector on Overview screen and Knowledge view (has its own) */}
 				{inspectorVisible && !isOverview && !isKnowledgeView && (
@@ -229,57 +309,15 @@ export function ExplorerLayout() {
 				)}
 			</AnimatePresence>
 
-			{/* Quick Preview - renders via portal into preview layer */}
-			{quickPreviewFileId &&
-				(() => {
-					const currentIndex = currentFiles.findIndex(
-						(f) => f.id === quickPreviewFileId,
-					);
-					const hasPrevious = currentIndex > 0;
-					const hasNext = currentIndex < currentFiles.length - 1;
-
-					const handleNext = () => {
-						if (hasNext && currentFiles[currentIndex + 1]) {
-							selectFile(
-								currentFiles[currentIndex + 1],
-								currentFiles,
-								false,
-								false,
-							);
-						}
-					};
-
-					const handlePrevious = () => {
-						if (hasPrevious && currentFiles[currentIndex - 1]) {
-							selectFile(
-								currentFiles[currentIndex - 1],
-								currentFiles,
-								false,
-								false,
-							);
-						}
-					};
-
-					return (
-						<QuickPreviewFullscreen
-							fileId={quickPreviewFileId}
-							isOpen={!!quickPreviewFileId}
-							onClose={closeQuickPreview}
-							onNext={handleNext}
-							onPrevious={handlePrevious}
-							hasPrevious={hasPrevious}
-							hasNext={hasNext}
-							sidebarWidth={sidebarVisible ? 220 : 0}
-							inspectorWidth={
-								inspectorVisible &&
-								!isOverview &&
-								!isKnowledgeView
-									? 280
-									: 0
-							}
-						/>
-					);
-				})()}
+			{/* Quick Preview - isolated component to prevent frame rerenders on selection change */}
+			<QuickPreviewController
+				sidebarWidth={sidebarVisible ? 220 : 0}
+				inspectorWidth={
+					inspectorVisible && !isOverview && !isKnowledgeView
+						? 280
+						: 0
+				}
+			/>
 		</div>
 	);
 }
@@ -362,11 +400,17 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			});
 
 			const libraryId = client.getCurrentLibraryId();
-			const currentSpace = spaces?.find((s: any) => s.id === currentSpaceId) ?? spaces?.[0];
+			const currentSpace =
+				spaces?.find((s: any) => s.id === currentSpaceId) ??
+				spaces?.[0];
 
 			if (!currentSpace || !libraryId) return;
 
-			const queryKey = ['query:spaces.get_layout', libraryId, { space_id: currentSpace.id }];
+			const queryKey = [
+				"query:spaces.get_layout",
+				libraryId,
+				{ space_id: currentSpace.id },
+			];
 			const layout = queryClient.getQueryData(queryKey) as any;
 
 			if (!layout) return;
@@ -378,10 +422,16 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			if (isGroupReorder) {
 				console.log("[DnD] Reordering groups");
 
-				const oldIndex = groups.findIndex((g: any) => g.id === active.id);
+				const oldIndex = groups.findIndex(
+					(g: any) => g.id === active.id,
+				);
 				const newIndex = groups.findIndex((g: any) => g.id === over.id);
 
-				if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+				if (
+					oldIndex !== -1 &&
+					newIndex !== -1 &&
+					oldIndex !== newIndex
+				) {
 					// Optimistically update the UI
 					const newGroups = [...layout.groups];
 					const [movedGroup] = newGroups.splice(oldIndex, 1);
@@ -412,18 +462,22 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			// Reordering space items
 			if (layout?.space_items) {
 				const items = layout.space_items;
-				const oldIndex = items.findIndex((item: any) => item.id === active.id);
+				const oldIndex = items.findIndex(
+					(item: any) => item.id === active.id,
+				);
 
 				// Extract item ID from over.id (could be a drop zone ID like "space-item-{id}-top")
 				let overItemId = String(over.id);
-				if (overItemId.startsWith('space-item-')) {
+				if (overItemId.startsWith("space-item-")) {
 					// Extract the UUID from "space-item-{uuid}-top/bottom/middle"
-					const parts = overItemId.split('-');
+					const parts = overItemId.split("-");
 					// Remove "space" and "item" and the last part (top/bottom/middle)
-					overItemId = parts.slice(2, -1).join('-');
+					overItemId = parts.slice(2, -1).join("-");
 				}
 
-				const newIndex = items.findIndex((item: any) => item.id === overItemId);
+				const newIndex = items.findIndex(
+					(item: any) => item.id === overItemId,
+				);
 
 				console.log("[DnD] Reorder space items:", {
 					oldIndex,
@@ -432,7 +486,11 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 					extractedOverId: overItemId,
 				});
 
-				if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+				if (
+					oldIndex !== -1 &&
+					newIndex !== -1 &&
+					oldIndex !== newIndex
+				) {
 					// Optimistically update the UI
 					const newItems = [...items];
 					const [movedItem] = newItems.splice(oldIndex, 1);
@@ -636,24 +694,31 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 									{activeItem.name}
 								</div>
 								{/* Show count badge if dragging multiple files */}
-								{activeItem.selectedFiles && activeItem.selectedFiles.length > 1 && (
-									<div className="absolute -top-2 -right-2 size-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center shadow-lg border-2 border-app">
-										{activeItem.selectedFiles.length}
-									</div>
-								)}
+								{activeItem.selectedFiles &&
+									activeItem.selectedFiles.length > 1 && (
+										<div className="absolute -top-2 -right-2 size-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center shadow-lg border-2 border-app">
+											{activeItem.selectedFiles.length}
+										</div>
+									)}
 							</div>
 						</div>
 					) : (
 						// Column/List view preview
 						<div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-accent text-white shadow-lg min-w-[200px] max-w-[300px]">
-							<FileComponent.Thumb file={activeItem.file} size={24} />
-							<span className="text-sm font-medium truncate">{activeItem.name}</span>
+							<FileComponent.Thumb
+								file={activeItem.file}
+								size={24}
+							/>
+							<span className="text-sm font-medium truncate">
+								{activeItem.name}
+							</span>
 							{/* Show count badge if dragging multiple files */}
-							{activeItem.selectedFiles && activeItem.selectedFiles.length > 1 && (
-								<div className="ml-auto size-5 rounded-full bg-white text-accent text-xs font-bold flex items-center justify-center">
-									{activeItem.selectedFiles.length}
-								</div>
-							)}
+							{activeItem.selectedFiles &&
+								activeItem.selectedFiles.length > 1 && (
+									<div className="ml-auto size-5 rounded-full bg-white text-accent text-xs font-bold flex items-center justify-center">
+										{activeItem.selectedFiles.length}
+									</div>
+								)}
 						</div>
 					)
 				) : null}

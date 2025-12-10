@@ -1,10 +1,10 @@
-import React, {
-	useEffect,
-	useState,
-	ReactNode,
-} from "react";
+import React, { useEffect, useState, ReactNode } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { SpacedriveClientContext, queryClient, useSpacedriveClient } from "@sd/ts-client/src/hooks/useClient";
+import {
+  SpacedriveClientContext,
+  queryClient,
+  useSpacedriveClient,
+} from "@sd/ts-client/src/hooks/useClient";
 import { SpacedriveClient } from "../SpacedriveClient";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -14,8 +14,8 @@ import { SDMobileCore } from "sd-mobile-core";
 export { useSpacedriveClient };
 
 interface SpacedriveProviderProps {
-	children: ReactNode;
-	deviceName?: string;
+  children: ReactNode;
+  deviceName?: string;
 }
 
 /**
@@ -23,147 +23,157 @@ interface SpacedriveProviderProps {
  * and provides the client context to children.
  */
 export function SpacedriveProvider({
-	children,
-	deviceName,
+  children,
+  deviceName,
 }: SpacedriveProviderProps) {
-	const [client] = useState(() => new SpacedriveClient());
-	const [initialized, setInitialized] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+  const [client] = useState(() => new SpacedriveClient());
+  const [initialized, setInitialized] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
-		let mounted = true;
-		let unsubscribeLogs: (() => void) | null = null;
+  useEffect(() => {
+    let mounted = true;
+    let unsubscribeLogs: (() => void) | null = null;
 
-		async function init() {
-			try {
-				await client.initialize(deviceName ?? "Spacedrive Mobile");
+    async function init() {
+      try {
+        await client.initialize(deviceName ?? "Spacedrive Mobile");
 
-				// Subscribe to core logs AFTER core is initialized
-				console.log("[SpacedriveProvider] 🔌 Subscribing to core logs...");
-				unsubscribeLogs = SDMobileCore.addLogListener((log) => {
-					console.log("[SpacedriveProvider] 📝 RAW LOG RECEIVED:", log);
-					try {
-						const logData = JSON.parse(log.body);
-						console.log(`[CORE ${logData.level}] ${logData.target}: ${logData.message}`);
-					} catch (e) {
-						console.error("[SpacedriveProvider] Failed to parse log:", log.body);
-					}
-				});
-				console.log("[SpacedriveProvider] ✅ Log listener subscribed");
+        // // Subscribe to core logs AFTER core is initialized
+        // console.log("[SpacedriveProvider] Subscribing to core logs...");
+        // unsubscribeLogs = SDMobileCore.addLogListener((log) => {
+        // 	console.log("[SpacedriveProvider] RAW LOG RECEIVED:", log);
+        // 	try {
+        // 		const logData = JSON.parse(log.body);
+        // 		console.log(`[CORE ${logData.level}] ${logData.target}: ${logData.message}`);
+        // 	} catch (e) {
+        // 		console.error("[SpacedriveProvider] Failed to parse log:", log.body);
+        // 	}
+        // });
+        // console.log("[SpacedriveProvider] Log listener subscribed");
 
-				// Load persisted library ID from storage
-				const storedData = await AsyncStorage.getItem("spacedrive-sidebar");
-				let libraryIdSet = false;
+        // Load persisted library ID from storage
+        const storedData = await AsyncStorage.getItem("spacedrive-sidebar");
+        let libraryIdSet = false;
 
-				if (storedData) {
-					const parsed = JSON.parse(storedData);
-					if (parsed.state?.currentLibraryId) {
-						console.log("[SpacedriveProvider] Restoring library ID:", parsed.state.currentLibraryId);
-						client.setCurrentLibrary(parsed.state.currentLibraryId);
-						libraryIdSet = true;
-					}
-				}
+        if (storedData) {
+          const parsed = JSON.parse(storedData);
+          if (parsed.state?.currentLibraryId) {
+            console.log(
+              "[SpacedriveProvider] Restoring library ID:",
+              parsed.state.currentLibraryId,
+            );
+            client.setCurrentLibrary(parsed.state.currentLibraryId);
+            libraryIdSet = true;
+          }
+        }
 
-				// If no library ID was restored, try to auto-select the first library
-				if (!libraryIdSet) {
-					try {
-						const libraries = await client.coreQuery("libraries.list", { include_stats: false });
-						if (libraries && Array.isArray(libraries) && libraries.length > 0) {
-							const firstLibrary = libraries[0];
-							console.log("[SpacedriveProvider] Auto-selecting first library:", firstLibrary.name, firstLibrary.id);
-							client.setCurrentLibrary(firstLibrary.id);
+        // If no library ID was restored, try to auto-select the first library
+        if (!libraryIdSet) {
+          try {
+            const libraries = await client.coreQuery("libraries.list", {
+              include_stats: false,
+            });
+            if (libraries && Array.isArray(libraries) && libraries.length > 0) {
+              const firstLibrary = libraries[0];
+              console.log(
+                "[SpacedriveProvider] Auto-selecting first library:",
+                firstLibrary.name,
+                firstLibrary.id,
+              );
+              client.setCurrentLibrary(firstLibrary.id);
 
-							// Also save to AsyncStorage for next time
-							await AsyncStorage.setItem(
-								"spacedrive-sidebar",
-								JSON.stringify({
-									state: {
-										currentLibraryId: firstLibrary.id,
-										collapsedGroups: [],
-									},
-								})
-							);
-						} else {
-							console.warn("[SpacedriveProvider] No libraries available to auto-select");
-						}
-					} catch (error) {
-						console.error("[SpacedriveProvider] Failed to auto-select library:", error);
-					}
-				}
+              // Also save to AsyncStorage for next time
+              await AsyncStorage.setItem(
+                "spacedrive-sidebar",
+                JSON.stringify({
+                  state: {
+                    currentLibraryId: firstLibrary.id,
+                    collapsedGroups: [],
+                  },
+                }),
+              );
+            } else {
+              console.warn(
+                "[SpacedriveProvider] No libraries available to auto-select",
+              );
+            }
+          } catch (error) {
+            console.error(
+              "[SpacedriveProvider] Failed to auto-select library:",
+              error,
+            );
+          }
+        }
 
-				if (mounted) {
-					setInitialized(true);
-				}
-			} catch (e) {
-				console.error("[SpacedriveProvider] Failed to initialize:", e);
-				if (mounted) {
-					setError(
-						e instanceof Error ? e.message : "Failed to initialize",
-					);
-				}
-			}
-		}
+        if (mounted) {
+          setInitialized(true);
+        }
+      } catch (e) {
+        console.error("[SpacedriveProvider] Failed to initialize:", e);
+        if (mounted) {
+          setError(e instanceof Error ? e.message : "Failed to initialize");
+        }
+      }
+    }
 
-		init();
+    init();
 
-		return () => {
-			mounted = false;
-			if (unsubscribeLogs) unsubscribeLogs();
-			client.destroy();
-		};
-	}, [client, deviceName]);
+    return () => {
+      mounted = false;
+      if (unsubscribeLogs) unsubscribeLogs();
+      client.destroy();
+    };
+  }, [client, deviceName]);
 
-	if (error) {
-		return (
-			<View style={styles.container}>
-				<Text style={styles.errorTitle}>Initialization Error</Text>
-				<Text style={styles.errorText}>{error}</Text>
-			</View>
-		);
-	}
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorTitle}>Initialization Error</Text>
+        <Text style={styles.errorText}>{error}</Text>
+      </View>
+    );
+  }
 
-	if (!initialized) {
-		return (
-			<View style={styles.container}>
-				<ActivityIndicator size="large" color="#2599FF" />
-				<Text style={styles.loadingText}>
-					Initializing Spacedrive...
-				</Text>
-			</View>
-		);
-	}
+  if (!initialized) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#2599FF" />
+        <Text style={styles.loadingText}>Initializing Spacedrive...</Text>
+      </View>
+    );
+  }
 
-	return (
-		<QueryClientProvider client={queryClient}>
-			<SpacedriveClientContext.Provider value={client}>
-				{children}
-			</SpacedriveClientContext.Provider>
-		</QueryClientProvider>
-	);
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SpacedriveClientContext.Provider value={client}>
+        {children}
+      </SpacedriveClientContext.Provider>
+    </QueryClientProvider>
+  );
 }
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: "hsl(235, 15%, 13%)",
-		alignItems: "center",
-		justifyContent: "center",
-		padding: 20,
-	},
-	loadingText: {
-		color: "hsl(235, 10%, 70%)",
-		marginTop: 16,
-		fontSize: 16,
-	},
-	errorTitle: {
-		color: "#ff5555",
-		fontSize: 20,
-		fontWeight: "bold",
-		marginBottom: 8,
-	},
-	errorText: {
-		color: "hsl(235, 10%, 70%)",
-		fontSize: 14,
-		textAlign: "center",
-	},
+  container: {
+    flex: 1,
+    backgroundColor: "hsl(235, 15%, 13%)",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+  },
+  loadingText: {
+    color: "hsl(235, 10%, 70%)",
+    marginTop: 16,
+    fontSize: 16,
+  },
+  errorTitle: {
+    color: "#ff5555",
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+  errorText: {
+    color: "hsl(235, 10%, 70%)",
+    fontSize: 14,
+    textAlign: "center",
+  },
 });

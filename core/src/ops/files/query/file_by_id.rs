@@ -44,6 +44,7 @@ impl LibraryQuery for FileByIdQuery {
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
+		// Check database first (primary source of truth)
 		let library_id = session
 			.current_library_id
 			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
@@ -61,174 +62,195 @@ impl LibraryQuery for FileByIdQuery {
 			.filter(entry::Column::Uuid.eq(self.file_id))
 			.find_also_related(content_identity::Entity)
 			.one(db.conn())
-			.await?
-			.ok_or_else(|| QueryError::Internal("File not found".to_string()))?;
+			.await?;
 
-		let (entry_model, content_identity_model_opt) = entry_with_relations;
+		// If found in database, process and return it
+		if let Some(entry_with_relations) = entry_with_relations {
+			let (entry_model, content_identity_model_opt) = entry_with_relations;
 
-		// Resolve the full absolute path for this file
-		let sd_path = self.resolve_file_path(&entry_model, db.conn()).await?;
+			// Resolve the full absolute path for this file
+			let sd_path = self.resolve_file_path(&entry_model, db.conn()).await?;
 
-		// Process content identity and load media data
-		let (content_identity_domain, sidecars, image_media, video_media, audio_media) =
-			if let Some(content_identity_model) = content_identity_model_opt {
-				let content_uuid = content_identity_model.uuid;
+			// Process content identity and load media data
+			let (content_identity_domain, sidecars, image_media, video_media, audio_media) =
+				if let Some(content_identity_model) = content_identity_model_opt {
+					let content_uuid = content_identity_model.uuid;
 
-				// Load media data in parallel using JOINs
-				let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
-					async {
-						if let Some(image_id) = content_identity_model.image_media_data_id {
-							image_media_data::Entity::find_by_id(image_id)
-								.one(db.conn())
-								.await
-								.ok()
-								.flatten()
-								.map(Into::into)
-						} else {
-							None
+					// Load media data in parallel using JOINs
+					let (image_media_opt, video_media_opt, audio_media_opt) = tokio::join!(
+						async {
+							if let Some(image_id) = content_identity_model.image_media_data_id {
+								image_media_data::Entity::find_by_id(image_id)
+									.one(db.conn())
+									.await
+									.ok()
+									.flatten()
+									.map(Into::into)
+							} else {
+								None
+							}
+						},
+						async {
+							if let Some(video_id) = content_identity_model.video_media_data_id {
+								video_media_data::Entity::find_by_id(video_id)
+									.one(db.conn())
+									.await
+									.ok()
+									.flatten()
+									.map(Into::into)
+							} else {
+								None
+							}
+						},
+						async {
+							if let Some(audio_id) = content_identity_model.audio_media_data_id {
+								audio_media_data::Entity::find_by_id(audio_id)
+									.one(db.conn())
+									.await
+									.ok()
+									.flatten()
+									.map(Into::into)
+							} else {
+								None
+							}
 						}
-					},
-					async {
-						if let Some(video_id) = content_identity_model.video_media_data_id {
-							video_media_data::Entity::find_by_id(video_id)
-								.one(db.conn())
-								.await
-								.ok()
-								.flatten()
-								.map(Into::into)
-						} else {
-							None
-						}
-					},
-					async {
-						if let Some(audio_id) = content_identity_model.audio_media_data_id {
-							audio_media_data::Entity::find_by_id(audio_id)
-								.one(db.conn())
-								.await
-								.ok()
-								.flatten()
-								.map(Into::into)
-						} else {
-							None
-						}
-					}
-				);
+					);
 
-				// Fetch sidecars for this content UUID
-				let sidecars = if let Some(uuid) = content_uuid {
-					sidecar::Entity::find()
-						.filter(sidecar::Column::ContentUuid.eq(uuid))
-						.all(db.conn())
-						.await?
-						.into_iter()
-						.map(|s| crate::domain::Sidecar {
-							id: s.id,
-							content_uuid: s.content_uuid,
-							kind: s.kind,
-							variant: s.variant,
-							format: s.format,
-							status: s.status,
-							size: s.size,
-							created_at: s.created_at,
-							updated_at: s.updated_at,
-						})
-						.collect()
+					// Fetch sidecars for this content UUID
+					let sidecars = if let Some(uuid) = content_uuid {
+						sidecar::Entity::find()
+							.filter(sidecar::Column::ContentUuid.eq(uuid))
+							.all(db.conn())
+							.await?
+							.into_iter()
+							.map(|s| crate::domain::Sidecar {
+								id: s.id,
+								content_uuid: s.content_uuid,
+								kind: s.kind,
+								variant: s.variant,
+								format: s.format,
+								status: s.status,
+								size: s.size,
+								created_at: s.created_at,
+								updated_at: s.updated_at,
+							})
+							.collect()
+					} else {
+						Vec::new()
+					};
+
+					// Convert content_identity to domain type
+					let content_identity = crate::domain::ContentIdentity {
+						uuid: content_identity_model
+							.uuid
+							.unwrap_or_else(|| Uuid::new_v4()),
+						kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
+						content_hash: content_identity_model.content_hash,
+						integrity_hash: content_identity_model.integrity_hash,
+						mime_type_id: content_identity_model.mime_type_id,
+						text_content: content_identity_model.text_content,
+						total_size: content_identity_model.total_size,
+						entry_count: content_identity_model.entry_count,
+						first_seen_at: content_identity_model.first_seen_at,
+						last_verified_at: content_identity_model.last_verified_at,
+					};
+
+					(
+						Some(content_identity),
+						sidecars,
+						image_media_opt,
+						video_media_opt,
+						audio_media_opt,
+					)
 				} else {
-					Vec::new()
+					(None, Vec::new(), None, None, None)
 				};
 
-				// Convert content_identity to domain type
-				let content_identity = crate::domain::ContentIdentity {
-					uuid: content_identity_model
-						.uuid
-						.unwrap_or_else(|| Uuid::new_v4()),
-					kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
-					content_hash: content_identity_model.content_hash,
-					integrity_hash: content_identity_model.integrity_hash,
-					mime_type_id: content_identity_model.mime_type_id,
-					text_content: content_identity_model.text_content,
-					total_size: content_identity_model.total_size,
-					entry_count: content_identity_model.entry_count,
-					first_seen_at: content_identity_model.first_seen_at,
-					last_verified_at: content_identity_model.last_verified_at,
-				};
-
-				(
-					Some(content_identity),
-					sidecars,
-					image_media_opt,
-					video_media_opt,
-					audio_media_opt,
-				)
-			} else {
-				(None, Vec::new(), None, None, None)
-			};
-
-		// Convert to File using from_entity_model
-		let mut file = File::from_entity_model(entry_model.clone(), sd_path);
-		file.sidecars = sidecars;
-		file.content_identity = content_identity_domain;
-		file.image_media_data = image_media;
-		file.video_media_data = video_media.clone();
-		file.audio_media_data = audio_media;
-		file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
-		if let Some(ref ci) = file.content_identity {
-			file.content_kind = ci.kind;
-		}
-
-		// Load tags for this entry
-		if let Some(entry_uuid) = entry_model.uuid {
-			use std::collections::HashMap;
-
-			// Load user_metadata for this entry (both entry-scoped and content-scoped)
-			let mut metadata_filter = user_metadata::Column::EntryUuid.eq(entry_uuid);
-
-			// Also check for content-scoped metadata if content identity exists
+			// Convert to File using from_entity_model
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
+			file.sidecars = sidecars;
+			file.content_identity = content_identity_domain;
+			file.image_media_data = image_media;
+			file.video_media_data = video_media.clone();
+			file.audio_media_data = audio_media;
+			file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
 			if let Some(ref ci) = file.content_identity {
-				metadata_filter =
-					metadata_filter.or(user_metadata::Column::ContentIdentityUuid.eq(ci.uuid));
+				file.content_kind = ci.kind;
 			}
 
-			let metadata_records = user_metadata::Entity::find()
-				.filter(metadata_filter)
-				.all(db.conn())
-				.await?;
+			// Load tags for this entry
+			if let Some(entry_uuid) = entry_model.uuid {
+				use std::collections::HashMap;
 
-			if !metadata_records.is_empty() {
-				let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
+				// Load user_metadata for this entry (both entry-scoped and content-scoped)
+				let mut metadata_filter = user_metadata::Column::EntryUuid.eq(entry_uuid);
 
-				// Load user_metadata_tag records
-				let metadata_tags = user_metadata_tag::Entity::find()
-					.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
+				// Also check for content-scoped metadata if content identity exists
+				if let Some(ref ci) = file.content_identity {
+					metadata_filter =
+						metadata_filter.or(user_metadata::Column::ContentIdentityUuid.eq(ci.uuid));
+				}
+
+				let metadata_records = user_metadata::Entity::find()
+					.filter(metadata_filter)
 					.all(db.conn())
 					.await?;
 
-				if !metadata_tags.is_empty() {
-					let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
+				if !metadata_records.is_empty() {
+					let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
 
-					// Load tag entities
-					let tag_models = tag::Entity::find()
-						.filter(tag::Column::Id.is_in(tag_ids))
+					// Load user_metadata_tag records
+					let metadata_tags = user_metadata_tag::Entity::find()
+						.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
 						.all(db.conn())
 						.await?;
 
-					// Convert to domain tags
-					let mut tags = Vec::new();
-					for tag_model in tag_models {
-						if let Ok(domain_tag) =
-							crate::ops::tags::manager::model_to_domain(tag_model)
-						{
-							tags.push(domain_tag);
-						}
-					}
+					if !metadata_tags.is_empty() {
+						let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
 
-					file.tags = tags;
-					tracing::debug!("Loaded {} tags for entry {}", file.tags.len(), entry_uuid);
+						// Load tag entities
+						let tag_models = tag::Entity::find()
+							.filter(tag::Column::Id.is_in(tag_ids))
+							.all(db.conn())
+							.await?;
+
+						// Convert to domain tags
+						let mut tags = Vec::new();
+						for tag_model in tag_models {
+							if let Ok(domain_tag) =
+								crate::ops::tags::manager::model_to_domain(tag_model)
+							{
+								tags.push(domain_tag);
+							}
+						}
+
+						file.tags = tags;
+						tracing::debug!("Loaded {} tags for entry {}", file.tags.len(), entry_uuid);
+					}
 				}
+			}
+
+			return Ok(Some(file));
+		}
+
+		// Fall back to ephemeral index if not found in database
+		let ephemeral_cache = context.ephemeral_cache();
+		let index = ephemeral_cache.get_global_index();
+		let index_read = index.read().await;
+
+		if let Some(path) = index_read.get_path_by_uuid(self.file_id) {
+			if let Some(metadata) = index_read.get_entry_ref(&path) {
+				let content_kind = index_read.get_content_kind(&path);
+				let sd_path = SdPath::local(path.clone());
+
+				let mut file = File::from_ephemeral(self.file_id, &metadata, sd_path);
+				file.content_kind = content_kind;
+
+				return Ok(Some(file));
 			}
 		}
 
-		Ok(Some(file))
+		Ok(None)
 	}
 }
 

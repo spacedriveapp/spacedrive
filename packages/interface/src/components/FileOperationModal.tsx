@@ -43,6 +43,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 	const dialog = useDialog(props);
 	const form = useForm();
 	const [phase, setPhase] = useState<DialogPhase>({ type: "form" });
+	const [operation, setOperation] = useState<"copy" | "move">(props.operation);
 	const [conflictResolution, setConflictResolution] = useState<ConflictResolution>("Skip");
 
 	const copyFiles = useLibraryMutation("files.copy");
@@ -51,14 +52,14 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 		try {
 			setPhase({ type: "executing" });
 
-			// Execute with the user's chosen conflict resolution
+			// Execute with the user's chosen operation and conflict resolution
 			await copyFiles.mutateAsync({
 				sources: { paths: props.sources },
 				destination: props.destination,
 				overwrite: conflictResolution === "Overwrite",
 				verify_checksum: false,
 				preserve_timestamps: true,
-				move_files: props.operation === "move",
+				move_files: operation === "move",
 				copy_method: "Auto",
 				on_conflict: conflictResolution,
 			});
@@ -87,7 +88,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 			<Dialog
 				dialog={dialog}
 				form={form}
-				title={props.operation === "copy" ? "Copying Files" : "Moving Files"}
+				title={operation === "copy" ? "Copying Files" : "Moving Files"}
 				icon={<Files size={20} weight="bold" />}
 				hideButtons
 			>
@@ -95,7 +96,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 					<div className="flex items-center justify-center gap-3">
 						<CircleNotch className="size-6 text-accent animate-spin" weight="bold" />
 						<span className="text-sm text-ink">
-							{props.operation === "copy" ? "Copying files..." : "Moving files..."}
+							{operation === "copy" ? "Copying files..." : "Moving files..."}
 						</span>
 					</div>
 				</div>
@@ -127,14 +128,14 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 		);
 	}
 
-	// Form state - let user choose conflict resolution
+	// Form state - let user choose operation and conflict resolution
 	return (
 		<Dialog
 			dialog={dialog}
 			form={form}
-			title={props.operation === "copy" ? "Copy Files" : "Move Files"}
+			title="File Operation"
 			icon={<Files size={20} weight="bold" />}
-			ctaLabel={props.operation === "copy" ? "Copy" : "Move"}
+			ctaLabel={operation === "copy" ? "Copy" : "Move"}
 			onSubmit={handleSubmit}
 			onCancelled={handleCancel}
 		>
@@ -143,15 +144,42 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 				<div className="flex items-start gap-3 p-3 bg-app rounded-md">
 					<FolderOpen className="size-5 text-accent mt-0.5" weight="fill" />
 					<div className="flex-1 min-w-0">
-						<div className="text-xs text-ink-dull mb-1">
-							{props.operation === "copy" ? "Copying to:" : "Moving to:"}
-						</div>
+						<div className="text-xs text-ink-dull mb-1">Destination:</div>
 						<div className="text-sm text-ink font-medium truncate">
 							{formatDestination(props.destination)}
 						</div>
 						<div className="text-xs text-ink-faint mt-1">
 							{props.sources.length} {props.sources.length === 1 ? "item" : "items"}
 						</div>
+					</div>
+				</div>
+
+				{/* Operation type selection */}
+				<div className="space-y-2">
+					<div className="text-xs font-medium text-ink-dull mb-2">Operation:</div>
+					<div className="flex gap-2">
+						<button
+							type="button"
+							onClick={() => setOperation("copy")}
+							className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+								operation === "copy"
+									? "bg-accent text-white"
+									: "bg-app-box text-ink hover:bg-app-hover"
+							}`}
+						>
+							Copy
+						</button>
+						<button
+							type="button"
+							onClick={() => setOperation("move")}
+							className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+								operation === "move"
+									? "bg-accent text-white"
+									: "bg-app-box text-ink hover:bg-app-hover"
+							}`}
+						>
+							Move
+						</button>
 					</div>
 				</div>
 

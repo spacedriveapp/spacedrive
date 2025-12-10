@@ -48,8 +48,8 @@ pub struct ServiceConfig {
 	/// Whether volume monitoring is enabled
 	pub volume_monitoring_enabled: bool,
 
-	/// Whether location watcher is enabled
-	pub location_watcher_enabled: bool,
+	/// Whether filesystem watcher is enabled
+	pub fs_watcher_enabled: bool,
 }
 
 impl Default for ServiceConfig {
@@ -57,7 +57,7 @@ impl Default for ServiceConfig {
 		Self {
 			networking_enabled: true,
 			volume_monitoring_enabled: true,
-			location_watcher_enabled: true,
+			fs_watcher_enabled: true,
 		}
 	}
 }

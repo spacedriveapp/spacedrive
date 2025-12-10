@@ -5,215 +5,298 @@ import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
+import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 
 export function ColumnView() {
-  const { currentPath, setCurrentPath, sortBy, viewSettings } = useExplorer();
-  const { selectedFiles, selectFile, clearSelection } = useSelection();
-  const [columnStack, setColumnStack] = useState<SdPath[]>([]);
-  const isInternalNavigationRef = useRef(false);
+	const { currentPath, setCurrentPath, sortBy, viewSettings } = useExplorer();
+	const {
+		selectedFiles,
+		selectedFileIds,
+		isSelected,
+		selectFile,
+		clearSelection,
+	} = useSelection();
+	const [columnStack, setColumnStack] = useState<SdPath[]>([]);
 
-  // Initialize column stack when currentPath changes externally
-  useEffect(() => {
-    // Only reset if this is an external navigation (not from within column view)
-    if (currentPath && !isInternalNavigationRef.current) {
-      setColumnStack([currentPath]);
-      clearSelection();
-    }
-    isInternalNavigationRef.current = false;
-  }, [currentPath, clearSelection]);
+	// Store clearSelection in ref to avoid effect re-runs
+	const clearSelectionRef = useRef(clearSelection);
+	clearSelectionRef.current = clearSelection;
 
-  // Handle file selection - uses global selectFile and updates columns
-  const handleSelectFile = useCallback((file: File, columnIndex: number, files: File[], multi = false, range = false) => {
-    // Use global selectFile to update selection state
-    selectFile(file, files, multi, range);
+	// Typeahead search state
+	const searchStringRef = useRef("");
+	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Only update columns for single directory selection
-    if (!multi && !range) {
-      if (file.kind === "Directory") {
-        // Truncate columns after current and add new one
-        setColumnStack((prev) => [...prev.slice(0, columnIndex + 1), file.sd_path]);
-        // Update currentPath to the selected directory
-        isInternalNavigationRef.current = true;
-        setCurrentPath(file.sd_path);
-      } else {
-        // For files, just truncate columns after current
-        setColumnStack((prev) => prev.slice(0, columnIndex + 1));
-        // Update currentPath to the file's parent directory
-        const parentPath = columnStack[columnIndex];
-        if (parentPath) {
-          isInternalNavigationRef.current = true;
-          setCurrentPath(parentPath);
-        }
-      }
-    }
-  }, [selectFile, setCurrentPath, columnStack]);
+	// Initialize column stack when currentPath changes (external navigation)
+	// Internal navigation (clicking directories, arrow keys) only updates columnStack, not currentPath
+	useEffect(() => {
+		if (currentPath) {
+			setColumnStack([currentPath]);
+			clearSelectionRef.current();
+		}
+	}, [currentPath]);
 
-  const handleNavigate = useCallback((path: SdPath) => {
-    setCurrentPath(path);
-  }, [setCurrentPath]);
+	// Handle file selection - uses global selectFile and updates columns
+	const handleSelectFile = useCallback(
+		(
+			file: File,
+			columnIndex: number,
+			files: File[],
+			multi = false,
+			range = false,
+		) => {
+			// Use global selectFile to update selection state
+			selectFile(file, files, multi, range);
 
-  // Find the active column (the one containing the first selected file)
-  const activeColumnIndex = useMemo(() => {
-    if (selectedFiles.length === 0) return columnStack.length - 1; // Default to last column
+			// Only update columns for single selection (not multi/range)
+			if (!multi && !range) {
+				if (file.kind === "Directory") {
+					// Truncate columns after current and add new one
+					// DON'T call setCurrentPath - columnStack manages internal navigation
+					// This prevents ExplorerLayout from re-rendering on every column change
+					setColumnStack((prev) => [
+						...prev.slice(0, columnIndex + 1),
+						file.sd_path,
+					]);
+				} else {
+					// For files, just truncate columns after current
+					setColumnStack((prev) => prev.slice(0, columnIndex + 1));
+				}
+			}
+		},
+		[selectFile],
+	);
 
-    const firstSelected = selectedFiles[0];
-    const filePath = firstSelected.sd_path.Physical?.path;
-    if (!filePath) return columnStack.length - 1;
+	const handleNavigate = useCallback(
+		(path: SdPath) => {
+			setCurrentPath(path);
+		},
+		[setCurrentPath],
+	);
 
-    const fileParent = filePath.substring(0, filePath.lastIndexOf('/'));
+	// Find the active column (the one containing the first selected file)
+	const activeColumnIndex = useMemo(() => {
+		if (selectedFiles.length === 0) return columnStack.length - 1; // Default to last column
 
-    return columnStack.findIndex((path) => {
-      const columnPath = path.Physical?.path;
-      return columnPath === fileParent;
-    });
-  }, [selectedFiles, columnStack]);
+		const firstSelected = selectedFiles[0];
+		const filePath = firstSelected.sd_path.Physical?.path;
+		if (!filePath) return columnStack.length - 1;
 
-  const activeColumnPath = columnStack[activeColumnIndex];
+		const fileParent = filePath.substring(0, filePath.lastIndexOf("/"));
 
-  // Query files for the active column (for keyboard navigation)
-  const activeColumnQuery = useNormalizedQuery({
-    wireMethod: "query:files.directory_listing",
-    input: activeColumnPath
-      ? {
-          path: activeColumnPath,
-          limit: null,
-          include_hidden: false,
-          sort_by: sortBy as DirectorySortBy,
-          folders_first: viewSettings.foldersFirst,
-        }
-      : null!,
-    resourceType: "file",
-    enabled: !!activeColumnPath,
-    pathScope: activeColumnPath,
-  });
+		return columnStack.findIndex((path) => {
+			const columnPath = path.Physical?.path;
+			return columnPath === fileParent;
+		});
+	}, [selectedFiles, columnStack]);
 
-  const activeColumnFiles = activeColumnQuery.data?.files || [];
+	const activeColumnPath = columnStack[activeColumnIndex];
 
-  // Query the next column for right arrow navigation
-  const nextColumnPath = columnStack[activeColumnIndex + 1];
-  const nextColumnQuery = useNormalizedQuery({
-    wireMethod: "query:files.directory_listing",
-    input: nextColumnPath
-      ? {
-          path: nextColumnPath,
-          limit: null,
-          include_hidden: false,
-          sort_by: sortBy as DirectorySortBy,
-          folders_first: viewSettings.foldersFirst,
-        }
-      : null!,
-    resourceType: "file",
-    enabled: !!nextColumnPath,
-    pathScope: nextColumnPath,
-  });
+	// Query files for the active column (for keyboard navigation)
+	const activeColumnQuery = useNormalizedQuery({
+		wireMethod: "query:files.directory_listing",
+		input: activeColumnPath
+			? {
+					path: activeColumnPath,
+					limit: null,
+					include_hidden: false,
+					sort_by: sortBy as DirectorySortBy,
+					folders_first: viewSettings.foldersFirst,
+				}
+			: null!,
+		resourceType: "file",
+		enabled: !!activeColumnPath,
+		pathScope: activeColumnPath,
+	});
 
-  const nextColumnFiles = nextColumnQuery.data?.files || [];
+	const activeColumnFiles = activeColumnQuery.data?.files || [];
 
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        return;
-      }
+	// Typeahead search for active column
+	const typeahead = useTypeaheadSearch({
+		files: activeColumnFiles,
+		onMatch: (file) => {
+			handleSelectFile(file, activeColumnIndex, activeColumnFiles);
+		},
+	});
 
-      e.preventDefault();
+	// Query the next column for right arrow navigation
+	const nextColumnPath = columnStack[activeColumnIndex + 1];
+	const nextColumnQuery = useNormalizedQuery({
+		wireMethod: "query:files.directory_listing",
+		input: nextColumnPath
+			? {
+					path: nextColumnPath,
+					limit: null,
+					include_hidden: false,
+					sort_by: sortBy as DirectorySortBy,
+					folders_first: viewSettings.foldersFirst,
+				}
+			: null!,
+		resourceType: "file",
+		enabled: !!nextColumnPath,
+		pathScope: nextColumnPath,
+	});
 
-      if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-        // Navigate within current column
-        if (activeColumnFiles.length === 0) return;
+	const nextColumnFiles = nextColumnQuery.data?.files || [];
 
-        const currentIndex = selectedFiles.length > 0
-          ? activeColumnFiles.findIndex((f) => f.id === selectedFiles[0].id)
-          : -1;
+	// Keyboard navigation
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			// Handle arrow keys
+			if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+				e.preventDefault();
 
-        const newIndex = e.key === "ArrowDown"
-          ? currentIndex < 0 ? 0 : Math.min(currentIndex + 1, activeColumnFiles.length - 1)
-          : currentIndex < 0 ? 0 : Math.max(currentIndex - 1, 0);
+				if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+				// Navigate within current column
+				if (activeColumnFiles.length === 0) return;
 
-        if (newIndex !== currentIndex && activeColumnFiles[newIndex]) {
-          const newFile = activeColumnFiles[newIndex];
-          handleSelectFile(newFile, activeColumnIndex, activeColumnFiles);
+				const currentIndex =
+					selectedFiles.length > 0
+						? activeColumnFiles.findIndex(
+								(f) => f.id === selectedFiles[0].id,
+							)
+						: -1;
 
-          // Scroll to keep selection visible
-          const element = document.querySelector(`[data-file-id="${newFile.id}"]`);
-          if (element) {
-            element.scrollIntoView({ block: "nearest", behavior: "smooth" });
-          }
-        }
-      } else if (e.key === "ArrowLeft") {
-        // Move to previous column
-        if (activeColumnIndex > 0) {
-          const previousColumnPath = columnStack[activeColumnIndex - 1];
-          // Truncate columns and stay at previous column
-          setColumnStack((prev) => prev.slice(0, activeColumnIndex));
-          clearSelection();
-          // Update currentPath to previous column
-          if (previousColumnPath) {
-            isInternalNavigationRef.current = true;
-            setCurrentPath(previousColumnPath);
-          }
-        }
-      } else if (e.key === "ArrowRight") {
-        // If selected file is a directory and there's a next column, move focus there
-        const firstSelected = selectedFiles[0];
-        if (firstSelected?.kind === "Directory" && activeColumnIndex < columnStack.length - 1) {
-          // Select first item in next column
-          if (nextColumnFiles.length > 0) {
-            const firstFile = nextColumnFiles[0];
-            handleSelectFile(firstFile, activeColumnIndex + 1, nextColumnFiles);
+				const newIndex =
+					e.key === "ArrowDown"
+						? currentIndex < 0
+							? 0
+							: Math.min(
+									currentIndex + 1,
+									activeColumnFiles.length - 1,
+								)
+						: currentIndex < 0
+							? 0
+							: Math.max(currentIndex - 1, 0);
 
-            // Scroll to keep selection visible
-            setTimeout(() => {
-              const element = document.querySelector(`[data-file-id="${firstFile.id}"]`);
-              if (element) {
-                element.scrollIntoView({ block: "nearest", behavior: "smooth" });
-              }
-            }, 0);
-          }
-        }
-      }
-    };
+				if (newIndex !== currentIndex && activeColumnFiles[newIndex]) {
+					const newFile = activeColumnFiles[newIndex];
+					handleSelectFile(
+						newFile,
+						activeColumnIndex,
+						activeColumnFiles,
+					);
 
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeColumnFiles, nextColumnFiles, selectedFiles, activeColumnIndex, columnStack, handleSelectFile]);
+					// Scroll to keep selection visible
+					const element = document.querySelector(
+						`[data-file-id="${newFile.id}"]`,
+					);
+					if (element) {
+						element.scrollIntoView({
+							block: "nearest",
+							behavior: "smooth",
+						});
+					}
+				}
+			} else if (e.key === "ArrowLeft") {
+				// Move to previous column
+				if (activeColumnIndex > 0) {
+					// Truncate columns and stay at previous column
+					// DON'T call setCurrentPath - columnStack manages internal navigation
+					setColumnStack((prev) => prev.slice(0, activeColumnIndex));
+					clearSelectionRef.current();
+				}
+			} else if (e.key === "ArrowRight") {
+				// If selected file is a directory and there's a next column, move focus there
+				const firstSelected = selectedFiles[0];
+				if (
+					firstSelected?.kind === "Directory" &&
+					activeColumnIndex < columnStack.length - 1
+				) {
+					// Select first item in next column
+					if (nextColumnFiles.length > 0) {
+						const firstFile = nextColumnFiles[0];
+						handleSelectFile(
+							firstFile,
+							activeColumnIndex + 1,
+							nextColumnFiles,
+						);
 
-  if (!currentPath) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-ink-dull">No location selected</div>
-      </div>
-    );
-  }
+						// Scroll to keep selection visible
+						setTimeout(() => {
+							const element = document.querySelector(
+								`[data-file-id="${firstFile.id}"]`,
+							);
+							if (element) {
+								element.scrollIntoView({
+									block: "nearest",
+									behavior: "smooth",
+								});
+							}
+						}, 0);
+					}
+				}
+			}
+			return;
+		}
 
-  return (
-    <div className="flex h-full overflow-x-auto bg-app">
-      {columnStack.map((path, index) => {
-        // A column is active if it contains a selected file or is the last column with no selection
-        const isActive = selectedFiles.length > 0
-          ? // Check if any selected file's parent path matches this column's path
-            selectedFiles.some((file) => {
-              const filePath = file.sd_path.Physical?.path;
-              const columnPath = path.Physical?.path;
-              if (!filePath || !columnPath) return false;
-              const fileParent = filePath.substring(0, filePath.lastIndexOf('/'));
-              return fileParent === columnPath;
-            })
-          : index === columnStack.length - 1; // Last column is active if no selection
+		// Typeahead search for active column
+		typeahead.handleKey(e);
+	};
 
-        return (
-          <Column
-            key={`${path.Physical?.device_slug}-${path.Physical?.path}-${index}`}
-            path={path}
-            selectedFiles={selectedFiles}
-            onSelectFile={(file, files, multi, range) => handleSelectFile(file, index, files, multi, range)}
-            onNavigate={handleNavigate}
-            nextColumnPath={columnStack[index + 1]}
-            columnIndex={index}
-            isActive={isActive}
-          />
-        );
-      })}
-    </div>
-  );
+		window.addEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			typeahead.cleanup();
+		};
+	}, [
+		activeColumnFiles,
+		nextColumnFiles,
+		selectedFiles,
+		activeColumnIndex,
+		columnStack,
+		handleSelectFile,
+		typeahead,
+	]);
+
+	if (!currentPath) {
+		return (
+			<div className="flex items-center justify-center h-full">
+				<div className="text-ink-dull">No location selected</div>
+			</div>
+		);
+	}
+
+	// Compute which columns are active based on selection
+	// This is stable unless selection changes
+	const activeColumnPaths = useMemo(() => {
+		if (selectedFiles.length === 0) return new Set<string>();
+
+		const paths = new Set<string>();
+		for (const file of selectedFiles) {
+			const filePath = file.sd_path.Physical?.path;
+			if (!filePath) continue;
+			const fileParent = filePath.substring(0, filePath.lastIndexOf("/"));
+			paths.add(fileParent);
+		}
+		return paths;
+	}, [selectedFiles]);
+
+	return (
+		<div className="flex h-full overflow-x-auto bg-app">
+			{columnStack.map((path, index) => {
+				const columnPath = path.Physical?.path || "";
+				// A column is active if it contains a selected file or is the last column with no selection
+				const isActive =
+					selectedFiles.length > 0
+						? activeColumnPaths.has(columnPath)
+						: index === columnStack.length - 1;
+
+				return (
+					<Column
+						key={`${path.Physical?.device_slug}-${path.Physical?.path}-${index}`}
+						path={path}
+						isSelected={isSelected}
+						selectedFileIds={selectedFileIds}
+						onSelectFile={(file, files, multi, range) =>
+							handleSelectFile(file, index, files, multi, range)
+						}
+						onNavigate={handleNavigate}
+						nextColumnPath={columnStack[index + 1]}
+						columnIndex={index}
+						isActive={isActive}
+					/>
+				);
+			})}
+		</div>
+	);
 }

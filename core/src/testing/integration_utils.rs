@@ -135,7 +135,7 @@ pub struct TestConfigBuilder {
 	log_level: String,
 	networking_enabled: bool,
 	volume_monitoring_enabled: bool,
-	location_watcher_enabled: bool,
+	fs_watcher_enabled: bool,
 	job_logging_enabled: bool,
 	telemetry_enabled: bool,
 }
@@ -148,7 +148,7 @@ impl TestConfigBuilder {
 			log_level: "warn".to_string(),    // Reduce log noise by default
 			networking_enabled: false,        // Disable for faster tests
 			volume_monitoring_enabled: false, // Disable for faster tests
-			location_watcher_enabled: true,   // Usually needed for indexing tests
+			fs_watcher_enabled: true,         // Usually needed for indexing tests
 			job_logging_enabled: true,        // Usually needed for job tests
 			telemetry_enabled: false,         // Disable for tests
 		}
@@ -172,9 +172,9 @@ impl TestConfigBuilder {
 		self
 	}
 
-	/// Enable/disable location watcher (default: true)
-	pub fn location_watcher_enabled(mut self, enabled: bool) -> Self {
-		self.location_watcher_enabled = enabled;
+	/// Enable/disable filesystem watcher (default: true)
+	pub fn fs_watcher_enabled(mut self, enabled: bool) -> Self {
+		self.fs_watcher_enabled = enabled;
 		self
 	}
 
@@ -207,7 +207,7 @@ impl TestConfigBuilder {
 			services: ServiceConfig {
 				networking_enabled: self.networking_enabled,
 				volume_monitoring_enabled: self.volume_monitoring_enabled,
-				location_watcher_enabled: self.location_watcher_enabled,
+				fs_watcher_enabled: self.fs_watcher_enabled,
 			},
 			logging: crate::config::app_config::LoggingConfig::default(),
 		}
@@ -236,8 +236,8 @@ impl TestConfigBuilder {
 			config.services.volume_monitoring_enabled
 		);
 		info!(
-			"  - Location watcher enabled: {}",
-			config.services.location_watcher_enabled
+			"  - Filesystem watcher enabled: {}",
+			config.services.fs_watcher_enabled
 		);
 		info!("  - Job logging enabled: {}", config.job_logging.enabled);
 
@@ -424,8 +424,8 @@ impl IntegrationTestSetup {
 				loaded_config.services.volume_monitoring_enabled
 			);
 			info!(
-				"  - Location watcher enabled: {}",
-				loaded_config.services.location_watcher_enabled
+				"  - Filesystem watcher enabled: {}",
+				loaded_config.services.fs_watcher_enabled
 			);
 			info!(
 				"  - Job logging enabled: {}",

@@ -11,15 +11,15 @@
 //!
 //! // Check if an event should be handled by the ephemeral system
 //! if let Some(root) = responder::find_ephemeral_root(&path, &context) {
-//!     responder::process_event(&context, &root, event_kind).await?;
+//!     responder::process_event(&context, &root, event).await?;
 //! }
 //! ```
 
 use crate::context::CoreContext;
-use crate::infra::event::FsRawEventKind;
 use crate::ops::indexing::change_detection::{self, ChangeConfig};
 use crate::ops::indexing::rules::RuleToggles;
 use anyhow::Result;
+use sd_fs_watcher::{FsEvent, FsEventKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -34,16 +34,16 @@ pub fn find_ephemeral_root(path: &Path, context: &CoreContext) -> Option<PathBuf
 
 /// Check if any path in a batch of events falls under an ephemeral watched directory.
 pub fn find_ephemeral_root_for_events(
-	events: &[FsRawEventKind],
+	events: &[FsEvent],
 	context: &CoreContext,
 ) -> Option<PathBuf> {
 	let paths: Vec<&Path> = events
 		.iter()
-		.flat_map(|e| match e {
-			FsRawEventKind::Create { path } => vec![path.as_path()],
-			FsRawEventKind::Modify { path } => vec![path.as_path()],
-			FsRawEventKind::Remove { path } => vec![path.as_path()],
-			FsRawEventKind::Rename { from, to } => vec![from.as_path(), to.as_path()],
+		.flat_map(|e| match &e.kind {
+			FsEventKind::Create => vec![e.path.as_path()],
+			FsEventKind::Modify => vec![e.path.as_path()],
+			FsEventKind::Remove => vec![e.path.as_path()],
+			FsEventKind::Rename { from, to } => vec![from.as_path(), to.as_path()],
 		})
 		.collect();
 
@@ -60,12 +60,19 @@ pub fn find_ephemeral_root_for_events(
 pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	root_path: &Path,
-	events: Vec<FsRawEventKind>,
+	events: Vec<FsEvent>,
 	rule_toggles: RuleToggles,
 ) -> Result<()> {
 	if events.is_empty() {
+		tracing::debug!("ephemeral::responder::apply_batch() called with empty events");
 		return Ok(());
 	}
+
+	tracing::debug!(
+		"ephemeral::responder::apply_batch() processing {} events for root: {}",
+		events.len(),
+		root_path.display()
+	);
 
 	let index = context.ephemeral_cache().get_global_index();
 	let event_bus = context.events.clone();
@@ -85,9 +92,14 @@ pub async fn apply_batch(
 pub async fn apply(
 	context: &Arc<CoreContext>,
 	root_path: &Path,
-	event: FsRawEventKind,
+	event: FsEvent,
 	rule_toggles: RuleToggles,
 ) -> Result<()> {
+	tracing::debug!(
+		"ephemeral::responder::apply() called for root: {}, event: {:?}",
+		root_path.display(),
+		event
+	);
 	apply_batch(context, root_path, vec![event], rule_toggles).await
 }
 

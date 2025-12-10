@@ -115,6 +115,7 @@ sd-task-system = { path = "../crates/task-system" }
 blurhash         = "0.2"
 image            = "0.25"
 sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
+sd-fs-watcher    = { path = "../crates/fs-watcher" }
 sd-images        = { path = "../crates/images" }
 sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"

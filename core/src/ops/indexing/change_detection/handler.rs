@@ -193,10 +193,10 @@ pub async fn build_dir_entry(
 /// creates, and finally modifies.
 pub async fn apply_batch<H: ChangeHandler>(
 	handler: &mut H,
-	events: Vec<crate::infra::event::FsRawEventKind>,
+	events: Vec<sd_fs_watcher::FsEvent>,
 	config: &ChangeConfig<'_>,
 ) -> Result<()> {
-	use crate::infra::event::FsRawEventKind;
+	use sd_fs_watcher::FsEventKind;
 
 	if events.is_empty() {
 		return Ok(());
@@ -208,11 +208,11 @@ pub async fn apply_batch<H: ChangeHandler>(
 	let mut renames = Vec::new();
 
 	for event in events {
-		match event {
-			FsRawEventKind::Create { path } => creates.push(path),
-			FsRawEventKind::Modify { path } => modifies.push(path),
-			FsRawEventKind::Remove { path } => removes.push(path),
-			FsRawEventKind::Rename { from, to } => renames.push((from, to)),
+		match event.kind {
+			FsEventKind::Create => creates.push(event.path),
+			FsEventKind::Modify => modifies.push(event.path),
+			FsEventKind::Remove => removes.push(event.path),
+			FsEventKind::Rename { from, to } => renames.push((from, to)),
 		}
 	}
 
