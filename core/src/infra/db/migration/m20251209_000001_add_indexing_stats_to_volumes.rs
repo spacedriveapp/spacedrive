@@ -13,11 +13,7 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(Volumes::Table)
-					.add_column(
-						ColumnDef::new(Volumes::TotalFileCount)
-							.big_integer()
-							.null(),
-					)
+					.add_column(ColumnDef::new(Volumes::TotalFileCount).big_integer().null())
 					.to_owned(),
 			)
 			.await?;
@@ -41,11 +37,7 @@ impl MigrationTrait for Migration {
 			.alter_table(
 				Table::alter()
 					.table(Volumes::Table)
-					.add_column(
-						ColumnDef::new(Volumes::LastIndexedAt)
-							.date_time()
-							.null(),
-					)
+					.add_column(ColumnDef::new(Volumes::LastIndexedAt).date_time().null())
 					.to_owned(),
 			)
 			.await?;

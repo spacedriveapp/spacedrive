@@ -149,7 +149,9 @@ impl LibraryQuery for FileByPathQuery {
 							uuid: content_identity_model
 								.uuid
 								.unwrap_or_else(|| Uuid::new_v4()),
-							kind: crate::domain::ContentKind::from_id(content_identity_model.kind_id),
+							kind: crate::domain::ContentKind::from_id(
+								content_identity_model.kind_id,
+							),
 							content_hash: content_identity_model.content_hash,
 							integrity_hash: content_identity_model.integrity_hash,
 							mime_type_id: content_identity_model.mime_type_id,

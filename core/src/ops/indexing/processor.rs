@@ -150,13 +150,7 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		DatabaseStorage::link_to_content_identity(
-			db,
-			entry.id,
-			&entry.path,
-			content_hash,
-		)
-		.await?;
+		DatabaseStorage::link_to_content_identity(db, entry.id, &entry.path, content_hash).await?;
 
 		debug!("✓ Linked content identity for entry {}", entry.id);
 

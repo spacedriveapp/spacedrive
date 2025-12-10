@@ -25,4 +25,7 @@ pub use update::*;
 pub use validate::*;
 
 // Register validation query
-crate::register_library_query!(validate::ValidateLocationPathQuery, "locations.validate_path");
+crate::register_library_query!(
+	validate::ValidateLocationPathQuery,
+	"locations.validate_path"
+);

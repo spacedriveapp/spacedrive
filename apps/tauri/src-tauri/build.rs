@@ -4,8 +4,7 @@ fn main() {
 	// Compile .icon to Assets.car on macOS
 	#[cfg(target_os = "macos")]
 	{
-		let project_root = std::env::var("CARGO_MANIFEST_DIR")
-			.expect("CARGO_MANIFEST_DIR not set");
+		let project_root = std::env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
 		let icon_source = format!("{}/../Spacedrive.icon", project_root);
 		let gen_dir = format!("{}/gen", project_root);
 
@@ -48,14 +47,9 @@ fn main() {
 				.expect("Failed to execute actool");
 
 			if !output.status.success() {
-				eprintln!(
-					"actool failed: {}",
-					String::from_utf8_lossy(&output.stderr)
-				);
+				eprintln!("actool failed: {}", String::from_utf8_lossy(&output.stderr));
 			} else {
-				println!(
-					"Successfully compiled Spacedrive.icon to Assets.car"
-				);
+				println!("Successfully compiled Spacedrive.icon to Assets.car");
 			}
 		} else {
 			println!("cargo:warning=Spacedrive.icon not found at {}", icon_source);

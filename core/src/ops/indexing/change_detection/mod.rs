@@ -18,7 +18,7 @@ pub mod types;
 
 pub use detector::ChangeDetector;
 pub use handler::{
-	apply_batch, build_dir_entry, handle_create, handle_modify, handle_rename, handle_remove,
+	apply_batch, build_dir_entry, handle_create, handle_modify, handle_remove, handle_rename,
 	path_exists_safe, should_filter_path, ChangeHandler,
 };
 pub use persistent::{DatabaseAdapter, DatabaseAdapterForJob};

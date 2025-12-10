@@ -32,7 +32,12 @@ pub enum FileConflictResolution {
 
 impl FileConflictResolution {
 	/// All available choices for conflict resolution
-	const CHOICES: [Self; 4] = [Self::Overwrite, Self::AutoModifyName, Self::Skip, Self::Abort];
+	const CHOICES: [Self; 4] = [
+		Self::Overwrite,
+		Self::AutoModifyName,
+		Self::Skip,
+		Self::Abort,
+	];
 
 	/// Convert to human-readable string
 	fn as_str(&self) -> &'static str {

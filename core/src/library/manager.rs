@@ -1141,10 +1141,7 @@ impl LibraryManager {
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
-		info!(
-			"Created default Devices group for library {}",
-			library.id()
-		);
+		info!("Created default Devices group for library {}", library.id());
 
 		// Create Locations group
 		let locations_group_id =
@@ -1198,8 +1195,7 @@ impl LibraryManager {
 		info!("Created default Volumes group for library {}", library.id());
 
 		// Create Tags group
-		let tags_group_id =
-			deterministic_library_default_uuid(library_id, "space_group", "Tags");
+		let tags_group_id = deterministic_library_default_uuid(library_id, "space_group", "Tags");
 		let tags_type_json = serde_json::to_string(&GroupType::Tags)
 			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
 

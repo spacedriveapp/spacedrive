@@ -275,7 +275,8 @@ impl JobHandler for FileCopyJob {
 				} else if dest_path.is_dir() || self.sources.paths.len() > 1 {
 					// Destination is a directory, OR we have multiple sources
 					// In both cases, join with source filename
-					self.destination.join(resolved_source.file_name().unwrap_or_default())
+					self.destination
+						.join(resolved_source.file_name().unwrap_or_default())
 				} else {
 					// Single source, destination doesn't exist or is not a file/dir
 					// Use destination as-is (allows renaming: copy file.txt -> newname.txt)
@@ -285,7 +286,8 @@ impl JobHandler for FileCopyJob {
 				// Non-local destination (Cloud, Content, Sidecar)
 				// For multiple sources, join with filename; for single source, use as-is
 				if self.sources.paths.len() > 1 {
-					self.destination.join(resolved_source.file_name().unwrap_or_default())
+					self.destination
+						.join(resolved_source.file_name().unwrap_or_default())
 				} else {
 					self.destination.clone()
 				}
@@ -370,7 +372,10 @@ impl JobHandler for FileCopyJob {
 							if dest_path.exists() {
 								let unique_dest = self.generate_unique_name(&dest_path).await?;
 								SdPath::Physical {
-									device_slug: final_destination.device_slug().unwrap_or_default().to_string(),
+									device_slug: final_destination
+										.device_slug()
+										.unwrap_or_default()
+										.to_string(),
 									path: unique_dest,
 								}
 							} else {

@@ -423,7 +423,8 @@ impl Event {
 		// Handle Physical scope against Content/Sidecar paths by checking alternate_paths
 		// This prevents unnecessary events when content exists outside the subscribed scope
 		if matches!(scope, SdPath::Physical { .. }) {
-			let has_content_with_alternate_match = self.check_alternate_paths(scope, include_descendants);
+			let has_content_with_alternate_match =
+				self.check_alternate_paths(scope, include_descendants);
 			if has_content_with_alternate_match {
 				return true;
 			}
@@ -530,9 +531,7 @@ impl Event {
 		// Check if any resource's alternate_paths match the scope
 		for resource in resources {
 			// Extract alternate_paths array from resource JSON
-			let alternate_paths = resource
-				.get("alternate_paths")
-				.and_then(|v| v.as_array());
+			let alternate_paths = resource.get("alternate_paths").and_then(|v| v.as_array());
 
 			if let Some(paths_array) = alternate_paths {
 				// Deserialize each path and check if it matches the scope

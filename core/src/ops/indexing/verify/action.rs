@@ -97,7 +97,8 @@ impl IndexVerifyAction {
 		library: &Arc<crate::library::Library>,
 		context: &Arc<CoreContext>,
 		path: &Path,
-	) -> Result<HashMap<PathBuf, crate::ops::indexing::database_storage::EntryMetadata>, ActionError> {
+	) -> Result<HashMap<PathBuf, crate::ops::indexing::database_storage::EntryMetadata>, ActionError>
+	{
 		use tokio::sync::RwLock;
 
 		tracing::debug!("Running ephemeral indexer job on {}", path.display());

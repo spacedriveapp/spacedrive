@@ -45,9 +45,7 @@ impl LibraryAction for IndexVolumeAction {
 			.volume_manager
 			.get_volume(&fingerprint)
 			.await
-			.ok_or_else(|| {
-				ActionError::Internal(format!("Volume not found: {}", fingerprint.0))
-			})?;
+			.ok_or_else(|| ActionError::Internal(format!("Volume not found: {}", fingerprint.0)))?;
 
 		info!(
 			"Starting ephemeral indexing for volume: {} ({})",
@@ -67,9 +65,7 @@ impl LibraryAction for IndexVolumeAction {
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| {
-				ActionError::Internal(format!("Device not found: {}", device_uuid))
-			})?;
+			.ok_or_else(|| ActionError::Internal(format!("Device not found: {}", device_uuid)))?;
 
 		// 3. Construct SdPath for the volume's mount point
 		let sd_path = if let Some((service, identifier)) = volume.parse_cloud_identity() {
@@ -97,9 +93,7 @@ impl LibraryAction for IndexVolumeAction {
 		indexer_job.set_ephemeral_index(index.clone());
 
 		// 6. Clear stale entries if this volume was previously indexed
-		let cleared = ephemeral_cache
-			.clear_for_reindex(&volume.mount_point)
-			.await;
+		let cleared = ephemeral_cache.clear_for_reindex(&volume.mount_point).await;
 		if cleared > 0 {
 			info!(
 				"Cleared {} stale entries before re-indexing volume",

@@ -94,11 +94,7 @@ impl EventBuffer {
 	///
 	/// This is a copy of RpcServer::should_forward_event to avoid module coupling.
 	/// The logic must stay in sync with the main filtering implementation.
-	fn matches_filter(
-		event: &Event,
-		event_types: &[String],
-		filter: &Option<EventFilter>,
-	) -> bool {
+	fn matches_filter(event: &Event, event_types: &[String], filter: &Option<EventFilter>) -> bool {
 		// If event_types is empty, forward all events
 		// Otherwise, treat event_types as an INCLUSION list (only forward these)
 		if !event_types.is_empty() {
@@ -170,9 +166,7 @@ mod tests {
 
 		// Add 150 events (exceeds max_size of 100)
 		for i in 0..150 {
-			buffer
-				.add_event(Event::CoreStarted)
-				.await;
+			buffer.add_event(Event::CoreStarted).await;
 		}
 
 		// Verify only last 100 events are kept
