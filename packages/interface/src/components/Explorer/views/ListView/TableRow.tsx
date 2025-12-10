@@ -184,7 +184,7 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 			</div>
 
 			{/* File name */}
-			<span className="truncate text-sm text-ink">{file.name}</span>
+			<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
 
 			{/* Tags (inline, compact) */}
 			{file.tags && file.tags.length > 0 && (

@@ -77,7 +77,7 @@ export function Title({
         className
       )}
     >
-      {file.name}
+      {file.name}{file.extension && `.${file.extension}`}
     </div>
   );
 }

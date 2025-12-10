@@ -93,7 +93,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 			{/* Hover overlay with file name */}
 			<div className="absolute inset-x-0 bottom-0 px-2 py-1.5 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
 				<div className="text-white text-xs font-medium truncate">
-					{file.name}
+					{file.name}{file.extension && `.${file.extension}`}
 				</div>
 			</div>
 
