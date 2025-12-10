@@ -291,6 +291,32 @@ impl TestHarness {
 		Ok(())
 	}
 
+	/// Delete a directory recursively
+	async fn delete_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+		let path = self.path(name);
+		tokio::fs::remove_dir_all(&path).await?;
+		println!("Deleted directory recursively: {}", name);
+		Ok(())
+	}
+
+	/// Create multiple files at the top level (batch creation test)
+	async fn create_batch_files(&self, files: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+		for file in files {
+			let full_path = self.path(file);
+			tokio::fs::write(&full_path, format!("Content of {}", file)).await?;
+			println!("Created file: {}", file);
+		}
+		Ok(())
+	}
+
+	/// Create multiple directories at the top level
+	async fn create_batch_dirs(&self, dirs: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+		for dir in dirs {
+			self.create_dir(dir).await?;
+		}
+		Ok(())
+	}
+
 	/// Verify entry exists in ephemeral index
 	async fn verify_entry_exists(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
 		let path = self.path(name);
@@ -568,6 +594,80 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_entry_count(4).await?; // root + initial.txt, notes-renamed.md, projects/
 
 	// ========================================================================
+	// Scenario 7: Batch Create Files and Directories
+	// ========================================================================
+	println!("\n--- Scenario 7: Batch Create Files and Directories ---");
+
+	// Create multiple files at once (simulating drag-and-drop or copy operations)
+	let batch_files = [
+		"readme.txt",
+		"config.json",
+		"data.csv",
+		"report.md",
+		"script.sh",
+		"image.png",
+	];
+	harness.create_batch_files(&batch_files).await?;
+
+	// Create multiple directories at once
+	// Note: Avoid names like "temp", "cache", etc. that may be filtered by indexing rules
+	let batch_dirs = ["workspace", "backups", "archives"];
+	harness.create_batch_dirs(&batch_dirs).await?;
+
+	// Give the watcher time to process all the create events
+	tokio::time::sleep(Duration::from_millis(500)).await;
+
+	// Verify all batch-created files appear
+	for file in &batch_files {
+		harness.verify_entry_exists(file).await?;
+		harness.verify_is_file(file).await?;
+	}
+
+	// Verify all batch-created directories appear
+	for dir in &batch_dirs {
+		harness.verify_entry_exists(dir).await?;
+		harness.verify_is_directory(dir).await?;
+	}
+
+	// Count: root(1) + initial.txt(1) + notes-renamed.md(1) + projects(1) +
+	//        6 files + 3 dirs = 13
+	harness.verify_entry_count(13).await?;
+
+	println!("✓ All batch-created entries verified in index");
+	harness.dump_index_state().await;
+
+	// ========================================================================
+	// Scenario 8: Delete Multiple Files and Directory
+	// ========================================================================
+	println!("\n--- Scenario 8: Delete Multiple Files and Directory ---");
+
+	// Delete multiple files
+	for file in &batch_files {
+		harness.delete_file(file).await?;
+	}
+
+	// Delete directories (they're empty at top level, so just rmdir)
+	for dir in &batch_dirs {
+		harness.delete_dir(dir).await?;
+	}
+
+	// Give the watcher time to process all the delete events
+	tokio::time::sleep(Duration::from_millis(500)).await;
+
+	// Verify all batch-created entries are removed
+	for file in &batch_files {
+		harness.verify_entry_not_exists(file).await?;
+	}
+	for dir in &batch_dirs {
+		harness.verify_entry_not_exists(dir).await?;
+	}
+
+	// Count should be back to: root(1) + initial.txt(1) + notes-renamed.md(1) + projects(1) = 4
+	harness.verify_entry_count(4).await?;
+
+	println!("✓ All batch-deleted entries removed from index");
+
+	// ========================================================================
 	// Final State Verification
 	// ========================================================================
 	println!("\n--- Final State Verification ---");
@@ -579,6 +679,9 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_entry_exists("projects").await?;
 	harness.verify_entry_not_exists("document.txt").await?;
 	harness.verify_entry_not_exists("notes.md").await?;
+	// All batch-created items should be gone
+	harness.verify_entry_not_exists("workspace").await?;
+	harness.verify_entry_not_exists("readme.txt").await?;
 
 	Ok(())
 }
@@ -615,6 +718,8 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
 	println!("  ✓ File renaming (ephemeral index updated)");
 	println!("  ✓ File deletion (removed from ephemeral index)");
 	println!("  ✓ Directory creation (shallow watch)");
+	println!("  ✓ Batch file/directory creation");
+	println!("  ✓ Batch file/directory deletion");
 
 	harness.cleanup().await?;
 

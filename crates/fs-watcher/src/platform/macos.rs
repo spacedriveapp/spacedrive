@@ -31,6 +31,9 @@ const STABILIZATION_TIMEOUT_MS: u64 = 500;
 /// Longer timeout for files with rapid successive changes
 const REINCIDENT_TIMEOUT_MS: u64 = 10_000;
 
+/// Timeout for directory dedup cache (how long to remember recent directory creates)
+const DIR_DEDUP_TIMEOUT_MS: u64 = 5_000;
+
 /// macOS event handler with rename detection
 pub struct MacOsHandler {
 	/// Files pending potential rename (by inode) - the "old path" side
@@ -49,8 +52,9 @@ pub struct MacOsHandler {
 	/// Key: path, Value: first change timestamp
 	reincident_updates: RwLock<HashMap<PathBuf, Instant>>,
 
-	/// Last created directory path - for Finder duplicate event deduplication
-	last_created_dir: RwLock<Option<PathBuf>>,
+	/// Recently created directories - for duplicate event deduplication
+	/// Key: path, Value: timestamp of creation
+	recent_dirs: RwLock<HashMap<PathBuf, Instant>>,
 }
 
 #[derive(Debug, Clone)]
@@ -76,7 +80,7 @@ impl MacOsHandler {
 			pending_creates: RwLock::new(HashMap::new()),
 			pending_updates: RwLock::new(HashMap::new()),
 			reincident_updates: RwLock::new(HashMap::new()),
-			last_created_dir: RwLock::new(None),
+			recent_dirs: RwLock::new(HashMap::new()),
 		}
 	}
 
@@ -116,19 +120,18 @@ impl MacOsHandler {
 	async fn process_create(&self, path: PathBuf) -> Result<Vec<FsEvent>> {
 		// Check if this is a directory
 		if Self::is_directory(&path).await {
-			// Dedupe Finder's duplicate directory creation events
+			// Dedupe duplicate directory creation events using recent_dirs cache
 			{
-				let mut last_dir = self.last_created_dir.write().await;
-				if let Some(ref last) = *last_dir {
-					if *last == path {
-						trace!(
-							"Ignoring duplicate directory create event: {}",
-							path.display()
-						);
-						return Ok(vec![]);
-					}
+				let mut recent = self.recent_dirs.write().await;
+				if recent.contains_key(&path) {
+					trace!(
+						"Ignoring duplicate directory create event: {}",
+						path.display()
+					);
+					return Ok(vec![]);
 				}
-				*last_dir = Some(path.clone());
+				// Track this directory creation
+				recent.insert(path.clone(), Instant::now());
 			}
 
 			// Directories emit immediately (no rename detection needed)
@@ -137,6 +140,19 @@ impl MacOsHandler {
 				path.display()
 			);
 			return Ok(vec![FsEvent::create_dir(path)]);
+		}
+
+		// For files, check if we already have this path in recent_dirs
+		// (edge case: directory metadata check failed initially but file is actually a dir)
+		{
+			let recent = self.recent_dirs.read().await;
+			if recent.contains_key(&path) {
+				trace!(
+					"Ignoring create event for recent directory: {}",
+					path.display()
+				);
+				return Ok(vec![]);
+			}
 		}
 
 		// For files, get inode for rename detection
@@ -226,23 +242,69 @@ impl MacOsHandler {
 	/// Evict pending creates that have timed out
 	async fn evict_creates(&self, timeout: Duration) -> Vec<FsEvent> {
 		let mut events = Vec::new();
-		let mut creates = self.pending_creates.write().await;
-		let mut to_remove = Vec::new();
+		let mut to_process = Vec::new();
 
-		for (inode, pending) in creates.iter() {
-			if pending.timestamp.elapsed() > timeout {
-				to_remove.push(*inode);
-				// Files only - directories are emitted immediately in process_create
-				events.push(FsEvent::create_file(pending.path.clone()));
-				trace!(
-					"Evicting create (no matching remove): {}",
-					pending.path.display()
-				);
+		// Collect timed-out entries
+		{
+			let mut creates = self.pending_creates.write().await;
+			let mut to_remove = Vec::new();
+
+			for (inode, pending) in creates.iter() {
+				if pending.timestamp.elapsed() > timeout {
+					to_remove.push(*inode);
+				}
+			}
+
+			for inode in to_remove {
+				if let Some(pending) = creates.remove(&inode) {
+					to_process.push(pending);
+				}
 			}
 		}
 
-		for inode in to_remove {
-			creates.remove(&inode);
+		// Process evictions without holding the creates lock
+		for pending in to_process {
+			// Check if this path was already emitted as a directory
+			// (handles race condition where directory got buffered initially)
+			let skip = {
+				let recent = self.recent_dirs.read().await;
+				let found = recent.contains_key(&pending.path);
+				if found {
+					debug!(
+						"Skipping eviction for already-emitted directory: {}",
+						pending.path.display()
+					);
+				} else {
+					debug!(
+						"Path not in recent_dirs, will evict: {} (recent_dirs has {} entries)",
+						pending.path.display(),
+						recent.len()
+					);
+				}
+				found
+			};
+
+			if skip {
+				continue;
+			}
+
+			// Check if the path is actually a directory now
+			let is_dir = Self::is_directory(&pending.path).await;
+			if is_dir {
+				// Add to recent_dirs to prevent future duplicates
+				{
+					let mut recent = self.recent_dirs.write().await;
+					recent.insert(pending.path.clone(), Instant::now());
+				}
+				events.push(FsEvent::create_dir(pending.path.clone()));
+				debug!(
+					"Evicting create as directory (was buffered as file): {}",
+					pending.path.display()
+				);
+			} else {
+				events.push(FsEvent::create_file(pending.path.clone()));
+				debug!("Evicting create as file: {}", pending.path.display());
+			}
 		}
 
 		events
@@ -307,6 +369,12 @@ impl MacOsHandler {
 		}
 
 		events
+	}
+
+	/// Clean up old entries from the recent directories cache
+	async fn cleanup_recent_dirs(&self, timeout: Duration) {
+		let mut recent = self.recent_dirs.write().await;
+		recent.retain(|_, timestamp| timestamp.elapsed() < timeout);
 	}
 }
 
@@ -374,6 +442,7 @@ impl EventHandler for MacOsHandler {
 	async fn tick(&self) -> Result<Vec<FsEvent>> {
 		let rename_timeout = Duration::from_millis(RENAME_TIMEOUT_MS);
 		let stabilization_timeout = Duration::from_millis(STABILIZATION_TIMEOUT_MS);
+		let dir_dedup_timeout = Duration::from_millis(DIR_DEDUP_TIMEOUT_MS);
 
 		let mut events = Vec::new();
 
@@ -383,6 +452,9 @@ impl EventHandler for MacOsHandler {
 		events.extend(self.evict_creates(rename_timeout).await);
 		events.extend(self.evict_removes(rename_timeout).await);
 
+		// Clean up old entries from recent_dirs cache
+		self.cleanup_recent_dirs(dir_dedup_timeout).await;
+
 		Ok(events)
 	}
 
@@ -391,7 +463,7 @@ impl EventHandler for MacOsHandler {
 		self.pending_creates.write().await.clear();
 		self.pending_updates.write().await.clear();
 		self.reincident_updates.write().await.clear();
-		*self.last_created_dir.write().await = None;
+		self.recent_dirs.write().await.clear();
 	}
 }
 
@@ -408,7 +480,7 @@ mod tests {
 		assert!(handler.pending_creates.read().await.is_empty());
 		assert!(handler.pending_updates.read().await.is_empty());
 		assert!(handler.reincident_updates.read().await.is_empty());
-		assert!(handler.last_created_dir.read().await.is_none());
+		assert!(handler.recent_dirs.read().await.is_empty());
 	}
 
 	#[tokio::test]
@@ -421,15 +493,15 @@ mod tests {
 			updates.insert(PathBuf::from("/test"), Instant::now());
 		}
 		{
-			let mut last_dir = handler.last_created_dir.write().await;
-			*last_dir = Some(PathBuf::from("/test/dir"));
+			let mut recent = handler.recent_dirs.write().await;
+			recent.insert(PathBuf::from("/test/dir"), Instant::now());
 		}
 
 		// Reset should clear everything
 		handler.reset().await;
 
 		assert!(handler.pending_updates.read().await.is_empty());
-		assert!(handler.last_created_dir.read().await.is_none());
+		assert!(handler.recent_dirs.read().await.is_empty());
 	}
 
 	#[tokio::test]
