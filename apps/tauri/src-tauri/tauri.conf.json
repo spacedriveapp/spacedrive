@@ -78,7 +78,7 @@
 			"minimumSystemVersion": "10.15",
 			"signingIdentity": "-",
 			"infoPlist": "Info.plist",
-			"frameworks": ["../apps/.deps/Spacedrive.framework"]
+			"frameworks": ["../apps/.deps/Frameworks/Spacedrive.framework"]
 		},
 		"windows": {
 			"webviewInstallMode": {
