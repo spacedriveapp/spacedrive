@@ -16,17 +16,19 @@ export function ColumnView() {
 		clearSelection,
 	} = useSelection();
 	const [columnStack, setColumnStack] = useState<SdPath[]>([]);
-	const isInternalNavigationRef = useRef(false);
 
-	// Initialize column stack when currentPath changes externally
+	// Store clearSelection in ref to avoid effect re-runs
+	const clearSelectionRef = useRef(clearSelection);
+	clearSelectionRef.current = clearSelection;
+
+	// Initialize column stack when currentPath changes (external navigation)
+	// Internal navigation (clicking directories, arrow keys) only updates columnStack, not currentPath
 	useEffect(() => {
-		// Only reset if this is an external navigation (not from within column view)
-		if (currentPath && !isInternalNavigationRef.current) {
+		if (currentPath) {
 			setColumnStack([currentPath]);
-			clearSelection();
+			clearSelectionRef.current();
 		}
-		isInternalNavigationRef.current = false;
-	}, [currentPath, clearSelection]);
+	}, [currentPath]);
 
 	// Handle file selection - uses global selectFile and updates columns
 	const handleSelectFile = useCallback(
@@ -44,21 +46,19 @@ export function ColumnView() {
 			if (!multi && !range) {
 				if (file.kind === "Directory") {
 					// Truncate columns after current and add new one
+					// DON'T call setCurrentPath - columnStack manages internal navigation
+					// This prevents ExplorerLayout from re-rendering on every column change
 					setColumnStack((prev) => [
 						...prev.slice(0, columnIndex + 1),
 						file.sd_path,
 					]);
-					// Update currentPath to the selected directory (this is navigation)
-					isInternalNavigationRef.current = true;
-					setCurrentPath(file.sd_path);
 				} else {
 					// For files, just truncate columns after current
-					// DON'T call setCurrentPath - it causes ExplorerLayout to re-render
 					setColumnStack((prev) => prev.slice(0, columnIndex + 1));
 				}
 			}
 		},
-		[selectFile, setCurrentPath],
+		[selectFile],
 	);
 
 	const handleNavigate = useCallback(
@@ -183,16 +183,10 @@ export function ColumnView() {
 			} else if (e.key === "ArrowLeft") {
 				// Move to previous column
 				if (activeColumnIndex > 0) {
-					const previousColumnPath =
-						columnStack[activeColumnIndex - 1];
 					// Truncate columns and stay at previous column
+					// DON'T call setCurrentPath - columnStack manages internal navigation
 					setColumnStack((prev) => prev.slice(0, activeColumnIndex));
-					clearSelection();
-					// Update currentPath to previous column
-					if (previousColumnPath) {
-						isInternalNavigationRef.current = true;
-						setCurrentPath(previousColumnPath);
-					}
+					clearSelectionRef.current();
 				}
 			} else if (e.key === "ArrowRight") {
 				// If selected file is a directory and there's a next column, move focus there
