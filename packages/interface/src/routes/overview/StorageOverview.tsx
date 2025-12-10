@@ -230,7 +230,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 			initial={{ opacity: 0, y: 10 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ delay: index * 0.05 }}
-			className="group p-4 hover:bg-app-selected/50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-app-line"
+			className="p-4 rounded-lg border border-transparent"
 		>
 			<div className="flex items-start gap-4">
 				<img
@@ -275,9 +275,9 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 
 					{/* Windows-style thick capacity bar */}
 					<div className="mb-3">
-						<div className="h-8 bg-app-darkBox rounded-md overflow-hidden border border-app-line shadow-inner">
+						<div className="h-8 bg-app rounded-md overflow-hidden border border-app-line">
 							<div className="h-full flex">
-								{/* Unique bytes - solid blue */}
+								{/* Unique bytes */}
 								<motion.div
 									initial={{ width: 0 }}
 									animate={{ width: `${uniquePercent}%` }}
@@ -286,10 +286,10 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 										ease: "easeOut",
 										delay: index * 0.05,
 									}}
-									className="bg-gradient-to-b from-blue-500 to-blue-600 border-r border-blue-400/30"
+									className="bg-accent border-r border-accent-deep"
 									title={`Unique: ${formatBytes(uniqueBytes)}`}
 								/>
-								{/* Duplicate bytes - striped pattern */}
+								{/* Duplicate bytes - lighter with stripes */}
 								<motion.div
 									initial={{ width: 0 }}
 									animate={{ width: `${duplicatePercent}%` }}
@@ -298,7 +298,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 										ease: "easeOut",
 										delay: index * 0.05 + 0.2,
 									}}
-									className="bg-gradient-to-b from-blue-400 to-blue-500 relative overflow-hidden"
+									className="bg-accent/60 relative overflow-hidden"
 									style={{
 										backgroundImage:
 											"repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)",
