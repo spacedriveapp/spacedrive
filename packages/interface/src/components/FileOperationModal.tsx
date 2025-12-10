@@ -9,16 +9,21 @@ import {
 	ArrowRight,
 	Copy as CopyIcon,
 	ArrowsLeftRight,
+	File as FileIcon,
+	Image,
+	FileText,
+	FilmStrip,
+	MusicNote,
 } from "@phosphor-icons/react";
 import {
 	Dialog,
 	dialogManager,
 	useDialog,
 } from "@sd/ui";
-import type { SdPath } from "@sd/ts-client";
-import { useLibraryMutation } from "../context";
+import type { SdPath, File as FileType } from "@sd/ts-client";
+import { useLibraryMutation, useLibraryQuery } from "../context";
 import { sounds } from "@sd/assets/sounds";
-import { File } from "./Explorer/File";
+import { File, FileStack } from "./Explorer/File";
 
 interface FileOperationDialogProps {
 	id: number;
@@ -51,6 +56,34 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 	const [conflictResolution, setConflictResolution] = useState<ConflictResolution>("Skip");
 
 	const copyFiles = useLibraryMutation("files.copy");
+
+	// Fetch file info for sources (up to 3 for FileStack)
+	const sourcePaths = props.sources.slice(0, 3).map(s =>
+		"Physical" in s ? s.Physical.path : null
+	).filter(Boolean);
+
+	const sourceFileQueries = sourcePaths.map(path =>
+		useLibraryQuery({
+			type: "files.by_path",
+			input: { path },
+			enabled: !!path,
+		})
+	);
+
+	const sourceFiles = sourceFileQueries
+		.map(q => q.data)
+		.filter((f): f is FileType => f !== undefined && f !== null);
+
+	// Fetch destination folder info
+	const destPath = "Physical" in props.destination
+		? props.destination.Physical.path
+		: null;
+
+	const { data: destFile } = useLibraryQuery({
+		type: "files.by_path",
+		input: { path: destPath },
+		enabled: !!destPath,
+	});
 
 	// Check if any source is the same as destination
 	const hasSameSourceDest = props.sources.some((source) => {
@@ -212,24 +245,44 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 			ctaLabel={operation === "copy" ? "Copy" : "Move"}
 			onSubmit={handleSubmit}
 			onCancelled={handleCancel}
+			formClassName="!min-w-[400px] !max-w-[400px]"
 		>
 			<div className="space-y-5 py-2">
 				{/* Source → Destination visual */}
 				<div className="flex items-center gap-4">
 					{/* Source */}
-					<div className="flex-1 flex flex-col items-center gap-2 p-3 bg-app rounded-lg">
-						<Files className="size-8 text-ink-dull" weight="fill" />
-						<div className="text-center">
-							<div className="text-xs text-ink-dull mb-0.5">From</div>
-							<div className="text-sm font-medium text-ink">
-								{sourceCount} {pluralItems}
-							</div>
-							{sourceCount === 1 && (
-								<div className="text-xs text-ink-faint mt-1 truncate max-w-full">
-									{getFileName(props.sources[0])}
+					<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+						{sourceFiles.length > 0 ? (
+							<>
+								{sourceFiles.length === 1 ? (
+									<File.Thumb file={sourceFiles[0]} size={80} />
+								) : (
+									<FileStack files={sourceFiles} size={80} />
+								)}
+								<div className="text-center w-full">
+									<div className="text-xs text-ink-dull mb-0.5">Source</div>
+									{sourceFiles.length === 1 ? (
+										<div className="text-sm font-medium text-ink truncate w-full">
+											{sourceFiles[0].name}
+										</div>
+									) : (
+										<div className="text-sm font-medium text-ink">
+											{sourceCount} {pluralItems}
+										</div>
+									)}
 								</div>
-							)}
-						</div>
+							</>
+						) : (
+							<>
+								<Files className="size-20 text-ink-dull" weight="fill" />
+								<div className="text-center">
+									<div className="text-xs text-ink-dull mb-0.5">Source</div>
+									<div className="text-sm font-medium text-ink">
+										{sourceCount} {pluralItems}
+									</div>
+								</div>
+							</>
+						)}
 					</div>
 
 					{/* Arrow */}
@@ -238,14 +291,28 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 					</div>
 
 					{/* Destination */}
-					<div className="flex-1 flex flex-col items-center gap-2 p-3 bg-app rounded-lg">
-						<FolderOpen className="size-8 text-accent" weight="fill" />
-						<div className="text-center">
-							<div className="text-xs text-ink-dull mb-0.5">To</div>
-							<div className="text-sm font-medium text-ink truncate max-w-full">
-								{getFileName(props.destination)}
-							</div>
-						</div>
+					<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
+						{destFile ? (
+							<>
+								<File.Thumb file={destFile} size={80} />
+								<div className="text-center w-full">
+									<div className="text-xs text-ink-dull mb-0.5">To</div>
+									<div className="text-sm font-medium text-ink truncate w-full">
+										{destFile.name}
+									</div>
+								</div>
+							</>
+						) : (
+							<>
+								<FolderOpen className="size-20 text-accent" weight="fill" />
+								<div className="text-center">
+									<div className="text-xs text-ink-dull mb-0.5">To</div>
+									<div className="text-sm font-medium text-ink truncate max-w-full">
+										{getFileName(props.destination)}
+									</div>
+								</div>
+							</>
+						)}
 					</div>
 				</div>
 
