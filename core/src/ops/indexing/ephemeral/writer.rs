@@ -5,7 +5,7 @@
 //! Both pipelines share the same entry storage logic, UUID generation, and event
 //! emission, eliminating code duplication.
 //!
-use crate::infra::event::EventBus;
+use crate::infra::event::{Event, EventBus};
 use crate::infra::job::prelude::{JobError, JobResult};
 use crate::ops::indexing::change_detection::handler::{build_dir_entry, ChangeHandler};
 use crate::ops::indexing::change_detection::types::{ChangeType, EntryRef};
@@ -212,6 +212,9 @@ impl ChangeHandler for MemoryAdapter {
 	}
 
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()> {
+		// Get the UUID before deleting (needed for event)
+		let uuid = entry.uuid;
+
 		{
 			let mut index = self.index.write().await;
 
@@ -220,6 +223,19 @@ impl ChangeHandler for MemoryAdapter {
 			} else {
 				index.remove_entry(&entry.path);
 			}
+		}
+
+		// Emit ResourceDeleted event so frontend can remove from cache
+		if let Some(resource_id) = uuid {
+			tracing::debug!(
+				"Emitting ResourceDeleted for ephemeral delete: {} (id: {})",
+				entry.path.display(),
+				resource_id
+			);
+			self.event_bus.emit(Event::ResourceDeleted {
+				resource_type: "file".to_string(),
+				resource_id,
+			});
 		}
 
 		Ok(())
