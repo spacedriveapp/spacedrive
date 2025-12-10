@@ -1,8 +1,8 @@
 import { memo, useCallback } from "react";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
-import { useDraggable } from "@dnd-kit/core";
 import { File as FileComponent } from "../../File";
+import { useDraggableFile } from "../../hooks/useDraggableFile";
 
 interface ColumnItemProps {
 	file: File;
@@ -37,14 +37,8 @@ export const ColumnItem = memo(
 			}
 		}, [onDoubleClick]);
 
-		const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-			id: file.id,
-			data: {
-				type: "explorer-file",
-				sdPath: file.sd_path,
-				name: file.name,
-				file: file,
-			},
+		const { attributes, listeners, setNodeRef, isDragging } = useDraggableFile({
+			file,
 		});
 
 		return (

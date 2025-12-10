@@ -6,8 +6,10 @@ import type { File } from "@sd/ts-client";
 
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
+import { useSelection } from "../../SelectionContext";
 import { TagPill } from "../../../Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
+import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -41,6 +43,13 @@ export const TableRow = memo(
 		selectFile,
 	}: TableRowProps) {
 		const { setCurrentPath } = useExplorer();
+		const { selectedFiles } = useSelection();
+
+		const contextMenu = useFileContextMenu({
+			file,
+			selectedFiles,
+			selected: isSelected,
+		});
 
 		const handleClick = useCallback(
 			(e: React.MouseEvent) => {
@@ -57,6 +66,20 @@ export const TableRow = memo(
 			}
 		}, [file, setCurrentPath]);
 
+		const handleContextMenu = useCallback(
+			async (e: React.MouseEvent) => {
+				e.preventDefault();
+				e.stopPropagation();
+
+				if (!isSelected) {
+					selectFile(file, files, false, false);
+				}
+
+				await contextMenu.show(e);
+			},
+			[file, files, isSelected, selectFile, contextMenu],
+		);
+
 		const cells = row.getVisibleCells();
 
 		return (
@@ -68,6 +91,7 @@ export const TableRow = memo(
 				style={{ height: ROW_HEIGHT }}
 				onClick={handleClick}
 				onDoubleClick={handleDoubleClick}
+				onContextMenu={handleContextMenu}
 			>
 				{/* Background layer for alternating colors and selection */}
 				<div

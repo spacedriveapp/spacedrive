@@ -7,7 +7,7 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import { useNormalizedQuery, useLibraryMutation } from "../../context";
+import { useNormalizedQuery, useLibraryMutation, getDeviceIcon } from "../../context";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
@@ -100,51 +100,38 @@ export function StorageOverview() {
 		(volume) => volume.is_user_visible !== false,
 	);
 
-	// Group volumes by device - note: VolumeItem doesn't have device_id yet
-	// So we'll just show all volumes ungrouped for now
-	// TODO: Backend needs to add device_id to VolumeItem
-	const volumesByDevice: Record<string, typeof userVisibleVolumes> = {};
+	// Group volumes by device_id
+	const volumesByDevice = userVisibleVolumes.reduce((acc, volume) => {
+		const deviceId = volume.device_id;
+		if (!acc[deviceId]) {
+			acc[deviceId] = [];
+		}
+		acc[deviceId].push(volume);
+		return acc;
+	}, {} as Record<string, VolumeItem[]>);
 
-	// For now, create a single "All Devices" group
-	if (userVisibleVolumes.length > 0) {
-		volumesByDevice["all"] = userVisibleVolumes;
-	}
+	// Create device map for quick lookup
+	const deviceMap = devices.reduce((acc, device) => {
+		acc[device.id] = device;
+		return acc;
+	}, {} as Record<string, LibraryDeviceInfo>);
 
 	return (
-		<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
-			<div className="px-6 py-4 border-b border-app-line">
-				<h2 className="text-base font-semibold text-ink">
-					Storage Volumes
-				</h2>
-				<p className="text-sm text-ink-dull mt-1">
-					{userVisibleVolumes.length}{" "}
-					{userVisibleVolumes.length === 1 ? "volume" : "volumes"}{" "}
-					across {devices.length}{" "}
-					{devices.length === 1 ? "device" : "devices"}
-				</p>
-			</div>
+		<div className="space-y-4">
+			{Object.entries(volumesByDevice).map(([deviceId, deviceVolumes]) => {
+				const device = deviceMap[deviceId];
 
-			<div className="p-6 space-y-6">
-				{Object.entries(volumesByDevice).map(
-					([deviceId, deviceVolumes]) => {
-						return (
-							<div key={deviceId} className="space-y-3">
-								{/* Volumes */}
-								<div className="space-y-3">
-									{deviceVolumes.map((volume, idx) => (
-										<VolumeBar
-											key={volume.id}
-											volume={volume}
-											index={idx}
-										/>
-									))}
-								</div>
-							</div>
-						);
-					},
-				)}
+				return (
+					<DeviceCard
+						key={deviceId}
+						device={device}
+						volumes={deviceVolumes}
+					/>
+				);
+			})}
 
-				{userVisibleVolumes.length === 0 && (
+			{userVisibleVolumes.length === 0 && (
+				<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
 					<div className="text-center py-12 text-ink-faint">
 						<HardDrive className="size-12 mx-auto mb-3 opacity-20" />
 						<p className="text-sm">No volumes detected</p>
@@ -152,7 +139,48 @@ export function StorageOverview() {
 							Track a volume to see storage information
 						</p>
 					</div>
-				)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+interface DeviceCardProps {
+	device?: LibraryDeviceInfo;
+	volumes: VolumeItem[];
+}
+
+function DeviceCard({ device, volumes }: DeviceCardProps) {
+	const deviceName = device?.name || "Unknown Device";
+	const deviceIconSrc = device ? getDeviceIcon(device) : null;
+
+	return (
+		<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
+			{/* Device Header */}
+			<div className="px-6 py-4 border-b border-app-line">
+				<div className="flex items-center gap-3">
+					{deviceIconSrc ? (
+						<img src={deviceIconSrc} alt={deviceName} className="size-8 opacity-80" />
+					) : (
+						<HardDrive className="size-8 text-ink" weight="duotone" />
+					)}
+					<div className="flex-1 min-w-0">
+						<h3 className="text-base font-semibold text-ink truncate">
+							{deviceName}
+						</h3>
+						<p className="text-sm text-ink-dull">
+							{volumes.length} {volumes.length === 1 ? "volume" : "volumes"}
+							{device?.is_online === false && " • Offline"}
+						</p>
+					</div>
+				</div>
+			</div>
+
+			{/* Volumes for this device */}
+			<div className="p-6 space-y-3">
+				{volumes.map((volume, idx) => (
+					<VolumeBar key={volume.id} volume={volume} index={idx} />
+				))}
 			</div>
 		</div>
 	);

@@ -5,6 +5,7 @@ import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
+import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 
 export function ColumnView() {
 	const { currentPath, setCurrentPath, sortBy, viewSettings } = useExplorer();
@@ -20,6 +21,10 @@ export function ColumnView() {
 	// Store clearSelection in ref to avoid effect re-runs
 	const clearSelectionRef = useRef(clearSelection);
 	clearSelectionRef.current = clearSelection;
+
+	// Typeahead search state
+	const searchStringRef = useRef("");
+	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 	// Initialize column stack when currentPath changes (external navigation)
 	// Internal navigation (clicking directories, arrow keys) only updates columnStack, not currentPath
@@ -105,6 +110,14 @@ export function ColumnView() {
 
 	const activeColumnFiles = activeColumnQuery.data?.files || [];
 
+	// Typeahead search for active column
+	const typeahead = useTypeaheadSearch({
+		files: activeColumnFiles,
+		onMatch: (file) => {
+			handleSelectFile(file, activeColumnIndex, activeColumnFiles);
+		},
+	});
+
 	// Query the next column for right arrow navigation
 	const nextColumnPath = columnStack[activeColumnIndex + 1];
 	const nextColumnQuery = useNormalizedQuery({
@@ -128,17 +141,11 @@ export function ColumnView() {
 	// Keyboard navigation
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (
-				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-					e.key,
-				)
-			) {
-				return;
-			}
+			// Handle arrow keys
+			if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+				e.preventDefault();
 
-			e.preventDefault();
-
-			if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+				if (e.key === "ArrowUp" || e.key === "ArrowDown") {
 				// Navigate within current column
 				if (activeColumnFiles.length === 0) return;
 
@@ -219,10 +226,18 @@ export function ColumnView() {
 					}
 				}
 			}
-		};
+			return;
+		}
+
+		// Typeahead search for active column
+		typeahead.handleKey(e);
+	};
 
 		window.addEventListener("keydown", handleKeyDown);
-		return () => window.removeEventListener("keydown", handleKeyDown);
+		return () => {
+			window.removeEventListener("keydown", handleKeyDown);
+			typeahead.cleanup();
+		};
 	}, [
 		activeColumnFiles,
 		nextColumnFiles,
@@ -230,6 +245,7 @@ export function ColumnView() {
 		activeColumnIndex,
 		columnStack,
 		handleSelectFile,
+		typeahead,
 	]);
 
 	if (!currentPath) {

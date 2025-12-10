@@ -5,9 +5,8 @@ import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../../context";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
-import { useContextMenu } from "../../../../hooks/useContextMenu";
-import { Copy, Trash, Eye, FolderOpen } from "@phosphor-icons/react";
-import { useLibraryMutation } from "../../../../context";
+import { useFileContextMenu } from "../../hooks/useFileContextMenu";
+import { useSelection } from "../../SelectionContext";
 
 /**
  * Memoized wrapper for ColumnItem to prevent re-renders when selection changes elsewhere.
@@ -19,21 +18,27 @@ const ColumnItemWrapper = memo(
 		files,
 		virtualRow,
 		selected,
+		selectedFiles,
 		onSelectFile,
-		contextMenu,
 	}: {
 		file: File;
 		files: File[];
 		virtualRow: VirtualItem;
 		selected: boolean;
+		selectedFiles: File[];
 		onSelectFile: (
 			file: File,
 			files: File[],
 			multi?: boolean,
 			range?: boolean,
 		) => void;
-		contextMenu: ReturnType<typeof useContextMenu>;
 	}) {
+		const contextMenu = useFileContextMenu({
+			file,
+			selectedFiles,
+			selected,
+		});
+
 		const handleClick = useCallback(
 			(multi: boolean, range: boolean) => {
 				onSelectFile(file, files, multi, range);
@@ -113,8 +118,7 @@ export const Column = memo(function Column({
 }: ColumnProps) {
 	const parentRef = useRef<HTMLDivElement>(null);
 	const { viewSettings, sortBy } = useExplorer();
-	const copyFiles = useLibraryMutation("files.copy");
-	const deleteFiles = useLibraryMutation("files.delete");
+	const { selectedFiles } = useSelection();
 
 	const directoryQuery = useNormalizedQuery({
 		wireMethod: "query:files.directory_listing",
@@ -139,93 +143,6 @@ export const Column = memo(function Column({
 		overscan: 10,
 	});
 
-	const contextMenu = useContextMenu({
-		items: [
-			{
-				icon: Eye,
-				label: "Quick Look",
-				onClick: () => {
-					console.log("Quick Look");
-				},
-				keybind: "Space",
-			},
-			{
-				icon: FolderOpen,
-				label: "Open",
-				onClick: (file: File) => {
-					if (file.kind === "Directory") {
-						onNavigate(file.sd_path);
-					}
-				},
-				keybind: "⌘O",
-			},
-			{ type: "separator" },
-			{
-				icon: Copy,
-				label: "Copy",
-				onClick: async (file: File) => {
-					window.__SPACEDRIVE__ = window.__SPACEDRIVE__ || {};
-					window.__SPACEDRIVE__.clipboard = {
-						operation: "copy",
-						files: [file.sd_path],
-						sourcePath: path,
-					};
-				},
-				keybind: "⌘C",
-			},
-			{
-				icon: Copy,
-				label: "Paste",
-				onClick: async () => {
-					const clipboard = window.__SPACEDRIVE__?.clipboard;
-					if (!clipboard || !clipboard.files) return;
-
-					try {
-						await copyFiles.mutateAsync({
-							sources: { paths: clipboard.files },
-							destination: path,
-							overwrite: false,
-							verify_checksum: false,
-							preserve_timestamps: true,
-							move_files: false,
-							copy_method: "Auto" as const,
-						});
-					} catch (err) {
-						console.error("Failed to paste:", err);
-					}
-				},
-				keybind: "⌘V",
-				condition: () => {
-					const clipboard = window.__SPACEDRIVE__?.clipboard;
-					return (
-						!!clipboard &&
-						!!clipboard.files &&
-						clipboard.files.length > 0
-					);
-				},
-			},
-			{ type: "separator" },
-			{
-				icon: Trash,
-				label: "Delete",
-				onClick: async (file: File) => {
-					if (confirm(`Delete "${file.name}"?`)) {
-						try {
-							await deleteFiles.mutateAsync({
-								targets: { paths: [file.sd_path] },
-								permanent: false,
-								recursive: true,
-							});
-						} catch (err) {
-							console.error("Failed to delete:", err);
-						}
-					}
-				},
-				keybind: "⌘⌫",
-				variant: "danger" as const,
-			},
-		],
-	});
 
 	if (directoryQuery.isLoading) {
 		return (
@@ -278,8 +195,8 @@ export const Column = memo(function Column({
 							files={files}
 							virtualRow={virtualRow}
 							selected={fileIsSelected || isInPath}
+							selectedFiles={selectedFiles}
 							onSelectFile={onSelectFile}
-							contextMenu={contextMenu}
 						/>
 					);
 				})}

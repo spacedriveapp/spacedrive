@@ -250,6 +250,14 @@ impl EphemeralIndex {
 		self.entry_uuids.get(path).copied()
 	}
 
+	/// Get the path for an entry by its UUID
+	pub fn get_path_by_uuid(&self, uuid: Uuid) -> Option<PathBuf> {
+		self.entry_uuids
+			.iter()
+			.find(|(_, &entry_uuid)| entry_uuid == uuid)
+			.map(|(path, _)| path.clone())
+	}
+
 	pub fn get_content_kind(&self, path: &PathBuf) -> ContentKind {
 		self.content_kinds
 			.get(path)

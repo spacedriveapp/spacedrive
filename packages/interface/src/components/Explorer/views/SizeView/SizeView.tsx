@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import * as d3 from "d3";
 import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
@@ -7,6 +7,7 @@ import { useNormalizedQuery } from "../../../../context";
 import { formatBytes } from "../../utils";
 import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import { ArrowsOut, ArrowCounterClockwise, Plus, Minus } from "@phosphor-icons/react";
+import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 
 // Cache for computed colors
 const colorCache = new Map<string, string>();
@@ -106,18 +107,28 @@ export function SizeView() {
   const zoomBehaviorRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
   const [currentZoom, setCurrentZoom] = useState(1);
   const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [contextMenuFile, setContextMenuFile] = useState<File | null>(null);
+
+  // Create context menu for the current file
+  const contextMenu = useFileContextMenu({
+    file: contextMenuFile || files[0],
+    selectedFiles,
+    selected: contextMenuFile ? selectedFiles.some(f => f.id === contextMenuFile.id) : false,
+  });
 
   // Use refs for stable function references
   const selectFileRef = useRef(selectFile);
   const setCurrentPathRef = useRef(setCurrentPath);
   const filesRef = useRef(files);
   const gRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
+  const contextMenuRef = useRef(contextMenu);
 
   useEffect(() => {
     selectFileRef.current = selectFile;
     setCurrentPathRef.current = setCurrentPath;
     filesRef.current = files;
-  }, [selectFile, setCurrentPath, files]);
+    contextMenuRef.current = contextMenu;
+  }, [selectFile, setCurrentPath, files, contextMenu]);
 
   // Initialize zoom behavior once
   useEffect(() => {
@@ -352,6 +363,24 @@ export function SizeView() {
         if (d.data.file.kind === "Directory") {
           setCurrentPathRef.current(d.data.file.sd_path);
         }
+      })
+      .on("contextmenu", async (event, d) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        // Select the file if not already selected
+        const isSelected = selectedFiles.some(f => f.id === d.data.file.id);
+        if (!isSelected) {
+          selectFileRef.current(d.data.file, filesRef.current, false, false);
+        }
+
+        // Set the context menu file and show menu
+        setContextMenuFile(d.data.file);
+
+        // Show context menu on next tick after state updates
+        setTimeout(async () => {
+          await contextMenuRef.current.show(event);
+        }, 0);
       })
       .on("mouseenter", function(event, d) {
         d3.select(this)
