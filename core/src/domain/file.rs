@@ -798,8 +798,8 @@ impl File {
 				))
 			})?;
 
-			// Build SdPath - use Content path if content_id exists, otherwise need location path
-			// For the resource manager use case, we'll use Content paths as the canonical identifier
+			// Build SdPath - use Content path if content_id exists, otherwise use Physical path
+			// Physical paths are needed for newly created files that don't have content_id yet
 			let sd_path = if let Some(content_id) = entry_model.content_id {
 				if let Some(ci) = content_by_id.get(&content_id) {
 					if let Some(ci_uuid) = ci.uuid {
@@ -820,14 +820,30 @@ impl File {
 					continue;
 				}
 			} else {
-				// No content identity - we'd need to build the full filesystem path
-				// For now, skip entries without content_id as they can't be properly addressed
-				// in the virtual resource system
-				tracing::debug!(
-					"Skipping entry {} without content_id for resource event",
-					entry_model.id
-				);
-				continue;
+				// No content identity yet - build Physical path from filesystem
+				// This is common for newly created files before content hash runs
+				match crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await {
+					Ok(physical_path) => {
+						let device_slug = crate::device::get_current_device_slug();
+						tracing::debug!(
+							"Using Physical path for entry {} without content_id: {}",
+							entry_model.id,
+							physical_path.display()
+						);
+						SdPath::Physical {
+							device_slug,
+							path: physical_path,
+						}
+					}
+					Err(e) => {
+						tracing::warn!(
+							"Failed to resolve physical path for entry {}: {}",
+							entry_model.id,
+							e
+						);
+						continue;
+					}
+				}
 			};
 
 			// Start with basic File from entity
