@@ -216,7 +216,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 					<div className="flex items-center justify-between mb-3">
 						<div className="flex items-center gap-2 min-w-0">
 							<span className="font-semibold text-ink truncate text-base">
-								{volume.name}
+								{volume.display_name || volume.name}
 							</span>
 							{!volume.is_online && (
 								<span className="px-2 py-0.5 bg-app-box text-ink-faint text-xs rounded-md border border-app-line">

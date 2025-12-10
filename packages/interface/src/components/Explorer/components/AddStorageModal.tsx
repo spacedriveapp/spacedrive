@@ -496,7 +496,7 @@ function AddStorageDialog(props: {
 			// Step 1: Track the volume
 			const trackResult = await trackVolume.mutateAsync({
 				fingerprint: volume.fingerprint,
-				display_name: volume.name,
+				display_name: volume.display_name || volume.name,
 			});
 
 			// Step 2: Create a location for the volume's mount point
@@ -507,7 +507,7 @@ function AddStorageDialog(props: {
 						path: volume.mount_point || "/",
 					},
 				},
-				name: volume.name,
+				name: volume.display_name || volume.name,
 				mode: "Deep",
 				job_policies: {},
 			};
@@ -856,7 +856,7 @@ function AddStorageDialog(props: {
 									/>
 									<div className="flex-1 min-w-0">
 										<div className="text-sm font-medium text-ink truncate">
-											{volume.name}
+											{volume.display_name || volume.name}
 										</div>
 										<div className="text-xs text-ink-faint">
 											{volume.mount_point} •{" "}
