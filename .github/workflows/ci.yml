@@ -35,10 +35,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -82,7 +82,7 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         uses: ./.github/actions/setup-rust
         with:
-          restore-cache: 'false'
+          restore-cache: "false"
 
       - name: Run rustfmt
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
@@ -90,7 +90,7 @@ jobs:
 
   clippy:
     strategy:
-      fail-fast: false  # Don't cancel other platforms if one fails
+      fail-fast: false # Don't cancel other platforms if one fails
       matrix:
         settings:
           - host: macos-13
@@ -113,10 +113,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -195,10 +195,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -209,7 +209,7 @@ jobs:
 
       - name: Checkout repository
         uses: actions/checkout@v4
-        # TODO: Re-enable when submodule repos are public
+        # OPTIONAL: Re-enable when submodule repos are public
         # with:
         #   submodules: recursive
 
@@ -247,3 +247,42 @@ jobs:
           name: cli-${{ matrix.settings.platform }}
           path: dist/*
           retention-days: 7
+
+  typescript:
+    name: TypeScript
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if files have changed
+        uses: dorny/paths-filter@v3
+        continue-on-error: true
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'apps/tauri/**'
+              - 'packages/**'
+              - 'package.json'
+              - 'bun.lockb'
+              - 'tsconfig.json'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup Bun
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: bun install --frozen-lockfile
+
+      - name: TypeScript typecheck
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: bun run typecheck
+        working-directory: apps/tauri

@@ -3,8 +3,8 @@ name: Release
 on:
   pull_request:
     paths:
-      - '.github/workflows/release.yml'
-      - '.github/actions/publish-artifacts/**'
+      - ".github/workflows/release.yml"
+      - ".github/actions/publish-artifacts/**"
   workflow_dispatch:
 
 # From: https://github.com/rust-lang/rust-analyzer/blob/master/.github/workflows/release.yaml#L13-L21
@@ -138,10 +138,10 @@ jobs:
         with:
           swap-size-mb: 3072
           root-reserve-mb: 6144
-          remove-dotnet: 'true'
-          remove-codeql: 'true'
-          remove-haskell: 'true'
-          remove-docker-images: 'true'
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
@@ -182,6 +182,22 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build daemon binary
+        run: cargo build --release --bin sd-daemon --target ${{ matrix.settings.target }}
+
+      - name: Prepare daemon binary for bundling (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p target/release
+          cp target/${{ matrix.settings.target }}/release/sd-daemon target/release/sd-daemon-${{ matrix.settings.target }}
+
+      - name: Prepare daemon binary for bundling (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path target/release
+          Copy-Item target/${{ matrix.settings.target }}/release/sd-daemon.exe target/release/sd-daemon-${{ matrix.settings.target }}.exe
+
       - name: Build
         run: |
           bun tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
@@ -201,7 +217,7 @@ jobs:
         if: ${{ runner.os == 'Linux' }}
         run: |
           set -eux
-          XZ_OPT='-T0 -7' tar -cJf apps/desktop/dist.tar.xz -C apps/desktop/dist .
+          XZ_OPT='-T0 -7' tar -cJf apps/tauri/dist.tar.xz -C apps/tauri/dist .
 
       - name: Publish Artifacts
         uses: ./.github/actions/publish-artifacts
@@ -211,12 +227,12 @@ jobs:
           target: ${{ matrix.settings.target }}
           profile: release
 
-  # V2 CLI Release
+  # Create unified release with CLI and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     name: Create Release
-    needs: cli-build
+    needs: [cli-build, desktop-main]
     permissions:
       contents: write
     steps:
@@ -227,21 +243,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: '*/**'
-
-  # V2 Desktop release
-  release-desktop:
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    name: Create Desktop Release
-    needs: desktop-main
-    permissions:
-      contents: write
-    steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: '*/**'
+          files: "*/**"

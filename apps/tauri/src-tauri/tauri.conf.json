@@ -4,7 +4,7 @@
 	"identifier": "com.spacedrive.desktop",
 	"build": {
 		"beforeDevCommand": "bun run dev:with-daemon",
-		"beforeBuildCommand": "cargo build --release --bin sd-daemon --manifest-path ../../Cargo.toml && bun run build",
+		"beforeBuildCommand": "bun run build",
 		"devUrl": "http://localhost:1420",
 		"frontendDist": "../dist"
 	},
@@ -61,6 +61,9 @@
 			"icons/128x128@2x.png",
 			"icons/icon.icns",
 			"icons/icon.ico"
+		],
+		"externalBin": [
+			"../../../target/release/sd-daemon"
 		],
 		"resources": {
 			"gen/**/*": "./"

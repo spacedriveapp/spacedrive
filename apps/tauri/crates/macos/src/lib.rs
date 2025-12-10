@@ -59,7 +59,10 @@ where
 /// This function is called from Swift when a drag session ends.
 /// The `session_id` must be a valid null-terminated C string pointer.
 #[no_mangle]
-pub unsafe extern "C" fn rust_drag_ended_callback(session_id: *const std::ffi::c_char, was_dropped: Bool) {
+pub unsafe extern "C" fn rust_drag_ended_callback(
+	session_id: *const std::ffi::c_char,
+	was_dropped: Bool,
+) {
 	let session_id_str = unsafe {
 		std::ffi::CStr::from_ptr(session_id)
 			.to_string_lossy()
