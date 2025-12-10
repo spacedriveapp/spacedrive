@@ -124,18 +124,46 @@ impl PersistentEventHandler {
 		{
 			let mut locations = self.locations.write().await;
 			locations.insert(root_path.clone(), meta.clone());
+			debug!(
+				"Added location to map. Total locations: {}",
+				locations.len()
+			);
 		}
 
 		// Create worker if handler is running
 		if self.is_running.load(Ordering::SeqCst) {
+			debug!(
+				"Handler is running, creating worker for location {}",
+				location_id
+			);
 			self.ensure_worker(meta).await?;
+		} else {
+			debug!(
+				"Handler not running yet, worker will be created on start for location {}",
+				location_id
+			);
 		}
 
 		// Register path with FsWatcher if connected
 		if let Some(fs_watcher) = self.fs_watcher.read().await.as_ref() {
+			debug!(
+				"Registering path {} with FsWatcher (recursive)",
+				root_path.display()
+			);
 			fs_watcher
 				.watch_path(&root_path, sd_fs_watcher::WatchConfig::recursive())
 				.await?;
+			info!(
+				"Successfully registered {} with FsWatcher for location {}",
+				root_path.display(),
+				location_id
+			);
+		} else {
+			warn!(
+				"FsWatcher not connected, cannot watch path {} for location {}",
+				root_path.display(),
+				location_id
+			);
 		}
 
 		Ok(())
@@ -198,10 +226,35 @@ impl PersistentEventHandler {
 
 		debug!("Starting PersistentEventHandler");
 
-		// Create workers for all registered locations
+		// Create workers for all registered locations AND register paths with FsWatcher
+		// This is critical: locations may have been added before start() was called,
+		// when the FsWatcher wasn't connected yet, so we need to register them now.
 		let locations: Vec<LocationMeta> = self.locations.read().await.values().cloned().collect();
-		for meta in locations {
-			self.ensure_worker(meta).await?;
+		for meta in &locations {
+			self.ensure_worker(meta.clone()).await?;
+
+			// Register the path with the OS-level watcher (may have been skipped during add_location)
+			debug!(
+				"Registering path {} with FsWatcher for location {}",
+				meta.root_path.display(),
+				meta.id
+			);
+			if let Err(e) = fs_watcher
+				.watch_path(&meta.root_path, sd_fs_watcher::WatchConfig::recursive())
+				.await
+			{
+				error!(
+					"Failed to register path {} with FsWatcher: {}",
+					meta.root_path.display(),
+					e
+				);
+			} else {
+				info!(
+					"Successfully registered {} with FsWatcher for location {}",
+					meta.root_path.display(),
+					meta.id
+				);
+			}
 		}
 
 		// Start the event routing task
@@ -284,11 +337,24 @@ impl PersistentEventHandler {
 	) -> Result<()> {
 		let locs = locations.read().await;
 
+		trace!(
+			"Routing event {:?} for path: {} (checking {} locations)",
+			event.kind,
+			event.path.display(),
+			locs.len()
+		);
+
 		// Find the best matching location (longest prefix match)
 		let mut best_match: Option<&LocationMeta> = None;
 		let mut longest_len = 0;
 
 		for (root_path, meta) in locs.iter() {
+			trace!(
+				"  Checking location {} at {} for path {}",
+				meta.id,
+				root_path.display(),
+				event.path.display()
+			);
 			if event.path.starts_with(root_path) {
 				let len = root_path.as_os_str().len();
 				if len > longest_len {
@@ -299,9 +365,20 @@ impl PersistentEventHandler {
 		}
 
 		let Some(location) = best_match else {
-			trace!("Event not under any location: {}", event.path.display());
+			debug!(
+				"Event not under any location: {} (registered locations: {:?})",
+				event.path.display(),
+				locs.keys().collect::<Vec<_>>()
+			);
 			return Ok(());
 		};
+
+		debug!(
+			"Routing {:?} event for {} to location {}",
+			event.kind,
+			event.path.display(),
+			location.id
+		);
 
 		// Send to worker
 		let workers_map = workers.read().await;
@@ -312,6 +389,12 @@ impl PersistentEventHandler {
 					location.id, e
 				);
 			}
+		} else {
+			warn!(
+				"No worker found for location {} (workers: {:?})",
+				location.id,
+				workers_map.keys().collect::<Vec<_>>()
+			);
 		}
 
 		Ok(())

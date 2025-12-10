@@ -216,7 +216,8 @@ impl ChangeHandler for DatabaseAdapter {
 			state
 				.entry_id_cache
 				.insert(parent_path.to_path_buf(), parent_id);
-		} else if let Ok(Some(parent_id)) = DatabaseStorage::resolve_parent_id(&self.db, parent_path).await
+		} else if let Ok(Some(parent_id)) =
+			DatabaseStorage::resolve_parent_id(&self.db, parent_path).await
 		{
 			// Cache the parent ID for future lookups
 			state
@@ -586,20 +587,66 @@ impl ChangeHandler for DatabaseAdapter {
 
 	async fn emit_change_event(&self, entry: &EntryRef, change_type: ChangeType) -> Result<()> {
 		use crate::domain::ResourceManager;
+		use crate::infra::event::Event;
 
-		if let Some(uuid) = entry.uuid {
-			let resource_manager =
-				ResourceManager::new(Arc::new(self.db.clone()), self.context.events.clone());
+		tracing::debug!(
+			"emit_change_event called: {:?} for {} (uuid: {:?})",
+			change_type,
+			entry.path.display(),
+			entry.uuid
+		);
 
-			if let Err(e) = resource_manager
-				.emit_resource_events("entry", vec![uuid])
-				.await
-			{
-				tracing::warn!(
-					"Failed to emit resource event for {:?} entry: {}",
-					change_type,
-					e
+		let Some(uuid) = entry.uuid else {
+			tracing::warn!(
+				"Entry has no UUID, cannot emit {:?} event for {}",
+				change_type,
+				entry.path.display()
+			);
+			return Ok(());
+		};
+
+		match change_type {
+			ChangeType::Deleted => {
+				// Emit ResourceDeleted event so frontend can remove from cache
+				// Use "file" resource_type to match ephemeral events (frontend listens for "file")
+				tracing::debug!(
+					"Emitting ResourceDeleted for persistent delete: {} (id: {})",
+					entry.path.display(),
+					uuid
 				);
+				self.context.events.emit(Event::ResourceDeleted {
+					resource_type: "file".to_string(),
+					resource_id: uuid,
+				});
+			}
+			ChangeType::Created | ChangeType::Modified | ChangeType::Moved => {
+				// Emit ResourceChanged event for UI updates
+				tracing::debug!(
+					"Emitting ResourceChanged for persistent {:?}: {} (id: {})",
+					change_type,
+					entry.path.display(),
+					uuid
+				);
+				let resource_manager =
+					ResourceManager::new(Arc::new(self.db.clone()), self.context.events.clone());
+
+				if let Err(e) = resource_manager
+					.emit_resource_events("entry", vec![uuid])
+					.await
+				{
+					tracing::warn!(
+						"Failed to emit resource event for {:?} entry {}: {}",
+						change_type,
+						entry.path.display(),
+						e
+					);
+				} else {
+					tracing::debug!(
+						"Successfully emitted ResourceChanged for {:?}: {}",
+						change_type,
+						entry.path.display()
+					);
+				}
 			}
 		}
 
@@ -728,14 +775,9 @@ impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 	) -> JobResult<()> {
 		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		DatabaseStorage::link_to_content_identity(
-			self.ctx.library_db(),
-			entry_id,
-			path,
-			cas_id,
-		)
-		.await
-		.map(|_| ())
+		DatabaseStorage::link_to_content_identity(self.ctx.library_db(), entry_id, path, cas_id)
+			.await
+			.map(|_| ())
 	}
 
 	async fn get_existing_entries(
