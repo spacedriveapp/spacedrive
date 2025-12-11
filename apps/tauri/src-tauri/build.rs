@@ -71,8 +71,9 @@ fn main() {
 		let _ = std::fs::remove_file(&daemon_target);
 
 		// Copy the daemon binary with target architecture suffix
-		std::fs::copy(&daemon_source, &daemon_target)
-			.unwrap_or_else(|e| eprintln!("Warning: Failed to copy daemon: {}", e));
+		if let Err(e) = std::fs::copy(&daemon_source, &daemon_target) {
+			eprintln!("Warning: Failed to copy daemon: {}", e);
+		}
 	}
 
 	tauri_build::build()
