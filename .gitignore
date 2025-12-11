@@ -447,6 +447,8 @@ sd_init.json
 .github/scripts/deps
 .vite-inspect
 vite.config.ts.*
+vite.config.js
+vite.config.d.ts
 
 /test-data
 /config.json

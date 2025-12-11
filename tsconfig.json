@@ -5,9 +5,6 @@
 			"path": "apps/tauri"
 		},
 		{
-			"path": "apps/api"
-		},
-		{
 			"path": "packages/ui"
 		},
 		{

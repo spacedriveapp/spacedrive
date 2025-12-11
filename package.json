@@ -2,7 +2,8 @@
   "name": "spacedrive",
   "private": true,
   "scripts": {
-    "preinstall": "npx only-allow bun"
+    "preinstall": "npx only-allow bun",
+    "typecheck": "bun run --filter @sd/tauri typecheck"
   },
   "devDependencies": {
     "@babel/plugin-syntax-import-assertions": "^7.24.0",
