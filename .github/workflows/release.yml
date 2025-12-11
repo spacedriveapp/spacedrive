@@ -182,22 +182,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build daemon binary
-        run: cargo build --release --bin sd-daemon --target ${{ matrix.settings.target }}
-
-      - name: Prepare daemon binary for bundling (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p target/release
-          cp target/${{ matrix.settings.target }}/release/sd-daemon target/release/sd-daemon-${{ matrix.settings.target }}
-
-      - name: Prepare daemon binary for bundling (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path target/release
-          Copy-Item target/${{ matrix.settings.target }}/release/sd-daemon.exe target/release/sd-daemon-${{ matrix.settings.target }}.exe
-
       - name: Build
         working-directory: apps/tauri
         run: |

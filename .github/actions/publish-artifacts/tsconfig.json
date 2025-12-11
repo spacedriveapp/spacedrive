@@ -19,10 +19,7 @@
 		"noUnusedParameters": true,
 		"experimentalDecorators": true,
 		"useDefineForClassFields": true,
-		"noUncheckedIndexedAccess": true,
-		"exactOptionalPropertyTypes": true,
-		"forceConsistentCasingInFileNames": true,
-		"noPropertyAccessFromIndexSignature": false
+		"forceConsistentCasingInFileNames": true
 	},
 	"include": ["./**/*.ts"],
 	"exclude": ["dist", "node_modules"],

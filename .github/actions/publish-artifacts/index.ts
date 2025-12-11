@@ -50,7 +50,7 @@ const BUNDLE_DIR = `target/${TARGET}/${PROFILE}/bundle`;
 const ARTIFACTS_DIR = '.artifacts';
 const ARTIFACT_BASE = `Spacedrive-${OS}-${ARCH}`;
 const FRONT_END_BUNDLE = 'apps/desktop/dist.tar.xz';
-const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
+// const UPDATER_ARTIFACT_NAME = `Spacedrive-Updater-${OS}-${ARCH}`;
 const FRONTEND_ARCHIVE_NAME = `Spacedrive-frontend-${OS}-${ARCH}`;
 
 async function globFiles(pattern: string) {
@@ -71,27 +71,28 @@ async function uploadFrontend() {
 	await client.uploadArtifact(artifactName, [artifactPath], ARTIFACTS_DIR);
 }
 
-async function uploadUpdater(updater: BuildTarget['updater']) {
-	if (!updater) return;
-	const { bundle, bundleExt, archiveExt } = updater;
-	const fullExt = `${bundleExt}.${archiveExt}`;
-	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
+// TODO: Re-enable when updater is configured for v2
+// async function uploadUpdater(updater: BuildTarget['updater']) {
+// 	if (!updater) return;
+// 	const { bundle, bundleExt, archiveExt } = updater;
+// 	const fullExt = `${bundleExt}.${archiveExt}`;
+// 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${fullExt}*`);
 
-	const updaterPath = files.find((file) => file.endsWith(fullExt));
-	if (!updaterPath) throw new Error(`Updater path not found. Files: ${files.join(',')}`);
+// 	const updaterPath = files.find((file) => file.endsWith(fullExt));
+// 	if (!updaterPath) throw new Error(`Updater path not found. Files: ${files.join(',')}`);
 
-	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${archiveExt}`;
+// 	const artifactPath = `${ARTIFACTS_DIR}/${UPDATER_ARTIFACT_NAME}.${archiveExt}`;
 
-	// https://tauri.app/v1/guides/distribution/updater#update-artifacts
-	await io.cp(updaterPath, artifactPath);
-	await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
+// 	// https://tauri.app/v1/guides/distribution/updater#update-artifacts
+// 	await io.cp(updaterPath, artifactPath);
+// 	await io.cp(`${updaterPath}.sig`, `${artifactPath}.sig`);
 
-	await client.uploadArtifact(
-		UPDATER_ARTIFACT_NAME,
-		[artifactPath, `${artifactPath}.sig`],
-		ARTIFACTS_DIR
-	);
-}
+// 	await client.uploadArtifact(
+// 		UPDATER_ARTIFACT_NAME,
+// 		[artifactPath, `${artifactPath}.sig`],
+// 		ARTIFACTS_DIR
+// 	);
+// }
 
 async function uploadStandalone({ bundle, ext }: TargetConfig) {
 	const files = await globFiles(`${BUNDLE_DIR}/${bundle}/*.${ext}*`);
@@ -109,10 +110,9 @@ async function uploadStandalone({ bundle, ext }: TargetConfig) {
 async function run() {
 	await io.mkdirP(ARTIFACTS_DIR);
 
-	const { updater, standalone } = OS_TARGETS[OS];
+	const { standalone } = OS_TARGETS[OS];
 
 	await Promise.all([
-		uploadUpdater(updater),
 		uploadFrontend(),
 		...standalone.map((config) => uploadStandalone(config))
 	]);
