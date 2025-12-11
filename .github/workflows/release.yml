@@ -199,6 +199,7 @@ jobs:
           Copy-Item target/${{ matrix.settings.target }}/release/sd-daemon.exe target/release/sd-daemon-${{ matrix.settings.target }}.exe
 
       - name: Build
+        working-directory: apps/tauri
         run: |
           bun tauri build --ci -v --target ${{ matrix.settings.target }} --bundles ${{ matrix.settings.bundles }}
         env:
