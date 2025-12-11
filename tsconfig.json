@@ -5,13 +5,13 @@
 			"path": "apps/tauri"
 		},
 		{
-			"path": "apps/landing"
-		},
-		{
 			"path": "apps/api"
 		},
 		{
 			"path": "packages/ui"
+		},
+		{
+			"path": "packages/config"
 		}
 	]
 }
