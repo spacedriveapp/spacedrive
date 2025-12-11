@@ -99,4 +99,5 @@ jobs:
         run: cargo build --quiet --workspace --all-features --release --target ${{ matrix.settings.target }}
 
       - name: Clippy
+        if: runner.os == 'Linux'
         run: cargo clippy --workspace --all-features --target ${{ matrix.settings.target }}

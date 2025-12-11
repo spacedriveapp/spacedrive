@@ -64,7 +64,10 @@ fn main() {
 		.expect("Could not find workspace directory");
 
 	let daemon_source = format!("{}/target/{}/sd-daemon", workspace_dir, profile);
-	let daemon_target = format!("{}/target/{}/sd-daemon-{}", workspace_dir, profile, target_triple);
+	let daemon_target = format!(
+		"{}/target/{}/sd-daemon-{}",
+		workspace_dir, profile, target_triple
+	);
 
 	if std::path::Path::new(&daemon_source).exists() {
 		// Remove existing file if it exists
