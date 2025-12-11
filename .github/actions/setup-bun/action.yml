@@ -182,4 +182,4 @@ runs:
       env:
         NODE_ENV: debug
         GITHUB_TOKEN: ${{ inputs.token }}
-      run: bun install --frozen-lockfile
+      run: bun install
