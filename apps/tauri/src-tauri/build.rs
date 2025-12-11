@@ -56,5 +56,32 @@ fn main() {
 		}
 	}
 
+	// Create symlink for daemon binary with target architecture suffix
+	let target_triple = std::env::var("TARGET").expect("TARGET not set");
+	let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
+	let workspace_dir = std::env::var("CARGO_WORKSPACE_DIR")
+		.or_else(|_| std::env::var("CARGO_MANIFEST_DIR").map(|d| format!("{}/../../..", d)))
+		.expect("Could not find workspace directory");
+
+	let daemon_source = format!("{}/target/{}/sd-daemon", workspace_dir, profile);
+	let daemon_target = format!("{}/target/{}/sd-daemon-{}", workspace_dir, profile, target_triple);
+
+	if std::path::Path::new(&daemon_source).exists() {
+		// Remove existing symlink/file if it exists
+		let _ = std::fs::remove_file(&daemon_target);
+
+		#[cfg(unix)]
+		{
+			std::os::unix::fs::symlink(&daemon_source, &daemon_target)
+				.unwrap_or_else(|e| eprintln!("Warning: Failed to create daemon symlink: {}", e));
+		}
+
+		#[cfg(windows)]
+		{
+			std::fs::copy(&daemon_source, &daemon_target)
+				.unwrap_or_else(|e| eprintln!("Warning: Failed to copy daemon: {}", e));
+		}
+	}
+
 	tauri_build::build()
 }
