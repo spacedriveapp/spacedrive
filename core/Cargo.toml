@@ -122,7 +122,7 @@ tokio-rustls     = "0.26"
 webp             = "0.3"
 
 # Speech-to-text dependencies (always included)
-whisper-rs = { version = "0.15.1", features = ["metal"] }
+whisper-rs = "0.15.1"
 hound      = "3.5"  # WAV file reading
 rubato     = "0.16" # Audio resampling to 16kHz
 
@@ -207,6 +207,9 @@ vergen         = { version = "8", features = ["cargo", "git", "gitcl"] }
 # Platform specific
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
+whisper-rs = { version = "0.15.1", features = ["metal"] }
 
 [[bin]]
 name = "spacedrive"

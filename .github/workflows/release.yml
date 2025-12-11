@@ -197,8 +197,8 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          CFLAGS: "-march=armv8-a"
-          CXXFLAGS: "-march=armv8-a"
+          CFLAGS: "-march=armv8.2-a+crypto"
+          CXXFLAGS: "-march=armv8.2-a+crypto"
 
       - name: Package frontend
         if: ${{ runner.os == 'Linux' }}
