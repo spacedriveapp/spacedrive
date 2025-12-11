@@ -87,16 +87,9 @@ runs:
       if: ${{ runner.os == 'Windows' }}
       run: ./scripts/setup.ps1
 
-    # TODO: Re-enable this when preprep.mjs is ported to V2
-    # This downloads native dependencies (FFmpeg, protoc, HEIF) needed for optional features
-    # Currently commented out to get basic builds working
-    # - name: Setup shared libraries
-    #   shell: bash
-    #   env:
-    #     TARGET_TRIPLE: ${{ inputs.target }}
-    #     GITHUB_TOKEN: ${{ inputs.token }}
-    #   run: |
-    #     pushd scripts
-    #     npm i --production
-    #     popd
-    #     env NODE_ENV=debug node scripts/preprep.mjs
+    - name: Setup native dependencies
+      shell: bash
+      env:
+        TARGET_TRIPLE: ${{ inputs.target }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: cargo run -p xtask -- setup

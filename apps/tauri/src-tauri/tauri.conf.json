@@ -4,7 +4,7 @@
   "identifier": "com.spacedrive.desktop",
   "build": {
     "beforeDevCommand": "bun run dev:with-daemon",
-    "beforeBuildCommand": "bun run build",
+    "beforeBuildCommand": "bun run build:daemon:release && bun run build",
     "devUrl": "http://localhost:1420",
     "frontendDist": "../dist"
   },
@@ -57,7 +57,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-
+    "externalBin": ["../../../target/release/sd-daemon"],
     "resources": {
       "gen/**/*": "./"
     },
