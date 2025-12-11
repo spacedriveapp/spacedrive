@@ -724,7 +724,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "proc-macro2",
  "quote",
  "regex",
@@ -742,7 +742,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log 0.4.28",
  "prettyplease",
  "proc-macro2",
@@ -762,7 +762,7 @@ dependencies = [
  "bitflags 2.9.4",
  "cexpr",
  "clang-sys",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "log 0.4.28",
  "prettyplease",
  "proc-macro2",
@@ -2350,7 +2350,7 @@ version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330c60081dcc4c72131f8eb70510f1ac07223e5d4163db481a04a0befcffa412"
 dependencies = [
- "libloading 0.8.9",
+ "libloading 0.7.4",
 ]
 
 [[package]]
@@ -6876,10 +6876,10 @@ dependencies = [
  "console_error_panic_hook",
  "console_log",
  "image",
- "itertools 0.13.0",
+ "itertools 0.12.1",
  "js-sys",
- "libloading 0.8.9",
- "log 0.4.28",
+ "libloading 0.7.4",
+ "log 0.3.9",
  "maybe-owned",
  "once_cell",
  "utf16string",

@@ -122,7 +122,7 @@ tokio-rustls     = "0.26"
 webp             = "0.3"
 
 # Speech-to-text dependencies (always included)
-whisper-rs = "0.15"
+whisper-rs = { version = "0.15.1", features = ["metal"] }
 hound      = "3.5"  # WAV file reading
 rubato     = "0.16" # Audio resampling to 16kHz
 
