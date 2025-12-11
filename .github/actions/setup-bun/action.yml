@@ -4,13 +4,13 @@ inputs:
   token:
     description: Github token
     required: false
-    default: ''
+    default: ""
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Install ffmpeg
       if: runner.os == 'Linux'
-      shell: 'bash'
+      shell: "bash"
       run: |
         sudo apt-get update -qq && sudo apt-get -y install \
         autoconf \
@@ -171,7 +171,6 @@ runs:
         # Add ffmpeg to PATH
         echo 'export PATH="$HOME/bin:$PATH"' >> ~/.profile
         source ~/.profile
-
 
     - name: Setup Bun
       uses: oven-sh/setup-bun@v1
