@@ -22,16 +22,16 @@ jobs:
           - host: macos-14
             target: aarch64-apple-darwin
             platform: macos-aarch64
-          - host: macos-15-intel
-            target: x86_64-apple-darwin
-            platform: macos-x86_64
-          # Linux builds
-          - host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x86_64
-          - host: ubuntu-22.04
-            target: aarch64-unknown-linux-gnu
-            platform: linux-aarch64
+          # - host: macos-15-intel
+          #   target: x86_64-apple-darwin
+          #   platform: macos-x86_64
+          # # Linux builds
+          # - host: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   platform: linux-x86_64
+          # - host: ubuntu-22.04
+          #   target: aarch64-unknown-linux-gnu
+          #   platform: linux-aarch64
           # Windows builds (uncomment when needed)
           # - host: windows-latest
           #   target: x86_64-pc-windows-msvc
@@ -100,28 +100,28 @@ jobs:
     strategy:
       matrix:
         settings:
-          - host: macos-15-intel
-            target: x86_64-apple-darwin
-            bundles: dmg,app
-            os: darwin
-            arch: x86_64
-          - host: macos-14
+          # - host: macos-15-intel
+          #   target: x86_64-apple-darwin
+          #   bundles: dmg,app
+          #   os: darwin
+          #   arch: x86_64
+          - host: macos-16
             target: aarch64-apple-darwin
             bundles: dmg,app
             os: darwin
             arch: aarch64
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundles: msi
-            os: windows
-            arch: x86_64
+          # - host: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   bundles: msi
+          #   os: windows
+          #   arch: x86_64
           # - host: windows-latest
           #   target: aarch64-pc-windows-msvc
-          - host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            bundles: deb
-            os: linux
-            arch: x86_64
+          # - host: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   bundles: deb
+          #   os: linux
+          #   arch: x86_64
           # - host: ubuntu-22.04
           #   target: x86_64-unknown-linux-musl
           # - host: ubuntu-22.04
