@@ -613,6 +613,56 @@ Once your PR is merged, your changes will be included in the next release of the
 - On Linux, ensure all system dependencies are installed
 - Run `./scripts/setup.sh` again to verify dependencies
 
+### ARM Build Issues (Apple Silicon)
+
+#### `whisper-rs-sys` CMake build errors with i8mm instructions
+
+**Error:** `always_inline function 'vmmlaq_s32' requires target feature 'i8mm'`
+
+This occurs during the CMake compilation of whisper-rs-sys on ARM platforms (Apple Silicon) where the compiler tries to use ARMv8.6-A i8mm (integer 8-bit matrix multiply) instructions that may not be available on all systems or CI runners.
+
+**Solution:**
+
+The project is configured to use Metal GPU acceleration on macOS/iOS, which avoids CPU SIMD issues. If you still encounter this error:
+
+```bash
+# Set compiler flags to target ARMv8.2-A with crypto extensions
+export CFLAGS="-march=armv8.2-a+crypto"
+export CXXFLAGS="-march=armv8.2-a+crypto"
+cargo build
+```
+
+#### `aws-lc-sys` NEON/crypto extension errors
+
+**Error:** `NEON and crypto extensions should be statically available`
+
+This occurs when building aws-lc-sys (used for cryptography) on ARM without proper architecture flags.
+
+**Solution:**
+
+Ensure you're targeting ARMv8.2-A or later with crypto extensions:
+
+```bash
+export CFLAGS="-march=armv8.2-a+crypto"
+export CXXFLAGS="-march=armv8.2-a+crypto"
+cargo build
+```
+
+These flags enable:
+- NEON (Advanced SIMD) instructions
+- Crypto extensions (AES, SHA2)
+- Excludes i8mm to avoid incompatibility issues
+
+#### `whisper-rs-sys` CMake Metal framework error on Linux
+
+**Error:** `CMake Error: Could not find FOUNDATION_LIBRARY using the following names: Foundation`
+
+This occurs when building on Linux with Metal features enabled. Metal is an Apple-only framework and cannot be built on non-Apple platforms.
+
+**Solution:**
+
+The project automatically handles this via platform-specific dependencies in `core/Cargo.toml`. Metal is only enabled on macOS/iOS. If you encounter this error, ensure you're using the latest version of the code where whisper-rs uses platform-specific features.
+
 ### Xcode Issues
 
 #### `xcrun: error: unable to find utility "xctest"`
