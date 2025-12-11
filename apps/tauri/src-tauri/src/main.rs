@@ -3,6 +3,7 @@
 
 mod drag;
 mod files;
+mod keybinds;
 mod server;
 mod windows;
 
@@ -1790,7 +1791,10 @@ fn main() {
 			drag::get_drag_session,
 			drag::force_clear_drag_state,
 			files::reveal_file,
-			files::get_sidecar_path
+			files::get_sidecar_path,
+			keybinds::register_keybind,
+			keybinds::unregister_keybind,
+			keybinds::get_registered_keybinds
 		])
 		.setup(|app| {
 			// Setup native menu
@@ -1908,9 +1912,10 @@ fn main() {
 				subscription_manager: SubscriptionManager::new(),
 			};
 
-			app.manage(daemon_state.clone());
-			app.manage(app_state);
-			app.manage(drag::DragCoordinator::new());
+		app.manage(daemon_state.clone());
+		app.manage(app_state);
+		app.manage(drag::DragCoordinator::new());
+		app.manage(keybinds::KeybindState::new());
 
 			let _handle = app.handle().clone();
 
