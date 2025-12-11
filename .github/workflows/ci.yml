@@ -280,7 +280,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
-        run: bun install --frozen-lockfile
+        run: bun install
 
       - name: TypeScript typecheck
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
