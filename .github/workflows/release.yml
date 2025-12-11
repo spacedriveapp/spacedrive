@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - host: macos-14
+          - host: macos-latest
             target: aarch64-apple-darwin
             platform: macos-aarch64
           # - host: macos-15-intel
@@ -105,7 +105,7 @@ jobs:
           #   bundles: dmg,app
           #   os: darwin
           #   arch: x86_64
-          - host: macos-16
+          - host: macos-latest
             target: aarch64-apple-darwin
             bundles: dmg,app
             os: darwin
