@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - host: macos-latest
+          - host: self-hosted
             target: aarch64-apple-darwin
             platform: macos-aarch64
           # - host: macos-15-intel
@@ -105,7 +105,7 @@ jobs:
           #   bundles: dmg,app
           #   os: darwin
           #   arch: x86_64
-          - host: macos-latest
+          - host: self-hosted
             target: aarch64-apple-darwin
             bundles: dmg,app
             os: darwin
@@ -217,7 +217,7 @@ jobs:
   # Create unified release with CLI and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     name: Create Release
     needs: [cli-build, desktop-main]
     permissions:
