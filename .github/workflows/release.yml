@@ -214,6 +214,10 @@ jobs:
           target: ${{ matrix.settings.target }}
           profile: release
 
+      - name: Cleanup keychain
+        if: always() && runner.os == 'macOS'
+        run: security delete-keychain signing_temp.keychain || true
+
   # Create unified release with CLI and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/')
