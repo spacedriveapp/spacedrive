@@ -479,7 +479,7 @@ apps/ios/sd-ios-core/sd_ios_core.xcframework/**
 whitepaper/*.log
 
 # GitHub Actions build artifacts
-.github/actions/*/dist/
+# Note: dist/ folders in .github/actions/ must be committed for custom JS actions
 
 
 test_data
