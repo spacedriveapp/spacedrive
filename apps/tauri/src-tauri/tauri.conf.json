@@ -78,6 +78,7 @@
     "macOS": {
       "minimumSystemVersion": "10.15",
       "signingIdentity": "-",
+      "entitlements": "Entitlements.plist",
       "infoPlist": "Info.plist",
       "frameworks": ["../../.deps/Spacedrive.framework"]
     },

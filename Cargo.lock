@@ -8924,7 +8924,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "smallvec",
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
  "specta-swift",
  "specta-typescript",
@@ -9037,7 +9037,7 @@ dependencies = [
  "pdfium-render",
  "resvg",
  "serde",
- "specta 2.0.0-rc.20",
+ "specta",
  "thiserror 2.0.16",
  "tracing",
 ]
@@ -9053,7 +9053,7 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
- "specta 2.0.0-rc.20",
+ "specta",
  "thiserror 2.0.16",
  "tokio",
 ]
@@ -9972,17 +9972,6 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "2.0.0-rc.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ccbb212565d2dc177bc15ecb7b039d66c4490da892436a4eee5b394d620c9bc"
-dependencies = [
- "chrono",
- "specta-macros 2.0.0-rc.17",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "specta"
 version = "2.0.0-rc.22"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
@@ -9990,20 +9979,8 @@ dependencies = [
  "ctor 0.4.3",
  "serde",
  "serde_json",
- "specta-macros 2.0.0-rc.18",
+ "specta-macros",
  "uuid",
-]
-
-[[package]]
-name = "specta-macros"
-version = "2.0.0-rc.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68999d29816965eb9e5201f60aec02a76512139811661a7e8e653abc810b8f72"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn 2.0.106",
 ]
 
 [[package]]
@@ -10022,7 +9999,7 @@ name = "specta-serde"
 version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
- "specta 2.0.0-rc.22",
+ "specta",
 ]
 
 [[package]]
@@ -10031,7 +10008,7 @@ version = "0.0.1"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "serde",
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
  "thiserror 1.0.69",
 ]
@@ -10041,7 +10018,7 @@ name = "specta-typescript"
 version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
 ]
 
