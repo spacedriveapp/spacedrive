@@ -16,10 +16,7 @@ use sd_core::{
 #[derive(Subcommand, Debug)]
 pub enum PairCmd {
 	/// Generate a pairing code (initiator)
-	Generate {
-		#[arg(long, default_value_t = false)]
-		auto_accept: bool,
-	},
+	Generate {},
 	/// Join using a pairing code (joiner)
 	Join {
 		/// Pairing code (12 words or JSON). If not provided, enters interactive mode.
@@ -37,9 +34,7 @@ pub enum PairCmd {
 impl PairCmd {
 	pub fn to_generate_input(&self) -> Option<PairGenerateInput> {
 		match self {
-			Self::Generate { auto_accept } => Some(PairGenerateInput {
-				auto_accept: *auto_accept,
-			}),
+			Self::Generate {} => Some(PairGenerateInput {}),
 			_ => None,
 		}
 	}

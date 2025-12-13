@@ -3,18 +3,14 @@ use crate::infra::action::{error::ActionError, CoreAction};
 use chrono::Utc;
 use std::sync::Arc;
 
-pub struct PairGenerateAction {
-	pub auto_accept: bool,
-}
+pub struct PairGenerateAction {}
 
 impl CoreAction for PairGenerateAction {
 	type Output = PairGenerateOutput;
 	type Input = PairGenerateInput;
 
-	fn from_input(input: Self::Input) -> std::result::Result<Self, String> {
-		Ok(Self {
-			auto_accept: input.auto_accept,
-		})
+	fn from_input(_input: Self::Input) -> std::result::Result<Self, String> {
+		Ok(Self {})
 	}
 
 	async fn execute(
