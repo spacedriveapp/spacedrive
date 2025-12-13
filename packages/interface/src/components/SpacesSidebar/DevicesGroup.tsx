@@ -1,8 +1,9 @@
 import { WifiHigh } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
-import { useLibraryQuery, getDeviceIcon } from "../../context";
+import { useNormalizedQuery, getDeviceIcon } from "../../context";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
+import type { ListLibraryDevicesInput, LibraryDeviceInfo } from "@sd/ts-client";
 
 interface DevicesGroupProps {
 	isCollapsed: boolean;
@@ -12,13 +13,18 @@ interface DevicesGroupProps {
 export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 	const navigate = useNavigate();
 
-	const { data: devices, isLoading } = useLibraryQuery({
-		type: "devices.list",
+	// Use normalized query for automatic updates when device events are emitted
+	const { data: devices, isLoading } = useNormalizedQuery<
+		ListLibraryDevicesInput,
+		LibraryDeviceInfo[]
+	>({
+		wireMethod: "query:devices.list",
 		input: {
 			include_offline: true,
 			include_details: false,
 			show_paired: true,
 		},
+		resourceType: "device",
 	});
 
 	return (
