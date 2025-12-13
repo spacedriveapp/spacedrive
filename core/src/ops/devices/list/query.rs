@@ -116,10 +116,10 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 		for model in device_models {
 			match Device::try_from(model) {
 				Ok(mut device) => {
-					// Set ephemeral fields
+					// Set ephemeral fields (defaults - will be updated when merging with network state)
 					device.is_current = device.id == current_device_id;
-					device.is_paired = false; // DB devices are registered, not just paired
-					device.is_connected = false; // Will be updated if also in network registry
+					device.is_paired = false; // Updated below if device is also in network registry
+					device.is_connected = false; // Updated below if device is connected via network
 					result.push(device);
 				}
 				Err(e) => {
@@ -139,8 +139,16 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				for (device_id, state) in all_devices {
 					// Check if this device is already in the library results
 					if let Some(existing) = result.iter_mut().find(|d| d.id == device_id) {
-						// Update connection status for library device that's also paired
+						// Update pairing/connection status for library device that's also in network registry
 						use crate::service::network::device::DeviceState;
+						match state {
+							DeviceState::Paired { .. }
+							| DeviceState::Connected { .. }
+							| DeviceState::Disconnected { .. } => {
+								existing.is_paired = true;
+							}
+							_ => {}
+						}
 						if matches!(state, DeviceState::Connected { .. }) {
 							existing.is_connected = true;
 							existing.is_online = true;
