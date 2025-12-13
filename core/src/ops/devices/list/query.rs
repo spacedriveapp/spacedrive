@@ -136,11 +136,24 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				let registry = device_registry.read().await;
 				let all_devices = registry.get_all_devices();
 
+				// Get Iroh endpoint for verifying actual connection status
+				// This is the source of truth, not the cached DeviceState
+				let endpoint = networking.endpoint();
+
 				for (device_id, state) in all_devices {
+					use crate::service::network::device::DeviceState;
+
+					// Query Iroh directly for actual connection status
+					let is_actually_connected = if let Some(ep) = endpoint {
+						registry.is_node_connected(ep, device_id)
+					} else {
+						// No endpoint available, fall back to cached state
+						matches!(state, DeviceState::Connected { .. })
+					};
+
 					// Check if this device is already in the library results
 					if let Some(existing) = result.iter_mut().find(|d| d.id == device_id) {
 						// Update pairing/connection status for library device that's also in network registry
-						use crate::service::network::device::DeviceState;
 						match state {
 							DeviceState::Paired { .. }
 							| DeviceState::Connected { .. }
@@ -149,30 +162,28 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 							}
 							_ => {}
 						}
-						if matches!(state, DeviceState::Connected { .. }) {
+						if is_actually_connected {
 							existing.is_connected = true;
 							existing.is_online = true;
 						}
 						continue;
 					}
 
-					use crate::service::network::device::DeviceState;
-
-					let (device_info, is_connected) = match state {
-						DeviceState::Paired { info, .. } => (Some(info), false),
-						DeviceState::Connected { info, .. } => (Some(info), true),
-						DeviceState::Disconnected { info, .. } => (Some(info), false),
-						_ => (None, false),
+					let device_info = match state {
+						DeviceState::Paired { info, .. } => Some(info),
+						DeviceState::Connected { info, .. } => Some(info),
+						DeviceState::Disconnected { info, .. } => Some(info),
+						_ => None,
 					};
 
 					if let Some(info) = device_info {
 						// Filter by online status if requested
-						if !self.input.include_offline && !is_connected {
+						if !self.input.include_offline && !is_actually_connected {
 							continue;
 						}
 
 						// Convert network DeviceInfo to domain Device
-						let device = Device::from_network_info(&info, is_connected);
+						let device = Device::from_network_info(&info, is_actually_connected);
 						result.push(device);
 					}
 				}
