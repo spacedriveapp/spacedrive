@@ -545,7 +545,37 @@ impl Identifiable for Volume {
 	{
 		"volume"
 	}
+
+	/// Load volumes from database by UUID
+	///
+	/// Note: Volumes are primarily in-memory resources managed by VolumeManager.
+	/// This queries the database for tracked volume records and converts them
+	/// to offline Volume instances. For live volume data, use VolumeManager directly.
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::volume;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let volume_models = volume::Entity::find()
+			.filter(volume::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		// Convert database models to domain Volume via TrackedVolume
+		Ok(volume_models
+			.into_iter()
+			.map(|model| model.to_tracked_volume().to_offline_volume())
+			.collect())
+	}
 }
+
+// Register Volume as a simple resource
+crate::register_resource!(Volume);
 
 impl Volume {
 	/// Create a new tracked volume

@@ -1,9 +1,9 @@
 //! List devices from library database query
 
-use super::output::LibraryDeviceInfo;
 use crate::{
 	context::CoreContext,
 	device::get_current_device_id,
+	domain::Device,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
@@ -68,7 +68,7 @@ impl ListLibraryDevicesQuery {
 
 impl LibraryQuery for ListLibraryDevicesQuery {
 	type Input = ListLibraryDevicesInput;
-	type Output = Vec<LibraryDeviceInfo>;
+	type Output = Vec<Device>;
 
 	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
@@ -106,43 +106,26 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 		}
 
 		// Execute query
-		let devices = query
+		let device_models = query
 			.order_by_desc(crate::infra::db::entities::device::Column::LastSeenAt)
 			.all(db)
 			.await?;
 
-		// Convert to output format
+		// Convert to Device domain model
 		let mut result = Vec::new();
-		for device in devices {
-			// Parse JSON fields if details are requested
-			let network_addresses = if self.input.include_details {
-				serde_json::from_value(device.network_addresses.clone()).unwrap_or_default()
-			} else {
-				Vec::new()
-			};
-
-			let capabilities = if self.input.include_details {
-				Some(device.capabilities.clone())
-			} else {
-				None
-			};
-
-			result.push(LibraryDeviceInfo {
-				id: device.uuid,
-				name: device.name,
-				os: device.os,
-				os_version: device.os_version,
-				hardware_model: device.hardware_model,
-				is_online: device.is_online,
-				last_seen_at: device.last_seen_at,
-				created_at: device.created_at,
-				updated_at: device.updated_at,
-				is_current: device.uuid == current_device_id,
-				network_addresses,
-				capabilities,
-				is_paired: false,
-				is_connected: false,
-			});
+		for model in device_models {
+			match Device::try_from(model) {
+				Ok(mut device) => {
+					// Set ephemeral fields (defaults - will be updated when merging with network state)
+					device.is_current = device.id == current_device_id;
+					device.is_paired = false; // Updated below if device is also in network registry
+					device.is_connected = false; // Updated below if device is connected via network
+					result.push(device);
+				}
+				Err(e) => {
+					tracing::warn!("Failed to convert device model: {}", e);
+				}
+			}
 		}
 
 		// If show_paired is true, also fetch paired network devices
@@ -153,43 +136,55 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 				let registry = device_registry.read().await;
 				let all_devices = registry.get_all_devices();
 
+				// Get Iroh endpoint for verifying actual connection status
+				// This is the source of truth, not the cached DeviceState
+				let endpoint = networking.endpoint();
+
 				for (device_id, state) in all_devices {
-					// Skip if this device is already in the library
-					if result.iter().any(|d| d.id == device_id) {
+					use crate::service::network::device::DeviceState;
+
+					// Query Iroh directly for actual connection status
+					let is_actually_connected = if let Some(ep) = endpoint {
+						registry.is_node_connected(ep, device_id)
+					} else {
+						// No endpoint available, fall back to cached state
+						matches!(state, DeviceState::Connected { .. })
+					};
+
+					// Check if this device is already in the library results
+					if let Some(existing) = result.iter_mut().find(|d| d.id == device_id) {
+						// Update pairing/connection status for library device that's also in network registry
+						match state {
+							DeviceState::Paired { .. }
+							| DeviceState::Connected { .. }
+							| DeviceState::Disconnected { .. } => {
+								existing.is_paired = true;
+							}
+							_ => {}
+						}
+						if is_actually_connected {
+							existing.is_connected = true;
+							existing.is_online = true;
+						}
 						continue;
 					}
 
-					use crate::service::network::device::DeviceState;
-
-					let (device_info, is_connected) = match state {
-						DeviceState::Paired { info, .. } => (Some(info), false),
-						DeviceState::Connected { info, .. } => (Some(info), true),
-						DeviceState::Disconnected { info, .. } => (Some(info), false),
-						_ => (None, false),
+					let device_info = match state {
+						DeviceState::Paired { info, .. } => Some(info),
+						DeviceState::Connected { info, .. } => Some(info),
+						DeviceState::Disconnected { info, .. } => Some(info),
+						_ => None,
 					};
 
 					if let Some(info) = device_info {
 						// Filter by online status if requested
-						if !self.input.include_offline && !is_connected {
+						if !self.input.include_offline && !is_actually_connected {
 							continue;
 						}
 
-						result.push(LibraryDeviceInfo {
-							id: device_id,
-							name: info.device_name.clone(),
-							os: format!("{:?}", info.device_type),
-							os_version: Some(info.os_version.clone()),
-							hardware_model: None,
-							is_online: is_connected,
-							last_seen_at: info.last_seen,
-							created_at: info.last_seen, // Use last_seen as fallback
-							updated_at: info.last_seen,
-							is_current: false,
-							network_addresses: Vec::new(),
-							capabilities: None,
-							is_paired: true,
-							is_connected,
-						});
+						// Convert network DeviceInfo to domain Device
+						let device = Device::from_network_info(&info, is_actually_connected);
+						result.push(device);
 					}
 				}
 			}

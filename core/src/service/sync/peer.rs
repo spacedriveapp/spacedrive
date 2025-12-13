@@ -2126,7 +2126,7 @@ impl PeerSync {
 		}
 
 		// Emit resource event for UI reactivity using ResourceManager
-		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
+		// This ensures proper resource format (Location, etc.) instead of raw DB model
 		if let Some(uuid_value) = change.data.get("uuid") {
 			if let Some(uuid_str) = uuid_value.as_str() {
 				if let Ok(uuid) = Uuid::parse_str(uuid_str) {
@@ -2320,7 +2320,7 @@ impl PeerSync {
 		}
 
 		// Emit resource event for UI reactivity using ResourceManager
-		// This ensures proper resource format (LocationInfo, etc.) instead of raw DB model
+		// This ensures proper resource format (Location, etc.) instead of raw DB model
 		use crate::infra::sync::peer_log::ChangeType;
 		match entry.change_type {
 			ChangeType::Delete => {

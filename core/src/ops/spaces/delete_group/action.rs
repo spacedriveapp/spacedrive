@@ -43,13 +43,9 @@ impl LibraryAction for DeleteGroupAction {
 		// Delete will cascade to items due to foreign key constraints
 		group_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
-		// Emit ResourceDeleted event for the group
-		library
-			.event_bus()
-			.emit(crate::infra::event::Event::ResourceDeleted {
-				resource_type: "space_group".to_string(),
-				resource_id: group_id,
-			});
+		// Emit ResourceDeleted event for the group using EventEmitter
+		use crate::domain::{resource::EventEmitter, SpaceGroup};
+		SpaceGroup::emit_deleted(group_id, library.event_bus());
 
 		Ok(DeleteGroupOutput { success: true })
 	}

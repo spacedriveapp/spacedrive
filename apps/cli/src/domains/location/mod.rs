@@ -69,7 +69,7 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 					return;
 				}
 				for loc in &o.locations {
-					println!("- {} {}", loc.id, loc.path.display());
+					println!("- {} {}", loc.id, loc.sd_path);
 				}
 			});
 		}

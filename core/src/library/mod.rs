@@ -722,35 +722,16 @@ impl Library {
 			);
 		}
 
-		// Emit ResourceChanged event for normalizedCache
-		// Build the full library info output to match query response
-		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
-			id: config.id,
-			name: config.name.clone(),
-			description: config.description.clone(),
-			path: path.clone(),
-			created_at: config.created_at,
-			updated_at: config.updated_at,
-			settings: config.settings.clone(),
-			statistics: stats.clone(),
-		};
-
-		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
+		let library = crate::domain::Library::from_config(&config, path.clone());
+		use crate::domain::resource::EventEmitter;
+		if let Err(e) = library.emit_changed(&event_bus) {
 			warn!(
 				library_id = %library_id,
 				error = %e,
-				"Failed to serialize library info for ResourceChanged event"
+				"Failed to emit library ResourceChanged event"
 			);
-			serde_json::Value::Null
-		});
-
-		// Emit ResourceChanged event that normalizedCache will pick up
-		event_bus.emit(crate::infra::event::Event::ResourceChanged {
-			resource_type: "library".to_string(),
-			resource: resource_json,
-			metadata: None,
-		});
+		}
 
 		// Also emit the legacy event for backwards compatibility
 		event_bus.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
@@ -808,37 +789,19 @@ impl Library {
 			"Updated and saved statistics via update_statistics method"
 		);
 
-		// Emit ResourceChanged event for normalizedCache
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
 		let config = self.config.read().await;
-		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
-			id: config.id,
-			name: config.name.clone(),
-			description: config.description.clone(),
-			path: self.path().to_path_buf(),
-			created_at: config.created_at,
-			updated_at: config.updated_at,
-			settings: config.settings.clone(),
-			statistics: stats.clone(),
-		};
+		let library = crate::domain::Library::from_config(&config, self.path().to_path_buf());
 		drop(config);
 
-		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+		use crate::domain::resource::EventEmitter;
+		if let Err(e) = library.emit_changed(&self.event_bus) {
 			warn!(
 				library_id = %library_id,
 				error = %e,
-				"Failed to serialize library info for ResourceChanged event"
+				"Failed to emit library ResourceChanged event"
 			);
-			serde_json::Value::Null
-		});
-
-		// Emit ResourceChanged event that normalizedCache will pick up
-		self.event_bus
-			.emit(crate::infra::event::Event::ResourceChanged {
-				resource_type: "library".to_string(),
-				resource: resource_json,
-				metadata: None,
-			});
+		}
 
 		// Also emit the legacy event for backwards compatibility
 		self.event_bus

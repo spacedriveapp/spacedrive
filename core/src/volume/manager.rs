@@ -724,13 +724,9 @@ impl VolumeManager {
 
 						// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
 						if updated_volume.is_user_visible {
-							use crate::domain::{resource::Identifiable, volume::Volume};
-							if let Ok(resource) = serde_json::to_value(&updated_volume) {
-								events.emit(Event::ResourceChanged {
-									resource_type: Volume::resource_type().to_string(),
-									resource,
-									metadata: None,
-								});
+							use crate::domain::resource::EventEmitter;
+							if let Err(e) = updated_volume.emit_changed(&events) {
+								warn!("Failed to emit volume ResourceChanged: {}", e);
 							}
 						}
 					}
@@ -756,13 +752,9 @@ impl VolumeManager {
 							"Emitting ResourceChanged for user-visible volume: {} (is_user_visible={})",
 							detected.name, detected.is_user_visible
 						);
-						use crate::domain::{resource::Identifiable, volume::Volume};
-						if let Ok(resource) = serde_json::to_value(&detected) {
-							events.emit(Event::ResourceChanged {
-								resource_type: Volume::resource_type().to_string(),
-								resource,
-								metadata: None,
-							});
+						use crate::domain::resource::EventEmitter;
+						if let Err(e) = detected.emit_changed(&events) {
+							warn!("Failed to emit volume ResourceChanged: {}", e);
 						}
 					} else {
 						debug!(
@@ -795,11 +787,8 @@ impl VolumeManager {
 
 				// Emit ResourceDeleted event for UI reactivity (only for user-visible volumes)
 				if removed_volume.is_user_visible {
-					use crate::domain::{resource::Identifiable, volume::Volume};
-					events.emit(Event::ResourceDeleted {
-						resource_type: Volume::resource_type().to_string(),
-						resource_id: removed_volume.id,
-					});
+					use crate::domain::{resource::EventEmitter, Volume};
+					Volume::emit_deleted(removed_volume.id, &events);
 				}
 			}
 		}

@@ -43,13 +43,9 @@ impl LibraryAction for SpaceDeleteAction {
 		// Delete will cascade to groups and items due to foreign key constraints
 		space_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
-		// Emit ResourceDeleted event for real-time UI updates
-		library
-			.event_bus()
-			.emit(crate::infra::event::Event::ResourceDeleted {
-				resource_type: "space".to_string(),
-				resource_id: space_id,
-			});
+		// Emit ResourceDeleted event for real-time UI updates using EventEmitter
+		use crate::domain::{resource::EventEmitter, Space};
+		Space::emit_deleted(space_id, library.event_bus());
 
 		Ok(SpaceDeleteOutput { success: true })
 	}

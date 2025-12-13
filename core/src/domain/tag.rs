@@ -454,4 +454,75 @@ impl Identifiable for Tag {
 	fn sync_dependencies() -> &'static [&'static str] {
 		&[] // Tags are a simple resource backed by the tags table
 	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::tag;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let tag_models = tag::Entity::find()
+			.filter(tag::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		Ok(tag_models.into_iter().map(Tag::from_db_model).collect())
+	}
 }
+
+impl Tag {
+	/// Build Tag from database model
+	pub fn from_db_model(model: crate::infra::db::entities::tag::Model) -> Self {
+		let aliases: Vec<String> = model
+			.aliases
+			.as_ref()
+			.and_then(|json| serde_json::from_value(json.clone()).ok())
+			.unwrap_or_default();
+
+		let tag_type = TagType::from_str(&model.tag_type).unwrap_or(TagType::Standard);
+
+		let privacy_level =
+			PrivacyLevel::from_str(&model.privacy_level).unwrap_or(PrivacyLevel::Normal);
+
+		let attributes: HashMap<String, serde_json::Value> = model
+			.attributes
+			.as_ref()
+			.and_then(|json| serde_json::from_value(json.clone()).ok())
+			.unwrap_or_default();
+
+		let composition_rules: Vec<CompositionRule> = model
+			.composition_rules
+			.as_ref()
+			.and_then(|json| serde_json::from_value(json.clone()).ok())
+			.unwrap_or_default();
+
+		Self {
+			id: model.uuid,
+			canonical_name: model.canonical_name,
+			display_name: model.display_name,
+			formal_name: model.formal_name,
+			abbreviation: model.abbreviation,
+			aliases,
+			namespace: model.namespace,
+			tag_type,
+			color: model.color,
+			icon: model.icon,
+			description: model.description,
+			is_organizational_anchor: model.is_organizational_anchor,
+			privacy_level,
+			search_weight: model.search_weight,
+			attributes,
+			composition_rules,
+			created_at: model.created_at.into(),
+			updated_at: model.updated_at.into(),
+			created_by_device: model.created_by_device.unwrap_or_else(Uuid::nil),
+		}
+	}
+}
+
+// Register Tag as a simple resource
+crate::register_resource!(Tag);

@@ -53,8 +53,8 @@ pub async fn run(ctx: &Context, cmd: DevicesCmd) -> Result<()> {
 						}
 					}
 
-					if args.detailed && d.capabilities.is_some() {
-						println!("  Capabilities: {}", d.capabilities.as_ref().unwrap());
+					if args.detailed && !d.capabilities.is_null() {
+						println!("  Capabilities: {}", d.capabilities);
 					}
 
 					println!("");

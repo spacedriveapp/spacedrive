@@ -198,7 +198,69 @@ impl Identifiable for Location {
 	fn resource_type() -> &'static str {
 		"location"
 	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::domain::addressing::SdPath;
+		use crate::infra::db::entities::{device, directory_paths, entry, location};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let locations_with_entries = location::Entity::find()
+			.filter(location::Column::Uuid.is_in(ids.to_vec()))
+			.find_also_related(entry::Entity)
+			.all(db)
+			.await?;
+
+		let mut results = Vec::new();
+
+		for (loc, entry_opt) in locations_with_entries {
+			let Some(entry) = entry_opt else {
+				tracing::warn!("Location {} has no root entry, skipping", loc.uuid);
+				continue;
+			};
+
+			let Some(dir_path) = directory_paths::Entity::find_by_id(entry.id)
+				.one(db)
+				.await?
+			else {
+				tracing::warn!(
+					"No directory path for location {} entry {}",
+					loc.uuid,
+					entry.id
+				);
+				continue;
+			};
+
+			let Some(device_model) = device::Entity::find_by_id(loc.device_id).one(db).await?
+			else {
+				tracing::warn!("Device not found for location {}", loc.uuid);
+				continue;
+			};
+
+			// Note: Each library has its own database, so all locations in this DB
+			// belong to the same library. The library_id field is populated from
+			// context when needed, here we use Uuid::nil as a placeholder.
+			let library_id = Uuid::nil();
+
+			let sd_path = SdPath::Physical {
+				device_slug: device_model.slug.clone(),
+				path: dir_path.path.clone().into(),
+			};
+
+			results.push(Location::from_db_model(&loc, library_id, sd_path));
+		}
+
+		Ok(results)
+	}
 }
+
+// Register Location as a simple resource
+crate::register_resource!(Location);
 
 impl Location {
 	/// Build Location from database model (for event emission)

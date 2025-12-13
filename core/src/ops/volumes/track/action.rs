@@ -59,17 +59,14 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-		// Emit ResourceChanged event for the tracked volume
+		// Emit ResourceChanged event for the tracked volume using EventEmitter
 		let mut vol = volume_to_track.clone();
 		vol.is_tracked = true;
 		vol.library_id = Some(library.id());
 
-		context.events.emit(Event::ResourceChanged {
-			resource_type: Volume::resource_type().to_string(),
-			resource: serde_json::to_value(&vol)
-				.map_err(|e| ActionError::Internal(e.to_string()))?,
-			metadata: None,
-		});
+		use crate::domain::resource::EventEmitter;
+		vol.emit_changed(&context.events)
+			.map_err(|e| ActionError::Internal(format!("Failed to emit volume event: {}", e)))?;
 
 		Ok(VolumeTrackOutput {
 			volume_id: tracked_volume.uuid,

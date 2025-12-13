@@ -152,38 +152,11 @@ impl LibraryAction for EnableIndexingAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to start indexing: {}", e)))?;
 
-		// Emit ResourceChanged event for UI reactivity
-		let job_policies = updated_location
-			.job_policies
-			.as_ref()
-			.and_then(|json| serde_json::from_str(json).ok())
-			.unwrap_or_default();
-
-		let location_info = crate::ops::locations::list::LocationInfo {
-			id: updated_location.uuid,
-			path: directory_path.path.into(),
-			name: updated_location.name.clone(),
-			sd_path,
-			job_policies,
-			index_mode: updated_location.index_mode.clone(),
-			scan_state: updated_location.scan_state.clone(),
-			last_scan_at: updated_location.last_scan_at,
-			error_message: updated_location.error_message.clone(),
-			total_file_count: updated_location.total_file_count,
-			total_byte_size: updated_location.total_byte_size,
-			created_at: updated_location.created_at,
-			updated_at: updated_location.updated_at,
-		};
-
-		context
-			.events
-			.emit(crate::infra::event::Event::ResourceChanged {
-				resource_type: "location".to_string(),
-				resource: serde_json::to_value(&location_info).map_err(|e| {
-					ActionError::Internal(format!("Failed to serialize location: {}", e))
-				})?,
-				metadata: None,
-			});
+		// Emit ResourceChanged event for UI reactivity using EventEmitter trait
+		use crate::domain::resource::EventEmitter;
+		crate::domain::Location::emit_changed_batch(db, &context.events, &[updated_location.uuid])
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to emit location event: {}", e)))?;
 
 		Ok(EnableIndexingOutput::new(self.input.id, job_id))
 	}
