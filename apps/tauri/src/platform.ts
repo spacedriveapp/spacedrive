@@ -235,4 +235,18 @@ export const platform: Platform = {
 	isDragging() {
 		return _isDragging;
 	},
+
+	async registerKeybind(id, accelerator, handler) {
+		// Use the global handler if available (initialized in keybinds.ts)
+		if (window.__SPACEDRIVE__?.registerKeybind) {
+			await window.__SPACEDRIVE__.registerKeybind(id, accelerator, handler);
+		}
+	},
+
+	async unregisterKeybind(id) {
+		// Use the global handler if available (initialized in keybinds.ts)
+		if (window.__SPACEDRIVE__?.unregisterKeybind) {
+			await window.__SPACEDRIVE__.unregisterKeybind(id);
+		}
+	},
 };
