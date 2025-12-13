@@ -29,3 +29,38 @@ export { SpacedriveProvider } from './context';
 // Hooks
 export { useContextMenu } from './hooks/useContextMenu';
 export type { ContextMenuItem, ContextMenuConfig } from './hooks/useContextMenu';
+export { useKeybind } from './hooks/useKeybind';
+export type { KeybindHandler, UseKeybindOptions } from './hooks/useKeybind';
+export { useKeybindScope } from './hooks/useKeybindScope';
+export { useKeybindMeta, getKeybindDisplayString } from './hooks/useKeybindMeta';
+
+// Keybind system
+export type {
+	KeyCombo,
+	Modifier,
+	Key,
+	PlatformKeyCombo,
+	KeybindScope,
+	KeybindDefinition,
+	Platform as KeybindPlatform
+} from './util/keybinds/types';
+export { defineKeybind, isPlatformKeyCombo } from './util/keybinds/types';
+export {
+	getCurrentPlatform,
+	getComboForPlatform,
+	normalizeModifiers,
+	toTauriAccelerator,
+	toDisplayString,
+	matchesKeyCombo
+} from './util/keybinds/platform';
+export type { KeybindId } from './util/keybinds/registry';
+export {
+	KEYBINDS,
+	explorerKeybinds,
+	globalKeybinds,
+	mediaViewerKeybinds,
+	getKeybind,
+	getAllKeybinds,
+	getKeybindsByScope
+} from './util/keybinds/registry';
+export { getWebListener, resetWebListener } from './util/keybinds/listener';
