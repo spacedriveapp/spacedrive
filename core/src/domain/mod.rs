@@ -9,6 +9,7 @@ pub mod addressing;
 pub mod content_identity;
 pub mod device;
 pub mod file;
+pub mod library;
 pub mod location;
 pub mod media_data;
 pub mod memory;
@@ -25,6 +26,7 @@ pub use addressing::{PathResolutionError, SdPath, SdPathBatch, SdPathParseError}
 pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdentity, ContentKind};
 pub use device::{Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
+pub use library::Library;
 pub use location::{IndexMode, Location, ScanState};
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use memory::{MemoryFile, MemoryMetadata, MemoryScope};

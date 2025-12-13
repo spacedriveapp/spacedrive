@@ -543,11 +543,9 @@ impl LocationManager {
 			location_id,
 		});
 
-		// Emit generic resource deleted event (normalized cache)
-		self.events.emit(Event::ResourceDeleted {
-			resource_type: "location".to_string(),
-			resource_id: location_id,
-		});
+		// Emit generic resource deleted event (normalized cache) using EventEmitter
+		use crate::domain::{resource::EventEmitter, Location};
+		Location::emit_deleted(location_id, &self.events);
 
 		info!("Successfully removed location {}", location_id);
 		Ok(())

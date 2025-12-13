@@ -1,8 +1,8 @@
-use super::output::{LocationInfo, LocationsListOutput};
-use crate::domain::addressing::SdPath;
+use super::output::LocationsListOutput;
+use crate::domain::{addressing::SdPath, Location};
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::{ColumnTrait, EntityTrait, JoinType, QueryFilter, QuerySelect, RelationTrait};
+use sea_orm::EntityTrait;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ impl LibraryQuery for LocationsListQuery {
 	type Input = LocationsListQueryInput;
 	type Output = LocationsListOutput;
 
-	fn from_input(input: Self::Input) -> QueryResult<Self> {
+	fn from_input(_input: Self::Input) -> QueryResult<Self> {
 		Ok(Self {})
 	}
 
@@ -46,12 +46,12 @@ impl LibraryQuery for LocationsListQuery {
 
 		let mut out = Vec::new();
 
-		for (location, entry_opt) in rows {
+		for (location_model, entry_opt) in rows {
 			let entry = match entry_opt {
 				Some(e) => e,
 				None => {
 					tracing::warn!(
-						location_id = %location.uuid,
+						location_id = %location_model.uuid,
 						"Location has no root entry, skipping"
 					);
 					continue;
@@ -65,43 +65,31 @@ impl LibraryQuery for LocationsListQuery {
 					.ok_or_else(|| {
 						QueryError::Internal(format!(
 							"No directory path found for location {} entry {}",
-							location.uuid, entry.id
+							location_model.uuid, entry.id
 						))
 					})?;
 
-			let device = crate::infra::db::entities::device::Entity::find_by_id(location.device_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					QueryError::Internal(format!("Device not found for location {}", location.uuid))
-				})?;
+			let device =
+				crate::infra::db::entities::device::Entity::find_by_id(location_model.device_id)
+					.one(db)
+					.await?
+					.ok_or_else(|| {
+						QueryError::Internal(format!(
+							"Device not found for location {}",
+							location_model.uuid
+						))
+					})?;
 
 			let sd_path = SdPath::Physical {
 				device_slug: device.slug.clone(),
 				path: directory_path.path.clone().into(),
 			};
 
-			let job_policies = location
-				.job_policies
-				.as_ref()
-				.and_then(|json| serde_json::from_str(json).ok())
-				.unwrap_or_default();
-
-			out.push(LocationInfo {
-				id: location.uuid,
-				path: directory_path.path.clone().into(),
-				name: location.name.clone(),
+			out.push(Location::from_db_model(
+				&location_model,
+				library_id,
 				sd_path,
-				job_policies,
-				index_mode: location.index_mode.clone(),
-				scan_state: location.scan_state.clone(),
-				last_scan_at: location.last_scan_at,
-				error_message: location.error_message.clone(),
-				total_file_count: location.total_file_count,
-				total_byte_size: location.total_byte_size,
-				created_at: location.created_at,
-				updated_at: location.updated_at,
-			});
+			));
 		}
 
 		Ok(LocationsListOutput { locations: out })

@@ -5,10 +5,11 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use uuid::Uuid;
 
 /// A device running Spacedrive
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Device {
 	/// Unique identifier for this device
 	pub id: Uuid,
@@ -54,7 +55,7 @@ pub struct Device {
 }
 
 /// Operating system types
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
 pub enum OperatingSystem {
 	MacOS,
 	Windows,
@@ -383,3 +384,45 @@ fn parse_operating_system(os_str: &str) -> OperatingSystem {
 		_ => OperatingSystem::Other,
 	}
 }
+
+// Implement Identifiable for normalized cache support
+impl super::resource::Identifiable for Device {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"device"
+	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::device;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let device_models = device::Entity::find()
+			.filter(device::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		let mut results = Vec::new();
+		for model in device_models {
+			match Device::try_from(model) {
+				Ok(device) => results.push(device),
+				Err(e) => {
+					tracing::warn!("Failed to convert device model: {}", e);
+				}
+			}
+		}
+
+		Ok(results)
+	}
+}
+
+// Register Device as a simple resource
+crate::register_resource!(Device);
