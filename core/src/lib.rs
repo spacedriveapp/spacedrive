@@ -313,6 +313,8 @@ impl Core {
 					// Store networking service in context so it can be accessed
 					if let Some(networking) = services.networking() {
 						context.set_networking(networking.clone()).await;
+						// Set event bus for device registry to emit ResourceChanged events
+						networking.set_event_bus(context.events.clone()).await;
 						info!("Networking service registered in context");
 
 						// Initialize sync service on already-loaded libraries
@@ -513,7 +515,12 @@ impl Core {
 			}
 
 			// Make networking service available to the context for other services
-			self.context.set_networking(networking_service).await;
+			self.context
+				.set_networking(networking_service.clone())
+				.await;
+
+			// Set event bus for device registry to emit ResourceChanged events
+			networking_service.set_event_bus(self.events.clone()).await;
 		}
 
 		logger.info("Networking initialized successfully").await;

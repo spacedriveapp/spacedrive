@@ -163,6 +163,15 @@ impl NetworkingService {
 		})
 	}
 
+	/// Set the event bus for emitting resource change events
+	///
+	/// This enables the device registry to emit ResourceChanged events
+	/// when paired devices change state (paired/connected/disconnected).
+	pub async fn set_event_bus(&self, event_bus: std::sync::Arc<crate::infra::event::EventBus>) {
+		let mut registry = self.device_registry.write().await;
+		registry.set_event_bus(event_bus);
+	}
+
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
 		// Check if already started

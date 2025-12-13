@@ -6,6 +6,7 @@ use super::{
 };
 use crate::crypto::key_manager::KeyManager;
 use crate::device::DeviceManager;
+use crate::infra::event::EventBus;
 use crate::service::network::{utils::logging::NetworkLogger, NetworkingError, Result};
 use chrono::{DateTime, Utc};
 use iroh::{NodeAddr, NodeId};
@@ -32,6 +33,9 @@ pub struct DeviceRegistry {
 
 	/// Logger for device registry operations
 	logger: Arc<dyn NetworkLogger>,
+
+	/// Event bus for emitting resource change events
+	event_bus: Option<Arc<EventBus>>,
 }
 
 impl DeviceRegistry {
@@ -50,6 +54,45 @@ impl DeviceRegistry {
 			session_to_device: HashMap::new(),
 			persistence,
 			logger,
+			event_bus: None,
+		}
+	}
+
+	/// Set the event bus for emitting resource change events
+	pub fn set_event_bus(&mut self, event_bus: Arc<EventBus>) {
+		self.event_bus = Some(event_bus);
+	}
+
+	/// Emit a ResourceChanged event for a device
+	fn emit_device_changed(&self, device_id: Uuid, info: &DeviceInfo, is_connected: bool) {
+		let Some(event_bus) = &self.event_bus else {
+			return;
+		};
+
+		let device_info = crate::ops::devices::list::output::LibraryDeviceInfo {
+			id: device_id,
+			name: info.device_name.clone(),
+			os: format!("{:?}", info.device_type),
+			os_version: Some(info.os_version.clone()),
+			hardware_model: None,
+			is_online: is_connected,
+			last_seen_at: info.last_seen,
+			created_at: info.last_seen,
+			updated_at: info.last_seen,
+			is_current: false,
+			network_addresses: Vec::new(),
+			capabilities: None,
+			is_paired: true,
+			is_connected,
+		};
+
+		use crate::domain::resource::EventEmitter;
+		if let Err(e) = device_info.emit_changed(event_bus) {
+			tracing::warn!(
+				device_id = %device_id,
+				error = %e,
+				"Failed to emit device ResourceChanged event"
+			);
 		}
 	}
 
@@ -235,6 +278,9 @@ impl DeviceRegistry {
 			))
 			.await;
 
+		// Emit ResourceChanged event for UI reactivity
+		self.emit_device_changed(device_id, &info, false);
+
 		Ok(())
 	}
 
@@ -275,7 +321,7 @@ impl DeviceRegistry {
 		};
 
 		let state = DeviceState::Connected {
-			info,
+			info: info.clone(),
 			connection,
 			session_keys,
 			connected_at: Utc::now(),
@@ -296,6 +342,9 @@ impl DeviceRegistry {
 				))
 				.await;
 		}
+
+		// Emit ResourceChanged event for UI reactivity
+		self.emit_device_changed(device_id, &info, true);
 
 		Ok(())
 	}
@@ -326,7 +375,7 @@ impl DeviceRegistry {
 		};
 
 		let state = DeviceState::Disconnected {
-			info,
+			info: info.clone(),
 			session_keys,
 			last_seen: Utc::now(),
 			reason,
@@ -347,6 +396,9 @@ impl DeviceRegistry {
 				))
 				.await;
 		}
+
+		// Emit ResourceChanged event for UI reactivity
+		self.emit_device_changed(device_id, &info, false);
 
 		Ok(())
 	}
@@ -500,7 +552,7 @@ impl DeviceRegistry {
 			} if should_be_connected => {
 				// Transition from Paired to Connected
 				let state = DeviceState::Connected {
-					info,
+					info: info.clone(),
 					session_keys,
 					connected_at: Utc::now(),
 					connection: ConnectionInfo {
@@ -516,6 +568,9 @@ impl DeviceRegistry {
 					.update_device_connection(device_id, true, None)
 					.await
 					.ok();
+
+				// Emit ResourceChanged event for UI reactivity
+				self.emit_device_changed(device_id, &info, true);
 			}
 			DeviceState::Connected {
 				info,
@@ -532,13 +587,14 @@ impl DeviceRegistry {
 					connection,
 				};
 				self.devices.insert(device_id, state);
+				// No event emission for latency-only updates
 			}
 			DeviceState::Connected {
 				info, session_keys, ..
 			} if !should_be_connected => {
 				// Transition from Connected to Paired (connection lost)
 				let state = DeviceState::Paired {
-					info,
+					info: info.clone(),
 					session_keys,
 					paired_at: Utc::now(),
 				};
@@ -549,6 +605,9 @@ impl DeviceRegistry {
 					.update_device_connection(device_id, false, None)
 					.await
 					.ok();
+
+				// Emit ResourceChanged event for UI reactivity
+				self.emit_device_changed(device_id, &info, false);
 			}
 			_ => {
 				// No state change needed
@@ -679,17 +738,23 @@ impl DeviceRegistry {
 	pub async fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId) -> Result<()> {
 		self.logger
 			.info(&format!("Setting device {} as connected", device_id))
-			.await; // <-- Add this line
+			.await;
 
 		// Update the node_to_device mapping
 		self.node_to_device.insert(node_id, device_id);
 
-		// Get the current device state to preserve info
-		if let Some(current_state) = self.devices.get(&device_id) {
+		// Extract info from current state for event emission
+		let info_for_event: Option<DeviceInfo> = {
+			let current_state = self
+				.devices
+				.get(&device_id)
+				.ok_or_else(|| NetworkingError::DeviceNotFound(device_id))?;
+
 			match current_state {
 				DeviceState::Paired {
 					info, session_keys, ..
 				} => {
+					let info_clone = info.clone();
 					let state = DeviceState::Connected {
 						info: info.clone(),
 						session_keys: session_keys.clone(),
@@ -711,6 +776,8 @@ impl DeviceRegistry {
 							.warn(&format!("Failed to update device connection info: {}", e))
 							.await;
 					}
+
+					Some(info_clone)
 				}
 				DeviceState::Connected { .. } => {
 					self.logger
@@ -719,10 +786,12 @@ impl DeviceRegistry {
 							device_id
 						))
 						.await;
+					None // No state change
 				}
 				DeviceState::Disconnected {
 					info, session_keys, ..
 				} => {
+					let info_clone = info.clone();
 					let state = DeviceState::Connected {
 						info: info.clone(),
 						session_keys: session_keys.clone(),
@@ -744,6 +813,8 @@ impl DeviceRegistry {
 							.warn(&format!("Failed to update device connection info: {}", e))
 							.await;
 					}
+
+					Some(info_clone)
 				}
 				_ => {
 					return Err(NetworkingError::Protocol(
@@ -751,8 +822,11 @@ impl DeviceRegistry {
 					));
 				}
 			}
-		} else {
-			return Err(NetworkingError::DeviceNotFound(device_id));
+		};
+
+		// Emit ResourceChanged event for UI reactivity (after releasing borrow)
+		if let Some(info) = info_for_event {
+			self.emit_device_changed(device_id, &info, true);
 		}
 
 		Ok(())

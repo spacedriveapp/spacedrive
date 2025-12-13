@@ -1,11 +1,15 @@
 //! Output types for library devices query
 
+use crate::domain::resource::Identifiable;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-/// Device information from the library database
+/// Device information from the library database or network
+///
+/// This is the unified device type used by the `devices.list` query,
+/// combining both database-registered devices and network-paired devices.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LibraryDeviceInfo {
 	/// Unique device identifier
@@ -52,3 +56,20 @@ pub struct LibraryDeviceInfo {
 	#[serde(default)]
 	pub is_connected: bool,
 }
+
+impl Identifiable for LibraryDeviceInfo {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str {
+		"device"
+	}
+
+	// Network devices are in-memory, not in DB, so from_ids returns empty
+	// Events for network devices should use emit_changed() directly
+}
+
+// Register LibraryDeviceInfo as a simple resource
+// This enables network device events to use the same "device" resource type
+crate::register_resource!(LibraryDeviceInfo);
