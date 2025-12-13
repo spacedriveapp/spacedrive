@@ -5,6 +5,7 @@ import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import type { Platform } from "@sd/interface/platform";
 import { beginDrag, onDragBegan, onDragMoved, onDragEntered, onDragLeft, onDragEnded } from "./lib/drag";
+import { registerTauriKeybind, unregisterTauriKeybind } from "./lib/keybinds";
 
 let _isDragging = false;
 
@@ -235,4 +236,8 @@ export const platform: Platform = {
 	isDragging() {
 		return _isDragging;
 	},
+
+	// Keybind registration
+	registerKeybind: registerTauriKeybind,
+	unregisterKeybind: unregisterTauriKeybind,
 };

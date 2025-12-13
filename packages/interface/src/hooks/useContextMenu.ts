@@ -1,13 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
 import { usePlatform } from '../platform';
+import type { KeybindId } from '../util/keybinds/registry';
+import { getKeybind } from '../util/keybinds/registry';
+import { getComboForPlatform, getCurrentPlatform, toDisplayString } from '../util/keybinds/platform';
 
 export interface ContextMenuItem {
 	type?: 'separator' | 'submenu';
 	icon?: Icon;
 	label?: string;
 	onClick?: () => void;
+	/** Manual keybind display string (legacy) */
 	keybind?: string;
+	/** Type-safe keybind ID from registry - automatically resolves to platform-specific display string */
+	keybindId?: KeybindId;
 	variant?: 'default' | 'dull' | 'danger';
 	disabled?: boolean;
 	condition?: () => boolean;
@@ -53,9 +59,41 @@ interface ContextMenuResult {
  * return <div onContextMenu={contextMenu.show}>Content</div>;
  * ```
  */
+/**
+ * Resolve keybindId to display string for a menu item
+ */
+function resolveKeybindDisplay(item: ContextMenuItem): ContextMenuItem {
+	// If keybindId is provided, automatically resolve to display string
+	if (item.keybindId && !item.keybind) {
+		const keybind = getKeybind(item.keybindId);
+		if (keybind) {
+			const platform = getCurrentPlatform();
+			const combo = getComboForPlatform(keybind.combo, platform);
+			const displayString = toDisplayString(combo, platform);
+			return { ...item, keybind: displayString };
+		}
+	}
+
+	// Recursively process submenus
+	if (item.submenu) {
+		return {
+			...item,
+			submenu: item.submenu.map(resolveKeybindDisplay),
+		};
+	}
+
+	return item;
+}
+
 export function useContextMenu(config: ContextMenuConfig): ContextMenuResult {
 	const [menuData, setMenuData] = useState<ContextMenuItem[] | null>(null);
 	const platform = usePlatform();
+
+	// Pre-process items to resolve keybindIds
+	const processedItems = useMemo(
+		() => config.items.map(resolveKeybindDisplay),
+		[config.items]
+	);
 
 	const show = useCallback(
 		async (e: React.MouseEvent) => {
@@ -64,7 +102,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuResult {
 			e.stopPropagation();
 
 			// Filter items by condition
-			const visibleItems = config.items.filter(
+			const visibleItems = processedItems.filter(
 				(item) => !item.condition || item.condition()
 			);
 
@@ -101,7 +139,7 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuResult {
 				setMenuData(visibleItems);
 			}
 		},
-		[config.items, platform]
+		[processedItems, platform]
 	);
 
 	const closeMenu = useCallback(() => {

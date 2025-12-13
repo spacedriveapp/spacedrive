@@ -139,6 +139,18 @@ export type Platform = {
 
 	/** Check if a drag operation is in progress */
 	isDragging?(): boolean;
+
+	// Keybind API (Tauri only)
+
+	/** Register a global keyboard shortcut (Tauri only) */
+	registerKeybind?(
+		id: string,
+		accelerator: string,
+		handler: () => void | Promise<void>
+	): Promise<void>;
+
+	/** Unregister a global keyboard shortcut (Tauri only) */
+	unregisterKeybind?(id: string): Promise<void>;
 };
 
 /** Menu item state for native menus */

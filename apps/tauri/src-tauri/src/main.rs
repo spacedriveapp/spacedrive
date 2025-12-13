@@ -3,6 +3,7 @@
 
 mod drag;
 mod files;
+mod keybinds;
 mod server;
 mod windows;
 
@@ -1760,6 +1761,8 @@ fn main() {
 		.plugin(tauri_plugin_fs::init())
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
+		.plugin(tauri_plugin_global_shortcut::Builder::new().build())
+		.manage(keybinds::KeybindState::new())
 		.invoke_handler(tauri::generate_handler![
 			app_ready,
 			get_daemon_socket,
@@ -1790,7 +1793,9 @@ fn main() {
 			drag::get_drag_session,
 			drag::force_clear_drag_state,
 			files::reveal_file,
-			files::get_sidecar_path
+			files::get_sidecar_path,
+			keybinds::register_global_shortcut,
+			keybinds::unregister_global_shortcut
 		])
 		.setup(|app| {
 			// Setup native menu
