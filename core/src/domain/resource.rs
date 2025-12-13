@@ -2,6 +2,46 @@
 //!
 //! This module provides traits and utilities for managing resources across
 //! the sync system, event emission, and frontend normalized cache.
+//!
+//! ## Architecture
+//!
+//! The resource system uses a trait-based pattern where each domain model
+//! owns its own logic for:
+//! - Identification (via `id()` and `resource_type()`)
+//! - Construction (via `from_ids()`)
+//! - Event emission (via `EventEmitter` auto-trait)
+//! - Virtual resource routing (via `route_from_dependency()`)
+//!
+//! ## Resource Types
+//!
+//! ### Simple Resources
+//! Backed by a single database table. Examples:
+//! - `Space` - workspace/project
+//! - `SpaceGroup` - group within a space
+//! - `Location` - indexed filesystem location
+//!
+//! Simple resources:
+//! - Implement `from_ids()` to query and construct themselves
+//! - Have no `sync_dependencies()` (empty slice)
+//! - Don't implement `route_from_dependency()` (default no-op)
+//!
+//! ### Virtual Resources
+//! Computed from multiple database tables. Examples:
+//! - `File` - aggregates Entry + ContentIdentity + Sidecars + Tags
+//! - `SpaceLayout` - aggregates Space + Groups + Items
+//!
+//! Virtual resources:
+//! - Implement `from_ids()` with complex joins
+//! - Declare `sync_dependencies()`
+//! - Implement `route_from_dependency()` to map dependency changes to affected IDs
+//!
+//! ## Adding a New Resource
+//!
+//! 1. Implement `Identifiable` trait on your domain model
+//! 2. Register in `resource_registry.rs`
+//! 3. Use `EventEmitter` trait for event emission
+//!
+//! No changes to `ResourceManager` needed!
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -118,6 +158,101 @@ pub trait Identifiable: Serialize + for<'de> Deserialize<'de> + Type {
 		)))
 	}
 }
+
+/// Helper trait for emitting resource events
+///
+/// Automatically implemented for all Identifiable resources.
+/// Provides ergonomic methods for event emission without duplicating metadata logic.
+pub trait EventEmitter: Identifiable {
+	/// Emit a ResourceChanged event for this single resource
+	fn emit_changed(
+		&self,
+		events: &crate::infra::event::EventBus,
+	) -> crate::common::errors::Result<()> {
+		let resource = serde_json::to_value(self).map_err(|e| {
+			crate::common::errors::CoreError::Other(anyhow::anyhow!(
+				"Failed to serialize {}: {}",
+				Self::resource_type(),
+				e
+			))
+		})?;
+
+		events.emit(crate::infra::event::Event::ResourceChanged {
+			resource_type: Self::resource_type().to_string(),
+			resource,
+			metadata: Some(crate::infra::event::ResourceMetadata {
+				no_merge_fields: Self::no_merge_fields()
+					.iter()
+					.map(|s| s.to_string())
+					.collect(),
+				alternate_ids: self.alternate_ids(),
+				affected_paths: vec![],
+			}),
+		});
+
+		Ok(())
+	}
+
+	/// Emit a ResourceDeleted event for this resource
+	fn emit_deleted(id: Uuid, events: &crate::infra::event::EventBus)
+	where
+		Self: Sized,
+	{
+		events.emit(crate::infra::event::Event::ResourceDeleted {
+			resource_type: Self::resource_type().to_string(),
+			resource_id: id,
+		});
+	}
+
+	/// Emit a ResourceChangedBatch event for multiple resources
+	async fn emit_changed_batch(
+		db: &sea_orm::DatabaseConnection,
+		events: &crate::infra::event::EventBus,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<()>
+	where
+		Self: Sized,
+	{
+		if ids.is_empty() {
+			return Ok(());
+		}
+
+		let resources = Self::from_ids(db, ids).await?;
+		let resources_json: Vec<serde_json::Value> = resources
+			.iter()
+			.map(|r| serde_json::to_value(r))
+			.collect::<Result<Vec<_>, _>>()
+			.map_err(|e| {
+				crate::common::errors::CoreError::Other(anyhow::anyhow!(
+					"Failed to serialize {}: {}",
+					Self::resource_type(),
+					e
+				))
+			})?;
+
+		if resources_json.is_empty() {
+			return Ok(());
+		}
+
+		events.emit(crate::infra::event::Event::ResourceChangedBatch {
+			resource_type: Self::resource_type().to_string(),
+			resources: serde_json::Value::Array(resources_json),
+			metadata: Some(crate::infra::event::ResourceMetadata {
+				no_merge_fields: Self::no_merge_fields()
+					.iter()
+					.map(|s| s.to_string())
+					.collect(),
+				alternate_ids: vec![], // Batch events don't need alternate_ids
+				affected_paths: vec![],
+			}),
+		});
+
+		Ok(())
+	}
+}
+
+// Auto-implement EventEmitter for all Identifiable types
+impl<T: Identifiable> EventEmitter for T {}
 
 /// Map a dependency change to affected virtual resource IDs
 ///

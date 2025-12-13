@@ -28,7 +28,7 @@ pub use file::{EntryKind, File, Sidecar};
 pub use location::{IndexMode, Location, ScanState};
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use memory::{MemoryFile, MemoryMetadata, MemoryScope};
-pub use resource::Identifiable;
+pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;
 pub use space::{
 	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,

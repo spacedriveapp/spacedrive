@@ -368,6 +368,80 @@ impl crate::domain::resource::Identifiable for File {
 }
 
 impl File {
+	/// Build a File from an entry model and item type (for space item resolution)
+	///
+	/// This is used by SpaceItem resolution where we know the ItemType
+	/// and need to construct a File with the appropriate SdPath.
+	pub async fn from_entry_model_with_item_type(
+		entry_model: crate::infra::db::entities::entry::Model,
+		item_type: &crate::domain::ItemType,
+		db: &sea_orm::DatabaseConnection,
+	) -> Option<Self> {
+		use crate::domain::{ContentIdentity, ContentKind, ItemType, SdPath, Sidecar};
+		use crate::infra::db::entities::{content_identity, sidecar};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let sd_path = match item_type {
+			ItemType::Path { sd_path } => sd_path.clone(),
+			_ => return None,
+		};
+
+		let content_identity = if let Some(content_id) = entry_model.content_id {
+			content_identity::Entity::find_by_id(content_id)
+				.one(db)
+				.await
+				.ok()
+				.flatten()
+				.map(|ci| ContentIdentity {
+					uuid: ci.uuid.unwrap_or_else(Uuid::new_v4),
+					kind: ContentKind::from_id(ci.kind_id),
+					content_hash: ci.content_hash,
+					integrity_hash: ci.integrity_hash,
+					mime_type_id: ci.mime_type_id,
+					text_content: ci.text_content,
+					total_size: ci.total_size,
+					entry_count: ci.entry_count,
+					first_seen_at: ci.first_seen_at,
+					last_verified_at: ci.last_verified_at,
+				})
+		} else {
+			None
+		};
+
+		let sidecars = if let Some(ref ci) = content_identity {
+			sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.eq(ci.uuid))
+				.all(db)
+				.await
+				.ok()
+				.unwrap_or_default()
+				.into_iter()
+				.map(|s| Sidecar {
+					id: s.id,
+					content_uuid: s.content_uuid,
+					kind: s.kind,
+					variant: s.variant,
+					format: s.format,
+					status: s.status,
+					size: s.size,
+					created_at: s.created_at,
+					updated_at: s.updated_at,
+				})
+				.collect()
+		} else {
+			Vec::new()
+		};
+
+		let mut file = File::from_entity_model(entry_model, sd_path);
+		file.content_identity = content_identity;
+		file.sidecars = sidecars;
+		if let Some(ref ci) = file.content_identity {
+			file.content_kind = ci.kind;
+		}
+
+		Some(file)
+	}
+
 	/// Construct a File directly from entity model and SdPath
 	///
 	/// This is the preferred method for converting database entities to File objects,

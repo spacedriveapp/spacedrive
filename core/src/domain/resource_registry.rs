@@ -1,11 +1,21 @@
-//! Resource Registry - Static registry of virtual resources
+//! Resource Registry - Static registry of all resources
 //!
-//! This module provides a registry for virtual resources,
+//! This module provides a registry for all resources (both simple and virtual),
 //! allowing generic routing and construction without hardcoded match statements.
+//!
+//! ## Simple Resources
+//! Backed by a single database table with no dependencies.
+//! - Space, SpaceGroup, SpaceItem, LocationInfo
+//!
+//! ## Virtual Resources
+//! Computed from multiple database tables with dependencies.
+//! - File (from Entry, ContentIdentity, Sidecar, etc.)
+//! - SpaceLayout (from Space, SpaceGroup, SpaceItem)
 
 use crate::common::errors::Result;
 use crate::domain::resource::Identifiable;
-use crate::domain::{File, SpaceLayout};
+use crate::domain::{File, Space, SpaceGroup, SpaceItem, SpaceLayout};
+use crate::ops::locations::list::output::LocationInfo;
 use once_cell::sync::Lazy;
 use sea_orm::DatabaseConnection;
 use std::future::Future;
@@ -41,9 +51,10 @@ pub struct VirtualResourceInfo {
 	pub no_merge_fields: &'static [&'static str],
 }
 
-/// Static registry of all virtual resources
+/// Static registry of all resources (simple and virtual)
 static VIRTUAL_RESOURCES: Lazy<Vec<VirtualResourceInfo>> = Lazy::new(|| {
 	vec![
+		// === Virtual Resources (multi-table) ===
 		VirtualResourceInfo {
 			resource_type: File::resource_type(),
 			dependencies: File::sync_dependencies(),
@@ -94,6 +105,97 @@ static VIRTUAL_RESOURCES: Lazy<Vec<VirtualResourceInfo>> = Lazy::new(|| {
 			},
 			no_merge_fields: SpaceLayout::no_merge_fields(),
 		},
+		// === Simple Resources (single table) ===
+		VirtualResourceInfo {
+			resource_type: Space::resource_type(),
+			dependencies: &[], // Simple resources have no dependencies
+			router: |_db, _dep_type, _dep_id| {
+				Box::pin(async move { Ok(vec![]) }) // Simple resources don't route
+			},
+			constructor: |db, ids| {
+				Box::pin(async move {
+					let resources = Space::from_ids(db, ids).await?;
+					resources
+						.into_iter()
+						.map(|r| {
+							serde_json::to_value(&r).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize Space: {}",
+									e
+								))
+							})
+						})
+						.collect::<Result<Vec<_>>>()
+				})
+			},
+			no_merge_fields: Space::no_merge_fields(),
+		},
+		VirtualResourceInfo {
+			resource_type: SpaceGroup::resource_type(),
+			dependencies: &[],
+			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
+			constructor: |db, ids| {
+				Box::pin(async move {
+					let resources = SpaceGroup::from_ids(db, ids).await?;
+					resources
+						.into_iter()
+						.map(|r| {
+							serde_json::to_value(&r).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize SpaceGroup: {}",
+									e
+								))
+							})
+						})
+						.collect::<Result<Vec<_>>>()
+				})
+			},
+			no_merge_fields: SpaceGroup::no_merge_fields(),
+		},
+		VirtualResourceInfo {
+			resource_type: SpaceItem::resource_type(),
+			dependencies: &[],
+			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
+			constructor: |db, ids| {
+				Box::pin(async move {
+					let resources = SpaceItem::from_ids(db, ids).await?;
+					resources
+						.into_iter()
+						.map(|r| {
+							serde_json::to_value(&r).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize SpaceItem: {}",
+									e
+								))
+							})
+						})
+						.collect::<Result<Vec<_>>>()
+				})
+			},
+			no_merge_fields: SpaceItem::no_merge_fields(),
+		},
+		VirtualResourceInfo {
+			resource_type: LocationInfo::resource_type(),
+			dependencies: &[],
+			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
+			constructor: |db, ids| {
+				Box::pin(async move {
+					let resources = LocationInfo::from_ids(db, ids).await?;
+					resources
+						.into_iter()
+						.map(|r| {
+							serde_json::to_value(&r).map_err(|e| {
+								crate::common::errors::CoreError::Other(anyhow::anyhow!(
+									"Failed to serialize LocationInfo: {}",
+									e
+								))
+							})
+						})
+						.collect::<Result<Vec<_>>>()
+				})
+			},
+			no_merge_fields: LocationInfo::no_merge_fields(),
+		},
 	]
 });
 
@@ -126,10 +228,47 @@ mod tests {
 		let resources = all_virtual_resources();
 		assert_eq!(
 			resources.len(),
-			2,
-			"Expected 2 registered virtual resources (File, SpaceLayout), got {}",
+			6,
+			"Expected 6 registered resources (File, SpaceLayout, Space, SpaceGroup, SpaceItem, LocationInfo), got {}",
 			resources.len()
 		);
+	}
+
+	#[test]
+	fn test_find_simple_resources() {
+		// Test that simple resources are registered
+		assert!(
+			find_by_type("space").is_some(),
+			"Space should be registered"
+		);
+		assert!(
+			find_by_type("space_group").is_some(),
+			"SpaceGroup should be registered"
+		);
+		assert!(
+			find_by_type("space_item").is_some(),
+			"SpaceItem should be registered"
+		);
+		assert!(
+			find_by_type("location").is_some(),
+			"Location should be registered"
+		);
+	}
+
+	#[test]
+	fn test_simple_resources_have_no_dependencies() {
+		// Simple resources should have empty dependencies
+		let simple_types = ["space", "space_group", "space_item", "location"];
+
+		for resource_type in simple_types {
+			if let Some(info) = find_by_type(resource_type) {
+				assert!(
+					info.dependencies.is_empty(),
+					"{} should have no dependencies (it's a simple resource)",
+					resource_type
+				);
+			}
+		}
 	}
 
 	#[test]
