@@ -69,25 +69,11 @@ impl DeviceRegistry {
 			return;
 		};
 
-		let device_info = crate::ops::devices::list::output::LibraryDeviceInfo {
-			id: device_id,
-			name: info.device_name.clone(),
-			os: format!("{:?}", info.device_type),
-			os_version: Some(info.os_version.clone()),
-			hardware_model: None,
-			is_online: is_connected,
-			last_seen_at: info.last_seen,
-			created_at: info.last_seen,
-			updated_at: info.last_seen,
-			is_current: false,
-			network_addresses: Vec::new(),
-			capabilities: None,
-			is_paired: true,
-			is_connected,
-		};
+		// Convert network DeviceInfo to domain Device
+		let device = crate::domain::Device::from_network_info(info, is_connected);
 
 		use crate::domain::resource::EventEmitter;
-		if let Err(e) = device_info.emit_changed(event_bus) {
+		if let Err(e) = device.emit_changed(event_bus) {
 			tracing::warn!(
 				device_id = %device_id,
 				error = %e,

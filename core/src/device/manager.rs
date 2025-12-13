@@ -242,6 +242,10 @@ impl DeviceManager {
 			last_sync_at: None,
 			created_at: chrono::Utc::now(),
 			updated_at: chrono::Utc::now(),
+			// Ephemeral fields
+			is_current: true,
+			is_paired: false,
+			is_connected: false,
 		}
 	}
 

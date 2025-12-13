@@ -9,6 +9,9 @@ use specta::Type;
 use uuid::Uuid;
 
 /// A device running Spacedrive
+///
+/// This is the canonical device type used throughout the application.
+/// It represents both database-registered devices and network-paired devices.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Device {
 	/// Unique identifier for this device
@@ -52,6 +55,19 @@ pub struct Device {
 
 	/// When this device info was last updated
 	pub updated_at: DateTime<Utc>,
+
+	// --- Ephemeral fields (computed at query time, not persisted) ---
+	/// Whether this is the current device (computed)
+	#[serde(default)]
+	pub is_current: bool,
+
+	/// Whether this device is paired via network but not in library DB
+	#[serde(default)]
+	pub is_paired: bool,
+
+	/// Whether this device is currently connected via network
+	#[serde(default)]
+	pub is_connected: bool,
 }
 
 /// Operating system types
@@ -100,6 +116,10 @@ impl Device {
 			last_sync_at: None,
 			created_at: now,
 			updated_at: now,
+			// Ephemeral fields
+			is_current: false,
+			is_paired: false,
+			is_connected: false,
 		}
 	}
 
@@ -128,8 +148,73 @@ impl Device {
 	}
 
 	/// Check if this is the current device
-	pub fn is_current(&self, current_device_id: Uuid) -> bool {
+	pub fn is_current_device(&self, current_device_id: Uuid) -> bool {
 		self.id == current_device_id
+	}
+
+	/// Create a Device from network DeviceInfo
+	///
+	/// This converts the network layer's DeviceInfo into the canonical Device model.
+	/// Used for paired devices that may not be registered in the library database.
+	pub fn from_network_info(
+		info: &crate::service::network::device::DeviceInfo,
+		is_connected: bool,
+	) -> Self {
+		use crate::service::network::device::DeviceType;
+
+		// Map DeviceType to OperatingSystem (best effort)
+		let os = match &info.device_type {
+			DeviceType::Desktop | DeviceType::Laptop => {
+				// Try to infer from os_version string
+				let os_lower = info.os_version.to_lowercase();
+				if os_lower.contains("mac") || os_lower.contains("darwin") {
+					OperatingSystem::MacOS
+				} else if os_lower.contains("windows") {
+					OperatingSystem::Windows
+				} else if os_lower.contains("linux") {
+					OperatingSystem::Linux
+				} else {
+					OperatingSystem::Other
+				}
+			}
+			DeviceType::Mobile => {
+				let os_lower = info.os_version.to_lowercase();
+				if os_lower.contains("ios") || os_lower.contains("iphone") {
+					OperatingSystem::IOs
+				} else if os_lower.contains("android") {
+					OperatingSystem::Android
+				} else {
+					OperatingSystem::Other
+				}
+			}
+			DeviceType::Server => OperatingSystem::Linux,
+			DeviceType::Other(_) => OperatingSystem::Other,
+		};
+
+		Self {
+			id: info.device_id,
+			name: info.device_name.clone(),
+			slug: info.device_slug.clone(),
+			os,
+			os_version: Some(info.os_version.clone()),
+			hardware_model: None,
+			network_addresses: Vec::new(),
+			capabilities: serde_json::json!({
+				"indexing": true,
+				"p2p": true,
+				"volume_detection": true
+			}),
+			is_online: is_connected,
+			last_seen_at: info.last_seen,
+			sync_enabled: true,
+			last_sync_at: None,
+			created_at: info.last_seen,
+			updated_at: info.last_seen,
+			// Ephemeral fields
+			is_current: false,
+			is_paired: true,
+			is_connected,
+		}
 	}
 }
 
@@ -369,6 +454,10 @@ impl TryFrom<entities::device::Model> for Device {
 			last_sync_at: model.last_sync_at,
 			created_at: model.created_at,
 			updated_at: model.updated_at,
+			// Ephemeral fields - set by caller based on context
+			is_current: false,
+			is_paired: false,
+			is_connected: false,
 		})
 	}
 }
