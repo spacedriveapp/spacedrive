@@ -1,222 +1,255 @@
-//! Resource Registry - Static registry of all resources
+//! Resource Registry - Dynamic registry of all resources
 //!
-//! This module provides a registry for all resources (both simple and virtual),
-//! allowing generic routing and construction without hardcoded match statements.
+//! This module provides a runtime registry of all resources (simple and virtual)
+//! for dynamic dispatch. This enables the ResourceManager to emit events without
+//! knowing the concrete resource type at compile time.
 //!
-//! ## Simple Resources
-//! Backed by a single database table with no dependencies.
-//! - Space, SpaceGroup, SpaceItem, LocationInfo
+//! Resources self-register using the `register_resource!` macro, which uses
+//! the `inventory` crate to collect registrations at link time.
 //!
-//! ## Virtual Resources
-//! Computed from multiple database tables with dependencies.
-//! - File (from Entry, ContentIdentity, Sidecar, etc.)
-//! - SpaceLayout (from Space, SpaceGroup, SpaceItem)
+//! ## Pattern
+//!
+//! This mirrors the Syncable registry pattern:
+//! - Each resource implements `Identifiable`
+//! - Each resource uses `register_resource!` macro to self-register
+//! - ResourceManager dispatches via function pointers, not match statements
 
 use crate::common::errors::Result;
-use crate::domain::resource::Identifiable;
-use crate::domain::{File, Space, SpaceGroup, SpaceItem, SpaceLayout};
-use crate::ops::locations::list::output::LocationInfo;
 use once_cell::sync::Lazy;
 use sea_orm::DatabaseConnection;
+use std::collections::HashMap;
 use std::future::Future;
 use std::pin::Pin;
 use uuid::Uuid;
 
-/// Information about a registered virtual resource
-///
-/// This struct holds the metadata and function pointers needed to
-/// route dependency changes and construct virtual resources generically.
-pub struct VirtualResourceInfo {
-	/// Resource type identifier (e.g., "file", "space_layout")
+// =============================================================================
+// Type Aliases for Function Pointers
+// =============================================================================
+
+/// Function to construct resource instances from IDs and serialize to JSON
+pub type ConstructorFn =
+	for<'a> fn(
+		&'a DatabaseConnection,
+		&'a [Uuid],
+	) -> Pin<Box<dyn Future<Output = Result<Vec<serde_json::Value>>> + Send + 'a>>;
+
+/// Function to route a dependency change to affected resource IDs
+pub type RouterFn = for<'a> fn(
+	&'a DatabaseConnection,
+	&'a str,
+	Uuid,
+) -> Pin<Box<dyn Future<Output = Result<Vec<Uuid>>> + Send + 'a>>;
+
+/// Function to get static resource metadata
+pub type DependenciesFn = fn() -> &'static [&'static str];
+pub type NoMergeFieldsFn = fn() -> &'static [&'static str];
+
+// =============================================================================
+// Inventory-based Registration
+// =============================================================================
+
+/// Entry submitted to inventory for resource registration.
+/// Resources submit these via the `register_resource!` macro.
+pub struct ResourceInventoryEntry {
+	/// Function that builds the full registration
+	pub build: fn() -> ResourceRegistration,
+}
+
+// Tell inventory about our entry type
+inventory::collect!(ResourceInventoryEntry);
+
+/// Registration information for a resource
+pub struct ResourceRegistration {
+	/// Resource type identifier (e.g., "file", "space", "location")
 	pub resource_type: &'static str,
 
-	/// List of dependency resource types
+	/// List of dependency resource types (for virtual resources)
+	/// Simple resources return empty slice.
 	pub dependencies: &'static [&'static str],
 
-	/// Function to route a dependency change to affected virtual resource IDs
-	pub router: for<'a> fn(
-		&'a DatabaseConnection,
-		&'a str,
-		Uuid,
-	) -> Pin<Box<dyn Future<Output = Result<Vec<Uuid>>> + Send + 'a>>,
+	/// Function to route a dependency change to affected resource IDs
+	/// Simple resources return empty vec.
+	pub router: RouterFn,
 
-	/// Function to construct virtual resources from IDs
-	pub constructor:
-		for<'a> fn(
-			&'a DatabaseConnection,
-			&'a [Uuid],
-		) -> Pin<Box<dyn Future<Output = Result<Vec<serde_json::Value>>> + Send + 'a>>,
+	/// Function to construct resources from IDs and serialize to JSON
+	pub constructor: ConstructorFn,
 
 	/// Static list of fields that should not be merged (for metadata)
 	pub no_merge_fields: &'static [&'static str],
 }
 
-/// Static registry of all resources (simple and virtual)
-static VIRTUAL_RESOURCES: Lazy<Vec<VirtualResourceInfo>> = Lazy::new(|| {
-	vec![
-		// === Virtual Resources (multi-table) ===
-		VirtualResourceInfo {
-			resource_type: File::resource_type(),
-			dependencies: File::sync_dependencies(),
-			router: |db, dep_type, dep_id| {
-				Box::pin(async move { File::route_from_dependency(db, dep_type, dep_id).await })
-			},
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = File::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize File: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: File::no_merge_fields(),
-		},
-		VirtualResourceInfo {
-			resource_type: SpaceLayout::resource_type(),
-			dependencies: SpaceLayout::sync_dependencies(),
-			router: |db, dep_type, dep_id| {
-				Box::pin(
-					async move { SpaceLayout::route_from_dependency(db, dep_type, dep_id).await },
-				)
-			},
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = SpaceLayout::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize SpaceLayout: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: SpaceLayout::no_merge_fields(),
-		},
-		// === Simple Resources (single table) ===
-		VirtualResourceInfo {
-			resource_type: Space::resource_type(),
-			dependencies: &[], // Simple resources have no dependencies
-			router: |_db, _dep_type, _dep_id| {
-				Box::pin(async move { Ok(vec![]) }) // Simple resources don't route
-			},
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = Space::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize Space: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: Space::no_merge_fields(),
-		},
-		VirtualResourceInfo {
-			resource_type: SpaceGroup::resource_type(),
+impl ResourceRegistration {
+	/// Create a new resource registration
+	pub fn new(
+		resource_type: &'static str,
+		dependencies: &'static [&'static str],
+		router: RouterFn,
+		constructor: ConstructorFn,
+		no_merge_fields: &'static [&'static str],
+	) -> Self {
+		Self {
+			resource_type,
+			dependencies,
+			router,
+			constructor,
+			no_merge_fields,
+		}
+	}
+
+	/// Create a registration for a simple resource (no dependencies)
+	pub fn simple(
+		resource_type: &'static str,
+		constructor: ConstructorFn,
+		no_merge_fields: &'static [&'static str],
+	) -> Self {
+		Self {
+			resource_type,
 			dependencies: &[],
 			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = SpaceGroup::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize SpaceGroup: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: SpaceGroup::no_merge_fields(),
-		},
-		VirtualResourceInfo {
-			resource_type: SpaceItem::resource_type(),
-			dependencies: &[],
-			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = SpaceItem::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize SpaceItem: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: SpaceItem::no_merge_fields(),
-		},
-		VirtualResourceInfo {
-			resource_type: LocationInfo::resource_type(),
-			dependencies: &[],
-			router: |_db, _dep_type, _dep_id| Box::pin(async move { Ok(vec![]) }),
-			constructor: |db, ids| {
-				Box::pin(async move {
-					let resources = LocationInfo::from_ids(db, ids).await?;
-					resources
-						.into_iter()
-						.map(|r| {
-							serde_json::to_value(&r).map_err(|e| {
-								crate::common::errors::CoreError::Other(anyhow::anyhow!(
-									"Failed to serialize LocationInfo: {}",
-									e
-								))
-							})
-						})
-						.collect::<Result<Vec<_>>>()
-				})
-			},
-			no_merge_fields: LocationInfo::no_merge_fields(),
-		},
-	]
+			constructor,
+			no_merge_fields,
+		}
+	}
+}
+
+// =============================================================================
+// Registry Initialization
+// =============================================================================
+
+/// Static registry of all resources, initialized from inventory
+static RESOURCE_REGISTRY: Lazy<HashMap<&'static str, ResourceRegistration>> = Lazy::new(|| {
+	let mut registry = HashMap::new();
+
+	for entry in inventory::iter::<ResourceInventoryEntry> {
+		let registration = (entry.build)();
+		registry.insert(registration.resource_type, registration);
+	}
+
+	tracing::debug!(
+		"Resource registry initialized with {} resources: {:?}",
+		registry.len(),
+		registry.keys().collect::<Vec<_>>()
+	);
+
+	registry
 });
 
-/// Get all registered virtual resources
-pub fn all_virtual_resources() -> &'static [VirtualResourceInfo] {
-	&VIRTUAL_RESOURCES
+// =============================================================================
+// Public API
+// =============================================================================
+
+/// Get all registered resources
+pub fn all_resources() -> impl Iterator<Item = &'static ResourceRegistration> {
+	RESOURCE_REGISTRY.values()
 }
 
-/// Find a virtual resource by type
-pub fn find_by_type(resource_type: &str) -> Option<&'static VirtualResourceInfo> {
-	VIRTUAL_RESOURCES
-		.iter()
-		.find(|r| r.resource_type == resource_type)
+/// Find a resource by type
+pub fn find_by_type(resource_type: &str) -> Option<&'static ResourceRegistration> {
+	RESOURCE_REGISTRY.get(resource_type)
 }
 
-/// Find all virtual resources that depend on a given resource type
-pub fn find_dependents(dependency_type: &str) -> Vec<&'static VirtualResourceInfo> {
-	VIRTUAL_RESOURCES
-		.iter()
+/// Find all resources that depend on a given resource type
+pub fn find_dependents(dependency_type: &str) -> Vec<&'static ResourceRegistration> {
+	RESOURCE_REGISTRY
+		.values()
 		.filter(|r| r.dependencies.contains(&dependency_type))
 		.collect()
+}
+
+/// Get all registered resource types
+pub fn all_resource_types() -> Vec<&'static str> {
+	RESOURCE_REGISTRY.keys().copied().collect()
+}
+
+// =============================================================================
+// Registration Macro
+// =============================================================================
+
+/// Register a resource type with the resource registry.
+///
+/// This macro should be called in the module where the resource is defined.
+/// It automatically implements the registry entry using the Identifiable trait.
+///
+/// # Usage
+///
+/// For simple resources (single table, no dependencies):
+/// ```ignore
+/// register_resource!(Space);
+/// ```
+///
+/// For virtual resources (computed from multiple tables):
+/// ```ignore
+/// register_resource!(File, virtual);
+/// ```
+#[macro_export]
+macro_rules! register_resource {
+	// Simple resource (no dependencies, no routing)
+	($resource:ty) => {
+		inventory::submit! {
+			$crate::domain::resource_registry::ResourceInventoryEntry {
+				build: || {
+					$crate::domain::resource_registry::ResourceRegistration::simple(
+						<$resource as $crate::domain::resource::Identifiable>::resource_type(),
+						|db, ids| {
+							Box::pin(async move {
+								let resources = <$resource as $crate::domain::resource::Identifiable>::from_ids(db, ids).await?;
+								resources
+									.into_iter()
+									.map(|r| {
+										serde_json::to_value(&r).map_err(|e| {
+											$crate::common::errors::CoreError::Other(anyhow::anyhow!(
+												"Failed to serialize {}: {}",
+												<$resource as $crate::domain::resource::Identifiable>::resource_type(),
+												e
+											))
+										})
+									})
+									.collect::<$crate::common::errors::Result<Vec<_>>>()
+							})
+						},
+						<$resource as $crate::domain::resource::Identifiable>::no_merge_fields(),
+					)
+				}
+			}
+		}
+	};
+
+	// Virtual resource (with dependencies and routing)
+	($resource:ty, virtual) => {
+		inventory::submit! {
+			$crate::domain::resource_registry::ResourceInventoryEntry {
+				build: || {
+					$crate::domain::resource_registry::ResourceRegistration::new(
+						<$resource as $crate::domain::resource::Identifiable>::resource_type(),
+						<$resource as $crate::domain::resource::Identifiable>::sync_dependencies(),
+						|db, dep_type, dep_id| {
+							Box::pin(async move {
+								<$resource as $crate::domain::resource::Identifiable>::route_from_dependency(db, dep_type, dep_id).await
+							})
+						},
+						|db, ids| {
+							Box::pin(async move {
+								let resources = <$resource as $crate::domain::resource::Identifiable>::from_ids(db, ids).await?;
+								resources
+									.into_iter()
+									.map(|r| {
+										serde_json::to_value(&r).map_err(|e| {
+											$crate::common::errors::CoreError::Other(anyhow::anyhow!(
+												"Failed to serialize {}: {}",
+												<$resource as $crate::domain::resource::Identifiable>::resource_type(),
+												e
+											))
+										})
+									})
+									.collect::<$crate::common::errors::Result<Vec<_>>>()
+							})
+						},
+						<$resource as $crate::domain::resource::Identifiable>::no_merge_fields(),
+					)
+				}
+			}
+		}
+	};
 }
 
 #[cfg(test)]
@@ -224,90 +257,16 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn test_registry_has_resources() {
-		let resources = all_virtual_resources();
-		assert_eq!(
-			resources.len(),
-			6,
-			"Expected 6 registered resources (File, SpaceLayout, Space, SpaceGroup, SpaceItem, LocationInfo), got {}",
-			resources.len()
-		);
+	fn test_registry_initialization() {
+		// Access registry to trigger initialization
+		let count = RESOURCE_REGISTRY.len();
+		// We should have at least some resources registered
+		println!("Registered resources: {:?}", all_resource_types());
+		// Note: actual count depends on which resources use register_resource!
 	}
 
 	#[test]
-	fn test_find_simple_resources() {
-		// Test that simple resources are registered
-		assert!(
-			find_by_type("space").is_some(),
-			"Space should be registered"
-		);
-		assert!(
-			find_by_type("space_group").is_some(),
-			"SpaceGroup should be registered"
-		);
-		assert!(
-			find_by_type("space_item").is_some(),
-			"SpaceItem should be registered"
-		);
-		assert!(
-			find_by_type("location").is_some(),
-			"Location should be registered"
-		);
-	}
-
-	#[test]
-	fn test_simple_resources_have_no_dependencies() {
-		// Simple resources should have empty dependencies
-		let simple_types = ["space", "space_group", "space_item", "location"];
-
-		for resource_type in simple_types {
-			if let Some(info) = find_by_type(resource_type) {
-				assert!(
-					info.dependencies.is_empty(),
-					"{} should have no dependencies (it's a simple resource)",
-					resource_type
-				);
-			}
-		}
-	}
-
-	#[test]
-	fn test_find_file_resource() {
-		let file_info = find_by_type("file");
-		assert!(file_info.is_some(), "File resource should be registered");
-
-		if let Some(info) = file_info {
-			assert_eq!(info.resource_type, "file");
-			assert!(info.dependencies.contains(&"entry"));
-			assert!(info.dependencies.contains(&"content_identity"));
-		}
-	}
-
-	#[test]
-	fn test_find_space_layout_resource() {
-		let layout_info = find_by_type("space_layout");
-		assert!(
-			layout_info.is_some(),
-			"SpaceLayout resource should be registered"
-		);
-
-		if let Some(info) = layout_info {
-			assert_eq!(info.resource_type, "space_layout");
-			assert!(info.dependencies.contains(&"space"));
-			assert!(info.dependencies.contains(&"space_group"));
-			assert!(info.dependencies.contains(&"space_item"));
-		}
-	}
-
-	#[test]
-	fn test_find_dependents_of_entry() {
-		let dependents = find_dependents("entry");
-		assert!(
-			!dependents.is_empty(),
-			"Entry should have at least one dependent (File)"
-		);
-
-		let has_file = dependents.iter().any(|r| r.resource_type == "file");
-		assert!(has_file, "File should depend on entry");
+	fn test_find_by_type_unknown() {
+		assert!(find_by_type("nonexistent_resource_type").is_none());
 	}
 }

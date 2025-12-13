@@ -86,8 +86,7 @@ impl Identifiable for Space {
 		let space_models = space::Entity::find()
 			.filter(space::Column::Uuid.is_in(ids.to_vec()))
 			.all(db)
-			.await
-			.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+			.await?;
 
 		Ok(space_models
 			.into_iter()
@@ -176,8 +175,7 @@ impl Identifiable for SpaceGroup {
 		let group_models = space_group::Entity::find()
 			.filter(space_group::Column::Uuid.is_in(ids.to_vec()))
 			.all(db)
-			.await
-			.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+			.await?;
 
 		let mut results = Vec::new();
 
@@ -185,8 +183,7 @@ impl Identifiable for SpaceGroup {
 			// Fetch parent space to get space_id (UUID)
 			let space_model = space::Entity::find_by_id(group_model.space_id)
 				.one(db)
-				.await
-				.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+				.await?;
 
 			let space_id = space_model.map(|s| s.uuid).unwrap_or(group_model.uuid);
 
@@ -351,8 +348,7 @@ impl Identifiable for SpaceItem {
 		let item_models = space_item::Entity::find()
 			.filter(space_item::Column::Uuid.is_in(ids.to_vec()))
 			.all(db)
-			.await
-			.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+			.await?;
 
 		let mut results = Vec::new();
 
@@ -360,25 +356,22 @@ impl Identifiable for SpaceItem {
 			// Fetch parent space to get space_id (UUID)
 			let space_model = space::Entity::find_by_id(item_model.space_id)
 				.one(db)
-				.await
-				.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+				.await?;
 
 			let space_id = space_model.map(|s| s.uuid).unwrap_or(item_model.uuid);
 
-			let item_type: ItemType =
-				serde_json::from_str(&item_model.item_type).map_err(|e| {
-					crate::common::errors::CoreError::Other(anyhow::anyhow!(
-						"Failed to parse item_type: {}",
-						e
-					))
-				})?;
+			let item_type: ItemType = serde_json::from_str(&item_model.item_type).map_err(|e| {
+				crate::common::errors::CoreError::Other(anyhow::anyhow!(
+					"Failed to parse item_type: {}",
+					e
+				))
+			})?;
 
 			// Look up group UUID from group_id if present
 			let group_id = if let Some(gid) = item_model.group_id {
 				space_group::Entity::find_by_id(gid)
 					.one(db)
-					.await
-					.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?
+					.await?
 					.map(|g| g.uuid)
 			} else {
 				None
@@ -388,8 +381,7 @@ impl Identifiable for SpaceItem {
 			let resolved_file = if let Some(entry_id) = item_model.entry_id {
 				if let Some(entry_model) = entry::Entity::find_by_id(entry_id)
 					.one(db)
-					.await
-					.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?
+					.await?
 				{
 					super::file::File::from_entry_model_with_item_type(entry_model, &item_type, db)
 						.await
@@ -764,3 +756,11 @@ mod tests {
 		assert!(matches!(item.item_type, ItemType::Path { .. }));
 	}
 }
+
+// Register simple resources (single table, no dependencies)
+crate::register_resource!(Space);
+crate::register_resource!(SpaceGroup);
+crate::register_resource!(SpaceItem);
+
+// Register SpaceLayout as a virtual resource (has dependencies on space, space_group, space_item)
+crate::register_resource!(SpaceLayout, virtual);

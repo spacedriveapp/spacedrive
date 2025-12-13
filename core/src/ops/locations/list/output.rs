@@ -47,8 +47,7 @@ impl Identifiable for LocationInfo {
 			.filter(location::Column::Uuid.is_in(ids.to_vec()))
 			.find_also_related(entry::Entity)
 			.all(db)
-			.await
-			.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?;
+			.await?;
 
 		let mut results = Vec::new();
 
@@ -60,8 +59,7 @@ impl Identifiable for LocationInfo {
 
 			let Some(dir_path) = directory_paths::Entity::find_by_id(entry.id)
 				.one(db)
-				.await
-				.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?
+				.await?
 			else {
 				tracing::warn!(
 					"No directory path for location {} entry {}",
@@ -73,8 +71,7 @@ impl Identifiable for LocationInfo {
 
 			let Some(device_model) = device::Entity::find_by_id(loc.device_id)
 				.one(db)
-				.await
-				.map_err(|e| crate::common::errors::CoreError::Database(e.to_string()))?
+				.await?
 			else {
 				tracing::warn!("Device not found for location {}", loc.uuid);
 				continue;
@@ -111,6 +108,9 @@ impl Identifiable for LocationInfo {
 		Ok(results)
 	}
 }
+
+// Register LocationInfo as a simple resource
+crate::register_resource!(LocationInfo);
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationsListOutput {

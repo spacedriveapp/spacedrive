@@ -1038,3 +1038,6 @@ impl Sidecar {
 		}
 	}
 }
+
+// Register File as a virtual resource (has dependencies on entry, content_identity, etc.)
+crate::register_resource!(File, virtual);
