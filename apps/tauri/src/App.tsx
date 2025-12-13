@@ -20,6 +20,7 @@ import { DragDemo } from "./components/DragDemo";
 import { SpacedropWindow } from "./routes/Spacedrop";
 import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
+import { initializeKeybindHandler } from "./keybinds";
 
 function App() {
 	const [client, setClient] = useState<SpacedriveClient | null>(null);
@@ -39,6 +40,9 @@ function App() {
 
 		// Initialize Tauri native context menu handler
 		initializeContextMenuHandler();
+
+		// Initialize Tauri keybind handler
+		initializeKeybindHandler();
 
 		// Prevent default context menu globally (except in context menu windows)
 		const currentWindow = getCurrentWebviewWindow();

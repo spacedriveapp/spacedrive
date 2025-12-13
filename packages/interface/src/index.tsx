@@ -29,3 +29,37 @@ export { SpacedriveProvider } from './context';
 // Hooks
 export { useContextMenu } from './hooks/useContextMenu';
 export type { ContextMenuItem, ContextMenuConfig } from './hooks/useContextMenu';
+
+// Keybind hooks
+export { useKeybind } from './hooks/useKeybind';
+export type { KeybindHandler, UseKeybindOptions } from './hooks/useKeybind';
+export { useKeybindScope } from './hooks/useKeybindScope';
+export { useKeybindMeta, useKeybindDisplayString } from './hooks/useKeybindMeta';
+
+// Keybind utilities (re-export from util/keybinds)
+export {
+	KEYBINDS,
+	explorerKeybinds,
+	globalKeybinds,
+	mediaViewerKeybinds,
+	getKeybind,
+	getAllKeybinds,
+	getKeybindsByScope,
+	getCurrentPlatform,
+	getComboForPlatform,
+	normalizeModifiers,
+	toTauriAccelerator,
+	toDisplayString,
+	defineKeybind
+} from './util/keybinds';
+
+export type {
+	KeybindId,
+	KeyCombo,
+	PlatformKeyCombo,
+	KeybindScope,
+	KeybindDefinition,
+	Modifier,
+	Key,
+	Platform as KeybindPlatform
+} from './util/keybinds';
