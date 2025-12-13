@@ -54,6 +54,7 @@ import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 import { useFileOperationDialog } from "./components/FileOperationModal";
+import { useDeviceEventInvalidation } from "./hooks/useDevices";
 
 /**
  * QuickPreviewSyncer - Syncs selection changes to QuickPreview
@@ -748,11 +749,21 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 	);
 }
 
+/**
+ * Sets up global event listeners for device events.
+ * Invalidates the devices.list query when DeviceConnected/DeviceDisconnected events occur.
+ */
+function DeviceEventHandler() {
+	useDeviceEventInvalidation();
+	return null;
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
 	return (
 		<SpacedriveProvider client={client}>
+			<DeviceEventHandler />
 			<DndWrapper>
 				<TopBarProvider>
 					<SelectionProvider>
