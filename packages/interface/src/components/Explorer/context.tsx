@@ -7,13 +7,14 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
-import { useLibraryQuery, useNormalizedQuery } from "../../context";
+import { useNormalizedQuery } from "../../context";
 import { usePlatform } from "../../platform";
 
 import type {
   SdPath,
   File,
   LibraryDeviceInfo,
+  ListLibraryDevicesInput,
   DirectorySortBy,
   MediaSortBy,
 } from "@sd/ts-client";
@@ -186,9 +187,11 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spaceItemKey]);
 
-  const devicesQuery = useLibraryQuery({
-    type: "devices.list",
+  // Use normalized query for automatic updates when device events are emitted
+  const devicesQuery = useNormalizedQuery<ListLibraryDevicesInput, LibraryDeviceInfo[]>({
+    wireMethod: "query:devices.list",
     input: { include_offline: true, include_details: false },
+    resourceType: "device",
   });
 
   const devices = useMemo(() => {

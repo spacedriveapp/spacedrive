@@ -42,13 +42,9 @@ impl LibraryAction for DeleteItemAction {
 
 		item_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
-		// Emit ResourceDeleted event for the item
-		library
-			.event_bus()
-			.emit(crate::infra::event::Event::ResourceDeleted {
-				resource_type: "space_item".to_string(),
-				resource_id: item_id,
-			});
+		// Emit ResourceDeleted event for the item using EventEmitter
+		use crate::domain::{resource::EventEmitter, SpaceItem};
+		SpaceItem::emit_deleted(item_id, library.event_bus());
 
 		Ok(DeleteItemOutput { success: true })
 	}

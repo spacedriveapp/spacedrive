@@ -52,11 +52,9 @@ impl crate::infra::action::LibraryAction for VolumeUntrackAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-		// Emit ResourceDeleted event
-		context.events.emit(Event::ResourceDeleted {
-			resource_type: Volume::resource_type().to_string(),
-			resource_id: self.input.volume_id,
-		});
+		// Emit ResourceDeleted event using EventEmitter
+		use crate::domain::resource::EventEmitter;
+		Volume::emit_deleted(self.input.volume_id, &context.events);
 
 		Ok(VolumeUntrackOutput {
 			volume_id: self.input.volume_id,

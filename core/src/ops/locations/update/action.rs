@@ -84,77 +84,11 @@ impl LibraryAction for LocationUpdateAction {
 		// Execute update
 		let updated_location = active.update(db).await.map_err(ActionError::SeaOrm)?;
 
-		// Emit ResourceChanged event for UI reactivity
-		// Note: job_policies is local-only config (not synced), so we emit regular event not sync event
-		// Build LocationInfo for the event
-		let entry = entities::entry::Entity::find_by_id(
-			updated_location
-				.entry_id
-				.ok_or_else(|| ActionError::Internal("Location has no entry_id".to_string()))?,
-		)
-		.one(db)
-		.await
-		.map_err(ActionError::SeaOrm)?
-		.ok_or_else(|| ActionError::Internal("Location entry not found".to_string()))?;
-
-		let directory_path = entities::directory_paths::Entity::find_by_id(entry.id)
-			.one(db)
+		// Emit ResourceChanged event for UI reactivity using EventEmitter trait
+		use crate::domain::resource::EventEmitter;
+		crate::domain::Location::emit_changed_batch(db, &context.events, &[updated_location.uuid])
 			.await
-			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| {
-				ActionError::Internal(format!(
-					"No directory path found for location {} entry {}",
-					updated_location.uuid, entry.id
-				))
-			})?;
-
-		let device = entities::device::Entity::find_by_id(updated_location.device_id)
-			.one(db)
-			.await
-			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| {
-				ActionError::Internal(format!(
-					"Device not found for location {}",
-					updated_location.uuid
-				))
-			})?;
-
-		let sd_path = crate::domain::SdPath::Physical {
-			device_slug: device.slug.clone(),
-			path: directory_path.path.clone().into(),
-		};
-
-		let job_policies = updated_location
-			.job_policies
-			.as_ref()
-			.and_then(|json| serde_json::from_str(json).ok())
-			.unwrap_or_default();
-
-		let location_info = crate::ops::locations::list::LocationInfo {
-			id: updated_location.uuid,
-			path: directory_path.path.clone().into(),
-			name: updated_location.name.clone(),
-			sd_path,
-			job_policies,
-			index_mode: updated_location.index_mode.clone(),
-			scan_state: updated_location.scan_state.clone(),
-			last_scan_at: updated_location.last_scan_at,
-			error_message: updated_location.error_message.clone(),
-			total_file_count: updated_location.total_file_count,
-			total_byte_size: updated_location.total_byte_size,
-			created_at: updated_location.created_at,
-			updated_at: updated_location.updated_at,
-		};
-
-		context
-			.events
-			.emit(crate::infra::event::Event::ResourceChanged {
-				resource_type: "location".to_string(),
-				resource: serde_json::to_value(&location_info).map_err(|e| {
-					ActionError::Internal(format!("Failed to serialize location: {}", e))
-				})?,
-				metadata: None,
-			});
+			.map_err(|e| ActionError::Internal(format!("Failed to emit location event: {}", e)))?;
 
 		Ok(LocationUpdateOutput { id: self.input.id })
 	}

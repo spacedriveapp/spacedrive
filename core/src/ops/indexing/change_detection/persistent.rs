@@ -607,17 +607,14 @@ impl ChangeHandler for DatabaseAdapter {
 
 		match change_type {
 			ChangeType::Deleted => {
-				// Emit ResourceDeleted event so frontend can remove from cache
-				// Use "file" resource_type to match ephemeral events (frontend listens for "file")
+				// Emit ResourceDeleted event so frontend can remove from cache using EventEmitter
 				tracing::debug!(
 					"Emitting ResourceDeleted for persistent delete: {} (id: {})",
 					entry.path.display(),
 					uuid
 				);
-				self.context.events.emit(Event::ResourceDeleted {
-					resource_type: "file".to_string(),
-					resource_id: uuid,
-				});
+				use crate::domain::{resource::EventEmitter, File};
+				File::emit_deleted(uuid, &self.context.events);
 			}
 			ChangeType::Created | ChangeType::Modified | ChangeType::Moved => {
 				// Emit ResourceChanged event for UI updates
