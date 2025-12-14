@@ -2400,7 +2400,7 @@ export type PairCancelInput = { session_id: string };
 
 export type PairCancelOutput = { cancelled: boolean };
 
-export type PairGenerateInput = { auto_accept: boolean };
+export type PairGenerateInput = Record<string, never>;
 
 export type PairGenerateOutput = { code: string; session_id: string; expires_at: string; 
 /**

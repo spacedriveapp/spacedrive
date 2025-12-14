@@ -30,7 +30,6 @@ export function PairingPanel({
   const [mode, setMode] = useState<"generate" | "join">(initialMode);
   const [joinCode, setJoinCode] = useState("");
   const [joinNodeId, setJoinNodeId] = useState("");
-  const [autoAccept, setAutoAccept] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
 
@@ -57,7 +56,7 @@ export function PairingPanel({
   const currentSession = pairingStatus?.sessions?.[0];
 
   const handleGenerate = () => {
-    generatePairing.mutate({ auto_accept: autoAccept });
+    generatePairing.mutate({});
   };
 
   const handleJoin = () => {
@@ -228,8 +227,6 @@ export function PairingPanel({
               <GenerateMode
                 generatePairing={generatePairing}
                 currentSession={currentSession}
-                autoAccept={autoAccept}
-                setAutoAccept={setAutoAccept}
                 onGenerate={handleGenerate}
                 onCancel={handleCancel}
                 onCopyCode={copyCode}
@@ -279,8 +276,6 @@ export function PairingPanel({
 function GenerateMode({
   generatePairing,
   currentSession,
-  autoAccept,
-  setAutoAccept,
   onGenerate,
   onCancel,
   onCopyCode,
@@ -306,30 +301,6 @@ function GenerateMode({
               </Text>
             </View>
           </View>
-
-          {/* Auto-accept */}
-          <Pressable
-            onPress={() => setAutoAccept(!autoAccept)}
-            className="flex-row gap-3 p-4 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
-          >
-            <View
-              className={`w-5 h-5 rounded border mt-0.5 items-center justify-center ${
-                autoAccept
-                  ? "bg-accent border-accent"
-                  : "border-app-line bg-app-box"
-              }`}
-            >
-              {autoAccept && <Text className="text-white text-xs">✓</Text>}
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-ink">
-                Auto-accept pairing
-              </Text>
-              <Text className="text-xs text-ink-dull mt-1">
-                Complete pairing automatically without manual confirmation
-              </Text>
-            </View>
-          </Pressable>
 
           {/* Generate Button */}
           <Pressable
