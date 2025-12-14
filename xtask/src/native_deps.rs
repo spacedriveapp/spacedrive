@@ -154,8 +154,12 @@ pub fn symlink_libs_macos(root: &Path, native_deps: &Path) -> Result<()> {
 
 			let framework_link = target_frameworks.join("Spacedrive.framework");
 
-			// Remove existing symlink if present
-			let _ = fs::remove_file(&framework_link);
+			// Remove existing symlink or directory if present
+			if framework_link.is_symlink() {
+				let _ = fs::remove_file(&framework_link);
+			} else if framework_link.exists() {
+				let _ = fs::remove_dir_all(&framework_link);
+			}
 
 			unix_fs::symlink(&framework, &framework_link)
 				.context("Failed to symlink Spacedrive.framework")?;

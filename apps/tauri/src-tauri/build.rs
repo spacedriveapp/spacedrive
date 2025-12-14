@@ -57,7 +57,8 @@ fn main() {
 		}
 	}
 
-	// Create symlink for daemon binary with target architecture suffix
+	// Create target-suffixed daemon binary for Tauri bundler
+	// Tauri's externalBin expects binaries with target triple suffix
 	let target_triple = std::env::var("TARGET").expect("TARGET not set");
 	let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
 	let workspace_dir = std::env::var("CARGO_WORKSPACE_DIR")

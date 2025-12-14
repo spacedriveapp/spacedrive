@@ -410,30 +410,119 @@ impl Job for FileCopyJob {
 
 ### Documentation
 
-- Module docs: `//!` at top of file
-- Public items: `///` with examples
-- Focus on why, not what
-- Track future work in GitHub issues, not code comments
+**Core principle:** Explain WHY, not WHAT. Keep comments as short as possible. One sentence explaining rationale beats a paragraph restating code.
+
+**Module docs (`//!`):**
+- Add a title with `#` for the module name
+- Explain what the module does in plain language (not bullet points)
+- Include design rationale naturally in prose
+- Add runnable code examples showing usage
 
 ````rust
-//! File sharing operations.
+//! # File Sharing System
 //!
-//! Handles creating, revoking, and managing file shares.
-
-/// Creates a new file share with the specified recipient.
-///
-/// # Example
-///
-/// ```
-/// let output = share_file(ShareFileInput {
-///     file_id: 123,
-///     recipient: "user@example.com".to_string(),
-/// }).await?;
-/// ```
-pub async fn share_file(input: ShareFileInput) -> Result<ShareFileOutput> {
-    // Implementation
-}
+//! `core::ops::files::share` provides temporary file sharing via signed URLs.
+//! Share links expire after 7 days by default to prevent indefinite access to
+//! private files. UUID v5 deterministic IDs ensure the same file generates
+//! consistent share URLs across devices without coordination.
+//!
+//! ## Example
+//! ```rust,no_run
+//! use spacedrive_core::ops::files::share::{ShareFileAction, ShareFileInput};
+//!
+//! let input = ShareFileInput { file_id: 123, recipient: "user@example.com" };
+//! let output = ShareFileAction::run(input, &ctx).await?;
+//! ```
 ````
+
+**Function docs (`///`):**
+- First line: brief one-liner
+- Second paragraph: explain design rationale and why this exists
+- Document error handling philosophy when relevant
+- Explain non-obvious behavior and platform differences
+
+```rust
+/// Creates a share link with automatic expiration.
+///
+/// Share links use signed JWTs so the daemon can validate them without
+/// database lookups on every request. Expiration is enforced server-side
+/// to prevent timezone manipulation. Recipients without library access
+/// get read-only access to the specific file only.
+///
+/// Returns `ShareError::PermissionDenied` if the file is private and
+/// the recipient isn't a library member. The share is still created
+/// but marked inactive for audit logging.
+pub async fn share_file(input: ShareFileInput) -> Result<ShareFileOutput>
+```
+
+**Inline comments:**
+- Delete comments that restate obvious code
+- Explain WHY for decisions, not WHAT the code does
+- Use one sentence when possible
+- Only expand for truly non-obvious consequences
+
+```rust
+// Good: explains WHY
+// Lowercase for case-insensitive search matching.
+let ext = path.extension().map(|e| e.to_lowercase());
+
+// Bad: restates code
+// Extract file extension and convert to lowercase
+let ext = path.extension().map(|e| e.to_lowercase());
+
+// Good: explains consequence
+// Preserve ephemeral UUIDs so tags attached during browsing survive promotion to managed location.
+let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+
+// Bad: verbose explanation of obvious behavior
+// UUID assignment strategy:
+// 1. First check if there's an ephemeral UUID
+// 2. If not, generate a new one
+let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+```
+
+**Error handling comments:**
+Explain strategy and recovery, not just "log and continue".
+
+```rust
+// Good: explains recovery
+// Best-effort: continue with remaining moves, stale paths cleaned up on next reindex.
+Err(e) => ctx.log(format!("Failed to move: {}", e)),
+
+// Bad: states the obvious
+// Log error but continue
+Err(e) => ctx.log(format!("Failed to move: {}", e)),
+```
+
+**Platform-specific comments:**
+Explain consequences, not implementation blockers.
+
+```rust
+// Good: explains why and fallback
+#[cfg(windows)]
+pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+    // Windows file indices are unstable across reboots; fall back to path-only matching.
+    None
+}
+
+// Bad: over-explains implementation details
+#[cfg(windows)]
+pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+    // Windows doesn't have inodes.
+    // The method `file_index()` is unstable (issue #63010).
+    // Returning None is safe as the field is Optional.
+    None
+}
+```
+
+**Never use:**
+- Placeholder comments ("for now", "TODO: extract this later")
+- Markdown formatting (`**bold**`, `_italic_`) in code comments
+- ASCII diagrams (put those in `/docs/` if needed)
+- Section divider comments (`// ========== Section ==========`)
+- Comments explaining removed code during refactors
+
+Track future work in GitHub issues, not code comments.
 
 ### Formatting
 

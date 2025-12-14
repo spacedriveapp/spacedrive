@@ -118,8 +118,11 @@ The `xtask setup` command:
 
 - Downloads prebuilt native dependencies (FFmpeg, etc.)
 - Creates symlinks for shared libraries
+- Builds the release daemon for Tauri bundler validation
 - Generates `.cargo/config.toml` with cargo aliases
 - Downloads iOS dependencies if iOS targets are installed
+
+**Note:** The release daemon build is required because Tauri's `externalBin` config validates binary paths even in dev mode. The daemon is built once during setup and rebuilt when needed during release builds.
 
 **What does `cargo build` build?**
 
@@ -459,6 +462,19 @@ The `tauri:dev` command will:
 #### Tauri Build Errors
 
 As of the V2 rewrite, `cargo build` from the project root **no longer builds the Tauri app** - it's excluded from the default workspace members to prevent frontend dependency issues.
+
+**Error: `resource path '../../../target/release/sd-daemon-{target}' doesn't exist`**
+
+This occurs when Tauri tries to validate the `externalBin` path but the release daemon hasn't been built yet. Tauri expects the daemon binary with a target triple suffix (e.g., `sd-daemon-aarch64-apple-darwin`, `sd-daemon-x86_64-pc-windows-msvc`).
+
+Solution:
+
+```bash
+# Run setup to build the release daemon and create the target-suffixed copy
+cargo run -p xtask -- setup
+```
+
+The `xtask setup` command automatically builds the release daemon and creates the platform-specific target-suffixed copy that Tauri expects.
 
 If you still encounter the `frontendDist` error:
 
