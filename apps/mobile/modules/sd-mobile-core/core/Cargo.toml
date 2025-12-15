@@ -9,7 +9,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 # Import the real Spacedrive core (FFmpeg disabled for iOS build issues)
-sd-core = { path = "../../../../../core" }
+sd-core = { path = "../../../../../core", default-features = false, features = ["heif"] }
 
 # Minimal dependencies for mobile
 anyhow = "1.0"

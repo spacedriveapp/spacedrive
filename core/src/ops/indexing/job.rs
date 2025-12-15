@@ -452,6 +452,7 @@ impl IndexerJob {
 
 		ctx.log(&metrics.format_summary());
 
+		#[cfg(feature = "ffmpeg")]
 		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
 			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 

@@ -391,6 +391,7 @@ impl Default for ThumbnailPolicy {
 
 impl ThumbnailPolicy {
 	/// Convert this policy to a ThumbnailJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(&self) -> crate::ops::media::thumbnail::ThumbnailJobConfig {
 		use crate::ops::media::thumbnail::{ThumbnailJobConfig, ThumbnailVariants};
 
@@ -435,6 +436,7 @@ impl Default for ThumbstripPolicy {
 
 impl ThumbstripPolicy {
 	/// Convert this policy to a ThumbstripJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(&self) -> crate::ops::media::thumbstrip::ThumbstripJobConfig {
 		crate::ops::media::thumbstrip::ThumbstripJobConfig {
 			variants: crate::ops::media::thumbstrip::ThumbstripVariants::defaults(),
@@ -532,6 +534,7 @@ impl Default for SpeechPolicy {
 
 impl SpeechPolicy {
 	/// Convert this policy to a SpeechToTextJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(
 		&self,
 		location_id: Option<Uuid>,

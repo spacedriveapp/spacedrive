@@ -13,8 +13,12 @@ pub mod blurhash;
 pub mod metadata_extractor;
 pub mod ocr;
 pub mod proxy;
+
+#[cfg(feature = "ffmpeg")]
 pub mod speech;
+#[cfg(feature = "ffmpeg")]
 pub mod thumbnail;
+#[cfg(feature = "ffmpeg")]
 pub mod thumbstrip;
 
 pub use metadata_extractor::{extract_image_metadata, extract_image_metadata_with_blurhash};
@@ -25,6 +29,10 @@ pub use metadata_extractor::{
 };
 pub use ocr::{OcrJob, OcrProcessor};
 pub use proxy::{ProxyJob, ProxyProcessor};
+
+#[cfg(feature = "ffmpeg")]
 pub use speech::{SpeechToTextJob, SpeechToTextProcessor};
+#[cfg(feature = "ffmpeg")]
 pub use thumbnail::ThumbnailJob;
+#[cfg(feature = "ffmpeg")]
 pub use thumbstrip::{ThumbstripJob, ThumbstripProcessor};

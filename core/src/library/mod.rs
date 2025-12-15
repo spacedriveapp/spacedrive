@@ -501,6 +501,7 @@ impl Library {
 	}
 
 	/// Start thumbnail generation job
+	#[cfg(feature = "ffmpeg")]
 	pub async fn generate_thumbnails(
 		&self,
 		entry_ids: Option<Vec<Uuid>>,

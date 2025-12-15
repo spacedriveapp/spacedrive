@@ -396,9 +396,11 @@ impl ChangeHandler for DatabaseAdapter {
 		use crate::ops::indexing::processor::{
 			load_location_processor_config, ContentHashProcessor, ProcessorEntry,
 		};
+		use crate::ops::media::{ocr::OcrProcessor, proxy::ProxyProcessor};
+		#[cfg(feature = "ffmpeg")]
 		use crate::ops::media::{
-			ocr::OcrProcessor, proxy::ProxyProcessor, speech::SpeechToTextProcessor,
-			thumbnail::ThumbnailProcessor, thumbstrip::ThumbstripProcessor,
+			speech::SpeechToTextProcessor, thumbnail::ThumbnailProcessor,
+			thumbstrip::ThumbstripProcessor,
 		};
 
 		if entry.is_directory() {
@@ -476,6 +478,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Thumbnail
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()
@@ -491,6 +494,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Thumbstrip
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()
@@ -568,6 +572,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Speech-to-text
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()

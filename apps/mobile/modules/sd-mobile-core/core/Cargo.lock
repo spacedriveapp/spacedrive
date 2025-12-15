@@ -1945,6 +1945,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "enumn"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f9ed6b3789237c8a0c1c505af1c7eb2c560df6186f01b098c3a1064ea532f38"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.111",
+]
+
+[[package]]
 name = "enumset"
 version = "1.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2225,6 +2236,12 @@ checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
 dependencies = [
  "percent-encoding",
 ]
+
+[[package]]
+name = "four-cc"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "431a4c31778fde52b4400de34975f219eeca55cc829a9de157cd743a5b230ecb"
 
 [[package]]
 name = "fs_extra"
@@ -3850,6 +3867,30 @@ checksum = "5037190e1f70cbeef565bd267599242926f724d3b8a9f510fd7e0b540cfa4404"
 dependencies = [
  "arbitrary",
  "cc",
+]
+
+[[package]]
+name = "libheif-rs"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "40c32c0a0c970782707070f11c8612bced800b916af4ddaf6229161dc3ceb907"
+dependencies = [
+ "enumn",
+ "four-cc",
+ "libc",
+ "libheif-sys",
+]
+
+[[package]]
+name = "libheif-sys"
+version = "2.2.1+1.17.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "583b7446e99733232b5005823ea7fd18a66efed95faea25d1e8a5cb56f5769f5"
+dependencies = [
+ "libc",
+ "pkg-config",
+ "vcpkg",
+ "walkdir",
 ]
 
 [[package]]
@@ -6446,7 +6487,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "smallvec",
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
  "specta-swift",
  "specta-typescript",
@@ -6491,6 +6532,8 @@ name = "sd-images"
 version = "0.1.0"
 dependencies = [
  "image",
+ "libheif-rs",
+ "libheif-sys",
  "pdfium-render",
  "resvg",
  "thiserror 2.0.17",
@@ -6507,7 +6550,7 @@ dependencies = [
  "sd-utils",
  "serde",
  "serde_json",
- "specta 2.0.0-rc.20",
+ "specta",
  "thiserror 2.0.17",
  "tokio",
 ]
@@ -7112,17 +7155,6 @@ dependencies = [
 
 [[package]]
 name = "specta"
-version = "2.0.0-rc.20"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ccbb212565d2dc177bc15ecb7b039d66c4490da892436a4eee5b394d620c9bc"
-dependencies = [
- "chrono",
- "specta-macros 2.0.0-rc.17",
- "thiserror 1.0.69",
-]
-
-[[package]]
-name = "specta"
 version = "2.0.0-rc.22"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
@@ -7130,20 +7162,8 @@ dependencies = [
  "ctor",
  "serde",
  "serde_json",
- "specta-macros 2.0.0-rc.18",
+ "specta-macros",
  "uuid",
-]
-
-[[package]]
-name = "specta-macros"
-version = "2.0.0-rc.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68999d29816965eb9e5201f60aec02a76512139811661a7e8e653abc810b8f72"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn 2.0.111",
 ]
 
 [[package]]
@@ -7162,7 +7182,7 @@ name = "specta-serde"
 version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
- "specta 2.0.0-rc.22",
+ "specta",
 ]
 
 [[package]]
@@ -7171,7 +7191,7 @@ version = "0.0.1"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
  "serde",
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
  "thiserror 1.0.69",
 ]
@@ -7181,7 +7201,7 @@ name = "specta-typescript"
 version = "0.0.9"
 source = "git+https://github.com/jamiepine/specta?branch=main#9bfc2a4e3ec1a70ddaaffc86cb75281325a18e25"
 dependencies = [
- "specta 2.0.0-rc.22",
+ "specta",
  "specta-serde",
 ]
 

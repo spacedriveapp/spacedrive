@@ -99,6 +99,7 @@ impl LibraryAction for LocationTriggerJobAction {
 
 		// Dispatch the appropriate job based on type
 		let job_handle = match self.input.job_type {
+			#[cfg(feature = "ffmpeg")]
 			JobType::Thumbnail => {
 				if !job_policies.thumbnail.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -115,6 +116,7 @@ impl LibraryAction for LocationTriggerJobAction {
 				})?
 			}
 
+			#[cfg(feature = "ffmpeg")]
 			JobType::Thumbstrip => {
 				if !job_policies.thumbstrip.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -148,6 +150,7 @@ impl LibraryAction for LocationTriggerJobAction {
 				})?
 			}
 
+			#[cfg(feature = "ffmpeg")]
 			JobType::SpeechToText => {
 				if !job_policies.speech_to_text.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -164,6 +167,17 @@ impl LibraryAction for LocationTriggerJobAction {
 				library.jobs().dispatch(job).await.map_err(|e| {
 					ActionError::Internal(format!("Failed to dispatch speech-to-text job: {}", e))
 				})?
+			}
+
+			#[cfg(not(feature = "ffmpeg"))]
+			JobType::Thumbnail | JobType::Thumbstrip | JobType::SpeechToText => {
+				return Err(ActionError::Validation {
+					field: "job_type".to_string(),
+					message: format!(
+						"{} requires FFmpeg support which is not enabled",
+						self.input.job_type
+					),
+				});
 			}
 
 			JobType::ObjectDetection => {
