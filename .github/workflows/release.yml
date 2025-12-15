@@ -19,10 +19,11 @@ jobs:
     strategy:
       matrix:
         include:
+          # macOS builds
           - host: self-hosted
             target: aarch64-apple-darwin
             platform: macos-aarch64
-          - host: macos-15-intel
+          - host: self-hosted
             target: x86_64-apple-darwin
             platform: macos-x86_64
           # Linux builds
@@ -46,6 +47,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ matrix.target }}
 
       - name: Install cross-compilation tools (Linux ARM)
         if: matrix.target == 'aarch64-unknown-linux-gnu'
@@ -100,35 +107,29 @@ jobs:
     strategy:
       matrix:
         settings:
-          # - host: macos-15-intel
-          #   target: x86_64-apple-darwin
-          #   bundles: dmg,app
-          #   os: darwin
-          #   arch: x86_64
+          # macOS builds
           - host: self-hosted
             target: aarch64-apple-darwin
             bundles: dmg,app
             os: darwin
             arch: aarch64
-          # - host: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   bundles: msi
-          #   os: windows
-          #   arch: x86_64
-          # - host: windows-latest
-          #   target: aarch64-pc-windows-msvc
-          # - host: ubuntu-22.04
-          #   target: x86_64-unknown-linux-gnu
-          #   bundles: deb
-          #   os: linux
-          #   arch: x86_64
-          # - host: ubuntu-22.04
-          #   target: x86_64-unknown-linux-musl
-          # - host: ubuntu-22.04
-          #   target: aarch64-unknown-linux-gnu
-          #   bundles: deb
-          # - host: ubuntu-22.04
-          #   target: aarch64-unknown-linux-musl
+          - host: self-hosted
+            target: x86_64-apple-darwin
+            bundles: dmg,app
+            os: darwin
+            arch: x86_64
+          # Windows builds
+          - host: windows-latest
+            target: x86_64-pc-windows-msvc
+            bundles: msi
+            os: windows
+            arch: x86_64
+          # Linux builds
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            bundles: deb
+            os: linux
+            arch: x86_64
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     steps:
@@ -197,8 +198,10 @@ jobs:
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          CFLAGS: "-march=armv8.2-a+crypto"
-          CXXFLAGS: "-march=armv8.2-a+crypto"
+          CFLAGS: ${{ matrix.settings.arch == 'aarch64' && '-march=armv8.2-a+crypto' || '' }}
+          CXXFLAGS: ${{ matrix.settings.arch == 'aarch64' && '-march=armv8.2-a+crypto' || '' }}
+          CPATH: ${{ github.workspace }}/apps/.deps/include
+          C_INCLUDE_PATH: ${{ github.workspace }}/apps/.deps/include
 
       - name: Package frontend
         if: ${{ runner.os == 'Linux' }}
