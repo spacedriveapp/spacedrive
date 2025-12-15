@@ -27,6 +27,9 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
 		useZoomPan(containerRef);
 
+	// Get a stable identifier for the image file itself
+	const imageFileId = file.content_identity?.uuid || file.id;
+
 	// Notify parent of zoom state changes
 	useEffect(() => {
 		onZoomChange?.(isZoomed);
@@ -43,7 +46,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		}, 50);
 
 		return () => clearTimeout(timer);
-	}, [file]);
+	}, [imageFileId]);
 
 	useEffect(() => {
 		if (!shouldLoadOriginal || !platform.convertFileSrc) {
@@ -69,7 +72,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			url,
 		);
 		setOriginalUrl(url);
-	}, [shouldLoadOriginal, file, platform]);
+	}, [shouldLoadOriginal, imageFileId, file.sd_path, platform]);
 
 	// Get highest resolution thumbnail first
 	const getHighestResThumbnail = () => {
@@ -242,6 +245,9 @@ function AudioRenderer({ file }: ContentRendererProps) {
 	const [audioUrl, setAudioUrl] = useState<string | null>(null);
 	const [shouldLoadAudio, setShouldLoadAudio] = useState(false);
 
+	// Get a stable identifier for the audio file itself
+	const audioFileId = file.content_identity?.uuid || file.id;
+
 	// Reset and defer audio loading by 50ms to ensure thumbnail renders first
 	useEffect(() => {
 		setShouldLoadAudio(false);
@@ -252,7 +258,7 @@ function AudioRenderer({ file }: ContentRendererProps) {
 		}, 50);
 
 		return () => clearTimeout(timer);
-	}, [file]);
+	}, [audioFileId]);
 
 	useEffect(() => {
 		if (!shouldLoadAudio || !platform.convertFileSrc) {
@@ -275,7 +281,7 @@ function AudioRenderer({ file }: ContentRendererProps) {
 			url,
 		);
 		setAudioUrl(url);
-	}, [shouldLoadAudio, file, platform]);
+	}, [shouldLoadAudio, audioFileId, file.sd_path, platform]);
 
 	if (!audioUrl) {
 		return (

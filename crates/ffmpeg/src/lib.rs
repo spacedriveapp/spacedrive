@@ -33,6 +33,7 @@ use std::path::Path;
 
 use ffmpeg_sys_next::{av_log_set_level, AV_LOG_FATAL};
 
+mod audio_decoder;
 mod codec_ctx;
 mod dict;
 mod error;
@@ -40,10 +41,12 @@ mod filter_graph;
 mod format_ctx;
 mod frame_decoder;
 pub mod model;
+mod packet;
 mod thumbnailer;
 mod utils;
 mod video_frame;
 
+pub use audio_decoder::extract_audio_samples;
 pub use error::Error;
 pub use frame_decoder::{FrameDecoder, ThumbnailSize, VideoFrame};
 pub use model::FFmpegMediaData;

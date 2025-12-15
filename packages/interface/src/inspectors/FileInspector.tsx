@@ -40,6 +40,7 @@ import { formatBytes } from "../components/Explorer/utils";
 import { File as FileComponent } from "../components/Explorer/File";
 import { useContextMenu } from "../hooks/useContextMenu";
 import { usePlatform } from "../platform";
+import { useJobs } from "../components/JobManager/hooks/useJobs";
 
 interface FileInspectorProps {
 	file: File;
@@ -123,6 +124,12 @@ function OverviewTab({ file }: { file: File }) {
 	);
 	const generateThumbstrip = useLibraryMutation("media.thumbstrip.generate");
 	const generateProxy = useLibraryMutation("media.proxy.generate");
+
+	// Job tracking for long-running operations
+	const { jobs } = useJobs();
+	const isSpeechJobRunning = jobs.some(
+		(job) => job.name === "speech_to_text" && (job.status === "running" || job.status === "queued")
+	);
 
 	// Check content kind for available actions
 	const isImage = getContentKind(file) === "image";
@@ -483,17 +490,17 @@ function OverviewTab({ file }: { file: File }) {
 										},
 									);
 								}}
-								disabled={transcribeAudio.isPending}
+								disabled={transcribeAudio.isPending || isSpeechJobRunning}
 								className={clsx(
 									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
 									"bg-app-box hover:bg-app-hover border border-app-line",
-									transcribeAudio.isPending &&
+									(transcribeAudio.isPending || isSpeechJobRunning) &&
 										"opacity-50 cursor-not-allowed",
 								)}
 							>
 								<Microphone size={4} weight="bold" />
 								<span>
-									{transcribeAudio.isPending
+									{transcribeAudio.isPending || isSpeechJobRunning
 										? "Transcribing..."
 										: "Generate Subtitles"}
 								</span>
