@@ -152,10 +152,8 @@ impl std::fmt::Display for HLC {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
-			"HLC({},{},:{})",
-			self.timestamp,
-			self.counter,
-			&self.device_id.to_string()[..8]
+			"{:016x}-{:016x}-{}",
+			self.timestamp, self.counter, self.device_id
 		)
 	}
 }

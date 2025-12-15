@@ -2,6 +2,7 @@
 [env]
 PROTOC = { force = true, value = "{{{protoc}}}" }
 FFMPEG_DIR = { force = true, value = "{{{nativeDeps}}}" }
+CPATH = { force = true, value = "{{{nativeDeps}}}/include" }
 {{#isLinux}}
 ORT_LIB_LOCATION = { force = true, value = "{{{nativeDeps}}}/lib" }
 {{/isLinux}}
