@@ -88,6 +88,8 @@ function App() {
 		// Play startup sound
 		// sounds.startup();
 
+		let unsubscribePromise: Promise<() => void> | null = null;
+
 		// Create Tauri-based client
 		try {
 			const transport = new TauriTransport(invoke, listen);
@@ -116,7 +118,7 @@ function App() {
 			}
 
 			// Subscribe to core events for auto-switching on synced library creation
-			spacedrive.subscribe((event: CoreEvent) => {
+			unsubscribePromise = spacedrive.subscribe((event: CoreEvent) => {
 				// Check if this is a LibraryCreated event from sync
 				if (
 					typeof event === "object" &&
@@ -159,6 +161,12 @@ function App() {
 			console.error("Failed to create client:", err);
 			setError(err instanceof Error ? err.message : String(err));
 		}
+
+		return () => {
+			if (unsubscribePromise) {
+				unsubscribePromise.then((unsubscribe) => unsubscribe());
+			}
+		};
 	}, []);
 
 	// Routes that don't need the client

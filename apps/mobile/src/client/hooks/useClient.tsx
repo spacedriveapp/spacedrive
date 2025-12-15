@@ -155,16 +155,14 @@ export function SpacedriveProvider({
       }
     }
 
-    let unsubscribeEvents: (() => void) | null = null;
-
-    init().then((unsub) => {
-      unsubscribeEvents = unsub;
-    });
+    const initPromise = init();
 
     return () => {
       mounted = false;
       if (unsubscribeLogs) unsubscribeLogs();
-      if (unsubscribeEvents) unsubscribeEvents();
+      initPromise.then((unsubscribe) => {
+        if (unsubscribe) unsubscribe();
+      });
       client.destroy();
     };
   }, [client, deviceName]);
