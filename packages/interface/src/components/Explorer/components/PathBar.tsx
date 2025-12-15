@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
-import { CaretRight, Eye, Folder } from "@phosphor-icons/react";
+import {
+	CaretRight,
+	CircleDashedIcon,
+	CircleIcon,
+	Eye,
+	Folder,
+	RadioButtonIcon,
+} from "@phosphor-icons/react";
 import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client";
 import { getDeviceIconBySlug, useLibraryMutation } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
@@ -158,9 +165,9 @@ function IndexIndicator({ path }: { path: SdPath }) {
 			popover={popover}
 			trigger={
 				<TopBarButton
-					icon={Eye}
+					icon={isIndexed ? CircleIcon : CircleDashedIcon}
 					active={isIndexed}
-					className={isIndexed ? "!text-blue-500" : undefined}
+					className={isIndexed ? "!text-accent" : undefined}
 					title={isIndexed ? "Location is indexed" : "Not indexed"}
 				/>
 			}

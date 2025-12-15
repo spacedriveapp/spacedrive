@@ -182,6 +182,9 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const [videoUrl, setVideoUrl] = useState<string | null>(null);
 	const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
 
+	// Get a stable identifier for the video file itself
+	const videoFileId = file.content_identity?.uuid || file.id;
+
 	// Reset and defer video loading by 50ms to ensure thumbnail renders first
 	useEffect(() => {
 		setShouldLoadVideo(false);
@@ -192,7 +195,7 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 		}, 50);
 
 		return () => clearTimeout(timer);
-	}, [file]);
+	}, [videoFileId]);
 
 	useEffect(() => {
 		if (!shouldLoadVideo || !platform.convertFileSrc) {
@@ -215,7 +218,7 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 			url,
 		);
 		setVideoUrl(url);
-	}, [shouldLoadVideo, file, platform]);
+	}, [shouldLoadVideo, videoFileId, file.sd_path, platform]);
 
 	if (!videoUrl) {
 		return (

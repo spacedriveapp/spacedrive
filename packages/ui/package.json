@@ -15,6 +15,7 @@
 		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
 		"./style/colors": "./style/colors.js",
+		"./style/colors.scss": "./style/colors.scss",
 		"./style/style.scss": "./style/style.scss",
 		"./package.json": "./package.json"
 	},

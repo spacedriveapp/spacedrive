@@ -7,7 +7,12 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import { useNormalizedQuery, useLibraryMutation, getDeviceIcon, useCoreQuery } from "../../context";
+import {
+	useNormalizedQuery,
+	useLibraryMutation,
+	getDeviceIcon,
+	useCoreQuery,
+} from "../../context";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
@@ -26,7 +31,7 @@ function formatBytes(bytes: number): string {
 
 function getVolumeColor(volumeType: string): string {
 	const colors: Record<string, string> = {
-		Primary: "from-blue-500 to-blue-600",
+		Primary: "from-accent to-blue-600",
 		External: "from-green-500 to-emerald-600",
 		Cloud: "from-purple-500 to-violet-600",
 		Network: "from-orange-500 to-amber-600",
@@ -101,34 +106,42 @@ export function StorageOverview() {
 	);
 
 	// Group volumes by device_id
-	const volumesByDevice = userVisibleVolumes.reduce((acc, volume) => {
-		const deviceId = volume.device_id;
-		if (!acc[deviceId]) {
-			acc[deviceId] = [];
-		}
-		acc[deviceId].push(volume);
-		return acc;
-	}, {} as Record<string, VolumeItem[]>);
+	const volumesByDevice = userVisibleVolumes.reduce(
+		(acc, volume) => {
+			const deviceId = volume.device_id;
+			if (!acc[deviceId]) {
+				acc[deviceId] = [];
+			}
+			acc[deviceId].push(volume);
+			return acc;
+		},
+		{} as Record<string, VolumeItem[]>,
+	);
 
 	// Create device map for quick lookup
-	const deviceMap = devices.reduce((acc, device) => {
-		acc[device.id] = device;
-		return acc;
-	}, {} as Record<string, LibraryDeviceInfo>);
+	const deviceMap = devices.reduce(
+		(acc, device) => {
+			acc[device.id] = device;
+			return acc;
+		},
+		{} as Record<string, LibraryDeviceInfo>,
+	);
 
 	return (
 		<div className="space-y-4">
-			{Object.entries(volumesByDevice).map(([deviceId, deviceVolumes]) => {
-				const device = deviceMap[deviceId];
+			{Object.entries(volumesByDevice).map(
+				([deviceId, deviceVolumes]) => {
+					const device = deviceMap[deviceId];
 
-				return (
-					<DeviceCard
-						key={deviceId}
-						device={device}
-						volumes={deviceVolumes}
-					/>
-				);
-			})}
+					return (
+						<DeviceCard
+							key={deviceId}
+							device={device}
+							volumes={deviceVolumes}
+						/>
+					);
+				},
+			)}
 
 			{userVisibleVolumes.length === 0 && (
 				<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
@@ -160,16 +173,24 @@ function DeviceCard({ device, volumes }: DeviceCardProps) {
 			<div className="px-6 py-4 border-b border-app-line">
 				<div className="flex items-center gap-3">
 					{deviceIconSrc ? (
-						<img src={deviceIconSrc} alt={deviceName} className="size-8 opacity-80" />
+						<img
+							src={deviceIconSrc}
+							alt={deviceName}
+							className="size-8 opacity-80"
+						/>
 					) : (
-						<HardDrive className="size-8 text-ink" weight="duotone" />
+						<HardDrive
+							className="size-8 text-ink"
+							weight="duotone"
+						/>
 					)}
 					<div className="flex-1 min-w-0">
 						<h3 className="text-base font-semibold text-ink truncate">
 							{deviceName}
 						</h3>
 						<p className="text-sm text-ink-dull">
-							{volumes.length} {volumes.length === 1 ? "volume" : "volumes"}
+							{volumes.length}{" "}
+							{volumes.length === 1 ? "volume" : "volumes"}
 							{device?.is_online === false && " • Offline"}
 						</p>
 					</div>
@@ -278,21 +299,32 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 										className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-md border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
 										title="Track this volume to enable deduplication and search"
 									>
-										<Plus className="size-3" weight="bold" />
-										{trackVolume.isPending ? "Tracking..." : "Track"}
+										<Plus
+											className="size-3"
+											weight="bold"
+										/>
+										{trackVolume.isPending
+											? "Tracking..."
+											: "Track"}
 									</button>
 								)}
-								{currentDevice && volume.device_id === currentDevice.id && (
-									<button
-										onClick={handleIndex}
-										disabled={indexVolume.isPending}
-										className="px-2 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-xs rounded-md border border-sidebar-line hover:border-sidebar-line/50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-										title="Index this volume to browse files without adding as location"
-									>
-										<Database className="size-3" weight="bold" />
-										{indexVolume.isPending ? "Indexing..." : "Index"}
-									</button>
-								)}
+								{currentDevice &&
+									volume.device_id === currentDevice.id && (
+										<button
+											onClick={handleIndex}
+											disabled={indexVolume.isPending}
+											className="px-2 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-xs rounded-md border border-sidebar-line hover:border-sidebar-line/50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
+											title="Index this volume to browse files without adding as location"
+										>
+											<Database
+												className="size-3"
+												weight="bold"
+											/>
+											{indexVolume.isPending
+												? "Indexing..."
+												: "Index"}
+										</button>
+									)}
 							</div>
 						</div>
 						<div className="text-right">
@@ -344,14 +376,14 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 					{/* Stats row */}
 					<div className="flex items-center gap-4 text-xs">
 						<div className="flex items-center gap-1.5">
-							<div className="size-3 rounded bg-gradient-to-b from-blue-500 to-blue-600" />
+							<div className="size-3 rounded bg-gradient-to-b from-accent to-blue-600" />
 							<span className="text-ink-dull">
 								Unique: {formatBytes(uniqueBytes)}
 							</span>
 						</div>
 						<div className="flex items-center gap-1.5">
 							<div
-								className="size-3 rounded bg-gradient-to-b from-blue-400 to-blue-500"
+								className="size-3 rounded bg-gradient-to-b from-blue-400 to-accent"
 								style={{
 									backgroundImage:
 										"repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px)",
@@ -398,7 +430,8 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 						)}
 						{volume.total_directory_count != null && (
 							<span className="px-2 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
-								{volume.total_directory_count.toLocaleString()} dirs
+								{volume.total_directory_count.toLocaleString()}{" "}
+								dirs
 							</span>
 						)}
 					</div>
