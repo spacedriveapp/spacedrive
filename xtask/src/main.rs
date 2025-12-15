@@ -183,6 +183,17 @@ fn setup() -> Result<()> {
 		}
 	}
 
+	// Generate cargo config before building daemon so FFMPEG_DIR and other env vars are set
+	println!();
+	let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
+	let mobile_deps = if mobile_deps_dir.exists() {
+		Some(mobile_deps_dir.as_path())
+	} else {
+		None
+	};
+
+	config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
+
 	// Build release daemon for Tauri bundler validation
 	// The Tauri config references the release daemon in externalBin, so we need to build it
 	// once even for dev mode to satisfy Tauri's path validation
@@ -210,17 +221,6 @@ fn setup() -> Result<()> {
 			.context("Failed to create target-suffixed daemon binary")?;
 		println!("   ✓ Created sd-daemon-{}", target_triple);
 	}
-
-	// Generate cargo config
-	println!();
-	let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
-	let mobile_deps = if mobile_deps_dir.exists() {
-		Some(mobile_deps_dir.as_path())
-	} else {
-		None
-	};
-
-	config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
 
 	println!();
 	println!("Setup complete!");
