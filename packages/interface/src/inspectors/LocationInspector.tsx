@@ -108,6 +108,7 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 	};
 
 	const formatScanState = (scanState: any) => {
+		if (!scanState) return "Unknown";
 		if (scanState.Idle) return "Idle";
 		if (scanState.Scanning) return `Scanning ${scanState.Scanning.progress}%`;
 		if (scanState.Completed) return "Completed";
