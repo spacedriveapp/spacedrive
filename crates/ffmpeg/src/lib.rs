@@ -41,6 +41,7 @@ mod filter_graph;
 mod format_ctx;
 mod frame_decoder;
 pub mod model;
+mod packet;
 mod thumbnailer;
 mod utils;
 mod video_frame;

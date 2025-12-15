@@ -4,15 +4,14 @@ use crate::{
 	codec_ctx::FFmpegCodecContext,
 	error::{Error, FFmpegError},
 	format_ctx::FFmpegFormatContext,
+	packet::FFmpegPacket,
 	utils::from_path,
+	video_frame::FFmpegFrame,
 };
 
 use std::{path::Path, slice};
 
-use ffmpeg_sys_next::{
-	av_frame_alloc, av_frame_free, av_packet_alloc, av_packet_free, av_packet_unref, av_read_frame,
-	avcodec_find_decoder, AVFrame, AVMediaType, AVSampleFormat,
-};
+use ffmpeg_sys_next::{av_read_frame, avcodec_find_decoder, AVFrame, AVMediaType, AVSampleFormat};
 
 /// Extract audio samples from a media file as 16kHz mono f32 PCM
 pub fn extract_audio_samples(filename: impl AsRef<Path>) -> Result<Vec<f32>, Error> {
@@ -46,57 +45,44 @@ pub fn extract_audio_samples(filename: impl AsRef<Path>) -> Result<Vec<f32>, Err
 		codec_ctx.parameters_to_context(codecpar)?;
 		codec_ctx.open2(decoder)?;
 
-		// Allocate packet and frame
-		let packet = av_packet_alloc();
-		if packet.is_null() {
-			return Err(FFmpegError::NullError.into());
-		}
-
-		let frame = av_frame_alloc();
-		if frame.is_null() {
-			av_packet_free(&packet as *const _ as *mut _);
-			return Err(FFmpegError::FrameAllocation.into());
-		}
+		// Allocate packet and frame using RAII wrappers for automatic cleanup
+		let mut packet = FFmpegPacket::new()?;
+		let mut frame = FFmpegFrame::new()?;
 
 		let mut samples = Vec::new();
 
 		// Read and decode packets
-		while av_read_frame(format_ctx.as_mut(), packet) >= 0 {
+		while av_read_frame(format_ctx.as_mut(), packet.as_ptr()) >= 0 {
 			let pkt = packet.as_ref().ok_or(FFmpegError::NullError)?;
 
 			if pkt.stream_index == audio_stream_index {
 				// Send packet to decoder
-				if codec_ctx.send_packet(packet).is_err() {
-					av_packet_unref(packet);
+				if codec_ctx.send_packet(packet.as_ptr()).is_err() {
+					packet.unref();
 					continue;
 				}
 
 				// Receive decoded frames
 				loop {
-					match codec_ctx.receive_frame(frame) {
+					match codec_ctx.receive_frame(frame.as_mut()) {
 						Ok(true) => {
-							let frame_ref = frame.as_ref().ok_or(FFmpegError::NullError)?;
 							// Extract samples from this frame
-							let frame_samples = extract_and_convert_frame(frame_ref)?;
+							let frame_samples = extract_and_convert_frame(frame.as_ref())?;
 							samples.extend_from_slice(&frame_samples);
 						}
 						Ok(false) | Err(FFmpegError::Again) => break,
 						Err(e) => {
-							av_packet_unref(packet);
-							av_frame_free(&frame as *const _ as *mut _);
-							av_packet_free(&packet as *const _ as *mut _);
+							// RAII wrappers handle cleanup automatically via Drop
 							return Err(e.into());
 						}
 					}
 				}
 			}
 
-			av_packet_unref(packet);
+			packet.unref();
 		}
 
-		// Cleanup
-		av_frame_free(&frame as *const _ as *mut _);
-		av_packet_free(&packet as *const _ as *mut _);
+		// RAII wrappers handle cleanup automatically when they go out of scope
 
 		// Now resample to 16kHz mono if needed
 		let codec_ref = codec_ctx.as_ref();
