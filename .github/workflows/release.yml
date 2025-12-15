@@ -151,6 +151,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
       - name: Install Apple API key
         if: ${{ runner.os == 'macOS' }}
         run: |
