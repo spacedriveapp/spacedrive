@@ -126,6 +126,8 @@ pub enum FFmpegError {
 	NullError,
 	#[error("Resource temporarily unavailable")]
 	Again,
+	#[error("Unsupported audio format")]
+	UnsupportedFormat,
 }
 
 impl From<c_int> for FFmpegError {
