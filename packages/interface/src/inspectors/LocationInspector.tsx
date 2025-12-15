@@ -107,6 +107,14 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 		});
 	};
 
+	const formatScanState = (scanState: any) => {
+		if (scanState.Idle) return "Idle";
+		if (scanState.Scanning) return `Scanning ${scanState.Scanning.progress}%`;
+		if (scanState.Completed) return "Completed";
+		if (scanState.Failed) return "Failed";
+		return "Unknown";
+	};
+
 	return (
 		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
 			{/* Location icon */}
@@ -139,7 +147,7 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 					label="Total Size"
 					value={formatBytes(location.total_byte_size)}
 				/>
-				<InfoRow label="Scan State" value={location.scan_state} />
+				<InfoRow label="Scan State" value={formatScanState(location.scan_state)} />
 				{location.last_scan_at && (
 					<InfoRow
 						label="Last Scan"
