@@ -110,11 +110,11 @@ jobs:
             bundles: dmg,app
             os: darwin
             arch: aarch64
-          - host: self-hosted
-            target: x86_64-apple-darwin
-            bundles: dmg,app
-            os: darwin
-            arch: x86_64
+          # - host: self-hosted
+          #   target: x86_64-apple-darwin
+          #   bundles: dmg,app
+          #   os: darwin
+          #   arch: x86_64
           # Windows builds
           - host: windows-latest
             target: x86_64-pc-windows-msvc

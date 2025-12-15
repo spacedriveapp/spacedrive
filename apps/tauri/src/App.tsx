@@ -11,7 +11,12 @@ import {
 	PlatformProvider,
 	SpacedriveProvider,
 } from "@sd/interface";
-import { SpacedriveClient, TauriTransport } from "@sd/ts-client";
+import {
+	SpacedriveClient,
+	TauriTransport,
+	useSyncPreferencesStore,
+} from "@sd/ts-client";
+import type { Event as CoreEvent } from "@sd/ts-client";
 import { sounds } from "@sd/assets/sounds";
 import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
@@ -83,6 +88,8 @@ function App() {
 		// Play startup sound
 		// sounds.startup();
 
+		let unsubscribePromise: Promise<() => void> | null = null;
+
 		// Create Tauri-based client
 		try {
 			const transport = new TauriTransport(invoke, listen);
@@ -110,11 +117,56 @@ function App() {
 				});
 			}
 
+			// Subscribe to core events for auto-switching on synced library creation
+			unsubscribePromise = spacedrive.subscribe((event: CoreEvent) => {
+				// Check if this is a LibraryCreated event from sync
+				if (
+					typeof event === "object" &&
+					"LibraryCreated" in event &&
+					(event.LibraryCreated as any).source === "Sync"
+				) {
+					const { id, name } = event.LibraryCreated;
+
+					// Check user preference for auto-switching
+					const autoSwitchEnabled =
+						useSyncPreferencesStore.getState().autoSwitchOnSync;
+
+					if (autoSwitchEnabled) {
+						console.log(
+							`[Auto-Switch] Received synced library "${name}", switching...`,
+						);
+
+						// Switch to the new library via platform (syncs across all windows)
+						if (platform.setCurrentLibraryId) {
+							platform.setCurrentLibraryId(id).catch((err) => {
+								console.error(
+									"[Auto-Switch] Failed to switch library:",
+									err,
+								);
+							});
+						} else {
+							// Fallback: just update the client
+							spacedrive.setCurrentLibrary(id);
+						}
+					} else {
+						console.log(
+							`[Auto-Switch] Received synced library "${name}", but auto-switch is disabled`,
+						);
+					}
+				}
+			});
+
 			// No global subscription needed - each useNormalizedCache creates its own filtered subscription
 		} catch (err) {
 			console.error("Failed to create client:", err);
 			setError(err instanceof Error ? err.message : String(err));
 		}
+
+		return () => {
+			if (unsubscribePromise) {
+				unsubscribePromise.then((unsubscribe) => unsubscribe());
+			}
+		};
 	}, []);
 
 	// Routes that don't need the client

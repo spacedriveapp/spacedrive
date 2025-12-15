@@ -16,7 +16,7 @@ use crate::{
 	device::DeviceManager,
 	infra::{
 		db::{entities, Database},
-		event::{Event, EventBus},
+		event::{Event, EventBus, LibraryCreationSource},
 		job::manager::JobManager,
 	},
 	service::session::SessionStateService,
@@ -213,6 +213,7 @@ impl LibraryManager {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path.clone(),
+			source: LibraryCreationSource::Manual,
 		});
 
 		Ok(library)
@@ -328,11 +329,12 @@ impl LibraryManager {
 		// Create default space with Quick Access group
 		self.create_default_space(&library).await?;
 
-		// Emit event
+		// Emit event - this is a synced library from another device
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path.clone(),
+			source: LibraryCreationSource::Sync,
 		});
 
 		Ok(library)
@@ -397,6 +399,7 @@ impl LibraryManager {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path,
+			source: LibraryCreationSource::Manual,
 		});
 
 		Ok(library)
