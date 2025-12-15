@@ -1,6 +1,6 @@
 //! Test how Event enums serialize to understand the JSON format
 
-use sd_core::infra::event::Event;
+use sd_core::infra::event::{Event, LibraryCreationSource};
 use serde_json;
 use std::path::PathBuf;
 use uuid::Uuid;
@@ -15,8 +15,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		id: Uuid::new_v4(),
 		name: "Test Library".to_string(),
 		path: PathBuf::from("/test/path"),
+		source: LibraryCreationSource::Manual,
 	};
 	println!("LibraryCreated: {}", serde_json::to_string(&event2)?);
+
+	// Test sync-created library event
+	let event2_sync = Event::LibraryCreated {
+		id: Uuid::new_v4(),
+		name: "Synced Library".to_string(),
+		path: PathBuf::from("/test/synced"),
+		source: LibraryCreationSource::Sync,
+	};
+	println!(
+		"LibraryCreated (Sync): {}",
+		serde_json::to_string(&event2_sync)?
+	);
 
 	// Test job event
 	let event3 = Event::JobStarted {

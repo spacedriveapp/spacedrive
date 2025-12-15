@@ -5,10 +5,13 @@ import {
   queryClient,
   useSpacedriveClient,
 } from "@sd/ts-client/src/hooks/useClient";
+import type { Event } from "@sd/ts-client/src/generated/types";
 import { SpacedriveClient } from "../SpacedriveClient";
 import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { SDMobileCore } from "sd-mobile-core";
+import { usePreferencesStore } from "../../stores/preferences";
+import { useSidebarStore } from "../../stores/sidebar";
 
 // Re-export the shared hook
 export { useSpacedriveClient };
@@ -105,22 +108,63 @@ export function SpacedriveProvider({
           }
         }
 
+        // Subscribe to core events for auto-switching on synced library creation
+        const unsubscribeEvents = await client.subscribe((event: Event) => {
+          // Check if this is a LibraryCreated event from sync
+          if (
+            typeof event === "object" &&
+            "LibraryCreated" in event &&
+            (event as any).LibraryCreated.source === "Sync"
+          ) {
+            const { id, name } = (event as any).LibraryCreated;
+
+            // Check user preference for auto-switching
+            const autoSwitchEnabled =
+              usePreferencesStore.getState().autoSwitchOnSync;
+
+            if (autoSwitchEnabled) {
+              console.log(
+                `[Auto-Switch] Received synced library "${name}", switching...`,
+              );
+
+              // Update client state
+              client.setCurrentLibrary(id);
+
+              // Update sidebar store (persisted to AsyncStorage)
+              useSidebarStore.getState().setCurrentLibrary(id);
+            } else {
+              console.log(
+                `[Auto-Switch] Received synced library "${name}", but auto-switch is disabled`,
+              );
+            }
+          }
+        });
+
         if (mounted) {
           setInitialized(true);
         }
+
+        // Store unsubscribe for cleanup
+        return unsubscribeEvents;
       } catch (e) {
         console.error("[SpacedriveProvider] Failed to initialize:", e);
         if (mounted) {
           setError(e instanceof Error ? e.message : "Failed to initialize");
         }
+        return null;
       }
     }
 
-    init();
+    let unsubscribeEvents: (() => void) | null = null;
+
+    init().then((unsub) => {
+      unsubscribeEvents = unsub;
+    });
 
     return () => {
       mounted = false;
       if (unsubscribeLogs) unsubscribeLogs();
+      if (unsubscribeEvents) unsubscribeEvents();
       client.destroy();
     };
   }, [client, deviceName]);

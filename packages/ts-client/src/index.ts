@@ -60,6 +60,7 @@ export * from "./hooks";
 export * from "./stores/sidebar";
 export * from "./stores/viewPreferences";
 export * from "./stores/sortPreferences";
+export * from "./stores/syncPreferences";
 
 // Device and volume utilities
 export * from "./deviceIcons";

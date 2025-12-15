@@ -56,6 +56,18 @@ impl SubscriptionFilter {
 	}
 }
 
+/// Source of library creation for automatic switching behavior
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+pub enum LibraryCreationSource {
+	/// User created locally via UI
+	#[default]
+	Manual,
+	/// Received via network sync from another device
+	Sync,
+	/// Imported from cloud storage
+	CloudImport,
+}
+
 /// Sync activity types for detailed sync monitoring
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", content = "data")]
@@ -82,6 +94,9 @@ pub enum Event {
 		id: Uuid,
 		name: String,
 		path: PathBuf,
+		/// How the library was created (manual, sync, cloud import)
+		#[serde(default)]
+		source: LibraryCreationSource,
 	},
 	LibraryOpened {
 		id: Uuid,

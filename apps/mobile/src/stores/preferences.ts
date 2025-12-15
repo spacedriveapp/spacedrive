@@ -40,6 +40,10 @@ interface PreferencesStore {
 	// Onboarding
 	hasCompletedOnboarding: boolean;
 	setHasCompletedOnboarding: (completed: boolean) => void;
+
+	// Sync preferences
+	autoSwitchOnSync: boolean;
+	setAutoSwitchOnSync: (enabled: boolean) => void;
 }
 
 const defaultViewPreferences: ViewPreferences = {
@@ -80,6 +84,10 @@ export const usePreferencesStore = create<PreferencesStore>()(
 			hasCompletedOnboarding: false,
 			setHasCompletedOnboarding: (completed) =>
 				set({ hasCompletedOnboarding: completed }),
+
+			// Sync preferences
+			autoSwitchOnSync: true,
+			setAutoSwitchOnSync: (enabled) => set({ autoSwitchOnSync: enabled }),
 		}),
 		{
 			name: "spacedrive-preferences",
