@@ -392,10 +392,6 @@ impl LibraryManager {
 		// Create default space with Quick Access group
 		self.create_default_space(&library).await?;
 
-		// Create default locations with IndexMode::None
-		self.create_default_locations(context.clone(), library.clone())
-			.await;
-
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
