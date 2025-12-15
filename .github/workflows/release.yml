@@ -175,6 +175,9 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           target: ${{ matrix.settings.target }}
 
+      - name: Install target
+        run: rustup target add ${{ matrix.settings.target }}
+
       - name: Setup Bun and dependencies
         uses: ./.github/actions/setup-bun
         with:
