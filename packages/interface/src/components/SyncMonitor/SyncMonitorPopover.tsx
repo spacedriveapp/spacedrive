@@ -1,13 +1,18 @@
-import { ArrowsClockwise, CircleNotch, ArrowsOut, FunnelSimple } from '@phosphor-icons/react';
-import { Popover, usePopover, TopBarButton } from '@sd/ui';
-import clsx from 'clsx';
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { PeerList } from './components/PeerList';
-import { ActivityFeed } from './components/ActivityFeed';
-import { useSyncCount } from './hooks/useSyncCount';
-import { useSyncMonitor } from './hooks/useSyncMonitor';
+import {
+	ArrowsClockwise,
+	CircleNotch,
+	ArrowsOut,
+	FunnelSimple,
+} from "@phosphor-icons/react";
+import { Popover, usePopover, TopBarButton } from "@sd/ui";
+import clsx from "clsx";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { PeerList } from "./components/PeerList";
+import { ActivityFeed } from "./components/ActivityFeed";
+import { useSyncCount } from "./hooks/useSyncCount";
+import { useSyncMonitor } from "./hooks/useSyncMonitor";
 
 interface SyncMonitorPopoverProps {
 	className?: string;
@@ -32,15 +37,19 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 			trigger={
 				<button
 					className={clsx(
-						'w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium',
-						'text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected/40',
-						'transition-colors',
-						className
+						"w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium",
+						"text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected/40",
+						"transition-colors",
+						className,
 					)}
 				>
 					<div className="size-4">
 						{isSyncing ? (
-							<CircleNotch className="animate-spin" weight="bold" size={16} />
+							<CircleNotch
+								className="animate-spin"
+								weight="bold"
+								size={16}
+							/>
 						) : (
 							<ArrowsClockwise weight="bold" size={16} />
 						)}
@@ -64,13 +73,14 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 				<div className="flex items-center gap-2">
 					{onlinePeerCount > 0 && (
 						<span className="text-xs text-ink-dull">
-							{onlinePeerCount} {onlinePeerCount === 1 ? 'peer' : 'peers'} online
+							{onlinePeerCount}{" "}
+							{onlinePeerCount === 1 ? "peer" : "peers"} online
 						</span>
 					)}
 
 					<TopBarButton
 						icon={ArrowsOut}
-						onClick={() => navigate('/sync')}
+						onClick={() => navigate("/sync")}
 						title="Open full sync monitor"
 					/>
 
@@ -78,7 +88,11 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 						icon={FunnelSimple}
 						active={showActivityFeed}
 						onClick={() => setShowActivityFeed(!showActivityFeed)}
-						title={showActivityFeed ? 'Show peers' : 'Show activity feed'}
+						title={
+							showActivityFeed
+								? "Show peers"
+								: "Show activity feed"
+						}
 					/>
 				</div>
 			</div>
@@ -90,23 +104,27 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 	);
 }
 
-function SyncMonitorContent({ showActivityFeed }: { showActivityFeed: boolean }) {
+function SyncMonitorContent({
+	showActivityFeed,
+}: {
+	showActivityFeed: boolean;
+}) {
 	const sync = useSyncMonitor();
 
 	const getStateColor = (state: string) => {
 		switch (state) {
-			case 'Ready':
-				return 'bg-green-500';
-			case 'Backfilling':
-				return 'bg-yellow-500';
-			case 'CatchingUp':
-				return 'bg-blue-500';
-			case 'Uninitialized':
-				return 'bg-ink-faint';
-			case 'Paused':
-				return 'bg-ink-dull';
+			case "Ready":
+				return "bg-green-500";
+			case "Backfilling":
+				return "bg-yellow-500";
+			case "CatchingUp":
+				return "bg-accent";
+			case "Uninitialized":
+				return "bg-ink-faint";
+			case "Paused":
+				return "bg-ink-dull";
 			default:
-				return 'bg-ink-faint';
+				return "bg-ink-faint";
 		}
 	};
 
@@ -114,8 +132,12 @@ function SyncMonitorContent({ showActivityFeed }: { showActivityFeed: boolean })
 		<>
 			<div className="px-4 py-2 border-b border-app-line bg-app-box/50">
 				<div className="flex items-center gap-2">
-					<div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
-					<span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
+					<div
+						className={`size-2 rounded-full ${getStateColor(sync.currentState)}`}
+					/>
+					<span className="text-xs font-medium text-ink-dull">
+						{sync.currentState}
+					</span>
 				</div>
 			</div>
 			<motion.div
@@ -131,7 +153,10 @@ function SyncMonitorContent({ showActivityFeed }: { showActivityFeed: boolean })
 				{showActivityFeed ? (
 					<ActivityFeed activities={sync.recentActivity} />
 				) : (
-					<PeerList peers={sync.peers} currentState={sync.currentState} />
+					<PeerList
+						peers={sync.peers}
+						currentState={sync.currentState}
+					/>
 				)}
 			</motion.div>
 		</>

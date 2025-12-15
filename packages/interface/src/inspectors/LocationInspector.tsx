@@ -129,10 +129,12 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 			{/* Details */}
 			<Section title="Details" icon={Info}>
 				<InfoRow label="Path" value={location.path} mono />
+			{location.total_file_count != null && (
 				<InfoRow
 					label="Total Files"
 					value={location.total_file_count.toLocaleString()}
 				/>
+			)}
 				<InfoRow
 					label="Total Size"
 					value={formatBytes(location.total_byte_size)}

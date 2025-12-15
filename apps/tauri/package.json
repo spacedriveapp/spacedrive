@@ -17,7 +17,7 @@
 		"tauri": "bunx tauri",
 		"tauri:dev": "bunx tauri dev",
 		"tauri:dev:no-watch": "bunx tauri dev --no-watch",
-		"tauri:build": "bunx tauri build && ./scripts/fix-daemon-entitlements.sh ../../target/release/bundle/macos/Spacedrive.app"
+		"tauri:build": "bunx tauri build && ./scripts/fix-daemon-entitlements.sh ../../target/release/bundle/macos/Spacedrive.app || true"
 	},
 	"dependencies": {
 		"@phosphor-icons/react": "^2.1.0",

@@ -4,6 +4,12 @@ set -e
 # This script fixes the daemon entitlements in the bundled macOS app
 # It removes the app-sandbox entitlement which causes the daemon to crash
 
+# Only run on macOS
+if [ "$(uname)" != "Darwin" ]; then
+    echo "Skipping daemon entitlement fix (macOS only)"
+    exit 0
+fi
+
 BUNDLE_PATH="$1"
 
 if [ -z "$BUNDLE_PATH" ]; then

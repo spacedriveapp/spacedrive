@@ -202,17 +202,26 @@ export function ExplorerLayout() {
 		if (currentPath && "Physical" in currentPath) {
 			const pathStr = currentPath.Physical.path;
 			// Find location with longest matching prefix
-			return locations
-				.filter((loc) => {
-					if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
-					const locPath = loc.sd_path.Physical.path;
-					return pathStr.startsWith(locPath);
-				})
-				.sort((a, b) => {
-					const aPath = "Physical" in a.sd_path! ? a.sd_path!.Physical.path : "";
-					const bPath = "Physical" in b.sd_path! ? b.sd_path!.Physical.path : "";
-					return bPath.length - aPath.length;
-				})[0] || null;
+			return (
+				locations
+					.filter((loc) => {
+						if (!loc.sd_path || !("Physical" in loc.sd_path))
+							return false;
+						const locPath = loc.sd_path.Physical.path;
+						return pathStr.startsWith(locPath);
+					})
+					.sort((a, b) => {
+						const aPath =
+							"Physical" in a.sd_path!
+								? a.sd_path!.Physical.path
+								: "";
+						const bPath =
+							"Physical" in b.sd_path!
+								? b.sd_path!.Physical.path
+								: "";
+						return bPath.length - aPath.length;
+					})[0] || null
+			);
 		}
 
 		return null;
@@ -764,7 +773,10 @@ export function Explorer({ client }: AppProps) {
 			</DndWrapper>
 			<DaemonDisconnectedOverlay />
 			<Dialogs />
-			<ReactQueryDevtools initialIsOpen={false} />
+			<ReactQueryDevtools
+				initialIsOpen={false}
+				buttonPosition="bottom-right"
+			/>
 		</SpacedriveProvider>
 	);
 }
