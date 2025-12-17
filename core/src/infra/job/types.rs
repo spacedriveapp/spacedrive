@@ -162,6 +162,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 pub struct JobInfo {
 	pub id: Uuid,
 	pub name: String,
+	pub device_id: Uuid, // Device running this job
 	pub status: JobStatus,
 	pub progress: f32,
 	pub started_at: chrono::DateTime<chrono::Utc>,

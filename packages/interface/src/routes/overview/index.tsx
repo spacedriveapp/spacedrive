@@ -5,7 +5,7 @@
  */
 
 import { HeroStats } from "./HeroStats";
-import { StorageOverview } from "./StorageOverview";
+import { DevicePanel } from "./DevicePanel";
 import { ProjectCards } from "./ProjectCards";
 import { DevicesPanel } from "./DevicesPanel";
 import { ContentBreakdown } from "./ContentBreakdown";
@@ -63,8 +63,8 @@ export function Overview() {
 						uniqueContentCount={Number(stats.unique_content_count)}
 					/>
 
-					{/* Storage Volumes */}
-					<StorageOverview />
+					{/* Device Panel */}
+					<DevicePanel />
 
 					{/* <ContentBreakdown totalFiles={Number(stats.total_files)} /> */}
 				</div>

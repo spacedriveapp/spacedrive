@@ -176,14 +176,17 @@ pub enum Event {
 	JobQueued {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobStarted {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobProgress {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		progress: f64,
 		message: Option<String>,
 		// Enhanced progress data - serialized GenericProgress
@@ -192,22 +195,27 @@ pub enum Event {
 	JobCompleted {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		output: JobOutput,
 	},
 	JobFailed {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		error: String,
 	},
 	JobCancelled {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobPaused {
 		job_id: String,
+		device_id: uuid::Uuid,
 	},
 	JobResumed {
 		job_id: String,
+		device_id: uuid::Uuid,
 	},
 
 	// Indexing events

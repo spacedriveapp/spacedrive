@@ -19,7 +19,10 @@ import type {
 	VolumeItem,
 	LibraryDeviceInfo,
 	ListLibraryDevicesInput,
+	JobListItem,
 } from "@sd/ts-client";
+import { useJobs } from "../../components/JobManager/hooks/useJobs";
+import { JobCard } from "../../components/JobManager/components/JobCard";
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) return "0 B";
@@ -61,7 +64,7 @@ function getDiskTypeLabel(diskType: string): string {
 	return diskType === "SSD" ? "SSD" : diskType === "HDD" ? "HDD" : diskType;
 }
 
-export function StorageOverview() {
+export function DevicePanel() {
 	// Fetch all volumes using normalized cache
 	const { data: volumesData, isLoading: volumesLoading } = useNormalizedQuery<
 		VolumeListQueryInput,
@@ -81,6 +84,31 @@ export function StorageOverview() {
 		input: { include_offline: true, include_details: false },
 		resourceType: "device",
 	});
+
+	// Get all jobs with real-time updates (local jobs)
+	const { jobs: localJobs } = useJobs();
+
+	// Get remote device jobs
+	const { data: remoteJobsData } = useCoreQuery({
+		type: "jobs.remote.all_devices",
+		input: {},
+	});
+
+	// Merge local and remote jobs
+	const allJobs = [
+		...localJobs,
+		...(remoteJobsData?.jobs_by_device
+			? Object.values(remoteJobsData.jobs_by_device).flat().map((remoteJob) => ({
+					id: remoteJob.job_id,
+					name: remoteJob.job_type,
+					device_id: remoteJob.device_id,
+					status: remoteJob.status,
+					progress: remoteJob.progress || 0,
+					action_type: null,
+					action_context: null,
+			  }))
+			: []),
+	] as JobListItem[];
 
 	if (volumesLoading || devicesLoading) {
 		return (
@@ -127,33 +155,48 @@ export function StorageOverview() {
 		{} as Record<string, LibraryDeviceInfo>,
 	);
 
+	// Group jobs by device_id
+	const jobsByDevice = allJobs.reduce(
+		(acc, job) => {
+			const deviceId = job.device_id;
+			if (!acc[deviceId]) {
+				acc[deviceId] = [];
+			}
+			acc[deviceId].push(job);
+			return acc;
+		},
+		{} as Record<string, JobListItem[]>,
+	);
+
 	return (
-		<div className="grid grid-cols-2 gap-4">
-			{Object.entries(volumesByDevice).map(
-				([deviceId, deviceVolumes]) => {
-					const device = deviceMap[deviceId];
+		<div className="h-[600px] overflow-y-auto">
+			<div className="grid grid-cols-2 gap-4">
+				{devices.map((device) => {
+					const deviceVolumes = volumesByDevice[device.id] || [];
+					const deviceJobs = jobsByDevice[device.id] || [];
 
 					return (
 						<DeviceCard
-							key={deviceId}
+							key={device.id}
 							device={device}
 							volumes={deviceVolumes}
+							jobs={deviceJobs}
 						/>
 					);
-				},
-			)}
+				})}
 
-			{userVisibleVolumes.length === 0 && (
-				<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
-					<div className="text-center py-12 text-ink-faint">
-						<HardDrive className="size-12 mx-auto mb-3 opacity-20" />
-						<p className="text-sm">No volumes detected</p>
-						<p className="text-xs mt-1">
-							Track a volume to see storage information
-						</p>
+				{devices.length === 0 && (
+					<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
+						<div className="text-center py-12 text-ink-faint">
+							<HardDrive className="size-12 mx-auto mb-3 opacity-20" />
+							<p className="text-sm">No devices detected</p>
+							<p className="text-xs mt-1">
+								Pair a device to get started
+							</p>
+						</div>
 					</div>
-				</div>
-			)}
+				)}
+			</div>
 		</div>
 	);
 }
@@ -161,44 +204,102 @@ export function StorageOverview() {
 interface DeviceCardProps {
 	device?: LibraryDeviceInfo;
 	volumes: VolumeItem[];
+	jobs: JobListItem[];
 }
 
-function DeviceCard({ device, volumes }: DeviceCardProps) {
+function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 	const deviceName = device?.name || "Unknown Device";
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
+	const { pause, resume } = useJobs();
+
+	// Format hardware specs
+	const cpuInfo = device?.cpu_model
+		? `${device.cpu_model}${device.cpu_physical_cores ? ` • ${device.cpu_physical_cores}C` : ''}`
+		: null;
+	const ramInfo = device?.memory_total
+		? formatBytes(device.memory_total)
+		: null;
+	const formFactor = device?.form_factor;
+	const manufacturer = device?.manufacturer;
+
+	// Filter active jobs
+	const activeJobs = jobs.filter(
+		(j) => j.status === "running" || j.status === "paused"
+	);
 
 	return (
 		<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
 			{/* Device Header */}
 			<div className="px-6 py-4 border-b border-app-line">
-				<div className="flex items-center gap-3">
-					{deviceIconSrc ? (
-						<img
-							src={deviceIconSrc}
-							alt={deviceName}
-							className="size-8 opacity-80"
-						/>
-					) : (
-						<HardDrive
-							className="size-8 text-ink"
-							weight="duotone"
-						/>
-					)}
-					<div className="flex-1 min-w-0">
-						<h3 className="text-base font-semibold text-ink truncate">
-							{deviceName}
-						</h3>
-						<p className="text-sm text-ink-dull">
-							{volumes.length}{" "}
-							{volumes.length === 1 ? "volume" : "volumes"}
-							{device?.is_online === false && " • Offline"}
-						</p>
+				<div className="flex items-center gap-4">
+					{/* Left: Device icon and name */}
+					<div className="flex items-center gap-3 flex-1 min-w-0">
+						{deviceIconSrc ? (
+							<img
+								src={deviceIconSrc}
+								alt={deviceName}
+								className="size-8 opacity-80 flex-shrink-0"
+							/>
+						) : (
+							<HardDrive
+								className="size-8 text-ink flex-shrink-0"
+								weight="duotone"
+							/>
+						)}
+						<div className="min-w-0">
+							<h3 className="text-base font-semibold text-ink truncate">
+								{deviceName}
+							</h3>
+							<p className="text-sm text-ink-dull">
+								{volumes.length}{" "}
+								{volumes.length === 1 ? "volume" : "volumes"}
+								{device?.is_online === false && " • Offline"}
+							</p>
+						</div>
+					</div>
+
+					{/* Right: Hardware specs */}
+					<div className="flex items-center gap-3 text-xs text-ink-dull">
+						{manufacturer && formFactor && (
+							<div className="text-right">
+								<div className="font-medium text-ink">{manufacturer}</div>
+								<div>{formFactor}</div>
+							</div>
+						)}
+						{cpuInfo && (
+							<div className="text-right">
+								<div className="font-medium text-ink truncate max-w-[180px]" title={cpuInfo}>
+									{device?.cpu_model || 'CPU'}
+								</div>
+								<div>{device?.cpu_physical_cores}C / {device?.cpu_cores_logical}T</div>
+							</div>
+						)}
+						{ramInfo && (
+							<div className="text-right">
+								<div className="font-medium text-ink">{ramInfo}</div>
+								<div>RAM</div>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
 
+			{/* Active Jobs Section */}
+			{activeJobs.length > 0 && (
+				<div className="px-3 py-3 border-b border-app-line bg-app/50 space-y-2">
+					{activeJobs.map((job) => (
+						<JobCard
+							key={job.id}
+							job={job}
+							onPause={pause}
+							onResume={resume}
+						/>
+					))}
+				</div>
+			)}
+
 			{/* Volumes for this device */}
-			<div className="p-6 space-y-3">
+			<div className="px-4 py-3 space-y-2 bg-app-darkBox">
 				{volumes.map((volume, idx) => (
 					<VolumeBar key={volume.id} volume={volume} index={idx} />
 				))}
@@ -270,7 +371,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 			initial={{ opacity: 0, y: 10 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ delay: index * 0.05 }}
-			className="p-4 rounded-lg border border-transparent"
+			className="p-2 rounded-lg border border-transparent"
 		>
 			<div className="flex items-start gap-4">
 				<img

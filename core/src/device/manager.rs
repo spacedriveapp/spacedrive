@@ -69,6 +69,65 @@ impl DeviceManager {
 					needs_save = true;
 				}
 
+				// Backfill hardware specs if missing
+				if config.cpu_model.is_none()
+					|| config.cpu_architecture.is_none()
+					|| config.memory_total_bytes.is_none()
+					|| config.gpu_models.is_none()
+					|| config.boot_disk_type.is_none()
+				{
+					let system_info = crate::domain::device::detect_system_info_for_config();
+					if config.cpu_model.is_none() {
+						config.cpu_model = system_info.cpu_model;
+						needs_save = true;
+					}
+					if config.cpu_architecture.is_none() {
+						config.cpu_architecture = system_info.cpu_architecture;
+						needs_save = true;
+					}
+					if config.cpu_cores_physical.is_none() {
+						config.cpu_cores_physical = system_info.cpu_cores_physical;
+						needs_save = true;
+					}
+					if config.cpu_cores_logical.is_none() {
+						config.cpu_cores_logical = system_info.cpu_cores_logical;
+						needs_save = true;
+					}
+					if config.cpu_frequency_mhz.is_none() {
+						config.cpu_frequency_mhz = system_info.cpu_frequency_mhz;
+						needs_save = true;
+					}
+					if config.memory_total_bytes.is_none() {
+						config.memory_total_bytes = system_info.memory_total_bytes;
+						needs_save = true;
+					}
+					if config.form_factor.is_none() {
+						config.form_factor = system_info.form_factor;
+						needs_save = true;
+					}
+					if config.manufacturer.is_none() {
+						config.manufacturer = system_info.manufacturer;
+						needs_save = true;
+					}
+					if config.swap_total_bytes.is_none() {
+						config.swap_total_bytes = system_info.swap_total_bytes;
+						needs_save = true;
+					}
+					// Phase 2 fields
+					if config.gpu_models.is_none() {
+						config.gpu_models = system_info.gpu_models;
+						needs_save = true;
+					}
+					if config.boot_disk_type.is_none() {
+						config.boot_disk_type = system_info.boot_disk_type;
+						needs_save = true;
+					}
+					if config.boot_disk_capacity_bytes.is_none() {
+						config.boot_disk_capacity_bytes = system_info.boot_disk_capacity_bytes;
+						needs_save = true;
+					}
+				}
+
 				// Save if we detected any new values
 				if needs_save {
 					config.save_to(data_dir)?;
@@ -85,6 +144,22 @@ impl DeviceManager {
 				// Try to detect hardware model and OS version
 				config.hardware_model = detect_hardware_model();
 				config.os_version = detect_os_version();
+
+				// Detect comprehensive hardware specs
+				let system_info = crate::domain::device::detect_system_info_for_config();
+				config.cpu_model = system_info.cpu_model;
+				config.cpu_architecture = system_info.cpu_architecture;
+				config.cpu_cores_physical = system_info.cpu_cores_physical;
+				config.cpu_cores_logical = system_info.cpu_cores_logical;
+				config.cpu_frequency_mhz = system_info.cpu_frequency_mhz;
+				config.memory_total_bytes = system_info.memory_total_bytes;
+				config.form_factor = system_info.form_factor;
+				config.manufacturer = system_info.manufacturer;
+				config.swap_total_bytes = system_info.swap_total_bytes;
+				// Phase 2 fields
+				config.gpu_models = system_info.gpu_models;
+				config.boot_disk_type = system_info.boot_disk_type;
+				config.boot_disk_capacity_bytes = system_info.boot_disk_capacity_bytes;
 
 				// Save the new configuration
 				config.save_to(data_dir)?;
@@ -230,6 +305,22 @@ impl DeviceManager {
 			os: parse_os(&config.os),
 			os_version: config.os_version.clone(),
 			hardware_model: config.hardware_model.clone(),
+			// Hardware specs
+			cpu_model: config.cpu_model.clone(),
+			cpu_architecture: config.cpu_architecture.clone(),
+			cpu_cores_physical: config.cpu_cores_physical,
+			cpu_cores_logical: config.cpu_cores_logical,
+			cpu_frequency_mhz: config.cpu_frequency_mhz,
+			memory_total_bytes: config.memory_total_bytes,
+			form_factor: config
+				.form_factor
+				.as_deref()
+				.map(crate::domain::device::parse_device_form_factor_from_string),
+			manufacturer: config.manufacturer.clone(),
+			gpu_models: config.gpu_models.clone(),
+			boot_disk_type: config.boot_disk_type.clone(),
+			boot_disk_capacity_bytes: config.boot_disk_capacity_bytes,
+			swap_total_bytes: config.swap_total_bytes,
 			network_addresses: vec![],
 			capabilities: serde_json::json!({
 				"indexing": true,
