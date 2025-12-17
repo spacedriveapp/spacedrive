@@ -299,10 +299,19 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 			)}
 
 			{/* Volumes for this device */}
-			<div className="px-4 py-3 space-y-2 bg-app-darkBox">
-				{volumes.map((volume, idx) => (
-					<VolumeBar key={volume.id} volume={volume} index={idx} />
-				))}
+			<div className="px-3 py-3 space-y-3 bg-app-darkBox h-full">
+				{volumes.length > 0 ? (
+					volumes.map((volume, idx) => (
+						<VolumeBar key={volume.id} volume={volume} index={idx} />
+					))
+				) : (
+					<div className="flex items-center justify-center h-full py-8 text-center">
+						<div className="text-ink-faint">
+							<HardDrive className="size-8 mx-auto mb-2 opacity-20" />
+							<p className="text-xs">No volumes</p>
+						</div>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -371,170 +380,103 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 			initial={{ opacity: 0, y: 10 }}
 			animate={{ opacity: 1, y: 0 }}
 			transition={{ delay: index * 0.05 }}
-			className="p-2 rounded-lg border border-transparent"
+			className="rounded-lg bg-app-box border border-app-line/50 overflow-hidden"
 		>
-			<div className="flex items-start gap-4">
+			{/* Top row: Info */}
+			<div className="flex items-center gap-3 px-3 py-2">
+				{/* Icon */}
 				<img
 					src={iconSrc}
 					alt={volume.volume_type}
-					className="size-10 opacity-80 mt-1"
+					className="size-6 opacity-80 flex-shrink-0"
 				/>
 
-				<div className="flex-1 min-w-0">
-					{/* Header */}
-					<div className="flex items-center justify-between mb-3">
-						<div className="flex items-center gap-2 min-w-0">
-							<span className="font-semibold text-ink truncate text-base">
-								{volume.display_name || volume.name}
-							</span>
-							{!volume.is_online && (
-								<span className="px-2 py-0.5 bg-app-box text-ink-faint text-xs rounded-md border border-app-line">
-									Offline
-								</span>
-							)}
-							<div className="flex items-center gap-2">
-								{!volume.is_tracked && (
-									<button
-										onClick={handleTrack}
-										disabled={trackVolume.isPending}
-										className="px-2 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-xs rounded-md border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-										title="Track this volume to enable deduplication and search"
-									>
-										<Plus
-											className="size-3"
-											weight="bold"
-										/>
-										{trackVolume.isPending
-											? "Tracking..."
-											: "Track"}
-									</button>
-								)}
-								{currentDevice &&
-									volume.device_id === currentDevice.id && (
-										<button
-											onClick={handleIndex}
-											disabled={indexVolume.isPending}
-											className="px-2 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-xs rounded-md border border-sidebar-line hover:border-sidebar-line/50 transition-colors flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-											title="Index this volume to browse files without adding as location"
-										>
-											<Database
-												className="size-3"
-												weight="bold"
-											/>
-											{indexVolume.isPending
-												? "Indexing..."
-												: "Index"}
-										</button>
-									)}
-							</div>
-						</div>
-						<div className="text-right">
-							<div className="text-sm font-medium text-ink">
-								{formatBytes(totalCapacity)}
-							</div>
-							<div className="text-xs text-ink-dull">
-								{formatBytes(availableBytes)} free
-							</div>
-						</div>
-					</div>
-
-					{/* Windows-style thick capacity bar */}
-					<div className="mb-3">
-						<div className="h-8 bg-app rounded-md overflow-hidden border border-app-line">
-							<div className="h-full flex">
-								{/* Unique bytes */}
-								<motion.div
-									initial={{ width: 0 }}
-									animate={{ width: `${uniquePercent}%` }}
-									transition={{
-										duration: 1,
-										ease: "easeOut",
-										delay: index * 0.05,
-									}}
-									className="bg-accent border-r border-accent-deep"
-									title={`Unique: ${formatBytes(uniqueBytes)}`}
-								/>
-								{/* Duplicate bytes - lighter with stripes */}
-								<motion.div
-									initial={{ width: 0 }}
-									animate={{ width: `${duplicatePercent}%` }}
-									transition={{
-										duration: 1,
-										ease: "easeOut",
-										delay: index * 0.05 + 0.2,
-									}}
-									className="bg-accent/60 relative overflow-hidden"
-									style={{
-										backgroundImage:
-											"repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)",
-									}}
-									title={`Duplicate: ${formatBytes(duplicateBytes)}`}
-								/>
-							</div>
-						</div>
-					</div>
-
-					{/* Stats row */}
-					<div className="flex items-center gap-4 text-xs">
-						<div className="flex items-center gap-1.5">
-							<div className="size-3 rounded bg-gradient-to-b from-accent to-blue-600" />
-							<span className="text-ink-dull">
-								Unique: {formatBytes(uniqueBytes)}
-							</span>
-						</div>
-						<div className="flex items-center gap-1.5">
-							<div
-								className="size-3 rounded bg-gradient-to-b from-blue-400 to-accent"
-								style={{
-									backgroundImage:
-										"repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px)",
-								}}
-							/>
-							<span className="text-ink-dull">
-								Duplicate: {formatBytes(duplicateBytes)}
-							</span>
-						</div>
-						<span className="text-ink-faint">•</span>
-						<span className="text-ink-dull">
-							{usagePercent.toFixed(1)}% used
+				{/* Name, actions, and badges */}
+				<div className="min-w-0 flex-1">
+					<div className="flex items-center gap-2 mb-1">
+						<span className="font-semibold text-ink truncate text-sm">
+							{volume.display_name || volume.name}
 						</span>
-						{volume.mount_point && (
-							<>
-								<span className="text-ink-faint">•</span>
-								<span className="text-ink-faint truncate">
-									{volume.mount_point}
-								</span>
-							</>
+						{!volume.is_online && (
+							<span className="px-1.5 py-0.5 bg-app-box text-ink-faint text-[10px] rounded border border-app-line">
+								Offline
+							</span>
+						)}
+						{!volume.is_tracked && (
+							<button
+								onClick={handleTrack}
+								disabled={trackVolume.isPending}
+								className="px-1.5 py-0.5 bg-accent/10 hover:bg-accent/20 text-accent text-[10px] rounded border border-accent/20 hover:border-accent/30 transition-colors flex items-center gap-1 disabled:opacity-50"
+								title="Track this volume"
+							>
+								<Plus className="size-2.5" weight="bold" />
+								{trackVolume.isPending ? "Tracking..." : "Track"}
+							</button>
+						)}
+						{currentDevice && volume.device_id === currentDevice.id && (
+							<button
+								onClick={handleIndex}
+								disabled={indexVolume.isPending}
+								className="px-1.5 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-[10px] rounded border border-sidebar-line transition-colors flex items-center gap-1 disabled:opacity-50"
+								title="Index this volume"
+							>
+								<Database className="size-2.5" weight="bold" />
+								{indexVolume.isPending ? "Indexing..." : "Index"}
+							</button>
 						)}
 					</div>
 
-					{/* Bottom badges */}
-					<div className="flex items-center gap-2 text-xs text-ink-dull mt-2 flex-wrap">
-						<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
+					{/* Badges under name */}
+					<div className="flex items-center gap-1.5 text-[10px] text-ink-dull flex-wrap">
+						<span className="px-1.5 py-0.5 bg-app-box rounded border border-app-line">
 							{fileSystem}
 						</span>
-						<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
+						<span className="px-1.5 py-0.5 bg-app-box rounded border border-app-line">
 							{getDiskTypeLabel(diskType)}
 						</span>
-						{readSpeed && (
-							<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
-								{readSpeed} MB/s
-							</span>
-						)}
-						<span className="px-2 py-0.5 bg-app-box rounded border border-app-line">
+						<span className="px-1.5 py-0.5 bg-app-box rounded border border-app-line">
 							{volume.volume_type}
 						</span>
 						{volume.total_file_count != null && (
-							<span className="px-2 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
+							<span className="px-1.5 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
 								{volume.total_file_count.toLocaleString()} files
 							</span>
 						)}
-						{volume.total_directory_count != null && (
-							<span className="px-2 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">
-								{volume.total_directory_count.toLocaleString()}{" "}
-								dirs
-							</span>
-						)}
+					</div>
+				</div>
+
+				{/* Capacity info */}
+				<div className="text-right flex-shrink-0">
+					<div className="text-sm font-medium text-ink">
+						{formatBytes(totalCapacity)}
+					</div>
+					<div className="text-[10px] text-ink-dull">
+						{formatBytes(availableBytes)} free
+					</div>
+				</div>
+			</div>
+
+			{/* Bottom: Full-width capacity bar with padding */}
+			<div className="px-3 pb-3 pt-2">
+				<div className="h-8 bg-app rounded-md overflow-hidden border border-app-line">
+					<div className="h-full flex">
+						<motion.div
+							initial={{ width: 0 }}
+							animate={{ width: `${uniquePercent}%` }}
+							transition={{ duration: 1, ease: "easeOut", delay: index * 0.05 }}
+							className="bg-accent border-r border-accent-deep"
+							title={`Unique: ${formatBytes(uniqueBytes)} (${uniquePercent.toFixed(1)}%)`}
+						/>
+						<motion.div
+							initial={{ width: 0 }}
+							animate={{ width: `${duplicatePercent}%` }}
+							transition={{ duration: 1, ease: "easeOut", delay: index * 0.05 + 0.2 }}
+							className="bg-accent/60"
+							style={{
+								backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)",
+							}}
+							title={`Duplicate: ${formatBytes(duplicateBytes)} (${duplicatePercent.toFixed(1)}%)`}
+						/>
 					</div>
 				</div>
 			</div>
