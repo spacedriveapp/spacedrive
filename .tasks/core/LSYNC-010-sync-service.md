@@ -2,7 +2,7 @@
 id: LSYNC-010
 title: Peer Sync Service (Leaderless)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, replication, service, peer-to-peer, leaderless]

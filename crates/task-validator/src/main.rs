@@ -4,9 +4,11 @@ use clap::{Parser, Subcommand};
 use comfy_table::{Cell, Table};
 use glob::glob;
 use jsonschema::{Draft, JSONSchema};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use std::collections::HashSet;
 use std::fs;
+use std::path::Path;
 use std::process::{self, Command};
 
 #[derive(Parser)]
@@ -35,6 +37,11 @@ enum Commands {
 	},
 	/// Validate staged task files (for git hook)
 	Validate,
+	/// Export tasks to JSON
+	Export {
+		#[arg(short, long, help = "Output file path")]
+		output: String,
+	},
 }
 
 /// A struct that matches the YAML Front Matter schema.
@@ -48,6 +55,30 @@ struct TaskFrontMatter {
 	priority: String,
 	tags: Option<Vec<String>>,
 	whitepaper: Option<String>,
+}
+
+/// Exportable task with description for JSON output.
+#[derive(Debug, Serialize)]
+struct ExportableTask {
+	id: String,
+	title: String,
+	status: String,
+	assignee: String,
+	priority: String,
+	tags: Vec<String>,
+	whitepaper: Option<String>,
+	category: String,
+	description: String,
+	parent: Option<String>,
+	file: String,
+}
+
+/// Root export structure.
+#[derive(Debug, Serialize)]
+struct TaskExport {
+	tasks: Vec<ExportableTask>,
+	categories: Vec<String>,
+	generated_at: String,
 }
 
 fn main() {
@@ -70,6 +101,12 @@ fn main() {
 		Commands::Validate => {
 			if let Err(e) = validate_tasks() {
 				eprintln!("Error validating tasks: {}", e);
+				process::exit(1);
+			}
+		}
+		Commands::Export { output } => {
+			if let Err(e) = export_tasks(output) {
+				eprintln!("Error exporting tasks: {}", e);
 				process::exit(1);
 			}
 		}
@@ -287,4 +324,120 @@ fn validate_tasks() -> Result<(), Box<dyn std::error::Error>> {
 	}
 
 	Ok(())
+}
+
+fn export_tasks(output_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+	let mut tasks = Vec::new();
+	let mut categories = HashSet::new();
+
+	for entry in glob(".tasks/**/*.md")? {
+		let path = entry?;
+
+		// Skip non-task files
+		let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+		if !file_name.contains('-') || file_name == "Claude.md" {
+			continue;
+		}
+
+		let content = fs::read_to_string(&path)?;
+
+		if content.starts_with("---") {
+			let parts: Vec<&str> = content.splitn(3, "---").collect();
+			if parts.len() < 3 {
+				continue;
+			}
+
+			let front_matter_str = parts[1];
+			let body = parts[2].trim();
+
+			match serde_yaml::from_str::<TaskFrontMatter>(front_matter_str) {
+				Ok(front_matter) => {
+					// Extract category from path (.tasks/core/... -> "core")
+					let category = path
+						.parent()
+						.and_then(|p| p.file_name())
+						.and_then(|n| n.to_str())
+						.unwrap_or("uncategorized")
+						.to_string();
+
+					categories.insert(category.clone());
+
+					// Extract description (first section after front matter)
+					let description = extract_description(body);
+
+					// Get relative file path
+					let file_path = path.to_str().unwrap_or("").to_string();
+
+					tasks.push(ExportableTask {
+						id: front_matter.id,
+						title: front_matter.title,
+						status: front_matter.status,
+						assignee: front_matter.assignee,
+						priority: front_matter.priority,
+						tags: front_matter.tags.unwrap_or_default(),
+						whitepaper: front_matter.whitepaper,
+						category,
+						description,
+						parent: front_matter.parent,
+						file: file_path,
+					});
+				}
+				Err(e) => eprintln!("Error parsing YAML in {:?}: {}", path, e),
+			}
+		}
+	}
+
+	// Sort categories alphabetically
+	let mut categories_vec: Vec<String> = categories.into_iter().collect();
+	categories_vec.sort();
+
+	// Sort tasks by ID
+	tasks.sort_by(|a, b| a.id.cmp(&b.id));
+
+	let export = TaskExport {
+		tasks,
+		categories: categories_vec,
+		generated_at: chrono::Utc::now().to_rfc3339(),
+	};
+
+	// Create output directory if it doesn't exist
+	if let Some(parent) = Path::new(output_path).parent() {
+		fs::create_dir_all(parent)?;
+	}
+
+	// Write JSON to file
+	let json = serde_json::to_string_pretty(&export)?;
+	fs::write(output_path, json)?;
+
+	println!("Exported {} tasks to {}", export.tasks.len(), output_path);
+
+	Ok(())
+}
+
+fn extract_description(body: &str) -> String {
+	// Find the Description section and extract its content
+	let lines: Vec<&str> = body.lines().collect();
+	let mut description = String::new();
+	let mut in_description = false;
+
+	for line in lines {
+		if line.starts_with("## Description") {
+			in_description = true;
+			continue;
+		}
+		if in_description {
+			if line.starts_with("##") {
+				// Hit next section
+				break;
+			}
+			if !description.is_empty() || !line.trim().is_empty() {
+				if !description.is_empty() {
+					description.push(' ');
+				}
+				description.push_str(line.trim());
+			}
+		}
+	}
+
+	description
 }

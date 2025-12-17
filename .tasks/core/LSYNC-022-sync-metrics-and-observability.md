@@ -2,8 +2,9 @@
 id: LSYNC-022
 title: Sync Metrics and Observability System
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
+parent: LSYNC-000
 tags: [sync, metrics, observability, monitoring]
 last_updated: 2025-12-02
 related_tasks: [LSYNC-010, LSYNC-021]
@@ -216,6 +217,7 @@ struct ErrorEvent {
 ### Phase 1: Core Infrastructure (2-3 days)
 
 **Files to create:**
+
 - `core/src/service/sync/metrics/mod.rs` - Main module
 - `core/src/service/sync/metrics/collector.rs` - Central collector
 - `core/src/service/sync/metrics/types.rs` - Metric types
@@ -223,6 +225,7 @@ struct ErrorEvent {
 - `core/src/service/sync/metrics/history.rs` - Time-series storage
 
 **Tasks:**
+
 1. Define all metric types with atomic counters
 2. Implement `SyncMetricsCollector` with thread-safe access
 3. Create snapshot/export functionality
@@ -231,12 +234,14 @@ struct ErrorEvent {
 ### Phase 2: Integration (2-3 days)
 
 **Files to modify:**
+
 - `core/src/service/sync/peer.rs` - Add metrics recording
 - `core/src/service/sync/backfill.rs` - Track backfill metrics
 - `core/src/service/sync/state.rs` - Track state transitions
 - `core/src/service/network/protocol/sync/handler.rs` - Track message handling
 
 **Tasks:**
+
 1. Add metrics recording to all sync operations
 2. Record state transitions
 3. Track latency for key operations
@@ -245,9 +250,11 @@ struct ErrorEvent {
 ### Phase 3: CLI Interface (1-2 days)
 
 **Files to create:**
+
 - `crates/cli/src/commands/sync/metrics.rs` - CLI command
 
 **Command structure:**
+
 ```bash
 # Get current metrics snapshot
 sd sync metrics
@@ -275,6 +282,7 @@ sd sync metrics --errors     # Recent errors only
 ```
 
 **Output format:**
+
 ```
 Sync Metrics (Library: My Library)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -359,10 +367,12 @@ Errors (Last hour)
 ### Phase 4: API Integration (1 day)
 
 **Files to create:**
+
 - `core/src/ops/sync/get_metrics/mod.rs` - Query for metrics
 - `core/src/ops/sync/get_metrics/action.rs` - Action implementation
 
 **Query implementation:**
+
 ```rust
 // Define the query
 pub struct GetSyncMetrics;
@@ -409,6 +419,7 @@ let metrics = dispatcher
 
 **Event emission:**
 Emit events on metric updates for UI real-time display via the existing event bus:
+
 ```rust
 event_bus.emit(Event::SyncMetricsUpdated {
     library_id,
@@ -452,12 +463,14 @@ ON sync_metrics_snapshots(library_id, timestamp);
 ## Testing Strategy
 
 ### Unit Tests
+
 - Test atomic counter thread-safety
 - Test histogram calculations
 - Test ring buffer overflow behavior
 - Test snapshot serialization
 
 ### Integration Tests
+
 ```rust
 #[tokio::test]
 async fn test_sync_metrics_tracking() {
@@ -479,6 +492,7 @@ async fn test_sync_metrics_tracking() {
 ```
 
 ### Performance Tests
+
 - Measure overhead of metrics collection
 - Verify zero-cost when disabled
 - Test with high sync volume (1M+ operations)
@@ -510,6 +524,7 @@ async fn test_sync_metrics_tracking() {
 ## Implementation Files
 
 **New files:**
+
 - `core/src/service/sync/metrics/mod.rs`
 - `core/src/service/sync/metrics/collector.rs`
 - `core/src/service/sync/metrics/types.rs`
@@ -518,6 +533,7 @@ async fn test_sync_metrics_tracking() {
 - `crates/cli/src/commands/sync/metrics.rs`
 
 **Modified files:**
+
 - `core/src/service/sync/peer.rs`
 - `core/src/service/sync/backfill.rs`
 - `core/src/service/sync/state.rs`

@@ -2,8 +2,9 @@
 id: LSYNC-021
 title: Unified Sync Configuration System
 status: Done
-assignee: james
+assignee: jamiepine
 priority: Medium
+parent: LSYNC-000
 tags: [sync, core, config]
 last_updated: 2025-12-02
 related_tasks: [LSYNC-020]
@@ -34,6 +35,7 @@ Duration::days(30)
 ```
 
 **Problems:**
+
 - No single source of truth
 - Can't adjust sync behavior without code changes
 - Different defaults across files
@@ -709,20 +711,14 @@ export SD_PRUNING_STRATEGY=conservative
 ## Files Requiring Modification
 
 **New Files (3):**
+
 1. `core/src/infra/sync/config.rs` - Configuration types
 2. `core/migrations/mXXXXXXXXX_add_sync_config.rs` - Database schema
 3. `apps/cli/src/domains/sync/config.rs` - CLI commands
 
-**Modified Files (6):**
-4. `core/src/infra/sync/mod.rs` - Export config types
-5. `core/src/service/sync/mod.rs` - Accept and use config
-6. `core/src/service/sync/backfill.rs` - Replace constants with config
-7. `core/src/service/sync/peer.rs` - Replace constants with config
-8. `core/src/library/mod.rs` - Add config load/save methods
-9. `apps/cli/src/domains/sync/mod.rs` - Add config subcommand
+**Modified Files (6):** 4. `core/src/infra/sync/mod.rs` - Export config types 5. `core/src/service/sync/mod.rs` - Accept and use config 6. `core/src/service/sync/backfill.rs` - Replace constants with config 7. `core/src/service/sync/peer.rs` - Replace constants with config 8. `core/src/library/mod.rs` - Add config load/save methods 9. `apps/cli/src/domains/sync/mod.rs` - Add config subcommand
 
-**Documentation (1):**
-10. `docs/core/library-sync.mdx` - Add configuration section
+**Documentation (1):** 10. `docs/core/library-sync.mdx` - Add configuration section
 
 **Total: 10 files**
 
@@ -753,6 +749,7 @@ export SD_PRUNING_STRATEGY=conservative
 ---
 
 **Next Steps:**
+
 1. Review unified sync config design
 2. Implement Phase 1 (config structure)
 3. Integrate into sync service (Phase 2)

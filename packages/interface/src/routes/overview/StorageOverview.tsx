@@ -128,7 +128,7 @@ export function StorageOverview() {
 	);
 
 	return (
-		<div className="space-y-4">
+		<div className="grid grid-cols-2 gap-4">
 			{Object.entries(volumesByDevice).map(
 				([deviceId, deviceVolumes]) => {
 					const device = deviceMap[deviceId];

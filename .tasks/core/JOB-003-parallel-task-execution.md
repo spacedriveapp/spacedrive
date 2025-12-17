@@ -2,7 +2,7 @@
 id: JOB-003
 title: Parallel Task Execution from Jobs
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: JOB-000
 priority: High
 tags: [jobs, task-system, performance, parallelism]

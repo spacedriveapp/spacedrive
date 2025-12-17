@@ -2,7 +2,7 @@
 id: PLUG-000
 title: "Epic: WASM Extension System"
 status: In Progress
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, plugins, wasm, extensibility, extensions]
 whitepaper: Section 6.7

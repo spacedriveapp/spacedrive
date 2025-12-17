@@ -2,7 +2,7 @@
 id: SEARCH-001
 title: Asynchronous SearchJob
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: SEARCH-000
 priority: High
 tags: [search, jobs, async]

@@ -2,7 +2,7 @@
 id: SRCH-000
 title: Search Interface
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: Medium
 tags: [search, interface]

@@ -2,7 +2,7 @@
 id: ACT-001
 title: Action Manager and Handler Registry
 status: Done
-assignee: james
+assignee: jamiepine
 parent: ACT-000
 priority: High
 tags: [core, actions]

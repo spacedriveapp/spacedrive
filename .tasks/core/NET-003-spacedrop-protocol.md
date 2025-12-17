@@ -2,7 +2,7 @@
 id: NET-003
 title: Spacedrop Protocol
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: NET-000
 priority: High
 tags: [networking, spacedrop, sharing, p2p]

@@ -1,4 +1,5 @@
 import { SpacedriveProvider, type SpacedriveClient } from "./context";
+import { ServerProvider } from "./ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	RouterProvider,
@@ -639,11 +640,24 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 
 		// Move file into location/volume/folder
 		if (dropData?.action === "move-into") {
+			console.log("[DnD] Move-into action:", {
+				targetType: dropData.targetType,
+				targetId: dropData.targetId,
+				targetPath: dropData.targetPath,
+				hasTargetPath: !!dropData.targetPath,
+				draggedFile: dragData.name,
+			});
+
 			const sources: SdPath[] = dragData.selectedFiles
 				? dragData.selectedFiles.map((f: File) => f.sd_path)
 				: [dragData.sdPath];
 
 			const destination: SdPath = dropData.targetPath;
+
+			if (!destination) {
+				console.error("[DnD] No target path for move-into action");
+				return;
+			}
 
 			// Determine operation based on modifier keys
 			// For now default to copy (user can choose in modal)
@@ -762,21 +776,23 @@ export function Explorer({ client }: AppProps) {
 
 	return (
 		<SpacedriveProvider client={client}>
-			<DndWrapper>
-				<TopBarProvider>
-					<SelectionProvider>
-						<ExplorerProvider>
-							<RouterProvider router={router} />
-						</ExplorerProvider>
-					</SelectionProvider>
-				</TopBarProvider>
-			</DndWrapper>
-			<DaemonDisconnectedOverlay />
-			<Dialogs />
-			<ReactQueryDevtools
-				initialIsOpen={false}
-				buttonPosition="bottom-right"
-			/>
+			<ServerProvider>
+				<DndWrapper>
+					<TopBarProvider>
+						<SelectionProvider>
+							<ExplorerProvider>
+								<RouterProvider router={router} />
+							</ExplorerProvider>
+						</SelectionProvider>
+					</TopBarProvider>
+				</DndWrapper>
+				<DaemonDisconnectedOverlay />
+				<Dialogs />
+				<ReactQueryDevtools
+					initialIsOpen={false}
+					buttonPosition="bottom-right"
+				/>
+			</ServerProvider>
 		</SpacedriveProvider>
 	);
 }

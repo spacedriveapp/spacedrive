@@ -1,4 +1,4 @@
-import { WifiHigh } from "@phosphor-icons/react";
+import { WifiHigh, WifiNoneIcon, WifiSlashIcon } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { useNormalizedQuery, getDeviceIcon } from "../../context";
 import { SpaceItem } from "./SpaceItem";
@@ -29,15 +29,23 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 
 	return (
 		<div>
-			<GroupHeader label="Devices" isCollapsed={isCollapsed} onToggle={onToggle} />
+			<GroupHeader
+				label="Devices"
+				isCollapsed={isCollapsed}
+				onToggle={onToggle}
+			/>
 
 			{/* Items */}
 			{!isCollapsed && (
 				<div className="space-y-0.5">
 					{isLoading ? (
-						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">Loading...</div>
+						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">
+							Loading...
+						</div>
 					) : !devices || devices.length === 0 ? (
-						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">No devices</div>
+						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">
+							No devices
+						</div>
 					) : (
 						devices.map((device, index) => {
 							// Create a minimal SpaceItem structure for the device
@@ -57,25 +65,22 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 									className="text-sidebar-inkDull"
 									rightComponent={
 										<div className="flex items-center gap-1">
-											{/* Paired indicator (network icon) */}
-											{device.is_paired && (
-												<WifiHigh
-													size={12}
-													weight="bold"
-													className="text-accent"
-													title="Paired via network"
-												/>
-											)}
-
-											{/* Offline indicator */}
-											{!device.is_online && !device.is_connected && (
-												<span className="text-xs text-ink-faint">Offline</span>
-											)}
-
-											{/* Connected indicator for paired devices */}
-											{device.is_paired && device.is_connected && (
-												<span className="text-xs text-accent">Connected</span>
-											)}
+											{device.is_paired &&
+												!device.is_connected && (
+													<WifiSlashIcon
+														size={12}
+														weight="bold"
+														className="text-ink-dull"
+													/>
+												)}
+											{device.is_paired &&
+												device.is_connected && (
+													<WifiHigh
+														size={12}
+														weight="bold"
+														className="text-accent"
+													/>
+												)}
 										</div>
 									}
 								/>

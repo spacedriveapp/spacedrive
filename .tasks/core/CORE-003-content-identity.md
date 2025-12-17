@@ -2,7 +2,7 @@
 id: CORE-003
 title: Content Identity System for Deduplication
 status: Done
-assignee: james
+assignee: jamiepine
 parent: CORE-000
 priority: High
 tags: [core, vdfs, deduplication, hashing]

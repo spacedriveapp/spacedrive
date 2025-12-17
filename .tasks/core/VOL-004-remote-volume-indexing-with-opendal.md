@@ -1,8 +1,8 @@
 ---
 id: VOL-004
-title: Remote Volume Indexing with OpenDAL
+title: Cloud Volume Indexing with OpenDAL
 status: Done
-assignee: james
+assignee: jamiepine
 parent: VOL-000
 priority: High
 tags: [volume, remote-indexing, opendal, cloud]

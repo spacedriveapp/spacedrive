@@ -2,7 +2,7 @@
 id: LSYNC-013
 title: Hybrid Sync Protocol Handler (State + Log Based)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, networking, protocol, peer-to-peer, leaderless]

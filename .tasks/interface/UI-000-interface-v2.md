@@ -2,10 +2,9 @@
 id: UI-000
 title: "Epic: Interface V2 Architecture"
 status: In Progress
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, interface, react]
-whitepaper: N/A
 last_updated: 2025-12-02
 ---
 

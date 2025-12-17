@@ -2,7 +2,7 @@
 id: JOB-002
 title: Job-Specific File Logging
 status: Done
-assignee: james
+assignee: jamiepine
 parent: JOB-000
 priority: Medium
 tags: [core, jobs, logging]

@@ -40,6 +40,7 @@ import { formatBytes } from "../components/Explorer/utils";
 import { File as FileComponent } from "../components/Explorer/File";
 import { useContextMenu } from "../hooks/useContextMenu";
 import { usePlatform } from "../platform";
+import { useServer } from "../ServerContext";
 import { useJobs } from "../components/JobManager/hooks/useJobs";
 
 interface FileInspectorProps {
@@ -128,7 +129,9 @@ function OverviewTab({ file }: { file: File }) {
 	// Job tracking for long-running operations
 	const { jobs } = useJobs();
 	const isSpeechJobRunning = jobs.some(
-		(job) => job.name === "speech_to_text" && (job.status === "running" || job.status === "queued")
+		(job) =>
+			job.name === "speech_to_text" &&
+			(job.status === "running" || job.status === "queued"),
 	);
 
 	// Check content kind for available actions
@@ -490,17 +493,22 @@ function OverviewTab({ file }: { file: File }) {
 										},
 									);
 								}}
-								disabled={transcribeAudio.isPending || isSpeechJobRunning}
+								disabled={
+									transcribeAudio.isPending ||
+									isSpeechJobRunning
+								}
 								className={clsx(
 									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
 									"bg-app-box hover:bg-app-hover border border-app-line",
-									(transcribeAudio.isPending || isSpeechJobRunning) &&
+									(transcribeAudio.isPending ||
+										isSpeechJobRunning) &&
 										"opacity-50 cursor-not-allowed",
 								)}
 							>
 								<Microphone size={4} weight="bold" />
 								<span>
-									{transcribeAudio.isPending || isSpeechJobRunning
+									{transcribeAudio.isPending ||
+									isSpeechJobRunning
 										? "Transcribing..."
 										: "Generate Subtitles"}
 								</span>
@@ -682,17 +690,18 @@ function OverviewTab({ file }: { file: File }) {
 function SidecarsTab({ file }: { file: File }) {
 	const sidecars = file.sidecars || [];
 	const platform = usePlatform();
+	const { buildSidecarUrl, libraryId } = useServer();
 
 	// Helper to get sidecar URL
 	const getSidecarUrl = (sidecar: any) => {
-		if (typeof window === "undefined") return null;
-		const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-		const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
+		if (!file.content_identity) return null;
 
-		if (!serverUrl || !libraryId || !file.content_identity) return null;
-
-		const contentUuid = file.content_identity.uuid;
-		return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${sidecar.kind}/${sidecar.variant}.${sidecar.format}`;
+		return buildSidecarUrl(
+			file.content_identity.uuid,
+			sidecar.kind,
+			sidecar.variant,
+			sidecar.format,
+		);
 	};
 
 	return (
@@ -714,6 +723,7 @@ function SidecarsTab({ file }: { file: File }) {
 							file={file}
 							sidecarUrl={getSidecarUrl(sidecar)}
 							platform={platform}
+							libraryId={libraryId}
 						/>
 					))}
 				</div>
@@ -727,11 +737,13 @@ function SidecarItem({
 	file,
 	sidecarUrl,
 	platform,
+	libraryId,
 }: {
 	sidecar: any;
 	file: File;
 	sidecarUrl: string | null;
 	platform: ReturnType<typeof usePlatform>;
+	libraryId: string | null;
 }) {
 	const isImage =
 		(sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") &&
@@ -748,16 +760,10 @@ function SidecarItem({
 					if (
 						platform.getSidecarPath &&
 						platform.revealFile &&
-						file.content_identity
+						file.content_identity &&
+						libraryId
 					) {
 						try {
-							const libraryId = (window as any)
-								.__SPACEDRIVE_LIBRARY_ID__;
-							if (!libraryId) {
-								console.error("Library ID not found");
-								return;
-							}
-
 							// Convert "text" format to "txt" extension (matches actual file on disk)
 							const format =
 								sidecar.format === "text"
@@ -780,7 +786,8 @@ function SidecarItem({
 				condition: () =>
 					!!platform.getSidecarPath &&
 					!!platform.revealFile &&
-					!!file.content_identity,
+					!!file.content_identity &&
+					!!libraryId,
 			},
 			{
 				icon: Trash,

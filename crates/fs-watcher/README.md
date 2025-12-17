@@ -202,3 +202,4 @@ tokio::spawn(async move {
 
 For enhanced rename detection on macOS, the `PersistentIndexService` can maintain an inode cache. When a Remove event is received, check if the inode exists in your database to detect if it's actually a rename where the "new path" hasn't arrived yet.
 
+

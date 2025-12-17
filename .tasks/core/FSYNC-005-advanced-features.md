@@ -2,7 +2,7 @@
 id: FSYNC-005
 title: Advanced Features (Scheduling, Progress, Conflicts)
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: FSYNC-000
 priority: Medium
 tags: [scheduler, progress, conflicts, polish]

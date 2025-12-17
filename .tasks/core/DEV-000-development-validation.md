@@ -2,7 +2,7 @@
 id: DEV-000
 title: "Epic: Development & Validation Framework"
 status: Done
-assignee: james
+assignee: jamiepine
 priority: Medium
 tags: [epic, core, testing, dev-infra]
 whitepaper: Section 6.3

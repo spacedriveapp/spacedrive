@@ -2,7 +2,7 @@
 id: VSS-005
 title: "CLI Sidecar Commands"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-008
 priority: Medium
 tags: [vss, cli, tooling]

@@ -2,7 +2,7 @@
 id: CLOUD-002
 title: Asynchronous Relay Server
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CLOUD-000
 priority: High
 tags: [cloud, networking, relay, sharing]

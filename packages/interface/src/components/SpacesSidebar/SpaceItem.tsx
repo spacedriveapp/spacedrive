@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
 	House,
 	Clock,
@@ -366,6 +366,20 @@ export function SpaceItem({
 		else if ("Path" in item.item_type && resolvedFile?.kind === "Directory") targetType = "folder";
 	}
 
+	// Debug logging for folder drop targets
+	useEffect(() => {
+		if (typeof item.item_type === "object" && "Path" in item.item_type) {
+			console.log("[SpaceItem] Folder item:", {
+				label,
+				isDropTarget,
+				targetType,
+				hasResolvedFile: !!resolvedFile,
+				resolvedFileKind: resolvedFile?.kind,
+				sdPath: item.item_type.Path.sd_path,
+			});
+		}
+	}, [item, isDropTarget, targetType, resolvedFile, label]);
+
 	const { setNodeRef: setTopRef, isOver: isOverTop } = useDroppable({
 		id: `space-item-${item.id}-top`,
 		disabled: !allowInsertion,
@@ -388,6 +402,29 @@ export function SpaceItem({
 		},
 	});
 
+	// Build the target path for drop operations
+	const targetPath = isRawLocation
+		? (item as any).sd_path
+		: targetType === "folder" && typeof item.item_type === "object" && "Path" in item.item_type
+		? item.item_type.Path.sd_path
+		: targetType === "volume" && typeof item.item_type === "object" && "Volume" in item.item_type && volumeData
+		? { Physical: { device_slug: volumeData.device_slug, path: volumeData.mount_path || "/" } }
+		: targetType === "location" && typeof item.item_type === "object" && "Location" in item.item_type && (item as any).sd_path
+		? (item as any).sd_path
+		: undefined;
+
+	// Debug log the drop data
+	useEffect(() => {
+		if (isDropTarget && targetType === "folder") {
+			console.log("[SpaceItem] Drop zone data for folder:", {
+				label,
+				targetType,
+				targetPath,
+				itemId: item.id,
+			});
+		}
+	}, [isDropTarget, targetType, targetPath, label, item.id]);
+
 	const { setNodeRef: setMiddleRef, isOver: isOverMiddle } = useDroppable({
 		id: `space-item-${item.id}-middle`,
 		disabled: !isDropTarget,
@@ -395,8 +432,7 @@ export function SpaceItem({
 			action: "move-into",
 			targetType,
 			targetId: item.id,
-			// For raw locations, include the sd_path directly
-			targetPath: isRawLocation ? (item as any).sd_path : undefined,
+			targetPath,
 		},
 	});
 

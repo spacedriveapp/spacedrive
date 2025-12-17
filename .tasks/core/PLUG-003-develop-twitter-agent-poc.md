@@ -2,9 +2,9 @@
 id: PLUG-003
 title: Develop Production Extension (Photos or Email)
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: PLUG-000
-priority: High
+priority: Medium
 tags: [plugins, wasm, extension, production]
 whitepaper: Section 6.8
 last_updated: 2025-10-14

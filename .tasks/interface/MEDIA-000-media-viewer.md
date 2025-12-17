@@ -2,7 +2,7 @@
 id: MEDIA-000
 title: Media Viewer
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: Medium
 tags: [media, viewer, photos, videos]

@@ -4,6 +4,7 @@ import { getIcon, getBeardedIcon, beardedIconUrls } from "@sd/assets/util";
 import type { File } from "@sd/ts-client";
 import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getContentKind } from "../utils";
+import { useServer } from "../../../ServerContext";
 
 interface ThumbProps {
 	file: File;
@@ -27,6 +28,7 @@ export const Thumb = memo(function Thumb({
 	squareMode = false,
 }: ThumbProps) {
 	const cacheKey = `${file.id}-${size}`;
+	const { buildSidecarUrl } = useServer();
 
 	const [thumbLoaded, setThumbLoaded] = useState(
 		() => thumbLoadedCache.get(cacheKey) || false,
@@ -52,13 +54,6 @@ export const Thumb = memo(function Thumb({
 
 	// Get appropriate thumbnail URL from sidecars based on size
 	const getThumbnailUrl = (targetSize: number) => {
-		const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-		const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
-
-		if (!serverUrl || !libraryId) {
-			return null;
-		}
-
 		// Need content_identity to build sidecar URL
 		if (!file.content_identity?.uuid) {
 			return null;
@@ -102,10 +97,12 @@ export const Thumb = memo(function Thumb({
 			);
 		})[0];
 
-		const contentUuid = file.content_identity.uuid;
-		const url = `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${thumbnail.kind}/${thumbnail.variant}.${thumbnail.format}`;
-
-		return url;
+		return buildSidecarUrl(
+			file.content_identity.uuid,
+			thumbnail.kind,
+			thumbnail.variant,
+			thumbnail.format,
+		);
 	};
 
 	const thumbnailSrc = getThumbnailUrl(size);
@@ -134,7 +131,9 @@ export const Thumb = memo(function Thumb({
 
 	// Get bearded icon for extension overlay
 	const beardedIconName = getBeardedIcon(file.extension, file.name);
-	const beardedIconUrl = beardedIconName ? beardedIconUrls[beardedIconName] : null;
+	const beardedIconUrl = beardedIconName
+		? beardedIconUrls[beardedIconName]
+		: null;
 
 	// Below 60px, show only bearded icon at full size; above, show as overlay at 40%
 	const smallIconThreshold = 60;
@@ -146,7 +145,9 @@ export const Thumb = memo(function Thumb({
 		beardedIconUrl &&
 		file.kind === "File" &&
 		isUsingGenericIcon &&
-		(contentKind === "code" || contentKind === "document" || contentKind === "config");
+		(contentKind === "code" ||
+			contentKind === "document" ||
+			contentKind === "config");
 
 	return (
 		<div

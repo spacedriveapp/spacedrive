@@ -2,7 +2,7 @@
 id: EXPL-000
 title: "Epic: Explorer Interface"
 status: In Progress
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: High
 tags: [epic, explorer, interface]

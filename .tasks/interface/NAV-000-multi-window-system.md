@@ -2,7 +2,7 @@
 id: NAV-000
 title: Multi-Window System
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: Medium
 tags: [navigation, windows, architecture]

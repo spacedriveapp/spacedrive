@@ -10,6 +10,7 @@ import {
 	Settings,
 	PlatformProvider,
 	SpacedriveProvider,
+	ServerProvider,
 } from "@sd/interface";
 import {
 	SpacedriveClient,
@@ -235,9 +236,11 @@ function App() {
 		return (
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
-					<div className="h-screen bg-app overflow-hidden">
-						<PopoutInspector />
-					</div>
+					<ServerProvider>
+						<div className="h-screen bg-app overflow-hidden">
+							<PopoutInspector />
+						</div>
+					</ServerProvider>
 				</SpacedriveProvider>
 			</PlatformProvider>
 		);
@@ -249,9 +252,15 @@ function App() {
 
 	if (route === "/quick-preview") {
 		return (
-			<div className="h-screen bg-app overflow-hidden">
-				<QuickPreview />
-			</div>
+			<PlatformProvider platform={platform}>
+				<SpacedriveProvider client={client}>
+					<ServerProvider>
+						<div className="h-screen bg-app overflow-hidden">
+							<QuickPreview />
+						</div>
+					</ServerProvider>
+				</SpacedriveProvider>
+			</PlatformProvider>
 		);
 	}
 

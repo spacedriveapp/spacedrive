@@ -2,7 +2,7 @@
 id: FILE-003
 title: Cloud Volume File Operations
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: FILE-000
 priority: High
 tags: [core, file-ops, cloud, jobs]

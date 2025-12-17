@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { WifiSlash } from "@phosphor-icons/react";
 import { useNormalizedQuery, getVolumeIcon } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
@@ -26,21 +27,22 @@ export function VolumesGroup({
 
 	const volumes = volumesData?.volumes || [];
 
-	// Helper to render volume badges
-	const getVolumeBadges = (volume: VolumeItem) => (
+	// Helper to render volume status indicator
+	const getVolumeIndicator = (volume: VolumeItem) => (
 		<>
-			{!volume.is_online && (
-				<span className="text-xs text-ink-faint">Offline</span>
-			)}
 			{!volume.is_tracked && (
-				<span className="text-xs text-accent">Untracked</span>
+				<WifiSlash size={14} weight="bold" className="text-ink-faint" />
 			)}
 		</>
 	);
 
 	return (
 		<div>
-			<GroupHeader label="Volumes" isCollapsed={isCollapsed} onToggle={onToggle} />
+			<GroupHeader
+				label="Volumes"
+				isCollapsed={isCollapsed}
+				onToggle={onToggle}
+			/>
 
 			{/* Volumes List */}
 			{!isCollapsed && (
@@ -59,7 +61,9 @@ export function VolumesGroup({
 										item_type: {
 											Volume: {
 												volume_id: volume.id,
-												name: volume.display_name || volume.name,
+												name:
+													volume.display_name ||
+													volume.name,
 											},
 										},
 									} as any
@@ -68,7 +72,7 @@ export function VolumesGroup({
 									device_slug: volume.device_slug,
 									mount_path: volume.mount_point || "/",
 								}}
-								rightComponent={getVolumeBadges(volume)}
+								rightComponent={getVolumeIndicator(volume)}
 								customIcon={getVolumeIcon(volume)}
 								allowInsertion={false}
 								isLastItem={index === volumes.length - 1}

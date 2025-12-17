@@ -1,12 +1,13 @@
 ---
-id: INDEX-004
-title: Nested Locations Support (Entry Reuse Architecture)
+id: INDEX-008
+title: Nested Locations Support
 status: To Do
-assignee: james
+assignee: jamiepine
 priority: Medium
 tags: [indexing, locations, architecture, sync]
-last_updated: 2025-10-23
-related_tasks: [INDEX-001, INDEX-003, CORE-001, LSYNC-010]
+last_updated: 2025-12-16
+parent: INDEX-000
+related_tasks: [CORE-001, LSYNC-010, LOC-000]
 ---
 
 # Nested Locations Support (Entry Reuse Architecture)
@@ -107,6 +108,7 @@ Sync consistent (one UUID per file)
 ### Location Semantics
 
 Each location defines:
+
 - **Root entry**: Which node in the tree this location starts from
 - **Index mode**: How deeply to process files (Shallow/Content/Deep)
 - **Watching**: Whether to monitor changes in real-time
@@ -121,6 +123,7 @@ Multiple locations can reference overlapping subtrees with different behaviors.
 **File**: `core/src/location/manager.rs:100-122`
 
 **Current**:
+
 ```rust
 // Always creates new entry
 let entry_model = entry::ActiveModel {
@@ -131,6 +134,7 @@ let entry_record = entry_model.insert(&txn).await?;
 ```
 
 **Needed**:
+
 ```rust
 // Check if entry already exists at this path
 let existing_entry = directory_paths::Entity::find()
@@ -174,6 +178,7 @@ let location_model = location::ActiveModel {
 **File**: `core/src/location/manager.rs:~180`
 
 **Current**:
+
 ```rust
 // Always spawns indexer job
 let job = IndexerJob::from_location(location_id, sd_path, mode);
@@ -181,6 +186,7 @@ library.jobs().dispatch(job).await?;
 ```
 
 **Needed**:
+
 ```rust
 // Check if this entry is already indexed
 let entry = entry::Entity::find_by_id(entry_id)
@@ -216,6 +222,7 @@ if entry.indexed_at.is_some() {
 **Options**:
 
 **Option A: All watchers trigger (simple but wasteful)**
+
 ```rust
 // Both Location A and B get notified for /Documents/Work/test.txt
 // Both call responder
@@ -223,6 +230,7 @@ if entry.indexed_at.is_some() {
 ```
 
 **Option B: Innermost location wins (efficient)**
+
 ```rust
 // In the watcher event dispatch or routing:
 async fn find_deepest_watching_location(
@@ -302,6 +310,7 @@ async fn is_path_in_entry_tree(
 **Problem**: Deleting Location A shouldn't delete entries used by Location B
 
 **Solution**:
+
 ```rust
 async fn delete_location(&self, location_id: Uuid, db: &DatabaseConnection) -> Result<()> {
     let location = location::Entity::find()
@@ -354,17 +363,20 @@ async fn delete_location(&self, location_id: Uuid, db: &DatabaseConnection) -> R
 **Challenge**: How to sync nested locations across devices?
 
 **Scenario**:
+
 - Device A has Location A (`/Documents`) and Location B (`/Documents/Work`)
 - Device C connects and syncs
 
 **Current sync** (no nesting support):
+
 - Location A syncs → creates entries 1-5
-- Location B syncs → creates duplicate entries 100-102 
+- Location B syncs → creates duplicate entries 100-102
 
 **With nesting support**:
-- Location A syncs → creates entries 1-5 
-- Location B syncs → just creates location record pointing to existing entry 2 
-- No entry duplication 
+
+- Location A syncs → creates entries 1-5
+- Location B syncs → just creates location record pointing to existing entry 2
+- No entry duplication
 
 **Implementation**: Location sync already uses `entry_id` reference, so this works automatically! Just need to ensure receiving device doesn't re-create entries.
 
@@ -388,6 +400,7 @@ Device A creates Location B (/Documents/Work)
 **Implication**: Nested locations must be on the same device as their parent location's device.
 
 **Validation needed**:
+
 ```rust
 // When creating nested location, verify it's under a location on THIS device
 if let Some(parent_location) = find_parent_location(&path, db).await? {
@@ -406,9 +419,11 @@ if let Some(parent_location) = find_parent_location(&path, db).await? {
 ### Phase 1: Entry Reuse (2-3 days)
 
 **Files**:
+
 - `core/src/location/manager.rs`
 
 **Tasks**:
+
 1. Modify `add_location()` to check for existing entries at path
 2. Reuse entry if found, create if not
 3. Add validation to prevent cross-device nesting
@@ -418,9 +433,11 @@ if let Some(parent_location) = find_parent_location(&path, db).await? {
 ### Phase 2: Skip Redundant Indexing (1 day)
 
 **Files**:
+
 - `core/src/location/manager.rs`
 
 **Tasks**:
+
 1. Check if entry is already indexed before spawning job
 2. Consider index_mode differences (might need re-index)
 3. Add logic to determine if re-indexing needed
@@ -428,10 +445,12 @@ if let Some(parent_location) = find_parent_location(&path, db).await? {
 ### Phase 3: Watcher Precedence (2 days)
 
 **Files**:
+
 - `core/src/service/watcher/mod.rs`
 - `core/src/service/watcher/worker.rs`
 
 **Tasks**:
+
 1. Implement `find_deepest_watching_location()` helper
 2. Route events to innermost location only
 3. Handle edge cases (multiple watchers at same depth)
@@ -440,9 +459,11 @@ if let Some(parent_location) = find_parent_location(&path, db).await? {
 ### Phase 4: Location Deletion Safety (1 day)
 
 **Files**:
+
 - `core/src/ops/locations/delete/action.rs` (or manager)
 
 **Tasks**:
+
 1. Check for other location references before deleting entries
 2. Preserve shared entry trees
 3. Only delete location record if entries are shared
@@ -451,9 +472,11 @@ if let Some(parent_location) = find_parent_location(&path, db).await? {
 ### Phase 5: Sync Validation (1 day)
 
 **Files**:
+
 - `core/src/infra/db/entities/location.rs`
 
 **Tasks**:
+
 1. Ensure location sync doesn't duplicate entries
 2. Validate nested location references exist on receiving device
 3. Handle case where parent location hasn't synced yet (defer)
@@ -586,11 +609,13 @@ async fn test_cannot_nest_across_devices() {
 ### Edge Case 1: Parent Location Deleted, Nested Remains
 
 **Scenario**:
+
 - Location A (`/Documents`) deleted
 - Location B (`/Documents/Work`) still exists
 - Entry 2 (Work) now has orphan parent or needs reparenting
 
 **Solution**:
+
 ```rust
 // When deleting Location A:
 // - Keep entry tree intact (Location B references it)
@@ -601,6 +626,7 @@ async fn test_cannot_nest_across_devices() {
 ```
 
 **Alternative**: Prevent deleting parent locations if nested locations exist:
+
 ```rust
 // Check for child locations before allowing deletion
 let child_locations = find_locations_under_entry_subtree(entry_id, db).await?;
@@ -615,18 +641,21 @@ if !child_locations.is_empty() {
 ### Edge Case 2: Moving Nested Location
 
 **Scenario**:
+
 ```bash
 # Move Work directory to Personal
 mv /Documents/Work /Documents/Personal/Work
 ```
 
 **Current behavior**:
+
 - Location A's watcher detects rename
 - Updates entry 2's parent from entry 1 to entry 3 (Personal)
-- Location B's `entry_id` still points to entry 2 
-- Location B's path is now wrong 
+- Location B's `entry_id` still points to entry 2
+- Location B's path is now wrong
 
 **Solution**: Update location path when root entry moves:
+
 ```rust
 // After moving entry via responder:
 // Check if any locations reference this entry
@@ -651,11 +680,13 @@ for location in locations_using_entry {
 ### Edge Case 3: Index Mode Conflicts
 
 **Scenario**:
+
 - Location A (`/Documents`) has `mode: Shallow`
 - Location B (`/Documents/Work`) has `mode: Deep`
 - Which mode applies to `/Documents/Work/test.pdf`?
 
 **Solution**: Innermost location's mode wins:
+
 ```rust
 // When indexing or processing:
 fn get_effective_index_mode(path: &Path, db: &DatabaseConnection) -> IndexMode {
@@ -675,6 +706,7 @@ fn get_effective_index_mode(path: &Path, db: &DatabaseConnection) -> IndexMode {
 **Problem**: Location B references entry 2, but what if Location A hasn't synced yet?
 
 **Current sync order** (from docs):
+
 1. Shared resources (tags, etc.)
 2. Devices
 3. Locations
@@ -682,11 +714,13 @@ fn get_effective_index_mode(path: &Path, db: &DatabaseConnection) -> IndexMode {
 5. Entries
 
 **With nesting**:
+
 - Location B syncs → `entry_id: 2`
 - Entry 2 might not exist yet on receiving device!
-- Foreign key constraint violation 
+- Foreign key constraint violation
 
 **Solution**: Defer nested location sync until parent location syncs:
+
 ```rust
 // In location::Model::apply_state_change()
 if let Some(entry_id) = location_data.entry_id {
@@ -750,6 +784,7 @@ The flexibility is already built in!
 **Backwards compatibility**: Yes - existing non-nested locations continue to work
 
 **Rollout**:
+
 1. Implement entry reuse in location creation (Phase 1)
 2. Test with simple 1-level nesting
 3. Add watcher precedence (Phase 3)
@@ -760,11 +795,13 @@ The flexibility is already built in!
 ## Performance Considerations
 
 **Benefits**:
+
 - Reduced storage (no duplicate entries)
 - Faster indexing (skip already-indexed paths)
 - Less sync traffic (entries synced once)
 
 **Costs**:
+
 - Checking for existing entries on location creation (+1 query)
 - Watcher precedence logic (path comparison overhead)
 - Location deletion checks (query for other location references)
@@ -774,6 +811,7 @@ The flexibility is already built in!
 ## UI/UX Implications
 
 **Location list view**:
+
 ```
 Documents (/Users/jamespine/Documents)
   └─ Work (/Users/jamespine/Documents/Work) [nested]
@@ -782,6 +820,7 @@ Photos (/Users/jamespine/Pictures)
 ```
 
 **Considerations**:
+
 - Show nesting visually in UI
 - Warn before deleting parent location
 - Indicate which location is actively watching a path
@@ -792,17 +831,19 @@ Photos (/Users/jamespine/Pictures)
 - [Location Watcher Service](../../core/src/service/watcher/mod.rs)
 - [Location Manager](../../core/src/location/manager.rs)
 - [Entry-Centric Model](./CORE-001-entry-centric-model.md)
-- [INDEX-003](./INDEX-003-watcher-device-ownership-violation.md) - Related device ownership work
+- [Change Detection System](./INDEX-004-change-detection-system.md) - Related watcher work
 
 ## Implementation Files
 
 **Modified files**:
+
 - `core/src/location/manager.rs`
 - `core/src/service/watcher/mod.rs`
 - `core/src/service/watcher/worker.rs`
 - `core/src/ops/locations/delete/action.rs`
 
 **New files**:
+
 - `core/tests/nested_locations_test.rs`
 - `core/src/location/nesting.rs` (helper functions)
 

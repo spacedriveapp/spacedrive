@@ -2,7 +2,7 @@
 id: VSS-001
 title: "SdPath::Sidecar Variant Integration"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-008
 priority: High
 tags: [vss, addressing, sdpath, core]

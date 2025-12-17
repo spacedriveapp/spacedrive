@@ -2,7 +2,7 @@
 id: SETS-000
 title: "Epic: Settings Interface"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: Medium
 tags: [epic, settings, interface]

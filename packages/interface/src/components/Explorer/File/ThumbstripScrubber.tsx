@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, memo } from "react";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
+import { useServer } from "../../../ServerContext";
 
 interface ThumbstripScrubberProps {
 	file: File;
@@ -32,6 +33,7 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 	const [hoverProgress, setHoverProgress] = useState(0);
 	const [isHovering, setIsHovering] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const { buildSidecarUrl } = useServer();
 
 	// Find thumbstrip sidecar
 	const thumbstripSidecar = file.sidecars?.find(
@@ -97,14 +99,20 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 	}
 
 	// Build thumbstrip URL
-	const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-	const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
-
-	if (!serverUrl || !libraryId || !file.content_identity?.uuid) {
+	if (!file.content_identity?.uuid) {
 		return null;
 	}
 
-	const thumbstripUrl = `${serverUrl}/sidecar/${libraryId}/${file.content_identity.uuid}/${thumbstripSidecar.kind}/${thumbstripSidecar.variant}.${thumbstripSidecar.format}`;
+	const thumbstripUrl = buildSidecarUrl(
+		file.content_identity.uuid,
+		thumbstripSidecar.kind,
+		thumbstripSidecar.variant,
+		thumbstripSidecar.format,
+	);
+
+	if (!thumbstripUrl) {
+		return null;
+	}
 
 	// Calculate which frame to show based on hover position
 	const frameIndex = Math.min(

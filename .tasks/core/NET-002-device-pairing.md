@@ -2,7 +2,7 @@
 id: NET-002
 title: Secure Device Pairing Protocol
 status: Done
-assignee: james
+assignee: jamiepine
 parent: NET-000
 priority: High
 tags: [networking, security, pairing]

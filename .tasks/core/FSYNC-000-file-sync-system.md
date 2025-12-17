@@ -1,8 +1,8 @@
 ---
 id: FSYNC-000
-title: File Sync System (Epic)
+title: File Sync
 status: In Progress
-assignee: james
+assignee: jamiepine
 parent: null
 priority: High
 tags: [sync, service, epic, index-driven]

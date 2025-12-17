@@ -2,9 +2,9 @@
 id: SEC-004
 title: Role-Based Access Control (RBAC) System
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: SEC-000
-priority: High
+priority: Low
 tags: [security, enterprise, collaboration]
 whitepaper: Section 4.4.6
 ---

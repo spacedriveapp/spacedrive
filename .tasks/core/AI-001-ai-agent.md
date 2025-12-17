@@ -1,10 +1,10 @@
 ---
 id: AI-001
-title: Develop AI Agent for Proactive Assistance
+title: AI Agent for Proactive Assistance
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: AI-000
-priority: High
+priority: Medium
 tags: [ai, agent, core]
 whitepaper: Section 4.6
 ---

@@ -2,7 +2,7 @@
 id: LSYNC-009
 title: Hybrid Logical Clock (HLC) Implementation
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, hlc, distributed-systems, leaderless]

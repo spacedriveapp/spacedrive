@@ -2,7 +2,7 @@
 id: CORE-002
 title: Universal SdPath Addressing
 status: Done
-assignee: james
+assignee: jamiepine
 parent: CORE-000
 priority: High
 tags: [core, vdfs, addressing]

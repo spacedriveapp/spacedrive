@@ -2,7 +2,7 @@
 id: NET-000
 title: "Epic: Networking & Synchronization"
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, core, networking]
 whitepaper: Section 4.5

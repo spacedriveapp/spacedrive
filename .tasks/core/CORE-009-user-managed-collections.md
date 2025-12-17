@@ -2,9 +2,9 @@
 id: CORE-009
 title: User-Managed Collections
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-000
-priority: Medium
+priority: Low
 tags: [core, vdfs, collections, organization]
 whitepaper: Section 4.1
 ---

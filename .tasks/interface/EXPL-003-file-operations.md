@@ -2,7 +2,7 @@
 id: EXPL-003
 title: File Operations UI
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: EXPL-000
 priority: High
 tags: [explorer, file-operations]

@@ -2,6 +2,7 @@ import type { File, ContentKind } from "@sd/ts-client";
 import { File as FileComponent } from "../Explorer/File";
 import { formatBytes, getContentKind } from "../Explorer/utils";
 import { usePlatform } from "../../platform";
+import { useServer } from "../../ServerContext";
 import { useState, useEffect, useRef } from "react";
 import {
 	MagnifyingGlassPlus,
@@ -20,6 +21,7 @@ interface ContentRendererProps {
 
 function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const platform = usePlatform();
+	const { buildSidecarUrl } = useServer();
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [originalLoaded, setOriginalLoaded] = useState(false);
 	const [originalUrl, setOriginalUrl] = useState<string | null>(null);
@@ -90,13 +92,15 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			return bSize - aSize;
 		})[0];
 
-		const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-		const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
 		const contentUuid = file.content_identity?.uuid;
+		if (!contentUuid) return null;
 
-		if (!serverUrl || !libraryId || !contentUuid) return null;
-
-		return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${highest.kind}/${highest.variant}.${highest.format}`;
+		return buildSidecarUrl(
+			contentUuid,
+			highest.kind,
+			highest.variant,
+			highest.format,
+		);
 	};
 
 	const thumbnailUrl = getHighestResThumbnail();

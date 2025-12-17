@@ -2,7 +2,7 @@
 id: CORE-010
 title: File Ingestion Workflow
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-000
 priority: High
 tags: [core, vdfs, ingestion, workflow]

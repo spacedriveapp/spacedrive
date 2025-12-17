@@ -2,7 +2,7 @@
 id: DEV-001
 title: Develop Multi-Process Test Framework
 status: Done
-assignee: james
+assignee: jamiepine
 parent: DEV-000
 priority: High
 tags: [testing, dev-infra, networking]
