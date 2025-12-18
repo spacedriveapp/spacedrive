@@ -1101,10 +1101,32 @@ impl LibraryManager {
 			updated_at: Set(now.into()),
 		};
 
-		let space_result = space_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		// If Alice's space syncs to Bob before this runs, the upsert will update instead of failing
+		use crate::infra::db::entities::space::{Column, Entity};
+		Entity::insert(space_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(Column::Uuid)
+					.update_columns([
+						Column::Name,
+						Column::Icon,
+						Column::Color,
+						Column::Order,
+						Column::UpdatedAt,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
+
+		// Query the space back to get the id for creating items/groups
+		let space_result = Entity::find()
+			.filter(Column::Uuid.eq(space_id))
+			.one(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?
+			.ok_or_else(|| LibraryError::Other("Space not found after upsert".to_string()))?;
 
 		info!("Created default space for library {}", library.id());
 
@@ -1114,6 +1136,8 @@ impl LibraryManager {
 			(ItemType::Recents, "Recents", 1),
 			(ItemType::Favorites, "Favorites", 2),
 		];
+
+		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};
 
 		for (item_type, item_name, order) in space_items {
 			let item_type_json = serde_json::to_string(&item_type).map_err(|e| {
@@ -1133,8 +1157,18 @@ impl LibraryManager {
 				created_at: Set(now.into()),
 			};
 
-			item_model
-				.insert(db)
+			// Use atomic upsert to handle race conditions with sync
+			ItemEntity::insert(item_model)
+				.on_conflict(
+					sea_orm::sea_query::OnConflict::column(ItemColumn::Uuid)
+						.update_columns([
+							ItemColumn::GroupId,
+							ItemColumn::ItemType,
+							ItemColumn::Order,
+						])
+						.to_owned(),
+				)
+				.exec(db)
 				.await
 				.map_err(LibraryError::DatabaseError)?;
 		}
@@ -1143,6 +1177,10 @@ impl LibraryManager {
 			"Created default space-level items for library {}",
 			library.id()
 		);
+
+		use crate::infra::db::entities::space_group::{
+			Column as GroupColumn, Entity as GroupEntity,
+		};
 
 		// Create Devices group
 		let devices_group_id =
@@ -1161,8 +1199,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		devices_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(devices_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1185,8 +1235,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		locations_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(locations_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1212,8 +1274,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		volumes_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(volumes_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1235,8 +1309,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		tags_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(tags_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
