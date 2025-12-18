@@ -136,7 +136,7 @@ impl TestHarness {
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
-				location_watcher_enabled: true, // Need watcher to trigger reindex on move
+				fs_watcher_enabled: true, // Need watcher to trigger reindex on move
 			},
 		};
 

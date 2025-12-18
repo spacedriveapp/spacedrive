@@ -4,8 +4,8 @@ use sd_core::{
 	infra::action::manager::ActionManager,
 	ops::volumes::{
 		speed_test::action::{VolumeSpeedTestAction, VolumeSpeedTestInput},
-		track::action::{VolumeTrackAction, VolumeTrackInput},
-		untrack::action::{VolumeUntrackAction, VolumeUntrackInput},
+		track::{VolumeTrackAction, VolumeTrackInput},
+		untrack::{VolumeUntrackAction, VolumeUntrackInput},
 	},
 	volume::types::MountType,
 	Core,
@@ -82,13 +82,26 @@ async fn test_volume_tracking_lifecycle() {
 		.await
 		.expect("Failed to check tracking status");
 
+	let mut tracked_volume_id = None;
+
 	if initial_tracked {
-		info!("Volume is already tracked (from auto-tracking), untracking first");
+		info!("Volume is already tracked (from auto-tracking), getting volume_id for untracking");
+
+		// Get the tracked volumes and find ours
+		let tracked_volumes = volume_manager
+			.get_tracked_volumes(&library)
+			.await
+			.expect("Failed to get tracked volumes");
+
+		let tracked_volume = tracked_volumes
+			.iter()
+			.find(|v| v.fingerprint == fingerprint)
+			.expect("Volume should be tracked");
+
+		let volume_id = tracked_volume.uuid;
 
 		// Untrack it first so we can test tracking
-		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
-		});
+		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput { volume_id });
 
 		let result = action_manager
 			.dispatch_library(Some(library_id), untrack_action)
@@ -100,8 +113,8 @@ async fn test_volume_tracking_lifecycle() {
 	info!("Testing volume tracking...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: Some("My Test Volume".to_string()),
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("My Test Volume".to_string()),
 		});
 
 		let result = action_manager
@@ -110,9 +123,12 @@ async fn test_volume_tracking_lifecycle() {
 
 		assert!(result.is_ok(), "Failed to track volume: {:?}", result);
 
-		if result.is_ok() {
-			info!("Volume tracked successfully");
-		}
+		let track_output = result.unwrap();
+		tracked_volume_id = Some(track_output.volume_id);
+		info!(
+			"Volume tracked successfully with ID: {}",
+			track_output.volume_id
+		);
 
 		// Verify volume is tracked
 		let is_tracked = volume_manager
@@ -140,8 +156,8 @@ async fn test_volume_tracking_lifecycle() {
 	info!("Testing duplicate tracking prevention...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: Some("Another Name".to_string()),
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("Another Name".to_string()),
 		});
 
 		let result = action_manager
@@ -155,9 +171,8 @@ async fn test_volume_tracking_lifecycle() {
 	// Test 3: Untrack volume
 	info!("Testing volume untracking...");
 	{
-		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
-		});
+		let volume_id = tracked_volume_id.expect("Volume should be tracked");
+		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput { volume_id });
 
 		let result = action_manager
 			.dispatch_library(Some(library_id), untrack_action)
@@ -192,8 +207,11 @@ async fn test_volume_tracking_lifecycle() {
 	// Test 4: Try to untrack volume that's not tracked (should fail)
 	info!("Testing untrack of non-tracked volume...");
 	{
+		// Use a non-existent UUID for testing
+		use uuid::Uuid;
+		let non_existent_volume_id = Uuid::new_v4();
 		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
+			volume_id: non_existent_volume_id,
 		});
 
 		let result = action_manager
@@ -284,8 +302,16 @@ async fn test_volume_tracking_multiple_libraries() {
 
 	if is_tracked_lib1 {
 		info!("Volume already tracked in library 1, untracking first");
+		let tracked_volumes = volume_manager
+			.get_tracked_volumes(&library1)
+			.await
+			.expect("Failed to get tracked volumes");
+		let tracked_vol = tracked_volumes
+			.iter()
+			.find(|v| v.fingerprint == fingerprint)
+			.expect("Volume should be tracked");
 		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
+			volume_id: tracked_vol.uuid,
 		});
 		action_manager
 			.dispatch_library(Some(library1_id), untrack_action)
@@ -297,8 +323,8 @@ async fn test_volume_tracking_multiple_libraries() {
 	info!("Tracking volume in library 1...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: Some("Library 1 Volume".to_string()),
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("Library 1 Volume".to_string()),
 		});
 
 		let result = action_manager
@@ -315,8 +341,16 @@ async fn test_volume_tracking_multiple_libraries() {
 
 	if is_tracked_lib2 {
 		info!("Volume already tracked in library 2, untracking first");
+		let tracked_volumes = volume_manager
+			.get_tracked_volumes(&library2)
+			.await
+			.expect("Failed to get tracked volumes");
+		let tracked_vol = tracked_volumes
+			.iter()
+			.find(|v| v.fingerprint == fingerprint)
+			.expect("Volume should be tracked");
 		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
+			volume_id: tracked_vol.uuid,
 		});
 		action_manager
 			.dispatch_library(Some(library2_id), untrack_action)
@@ -328,8 +362,8 @@ async fn test_volume_tracking_multiple_libraries() {
 	info!("Tracking same volume in library 2...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: Some("Library 2 Volume".to_string()),
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("Library 2 Volume".to_string()),
 		});
 
 		let result = action_manager
@@ -374,7 +408,7 @@ async fn test_volume_tracking_multiple_libraries() {
 	info!("Untracking volume from library 1...");
 	{
 		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
+			volume_id: lib1_our_volume.uuid,
 		});
 
 		let result = action_manager
@@ -974,44 +1008,57 @@ async fn test_volume_tracking_edge_cases() {
 		.await
 		.unwrap_or(false)
 	{
-		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
-		});
-		action_manager
-			.dispatch_library(Some(library_id), untrack_action)
+		let tracked_volumes = core
+			.volumes
+			.get_tracked_volumes(&library)
 			.await
-			.ok();
+			.expect("Failed to get tracked volumes");
+		if let Some(tracked_vol) = tracked_volumes
+			.iter()
+			.find(|v| v.fingerprint == fingerprint)
+		{
+			let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
+				volume_id: tracked_vol.uuid,
+			});
+			action_manager
+				.dispatch_library(Some(library_id), untrack_action)
+				.await
+				.ok();
+		}
 	}
 
 	// Test 1: Track with empty name
 	info!("Testing tracking with empty name...");
-	{
+	let volume_id_1 = {
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: Some("".to_string()),
+			fingerprint: fingerprint.to_string(),
+			display_name: Some("".to_string()),
 		});
 
 		let result = action_manager
 			.dispatch_library(Some(library_id), track_action)
 			.await;
 		assert!(result.is_ok(), "Should handle empty name");
+		let output = result.unwrap();
 
 		// Untrack for next test
 		let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-			fingerprint: fingerprint.clone(),
+			volume_id: output.volume_id,
 		});
 		action_manager
 			.dispatch_library(Some(library_id), untrack_action)
 			.await
 			.ok();
-	}
+
+		output.volume_id
+	};
 
 	// Test 2: Track with None name
 	info!("Testing tracking with None name...");
 	{
 		let track_action = VolumeTrackAction::new(VolumeTrackInput {
-			fingerprint: fingerprint.clone(),
-			name: None,
+			fingerprint: fingerprint.to_string(),
+			display_name: None,
 		});
 
 		let result = action_manager

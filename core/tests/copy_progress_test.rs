@@ -116,6 +116,7 @@ async fn test_copy_progress_monitoring_large_file() {
 		sources: SdPathBatch::new(vec![SdPath::local(source_file.clone())]),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
+			conflict_resolution: None,
 			overwrite: false,
 			verify_checksum: true,     // --verify
 			preserve_timestamps: true, // --preserve-timestamps
@@ -413,6 +414,7 @@ async fn test_copy_progress_multiple_files() {
 		sources: SdPathBatch::new(source_files.iter().cloned().map(SdPath::local).collect()),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
+			conflict_resolution: None,
 			overwrite: false,
 			verify_checksum: true,
 			preserve_timestamps: true,

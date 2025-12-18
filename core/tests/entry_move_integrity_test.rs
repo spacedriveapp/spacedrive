@@ -164,7 +164,7 @@ async fn test_entry_metadata_preservation_on_move() {
 	let _apply_output = action_manager
 		.dispatch_library(
 			Some(library_id),
-			ApplyTagsAction::from_input(ApplyTagsInput::user_tags(
+			ApplyTagsAction::from_input(ApplyTagsInput::user_tags_entry(
 				vec![original_parent_dir_id],
 				vec![tag_id],
 			))
@@ -454,7 +454,7 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 		.expect("Could not find child entry");
 	let original_child_id = child_entry.id;
 
-	let apply_tags_input = ApplyTagsInput::user_tags(vec![original_child_id], vec![tag_id]);
+	let apply_tags_input = ApplyTagsInput::user_tags_entry(vec![original_child_id], vec![tag_id]);
 	let apply_tags_action = ApplyTagsAction::from_input(apply_tags_input).unwrap();
 	let _apply_output = action_manager
 		.dispatch_library(Some(library_id), apply_tags_action)

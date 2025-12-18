@@ -44,4 +44,4 @@ jobs:
         run: cargo build -p sd-core --verbose
 
       - name: Run all tests
-        run: cargo test --workspace --test-threads=1 -- --nocapture
+        run: cargo test --workspace -- --test-threads=1 --nocapture

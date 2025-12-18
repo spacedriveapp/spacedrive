@@ -55,7 +55,7 @@ async fn test_copy_action_construction() {
 		]),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
-			conflict_resolution: ConflictResolution::Overwrite,
+			conflict_resolution: None,
 			overwrite: false,
 			copy_method: CopyMethod::Auto,
 			verify_checksum: true,
@@ -88,6 +88,7 @@ async fn test_move_action_construction() {
 		sources: SdPathBatch::new(vec![SdPath::local(source_file.clone())]),
 		destination: SdPath::local(dest_file.clone()),
 		options: CopyOptions {
+			conflict_resolution: None,
 			copy_method: CopyMethod::Auto,
 			overwrite: false,
 			verify_checksum: false,
