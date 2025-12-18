@@ -8,6 +8,7 @@ import {
 	MagnifyingGlassPlus,
 	MagnifyingGlassMinus,
 	ArrowCounterClockwise,
+	Cube,
 } from "@phosphor-icons/react";
 import { VideoPlayer } from "./VideoPlayer";
 import { AudioPlayer } from "./AudioPlayer";
@@ -28,11 +29,28 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	const [originalLoaded, setOriginalLoaded] = useState(false);
 	const [originalUrl, setOriginalUrl] = useState<string | null>(null);
 	const [shouldLoadOriginal, setShouldLoadOriginal] = useState(false);
+	const [showSplat, setShowSplat] = useState(false);
 	const { zoom, zoomIn, zoomOut, reset, isZoomed, transform } =
 		useZoomPan(containerRef);
 
 	// Get a stable identifier for the image file itself
 	const imageFileId = file.content_identity?.uuid || file.id;
+
+	// Check if Gaussian splat sidecar exists and get URL
+	const splatSidecar = file.sidecars?.find(
+		(s) => s.kind === "gaussian_splat" && s.format === "ply"
+	);
+	const hasSplat = !!splatSidecar;
+
+	// Build sidecar URL for the splat
+	const splatUrl = hasSplat && file.content_identity?.uuid
+		? buildSidecarUrl(
+			file.content_identity.uuid,
+			splatSidecar!.kind,
+			splatSidecar!.variant,
+			splatSidecar!.format,
+		)
+		: null;
 
 	// Notify parent of zoom state changes
 	useEffect(() => {
@@ -44,6 +62,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 		setShouldLoadOriginal(false);
 		setOriginalLoaded(false);
 		setOriginalUrl(null);
+		setShowSplat(false); // Reset splat view when file changes
 
 		const timer = setTimeout(() => {
 			setShouldLoadOriginal(true);
@@ -107,11 +126,54 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 
 	const thumbnailUrl = getHighestResThumbnail();
 
+	// Render splat view separately (not overlayed)
+	if (showSplat && hasSplat && splatUrl) {
+		return (
+			<>
+				{/* Splat Toggle */}
+				<div className="absolute top-4 left-4 z-10">
+					<button
+						onClick={() => setShowSplat(false)}
+						className="rounded-lg p-2 bg-accent text-white backdrop-blur-xl transition-colors hover:bg-accent/90"
+						title="Show Image"
+					>
+						<Cube size={20} weight="bold" />
+					</button>
+				</div>
+
+				{/* Splat Viewer - matches direct .ply rendering structure */}
+				<Suspense
+					fallback={
+						<div className="w-full h-full flex items-center justify-center">
+							<FileComponent.Thumb file={file} size={200} />
+						</div>
+					}
+				>
+					<MeshViewer file={file} splatUrl={splatUrl} />
+				</Suspense>
+			</>
+		);
+	}
+
+	// Render image view with zoom/pan
 	return (
 		<div
 			ref={containerRef}
 			className={`relative w-full h-full flex items-center justify-center ${isZoomed ? "overflow-visible" : "overflow-hidden"}`}
 		>
+			{/* Splat Toggle (top-left) */}
+			{hasSplat && (
+				<div className="absolute top-4 left-4 z-10">
+					<button
+						onClick={() => setShowSplat(true)}
+						className="rounded-lg p-2 bg-app-box/80 text-ink backdrop-blur-xl transition-colors hover:bg-app-hover"
+						title="Show 3D Splat"
+					>
+						<Cube size={20} weight="bold" />
+					</button>
+				</div>
+			)}
+
 			{/* Zoom Controls */}
 			<div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
 				<button

@@ -13,6 +13,7 @@ import * as THREE from "three";
 interface MeshViewerProps {
 	file: File;
 	onZoomChange?: (isZoomed: boolean) => void;
+	splatUrl?: string | null; // Optional URL to Gaussian splat sidecar
 }
 
 interface MeshSceneProps {
@@ -172,7 +173,7 @@ function GaussianSplatViewer({
 	);
 }
 
-export function MeshViewer({ file, onZoomChange }: MeshViewerProps) {
+export function MeshViewer({ file, onZoomChange, splatUrl }: MeshViewerProps) {
 	const platform = usePlatform();
 	const [meshUrl, setMeshUrl] = useState<string | null>(null);
 	const [isGaussianSplat, setIsGaussianSplat] = useState(false);
@@ -192,9 +193,17 @@ export function MeshViewer({ file, onZoomChange }: MeshViewerProps) {
 		}, 50);
 
 		return () => clearTimeout(timer);
-	}, [fileId]);
+	}, [fileId, splatUrl]);
 
 	useEffect(() => {
+		// If splatUrl is provided, use it directly (it's a Gaussian splat sidecar)
+		if (splatUrl) {
+			setMeshUrl(splatUrl);
+			setIsGaussianSplat(true);
+			setLoading(false);
+			return;
+		}
+
 		if (!shouldLoad || !platform.convertFileSrc) {
 			return;
 		}
@@ -210,6 +219,11 @@ export function MeshViewer({ file, onZoomChange }: MeshViewerProps) {
 
 		const url = platform.convertFileSrc(physicalPath);
 		setMeshUrl(url);
+
+		// Only run detection if not using splatUrl (splatUrl is already known to be a Gaussian splat)
+		if (splatUrl) {
+			return;
+		}
 
 		// Create an AbortController to cancel the detection fetch if component unmounts
 		const abortController = new AbortController();
@@ -254,7 +268,7 @@ export function MeshViewer({ file, onZoomChange }: MeshViewerProps) {
 		return () => {
 			abortController.abort();
 		};
-	}, [shouldLoad, fileId, file.sd_path, platform]);
+	}, [shouldLoad, fileId, file.sd_path, platform, splatUrl]);
 
 	if (!meshUrl || loading) {
 		return (

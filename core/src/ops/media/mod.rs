@@ -4,6 +4,7 @@
 //! - Thumbnail generation
 //! - OCR (text extraction from images/PDFs)
 //! - Speech-to-text (audio/video transcription)
+//! - Gaussian splat generation (3D view synthesis from images)
 //! - Video transcoding
 //! - Audio metadata extraction
 //! - Image optimization
@@ -13,6 +14,7 @@ pub mod blurhash;
 pub mod metadata_extractor;
 pub mod ocr;
 pub mod proxy;
+pub mod splat;
 
 #[cfg(feature = "ffmpeg")]
 pub mod speech;
@@ -29,6 +31,7 @@ pub use metadata_extractor::{
 };
 pub use ocr::{OcrJob, OcrProcessor};
 pub use proxy::{ProxyJob, ProxyProcessor};
+pub use splat::{GaussianSplatJob, GaussianSplatProcessor};
 
 #[cfg(feature = "ffmpeg")]
 pub use speech::{SpeechToTextJob, SpeechToTextProcessor};
