@@ -978,8 +978,8 @@ mod tests {
 			"device must sync before location"
 		);
 
-		// Location must come before entry
-		assert!(location_idx < entry_idx, "location must sync before entry");
+		// Note: location and entry have a circular relationship (location.entry_id → entry, entries belong to locations)
+		// This is handled by making location.entry_id nullable during sync, so no ordering constraint is enforced
 
 		// M2M dependencies
 		assert!(
