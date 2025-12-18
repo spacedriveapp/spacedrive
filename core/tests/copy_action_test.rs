@@ -14,7 +14,6 @@ use sd_core::{
 };
 use tempfile::TempDir;
 use tokio::fs;
-use uuid::Uuid;
 
 /// Helper to create test files with content
 async fn create_test_file(path: &std::path::Path, content: &str) -> Result<(), std::io::Error> {

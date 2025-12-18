@@ -368,13 +368,20 @@ impl DeviceManager {
 	pub fn set_name(&self, name: String) -> Result<(), DeviceError> {
 		let mut config = self.config.write().map_err(|_| DeviceError::LockPoisoned)?;
 
-		config.name = name;
+		config.name = name.clone();
+		// Regenerate slug based on new name
+		config.slug = crate::domain::device::Device::generate_slug(&name);
 
 		// Save to the appropriate location based on whether we have a custom data dir
 		if let Some(data_dir) = &self.data_dir {
 			config.save_to(data_dir)?;
 		} else {
 			config.save()?;
+		}
+
+		// Update the global device slug
+		if let Ok(mut slug_guard) = crate::device::id::CURRENT_DEVICE_SLUG.write() {
+			*slug_guard = config.slug.clone();
 		}
 
 		Ok(())

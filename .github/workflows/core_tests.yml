@@ -44,4 +44,17 @@ jobs:
         run: cargo build -p sd-core --verbose
 
       - name: Run all tests
-        run: cargo test -p sd-core --lib --tests -- --test-threads=1 --nocapture
+        run: |
+          cargo test -p sd-core --lib -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test indexing_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test indexing_rules_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test indexing_responder_reindex_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_backfill_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_backfill_race_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_event_log_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_metrics_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_realtime_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test sync_setup_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test file_sync_simple_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test file_sync_test -- --test-threads=1 --nocapture
+          cargo test -p sd-core --test database_migration_test -- --test-threads=1 --nocapture
