@@ -309,18 +309,25 @@ mod tests {
 	fn test_large_arena_growth() {
 		let mut arena = NodeArena::new().expect("failed to create arena");
 
-		for i in 0..10_000 {
-			let node = make_test_node(&format!("file{}.txt", i));
+		// Pre-generate names so they have a stable address
+		let names: Vec<String> = (0..10_000).map(|i| format!("file{}.txt", i)).collect();
+		let static_names: Vec<&'static str> = names
+			.iter()
+			.map(|s| Box::leak(s.clone().into_boxed_str()) as &'static str)
+			.collect();
+
+		for name in &static_names {
+			let node = make_test_node(name);
 			arena.insert(node).expect("insert should succeed");
 		}
 
 		assert_eq!(arena.len(), 10_000);
 		assert!(arena.capacity() >= 10_000);
 
-		for i in 0..10_000 {
+		for (i, name) in static_names.iter().enumerate() {
 			let id = EntryId::from_usize(i);
 			let node = arena.get(id).expect("node should exist");
-			assert_eq!(node.name(), format!("file{}.txt", i));
+			assert_eq!(node.name(), *name);
 		}
 	}
 }

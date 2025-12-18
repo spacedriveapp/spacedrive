@@ -270,7 +270,7 @@ mod tests {
 
 		let result = detector.check_path(&new_path, &metadata, None);
 		match result {
-			Some(Change::Created { path, .. }) => assert_eq!(path, new_path),
+			Some(Change::New(path)) => assert_eq!(path, new_path),
 			_ => panic!("Expected new file detection"),
 		}
 	}

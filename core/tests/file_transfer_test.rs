@@ -95,9 +95,9 @@ async fn alice_file_transfer_scenario() {
 
 	// Wait for pairing completion
 	println!("Alice: Waiting for Bob to connect...");
-	let mut receiver_device_id = None;
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
+	let mut receiver_device_id = None;
 
 	loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;

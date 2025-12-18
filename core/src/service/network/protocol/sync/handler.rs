@@ -768,8 +768,9 @@ mod tests {
 			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(device_key_fallback))
 				.unwrap(),
 		);
-		let device_manager =
-			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
+		let device_manager = Arc::new(
+			DeviceManager::init(&temp_dir.path().to_path_buf(), key_manager.clone(), None).unwrap(),
+		);
 		let logger = Arc::new(crate::service::network::utils::SilentLogger);
 		let registry = DeviceRegistry::new(device_manager, key_manager, logger);
 		let device_registry = Arc::new(tokio::sync::RwLock::new(registry));

@@ -36,8 +36,6 @@ use uuid::Uuid;
 
 struct TestHarness {
 	test_root: PathBuf,
-	data_dir: PathBuf,
-	core: Core,
 	library: Arc<sd_core::library::Library>,
 	event_log: Arc<Mutex<Vec<Event>>>,
 	snapshot_dir: PathBuf,
@@ -111,8 +109,6 @@ impl TestHarness {
 
 		Ok(Self {
 			test_root,
-			data_dir,
-			core,
 			library,
 			event_log,
 			snapshot_dir,
