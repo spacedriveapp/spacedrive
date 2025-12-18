@@ -200,7 +200,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 
 	return (
 		<div className="">
-			<div className="columns-2 gap-4">
+			<div className="grid grid-cols-2 gap-4 items-start">
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
@@ -280,7 +280,7 @@ function DeviceCard({
 	);
 
 	return (
-		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl break-inside-avoid mb-4">
+		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl">
 			{/* Device Header */}
 			<div className="px-6 py-4 bg-app-box border-b border-app-line">
 				<div className="flex items-center gap-4">
