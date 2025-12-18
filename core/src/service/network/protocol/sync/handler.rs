@@ -20,6 +20,7 @@ pub struct SyncProtocolHandler {
 	library_id: Uuid,
 	peer_sync: Option<Arc<crate::service::sync::peer::PeerSync>>,
 	backfill_manager: Option<Arc<crate::service::sync::BackfillManager>>,
+	metrics: Option<Arc<crate::service::sync::SyncMetricsCollector>>,
 	device_registry: Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>,
 }
 
@@ -37,6 +38,7 @@ impl SyncProtocolHandler {
 			library_id,
 			peer_sync: None,
 			backfill_manager: None,
+			metrics: None,
 			device_registry,
 		}
 	}
@@ -52,6 +54,11 @@ impl SyncProtocolHandler {
 		backfill_manager: Arc<crate::service::sync::BackfillManager>,
 	) {
 		self.backfill_manager = Some(backfill_manager);
+	}
+
+	/// Set the metrics collector (called after initialization)
+	pub fn set_metrics(&mut self, metrics: Arc<crate::service::sync::SyncMetricsCollector>) {
+		self.metrics = Some(metrics);
 	}
 
 	/// Get library ID
@@ -253,6 +260,17 @@ impl SyncProtocolHandler {
 					None
 				};
 
+				// Record metrics for backfill response
+				if let Some(metrics) = &self.metrics {
+					// Estimate response size (records + tombstones)
+					let record_bytes = records.len() * 1024; // ~1KB per record estimate
+					let tombstone_bytes = deleted_uuids.len() * 100; // ~100 bytes per UUID
+					metrics.record_bytes_sent((record_bytes + tombstone_bytes) as u64);
+					metrics
+						.record_entries_synced(&model_type, records.len() as u64)
+						.await;
+				}
+
 				Ok(Some(SyncMessage::StateResponse {
 					library_id,
 					model_type,
@@ -324,6 +342,22 @@ impl SyncProtocolHandler {
 					has_state_snapshot = current_state.is_some(),
 					"Returning shared changes to requester"
 				);
+
+				// Record metrics for shared backfill response
+				if let Some(metrics) = &self.metrics {
+					// Estimate response size
+					let entries_bytes = entries.len() * 512; // ~512 bytes per shared change
+					let state_bytes = if let Some(ref state) = current_state {
+						// Estimate size by serializing (since it's already a JSON value)
+						serde_json::to_vec(state).map(|v| v.len()).unwrap_or(0)
+					} else {
+						0
+					};
+					metrics.record_bytes_sent((entries_bytes + state_bytes) as u64);
+					metrics
+						.record_entries_synced("shared", entries.len() as u64)
+						.await;
+				}
 
 				Ok(Some(SyncMessage::SharedChangeResponse {
 					library_id,

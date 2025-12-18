@@ -5,273 +5,45 @@
 
 mod helpers;
 
-use helpers::MockTransport;
+use helpers::{
+	create_snapshot_dir, create_test_volume, init_test_tracing, register_device, wait_for_indexing,
+	wait_for_sync, MockTransport, TestConfigBuilder,
+};
 use sd_core::{
 	infra::{db::entities, sync::NetworkTransport},
-	library::Library,
+	location::{create_location, IndexMode, LocationCreateArgs},
 	service::Service,
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
-use std::sync::Arc;
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use std::{path::PathBuf, sync::Arc};
 use tokio::{fs, time::Duration};
 use uuid::Uuid;
 
-fn init_tracing(test_name: &str, snapshot_dir: &std::path::Path) -> anyhow::Result<()> {
-	use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-
-	let log_file = std::fs::File::create(snapshot_dir.join("test.log"))?;
-
-	let _ = tracing_subscriber::registry()
-		.with(
-			fmt::layer()
-				.with_target(true)
-				.with_thread_ids(true)
-				.with_ansi(false)
-				.with_writer(log_file),
-		)
-		.with(fmt::layer().with_target(true).with_thread_ids(true))
-		.with(EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-			EnvFilter::new(
-				"sd_core::service::sync=debug,\
-				 sd_core::service::sync::peer=debug,\
-				 sd_core::service::sync::backfill=debug,\
-				 sd_core::service::sync::dependency=debug,\
-				 sd_core::infra::sync=debug,\
-				 sd_core::infra::db::entities=debug,\
-				 sync_backfill_test=debug,\
-				 helpers=trace",
-			)
-		}))
-		.try_init();
-
-	tracing::info!(
-		snapshot_dir = %snapshot_dir.display(),
-		"Initialized logging for {}",
-		test_name
-	);
-
-	Ok(())
-}
-
-fn create_test_config(data_dir: &std::path::Path) -> anyhow::Result<sd_core::config::AppConfig> {
-	let logging_config = sd_core::config::LoggingConfig {
-		main_filter: "sd_core=info".to_string(),
-		streams: vec![sd_core::config::LogStreamConfig {
-			name: "sync".to_string(),
-			file_name: "sync.log".to_string(),
-			filter: "sd_core::service::sync=trace,\
-				sd_core::service::network::protocol::sync=trace,\
-				sd_core::infra::sync=trace,\
-				sd_core::service::sync::peer=trace,\
-				sd_core::service::sync::backfill=trace,\
-				sd_core::infra::db::entities::entry=debug,\
-				sd_core::infra::db::entities::device=debug,\
-				sd_core::infra::db::entities::location=debug"
-				.to_string(),
-			enabled: true,
-		}],
-	};
-
-	let config = sd_core::config::AppConfig {
-		version: 4,
-		logging: logging_config,
-		data_dir: data_dir.to_path_buf(),
-		log_level: "debug".to_string(),
-		telemetry_enabled: false,
-		preferences: sd_core::config::Preferences::default(),
-		job_logging: sd_core::config::JobLoggingConfig::default(),
-		services: sd_core::config::ServiceConfig {
-			networking_enabled: false,
-			volume_monitoring_enabled: false,
-			fs_watcher_enabled: false,
-		},
-	};
-
-	config.save()?;
-
-	Ok(config)
-}
-
-async fn wait_for_indexing(library: &Arc<Library>, _location_id: i32) -> anyhow::Result<()> {
-	use sd_core::infra::job::JobStatus;
-
-	let start_time = tokio::time::Instant::now();
-	let timeout_duration = Duration::from_secs(120);
-
-	let mut job_seen = false;
-	let mut last_entry_count = 0;
-	let mut stable_iterations = 0;
-
-	loop {
-		let running_jobs = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
-
-		if !running_jobs.is_empty() {
-			job_seen = true;
-			tracing::debug!(
-				running_count = running_jobs.len(),
-				"Indexing jobs still running"
-			);
-		}
-
-		let current_entries = entities::entry::Entity::find()
-			.count(library.db().conn())
-			.await?;
-
-		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
-
-		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
-		{
-			if current_entries == last_entry_count {
-				stable_iterations += 1;
-				if stable_iterations >= 3 {
-					tracing::info!(
-						total_entries = current_entries,
-						"Indexing completed and stabilized"
-					);
-					break;
-				}
-			} else {
-				stable_iterations = 0;
-			}
-			last_entry_count = current_entries;
-		}
-
-		let failed_jobs = library.jobs().list_jobs(Some(JobStatus::Failed)).await?;
-		if !failed_jobs.is_empty() {
-			anyhow::bail!("Indexing job failed");
-		}
-
-		if start_time.elapsed() > timeout_duration {
-			anyhow::bail!(
-				"Indexing timeout after {:?} (entries: {})",
-				timeout_duration,
-				current_entries
-			);
-		}
-
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
-
-	Ok(())
-}
-
-async fn register_device(
-	library: &Arc<Library>,
-	device_id: Uuid,
-	device_name: &str,
-) -> anyhow::Result<()> {
-	use chrono::Utc;
-
-	let device_model = entities::device::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(device_id),
-		name: Set(device_name.to_string()),
-		slug: Set(device_name.to_lowercase()),
-		os: Set("Test OS".to_string()),
-		os_version: Set(Some("1.0".to_string())),
-		hardware_model: Set(None),
-		cpu_model: Set(None),
-		cpu_architecture: Set(None),
-		cpu_cores_physical: Set(None),
-		cpu_cores_logical: Set(None),
-		cpu_frequency_mhz: Set(None),
-		memory_total_bytes: Set(None),
-		form_factor: Set(None),
-		manufacturer: Set(None),
-		gpu_models: Set(None),
-		boot_disk_type: Set(None),
-		boot_disk_capacity_bytes: Set(None),
-		swap_total_bytes: Set(None),
-		network_addresses: Set(serde_json::json!([])),
-		is_online: Set(false),
-		last_seen_at: Set(Utc::now()),
-		capabilities: Set(serde_json::json!({})),
-		created_at: Set(Utc::now()),
-		updated_at: Set(Utc::now()),
-		sync_enabled: Set(true),
-		last_sync_at: Set(None),
-	};
-
-	device_model.insert(library.db().conn()).await?;
-	Ok(())
-}
-
-/// Create a mock volume for testing
-async fn create_test_volume(
-	library: &Arc<Library>,
-	device_id: Uuid,
-	fingerprint: &str,
-	display_name: &str,
-) -> anyhow::Result<()> {
-	use chrono::Utc;
-
-	let volume_model = entities::volume::ActiveModel {
-		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Uuid::new_v4()),
-		device_id: Set(device_id),
-		fingerprint: Set(fingerprint.to_string()),
-		display_name: Set(Some(display_name.to_string())),
-		tracked_at: Set(Utc::now()),
-		last_seen_at: Set(Utc::now()),
-		is_online: Set(true),
-		total_capacity: Set(Some(500_000_000_000)),     // 500GB
-		available_capacity: Set(Some(250_000_000_000)), // 250GB available
-		unique_bytes: Set(None),
-		read_speed_mbps: Set(Some(500)),
-		write_speed_mbps: Set(Some(400)),
-		last_speed_test_at: Set(None),
-		total_file_count: Set(None),
-		total_directory_count: Set(None),
-		last_indexed_at: Set(None),
-		file_system: Set(Some("APFS".to_string())),
-		mount_point: Set(Some("/Volumes/TestDrive".to_string())),
-		is_removable: Set(Some(true)),
-		is_network_drive: Set(Some(false)),
-		device_model: Set(Some("SSD Model".to_string())),
-		volume_type: Set(Some("External".to_string())),
-		is_user_visible: Set(Some(true)),
-		auto_track_eligible: Set(Some(true)),
-		cloud_identifier: Set(None),
-		cloud_config: Set(None),
-	};
-
-	volume_model.insert(library.db().conn()).await?;
-	Ok(())
-}
-
 #[tokio::test]
 async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
+	let snapshot_dir = create_snapshot_dir("backfill_alice_first").await?;
+	init_test_tracing("backfill_alice_first", &snapshot_dir)?;
+
 	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
 	let test_root =
 		std::path::PathBuf::from(home).join("Library/Application Support/spacedrive/sync_tests");
 
 	let data_dir = test_root.join("data");
-	fs::create_dir_all(&data_dir).await?;
-
 	let temp_dir_alice = data_dir.join("alice_backfill");
 	let temp_dir_bob = data_dir.join("bob_backfill");
 	fs::create_dir_all(&temp_dir_alice).await?;
 	fs::create_dir_all(&temp_dir_bob).await?;
 
-	let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-	let snapshot_dir = test_root
-		.join("snapshots")
-		.join(format!("backfill_alice_first_{}", timestamp));
-	fs::create_dir_all(&snapshot_dir).await?;
-
-	init_tracing("backfill_alice_first", &snapshot_dir)?;
-
 	tracing::info!(
-		test_root = %test_root.display(),
 		snapshot_dir = %snapshot_dir.display(),
 		alice_dir = %temp_dir_alice.display(),
 		bob_dir = %temp_dir_bob.display(),
 		"Test directories initialized"
 	);
 
-	create_test_config(&temp_dir_alice)?;
-	create_test_config(&temp_dir_bob)?;
+	TestConfigBuilder::new(temp_dir_alice.clone()).build()?;
+	TestConfigBuilder::new(temp_dir_bob.clone()).build()?;
 
 	tracing::info!("=== Phase 1: Alice indexes location (Bob not connected yet) ===");
 
@@ -284,16 +56,14 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		.create_library_no_sync("Backfill Test Library", None, core_alice.context.clone())
 		.await?;
 
-	use sd_core::location::{create_location, IndexMode, LocationCreateArgs};
-
 	let device_record = entities::device::Entity::find()
 		.one(library_alice.db().conn())
 		.await?
 		.ok_or_else(|| anyhow::anyhow!("Device not found"))?;
 
-	let downloads_path = std::env::var("HOME").unwrap() + "/Desktop";
+	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
 	let location_args = LocationCreateArgs {
-		path: std::path::PathBuf::from(&downloads_path),
+		path: std::path::PathBuf::from(&desktop_path),
 		name: Some("Desktop".to_string()),
 		index_mode: IndexMode::Content,
 	};
@@ -306,12 +76,9 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 	)
 	.await?;
 
-	tracing::info!(
-		location_id = location_db_id,
-		"Location created on Alice, waiting for indexing"
-	);
+	tracing::info!(location_id = location_db_id, "Location created on Alice");
 
-	wait_for_indexing(&library_alice, location_db_id).await?;
+	wait_for_indexing(&library_alice, location_db_id, Duration::from_secs(120)).await?;
 
 	let alice_entries_after_index = entities::entry::Entity::find()
 		.count(library_alice.db().conn())
@@ -326,7 +93,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		"Alice indexing complete"
 	);
 
-	// Add some volumes to Alice before Bob connects
+	// Add volumes to Alice
 	tracing::info!("Adding test volumes to Alice");
 	create_test_volume(
 		&library_alice,
@@ -396,131 +163,11 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 
 	tracing::info!("Sync services started - backfill should begin automatically");
 
-	// Give sync loop a moment to start
 	tokio::time::sleep(Duration::from_millis(500)).await;
-
-	let bob_state = library_bob
-		.sync_service()
-		.unwrap()
-		.peer_sync()
-		.state()
-		.await;
-	let alice_state = library_alice
-		.sync_service()
-		.unwrap()
-		.peer_sync()
-		.state()
-		.await;
-
-	tracing::info!(
-		bob_state = ?bob_state,
-		alice_state = ?alice_state,
-		"Initial sync states after startup"
-	);
-
-	// Check if Bob can see Alice as a connected partner
-	let partners = transport_bob
-		.get_connected_sync_partners(library_bob.id(), library_bob.db().conn())
-		.await?;
-
-	tracing::info!(
-		partners = ?partners,
-		alice_device = %device_alice_id,
-		bob_device = %device_bob_id,
-		"Bob's view of connected sync partners"
-	);
-
-	if partners.is_empty() {
-		anyhow::bail!("Bob cannot see any connected partners! Backfill won't trigger.");
-	}
 
 	tracing::info!("=== Phase 3: Waiting for backfill to complete ===");
 
-	let start = tokio::time::Instant::now();
-	let max_duration = Duration::from_secs(60);
-	let mut last_bob_entries = 0;
-	let mut last_bob_content = 0;
-	let mut stable_iterations = 0;
-	let mut no_progress_iterations = 0;
-
-	while start.elapsed() < max_duration {
-		let bob_entries = entities::entry::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-		let bob_content = entities::content_identity::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		let bob_state = library_bob
-			.sync_service()
-			.unwrap()
-			.peer_sync()
-			.state()
-			.await;
-
-		// Check if we're making progress
-		if bob_entries == last_bob_entries && bob_content == last_bob_content {
-			no_progress_iterations += 1;
-			if no_progress_iterations >= 20 {
-				tracing::warn!(
-					bob_entries = bob_entries,
-					alice_entries = alice_entries_after_index,
-					bob_state = ?bob_state,
-					elapsed_secs = start.elapsed().as_secs(),
-					"No progress for 20 iterations - backfill may be stuck"
-				);
-			}
-		} else {
-			no_progress_iterations = 0;
-		}
-
-		// Check if sync is complete
-		if bob_entries == alice_entries_after_index && bob_content == alice_content_after_index {
-			stable_iterations += 1;
-			if stable_iterations >= 5 {
-				tracing::info!(
-					duration_ms = start.elapsed().as_millis(),
-					bob_entries = bob_entries,
-					bob_content = bob_content,
-					bob_state = ?bob_state,
-					"Backfill complete and stable"
-				);
-				break;
-			}
-		} else {
-			stable_iterations = 0;
-		}
-
-		if bob_entries != last_bob_entries || bob_content != last_bob_content {
-			let entry_progress = if alice_entries_after_index > 0 {
-				(bob_entries as f64 / alice_entries_after_index as f64 * 100.0)
-			} else {
-				0.0
-			};
-			let content_progress = if alice_content_after_index > 0 {
-				(bob_content as f64 / alice_content_after_index as f64 * 100.0)
-			} else {
-				0.0
-			};
-
-			tracing::info!(
-				bob_entries = bob_entries,
-				bob_content = bob_content,
-				alice_entries = alice_entries_after_index,
-				alice_content = alice_content_after_index,
-				entry_progress_pct = format!("{:.1}", entry_progress),
-				content_progress_pct = format!("{:.1}", content_progress),
-				bob_state = ?bob_state,
-				elapsed_secs = start.elapsed().as_secs(),
-				"Backfill in progress"
-			);
-		}
-
-		last_bob_entries = bob_entries;
-		last_bob_content = bob_content;
-
-		tokio::time::sleep(Duration::from_millis(100)).await;
-	}
+	wait_for_sync(&library_alice, &library_bob, Duration::from_secs(60)).await?;
 
 	let bob_entries_final = entities::entry::Entity::find()
 		.count(library_bob.db().conn())
@@ -550,7 +197,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 
 	assert!(
 		entry_diff <= 5,
-		"Entry count mismatch after backfill: Alice has {}, Bob has {} (diff: {})",
+		"Entry count mismatch after backfill: Alice {}, Bob {} (diff: {})",
 		alice_entries_after_index,
 		bob_entries_final,
 		entry_diff
@@ -558,7 +205,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 
 	assert!(
 		content_diff <= 5,
-		"Content identity count mismatch after backfill: Alice has {}, Bob has {} (diff: {})",
+		"Content identity count mismatch after backfill: Alice {}, Bob {} (diff: {})",
 		alice_content_after_index,
 		bob_content_final,
 		content_diff
@@ -567,7 +214,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 	// Verify volume sync
 	assert_eq!(
 		alice_volumes_final, bob_volumes_final,
-		"Volume count mismatch after backfill: Alice has {}, Bob has {}",
+		"Volume count mismatch after backfill: Alice {}, Bob {}",
 		alice_volumes_final, bob_volumes_final
 	);
 
@@ -577,6 +224,7 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		"Volume sync verification passed"
 	);
 
+	// Verify content_id linkage
 	let bob_files_linked = entities::entry::Entity::find()
 		.filter(entities::entry::Column::Kind.eq(0))
 		.filter(entities::entry::Column::ContentId.is_not_null())
@@ -612,30 +260,23 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 /// Test bidirectional volume sync - both devices should receive each other's volumes
 #[tokio::test]
 async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
+	let snapshot_dir = create_snapshot_dir("bidirectional_volume_sync").await?;
+	init_test_tracing("bidirectional_volume_sync", &snapshot_dir)?;
+
 	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
 	let test_root =
 		std::path::PathBuf::from(home).join("Library/Application Support/spacedrive/sync_tests");
 
 	let data_dir = test_root.join("data");
-	fs::create_dir_all(&data_dir).await?;
-
 	let temp_dir_alice = data_dir.join("alice_volume_sync");
 	let temp_dir_bob = data_dir.join("bob_volume_sync");
 	fs::create_dir_all(&temp_dir_alice).await?;
 	fs::create_dir_all(&temp_dir_bob).await?;
 
-	let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-	let snapshot_dir = test_root
-		.join("snapshots")
-		.join(format!("bidirectional_volume_sync_{}", timestamp));
-	fs::create_dir_all(&snapshot_dir).await?;
-
-	init_tracing("bidirectional_volume_sync", &snapshot_dir)?;
-
 	tracing::info!("=== Phase 1: Initialize both devices ===");
 
-	create_test_config(&temp_dir_alice)?;
-	create_test_config(&temp_dir_bob)?;
+	TestConfigBuilder::new(temp_dir_alice.clone()).build()?;
+	TestConfigBuilder::new(temp_dir_bob.clone()).build()?;
 
 	let core_alice = Core::new(temp_dir_alice.clone())
 		.await
@@ -655,7 +296,6 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 		.create_library_no_sync("Volume Sync Test", None, core_bob.context.clone())
 		.await?;
 
-	// Register devices in each other's libraries
 	register_device(&library_alice, device_bob_id, "Bob").await?;
 	register_device(&library_bob, device_alice_id, "Alice").await?;
 
@@ -741,7 +381,7 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 
 	tracing::info!("=== Phase 4: Wait for bidirectional sync ===");
 
-	// Wait for sync
+	// Wait for sync with simpler logic for volumes
 	let start = tokio::time::Instant::now();
 	let max_duration = Duration::from_secs(30);
 	let mut stable_iterations = 0;
@@ -786,7 +426,6 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 		.count(library_bob.db().conn())
 		.await?;
 
-	// Get volumes by device to verify
 	let alice_volumes_list = entities::volume::Entity::find()
 		.all(library_alice.db().conn())
 		.await?;
@@ -802,7 +441,6 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 		"=== Final volume counts ==="
 	);
 
-	// Both should have 2 volumes (their own + the other's)
 	assert_eq!(
 		alice_volumes_final, 2,
 		"Alice should have 2 volumes (her own + Bob's), but has {}",
@@ -814,7 +452,7 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 		bob_volumes_final
 	);
 
-	// Verify Alice has both her own and Bob's volume
+	// Verify Alice has both
 	let alice_has_own = alice_volumes_list
 		.iter()
 		.any(|v| v.device_id == device_alice_id);
@@ -825,7 +463,7 @@ async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
 	assert!(alice_has_own, "Alice should have her own volume");
 	assert!(alice_has_bobs, "Alice should have Bob's volume");
 
-	// Verify Bob has both his own and Alice's volume
+	// Verify Bob has both
 	let bob_has_own = bob_volumes_list
 		.iter()
 		.any(|v| v.device_id == device_bob_id);

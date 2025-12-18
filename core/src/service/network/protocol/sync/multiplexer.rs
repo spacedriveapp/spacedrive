@@ -43,7 +43,8 @@ impl SyncMultiplexer {
 	) {
 		let mut handler = SyncProtocolHandler::new(library_id, self.device_registry.clone());
 		handler.set_peer_sync(peer_sync);
-		handler.set_backfill_manager(backfill_manager);
+		handler.set_backfill_manager(backfill_manager.clone());
+		handler.set_metrics(backfill_manager.metrics().clone());
 
 		let mut libraries = self.libraries.write().await;
 		libraries.insert(library_id, Arc::new(handler));

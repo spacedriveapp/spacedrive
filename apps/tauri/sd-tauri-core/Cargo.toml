@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 # Core
-sd-core = { path = "../../../core" }
+sd-core = { path = "../../../core", features = ["heif", "ffmpeg"] }
 
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
