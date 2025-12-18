@@ -107,6 +107,7 @@ async fn test_entry_metadata_preservation_on_move() {
 				path: SdPath::local(source_dir.clone()),
 				name: Some("Source".to_string()),
 				mode: IndexMode::Deep,
+				job_policies: None,
 			})
 			.unwrap(),
 		)
@@ -416,6 +417,7 @@ async fn test_child_entry_metadata_preservation_on_parent_move() {
 		path: SdPath::local(source_dir.clone()),
 		name: Some("Source".to_string()),
 		mode: IndexMode::Deep,
+		job_policies: None,
 	};
 	let add_loc_action = LocationAddAction::from_input(add_loc_input).unwrap();
 	let _add_output = action_manager

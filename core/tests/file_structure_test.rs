@@ -98,6 +98,7 @@ async fn map_file_structure_per_phase() -> Result<(), Box<dyn std::error::Error>
 		if let Event::ResourceChangedBatch {
 			resource_type,
 			resources,
+			metadata,
 		} = event
 		{
 			if resource_type == "file" {

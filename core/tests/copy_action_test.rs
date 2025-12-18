@@ -55,6 +55,7 @@ async fn test_copy_action_construction() {
 		]),
 		destination: SdPath::local(dest_dir.clone()),
 		options: CopyOptions {
+			conflict_resolution: ConflictResolution::Overwrite,
 			overwrite: false,
 			copy_method: CopyMethod::Auto,
 			verify_checksum: true,

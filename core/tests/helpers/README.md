@@ -2,12 +2,6 @@
 
 Shared utilities for integration tests to reduce duplication and improve maintainability.
 
-## Quick Links
-
-- **[Sync Harness Usage Guide](../SYNC_HARNESS_USAGE.md)** - How to use the shared sync test utilities
-- **[Refactoring Example](../REFACTORING_EXAMPLE.md)** - Before/after comparison showing benefits
-- **[Sync Tests Documentation](../SYNC_TESTS.md)** - Complete sync test suite documentation
-
 ## Modules
 
 ### `sync_harness.rs` - Two-Device Sync Test Utilities
@@ -17,6 +11,7 @@ Provides a comprehensive test harness for sync integration tests that eliminates
 **Key Components:**
 
 #### `TwoDeviceHarnessBuilder`
+
 Builder for creating pre-configured two-device test environments.
 
 ```rust
@@ -30,6 +25,7 @@ let harness = TwoDeviceHarnessBuilder::new("my_test")
 ```
 
 Automatically handles:
+
 - Creating test directories
 - Initializing tracing to files
 - Setting up cores and libraries
@@ -39,6 +35,7 @@ Automatically handles:
 - Setting sync state
 
 #### `TwoDeviceHarness`
+
 The resulting test harness with convenient methods:
 
 ```rust
@@ -61,21 +58,26 @@ harness.transport_alice;
 #### Helper Functions
 
 **Configuration:**
+
 - `TestConfigBuilder` - Build test configs with custom filters
 - `init_test_tracing()` - Standard tracing setup
 
 **Device Setup:**
+
 - `register_device()` - Register a device in a library
 - `set_all_devices_synced()` - Mark devices as synced (prevent auto-backfill)
 
 **Waiting:**
+
 - `wait_for_indexing()` - Wait for indexing job completion
 - `wait_for_sync()` - Sophisticated sync completion detection
 
 **Operations:**
+
 - `add_and_index_location()` - Create and index a location
 
 **Snapshots:**
+
 - `create_snapshot_dir()` - Create timestamped snapshot directory
 - `SnapshotCapture` - Utilities for capturing databases, logs, events
 
@@ -84,6 +86,7 @@ harness.transport_alice;
 Mock implementation of `NetworkTransport` for testing sync without real networking.
 
 **Key Features:**
+
 - Immediate message delivery (like production)
 - Request/response handling for backfill
 - Device blocking/unblocking (simulate offline)
@@ -91,6 +94,7 @@ Mock implementation of `NetworkTransport` for testing sync without real networki
 - Queue inspection
 
 **Usage:**
+
 ```rust
 // Single device
 let transport = MockTransport::new_single(device_id);
@@ -114,11 +118,13 @@ Helper functions for creating mock volumes in tests (used by `sync_backfill_test
 ## Benefits of Using Shared Utilities
 
 ### Code Reduction
+
 - **~200 lines** of boilerplate eliminated per test
 - **~2887 lines** saved across 6 sync tests (65% reduction)
 - **One source of truth** for test patterns
 
 ### Consistency
+
 - Same tracing setup everywhere
 - Same config creation
 - Same device registration
@@ -126,12 +132,14 @@ Helper functions for creating mock volumes in tests (used by `sync_backfill_test
 - Same waiting algorithms
 
 ### Maintainability
+
 - Fix bugs in one place
 - Add features once, benefit everywhere
 - Clear upgrade path for tests
 - Easier code reviews
 
 ### Reliability
+
 - Battle-tested algorithms
 - Sophisticated sync detection
 - Comprehensive snapshot capture
@@ -193,6 +201,7 @@ When adding new shared utilities:
 5. **Export from `mod.rs`**
 
 Keep utilities:
+
 - **Generic** - Useful for multiple tests
 - **Well-documented** - Clear purpose and usage
 - **Battle-tested** - Used by actual tests
