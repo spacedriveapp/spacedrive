@@ -32,21 +32,6 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
-function getVolumeColor(volumeType: string): string {
-	const colors: Record<string, string> = {
-		Primary: "from-accent to-blue-600",
-		External: "from-green-500 to-emerald-600",
-		Cloud: "from-purple-500 to-violet-600",
-		Network: "from-orange-500 to-amber-600",
-		System: "from-gray-500 to-slate-600",
-		Virtual: "from-cyan-500 to-sky-600",
-		TimeMachine: "from-indigo-500 to-purple-600",
-		Backup: "from-yellow-500 to-amber-600",
-		Archive: "from-amber-600 to-orange-600",
-	};
-	return colors[volumeType] || "from-gray-500 to-slate-600";
-}
-
 function getVolumeIcon(volumeType: string, name?: string): string {
 	// Check for cloud providers by name
 	if (name?.includes("S3")) return DriveAmazonS3Icon;
@@ -89,6 +74,7 @@ export function DevicePanel() {
 	const { jobs: localJobs } = useJobs();
 
 	// Get remote device jobs
+	// TODO: This should have its own hook like useJobs, this will not work reactively
 	const { data: remoteJobsData } = useCoreQuery({
 		type: "jobs.remote.all_devices",
 		input: {},
@@ -98,15 +84,17 @@ export function DevicePanel() {
 	const allJobs = [
 		...localJobs,
 		...(remoteJobsData?.jobs_by_device
-			? Object.values(remoteJobsData.jobs_by_device).flat().map((remoteJob) => ({
-					id: remoteJob.job_id,
-					name: remoteJob.job_type,
-					device_id: remoteJob.device_id,
-					status: remoteJob.status,
-					progress: remoteJob.progress || 0,
-					action_type: null,
-					action_context: null,
-			  }))
+			? Object.values(remoteJobsData.jobs_by_device)
+					.flat()
+					.map((remoteJob) => ({
+						id: remoteJob.job_id,
+						name: remoteJob.job_type,
+						device_id: remoteJob.device_id,
+						status: remoteJob.status,
+						progress: remoteJob.progress || 0,
+						action_type: null,
+						action_context: null,
+					}))
 			: []),
 	] as JobListItem[];
 
@@ -214,7 +202,7 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 
 	// Format hardware specs
 	const cpuInfo = device?.cpu_model
-		? `${device.cpu_model}${device.cpu_physical_cores ? ` • ${device.cpu_physical_cores}C` : ''}`
+		? `${device.cpu_model}${device.cpu_physical_cores ? ` • ${device.cpu_physical_cores}C` : ""}`
 		: null;
 	const ramInfo = device?.memory_total
 		? formatBytes(device.memory_total)
@@ -224,7 +212,7 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 
 	// Filter active jobs
 	const activeJobs = jobs.filter(
-		(j) => j.status === "running" || j.status === "paused"
+		(j) => j.status === "running" || j.status === "paused",
 	);
 
 	return (
@@ -262,21 +250,31 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 					<div className="flex items-center gap-3 text-xs text-ink-dull">
 						{manufacturer && formFactor && (
 							<div className="text-right">
-								<div className="font-medium text-ink">{manufacturer}</div>
+								<div className="font-medium text-ink">
+									{manufacturer}
+								</div>
 								<div>{formFactor}</div>
 							</div>
 						)}
 						{cpuInfo && (
 							<div className="text-right">
-								<div className="font-medium text-ink truncate max-w-[180px]" title={cpuInfo}>
-									{device?.cpu_model || 'CPU'}
+								<div
+									className="font-medium text-ink truncate max-w-[180px]"
+									title={cpuInfo}
+								>
+									{device?.cpu_model || "CPU"}
 								</div>
-								<div>{device?.cpu_physical_cores}C / {device?.cpu_cores_logical}T</div>
+								<div>
+									{device?.cpu_physical_cores}C /{" "}
+									{device?.cpu_cores_logical}T
+								</div>
 							</div>
 						)}
 						{ramInfo && (
 							<div className="text-right">
-								<div className="font-medium text-ink">{ramInfo}</div>
+								<div className="font-medium text-ink">
+									{ramInfo}
+								</div>
 								<div>RAM</div>
 							</div>
 						)}
@@ -302,7 +300,11 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 			<div className="px-3 py-3 space-y-3 bg-app-darkBox h-full">
 				{volumes.length > 0 ? (
 					volumes.map((volume, idx) => (
-						<VolumeBar key={volume.id} volume={volume} index={idx} />
+						<VolumeBar
+							key={volume.id}
+							volume={volume}
+							index={idx}
+						/>
 					))
 				) : (
 					<div className="flex items-center justify-center h-full py-8 text-center">
@@ -410,20 +412,28 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 								title="Track this volume"
 							>
 								<Plus className="size-2.5" weight="bold" />
-								{trackVolume.isPending ? "Tracking..." : "Track"}
+								{trackVolume.isPending
+									? "Tracking..."
+									: "Track"}
 							</button>
 						)}
-						{currentDevice && volume.device_id === currentDevice.id && (
-							<button
-								onClick={handleIndex}
-								disabled={indexVolume.isPending}
-								className="px-1.5 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-[10px] rounded border border-sidebar-line transition-colors flex items-center gap-1 disabled:opacity-50"
-								title="Index this volume"
-							>
-								<Database className="size-2.5" weight="bold" />
-								{indexVolume.isPending ? "Indexing..." : "Index"}
-							</button>
-						)}
+						{currentDevice &&
+							volume.device_id === currentDevice.id && (
+								<button
+									onClick={handleIndex}
+									disabled={indexVolume.isPending}
+									className="px-1.5 py-0.5 bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink text-[10px] rounded border border-sidebar-line transition-colors flex items-center gap-1 disabled:opacity-50"
+									title="Index this volume"
+								>
+									<Database
+										className="size-2.5"
+										weight="bold"
+									/>
+									{indexVolume.isPending
+										? "Indexing..."
+										: "Index"}
+								</button>
+							)}
 					</div>
 
 					{/* Badges under name */}
@@ -463,17 +473,26 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 						<motion.div
 							initial={{ width: 0 }}
 							animate={{ width: `${uniquePercent}%` }}
-							transition={{ duration: 1, ease: "easeOut", delay: index * 0.05 }}
+							transition={{
+								duration: 1,
+								ease: "easeOut",
+								delay: index * 0.05,
+							}}
 							className="bg-accent border-r border-accent-deep"
 							title={`Unique: ${formatBytes(uniqueBytes)} (${uniquePercent.toFixed(1)}%)`}
 						/>
 						<motion.div
 							initial={{ width: 0 }}
 							animate={{ width: `${duplicatePercent}%` }}
-							transition={{ duration: 1, ease: "easeOut", delay: index * 0.05 + 0.2 }}
+							transition={{
+								duration: 1,
+								ease: "easeOut",
+								delay: index * 0.05 + 0.2,
+							}}
 							className="bg-accent/60"
 							style={{
-								backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)",
+								backgroundImage:
+									"repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)",
 							}}
 							title={`Duplicate: ${formatBytes(duplicateBytes)} (${duplicatePercent.toFixed(1)}%)`}
 						/>

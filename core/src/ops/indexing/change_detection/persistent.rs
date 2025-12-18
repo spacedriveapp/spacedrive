@@ -657,7 +657,7 @@ impl ChangeHandler for DatabaseAdapter {
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::job::{IndexMode, IndexerJob};
+		use crate::ops::indexing::{IndexMode, IndexerJob};
 
 		let Some(library) = self.context.get_library(self.library_id).await else {
 			return Ok(());

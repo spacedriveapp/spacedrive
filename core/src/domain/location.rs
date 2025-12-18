@@ -57,7 +57,7 @@ pub struct Location {
 }
 
 /// How deeply to index files in this location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Type)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
