@@ -163,6 +163,22 @@ priority = 100
 [file_types.metadata]
 text_based = true
 
+[[file_types]]
+id = "model/ply"
+name = "PLY 3D Model"
+extensions = ["ply"]
+mime_types = ["model/ply", "application/ply"]
+category = "mesh"
+priority = 100
+
+[[file_types.magic_bytes]]
+pattern = "70 6C 79 0A"
+offset = 0
+priority = 100
+
+[file_types.metadata]
+supports_gaussian_splats = true
+
 # Database
 [[file_types]]
 id = "application/x-sqlite3"

@@ -3,7 +3,7 @@ import { File as FileComponent } from "../Explorer/File";
 import { formatBytes, getContentKind } from "../Explorer/utils";
 import { usePlatform } from "../../platform";
 import { useServer } from "../../ServerContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import {
 	MagnifyingGlassPlus,
 	MagnifyingGlassMinus,
@@ -13,6 +13,8 @@ import { VideoPlayer } from "./VideoPlayer";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
 import { Folder } from "@sd/assets/icons";
+
+const MeshViewer = lazy(() => import('./MeshViewer').then(m => ({ default: m.MeshViewer })));
 
 interface ContentRendererProps {
 	file: File;
@@ -390,6 +392,18 @@ export function ContentRenderer({ file, onZoomChange }: ContentRendererProps) {
 			return <VideoRenderer file={file} onZoomChange={onZoomChange} />;
 		case "audio":
 			return <AudioRenderer file={file} />;
+		case "mesh":
+			return (
+				<Suspense
+					fallback={
+						<div className="w-full h-full flex items-center justify-center">
+							<FileComponent.Thumb file={file} size={200} />
+						</div>
+					}
+				>
+					<MeshViewer file={file} />
+				</Suspense>
+			);
 		case "document":
 		case "book":
 		case "spreadsheet":
