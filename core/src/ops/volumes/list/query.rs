@@ -165,6 +165,12 @@ impl LibraryQuery for VolumeListQuery {
 			.all(db)
 			.await?;
 
+		tracing::info!(
+			count = tracked_volumes.len(),
+			filter = ?self.filter,
+			"[volumes.list] Fetched tracked volumes from database"
+		);
+
 		// Fetch all devices to get slugs
 		let devices = entities::device::Entity::find().all(db).await?;
 		let device_slug_map: HashMap<Uuid, String> =
@@ -175,6 +181,11 @@ impl LibraryQuery for VolumeListQuery {
 			.into_iter()
 			.map(|v| (v.fingerprint.clone(), v))
 			.collect();
+
+		tracing::info!(
+			tracked_map_size = tracked_map.len(),
+			"[volumes.list] Created tracked_map"
+		);
 
 		let volume_manager = &context.volume_manager;
 		let mut volume_items = Vec::new();
@@ -289,6 +300,12 @@ impl LibraryQuery for VolumeListQuery {
 				}
 			}
 		}
+
+		tracing::info!(
+			volume_items_count = volume_items.len(),
+			filter = ?self.filter,
+			"[volumes.list] Returning volume items"
+		);
 
 		Ok(VolumeListOutput {
 			volumes: volume_items,

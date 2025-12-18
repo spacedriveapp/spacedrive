@@ -608,3 +608,235 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 
 	Ok(())
 }
+
+/// Test bidirectional volume sync - both devices should receive each other's volumes
+#[tokio::test]
+async fn test_bidirectional_volume_sync() -> anyhow::Result<()> {
+	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+	let test_root =
+		std::path::PathBuf::from(home).join("Library/Application Support/spacedrive/sync_tests");
+
+	let data_dir = test_root.join("data");
+	fs::create_dir_all(&data_dir).await?;
+
+	let temp_dir_alice = data_dir.join("alice_volume_sync");
+	let temp_dir_bob = data_dir.join("bob_volume_sync");
+	fs::create_dir_all(&temp_dir_alice).await?;
+	fs::create_dir_all(&temp_dir_bob).await?;
+
+	let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
+	let snapshot_dir = test_root
+		.join("snapshots")
+		.join(format!("bidirectional_volume_sync_{}", timestamp));
+	fs::create_dir_all(&snapshot_dir).await?;
+
+	init_tracing("bidirectional_volume_sync", &snapshot_dir)?;
+
+	tracing::info!("=== Phase 1: Initialize both devices ===");
+
+	create_test_config(&temp_dir_alice)?;
+	create_test_config(&temp_dir_bob)?;
+
+	let core_alice = Core::new(temp_dir_alice.clone())
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to create Alice core: {}", e))?;
+	let device_alice_id = core_alice.device.device_id()?;
+	let library_alice = core_alice
+		.libraries
+		.create_library_no_sync("Volume Sync Test", None, core_alice.context.clone())
+		.await?;
+
+	let core_bob = Core::new(temp_dir_bob.clone())
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to create Bob core: {}", e))?;
+	let device_bob_id = core_bob.device.device_id()?;
+	let library_bob = core_bob
+		.libraries
+		.create_library_no_sync("Volume Sync Test", None, core_bob.context.clone())
+		.await?;
+
+	// Register devices in each other's libraries
+	register_device(&library_alice, device_bob_id, "Bob").await?;
+	register_device(&library_bob, device_alice_id, "Alice").await?;
+
+	tracing::info!("=== Phase 2: Create volumes on both devices ===");
+
+	// Alice creates her Macintosh HD
+	create_test_volume(
+		&library_alice,
+		device_alice_id,
+		"alice-macos-hd-fingerprint",
+		"Macintosh HD",
+	)
+	.await?;
+
+	// Bob creates his Macintosh HD
+	create_test_volume(
+		&library_bob,
+		device_bob_id,
+		"bob-macos-hd-fingerprint",
+		"Macintosh HD",
+	)
+	.await?;
+
+	let alice_volumes_before = entities::volume::Entity::find()
+		.count(library_alice.db().conn())
+		.await?;
+	let bob_volumes_before = entities::volume::Entity::find()
+		.count(library_bob.db().conn())
+		.await?;
+
+	tracing::info!(
+		alice_volumes = alice_volumes_before,
+		bob_volumes = bob_volumes_before,
+		"Volumes created on both devices"
+	);
+
+	assert_eq!(
+		alice_volumes_before, 1,
+		"Alice should have 1 volume before sync"
+	);
+	assert_eq!(
+		bob_volumes_before, 1,
+		"Bob should have 1 volume before sync"
+	);
+
+	tracing::info!("=== Phase 3: Start sync services ===");
+
+	let (transport_alice, transport_bob) = MockTransport::new_pair(device_alice_id, device_bob_id);
+
+	library_alice
+		.init_sync_service(
+			device_alice_id,
+			transport_alice.clone() as Arc<dyn NetworkTransport>,
+		)
+		.await?;
+
+	library_bob
+		.init_sync_service(
+			device_bob_id,
+			transport_bob.clone() as Arc<dyn NetworkTransport>,
+		)
+		.await?;
+
+	transport_alice
+		.register_sync_service(
+			device_alice_id,
+			Arc::downgrade(library_alice.sync_service().unwrap()),
+		)
+		.await;
+	transport_bob
+		.register_sync_service(
+			device_bob_id,
+			Arc::downgrade(library_bob.sync_service().unwrap()),
+		)
+		.await;
+
+	library_alice.sync_service().unwrap().start().await?;
+	library_bob.sync_service().unwrap().start().await?;
+
+	tracing::info!("Sync services started - backfill should begin");
+
+	tokio::time::sleep(Duration::from_millis(1000)).await;
+
+	tracing::info!("=== Phase 4: Wait for bidirectional sync ===");
+
+	// Wait for sync
+	let start = tokio::time::Instant::now();
+	let max_duration = Duration::from_secs(30);
+	let mut stable_iterations = 0;
+
+	while start.elapsed() < max_duration {
+		let alice_volumes = entities::volume::Entity::find()
+			.count(library_alice.db().conn())
+			.await?;
+		let bob_volumes = entities::volume::Entity::find()
+			.count(library_bob.db().conn())
+			.await?;
+
+		tracing::debug!(
+			alice_volumes = alice_volumes,
+			bob_volumes = bob_volumes,
+			elapsed_ms = start.elapsed().as_millis(),
+			"Checking sync progress"
+		);
+
+		if alice_volumes == 2 && bob_volumes == 2 {
+			stable_iterations += 1;
+			if stable_iterations >= 5 {
+				tracing::info!(
+					duration_ms = start.elapsed().as_millis(),
+					"Bidirectional volume sync complete"
+				);
+				break;
+			}
+		} else {
+			stable_iterations = 0;
+		}
+
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+
+	tracing::info!("=== Phase 5: Verify bidirectional sync ===");
+
+	let alice_volumes_final = entities::volume::Entity::find()
+		.count(library_alice.db().conn())
+		.await?;
+	let bob_volumes_final = entities::volume::Entity::find()
+		.count(library_bob.db().conn())
+		.await?;
+
+	// Get volumes by device to verify
+	let alice_volumes_list = entities::volume::Entity::find()
+		.all(library_alice.db().conn())
+		.await?;
+	let bob_volumes_list = entities::volume::Entity::find()
+		.all(library_bob.db().conn())
+		.await?;
+
+	tracing::info!(
+		alice_total = alice_volumes_final,
+		bob_total = bob_volumes_final,
+		alice_devices = ?alice_volumes_list.iter().map(|v| (v.device_id, v.display_name.clone())).collect::<Vec<_>>(),
+		bob_devices = ?bob_volumes_list.iter().map(|v| (v.device_id, v.display_name.clone())).collect::<Vec<_>>(),
+		"=== Final volume counts ==="
+	);
+
+	// Both should have 2 volumes (their own + the other's)
+	assert_eq!(
+		alice_volumes_final, 2,
+		"Alice should have 2 volumes (her own + Bob's), but has {}",
+		alice_volumes_final
+	);
+	assert_eq!(
+		bob_volumes_final, 2,
+		"Bob should have 2 volumes (his own + Alice's), but has {}",
+		bob_volumes_final
+	);
+
+	// Verify Alice has both her own and Bob's volume
+	let alice_has_own = alice_volumes_list
+		.iter()
+		.any(|v| v.device_id == device_alice_id);
+	let alice_has_bobs = alice_volumes_list
+		.iter()
+		.any(|v| v.device_id == device_bob_id);
+
+	assert!(alice_has_own, "Alice should have her own volume");
+	assert!(alice_has_bobs, "Alice should have Bob's volume");
+
+	// Verify Bob has both his own and Alice's volume
+	let bob_has_own = bob_volumes_list
+		.iter()
+		.any(|v| v.device_id == device_bob_id);
+	let bob_has_alices = bob_volumes_list
+		.iter()
+		.any(|v| v.device_id == device_alice_id);
+
+	assert!(bob_has_own, "Bob should have his own volume");
+	assert!(bob_has_alices, "Bob should have Alice's volume");
+
+	tracing::info!("✅ Bidirectional volume sync verified successfully");
+
+	Ok(())
+}
