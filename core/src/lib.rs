@@ -151,6 +151,7 @@ impl Core {
 			None, // Libraries will be set after context creation
 			volumes.clone(),
 			key_manager.clone(),
+			data_dir.clone(),
 		);
 
 		// Enable per-job file logging by default

@@ -340,7 +340,7 @@ impl SyncTestHarness {
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
-				location_watcher_enabled: false,
+				fs_watcher_enabled: false,
 			},
 		};
 
@@ -369,9 +369,22 @@ impl SyncTestHarness {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(device_id),
 			name: Set(device_name.to_string()),
+			slug: Set(device_name.to_lowercase()),
 			os: Set("Test OS".to_string()),
 			os_version: Set(Some("1.0".to_string())),
 			hardware_model: Set(None),
+			cpu_model: Set(None),
+			cpu_architecture: Set(None),
+			cpu_cores_physical: Set(None),
+			cpu_cores_logical: Set(None),
+			cpu_frequency_mhz: Set(None),
+			memory_total_bytes: Set(None),
+			form_factor: Set(None),
+			manufacturer: Set(None),
+			gpu_models: Set(None),
+			boot_disk_type: Set(None),
+			boot_disk_capacity_bytes: Set(None),
+			swap_total_bytes: Set(None),
 			network_addresses: Set(serde_json::json!([])),
 			is_online: Set(false),
 			last_seen_at: Set(Utc::now()),
@@ -380,7 +393,6 @@ impl SyncTestHarness {
 			updated_at: Set(Utc::now()),
 			sync_enabled: Set(true),
 			last_sync_at: Set(None),
-			slug: Set(device_name.to_lowercase()),
 		};
 
 		device_model.insert(library.db().conn()).await?;

@@ -84,7 +84,7 @@ fn create_test_config(data_dir: &std::path::Path) -> anyhow::Result<sd_core::con
 		services: sd_core::config::ServiceConfig {
 			networking_enabled: false,
 			volume_monitoring_enabled: false,
-			location_watcher_enabled: false,
+			fs_watcher_enabled: false,
 		},
 	};
 
@@ -167,9 +167,22 @@ async fn register_device(
 		id: sea_orm::ActiveValue::NotSet,
 		uuid: Set(device_id),
 		name: Set(device_name.to_string()),
+		slug: Set(device_name.to_lowercase()),
 		os: Set("Test OS".to_string()),
 		os_version: Set(Some("1.0".to_string())),
 		hardware_model: Set(None),
+		cpu_model: Set(None),
+		cpu_architecture: Set(None),
+		cpu_cores_physical: Set(None),
+		cpu_cores_logical: Set(None),
+		cpu_frequency_mhz: Set(None),
+		memory_total_bytes: Set(None),
+		form_factor: Set(None),
+		manufacturer: Set(None),
+		gpu_models: Set(None),
+		boot_disk_type: Set(None),
+		boot_disk_capacity_bytes: Set(None),
+		swap_total_bytes: Set(None),
 		network_addresses: Set(serde_json::json!([])),
 		is_online: Set(false),
 		last_seen_at: Set(Utc::now()),
@@ -178,10 +191,52 @@ async fn register_device(
 		updated_at: Set(Utc::now()),
 		sync_enabled: Set(true),
 		last_sync_at: Set(None),
-		slug: Set(device_name.to_lowercase()),
 	};
 
 	device_model.insert(library.db().conn()).await?;
+	Ok(())
+}
+
+/// Create a mock volume for testing
+async fn create_test_volume(
+	library: &Arc<Library>,
+	device_id: Uuid,
+	fingerprint: &str,
+	display_name: &str,
+) -> anyhow::Result<()> {
+	use chrono::Utc;
+
+	let volume_model = entities::volume::ActiveModel {
+		id: sea_orm::ActiveValue::NotSet,
+		uuid: Set(Uuid::new_v4()),
+		device_id: Set(device_id),
+		fingerprint: Set(fingerprint.to_string()),
+		display_name: Set(Some(display_name.to_string())),
+		tracked_at: Set(Utc::now()),
+		last_seen_at: Set(Utc::now()),
+		is_online: Set(true),
+		total_capacity: Set(Some(500_000_000_000)),     // 500GB
+		available_capacity: Set(Some(250_000_000_000)), // 250GB available
+		unique_bytes: Set(None),
+		read_speed_mbps: Set(Some(500)),
+		write_speed_mbps: Set(Some(400)),
+		last_speed_test_at: Set(None),
+		total_file_count: Set(None),
+		total_directory_count: Set(None),
+		last_indexed_at: Set(None),
+		file_system: Set(Some("APFS".to_string())),
+		mount_point: Set(Some("/Volumes/TestDrive".to_string())),
+		is_removable: Set(Some(true)),
+		is_network_drive: Set(Some(false)),
+		device_model: Set(Some("SSD Model".to_string())),
+		volume_type: Set(Some("External".to_string())),
+		is_user_visible: Set(Some(true)),
+		auto_track_eligible: Set(Some(true)),
+		cloud_identifier: Set(None),
+		cloud_config: Set(None),
+	};
+
+	volume_model.insert(library.db().conn()).await?;
 	Ok(())
 }
 
@@ -270,6 +325,28 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		content_identities = alice_content_after_index,
 		"Alice indexing complete"
 	);
+
+	// Add some volumes to Alice before Bob connects
+	tracing::info!("Adding test volumes to Alice");
+	create_test_volume(
+		&library_alice,
+		device_alice_id,
+		"test-vol-1",
+		"Alice Volume 1",
+	)
+	.await?;
+	create_test_volume(
+		&library_alice,
+		device_alice_id,
+		"test-vol-2",
+		"Alice Volume 2",
+	)
+	.await?;
+
+	let alice_volumes = entities::volume::Entity::find()
+		.count(library_alice.db().conn())
+		.await?;
+	tracing::info!(volumes = alice_volumes, "Alice has tracked volumes");
 
 	tracing::info!("=== Phase 2: Bob connects and starts backfill ===");
 
@@ -451,12 +528,20 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 	let bob_content_final = entities::content_identity::Entity::find()
 		.count(library_bob.db().conn())
 		.await?;
+	let alice_volumes_final = entities::volume::Entity::find()
+		.count(library_alice.db().conn())
+		.await?;
+	let bob_volumes_final = entities::volume::Entity::find()
+		.count(library_bob.db().conn())
+		.await?;
 
 	tracing::info!(
 		alice_entries = alice_entries_after_index,
 		bob_entries = bob_entries_final,
 		alice_content = alice_content_after_index,
 		bob_content = bob_content_final,
+		alice_volumes = alice_volumes_final,
+		bob_volumes = bob_volumes_final,
 		"=== Final counts ==="
 	);
 
@@ -477,6 +562,19 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		alice_content_after_index,
 		bob_content_final,
 		content_diff
+	);
+
+	// Verify volume sync
+	assert_eq!(
+		alice_volumes_final, bob_volumes_final,
+		"Volume count mismatch after backfill: Alice has {}, Bob has {}",
+		alice_volumes_final, bob_volumes_final
+	);
+
+	tracing::info!(
+		alice_volumes = alice_volumes_final,
+		bob_volumes = bob_volumes_final,
+		"Volume sync verification passed"
 	);
 
 	let bob_files_linked = entities::entry::Entity::find()

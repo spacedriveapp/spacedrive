@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { HardDrive, Plus, Database } from "@phosphor-icons/react";
 import DriveIcon from "@sd/assets/icons/Drive.png";
@@ -7,6 +8,7 @@ import DatabaseIcon from "@sd/assets/icons/Database.png";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
+import LocationIcon from "@sd/assets/icons/Location.png";
 import {
 	useNormalizedQuery,
 	useLibraryMutation,
@@ -20,9 +22,13 @@ import type {
 	LibraryDeviceInfo,
 	ListLibraryDevicesInput,
 	JobListItem,
+	LocationsListOutput,
+	LocationsListQueryInput,
+	Location,
 } from "@sd/ts-client";
 import { useJobs } from "../../components/JobManager/hooks/useJobs";
 import { JobCard } from "../../components/JobManager/components/JobCard";
+import clsx from "clsx";
 
 function formatBytes(bytes: number): string {
 	if (bytes === 0) return "0 B";
@@ -49,7 +55,15 @@ function getDiskTypeLabel(diskType: string): string {
 	return diskType === "SSD" ? "SSD" : diskType === "HDD" ? "HDD" : diskType;
 }
 
-export function DevicePanel() {
+interface DevicePanelProps {
+	onLocationSelect?: (location: Location | null) => void;
+}
+
+export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
+	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
+		null,
+	);
+
 	// Fetch all volumes using normalized cache
 	const { data: volumesData, isLoading: volumesLoading } = useNormalizedQuery<
 		VolumeListQueryInput,
@@ -69,6 +83,14 @@ export function DevicePanel() {
 		input: { include_offline: true, include_details: false },
 		resourceType: "device",
 	});
+
+	// Fetch all locations using normalized cache
+	const { data: locationsData, isLoading: locationsLoading } =
+		useNormalizedQuery<LocationsListQueryInput, LocationsListOutput>({
+			wireMethod: "query:locations.list",
+			input: null,
+			resourceType: "location",
+		});
 
 	// Get all jobs with real-time updates (local jobs)
 	const { jobs: localJobs } = useJobs();
@@ -98,7 +120,7 @@ export function DevicePanel() {
 			: []),
 	] as JobListItem[];
 
-	if (volumesLoading || devicesLoading) {
+	if (volumesLoading || devicesLoading || locationsLoading) {
 		return (
 			<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
 				<div className="px-6 py-4 border-b border-app-line">
@@ -115,6 +137,7 @@ export function DevicePanel() {
 
 	const volumes = volumesData?.volumes || [];
 	const devices = devicesData || [];
+	const locations = locationsData?.locations || [];
 
 	// Filter to only show user-visible volumes
 	const userVisibleVolumes = volumes.filter(
@@ -132,6 +155,25 @@ export function DevicePanel() {
 			return acc;
 		},
 		{} as Record<string, VolumeItem[]>,
+	);
+
+	// Group locations by device slug
+	const locationsByDeviceSlug = locations.reduce(
+		(acc, location) => {
+			// Extract device_slug from sd_path
+			if (
+				typeof location.sd_path === "object" &&
+				"Physical" in location.sd_path
+			) {
+				const deviceSlug = location.sd_path.Physical.device_slug;
+				if (!acc[deviceSlug]) {
+					acc[deviceSlug] = [];
+				}
+				acc[deviceSlug].push(location);
+			}
+			return acc;
+		},
+		{} as Record<string, Location[]>,
 	);
 
 	// Create device map for quick lookup
@@ -157,11 +199,13 @@ export function DevicePanel() {
 	);
 
 	return (
-		<div className="h-[600px] overflow-y-auto">
-			<div className="grid grid-cols-2 gap-4">
+		<div className="">
+			<div className="columns-2 gap-4">
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
+					const deviceLocations =
+						locationsByDeviceSlug[device.slug] || [];
 
 					return (
 						<DeviceCard
@@ -169,6 +213,16 @@ export function DevicePanel() {
 							device={device}
 							volumes={deviceVolumes}
 							jobs={deviceJobs}
+							locations={deviceLocations}
+							selectedLocationId={selectedLocationId}
+							onLocationSelect={(location) => {
+								if (location) {
+									setSelectedLocationId(location.id);
+								} else {
+									setSelectedLocationId(null);
+								}
+								onLocationSelect?.(location);
+							}}
 						/>
 					);
 				})}
@@ -193,16 +247,26 @@ interface DeviceCardProps {
 	device?: LibraryDeviceInfo;
 	volumes: VolumeItem[];
 	jobs: JobListItem[];
+	locations: Location[];
+	selectedLocationId: string | null;
+	onLocationSelect?: (location: Location | null) => void;
 }
 
-function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
+function DeviceCard({
+	device,
+	volumes,
+	jobs,
+	locations,
+	selectedLocationId,
+	onLocationSelect,
+}: DeviceCardProps) {
 	const deviceName = device?.name || "Unknown Device";
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
 	const { pause, resume } = useJobs();
 
 	// Format hardware specs
 	const cpuInfo = device?.cpu_model
-		? `${device.cpu_model}${device.cpu_physical_cores ? ` • ${device.cpu_physical_cores}C` : ""}`
+		? `${device.cpu_model}${device.cpu_physical_cores ? ` � ${device.cpu_physical_cores}C` : ""}`
 		: null;
 	const ramInfo = device?.memory_total
 		? formatBytes(device.memory_total)
@@ -216,9 +280,9 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 	);
 
 	return (
-		<div className="bg-app-box border border-app-line rounded-xl overflow-hidden">
+		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl break-inside-avoid mb-4">
 			{/* Device Header */}
-			<div className="px-6 py-4 border-b border-app-line">
+			<div className="px-6 py-4 bg-app-box border-b border-app-line">
 				<div className="flex items-center gap-4">
 					{/* Left: Device icon and name */}
 					<div className="flex items-center gap-3 flex-1 min-w-0">
@@ -241,7 +305,7 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 							<p className="text-sm text-ink-dull">
 								{volumes.length}{" "}
 								{volumes.length === 1 ? "volume" : "volumes"}
-								{device?.is_online === false && " • Offline"}
+								{device?.is_online === false && " � Offline"}
 							</p>
 						</div>
 					</div>
@@ -282,38 +346,92 @@ function DeviceCard({ device, volumes, jobs }: DeviceCardProps) {
 				</div>
 			</div>
 
-			{/* Active Jobs Section */}
-			{activeJobs.length > 0 && (
-				<div className="px-3 py-3 border-b border-app-line bg-app/50 space-y-2">
-					{activeJobs.map((job) => (
-						<JobCard
-							key={job.id}
-							job={job}
-							onPause={pause}
-							onResume={resume}
-						/>
-					))}
-				</div>
-			)}
+			<div>
+				{/* Active Jobs Section */}
+				{activeJobs.length > 0 && (
+					<div className="px-3 py-3 border-b border-app-line bg-app/50 space-y-2">
+						{activeJobs.map((job) => (
+							<JobCard
+								key={job.id}
+								job={job}
+								onPause={pause}
+								onResume={resume}
+							/>
+						))}
+					</div>
+				)}
 
-			{/* Volumes for this device */}
-			<div className="px-3 py-3 space-y-3 bg-app-darkBox h-full">
-				{volumes.length > 0 ? (
-					volumes.map((volume, idx) => (
-						<VolumeBar
-							key={volume.id}
-							volume={volume}
-							index={idx}
-						/>
-					))
-				) : (
-					<div className="flex items-center justify-center h-full py-8 text-center">
-						<div className="text-ink-faint">
-							<HardDrive className="size-8 mx-auto mb-2 opacity-20" />
-							<p className="text-xs">No volumes</p>
+				{/* Locations for this device */}
+				{locations.length > 0 && (
+					<div className="px-3 py-3 border-b border-app-line">
+						<div className="flex flex-wrap gap-2">
+							{locations.map((location) => {
+								const isSelected =
+									selectedLocationId === location.id;
+								return (
+									<button
+										key={location.id}
+										onClick={() => {
+											if (isSelected) {
+												onLocationSelect?.(null);
+											} else {
+												onLocationSelect?.(location);
+											}
+										}}
+										className="flex flex-col items-center gap-2 p-1 rounded-lg transition-all min-w-[80px]"
+									>
+										<div
+											className={clsx(
+												"rounded-lg p-2",
+												isSelected
+													? "bg-app-box"
+													: "bg-transparent",
+											)}
+										>
+											<img
+												src={LocationIcon}
+												alt={location.name}
+												className="size-12 opacity-80"
+											/>
+										</div>
+										<div className="w-full flex flex-col items-center">
+											<div
+												className={clsx(
+													"text-xs truncate px-2 py-0.5 rounded-md inline-block max-w-full",
+													isSelected
+														? "bg-accent text-white"
+														: "text-ink",
+												)}
+											>
+												{location.name}
+											</div>
+										</div>
+									</button>
+								);
+							})}
 						</div>
 					</div>
 				)}
+
+				{/* Volumes for this device */}
+				<div className="px-3 py-3 space-y-3">
+					{volumes.length > 0 ? (
+						volumes.map((volume, idx) => (
+							<VolumeBar
+								key={volume.id}
+								volume={volume}
+								index={idx}
+							/>
+						))
+					) : (
+						<div className="flex flex-col items-center justify-center py-8 text-center">
+							<div className="text-ink-faint">
+								<HardDrive className="size-8 mx-auto mb-2 opacity-20" />
+								<p className="text-xs">No volumes</p>
+							</div>
+						</div>
+					)}
+				</div>
 			</div>
 		</div>
 	);

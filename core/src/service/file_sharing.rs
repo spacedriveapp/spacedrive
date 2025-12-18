@@ -527,6 +527,7 @@ mod tests {
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
+		let test_data_dir = std::env::temp_dir().join("test_data");
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -539,6 +540,7 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			key_manager,
+			test_data_dir,
 		));
 
 		let _file_sharing = FileSharingService::new(context);
@@ -575,6 +577,7 @@ mod tests {
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
+		let test_data_dir = std::env::temp_dir().join("test_data");
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -587,6 +590,7 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			key_manager,
+			test_data_dir,
 		));
 		let file_sharing = FileSharingService::new(context);
 

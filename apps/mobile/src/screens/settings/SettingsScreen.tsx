@@ -1,6 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useCoreAction } from "../../client";
+import { useAppReset } from "../../contexts";
 import {
 	Card,
 	Divider,
@@ -21,6 +24,46 @@ export function SettingsScreen() {
 	const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 	const [darkModeEnabled, setDarkModeEnabled] = useState(false);
 	const [sliderValue, setSliderValue] = useState(50);
+
+	const resetData = useCoreAction("core.reset");
+	const { resetApp } = useAppReset();
+
+	const handleResetData = () => {
+		Alert.alert(
+			"Reset All Data",
+			"This will permanently delete all libraries, settings, and cached data. The app will refresh automatically. Are you sure?",
+			[
+				{
+					text: "Cancel",
+					style: "cancel",
+				},
+				{
+					text: "Reset",
+					style: "destructive",
+					onPress: async () => {
+						resetData.mutate(
+							{ confirm: true },
+							{
+								onSuccess: async () => {
+									// Clear AsyncStorage
+									await AsyncStorage.clear();
+
+									// Refresh the entire app
+									resetApp();
+								},
+								onError: (error) => {
+									Alert.alert(
+										"Error",
+										error.message || "Failed to reset data",
+									);
+								},
+							},
+						);
+					},
+				},
+			],
+		);
+	};
 
 	return (
 		<ScrollView
@@ -629,6 +672,12 @@ export function SettingsScreen() {
 						icon={<View className="w-6 h-6 bg-yellow-500 rounded-full" />}
 						label="Clear Cache"
 						onPress={() => console.log("Clear cache")}
+					/>
+					<SettingsLink
+						icon={<View className="w-6 h-6 bg-red-600 rounded-full" />}
+						label="Reset All Data"
+						description="Permanently delete all libraries and settings"
+						onPress={handleResetData}
 					/>
 				</SettingsGroup>
 			</View>

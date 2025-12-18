@@ -38,7 +38,8 @@ pub struct CoreContext {
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
-	// pub session: Arc<SessionStateService>,
+	// Data directory path (for reset and cleanup operations)
+	pub data_dir: PathBuf,
 }
 
 impl CoreContext {
@@ -49,6 +50,7 @@ impl CoreContext {
 		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
 		key_manager: Arc<KeyManager>,
+		data_dir: PathBuf,
 	) -> Self {
 		Self {
 			events,
@@ -67,6 +69,7 @@ impl CoreContext {
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
+			data_dir,
 		}
 	}
 

@@ -164,6 +164,8 @@ export function SpacedriveProvider({
         if (unsubscribe) unsubscribe();
       });
       client.destroy();
+      // Clear query cache on unmount for clean reset
+      queryClient.clear();
     };
   }, [client, deviceName]);
 
