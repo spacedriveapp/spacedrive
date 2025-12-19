@@ -499,10 +499,7 @@ pub struct TransferProgress {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::{
-		crypto::library_key_manager::LibraryKeyManager, device::DeviceManager,
-		infra::event::EventBus, library::LibraryManager,
-	};
+	use crate::{device::DeviceManager, infra::event::EventBus, library::LibraryManager};
 	use tempfile::tempdir;
 
 	#[tokio::test]
@@ -520,13 +517,15 @@ mod tests {
 		);
 
 		let events = Arc::new(EventBus::default());
-		let device_manager =
-			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
+		let device_manager = Arc::new(
+			DeviceManager::init(&temp_dir.path().to_path_buf(), key_manager.clone(), None).unwrap(),
+		);
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
+		let test_data_dir = std::env::temp_dir().join("test_data");
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -539,6 +538,7 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			key_manager,
+			test_data_dir,
 		));
 
 		let _file_sharing = FileSharingService::new(context);
@@ -568,13 +568,15 @@ mod tests {
 		);
 
 		let events = Arc::new(EventBus::default());
-		let device_manager =
-			Arc::new(DeviceManager::init(temp_dir.path(), key_manager.clone(), None).unwrap());
+		let device_manager = Arc::new(
+			DeviceManager::init(&temp_dir.path().to_path_buf(), key_manager.clone(), None).unwrap(),
+		);
 		let volume_manager = Arc::new(crate::volume::VolumeManager::new(
 			uuid::Uuid::new_v4(), // Test device ID
 			crate::volume::VolumeDetectionConfig::default(),
 			events.clone(),
 		));
+		let test_data_dir = std::env::temp_dir().join("test_data");
 		let library_manager = Arc::new(LibraryManager::new_with_dir(
 			std::env::temp_dir().join("test_libraries"),
 			events.clone(),
@@ -587,6 +589,7 @@ mod tests {
 			Some(library_manager),
 			volume_manager,
 			key_manager,
+			test_data_dir,
 		));
 		let file_sharing = FileSharingService::new(context);
 

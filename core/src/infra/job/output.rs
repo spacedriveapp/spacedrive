@@ -82,6 +82,13 @@ pub enum JobOutput {
 		error_count: usize,
 	},
 
+	/// Gaussian splat generation output
+	GaussianSplat {
+		total_processed: usize,
+		success_count: usize,
+		error_count: usize,
+	},
+
 	/// Generic output with custom data
 	#[specta(skip)]
 	Custom(serde_json::Value),
@@ -266,6 +273,17 @@ impl fmt::Display for JobOutput {
 				write!(
 					f,
 					"Speech-to-text: {} processed ({} success, {} errors)",
+					total_processed, success_count, error_count
+				)
+			}
+			Self::GaussianSplat {
+				total_processed,
+				success_count,
+				error_count,
+			} => {
+				write!(
+					f,
+					"Gaussian splat: {} processed ({} success, {} errors)",
 					total_processed, success_count, error_count
 				)
 			}

@@ -4,7 +4,7 @@ name    = "sd-core"
 version = "2.0.0-pre.1"
 
 [features]
-default = ["ffmpeg", "heif"]
+default = []
 # FFmpeg support for video thumbnails (enable for release builds)
 ffmpeg = ["dep:sd-ffmpeg"]
 # AI models support
@@ -166,6 +166,7 @@ chrono    = { version = "0.4", features = ["serde"] }
 dirs      = "5.0"
 once_cell = "1.20"
 rand      = "0.8"                                                        # Random number generation for secure delete
+sysinfo   = "0.31"                                                       # Cross-platform system information
 tempfile  = "3.14"                                                       # Temporary directories for testing
 uuid      = { version = "1.11", features = ["serde", "v4", "v5", "v7"] }
 

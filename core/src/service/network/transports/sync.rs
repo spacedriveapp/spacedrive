@@ -369,7 +369,7 @@ impl NetworkTransport for NetworkingService {
 			.map(|device| device.uuid)
 			.collect();
 
-		tracing::debug!(
+		tracing::info!(
 			library_id = %library_id,
 			our_device_id = %our_device_id,
 			total_lib_devices = library_devices.len(),
@@ -379,6 +379,21 @@ impl NetworkTransport for NetworkingService {
 			partner_uuids = ?sync_partners,
 			"Computed library sync partners"
 		);
+
+		// Debug each device's pairing status
+		for device in &library_devices {
+			if device.uuid != our_device_id {
+				let node_id = registry.get_node_id_for_device(device.uuid);
+				tracing::info!(
+					device_uuid = %device.uuid,
+					device_name = %device.name,
+					sync_enabled = device.sync_enabled,
+					has_node_id = node_id.is_some(),
+					node_id = ?node_id,
+					"Device pairing status check"
+				);
+			}
+		}
 
 		Ok(sync_partners)
 	}

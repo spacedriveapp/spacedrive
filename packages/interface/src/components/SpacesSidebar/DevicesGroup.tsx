@@ -65,7 +65,7 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 									className="text-sidebar-inkDull"
 									rightComponent={
 										<div className="flex items-center gap-1">
-											{device.is_paired &&
+											{!device.is_current &&
 												!device.is_connected && (
 													<WifiSlashIcon
 														size={12}
@@ -73,7 +73,7 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 														className="text-ink-dull"
 													/>
 												)}
-											{device.is_paired &&
+											{!device.is_current &&
 												device.is_connected && (
 													<WifiHigh
 														size={12}

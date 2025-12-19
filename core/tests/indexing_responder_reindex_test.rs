@@ -36,8 +36,6 @@ use uuid::Uuid;
 
 struct TestHarness {
 	test_root: PathBuf,
-	data_dir: PathBuf,
-	core: Core,
 	library: Arc<sd_core::library::Library>,
 	event_log: Arc<Mutex<Vec<Event>>>,
 	snapshot_dir: PathBuf,
@@ -111,8 +109,6 @@ impl TestHarness {
 
 		Ok(Self {
 			test_root,
-			data_dir,
-			core,
 			library,
 			event_log,
 			snapshot_dir,
@@ -136,7 +132,7 @@ impl TestHarness {
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
-				location_watcher_enabled: true, // Need watcher to trigger reindex on move
+				fs_watcher_enabled: true, // Need watcher to trigger reindex on move
 			},
 		};
 

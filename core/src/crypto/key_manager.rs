@@ -355,16 +355,20 @@ mod tests {
 
 	#[tokio::test]
 	async fn test_device_key_persistence() {
+		// Use a unique directory name to avoid database conflicts between test runs
 		let temp_dir = TempDir::new().unwrap();
-		let fallback = temp_dir.path().join("device_key.txt");
+		let test_subdir = temp_dir
+			.path()
+			.join(format!("test_device_key_{}", uuid::Uuid::new_v4()));
+		std::fs::create_dir_all(&test_subdir).unwrap();
+		let fallback = test_subdir.join("device_key.txt");
 
 		let manager1 =
-			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback.clone()))
-				.unwrap();
+			KeyManager::new_with_fallback(test_subdir.clone(), Some(fallback.clone())).unwrap();
 		let key1 = manager1.get_device_key().await.unwrap();
+		drop(manager1); // Explicitly drop to close the database
 
-		let manager2 =
-			KeyManager::new_with_fallback(temp_dir.path().to_path_buf(), Some(fallback)).unwrap();
+		let manager2 = KeyManager::new_with_fallback(test_subdir, Some(fallback)).unwrap();
 		let key2 = manager2.get_device_key().await.unwrap();
 
 		assert_eq!(key1, key2);

@@ -34,8 +34,9 @@ impl FileSyncTestSetup {
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
-				location_watcher_enabled: false,
+				fs_watcher_enabled: false,
 			},
+			logging: sd_core::config::LoggingConfig::default(),
 		};
 		config.save()?;
 

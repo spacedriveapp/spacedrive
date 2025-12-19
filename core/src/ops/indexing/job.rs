@@ -10,6 +10,9 @@ use crate::{
 	infra::db::entities,
 	infra::job::{prelude::*, traits::DynJob},
 };
+
+// Re-export IndexMode from domain for backwards compatibility
+pub use crate::domain::location::IndexMode;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -29,24 +32,6 @@ use super::{
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
 	PathResolver,
 };
-
-/// How deeply to index files, from metadata-only to full processing.
-///
-/// IndexMode controls the trade-off between indexing speed and feature completeness.
-/// Shallow mode is fast enough for ephemeral browsing, while Deep mode enables
-/// duplicate detection, thumbnail generation, and full-text search at the cost of
-/// significantly longer indexing time.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Type)]
-pub enum IndexMode {
-	/// Location exists but is not indexed
-	None,
-	/// Just filesystem metadata
-	Shallow,
-	/// Generate content identities via sampled BLAKE3 hashing (enables duplicate detection)
-	Content,
-	/// Full indexing with thumbnails and text extraction
-	Deep,
-}
 
 /// Whether to index just one directory level or recurse through subdirectories.
 ///

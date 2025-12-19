@@ -785,10 +785,22 @@ impl VolumeManager {
 					fingerprint: fingerprint.clone(),
 				});
 
-				// Emit ResourceDeleted event for UI reactivity (only for user-visible volumes)
+				// Emit appropriate event based on tracking status
 				if removed_volume.is_user_visible {
 					use crate::domain::{resource::EventEmitter, Volume};
-					Volume::emit_deleted(removed_volume.id, &events);
+
+					if removed_volume.is_tracked {
+						// Tracked volume - mark as offline but keep in UI
+						let mut offline_volume = removed_volume.clone();
+						offline_volume.is_mounted = false;
+
+						if let Err(e) = offline_volume.emit_changed(&events) {
+							warn!("Failed to emit volume ResourceChanged: {}", e);
+						}
+					} else {
+						// Untracked volume - remove from UI
+						Volume::emit_deleted(removed_volume.id, &events);
+					}
 				}
 			}
 		}
@@ -1240,12 +1252,17 @@ impl VolumeManager {
 		let is_network_drive =
 			matches!(volume.mount_type, crate::volume::types::MountType::Network);
 
+		// Determine final display name (fallback to volume's name if not provided)
+		let final_display_name = display_name
+			.or(volume.display_name.clone())
+			.or(Some(volume.name.clone()));
+
 		// Create tracking record
 		let active_model = entities::volume::ActiveModel {
 			uuid: Set(volume.id),             // Use the volume's UUID
 			device_id: Set(volume.device_id), // Use Uuid directly
 			fingerprint: Set(fingerprint.0.clone()),
-			display_name: Set(display_name.clone()),
+			display_name: Set(final_display_name.clone()),
 			tracked_at: Set(chrono::Utc::now()),
 			last_seen_at: Set(chrono::Utc::now()),
 			is_online: Set(volume.is_mounted),
@@ -1275,7 +1292,7 @@ impl VolumeManager {
 
 		info!(
 			"Tracked volume '{}' for library '{}'",
-			display_name.as_ref().unwrap_or(&volume.name),
+			final_display_name.as_ref().unwrap_or(&volume.name),
 			library.name().await
 		);
 
@@ -1285,7 +1302,7 @@ impl VolumeManager {
 			data: serde_json::json!({
 				"library_id": library.id(),
 				"volume_fingerprint": fingerprint.to_string(),
-				"display_name": display_name,
+				"display_name": final_display_name,
 			}),
 		});
 

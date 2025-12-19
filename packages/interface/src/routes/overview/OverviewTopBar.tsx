@@ -98,7 +98,6 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 	};
 
 	// Mutation for refreshing volume statistics
-	// @ts-expect-error - volumes.refresh not in generated types yet
 	const volumeRefreshMutation = useLibraryMutation("volumes.refresh");
 	const [isRefreshing, setIsRefreshing] = useState(false);
 

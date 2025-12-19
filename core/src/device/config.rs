@@ -38,6 +38,55 @@ pub struct DeviceConfig {
 	#[serde(default)]
 	pub os_version: Option<String>,
 
+	// --- Hardware Specifications ---
+	/// CPU model name
+	#[serde(default)]
+	pub cpu_model: Option<String>,
+
+	/// CPU architecture
+	#[serde(default)]
+	pub cpu_architecture: Option<String>,
+
+	/// Number of physical CPU cores
+	#[serde(default)]
+	pub cpu_cores_physical: Option<u32>,
+
+	/// Number of logical CPU cores
+	#[serde(default)]
+	pub cpu_cores_logical: Option<u32>,
+
+	/// CPU base frequency in MHz
+	#[serde(default)]
+	pub cpu_frequency_mhz: Option<i64>,
+
+	/// Total system memory in bytes
+	#[serde(default)]
+	pub memory_total_bytes: Option<i64>,
+
+	/// Device form factor
+	#[serde(default)]
+	pub form_factor: Option<String>,
+
+	/// Device manufacturer
+	#[serde(default)]
+	pub manufacturer: Option<String>,
+
+	/// GPU model names
+	#[serde(default)]
+	pub gpu_models: Option<Vec<String>>,
+
+	/// Boot disk type
+	#[serde(default)]
+	pub boot_disk_type: Option<String>,
+
+	/// Boot disk capacity in bytes
+	#[serde(default)]
+	pub boot_disk_capacity_bytes: Option<i64>,
+
+	/// Total swap space in bytes
+	#[serde(default)]
+	pub swap_total_bytes: Option<i64>,
+
 	/// Spacedrive version that created this config
 	pub version: String,
 }
@@ -57,6 +106,19 @@ impl DeviceConfig {
 			hardware_model: None,
 			os,
 			os_version: None,
+			// Hardware specs - will be populated later
+			cpu_model: None,
+			cpu_architecture: None,
+			cpu_cores_physical: None,
+			cpu_cores_logical: None,
+			cpu_frequency_mhz: None,
+			memory_total_bytes: None,
+			form_factor: None,
+			manufacturer: None,
+			gpu_models: None,
+			boot_disk_type: None,
+			boot_disk_capacity_bytes: None,
+			swap_total_bytes: None,
 			version: env!("CARGO_PKG_VERSION").to_string(),
 		}
 	}

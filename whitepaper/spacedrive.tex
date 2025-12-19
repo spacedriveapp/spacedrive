@@ -686,9 +686,10 @@ Beyond deduplication, the Content Identity system adds redundancy analysis to su
 
 \begin{keytakeaways}
 \begin{itemize}[noitemsep, topsep=0pt]
-\item \textbf{Four-Phase Pipeline}: Discovery → Processing → Aggregation → Content Identification
-\item \textbf{Real-Time Monitoring}: Platform-native watchers keep the index closely synchronized
-\item \textbf{Flexible Scopes}: Supports both persistent indexing and ephemeral browsing modes
+\item \textbf{Five-Phase Pipeline}: Discovery → Processing → Aggregation → Content Identification → Finalizing
+\item \textbf{Hybrid Architecture}: Dual-layer system with ephemeral (RAM) and persistent (SQLite) indexes
+\item \textbf{Memory Optimizations}: NodeArena slab allocator and NameCache string interning (~50 bytes per entry)
+\item \textbf{Real-Time Monitoring}: Platform-native watchers with unified ChangeHandler interface
 \item \textbf{Remote Volume Support}: Extends to clouds/protocols via OpenDAL with ranged reads for efficiency
 \end{itemize}
 \end{keytakeaways}
@@ -697,28 +698,30 @@ The Spacedrive index is the cornerstone of the VDFS, a multi-phase directory-tra
 
 \subsubsection{Multi-Phase Processing Pipeline}
 
-To manage the complexity of file system analysis, the indexer employs a four-phase pipeline.
+To manage the complexity of file system analysis, the indexer employs a five-phase pipeline. The ephemeral engine runs only Phase 1 (Discovery) for instant in-memory browsing, while the persistent engine executes all five phases with full database writes and content analysis.
 
 \begin{figure}[h]
 \centering
 \begin{tikzpicture}[
     scale=0.9,
     transform shape,
-    node distance=1.2cm,
+    node distance=1.0cm,
     auto,
-    phase/.style={rectangle, rounded corners, draw=black!70, fill=blue!10, minimum width=1.8cm, minimum height=0.8cm, align=center, font=\scriptsize},
+    phase/.style={rectangle, rounded corners, draw=black!70, fill=blue!10, minimum width=1.6cm, minimum height=0.8cm, align=center, font=\scriptsize},
     arrow/.style={->, >=stealth, thick}
 ]
     \node[phase] (discovery) {Discovery};
     \node[phase, right=of discovery] (processing) {Processing};
     \node[phase, right=of processing] (aggregation) {Aggregation};
-    \node[phase, below=0.8cm of processing] (content) {Content ID};
+    \node[phase, right=of aggregation] (content) {Content ID};
+    \node[phase, right=of content] (finalizing) {Finalizing};
 
     \draw[arrow] (discovery) -- (processing);
     \draw[arrow] (processing) -- (aggregation);
-    \draw[arrow] (aggregation.south) -- ++(0,-0.3) -| (content.north);
+    \draw[arrow] (aggregation) -- (content);
+    \draw[arrow] (content) -- (finalizing);
 \end{tikzpicture}
-\caption{The four phases of the Spacedrive indexing pipeline.}
+\caption{The five phases of the Spacedrive indexing pipeline. The ephemeral engine runs only Phase 1 for instant in-memory browsing, while the persistent engine executes all five phases.}
 \label{fig:indexing_pipeline}
 \end{figure}
 
@@ -729,11 +732,13 @@ To manage the complexity of file system analysis, the indexer employs a four-pha
 
  \item \textbf{Aggregation Phase}: For directories, the engine performs a bottom-up traversal to calculate aggregate statistics, such as total size and file counts. This pre-calculation makes directory size lookups an O(1) operation.
 
- \item \textbf{Phase 4: Content Identification}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication. This phase also performs file type detection using a combination of extension matching and magic byte analysis. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
+ \item \textbf{Content Identification Phase}: For files, this phase generates a content hash (CAS ID---Content-Addressed Storage Identifier) for deduplication using BLAKE3. The system creates globally deterministic v5 UUIDs from content hashes, enabling offline duplicate detection across all devices without coordination. This phase also performs file type detection using a combination of extension matching and magic byte analysis through the FileTypeRegistry. For media files, the system leverages bundled FFmpeg libraries to extract rich metadata including duration, codec information, bitrate, resolution, and frame rate---all stored in dedicated media data tables for efficient querying.
+
+ \item \textbf{Finalizing Phase}: This phase completes post-processing tasks including final directory aggregate updates and processor dispatch. In Deep Mode, this phase triggers thumbnail generation, OCR processing, and other analysis jobs defined by installed extensions. The phase marks the indexing operation as complete and updates the location's last-indexed timestamp.
 
 \end{itemize}
 
-After a file's content and type are identified, the system can then dispatch specialized, asynchronous jobs for deeper analysis. These jobs are registered and defined by installed extensions, allowing for a modular approach to intelligence. For example, a Photos extension might queue an \texttt{ImageAnalysisJob} for images, while a developer extension might trigger a \texttt{CodeAnalysisJob} for source files. This ensures that deeper analysis is only performed when relevant to the user's workflow and installed extensions.
+After a file's content and type are identified in Phase 4, the Finalizing phase can dispatch specialized, asynchronous jobs for deeper analysis. These jobs are registered and defined by installed extensions, allowing for a modular approach to intelligence. For example, a Photos extension might queue an \texttt{ImageAnalysisJob} for images, while a developer extension might trigger a \texttt{CodeAnalysisJob} for source files. This ensures that deeper analysis is only performed when relevant to the user's workflow and installed extensions.
 
 \paragraph{Checkpoint Architecture and Resumability}
 
@@ -769,6 +774,18 @@ This transforms hours-long indexing operations into resilient, interruptible wor
 \end{itemize}
 
 These in-memory ephemeral entries appear indistinguishable from persisted entries in the UI, creating a unified browsing experience across indexed and non-indexed data.
+
+\paragraph{Memory Optimizations for Ephemeral Indexing}
+
+To make ephemeral mode practical for browsing millions of files, Spacedrive employs specialized data structures that reduce memory overhead from ~250 bytes per entry (naive approach) to approximately 50 bytes per entry---a 5× reduction.
+
+\textbf{NodeArena Slab Allocator}: Instead of storing entries in a \texttt{HashMap<PathBuf, Entry>} with 64-bit pointers, the system uses a contiguous memory slab indexed by 32-bit integers. This \texttt{NodeArena} allocates \texttt{FileNode} entries sequentially and maintains a free list for reusing deleted slots. The 32-bit node IDs reduce pointer overhead by 50\% while improving cache locality through sequential memory layout.
+
+\textbf{NameCache String Interning}: Filesystem names repeat heavily---\texttt{index.js}, \texttt{.DS\_Store}, \texttt{package.json} appear thousands of times in typical projects. The \texttt{NameCache} stores each unique string once in an \texttt{Arc<str>} pool and references them by 32-bit IDs. For a Node.js project with 1,000 packages each containing \texttt{index.js}, string interning stores "index.js" once (8 bytes) plus 1,000 references (4 KB) instead of 1,000 copies (8 KB), achieving 50\% reduction. Common names like \texttt{.git}, \texttt{README.md}, and system files deduplicate heavily across directory trees.
+
+\textbf{NameRegistry for Fast Lookups}: A \texttt{BTreeMap<NameId, Vec<NodeId>} enables O(log n) "find by name" queries without full-text indexing. This allows instant lookups like "find all README.md files" by indexing on interned name IDs rather than string comparisons.
+
+These optimizations enable browsing hundreds of thousands of files in ephemeral mode with under 50 MB of RAM, making Spacedrive viable as a daily-driver file manager for exploring external drives and network shares without database commits.
 
 \subsubsection{Flexible Indexing Scopes and Persistence}
 \label{sec:indexing-scopes}
@@ -809,7 +826,7 @@ A key strength of the watcher is its use of platform-native APIs for optimal per
 The watcher service is more than a simple event forwarder. It includes a processing pipeline:
 
 \begin{itemize}[noitemsep, topsep=0pt]
- \item \textbf{Noise Filtering}: The watcher applies the same configurable \textbf{indexer rules engine} used during initial indexing. This allows users to customize which files are tracked---filtering system files (\texttt{.DS\_Store}, \texttt{Thumbs.db}), hidden files, git-ignored paths, and development directories (\texttt{node\_modules}, \texttt{target})---through a unified rule set.
+ \item \textbf{Noise Filtering via IndexerRuler}: The watcher applies the same configurable \textbf{indexer rules engine} used during initial indexing through the \texttt{IndexerRuler} component. This unified filtering system provides toggleable system rules including \texttt{NO\_HIDDEN} (skip dotfiles like \texttt{.git}, \texttt{.DS\_Store}), \texttt{NO\_DEV\_DIRS} (skip \texttt{node\_modules}, \texttt{target}, \texttt{dist}), \texttt{NO\_SYSTEM} (skip OS folders like \texttt{System32}, \texttt{/proc}), and \texttt{NO\_TEMP} (skip temporary files). When indexing inside Git repositories, the ruler automatically loads and applies \texttt{.gitignore} patterns, preventing build artifacts and local configuration from polluting the index. Rules are evaluated at the discovery edge---rejected files never enter the processing pipeline, providing 6-8× speedup on typical development directories by avoiding expensive database operations for thousands of dependency files.
 
  \item \textbf{Event Debouncing}: To prevent "event storms" during bulk operations (e.g., unzipping an archive), the system debounces file system events, consolidating rapid-fire changes into single, actionable events.
 
@@ -823,11 +840,11 @@ This real-time monitoring system helps Spacedrive maintain an up-to-date view of
 
 While the Location Watcher provides real-time monitoring during normal operation, a critical challenge arises when Spacedrive itself is offline---whether due to system shutdown, crashes, or disconnected storage volumes. When the system returns online, it must efficiently detect and reconcile any filesystem changes that occurred during its absence.
 
-\textbf{Offline Window Tracking}
+\textbf{Design for Offline Window Tracking}
 
-Spacedrive tracks its core uptime and persists the timestamp of its last shutdown. Upon startup, the system calculates the "offline window"---the period between the last shutdown time and the current time. This window defines the temporal scope within which filesystem changes may have occurred undetected. By comparing this offline period against filesystem modification times, the system can efficiently identify which portions of the filesystem require validation.
+The system architecture includes support for tracking watcher uptime and persisting last-shutdown timestamps per location. Upon startup, the planned behavior is to calculate the "offline window"---the period between the last shutdown and current time---defining the temporal scope for potential undetected changes. By comparing this offline period against filesystem modification times, the system can efficiently identify which portions of the filesystem require validation. Note that while the change detection infrastructure (ChangeDetector) and verification system (IndexVerifyAction) are implemented, \textit{automatic startup stale detection is not yet fully deployed}. Currently, users can manually trigger verification via CLI commands when needed.
 
-\textbf{Stale Detection}
+\textbf{Stale Detection Algorithm}
 
 Rather than performing expensive full filesystem scans after every offline period, Spacedrive leverages a key property of modern filesystems: modification time propagation. On most operating systems (Windows NTFS, macOS APFS, and Linux ext4/btrfs), changes to files within nested directories update the modification timestamps of parent directories up the tree.
 
@@ -847,6 +864,14 @@ This approach substantially reduces re-indexing overhead. For example, in a Loca
 For filesystems that don't reliably propagate modification times (such as certain network filesystems or FAT32), Spacedrive detects this limitation and falls back to an ephemeral deep indexing strategy. This approach leverages the existing multi-phase indexing pipeline but constrains execution to only the Discovery phase---rapidly traversing the filesystem to create lightweight Entry records without performing expensive content analysis. By comparing these ephemeral entries against the persisted database state, the system can efficiently identify additions, deletions, and modifications based on file metadata. Only the detected changes are then queued for full processing through the remaining indexing phases (content identification, media analysis, etc.). The system maintains filesystem capability profiles to automatically select the optimal detection strategy per Location.
 
 This hybrid approach ensures Spacedrive maintains its performance advantages while guaranteeing index integrity, addressing a fundamental limitation of purely real-time monitoring systems.
+
+\subsubsection{Index Verification and Integrity Checking}
+
+To provide diagnostic capabilities and ensure index correctness, Spacedrive implements an \texttt{IndexVerifyAction} that performs on-demand integrity checks. This system runs a fresh ephemeral scan of a location and compares the in-memory results against the persistent database, identifying discrepancies without modifying any data.
+
+The verification process detects three categories of integrity issues: \textbf{MissingFromIndex} (files exist on disk but not in database, indicating missed create events or indexing gaps), \textbf{StaleInIndex} (entries in database but files missing from filesystem, indicating missed delete events), and \textbf{MetadataMismatch} (size, modification time, or inode differences between database and filesystem, indicating missed modify events or filesystem corruption). Each issue includes the affected path, entry ID, and specific mismatch details.
+
+The verification system generates detailed \texttt{IntegrityReport} outputs with per-file diagnostics and summary statistics, accessible via CLI commands or the UI. This is particularly valuable after extended offline periods, when debugging watcher issues, or before major library migrations. The ephemeral comparison approach---indexing into memory rather than database---ensures verification runs quickly (typically under 30 seconds for 100K files) and never corrupts the existing index. Users can trigger verification manually via \texttt{spacedrive verify <path>} or schedule periodic background checks for critical locations.
 
 \subsubsection{Extending the Indexer for Remote Volumes}
 \label{sec:remote-volumes}

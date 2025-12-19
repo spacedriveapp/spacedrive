@@ -269,7 +269,7 @@ impl MockTransport {
 				}
 				SyncMessage::WatermarkExchangeRequest {
 					library_id,
-					device_id: requesting_device_id,
+					device_id: _requesting_device_id,
 					my_state_watermark: peer_state_watermark,
 					my_shared_watermark: peer_shared_watermark,
 				} => {
@@ -559,6 +559,12 @@ impl MockTransport {
 			}
 			SyncMessage::Error { message, .. } => {
 				tracing::warn!(error = %message, "Sync error received");
+			}
+			SyncMessage::EventLogRequest { .. } => {
+				tracing::debug!("EventLogRequest received in mock transport - ignoring");
+			}
+			SyncMessage::EventLogResponse { .. } => {
+				tracing::debug!("EventLogResponse received in mock transport - ignoring");
 			}
 		}
 		Ok(())

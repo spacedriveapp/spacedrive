@@ -162,11 +162,6 @@ mod tests {
 		let challenge = [2u8; 32];
 		let signature = signing_key.sign(&challenge);
 
-		println!("Testing REAL Ed25519 signature verification:");
-		println!("   Public key: {} bytes", public_key_bytes.len());
-		println!("   Challenge: {} bytes", challenge.len());
-		println!("   Signature: {} bytes", signature.to_bytes().len());
-
 		// Should verify successfully with REAL cryptographic verification
 		let result = PairingSecurity::verify_challenge_response(
 			&public_key_bytes,
@@ -175,8 +170,6 @@ mod tests {
 		);
 		assert!(result.is_ok());
 		assert!(result.unwrap());
-
-		println!("REAL cryptographic signature verification PASSED!");
 	}
 
 	#[test]
@@ -190,10 +183,6 @@ mod tests {
 		let wrong_challenge = [3u8; 32];
 		let signature = signing_key.sign(&wrong_challenge);
 
-		println!("Testing REAL Ed25519 signature rejection:");
-		println!("   Signed data: {:?}", &wrong_challenge[..4]);
-		println!("   Verify data: {:?}", &challenge[..4]);
-
 		// Should fail verification (this proves crypto is REALLY working!)
 		let result = PairingSecurity::verify_challenge_response(
 			&public_key_bytes,
@@ -202,8 +191,5 @@ mod tests {
 		);
 		assert!(result.is_ok());
 		assert!(!result.unwrap()); // Should be false
-
-		println!("REAL cryptographic signature rejection PASSED!");
-		println!("   This proves we're doing REAL crypto verification!");
 	}
 }

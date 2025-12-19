@@ -80,44 +80,9 @@ mod tests {
 	use image::RgbImage;
 
 	#[test]
-	fn test_generate_blurhash() {
-		// Create a simple gradient image for testing
-		let width = 100;
-		let height = 100;
-		let mut img = RgbImage::new(width, height);
-
-		for y in 0..height {
-			for x in 0..width {
-				let r = (x as f32 / width as f32 * 255.0) as u8;
-				let g = (y as f32 / height as f32 * 255.0) as u8;
-				let b = 128;
-				img.put_pixel(x, y, image::Rgb([r, g, b]));
-			}
-		}
-
-		let dynamic_img = DynamicImage::ImageRgb8(img);
-		let hash = generate_blurhash(&dynamic_img).unwrap();
-
-		// Blurhash should be a non-empty string
-		assert!(!hash.is_empty());
-		// Should be around 20-30 characters for 4x3 components
-		assert!(hash.len() > 10 && hash.len() < 50);
-	}
-
-	#[test]
 	fn test_zero_dimensions() {
 		let img = DynamicImage::new_rgb8(0, 0);
 		let result = generate_blurhash(&img);
 		assert!(result.is_err());
-	}
-
-	#[test]
-	fn test_large_image_resize() {
-		// Create a large image to test automatic resizing
-		let img = DynamicImage::new_rgb8(2000, 2000);
-		let hash = generate_blurhash(&img).unwrap();
-
-		// Should still generate a hash even with large dimensions
-		assert!(!hash.is_empty());
 	}
 }

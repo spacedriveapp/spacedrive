@@ -1,11 +1,18 @@
 //! Shared context providing access to core application components.
 
 use crate::{
-	config::JobLoggingConfig, crypto::key_manager::KeyManager, device::DeviceManager,
-	infra::action::manager::ActionManager, infra::event::EventBus, infra::sync::TransactionManager,
-	library::LibraryManager, ops::indexing::ephemeral::EphemeralIndexCache,
-	service::network::NetworkingService, service::session::SessionStateService,
-	service::sidecar_manager::SidecarManager, service::watcher::FsWatcherService,
+	config::JobLoggingConfig,
+	crypto::key_manager::KeyManager,
+	device::DeviceManager,
+	infra::action::manager::ActionManager,
+	infra::event::EventBus,
+	infra::sync::TransactionManager,
+	library::LibraryManager,
+	ops::indexing::ephemeral::EphemeralIndexCache,
+	service::network::{NetworkingService, RemoteJobCache},
+	service::session::SessionStateService,
+	service::sidecar_manager::SidecarManager,
+	service::watcher::FsWatcherService,
 	volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
@@ -26,10 +33,13 @@ pub struct CoreContext {
 	pub fs_watcher: Arc<RwLock<Option<Arc<FsWatcherService>>>>,
 	// Ephemeral index cache for unmanaged paths
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
+	// Remote job cache for cross-device job visibility
+	pub remote_job_cache: Arc<RemoteJobCache>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
-	// pub session: Arc<SessionStateService>,
+	// Data directory path (for reset and cleanup operations)
+	pub data_dir: PathBuf,
 }
 
 impl CoreContext {
@@ -40,6 +50,7 @@ impl CoreContext {
 		library_manager: Option<Arc<LibraryManager>>,
 		volume_manager: Arc<VolumeManager>,
 		key_manager: Arc<KeyManager>,
+		data_dir: PathBuf,
 	) -> Self {
 		Self {
 			events,
@@ -55,8 +66,10 @@ impl CoreContext {
 			ephemeral_index_cache: Arc::new(
 				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
 			),
+			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
+			data_dir,
 		}
 	}
 

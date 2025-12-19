@@ -9,8 +9,8 @@ use helpers::test_volumes::{TestFileSystem, TestVolumeBuilder, TestVolumeManager
 use sd_core::{
 	ops::volumes::{
 		speed_test::action::{VolumeSpeedTestAction, VolumeSpeedTestInput},
-		track::action::{VolumeTrackAction, VolumeTrackInput},
-		untrack::action::{VolumeUntrackAction, VolumeUntrackInput},
+		track::{VolumeTrackAction, VolumeTrackInput},
+		untrack::{VolumeUntrackAction, VolumeUntrackInput},
 	},
 	Core,
 };
@@ -92,14 +92,15 @@ async fn test_real_volume_tracking_lifecycle() {
 
 	// Track the volume
 	let track_action = VolumeTrackAction::new(VolumeTrackInput {
-		fingerprint: fingerprint.clone(),
-		name: Some("My Custom Test Volume".to_string()),
+		fingerprint: fingerprint.to_string(),
+		display_name: Some("My Custom Test Volume".to_string()),
 	});
 
 	let result = action_manager
 		.dispatch_library(Some(library.id()), track_action)
 		.await;
 	assert!(result.is_ok(), "Failed to track volume: {:?}", result);
+	let track_output = result.unwrap();
 
 	// Verify tracking
 	let is_tracked = core
@@ -130,7 +131,7 @@ async fn test_real_volume_tracking_lifecycle() {
 
 	// Untrack the volume
 	let untrack_action = VolumeUntrackAction::new(VolumeUntrackInput {
-		fingerprint: fingerprint.clone(),
+		volume_id: track_output.volume_id,
 	});
 
 	let result = action_manager

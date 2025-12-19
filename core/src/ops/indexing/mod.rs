@@ -49,8 +49,11 @@ pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, Me
 pub use handlers::{EphemeralEventHandler, LocationMeta, PersistentEventHandler};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
-pub use job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
+pub use job::{IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
 pub use metrics::IndexerMetrics;
+
+// Re-export IndexMode from domain (canonical location)
+pub use crate::domain::location::IndexMode;
 pub use path_resolver::PathResolver;
 pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 pub use rules::{

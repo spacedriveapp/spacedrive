@@ -15,7 +15,9 @@
 
 pub mod core;
 pub mod device;
+pub mod job_activity_client;
 pub mod protocol;
+pub mod remote_job_cache;
 pub mod transports;
 pub mod utils;
 
@@ -24,7 +26,9 @@ pub use core::{NetworkEvent, NetworkingService};
 
 // Compatibility alias for legacy code
 pub use device::{DeviceInfo, DeviceRegistry, DeviceState};
+pub use job_activity_client::JobActivityClient;
 pub use protocol::{ProtocolHandler, ProtocolRegistry};
+pub use remote_job_cache::{RemoteJobCache, RemoteJobState};
 pub use utils::{NetworkIdentity, NetworkLogger, SilentLogger};
 pub use NetworkingService as NetworkingCore;
 

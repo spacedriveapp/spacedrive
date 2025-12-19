@@ -273,10 +273,44 @@ impl Library {
 
 		// Priority 2: Check library's device cache
 		if let Ok(cache) = self.device_cache.read() {
-			cache.get(slug).copied()
-		} else {
-			None
+			if let Some(device_id) = cache.get(slug).copied() {
+				return Some(device_id);
+			}
 		}
+
+		// Priority 3: Fall back to paired devices from networking layer
+		// This allows file transfers between paired devices even if they're not in the library DB
+		if let Ok(networking_guard) = self.core_context.networking.try_read() {
+			if let Some(networking) = networking_guard.as_ref() {
+				if let Ok(registry) = networking.device_registry().try_read() {
+					// Check all devices in the registry for a matching slug
+					for (device_id, state) in registry.get_all_devices() {
+						let device_info = match state {
+							crate::service::network::device::DeviceState::Paired {
+								info, ..
+							}
+							| crate::service::network::device::DeviceState::Connected {
+								info,
+								..
+							}
+							| crate::service::network::device::DeviceState::Disconnected {
+								info,
+								..
+							} => Some(info),
+							_ => None,
+						};
+
+						if let Some(info) = device_info {
+							if info.device_slug == slug {
+								return Some(device_id);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		None
 	}
 
 	/// Reload device cache from database

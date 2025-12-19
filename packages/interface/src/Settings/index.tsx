@@ -1,5 +1,6 @@
 import { useState } from "react";
 import clsx from "clsx";
+import { useCoreMutation } from "../context";
 
 interface SettingsSidebarProps {
   currentPage: string;
@@ -54,6 +55,30 @@ function SettingsContent({ page }: SettingsContentProps) {
 }
 
 function GeneralSettings() {
+  const resetData = useCoreMutation("core.reset");
+
+  const handleResetData = () => {
+    const confirmed = window.confirm(
+      "Reset All Data\n\nThis will permanently delete all libraries, settings, and cached data. The app will need to be restarted. Are you sure?"
+    );
+
+    if (confirmed) {
+      resetData.mutate(
+        { confirm: true },
+        {
+          onSuccess: (result) => {
+            alert(
+              result.message || "Data has been reset. Please restart the application."
+            );
+          },
+          onError: (error) => {
+            alert("Error: " + (error.message || "Failed to reset data"));
+          },
+        }
+      );
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -70,6 +95,23 @@ function GeneralSettings() {
         <div className="p-4 bg-app-box rounded-lg border border-app-line">
           <h3 className="text-sm font-medium text-ink mb-1">Language</h3>
           <p className="text-xs text-ink-dull">Select your language</p>
+        </div>
+        <div className="p-4 bg-app-box rounded-lg border border-app-line">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-ink mb-1">Reset All Data</h3>
+              <p className="text-xs text-ink-dull">
+                Permanently delete all libraries and settings
+              </p>
+            </div>
+            <button
+              onClick={handleResetData}
+              disabled={resetData.isPending}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+            >
+              {resetData.isPending ? "Resetting..." : "Reset"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

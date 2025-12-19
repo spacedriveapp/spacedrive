@@ -2,6 +2,7 @@
 
 pub mod file_delete;
 pub mod file_transfer;
+pub mod job_activity;
 pub mod library_messages;
 pub mod messaging;
 pub mod pairing;
@@ -18,6 +19,7 @@ pub use file_delete::FileDeleteProtocolHandler;
 pub use file_transfer::{
 	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferMode, TransferSession,
 };
+pub use job_activity::{JobActivityMessage, JobActivityProtocolHandler, RemoteJobEvent};
 pub use library_messages::{LibraryDiscoveryInfo, LibraryMessage};
 pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};

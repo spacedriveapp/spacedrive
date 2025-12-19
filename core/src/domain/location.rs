@@ -57,7 +57,7 @@ pub struct Location {
 }
 
 /// How deeply to index files in this location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Type)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
@@ -173,7 +173,11 @@ impl Location {
 	pub fn should_ignore(&self, path: &str) -> bool {
 		self.ignore_patterns.iter().any(|pattern| {
 			// Simple glob matching (could use glob crate for full support)
-			if pattern.starts_with("*.") {
+			if pattern == ".*" {
+				// Match files/directories starting with a dot
+				path.split('/')
+					.any(|part| part.starts_with('.') && part != ".")
+			} else if pattern.starts_with("*.") {
 				path.ends_with(&pattern[1..])
 			} else if pattern.starts_with('.') {
 				path.split('/').any(|part| part == pattern)

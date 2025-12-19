@@ -15,7 +15,6 @@ use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tempfile::TempDir;
 use tokio::time::timeout;
-use tracing::{info, warn};
 
 /// Test fixture that tracks all ResourceChanged events
 struct EventCollector {
@@ -50,6 +49,7 @@ impl EventCollector {
 							Event::ResourceChangedBatch {
 								resource_type,
 								resources,
+								metadata,
 							} => {
 								batch_event_count += 1;
 								let count = if let Some(arr) = resources.as_array() {
@@ -112,6 +112,7 @@ impl EventCollector {
 				Event::ResourceChangedBatch {
 					resource_type,
 					resources,
+					metadata,
 				} => {
 					let count = if let Some(arr) = resources.as_array() {
 						arr.len()

@@ -224,7 +224,9 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 			// Listen for events
 			while let Some(event) = event_stream.recv().await {
 				match event {
-					Event::JobStarted { job_id, job_type } => {
+					Event::JobStarted {
+						job_id, job_type, ..
+					} => {
 						println!("Job started: {} [{}]", job_type, &job_id[..8]);
 						let pb = crate::ui::create_simple_progress(&job_type, 100);
 						pb.set_message(format!("{} [{}] - Starting...", job_type, &job_id[..8]));
@@ -272,6 +274,7 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 						job_id,
 						job_type,
 						error,
+						..
 					} => {
 						if let Some(pb) = progress_bars.get(&job_id) {
 							pb.finish_with_message(format!(
@@ -284,7 +287,9 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 						println!("Job failed: {} [{}] - {}", job_type, &job_id[..8], error);
 					}
 
-					Event::JobCancelled { job_id, job_type } => {
+					Event::JobCancelled {
+						job_id, job_type, ..
+					} => {
 						if let Some(pb) = progress_bars.get(&job_id) {
 							pb.finish_with_message(format!(
 								"{} [{}] - Cancelled",
@@ -296,14 +301,14 @@ async fn run_simple_job_monitor(ctx: &Context, args: JobMonitorArgs) -> Result<(
 						println!("Job cancelled: {} [{}]", job_type, &job_id[..8]);
 					}
 
-					Event::JobPaused { job_id } => {
+					Event::JobPaused { job_id, .. } => {
 						if let Some(pb) = progress_bars.get(&job_id) {
 							pb.set_message(format!("Job paused [{}]", &job_id[..8]));
 						}
 						println!("Job paused: [{}]", &job_id[..8]);
 					}
 
-					Event::JobResumed { job_id } => {
+					Event::JobResumed { job_id, .. } => {
 						if let Some(pb) = progress_bars.get(&job_id) {
 							pb.set_message(format!("️ Job resumed [{}]", &job_id[..8]));
 						}

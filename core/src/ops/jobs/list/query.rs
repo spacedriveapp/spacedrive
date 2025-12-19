@@ -51,6 +51,7 @@ impl LibraryQuery for JobListQuery {
 			.map(|j| JobListItem {
 				id: j.id,
 				name: j.name,
+				device_id: j.device_id,
 				status: j.status,
 				progress: j.progress,
 				action_type: j.action_type,

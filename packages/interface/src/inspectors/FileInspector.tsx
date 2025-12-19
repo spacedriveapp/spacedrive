@@ -21,6 +21,7 @@ import {
 	Trash,
 	FilmStrip,
 	VideoCamera,
+	Cube,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { getContentKind } from "../components/Explorer/utils";
@@ -120,6 +121,7 @@ function OverviewTab({ file }: { file: File }) {
 	// AI Processing mutations
 	const extractText = useLibraryMutation("media.ocr.extract");
 	const transcribeAudio = useLibraryMutation("media.speech.transcribe");
+	const generateSplat = useLibraryMutation("media.splat.generate");
 	const regenerateThumbnail = useLibraryMutation(
 		"media.thumbnail.regenerate",
 	);
@@ -459,6 +461,52 @@ function OverviewTab({ file }: { file: File }) {
 									{extractText.isPending
 										? "Extracting..."
 										: "Extract Text (OCR)"}
+								</span>
+							</button>
+						)}
+
+						{/* Gaussian Splat for images */}
+						{isImage && (
+							<button
+								onClick={() => {
+									console.log(
+										"Generate splat clicked for file:",
+										file.id,
+									);
+									generateSplat.mutate(
+										{
+											entry_uuid: file.id,
+											model_path: null,
+										},
+										{
+											onSuccess: (data) => {
+												console.log(
+													"Splat generation success:",
+													data,
+												);
+											},
+											onError: (error) => {
+												console.error(
+													"Splat generation error:",
+													error,
+												);
+											},
+										},
+									);
+								}}
+								disabled={generateSplat.isPending}
+								className={clsx(
+									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+									"bg-app-box hover:bg-app-hover border border-app-line",
+									generateSplat.isPending &&
+										"opacity-50 cursor-not-allowed",
+								)}
+							>
+								<Cube size={4} weight="bold" />
+								<span>
+									{generateSplat.isPending
+										? "Generating..."
+										: "Generate 3D Splat"}
 								</span>
 							</button>
 						)}
