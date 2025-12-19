@@ -3,7 +3,14 @@ import { File as FileComponent } from "../Explorer/File";
 import { formatBytes, getContentKind } from "../Explorer/utils";
 import { usePlatform } from "../../platform";
 import { useServer } from "../../ServerContext";
-import { useState, useEffect, useRef, useCallback, lazy, Suspense } from "react";
+import {
+	useState,
+	useEffect,
+	useRef,
+	useCallback,
+	lazy,
+	Suspense,
+} from "react";
 import {
 	MagnifyingGlassPlus,
 	MagnifyingGlassMinus,
@@ -14,9 +21,16 @@ import { VideoPlayer } from "./VideoPlayer";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
 import { Folder } from "@sd/assets/icons";
+import { SplatShimmerEffect } from "./SplatShimmerEffect";
+import { sounds } from "@sd/assets/sounds";
+import { TopBarButton } from "@sd/ui";
 
-const MeshViewer = lazy(() => import('./MeshViewer').then(m => ({ default: m.MeshViewer })));
-const MeshViewerUI = lazy(() => import('./MeshViewer').then(m => ({ default: m.MeshViewerUI })));
+const MeshViewer = lazy(() =>
+	import("./MeshViewer").then((m) => ({ default: m.MeshViewer })),
+);
+const MeshViewerUI = lazy(() =>
+	import("./MeshViewer").then((m) => ({ default: m.MeshViewerUI })),
+);
 
 interface ContentRendererProps {
 	file: File;
@@ -49,19 +63,20 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 
 	// Check if Gaussian splat sidecar exists and get URL
 	const splatSidecar = file.sidecars?.find(
-		(s) => s.kind === "gaussian_splat" && s.format === "ply"
+		(s) => s.kind === "gaussian_splat" && s.format === "ply",
 	);
 	const hasSplat = !!splatSidecar;
 
 	// Build sidecar URL for the splat
-	const splatUrl = hasSplat && file.content_identity?.uuid
-		? buildSidecarUrl(
-			file.content_identity.uuid,
-			splatSidecar!.kind,
-			splatSidecar!.variant,
-			splatSidecar!.format,
-		)
-		: null;
+	const splatUrl =
+		hasSplat && file.content_identity?.uuid
+			? buildSidecarUrl(
+					file.content_identity.uuid,
+					splatSidecar!.kind,
+					splatSidecar!.variant,
+					splatSidecar!.format,
+				)
+			: null;
 
 	// Notify parent of zoom state changes
 	useEffect(() => {
@@ -140,19 +155,47 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 
 	// Stable callback to prevent re-renders that would reinitialize MeshViewer
 	const handleSplatLoaded = useCallback(() => {
-		console.log("[ImageRenderer] Splat is fully visible, hiding image overlay");
+		console.log(
+			"[ImageRenderer] Splat is fully visible, hiding image overlay",
+		);
 		setSplatLoaded(true);
+		sounds.splat();
 	}, []);
+
+	// Persistent pre-mounted shimmer wrapper (stays mounted regardless of view)
+	// Disabled for now
+	const persistentShimmer = null;
 
 	// Render splat view separately (not overlayed)
 	if (showSplat && hasSplat && splatUrl) {
 		return (
 			<>
+				{/* Persistent shimmer - always ready */}
+				{persistentShimmer}
+
 				{/* Fullscreen canvas layer */}
 				<Suspense
 					fallback={
-						<div className="w-full h-full flex items-center justify-center">
-							<FileComponent.Thumb file={file} size={200} />
+						<div className="relative w-full h-full z-10 pointer-events-none bg-black flex items-center justify-center">
+							{thumbnailUrl && (
+								<img
+									src={thumbnailUrl}
+									alt={file.name}
+									className="w-full h-full object-contain"
+									draggable={false}
+								/>
+							)}
+							{originalUrl && (
+								<img
+									src={originalUrl}
+									alt={file.name}
+									className="absolute inset-0 w-full h-full object-contain transition-opacity duration-300"
+									style={{
+										opacity: originalLoaded ? 1 : 0,
+									}}
+									draggable={false}
+								/>
+							)}
 						</div>
 					}
 				>
@@ -196,31 +239,49 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 				{/* Safe area UI overlay */}
 				<div className="relative w-full h-full z-30 pointer-events-none">
 					{/* Toggle button */}
-					<div className="absolute top-4 left-4">
-						<button
+					<div className="absolute top-4 left-4 pointer-events-auto">
+						<TopBarButton
+							icon={Cube}
 							onClick={() => {
 								setShowSplat(false);
 								setSplatLoaded(false);
 							}}
-							className="pointer-events-auto rounded-lg p-2 bg-accent text-white backdrop-blur-xl transition-colors hover:bg-accent/90"
 							title="Show Image"
-						>
-							<Cube size={20} weight="bold" />
-						</button>
+							active={true}
+							activeAccent={true}
+						/>
 					</div>
 
 					{/* MeshViewer UI controls */}
 					<Suspense fallback={null}>
 						<MeshViewerUI
 							autoRotate={meshControls.autoRotate}
-							setAutoRotate={(v) => setMeshControls(c => ({ ...c, autoRotate: v }))}
+							setAutoRotate={(v) =>
+								setMeshControls((c) => ({
+									...c,
+									autoRotate: v,
+								}))
+							}
 							swayAmount={meshControls.swayAmount}
-							setSwayAmount={(v) => setMeshControls(c => ({ ...c, swayAmount: v }))}
+							setSwayAmount={(v) =>
+								setMeshControls((c) => ({
+									...c,
+									swayAmount: v,
+								}))
+							}
 							swaySpeed={meshControls.swaySpeed}
-							setSwaySpeed={(v) => setMeshControls(c => ({ ...c, swaySpeed: v }))}
+							setSwaySpeed={(v) =>
+								setMeshControls((c) => ({ ...c, swaySpeed: v }))
+							}
 							cameraDistance={meshControls.cameraDistance}
-							setCameraDistance={(v) => setMeshControls(c => ({ ...c, cameraDistance: v }))}
+							setCameraDistance={(v) =>
+								setMeshControls((c) => ({
+									...c,
+									cameraDistance: v,
+								}))
+							}
 							isGaussianSplat={meshControls.isGaussianSplat}
+							onResetFocalPoint={meshControls.onResetFocalPoint}
 						/>
 					</Suspense>
 				</div>
@@ -234,16 +295,20 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			ref={containerRef}
 			className={`relative w-full h-full flex items-center justify-center ${isZoomed ? "overflow-visible" : "overflow-hidden"}`}
 		>
+			{/* Persistent shimmer - always ready */}
+			{persistentShimmer}
+
 			{/* Splat Toggle (top-left) */}
 			{hasSplat && (
 				<div className="absolute top-4 left-4 z-10">
-					<button
-						onClick={() => setShowSplat(true)}
-						className="rounded-lg p-2 bg-app-box/80 text-ink backdrop-blur-xl transition-colors hover:bg-app-hover"
+					<TopBarButton
+						icon={Cube}
+						onClick={() => {
+							sounds.splatTrigger();
+							setShowSplat(true);
+						}}
 						title="Show 3D Splat"
-					>
-						<Cube size={20} weight="bold" />
-					</button>
+					/>
 				</div>
 			)}
 
