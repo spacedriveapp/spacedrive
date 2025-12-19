@@ -73,6 +73,8 @@ impl LibraryAction for GenerateSplatAction {
 		// Create job
 		let job = super::job::GaussianSplatJob::new(job_config);
 
+		tracing::info!("Gaussian splat job created: {:?}", self.input.entry_uuid);
+
 		// Dispatch job
 		let job_handle = library
 			.jobs()
