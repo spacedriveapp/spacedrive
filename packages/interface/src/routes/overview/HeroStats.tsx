@@ -32,7 +32,7 @@ export function HeroStats({
 		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
 	return (
-		<div
+		<motion.div
 			initial={{ opacity: 0, y: 20 }}
 			animate={{ opacity: 1, y: 0 }}
 			className="bg-app-box border border-app-line rounded-2xl p-8"
@@ -82,7 +82,7 @@ export function HeroStats({
 					color="from-purple-500 to-pink-500"
 				/>
 			</div>
-		</div>
+		</motion.div>
 	);
 }
 

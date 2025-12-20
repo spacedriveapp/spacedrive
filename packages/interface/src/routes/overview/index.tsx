@@ -61,7 +61,7 @@ export function Overview() {
 			<>
 				<OverviewTopBar libraryName="Loading..." />
 				<div className="flex flex-col h-full overflow-hidden pt-[52px]">
-					<div className="flex-1 overflow-auto p-6 space-y-6">
+					<div className="flex-1 overflow-auto p-6 space-y-4">
 						<div className="text-center text-ink-dull">
 							Loading library statistics...
 						</div>
@@ -80,7 +80,7 @@ export function Overview() {
 			<div className="flex flex-col h-full overflow-hidden pt-[52px]">
 				<div className="flex-1 flex gap-2 overflow-hidden">
 					{/* Main content - scrollable */}
-					<div className="flex-1 overflow-auto p-6 space-y-6">
+					<div className="flex-1 overflow-auto p-6 space-y-4">
 						{/* Hero Stats */}
 						<HeroStats
 							totalStorage={stats.total_capacity}

@@ -20,11 +20,11 @@ export function createExplorerRouter(): ReturnType<typeof createBrowserRouter> {
 					index: true,
 					element: <Overview />,
 				},
-			{
-				path: "explorer",
-				element: <ExplorerView />,
-			},
-			{
+				{
+					path: "explorer",
+					element: <ExplorerView />,
+				},
+				{
 					path: "favorites",
 					element: (
 						<div className="flex items-center justify-center h-full text-ink">

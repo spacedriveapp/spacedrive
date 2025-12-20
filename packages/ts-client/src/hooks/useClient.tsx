@@ -13,6 +13,7 @@ export const queryClient = new QueryClient({
 			gcTime: 300000, // 5 minutes
 			retry: 1,
 			refetchOnWindowFocus: true,
+			refetchOnReconnect: true,
 		},
 	},
 });
