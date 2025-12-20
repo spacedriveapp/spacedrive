@@ -1,0 +1,10 @@
+# Build output
+dist/
+node_modules/
+
+# Self-signed certificates
+.certs/
+
+# Environment
+.env
+.env.local
