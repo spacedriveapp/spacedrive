@@ -1,5 +1,5 @@
-import { WifiHigh, WifiNoneIcon, WifiSlashIcon } from "@phosphor-icons/react";
-import { useNormalizedQuery, getDeviceIcon } from "../../context";
+import { WifiHigh, WifiNoneIcon, WifiSlashIcon, Trash } from "@phosphor-icons/react";
+import { useNormalizedQuery, getDeviceIcon, useCoreMutation } from "../../context";
 import { useExplorer } from "../Explorer/context";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
@@ -33,6 +33,43 @@ export function DevicesGroup({
 		},
 		resourceType: "device",
 	});
+
+	// Mutation for unpairing devices
+	const revokeDevice = useCoreMutation("network.device.revoke");
+
+	// Handler for device context menu
+	const handleDeviceContextMenu = (device: LibraryDeviceInfo) => async (e: React.MouseEvent) => {
+		e.preventDefault();
+		e.stopPropagation();
+
+		// Only show context menu for non-current devices
+		if (device.is_current) return;
+
+		// Create context menu items for this device
+		const items = [
+			{
+				icon: Trash,
+				label: "Unpair Device",
+				onClick: async () => {
+					await revokeDevice.mutateAsync({
+						device_id: device.id,
+					});
+				},
+				variant: "danger" as const,
+			},
+		];
+
+		// Show platform-appropriate context menu
+		if (window.__SPACEDRIVE__?.showContextMenu) {
+			// Tauri native menu
+			await window.__SPACEDRIVE__.showContextMenu(items, {
+				x: e.clientX,
+				y: e.clientY,
+			});
+		}
+		// For web, we'd need to implement a Radix-based context menu
+		// but for now, just call the action directly or show an alert
+	};
 
 	return (
 		<div>
@@ -70,6 +107,7 @@ export function DevicesGroup({
 									customIcon={getDeviceIcon(device)}
 									customLabel={device.name}
 									onClick={() => navigateToView("device", device.id)}
+									onContextMenu={handleDeviceContextMenu(device)}
 									allowInsertion={false}
 									isLastItem={index === devices.length - 1}
 									className="text-sidebar-inkDull"

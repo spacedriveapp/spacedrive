@@ -55,6 +55,8 @@ interface SpaceItemProps {
 	groupId?: string | null;
 	/** Whether this item is sortable (can be reordered) */
 	sortable?: boolean;
+	/** Optional onContextMenu handler to override default context menu */
+	onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 function getItemIcon(itemType: ItemType): any {
@@ -362,6 +364,12 @@ export function SpaceItem({
 	});
 
 	const handleContextMenu = async (e: React.MouseEvent) => {
+		// Use custom handler if provided, otherwise use default
+		if (props.onContextMenu) {
+			props.onContextMenu(e);
+			return;
+		}
+
 		e.preventDefault();
 		e.stopPropagation();
 		await contextMenu.show(e);
