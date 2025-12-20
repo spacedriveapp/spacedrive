@@ -43,6 +43,7 @@ import { useContextMenu } from "../hooks/useContextMenu";
 import { usePlatform } from "../platform";
 import { useServer } from "../ServerContext";
 import { useJobs } from "../components/JobManager/hooks/useJobs";
+import { getIcon } from "@sd/assets/util";
 
 interface FileInspectorProps {
 	file: File;
@@ -799,6 +800,31 @@ function SidecarItem({
 			sidecar.format === "jpg" ||
 			sidecar.format === "png");
 
+	// Get appropriate Spacedrive icon based on sidecar format/kind
+	const getSidecarIcon = () => {
+		const format = String(sidecar.format).toLowerCase();
+		
+		// PLY files (3D mesh) use Mesh icon
+		if (format === "ply") {
+			return getIcon("Mesh", true);
+		}
+		
+		// Text files use Text icon
+		if (format === "text" || format === "txt" || format === "srt") {
+			return getIcon("Text", true);
+		}
+		
+		// Thumbs/thumbstrips use Image icon
+		if (sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") {
+			return getIcon("Image", true);
+		}
+		
+		// Default to Document icon
+		return getIcon("Document", true);
+	};
+
+	const sidecarIcon = getSidecarIcon();
+
 	const contextMenu = useContextMenu({
 		items: [
 			{
@@ -878,13 +904,21 @@ function SidecarItem({
 							}
 						}}
 					/>
-					<div className="hidden items-center justify-center w-full h-full text-sidebar-inkDull">
-						<Image size={20} weight="regular" />
+					<div className="hidden items-center justify-center w-full h-full">
+						<img
+							src={sidecarIcon}
+							alt=""
+							className="size-6 object-contain"
+						/>
 					</div>
 				</div>
 			) : (
-				<div className="size-12 shrink-0 rounded bg-app-box border border-app-line flex items-center justify-center text-sidebar-inkDull">
-					<Image size={20} weight="regular" />
+				<div className="size-12 shrink-0 rounded bg-app-box border border-app-line flex items-center justify-center">
+					<img
+						src={sidecarIcon}
+						alt=""
+						className="size-6 object-contain"
+					/>
 				</div>
 			)}
 
@@ -899,7 +933,7 @@ function SidecarItem({
 					{String(sidecar.format).toUpperCase()}
 				</div>
 			</div>
-			<span
+			{/* <span
 				className={clsx(
 					"text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0",
 					sidecar.status === "ready" && "bg-accent/20 text-accent",
@@ -908,7 +942,7 @@ function SidecarItem({
 				)}
 			>
 				{String(sidecar.status)}
-			</span>
+			</span> */}
 		</div>
 	);
 }

@@ -26,6 +26,7 @@ use crate::infra::{
 	sync::{SyncEventBus, TransactionManager},
 };
 use once_cell::sync::OnceCell;
+use sea_orm::ConnectionTrait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock as StdRwLock};
