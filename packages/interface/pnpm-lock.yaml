@@ -11,6 +11,9 @@ importers:
       '@sd/assets':
         specifier: workspace:*
         version: link:../assets
+      '@sd/ts-client':
+        specifier: workspace:*
+        version: link:../ts-client
       '@sd/ui':
         specifier: workspace:*
         version: link:../ui
@@ -20,6 +23,9 @@ importers:
       react:
         specifier: ^19.0.0
         version: 19.2.0
+      react-masonry-css:
+        specifier: ^1.0.16
+        version: 1.0.16(react@19.2.0)
 
   ../..: {}
 
@@ -115,6 +121,11 @@ packages:
     resolution: {integrity: sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==}
     engines: {node: '>=10.13.0'}
     hasBin: true
+
+  react-masonry-css@1.0.16:
+    resolution: {integrity: sha512-KSW0hR2VQmltt/qAa3eXOctQDyOu7+ZBevtKgpNDSzT7k5LA/0XntNa9z9HKCdz3QlxmJHglTZ18e4sX4V8zZQ==}
+    peerDependencies:
+      react: '>=16.0.0'
 
   react@19.2.0:
     resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
@@ -216,6 +227,10 @@ snapshots:
       dijkstrajs: 1.0.3
       pngjs: 5.0.0
       yargs: 15.4.1
+
+  react-masonry-css@1.0.16(react@19.2.0):
+    dependencies:
+      react: 19.2.0
 
   react@19.2.0: {}
 

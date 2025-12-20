@@ -9,6 +9,8 @@ pub struct Model {
 	#[sea_orm(primary_key, auto_increment = false)]
 	pub id: i32,
 	pub name: String,
+	#[serde(default)]
+	pub file_count: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { HardDrive, Plus, Database } from "@phosphor-icons/react";
+import Masonry from "react-masonry-css";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
 import ServerIcon from "@sd/assets/icons/Server.png";
@@ -198,9 +199,19 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 		{} as Record<string, JobListItem[]>,
 	);
 
+	const breakpointColumns = {
+		default: 3,
+		1600: 2,
+		1000: 1,
+	};
+
 	return (
 		<div className="">
-			<div className="grid grid-cols-2 gap-4 items-start">
+			<Masonry
+				breakpointCols={breakpointColumns}
+				className="flex -ml-4 w-auto"
+				columnClassName="pl-4 bg-clip-padding"
+			>
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
@@ -238,7 +249,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 						</div>
 					</div>
 				)}
-			</div>
+			</Masonry>
 		</div>
 	);
 }
@@ -280,7 +291,7 @@ function DeviceCard({
 	);
 
 	return (
-		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl">
+		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl mb-4">
 			{/* Device Header */}
 			<div className="px-6 py-4 bg-app-box border-b border-app-line">
 				<div className="flex items-center gap-4">

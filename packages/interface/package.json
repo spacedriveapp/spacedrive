@@ -43,6 +43,7 @@
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"react-hook-form": "^7.53.2",
+		"react-masonry-css": "^1.0.16",
 		"react-router-dom": "^6.20.1",
 		"react-scan": "^0.4.3",
 		"rooks": "^9.3.0",

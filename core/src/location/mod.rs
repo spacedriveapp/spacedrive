@@ -16,7 +16,9 @@ use crate::{
 };
 
 use sea_orm::{
-	ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
+	ActiveModelTrait,
+	ActiveValue::{NotSet, Set},
+	ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use std::{path::PathBuf, sync::Arc};
@@ -249,7 +251,7 @@ pub async fn create_location(
 	});
 
 	let location_model = entities::location::ActiveModel {
-		id: Set(0), // Auto-increment
+		id: NotSet, // Auto-increment handled by database
 		uuid: Set(location_id),
 		device_id: Set(device_id),
 		entry_id: Set(Some(entry_id)),

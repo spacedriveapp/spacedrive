@@ -1,0 +1,431 @@
+//! Indexing test harness and utilities
+//!
+//! Provides reusable components for indexing integration tests,
+//! reducing boilerplate and making it easy to test change detection.
+
+use super::{init_test_tracing, register_device, wait_for_indexing, TestConfigBuilder};
+use anyhow::Context;
+use sd_core::{
+	infra::db::entities::{self, entry_closure},
+	location::{create_location, IndexMode, LocationCreateArgs},
+	Core,
+};
+use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
+use tempfile::TempDir;
+use tokio::time::Duration;
+use uuid::Uuid;
+
+/// Builder for creating indexing test harness
+pub struct IndexingHarnessBuilder {
+	test_name: String,
+	temp_dir: Option<TempDir>,
+}
+
+impl IndexingHarnessBuilder {
+	/// Create a new harness builder
+	pub fn new(test_name: impl Into<String>) -> Self {
+		Self {
+			test_name: test_name.into(),
+			temp_dir: None,
+		}
+	}
+
+	/// Build the harness
+	pub async fn build(mut self) -> anyhow::Result<IndexingHarness> {
+		let temp_dir = TempDir::new()?;
+		let snapshot_dir = temp_dir.path().join("snapshots");
+		tokio::fs::create_dir_all(&snapshot_dir).await?;
+
+		// Initialize tracing
+		init_test_tracing(&self.test_name, &snapshot_dir)?;
+
+		// Create config
+		let config = TestConfigBuilder::new(temp_dir.path().to_path_buf())
+			.build()
+			.context("Failed to create test config")?;
+
+		// Initialize core
+		let core = Core::new(config.data_dir.clone())
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to initialize core: {}", e))?;
+
+		// Create library
+		let library = core
+			.libraries
+			.create_library(
+				format!("{} Library", self.test_name),
+				None,
+				core.context.clone(),
+			)
+			.await?;
+
+		// Register a test-specific device with unique UUID to avoid conflicts
+		// when tests run in parallel
+		let device_id = Uuid::new_v4();
+		let device_name = format!("{}_device", self.test_name);
+		register_device(&library, device_id, &device_name).await?;
+
+		// Get device record
+		let device_record = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(device_id))
+			.one(library.db().conn())
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Device not found after registration"))?;
+
+		self.temp_dir = Some(temp_dir);
+
+		Ok(IndexingHarness {
+			_test_name: self.test_name,
+			_temp_dir: self.temp_dir.unwrap(),
+			snapshot_dir,
+			core,
+			library,
+			device_id,
+			device_db_id: device_record.id,
+		})
+	}
+}
+
+/// Indexing test harness with convenient helper methods
+pub struct IndexingHarness {
+	_test_name: String,
+	_temp_dir: TempDir,
+	pub snapshot_dir: PathBuf,
+	pub core: Core,
+	pub library: Arc<sd_core::library::Library>,
+	pub device_id: Uuid,
+	pub device_db_id: i32,
+}
+
+impl IndexingHarness {
+	/// Get the temp directory path (for creating test files)
+	pub fn temp_path(&self) -> &Path {
+		self._temp_dir.path()
+	}
+
+	/// Create a test location directory with files
+	pub async fn create_test_location(&self, name: &str) -> anyhow::Result<TestLocation> {
+		let location_dir = self.temp_path().join(name);
+		tokio::fs::create_dir_all(&location_dir).await?;
+
+		Ok(TestLocation {
+			path: location_dir,
+			harness: self,
+		})
+	}
+
+	/// Add a location and wait for indexing to complete
+	pub async fn add_and_index_location(
+		&self,
+		path: impl AsRef<Path>,
+		name: &str,
+		mode: IndexMode,
+	) -> anyhow::Result<LocationHandle> {
+		let path = path.as_ref();
+
+		tracing::info!(
+			path = %path.display(),
+			name = %name,
+			mode = ?mode,
+			"Creating and indexing location"
+		);
+
+		let location_args = LocationCreateArgs {
+			path: path.to_path_buf(),
+			name: Some(name.to_string()),
+			index_mode: mode,
+		};
+
+		let location_db_id = create_location(
+			self.library.clone(),
+			&self.core.events,
+			location_args,
+			self.device_db_id,
+		)
+		.await?;
+
+		// Get the location record to find its entry_id
+		let location_record = entities::location::Entity::find_by_id(location_db_id)
+			.one(self.library.db().conn())
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Location not found after creation"))?;
+
+		// Wait for indexing to complete
+		wait_for_indexing(&self.library, location_db_id, Duration::from_secs(30)).await?;
+
+		tracing::info!(
+			location_id = location_db_id,
+			"Location indexed successfully"
+		);
+
+		Ok(LocationHandle {
+			db_id: location_db_id,
+			uuid: location_record.uuid,
+			entry_id: location_record.entry_id,
+			path: path.to_path_buf(),
+			harness: self,
+		})
+	}
+
+	/// Shutdown the harness
+	pub async fn shutdown(self) -> anyhow::Result<()> {
+		let lib_id = self.library.id();
+		self.core.libraries.close_library(lib_id).await?;
+		drop(self.library);
+		self.core
+			.shutdown()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
+		Ok(())
+	}
+}
+
+/// Helper for building test locations with files
+pub struct TestLocation<'a> {
+	path: PathBuf,
+	harness: &'a IndexingHarness,
+}
+
+impl<'a> TestLocation<'a> {
+	/// Get the location path
+	pub fn path(&self) -> &Path {
+		&self.path
+	}
+
+	/// Write a file with content
+	pub async fn write_file(&self, relative_path: &str, content: &str) -> anyhow::Result<PathBuf> {
+		let file_path = self.path.join(relative_path);
+
+		// Create parent directories if needed
+		if let Some(parent) = file_path.parent() {
+			tokio::fs::create_dir_all(parent).await?;
+		}
+
+		tokio::fs::write(&file_path, content).await?;
+		tracing::debug!(path = %file_path.display(), "Created test file");
+		Ok(file_path)
+	}
+
+	/// Create a directory
+	pub async fn create_dir(&self, relative_path: &str) -> anyhow::Result<PathBuf> {
+		let dir_path = self.path.join(relative_path);
+		tokio::fs::create_dir_all(&dir_path).await?;
+		tracing::debug!(path = %dir_path.display(), "Created test directory");
+		Ok(dir_path)
+	}
+
+	/// Create files that should be filtered by default rules
+	pub async fn create_filtered_files(&self) -> anyhow::Result<()> {
+		self.write_file(".DS_Store", "system file").await?;
+		self.create_dir("node_modules").await?;
+		self.write_file("node_modules/package.json", "{}").await?;
+		self.write_file(".git/config", "[core]").await?;
+		Ok(())
+	}
+
+	/// Index this location with the specified mode
+	pub async fn index(&self, name: &str, mode: IndexMode) -> anyhow::Result<LocationHandle<'a>> {
+		self.harness
+			.add_and_index_location(&self.path, name, mode)
+			.await
+	}
+}
+
+/// Handle to an indexed location with helper methods
+pub struct LocationHandle<'a> {
+	pub db_id: i32,
+	pub uuid: Uuid,
+	pub entry_id: Option<i32>,
+	pub path: PathBuf,
+	harness: &'a IndexingHarness,
+}
+
+impl<'a> LocationHandle<'a> {
+	/// Get all entry IDs under this location (including the root)
+	pub async fn get_all_entry_ids(&self) -> anyhow::Result<Vec<i32>> {
+		let location_id = self
+			.entry_id
+			.ok_or_else(|| anyhow::anyhow!("Location has no entry_id"))?;
+
+		let descendant_ids: Vec<i32> = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(location_id))
+			.all(self.harness.library.db().conn())
+			.await?
+			.into_iter()
+			.map(|ec| ec.descendant_id)
+			.collect();
+
+		let mut all_ids = vec![location_id];
+		all_ids.extend(descendant_ids);
+		Ok(all_ids)
+	}
+
+	/// Count total entries under this location
+	pub async fn count_entries(&self) -> anyhow::Result<u64> {
+		let entry_ids = self.get_all_entry_ids().await?;
+		Ok(entry_ids.len() as u64)
+	}
+
+	/// Count files under this location
+	pub async fn count_files(&self) -> anyhow::Result<u64> {
+		let entry_ids = self.get_all_entry_ids().await?;
+		let count = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(entry_ids))
+			.filter(entities::entry::Column::Kind.eq(0)) // Files
+			.count(self.harness.library.db().conn())
+			.await?;
+		Ok(count)
+	}
+
+	/// Count directories under this location
+	pub async fn count_directories(&self) -> anyhow::Result<u64> {
+		let entry_ids = self.get_all_entry_ids().await?;
+		let count = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(entry_ids))
+			.filter(entities::entry::Column::Kind.eq(1)) // Directories
+			.count(self.harness.library.db().conn())
+			.await?;
+		Ok(count)
+	}
+
+	/// Get all entries under this location
+	pub async fn get_all_entries(&self) -> anyhow::Result<Vec<entities::entry::Model>> {
+		let entry_ids = self.get_all_entry_ids().await?;
+		let entries = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(entry_ids))
+			.all(self.harness.library.db().conn())
+			.await?;
+		Ok(entries)
+	}
+
+	/// Verify that no filtered files/directories are indexed
+	pub async fn verify_no_filtered_entries(&self) -> anyhow::Result<()> {
+		let entries = self.get_all_entries().await?;
+
+		for entry in &entries {
+			anyhow::ensure!(
+				entry.name != ".DS_Store",
+				"System file .DS_Store should be filtered"
+			);
+			anyhow::ensure!(
+				entry.name != "node_modules",
+				"Dev directory node_modules should be filtered"
+			);
+			anyhow::ensure!(entry.name != ".git", "Git directory should be filtered");
+		}
+
+		Ok(())
+	}
+
+	/// Verify entries with inodes
+	pub async fn verify_inode_tracking(&self) -> anyhow::Result<()> {
+		let entry_ids = self.get_all_entry_ids().await?;
+		let entries_with_inodes = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(entry_ids))
+			.filter(entities::entry::Column::Inode.is_not_null())
+			.count(self.harness.library.db().conn())
+			.await?;
+
+		anyhow::ensure!(
+			entries_with_inodes > 0,
+			"At least some entries should have inode tracking"
+		);
+
+		Ok(())
+	}
+
+	/// Write a new file to the location
+	pub async fn write_file(&self, relative_path: &str, content: &str) -> anyhow::Result<PathBuf> {
+		let file_path = self.path.join(relative_path);
+
+		if let Some(parent) = file_path.parent() {
+			tokio::fs::create_dir_all(parent).await?;
+		}
+
+		tokio::fs::write(&file_path, content).await?;
+		tracing::debug!(path = %file_path.display(), "Wrote file to indexed location");
+		Ok(file_path)
+	}
+
+	/// Modify an existing file
+	pub async fn modify_file(&self, relative_path: &str, new_content: &str) -> anyhow::Result<()> {
+		let file_path = self.path.join(relative_path);
+		tokio::fs::write(&file_path, new_content)
+			.await
+			.context("Failed to modify file")?;
+		tracing::debug!(path = %file_path.display(), "Modified file");
+		Ok(())
+	}
+
+	/// Delete a file
+	pub async fn delete_file(&self, relative_path: &str) -> anyhow::Result<()> {
+		let file_path = self.path.join(relative_path);
+		tokio::fs::remove_file(&file_path)
+			.await
+			.context("Failed to delete file")?;
+		tracing::debug!(path = %file_path.display(), "Deleted file");
+		Ok(())
+	}
+
+	/// Move/rename a file
+	pub async fn move_file(&self, from: &str, to: &str) -> anyhow::Result<()> {
+		let from_path = self.path.join(from);
+		let to_path = self.path.join(to);
+
+		if let Some(parent) = to_path.parent() {
+			tokio::fs::create_dir_all(parent).await?;
+		}
+
+		tokio::fs::rename(&from_path, &to_path)
+			.await
+			.context("Failed to move file")?;
+		tracing::debug!(
+			from = %from_path.display(),
+			to = %to_path.display(),
+			"Moved file"
+		);
+		Ok(())
+	}
+
+	/// Re-index this location and wait for completion
+	pub async fn reindex(&self) -> anyhow::Result<()> {
+		use sd_core::{
+			domain::addressing::SdPath,
+			ops::indexing::{IndexerJob, IndexerJobConfig},
+		};
+
+		tracing::info!(
+			location_uuid = %self.uuid,
+			"Re-indexing location"
+		);
+
+		// Get the current index mode from the location
+		let location_record = entities::location::Entity::find_by_id(self.db_id)
+			.one(self.harness.library.db().conn())
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Location not found"))?;
+
+		let index_mode = match location_record.index_mode.as_str() {
+			"shallow" => sd_core::domain::IndexMode::Shallow,
+			"content" => sd_core::domain::IndexMode::Content,
+			"deep" => sd_core::domain::IndexMode::Deep,
+			_ => sd_core::domain::IndexMode::Content,
+		};
+
+		// Create and dispatch indexer job
+		let config = IndexerJobConfig::new(self.uuid, SdPath::local(&self.path), index_mode);
+		let job = IndexerJob::new(config);
+
+		let handle = self.harness.library.jobs().dispatch(job).await?;
+
+		// Wait for re-indexing job to complete using the handle's wait method
+		handle.wait().await?;
+
+		tracing::info!("Re-indexing completed");
+		Ok(())
+	}
+}

@@ -899,6 +899,17 @@ impl Library {
 			"Completed unique content count calculation"
 		);
 
+		debug!("Starting content kind counts update");
+		// Update content kind counts
+		if let Err(e) = Self::update_content_kind_counts_static(&db_conn).await {
+			warn!(
+				error = %e,
+				"Failed to update content kind counts"
+			);
+		} else {
+			debug!("Completed content kind counts update");
+		}
+
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) =
@@ -1410,6 +1421,57 @@ impl Library {
 			"Unique content count query completed successfully"
 		);
 		Ok(count)
+	}
+
+	/// Update file counts for each content kind in the content_kinds table (static version)
+	async fn update_content_kind_counts_static(db: &sea_orm::DatabaseConnection) -> Result<()> {
+		use crate::infra::db::entities::{content_identity, content_kind};
+		use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+		use std::collections::HashMap;
+
+		debug!("Starting content kind counts update");
+
+		// Count content identities grouped by kind_id
+		let content_identities = content_identity::Entity::find().all(db).await?;
+
+		let mut counts: HashMap<i32, i64> = HashMap::new();
+		for ci in content_identities {
+			*counts.entry(ci.kind_id).or_insert(0) += 1;
+		}
+
+		debug!(
+			kind_counts = ?counts,
+			"Calculated content kind counts"
+		);
+
+		// Update each content_kind with its count
+		for (kind_id, count) in &counts {
+			if let Some(kind_model) = content_kind::Entity::find_by_id(*kind_id).one(db).await? {
+				let mut active_model: content_kind::ActiveModel = kind_model.into();
+				active_model.file_count = Set(*count);
+				active_model.update(db).await?;
+				debug!(
+					kind_id = kind_id,
+					count = count,
+					"Updated content kind file count"
+				);
+			}
+		}
+
+		// Reset counts for kinds with no content identities
+		let all_kinds = content_kind::Entity::find().all(db).await?;
+		for kind_model in all_kinds {
+			if !counts.contains_key(&kind_model.id) {
+				let kind_id = kind_model.id;
+				let mut active_model: content_kind::ActiveModel = kind_model.into();
+				active_model.file_count = Set(0);
+				active_model.update(db).await?;
+				debug!(kind_id = kind_id, "Reset content kind file count to 0");
+			}
+		}
+
+		debug!("Content kind counts update completed");
+		Ok(())
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes (static version)

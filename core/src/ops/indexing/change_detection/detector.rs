@@ -33,6 +33,9 @@ pub struct ChangeDetector {
 
 	/// Cache for file existence checks to avoid repeated filesystem calls
 	existence_cache: HashMap<PathBuf, bool>,
+
+	/// Entry IDs that have been processed (moved, modified, etc.) and should not be deleted
+	processed_entry_ids: std::collections::HashSet<i32>,
 }
 
 #[derive(Debug, Clone)]
@@ -53,6 +56,7 @@ impl ChangeDetector {
 			inode_to_path: HashMap::new(),
 			timestamp_precision_ms: 1, // Default to 1ms precision
 			existence_cache: HashMap::new(),
+			processed_entry_ids: std::collections::HashSet::new(),
 		}
 	}
 
@@ -136,6 +140,9 @@ impl ChangeDetector {
 	) -> Option<Change> {
 		// Check if path exists in database
 		if let Some(db_entry) = self.path_to_entry.get(path) {
+			// Mark as processed so it won't be considered for deletion
+			self.processed_entry_ids.insert(db_entry.id);
+
 			// Check for modifications
 			if self.is_modified(db_entry, metadata) {
 				return Some(Change::Modified {
@@ -155,6 +162,9 @@ impl ChangeDetector {
 			if let Some(old_path) = self.inode_to_path.get(&inode_val).cloned() {
 				if old_path != path {
 					if let Some(db_entry) = self.path_to_entry.get(&old_path).cloned() {
+						// Mark as processed so it won't be considered for deletion
+						self.processed_entry_ids.insert(db_entry.id);
+
 						// Check if the old path still exists on disk (with caching)
 						if self.path_exists_cached(&old_path) {
 							// Hard link: Both paths exist and point to same inode
@@ -191,7 +201,17 @@ impl ChangeDetector {
 	pub fn find_deleted(&self, seen_paths: &std::collections::HashSet<PathBuf>) -> Vec<Change> {
 		self.path_to_entry
 			.iter()
-			.filter(|(path, _)| !seen_paths.contains(*path))
+			.filter(|(path, entry)| {
+				// Exclude if path was seen during scan
+				if seen_paths.contains(*path) {
+					return false;
+				}
+				// Exclude if entry was already processed (moved, modified, etc.)
+				if self.processed_entry_ids.contains(&entry.id) {
+					return false;
+				}
+				true
+			})
 			.map(|(path, entry)| Change::Deleted {
 				path: path.clone(),
 				entry_id: entry.id,
