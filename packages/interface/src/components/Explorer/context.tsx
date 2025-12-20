@@ -7,6 +7,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import { useNavigate } from "react-router-dom";
 import { useNormalizedQuery } from "../../context";
 import { usePlatform } from "../../platform";
 
@@ -35,17 +36,10 @@ function getSpaceItemKeyFromRoute(pathname: string, search: string): string {
   if (pathname === "/") return "overview";
   if (pathname === "/recents") return "recents";
   if (pathname === "/favorites") return "favorites";
-  if (pathname.startsWith("/location/")) {
-    const locationId = pathname.replace("/location/", "");
-    return `location:${locationId}`;
-  }
+  if (pathname === "/file-kinds") return "file-kinds";
   if (pathname.startsWith("/tag/")) {
     const tagId = pathname.replace("/tag/", "");
     return `tag:${tagId}`;
-  }
-  if (pathname.startsWith("/volume/")) {
-    const volumeId = pathname.replace("/volume/", "");
-    return `volume:${volumeId}`;
   }
   if (pathname === "/explorer" && search) {
     return `explorer:${search}`;
@@ -61,6 +55,7 @@ function getPathKey(sdPath: SdPath | null): string {
 interface ExplorerState {
   currentPath: SdPath | null;
   setCurrentPath: (path: SdPath | null) => void;
+  syncPathFromUrl: (path: SdPath | null) => void;
 
   history: SdPath[];
   historyIndex: number;
@@ -107,6 +102,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: ExplorerProviderProps) {
+  const navigate = useNavigate();
   const platform = usePlatform();
   const viewPrefs = useViewPreferencesStore();
   const sortPrefs = useSortPreferencesStore();
@@ -203,33 +199,60 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
   const goBack = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1;
+      const path = history[newIndex];
       setHistoryIndex(newIndex);
-      setCurrentPathInternal(history[newIndex]);
+      setCurrentPathInternal(path);
+      
+      // Sync route
+      if (path) {
+        const encodedPath = encodeURIComponent(JSON.stringify(path));
+        navigate(`/explorer?path=${encodedPath}`, { replace: true });
+      }
     }
-  }, [historyIndex, history]);
+  }, [historyIndex, history, navigate]);
 
   const goForward = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1;
+      const path = history[newIndex];
       setHistoryIndex(newIndex);
-      setCurrentPathInternal(history[newIndex]);
+      setCurrentPathInternal(path);
+      
+      // Sync route
+      if (path) {
+        const encodedPath = encodeURIComponent(JSON.stringify(path));
+        navigate(`/explorer?path=${encodedPath}`, { replace: true });
+      }
     }
-  }, [historyIndex, history]);
+  }, [historyIndex, history, navigate]);
 
   const canGoBack = historyIndex > 0;
   const canGoForward = historyIndex < history.length - 1;
 
-  const setCurrentPath = useCallback((path: SdPath | null) => {
-    if (path) {
-      setHistory((prev) => {
-        const newHistory = prev.slice(0, historyIndex + 1);
-        newHistory.push(path);
-        return newHistory;
-      });
-      setHistoryIndex((prev) => prev + 1);
+  const navigateToPath = useCallback((path: SdPath | null) => {
+    if (!path) {
+      setCurrentPathInternal(null);
+      return;
     }
+
+    // Update history
+    setHistory((prev) => {
+      const newHistory = prev.slice(0, historyIndex + 1);
+      newHistory.push(path);
+      return newHistory;
+    });
+    setHistoryIndex((prev) => prev + 1);
     setCurrentPathInternal(path);
-  }, [historyIndex]);
+
+    // Update URL to match
+    const encodedPath = encodeURIComponent(JSON.stringify(path));
+    navigate(`/explorer?path=${encodedPath}`, { replace: false });
+  }, [historyIndex, navigate]);
+
+  const syncPathFromUrl = useCallback((path: SdPath | null) => {
+    // Update internal state without navigating - used when URL changes externally
+    setCurrentPathInternal(path);
+  }, []);
 
   const openQuickPreview = useCallback((fileId: string) => {
     setQuickPreviewFileId(fileId);
@@ -241,7 +264,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
 
   const value: ExplorerState = useMemo(() => ({
     currentPath,
-    setCurrentPath,
+    setCurrentPath: navigateToPath,
+    syncPathFromUrl,
     history,
     historyIndex,
     goBack,
@@ -270,7 +294,8 @@ export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: 
     setSpaceItemId: setSpaceItemIdInternal,
   }), [
     currentPath,
-    setCurrentPath,
+    navigateToPath,
+    syncPathFromUrl,
     history,
     historyIndex,
     goBack,

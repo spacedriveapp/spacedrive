@@ -151,7 +151,7 @@ interface AppProps {
 	client: SpacedriveClient;
 }
 
-export function ExplorerLayout() {
+function ExplorerLayoutContent() {
 	const location = useLocation();
 	const params = useParams();
 	const platform = usePlatform();
@@ -830,6 +830,18 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 	);
 }
 
+export function ExplorerLayout() {
+	return (
+		<TopBarProvider>
+			<SelectionProvider>
+				<ExplorerProvider>
+					<ExplorerLayoutContent />
+				</ExplorerProvider>
+			</SelectionProvider>
+		</TopBarProvider>
+	);
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
@@ -837,13 +849,7 @@ export function Explorer({ client }: AppProps) {
 		<SpacedriveProvider client={client}>
 			<ServerProvider>
 				<DndWrapper>
-					<TopBarProvider>
-						<SelectionProvider>
-							<ExplorerProvider>
-								<RouterProvider router={router} />
-							</ExplorerProvider>
-						</SelectionProvider>
-					</TopBarProvider>
+					<RouterProvider router={router} />
 				</DndWrapper>
 				<DaemonDisconnectedOverlay />
 				<Dialogs />

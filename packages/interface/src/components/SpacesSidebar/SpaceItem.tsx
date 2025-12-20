@@ -101,17 +101,19 @@ function getItemLabel(itemType: ItemType): string {
 function getItemPath(
 	itemType: ItemType,
 	volumeData?: { device_slug: string; mount_path: string },
-	resolvedFile?: File
+	resolvedFile?: File,
+	itemSdPath?: any
 ): string | null {
 	if (itemType === "Overview") return "/";
 	if (itemType === "Recents") return "/recents";
 	if (itemType === "Favorites") return "/favorites";
 	if (itemType === "FileKinds") return "/file-kinds";
 	if (typeof itemType === "object" && "Location" in itemType) {
-		// For proper SpaceItem with Location type, we need the sd_path
-		// This requires the parent to pass volumeData or similar
-		// For now, keep the old route - will be replaced when locations use raw format
-		return `/location/${itemType.Location.location_id}`;
+		// Use explorer route with location's SD path (passed from item.sd_path)
+		if (itemSdPath) {
+			return `/explorer?path=${encodeURIComponent(JSON.stringify(itemSdPath))}`;
+		}
+		return null;
 	}
 	if (typeof itemType === "object" && "Volume" in itemType) {
 		// Navigate to explorer with volume's root path
@@ -124,13 +126,12 @@ function getItemPath(
 			};
 			return `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}`;
 		}
-		return `/volume/${itemType.Volume.volume_id}`;
+		return null;
 	}
 	if (typeof itemType === "object" && "Tag" in itemType)
 		return `/tag/${itemType.Tag.tag_id}`;
 	if (typeof itemType === "object" && "Path" in itemType) {
 		// Navigate to explorer with the SD path
-		// Assume it's explorable (directory or file) - if it's in the sidebar, it should be clickable
 		return `/explorer?path=${encodeURIComponent(JSON.stringify(itemType.Path.sd_path))}`;
 	}
 	return null;
@@ -182,7 +183,8 @@ export function SpaceItem({
 		iconData = getItemIcon(item.item_type);
 		// Use resolved file name if available, otherwise parse from item_type
 		label = resolvedFile?.name || getItemLabel(item.item_type);
-		path = getItemPath(item.item_type, volumeData, resolvedFile);
+		// Pass item.sd_path for locations (available on SpaceItem objects)
+		path = getItemPath(item.item_type, volumeData, resolvedFile, (item as any).sd_path);
 	}
 
 	// Override with custom icon if provided
@@ -218,32 +220,33 @@ export function SpaceItem({
 		transition,
 	} : undefined;
 
-	// Check if this item is active by comparing SD paths
+	// Check if this item is active
 	const isActive = (() => {
 		if (!path) return false;
 
-		// For explorer paths with query params, compare the SD path parameter
-		if (path.startsWith("/explorer?path=")) {
+		// Special routes: exact pathname match
+		if (!path.startsWith("/explorer?")) {
+			return location.pathname === path;
+		}
+
+		// Explorer routes: compare SD paths
+		if (location.pathname === "/explorer") {
 			const currentSearchParams = new URLSearchParams(location.search);
 			const currentPathParam = currentSearchParams.get("path");
 			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
 
-			// Compare the actual SD path objects, not just the encoded strings
 			if (currentPathParam && itemPathParam) {
 				try {
 					const currentSdPath = JSON.parse(decodeURIComponent(currentPathParam));
 					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
 					return JSON.stringify(currentSdPath) === JSON.stringify(itemSdPath);
 				} catch {
-					// If parsing fails, fall back to string comparison
 					return currentPathParam === itemPathParam;
 				}
 			}
-			return false;
 		}
-
-		// For non-explorer routes, use simple path matching
-		return location.pathname === path;
+		
+		return false;
 	})();
 
 	const handleClick = () => {
