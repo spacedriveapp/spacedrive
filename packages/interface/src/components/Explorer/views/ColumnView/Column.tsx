@@ -20,6 +20,7 @@ const ColumnItemWrapper = memo(
 		selected,
 		selectedFiles,
 		onSelectFile,
+		onNavigate,
 	}: {
 		file: File;
 		files: File[];
@@ -32,6 +33,7 @@ const ColumnItemWrapper = memo(
 			multi?: boolean,
 			range?: boolean,
 		) => void;
+		onNavigate: (path: SdPath) => void;
 	}) {
 		const contextMenu = useFileContextMenu({
 			file,
@@ -45,6 +47,12 @@ const ColumnItemWrapper = memo(
 			},
 			[file, files, onSelectFile],
 		);
+
+		const handleDoubleClick = useCallback(() => {
+			if (file.kind === "Directory" && file.sd_path) {
+				onNavigate(file.sd_path);
+			}
+		}, [file, onNavigate]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {
@@ -74,6 +82,7 @@ const ColumnItemWrapper = memo(
 					selected={selected}
 					focused={false}
 					onClick={handleClick}
+					onDoubleClick={handleDoubleClick}
 					onContextMenu={handleContextMenu}
 				/>
 			</div>
@@ -181,13 +190,9 @@ export const Column = memo(function Column({
 
 					// Check if this file is part of the navigation path
 					const isInPath =
-						nextColumnPath &&
-						"Physical" in file.sd_path &&
-						"Physical" in nextColumnPath
-							? file.sd_path.Physical.path ===
-									nextColumnPath.Physical.path &&
-								file.sd_path.Physical.device_slug ===
-									nextColumnPath.Physical.device_slug
+						nextColumnPath && file.sd_path
+							? JSON.stringify(file.sd_path) ===
+								JSON.stringify(nextColumnPath)
 							: false;
 
 					return (
@@ -199,6 +204,7 @@ export const Column = memo(function Column({
 							selected={fileIsSelected || isInPath}
 							selectedFiles={selectedFiles}
 							onSelectFile={onSelectFile}
+							onNavigate={onNavigate}
 						/>
 					);
 				})}
