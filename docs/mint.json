@@ -138,7 +138,8 @@
         "react/ui/primitives",
         "react/ui/hooks",
         "react/ui/normalized-cache",
-        "react/ui/platform"
+        "react/ui/platform",
+        "react/ui/explorer"
       ]
     }
   ]

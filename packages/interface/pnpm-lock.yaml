@@ -17,6 +17,9 @@ importers:
       '@sd/ui':
         specifier: workspace:*
         version: link:../ui
+      prismjs:
+        specifier: ^1.30.0
+        version: 1.30.0
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
@@ -26,6 +29,10 @@ importers:
       react-masonry-css:
         specifier: ^1.0.16
         version: 1.0.16(react@19.2.0)
+    devDependencies:
+      '@types/prismjs':
+        specifier: ^1.26.5
+        version: 1.26.5
 
   ../..: {}
 
@@ -48,6 +55,9 @@ importers:
   ../ui: {}
 
 packages:
+
+  '@types/prismjs@1.26.5':
+    resolution: {integrity: sha512-AUZTa7hQ2KY5L7AmtSiqxlhWxb4ina0yd8hNbl4TWuqnv/pFP0nDMb3YrfSBf4hJVGLh2YEIBfKaBW/9UEl6IQ==}
 
   ansi-regex@5.0.1:
     resolution: {integrity: sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ==}
@@ -117,6 +127,10 @@ packages:
     resolution: {integrity: sha512-40QW5YalBNfQo5yRYmiw7Yz6TKKVr3h6970B2YE+3fQpsWcrbj1PzJgxeJ19DRQjhMbKPIuMY8rFaXc8moolVw==}
     engines: {node: '>=10.13.0'}
 
+  prismjs@1.30.0:
+    resolution: {integrity: sha512-DEvV2ZF2r2/63V+tK8hQvrR2ZGn10srHbXviTlcv7Kpzw8jWiNTqbVgjO3IY8RxrrOUF8VPMQQFysYYYv0YZxw==}
+    engines: {node: '>=6'}
+
   qrcode@1.5.4:
     resolution: {integrity: sha512-1ca71Zgiu6ORjHqFBDpnSMTR2ReToX4l1Au1VFLyVeBTFavzQnv5JxMFr3ukHVKpSrSA2MCk0lNJSykjUfz7Zg==}
     engines: {node: '>=10.13.0'}
@@ -168,6 +182,8 @@ packages:
     engines: {node: '>=8'}
 
 snapshots:
+
+  '@types/prismjs@1.26.5': {}
 
   ansi-regex@5.0.1: {}
 
@@ -221,6 +237,8 @@ snapshots:
   path-exists@4.0.0: {}
 
   pngjs@5.0.0: {}
+
+  prismjs@1.30.0: {}
 
   qrcode@1.5.4:
     dependencies:

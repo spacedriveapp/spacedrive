@@ -258,24 +258,50 @@ export function ColumnView() {
 		);
 	}
 
-	// Virtual listings show in a single column (no nested navigation)
+	// Virtual listings: Show virtual column + next column if directory selected
 	if (isVirtualView && virtualFiles) {
+		// Check if a directory is selected in the virtual view
+		const selectedDirectory =
+			selectedFiles.length === 1 &&
+			selectedFiles[0].kind === "Directory" &&
+			selectedFiles[0].sd_path
+				? selectedFiles[0]
+				: null;
+
 		return (
 			<div className="flex h-full overflow-x-auto bg-app">
+				{/* Virtual column (locations/volumes) */}
 				<Column
 					key="virtual-column"
 					path={null as any}
 					isSelected={isSelected}
 					selectedFileIds={selectedFileIds}
-					onSelectFile={(file, files, multi, range) =>
-						selectFile(file, files, multi, range)
-					}
+					onSelectFile={(file, files, multi, range) => {
+						selectFile(file, files, multi, range);
+					}}
 					onNavigate={handleNavigate}
-					nextColumnPath={undefined}
+					nextColumnPath={selectedDirectory?.sd_path}
 					columnIndex={0}
-					isActive={true}
+					isActive={!selectedDirectory}
 					virtualFiles={virtualFiles}
 				/>
+
+				{/* Next column showing selected directory contents */}
+				{selectedDirectory && (
+					<Column
+						key={`dir-${selectedDirectory.id}`}
+						path={selectedDirectory.sd_path}
+						isSelected={isSelected}
+						selectedFileIds={selectedFileIds}
+						onSelectFile={(file, files, multi, range) =>
+							handleSelectFile(file, 1, files, multi, range)
+						}
+						onNavigate={handleNavigate}
+						nextColumnPath={undefined}
+						columnIndex={1}
+						isActive={true}
+					/>
+				)}
 			</div>
 		);
 	}

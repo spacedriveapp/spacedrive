@@ -6,6 +6,11 @@ import type { File } from "@sd/ts-client";
  * Maps non-file entities (locations, volumes, devices) to the File interface
  * so they can be displayed in standard Explorer views (grid, list, column).
  * This allows reusing all existing Explorer functionality without backend changes.
+ *
+ * IMPORTANT: Virtual files should NOT be passed to file operations like copy/move/delete.
+ * Always check `isVirtualFile()` before performing file operations that interact with the backend.
+ * Virtual files are for display purposes only - they represent entities like locations and volumes,
+ * not actual filesystem entries.
  */
 
 export type VirtualFileType = "location" | "volume" | "device";
@@ -133,13 +138,15 @@ export function mapDeviceToFile(device: any, iconUrl?: string): File {
 /**
  * Checks if a file is a virtual file
  */
-export function isVirtualFile(file: File): boolean {
-	return (file as any)._virtual !== undefined;
+export function isVirtualFile(file: File | undefined | null): boolean {
+	return file != null && (file as any)._virtual !== undefined;
 }
 
 /**
  * Gets virtual metadata from a file
  */
-export function getVirtualMetadata(file: File): VirtualMetadata | null {
-	return (file as any)._virtual || null;
+export function getVirtualMetadata(
+	file: File | undefined | null,
+): VirtualMetadata | null {
+	return file ? (file as any)._virtual || null : null;
 }

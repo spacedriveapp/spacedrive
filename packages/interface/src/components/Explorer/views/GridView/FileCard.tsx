@@ -108,14 +108,14 @@ export const FileCard = memo(
 
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
-		// Check if this is a virtual volume file
-		const isVolume =
-			isVirtualFile(file) &&
-			file._virtual.type === "volume" &&
-			file._virtual.data;
+	// Check if this is a virtual volume file
+	const isVolume =
+		isVirtualFile(file) &&
+		(file as any)._virtual?.type === "volume" &&
+		(file as any)._virtual?.data;
 
-		// Extract volume data
-		const volumeData = isVolume ? file._virtual.data : null;
+	// Extract volume data
+	const volumeData = isVolume ? (file as any)._virtual.data : null;
 		const hasVolumeCapacity =
 			volumeData?.total_capacity != null &&
 			volumeData?.available_capacity != null &&

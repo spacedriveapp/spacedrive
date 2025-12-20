@@ -155,7 +155,8 @@ export const Column = memo(function Column({
 		overscan: 10,
 	});
 
-	if (directoryQuery.isLoading) {
+	// Only show loading state if we're not using virtual files and the query is actually loading
+	if (!virtualFiles && directoryQuery.isLoading) {
 		return (
 			<div
 				className="shrink-0 border-r border-app-line flex items-center justify-center"

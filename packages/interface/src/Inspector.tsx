@@ -37,9 +37,9 @@ export function Inspector({
       const file = selectedFiles[0];
       
       // Check if this is a virtual location file
-      if (isVirtualFile(file) && file._virtual.type === "location") {
+      if (isVirtualFile(file) && (file as any)._virtual?.type === "location") {
         // Show LocationInspector for virtual locations
-        const locationData = file._virtual.data as LocationInfo;
+        const locationData = (file as any)._virtual.data as LocationInfo;
         return { type: "location", location: locationData };
       }
       
