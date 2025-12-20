@@ -443,109 +443,14 @@ impl IndexerJob {
 
 			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
 
-			// Query entry UUIDs for this location to avoid processing all database entries
-			let entry_uuids = if let Some(location_id) = self.config.location_id {
-				use crate::infra::db::entities::{entry, location};
-
-				// Find the location's entry_id (root entry)
-				let db = ctx.library_db();
-				let location_record = location::Entity::find()
-					.filter(location::Column::Uuid.eq(location_id))
-					.one(db)
-					.await;
-
-				match location_record {
-					Ok(Some(loc)) => {
-						if let Some(root_entry_id) = loc.entry_id {
-							// Query all entry IDs that are descendants of this location's root entry
-							// using the entry_closure table
-							let entry_ids_result: Result<Vec<i32>, _> = db
-								.query_all(Statement::from_sql_and_values(
-									sea_orm::DbBackend::Sqlite,
-									"SELECT descendant_id FROM entry_closure WHERE ancestor_id = ?",
-									vec![root_entry_id.into()],
-								))
-								.await
-								.map(|rows| {
-									rows.iter()
-										.filter_map(|row| row.try_get_by_index::<i32>(0).ok())
-										.collect()
-								});
-
-							match entry_ids_result {
-								Ok(entry_ids) => {
-									if entry_ids.is_empty() {
-										ctx.log(
-											"No entries found in location for thumbnail generation",
-										);
-										None
-									} else {
-										// Now get the UUIDs for these entry IDs
-										let entries_result = entry::Entity::find()
-											.filter(entry::Column::Id.is_in(entry_ids))
-											.all(db)
-											.await;
-
-										match entries_result {
-											Ok(entry_models) => {
-												let uuids: Vec<Uuid> = entry_models
-													.into_iter()
-													.filter_map(|e| e.uuid)
-													.collect();
-
-												if !uuids.is_empty() {
-													ctx.log(format!(
-														"Found {} entries in location {} for thumbnail generation",
-														uuids.len(),
-														location_id
-													));
-													Some(uuids)
-												} else {
-													ctx.log("No entry UUIDs found in location for thumbnail generation");
-													None
-												}
-											}
-											Err(e) => {
-												ctx.log(format!(
-													"Warning: Failed to query entry UUIDs for location: {}",
-													e
-												));
-												None
-											}
-										}
-									}
-								}
-								Err(e) => {
-									ctx.log(format!(
-										"Warning: Failed to query entry closure for location: {}",
-										e
-									));
-									None
-								}
-							}
-						} else {
-							ctx.log("Location has no root entry, skipping thumbnail generation");
-							None
-						}
-					}
-					Ok(None) => {
-						ctx.log(format!(
-							"Warning: Location {} not found, dispatching thumbnail job for all entries",
-							location_id
-						));
-						None
-					}
-					Err(e) => {
-						ctx.log(format!(
-							"Warning: Failed to query location: {}, dispatching thumbnail job for all entries",
-							e
-						));
-						None
-					}
+			let entry_uuids = match self.config.location_id {
+				Some(location_id) => {
+					Self::collect_location_entry_uuids(ctx.library_db(), location_id, &ctx).await
 				}
-			} else {
-				ctx.log("No location_id in config, dispatching thumbnail job for all entries");
-				None
+				None => {
+					ctx.log("No location_id in config, dispatching thumbnail job for all entries");
+					None
+				}
 			};
 
 			let thumbnail_config = ThumbnailJobConfig::default();
@@ -691,6 +596,110 @@ impl IndexerJob {
 			db_operations: (0, 0),
 			batch_info: (0, 0),
 		}
+	}
+
+	/// Collects entry UUIDs for a location to scope thumbnail generation.
+	///
+	/// Queries the entry_closure table to find all descendants of the location's root entry,
+	/// then retrieves their UUIDs. Returns None if the location has no entries or if any
+	/// query fails, in which case the thumbnail job will process all entries in the library.
+	#[cfg(feature = "ffmpeg")]
+	async fn collect_location_entry_uuids(
+		db: &impl ConnectionTrait,
+		location_id: Uuid,
+		ctx: &JobContext<'_>,
+	) -> Option<Vec<Uuid>> {
+		use crate::infra::db::entities::{entry, location};
+
+		let location_record = match location::Entity::find()
+			.filter(location::Column::Uuid.eq(location_id))
+			.one(db)
+			.await
+		{
+			Ok(Some(loc)) => loc,
+			Ok(None) => {
+				ctx.log(format!(
+					"Warning: Location {} not found, dispatching thumbnail job for all entries",
+					location_id
+				));
+				return None;
+			}
+			Err(e) => {
+				ctx.log(format!(
+					"Warning: Failed to query location: {}, dispatching thumbnail job for all entries",
+					e
+				));
+				return None;
+			}
+		};
+
+		let root_entry_id = match location_record.entry_id {
+			Some(id) => id,
+			None => {
+				ctx.log("Location has no root entry, skipping thumbnail generation");
+				return None;
+			}
+		};
+
+		// Query all entry IDs that are descendants of this location's root entry
+		let entry_ids: Vec<i32> = match db
+			.query_all(Statement::from_sql_and_values(
+				sea_orm::DbBackend::Sqlite,
+				"SELECT descendant_id FROM entry_closure WHERE ancestor_id = ?",
+				vec![root_entry_id.into()],
+			))
+			.await
+		{
+			Ok(rows) => rows
+				.iter()
+				.filter_map(|row| row.try_get_by_index::<i32>(0).ok())
+				.collect(),
+			Err(e) => {
+				ctx.log(format!(
+					"Warning: Failed to query entry closure for location: {}",
+					e
+				));
+				return None;
+			}
+		};
+
+		if entry_ids.is_empty() {
+			ctx.log("No entries found in location for thumbnail generation");
+			return None;
+		}
+
+		// Get UUIDs for these entry IDs
+		let entry_models = match entry::Entity::find()
+			.filter(entry::Column::Id.is_in(entry_ids))
+			.all(db)
+			.await
+		{
+			Ok(models) => models,
+			Err(e) => {
+				ctx.log(format!(
+					"Warning: Failed to query entry UUIDs for location: {}",
+					e
+				));
+				return None;
+			}
+		};
+
+		let uuids: Vec<Uuid> = entry_models
+			.into_iter()
+			.filter_map(|e| e.uuid)
+			.collect();
+
+		if uuids.is_empty() {
+			ctx.log("No entry UUIDs found in location for thumbnail generation");
+			return None;
+		}
+
+		ctx.log(format!(
+			"Found {} entries in location {} for thumbnail generation",
+			uuids.len(),
+			location_id
+		));
+		Some(uuids)
 	}
 
 	pub fn from_location(location_id: Uuid, root_path: SdPath, mode: IndexMode) -> Self {
