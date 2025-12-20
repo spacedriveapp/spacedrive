@@ -10,6 +10,7 @@ import { KnowledgeView } from "./views/KnowledgeView";
 import { EmptyView } from "./views/EmptyView";
 import { TopBarPortal } from "../../TopBar";
 import { useVirtualListing } from "./hooks/useVirtualListing";
+import { VirtualPathBar } from "./components/VirtualPathBar";
 import {
 	SidebarSimple,
 	Info,
@@ -41,8 +42,10 @@ export function ExplorerView() {
 		canGoBack,
 		canGoForward,
 		currentPath,
+		currentView,
 		setCurrentPath,
 		syncPathFromUrl,
+		syncViewFromUrl,
 		devices,
 		quickPreviewFileId,
 	} = useExplorer();
@@ -50,9 +53,11 @@ export function ExplorerView() {
 	const { isVirtualView } = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
 
-	// Sync currentPath from URL query parameter
+	// Sync currentPath or currentView from URL query parameters
 	useEffect(() => {
 		const pathParam = searchParams.get("path");
+		const viewParam = searchParams.get("view");
+
 		if (pathParam) {
 			try {
 				const sdPath = JSON.parse(decodeURIComponent(pathParam));
@@ -65,8 +70,34 @@ export function ExplorerView() {
 			} catch (e) {
 				console.error("Failed to parse path query parameter:", e);
 			}
+		} else if (viewParam) {
+			const id = searchParams.get("id");
+			const params: Record<string, string> = {};
+			searchParams.forEach((value, key) => {
+				if (key !== "view" && key !== "id") {
+					params[key] = value;
+				}
+			});
+
+			const newView = {
+				view: viewParam,
+				id: id || undefined,
+				params: Object.keys(params).length > 0 ? params : undefined,
+			};
+			const currentViewStr = JSON.stringify(currentView);
+			const newViewStr = JSON.stringify(newView);
+
+			if (currentViewStr !== newViewStr) {
+				syncViewFromUrl(newView);
+			}
 		}
-	}, [searchParams, currentPath, syncPathFromUrl]);
+	}, [
+		searchParams,
+		currentPath,
+		currentView,
+		syncPathFromUrl,
+		syncViewFromUrl,
+	]);
 
 	// Allow rendering if either we have a currentPath or we're in a virtual view
 	if (!currentPath && !isVirtualView) {
@@ -103,6 +134,12 @@ export function ExplorerView() {
 									path={currentPath}
 									devices={devices}
 									onNavigate={setCurrentPath}
+								/>
+							)}
+							{currentView && (
+								<VirtualPathBar
+									view={currentView}
+									devices={devices}
 								/>
 							)}
 						</div>

@@ -27,6 +27,7 @@ import { useLibraryMutation } from "../../context";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useExplorer } from "../Explorer/context";
 
 interface SpaceItemProps {
 	item: SpaceItemType;
@@ -158,6 +159,7 @@ export function SpaceItem({
 	const deleteItem = useLibraryMutation("spaces.delete_item");
 	const indexVolume = useLibraryMutation("volumes.index");
 	const { active } = useDndContext();
+	const { currentView, currentPath } = useExplorer();
 	
 	// Disable insertion drop zones when dragging groups or space items (they have 'label' in their data)
 	const isDraggingSortableItem = active?.data?.current?.label != null;
@@ -222,15 +224,24 @@ export function SpaceItem({
 
 	// Check if this item is active
 	const isActive = (() => {
-		// If custom onClick is provided, check against URL params
-		if (onClick && location.pathname === "/explorer") {
-			const currentSearchParams = new URLSearchParams(location.search);
-			const view = currentSearchParams.get("view");
-			const id = currentSearchParams.get("id");
-			
-			// Check if this is a device view matching this item
-			if (view === "device" && id === item.id) {
+		// Check virtual view state from Explorer context
+		if (currentView) {
+			// If this item has a custom onClick (like devices), check if it matches the current view
+			if (onClick && currentView.view === "device" && currentView.id === item.id) {
 				return true;
+			}
+		}
+
+		// Check path-based navigation
+		if (currentPath && path && path.startsWith("/explorer?")) {
+			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
+			if (itemPathParam) {
+				try {
+					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
+					return JSON.stringify(currentPath) === JSON.stringify(itemSdPath);
+				} catch {
+					// Fall through to URL-based comparison
+				}
 			}
 		}
 
@@ -241,7 +252,7 @@ export function SpaceItem({
 			return location.pathname === path;
 		}
 
-		// Explorer routes: compare SD paths
+		// Fallback: Explorer routes via URL comparison
 		if (location.pathname === "/explorer") {
 			const currentSearchParams = new URLSearchParams(location.search);
 			const currentPathParam = currentSearchParams.get("path");

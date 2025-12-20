@@ -270,7 +270,7 @@ export function ColumnView() {
 					onSelectFile={(file, files, multi, range) =>
 						selectFile(file, files, multi, range)
 					}
-					onNavigate={() => {}}
+					onNavigate={handleNavigate}
 					nextColumnPath={undefined}
 					columnIndex={0}
 					isActive={true}

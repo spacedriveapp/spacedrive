@@ -80,6 +80,28 @@ async fn test_change_detection_new_files() -> Result<()> {
 		"Should detect and index 2 new files (total 4)"
 	);
 
+	// Capture UUIDs after first reindex
+	let entries_after_first = handle.get_all_entries().await?;
+	let file3_uuid = entries_after_first
+		.iter()
+		.find(|e| e.name == "file3")
+		.expect("file3 should exist")
+		.uuid;
+
+	// Reindex again without any changes - UUIDs should be preserved
+	handle.reindex().await?;
+
+	let entries_after_second = handle.get_all_entries().await?;
+	let file3_after = entries_after_second
+		.iter()
+		.find(|e| e.name == "file3")
+		.expect("file3 should still exist");
+
+	assert_eq!(
+		file3_uuid, file3_after.uuid,
+		"Entry UUID should be preserved across reindexing with inode tracking"
+	);
+
 	harness.shutdown().await?;
 	Ok(())
 }
@@ -129,10 +151,14 @@ async fn test_change_detection_modified_files() -> Result<()> {
 	);
 	assert!(size_after > size_before, "Modified file should be larger");
 
-	// Verify same entry ID (updated in place, not recreated)
+	// Verify same entry ID and UUID (updated in place, not recreated)
 	assert_eq!(
 		file_before.id, file_after.id,
-		"Entry should be updated, not recreated"
+		"Entry ID should be preserved (updated in place, not recreated)"
+	);
+	assert_eq!(
+		file_before.uuid, file_after.uuid,
+		"Entry UUID should be preserved with inode tracking"
 	);
 
 	harness.shutdown().await?;
@@ -193,13 +219,14 @@ async fn test_change_detection_moved_files() -> Result<()> {
 	// Initial indexing
 	let handle = location.index("Test Location", IndexMode::Deep).await?;
 
-	// Get initial entry state (to verify inode preservation)
+	// Get initial entry state (to verify inode and UUID preservation)
 	let entries_before = handle.get_all_entries().await?;
 	let file_before = entries_before
 		.iter()
 		.find(|e| e.name == "original")
 		.expect("File should exist");
 	let inode_before = file_before.inode;
+	let uuid_before = file_before.uuid;
 
 	let initial_files = handle.count_files().await?;
 	assert_eq!(initial_files, 1, "Should have 1 file initially");
@@ -227,10 +254,14 @@ async fn test_change_detection_moved_files() -> Result<()> {
 		.find(|e| e.name == "moved")
 		.expect("Moved file should exist with new name");
 
-	// Verify inode is preserved (proves it's the same file, not delete+create)
+	// Verify inode and UUID are preserved (proves it's the same file, not delete+create)
 	assert_eq!(
 		inode_before, moved_file.inode,
 		"Inode should be preserved after move"
+	);
+	assert_eq!(
+		uuid_before, moved_file.uuid,
+		"Entry UUID should be preserved after move with inode tracking"
 	);
 
 	// Verify old file doesn't exist
@@ -264,6 +295,19 @@ async fn test_change_detection_batch_changes() -> Result<()> {
 	let initial_files = handle.count_files().await?;
 	assert_eq!(initial_files, 4, "Should have 4 initial files");
 
+	// Capture UUIDs of files we'll modify/move to verify they're preserved
+	let entries_before = handle.get_all_entries().await?;
+	let modify_uuid_before = entries_before
+		.iter()
+		.find(|e| e.name == "modify")
+		.expect("modify.txt should exist")
+		.uuid;
+	let move_uuid_before = entries_before
+		.iter()
+		.find(|e| e.name == "move")
+		.expect("move.txt should exist")
+		.uuid;
+
 	// Make multiple changes at once
 	handle.write_file("new.txt", "Brand new").await?; // New
 	handle.modify_file("modify.txt", "Modified content").await?; // Modified
@@ -289,6 +333,25 @@ async fn test_change_detection_batch_changes() -> Result<()> {
 	assert!(names.contains(&"moved"), "Moved file should have new name");
 	assert!(!names.contains(&"delete"), "Deleted file should be gone");
 	assert!(!names.contains(&"move"), "Old move name should be gone");
+
+	// Verify UUIDs are preserved for modified and moved files (inode tracking)
+	let modify_after = entries
+		.iter()
+		.find(|e| e.name == "modify")
+		.expect("modify should exist");
+	let moved_after = entries
+		.iter()
+		.find(|e| e.name == "moved")
+		.expect("moved should exist");
+
+	assert_eq!(
+		modify_uuid_before, modify_after.uuid,
+		"Modified file should keep same UUID with inode tracking"
+	);
+	assert_eq!(
+		move_uuid_before, moved_after.uuid,
+		"Moved file should keep same UUID with inode tracking"
+	);
 
 	harness.shutdown().await?;
 	Ok(())
@@ -324,9 +387,11 @@ async fn test_change_detection_bulk_move_to_nested_directory() -> Result<()> {
 		.find(|e| e.name == "file2")
 		.expect("file2 should exist");
 
-	// Store inodes to verify move (not delete+create)
+	// Store inodes and UUIDs to verify move (not delete+create)
 	let inode1 = file1_before.inode;
+	let uuid1 = file1_before.uuid;
 	let inode2 = file2_before.inode;
+	let uuid2 = file2_before.uuid;
 
 	// Create nested directory structure and move multiple files
 	handle
@@ -362,14 +427,22 @@ async fn test_change_detection_bulk_move_to_nested_directory() -> Result<()> {
 		.find(|e| e.name == "file3")
 		.expect("file3 should exist after move");
 
-	// Verify inodes are preserved (proves move, not delete+create)
+	// Verify inodes and UUIDs are preserved (proves move, not delete+create)
 	assert_eq!(
 		inode1, file1_after.inode,
 		"file1 inode should be preserved after move"
 	);
 	assert_eq!(
+		uuid1, file1_after.uuid,
+		"file1 UUID should be preserved after move with inode tracking"
+	);
+	assert_eq!(
 		inode2, file2_after.inode,
 		"file2 inode should be preserved after move"
+	);
+	assert_eq!(
+		uuid2, file2_after.uuid,
+		"file2 UUID should be preserved after move with inode tracking"
 	);
 
 	// Verify file4 remained at root
@@ -420,6 +493,54 @@ async fn test_shallow_vs_deep_indexing() -> Result<()> {
 
 	// Deep mode should generate content identities (tested in content hash tests)
 	// For now just verify both modes complete successfully
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_uuid_persistence_with_inode_tracking() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("uuid_persistence")
+		.build()
+		.await?;
+
+	// Create location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("file1.txt", "Content 1").await?;
+	location.write_file("file2.rs", "fn main() {}").await?;
+	location.create_dir("subdir").await?;
+	location.write_file("subdir/file3.md", "# Test").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	// Capture all UUIDs after initial indexing
+	let entries_initial = handle.get_all_entries().await?;
+	let initial_uuids: std::collections::HashMap<String, uuid::Uuid> = entries_initial
+		.iter()
+		.map(|e| (e.name.clone(), e.uuid))
+		.collect();
+
+	// Reindex multiple times without any changes
+	for i in 1..=3 {
+		handle.reindex().await?;
+
+		let entries = handle.get_all_entries().await?;
+
+		// Verify all UUIDs remain the same
+		for entry in &entries {
+			let initial_uuid = initial_uuids.get(&entry.name).expect(&format!(
+				"Entry {} should exist in initial index",
+				entry.name
+			));
+
+			assert_eq!(
+				initial_uuid, &entry.uuid,
+				"Entry '{}' UUID should be preserved after reindex #{} (inode tracking)",
+				entry.name, i
+			);
+		}
+	}
 
 	harness.shutdown().await?;
 	Ok(())

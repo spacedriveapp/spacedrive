@@ -69,7 +69,7 @@ export function mapVolumeToFile(
 		kind: "Directory",
 		name: volume.display_name || volume.name,
 		sd_path: sdPath,
-		size: volume.total_bytes ? BigInt(volume.total_bytes) : null,
+		size: volume.total_capacity ? BigInt(volume.total_capacity) : null,
 		date_created: null,
 		date_modified: null,
 		date_accessed: null,

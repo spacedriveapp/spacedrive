@@ -10,6 +10,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from "../../utils/virtualFiles";
+import { VolumeSizeBar } from "../../components/VolumeSizeBar";
 
 interface FileCardProps {
 	file: File;
@@ -107,6 +108,19 @@ export const FileCard = memo(
 
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
+		// Check if this is a virtual volume file
+		const isVolume =
+			isVirtualFile(file) &&
+			file._virtual.type === "volume" &&
+			file._virtual.data;
+
+		// Extract volume data
+		const volumeData = isVolume ? file._virtual.data : null;
+		const hasVolumeCapacity =
+			volumeData?.total_capacity != null &&
+			volumeData?.available_capacity != null &&
+			volumeData.total_capacity > 0;
+
 		return (
 			<div
 				ref={setNodeRef}
@@ -150,7 +164,18 @@ export const FileCard = memo(
 						>
 							{file.name}{file.extension && `.${file.extension}`}
 						</div>
-						{showFileSize && file.size > 0 && (
+
+						{/* Volume size bar */}
+						{showFileSize && hasVolumeCapacity && (
+							<VolumeSizeBar
+								totalBytes={Number(volumeData.total_capacity)}
+								availableBytes={Number(volumeData.available_capacity)}
+								className="mt-1.5"
+							/>
+						)}
+
+						{/* Regular file size */}
+						{showFileSize && !hasVolumeCapacity && file.size > 0 && (
 							<div className="text-xs text-ink-dull mt-0.5">
 								{formatBytes(file.size)}
 							</div>

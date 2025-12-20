@@ -14,7 +14,6 @@ import { usePlatform } from "../../platform";
 import type {
 	SdPath,
 	File,
-	LibraryDeviceInfo,
 	ListLibraryDevicesInput,
 	DirectorySortBy,
 	MediaSortBy,
@@ -30,6 +29,21 @@ interface ViewSettings {
 	showFileSize: boolean;
 	columnWidth: number; // 200-400px for column view
 	foldersFirst: boolean;
+}
+
+export type NavigationEntry =
+	| { type: "path"; path: SdPath }
+	| {
+			type: "view";
+			view: string;
+			id?: string;
+			params?: Record<string, string>;
+	  };
+
+export interface VirtualView {
+	view: string;
+	id?: string;
+	params?: Record<string, string>;
 }
 
 function getSpaceItemKeyFromRoute(pathname: string, search: string): string {
@@ -54,10 +68,17 @@ function getPathKey(sdPath: SdPath | null): string {
 
 interface ExplorerState {
 	currentPath: SdPath | null;
+	currentView: VirtualView | null;
 	setCurrentPath: (path: SdPath | null) => void;
+	navigateToView: (
+		view: string,
+		id?: string,
+		params?: Record<string, string>,
+	) => void;
 	syncPathFromUrl: (path: SdPath | null) => void;
+	syncViewFromUrl: (view: VirtualView | null) => void;
 
-	history: SdPath[];
+	history: NavigationEntry[];
 	historyIndex: number;
 	goBack: () => void;
 	goForward: () => void;
@@ -91,7 +112,7 @@ interface ExplorerState {
 	tagModeActive: boolean;
 	setTagModeActive: (active: boolean) => void;
 
-	devices: Map<string, LibraryDeviceInfo>;
+	devices: Map<string, any>;
 
 	setSpaceItemId: (id: string) => void;
 }
@@ -116,7 +137,8 @@ export function ExplorerProvider({
 		initialSpaceItemId || "default",
 	);
 	const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
-	const [history, setHistory] = useState<SdPath[]>([]);
+	const [currentView, setCurrentView] = useState<VirtualView | null>(null);
+	const [history, setHistory] = useState<NavigationEntry[]>([]);
 	const [historyIndex, setHistoryIndex] = useState(-1);
 	const [viewMode, setViewModeInternal] = useState<
 		"grid" | "list" | "media" | "column" | "size" | "knowledge"
@@ -147,7 +169,12 @@ export function ExplorerProvider({
 		const prefs = viewPrefs.getPreferences(spaceItemKey);
 		if (prefs) {
 			setViewModeInternal(prefs.viewMode);
-			setViewSettingsInternal(prefs.viewSettings);
+			if (prefs.viewSettings) {
+				setViewSettingsInternal((prev) => ({
+					...prev,
+					...prefs.viewSettings,
+				}));
+			}
 		}
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [spaceItemKey]);
@@ -208,10 +235,7 @@ export function ExplorerProvider({
 	);
 
 	// Use normalized query for automatic updates when device events are emitted
-	const devicesQuery = useNormalizedQuery<
-		ListLibraryDevicesInput,
-		LibraryDeviceInfo[]
-	>({
+	const devicesQuery = useNormalizedQuery<ListLibraryDevicesInput, any[]>({
 		wireMethod: "query:devices.list",
 		input: { include_offline: true, include_details: false },
 		resourceType: "device",
@@ -225,14 +249,29 @@ export function ExplorerProvider({
 	const goBack = useCallback(() => {
 		if (historyIndex > 0) {
 			const newIndex = historyIndex - 1;
-			const path = history[newIndex];
+			const entry = history[newIndex];
 			setHistoryIndex(newIndex);
-			setCurrentPathInternal(path);
 
-			// Sync route
-			if (path) {
-				const encodedPath = encodeURIComponent(JSON.stringify(path));
+			if (entry.type === "path") {
+				setCurrentPathInternal(entry.path);
+				setCurrentView(null);
+				const encodedPath = encodeURIComponent(
+					JSON.stringify(entry.path),
+				);
 				navigate(`/explorer?path=${encodedPath}`, { replace: true });
+			} else {
+				setCurrentPathInternal(null);
+				setCurrentView({
+					view: entry.view,
+					id: entry.id,
+					params: entry.params,
+				});
+				const params = new URLSearchParams({
+					view: entry.view,
+					...(entry.id && { id: entry.id }),
+					...(entry.params || {}),
+				});
+				navigate(`/explorer?${params.toString()}`, { replace: true });
 			}
 		}
 	}, [historyIndex, history, navigate]);
@@ -240,14 +279,29 @@ export function ExplorerProvider({
 	const goForward = useCallback(() => {
 		if (historyIndex < history.length - 1) {
 			const newIndex = historyIndex + 1;
-			const path = history[newIndex];
+			const entry = history[newIndex];
 			setHistoryIndex(newIndex);
-			setCurrentPathInternal(path);
 
-			// Sync route
-			if (path) {
-				const encodedPath = encodeURIComponent(JSON.stringify(path));
+			if (entry.type === "path") {
+				setCurrentPathInternal(entry.path);
+				setCurrentView(null);
+				const encodedPath = encodeURIComponent(
+					JSON.stringify(entry.path),
+				);
 				navigate(`/explorer?path=${encodedPath}`, { replace: true });
+			} else {
+				setCurrentPathInternal(null);
+				setCurrentView({
+					view: entry.view,
+					id: entry.id,
+					params: entry.params,
+				});
+				const params = new URLSearchParams({
+					view: entry.view,
+					...(entry.id && { id: entry.id }),
+					...(entry.params || {}),
+				});
+				navigate(`/explorer?${params.toString()}`, { replace: true });
 			}
 		}
 	}, [historyIndex, history, navigate]);
@@ -262,10 +316,13 @@ export function ExplorerProvider({
 				return;
 			}
 
+			// Clear view state
+			setCurrentView(null);
+
 			// Update history
 			setHistory((prev) => {
 				const newHistory = prev.slice(0, historyIndex + 1);
-				newHistory.push(path);
+				newHistory.push({ type: "path", path });
 				return newHistory;
 			});
 			setHistoryIndex((prev) => prev + 1);
@@ -278,9 +335,43 @@ export function ExplorerProvider({
 		[historyIndex, navigate],
 	);
 
+	const navigateToView = useCallback(
+		(view: string, id?: string, params?: Record<string, string>) => {
+			// Clear path state
+			setCurrentPathInternal(null);
+
+			// Set view state
+			setCurrentView({ view, id, params });
+
+			// Update history
+			setHistory((prev) => {
+				const newHistory = prev.slice(0, historyIndex + 1);
+				newHistory.push({ type: "view", view, id, params });
+				return newHistory;
+			});
+			setHistoryIndex((prev) => prev + 1);
+
+			// Update URL
+			const queryParams = new URLSearchParams({
+				view,
+				...(id && { id }),
+				...(params || {}),
+			});
+			navigate(`/explorer?${queryParams.toString()}`, { replace: false });
+		},
+		[historyIndex, navigate],
+	);
+
 	const syncPathFromUrl = useCallback((path: SdPath | null) => {
 		// Update internal state without navigating - used when URL changes externally
 		setCurrentPathInternal(path);
+		setCurrentView(null); // Clear view when syncing path
+	}, []);
+
+	const syncViewFromUrl = useCallback((view: VirtualView | null) => {
+		// Update internal state without navigating - used when URL changes externally
+		setCurrentView(view);
+		setCurrentPathInternal(null); // Clear path when syncing view
 	}, []);
 
 	const openQuickPreview = useCallback((fileId: string) => {
@@ -294,8 +385,11 @@ export function ExplorerProvider({
 	const value: ExplorerState = useMemo(
 		() => ({
 			currentPath,
+			currentView,
 			setCurrentPath: navigateToPath,
+			navigateToView,
 			syncPathFromUrl,
+			syncViewFromUrl,
 			history,
 			historyIndex,
 			goBack,
@@ -325,8 +419,11 @@ export function ExplorerProvider({
 		}),
 		[
 			currentPath,
+			currentView,
 			navigateToPath,
+			navigateToView,
 			syncPathFromUrl,
+			syncViewFromUrl,
 			history,
 			historyIndex,
 			goBack,

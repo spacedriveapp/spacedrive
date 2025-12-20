@@ -7,6 +7,7 @@ import { usePlatform } from "./platform";
 import { useSelection } from "./components/Explorer/SelectionContext";
 import { FileInspector } from "./inspectors/FileInspector";
 import { LocationInspector } from "./inspectors/LocationInspector";
+import { isVirtualFile } from "./components/Explorer/utils/virtualFiles";
 import clsx from "clsx";
 
 export type InspectorVariant =
@@ -33,7 +34,17 @@ export function Inspector({
   // Compute inspector variant based on selection
   const variant: InspectorVariant = useMemo(() => {
     if (selectedFiles.length > 0 && selectedFiles[0]) {
-      return { type: "file", file: selectedFiles[0] };
+      const file = selectedFiles[0];
+      
+      // Check if this is a virtual location file
+      if (isVirtualFile(file) && file._virtual.type === "location") {
+        // Show LocationInspector for virtual locations
+        const locationData = file._virtual.data as LocationInfo;
+        return { type: "location", location: locationData };
+      }
+      
+      // Regular file
+      return { type: "file", file };
     }
     if (currentLocation) {
       return { type: "location", location: currentLocation };

@@ -1,6 +1,6 @@
 import { WifiHigh, WifiNoneIcon, WifiSlashIcon } from "@phosphor-icons/react";
-import { useNavigate } from "react-router-dom";
 import { useNormalizedQuery, getDeviceIcon } from "../../context";
+import { useExplorer } from "../Explorer/context";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
 import type { ListLibraryDevicesInput, LibraryDeviceInfo } from "@sd/ts-client";
@@ -18,7 +18,7 @@ export function DevicesGroup({
 	sortableAttributes,
 	sortableListeners,
 }: DevicesGroupProps) {
-	const navigate = useNavigate();
+	const { navigateToView } = useExplorer();
 
 	// Use normalized query for automatic updates when device events are emitted
 	const { data: devices, isLoading } = useNormalizedQuery<
@@ -69,7 +69,7 @@ export function DevicesGroup({
 									item={deviceItem as any}
 									customIcon={getDeviceIcon(device)}
 									customLabel={device.name}
-									onClick={() => navigate(`/explorer?view=device&id=${device.id}`)}
+									onClick={() => navigateToView("device", device.id)}
 									allowInsertion={false}
 									isLastItem={index === devices.length - 1}
 									className="text-sidebar-inkDull"
