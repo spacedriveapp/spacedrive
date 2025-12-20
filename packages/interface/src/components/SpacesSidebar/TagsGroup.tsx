@@ -9,6 +9,8 @@ import { GroupHeader } from './GroupHeader';
 interface TagsGroupProps {
 	isCollapsed: boolean;
 	onToggle: () => void;
+	sortableAttributes?: any;
+	sortableListeners?: any;
 }
 
 interface TagItemProps {
@@ -79,7 +81,12 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	);
 }
 
-export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
+export function TagsGroup({
+	isCollapsed,
+	onToggle,
+	sortableAttributes,
+	sortableListeners,
+}: TagsGroupProps) {
 	const navigate = useNavigate();
 	const [isCreating, setIsCreating] = useState(false);
 	const [newTagName, setNewTagName] = useState('');
@@ -124,6 +131,8 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 				label="Tags"
 				isCollapsed={isCollapsed}
 				onToggle={onToggle}
+				sortableAttributes={sortableAttributes}
+				sortableListeners={sortableListeners}
 				rightComponent={
 					tags.length > 0 && (
 						<span className="ml-auto text-sidebar-ink-faint">{tags.length}</span>

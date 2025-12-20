@@ -12,6 +12,7 @@ import {
 	MagnifyingGlass,
 	Trash,
 	Database,
+	Folders,
 } from "@phosphor-icons/react";
 import { Location } from "@sd/assets/icons";
 import type {
@@ -23,7 +24,7 @@ import { Thumb } from "../Explorer/File/Thumb";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { usePlatform } from "../../platform";
 import { useLibraryMutation } from "../../context";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -59,6 +60,7 @@ function getItemIcon(itemType: ItemType): any {
 	if (itemType === "Overview") return { type: "component", icon: House };
 	if (itemType === "Recents") return { type: "component", icon: Clock };
 	if (itemType === "Favorites") return { type: "component", icon: Heart };
+	if (itemType === "FileKinds") return { type: "component", icon: Folders };
 	if (typeof itemType === "object" && "Location" in itemType)
 		return { type: "image", icon: Location };
 	if (typeof itemType === "object" && "Volume" in itemType)
@@ -74,6 +76,7 @@ function getItemLabel(itemType: ItemType): string {
 	if (itemType === "Overview") return "Overview";
 	if (itemType === "Recents") return "Recents";
 	if (itemType === "Favorites") return "Favorites";
+	if (itemType === "FileKinds") return "File Kinds";
 	if (typeof itemType === "object" && "Location" in itemType) {
 		return itemType.Location.name || "Unnamed Location";
 	}
@@ -103,6 +106,7 @@ function getItemPath(
 	if (itemType === "Overview") return "/";
 	if (itemType === "Recents") return "/recents";
 	if (itemType === "Favorites") return "/favorites";
+	if (itemType === "FileKinds") return "/file-kinds";
 	if (typeof itemType === "object" && "Location" in itemType) {
 		// For proper SpaceItem with Location type, we need the sd_path
 		// This requires the parent to pass volumeData or similar
@@ -152,26 +156,10 @@ export function SpaceItem({
 	const platform = usePlatform();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
 	const indexVolume = useLibraryMutation("volumes.index");
-
-	// Sortable hook (for reordering)
-	const sortableProps = useSortable({
-		id: item.id,
-		disabled: !sortable,
-	});
-
-	const {
-		attributes: sortableAttributes,
-		listeners: sortableListeners,
-		setNodeRef: setSortableRef,
-		transform,
-		transition,
-		isDragging: isSortableDragging,
-	} = sortableProps;
-
-	const style = sortable ? {
-		transform: CSS.Transform.toString(transform),
-		transition,
-	} : undefined;
+	const { active } = useDndContext();
+	
+	// Disable insertion drop zones when dragging groups or space items (they have 'label' in their data)
+	const isDraggingSortableItem = active?.data?.current?.label != null;
 
 	// Check if this is a raw location object (has 'name' and 'sd_path' but no 'item_type')
 	const isRawLocation =
@@ -206,6 +194,29 @@ export function SpaceItem({
 	if (customLabel) {
 		label = customLabel;
 	}
+
+	// Sortable hook (for reordering) - must be after label is defined
+	const sortableProps = useSortable({
+		id: item.id,
+		disabled: !sortable,
+		data: {
+			label: label,
+		},
+	});
+
+	const {
+		attributes: sortableAttributes,
+		listeners: sortableListeners,
+		setNodeRef: setSortableRef,
+		transform,
+		transition,
+		isDragging: isSortableDragging,
+	} = sortableProps;
+
+	const style = sortable ? {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	} : undefined;
 
 	// Check if this item is active by comparing SD paths
 	const isActive = (() => {
@@ -306,21 +317,21 @@ export function SpaceItem({
 					return false;
 				},
 			},
-			{ type: "separator" },
-			{
-				icon: Trash,
-				label: "Remove from Space",
-				onClick: async () => {
-					try {
-						await deleteItem.mutateAsync({ item_id: item.id });
-					} catch (err) {
-						console.error("Failed to remove item:", err);
-					}
-				},
-				variant: "danger" as const,
-				// Can only remove custom Path items, not built-in items
-				condition: () => typeof item.item_type === "object" && "Path" in item.item_type,
+		{ type: "separator" },
+		{
+			icon: Trash,
+			label: "Remove from Space",
+			onClick: async () => {
+				try {
+					await deleteItem.mutateAsync({ item_id: item.id });
+				} catch (err) {
+					console.error("Failed to remove item:", err);
+				}
 			},
+			variant: "danger" as const,
+			// All space items can be removed (Overview, Recents, Favorites, FileKinds, Locations, Volumes, Tags, Paths)
+			condition: () => spaceId != null,
+		},
 		],
 	});
 
@@ -382,7 +393,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setTopRef, isOver: isOverTop } = useDroppable({
 		id: `space-item-${item.id}-top`,
-		disabled: !allowInsertion,
+		disabled: !allowInsertion || isDraggingSortableItem,
 		data: {
 			action: "insert-before",
 			itemId: item.id,
@@ -393,7 +404,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setBottomRef, isOver: isOverBottom } = useDroppable({
 		id: `space-item-${item.id}-bottom`,
-		disabled: !allowInsertion,
+		disabled: !allowInsertion || isDraggingSortableItem,
 		data: {
 			action: "insert-after",
 			itemId: item.id,
@@ -427,7 +438,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setMiddleRef, isOver: isOverMiddle } = useDroppable({
 		id: `space-item-${item.id}-middle`,
-		disabled: !isDropTarget,
+		disabled: !isDropTarget || isDraggingSortableItem,
 		data: {
 			action: "move-into",
 			targetType,
@@ -443,14 +454,14 @@ export function SpaceItem({
 			className={clsx("relative", isSortableDragging && "opacity-50 z-50")}
 		>
 			{/* Insertion line indicator - only show top (bottom of previous item handles gaps) */}
-			{isOverTop && !isSortableDragging && (
-				<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
+		{isOverTop && !isSortableDragging && !isDraggingSortableItem && (
+			<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+		)}
 
 			{/* Ring highlight for drop-into */}
-			{isOverMiddle && isDropTarget && !isSortableDragging && (
-				<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
-			)}
+		{isOverMiddle && isDropTarget && !isSortableDragging && !isDraggingSortableItem && (
+			<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
+		)}
 
 			<div className="relative">
 				{/* Drop zones - invisible overlays, only active during drag */}
@@ -496,14 +507,14 @@ export function SpaceItem({
 					onClick={handleClick}
 					onContextMenu={handleContextMenu}
 					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
-					className={clsx(
-						"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
-						className ||
-							(isActive
-								? "bg-sidebar-selected/30 text-sidebar-ink"
-								: "text-sidebar-inkDull"),
-						isOverMiddle && isDropTarget && "bg-accent/10",
-					)}
+				className={clsx(
+					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
+					className ||
+						(isActive
+							? "bg-sidebar-selected/30 text-sidebar-ink"
+							: "text-sidebar-inkDull"),
+					isOverMiddle && isDropTarget && !isDraggingSortableItem && "bg-accent/10",
+				)}
 				>
 					{resolvedFile ? (
 						<Thumb file={resolvedFile} size={16} className="shrink-0" />
@@ -518,9 +529,9 @@ export function SpaceItem({
 			</div>
 
 			{/* Insertion line indicator - bottom (only for last item to allow dropping at end) */}
-			{isOverBottom && isLastItem && (
-				<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
+		{isOverBottom && isLastItem && !isDraggingSortableItem && (
+			<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+		)}
 		</div>
 	);
 }

@@ -6,9 +6,16 @@ import { GroupHeader } from "./GroupHeader";
 interface LocationsGroupProps {
   isCollapsed: boolean;
   onToggle: () => void;
+  sortableAttributes?: any;
+  sortableListeners?: any;
 }
 
-export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
+export function LocationsGroup({
+  isCollapsed,
+  onToggle,
+  sortableAttributes,
+  sortableListeners,
+}: LocationsGroupProps) {
   const navigate = useNavigate();
 
   const { data: locationsData } = useNormalizedQuery({
@@ -21,7 +28,13 @@ export function LocationsGroup({ isCollapsed, onToggle }: LocationsGroupProps) {
 
   return (
     <div>
-      <GroupHeader label="Locations" isCollapsed={isCollapsed} onToggle={onToggle} />
+      <GroupHeader
+        label="Locations"
+        isCollapsed={isCollapsed}
+        onToggle={onToggle}
+        sortableAttributes={sortableAttributes}
+        sortableListeners={sortableListeners}
+      />
 
       {/* Items */}
       {!isCollapsed && (

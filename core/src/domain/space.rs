@@ -417,6 +417,9 @@ pub enum ItemType {
 	/// Favorited files (fixed)
 	Favorites,
 
+	/// File kinds (images, videos, audio, etc.)
+	FileKinds,
+
 	/// Indexed location
 	Location { location_id: Uuid },
 

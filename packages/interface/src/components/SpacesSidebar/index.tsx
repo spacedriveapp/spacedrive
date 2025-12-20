@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { GearSix } from "@phosphor-icons/react";
+import { GearSix, Palette } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
@@ -7,13 +7,14 @@ import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";
 import { SpaceItem } from "./SpaceItem";
 import { AddGroupButton } from "./AddGroupButton";
+import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
 import { JobManagerPopover } from "../JobManager/JobManagerPopover";
 import { SyncMonitorPopover } from "../SyncMonitor";
 import clsx from "clsx";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -29,9 +30,15 @@ function SpaceGroupWithDropZone({
   spaceId?: string;
   isFirst: boolean;
 }) {
+  const { active } = useDndContext();
+  
+  // Disable drop zone when dragging groups or space items (they have 'label' in their data)
+  // This allows sortable collision detection to work for reordering
+  const isDraggingSortableItem = active?.data?.current?.label != null;
+  
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `space-root-before-${group.id}`,
-    disabled: !spaceId,
+    disabled: !spaceId || isDraggingSortableItem,
     data: {
       action: 'add-to-space',
       spaceId,
@@ -47,8 +54,12 @@ function SpaceGroupWithDropZone({
     transform,
     transition,
     isDragging,
+    setActivatorNodeRef,
   } = useSortable({
     id: group.id,
+    data: {
+      label: group.name,
+    },
   });
 
   const style = {
@@ -60,7 +71,7 @@ function SpaceGroupWithDropZone({
     <div ref={setSortableRef} style={style} className={clsx("relative", isDragging && "opacity-50 z-50")}>
       {/* Drop zone before this group (for adding root-level items) */}
       <div ref={setDropRef} className="absolute -top-2.5 left-0 right-0 h-5 z-10">
-        {isOver && !isDragging && (
+        {isOver && !isDragging && !isDraggingSortableItem && (
           <div className="absolute top-1/2 -translate-y-1/2 left-2 right-2 h-[2px] bg-accent rounded-full" />
         )}
       </div>
@@ -86,6 +97,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
     () => client.getCurrentLibraryId(),
   );
+  const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
 
   const { currentSpaceId, setCurrentSpace } = useSidebarStore();
   const { data: spacesData } = useSpaces();
@@ -196,10 +208,20 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             {currentSpace && <AddGroupButton spaceId={currentSpace.id} />}
           </div>
 
-          {/* Sync Monitor, Job Manager & Settings (pinned to bottom) */}
+          {/* Sync Monitor, Job Manager, Customize & Settings (pinned to bottom) */}
           <div className="space-y-0.5">
             <SyncMonitorPopover />
             <JobManagerPopover />
+            <button
+              onClick={() => setCustomizePanelOpen(true)}
+              className={clsx(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
+                "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected",
+              )}
+            >
+              <Palette className="size-4" weight="bold" />
+              <span className="truncate">Customize</span>
+            </button>
             <button
               onClick={() => {
                 if (platform.showWindow) {
@@ -219,6 +241,13 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           </div>
         </nav>
       </div>
+
+      {/* Customization Panel */}
+      <SpaceCustomizationPanel
+        isOpen={customizePanelOpen}
+        onClose={() => setCustomizePanelOpen(false)}
+        spaceId={currentSpace?.id ?? null}
+      />
     </div>
   );
 }

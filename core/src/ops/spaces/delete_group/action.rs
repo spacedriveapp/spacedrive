@@ -47,6 +47,16 @@ impl LibraryAction for DeleteGroupAction {
 		use crate::domain::{resource::EventEmitter, SpaceGroup};
 		SpaceGroup::emit_deleted(group_id, library.event_bus());
 
+		// Emit virtual resource events (space_layout) via ResourceManager
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			library.event_bus().clone(),
+		);
+		resource_manager
+			.emit_resource_events("space_group", vec![group_id])
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to emit resource events: {}", e)))?;
+
 		Ok(DeleteGroupOutput { success: true })
 	}
 

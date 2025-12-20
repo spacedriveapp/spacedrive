@@ -76,11 +76,10 @@ export function HeroStats({
 				{/* Storage Health - Future feature */}
 				<StatCard
 					icon={Cpu}
-					label="Storage Health"
-					value="Good"
-					subtitle="all volumes healthy"
-					color="from-orange-500 to-red-500"
-					badge="PREVIEW"
+					label="AI Compute Power"
+					value="70 TOPS"
+					subtitle="across all devices"
+					color="from-purple-500 to-pink-500"
 				/>
 			</div>
 		</div>

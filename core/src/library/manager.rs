@@ -1130,11 +1130,12 @@ impl LibraryManager {
 
 		info!("Created default space for library {}", library.id());
 
-		// Create space-level items (Overview, Recents, Favorites) - these appear outside groups
+		// Create space-level items (Overview, Recents, Favorites, File Kinds) - these appear outside groups
 		let space_items = vec![
 			(ItemType::Overview, "Overview", 0),
 			(ItemType::Recents, "Recents", 1),
 			(ItemType::Favorites, "Favorites", 2),
+			(ItemType::FileKinds, "File Kinds", 3),
 		];
 
 		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};

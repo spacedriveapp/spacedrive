@@ -8,9 +8,16 @@ import type { ListLibraryDevicesInput, LibraryDeviceInfo } from "@sd/ts-client";
 interface DevicesGroupProps {
 	isCollapsed: boolean;
 	onToggle: () => void;
+	sortableAttributes?: any;
+	sortableListeners?: any;
 }
 
-export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
+export function DevicesGroup({
+	isCollapsed,
+	onToggle,
+	sortableAttributes,
+	sortableListeners,
+}: DevicesGroupProps) {
 	const navigate = useNavigate();
 
 	// Use normalized query for automatic updates when device events are emitted
@@ -33,6 +40,8 @@ export function DevicesGroup({ isCollapsed, onToggle }: DevicesGroupProps) {
 				label="Devices"
 				isCollapsed={isCollapsed}
 				onToggle={onToggle}
+				sortableAttributes={sortableAttributes}
+				sortableListeners={sortableListeners}
 			/>
 
 			{/* Items */}

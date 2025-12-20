@@ -163,7 +163,8 @@ impl ResourceManager {
 				});
 			}
 
-			return Ok(());
+			// Continue to check for virtual resource dependencies
+			// (e.g., space_item -> space_layout, entry -> file)
 		}
 
 		// Check if any virtual resources depend on this type (dependency routing)
@@ -180,8 +181,9 @@ impl ResourceManager {
 		}
 
 		if all_virtual_resources.is_empty() {
-			tracing::warn!(
-				"No resource info found for type '{}' and no virtual mappings",
+			// No virtual resources depend on this type - that's fine for simple resources
+			tracing::debug!(
+				"No virtual resource dependencies for type '{}'",
 				resource_type
 			);
 			return Ok(());
