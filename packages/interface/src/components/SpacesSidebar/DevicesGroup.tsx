@@ -69,6 +69,7 @@ export function DevicesGroup({
 									item={deviceItem as any}
 									customIcon={getDeviceIcon(device)}
 									customLabel={device.name}
+									onClick={() => navigate(`/explorer?view=device&id=${device.id}`)}
 									allowInsertion={false}
 									isLastItem={index === devices.length - 1}
 									className="text-sidebar-inkDull"

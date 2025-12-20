@@ -9,6 +9,7 @@ import { TagDot } from "../../../Tags";
 import { useDroppable } from "@dnd-kit/core";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
+import { isVirtualFile } from "../../utils/virtualFiles";
 
 interface FileCardProps {
 	file: File;
@@ -50,11 +51,18 @@ export const FileCard = memo(
 			selectFile(file, allFiles, multi, range);
 		};
 
-		const handleDoubleClick = () => {
-			if (file.kind === "Directory") {
-				setCurrentPath(file.sd_path);
-			}
-		};
+	const handleDoubleClick = () => {
+		// Virtual files (locations, volumes, devices) always navigate to their sd_path
+		if (isVirtualFile(file) && file.sd_path) {
+			setCurrentPath(file.sd_path);
+			return;
+		}
+
+		// Regular directories navigate normally
+		if (file.kind === "Directory") {
+			setCurrentPath(file.sd_path);
+		}
+	};
 
 		const handleContextMenu = async (e: React.MouseEvent) => {
 			e.preventDefault();

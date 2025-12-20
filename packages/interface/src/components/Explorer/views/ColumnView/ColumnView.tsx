@@ -6,9 +6,11 @@ import { useNormalizedQuery } from "../../../../context";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
+import { useVirtualListing } from "../../hooks/useVirtualListing";
 
 export function ColumnView() {
 	const { currentPath, setCurrentPath, sortBy, viewSettings } = useExplorer();
+	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 	const {
 		selectedFiles,
 		selectedFileIds,
@@ -248,10 +250,32 @@ export function ColumnView() {
 		typeahead,
 	]);
 
-	if (!currentPath) {
+	if (!currentPath && !isVirtualView) {
 		return (
 			<div className="flex items-center justify-center h-full">
 				<div className="text-ink-dull">No location selected</div>
+			</div>
+		);
+	}
+
+	// Virtual listings show in a single column (no nested navigation)
+	if (isVirtualView && virtualFiles) {
+		return (
+			<div className="flex h-full overflow-x-auto bg-app">
+				<Column
+					key="virtual-column"
+					path={null as any}
+					isSelected={isSelected}
+					selectedFileIds={selectedFileIds}
+					onSelectFile={(file, files, multi, range) =>
+						selectFile(file, files, multi, range)
+					}
+					onNavigate={() => {}}
+					nextColumnPath={undefined}
+					columnIndex={0}
+					isActive={true}
+					virtualFiles={virtualFiles}
+				/>
 			</div>
 		);
 	}

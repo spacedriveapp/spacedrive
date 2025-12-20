@@ -222,6 +222,18 @@ export function SpaceItem({
 
 	// Check if this item is active
 	const isActive = (() => {
+		// If custom onClick is provided, check against URL params
+		if (onClick && location.pathname === "/explorer") {
+			const currentSearchParams = new URLSearchParams(location.search);
+			const view = currentSearchParams.get("view");
+			const id = currentSearchParams.get("id");
+			
+			// Check if this is a device view matching this item
+			if (view === "device" && id === item.id) {
+				return true;
+			}
+		}
+
 		if (!path) return false;
 
 		// Special routes: exact pathname match

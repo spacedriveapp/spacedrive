@@ -5,6 +5,7 @@ import type { File } from "@sd/ts-client";
 import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getContentKind } from "../utils";
 import { useServer } from "../../../ServerContext";
+import { getVirtualMetadata } from "../utils/virtualFiles";
 
 interface ThumbProps {
 	file: File;
@@ -47,6 +48,10 @@ export const Thumb = memo(function Thumb({
 	}, [thumbError, cacheKey]);
 
 	const iconSize = size * iconScale;
+
+	// Check for virtual file icon override
+	const virtualMetadata = getVirtualMetadata(file);
+	const iconOverride = virtualMetadata?.iconUrl;
 
 	// Check if this is a video with thumbstrip sidecar
 	const isVideo = getContentKind(file) === "video";
@@ -118,7 +123,8 @@ export const Thumb = memo(function Thumb({
 	const kindCapitalized =
 		fileKind.charAt(0).toUpperCase() + fileKind.slice(1);
 
-	const icon = getIcon(
+	// Use icon override from virtual files (devices, volumes), otherwise use default icon logic
+	const icon = iconOverride || getIcon(
 		kindCapitalized,
 		true, // Dark theme
 		file.extension,
@@ -235,6 +241,10 @@ export function Icon({
 	size?: number;
 	className?: string;
 }) {
+	// Check for virtual file icon override
+	const virtualMetadata = getVirtualMetadata(file);
+	const iconOverride = virtualMetadata?.iconUrl;
+
 	// Get content kind (prefers content_identity.kind, falls back to content_kind)
 	const contentKind = getContentKind(file);
 	const fileKind =
@@ -246,7 +256,8 @@ export function Icon({
 	const kindCapitalized =
 		fileKind.charAt(0).toUpperCase() + fileKind.slice(1);
 
-	const icon = getIcon(
+	// Use icon override from virtual files (devices, volumes), otherwise use default icon logic
+	const icon = iconOverride || getIcon(
 		kindCapitalized,
 		true, // Dark theme
 		file.extension,

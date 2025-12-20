@@ -9,6 +9,7 @@ import { SizeView } from "./views/SizeView";
 import { KnowledgeView } from "./views/KnowledgeView";
 import { EmptyView } from "./views/EmptyView";
 import { TopBarPortal } from "../../TopBar";
+import { useVirtualListing } from "./hooks/useVirtualListing";
 import {
 	SidebarSimple,
 	Info,
@@ -46,6 +47,7 @@ export function ExplorerView() {
 		quickPreviewFileId,
 	} = useExplorer();
 
+	const { isVirtualView } = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
 
 	// Sync currentPath from URL query parameter
@@ -66,7 +68,8 @@ export function ExplorerView() {
 		}
 	}, [searchParams, currentPath, syncPathFromUrl]);
 
-	if (!currentPath) {
+	// Allow rendering if either we have a currentPath or we're in a virtual view
+	if (!currentPath && !isVirtualView) {
 		return <EmptyView />;
 	}
 
