@@ -40,10 +40,20 @@ export function useSpaceItemActive({
 			currentView.view === "device" && currentView.id === itemIdStr;
 
 		if (isViewMatch) return true;
+
+		// When a virtual view is active, regular items should NOT be active
+		// even if their path happens to match. Virtual views own the display.
+		return false;
 	}
 
 	// Check path-based navigation via explorer context
-	if (currentPath && path && path.startsWith("/explorer?")) {
+	// Only use currentPath matching when we're actually on the explorer route
+	if (
+		location.pathname === "/explorer" &&
+		currentPath &&
+		path &&
+		path.startsWith("/explorer?")
+	) {
 		const itemPathParam = new URLSearchParams(path.split("?")[1]).get(
 			"path",
 		);
