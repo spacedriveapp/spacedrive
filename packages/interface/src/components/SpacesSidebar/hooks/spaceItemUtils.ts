@@ -91,9 +91,9 @@ function getItemLabel(itemType: ItemType, resolvedFile?: File | null): string {
 	if (isRecentsItem(itemType)) return "Recents";
 	if (isFavoritesItem(itemType)) return "Favorites";
 	if (isFileKindsItem(itemType)) return "File Kinds";
-	if (isLocationItem(itemType)) return "Location";
-	if (isVolumeItem(itemType)) return "Volume";
-	if (isTagItem(itemType)) return "Tag";
+	if (isLocationItem(itemType)) return itemType.Location.name || "Unnamed Location";
+	if (isVolumeItem(itemType)) return itemType.Volume.name || "Unnamed Volume";
+	if (isTagItem(itemType)) return itemType.Tag.name || "Unnamed Tag";
 	if (isPathItem(itemType)) {
 		// Use resolved file name if available, otherwise extract from path
 		if (resolvedFile?.name) return resolvedFile.name;
