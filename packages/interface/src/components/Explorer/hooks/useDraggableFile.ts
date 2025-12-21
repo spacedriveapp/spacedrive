@@ -1,5 +1,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import type { File } from "@sd/ts-client";
+import { isVirtualFile } from "../utils/virtualFiles";
 
 interface UseDraggableFileProps {
 	file: File;
@@ -12,8 +13,12 @@ interface UseDraggableFileProps {
  * to prevent drag from starting when opening context menus
  */
 export function useDraggableFile({ file, selectedFiles, gridSize }: UseDraggableFileProps) {
+	// Disable dragging for virtual files (they're display-only, not real filesystem entries)
+	const isVirtual = isVirtualFile(file);
+
 	const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
 		id: file.id,
+		disabled: isVirtual,
 		data: {
 			type: "explorer-file",
 			sdPath: file.sd_path,

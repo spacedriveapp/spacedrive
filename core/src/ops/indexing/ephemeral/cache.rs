@@ -227,6 +227,28 @@ impl EphemeralIndexCache {
 		None
 	}
 
+	/// Clear the entire cache (all paths and entries)
+	pub async fn clear_all(&self) -> usize {
+		let cleared_paths = {
+			let mut indexed = self.indexed_paths.write();
+			let mut in_progress = self.indexing_in_progress.write();
+			let mut watched = self.watched_paths.write();
+
+			let count = indexed.len() + in_progress.len();
+
+			indexed.clear();
+			in_progress.clear();
+			watched.clear();
+
+			count
+		};
+
+		let mut index = self.index.write().await;
+		*index = EphemeralIndex::new().expect("Failed to create new ephemeral index");
+
+		cleared_paths
+	}
+
 	/// Get cache statistics
 	pub fn stats(&self) -> EphemeralIndexCacheStats {
 		let indexed = self.indexed_paths.read();

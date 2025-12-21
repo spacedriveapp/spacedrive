@@ -250,18 +250,33 @@ function IndexIndicator({ path }: { path: SdPath }) {
 export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isShiftHeld, setIsShiftHeld] = useState(false);
+	const { navigateToView } = useExplorer();
 	const uri = sdPathToUri(path);
 	const currentDir = getCurrentDirectoryName(path);
 	const segments = parsePathSegments(path);
 
-	// Get device icon based on the device_slug
-	const deviceIcon = (() => {
+	// Get device icon and device info based on the device_slug
+	const deviceInfo = (() => {
 		if ("Physical" in path) {
-			return getDeviceIconBySlug(path.Physical.device_slug, devices);
+			const deviceSlug = path.Physical.device_slug;
+			// Find device by slug
+			const device = Array.from(devices.values()).find(
+				(d) => d.slug === deviceSlug,
+			);
+			return {
+				icon: getDeviceIconBySlug(deviceSlug, devices),
+				device,
+			};
 		}
-		// For Cloud paths, we don't have a device icon
-		return LaptopIcon;
+		// For Cloud paths, we don't have a device
+		return { icon: LaptopIcon, device: undefined };
 	})();
+
+	const handleDeviceClick = () => {
+		if (deviceInfo.device) {
+			navigateToView("device", deviceInfo.device.id);
+		}
+	};
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -312,11 +327,27 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 					"focus-within:bg-sidebar-box/30 focus-within:border-sidebar-line/40",
 				)}
 			>
-				<img
-					src={deviceIcon}
-					alt="Device"
-					className="size-5 opacity-60 flex-shrink-0"
-				/>
+				<button
+					onClick={handleDeviceClick}
+					disabled={!deviceInfo.device}
+					title={
+						deviceInfo.device
+							? `Go to ${deviceInfo.device.name}`
+							: "Device"
+					}
+					className={clsx(
+						"size-5 flex-shrink-0 transition-opacity",
+						deviceInfo.device
+							? "opacity-60 hover:opacity-100 cursor-pointer"
+							: "opacity-60 cursor-default",
+					)}
+				>
+					<img
+						src={deviceInfo.icon}
+						alt="Device"
+						className="size-full"
+					/>
+				</button>
 
 				{showUri ? (
 					<input

@@ -4,6 +4,70 @@ Shared utilities for integration tests to reduce duplication and improve maintai
 
 ## Modules
 
+### `indexing_harness.rs` - Indexing Test Utilities
+
+Provides a comprehensive test harness for indexing integration tests, eliminating boilerplate and making it easy to test change detection.
+
+**Key Components:**
+
+#### `IndexingHarnessBuilder`
+
+Builder for creating pre-configured indexing test environments.
+
+```rust
+let harness = IndexingHarnessBuilder::new("my_test")
+    .build()
+    .await?;
+```
+
+Automatically handles:
+- Creating test directories
+- Initializing tracing
+- Setting up core and library
+- Registering device
+
+#### `IndexingHarness`
+
+The test harness with convenient methods:
+
+```rust
+// Create test location
+let location = harness.create_test_location("my_location").await?;
+location.write_file("test.txt", "content").await?;
+location.create_filtered_files().await?;
+
+// Index the location
+let handle = location.index("My Location", IndexMode::Deep).await?;
+
+// Verify results
+assert_eq!(handle.count_files().await?, 1);
+handle.verify_no_filtered_entries().await?;
+handle.verify_inode_tracking().await?;
+
+// Make changes and re-index
+handle.write_file("new.txt", "new").await?;
+handle.modify_file("test.txt", "updated").await?;
+handle.delete_file("old.txt").await?;
+handle.move_file("from.txt", "to.txt").await?;
+handle.reindex().await?;
+```
+
+#### Helper Classes
+
+**`TestLocation`** - Builder for test locations:
+- `write_file()` - Create files
+- `create_dir()` - Create directories
+- `create_filtered_files()` - Create files that should be filtered
+- `index()` - Index the location
+
+**`LocationHandle`** - Handle to indexed location:
+- `count_files()`, `count_directories()`, `count_entries()`
+- `get_all_entries()` - Get all indexed entries
+- `verify_no_filtered_entries()` - Assert filtering worked
+- `verify_inode_tracking()` - Assert inodes are tracked
+- `write_file()`, `modify_file()`, `delete_file()`, `move_file()` - Make changes
+- `reindex()` - Re-index and wait for completion
+
 ### `sync_harness.rs` - Two-Device Sync Test Utilities
 
 Provides a comprehensive test harness for sync integration tests that eliminates ~200 lines of boilerplate per test.

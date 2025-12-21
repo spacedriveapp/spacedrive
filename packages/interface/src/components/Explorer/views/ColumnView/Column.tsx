@@ -20,6 +20,7 @@ const ColumnItemWrapper = memo(
 		selected,
 		selectedFiles,
 		onSelectFile,
+		onNavigate,
 	}: {
 		file: File;
 		files: File[];
@@ -32,6 +33,7 @@ const ColumnItemWrapper = memo(
 			multi?: boolean,
 			range?: boolean,
 		) => void;
+		onNavigate: (path: SdPath) => void;
 	}) {
 		const contextMenu = useFileContextMenu({
 			file,
@@ -45,6 +47,12 @@ const ColumnItemWrapper = memo(
 			},
 			[file, files, onSelectFile],
 		);
+
+		const handleDoubleClick = useCallback(() => {
+			if (file.kind === "Directory" && file.sd_path) {
+				onNavigate(file.sd_path);
+			}
+		}, [file, onNavigate]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {
@@ -74,6 +82,7 @@ const ColumnItemWrapper = memo(
 					selected={selected}
 					focused={false}
 					onClick={handleClick}
+					onDoubleClick={handleDoubleClick}
 					onContextMenu={handleContextMenu}
 				/>
 			</div>
@@ -91,7 +100,7 @@ const ColumnItemWrapper = memo(
 );
 
 interface ColumnProps {
-	path: SdPath;
+	path: SdPath | null;
 	isSelected: (fileId: string) => boolean;
 	selectedFileIds: Set<string>;
 	onSelectFile: (
@@ -104,6 +113,7 @@ interface ColumnProps {
 	nextColumnPath?: SdPath;
 	columnIndex: number;
 	isActive: boolean;
+	virtualFiles?: File[];
 }
 
 export const Column = memo(function Column({
@@ -115,6 +125,7 @@ export const Column = memo(function Column({
 	nextColumnPath,
 	columnIndex,
 	isActive,
+	virtualFiles,
 }: ColumnProps) {
 	const parentRef = useRef<HTMLDivElement>(null);
 	const { viewSettings, sortBy } = useExplorer();
@@ -123,18 +134,19 @@ export const Column = memo(function Column({
 	const directoryQuery = useNormalizedQuery({
 		wireMethod: "query:files.directory_listing",
 		input: {
-			path: path,
+			path: path!,
 			limit: null,
 			include_hidden: false,
 			sort_by: sortBy as any,
 			folders_first: viewSettings.foldersFirst,
 		},
 		resourceType: "file",
-		pathScope: path,
+		pathScope: path ?? undefined,
+		enabled: !!path && !virtualFiles,
 		// includeDescendants defaults to false for exact directory matching
 	});
 
-	const files = directoryQuery.data?.files || [];
+	const files = virtualFiles || (directoryQuery.data as any)?.files || [];
 
 	const rowVirtualizer = useVirtualizer({
 		count: files.length,
@@ -143,8 +155,8 @@ export const Column = memo(function Column({
 		overscan: 10,
 	});
 
-
-	if (directoryQuery.isLoading) {
+	// Only show loading state if we're not using virtual files and the query is actually loading
+	if (!virtualFiles && directoryQuery.isLoading) {
 		return (
 			<div
 				className="shrink-0 border-r border-app-line flex items-center justify-center"
@@ -179,13 +191,9 @@ export const Column = memo(function Column({
 
 					// Check if this file is part of the navigation path
 					const isInPath =
-						nextColumnPath &&
-						file.sd_path.Physical &&
-						nextColumnPath.Physical
-							? file.sd_path.Physical.path ===
-									nextColumnPath.Physical.path &&
-								file.sd_path.Physical.device_slug ===
-									nextColumnPath.Physical.device_slug
+						nextColumnPath && file.sd_path
+							? JSON.stringify(file.sd_path) ===
+								JSON.stringify(nextColumnPath)
 							: false;
 
 					return (
@@ -197,6 +205,7 @@ export const Column = memo(function Column({
 							selected={fileIsSelected || isInPath}
 							selectedFiles={selectedFiles}
 							onSelectFile={onSelectFile}
+							onNavigate={onNavigate}
 						/>
 					);
 				})}

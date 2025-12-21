@@ -19,6 +19,8 @@ use uuid::Uuid;
 /// Thumbstrip generation job
 #[derive(Serialize, Deserialize)]
 pub struct ThumbstripJob {
+	/// Entry IDs to process for thumbstrips (if None, process all suitable entries)
+	pub entry_ids: Option<Vec<Uuid>>,
 	config: ThumbstripJobConfig,
 	state: ThumbstripState,
 }
@@ -26,6 +28,16 @@ pub struct ThumbstripJob {
 impl ThumbstripJob {
 	pub fn new(config: ThumbstripJobConfig) -> Self {
 		Self {
+			entry_ids: None,
+			config,
+			state: ThumbstripState::new(),
+		}
+	}
+
+	/// Create a thumbstrip job for specific entry IDs
+	pub fn for_entries(entry_ids: Vec<Uuid>, config: ThumbstripJobConfig) -> Self {
+		Self {
+			entry_ids: Some(entry_ids),
 			config,
 			state: ThumbstripState::new(),
 		}
@@ -53,7 +65,7 @@ impl ThumbstripJob {
 		}
 
 		// Query for video entries with MIME types in one go
-		let results = entry::Entity::find()
+		let mut query = entry::Entity::find()
 			.select_only()
 			.column_as(entry::Column::Id, "entry_id")
 			.column_as(mime_type::Column::MimeType, "mime_type")
@@ -64,7 +76,14 @@ impl ThumbstripJob {
 				content_identity::Relation::MimeType.def(),
 			)
 			.filter(content_identity::Column::KindId.eq(2)) // Video kind
-			.filter(content_identity::Column::Uuid.is_not_null())
+			.filter(content_identity::Column::Uuid.is_not_null());
+
+		// Filter by specific entry IDs if provided
+		if let Some(ref ids) = self.entry_ids {
+			query = query.filter(entry::Column::Uuid.is_in(ids.clone()));
+		}
+
+		let results = query
 			.into_model::<EntryWithMimeType>()
 			.all(db)
 			.await

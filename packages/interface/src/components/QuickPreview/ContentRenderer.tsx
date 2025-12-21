@@ -20,6 +20,8 @@ import {
 import { VideoPlayer } from "./VideoPlayer";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
+import { TextViewer } from "./TextViewer";
+import { WithPrismTheme } from "./prism";
 import { Folder } from "@sd/assets/icons";
 import { SplatShimmerEffect } from "./SplatShimmerEffect";
 import { sounds } from "@sd/assets/sounds";
@@ -525,23 +527,71 @@ function DocumentRenderer({ file }: ContentRendererProps) {
 }
 
 function TextRenderer({ file }: ContentRendererProps) {
-	// TODO: Load actual text content
-	return (
-		<div className="w-full h-full flex items-center justify-center">
-			<div className="text-center max-w-xl">
-				<FileComponent.Thumb file={file} size={120} />
-				<div className="mt-4 text-ink text-lg font-medium">
-					{file.name}
-				</div>
-				<div className="text-ink-dull text-sm mt-2">Text File</div>
-				<div className="text-ink-dull text-xs mt-1">
-					{formatBytes(file.size || 0)}
-				</div>
-				<div className="mt-4 text-xs text-ink-dull">
-					Full text preview coming soon
+	const platform = usePlatform();
+	const [textUrl, setTextUrl] = useState<string | null>(null);
+	const [shouldLoadText, setShouldLoadText] = useState(false);
+
+	const textFileId = file.content_identity?.uuid || file.id;
+
+	useEffect(() => {
+		setShouldLoadText(false);
+		setTextUrl(null);
+
+		const timer = setTimeout(() => {
+			setShouldLoadText(true);
+		}, 50);
+
+		return () => clearTimeout(timer);
+	}, [textFileId]);
+
+	useEffect(() => {
+		if (!shouldLoadText || !platform.convertFileSrc) {
+			return;
+		}
+
+		const sdPath = file.sd_path as any;
+		const physicalPath = sdPath?.Physical?.path;
+
+		if (!physicalPath) {
+			console.log("[TextRenderer] No physical path available");
+			return;
+		}
+
+		const url = platform.convertFileSrc(physicalPath);
+		console.log(
+			"[TextRenderer] Loading text from:",
+			physicalPath,
+			"-> URL:",
+			url,
+		);
+		setTextUrl(url);
+	}, [shouldLoadText, textFileId, file.sd_path, platform]);
+
+	const extension = file.name.split('.').pop()?.toLowerCase();
+
+	if (!textUrl) {
+		return (
+			<div className="w-full h-full flex items-center justify-center">
+				<div className="text-center">
+					<FileComponent.Thumb file={file} size={120} />
+					<div className="mt-4 text-ink text-lg font-medium">
+						{file.name}
+					</div>
+					<div className="text-ink-dull text-sm mt-2">Loading...</div>
 				</div>
 			</div>
-		</div>
+		);
+	}
+
+	return (
+		<>
+			<WithPrismTheme />
+			<TextViewer
+				src={textUrl}
+				codeExtension={extension}
+				className="w-full h-full overflow-auto bg-app p-4 text-ink"
+			/>
+		</>
 	);
 }
 

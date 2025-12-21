@@ -5,6 +5,7 @@ import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy, File } from "@sd/ts-client";
+import { useVirtualListing } from "../../hooks/useVirtualListing";
 
 const VIRTUALIZATION_THRESHOLD = 0; // Disabled - always virtualize
 
@@ -12,6 +13,9 @@ export function GridView() {
   const { currentPath, sortBy, viewSettings, setCurrentFiles } = useExplorer();
   const { isSelected, focusedIndex, selectedFiles, selectFile, clearSelection } = useSelection();
   const { gridSize, gapSize } = viewSettings;
+
+  // Check for virtual listing first
+  const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
   const directoryQuery = useNormalizedQuery({
     wireMethod: "query:files.directory_listing",
@@ -25,11 +29,11 @@ export function GridView() {
         }
       : null!,
     resourceType: "file",
-    enabled: !!currentPath,
+    enabled: !!currentPath && !isVirtualView,
     pathScope: currentPath ?? undefined,
   });
 
-  const files = directoryQuery.data?.files || [];
+  const files = isVirtualView ? (virtualFiles || []) : (directoryQuery.data?.files || []);
 
   // Update current files in explorer context for quick preview navigation
   useEffect(() => {

@@ -10,6 +10,7 @@ import { useSelection } from "../../SelectionContext";
 import { TagPill } from "../../../Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
+import { isVirtualFile } from "../../utils/virtualFiles";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -60,11 +61,18 @@ export const TableRow = memo(
 			[file, files, selectFile],
 		);
 
-		const handleDoubleClick = useCallback(() => {
-			if (file.kind === "Directory") {
-				setCurrentPath(file.sd_path);
-			}
-		}, [file, setCurrentPath]);
+	const handleDoubleClick = useCallback(() => {
+		// Virtual files (locations, volumes, devices) always navigate to their sd_path
+		if (isVirtualFile(file) && file.sd_path) {
+			setCurrentPath(file.sd_path);
+			return;
+		}
+
+		// Regular directories navigate normally
+		if (file.kind === "Directory") {
+			setCurrentPath(file.sd_path);
+		}
+	}, [file, setCurrentPath]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {

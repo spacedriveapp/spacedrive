@@ -28,9 +28,7 @@ use tokio::sync::Mutex;
 use tokio::time::timeout;
 use uuid::Uuid;
 
-// ============================================================================
 // FsWatcher Event Collector (raw filesystem events)
-// ============================================================================
 
 /// Collects FsEvents from the watcher for diagnostic output
 struct FsEventCollector {
@@ -127,10 +125,6 @@ impl FsEventCollector {
 		println!("===============================\n");
 	}
 }
-
-// ============================================================================
-// Core Event Collector (ResourceChanged events from event bus)
-// ============================================================================
 
 /// Collected core event with timestamp and extracted info
 struct CollectedCoreEvent {
@@ -359,11 +353,6 @@ impl CoreEventCollector {
 		println!("==========================\n");
 	}
 }
-
-// ============================================================================
-// Database Helper Functions
-// ============================================================================
-
 /// Count all entries under a location (using closure table)
 async fn count_location_entries(
 	library: &Arc<Library>,
@@ -434,10 +423,6 @@ async fn get_directory_children(
 	Ok(children)
 }
 
-// ============================================================================
-// Test Harness
-// ============================================================================
-
 /// Test harness for location watcher testing with reusable operations
 struct TestHarness {
 	_core_data_dir: TempDir,
@@ -458,7 +443,7 @@ impl TestHarness {
 	async fn setup() -> Result<Self, Box<dyn std::error::Error>> {
 		// Setup logging
 		let _ = tracing_subscriber::fmt()
-			.with_env_filter("sd_core=debug,location_watcher_test=debug")
+			.with_env_filter("sd_core=debug,fs_watcher_test=debug")
 			.try_init();
 
 		// Create core
@@ -470,7 +455,7 @@ impl TestHarness {
 		// Create library
 		let library = core
 			.libraries
-			.create_library("Location Watcher Test", None, core.context.clone())
+			.create_library("FS Watcher Test", None, core.context.clone())
 			.await?;
 
 		println!("✓ Created library: {}", library.id());
@@ -522,7 +507,7 @@ impl TestHarness {
 		// Create location using LocationAddAction (persistent indexing)
 		let input = LocationAddInput {
 			path: SdPath::local(test_dir.clone()),
-			name: Some("SD_LOCATION_WATCHER_TEST_DIR".to_string()),
+			name: Some("SD_FS_WATCHER_TEST_DIR".to_string()),
 			mode: IndexMode::Deep,
 			job_policies: None,
 		};
@@ -923,17 +908,15 @@ impl TestHarness {
 async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::error::Error>> {
 	// Note: Entry counts include the root directory itself which is indexed
 
-	// ========================================================================
 	// Scenario 1: Initial State
-	// ========================================================================
+
 	println!("\n--- Scenario 1: Initial State ---");
 	harness.verify_entry_exists("initial").await?;
 	harness.verify_is_file("initial").await?;
 	harness.verify_entry_count(2).await?; // root dir + initial.txt
 
-	// ========================================================================
 	// Scenario 2: Create Files
-	// ========================================================================
+
 	println!("\n--- Scenario 2: Create Files ---");
 
 	harness.create_file("document.txt", "Hello World").await?;
@@ -947,9 +930,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_is_file("notes").await?;
 	harness.verify_entry_count(4).await?; // root + initial.txt, document.txt, notes.md
 
-	// ========================================================================
 	// Scenario 3: Modify Files
-	// ========================================================================
+
 	println!("\n--- Scenario 3: Modify Files ---");
 
 	harness
@@ -959,9 +941,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_entry_exists("document").await?;
 	harness.verify_entry_count(4).await?; // Count unchanged
 
-	// ========================================================================
 	// Scenario 4: Rename Files
-	// ========================================================================
+
 	println!("\n--- Scenario 4: Rename Files ---");
 
 	harness.rename_file("notes.md", "notes-renamed.md").await?;
@@ -970,18 +951,16 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_is_file("notes-renamed").await?;
 	harness.verify_entry_count(4).await?; // Count unchanged (rename doesn't add/remove)
 
-	// ========================================================================
 	// Scenario 5: Delete Files
-	// ========================================================================
+
 	println!("\n--- Scenario 5: Delete Files ---");
 
 	harness.delete_file("document.txt").await?;
 	harness.verify_entry_not_exists("document").await?;
 	harness.verify_entry_count(3).await?; // root + initial.txt, notes-renamed.md
 
-	// ========================================================================
 	// Scenario 6: Create Directory
-	// ========================================================================
+
 	println!("\n--- Scenario 6: Create Directory ---");
 
 	harness.create_dir("projects").await?;
@@ -989,9 +968,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	harness.verify_is_directory("projects").await?;
 	harness.verify_entry_count(4).await?; // root + initial.txt, notes-renamed.md, projects/
 
-	// ========================================================================
 	// Scenario 7: Batch Create Files and Directories
-	// ========================================================================
+
 	println!("\n--- Scenario 7: Batch Create Files and Directories ---");
 
 	// Create multiple files at once (simulating drag-and-drop or copy operations)
@@ -1033,9 +1011,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	println!("✓ All batch-created entries verified in database");
 	harness.dump_index_state().await;
 
-	// ========================================================================
 	// Scenario 8: Delete Multiple Files and Directory
-	// ========================================================================
+
 	println!("\n--- Scenario 8: Delete Multiple Files and Directory ---");
 
 	// Delete multiple files
@@ -1065,9 +1042,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 
 	println!("✓ All batch-deleted entries removed from database");
 
-	// ========================================================================
 	// Scenario 9: Delete + Undo (Restore) - Tests for duplicate entry bug
-	// ========================================================================
+
 	println!("\n--- Scenario 9: Delete + Undo (Restore) Pattern ---");
 	println!("This tests for the duplicate entry bug when files are restored after deletion");
 
@@ -1190,9 +1166,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	// Clean up trash directory
 	tokio::fs::remove_dir_all(&trash_dir).await?;
 
-	// ========================================================================
 	// Scenario 10: Screenshot Pattern (rapid create + write)
-	// ========================================================================
+
 	println!("\n--- Scenario 10: Screenshot Pattern (rapid create + write) ---");
 	println!("This tests for duplicate entries when file is created then immediately written");
 
@@ -1268,9 +1243,8 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 	}
 	tokio::time::sleep(Duration::from_millis(500)).await;
 
-	// ========================================================================
 	// Final State Verification
-	// ========================================================================
+
 	println!("\n--- Final State Verification ---");
 	harness.dump_index_state().await;
 
@@ -1307,9 +1281,8 @@ async fn test_location_watcher() -> Result<(), Box<dyn std::error::Error>> {
 		return test_result;
 	}
 
-	// ========================================================================
 	// Final Summary
-	// ========================================================================
+
 	println!("\n--- Test Summary ---");
 	println!("✓ All tested scenarios passed!");
 	println!("\nScenarios successfully tested:");

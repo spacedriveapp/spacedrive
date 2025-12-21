@@ -142,6 +142,24 @@ fn summarize_event(event: &Event) -> String {
 				name, id, deleted_data
 			)
 		}
+		Event::LibraryLoadFailed {
+			id,
+			path,
+			error,
+			error_type,
+		} => {
+			if let Some(lib_id) = id {
+				format!(
+					"Failed to load library {} at {:?}: {} ({})",
+					lib_id, path, error, error_type
+				)
+			} else {
+				format!(
+					"Failed to load library at {:?}: {} ({})",
+					path, error, error_type
+				)
+			}
+		}
 		Event::LibraryStatisticsUpdated { library_id, .. } => {
 			format!("Statistics updated for library {}", library_id)
 		}

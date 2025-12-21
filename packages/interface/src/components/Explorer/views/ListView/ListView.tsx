@@ -17,6 +17,7 @@ import {
 	TABLE_PADDING_Y,
 	TABLE_HEADER_HEIGHT,
 } from "./useTable";
+import { useVirtualListing } from "../../hooks/useVirtualListing";
 
 export const ListView = memo(function ListView() {
 	const { currentPath, sortBy, setSortBy, viewSettings, setCurrentFiles } =
@@ -34,6 +35,9 @@ export const ListView = memo(function ListView() {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const headerScrollRef = useRef<HTMLDivElement>(null);
 	const bodyScrollRef = useRef<HTMLDivElement>(null);
+
+	// Check for virtual listing first
+	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
 	// Memoize query input to prevent unnecessary re-fetches
 	const queryInput = useMemo(
@@ -56,11 +60,11 @@ export const ListView = memo(function ListView() {
 		wireMethod: "query:files.directory_listing",
 		input: queryInput,
 		resourceType: "file",
-		enabled: !!currentPath,
+		enabled: !!currentPath && !isVirtualView,
 		pathScope,
 	});
 
-	const files = directoryQuery.data?.files || [];
+	const files = isVirtualView ? (virtualFiles || []) : (directoryQuery.data?.files || []);
 	const { table } = useTable(files);
 	const { rows } = table.getRowModel();
 

@@ -55,6 +55,7 @@ import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 import { useFileOperationDialog } from "./components/FileOperationModal";
+import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 
 /**
  * QuickPreviewSyncer - Syncs selection changes to QuickPreview
@@ -150,7 +151,7 @@ interface AppProps {
 	client: SpacedriveClient;
 }
 
-export function ExplorerLayout() {
+function ExplorerLayoutContent() {
 	const location = useLocation();
 	const params = useParams();
 	const platform = usePlatform();
@@ -563,6 +564,35 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			groupId: dropData?.groupId,
 		});
 
+		// Handle palette item drops (from customization panel)
+		if (dragData?.type === "palette-item") {
+			const libraryId = client.getCurrentLibraryId();
+			const currentSpace =
+				spaces?.find((s: any) => s.id === currentSpaceId) ??
+				spaces?.[0];
+
+			if (!currentSpace || !libraryId) return;
+
+			console.log("[DnD] Adding palette item:", {
+				itemType: dragData.itemType,
+				spaceId: currentSpace.id,
+				dropAction: dropData?.action,
+				groupId: dropData?.groupId,
+			});
+
+			try {
+				await addItem.mutateAsync({
+					space_id: currentSpace.id,
+					group_id: dropData?.groupId || null,
+					item_type: dragData.itemType,
+				});
+				console.log("[DnD] Successfully added palette item");
+			} catch (err) {
+				console.error("[DnD] Failed to add palette item:", err);
+			}
+			return;
+		}
+
 		if (!dragData || dragData.type !== "explorer-file") return;
 
 		// Add to space (root-level drop zones between groups)
@@ -720,7 +750,36 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 		>
 			{children}
 			<DragOverlay dropAnimation={null}>
-				{activeItem?.file ? (
+				{activeItem?.type === "palette-item" ? (
+					// Palette item preview
+					<div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent text-white shadow-lg min-w-[180px]">
+						{activeItem.itemType === "Overview" && (
+							<House size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "Recents" && (
+							<Clock size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "Favorites" && (
+							<Heart size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "FileKinds" && (
+							<Folders size={20} weight="bold" />
+						)}
+						<span className="text-sm font-medium">
+							{activeItem.itemType === "Overview" && "Overview"}
+							{activeItem.itemType === "Recents" && "Recents"}
+							{activeItem.itemType === "Favorites" && "Favorites"}
+							{activeItem.itemType === "FileKinds" && "File Kinds"}
+						</span>
+					</div>
+				) : activeItem?.label ? (
+					// Group or SpaceItem preview (from sortable context)
+					<div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar/95 backdrop-blur-sm text-sidebar-ink shadow-lg border border-sidebar-line min-w-[180px]">
+						<span className="text-sm font-medium">
+							{activeItem.label}
+						</span>
+					</div>
+				) : activeItem?.file ? (
 					activeItem.gridSize ? (
 						// Grid view preview
 						<div style={{ width: activeItem.gridSize }}>
@@ -771,6 +830,18 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 	);
 }
 
+export function ExplorerLayout() {
+	return (
+		<TopBarProvider>
+			<SelectionProvider>
+				<ExplorerProvider>
+					<ExplorerLayoutContent />
+				</ExplorerProvider>
+			</SelectionProvider>
+		</TopBarProvider>
+	);
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
@@ -778,13 +849,7 @@ export function Explorer({ client }: AppProps) {
 		<SpacedriveProvider client={client}>
 			<ServerProvider>
 				<DndWrapper>
-					<TopBarProvider>
-						<SelectionProvider>
-							<ExplorerProvider>
-								<RouterProvider router={router} />
-							</ExplorerProvider>
-						</SelectionProvider>
-					</TopBarProvider>
+					<RouterProvider router={router} />
 				</DndWrapper>
 				<DaemonDisconnectedOverlay />
 				<Dialogs />

@@ -263,9 +263,9 @@ impl ThumbnailJob {
 			.find_also_related(content_identity::Entity)
 			.filter(content_identity::Column::Uuid.is_not_null());
 
-		// Filter by specific entry IDs if provided
+		// Filter by specific entry UUIDs if provided
 		if let Some(ref ids) = entry_ids {
-			query = query.filter(entry::Column::Id.is_in(ids.clone()));
+			query = query.filter(entry::Column::Uuid.is_in(ids.clone()));
 		}
 
 		// Filter by file kind (0 = File) and supported extensions

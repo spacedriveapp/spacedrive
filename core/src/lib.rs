@@ -189,6 +189,11 @@ impl Core {
 		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
 		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
+		// Scan for .sdlibrary directories before attempting to load
+		info!("Scanning for library directories...");
+		let library_dir_count = libraries.count_library_directories().await;
+		info!("Found {} .sdlibrary directories", library_dir_count);
+
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
 		let mut loaded_libraries: Vec<Arc<crate::library::Library>> =
@@ -203,9 +208,9 @@ impl Core {
 				}
 			};
 
-		// Create default library if no libraries exist
-		if loaded_libraries.is_empty() {
-			info!("No existing libraries found, creating default library 'My Library'");
+		// Only create default library if NO .sdlibrary directories exist
+		if library_dir_count == 0 {
+			info!("No library directories found, creating default library 'My Library'");
 			match libraries
 				.create_library("My Library", None, context.clone())
 				.await
@@ -218,6 +223,13 @@ impl Core {
 					error!("Failed to create default library: {}", e);
 				}
 			}
+		} else if loaded_libraries.is_empty() {
+			error!(
+				"Found {} library directories but none loaded successfully. \
+				 Waiting for libraries to become available. \
+				 Check logs and frontend notifications for specific load errors.",
+				library_dir_count
+			);
 		}
 
 		// Set context in library manager and start filesystem watching

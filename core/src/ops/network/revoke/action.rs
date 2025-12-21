@@ -31,6 +31,11 @@ impl CoreAction for DeviceRevokeAction {
 			let _ = guard.remove_device(self.device_id);
 			let _ = guard.remove_paired_device(self.device_id).await;
 		}
+
+		// Emit ResourceDeleted event
+		use crate::domain::resource::EventEmitter;
+		crate::domain::device::Device::emit_deleted(self.device_id, &context.events);
+
 		Ok(DeviceRevokeOutput { revoked: true })
 	}
 

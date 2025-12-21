@@ -26,6 +26,7 @@ use crate::infra::{
 	sync::{SyncEventBus, TransactionManager},
 };
 use once_cell::sync::OnceCell;
+use sea_orm::ConnectionTrait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock as StdRwLock};
@@ -899,6 +900,17 @@ impl Library {
 			"Completed unique content count calculation"
 		);
 
+		debug!("Starting content kind counts update");
+		// Update content kind counts
+		if let Err(e) = Self::update_content_kind_counts_static(&db_conn).await {
+			warn!(
+				error = %e,
+				"Failed to update content kind counts"
+			);
+		} else {
+			debug!("Completed content kind counts update");
+		}
+
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) =
@@ -1410,6 +1422,47 @@ impl Library {
 			"Unique content count query completed successfully"
 		);
 		Ok(count)
+	}
+
+	/// Update file counts for each content kind in the content_kinds table (static version)
+	async fn update_content_kind_counts_static(db: &sea_orm::DatabaseConnection) -> Result<()> {
+		use sea_orm::Statement;
+
+		debug!("Starting content kind counts update");
+
+		// Reset all counts to 0 first, then update with actual counts in a single query.
+		// This handles both updates and resets efficiently.
+		db.execute(Statement::from_string(
+			sea_orm::DbBackend::Sqlite,
+			"UPDATE content_kinds SET file_count = 0".to_owned(),
+		))
+		.await?;
+
+		// Use raw SQL with GROUP BY to count efficiently in the database.
+		// This avoids loading all content_identity records into memory.
+		let rows_affected = db
+			.execute(Statement::from_string(
+				sea_orm::DbBackend::Sqlite,
+				r#"
+					UPDATE content_kinds
+					SET file_count = (
+						SELECT COUNT(*)
+						FROM content_identity
+						WHERE content_identity.kind_id = content_kinds.id
+					)
+				"#
+				.to_owned(),
+			))
+			.await?
+			.rows_affected();
+
+		debug!(
+			rows_affected = rows_affected,
+			"Updated content kind file counts"
+		);
+
+		debug!("Content kind counts update completed");
+		Ok(())
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes (static version)

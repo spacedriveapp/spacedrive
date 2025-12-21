@@ -39,10 +39,12 @@
 		"clsx": "^2.0.0",
 		"d3": "^7.9.0",
 		"framer-motion": "^12.23.24",
+		"prismjs": "^1.30.0",
 		"qrcode": "^1.5.4",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
 		"react-hook-form": "^7.53.2",
+		"react-masonry-css": "^1.0.16",
 		"react-router-dom": "^6.20.1",
 		"react-scan": "^0.4.3",
 		"rooks": "^9.3.0",
@@ -53,6 +55,7 @@
 		"zustand": "^5.0.8"
 	},
 	"devDependencies": {
+		"@types/prismjs": "^1.26.5",
 		"@types/react": "npm:types-react@rc",
 		"@types/react-dom": "npm:types-react-dom@rc",
 		"@types/three": "^0.182.0",

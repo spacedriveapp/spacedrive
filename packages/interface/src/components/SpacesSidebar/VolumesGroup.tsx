@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { WifiSlash } from "@phosphor-icons/react";
+import { Plugs, WifiSlash } from "@phosphor-icons/react";
 import { useNormalizedQuery, getVolumeIcon } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
@@ -10,12 +10,16 @@ interface VolumesGroupProps {
 	onToggle: () => void;
 	/** Filter to show tracked, untracked, or all volumes (default: "All") */
 	filter?: "TrackedOnly" | "UntrackedOnly" | "All";
+	sortableAttributes?: any;
+	sortableListeners?: any;
 }
 
 export function VolumesGroup({
 	isCollapsed,
 	onToggle,
 	filter = "All",
+	sortableAttributes,
+	sortableListeners,
 }: VolumesGroupProps) {
 	const navigate = useNavigate();
 
@@ -31,7 +35,7 @@ export function VolumesGroup({
 	const getVolumeIndicator = (volume: VolumeItem) => (
 		<>
 			{!volume.is_tracked && (
-				<WifiSlash size={14} weight="bold" className="text-ink-faint" />
+				<Plugs size={14} weight="bold" className="text-ink-faint" />
 			)}
 		</>
 	);
@@ -42,6 +46,8 @@ export function VolumesGroup({
 				label="Volumes"
 				isCollapsed={isCollapsed}
 				onToggle={onToggle}
+				sortableAttributes={sortableAttributes}
+				sortableListeners={sortableListeners}
 			/>
 
 			{/* Volumes List */}

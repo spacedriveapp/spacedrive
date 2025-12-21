@@ -12,6 +12,7 @@ import {
 	MagnifyingGlass,
 	Trash,
 	Database,
+	Folders,
 } from "@phosphor-icons/react";
 import { Location } from "@sd/assets/icons";
 import type {
@@ -23,9 +24,10 @@ import { Thumb } from "../Explorer/File/Thumb";
 import { useContextMenu } from "../../hooks/useContextMenu";
 import { usePlatform } from "../../platform";
 import { useLibraryMutation } from "../../context";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useExplorer } from "../Explorer/context";
 
 interface SpaceItemProps {
 	item: SpaceItemType;
@@ -53,12 +55,15 @@ interface SpaceItemProps {
 	groupId?: string | null;
 	/** Whether this item is sortable (can be reordered) */
 	sortable?: boolean;
+	/** Optional onContextMenu handler to override default context menu */
+	onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 function getItemIcon(itemType: ItemType): any {
 	if (itemType === "Overview") return { type: "component", icon: House };
 	if (itemType === "Recents") return { type: "component", icon: Clock };
 	if (itemType === "Favorites") return { type: "component", icon: Heart };
+	if (itemType === "FileKinds") return { type: "component", icon: Folders };
 	if (typeof itemType === "object" && "Location" in itemType)
 		return { type: "image", icon: Location };
 	if (typeof itemType === "object" && "Volume" in itemType)
@@ -74,6 +79,7 @@ function getItemLabel(itemType: ItemType): string {
 	if (itemType === "Overview") return "Overview";
 	if (itemType === "Recents") return "Recents";
 	if (itemType === "Favorites") return "Favorites";
+	if (itemType === "FileKinds") return "File Kinds";
 	if (typeof itemType === "object" && "Location" in itemType) {
 		return itemType.Location.name || "Unnamed Location";
 	}
@@ -98,16 +104,19 @@ function getItemLabel(itemType: ItemType): string {
 function getItemPath(
 	itemType: ItemType,
 	volumeData?: { device_slug: string; mount_path: string },
-	resolvedFile?: File
+	resolvedFile?: File,
+	itemSdPath?: any
 ): string | null {
 	if (itemType === "Overview") return "/";
 	if (itemType === "Recents") return "/recents";
 	if (itemType === "Favorites") return "/favorites";
+	if (itemType === "FileKinds") return "/file-kinds";
 	if (typeof itemType === "object" && "Location" in itemType) {
-		// For proper SpaceItem with Location type, we need the sd_path
-		// This requires the parent to pass volumeData or similar
-		// For now, keep the old route - will be replaced when locations use raw format
-		return `/location/${itemType.Location.location_id}`;
+		// Use explorer route with location's SD path (passed from item.sd_path)
+		if (itemSdPath) {
+			return `/explorer?path=${encodeURIComponent(JSON.stringify(itemSdPath))}`;
+		}
+		return null;
 	}
 	if (typeof itemType === "object" && "Volume" in itemType) {
 		// Navigate to explorer with volume's root path
@@ -120,13 +129,12 @@ function getItemPath(
 			};
 			return `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}`;
 		}
-		return `/volume/${itemType.Volume.volume_id}`;
+		return null;
 	}
 	if (typeof itemType === "object" && "Tag" in itemType)
 		return `/tag/${itemType.Tag.tag_id}`;
 	if (typeof itemType === "object" && "Path" in itemType) {
 		// Navigate to explorer with the SD path
-		// Assume it's explorable (directory or file) - if it's in the sidebar, it should be clickable
 		return `/explorer?path=${encodeURIComponent(JSON.stringify(itemType.Path.sd_path))}`;
 	}
 	return null;
@@ -146,32 +154,18 @@ export function SpaceItem({
 	spaceId,
 	groupId,
 	sortable = false,
+	onContextMenu,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const platform = usePlatform();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
 	const indexVolume = useLibraryMutation("volumes.index");
-
-	// Sortable hook (for reordering)
-	const sortableProps = useSortable({
-		id: item.id,
-		disabled: !sortable,
-	});
-
-	const {
-		attributes: sortableAttributes,
-		listeners: sortableListeners,
-		setNodeRef: setSortableRef,
-		transform,
-		transition,
-		isDragging: isSortableDragging,
-	} = sortableProps;
-
-	const style = sortable ? {
-		transform: CSS.Transform.toString(transform),
-		transition,
-	} : undefined;
+	const { active } = useDndContext();
+	const { currentView, currentPath } = useExplorer();
+	
+	// Disable insertion drop zones when dragging groups or space items (they have 'label' in their data)
+	const isDraggingSortableItem = active?.data?.current?.label != null;
 
 	// Check if this is a raw location object (has 'name' and 'sd_path' but no 'item_type')
 	const isRawLocation =
@@ -194,7 +188,8 @@ export function SpaceItem({
 		iconData = getItemIcon(item.item_type);
 		// Use resolved file name if available, otherwise parse from item_type
 		label = resolvedFile?.name || getItemLabel(item.item_type);
-		path = getItemPath(item.item_type, volumeData, resolvedFile);
+		// Pass item.sd_path for locations (available on SpaceItem objects)
+		path = getItemPath(item.item_type, volumeData, resolvedFile, (item as any).sd_path);
 	}
 
 	// Override with custom icon if provided
@@ -207,32 +202,115 @@ export function SpaceItem({
 		label = customLabel;
 	}
 
-	// Check if this item is active by comparing SD paths
+	// Sortable hook (for reordering) - must be after label is defined
+	const sortableProps = useSortable({
+		id: item.id,
+		disabled: !sortable,
+		data: {
+			label: label,
+		},
+	});
+
+	const {
+		attributes: sortableAttributes,
+		listeners: sortableListeners,
+		setNodeRef: setSortableRef,
+		transform,
+		transition,
+		isDragging: isSortableDragging,
+	} = sortableProps;
+
+	const style = sortable ? {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	} : undefined;
+
+	// Check if this item is active
 	const isActive = (() => {
+		// For items with custom onClick (like virtual device views), ONLY check virtual view state
+		// These items represent virtual views and should never use path-based matching
+		if (onClick) {
+			if (currentView) {
+				// Check if this item matches the current virtual view
+				// Convert both IDs to strings for comparison since URL params are always strings
+				const itemIdStr = String(item.id);
+				const isViewMatch = currentView.view === "device" && currentView.id === itemIdStr;
+
+				console.log("[SpaceItem] Virtual view check (with onClick):", {
+					label: customLabel || label,
+					currentView,
+					itemId: item.id,
+					itemIdStr,
+					isViewMatch,
+				});
+
+				return isViewMatch;
+			}
+
+			// No current view active - virtual items are never active on regular routes
+			console.log("[SpaceItem] Virtual item on regular route:", {
+				label: customLabel || label,
+				hasOnClick: true,
+				currentView: null,
+			});
+			return false;
+		}
+
+		// Check virtual view state for items without custom onClick
+		if (currentView) {
+			const itemIdStr = String(item.id);
+			const isViewMatch = currentView.view === "device" && currentView.id === itemIdStr;
+
+			console.log("[SpaceItem] Virtual view check (no onClick):", {
+				label: customLabel || label,
+				currentView,
+				itemId: item.id,
+				isViewMatch,
+			});
+
+			if (isViewMatch) {
+				return true;
+			}
+		}
+
+		// Check path-based navigation
+		if (currentPath && path && path.startsWith("/explorer?")) {
+			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
+			if (itemPathParam) {
+				try {
+					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
+					return JSON.stringify(currentPath) === JSON.stringify(itemSdPath);
+				} catch {
+					// Fall through to URL-based comparison
+				}
+			}
+		}
+
 		if (!path) return false;
 
-		// For explorer paths with query params, compare the SD path parameter
-		if (path.startsWith("/explorer?path=")) {
+		// Special routes: exact pathname match
+		if (!path.startsWith("/explorer?")) {
+			return location.pathname === path;
+		}
+
+		// Fallback: Explorer routes via URL comparison
+		if (location.pathname === "/explorer") {
 			const currentSearchParams = new URLSearchParams(location.search);
 			const currentPathParam = currentSearchParams.get("path");
 			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
 
-			// Compare the actual SD path objects, not just the encoded strings
 			if (currentPathParam && itemPathParam) {
 				try {
 					const currentSdPath = JSON.parse(decodeURIComponent(currentPathParam));
 					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
 					return JSON.stringify(currentSdPath) === JSON.stringify(itemSdPath);
 				} catch {
-					// If parsing fails, fall back to string comparison
 					return currentPathParam === itemPathParam;
 				}
 			}
-			return false;
 		}
-
-		// For non-explorer routes, use simple path matching
-		return location.pathname === path;
+		
+		return false;
 	})();
 
 	const handleClick = () => {
@@ -306,25 +384,31 @@ export function SpaceItem({
 					return false;
 				},
 			},
-			{ type: "separator" },
-			{
-				icon: Trash,
-				label: "Remove from Space",
-				onClick: async () => {
-					try {
-						await deleteItem.mutateAsync({ item_id: item.id });
-					} catch (err) {
-						console.error("Failed to remove item:", err);
-					}
-				},
-				variant: "danger" as const,
-				// Can only remove custom Path items, not built-in items
-				condition: () => typeof item.item_type === "object" && "Path" in item.item_type,
+		{ type: "separator" },
+		{
+			icon: Trash,
+			label: "Remove from Space",
+			onClick: async () => {
+				try {
+					await deleteItem.mutateAsync({ item_id: item.id });
+				} catch (err) {
+					console.error("Failed to remove item:", err);
+				}
 			},
+			variant: "danger" as const,
+			// All space items can be removed (Overview, Recents, Favorites, FileKinds, Locations, Volumes, Tags, Paths)
+			condition: () => spaceId != null,
+		},
 		],
 	});
 
 	const handleContextMenu = async (e: React.MouseEvent) => {
+		// Use custom handler if provided, otherwise use default
+		if (onContextMenu) {
+			onContextMenu(e);
+			return;
+		}
+
 		e.preventDefault();
 		e.stopPropagation();
 		await contextMenu.show(e);
@@ -382,7 +466,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setTopRef, isOver: isOverTop } = useDroppable({
 		id: `space-item-${item.id}-top`,
-		disabled: !allowInsertion,
+		disabled: !allowInsertion || isDraggingSortableItem,
 		data: {
 			action: "insert-before",
 			itemId: item.id,
@@ -393,7 +477,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setBottomRef, isOver: isOverBottom } = useDroppable({
 		id: `space-item-${item.id}-bottom`,
-		disabled: !allowInsertion,
+		disabled: !allowInsertion || isDraggingSortableItem,
 		data: {
 			action: "insert-after",
 			itemId: item.id,
@@ -427,7 +511,7 @@ export function SpaceItem({
 
 	const { setNodeRef: setMiddleRef, isOver: isOverMiddle } = useDroppable({
 		id: `space-item-${item.id}-middle`,
-		disabled: !isDropTarget,
+		disabled: !isDropTarget || isDraggingSortableItem,
 		data: {
 			action: "move-into",
 			targetType,
@@ -443,14 +527,14 @@ export function SpaceItem({
 			className={clsx("relative", isSortableDragging && "opacity-50 z-50")}
 		>
 			{/* Insertion line indicator - only show top (bottom of previous item handles gaps) */}
-			{isOverTop && !isSortableDragging && (
-				<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
+		{isOverTop && !isSortableDragging && !isDraggingSortableItem && (
+			<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+		)}
 
 			{/* Ring highlight for drop-into */}
-			{isOverMiddle && isDropTarget && !isSortableDragging && (
-				<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
-			)}
+		{isOverMiddle && isDropTarget && !isSortableDragging && !isDraggingSortableItem && (
+			<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
+		)}
 
 			<div className="relative">
 				{/* Drop zones - invisible overlays, only active during drag */}
@@ -496,14 +580,13 @@ export function SpaceItem({
 					onClick={handleClick}
 					onContextMenu={handleContextMenu}
 					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
-					className={clsx(
-						"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
-						className ||
-							(isActive
-								? "bg-sidebar-selected/30 text-sidebar-ink"
-								: "text-sidebar-inkDull"),
-						isOverMiddle && isDropTarget && "bg-accent/10",
-					)}
+				className={clsx(
+					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
+					isActive
+						? "bg-sidebar-selected/30 text-sidebar-ink"
+						: (className || "text-sidebar-inkDull"),
+					isOverMiddle && isDropTarget && !isDraggingSortableItem && "bg-accent/10",
+				)}
 				>
 					{resolvedFile ? (
 						<Thumb file={resolvedFile} size={16} className="shrink-0" />
@@ -518,9 +601,9 @@ export function SpaceItem({
 			</div>
 
 			{/* Insertion line indicator - bottom (only for last item to allow dropping at end) */}
-			{isOverBottom && isLastItem && (
-				<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
+		{isOverBottom && isLastItem && !isDraggingSortableItem && (
+			<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+		)}
 		</div>
 	);
 }

@@ -12,12 +12,15 @@ export function getContentKind(file: File | null | undefined): ContentKind {
 	return file?.content_identity?.kind ?? file?.content_kind ?? "unknown";
 }
 
-export function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
+export function formatBytes(bytes: number | bigint | null): string {
+	if (bytes === null) return "0 B";
+	// Convert BigInt to number for calculation
+	const numBytes = typeof bytes === "bigint" ? Number(bytes) : bytes;
+	if (numBytes === 0) return "0 B";
 	const k = 1024;
 	const sizes = ["B", "KB", "MB", "GB", "TB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return Math.round(bytes / Math.pow(k, i)) + " " + sizes[i];
+	const i = Math.floor(Math.log(numBytes) / Math.log(k));
+	return Math.round(numBytes / Math.pow(k, i)) + " " + sizes[i];
 }
 
 export function formatRelativeTime(date: Date | string): string {

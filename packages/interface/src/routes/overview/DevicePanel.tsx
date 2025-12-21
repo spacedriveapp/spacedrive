@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { HardDrive, Plus, Database } from "@phosphor-icons/react";
+import Masonry from "react-masonry-css";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
 import ServerIcon from "@sd/assets/icons/Server.png";
@@ -38,16 +39,22 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
-function getVolumeIcon(volumeType: string, name?: string): string {
+function getVolumeIcon(volumeType: any, name?: string): string {
+	// Convert volume type to string if it's an enum variant object
+	const volumeTypeStr =
+		typeof volumeType === "string"
+			? volumeType
+			: volumeType?.Other || JSON.stringify(volumeType);
+
 	// Check for cloud providers by name
 	if (name?.includes("S3")) return DriveAmazonS3Icon;
 	if (name?.includes("Google")) return DriveGoogleDriveIcon;
 	if (name?.includes("Dropbox")) return DriveDropboxIcon;
 
 	// By type
-	if (volumeType === "Cloud") return DriveIcon;
-	if (volumeType === "Network") return ServerIcon;
-	if (volumeType === "Virtual") return DatabaseIcon;
+	if (volumeTypeStr === "Cloud") return DriveIcon;
+	if (volumeTypeStr === "Network") return ServerIcon;
+	if (volumeTypeStr === "Virtual") return DatabaseIcon;
 	return HDDIcon;
 }
 
@@ -198,9 +205,19 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 		{} as Record<string, JobListItem[]>,
 	);
 
+	const breakpointColumns = {
+		default: 3,
+		1600: 2,
+		1000: 1,
+	};
+
 	return (
 		<div className="">
-			<div className="grid grid-cols-2 gap-4 items-start">
+			<Masonry
+				breakpointCols={breakpointColumns}
+				className="flex -ml-4 w-auto"
+				columnClassName="pl-4 bg-clip-padding"
+			>
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
@@ -238,7 +255,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 						</div>
 					</div>
 				)}
-			</div>
+			</Masonry>
 		</div>
 	);
 }
@@ -271,7 +288,13 @@ function DeviceCard({
 	const ramInfo = device?.memory_total
 		? formatBytes(device.memory_total)
 		: null;
-	const formFactor = device?.form_factor;
+	// Convert form_factor enum to string
+	const formFactor = device?.form_factor
+		? typeof device.form_factor === "string"
+			? device.form_factor
+			: (device.form_factor as any)?.Other ||
+				JSON.stringify(device.form_factor)
+		: null;
 	const manufacturer = device?.manufacturer;
 
 	// Filter active jobs
@@ -280,7 +303,7 @@ function DeviceCard({
 	);
 
 	return (
-		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl">
+		<div className="bg-app-darkBox border border-app-line overflow-hidden rounded-xl mb-4">
 			{/* Device Header */}
 			<div className="px-6 py-4 bg-app-box border-b border-app-line">
 				<div className="flex items-center gap-4">
@@ -489,11 +512,27 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 	const uniquePercent = (uniqueBytes / totalCapacity) * 100;
 	const duplicatePercent = (duplicateBytes / totalCapacity) * 100;
 
-	const fileSystem = volume.file_system || "Unknown";
-	const diskType = volume.disk_type || "Unknown";
+	// Convert enum values to strings for safe rendering
+	const fileSystem = volume.file_system
+		? typeof volume.file_system === "string"
+			? volume.file_system
+			: (volume.file_system as any)?.Other ||
+				JSON.stringify(volume.file_system)
+		: "Unknown";
+	const diskType = volume.disk_type
+		? typeof volume.disk_type === "string"
+			? volume.disk_type
+			: (volume.disk_type as any)?.Other ||
+				JSON.stringify(volume.disk_type)
+		: "Unknown";
 	const readSpeed = volume.read_speed_mbps;
 
 	const iconSrc = getVolumeIcon(volume.volume_type, volume.name);
+	const volumeTypeStr =
+		typeof volume.volume_type === "string"
+			? volume.volume_type
+			: (volume.volume_type as any)?.Other ||
+				JSON.stringify(volume.volume_type);
 
 	return (
 		<motion.div
@@ -507,7 +546,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 				{/* Icon */}
 				<img
 					src={iconSrc}
-					alt={volume.volume_type}
+					alt={volumeTypeStr}
 					className="size-6 opacity-80 flex-shrink-0"
 				/>
 
@@ -563,7 +602,7 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 							{getDiskTypeLabel(diskType)}
 						</span>
 						<span className="px-1.5 py-0.5 bg-app-box rounded border border-app-line">
-							{volume.volume_type}
+							{volumeTypeStr}
 						</span>
 						{volume.total_file_count != null && (
 							<span className="px-1.5 py-0.5 bg-accent/10 rounded border border-accent/20 text-accent">

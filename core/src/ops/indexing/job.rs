@@ -13,7 +13,7 @@ use crate::{
 
 // Re-export IndexMode from domain for backwards compatibility
 pub use crate::domain::location::IndexMode;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Statement};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{
@@ -136,6 +136,10 @@ impl IndexerJobConfig {
 		}
 	}
 
+	/// Creates config for ephemeral browsing (external drives, network shares).
+	///
+	/// Hidden files (dotfiles) are filtered by default to match typical file browser
+	/// behavior. Use `rule_toggles.no_hidden = false` if hidden files are needed.
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
 		Self {
 			location_id: None,
@@ -148,7 +152,13 @@ impl IndexerJobConfig {
 			} else {
 				None
 			},
-			rule_toggles: Default::default(),
+			// Filter hidden files for ephemeral browsing to match file browser expectations
+			// and prevent event/query mismatch where hidden files emit events but are
+			// filtered from query results.
+			rule_toggles: super::rules::RuleToggles {
+				no_hidden: true,
+				..Default::default()
+			},
 		}
 	}
 
@@ -443,8 +453,117 @@ impl IndexerJob {
 
 			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
 
+			// Query entry UUIDs for this location to avoid processing all database entries
+			let entry_uuids = if let Some(location_id) = self.config.location_id {
+				use crate::infra::db::entities::{entry, location};
+
+				// Find the location's entry_id (root entry)
+				let db = ctx.library_db();
+				let location_record = location::Entity::find()
+					.filter(location::Column::Uuid.eq(location_id))
+					.one(db)
+					.await;
+
+				match location_record {
+					Ok(Some(loc)) => {
+						if let Some(root_entry_id) = loc.entry_id {
+							// Query all entry IDs that are descendants of this location's root entry
+							// using the entry_closure table
+							let entry_ids_result: Result<Vec<i32>, _> = db
+								.query_all(Statement::from_sql_and_values(
+									sea_orm::DbBackend::Sqlite,
+									"SELECT descendant_id FROM entry_closure WHERE ancestor_id = ?",
+									vec![root_entry_id.into()],
+								))
+								.await
+								.map(|rows| {
+									rows.iter()
+										.filter_map(|row| row.try_get_by_index::<i32>(0).ok())
+										.collect()
+								});
+
+							match entry_ids_result {
+								Ok(entry_ids) => {
+									if entry_ids.is_empty() {
+										ctx.log(
+											"No entries found in location for thumbnail generation",
+										);
+										None
+									} else {
+										// Now get the UUIDs for these entry IDs
+										let entries_result = entry::Entity::find()
+											.filter(entry::Column::Id.is_in(entry_ids))
+											.all(db)
+											.await;
+
+										match entries_result {
+											Ok(entry_models) => {
+												let uuids: Vec<Uuid> = entry_models
+													.into_iter()
+													.filter_map(|e| e.uuid)
+													.collect();
+
+												if !uuids.is_empty() {
+													ctx.log(format!(
+														"Found {} entries in location {} for thumbnail generation",
+														uuids.len(),
+														location_id
+													));
+													Some(uuids)
+												} else {
+													ctx.log("No entry UUIDs found in location for thumbnail generation");
+													None
+												}
+											}
+											Err(e) => {
+												ctx.log(format!(
+													"Warning: Failed to query entry UUIDs for location: {}",
+													e
+												));
+												None
+											}
+										}
+									}
+								}
+								Err(e) => {
+									ctx.log(format!(
+										"Warning: Failed to query entry closure for location: {}",
+										e
+									));
+									None
+								}
+							}
+						} else {
+							ctx.log("Location has no root entry, skipping thumbnail generation");
+							None
+						}
+					}
+					Ok(None) => {
+						ctx.log(format!(
+							"Warning: Location {} not found, dispatching thumbnail job for all entries",
+							location_id
+						));
+						None
+					}
+					Err(e) => {
+						ctx.log(format!(
+							"Warning: Failed to query location: {}, dispatching thumbnail job for all entries",
+							e
+						));
+						None
+					}
+				}
+			} else {
+				ctx.log("No location_id in config, dispatching thumbnail job for all entries");
+				None
+			};
+
 			let thumbnail_config = ThumbnailJobConfig::default();
-			let thumbnail_job = ThumbnailJob::new(thumbnail_config);
+			let thumbnail_job = if let Some(uuids) = entry_uuids {
+				ThumbnailJob::for_entries(uuids, thumbnail_config)
+			} else {
+				ThumbnailJob::new(thumbnail_config)
+			};
 
 			match ctx.library().jobs().dispatch(thumbnail_job).await {
 				Ok(_handle) => {
