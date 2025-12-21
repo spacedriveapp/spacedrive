@@ -359,8 +359,21 @@ impl IndexPersistence for MemoryAdapter {
 		};
 
 		if let Some(content_kind) = content_kind {
-			self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind)
-				.await;
+			// Skip event emission for hidden files (dotfiles) to match query filtering behavior.
+			// Hidden files are still indexed but won't trigger UI updates since they're
+			// filtered out by default in directory_listing queries.
+			// TODO: make this configurable
+			let is_hidden = entry
+				.path
+				.file_name()
+				.and_then(|n| n.to_str())
+				.map(|n| n.starts_with('.'))
+				.unwrap_or(false);
+
+			if !is_hidden {
+				self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind)
+					.await;
+			}
 		}
 
 		Ok(entry_id)

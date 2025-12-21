@@ -18,7 +18,7 @@ export interface ContextMenuConfig {
 	items: ContextMenuItem[];
 }
 
-interface ContextMenuResult {
+export interface ContextMenuResult {
 	show: (e: React.MouseEvent) => Promise<void>;
 	menuData: ContextMenuItem[] | null;
 	closeMenu: () => void;
