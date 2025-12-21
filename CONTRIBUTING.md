@@ -124,6 +124,28 @@ The `xtask setup` command:
 
 **Note:** The release daemon build is required because Tauri's `externalBin` config validates binary paths even in dev mode. The daemon is built once during setup and rebuilt when needed during release builds.
 
+#### Optional: ML-SHARP for Gaussian Splat Generation
+
+Spacedrive can generate 3D Gaussian splats from images using [ml-sharp](https://github.com/spacedriveapp/ml-sharp), which implements Apple's SHARP model. This feature is optional and requires manual installation.
+
+> **Note:** We plan to bundle ml-sharp with Spacedrive's native dependencies in a future release. For now, manual installation is required.
+
+**Installation:**
+
+```bash
+# Clone ml-sharp repository
+git clone https://github.com/spacedriveapp/ml-sharp
+cd ml-sharp
+
+# Install in development mode (requires Python 3.10+)
+pip install -e .
+
+# Verify installation
+sharp --help
+```
+
+Once installed, the `sharp` CLI will be available in your PATH and Spacedrive will automatically detect it. The "Generate 3D Splat" button in the file inspector will become functional for supported image types (JPEG, PNG, WebP, BMP, TIFF).
+
 **What does `cargo build` build?**
 
 Running `cargo build` from the project root builds all core Rust components:

@@ -38,8 +38,7 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 				<button
 					className={clsx(
 						"w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium",
-						"text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected/40",
-						"transition-colors",
+						"text-sidebar-inkDull cursor-default",
 						className,
 					)}
 				>

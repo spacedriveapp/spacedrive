@@ -154,6 +154,7 @@ export function SpaceItem({
 	spaceId,
 	groupId,
 	sortable = false,
+	onContextMenu,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
@@ -226,10 +227,48 @@ export function SpaceItem({
 
 	// Check if this item is active
 	const isActive = (() => {
-		// Check virtual view state from Explorer context
+		// For items with custom onClick (like virtual device views), ONLY check virtual view state
+		// These items represent virtual views and should never use path-based matching
+		if (onClick) {
+			if (currentView) {
+				// Check if this item matches the current virtual view
+				// Convert both IDs to strings for comparison since URL params are always strings
+				const itemIdStr = String(item.id);
+				const isViewMatch = currentView.view === "device" && currentView.id === itemIdStr;
+
+				console.log("[SpaceItem] Virtual view check (with onClick):", {
+					label: customLabel || label,
+					currentView,
+					itemId: item.id,
+					itemIdStr,
+					isViewMatch,
+				});
+
+				return isViewMatch;
+			}
+
+			// No current view active - virtual items are never active on regular routes
+			console.log("[SpaceItem] Virtual item on regular route:", {
+				label: customLabel || label,
+				hasOnClick: true,
+				currentView: null,
+			});
+			return false;
+		}
+
+		// Check virtual view state for items without custom onClick
 		if (currentView) {
-			// If this item has a custom onClick (like devices), check if it matches the current view
-			if (onClick && currentView.view === "device" && currentView.id === item.id) {
+			const itemIdStr = String(item.id);
+			const isViewMatch = currentView.view === "device" && currentView.id === itemIdStr;
+
+			console.log("[SpaceItem] Virtual view check (no onClick):", {
+				label: customLabel || label,
+				currentView,
+				itemId: item.id,
+				isViewMatch,
+			});
+
+			if (isViewMatch) {
 				return true;
 			}
 		}
@@ -365,8 +404,8 @@ export function SpaceItem({
 
 	const handleContextMenu = async (e: React.MouseEvent) => {
 		// Use custom handler if provided, otherwise use default
-		if (props.onContextMenu) {
-			props.onContextMenu(e);
+		if (onContextMenu) {
+			onContextMenu(e);
 			return;
 		}
 
@@ -543,10 +582,9 @@ export function SpaceItem({
 					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
 				className={clsx(
 					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
-					className ||
-						(isActive
-							? "bg-sidebar-selected/30 text-sidebar-ink"
-							: "text-sidebar-inkDull"),
+					isActive
+						? "bg-sidebar-selected/30 text-sidebar-ink"
+						: (className || "text-sidebar-inkDull"),
 					isOverMiddle && isDropTarget && !isDraggingSortableItem && "bg-accent/10",
 				)}
 				>

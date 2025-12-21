@@ -215,8 +215,8 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
             <button
               onClick={() => setCustomizePanelOpen(true)}
               className={clsx(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
-                "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
+                "text-sidebar-inkDull cursor-default",
               )}
             >
               <Palette className="size-4" weight="bold" />
@@ -231,8 +231,8 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
                 }
               }}
               className={clsx(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors",
-                "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected",
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
+                "text-sidebar-inkDull cursor-default",
               )}
             >
               <GearSix className="size-4" weight="bold" />

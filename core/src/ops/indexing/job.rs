@@ -136,6 +136,10 @@ impl IndexerJobConfig {
 		}
 	}
 
+	/// Creates config for ephemeral browsing (external drives, network shares).
+	///
+	/// Hidden files (dotfiles) are filtered by default to match typical file browser
+	/// behavior. Use `rule_toggles.no_hidden = false` if hidden files are needed.
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
 		Self {
 			location_id: None,
@@ -148,7 +152,13 @@ impl IndexerJobConfig {
 			} else {
 				None
 			},
-			rule_toggles: Default::default(),
+			// Filter hidden files for ephemeral browsing to match file browser expectations
+			// and prevent event/query mismatch where hidden files emit events but are
+			// filtered from query results.
+			rule_toggles: super::rules::RuleToggles {
+				no_hidden: true,
+				..Default::default()
+			},
 		}
 	}
 

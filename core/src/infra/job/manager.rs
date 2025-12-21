@@ -361,6 +361,17 @@ impl JobManager {
 					while status_rx.changed().await.is_ok() {
 						let status = *status_rx.borrow();
 						match status {
+							JobStatus::Running => {
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
+							}
 							JobStatus::Completed => {
 								// Only emit events and trigger statistics for persistent jobs
 								if should_persist {
@@ -728,6 +739,17 @@ impl JobManager {
 						let status = *status_monitor.borrow();
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
+							JobStatus::Running => {
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
+							}
 							JobStatus::Completed => {
 								// Only emit events and trigger statistics for persistent jobs
 								if should_persist {
@@ -1378,6 +1400,18 @@ impl JobManager {
 									while status_rx.changed().await.is_ok() {
 										let status = *status_rx.borrow();
 										match status {
+											JobStatus::Running => {
+												// Emit JobStarted event for resumed jobs
+												event_bus.emit(Event::JobStarted {
+													job_id: job_id_clone.to_string(),
+													job_type: job_type_str.to_string(),
+													device_id,
+												});
+												info!(
+													"Emitted JobStarted event for resumed job {}",
+													job_id_clone
+												);
+											}
 											JobStatus::Completed => {
 												// Get the final output from the handle
 												let output = {
