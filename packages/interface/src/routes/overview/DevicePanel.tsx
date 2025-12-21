@@ -1,6 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { HardDrive, Plus, Database, CaretLeft, CaretRight } from "@phosphor-icons/react";
+import {
+	HardDrive,
+	Plus,
+	Database,
+	CaretLeft,
+	CaretRight,
+} from "@phosphor-icons/react";
 import Masonry from "react-masonry-css";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
@@ -495,7 +501,9 @@ function LocationsScroller({
 								<div
 									className={clsx(
 										"rounded-lg p-2",
-										isSelected ? "bg-app-box" : "bg-transparent",
+										isSelected
+											? "bg-app-box"
+											: "bg-transparent",
 									)}
 								>
 									<img

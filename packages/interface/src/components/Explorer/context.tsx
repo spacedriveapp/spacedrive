@@ -247,9 +247,18 @@ export function ExplorerProvider({
 	}, [devicesQuery.data]);
 
 	const goBack = useCallback(() => {
+		console.log("[Explorer] goBack called:", {
+			historyIndex,
+			historyLength: history.length,
+			canGoBack: historyIndex > 0,
+		});
+
 		if (historyIndex > 0) {
 			const newIndex = historyIndex - 1;
 			const entry = history[newIndex];
+
+			console.log("[Explorer] Going back to:", { newIndex, entry });
+
 			setHistoryIndex(newIndex);
 
 			if (entry.type === "path") {
@@ -277,9 +286,18 @@ export function ExplorerProvider({
 	}, [historyIndex, history, navigate]);
 
 	const goForward = useCallback(() => {
+		console.log("[Explorer] goForward called:", {
+			historyIndex,
+			historyLength: history.length,
+			canGoForward: historyIndex < history.length - 1,
+		});
+
 		if (historyIndex < history.length - 1) {
 			const newIndex = historyIndex + 1;
 			const entry = history[newIndex];
+
+			console.log("[Explorer] Going forward to:", { newIndex, entry });
+
 			setHistoryIndex(newIndex);
 
 			if (entry.type === "path") {
