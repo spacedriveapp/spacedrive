@@ -716,7 +716,37 @@ impl LibraryManager {
 									info!("Library already open, skipping: {:?}", path);
 								}
 								Err(e) => {
-									warn!("Failed to auto-load library from {:?}: {}", path, e);
+									// Try to load config to get library ID for the event
+									let library_id =
+										LibraryConfig::load(&path.join("library.json"))
+											.await
+											.ok()
+											.map(|config| config.id);
+
+									// Determine error type for frontend categorization
+									let error_type = match &e {
+										LibraryError::DatabaseError(_) => "DatabaseError",
+										LibraryError::ConfigError(_) => "ConfigError",
+										LibraryError::NotALibrary(_) => "NotALibrary",
+										LibraryError::AlreadyInUse => "AlreadyInUse",
+										LibraryError::StaleLock => "StaleLock",
+										_ => "Unknown",
+									}
+									.to_string();
+
+									error!(
+										"Failed to load library from {:?}: {}. \
+										 Library will be monitored and auto-loaded when issue is resolved.",
+										path, e
+									);
+
+									// Emit event for frontend notification
+									self.event_bus.emit(Event::LibraryLoadFailed {
+										id: library_id,
+										path: path.clone(),
+										error: e.to_string(),
+										error_type,
+									});
 								}
 							}
 						} else {
@@ -773,6 +803,32 @@ impl LibraryManager {
 		}
 
 		Ok(discovered)
+	}
+
+	/// Count .sdlibrary directories in search paths without attempting to load them
+	pub async fn count_library_directories(&self) -> usize {
+		let mut count = 0;
+
+		for search_path in &self.search_paths {
+			if !search_path.exists() {
+				continue;
+			}
+
+			match tokio::fs::read_dir(search_path).await {
+				Ok(mut entries) => {
+					while let Some(entry) = entries.next_entry().await.ok().flatten() {
+						if is_library_directory(&entry.path()) {
+							count += 1;
+						}
+					}
+				}
+				Err(e) => {
+					warn!("Failed to read directory {:?}: {}", search_path, e);
+				}
+			}
+		}
+
+		count
 	}
 
 	/// Initialize a new library directory

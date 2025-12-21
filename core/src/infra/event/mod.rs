@@ -112,6 +112,16 @@ pub enum Event {
 		name: String,
 		deleted_data: bool,
 	},
+	LibraryLoadFailed {
+		/// Library ID if config was readable, None otherwise
+		id: Option<Uuid>,
+		/// Path to the library directory
+		path: PathBuf,
+		/// Human-readable error message
+		error: String,
+		/// Error type for frontend categorization (e.g., "DatabaseError", "ConfigError")
+		error_type: String,
+	},
 	LibraryStatisticsUpdated {
 		library_id: Uuid,
 		statistics: crate::library::config::LibraryStatistics,
@@ -832,6 +842,7 @@ impl EventFilter for Event {
 				| Event::LibraryOpened { .. }
 				| Event::LibraryClosed { .. }
 				| Event::LibraryDeleted { .. }
+				| Event::LibraryLoadFailed { .. }
 				| Event::EntryCreated { .. }
 				| Event::EntryModified { .. }
 				| Event::EntryDeleted { .. }

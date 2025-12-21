@@ -40,6 +40,16 @@ pub fn spawn_statistics_listener(library: Arc<Library>, event_bus: Arc<EventBus>
 		loop {
 			match subscriber.recv().await {
 				Ok(event) => {
+					// Check if this library was closed
+					if is_library_closed_event(&event, library_id) {
+						info!(
+							library_id = %library_id,
+							library_name = %library_name,
+							"Library closed, statistics listener shutting down"
+						);
+						return;
+					}
+
 					if is_resource_changed_event(&event) {
 						debug!(
 							library_id = %library_id,
@@ -93,6 +103,16 @@ pub fn spawn_statistics_listener(library: Arc<Library>, event_bus: Arc<EventBus>
 			loop {
 				match subscriber.recv().await {
 					Ok(event) => {
+						// Check if this library was closed
+						if is_library_closed_event(&event, library_id) {
+							info!(
+								library_id = %library_id,
+								library_name = %library_name,
+								"Library closed, statistics listener shutting down"
+							);
+							return;
+						}
+
 						if is_resource_changed_event(&event) {
 							debug!(
 								library_id = %library_id,
@@ -196,6 +216,16 @@ async fn run_active_recalculation_cycle(
 			result = subscriber.recv() => {
 				match result {
 					Ok(event) => {
+						// Check if this library was closed
+						if is_library_closed_event(&event, library_id) {
+							info!(
+								library_id = %library_id,
+								library_name = %library_name,
+								"Library closed during active recalculation"
+							);
+							return Err("Library closed".into());
+						}
+
 						if is_resource_changed_event(&event) {
 							last_event_time = tokio::time::Instant::now();
 							event_count += 1;
@@ -243,4 +273,9 @@ fn is_resource_changed_event(event: &Event) -> bool {
 		event,
 		Event::ResourceChanged { .. } | Event::ResourceChangedBatch { .. }
 	)
+}
+
+/// Check if an event is a LibraryClosed event for the specified library
+fn is_library_closed_event(event: &Event, library_id: uuid::Uuid) -> bool {
+	matches!(event, Event::LibraryClosed { id, .. } if *id == library_id)
 }
