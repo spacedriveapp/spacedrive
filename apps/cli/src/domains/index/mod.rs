@@ -23,6 +23,8 @@ pub enum IndexCmd {
 	Verify(IndexVerifyArgs),
 	/// Show ephemeral index cache status
 	EphemeralCache(EphemeralCacheArgs),
+	/// Reset the ephemeral index cache
+	ResetCache,
 }
 
 pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
@@ -326,6 +328,26 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 							println!("{}", paths_table);
 						}
 					}
+					println!();
+				}
+			);
+		}
+		IndexCmd::ResetCache => {
+			let input =
+				sd_core::ops::core::ephemeral_status::EphemeralCacheResetInput { confirm: true };
+			let out: sd_core::ops::core::ephemeral_status::EphemeralCacheResetOutput =
+				execute_action!(ctx, input);
+
+			print_output!(
+				ctx,
+				&out,
+				|result: &sd_core::ops::core::ephemeral_status::EphemeralCacheResetOutput| {
+					println!();
+					println!("╔══════════════════════════════════════════════════════════════╗");
+					println!("║           EPHEMERAL CACHE RESET                              ║");
+					println!("╠══════════════════════════════════════════════════════════════╣");
+					println!("║ Cleared {} paths {:45} ║", result.cleared_paths, "");
+					println!("╚══════════════════════════════════════════════════════════════╝");
 					println!();
 				}
 			);
