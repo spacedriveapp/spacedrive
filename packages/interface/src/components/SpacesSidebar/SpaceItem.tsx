@@ -581,7 +581,7 @@ export function SpaceItem({
 					onContextMenu={handleContextMenu}
 					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
 				className={clsx(
-					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
+					"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor hover:bg-app-box/30",
 					isActive
 						? "bg-sidebar-selected/30 text-sidebar-ink"
 						: (className || "text-sidebar-inkDull"),
