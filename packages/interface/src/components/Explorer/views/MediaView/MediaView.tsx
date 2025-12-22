@@ -391,7 +391,8 @@ export function MediaView() {
 							return (
 								<div
 									key={file.id}
-									className="absolute"
+									tabIndex={-1}
+									className="absolute outline-none focus:outline-none"
 									style={{
 										top: `${rowTop}px`,
 										left: `${left}px`,

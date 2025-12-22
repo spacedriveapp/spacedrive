@@ -42,7 +42,7 @@ export function useExplorerKeyboard() {
       // Arrow keys: Navigation
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
         // Skip views that handle their own keyboard navigation
-        if (viewMode === "column" || viewMode === "media") {
+        if (viewMode === "column" || viewMode === "media" || viewMode === "grid") {
           return;
         }
 

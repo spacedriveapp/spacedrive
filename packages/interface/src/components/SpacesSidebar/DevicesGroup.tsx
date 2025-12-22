@@ -53,6 +53,18 @@ export function DevicesGroup({
 				onClick: async () => {
 					await revokeDevice.mutateAsync({
 						device_id: device.id,
+						remove_from_library: false, // Keep device in library
+					});
+				},
+				variant: "default" as const,
+			},
+			{
+				icon: Trash,
+				label: "Remove Device Completely",
+				onClick: async () => {
+					await revokeDevice.mutateAsync({
+						device_id: device.id,
+						remove_from_library: true, // Remove from library too
 					});
 				},
 				variant: "danger" as const,

@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 pub struct DeviceRevokeAction {
 	pub device_id: uuid::Uuid,
+	pub remove_from_library: bool,
 }
 
 impl CoreAction for DeviceRevokeAction {
@@ -13,6 +14,7 @@ impl CoreAction for DeviceRevokeAction {
 	fn from_input(input: Self::Input) -> std::result::Result<Self, String> {
 		Ok(Self {
 			device_id: input.device_id,
+			remove_from_library: input.remove_from_library,
 		})
 	}
 
@@ -68,52 +70,62 @@ impl CoreAction for DeviceRevokeAction {
 			}
 		}
 
-		// Remove from all library databases
-		tracing::info!("Removing device {} from library databases", self.device_id);
-		let libraries = context.libraries().await;
-		let mut removed_from_libraries = 0;
+		// Remove from all library databases (if requested)
+		if self.remove_from_library {
+			tracing::info!(
+				"Removing device {} from library databases (remove_from_library=true)",
+				self.device_id
+			);
+			let libraries = context.libraries().await;
+			let mut removed_from_libraries = 0;
 
-		for library in libraries.get_open_libraries().await {
-			let db = library.db().conn();
+			for library in libraries.get_open_libraries().await {
+				let db = library.db().conn();
 
-			// Delete device from library database
-			use crate::infra::db::entities::device;
-			use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+				// Delete device from library database
+				use crate::infra::db::entities::device;
+				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
-			match device::Entity::delete_many()
-				.filter(device::Column::Uuid.eq(self.device_id))
-				.exec(db)
-				.await
-			{
-				Ok(result) => {
-					if result.rows_affected > 0 {
-						tracing::info!(
-							"Device {} removed from library {} database",
-							self.device_id,
-							library.id()
+				match device::Entity::delete_many()
+					.filter(device::Column::Uuid.eq(self.device_id))
+					.exec(db)
+					.await
+				{
+					Ok(result) => {
+						if result.rows_affected > 0 {
+							tracing::info!(
+								"Device {} removed from library {} database",
+								self.device_id,
+								library.id()
+							);
+							removed_from_libraries += 1;
+						}
+					}
+					Err(e) => {
+						tracing::warn!(
+							"Failed to remove device from library {} database: {}",
+							library.id(),
+							e
 						);
-						removed_from_libraries += 1;
 					}
 				}
-				Err(e) => {
-					tracing::warn!(
-						"Failed to remove device from library {} database: {}",
-						library.id(),
-						e
-					);
-				}
 			}
-		}
 
-		if removed_from_libraries > 0 {
-			tracing::info!(
-				"Device {} removed from {} library database(s)",
-				self.device_id,
-				removed_from_libraries
-			);
+			if removed_from_libraries > 0 {
+				tracing::info!(
+					"Device {} removed from {} library database(s)",
+					self.device_id,
+					removed_from_libraries
+				);
+			} else {
+				tracing::warn!(
+					"Device {} not found in any library databases (may have been removed already)",
+					self.device_id
+				);
+			}
 		} else {
-			tracing::warn!(
-				"Device {} not found in any library databases (may have been removed already)",
+			tracing::info!(
+				"Skipping library database removal for device {} (remove_from_library=false)",
 				self.device_id
 			);
 		}

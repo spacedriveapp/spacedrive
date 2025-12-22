@@ -127,7 +127,8 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
-				className="relative"
+				tabIndex={-1}
+				className="relative outline-none focus:outline-none"
 			>
 				{/* Drop indicator for folders */}
 				{isFolder && isDropOver && (
