@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { GearSix, Palette } from "@phosphor-icons/react";
+import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
+import { TopBarButton, Popover, usePopover } from "@sd/ui";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";
@@ -11,12 +12,19 @@ import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
 import { useSpacedriveClient } from "../../context";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../platform";
-import { JobManagerPopover } from "../JobManager/JobManagerPopover";
-import { SyncMonitorPopover } from "../SyncMonitor";
+import { useJobs } from "../JobManager/hooks/useJobs";
+import { useSyncCount } from "../SyncMonitor/hooks/useSyncCount";
+import { useSyncMonitor } from "../SyncMonitor/hooks/useSyncMonitor";
+import { PeerList } from "../SyncMonitor/components/PeerList";
+import { ActivityFeed } from "../SyncMonitor/components/ActivityFeed";
+import { JobList } from "../JobManager/components/JobList";
+import { motion } from "framer-motion";
+import { CARD_HEIGHT } from "../JobManager/types";
 import clsx from "clsx";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { useNavigate } from "react-router-dom";
 
 // Wrapper that adds a space-level drop zone before each group and makes it sortable
 function SpaceGroupWithDropZone({
@@ -86,6 +94,205 @@ function SpaceGroupWithDropZone({
   );
 }
 
+// Sync Monitor Button with Popover
+function SyncButton() {
+  const popover = usePopover();
+  const navigate = useNavigate();
+  const [showActivityFeed, setShowActivityFeed] = useState(false);
+  const { onlinePeerCount, isSyncing } = useSyncCount();
+  const sync = useSyncMonitor();
+
+  useEffect(() => {
+    if (popover.open) {
+      setShowActivityFeed(false);
+    }
+  }, [popover.open]);
+
+  const getStateColor = (state: string) => {
+    switch (state) {
+      case "Ready":
+        return "bg-green-500";
+      case "Backfilling":
+        return "bg-yellow-500";
+      case "CatchingUp":
+        return "bg-accent";
+      case "Uninitialized":
+        return "bg-ink-faint";
+      case "Paused":
+        return "bg-ink-dull";
+      default:
+        return "bg-ink-faint";
+    }
+  };
+
+  return (
+    <Popover
+      popover={popover}
+      trigger={
+        <TopBarButton
+          icon={({ className, ...props }) => 
+            isSyncing ? (
+              <CircleNotch className={clsx(className, "animate-spin")} {...props} />
+            ) : (
+              <ArrowsClockwise className={className} {...props} />
+            )
+          }
+          title="Sync Monitor"
+        />
+      }
+      side="top"
+      align="end"
+      sideOffset={8}
+      className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+        <h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
+
+        <div className="flex items-center gap-2">
+          {onlinePeerCount > 0 && (
+            <span className="text-xs text-ink-dull">
+              {onlinePeerCount} {onlinePeerCount === 1 ? "peer" : "peers"} online
+            </span>
+          )}
+
+          <TopBarButton
+            icon={ArrowsOut}
+            onClick={() => navigate("/sync")}
+            title="Open full sync monitor"
+          />
+
+          <TopBarButton
+            icon={FunnelSimple}
+            active={showActivityFeed}
+            onClick={() => setShowActivityFeed(!showActivityFeed)}
+            title={showActivityFeed ? "Show peers" : "Show activity feed"}
+          />
+        </div>
+      </div>
+
+      {popover.open && (
+        <>
+          <div className="px-4 py-2 border-b border-app-line bg-app-box/50">
+            <div className="flex items-center gap-2">
+              <div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
+              <span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
+            </div>
+          </div>
+          <motion.div
+            className="overflow-y-auto no-scrollbar"
+            initial={false}
+            animate={{
+              height: showActivityFeed
+                ? Math.min(sync.recentActivity.length * 40 + 16, 400)
+                : Math.min(sync.peers.length * 80 + 16, 400),
+            }}
+            transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+          >
+            {showActivityFeed ? (
+              <ActivityFeed activities={sync.recentActivity} />
+            ) : (
+              <PeerList peers={sync.peers} currentState={sync.currentState} />
+            )}
+          </motion.div>
+        </>
+      )}
+    </Popover>
+  );
+}
+
+// Jobs Button with Popover
+function JobsButton({ 
+  activeJobCount, 
+  hasRunningJobs, 
+  jobs, 
+  pause, 
+  resume, 
+  cancel,
+  navigate 
+}: { 
+  activeJobCount: number;
+  hasRunningJobs: boolean;
+  jobs: any[];
+  pause: (jobId: string) => Promise<void>;
+  resume: (jobId: string) => Promise<void>;
+  cancel: (jobId: string) => Promise<void>;
+  navigate: any;
+}) {
+  const popover = usePopover();
+  const [showOnlyRunning, setShowOnlyRunning] = useState(true);
+
+  useEffect(() => {
+    if (popover.open) {
+      setShowOnlyRunning(true);
+    }
+  }, [popover.open]);
+
+  const filteredJobs = showOnlyRunning
+    ? jobs.filter((job) => job.status === "running" || job.status === "paused")
+    : jobs;
+
+  return (
+    <Popover
+      popover={popover}
+      trigger={
+        <TopBarButton
+          icon={({ className, ...props }) => 
+            hasRunningJobs ? (
+              <CircleNotch className={clsx(className, "animate-spin")} {...props} />
+            ) : (
+              <ListBullets className={className} {...props} />
+            )
+          }
+          title="Job Manager"
+        />
+      }
+      side="top"
+      align="end"
+      sideOffset={8}
+      className="w-[360px] max-h-[480px] z-50 !p-0 !bg-app !rounded-xl"
+    >
+      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+        <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
+
+        <div className="flex items-center gap-2">
+          {activeJobCount > 0 && (
+            <span className="text-xs text-ink-dull">{activeJobCount} active</span>
+          )}
+
+          <TopBarButton
+            icon={ArrowsOut}
+            onClick={() => navigate("/jobs")}
+            title="Open full jobs screen"
+          />
+
+          <TopBarButton
+            icon={FunnelSimple}
+            active={showOnlyRunning}
+            onClick={() => setShowOnlyRunning(!showOnlyRunning)}
+            title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
+          />
+        </div>
+      </div>
+
+      {popover.open && (
+        <motion.div
+          className="overflow-y-auto no-scrollbar"
+          initial={false}
+          animate={{
+            height:
+              filteredJobs.length === 0
+                ? CARD_HEIGHT + 16
+                : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
+          }}
+          transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+        >
+          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+        </motion.div>
+      )}
+    </Popover>
+  );
+}
+
 interface SpacesSidebarProps {
   isPreviewActive?: boolean;
 }
@@ -93,11 +300,16 @@ interface SpacesSidebarProps {
 export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const client = useSpacedriveClient();
   const platform = usePlatform();
+  const navigate = useNavigate();
   const { data: libraries } = useLibraries();
   const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
     () => client.getCurrentLibraryId(),
   );
   const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
+
+  // Get sync and job status for icons
+  const { onlinePeerCount, isSyncing } = useSyncCount();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
 
   const { currentSpaceId, setCurrentSpace } = useSidebarStore();
   const { data: spacesData } = useSpaces();
@@ -209,20 +421,25 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           </div>
 
           {/* Sync Monitor, Job Manager, Customize & Settings (pinned to bottom) */}
-          <div className="space-y-0.5">
-            <SyncMonitorPopover />
-            <JobManagerPopover />
-            <button
+          <div className="flex items-center justify-end gap-2">
+            <SyncButton />
+            <JobsButton 
+              activeJobCount={activeJobCount}
+              hasRunningJobs={hasRunningJobs}
+              jobs={jobs}
+              pause={pause}
+              resume={resume}
+              cancel={cancel}
+              navigate={navigate}
+            />
+            <TopBarButton
+              icon={Palette}
+              title="Customize"
               onClick={() => setCustomizePanelOpen(true)}
-              className={clsx(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
-                "text-sidebar-inkDull cursor-default",
-              )}
-            >
-              <Palette className="size-4" weight="bold" />
-              <span className="truncate">Customize</span>
-            </button>
-            <button
+            />
+            <TopBarButton
+              icon={GearSix}
+              title="Settings"
               onClick={() => {
                 if (platform.showWindow) {
                   platform.showWindow({ type: "Settings", page: "general" }).catch(err =>
@@ -230,14 +447,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
                   );
                 }
               }}
-              className={clsx(
-                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium",
-                "text-sidebar-inkDull cursor-default",
-              )}
-            >
-              <GearSix className="size-4" weight="bold" />
-              <span className="truncate">Settings</span>
-            </button>
+            />
           </div>
         </nav>
       </div>

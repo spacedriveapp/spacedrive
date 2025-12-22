@@ -104,15 +104,36 @@ export function useJobs() {
   }, [client]);
 
   const pause = async (jobId: string) => {
-    await pauseMutation.mutateAsync({ job_id: jobId });
+    try {
+      const result = await pauseMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to pause job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to pause job:", error);
+    }
   };
 
   const resume = async (jobId: string) => {
-    await resumeMutation.mutateAsync({ job_id: jobId });
+    try {
+      const result = await resumeMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to resume job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to resume job:", error);
+    }
   };
 
   const cancel = async (jobId: string) => {
-    await cancelMutation.mutateAsync({ job_id: jobId });
+    try {
+      const result = await cancelMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to cancel job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to cancel job:", error);
+    }
   };
 
   const runningCount = jobs.filter((j) => j.status === "running").length;

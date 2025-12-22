@@ -187,6 +187,7 @@ export function QuickPreviewFullscreen({
 								style={{
 									paddingLeft: isZoomed ? 0 : sidebarWidth,
 									paddingRight: isZoomed ? 0 : inspectorWidth,
+									transition: "padding 0.3s ease-out",
 								}}
 							>
 								<ContentRenderer
