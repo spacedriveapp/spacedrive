@@ -14,6 +14,7 @@ import {
 import { usePlatform } from "../../../platform";
 import { useLibraryMutation } from "../../../context";
 import { isVolumeItem, isPathItem } from "./spaceItemUtils";
+import { useExplorer, getSpaceItemKeyFromRoute } from "../../Explorer/context";
 
 interface UseSpaceItemContextMenuOptions {
 	item: SpaceItemType;
@@ -37,6 +38,7 @@ export function useSpaceItemContextMenu({
 }: UseSpaceItemContextMenuOptions): ContextMenuResult {
 	const navigate = useNavigate();
 	const platform = usePlatform();
+	const { setSpaceItemIdFromSidebar } = useExplorer();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
 	const indexVolume = useLibraryMutation("volumes.index");
 
@@ -45,7 +47,15 @@ export function useSpaceItemContextMenu({
 			icon: FolderOpen,
 			label: "Open",
 			onClick: () => {
-				if (path) navigate(path);
+				if (path) {
+					// Extract pathname and search from the path
+					const [pathname, search] = path.includes("?")
+						? [path.split("?")[0], "?" + path.split("?")[1]]
+						: [path, ""];
+					const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
+					setSpaceItemIdFromSidebar(spaceItemKey);
+					navigate(path);
+				}
 			},
 			condition: () => !!path,
 		},

@@ -7,7 +7,7 @@ import { JobRow } from "./JobRow";
 
 export function JobsScreen() {
 	const navigate = useNavigate();
-	const { jobs, pause, resume } = useJobs();
+	const { jobs, pause, resume, cancel } = useJobs();
 	const [showOnlyRunning, setShowOnlyRunning] = useState(false);
 
 	// Filter jobs based on toggle
@@ -106,6 +106,7 @@ export function JobsScreen() {
 										job={job}
 										onPause={pause}
 										onResume={resume}
+										onCancel={cancel}
 									/>
 								))}
 							</JobSection>
@@ -123,6 +124,7 @@ export function JobsScreen() {
 										job={job}
 										onPause={pause}
 										onResume={resume}
+										onCancel={cancel}
 									/>
 								))}
 							</JobSection>
@@ -140,6 +142,7 @@ export function JobsScreen() {
 										job={job}
 										onPause={pause}
 										onResume={resume}
+										onCancel={cancel}
 									/>
 								))}
 							</JobSection>
@@ -157,6 +160,7 @@ export function JobsScreen() {
 										job={job}
 										onPause={pause}
 										onResume={resume}
+										onCancel={cancel}
 									/>
 								))}
 							</JobSection>
@@ -174,6 +178,7 @@ export function JobsScreen() {
 										job={job}
 										onPause={pause}
 										onResume={resume}
+										onCancel={cancel}
 									/>
 								))}
 							</JobSection>

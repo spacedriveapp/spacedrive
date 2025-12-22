@@ -16,7 +16,6 @@ import {
 	ExplorerProvider,
 	useExplorer,
 	Sidebar,
-	getSpaceItemKeyFromRoute,
 } from "./components/Explorer";
 import {
 	SelectionProvider,
@@ -163,18 +162,8 @@ function ExplorerLayoutContent() {
 		tagModeActive,
 		setTagModeActive,
 		viewMode,
-		setSpaceItemId,
 		currentPath,
 	} = useExplorer();
-
-	// Sync route with explorer context for view preferences
-	useEffect(() => {
-		const spaceItemKey = getSpaceItemKeyFromRoute(
-			location.pathname,
-			location.search,
-		);
-		setSpaceItemId(spaceItemKey);
-	}, [location.pathname, location.search, setSpaceItemId]);
 
 	// Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
 	const isOverview = location.pathname === "/";

@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
 import type { JobListItem } from "../types";
+import { sounds } from "@sd/assets/sounds";
+
+// Global set to track which jobs have already played their completion sound
+// This prevents multiple hook instances from playing the sound multiple times
+const completedJobSounds = new Set<string>();
 
 /**
  * Unified hook for job management and counting.
@@ -20,6 +25,7 @@ export function useJobs() {
 
   const pauseMutation = useLibraryMutation("jobs.pause");
   const resumeMutation = useLibraryMutation("jobs.resume");
+  const cancelMutation = useLibraryMutation("jobs.cancel");
 
   // Ref for stable refetch access
   const refetchRef = useRef(refetch);
@@ -44,6 +50,16 @@ export function useJobs() {
       if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
           "JobFailed" in event || "JobPaused" in event || "JobResumed" in event ||
           "JobCancelled" in event) {
+        if ("JobCompleted" in event) {
+          const jobId = event.JobCompleted?.job_id;
+          if (jobId && !completedJobSounds.has(jobId)) {
+            completedJobSounds.add(jobId);
+            sounds.jobDone();
+
+            // Clean up old entries after 5 seconds to prevent memory leak
+            setTimeout(() => completedJobSounds.delete(jobId), 5000);
+          }
+        }
         refetchRef.current();
       } else if ("JobProgress" in event) {
         const progressData = event.JobProgress;
@@ -95,6 +111,10 @@ export function useJobs() {
     await resumeMutation.mutateAsync({ job_id: jobId });
   };
 
+  const cancel = async (jobId: string) => {
+    await cancelMutation.mutateAsync({ job_id: jobId });
+  };
+
   const runningCount = jobs.filter((j) => j.status === "running").length;
   const pausedCount = jobs.filter((j) => j.status === "paused").length;
 
@@ -104,6 +124,7 @@ export function useJobs() {
     hasRunningJobs: runningCount > 0,
     pause,
     resume,
+    cancel,
     isLoading,
     error,
   };

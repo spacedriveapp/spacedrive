@@ -13,6 +13,7 @@ import {
 import { useSpaceItemActive } from "./hooks/useSpaceItemActive";
 import { useSpaceItemDropZones } from "./hooks/useSpaceItemDropZones";
 import { useSpaceItemContextMenu } from "./hooks/useSpaceItemContextMenu";
+import { useExplorer, getSpaceItemKeyFromRoute } from "../Explorer/context";
 
 // Overrides for customizing item appearance and behavior
 export interface SpaceItemOverrides {
@@ -166,6 +167,7 @@ export function SpaceItem({
 	className,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
+	const { setSpaceItemIdFromSidebar } = useExplorer();
 
 	// Merge legacy props into overrides
 	const effectiveOverrides: SpaceItemOverrides = {
@@ -237,6 +239,12 @@ export function SpaceItem({
 		if (effectiveOverrides.onClick) {
 			effectiveOverrides.onClick(e);
 		} else if (path) {
+			// Extract pathname and search from the path
+			const [pathname, search] = path.includes("?")
+				? [path.split("?")[0], "?" + path.split("?")[1]]
+				: [path, ""];
+			const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
+			setSpaceItemIdFromSidebar(spaceItemKey);
 			navigate(path);
 		}
 	};

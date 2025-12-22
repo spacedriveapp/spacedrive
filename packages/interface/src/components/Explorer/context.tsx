@@ -5,6 +5,7 @@ import {
 	useMemo,
 	useEffect,
 	useCallback,
+	useRef,
 	type ReactNode,
 } from "react";
 import { useNavigate } from "react-router-dom";
@@ -115,6 +116,9 @@ interface ExplorerState {
 	devices: Map<string, any>;
 
 	setSpaceItemId: (id: string) => void;
+	
+	// Set space item ID and trigger preference loading (use when navigating from sidebar)
+	setSpaceItemIdFromSidebar: (id: string) => void;
 }
 
 const ExplorerContext = createContext<ExplorerState | null>(null);
@@ -136,6 +140,8 @@ export function ExplorerProvider({
 	const [spaceItemIdInternal, setSpaceItemIdInternal] = useState(
 		initialSpaceItemId || "default",
 	);
+	// Track if the next spaceItemId change should load preferences
+	const shouldLoadPreferencesRef = useRef(false);
 	const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
 	const [currentView, setCurrentView] = useState<VirtualView | null>(null);
 	const [history, setHistory] = useState<NavigationEntry[]>([]);
@@ -164,8 +170,14 @@ export function ExplorerProvider({
 	const spaceItemKey = spaceItemIdInternal;
 	const pathKey = getPathKey(currentPath);
 
-	// Load view preferences when space item changes
+	// Load view preferences only when navigation originates from sidebar
 	useEffect(() => {
+		// Only load preferences when explicitly requested (sidebar navigation)
+		if (!shouldLoadPreferencesRef.current) {
+			return;
+		}
+		shouldLoadPreferencesRef.current = false;
+		
 		const prefs = viewPrefs.getPreferences(spaceItemKey);
 		if (prefs) {
 			setViewModeInternal(prefs.viewMode);
@@ -233,6 +245,12 @@ export function ExplorerProvider({
 		},
 		[spaceItemKey],
 	);
+
+	// Set space item ID from sidebar navigation (triggers preference loading)
+	const setSpaceItemIdFromSidebar = useCallback((id: string) => {
+		shouldLoadPreferencesRef.current = true;
+		setSpaceItemIdInternal(id);
+	}, []);
 
 	// Use normalized query for automatic updates when device events are emitted
 	const devicesQuery = useNormalizedQuery<ListLibraryDevicesInput, any[]>({
@@ -434,6 +452,7 @@ export function ExplorerProvider({
 			setTagModeActive,
 			devices,
 			setSpaceItemId: setSpaceItemIdInternal,
+			setSpaceItemIdFromSidebar,
 		}),
 		[
 			currentPath,
@@ -462,6 +481,7 @@ export function ExplorerProvider({
 			currentFiles,
 			tagModeActive,
 			devices,
+			setSpaceItemIdFromSidebar,
 		],
 	);
 
