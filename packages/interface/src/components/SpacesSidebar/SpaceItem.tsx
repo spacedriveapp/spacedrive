@@ -167,7 +167,7 @@ export function SpaceItem({
 	className,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
-	const { setSpaceItemIdFromSidebar } = useExplorer();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 
 	// Merge legacy props into overrides
 	const effectiveOverrides: SpaceItemOverrides = {
@@ -244,7 +244,7 @@ export function SpaceItem({
 				? [path.split("?")[0], "?" + path.split("?")[1]]
 				: [path, ""];
 			const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
-			setSpaceItemIdFromSidebar(spaceItemKey);
+			loadPreferencesForSpaceItem(spaceItemKey);
 			navigate(path);
 		}
 	};

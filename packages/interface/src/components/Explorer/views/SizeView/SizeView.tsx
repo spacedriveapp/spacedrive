@@ -115,7 +115,7 @@ function getFileType(file: File): string {
 }
 
 export function SizeView() {
-	const { currentPath, sortBy, setCurrentPath, viewSettings } = useExplorer();
+	const { currentPath, sortBy, navigateToPath, viewSettings } = useExplorer();
 	const { selectedFiles, selectFile } = useSelection();
 
 	const directoryQuery = useNormalizedQuery({
@@ -156,7 +156,7 @@ export function SizeView() {
 
 	// Use refs for stable function references
 	const selectFileRef = useRef(selectFile);
-	const setCurrentPathRef = useRef(setCurrentPath);
+	const navigateToPathRef = useRef(navigateToPath);
 	const filesRef = useRef(files);
 	const gRef = useRef<d3.Selection<
 		SVGGElement,
@@ -168,10 +168,10 @@ export function SizeView() {
 
 	useEffect(() => {
 		selectFileRef.current = selectFile;
-		setCurrentPathRef.current = setCurrentPath;
+		navigateToPathRef.current = navigateToPath;
 		filesRef.current = files;
 		contextMenuRef.current = contextMenu;
-	}, [selectFile, setCurrentPath, files, contextMenu]);
+	}, [selectFile, navigateToPath, files, contextMenu]);
 
 	// Initialize zoom behavior once
 	useEffect(() => {
@@ -309,6 +309,14 @@ export function SizeView() {
 		};
 	}, []); // Only run once
 
+	// Reset zoom when path changes
+	useEffect(() => {
+		if (!svgRef.current || !zoomBehaviorRef.current) return;
+		const svg = d3.select(svgRef.current);
+		svg.call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+		setCurrentZoom(1);
+	}, [currentPath]);
+
 	const bubbleData = useMemo(() => {
 		const filesWithSize = files.filter((f) => f.size > 0);
 
@@ -377,49 +385,39 @@ export function SizeView() {
 			.on("click", (event, d) => {
 				event.stopPropagation();
 
-				// Clear any existing timeout
+				const multi = event.metaKey || event.ctrlKey;
+				const range = event.shiftKey;
+
+				// Select immediately for responsive feedback
+				selectFileRef.current(
+					d.data.file,
+					filesRef.current,
+					multi,
+					range,
+				);
+
+				// Clear any existing zoom timeout
 				if (clickTimeoutRef.current) {
 					clearTimeout(clickTimeoutRef.current);
 					clickTimeoutRef.current = null;
 				}
 
-				// Set timeout for single click
-				clickTimeoutRef.current = setTimeout(() => {
-					const multi = event.metaKey || event.ctrlKey;
-					const range = event.shiftKey;
-					selectFileRef.current(
-						d.data.file,
-						filesRef.current,
-						multi,
-						range,
-					);
+				// Delay zoom-to-focus to allow double-click detection
+				if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {
+					clickTimeoutRef.current = setTimeout(() => {
+						if (!svgRef.current || !zoomBehaviorRef.current) return;
 
-					// Zoom to center this circle
-					if (
-						!multi &&
-						!range &&
-						svgRef.current &&
-						zoomBehaviorRef.current
-					) {
 						const svgElement = svgRef.current;
 						const width = svgElement.clientWidth;
 						const height = svgElement.clientHeight;
-
-						// Calculate the transform needed to center this circle
-						const currentTransform = d3.zoomTransform(svgElement);
 						const centerX = width / 2;
 						const centerY = height / 2;
 
 						// Target: make the bubble appear at a consistent size on screen
-						// regardless of its original size
-						const targetBubbleScreenSize =
-							Math.min(width, height) * 0.4; // 40% of viewport
-						const bubbleSize = d.r * 2; // diameter in data coordinates
-
-						// Calculate what scale would make this bubble that size on screen
+						const targetBubbleScreenSize = Math.min(width, height) * 0.4;
+						const bubbleSize = d.r * 2;
 						const targetScale = targetBubbleScreenSize / bubbleSize;
 
-						// Create new transform
 						const newTransform = d3.zoomIdentity
 							.translate(centerX, centerY)
 							.scale(targetScale)
@@ -427,13 +425,13 @@ export function SizeView() {
 
 						d3.select(svgElement)
 							.transition()
-							.duration(500)
+							.duration(400)
 							.call(
-								zoomBehaviorRef.current.transform,
+								zoomBehaviorRef.current!.transform,
 								newTransform,
 							);
-					}
-				}, 250); // 250ms delay to detect double click
+					}, 200);
+				}
 			})
 			.on("dblclick", (event, d) => {
 				event.stopPropagation();
@@ -446,7 +444,7 @@ export function SizeView() {
 
 				// Navigate if directory
 				if (d.data.file.kind === "Directory") {
-					setCurrentPathRef.current(d.data.file.sd_path);
+					navigateToPathRef.current(d.data.file.sd_path);
 				}
 			})
 			.on("contextmenu", async (event, d) => {

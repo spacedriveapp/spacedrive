@@ -1,5 +1,3 @@
-import { useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
 import { useExplorer } from "./context";
 import { GridView } from "./views/GridView";
 import { ListView } from "./views/ListView";
@@ -25,7 +23,6 @@ import { SortMenu } from "./SortMenu";
 import { ViewModeMenu } from "./ViewModeMenu";
 
 export function ExplorerView() {
-	const [searchParams] = useSearchParams();
 	const {
 		sidebarVisible,
 		setSidebarVisible,
@@ -43,61 +40,13 @@ export function ExplorerView() {
 		canGoForward,
 		currentPath,
 		currentView,
-		setCurrentPath,
-		syncPathFromUrl,
-		syncViewFromUrl,
+		navigateToPath,
 		devices,
 		quickPreviewFileId,
 	} = useExplorer();
 
 	const { isVirtualView } = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
-
-	// Sync currentPath or currentView from URL query parameters
-	useEffect(() => {
-		const pathParam = searchParams.get("path");
-		const viewParam = searchParams.get("view");
-
-		if (pathParam) {
-			try {
-				const sdPath = JSON.parse(decodeURIComponent(pathParam));
-				const currentPathStr = JSON.stringify(currentPath);
-				const newPathStr = JSON.stringify(sdPath);
-
-				if (currentPathStr !== newPathStr) {
-					syncPathFromUrl(sdPath);
-				}
-			} catch (e) {
-				console.error("Failed to parse path query parameter:", e);
-			}
-		} else if (viewParam) {
-			const id = searchParams.get("id");
-			const params: Record<string, string> = {};
-			searchParams.forEach((value, key) => {
-				if (key !== "view" && key !== "id") {
-					params[key] = value;
-				}
-			});
-
-			const newView = {
-				view: viewParam,
-				id: id || undefined,
-				params: Object.keys(params).length > 0 ? params : undefined,
-			};
-			const currentViewStr = JSON.stringify(currentView);
-			const newViewStr = JSON.stringify(newView);
-
-			if (currentViewStr !== newViewStr) {
-				syncViewFromUrl(newView);
-			}
-		}
-	}, [
-		searchParams,
-		currentPath,
-		currentView,
-		syncPathFromUrl,
-		syncViewFromUrl,
-	]);
 
 	// Allow rendering if either we have a currentPath or we're in a virtual view
 	if (!currentPath && !isVirtualView) {
@@ -133,7 +82,7 @@ export function ExplorerView() {
 								<PathBar
 									path={currentPath}
 									devices={devices}
-									onNavigate={setCurrentPath}
+									onNavigate={navigateToPath}
 								/>
 							)}
 							{currentView && (

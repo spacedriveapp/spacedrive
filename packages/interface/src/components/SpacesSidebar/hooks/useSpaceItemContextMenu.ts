@@ -38,7 +38,7 @@ export function useSpaceItemContextMenu({
 }: UseSpaceItemContextMenuOptions): ContextMenuResult {
 	const navigate = useNavigate();
 	const platform = usePlatform();
-	const { setSpaceItemIdFromSidebar } = useExplorer();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 	const deleteItem = useLibraryMutation("spaces.delete_item");
 	const indexVolume = useLibraryMutation("volumes.index");
 
@@ -53,7 +53,7 @@ export function useSpaceItemContextMenu({
 						? [path.split("?")[0], "?" + path.split("?")[1]]
 						: [path, ""];
 					const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
-					setSpaceItemIdFromSidebar(spaceItemKey);
+					loadPreferencesForSpaceItem(spaceItemKey);
 					navigate(path);
 				}
 			},

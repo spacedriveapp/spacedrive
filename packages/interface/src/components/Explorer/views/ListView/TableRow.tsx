@@ -43,7 +43,7 @@ export const TableRow = memo(
 		measureRef,
 		selectFile,
 	}: TableRowProps) {
-		const { setCurrentPath } = useExplorer();
+		const { navigateToPath } = useExplorer();
 		const { selectedFiles } = useSelection();
 
 		const contextMenu = useFileContextMenu({
@@ -64,15 +64,15 @@ export const TableRow = memo(
 	const handleDoubleClick = useCallback(() => {
 		// Virtual files (locations, volumes, devices) always navigate to their sd_path
 		if (isVirtualFile(file) && file.sd_path) {
-			setCurrentPath(file.sd_path);
+			navigateToPath(file.sd_path);
 			return;
 		}
 
 		// Regular directories navigate normally
 		if (file.kind === "Directory") {
-			setCurrentPath(file.sd_path);
+			navigateToPath(file.sd_path);
 		}
-	}, [file, setCurrentPath]);
+	}, [file, navigateToPath]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {

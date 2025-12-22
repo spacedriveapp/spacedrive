@@ -36,7 +36,7 @@ export function useFileContextMenu({
 	selectedFiles,
 	selected,
 }: UseFileContextMenuProps) {
-	const { setCurrentPath, currentPath } = useExplorer();
+	const { navigateToPath, currentPath } = useExplorer();
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
@@ -71,7 +71,7 @@ export function useFileContextMenu({
 				label: "Open",
 				onClick: () => {
 					if (file.kind === "Directory") {
-						setCurrentPath(file.sd_path);
+						navigateToPath(file.sd_path);
 					} else {
 						console.log("Open file:", file.name);
 						// TODO: Implement file opening

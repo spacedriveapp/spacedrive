@@ -21,7 +21,7 @@ interface TagItemProps {
 
 function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const navigate = useNavigate();
-	const { setSpaceItemIdFromSidebar } = useExplorer();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	// TODO: Fetch children when hierarchy is implemented
@@ -29,7 +29,7 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const hasChildren = children.length > 0;
 
 	const handleClick = () => {
-		setSpaceItemIdFromSidebar(`tag:${tag.id}`);
+		loadPreferencesForSpaceItem(`tag:${tag.id}`);
 		navigate(`/tag/${tag.id}`);
 	};
 
@@ -91,7 +91,7 @@ export function TagsGroup({
 	sortableListeners,
 }: TagsGroupProps) {
 	const navigate = useNavigate();
-	const { setSpaceItemIdFromSidebar } = useExplorer();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isCreating, setIsCreating] = useState(false);
 	const [newTagName, setNewTagName] = useState('');
 
@@ -119,7 +119,7 @@ export function TagsGroup({
 
 			// Navigate to the new tag
 			if (result?.tag?.id) {
-				setSpaceItemIdFromSidebar(`tag:${result.tag.id}`);
+				loadPreferencesForSpaceItem(`tag:${result.tag.id}`);
 				navigate(`/tag/${result.tag.id}`);
 			}
 

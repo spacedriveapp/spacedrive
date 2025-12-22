@@ -6,7 +6,7 @@ import type { DirectorySortBy } from "@sd/ts-client";
 import { useTypeaheadSearch } from "./useTypeaheadSearch";
 
 export function useExplorerKeyboard() {
-  const { currentPath, sortBy, setCurrentPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview, tagModeActive, setTagModeActive } = useExplorer();
+  const { currentPath, sortBy, navigateToPath, viewMode, viewSettings, sidebarVisible, inspectorVisible, openQuickPreview, tagModeActive, setTagModeActive } = useExplorer();
   const { selectedFiles, selectFile, selectAll, clearSelection, focusedIndex, setFocusedIndex, setSelectedFiles } = useSelection();
 
   // Query files for keyboard operations
@@ -98,7 +98,7 @@ export function useExplorerKeyboard() {
         const selected = selectedFiles[0];
         if (selected.kind === "Directory") {
           e.preventDefault();
-          setCurrentPath(selected.sd_path);
+          navigateToPath(selected.sd_path);
         }
         return;
       }
@@ -134,7 +134,7 @@ export function useExplorerKeyboard() {
     inspectorVisible,
     selectAll,
     clearSelection,
-    setCurrentPath,
+    navigateToPath,
     setFocusedIndex,
     setSelectedFiles,
     openQuickPreview,

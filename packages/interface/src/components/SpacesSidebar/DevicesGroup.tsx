@@ -18,7 +18,7 @@ export function DevicesGroup({
 	sortableAttributes,
 	sortableListeners,
 }: DevicesGroupProps) {
-	const { navigateToView, setSpaceItemIdFromSidebar } = useExplorer();
+	const { navigateToView, loadPreferencesForSpaceItem } = useExplorer();
 
 	// Use normalized query for automatic updates when device events are emitted
 	const { data: devices, isLoading } = useNormalizedQuery<
@@ -107,7 +107,7 @@ export function DevicesGroup({
 									customIcon={getDeviceIcon(device)}
 									customLabel={device.name}
 									onClick={() => {
-										setSpaceItemIdFromSidebar(`device:${device.id}`);
+										loadPreferencesForSpaceItem(`device:${device.id}`);
 										navigateToView("device", device.id);
 									}}
 									onContextMenu={handleDeviceContextMenu(device)}
