@@ -295,6 +295,21 @@ impl DeviceManager {
 		Ok(())
 	}
 
+	/// Remove a specific paired device from the cache by device ID
+	/// Used when a device is unpaired/revoked
+	pub fn remove_paired_device_from_cache(&self, device_id: Uuid) -> Result<(), DeviceError> {
+		let mut cache = self
+			.paired_device_cache
+			.write()
+			.map_err(|_| DeviceError::LockPoisoned)?;
+
+		// Find and remove the device by its ID (search by value)
+		cache.retain(|_slug, &mut cached_id| cached_id != device_id);
+
+		tracing::debug!("Removed device {} from DeviceManager cache", device_id);
+		Ok(())
+	}
+
 	/// Get the current device as a domain Device object
 	pub async fn current_device(&self) -> Device {
 		let config = self.config.read().unwrap();

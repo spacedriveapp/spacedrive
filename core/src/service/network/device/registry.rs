@@ -439,15 +439,24 @@ impl DeviceRegistry {
 	/// Remove a device from the registry
 	pub fn remove_device(&mut self, device_id: Uuid) -> Result<()> {
 		if let Some(state) = self.devices.remove(&device_id) {
-			// Clean up mappings
+			// Clean up node-to-device mappings for all states
 			match &state {
 				DeviceState::Discovered { node_id, .. } | DeviceState::Pairing { node_id, .. } => {
 					self.node_to_device.remove(node_id);
 				}
-				DeviceState::Pairing { session_id, .. } => {
-					self.session_to_device.remove(session_id);
+				DeviceState::Paired { info, .. }
+				| DeviceState::Connected { info, .. }
+				| DeviceState::Disconnected { info, .. } => {
+					// Extract node ID from network fingerprint and clean up mapping
+					if let Ok(node_id) = info.network_fingerprint.node_id.parse::<iroh::NodeId>() {
+						self.node_to_device.remove(&node_id);
+					}
 				}
-				_ => {}
+			}
+
+			// Clean up session-to-device mapping for pairing state
+			if let DeviceState::Pairing { session_id, .. } = &state {
+				self.session_to_device.remove(session_id);
 			}
 		}
 

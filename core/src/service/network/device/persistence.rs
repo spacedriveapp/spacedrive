@@ -192,11 +192,41 @@ impl DevicePersistence {
 
 	/// Remove a paired device
 	pub async fn remove_paired_device(&self, device_id: Uuid) -> Result<bool> {
+		tracing::debug!(
+			"Attempting to remove paired device {} from persistence",
+			device_id
+		);
+
 		let mut devices = self.load_paired_devices().await?;
 		let removed = devices.remove(&device_id).is_some();
 
 		if removed {
+			tracing::info!("Device {} found in paired devices, removing...", device_id);
+
+			// Delete the individual device key from KeyManager
+			let key = Self::device_key(device_id);
+			tracing::debug!("Deleting device key '{}' from KeyManager", key);
+
+			if let Err(e) = self.key_manager.delete_secret(&key).await {
+				tracing::warn!("Failed to delete device key {}: {}", key, e);
+			} else {
+				tracing::info!("Device key '{}' deleted from KeyManager", key);
+			}
+
+			// Update the device list (removes from paired_devices_list)
+			tracing::debug!(
+				"Updating paired devices list (now {} devices)",
+				devices.len()
+			);
 			self.save_paired_devices(&devices).await?;
+
+			tracing::info!(
+				"Device {} successfully removed from persistence ({} devices remaining)",
+				device_id,
+				devices.len()
+			);
+		} else {
+			tracing::warn!("Device {} not found in paired devices list", device_id);
 		}
 
 		Ok(removed)
