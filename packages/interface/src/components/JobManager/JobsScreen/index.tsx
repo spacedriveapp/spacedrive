@@ -142,7 +142,7 @@ interface JobSectionProps {
 function JobSection({ title, count, children }: JobSectionProps) {
   return (
     <div>
-      <div className="sticky top-[73px] z-10 flex items-center gap-2 px-4 py-2 bg-app-box/50 backdrop-blur-sm border-b border-app-line/50">
+      <div className="sticky z-10 flex items-center gap-2 px-4 py-2 bg-app-box/50 backdrop-blur-sm border-b border-app-line/50">
         <h2 className="text-xs font-semibold text-ink uppercase tracking-wide">
           {title}
         </h2>
