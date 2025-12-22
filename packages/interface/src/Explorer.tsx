@@ -12,11 +12,7 @@ import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-	ExplorerProvider,
-	useExplorer,
-	Sidebar,
-} from "./components/Explorer";
+import { ExplorerProvider, useExplorer, Sidebar } from "./components/Explorer";
 import {
 	SelectionProvider,
 	useSelection,
@@ -64,7 +60,7 @@ import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
  * we update the preview to show the newly selected file.
  */
 function QuickPreviewSyncer() {
-	const { quickPreviewFileId, setQuickPreviewFileId } = useExplorer();
+	const { quickPreviewFileId, openQuickPreview } = useExplorer();
 	const { selectedFiles } = useSelection();
 
 	useEffect(() => {
@@ -75,9 +71,9 @@ function QuickPreviewSyncer() {
 			selectedFiles.length === 1 &&
 			selectedFiles[0].id !== quickPreviewFileId
 		) {
-			setQuickPreviewFileId(selectedFiles[0].id);
+			openQuickPreview(selectedFiles[0].id);
 		}
-	}, [selectedFiles, quickPreviewFileId, setQuickPreviewFileId]);
+	}, [selectedFiles, quickPreviewFileId, openQuickPreview]);
 
 	return null;
 }
@@ -758,7 +754,8 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 							{activeItem.itemType === "Overview" && "Overview"}
 							{activeItem.itemType === "Recents" && "Recents"}
 							{activeItem.itemType === "Favorites" && "Favorites"}
-							{activeItem.itemType === "FileKinds" && "File Kinds"}
+							{activeItem.itemType === "FileKinds" &&
+								"File Kinds"}
 						</span>
 					</div>
 				) : activeItem?.label ? (

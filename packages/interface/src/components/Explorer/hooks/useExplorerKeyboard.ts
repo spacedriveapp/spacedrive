@@ -41,8 +41,8 @@ export function useExplorerKeyboard() {
     const handleKeyDown = async (e: KeyboardEvent) => {
       // Arrow keys: Navigation
       if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
-        // Skip column view - each column handles its own keyboard navigation
-        if (viewMode === "column") {
+        // Skip views that handle their own keyboard navigation
+        if (viewMode === "column" || viewMode === "media") {
           return;
         }
 
