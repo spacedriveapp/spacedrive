@@ -141,7 +141,7 @@ function SyncButton() {
         />
       }
       side="top"
-      align="end"
+      align="start"
       sideOffset={8}
       className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
     >
@@ -247,7 +247,7 @@ function JobsButton({
         />
       }
       side="top"
-      align="end"
+      align="start"
       sideOffset={8}
       className="w-[360px] max-h-[480px] z-50 !p-0 !bg-app !rounded-xl"
     >
@@ -421,22 +421,24 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           </div>
 
           {/* Sync Monitor, Job Manager, Customize & Settings (pinned to bottom) */}
-          <div className="flex items-center justify-end gap-2">
-            <SyncButton />
-            <JobsButton 
-              activeJobCount={activeJobCount}
-              hasRunningJobs={hasRunningJobs}
-              jobs={jobs}
-              pause={pause}
-              resume={resume}
-              cancel={cancel}
-              navigate={navigate}
-            />
-            <TopBarButton
-              icon={Palette}
-              title="Customize"
-              onClick={() => setCustomizePanelOpen(true)}
-            />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <SyncButton />
+              <JobsButton 
+                activeJobCount={activeJobCount}
+                hasRunningJobs={hasRunningJobs}
+                jobs={jobs}
+                pause={pause}
+                resume={resume}
+                cancel={cancel}
+                navigate={navigate}
+              />
+              <TopBarButton
+                icon={Palette}
+                title="Customize"
+                onClick={() => setCustomizePanelOpen(true)}
+              />
+            </div>
             <TopBarButton
               icon={GearSix}
               title="Settings"
