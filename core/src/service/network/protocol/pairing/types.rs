@@ -305,6 +305,12 @@ pub struct PairingSession {
 	pub remote_public_key: Option<Vec<u8>>,
 	pub shared_secret: Option<Vec<u8>>,
 	pub created_at: DateTime<Utc>,
+	/// 2-digit confirmation code for user verification (initiator only)
+	pub confirmation_code: Option<String>,
+	/// Timestamp when the confirmation request expires
+	pub confirmation_expires_at: Option<DateTime<Utc>>,
+	/// Pending challenge to send after user confirms (initiator only)
+	pub pending_challenge: Option<Vec<u8>>,
 }
 
 impl std::fmt::Display for PairingSession {
@@ -332,6 +338,15 @@ pub enum PairingState {
 	Connecting,
 	Authenticating,
 	ExchangingKeys,
+	/// Initiator is awaiting user confirmation before proceeding with pairing.
+	/// Contains the 2-digit code the user must verify.
+	AwaitingUserConfirmation {
+		/// 2-digit confirmation code (00-99)
+		confirmation_code: String,
+		/// When the confirmation request expires
+		expires_at: DateTime<Utc>,
+	},
+	/// Legacy state - kept for backward compatibility
 	AwaitingConfirmation,
 	EstablishingSession,
 	ChallengeReceived {
@@ -345,6 +360,10 @@ pub enum PairingState {
 	ResponseSent,
 	Completed,
 	Failed {
+		reason: String,
+	},
+	/// Pairing was rejected by the user
+	Rejected {
 		reason: String,
 	},
 }

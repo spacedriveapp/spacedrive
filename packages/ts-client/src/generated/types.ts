@@ -615,6 +615,28 @@ export type EntryKind =
 "Symlink";
 
 /**
+ * Input for resetting the ephemeral cache
+ */
+export type EphemeralCacheResetInput = { 
+/**
+ * Confirmation flag to prevent accidental cache clearing
+ */
+confirm: boolean };
+
+/**
+ * Output from resetting the ephemeral cache
+ */
+export type EphemeralCacheResetOutput = { 
+/**
+ * Number of paths that were cleared from the cache
+ */
+cleared_paths: number; 
+/**
+ * Message describing the result
+ */
+message: string };
+
+/**
  * Status of the unified ephemeral index cache
  */
 export type EphemeralCacheStatus = { 
@@ -714,12 +736,47 @@ export type Event = "CoreStarted" | "CoreShutdown" | { LibraryCreated: { id: str
 /**
  * How the library was created (manual, sync, cloud import)
  */
-source?: LibraryCreationSource } } | { LibraryOpened: { id: string; name: string; path: string } } | { LibraryClosed: { id: string; name: string } } | { LibraryDeleted: { id: string; name: string; deleted_data: boolean } } | { LibraryStatisticsUpdated: { library_id: string; statistics: LibraryStatistics } } | 
+source?: LibraryCreationSource } } | { LibraryOpened: { id: string; name: string; path: string } } | { LibraryClosed: { id: string; name: string } } | { LibraryDeleted: { id: string; name: string; deleted_data: boolean } } | { LibraryLoadFailed: { 
+/**
+ * Library ID if config was readable, None otherwise
+ */
+id: string | null; 
+/**
+ * Path to the library directory
+ */
+path: string; 
+/**
+ * Human-readable error message
+ */
+error: string; 
+/**
+ * Error type for frontend categorization (e.g., "DatabaseError", "ConfigError")
+ */
+error_type: string } } | { LibraryStatisticsUpdated: { library_id: string; statistics: LibraryStatistics } } | 
 /**
  * Refresh event - signals that all frontend caches should be invalidated
  * Emitted after major data recalculations (e.g., volume unique_bytes refresh)
  */
-"Refresh" | { EntryCreated: { library_id: string; entry_id: string } } | { EntryModified: { library_id: string; entry_id: string } } | { EntryDeleted: { library_id: string; entry_id: string } } | { EntryMoved: { library_id: string; entry_id: string; old_path: string; new_path: string } } | { FsRawChange: { library_id: string; kind: FsRawEventKind } } | { VolumeAdded: Volume } | { VolumeRemoved: { fingerprint: VolumeFingerprint } } | { VolumeUpdated: { fingerprint: VolumeFingerprint; old_info: VolumeInfo; new_info: VolumeInfo } } | { VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed_mbps: number; write_speed_mbps: number } } | { VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string; device_id: string } } | { JobStarted: { job_id: string; job_type: string; device_id: string } } | { JobProgress: { job_id: string; job_type: string; device_id: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; device_id: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; device_id: string; error: string } } | { JobCancelled: { job_id: string; job_type: string; device_id: string } } | { JobPaused: { job_id: string; device_id: string } } | { JobResumed: { job_id: string; device_id: string } } | { IndexingStarted: { location_id: string } } | { IndexingProgress: { location_id: string; processed: number; total: number | null } } | { IndexingCompleted: { location_id: string; total_files: number; total_dirs: number } } | { IndexingFailed: { location_id: string; error: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | { SyncStateChanged: { library_id: string; previous_state: string; new_state: string; timestamp: string } } | { SyncActivity: { library_id: string; peer_device_id: string; activity_type: SyncActivityType; model_type: string | null; count: number; timestamp: string } } | { SyncConnectionChanged: { library_id: string; peer_device_id: string; peer_name: string; connected: boolean; timestamp: string } } | { SyncError: { library_id: string; peer_device_id: string | null; error_type: string; message: string; timestamp: string } } | { ResourceChanged: { 
+"Refresh" | { EntryCreated: { library_id: string; entry_id: string } } | { EntryModified: { library_id: string; entry_id: string } } | { EntryDeleted: { library_id: string; entry_id: string } } | { EntryMoved: { library_id: string; entry_id: string; old_path: string; new_path: string } } | { FsRawChange: { library_id: string; kind: FsRawEventKind } } | { VolumeAdded: Volume } | { VolumeRemoved: { fingerprint: VolumeFingerprint } } | { VolumeUpdated: { fingerprint: VolumeFingerprint; old_info: VolumeInfo; new_info: VolumeInfo } } | { VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed_mbps: number; write_speed_mbps: number } } | { VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string; device_id: string } } | { JobStarted: { job_id: string; job_type: string; device_id: string } } | { JobProgress: { job_id: string; job_type: string; device_id: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; device_id: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; device_id: string; error: string } } | { JobCancelled: { job_id: string; job_type: string; device_id: string } } | { JobPaused: { job_id: string; device_id: string } } | { JobResumed: { job_id: string; device_id: string } } | { IndexingStarted: { location_id: string } } | { IndexingProgress: { location_id: string; processed: number; total: number | null } } | { IndexingCompleted: { location_id: string; total_files: number; total_dirs: number } } | { IndexingFailed: { location_id: string; error: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | 
+/**
+ * A device is requesting to pair and needs user confirmation.
+ * 
+ * The UI should display a dialog showing the device info and confirmation code.
+ * User must enter the matching code to accept the pairing request.
+ */
+{ PairingConfirmationRequired: { session_id: string; device_name: string; device_os: string; 
+/**
+ * 2-digit confirmation code (00-99) that user must verify
+ */
+confirmation_code: string; 
+/**
+ * When this confirmation request expires (ISO 8601 timestamp)
+ */
+expires_at: string } } | 
+/**
+ * Pairing was rejected by the user or timed out
+ */
+{ PairingRejected: { session_id: string; reason: string } } | { SyncStateChanged: { library_id: string; previous_state: string; new_state: string; timestamp: string } } | { SyncActivity: { library_id: string; peer_device_id: string; activity_type: SyncActivityType; model_type: string | null; count: number; timestamp: string } } | { SyncConnectionChanged: { library_id: string; peer_device_id: string; peer_name: string; connected: boolean; timestamp: string } } | { SyncError: { library_id: string; peer_device_id: string | null; error_type: string; message: string; timestamp: string } } | { ResourceChanged: { 
 /**
  * Resource type identifier (e.g., "location", "tag", "album")
  */
@@ -2597,6 +2654,32 @@ export type PairCancelInput = { session_id: string };
 
 export type PairCancelOutput = { cancelled: boolean };
 
+/**
+ * Input for confirming or rejecting a pairing request
+ */
+export type PairConfirmInput = { 
+/**
+ * The session ID of the pairing request to confirm
+ */
+session_id: string; 
+/**
+ * Whether to accept (true) or reject (false) the pairing request
+ */
+accepted: boolean };
+
+/**
+ * Output from confirming a pairing request
+ */
+export type PairConfirmOutput = { 
+/**
+ * Whether the confirmation was successful
+ */
+success: boolean; 
+/**
+ * Error message if confirmation failed
+ */
+error: string | null };
+
 export type PairGenerateInput = Record<string, never>;
 
 export type PairGenerateOutput = { code: string; session_id: string; expires_at: string; 
@@ -2654,7 +2737,15 @@ isConnected: boolean;
  */
 lastSeen: string };
 
-export type PairingSessionSummary = { id: string; state: SerializablePairingState; remote_device_id: string | null; expires_at: string | null };
+export type PairingSessionSummary = { id: string; state: SerializablePairingState; remote_device_id: string | null; remote_device_name: string | null; remote_device_os: string | null; expires_at: string | null; 
+/**
+ * Confirmation code if awaiting user confirmation (initiator only)
+ */
+confirmation_code: string | null; 
+/**
+ * When the confirmation expires (initiator only)
+ */
+confirmation_expires_at: string | null };
 
 /**
  * Path mapping for resolving virtual paths to actual storage locations
@@ -3081,7 +3172,19 @@ query: string;
  */
 filters: TagSearchFilters };
 
-export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
+export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | 
+/**
+ * Awaiting user confirmation with 2-digit verification code
+ */
+{ AwaitingUserConfirmation: { confirmation_code: string; expires_at: string } } | 
+/**
+ * Legacy state - kept for backward compatibility
+ */
+"AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } } | 
+/**
+ * Pairing was rejected by the user
+ */
+{ Rejected: { reason: string } };
 
 export type ServiceState = { running: boolean; details: string | null };
 
@@ -4052,213 +4155,217 @@ success: boolean };
 // ===== API Type Unions =====
 
 export type CoreAction =
-     { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
-  |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
+     { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
+  |  { type: 'network.pair.confirm'; input: PairConfirmInput; output: PairConfirmOutput }
+  |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
-  |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
+  |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'network.start'; input: NetworkStartInput; output: NetworkStartOutput }
-  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
-  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
-  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
-  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
+  |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
   |  { type: 'network.device.revoke'; input: DeviceRevokeInput; output: DeviceRevokeOutput }
   |  { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
-  |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
   |  { type: 'core.reset'; input: ResetDataInput; output: ResetDataOutput }
-  |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
+  |  { type: 'network.pair.generate'; input: PairGenerateInput; output: PairGenerateOutput }
+  |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
+  |  { type: 'core.ephemeral_reset'; input: EphemeralCacheResetInput; output: EphemeralCacheResetOutput }
+  |  { type: 'network.spacedrop.send'; input: SpacedropSendInput; output: SpacedropSendOutput }
+  |  { type: 'network.pair.join'; input: PairJoinInput; output: PairJoinOutput }
+  |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
 ;
 
 export type LibraryAction =
-     { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
+     { type: 'media.ocr.extract'; input: ExtractTextInput; output: ExtractTextOutput }
   |  { type: 'indexing.verify'; input: IndexVerifyInput; output: IndexVerifyOutput }
-  |  { type: 'locations.export'; input: LocationExportInput; output: LocationExportOutput }
-  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
-  |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
-  |  { type: 'spaces.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
-  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
-  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
-  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
-  |  { type: 'media.thumbstrip.generate'; input: GenerateThumbstripInput; output: GenerateThumbstripOutput }
-  |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
-  |  { type: 'media.speech.transcribe'; input: TranscribeAudioInput; output: TranscribeAudioOutput }
-  |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
   |  { type: 'spaces.update'; input: SpaceUpdateInput; output: SpaceUpdateOutput }
-  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
-  |  { type: 'media.splat.generate'; input: GenerateSplatInput; output: GenerateSplatOutput }
-  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
-  |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
-  |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
-  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
+  |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
   |  { type: 'locations.enable_indexing'; input: EnableIndexingInput; output: EnableIndexingOutput }
-  |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
-  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
-  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
+  |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
   |  { type: 'spaces.delete'; input: SpaceDeleteInput; output: SpaceDeleteOutput }
-  |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
-  |  { type: 'volumes.index'; input: IndexVolumeInput; output: IndexVolumeOutput }
-  |  { type: 'media.thumbnail.regenerate'; input: RegenerateThumbnailInput; output: RegenerateThumbnailOutput }
-  |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
-  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
-  |  { type: 'volumes.track'; input: VolumeTrackInput; output: VolumeTrackOutput }
-  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
-  |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
-  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
-  |  { type: 'locations.import'; input: LocationImportInput; output: LocationImportOutput }
-  |  { type: 'media.proxy.generate'; input: GenerateProxyInput; output: GenerateProxyOutput }
-  |  { type: 'spaces.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
   |  { type: 'spaces.reorder_groups'; input: ReorderGroupsInput; output: ReorderOutput }
-  |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
-  |  { type: 'volumes.refresh'; input: VolumeRefreshInput; output: VolumeRefreshOutput }
-  |  { type: 'locations.triggerJob'; input: LocationTriggerJobInput; output: LocationTriggerJobOutput }
+  |  { type: 'spaces.reorder_items'; input: ReorderItemsInput; output: ReorderOutput }
+  |  { type: 'media.proxy.generate'; input: GenerateProxyInput; output: GenerateProxyOutput }
+  |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
+  |  { type: 'locations.import'; input: LocationImportInput; output: LocationImportOutput }
+  |  { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
+  |  { type: 'volumes.speed_test'; input: VolumeSpeedTestInput; output: VolumeSpeedTestOutput }
+  |  { type: 'spaces.delete_item'; input: DeleteItemInput; output: DeleteItemOutput }
+  |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
-  |  { type: 'media.ocr.extract'; input: ExtractTextInput; output: ExtractTextOutput }
+  |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
+  |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
+  |  { type: 'volumes.track'; input: VolumeTrackInput; output: VolumeTrackOutput }
+  |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
+  |  { type: 'media.thumbnail.regenerate'; input: RegenerateThumbnailInput; output: RegenerateThumbnailOutput }
+  |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
+  |  { type: 'media.thumbstrip.generate'; input: GenerateThumbstripInput; output: GenerateThumbstripOutput }
+  |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
+  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
+  |  { type: 'media.splat.generate'; input: GenerateSplatInput; output: GenerateSplatOutput }
+  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
+  |  { type: 'volumes.untrack'; input: VolumeUntrackInput; output: VolumeUntrackOutput }
+  |  { type: 'media.speech.transcribe'; input: TranscribeAudioInput; output: TranscribeAudioOutput }
+  |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
+  |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
+  |  { type: 'spaces.delete_group'; input: DeleteGroupInput; output: DeleteGroupOutput }
+  |  { type: 'locations.export'; input: LocationExportInput; output: LocationExportOutput }
+  |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
+  |  { type: 'locations.triggerJob'; input: LocationTriggerJobInput; output: LocationTriggerJobOutput }
+  |  { type: 'volumes.refresh'; input: VolumeRefreshInput; output: VolumeRefreshOutput }
+  |  { type: 'volumes.index'; input: IndexVolumeInput; output: IndexVolumeOutput }
+  |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
+  |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
+  |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
+  |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
+  |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
 ;
 
 export type CoreQuery =
-     { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
-  |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
-  |  { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
-  |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
-  |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
-  |  { type: 'core.status'; input: Empty; output: CoreStatus }
-  |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
+     { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
+  |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
+  |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
-  |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
+  |  { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
+  |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
+  |  { type: 'core.status'; input: Empty; output: CoreStatus }
+  |  { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
+  |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
 ;
 
 export type LibraryQuery =
-     { type: 'files.by_id'; input: FileByIdQuery; output: File }
-  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
-  |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
-  |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
+     { type: 'test.ping'; input: PingInput; output: PingOutput }
   |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayout }
-  |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
-  |  { type: 'locations.validate_path'; input: ValidateLocationPathInput; output: ValidateLocationPathOutput }
-  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
-  |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
-  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
-  |  { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
-  |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
-  |  { type: 'test.ping'; input: PingInput; output: PingOutput }
-  |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
-  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
-  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
-  |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
-  |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
+  |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
+  |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
+  |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
+  |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
+  |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
+  |  { type: 'locations.validate_path'; input: ValidateLocationPathInput; output: ValidateLocationPathOutput }
+  |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
   |  { type: 'jobs.active'; input: ActiveJobsInput; output: ActiveJobsOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
+  |  { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
+  |  { type: 'sync.activity'; input: GetSyncActivityInput; output: GetSyncActivityOutput }
+  |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
+  |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
+  |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
+  |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
+  |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
+  |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
+  |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
-  |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
 ;
 
 // ===== Wire Method Mappings =====
 
 export const WIRE_METHODS = {
   coreActions: {
-    'libraries.delete': 'action:libraries.delete.input',
-    'models.whisper.delete': 'action:models.whisper.delete.input',
-    'models.whisper.download': 'action:models.whisper.download.input',
     'libraries.create': 'action:libraries.create.input',
+    'network.pair.confirm': 'action:network.pair.confirm.input',
+    'libraries.open': 'action:libraries.open.input',
+    'models.whisper.download': 'action:models.whisper.download.input',
+    'models.whisper.delete': 'action:models.whisper.delete.input',
     'network.start': 'action:network.start.input',
-    'network.stop': 'action:network.stop.input',
-    'network.pair.join': 'action:network.pair.join.input',
-    'network.spacedrop.send': 'action:network.spacedrop.send.input',
-    'network.pair.generate': 'action:network.pair.generate.input',
+    'network.pair.cancel': 'action:network.pair.cancel.input',
     'network.device.revoke': 'action:network.device.revoke.input',
     'network.sync_setup': 'action:network.sync_setup.input',
-    'network.pair.cancel': 'action:network.pair.cancel.input',
     'core.reset': 'action:core.reset.input',
-    'libraries.open': 'action:libraries.open.input',
+    'network.pair.generate': 'action:network.pair.generate.input',
+    'network.stop': 'action:network.stop.input',
+    'core.ephemeral_reset': 'action:core.ephemeral_reset.input',
+    'network.spacedrop.send': 'action:network.spacedrop.send.input',
+    'network.pair.join': 'action:network.pair.join.input',
+    'libraries.delete': 'action:libraries.delete.input',
   },
 
   libraryActions: {
-    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
-    'indexing.verify': 'action:indexing.verify.input',
-    'locations.export': 'action:locations.export.input',
-    'jobs.cancel': 'action:jobs.cancel.input',
-    'files.delete': 'action:files.delete.input',
-    'spaces.delete_item': 'action:spaces.delete_item.input',
-    'locations.remove': 'action:locations.remove.input',
-    'spaces.delete_group': 'action:spaces.delete_group.input',
-    'volumes.speed_test': 'action:volumes.speed_test.input',
-    'media.thumbstrip.generate': 'action:media.thumbstrip.generate.input',
-    'locations.add': 'action:locations.add.input',
-    'media.speech.transcribe': 'action:media.speech.transcribe.input',
-    'spaces.update_group': 'action:spaces.update_group.input',
-    'spaces.update': 'action:spaces.update.input',
-    'spaces.add_group': 'action:spaces.add_group.input',
-    'media.splat.generate': 'action:media.splat.generate.input',
-    'tags.create': 'action:tags.create.input',
-    'locations.update': 'action:locations.update.input',
-    'jobs.pause': 'action:jobs.pause.input',
-    'libraries.export': 'action:libraries.export.input',
-    'locations.enable_indexing': 'action:locations.enable_indexing.input',
-    'files.copy': 'action:files.copy.input',
-    'tags.apply': 'action:tags.apply.input',
-    'volumes.untrack': 'action:volumes.untrack.input',
-    'spaces.delete': 'action:spaces.delete.input',
-    'spaces.add_item': 'action:spaces.add_item.input',
-    'volumes.index': 'action:volumes.index.input',
-    'media.thumbnail.regenerate': 'action:media.thumbnail.regenerate.input',
-    'media.thumbnail': 'action:media.thumbnail.input',
-    'locations.rescan': 'action:locations.rescan.input',
-    'volumes.track': 'action:volumes.track.input',
-    'spaces.create': 'action:spaces.create.input',
-    'libraries.rename': 'action:libraries.rename.input',
-    'volumes.add_cloud': 'action:volumes.add_cloud.input',
-    'locations.import': 'action:locations.import.input',
-    'media.proxy.generate': 'action:media.proxy.generate.input',
-    'spaces.reorder_items': 'action:spaces.reorder_items.input',
-    'spaces.reorder_groups': 'action:spaces.reorder_groups.input',
-    'jobs.resume': 'action:jobs.resume.input',
-    'volumes.refresh': 'action:volumes.refresh.input',
-    'locations.triggerJob': 'action:locations.triggerJob.input',
-    'indexing.start': 'action:indexing.start.input',
     'media.ocr.extract': 'action:media.ocr.extract.input',
+    'indexing.verify': 'action:indexing.verify.input',
+    'spaces.update': 'action:spaces.update.input',
+    'locations.add': 'action:locations.add.input',
+    'locations.enable_indexing': 'action:locations.enable_indexing.input',
+    'files.delete': 'action:files.delete.input',
+    'spaces.delete': 'action:spaces.delete.input',
+    'spaces.reorder_groups': 'action:spaces.reorder_groups.input',
+    'spaces.reorder_items': 'action:spaces.reorder_items.input',
+    'media.proxy.generate': 'action:media.proxy.generate.input',
+    'jobs.cancel': 'action:jobs.cancel.input',
+    'locations.import': 'action:locations.import.input',
+    'volumes.remove_cloud': 'action:volumes.remove_cloud.input',
+    'volumes.speed_test': 'action:volumes.speed_test.input',
+    'spaces.delete_item': 'action:spaces.delete_item.input',
+    'locations.update': 'action:locations.update.input',
+    'indexing.start': 'action:indexing.start.input',
+    'tags.create': 'action:tags.create.input',
+    'spaces.create': 'action:spaces.create.input',
+    'volumes.track': 'action:volumes.track.input',
+    'media.thumbnail': 'action:media.thumbnail.input',
+    'media.thumbnail.regenerate': 'action:media.thumbnail.regenerate.input',
+    'volumes.add_cloud': 'action:volumes.add_cloud.input',
+    'media.thumbstrip.generate': 'action:media.thumbstrip.generate.input',
+    'tags.apply': 'action:tags.apply.input',
+    'locations.rescan': 'action:locations.rescan.input',
+    'media.splat.generate': 'action:media.splat.generate.input',
+    'locations.remove': 'action:locations.remove.input',
+    'volumes.untrack': 'action:volumes.untrack.input',
+    'media.speech.transcribe': 'action:media.speech.transcribe.input',
+    'jobs.resume': 'action:jobs.resume.input',
+    'libraries.export': 'action:libraries.export.input',
+    'spaces.delete_group': 'action:spaces.delete_group.input',
+    'locations.export': 'action:locations.export.input',
+    'libraries.rename': 'action:libraries.rename.input',
+    'locations.triggerJob': 'action:locations.triggerJob.input',
+    'volumes.refresh': 'action:volumes.refresh.input',
+    'volumes.index': 'action:volumes.index.input',
+    'spaces.add_group': 'action:spaces.add_group.input',
+    'spaces.update_group': 'action:spaces.update_group.input',
+    'jobs.pause': 'action:jobs.pause.input',
+    'files.copy': 'action:files.copy.input',
+    'spaces.add_item': 'action:spaces.add_item.input',
   },
 
   coreQueries: {
-    'network.status': 'query:network.status',
-    'core.events.list': 'query:core.events.list',
-    'core.ephemeral_status': 'query:core.ephemeral_status',
-    'network.sync_setup.discover': 'query:network.sync_setup.discover',
     'network.pair.status': 'query:network.pair.status',
-    'core.status': 'query:core.status',
-    'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
+    'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
+    'network.sync_setup.discover': 'query:network.sync_setup.discover',
     'models.whisper.list': 'query:models.whisper.list',
-    'network.devices.list': 'query:network.devices.list',
+    'core.ephemeral_status': 'query:core.ephemeral_status',
+    'core.events.list': 'query:core.events.list',
     'libraries.list': 'query:libraries.list',
+    'core.status': 'query:core.status',
+    'network.status': 'query:network.status',
+    'network.devices.list': 'query:network.devices.list',
   },
 
   libraryQueries: {
-    'files.by_id': 'query:files.by_id',
-    'volumes.list': 'query:volumes.list',
-    'jobs.info': 'query:jobs.info',
-    'jobs.list': 'query:jobs.list',
-    'spaces.get_layout': 'query:spaces.get_layout',
-    'files.content_kind_stats': 'query:files.content_kind_stats',
-    'locations.validate_path': 'query:locations.validate_path',
-    'tags.search': 'query:tags.search',
-    'sync.eventLog': 'query:sync.eventLog',
-    'search.files': 'query:search.files',
-    'files.unique_to_location': 'query:files.unique_to_location',
-    'files.directory_listing': 'query:files.directory_listing',
     'test.ping': 'query:test.ping',
-    'locations.suggested': 'query:locations.suggested',
-    'spaces.get': 'query:spaces.get',
-    'locations.list': 'query:locations.list',
-    'files.by_path': 'query:files.by_path',
-    'sync.activity': 'query:sync.activity',
+    'spaces.get_layout': 'query:spaces.get_layout',
     'sync.metrics': 'query:sync.metrics',
+    'files.media_listing': 'query:files.media_listing',
+    'tags.search': 'query:tags.search',
+    'files.directory_listing': 'query:files.directory_listing',
+    'sync.eventLog': 'query:sync.eventLog',
+    'locations.suggested': 'query:locations.suggested',
+    'locations.validate_path': 'query:locations.validate_path',
+    'files.by_path': 'query:files.by_path',
     'jobs.active': 'query:jobs.active',
     'libraries.info': 'query:libraries.info',
+    'files.unique_to_location': 'query:files.unique_to_location',
+    'sync.activity': 'query:sync.activity',
+    'jobs.info': 'query:jobs.info',
+    'files.content_kind_stats': 'query:files.content_kind_stats',
+    'files.by_id': 'query:files.by_id',
+    'volumes.list': 'query:volumes.list',
     'devices.list': 'query:devices.list',
+    'jobs.list': 'query:jobs.list',
+    'spaces.get': 'query:spaces.get',
+    'search.files': 'query:search.files',
+    'locations.list': 'query:locations.list',
     'spaces.list': 'query:spaces.list',
-    'files.media_listing': 'query:files.media_listing',
   },
 } as const;

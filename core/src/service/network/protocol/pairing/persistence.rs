@@ -18,6 +18,12 @@ struct SerializablePairingSession {
 	pub remote_public_key: Option<Vec<u8>>,
 	pub shared_secret: Option<Vec<u8>>,
 	pub created_at: chrono::DateTime<chrono::Utc>,
+	#[serde(default)]
+	pub confirmation_code: Option<String>,
+	#[serde(default)]
+	pub confirmation_expires_at: Option<chrono::DateTime<chrono::Utc>>,
+	#[serde(default)]
+	pub pending_challenge: Option<Vec<u8>>,
 }
 
 /// Serializable version of PairingState
@@ -25,10 +31,15 @@ struct SerializablePairingSession {
 enum SerializablePairingState {
 	WaitingForConnection,
 	Scanning,
+	AwaitingUserConfirmation {
+		confirmation_code: String,
+		expires_at: chrono::DateTime<chrono::Utc>,
+	},
 	ChallengeReceived { challenge: Vec<u8> },
 	ResponseSent,
 	Completed,
 	Failed { reason: String },
+	Rejected { reason: String },
 }
 
 impl From<&PairingSession> for SerializablePairingSession {
@@ -40,6 +51,13 @@ impl From<&PairingSession> for SerializablePairingSession {
 					SerializablePairingState::WaitingForConnection
 				}
 				PairingState::Scanning => SerializablePairingState::Scanning,
+				PairingState::AwaitingUserConfirmation {
+					confirmation_code,
+					expires_at,
+				} => SerializablePairingState::AwaitingUserConfirmation {
+					confirmation_code: confirmation_code.clone(),
+					expires_at: *expires_at,
+				},
 				PairingState::ChallengeReceived { challenge } => {
 					SerializablePairingState::ChallengeReceived {
 						challenge: challenge.clone(),
@@ -48,6 +66,9 @@ impl From<&PairingSession> for SerializablePairingSession {
 				PairingState::ResponseSent => SerializablePairingState::ResponseSent,
 				PairingState::Completed => SerializablePairingState::Completed,
 				PairingState::Failed { reason } => SerializablePairingState::Failed {
+					reason: reason.clone(),
+				},
+				PairingState::Rejected { reason } => SerializablePairingState::Rejected {
 					reason: reason.clone(),
 				},
 				// Skip non-serializable states
@@ -59,6 +80,9 @@ impl From<&PairingSession> for SerializablePairingSession {
 			remote_public_key: session.remote_public_key.clone(),
 			shared_secret: session.shared_secret.clone(),
 			created_at: session.created_at,
+			confirmation_code: session.confirmation_code.clone(),
+			confirmation_expires_at: session.confirmation_expires_at,
+			pending_challenge: session.pending_challenge.clone(),
 		}
 	}
 }
@@ -72,18 +96,29 @@ impl From<SerializablePairingSession> for PairingSession {
 					PairingState::WaitingForConnection
 				}
 				SerializablePairingState::Scanning => PairingState::Scanning,
+				SerializablePairingState::AwaitingUserConfirmation {
+					confirmation_code,
+					expires_at,
+				} => PairingState::AwaitingUserConfirmation {
+					confirmation_code,
+					expires_at,
+				},
 				SerializablePairingState::ChallengeReceived { challenge } => {
 					PairingState::ChallengeReceived { challenge }
 				}
 				SerializablePairingState::ResponseSent => PairingState::ResponseSent,
 				SerializablePairingState::Completed => PairingState::Completed,
 				SerializablePairingState::Failed { reason } => PairingState::Failed { reason },
+				SerializablePairingState::Rejected { reason } => PairingState::Rejected { reason },
 			},
 			remote_device_id: serializable.remote_device_id,
 			remote_device_info: None, // Will be restored from device registry
 			remote_public_key: serializable.remote_public_key,
 			shared_secret: serializable.shared_secret,
 			created_at: serializable.created_at,
+			confirmation_code: serializable.confirmation_code,
+			confirmation_expires_at: serializable.confirmation_expires_at,
+			pending_challenge: serializable.pending_challenge,
 		}
 	}
 }
@@ -269,6 +304,9 @@ mod tests {
 			remote_public_key: None,
 			shared_secret: Some(vec![1, 2, 3, 4]),
 			created_at: chrono::Utc::now(),
+			confirmation_code: None,
+			confirmation_expires_at: None,
+			pending_challenge: None,
 		};
 		sessions.insert(session_id, session);
 
@@ -313,6 +351,9 @@ mod tests {
 				remote_public_key: None,
 				shared_secret: None,
 				created_at: chrono::Utc::now(),
+				confirmation_code: None,
+				confirmation_expires_at: None,
+				pending_challenge: None,
 			},
 		);
 

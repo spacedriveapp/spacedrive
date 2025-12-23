@@ -14,6 +14,12 @@ pub enum SerializablePairingState {
 	Connecting,
 	Authenticating,
 	ExchangingKeys,
+	/// Awaiting user confirmation with 2-digit verification code
+	AwaitingUserConfirmation {
+		confirmation_code: String,
+		expires_at: DateTime<Utc>,
+	},
+	/// Legacy state - kept for backward compatibility
 	AwaitingConfirmation,
 	EstablishingSession,
 	ChallengeReceived,
@@ -21,6 +27,8 @@ pub enum SerializablePairingState {
 	ResponseSent,
 	Completed,
 	Failed { reason: String },
+	/// Pairing was rejected by the user
+	Rejected { reason: String },
 }
 
 impl From<PairingState> for SerializablePairingState {
@@ -34,6 +42,13 @@ impl From<PairingState> for SerializablePairingState {
 			PairingState::Connecting => Self::Connecting,
 			PairingState::Authenticating => Self::Authenticating,
 			PairingState::ExchangingKeys => Self::ExchangingKeys,
+			PairingState::AwaitingUserConfirmation {
+				confirmation_code,
+				expires_at,
+			} => Self::AwaitingUserConfirmation {
+				confirmation_code,
+				expires_at,
+			},
 			PairingState::AwaitingConfirmation => Self::AwaitingConfirmation,
 			PairingState::EstablishingSession => Self::EstablishingSession,
 			PairingState::ChallengeReceived { .. } => Self::ChallengeReceived,
@@ -41,6 +56,7 @@ impl From<PairingState> for SerializablePairingState {
 			PairingState::ResponseSent => Self::ResponseSent,
 			PairingState::Completed => Self::Completed,
 			PairingState::Failed { reason } => Self::Failed { reason },
+			PairingState::Rejected { reason } => Self::Rejected { reason },
 		}
 	}
 }
@@ -50,7 +66,13 @@ pub struct PairingSessionSummary {
 	pub id: Uuid,
 	pub state: SerializablePairingState,
 	pub remote_device_id: Option<Uuid>,
-	pub expires_at: Option<DateTime<Utc>>, // optional if available
+	pub remote_device_name: Option<String>,
+	pub remote_device_os: Option<String>,
+	pub expires_at: Option<DateTime<Utc>>,
+	/// Confirmation code if awaiting user confirmation (initiator only)
+	pub confirmation_code: Option<String>,
+	/// When the confirmation expires (initiator only)
+	pub confirmation_expires_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

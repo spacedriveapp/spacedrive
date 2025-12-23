@@ -256,6 +256,26 @@ pub enum Event {
 		device_id: Uuid,
 	},
 
+	// Pairing events
+	/// A device is requesting to pair and needs user confirmation.
+	///
+	/// The UI should display a dialog showing the device info and confirmation code.
+	/// User must enter the matching code to accept the pairing request.
+	PairingConfirmationRequired {
+		session_id: Uuid,
+		device_name: String,
+		device_os: String,
+		/// 2-digit confirmation code (00-99) that user must verify
+		confirmation_code: String,
+		/// When this confirmation request expires (ISO 8601 timestamp)
+		expires_at: String,
+	},
+	/// Pairing was rejected by the user or timed out
+	PairingRejected {
+		session_id: Uuid,
+		reason: String,
+	},
+
 	// Sync events
 	SyncStateChanged {
 		library_id: Uuid,

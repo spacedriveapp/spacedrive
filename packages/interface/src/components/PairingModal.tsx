@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import {
   QrCode,
   X,
@@ -8,6 +8,8 @@ import {
   DeviceMobile,
   Copy,
   CaretDown,
+  ShieldCheck,
+  Clock,
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
@@ -21,14 +23,26 @@ interface PairingModalProps {
   mode?: "generate" | "join";
 }
 
+interface ConfirmationRequest {
+  sessionId: string;
+  deviceName: string;
+  deviceOs: string;
+  confirmationCode: string;
+  expiresAt: Date;
+}
+
 export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }: PairingModalProps) {
   const [mode, setMode] = useState<"generate" | "join">(initialMode);
   const [joinCode, setJoinCode] = useState("");
   const [joinNodeId, setJoinNodeId] = useState("");
+  const [confirmationInput, setConfirmationInput] = useState("");
+  const [confirmationRequest, setConfirmationRequest] = useState<ConfirmationRequest | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(60);
 
   const generatePairing = useCoreMutation("network.pair.generate");
   const joinPairing = useCoreMutation("network.pair.join");
   const cancelPairing = useCoreMutation("network.pair.cancel");
+  const confirmPairing = useCoreMutation("network.pair.confirm");
 
   const { data: pairingStatus, refetch: refetchStatus } = useCoreQuery({
     type: "network.pair.status",
@@ -48,6 +62,61 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
 
   const currentSession = pairingStatus?.sessions?.[0];
 
+  // Handle AwaitingUserConfirmation state
+  useEffect(() => {
+    if (currentSession?.state && typeof currentSession.state === 'object' && 'AwaitingUserConfirmation' in currentSession.state) {
+      const state = currentSession.state.AwaitingUserConfirmation;
+      setConfirmationRequest({
+        sessionId: currentSession.id,
+        deviceName: currentSession.remote_device_name || "Unknown Device",
+        deviceOs: currentSession.remote_device_os || "Unknown OS",
+        confirmationCode: state.confirmation_code,
+        expiresAt: new Date(state.expires_at),
+      });
+    } else if (currentSession?.confirmation_code && currentSession?.confirmation_expires_at) {
+      // Fallback to top-level confirmation fields
+      setConfirmationRequest({
+        sessionId: currentSession.id,
+        deviceName: currentSession.remote_device_name || "Unknown Device",
+        deviceOs: currentSession.remote_device_os || "Unknown OS",
+        confirmationCode: currentSession.confirmation_code,
+        expiresAt: new Date(currentSession.confirmation_expires_at),
+      });
+    } else {
+      setConfirmationRequest(null);
+      setConfirmationInput("");
+    }
+  }, [currentSession]);
+
+  // Countdown timer for confirmation
+  useEffect(() => {
+    if (!confirmationRequest) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      const remaining = Math.max(0, Math.floor((confirmationRequest.expiresAt.getTime() - now.getTime()) / 1000));
+      setTimeRemaining(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [confirmationRequest]);
+
+  const handleConfirmPairing = useCallback((accepted: boolean) => {
+    if (!confirmationRequest) return;
+    confirmPairing.mutate({
+      session_id: confirmationRequest.sessionId,
+      accepted,
+    });
+    if (!accepted) {
+      setConfirmationRequest(null);
+      setConfirmationInput("");
+    }
+  }, [confirmationRequest, confirmPairing]);
+
+  const isCodeMatching = confirmationInput === confirmationRequest?.confirmationCode;
+
   const handleGenerate = () => {
     generatePairing.mutate({});
   };
@@ -66,8 +135,11 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
     }
     generatePairing.reset();
     joinPairing.reset();
+    confirmPairing.reset();
     setJoinCode("");
     setJoinNodeId("");
+    setConfirmationRequest(null);
+    setConfirmationInput("");
   };
 
   const handleClose = () => {
@@ -161,7 +233,21 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
 
           {/* Content */}
           <div className="p-6 space-y-6">
-            {mode === "generate" ? (
+            {/* User Confirmation Dialog */}
+            {confirmationRequest && (
+              <ConfirmationMode
+                request={confirmationRequest}
+                confirmationInput={confirmationInput}
+                setConfirmationInput={setConfirmationInput}
+                timeRemaining={timeRemaining}
+                isCodeMatching={isCodeMatching}
+                onConfirm={handleConfirmPairing}
+                isPending={confirmPairing.isPending}
+              />
+            )}
+
+            {/* Normal pairing modes - only show if not awaiting confirmation */}
+            {!confirmationRequest && mode === "generate" ? (
               <GenerateMode
                 generatePairing={generatePairing}
                 currentSession={currentSession}
@@ -169,7 +255,7 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
                 onCancel={handleCancel}
                 onCopyCode={copyCode}
               />
-            ) : (
+            ) : !confirmationRequest && (
               <JoinMode
                 joinCode={joinCode}
                 setJoinCode={setJoinCode}
@@ -202,6 +288,127 @@ export function PairingModal({ isOpen, onClose, mode: initialMode = "generate" }
         </motion.div>
       </div>
     </AnimatePresence>
+  );
+}
+
+function ConfirmationMode({
+  request,
+  confirmationInput,
+  setConfirmationInput,
+  timeRemaining,
+  isCodeMatching,
+  onConfirm,
+  isPending,
+}: {
+  request: ConfirmationRequest;
+  confirmationInput: string;
+  setConfirmationInput: (value: string) => void;
+  timeRemaining: number;
+  isCodeMatching: boolean;
+  onConfirm: (accepted: boolean) => void;
+  isPending: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="space-y-6">
+      {/* Security Warning */}
+      <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-lg">
+        <ShieldCheck className="size-6 text-amber-500 shrink-0 mt-0.5" weight="bold" />
+        <div className="flex-1">
+          <h3 className="text-sm font-medium text-amber-500">Pairing Request</h3>
+          <p className="text-xs text-ink-dull mt-1">
+            A device wants to pair with you. Verify the code matches before accepting.
+          </p>
+        </div>
+      </div>
+
+      {/* Device Info */}
+      <div className="p-4 bg-sidebar-box/40 rounded-lg border border-sidebar-line">
+        <div className="flex items-center gap-3">
+          <div className="size-12 rounded-full bg-accent/10 flex items-center justify-center">
+            <DeviceMobile className="size-6 text-accent" weight="bold" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-ink">{request.deviceName}</p>
+            <p className="text-xs text-ink-dull">{request.deviceOs}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Code Display */}
+      <div className="text-center space-y-3">
+        <p className="text-sm text-ink-dull">Enter this code to confirm:</p>
+        <div className="inline-flex items-center justify-center px-8 py-4 bg-accent/10 border border-accent/30 rounded-xl">
+          <span className="text-4xl font-bold text-accent tracking-[0.5em] font-mono">
+            {request.confirmationCode}
+          </span>
+        </div>
+      </div>
+
+      {/* Code Input */}
+      <div>
+        <label className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2 block">
+          Enter Confirmation Code
+        </label>
+        <input
+          ref={inputRef}
+          type="text"
+          value={confirmationInput}
+          onChange={(e) => setConfirmationInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+          placeholder="00"
+          maxLength={2}
+          disabled={isPending}
+          className={clsx(
+            "w-full px-4 py-3 text-center text-2xl font-mono font-bold bg-sidebar-box border rounded-lg transition-colors focus:outline-none focus:ring-2",
+            isCodeMatching
+              ? "border-accent/50 focus:ring-accent/50 text-accent"
+              : confirmationInput.length === 2
+              ? "border-red-500/50 focus:ring-red-500/50 text-red-500"
+              : "border-sidebar-line focus:ring-accent/50 text-ink"
+          )}
+        />
+        {confirmationInput.length === 2 && !isCodeMatching && (
+          <p className="text-xs text-red-500 mt-2 text-center">Code does not match</p>
+        )}
+      </div>
+
+      {/* Timer */}
+      <div className="flex items-center justify-center gap-2 text-sm text-ink-dull">
+        <Clock className="size-4" weight="bold" />
+        <span>
+          Expires in {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}
+        </span>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={() => onConfirm(false)}
+          disabled={isPending}
+          className="flex-1 px-4 py-2.5 text-sm font-medium text-ink-dull hover:text-ink bg-app-box hover:bg-app-hover border border-app-line rounded-lg transition-colors disabled:opacity-50"
+        >
+          Reject
+        </button>
+        <button
+          onClick={() => onConfirm(true)}
+          disabled={!isCodeMatching || isPending}
+          className={clsx(
+            "flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-colors",
+            isCodeMatching && !isPending
+              ? "bg-accent hover:bg-accent/90 text-white"
+              : "bg-accent/50 text-white/70 cursor-not-allowed"
+          )}
+        >
+          {isPending && <ArrowsClockwise className="size-5 animate-spin" weight="bold" />}
+          {isPending ? "Confirming..." : "Accept"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -322,6 +529,8 @@ function GenerateMode({
                   ? "Authenticating device..."
                   : state === "ExchangingKeys"
                   ? "Exchanging encryption keys..."
+                  : typeof state === 'object' && 'AwaitingUserConfirmation' in state
+                  ? "Awaiting user confirmation..."
                   : "Ready to pair"}
               </span>
             </div>

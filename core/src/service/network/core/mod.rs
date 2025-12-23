@@ -49,11 +49,29 @@ pub enum NetworkEvent {
 		node_addr: NodeAddr,
 		device_info: DeviceInfo,
 	},
+	/// A device is requesting to pair and needs user confirmation.
+	///
+	/// The UI should display a dialog showing the device info and confirmation code.
+	/// User must enter the matching code to accept the pairing request.
+	PairingConfirmationRequired {
+		session_id: Uuid,
+		device_name: String,
+		device_os: String,
+		/// 2-digit confirmation code (00-99) that user must verify
+		confirmation_code: String,
+		/// When this confirmation request expires
+		expires_at: chrono::DateTime<chrono::Utc>,
+	},
 	PairingCompleted {
 		device_id: Uuid,
 		device_info: DeviceInfo,
 	},
 	PairingFailed {
+		session_id: Uuid,
+		reason: String,
+	},
+	/// Pairing was rejected by the user or timed out
+	PairingRejected {
 		session_id: Uuid,
 		reason: String,
 	},
@@ -796,6 +814,13 @@ impl NetworkingService {
 	/// Can be called multiple times to create multiple subscribers.
 	pub fn subscribe_events(&self) -> broadcast::Receiver<NetworkEvent> {
 		self.event_sender.subscribe()
+	}
+
+	/// Get the event sender for broadcasting network events
+	///
+	/// Used by protocol handlers to emit events like PairingConfirmationRequired.
+	pub fn event_sender(&self) -> broadcast::Sender<NetworkEvent> {
+		self.event_sender.clone()
 	}
 
 	/// Get our network identity

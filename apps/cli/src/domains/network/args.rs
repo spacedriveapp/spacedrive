@@ -5,7 +5,9 @@ use sd_core::{
 	domain::addressing::SdPath,
 	ops::network::{
 		pair::{
-			cancel::input::PairCancelInput, generate::input::PairGenerateInput,
+			cancel::input::PairCancelInput,
+			confirm::input::PairConfirmInput,
+			generate::input::PairGenerateInput,
 			join::input::PairJoinInput,
 		},
 		revoke::input::DeviceRevokeInput,
@@ -29,6 +31,17 @@ pub enum PairCmd {
 	Status,
 	/// Cancel a pairing session
 	Cancel { session_id: Uuid },
+	/// Confirm a pairing request
+	Confirm {
+		/// Session ID of the pairing request
+		session_id: Uuid,
+		/// Accept the pairing request
+		#[arg(long, conflicts_with = "reject")]
+		accept: bool,
+		/// Reject the pairing request
+		#[arg(long, conflicts_with = "accept")]
+		reject: bool,
+	},
 }
 
 impl PairCmd {
@@ -77,6 +90,24 @@ impl PairCmd {
 			Self::Cancel { session_id } => Some(PairCancelInput {
 				session_id: *session_id,
 			}),
+			_ => None,
+		}
+	}
+
+	pub fn to_confirm_input(&self) -> Option<PairConfirmInput> {
+		match self {
+			Self::Confirm {
+				session_id,
+				accept,
+				reject,
+			} => {
+				// Default to accept if neither flag specified
+				let accepted = if *reject { false } else { *accept || true };
+				Some(PairConfirmInput {
+					session_id: *session_id,
+					accepted,
+				})
+			}
 			_ => None,
 		}
 	}

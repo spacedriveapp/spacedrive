@@ -439,5 +439,22 @@ fn summarize_event(event: &Event) -> String {
 		Event::Custom { event_type, data } => {
 			format!("Custom event: {} - {:?}", event_type, data)
 		}
+
+		// Pairing events
+		Event::PairingConfirmationRequired {
+			session_id,
+			device_name,
+			device_os,
+			confirmation_code,
+			expires_at,
+		} => {
+			format!(
+				"Pairing confirmation required: '{}' ({}) wants to pair. Code: {} (expires: {})",
+				device_name, device_os, confirmation_code, expires_at
+			)
+		}
+		Event::PairingRejected { session_id, reason } => {
+			format!("Pairing rejected for session {}: {}", session_id, reason)
+		}
 	}
 }
