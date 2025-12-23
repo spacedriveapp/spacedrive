@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, RefObject } from 'react';
+import { useState, useCallback, useEffect, RefObject } from "react";
 
 interface UseZoomPanOptions {
 	minZoom?: number;
@@ -8,9 +8,9 @@ interface UseZoomPanOptions {
 
 export function useZoomPan(
 	containerRef: RefObject<HTMLElement>,
-	options: UseZoomPanOptions = {}
+	options: UseZoomPanOptions = {},
 ) {
-	const { minZoom = 1, maxZoom = 5, zoomStep = 0.2 } = options;
+	const { minZoom = 1, maxZoom = 5, zoomStep = 0.1 } = options;
 
 	const [zoom, setZoom] = useState(1);
 	const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -46,17 +46,25 @@ export function useZoomPan(
 
 		const handleWheel = (e: WheelEvent) => {
 			// Only zoom if not scrolling controls or other UI
-			if ((e.target as HTMLElement).closest('input, button, [role="slider"]')) {
+			if (
+				(e.target as HTMLElement).closest(
+					'input, button, [role="slider"]',
+				)
+			) {
 				return;
 			}
 
 			e.preventDefault();
 
-			const delta = -e.deltaY;
-			const zoomChange = delta > 0 ? zoomStep : -zoomStep;
+			// Scale the wheel delta proportionally (typical deltaY is ~100 per notch)
+			// Divide by 500 for responsive zoom: 100 deltaY = 0.2 zoom change
+			const zoomChange = -e.deltaY / 500;
 
 			setZoom((z) => {
-				const newZoom = Math.max(minZoom, Math.min(maxZoom, z + zoomChange));
+				const newZoom = Math.max(
+					minZoom,
+					Math.min(maxZoom, z + zoomChange),
+				);
 				// Reset pan when zooming back to 1x
 				if (newZoom === 1) {
 					setPan({ x: 0, y: 0 });
@@ -65,9 +73,9 @@ export function useZoomPan(
 			});
 		};
 
-		container.addEventListener('wheel', handleWheel, { passive: false });
-		return () => container.removeEventListener('wheel', handleWheel);
-	}, [containerRef, minZoom, maxZoom, zoomStep]);
+		container.addEventListener("wheel", handleWheel, { passive: false });
+		return () => container.removeEventListener("wheel", handleWheel);
+	}, [containerRef, minZoom, maxZoom]);
 
 	// Pan with mouse drag (only when zoomed in)
 	useEffect(() => {
@@ -76,13 +84,17 @@ export function useZoomPan(
 
 		const handleMouseDown = (e: MouseEvent) => {
 			// Don't pan if clicking on controls
-			if ((e.target as HTMLElement).closest('button, input, [role="slider"]')) {
+			if (
+				(e.target as HTMLElement).closest(
+					'button, input, [role="slider"]',
+				)
+			) {
 				return;
 			}
 
 			setIsDragging(true);
 			setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
-			container.style.cursor = 'grabbing';
+			container.style.cursor = "grabbing";
 		};
 
 		const handleMouseMove = (e: MouseEvent) => {
@@ -90,31 +102,31 @@ export function useZoomPan(
 
 			setPan({
 				x: e.clientX - dragStart.x,
-				y: e.clientY - dragStart.y
+				y: e.clientY - dragStart.y,
 			});
 		};
 
 		const handleMouseUp = () => {
 			setIsDragging(false);
 			if (zoom > 1) {
-				container.style.cursor = 'grab';
+				container.style.cursor = "grab";
 			} else {
-				container.style.cursor = 'default';
+				container.style.cursor = "default";
 			}
 		};
 
-		container.addEventListener('mousedown', handleMouseDown);
-		window.addEventListener('mousemove', handleMouseMove);
-		window.addEventListener('mouseup', handleMouseUp);
+		container.addEventListener("mousedown", handleMouseDown);
+		window.addEventListener("mousemove", handleMouseMove);
+		window.addEventListener("mouseup", handleMouseUp);
 
 		// Set cursor
-		container.style.cursor = zoom > 1 ? 'grab' : 'default';
+		container.style.cursor = zoom > 1 ? "grab" : "default";
 
 		return () => {
-			container.removeEventListener('mousedown', handleMouseDown);
-			window.removeEventListener('mousemove', handleMouseMove);
-			window.removeEventListener('mouseup', handleMouseUp);
-			container.style.cursor = 'default';
+			container.removeEventListener("mousedown", handleMouseDown);
+			window.removeEventListener("mousemove", handleMouseMove);
+			window.removeEventListener("mouseup", handleMouseUp);
+			container.style.cursor = "default";
 		};
 	}, [containerRef, zoom, pan, isDragging, dragStart]);
 
@@ -122,24 +134,24 @@ export function useZoomPan(
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Don't interfere with inputs
-			if ((e.target as HTMLElement).tagName === 'INPUT') {
+			if ((e.target as HTMLElement).tagName === "INPUT") {
 				return;
 			}
 
-			if (e.key === '=' || e.key === '+') {
+			if (e.key === "=" || e.key === "+") {
 				e.preventDefault();
 				zoomIn();
-			} else if (e.key === '-' || e.key === '_') {
+			} else if (e.key === "-" || e.key === "_") {
 				e.preventDefault();
 				zoomOut();
-			} else if (e.key === '0') {
+			} else if (e.key === "0") {
 				e.preventDefault();
 				reset();
 			}
 		};
 
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [zoomIn, zoomOut, reset]);
 
 	return {
@@ -151,7 +163,7 @@ export function useZoomPan(
 		isZoomed: zoom > 1,
 		transform: {
 			transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
-			transition: isDragging ? 'none' : 'transform 0.1s ease-out'
-		}
+			transition: isDragging ? "none" : "transform 0.05s ease-out",
+		},
 	};
 }

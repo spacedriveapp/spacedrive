@@ -10,6 +10,7 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
+use tracing::warn;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -65,8 +66,7 @@ impl LibraryAction for JobCancelAction {
 				success: true,
 			}),
 			Err(e) => {
-				// Return success=false instead of error for better UX
-				eprintln!("Failed to cancel job: {}", e);
+				warn!("Failed to cancel job {}: {}", self.input.job_id, e);
 				Ok(JobCancelOutput {
 					job_id: self.input.job_id,
 					success: false,

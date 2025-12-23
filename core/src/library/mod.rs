@@ -1447,8 +1447,8 @@ impl Library {
 					UPDATE content_kinds
 					SET file_count = (
 						SELECT COUNT(*)
-						FROM content_identity
-						WHERE content_identity.kind_id = content_kinds.id
+						FROM content_identities
+						WHERE content_identities.kind_id = content_kinds.id
 					)
 				"#
 				.to_owned(),

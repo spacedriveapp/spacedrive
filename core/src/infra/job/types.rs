@@ -165,7 +165,8 @@ pub struct JobInfo {
 	pub device_id: Uuid, // Device running this job
 	pub status: JobStatus,
 	pub progress: f32,
-	pub started_at: chrono::DateTime<chrono::Utc>,
+	pub created_at: chrono::DateTime<chrono::Utc>,
+	pub started_at: Option<chrono::DateTime<chrono::Utc>>,
 	pub completed_at: Option<chrono::DateTime<chrono::Utc>>,
 	pub error_message: Option<String>,
 	pub parent_job_id: Option<Uuid>,

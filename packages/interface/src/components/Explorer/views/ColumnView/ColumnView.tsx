@@ -9,7 +9,7 @@ import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
 
 export function ColumnView() {
-	const { currentPath, setCurrentPath, sortBy, viewSettings } = useExplorer();
+	const { currentPath, navigateToPath, sortBy, viewSettings } = useExplorer();
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 	const {
 		selectedFiles,
@@ -53,7 +53,7 @@ export function ColumnView() {
 			if (!multi && !range) {
 				if (file.kind === "Directory") {
 					// Truncate columns after current and add new one
-					// DON'T call setCurrentPath - columnStack manages internal navigation
+					// DON'T call navigateToPath - columnStack manages internal navigation
 					// This prevents ExplorerLayout from re-rendering on every column change
 					setColumnStack((prev) => [
 						...prev.slice(0, columnIndex + 1),
@@ -70,9 +70,9 @@ export function ColumnView() {
 
 	const handleNavigate = useCallback(
 		(path: SdPath) => {
-			setCurrentPath(path);
+			navigateToPath(path);
 		},
-		[setCurrentPath],
+		[navigateToPath],
 	);
 
 	// Find the active column (the one containing the first selected file)
@@ -144,96 +144,105 @@ export function ColumnView() {
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
 			// Handle arrow keys
-			if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+			if (
+				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+					e.key,
+				)
+			) {
 				e.preventDefault();
 
 				if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-				// Navigate within current column
-				if (activeColumnFiles.length === 0) return;
+					// Navigate within current column
+					if (activeColumnFiles.length === 0) return;
 
-				const currentIndex =
-					selectedFiles.length > 0
-						? activeColumnFiles.findIndex(
-								(f) => f.id === selectedFiles[0].id,
-							)
-						: -1;
-
-				const newIndex =
-					e.key === "ArrowDown"
-						? currentIndex < 0
-							? 0
-							: Math.min(
-									currentIndex + 1,
-									activeColumnFiles.length - 1,
+					const currentIndex =
+						selectedFiles.length > 0
+							? activeColumnFiles.findIndex(
+									(f) => f.id === selectedFiles[0].id,
 								)
-						: currentIndex < 0
-							? 0
-							: Math.max(currentIndex - 1, 0);
+							: -1;
 
-				if (newIndex !== currentIndex && activeColumnFiles[newIndex]) {
-					const newFile = activeColumnFiles[newIndex];
-					handleSelectFile(
-						newFile,
-						activeColumnIndex,
-						activeColumnFiles,
-					);
+					const newIndex =
+						e.key === "ArrowDown"
+							? currentIndex < 0
+								? 0
+								: Math.min(
+										currentIndex + 1,
+										activeColumnFiles.length - 1,
+									)
+							: currentIndex < 0
+								? 0
+								: Math.max(currentIndex - 1, 0);
 
-					// Scroll to keep selection visible
-					const element = document.querySelector(
-						`[data-file-id="${newFile.id}"]`,
-					);
-					if (element) {
-						element.scrollIntoView({
-							block: "nearest",
-							behavior: "smooth",
-						});
-					}
-				}
-			} else if (e.key === "ArrowLeft") {
-				// Move to previous column
-				if (activeColumnIndex > 0) {
-					// Truncate columns and stay at previous column
-					// DON'T call setCurrentPath - columnStack manages internal navigation
-					setColumnStack((prev) => prev.slice(0, activeColumnIndex));
-					clearSelectionRef.current();
-				}
-			} else if (e.key === "ArrowRight") {
-				// If selected file is a directory and there's a next column, move focus there
-				const firstSelected = selectedFiles[0];
-				if (
-					firstSelected?.kind === "Directory" &&
-					activeColumnIndex < columnStack.length - 1
-				) {
-					// Select first item in next column
-					if (nextColumnFiles.length > 0) {
-						const firstFile = nextColumnFiles[0];
+					if (
+						newIndex !== currentIndex &&
+						activeColumnFiles[newIndex]
+					) {
+						const newFile = activeColumnFiles[newIndex];
 						handleSelectFile(
-							firstFile,
-							activeColumnIndex + 1,
-							nextColumnFiles,
+							newFile,
+							activeColumnIndex,
+							activeColumnFiles,
 						);
 
 						// Scroll to keep selection visible
-						setTimeout(() => {
-							const element = document.querySelector(
-								`[data-file-id="${firstFile.id}"]`,
+						const element = document.querySelector(
+							`[data-file-id="${newFile.id}"]`,
+						);
+						if (element) {
+							element.scrollIntoView({
+								block: "nearest",
+								behavior: "smooth",
+							});
+						}
+					}
+				} else if (e.key === "ArrowLeft") {
+					// Move to previous column
+					if (activeColumnIndex > 0) {
+						// Truncate columns and stay at previous column
+						// DON'T call navigateToPath - columnStack manages internal navigation
+						setColumnStack((prev) =>
+							prev.slice(0, activeColumnIndex),
+						);
+						clearSelectionRef.current();
+					}
+				} else if (e.key === "ArrowRight") {
+					// If selected file is a directory and there's a next column, move focus there
+					const firstSelected = selectedFiles[0];
+					if (
+						firstSelected?.kind === "Directory" &&
+						activeColumnIndex < columnStack.length - 1
+					) {
+						// Select first item in next column
+						if (nextColumnFiles.length > 0) {
+							const firstFile = nextColumnFiles[0];
+							handleSelectFile(
+								firstFile,
+								activeColumnIndex + 1,
+								nextColumnFiles,
 							);
-							if (element) {
-								element.scrollIntoView({
-									block: "nearest",
-									behavior: "smooth",
-								});
-							}
-						}, 0);
+
+							// Scroll to keep selection visible
+							setTimeout(() => {
+								const element = document.querySelector(
+									`[data-file-id="${firstFile.id}"]`,
+								);
+								if (element) {
+									element.scrollIntoView({
+										block: "nearest",
+										behavior: "smooth",
+									});
+								}
+							}, 0);
+						}
 					}
 				}
+				return;
 			}
-			return;
-		}
 
-		// Typeahead search for active column
-		typeahead.handleKey(e);
-	};
+			// Typeahead search for active column
+			typeahead.handleKey(e);
+		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => {

@@ -18,6 +18,7 @@ import {
 	Cube,
 } from "@phosphor-icons/react";
 import { VideoPlayer } from "./VideoPlayer";
+import type { VideoControlsState, VideoControlsCallbacks } from "./VideoControls";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
 import { TextViewer } from "./TextViewer";
@@ -37,6 +38,9 @@ const MeshViewerUI = lazy(() =>
 interface ContentRendererProps {
 	file: File;
 	onZoomChange?: (isZoomed: boolean) => void;
+	onVideoControlsStateChange?: (state: VideoControlsState) => void;
+	onShowVideoControlsChange?: (show: boolean) => void;
+	getVideoCallbacks?: (callbacks: VideoControlsCallbacks) => void;
 }
 
 function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
@@ -388,7 +392,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	);
 }
 
-function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
+function VideoRenderer({ file, onZoomChange, onVideoControlsStateChange, onShowVideoControlsChange, getVideoCallbacks }: ContentRendererProps) {
 	const platform = usePlatform();
 	const [videoUrl, setVideoUrl] = useState<string | null>(null);
 	const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
@@ -444,7 +448,14 @@ function VideoRenderer({ file, onZoomChange }: ContentRendererProps) {
 	}
 
 	return (
-		<VideoPlayer src={videoUrl} file={file} onZoomChange={onZoomChange} />
+		<VideoPlayer
+			src={videoUrl}
+			file={file}
+			onZoomChange={onZoomChange}
+			onControlsStateChange={onVideoControlsStateChange}
+			onShowControlsChange={onShowVideoControlsChange}
+			getCallbacks={getVideoCallbacks}
+		/>
 	);
 }
 
@@ -614,7 +625,7 @@ function DefaultRenderer({ file }: ContentRendererProps) {
 	);
 }
 
-export function ContentRenderer({ file, onZoomChange }: ContentRendererProps) {
+export function ContentRenderer({ file, onZoomChange, onVideoControlsStateChange, onShowVideoControlsChange, getVideoCallbacks }: ContentRendererProps) {
 	// Handle directories first
 	if (file.kind.type === "Directory") {
 		return (
@@ -639,7 +650,7 @@ export function ContentRenderer({ file, onZoomChange }: ContentRendererProps) {
 		case "image":
 			return <ImageRenderer file={file} onZoomChange={onZoomChange} />;
 		case "video":
-			return <VideoRenderer file={file} onZoomChange={onZoomChange} />;
+			return <VideoRenderer file={file} onZoomChange={onZoomChange} onVideoControlsStateChange={onVideoControlsStateChange} onShowVideoControlsChange={onShowVideoControlsChange} getVideoCallbacks={getVideoCallbacks} />;
 		case "audio":
 			return <AudioRenderer file={file} />;
 		case "mesh":

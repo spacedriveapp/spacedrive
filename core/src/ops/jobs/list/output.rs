@@ -1,4 +1,5 @@
 use crate::infra::job::types::ActionContextInfo;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
@@ -12,6 +13,9 @@ pub struct JobListItem {
 	pub progress: f32,
 	pub action_type: Option<String>,
 	pub action_context: Option<ActionContextInfo>,
+	pub created_at: DateTime<Utc>,
+	pub started_at: Option<DateTime<Utc>>,
+	pub completed_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
