@@ -69,6 +69,7 @@ impl TestConfigBuilder {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
 				fs_watcher_enabled: false,
+				statistics_listener_enabled: false,
 			},
 		};
 
@@ -152,7 +153,16 @@ pub async fn register_device(
 		last_sync_at: Set(None),
 	};
 
-	device_model.insert(library.db().conn()).await?;
+	// Check if device already exists
+	let existing = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(device_id))
+		.one(library.db().conn())
+		.await?;
+
+	if existing.is_none() {
+		device_model.insert(library.db().conn()).await?;
+	}
+
 	Ok(())
 }
 

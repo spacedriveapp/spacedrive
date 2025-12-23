@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
 import { usePlatform } from "../../platform";
 import type { File } from "@sd/ts-client";
+import { useClipboard } from "../../hooks/useClipboard";
 
 interface SelectionContextValue {
   selectedFiles: File[];
@@ -19,6 +20,7 @@ const SelectionContext = createContext<SelectionContextValue | null>(null);
 
 export function SelectionProvider({ children }: { children: ReactNode }) {
   const platform = usePlatform();
+  const clipboard = useClipboard();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
@@ -34,10 +36,11 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     }
   }, [selectedFiles, platform]);
 
-  // Update native menu items based on selection
+  // Update native menu items based on selection and clipboard state
   useEffect(() => {
     const hasSelection = selectedFiles.length > 0;
     const isSingleSelection = selectedFiles.length === 1;
+    const hasClipboard = clipboard.hasClipboard();
 
     platform.updateMenuItems?.([
       { id: "copy", enabled: hasSelection },
@@ -45,9 +48,9 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
       { id: "duplicate", enabled: hasSelection },
       { id: "rename", enabled: isSingleSelection },
       { id: "delete", enabled: hasSelection },
-      { id: "paste", enabled: true },
+      { id: "paste", enabled: hasClipboard },
     ]);
-  }, [selectedFiles, platform]);
+  }, [selectedFiles, clipboard, platform]);
 
   const clearSelection = useCallback(() => {
     setSelectedFiles([]);

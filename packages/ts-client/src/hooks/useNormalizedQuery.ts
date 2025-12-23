@@ -173,18 +173,18 @@ export function useNormalizedQuery<I, O>(
 
 		const handleEvent = (event: Event) => {
 			// Debug: log every batch event to understand what's happening
-			// if (typeof event !== "string" && "ResourceChangedBatch" in event) {
-			//   const batch = (event as any).ResourceChangedBatch;
-			//   console.log("[useNormalizedQuery] Batch event received", {
-			//     capturedPath: capturedPathScope,
-			//     currentRefPath: optionsRef.current.pathScope,
-			//     pathsMatch:
-			//       JSON.stringify(optionsRef.current.pathScope) ===
-			//       JSON.stringify(capturedPathScope),
-			//     resourceCount: batch.resources?.length || 0,
-			//     resourceType: batch.resource_type,
-			//   });
-			// }
+			if (typeof event !== "string" && "ResourceChangedBatch" in event) {
+				const batch = (event as any).ResourceChangedBatch;
+				console.log("[useNormalizedQuery] Batch event received", {
+					capturedPath: capturedPathScope,
+					currentRefPath: optionsRef.current.pathScope,
+					pathsMatch:
+						JSON.stringify(optionsRef.current.pathScope) ===
+						JSON.stringify(capturedPathScope),
+					resourceCount: batch.resources?.length || 0,
+					resourceType: batch.resource_type,
+				});
+			}
 
 			// Guard: only process events if pathScope hasn't changed since subscription
 			if (

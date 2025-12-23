@@ -50,6 +50,14 @@ pub struct ServiceConfig {
 
 	/// Whether filesystem watcher is enabled
 	pub fs_watcher_enabled: bool,
+
+	/// Whether statistics listener is enabled
+	#[serde(default = "default_true")]
+	pub statistics_listener_enabled: bool,
+}
+
+fn default_true() -> bool {
+	true
 }
 
 impl Default for ServiceConfig {
@@ -58,6 +66,7 @@ impl Default for ServiceConfig {
 			networking_enabled: true,
 			volume_monitoring_enabled: true,
 			fs_watcher_enabled: true,
+			statistics_listener_enabled: true,
 		}
 	}
 }

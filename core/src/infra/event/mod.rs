@@ -133,6 +133,7 @@ pub enum Event {
 	Refresh,
 
 	// Entry events (file/directory operations)
+	// DEPRECATED: Use ResourceChanged instead
 	EntryCreated {
 		library_id: Uuid,
 		entry_id: Uuid,

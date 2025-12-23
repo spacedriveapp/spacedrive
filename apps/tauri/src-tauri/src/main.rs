@@ -1533,14 +1533,32 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.item(&delete_item)
 		.build()?;
 
-	// Edit menu with native clipboard operations
+	// Edit menu with custom file operations and text operations
+	let cut_item = MenuItemBuilder::with_id("cut", "Cut")
+		.accelerator("Cmd+X")
+		.enabled(false)
+		.build(app)?;
+	menu_items_map.insert("cut".to_string(), cut_item.clone());
+
+	let copy_item = MenuItemBuilder::with_id("copy", "Copy")
+		.accelerator("Cmd+C")
+		.enabled(false)
+		.build(app)?;
+	menu_items_map.insert("copy".to_string(), copy_item.clone());
+
+	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
+		.accelerator("Cmd+V")
+		.enabled(false)
+		.build(app)?;
+	menu_items_map.insert("paste".to_string(), paste_item.clone());
+
 	let edit_menu = SubmenuBuilder::new(app, "Edit")
 		.item(&PredefinedMenuItem::undo(app, None)?)
 		.item(&PredefinedMenuItem::redo(app, None)?)
 		.separator()
-		.item(&PredefinedMenuItem::cut(app, None)?)
-		.item(&PredefinedMenuItem::copy(app, None)?)
-		.item(&PredefinedMenuItem::paste(app, None)?)
+		.item(&cut_item)
+		.item(&copy_item)
+		.item(&paste_item)
 		.item(&PredefinedMenuItem::select_all(app, None)?)
 		.build()?;
 
@@ -1738,6 +1756,11 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}
 			}
+			// Edit menu clipboard actions - trigger keybind handlers
+			"cut" | "copy" | "paste" => {
+				let keybind_id = format!("explorer.{}", event_id);
+				keybinds::emit_keybind_triggered(&app_handle, &keybind_id);
+			}
 			_ => {}
 		}
 	});
@@ -1912,10 +1935,10 @@ fn main() {
 				subscription_manager: SubscriptionManager::new(),
 			};
 
-		app.manage(daemon_state.clone());
-		app.manage(app_state);
-		app.manage(drag::DragCoordinator::new());
-		app.manage(keybinds::KeybindState::new());
+			app.manage(daemon_state.clone());
+			app.manage(app_state);
+			app.manage(drag::DragCoordinator::new());
+			app.manage(keybinds::KeybindState::new());
 
 			let _handle = app.handle().clone();
 

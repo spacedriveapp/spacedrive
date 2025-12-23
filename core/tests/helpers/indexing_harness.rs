@@ -22,7 +22,6 @@ use uuid::Uuid;
 /// Builder for creating indexing test harness
 pub struct IndexingHarnessBuilder {
 	test_name: String,
-	temp_dir: Option<TempDir>,
 }
 
 impl IndexingHarnessBuilder {
@@ -30,23 +29,33 @@ impl IndexingHarnessBuilder {
 	pub fn new(test_name: impl Into<String>) -> Self {
 		Self {
 			test_name: test_name.into(),
-			temp_dir: None,
 		}
 	}
 
 	/// Build the harness
 	pub async fn build(mut self) -> anyhow::Result<IndexingHarness> {
-		let temp_dir = TempDir::new()?;
-		let snapshot_dir = temp_dir.path().join("snapshots");
+		// Use home directory for proper filesystem watcher support on macOS
+		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+		let test_root = PathBuf::from(home).join(format!(".spacedrive_test_{}", self.test_name));
+
+		// Clean up any existing test directory
+		let _ = tokio::fs::remove_dir_all(&test_root).await;
+		tokio::fs::create_dir_all(&test_root).await?;
+
+		let snapshot_dir = test_root.join("snapshots");
 		tokio::fs::create_dir_all(&snapshot_dir).await?;
 
 		// Initialize tracing
 		init_test_tracing(&self.test_name, &snapshot_dir)?;
 
-		// Create config
-		let config = TestConfigBuilder::new(temp_dir.path().to_path_buf())
+		// Create config with watcher ENABLED (unlike sync tests which disable it)
+		let mut config = TestConfigBuilder::new(test_root.clone())
 			.build()
 			.context("Failed to create test config")?;
+
+		// Enable filesystem watcher for change detection tests
+		config.services.fs_watcher_enabled = true;
+		config.save()?;
 
 		// Initialize core
 		let core = Core::new(config.data_dir.clone())
@@ -63,10 +72,9 @@ impl IndexingHarnessBuilder {
 			)
 			.await?;
 
-		// Register a test-specific device with unique UUID to avoid conflicts
-		// when tests run in parallel
-		let device_id = Uuid::new_v4();
-		let device_name = format!("{}_device", self.test_name);
+		// Use the real device UUID so the watcher can find locations
+		let device_id = sd_core::device::get_current_device_id();
+		let device_name = whoami::devicename();
 		register_device(&library, device_id, &device_name).await?;
 
 		// Get device record
@@ -76,11 +84,9 @@ impl IndexingHarnessBuilder {
 			.await?
 			.ok_or_else(|| anyhow::anyhow!("Device not found after registration"))?;
 
-		self.temp_dir = Some(temp_dir);
-
 		Ok(IndexingHarness {
 			_test_name: self.test_name,
-			_temp_dir: self.temp_dir.unwrap(),
+			_test_root: test_root,
 			snapshot_dir,
 			core,
 			library,
@@ -93,7 +99,7 @@ impl IndexingHarnessBuilder {
 /// Indexing test harness with convenient helper methods
 pub struct IndexingHarness {
 	_test_name: String,
-	_temp_dir: TempDir,
+	_test_root: PathBuf,
 	pub snapshot_dir: PathBuf,
 	pub core: Core,
 	pub library: Arc<sd_core::library::Library>,
@@ -104,7 +110,7 @@ pub struct IndexingHarness {
 impl IndexingHarness {
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
-		self._temp_dir.path()
+		&self._test_root
 	}
 
 	/// Create a test location directory with files
@@ -157,6 +163,36 @@ impl IndexingHarness {
 		// Wait for indexing to complete
 		wait_for_indexing(&self.library, location_db_id, Duration::from_secs(30)).await?;
 
+		// Register location with watcher so it can detect changes
+		if let Some(watcher) = self.core.context.get_fs_watcher().await {
+			use sd_core::ops::indexing::{handlers::LocationMeta, rules::RuleToggles};
+
+			let lib_cfg = self.library.config().await;
+			let idx_cfg = lib_cfg.settings.indexer;
+
+			let location_meta = LocationMeta {
+				id: location_record.uuid,
+				library_id: self.library.id(),
+				root_path: path.to_path_buf(),
+				rule_toggles: RuleToggles {
+					no_system_files: idx_cfg.no_system_files,
+					no_hidden: idx_cfg.no_hidden,
+					no_git: idx_cfg.no_git,
+					gitignore: idx_cfg.gitignore,
+					only_images: idx_cfg.only_images,
+					no_dev_dirs: idx_cfg.no_dev_dirs,
+				},
+			};
+
+			watcher.watch_location(location_meta).await?;
+			tracing::info!(
+				location_uuid = %location_record.uuid,
+				"Registered location with watcher"
+			);
+		} else {
+			tracing::warn!("Watcher not available, location changes will not be detected");
+		}
+
 		tracing::info!(
 			location_id = location_db_id,
 			"Location indexed successfully"
@@ -174,12 +210,18 @@ impl IndexingHarness {
 	/// Shutdown the harness
 	pub async fn shutdown(self) -> anyhow::Result<()> {
 		let lib_id = self.library.id();
+		let test_root = self._test_root.clone();
+
 		self.core.libraries.close_library(lib_id).await?;
 		drop(self.library);
 		self.core
 			.shutdown()
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
+
+		// Clean up test directory
+		tokio::fs::remove_dir_all(&test_root).await?;
+
 		Ok(())
 	}
 }

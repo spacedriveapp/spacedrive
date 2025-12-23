@@ -548,14 +548,6 @@ impl LibraryManager {
 			libraries.insert(config.id, library.clone());
 		}
 
-		// Spawn statistics recalculation listener
-		// This listens for ResourceChanged events and recalculates statistics every 5 seconds
-		// while events are flowing
-		super::statistics_listener::spawn_statistics_listener(
-			library.clone(),
-			self.event_bus.clone(),
-		);
-
 		// Initialize sidecar manager before resuming jobs
 		if let Some(sidecar_manager) = context.get_sidecar_manager().await {
 			if let Err(e) = sidecar_manager.init_library(&library).await {

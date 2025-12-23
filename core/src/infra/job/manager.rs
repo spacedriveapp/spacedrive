@@ -290,6 +290,9 @@ impl JobManager {
 		let networking = self.context.get_networking().await;
 		let volume_manager = Some(self.context.volume_manager.clone());
 
+		// Clone status_rx for cleanup task
+		let status_rx_cleanup = status_rx.clone();
+
 		// Create handle
 		let handle = JobHandle {
 			id: job_id,
@@ -357,9 +360,11 @@ impl JobManager {
 					.device_id()
 					.unwrap_or_else(|_| uuid::Uuid::nil());
 				tokio::spawn(async move {
-					let mut status_rx = status_tx.subscribe();
-					while status_rx.changed().await.is_ok() {
-						let status = *status_rx.borrow();
+					info!("Started cleanup monitor for job {}", job_id_clone);
+					let mut status_monitor = status_rx_cleanup;
+					while status_monitor.changed().await.is_ok() {
+						let status = *status_monitor.borrow();
+						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Running => {
 								// Only emit events for persistent jobs
@@ -379,23 +384,23 @@ impl JobManager {
 									let output = {
 										let jobs = running_jobs.read().await;
 										if let Some(job) = jobs.get(&job_id_clone) {
-											let result = job.handle.output.lock().await.clone();
-											match result {
-												Some(Ok(output)) => output,
-												Some(Err(_)) => JobOutput::Success,
-												None => JobOutput::Success,
-											}
+											job.handle
+												.output
+												.lock()
+												.await
+												.clone()
+												.unwrap_or(Ok(JobOutput::Success))
 										} else {
-											JobOutput::Success
+											Ok(JobOutput::Success)
 										}
 									};
 
 									// Emit completion event with the job's output
 									event_bus.emit(Event::JobCompleted {
 										job_id: job_id_clone.to_string(),
-										job_type: job_type_str.clone(),
+										job_type: job_type_str.to_string(),
 										device_id,
-										output,
+										output: output.unwrap_or(JobOutput::Success),
 									});
 
 									// Trigger library statistics recalculation after job completion
@@ -439,7 +444,7 @@ impl JobManager {
 								if should_persist {
 									event_bus.emit(Event::JobFailed {
 										job_id: job_id_clone.to_string(),
-										job_type: job_type_str.clone(),
+										job_type: job_type_str.to_string(),
 										device_id,
 										error: "Job failed".to_string(),
 									});
@@ -454,7 +459,7 @@ impl JobManager {
 								if should_persist {
 									event_bus.emit(Event::JobCancelled {
 										job_id: job_id_clone.to_string(),
-										job_type: job_type_str.clone(),
+										job_type: job_type_str.to_string(),
 										device_id,
 									});
 								}
