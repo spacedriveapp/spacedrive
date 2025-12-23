@@ -176,6 +176,140 @@ Processes coordinate through:
 
 ## Common Test Patterns
 
+### Filesystem Watcher Testing
+
+When testing filesystem watcher functionality, several critical setup steps are required:
+
+#### Enable Watcher in Test Config
+
+The default `TestConfigBuilder` **disables the filesystem watcher** (for performance in sync tests). Tests that verify watcher events must explicitly enable it:
+
+```rust
+let mut config = TestConfigBuilder::new(test_root.clone())
+    .build()?;
+
+// CRITICAL: Enable watcher for change detection tests
+config.services.fs_watcher_enabled = true;
+config.save()?;
+
+let core = Core::new(config.data_dir.clone()).await?;
+```
+
+#### Use Home Directory Paths on macOS
+
+macOS temp directories (`/var/folders/...`) don't reliably deliver filesystem events. Use home directory paths instead:
+
+```rust
+// ❌ Don't use TempDir for watcher tests
+let temp_dir = TempDir::new()?;
+
+// ✅ Use home directory
+let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+let test_root = PathBuf::from(home).join(".spacedrive_test_my_test");
+
+// Clean up before
+let _ = tokio::fs::remove_dir_all(&test_root).await;
+tokio::fs::create_dir_all(&test_root).await?;
+
+// ... run test ...
+
+// Clean up after
+tokio::fs::remove_dir_all(&test_root).await?;
+```
+
+#### Ephemeral Watching Requirements
+
+Ephemeral paths must be **indexed before watching**:
+
+```rust
+// 1. Index the directory (ephemeral mode)
+let config = IndexerJobConfig::ephemeral_browse(
+    SdPath::local(dest_dir.clone()),
+    IndexScope::Current
+);
+let job = IndexerJob::new(config);
+library.jobs().dispatch(job).await?.wait().await?;
+
+// 2. Mark indexing complete (indexer job does this automatically)
+context.ephemeral_cache().mark_indexing_complete(&dest_dir);
+
+// 3. Register for watching (indexer job does this automatically)
+watcher.watch_ephemeral(dest_dir.clone()).await?;
+
+// Now filesystem events will be detected
+```
+
+<Note>
+The `IndexerJob` automatically calls `watch_ephemeral()` after successful indexing, so manual registration is only needed when bypassing the indexer.
+</Note>
+
+#### Persistent Location Watching
+
+For persistent locations, the watcher auto-loads locations at startup. New locations created during tests must be manually registered:
+
+```rust
+// After creating and indexing a location
+let location_meta = LocationMeta {
+    id: location_uuid,
+    library_id: library.id(),
+    root_path: location_path.clone(),
+    rule_toggles: RuleToggles::default(),
+};
+
+watcher.watch_location(location_meta).await?;
+```
+
+The `IndexingHarness` handles this automatically.
+
+#### Event Collection Best Practices
+
+Start collecting events **after** initialization to avoid library statistics noise:
+
+```rust
+// Complete all setup first
+let harness = IndexingHarnessBuilder::new("test").build().await?;
+let location = harness.add_and_index_location(...).await?;
+
+// Wait for setup to settle
+tokio::time::sleep(Duration::from_millis(500)).await;
+
+// Start collecting BEFORE the operation you're testing
+let mut collector = EventCollector::new(&harness.core.events);
+let handle = tokio::spawn(async move {
+    collector.collect_events(Duration::from_secs(5)).await;
+    collector
+});
+
+// Perform operation
+perform_copy_operation().await?;
+
+// Collect and verify
+let collector = handle.await.unwrap();
+let stats = collector.analyze().await;
+assert!(stats.resource_changed.get("file").copied().unwrap_or(0) >= 2);
+```
+
+The `EventCollector` automatically filters out:
+- Library statistics updates (`LibraryStatisticsUpdated`)
+- Library resource events (non-file/entry events)
+
+#### Expected Event Types
+
+Different handlers emit different event types:
+
+- **Ephemeral handler**: Individual `ResourceChanged` events per file (CREATE + MODIFY)
+- **Persistent handler**: Batched `ResourceChangedBatch` events
+
+```rust
+// Ephemeral assertion
+let file_events = stats.resource_changed.get("file").copied().unwrap_or(0);
+assert!(file_events >= 2, "Expected file ResourceChanged events");
+
+// Persistent assertion
+let batch_count = stats.resource_changed_batch.get("file").copied().unwrap_or(0);
+assert!(batch_count >= 2, "Expected file ResourceChangedBatch events");
+```
+
 ### Event Monitoring
 
 #### Waiting for Specific Events
