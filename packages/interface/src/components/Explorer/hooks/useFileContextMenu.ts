@@ -15,6 +15,7 @@ import {
 	TextAa,
 	Crop,
 	FileVideo,
+	Scissors,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
 import { useContextMenu } from "../../../hooks/useContextMenu";
@@ -24,6 +25,8 @@ import { usePlatform } from "../../../platform";
 import { getContentKind } from "../utils";
 import { useExplorer } from "../context";
 import { isVirtualFile } from "../utils/virtualFiles";
+import { useClipboard } from "../../../hooks/useClipboard";
+import { useFileOperationDialog } from "../../FileOperationModal";
 
 interface UseFileContextMenuProps {
 	file: File;
@@ -41,11 +44,14 @@ export function useFileContextMenu({
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
 	const { runJob } = useJobDispatch();
+	const clipboard = useClipboard();
+	const openFileOperation = useFileOperationDialog();
 
 	// Get the files to operate on (multi-select or just this file)
 	// Filters out virtual files (they're display-only, not real filesystem entries)
 	const getTargetFiles = () => {
-		const targets = selected && selectedFiles.length > 0 ? selectedFiles : [file];
+		const targets =
+			selected && selectedFiles.length > 0 ? selectedFiles : [file];
 		// Filter out virtual files - they cannot be copied/moved/deleted
 		return targets.filter((f) => !isVirtualFile(f));
 	};
@@ -92,10 +98,7 @@ export function useFileContextMenu({
 							try {
 								await platform.revealFile(physicalPath);
 							} catch (err) {
-								console.error(
-									"Failed to reveal file:",
-									err,
-								);
+								console.error("Failed to reveal file:", err);
 								alert(`Failed to reveal file: ${err}`);
 							}
 						} else {
@@ -118,105 +121,62 @@ export function useFileContextMenu({
 					selected && selectedFiles.length > 1
 						? `Copy ${selectedFiles.length} items`
 						: "Copy",
-				onClick: async () => {
+				onClick: () => {
 					const targets = getTargetFiles();
 					if (targets.length === 0) {
 						console.warn("Cannot copy virtual files");
 						return;
 					}
 					const sdPaths = targets.map((f) => f.sd_path);
-
-					console.log(
-						"Copying files:",
-						targets.map((f) => f.name),
-					);
-
-					// Store the file paths for paste
-					window.__SPACEDRIVE__ = window.__SPACEDRIVE__ || {};
-					window.__SPACEDRIVE__.clipboard = {
-						operation: "copy",
-						files: sdPaths,
-						sourcePath: currentPath,
-					};
-
-					console.log(
-						`Copied ${sdPaths.length} files to clipboard`,
-					);
+					clipboard.copyFiles(sdPaths, currentPath);
 				},
-				keybind: "⌘C",
+				keybindId: "explorer.copy",
+				condition: () => !hasVirtualFiles,
+			},
+			{
+				icon: Scissors,
+				label:
+					selected && selectedFiles.length > 1
+						? `Cut ${selectedFiles.length} items`
+						: "Cut",
+				onClick: () => {
+					const targets = getTargetFiles();
+					if (targets.length === 0) {
+						console.warn("Cannot cut virtual files");
+						return;
+					}
+					const sdPaths = targets.map((f) => f.sd_path);
+					clipboard.cutFiles(sdPaths, currentPath);
+				},
+				keybindId: "explorer.cut",
 				condition: () => !hasVirtualFiles,
 			},
 			{
 				icon: Copy,
 				label: "Paste",
-				onClick: async () => {
-					const clipboard = window.__SPACEDRIVE__?.clipboard;
-					if (!clipboard || !clipboard.files || !currentPath) {
+				onClick: () => {
+					if (!clipboard.hasClipboard() || !currentPath) {
 						console.log("Nothing to paste or no destination");
 						return;
 					}
 
-					console.log(
-						`Pasting ${clipboard.files.length} files to:`,
-						currentPath,
-					);
+					const operation =
+						clipboard.operation === "cut" ? "move" : "copy";
 
-					try {
-						console.log("Paste params:", {
-							sources: clipboard.files,
-							destination: currentPath,
-						});
-
-						const result = await copyFiles.mutateAsync({
-							sources: { paths: clipboard.files },
-							destination: currentPath,
-							overwrite: false,
-							verify_checksum: false,
-							preserve_timestamps: true,
-							move_files: false,
-							copy_method: "Auto" as const,
-						});
-
-						console.log("Paste operation result:", result);
-						console.log("Result type:", typeof result, result);
-
-						// Check if it's a confirmation request
-						if (
-							result &&
-							typeof result === "object" &&
-							"NeedsConfirmation" in result
-						) {
-							console.log(
-								"Action needs confirmation:",
-								result,
-							);
-							alert(
-								"File conflict detected - confirmation UI not implemented yet",
-							);
-						} else if (
-							result &&
-							typeof result === "object" &&
-							"job_id" in result
-						) {
-							console.log(
-								"Job started with ID:",
-								result.job_id,
-							);
-						}
-					} catch (err) {
-						console.error("Failed to paste:", err);
-						alert(`Failed to paste: ${err}`);
-					}
+					openFileOperation({
+						operation,
+						sources: clipboard.files,
+						destination: currentPath,
+						onComplete: () => {
+							// Clear clipboard after cut operation completes
+							if (clipboard.operation === "cut") {
+								clipboard.clearClipboard();
+							}
+						},
+					});
 				},
-				keybind: "⌘V",
-				condition: () => {
-					const clipboard = window.__SPACEDRIVE__?.clipboard;
-					return (
-						!!clipboard &&
-						!!clipboard.files &&
-						clipboard.files.length > 0
-					);
-				},
+				keybindId: "explorer.paste",
+				condition: () => clipboard.hasClipboard(),
 			},
 			// Media Processing submenu
 			{

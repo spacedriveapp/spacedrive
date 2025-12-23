@@ -22,7 +22,6 @@ import {
 } from "@sd/ui";
 import type { SdPath, File as FileType } from "@sd/ts-client";
 import { useLibraryMutation, useLibraryQuery } from "../context";
-import { sounds } from "@sd/assets/sounds";
 import { File, FileStack } from "./Explorer/File";
 
 interface FileOperationDialogProps {
@@ -119,9 +118,6 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 				copy_method: "Auto",
 				on_conflict: conflictResolution,
 			});
-
-			// Play completion sound
-			sounds.copy();
 
 			// Close immediately on success
 			dialogManager.setState(props.id, { open: false });

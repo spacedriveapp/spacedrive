@@ -46,6 +46,10 @@ export { useKeybindScope, isScopeActive } from "./hooks/useKeybindScope";
 export { useKeybindMeta, useKeybindDisplayString } from "./hooks/useKeybindMeta";
 export type { KeybindMeta } from "./hooks/useKeybindMeta";
 
+// Clipboard hook
+export { useClipboard, useClipboardStore } from "./hooks/useClipboard";
+export type { ClipboardState } from "./hooks/useClipboard";
+
 // Keybind utilities
 export {
 	KEYBINDS,

@@ -144,7 +144,7 @@ export function ViewModeMenu({
 								top: `${position.top}px`,
 								right: `${position.right}px`,
 							}}
-							className="w-[240px] rounded-lg bg-menu border border-menu-line shadow-2xl p-2 z-50"
+							className="w-[240px] rounded-lg bg-app border border-app-line shadow-2xl p-2 z-50"
 						>
 							<div className="grid grid-cols-3 gap-1">
 								{viewOptions.map((option) => (
@@ -160,16 +160,16 @@ export function ViewModeMenu({
 										}}
 										className={clsx(
 											"flex flex-col items-center gap-1.5 px-2 py-2 rounded-md",
-											"transition-colors",
+
 											option.id === "timeline" &&
 												"opacity-50 cursor-not-allowed",
 											viewMode === option.id
-												? "bg-menu-selected"
-												: "hover:bg-menu-hover",
+												? "bg-app-selected"
+												: "hover:bg-app-hover/50",
 										)}
 									>
 										<option.icon
-											className="size-6 text-menu-ink"
+											className="size-6 text-white"
 											weight={
 												viewMode === option.id
 													? "fill"

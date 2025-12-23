@@ -1,0 +1,97 @@
+# Todo+ Cheat Sheet
+
+# Shortcuts:
+
+# Cmd/Ctrl+Enter - Toggle todo box
+# Alt+D - Mark as done (✔)
+# Alt+C - Mark as cancelled (✘)
+# Alt+S - Toggle start (enables timer)
+# Cmd/Ctrl+Shift+A - Archive completed todos
+
+# Symbols:
+# ☐ Pending ✔ Done ✘ Cancelled
+
+# Tags:
+# @critical @high @low @today
+# @est(2h) or @2h30m - Time estimates
+# @started @done @lasted - Auto timekeeping
+
+# Projects:
+# Use "ProjectName:" to create sections
+# Nested items use indentation
+
+Journey to v2.0.0-pre.1:
+✔ Get all desktop release CI working @done(25-12-16 23:51)
+☐ Ephemeral sidecars @critical
+☐ Sometimes quick preview reporting file not found @today
+✔ Grid view render bug, shows as column for split second on first render of results @done(25-12-22 07:49)
+☐ Ensure updater and changelog are working
+☐ Job sound: make copy sound a varient, not play also
+☐ Run now button in Location Inspector doesn't work well @today
+✔ Sidebar active based on Explorer path @today @done(25-12-20 07:59)
+☐ Delete location UX improvement
+✔ Fix explorer arrow key navigation @critical @done(25-12-22 06:13)
+✔ Complete Spaces Sidebar with customize palette @done(25-12-20 09:56)
+# It has an issue where it conflicts with the tab focus navigation and is out of order often
+☐ Device owned data count mismatch reconciliation
+☐ Synced directories seem to be missing relationships to form tree (sometimes)
+☐ Drag selection area + command to add to selection
+✔ Back/forward button navigation not working @critical @done(25-12-22 05:43)
+# Investigate sync integrity
+☐ Remote file access on demand @critical
+✔ Refetch all queries when window focus @today @done(25-12-20 09:55)
+✔ Fix job reactivity @today @done(25-12-21 06:14)
+# CLI reactivity works fine, but interface job manager often doesn't show up for jobs, generating thubmnails ALWAYS does, but speech, splat and indexing don't show in the UI
+☐ Pop out job viewer
+✔ Polish large job manager @today @done(25-12-22 10:27)
+☐ More metadata in file copy jobs, to show more visually appealing transfer job @today
+☐ Fix top bar styles, crispier positioning, windows support.
+# Copy from v1
+✔ Explorer should render results for a device, show volumes @today @done(25-12-20 09:55)
+☐ Tags are not reactive, anywhere side from Inspector @today
+☐ Tags should support ephemeral
+☐ Starting up screen when Core/daemon is initializing @critical
+# This is complex because ephemeral entries do not have a content identity
+☐ Fix unique bytes calculation
+☐ Disable knowledge view @today
+✔ Fix zoom on videos / images @done(25-12-22 07:49)
+☐ Show alternate paths in inspector
+☐ Make default home folders SpaceItems
+☐ Choose custom device name on mobile setup flow
+# Decide how this works in the context of sync, likely organize by device
+☐ New Space Item resource event not working
+✔ Can't drag and drop onto space items to copy paste @done(25-12-16 23:51)
+☐ Sometimes device shows as online even if its not
+# Looks like cache state issue, even though the devices due
+☐ Eject volume button
+☐ Index mode not showing in location inspector
+☐ Space Item by entry UUID, not entry id and should have constraints against duplicates, for both entries and categories like Overview and Favorites
+✔ Editable path bar @done(25-12-22 08:37)
+☐ Basic Search
+# Filters, scope
+# Search ephemeral index as well as persistent index
+☐ PDF Viewer
+# Copy from v1
+✔ Text Viewer @done(25-12-22 06:54)
+# Copy from v1
+✔ Disable browser focus which desyncs with selected state @done(25-12-22 08:50)
+☐ Recents and favorites
+☐ Add categories
+☐ Add Users and comments
+☐ History tab of the File Inspector is dummy data
+☐ Improve copy/paste/move flow to actually validate before showing modal
+☐ Fix three device sync
+☐ Add box selections
+☐ Refactor the CLI
+☐ Improve inspector design
+☐ Stale detection background discovery reindex
+# See INDEX-009 for stale detection
+☐ RAW support
+☐ Sign Windows build
+☐ Increase connection limit from 100 to 1000
+☐ During pairing make it so the QR code confirms scan before submitting pairing action
+✔ Fix volume tracking, removal and naming @done(25-12-18 23:12)
+✔ Gaussian splat generation @done(25-12-18 23:09)
+✔ Gaussian splat viewer @done(25-12-18 23:09)
+☐ Ml-sharp in production builds @critical
+☐ Prepare demo data for screenshots and testing
