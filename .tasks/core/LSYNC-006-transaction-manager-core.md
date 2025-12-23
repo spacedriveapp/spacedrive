@@ -1,8 +1,8 @@
 ---
 id: LSYNC-006
-title: TransactionManager Core (Leaderless)
+title: Transaction Manager Core
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: Critical
 tags: [sync, database, transaction, architecture, leaderless]
@@ -123,12 +123,14 @@ Successfully implemented in `core/src/infra/sync/transaction.rs`:
 ## Migration from Leader Model
 
 **Remove**:
+
 - `next_sequence()` method (replaced with HLC)
 - `is_leader()` checks
 - Sequence number tracking
 - Leader-specific logic
 
 **Add**:
+
 - HLC generator integration
 - Strategy selection (device-owned vs shared)
 - State broadcast for device-owned

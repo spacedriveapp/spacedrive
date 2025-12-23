@@ -57,17 +57,24 @@ fn main() {
 		}
 	}
 
-	// Create symlink for daemon binary with target architecture suffix
+	// Create target-suffixed daemon binary for Tauri bundler
+	// Tauri's externalBin expects binaries with target triple suffix
 	let target_triple = std::env::var("TARGET").expect("TARGET not set");
 	let profile = std::env::var("PROFILE").unwrap_or_else(|_| "debug".to_string());
 	let workspace_dir = std::env::var("CARGO_WORKSPACE_DIR")
 		.or_else(|_| std::env::var("CARGO_MANIFEST_DIR").map(|d| format!("{}/../../..", d)))
 		.expect("Could not find workspace directory");
 
-	let daemon_source = format!("{}/target/{}/sd-daemon", workspace_dir, profile);
+	let exe_ext = if target_triple.contains("windows") {
+		".exe"
+	} else {
+		""
+	};
+
+	let daemon_source = format!("{}/target/{}/sd-daemon{}", workspace_dir, profile, exe_ext);
 	let daemon_target = format!(
-		"{}/target/{}/sd-daemon-{}",
-		workspace_dir, profile, target_triple
+		"{}/target/{}/sd-daemon-{}{}",
+		workspace_dir, profile, target_triple, exe_ext
 	);
 
 	if std::path::Path::new(&daemon_source).exists() {

@@ -1,8 +1,8 @@
 ---
 id: LSYNC-002
-title: Shared Metadata Sync (Albums, Tags) with HLC
+title: Shared Sync with HLC
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, metadata, albums, tags, hlc, shared-resources]
@@ -13,7 +13,7 @@ last_updated: 2025-10-15
 
 ## Description
 
-Implement synchronization for truly shared resources (Albums, Tags) using the HLC-based log model. These resources can be modified by any device and need conflict resolution.
+Implement synchronization for truly shared resources (ContentIdentity, Tags) using the HLC-based log model. These resources can be modified by any device and need conflict resolution.
 
 **Architecture**: Log-based sync with Hybrid Logical Clocks for ordering.
 

@@ -23,6 +23,7 @@ import { useLibraryMutation } from "../../../context";
 import { usePlatform } from "../../../platform";
 import { getContentKind } from "../utils";
 import { useExplorer } from "../context";
+import { isVirtualFile } from "../utils/virtualFiles";
 
 interface UseFileContextMenuProps {
 	file: File;
@@ -35,19 +36,24 @@ export function useFileContextMenu({
 	selectedFiles,
 	selected,
 }: UseFileContextMenuProps) {
-	const { setCurrentPath, currentPath } = useExplorer();
+	const { navigateToPath, currentPath } = useExplorer();
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
 	const { runJob } = useJobDispatch();
 
 	// Get the files to operate on (multi-select or just this file)
+	// Filters out virtual files (they're display-only, not real filesystem entries)
 	const getTargetFiles = () => {
-		if (selected && selectedFiles.length > 0) {
-			return selectedFiles;
-		}
-		return [file];
+		const targets = selected && selectedFiles.length > 0 ? selectedFiles : [file];
+		// Filter out virtual files - they cannot be copied/moved/deleted
+		return targets.filter((f) => !isVirtualFile(f));
 	};
+
+	// Check if any selected files are virtual (to disable certain operations)
+	const hasVirtualFiles = selected
+		? selectedFiles.some((f) => isVirtualFile(f))
+		: isVirtualFile(file);
 
 	return useContextMenu({
 		items: [
@@ -65,7 +71,7 @@ export function useFileContextMenu({
 				label: "Open",
 				onClick: () => {
 					if (file.kind === "Directory") {
-						setCurrentPath(file.sd_path);
+						navigateToPath(file.sd_path);
 					} else {
 						console.log("Open file:", file.name);
 						// TODO: Implement file opening
@@ -114,6 +120,10 @@ export function useFileContextMenu({
 						: "Copy",
 				onClick: async () => {
 					const targets = getTargetFiles();
+					if (targets.length === 0) {
+						console.warn("Cannot copy virtual files");
+						return;
+					}
 					const sdPaths = targets.map((f) => f.sd_path);
 
 					console.log(
@@ -134,6 +144,7 @@ export function useFileContextMenu({
 					);
 				},
 				keybind: "⌘C",
+				condition: () => !hasVirtualFiles,
 			},
 			{
 				icon: Copy,
@@ -419,6 +430,10 @@ export function useFileContextMenu({
 						: "Delete",
 				onClick: async () => {
 					const targets = getTargetFiles();
+					if (targets.length === 0) {
+						console.warn("Cannot delete virtual files");
+						return;
+					}
 					const message =
 						targets.length > 1
 							? `Delete ${targets.length} items?`
@@ -472,6 +487,7 @@ export function useFileContextMenu({
 				},
 				keybind: "⌘⌫",
 				variant: "danger" as const,
+				condition: () => !hasVirtualFiles,
 			},
 		],
 	});

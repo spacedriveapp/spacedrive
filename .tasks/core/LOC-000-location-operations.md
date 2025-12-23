@@ -1,8 +1,8 @@
 ---
 id: LOC-000
-title: "Epic: Location Operations"
+title: Location Operations
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, core, locations]
 whitepaper: Section 4.3.3

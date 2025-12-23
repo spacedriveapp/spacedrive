@@ -9,6 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
+import { useServer } from "../../ServerContext";
 
 interface SubtitleCue {
 	index: number;
@@ -66,6 +67,7 @@ function parseSRT(srtContent: string): SubtitleCue[] {
 export function AudioPlayer({ src, file }: AudioPlayerProps) {
 	const audioRef = useRef<HTMLAudioElement>(null);
 	const lyricsContainerRef = useRef<HTMLDivElement>(null);
+	const { buildSidecarUrl } = useServer();
 	const [playing, setPlaying] = useState(false);
 	const [currentTime, setCurrentTime] = useState(0);
 	const [duration, setDuration] = useState(0);
@@ -85,15 +87,16 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 			return;
 		}
 
-		const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-		const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
-
-		if (!serverUrl || !libraryId) return;
-
-		const contentUuid = file.content_identity.uuid;
 		const extension =
 			srtSidecar.format === "text" ? "txt" : srtSidecar.format;
-		const srtUrl = `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${srtSidecar.kind}/${srtSidecar.variant}.${extension}`;
+		const srtUrl = buildSidecarUrl(
+			file.content_identity.uuid,
+			srtSidecar.kind,
+			srtSidecar.variant,
+			extension,
+		);
+
+		if (!srtUrl) return;
 
 		fetch(srtUrl)
 			.then(async (res) => {
@@ -113,7 +116,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 			.catch((err) =>
 				console.log("[AudioPlayer] Lyrics not available:", err.message),
 			);
-	}, [file]);
+	}, [file, buildSidecarUrl]);
 
 	// Sync lyrics with audio playback
 	useEffect(() => {
@@ -282,7 +285,9 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 											<motion.div
 												initial={{ opacity: 0, y: 20 }}
 												animate={{ opacity: 1, y: 0 }}
-												transition={{ delay: index * 0.05 }}
+												transition={{
+													delay: index * 0.05,
+												}}
 												className={`cursor-pointer text-center text-2xl transition-all duration-300 ${
 													isActive
 														? "font-bold text-white"
@@ -306,7 +311,9 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 								<div className="mb-4 text-6xl font-bold text-white/30">
 									♪
 								</div>
-								<p className="text-white/50">No lyrics available</p>
+								<p className="text-white/50">
+									No lyrics available
+								</p>
 							</div>
 						)}
 					</div>

@@ -1,8 +1,8 @@
 ---
 id: SEARCH-000
-title: "Epic: Temporal-Semantic Search"
-status: In Progress
-assignee: james
+title: "Search"
+status: To Do
+assignee: jamiepine
 priority: High
 tags: [epic, search, ai, fts]
 whitepaper: Section 4.7

@@ -79,6 +79,24 @@ impl SystemInfo {
 			_ => panic!("Unsupported platform combination"),
 		}
 	}
+
+	pub fn target_triple(&self) -> String {
+		match (self.os, self.arch, self.libc) {
+			(Os::Linux, Arch::X86_64, Some(Libc::Musl)) => "x86_64-unknown-linux-musl".to_string(),
+			(Os::Linux, Arch::X86_64, Some(Libc::Glibc)) => "x86_64-unknown-linux-gnu".to_string(),
+			(Os::Linux, Arch::Aarch64, Some(Libc::Musl)) => {
+				"aarch64-unknown-linux-musl".to_string()
+			}
+			(Os::Linux, Arch::Aarch64, Some(Libc::Glibc)) => {
+				"aarch64-unknown-linux-gnu".to_string()
+			}
+			(Os::MacOS, Arch::X86_64, _) => "x86_64-apple-darwin".to_string(),
+			(Os::MacOS, Arch::Aarch64, _) => "aarch64-apple-darwin".to_string(),
+			(Os::Windows, Arch::X86_64, _) => "x86_64-pc-windows-msvc".to_string(),
+			(Os::Windows, Arch::Aarch64, _) => "aarch64-pc-windows-msvc".to_string(),
+			_ => panic!("Unsupported platform combination"),
+		}
+	}
 }
 
 fn detect_libc() -> Result<Libc> {

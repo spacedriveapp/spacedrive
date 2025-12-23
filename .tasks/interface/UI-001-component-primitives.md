@@ -2,7 +2,7 @@
 id: UI-001
 title: Core Component Primitives
 status: In Progress
-assignee: james
+assignee: jamiepine
 parent: UI-000
 priority: High
 tags: [ui, components, design-system]

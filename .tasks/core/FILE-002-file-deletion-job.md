@@ -2,7 +2,7 @@
 id: FILE-002
 title: File Deletion Job
 status: Done
-assignee: james
+assignee: jamiepine
 parent: FILE-000
 priority: High
 tags: [core, jobs, file-ops]

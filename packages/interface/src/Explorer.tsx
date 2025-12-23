@@ -1,4 +1,5 @@
 import { SpacedriveProvider, type SpacedriveClient } from "./context";
+import { ServerProvider } from "./ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	RouterProvider,
@@ -11,12 +12,7 @@ import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-	ExplorerProvider,
-	useExplorer,
-	Sidebar,
-	getSpaceItemKeyFromRoute,
-} from "./components/Explorer";
+import { ExplorerProvider, useExplorer, Sidebar } from "./components/Explorer";
 import {
 	SelectionProvider,
 	useSelection,
@@ -54,6 +50,7 @@ import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 import { useFileOperationDialog } from "./components/FileOperationModal";
+import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 
 /**
  * QuickPreviewSyncer - Syncs selection changes to QuickPreview
@@ -63,7 +60,7 @@ import { useFileOperationDialog } from "./components/FileOperationModal";
  * we update the preview to show the newly selected file.
  */
 function QuickPreviewSyncer() {
-	const { quickPreviewFileId, setQuickPreviewFileId } = useExplorer();
+	const { quickPreviewFileId, openQuickPreview } = useExplorer();
 	const { selectedFiles } = useSelection();
 
 	useEffect(() => {
@@ -74,9 +71,9 @@ function QuickPreviewSyncer() {
 			selectedFiles.length === 1 &&
 			selectedFiles[0].id !== quickPreviewFileId
 		) {
-			setQuickPreviewFileId(selectedFiles[0].id);
+			openQuickPreview(selectedFiles[0].id);
 		}
-	}, [selectedFiles, quickPreviewFileId, setQuickPreviewFileId]);
+	}, [selectedFiles, quickPreviewFileId, openQuickPreview]);
 
 	return null;
 }
@@ -149,7 +146,7 @@ interface AppProps {
 	client: SpacedriveClient;
 }
 
-export function ExplorerLayout() {
+function ExplorerLayoutContent() {
 	const location = useLocation();
 	const params = useParams();
 	const platform = usePlatform();
@@ -161,18 +158,8 @@ export function ExplorerLayout() {
 		tagModeActive,
 		setTagModeActive,
 		viewMode,
-		setSpaceItemId,
 		currentPath,
 	} = useExplorer();
-
-	// Sync route with explorer context for view preferences
-	useEffect(() => {
-		const spaceItemKey = getSpaceItemKeyFromRoute(
-			location.pathname,
-			location.search,
-		);
-		setSpaceItemId(spaceItemKey);
-	}, [location.pathname, location.search, setSpaceItemId]);
 
 	// Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
 	const isOverview = location.pathname === "/";
@@ -202,17 +189,26 @@ export function ExplorerLayout() {
 		if (currentPath && "Physical" in currentPath) {
 			const pathStr = currentPath.Physical.path;
 			// Find location with longest matching prefix
-			return locations
-				.filter((loc) => {
-					if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
-					const locPath = loc.sd_path.Physical.path;
-					return pathStr.startsWith(locPath);
-				})
-				.sort((a, b) => {
-					const aPath = "Physical" in a.sd_path! ? a.sd_path!.Physical.path : "";
-					const bPath = "Physical" in b.sd_path! ? b.sd_path!.Physical.path : "";
-					return bPath.length - aPath.length;
-				})[0] || null;
+			return (
+				locations
+					.filter((loc) => {
+						if (!loc.sd_path || !("Physical" in loc.sd_path))
+							return false;
+						const locPath = loc.sd_path.Physical.path;
+						return pathStr.startsWith(locPath);
+					})
+					.sort((a, b) => {
+						const aPath =
+							"Physical" in a.sd_path!
+								? a.sd_path!.Physical.path
+								: "";
+						const bPath =
+							"Physical" in b.sd_path!
+								? b.sd_path!.Physical.path
+								: "";
+						return bPath.length - aPath.length;
+					})[0] || null
+			);
 		}
 
 		return null;
@@ -553,6 +549,35 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 			groupId: dropData?.groupId,
 		});
 
+		// Handle palette item drops (from customization panel)
+		if (dragData?.type === "palette-item") {
+			const libraryId = client.getCurrentLibraryId();
+			const currentSpace =
+				spaces?.find((s: any) => s.id === currentSpaceId) ??
+				spaces?.[0];
+
+			if (!currentSpace || !libraryId) return;
+
+			console.log("[DnD] Adding palette item:", {
+				itemType: dragData.itemType,
+				spaceId: currentSpace.id,
+				dropAction: dropData?.action,
+				groupId: dropData?.groupId,
+			});
+
+			try {
+				await addItem.mutateAsync({
+					space_id: currentSpace.id,
+					group_id: dropData?.groupId || null,
+					item_type: dragData.itemType,
+				});
+				console.log("[DnD] Successfully added palette item");
+			} catch (err) {
+				console.error("[DnD] Failed to add palette item:", err);
+			}
+			return;
+		}
+
 		if (!dragData || dragData.type !== "explorer-file") return;
 
 		// Add to space (root-level drop zones between groups)
@@ -630,11 +655,24 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 
 		// Move file into location/volume/folder
 		if (dropData?.action === "move-into") {
+			console.log("[DnD] Move-into action:", {
+				targetType: dropData.targetType,
+				targetId: dropData.targetId,
+				targetPath: dropData.targetPath,
+				hasTargetPath: !!dropData.targetPath,
+				draggedFile: dragData.name,
+			});
+
 			const sources: SdPath[] = dragData.selectedFiles
 				? dragData.selectedFiles.map((f: File) => f.sd_path)
 				: [dragData.sdPath];
 
 			const destination: SdPath = dropData.targetPath;
+
+			if (!destination) {
+				console.error("[DnD] No target path for move-into action");
+				return;
+			}
 
 			// Determine operation based on modifier keys
 			// For now default to copy (user can choose in modal)
@@ -697,7 +735,37 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 		>
 			{children}
 			<DragOverlay dropAnimation={null}>
-				{activeItem?.file ? (
+				{activeItem?.type === "palette-item" ? (
+					// Palette item preview
+					<div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-accent text-white shadow-lg min-w-[180px]">
+						{activeItem.itemType === "Overview" && (
+							<House size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "Recents" && (
+							<Clock size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "Favorites" && (
+							<Heart size={20} weight="bold" />
+						)}
+						{activeItem.itemType === "FileKinds" && (
+							<Folders size={20} weight="bold" />
+						)}
+						<span className="text-sm font-medium">
+							{activeItem.itemType === "Overview" && "Overview"}
+							{activeItem.itemType === "Recents" && "Recents"}
+							{activeItem.itemType === "Favorites" && "Favorites"}
+							{activeItem.itemType === "FileKinds" &&
+								"File Kinds"}
+						</span>
+					</div>
+				) : activeItem?.label ? (
+					// Group or SpaceItem preview (from sortable context)
+					<div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-sidebar/95 backdrop-blur-sm text-sidebar-ink shadow-lg border border-sidebar-line min-w-[180px]">
+						<span className="text-sm font-medium">
+							{activeItem.label}
+						</span>
+					</div>
+				) : activeItem?.file ? (
 					activeItem.gridSize ? (
 						// Grid view preview
 						<div style={{ width: activeItem.gridSize }}>
@@ -748,23 +816,34 @@ function DndWrapper({ children }: { children: React.ReactNode }) {
 	);
 }
 
+export function ExplorerLayout() {
+	return (
+		<TopBarProvider>
+			<SelectionProvider>
+				<ExplorerProvider>
+					<ExplorerLayoutContent />
+				</ExplorerProvider>
+			</SelectionProvider>
+		</TopBarProvider>
+	);
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
 	return (
 		<SpacedriveProvider client={client}>
-			<DndWrapper>
-				<TopBarProvider>
-					<SelectionProvider>
-						<ExplorerProvider>
-							<RouterProvider router={router} />
-						</ExplorerProvider>
-					</SelectionProvider>
-				</TopBarProvider>
-			</DndWrapper>
-			<DaemonDisconnectedOverlay />
-			<Dialogs />
-			<ReactQueryDevtools initialIsOpen={false} />
+			<ServerProvider>
+				<DndWrapper>
+					<RouterProvider router={router} />
+				</DndWrapper>
+				<DaemonDisconnectedOverlay />
+				<Dialogs />
+				<ReactQueryDevtools
+					initialIsOpen={false}
+					buttonPosition="bottom-right"
+				/>
+			</ServerProvider>
 		</SpacedriveProvider>
 	);
 }

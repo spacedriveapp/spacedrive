@@ -21,6 +21,7 @@ import {
 	Trash,
 	FilmStrip,
 	VideoCamera,
+	Cube,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { getContentKind } from "../components/Explorer/utils";
@@ -40,6 +41,9 @@ import { formatBytes } from "../components/Explorer/utils";
 import { File as FileComponent } from "../components/Explorer/File";
 import { useContextMenu } from "../hooks/useContextMenu";
 import { usePlatform } from "../platform";
+import { useServer } from "../ServerContext";
+import { useJobs } from "../components/JobManager/hooks/useJobs";
+import { getIcon } from "@sd/assets/util";
 
 interface FileInspectorProps {
 	file: File;
@@ -118,11 +122,20 @@ function OverviewTab({ file }: { file: File }) {
 	// AI Processing mutations
 	const extractText = useLibraryMutation("media.ocr.extract");
 	const transcribeAudio = useLibraryMutation("media.speech.transcribe");
+	const generateSplat = useLibraryMutation("media.splat.generate");
 	const regenerateThumbnail = useLibraryMutation(
 		"media.thumbnail.regenerate",
 	);
 	const generateThumbstrip = useLibraryMutation("media.thumbstrip.generate");
 	const generateProxy = useLibraryMutation("media.proxy.generate");
+
+	// Job tracking for long-running operations
+	const { jobs } = useJobs();
+	const isSpeechJobRunning = jobs.some(
+		(job) =>
+			job.name === "speech_to_text" &&
+			(job.status === "running" || job.status === "queued"),
+	);
 
 	// Check content kind for available actions
 	const isImage = getContentKind(file) === "image";
@@ -453,6 +466,52 @@ function OverviewTab({ file }: { file: File }) {
 							</button>
 						)}
 
+						{/* Gaussian Splat for images */}
+						{isImage && (
+							<button
+								onClick={() => {
+									console.log(
+										"Generate splat clicked for file:",
+										file.id,
+									);
+									generateSplat.mutate(
+										{
+											entry_uuid: file.id,
+											model_path: null,
+										},
+										{
+											onSuccess: (data) => {
+												console.log(
+													"Splat generation success:",
+													data,
+												);
+											},
+											onError: (error) => {
+												console.error(
+													"Splat generation error:",
+													error,
+												);
+											},
+										},
+									);
+								}}
+								disabled={generateSplat.isPending}
+								className={clsx(
+									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
+									"bg-app-box hover:bg-app-hover border border-app-line",
+									generateSplat.isPending &&
+										"opacity-50 cursor-not-allowed",
+								)}
+							>
+								<Cube size={4} weight="bold" />
+								<span>
+									{generateSplat.isPending
+										? "Generating..."
+										: "Generate 3D Splat"}
+								</span>
+							</button>
+						)}
+
 						{/* Speech-to-text for audio/video */}
 						{(isVideo || isAudio) && (
 							<button
@@ -483,17 +542,22 @@ function OverviewTab({ file }: { file: File }) {
 										},
 									);
 								}}
-								disabled={transcribeAudio.isPending}
+								disabled={
+									transcribeAudio.isPending ||
+									isSpeechJobRunning
+								}
 								className={clsx(
 									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
 									"bg-app-box hover:bg-app-hover border border-app-line",
-									transcribeAudio.isPending &&
+									(transcribeAudio.isPending ||
+										isSpeechJobRunning) &&
 										"opacity-50 cursor-not-allowed",
 								)}
 							>
 								<Microphone size={4} weight="bold" />
 								<span>
-									{transcribeAudio.isPending
+									{transcribeAudio.isPending ||
+									isSpeechJobRunning
 										? "Transcribing..."
 										: "Generate Subtitles"}
 								</span>
@@ -675,17 +739,18 @@ function OverviewTab({ file }: { file: File }) {
 function SidecarsTab({ file }: { file: File }) {
 	const sidecars = file.sidecars || [];
 	const platform = usePlatform();
+	const { buildSidecarUrl, libraryId } = useServer();
 
 	// Helper to get sidecar URL
 	const getSidecarUrl = (sidecar: any) => {
-		if (typeof window === "undefined") return null;
-		const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-		const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
+		if (!file.content_identity) return null;
 
-		if (!serverUrl || !libraryId || !file.content_identity) return null;
-
-		const contentUuid = file.content_identity.uuid;
-		return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${sidecar.kind}/${sidecar.variant}.${sidecar.format}`;
+		return buildSidecarUrl(
+			file.content_identity.uuid,
+			sidecar.kind,
+			sidecar.variant,
+			sidecar.format,
+		);
 	};
 
 	return (
@@ -707,6 +772,7 @@ function SidecarsTab({ file }: { file: File }) {
 							file={file}
 							sidecarUrl={getSidecarUrl(sidecar)}
 							platform={platform}
+							libraryId={libraryId}
 						/>
 					))}
 				</div>
@@ -720,17 +786,44 @@ function SidecarItem({
 	file,
 	sidecarUrl,
 	platform,
+	libraryId,
 }: {
 	sidecar: any;
 	file: File;
 	sidecarUrl: string | null;
 	platform: ReturnType<typeof usePlatform>;
+	libraryId: string | null;
 }) {
 	const isImage =
 		(sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") &&
 		(sidecar.format === "webp" ||
 			sidecar.format === "jpg" ||
 			sidecar.format === "png");
+
+	// Get appropriate Spacedrive icon based on sidecar format/kind
+	const getSidecarIcon = () => {
+		const format = String(sidecar.format).toLowerCase();
+		
+		// PLY files (3D mesh) use Mesh icon
+		if (format === "ply") {
+			return getIcon("Mesh", true);
+		}
+		
+		// Text files use Text icon
+		if (format === "text" || format === "txt" || format === "srt") {
+			return getIcon("Text", true);
+		}
+		
+		// Thumbs/thumbstrips use Image icon
+		if (sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") {
+			return getIcon("Image", true);
+		}
+		
+		// Default to Document icon
+		return getIcon("Document", true);
+	};
+
+	const sidecarIcon = getSidecarIcon();
 
 	const contextMenu = useContextMenu({
 		items: [
@@ -741,16 +834,10 @@ function SidecarItem({
 					if (
 						platform.getSidecarPath &&
 						platform.revealFile &&
-						file.content_identity
+						file.content_identity &&
+						libraryId
 					) {
 						try {
-							const libraryId = (window as any)
-								.__SPACEDRIVE_LIBRARY_ID__;
-							if (!libraryId) {
-								console.error("Library ID not found");
-								return;
-							}
-
 							// Convert "text" format to "txt" extension (matches actual file on disk)
 							const format =
 								sidecar.format === "text"
@@ -773,7 +860,8 @@ function SidecarItem({
 				condition: () =>
 					!!platform.getSidecarPath &&
 					!!platform.revealFile &&
-					!!file.content_identity,
+					!!file.content_identity &&
+					!!libraryId,
 			},
 			{
 				icon: Trash,
@@ -816,13 +904,21 @@ function SidecarItem({
 							}
 						}}
 					/>
-					<div className="hidden items-center justify-center w-full h-full text-sidebar-inkDull">
-						<Image size={20} weight="regular" />
+					<div className="hidden items-center justify-center w-full h-full">
+						<img
+							src={sidecarIcon}
+							alt=""
+							className="size-6 object-contain"
+						/>
 					</div>
 				</div>
 			) : (
-				<div className="size-12 shrink-0 rounded bg-app-box border border-app-line flex items-center justify-center text-sidebar-inkDull">
-					<Image size={20} weight="regular" />
+				<div className="size-12 shrink-0 rounded bg-app-box border border-app-line flex items-center justify-center">
+					<img
+						src={sidecarIcon}
+						alt=""
+						className="size-6 object-contain"
+					/>
 				</div>
 			)}
 
@@ -837,7 +933,7 @@ function SidecarItem({
 					{String(sidecar.format).toUpperCase()}
 				</div>
 			</div>
-			<span
+			{/* <span
 				className={clsx(
 					"text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0",
 					sidecar.status === "ready" && "bg-accent/20 text-accent",
@@ -846,7 +942,7 @@ function SidecarItem({
 				)}
 			>
 				{String(sidecar.status)}
-			</span>
+			</span> */}
 		</div>
 	);
 }

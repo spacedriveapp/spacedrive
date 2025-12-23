@@ -1,0 +1,210 @@
+---
+title: Explorer Architecture
+sidebarTitle: Explorer
+---
+
+The Explorer is Spacedrive's primary file browsing interface. It displays files, locations, volumes, and devices using a unified system that treats all entities as navigable directories. The architecture centers on a single source of truth for navigation: URL query parameters.
+
+## Navigation System
+
+The Explorer uses URL query parameters instead of route paths to manage navigation state. This design allows the sidebar, path bar, and Explorer view to stay synchronized without prop drilling or complex state management.
+
+```typescript
+// Path-based navigation
+/explorer?path={"Physical":{"device_slug":"home","path":"/Documents"}}
+
+// View-based navigation (virtual listings)
+/explorer?view=device&id=abc123
+```
+
+When you navigate to a location from the sidebar, the URL updates with the new path. The Explorer reads this URL parameter and displays the corresponding directory. The sidebar highlights the active item by comparing its own path to the URL parameter.
+
+<Info>The URL is the single source of truth. All navigation actions update the URL first, then components react to URL changes.</Info>
+
+### History Management
+
+Navigation history stores a union type that supports both real paths and virtual views:
+
+```typescript
+type NavigationEntry = 
+  | { type: "path"; path: SdPath }
+  | { type: "view"; view: string; id?: string; params?: Record<string, string> };
+```
+
+The `ExplorerContext` maintains a history stack and current position. When you click back or forward, it restores the previous entry and updates the URL accordingly. This works seamlessly across both file system paths and virtual device listings.
+
+## Virtual Listings
+
+Virtual listings display non-file entities (devices, locations, volumes) as if they were files in a directory. This allows the Explorer to reuse all existing view components (grid, list, column) without special cases.
+
+### Mapping to Files
+
+The `virtualFiles.ts` module converts backend entities into `File` objects with a special `_virtual` metadata field:
+
+```typescript
+export function mapLocationToFile(location: Location, iconUrl?: string): File {
+  return {
+    id: `virtual:location:${location.id}`,
+    kind: "Directory",
+    name: location.name,
+    sd_path: location.sd_path,
+    // ... standard File fields
+    _virtual: {
+      type: "location",
+      data: location,
+      iconUrl,
+    }
+  };
+}
+```
+
+The `_virtual` field marks this as a display-only entity. Virtual files cannot be copied, moved, or deleted. The `isVirtualFile()` helper checks for this field before allowing file operations.
+
+### View Detection
+
+The `useVirtualListing` hook detects virtual view parameters in the URL and fetches the appropriate data:
+
+```typescript
+// Example: Device view
+if (view === "device" && id) {
+  // Fetch locations and volumes for this device
+  const locations = locationsData?.locations.filter(
+    loc => loc.sd_path.Physical?.device_slug === device.slug
+  );
+  
+  const volumes = volumesData?.volumes.filter(
+    vol => vol.device_id === id
+  );
+  
+  // Map to virtual files
+  return locations.map(mapLocationToFile)
+    .concat(volumes.map(mapVolumeToFile));
+}
+```
+
+This returns an array of virtual files that the Explorer views consume like regular directory listings.
+
+### Column View Integration
+
+Column view presents a unique challenge for virtual listings. When you select a virtual location, the next column should show that location's real contents. The system handles this by conditionally rendering columns:
+
+```typescript
+if (isVirtualView && virtualFiles) {
+  const selectedDirectory = 
+    selectedFiles.length === 1 && selectedFiles[0].kind === "Directory"
+      ? selectedFiles[0]
+      : null;
+
+  return (
+    <div>
+      {/* Virtual column */}
+      <Column virtualFiles={virtualFiles} />
+      
+      {/* Real content column when directory selected */}
+      {selectedDirectory && (
+        <Column path={selectedDirectory.sd_path} />
+      )}
+    </div>
+  );
+}
+```
+
+The first column displays virtual files. When you select one, the second column queries the backend for real directory contents using the virtual file's `sd_path`.
+
+<Warning>Virtual files must never be passed to file operations like copy, move, or delete. Always check `isVirtualFile()` before backend mutations.</Warning>
+
+## Safety Guards
+
+The system includes multiple layers of protection against accidental operations on virtual files:
+
+**Context Menu**: Copy and delete menu items are hidden when virtual files are selected. The `getTargetFiles()` function filters out virtual files before operations.
+
+**Drag and Drop**: The `useDraggableFile` hook disables dragging for virtual files by setting `disabled: true` on the draggable configuration.
+
+**Type Checking**: Functions that access `_virtual` metadata use optional chaining to handle undefined files gracefully:
+
+```typescript
+const virtualMetadata = file?._virtual;
+const isVolume = virtualMetadata?.type === "volume";
+```
+
+## Path Bar Navigation
+
+The path bar displays breadcrumbs for the current path. For physical paths, the device icon is clickable and navigates to that device's virtual view:
+
+```typescript
+const handleDeviceClick = () => {
+  if (device) {
+    navigateToView("device", device.id);
+  }
+};
+```
+
+This creates a seamless transition from browsing a file system path to viewing all locations and volumes on that device.
+
+For virtual views, a separate `VirtualPathBar` component renders appropriate breadcrumbs like "Devices → My Device".
+
+## Enum Handling
+
+The backend returns Rust enum variants that can be objects like `{ Other: "value" }`. These cannot be rendered directly in React. Always convert enums to strings before displaying:
+
+```typescript
+const volumeTypeStr = typeof volume.volume_type === "string"
+  ? volume.volume_type
+  : (volume.volume_type as any)?.Other || JSON.stringify(volume.volume_type);
+```
+
+This pattern extracts the `Other` variant value when present, falls back to JSON stringification, or uses the string directly if it's already a string.
+
+<Tip>Apply this pattern consistently to `file_system`, `disk_type`, `volume_type`, `form_factor`, and any other backend enum fields.</Tip>
+
+## Component Communication
+
+The `ExplorerContext` provides methods for navigation that other components use:
+
+```typescript
+const { navigateToPath, navigateToView, goBack, goForward } = useExplorer();
+
+// Navigate to a file system path
+navigateToPath({ Physical: { device_slug: "home", path: "/Documents" }});
+
+// Navigate to a virtual view
+navigateToView("device", deviceId);
+```
+
+These methods update both the internal history stack and the URL. Components that render navigation UI (sidebar, path bar) use `useLocation()` to read the current URL and derive their active state.
+
+The sidebar calculates `isActive` by comparing its item's path or view parameters to the current URL parameters. This ensures the active state always matches what's visible in the Explorer.
+
+## Inspector Integration
+
+The Inspector sidebar detects virtual files and renders appropriate content:
+
+```typescript
+if (isVirtualFile(file) && file._virtual?.type === "location") {
+  const locationData = file._virtual.data;
+  return <LocationInspector location={locationData} />;
+}
+```
+
+This allows clicking a virtual location in the device view to show the `LocationInspector` rather than the generic `FileInspector`.
+
+## View Modes
+
+All three view modes (grid, list, column) consume the same file array. When `useVirtualListing` returns virtual files, the views render them using the same components as real files. Icon overrides in `Thumb.tsx` check for `_virtual.iconUrl` and display custom icons for locations and volumes.
+
+The grid view conditionally renders a volume capacity bar when displaying virtual volumes:
+
+```typescript
+const isVolume = isVirtualFile(file) && file._virtual?.type === "volume";
+
+if (isVolume) {
+  return <VolumeSizeBar 
+    total={file._virtual.data.total_capacity}
+    available={file._virtual.data.available_capacity}
+  />;
+}
+```
+
+This adds visual information without requiring volume-specific components or branching logic in the core Explorer.
+

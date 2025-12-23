@@ -142,6 +142,24 @@ fn summarize_event(event: &Event) -> String {
 				name, id, deleted_data
 			)
 		}
+		Event::LibraryLoadFailed {
+			id,
+			path,
+			error,
+			error_type,
+		} => {
+			if let Some(lib_id) = id {
+				format!(
+					"Failed to load library {} at {:?}: {} ({})",
+					lib_id, path, error, error_type
+				)
+			} else {
+				format!(
+					"Failed to load library at {:?}: {} ({})",
+					path, error, error_type
+				)
+			}
+		}
 		Event::LibraryStatisticsUpdated { library_id, .. } => {
 			format!("Statistics updated for library {}", library_id)
 		}
@@ -217,10 +235,14 @@ fn summarize_event(event: &Event) -> String {
 		}
 
 		// Job events
-		Event::JobQueued { job_id, job_type } => {
+		Event::JobQueued {
+			job_id, job_type, ..
+		} => {
 			format!("Job queued: {} ({})", job_type, &job_id[..8])
 		}
-		Event::JobStarted { job_id, job_type } => {
+		Event::JobStarted {
+			job_id, job_type, ..
+		} => {
 			format!("Job started: {} ({})", job_type, &job_id[..8])
 		}
 		Event::JobProgress {
@@ -246,6 +268,7 @@ fn summarize_event(event: &Event) -> String {
 			job_id,
 			job_type,
 			output,
+			..
 		} => {
 			format!(
 				"Job completed: {} ({}) - {:?}",
@@ -258,16 +281,19 @@ fn summarize_event(event: &Event) -> String {
 			job_id,
 			job_type,
 			error,
+			..
 		} => {
 			format!("Job failed: {} ({}) - {}", job_type, &job_id[..8], error)
 		}
-		Event::JobCancelled { job_id, job_type } => {
+		Event::JobCancelled {
+			job_id, job_type, ..
+		} => {
 			format!("Job cancelled: {} ({})", job_type, &job_id[..8])
 		}
-		Event::JobPaused { job_id } => {
+		Event::JobPaused { job_id, .. } => {
 			format!("Job paused: {}", &job_id[..8])
 		}
-		Event::JobResumed { job_id } => {
+		Event::JobResumed { job_id, .. } => {
 			format!("Job resumed: {}", &job_id[..8])
 		}
 

@@ -56,6 +56,18 @@ impl SubscriptionFilter {
 	}
 }
 
+/// Source of library creation for automatic switching behavior
+#[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
+pub enum LibraryCreationSource {
+	/// User created locally via UI
+	#[default]
+	Manual,
+	/// Received via network sync from another device
+	Sync,
+	/// Imported from cloud storage
+	CloudImport,
+}
+
 /// Sync activity types for detailed sync monitoring
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", content = "data")]
@@ -82,6 +94,9 @@ pub enum Event {
 		id: Uuid,
 		name: String,
 		path: PathBuf,
+		/// How the library was created (manual, sync, cloud import)
+		#[serde(default)]
+		source: LibraryCreationSource,
 	},
 	LibraryOpened {
 		id: Uuid,
@@ -96,6 +111,16 @@ pub enum Event {
 		id: Uuid,
 		name: String,
 		deleted_data: bool,
+	},
+	LibraryLoadFailed {
+		/// Library ID if config was readable, None otherwise
+		id: Option<Uuid>,
+		/// Path to the library directory
+		path: PathBuf,
+		/// Human-readable error message
+		error: String,
+		/// Error type for frontend categorization (e.g., "DatabaseError", "ConfigError")
+		error_type: String,
 	},
 	LibraryStatisticsUpdated {
 		library_id: Uuid,
@@ -161,14 +186,17 @@ pub enum Event {
 	JobQueued {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobStarted {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobProgress {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		progress: f64,
 		message: Option<String>,
 		// Enhanced progress data - serialized GenericProgress
@@ -177,22 +205,27 @@ pub enum Event {
 	JobCompleted {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		output: JobOutput,
 	},
 	JobFailed {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 		error: String,
 	},
 	JobCancelled {
 		job_id: String,
 		job_type: String,
+		device_id: uuid::Uuid,
 	},
 	JobPaused {
 		job_id: String,
+		device_id: uuid::Uuid,
 	},
 	JobResumed {
 		job_id: String,
+		device_id: uuid::Uuid,
 	},
 
 	// Indexing events
@@ -809,6 +842,7 @@ impl EventFilter for Event {
 				| Event::LibraryOpened { .. }
 				| Event::LibraryClosed { .. }
 				| Event::LibraryDeleted { .. }
+				| Event::LibraryLoadFailed { .. }
 				| Event::EntryCreated { .. }
 				| Event::EntryModified { .. }
 				| Event::EntryDeleted { .. }

@@ -2,8 +2,9 @@
 id: LSYNC-020
 title: Device-Owned Deletion Sync via Cascading Tombstones
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
+parent: LSYNC-000
 tags: [sync, core, bug-fix, vdfs]
 last_updated: 2025-12-02
 related_tasks: []
@@ -78,7 +79,7 @@ Device B: Looks up folder by UUID, calls delete_subtree()
     ↓
 Device B: Cascade deletes all 10,000 children automatically
     ↓
-Result: VDFS consistency restored 
+Result: VDFS consistency restored
 ```
 
 ## Technical Design
@@ -746,7 +747,7 @@ Device A: Delete /Photos (parent folder)
 Device B: Receives tombstone for /Photos
     → Calls delete_subtree()
     → File already gone (no-op, idempotent)
-    → Successfully deletes /Photos 
+    → Successfully deletes /Photos
 ```
 
 **Verdict:** Safe! `delete_subtree()` handles missing children gracefully.
@@ -765,7 +766,7 @@ Later deletes /Photos (parent):
 Receiving device processes all 4 tombstones:
 - Deletes individual files first
 - Then deletes /Photos (cascade to already-deleted children is no-op)
-- Correct final state 
+- Correct final state
 ```
 
 **Verdict:** Order-independent, idempotent.
@@ -788,7 +789,7 @@ Device B receives tombstone:
 - Calls delete_subtree() on /Photos entry
 - Cascades to /Subfolder
 - file1.jpg, file2.jpg never made it to B anyway
-- Correct state 
+- Correct state
 ```
 
 **Verdict:** Safe! Can only delete what exists locally.
@@ -873,14 +874,14 @@ pub async fn catch_up_from_peer(
 
 A comprehensive audit of the sync codebase confirmed the design is sound with minor additions needed.
 
-### Protocol Compatibility 
+### Protocol Compatibility
 
 - StateResponse uses serde JSON serialization (backward compatible)
 - Adding `deleted_uuids: Vec<Uuid>` as optional field is safe
 - Old clients will ignore unknown fields gracefully
 - No breaking changes to existing messages
 
-### Registry Pattern Compatibility 
+### Registry Pattern Compatibility
 
 - Registry uses function pointers (easy to add deletion dispatch)
 - Can add `StateDeleteFn` type alongside `StateApplyFn`
@@ -909,7 +910,7 @@ A comprehensive audit of the sync codebase confirmed the design is sound with mi
 
 **Additional:** For entries, also check if parent is tombstoned (prevents orphaned children).
 
-### Watermark Infrastructure 
+### Watermark Infrastructure
 
 - `devices.last_state_watermark` already tracks device-owned sync progress
 - Can reuse for tombstone acknowledgment (no new table needed)

@@ -111,20 +111,24 @@ pub struct SessionKeys {
 
 impl SessionKeys {
 	/// Generate new session keys from a shared secret
+	/// This should be called by the initiator. The joiner should call this and then swap_keys().
 	pub fn from_shared_secret(shared_secret: Vec<u8>) -> Self {
 		// Use HKDF to derive send/receive keys from shared secret
 		use hkdf::Hkdf;
 		use sha2::Sha256;
 
-		let hk = Hkdf::<Sha256>::new(None, &shared_secret);
+		// Derive send key
+		let hk_send = Hkdf::<Sha256>::new(None, &shared_secret);
 		let mut send_key = [0u8; 32];
-		let mut receive_key = [0u8; 32];
-
-		// Use the same salt for both keys to ensure initiator's send key
-		// matches joiner's receive key, enabling successful decryption
-		hk.expand(b"spacedrive-symmetric-key", &mut send_key)
+		hk_send
+			.expand(b"spacedrive-send-key", &mut send_key)
 			.unwrap();
-		hk.expand(b"spacedrive-symmetric-key", &mut receive_key)
+
+		// Derive receive key with fresh HKDF instance
+		let hk_recv = Hkdf::<Sha256>::new(None, &shared_secret);
+		let mut receive_key = [0u8; 32];
+		hk_recv
+			.expand(b"spacedrive-receive-key", &mut receive_key)
 			.unwrap();
 
 		Self {
@@ -134,6 +138,13 @@ impl SessionKeys {
 			created_at: Utc::now(),
 			expires_at: Some(Utc::now() + chrono::Duration::hours(24)), // 24 hour expiry
 		}
+	}
+
+	/// Swap send and receive keys
+	/// This should be called by the joiner so that initiator's send_key = joiner's receive_key
+	pub fn swap_keys(mut self) -> Self {
+		std::mem::swap(&mut self.send_key, &mut self.receive_key);
+		self
 	}
 
 	/// Check if keys are expired

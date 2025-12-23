@@ -11,7 +11,8 @@
 		"baseUrl": ".",
 		"paths": {
 			"~/*": ["./src/*"]
-		}
+		},
+		"types": ["@react-three/fiber"]
 	},
 	"include": ["src"]
 }

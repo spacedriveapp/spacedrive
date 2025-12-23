@@ -272,16 +272,15 @@ impl Syncable for Model {
 					.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid created_at: {}", e)))?),
 				};
 
-				// Upsert by UUID
-				let existing = Entity::find().filter(Column::Uuid.eq(uuid)).one(db).await?;
-
-				if let Some(existing_model) = existing {
-					let mut active = active;
-					active.id = Set(existing_model.id);
-					active.update(db).await?;
-				} else {
-					active.insert(db).await?;
-				}
+				// Atomic upsert by UUID to prevent race conditions
+				Entity::insert(active)
+					.on_conflict(
+						sea_orm::sea_query::OnConflict::column(Column::Uuid)
+							.update_columns([Column::GroupId, Column::ItemType, Column::Order])
+							.to_owned(),
+					)
+					.exec(db)
+					.await?;
 
 				Ok(())
 			}

@@ -217,6 +217,11 @@ impl JobManager {
 		let event_bus = self.context.events.clone();
 		let job_id_clone = job_id.clone();
 		let job_type_str = job_name.to_string();
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 			let mut last_emit = std::time::Instant::now();
@@ -262,6 +267,7 @@ impl JobManager {
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
 					job_type: job_type_str.to_string(),
+					device_id,
 					progress: progress.as_percentage().unwrap_or(0.0) as f64,
 					message: Some(progress.to_string()),
 					generic_progress,
@@ -345,11 +351,27 @@ impl JobManager {
 				let job_type_str = job_name.to_string();
 				let library_id_clone = self.library_id;
 				let context = self.context.clone();
+				let device_id = self
+					.context
+					.device_manager
+					.device_id()
+					.unwrap_or_else(|_| uuid::Uuid::nil());
 				tokio::spawn(async move {
 					let mut status_rx = status_tx.subscribe();
 					while status_rx.changed().await.is_ok() {
 						let status = *status_rx.borrow();
 						match status {
+							JobStatus::Running => {
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
+							}
 							JobStatus::Completed => {
 								// Only emit events and trigger statistics for persistent jobs
 								if should_persist {
@@ -372,6 +394,7 @@ impl JobManager {
 									event_bus.emit(Event::JobCompleted {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.clone(),
+										device_id,
 										output,
 									});
 
@@ -417,6 +440,7 @@ impl JobManager {
 									event_bus.emit(Event::JobFailed {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.clone(),
+										device_id,
 										error: "Job failed".to_string(),
 									});
 								}
@@ -431,6 +455,7 @@ impl JobManager {
 									event_bus.emit(Event::JobCancelled {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.clone(),
+										device_id,
 									});
 								}
 								// Remove from running jobs
@@ -539,6 +564,11 @@ impl JobManager {
 		let job_id_clone = job_id.clone();
 		let job_type_str = J::NAME;
 		let job_db_clone = self.db.clone();
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 
 		tokio::spawn(async move {
 			let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
@@ -598,6 +628,7 @@ impl JobManager {
 				event_bus.emit(Event::JobProgress {
 					job_id: job_id_clone.to_string(),
 					job_type: job_type_str.to_string(),
+					device_id,
 					progress: progress.as_percentage().unwrap_or(0.0) as f64,
 					message: Some(progress.to_string()),
 					generic_progress,
@@ -696,6 +727,11 @@ impl JobManager {
 				let job_type_str = J::NAME;
 				let library_id_clone = self.library_id;
 				let context = self.context.clone();
+				let device_id = self
+					.context
+					.device_manager
+					.device_id()
+					.unwrap_or_else(|_| uuid::Uuid::nil());
 				tokio::spawn(async move {
 					info!("Started cleanup monitor for job {}", job_id_clone);
 					let mut status_monitor = status_rx_cleanup;
@@ -703,6 +739,17 @@ impl JobManager {
 						let status = *status_monitor.borrow();
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
+							JobStatus::Running => {
+								// Only emit events for persistent jobs
+								if should_persist {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
+							}
 							JobStatus::Completed => {
 								// Only emit events and trigger statistics for persistent jobs
 								if should_persist {
@@ -725,6 +772,7 @@ impl JobManager {
 									event_bus.emit(Event::JobCompleted {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.to_string(),
+										device_id,
 										output: output.unwrap_or(JobOutput::Success),
 									});
 
@@ -770,6 +818,7 @@ impl JobManager {
 									event_bus.emit(Event::JobFailed {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.to_string(),
+										device_id,
 										error: "Job failed".to_string(),
 									});
 								}
@@ -784,6 +833,7 @@ impl JobManager {
 									event_bus.emit(Event::JobCancelled {
 										job_id: job_id_clone.to_string(),
 										job_type: job_type_str.to_string(),
+										device_id,
 									});
 								}
 								// Remove from running jobs
@@ -826,6 +876,11 @@ impl JobManager {
 
 	/// List currently running jobs from memory (for live monitoring)
 	pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 		let running_jobs = self.running_jobs.read().await;
 		let mut job_infos = Vec::new();
 
@@ -847,9 +902,11 @@ impl JobManager {
 				let job_info = JobInfo {
 					id: job_id.0,
 					name: format!("Job {}", job_id), // Use job ID as name for now
+					device_id,
 					status,
 					progress: progress_percentage,
-					started_at: chrono::Utc::now(), // TODO: Get actual start time
+					created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+					started_at: Some(chrono::Utc::now()), // Running jobs have started
 					completed_at: None,
 					error_message: None,
 					parent_job_id: None,
@@ -867,6 +924,12 @@ impl JobManager {
 	/// List all jobs with a specific status (unified query)
 	pub async fn list_jobs(&self, status: Option<JobStatus>) -> JobResult<Vec<JobInfo>> {
 		use sea_orm::QueryFilter;
+
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 
 		// First, get running jobs from memory for accurate real-time status
 		let mut all_jobs = Vec::new();
@@ -928,9 +991,11 @@ impl JobManager {
 			all_jobs.push(JobInfo {
 				id: job_id.0,
 				name: job_name,
+				device_id,
 				status: current_status,
 				progress: progress_percentage,
-				started_at: chrono::Utc::now(), // TODO: Get from DB
+				created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+				started_at: Some(chrono::Utc::now()), // Running jobs have started
 				completed_at: None,
 				error_message: None,
 				parent_job_id: None,
@@ -1003,9 +1068,11 @@ impl JobManager {
 			all_jobs.push(JobInfo {
 				id,
 				name: j.name,
+				device_id,
 				status,
 				progress,
-				started_at: j.started_at.unwrap_or(j.created_at),
+				created_at: j.created_at,
+				started_at: j.started_at,
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
@@ -1019,6 +1086,11 @@ impl JobManager {
 
 	/// Get detailed information about a specific job
 	pub async fn get_job_info(&self, id: Uuid) -> JobResult<Option<JobInfo>> {
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 		let job_id = JobId(id);
 
 		if let Some(running_job) = self.running_jobs.read().await.get(&job_id) {
@@ -1045,9 +1117,11 @@ impl JobManager {
 			return Ok(Some(JobInfo {
 				id,
 				name: job_name,
+				device_id,
 				status,
 				progress,
-				started_at: chrono::Utc::now(), // TODO: Get actual start time from DB
+				created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+				started_at: Some(chrono::Utc::now()), // Running jobs have started
 				completed_at: None,             // Running jobs aren't completed yet
 				error_message: None,            // TODO: Get from handle if failed
 				parent_job_id: None,            // TODO: Get from DB if needed
@@ -1084,9 +1158,11 @@ impl JobManager {
 			Some(JobInfo {
 				id,
 				name: j.name,
+				device_id,
 				status,
 				progress,
-				started_at: j.started_at.unwrap_or(j.created_at),
+				created_at: j.created_at,
+				started_at: j.started_at,
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
@@ -1157,6 +1233,11 @@ impl JobManager {
 						let job_id_clone = job_id;
 						let job_type_str = job_record.name.clone();
 						let job_db_clone = self.db.clone();
+						let device_id = self
+							.context
+							.device_manager
+							.device_id()
+							.unwrap_or_else(|_| uuid::Uuid::nil());
 						tokio::spawn(async move {
 							let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 							let mut last_db_update = std::time::Instant::now();
@@ -1213,6 +1294,7 @@ impl JobManager {
 								event_bus.emit(Event::JobProgress {
 									job_id: job_id_clone.to_string(),
 									job_type: job_type_str.to_string(),
+									device_id,
 									progress: progress.as_percentage().unwrap_or(0.0) as f64,
 									message: Some(progress.to_string()),
 									generic_progress,
@@ -1313,11 +1395,28 @@ impl JobManager {
 								let job_type_str = job_record.name.to_string();
 								let library_id_clone = self.library_id;
 								let context = self.context.clone();
+								let device_id = self
+									.context
+									.device_manager
+									.device_id()
+									.unwrap_or_else(|_| uuid::Uuid::nil());
 								tokio::spawn(async move {
 									let mut status_rx = status_tx.subscribe();
 									while status_rx.changed().await.is_ok() {
 										let status = *status_rx.borrow();
 										match status {
+											JobStatus::Running => {
+												// Emit JobStarted event for resumed jobs
+												event_bus.emit(Event::JobStarted {
+													job_id: job_id_clone.to_string(),
+													job_type: job_type_str.to_string(),
+													device_id,
+												});
+												info!(
+													"Emitted JobStarted event for resumed job {}",
+													job_id_clone
+												);
+											}
 											JobStatus::Completed => {
 												// Get the final output from the handle
 												let output = {
@@ -1338,6 +1437,7 @@ impl JobManager {
 												event_bus.emit(Event::JobCompleted {
 													job_id: job_id_clone.to_string(),
 													job_type: job_type_str.clone(),
+													device_id,
 													output: output.unwrap_or(JobOutput::Success),
 												});
 
@@ -1380,6 +1480,7 @@ impl JobManager {
 												event_bus.emit(Event::JobFailed {
 													job_id: job_id_clone.to_string(),
 													job_type: job_type_str.clone(),
+													device_id,
 													error: "Job failed".to_string(),
 												});
 												// Remove from running jobs
@@ -1392,6 +1493,7 @@ impl JobManager {
 												event_bus.emit(Event::JobCancelled {
 													job_id: job_id_clone.to_string(),
 													job_type: job_type_str.clone(),
+													device_id,
 												});
 												// Remove from running jobs
 												running_jobs.write().await.remove(&job_id_clone);
@@ -1458,6 +1560,11 @@ impl JobManager {
 
 	/// Pause a running job
 	pub async fn pause_job(&self, job_id: JobId) -> JobResult<()> {
+		let device_id = self
+			.context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| uuid::Uuid::nil());
 		let running_jobs = self.running_jobs.read().await;
 
 		if let Some(running_job) = running_jobs.get(&job_id) {
@@ -1499,6 +1606,7 @@ impl JobManager {
 			// Emit pause event
 			self.context.events.emit(Event::JobPaused {
 				job_id: job_id.to_string(),
+				device_id,
 			});
 
 			info!("Job {} paused successfully", job_id);
@@ -1606,6 +1714,11 @@ impl JobManager {
 			let event_bus = self.context.events.clone();
 			let job_id_clone = job_id.clone();
 			let job_type_str = job_name.clone();
+			let device_id = self
+				.context
+				.device_manager
+				.device_id()
+				.unwrap_or_else(|_| uuid::Uuid::nil());
 			tokio::spawn(async move {
 				let mut progress_rx: mpsc::UnboundedReceiver<Progress> = progress_rx;
 				let mut last_emit = std::time::Instant::now();
@@ -1626,6 +1739,7 @@ impl JobManager {
 					event_bus.emit(Event::JobProgress {
 						job_id: job_id_clone.to_string(),
 						job_type: job_type_str.to_string(),
+						device_id,
 						progress: progress.as_percentage().unwrap_or(0.0) as f64,
 						message: Some(progress.to_string()),
 						generic_progress: None,
@@ -1709,6 +1823,11 @@ impl JobManager {
 			let job_type_str = job_name.clone();
 			let library_id_clone = self.library_id;
 			let context = self.context.clone();
+			let device_id = self
+				.context
+				.device_manager
+				.device_id()
+				.unwrap_or_else(|_| uuid::Uuid::nil());
 			tokio::spawn(async move {
 				let mut status_rx = status_tx.subscribe();
 				while status_rx.changed().await.is_ok() {
@@ -1731,6 +1850,7 @@ impl JobManager {
 							event_bus.emit(Event::JobCompleted {
 								job_id: job_id_clone.to_string(),
 								job_type: job_type_str.clone(),
+								device_id,
 								output: output.unwrap_or(JobOutput::Success),
 							});
 
@@ -1769,6 +1889,7 @@ impl JobManager {
 							event_bus.emit(Event::JobFailed {
 								job_id: job_id_clone.to_string(),
 								job_type: job_type_str.clone(),
+								device_id,
 								error: "Job failed".to_string(),
 							});
 							running_jobs.write().await.remove(&job_id_clone);
@@ -1779,6 +1900,7 @@ impl JobManager {
 							event_bus.emit(Event::JobCancelled {
 								job_id: job_id_clone.to_string(),
 								job_type: job_type_str.clone(),
+								device_id,
 							});
 							running_jobs.write().await.remove(&job_id_clone);
 							info!("Resumed job {} cancelled", job_id_clone);
@@ -1790,13 +1912,24 @@ impl JobManager {
 			});
 
 			// Emit resume event
+			let device_id = self
+				.context
+				.device_manager
+				.device_id()
+				.unwrap_or_else(|_| uuid::Uuid::nil());
 			self.context.events.emit(Event::JobResumed {
 				job_id: job_id.to_string(),
+				device_id,
 			});
 
 			info!("Job {} resumed from database", job_id);
 		} else {
 			// Job is already in memory, just update status
+			let device_id = self
+				.context
+				.device_manager
+				.device_id()
+				.unwrap_or_else(|_| uuid::Uuid::nil());
 			let mut running_jobs = self.running_jobs.write().await;
 			if let Some(running_job) = running_jobs.get_mut(&job_id) {
 				// Update status to Running
@@ -1820,6 +1953,7 @@ impl JobManager {
 				// Emit resume event
 				self.context.events.emit(Event::JobResumed {
 					job_id: job_id.to_string(),
+					device_id,
 				});
 
 				info!("Job {} resumed", job_id);

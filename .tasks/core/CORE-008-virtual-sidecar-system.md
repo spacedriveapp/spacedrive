@@ -1,8 +1,8 @@
 ---
 id: CORE-008
 title: Virtual Sidecar System (VSS)
-status: In Progress
-assignee: james
+status: Done
+assignee: jamiepine
 parent: CORE-000
 priority: High
 tags: [core, vdfs, sidecars, derivatives, addressing]
@@ -47,18 +47,21 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 ## Implementation Steps
 
 ### Phase 1: SdPath Integration
+
 - [ ] Add `SdPath::Sidecar { content_id, kind, variant, format }` enum variant
 - [ ] Implement `sidecar://` URI parsing
 - [ ] Add display formatting for sidecar URIs
 - [ ] Write unit tests for parsing/display
 
 ### Phase 2: Resolution
+
 - [ ] Implement `resolve_sidecar()` in SdPathResolver
 - [ ] Add resolution mode support (blocking, async, fetch-only)
 - [ ] Integrate with existing SidecarManager
 - [ ] Handle pending/missing sidecars gracefully
 
 ### Phase 3: Operations
+
 - [ ] Add sidecar support to ReadAction
 - [ ] Add sidecar support to FileCopyAction
 - [ ] Implement restricted DeleteAction for sidecars
@@ -66,6 +69,7 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 - [ ] Add operation validation (prevent move/rename)
 
 ### Phase 4: Job System
+
 - [ ] Implement ThumbnailGenerationJob
 - [ ] Implement OcrExtractionJob
 - [ ] Implement TranscriptGenerationJob
@@ -73,12 +77,14 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 - [ ] Implement job dispatch in SidecarManager
 
 ### Phase 5: Cross-Device Sync
+
 - [ ] Implement availability digest exchange
 - [ ] Implement sidecar transfer protocol
 - [ ] Add sync scheduler for periodic updates
 - [ ] Implement prefetch policies
 
 ### Phase 6: CLI & SDK
+
 - [ ] Add `sd sidecars` command family
 - [ ] Implement sidecar glob patterns
 - [ ] Add SDK APIs for extensions
@@ -87,6 +93,7 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 ## Acceptance Criteria
 
 ### Core Functionality
+
 - [ ] Thumbnails auto-generated for images during indexing
 - [ ] OCR text extracted from documents automatically
 - [ ] Sidecars addressable via `sidecar://` URIs
@@ -94,18 +101,21 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 - [ ] Can list all sidecars for a content item
 
 ### Cross-Device
+
 - [ ] Devices exchange sidecar availability information
 - [ ] Missing sidecars can be fetched from remote devices
 - [ ] Sidecar transfers reuse P2P file transfer infrastructure
 - [ ] Availability tracking stays current across library
 
 ### Integration
+
 - [ ] Extensions can read/write sidecars via SDK
 - [ ] CLI supports sidecar operations
 - [ ] Actions support sidecar paths
 - [ ] Resolver handles all sidecar resolution modes
 
 ### Quality
+
 - [ ] Deterministic paths work without DB queries
 - [ ] Idempotent generation (checks before regenerating)
 - [ ] Reference sidecars can be converted to managed
@@ -116,6 +126,7 @@ Implement the Virtual Sidecar System (VSS) for managing derivative data—thumbn
 Primary spec: `workbench/core/storage/VIRTUAL_SIDECAR_SYSTEM_V2.md` (Nov 2025)
 
 Supporting docs:
+
 - `workbench/core/storage/VIRTUAL_SIDECAR_SYSTEM.md` (Original spec)
 - `workbench/core/storage/REFERENCE_SIDECARS.md` (Reference pattern)
 - `workbench/core/storage/SIDECAR_SCALING_DESIGN.md` (Future scaling)

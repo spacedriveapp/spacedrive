@@ -2,7 +2,7 @@
 id: EXPL-002
 title: File List View with Sortable Columns
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: EXPL-000
 priority: High
 tags: [explorer, views, performance]

@@ -1,8 +1,8 @@
 ---
 id: VOL-000
-title: "Epic: Volume Operations"
+title: Volume Operations
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, core, volumes]
 whitepaper: Section 4.8

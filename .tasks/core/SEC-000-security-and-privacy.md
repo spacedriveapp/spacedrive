@@ -1,9 +1,9 @@
 ---
 id: SEC-000
-title: Security & Privacy Epic
+title: Security & Privacy
 status: In Progress
-assignee:
-parent:
+assignee: jamiepine
+parent: null
 priority: High
 tags: [security, epic]
 whitepaper:

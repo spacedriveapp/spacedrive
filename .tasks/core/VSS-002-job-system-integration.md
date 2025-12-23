@@ -2,7 +2,7 @@
 id: VSS-002
 title: "Sidecar Generation Job System Integration"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-008
 priority: High
 tags: [vss, jobs, generation, indexing]

@@ -1,307 +1,604 @@
 import {
-  createContext,
-  useContext,
-  useState,
-  useMemo,
-  useEffect,
-  useCallback,
-  type ReactNode,
+	createContext,
+	useContext,
+	useReducer,
+	useMemo,
+	useEffect,
+	useCallback,
+	type ReactNode,
 } from "react";
-import { useLibraryQuery, useNormalizedQuery } from "../../context";
-import { usePlatform } from "../../platform";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useNormalizedQuery } from "../../context";
 
 import type {
-  SdPath,
-  File,
-  LibraryDeviceInfo,
-  DirectorySortBy,
-  MediaSortBy,
+	SdPath,
+	File,
+	Device,
+	ListLibraryDevicesInput,
+	DirectorySortBy,
+	MediaSortBy,
 } from "@sd/ts-client";
 import {
-  useViewPreferencesStore,
-  useSortPreferencesStore,
+	useViewPreferencesStore,
+	useSortPreferencesStore,
 } from "@sd/ts-client";
 
-interface ViewSettings {
-  gridSize: number; // 80-400px
-  gapSize: number; // 1-32px
-  showFileSize: boolean;
-  columnWidth: number; // 200-400px for column view
-  foldersFirst: boolean;
+export type SortBy = DirectorySortBy | MediaSortBy;
+export type ViewMode =
+	| "grid"
+	| "list"
+	| "media"
+	| "column"
+	| "size"
+	| "knowledge";
+
+export interface ViewSettings {
+	gridSize: number;
+	gapSize: number;
+	showFileSize: boolean;
+	columnWidth: number;
+	foldersFirst: boolean;
 }
 
-function getSpaceItemKeyFromRoute(pathname: string, search: string): string {
-  if (pathname === "/") return "overview";
-  if (pathname === "/recents") return "recents";
-  if (pathname === "/favorites") return "favorites";
-  if (pathname.startsWith("/location/")) {
-    const locationId = pathname.replace("/location/", "");
-    return `location:${locationId}`;
-  }
-  if (pathname.startsWith("/tag/")) {
-    const tagId = pathname.replace("/tag/", "");
-    return `tag:${tagId}`;
-  }
-  if (pathname.startsWith("/volume/")) {
-    const volumeId = pathname.replace("/volume/", "");
-    return `volume:${volumeId}`;
-  }
-  if (pathname === "/explorer" && search) {
-    return `explorer:${search}`;
-  }
-  return pathname;
+export type NavigationTarget =
+	| { type: "path"; path: SdPath }
+	| {
+			type: "view";
+			view: string;
+			id?: string;
+			params?: Record<string, string>;
+	  };
+
+function targetToKey(target: NavigationTarget): string {
+	if (target.type === "path") {
+		const p = target.path;
+		if ("Physical" in p && p.Physical) {
+			return `path:${p.Physical.device_slug}:${p.Physical.path}`;
+		}
+		if ("Virtual" in p && p.Virtual) {
+			return `path:virtual:${p.Virtual}`;
+		}
+		return `path:${JSON.stringify(p)}`;
+	}
+	return `view:${target.view}:${target.id || ""}`;
 }
 
-function getPathKey(sdPath: SdPath | null): string {
-  if (!sdPath) return "null";
-  return JSON.stringify(sdPath);
+function targetsEqual(
+	a: NavigationTarget | null,
+	b: NavigationTarget | null,
+): boolean {
+	if (a === null || b === null) return a === b;
+	return targetToKey(a) === targetToKey(b);
 }
 
-interface ExplorerState {
-  currentPath: SdPath | null;
-  setCurrentPath: (path: SdPath | null) => void;
+const MAX_HISTORY_SIZE = 100;
 
-  history: SdPath[];
-  historyIndex: number;
-  goBack: () => void;
-  goForward: () => void;
-  canGoBack: boolean;
-  canGoForward: boolean;
-
-  viewMode: "grid" | "list" | "media" | "column" | "size" | "knowledge";
-  setViewMode: (mode: "grid" | "list" | "media" | "column" | "size" | "knowledge") => void;
-
-  sortBy: DirectorySortBy | MediaSortBy;
-  setSortBy: (sort: DirectorySortBy | MediaSortBy) => void;
-
-  viewSettings: ViewSettings;
-  setViewSettings: (settings: Partial<ViewSettings>) => void;
-
-  sidebarVisible: boolean;
-  setSidebarVisible: (visible: boolean) => void;
-  inspectorVisible: boolean;
-  setInspectorVisible: (visible: boolean) => void;
-
-  quickPreviewFileId: string | null;
-  setQuickPreviewFileId: (fileId: string | null) => void;
-  openQuickPreview: (fileId: string) => void;
-  closeQuickPreview: () => void;
-
-  currentFiles: File[];
-  setCurrentFiles: (files: File[]) => void;
-
-  tagModeActive: boolean;
-  setTagModeActive: (active: boolean) => void;
-
-  devices: Map<string, LibraryDeviceInfo>;
-
-  setSpaceItemId: (id: string) => void;
+interface NavigationState {
+	history: NavigationTarget[];
+	index: number;
 }
 
-const ExplorerContext = createContext<ExplorerState | null>(null);
+type NavigationAction =
+	| { type: "NAVIGATE"; target: NavigationTarget }
+	| { type: "GO_BACK" }
+	| { type: "GO_FORWARD" }
+	| { type: "SYNC"; target: NavigationTarget };
+
+function navigationReducer(
+	state: NavigationState,
+	action: NavigationAction,
+): NavigationState {
+	switch (action.type) {
+		case "NAVIGATE": {
+			const current = state.history[state.index];
+			if (current && targetsEqual(current, action.target)) {
+				return state;
+			}
+
+			const newHistory = state.history.slice(0, state.index + 1);
+			newHistory.push(action.target);
+
+			const trimmedHistory = newHistory.slice(-MAX_HISTORY_SIZE);
+			const indexAdjustment = newHistory.length - trimmedHistory.length;
+
+			return {
+				history: trimmedHistory,
+				index: state.index + 1 - indexAdjustment,
+			};
+		}
+
+		case "GO_BACK": {
+			if (state.index <= 0) return state;
+			return { ...state, index: state.index - 1 };
+		}
+
+		case "GO_FORWARD": {
+			if (state.index >= state.history.length - 1) return state;
+			return { ...state, index: state.index + 1 };
+		}
+
+		case "SYNC": {
+			const current = state.history[state.index];
+			if (current && targetsEqual(current, action.target)) {
+				return state;
+			}
+
+			const newHistory = [
+				...state.history.slice(0, state.index + 1),
+				action.target,
+			];
+			const trimmedHistory = newHistory.slice(-MAX_HISTORY_SIZE);
+			const indexAdjustment = newHistory.length - trimmedHistory.length;
+
+			return {
+				history: trimmedHistory,
+				index: state.index + 1 - indexAdjustment,
+			};
+		}
+
+		default:
+			return state;
+	}
+}
+
+const initialNavigationState: NavigationState = {
+	history: [],
+	index: -1,
+};
+
+interface UIState {
+	viewMode: ViewMode;
+	sortBy: SortBy;
+	viewSettings: ViewSettings;
+	sidebarVisible: boolean;
+	inspectorVisible: boolean;
+	quickPreviewFileId: string | null;
+	tagModeActive: boolean;
+}
+
+type UIAction =
+	| { type: "SET_VIEW_MODE"; mode: ViewMode }
+	| { type: "SET_SORT_BY"; sort: SortBy }
+	| { type: "SET_VIEW_SETTINGS"; settings: Partial<ViewSettings> }
+	| { type: "SET_SIDEBAR_VISIBLE"; visible: boolean }
+	| { type: "SET_INSPECTOR_VISIBLE"; visible: boolean }
+	| { type: "SET_QUICK_PREVIEW"; fileId: string | null }
+	| { type: "SET_TAG_MODE"; active: boolean }
+	| {
+			type: "LOAD_PREFERENCES";
+			viewMode: ViewMode;
+			viewSettings?: Partial<ViewSettings>;
+	  };
+
+const defaultViewSettings: ViewSettings = {
+	gridSize: 120,
+	gapSize: 16,
+	showFileSize: true,
+	columnWidth: 256,
+	foldersFirst: false,
+};
+
+function uiReducer(state: UIState, action: UIAction): UIState {
+	switch (action.type) {
+		case "SET_VIEW_MODE":
+			return { ...state, viewMode: action.mode };
+
+		case "SET_SORT_BY":
+			return { ...state, sortBy: action.sort };
+
+		case "SET_VIEW_SETTINGS":
+			return {
+				...state,
+				viewSettings: { ...state.viewSettings, ...action.settings },
+			};
+
+		case "SET_SIDEBAR_VISIBLE":
+			return { ...state, sidebarVisible: action.visible };
+
+		case "SET_INSPECTOR_VISIBLE":
+			return { ...state, inspectorVisible: action.visible };
+
+		case "SET_QUICK_PREVIEW":
+			return { ...state, quickPreviewFileId: action.fileId };
+
+		case "SET_TAG_MODE":
+			return { ...state, tagModeActive: action.active };
+
+		case "LOAD_PREFERENCES":
+			return {
+				...state,
+				viewMode: action.viewMode,
+				viewSettings: action.viewSettings
+					? { ...state.viewSettings, ...action.viewSettings }
+					: state.viewSettings,
+			};
+
+		default:
+			return state;
+	}
+}
+
+const initialUIState: UIState = {
+	viewMode: "grid",
+	sortBy: "name",
+	viewSettings: defaultViewSettings,
+	sidebarVisible: true,
+	inspectorVisible: true,
+	quickPreviewFileId: null,
+	tagModeActive: false,
+};
+
+function targetToUrl(target: NavigationTarget): string {
+	if (target.type === "path") {
+		const encoded = encodeURIComponent(JSON.stringify(target.path));
+		return `/explorer?path=${encoded}`;
+	}
+
+	const params = new URLSearchParams({ view: target.view });
+	if (target.id) params.set("id", target.id);
+	if (target.params) {
+		Object.entries(target.params).forEach(([k, v]) => params.set(k, v));
+	}
+	return `/explorer?${params.toString()}`;
+}
+
+function urlToTarget(search: string): NavigationTarget | null {
+	const params = new URLSearchParams(search);
+
+	const pathParam = params.get("path");
+	if (pathParam) {
+		try {
+			const path = JSON.parse(decodeURIComponent(pathParam)) as SdPath;
+			return { type: "path", path };
+		} catch {
+			return null;
+		}
+	}
+
+	const view = params.get("view");
+	if (view) {
+		const id = params.get("id") || undefined;
+		const extraParams: Record<string, string> = {};
+		params.forEach((v, k) => {
+			if (k !== "view" && k !== "id") extraParams[k] = v;
+		});
+		return {
+			type: "view",
+			view,
+			id,
+			params:
+				Object.keys(extraParams).length > 0 ? extraParams : undefined,
+		};
+	}
+
+	return null;
+}
+
+function getSpaceItemKey(pathname: string, search: string): string {
+	if (pathname === "/") return "overview";
+	if (pathname === "/recents") return "recents";
+	if (pathname === "/favorites") return "favorites";
+	if (pathname === "/file-kinds") return "file-kinds";
+	if (pathname.startsWith("/tag/")) return `tag:${pathname.slice(5)}`;
+	if (pathname === "/explorer" && search) return `explorer:${search}`;
+	return pathname;
+}
+
+function getPathKey(target: NavigationTarget | null): string {
+	if (!target) return "null";
+	return targetToKey(target);
+}
+
+interface ExplorerContextValue {
+	currentTarget: NavigationTarget | null;
+	currentPath: SdPath | null;
+	currentView: {
+		view: string;
+		id?: string;
+		params?: Record<string, string>;
+	} | null;
+
+	navigateToPath: (path: SdPath) => void;
+	navigateToView: (
+		view: string,
+		id?: string,
+		params?: Record<string, string>,
+	) => void;
+	goBack: () => void;
+	goForward: () => void;
+	canGoBack: boolean;
+	canGoForward: boolean;
+
+	viewMode: ViewMode;
+	setViewMode: (mode: ViewMode) => void;
+	sortBy: SortBy;
+	setSortBy: (sort: SortBy) => void;
+	viewSettings: ViewSettings;
+	setViewSettings: (settings: Partial<ViewSettings>) => void;
+
+	sidebarVisible: boolean;
+	setSidebarVisible: (visible: boolean) => void;
+	inspectorVisible: boolean;
+	setInspectorVisible: (visible: boolean) => void;
+
+	quickPreviewFileId: string | null;
+	openQuickPreview: (fileId: string) => void;
+	closeQuickPreview: () => void;
+
+	currentFiles: File[];
+	setCurrentFiles: (files: File[]) => void;
+
+	tagModeActive: boolean;
+	setTagModeActive: (active: boolean) => void;
+
+	devices: Map<string, Device>;
+
+	loadPreferencesForSpaceItem: (id: string) => void;
+}
+
+const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 interface ExplorerProviderProps {
-  children: ReactNode;
-  spaceItemId?: string;
+	children: ReactNode;
 }
 
-export function ExplorerProvider({ children, spaceItemId: initialSpaceItemId }: ExplorerProviderProps) {
-  const platform = usePlatform();
-  const viewPrefs = useViewPreferencesStore();
-  const sortPrefs = useSortPreferencesStore();
+export function ExplorerProvider({ children }: ExplorerProviderProps) {
+	const routerNavigate = useNavigate();
+	const location = useLocation();
+	const viewPrefs = useViewPreferencesStore();
+	const sortPrefs = useSortPreferencesStore();
 
-  const [spaceItemIdInternal, setSpaceItemIdInternal] = useState(initialSpaceItemId || "default");
-  const [currentPath, setCurrentPathInternal] = useState<SdPath | null>(null);
-  const [history, setHistory] = useState<SdPath[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [viewMode, setViewModeInternal] = useState<"grid" | "list" | "media" | "column" | "size" | "knowledge">("grid");
-  const [sortByInternal, setSortByInternal] = useState<DirectorySortBy | MediaSortBy>("name");
-  const [viewSettings, setViewSettingsInternal] = useState<ViewSettings>({
-    gridSize: 120,
-    gapSize: 16,
-    showFileSize: true,
-    columnWidth: 256,
-    foldersFirst: false,
-  });
-  const [sidebarVisible, setSidebarVisible] = useState(true);
-  const [inspectorVisible, setInspectorVisible] = useState(true);
-  const [quickPreviewFileId, setQuickPreviewFileId] = useState<string | null>(null);
-  const [currentFiles, setCurrentFiles] = useState<File[]>([]);
-  const [tagModeActive, setTagModeActive] = useState(false);
+	const [navState, navDispatch] = useReducer(
+		navigationReducer,
+		initialNavigationState,
+	);
+	const [uiState, uiDispatch] = useReducer(uiReducer, initialUIState);
+	const [currentFiles, setCurrentFiles] = useReducer(
+		(_: File[], files: File[]) => files,
+		[] as File[],
+	);
 
-  const spaceItemKey = spaceItemIdInternal;
-  const pathKey = getPathKey(currentPath);
+	const currentTarget = navState.history[navState.index] ?? null;
+	const canGoBack = navState.index > 0;
+	const canGoForward = navState.index < navState.history.length - 1;
 
-  // Load view preferences when space item changes
-  useEffect(() => {
-    const prefs = viewPrefs.getPreferences(spaceItemKey);
-    if (prefs) {
-      setViewModeInternal(prefs.viewMode);
-      setViewSettingsInternal(prefs.viewSettings);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceItemKey]);
+	const currentPath = useMemo(() => {
+		if (currentTarget?.type === "path") return currentTarget.path;
+		return null;
+	}, [currentTarget]);
 
-  // Load sort preferences when path changes
-  useEffect(() => {
-    const sortPref = sortPrefs.getPreferences(pathKey);
-    if (sortPref) {
-      setSortByInternal(sortPref as DirectorySortBy | MediaSortBy);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathKey]);
+	const currentView = useMemo(() => {
+		if (currentTarget?.type === "view") {
+			return {
+				view: currentTarget.view,
+				id: currentTarget.id,
+				params: currentTarget.params,
+			};
+		}
+		return null;
+	}, [currentTarget]);
 
-  // Wrapper for setViewMode that persists to store
-  const setViewMode = useCallback((mode: "grid" | "list" | "media" | "column" | "size" | "knowledge") => {
-    setViewModeInternal(mode);
-    viewPrefs.setPreferences(spaceItemKey, { viewMode: mode });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceItemKey]);
+	const devicesQuery = useNormalizedQuery<ListLibraryDevicesInput, Device[]>({
+		wireMethod: "query:devices.list",
+		input: { include_offline: true, include_details: false },
+		resourceType: "device",
+	});
 
-  // Wrapper for setSortBy that persists to store
-  const setSortBy = useCallback((sort: DirectorySortBy | MediaSortBy) => {
-    setSortByInternal(sort);
-    sortPrefs.setPreferences(pathKey, sort);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathKey]);
+	const devices = useMemo(() => {
+		const list = devicesQuery.data ?? [];
+		return new Map(list.map((d) => [d.id, d]));
+	}, [devicesQuery.data]);
 
-  // Update sort when switching to media view
-  useEffect(() => {
-    if (viewMode === "media" && sortByInternal === "type") {
-      setSortByInternal("datetaken");
-      sortPrefs.setPreferences(pathKey, "datetaken");
-    } else if (viewMode !== "media" && sortByInternal === "datetaken") {
-      setSortByInternal("modified");
-      sortPrefs.setPreferences(pathKey, "modified");
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, sortByInternal, pathKey]);
+	// Exclude currentTarget from deps to prevent infinite sync loops.
+	useEffect(() => {
+		const target = urlToTarget(location.search);
+		if (target && !targetsEqual(target, currentTarget)) {
+			navDispatch({ type: "SYNC", target });
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [location.search]);
 
-  const setViewSettings = useCallback((settings: Partial<ViewSettings>) => {
-    setViewSettingsInternal((prev) => {
-      const updated = { ...prev, ...settings };
-      viewPrefs.setPreferences(spaceItemKey, { viewSettings: updated });
-      return updated;
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spaceItemKey]);
+	const pathKey = getPathKey(currentTarget);
 
-  const devicesQuery = useLibraryQuery({
-    type: "devices.list",
-    input: { include_offline: true, include_details: false },
-  });
+	useEffect(() => {
+		const savedSort = sortPrefs.getPreferences(pathKey);
+		if (savedSort) {
+			uiDispatch({ type: "SET_SORT_BY", sort: savedSort as SortBy });
+		}
+	}, [pathKey, sortPrefs]);
 
-  const devices = useMemo(() => {
-    const deviceList = devicesQuery.data || [];
-    return new Map(deviceList.map((d) => [d.id, d]));
-  }, [devicesQuery.data]);
+	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
+	useEffect(() => {
+		if (uiState.viewMode === "media" && uiState.sortBy === "type") {
+			uiDispatch({ type: "SET_SORT_BY", sort: "datetaken" });
+			sortPrefs.setPreferences(pathKey, "datetaken");
+		} else if (
+			uiState.viewMode !== "media" &&
+			uiState.sortBy === "datetaken"
+		) {
+			uiDispatch({ type: "SET_SORT_BY", sort: "modified" });
+			sortPrefs.setPreferences(pathKey, "modified");
+		}
+	}, [uiState.viewMode, uiState.sortBy, pathKey, sortPrefs]);
 
+	const navigateToPath = useCallback(
+		(path: SdPath) => {
+			const target: NavigationTarget = { type: "path", path };
+			navDispatch({ type: "NAVIGATE", target });
+			routerNavigate(targetToUrl(target));
+		},
+		[routerNavigate],
+	);
 
-  const goBack = useCallback(() => {
-    if (historyIndex > 0) {
-      const newIndex = historyIndex - 1;
-      setHistoryIndex(newIndex);
-      setCurrentPathInternal(history[newIndex]);
-    }
-  }, [historyIndex, history]);
+	const navigateToView = useCallback(
+		(view: string, id?: string, params?: Record<string, string>) => {
+			const target: NavigationTarget = { type: "view", view, id, params };
+			navDispatch({ type: "NAVIGATE", target });
+			routerNavigate(targetToUrl(target));
+		},
+		[routerNavigate],
+	);
 
-  const goForward = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      const newIndex = historyIndex + 1;
-      setHistoryIndex(newIndex);
-      setCurrentPathInternal(history[newIndex]);
-    }
-  }, [historyIndex, history]);
+	const goBack = useCallback(() => {
+		navDispatch({ type: "GO_BACK" });
+		const targetIndex = navState.index - 1;
+		if (targetIndex >= 0) {
+			const target = navState.history[targetIndex];
+			routerNavigate(targetToUrl(target), { replace: true });
+		}
+	}, [navState.index, navState.history, routerNavigate]);
 
-  const canGoBack = historyIndex > 0;
-  const canGoForward = historyIndex < history.length - 1;
+	const goForward = useCallback(() => {
+		navDispatch({ type: "GO_FORWARD" });
+		const targetIndex = navState.index + 1;
+		if (targetIndex < navState.history.length) {
+			const target = navState.history[targetIndex];
+			routerNavigate(targetToUrl(target), { replace: true });
+		}
+	}, [navState.index, navState.history, routerNavigate]);
 
-  const setCurrentPath = useCallback((path: SdPath | null) => {
-    if (path) {
-      setHistory((prev) => {
-        const newHistory = prev.slice(0, historyIndex + 1);
-        newHistory.push(path);
-        return newHistory;
-      });
-      setHistoryIndex((prev) => prev + 1);
-    }
-    setCurrentPathInternal(path);
-  }, [historyIndex]);
+	const spaceKey = getSpaceItemKey(location.pathname, location.search);
 
-  const openQuickPreview = useCallback((fileId: string) => {
-    setQuickPreviewFileId(fileId);
-  }, []);
+	const setViewMode = useCallback(
+		(mode: ViewMode) => {
+			uiDispatch({ type: "SET_VIEW_MODE", mode });
+			viewPrefs.setPreferences(spaceKey, { viewMode: mode });
+		},
+		[spaceKey, viewPrefs],
+	);
 
-  const closeQuickPreview = useCallback(() => {
-    setQuickPreviewFileId(null);
-  }, []);
+	const setSortBy = useCallback(
+		(sort: SortBy) => {
+			uiDispatch({ type: "SET_SORT_BY", sort });
+			sortPrefs.setPreferences(pathKey, sort);
+		},
+		[pathKey, sortPrefs],
+	);
 
-  const value: ExplorerState = useMemo(() => ({
-    currentPath,
-    setCurrentPath,
-    history,
-    historyIndex,
-    goBack,
-    goForward,
-    canGoBack,
-    canGoForward,
-    viewMode,
-    setViewMode,
-    sortBy: sortByInternal,
-    setSortBy,
-    viewSettings,
-    setViewSettings,
-    sidebarVisible,
-    setSidebarVisible,
-    inspectorVisible,
-    setInspectorVisible,
-    quickPreviewFileId,
-    setQuickPreviewFileId,
-    openQuickPreview,
-    closeQuickPreview,
-    currentFiles,
-    setCurrentFiles,
-    tagModeActive,
-    setTagModeActive,
-    devices,
-    setSpaceItemId: setSpaceItemIdInternal,
-  }), [
-    currentPath,
-    setCurrentPath,
-    history,
-    historyIndex,
-    goBack,
-    goForward,
-    canGoBack,
-    canGoForward,
-    viewMode,
-    setViewMode,
-    sortByInternal,
-    setSortBy,
-    viewSettings,
-    setViewSettings,
-    sidebarVisible,
-    inspectorVisible,
-    quickPreviewFileId,
-    openQuickPreview,
-    closeQuickPreview,
-    currentFiles,
-    tagModeActive,
-    devices,
-  ]);
+	const setViewSettings = useCallback(
+		(settings: Partial<ViewSettings>) => {
+			uiDispatch({ type: "SET_VIEW_SETTINGS", settings });
+			viewPrefs.setPreferences(spaceKey, {
+				viewSettings: { ...uiState.viewSettings, ...settings },
+			});
+		},
+		[spaceKey, uiState.viewSettings, viewPrefs],
+	);
 
-  return (
-    <ExplorerContext.Provider value={value}>
-      {children}
-    </ExplorerContext.Provider>
-  );
+	const setSidebarVisible = useCallback((visible: boolean) => {
+		uiDispatch({ type: "SET_SIDEBAR_VISIBLE", visible });
+	}, []);
+
+	const setInspectorVisible = useCallback((visible: boolean) => {
+		uiDispatch({ type: "SET_INSPECTOR_VISIBLE", visible });
+	}, []);
+
+	const openQuickPreview = useCallback((fileId: string) => {
+		uiDispatch({ type: "SET_QUICK_PREVIEW", fileId });
+	}, []);
+
+	const closeQuickPreview = useCallback(() => {
+		uiDispatch({ type: "SET_QUICK_PREVIEW", fileId: null });
+	}, []);
+
+	const setTagModeActive = useCallback((active: boolean) => {
+		uiDispatch({ type: "SET_TAG_MODE", active });
+	}, []);
+
+	const loadPreferencesForSpaceItem = useCallback(
+		(id: string) => {
+			const prefs = viewPrefs.getPreferences(id);
+			if (prefs) {
+				uiDispatch({
+					type: "LOAD_PREFERENCES",
+					viewMode: prefs.viewMode,
+					viewSettings: prefs.viewSettings,
+				});
+			}
+		},
+		[viewPrefs],
+	);
+
+	const value = useMemo<ExplorerContextValue>(
+		() => ({
+			currentTarget,
+			currentPath,
+			currentView,
+			navigateToPath,
+			navigateToView,
+			goBack,
+			goForward,
+			canGoBack,
+			canGoForward,
+			viewMode: uiState.viewMode,
+			setViewMode,
+			sortBy: uiState.sortBy,
+			setSortBy,
+			viewSettings: uiState.viewSettings,
+			setViewSettings,
+			sidebarVisible: uiState.sidebarVisible,
+			setSidebarVisible,
+			inspectorVisible: uiState.inspectorVisible,
+			setInspectorVisible,
+			quickPreviewFileId: uiState.quickPreviewFileId,
+			openQuickPreview,
+			closeQuickPreview,
+			currentFiles,
+			setCurrentFiles,
+			tagModeActive: uiState.tagModeActive,
+			setTagModeActive,
+			devices,
+			loadPreferencesForSpaceItem,
+		}),
+		[
+			currentTarget,
+			currentPath,
+			currentView,
+			navigateToPath,
+			navigateToView,
+			goBack,
+			goForward,
+			canGoBack,
+			canGoForward,
+			uiState.viewMode,
+			setViewMode,
+			uiState.sortBy,
+			setSortBy,
+			uiState.viewSettings,
+			setViewSettings,
+			uiState.sidebarVisible,
+			setSidebarVisible,
+			uiState.inspectorVisible,
+			setInspectorVisible,
+			uiState.quickPreviewFileId,
+			openQuickPreview,
+			closeQuickPreview,
+			currentFiles,
+			uiState.tagModeActive,
+			setTagModeActive,
+			devices,
+			loadPreferencesForSpaceItem,
+		],
+	);
+
+	return (
+		<ExplorerContext.Provider value={value}>
+			{children}
+		</ExplorerContext.Provider>
+	);
 }
 
-export function useExplorer() {
-  const context = useContext(ExplorerContext);
-  if (!context)
-    throw new Error("useExplorer must be used within ExplorerProvider");
-  return context;
+export function useExplorer(): ExplorerContextValue {
+	const context = useContext(ExplorerContext);
+	if (!context) {
+		throw new Error("useExplorer must be used within an ExplorerProvider");
+	}
+	return context;
 }
 
-export { getSpaceItemKeyFromRoute };
+export {
+	getSpaceItemKey,
+	getSpaceItemKey as getSpaceItemKeyFromRoute,
+	targetToKey,
+	targetsEqual,
+};

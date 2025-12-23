@@ -2,7 +2,7 @@
 id: JOB-001
 title: Job Manager for Task Scheduling
 status: Done
-assignee: james
+assignee: jamiepine
 parent: JOB-000
 priority: High
 tags: [core, jobs]

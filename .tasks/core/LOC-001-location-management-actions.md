@@ -2,7 +2,7 @@
 id: LOC-001
 title: Location Management Actions
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LOC-000
 priority: High
 tags: [core, actions, locations, indexing]

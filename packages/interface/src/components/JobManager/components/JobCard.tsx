@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pause, Play } from "@phosphor-icons/react";
+import { Pause, Play, X } from "@phosphor-icons/react";
 import clsx from "clsx";
 import type { JobListItem } from "../types";
 import {
@@ -15,9 +15,10 @@ interface JobCardProps {
   job: JobListItem;
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
+  onCancel?: (jobId: string) => void;
 }
 
-export function JobCard({ job, onPause, onResume }: JobCardProps) {
+export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const displayName = getJobDisplayName(job);
@@ -27,6 +28,7 @@ export function JobCard({ job, onPause, onResume }: JobCardProps) {
   const showActionButton = job.status === "running" || job.status === "paused";
   const canPause = job.status === "running" && onPause;
   const canResume = job.status === "paused" && onResume;
+  const canCancel = (job.status === "running" || job.status === "paused") && onCancel;
 
   const handleAction = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -34,6 +36,13 @@ export function JobCard({ job, onPause, onResume }: JobCardProps) {
       onPause(job.id);
     } else if (canResume) {
       onResume(job.id);
+    }
+  };
+
+  const handleCancel = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (canCancel) {
+      onCancel(job.id);
     }
   };
 
@@ -62,18 +71,31 @@ export function JobCard({ job, onPause, onResume }: JobCardProps) {
             {statusBadge}
           </span>
 
-          {showActionButton && isHovered && (canPause || canResume) && (
-            <button
-              onClick={handleAction}
-              className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-app-selected transition-colors"
-              title={canPause ? "Pause job" : "Resume job"}
-            >
-              {canPause ? (
-                <Pause size={10} weight="fill" className="text-ink" />
-              ) : (
-                <Play size={10} weight="fill" className="text-ink" />
+          {isHovered && (
+            <div className="flex items-center gap-1">
+              {showActionButton && (canPause || canResume) && (
+                <button
+                  onClick={handleAction}
+                  className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-app-selected transition-colors"
+                  title={canPause ? "Pause job" : "Resume job"}
+                >
+                  {canPause ? (
+                    <Pause size={10} weight="fill" className="text-ink" />
+                  ) : (
+                    <Play size={10} weight="fill" className="text-ink" />
+                  )}
+                </button>
               )}
-            </button>
+              {canCancel && (
+                <button
+                  onClick={handleCancel}
+                  className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-red-500 transition-colors"
+                  title="Cancel job"
+                >
+                  <X size={10} weight="bold" className="text-ink hover:text-white" />
+                </button>
+              )}
+            </div>
           )}
         </div>
 

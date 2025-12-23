@@ -2,7 +2,7 @@
 id: VOL-002
 title: Automatic Volume Classification
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: VOL-000
 priority: Medium
 tags: [volume, classification, automation]

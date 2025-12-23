@@ -74,6 +74,7 @@ async fn test_tagging_persists_to_database() {
 		path: SdPath::local(source_dir.clone()),
 		name: Some("Source".to_string()),
 		mode: IndexMode::Deep,
+		job_policies: None,
 	})
 	.unwrap();
 	let _ = action_manager
@@ -109,7 +110,7 @@ async fn test_tagging_persists_to_database() {
 	let tag_uuid = create_out.tag_id;
 
 	// Apply the tag to target entry via action
-	let apply = ApplyTagsAction::from_input(ApplyTagsInput::user_tags(
+	let apply = ApplyTagsAction::from_input(ApplyTagsInput::user_tags_entry(
 		vec![target_entry.id],
 		vec![tag_uuid],
 	))

@@ -19,6 +19,13 @@ pub struct EphemeralCacheStatusInput {
 	pub path_filter: Option<String>,
 }
 
+/// Input for resetting the ephemeral cache
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct EphemeralCacheResetInput {
+	/// Confirmation flag to prevent accidental cache clearing
+	pub confirm: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct EphemeralCacheStatusQuery {
 	input: EphemeralCacheStatusInput,

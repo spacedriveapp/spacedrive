@@ -1,29 +1,3 @@
-/* Spacedrive V2 - Color System */
-:root {
-	--dark-hue: 235;
-	--color-sidebar: 235, 15%, 7%;
-	--color-sidebar-box: 235, 15%, 16%;
-	--color-sidebar-line: 235, 15%, 23%;
-	--color-sidebar-ink: 235, 15%, 92%;
-	--color-sidebar-ink-dull: 235, 10%, 70%;
-	--color-sidebar-ink-faint: 235, 10%, 55%;
-	--color-sidebar-divider: 235, 15%, 17%;
-	--color-sidebar-button: 235, 15%, 18%;
-	--color-sidebar-selected: 235, 15%, 24%;
-	--color-app: 235, 15%, 13%;
-	--color-app-box: 235, 15%, 18%;
-	--color-app-line: 235, 15%, 23%;
-	--color-app-frame: 235, 15%, 25%;
-	--color-accent: 220, 90%, 56%;
-	--color-menu: 235, 15%, 13%;
-	--color-menu-line: 235, 15%, 23%;
-	--color-menu-hover: 235, 15%, 20%;
-	--color-menu-selected: 235, 15%, 24%;
-	--color-menu-shade: 235, 15%, 8%;
-	--color-menu-ink: 235, 15%, 92%;
-	--color-menu-faint: 235, 10%, 55%;
-}
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -42,7 +16,9 @@
 	border-radius: inherit;
 	padding: 1px;
 	background: var(--color-app-frame);
-	mask: linear-gradient(black, black) content-box content-box, linear-gradient(black, black);
+	mask:
+		linear-gradient(black, black) content-box content-box,
+		linear-gradient(black, black);
 	mask-composite: xor;
 	-webkit-mask-composite: xor;
 	z-index: 9999;
@@ -58,14 +34,23 @@
 }
 
 .mask-fade-out {
-	mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
-	-webkit-mask-image: linear-gradient(to bottom, black calc(100% - 40px), transparent 100%);
+	mask-image: linear-gradient(
+		to bottom,
+		black calc(100% - 40px),
+		transparent 100%
+	);
+	-webkit-mask-image: linear-gradient(
+		to bottom,
+		black calc(100% - 40px),
+		transparent 100%
+	);
 }
 
 body {
 	margin: 0;
-	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
-		'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+	font-family:
+		-apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu",
+		"Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }

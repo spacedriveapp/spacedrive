@@ -11,6 +11,7 @@ pub enum SidecarKind {
 	Embeddings,
 	Ocr,
 	Transcript,
+	GaussianSplat,
 }
 
 impl SidecarKind {
@@ -22,6 +23,7 @@ impl SidecarKind {
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
+			Self::GaussianSplat => "gaussian_splat",
 		}
 	}
 
@@ -33,6 +35,7 @@ impl SidecarKind {
 			Self::Embeddings => "embeddings",
 			Self::Ocr => "ocr",
 			Self::Transcript => "transcript",
+			Self::GaussianSplat => "gaussian_splats",
 		}
 	}
 }
@@ -54,6 +57,7 @@ impl TryFrom<&str> for SidecarKind {
 			"embeddings" => Ok(Self::Embeddings),
 			"ocr" => Ok(Self::Ocr),
 			"transcript" => Ok(Self::Transcript),
+			"gaussian_splat" => Ok(Self::GaussianSplat),
 			_ => Err(format!("Invalid sidecar kind: {}", value)),
 		}
 	}
@@ -98,6 +102,7 @@ impl From<String> for SidecarVariant {
 /// - Json: Text-based structured data (OCR, transcripts)
 /// - MessagePack: Binary structured data (embeddings, vectors)
 /// - Text: Plain text extractions
+/// - Ply: 3D model format for Gaussian splats
 ///
 /// MessagePack is preferred for embeddings because:
 /// - 6x smaller than JSON (1.7KB vs 10KB per 384-dim vector)
@@ -112,6 +117,7 @@ pub enum SidecarFormat {
 	Json,
 	MessagePack,
 	Text,
+	Ply,
 }
 
 impl SidecarFormat {
@@ -122,6 +128,7 @@ impl SidecarFormat {
 			Self::Json => "json",
 			Self::MessagePack => "msgpack",
 			Self::Text => "txt",
+			Self::Ply => "ply",
 		}
 	}
 
@@ -132,6 +139,7 @@ impl SidecarFormat {
 			Self::Json => "json",
 			Self::MessagePack => "messagepack",
 			Self::Text => "text",
+			Self::Ply => "ply",
 		}
 	}
 }
@@ -152,6 +160,7 @@ impl TryFrom<&str> for SidecarFormat {
 			"json" => Ok(Self::Json),
 			"msgpack" | "messagepack" => Ok(Self::MessagePack),
 			"text" | "txt" => Ok(Self::Text),
+			"ply" => Ok(Self::Ply),
 			_ => Err(format!("Invalid sidecar format: {}", value)),
 		}
 	}

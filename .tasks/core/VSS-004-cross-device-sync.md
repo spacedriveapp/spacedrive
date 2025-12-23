@@ -2,7 +2,7 @@
 id: VSS-004
 title: "Cross-Device Sidecar Sync"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: CORE-008
 priority: Medium
 tags: [vss, sync, networking, p2p]

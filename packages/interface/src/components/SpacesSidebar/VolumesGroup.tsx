@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { Plugs, WifiSlash } from "@phosphor-icons/react";
 import { useNormalizedQuery, getVolumeIcon } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
@@ -9,12 +10,16 @@ interface VolumesGroupProps {
 	onToggle: () => void;
 	/** Filter to show tracked, untracked, or all volumes (default: "All") */
 	filter?: "TrackedOnly" | "UntrackedOnly" | "All";
+	sortableAttributes?: any;
+	sortableListeners?: any;
 }
 
 export function VolumesGroup({
 	isCollapsed,
 	onToggle,
 	filter = "All",
+	sortableAttributes,
+	sortableListeners,
 }: VolumesGroupProps) {
 	const navigate = useNavigate();
 
@@ -26,21 +31,24 @@ export function VolumesGroup({
 
 	const volumes = volumesData?.volumes || [];
 
-	// Helper to render volume badges
-	const getVolumeBadges = (volume: VolumeItem) => (
+	// Helper to render volume status indicator
+	const getVolumeIndicator = (volume: VolumeItem) => (
 		<>
-			{!volume.is_online && (
-				<span className="text-xs text-ink-faint">Offline</span>
-			)}
 			{!volume.is_tracked && (
-				<span className="text-xs text-accent">Untracked</span>
+				<Plugs size={14} weight="bold" className="text-ink-faint" />
 			)}
 		</>
 	);
 
 	return (
 		<div>
-			<GroupHeader label="Volumes" isCollapsed={isCollapsed} onToggle={onToggle} />
+			<GroupHeader
+				label="Volumes"
+				isCollapsed={isCollapsed}
+				onToggle={onToggle}
+				sortableAttributes={sortableAttributes}
+				sortableListeners={sortableListeners}
+			/>
 
 			{/* Volumes List */}
 			{!isCollapsed && (
@@ -59,7 +67,9 @@ export function VolumesGroup({
 										item_type: {
 											Volume: {
 												volume_id: volume.id,
-												name: volume.display_name || volume.name,
+												name:
+													volume.display_name ||
+													volume.name,
 											},
 										},
 									} as any
@@ -68,7 +78,7 @@ export function VolumesGroup({
 									device_slug: volume.device_slug,
 									mount_path: volume.mount_point || "/",
 								}}
-								rightComponent={getVolumeBadges(volume)}
+								rightComponent={getVolumeIndicator(volume)}
 								customIcon={getVolumeIcon(volume)}
 								allowInsertion={false}
 								isLastItem={index === volumes.length - 1}

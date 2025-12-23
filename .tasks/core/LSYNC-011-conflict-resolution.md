@@ -2,7 +2,7 @@
 id: LSYNC-011
 title: Conflict Resolution (HLC-Based)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: Medium
 tags: [sync, conflict-resolution, hlc, merge]

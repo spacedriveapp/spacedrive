@@ -2,7 +2,7 @@
 id: VOL-001
 title: Volume PhysicalClass and Location LogicalClass
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: VOL-000
 priority: High
 tags: [volume, storage-tiering, classification]

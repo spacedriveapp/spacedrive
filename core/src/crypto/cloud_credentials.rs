@@ -347,7 +347,7 @@ impl CloudCredential {
 mod tests {
 	use super::*;
 
-	#[tokio::test]
+	#[tokio::test(flavor = "multi_thread")]
 	async fn test_encrypt_decrypt_credential() {
 		let temp_dir = tempfile::tempdir().unwrap();
 		let db_path = temp_dir.path().join("test.db");

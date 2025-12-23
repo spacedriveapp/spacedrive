@@ -238,6 +238,13 @@ impl LocationManager {
 			// Emit indexing started event
 			self.events.emit(Event::IndexingStarted { location_id });
 
+			// Get device_id before moving library
+			let device_id = library
+				.core_context()
+				.device_manager
+				.device_id()
+				.unwrap_or_else(|_| uuid::Uuid::nil());
+
 			match self
 				.start_indexing_with_context_and_path(
 					library,
@@ -257,6 +264,7 @@ impl LocationManager {
 					self.events.emit(Event::JobStarted {
 						job_id: job_id.clone(),
 						job_type: "Indexing".to_string(),
+						device_id,
 					});
 
 					job_id
@@ -543,11 +551,9 @@ impl LocationManager {
 			location_id,
 		});
 
-		// Emit generic resource deleted event (normalized cache)
-		self.events.emit(Event::ResourceDeleted {
-			resource_type: "location".to_string(),
-			resource_id: location_id,
-		});
+		// Emit generic resource deleted event (normalized cache) using EventEmitter
+		use crate::domain::{resource::EventEmitter, Location};
+		Location::emit_deleted(location_id, &self.events);
 
 		info!("Successfully removed location {}", location_id);
 		Ok(())

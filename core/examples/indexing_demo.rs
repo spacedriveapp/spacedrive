@@ -172,6 +172,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 				Event::JobProgress {
 					job_id,
 					job_type,
+					device_id: _,
 					progress,
 					message,
 					generic_progress: _,
@@ -354,7 +355,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Get all entry IDs under the location using closure table
 	use entities::entry_closure;
-	let location_entry_id = location_record.entry_id;
+	let location_entry_id = location_record.entry_id.ok_or("Location has no entry_id")?;
 
 	let descendant_ids = entry_closure::Entity::find()
 		.filter(entry_closure::Column::AncestorId.eq(location_entry_id))

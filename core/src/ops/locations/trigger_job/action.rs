@@ -11,7 +11,9 @@ use crate::{
 	infra::db::entities,
 };
 use async_trait::async_trait;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sea_orm::{
+	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -99,6 +101,7 @@ impl LibraryAction for LocationTriggerJobAction {
 
 		// Dispatch the appropriate job based on type
 		let job_handle = match self.input.job_type {
+			#[cfg(feature = "ffmpeg")]
 			JobType::Thumbnail => {
 				if !job_policies.thumbnail.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -107,14 +110,23 @@ impl LibraryAction for LocationTriggerJobAction {
 					});
 				}
 
+				// Query entries for this location to avoid processing all database entries
+				let entry_uuids = query_location_entry_uuids(db, self.input.location_id).await?;
+
 				let config = job_policies.thumbnail.to_job_config();
-				let job = crate::ops::media::thumbnail::ThumbnailJob::new(config);
+				let job = if entry_uuids.is_empty() {
+					// No entries in location, but still dispatch job to log this
+					crate::ops::media::thumbnail::ThumbnailJob::new(config)
+				} else {
+					crate::ops::media::thumbnail::ThumbnailJob::for_entries(entry_uuids, config)
+				};
 
 				library.jobs().dispatch(job).await.map_err(|e| {
 					ActionError::Internal(format!("Failed to dispatch thumbnail job: {}", e))
 				})?
 			}
 
+			#[cfg(feature = "ffmpeg")]
 			JobType::Thumbstrip => {
 				if !job_policies.thumbstrip.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -123,8 +135,16 @@ impl LibraryAction for LocationTriggerJobAction {
 					});
 				}
 
+				// Query entries for this location to avoid processing all database entries
+				let entry_uuids = query_location_entry_uuids(db, self.input.location_id).await?;
+
 				let config = job_policies.thumbstrip.to_job_config();
-				let job = crate::ops::media::thumbstrip::ThumbstripJob::new(config);
+				let job = if entry_uuids.is_empty() {
+					// No entries in location, but still dispatch job to log this
+					crate::ops::media::thumbstrip::ThumbstripJob::new(config)
+				} else {
+					crate::ops::media::thumbstrip::ThumbstripJob::for_entries(entry_uuids, config)
+				};
 
 				library.jobs().dispatch(job).await.map_err(|e| {
 					ActionError::Internal(format!("Failed to dispatch thumbstrip job: {}", e))
@@ -148,6 +168,7 @@ impl LibraryAction for LocationTriggerJobAction {
 				})?
 			}
 
+			#[cfg(feature = "ffmpeg")]
 			JobType::SpeechToText => {
 				if !job_policies.speech_to_text.enabled && !self.input.force {
 					return Err(ActionError::Validation {
@@ -164,6 +185,17 @@ impl LibraryAction for LocationTriggerJobAction {
 				library.jobs().dispatch(job).await.map_err(|e| {
 					ActionError::Internal(format!("Failed to dispatch speech-to-text job: {}", e))
 				})?
+			}
+
+			#[cfg(not(feature = "ffmpeg"))]
+			JobType::Thumbnail | JobType::Thumbstrip | JobType::SpeechToText => {
+				return Err(ActionError::Validation {
+					field: "job_type".to_string(),
+					message: format!(
+						"{} requires FFmpeg support which is not enabled",
+						self.input.job_type
+					),
+				});
 			}
 
 			JobType::ObjectDetection => {
@@ -230,6 +262,55 @@ impl ActionContextProvider for LocationTriggerJobAction {
 	{
 		"locations.triggerJob"
 	}
+}
+
+/// Helper function to query entry UUIDs for a specific location
+async fn query_location_entry_uuids(
+	db: &DatabaseConnection,
+	location_id: Uuid,
+) -> Result<Vec<Uuid>, ActionError> {
+	use crate::infra::db::entities::{entry, location};
+
+	// Find the location's entry_id (root entry)
+	let location_record = location::Entity::find()
+		.filter(location::Column::Uuid.eq(location_id))
+		.one(db)
+		.await
+		.map_err(ActionError::SeaOrm)?
+		.ok_or_else(|| ActionError::LocationNotFound(location_id))?;
+
+	let root_entry_id = location_record
+		.entry_id
+		.ok_or_else(|| ActionError::Internal("Location has no root entry".to_string()))?;
+
+	// Query all entry IDs that are descendants of this location's root entry
+	// using the entry_closure table
+	let entry_ids: Vec<i32> = db
+		.query_all(Statement::from_sql_and_values(
+			sea_orm::DbBackend::Sqlite,
+			"SELECT descendant_id FROM entry_closure WHERE ancestor_id = ?",
+			vec![root_entry_id.into()],
+		))
+		.await
+		.map_err(ActionError::SeaOrm)?
+		.iter()
+		.filter_map(|row| row.try_get_by_index::<i32>(0).ok())
+		.collect();
+
+	if entry_ids.is_empty() {
+		return Ok(Vec::new());
+	}
+
+	// Now get the UUIDs for these entry IDs
+	let entry_models = entry::Entity::find()
+		.filter(entry::Column::Id.is_in(entry_ids))
+		.all(db)
+		.await
+		.map_err(ActionError::SeaOrm)?;
+
+	let uuids: Vec<Uuid> = entry_models.into_iter().filter_map(|e| e.uuid).collect();
+
+	Ok(uuids)
 }
 
 // Register action

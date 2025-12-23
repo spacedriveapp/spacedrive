@@ -23,6 +23,7 @@ pub const PAIRING_ALPN: &[u8] = b"spacedrive/pairing/1";
 pub const FILE_TRANSFER_ALPN: &[u8] = b"spacedrive/filetransfer/1";
 pub const MESSAGING_ALPN: &[u8] = b"spacedrive/messaging/1";
 pub const SYNC_ALPN: &[u8] = b"spacedrive/sync/1";
+pub const JOB_ACTIVITY_ALPN: &[u8] = b"spacedrive/jobactivity/1";
 
 /// Central networking event types
 #[derive(Debug, Clone)]
@@ -163,6 +164,15 @@ impl NetworkingService {
 		})
 	}
 
+	/// Set the event bus for emitting resource change events
+	///
+	/// This enables the device registry to emit ResourceChanged events
+	/// when paired devices change state (paired/connected/disconnected).
+	pub async fn set_event_bus(&self, event_bus: std::sync::Arc<crate::infra::event::EventBus>) {
+		let mut registry = self.device_registry.write().await;
+		registry.set_event_bus(event_bus);
+	}
+
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
 		// Check if already started
@@ -194,6 +204,7 @@ impl NetworkingService {
 				FILE_TRANSFER_ALPN.to_vec(),
 				MESSAGING_ALPN.to_vec(),
 				SYNC_ALPN.to_vec(),
+				JOB_ACTIVITY_ALPN.to_vec(),
 			])
 			.relay_mode(iroh::RelayMode::Default)
 			.add_discovery(MdnsDiscovery::builder())

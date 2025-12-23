@@ -96,3 +96,12 @@ pub struct JobStats {
 	/// Total bytes indexed
 	pub bytes: u64,
 }
+
+/// Output from resetting the ephemeral cache
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct EphemeralCacheResetOutput {
+	/// Number of paths that were cleared from the cache
+	pub cleared_paths: usize,
+	/// Message describing the result
+	pub message: String,
+}

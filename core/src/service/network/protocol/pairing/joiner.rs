@@ -145,7 +145,8 @@ impl PairingProtocolHandler {
 
 			// Generate shared secret and session keys
 			let shared_secret = self.generate_shared_secret(session_id).await?;
-			let session_keys = SessionKeys::from_shared_secret(shared_secret.clone());
+			// Joiner swaps keys so that initiator's send_key = joiner's receive_key
+			let session_keys = SessionKeys::from_shared_secret(shared_secret.clone()).swap_keys();
 
 			let device_id = initiator_device_info.device_id;
 			let node_id = match initiator_device_info

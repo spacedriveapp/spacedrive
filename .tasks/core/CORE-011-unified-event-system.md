@@ -1,8 +1,9 @@
 ---
 id: CORE-011
 title: Unified Resource Event System
-status: To Do
-assignee: james
+status: Done
+parent: CORE-000
+assignee: jamiepine
 priority: High
 tags: [core, events, architecture, refactor]
 ---

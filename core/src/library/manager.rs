@@ -16,7 +16,7 @@ use crate::{
 	device::DeviceManager,
 	infra::{
 		db::{entities, Database},
-		event::{Event, EventBus},
+		event::{Event, EventBus, LibraryCreationSource},
 		job::manager::JobManager,
 	},
 	service::session::SessionStateService,
@@ -213,6 +213,7 @@ impl LibraryManager {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path.clone(),
+			source: LibraryCreationSource::Manual,
 		});
 
 		Ok(library)
@@ -295,6 +296,19 @@ impl LibraryManager {
 			os: Set("Desktop".to_string()),
 			os_version: Set(None),
 			hardware_model: Set(None),
+			// Hardware specs - not available for pre-registered devices
+			cpu_model: Set(None),
+			cpu_architecture: Set(None),
+			cpu_cores_physical: Set(None),
+			cpu_cores_logical: Set(None),
+			cpu_frequency_mhz: Set(None),
+			memory_total_bytes: Set(None),
+			form_factor: Set(None),
+			manufacturer: Set(None),
+			gpu_models: Set(None),
+			boot_disk_type: Set(None),
+			boot_disk_capacity_bytes: Set(None),
+			swap_total_bytes: Set(None),
 			network_addresses: Set(serde_json::json!([])),
 			is_online: Set(false),
 			last_seen_at: Set(Utc::now()),
@@ -328,11 +342,12 @@ impl LibraryManager {
 		// Create default space with Quick Access group
 		self.create_default_space(&library).await?;
 
-		// Emit event
+		// Emit event - this is a synced library from another device
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path.clone(),
+			source: LibraryCreationSource::Sync,
 		});
 
 		Ok(library)
@@ -392,15 +407,12 @@ impl LibraryManager {
 		// Create default space with Quick Access group
 		self.create_default_space(&library).await?;
 
-		// Create default locations with IndexMode::None
-		self.create_default_locations(context.clone(), library.clone())
-			.await;
-
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
 			name: library.name().await,
 			path: library_path,
+			source: LibraryCreationSource::Manual,
 		});
 
 		Ok(library)
@@ -704,7 +716,37 @@ impl LibraryManager {
 									info!("Library already open, skipping: {:?}", path);
 								}
 								Err(e) => {
-									warn!("Failed to auto-load library from {:?}: {}", path, e);
+									// Try to load config to get library ID for the event
+									let library_id =
+										LibraryConfig::load(&path.join("library.json"))
+											.await
+											.ok()
+											.map(|config| config.id);
+
+									// Determine error type for frontend categorization
+									let error_type = match &e {
+										LibraryError::DatabaseError(_) => "DatabaseError",
+										LibraryError::ConfigError(_) => "ConfigError",
+										LibraryError::NotALibrary(_) => "NotALibrary",
+										LibraryError::AlreadyInUse => "AlreadyInUse",
+										LibraryError::StaleLock => "StaleLock",
+										_ => "Unknown",
+									}
+									.to_string();
+
+									error!(
+										"Failed to load library from {:?}: {}. \
+										 Library will be monitored and auto-loaded when issue is resolved.",
+										path, e
+									);
+
+									// Emit event for frontend notification
+									self.event_bus.emit(Event::LibraryLoadFailed {
+										id: library_id,
+										path: path.clone(),
+										error: e.to_string(),
+										error_type,
+									});
 								}
 							}
 						} else {
@@ -761,6 +803,32 @@ impl LibraryManager {
 		}
 
 		Ok(discovered)
+	}
+
+	/// Count .sdlibrary directories in search paths without attempting to load them
+	pub async fn count_library_directories(&self) -> usize {
+		let mut count = 0;
+
+		for search_path in &self.search_paths {
+			if !search_path.exists() {
+				continue;
+			}
+
+			match tokio::fs::read_dir(search_path).await {
+				Ok(mut entries) => {
+					while let Some(entry) = entries.next_entry().await.ok().flatten() {
+						if is_library_directory(&entry.path()) {
+							count += 1;
+						}
+					}
+				}
+				Err(e) => {
+					warn!("Failed to read directory {:?}: {}", search_path, e);
+				}
+			}
+		}
+
+		count
 	}
 
 	/// Initialize a new library directory
@@ -1002,6 +1070,19 @@ impl LibraryManager {
 				os: Set(device.os.to_string()),
 				os_version: Set(device.os_version),
 				hardware_model: Set(device.hardware_model),
+				// Hardware specs
+				cpu_model: Set(device.cpu_model),
+				cpu_architecture: Set(device.cpu_architecture),
+				cpu_cores_physical: Set(device.cpu_cores_physical),
+				cpu_cores_logical: Set(device.cpu_cores_logical),
+				cpu_frequency_mhz: Set(device.cpu_frequency_mhz),
+				memory_total_bytes: Set(device.memory_total_bytes),
+				form_factor: Set(device.form_factor.map(|f| f.to_string())),
+				manufacturer: Set(device.manufacturer),
+				gpu_models: Set(device.gpu_models.map(|g| serde_json::json!(g))),
+				boot_disk_type: Set(device.boot_disk_type),
+				boot_disk_capacity_bytes: Set(device.boot_disk_capacity_bytes),
+				swap_total_bytes: Set(device.swap_total_bytes),
 				network_addresses: Set(serde_json::json!(device.network_addresses)),
 				is_online: Set(true),
 				last_seen_at: Set(Utc::now()),
@@ -1076,19 +1157,44 @@ impl LibraryManager {
 			updated_at: Set(now.into()),
 		};
 
-		let space_result = space_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		// If Alice's space syncs to Bob before this runs, the upsert will update instead of failing
+		use crate::infra::db::entities::space::{Column, Entity};
+		Entity::insert(space_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(Column::Uuid)
+					.update_columns([
+						Column::Name,
+						Column::Icon,
+						Column::Color,
+						Column::Order,
+						Column::UpdatedAt,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
+		// Query the space back to get the id for creating items/groups
+		let space_result = Entity::find()
+			.filter(Column::Uuid.eq(space_id))
+			.one(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?
+			.ok_or_else(|| LibraryError::Other("Space not found after upsert".to_string()))?;
+
 		info!("Created default space for library {}", library.id());
 
-		// Create space-level items (Overview, Recents, Favorites) - these appear outside groups
+		// Create space-level items (Overview, Recents, Favorites, File Kinds) - these appear outside groups
 		let space_items = vec![
 			(ItemType::Overview, "Overview", 0),
 			(ItemType::Recents, "Recents", 1),
 			(ItemType::Favorites, "Favorites", 2),
+			(ItemType::FileKinds, "File Kinds", 3),
 		];
+
+		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};
 
 		for (item_type, item_name, order) in space_items {
 			let item_type_json = serde_json::to_string(&item_type).map_err(|e| {
@@ -1108,8 +1214,18 @@ impl LibraryManager {
 				created_at: Set(now.into()),
 			};
 
-			item_model
-				.insert(db)
+			// Use atomic upsert to handle race conditions with sync
+			ItemEntity::insert(item_model)
+				.on_conflict(
+					sea_orm::sea_query::OnConflict::column(ItemColumn::Uuid)
+						.update_columns([
+							ItemColumn::GroupId,
+							ItemColumn::ItemType,
+							ItemColumn::Order,
+						])
+						.to_owned(),
+				)
+				.exec(db)
 				.await
 				.map_err(LibraryError::DatabaseError)?;
 		}
@@ -1118,6 +1234,10 @@ impl LibraryManager {
 			"Created default space-level items for library {}",
 			library.id()
 		);
+
+		use crate::infra::db::entities::space_group::{
+			Column as GroupColumn, Entity as GroupEntity,
+		};
 
 		// Create Devices group
 		let devices_group_id =
@@ -1136,8 +1256,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		devices_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(devices_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1160,8 +1292,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		locations_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(locations_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1187,8 +1331,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		volumes_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(volumes_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 
@@ -1210,8 +1366,20 @@ impl LibraryManager {
 			created_at: Set(now.into()),
 		};
 
-		tags_group_model
-			.insert(db)
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(tags_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
 			.await
 			.map_err(LibraryError::DatabaseError)?;
 

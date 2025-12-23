@@ -1,8 +1,8 @@
 ---
 id: PLUG-001
 title: Integrate WASM Runtime
-status: In Progress
-assignee: james
+status: Done
+assignee: jamiepine
 parent: PLUG-000
 priority: High
 tags: [plugins, wasm, runtime, wasmer]

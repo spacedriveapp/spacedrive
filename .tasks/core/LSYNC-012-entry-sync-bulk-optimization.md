@@ -2,7 +2,7 @@
 id: LSYNC-012
 title: Bulk Entry Sync Optimization (State-Based)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, indexing, bulk, performance, state-based]

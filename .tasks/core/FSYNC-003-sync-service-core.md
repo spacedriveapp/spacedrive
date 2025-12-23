@@ -2,7 +2,7 @@
 id: FSYNC-003
 title: FileSyncService Core Implementation
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: FSYNC-000
 priority: High
 tags: [service, core, orchestration, resolver]

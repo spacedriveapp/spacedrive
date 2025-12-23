@@ -2,7 +2,7 @@
 id: SEARCH-002
 title: Two-Stage FTS5 + Semantic Re-ranking
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: SEARCH-000
 priority: High
 tags: [search, fts, semantic-search, ai]

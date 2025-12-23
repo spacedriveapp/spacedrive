@@ -33,8 +33,21 @@ impl PairingCode {
 	pub fn generate() -> crate::service::network::Result<Self> {
 		use rand::RngCore;
 
+		// Generate 16 bytes of entropy (enough for 12 BIP39 words)
+		let mut entropy = [0u8; 16];
+		rand::thread_rng().fill_bytes(&mut entropy);
+
+		// Derive the full 32-byte secret deterministically from the entropy
+		// This ensures the initiator and joiner have the same secret after BIP39 round-trip
 		let mut secret = [0u8; 32];
-		rand::thread_rng().fill_bytes(&mut secret);
+		secret[..16].copy_from_slice(&entropy);
+
+		// Derive the remaining 16 bytes using BLAKE3 (same as decode_from_bip39_words)
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"spacedrive-pairing-entropy-extension-v1");
+		hasher.update(&entropy);
+		let derived_bytes = hasher.finalize();
+		secret[16..].copy_from_slice(&derived_bytes.as_bytes()[..16]);
 
 		// Convert secret to 12 BIP39 words using proper mnemonic encoding
 		let words = Self::encode_to_bip39_words(&secret)?;

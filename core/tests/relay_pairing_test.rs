@@ -153,43 +153,36 @@ async fn test_relay_discovery_flow() {
 #[tokio::test]
 async fn test_pairing_code_with_qr_json_and_relay_info() {
 	use iroh::SecretKey;
-	use uuid::Uuid;
 
-	let session_id = Uuid::new_v4();
 	let secret_key = SecretKey::generate(&mut rand::thread_rng());
 	let node_id = secret_key.public();
-	let relay_url = Some("https://use1-1.relay.n0.iroh.iroh.link.".to_string());
 
-	// Create pairing code with relay information
-	let pairing_code =
-		PairingCode::from_session_id_with_relay_info(session_id, node_id, relay_url.clone());
+	// Create pairing code with node_id for remote pairing via pkarr
+	let pairing_code = PairingCode::generate().unwrap().with_node_id(node_id);
 
-	// Verify all fields are set correctly
+	// Verify node_id is set correctly
 	assert_eq!(pairing_code.node_id(), Some(node_id));
-	assert_eq!(pairing_code.relay_url(), relay_url.as_deref());
+	let original_session_id = pairing_code.session_id();
+	println!("Original session ID: {}", original_session_id);
 
-	// Test BIP39 string (loses relay info - for local pairing only)
+	// Test BIP39 string (loses node_id - for local pairing only)
 	let bip39_str = pairing_code.to_string();
 	println!("BIP39 pairing code (local): {}", bip39_str);
 	let parsed_bip39 = PairingCode::from_string(&bip39_str).unwrap();
-	// BIP39 format doesn't preserve relay info
+	// BIP39 format doesn't preserve node_id
 	assert_eq!(parsed_bip39.node_id(), None);
-	assert_eq!(parsed_bip39.relay_url(), None);
 	// Session ID is preserved (derived from the BIP39 words)
-	assert_eq!(parsed_bip39.session_id(), pairing_code.session_id());
+	assert_eq!(parsed_bip39.session_id(), original_session_id);
 	println!("Session ID from BIP39: {}", parsed_bip39.session_id());
 
-	// Test QR code JSON (preserves relay info - for remote pairing)
+	// Test QR code JSON (preserves node_id - for remote pairing)
 	let qr_json = pairing_code.to_qr_json();
 	println!("QR code JSON (remote): {}", qr_json);
 	let parsed_qr = PairingCode::from_qr_json(&qr_json).unwrap();
-	// QR code format preserves the important relay info (node_id and relay_url)
+	// QR code format preserves node_id
 	assert_eq!(parsed_qr.node_id(), Some(node_id));
-	assert_eq!(parsed_qr.relay_url(), relay_url.as_deref());
 	// Session ID is derived from the BIP39 words embedded in the JSON
+	assert_eq!(parsed_qr.session_id(), original_session_id);
 	println!("Session ID from QR: {}", parsed_qr.session_id());
-	println!("Original session ID: {}", pairing_code.session_id());
-	// Note: The session_ids may differ because from_qr_json re-derives it from the words
-	// But the important relay information (node_id and relay_url) is preserved correctly
-	println!("Test passed: QR code JSON preserves relay information correctly");
+	println!("Test passed: QR code JSON preserves node_id correctly");
 }

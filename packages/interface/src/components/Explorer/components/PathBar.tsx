@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import clsx from "clsx";
-import { CaretRight, Eye, Folder } from "@phosphor-icons/react";
+import {
+	CaretRight,
+	CircleDashedIcon,
+	CircleIcon,
+	Eye,
+	Folder,
+	RadioButtonIcon,
+} from "@phosphor-icons/react";
 import type { SdPath, LibraryDeviceInfo } from "@sd/ts-client";
-import { getDeviceIconBySlug, useLibraryMutation } from "@sd/ts-client";
+import { getDeviceIcon, useLibraryMutation } from "@sd/ts-client";
 import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import { useNormalizedQuery } from "@sd/ts-client";
@@ -158,9 +165,9 @@ function IndexIndicator({ path }: { path: SdPath }) {
 			popover={popover}
 			trigger={
 				<TopBarButton
-					icon={Eye}
+					icon={isIndexed ? CircleIcon : CircleDashedIcon}
 					active={isIndexed}
-					className={isIndexed ? "!text-blue-500" : undefined}
+					className={isIndexed ? "!text-accent" : undefined}
 					title={isIndexed ? "Location is indexed" : "Not indexed"}
 				/>
 			}
@@ -243,18 +250,98 @@ function IndexIndicator({ path }: { path: SdPath }) {
 export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const [isShiftHeld, setIsShiftHeld] = useState(false);
+	const [isEditing, setIsEditing] = useState(false);
+	const [editValue, setEditValue] = useState("");
+	const [editingAsUri, setEditingAsUri] = useState(false);
+	const { navigateToView } = useExplorer();
 	const uri = sdPathToUri(path);
 	const currentDir = getCurrentDirectoryName(path);
 	const segments = parsePathSegments(path);
 
-	// Get device icon based on the device_slug
-	const deviceIcon = (() => {
+	// Get device icon and device info based on the device_slug
+	const deviceInfo = (() => {
 		if ("Physical" in path) {
-			return getDeviceIconBySlug(path.Physical.device_slug, devices);
+			const deviceSlug = path.Physical.device_slug;
+			// Find device by slug
+			const device = Array.from(devices.values()).find(
+				(d) => d.slug === deviceSlug,
+			);
+			return {
+				icon: device ? getDeviceIcon(device) : LaptopIcon,
+				device,
+			};
 		}
-		// For Cloud paths, we don't have a device icon
-		return LaptopIcon;
+		// For Cloud paths, we don't have a device
+		return { icon: LaptopIcon, device: undefined };
 	})();
+
+	const handleDeviceClick = () => {
+		if (deviceInfo.device) {
+			navigateToView("device", deviceInfo.device.id);
+		}
+	};
+
+	const enterEditMode = (initialValue: string, asUri: boolean) => {
+		setIsEditing(true);
+		setEditValue(initialValue);
+		setEditingAsUri(asUri);
+	};
+
+	const exitEditMode = () => {
+		setIsEditing(false);
+		setEditValue("");
+		setEditingAsUri(false);
+	};
+
+	const handleContainerClick = (e: React.MouseEvent) => {
+		// Only enter edit mode if clicking the container itself, not buttons/segments
+		if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "INPUT") {
+			const isUriMode = showUri;
+			const valueToEdit = isUriMode ? uri : ("Physical" in path ? path.Physical.path : uri);
+			enterEditMode(valueToEdit, isUriMode);
+		}
+	};
+
+	const handleEditKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+		if (e.key === "Enter") {
+			e.preventDefault();
+			submitEdit();
+		} else if (e.key === "Escape") {
+			e.preventDefault();
+			exitEditMode();
+		}
+	};
+
+	const submitEdit = () => {
+		const trimmed = editValue.trim();
+		if (!trimmed) {
+			exitEditMode();
+			return;
+		}
+
+		try {
+			if (editingAsUri) {
+				// Try to parse as SdPath JSON
+				const parsed = JSON.parse(trimmed) as SdPath;
+				onNavigate(parsed);
+			} else {
+				// Parse as file path string
+				if ("Physical" in path) {
+					const newPath: SdPath = {
+						Physical: {
+							device_slug: path.Physical.device_slug,
+							path: trimmed.startsWith("/") ? trimmed : `/${trimmed}`,
+						},
+					};
+					onNavigate(newPath);
+				}
+			}
+		} catch (error) {
+			console.error("Failed to parse path:", error);
+		}
+		
+		exitEditMode();
+	};
 
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
@@ -275,7 +362,7 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 
 	const showUri = isExpanded && isShiftHeld;
 
-	// Calculate widths for three states
+	// Calculate widths for different states
 	const collapsedWidth = currentDir.length * 8.5 + 70;
 	const breadcrumbsWidth = Math.min(
 		segments.reduce((sum, seg) => sum + seg.name.length * 6.5, 0) +
@@ -284,34 +371,75 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 		600,
 	);
 	const uriWidth = Math.min(uri.length * 7 + 70, 600);
+	const editWidth = Math.max(200, Math.min(editValue.length * 7 + 70, 600));
 
-	const currentWidth = !isExpanded
-		? collapsedWidth
-		: showUri
-			? uriWidth
-			: breadcrumbsWidth;
+	const currentWidth = isEditing
+		? editWidth
+		: !isExpanded
+			? collapsedWidth
+			: showUri
+				? uriWidth
+				: breadcrumbsWidth;
 
 	return (
 		<div className="flex items-center gap-2">
 			<motion.div
 				animate={{ width: currentWidth }}
 				transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-				onMouseEnter={() => setIsExpanded(true)}
-				onMouseLeave={() => setIsExpanded(false)}
+				onMouseEnter={() => !isEditing && setIsExpanded(true)}
+				onMouseLeave={() => !isEditing && setIsExpanded(false)}
+				onClick={handleContainerClick}
 				className={clsx(
 					"flex items-center gap-1.5 h-8 px-3 rounded-full",
 					"backdrop-blur-xl border border-sidebar-line/30",
 					"bg-sidebar-box/20 transition-colors",
 					"focus-within:bg-sidebar-box/30 focus-within:border-sidebar-line/40",
+					!isEditing && "cursor-text",
 				)}
 			>
-				<img
-					src={deviceIcon}
-					alt="Device"
-					className="size-5 opacity-60 flex-shrink-0"
-				/>
+				<button
+					onClick={(e) => {
+						e.stopPropagation();
+						handleDeviceClick();
+					}}
+					disabled={!deviceInfo.device}
+					title={
+						deviceInfo.device
+							? `Go to ${deviceInfo.device.name}`
+							: "Device"
+					}
+					className={clsx(
+						"size-5 flex-shrink-0 transition-opacity",
+						deviceInfo.device
+							? "opacity-60 hover:opacity-100 cursor-pointer"
+							: "opacity-60 cursor-default",
+					)}
+				>
+					<img
+						src={deviceInfo.icon}
+						alt="Device"
+						className="size-full"
+					/>
+				</button>
 
-				{showUri ? (
+				{isEditing ? (
+					<input
+						type="text"
+						value={editValue}
+						onChange={(e) => setEditValue(e.target.value)}
+						onKeyDown={handleEditKeyDown}
+						onBlur={exitEditMode}
+						autoFocus
+						className={clsx(
+							"bg-transparent border-0 outline-none ring-0 flex-1 min-w-0",
+							"text-xs font-medium text-sidebar-ink",
+							"placeholder:text-sidebar-inkFaint",
+							"focus:ring-0 focus:outline-none",
+							editingAsUri && "font-mono",
+						)}
+						placeholder={editingAsUri ? "Enter SdPath JSON..." : "Enter path..."}
+					/>
+				) : showUri ? (
 					<input
 						type="text"
 						value={uri}
@@ -335,9 +463,10 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 									className="flex items-center gap-1 flex-shrink-0"
 								>
 									<button
-										onClick={() =>
-											!isLast && onNavigate(segment.path)
-										}
+										onClick={(e) => {
+											e.stopPropagation();
+											!isLast && onNavigate(segment.path);
+										}}
 										disabled={isLast}
 										className={clsx(
 											"text-xs font-medium transition-colors whitespace-nowrap",
@@ -348,7 +477,18 @@ export function PathBar({ path, devices, onNavigate }: PathBarProps) {
 									>
 										{segment.name}
 									</button>
-									{!isLast && <CaretRight size={12} />}
+									{!isLast && (
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												const valueToEdit = "Physical" in path ? path.Physical.path : uri;
+												enterEditMode(valueToEdit, false);
+											}}
+											className="opacity-50 hover:opacity-100 transition-opacity cursor-text"
+										>
+											<CaretRight size={12} />
+										</button>
+									)}
 								</div>
 							);
 						})}

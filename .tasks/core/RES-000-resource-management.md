@@ -1,8 +1,8 @@
 ---
 id: RES-000
-title: "Epic: Resource Management & Mobile"
+title: "Resource Management & Mobile"
 status: To Do
-assignee: james
+assignee: jamiepine
 priority: Medium
 tags: [epic, core, performance, mobile]
 whitepaper: Section 7

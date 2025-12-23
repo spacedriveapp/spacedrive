@@ -72,6 +72,35 @@ impl Identifiable for Space {
 	fn resource_type() -> &'static str {
 		"space"
 	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::space;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let space_models = space::Entity::find()
+			.filter(space::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		Ok(space_models
+			.into_iter()
+			.map(|s| Space {
+				id: s.uuid,
+				name: s.name,
+				icon: s.icon,
+				color: s.color,
+				order: s.order,
+				created_at: s.created_at.into(),
+				updated_at: s.updated_at.into(),
+			})
+			.collect())
+	}
 }
 
 /// A SpaceGroup is a collapsible section in the sidebar
@@ -131,6 +160,53 @@ impl Identifiable for SpaceGroup {
 
 	fn resource_type() -> &'static str {
 		"space_group"
+	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::{space, space_group};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let group_models = space_group::Entity::find()
+			.filter(space_group::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		let mut results = Vec::new();
+
+		for group_model in group_models {
+			// Fetch parent space to get space_id (UUID)
+			let space_model = space::Entity::find_by_id(group_model.space_id)
+				.one(db)
+				.await?;
+
+			let space_id = space_model.map(|s| s.uuid).unwrap_or(group_model.uuid);
+
+			let group_type: GroupType =
+				serde_json::from_str(&group_model.group_type).map_err(|e| {
+					crate::common::errors::CoreError::Other(anyhow::anyhow!(
+						"Failed to parse group_type: {}",
+						e
+					))
+				})?;
+
+			results.push(SpaceGroup {
+				id: group_model.uuid,
+				space_id,
+				name: group_model.name,
+				group_type,
+				is_collapsed: group_model.is_collapsed,
+				order: group_model.order,
+				created_at: group_model.created_at.into(),
+			});
+		}
+
+		Ok(results)
 	}
 }
 
@@ -258,6 +334,75 @@ impl Identifiable for SpaceItem {
 	fn no_merge_fields() -> &'static [&'static str] {
 		&["resolved_file"]
 	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::infra::db::entities::{entry, space, space_group, space_item};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let item_models = space_item::Entity::find()
+			.filter(space_item::Column::Uuid.is_in(ids.to_vec()))
+			.all(db)
+			.await?;
+
+		let mut results = Vec::new();
+
+		for item_model in item_models {
+			// Fetch parent space to get space_id (UUID)
+			let space_model = space::Entity::find_by_id(item_model.space_id)
+				.one(db)
+				.await?;
+
+			let space_id = space_model.map(|s| s.uuid).unwrap_or(item_model.uuid);
+
+			let item_type: ItemType = serde_json::from_str(&item_model.item_type).map_err(|e| {
+				crate::common::errors::CoreError::Other(anyhow::anyhow!(
+					"Failed to parse item_type: {}",
+					e
+				))
+			})?;
+
+			// Look up group UUID from group_id if present
+			let group_id = if let Some(gid) = item_model.group_id {
+				space_group::Entity::find_by_id(gid)
+					.one(db)
+					.await?
+					.map(|g| g.uuid)
+			} else {
+				None
+			};
+
+			// Build resolved_file if entry_id exists
+			let resolved_file = if let Some(entry_id) = item_model.entry_id {
+				if let Some(entry_model) = entry::Entity::find_by_id(entry_id).one(db).await? {
+					super::file::File::from_entry_model_with_item_type(entry_model, &item_type, db)
+						.await
+						.map(Box::new)
+				} else {
+					None
+				}
+			} else {
+				None
+			};
+
+			results.push(SpaceItem {
+				id: item_model.uuid,
+				space_id,
+				group_id,
+				item_type,
+				order: item_model.order,
+				created_at: item_model.created_at.into(),
+				resolved_file,
+			});
+		}
+
+		Ok(results)
+	}
 }
 
 /// Types of items that can appear in a group
@@ -271,6 +416,9 @@ pub enum ItemType {
 
 	/// Favorited files (fixed)
 	Favorites,
+
+	/// File kinds (images, videos, audio, etc.)
+	FileKinds,
 
 	/// Indexed location
 	Location { location_id: Uuid },
@@ -608,3 +756,11 @@ mod tests {
 		assert!(matches!(item.item_type, ItemType::Path { .. }));
 	}
 }
+
+// Register simple resources (single table, no dependencies)
+crate::register_resource!(Space);
+crate::register_resource!(SpaceGroup);
+crate::register_resource!(SpaceItem);
+
+// Register SpaceLayout as a virtual resource (has dependencies on space, space_group, space_item)
+crate::register_resource!(SpaceLayout, virtual);

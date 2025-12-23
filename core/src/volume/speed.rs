@@ -341,6 +341,7 @@ mod tests {
 			id: uuid::Uuid::new_v4(),
 			fingerprint,
 			cloud_identifier: None,
+			cloud_config: None,
 			device_id: uuid::Uuid::new_v4(),
 			name: "Test Volume".to_string(),
 			library_id: None,

@@ -1,6 +1,7 @@
 # Created by https://www.toptal.com/developers/gitignore/api/macos,windows,linux,rust,node,react,turbo,vercel,nextjs,storybookjs
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,windows,linux,rust,node,react,turbo,vercel,nextjs,storybookjs
 
+TODO
 ### Linux ###
 *~
 
@@ -479,7 +480,7 @@ apps/ios/sd-ios-core/sd_ios_core.xcframework/**
 whitepaper/*.log
 
 # GitHub Actions build artifacts
-.github/actions/*/dist/
+# Note: dist/ folders in .github/actions/ must be committed for custom JS actions
 
 
 test_data

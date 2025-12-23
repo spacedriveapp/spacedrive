@@ -2,14 +2,15 @@
 id: LSYNC-023
 title: Rebuild Closure Tables After Sync
 status: Done
-assignee: james
-priority: Critical
+assignee: jamiepine
+priority: High
+parent: LSYNC-000
 tags: [sync, database, bug, closure-table]
 last_updated: 2025-10-23
 related_tasks: [LSYNC-010, INDEX-003, CORE-004]
 ---
 
-# Rebuild Closure Tables After Sync (CRITICAL)
+# Rebuild Closure Tables After Sync
 
 ## Problem Statement
 

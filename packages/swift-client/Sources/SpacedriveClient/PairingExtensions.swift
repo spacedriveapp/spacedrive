@@ -104,10 +104,9 @@ extension SpacedriveClient {
     // MARK: - High-Level Pairing Methods
 
     /// Start pairing as initiator (generates a pairing code)
-    /// - Parameter autoAccept: Whether to automatically accept the pairing request
     /// - Returns: Pairing session information with code and expiration
-    public func startPairingAsInitiator(autoAccept: Bool = false) async throws -> PairGenerateOutput {
-        let input = PairGenerateInput(autoAccept: autoAccept)
+    public func startPairingAsInitiator() async throws -> PairGenerateOutput {
+        let input = PairGenerateInput()
         return try await network.pairGenerate(input)
     }
 

@@ -88,8 +88,8 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 function OverviewTab({ location }: { location: LocationInfo }) {
 	const rescanLocation = useLibraryMutation("locations.rescan");
 
-	const formatBytes = (bytes: number) => {
-		if (bytes === 0) return "0 B";
+	const formatBytes = (bytes: number | null | undefined) => {
+		if (!bytes || bytes === 0) return "0 B";
 		const k = 1024;
 		const sizes = ["B", "KB", "MB", "GB", "TB"];
 		const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -105,6 +105,15 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 			hour: "2-digit",
 			minute: "2-digit",
 		});
+	};
+
+	const formatScanState = (scanState: any) => {
+		if (!scanState) return "Unknown";
+		if (scanState.Idle) return "Idle";
+		if (scanState.Scanning) return `Scanning ${scanState.Scanning.progress}%`;
+		if (scanState.Completed) return "Completed";
+		if (scanState.Failed) return "Failed";
+		return "Unknown";
 	};
 
 	return (
@@ -129,15 +138,17 @@ function OverviewTab({ location }: { location: LocationInfo }) {
 			{/* Details */}
 			<Section title="Details" icon={Info}>
 				<InfoRow label="Path" value={location.path} mono />
+			{location.total_file_count != null && (
 				<InfoRow
 					label="Total Files"
-					value={location.total_file_count.toLocaleString()}
+					value={location.total_file_count?.toLocaleString() ?? "0"}
 				/>
+			)}
 				<InfoRow
 					label="Total Size"
 					value={formatBytes(location.total_byte_size)}
 				/>
-				<InfoRow label="Scan State" value={location.scan_state} />
+				<InfoRow label="Scan State" value={formatScanState(location.scan_state)} />
 				{location.last_scan_at && (
 					<InfoRow
 						label="Last Scan"
@@ -308,7 +319,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						onToggle={(enabled) =>
 							updatePolicy({
 								thumbnail: {
-									...location.job_policies.thumbnail,
+									...(location.job_policies?.thumbnail ?? {}),
 									enabled,
 								},
 							})
@@ -329,7 +340,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						onToggle={(enabled) =>
 							updatePolicy({
 								thumbstrip: {
-									...location.job_policies.thumbstrip,
+									...(location.job_policies?.thumbstrip ?? {}),
 									enabled,
 								},
 							})
@@ -351,7 +362,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						onToggle={(enabled) =>
 							updatePolicy({
 								proxy: {
-									...location.job_policies.proxy,
+									...(location.job_policies?.proxy ?? {}),
 									enabled,
 								},
 							})
@@ -377,7 +388,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						enabled={ocr}
 						onToggle={(enabled) =>
 							updatePolicy({
-								ocr: { ...location.job_policies.ocr, enabled },
+								ocr: { ...(location.job_policies?.ocr ?? {}), enabled },
 							})
 						}
 						onTrigger={() =>
@@ -396,7 +407,7 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						onToggle={(enabled) =>
 							updatePolicy({
 								speech_to_text: {
-									...location.job_policies.speech_to_text,
+									...(location.job_policies?.speech_to_text ?? {}),
 									enabled,
 								},
 							})
@@ -604,10 +615,12 @@ function MoreTab({ location }: { location: LocationInfo }) {
 					value={String(location.id).slice(0, 8) + "..."}
 					mono
 				/>
-				<InfoRow
-					label="Created"
-					value={formatDate(location.created_at)}
-				/>
+				{location.created_at && (
+					<InfoRow
+						label="Created"
+						value={formatDate(location.created_at)}
+					/>
+				)}
 				{location.last_scan_at && (
 					<InfoRow
 						label="Last Scan"

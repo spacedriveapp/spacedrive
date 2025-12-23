@@ -152,10 +152,8 @@ impl std::fmt::Display for HLC {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(
 			f,
-			"HLC({},{},:{})",
-			self.timestamp,
-			self.counter,
-			&self.device_id.to_string()[..8]
+			"{:016x}-{:016x}-{}",
+			self.timestamp, self.counter, self.device_id
 		)
 	}
 }
@@ -305,9 +303,17 @@ mod tests {
 
 		local.update(received);
 
-		// Should adopt received timestamp and increment counter
-		assert_eq!(local.timestamp, 1005);
-		assert_eq!(local.counter, 4);
+		// Should take max of local, received, and physical time
+		// Physical time will be much larger than test values, so it will be chosen
+		// Counter should reset to 0 when physical time advances
+		assert!(
+			local.timestamp >= 1005,
+			"Timestamp should be at least the received value"
+		);
+		assert_eq!(
+			local.counter, 0,
+			"Counter should reset when physical time advances"
+		);
 	}
 
 	#[test]

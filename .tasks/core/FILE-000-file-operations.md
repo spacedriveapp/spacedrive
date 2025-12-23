@@ -2,7 +2,7 @@
 id: FILE-000
 title: "Epic: File Operations"
 status: Done
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, core, file-ops]
 whitepaper: Section 4

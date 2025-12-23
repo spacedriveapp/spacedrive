@@ -118,8 +118,33 @@ The `xtask setup` command:
 
 - Downloads prebuilt native dependencies (FFmpeg, etc.)
 - Creates symlinks for shared libraries
+- Builds the release daemon for Tauri bundler validation
 - Generates `.cargo/config.toml` with cargo aliases
 - Downloads iOS dependencies if iOS targets are installed
+
+**Note:** The release daemon build is required because Tauri's `externalBin` config validates binary paths even in dev mode. The daemon is built once during setup and rebuilt when needed during release builds.
+
+#### Optional: ML-SHARP for Gaussian Splat Generation
+
+Spacedrive can generate 3D Gaussian splats from images using [ml-sharp](https://github.com/spacedriveapp/ml-sharp), which implements Apple's SHARP model. This feature is optional and requires manual installation.
+
+> **Note:** We plan to bundle ml-sharp with Spacedrive's native dependencies in a future release. For now, manual installation is required.
+
+**Installation:**
+
+```bash
+# Clone ml-sharp repository
+git clone https://github.com/spacedriveapp/ml-sharp
+cd ml-sharp
+
+# Install in development mode (requires Python 3.10+)
+pip install -e .
+
+# Verify installation
+sharp --help
+```
+
+Once installed, the `sharp` CLI will be available in your PATH and Spacedrive will automatically detect it. The "Generate 3D Splat" button in the file inspector will become functional for supported image types (JPEG, PNG, WebP, BMP, TIFF).
 
 **What does `cargo build` build?**
 
@@ -459,6 +484,19 @@ The `tauri:dev` command will:
 #### Tauri Build Errors
 
 As of the V2 rewrite, `cargo build` from the project root **no longer builds the Tauri app** - it's excluded from the default workspace members to prevent frontend dependency issues.
+
+**Error: `resource path '../../../target/release/sd-daemon-{target}' doesn't exist`**
+
+This occurs when Tauri tries to validate the `externalBin` path but the release daemon hasn't been built yet. Tauri expects the daemon binary with a target triple suffix (e.g., `sd-daemon-aarch64-apple-darwin`, `sd-daemon-x86_64-pc-windows-msvc`).
+
+Solution:
+
+```bash
+# Run setup to build the release daemon and create the target-suffixed copy
+cargo run -p xtask -- setup
+```
+
+The `xtask setup` command automatically builds the release daemon and creates the platform-specific target-suffixed copy that Tauri expects.
 
 If you still encounter the `frontendDist` error:
 

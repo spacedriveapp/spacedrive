@@ -292,6 +292,7 @@ impl SidecarManager {
 
 		// Dispatch to job system based on sidecar kind
 		match kind {
+			#[cfg(feature = "ffmpeg")]
 			SidecarKind::Thumb => {
 				// For thumbnails, we need to find the entry and dispatch a thumbnail job
 				// We'll dispatch a job for this specific content_uuid

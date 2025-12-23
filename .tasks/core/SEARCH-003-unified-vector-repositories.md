@@ -2,7 +2,7 @@
 id: SEARCH-003
 title: Unified Vector Repositories
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: SEARCH-000
 priority: High
 tags: [search, vector-search, ai, repositories]

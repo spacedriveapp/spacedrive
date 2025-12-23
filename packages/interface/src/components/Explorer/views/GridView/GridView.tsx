@@ -1,245 +1,314 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy, File } from "@sd/ts-client";
+import { useVirtualListing } from "../../hooks/useVirtualListing";
 
 const VIRTUALIZATION_THRESHOLD = 0; // Disabled - always virtualize
 
 export function GridView() {
-  const { currentPath, sortBy, viewSettings, setCurrentFiles } = useExplorer();
-  const { isSelected, focusedIndex, selectedFiles, selectFile, clearSelection } = useSelection();
-  const { gridSize, gapSize } = viewSettings;
+	const { currentPath, sortBy, viewSettings, setCurrentFiles } =
+		useExplorer();
+	const {
+		isSelected,
+		focusedIndex,
+		setFocusedIndex,
+		selectedFiles,
+		selectFile,
+		clearSelection,
+		setSelectedFiles,
+	} = useSelection();
+	const { gridSize, gapSize } = viewSettings;
 
-  const directoryQuery = useNormalizedQuery({
-    wireMethod: "query:files.directory_listing",
-    input: currentPath
-      ? {
-          path: currentPath,
-          limit: null,
-          include_hidden: false,
-          sort_by: sortBy as DirectorySortBy,
-          folders_first: viewSettings.foldersFirst,
-        }
-      : null!,
-    resourceType: "file",
-    enabled: !!currentPath,
-    pathScope: currentPath ?? undefined,
-  });
+	// Check for virtual listing first
+	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
-  const files = directoryQuery.data?.files || [];
+	const directoryQuery = useNormalizedQuery({
+		wireMethod: "query:files.directory_listing",
+		input: currentPath
+			? {
+					path: currentPath,
+					limit: null,
+					include_hidden: false,
+					sort_by: sortBy as DirectorySortBy,
+					folders_first: viewSettings.foldersFirst,
+				}
+			: null!,
+		resourceType: "file",
+		enabled: !!currentPath && !isVirtualView,
+		pathScope: currentPath ?? undefined,
+	});
 
-  // Update current files in explorer context for quick preview navigation
-  useEffect(() => {
-    setCurrentFiles(files);
-  }, [files, setCurrentFiles]);
+	const files = isVirtualView
+		? virtualFiles || []
+		: (directoryQuery.data as any)?.files || [];
 
-  const handleContainerClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      clearSelection();
-    }
-  };
+	// Update current files in explorer context for quick preview navigation
+	useEffect(() => {
+		setCurrentFiles(files);
+	}, [files, setCurrentFiles]);
 
-  // Conditional virtualization - use simple grid for small directories
-  const shouldVirtualize = files.length > VIRTUALIZATION_THRESHOLD;
+	const handleContainerClick = (e: React.MouseEvent) => {
+		if (e.target === e.currentTarget) {
+			clearSelection();
+		}
+	};
 
-  if (!shouldVirtualize) {
-    return (
-      <div
-        className="grid p-3 min-h-full"
-        style={{
-          gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
-          gridAutoRows: 'max-content',
-          gap: `${gapSize}px`,
-        }}
-        onClick={handleContainerClick}
-      >
-        {files.map((file, index) => (
-          <FileCard
-            key={file.id}
-            file={file}
-            fileIndex={index}
-            allFiles={files}
-            selected={isSelected(file.id)}
-            focused={index === focusedIndex}
-            selectedFiles={selectedFiles}
-            selectFile={selectFile}
-          />
-        ))}
-      </div>
-    );
-  }
+	// Conditional virtualization - use simple grid for small directories
+	const shouldVirtualize = files.length > VIRTUALIZATION_THRESHOLD;
 
-  return (
-    <VirtualizedGrid
-      files={files}
-      gridSize={gridSize}
-      gapSize={gapSize}
-      isSelected={isSelected}
-      focusedIndex={focusedIndex}
-      selectedFiles={selectedFiles}
-      selectFile={selectFile}
-      onContainerClick={handleContainerClick}
-    />
-  );
+	if (!shouldVirtualize) {
+		return (
+			<div
+				className="grid p-3 min-h-full"
+				style={{
+					gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
+					gridAutoRows: "max-content",
+					gap: `${gapSize}px`,
+				}}
+				onClick={handleContainerClick}
+			>
+				{files.map((file, index) => (
+					<FileCard
+						key={file.id}
+						file={file}
+						fileIndex={index}
+						allFiles={files}
+						selected={isSelected(file.id)}
+						focused={index === focusedIndex}
+						selectedFiles={selectedFiles}
+						selectFile={selectFile}
+					/>
+				))}
+			</div>
+		);
+	}
+
+	return (
+		<VirtualizedGrid
+			files={files}
+			gridSize={gridSize}
+			gapSize={gapSize}
+			isSelected={isSelected}
+			focusedIndex={focusedIndex}
+			setFocusedIndex={setFocusedIndex}
+			selectedFiles={selectedFiles}
+			selectFile={selectFile}
+			setSelectedFiles={setSelectedFiles}
+			onContainerClick={handleContainerClick}
+		/>
+	);
 }
 
 interface VirtualizedGridProps {
-  files: File[];
-  gridSize: number;
-  gapSize: number;
-  isSelected: (id: string) => boolean;
-  focusedIndex: number;
-  selectedFiles: File[];
-  selectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
-  onContainerClick: (e: React.MouseEvent) => void;
+	files: File[];
+	gridSize: number;
+	gapSize: number;
+	isSelected: (id: string) => boolean;
+	focusedIndex: number;
+	setFocusedIndex: (index: number) => void;
+	selectedFiles: File[];
+	selectFile: (
+		file: File,
+		files: File[],
+		multi?: boolean,
+		range?: boolean,
+	) => void;
+	setSelectedFiles: (files: File[]) => void;
+	onContainerClick: (e: React.MouseEvent) => void;
 }
 
 function VirtualizedGrid({
-  files,
-  gridSize,
-  gapSize,
-  isSelected,
-  focusedIndex,
-  selectedFiles,
-  selectFile,
-  onContainerClick,
+	files,
+	gridSize,
+	gapSize,
+	isSelected,
+	focusedIndex,
+	setFocusedIndex,
+	selectedFiles,
+	selectFile,
+	setSelectedFiles,
+	onContainerClick,
 }: VirtualizedGridProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+	const parentRef = useRef<HTMLDivElement>(null);
+	const [containerWidth, setContainerWidth] = useState<number | null>(null);
+	const [isInitialized, setIsInitialized] = useState(false);
 
-  // Track container width with ResizeObserver
-  useEffect(() => {
-    const element = parentRef.current;
-    if (!element) return;
+	// Synchronous measurement before paint to prevent layout shift
+	useLayoutEffect(() => {
+		const element = parentRef.current;
+		if (!element) return;
 
-    let rafId: number | null = null;
+		const updateWidth = () => {
+			const newWidth = element.offsetWidth;
 
-    const updateWidth = () => {
-      if (rafId) return;
+			if (newWidth > 0) {
+				setContainerWidth(newWidth - 24);
+				setIsInitialized(true);
+			}
+		};
 
-      rafId = requestAnimationFrame(() => {
-        rafId = null;
-        const newWidth = element.offsetWidth;
+		const resizeObserver = new ResizeObserver(updateWidth);
+		resizeObserver.observe(element);
 
-        if (newWidth > 0) {
-          // Subtract padding (p-3 = 12px on each side)
-          setContainerWidth(newWidth - 24);
-        }
-      });
-    };
+		// Immediate measurement
+		updateWidth();
 
-    const resizeObserver = new ResizeObserver(updateWidth);
-    resizeObserver.observe(element);
-    window.addEventListener("resize", updateWidth);
+		return () => {
+			resizeObserver.disconnect();
+		};
+	}, []);
 
-    // Set initial width
-    updateWidth();
+	// Calculate columns (mimic auto-fill behavior)
+	const columns = useMemo(() => {
+		if (!containerWidth) return 1;
 
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId);
-      resizeObserver.disconnect();
-      window.removeEventListener("resize", updateWidth);
-    };
-  }, []);
+		// Mimic repeat(auto-fill, minmax(gridSize, 1fr))
+		const minItemWidth = gridSize;
+		const totalGapWidth = gapSize;
 
-  // Calculate columns (mimic auto-fill behavior)
-  const columns = useMemo(() => {
-    if (!containerWidth) return 1;
+		// Calculate how many items fit
+		let cols = 1;
+		while (true) {
+			const totalGaps = (cols - 1) * gapSize;
+			const requiredWidth = cols * minItemWidth + totalGaps;
 
-    // Mimic repeat(auto-fill, minmax(gridSize, 1fr))
-    const minItemWidth = gridSize;
-    const totalGapWidth = gapSize;
+			if (requiredWidth <= containerWidth) {
+				cols++;
+			} else {
+				cols--;
+				break;
+			}
+		}
 
-    // Calculate how many items fit
-    let cols = 1;
-    while (true) {
-      const totalGaps = (cols - 1) * gapSize;
-      const requiredWidth = cols * minItemWidth + totalGaps;
+		return Math.max(1, cols);
+	}, [containerWidth, gridSize, gapSize]);
 
-      if (requiredWidth <= containerWidth) {
-        cols++;
-      } else {
-        cols--;
-        break;
-      }
-    }
+	const rowCount = Math.ceil(files.length / columns);
+	const rowGap = 4; // Gap between rows
 
-    return Math.max(1, cols);
-  }, [containerWidth, gridSize, gapSize]);
+	// Row virtualizer
+	const rowVirtualizer = useVirtualizer({
+		count: rowCount,
+		getScrollElement: () => parentRef.current,
+		estimateSize: () => gridSize + gapSize + rowGap,
+		overscan: 5,
+	});
 
-  const rowCount = Math.ceil(files.length / columns);
-  const rowGap = 4; // Gap between rows
+	const virtualRows = rowVirtualizer.getVirtualItems();
 
-  // Row virtualizer
-  const rowVirtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => gridSize + gapSize + rowGap,
-    overscan: 5,
-  });
+	// Keyboard navigation with correct column count
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (
+				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+					e.key,
+				)
+			) {
+				return;
+			}
+			if (files.length === 0) return;
 
-  const virtualRows = rowVirtualizer.getVirtualItems();
+			e.preventDefault();
 
-  return (
-    <div
-      ref={parentRef}
-      className="h-full overflow-auto"
-      onClick={onContainerClick}
-    >
-      <div
-        className="relative"
-        style={{
-          height: `${rowVirtualizer.getTotalSize()}px`,
-          paddingTop: '12px',
-          paddingBottom: '12px',
-          minHeight: '100%',
-        }}
-      >
-        {virtualRows.map((virtualRow) => {
-          const startIndex = virtualRow.index * columns;
-          const endIndex = Math.min(startIndex + columns, files.length);
-          const rowFiles = files.slice(startIndex, endIndex);
+			let newIndex = focusedIndex < 0 ? 0 : focusedIndex;
 
-          return (
-            <div
-              key={virtualRow.key}
-              className="absolute left-0 w-full px-3"
-              style={{
-                top: `${virtualRow.start}px`,
-                height: `${gridSize + gapSize}px`,
-              }}
-            >
-              {/* CSS Grid within row - preserves flex-to-fill */}
-              <div
-                className="grid h-full"
-                style={{
-                  gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-                  gap: `${gapSize}px`,
-                }}
-              >
-                {rowFiles.map((file, idx) => {
-                  const fileIndex = startIndex + idx;
-                  return (
-                    <FileCard
-                      key={file.id}
-                      file={file}
-                      fileIndex={fileIndex}
-                      allFiles={files}
-                      selected={isSelected(file.id)}
-                      focused={fileIndex === focusedIndex}
-                      selectedFiles={selectedFiles}
-                      selectFile={selectFile}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
+			if (e.key === "ArrowUp") {
+				newIndex = Math.max(0, newIndex - columns);
+			} else if (e.key === "ArrowDown") {
+				newIndex = Math.min(files.length - 1, newIndex + columns);
+			} else if (e.key === "ArrowLeft") {
+				newIndex = Math.max(0, newIndex - 1);
+			} else if (e.key === "ArrowRight") {
+				newIndex = Math.min(files.length - 1, newIndex + 1);
+			}
+
+			if (newIndex !== focusedIndex && files[newIndex]) {
+				setFocusedIndex(newIndex);
+				setSelectedFiles([files[newIndex]]);
+
+				// Scroll into view
+				const element = document.querySelector(
+					`[data-file-id="${files[newIndex].id}"]`,
+				);
+				if (element) {
+					element.scrollIntoView({
+						block: "nearest",
+						behavior: "smooth",
+					});
+				}
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [files, focusedIndex, columns, setFocusedIndex, setSelectedFiles]);
+
+	return (
+		<div
+			ref={parentRef}
+			className="h-full overflow-auto"
+			onClick={onContainerClick}
+		>
+			<div
+				className="relative"
+				style={{
+					height: `${rowVirtualizer.getTotalSize()}px`,
+					paddingTop: "12px",
+					paddingBottom: "12px",
+					minHeight: "100%",
+					opacity: isInitialized ? 1 : 0,
+					transition: "opacity 0.1s",
+				}}
+			>
+				{virtualRows.map((virtualRow) => {
+					const startIndex = virtualRow.index * columns;
+					const endIndex = Math.min(
+						startIndex + columns,
+						files.length,
+					);
+					const rowFiles = files.slice(startIndex, endIndex);
+
+					return (
+						<div
+							key={virtualRow.key}
+							className="absolute left-0 w-full px-3"
+							style={{
+								top: `${virtualRow.start}px`,
+								height: `${gridSize + gapSize}px`,
+							}}
+						>
+							{/* CSS Grid within row - preserves flex-to-fill */}
+							<div
+								className="grid h-full"
+								style={{
+									gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+									gap: `${gapSize}px`,
+								}}
+							>
+								{rowFiles.map((file, idx) => {
+									const fileIndex = startIndex + idx;
+									return (
+										<FileCard
+											key={file.id}
+											file={file}
+											fileIndex={fileIndex}
+											allFiles={files}
+											selected={isSelected(file.id)}
+											focused={fileIndex === focusedIndex}
+											selectedFiles={selectedFiles}
+											selectFile={selectFile}
+										/>
+									);
+								})}
+							</div>
+						</div>
+					);
+				})}
+			</div>
+		</div>
+	);
 }

@@ -2,7 +2,7 @@
 id: FSYNC-004
 title: Service Integration & API
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: FSYNC-000
 priority: Medium
 tags: [api, integration, routes, events]

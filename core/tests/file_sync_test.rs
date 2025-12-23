@@ -18,7 +18,7 @@ use sd_core::{
 	infra::db::entities::{entry, sync_conduit},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, EntityTrait, Set};
+use sea_orm::{ActiveModelTrait, Set};
 use std::sync::Arc;
 use tempfile::TempDir;
 use tokio::fs;
@@ -60,8 +60,9 @@ impl FileSyncTestSetup {
 			services: sd_core::config::ServiceConfig {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
-				location_watcher_enabled: false,
+				fs_watcher_enabled: false,
 			},
+			logging: sd_core::config::LoggingConfig::default(),
 		};
 		config.save()?;
 

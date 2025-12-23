@@ -183,7 +183,7 @@ fn setup() -> Result<()> {
 		}
 	}
 
-	// Generate cargo config
+	// Generate cargo config before building daemon so FFMPEG_DIR and other env vars are set
 	println!();
 	let mobile_deps_dir = project_root.join("apps").join("mobile").join(".deps");
 	let mobile_deps = if mobile_deps_dir.exists() {
@@ -194,13 +194,45 @@ fn setup() -> Result<()> {
 
 	config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
 
+	// Build release daemon for Tauri bundler validation
+	// The Tauri config references the release daemon in externalBin, so we need to build it
+	// once even for dev mode to satisfy Tauri's path validation
+	println!();
+	println!("Building release daemon for Tauri...");
+	let status = Command::new("cargo")
+		.args(["build", "--release", "--bin", "sd-daemon"])
+		.current_dir(&project_root)
+		.status()
+		.context("Failed to build release daemon")?;
+
+	if !status.success() {
+		anyhow::bail!("Failed to build release daemon");
+	}
+	println!("   ✓ Release daemon built");
+
+	// Create target-suffixed daemon binary for Tauri bundler
+	// Tauri's externalBin appends the target triple to binary names
+	let target_triple = system.target_triple();
+	let daemon_source = project_root.join("target/release/sd-daemon");
+	let daemon_target = project_root.join(format!("target/release/sd-daemon-{}", target_triple));
+
+	if daemon_source.exists() {
+		fs::copy(&daemon_source, &daemon_target)
+			.context("Failed to create target-suffixed daemon binary")?;
+		println!("   ✓ Created sd-daemon-{}", target_triple);
+	}
+
 	println!();
 	println!("Setup complete!");
 	println!();
 	println!("Next steps:");
-	println!("   • cargo build              - Build the CLI");
-	println!("   • cargo xtask build-ios    - Build iOS framework (macOS only)");
-	println!("   • cargo ios                - Shortcut for build-ios");
+	println!("   • cargo build              			- Build the CLI with daemon");
+	println!("   • cargo xtask build-mobile 			- Build mobile framework for React Native");
+	println!();
+	println!("Then launch an app:");
+	println!("   • cd apps/tauri && bun run tauri:dev   - Launch the Tauri app");
+	println!("   • cd apps/mobile && bun run ios 		- Launch the React Native ios app");
+	println!("   • cd apps/mobile && bun run android 	- Launch the React Native android app");
 	println!();
 
 	Ok(())

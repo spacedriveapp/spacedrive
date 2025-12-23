@@ -2,7 +2,7 @@
 id: NET-001
 title: Unified P2P Stack with Iroh
 status: Done
-assignee: james
+assignee: jamiepine
 parent: NET-000
 priority: High
 tags: [networking, iroh, p2p]

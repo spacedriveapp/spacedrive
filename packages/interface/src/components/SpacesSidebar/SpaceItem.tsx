@@ -1,164 +1,219 @@
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import clsx from "clsx";
-import { useState } from "react";
-import {
-	House,
-	Clock,
-	Heart,
-	Folder,
-	HardDrive,
-	Tag as TagIcon,
-	FolderOpen,
-	MagnifyingGlass,
-	Trash,
-	Database,
-} from "@phosphor-icons/react";
-import { Location } from "@sd/assets/icons";
-import type {
-	SpaceItem as SpaceItemType,
-	ItemType,
-	File,
-} from "@sd/ts-client";
+import type { SpaceItem as SpaceItemType } from "@sd/ts-client";
 import { Thumb } from "../Explorer/File/Thumb";
-import { useContextMenu } from "../../hooks/useContextMenu";
-import { usePlatform } from "../../platform";
-import { useLibraryMutation } from "../../context";
-import { useDroppable } from "@dnd-kit/core";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-interface SpaceItemProps {
+import {
+	resolveItemMetadata,
+	isRawLocation,
+	type IconData,
+} from "./hooks/spaceItemUtils";
+import { useSpaceItemActive } from "./hooks/useSpaceItemActive";
+import { useSpaceItemDropZones } from "./hooks/useSpaceItemDropZones";
+import { useSpaceItemContextMenu } from "./hooks/useSpaceItemContextMenu";
+import { useExplorer, getSpaceItemKeyFromRoute } from "../Explorer/context";
+
+// Overrides for customizing item appearance and behavior
+export interface SpaceItemOverrides {
+	label?: string;
+	icon?: string;
+	onClick?: (e?: React.MouseEvent) => void;
+	onContextMenu?: (e: React.MouseEvent) => void;
+}
+
+export interface SpaceItemProps {
 	item: SpaceItemType;
-	/** Optional component to render on the right side (e.g., badges, status indicators) */
-	rightComponent?: React.ReactNode;
-	/** Optional className to override default styling */
-	className?: string;
-	/** Optional icon weight (default: "bold") */
-	iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
-	/** Optional onClick handler to override default navigation */
-	onClick?: () => void;
-	/** Volume data for constructing explorer path */
-	volumeData?: { device_slug: string; mount_path: string };
-	/** Optional custom icon (as image path) to override default icon */
-	customIcon?: string;
-	/** Optional custom label to override automatic label detection */
-	customLabel?: string;
-	/** Whether this is the last item in the list (for showing bottom insertion line) */
-	isLastItem?: boolean;
-	/** Whether this item supports insertion (reordering) - false for system groups */
-	allowInsertion?: boolean;
-	/** The space ID this item belongs to (for adding items on insertion) */
 	spaceId?: string;
-	/** The group ID this item belongs to (for adding items on insertion) */
 	groupId?: string | null;
-	/** Whether this item is sortable (can be reordered) */
+	// Behavior flags
 	sortable?: boolean;
+	allowInsertion?: boolean;
+	isLastItem?: boolean;
+	// Overrides
+	overrides?: SpaceItemOverrides;
+	rightComponent?: React.ReactNode;
+	// Legacy props (for backwards compatibility during migration)
+	volumeData?: { device_slug: string; mount_path: string };
+	customIcon?: string;
+	customLabel?: string;
+	onClick?: (e?: React.MouseEvent) => void;
+	onContextMenu?: (e: React.MouseEvent) => void;
+	className?: string;
 }
 
-function getItemIcon(itemType: ItemType): any {
-	if (itemType === "Overview") return { type: "component", icon: House };
-	if (itemType === "Recents") return { type: "component", icon: Clock };
-	if (itemType === "Favorites") return { type: "component", icon: Heart };
-	if (typeof itemType === "object" && "Location" in itemType)
-		return { type: "image", icon: Location };
-	if (typeof itemType === "object" && "Volume" in itemType)
-		return { type: "component", icon: HardDrive };
-	if (typeof itemType === "object" && "Tag" in itemType)
-		return { type: "component", icon: TagIcon };
-	if (typeof itemType === "object" && "Path" in itemType)
-		return { type: "image", icon: Location };
-	return { type: "image", icon: Location };
+// Icon component that handles both component icons and image icons
+function ItemIcon({ icon }: { icon: IconData }) {
+	if (icon.type === "image") {
+		return <img src={icon.icon} alt="" className="size-4 shrink-0" />;
+	}
+	const IconComponent = icon.icon;
+	return (
+		<span className="shrink-0">
+			<IconComponent size={16} weight="bold" />
+		</span>
+	);
 }
 
-function getItemLabel(itemType: ItemType): string {
-	if (itemType === "Overview") return "Overview";
-	if (itemType === "Recents") return "Recents";
-	if (itemType === "Favorites") return "Favorites";
-	if (typeof itemType === "object" && "Location" in itemType) {
-		return itemType.Location.name || "Unnamed Location";
-	}
-	if (typeof itemType === "object" && "Volume" in itemType) {
-		return itemType.Volume.name || "Unnamed Volume";
-	}
-	if (typeof itemType === "object" && "Tag" in itemType) {
-		return itemType.Tag.name || "Unnamed Tag";
-	}
-	if (typeof itemType === "object" && "Path" in itemType) {
-		// Extract name from path
-		const path = itemType.Path.sd_path;
-		if (typeof path === "object" && "Physical" in path) {
-			const parts = path.Physical.path.split("/");
-			return parts[parts.length - 1] || "Path";
-		}
-		return "Path";
-	}
-	return "Unknown";
+// Insertion line indicator
+function InsertionLine({ visible }: { visible: boolean }) {
+	if (!visible) return null;
+	return (
+		<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+	);
 }
 
-function getItemPath(
-	itemType: ItemType,
-	volumeData?: { device_slug: string; mount_path: string },
-	resolvedFile?: File
-): string | null {
-	if (itemType === "Overview") return "/";
-	if (itemType === "Recents") return "/recents";
-	if (itemType === "Favorites") return "/favorites";
-	if (typeof itemType === "object" && "Location" in itemType) {
-		// For proper SpaceItem with Location type, we need the sd_path
-		// This requires the parent to pass volumeData or similar
-		// For now, keep the old route - will be replaced when locations use raw format
-		return `/location/${itemType.Location.location_id}`;
+// Bottom insertion line (for last items)
+function BottomInsertionLine({ visible }: { visible: boolean }) {
+	if (!visible) return null;
+	return (
+		<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
+	);
+}
+
+// Drop highlight ring for drop-into targets
+function DropHighlight({ visible }: { visible: boolean }) {
+	if (!visible) return null;
+	return (
+		<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
+	);
+}
+
+// Drop zone overlays (invisible hit areas)
+interface DropZoneOverlaysProps {
+	isDropTarget: boolean;
+	setTopRef: (node: HTMLElement | null) => void;
+	setBottomRef: (node: HTMLElement | null) => void;
+	setMiddleRef: (node: HTMLElement | null) => void;
+}
+
+function DropZoneOverlays({
+	isDropTarget,
+	setTopRef,
+	setBottomRef,
+	setMiddleRef,
+}: DropZoneOverlaysProps) {
+	if (isDropTarget) {
+		return (
+			<>
+				{/* Top zone - insertion above */}
+				<div
+					ref={setTopRef}
+					className="absolute left-0 right-0 pointer-events-none"
+					style={{
+						top: "-2px",
+						height: "calc(25% + 2px)",
+						zIndex: 10,
+					}}
+				/>
+				{/* Middle zone - drop into folder */}
+				<div
+					ref={setMiddleRef}
+					className="absolute left-0 right-0 pointer-events-none"
+					style={{ top: "25%", height: "50%", zIndex: 11 }}
+				/>
+				{/* Bottom zone - insertion below */}
+				<div
+					ref={setBottomRef}
+					className="absolute left-0 right-0 pointer-events-none"
+					style={{
+						bottom: "-2px",
+						height: "calc(25% + 2px)",
+						zIndex: 10,
+					}}
+				/>
+			</>
+		);
 	}
-	if (typeof itemType === "object" && "Volume" in itemType) {
-		// Navigate to explorer with volume's root path
-		if (volumeData) {
-			const sdPath = {
-				Physical: {
-					device_slug: volumeData.device_slug,
-					path: volumeData.mount_path || "/",
-				},
-			};
-			return `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}`;
-		}
-		return `/volume/${itemType.Volume.volume_id}`;
-	}
-	if (typeof itemType === "object" && "Tag" in itemType)
-		return `/tag/${itemType.Tag.tag_id}`;
-	if (typeof itemType === "object" && "Path" in itemType) {
-		// Navigate to explorer with the SD path
-		// Assume it's explorable (directory or file) - if it's in the sidebar, it should be clickable
-		return `/explorer?path=${encodeURIComponent(JSON.stringify(itemType.Path.sd_path))}`;
-	}
-	return null;
+
+	return (
+		<>
+			{/* Top zone - insertion above */}
+			<div
+				ref={setTopRef}
+				className="absolute left-0 right-0 pointer-events-none"
+				style={{ top: "-2px", height: "calc(50% + 2px)", zIndex: 10 }}
+			/>
+			{/* Bottom zone - insertion below */}
+			<div
+				ref={setBottomRef}
+				className="absolute left-0 right-0 pointer-events-none"
+				style={{
+					bottom: "-2px",
+					height: "calc(50% + 2px)",
+					zIndex: 10,
+				}}
+			/>
+		</>
+	);
 }
 
 export function SpaceItem({
 	item,
-	rightComponent,
-	className,
-	iconWeight = "bold",
-	onClick,
-	volumeData,
-	customIcon,
-	customLabel,
-	isLastItem = false,
-	allowInsertion = true,
 	spaceId,
 	groupId,
 	sortable = false,
+	allowInsertion = true,
+	isLastItem = false,
+	overrides,
+	rightComponent,
+	// Legacy props
+	volumeData,
+	customIcon,
+	customLabel,
+	onClick: legacyOnClick,
+	onContextMenu: legacyOnContextMenu,
+	className,
 }: SpaceItemProps) {
 	const navigate = useNavigate();
-	const location = useLocation();
-	const platform = usePlatform();
-	const deleteItem = useLibraryMutation("spaces.delete_item");
-	const indexVolume = useLibraryMutation("volumes.index");
+	const { loadPreferencesForSpaceItem } = useExplorer();
 
-	// Sortable hook (for reordering)
-	const sortableProps = useSortable({
-		id: item.id,
-		disabled: !sortable,
+	// Merge legacy props into overrides
+	const effectiveOverrides: SpaceItemOverrides = {
+		...overrides,
+		label: overrides?.label ?? customLabel,
+		icon: overrides?.icon ?? customIcon,
+		onClick: overrides?.onClick ?? legacyOnClick,
+		onContextMenu: overrides?.onContextMenu ?? legacyOnContextMenu,
+	};
+
+	// Resolve metadata (icon, label, path)
+	const { icon, label, path } = resolveItemMetadata(item, {
+		volumeData,
+		customIcon: effectiveOverrides.icon,
+		customLabel: effectiveOverrides.label,
 	});
 
+	// Get resolved file for thumbnail rendering
+	const resolvedFile = isRawLocation(item)
+		? undefined
+		: (item as SpaceItemType).resolved_file;
+
+	// Active state detection
+	const isActive = useSpaceItemActive({
+		item: item as SpaceItemType,
+		path,
+		hasCustomOnClick: !!effectiveOverrides.onClick,
+	});
+
+	// Drop zone management
+	const dropZones = useSpaceItemDropZones({
+		item: item as SpaceItemType,
+		allowInsertion,
+		spaceId,
+		groupId,
+		volumeData,
+	});
+
+	// Context menu
+	const contextMenu = useSpaceItemContextMenu({
+		item: item as SpaceItemType,
+		path,
+		spaceId,
+	});
+
+	// Sortable drag/drop
 	const {
 		attributes: sortableAttributes,
 		listeners: sortableListeners,
@@ -166,325 +221,109 @@ export function SpaceItem({
 		transform,
 		transition,
 		isDragging: isSortableDragging,
-	} = sortableProps;
+	} = useSortable({
+		id: (item as SpaceItemType).id,
+		disabled: !sortable,
+		data: { label },
+	});
 
-	const style = sortable ? {
-		transform: CSS.Transform.toString(transform),
-		transition,
-	} : undefined;
-
-	// Check if this is a raw location object (has 'name' and 'sd_path' but no 'item_type')
-	const isRawLocation =
-		"name" in item && "sd_path" in item && !item.item_type;
-
-	// Check if we have a resolved file
-	const resolvedFile = item.resolved_file as File | undefined;
-
-	let iconData, label, path;
-
-	if (isRawLocation) {
-		// Handle raw location object
-		iconData = { type: "image", icon: Location };
-		label = (item as any).name || "Unnamed Location";
-		// Use explorer path with the location's sd_path
-		const sdPath = (item as any).sd_path;
-		path = sdPath ? `/explorer?path=${encodeURIComponent(JSON.stringify(sdPath))}` : null;
-	} else {
-		// Handle proper SpaceItem
-		iconData = getItemIcon(item.item_type);
-		// Use resolved file name if available, otherwise parse from item_type
-		label = resolvedFile?.name || getItemLabel(item.item_type);
-		path = getItemPath(item.item_type, volumeData, resolvedFile);
-	}
-
-	// Override with custom icon if provided
-	if (customIcon) {
-		iconData = { type: "image", icon: customIcon };
-	}
-
-	// Override with custom label if provided
-	if (customLabel) {
-		label = customLabel;
-	}
-
-	// Check if this item is active by comparing SD paths
-	const isActive = (() => {
-		if (!path) return false;
-
-		// For explorer paths with query params, compare the SD path parameter
-		if (path.startsWith("/explorer?path=")) {
-			const currentSearchParams = new URLSearchParams(location.search);
-			const currentPathParam = currentSearchParams.get("path");
-			const itemPathParam = new URLSearchParams(path.split("?")[1]).get("path");
-
-			// Compare the actual SD path objects, not just the encoded strings
-			if (currentPathParam && itemPathParam) {
-				try {
-					const currentSdPath = JSON.parse(decodeURIComponent(currentPathParam));
-					const itemSdPath = JSON.parse(decodeURIComponent(itemPathParam));
-					return JSON.stringify(currentSdPath) === JSON.stringify(itemSdPath);
-				} catch {
-					// If parsing fails, fall back to string comparison
-					return currentPathParam === itemPathParam;
-				}
+	const style = sortable
+		? {
+				transform: CSS.Transform.toString(transform),
+				transition,
 			}
-			return false;
-		}
+		: undefined;
 
-		// For non-explorer routes, use simple path matching
-		return location.pathname === path;
-	})();
-
-	const handleClick = () => {
-		if (onClick) {
-			onClick();
+	// Event handlers
+	const handleClick = (e: React.MouseEvent) => {
+		if (effectiveOverrides.onClick) {
+			effectiveOverrides.onClick(e);
 		} else if (path) {
+			// Extract pathname and search from the path
+			const [pathname, search] = path.includes("?")
+				? [path.split("?")[0], "?" + path.split("?")[1]]
+				: [path, ""];
+			const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
+			loadPreferencesForSpaceItem(spaceItemKey);
 			navigate(path);
 		}
 	};
 
-	// Context menu for space items
-	const contextMenu = useContextMenu({
-		items: [
-			{
-				icon: FolderOpen,
-				label: "Open",
-				onClick: () => {
-					if (path) navigate(path);
-				},
-				condition: () => !!path,
-			},
-			{
-				icon: Database,
-				label: "Index Volume",
-				onClick: async () => {
-					if (typeof item.item_type === "object" && "Volume" in item.item_type) {
-						const volumeItem = item.item_type.Volume;
-						// Extract volume fingerprint from the item
-						// We'll need to get this from the volume data
-						const fingerprint = (item as any).fingerprint || volumeItem.volume_id;
-
-						try {
-							const result = await indexVolume.mutateAsync({
-								fingerprint: fingerprint.toString(),
-								scope: "Recursive",
-							});
-							console.log("Volume indexed:", result.message);
-						} catch (err) {
-							console.error("Failed to index volume:", err);
-						}
-					}
-				},
-				condition: () => typeof item.item_type === "object" && "Volume" in item.item_type,
-			},
-			{ type: "separator" },
-			{
-				icon: MagnifyingGlass,
-				label: "Show in Finder",
-				onClick: async () => {
-					// For Path items, get the physical path
-					if (typeof item.item_type === "object" && "Path" in item.item_type) {
-						const sdPath = item.item_type.Path.sd_path;
-						if (typeof sdPath === "object" && "Physical" in sdPath) {
-							const physicalPath = sdPath.Physical.path;
-							if (platform.revealFile) {
-								try {
-									await platform.revealFile(physicalPath);
-								} catch (err) {
-									console.error("Failed to reveal file:", err);
-								}
-							}
-						}
-					}
-				},
-				keybind: "⌘⇧R",
-				condition: () => {
-					if (typeof item.item_type === "object" && "Path" in item.item_type) {
-						const sdPath = item.item_type.Path.sd_path;
-						return typeof sdPath === "object" && "Physical" in sdPath && !!platform.revealFile;
-					}
-					return false;
-				},
-			},
-			{ type: "separator" },
-			{
-				icon: Trash,
-				label: "Remove from Space",
-				onClick: async () => {
-					try {
-						await deleteItem.mutateAsync({ item_id: item.id });
-					} catch (err) {
-						console.error("Failed to remove item:", err);
-					}
-				},
-				variant: "danger" as const,
-				// Can only remove custom Path items, not built-in items
-				condition: () => typeof item.item_type === "object" && "Path" in item.item_type,
-			},
-		],
-	});
-
 	const handleContextMenu = async (e: React.MouseEvent) => {
+		if (effectiveOverrides.onContextMenu) {
+			effectiveOverrides.onContextMenu(e);
+			return;
+		}
+
 		e.preventDefault();
 		e.stopPropagation();
 		await contextMenu.show(e);
 	};
 
-	/**
-	 * Drop Target Detection
-	 *
-	 * SpaceItems can be drop targets in two ways:
-	 *
-	 * 1. Insertion Points (all items):
-	 *    - Show blue line above/below
-	 *    - Allows reordering sidebar items
-	 *    - Top/bottom zones (25% or 50% of height)
-	 *
-	 * 2. Move-Into Targets (locations/volumes/folders only):
-	 *    - Show blue ring around entire item
-	 *    - Allows moving files into that location
-	 *    - Middle zone (50% of height, only for drop targets)
-	 *
-	 * Target Types:
-	 * - "location": Indexed location (raw or ItemType::Location)
-	 * - "volume": Storage volume (ItemType::Volume)
-	 * - "folder": Directory path (ItemType::Path with kind=Directory)
-	 */
-	const isDropTarget =
-		isRawLocation ||
-		(typeof item.item_type === "object" &&
-		 ("Location" in item.item_type ||
-		  "Volume" in item.item_type ||
-		  ("Path" in item.item_type && resolvedFile?.kind === "Directory")));
-
-	let targetType: "location" | "volume" | "folder" | "other" = "other";
-	if (isRawLocation) {
-		targetType = "location";
-	} else if (typeof item.item_type === "object") {
-		if ("Location" in item.item_type) targetType = "location";
-		else if ("Volume" in item.item_type) targetType = "volume";
-		else if ("Path" in item.item_type && resolvedFile?.kind === "Directory") targetType = "folder";
-	}
-
-	const { setNodeRef: setTopRef, isOver: isOverTop } = useDroppable({
-		id: `space-item-${item.id}-top`,
-		disabled: !allowInsertion,
-		data: {
-			action: "insert-before",
-			itemId: item.id,
-			spaceId,
-			groupId,
-		},
-	});
-
-	const { setNodeRef: setBottomRef, isOver: isOverBottom } = useDroppable({
-		id: `space-item-${item.id}-bottom`,
-		disabled: !allowInsertion,
-		data: {
-			action: "insert-after",
-			itemId: item.id,
-			spaceId,
-			groupId,
-		},
-	});
-
-	const { setNodeRef: setMiddleRef, isOver: isOverMiddle } = useDroppable({
-		id: `space-item-${item.id}-middle`,
-		disabled: !isDropTarget,
-		data: {
-			action: "move-into",
-			targetType,
-			targetId: item.id,
-			// For raw locations, include the sd_path directly
-			targetPath: isRawLocation ? (item as any).sd_path : undefined,
-		},
-	});
+	// Computed visibility for indicators
+	const showTopLine =
+		dropZones.isOverTop &&
+		!isSortableDragging &&
+		!dropZones.isDraggingSortableItem;
+	const showBottomLine =
+		dropZones.isOverBottom &&
+		isLastItem &&
+		!dropZones.isDraggingSortableItem;
+	const showDropHighlight =
+		dropZones.isOverMiddle &&
+		dropZones.isDropTarget &&
+		!isSortableDragging &&
+		!dropZones.isDraggingSortableItem;
 
 	return (
 		<div
 			ref={setSortableRef}
 			style={style}
-			className={clsx("relative", isSortableDragging && "opacity-50 z-50")}
+			className={clsx(
+				"relative",
+				isSortableDragging && "opacity-50 z-50",
+			)}
 		>
-			{/* Insertion line indicator - only show top (bottom of previous item handles gaps) */}
-			{isOverTop && !isSortableDragging && (
-				<div className="absolute -top-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
-
-			{/* Ring highlight for drop-into */}
-			{isOverMiddle && isDropTarget && !isSortableDragging && (
-				<div className="absolute inset-0 rounded-md ring-2 ring-accent/50 ring-inset pointer-events-none z-10" />
-			)}
+			<InsertionLine visible={showTopLine} />
+			<DropHighlight visible={showDropHighlight} />
 
 			<div className="relative">
-				{/* Drop zones - invisible overlays, only active during drag */}
-				{isDropTarget ? (
-					<>
-						{/* Top zone - insertion above */}
-						<div
-							ref={setTopRef}
-							className="absolute left-0 right-0 pointer-events-none"
-							style={{ top: "-2px", height: "calc(25% + 2px)", zIndex: 10 }}
-						/>
-						{/* Middle zone - drop into folder */}
-						<div
-							ref={setMiddleRef}
-							className="absolute left-0 right-0 pointer-events-none"
-							style={{ top: "25%", height: "50%", zIndex: 11 }}
-						/>
-						{/* Bottom zone - insertion below */}
-						<div
-							ref={setBottomRef}
-							className="absolute left-0 right-0 pointer-events-none"
-							style={{ bottom: "-2px", height: "calc(25% + 2px)", zIndex: 10 }}
-						/>
-					</>
-				) : (
-					<>
-						{/* Top zone - insertion above */}
-						<div
-							ref={setTopRef}
-							className="absolute left-0 right-0 pointer-events-none"
-							style={{ top: "-2px", height: "calc(50% + 2px)", zIndex: 10 }}
-						/>
-						{/* Bottom zone - insertion below */}
-						<div
-							ref={setBottomRef}
-							className="absolute left-0 right-0 pointer-events-none"
-							style={{ bottom: "-2px", height: "calc(50% + 2px)", zIndex: 10 }}
-						/>
-					</>
-				)}
+				<DropZoneOverlays
+					isDropTarget={dropZones.isDropTarget}
+					setTopRef={dropZones.setTopRef}
+					setBottomRef={dropZones.setBottomRef}
+					setMiddleRef={dropZones.setMiddleRef}
+				/>
 
 				<button
 					onClick={handleClick}
 					onContextMenu={handleContextMenu}
-					{...(sortable ? { ...sortableAttributes, ...sortableListeners } : {})}
+					{...(sortable
+						? { ...sortableAttributes, ...sortableListeners }
+						: {})}
 					className={clsx(
 						"flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium transition-colors relative cursor-default",
-						className ||
-							(isActive
-								? "bg-sidebar-selected/30 text-sidebar-ink"
-								: "text-sidebar-inkDull"),
-						isOverMiddle && isDropTarget && "bg-accent/10",
+						isActive
+							? "bg-sidebar-selected/30 text-sidebar-ink"
+							: className || "text-sidebar-inkDull",
+						showDropHighlight && "bg-accent/10",
 					)}
 				>
 					{resolvedFile ? (
-						<Thumb file={resolvedFile} size={16} className="shrink-0" />
-					) : iconData.type === "image" ? (
-						<img src={iconData.icon} alt="" className="size-4" />
+						<Thumb
+							file={resolvedFile}
+							size={16}
+							className="shrink-0"
+						/>
 					) : (
-						<iconData.icon className="size-4" weight={iconWeight} />
+						<ItemIcon icon={icon} />
 					)}
 					<span className="flex-1 truncate text-left">{label}</span>
 					{rightComponent}
 				</button>
 			</div>
 
-			{/* Insertion line indicator - bottom (only for last item to allow dropping at end) */}
-			{isOverBottom && isLastItem && (
-				<div className="absolute -bottom-[1px] left-2 right-2 h-[2px] bg-accent z-20 rounded-full" />
-			)}
+			<BottomInsertionLine visible={showBottomLine} />
 		</div>
 	);
 }

@@ -2,7 +2,7 @@
 id: RES-001
 title: Adaptive Resource Throttling
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: RES-000
 priority: Medium
 tags: [performance, mobile, core]

@@ -1,7 +1,10 @@
 //! Networking event loop for handling Iroh connections and messages
 
 use crate::service::network::{
-	core::{NetworkEvent, FILE_TRANSFER_ALPN, MESSAGING_ALPN, PAIRING_ALPN, SYNC_ALPN},
+	core::{
+		NetworkEvent, FILE_TRANSFER_ALPN, JOB_ACTIVITY_ALPN, MESSAGING_ALPN, PAIRING_ALPN,
+		SYNC_ALPN,
+	},
 	device::DeviceRegistry,
 	protocol::ProtocolRegistry,
 	utils::{logging::NetworkLogger, NetworkIdentity},
@@ -387,6 +390,15 @@ impl NetworkingEventLoop {
 						let registry = protocol_registry.read().await;
 						if let Some(handler) = registry.get_handler("sync") {
 							logger.info("Routing to sync handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
+						}
+						continue;
+					} else if alpn_bytes == JOB_ACTIVITY_ALPN {
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("job_activity") {
+							logger.info("Routing to job_activity handler (ALPN match)").await;
 							handler
 								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
 								.await;

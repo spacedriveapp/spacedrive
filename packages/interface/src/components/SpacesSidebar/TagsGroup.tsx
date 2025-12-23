@@ -5,10 +5,13 @@ import clsx from 'clsx';
 import { useNormalizedQuery, useLibraryMutation } from '../../context';
 import type { Tag } from '@sd/ts-client';
 import { GroupHeader } from './GroupHeader';
+import { useExplorer } from '../Explorer/context';
 
 interface TagsGroupProps {
 	isCollapsed: boolean;
 	onToggle: () => void;
+	sortableAttributes?: any;
+	sortableListeners?: any;
 }
 
 interface TagItemProps {
@@ -18,6 +21,7 @@ interface TagItemProps {
 
 function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const navigate = useNavigate();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isExpanded, setIsExpanded] = useState(false);
 
 	// TODO: Fetch children when hierarchy is implemented
@@ -25,6 +29,7 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const hasChildren = children.length > 0;
 
 	const handleClick = () => {
+		loadPreferencesForSpaceItem(`tag:${tag.id}`);
 		navigate(`/tag/${tag.id}`);
 	};
 
@@ -79,8 +84,14 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	);
 }
 
-export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
+export function TagsGroup({
+	isCollapsed,
+	onToggle,
+	sortableAttributes,
+	sortableListeners,
+}: TagsGroupProps) {
 	const navigate = useNavigate();
+	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isCreating, setIsCreating] = useState(false);
 	const [newTagName, setNewTagName] = useState('');
 
@@ -108,6 +119,7 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 
 			// Navigate to the new tag
 			if (result?.tag?.id) {
+				loadPreferencesForSpaceItem(`tag:${result.tag.id}`);
 				navigate(`/tag/${result.tag.id}`);
 			}
 
@@ -124,6 +136,8 @@ export function TagsGroup({ isCollapsed, onToggle }: TagsGroupProps) {
 				label="Tags"
 				isCollapsed={isCollapsed}
 				onToggle={onToggle}
+				sortableAttributes={sortableAttributes}
+				sortableListeners={sortableListeners}
 				rightComponent={
 					tags.length > 0 && (
 						<span className="ml-auto text-sidebar-ink-faint">{tags.length}</span>

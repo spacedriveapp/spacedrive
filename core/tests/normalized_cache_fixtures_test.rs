@@ -317,6 +317,7 @@ async fn capture_event_fixtures_for_typescript() -> Result<(), Box<dyn std::erro
 	// Execute the actual directory listing query (same as frontend)
 	let query_input = DirectoryListingInput {
 		path: test_location_path.clone(),
+		folders_first: Some(false),
 		limit: None,
 		include_hidden: Some(false),
 		sort_by: DirectorySortBy::Name,
@@ -477,7 +478,7 @@ async fn capture_event_fixtures_for_typescript() -> Result<(), Box<dyn std::erro
 			"locations": locations_response.locations
 		},
 		"expected_location_count": locations_response.locations.len(),
-		"expected_location_names": locations_response.locations.iter().filter_map(|l| l.name.as_ref()).collect::<Vec<_>>()
+		"expected_location_names": locations_response.locations.iter().map(|l| &l.name).collect::<Vec<_>>()
 	});
 
 	fixtures["test_cases"] = json!([test_case_exact, test_case_recursive, test_case_location]);

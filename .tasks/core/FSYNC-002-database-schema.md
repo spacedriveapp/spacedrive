@@ -2,7 +2,7 @@
 id: FSYNC-002
 title: Database Schema & Entities
 status: Done
-assignee: james
+assignee: jamiepine
 parent: FSYNC-000
 priority: High
 tags: [database, schema, migration, entities]

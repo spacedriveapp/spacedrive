@@ -94,9 +94,6 @@ async fn alice_relay_only_pairing() {
 	if let Some(node_id) = pairing_code_obj.node_id() {
 		println!("Alice: NodeId in QR: {}", node_id.fmt_short());
 	}
-	if let Some(relay_url) = pairing_code_obj.relay_url() {
-		println!("Alice: Relay URL in QR: {}", relay_url);
-	}
 
 	// Write QR JSON to shared location for Bob (contains NodeId + relay URL)
 	std::fs::create_dir_all("/tmp/spacedrive-relay-only-test").unwrap();
@@ -225,9 +222,6 @@ async fn bob_relay_only_pairing() {
 	);
 	if let Some(node_id) = pairing_code.node_id() {
 		println!("Bob: Target NodeId: {}", node_id.fmt_short());
-	}
-	if let Some(relay_url) = pairing_code.relay_url() {
-		println!("Bob: Target relay URL: {}", relay_url);
 	}
 
 	// Join pairing with FORCE_RELAY = true using the parsed PairingCode

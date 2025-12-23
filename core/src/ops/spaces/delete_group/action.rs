@@ -43,13 +43,19 @@ impl LibraryAction for DeleteGroupAction {
 		// Delete will cascade to items due to foreign key constraints
 		group_model.delete(db).await.map_err(ActionError::SeaOrm)?;
 
-		// Emit ResourceDeleted event for the group
-		library
-			.event_bus()
-			.emit(crate::infra::event::Event::ResourceDeleted {
-				resource_type: "space_group".to_string(),
-				resource_id: group_id,
-			});
+		// Emit ResourceDeleted event for the group using EventEmitter
+		use crate::domain::{resource::EventEmitter, SpaceGroup};
+		SpaceGroup::emit_deleted(group_id, library.event_bus());
+
+		// Emit virtual resource events (space_layout) via ResourceManager
+		let resource_manager = crate::domain::ResourceManager::new(
+			std::sync::Arc::new(library.db().conn().clone()),
+			library.event_bus().clone(),
+		);
+		resource_manager
+			.emit_resource_events("space_group", vec![group_id])
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to emit resource events: {}", e)))?;
 
 		Ok(DeleteGroupOutput { success: true })
 	}

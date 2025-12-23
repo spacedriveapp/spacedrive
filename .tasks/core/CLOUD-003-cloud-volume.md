@@ -2,7 +2,7 @@
 id: CLOUD-003
 title: Cloud Storage Provider as a Volume
 status: In Progress
-assignee: james
+assignee: jamiepine
 parent: CLOUD-000
 priority: High
 tags: [cloud, storage, volume, s3]

@@ -26,7 +26,7 @@
 	deprecated
 )]
 #![forbid(deprecated_in_future)]
-#![forbid(unsafe_code)]
+#![deny(unsafe_code)]
 #![allow(clippy::missing_errors_doc, clippy::module_name_repetitions)]
 
 mod error;

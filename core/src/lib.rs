@@ -151,6 +151,7 @@ impl Core {
 			None, // Libraries will be set after context creation
 			volumes.clone(),
 			key_manager.clone(),
+			data_dir.clone(),
 		);
 
 		// Enable per-job file logging by default
@@ -188,6 +189,11 @@ impl Core {
 		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
 		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
+		// Scan for .sdlibrary directories before attempting to load
+		info!("Scanning for library directories...");
+		let library_dir_count = libraries.count_library_directories().await;
+		info!("Found {} .sdlibrary directories", library_dir_count);
+
 		// Auto-load all libraries with context for job manager initialization
 		info!("Loading existing libraries...");
 		let mut loaded_libraries: Vec<Arc<crate::library::Library>> =
@@ -202,9 +208,9 @@ impl Core {
 				}
 			};
 
-		// Create default library if no libraries exist
-		if loaded_libraries.is_empty() {
-			info!("No existing libraries found, creating default library 'My Library'");
+		// Only create default library if NO .sdlibrary directories exist
+		if library_dir_count == 0 {
+			info!("No library directories found, creating default library 'My Library'");
 			match libraries
 				.create_library("My Library", None, context.clone())
 				.await
@@ -217,6 +223,13 @@ impl Core {
 					error!("Failed to create default library: {}", e);
 				}
 			}
+		} else if loaded_libraries.is_empty() {
+			error!(
+				"Found {} library directories but none loaded successfully. \
+				 Waiting for libraries to become available. \
+				 Check logs and frontend notifications for specific load errors.",
+				library_dir_count
+			);
 		}
 
 		// Set context in library manager and start filesystem watching
@@ -313,6 +326,8 @@ impl Core {
 					// Store networking service in context so it can be accessed
 					if let Some(networking) = services.networking() {
 						context.set_networking(networking.clone()).await;
+						// Set event bus for device registry to emit ResourceChanged events
+						networking.set_event_bus(context.events.clone()).await;
 						info!("Networking service registered in context");
 
 						// Initialize sync service on already-loaded libraries
@@ -513,7 +528,12 @@ impl Core {
 			}
 
 			// Make networking service available to the context for other services
-			self.context.set_networking(networking_service).await;
+			self.context
+				.set_networking(networking_service.clone())
+				.await;
+
+			// Set event bus for device registry to emit ResourceChanged events
+			networking_service.set_event_bus(self.events.clone()).await;
 		}
 
 		logger.info("Networking initialized successfully").await;
@@ -625,7 +645,7 @@ async fn register_default_protocol_handlers(
 	);
 
 	// Inject context for library operations
-	messaging_handler.set_context(context);
+	messaging_handler.set_context(context.clone());
 
 	let mut file_transfer_handler =
 		service::network::protocol::FileTransferProtocolHandler::new_default(logger.clone());
@@ -633,17 +653,67 @@ async fn register_default_protocol_handlers(
 	// Inject device registry into file transfer handler for encryption
 	file_transfer_handler.set_device_registry(networking.device_registry());
 
+	// Get device ID for job activity handler
+	let device_id = context
+		.device_manager
+		.device_id()
+		.unwrap_or_else(|_| uuid::Uuid::nil());
+
+	// Create job activity handler
+	let job_activity_handler = service::network::protocol::JobActivityProtocolHandler::new(
+		context.events.clone(),
+		networking.device_registry(),
+		networking.endpoint().cloned(),
+		networking.active_connections(),
+		device_id,
+		None, // No library filter for now
+	);
+
 	let protocol_registry = networking.protocol_registry();
 	{
 		let mut registry = protocol_registry.write().await;
 		registry.register_handler(pairing_handler)?;
 		registry.register_handler(Arc::new(messaging_handler))?;
 		registry.register_handler(Arc::new(file_transfer_handler))?;
+		registry.register_handler(Arc::new(job_activity_handler))?;
 		registry.register_handler(networking.sync_multiplexer().clone())?;
 		logger
 			.info("All protocol handlers registered successfully")
 			.await;
 	}
+
+	// Set up job activity client for auto-subscription
+	let job_activity_client = service::network::JobActivityClient::new(
+		networking
+			.endpoint()
+			.cloned()
+			.ok_or("Endpoint not initialized")?,
+		networking.active_connections(),
+		context.remote_job_cache.clone(),
+		networking.device_registry(),
+	);
+
+	// Auto-subscribe to job activity from connected devices
+	let mut event_subscriber = networking.subscribe_events();
+
+	tokio::spawn(async move {
+		while let Ok(event) = event_subscriber.recv().await {
+			if let service::network::NetworkEvent::ConnectionEstablished { device_id, .. } = event {
+				if let Err(e) = job_activity_client
+					.subscribe_to_device(device_id, None)
+					.await
+				{
+					tracing::error!(
+						"Auto-subscribe to job activity failed for device {}: {}",
+						device_id,
+						e
+					);
+				} else {
+					tracing::info!("Auto-subscribed to job activity from device {}", device_id);
+				}
+			}
+		}
+	});
 
 	// Brief delay to ensure protocol handlers are fully initialized and background
 	// tasks have started before accepting connections. This prevents race conditions

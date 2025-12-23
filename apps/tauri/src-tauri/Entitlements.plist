@@ -2,9 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Allow sandboxed app to run -->
-	<key>com.apple.security.app-sandbox</key>
-	<true/>
+	<!-- NO app-sandbox - Spacedrive needs full filesystem access as a file manager -->
 
 	<!-- Network access for daemon communication -->
 	<key>com.apple.security.network.client</key>
@@ -12,22 +10,14 @@
 	<key>com.apple.security.network.server</key>
 	<true/>
 
-	<!-- File access -->
-	<key>com.apple.security.files.user-selected.read-write</key>
-	<true/>
-	<key>com.apple.security.files.bookmarks.app-scope</key>
-	<true/>
-
-	<!-- Allow launching daemon process -->
+	<!-- Allow launching daemon process and loading frameworks -->
 	<key>com.apple.security.cs.allow-unsigned-executable-memory</key>
 	<true/>
 	<key>com.apple.security.cs.disable-library-validation</key>
 	<true/>
 
-	<!-- Background execution (for daemon) -->
-	<key>com.apple.security.application-groups</key>
-	<array>
-		<string>com.spacedrive.desktop</string>
-	</array>
+	<!-- Hardened runtime -->
+	<key>com.apple.security.cs.allow-dyld-environment-variables</key>
+	<true/>
 </dict>
 </plist>

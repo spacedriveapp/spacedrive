@@ -57,7 +57,7 @@ pub struct Location {
 }
 
 /// How deeply to index files in this location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Type)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
@@ -173,7 +173,11 @@ impl Location {
 	pub fn should_ignore(&self, path: &str) -> bool {
 		self.ignore_patterns.iter().any(|pattern| {
 			// Simple glob matching (could use glob crate for full support)
-			if pattern.starts_with("*.") {
+			if pattern == ".*" {
+				// Match files/directories starting with a dot
+				path.split('/')
+					.any(|part| part.starts_with('.') && part != ".")
+			} else if pattern.starts_with("*.") {
 				path.ends_with(&pattern[1..])
 			} else if pattern.starts_with('.') {
 				path.split('/').any(|part| part == pattern)
@@ -198,7 +202,69 @@ impl Identifiable for Location {
 	fn resource_type() -> &'static str {
 		"location"
 	}
+
+	async fn from_ids(
+		db: &sea_orm::DatabaseConnection,
+		ids: &[Uuid],
+	) -> crate::common::errors::Result<Vec<Self>>
+	where
+		Self: Sized,
+	{
+		use crate::domain::addressing::SdPath;
+		use crate::infra::db::entities::{device, directory_paths, entry, location};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let locations_with_entries = location::Entity::find()
+			.filter(location::Column::Uuid.is_in(ids.to_vec()))
+			.find_also_related(entry::Entity)
+			.all(db)
+			.await?;
+
+		let mut results = Vec::new();
+
+		for (loc, entry_opt) in locations_with_entries {
+			let Some(entry) = entry_opt else {
+				tracing::warn!("Location {} has no root entry, skipping", loc.uuid);
+				continue;
+			};
+
+			let Some(dir_path) = directory_paths::Entity::find_by_id(entry.id)
+				.one(db)
+				.await?
+			else {
+				tracing::warn!(
+					"No directory path for location {} entry {}",
+					loc.uuid,
+					entry.id
+				);
+				continue;
+			};
+
+			let Some(device_model) = device::Entity::find_by_id(loc.device_id).one(db).await?
+			else {
+				tracing::warn!("Device not found for location {}", loc.uuid);
+				continue;
+			};
+
+			// Note: Each library has its own database, so all locations in this DB
+			// belong to the same library. The library_id field is populated from
+			// context when needed, here we use Uuid::nil as a placeholder.
+			let library_id = Uuid::nil();
+
+			let sd_path = SdPath::Physical {
+				device_slug: device_model.slug.clone(),
+				path: dir_path.path.clone().into(),
+			};
+
+			results.push(Location::from_db_model(&loc, library_id, sd_path));
+		}
+
+		Ok(results)
+	}
 }
+
+// Register Location as a simple resource
+crate::register_resource!(Location);
 
 impl Location {
 	/// Build Location from database model (for event emission)
@@ -329,6 +395,7 @@ impl Default for ThumbnailPolicy {
 
 impl ThumbnailPolicy {
 	/// Convert this policy to a ThumbnailJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(&self) -> crate::ops::media::thumbnail::ThumbnailJobConfig {
 		use crate::ops::media::thumbnail::{ThumbnailJobConfig, ThumbnailVariants};
 
@@ -373,6 +440,7 @@ impl Default for ThumbstripPolicy {
 
 impl ThumbstripPolicy {
 	/// Convert this policy to a ThumbstripJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(&self) -> crate::ops::media::thumbstrip::ThumbstripJobConfig {
 		crate::ops::media::thumbstrip::ThumbstripJobConfig {
 			variants: crate::ops::media::thumbstrip::ThumbstripVariants::defaults(),
@@ -470,6 +538,7 @@ impl Default for SpeechPolicy {
 
 impl SpeechPolicy {
 	/// Convert this policy to a SpeechToTextJobConfig for job dispatch
+	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(
 		&self,
 		location_id: Option<Uuid>,

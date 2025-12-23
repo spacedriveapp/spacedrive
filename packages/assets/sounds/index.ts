@@ -4,6 +4,12 @@ import startupOgg from "./startup.ogg";
 import startupMp3 from "./startup.mp3";
 import pairingOgg from "./pairing.ogg";
 import pairingMp3 from "./pairing.mp3";
+import splatOgg from "./splat.ogg";
+import splatMp3 from "./splat.mp3";
+import splatTriggerOgg from "./splat-trigger.ogg";
+import splatTriggerMp3 from "./splat-trigger.mp3";
+import jobDoneOgg from "./job-done.ogg";
+import jobDoneMp3 from "./job-done.mp3";
 
 /**
  * Play a sound effect
@@ -29,4 +35,7 @@ export const sounds = {
 	copy: () => playSound(copyOgg, copyMp3, 0.3),
 	startup: () => playSound(startupOgg, startupMp3, 0.5),
 	pairing: () => playSound(pairingOgg, pairingMp3, 0.5),
+	splat: () => playSound(splatOgg, splatMp3, 0.05),
+	splatTrigger: () => playSound(splatTriggerOgg, splatTriggerMp3, 0.3),
+	jobDone: () => playSound(jobDoneOgg, jobDoneMp3, 0.4),
 };

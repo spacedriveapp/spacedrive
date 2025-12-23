@@ -2,7 +2,7 @@
 id: EXPL-001
 title: File Grid View with Virtual Scrolling
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: EXPL-000
 priority: High
 tags: [explorer, views, performance]

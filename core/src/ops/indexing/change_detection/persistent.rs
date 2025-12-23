@@ -396,9 +396,11 @@ impl ChangeHandler for DatabaseAdapter {
 		use crate::ops::indexing::processor::{
 			load_location_processor_config, ContentHashProcessor, ProcessorEntry,
 		};
+		use crate::ops::media::{ocr::OcrProcessor, proxy::ProxyProcessor};
+		#[cfg(feature = "ffmpeg")]
 		use crate::ops::media::{
-			ocr::OcrProcessor, proxy::ProxyProcessor, speech::SpeechToTextProcessor,
-			thumbnail::ThumbnailProcessor, thumbstrip::ThumbstripProcessor,
+			speech::SpeechToTextProcessor, thumbnail::ThumbnailProcessor,
+			thumbstrip::ThumbstripProcessor,
 		};
 
 		if entry.is_directory() {
@@ -476,6 +478,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Thumbnail
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()
@@ -491,6 +494,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Thumbstrip
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()
@@ -568,6 +572,7 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		// Speech-to-text
+		#[cfg(feature = "ffmpeg")]
 		if proc_config
 			.watcher_processors
 			.iter()
@@ -607,17 +612,14 @@ impl ChangeHandler for DatabaseAdapter {
 
 		match change_type {
 			ChangeType::Deleted => {
-				// Emit ResourceDeleted event so frontend can remove from cache
-				// Use "file" resource_type to match ephemeral events (frontend listens for "file")
+				// Emit ResourceDeleted event so frontend can remove from cache using EventEmitter
 				tracing::debug!(
 					"Emitting ResourceDeleted for persistent delete: {} (id: {})",
 					entry.path.display(),
 					uuid
 				);
-				self.context.events.emit(Event::ResourceDeleted {
-					resource_type: "file".to_string(),
-					resource_id: uuid,
-				});
+				use crate::domain::{resource::EventEmitter, File};
+				File::emit_deleted(uuid, &self.context.events);
 			}
 			ChangeType::Created | ChangeType::Modified | ChangeType::Moved => {
 				// Emit ResourceChanged event for UI updates
@@ -655,7 +657,7 @@ impl ChangeHandler for DatabaseAdapter {
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::job::{IndexMode, IndexerJob};
+		use crate::ops::indexing::{IndexMode, IndexerJob};
 
 		let Some(library) = self.context.get_library(self.library_id).await else {
 			return Ok(());

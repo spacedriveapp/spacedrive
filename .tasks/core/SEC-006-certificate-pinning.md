@@ -2,7 +2,7 @@
 id: SEC-006
 title: Certificate Pinning
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: SEC-000
 priority: Medium
 tags: [security, networking, certificate-pinning]

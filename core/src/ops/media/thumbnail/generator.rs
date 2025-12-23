@@ -1,6 +1,7 @@
 //! Thumbnail generation engine using existing Spacedrive crates
 
 use super::error::{ThumbnailError, ThumbnailResult};
+use sd_media_metadata::exif::Orientation;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -90,8 +91,13 @@ impl ImageGenerator {
 
 		let thumbnail_info = tokio::task::spawn_blocking(move || {
 			// Use sd-images to load and process the image
-			let img = sd_images::format_image(&source_path)
+			let mut img = sd_images::format_image(&source_path)
 				.map_err(|e| ThumbnailError::other(format!("Failed to load image: {}", e)))?;
+
+			// Apply EXIF orientation correction if available
+			if let Some(orientation) = Orientation::from_path(&source_path) {
+				img = orientation.correct_thumbnail(img);
+			}
 
 			// Blurhash generation disabled for performance
 			let blurhash: Option<String> = None;
@@ -240,8 +246,13 @@ impl DocumentGenerator {
 
 		let thumbnail_info = tokio::task::spawn_blocking(move || {
 			// Use sd-images to handle PDF (it supports PDF through pdfium-render)
-			let img = sd_images::format_image(&source_path)
+			let mut img = sd_images::format_image(&source_path)
 				.map_err(|e| ThumbnailError::other(format!("Failed to load PDF: {}", e)))?;
+
+			// Apply EXIF orientation correction if available
+			if let Some(orientation) = Orientation::from_path(&source_path) {
+				img = orientation.correct_thumbnail(img);
+			}
 
 			// Blurhash generation disabled for performance
 			let blurhash: Option<String> = None;

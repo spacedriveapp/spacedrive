@@ -1,8 +1,8 @@
 ---
 id: SEC-005
 title: Secure Credential Vault
-status: To Do
-assignee: james
+status: Done
+assignee: jamiepine
 parent: SEC-000
 priority: High
 tags: [security, credentials, vault, cloud]

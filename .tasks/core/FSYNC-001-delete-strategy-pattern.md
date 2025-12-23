@@ -2,7 +2,7 @@
 id: FSYNC-001
 title: DeleteJob Strategy Pattern & Remote Deletion
 status: Done
-assignee: james
+assignee: jamiepine
 parent: FSYNC-000
 priority: High
 tags: [delete, strategy, remote, networking]

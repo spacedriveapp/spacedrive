@@ -2,7 +2,7 @@
 id: LSYNC-001
 title: Design Library Sync Protocol (Leaderless)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, networking, protocol, design, leaderless]

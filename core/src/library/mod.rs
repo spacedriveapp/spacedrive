@@ -26,6 +26,7 @@ use crate::infra::{
 	sync::{SyncEventBus, TransactionManager},
 };
 use once_cell::sync::OnceCell;
+use sea_orm::ConnectionTrait;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock as StdRwLock};
@@ -273,10 +274,44 @@ impl Library {
 
 		// Priority 2: Check library's device cache
 		if let Ok(cache) = self.device_cache.read() {
-			cache.get(slug).copied()
-		} else {
-			None
+			if let Some(device_id) = cache.get(slug).copied() {
+				return Some(device_id);
+			}
 		}
+
+		// Priority 3: Fall back to paired devices from networking layer
+		// This allows file transfers between paired devices even if they're not in the library DB
+		if let Ok(networking_guard) = self.core_context.networking.try_read() {
+			if let Some(networking) = networking_guard.as_ref() {
+				if let Ok(registry) = networking.device_registry().try_read() {
+					// Check all devices in the registry for a matching slug
+					for (device_id, state) in registry.get_all_devices() {
+						let device_info = match state {
+							crate::service::network::device::DeviceState::Paired {
+								info, ..
+							}
+							| crate::service::network::device::DeviceState::Connected {
+								info,
+								..
+							}
+							| crate::service::network::device::DeviceState::Disconnected {
+								info,
+								..
+							} => Some(info),
+							_ => None,
+						};
+
+						if let Some(info) = device_info {
+							if info.device_slug == slug {
+								return Some(device_id);
+							}
+						}
+					}
+				}
+			}
+		}
+
+		None
 	}
 
 	/// Reload device cache from database
@@ -501,6 +536,7 @@ impl Library {
 	}
 
 	/// Start thumbnail generation job
+	#[cfg(feature = "ffmpeg")]
 	pub async fn generate_thumbnails(
 		&self,
 		entry_ids: Option<Vec<Uuid>>,
@@ -722,35 +758,16 @@ impl Library {
 			);
 		}
 
-		// Emit ResourceChanged event for normalizedCache
-		// Build the full library info output to match query response
-		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
-			id: config.id,
-			name: config.name.clone(),
-			description: config.description.clone(),
-			path: path.clone(),
-			created_at: config.created_at,
-			updated_at: config.updated_at,
-			settings: config.settings.clone(),
-			statistics: stats.clone(),
-		};
-
-		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
+		let library = crate::domain::Library::from_config(&config, path.clone());
+		use crate::domain::resource::EventEmitter;
+		if let Err(e) = library.emit_changed(&event_bus) {
 			warn!(
 				library_id = %library_id,
 				error = %e,
-				"Failed to serialize library info for ResourceChanged event"
+				"Failed to emit library ResourceChanged event"
 			);
-			serde_json::Value::Null
-		});
-
-		// Emit ResourceChanged event that normalizedCache will pick up
-		event_bus.emit(crate::infra::event::Event::ResourceChanged {
-			resource_type: "library".to_string(),
-			resource: resource_json,
-			metadata: None,
-		});
+		}
 
 		// Also emit the legacy event for backwards compatibility
 		event_bus.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
@@ -808,37 +825,19 @@ impl Library {
 			"Updated and saved statistics via update_statistics method"
 		);
 
-		// Emit ResourceChanged event for normalizedCache
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
 		let config = self.config.read().await;
-		let library_output = crate::ops::libraries::info::output::LibraryInfoOutput {
-			id: config.id,
-			name: config.name.clone(),
-			description: config.description.clone(),
-			path: self.path().to_path_buf(),
-			created_at: config.created_at,
-			updated_at: config.updated_at,
-			settings: config.settings.clone(),
-			statistics: stats.clone(),
-		};
+		let library = crate::domain::Library::from_config(&config, self.path().to_path_buf());
 		drop(config);
 
-		// Serialize to JSON for the event
-		let resource_json = serde_json::to_value(&library_output).unwrap_or_else(|e| {
+		use crate::domain::resource::EventEmitter;
+		if let Err(e) = library.emit_changed(&self.event_bus) {
 			warn!(
 				library_id = %library_id,
 				error = %e,
-				"Failed to serialize library info for ResourceChanged event"
+				"Failed to emit library ResourceChanged event"
 			);
-			serde_json::Value::Null
-		});
-
-		// Emit ResourceChanged event that normalizedCache will pick up
-		self.event_bus
-			.emit(crate::infra::event::Event::ResourceChanged {
-				resource_type: "library".to_string(),
-				resource: resource_json,
-				metadata: None,
-			});
+		}
 
 		// Also emit the legacy event for backwards compatibility
 		self.event_bus
@@ -900,6 +899,17 @@ impl Library {
 			unique_content_count = unique_content_count,
 			"Completed unique content count calculation"
 		);
+
+		debug!("Starting content kind counts update");
+		// Update content kind counts
+		if let Err(e) = Self::update_content_kind_counts_static(&db_conn).await {
+			warn!(
+				error = %e,
+				"Failed to update content kind counts"
+			);
+		} else {
+			debug!("Completed content kind counts update");
+		}
 
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
@@ -1412,6 +1422,47 @@ impl Library {
 			"Unique content count query completed successfully"
 		);
 		Ok(count)
+	}
+
+	/// Update file counts for each content kind in the content_kinds table (static version)
+	async fn update_content_kind_counts_static(db: &sea_orm::DatabaseConnection) -> Result<()> {
+		use sea_orm::Statement;
+
+		debug!("Starting content kind counts update");
+
+		// Reset all counts to 0 first, then update with actual counts in a single query.
+		// This handles both updates and resets efficiently.
+		db.execute(Statement::from_string(
+			sea_orm::DbBackend::Sqlite,
+			"UPDATE content_kinds SET file_count = 0".to_owned(),
+		))
+		.await?;
+
+		// Use raw SQL with GROUP BY to count efficiently in the database.
+		// This avoids loading all content_identity records into memory.
+		let rows_affected = db
+			.execute(Statement::from_string(
+				sea_orm::DbBackend::Sqlite,
+				r#"
+					UPDATE content_kinds
+					SET file_count = (
+						SELECT COUNT(*)
+						FROM content_identities
+						WHERE content_identities.kind_id = content_kinds.id
+					)
+				"#
+				.to_owned(),
+			))
+			.await?
+			.rows_affected();
+
+		debug!(
+			rows_affected = rows_affected,
+			"Updated content kind file counts"
+		);
+
+		debug!("Content kind counts update completed");
+		Ok(())
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes (static version)

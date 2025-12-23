@@ -1,8 +1,8 @@
 ---
 id: AI-000
-title: "Epic: AI & Intelligence"
+title: "Local AI & Intelligence"
 status: To Do
-assignee: james
+assignee: jamiepine
 priority: High
 tags: [epic, ai, agent]
 whitepaper: Section 4.6

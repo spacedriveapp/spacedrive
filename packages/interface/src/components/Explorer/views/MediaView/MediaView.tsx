@@ -10,6 +10,7 @@ import {
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
+import type { File } from "@sd/ts-client";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
 import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
@@ -22,7 +23,7 @@ export function MediaView() {
 		setSortBy,
 		setCurrentFiles,
 	} = useExplorer();
-	const { selectedFiles, selectFile, focusedIndex, isSelected, selectedFileIds } = useSelection();
+	const { selectedFiles, selectFile, focusedIndex, setFocusedIndex, setSelectedFiles, isSelected, selectedFileIds } = useSelection();
 
 	// Set default sort to "datetaken" when entering media view
 	useEffect(() => {
@@ -145,12 +146,60 @@ export function MediaView() {
 		}
 	}, [files, elementReady]);
 
+	// Keyboard navigation for media view
+	useEffect(() => {
+		const handleKeyDown = (e: KeyboardEvent) => {
+			if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+				return;
+			}
+			if (files.length === 0) return;
 
-	// Calculate columns based on container width and grid size
-	const columns = useMemo(() => {
-		if (!containerWidth) return 8;
+			e.preventDefault();
+
+			// Calculate columns based on container width
+			const itemWidth = gridSize + gapSize;
+			const cols = containerWidth > 0 
+				? Math.max(4, Math.floor(containerWidth / itemWidth))
+				: 8;
+
+			let newIndex = focusedIndex;
+
+			if (e.key === "ArrowUp") {
+				newIndex = Math.max(0, focusedIndex - cols);
+			} else if (e.key === "ArrowDown") {
+				newIndex = Math.min(files.length - 1, focusedIndex + cols);
+			} else if (e.key === "ArrowLeft") {
+				newIndex = Math.max(0, focusedIndex - 1);
+			} else if (e.key === "ArrowRight") {
+				newIndex = Math.min(files.length - 1, focusedIndex + 1);
+			}
+
+			if (newIndex !== focusedIndex && files[newIndex]) {
+				setFocusedIndex(newIndex);
+				setSelectedFiles([files[newIndex]]);
+
+				// Scroll selected item into view
+				const element = document.querySelector(`[data-file-id="${files[newIndex].id}"]`);
+				if (element) {
+					element.scrollIntoView({ block: "nearest", behavior: "smooth" });
+				}
+			}
+		};
+
+		window.addEventListener("keydown", handleKeyDown);
+		return () => window.removeEventListener("keydown", handleKeyDown);
+	}, [files, focusedIndex, gridSize, gapSize, containerWidth, setFocusedIndex, setSelectedFiles]);
+
+	// Calculate columns and actual item size to fill available space
+	const { columns, actualItemSize } = useMemo(() => {
+		if (!containerWidth) return { columns: 8, actualItemSize: gridSize };
 		const itemWidth = gridSize + gapSize;
-		return Math.max(4, Math.floor(containerWidth / itemWidth));
+		const cols = Math.max(4, Math.floor(containerWidth / itemWidth));
+		// Calculate actual size to perfectly fill the width
+		const totalGapWidth = (cols - 1) * gapSize;
+		const availableWidth = containerWidth - totalGapWidth;
+		const itemSize = Math.floor(availableWidth / cols);
+		return { columns: cols, actualItemSize: itemSize };
 	}, [containerWidth, gridSize, gapSize]);
 
 	// Calculate row count
@@ -160,17 +209,17 @@ export function MediaView() {
 	const overscanCount = useMemo(() => {
 		if (!parentRef.current) return 10;
 		const viewportHeight = parentRef.current.clientHeight;
-		const rowHeight = gridSize + gapSize;
+		const rowHeight = actualItemSize + gapSize;
 		const rowsPerPage = Math.ceil(viewportHeight / rowHeight);
 		// 3 pages in each direction to reduce flickering
 		return Math.max(10, rowsPerPage * 3);
-	}, [gridSize, gapSize, containerWidth]);
+	}, [actualItemSize, gapSize, containerWidth]);
 
 	// Row virtualizer for vertical scrolling
 	const rowVirtualizer = useVirtualizer({
 		count: rowCount,
 		getScrollElement: () => parentRef.current,
-		estimateSize: () => gridSize + gapSize,
+		estimateSize: () => actualItemSize + gapSize,
 		overscan: overscanCount,
 	});
 
@@ -337,17 +386,18 @@ export function MediaView() {
 							if (!file) return null;
 
 							const columnIndex = i % columns;
-							const left = columnIndex * (gridSize + gapSize);
+							const left = columnIndex * (actualItemSize + gapSize);
 
 							return (
 								<div
 									key={file.id}
-									className="absolute"
+									tabIndex={-1}
+									className="absolute outline-none focus:outline-none"
 									style={{
 										top: `${rowTop}px`,
 										left: `${left}px`,
-										width: `${gridSize}px`,
-										height: `${gridSize}px`,
+										width: `${actualItemSize}px`,
+										height: `${actualItemSize}px`,
 									}}
 								>
 									<MediaViewItem
@@ -356,7 +406,7 @@ export function MediaView() {
 										selected={selectedFileIds.has(file.id)}
 										focused={i === focusedIndex}
 										onSelect={selectFile}
-										size={gridSize}
+										size={actualItemSize}
 									/>
 								</div>
 							);

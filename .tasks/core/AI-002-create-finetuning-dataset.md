@@ -2,7 +2,7 @@
 id: AI-002
 title: "Create Fine-Tuning Dataset for AI Agent"
 status: To Do
-assignee: james
+assignee: jamiepine
 parent: AI-000
 priority: Medium
 tags:

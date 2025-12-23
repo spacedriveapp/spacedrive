@@ -1,16 +1,19 @@
-import { memo } from 'react';
-import type { File } from '@sd/ts-client';
+import { memo } from "react";
+import type { File } from "@sd/ts-client";
+import { useServer } from "../../ServerContext";
 
 interface TimelineScrubberProps {
 	file: File;
 	hoverPercent: number;
 	mouseX: number;
 	duration: number;
+	sidebarWidth?: number;
+	inspectorWidth?: number;
 }
 
 /**
  * TimelineScrubber - Shows video frame preview when hovering over timeline
- * 
+ *
  * Uses thumbstrip sprite sheet to display the frame at the hovered position
  * Similar to YouTube's timeline preview feature
  */
@@ -19,10 +22,14 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	hoverPercent,
 	mouseX,
 	duration,
+	sidebarWidth = 0,
+	inspectorWidth = 0,
 }: TimelineScrubberProps) {
+	const { buildSidecarUrl } = useServer();
+
 	// Find thumbstrip sidecar
 	const thumbstripSidecar = file.sidecars?.find(
-		(s) => s.kind === 'thumbstrip'
+		(s) => s.kind === "thumbstrip",
 	);
 
 	if (!thumbstripSidecar) {
@@ -31,8 +38,8 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 
 	// Parse grid dimensions
 	const getGridDimensions = (variant: string) => {
-		if (variant.includes('detailed')) return { columns: 10, rows: 10 };
-		if (variant.includes('mobile')) return { columns: 3, rows: 3 };
+		if (variant.includes("detailed")) return { columns: 10, rows: 10 };
+		if (variant.includes("mobile")) return { columns: 3, rows: 3 };
 		return { columns: 5, rows: 5 };
 	};
 
@@ -40,19 +47,25 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	const totalFrames = grid.columns * grid.rows;
 
 	// Build thumbstrip URL
-	const serverUrl = (window as any).__SPACEDRIVE_SERVER_URL__;
-	const libraryId = (window as any).__SPACEDRIVE_LIBRARY_ID__;
-
-	if (!serverUrl || !libraryId || !file.content_identity?.uuid) {
+	if (!file.content_identity?.uuid) {
 		return null;
 	}
 
-	const thumbstripUrl = `${serverUrl}/sidecar/${libraryId}/${file.content_identity.uuid}/${thumbstripSidecar.kind}/${thumbstripSidecar.variant}.${thumbstripSidecar.format}`;
+	const thumbstripUrl = buildSidecarUrl(
+		file.content_identity.uuid,
+		thumbstripSidecar.kind,
+		thumbstripSidecar.variant,
+		thumbstripSidecar.format,
+	);
+
+	if (!thumbstripUrl) {
+		return null;
+	}
 
 	// Calculate which frame to show
 	const frameIndex = Math.min(
 		Math.floor(hoverPercent * totalFrames),
-		totalFrames - 1
+		totalFrames - 1,
 	);
 
 	const row = Math.floor(frameIndex / grid.columns);
@@ -66,10 +79,16 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	const previewWidth = 160;
 	const previewHeight = 90;
 
-	// Position horizontally following mouse, clamped to screen bounds
+	// Position horizontally following mouse, clamped to controls bounds
+	// Adjust for sidebar offset and clamp within the controls area
+	const controlsWidth = window.innerWidth - sidebarWidth - inspectorWidth;
+	const mouseXRelativeToControls = mouseX - sidebarWidth;
 	const leftPosition = Math.max(
 		10,
-		Math.min(mouseX - previewWidth / 2, window.innerWidth - previewWidth - 10)
+		Math.min(
+			mouseXRelativeToControls - previewWidth / 2,
+			controlsWidth - previewWidth - 10,
+		),
 	);
 
 	// Format timestamp
@@ -77,10 +96,10 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 
 	return (
 		<div
-			className="fixed z-50 pointer-events-none"
+			className="absolute z-50 pointer-events-none"
 			style={{
 				left: leftPosition,
-				bottom: 160, // Well above the timeline
+				bottom: 80, // Just above the timeline
 				width: previewWidth,
 			}}
 		>
@@ -93,8 +112,8 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 					backgroundImage: `url(${thumbstripUrl})`,
 					backgroundSize: `${grid.columns * 100}% ${grid.rows * 100}%`,
 					backgroundPosition: `${spriteX}% ${spriteY}%`,
-					backgroundRepeat: 'no-repeat',
-					imageRendering: 'crisp-edges',
+					backgroundRepeat: "no-repeat",
+					imageRendering: "crisp-edges",
 				}}
 			/>
 
@@ -119,8 +138,7 @@ function formatTime(seconds: number): string {
 	const secs = Math.floor(seconds % 60);
 
 	if (hours > 0) {
-		return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+		return `${hours}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 	}
-	return `${mins}:${secs.toString().padStart(2, '0')}`;
+	return `${mins}:${secs.toString().padStart(2, "0")}`;
 }
-

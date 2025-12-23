@@ -1,8 +1,8 @@
 ---
 id: LSYNC-007
-title: Syncable Trait (Device Ownership Aware)
+title: Syncable Trait
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, trait, codegen, macro]

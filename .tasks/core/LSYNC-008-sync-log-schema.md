@@ -2,7 +2,7 @@
 id: LSYNC-008
 title: Sync Log Schema (Per-Device, HLC-Based)
 status: Done
-assignee: james
+assignee: jamiepine
 parent: LSYNC-000
 priority: High
 tags: [sync, database, schema, migration, hlc]

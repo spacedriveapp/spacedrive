@@ -4,425 +4,567 @@
 //! - Location creation and indexing
 //! - Smart filtering of system files
 //! - Inode tracking for incremental indexing
-//! - Event monitoring during indexing
-//! - Database persistence of indexed entries
-//!
-//! Note: These tests should be run with --test-threads=1 to avoid
-//! device UUID conflicts when multiple tests run in parallel
+//! - Change detection (new, modified, moved, deleted files)
+//! - Re-indexing and incremental updates
 
-use sd_core::{
-	infra::db::entities::{self, entry_closure},
-	location::{create_location, IndexMode, LocationCreateArgs},
-	Core,
-};
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
-use tempfile::TempDir;
-use tokio::time::Duration;
+mod helpers;
+
+use anyhow::Result;
+use helpers::IndexingHarnessBuilder;
+use sd_core::location::IndexMode;
 
 #[tokio::test]
-async fn test_location_indexing() -> Result<(), Box<dyn std::error::Error>> {
-	// 1. Setup test environment
-	let temp_dir = TempDir::new()?;
-	let core = Core::new(temp_dir.path().to_path_buf()).await?;
-
-	// 2. Create library
-	let library = core
-		.libraries
-		.create_library("Test Indexing Library", None, core.context.clone())
+async fn test_basic_indexing() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("basic_indexing")
+		.build()
 		.await?;
 
-	// 3. Create test location directory with some files
-	let test_location_dir = temp_dir.path().join("test_location");
-	tokio::fs::create_dir_all(&test_location_dir).await?;
-
-	// Create test files
-	tokio::fs::write(test_location_dir.join("test1.txt"), "Hello World").await?;
-	tokio::fs::write(test_location_dir.join("test2.rs"), "fn main() {}").await?;
-	tokio::fs::create_dir_all(test_location_dir.join("subdir")).await?;
-	tokio::fs::write(test_location_dir.join("subdir/test3.md"), "# Test").await?;
+	// Create a test location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("test1.txt", "Hello World").await?;
+	location.write_file("test2.rs", "fn main() {}").await?;
+	location.create_dir("subdir").await?;
+	location.write_file("subdir/test3.md", "# Test").await?;
 
 	// Create files that should be filtered
-	tokio::fs::write(test_location_dir.join(".DS_Store"), "system file").await?;
-	tokio::fs::create_dir_all(test_location_dir.join("node_modules")).await?;
-	tokio::fs::write(test_location_dir.join("node_modules/package.json"), "{}").await?;
+	location.create_filtered_files().await?;
 
-	// 4. Register device in database
-	let db = library.db();
-	let device = core.device.to_device()?;
+	// Index the location
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
 
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
+	// Verify counts
+	let file_count = handle.count_files().await?;
+	let dir_count = handle.count_directories().await?;
 
-	// 5. Set up to monitor job completion
-	// Note: Due to current implementation, IndexingCompleted event may not be emitted
-	// So we'll monitor job status directly instead
-
-	// 6. Create location and trigger indexing
-	let location_args = LocationCreateArgs {
-		path: test_location_dir.clone(),
-		name: Some("Test Location".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	let location_db_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
-	.await?;
-
-	// Get the location record to find its entry_id
-	let location_record = entities::location::Entity::find_by_id(location_db_id)
-		.one(db.conn())
-		.await?
-		.expect("Location should exist");
-	let location_entry_id = location_record.entry_id;
-
-	// 7. Wait for indexing to complete by monitoring job status
-	let start_time = tokio::time::Instant::now();
-	let timeout_duration = Duration::from_secs(30);
-
-	let mut job_seen = false;
-	let mut last_entry_count = 0;
-	let mut stable_count_iterations = 0;
-
-	loop {
-		// Check all job statuses
-		let all_jobs = library.jobs().list_jobs(None).await?;
-		let running_jobs = library
-			.jobs()
-			.list_jobs(Some(sd_core::infra::job::types::JobStatus::Running))
-			.await?;
-
-		// If we see a running job, mark that we've seen it
-		if !running_jobs.is_empty() {
-			job_seen = true;
-		}
-
-		// Check if any entries have been created (partial progress)
-		// Use closure table to count entries under this location
-		let descendant_count = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
-			.count(db.conn())
-			.await?;
-
-		let current_entries = descendant_count;
-
-		println!(
-			"Job status - Total: {}, Running: {}, Entries indexed: {}",
-			all_jobs.len(),
-			running_jobs.len(),
-			current_entries
-		);
-
-		// Check for completed jobs
-		let completed_jobs = library
-			.jobs()
-			.list_jobs(Some(sd_core::infra::job::types::JobStatus::Completed))
-			.await?;
-
-		// If we've seen a job and now it's completed, indexing likely finished
-		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
-		{
-			// Wait for entries to stabilize
-			if current_entries == last_entry_count {
-				stable_count_iterations += 1;
-				if stable_count_iterations >= 3 {
-					println!("Indexing appears complete (job finished, entries stable)");
-					break;
-				}
-			} else {
-				stable_count_iterations = 0;
-			}
-			last_entry_count = current_entries;
-		}
-
-		// Check for failed jobs
-		let failed_jobs = library
-			.jobs()
-			.list_jobs(Some(sd_core::infra::job::types::JobStatus::Failed))
-			.await?;
-
-		if !failed_jobs.is_empty() {
-			// Try to get more information about the failure
-			for job in &failed_jobs {
-				println!("Failed job: {:?}", job);
-			}
-			panic!("Indexing job failed with {} failures", failed_jobs.len());
-		}
-
-		// Check timeout
-		if start_time.elapsed() > timeout_duration {
-			panic!("Indexing timed out after {:?}", timeout_duration);
-		}
-
-		// Wait a bit before checking again
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
-
-	// 8. Verify indexed entries in database
-	// Helper to get all entry IDs under the location
-	let get_location_entry_ids = || async {
-		let location_id = location_entry_id.expect("Location should have entry_id");
-		let descendant_ids: Vec<i32> = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location_id))
-			.all(db.conn())
-			.await?
-			.into_iter()
-			.map(|ec| ec.descendant_id)
-			.collect();
-
-		let mut all_ids = vec![location_id];
-		all_ids.extend(descendant_ids);
-		Ok::<Vec<i32>, anyhow::Error>(all_ids)
-	};
-
-	let location_entry_ids = get_location_entry_ids().await?;
-	let _entry_count = location_entry_ids.len();
-
-	let file_count = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
-		.filter(entities::entry::Column::Kind.eq(0)) // Files
-		.count(db.conn())
-		.await?;
-
-	let dir_count = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
-		.filter(entities::entry::Column::Kind.eq(1)) // Directories
-		.count(db.conn())
-		.await?;
-
-	// 9. Verify smart filtering worked
-	let all_entries = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
-		.all(db.conn())
-		.await?;
-
-	// Check that filtered files are not indexed
-	for entry in &all_entries {
-		assert_ne!(entry.name, ".DS_Store", "System files should be filtered");
-		assert_ne!(
-			entry.name, "node_modules",
-			"Dev directories should be filtered"
-		);
-	}
-
-	// 10. Verify expected counts
 	assert_eq!(file_count, 3, "Should index 3 files (excluding filtered)");
 	assert!(dir_count >= 1, "Should index at least 1 directory (subdir)");
 
-	// 11. Verify inode tracking
-	let entries_with_inodes = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Id.is_in(location_entry_ids.clone()))
-		.filter(entities::entry::Column::Inode.is_not_null())
-		.count(db.conn())
+	// Verify smart filtering worked
+	handle.verify_no_filtered_entries().await?;
+
+	// Verify inode tracking
+	handle.verify_inode_tracking().await?;
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_change_detection_new_files() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_new")
+		.build()
 		.await?;
 
-	assert!(
-		entries_with_inodes > 0,
-		"Entries should have inode tracking"
+	// Create initial location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("file1.txt", "Initial content").await?;
+	location.write_file("file2.txt", "More content").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	let initial_files = handle.count_files().await?;
+	assert_eq!(initial_files, 2, "Should have 2 initial files");
+
+	// Add new files
+	handle.write_file("file3.txt", "New file").await?;
+	handle.write_file("subdir/file4.txt", "Nested file").await?;
+
+	// Re-index to detect new files
+	handle.reindex().await?;
+
+	// Verify new files were detected and indexed
+	let final_files = handle.count_files().await?;
+	assert_eq!(
+		final_files, 4,
+		"Should detect and index 2 new files (total 4)"
 	);
 
-	// 12. Cleanup
-	let lib_id = library.id();
-	core.libraries.close_library(lib_id).await?;
-	drop(library);
+	// Capture UUIDs after first reindex
+	let entries_after_first = handle.get_all_entries().await?;
+	let file3_uuid = entries_after_first
+		.iter()
+		.find(|e| e.name == "file3")
+		.expect("file3 should exist")
+		.uuid;
 
-	core.shutdown().await?;
+	// Reindex again without any changes - UUIDs should be preserved
+	handle.reindex().await?;
 
+	let entries_after_second = handle.get_all_entries().await?;
+	let file3_after = entries_after_second
+		.iter()
+		.find(|e| e.name == "file3")
+		.expect("file3 should still exist");
+
+	assert_eq!(
+		file3_uuid, file3_after.uuid,
+		"Entry UUID should be preserved across reindexing with inode tracking"
+	);
+
+	harness.shutdown().await?;
 	Ok(())
 }
 
 #[tokio::test]
-async fn test_incremental_indexing() -> Result<(), Box<dyn std::error::Error>> {
-	// 1. Setup
-	let temp_dir = TempDir::new()?;
-	let core = Core::new(temp_dir.path().to_path_buf()).await?;
-
-	let library = core
-		.libraries
-		.create_library("Test Incremental Library", None, core.context.clone())
+async fn test_change_detection_modified_files() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_modified")
+		.build()
 		.await?;
 
-	let test_location_dir = temp_dir.path().join("incremental_test");
-	tokio::fs::create_dir_all(&test_location_dir).await?;
+	// Create initial location
+	let location = harness.create_test_location("test_location").await?;
+	location
+		.write_file("mutable.txt", "Original content")
+		.await?;
 
-	// Initial files
-	tokio::fs::write(test_location_dir.join("file1.txt"), "Initial content").await?;
-	tokio::fs::write(test_location_dir.join("file2.txt"), "More content").await?;
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
+	// Get initial entry state
+	let entries_before = handle.get_all_entries().await?;
+	let file_before = entries_before
+		.iter()
+		.find(|e| e.name == "mutable")
+		.expect("File should exist");
+	let size_before = file_before.size;
 
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
+	// Modify the file (change content and size)
+	handle
+		.modify_file("mutable.txt", "Modified content with more data")
+		.await?;
 
-	// 2. First indexing run
-	let location_args = LocationCreateArgs {
-		path: test_location_dir.clone(),
-		name: Some("Incremental Test".to_string()),
-		index_mode: IndexMode::Deep,
-	};
+	// Re-index to detect modification
+	handle.reindex().await?;
 
-	let location_db_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
-	.await?;
+	// Verify file was detected as modified
+	let entries_after = handle.get_all_entries().await?;
+	let file_after = entries_after
+		.iter()
+		.find(|e| e.name == "mutable")
+		.expect("File should still exist");
+	let size_after = file_after.size;
 
-	// Get the location record to find its entry_id
-	let location_record = entities::location::Entity::find_by_id(location_db_id)
-		.one(db.conn())
-		.await?
-		.expect("Location should exist");
-	let location_entry_id = location_record.entry_id;
+	assert_ne!(
+		size_before, size_after,
+		"File size should have changed after modification"
+	);
+	assert!(size_after > size_before, "Modified file should be larger");
 
-	// Wait for initial indexing to complete
-	let start_time = tokio::time::Instant::now();
-	let timeout_duration = Duration::from_secs(10);
-	let mut job_seen = false;
+	// Verify same entry ID and UUID (updated in place, not recreated)
+	assert_eq!(
+		file_before.id, file_after.id,
+		"Entry ID should be preserved (updated in place, not recreated)"
+	);
+	assert_eq!(
+		file_before.uuid, file_after.uuid,
+		"Entry UUID should be preserved with inode tracking"
+	);
 
-	loop {
-		let running_jobs = library
-			.jobs()
-			.list_jobs(Some(sd_core::infra::job::types::JobStatus::Running))
-			.await?;
+	harness.shutdown().await?;
+	Ok(())
+}
 
-		if !running_jobs.is_empty() {
-			job_seen = true;
-		}
+#[tokio::test]
+async fn test_change_detection_deleted_files() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_deleted")
+		.build()
+		.await?;
 
-		let current_entries = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(location_entry_id))
-			.count(db.conn())
-			.await?;
+	// Create initial location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("file1.txt", "Keep me").await?;
+	location.write_file("file2.txt", "Delete me").await?;
+	location.write_file("file3.txt", "Also keep me").await?;
 
-		// Check for completed jobs
-		let completed_jobs = library
-			.jobs()
-			.list_jobs(Some(sd_core::infra::job::types::JobStatus::Completed))
-			.await?;
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
 
-		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
-		{
-			break;
-		}
+	let initial_files = handle.count_files().await?;
+	assert_eq!(initial_files, 3, "Should have 3 initial files");
 
-		if start_time.elapsed() > timeout_duration {
-			break; // Don't fail, just continue
-		}
+	// Delete one file
+	handle.delete_file("file2.txt").await?;
 
-		tokio::time::sleep(Duration::from_millis(200)).await;
+	// Re-index to detect deletion
+	handle.reindex().await?;
+
+	// Verify file was detected as deleted
+	let final_files = handle.count_files().await?;
+	assert_eq!(final_files, 2, "Should have 2 files after deletion");
+
+	// Verify the deleted file is no longer in the database
+	let entries = handle.get_all_entries().await?;
+	let deleted_file_exists = entries.iter().any(|e| e.name == "file2");
+	assert!(
+		!deleted_file_exists,
+		"Deleted file should not be in database"
+	);
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_change_detection_moved_files() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_moved")
+		.build()
+		.await?;
+
+	// Create initial location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("original.txt", "Move me").await?;
+	location.create_dir("subdir").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	// Get initial entry state (to verify inode and UUID preservation)
+	let entries_before = handle.get_all_entries().await?;
+	let file_before = entries_before
+		.iter()
+		.find(|e| e.name == "original")
+		.expect("File should exist");
+	let inode_before = file_before.inode;
+	let uuid_before = file_before.uuid;
+
+	let initial_files = handle.count_files().await?;
+	assert_eq!(initial_files, 1, "Should have 1 file initially");
+
+	// Move the file
+	handle.move_file("original.txt", "subdir/moved.txt").await?;
+
+	// Re-index to detect move
+	handle.reindex().await?;
+
+	// Verify file still exists with new name
+	let entries_after = handle.get_all_entries().await?;
+
+	// Debug: print all entry names
+	println!("Entries after re-index:");
+	for entry in &entries_after {
+		println!(
+			"  - {} (kind: {}, inode: {:?})",
+			entry.name, entry.kind, entry.inode
+		);
 	}
 
-	// Get all entry IDs under this location
-	let location_id = location_entry_id.expect("Location should have entry_id");
-	let descendant_ids: Vec<i32> = entry_closure::Entity::find()
-		.filter(entry_closure::Column::AncestorId.eq(location_id))
-		.all(db.conn())
-		.await?
-		.into_iter()
-		.map(|ec| ec.descendant_id)
-		.collect();
+	let moved_file = entries_after
+		.iter()
+		.find(|e| e.name == "moved")
+		.expect("Moved file should exist with new name");
 
-	let mut all_entry_ids = vec![location_id];
-	all_entry_ids.extend(descendant_ids);
+	// Verify inode and UUID are preserved (proves it's the same file, not delete+create)
+	assert_eq!(
+		inode_before, moved_file.inode,
+		"Inode should be preserved after move"
+	);
+	assert_eq!(
+		uuid_before, moved_file.uuid,
+		"Entry UUID should be preserved after move with inode tracking"
+	);
 
-	let initial_file_count = entities::entry::Entity::find()
-		.filter(entities::entry::Column::Id.is_in(all_entry_ids))
-		.filter(entities::entry::Column::Kind.eq(0))
-		.count(db.conn())
-		.await?;
+	// Verify old file doesn't exist
+	let old_file_exists = entries_after.iter().any(|e| e.name == "original");
+	assert!(!old_file_exists, "Old filename should not exist");
 
-	assert_eq!(initial_file_count, 2, "Should index 2 initial files");
+	// Verify total file count is still 1 (move, not copy)
+	let final_files = handle.count_files().await?;
+	assert_eq!(final_files, 1, "Should still have 1 file after move");
 
-	// Cleanup
-	let lib_id = library.id();
-	core.libraries.close_library(lib_id).await?;
-	drop(library);
-
-	core.shutdown().await?;
-
+	harness.shutdown().await?;
 	Ok(())
 }
 
 #[tokio::test]
-async fn test_indexing_error_handling() -> Result<(), Box<dyn std::error::Error>> {
-	let temp_dir = TempDir::new()?;
-	let core = Core::new(temp_dir.path().to_path_buf()).await?;
+async fn test_change_detection_batch_changes() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_batch")
+		.build()
+		.await?;
 
-	let library = core
-		.libraries
-		.create_library("Test Error Library", None, core.context.clone())
+	// Create initial location
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("keep1.txt", "Keep").await?;
+	location.write_file("modify.txt", "Original").await?;
+	location.write_file("delete.txt", "Remove me").await?;
+	location.write_file("move.txt", "Move me").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	let initial_files = handle.count_files().await?;
+	assert_eq!(initial_files, 4, "Should have 4 initial files");
+
+	// Capture UUIDs of files we'll modify/move to verify they're preserved
+	let entries_before = handle.get_all_entries().await?;
+	let modify_uuid_before = entries_before
+		.iter()
+		.find(|e| e.name == "modify")
+		.expect("modify.txt should exist")
+		.uuid;
+	let move_uuid_before = entries_before
+		.iter()
+		.find(|e| e.name == "move")
+		.expect("move.txt should exist")
+		.uuid;
+
+	// Make multiple changes at once
+	handle.write_file("new.txt", "Brand new").await?; // New
+	handle.modify_file("modify.txt", "Modified content").await?; // Modified
+	handle.delete_file("delete.txt").await?; // Deleted
+	handle.move_file("move.txt", "moved.txt").await?; // Moved
+
+	// Re-index to detect all changes
+	handle.reindex().await?;
+
+	// Verify final state
+	let final_files = handle.count_files().await?;
+	assert_eq!(
+		final_files, 4,
+		"Should have 4 files: keep1, modify, new, moved"
+	);
+
+	let entries = handle.get_all_entries().await?;
+	let names: Vec<_> = entries.iter().map(|e| e.name.as_str()).collect();
+
+	assert!(names.contains(&"keep1"), "Original file should remain");
+	assert!(names.contains(&"modify"), "Modified file should remain");
+	assert!(names.contains(&"new"), "New file should be added");
+	assert!(names.contains(&"moved"), "Moved file should have new name");
+	assert!(!names.contains(&"delete"), "Deleted file should be gone");
+	assert!(!names.contains(&"move"), "Old move name should be gone");
+
+	// Verify UUIDs are preserved for modified and moved files (inode tracking)
+	let modify_after = entries
+		.iter()
+		.find(|e| e.name == "modify")
+		.expect("modify should exist");
+	let moved_after = entries
+		.iter()
+		.find(|e| e.name == "moved")
+		.expect("moved should exist");
+
+	assert_eq!(
+		modify_uuid_before, modify_after.uuid,
+		"Modified file should keep same UUID with inode tracking"
+	);
+	assert_eq!(
+		move_uuid_before, moved_after.uuid,
+		"Moved file should keep same UUID with inode tracking"
+	);
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_change_detection_bulk_move_to_nested_directory() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("change_detection_bulk_move")
+		.build()
+		.await?;
+
+	// Create initial location with multiple files at root
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("file1.txt", "Content 1").await?;
+	location.write_file("file2.rs", "fn main() {}").await?;
+	location.write_file("file3.md", "# Documentation").await?;
+	location.write_file("file4.json", "{}").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	let initial_files = handle.count_files().await?;
+	assert_eq!(initial_files, 4, "Should have 4 initial files");
+
+	// Verify all files are at root level initially
+	let entries_before = handle.get_all_entries().await?;
+	let file1_before = entries_before
+		.iter()
+		.find(|e| e.name == "file1")
+		.expect("file1 should exist");
+	let file2_before = entries_before
+		.iter()
+		.find(|e| e.name == "file2")
+		.expect("file2 should exist");
+
+	// Store inodes and UUIDs to verify move (not delete+create)
+	let inode1 = file1_before.inode;
+	let uuid1 = file1_before.uuid;
+	let inode2 = file2_before.inode;
+	let uuid2 = file2_before.uuid;
+
+	// Create nested directory structure and move multiple files
+	handle
+		.move_file("file1.txt", "archive/2024/file1.txt")
+		.await?;
+	handle
+		.move_file("file2.rs", "archive/2024/file2.rs")
+		.await?;
+	handle
+		.move_file("file3.md", "archive/2024/file3.md")
+		.await?;
+
+	// Re-index to detect moves
+	handle.reindex().await?;
+
+	// Verify final state
+	let final_files = handle.count_files().await?;
+	assert_eq!(final_files, 4, "Should still have 4 files after moving");
+
+	let entries_after = handle.get_all_entries().await?;
+
+	// Verify moved files exist with new names in nested directory
+	let file1_after = entries_after
+		.iter()
+		.find(|e| e.name == "file1")
+		.expect("file1 should exist after move");
+	let file2_after = entries_after
+		.iter()
+		.find(|e| e.name == "file2")
+		.expect("file2 should exist after move");
+	let file3_after = entries_after
+		.iter()
+		.find(|e| e.name == "file3")
+		.expect("file3 should exist after move");
+
+	// Verify inodes and UUIDs are preserved (proves move, not delete+create)
+	assert_eq!(
+		inode1, file1_after.inode,
+		"file1 inode should be preserved after move"
+	);
+	assert_eq!(
+		uuid1, file1_after.uuid,
+		"file1 UUID should be preserved after move with inode tracking"
+	);
+	assert_eq!(
+		inode2, file2_after.inode,
+		"file2 inode should be preserved after move"
+	);
+	assert_eq!(
+		uuid2, file2_after.uuid,
+		"file2 UUID should be preserved after move with inode tracking"
+	);
+
+	// Verify file4 remained at root
+	let file4_exists = entries_after.iter().any(|e| e.name == "file4");
+	assert!(file4_exists, "file4 should still exist at root");
+
+	// Verify the nested directory structure exists
+	let archive_dir = entries_after
+		.iter()
+		.find(|e| e.name == "archive" && e.kind == 1);
+	assert!(archive_dir.is_some(), "archive directory should exist");
+
+	let year_dir = entries_after
+		.iter()
+		.find(|e| e.name == "2024" && e.kind == 1);
+	assert!(year_dir.is_some(), "2024 directory should exist");
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_shallow_vs_deep_indexing() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("shallow_vs_deep")
+		.build()
+		.await?;
+
+	// Create location with same files for both modes
+	let location_shallow = harness.create_test_location("shallow").await?;
+	location_shallow.write_file("test.txt", "content").await?;
+
+	let location_deep = harness.create_test_location("deep").await?;
+	location_deep.write_file("test.txt", "content").await?;
+
+	// Index with shallow mode
+	let handle_shallow = location_shallow
+		.index("Shallow Location", IndexMode::Shallow)
+		.await?;
+
+	// Index with deep mode
+	let handle_deep = location_deep
+		.index("Deep Location", IndexMode::Deep)
+		.await?;
+
+	// Both should index the file
+	assert_eq!(handle_shallow.count_files().await?, 1);
+	assert_eq!(handle_deep.count_files().await?, 1);
+
+	// Deep mode should generate content identities (tested in content hash tests)
+	// For now just verify both modes complete successfully
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_uuid_persistence_with_inode_tracking() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("uuid_persistence")
+		.build()
+		.await?;
+
+	// Create location with files
+	let location = harness.create_test_location("test_location").await?;
+	location.write_file("file1.txt", "Content 1").await?;
+	location.write_file("file2.rs", "fn main() {}").await?;
+	location.create_dir("subdir").await?;
+	location.write_file("subdir/file3.md", "# Test").await?;
+
+	// Initial indexing
+	let handle = location.index("Test Location", IndexMode::Deep).await?;
+
+	// Capture all UUIDs after initial indexing
+	let entries_initial = handle.get_all_entries().await?;
+	let initial_uuids: std::collections::HashMap<String, uuid::Uuid> = entries_initial
+		.iter()
+		.map(|e| (e.name.clone(), e.uuid))
+		.collect();
+
+	// Reindex multiple times without any changes
+	for i in 1..=3 {
+		handle.reindex().await?;
+
+		let entries = handle.get_all_entries().await?;
+
+		// Verify all UUIDs remain the same
+		for entry in &entries {
+			let initial_uuid = initial_uuids.get(&entry.name).expect(&format!(
+				"Entry {} should exist in initial index",
+				entry.name
+			));
+
+			assert_eq!(
+				initial_uuid, &entry.uuid,
+				"Entry '{}' UUID should be preserved after reindex #{} (inode tracking)",
+				entry.name, i
+			);
+		}
+	}
+
+	harness.shutdown().await?;
+	Ok(())
+}
+
+#[tokio::test]
+async fn test_indexing_error_handling() -> Result<()> {
+	let harness = IndexingHarnessBuilder::new("error_handling")
+		.build()
 		.await?;
 
 	// Try to index non-existent location
-	let non_existent = temp_dir.path().join("does_not_exist");
+	let non_existent = harness.temp_path().join("does_not_exist");
 
-	let db = library.db();
-	let device = core.device.to_device()?;
+	let result = harness
+		.add_and_index_location(&non_existent, "Non-existent", IndexMode::Deep)
+		.await;
 
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
-
-	let location_args = LocationCreateArgs {
-		path: non_existent,
-		name: Some("Non-existent".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	// This should handle the error gracefully
-	let result = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
-	.await;
-
-	// The location creation should fail for non-existent path
+	// Should fail gracefully
 	assert!(
 		result.is_err(),
 		"Should fail to create location for non-existent path"
 	);
 
-	// Cleanup
-	let lib_id = library.id();
-	core.libraries.close_library(lib_id).await?;
-	drop(library);
-
-	core.shutdown().await?;
-
+	harness.shutdown().await?;
 	Ok(())
 }
