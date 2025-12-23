@@ -18,7 +18,7 @@ export function DevicesGroup({
 	sortableAttributes,
 	sortableListeners,
 }: DevicesGroupProps) {
-	const { navigateToView } = useExplorer();
+	const { navigateToView, loadPreferencesForSpaceItem } = useExplorer();
 
 	// Use normalized query for automatic updates when device events are emitted
 	const { data: devices, isLoading } = useNormalizedQuery<
@@ -53,6 +53,18 @@ export function DevicesGroup({
 				onClick: async () => {
 					await revokeDevice.mutateAsync({
 						device_id: device.id,
+						remove_from_library: false, // Keep device in library
+					});
+				},
+				variant: "default" as const,
+			},
+			{
+				icon: Trash,
+				label: "Remove Device Completely",
+				onClick: async () => {
+					await revokeDevice.mutateAsync({
+						device_id: device.id,
+						remove_from_library: true, // Remove from library too
 					});
 				},
 				variant: "danger" as const,
@@ -106,7 +118,10 @@ export function DevicesGroup({
 									item={deviceItem as any}
 									customIcon={getDeviceIcon(device)}
 									customLabel={device.name}
-									onClick={() => navigateToView("device", device.id)}
+									onClick={() => {
+										loadPreferencesForSpaceItem(`device:${device.id}`);
+										navigateToView("device", device.id);
+									}}
 									onContextMenu={handleDeviceContextMenu(device)}
 									allowInsertion={false}
 									isLastItem={index === devices.length - 1}

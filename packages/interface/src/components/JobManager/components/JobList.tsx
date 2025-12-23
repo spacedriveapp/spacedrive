@@ -7,9 +7,10 @@ interface JobListProps {
   jobs: JobListItem[];
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
+  onCancel?: (jobId: string) => void;
 }
 
-export function JobList({ jobs, onPause, onResume }: JobListProps) {
+export function JobList({ jobs, onPause, onResume, onCancel }: JobListProps) {
   if (jobs.length === 0) {
     return <EmptyState />;
   }
@@ -25,7 +26,7 @@ export function JobList({ jobs, onPause, onResume }: JobListProps) {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           >
-            <JobCard job={job} onPause={onPause} onResume={onResume} />
+            <JobCard job={job} onPause={onPause} onResume={onResume} onCancel={onCancel} />
           </motion.div>
         ))}
       </AnimatePresence>

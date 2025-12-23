@@ -7,6 +7,8 @@ interface TimelineScrubberProps {
 	hoverPercent: number;
 	mouseX: number;
 	duration: number;
+	sidebarWidth?: number;
+	inspectorWidth?: number;
 }
 
 /**
@@ -20,6 +22,8 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	hoverPercent,
 	mouseX,
 	duration,
+	sidebarWidth = 0,
+	inspectorWidth = 0,
 }: TimelineScrubberProps) {
 	const { buildSidecarUrl } = useServer();
 
@@ -75,12 +79,15 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	const previewWidth = 160;
 	const previewHeight = 90;
 
-	// Position horizontally following mouse, clamped to screen bounds
+	// Position horizontally following mouse, clamped to controls bounds
+	// Adjust for sidebar offset and clamp within the controls area
+	const controlsWidth = window.innerWidth - sidebarWidth - inspectorWidth;
+	const mouseXRelativeToControls = mouseX - sidebarWidth;
 	const leftPosition = Math.max(
 		10,
 		Math.min(
-			mouseX - previewWidth / 2,
-			window.innerWidth - previewWidth - 10,
+			mouseXRelativeToControls - previewWidth / 2,
+			controlsWidth - previewWidth - 10,
 		),
 	);
 
@@ -89,10 +96,10 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 
 	return (
 		<div
-			className="fixed z-50 pointer-events-none"
+			className="absolute z-50 pointer-events-none"
 			style={{
 				left: leftPosition,
-				bottom: 160, // Well above the timeline
+				bottom: 80, // Just above the timeline
 				width: previewWidth,
 			}}
 		>

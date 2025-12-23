@@ -8,6 +8,8 @@ import splatOgg from "./splat.ogg";
 import splatMp3 from "./splat.mp3";
 import splatTriggerOgg from "./splat-trigger.ogg";
 import splatTriggerMp3 from "./splat-trigger.mp3";
+import jobDoneOgg from "./job-done.ogg";
+import jobDoneMp3 from "./job-done.mp3";
 
 /**
  * Play a sound effect
@@ -35,4 +37,5 @@ export const sounds = {
 	pairing: () => playSound(pairingOgg, pairingMp3, 0.5),
 	splat: () => playSound(splatOgg, splatMp3, 0.05),
 	splatTrigger: () => playSound(splatTriggerOgg, splatTriggerMp3, 0.3),
+	jobDone: () => playSound(jobDoneOgg, jobDoneMp3, 0.4),
 };

@@ -905,7 +905,8 @@ impl JobManager {
 					device_id,
 					status,
 					progress: progress_percentage,
-					started_at: chrono::Utc::now(), // TODO: Get actual start time
+					created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+					started_at: Some(chrono::Utc::now()), // Running jobs have started
 					completed_at: None,
 					error_message: None,
 					parent_job_id: None,
@@ -993,7 +994,8 @@ impl JobManager {
 				device_id,
 				status: current_status,
 				progress: progress_percentage,
-				started_at: chrono::Utc::now(), // TODO: Get from DB
+				created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+				started_at: Some(chrono::Utc::now()), // Running jobs have started
 				completed_at: None,
 				error_message: None,
 				parent_job_id: None,
@@ -1069,7 +1071,8 @@ impl JobManager {
 				device_id,
 				status,
 				progress,
-				started_at: j.started_at.unwrap_or(j.created_at),
+				created_at: j.created_at,
+				started_at: j.started_at,
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),
@@ -1117,7 +1120,8 @@ impl JobManager {
 				device_id,
 				status,
 				progress,
-				started_at: chrono::Utc::now(), // TODO: Get actual start time from DB
+				created_at: chrono::Utc::now(), // Running jobs use current time as fallback
+				started_at: Some(chrono::Utc::now()), // Running jobs have started
 				completed_at: None,             // Running jobs aren't completed yet
 				error_message: None,            // TODO: Get from handle if failed
 				parent_job_id: None,            // TODO: Get from DB if needed
@@ -1157,7 +1161,8 @@ impl JobManager {
 				device_id,
 				status,
 				progress,
-				started_at: j.started_at.unwrap_or(j.created_at),
+				created_at: j.created_at,
+				started_at: j.started_at,
 				completed_at: j.completed_at,
 				error_message: j.error_message,
 				parent_job_id: j.parent_job_id.and_then(|s| s.parse::<Uuid>().ok()),

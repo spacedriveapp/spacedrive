@@ -13,6 +13,7 @@ export { LocationCacheDemo } from "./LocationCacheDemo";
 export { Inspector, PopoutInspector } from "./Inspector";
 export type { InspectorVariant } from "./Inspector";
 export { QuickPreview } from "./components/QuickPreview";
+export { JobsScreen } from "./components/JobManager";
 export { Settings } from "./Settings";
 export { Spacedrop } from "./Spacedrop";
 export { PairingModal } from "./components/PairingModal";

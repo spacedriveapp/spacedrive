@@ -1,6 +1,11 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
 import type { JobListItem } from "../types";
+import { sounds } from "@sd/assets/sounds";
+
+// Global set to track which jobs have already played their completion sound
+// This prevents multiple hook instances from playing the sound multiple times
+const completedJobSounds = new Set<string>();
 
 /**
  * Unified hook for job management and counting.
@@ -20,6 +25,7 @@ export function useJobs() {
 
   const pauseMutation = useLibraryMutation("jobs.pause");
   const resumeMutation = useLibraryMutation("jobs.resume");
+  const cancelMutation = useLibraryMutation("jobs.cancel");
 
   // Ref for stable refetch access
   const refetchRef = useRef(refetch);
@@ -44,6 +50,16 @@ export function useJobs() {
       if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
           "JobFailed" in event || "JobPaused" in event || "JobResumed" in event ||
           "JobCancelled" in event) {
+        if ("JobCompleted" in event) {
+          const jobId = event.JobCompleted?.job_id;
+          if (jobId && !completedJobSounds.has(jobId)) {
+            completedJobSounds.add(jobId);
+            sounds.jobDone();
+
+            // Clean up old entries after 5 seconds to prevent memory leak
+            setTimeout(() => completedJobSounds.delete(jobId), 5000);
+          }
+        }
         refetchRef.current();
       } else if ("JobProgress" in event) {
         const progressData = event.JobProgress;
@@ -88,11 +104,36 @@ export function useJobs() {
   }, [client]);
 
   const pause = async (jobId: string) => {
-    await pauseMutation.mutateAsync({ job_id: jobId });
+    try {
+      const result = await pauseMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to pause job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to pause job:", error);
+    }
   };
 
   const resume = async (jobId: string) => {
-    await resumeMutation.mutateAsync({ job_id: jobId });
+    try {
+      const result = await resumeMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to resume job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to resume job:", error);
+    }
+  };
+
+  const cancel = async (jobId: string) => {
+    try {
+      const result = await cancelMutation.mutateAsync({ job_id: jobId });
+      if (!result.success) {
+        console.error("Failed to cancel job:", jobId);
+      }
+    } catch (error) {
+      console.error("Failed to cancel job:", error);
+    }
   };
 
   const runningCount = jobs.filter((j) => j.status === "running").length;
@@ -104,6 +145,7 @@ export function useJobs() {
     hasRunningJobs: runningCount > 0,
     pause,
     resume,
+    cancel,
     isLoading,
     error,
   };

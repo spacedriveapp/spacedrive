@@ -37,7 +37,7 @@ export const FileCard = memo(
 		selectedFiles,
 		selectFile,
 	}: FileCardProps) {
-		const { viewSettings, setCurrentPath } = useExplorer();
+		const { viewSettings, navigateToPath } = useExplorer();
 		const { gridSize, showFileSize } = viewSettings;
 
 		const contextMenu = useFileContextMenu({
@@ -55,13 +55,13 @@ export const FileCard = memo(
 	const handleDoubleClick = () => {
 		// Virtual files (locations, volumes, devices) always navigate to their sd_path
 		if (isVirtualFile(file) && file.sd_path) {
-			setCurrentPath(file.sd_path);
+			navigateToPath(file.sd_path);
 			return;
 		}
 
 		// Regular directories navigate normally
 		if (file.kind === "Directory") {
-			setCurrentPath(file.sd_path);
+			navigateToPath(file.sd_path);
 		}
 	};
 
@@ -127,7 +127,8 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
-				className="relative"
+				tabIndex={-1}
+				className="relative outline-none focus:outline-none"
 			>
 				{/* Drop indicator for folders */}
 				{isFolder && isDropOver && (

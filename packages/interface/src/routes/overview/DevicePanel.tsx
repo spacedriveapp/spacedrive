@@ -1,6 +1,12 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { HardDrive, Plus, Database } from "@phosphor-icons/react";
+import {
+	HardDrive,
+	Plus,
+	Database,
+	CaretLeft,
+	CaretRight,
+} from "@phosphor-icons/react";
 import Masonry from "react-masonry-css";
 import DriveIcon from "@sd/assets/icons/Drive.png";
 import HDDIcon from "@sd/assets/icons/HDD.png";
@@ -10,6 +16,7 @@ import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
 import LocationIcon from "@sd/assets/icons/Location.png";
+import { TopBarButton } from "@sd/ui/TopBarButton";
 import {
 	useNormalizedQuery,
 	useLibraryMutation,
@@ -386,54 +393,11 @@ function DeviceCard({
 
 				{/* Locations for this device */}
 				{locations.length > 0 && (
-					<div className="px-3 py-3 border-b border-app-line">
-						<div className="flex flex-wrap gap-2">
-							{locations.map((location) => {
-								const isSelected =
-									selectedLocationId === location.id;
-								return (
-									<button
-										key={location.id}
-										onClick={() => {
-											if (isSelected) {
-												onLocationSelect?.(null);
-											} else {
-												onLocationSelect?.(location);
-											}
-										}}
-										className="flex flex-col items-center gap-2 p-1 rounded-lg transition-all min-w-[80px]"
-									>
-										<div
-											className={clsx(
-												"rounded-lg p-2",
-												isSelected
-													? "bg-app-box"
-													: "bg-transparent",
-											)}
-										>
-											<img
-												src={LocationIcon}
-												alt={location.name}
-												className="size-12 opacity-80"
-											/>
-										</div>
-										<div className="w-full flex flex-col items-center">
-											<div
-												className={clsx(
-													"text-xs truncate px-2 py-0.5 rounded-md inline-block max-w-full",
-													isSelected
-														? "bg-accent text-white"
-														: "text-ink",
-												)}
-											>
-												{location.name}
-											</div>
-										</div>
-									</button>
-								);
-							})}
-						</div>
-					</div>
+					<LocationsScroller
+						locations={locations}
+						selectedLocationId={selectedLocationId}
+						onLocationSelect={onLocationSelect}
+					/>
 				)}
 
 				{/* Volumes for this device */}
@@ -455,6 +419,128 @@ function DeviceCard({
 						</div>
 					)}
 				</div>
+			</div>
+		</div>
+	);
+}
+
+interface LocationsScrollerProps {
+	locations: Location[];
+	selectedLocationId: string | null;
+	onLocationSelect?: (location: Location | null) => void;
+}
+
+function LocationsScroller({
+	locations,
+	selectedLocationId,
+	onLocationSelect,
+}: LocationsScrollerProps) {
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const [canScrollLeft, setCanScrollLeft] = useState(false);
+	const [canScrollRight, setCanScrollRight] = useState(false);
+
+	const updateScrollState = () => {
+		if (!scrollRef.current) return;
+		const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+		setCanScrollLeft(scrollLeft > 0);
+		setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+	};
+
+	useEffect(() => {
+		updateScrollState();
+		window.addEventListener("resize", updateScrollState);
+		return () => window.removeEventListener("resize", updateScrollState);
+	}, [locations]);
+
+	const scroll = (direction: "left" | "right") => {
+		if (!scrollRef.current) return;
+		const scrollAmount = 200;
+		scrollRef.current.scrollBy({
+			left: direction === "left" ? -scrollAmount : scrollAmount,
+			behavior: "smooth",
+		});
+	};
+
+	return (
+		<div className="px-3 py-3 border-b border-app-line">
+			<div className="relative">
+				{/* Left fade and button */}
+				{canScrollLeft && (
+					<>
+						<div className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-app-darkBox to-transparent z-10 pointer-events-none" />
+						<div className="absolute left-1 top-1/2 -translate-y-1/2 z-20">
+							<TopBarButton
+								icon={CaretLeft}
+								onClick={() => scroll("left")}
+							/>
+						</div>
+					</>
+				)}
+
+				{/* Scrollable container */}
+				<div
+					ref={scrollRef}
+					onScroll={updateScrollState}
+					className="flex gap-2 overflow-x-auto scrollbar-hide"
+					style={{ scrollbarWidth: "none" }}
+				>
+					{locations.map((location) => {
+						const isSelected = selectedLocationId === location.id;
+						return (
+							<button
+								key={location.id}
+								onClick={() => {
+									if (isSelected) {
+										onLocationSelect?.(null);
+									} else {
+										onLocationSelect?.(location);
+									}
+								}}
+								className="flex flex-col items-center gap-2 p-1 rounded-lg transition-all min-w-[80px] flex-shrink-0"
+							>
+								<div
+									className={clsx(
+										"rounded-lg p-2",
+										isSelected
+											? "bg-app-box"
+											: "bg-transparent",
+									)}
+								>
+									<img
+										src={LocationIcon}
+										alt={location.name}
+										className="size-12 opacity-80"
+									/>
+								</div>
+								<div className="w-full flex flex-col items-center">
+									<div
+										className={clsx(
+											"text-xs truncate px-2 py-0.5 rounded-md inline-block max-w-full",
+											isSelected
+												? "bg-accent text-white"
+												: "text-ink",
+										)}
+									>
+										{location.name}
+									</div>
+								</div>
+							</button>
+						);
+					})}
+				</div>
+
+				{/* Right fade and button */}
+				{canScrollRight && (
+					<>
+						<div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-app-darkBox to-transparent z-10 pointer-events-none" />
+						<div className="absolute right-1 top-1/2 -translate-y-1/2 z-20">
+							<TopBarButton
+								icon={CaretRight}
+								onClick={() => scroll("right")}
+							/>
+						</div>
+					</>
+				)}
 			</div>
 		</div>
 	);

@@ -150,6 +150,7 @@ impl From<RevokeArgs> for DeviceRevokeInput {
 	fn from(args: RevokeArgs) -> Self {
 		Self {
 			device_id: args.device_id,
+			remove_from_library: false,
 		}
 	}
 }

@@ -7,6 +7,7 @@ import {
 	LocationCacheDemo,
 	PopoutInspector,
 	QuickPreview,
+	JobsScreen,
 	Settings,
 	PlatformProvider,
 	SpacedriveProvider,
@@ -81,6 +82,8 @@ function App() {
 			setRoute("/quick-preview");
 		} else if (label.startsWith("cache-demo")) {
 			setRoute("/cache-demo");
+		} else if (label.startsWith("job-manager")) {
+			setRoute("/job-manager");
 		}
 
 		// Tell Tauri window is ready to be shown
@@ -257,6 +260,20 @@ function App() {
 					<ServerProvider>
 						<div className="h-screen bg-app overflow-hidden">
 							<QuickPreview />
+						</div>
+					</ServerProvider>
+				</SpacedriveProvider>
+			</PlatformProvider>
+		);
+	}
+
+	if (route === "/job-manager") {
+		return (
+			<PlatformProvider platform={platform}>
+				<SpacedriveProvider client={client}>
+					<ServerProvider>
+						<div className="h-screen bg-app overflow-hidden rounded-[10px] border border-transparent frame">
+							<JobsScreen />
 						</div>
 					</ServerProvider>
 				</SpacedriveProvider>

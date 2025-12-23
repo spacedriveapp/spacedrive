@@ -1,12 +1,17 @@
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ArrowLeft, ArrowRight } from "@phosphor-icons/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import type { File } from "@sd/ts-client";
-import { useNormalizedQuery } from "../../context";
 import { ContentRenderer } from "./ContentRenderer";
+import {
+	VideoControls,
+	type VideoControlsState,
+	type VideoControlsCallbacks,
+} from "./VideoControls";
 import { TopBarPortal } from "../../TopBar";
 import { getContentKind } from "../Explorer/utils";
+import { useExplorer } from "../Explorer/context";
 
 interface QuickPreviewFullscreenProps {
 	fileId: string;
@@ -35,23 +40,27 @@ export function QuickPreviewFullscreen({
 }: QuickPreviewFullscreenProps) {
 	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 	const [isZoomed, setIsZoomed] = useState(false);
+	const [videoControlsState, setVideoControlsState] =
+		useState<VideoControlsState | null>(null);
+	const [showVideoControls, setShowVideoControls] = useState(false);
+	const [videoCallbacks, setVideoCallbacks] =
+		useState<VideoControlsCallbacks | null>(null);
+	const { currentFiles } = useExplorer();
 
 	// Reset zoom when file changes
 	useEffect(() => {
 		setIsZoomed(false);
 	}, [fileId]);
 
-	const {
-		data: file,
-		isLoading,
-		error,
-	} = useNormalizedQuery<{ file_id: string }, File>({
-		wireMethod: "query:files.by_id",
-		input: { file_id: fileId },
-		resourceType: "file",
-		resourceId: fileId,
-		enabled: !!fileId && isOpen,
-	});
+	// Get file directly from currentFiles - instant, no network request
+	const file = useMemo(
+		() => currentFiles.find((f) => f.id === fileId) ?? null,
+		[currentFiles, fileId],
+	);
+
+	// No query needed - files are already loaded by the explorer views
+	const isLoading = false;
+	const error = null;
 
 	// Find portal target on mount
 	useEffect(() => {
@@ -107,11 +116,11 @@ export function QuickPreviewFullscreen({
 					transition={{ duration: 0.2 }}
 					className={`absolute inset-0 flex flex-col ${getBackgroundClass()}`}
 				>
-					{isLoading || !file ? (
+					{!file && isLoading ? (
 						<div className="flex h-full items-center justify-center text-ink">
 							<div className="animate-pulse">Loading...</div>
 						</div>
-					) : error ? (
+					) : !file && error ? (
 						<div className="flex h-full items-center justify-center text-red-400">
 							<div>
 								<div className="mb-2 text-lg font-medium">
@@ -119,6 +128,10 @@ export function QuickPreviewFullscreen({
 								</div>
 								<div className="text-sm">{error.message}</div>
 							</div>
+						</div>
+					) : !file ? (
+						<div className="flex h-full items-center justify-center text-ink-dull">
+							<div>File not found</div>
 						</div>
 					) : (
 						<>
@@ -174,13 +187,44 @@ export function QuickPreviewFullscreen({
 								style={{
 									paddingLeft: isZoomed ? 0 : sidebarWidth,
 									paddingRight: isZoomed ? 0 : inspectorWidth,
+									transition: "padding 0.3s ease-out",
 								}}
 							>
 								<ContentRenderer
 									file={file}
 									onZoomChange={setIsZoomed}
+									onVideoControlsStateChange={
+										setVideoControlsState
+									}
+									onShowVideoControlsChange={
+										setShowVideoControls
+									}
+									getVideoCallbacks={setVideoCallbacks}
 								/>
 							</div>
+
+							{/* Video Controls Overlay - fixed position, always uses sidebar/inspector padding */}
+							{videoControlsState &&
+								videoCallbacks &&
+								getContentKind(file) === "video" && (
+									<div
+										className="absolute inset-0"
+										style={{
+											paddingTop: "56px", // TopBar height
+											paddingBottom: "40px", // Footer height
+											pointerEvents: "none", // Let clicks through except on controls themselves
+										}}
+									>
+										<VideoControls
+											file={file}
+											state={videoControlsState}
+											callbacks={videoCallbacks}
+											showControls={showVideoControls}
+											sidebarWidth={sidebarWidth}
+											inspectorWidth={inspectorWidth}
+										/>
+									</div>
+								)}
 
 							{/* Footer with keyboard hints */}
 							<div className="absolute bottom-0 left-0 right-0 z-10 px-6 py-3">
