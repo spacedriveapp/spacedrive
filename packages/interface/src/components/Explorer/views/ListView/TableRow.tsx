@@ -95,6 +95,7 @@ export const TableRow = memo(
 				ref={measureRef}
 				data-index={index}
 				data-file-id={file.id}
+			data-selectable="true"
 				tabIndex={-1}
 				className="relative outline-none focus:outline-none"
 				style={{ height: ROW_HEIGHT }}

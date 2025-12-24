@@ -18,6 +18,7 @@ import {
 	TABLE_HEADER_HEIGHT,
 } from "./useTable";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
+import { DragSelect } from "./DragSelect";
 
 export const ListView = memo(function ListView() {
 	const { currentPath, sortBy, setSortBy, viewSettings, setCurrentFiles } =
@@ -162,7 +163,8 @@ export const ListView = memo(function ListView() {
 
 	return (
 		<div ref={containerRef} className="h-full overflow-auto">
-			{/* Sticky Header */}
+			<DragSelect files={files} scrollRef={containerRef}>
+				{/* Sticky Header */}
 			<div
 				className="sticky top-0 z-10 border-b border-app-line bg-app/90 backdrop-blur-lg"
 				style={{ height: TABLE_HEADER_HEIGHT }}
@@ -291,6 +293,7 @@ export const ListView = memo(function ListView() {
 					</div>
 				</div>
 			</div>
+			</DragSelect>
 		</div>
 	);
 });

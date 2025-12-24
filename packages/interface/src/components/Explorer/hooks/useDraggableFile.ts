@@ -27,6 +27,9 @@ export function useDraggableFile({ file, selectedFiles, gridSize }: UseDraggable
 			gridSize,
 			selectedFiles,
 		},
+		activationConstraint: {
+			distance: 8, // Require 8px movement before drag activates
+		},
 	});
 
 	// Filter listeners to prevent drag on right-click

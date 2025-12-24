@@ -7,6 +7,7 @@ import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
+import { DragSelect } from "./DragSelect";
 
 export function ColumnView() {
 	const { currentPath, navigateToPath, sortBy, viewSettings } = useExplorer();

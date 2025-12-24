@@ -71,9 +71,29 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
         const start = Math.min(prevLastIndex, fileIndex);
         const end = Math.max(prevLastIndex, fileIndex);
         const rangeFiles = files.slice(start, end + 1);
-        setSelectedFiles(rangeFiles);
+
+        setSelectedFiles((prev) => {
+          // If there's already a multi-file selection, add the range (Finder behavior)
+          if (prev.length > 1) {
+            // Create a map for O(1) lookup
+            const existingIds = new Set(prev.map((f) => f.id));
+            const combined = [...prev];
+
+            // Add new range files that aren't already selected
+            for (const rangeFile of rangeFiles) {
+              if (!existingIds.has(rangeFile.id)) {
+                combined.push(rangeFile);
+              }
+            }
+
+            return combined;
+          } else {
+            // Single file or empty selection, replace with range
+            return rangeFiles;
+          }
+        });
         setFocusedIndex(fileIndex);
-        return prevLastIndex;
+        return fileIndex; // Update anchor to clicked file for next range
       } else if (multi) {
         setSelectedFiles((prev) => {
           const isSelected = prev.some((f) => f.id === file.id);

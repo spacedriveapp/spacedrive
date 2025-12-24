@@ -127,6 +127,8 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
+				data-index={fileIndex}
+				data-selectable="true"
 				tabIndex={-1}
 				className="relative outline-none focus:outline-none"
 			>
