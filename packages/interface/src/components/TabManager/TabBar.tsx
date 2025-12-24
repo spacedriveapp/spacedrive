@@ -13,15 +13,15 @@ export function TabBar() {
 	}
 
 	return (
-		<div className="flex items-center h-9 px-2 bg-app-box/50 border-b border-app-line shrink-0">
-			<div className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
+		<div className="flex items-center h-9 px-1 gap-1 mx-2 mb-1.5 bg-app-box/50 rounded-full shrink-0">
+			<div className="flex items-center flex-1 gap-1 min-w-0">
 				{tabs.map((tab) => (
 					<motion.button
 						key={tab.id}
 						layout
 						onClick={() => switchTab(tab.id)}
 						className={clsx(
-							"relative flex items-center gap-1.5 px-3 py-1 rounded-md text-[13px] whitespace-nowrap group min-w-0 max-w-[180px]",
+							"relative flex items-center justify-center py-1.5 rounded-full text-[13px] group flex-1 min-w-0",
 							tab.id === activeTabId
 								? "text-ink"
 								: "text-ink-dull hover:text-ink hover:bg-app-hover/50",
@@ -30,32 +30,38 @@ export function TabBar() {
 						{tab.id === activeTabId && (
 							<motion.div
 								layoutId="activeTab"
-								className="absolute inset-0 bg-app-selected rounded-md shadow-sm"
-								transition={{ type: "spring", duration: 0.25, bounce: 0.1 }}
+								className="absolute inset-0 bg-app-selected rounded-full shadow-sm"
+								transition={{
+									type: "easeInOut",
+									duration: 0.15,
+								}}
 							/>
 						)}
-						<span className="relative z-10 truncate">{tab.title}</span>
+						{/* Close button - absolutely positioned left */}
 						<button
 							onClick={(e) => {
 								e.stopPropagation();
 								closeTab(tab.id);
 							}}
 							className={clsx(
-								"relative z-10 rounded-sm hover:bg-app-hover p-0.5 shrink-0 transition-opacity",
+								"absolute left-1.5 z-10 size-5 flex items-center justify-center rounded-full transition-all",
 								tab.id === activeTabId
-									? "opacity-60 hover:opacity-100"
-									: "opacity-0 group-hover:opacity-60 hover:!opacity-100",
+									? "opacity-60 hover:opacity-100 hover:bg-app-hover"
+									: "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-app-hover",
 							)}
 							title="Close tab"
 						>
-							<X size={11} weight="bold" />
+							<X size={10} weight="bold" />
 						</button>
+						<span className="relative z-10 truncate px-6">
+							{tab.title}
+						</span>
 					</motion.button>
 				))}
 			</div>
 			<button
 				onClick={() => createTab()}
-				className="ml-1 p-1 rounded-md hover:bg-app-hover text-ink-dull hover:text-ink shrink-0 transition-colors"
+				className="size-7 flex items-center justify-center rounded-full hover:bg-app-hover text-ink-dull hover:text-ink shrink-0 transition-colors"
 				title="New tab (⌘T)"
 			>
 				<Plus size={14} weight="bold" />
