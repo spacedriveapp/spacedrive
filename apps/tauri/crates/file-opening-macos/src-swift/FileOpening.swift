@@ -84,9 +84,17 @@ func getAppsForPath(path: SRString) -> SRArray<SRData> {
         appURLs = getAppsLegacy(for: url)
     }
     
-    // Filter to /Applications/ and get metadata
+    // Filter to standard app directories
+    // /Applications/ - user/admin installed apps
+    // /System/Applications/ - system apps (macOS 10.15+)
+    // ~/Applications/ - user-specific apps
+    let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+    let validPrefixes = ["/Applications/", "/System/Applications/", "\(homeDir)/Applications/"]
+    
     let apps: [Data] = appURLs
-        .filter { $0.path.hasPrefix("/Applications/") }
+        .filter { appURL in
+            validPrefixes.contains { appURL.path.hasPrefix($0) }
+        }
         .compactMap { appURL in
             guard let bundle = Bundle(url: appURL),
                   let bundleId = bundle.bundleIdentifier,
@@ -138,7 +146,10 @@ func openPathWithApp(path: SRString, appId: SRString) -> SRString {
     }
     
     // Wait for completion with timeout
-    _ = semaphore.wait(timeout: .now() + 5)
+    let timeoutResult = semaphore.wait(timeout: .now() + 5)
+    if timeoutResult == .timedOut {
+        openResult = OpenResult.platformError(message: "Operation timed out after 5 seconds")
+    }
     
     let json = (try? JSONEncoder().encode(openResult)) ?? Data()
     return SRString(String(data: json, encoding: .utf8) ?? "{}")
@@ -168,7 +179,10 @@ func openPathsWithApp(paths: SRString, appId: SRString) -> SRString {
     }
     
     // Wait for completion with timeout
-    _ = semaphore.wait(timeout: .now() + 5)
+    let timeoutResult = semaphore.wait(timeout: .now() + 5)
+    if timeoutResult == .timedOut {
+        openResult = OpenResult.platformError(message: "Operation timed out after 5 seconds")
+    }
     
     let results = fileURLs.map { _ in openResult }
     let json = (try? JSONEncoder().encode(results)) ?? Data()
