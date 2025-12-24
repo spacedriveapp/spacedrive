@@ -18,7 +18,12 @@ interface SelectionContextValue {
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
 
-export function SelectionProvider({ children }: { children: ReactNode }) {
+interface SelectionProviderProps {
+  children: ReactNode;
+  isActiveTab?: boolean;
+}
+
+export function SelectionProvider({ children, isActiveTab = true }: SelectionProviderProps) {
   const platform = usePlatform();
   const clipboard = useClipboard();
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
@@ -26,7 +31,10 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 
   // Sync selected file IDs to platform (for cross-window state sharing)
+  // Only sync for the active tab to avoid conflicts
   useEffect(() => {
+    if (!isActiveTab) return;
+
     const fileIds = selectedFiles.map((f) => f.id);
 
     if (platform.setSelectedFileIds) {
@@ -34,10 +42,13 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
         console.error("Failed to sync selected files to platform:", err);
       });
     }
-  }, [selectedFiles, platform]);
+  }, [selectedFiles, platform, isActiveTab]);
 
   // Update native menu items based on selection and clipboard state
+  // Only update for active tab
   useEffect(() => {
+    if (!isActiveTab) return;
+
     const hasSelection = selectedFiles.length > 0;
     const isSingleSelection = selectedFiles.length === 1;
     const hasClipboard = clipboard.hasClipboard();
@@ -50,7 +61,7 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
       { id: "delete", enabled: hasSelection },
       { id: "paste", enabled: hasClipboard },
     ]);
-  }, [selectedFiles, clipboard, platform]);
+  }, [selectedFiles, clipboard, platform, isActiveTab]);
 
   const clearSelection = useCallback(() => {
     setSelectedFiles([]);

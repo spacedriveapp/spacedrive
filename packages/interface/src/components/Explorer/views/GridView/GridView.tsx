@@ -137,6 +137,8 @@ function VirtualizedGrid({
 	const [containerWidth, setContainerWidth] = useState<number | null>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
 
+	// TODO: Preserve scroll position per tab using scrollPosition from context
+
 	// Synchronous measurement before paint to prevent layout shift
 	useLayoutEffect(() => {
 		const element = parentRef.current;
