@@ -5,7 +5,7 @@ import clsx from "clsx";
 
 interface InlineNameEditProps {
 	file: File;
-	onSave: (newName: string) => void;
+	onSave: (newName: string) => Promise<void>;
 	onCancel: () => void;
 	className?: string;
 }
@@ -55,13 +55,13 @@ export function InlineNameEdit({ file, onSave, onCancel, className }: InlineName
 			return;
 		}
 
-		setIsSaving(true);
-		try {
-			onSave(fullNewName);
-		} catch (error) {
-			setIsSaving(false);
-			// Keep in edit mode on error - let parent handle error display
-		}
+	setIsSaving(true);
+	try {
+		await onSave(fullNewName);
+	} catch (error) {
+		setIsSaving(false);
+		// Keep in edit mode on error - let parent handle error display
+	}
 	}, [value, isSaving, hasExtension, file.extension, file.name, onSave, onCancel]);
 
 	const handleKeyDown = useCallback((e: React.KeyboardEvent) => {

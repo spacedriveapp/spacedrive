@@ -1,7 +1,7 @@
 //! File rename action handler
 
 use super::input::FileRenameInput;
-use super::validation::{validate_filename, FilenameValidationError};
+use super::validation::validate_filename;
 use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,

@@ -128,15 +128,15 @@ export function useExplorerKeyboard() {
 		{ enabled: clipboard.hasClipboard() && !!currentPath },
 	);
 
-	// Rename: Enter key triggers rename mode when single file selected
+	// Rename: Enter key triggers rename mode when single file selected (not directories)
 	useKeybind(
 		"explorer.renameFile",
 		() => {
-			if (selectedFiles.length === 1 && !isRenaming) {
+			if (selectedFiles.length === 1 && !isRenaming && selectedFiles[0].kind !== "Directory") {
 				startRename(selectedFiles[0].id);
 			}
 		},
-		{ enabled: selectedFiles.length === 1 && !isRenaming },
+		{ enabled: selectedFiles.length === 1 && !isRenaming && selectedFiles[0]?.kind !== "Directory" },
 	);
 
 	useEffect(() => {

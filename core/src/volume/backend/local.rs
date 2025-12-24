@@ -223,15 +223,15 @@ impl VolumeBackend for LocalBackend {
 			recursive
 		);
 
-		if recursive {
-			fs::create_dir_all(&full_path)
-				.await
-				.map_err(|e| VolumeError::Io(e))?;
-		} else {
-			fs::create_dir(&full_path)
-				.await
-				.map_err(|e| VolumeError::Io(e))?;
-		}
+	if recursive {
+		fs::create_dir_all(&full_path)
+			.await
+			.map_err(VolumeError::Io)?;
+	} else {
+		fs::create_dir(&full_path)
+			.await
+			.map_err(VolumeError::Io)?;
+	}
 
 		Ok(())
 	}
