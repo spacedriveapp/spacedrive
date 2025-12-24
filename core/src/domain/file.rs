@@ -921,9 +921,30 @@ impl File {
 			};
 
 			// Start with basic File from entity
-			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path.clone());
 
-			// Enrich with content identity and alternate paths
+			// ALWAYS populate alternate_paths with at least the current file's physical path
+			// This ensures server-side filtering works even for files without content_id
+			if let SdPath::Physical { device_slug, path } = &sd_path {
+				file.alternate_paths.push(SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: path.clone(),
+				});
+			} else if let SdPath::Content { .. } = &sd_path {
+				// For Content paths, we'll populate from entries_by_content_id below
+				// But we should still try to add the current entry's physical path
+				if let Ok(physical_path) =
+					crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await
+				{
+					let device_slug = crate::device::get_current_device_slug();
+					file.alternate_paths.push(SdPath::Physical {
+						device_slug,
+						path: physical_path,
+					});
+				}
+			}
+
+			// Enrich with content identity and alternate paths from duplicates
 			if let Some(content_id) = entry_model.content_id {
 				if let Some(ci) = content_by_id.get(&content_id) {
 					if let Some(ci_uuid) = ci.uuid {
@@ -948,11 +969,16 @@ impl File {
 							file.sidecars = sidecars.clone();
 						}
 
-						// Populate alternate_paths with ALL physical paths (including current entry)
-						// This allows frontend filters to check if a Content-based file exists in the current directory
+						// Add physical paths from OTHER entries with same content (duplicates)
+						// Current entry's path was already added above
 						if let Some(alt_entries) = entries_by_content_id.get(&content_id) {
 							for alt_entry in alt_entries {
-								// Build physical path for each entry with this content
+								// Skip current entry to avoid duplicate
+								if alt_entry.id == entry_model.id {
+									continue;
+								}
+
+								// Build physical path for each OTHER entry with this content
 								if let Ok(physical_path) =
 									crate::ops::indexing::PathResolver::get_full_path(
 										db,
@@ -960,7 +986,6 @@ impl File {
 									)
 									.await
 								{
-									// Get device slug - walk up to find location
 									let device_slug = crate::device::get_current_device_slug();
 
 									file.alternate_paths.push(SdPath::Physical {

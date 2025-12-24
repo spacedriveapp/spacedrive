@@ -24,14 +24,24 @@ export const useClipboardStore = create<ClipboardStore>((set, get) => ({
 
 	setClipboard: (operation, files, sourcePath) => {
 		set({ operation, files, sourcePath });
-		console.log(
-			`[Clipboard] ${operation === "copy" ? "Copied" : "Cut"} ${files.length} files`,
+		console.groupCollapsed(
+			`[Clipboard] ${operation === "copy" ? "Copied" : "Cut"} ${files.length} file${files.length === 1 ? "" : "s"}`,
 		);
+		console.log("Operation:", operation);
+		console.log("Source path:", sourcePath);
+		console.log("Files (SdPath objects):");
+		files.forEach((file, index) => {
+			console.log(`  [${index}]:`, JSON.stringify(file, null, 2));
+		});
+		console.groupEnd();
 	},
 
 	clearClipboard: () => {
+		const state = get();
+		console.log(
+			`[Clipboard] Cleared (had ${state.files.length} file${state.files.length === 1 ? "" : "s"})`,
+		);
 		set({ operation: null, files: [], sourcePath: null });
-		console.log("[Clipboard] Cleared");
 	},
 
 	hasClipboard: () => {

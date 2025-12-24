@@ -57,25 +57,28 @@ Imagine visualizing the indexing process as a tree traversal animation:
 
 **Key Insight**: Leverage existing indexer infrastructure - don't reimplement tree walking!
 
-1. **Add `enable_mtime_pruning` flag** to `IndexerJobConfig`
+1. **Add `IndexMode::Stale` variant** that wraps the location's index mode
 2. **In discovery phase** (`core/src/ops/indexing/phases/discovery.rs`):
    - When encountering a directory entry
-   - If `enable_mtime_pruning` is enabled:
+   - If mode is `IndexMode::Stale(_)`:
      - Query database for existing entry's modified time
      - Compare with filesystem modified time (1-second tolerance)
      - If times match → **Skip enqueuing** this directory (pruning)
      - If times differ → Continue as normal (enqueue for exploration)
    - Track pruning statistics (directories pruned vs explored)
+   - Index changed parts using the wrapped mode (Shallow/Content/Deep)
 
-3. **StaleDetectionService** simply spawns `IndexerJob` with:
+3. **StaleDetectionService** spawns `IndexerJob` with:
    ```rust
+   // Get location's configured index mode
+   let location = self.get_location(location_id).await?;
+
    IndexerJobConfig {
        location_id: Some(location_id),
        path: location_root_path,
-       mode: IndexMode::Content,
+       mode: IndexMode::Stale(Box::new(location.index_mode)), // Respects location setting!
        scope: IndexScope::Recursive,
        persistence: IndexPersistence::Persistent,
-       enable_mtime_pruning: true, // NEW FLAG
        max_depth: None,
        rule_toggles: Default::default(),
    }
@@ -85,9 +88,52 @@ This leverages all existing indexer infrastructure: parallel workers, batching, 
 
 ## Proposed Architecture
 
-### 1. Indexer Configuration Extension
+### 1. IndexMode Extension
 
-#### IndexerJobConfig Enhancement
+#### Add Stale Variant to IndexMode
+
+```rust
+// Location: core/src/domain/location.rs
+
+/// Indexing depth and strategy
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
+pub enum IndexMode {
+    /// Don't index this location
+    None,
+
+    /// Index filesystem metadata only (name, size, dates)
+    Shallow,
+
+    /// Index metadata + content hashes for deduplication
+    Content,
+
+    /// Index metadata + content + thumbnails + text extraction
+    Deep,
+
+    /// NEW: Stale detection mode - uses mtime pruning with wrapped mode for changed parts
+    /// Wraps the actual indexing mode to use (respects location's configured depth)
+    Stale(Box<IndexMode>),
+}
+
+impl IndexMode {
+    /// Check if this mode enables mtime pruning
+    pub fn uses_mtime_pruning(&self) -> bool {
+        matches!(self, IndexMode::Stale(_))
+    }
+
+    /// Get the inner mode for indexing changed parts
+    pub fn inner_mode(&self) -> &IndexMode {
+        match self {
+            IndexMode::Stale(inner) => inner,
+            other => other,
+        }
+    }
+}
+```
+
+#### IndexerJobConfig (No Changes Needed)
+
+The existing `IndexerJobConfig` works as-is - just pass `IndexMode::Stale(...)`:
 
 ```rust
 // Location: core/src/ops/indexing/job.rs
@@ -96,32 +142,11 @@ This leverages all existing indexer infrastructure: parallel workers, batching, 
 pub struct IndexerJobConfig {
     pub location_id: Option<Uuid>,
     pub path: SdPath,
-    pub mode: IndexMode,
+    pub mode: IndexMode, // Can now be IndexMode::Stale(Box<IndexMode>)
     pub scope: IndexScope,
     pub persistence: IndexPersistence,
     pub max_depth: Option<u32>,
     pub rule_toggles: RuleToggles,
-
-    /// NEW: Enable modified-time pruning during discovery
-    /// When true, discovery phase skips directories whose mtime matches database
-    #[serde(default)]
-    pub enable_mtime_pruning: bool,
-}
-
-impl IndexerJobConfig {
-    /// NEW: Constructor for stale detection with mtime pruning
-    pub fn stale_detection(location_id: Uuid, path: SdPath) -> Self {
-        Self {
-            location_id: Some(location_id),
-            path,
-            mode: IndexMode::Content,
-            scope: IndexScope::Recursive,
-            persistence: IndexPersistence::Persistent,
-            max_depth: None,
-            rule_toggles: Default::default(),
-            enable_mtime_pruning: true,
-        }
-    }
 }
 ```
 
@@ -132,11 +157,32 @@ impl IndexerJobConfig {
 ```rust
 // Location: core/src/ops/indexing/phases/discovery.rs
 
+pub async fn run_discovery_phase(
+    state: &mut IndexerState,
+    ctx: &JobContext<'_>,
+    root_path: &Path,
+    rule_toggles: RuleToggles,
+    index_mode: &IndexMode, // NEW: Pass index mode
+    // ... other params
+) -> Result<(), JobError> {
+    // Check if we should use mtime pruning
+    let use_mtime_pruning = index_mode.uses_mtime_pruning();
+
+    // Pass to workers
+    run_parallel_discovery(
+        state,
+        ctx,
+        root_path,
+        rule_toggles,
+        use_mtime_pruning, // NEW PARAM
+        // ... other params
+    ).await
+}
+
 async fn discovery_worker_rayon(
     // ... existing params
-    enable_mtime_pruning: bool, // NEW PARAM
+    use_mtime_pruning: bool, // NEW PARAM
     db: Arc<DatabaseConnection>, // NEW PARAM (for querying)
-    location_id: Option<Uuid>, // NEW PARAM
 ) {
     loop {
         // ... existing work reception logic
@@ -151,10 +197,9 @@ async fn discovery_worker_rayon(
                     match entry.kind {
                         EntryKind::Directory => {
                             // NEW: Check if we should prune this directory
-                            if enable_mtime_pruning && should_prune_directory(
+                            if use_mtime_pruning && should_prune_directory(
                                 &entry,
                                 &db,
-                                location_id,
                             ).await {
                                 local_stats.pruned += 1; // NEW STAT
                                 // Don't enqueue - skip this subtree
@@ -189,20 +234,14 @@ async fn discovery_worker_rayon(
 async fn should_prune_directory(
     entry: &DirEntry,
     db: &DatabaseConnection,
-    location_id: Option<Uuid>,
 ) -> bool {
-    // Only prune for persistent indexing (need database)
-    let Some(location_id) = location_id else {
-        return false;
-    };
-
     // Get filesystem modified time
     let Some(fs_mtime) = entry.modified else {
         return false; // No mtime available, can't prune
     };
 
     // Query database for existing entry
-    let db_entry = match query_entry_mtime(db, location_id, &entry.path).await {
+    let db_entry = match query_entry_mtime(db, &entry.path).await {
         Ok(Some(entry)) => entry,
         Ok(None) => return false, // Not in DB, definitely changed
         Err(_) => return false, // Query failed, don't prune (safe default)
@@ -215,31 +254,29 @@ async fn should_prune_directory(
 /// Query database for entry's modified time using directory_paths cache
 async fn query_entry_mtime(
     db: &DatabaseConnection,
-    location_id: Uuid,
     path: &Path,
 ) -> Result<Option<EntryMtimeRecord>> {
     // Use directory_paths table for O(1) lookup
-    // SELECT entry.id, entry.mtime
+    // SELECT entries.id, entries.modified_at
     // FROM directory_paths
-    // JOIN entry ON directory_paths.entry_id = entry.id
-    // WHERE directory_paths.path = ? AND entry.location_id = ?
+    // JOIN entries ON directory_paths.entry_id = entries.id
+    // WHERE directory_paths.path = ?
 
-    use crate::infra::db::entities::{directory_paths, entry};
+    use crate::infra::db::entities::{directory_paths, entries};
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
     let path_str = path.to_string_lossy().to_string();
 
     let result = directory_paths::Entity::find()
-        .find_also_related(entry::Entity)
+        .find_also_related(entries::Entity)
         .filter(directory_paths::Column::Path.eq(path_str))
-        .filter(entry::Column::LocationId.eq(location_id))
         .one(db)
         .await?;
 
     match result {
         Some((_, Some(entry_model))) => Ok(Some(EntryMtimeRecord {
             id: entry_model.id,
-            mtime: entry_model.mtime,
+            mtime: entry_model.modified_at,
         })),
         _ => Ok(None),
     }
@@ -314,11 +351,19 @@ impl StaleDetectionService {
     ) -> Result<String> {
         info!("Triggering stale detection for location {}", location_id);
 
-        // Spawn IndexerJob with mtime pruning enabled
-        let config = IndexerJobConfig::stale_detection(
-            location_id,
-            SdPath::from_path(&location_path)?,
-        );
+        // Get location's configured index mode
+        let location = self.get_location(location_id).await?;
+
+        // Spawn IndexerJob with Stale mode (wraps location's mode)
+        let config = IndexerJobConfig {
+            location_id: Some(location_id),
+            path: SdPath::from_path(&location_path)?,
+            mode: IndexMode::Stale(Box::new(location.index_mode)), // Respects location setting!
+            scope: IndexScope::Recursive,
+            persistence: IndexPersistence::Persistent,
+            max_depth: None,
+            rule_toggles: Default::default(),
+        };
 
         let job_id = self.job_manager
             .dispatch(IndexerJob::new(config))
@@ -753,24 +798,26 @@ export function LocationServiceSettings({ locationId }: { locationId: string }) 
 
 ## Implementation Plan
 
-### Phase 1: Indexer Modified-Time Pruning
+### Phase 1: IndexMode Extension & Discovery Pruning
 
 **Files**:
-- `core/src/ops/indexing/job.rs` - Add `enable_mtime_pruning` flag
+- `core/src/domain/location.rs` - Add `IndexMode::Stale` variant
 - `core/src/ops/indexing/phases/discovery.rs` - Implement pruning logic
 - `core/src/ops/indexing/state.rs` - Add pruned statistics
 
 **Tasks**:
-1. Add `enable_mtime_pruning: bool` to `IndexerJobConfig`
-2. Add `IndexerJobConfig::stale_detection()` constructor
-3. Pass pruning flag to discovery phase functions
-4. Implement `should_prune_directory()` function
-5. Implement `query_entry_mtime()` database query
-6. Implement `times_match()` comparison with tolerance
-7. Update worker logic to skip enqueuing pruned directories
-8. Add `pruned` field to `LocalStats` and `IndexerStats`
-9. Update stats aggregation to include pruning metrics
-10. Unit tests for pruning logic
+1. Add `IndexMode::Stale(Box<IndexMode>)` variant to enum
+2. Add `uses_mtime_pruning()` and `inner_mode()` helper methods
+3. Update all match statements on IndexMode to handle Stale variant
+4. Pass index mode to `run_discovery_phase()`
+5. Implement `should_prune_directory()` function
+6. Implement `query_entry_mtime()` database query (uses `directory_paths` join)
+7. Implement `times_match()` comparison with 1-second tolerance
+8. Update worker logic to check `use_mtime_pruning` and skip enqueuing
+9. Add `pruned` field to `LocalStats` and `IndexerStats`
+10. Update stats aggregation to include pruning metrics
+11. Unit tests for pruning logic
+12. Update processing/content phases to use `inner_mode()` for actual indexing depth
 
 ### Phase 2: Database Schema & Domain Models
 
@@ -886,19 +933,25 @@ export function LocationServiceSettings({ locationId }: { locationId: string }) 
 
 ## Acceptance Criteria
 
-### Indexer Pruning
-- [ ] `enable_mtime_pruning` flag added to `IndexerJobConfig`
-- [ ] Discovery phase queries database for directory mtimes
+### IndexMode Extension & Pruning
+- [ ] `IndexMode::Stale(Box<IndexMode>)` variant added
+- [ ] `uses_mtime_pruning()` helper method works
+- [ ] `inner_mode()` returns wrapped mode correctly
+- [ ] All existing match statements updated for Stale variant
+- [ ] Discovery phase queries database for directory mtimes via `directory_paths` join
 - [ ] Modified time comparison with 1-second tolerance
 - [ ] Directories with matching mtimes are skipped (not enqueued)
 - [ ] Statistics track directories pruned vs scanned
 - [ ] Works with `directory_paths` cache for O(1) lookups
 - [ ] Handles missing database entries gracefully (doesn't prune)
+- [ ] Processing/Content phases use `inner_mode()` for indexing depth
 
 ### StaleDetectionService
 - [ ] Implements Service trait (start/stop/is_running)
 - [ ] Loads locations with stale detection enabled
-- [ ] `detect_stale()` spawns IndexerJob with pruning enabled
+- [ ] `detect_stale()` queries location's `index_mode` and wraps with `Stale`
+- [ ] Spawns IndexerJob with `IndexMode::Stale(Box::new(location.index_mode))`
+- [ ] Respects location's configured indexing depth (Shallow/Content/Deep)
 - [ ] `should_detect_stale()` checks watcher state and thresholds
 - [ ] Creates per-location workers with custom intervals
 - [ ] Workers check periodically based on config

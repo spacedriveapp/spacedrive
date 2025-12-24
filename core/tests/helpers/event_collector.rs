@@ -168,6 +168,10 @@ impl EventCollector {
 					let count = resources.as_array().map(|a| a.len()).unwrap_or(0);
 					eprintln!("  Type: {}", resource_type);
 					eprintln!("  Resources: {} items", count);
+					eprintln!(
+						"  Resources JSON:\n{}",
+						serde_json::to_string_pretty(resources).unwrap_or_default()
+					);
 					if let Some(meta) = metadata {
 						eprintln!("  Paths: {} affected", meta.affected_paths.len());
 					}

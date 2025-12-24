@@ -95,6 +95,17 @@ export function useExplorerKeyboard() {
 
 			const operation = clipboard.operation === "cut" ? "move" : "copy";
 
+			console.groupCollapsed(
+				`[Clipboard] Pasting ${clipboard.files.length} file${clipboard.files.length === 1 ? "" : "s"} (${operation})`,
+			);
+			console.log("Operation:", operation);
+			console.log("Destination:", currentPath);
+			console.log("Source files (SdPath objects):");
+			clipboard.files.forEach((file, index) => {
+				console.log(`  [${index}]:`, JSON.stringify(file, null, 2));
+			});
+			console.groupEnd();
+
 			openFileOperation({
 				operation,
 				sources: clipboard.files,
@@ -102,7 +113,12 @@ export function useExplorerKeyboard() {
 				onComplete: () => {
 					// Clear clipboard after cut operation completes
 					if (clipboard.operation === "cut") {
+						console.log(
+							"[Clipboard] Operation completed, clearing clipboard",
+						);
 						clipboard.clearClipboard();
+					} else {
+						console.log("[Clipboard] Copy operation completed");
 					}
 				},
 			});

@@ -155,12 +155,9 @@ export function useNormalizedQuery<I, O>(
 		if (!libraryId) return;
 
 		// Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
-		// Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
-		if (
-			options.resourceType === "file" &&
-			!options.pathScope &&
-			!options.resourceId
-		) {
+		// File resources are too numerous - global subscriptions cause massive event spam
+		// Single-file queries (FileInspector) will use stale-while-revalidate instead
+		if (options.resourceType === "file" && !options.pathScope) {
 			return;
 		}
 
@@ -513,31 +510,53 @@ export function updateBatchResources<O>(
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
 
+	console.log("[updateBatchResources]", {
+		totalResources: resources.length,
+		afterFilter: filteredResources.length,
+		pathScope: options.pathScope,
+		queryKey,
+	});
+
 	if (filteredResources.length === 0) {
+		console.log("[updateBatchResources] No matching resources after filter");
 		return; // No matching resources
 	}
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
-		if (!oldData) return oldData;
+		if (!oldData) {
+			console.log("[updateBatchResources] No oldData in cache");
+			return oldData;
+		}
 
 		// Handle array responses
 		if (Array.isArray(oldData)) {
-			return updateArrayCache(
+			const updated = updateArrayCache(
 				oldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
+			console.log("[updateBatchResources] Updated array cache", {
+				oldCount: oldData.length,
+				newCount: (updated as any[]).length,
+			});
+			return updated;
 		}
 
 		// Handle wrapped responses { files: [...] }
 		if (oldData && typeof oldData === "object") {
-			return updateWrappedCache(
+			const updated = updateWrappedCache(
 				oldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
+			console.log("[updateBatchResources] Updated wrapped cache");
+			return updated;
 		}
 
+		console.log("[updateBatchResources] Cache data type not recognized", {
+			isArray: Array.isArray(oldData),
+			type: typeof oldData,
+		});
 		return oldData;
 	});
 }
@@ -628,6 +647,7 @@ function updateWrappedCache(
 	// This handles single object responses like files.by_id
 	const match = newResources.find((r: any) => r.id === oldData.id);
 	if (match) {
+		console.log("[updateWrappedCache] Direct merge (single object response)");
 		return safeMerge(oldData, match, noMergeFields);
 	}
 
@@ -636,35 +656,73 @@ function updateWrappedCache(
 		Array.isArray(oldData[key]),
 	);
 
+	console.log("[updateWrappedCache]", {
+		arrayField,
+		oldDataKeys: Object.keys(oldData),
+		newResourcesCount: newResources.length,
+		newResourceIds: newResources.map((r) => r.id),
+	});
+
 	if (arrayField) {
 		const array = [...oldData[arrayField]];
 		const seenIds = new Set();
 
+		console.log("[updateWrappedCache] Before update", {
+			arrayField,
+			oldArrayLength: array.length,
+			existingIds: array.map((i: any) => i.id),
+		});
+
 		// Update existing
+		let updatedCount = 0;
 		for (let i = 0; i < array.length; i++) {
 			const item: any = array[i];
 			const match = newResources.find((r: any) => r.id === item.id);
 			if (match) {
 				array[i] = safeMerge(item, match, noMergeFields);
 				seenIds.add(item.id);
+				updatedCount++;
 			}
 		}
 
 		// Append new
+		let appendedCount = 0;
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
-				// Skip resources with Content paths - they represent alternate instances
-				// and should only update existing entries (e.g., thumbnail generation)
-				if (resource.sd_path?.Content) {
+				// Check if resource already exists in the array (by ID)
+				// This handles Content-path resources that might have been updated
+				const alreadyExists = array.some((item: any) => item.id === resource.id);
+
+				if (alreadyExists) {
+					// Resource already in cache, was already updated above
+					console.log("[updateWrappedCache] Resource already in cache, skipping append", {
+						id: resource.id,
+						name: resource.name,
+					});
 					continue;
 				}
+
+				// New resource - append it (including Content paths for new files!)
 				array.push(resource);
+				appendedCount++;
+				console.log("[updateWrappedCache] Appended new resource", {
+					id: resource.id,
+					name: resource.name,
+					sdPath: resource.sd_path,
+				});
 			}
 		}
+
+		console.log("[updateWrappedCache] After update", {
+			updatedCount,
+			appendedCount,
+			newArrayLength: array.length,
+		});
 
 		return { ...oldData, [arrayField]: array };
 	}
 
+	console.log("[updateWrappedCache] No array field found, returning oldData unchanged");
 	return oldData;
 }
 
