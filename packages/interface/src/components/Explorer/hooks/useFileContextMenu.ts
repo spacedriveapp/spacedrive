@@ -16,6 +16,8 @@ import {
 	Crop,
 	FileVideo,
 	Scissors,
+	Pencil,
+	FolderPlus,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
 import { useContextMenu } from "../../../hooks/useContextMenu";
@@ -27,6 +29,7 @@ import { useExplorer } from "../context";
 import { isVirtualFile } from "../utils/virtualFiles";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
+import { useSelection } from "../SelectionContext";
 
 interface UseFileContextMenuProps {
 	file: File;
@@ -43,9 +46,11 @@ export function useFileContextMenu({
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
+	const createFolder = useLibraryMutation("files.createFolder");
 	const { runJob } = useJobDispatch();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+	const { startRename } = useSelection();
 
 	// Get the files to operate on (multi-select or just this file)
 	// Filters out virtual files (they're display-only, not real filesystem entries)
@@ -87,34 +92,85 @@ export function useFileContextMenu({
 				condition: () =>
 					file.kind === "Directory" || file.kind === "File",
 			},
-			{
-				icon: MagnifyingGlass,
-				label: "Show in Finder",
-				onClick: async () => {
-					// Extract the physical path from SdPath
-					if ("Physical" in file.sd_path) {
-						const physicalPath = file.sd_path.Physical.path;
-						if (platform.revealFile) {
-							try {
-								await platform.revealFile(physicalPath);
-							} catch (err) {
-								console.error("Failed to reveal file:", err);
-								alert(`Failed to reveal file: ${err}`);
-							}
-						} else {
-							console.log(
-								"revealFile not supported on this platform",
-							);
+		{
+			icon: MagnifyingGlass,
+			label: "Show in Finder",
+			onClick: async () => {
+				// Extract the physical path from SdPath
+				if ("Physical" in file.sd_path) {
+					const physicalPath = file.sd_path.Physical.path;
+					if (platform.revealFile) {
+						try {
+							await platform.revealFile(physicalPath);
+						} catch (err) {
+							console.error("Failed to reveal file:", err);
+							alert(`Failed to reveal file: ${err}`);
 						}
 					} else {
-						console.log("Cannot reveal non-physical file");
+						console.log(
+							"revealFile not supported on this platform",
+						);
 					}
-				},
-				keybind: "⌘⇧R",
-				condition: () =>
-					"Physical" in file.sd_path && !!platform.revealFile,
+				} else {
+					console.log("Cannot reveal non-physical file");
+				}
 			},
-			{ type: "separator" },
+			keybind: "⌘⇧R",
+			condition: () =>
+				"Physical" in file.sd_path && !!platform.revealFile,
+		},
+		{ type: "separator" },
+		{
+			icon: Pencil,
+			label: "Rename",
+			onClick: () => {
+				startRename(file.id);
+			},
+			keybindId: "explorer.renameFile",
+			condition: () => selected && selectedFiles.length === 1 && !hasVirtualFiles,
+		},
+		{
+			icon: FolderPlus,
+			label: "New Folder",
+			onClick: async () => {
+				if (!currentPath) return;
+				try {
+					const result = await createFolder.mutateAsync({
+						parent: currentPath,
+						name: "Untitled Folder",
+						items: [],
+					});
+					console.log("Created folder:", result);
+				} catch (err) {
+					console.error("Failed to create folder:", err);
+					alert(`Failed to create folder: ${err}`);
+				}
+			},
+			condition: () => !!currentPath,
+		},
+		{
+			icon: FolderPlus,
+			label: "New Folder with Items",
+			onClick: async () => {
+				if (!currentPath) return;
+				const targets = getTargetFiles();
+				if (targets.length === 0) return;
+
+				try {
+					const result = await createFolder.mutateAsync({
+						parent: currentPath,
+						name: "New Folder",
+						items: targets.map((f) => f.sd_path),
+					});
+					console.log("Created folder with items:", result);
+				} catch (err) {
+					console.error("Failed to create folder with items:", err);
+					alert(`Failed to create folder: ${err}`);
+				}
+			},
+			condition: () => !!currentPath && selectedFiles.length > 0 && !hasVirtualFiles,
+		},
+		{ type: "separator" },
 			{
 				icon: Copy,
 				label:

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useCallback, useMemo, useEffect, t
 import { usePlatform } from "../../platform";
 import type { File } from "@sd/ts-client";
 import { useClipboard } from "../../hooks/useClipboard";
+import { useLibraryMutation } from "../../context";
 
 interface SelectionContextValue {
   selectedFiles: File[];
@@ -14,6 +15,12 @@ interface SelectionContextValue {
   focusedIndex: number;
   setFocusedIndex: (index: number) => void;
   moveFocus: (direction: "up" | "down" | "left" | "right", files: File[]) => void;
+  // Rename state
+  renamingFileId: string | null;
+  startRename: (fileId: string) => void;
+  cancelRename: () => void;
+  saveRename: (newName: string) => Promise<void>;
+  isRenaming: boolean;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -24,6 +31,8 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [focusedIndex, setFocusedIndex] = useState(-1);
   const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
+  const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+  const renameFile = useLibraryMutation("files.rename");
 
   // Sync selected file IDs to platform (for cross-window state sharing)
   useEffect(() => {
@@ -113,6 +122,54 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Rename functions
+  const startRename = useCallback((fileId: string) => {
+    // Only allow rename when a single file is selected
+    if (selectedFiles.length === 1) {
+      setRenamingFileId(fileId);
+    }
+  }, [selectedFiles.length]);
+
+  const cancelRename = useCallback(() => {
+    setRenamingFileId(null);
+  }, []);
+
+  const saveRename = useCallback(async (newName: string) => {
+    if (!renamingFileId) return;
+
+    const file = selectedFiles.find(f => f.id === renamingFileId);
+    if (!file) {
+      setRenamingFileId(null);
+      return;
+    }
+
+    // Don't submit if name is empty or unchanged
+    const currentFullName = file.extension ? `${file.name}.${file.extension}` : file.name;
+    if (!newName.trim() || newName === currentFullName) {
+      setRenamingFileId(null);
+      return;
+    }
+
+    try {
+      await renameFile.mutateAsync({
+        target: file.sd_path,
+        new_name: newName,
+      });
+      setRenamingFileId(null);
+    } catch (error) {
+      // Keep in edit mode on error so user can retry
+      console.error('Rename failed:', error);
+      throw error;
+    }
+  }, [renamingFileId, selectedFiles, renameFile]);
+
+  // Cancel rename when selection changes
+  useEffect(() => {
+    if (renamingFileId && !selectedFiles.some(f => f.id === renamingFileId)) {
+      setRenamingFileId(null);
+    }
+  }, [selectedFiles, renamingFileId]);
+
   // Create a Set of selected file IDs for O(1) lookup
   const selectedFileIds = useMemo(
     () => new Set(selectedFiles.map((f) => f.id)),
@@ -125,6 +182,8 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     [selectedFileIds]
   );
 
+  const isRenaming = renamingFileId !== null;
+
   const value = useMemo(() => ({
     selectedFiles,
     selectedFileIds,
@@ -136,6 +195,12 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     focusedIndex,
     setFocusedIndex,
     moveFocus,
+    // Rename state
+    renamingFileId,
+    startRename,
+    cancelRename,
+    saveRename,
+    isRenaming,
   }), [
     selectedFiles,
     selectedFileIds,
@@ -145,6 +210,11 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     selectAll,
     focusedIndex,
     moveFocus,
+    renamingFileId,
+    startRename,
+    cancelRename,
+    saveRename,
+    isRenaming,
   ]);
 
   return <SelectionContext.Provider value={value}>{children}</SelectionContext.Provider>;

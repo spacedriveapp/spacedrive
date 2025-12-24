@@ -11,6 +11,7 @@ import { TagPill } from "../../../Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from "../../utils/virtualFiles";
+import { InlineNameEdit } from "../../components/InlineNameEdit";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -185,6 +186,9 @@ export const TableRow = memo(
 
 // Name cell with icon and tags
 const NameCell = memo(function NameCell({ file }: { file: File }) {
+	const { renamingFileId, saveRename, cancelRename } = useSelection();
+	const isRenaming = renamingFileId === file.id;
+
 	return (
 		<div className="flex min-w-0 flex-1 items-center gap-2">
 			{/* File icon */}
@@ -192,11 +196,20 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 				<FileComponent.Thumb file={file} size={20} />
 			</div>
 
-			{/* File name */}
-			<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
+			{/* File name or inline edit */}
+			{isRenaming ? (
+				<InlineNameEdit
+					file={file}
+					onSave={saveRename}
+					onCancel={cancelRename}
+					className="flex-1 min-w-0"
+				/>
+			) : (
+				<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
+			)}
 
-			{/* Tags (inline, compact) */}
-			{file.tags && file.tags.length > 0 && (
+			{/* Tags (inline, compact) - hide when renaming */}
+			{!isRenaming && file.tags && file.tags.length > 0 && (
 				<div className="flex flex-shrink-0 items-center gap-1">
 					{file.tags.slice(0, 2).map((tag) => (
 						<TagPill

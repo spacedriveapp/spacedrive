@@ -11,6 +11,7 @@ import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from "../../utils/virtualFiles";
 import { VolumeSizeBar } from "../../components/VolumeSizeBar";
+import { InlineNameEdit } from "../../components/InlineNameEdit";
 
 interface FileCardProps {
 	file: File;
@@ -39,6 +40,9 @@ export const FileCard = memo(
 	}: FileCardProps) {
 		const { viewSettings, navigateToPath } = useExplorer();
 		const { gridSize, showFileSize } = viewSettings;
+		const { renamingFileId, saveRename, cancelRename } = useSelection();
+
+		const isRenaming = renamingFileId === file.id;
 
 		const contextMenu = useFileContextMenu({
 			file,
@@ -157,14 +161,23 @@ export const FileCard = memo(
 						<FileComponent.Thumb file={file} size={thumbSize} />
 					</div>
 					<div className="w-full flex flex-col items-center">
-						<div
-							className={clsx(
-								"text-sm truncate px-2 py-0.5 rounded-md inline-block max-w-full",
-								selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
-							)}
-						>
-							{file.name}{file.extension && `.${file.extension}`}
-						</div>
+						{isRenaming ? (
+							<InlineNameEdit
+								file={file}
+								onSave={saveRename}
+								onCancel={cancelRename}
+								className="max-w-full"
+							/>
+						) : (
+							<div
+								className={clsx(
+									"text-sm truncate px-2 py-0.5 rounded-md inline-block max-w-full",
+									selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
+								)}
+							>
+								{file.name}{file.extension && `.${file.extension}`}
+							</div>
+						)}
 
 						{/* Volume size bar */}
 						{showFileSize && hasVolumeCapacity && (

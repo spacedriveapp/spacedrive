@@ -1,7 +1,7 @@
 ---
 id: FILE-004
 title: "Rename, New Folder, and New Folder with Items"
-status: To Do
+status: Done
 assignee: jamiepine
 priority: High
 tags: [core, interface, file-ops, keybinds, ux]
@@ -14,6 +14,7 @@ last_updated: 2025-12-24
 Implement file rename, new folder creation, and new folder with items operations. These features integrate with the existing unified keybind system and context menus, providing inline editing UX similar to macOS Finder.
 
 **Key Features:**
+
 - **Rename**: Press Enter on selected item → inline edit mode → Enter again to save
 - **New Folder**: Create empty folder using VolumeBackend (works on cloud storage)
 - **New Folder with Items**: Create folder then spawn FileCopyJob to move selected items
@@ -22,6 +23,7 @@ Implement file rename, new folder creation, and new folder with items operations
 ## Background
 
 **Existing Infrastructure:**
+
 - Rename already exists via `FileCopyJob::new_rename()` but needs dedicated action API
 - Unified keybind system with `explorer.renameFile` already registered (Enter key)
 - Context menu system supports `keybindId` for automatic shortcut display
@@ -31,64 +33,64 @@ Implement file rename, new folder creation, and new folder with items operations
 
 ### Backend
 
-- [ ] VolumeBackend trait has `create_directory(path, recursive)` method
-- [ ] LocalBackend implements `create_directory()` using tokio::fs
-- [ ] CloudBackend has stub implementation for future cloud support
-- [ ] `FileRenameAction` exists at `core/src/ops/files/rename/`
-  - [ ] Input validation: no path separators, empty names, invalid characters
-  - [ ] Platform-specific validation (Windows reserved names)
-  - [ ] Wraps `FileCopyJob::new_rename()` for execution
-  - [ ] Returns `JobReceipt`
-- [ ] `CreateFolderAction` exists at `core/src/ops/files/create_folder/`
-  - [ ] Accepts `parent`, `name`, and optional `items` array
-  - [ ] Uses VolumeBackend to create directory
-  - [ ] Spawns FileCopyJob if items provided
-  - [ ] Returns folder path + optional job handle
-- [ ] Actions registered: `files.rename` and `files.createFolder`
+- [x] VolumeBackend trait has `create_directory(path, recursive)` method
+- [x] LocalBackend implements `create_directory()` using tokio::fs
+- [x] CloudBackend has stub implementation for future cloud support
+- [x] `FileRenameAction` exists at `core/src/ops/files/rename/`
+  - [x] Input validation: no path separators, empty names, invalid characters
+  - [x] Platform-specific validation (Windows reserved names)
+  - [x] Wraps `FileCopyJob::new_rename()` for execution
+  - [x] Returns `JobReceipt`
+- [x] `CreateFolderAction` exists at `core/src/ops/files/create_folder/`
+  - [x] Accepts `parent`, `name`, and optional `items` array
+  - [x] Uses VolumeBackend to create directory
+  - [x] Spawns FileCopyJob if items provided
+  - [x] Returns folder path + optional job handle
+- [x] Actions registered: `files.rename` and `files.createFolder`
 
 ### Frontend State Management
 
-- [ ] SelectionContext has rename state:
-  - [ ] `renamingFileId: string | null`
-  - [ ] `startRename(fileId: string)`
-  - [ ] `cancelRename()`
-  - [ ] `saveRename(newName: string)` using `files.rename` mutation
-- [ ] Menu items sync correctly (rename enabled when single file selected)
+- [x] SelectionContext has rename state:
+  - [x] `renamingFileId: string | null`
+  - [x] `startRename(fileId: string)`
+  - [x] `cancelRename()`
+  - [x] `saveRename(newName: string)` using `files.rename` mutation
+- [x] Menu items sync correctly (rename enabled when single file selected)
 
 ### Frontend UI Components
 
-- [ ] `InlineNameEdit` component created at `packages/interface/src/components/Explorer/components/InlineNameEdit.tsx`
-  - [ ] Auto-focus and select text on mount
-  - [ ] Split filename into name + extension (only edit name)
-  - [ ] Handle Enter (save), Escape (cancel), Blur (cancel)
-  - [ ] Use Input from @sd/ui with transparent variant
-  - [ ] Match styling of static file name display
-- [ ] FileCard (GridView) integrates inline editing
-  - [ ] Conditionally renders InlineNameEdit when `renamingFileId === file.id`
-  - [ ] Matches positioning and styling
-- [ ] TableRow (ListView) integrates inline editing in NameCell
-  - [ ] Same conditional rendering logic
-  - [ ] Matches inline styling
+- [x] `InlineNameEdit` component created at `packages/interface/src/components/Explorer/components/InlineNameEdit.tsx`
+  - [x] Auto-focus and select text on mount
+  - [x] Split filename into name + extension (only edit name)
+  - [x] Handle Enter (save), Escape (cancel), Blur (cancel)
+  - [x] Use Input from @sd/ui with transparent variant
+  - [x] Match styling of static file name display
+- [x] FileCard (GridView) integrates inline editing
+  - [x] Conditionally renders InlineNameEdit when `renamingFileId === file.id`
+  - [x] Matches positioning and styling
+- [x] TableRow (ListView) integrates inline editing in NameCell
+  - [x] Same conditional rendering logic
+  - [x] Matches inline styling
 
 ### Frontend Integration
 
-- [ ] Keybind handlers in GridView and ListView:
-  - [ ] `useKeybind('explorer.renameFile')` triggers rename on Enter
-  - [ ] Only enabled when single file selected
-- [ ] Context menu items added to `useFileContextMenu`:
-  - [ ] "Rename" item with Pencil icon and `keybindId: 'explorer.renameFile'`
-  - [ ] "New Folder" item with FolderPlus icon
-  - [ ] "New Folder with Items" item (visible when files selected)
-- [ ] Menu bar integration works (keybind already registered, menu state synced)
+- [x] Keybind handlers in GridView and ListView:
+  - [x] `useKeybind('explorer.renameFile')` triggers rename on Enter
+  - [x] Only enabled when single file selected
+- [x] Context menu items added to `useFileContextMenu`:
+  - [x] "Rename" item with Pencil icon and `keybindId: 'explorer.renameFile'`
+  - [x] "New Folder" item with FolderPlus icon
+  - [x] "New Folder with Items" item (visible when files selected)
+- [x] Menu bar integration works (keybind already registered, menu state synced)
 
 ### Edge Cases Handled
 
-- [ ] Empty name → Cancel rename, revert to original
-- [ ] Name unchanged → Accept without mutation call
-- [ ] Backend validation errors → Show error, keep in edit mode
-- [ ] Navigation during rename → Cancel rename before navigating
-- [ ] Selection change during rename → Cancel rename
-- [ ] Multiple rapid Enter presses → Debounce or disable during save
+- [x] Empty name → Cancel rename, revert to original
+- [x] Name unchanged → Accept without mutation call
+- [x] Backend validation errors → Show error, keep in edit mode
+- [x] Navigation during rename → Cancel rename before navigating
+- [x] Selection change during rename → Cancel rename
+- [x] Multiple rapid Enter presses → Debounce or disable during save
 - [ ] Folder creation failure → Show error toast
 - [ ] Copy job failure for "new folder with items" → Folder still created, show job status
 
@@ -99,6 +101,7 @@ Implement file rename, new folder creation, and new folder with items operations
 **File: `core/src/volume/backend/mod.rs`**
 
 Add method to VolumeBackend trait:
+
 ```rust
 async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError>;
 ```
@@ -106,6 +109,7 @@ async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), Vol
 **File: `core/src/volume/backend/local.rs`**
 
 Implement for LocalBackend:
+
 ```rust
 async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError> {
     let full_path = self.resolve_path(path);
@@ -125,6 +129,7 @@ Add stub for future implementation.
 ### Phase 2: Create Rename Action (Backend)
 
 **Directory Structure:**
+
 ```
 core/src/ops/files/rename/
 ├── mod.rs          # Module exports
@@ -134,6 +139,7 @@ core/src/ops/files/rename/
 ```
 
 **`input.rs`:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileRenameInput {
@@ -143,10 +149,12 @@ pub struct FileRenameInput {
 ```
 
 **`validation.rs`:**
+
 - Validate filename: no path separators, not empty, valid characters
 - Platform-specific validation (Windows reserved names like CON, PRN, AUX)
 
 **`action.rs`:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRenameAction {
@@ -181,6 +189,7 @@ Add: `pub mod rename;`
 ### Phase 3: Create Folder Operations (Backend)
 
 **Directory Structure:**
+
 ```
 core/src/ops/files/create_folder/
 ├── mod.rs          # Module exports
@@ -190,6 +199,7 @@ core/src/ops/files/create_folder/
 ```
 
 **`input.rs`:**
+
 ```rust
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateFolderInput {
@@ -201,6 +211,7 @@ pub struct CreateFolderInput {
 ```
 
 **`output.rs`:**
+
 ```rust
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CreateFolderOutput {
@@ -210,6 +221,7 @@ pub struct CreateFolderOutput {
 ```
 
 **`action.rs`:**
+
 ```rust
 impl LibraryAction for CreateFolderAction {
     type Input = CreateFolderInput;
@@ -259,49 +271,57 @@ Add: `pub mod create_folder;`
 **File: `packages/interface/src/components/Explorer/SelectionContext.tsx`**
 
 Add to interface (around line 6):
+
 ```typescript
 interface SelectionContextValue {
-  // ... existing fields
-  renamingFileId: string | null;
-  startRename: (fileId: string) => void;
-  cancelRename: () => void;
-  saveRename: (newName: string) => Promise<void>;
+	// ... existing fields
+	renamingFileId: string | null;
+	startRename: (fileId: string) => void;
+	cancelRename: () => void;
+	saveRename: (newName: string) => Promise<void>;
 }
 ```
 
 Add state and handlers in SelectionProvider:
+
 ```typescript
 const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
-const renameFile = useLibraryMutation('files.rename');
+const renameFile = useLibraryMutation("files.rename");
 
-const startRename = useCallback((fileId: string) => {
-  if (selectedFiles.length === 1) {
-    setRenamingFileId(fileId);
-  }
-}, [selectedFiles]);
+const startRename = useCallback(
+	(fileId: string) => {
+		if (selectedFiles.length === 1) {
+			setRenamingFileId(fileId);
+		}
+	},
+	[selectedFiles],
+);
 
 const cancelRename = useCallback(() => {
-  setRenamingFileId(null);
+	setRenamingFileId(null);
 }, []);
 
-const saveRename = useCallback(async (newName: string) => {
-  if (!renamingFileId) return;
+const saveRename = useCallback(
+	async (newName: string) => {
+		if (!renamingFileId) return;
 
-  const file = selectedFiles.find(f => f.id === renamingFileId);
-  if (!file) return;
+		const file = selectedFiles.find((f) => f.id === renamingFileId);
+		if (!file) return;
 
-  try {
-    await renameFile.mutateAsync({
-      target: file.sd_path,
-      new_name: newName,
-    });
-    setRenamingFileId(null);
-  } catch (error) {
-    // Keep in edit mode, show error
-    console.error('Rename failed:', error);
-    throw error;
-  }
-}, [renamingFileId, selectedFiles, renameFile]);
+		try {
+			await renameFile.mutateAsync({
+				target: file.sd_path,
+				new_name: newName,
+			});
+			setRenamingFileId(null);
+		} catch (error) {
+			// Keep in edit mode, show error
+			console.error("Rename failed:", error);
+			throw error;
+		}
+	},
+	[renamingFileId, selectedFiles, renameFile],
+);
 ```
 
 ### Phase 5: Create Inline Edit Component (Frontend)
@@ -377,6 +397,7 @@ export function InlineNameEdit({ file, onSave, onCancel, className }: InlineName
 **File: `packages/interface/src/components/Explorer/views/GridView/FileCard.tsx`**
 
 Around line 160, replace file name rendering:
+
 ```typescript
 import { InlineNameEdit } from '../../components/InlineNameEdit';
 import { useSelection } from '../../SelectionContext';
@@ -402,6 +423,7 @@ const { renamingFileId, saveRename, cancelRename } = useSelection();
 **File: `packages/interface/src/components/Explorer/views/ListView/TableRow.tsx`**
 
 Modify NameCell component (around line 196):
+
 ```typescript
 import { InlineNameEdit } from '../../components/InlineNameEdit';
 import { useSelection } from '../../SelectionContext';
@@ -428,14 +450,19 @@ const { renamingFileId, saveRename, cancelRename } = useSelection();
 **File: `packages/interface/src/components/Explorer/views/GridView/GridView.tsx`**
 
 After existing useEffect for keyboard nav (around line 204):
-```typescript
-import { useKeybind } from '../../../hooks/useKeybind';
 
-useKeybind('explorer.renameFile', () => {
-  if (selectedFiles.length === 1) {
-    startRename(selectedFiles[0].id);
-  }
-}, { enabled: selectedFiles.length === 1 });
+```typescript
+import { useKeybind } from "../../../hooks/useKeybind";
+
+useKeybind(
+	"explorer.renameFile",
+	() => {
+		if (selectedFiles.length === 1) {
+			startRename(selectedFiles[0].id);
+		}
+	},
+	{ enabled: selectedFiles.length === 1 },
+);
 ```
 
 **File: `packages/interface/src/components/Explorer/views/ListView/ListView.tsx`**
@@ -447,6 +474,7 @@ Same keybind handler after existing keyboard nav.
 **File: `packages/interface/src/components/Explorer/hooks/useFileContextMenu.ts`**
 
 Add after "Open" item (around line 90):
+
 ```typescript
 import { Pencil, FolderPlus } from '@phosphor-icons/react';
 
@@ -475,32 +503,34 @@ import { Pencil, FolderPlus } from '@phosphor-icons/react';
 ```
 
 Implement createFolder and createFolderWithItems:
+
 ```typescript
-const createFolderMutation = useLibraryMutation('files.createFolder');
+const createFolderMutation = useLibraryMutation("files.createFolder");
 
 const createFolder = async () => {
-  // Create with default name, then enter rename mode
-  const result = await createFolderMutation.mutateAsync({
-    parent: currentPath,
-    name: "Untitled Folder",
-    items: [],
-  });
-  // TODO: Select new folder and enter rename mode
+	// Create with default name, then enter rename mode
+	const result = await createFolderMutation.mutateAsync({
+		parent: currentPath,
+		name: "Untitled Folder",
+		items: [],
+	});
+	// TODO: Select new folder and enter rename mode
 };
 
 const createFolderWithItems = async () => {
-  const result = await createFolderMutation.mutateAsync({
-    parent: currentPath,
-    name: "New Folder",
-    items: selectedFiles.map(f => f.sd_path),
-  });
-  // result.job_handle tracks copy progress
+	const result = await createFolderMutation.mutateAsync({
+		parent: currentPath,
+		name: "New Folder",
+		items: selectedFiles.map((f) => f.sd_path),
+	});
+	// result.job_handle tracks copy progress
 };
 ```
 
 ## Implementation Files
 
 ### Backend
+
 - `core/src/volume/backend/mod.rs`
 - `core/src/volume/backend/local.rs`
 - `core/src/volume/backend/cloud.rs`
@@ -515,6 +545,7 @@ const createFolderWithItems = async () => {
 - `core/src/ops/files/mod.rs`
 
 ### Frontend
+
 - `packages/interface/src/components/Explorer/SelectionContext.tsx`
 - `packages/interface/src/components/Explorer/components/InlineNameEdit.tsx` (new)
 - `packages/interface/src/components/Explorer/views/GridView/FileCard.tsx`
@@ -526,6 +557,7 @@ const createFolderWithItems = async () => {
 ## Testing Plan
 
 ### Manual Testing
+
 1. **Rename Flow:**
    - Select file, press Enter → Input appears with text selected
    - Type new name, press Enter → Name updates in UI and database
@@ -552,6 +584,7 @@ const createFolderWithItems = async () => {
    - Backend validation errors handled gracefully
 
 ### Integration Tests (Future)
+
 - `core/tests/test_rename_action.rs` - Test rename validation and execution
 - `core/tests/test_create_folder_action.rs` - Test folder creation with/without items
 - `core/tests/test_volume_backend.rs` - Test create_directory() implementation

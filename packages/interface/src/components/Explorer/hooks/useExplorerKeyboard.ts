@@ -30,6 +30,8 @@ export function useExplorerKeyboard() {
 		focusedIndex,
 		setFocusedIndex,
 		setSelectedFiles,
+		startRename,
+		isRenaming,
 	} = useSelection();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
@@ -126,6 +128,17 @@ export function useExplorerKeyboard() {
 		{ enabled: clipboard.hasClipboard() && !!currentPath },
 	);
 
+	// Rename: Enter key triggers rename mode when single file selected
+	useKeybind(
+		"explorer.renameFile",
+		() => {
+			if (selectedFiles.length === 1 && !isRenaming) {
+				startRename(selectedFiles[0].id);
+			}
+		},
+		{ enabled: selectedFiles.length === 1 && !isRenaming },
+	);
+
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
 			// Arrow keys: Navigation
@@ -200,13 +213,14 @@ export function useExplorerKeyboard() {
 				return;
 			}
 
-			// Enter: Navigate into directory
-			if (e.key === "Enter" && selectedFiles.length === 1) {
+			// Enter: Navigate into directory (but not if in rename mode - that's handled by keybind)
+			if (e.key === "Enter" && selectedFiles.length === 1 && !isRenaming) {
 				const selected = selectedFiles[0];
 				if (selected.kind === "Directory") {
 					e.preventDefault();
 					navigateToPath(selected.sd_path);
 				}
+				// If it's a file, Enter triggers rename mode (handled by useKeybind above)
 				return;
 			}
 
@@ -245,5 +259,6 @@ export function useExplorerKeyboard() {
 		setFocusedIndex,
 		setSelectedFiles,
 		openQuickPreview,
+		isRenaming,
 	]);
 }
