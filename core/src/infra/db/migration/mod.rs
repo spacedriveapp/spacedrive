@@ -32,6 +32,7 @@ mod m20251204_000001_create_cloud_credentials_table;
 mod m20251209_000001_add_indexing_stats_to_volumes;
 mod m20251216_000001_add_device_hardware_specs;
 mod m20251220_000001_add_file_count_to_content_kinds;
+mod m20251223_000001_create_location_service_settings;
 
 pub struct Migrator;
 
@@ -69,6 +70,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251209_000001_add_indexing_stats_to_volumes::Migration),
 			Box::new(m20251216_000001_add_device_hardware_specs::Migration),
 			Box::new(m20251220_000001_add_file_count_to_content_kinds::Migration),
+			Box::new(m20251223_000001_create_location_service_settings::Migration),
 		]
 	}
 }

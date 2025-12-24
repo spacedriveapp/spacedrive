@@ -41,6 +41,7 @@ pub struct IndexerStats {
 	pub bytes: u64,
 	pub symlinks: u64,
 	pub skipped: u64,
+	pub pruned: u64,
 	pub errors: u64,
 }
 

@@ -41,8 +41,10 @@ pub async fn run_discovery_phase(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	index_mode: Option<&crate::domain::location::IndexMode>,
 ) -> Result<(), JobError> {
 	let concurrency = state.discovery_concurrency;
+	let use_mtime_pruning = index_mode.map(|m| m.uses_mtime_pruning()).unwrap_or(false);
 
 	if concurrency <= 1 {
 		return run_discovery_phase_sequential(
@@ -52,14 +54,17 @@ pub async fn run_discovery_phase(
 			rule_toggles,
 			volume_backend,
 			cloud_url_base,
+			use_mtime_pruning,
+			ctx.library_db(),
 		)
 		.await;
 	}
 
 	ctx.log(format!(
-		"Discovery phase starting from: {} (concurrency: {})",
+		"Discovery phase starting from: {} (concurrency: {}, mtime_pruning: {})",
 		root_path.display(),
-		concurrency
+		concurrency,
+		use_mtime_pruning
 	));
 	ctx.log(format!(
 		"Initial directories to walk: {}",
@@ -73,6 +78,8 @@ pub async fn run_discovery_phase(
 		rule_toggles,
 		volume_backend,
 		cloud_url_base,
+		use_mtime_pruning,
+		ctx.library_db(),
 	)
 	.await
 }
@@ -90,6 +97,8 @@ async fn run_parallel_discovery(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
+	db: &sea_orm::DatabaseConnection,
 ) -> Result<(), JobError> {
 	let concurrency = state.discovery_concurrency;
 
@@ -101,6 +110,7 @@ async fn run_parallel_discovery(
 	// This avoids coordinator bottlenecks from explicit "work done" messages.
 	let pending_work = Arc::new(AtomicUsize::new(0));
 	let skipped_count = Arc::new(AtomicU64::new(0));
+	let pruned_count = Arc::new(AtomicU64::new(0));
 	let shutdown = Arc::new(AtomicBool::new(false));
 
 	// Shared across all workers to prevent duplicate processing when symlinks create cycles
@@ -122,11 +132,13 @@ async fn run_parallel_discovery(
 		let result_tx = result_tx.clone();
 		let pending_work = Arc::clone(&pending_work);
 		let skipped_count = Arc::clone(&skipped_count);
+		let pruned_count = Arc::clone(&pruned_count);
 		let shutdown = Arc::clone(&shutdown);
 		let seen_paths = Arc::clone(&seen_paths);
 		let root_path = root_path.to_path_buf();
 		let volume_backend = volume_backend.cloned();
 		let cloud_url_base = cloud_url_base.clone();
+		let db = db.clone();
 
 		let worker = tokio::spawn(async move {
 			discovery_worker_rayon(
@@ -136,12 +148,15 @@ async fn run_parallel_discovery(
 				result_tx,
 				pending_work,
 				skipped_count,
+				pruned_count,
 				shutdown,
 				seen_paths,
 				root_path,
 				rule_toggles,
 				volume_backend,
 				cloud_url_base,
+				use_mtime_pruning,
+				db,
 			)
 			.await
 		});
@@ -185,11 +200,13 @@ async fn run_parallel_discovery(
 				dirs,
 				symlinks,
 				bytes,
+				pruned,
 			} => {
 				state.stats.files += files;
 				state.stats.dirs += dirs;
 				state.stats.symlinks += symlinks;
 				state.stats.bytes += bytes;
+				state.stats.pruned += pruned;
 			}
 			DiscoveryResult::Error(error) => {
 				state.add_error(error);
@@ -238,14 +255,17 @@ async fn run_parallel_discovery(
 	}
 
 	let skipped = skipped_count.load(Ordering::SeqCst);
+	let pruned = pruned_count.load(Ordering::SeqCst);
 	state.stats.skipped = skipped;
+	state.stats.pruned = pruned;
 
 	ctx.log(format!(
-		"Parallel discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
+		"Parallel discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} pruned, {} batches created",
 		state.stats.files,
 		state.stats.dirs,
 		state.stats.symlinks,
 		skipped,
+		pruned,
 		state.entry_batches.len()
 	));
 
@@ -266,6 +286,7 @@ enum DiscoveryResult {
 		dirs: u64,
 		symlinks: u64,
 		bytes: u64,
+		pruned: u64,
 	},
 	Error(IndexError),
 	Progress {
@@ -286,12 +307,15 @@ async fn discovery_worker_rayon(
 	result_tx: chan::Sender<DiscoveryResult>,
 	pending_work: Arc<AtomicUsize>,
 	skipped_count: Arc<AtomicU64>,
+	pruned_count: Arc<AtomicU64>,
 	shutdown: Arc<AtomicBool>,
 	seen_paths: Arc<parking_lot::RwLock<std::collections::HashSet<PathBuf>>>,
 	root_path: PathBuf,
 	rule_toggles: RuleToggles,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
+	db: sea_orm::DatabaseConnection,
 ) {
 	loop {
 		if shutdown.load(Ordering::Acquire) {
@@ -356,6 +380,16 @@ async fn discovery_worker_rayon(
 
 					match entry.kind {
 						EntryKind::Directory => {
+							// Check if we should prune this directory based on mtime
+							if use_mtime_pruning {
+								if should_prune_directory(&entry, &db).await {
+									local_stats.pruned += 1;
+									pruned_count.fetch_add(1, Ordering::Relaxed);
+									// Don't enqueue - skip this subtree
+									continue;
+								}
+							}
+
 							local_stats.dirs += 1;
 							// Increment BEFORE enqueuing so the monitor never sees pending_work=0 while
 							// work is in flight. Decrement only happens after processing completes.
@@ -383,6 +417,7 @@ async fn discovery_worker_rayon(
 						dirs: local_stats.dirs,
 						symlinks: local_stats.symlinks,
 						bytes: local_stats.bytes,
+						pruned: local_stats.pruned,
 					})
 					.await;
 
@@ -411,6 +446,7 @@ struct LocalStats {
 	dirs: u64,
 	symlinks: u64,
 	bytes: u64,
+	pruned: u64,
 }
 
 /// Single-threaded directory traversal fallback for concurrency = 1.
@@ -425,6 +461,8 @@ async fn run_discovery_phase_sequential(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
+	db: &sea_orm::DatabaseConnection,
 ) -> Result<(), JobError> {
 	ctx.log(format!(
 		"Discovery phase starting from: {} (sequential mode)",
@@ -487,6 +525,14 @@ async fn run_discovery_phase_sequential(
 
 					match entry.kind {
 						EntryKind::Directory => {
+							// Check if we should prune this directory based on mtime
+							if use_mtime_pruning {
+								if should_prune_directory(&entry, db).await {
+									state.stats.pruned += 1;
+									continue;
+								}
+							}
+
 							state.dirs_to_walk.push_back(entry.path.clone());
 							state.stats.dirs += 1;
 							state.pending_entries.push(entry);
@@ -544,11 +590,12 @@ async fn run_discovery_phase_sequential(
 	}
 
 	ctx.log(format!(
-		"Discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
+		"Discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} pruned, {} batches created",
 		state.stats.files,
 		state.stats.dirs,
 		state.stats.symlinks,
 		skipped_count,
+		state.stats.pruned,
 		state.entry_batches.len()
 	));
 
@@ -575,6 +622,64 @@ async fn read_directory(
 	};
 
 	read_directory_with_backend(backend.as_ref(), path, cloud_url_base).await
+}
+
+/// Check if a directory should be pruned based on modified time comparison
+async fn should_prune_directory(
+	entry: &DirEntry,
+	db: &sea_orm::DatabaseConnection,
+) -> bool {
+	// Get filesystem modified time
+	let Some(fs_mtime) = entry.modified else {
+		return false; // No mtime available, can't prune
+	};
+
+	// Query database for existing entry
+	let db_entry = match query_entry_mtime(db, &entry.path).await {
+		Ok(Some(entry)) => entry,
+		Ok(None) => return false, // Not in DB, definitely changed
+		Err(_) => return false, // Query failed, don't prune (safe default)
+	};
+
+	// Compare modified times with tolerance
+	times_match(fs_mtime, db_entry.mtime)
+}
+
+/// Query database for entry's modified time using directory_paths cache
+async fn query_entry_mtime(
+	db: &sea_orm::DatabaseConnection,
+	path: &Path,
+) -> Result<Option<EntryMtimeRecord>, sea_orm::DbErr> {
+	use crate::infra::db::entities::{directory_paths, entry};
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	let path_str = path.to_string_lossy().to_string();
+
+	let result = directory_paths::Entity::find()
+		.find_also_related(entry::Entity)
+		.filter(directory_paths::Column::Path.eq(path_str))
+		.one(db)
+		.await?;
+
+	match result {
+		Some((_, Some(entry_model))) => Ok(Some(EntryMtimeRecord {
+			id: entry_model.id,
+			mtime: entry_model.modified_at,
+		})),
+		_ => Ok(None),
+	}
+}
+
+struct EntryMtimeRecord {
+	id: i32,
+	mtime: chrono::DateTime<chrono::Utc>,
+}
+
+/// Compare filesystem time with database time (1-second tolerance)
+fn times_match(fs_time: std::time::SystemTime, db_time: chrono::DateTime<chrono::Utc>) -> bool {
+	let fs_datetime: chrono::DateTime<chrono::Utc> = fs_time.into();
+	let diff = (fs_datetime - db_time).num_seconds().abs();
+	diff <= 1
 }
 
 /// Reads directory contents via a volume backend and converts paths for cloud vs local.

@@ -57,7 +57,7 @@ pub struct Location {
 }
 
 /// How deeply to index files in this location
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Type)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
@@ -70,6 +70,10 @@ pub enum IndexMode {
 
 	/// Full indexing - content IDs, text extraction, thumbnails
 	Deep,
+
+	/// Stale detection mode - uses mtime pruning with wrapped mode for changed parts
+	/// Wraps the actual indexing mode to use (respects location's configured depth)
+	Stale(Box<IndexMode>),
 }
 
 /// Current scanning state of a location
@@ -188,9 +192,51 @@ impl Location {
 	}
 }
 
+impl IndexMode {
+	/// Check if this mode enables mtime pruning
+	pub fn uses_mtime_pruning(&self) -> bool {
+		matches!(self, IndexMode::Stale(_))
+	}
+
+	/// Get the inner mode for indexing changed parts
+	pub fn inner_mode(&self) -> &IndexMode {
+		match self {
+			IndexMode::Stale(inner) => inner,
+			other => other,
+		}
+	}
+}
+
 impl Default for IndexMode {
 	fn default() -> Self {
 		IndexMode::Deep
+	}
+}
+
+impl PartialOrd for IndexMode {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for IndexMode {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		use std::cmp::Ordering;
+		match (self, other) {
+			(IndexMode::None, IndexMode::None) => Ordering::Equal,
+			(IndexMode::None, _) => Ordering::Less,
+			(_, IndexMode::None) => Ordering::Greater,
+			(IndexMode::Shallow, IndexMode::Shallow) => Ordering::Equal,
+			(IndexMode::Shallow, _) => Ordering::Less,
+			(_, IndexMode::Shallow) => Ordering::Greater,
+			(IndexMode::Content, IndexMode::Content) => Ordering::Equal,
+			(IndexMode::Content, _) => Ordering::Less,
+			(_, IndexMode::Content) => Ordering::Greater,
+			(IndexMode::Deep, IndexMode::Deep) => Ordering::Equal,
+			(IndexMode::Deep, IndexMode::Stale(_)) => Ordering::Less,
+			(IndexMode::Stale(_), IndexMode::Deep) => Ordering::Greater,
+			(IndexMode::Stale(a), IndexMode::Stale(b)) => a.cmp(b),
+		}
 	}
 }
 
@@ -278,7 +324,14 @@ impl Location {
 			"shallow" => IndexMode::Shallow,
 			"content" => IndexMode::Content,
 			"deep" => IndexMode::Deep,
-			_ => IndexMode::Deep,
+			_ => {
+				// Try to parse as JSON for Stale variant
+				if let Ok(stale_mode) = serde_json::from_str::<IndexMode>(model.index_mode.as_str()) {
+					stale_mode
+				} else {
+					IndexMode::Deep
+				}
+			}
 		};
 
 		let scan_state = match model.scan_state.as_str() {
@@ -576,6 +629,117 @@ impl Default for ObjectDetectionPolicy {
 			min_confidence: 0.7,
 			categories: vec![],
 			reprocess: false,
+		}
+	}
+}
+
+/// Service settings for a location
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct LocationServiceSettings {
+	pub location_id: Uuid,
+	pub watcher: WatcherSettings,
+	pub stale_detector: StaleDetectorSettings,
+	pub sync: SyncSettings,
+}
+
+/// Watcher service settings
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct WatcherSettings {
+	pub enabled: bool,
+	pub config: WatcherConfig,
+}
+
+/// Watcher configuration
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct WatcherConfig {
+	pub debounce_ms: u64,
+	pub batch_size: usize,
+	pub recursive: bool,
+}
+
+impl Default for WatcherConfig {
+	fn default() -> Self {
+		Self {
+			debounce_ms: 150,
+			batch_size: 10000,
+			recursive: true,
+		}
+	}
+}
+
+/// Stale detector service settings
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct StaleDetectorSettings {
+	pub enabled: bool,
+	pub config: StaleDetectorConfig,
+}
+
+/// Stale detector configuration
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct StaleDetectorConfig {
+	/// How often to check this location (seconds)
+	pub check_interval_secs: u64,
+
+	/// "conservative" | "normal" | "aggressive"
+	pub aggressiveness: String,
+
+	/// Run on startup if offline > this duration (seconds)
+	pub offline_threshold_secs: u64,
+
+	/// Enable verbose logging for this location
+	pub verbose_logging: bool,
+}
+
+impl Default for StaleDetectorConfig {
+	fn default() -> Self {
+		Self {
+			check_interval_secs: 3600, // 1 hour
+			aggressiveness: "normal".to_string(),
+			offline_threshold_secs: 3600, // 1 hour
+			verbose_logging: false,
+		}
+	}
+}
+
+/// Sync service settings
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct SyncSettings {
+	pub enabled: bool,
+	pub config: SyncConfig,
+}
+
+/// Sync configuration
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub struct SyncConfig {
+	pub mode: String, // "mirror", "selective", etc.
+	pub conflict_resolution: String, // "newest_wins", "manual", etc.
+}
+
+impl Default for SyncConfig {
+	fn default() -> Self {
+		Self {
+			mode: "mirror".to_string(),
+			conflict_resolution: "newest_wins".to_string(),
+		}
+	}
+}
+
+/// Trigger for stale detection
+#[derive(Clone, Debug, Serialize, Deserialize, Type)]
+pub enum StaleDetectionTrigger {
+	Startup,
+	Periodic,
+	Manual,
+	OfflineThreshold,
+}
+
+impl std::fmt::Display for StaleDetectionTrigger {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			StaleDetectionTrigger::Startup => write!(f, "startup"),
+			StaleDetectionTrigger::Periodic => write!(f, "periodic"),
+			StaleDetectionTrigger::Manual => write!(f, "manual"),
+			StaleDetectionTrigger::OfflineThreshold => write!(f, "offline_threshold"),
 		}
 	}
 }

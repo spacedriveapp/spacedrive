@@ -1,7 +1,7 @@
 ---
 id: INDEX-009
 title: Intelligent Stale Detection Service with Modified-Time Optimization
-status: To Do
+status: In Progress
 assignee: jamiepine
 parent: INDEX-000
 priority: High

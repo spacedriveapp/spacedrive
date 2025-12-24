@@ -323,6 +323,7 @@ impl IndexerJob {
 							self.config.rule_toggles.clone(),
 							volume_backend.as_ref(),
 							cloud_url_base,
+							Some(&self.config.mode),
 						)
 						.await?;
 					}
@@ -355,7 +356,7 @@ impl IndexerJob {
 								.expect("Location ID required for persistent jobs"),
 							state,
 							&ctx,
-							self.config.mode,
+							*self.config.mode.inner_mode(),
 							root_path,
 							volume_backend.as_ref(),
 						)
@@ -387,7 +388,7 @@ impl IndexerJob {
 				}
 
 				Phase::ContentIdentification => {
-					if self.config.mode >= IndexMode::Content {
+					if *self.config.mode.inner_mode() >= IndexMode::Content {
 						if self.config.is_ephemeral() {
 							ctx.log("Skipping content identification for ephemeral job");
 							state.phase = Phase::Complete;
@@ -438,7 +439,7 @@ impl IndexerJob {
 		ctx.log(&metrics.format_summary());
 
 		#[cfg(feature = "ffmpeg")]
-		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
+		if *self.config.mode.inner_mode() == IndexMode::Deep && !self.config.is_ephemeral() {
 			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
 			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
