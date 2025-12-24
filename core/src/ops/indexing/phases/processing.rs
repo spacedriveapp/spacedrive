@@ -143,16 +143,18 @@ pub async fn run_processing_phase(
 		.await;
 
 	let mut change_detector = ChangeDetector::new();
-	if !state.existing_entries.is_empty() || mode != IndexMode::Shallow {
-		ctx.log("Loading existing entries for change detection...");
-		change_detector
-			.load_existing_entries(ctx, location_id_i32, location_root_path)
-			.await?;
-		ctx.log(format!(
-			"Loaded {} existing entries",
-			change_detector.entry_count()
-		));
-	}
+	// Always load existing entries for change detection during reindexing.
+	// This is required to detect moves, modifications, and deletions regardless
+	// of IndexMode. The mode only affects what metadata gets extracted, not
+	// whether we detect changes.
+	ctx.log("Loading existing entries for change detection...");
+	change_detector
+		.load_existing_entries(ctx, location_id_i32, location_root_path)
+		.await?;
+	ctx.log(format!(
+		"Loaded {} existing entries",
+		change_detector.entry_count()
+	));
 
 	// Sort all discovered entries by depth (parents before children) to ensure parent entries
 	// exist in the database before we try to create children with parent_id foreign keys.
@@ -495,7 +497,15 @@ pub async fn run_processing_phase(
 	// Handle deleted entries
 	if change_detector.entry_count() > 0 {
 		ctx.log("Checking for deleted entries...");
-		let seen_paths: std::collections::HashSet<_> = state.seen_paths.iter().cloned().collect();
+
+		// Build seen_paths, ensuring the indexing root is included. The indexing path is
+		// loaded as an existing entry but never "seen" during discovery (which only scans
+		// children). Without this, an indexer job spawned for a subdirectory would detect
+		// the subdirectory itself as "missing" and delete it along with all its children.
+		let mut seen_paths: std::collections::HashSet<_> =
+			state.seen_paths.iter().cloned().collect();
+		seen_paths.insert(location_root_path.to_path_buf());
+
 		let deleted = change_detector.find_deleted(&seen_paths);
 
 		if !deleted.is_empty() {

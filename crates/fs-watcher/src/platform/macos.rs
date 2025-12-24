@@ -5,12 +5,12 @@
 //! detection by tracking inodes and buffering events.
 //!
 //! Key features:
-//! - Inode-based rename detection
+//! - Inode-based rename detection for both files and directories
 //! - Three-phase event buffering (creates, updates, removes)
 //! - Timeout-based eviction for unmatched events
 //! - Finder duplicate directory event deduplication
 //! - Reincident file tracking for files with rapid successive changes
-//! - Immediate emission for directories, buffered emission for files
+//! - Buffered emission for rename detection
 
 use crate::event::{FsEvent, RawEventKind, RawNotifyEvent};
 use crate::platform::EventHandler;
@@ -55,6 +55,10 @@ pub struct MacOsHandler {
 	/// Recently created directories - for duplicate event deduplication
 	/// Key: path, Value: timestamp of creation
 	recent_dirs: RwLock<HashMap<PathBuf, Instant>>,
+
+	/// Inode cache for paths we've seen - allows rename detection even after file is moved
+	/// Key: path, Value: (inode, timestamp)
+	inode_cache: RwLock<HashMap<PathBuf, (u64, Instant)>>,
 }
 
 #[derive(Debug, Clone)]
@@ -81,6 +85,7 @@ impl MacOsHandler {
 			pending_updates: RwLock::new(HashMap::new()),
 			reincident_updates: RwLock::new(HashMap::new()),
 			recent_dirs: RwLock::new(HashMap::new()),
+			inode_cache: RwLock::new(HashMap::new()),
 		}
 	}
 
@@ -118,31 +123,23 @@ impl MacOsHandler {
 
 	/// Process create events, attempting rename matching
 	async fn process_create(&self, path: PathBuf) -> Result<Vec<FsEvent>> {
-		// Check if this is a directory
-		if Self::is_directory(&path).await {
-			// Dedupe duplicate directory creation events using recent_dirs cache
-			{
-				let mut recent = self.recent_dirs.write().await;
-				if recent.contains_key(&path) {
-					trace!(
-						"Ignoring duplicate directory create event: {}",
-						path.display()
-					);
-					return Ok(vec![]);
-				}
-				// Track this directory creation
-				recent.insert(path.clone(), Instant::now());
-			}
+		let is_dir = Self::is_directory(&path).await;
 
-			// Directories emit immediately (no rename detection needed)
-			debug!(
-				"Directory created, emitting immediately: {}",
-				path.display()
-			);
-			return Ok(vec![FsEvent::create_dir(path)]);
+		// Check if this is a directory and dedupe if needed
+		if is_dir {
+			let recent = self.recent_dirs.read().await;
+			if recent.contains_key(&path) {
+				trace!(
+					"Ignoring duplicate directory create event: {}",
+					path.display()
+				);
+				return Ok(vec![]);
+			}
+			// Note: Don't add to recent_dirs yet - only add when actually emitted
+			// to avoid interfering with buffered rename detection
 		}
 
-		// For files, check if we already have this path in recent_dirs
+		// Check if we already have this path in recent_dirs
 		// (edge case: directory metadata check failed initially but file is actually a dir)
 		{
 			let recent = self.recent_dirs.read().await;
@@ -155,16 +152,37 @@ impl MacOsHandler {
 			}
 		}
 
-		// For files, get inode for rename detection
+		// Get inode for rename detection (works for both files and directories)
 		let Some(inode) = Self::get_inode(&path).await else {
-			// File might have been deleted already
-			debug!("Could not get inode for created file: {}", path.display());
-			return Ok(vec![FsEvent::create(path)]);
+			// Path might have been deleted already
+			debug!("Could not get inode for created path: {}", path.display());
+			let event = if is_dir {
+				FsEvent::create_dir(path)
+			} else {
+				FsEvent::create(path)
+			};
+			return Ok(vec![event]);
 		};
+
+		// Cache the inode for this path to enable rename detection
+		{
+			let mut cache = self.inode_cache.write().await;
+			cache.insert(path.clone(), (inode, Instant::now()));
+		}
 
 		// Check if this matches a pending remove (rename)
 		if let Some(from_path) = self.try_match_rename(&path, inode).await {
-			return Ok(vec![FsEvent::rename(from_path, path)]);
+			let event = if is_dir {
+				// Add to recent_dirs to prevent duplicate events for the renamed directory
+				{
+					let mut recent = self.recent_dirs.write().await;
+					recent.insert(path.clone(), Instant::now());
+				}
+				FsEvent::rename_with_dir_flag(from_path, path, true)
+			} else {
+				FsEvent::rename(from_path, path)
+			};
+			return Ok(vec![event]);
 		}
 
 		// Buffer the create for potential later rename matching
@@ -206,7 +224,15 @@ impl MacOsHandler {
 		}
 
 		// Try to get inode from the filesystem (file might still exist briefly)
-		if let Some(inode) = Self::get_inode(&path).await {
+		let inode = if let Some(inode) = Self::get_inode(&path).await {
+			Some(inode)
+		} else {
+			// File is already gone, try to get inode from cache
+			let cache = self.inode_cache.read().await;
+			cache.get(&path).map(|(inode, _)| *inode)
+		};
+
+		if let Some(inode) = inode {
 			// Buffer for potential rename matching
 			let mut removes = self.pending_removes.write().await;
 			removes.insert(
@@ -217,11 +243,19 @@ impl MacOsHandler {
 					timestamp: Instant::now(),
 				},
 			);
-			trace!("Buffered remove for rename detection: {}", path.display());
+			trace!(
+				"Buffered remove for rename detection: {} (inode {})",
+				path.display(),
+				inode
+			);
 			return Ok(vec![]);
 		}
 
-		// File is gone and we couldn't get inode - emit remove
+		// File is gone and we couldn't get inode from filesystem or cache - emit remove
+		debug!(
+			"No inode found for remove event, emitting immediately: {}",
+			path.display()
+		);
 		Ok(vec![FsEvent::remove(path)])
 	}
 
@@ -376,6 +410,13 @@ impl MacOsHandler {
 		let mut recent = self.recent_dirs.write().await;
 		recent.retain(|_, timestamp| timestamp.elapsed() < timeout);
 	}
+
+	/// Clean up old entries from inode cache
+	async fn cleanup_inode_cache(&self, timeout: Duration) {
+		let mut cache = self.inode_cache.write().await;
+		let now = Instant::now();
+		cache.retain(|_, (_, timestamp)| now.duration_since(*timestamp) < timeout);
+	}
 }
 
 impl Default for MacOsHandler {
@@ -455,6 +496,9 @@ impl EventHandler for MacOsHandler {
 		// Clean up old entries from recent_dirs cache
 		self.cleanup_recent_dirs(dir_dedup_timeout).await;
 
+		// Clean up old entries from inode cache (use same timeout as dir dedup)
+		self.cleanup_inode_cache(dir_dedup_timeout).await;
+
 		Ok(events)
 	}
 
@@ -464,6 +508,7 @@ impl EventHandler for MacOsHandler {
 		self.pending_updates.write().await.clear();
 		self.reincident_updates.write().await.clear();
 		self.recent_dirs.write().await.clear();
+		self.inode_cache.write().await.clear();
 	}
 }
 
@@ -481,6 +526,7 @@ mod tests {
 		assert!(handler.pending_updates.read().await.is_empty());
 		assert!(handler.reincident_updates.read().await.is_empty());
 		assert!(handler.recent_dirs.read().await.is_empty());
+		assert!(handler.inode_cache.read().await.is_empty());
 	}
 
 	#[tokio::test]

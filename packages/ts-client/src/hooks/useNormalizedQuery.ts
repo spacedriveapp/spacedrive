@@ -155,12 +155,9 @@ export function useNormalizedQuery<I, O>(
 		if (!libraryId) return;
 
 		// Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
-		// Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
-		if (
-			options.resourceType === "file" &&
-			!options.pathScope &&
-			!options.resourceId
-		) {
+		// File resources are too numerous - global subscriptions cause massive event spam
+		// Single-file queries (FileInspector) will use stale-while-revalidate instead
+		if (options.resourceType === "file" && !options.pathScope) {
 			return;
 		}
 
@@ -172,29 +169,11 @@ export function useNormalizedQuery<I, O>(
 		const capturedQueryKey = queryKey;
 
 		const handleEvent = (event: Event) => {
-			// Debug: log every batch event to understand what's happening
-			// if (typeof event !== "string" && "ResourceChangedBatch" in event) {
-			//   const batch = (event as any).ResourceChangedBatch;
-			//   console.log("[useNormalizedQuery] Batch event received", {
-			//     capturedPath: capturedPathScope,
-			//     currentRefPath: optionsRef.current.pathScope,
-			//     pathsMatch:
-			//       JSON.stringify(optionsRef.current.pathScope) ===
-			//       JSON.stringify(capturedPathScope),
-			//     resourceCount: batch.resources?.length || 0,
-			//     resourceType: batch.resource_type,
-			//   });
-			// }
-
 			// Guard: only process events if pathScope hasn't changed since subscription
 			if (
 				JSON.stringify(optionsRef.current.pathScope) !==
 				JSON.stringify(capturedPathScope)
 			) {
-				// console.log("[useNormalizedQuery] Dropping stale event", {
-				// 	eventPathScope: capturedPathScope,
-				// 	currentPathScope: optionsRef.current.pathScope,
-				// });
 				return;
 			}
 
@@ -218,22 +197,13 @@ export function useNormalizedQuery<I, O>(
 			)
 			.then((unsub) => {
 				if (isCancelled) {
-					// console.log(
-					//   "[useNormalizedQuery] Subscription cancelled before creation completed",
-					// );
 					unsub();
 				} else {
-					// console.log("[useNormalizedQuery] Subscription active", {
-					//   pathScope: options.pathScope,
-					// });
 					unsubscribe = unsub;
 				}
 			});
 
 		return () => {
-			// console.log("[useNormalizedQuery] Cleaning up subscription", {
-			//   pathScope: options.pathScope,
-			// });
 			isCancelled = true;
 			unsubscribe?.();
 		};
@@ -280,10 +250,6 @@ export function handleResourceEvent(
 	if ("ResourceChanged" in event) {
 		const result = v.safeParse(ResourceChangedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChanged event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -304,10 +270,6 @@ export function handleResourceEvent(
 	else if ("ResourceChangedBatch" in event) {
 		const result = v.safeParse(ResourceChangedBatchSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -332,10 +294,6 @@ export function handleResourceEvent(
 	else if ("ResourceDeleted" in event) {
 		const result = v.safeParse(ResourceDeletedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceDeleted event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -427,16 +385,6 @@ export function filterBatchResources(
 			// Only match if parent equals scope (normalized)
 			return parentDir === normalizedScope;
 		});
-
-		// const afterCount = filtered.length;
-		// if (beforeCount !== afterCount) {
-		//   console.log("[filterBatchResources] Filtered resources", {
-		//     pathScope: options.pathScope,
-		//     before: beforeCount,
-		//     after: afterCount,
-		//     filtered: beforeCount - afterCount,
-		//   });
-		// }
 	}
 
 	return filtered;
@@ -463,10 +411,6 @@ export function updateSingleResource<O>(
 	if (options) {
 		resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
 		if (resourcesToUpdate.length === 0) {
-			// console.log("[updateSingleResource] Filtered out resource", {
-			//   pathScope: options.pathScope,
-			//   resourcePath: resource.sd_path,
-			// });
 			return; // Resource was filtered out
 		}
 	}
@@ -653,11 +597,14 @@ function updateWrappedCache(
 		// Append new
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
-				// Skip resources with Content paths - they represent alternate instances
-				// and should only update existing entries (e.g., thumbnail generation)
-				if (resource.sd_path?.Content) {
+				// Check if resource already exists in the array (by ID)
+				const alreadyExists = array.some((item: any) => item.id === resource.id);
+
+				if (alreadyExists) {
 					continue;
 				}
+
+				// New resource - append it (including Content paths for new files!)
 				array.push(resource);
 			}
 		}

@@ -22,7 +22,7 @@ use uuid::Uuid;
 /// Builder for creating indexing test harness
 pub struct IndexingHarnessBuilder {
 	test_name: String,
-	temp_dir: Option<TempDir>,
+	watcher_enabled: bool,
 }
 
 impl IndexingHarnessBuilder {
@@ -30,23 +30,40 @@ impl IndexingHarnessBuilder {
 	pub fn new(test_name: impl Into<String>) -> Self {
 		Self {
 			test_name: test_name.into(),
-			temp_dir: None,
+			watcher_enabled: true, // Enabled by default
 		}
 	}
 
+	/// Disable the filesystem watcher for this test
+	pub fn disable_watcher(mut self) -> Self {
+		self.watcher_enabled = false;
+		self
+	}
+
 	/// Build the harness
-	pub async fn build(mut self) -> anyhow::Result<IndexingHarness> {
-		let temp_dir = TempDir::new()?;
-		let snapshot_dir = temp_dir.path().join("snapshots");
+	pub async fn build(self) -> anyhow::Result<IndexingHarness> {
+		// Use home directory for proper filesystem watcher support on macOS
+		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+		let test_root = PathBuf::from(home).join(format!(".spacedrive_test_{}", self.test_name));
+
+		// Clean up any existing test directory
+		let _ = tokio::fs::remove_dir_all(&test_root).await;
+		tokio::fs::create_dir_all(&test_root).await?;
+
+		let snapshot_dir = test_root.join("snapshots");
 		tokio::fs::create_dir_all(&snapshot_dir).await?;
 
 		// Initialize tracing
 		init_test_tracing(&self.test_name, &snapshot_dir)?;
 
-		// Create config
-		let config = TestConfigBuilder::new(temp_dir.path().to_path_buf())
+		// Create config with configurable watcher
+		let mut config = TestConfigBuilder::new(test_root.clone())
 			.build()
 			.context("Failed to create test config")?;
+
+		// Set watcher state based on builder configuration
+		config.services.fs_watcher_enabled = self.watcher_enabled;
+		config.save()?;
 
 		// Initialize core
 		let core = Core::new(config.data_dir.clone())
@@ -63,10 +80,9 @@ impl IndexingHarnessBuilder {
 			)
 			.await?;
 
-		// Register a test-specific device with unique UUID to avoid conflicts
-		// when tests run in parallel
-		let device_id = Uuid::new_v4();
-		let device_name = format!("{}_device", self.test_name);
+		// Use the real device UUID so the watcher can find locations
+		let device_id = sd_core::device::get_current_device_id();
+		let device_name = whoami::devicename();
 		register_device(&library, device_id, &device_name).await?;
 
 		// Get device record
@@ -76,11 +92,9 @@ impl IndexingHarnessBuilder {
 			.await?
 			.ok_or_else(|| anyhow::anyhow!("Device not found after registration"))?;
 
-		self.temp_dir = Some(temp_dir);
-
 		Ok(IndexingHarness {
 			_test_name: self.test_name,
-			_temp_dir: self.temp_dir.unwrap(),
+			_test_root: test_root,
 			snapshot_dir,
 			core,
 			library,
@@ -93,7 +107,7 @@ impl IndexingHarnessBuilder {
 /// Indexing test harness with convenient helper methods
 pub struct IndexingHarness {
 	_test_name: String,
-	_temp_dir: TempDir,
+	_test_root: PathBuf,
 	pub snapshot_dir: PathBuf,
 	pub core: Core,
 	pub library: Arc<sd_core::library::Library>,
@@ -104,7 +118,7 @@ pub struct IndexingHarness {
 impl IndexingHarness {
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
-		self._temp_dir.path()
+		&self._test_root
 	}
 
 	/// Create a test location directory with files
@@ -157,6 +171,36 @@ impl IndexingHarness {
 		// Wait for indexing to complete
 		wait_for_indexing(&self.library, location_db_id, Duration::from_secs(30)).await?;
 
+		// Register location with watcher so it can detect changes
+		if let Some(watcher) = self.core.context.get_fs_watcher().await {
+			use sd_core::ops::indexing::{handlers::LocationMeta, rules::RuleToggles};
+
+			let lib_cfg = self.library.config().await;
+			let idx_cfg = lib_cfg.settings.indexer;
+
+			let location_meta = LocationMeta {
+				id: location_record.uuid,
+				library_id: self.library.id(),
+				root_path: path.to_path_buf(),
+				rule_toggles: RuleToggles {
+					no_system_files: idx_cfg.no_system_files,
+					no_hidden: idx_cfg.no_hidden,
+					no_git: idx_cfg.no_git,
+					gitignore: idx_cfg.gitignore,
+					only_images: idx_cfg.only_images,
+					no_dev_dirs: idx_cfg.no_dev_dirs,
+				},
+			};
+
+			watcher.watch_location(location_meta).await?;
+			tracing::info!(
+				location_uuid = %location_record.uuid,
+				"Registered location with watcher"
+			);
+		} else {
+			tracing::warn!("Watcher not available, location changes will not be detected");
+		}
+
 		tracing::info!(
 			location_id = location_db_id,
 			"Location indexed successfully"
@@ -174,12 +218,18 @@ impl IndexingHarness {
 	/// Shutdown the harness
 	pub async fn shutdown(self) -> anyhow::Result<()> {
 		let lib_id = self.library.id();
+		let test_root = self._test_root.clone();
+
 		self.core.libraries.close_library(lib_id).await?;
 		drop(self.library);
 		self.core
 			.shutdown()
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
+
+		// Clean up test directory
+		tokio::fs::remove_dir_all(&test_root).await?;
+
 		Ok(())
 	}
 }
@@ -426,6 +476,88 @@ impl<'a> LocationHandle<'a> {
 		handle.wait().await?;
 
 		tracing::info!("Re-indexing completed");
+		Ok(())
+	}
+
+	/// Verify closure table integrity
+	///
+	/// This is critical for folder renames! When a folder is renamed, all children
+	/// must remain properly connected via the closure table. Without this, queries
+	/// that traverse the hierarchy will miss entries.
+	pub async fn verify_closure_table_integrity(&self) -> anyhow::Result<()> {
+		use sea_orm::sea_query::Expr;
+		use std::collections::HashSet;
+
+		let db = self.harness.library.db().conn();
+		let location_id = self
+			.entry_id
+			.ok_or_else(|| anyhow::anyhow!("Location has no entry_id"))?;
+
+		// Get all entries that should be in the location (via parent_id traversal)
+		let mut all_entries_via_parent = HashSet::new();
+		let mut queue = vec![location_id];
+
+		while let Some(parent_id) = queue.pop() {
+			all_entries_via_parent.insert(parent_id);
+
+			let children = entities::entry::Entity::find()
+				.filter(entities::entry::Column::ParentId.eq(parent_id))
+				.all(db)
+				.await?;
+
+			for child in children {
+				queue.push(child.id);
+			}
+		}
+
+		// Get all entries via closure table
+		let entries_via_closure: HashSet<i32> = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(location_id))
+			.all(db)
+			.await?
+			.into_iter()
+			.map(|ec| ec.descendant_id)
+			.collect();
+
+		// The closure table should contain ALL entries found via parent traversal
+		let missing_from_closure: Vec<_> = all_entries_via_parent
+			.difference(&entries_via_closure)
+			.collect();
+
+		if !missing_from_closure.is_empty() {
+			// Get details about the missing entries for better error messages
+			let missing_entries = entities::entry::Entity::find()
+				.filter(
+					entities::entry::Column::Id
+						.is_in(missing_from_closure.iter().copied().copied()),
+				)
+				.all(db)
+				.await?;
+
+			let mut error_msg = format!(
+				"❌ Closure table is corrupted! {} entries are missing from closure table but exist via parent_id:\n",
+				missing_from_closure.len()
+			);
+
+			for entry in missing_entries.iter().take(10) {
+				error_msg.push_str(&format!(
+					"  - Entry {} (name: '{}', kind: {})\n",
+					entry.id, entry.name, entry.kind
+				));
+			}
+
+			if missing_entries.len() > 10 {
+				error_msg.push_str(&format!("  ... and {} more\n", missing_entries.len() - 10));
+			}
+
+			anyhow::bail!(error_msg);
+		}
+
+		tracing::debug!(
+			"✅ Closure table integrity verified: {} entries properly connected",
+			all_entries_via_parent.len()
+		);
+
 		Ok(())
 	}
 }

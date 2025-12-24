@@ -8,7 +8,6 @@ pub(crate) mod config;
 mod error;
 mod lock;
 mod manager;
-mod statistics_listener;
 mod sync_helpers;
 
 pub use config::{LibraryConfig, LibrarySettings, LibraryStatistics};

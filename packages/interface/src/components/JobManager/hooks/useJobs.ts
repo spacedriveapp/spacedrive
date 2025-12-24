@@ -52,9 +52,16 @@ export function useJobs() {
           "JobCancelled" in event) {
         if ("JobCompleted" in event) {
           const jobId = event.JobCompleted?.job_id;
+          const jobType = event.JobCompleted?.job_type;
           if (jobId && !completedJobSounds.has(jobId)) {
             completedJobSounds.add(jobId);
-            sounds.jobDone();
+
+            // Play job-specific sound
+            if (jobType?.includes("copy") || jobType?.includes("Copy")) {
+              sounds.copy();
+            } else {
+              sounds.jobDone();
+            }
 
             // Clean up old entries after 5 seconds to prevent memory leak
             setTimeout(() => completedJobSounds.delete(jobId), 5000);

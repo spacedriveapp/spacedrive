@@ -35,14 +35,14 @@ export function Inspector({
   const variant: InspectorVariant = useMemo(() => {
     if (selectedFiles.length > 0 && selectedFiles[0]) {
       const file = selectedFiles[0];
-      
+
       // Check if this is a virtual location file
       if (isVirtualFile(file) && (file as any)._virtual?.type === "location") {
         // Show LocationInspector for virtual locations
         const locationData = (file as any)._virtual.data as LocationInfo;
         return { type: "location", location: locationData };
       }
-      
+
       // Regular file
       return { type: "file", file };
     }
@@ -51,9 +51,30 @@ export function Inspector({
     }
     return { type: "empty" };
   }, [selectedFiles, currentLocation]);
-  // Note: Window styling is now handled by the Tauri app layer
-  // No need for interface package to call platform-specific commands
 
+  return (
+    <InspectorView
+      variant={variant}
+      onPopOut={onPopOut}
+      showPopOutButton={showPopOutButton}
+      isPreviewActive={isPreviewActive}
+    />
+  );
+}
+
+interface InspectorViewProps {
+  variant: InspectorVariant;
+  onPopOut?: () => void;
+  showPopOutButton?: boolean;
+  isPreviewActive?: boolean;
+}
+
+function InspectorView({
+  variant,
+  onPopOut,
+  showPopOutButton = true,
+  isPreviewActive = false,
+}: InspectorViewProps) {
   return (
     <div
       className={clsx(
@@ -124,21 +145,29 @@ export function PopoutInspector() {
 
   // Listen for selection changes from main window
   useEffect(() => {
-    if (platform.onSelectedFilesChanged) {
-      let unlisten: (() => void) | undefined;
+    if (!platform.onSelectedFilesChanged) return;
 
-      platform.onSelectedFilesChanged((fileIds) => {
+    let unlisten: (() => void) | undefined;
+    let mounted = true;
+
+    platform.onSelectedFilesChanged((fileIds) => {
+      if (mounted) {
         setSelectedFileIds(fileIds);
-      }).then((unlistenFn) => {
+      }
+    }).then((unlistenFn) => {
+      if (mounted) {
         unlisten = unlistenFn;
-      }).catch((err) => {
-        console.error("Failed to listen for selected files changes:", err);
-      });
+      } else {
+        unlistenFn();
+      }
+    }).catch((err) => {
+      console.error("Failed to listen for selected files changes:", err);
+    });
 
-      return () => {
-        unlisten?.();
-      };
-    }
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
   }, [platform]);
 
   // Fetch the first selected file
@@ -171,5 +200,5 @@ export function PopoutInspector() {
     );
   }
 
-  return <Inspector variant={variant} showPopOutButton={false} />;
+  return <InspectorView variant={variant} showPopOutButton={false} />;
 }

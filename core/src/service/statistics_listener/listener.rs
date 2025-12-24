@@ -1,7 +1,9 @@
-//! Background listener that recalculates library statistics while ResourceEvents flow
+//! Per-library background listener that recalculates statistics while ResourceEvents flow
 
-use super::Library;
-use crate::infra::event::{Event, EventBus, EventSubscriber};
+use crate::{
+	infra::event::{Event, EventBus, EventSubscriber},
+	library::Library,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast::error::RecvError;
@@ -22,7 +24,12 @@ const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 /// - Recalculates at most every 5 seconds while events are flowing
 /// - Stops recalculating after 10 seconds of no events
 /// - Automatically restarts when new events arrive
-pub fn spawn_statistics_listener(library: Arc<Library>, event_bus: Arc<EventBus>) {
+///
+/// Returns a JoinHandle that can be used to abort the listener
+pub fn spawn_statistics_listener(
+	library: Arc<Library>,
+	event_bus: Arc<EventBus>,
+) -> tokio::task::JoinHandle<()> {
 	let library_id = library.id();
 
 	tokio::spawn(async move {
@@ -141,7 +148,7 @@ pub fn spawn_statistics_listener(library: Arc<Library>, event_bus: Arc<EventBus>
 				}
 			}
 		}
-	});
+	})
 }
 
 /// Run one active recalculation cycle while events are flowing

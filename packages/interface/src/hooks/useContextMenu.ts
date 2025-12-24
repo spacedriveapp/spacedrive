@@ -1,13 +1,19 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
 import { usePlatform } from '../platform';
+import type { KeybindId } from '../util/keybinds/registry';
+import { getKeybind } from '../util/keybinds/registry';
+import { getComboForPlatform, getCurrentPlatform, toDisplayString } from '../util/keybinds/platform';
 
 export interface ContextMenuItem {
 	type?: 'separator' | 'submenu';
 	icon?: Icon;
 	label?: string;
 	onClick?: () => void;
+	/** Legacy: manual keybind display string */
 	keybind?: string;
+	/** Type-safe keybind ID - automatically resolves to platform-specific display string */
+	keybindId?: KeybindId;
 	variant?: 'default' | 'dull' | 'danger';
 	disabled?: boolean;
 	condition?: () => boolean;
@@ -25,6 +31,48 @@ export interface ContextMenuResult {
 }
 
 /**
+ * Resolve keybind display string for a menu item
+ */
+function resolveKeybindDisplay(item: ContextMenuItem): string | undefined {
+	// If explicit keybind string is provided, use it
+	if (item.keybind) return item.keybind;
+
+	// If keybindId is provided, resolve to display string
+	if (item.keybindId) {
+		const keybind = getKeybind(item.keybindId);
+		if (keybind) {
+			const platform = getCurrentPlatform();
+			const combo = getComboForPlatform(keybind.combo, platform);
+			return toDisplayString(combo, platform);
+		}
+	}
+
+	return undefined;
+}
+
+/**
+ * Process menu items to resolve keybindId to display strings
+ */
+function processMenuItems(items: ContextMenuItem[]): ContextMenuItem[] {
+	return items.map(item => {
+		const processed = { ...item };
+
+		// Resolve keybind display string
+		const keybindDisplay = resolveKeybindDisplay(item);
+		if (keybindDisplay) {
+			processed.keybind = keybindDisplay;
+		}
+
+		// Process submenu items recursively
+		if (item.submenu) {
+			processed.submenu = processMenuItems(item.submenu);
+		}
+
+		return processed;
+	});
+}
+
+/**
  * Hook for creating context menus that work both natively (Tauri) and in web
  *
  * This hook is platform-agnostic. Menu items are defined once in React,
@@ -38,6 +86,7 @@ export interface ContextMenuResult {
  *       icon: Copy,
  *       label: "Copy",
  *       onClick: () => copyItems(),
+ *       keybindId: 'explorer.copy', // Auto-resolves to "⌘C" on macOS
  *       condition: () => selectedItems.length > 0
  *     },
  *     { type: "separator" },
@@ -45,6 +94,7 @@ export interface ContextMenuResult {
  *       label: "Delete",
  *       icon: Trash,
  *       onClick: () => deleteItems(),
+ *       keybindId: 'explorer.delete', // Auto-resolves to platform-specific
  *       variant: "danger"
  *     }
  *   ]
@@ -63,10 +113,11 @@ export function useContextMenu(config: ContextMenuConfig): ContextMenuResult {
 			e.preventDefault();
 			e.stopPropagation();
 
-			// Filter items by condition
-			const visibleItems = config.items.filter(
+			// Filter items by condition and process keybindIds
+			const filteredItems = config.items.filter(
 				(item) => !item.condition || item.condition()
 			);
+			const visibleItems = processMenuItems(filteredItems);
 
 			console.log('[useContextMenu] visible items:', visibleItems.length);
 

@@ -133,6 +133,7 @@ pub enum Event {
 	Refresh,
 
 	// Entry events (file/directory operations)
+	// DEPRECATED: Use ResourceChanged instead
 	EntryCreated {
 		library_id: Uuid,
 		entry_id: Uuid,
@@ -604,6 +605,48 @@ impl Event {
 									"alternate_path match: scope={}, alt_path={}, include_descendants={}",
 									scope_path.display(),
 									alt_path.display(),
+									include_descendants
+								);
+								return true;
+							}
+						}
+					}
+				}
+			} else {
+				// No alternate_paths - fall back to checking sd_path.Physical
+				// This handles newly created files before content hashing completes
+				if let Some(sd_path_value) = resource.get("sd_path") {
+					if let Ok(sd_path) = serde_json::from_value::<SdPath>(sd_path_value.clone()) {
+						if let (
+							SdPath::Physical {
+								device_slug: scope_device,
+								path: scope_path,
+							},
+							SdPath::Physical {
+								device_slug: res_device,
+								path: res_path,
+							},
+						) = (scope, &sd_path)
+						{
+							if scope_device != res_device {
+								continue;
+							}
+
+							let matches = if include_descendants {
+								res_path.starts_with(scope_path)
+							} else {
+								if let Some(parent) = res_path.parent() {
+									parent == scope_path.as_path()
+								} else {
+									false
+								}
+							};
+
+							if matches {
+								tracing::debug!(
+									"sd_path match (no alternate_paths): scope={}, path={}, include_descendants={}",
+									scope_path.display(),
+									res_path.display(),
 									include_descendants
 								);
 								return true;

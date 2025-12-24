@@ -107,6 +107,15 @@
 	}
 }
 
+@keyframes barber-pole {
+	0% {
+		background-position: 0 0;
+	}
+	100% {
+		background-position: 28px 0;
+	}
+}
+
 /* Hide TanStack Query devtools button logo but keep it clickable */
 .tsqd-open-btn-container {
 	width: 24px !important;

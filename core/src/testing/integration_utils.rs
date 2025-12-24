@@ -136,6 +136,7 @@ pub struct TestConfigBuilder {
 	networking_enabled: bool,
 	volume_monitoring_enabled: bool,
 	fs_watcher_enabled: bool,
+	statistics_listener_enabled: bool,
 	job_logging_enabled: bool,
 	telemetry_enabled: bool,
 }
@@ -145,12 +146,13 @@ impl TestConfigBuilder {
 	pub fn new(data_dir: PathBuf) -> Self {
 		Self {
 			data_dir,
-			log_level: "warn".to_string(),    // Reduce log noise by default
-			networking_enabled: false,        // Disable for faster tests
-			volume_monitoring_enabled: false, // Disable for faster tests
-			fs_watcher_enabled: true,         // Usually needed for indexing tests
-			job_logging_enabled: true,        // Usually needed for job tests
-			telemetry_enabled: false,         // Disable for tests
+			log_level: "warn".to_string(),      // Reduce log noise by default
+			networking_enabled: false,          // Disable for faster tests
+			volume_monitoring_enabled: false,   // Disable for faster tests
+			fs_watcher_enabled: true,           // Usually needed for indexing tests
+			statistics_listener_enabled: false, // Disable for faster tests
+			job_logging_enabled: true,          // Usually needed for job tests
+			telemetry_enabled: false,           // Disable for tests
 		}
 	}
 
@@ -175,6 +177,12 @@ impl TestConfigBuilder {
 	/// Enable/disable filesystem watcher (default: true)
 	pub fn fs_watcher_enabled(mut self, enabled: bool) -> Self {
 		self.fs_watcher_enabled = enabled;
+		self
+	}
+
+	/// Enable/disable statistics listener (default: false)
+	pub fn statistics_listener_enabled(mut self, enabled: bool) -> Self {
+		self.statistics_listener_enabled = enabled;
 		self
 	}
 
@@ -203,11 +211,13 @@ impl TestConfigBuilder {
 				log_directory: "job_logs".to_string(),
 				max_file_size: 10 * 1024 * 1024, // 10MB
 				include_debug: false,
+				log_ephemeral_jobs: false,
 			},
 			services: ServiceConfig {
 				networking_enabled: self.networking_enabled,
 				volume_monitoring_enabled: self.volume_monitoring_enabled,
 				fs_watcher_enabled: self.fs_watcher_enabled,
+				statistics_listener_enabled: self.statistics_listener_enabled,
 			},
 			logging: crate::config::app_config::LoggingConfig::default(),
 		}

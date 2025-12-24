@@ -4,6 +4,84 @@ Shared utilities for integration tests to reduce duplication and improve maintai
 
 ## Modules
 
+### `event_collector.rs` - Event Collection Utilities
+
+Shared event collector for capturing and analyzing events from the event bus during tests.
+
+**Key Components:**
+
+#### `EventCollector`
+
+Collects all events emitted during test execution for analysis and verification.
+
+**Basic Usage (Statistics Only):**
+```rust
+use helpers::EventCollector;
+
+// Create collector for statistics
+let mut collector = EventCollector::new(&harness.core.events);
+
+// Spawn and collect
+let collection_handle = tokio::spawn(async move {
+    collector.collect_events(Duration::from_secs(10)).await;
+    collector
+});
+
+// Analyze statistics
+let collector = collection_handle.await.unwrap();
+let stats = collector.analyze().await;
+stats.print();
+```
+
+**Advanced Usage (Full Event Capture for Debugging):**
+```rust
+// Create collector with full event data capture
+let mut collector = EventCollector::with_capture(&harness.core.events);
+
+// ... collect events ...
+
+let collector = collection_handle.await.unwrap();
+
+// Print statistics
+let stats = collector.analyze().await;
+stats.print();
+
+// Print full event details to stderr
+collector.print_events().await;
+
+// Write events to JSON file
+collector.write_to_file(&snapshot_dir.join("events.json")).await?;
+
+// Filter specific events
+let file_events = collector.get_resource_batch_events("file").await;
+let indexing_events = collector.get_events_by_type("IndexingCompleted").await;
+```
+
+**Methods:**
+- `new()` - Create collector for statistics only (lightweight)
+- `with_capture()` - Create collector that captures full event data
+- `collect_events(duration)` - Collect events for specified duration
+- `analyze()` - Generate statistics from collected events
+- `print_events()` - Print detailed event breakdown to stderr
+- `write_to_file(path)` - Write events to JSON file
+- `get_events_by_type(type)` - Filter events by variant name
+- `get_resource_batch_events(resource_type)` - Get ResourceChangedBatch for specific type
+
+#### `EventStats`
+
+Statistics about collected events with formatted output:
+
+- **ResourceChanged/ResourceChangedBatch** events by resource type
+- **Indexing** start/completion events
+- **Job** lifecycle events (started/completed)
+- **Entry** events (created/modified/deleted/moved)
+
+**Use Cases:**
+- Verifying watcher events during file operations
+- Testing normalized cache updates
+- Debugging event emission patterns
+- Creating test fixtures with real event data
+
 ### `indexing_harness.rs` - Indexing Test Utilities
 
 Provides a comprehensive test harness for indexing integration tests, eliminating boilerplate and making it easy to test change detection.

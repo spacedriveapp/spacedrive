@@ -50,6 +50,14 @@ pub struct ServiceConfig {
 
 	/// Whether filesystem watcher is enabled
 	pub fs_watcher_enabled: bool,
+
+	/// Whether statistics listener is enabled
+	#[serde(default = "default_true")]
+	pub statistics_listener_enabled: bool,
+}
+
+fn default_true() -> bool {
+	true
 }
 
 impl Default for ServiceConfig {
@@ -58,6 +66,7 @@ impl Default for ServiceConfig {
 			networking_enabled: true,
 			volume_monitoring_enabled: true,
 			fs_watcher_enabled: true,
+			statistics_listener_enabled: true,
 		}
 	}
 }
@@ -76,6 +85,10 @@ pub struct JobLoggingConfig {
 
 	/// Whether to include debug logs
 	pub include_debug: bool,
+
+	/// Whether to create log files for ephemeral (non-persistent) jobs
+	#[serde(default)]
+	pub log_ephemeral_jobs: bool,
 }
 
 impl Default for JobLoggingConfig {
@@ -85,6 +98,7 @@ impl Default for JobLoggingConfig {
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024, // 10MB default
 			include_debug: false,
+			log_ephemeral_jobs: false,
 		}
 	}
 }

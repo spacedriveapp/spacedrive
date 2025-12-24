@@ -60,13 +60,61 @@ Key features:
 - Automatic cleanup on drop
 - Configurable app settings
 
+## Multi-Device Testing
+
+Spacedrive provides two approaches for testing multi-device scenarios:
+
+### When to Use Subprocess Framework
+
+**Use `CargoTestRunner` subprocess framework when:**
+- Testing **real networking** with actual network discovery, NAT traversal, and connections
+- Testing **device pairing** workflows that require independent network stacks
+- Scenarios need **true process isolation** (separate memory spaces, different ports)
+- You want to test network reconnection, timeout, and failure handling
+- Testing cross-platform network behavior
+
+**Examples:** Device pairing, network discovery, connection management
+
+```rust
+// Uses real networking, separate processes
+let mut runner = CargoTestRunner::new()
+    .add_subprocess("alice", "alice_pairing_scenario")
+    .add_subprocess("bob", "bob_pairing_scenario");
+```
+
+### When to Use Custom Transport/Harness
+
+**Use custom harness with mock transport when:**
+- Testing **sync logic** without network overhead
+- Fast iteration on **data synchronization** algorithms
+- Testing **deterministic scenarios** without network timing issues
+- Verifying **database state** and **conflict resolution**
+- Need precise control over sync event ordering
+
+**Examples:** Real-time sync, backfill, content identity linking, conflict resolution
+
+```rust
+// Uses mock transport, single process, fast and deterministic
+let harness = TwoDeviceHarnessBuilder::new("sync_test")
+    .collect_events(true)
+    .build()
+    .await?;
+```
+
+### Comparison
+
+| Aspect | Subprocess Framework | Custom Harness |
+|--------|---------------------|----------------|
+| **Speed** | Slower (real networking) | Fast (in-memory) |
+| **Networking** | Real (discovery, NAT) | Mock transport |
+| **Isolation** | True process isolation | Shared process |
+| **Debugging** | Harder (multiple processes) | Easier (single process) |
+| **Determinism** | Network timing varies | Fully deterministic |
+| **Use Case** | Network features | Sync/data logic |
+
 ## Subprocess Testing Framework
 
-The subprocess framework enables testing of multi-device scenarios like pairing, file transfer, and synchronization.
-
-### Architecture
-
-The framework spawns separate `cargo test` processes for each device role:
+The subprocess framework spawns separate `cargo test` processes for each device role:
 
 ```rust
 let mut runner = CargoTestRunner::new()
@@ -128,7 +176,143 @@ Processes coordinate through:
 
 ## Common Test Patterns
 
+### Filesystem Watcher Testing
+
+When testing filesystem watcher functionality, several critical setup steps are required:
+
+#### Enable Watcher in Test Config
+
+The default `TestConfigBuilder` **disables the filesystem watcher** (for performance in sync tests). Tests that verify watcher events must explicitly enable it:
+
+```rust
+let mut config = TestConfigBuilder::new(test_root.clone())
+    .build()?;
+
+// CRITICAL: Enable watcher for change detection tests
+config.services.fs_watcher_enabled = true;
+config.save()?;
+
+let core = Core::new(config.data_dir.clone()).await?;
+```
+
+#### Use Home Directory Paths on macOS
+
+macOS temp directories (`/var/folders/...`) don't reliably deliver filesystem events. Use home directory paths instead:
+
+```rust
+// ❌ Don't use TempDir for watcher tests
+let temp_dir = TempDir::new()?;
+
+// ✅ Use home directory
+let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
+let test_root = PathBuf::from(home).join(".spacedrive_test_my_test");
+
+// Clean up before
+let _ = tokio::fs::remove_dir_all(&test_root).await;
+tokio::fs::create_dir_all(&test_root).await?;
+
+// ... run test ...
+
+// Clean up after
+tokio::fs::remove_dir_all(&test_root).await?;
+```
+
+#### Ephemeral Watching Requirements
+
+Ephemeral paths must be **indexed before watching**:
+
+```rust
+// 1. Index the directory (ephemeral mode)
+let config = IndexerJobConfig::ephemeral_browse(
+    SdPath::local(dest_dir.clone()),
+    IndexScope::Current
+);
+let job = IndexerJob::new(config);
+library.jobs().dispatch(job).await?.wait().await?;
+
+// 2. Mark indexing complete (indexer job does this automatically)
+context.ephemeral_cache().mark_indexing_complete(&dest_dir);
+
+// 3. Register for watching (indexer job does this automatically)
+watcher.watch_ephemeral(dest_dir.clone()).await?;
+
+// Now filesystem events will be detected
+```
+
+<Note>
+The `IndexerJob` automatically calls `watch_ephemeral()` after successful indexing, so manual registration is only needed when bypassing the indexer.
+</Note>
+
+#### Persistent Location Watching
+
+For persistent locations, the watcher auto-loads locations at startup. New locations created during tests must be manually registered:
+
+```rust
+// After creating and indexing a location
+let location_meta = LocationMeta {
+    id: location_uuid,
+    library_id: library.id(),
+    root_path: location_path.clone(),
+    rule_toggles: RuleToggles::default(),
+};
+
+watcher.watch_location(location_meta).await?;
+```
+
+The `IndexingHarness` handles this automatically.
+
+#### Event Collection Best Practices
+
+Start collecting events **after** initialization to avoid library statistics noise:
+
+```rust
+// Complete all setup first
+let harness = IndexingHarnessBuilder::new("test").build().await?;
+let location = harness.add_and_index_location(...).await?;
+
+// Wait for setup to settle
+tokio::time::sleep(Duration::from_millis(500)).await;
+
+// Start collecting BEFORE the operation you're testing
+let mut collector = EventCollector::new(&harness.core.events);
+let handle = tokio::spawn(async move {
+    collector.collect_events(Duration::from_secs(5)).await;
+    collector
+});
+
+// Perform operation
+perform_copy_operation().await?;
+
+// Collect and verify
+let collector = handle.await.unwrap();
+let stats = collector.analyze().await;
+assert!(stats.resource_changed.get("file").copied().unwrap_or(0) >= 2);
+```
+
+The `EventCollector` automatically filters out:
+- Library statistics updates (`LibraryStatisticsUpdated`)
+- Library resource events (non-file/entry events)
+
+#### Expected Event Types
+
+Different handlers emit different event types:
+
+- **Ephemeral handler**: Individual `ResourceChanged` events per file (CREATE + MODIFY)
+- **Persistent handler**: Batched `ResourceChangedBatch` events
+
+```rust
+// Ephemeral assertion
+let file_events = stats.resource_changed.get("file").copied().unwrap_or(0);
+assert!(file_events >= 2, "Expected file ResourceChanged events");
+
+// Persistent assertion
+let batch_count = stats.resource_changed_batch.get("file").copied().unwrap_or(0);
+assert!(batch_count >= 2, "Expected file ResourceChangedBatch events");
+```
+
 ### Event Monitoring
+
+#### Waiting for Specific Events
 
 Wait for specific Core events with timeouts:
 
@@ -141,6 +325,104 @@ let event = wait_for_event(
     Duration::from_secs(30)
 ).await?;
 ```
+
+#### Collecting All Events for Analysis
+
+For tests that need to verify event emission patterns (e.g., ResourceChanged events during operations), use the shared `EventCollector` helper:
+
+```rust
+use helpers::EventCollector;
+
+// Create collector with full event capture for debugging
+let mut collector = EventCollector::with_capture(&harness.core.events);
+
+// Spawn collection task
+let collection_handle = tokio::spawn(async move {
+    collector.collect_events(Duration::from_secs(10)).await;
+    collector
+});
+
+// Perform operations that emit events
+perform_copy_operation().await?;
+location.reindex().await?;
+
+// Retrieve collector and analyze
+let collector = collection_handle.await.unwrap();
+
+// Print statistics summary
+let stats = collector.analyze().await;
+stats.print();
+
+// Print full event details for debugging (when using with_capture)
+collector.print_events().await;
+
+// Write events to JSON file for later inspection
+collector.write_to_file(&snapshot_dir.join("events.json")).await?;
+
+// Filter specific events
+let file_events = collector.get_resource_batch_events("file").await;
+let indexing_events = collector.get_events_by_type("IndexingCompleted").await;
+```
+
+The `EventCollector` tracks:
+- **ResourceChanged/ResourceChangedBatch** events by resource type
+- **Indexing** start/completion events
+- **Job** lifecycle events (started/completed)
+- **Entry** events (created/modified/deleted/moved)
+
+**Statistics Output:**
+```
+Event Statistics:
+==================
+
+ResourceChangedBatch events:
+  file → 45 resources
+
+Indexing events:
+  Started: 1
+  Completed: 1
+
+Entry events:
+  Created: 3
+  Modified: 0
+
+Job events:
+  Started:
+    indexer → 1
+  Completed:
+    indexer → 1
+```
+
+**Detailed Event Output (with `with_capture()`):**
+```
+=== Collected Events (8) ===
+
+[1] IndexingStarted
+  Location: 550e8400-e29b-41d4-a716-446655440000
+
+[2] JobStarted
+  Job: indexer (job_123)
+
+[3] ResourceChangedBatch
+  Type: file
+  Resources: 45 items
+  Paths: 1 affected
+
+[4] IndexingCompleted
+  Location: 550e8400-e29b-41d4-a716-446655440000
+  Files: 42, Dirs: 3
+
+[5] JobCompleted
+  Job: indexer (job_123)
+  Output: Success
+```
+
+**Use Cases:**
+- Verifying watcher events during file operations
+- Testing normalized cache updates
+- Debugging event emission patterns
+- Creating test fixtures with real event data
+- Inspecting actual resource payloads in events
 
 ### Database Verification
 
@@ -198,12 +480,31 @@ wait_for_sync(&core_b).await?;
 
 ### Common Utilities
 
-The framework provides helper functions in `core/tests/helpers/mod.rs`:
+The framework provides comprehensive test helpers in `core/tests/helpers/`:
 
+**Event Collection:**
+- `EventCollector` - Collect and analyze all events from the event bus
+- `EventStats` - Statistics about collected events with formatted output
+
+**Indexing Tests:**
+- `IndexingHarnessBuilder` - Create isolated test environments with indexing support
+- `TestLocation` - Builder for test locations with files
+- `LocationHandle` - Handle to indexed locations with verification methods
+
+**Sync Tests:**
+- `TwoDeviceHarnessBuilder` - Pre-configured two-device sync test environments
+- `MockTransport` - Mock network transport for deterministic sync testing
+- `wait_for_sync()` - Sophisticated sync completion detection
+- `TestConfigBuilder` - Custom test configurations
+
+**Database & Jobs:**
 - `wait_for_event()` - Wait for specific events with timeout
-- `create_test_location()` - Set up test locations with files
-- `count_location_entries()` - Query entry counts
-- `wait_for_job_completion()` - Monitor job execution
+- `wait_for_indexing()` - Wait for indexing job completion
+- `register_device()` - Register a device in a library
+
+<Tip>
+See `core/tests/helpers/README.md` for detailed documentation on all available helpers including usage examples and migration guides.
+</Tip>
 
 ### Test Volumes
 
@@ -295,7 +596,15 @@ Common debugging approaches:
 ## Examples
 
 For complete examples, refer to:
-- `tests/device_pairing_test.rs` - Multi-device pairing
-- `tests/sync_integration_test.rs` - Complex sync scenarios
+
+**Single Device Tests:**
+- `tests/copy_action_test.rs` - Event collection during file operations (persistent + ephemeral)
 - `tests/job_resumption_integration_test.rs` - Job interruption handling
+
+**Subprocess Framework (Real Networking):**
+- `tests/device_pairing_test.rs` - Device pairing with real network discovery
+
+**Custom Harness (Mock Transport):**
+- `tests/sync_realtime_test.rs` - Real-time sync testing with deterministic transport
+- `tests/sync_integration_test.rs` - Complex sync scenarios with mock networking
 - `tests/file_transfer_test.rs` - Cross-device file operations

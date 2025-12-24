@@ -38,3 +38,31 @@ export type {
 	ContextMenuItem,
 	ContextMenuConfig,
 } from "./hooks/useContextMenu";
+
+// Keybind hooks
+export { useKeybind } from "./hooks/useKeybind";
+export type { KeybindHandler, UseKeybindOptions } from "./hooks/useKeybind";
+export { useKeybindScope, isScopeActive } from "./hooks/useKeybindScope";
+export { useKeybindMeta, useKeybindDisplayString } from "./hooks/useKeybindMeta";
+export type { KeybindMeta } from "./hooks/useKeybindMeta";
+
+// Clipboard hook
+export { useClipboard, useClipboardStore } from "./hooks/useClipboard";
+export type { ClipboardState } from "./hooks/useClipboard";
+
+// Keybind utilities
+export {
+	KEYBINDS,
+	getKeybind,
+	getAllKeybinds,
+	getKeybindsByScope,
+	getCurrentPlatform,
+	getComboForPlatform,
+	toDisplayString,
+} from "./util/keybinds";
+export type {
+	KeybindId,
+	KeybindScope,
+	KeybindDefinition,
+	KeyCombo,
+} from "./util/keybinds";

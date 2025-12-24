@@ -133,6 +133,7 @@ impl TestHarness {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
 				fs_watcher_enabled: true, // Need watcher to trigger reindex on move
+				statistics_listener_enabled: false,
 			},
 		};
 

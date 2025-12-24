@@ -58,7 +58,7 @@ impl LibraryAction for IndexVerifyAction {
 		);
 
 		// Step 1: Scan filesystem to get current state
-		let fs_entries = self.run_ephemeral_index(&library, &context, &path).await?;
+		let fs_entries = self.run_ephemeral_index(&library, &path).await?;
 
 		// Step 2: Query database for existing entries in this path
 		let db_entries = self.query_database_entries(&library, &path).await?;
@@ -95,7 +95,6 @@ impl IndexVerifyAction {
 	async fn run_ephemeral_index(
 		&self,
 		library: &Arc<crate::library::Library>,
-		context: &Arc<CoreContext>,
 		path: &Path,
 	) -> Result<HashMap<PathBuf, crate::ops::indexing::database_storage::EntryMetadata>, ActionError>
 	{
@@ -108,9 +107,6 @@ impl IndexVerifyAction {
 			Arc::new(RwLock::new(EphemeralIndex::new().map_err(|e| {
 				ActionError::from(std::io::Error::new(std::io::ErrorKind::Other, e))
 			})?));
-
-		// Subscribe to job events before dispatching
-		let mut event_subscriber = context.events.subscribe();
 
 		// Create indexer job config for ephemeral scanning
 		let config = IndexerJobConfig {
@@ -133,55 +129,22 @@ impl IndexVerifyAction {
 				ActionError::Internal(format!("Failed to dispatch indexer job: {}", e))
 			})?;
 
-		let job_id = job_handle.id().to_string();
+		let job_id = job_handle.id();
 		tracing::debug!(
 			"Waiting for ephemeral indexer job {} to complete...",
 			job_id
 		);
 
-		// Listen for job completion events
-		loop {
-			match event_subscriber.recv().await {
-				Ok(event) => match event {
-					crate::infra::event::Event::JobCompleted {
-						job_id: completed_id,
-						..
-					} if completed_id == job_id => {
-						tracing::debug!("Ephemeral indexer job {} completed", job_id);
-						break;
-					}
-					crate::infra::event::Event::JobFailed {
-						job_id: failed_id,
-						error,
-						..
-					} if failed_id == job_id => {
-						return Err(ActionError::Internal(format!(
-							"Ephemeral indexer job failed: {}",
-							error
-						)));
-					}
-					crate::infra::event::Event::JobCancelled {
-						job_id: cancelled_id,
-						..
-					} if cancelled_id == job_id => {
-						return Err(ActionError::Internal(
-							"Ephemeral indexer job was cancelled".to_string(),
-						));
-					}
-					_ => {
-						// Not our job event, keep listening
-					}
-				},
-				Err(e) => {
-					return Err(ActionError::Internal(format!(
-						"Failed to receive job event: {}",
-						e
-					)));
-				}
-			}
-		}
+		// Wait for the job to complete using the handle's built-in wait mechanism
+		job_handle
+			.wait()
+			.await
+			.map_err(|e| ActionError::Internal(format!("Ephemeral indexer job failed: {}", e)))?;
 
-		tracing::debug!("Ephemeral indexer job completed, extracting results");
+		tracing::debug!(
+			"Ephemeral indexer job {} completed, extracting results",
+			job_id
+		);
 
 		// Extract the results from our shared ephemeral index
 		let entries = {
