@@ -3,6 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
+import { useTabScrollSync } from "../../../TabManager";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy, File } from "@sd/ts-client";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
@@ -136,6 +137,9 @@ function VirtualizedGrid({
 	const parentRef = useRef<HTMLDivElement>(null);
 	const [containerWidth, setContainerWidth] = useState<number | null>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
+
+	// Preserve scroll position per tab
+	useTabScrollSync(parentRef);
 
 	// Synchronous measurement before paint to prevent layout shift
 	useLayoutEffect(() => {
