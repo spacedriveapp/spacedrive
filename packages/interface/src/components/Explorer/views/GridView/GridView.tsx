@@ -6,6 +6,7 @@ import { useNormalizedQuery } from "../../../../context";
 import { FileCard } from "./FileCard";
 import type { DirectorySortBy, File } from "@sd/ts-client";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
+import { DragSelect } from "./DragSelect";
 
 const VIRTUALIZATION_THRESHOLD = 0; // Disabled - always virtualize
 
@@ -59,30 +60,34 @@ export function GridView() {
 
 	// Conditional virtualization - use simple grid for small directories
 	const shouldVirtualize = files.length > VIRTUALIZATION_THRESHOLD;
+	const gridContainerRef = useRef<HTMLDivElement>(null);
 
 	if (!shouldVirtualize) {
 		return (
-			<div
-				className="grid p-3 min-h-full"
-				style={{
-					gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
-					gridAutoRows: "max-content",
-					gap: `${gapSize}px`,
-				}}
-				onClick={handleContainerClick}
-			>
-				{files.map((file, index) => (
-					<FileCard
-						key={file.id}
-						file={file}
-						fileIndex={index}
-						allFiles={files}
-						selected={isSelected(file.id)}
-						focused={index === focusedIndex}
-						selectedFiles={selectedFiles}
-						selectFile={selectFile}
-					/>
-				))}
+			<div ref={gridContainerRef} className="h-full overflow-auto" onClick={handleContainerClick}>
+				<DragSelect files={files} scrollRef={gridContainerRef}>
+					<div
+						className="grid p-3 min-h-full"
+						style={{
+							gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize}px, 1fr))`,
+							gridAutoRows: "max-content",
+							gap: `${gapSize}px`,
+						}}
+					>
+						{files.map((file, index) => (
+							<FileCard
+								key={file.id}
+								file={file}
+								fileIndex={index}
+								allFiles={files}
+								selected={isSelected(file.id)}
+								focused={index === focusedIndex}
+								selectedFiles={selectedFiles}
+								selectFile={selectFile}
+							/>
+						))}
+					</div>
+				</DragSelect>
 			</div>
 		);
 	}
@@ -255,62 +260,64 @@ function VirtualizedGrid({
 			className="h-full overflow-auto"
 			onClick={onContainerClick}
 		>
-			<div
-				className="relative"
-				style={{
-					height: `${rowVirtualizer.getTotalSize()}px`,
-					paddingTop: "12px",
-					paddingBottom: "12px",
-					minHeight: "100%",
-					opacity: isInitialized ? 1 : 0,
-					transition: "opacity 0.1s",
-				}}
-			>
-				{virtualRows.map((virtualRow) => {
-					const startIndex = virtualRow.index * columns;
-					const endIndex = Math.min(
-						startIndex + columns,
-						files.length,
-					);
-					const rowFiles = files.slice(startIndex, endIndex);
+			<DragSelect files={files} scrollRef={parentRef}>
+				<div
+					className="relative"
+					style={{
+						height: `${rowVirtualizer.getTotalSize()}px`,
+						paddingTop: "12px",
+						paddingBottom: "12px",
+						minHeight: "100%",
+						opacity: isInitialized ? 1 : 0,
+						transition: "opacity 0.1s",
+					}}
+				>
+					{virtualRows.map((virtualRow) => {
+						const startIndex = virtualRow.index * columns;
+						const endIndex = Math.min(
+							startIndex + columns,
+							files.length,
+						);
+						const rowFiles = files.slice(startIndex, endIndex);
 
-					return (
-						<div
-							key={virtualRow.key}
-							className="absolute left-0 w-full px-3"
-							style={{
-								top: `${virtualRow.start}px`,
-								height: `${gridSize + gapSize}px`,
-							}}
-						>
-							{/* CSS Grid within row - preserves flex-to-fill */}
+						return (
 							<div
-								className="grid h-full"
+								key={virtualRow.key}
+								className="absolute left-0 w-full px-3"
 								style={{
-									gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-									gap: `${gapSize}px`,
+									top: `${virtualRow.start}px`,
+									height: `${gridSize + gapSize}px`,
 								}}
 							>
-								{rowFiles.map((file, idx) => {
-									const fileIndex = startIndex + idx;
-									return (
-										<FileCard
-											key={file.id}
-											file={file}
-											fileIndex={fileIndex}
-											allFiles={files}
-											selected={isSelected(file.id)}
-											focused={fileIndex === focusedIndex}
-											selectedFiles={selectedFiles}
-											selectFile={selectFile}
-										/>
-									);
-								})}
+								{/* CSS Grid within row - preserves flex-to-fill */}
+								<div
+									className="grid h-full"
+									style={{
+										gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+										gap: `${gapSize}px`,
+									}}
+								>
+									{rowFiles.map((file, idx) => {
+										const fileIndex = startIndex + idx;
+										return (
+											<FileCard
+												key={file.id}
+												file={file}
+												fileIndex={fileIndex}
+												allFiles={files}
+												selected={isSelected(file.id)}
+												focused={fileIndex === focusedIndex}
+												selectedFiles={selectedFiles}
+												selectFile={selectFile}
+											/>
+										);
+									})}
+								</div>
 							</div>
-						</div>
-					);
-				})}
-			</div>
+						);
+					})}
+				</div>
+			</DragSelect>
 		</div>
 	);
 }

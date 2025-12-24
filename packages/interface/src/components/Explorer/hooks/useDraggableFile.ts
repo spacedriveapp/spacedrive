@@ -12,7 +12,11 @@ interface UseDraggableFileProps {
  * Wrapper around useDraggable that filters out right-clicks (including Ctrl+Click on macOS)
  * to prevent drag from starting when opening context menus
  */
-export function useDraggableFile({ file, selectedFiles, gridSize }: UseDraggableFileProps) {
+export function useDraggableFile({
+	file,
+	selectedFiles,
+	gridSize,
+}: UseDraggableFileProps) {
 	// Disable dragging for virtual files (they're display-only, not real filesystem entries)
 	const isVirtual = isVirtualFile(file);
 
@@ -40,10 +44,15 @@ export function useDraggableFile({ file, selectedFiles, gridSize }: UseDraggable
 						e.stopPropagation();
 						return;
 					}
+
+					// Stop event propagation to prevent Selecto from capturing this event
+					// This ensures file drag takes precedence over drag selection
+					e.stopPropagation();
+
 					// Call original listener for normal left-click
 					listeners.onPointerDown?.(e);
 				},
-		  }
+			}
 		: undefined;
 
 	return {
