@@ -5,7 +5,7 @@ import {
 	useMemo,
 	type ReactNode,
 } from "react";
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, type RouteObject } from "react-router-dom";
 import type { Router } from "@remix-run/router";
 
 /**
@@ -97,7 +97,7 @@ const TabManagerContext = createContext<TabManagerContextValue | null>(null);
 
 interface TabManagerProviderProps {
 	children: ReactNode;
-	routes: any[];
+	routes: RouteObject[];
 }
 
 export function TabManagerProvider({

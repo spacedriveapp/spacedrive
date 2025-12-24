@@ -340,10 +340,14 @@ const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 interface ExplorerProviderProps {
 	children: ReactNode;
+	/** Reserved for Phase 2: Will control whether this tab's context should process events/updates */
 	isActiveTab?: boolean;
 }
 
-export function ExplorerProvider({ children, isActiveTab = true }: ExplorerProviderProps) {
+export function ExplorerProvider({
+	children,
+	isActiveTab: _isActiveTab = true,
+}: ExplorerProviderProps) {
 	const routerNavigate = useNavigate();
 	const location = useLocation();
 	const viewPrefs = useViewPreferencesStore();
