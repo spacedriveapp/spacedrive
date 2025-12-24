@@ -1,19 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePlatform } from '../platform';
+import { useSpacedriveClient } from '../context';
+import type { Event } from '@sd/ts-client';
 
 export interface DaemonStatus {
 	isConnected: boolean;
 	isChecking: boolean;
 	isInstalled: boolean;
+	isCoreStarted: boolean;
 }
 
 export function useDaemonStatus() {
 	const platform = usePlatform();
+	const client = useSpacedriveClient();
 	const [status, setStatus] = useState<DaemonStatus>({
 		isConnected: true,
 		isChecking: false,
 		isInstalled: false,
+		isCoreStarted: false,
 	});
+	const coreStartedRef = useRef(false);
 
 	useEffect(() => {
 		if (platform.platform !== 'tauri') {
@@ -23,6 +29,7 @@ export function useDaemonStatus() {
 		let mounted = true;
 		let checkInterval: NodeJS.Timeout | null = null;
 		let listenerCleanup: (() => void) | null = null;
+		let coreEventUnsubscribe: (() => void) | null = null;
 
 		const checkDaemonStatus = async () => {
 			if (!mounted) return;
@@ -80,7 +87,9 @@ export function useDaemonStatus() {
 						...prev,
 						isConnected: false,
 						isChecking: false,
+						isCoreStarted: false,
 					}));
+					coreStartedRef.current = false;
 
 					// Start polling when disconnected
 					if (!checkInterval) {
@@ -95,14 +104,39 @@ export function useDaemonStatus() {
 					setStatus(prev => ({
 						...prev,
 						isChecking: true,
+						isCoreStarted: false,
 					}));
+					coreStartedRef.current = false;
 				}
 			});
+
+			// Subscribe to CoreStarted event from the client
+			if (client) {
+				try {
+					const unsubscribe = await client.subscribe((event: Event) => {
+						// CoreStarted is a string literal type, not an object
+						if (event === 'CoreStarted') {
+							console.log('[useDaemonStatus] CoreStarted event received');
+							if (mounted && !coreStartedRef.current) {
+								coreStartedRef.current = true;
+								setStatus(prev => ({
+									...prev,
+									isCoreStarted: true,
+								}));
+							}
+						}
+					});
+					coreEventUnsubscribe = unsubscribe;
+				} catch (error) {
+					console.error('[useDaemonStatus] Failed to subscribe to CoreStarted event:', error);
+				}
+			}
 
 			return () => {
 				unlistenConnected?.();
 				unlistenDisconnected?.();
 				unlistenStarting?.();
+				coreEventUnsubscribe?.();
 			};
 		};
 
@@ -149,7 +183,7 @@ export function useDaemonStatus() {
 			clearInterval(fallbackInterval);
 			listenerCleanup?.();
 		};
-	}, [platform]);
+	}, [platform, client]);
 
 	const startDaemon = async () => {
 		try {

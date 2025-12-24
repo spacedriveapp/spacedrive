@@ -49,6 +49,8 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { DaemonStartingOverlay } from "./components/DaemonStartingOverlay";
+import { useDaemonStatus } from "./hooks/useDaemonStatus";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 
@@ -830,6 +832,17 @@ export function ExplorerLayout() {
 
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
+	const { isConnected, isChecking, isCoreStarted } = useDaemonStatus();
+
+	// Show starting overlay by default until core has started
+	// This handles the initial startup phase where daemon is starting
+	const showStartingOverlay = !isCoreStarted;
+
+	// Show disconnected overlay only if:
+	// - Core has started (we've passed the initial startup phase)
+	// - Daemon is not connected
+	// - Not currently checking/starting (daemon failed, not starting)
+	const showDisconnectedOverlay = isCoreStarted && !isConnected && !isChecking;
 
 	return (
 		<SpacedriveProvider client={client}>
@@ -837,7 +850,8 @@ export function Explorer({ client }: AppProps) {
 				<DndWrapper>
 					<RouterProvider router={router} />
 				</DndWrapper>
-				<DaemonDisconnectedOverlay />
+				{showStartingOverlay && <DaemonStartingOverlay />}
+				{showDisconnectedOverlay && <DaemonDisconnectedOverlay />}
 				<Dialogs />
 				<ReactQueryDevtools
 					initialIsOpen={false}
