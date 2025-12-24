@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Copy } from "@phosphor-icons/react";
 import { useDaemonStatus } from "../hooks/useDaemonStatus";
@@ -45,7 +45,6 @@ export function DaemonDisconnectedOverlay({
 		installAndStartDaemon,
 	} = useDaemonStatus();
 	const [installAsService, setInstallAsService] = useState(isInstalled);
-	const prevConnected = useRef(isConnected);
 	const platform = usePlatform();
 
 	// Update checkbox when installation state changes
@@ -64,22 +63,6 @@ export function DaemonDisconnectedOverlay({
 			installAsService,
 		);
 	}, [installAsService]);
-
-	// Reload when connection state changes from false to true
-	useEffect(() => {
-		console.log("Daemon status changed:", {
-			isConnected,
-			prevConnected: prevConnected.current,
-			forceShow,
-		});
-
-		if (prevConnected.current === false && isConnected === true) {
-			console.log("Daemon reconnected! Reloading app...");
-			window.location.reload();
-		}
-
-		prevConnected.current = isConnected;
-	}, [isConnected, forceShow]);
 
 	const shouldShow = forceShow || !isConnected;
 

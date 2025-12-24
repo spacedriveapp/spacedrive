@@ -7,7 +7,7 @@ import {
 	useLocation,
 	useParams,
 } from "react-router-dom";
-import { useEffect, useMemo, memo } from "react";
+import { useEffect, useMemo, memo, useRef } from "react";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
@@ -835,14 +835,27 @@ export function ExplorerLayout() {
  * 
  * Shows startup overlay during initial app launch while waiting for daemon.
  * Shows disconnected overlay if daemon disconnects after initial connection.
+ * Triggers app reload on daemon reconnection to refresh stale state.
  */
 function DaemonOverlays() {
 	const { isConnected, isStarting } = useDaemonStatus();
+	const prevConnected = useRef(isConnected);
 	
 	// Show startup overlay during initial launch (isStarting=true, not connected)
 	// Show disconnected overlay if daemon disconnects after we were connected (isStarting=false, not connected)
 	const showStartup = isStarting && !isConnected;
 	const showDisconnected = !isStarting && !isConnected;
+	
+	// Reload app when daemon reconnects to refresh stale state.
+	// This effect lives here (not in DaemonDisconnectedOverlay) because the overlay
+	// unmounts when isConnected becomes true, preventing its effect from running.
+	useEffect(() => {
+		if (prevConnected.current === false && isConnected === true) {
+			console.log("[DaemonOverlays] Daemon reconnected! Reloading app...");
+			window.location.reload();
+		}
+		prevConnected.current = isConnected;
+	}, [isConnected]);
 	
 	return (
 		<>
