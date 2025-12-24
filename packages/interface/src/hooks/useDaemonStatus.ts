@@ -5,18 +5,29 @@ export interface DaemonStatus {
 	isConnected: boolean;
 	isChecking: boolean;
 	isInstalled: boolean;
+	isStarting: boolean;
+	hasEverConnected: boolean;
 }
 
 export function useDaemonStatus() {
 	const platform = usePlatform();
 	const [status, setStatus] = useState<DaemonStatus>({
-		isConnected: true,
+		isConnected: false,
 		isChecking: false,
 		isInstalled: false,
+		isStarting: true,
+		hasEverConnected: false,
 	});
 
 	useEffect(() => {
 		if (platform.platform !== 'tauri') {
+			// For non-Tauri platforms (web), assume daemon is connected
+			setStatus(prev => ({
+				...prev,
+				isConnected: true,
+				isStarting: false,
+				hasEverConnected: true,
+			}));
 			return;
 		}
 
@@ -36,6 +47,10 @@ export function useDaemonStatus() {
 						isConnected: isRunning,
 						// Only clear isChecking if we're connected (daemon started successfully)
 						isChecking: isRunning ? false : prev.isChecking,
+						// Clear isStarting once we've confirmed the daemon status
+						isStarting: false,
+						// Track if we've ever connected
+						hasEverConnected: prev.hasEverConnected || isRunning,
 					}));
 
 					// Clear polling if daemon is back online
@@ -50,6 +65,8 @@ export function useDaemonStatus() {
 						...prev,
 						isConnected: false,
 						// Don't clear isChecking on error - might still be starting
+						// Clear isStarting after first check attempt
+						isStarting: false,
 					}));
 				}
 			}
@@ -63,6 +80,8 @@ export function useDaemonStatus() {
 						...prev,
 						isConnected: true,
 						isChecking: false,
+						isStarting: false,
+						hasEverConnected: true,
 					}));
 
 					// Stop polling when connected
@@ -80,6 +99,7 @@ export function useDaemonStatus() {
 						...prev,
 						isConnected: false,
 						isChecking: false,
+						isStarting: false,
 					}));
 
 					// Start polling when disconnected
@@ -95,6 +115,7 @@ export function useDaemonStatus() {
 					setStatus(prev => ({
 						...prev,
 						isChecking: true,
+						isStarting: false,
 					}));
 				}
 			});

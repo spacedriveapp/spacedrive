@@ -49,6 +49,8 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { DaemonStartingOverlay } from "./components/DaemonStartingOverlay";
+import { useDaemonStatus } from "./hooks/useDaemonStatus";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 
@@ -828,6 +830,23 @@ export function ExplorerLayout() {
 	);
 }
 
+function DaemonOverlays() {
+	const { isConnected, hasEverConnected } = useDaemonStatus();
+
+	// Show starting overlay during initial startup (before first connection)
+	if (!isConnected && !hasEverConnected) {
+		return <DaemonStartingOverlay />;
+	}
+
+	// Show disconnected overlay if we were previously connected and are now disconnected
+	if (!isConnected && hasEverConnected) {
+		return <DaemonDisconnectedOverlay />;
+	}
+
+	// Once connected, show nothing
+	return null;
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
@@ -837,7 +856,7 @@ export function Explorer({ client }: AppProps) {
 				<DndWrapper>
 					<RouterProvider router={router} />
 				</DndWrapper>
-				<DaemonDisconnectedOverlay />
+				<DaemonOverlays />
 				<Dialogs />
 				<ReactQueryDevtools
 					initialIsOpen={false}
