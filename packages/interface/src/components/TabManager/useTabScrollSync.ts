@@ -16,7 +16,10 @@ export function useTabScrollSync(scrollRef: RefObject<HTMLElement | null>) {
 
 	// Track if we've restored for this tab+path combination
 	const restoredKeyRef = useRef<string>("");
-	const lastSavedRef = useRef<{ top: number; left: number }>({ top: 0, left: 0 });
+	const lastSavedRef = useRef<{ top: number; left: number }>({
+		top: 0,
+		left: 0,
+	});
 
 	// Create a stable key for the current tab+path+viewMode
 	const stateKey = `${activeTabId}:${viewMode}`;
@@ -28,7 +31,10 @@ export function useTabScrollSync(scrollRef: RefObject<HTMLElement | null>) {
 
 		// Debounce by checking if position actually changed
 		const { scrollTop, scrollLeft } = element;
-		if (lastSavedRef.current.top === scrollTop && lastSavedRef.current.left === scrollLeft) {
+		if (
+			lastSavedRef.current.top === scrollTop &&
+			lastSavedRef.current.left === scrollLeft
+		) {
 			return;
 		}
 
@@ -74,7 +80,10 @@ export function useTabScrollSync(scrollRef: RefObject<HTMLElement | null>) {
 			if (hasContent || attempt >= 5) {
 				element.scrollTop = savedState.scrollTop;
 				element.scrollLeft = savedState.scrollLeft;
-				lastSavedRef.current = { top: savedState.scrollTop, left: savedState.scrollLeft };
+				lastSavedRef.current = {
+					top: savedState.scrollTop,
+					left: savedState.scrollLeft,
+				};
 				restoredKeyRef.current = stateKey;
 			} else {
 				// Content not ready, try again
@@ -87,4 +96,3 @@ export function useTabScrollSync(scrollRef: RefObject<HTMLElement | null>) {
 		return () => clearTimeout(timeoutId);
 	}, [activeTabId, getScrollState, scrollRef, stateKey, viewMode]);
 }
-

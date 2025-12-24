@@ -76,6 +76,15 @@ export interface TabScrollState {
 	virtualOffset: number;
 }
 
+export interface TabViewState {
+	viewMode: string;
+	sortBy: string;
+	gridSize: number;
+	gapSize: number;
+	/** Column paths for ColumnView - stores the drill-down state */
+	columnPaths?: string[];
+}
+
 interface TabManagerContextValue {
 	tabs: Tab[];
 	activeTabId: string;
@@ -86,6 +95,8 @@ interface TabManagerContextValue {
 	updateTabTitle: (tabId: string, title: string) => void;
 	saveScrollState: (tabId: string, state: TabScrollState) => void;
 	getScrollState: (tabId: string) => TabScrollState | null;
+	saveViewState: (tabId: string, state: TabViewState) => void;
+	getViewState: (tabId: string) => TabViewState | null;
 	nextTab: () => void;
 	previousTab: () => void;
 	selectTabAtIndex: (index: number) => void;
@@ -121,6 +132,9 @@ export function TabManagerProvider({
 	const [scrollStates, setScrollStates] = useState<
 		Map<string, TabScrollState>
 	>(new Map());
+	const [viewStates, setViewStates] = useState<Map<string, TabViewState>>(
+		new Map(),
+	);
 	const [defaultNewTabPath, setDefaultNewTabPathState] =
 		useState<string>("/");
 
@@ -206,11 +220,22 @@ export function TabManagerProvider({
 		[],
 	);
 
+	const saveViewState = useCallback((tabId: string, state: TabViewState) => {
+		setViewStates((prev) => new Map(prev).set(tabId, state));
+	}, []);
+
 	const getScrollState = useCallback(
 		(tabId: string): TabScrollState | null => {
 			return scrollStates.get(tabId) || null;
 		},
 		[scrollStates],
+	);
+
+	const getViewState = useCallback(
+		(tabId: string): TabViewState | null => {
+			return viewStates.get(tabId) || null;
+		},
+		[viewStates],
 	);
 
 	const nextTab = useCallback(() => {
@@ -253,6 +278,8 @@ export function TabManagerProvider({
 			updateTabTitle,
 			saveScrollState,
 			getScrollState,
+			saveViewState,
+			getViewState,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,
@@ -269,6 +296,8 @@ export function TabManagerProvider({
 			updateTabTitle,
 			saveScrollState,
 			getScrollState,
+			saveViewState,
+			getViewState,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,

@@ -3,6 +3,7 @@ import type { SdPath, File } from "@sd/ts-client";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
+import { useTabColumnSync } from "../../../TabManager";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
@@ -18,24 +19,76 @@ export function ColumnView() {
 		selectFile,
 		clearSelection,
 	} = useSelection();
+	const { savedColumnPaths, saveColumnPaths, activeTabId } =
+		useTabColumnSync();
 	const [columnStack, setColumnStack] = useState<SdPath[]>([]);
 
 	// Store clearSelection in ref to avoid effect re-runs
 	const clearSelectionRef = useRef(clearSelection);
 	clearSelectionRef.current = clearSelection;
 
+	// Track last processed tab and path for initialization
+	const lastTabIdRef = useRef<string>("");
+	const lastPathRef = useRef<string | null>(null);
+	const justSwitchedTabRef = useRef<boolean>(false);
+
 	// Typeahead search state
 	const searchStringRef = useRef("");
 	const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-	// Initialize column stack when currentPath changes (external navigation)
-	// Internal navigation (clicking directories, arrow keys) only updates columnStack, not currentPath
+	// Initialize/restore columns when tab changes or external path change
 	useEffect(() => {
-		if (currentPath) {
+		if (!currentPath) return;
+
+		const currentPathStr =
+			"Physical" in currentPath ? currentPath.Physical?.path : null;
+		const isTabSwitch = lastTabIdRef.current !== activeTabId;
+		const isPathChange = lastPathRef.current !== currentPathStr;
+
+		// Update refs
+		lastTabIdRef.current = activeTabId;
+		lastPathRef.current = currentPathStr;
+
+		// On tab switch: try to restore saved columns
+		if (isTabSwitch) {
+			justSwitchedTabRef.current = true;
+
+			if (savedColumnPaths && savedColumnPaths.length > 0) {
+				const firstSaved = savedColumnPaths[0];
+				const savedFirstPath =
+					firstSaved && "Physical" in firstSaved
+						? firstSaved.Physical?.path
+						: null;
+
+				// Restore if saved columns match current path
+				if (savedFirstPath === currentPathStr) {
+					setColumnStack(savedColumnPaths);
+					return;
+				}
+			}
+
+			// No saved columns or mismatch - initialize with current path
+			setColumnStack([currentPath]);
+			clearSelectionRef.current();
+			return;
+		}
+
+		// On path change within same tab (external navigation like sidebar click)
+		// Skip if we just switched tabs (handled above)
+		if (isPathChange && !justSwitchedTabRef.current) {
 			setColumnStack([currentPath]);
 			clearSelectionRef.current();
 		}
-	}, [currentPath]);
+
+		justSwitchedTabRef.current = false;
+	}, [activeTabId, currentPath, savedColumnPaths]);
+
+	// Save column stack whenever it changes
+	useEffect(() => {
+		if (columnStack.length > 0) {
+			saveColumnPaths(columnStack);
+		}
+	}, [columnStack, saveColumnPaths]);
 
 	// Handle file selection - uses global selectFile and updates columns
 	const handleSelectFile = useCallback(
