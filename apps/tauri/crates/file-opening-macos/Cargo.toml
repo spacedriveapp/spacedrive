@@ -1,0 +1,13 @@
+[package]
+name = "file-opening-macos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+file-opening = { path = "../file-opening" }
+swift-rs = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[build-dependencies]
+swift-rs = "1.0"

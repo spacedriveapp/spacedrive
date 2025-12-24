@@ -16,6 +16,7 @@ import {
 	Crop,
 	FileVideo,
 	Scissors,
+	ArrowSquareOut,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
 import { useContextMenu } from "../../../hooks/useContextMenu";
@@ -27,6 +28,7 @@ import { useExplorer } from "../context";
 import { isVirtualFile } from "../utils/virtualFiles";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
+import { useOpenWith } from "../../../hooks/useOpenWith";
 
 interface UseFileContextMenuProps {
 	file: File;
@@ -46,6 +48,19 @@ export function useFileContextMenu({
 	const { runJob } = useJobDispatch();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+
+	// Get physical paths for file opening
+	const getPhysicalPaths = () => {
+		const targets =
+			selected && selectedFiles.length > 0 ? selectedFiles : [file];
+		return targets
+			.filter((f) => "Physical" in f.sd_path)
+			.map((f) => (f.sd_path as any).Physical.path);
+	};
+
+	const physicalPaths = getPhysicalPaths();
+	const { apps, openWithDefault, openWithApp, openMultipleWithApp } =
+		useOpenWith(physicalPaths);
 
 	// Get the files to operate on (multi-select or just this file)
 	// Filters out virtual files (they're display-only, not real filesystem entries)
@@ -75,17 +90,37 @@ export function useFileContextMenu({
 			{
 				icon: FolderOpen,
 				label: "Open",
-				onClick: () => {
+				onClick: async () => {
 					if (file.kind === "Directory") {
 						navigateToPath(file.sd_path);
-					} else {
-						console.log("Open file:", file.name);
-						// TODO: Implement file opening
+					} else if ("Physical" in file.sd_path) {
+						const physicalPath = (file.sd_path as any).Physical.path;
+						await openWithDefault(physicalPath);
 					}
 				},
 				keybind: "⌘O",
+				condition: () => file.kind === "Directory" || file.kind === "File",
+			},
+			{
+				type: "submenu",
+				icon: ArrowSquareOut,
+				label: "Open With",
 				condition: () =>
-					file.kind === "Directory" || file.kind === "File",
+					file.kind === "File" &&
+					"Physical" in file.sd_path &&
+					apps.length > 0,
+				submenu: apps.map((app) => ({
+					label: app.name,
+					onClick: async () => {
+						if (selected && selectedFiles.length > 1) {
+							await openMultipleWithApp(physicalPaths, app.id);
+						} else if ("Physical" in file.sd_path) {
+							const physicalPath = (file.sd_path as any).Physical
+								.path;
+							await openWithApp(physicalPath, app.id);
+						}
+					},
+				})),
 			},
 			{
 				icon: MagnifyingGlass,

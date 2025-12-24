@@ -2,6 +2,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod drag;
+mod file_opening;
 mod files;
 mod keybinds;
 mod server;
@@ -1815,6 +1816,10 @@ fn main() {
 			drag::force_clear_drag_state,
 			files::reveal_file,
 			files::get_sidecar_path,
+			file_opening::get_apps_for_paths,
+			file_opening::open_path_default,
+			file_opening::open_path_with_app,
+			file_opening::open_paths_with_app,
 			keybinds::register_keybind,
 			keybinds::unregister_keybind,
 			keybinds::get_registered_keybinds
@@ -1939,6 +1944,7 @@ fn main() {
 			app.manage(app_state);
 			app.manage(drag::DragCoordinator::new());
 			app.manage(keybinds::KeybindState::new());
+			app.manage(file_opening::FileOpeningService::new());
 
 			let _handle = app.handle().clone();
 

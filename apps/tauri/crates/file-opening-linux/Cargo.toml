@@ -1,0 +1,8 @@
+[package]
+name = "file-opening-linux"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+file-opening = { path = "../file-opening" }
+open = "5.3"

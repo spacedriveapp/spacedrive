@@ -11,6 +11,7 @@ import { TagPill } from "../../../Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from "../../utils/virtualFiles";
+import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -46,22 +47,29 @@ export const TableRow = memo(
 		const { navigateToPath } = useExplorer();
 		const { selectedFiles } = useSelection();
 
-		const contextMenu = useFileContextMenu({
-			file,
-			selectedFiles,
-			selected: isSelected,
-		});
+	const contextMenu = useFileContextMenu({
+		file,
+		selectedFiles,
+		selected: isSelected,
+	});
 
-		const handleClick = useCallback(
-			(e: React.MouseEvent) => {
-				const multi = e.metaKey || e.ctrlKey;
-				const range = e.shiftKey;
-				selectFile(file, files, multi, range);
-			},
-			[file, files, selectFile],
-		);
+	// Set up file opening for non-directory files
+	const physicalPath =
+		file.kind === "File" && "Physical" in file.sd_path
+			? [(file.sd_path as any).Physical.path]
+			: [];
+	const { openWithDefault } = useOpenWith(physicalPath);
 
-	const handleDoubleClick = useCallback(() => {
+	const handleClick = useCallback(
+		(e: React.MouseEvent) => {
+			const multi = e.metaKey || e.ctrlKey;
+			const range = e.shiftKey;
+			selectFile(file, files, multi, range);
+		},
+		[file, files, selectFile],
+	);
+
+	const handleDoubleClick = useCallback(async () => {
 		// Virtual files (locations, volumes, devices) always navigate to their sd_path
 		if (isVirtualFile(file) && file.sd_path) {
 			navigateToPath(file.sd_path);
@@ -71,8 +79,15 @@ export const TableRow = memo(
 		// Regular directories navigate normally
 		if (file.kind === "Directory") {
 			navigateToPath(file.sd_path);
+			return;
 		}
-	}, [file, navigateToPath]);
+
+		// Open regular files with default application
+		if (file.kind === "File" && "Physical" in file.sd_path) {
+			const physicalPath = (file.sd_path as any).Physical.path;
+			await openWithDefault(physicalPath);
+		}
+	}, [file, navigateToPath, openWithDefault]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {
