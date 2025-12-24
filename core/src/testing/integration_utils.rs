@@ -211,6 +211,7 @@ impl TestConfigBuilder {
 				log_directory: "job_logs".to_string(),
 				max_file_size: 10 * 1024 * 1024, // 10MB
 				include_debug: false,
+				log_ephemeral_jobs: false,
 			},
 			services: ServiceConfig {
 				networking_enabled: self.networking_enabled,

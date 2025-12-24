@@ -306,6 +306,20 @@ impl JobManager {
 		// Create persistence completion channel
 		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
 
+		// Only enable job file logging for persistent jobs (or if explicitly configured)
+		let job_logging_config = if should_persist
+			|| self
+				.context
+				.job_logging_config
+				.as_ref()
+				.map(|c| c.log_ephemeral_jobs)
+				.unwrap_or(false)
+		{
+			self.context.job_logging_config.clone()
+		} else {
+			None
+		};
+
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
@@ -321,7 +335,7 @@ impl JobManager {
 			handle.output.clone(),
 			networking,
 			volume_manager,
-			self.context.job_logging_config.clone(),
+			job_logging_config,
 			Some(library.job_logs_dir()),
 			Some(persistence_complete_tx),
 		);
@@ -367,18 +381,16 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Running => {
-								// Only emit events for persistent jobs
-								if should_persist {
-									event_bus.emit(Event::JobStarted {
-										job_id: job_id_clone.to_string(),
-										job_type: job_type_str.to_string(),
-										device_id,
-									});
-									info!("Emitted JobStarted event for job {}", job_id_clone);
-								}
+								// Emit event for all jobs
+								event_bus.emit(Event::JobStarted {
+									job_id: job_id_clone.to_string(),
+									job_type: job_type_str.to_string(),
+									device_id,
+								});
+								info!("Emitted JobStarted event for job {}", job_id_clone);
 							}
 							JobStatus::Completed => {
-								// Only emit events and trigger statistics for persistent jobs
+								// Emit completion event for all jobs
 								if should_persist {
 									// Get the final output from the handle before removing the job
 									let output = {
@@ -440,7 +452,7 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Failed => {
-								// Only emit events for persistent jobs
+								// Emit event for all jobs
 								if should_persist {
 									event_bus.emit(Event::JobFailed {
 										job_id: job_id_clone.to_string(),
@@ -455,7 +467,7 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Cancelled => {
-								// Only emit events for persistent jobs
+								// Emit event for all jobs
 								if should_persist {
 									event_bus.emit(Event::JobCancelled {
 										job_id: job_id_clone.to_string(),
@@ -684,6 +696,20 @@ impl JobManager {
 		// Create persistence completion channel
 		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
 
+		// Only enable job file logging for persistent jobs (or if explicitly configured)
+		let job_logging_config = if should_persist
+			|| self
+				.context
+				.job_logging_config
+				.as_ref()
+				.map(|c| c.log_ephemeral_jobs)
+				.unwrap_or(false)
+		{
+			self.context.job_logging_config.clone()
+		} else {
+			None
+		};
+
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
@@ -700,7 +726,7 @@ impl JobManager {
 			handle.output.clone(),
 			networking,
 			volume_manager,
-			self.context.job_logging_config.clone(),
+			job_logging_config,
 			Some(library.job_logs_dir()),
 			Some(persistence_complete_tx),
 		);
@@ -745,18 +771,16 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Running => {
-								// Only emit events for persistent jobs
-								if should_persist {
-									event_bus.emit(Event::JobStarted {
-										job_id: job_id_clone.to_string(),
-										job_type: job_type_str.to_string(),
-										device_id,
-									});
-									info!("Emitted JobStarted event for job {}", job_id_clone);
-								}
+								// Emit event for all jobs
+								event_bus.emit(Event::JobStarted {
+									job_id: job_id_clone.to_string(),
+									job_type: job_type_str.to_string(),
+									device_id,
+								});
+								info!("Emitted JobStarted event for job {}", job_id_clone);
 							}
 							JobStatus::Completed => {
-								// Only emit events and trigger statistics for persistent jobs
+								// Emit completion event for all jobs
 								if should_persist {
 									// Get the final output from the handle before removing the job
 									let output = {
@@ -818,7 +842,7 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Failed => {
-								// Only emit events for persistent jobs
+								// Emit event for all jobs
 								if should_persist {
 									event_bus.emit(Event::JobFailed {
 										job_id: job_id_clone.to_string(),
@@ -833,7 +857,7 @@ impl JobManager {
 								break;
 							}
 							JobStatus::Cancelled => {
-								// Only emit events for persistent jobs
+								// Emit event for all jobs
 								if should_persist {
 									event_bus.emit(Event::JobCancelled {
 										job_id: job_id_clone.to_string(),

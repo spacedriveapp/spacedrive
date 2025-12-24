@@ -152,14 +152,12 @@ export function PopoutInspector() {
 
     platform.onSelectedFilesChanged((fileIds) => {
       if (mounted) {
-        console.log("[PopoutInspector] Received selection change:", fileIds);
         setSelectedFileIds(fileIds);
       }
     }).then((unlistenFn) => {
       if (mounted) {
         unlisten = unlistenFn;
       } else {
-        // Component unmounted before listener was set up, clean up immediately
         unlistenFn();
       }
     }).catch((err) => {
@@ -175,11 +173,6 @@ export function PopoutInspector() {
   // Fetch the first selected file
   const firstFileId = selectedFileIds[0] || null;
 
-  console.log("[PopoutInspector] Current state:", {
-    selectedFileIds,
-    firstFileId,
-  });
-
   const { data: file, isLoading } = useLibraryQuery(
     {
       type: "files.by_id",
@@ -189,11 +182,6 @@ export function PopoutInspector() {
       enabled: !!firstFileId,
     }
   );
-
-  console.log("[PopoutInspector] Query result:", {
-    file: file?.id,
-    isLoading,
-  });
 
   // Compute inspector variant
   const variant: InspectorVariant = file

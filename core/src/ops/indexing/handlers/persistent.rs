@@ -136,7 +136,7 @@ impl PersistentEventHandler {
 				"Handler is running, creating worker for location {}",
 				location_id
 			);
-			self.ensure_worker(meta).await?;
+			self.ensure_worker(meta.clone()).await?;
 		} else {
 			debug!(
 				"Handler not running yet, worker will be created on start for location {}",
@@ -407,7 +407,15 @@ impl PersistentEventHandler {
 		context: Arc<CoreContext>,
 		config: PersistentHandlerConfig,
 	) -> Result<()> {
+		use sd_fs_watcher::FsEventKind;
+		use std::collections::HashMap;
+
 		info!("Location worker started for {}", meta.id);
+
+		// Buffer for pending removes - maps inode to (path, timestamp, is_directory)
+		// These are Remove events that might be part of a rename operation.
+		let mut pending_removes: HashMap<u64, (PathBuf, Instant, Option<bool>)> = HashMap::new();
+		const RENAME_TIMEOUT: Duration = Duration::from_millis(1000);
 
 		while let Some(first_event) = rx.recv().await {
 			// Start batching window
@@ -432,12 +440,51 @@ impl PersistentEventHandler {
 				meta.id
 			);
 
+			// Evict expired pending removes
+			let now = Instant::now();
+			let expired: Vec<u64> = pending_removes
+				.iter()
+				.filter(|(_, (_, ts, _))| now.duration_since(*ts) > RENAME_TIMEOUT)
+				.map(|(inode, _)| *inode)
+				.collect();
+
+			// Process expired removes as actual deletions
+			let mut expired_events = Vec::new();
+			for inode in expired {
+				if let Some((path, _, is_dir)) = pending_removes.remove(&inode) {
+					debug!(
+						"Evicting expired pending remove: {} (inode {})",
+						path.display(),
+						inode
+					);
+					expired_events.push(FsEvent::remove(path));
+				}
+			}
+
+			// Detect renames by matching Remove+Create pairs using database inodes.
+			// On macOS, renames arrive as separate Remove and Create events across batches.
+			let batch = Self::detect_renames_from_db(
+				&context,
+				meta.library_id,
+				batch,
+				&mut pending_removes,
+			)
+			.await;
+
+			// Combine expired removes with processed batch
+			let mut final_batch = expired_events;
+			final_batch.extend(batch);
+
+			if final_batch.is_empty() {
+				continue;
+			}
+
 			// Pass FsEvent batch directly to responder
 			if let Err(e) = responder::apply_batch(
 				&context,
 				meta.library_id,
 				meta.id,
-				batch,
+				final_batch,
 				meta.rule_toggles,
 				&meta.root_path,
 				None, // volume_backend - TODO: resolve from context
@@ -450,6 +497,143 @@ impl PersistentEventHandler {
 
 		info!("Location worker stopped for {}", meta.id);
 		Ok(())
+	}
+
+	/// Detect renames by matching Remove+Create pairs using database inodes.
+	///
+	/// Remove events with inodes are buffered in `pending_removes`. Create events
+	/// check against this buffer to detect renames. This handles the case where
+	/// Remove and Create arrive in separate batches (common on macOS FSEvents).
+	async fn detect_renames_from_db(
+		context: &Arc<CoreContext>,
+		library_id: Uuid,
+		events: Vec<FsEvent>,
+		pending_removes: &mut std::collections::HashMap<u64, (PathBuf, Instant, Option<bool>)>,
+	) -> Vec<FsEvent> {
+		use sd_fs_watcher::FsEventKind;
+
+		let Some(library) = context.get_library(library_id).await else {
+			return events;
+		};
+		let db = library.db().conn();
+
+		let mut result: Vec<FsEvent> = Vec::new();
+
+		for event in events {
+			match &event.kind {
+				FsEventKind::Remove => {
+					// Query database for inode
+					let inode = Self::get_inode_from_db(db, &event.path).await;
+					if let Some(inode) = inode {
+						debug!(
+							"Buffering Remove event: {} with inode {} for potential rename",
+							event.path.display(),
+							inode
+						);
+						// Buffer for potential rename detection
+						pending_removes
+							.insert(inode, (event.path, Instant::now(), event.is_directory));
+					} else {
+						// No inode in DB, emit as regular Remove
+						result.push(event);
+					}
+				}
+				FsEventKind::Create => {
+					// Get inode from filesystem
+					let inode = Self::get_inode_from_fs(&event.path).await;
+
+					if let Some(inode) = inode {
+						// Check if this matches a pending remove
+						if let Some((old_path, _, is_dir)) = pending_removes.remove(&inode) {
+							// Found a match - emit Rename
+							info!(
+								"Detected rename via database inode {}: {} -> {}",
+								inode,
+								old_path.display(),
+								event.path.display()
+							);
+							let rename_event = if let Some(is_dir) = is_dir.or(event.is_directory) {
+								FsEvent::rename_with_dir_flag(old_path, event.path, is_dir)
+							} else {
+								FsEvent::rename(old_path, event.path)
+							};
+							result.push(rename_event);
+							continue;
+						}
+					}
+					// No matching pending remove, emit as regular Create
+					result.push(event);
+				}
+				_ => {
+					result.push(event);
+				}
+			}
+		}
+
+		result
+	}
+
+	/// Get the inode for a path from the database.
+	async fn get_inode_from_db(
+		db: &sea_orm::DatabaseConnection,
+		path: &std::path::Path,
+	) -> Option<u64> {
+		use crate::infra::db::entities::{directory_paths, entry};
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		// First try as directory (lookup via directory_paths)
+		let path_str = path.to_string_lossy().to_string();
+		if let Ok(Some(dir_record)) = directory_paths::Entity::find()
+			.filter(directory_paths::Column::Path.eq(&path_str))
+			.one(db)
+			.await
+		{
+			if let Ok(Some(entry_record)) =
+				entry::Entity::find_by_id(dir_record.entry_id).one(db).await
+			{
+				if let Some(inode) = entry_record.inode {
+					return Some(inode as u64);
+				}
+			}
+		}
+
+		// Try as file (lookup via parent directory + name)
+		let parent = path.parent()?;
+		let name = path.file_stem()?.to_str()?;
+		let ext = path.extension().and_then(|e| e.to_str());
+
+		let parent_str = parent.to_string_lossy().to_string();
+		let parent_dir = directory_paths::Entity::find()
+			.filter(directory_paths::Column::Path.eq(&parent_str))
+			.one(db)
+			.await
+			.ok()??;
+
+		let mut query = entry::Entity::find()
+			.filter(entry::Column::ParentId.eq(parent_dir.entry_id))
+			.filter(entry::Column::Name.eq(name));
+
+		if let Some(e) = ext {
+			query = query.filter(entry::Column::Extension.eq(e.to_lowercase()));
+		} else {
+			query = query.filter(entry::Column::Extension.is_null());
+		}
+
+		let entry_record = query.one(db).await.ok()??;
+		entry_record.inode.map(|i| i as u64)
+	}
+
+	/// Get the inode for a path from the filesystem.
+	async fn get_inode_from_fs(path: &std::path::Path) -> Option<u64> {
+		#[cfg(unix)]
+		{
+			use std::os::unix::fs::MetadataExt;
+			tokio::fs::metadata(path).await.ok().map(|m| m.ino())
+		}
+		#[cfg(not(unix))]
+		{
+			None
+		}
 	}
 }
 

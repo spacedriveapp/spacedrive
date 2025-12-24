@@ -159,8 +159,18 @@ impl SpacedriveWindow {
 					(320.0, 400.0),
 					true,
 					true, // always on top
-					false,
+					true, // transparent for macOS styling
 				)?;
+
+				// Apply macOS titlebar styling
+				#[cfg(target_os = "macos")]
+				{
+					if let Ok(ns_window) = window.ns_window() {
+						unsafe {
+							sd_desktop_macos::set_titlebar_style(&ns_window, false);
+						}
+					}
+				}
 
 				// Listen for window close to notify main window
 				let app_handle = app.clone();
@@ -372,7 +382,7 @@ fn create_window(
 	always_on_top: bool,
 	transparent: bool,
 ) -> Result<WebviewWindow, String> {
-	let window = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
+	let mut builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(url.into()))
 		.title(title)
 		.inner_size(size.0, size.1)
 		.min_inner_size(min_size.0, min_size.1)
@@ -380,12 +390,21 @@ fn create_window(
 		.decorations(decorations)
 		.transparent(transparent)
 		.always_on_top(always_on_top)
-		.center()
+		.center();
+
+	// Enable DevTools in dev mode
+	#[cfg(debug_assertions)]
+	{
+		builder = builder.devtools(true);
+	}
+
+	let window = builder
 		.build()
 		.map_err(|e| format!("Failed to create window: {}", e))?;
 
 	window.show().ok();
 	window.set_focus().ok();
+
 	Ok(window)
 }
 

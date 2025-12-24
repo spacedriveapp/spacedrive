@@ -85,6 +85,10 @@ pub struct JobLoggingConfig {
 
 	/// Whether to include debug logs
 	pub include_debug: bool,
+
+	/// Whether to create log files for ephemeral (non-persistent) jobs
+	#[serde(default)]
+	pub log_ephemeral_jobs: bool,
 }
 
 impl Default for JobLoggingConfig {
@@ -94,6 +98,7 @@ impl Default for JobLoggingConfig {
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024, // 10MB default
 			include_debug: false,
+			log_ephemeral_jobs: false,
 		}
 	}
 }

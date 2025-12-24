@@ -23,11 +23,14 @@
 Journey to v2.0.0-pre.1:
 ✔ Get all desktop release CI working @done(25-12-16 23:51)
 ☐ Ephemeral sidecars @critical
+☐ Remote file access on demand @critical
+☐ Open files with default app (cross platform) @critical
 ☐ Sometimes quick preview reporting file not found @today (happens in the second column of column view)
+☐ Ensure updater and changelog are working @today
+☐ Drop external items INTO spacedrive explorer @today
+☐ Connection info on device panel (lan/relay)
 ✔ Grid view render bug, shows as column for split second on first render of results @done(25-12-22 07:49)
-☐ Ensure updater and changelog are working
-☐ Drop external items INTO spacedrive explorer
-☐ Job sound: make copy sound a varient, not play also
+✔ Job sound: make copy sound a varient, not play also @done(25-12-24 07:24)
 ☐ Run now button in Location Inspector doesn't work well @today
 ✔ Sidebar active based on Explorer path @today @done(25-12-20 07:59)
 ☐ Delete location UX improvement
@@ -36,10 +39,9 @@ Journey to v2.0.0-pre.1:
 # It has an issue where it conflicts with the tab focus navigation and is out of order often
 ☐ Device owned data count mismatch reconciliation
 ☐ Synced directories seem to be missing relationships to form tree (sometimes)
-☐ Drag selection area + command to add to selection
+☐ Drag selection area + command to add to selection @today
 ✔ Back/forward button navigation not working @critical @done(25-12-22 05:43)
 # Investigate sync integrity
-☐ Remote file access on demand @critical
 ✔ Refetch all queries when window focus @today @done(25-12-20 09:55)
 ✔ Fix job reactivity @today @done(25-12-21 06:14)
 # CLI reactivity works fine, but interface job manager often doesn't show up for jobs, generating thubmnails ALWAYS does, but speech, splat and indexing don't show in the UI
@@ -60,9 +62,10 @@ Journey to v2.0.0-pre.1:
 ☐ Make default home folders SpaceItems
 ☐ Choose custom device name on mobile setup flow
 # Decide how this works in the context of sync, likely organize by device
-☐ New Space Item resource event not working
+✔ New Space Item resource event not working @done(25-12-24 07:25)
 ✔ Can't drag and drop onto space items to copy paste @done(25-12-16 23:51)
 ☐ Sometimes device shows as online even if its not
+☐ Stale detection background discovery reindex @critical
 # Looks like cache state issue, even though the devices due
 ☐ Eject volume button
 ☐ Index mode not showing in location inspector
@@ -82,10 +85,8 @@ Journey to v2.0.0-pre.1:
 ☐ History tab of the File Inspector is dummy data
 ☐ Improve copy/paste/move flow to actually validate before showing modal
 ☐ Fix three device sync
-☐ Add box selections
 ☐ Refactor the CLI
 ☐ Improve inspector design
-☐ Stale detection background discovery reindex
 # See INDEX-009 for stale detection
 ☐ RAW support
 ☐ Sign Windows build
