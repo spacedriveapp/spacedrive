@@ -49,6 +49,8 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { DaemonStartupOverlay } from "./components/DaemonStartupOverlay";
+import { useDaemonStatus } from "./hooks/useDaemonStatus";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 
@@ -828,6 +830,28 @@ export function ExplorerLayout() {
 	);
 }
 
+/**
+ * DaemonOverlays - Manages which daemon overlay to show
+ * 
+ * Shows startup overlay during initial app launch while waiting for daemon.
+ * Shows disconnected overlay if daemon disconnects after initial connection.
+ */
+function DaemonOverlays() {
+	const { isConnected, isStarting } = useDaemonStatus();
+	
+	// Show startup overlay during initial launch (isStarting=true, not connected)
+	// Show disconnected overlay if daemon disconnects after we were connected (isStarting=false, not connected)
+	const showStartup = isStarting && !isConnected;
+	const showDisconnected = !isStarting && !isConnected;
+	
+	return (
+		<>
+			<DaemonStartupOverlay show={showStartup} />
+			{showDisconnected && <DaemonDisconnectedOverlay />}
+		</>
+	);
+}
+
 export function Explorer({ client }: AppProps) {
 	const router = createExplorerRouter();
 
@@ -837,7 +861,7 @@ export function Explorer({ client }: AppProps) {
 				<DndWrapper>
 					<RouterProvider router={router} />
 				</DndWrapper>
-				<DaemonDisconnectedOverlay />
+				<DaemonOverlays />
 				<Dialogs />
 				<ReactQueryDevtools
 					initialIsOpen={false}
