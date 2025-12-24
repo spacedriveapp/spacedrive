@@ -42,6 +42,8 @@ pub struct IndexerStats {
 	pub symlinks: u64,
 	pub skipped: u64,
 	pub errors: u64,
+	/// Directories pruned via mtime optimization (not scanned)
+	pub pruned: u64,
 }
 
 /// Public-facing phase information exposed to the UI.

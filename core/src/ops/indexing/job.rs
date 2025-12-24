@@ -316,11 +316,20 @@ impl IndexerJob {
 					if self.config.is_current_scope() {
 						Self::run_current_scope_discovery_static(state, &ctx, root_path).await?;
 					} else {
+						// Get database connection for mtime pruning
+						let db = if self.config.is_ephemeral() {
+							None // Ephemeral jobs don't have database access
+						} else {
+							Some(Arc::new(ctx.library().db().as_ref().clone()))
+						};
+
 						phases::run_discovery_phase(
 							state,
 							&ctx,
 							root_path,
 							self.config.rule_toggles.clone(),
+							&self.config.mode,
+							db,
 							volume_backend.as_ref(),
 							cloud_url_base,
 						)
