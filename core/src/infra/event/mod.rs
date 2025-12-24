@@ -315,6 +315,30 @@ pub enum Event {
 		resource_id: Uuid,
 	},
 
+	// Ephemeral sidecar events
+	/// Ephemeral sidecar was generated for a specific entry
+	EphemeralSidecarGenerated {
+		/// Library ID
+		library_id: Uuid,
+		/// Entry UUID (ephemeral, not content UUID)
+		entry_uuid: Uuid,
+		/// Sidecar kind (e.g., "thumb", "preview", "transcript")
+		kind: String,
+		/// Sidecar variant (e.g., "grid@1x", "detail@2x")
+		variant: String,
+		/// File format (e.g., "webp", "mp4", "txt")
+		format: String,
+		/// File size in bytes
+		size: u64,
+	},
+	/// Ephemeral sidecars were cleared for a library or session
+	EphemeralSidecarsCleared {
+		/// Library ID
+		library_id: Uuid,
+		/// Number of entries whose sidecars were removed
+		count: usize,
+	},
+
 	// Legacy events (for compatibility)
 	LocationAdded {
 		library_id: Uuid,
