@@ -1,11 +1,13 @@
 export { TabManagerProvider } from "./TabManagerContext";
-export type { Tab, TabScrollState, TabViewState } from "./TabManagerContext";
+export type {
+	Tab,
+	TabExplorerState,
+	ViewMode,
+	SortBy,
+} from "./TabManagerContext";
 export { useTabManager } from "./useTabManager";
-export { useTabScrollSync } from "./useTabScrollSync";
-export { useTabColumnSync } from "./useTabColumnSync";
 export { TabBar } from "./TabBar";
 export { TabView } from "./TabView";
 export { TabNavigationSync } from "./TabNavigationSync";
 export { TabDefaultsSync } from "./TabDefaultsSync";
-export { TabViewSync } from "./TabViewSync";
 export { TabKeyboardHandler } from "./TabKeyboardHandler";

@@ -28,6 +28,7 @@ export function ExplorerView() {
 		setSidebarVisible,
 		inspectorVisible,
 		setInspectorVisible,
+		activeTabId,
 		tagModeActive,
 		setTagModeActive,
 		viewMode,

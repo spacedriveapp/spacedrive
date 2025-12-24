@@ -10,7 +10,6 @@ import {
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
-import { useTabScrollSync } from "../../../TabManager";
 import type { File } from "@sd/ts-client";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
@@ -47,8 +46,7 @@ export function MediaView() {
 	const [containerWidth, setContainerWidth] = useState(0);
 	const [scrollOffset, setScrollOffset] = useState(0);
 
-	// Preserve scroll position per tab
-	useTabScrollSync(parentRef);
+	// TODO: Preserve scroll position per tab using scrollPosition from context
 
 	// Track when element is ready
 	const [elementReady, setElementReady] = useState(false);

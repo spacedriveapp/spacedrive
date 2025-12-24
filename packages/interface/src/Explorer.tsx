@@ -56,7 +56,6 @@ import {
 	TabBar,
 	TabNavigationSync,
 	TabDefaultsSync,
-	TabViewSync,
 	TabKeyboardHandler,
 	useTabManager,
 } from "./components/TabManager";
@@ -845,10 +844,9 @@ export function ExplorerLayout() {
 		<TopBarProvider>
 			<SelectionProvider>
 				<ExplorerProvider>
-					{/* Sync tab navigation, defaults, and view state with router */}
+					{/* Sync tab navigation and defaults with router */}
 					<TabNavigationSync />
 					<TabDefaultsSync />
-					<TabViewSync />
 					<ExplorerLayoutContent />
 				</ExplorerProvider>
 			</SelectionProvider>

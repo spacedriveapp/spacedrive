@@ -34,13 +34,11 @@ function deriveTitleFromPath(pathname: string, search: string): string {
 	if (pathname === "/explorer" && search) {
 		const params = new URLSearchParams(search);
 
-		// Handle virtual views: /explorer?view=device&id=abc123
 		const view = params.get("view");
 		if (view === "device") {
 			return "This Device";
 		}
 
-		// Handle path-based navigation
 		const pathParam = params.get("path");
 		if (pathParam) {
 			try {
@@ -60,6 +58,18 @@ function deriveTitleFromPath(pathname: string, search: string): string {
 	return "Spacedrive";
 }
 
+// ============================================================================
+// Types
+// ============================================================================
+
+export type ViewMode = "grid" | "list" | "column" | "media" | "size";
+export type SortBy =
+	| "name"
+	| "size"
+	| "date_modified"
+	| "date_created"
+	| "kind";
+
 export interface Tab {
 	id: string;
 	title: string;
@@ -69,23 +79,44 @@ export interface Tab {
 	savedPath: string;
 }
 
-export interface TabScrollState {
-	viewMode: string;
-	scrollTop: number;
-	scrollLeft: number;
-	virtualOffset: number;
-}
-
-export interface TabViewState {
-	viewMode: string;
-	sortBy: string;
+/**
+ * All explorer-related state for a single tab.
+ * This is the single source of truth - no sync effects needed.
+ */
+export interface TabExplorerState {
+	// View settings
+	viewMode: ViewMode;
+	sortBy: SortBy;
 	gridSize: number;
 	gapSize: number;
-	/** Column paths for ColumnView - stores the drill-down state */
-	columnPaths?: string[];
+	foldersFirst: boolean;
+
+	// Column view state (serialized SdPath[] as JSON strings)
+	columnStack: string[];
+
+	// Scroll position
+	scrollTop: number;
+	scrollLeft: number;
 }
 
+/** Default explorer state for new tabs */
+const DEFAULT_EXPLORER_STATE: TabExplorerState = {
+	viewMode: "grid",
+	sortBy: "name",
+	gridSize: 120,
+	gapSize: 16,
+	foldersFirst: true,
+	columnStack: [],
+	scrollTop: 0,
+	scrollLeft: 0,
+};
+
+// ============================================================================
+// Context
+// ============================================================================
+
 interface TabManagerContextValue {
+	// Tab management
 	tabs: Tab[];
 	activeTabId: string;
 	router: Router;
@@ -93,18 +124,25 @@ interface TabManagerContextValue {
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;
 	updateTabTitle: (tabId: string, title: string) => void;
-	saveScrollState: (tabId: string, state: TabScrollState) => void;
-	getScrollState: (tabId: string) => TabScrollState | null;
-	saveViewState: (tabId: string, state: TabViewState) => void;
-	getViewState: (tabId: string) => TabViewState | null;
+	updateTabPath: (tabId: string, path: string) => void;
 	nextTab: () => void;
 	previousTab: () => void;
 	selectTabAtIndex: (index: number) => void;
-	updateTabPath: (tabId: string, path: string) => void;
 	setDefaultNewTabPath: (path: string) => void;
+
+	// Explorer state (per-tab)
+	getExplorerState: (tabId: string) => TabExplorerState;
+	updateExplorerState: (
+		tabId: string,
+		updates: Partial<TabExplorerState>,
+	) => void;
 }
 
 const TabManagerContext = createContext<TabManagerContextValue | null>(null);
+
+// ============================================================================
+// Provider
+// ============================================================================
 
 interface TabManagerProviderProps {
 	children: ReactNode;
@@ -117,26 +155,36 @@ export function TabManagerProvider({
 }: TabManagerProviderProps) {
 	const router = useMemo(() => createBrowserRouter(routes), [routes]);
 
-	const [tabs, setTabs] = useState<Tab[]>(() => [
-		{
-			id: crypto.randomUUID(),
-			title: "Overview",
-			icon: null,
-			isPinned: false,
-			lastActive: Date.now(),
-			savedPath: "/",
-		},
-	]);
+	const [tabs, setTabs] = useState<Tab[]>(() => {
+		const initialTabId = crypto.randomUUID();
+		return [
+			{
+				id: initialTabId,
+				title: "Overview",
+				icon: null,
+				isPinned: false,
+				lastActive: Date.now(),
+				savedPath: "/",
+			},
+		];
+	});
 
 	const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
-	const [scrollStates, setScrollStates] = useState<
-		Map<string, TabScrollState>
-	>(new Map());
-	const [viewStates, setViewStates] = useState<Map<string, TabViewState>>(
-		new Map(),
-	);
+
+	// Initialize explorerStates with the first tab's state
+	const [explorerStates, setExplorerStates] = useState<
+		Map<string, TabExplorerState>
+	>(() => {
+		const initialMap = new Map<string, TabExplorerState>();
+		initialMap.set(tabs[0].id, { ...DEFAULT_EXPLORER_STATE });
+		return initialMap;
+	});
 	const [defaultNewTabPath, setDefaultNewTabPathState] =
 		useState<string>("/");
+
+	// ========================================================================
+	// Tab management
+	// ========================================================================
 
 	const setDefaultNewTabPath = useCallback((path: string) => {
 		setDefaultNewTabPathState(path);
@@ -145,7 +193,6 @@ export function TabManagerProvider({
 	const createTab = useCallback(
 		(title?: string, path?: string) => {
 			const tabPath = path ?? defaultNewTabPath;
-			// Parse path to extract pathname and search
 			const [pathname, search = ""] = tabPath.split("?");
 			const derivedTitle =
 				title ||
@@ -159,6 +206,11 @@ export function TabManagerProvider({
 				lastActive: Date.now(),
 				savedPath: tabPath,
 			};
+
+			// Initialize explorer state for the new tab
+			setExplorerStates((prev) =>
+				new Map(prev).set(newTab.id, { ...DEFAULT_EXPLORER_STATE }),
+			);
 
 			setTabs((prev) => [...prev, newTab]);
 			setActiveTabId(newTab.id);
@@ -185,6 +237,13 @@ export function TabManagerProvider({
 				}
 
 				return filtered;
+			});
+
+			// Clean up explorer state for closed tab
+			setExplorerStates((prev) => {
+				const next = new Map(prev);
+				next.delete(tabId);
+				return next;
 			});
 		},
 		[activeTabId],
@@ -213,30 +272,13 @@ export function TabManagerProvider({
 		);
 	}, []);
 
-	const saveScrollState = useCallback(
-		(tabId: string, state: TabScrollState) => {
-			setScrollStates((prev) => new Map(prev).set(tabId, state));
-		},
-		[],
-	);
-
-	const saveViewState = useCallback((tabId: string, state: TabViewState) => {
-		setViewStates((prev) => new Map(prev).set(tabId, state));
+	const updateTabPath = useCallback((tabId: string, path: string) => {
+		setTabs((prev) =>
+			prev.map((tab) =>
+				tab.id === tabId ? { ...tab, savedPath: path } : tab,
+			),
+		);
 	}, []);
-
-	const getScrollState = useCallback(
-		(tabId: string): TabScrollState | null => {
-			return scrollStates.get(tabId) || null;
-		},
-		[scrollStates],
-	);
-
-	const getViewState = useCallback(
-		(tabId: string): TabViewState | null => {
-			return viewStates.get(tabId) || null;
-		},
-		[viewStates],
-	);
 
 	const nextTab = useCallback(() => {
 		const currentIndex = tabs.findIndex((t) => t.id === activeTabId);
@@ -259,13 +301,32 @@ export function TabManagerProvider({
 		[tabs, switchTab],
 	);
 
-	const updateTabPath = useCallback((tabId: string, path: string) => {
-		setTabs((prev) =>
-			prev.map((tab) =>
-				tab.id === tabId ? { ...tab, savedPath: path } : tab,
-			),
-		);
-	}, []);
+	// ========================================================================
+	// Explorer state (per-tab)
+	// ========================================================================
+
+	const getExplorerState = useCallback(
+		(tabId: string): TabExplorerState => {
+			return explorerStates.get(tabId) ?? { ...DEFAULT_EXPLORER_STATE };
+		},
+		[explorerStates],
+	);
+
+	const updateExplorerState = useCallback(
+		(tabId: string, updates: Partial<TabExplorerState>) => {
+			setExplorerStates((prev) => {
+				const current = prev.get(tabId) ?? {
+					...DEFAULT_EXPLORER_STATE,
+				};
+				return new Map(prev).set(tabId, { ...current, ...updates });
+			});
+		},
+		[],
+	);
+
+	// ========================================================================
+	// Context value
+	// ========================================================================
 
 	const value = useMemo<TabManagerContextValue>(
 		() => ({
@@ -276,15 +337,13 @@ export function TabManagerProvider({
 			closeTab,
 			switchTab,
 			updateTabTitle,
-			saveScrollState,
-			getScrollState,
-			saveViewState,
-			getViewState,
+			updateTabPath,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,
-			updateTabPath,
 			setDefaultNewTabPath,
+			getExplorerState,
+			updateExplorerState,
 		}),
 		[
 			tabs,
@@ -294,15 +353,13 @@ export function TabManagerProvider({
 			closeTab,
 			switchTab,
 			updateTabTitle,
-			saveScrollState,
-			getScrollState,
-			saveViewState,
-			getViewState,
+			updateTabPath,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,
-			updateTabPath,
 			setDefaultNewTabPath,
+			getExplorerState,
+			updateExplorerState,
 		],
 	);
 

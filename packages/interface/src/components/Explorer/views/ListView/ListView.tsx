@@ -9,7 +9,6 @@ import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
-import { useTabScrollSync } from "../../../TabManager";
 import { TableRow } from "./TableRow";
 import {
 	useTable,
@@ -37,8 +36,7 @@ export const ListView = memo(function ListView() {
 	const headerScrollRef = useRef<HTMLDivElement>(null);
 	const bodyScrollRef = useRef<HTMLDivElement>(null);
 
-	// Preserve scroll position per tab
-	useTabScrollSync(containerRef);
+	// TODO: Preserve scroll position per tab using scrollPosition from context
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
