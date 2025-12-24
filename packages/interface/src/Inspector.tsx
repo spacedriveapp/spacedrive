@@ -145,25 +145,40 @@ export function PopoutInspector() {
 
   // Listen for selection changes from main window
   useEffect(() => {
-    if (platform.onSelectedFilesChanged) {
-      let unlisten: (() => void) | undefined;
+    if (!platform.onSelectedFilesChanged) return;
 
-      platform.onSelectedFilesChanged((fileIds) => {
+    let unlisten: (() => void) | undefined;
+    let mounted = true;
+
+    platform.onSelectedFilesChanged((fileIds) => {
+      if (mounted) {
+        console.log("[PopoutInspector] Received selection change:", fileIds);
         setSelectedFileIds(fileIds);
-      }).then((unlistenFn) => {
+      }
+    }).then((unlistenFn) => {
+      if (mounted) {
         unlisten = unlistenFn;
-      }).catch((err) => {
-        console.error("Failed to listen for selected files changes:", err);
-      });
+      } else {
+        // Component unmounted before listener was set up, clean up immediately
+        unlistenFn();
+      }
+    }).catch((err) => {
+      console.error("Failed to listen for selected files changes:", err);
+    });
 
-      return () => {
-        unlisten?.();
-      };
-    }
+    return () => {
+      mounted = false;
+      unlisten?.();
+    };
   }, [platform]);
 
   // Fetch the first selected file
   const firstFileId = selectedFileIds[0] || null;
+
+  console.log("[PopoutInspector] Current state:", {
+    selectedFileIds,
+    firstFileId,
+  });
 
   const { data: file, isLoading } = useLibraryQuery(
     {
@@ -174,6 +189,11 @@ export function PopoutInspector() {
       enabled: !!firstFileId,
     }
   );
+
+  console.log("[PopoutInspector] Query result:", {
+    file: file?.id,
+    isLoading,
+  });
 
   // Compute inspector variant
   const variant: InspectorVariant = file

@@ -30,6 +30,7 @@ export function SelectionProvider({ children }: { children: ReactNode }) {
     const fileIds = selectedFiles.map((f) => f.id);
 
     if (platform.setSelectedFileIds) {
+      console.log("[SelectionContext] Syncing selected files to platform:", fileIds);
       platform.setSelectedFileIds(fileIds).catch((err) => {
         console.error("Failed to sync selected files to platform:", err);
       });

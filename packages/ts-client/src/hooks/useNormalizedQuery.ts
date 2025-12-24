@@ -169,29 +169,11 @@ export function useNormalizedQuery<I, O>(
 		const capturedQueryKey = queryKey;
 
 		const handleEvent = (event: Event) => {
-			// Debug: log every batch event to understand what's happening
-			if (typeof event !== "string" && "ResourceChangedBatch" in event) {
-				const batch = (event as any).ResourceChangedBatch;
-				console.log("[useNormalizedQuery] Batch event received", {
-					capturedPath: capturedPathScope,
-					currentRefPath: optionsRef.current.pathScope,
-					pathsMatch:
-						JSON.stringify(optionsRef.current.pathScope) ===
-						JSON.stringify(capturedPathScope),
-					resourceCount: batch.resources?.length || 0,
-					resourceType: batch.resource_type,
-				});
-			}
-
 			// Guard: only process events if pathScope hasn't changed since subscription
 			if (
 				JSON.stringify(optionsRef.current.pathScope) !==
 				JSON.stringify(capturedPathScope)
 			) {
-				// console.log("[useNormalizedQuery] Dropping stale event", {
-				// 	eventPathScope: capturedPathScope,
-				// 	currentPathScope: optionsRef.current.pathScope,
-				// });
 				return;
 			}
 
@@ -215,22 +197,13 @@ export function useNormalizedQuery<I, O>(
 			)
 			.then((unsub) => {
 				if (isCancelled) {
-					// console.log(
-					//   "[useNormalizedQuery] Subscription cancelled before creation completed",
-					// );
 					unsub();
 				} else {
-					// console.log("[useNormalizedQuery] Subscription active", {
-					//   pathScope: options.pathScope,
-					// });
 					unsubscribe = unsub;
 				}
 			});
 
 		return () => {
-			// console.log("[useNormalizedQuery] Cleaning up subscription", {
-			//   pathScope: options.pathScope,
-			// });
 			isCancelled = true;
 			unsubscribe?.();
 		};
@@ -277,10 +250,6 @@ export function handleResourceEvent(
 	if ("ResourceChanged" in event) {
 		const result = v.safeParse(ResourceChangedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChanged event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -301,10 +270,6 @@ export function handleResourceEvent(
 	else if ("ResourceChangedBatch" in event) {
 		const result = v.safeParse(ResourceChangedBatchSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -329,10 +294,6 @@ export function handleResourceEvent(
 	else if ("ResourceDeleted" in event) {
 		const result = v.safeParse(ResourceDeletedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceDeleted event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -424,16 +385,6 @@ export function filterBatchResources(
 			// Only match if parent equals scope (normalized)
 			return parentDir === normalizedScope;
 		});
-
-		// const afterCount = filtered.length;
-		// if (beforeCount !== afterCount) {
-		//   console.log("[filterBatchResources] Filtered resources", {
-		//     pathScope: options.pathScope,
-		//     before: beforeCount,
-		//     after: afterCount,
-		//     filtered: beforeCount - afterCount,
-		//   });
-		// }
 	}
 
 	return filtered;
@@ -460,10 +411,6 @@ export function updateSingleResource<O>(
 	if (options) {
 		resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
 		if (resourcesToUpdate.length === 0) {
-			// console.log("[updateSingleResource] Filtered out resource", {
-			//   pathScope: options.pathScope,
-			//   resourcePath: resource.sd_path,
-			// });
 			return; // Resource was filtered out
 		}
 	}
@@ -510,53 +457,31 @@ export function updateBatchResources<O>(
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
 
-	console.log("[updateBatchResources]", {
-		totalResources: resources.length,
-		afterFilter: filteredResources.length,
-		pathScope: options.pathScope,
-		queryKey,
-	});
-
 	if (filteredResources.length === 0) {
-		console.log("[updateBatchResources] No matching resources after filter");
 		return; // No matching resources
 	}
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
-		if (!oldData) {
-			console.log("[updateBatchResources] No oldData in cache");
-			return oldData;
-		}
+		if (!oldData) return oldData;
 
 		// Handle array responses
 		if (Array.isArray(oldData)) {
-			const updated = updateArrayCache(
+			return updateArrayCache(
 				oldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
-			console.log("[updateBatchResources] Updated array cache", {
-				oldCount: oldData.length,
-				newCount: (updated as any[]).length,
-			});
-			return updated;
 		}
 
 		// Handle wrapped responses { files: [...] }
 		if (oldData && typeof oldData === "object") {
-			const updated = updateWrappedCache(
+			return updateWrappedCache(
 				oldData,
 				filteredResources,
 				noMergeFields,
 			) as O;
-			console.log("[updateBatchResources] Updated wrapped cache");
-			return updated;
 		}
 
-		console.log("[updateBatchResources] Cache data type not recognized", {
-			isArray: Array.isArray(oldData),
-			type: typeof oldData,
-		});
 		return oldData;
 	});
 }
@@ -647,7 +572,6 @@ function updateWrappedCache(
 	// This handles single object responses like files.by_id
 	const match = newResources.find((r: any) => r.id === oldData.id);
 	if (match) {
-		console.log("[updateWrappedCache] Direct merge (single object response)");
 		return safeMerge(oldData, match, noMergeFields);
 	}
 
@@ -656,73 +580,38 @@ function updateWrappedCache(
 		Array.isArray(oldData[key]),
 	);
 
-	console.log("[updateWrappedCache]", {
-		arrayField,
-		oldDataKeys: Object.keys(oldData),
-		newResourcesCount: newResources.length,
-		newResourceIds: newResources.map((r) => r.id),
-	});
-
 	if (arrayField) {
 		const array = [...oldData[arrayField]];
 		const seenIds = new Set();
 
-		console.log("[updateWrappedCache] Before update", {
-			arrayField,
-			oldArrayLength: array.length,
-			existingIds: array.map((i: any) => i.id),
-		});
-
 		// Update existing
-		let updatedCount = 0;
 		for (let i = 0; i < array.length; i++) {
 			const item: any = array[i];
 			const match = newResources.find((r: any) => r.id === item.id);
 			if (match) {
 				array[i] = safeMerge(item, match, noMergeFields);
 				seenIds.add(item.id);
-				updatedCount++;
 			}
 		}
 
 		// Append new
-		let appendedCount = 0;
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
 				// Check if resource already exists in the array (by ID)
-				// This handles Content-path resources that might have been updated
 				const alreadyExists = array.some((item: any) => item.id === resource.id);
 
 				if (alreadyExists) {
-					// Resource already in cache, was already updated above
-					console.log("[updateWrappedCache] Resource already in cache, skipping append", {
-						id: resource.id,
-						name: resource.name,
-					});
 					continue;
 				}
 
 				// New resource - append it (including Content paths for new files!)
 				array.push(resource);
-				appendedCount++;
-				console.log("[updateWrappedCache] Appended new resource", {
-					id: resource.id,
-					name: resource.name,
-					sdPath: resource.sd_path,
-				});
 			}
 		}
-
-		console.log("[updateWrappedCache] After update", {
-			updatedCount,
-			appendedCount,
-			newArrayLength: array.length,
-		});
 
 		return { ...oldData, [arrayField]: array };
 	}
 
-	console.log("[updateWrappedCache] No array field found, returning oldData unchanged");
 	return oldData;
 }
 

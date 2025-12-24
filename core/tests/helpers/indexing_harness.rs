@@ -22,6 +22,7 @@ use uuid::Uuid;
 /// Builder for creating indexing test harness
 pub struct IndexingHarnessBuilder {
 	test_name: String,
+	watcher_enabled: bool,
 }
 
 impl IndexingHarnessBuilder {
@@ -29,11 +30,18 @@ impl IndexingHarnessBuilder {
 	pub fn new(test_name: impl Into<String>) -> Self {
 		Self {
 			test_name: test_name.into(),
+			watcher_enabled: true, // Enabled by default
 		}
 	}
 
+	/// Disable the filesystem watcher for this test
+	pub fn disable_watcher(mut self) -> Self {
+		self.watcher_enabled = false;
+		self
+	}
+
 	/// Build the harness
-	pub async fn build(mut self) -> anyhow::Result<IndexingHarness> {
+	pub async fn build(self) -> anyhow::Result<IndexingHarness> {
 		// Use home directory for proper filesystem watcher support on macOS
 		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
 		let test_root = PathBuf::from(home).join(format!(".spacedrive_test_{}", self.test_name));
@@ -48,13 +56,13 @@ impl IndexingHarnessBuilder {
 		// Initialize tracing
 		init_test_tracing(&self.test_name, &snapshot_dir)?;
 
-		// Create config with watcher ENABLED (unlike sync tests which disable it)
+		// Create config with configurable watcher
 		let mut config = TestConfigBuilder::new(test_root.clone())
 			.build()
 			.context("Failed to create test config")?;
 
-		// Enable filesystem watcher for change detection tests
-		config.services.fs_watcher_enabled = true;
+		// Set watcher state based on builder configuration
+		config.services.fs_watcher_enabled = self.watcher_enabled;
 		config.save()?;
 
 		// Initialize core
@@ -468,6 +476,88 @@ impl<'a> LocationHandle<'a> {
 		handle.wait().await?;
 
 		tracing::info!("Re-indexing completed");
+		Ok(())
+	}
+
+	/// Verify closure table integrity
+	///
+	/// This is critical for folder renames! When a folder is renamed, all children
+	/// must remain properly connected via the closure table. Without this, queries
+	/// that traverse the hierarchy will miss entries.
+	pub async fn verify_closure_table_integrity(&self) -> anyhow::Result<()> {
+		use sea_orm::sea_query::Expr;
+		use std::collections::HashSet;
+
+		let db = self.harness.library.db().conn();
+		let location_id = self
+			.entry_id
+			.ok_or_else(|| anyhow::anyhow!("Location has no entry_id"))?;
+
+		// Get all entries that should be in the location (via parent_id traversal)
+		let mut all_entries_via_parent = HashSet::new();
+		let mut queue = vec![location_id];
+
+		while let Some(parent_id) = queue.pop() {
+			all_entries_via_parent.insert(parent_id);
+
+			let children = entities::entry::Entity::find()
+				.filter(entities::entry::Column::ParentId.eq(parent_id))
+				.all(db)
+				.await?;
+
+			for child in children {
+				queue.push(child.id);
+			}
+		}
+
+		// Get all entries via closure table
+		let entries_via_closure: HashSet<i32> = entry_closure::Entity::find()
+			.filter(entry_closure::Column::AncestorId.eq(location_id))
+			.all(db)
+			.await?
+			.into_iter()
+			.map(|ec| ec.descendant_id)
+			.collect();
+
+		// The closure table should contain ALL entries found via parent traversal
+		let missing_from_closure: Vec<_> = all_entries_via_parent
+			.difference(&entries_via_closure)
+			.collect();
+
+		if !missing_from_closure.is_empty() {
+			// Get details about the missing entries for better error messages
+			let missing_entries = entities::entry::Entity::find()
+				.filter(
+					entities::entry::Column::Id
+						.is_in(missing_from_closure.iter().copied().copied()),
+				)
+				.all(db)
+				.await?;
+
+			let mut error_msg = format!(
+				"❌ Closure table is corrupted! {} entries are missing from closure table but exist via parent_id:\n",
+				missing_from_closure.len()
+			);
+
+			for entry in missing_entries.iter().take(10) {
+				error_msg.push_str(&format!(
+					"  - Entry {} (name: '{}', kind: {})\n",
+					entry.id, entry.name, entry.kind
+				));
+			}
+
+			if missing_entries.len() > 10 {
+				error_msg.push_str(&format!("  ... and {} more\n", missing_entries.len() - 10));
+			}
+
+			anyhow::bail!(error_msg);
+		}
+
+		tracing::debug!(
+			"✅ Closure table integrity verified: {} entries properly connected",
+			all_entries_via_parent.len()
+		);
+
 		Ok(())
 	}
 }
