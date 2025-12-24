@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTabManager } from "./useTabManager";
 
@@ -17,8 +17,17 @@ export function TabNavigationSync() {
 	const activeTab = tabs.find((t) => t.id === activeTabId);
 	const currentPath = location.pathname + location.search;
 
-	// Save current location to active tab
+	// Track previous activeTabId to detect tab switches
+	const prevActiveTabIdRef = useRef(activeTabId);
+
+	// Save current location to active tab (only for in-tab navigation)
 	useEffect(() => {
+		// Skip saving during tab switch - currentPath belongs to the old tab
+		if (prevActiveTabIdRef.current !== activeTabId) {
+			prevActiveTabIdRef.current = activeTabId;
+			return;
+		}
+
 		if (activeTab && currentPath !== activeTab.savedPath) {
 			updateTabPath(activeTabId, currentPath);
 		}
