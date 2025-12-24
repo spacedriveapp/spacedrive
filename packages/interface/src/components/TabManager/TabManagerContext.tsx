@@ -3,12 +3,62 @@ import {
 	useState,
 	useCallback,
 	useMemo,
-	useEffect,
 	type ReactNode,
 } from "react";
 import { createBrowserRouter } from "react-router-dom";
 import type { Router } from "@remix-run/router";
-import { useNavigate, useLocation } from "react-router-dom";
+
+/**
+ * Derives a tab title from the current route pathname and search params
+ */
+function deriveTitleFromPath(pathname: string, search: string): string {
+	const routeTitles: Record<string, string> = {
+		"/": "Overview",
+		"/favorites": "Favorites",
+		"/recents": "Recents",
+		"/file-kinds": "File Kinds",
+		"/search": "Search",
+		"/jobs": "Jobs",
+		"/daemon": "Daemon",
+	};
+
+	if (routeTitles[pathname]) {
+		return routeTitles[pathname];
+	}
+
+	if (pathname.startsWith("/tag/")) {
+		const tagId = pathname.split("/")[2];
+		return tagId ? `Tag: ${tagId.slice(0, 8)}...` : "Tag";
+	}
+
+	if (pathname === "/explorer" && search) {
+		const params = new URLSearchParams(search);
+
+		// Handle virtual views: /explorer?view=device&id=abc123
+		const view = params.get("view");
+		if (view === "device") {
+			return "This Device";
+		}
+
+		// Handle path-based navigation
+		const pathParam = params.get("path");
+		if (pathParam) {
+			try {
+				const sdPath = JSON.parse(decodeURIComponent(pathParam));
+				if (sdPath?.Physical?.path) {
+					const fullPath = sdPath.Physical.path as string;
+					const parts = fullPath.split("/").filter(Boolean);
+					return parts[parts.length - 1] || "Explorer";
+				}
+			} catch {
+				// Fall through
+			}
+		}
+		return "Explorer";
+	}
+
+	return "Spacedrive";
+}
 
 export interface Tab {
 	id: string;
@@ -40,6 +90,7 @@ interface TabManagerContextValue {
 	previousTab: () => void;
 	selectTabAtIndex: (index: number) => void;
 	updateTabPath: (tabId: string, path: string) => void;
+	setDefaultNewTabPath: (path: string) => void;
 }
 
 const TabManagerContext = createContext<TabManagerContextValue | null>(null);
@@ -70,20 +121,36 @@ export function TabManagerProvider({
 	const [scrollStates, setScrollStates] = useState<
 		Map<string, TabScrollState>
 	>(new Map());
+	const [defaultNewTabPath, setDefaultNewTabPathState] =
+		useState<string>("/");
 
-	const createTab = useCallback((title = "Overview", path = "/") => {
-		const newTab: Tab = {
-			id: crypto.randomUUID(),
-			title,
-			icon: null,
-			isPinned: false,
-			lastActive: Date.now(),
-			savedPath: path,
-		};
-
-		setTabs((prev) => [...prev, newTab]);
-		setActiveTabId(newTab.id);
+	const setDefaultNewTabPath = useCallback((path: string) => {
+		setDefaultNewTabPathState(path);
 	}, []);
+
+	const createTab = useCallback(
+		(title?: string, path?: string) => {
+			const tabPath = path ?? defaultNewTabPath;
+			// Parse path to extract pathname and search
+			const [pathname, search = ""] = tabPath.split("?");
+			const derivedTitle =
+				title ||
+				deriveTitleFromPath(pathname, search ? `?${search}` : "");
+
+			const newTab: Tab = {
+				id: crypto.randomUUID(),
+				title: derivedTitle,
+				icon: null,
+				isPinned: false,
+				lastActive: Date.now(),
+				savedPath: tabPath,
+			};
+
+			setTabs((prev) => [...prev, newTab]);
+			setActiveTabId(newTab.id);
+		},
+		[defaultNewTabPath],
+	);
 
 	const closeTab = useCallback(
 		(tabId: string) => {
@@ -128,9 +195,7 @@ export function TabManagerProvider({
 
 	const updateTabTitle = useCallback((tabId: string, title: string) => {
 		setTabs((prev) =>
-			prev.map((tab) =>
-				tab.id === tabId ? { ...tab, title } : tab,
-			),
+			prev.map((tab) => (tab.id === tabId ? { ...tab, title } : tab)),
 		);
 	}, []);
 
@@ -192,6 +257,7 @@ export function TabManagerProvider({
 			previousTab,
 			selectTabAtIndex,
 			updateTabPath,
+			setDefaultNewTabPath,
 		}),
 		[
 			tabs,
@@ -207,6 +273,7 @@ export function TabManagerProvider({
 			previousTab,
 			selectTabAtIndex,
 			updateTabPath,
+			setDefaultNewTabPath,
 		],
 	);
 

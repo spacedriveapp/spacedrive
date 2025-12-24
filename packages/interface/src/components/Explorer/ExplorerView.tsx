@@ -127,7 +127,7 @@ export function ExplorerView() {
 			)}
 
 			<div className="relative flex w-full flex-col h-full overflow-hidden bg-app/80">
-				<div className="flex-1 overflow-auto pt-[52px]">
+				<div className="flex-1 overflow-auto">
 					{viewMode === "grid" ? (
 						<GridView />
 					) : viewMode === "list" ? (

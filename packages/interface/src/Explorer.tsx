@@ -51,7 +51,14 @@ import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
-import { TabManagerProvider, TabBar, TabNavigationSync, TabKeyboardHandler, useTabManager } from "./components/TabManager";
+import {
+	TabManagerProvider,
+	TabBar,
+	TabNavigationSync,
+	TabDefaultsSync,
+	TabKeyboardHandler,
+	useTabManager,
+} from "./components/TabManager";
 
 /**
  * QuickPreviewSyncer - Syncs selection changes to QuickPreview
@@ -275,9 +282,6 @@ function ExplorerLayoutContent() {
 				isPreviewActive={isPreviewActive}
 			/>
 
-			{/* Tab Bar - positioned below TopBar */}
-			<TabBar />
-
 			{/* Main content area with sidebar and content */}
 			<div className="flex flex-1 overflow-hidden">
 				<AnimatePresence initial={false} mode="popLayout">
@@ -286,7 +290,10 @@ function ExplorerLayoutContent() {
 							initial={{ x: -220, width: 0 }}
 							animate={{ x: 0, width: 220 }}
 							exit={{ x: -220, width: 0 }}
-							transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
+							transition={{
+								duration: 0.3,
+								ease: [0.25, 1, 0.5, 1],
+							}}
 							className="relative z-50 overflow-hidden"
 						>
 							<SpacesSidebar isPreviewActive={isPreviewActive} />
@@ -294,22 +301,28 @@ function ExplorerLayoutContent() {
 					)}
 				</AnimatePresence>
 
-				<div className="relative flex-1 overflow-hidden z-30">
-				{/* Router content renders here */}
-				<Outlet />
+				{/* Content area with tabs - positioned between sidebar and inspector */}
+				<div className="relative flex-1 flex flex-col overflow-hidden z-30 pt-12">
+					{/* Tab Bar - nested inside content area like Finder */}
+					<TabBar />
 
-				{/* Tag Assignment Mode - positioned at bottom of main content area */}
-				<TagAssignmentMode
-					isActive={tagModeActive}
-					onExit={() => setTagModeActive(false)}
-				/>
-			</div>
+					{/* Router content renders here */}
+					<div className="relative flex-1 overflow-hidden">
+						<Outlet />
 
-			{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
-			<KeyboardHandler />
+						{/* Tag Assignment Mode - positioned at bottom of main content area */}
+						<TagAssignmentMode
+							isActive={tagModeActive}
+							onExit={() => setTagModeActive(false)}
+						/>
+					</div>
+				</div>
 
-			{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
-			<QuickPreviewSyncer />
+				{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
+				<KeyboardHandler />
+
+				{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
+				<QuickPreviewSyncer />
 
 				<AnimatePresence initial={false}>
 					{/* Hide inspector on Overview screen and Knowledge view (has its own) */}
@@ -318,7 +331,10 @@ function ExplorerLayoutContent() {
 							initial={{ width: 0 }}
 							animate={{ width: 280 }}
 							exit={{ width: 0 }}
-							transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
+							transition={{
+								duration: 0.3,
+								ease: [0.25, 1, 0.5, 1],
+							}}
 							className="relative z-50 overflow-hidden"
 						>
 							<div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-transparent">
@@ -828,8 +844,9 @@ export function ExplorerLayout() {
 		<TopBarProvider>
 			<SelectionProvider>
 				<ExplorerProvider>
-					{/* Sync tab navigation with router */}
+					{/* Sync tab navigation and defaults with router */}
 					<TabNavigationSync />
+					<TabDefaultsSync />
 					<ExplorerLayoutContent />
 				</ExplorerProvider>
 			</SelectionProvider>
