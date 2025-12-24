@@ -76,6 +76,15 @@ impl LibraryAction for LocationAddAction {
 			IndexMode::Shallow => crate::location::IndexMode::Shallow,
 			IndexMode::Content => crate::location::IndexMode::Content,
 			IndexMode::Deep => crate::location::IndexMode::Deep,
+			// Stale mode is runtime-only for mtime pruning, not a valid location add mode.
+			// Extract the inner mode if somehow passed, defaulting to Deep.
+			IndexMode::Stale(ref inner) => match inner.as_ref() {
+				IndexMode::None => crate::location::IndexMode::None,
+				IndexMode::Shallow => crate::location::IndexMode::Shallow,
+				IndexMode::Content => crate::location::IndexMode::Content,
+				IndexMode::Deep => crate::location::IndexMode::Deep,
+				IndexMode::Stale(_) => crate::location::IndexMode::Deep, // Nested Stale is invalid, fallback to Deep
+			},
 		};
 
 		// Create action context for job tracking

@@ -37,7 +37,7 @@ pub struct LocationCreateArgs {
 }
 
 /// Location indexing mode
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum IndexMode {
 	/// Location exists but is not indexed
 	None,
@@ -51,6 +51,8 @@ pub enum IndexMode {
 	Deep,
 	/// Full indexing with all features
 	Full,
+	/// Stale detection mode - wraps an inner mode for indexing changed parts
+	Stale(Box<IndexMode>),
 }
 
 impl From<IndexMode> for JobIndexMode {
@@ -62,6 +64,7 @@ impl From<IndexMode> for JobIndexMode {
 			IndexMode::Content => JobIndexMode::Content,
 			IndexMode::Deep => JobIndexMode::Deep,
 			IndexMode::Full => JobIndexMode::Deep,
+			IndexMode::Stale(inner) => JobIndexMode::Stale(Box::new((*inner).into())),
 		}
 	}
 }
@@ -75,6 +78,7 @@ impl From<&str> for IndexMode {
 			"content" => IndexMode::Content,
 			"deep" => IndexMode::Deep,
 			"full" => IndexMode::Full,
+			// Stale mode is runtime-only, not parsed from string
 			_ => IndexMode::Full,
 		}
 	}
@@ -89,6 +93,7 @@ impl std::fmt::Display for IndexMode {
 			IndexMode::Content => write!(f, "content"),
 			IndexMode::Deep => write!(f, "deep"),
 			IndexMode::Full => write!(f, "full"),
+			IndexMode::Stale(inner) => write!(f, "stale({})", inner),
 		}
 	}
 }

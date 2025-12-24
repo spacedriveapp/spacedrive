@@ -210,7 +210,7 @@ impl LocationManager {
 			device_id,
 			library_id: library.id(),
 			indexing_enabled: true,
-			index_mode,
+			index_mode: index_mode.clone(),
 			watch_enabled: true,
 		};
 
@@ -341,7 +341,7 @@ impl LocationManager {
 		let config = IndexerJobConfig::new(
 			location.id,
 			location_sd_path.clone(),
-			location.index_mode.into(),
+			location.index_mode.clone().into(),
 		);
 		let indexer_job = IndexerJob::new(config);
 

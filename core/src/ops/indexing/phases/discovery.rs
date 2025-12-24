@@ -4,8 +4,16 @@
 //! using a work-stealing pattern inspired by Rayon. Workers pull directories from a
 //! shared queue, read their contents, filter entries against indexing rules, and
 //! directly enqueue subdirectories for other workers to process.
+//!
+//! ## Modified-Time Pruning (Stale Detection)
+//!
+//! When `IndexMode::Stale` is used, the discovery phase enables mtime pruning.
+//! This compares directory modified times between the filesystem and database,
+//! skipping unchanged branches to dramatically reduce scanning overhead for
+//! stale detection scenarios.
 
 use crate::{
+	domain::location::IndexMode,
 	infra::job::generic_progress::ToGenericProgress,
 	infra::job::prelude::{JobContext, JobError, Progress},
 	ops::indexing::{
@@ -15,9 +23,11 @@ use crate::{
 	},
 };
 use async_channel as chan;
+use chrono::{DateTime, Utc};
+use sea_orm::DatabaseConnection;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
-use std::time::Instant;
+use std::time::{Instant, SystemTime};
 use std::{path::Path, sync::Arc};
 
 struct SimpleMetadata {
@@ -34,6 +44,12 @@ impl crate::ops::indexing::rules::MetadataForIndexerRules for SimpleMetadata {
 /// Spawns worker tasks that walk the directory tree, apply filtering rules, and collect
 /// entries into batches for the processing phase. Falls back to sequential traversal
 /// when concurrency is 1 to avoid task spawning overhead for single-threaded scenarios.
+///
+/// ## Mtime Pruning
+///
+/// When `index_mode.uses_mtime_pruning()` returns true, the discovery phase compares
+/// directory modified times against the database. Directories with matching mtimes
+/// (within 1-second tolerance) are pruned, skipping their entire subtree.
 pub async fn run_discovery_phase(
 	state: &mut IndexerState,
 	ctx: &JobContext<'_>,
@@ -41,8 +57,17 @@ pub async fn run_discovery_phase(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	index_mode: &IndexMode,
 ) -> Result<(), JobError> {
 	let concurrency = state.discovery_concurrency;
+	let use_mtime_pruning = index_mode.uses_mtime_pruning();
+
+	if use_mtime_pruning {
+		ctx.log(format!(
+			"Stale detection mode enabled with mtime pruning (inner mode: {:?})",
+			index_mode.inner_mode()
+		));
+	}
 
 	if concurrency <= 1 {
 		return run_discovery_phase_sequential(
@@ -52,14 +77,16 @@ pub async fn run_discovery_phase(
 			rule_toggles,
 			volume_backend,
 			cloud_url_base,
+			use_mtime_pruning,
 		)
 		.await;
 	}
 
 	ctx.log(format!(
-		"Discovery phase starting from: {} (concurrency: {})",
+		"Discovery phase starting from: {} (concurrency: {}, mtime_pruning: {})",
 		root_path.display(),
-		concurrency
+		concurrency,
+		use_mtime_pruning
 	));
 	ctx.log(format!(
 		"Initial directories to walk: {}",
@@ -73,6 +100,7 @@ pub async fn run_discovery_phase(
 		rule_toggles,
 		volume_backend,
 		cloud_url_base,
+		use_mtime_pruning,
 	)
 	.await
 }
@@ -90,6 +118,7 @@ async fn run_parallel_discovery(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
 ) -> Result<(), JobError> {
 	let concurrency = state.discovery_concurrency;
 
@@ -101,11 +130,19 @@ async fn run_parallel_discovery(
 	// This avoids coordinator bottlenecks from explicit "work done" messages.
 	let pending_work = Arc::new(AtomicUsize::new(0));
 	let skipped_count = Arc::new(AtomicU64::new(0));
+	let pruned_count = Arc::new(AtomicU64::new(0));
 	let shutdown = Arc::new(AtomicBool::new(false));
 
 	// Shared across all workers to prevent duplicate processing when symlinks create cycles
 	// or multiple paths (e.g., /home/user/docs and /mnt/docs) lead to the same directory.
 	let seen_paths = Arc::new(parking_lot::RwLock::new(std::collections::HashSet::new()));
+
+	// Get database connection for mtime pruning queries
+	let db = if use_mtime_pruning {
+		Some(Arc::new(ctx.library_db().clone()))
+	} else {
+		None
+	};
 
 	while let Some(dir) = state.dirs_to_walk.pop_front() {
 		pending_work.fetch_add(1, Ordering::Release);
@@ -122,11 +159,13 @@ async fn run_parallel_discovery(
 		let result_tx = result_tx.clone();
 		let pending_work = Arc::clone(&pending_work);
 		let skipped_count = Arc::clone(&skipped_count);
+		let pruned_count = Arc::clone(&pruned_count);
 		let shutdown = Arc::clone(&shutdown);
 		let seen_paths = Arc::clone(&seen_paths);
 		let root_path = root_path.to_path_buf();
 		let volume_backend = volume_backend.cloned();
 		let cloud_url_base = cloud_url_base.clone();
+		let db = db.clone();
 
 		let worker = tokio::spawn(async move {
 			discovery_worker_rayon(
@@ -136,12 +175,15 @@ async fn run_parallel_discovery(
 				result_tx,
 				pending_work,
 				skipped_count,
+				pruned_count,
 				shutdown,
 				seen_paths,
 				root_path,
 				rule_toggles,
 				volume_backend,
 				cloud_url_base,
+				use_mtime_pruning,
+				db,
 			)
 			.await
 		});
@@ -185,11 +227,13 @@ async fn run_parallel_discovery(
 				dirs,
 				symlinks,
 				bytes,
+				pruned,
 			} => {
 				state.stats.files += files;
 				state.stats.dirs += dirs;
 				state.stats.symlinks += symlinks;
 				state.stats.bytes += bytes;
+				state.stats.pruned += pruned;
 			}
 			DiscoveryResult::Error(error) => {
 				state.add_error(error);
@@ -238,16 +282,30 @@ async fn run_parallel_discovery(
 	}
 
 	let skipped = skipped_count.load(Ordering::SeqCst);
+	let pruned = pruned_count.load(Ordering::SeqCst);
 	state.stats.skipped = skipped;
+	state.stats.pruned = pruned;
 
-	ctx.log(format!(
-		"Parallel discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
-		state.stats.files,
-		state.stats.dirs,
-		state.stats.symlinks,
-		skipped,
-		state.entry_batches.len()
-	));
+	if use_mtime_pruning {
+		ctx.log(format!(
+			"Parallel discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} pruned (mtime), {} batches created",
+			state.stats.files,
+			state.stats.dirs,
+			state.stats.symlinks,
+			skipped,
+			pruned,
+			state.entry_batches.len()
+		));
+	} else {
+		ctx.log(format!(
+			"Parallel discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
+			state.stats.files,
+			state.stats.dirs,
+			state.stats.symlinks,
+			skipped,
+			state.entry_batches.len()
+		));
+	}
 
 	state.phase = crate::ops::indexing::state::Phase::Processing;
 	Ok(())
@@ -266,6 +324,8 @@ enum DiscoveryResult {
 		dirs: u64,
 		symlinks: u64,
 		bytes: u64,
+		/// Directories pruned via mtime comparison (stale detection)
+		pruned: u64,
 	},
 	Error(IndexError),
 	Progress {
@@ -279,6 +339,10 @@ enum DiscoveryResult {
 /// skip already-seen paths (using the shared RwLock), apply filtering rules, and directly
 /// enqueue subdirectories for other workers. The atomic `pending_work` counter tracks
 /// in-flight work: incremented before enqueue, decremented after processing completes.
+///
+/// When `use_mtime_pruning` is enabled, directories with matching modified times (within
+/// 1-second tolerance) are pruned, skipping their entire subtree.
+#[allow(clippy::too_many_arguments)]
 async fn discovery_worker_rayon(
 	_worker_id: usize,
 	work_rx: chan::Receiver<PathBuf>,
@@ -286,12 +350,15 @@ async fn discovery_worker_rayon(
 	result_tx: chan::Sender<DiscoveryResult>,
 	pending_work: Arc<AtomicUsize>,
 	skipped_count: Arc<AtomicU64>,
+	pruned_count: Arc<AtomicU64>,
 	shutdown: Arc<AtomicBool>,
 	seen_paths: Arc<parking_lot::RwLock<std::collections::HashSet<PathBuf>>>,
 	root_path: PathBuf,
 	rule_toggles: RuleToggles,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
+	db: Option<Arc<DatabaseConnection>>,
 ) {
 	loop {
 		if shutdown.load(Ordering::Acquire) {
@@ -356,6 +423,18 @@ async fn discovery_worker_rayon(
 
 					match entry.kind {
 						EntryKind::Directory => {
+							// Check mtime pruning for directories
+							if use_mtime_pruning {
+								if let Some(ref db_conn) = db {
+									if should_prune_directory(&entry, db_conn.as_ref()).await {
+										local_stats.pruned += 1;
+										pruned_count.fetch_add(1, Ordering::Relaxed);
+										// Don't enqueue this directory - skip entire subtree
+										continue;
+									}
+								}
+							}
+
 							local_stats.dirs += 1;
 							// Increment BEFORE enqueuing so the monitor never sees pending_work=0 while
 							// work is in flight. Decrement only happens after processing completes.
@@ -383,6 +462,7 @@ async fn discovery_worker_rayon(
 						dirs: local_stats.dirs,
 						symlinks: local_stats.symlinks,
 						bytes: local_stats.bytes,
+						pruned: local_stats.pruned,
 					})
 					.await;
 
@@ -411,6 +491,74 @@ struct LocalStats {
 	dirs: u64,
 	symlinks: u64,
 	bytes: u64,
+	pruned: u64,
+}
+
+// =============================================================================
+// Mtime Pruning Functions (Stale Detection)
+// =============================================================================
+
+/// Check if a directory should be pruned based on modified time comparison.
+///
+/// Compares the filesystem modified time with the database record. If they match
+/// (within 1-second tolerance), the directory is considered unchanged and can be
+/// pruned, skipping its entire subtree.
+async fn should_prune_directory(entry: &DirEntry, db: &DatabaseConnection) -> bool {
+	// Get filesystem modified time
+	let Some(fs_mtime) = entry.modified else {
+		return false; // No mtime available, can't prune (safe default)
+	};
+
+	// Query database for existing entry's modified time
+	let db_mtime = match query_entry_mtime(db, &entry.path).await {
+		Ok(Some(mtime)) => mtime,
+		Ok(None) => return false, // Not in DB, definitely changed
+		Err(_) => return false,   // Query failed, don't prune (safe default)
+	};
+
+	// Compare modified times with tolerance
+	times_match(fs_mtime, db_mtime)
+}
+
+/// Query database for entry's modified time using directory_paths cache.
+///
+/// Uses the directory_paths table for O(1) path-based lookup, then joins to
+/// the entries table to get the modified time.
+async fn query_entry_mtime(
+	db: &DatabaseConnection,
+	path: &Path,
+) -> Result<Option<DateTime<Utc>>, sea_orm::DbErr> {
+	use crate::infra::db::entities::{directory_paths, entry};
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	let path_str = path.to_string_lossy().to_string();
+
+	// Query directory_paths to find the entry_id, then get the entry's modified_at
+	let result = directory_paths::Entity::find()
+		.filter(directory_paths::Column::Path.eq(path_str))
+		.one(db)
+		.await?;
+
+	let Some(dir_path_record) = result else {
+		return Ok(None);
+	};
+
+	// Get the entry's modified time
+	let entry_result = entry::Entity::find_by_id(dir_path_record.entry_id)
+		.one(db)
+		.await?;
+
+	Ok(entry_result.map(|e| e.modified_at.into()))
+}
+
+/// Compare filesystem time with database time (1-second tolerance).
+///
+/// Filesystem timestamps can have different precision depending on the platform
+/// and filesystem. Using a 1-second tolerance accounts for these differences.
+fn times_match(fs_time: SystemTime, db_time: DateTime<Utc>) -> bool {
+	let fs_datetime: DateTime<Utc> = fs_time.into();
+	let diff = (fs_datetime - db_time).num_seconds().abs();
+	diff <= 1
 }
 
 /// Single-threaded directory traversal fallback for concurrency = 1.
@@ -425,13 +573,23 @@ async fn run_discovery_phase_sequential(
 	rule_toggles: RuleToggles,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
+	use_mtime_pruning: bool,
 ) -> Result<(), JobError> {
 	ctx.log(format!(
-		"Discovery phase starting from: {} (sequential mode)",
-		root_path.display()
+		"Discovery phase starting from: {} (sequential mode, mtime_pruning: {})",
+		root_path.display(),
+		use_mtime_pruning
 	));
 
 	let mut skipped_count = 0u64;
+	let mut pruned_count = 0u64;
+
+	// Get database connection for mtime pruning queries
+	let db = if use_mtime_pruning {
+		Some(ctx.library_db())
+	} else {
+		None
+	};
 
 	while let Some(dir_path) = state.dirs_to_walk.pop_front() {
 		ctx.check_interrupt().await?;
@@ -487,6 +645,18 @@ async fn run_discovery_phase_sequential(
 
 					match entry.kind {
 						EntryKind::Directory => {
+							// Check mtime pruning for directories
+							if use_mtime_pruning {
+								if let Some(db_conn) = &db {
+									if should_prune_directory(&entry, db_conn).await {
+										state.stats.pruned += 1;
+										pruned_count += 1;
+										// Don't add to dirs_to_walk - skip entire subtree
+										continue;
+									}
+								}
+							}
+
 							state.dirs_to_walk.push_back(entry.path.clone());
 							state.stats.dirs += 1;
 							state.pending_entries.push(entry);
@@ -543,14 +713,26 @@ async fn run_discovery_phase_sequential(
 		state.entry_batches.push(batch);
 	}
 
-	ctx.log(format!(
-		"Discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
-		state.stats.files,
-		state.stats.dirs,
-		state.stats.symlinks,
-		skipped_count,
-		state.entry_batches.len()
-	));
+	if use_mtime_pruning {
+		ctx.log(format!(
+			"Discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} pruned (mtime), {} batches created",
+			state.stats.files,
+			state.stats.dirs,
+			state.stats.symlinks,
+			skipped_count,
+			pruned_count,
+			state.entry_batches.len()
+		));
+	} else {
+		ctx.log(format!(
+			"Discovery complete: {} files, {} dirs, {} symlinks, {} skipped, {} batches created",
+			state.stats.files,
+			state.stats.dirs,
+			state.stats.symlinks,
+			skipped_count,
+			state.entry_batches.len()
+		));
+	}
 
 	state.phase = crate::ops::indexing::state::Phase::Processing;
 	Ok(())
@@ -627,4 +809,92 @@ async fn read_directory_with_backend(
 	);
 
 	Ok(entries)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use chrono::TimeZone;
+	use std::time::Duration;
+
+	#[test]
+	fn test_times_match_exact() {
+		// Exactly the same time should match
+		let db_time = Utc.with_ymd_and_hms(2024, 12, 24, 12, 0, 0).unwrap();
+		let fs_time: SystemTime = db_time.into();
+		assert!(times_match(fs_time, db_time));
+	}
+
+	#[test]
+	fn test_times_match_within_tolerance() {
+		// Within 1 second should match
+		let db_time = Utc.with_ymd_and_hms(2024, 12, 24, 12, 0, 0).unwrap();
+		let fs_time: SystemTime =
+			SystemTime::from(db_time) + Duration::from_millis(500);
+		assert!(times_match(fs_time, db_time));
+
+		// Exactly at 1 second boundary should match
+		let fs_time_at_boundary: SystemTime =
+			SystemTime::from(db_time) + Duration::from_secs(1);
+		assert!(times_match(fs_time_at_boundary, db_time));
+	}
+
+	#[test]
+	fn test_times_dont_match_beyond_tolerance() {
+		// Beyond 1 second should not match
+		let db_time = Utc.with_ymd_and_hms(2024, 12, 24, 12, 0, 0).unwrap();
+		let fs_time: SystemTime =
+			SystemTime::from(db_time) + Duration::from_secs(2);
+		assert!(!times_match(fs_time, db_time));
+
+		// Negative difference beyond tolerance
+		let fs_time_earlier: SystemTime =
+			SystemTime::from(db_time) - Duration::from_secs(2);
+		assert!(!times_match(fs_time_earlier, db_time));
+	}
+
+	#[test]
+	fn test_index_mode_mtime_pruning() {
+		use crate::domain::location::IndexMode;
+
+		// Stale mode should enable pruning
+		let stale_mode = IndexMode::Stale(Box::new(IndexMode::Deep));
+		assert!(stale_mode.uses_mtime_pruning());
+
+		// Regular modes should not enable pruning
+		assert!(!IndexMode::None.uses_mtime_pruning());
+		assert!(!IndexMode::Shallow.uses_mtime_pruning());
+		assert!(!IndexMode::Content.uses_mtime_pruning());
+		assert!(!IndexMode::Deep.uses_mtime_pruning());
+	}
+
+	#[test]
+	fn test_index_mode_inner_mode() {
+		use crate::domain::location::IndexMode;
+
+		// Stale mode should return inner mode
+		let stale_deep = IndexMode::Stale(Box::new(IndexMode::Deep));
+		assert!(matches!(stale_deep.inner_mode(), IndexMode::Deep));
+
+		let stale_shallow = IndexMode::Stale(Box::new(IndexMode::Shallow));
+		assert!(matches!(stale_shallow.inner_mode(), IndexMode::Shallow));
+
+		// Regular modes should return themselves
+		assert!(matches!(IndexMode::Deep.inner_mode(), IndexMode::Deep));
+		assert!(matches!(IndexMode::Shallow.inner_mode(), IndexMode::Shallow));
+	}
+
+	#[test]
+	fn test_index_mode_unwrap() {
+		use crate::domain::location::IndexMode;
+
+		// Unwrap should return inner mode for Stale
+		let stale_content = IndexMode::Stale(Box::new(IndexMode::Content));
+		let unwrapped = stale_content.unwrap_mode();
+		assert!(matches!(unwrapped, IndexMode::Content));
+
+		// Unwrap should return same mode for non-Stale
+		let deep = IndexMode::Deep;
+		assert!(matches!(deep.unwrap_mode(), IndexMode::Deep));
+	}
 }

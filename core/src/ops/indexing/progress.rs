@@ -165,6 +165,7 @@ mod tests {
 				symlinks: 5,
 				skipped: 2,
 				errors: 1,
+				pruned: 0,
 			},
 			processing_rate: 25.5,
 			estimated_remaining: Some(Duration::from_secs(120)),

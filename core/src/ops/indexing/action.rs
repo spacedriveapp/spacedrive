@@ -100,7 +100,7 @@ impl LibraryAction for IndexingAction {
 				}
 			};
 
-			config.mode = self.input.mode;
+			config.mode = self.input.mode.clone();
 
 			// TODO: Apply include_hidden via rule_toggles when available
 

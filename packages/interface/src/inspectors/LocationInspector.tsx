@@ -17,6 +17,9 @@ import {
 	Play,
 	FilmStrip,
 	VideoCamera,
+	Eye,
+	Lightning,
+	ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -45,6 +48,7 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 		{ id: "overview", label: "Overview", icon: Info },
 		{ id: "indexing", label: "Indexing", icon: Gear },
 		{ id: "jobs", label: "Jobs", icon: Briefcase },
+		{ id: "services", label: "Services", icon: Lightning },
 		{ id: "activity", label: "Activity", icon: ClockCounterClockwise },
 		{ id: "devices", label: "Devices", icon: HardDrive },
 		{ id: "more", label: "More", icon: DotsThree },
@@ -67,6 +71,10 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 
 				<TabContent id="jobs" activeTab={activeTab}>
 					<JobsTab location={location} />
+				</TabContent>
+
+				<TabContent id="services" activeTab={activeTab}>
+					<ServicesTab location={location} />
 				</TabContent>
 
 				<TabContent id="activity" activeTab={activeTab}>
@@ -421,6 +429,137 @@ function JobsTab({ location }: { location: LocationInfo }) {
 						}
 						isTriggering={triggerJob.isPending}
 					/>
+				</div>
+			</Section>
+		</div>
+	);
+}
+
+function ServicesTab({ location }: { location: LocationInfo }) {
+	const [watcherEnabled, setWatcherEnabled] = useState(true);
+	const [staleDetectorEnabled, setStaleDetectorEnabled] = useState(true);
+	const [syncEnabled, setSyncEnabled] = useState(false);
+
+	const triggerStaleDetection = useLibraryMutation("locations.triggerStaleDetection");
+
+	return (
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
+			<p className="text-xs text-sidebar-inkDull">
+				Configure background services for this location
+			</p>
+
+			{/* File Watcher Service */}
+			<Section title="File Watcher" icon={Eye}>
+				<p className="text-xs text-sidebar-inkDull mb-3">
+					Real-time monitoring of filesystem changes
+				</p>
+				<div className="w-full p-3 bg-app-box/40 rounded-lg border border-app-line/50">
+					<button
+						onClick={() => setWatcherEnabled(!watcherEnabled)}
+						className="flex items-center gap-2.5 w-full text-left group"
+					>
+						{watcherEnabled ? (
+							<ToggleRight
+								className="size-5 text-accent shrink-0"
+								weight="fill"
+							/>
+						) : (
+							<ToggleLeft
+								className="size-5 text-sidebar-inkDull shrink-0 group-hover:text-sidebar-ink transition-colors"
+								weight="fill"
+							/>
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="text-xs font-medium text-sidebar-ink">
+								{watcherEnabled ? "Enabled" : "Disabled"}
+							</div>
+							<p className="text-[11px] text-sidebar-inkDull mt-0.5">
+								Watches for file changes in real-time
+							</p>
+						</div>
+					</button>
+				</div>
+			</Section>
+
+			{/* Stale Detection Service */}
+			<Section title="Stale Detection" icon={ArrowsClockwise}>
+				<p className="text-xs text-sidebar-inkDull mb-3">
+					Detects offline changes using modified-time pruning
+				</p>
+				<div className="w-full p-3 bg-app-box/40 rounded-lg border border-app-line/50 space-y-3">
+					<button
+						onClick={() => setStaleDetectorEnabled(!staleDetectorEnabled)}
+						className="flex items-center gap-2.5 w-full text-left group"
+					>
+						{staleDetectorEnabled ? (
+							<ToggleRight
+								className="size-5 text-accent shrink-0"
+								weight="fill"
+							/>
+						) : (
+							<ToggleLeft
+								className="size-5 text-sidebar-inkDull shrink-0 group-hover:text-sidebar-ink transition-colors"
+								weight="fill"
+							/>
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="text-xs font-medium text-sidebar-ink">
+								{staleDetectorEnabled ? "Enabled" : "Disabled"}
+							</div>
+							<p className="text-[11px] text-sidebar-inkDull mt-0.5">
+								Scans for changes when app starts after being offline
+							</p>
+						</div>
+					</button>
+
+					<Button
+						onClick={() => {
+							triggerStaleDetection.mutate({
+								location_id: location.id,
+							});
+						}}
+						disabled={!staleDetectorEnabled || triggerStaleDetection.isPending}
+						variant="gray"
+						size="sm"
+						className="w-full flex items-center justify-center gap-1.5"
+						title={staleDetectorEnabled ? "Run stale detection now" : "Enable stale detection first"}
+					>
+						<MagnifyingGlass className="size-3" weight="bold" />
+						{triggerStaleDetection.isPending ? "Detecting..." : "Run Stale Detection Now"}
+					</Button>
+				</div>
+			</Section>
+
+			{/* Sync Service */}
+			<Section title="Multi-Device Sync" icon={HardDrive}>
+				<p className="text-xs text-sidebar-inkDull mb-3">
+					Keep this location synced across devices
+				</p>
+				<div className="w-full p-3 bg-app-box/40 rounded-lg border border-app-line/50">
+					<button
+						onClick={() => setSyncEnabled(!syncEnabled)}
+						className="flex items-center gap-2.5 w-full text-left group"
+					>
+						{syncEnabled ? (
+							<ToggleRight
+								className="size-5 text-accent shrink-0"
+								weight="fill"
+							/>
+						) : (
+							<ToggleLeft
+								className="size-5 text-sidebar-inkDull shrink-0 group-hover:text-sidebar-ink transition-colors"
+								weight="fill"
+							/>
+						)}
+						<div className="flex-1 min-w-0">
+							<div className="text-xs font-medium text-sidebar-ink">
+								{syncEnabled ? "Enabled" : "Disabled"}
+							</div>
+							<p className="text-[11px] text-sidebar-inkDull mt-0.5">
+								Synchronize files across multiple devices
+							</p>
+						</div>
+					</button>
 				</div>
 			</Section>
 		</div>

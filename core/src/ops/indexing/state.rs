@@ -42,6 +42,9 @@ pub struct IndexerStats {
 	pub symlinks: u64,
 	pub skipped: u64,
 	pub errors: u64,
+	/// Directories pruned via mtime comparison during stale detection.
+	/// When a directory's mtime matches the database, the entire subtree is skipped.
+	pub pruned: u64,
 }
 
 /// Public-facing phase information exposed to the UI.
