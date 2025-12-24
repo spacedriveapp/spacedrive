@@ -54,14 +54,6 @@ export function useDragSelection({ files, scrollRef }: UseDragSelectionProps) {
 		[scrollRef]
 	);
 
-	/**
-	 * Sync selected elements when selection changes externally
-	 */
-	useEffect(() => {
-		// This will be used by view-specific implementations
-		// to keep selected DOM elements in sync with state
-	}, [selectedFiles]);
-
 	return {
 		handleSelect,
 		handleScroll,

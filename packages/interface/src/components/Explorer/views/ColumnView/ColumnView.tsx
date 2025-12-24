@@ -7,7 +7,6 @@ import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
-import { DragSelect } from "./DragSelect";
 
 /** Get path string from SdPath for comparison */
 function getPathString(path: SdPath | null | undefined): string {

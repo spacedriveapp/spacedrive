@@ -159,7 +159,7 @@ export const Thumb = memo(function Thumb({
   return (
     <div
       className={clsx(
-        "relative pointer-none flex shrink-0 grow-0 items-center justify-center",
+        "relative pointer-events-none flex shrink-0 grow-0 items-center justify-center",
         className,
       )}
       style={{

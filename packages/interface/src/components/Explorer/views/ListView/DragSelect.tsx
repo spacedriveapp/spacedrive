@@ -58,27 +58,19 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 				dragContainer={scrollRef.current || undefined}
 				selectableTargets={[`[${SELECTABLE_DATA_ATTRIBUTE}]`]}
 				selectByClick={false}
-				selectFromInside={true}
+				selectFromInside={false}
 				continueSelect={false}
 				continueSelectWithoutDeselect={false}
 				toggleContinueSelect={[["shift"], [isWindows ? "ctrl" : "meta"]]}
 				toggleContinueSelectWithoutDeselect={false}
 				hitRate={0}
 				ratio={0}
-				scrollOptions={{
-					container: scrollRef.current || undefined,
-					throttleTime: isChrome ? 30 : 10000,
-					threshold: 0,
-				}}
-				// No visible selection box for ListView (Finder style)
-				selectableTargets={[`[${SELECTABLE_DATA_ATTRIBUTE}]`]}
-				onDragStart={(e) => {
-					isDragSelecting.current = true;
-
-					// If clicking on a selected item without modifiers, don't start selection
+				dragCondition={(e) => {
+					// Prevent drag selection from starting if clicking on a selected item
+					// This allows dnd-kit drag-and-drop to work without interference
 					const target = e.inputEvent.target as Element;
 					const clickedElement = target.closest(`[${SELECTABLE_DATA_ATTRIBUTE}]`);
-
+					
 					if (clickedElement) {
 						const file = getFileFromElement(clickedElement);
 						const isAlreadySelected = file && selectedFiles.some((f) => f.id === file.id);
@@ -86,13 +78,22 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 							e.inputEvent.shiftKey ||
 							(e.inputEvent as MouseEvent).metaKey ||
 							(e.inputEvent as MouseEvent).ctrlKey;
-
+						
+						// Don't start drag selection if clicking a selected item without modifiers
 						if (isAlreadySelected && !hasModifiers) {
-							selectoRef.current?.setSelectedTargets([]);
-							e.stop();
-							return;
+							return false;
 						}
 					}
+					
+					return true;
+				}}
+				scrollOptions={{
+					container: scrollRef.current || undefined,
+					throttleTime: isChrome ? 30 : 10000,
+					threshold: 0,
+				}}
+				onDragStart={(e) => {
+					isDragSelecting.current = true;
 				}}
 				onSelect={(e) => {
 					const inputEvent = e.inputEvent as MouseEvent;

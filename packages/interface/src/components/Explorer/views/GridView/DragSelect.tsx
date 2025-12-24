@@ -2,7 +2,6 @@ import { useRef, useEffect, type ReactNode } from "react";
 import Selecto from "react-selecto";
 import type { File } from "@sd/ts-client";
 import { useSelection } from "../../SelectionContext";
-import { useExplorer } from "../../context";
 import { SELECTABLE_DATA_ATTRIBUTE } from "../../components/DragSelect/utils";
 
 interface DragSelectProps {
@@ -16,7 +15,6 @@ const CHROME_REGEX = /Chrome/;
 export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 	const selectoRef = useRef<Selecto>(null);
 	const { setSelectedFiles, selectedFiles } = useSelection();
-	const { viewSettings } = useExplorer();
 	const isDragSelecting = useRef(false);
 
 	const isChrome = CHROME_REGEX.test(navigator.userAgent);
@@ -34,7 +32,7 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 		const fileIds = new Set(
 			elements
 				.map((el) => el.getAttribute("data-file-id"))
-				.filter((id): id is string => id !== null)
+				.filter((id): id is string => id !== null),
 		);
 		return files.filter((file) => fileIds.has(file.id));
 	};
@@ -60,13 +58,41 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 				dragContainer={scrollRef.current || undefined}
 				selectableTargets={[`[${SELECTABLE_DATA_ATTRIBUTE}]`]}
 				selectByClick={false}
-				selectFromInside={true}
+				selectFromInside={false}
 				continueSelect={false}
 				continueSelectWithoutDeselect={false}
-				toggleContinueSelect={[["shift"], [isWindows ? "ctrl" : "meta"]]}
+				toggleContinueSelect={[
+					["shift"],
+					[isWindows ? "ctrl" : "meta"],
+				]}
 				toggleContinueSelectWithoutDeselect={false}
 				hitRate={0}
 				ratio={0}
+				dragCondition={(e) => {
+					// Prevent drag selection from starting if clicking on a selected item
+					// This allows dnd-kit drag-and-drop to work without interference
+					const target = e.inputEvent.target as Element;
+					const clickedElement = target.closest(
+						`[${SELECTABLE_DATA_ATTRIBUTE}]`,
+					);
+
+					if (clickedElement) {
+						const file = getFileFromElement(clickedElement);
+						const isAlreadySelected =
+							file && selectedFiles.some((f) => f.id === file.id);
+						const hasModifiers =
+							e.inputEvent.shiftKey ||
+							(e.inputEvent as MouseEvent).metaKey ||
+							(e.inputEvent as MouseEvent).ctrlKey;
+
+						// Don't start drag selection if clicking a selected item without modifiers
+						if (isAlreadySelected && !hasModifiers) {
+							return false;
+						}
+					}
+
+					return true;
+				}}
 				scrollOptions={{
 					container: scrollRef.current || undefined,
 					throttleTime: isChrome ? 30 : 10000,
@@ -74,49 +100,41 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 				}}
 				onDragStart={(e) => {
 					isDragSelecting.current = true;
-
-					// If clicking on a selected item without modifiers, don't start selection
-					const target = e.inputEvent.target as Element;
-					const clickedElement = target.closest(`[${SELECTABLE_DATA_ATTRIBUTE}]`);
-
-					if (clickedElement) {
-						const file = getFileFromElement(clickedElement);
-						const isAlreadySelected = file && selectedFiles.some((f) => f.id === file.id);
-						const hasModifiers =
-							e.inputEvent.shiftKey ||
-							(e.inputEvent as MouseEvent).metaKey ||
-							(e.inputEvent as MouseEvent).ctrlKey;
-
-						// If clicking a selected item without modifiers, cancel drag select
-						// This allows drag-and-drop to work
-						if (isAlreadySelected && !hasModifiers) {
-							selectoRef.current?.setSelectedTargets([]);
-							e.stop();
-							return;
-						}
-					}
 				}}
 				onSelect={(e) => {
 					const inputEvent = e.inputEvent as MouseEvent;
 					const isContinueSelect =
-						inputEvent.shiftKey || (isWindows ? inputEvent.ctrlKey : inputEvent.metaKey);
+						inputEvent.shiftKey ||
+						(isWindows ? inputEvent.ctrlKey : inputEvent.metaKey);
 
 					// Handle selection
-					if (inputEvent.type === "mousedown" || inputEvent.type === "touchstart") {
+					if (
+						inputEvent.type === "mousedown" ||
+						inputEvent.type === "touchstart"
+					) {
 						// Single click handling
-						if (!isDragSelecting.current || e.selected.length <= 1) {
+						if (
+							!isDragSelecting.current ||
+							e.selected.length <= 1
+						) {
 							return; // Let normal click handlers deal with it
 						}
 					}
 
 					// Handle drag selection
-					if (inputEvent.type === "mousemove" || inputEvent.type === "touchmove") {
+					if (
+						inputEvent.type === "mousemove" ||
+						inputEvent.type === "touchmove"
+					) {
 						const selectedElements = e.selected;
-						const newSelectedFiles = getFilesFromElements(selectedElements);
+						const newSelectedFiles =
+							getFilesFromElements(selectedElements);
 
 						if (isContinueSelect) {
 							// Add to existing selection
-							const existingIds = new Set(selectedFiles.map((f) => f.id));
+							const existingIds = new Set(
+								selectedFiles.map((f) => f.id),
+							);
 							const combined = [...selectedFiles];
 
 							for (const file of newSelectedFiles) {
@@ -141,7 +159,7 @@ export function DragSelect({ children, files, scrollRef }: DragSelectProps) {
 
 					container.scrollBy(
 						(e.direction[0] || 0) * 10,
-						(e.direction[1] || 0) * 10
+						(e.direction[1] || 0) * 10,
 					);
 				}}
 			/>
