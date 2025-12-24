@@ -37,6 +37,8 @@ export const ListView = memo(function ListView() {
 	const headerScrollRef = useRef<HTMLDivElement>(null);
 	const bodyScrollRef = useRef<HTMLDivElement>(null);
 
+	// TODO: Preserve scroll position per tab using scrollPosition from context
+
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
