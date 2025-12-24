@@ -16,14 +16,17 @@ import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
 import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
 
 export function MediaView() {
+	const { currentPath, viewSettings, sortBy, setSortBy, setCurrentFiles } =
+		useExplorer();
 	const {
-		currentPath,
-		viewSettings,
-		sortBy,
-		setSortBy,
-		setCurrentFiles,
-	} = useExplorer();
-	const { selectedFiles, selectFile, focusedIndex, setFocusedIndex, setSelectedFiles, isSelected, selectedFileIds } = useSelection();
+		selectedFiles,
+		selectFile,
+		focusedIndex,
+		setFocusedIndex,
+		setSelectedFiles,
+		isSelected,
+		selectedFileIds,
+	} = useSelection();
 
 	// Set default sort to "datetaken" when entering media view
 	useEffect(() => {
@@ -151,7 +154,11 @@ export function MediaView() {
 	// Keyboard navigation for media view
 	useEffect(() => {
 		const handleKeyDown = (e: KeyboardEvent) => {
-			if (!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key)) {
+			if (
+				!["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
+					e.key,
+				)
+			) {
 				return;
 			}
 			if (files.length === 0) return;
@@ -160,9 +167,10 @@ export function MediaView() {
 
 			// Calculate columns based on container width
 			const itemWidth = gridSize + gapSize;
-			const cols = containerWidth > 0 
-				? Math.max(4, Math.floor(containerWidth / itemWidth))
-				: 8;
+			const cols =
+				containerWidth > 0
+					? Math.max(4, Math.floor(containerWidth / itemWidth))
+					: 8;
 
 			let newIndex = focusedIndex;
 
@@ -181,16 +189,29 @@ export function MediaView() {
 				setSelectedFiles([files[newIndex]]);
 
 				// Scroll selected item into view
-				const element = document.querySelector(`[data-file-id="${files[newIndex].id}"]`);
+				const element = document.querySelector(
+					`[data-file-id="${files[newIndex].id}"]`,
+				);
 				if (element) {
-					element.scrollIntoView({ block: "nearest", behavior: "smooth" });
+					element.scrollIntoView({
+						block: "nearest",
+						behavior: "smooth",
+					});
 				}
 			}
 		};
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [files, focusedIndex, gridSize, gapSize, containerWidth, setFocusedIndex, setSelectedFiles]);
+	}, [
+		files,
+		focusedIndex,
+		gridSize,
+		gapSize,
+		containerWidth,
+		setFocusedIndex,
+		setSelectedFiles,
+	]);
 
 	// Calculate columns and actual item size to fill available space
 	const { columns, actualItemSize } = useMemo(() => {
@@ -388,7 +409,8 @@ export function MediaView() {
 							if (!file) return null;
 
 							const columnIndex = i % columns;
-							const left = columnIndex * (actualItemSize + gapSize);
+							const left =
+								columnIndex * (actualItemSize + gapSize);
 
 							return (
 								<div

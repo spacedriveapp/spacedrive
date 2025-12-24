@@ -7,8 +7,6 @@ import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
-import { useTabManager } from "../../../TabManager";
-import { useLocation } from "react-router-dom";
 
 /** Get path string from SdPath for comparison */
 function getPathString(path: SdPath | null | undefined): string {
@@ -35,8 +33,6 @@ export function ColumnView() {
 		selectFile,
 		clearSelection,
 	} = useSelection();
-	const { tabs } = useTabManager();
-	const location = useLocation();
 
 	// Store clearSelection in ref to avoid effect re-runs
 	const clearSelectionRef = useRef(clearSelection);
@@ -58,14 +54,6 @@ export function ColumnView() {
 		if (columnStack.length === 0) return "";
 		return getPathString(columnStack[0]);
 	}, [columnStack]);
-
-	// Get the active tab and current URL path
-	const activeTab = tabs.find((t) => t.id === activeTabId);
-	const currentUrlPath = location.pathname + location.search;
-
-	// Determine if we're mid-navigation after a tab switch
-	// If the URL doesn't match the tab's savedPath, navigation is still in progress
-	const isNavigating = activeTab && currentUrlPath !== activeTab.savedPath;
 
 	// Initialization logic:
 	// columnStack comes from TabManager (authoritative per-tab state)
@@ -91,11 +79,6 @@ export function ColumnView() {
 			return;
 		}
 
-		// If we're mid-navigation, don't touch columns
-		if (isNavigating) {
-			return;
-		}
-
 		// No path = nothing to do
 		if (!currentPath) return;
 
@@ -114,7 +97,6 @@ export function ColumnView() {
 		}
 	}, [
 		activeTabId,
-		isNavigating,
 		currentPath,
 		currentRootPath,
 		columnStack.length,
