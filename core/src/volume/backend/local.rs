@@ -215,6 +215,25 @@ impl VolumeBackend for LocalBackend {
 		Ok(())
 	}
 
+	async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError> {
+		let full_path = self.resolve_path(path);
+		debug!(
+			"LocalBackend::create_directory: {} (recursive: {})",
+			full_path.display(),
+			recursive
+		);
+
+		if recursive {
+			fs::create_dir_all(&full_path)
+				.await
+				.map_err(VolumeError::Io)?;
+		} else {
+			fs::create_dir(&full_path).await.map_err(VolumeError::Io)?;
+		}
+
+		Ok(())
+	}
+
 	fn is_local(&self) -> bool {
 		true
 	}

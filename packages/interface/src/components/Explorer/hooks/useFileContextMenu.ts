@@ -16,6 +16,8 @@ import {
 	Crop,
 	FileVideo,
 	Scissors,
+	Pencil,
+	FolderPlus,
 	ArrowSquareOut,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
@@ -28,6 +30,7 @@ import { useExplorer } from "../context";
 import { isVirtualFile } from "../utils/virtualFiles";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
+import { useSelection } from "../SelectionContext";
 import { useOpenWith } from "../../../hooks/useOpenWith";
 
 interface UseFileContextMenuProps {
@@ -45,9 +48,11 @@ export function useFileContextMenu({
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
 	const deleteFiles = useLibraryMutation("files.delete");
+	const createFolder = useLibraryMutation("files.createFolder");
 	const { runJob } = useJobDispatch();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+	const { startRename } = useSelection();
 
 	// Get physical paths for file opening
 	const getPhysicalPaths = () => {
@@ -148,6 +153,57 @@ export function useFileContextMenu({
 				keybind: "⌘⇧R",
 				condition: () =>
 					"Physical" in file.sd_path && !!platform.revealFile,
+			},
+			{ type: "separator" },
+			{
+				icon: Pencil,
+				label: "Rename",
+				onClick: () => {
+					startRename(file.id);
+				},
+				keybindId: "explorer.renameFile",
+				condition: () => selected && selectedFiles.length === 1 && !hasVirtualFiles,
+			},
+			{
+				icon: FolderPlus,
+				label: "New Folder",
+				onClick: async () => {
+					if (!currentPath) return;
+					try {
+						const result = await createFolder.mutateAsync({
+							parent: currentPath,
+							name: "Untitled Folder",
+							items: [],
+						});
+						console.log("Created folder:", result);
+					} catch (err) {
+						console.error("Failed to create folder:", err);
+						alert(`Failed to create folder: ${err}`);
+					}
+				},
+				condition: () => !!currentPath,
+			},
+			{
+				icon: FolderPlus,
+				label: "New Folder with Items",
+				onClick: async () => {
+					if (!currentPath) return;
+					const targets = getTargetFiles();
+					if (targets.length === 0) return;
+
+					try {
+						const result = await createFolder.mutateAsync({
+							parent: currentPath,
+							name: "New Folder",
+							items: targets.map((f) => f.sd_path),
+						});
+						console.log("Created folder with items:", result);
+					} catch (err) {
+						console.error("Failed to create folder with items:", err);
+						alert(`Failed to create folder: ${err}`);
+					}
+				},
+				condition: () => !!currentPath && selectedFiles.length > 0 && !hasVirtualFiles,
 			},
 			{ type: "separator" },
 			{
