@@ -107,6 +107,7 @@ impl DevicePersistence {
 	/// Load paired devices from key manager (decrypt)
 	pub async fn load_paired_devices(&self) -> Result<HashMap<Uuid, PersistedPairedDevice>> {
 		let device_ids = self.get_device_list().await?;
+		tracing::info!("Loading {} device IDs from persistence", device_ids.len());
 		let mut devices = HashMap::new();
 
 		for device_id in device_ids {
@@ -115,19 +116,33 @@ impl DevicePersistence {
 				Ok(data) => match serde_json::from_slice::<PersistedPairedDevice>(&data) {
 					Ok(device) => {
 						if !device.session_keys.is_expired() {
+							tracing::debug!(
+								"Loaded paired device: {} ({})",
+								device.device_info.device_name,
+								device_id
+							);
 							devices.insert(device_id, device);
+						} else {
+							tracing::warn!(
+								"Device {} has expired session keys, skipping",
+								device_id
+							);
 						}
 					}
 					Err(e) => {
-						eprintln!("Failed to deserialize device {}: {}", device_id, e);
+						tracing::error!("Failed to deserialize device {}: {}", device_id, e);
 					}
 				},
 				Err(e) => {
-					eprintln!("Failed to load device {}: {}", device_id, e);
+					tracing::error!("Failed to load device {}: {}", device_id, e);
 				}
 			}
 		}
 
+		tracing::info!(
+			"Successfully loaded {} paired devices from persistence",
+			devices.len()
+		);
 		Ok(devices)
 	}
 

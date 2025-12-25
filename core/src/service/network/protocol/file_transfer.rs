@@ -355,6 +355,13 @@ impl FileTransferProtocolHandler {
 			NetworkingError::Protocol(format!("No session keys found for device {}", device_id))
 		})?;
 
+		tracing::debug!(
+			"Retrieved session keys for device {}: send_key={}, receive_key={}",
+			device_id,
+			hex::encode(&session_keys.send_key[..8]),
+			hex::encode(&session_keys.receive_key[..8])
+		);
+
 		Ok(SessionKeys {
 			send_key: session_keys.send_key,
 			receive_key: session_keys.receive_key,
