@@ -8,6 +8,7 @@ import { useKeybind } from "../../../hooks/useKeybind";
 import { useKeybindScope } from "../../../hooks/useKeybindScope";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
+import { isInputFocused } from "../../../util/keybinds/platform";
 
 export function useExplorerKeyboard() {
 	const {
@@ -161,6 +162,9 @@ export function useExplorerKeyboard() {
 
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
+			// Skip all keyboard shortcuts if renaming or typing in an input
+			if (isRenaming || isInputFocused()) return;
+
 			// Arrow keys: Navigation
 			if (
 				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(

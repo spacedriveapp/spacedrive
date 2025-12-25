@@ -398,3 +398,118 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 	harness.shutdown().await?;
 	Ok(())
 }
+
+#[tokio::test]
+async fn test_typescript_use_normalized_query_with_file_deletes() -> anyhow::Result<()> {
+	// Setup: Create daemon with indexed location
+	let harness = IndexingHarnessBuilder::new("typescript_bridge_file_deletes")
+		.enable_daemon() // Start RPC server for TypeScript client
+		.build()
+		.await?;
+
+	let test_location = harness.create_test_location("test_deletes").await?;
+
+	// Create delete_test folder with files to delete
+	test_location.create_dir("delete_test").await?;
+	test_location
+		.write_file("delete_test/file1.txt", "Content 1")
+		.await?;
+	test_location
+		.write_file("delete_test/file2.rs", "fn main() {}")
+		.await?;
+	test_location
+		.write_file("delete_test/file3.md", "# Docs")
+		.await?;
+	test_location
+		.write_file("delete_test/file4.json", r#"{"data": "test"}"#)
+		.await?;
+	test_location
+		.write_file("delete_test/file5.txt", "Extra file")
+		.await?;
+
+	// Index the location
+	let location = test_location
+		.index("TypeScript Test Location", IndexMode::Shallow)
+		.await?;
+
+	// Wait for indexing to complete
+	tokio::time::sleep(Duration::from_secs(1)).await;
+
+	// Get daemon socket address
+	let socket_addr = harness
+		.daemon_socket_addr()
+		.expect("Daemon should be enabled")
+		.to_string();
+
+	// Prepare bridge config
+	let bridge_config = TestBridgeConfig {
+		socket_addr: socket_addr.clone(),
+		library_id: harness.library.id().to_string(),
+		location_db_id: location.db_id,
+		location_path: test_location.path().to_path_buf(),
+		test_data_path: harness.temp_path().to_path_buf(),
+	};
+
+	// Write config to temp file
+	let config_path = harness.temp_path().join("typescript_bridge_config.json");
+	let config_json = serde_json::to_string_pretty(&bridge_config)?;
+	tokio::fs::write(&config_path, config_json).await?;
+
+	tracing::info!("Bridge config written to: {}", config_path.display());
+
+	// Spawn TypeScript test process
+	let ts_test_file =
+		"packages/ts-client/tests/integration/useNormalizedQuery.file-delete.test.ts";
+	let workspace_root = std::env::current_dir()?.parent().unwrap().to_path_buf();
+	let ts_test_path = workspace_root.join(ts_test_file);
+	let bun_config = workspace_root.join("packages/ts-client/tests/integration/bunfig.toml");
+
+	eprintln!("\n=== TypeScript Bridge Test ===");
+	eprintln!("Workspace root: {}", workspace_root.display());
+	eprintln!("Test file: {}", ts_test_path.display());
+	eprintln!("Bun config: {}", bun_config.display());
+	eprintln!("Config path: {}", config_path.display());
+	eprintln!("Socket address: {}", socket_addr);
+	eprintln!("Library ID: {}", bridge_config.library_id);
+	eprintln!("==============================\n");
+
+	// Check if test file exists
+	if !ts_test_path.exists() {
+		anyhow::bail!("TypeScript test file not found: {}", ts_test_path.display());
+	}
+
+	let output = tokio::process::Command::new("bun")
+		.arg("test")
+		.arg("--config")
+		.arg(&bun_config)
+		.arg(&ts_test_path)
+		.env("BRIDGE_CONFIG_PATH", config_path.to_str().unwrap())
+		.env("RUST_LOG", "debug")
+		.current_dir(&workspace_root)
+		.output()
+		.await?;
+
+	// Always print TypeScript output to stderr for visibility
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+
+	if !stdout.is_empty() {
+		eprintln!("\n=== TypeScript stdout ===\n{}\n", stdout);
+	}
+	if !stderr.is_empty() {
+		eprintln!("\n=== TypeScript stderr ===\n{}\n", stderr);
+	}
+
+	// Verify test passed
+	if !output.status.success() {
+		anyhow::bail!(
+			"TypeScript test failed with exit code: {:?}",
+			output.status.code()
+		);
+	}
+
+	tracing::info!("TypeScript test passed! ✓");
+
+	harness.shutdown().await?;
+	Ok(())
+}

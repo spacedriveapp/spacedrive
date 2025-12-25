@@ -118,7 +118,8 @@ export const explorerKeybinds = {
 		id: 'explorer.toggleQuickPreview',
 		label: 'Quick Preview',
 		combo: { modifiers: [], key: 'Space' },
-		scope: 'explorer'
+		scope: 'explorer',
+		preventDefault: true
 	}),
 
 	// Grid/List navigation (arrow keys)
