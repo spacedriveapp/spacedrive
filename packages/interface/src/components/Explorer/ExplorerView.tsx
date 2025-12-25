@@ -21,6 +21,7 @@ import { PathBar } from "./components/PathBar";
 import { ViewSettings } from "../Explorer/ViewSettings";
 import { SortMenu } from "./SortMenu";
 import { ViewModeMenu } from "./ViewModeMenu";
+import { TabNavigationGuard } from "./TabNavigationGuard";
 
 export function ExplorerView() {
 	const {
@@ -28,6 +29,7 @@ export function ExplorerView() {
 		setSidebarVisible,
 		inspectorVisible,
 		setInspectorVisible,
+		activeTabId,
 		tagModeActive,
 		setTagModeActive,
 		viewMode,
@@ -126,21 +128,23 @@ export function ExplorerView() {
 				/>
 			)}
 
-			<div className="relative flex w-full flex-col h-full overflow-hidden bg-app/80">
-				<div className="flex-1 overflow-auto pt-[52px]">
-					{viewMode === "grid" ? (
-						<GridView />
-					) : viewMode === "list" ? (
-						<ListView />
-					) : viewMode === "column" ? (
-						<ColumnView />
-					) : viewMode === "size" ? (
-						<SizeView />
-					) : viewMode === "knowledge" ? (
-						<KnowledgeView />
-					) : (
-						<MediaView />
-					)}
+			<div className="relative flex w-full flex-col pt-1.5 h-full overflow-hidden bg-app/80">
+				<div className="flex-1 overflow-auto">
+					<TabNavigationGuard>
+						{viewMode === "grid" ? (
+							<GridView />
+						) : viewMode === "list" ? (
+							<ListView />
+						) : viewMode === "column" ? (
+							<ColumnView />
+						) : viewMode === "size" ? (
+							<SizeView />
+						) : viewMode === "knowledge" ? (
+							<KnowledgeView />
+						) : (
+							<MediaView />
+						)}
+					</TabNavigationGuard>
 				</div>
 			</div>
 		</>

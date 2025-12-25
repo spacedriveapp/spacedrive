@@ -129,11 +129,11 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 							trigger={
 								<button
 									className={clsx(
-										"flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium",
-										"bg-app-button/50 border border-app-line/50",
-										"text-ink hover:bg-app-button",
-										"focus:outline-none focus:ring-1 focus:ring-accent",
-										"transition-colors",
+										"flex items-center gap-2 h-8 px-3 rounded-full text-xs font-medium",
+										"backdrop-blur-xl transition-all",
+										"border border-sidebar-line/30",
+										"bg-sidebar-box/20 text-sidebar-inkDull hover:bg-sidebar-box/30 hover:text-sidebar-ink",
+										"active:scale-95",
 										!currentLibrary && "text-ink-faint",
 									)}
 								>
@@ -142,9 +142,7 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 											libraryName ||
 											"Select Library"}
 									</span>
-									<span className="opacity-50">
-										<CaretDown size={12} weight="bold" />
-									</span>
+									<CaretDown size={12} weight="bold" />
 								</button>
 							}
 							className="p-2 min-w-[200px]"

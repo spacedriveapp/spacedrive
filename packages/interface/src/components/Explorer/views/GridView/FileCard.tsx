@@ -12,6 +12,7 @@ import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from "../../utils/virtualFiles";
 import { VolumeSizeBar } from "../../components/VolumeSizeBar";
 import { InlineNameEdit } from "../../components/InlineNameEdit";
+import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface FileCardProps {
 	file: File;
@@ -50,24 +51,38 @@ export const FileCard = memo(
 			selected,
 		});
 
+		// Set up file opening for non-directory files
+		const physicalPath =
+			file.kind === "File" && "Physical" in file.sd_path
+				? [(file.sd_path as any).Physical.path]
+				: [];
+		const { openWithDefault } = useOpenWith(physicalPath);
+
 		const handleClick = (e: React.MouseEvent) => {
 			const multi = e.metaKey || e.ctrlKey;
 			const range = e.shiftKey;
 			selectFile(file, allFiles, multi, range);
 		};
 
-	const handleDoubleClick = () => {
-		// Virtual files (locations, volumes, devices) always navigate to their sd_path
-		if (isVirtualFile(file) && file.sd_path) {
-			navigateToPath(file.sd_path);
-			return;
-		}
+		const handleDoubleClick = async () => {
+			// Virtual files (locations, volumes, devices) always navigate to their sd_path
+			if (isVirtualFile(file) && file.sd_path) {
+				navigateToPath(file.sd_path);
+				return;
+			}
 
-		// Regular directories navigate normally
-		if (file.kind === "Directory") {
-			navigateToPath(file.sd_path);
-		}
-	};
+			// Regular directories navigate normally
+			if (file.kind === "Directory") {
+				navigateToPath(file.sd_path);
+				return;
+			}
+
+			// Open regular files with default application
+			if (file.kind === "File" && "Physical" in file.sd_path) {
+				const physicalPath = (file.sd_path as any).Physical.path;
+				await openWithDefault(physicalPath);
+			}
+		};
 
 		const handleContextMenu = async (e: React.MouseEvent) => {
 			e.preventDefault();
@@ -112,14 +127,14 @@ export const FileCard = memo(
 
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
-	// Check if this is a virtual volume file
-	const isVolume =
-		isVirtualFile(file) &&
-		(file as any)._virtual?.type === "volume" &&
-		(file as any)._virtual?.data;
+		// Check if this is a virtual volume file
+		const isVolume =
+			isVirtualFile(file) &&
+			(file as any)._virtual?.type === "volume" &&
+			(file as any)._virtual?.data;
 
-	// Extract volume data
-	const volumeData = isVolume ? (file as any)._virtual.data : null;
+		// Extract volume data
+		const volumeData = isVolume ? (file as any)._virtual.data : null;
 		const hasVolumeCapacity =
 			volumeData?.total_capacity != null &&
 			volumeData?.available_capacity != null &&
@@ -131,6 +146,8 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
+				data-index={fileIndex}
+				data-selectable="true"
 				tabIndex={-1}
 				className="relative outline-none focus:outline-none"
 			>
@@ -147,7 +164,6 @@ export const FileCard = memo(
 					layout="column"
 					className={clsx(
 						"flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
-						focused && !selected && "ring-2 ring-accent/50",
 						dndIsDragging && "opacity-40",
 						isFolder && isDropOver && "bg-accent/10",
 					)}

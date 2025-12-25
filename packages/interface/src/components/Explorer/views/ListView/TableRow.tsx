@@ -12,6 +12,7 @@ import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from "../../utils/virtualFiles";
 import { InlineNameEdit } from "../../components/InlineNameEdit";
+import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -53,6 +54,13 @@ export const TableRow = memo(
 			selected: isSelected,
 		});
 
+		// Set up file opening for non-directory files
+		const physicalPath =
+			file.kind === "File" && "Physical" in file.sd_path
+				? [(file.sd_path as any).Physical.path]
+				: [];
+		const { openWithDefault } = useOpenWith(physicalPath);
+
 		const handleClick = useCallback(
 			(e: React.MouseEvent) => {
 				const multi = e.metaKey || e.ctrlKey;
@@ -62,18 +70,25 @@ export const TableRow = memo(
 			[file, files, selectFile],
 		);
 
-	const handleDoubleClick = useCallback(() => {
-		// Virtual files (locations, volumes, devices) always navigate to their sd_path
-		if (isVirtualFile(file) && file.sd_path) {
-			navigateToPath(file.sd_path);
-			return;
-		}
+		const handleDoubleClick = useCallback(async () => {
+			// Virtual files (locations, volumes, devices) always navigate to their sd_path
+			if (isVirtualFile(file) && file.sd_path) {
+				navigateToPath(file.sd_path);
+				return;
+			}
 
-		// Regular directories navigate normally
-		if (file.kind === "Directory") {
-			navigateToPath(file.sd_path);
-		}
-	}, [file, navigateToPath]);
+			// Regular directories navigate normally
+			if (file.kind === "Directory") {
+				navigateToPath(file.sd_path);
+				return;
+			}
+
+			// Open regular files with default application
+			if (file.kind === "File" && "Physical" in file.sd_path) {
+				const physicalPath = (file.sd_path as any).Physical.path;
+				await openWithDefault(physicalPath);
+			}
+		}, [file, navigateToPath, openWithDefault]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {
@@ -96,6 +111,7 @@ export const TableRow = memo(
 				ref={measureRef}
 				data-index={index}
 				data-file-id={file.id}
+				data-selectable="true"
 				tabIndex={-1}
 				className="relative outline-none focus:outline-none"
 				style={{ height: ROW_HEIGHT }}

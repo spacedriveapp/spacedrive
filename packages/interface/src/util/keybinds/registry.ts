@@ -106,13 +106,6 @@ export const explorerKeybinds = {
 		scope: 'explorer'
 	}),
 
-	openInNewTab: defineKeybind({
-		id: 'explorer.openInNewTab',
-		label: 'Open in New Tab',
-		combo: { modifiers: ['Cmd'], key: 't' },
-		scope: 'explorer'
-	}),
-
 	// View
 	toggleMetadata: defineKeybind({
 		id: 'explorer.toggleMetadata',
@@ -220,17 +213,96 @@ export const globalKeybinds = {
 		scope: 'global'
 	}),
 
-	closeTab: defineKeybind({
-		id: 'global.closeTab',
-		label: 'Close Tab',
-		combo: { modifiers: ['Cmd'], key: 'w' },
-		scope: 'global'
-	}),
-
 	newTab: defineKeybind({
 		id: 'global.newTab',
 		label: 'New Tab',
 		combo: { modifiers: ['Cmd'], key: 't' },
+		scope: 'global',
+		preventDefault: true
+	}),
+
+	closeTab: defineKeybind({
+		id: 'global.closeTab',
+		label: 'Close Tab',
+		combo: { modifiers: ['Cmd'], key: 'w' },
+		scope: 'global',
+		preventDefault: true
+	}),
+
+	nextTab: defineKeybind({
+		id: 'global.nextTab',
+		label: 'Next Tab',
+		combo: { modifiers: ['Cmd', 'Shift'], key: ']' },
+		scope: 'global'
+	}),
+
+	previousTab: defineKeybind({
+		id: 'global.previousTab',
+		label: 'Previous Tab',
+		combo: { modifiers: ['Cmd', 'Shift'], key: '[' },
+		scope: 'global'
+	}),
+
+	selectTab1: defineKeybind({
+		id: 'global.selectTab1',
+		label: 'Go to Tab 1',
+		combo: { modifiers: ['Cmd'], key: '1' },
+		scope: 'global'
+	}),
+
+	selectTab2: defineKeybind({
+		id: 'global.selectTab2',
+		label: 'Go to Tab 2',
+		combo: { modifiers: ['Cmd'], key: '2' },
+		scope: 'global'
+	}),
+
+	selectTab3: defineKeybind({
+		id: 'global.selectTab3',
+		label: 'Go to Tab 3',
+		combo: { modifiers: ['Cmd'], key: '3' },
+		scope: 'global'
+	}),
+
+	selectTab4: defineKeybind({
+		id: 'global.selectTab4',
+		label: 'Go to Tab 4',
+		combo: { modifiers: ['Cmd'], key: '4' },
+		scope: 'global'
+	}),
+
+	selectTab5: defineKeybind({
+		id: 'global.selectTab5',
+		label: 'Go to Tab 5',
+		combo: { modifiers: ['Cmd'], key: '5' },
+		scope: 'global'
+	}),
+
+	selectTab6: defineKeybind({
+		id: 'global.selectTab6',
+		label: 'Go to Tab 6',
+		combo: { modifiers: ['Cmd'], key: '6' },
+		scope: 'global'
+	}),
+
+	selectTab7: defineKeybind({
+		id: 'global.selectTab7',
+		label: 'Go to Tab 7',
+		combo: { modifiers: ['Cmd'], key: '7' },
+		scope: 'global'
+	}),
+
+	selectTab8: defineKeybind({
+		id: 'global.selectTab8',
+		label: 'Go to Tab 8',
+		combo: { modifiers: ['Cmd'], key: '8' },
+		scope: 'global'
+	}),
+
+	selectTab9: defineKeybind({
+		id: 'global.selectTab9',
+		label: 'Go to Tab 9',
+		combo: { modifiers: ['Cmd'], key: '9' },
 		scope: 'global'
 	}),
 

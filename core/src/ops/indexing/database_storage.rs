@@ -910,7 +910,42 @@ impl DatabaseStorage {
 		let mut entry_active: entities::entry::ActiveModel = db_entry.into();
 
 		let new_parent_id = if let Some(parent_path) = new_path.parent() {
-			state.entry_id_cache.get(parent_path).copied()
+			// Check cache first, then fall back to database query
+			if let Some(&parent_id) = state.entry_id_cache.get(parent_path) {
+				Some(parent_id)
+			} else {
+				// Parent not in cache - query database
+				let parent_path_str = parent_path.to_string_lossy().to_string();
+				let is_cloud = parent_path_str.contains("://");
+
+				let parent_variants = if is_cloud && !parent_path_str.ends_with('/') {
+					vec![parent_path_str.clone(), format!("{}/", parent_path_str)]
+				} else {
+					vec![parent_path_str.clone()]
+				};
+
+				let query = entities::directory_paths::Entity::find()
+					.filter(entities::directory_paths::Column::Path.is_in(parent_variants));
+
+				match query.one(txn).await {
+					Ok(Some(dir_path_record)) => {
+						let parent_id = dir_path_record.entry_id;
+						// Cache the parent ID for future lookups
+						state
+							.entry_id_cache
+							.insert(parent_path.to_path_buf(), parent_id);
+						Some(parent_id)
+					}
+					Ok(None) => None,
+					Err(e) => {
+						return Err(JobError::execution(format!(
+							"Failed to resolve parent ID for {}: {}",
+							parent_path.display(),
+							e
+						)));
+					}
+				}
+			}
 		} else {
 			None
 		};

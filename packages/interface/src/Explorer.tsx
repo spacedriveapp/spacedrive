@@ -7,7 +7,7 @@ import {
 	useLocation,
 	useParams,
 } from "react-router-dom";
-import { useEffect, useMemo, memo } from "react";
+import { useEffect, useMemo, memo, useRef } from "react";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
@@ -24,7 +24,7 @@ import {
 	QuickPreviewFullscreen,
 	PREVIEW_LAYER_ID,
 } from "./components/QuickPreview";
-import { createExplorerRouter } from "./router";
+import { createExplorerRouter, explorerRoutes } from "./router";
 import {
 	useNormalizedQuery,
 	useLibraryMutation,
@@ -49,8 +49,18 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { DaemonStartupOverlay } from "./components/DaemonStartupOverlay";
+import { useDaemonStatus } from "./hooks/useDaemonStatus";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
+import {
+	TabManagerProvider,
+	TabBar,
+	TabNavigationSync,
+	TabDefaultsSync,
+	TabKeyboardHandler,
+	useTabManager,
+} from "./components/TabManager";
 
 /**
  * QuickPreviewSyncer - Syncs selection changes to QuickPreview
@@ -257,7 +267,7 @@ function ExplorerLayoutContent() {
 	const isPreviewActive = !!quickPreviewFileId;
 
 	return (
-		<div className="relative flex h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
+		<div className="relative flex flex-col h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
 			{/* Preview layer - portal target for fullscreen preview, sits between content and sidebar/inspector */}
 			<div
 				id={PREVIEW_LAYER_ID}
@@ -274,57 +284,72 @@ function ExplorerLayoutContent() {
 				isPreviewActive={isPreviewActive}
 			/>
 
-			<AnimatePresence initial={false} mode="popLayout">
-				{sidebarVisible && (
-					<motion.div
-						initial={{ x: -220, width: 0 }}
-						animate={{ x: 0, width: 220 }}
-						exit={{ x: -220, width: 0 }}
-						transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
-						className="relative z-50 overflow-hidden"
-					>
-						<SpacesSidebar isPreviewActive={isPreviewActive} />
-					</motion.div>
-				)}
-			</AnimatePresence>
+			{/* Main content area with sidebar and content */}
+			<div className="flex flex-1 overflow-hidden">
+				<AnimatePresence initial={false} mode="popLayout">
+					{sidebarVisible && (
+						<motion.div
+							initial={{ x: -220, width: 0 }}
+							animate={{ x: 0, width: 220 }}
+							exit={{ x: -220, width: 0 }}
+							transition={{
+								duration: 0.3,
+								ease: [0.25, 1, 0.5, 1],
+							}}
+							className="relative z-50 overflow-hidden"
+						>
+							<SpacesSidebar isPreviewActive={isPreviewActive} />
+						</motion.div>
+					)}
+				</AnimatePresence>
 
-			<div className="relative flex-1 overflow-hidden z-30">
-				{/* Router content renders here */}
-				<Outlet />
+				{/* Content area with tabs - positioned between sidebar and inspector */}
+				<div className="relative flex-1 flex flex-col overflow-hidden z-30 pt-12">
+					{/* Tab Bar - nested inside content area like Finder */}
+					<TabBar />
 
-				{/* Tag Assignment Mode - positioned at bottom of main content area */}
-				<TagAssignmentMode
-					isActive={tagModeActive}
-					onExit={() => setTagModeActive(false)}
-				/>
+					{/* Router content renders here */}
+					<div className="relative flex-1 overflow-hidden">
+						<Outlet />
+
+						{/* Tag Assignment Mode - positioned at bottom of main content area */}
+						<TagAssignmentMode
+							isActive={tagModeActive}
+							onExit={() => setTagModeActive(false)}
+						/>
+					</div>
+				</div>
+
+				{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
+				<KeyboardHandler />
+
+				{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
+				<QuickPreviewSyncer />
+
+				<AnimatePresence initial={false}>
+					{/* Hide inspector on Overview screen and Knowledge view (has its own) */}
+					{inspectorVisible && !isOverview && !isKnowledgeView && (
+						<motion.div
+							initial={{ width: 0 }}
+							animate={{ width: 280 }}
+							exit={{ width: 0 }}
+							transition={{
+								duration: 0.3,
+								ease: [0.25, 1, 0.5, 1],
+							}}
+							className="relative z-50 overflow-hidden"
+						>
+							<div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-transparent">
+								<Inspector
+									currentLocation={currentLocation}
+									onPopOut={handlePopOutInspector}
+									isPreviewActive={isPreviewActive}
+								/>
+							</div>
+						</motion.div>
+					)}
+				</AnimatePresence>
 			</div>
-
-			{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
-			<KeyboardHandler />
-
-			{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
-			<QuickPreviewSyncer />
-
-			<AnimatePresence initial={false}>
-				{/* Hide inspector on Overview screen and Knowledge view (has its own) */}
-				{inspectorVisible && !isOverview && !isKnowledgeView && (
-					<motion.div
-						initial={{ width: 0 }}
-						animate={{ width: 280 }}
-						exit={{ width: 0 }}
-						transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
-						className="relative z-50 overflow-hidden"
-					>
-						<div className="w-[280px] min-w-[280px] flex flex-col h-full p-2 bg-transparent">
-							<Inspector
-								currentLocation={currentLocation}
-								onPopOut={handlePopOutInspector}
-								isPreviewActive={isPreviewActive}
-							/>
-						</div>
-					</motion.div>
-				)}
-			</AnimatePresence>
 
 			{/* Quick Preview - isolated component to prevent frame rerenders on selection change */}
 			<QuickPreviewController
@@ -821,6 +846,9 @@ export function ExplorerLayout() {
 		<TopBarProvider>
 			<SelectionProvider>
 				<ExplorerProvider>
+					{/* Sync tab navigation and defaults with router */}
+					<TabNavigationSync />
+					<TabDefaultsSync />
 					<ExplorerLayoutContent />
 				</ExplorerProvider>
 			</SelectionProvider>
@@ -828,22 +856,79 @@ export function ExplorerLayout() {
 	);
 }
 
+function ExplorerWithTabs() {
+	const { router } = useTabManager();
+
+	return (
+		<DndWrapper>
+			<RouterProvider router={router} />
+		</DndWrapper>
+	);
+}
+
 export function Explorer({ client }: AppProps) {
-	const router = createExplorerRouter();
+	const platform = usePlatform();
+	const isTauri = platform.platform === "tauri";
 
 	return (
 		<SpacedriveProvider client={client}>
 			<ServerProvider>
-				<DndWrapper>
-					<RouterProvider router={router} />
-				</DndWrapper>
-				<DaemonDisconnectedOverlay />
-				<Dialogs />
-				<ReactQueryDevtools
-					initialIsOpen={false}
-					buttonPosition="bottom-right"
-				/>
+				{isTauri ? (
+					// Tauri: Wait for daemon connection before rendering content
+					<ExplorerWithDaemonCheck />
+				) : (
+					// Web: Render immediately (daemon connection handled differently)
+					<>
+						<TabManagerProvider routes={explorerRoutes}>
+							<TabKeyboardHandler />
+							<ExplorerWithTabs />
+						</TabManagerProvider>
+						<Dialogs />
+						<ReactQueryDevtools
+							initialIsOpen={false}
+							buttonPosition="bottom-right"
+						/>
+					</>
+				)}
 			</ServerProvider>
 		</SpacedriveProvider>
+	);
+}
+
+/**
+ * Tauri-specific wrapper that prevents Explorer from rendering until daemon is connected.
+ * This avoids the connection storm where hundreds of queries try to execute before daemon is ready.
+ */
+function ExplorerWithDaemonCheck() {
+	const daemonStatus = useDaemonStatus();
+	const { isConnected, isStarting } = daemonStatus;
+
+	return (
+		<>
+			{isConnected ? (
+				// Daemon connected - render full app
+				<>
+					<TabManagerProvider routes={explorerRoutes}>
+						<TabKeyboardHandler />
+						<ExplorerWithTabs />
+					</TabManagerProvider>
+					<Dialogs />
+					<ReactQueryDevtools
+						initialIsOpen={false}
+						buttonPosition="bottom-right"
+					/>
+				</>
+			) : (
+				// Daemon not connected - show appropriate overlay
+				<>
+					<DaemonStartupOverlay show={isStarting} />
+					{!isStarting && (
+						<DaemonDisconnectedOverlay
+							daemonStatus={daemonStatus}
+						/>
+					)}
+				</>
+			)}
+		</>
 	);
 }

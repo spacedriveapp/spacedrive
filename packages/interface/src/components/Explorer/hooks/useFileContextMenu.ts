@@ -18,6 +18,7 @@ import {
 	Scissors,
 	Pencil,
 	FolderPlus,
+	ArrowSquareOut,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
 import { useContextMenu } from "../../../hooks/useContextMenu";
@@ -30,6 +31,7 @@ import { isVirtualFile } from "../utils/virtualFiles";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
 import { useSelection } from "../SelectionContext";
+import { useOpenWith } from "../../../hooks/useOpenWith";
 
 interface UseFileContextMenuProps {
 	file: File;
@@ -51,6 +53,19 @@ export function useFileContextMenu({
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 	const { startRename } = useSelection();
+
+	// Get physical paths for file opening
+	const getPhysicalPaths = () => {
+		const targets =
+			selected && selectedFiles.length > 0 ? selectedFiles : [file];
+		return targets
+			.filter((f) => "Physical" in f.sd_path)
+			.map((f) => (f.sd_path as any).Physical.path);
+	};
+
+	const physicalPaths = getPhysicalPaths();
+	const { apps, openWithDefault, openWithApp, openMultipleWithApp } =
+		useOpenWith(physicalPaths);
 
 	// Get the files to operate on (multi-select or just this file)
 	// Filters out virtual files (they're display-only, not real filesystem entries)
@@ -80,97 +95,117 @@ export function useFileContextMenu({
 			{
 				icon: FolderOpen,
 				label: "Open",
-				onClick: () => {
+				onClick: async () => {
 					if (file.kind === "Directory") {
 						navigateToPath(file.sd_path);
-					} else {
-						console.log("Open file:", file.name);
-						// TODO: Implement file opening
+					} else if ("Physical" in file.sd_path) {
+						const physicalPath = (file.sd_path as any).Physical.path;
+						await openWithDefault(physicalPath);
 					}
 				},
 				keybind: "⌘O",
-				condition: () =>
-					file.kind === "Directory" || file.kind === "File",
+				condition: () => file.kind === "Directory" || file.kind === "File",
 			},
-		{
-			icon: MagnifyingGlass,
-			label: "Show in Finder",
-			onClick: async () => {
-				// Extract the physical path from SdPath
-				if ("Physical" in file.sd_path) {
-					const physicalPath = file.sd_path.Physical.path;
-					if (platform.revealFile) {
-						try {
-							await platform.revealFile(physicalPath);
-						} catch (err) {
-							console.error("Failed to reveal file:", err);
-							alert(`Failed to reveal file: ${err}`);
+			{
+				type: "submenu",
+				icon: ArrowSquareOut,
+				label: "Open With",
+				condition: () =>
+					file.kind === "File" &&
+					"Physical" in file.sd_path &&
+					apps.length > 0,
+				submenu: apps.map((app) => ({
+					label: app.name,
+					onClick: async () => {
+						if (selected && selectedFiles.length > 1) {
+							await openMultipleWithApp(physicalPaths, app.id);
+						} else if ("Physical" in file.sd_path) {
+							const physicalPath = (file.sd_path as any).Physical
+								.path;
+							await openWithApp(physicalPath, app.id);
+						}
+					},
+				})),
+			},
+			{
+				icon: MagnifyingGlass,
+				label: "Show in Finder",
+				onClick: async () => {
+					// Extract the physical path from SdPath
+					if ("Physical" in file.sd_path) {
+						const physicalPath = file.sd_path.Physical.path;
+						if (platform.revealFile) {
+							try {
+								await platform.revealFile(physicalPath);
+							} catch (err) {
+								console.error("Failed to reveal file:", err);
+								alert(`Failed to reveal file: ${err}`);
+							}
+						} else {
+							console.log(
+								"revealFile not supported on this platform",
+							);
 						}
 					} else {
-						console.log(
-							"revealFile not supported on this platform",
-						);
+						console.log("Cannot reveal non-physical file");
 					}
-				} else {
-					console.log("Cannot reveal non-physical file");
-				}
+				},
+				keybind: "⌘⇧R",
+				condition: () =>
+					"Physical" in file.sd_path && !!platform.revealFile,
 			},
-			keybind: "⌘⇧R",
-			condition: () =>
-				"Physical" in file.sd_path && !!platform.revealFile,
-		},
-		{ type: "separator" },
-		{
-			icon: Pencil,
-			label: "Rename",
-			onClick: () => {
-				startRename(file.id);
+			{ type: "separator" },
+			{
+				icon: Pencil,
+				label: "Rename",
+				onClick: () => {
+					startRename(file.id);
+				},
+				keybindId: "explorer.renameFile",
+				condition: () => selected && selectedFiles.length === 1 && !hasVirtualFiles,
 			},
-			keybindId: "explorer.renameFile",
-			condition: () => selected && selectedFiles.length === 1 && !hasVirtualFiles,
-		},
-		{
-			icon: FolderPlus,
-			label: "New Folder",
-			onClick: async () => {
-				if (!currentPath) return;
-				try {
-					const result = await createFolder.mutateAsync({
-						parent: currentPath,
-						name: "Untitled Folder",
-						items: [],
-					});
-					console.log("Created folder:", result);
-				} catch (err) {
-					console.error("Failed to create folder:", err);
-					alert(`Failed to create folder: ${err}`);
-				}
+			{
+				icon: FolderPlus,
+				label: "New Folder",
+				onClick: async () => {
+					if (!currentPath) return;
+					try {
+						const result = await createFolder.mutateAsync({
+							parent: currentPath,
+							name: "Untitled Folder",
+							items: [],
+						});
+						console.log("Created folder:", result);
+					} catch (err) {
+						console.error("Failed to create folder:", err);
+						alert(`Failed to create folder: ${err}`);
+					}
+				},
+				condition: () => !!currentPath,
 			},
-			condition: () => !!currentPath,
-		},
-		{
-			icon: FolderPlus,
-			label: "New Folder with Items",
-			onClick: async () => {
-				if (!currentPath) return;
-				const targets = getTargetFiles();
-				if (targets.length === 0) return;
+			{
+				icon: FolderPlus,
+				label: "New Folder with Items",
+				onClick: async () => {
+					if (!currentPath) return;
+					const targets = getTargetFiles();
+					if (targets.length === 0) return;
 
-				try {
-					const result = await createFolder.mutateAsync({
-						parent: currentPath,
-						name: "New Folder",
-						items: targets.map((f) => f.sd_path),
-					});
-					console.log("Created folder with items:", result);
-				} catch (err) {
-					console.error("Failed to create folder with items:", err);
-					alert(`Failed to create folder: ${err}`);
-				}
+					try {
+						const result = await createFolder.mutateAsync({
+							parent: currentPath,
+							name: "New Folder",
+							items: targets.map((f) => f.sd_path),
+						});
+						console.log("Created folder with items:", result);
+					} catch (err) {
+						console.error("Failed to create folder with items:", err);
+						alert(`Failed to create folder: ${err}`);
+					}
+				},
+				condition: () => !!currentPath && selectedFiles.length > 0 && !hasVirtualFiles,
 			},
-			condition: () => !!currentPath && selectedFiles.length > 0 && !hasVirtualFiles,
-		},
-		{ type: "separator" },
+			{ type: "separator" },
 			{
 				icon: Copy,
 				label:
