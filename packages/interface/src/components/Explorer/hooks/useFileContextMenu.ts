@@ -34,7 +34,7 @@ import { useSelection } from "../SelectionContext";
 import { useOpenWith } from "../../../hooks/useOpenWith";
 
 interface UseFileContextMenuProps {
-	file: File;
+	file?: File | null;
 	selectedFiles: File[];
 	selected: boolean;
 }
@@ -59,7 +59,7 @@ export function useFileContextMenu({
 		const targets =
 			selected && selectedFiles.length > 0 ? selectedFiles : [file];
 		return targets
-			.filter((f) => "Physical" in f.sd_path)
+			.filter((f) => f && f.sd_path && "Physical" in f.sd_path)
 			.map((f) => (f.sd_path as any).Physical.path);
 	};
 
@@ -73,13 +73,13 @@ export function useFileContextMenu({
 		const targets =
 			selected && selectedFiles.length > 0 ? selectedFiles : [file];
 		// Filter out virtual files - they cannot be copied/moved/deleted
-		return targets.filter((f) => !isVirtualFile(f));
+		return targets.filter((f) => f && !isVirtualFile(f));
 	};
 
 	// Check if any selected files are virtual (to disable certain operations)
 	const hasVirtualFiles = selected
 		? selectedFiles.some((f) => isVirtualFile(f))
-		: isVirtualFile(file);
+		: file ? isVirtualFile(file) : false;
 
 	return useContextMenu({
 		items: [
@@ -87,15 +87,18 @@ export function useFileContextMenu({
 				icon: Eye,
 				label: "Quick Look",
 				onClick: () => {
+					if (!file) return;
 					console.log("Quick Look:", file.name);
 					// TODO: Implement quick look
 				},
 				keybind: "Space",
+				condition: () => !!file,
 			},
 			{
 				icon: FolderOpen,
 				label: "Open",
 				onClick: async () => {
+					if (!file) return;
 					if (file.kind === "Directory") {
 						navigateToPath(file.sd_path);
 					} else if ("Physical" in file.sd_path) {
@@ -104,19 +107,21 @@ export function useFileContextMenu({
 					}
 				},
 				keybind: "⌘O",
-				condition: () => file.kind === "Directory" || file.kind === "File",
+				condition: () => !!file && (file.kind === "Directory" || file.kind === "File"),
 			},
 			{
 				type: "submenu",
 				icon: ArrowSquareOut,
 				label: "Open With",
 				condition: () =>
+					!!file &&
 					file.kind === "File" &&
 					"Physical" in file.sd_path &&
 					apps.length > 0,
 				submenu: apps.map((app) => ({
 					label: app.name,
 					onClick: async () => {
+						if (!file) return;
 						if (selected && selectedFiles.length > 1) {
 							await openMultipleWithApp(physicalPaths, app.id);
 						} else if ("Physical" in file.sd_path) {
@@ -131,6 +136,7 @@ export function useFileContextMenu({
 				icon: MagnifyingGlass,
 				label: "Show in Finder",
 				onClick: async () => {
+					if (!file) return;
 					// Extract the physical path from SdPath
 					if ("Physical" in file.sd_path) {
 						const physicalPath = file.sd_path.Physical.path;
@@ -152,17 +158,18 @@ export function useFileContextMenu({
 				},
 				keybind: "⌘⇧R",
 				condition: () =>
-					"Physical" in file.sd_path && !!platform.revealFile,
+					!!file && "Physical" in file.sd_path && !!platform.revealFile,
 			},
 			{ type: "separator" },
 			{
 				icon: Pencil,
 				label: "Rename",
 				onClick: () => {
+					if (!file) return;
 					startRename(file.id);
 				},
 				keybindId: "explorer.renameFile",
-				condition: () => selected && selectedFiles.length === 1 && !hasVirtualFiles,
+				condition: () => !!file && selected && selectedFiles.length === 1 && !hasVirtualFiles,
 			},
 			{
 				icon: FolderPlus,
@@ -292,7 +299,7 @@ export function useFileContextMenu({
 				type: "submenu",
 				icon: Image,
 				label: "Image Processing",
-				condition: () => getContentKind(file) === "image",
+				condition: () => !!file && getContentKind(file) === "image",
 				submenu: [
 					{
 						icon: Sparkle,
@@ -304,7 +311,7 @@ export function useFileContextMenu({
 								generate_blurhash: true,
 							});
 						},
-						condition: () => !file.image_media_data?.blurhash,
+						condition: () => !!file && !file.image_media_data?.blurhash,
 					},
 					{
 						icon: Crop,
@@ -334,7 +341,7 @@ export function useFileContextMenu({
 				type: "submenu",
 				icon: Video,
 				label: "Video Processing",
-				condition: () => getContentKind(file) === "video",
+				condition: () => !!file && getContentKind(file) === "video",
 				submenu: [
 					{
 						icon: FilmStrip,
@@ -347,6 +354,7 @@ export function useFileContextMenu({
 							});
 						},
 						condition: () =>
+							!!file &&
 							!file.sidecars?.some(
 								(s) => s.kind === "thumbstrip",
 							),
@@ -361,7 +369,7 @@ export function useFileContextMenu({
 								generate_blurhash: true,
 							});
 						},
-						condition: () => !file.video_media_data?.blurhash,
+						condition: () => !!file && !file.video_media_data?.blurhash,
 					},
 					{
 						icon: Crop,
@@ -403,7 +411,7 @@ export function useFileContextMenu({
 				type: "submenu",
 				icon: Microphone,
 				label: "Audio Processing",
-				condition: () => getContentKind(file) === "audio",
+				condition: () => !!file && getContentKind(file) === "audio",
 				submenu: [
 					{
 						icon: TextAa,
@@ -424,6 +432,7 @@ export function useFileContextMenu({
 				icon: FileText,
 				label: "Document Processing",
 				condition: () =>
+					!!file &&
 					file.kind === "File" &&
 					["pdf", "doc", "docx"].includes(file.extension || ""),
 				submenu: [
@@ -506,7 +515,7 @@ export function useFileContextMenu({
 					const message =
 						targets.length > 1
 							? `Delete ${targets.length} items?`
-							: `Delete "${file.name}"?`;
+							: `Delete "${file?.name ?? "this file"}"?`;
 
 					if (confirm(message)) {
 						console.log(

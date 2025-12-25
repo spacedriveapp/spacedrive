@@ -82,15 +82,13 @@ export function SelectionProvider({
 
 		const hasSelection = selectedFiles.length > 0;
 		const isSingleSelection = selectedFiles.length === 1;
-		const hasClipboard = clipboard.hasClipboard();
 
 		platform.updateMenuItems?.([
-			{ id: "copy", enabled: hasSelection },
-			{ id: "cut", enabled: hasSelection },
+			// NOTE: copy/cut/paste are always enabled to support text input operations
+			// They intelligently route to file ops or native clipboard based on focus
 			{ id: "duplicate", enabled: hasSelection },
 			{ id: "rename", enabled: isSingleSelection },
 			{ id: "delete", enabled: hasSelection },
-			{ id: "paste", enabled: hasClipboard },
 		]);
 	}, [selectedFiles, clipboard, platform, isActiveTab]);
 

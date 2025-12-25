@@ -1684,22 +1684,24 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.item(&delete_item)
 		.build()?;
 
-	// Edit menu with custom file operations and text operations
+	// Edit menu with custom file operations and native text operations
+	// Accelerators are handled smartly: native clipboard for text inputs, file ops for explorer
+	// IMPORTANT: Keep these always enabled so accelerators work in text inputs
 	let cut_item = MenuItemBuilder::with_id("cut", "Cut")
 		.accelerator("Cmd+X")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("cut".to_string(), cut_item.clone());
 
 	let copy_item = MenuItemBuilder::with_id("copy", "Copy")
 		.accelerator("Cmd+C")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("copy".to_string(), copy_item.clone());
 
 	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
 		.accelerator("Cmd+V")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("paste".to_string(), paste_item.clone());
 
@@ -1907,10 +1909,18 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}
 			}
-			// Edit menu clipboard actions - trigger keybind handlers
+			// Edit menu clipboard actions - emit event for smart handling in frontend
 			"cut" | "copy" | "paste" => {
-				let keybind_id = format!("explorer.{}", event_id);
-				keybinds::emit_keybind_triggered(&app_handle, &keybind_id);
+				tracing::info!("[Menu] Clipboard action triggered: {}", event_id);
+				// Emit generic clipboard event - frontend will decide if it's a text or file operation
+				if let Err(e) = app_handle.emit("clipboard-action", event_id) {
+					tracing::error!("Failed to emit clipboard action: {}", e);
+				} else {
+					tracing::info!(
+						"[Menu] Clipboard action event emitted successfully: {}",
+						event_id
+					);
+				}
 			}
 			_ => {}
 		}
