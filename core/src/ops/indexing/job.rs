@@ -554,7 +554,10 @@ impl IndexerJob {
 				None
 			};
 
-			let thumbnail_config = ThumbnailJobConfig::default();
+			let mut thumbnail_config = ThumbnailJobConfig::default();
+			// Inherit background flag from the indexer job
+			thumbnail_config.run_in_background = self.config.run_in_background;
+
 			let thumbnail_job = if let Some(uuids) = entry_uuids {
 				ThumbnailJob::for_entries(uuids, thumbnail_config)
 			} else {
