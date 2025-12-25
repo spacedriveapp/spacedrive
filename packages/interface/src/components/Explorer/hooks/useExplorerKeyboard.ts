@@ -128,15 +128,35 @@ export function useExplorerKeyboard() {
 		{ enabled: clipboard.hasClipboard() && !!currentPath },
 	);
 
-	// Rename: Enter key triggers rename mode when single file selected (not directories)
+	// Rename: Enter key triggers rename mode for any selected file or directory
 	useKeybind(
 		"explorer.renameFile",
 		() => {
-			if (selectedFiles.length === 1 && !isRenaming && selectedFiles[0].kind !== "Directory") {
+			if (selectedFiles.length === 1 && !isRenaming) {
 				startRename(selectedFiles[0].id);
 			}
 		},
-		{ enabled: selectedFiles.length === 1 && !isRenaming && selectedFiles[0]?.kind !== "Directory" },
+		{ enabled: selectedFiles.length === 1 && !isRenaming },
+	);
+
+	// Tag mode: T key enters tag assignment mode
+	useKeybind(
+		"explorer.enterTagMode",
+		() => {
+			setTagModeActive(true);
+		},
+		{ enabled: !tagModeActive },
+	);
+
+	// Quick Preview: Spacebar opens quick preview
+	useKeybind(
+		"explorer.toggleQuickPreview",
+		() => {
+			if (selectedFiles.length === 1) {
+				openQuickPreview(selectedFiles[0].id);
+			}
+		},
+		{ enabled: selectedFiles.length === 1 },
 	);
 
 	useEffect(() => {
@@ -206,31 +226,6 @@ export function useExplorerKeyboard() {
 				return;
 			}
 
-			// Spacebar: Open Quick Preview (in-app modal)
-			if (e.code === "Space" && selectedFiles.length === 1) {
-				e.preventDefault();
-				openQuickPreview(selectedFiles[0].id);
-				return;
-			}
-
-			// Enter: Navigate into directory (but not if in rename mode - that's handled by keybind)
-			if (e.key === "Enter" && selectedFiles.length === 1 && !isRenaming) {
-				const selected = selectedFiles[0];
-				if (selected.kind === "Directory") {
-					e.preventDefault();
-					navigateToPath(selected.sd_path);
-				}
-				// If it's a file, Enter triggers rename mode (handled by useKeybind above)
-				return;
-			}
-
-			// T: Enter tag assignment mode
-			if (e.key === "t" && !e.metaKey && !e.ctrlKey && !tagModeActive) {
-				e.preventDefault();
-				setTagModeActive(true);
-				return;
-			}
-
 			// Escape: Clear selection
 			if (e.code === "Escape" && selectedFiles.length > 0) {
 				clearSelection();
@@ -260,5 +255,6 @@ export function useExplorerKeyboard() {
 		setSelectedFiles,
 		openQuickPreview,
 		isRenaming,
+		typeahead,
 	]);
 }

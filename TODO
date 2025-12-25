@@ -33,6 +33,7 @@ Journey to v2.0.0-pre.1:
 ☐ Connection info on device panel (lan/relay)
 ✔ Grid view render bug, shows as column for split second on first render of results @done(25-12-22 07:49)
 ✔ Job sound: make copy sound a varient, not play also @done(25-12-24 07:24)
+☐ Improve job panel data display, layout and ordering @today
 ☐ Run now button in Location Inspector doesn't work well @today
 ✔ Sidebar active based on Explorer path @today @done(25-12-20 07:59)
 ☐ Delete location UX improvement
