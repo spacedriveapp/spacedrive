@@ -159,18 +159,8 @@ impl SpacedriveWindow {
 					(320.0, 400.0),
 					true,
 					true, // always on top
-					true, // transparent for macOS styling
+					false,
 				)?;
-
-				// Apply macOS titlebar styling
-				#[cfg(target_os = "macos")]
-				{
-					if let Ok(ns_window) = window.ns_window() {
-						unsafe {
-							sd_desktop_macos::set_titlebar_style(&ns_window, false);
-						}
-					}
-				}
 
 				// Listen for window close to notify main window
 				let app_handle = app.clone();

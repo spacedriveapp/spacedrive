@@ -1,157 +1,238 @@
-import { createContext, useContext, useState, useCallback, useMemo, useEffect, type ReactNode } from "react";
+import {
+	createContext,
+	useContext,
+	useState,
+	useCallback,
+	useMemo,
+	useEffect,
+	type ReactNode,
+} from "react";
 import { usePlatform } from "../../platform";
 import type { File } from "@sd/ts-client";
 import { useClipboard } from "../../hooks/useClipboard";
 
 interface SelectionContextValue {
-  selectedFiles: File[];
-  selectedFileIds: Set<string>;
-  isSelected: (fileId: string) => boolean;
-  setSelectedFiles: (files: File[]) => void;
-  selectFile: (file: File, files: File[], multi?: boolean, range?: boolean) => void;
-  clearSelection: () => void;
-  selectAll: (files: File[]) => void;
-  focusedIndex: number;
-  setFocusedIndex: (index: number) => void;
-  moveFocus: (direction: "up" | "down" | "left" | "right", files: File[]) => void;
+	selectedFiles: File[];
+	selectedFileIds: Set<string>;
+	isSelected: (fileId: string) => boolean;
+	setSelectedFiles: (files: File[]) => void;
+	selectFile: (
+		file: File,
+		files: File[],
+		multi?: boolean,
+		range?: boolean,
+	) => void;
+	clearSelection: () => void;
+	selectAll: (files: File[]) => void;
+	focusedIndex: number;
+	setFocusedIndex: (index: number) => void;
+	moveFocus: (
+		direction: "up" | "down" | "left" | "right",
+		files: File[],
+	) => void;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
 
-export function SelectionProvider({ children }: { children: ReactNode }) {
-  const platform = usePlatform();
-  const clipboard = useClipboard();
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
+interface SelectionProviderProps {
+	children: ReactNode;
+	isActiveTab?: boolean;
+}
 
-  // Sync selected file IDs to platform (for cross-window state sharing)
-  useEffect(() => {
-    const fileIds = selectedFiles.map((f) => f.id);
+export function SelectionProvider({
+	children,
+	isActiveTab = true,
+}: SelectionProviderProps) {
+	const platform = usePlatform();
+	const clipboard = useClipboard();
+	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+	const [focusedIndex, setFocusedIndex] = useState(-1);
+	const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 
-    if (platform.setSelectedFileIds) {
-      platform.setSelectedFileIds(fileIds).catch((err) => {
-        console.error("Failed to sync selected files to platform:", err);
-      });
-    }
-  }, [selectedFiles, platform]);
+	// Sync selected file IDs to platform (for cross-window state sharing)
+	// Only sync for the active tab to avoid conflicts
+	useEffect(() => {
+		if (!isActiveTab) return;
 
-  // Update native menu items based on selection and clipboard state
-  useEffect(() => {
-    const hasSelection = selectedFiles.length > 0;
-    const isSingleSelection = selectedFiles.length === 1;
-    const hasClipboard = clipboard.hasClipboard();
+		const fileIds = selectedFiles.map((f) => f.id);
 
-    platform.updateMenuItems?.([
-      { id: "copy", enabled: hasSelection },
-      { id: "cut", enabled: hasSelection },
-      { id: "duplicate", enabled: hasSelection },
-      { id: "rename", enabled: isSingleSelection },
-      { id: "delete", enabled: hasSelection },
-      { id: "paste", enabled: hasClipboard },
-    ]);
-  }, [selectedFiles, clipboard, platform]);
+		if (platform.setSelectedFileIds) {
+			platform.setSelectedFileIds(fileIds).catch((err) => {
+				console.error(
+					"Failed to sync selected files to platform:",
+					err,
+				);
+			});
+		}
+	}, [selectedFiles, platform, isActiveTab]);
 
-  const clearSelection = useCallback(() => {
-    setSelectedFiles([]);
-    setFocusedIndex(-1);
-    setLastSelectedIndex(-1);
-  }, []);
+	// Update native menu items based on selection and clipboard state
+	// Only update for active tab
+	useEffect(() => {
+		if (!isActiveTab) return;
 
-  const selectAll = useCallback((files: File[]) => {
-    setSelectedFiles([...files]);
-    setLastSelectedIndex(files.length - 1);
-  }, []);
+		const hasSelection = selectedFiles.length > 0;
+		const isSingleSelection = selectedFiles.length === 1;
+		const hasClipboard = clipboard.hasClipboard();
 
-  const selectFile = useCallback((file: File, files: File[], multi = false, range = false) => {
-    const fileIndex = files.findIndex((f) => f.id === file.id);
+		platform.updateMenuItems?.([
+			{ id: "copy", enabled: hasSelection },
+			{ id: "cut", enabled: hasSelection },
+			{ id: "duplicate", enabled: hasSelection },
+			{ id: "rename", enabled: isSingleSelection },
+			{ id: "delete", enabled: hasSelection },
+			{ id: "paste", enabled: hasClipboard },
+		]);
+	}, [selectedFiles, clipboard, platform, isActiveTab]);
 
-    setLastSelectedIndex((prevLastIndex) => {
-      if (range && prevLastIndex !== -1) {
-        const start = Math.min(prevLastIndex, fileIndex);
-        const end = Math.max(prevLastIndex, fileIndex);
-        const rangeFiles = files.slice(start, end + 1);
-        setSelectedFiles(rangeFiles);
-        setFocusedIndex(fileIndex);
-        return prevLastIndex;
-      } else if (multi) {
-        setSelectedFiles((prev) => {
-          const isSelected = prev.some((f) => f.id === file.id);
-          if (isSelected) {
-            return prev.filter((f) => f.id !== file.id);
-          } else {
-            return [...prev, file];
-          }
-        });
-        setFocusedIndex(fileIndex);
-        return fileIndex;
-      } else {
-        setSelectedFiles([file]);
-        setFocusedIndex(fileIndex);
-        return fileIndex;
-      }
-    });
-  }, []);
+	const clearSelection = useCallback(() => {
+		setSelectedFiles([]);
+		setFocusedIndex(-1);
+		setLastSelectedIndex(-1);
+	}, []);
 
-  const moveFocus = useCallback((direction: "up" | "down" | "left" | "right", files: File[]) => {
-    if (files.length === 0) return;
+	const selectAll = useCallback((files: File[]) => {
+		setSelectedFiles([...files]);
+		setLastSelectedIndex(files.length - 1);
+	}, []);
 
-    setFocusedIndex((currentFocusedIndex) => {
-      let newIndex = currentFocusedIndex;
+	const selectFile = useCallback(
+		(file: File, files: File[], multi = false, range = false) => {
+			const fileIndex = files.findIndex((f) => f.id === file.id);
 
-      if (direction === "up") newIndex = Math.max(0, currentFocusedIndex - 1);
-      if (direction === "down") newIndex = Math.min(files.length - 1, currentFocusedIndex + 1);
-      if (direction === "left") newIndex = Math.max(0, currentFocusedIndex - 1);
-      if (direction === "right") newIndex = Math.min(files.length - 1, currentFocusedIndex + 1);
+			if (range) {
+				setLastSelectedIndex((prevLastIndex) => {
+					if (prevLastIndex !== -1) {
+						const start = Math.min(prevLastIndex, fileIndex);
+						const end = Math.max(prevLastIndex, fileIndex);
+						const rangeFiles = files.slice(start, end + 1);
 
-      if (newIndex !== currentFocusedIndex) {
-        setSelectedFiles([files[newIndex]]);
-        setLastSelectedIndex(newIndex);
-      }
+						setSelectedFiles((prev) => {
+							// If there's already a multi-file selection, add the range (Finder behavior)
+							if (prev.length > 1) {
+								// Create a map for O(1) lookup
+								const existingIds = new Set(
+									prev.map((f) => f.id),
+								);
+								const combined = [...prev];
 
-      return newIndex;
-    });
-  }, []);
+								// Add new range files that aren't already selected
+								for (const rangeFile of rangeFiles) {
+									if (!existingIds.has(rangeFile.id)) {
+										combined.push(rangeFile);
+									}
+								}
 
-  // Create a Set of selected file IDs for O(1) lookup
-  const selectedFileIds = useMemo(
-    () => new Set(selectedFiles.map((f) => f.id)),
-    [selectedFiles]
-  );
+								return combined;
+							} else {
+								// Single file or empty selection, replace with range
+								return rangeFiles;
+							}
+						});
+					}
+					return fileIndex; // Update anchor to clicked file for next range
+				});
+				setFocusedIndex(fileIndex);
+			} else if (multi) {
+				setSelectedFiles((prev) => {
+					const isSelected = prev.some((f) => f.id === file.id);
+					if (isSelected) {
+						return prev.filter((f) => f.id !== file.id);
+					} else {
+						return [...prev, file];
+					}
+				});
+				setFocusedIndex(fileIndex);
+				setLastSelectedIndex(fileIndex);
+			} else {
+				setSelectedFiles([file]);
+				setFocusedIndex(fileIndex);
+				setLastSelectedIndex(fileIndex);
+			}
+		},
+		[],
+	);
 
-  // Stable function for checking if a file is selected
-  const isSelected = useCallback(
-    (fileId: string) => selectedFileIds.has(fileId),
-    [selectedFileIds]
-  );
+	const moveFocus = useCallback(
+		(direction: "up" | "down" | "left" | "right", files: File[]) => {
+			if (files.length === 0) return;
 
-  const value = useMemo(() => ({
-    selectedFiles,
-    selectedFileIds,
-    isSelected,
-    setSelectedFiles,
-    selectFile,
-    clearSelection,
-    selectAll,
-    focusedIndex,
-    setFocusedIndex,
-    moveFocus,
-  }), [
-    selectedFiles,
-    selectedFileIds,
-    isSelected,
-    selectFile,
-    clearSelection,
-    selectAll,
-    focusedIndex,
-    moveFocus,
-  ]);
+			setFocusedIndex((currentFocusedIndex) => {
+				let newIndex = currentFocusedIndex;
 
-  return <SelectionContext.Provider value={value}>{children}</SelectionContext.Provider>;
+				if (direction === "up")
+					newIndex = Math.max(0, currentFocusedIndex - 1);
+				if (direction === "down")
+					newIndex = Math.min(
+						files.length - 1,
+						currentFocusedIndex + 1,
+					);
+				if (direction === "left")
+					newIndex = Math.max(0, currentFocusedIndex - 1);
+				if (direction === "right")
+					newIndex = Math.min(
+						files.length - 1,
+						currentFocusedIndex + 1,
+					);
+
+				if (newIndex !== currentFocusedIndex) {
+					setSelectedFiles([files[newIndex]]);
+					setLastSelectedIndex(newIndex);
+				}
+
+				return newIndex;
+			});
+		},
+		[],
+	);
+
+	// Create a Set of selected file IDs for O(1) lookup
+	const selectedFileIds = useMemo(
+		() => new Set(selectedFiles.map((f) => f.id)),
+		[selectedFiles],
+	);
+
+	// Stable function for checking if a file is selected
+	const isSelected = useCallback(
+		(fileId: string) => selectedFileIds.has(fileId),
+		[selectedFileIds],
+	);
+
+	const value = useMemo(
+		() => ({
+			selectedFiles,
+			selectedFileIds,
+			isSelected,
+			setSelectedFiles,
+			selectFile,
+			clearSelection,
+			selectAll,
+			focusedIndex,
+			setFocusedIndex,
+			moveFocus,
+		}),
+		[
+			selectedFiles,
+			selectedFileIds,
+			isSelected,
+			selectFile,
+			clearSelection,
+			selectAll,
+			focusedIndex,
+			moveFocus,
+		],
+	);
+
+	return (
+		<SelectionContext.Provider value={value}>
+			{children}
+		</SelectionContext.Provider>
+	);
 }
 
 export function useSelection() {
-  const context = useContext(SelectionContext);
-  if (!context) throw new Error("useSelection must be used within SelectionProvider");
-  return context;
+	const context = useContext(SelectionContext);
+	if (!context)
+		throw new Error("useSelection must be used within SelectionProvider");
+	return context;
 }

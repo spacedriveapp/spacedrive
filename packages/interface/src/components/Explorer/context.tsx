@@ -9,6 +9,11 @@ import {
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNormalizedQuery } from "../../context";
+import { useTabManager } from "../TabManager/useTabManager";
+import type {
+	ViewMode as TabViewMode,
+	SortBy as TabSortBy,
+} from "../TabManager/TabManagerContext";
 
 import type {
 	SdPath,
@@ -316,6 +321,14 @@ interface ExplorerContextValue {
 	viewSettings: ViewSettings;
 	setViewSettings: (settings: Partial<ViewSettings>) => void;
 
+	// Column view state (per-tab, stored in TabManager)
+	columnStack: SdPath[];
+	setColumnStack: (columns: SdPath[]) => void;
+
+	// Scroll position (per-tab, stored in TabManager)
+	scrollPosition: { top: number; left: number };
+	setScrollPosition: (pos: { top: number; left: number }) => void;
+
 	sidebarVisible: boolean;
 	setSidebarVisible: (visible: boolean) => void;
 	inspectorVisible: boolean;
@@ -334,19 +347,37 @@ interface ExplorerContextValue {
 	devices: Map<string, Device>;
 
 	loadPreferencesForSpaceItem: (id: string) => void;
+
+	// Tab info
+	activeTabId: string;
 }
 
 const ExplorerContext = createContext<ExplorerContextValue | null>(null);
 
 interface ExplorerProviderProps {
 	children: ReactNode;
+	/** Reserved for Phase 2: Will control whether this tab's context should process events/updates */
+	isActiveTab?: boolean;
 }
 
-export function ExplorerProvider({ children }: ExplorerProviderProps) {
+export function ExplorerProvider({
+	children,
+	isActiveTab: _isActiveTab = true,
+}: ExplorerProviderProps) {
 	const routerNavigate = useNavigate();
 	const location = useLocation();
 	const viewPrefs = useViewPreferencesStore();
 	const sortPrefs = useSortPreferencesStore();
+
+	// Get per-tab state from TabManager
+	const { activeTabId, getExplorerState, updateExplorerState } =
+		useTabManager();
+
+	// Memoize tabState to ensure it updates when activeTabId or explorerStates change
+	const tabState = useMemo(
+		() => getExplorerState(activeTabId),
+		[activeTabId, getExplorerState],
+	);
 
 	const [navState, navDispatch] = useReducer(
 		navigationReducer,
@@ -356,6 +387,46 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 	const [currentFiles, setCurrentFiles] = useReducer(
 		(_: File[], files: File[]) => files,
 		[] as File[],
+	);
+
+	// Parse columnStack from TabManager (stored as JSON strings)
+	// Must depend on activeTabId to recalculate when switching tabs
+	const columnStack = useMemo((): SdPath[] => {
+		if (!tabState.columnStack || tabState.columnStack.length === 0) {
+			return [];
+		}
+		try {
+			return tabState.columnStack.map((s) => JSON.parse(s) as SdPath);
+		} catch {
+			return [];
+		}
+	}, [activeTabId, tabState.columnStack]);
+
+	const setColumnStack = useCallback(
+		(columns: SdPath[]) => {
+			updateExplorerState(activeTabId, {
+				columnStack: columns.map((c) => JSON.stringify(c)),
+			});
+		},
+		[activeTabId, updateExplorerState],
+	);
+
+	const scrollPosition = useMemo(
+		() => ({
+			top: tabState.scrollTop,
+			left: tabState.scrollLeft,
+		}),
+		[activeTabId, tabState.scrollTop, tabState.scrollLeft],
+	);
+
+	const setScrollPosition = useCallback(
+		(pos: { top: number; left: number }) => {
+			updateExplorerState(activeTabId, {
+				scrollTop: pos.top,
+				scrollLeft: pos.left,
+			});
+		},
+		[activeTabId, updateExplorerState],
 	);
 
 	const currentTarget = navState.history[navState.index] ?? null;
@@ -459,30 +530,64 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 
 	const spaceKey = getSpaceItemKey(location.pathname, location.search);
 
+	// View settings from TabManager (per-tab)
+	const viewMode = tabState.viewMode as ViewMode;
+	const sortByValue = tabState.sortBy as SortBy;
+	const viewSettings: ViewSettings = useMemo(
+		() => ({
+			gridSize: tabState.gridSize,
+			gapSize: tabState.gapSize,
+			foldersFirst: tabState.foldersFirst,
+			showFileSize: true, // Not stored per-tab for now
+			columnWidth: 256, // Not stored per-tab for now
+		}),
+		[
+			activeTabId,
+			tabState.gridSize,
+			tabState.gapSize,
+			tabState.foldersFirst,
+		],
+	);
+
 	const setViewMode = useCallback(
 		(mode: ViewMode) => {
-			uiDispatch({ type: "SET_VIEW_MODE", mode });
+			updateExplorerState(activeTabId, {
+				viewMode: mode as TabViewMode,
+			});
 			viewPrefs.setPreferences(spaceKey, { viewMode: mode });
 		},
-		[spaceKey, viewPrefs],
+		[activeTabId, updateExplorerState, spaceKey, viewPrefs],
 	);
 
 	const setSortBy = useCallback(
 		(sort: SortBy) => {
-			uiDispatch({ type: "SET_SORT_BY", sort });
+			updateExplorerState(activeTabId, {
+				sortBy: sort as TabSortBy,
+			});
 			sortPrefs.setPreferences(pathKey, sort);
 		},
-		[pathKey, sortPrefs],
+		[activeTabId, updateExplorerState, pathKey, sortPrefs],
 	);
 
 	const setViewSettings = useCallback(
 		(settings: Partial<ViewSettings>) => {
-			uiDispatch({ type: "SET_VIEW_SETTINGS", settings });
+			updateExplorerState(activeTabId, {
+				gridSize: settings.gridSize ?? tabState.gridSize,
+				gapSize: settings.gapSize ?? tabState.gapSize,
+				foldersFirst: settings.foldersFirst ?? tabState.foldersFirst,
+			});
 			viewPrefs.setPreferences(spaceKey, {
-				viewSettings: { ...uiState.viewSettings, ...settings },
+				viewSettings: { ...viewSettings, ...settings },
 			});
 		},
-		[spaceKey, uiState.viewSettings, viewPrefs],
+		[
+			activeTabId,
+			updateExplorerState,
+			tabState,
+			spaceKey,
+			viewSettings,
+			viewPrefs,
+		],
 	);
 
 	const setSidebarVisible = useCallback((visible: boolean) => {
@@ -530,12 +635,16 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 			goForward,
 			canGoBack,
 			canGoForward,
-			viewMode: uiState.viewMode,
+			viewMode,
 			setViewMode,
-			sortBy: uiState.sortBy,
+			sortBy: sortByValue,
 			setSortBy,
-			viewSettings: uiState.viewSettings,
+			viewSettings,
 			setViewSettings,
+			columnStack,
+			setColumnStack,
+			scrollPosition,
+			setScrollPosition,
 			sidebarVisible: uiState.sidebarVisible,
 			setSidebarVisible,
 			inspectorVisible: uiState.inspectorVisible,
@@ -549,6 +658,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 			setTagModeActive,
 			devices,
 			loadPreferencesForSpaceItem,
+			activeTabId,
 		}),
 		[
 			currentTarget,
@@ -560,12 +670,16 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 			goForward,
 			canGoBack,
 			canGoForward,
-			uiState.viewMode,
+			viewMode,
 			setViewMode,
-			uiState.sortBy,
+			sortByValue,
 			setSortBy,
-			uiState.viewSettings,
+			viewSettings,
 			setViewSettings,
+			columnStack,
+			setColumnStack,
+			scrollPosition,
+			setScrollPosition,
 			uiState.sidebarVisible,
 			setSidebarVisible,
 			uiState.inspectorVisible,
@@ -578,6 +692,7 @@ export function ExplorerProvider({ children }: ExplorerProviderProps) {
 			setTagModeActive,
 			devices,
 			loadPreferencesForSpaceItem,
+			activeTabId,
 		],
 	);
 
