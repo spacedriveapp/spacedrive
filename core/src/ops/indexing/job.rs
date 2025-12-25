@@ -109,6 +109,9 @@ pub struct IndexerJobConfig {
 	pub max_depth: Option<u32>,
 	#[serde(default)]
 	pub rule_toggles: super::rules::RuleToggles,
+	/// Whether to run this job in the background (not persisted to database, no UI updates)
+	#[serde(default)]
+	pub run_in_background: bool,
 }
 
 impl IndexerJobConfig {
@@ -121,6 +124,7 @@ impl IndexerJobConfig {
 			persistence: IndexPersistence::Persistent,
 			max_depth: None,
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -133,6 +137,7 @@ impl IndexerJobConfig {
 			persistence: IndexPersistence::Persistent,
 			max_depth: Some(1),
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -149,6 +154,7 @@ impl IndexerJobConfig {
 				None
 			},
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -196,7 +202,7 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
-		!self.config.is_ephemeral()
+		!self.config.is_ephemeral() && !self.config.run_in_background
 	}
 }
 
@@ -548,7 +554,10 @@ impl IndexerJob {
 				None
 			};
 
-			let thumbnail_config = ThumbnailJobConfig::default();
+			let mut thumbnail_config = ThumbnailJobConfig::default();
+			// Inherit background flag from the indexer job
+			thumbnail_config.run_in_background = self.config.run_in_background;
+
 			let thumbnail_job = if let Some(uuids) = entry_uuids {
 				ThumbnailJob::for_entries(uuids, thumbnail_config)
 			} else {

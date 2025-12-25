@@ -657,7 +657,7 @@ impl ChangeHandler for DatabaseAdapter {
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::{IndexMode, IndexerJob};
+		use crate::ops::indexing::{IndexMode, IndexerJob, IndexerJobConfig};
 
 		let Some(library) = self.context.get_library(self.library_id).await else {
 			return Ok(());
@@ -678,18 +678,20 @@ impl ChangeHandler for DatabaseAdapter {
 			IndexMode::Content
 		};
 
-		let indexer_job =
-			IndexerJob::from_location(self.location_id, SdPath::local(path), index_mode);
+		let mut config = IndexerJobConfig::new(self.location_id, SdPath::local(path), index_mode);
+		config.run_in_background = true;
+
+		let indexer_job = IndexerJob::new(config);
 
 		if let Err(e) = library.jobs().dispatch(indexer_job).await {
 			tracing::warn!(
-				"Failed to spawn indexer job for directory {}: {}",
+				"Failed to spawn background indexer job for directory {}: {}",
 				path.display(),
 				e
 			);
 		} else {
 			tracing::debug!(
-				"Spawned recursive indexer job for directory: {}",
+				"Spawned background indexer job for directory: {}",
 				path.display()
 			);
 		}

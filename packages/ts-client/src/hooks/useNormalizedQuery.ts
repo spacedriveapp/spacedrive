@@ -590,17 +590,25 @@ function updateArrayCache(
 	for (const resource of newResources) {
 		if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
 			// Try to find existing Physical entry by matching alternate_paths
-			const physicalPath = resource.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+			const physicalPath = resource.alternate_paths?.find(
+				(p: any) => p.Physical,
+			)?.Physical?.path;
 			if (physicalPath) {
 				const existingIndex = newData.findIndex((item: any) => {
-					const itemPath = item.sd_path?.Physical?.path ||
-					                 item.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+					const itemPath =
+						item.sd_path?.Physical?.path ||
+						item.alternate_paths?.find((p: any) => p.Physical)
+							?.Physical?.path;
 					return itemPath === physicalPath;
 				});
 
 				if (existingIndex !== -1) {
 					// Merge Content entry into existing Physical entry
-					newData[existingIndex] = safeMerge(newData[existingIndex], resource, noMergeFields);
+					newData[existingIndex] = safeMerge(
+						newData[existingIndex],
+						resource,
+						noMergeFields,
+					);
 					seenIds.add(resource.id);
 				}
 			}
@@ -610,10 +618,19 @@ function updateArrayCache(
 	// Append new items (excluding Content paths that didn't match an existing entry)
 	for (const resource of newResources) {
 		if (!seenIds.has(resource.id)) {
-			// Skip resources with Content paths - they represent alternate instances
-			// and should only update existing entries (e.g., thumbnail generation)
+			// For Content paths: only add if they don't belong to an existing Physical entry
+			// Content paths without matching Physical entries are either:
+			// 1. Files moved into this directory (have alternate_paths but no match) → ADD
+			// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
 			if (resource.sd_path?.Content) {
-				continue;
+				// Skip if no alternate_paths (pure metadata update)
+				if (
+					!resource.alternate_paths ||
+					resource.alternate_paths.length === 0
+				) {
+					continue;
+				}
+				// Otherwise, this is a real file that belongs here - add it
 			}
 			newData.push(resource);
 		}
@@ -660,17 +677,25 @@ function updateWrappedCache(
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
 				// Try to find existing Physical entry by matching alternate_paths
-				const physicalPath = resource.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+				const physicalPath = resource.alternate_paths?.find(
+					(p: any) => p.Physical,
+				)?.Physical?.path;
 				if (physicalPath) {
 					const existingIndex = array.findIndex((item: any) => {
-						const itemPath = item.sd_path?.Physical?.path ||
-						                 item.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+						const itemPath =
+							item.sd_path?.Physical?.path ||
+							item.alternate_paths?.find((p: any) => p.Physical)
+								?.Physical?.path;
 						return itemPath === physicalPath;
 					});
 
 					if (existingIndex !== -1) {
 						// Merge Content entry into existing Physical entry
-						array[existingIndex] = safeMerge(array[existingIndex], resource, noMergeFields);
+						array[existingIndex] = safeMerge(
+							array[existingIndex],
+							resource,
+							noMergeFields,
+						);
 						seenIds.add(resource.id);
 					}
 				}
@@ -680,9 +705,19 @@ function updateWrappedCache(
 		// Append new items (excluding Content paths that didn't match an existing entry)
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
-				// Skip resources with Content paths - they represent alternate instances
+				// For Content paths: only add if they don't belong to an existing Physical entry
+				// Content paths without matching Physical entries are either:
+				// 1. Files moved into this directory (have alternate_paths but no match) → ADD
+				// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
 				if (resource.sd_path?.Content) {
-					continue;
+					// Skip if no alternate_paths (pure metadata update)
+					if (
+						!resource.alternate_paths ||
+						resource.alternate_paths.length === 0
+					) {
+						continue;
+					}
+					// Otherwise, this is a real file that belongs here - add it
 				}
 
 				// Check if resource already exists in the array (by ID)

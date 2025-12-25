@@ -23,6 +23,7 @@ use uuid::Uuid;
 pub struct IndexingHarnessBuilder {
 	test_name: String,
 	watcher_enabled: bool,
+	daemon_enabled: bool,
 }
 
 impl IndexingHarnessBuilder {
@@ -31,12 +32,19 @@ impl IndexingHarnessBuilder {
 		Self {
 			test_name: test_name.into(),
 			watcher_enabled: true, // Enabled by default
+			daemon_enabled: false, // Disabled by default (only for TypeScript bridge tests)
 		}
 	}
 
 	/// Disable the filesystem watcher for this test
 	pub fn disable_watcher(mut self) -> Self {
 		self.watcher_enabled = false;
+		self
+	}
+
+	/// Enable daemon RPC server for TypeScript bridge tests
+	pub fn enable_daemon(mut self) -> Self {
+		self.daemon_enabled = true;
 		self
 	}
 
@@ -92,6 +100,39 @@ impl IndexingHarnessBuilder {
 			.await?
 			.ok_or_else(|| anyhow::anyhow!("Device not found after registration"))?;
 
+		// Wrap core in Arc for shared access
+		let core = Arc::new(core);
+
+		// Start daemon RPC server if enabled (for TypeScript bridge tests)
+		let daemon_socket_addr = if self.daemon_enabled {
+			// Find an available port by binding to 0 and getting the actual port
+			let temp_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await?;
+			let actual_port = temp_listener.local_addr()?.port();
+			let socket_addr = format!("127.0.0.1:{}", actual_port);
+			drop(temp_listener); // Release the port
+
+			tracing::info!("Starting daemon RPC server on {}", socket_addr);
+
+			let core_for_daemon = core.clone();
+			let socket_addr_clone = socket_addr.clone();
+
+			// Spawn daemon server in background
+			tokio::spawn(async move {
+				let mut server =
+					sd_core::infra::daemon::rpc::RpcServer::new(socket_addr_clone, core_for_daemon);
+				if let Err(e) = server.start().await {
+					tracing::error!("Daemon RPC server error: {}", e);
+				}
+			});
+
+			// Wait for server to start accepting connections
+			tokio::time::sleep(Duration::from_secs(1)).await;
+
+			Some(socket_addr)
+		} else {
+			None
+		};
+
 		Ok(IndexingHarness {
 			_test_name: self.test_name,
 			_test_root: test_root,
@@ -100,6 +141,7 @@ impl IndexingHarnessBuilder {
 			library,
 			device_id,
 			device_db_id: device_record.id,
+			daemon_socket_addr,
 		})
 	}
 }
@@ -109,16 +151,22 @@ pub struct IndexingHarness {
 	_test_name: String,
 	_test_root: PathBuf,
 	pub snapshot_dir: PathBuf,
-	pub core: Core,
+	pub core: Arc<Core>,
 	pub library: Arc<sd_core::library::Library>,
 	pub device_id: Uuid,
 	pub device_db_id: i32,
+	daemon_socket_addr: Option<String>,
 }
 
 impl IndexingHarness {
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
 		&self._test_root
+	}
+
+	/// Get the daemon socket address (only available if daemon is enabled)
+	pub fn daemon_socket_addr(&self) -> Option<&str> {
+		self.daemon_socket_addr.as_deref()
 	}
 
 	/// Create a test location directory with files
