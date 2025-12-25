@@ -60,6 +60,45 @@ export const platform: Platform = {
 		await invoke("reveal_file", { path: filePath });
 	},
 
+	async getAppsForPaths(paths: string[]) {
+		return await invoke<Array<{ id: string; name: string; icon?: string }>>(
+			"get_apps_for_paths",
+			{ paths }
+		);
+	},
+
+	async openPathDefault(path: string) {
+		return await invoke<
+			| { status: "success" }
+			| { status: "file_not_found"; path: string }
+			| { status: "app_not_found"; app_id: string }
+			| { status: "permission_denied"; path: string }
+			| { status: "platform_error"; message: string }
+		>("open_path_default", { path });
+	},
+
+	async openPathWithApp(path: string, appId: string) {
+		return await invoke<
+			| { status: "success" }
+			| { status: "file_not_found"; path: string }
+			| { status: "app_not_found"; app_id: string }
+			| { status: "permission_denied"; path: string }
+			| { status: "platform_error"; message: string }
+		>("open_path_with_app", { path, appId });
+	},
+
+	async openPathsWithApp(paths: string[], appId: string) {
+		return await invoke<
+			Array<
+				| { status: "success" }
+				| { status: "file_not_found"; path: string }
+				| { status: "app_not_found"; app_id: string }
+				| { status: "permission_denied"; path: string }
+				| { status: "platform_error"; message: string }
+			>
+		>("open_paths_with_app", { paths, appId });
+	},
+
 	async getSidecarPath(
 		libraryId: string,
 		contentUuid: string,

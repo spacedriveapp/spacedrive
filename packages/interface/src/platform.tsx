@@ -40,6 +40,18 @@ export type Platform = {
 	/** Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.) */
 	revealFile?(filePath: string): Promise<void>;
 
+	/** Get applications that can open the given file paths (intersection for multiple files) */
+	getAppsForPaths?(paths: string[]): Promise<OpenWithApp[]>;
+
+	/** Open file with system default application */
+	openPathDefault?(path: string): Promise<OpenResult>;
+
+	/** Open file with specific application */
+	openPathWithApp?(path: string, appId: string): Promise<OpenResult>;
+
+	/** Open multiple files with specific application */
+	openPathsWithApp?(paths: string[], appId: string): Promise<OpenResult[]>;
+
 	/** Get the physical path to a sidecar file */
 	getSidecarPath?(
 		libraryId: string,
@@ -152,6 +164,24 @@ export type Platform = {
 	/** Unregister a keybind handler (Tauri only) */
 	unregisterKeybind?(id: string): Promise<void>;
 };
+
+/** Application that can open a file */
+export interface OpenWithApp {
+	/** Platform-specific identifier (bundle ID on macOS, app name on Windows, desktop entry on Linux) */
+	id: string;
+	/** Human-readable display name */
+	name: string;
+	/** Optional base64-encoded icon */
+	icon?: string;
+}
+
+/** Result of opening a file */
+export type OpenResult =
+	| { status: "success" }
+	| { status: "file_not_found"; path: string }
+	| { status: "app_not_found"; app_id: string }
+	| { status: "permission_denied"; path: string }
+	| { status: "platform_error"; message: string };
 
 /** Menu item state for native menus */
 export interface MenuItemState {

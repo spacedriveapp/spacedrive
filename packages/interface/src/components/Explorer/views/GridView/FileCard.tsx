@@ -11,6 +11,7 @@ import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from "../../utils/virtualFiles";
 import { VolumeSizeBar } from "../../components/VolumeSizeBar";
+import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface FileCardProps {
 	file: File;
@@ -40,19 +41,26 @@ export const FileCard = memo(
 		const { viewSettings, navigateToPath } = useExplorer();
 		const { gridSize, showFileSize } = viewSettings;
 
-		const contextMenu = useFileContextMenu({
-			file,
-			selectedFiles,
-			selected,
-		});
+	const contextMenu = useFileContextMenu({
+		file,
+		selectedFiles,
+		selected,
+	});
 
-		const handleClick = (e: React.MouseEvent) => {
-			const multi = e.metaKey || e.ctrlKey;
-			const range = e.shiftKey;
-			selectFile(file, allFiles, multi, range);
-		};
+	// Set up file opening for non-directory files
+	const physicalPath =
+		file.kind === "File" && "Physical" in file.sd_path
+			? [(file.sd_path as any).Physical.path]
+			: [];
+	const { openWithDefault } = useOpenWith(physicalPath);
 
-	const handleDoubleClick = () => {
+	const handleClick = (e: React.MouseEvent) => {
+		const multi = e.metaKey || e.ctrlKey;
+		const range = e.shiftKey;
+		selectFile(file, allFiles, multi, range);
+	};
+
+	const handleDoubleClick = async () => {
 		// Virtual files (locations, volumes, devices) always navigate to their sd_path
 		if (isVirtualFile(file) && file.sd_path) {
 			navigateToPath(file.sd_path);
@@ -62,6 +70,13 @@ export const FileCard = memo(
 		// Regular directories navigate normally
 		if (file.kind === "Directory") {
 			navigateToPath(file.sd_path);
+			return;
+		}
+
+		// Open regular files with default application
+		if (file.kind === "File" && "Physical" in file.sd_path) {
+			const physicalPath = (file.sd_path as any).Physical.path;
+			await openWithDefault(physicalPath);
 		}
 	};
 

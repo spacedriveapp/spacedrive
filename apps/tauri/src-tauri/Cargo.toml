@@ -10,9 +10,6 @@ path = "src/main.rs"
 [build-dependencies]
 tauri-build = { version = "2.0", features = [] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-sd-desktop-macos = { path = "../crates/macos" }
-
 [dependencies]
 # Tauri
 tauri = { version = "2.1", features = ["macos-private-api", "devtools", "protocol-asset"] }
@@ -25,6 +22,9 @@ tauri-plugin-os = "2.0"
 # Core bridge
 sd-tauri-core = { path = "../sd-tauri-core" }
 sd-core = { path = "../../../core", features = ["ffmpeg", "heif"] }
+
+# File opening
+file-opening = { path = "../crates/file-opening" }
 
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
@@ -44,6 +44,16 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Drag and drop
 uuid = { version = "1.11", features = ["v4", "serde"] }
 parking_lot = "0.12"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+sd-desktop-macos = { path = "../crates/macos" }
+file-opening-macos = { path = "../crates/file-opening-macos" }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+file-opening-windows = { path = "../crates/file-opening-windows" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+file-opening-linux = { path = "../crates/file-opening-linux" }
 
 [features]
 default = ["custom-protocol"]
