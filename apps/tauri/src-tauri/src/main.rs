@@ -301,6 +301,19 @@ impl SubscriptionManager {
 			false
 		}
 	}
+
+	async fn cancel_all(&self) {
+		let mut subscriptions = self.subscriptions.write().await;
+		let count = subscriptions.len();
+		for (_, cancel_tx) in subscriptions.drain() {
+			let _ = cancel_tx.send(());
+		}
+		tracing::info!("Cancelled {} subscriptions", count);
+	}
+
+	async fn get_active_count(&self) -> usize {
+		self.subscriptions.read().await.len()
+	}
 }
 
 /// App state - stores global application state shared across all windows
@@ -602,9 +615,11 @@ async fn daemon_request(
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 	use tokio::net::TcpStream;
 
-	let mut stream = TcpStream::connect(&daemon_state.socket_addr)
+	let stream = TcpStream::connect(&daemon_state.socket_addr)
 		.await
 		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
+
+	let (reader, mut writer) = stream.into_split();
 
 	// Send request
 	let request_line = serde_json::to_string(&request)
@@ -612,21 +627,25 @@ async fn daemon_request(
 
 	tracing::debug!("Sending to daemon: {}", request_line);
 
-	stream
+	writer
 		.write_all(format!("{}\n", request_line).as_bytes())
 		.await
 		.map_err(|e| format!("Failed to write request: {}", e))?;
 
 	// Read response
-	let mut reader = BufReader::new(stream);
+	let mut buf_reader = BufReader::new(reader);
 	let mut response_line = String::new();
 
-	reader
+	buf_reader
 		.read_line(&mut response_line)
 		.await
 		.map_err(|e| format!("Failed to read response: {}", e))?;
 
 	tracing::debug!("Received from daemon: {}", response_line.trim());
+
+	// Explicitly close the connection by dropping both halves
+	drop(writer);
+	drop(buf_reader);
 
 	serde_json::from_str(&response_line).map_err(|e| {
 		format!(
@@ -677,7 +696,11 @@ async fn subscribe_to_events(
 
 	// Spawn background task to listen for events
 	tauri::async_runtime::spawn(async move {
-		let stream = match TcpStream::connect(&socket_addr).await {
+		tracing::debug!(
+			subscription_id = subscription_id,
+			"Creating TCP connection for subscription"
+		);
+		let mut stream = match TcpStream::connect(&socket_addr).await {
 			Ok(s) => s,
 			Err(e) => {
 				tracing::error!("Failed to connect for events: {}", e);
@@ -685,7 +708,7 @@ async fn subscribe_to_events(
 			}
 		};
 
-		let (reader, mut writer) = stream.into_split();
+		let (reader, mut writer) = stream.split();
 
 		// Send subscription request
 		// Frontend controls which events to subscribe to via eventTypes parameter
@@ -786,6 +809,11 @@ async fn subscribe_to_events(
 				"Unsubscribe sent successfully"
 			);
 		}
+
+		// Explicitly shutdown and drop the stream to close the TCP connection
+		drop(writer);
+		drop(reader);
+		tracing::info!(subscription_id = subscription_id, "TCP connection closed");
 	});
 
 	Ok(subscription_id)
@@ -807,6 +835,21 @@ async fn unsubscribe_from_events(
 	} else {
 		Err(format!("Subscription {} not found", subscription_id))
 	}
+}
+
+/// Cleanup all active subscriptions (useful for app reloads)
+#[tauri::command]
+async fn cleanup_all_connections(app_state: tauri::State<'_, AppState>) -> Result<(), String> {
+	let count = app_state.subscription_manager.get_active_count().await;
+	tracing::info!("Cleaning up {} active subscriptions", count);
+	app_state.subscription_manager.cancel_all().await;
+	Ok(())
+}
+
+/// Get active subscription count (for debugging)
+#[tauri::command]
+async fn get_active_subscriptions(app_state: tauri::State<'_, AppState>) -> Result<usize, String> {
+	Ok(app_state.subscription_manager.get_active_count().await)
 }
 
 /// Update menu item states
@@ -1904,6 +1947,8 @@ fn main() {
 			daemon_request,
 			subscribe_to_events,
 			unsubscribe_from_events,
+			cleanup_all_connections,
+			get_active_subscriptions,
 			update_menu_items,
 			get_daemon_status,
 			start_daemon_process,
