@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import clsx from "clsx";
 import { CloudArrowUp, HardDrives, Files, Cpu } from "@phosphor-icons/react";
 
 interface HeroStatsProps {
@@ -32,11 +31,7 @@ export function HeroStats({
 		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
 	return (
-		<motion.div
-			initial={{ opacity: 0, y: 20 }}
-			animate={{ opacity: 1, y: 0 }}
-			className="bg-app-box border border-app-line rounded-2xl p-8"
-		>
+		<div className="bg-app-box border border-app-line rounded-2xl p-8">
 			<div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
 				{/* Total Storage */}
 				<StatCard
@@ -82,7 +77,7 @@ export function HeroStats({
 					color="from-purple-500 to-pink-500"
 				/>
 			</div>
-		</motion.div>
+		</div>
 	);
 }
 

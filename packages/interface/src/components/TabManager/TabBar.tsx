@@ -20,7 +20,7 @@ export function TabBar() {
 	}, [tabs, activeTabId]);
 
 	return (
-		<div className="flex items-center h-9 px-1 gap-1 mx-2 mb-1.5 bg-app-box/50 rounded-full shrink-0">
+		<div className="flex items-center h-9 px-1 gap-1 mx-2 bg-app-box/50 rounded-full shrink-0">
 			<LayoutGroup id="tab-bar">
 				<div className="flex items-center flex-1 gap-1 min-w-0">
 					{tabs.map((tab) => {

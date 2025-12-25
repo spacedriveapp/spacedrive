@@ -128,7 +128,7 @@ export function ExplorerView() {
 				/>
 			)}
 
-			<div className="relative flex w-full flex-col h-full overflow-hidden bg-app/80">
+			<div className="relative flex w-full flex-col pt-1.5 h-full overflow-hidden bg-app/80">
 				<div className="flex-1 overflow-auto">
 					<TabNavigationGuard>
 						{viewMode === "grid" ? (
