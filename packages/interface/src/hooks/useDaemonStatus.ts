@@ -29,7 +29,6 @@ export function useDaemonStatus() {
 		}
 
 		let mounted = true;
-		let checkInterval: NodeJS.Timeout | null = null;
 		let listenerCleanup: (() => void) | null = null;
 
 		const checkDaemonStatus = async () => {
@@ -44,20 +43,14 @@ export function useDaemonStatus() {
 						hasEverConnected.current = true;
 					}
 					
-					setStatus(prev => ({
-						...prev,
-						isConnected: isRunning,
-						// Only clear isChecking if we're connected (daemon started successfully)
-						isChecking: isRunning ? false : prev.isChecking,
-						// Clear isStarting once we're connected
-						isStarting: isRunning ? false : prev.isStarting,
-					}));
-
-					// Clear polling if daemon is back online
-					if (isRunning && checkInterval) {
-						clearInterval(checkInterval);
-						checkInterval = null;
-					}
+				setStatus(prev => ({
+					...prev,
+					isConnected: isRunning,
+					// Only clear isChecking if we're connected (daemon started successfully)
+					isChecking: isRunning ? false : prev.isChecking,
+					// Clear isStarting once we're connected
+					isStarting: isRunning ? false : prev.isStarting,
+				}));
 				}
 			} catch (error) {
 				if (mounted) {
@@ -75,37 +68,28 @@ export function useDaemonStatus() {
 				console.log('[useDaemonStatus] daemon-connected event received');
 				if (mounted) {
 					hasEverConnected.current = true;
-					setStatus(prev => ({
-						...prev,
-						isConnected: true,
-						isChecking: false,
-						isStarting: false, // No longer starting once connected
-					}));
-
-					// Stop polling when connected
-					if (checkInterval) {
-						clearInterval(checkInterval);
-						checkInterval = null;
-					}
+				setStatus(prev => ({
+					...prev,
+					isConnected: true,
+					isChecking: false,
+					isStarting: false, // No longer starting once connected
+				}));
 				}
 			});
 
 			const unlistenDisconnected = await platform.onDaemonDisconnected?.(() => {
 				console.log('[useDaemonStatus] daemon-disconnected event received');
 				if (mounted) {
-					setStatus(prev => ({
-						...prev,
-						isConnected: false,
-						isChecking: false,
-						// If we were ever connected before, this is a disconnection, not startup
-						// Keep isStarting as is - only clear it on connect
-						isStarting: hasEverConnected.current ? false : prev.isStarting,
-					}));
+				setStatus(prev => ({
+					...prev,
+					isConnected: false,
+					isChecking: false,
+					// If we were ever connected before, this is a disconnection, not startup
+					// Keep isStarting as is - only clear it on connect
+					isStarting: hasEverConnected.current ? false : prev.isStarting,
+				}));
 
-					// Start polling when disconnected
-					if (!checkInterval) {
-						checkInterval = setInterval(checkDaemonStatus, 3000);
-					}
+				// Don't create additional polling - fallback interval already running
 				}
 			});
 
@@ -161,14 +145,12 @@ export function useDaemonStatus() {
 				console.error('[useDaemonStatus] Failed to set up daemon listeners:', error);
 			});
 
-		// Also poll every 5 seconds as a fallback
-		const fallbackInterval = setInterval(checkDaemonStatus, 5000);
+		// Fallback polling only when disconnected (event listeners should handle normal case)
+		// Start with 3 second interval on startup
+		const fallbackInterval = setInterval(checkDaemonStatus, 3000);
 
 		return () => {
 			mounted = false;
-			if (checkInterval) {
-				clearInterval(checkInterval);
-			}
 			clearInterval(fallbackInterval);
 			listenerCleanup?.();
 		};

@@ -856,43 +856,6 @@ export function ExplorerLayout() {
 	);
 }
 
-/**
- * DaemonOverlays - Manages which daemon overlay to show
- *
- * Shows startup overlay during initial app launch while waiting for daemon.
- * Shows disconnected overlay if daemon disconnects after initial connection.
- * Triggers app reload on daemon reconnection to refresh stale state.
- */
-function DaemonOverlays() {
-	const { isConnected, isStarting } = useDaemonStatus();
-	const prevConnected = useRef(isConnected);
-
-	// Show startup overlay during initial launch (isStarting=true, not connected)
-	// Show disconnected overlay if daemon disconnects after we were connected (isStarting=false, not connected)
-	const showStartup = isStarting && !isConnected;
-	const showDisconnected = !isStarting && !isConnected;
-
-	// Reload app when daemon reconnects to refresh stale state.
-	// This effect lives here (not in DaemonDisconnectedOverlay) because the overlay
-	// unmounts when isConnected becomes true, preventing its effect from running.
-	useEffect(() => {
-		if (prevConnected.current === false && isConnected === true) {
-			console.log(
-				"[DaemonOverlays] Daemon reconnected! Reloading app...",
-			);
-			window.location.reload();
-		}
-		prevConnected.current = isConnected;
-	}, [isConnected]);
-
-	return (
-		<>
-			<DaemonStartupOverlay show={showStartup} />
-			{showDisconnected && <DaemonDisconnectedOverlay />}
-		</>
-	);
-}
-
 function ExplorerWithTabs() {
 	const { router } = useTabManager();
 
@@ -904,20 +867,68 @@ function ExplorerWithTabs() {
 }
 
 export function Explorer({ client }: AppProps) {
+	const platform = usePlatform();
+	const isTauri = platform.platform === "tauri";
+
 	return (
 		<SpacedriveProvider client={client}>
 			<ServerProvider>
-				<TabManagerProvider routes={explorerRoutes}>
-					<TabKeyboardHandler />
-					<ExplorerWithTabs />
-				</TabManagerProvider>
-				<DaemonOverlays />
-				<Dialogs />
-				<ReactQueryDevtools
-					initialIsOpen={false}
-					buttonPosition="bottom-right"
-				/>
+				{isTauri ? (
+					// Tauri: Wait for daemon connection before rendering content
+					<ExplorerWithDaemonCheck />
+				) : (
+					// Web: Render immediately (daemon connection handled differently)
+					<>
+						<TabManagerProvider routes={explorerRoutes}>
+							<TabKeyboardHandler />
+							<ExplorerWithTabs />
+						</TabManagerProvider>
+						<Dialogs />
+						<ReactQueryDevtools
+							initialIsOpen={false}
+							buttonPosition="bottom-right"
+						/>
+					</>
+				)}
 			</ServerProvider>
 		</SpacedriveProvider>
+	);
+}
+
+/**
+ * Tauri-specific wrapper that prevents Explorer from rendering until daemon is connected.
+ * This avoids the connection storm where hundreds of queries try to execute before daemon is ready.
+ */
+function ExplorerWithDaemonCheck() {
+	const daemonStatus = useDaemonStatus();
+	const { isConnected, isStarting } = daemonStatus;
+
+	return (
+		<>
+			{isConnected ? (
+				// Daemon connected - render full app
+				<>
+					<TabManagerProvider routes={explorerRoutes}>
+						<TabKeyboardHandler />
+						<ExplorerWithTabs />
+					</TabManagerProvider>
+					<Dialogs />
+					<ReactQueryDevtools
+						initialIsOpen={false}
+						buttonPosition="bottom-right"
+					/>
+				</>
+			) : (
+				// Daemon not connected - show appropriate overlay
+				<>
+					<DaemonStartupOverlay show={isStarting} />
+					{!isStarting && (
+						<DaemonDisconnectedOverlay
+							daemonStatus={daemonStatus}
+						/>
+					)}
+				</>
+			)}
+		</>
 	);
 }

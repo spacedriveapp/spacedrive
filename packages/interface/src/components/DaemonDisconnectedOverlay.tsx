@@ -34,8 +34,10 @@ function CLICommand({
 
 export function DaemonDisconnectedOverlay({
 	forceShow = false,
+	daemonStatus,
 }: {
 	forceShow?: boolean;
+	daemonStatus: ReturnType<typeof useDaemonStatus>;
 }) {
 	const {
 		isConnected,
@@ -43,7 +45,7 @@ export function DaemonDisconnectedOverlay({
 		isInstalled,
 		startDaemon,
 		installAndStartDaemon,
-	} = useDaemonStatus();
+	} = daemonStatus;
 	const [installAsService, setInstallAsService] = useState(isInstalled);
 	const platform = usePlatform();
 
