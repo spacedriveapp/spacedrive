@@ -69,42 +69,71 @@ impl LibraryQuery for FileSearchQuery {
 		let db = library.db();
 		let search_id = Uuid::new_v4();
 
-		// Build device slug lookup map from database
-		use std::collections::HashMap;
-		let devices = crate::infra::db::entities::device::Entity::find()
-			.all(db.conn())
-			.await
-			.map_err(QueryError::SeaOrm)?;
-		let device_slug_map: HashMap<Uuid, String> = devices
-			.into_iter()
-			.map(|device| (device.uuid, device.slug))
-			.collect();
+		// Determine which index to use (ephemeral or persistent)
+		let index_type = self.determine_index_type(&context, db.conn()).await?;
 
-		// Perform the search based on mode
-		let results = match self.input.mode {
-			crate::ops::search::input::SearchMode::Fast => {
-				self.execute_fast_search(db.conn(), &device_slug_map)
-					.await?
+		tracing::debug!(
+			"Search query using {:?} index for scope: {:?}",
+			index_type,
+			self.input.scope
+		);
+
+		match index_type {
+			crate::ops::search::IndexType::Persistent => {
+				// Build device slug lookup map from database
+				use std::collections::HashMap;
+				let devices = crate::infra::db::entities::device::Entity::find()
+					.all(db.conn())
+					.await
+					.map_err(QueryError::SeaOrm)?;
+				let device_slug_map: HashMap<Uuid, String> = devices
+					.into_iter()
+					.map(|device| (device.uuid, device.slug))
+					.collect();
+
+				// Perform the search based on mode
+				let results = match self.input.mode {
+					crate::ops::search::input::SearchMode::Fast => {
+						self.execute_fast_search(db.conn(), &device_slug_map)
+							.await?
+					}
+					crate::ops::search::input::SearchMode::Normal => {
+						self.execute_normal_search(db.conn(), &device_slug_map)
+							.await?
+					}
+					crate::ops::search::input::SearchMode::Full => {
+						self.execute_full_search(db.conn(), &device_slug_map)
+							.await?
+					}
+				};
+
+				let execution_time = start_time.elapsed().as_millis() as u64;
+
+				// Get actual total count for pagination
+				let total_count = self.get_total_count(db.conn()).await.unwrap_or(0);
+
+				// Create output with persistent index type
+				let output = FileSearchOutput::new_persistent(
+					results,
+					total_count,
+					search_id,
+					execution_time,
+				);
+
+				Ok(output)
 			}
-			crate::ops::search::input::SearchMode::Normal => {
-				self.execute_normal_search(db.conn(), &device_slug_map)
-					.await?
+			crate::ops::search::IndexType::Ephemeral => {
+				// Use ephemeral search
+				self.execute_ephemeral_search(context, search_id, start_time)
+					.await
 			}
-			crate::ops::search::input::SearchMode::Full => {
-				self.execute_full_search(db.conn(), &device_slug_map)
-					.await?
+			crate::ops::search::IndexType::Hybrid => {
+				// Future: search both and merge results
+				Err(QueryError::Internal(
+					"Hybrid search not yet implemented".to_string(),
+				))
 			}
-		};
-
-		let execution_time = start_time.elapsed().as_millis() as u64;
-
-		// Get actual total count for pagination
-		let total_count = self.get_total_count(db.conn()).await.unwrap_or(0);
-
-		// Create output
-		let output = FileSearchOutput::success(results, total_count, search_id, execution_time);
-
-		Ok(output)
+		}
 	}
 }
 
@@ -883,6 +912,174 @@ impl FileSearchQuery {
 			.collect();
 
 		Ok(enhanced_results)
+	}
+
+	/// Determine which index type to use for this search
+	async fn determine_index_type(
+		&self,
+		context: &Arc<CoreContext>,
+		db: &DatabaseConnection,
+	) -> QueryResult<crate::ops::search::IndexType> {
+		use crate::ops::search::IndexType;
+
+		match &self.input.scope {
+			SearchScope::Path { path } => {
+				// Check if location has IndexMode::None
+				if let Some(should_use_ephemeral) = self.check_location_index_mode(path, db).await {
+					if should_use_ephemeral {
+						return Ok(IndexType::Ephemeral);
+					}
+				}
+
+				// Try to find path in database
+				match self.find_parent_directory(path, db).await {
+					Ok(_) => Ok(IndexType::Persistent),
+					Err(_) => {
+						// Path not indexed - check if ephemeral cache has it
+						let cache = context.ephemeral_cache();
+						let local_path = match path {
+							SdPath::Physical { path, .. } => path.clone(),
+							_ => return Ok(IndexType::Persistent), // Default to persistent for non-physical
+						};
+
+						if cache.is_indexed(&local_path) {
+							Ok(IndexType::Ephemeral)
+						} else {
+							// Not indexed anywhere yet - will use ephemeral
+							// (directory listing would trigger indexing here)
+							tracing::debug!(
+								"Path not in any index, defaulting to ephemeral: {}",
+								local_path.display()
+							);
+							Ok(IndexType::Ephemeral)
+						}
+					}
+				}
+			}
+			SearchScope::Location { .. } => {
+				// Locations are always persistent (by definition)
+				Ok(IndexType::Persistent)
+			}
+			SearchScope::Library => {
+				// Global search only searches persistent
+				Ok(IndexType::Persistent)
+			}
+		}
+	}
+
+	/// Check if a location has IndexMode::None (should use ephemeral)
+	async fn check_location_index_mode(
+		&self,
+		path: &SdPath,
+		db: &DatabaseConnection,
+	) -> Option<bool> {
+		use crate::infra::db::entities::location;
+
+		match path {
+			SdPath::Physical {
+				device_slug: _,
+				path,
+			} => {
+				let path_str = path.to_string_lossy().to_string();
+
+				// Get all locations and find the one that is a parent of this path
+				if let Ok(locations) = location::Entity::find().all(db).await {
+					for loc in locations {
+						// Get the location's root path
+						if let Some(entry_id) = loc.entry_id {
+							if let Ok(Some(dir_path)) =
+								directory_paths::Entity::find_by_id(entry_id).one(db).await
+							{
+								// Check if this location's path is a parent of the requested path
+								if path_str.starts_with(&dir_path.path) {
+									// Check if index_mode is "none"
+									return Some(loc.index_mode == "none");
+								}
+							}
+						}
+					}
+				}
+				None
+			}
+			_ => None,
+		}
+	}
+
+	/// Find parent directory entry for a given path
+	async fn find_parent_directory(
+		&self,
+		path: &SdPath,
+		db: &DatabaseConnection,
+	) -> QueryResult<entry::Model> {
+		match path {
+			SdPath::Physical { path, .. } => {
+				// Get the directory path string
+				let path_str = path.to_string_lossy().to_string();
+
+				// Look up in directory_paths table
+				let dir_path = directory_paths::Entity::find()
+					.filter(directory_paths::Column::Path.eq(&path_str))
+					.one(db)
+					.await?;
+
+				if let Some(dir_path) = dir_path {
+					// Get the entry
+					let entry = entry::Entity::find_by_id(dir_path.entry_id)
+						.one(db)
+						.await?
+						.ok_or_else(|| {
+							QueryError::Internal("Entry not found for directory path".to_string())
+						})?;
+
+					Ok(entry)
+				} else {
+					Err(QueryError::Internal(
+						"Path not found in database".to_string(),
+					))
+				}
+			}
+			_ => Err(QueryError::Internal(
+				"Only physical paths supported for directory lookup".to_string(),
+			)),
+		}
+	}
+
+	/// Execute search using ephemeral index
+	async fn execute_ephemeral_search(
+		&self,
+		context: Arc<CoreContext>,
+		search_id: Uuid,
+		start_time: std::time::Instant,
+	) -> QueryResult<FileSearchOutput> {
+		let path = match &self.input.scope {
+			SearchScope::Path { path } => path,
+			_ => {
+				return Err(QueryError::Internal(
+					"Ephemeral search requires Path scope".to_string(),
+				))
+			}
+		};
+
+		let cache = context.ephemeral_cache();
+		let file_type_registry = crate::filetype::FileTypeRegistry::new();
+		let results = crate::ops::search::ephemeral_search::search_ephemeral_index(
+			&self.input.query,
+			path,
+			&self.input.filters,
+			cache,
+			&file_type_registry,
+		)
+		.await?;
+
+		let execution_time = start_time.elapsed().as_millis() as u64;
+		let total = results.len() as u64;
+
+		Ok(FileSearchOutput::new_ephemeral(
+			results,
+			total,
+			search_id,
+			execution_time,
+		))
 	}
 }
 

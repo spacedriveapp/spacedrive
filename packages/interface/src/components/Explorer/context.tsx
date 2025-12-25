@@ -687,14 +687,18 @@ export function ExplorerProvider({
 			uiState.quickPreviewFileId,
 			openQuickPreview,
 			closeQuickPreview,
-			currentFiles,
-			uiState.tagModeActive,
-			setTagModeActive,
-			devices,
-			loadPreferencesForSpaceItem,
-			activeTabId,
-		],
-	);
+		currentFiles,
+		uiState.tagModeActive,
+		setTagModeActive,
+		devices,
+		loadPreferencesForSpaceItem,
+		mode,
+		enterSearchMode,
+		exitSearchMode,
+		searchFilters,
+		activeTabId,
+	],
+);
 
 	return (
 		<ExplorerContext.Provider value={value}>

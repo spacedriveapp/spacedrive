@@ -1,10 +1,11 @@
 //! Output for file search operations
 
 use crate::domain::File;
+use crate::ops::search::{FilterKind, IndexType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 
 /// Main output structure for file search operations
@@ -17,6 +18,10 @@ pub struct FileSearchOutput {
 	pub suggestions: Vec<String>,
 	pub pagination: PaginationInfo,
 	pub execution_time_ms: u64,
+	/// Which index type was used for this search
+	pub index_type: IndexType,
+	/// Which filters are available for this search type
+	pub available_filters: HashSet<FilterKind>,
 }
 
 /// Individual search result
@@ -101,7 +106,7 @@ pub struct SizeRangeFacetCount {
 }
 
 impl FileSearchOutput {
-	/// Create a successful search output
+	/// Create a successful search output (defaults to persistent index)
 	pub fn success(
 		results: Vec<FileSearchResult>,
 		total_found: u64,
@@ -119,6 +124,73 @@ impl FileSearchOutput {
 			suggestions: Vec::new(),
 			pagination,
 			execution_time_ms,
+			index_type: IndexType::Persistent,
+			available_filters: HashSet::from([
+				FilterKind::FileTypes,
+				FilterKind::DateRange,
+				FilterKind::SizeRange,
+				FilterKind::ContentTypes,
+				FilterKind::Tags,
+				FilterKind::Locations,
+			]),
+		}
+	}
+
+	/// Create search output for ephemeral index results
+	pub fn new_ephemeral(
+		results: Vec<FileSearchResult>,
+		total_found: u64,
+		search_id: Uuid,
+		execution_time_ms: u64,
+	) -> Self {
+		let facets = SearchFacets::from_results(&results);
+		let pagination = PaginationInfo::new(0, 200, total_found);
+
+		Self {
+			results,
+			total_found,
+			search_id,
+			facets,
+			suggestions: Vec::new(),
+			pagination,
+			execution_time_ms,
+			index_type: IndexType::Ephemeral,
+			available_filters: HashSet::from([
+				FilterKind::FileTypes,
+				FilterKind::DateRange,
+				FilterKind::SizeRange,
+				FilterKind::ContentTypes,
+			]),
+		}
+	}
+
+	/// Create search output for persistent index results
+	pub fn new_persistent(
+		results: Vec<FileSearchResult>,
+		total_found: u64,
+		search_id: Uuid,
+		execution_time_ms: u64,
+	) -> Self {
+		let facets = SearchFacets::from_results(&results);
+		let pagination = PaginationInfo::new(0, 1000, total_found);
+
+		Self {
+			results,
+			total_found,
+			search_id,
+			facets,
+			suggestions: Vec::new(),
+			pagination,
+			execution_time_ms,
+			index_type: IndexType::Persistent,
+			available_filters: HashSet::from([
+				FilterKind::FileTypes,
+				FilterKind::DateRange,
+				FilterKind::SizeRange,
+				FilterKind::ContentTypes,
+				FilterKind::Tags,
+				FilterKind::Locations,
+			]),
 		}
 	}
 
@@ -132,6 +204,8 @@ impl FileSearchOutput {
 			suggestions: Self::generate_suggestions(query),
 			pagination: PaginationInfo::new(0, 50, 0),
 			execution_time_ms: 0,
+			index_type: IndexType::Persistent,
+			available_filters: HashSet::new(),
 		}
 	}
 
@@ -308,6 +382,8 @@ pub struct EnhancedFileSearchOutput {
 	pub suggestions: Vec<String>,
 	pub pagination: PaginationInfo,
 	pub execution_time_ms: u64,
+	pub index_type: IndexType,
+	pub available_filters: HashSet<FilterKind>,
 }
 
 /// Enhanced search result with File object
@@ -343,6 +419,15 @@ impl EnhancedFileSearchOutput {
 				offset: 0,
 			},
 			execution_time_ms,
+			index_type: IndexType::Persistent,
+			available_filters: HashSet::from([
+				FilterKind::FileTypes,
+				FilterKind::DateRange,
+				FilterKind::SizeRange,
+				FilterKind::ContentTypes,
+				FilterKind::Tags,
+				FilterKind::Locations,
+			]),
 		}
 	}
 
@@ -380,6 +465,8 @@ impl EnhancedFileSearchOutput {
 			suggestions: legacy_output.suggestions,
 			pagination: legacy_output.pagination,
 			execution_time_ms: legacy_output.execution_time_ms,
+			index_type: legacy_output.index_type,
+			available_filters: legacy_output.available_filters,
 		})
 	}
 }

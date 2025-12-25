@@ -1,0 +1,241 @@
+//! Ephemeral index search implementation
+//!
+//! This module provides search functionality for the in-memory ephemeral index,
+//! enabling search in unindexed locations and external drives.
+
+use crate::domain::{File, SdPath};
+use crate::filetype::FileTypeRegistry;
+use crate::infra::query::QueryError;
+use crate::ops::indexing::database_storage::EntryMetadata;
+use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::ops::indexing::state::EntryKind;
+use crate::ops::search::input::{DateField, SearchFilters};
+use crate::ops::search::output::{FileSearchResult, ScoreBreakdown};
+use std::cmp::Ordering;
+use std::path::PathBuf;
+use std::sync::Arc;
+use uuid::Uuid;
+
+/// Search the ephemeral index for files matching the query
+pub async fn search_ephemeral_index(
+	query: &str,
+	path_scope: &SdPath,
+	filters: &SearchFilters,
+	cache: &EphemeralIndexCache,
+	file_type_registry: &FileTypeRegistry,
+) -> Result<Vec<FileSearchResult>, QueryError> {
+	// Get local path from SdPath
+	let local_path = match path_scope {
+		SdPath::Physical { path, .. } => path.clone(),
+		_ => {
+			return Ok(Vec::new()); // Only physical paths supported for ephemeral
+		}
+	};
+
+	// Get ephemeral index
+	let index_arc = cache
+		.get_for_path(&local_path)
+		.ok_or_else(|| QueryError::Internal("Ephemeral index not found".to_string()))?;
+	let index = index_arc.read().await;
+
+	// Perform name-based search
+	let matching_paths = if query.is_empty() {
+		// Empty query: return all files in scope
+		index.list_directory(&local_path).unwrap_or_default()
+	} else {
+		// Use registry for substring search
+		let query_lower = query.to_lowercase();
+
+		// Try exact name match first
+		let mut paths = index.find_by_name(&query_lower);
+
+		// If no exact matches, try prefix search
+		if paths.is_empty() {
+			paths = index.find_by_prefix(&query_lower);
+		}
+
+		// If still no matches, try substring search
+		// Note: We'll use find_by_prefix as a fallback since registry is private
+		// This is a reasonable approximation for basic search
+
+		// Filter to only paths within scope
+		paths
+			.into_iter()
+			.filter(|path| path.starts_with(&local_path))
+			.collect()
+	};
+
+	// Convert to FileSearchResult with filtering
+	let mut results = Vec::new();
+	for path in matching_paths {
+		if let Some(metadata) = index.get_entry_ref(&path) {
+			// Skip directories (only search files)
+			if matches!(metadata.kind, EntryKind::Directory) {
+				continue;
+			}
+
+			// Apply filters
+			if !passes_ephemeral_filters(&metadata, &path, filters, file_type_registry) {
+				continue;
+			}
+
+			// Get UUID
+			let uuid = index.get_entry_uuid(&path).unwrap_or_else(Uuid::new_v4);
+
+			// Build SdPath
+			let sd_path = match path_scope {
+				SdPath::Physical { device_slug, .. } => SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: path.clone(),
+				},
+				_ => continue,
+			};
+
+			// Get content kind
+			let content_kind = index.get_content_kind(&path);
+
+			// Convert to File
+			let mut file = File::from_ephemeral(uuid, &metadata, sd_path);
+			file.content_kind = content_kind;
+
+			// Score by relevance
+			let score = score_match(&file, query);
+
+			results.push(FileSearchResult {
+				file,
+				score,
+				score_breakdown: ScoreBreakdown::new(score, None, 0.0, 0.0, 0.0),
+				highlights: Vec::new(),
+				matched_content: None,
+			});
+		}
+	}
+
+	// Sort by score and limit
+	results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
+	results.truncate(200);
+
+	Ok(results)
+}
+
+/// Check if metadata passes ephemeral filters
+fn passes_ephemeral_filters(
+	metadata: &EntryMetadata,
+	path: &PathBuf,
+	filters: &SearchFilters,
+	file_type_registry: &FileTypeRegistry,
+) -> bool {
+	// File type filter (extension)
+	if let Some(ref types) = filters.file_types {
+		let ext = metadata
+			.path
+			.extension()
+			.and_then(|e| e.to_str())
+			.unwrap_or("");
+		if !types.contains(&ext.to_string()) {
+			return false;
+		}
+	}
+
+	// Size filter
+	if let Some(ref range) = filters.size_range {
+		let size = metadata.size;
+		if let Some(min) = range.min {
+			if size < min {
+				return false;
+			}
+		}
+		if let Some(max) = range.max {
+			if size > max {
+				return false;
+			}
+		}
+	}
+
+	// Date filter
+	if let Some(ref range) = filters.date_range {
+		use chrono::{DateTime, Utc};
+
+		// metadata.modified, created, and accessed are Option<SystemTime>
+		let system_time_opt = match range.field {
+			DateField::ModifiedAt => metadata.modified,
+			DateField::CreatedAt => metadata.created.or(metadata.modified),
+			DateField::AccessedAt => metadata.accessed.or(metadata.modified),
+		};
+
+		// If we don't have a timestamp, skip this filter check
+		let system_time = match system_time_opt {
+			Some(time) => time,
+			None => return true, // No timestamp available, allow the file
+		};
+
+		let date = DateTime::<Utc>::from(system_time);
+
+		if let Some(start) = range.start {
+			if date < start {
+				return false;
+			}
+		}
+		if let Some(end) = range.end {
+			if date > end {
+				return false;
+			}
+		}
+	}
+
+	// Content type filter (via extension using FileTypeRegistry)
+	if let Some(ref content_types) = filters.content_types {
+		// Use FileTypeRegistry to identify content kind by extension
+		let identified_kind = file_type_registry.identify_by_extension(path);
+
+		// Check if the identified kind matches any of the requested types
+		if !content_types.contains(&identified_kind) {
+			return false;
+		}
+	}
+
+	// Tags and locations are not available in ephemeral
+	// These filters are simply ignored for ephemeral searches
+
+	true
+}
+
+/// Score a match based on query relevance
+fn score_match(file: &File, query: &str) -> f32 {
+	if query.is_empty() {
+		return 0.5; // Neutral score for empty queries
+	}
+
+	let name = file.name.to_lowercase();
+	let query_lower = query.to_lowercase();
+
+	// Exact match
+	if name == query_lower {
+		return 1.0;
+	}
+
+	// Prefix match (file starts with query)
+	if name.starts_with(&query_lower) {
+		return 0.9;
+	}
+
+	// Word boundary match (query matches a complete word)
+	if let Some(base_name) = file.name.split('.').next() {
+		if base_name.to_lowercase() == query_lower {
+			return 0.85;
+		}
+	}
+
+	// Contains match (query anywhere in filename)
+	if name.contains(&query_lower) {
+		// Score higher if query is near the beginning
+		if let Some(pos) = name.find(&query_lower) {
+			let pos_score = 1.0 - (pos as f32 / name.len() as f32);
+			return 0.5 + (pos_score * 0.3);
+		}
+		return 0.5;
+	}
+
+	// Weak match (shouldn't happen with find_containing, but just in case)
+	0.1
+}
