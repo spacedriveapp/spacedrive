@@ -1,0 +1,4 @@
+# Bun test configuration for integration tests
+# Note: setup.ts is imported directly in test files rather than preloaded
+[test]
+

@@ -41,6 +41,7 @@ export function GridView() {
 		resourceType: "file",
 		enabled: !!currentPath && !isVirtualView,
 		pathScope: currentPath ?? undefined,
+		// debug: true,
 	});
 
 	const files = isVirtualView
@@ -64,7 +65,11 @@ export function GridView() {
 
 	if (!shouldVirtualize) {
 		return (
-			<div ref={gridContainerRef} className="h-full overflow-auto" onClick={handleContainerClick}>
+			<div
+				ref={gridContainerRef}
+				className="h-full overflow-auto"
+				onClick={handleContainerClick}
+			>
 				<DragSelect files={files} scrollRef={gridContainerRef}>
 					<div
 						className="grid p-3 min-h-full"
@@ -306,7 +311,9 @@ function VirtualizedGrid({
 												fileIndex={fileIndex}
 												allFiles={files}
 												selected={isSelected(file.id)}
-												focused={fileIndex === focusedIndex}
+												focused={
+													fileIndex === focusedIndex
+												}
 												selectedFiles={selectedFiles}
 												selectFile={selectFile}
 											/>

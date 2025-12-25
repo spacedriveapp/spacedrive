@@ -593,6 +593,288 @@ Common debugging approaches:
 - [ ] Handle process coordination properly
 - [ ] Set reasonable timeouts
 
+## TypeScript Integration Testing
+
+Spacedrive provides a bridge infrastructure for running TypeScript tests against a real Rust daemon. This enables true end-to-end testing across the Rust backend and TypeScript frontend, verifying that cache updates, WebSocket events, and React hooks work correctly with real data.
+
+### Architecture
+
+The TypeScript bridge test pattern works as follows:
+
+1. **Rust test** creates a daemon with indexed locations using `IndexingHarnessBuilder`
+2. **Connection info** (TCP socket address, library ID, paths) written to JSON config file
+3. **Rust spawns** `bun test` with specific TypeScript test file
+4. **TypeScript test** reads config, connects to daemon via `SpacedriveClient.fromTcpSocket()`
+5. **TypeScript test** performs file operations and validates cache updates via React hooks
+6. **Rust validates** test exit code and cleans up
+
+This pattern tests the entire stack: Rust daemon → RPC transport → TypeScript client → React hooks → cache updates.
+
+### Writing Bridge Tests
+
+#### Rust Side
+
+Create a test in `core/tests/` that spawns the daemon and TypeScript test:
+
+```rust
+#[tokio::test]
+async fn test_typescript_cache_updates() -> anyhow::Result<()> {
+    // Create daemon with RPC server enabled
+    let harness = IndexingHarnessBuilder::new("typescript_bridge_test")
+        .enable_daemon() // Start RPC server for TypeScript client
+        .build()
+        .await?;
+
+    // Create test location with files
+    let test_location = harness.create_test_location("test_files").await?;
+    test_location.create_dir("folder_a").await?;
+    test_location.write_file("folder_a/file1.txt", "Content").await?;
+
+    // Index the location
+    let location = test_location
+        .index("Test Location", IndexMode::Shallow)
+        .await?;
+
+    // Get daemon socket address
+    let socket_addr = harness
+        .daemon_socket_addr()
+        .expect("Daemon should be enabled")
+        .to_string();
+
+    // Prepare bridge config for TypeScript
+    let bridge_config = TestBridgeConfig {
+        socket_addr,
+        library_id: harness.library.id().to_string(),
+        location_db_id: location.db_id,
+        location_path: test_location.path().to_path_buf(),
+        test_data_path: harness.temp_path().to_path_buf(),
+    };
+
+    // Write config to temp file
+    let config_path = harness.temp_path().join("bridge_config.json");
+    tokio::fs::write(&config_path, serde_json::to_string_pretty(&bridge_config)?).await?;
+
+    // Spawn TypeScript test
+    let ts_test_file = "packages/ts-client/tests/integration/mytest.test.ts";
+    let workspace_root = std::env::current_dir()?.parent().unwrap().to_path_buf();
+    let output = tokio::process::Command::new("bun")
+        .arg("test")
+        .arg(workspace_root.join(ts_test_file))
+        .env("BRIDGE_CONFIG_PATH", config_path.to_str().unwrap())
+        .current_dir(&workspace_root)
+        .output()
+        .await?;
+
+    // Verify TypeScript test passed
+    if !output.status.success() {
+        anyhow::bail!("TypeScript test failed: {:?}", output.status.code());
+    }
+
+    harness.shutdown().await?;
+    Ok(())
+}
+```
+
+<Note>
+Use `.enable_daemon()` on `IndexingHarnessBuilder` to start the RPC server. The daemon listens on a random TCP port returned by `.daemon_socket_addr()`.
+</Note>
+
+#### TypeScript Side
+
+Create a test in `packages/ts-client/tests/integration/`:
+
+```typescript
+import { describe, test, expect, beforeAll } from "bun:test";
+import { readFile } from "fs/promises";
+import { SpacedriveClient } from "../../src/client";
+import { renderHook, waitFor } from "@testing-library/react";
+import { SpacedriveProvider } from "../../src/hooks/useClient";
+import { useNormalizedQuery } from "../../src/hooks/useNormalizedQuery";
+
+interface BridgeConfig {
+    socket_addr: string;
+    library_id: string;
+    location_db_id: number;
+    location_path: string;
+    test_data_path: string;
+}
+
+let bridgeConfig: BridgeConfig;
+let client: SpacedriveClient;
+
+beforeAll(async () => {
+    // Read bridge config from Rust test
+    const configPath = process.env.BRIDGE_CONFIG_PATH;
+    const configJson = await readFile(configPath, "utf-8");
+    bridgeConfig = JSON.parse(configJson);
+
+    // Connect to daemon via TCP socket
+    client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+    client.setCurrentLibrary(bridgeConfig.library_id);
+});
+
+describe("Cache Update Tests", () => {
+    test("should update cache when files move", async () => {
+        const wrapper = ({ children }) =>
+            React.createElement(SpacedriveProvider, { client }, children);
+
+        // Query directory listing with useNormalizedQuery
+        const { result } = renderHook(
+            () => useNormalizedQuery({
+                wireMethod: "query:files.directory_listing",
+                input: { path: { Physical: { path: folderPath } } },
+                resourceType: "file",
+                pathScope: { Physical: { path: folderPath } },
+                debug: true, // Enable debug logging
+            }),
+            { wrapper }
+        );
+
+        // Wait for initial data
+        await waitFor(() => {
+            expect(result.current.data).toBeDefined();
+        });
+
+        // Perform file operation
+        await rename(oldPath, newPath);
+
+        // Wait for watcher to detect change (500ms buffer + processing)
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Verify cache updated
+        expect(result.current.data.files).toContainEqual(
+            expect.objectContaining({ name: "newfile" })
+        );
+    });
+});
+```
+
+### TCP Transport
+
+TypeScript tests connect to the daemon via TCP socket using `TcpSocketTransport`. This transport is designed for Bun/Node.js environments and enables testing outside the browser.
+
+```typescript
+// Automatic with factory method
+const client = SpacedriveClient.fromTcpSocket("127.0.0.1:6969");
+
+// Manual construction
+import { TcpSocketTransport } from "@sd/ts-client/transports";
+const transport = new TcpSocketTransport("127.0.0.1:6969");
+const client = new SpacedriveClient(transport);
+```
+
+The TCP transport:
+- Uses JSON-RPC 2.0 over TCP
+- Supports WebSocket-style subscriptions for events
+- Automatically reconnects on connection loss
+- Works in both Bun and Node.js runtimes
+
+### Testing Cache Updates
+
+The primary use case for bridge tests is verifying that `useNormalizedQuery` cache updates work correctly when the daemon emits `ResourceChanged` or `ResourceChangedBatch` events.
+
+**Key patterns:**
+
+1. **Enable debug logging** with `debug: true` in `useNormalizedQuery` options
+2. **Wait for watcher delays** (500ms buffer + processing time, typically 2-8 seconds)
+3. **Collect events** by wrapping the subscription manager to log all received events
+4. **Verify cache state** using React Testing Library's `waitFor` and assertions
+
+```typescript
+// Enable debug logging
+const { result } = renderHook(
+    () => useNormalizedQuery({
+        wireMethod: "query:files.directory_listing",
+        input: { /* ... */ },
+        resourceType: "file",
+        pathScope: { /* ... */ },
+        debug: true, // Logs event processing
+    }),
+    { wrapper }
+);
+
+// Collect all events for debugging
+const allEvents: any[] = [];
+const originalCreateSubscription = (client as any).subscriptionManager.createSubscription;
+(client as any).subscriptionManager.createSubscription = function(filter: any, callback: any) {
+    const wrappedCallback = (event: any) => {
+        allEvents.push({ timestamp: new Date().toISOString(), event });
+        console.log(`Event received:`, JSON.stringify(event, null, 2));
+        callback(event);
+    };
+    return originalCreateSubscription.call(this, filter, wrappedCallback);
+};
+```
+
+### Running Bridge Tests
+
+```bash
+# Run all TypeScript bridge tests
+cargo test --package sd-core --test typescript_bridge_test -- --nocapture
+
+# Run specific bridge test
+cargo test test_typescript_use_normalized_query_with_file_moves -- --nocapture
+
+# Run only the TypeScript side (requires manual daemon setup)
+cd packages/ts-client
+BRIDGE_CONFIG_PATH=/path/to/config.json bun test tests/integration/mytest.test.ts
+```
+
+<Tip>
+Use `--nocapture` to see TypeScript test output. The Rust test prints all stdout/stderr from the TypeScript test process.
+</Tip>
+
+### Common Scenarios
+
+**File moves between folders:**
+- Tests that files removed from one directory appear in another
+- Verifies UUID preservation (move detection vs delete+create)
+
+**Folder renames:**
+- Tests that nested files update their paths correctly
+- Verifies parent path updates propagate to descendants
+
+**Bulk operations:**
+- Tests 20+ file moves with mixed Physical/Content paths
+- Verifies cache updates don't miss files during batched events
+
+**Content-addressed files:**
+- Uses `IndexMode::Content` to enable content identification
+- Tests that files with `alternate_paths` update correctly
+- Verifies metadata-only updates don't add duplicate cache entries
+
+### Debugging Bridge Tests
+
+**Check Rust logs:**
+```bash
+RUST_LOG=debug cargo test typescript_bridge -- --nocapture
+```
+
+**Check TypeScript output:**
+The Rust test prints all TypeScript stdout/stderr. Look for:
+- `[TS]` prefixed log messages
+- Event payloads with `🔔` emoji
+- Final event summary at test end
+
+**Verify daemon is running:**
+```bash
+# In Rust test output, look for:
+Socket address: 127.0.0.1:XXXXX
+Library ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+**Check bridge config:**
+```bash
+# The config file is written to test_data directory
+cat /tmp/test_data/typescript_bridge_test/bridge_config.json
+```
+
+**Common issues:**
+- **TypeScript test times out**: Increase watcher wait time (filesystem events can be slow)
+- **Cache not updating**: Enable `debug: true` to see if events are received
+- **Connection refused**: Verify daemon started with `.enable_daemon()`
+- **Wrong library**: Check that `client.setCurrentLibrary()` uses correct ID from config
+
 ## Examples
 
 For complete examples, refer to:
@@ -608,3 +890,9 @@ For complete examples, refer to:
 - `tests/sync_realtime_test.rs` - Real-time sync testing with deterministic transport
 - `tests/sync_integration_test.rs` - Complex sync scenarios with mock networking
 - `tests/file_transfer_test.rs` - Cross-device file operations
+
+**TypeScript Bridge Tests:**
+- `tests/typescript_bridge_test.rs` - Rust harness that spawns TypeScript tests
+- `packages/ts-client/tests/integration/useNormalizedQuery.test.ts` - File move cache updates
+- `packages/ts-client/tests/integration/useNormalizedQuery.folder-rename.test.ts` - Folder rename propagation
+- `packages/ts-client/tests/integration/useNormalizedQuery.bulk-moves.test.ts` - Bulk operations with content-addressed files

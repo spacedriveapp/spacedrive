@@ -117,6 +117,7 @@ impl IndexVerifyAction {
 			persistence: IndexPersistence::Ephemeral,
 			max_depth: None,
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		};
 
 		// Create the job and set our ephemeral index storage BEFORE dispatching
