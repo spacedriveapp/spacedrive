@@ -13,6 +13,44 @@ use iroh::{NodeId, Watcher};
 use uuid::Uuid;
 
 impl PairingProtocolHandler {
+	/// Handle a rejection message (Joiner receives this from Initiator)
+	///
+	/// This is sent when the initiator's user rejects the pairing request
+	/// or when the confirmation times out.
+	pub(crate) async fn handle_rejection(
+		&self,
+		session_id: Uuid,
+		reason: String,
+	) -> Result<()> {
+		self.log_info(&format!(
+			"Pairing request rejected for session {}: {}",
+			session_id, reason
+		))
+		.await;
+
+		let mut sessions = self.active_sessions.write().await;
+		if let Some(session) = sessions.get_mut(&session_id) {
+			session.state = PairingState::Rejected {
+				reason: reason.clone(),
+			};
+			self.log_info(&format!(
+				"Session {} marked as rejected: {}",
+				session_id, reason
+			))
+			.await;
+		} else {
+			self.log_warn(&format!(
+				"Session {} not found when processing rejection",
+				session_id
+			))
+			.await;
+		}
+
+		Ok(())
+	}
+}
+
+impl PairingProtocolHandler {
 	/// Handle a pairing challenge (Joiner receives this from Initiator)
 	pub(crate) async fn handle_pairing_challenge(
 		&self,

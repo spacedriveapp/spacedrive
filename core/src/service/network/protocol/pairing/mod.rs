@@ -54,6 +54,9 @@ pub struct PairingProtocolHandler {
 		crate::service::network::core::event_loop::EventLoopCommand,
 	>,
 
+	/// Event sender for broadcasting network events (e.g., PairingConfirmationRequired)
+	event_sender: tokio::sync::broadcast::Sender<crate::service::network::core::NetworkEvent>,
+
 	/// Current pairing role
 	role: Option<PairingRole>,
 
@@ -76,6 +79,7 @@ impl PairingProtocolHandler {
 		command_sender: tokio::sync::mpsc::UnboundedSender<
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
+		event_sender: tokio::sync::broadcast::Sender<crate::service::network::core::NetworkEvent>,
 		endpoint: Option<Endpoint>,
 		active_connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
 	) -> Self {
@@ -86,6 +90,7 @@ impl PairingProtocolHandler {
 			pairing_codes: Arc::new(RwLock::new(HashMap::new())),
 			logger,
 			command_sender,
+			event_sender,
 			role: None,
 			persistence: None,
 			endpoint,
@@ -101,6 +106,7 @@ impl PairingProtocolHandler {
 		command_sender: tokio::sync::mpsc::UnboundedSender<
 			crate::service::network::core::event_loop::EventLoopCommand,
 		>,
+		event_sender: tokio::sync::broadcast::Sender<crate::service::network::core::NetworkEvent>,
 		data_dir: PathBuf,
 		endpoint: Option<Endpoint>,
 		active_connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
@@ -113,6 +119,7 @@ impl PairingProtocolHandler {
 			pairing_codes: Arc::new(RwLock::new(HashMap::new())),
 			logger,
 			command_sender,
+			event_sender,
 			role: None,
 			persistence: Some(persistence),
 			endpoint,
@@ -219,6 +226,9 @@ impl PairingProtocolHandler {
 			remote_public_key: None,
 			shared_secret: None,
 			created_at: chrono::Utc::now(),
+			confirmation_code: None,
+			confirmation_expires_at: None,
+			pending_challenge: None,
 		};
 
 		self.active_sessions
@@ -282,6 +292,9 @@ impl PairingProtocolHandler {
 			remote_public_key: None,
 			shared_secret: None,
 			created_at: chrono::Utc::now(),
+			confirmation_code: None,
+			confirmation_expires_at: None,
+			pending_challenge: None,
 		};
 
 		// Insert the session
@@ -484,6 +497,34 @@ impl PairingProtocolHandler {
 					}
 				}
 
+				// Handle confirmation timeout
+				PairingState::AwaitingUserConfirmation { expires_at, .. } => {
+					if chrono::Utc::now() > *expires_at {
+						self.log_warn(&format!(
+							"State Machine: Session {} confirmation timed out, marking as rejected",
+							session.id
+						))
+						.await;
+
+						// Emit timeout event
+						let _ = self.event_sender.send(
+							crate::service::network::core::NetworkEvent::PairingRejected {
+								session_id: session.id,
+								reason: "Confirmation timeout".to_string(),
+							},
+						);
+
+						session.state = PairingState::Rejected {
+							reason: "Confirmation timeout - user did not respond".to_string(),
+						};
+
+						// Clear confirmation fields
+						session.confirmation_code = None;
+						session.confirmation_expires_at = None;
+						session.pending_challenge = None;
+					}
+				}
+
 				// Optional: Add logic to time out sessions stuck in scanning for too long
 				PairingState::Scanning => {
 					let age = chrono::Utc::now().signed_duration_since(session.created_at);
@@ -576,6 +617,10 @@ impl PairingProtocolHandler {
 				let from_device = self.get_device_id_for_node(remote_node_id).await;
 				self.handle_completion(session_id, success, reason, from_device, remote_node_id)
 					.await?;
+				Ok(None) // No response needed
+			}
+			PairingMessage::Reject { session_id, reason } => {
+				self.handle_rejection(session_id, reason).await?;
 				Ok(None) // No response needed
 			}
 		}
@@ -741,6 +786,7 @@ impl ProtocolHandler for PairingProtocolHandler {
 						PairingMessage::Challenge { .. } => "Challenge",
 						PairingMessage::Response { .. } => "Response",
 						PairingMessage::Complete { .. } => "Complete",
+						PairingMessage::Reject { .. } => "Reject",
 					};
 					self.logger
 						.info(&format!(
@@ -800,10 +846,13 @@ impl ProtocolHandler for PairingProtocolHandler {
 				}
 			}
 
-			// Check if this was a completion message - if so, we can close the stream
-			if matches!(message, PairingMessage::Complete { .. }) {
+			// Check if this was a completion or rejection message - if so, we can close the stream
+			if matches!(
+				message,
+				PairingMessage::Complete { .. } | PairingMessage::Reject { .. }
+			) {
 				self.logger
-					.info("Received Complete message, closing pairing stream")
+					.info("Received Complete/Reject message, closing pairing stream")
 					.await;
 				break;
 			}
@@ -844,6 +893,11 @@ impl ProtocolHandler for PairingProtocolHandler {
 				self.log_warn("Received Challenge or Complete in handle_request - this should be handled by handle_response").await;
 				Ok(Vec::new())
 			}
+			// Reject messages are handled by handle_response, not here
+			PairingMessage::Reject { session_id, reason } => {
+				self.log_warn(&format!("Received Reject in handle_request for session {}: {}", session_id, reason)).await;
+				Ok(Vec::new())
+			}
 		};
 
 		// Handle errors by marking session as failed
@@ -855,6 +909,7 @@ impl ProtocolHandler for PairingProtocolHandler {
 					PairingMessage::Challenge { session_id, .. } => Some(session_id),
 					PairingMessage::Response { session_id, .. } => Some(session_id),
 					PairingMessage::Complete { session_id, .. } => Some(session_id),
+					PairingMessage::Reject { session_id, .. } => Some(session_id),
 				};
 
 				if let Some(session_id) = session_id {
@@ -1124,6 +1179,15 @@ impl ProtocolHandler for PairingProtocolHandler {
 			// These are handled by handle_request, not handle_response
 			PairingMessage::PairingRequest { .. } | PairingMessage::Response { .. } => {
 				self.log_warn("Received PairingRequest or Response in handle_response - this should be handled by handle_request").await;
+			}
+			// Handle rejection from initiator (joiner receives this)
+			PairingMessage::Reject { session_id, reason } => {
+				self.log_info(&format!(
+					"Received Reject for session {} - reason: {}",
+					session_id, reason
+				))
+				.await;
+				self.handle_rejection(session_id, reason).await;
 			}
 		}
 

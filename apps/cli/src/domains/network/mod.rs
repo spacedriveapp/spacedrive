@@ -10,6 +10,7 @@ use sd_core::ops::network::{
 	devices::{output::ListPairedDevicesOutput, query::ListPairedDevicesInput},
 	pair::{
 		cancel::output::PairCancelOutput,
+		confirm::output::PairConfirmOutput,
 		generate::output::PairGenerateOutput,
 		join::output::PairJoinOutput,
 		status::{output::PairStatusOutput, query::PairStatusQuery},
@@ -99,6 +100,11 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 					println!("Session: {}", o.session_id);
 					println!("Expires at: {}", o.expires_at);
 				});
+
+				// Wait for pairing completion or confirmation request
+				println!("\nWaiting for device to connect...");
+				println!("(Press Ctrl+C to cancel)\n");
+				run_pairing_confirmation_loop(ctx, out.session_id).await?;
 			}
 			PairCmd::Join {
 				ref code,
@@ -138,6 +144,20 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 				let out: PairCancelOutput = execute_action!(ctx, input);
 				print_output!(ctx, &out, |o: &PairCancelOutput| {
 					println!("Cancelled: {}", o.cancelled);
+				});
+			}
+			PairCmd::Confirm { .. } => {
+				let input = pc.to_confirm_input().unwrap();
+				let out: PairConfirmOutput = execute_action!(ctx, input);
+				print_output!(ctx, &out, |o: &PairConfirmOutput| {
+					if o.success {
+						println!("Pairing confirmed successfully");
+					} else {
+						println!(
+							"Pairing confirmation failed: {}",
+							o.error.as_ref().unwrap_or(&"Unknown error".to_string())
+						);
+					}
 				});
 			}
 		},
@@ -204,6 +224,114 @@ pub async fn run(ctx: &Context, cmd: NetworkCmd) -> Result<()> {
 			});
 		}
 	}
+	Ok(())
+}
+
+/// Poll for pairing status and handle confirmation requests
+async fn run_pairing_confirmation_loop(ctx: &Context, session_id: uuid::Uuid) -> Result<()> {
+	use crate::util::confirm::text;
+	use std::io::{self, Write};
+
+	loop {
+		// Check pairing status
+		let status: PairStatusOutput = execute_core_query!(
+			ctx,
+			sd_core::ops::network::pair::status::query::PairStatusQueryInput
+		);
+
+		// Find our session
+		let session = status.sessions.iter().find(|s| s.id == session_id);
+
+		match session {
+			Some(s) => {
+				// Check state
+				match &s.state {
+					sd_core::ops::network::pair::status::output::SerializablePairingState::Completed => {
+						println!("\n✓ Pairing completed successfully!");
+						if let Some(device_name) = &s.remote_device_name {
+							println!("  Paired with: {}", device_name);
+						}
+						break;
+					}
+					sd_core::ops::network::pair::status::output::SerializablePairingState::AwaitingUserConfirmation {
+						confirmation_code,
+						expires_at,
+					} => {
+						// Prompt user for confirmation
+						println!("\n═══════════════════════════════════════════════════════");
+						println!("  PAIRING REQUEST RECEIVED");
+						println!("═══════════════════════════════════════════════════════");
+						if let Some(device_name) = &s.remote_device_name {
+							println!("  Device: {}", device_name);
+						}
+						if let Some(device_os) = &s.remote_device_os {
+							println!("  OS: {}", device_os);
+						}
+						println!();
+						println!("  Confirmation Code: {}", confirmation_code);
+						println!("  Expires at: {}", expires_at);
+						println!("═══════════════════════════════════════════════════════");
+						println!();
+
+						// Prompt for code
+						print!("Enter the code to accept (or 'n' to reject): ");
+						io::stdout().flush()?;
+
+						let input = text("", false)?.unwrap_or_default();
+
+						let accepted = if input.to_lowercase() == "n" || input.to_lowercase() == "no" {
+							false
+						} else if input == *confirmation_code {
+							true
+						} else {
+							println!("Code doesn't match! Rejecting request.");
+							false
+						};
+
+						// Send confirmation
+						let confirm_input = sd_core::ops::network::pair::confirm::input::PairConfirmInput {
+							session_id,
+							accepted,
+						};
+						let out: PairConfirmOutput = execute_action!(ctx, confirm_input);
+
+						if !out.success {
+							println!(
+								"Failed to confirm: {}",
+								out.error.as_ref().unwrap_or(&"Unknown error".to_string())
+							);
+						}
+
+						if !accepted {
+							println!("Pairing rejected.");
+							break;
+						}
+					}
+					sd_core::ops::network::pair::status::output::SerializablePairingState::Failed { reason } => {
+						println!("\n✗ Pairing failed: {}", reason);
+						break;
+					}
+					sd_core::ops::network::pair::status::output::SerializablePairingState::Rejected { reason } => {
+						println!("\n✗ Pairing rejected: {}", reason);
+						break;
+					}
+					_ => {
+						// Still waiting
+						print!(".");
+						io::stdout().flush()?;
+					}
+				}
+			}
+			None => {
+				println!("\n✗ Session not found - may have expired");
+				break;
+			}
+		}
+
+		// Wait before polling again
+		tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
+	}
+
 	Ok(())
 }
 

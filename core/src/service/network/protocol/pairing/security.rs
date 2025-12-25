@@ -1,7 +1,7 @@
 //! Security utilities for pairing protocol
 
 use crate::service::network::{NetworkingError, Result};
-// We'll use our own signature verification
+use rand::Rng;
 
 /// Security operations for pairing protocol
 pub struct PairingSecurity;
@@ -93,6 +93,15 @@ impl PairingSecurity {
 		}
 
 		Ok(())
+	}
+
+	/// Generate a random 2-digit confirmation code (00-99)
+	///
+	/// Used for user verification during pairing. The initiator displays this code
+	/// and the user must confirm it matches what's shown on the joiner device.
+	pub fn generate_confirmation_code() -> String {
+		let code: u8 = rand::thread_rng().gen_range(0..100);
+		format!("{:02}", code)
 	}
 }
 

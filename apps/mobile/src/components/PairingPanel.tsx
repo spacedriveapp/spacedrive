@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,14 @@ interface PairingPanelProps {
   initialMode?: "generate" | "join";
 }
 
+interface ConfirmationRequest {
+  sessionId: string;
+  deviceName: string;
+  deviceOs: string;
+  confirmationCode: string;
+  expiresAt: Date;
+}
+
 export function PairingPanel({
   isOpen,
   onClose,
@@ -32,10 +40,15 @@ export function PairingPanel({
   const [joinNodeId, setJoinNodeId] = useState("");
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [confirmationInput, setConfirmationInput] = useState("");
+  const [confirmationRequest, setConfirmationRequest] =
+    useState<ConfirmationRequest | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<number>(60);
 
   const generatePairing = useCoreAction("network.pair.generate");
   const joinPairing = useCoreAction("network.pair.join");
   const cancelPairing = useCoreAction("network.pair.cancel");
+  const confirmPairing = useCoreAction("network.pair.confirm");
 
   const { data: pairingStatus, refetch: refetchStatus } = useCoreQuery(
     "network.pair.status",
@@ -55,6 +68,77 @@ export function PairingPanel({
 
   const currentSession = pairingStatus?.sessions?.[0];
 
+  // Handle AwaitingUserConfirmation state
+  useEffect(() => {
+    if (
+      currentSession?.state &&
+      typeof currentSession.state === "object" &&
+      "AwaitingUserConfirmation" in currentSession.state
+    ) {
+      const state = currentSession.state.AwaitingUserConfirmation;
+      setConfirmationRequest({
+        sessionId: currentSession.id,
+        deviceName: currentSession.remote_device_name || "Unknown Device",
+        deviceOs: currentSession.remote_device_os || "Unknown OS",
+        confirmationCode: state.confirmation_code,
+        expiresAt: new Date(state.expires_at),
+      });
+    } else if (
+      currentSession?.confirmation_code &&
+      currentSession?.confirmation_expires_at
+    ) {
+      // Fallback to top-level confirmation fields
+      setConfirmationRequest({
+        sessionId: currentSession.id,
+        deviceName: currentSession.remote_device_name || "Unknown Device",
+        deviceOs: currentSession.remote_device_os || "Unknown OS",
+        confirmationCode: currentSession.confirmation_code,
+        expiresAt: new Date(currentSession.confirmation_expires_at),
+      });
+    } else {
+      setConfirmationRequest(null);
+      setConfirmationInput("");
+    }
+  }, [currentSession]);
+
+  // Countdown timer for confirmation
+  useEffect(() => {
+    if (!confirmationRequest) return;
+
+    const updateTimer = () => {
+      const now = new Date();
+      const remaining = Math.max(
+        0,
+        Math.floor(
+          (confirmationRequest.expiresAt.getTime() - now.getTime()) / 1000,
+        ),
+      );
+      setTimeRemaining(remaining);
+    };
+
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [confirmationRequest]);
+
+  const handleConfirmPairing = useCallback(
+    (accepted: boolean) => {
+      if (!confirmationRequest) return;
+      confirmPairing.mutate({
+        session_id: confirmationRequest.sessionId,
+        accepted,
+      });
+      if (!accepted) {
+        setConfirmationRequest(null);
+        setConfirmationInput("");
+      }
+    },
+    [confirmationRequest, confirmPairing],
+  );
+
+  const isCodeMatching =
+    confirmationInput === confirmationRequest?.confirmationCode;
+
   const handleGenerate = () => {
     generatePairing.mutate({});
   };
@@ -73,9 +157,12 @@ export function PairingPanel({
     }
     generatePairing.reset();
     joinPairing.reset();
+    confirmPairing.reset();
     setJoinCode("");
     setJoinNodeId("");
     setShowScanner(false);
+    setConfirmationRequest(null);
+    setConfirmationInput("");
   };
 
   const handleClose = () => {
@@ -223,7 +310,21 @@ export function PairingPanel({
               paddingBottom: insets.bottom + 24,
             }}
           >
-            {mode === "generate" ? (
+            {/* User Confirmation Dialog */}
+            {confirmationRequest && (
+              <ConfirmationMode
+                request={confirmationRequest}
+                confirmationInput={confirmationInput}
+                setConfirmationInput={setConfirmationInput}
+                timeRemaining={timeRemaining}
+                isCodeMatching={isCodeMatching}
+                onConfirm={handleConfirmPairing}
+                isPending={confirmPairing.isPending}
+              />
+            )}
+
+            {/* Normal pairing modes - only show if not awaiting confirmation */}
+            {!confirmationRequest && mode === "generate" ? (
               <GenerateMode
                 generatePairing={generatePairing}
                 currentSession={currentSession}
@@ -231,12 +332,12 @@ export function PairingPanel({
                 onCancel={handleCancel}
                 onCopyCode={copyCode}
               />
-            ) : showScanner ? (
+            ) : !confirmationRequest && showScanner ? (
               <ScannerMode
                 onScan={handleQRScan}
                 onClose={() => setShowScanner(false)}
               />
-            ) : (
+            ) : !confirmationRequest ? (
               <JoinMode
                 joinCode={joinCode}
                 setJoinCode={setJoinCode}
@@ -270,6 +371,133 @@ export function PairingPanel({
         </View>
       </View>
     </Modal>
+  );
+}
+
+function ConfirmationMode({
+  request,
+  confirmationInput,
+  setConfirmationInput,
+  timeRemaining,
+  isCodeMatching,
+  onConfirm,
+  isPending,
+}: {
+  request: ConfirmationRequest;
+  confirmationInput: string;
+  setConfirmationInput: (value: string) => void;
+  timeRemaining: number;
+  isCodeMatching: boolean;
+  onConfirm: (accepted: boolean) => void;
+  isPending: boolean;
+}) {
+  return (
+    <View className="gap-6">
+      {/* Security Warning */}
+      <View className="flex-row gap-3 p-4 bg-amber-500/10 rounded-lg border border-amber-500/30">
+        <Text className="text-amber-500 text-xl">🛡️</Text>
+        <View className="flex-1">
+          <Text className="text-sm font-medium text-amber-500">
+            Pairing Request
+          </Text>
+          <Text className="text-xs text-ink-dull mt-1">
+            A device wants to pair with you. Verify the code matches before
+            accepting.
+          </Text>
+        </View>
+      </View>
+
+      {/* Device Info */}
+      <View className="p-4 bg-sidebar-box/40 rounded-lg border border-sidebar-line">
+        <View className="flex-row items-center gap-3">
+          <View className="w-12 h-12 rounded-full bg-accent/10 items-center justify-center">
+            <Text className="text-accent text-2xl">📱</Text>
+          </View>
+          <View className="flex-1">
+            <Text className="text-sm font-medium text-ink">
+              {request.deviceName}
+            </Text>
+            <Text className="text-xs text-ink-dull">{request.deviceOs}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Confirmation Code Display */}
+      <View className="items-center gap-3">
+        <Text className="text-sm text-ink-dull">Enter this code to confirm:</Text>
+        <View className="px-8 py-4 bg-accent/10 border border-accent/30 rounded-xl">
+          <Text className="text-4xl font-bold text-accent tracking-widest font-mono">
+            {request.confirmationCode}
+          </Text>
+        </View>
+      </View>
+
+      {/* Code Input */}
+      <View>
+        <Text className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2">
+          Enter Confirmation Code
+        </Text>
+        <TextInput
+          value={confirmationInput}
+          onChangeText={(text) =>
+            setConfirmationInput(text.replace(/[^0-9]/g, "").slice(0, 2))
+          }
+          placeholder="00"
+          placeholderTextColor="hsl(235, 10%, 55%)"
+          maxLength={2}
+          keyboardType="number-pad"
+          editable={!isPending}
+          className={`px-4 py-3 text-center text-2xl font-mono font-bold bg-sidebar-box border rounded-lg ${
+            isCodeMatching
+              ? "border-accent/50 text-accent"
+              : confirmationInput.length === 2
+                ? "border-red-500/50 text-red-500"
+                : "border-sidebar-line text-ink"
+          }`}
+        />
+        {confirmationInput.length === 2 && !isCodeMatching && (
+          <Text className="text-xs text-red-500 mt-2 text-center">
+            Code does not match
+          </Text>
+        )}
+      </View>
+
+      {/* Timer */}
+      <View className="flex-row items-center justify-center gap-2">
+        <Text className="text-sm text-ink-dull">⏱️</Text>
+        <Text className="text-sm text-ink-dull">
+          Expires in {Math.floor(timeRemaining / 60)}:
+          {(timeRemaining % 60).toString().padStart(2, "0")}
+        </Text>
+      </View>
+
+      {/* Action Buttons */}
+      <View className="flex-row gap-3">
+        <Pressable
+          onPress={() => onConfirm(false)}
+          disabled={isPending}
+          className="flex-1 px-4 py-2.5 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
+        >
+          <Text className="text-sm font-medium text-ink-dull text-center">
+            Reject
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => onConfirm(true)}
+          disabled={!isCodeMatching || isPending}
+          className={`flex-1 flex-row items-center justify-center gap-2 px-4 py-2.5 rounded-lg ${
+            isCodeMatching && !isPending
+              ? "bg-accent active:bg-accent/90"
+              : "bg-accent/50"
+          }`}
+        >
+          {isPending && <ActivityIndicator size="small" color="white" />}
+          <Text className="text-white font-medium">
+            {isPending ? "Confirming..." : "Accept"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -359,7 +587,10 @@ function GenerateMode({
                     ? "Authenticating device..."
                     : state === "ExchangingKeys"
                       ? "Exchanging encryption keys..."
-                      : "Ready to pair"}
+                      : typeof state === "object" &&
+                          "AwaitingUserConfirmation" in state
+                        ? "Awaiting user confirmation..."
+                        : "Ready to pair"}
               </Text>
             </View>
           )}

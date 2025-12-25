@@ -608,12 +608,16 @@ async fn register_default_protocol_handlers(
 		.ok_or("NetworkingEventLoop command sender not available")?
 		.clone();
 
+	// Get event sender for emitting network events (e.g., PairingConfirmationRequired)
+	let event_sender = networking.event_sender();
+
 	let pairing_handler = Arc::new(
 		service::network::protocol::PairingProtocolHandler::new_with_persistence(
 			networking.identity().clone(),
 			networking.device_registry(),
 			logger.clone(),
 			command_sender,
+			event_sender,
 			data_dir,
 			networking.endpoint().cloned(),
 			networking.active_connections(),
@@ -804,6 +808,22 @@ impl NetworkEventBridge {
 				device_id,
 				device_name: device_info.device_name,
 			}),
+			service::network::NetworkEvent::PairingConfirmationRequired {
+				session_id,
+				device_name,
+				device_os,
+				confirmation_code,
+				expires_at,
+			} => Some(Event::PairingConfirmationRequired {
+				session_id,
+				device_name,
+				device_os,
+				confirmation_code,
+				expires_at: expires_at.to_rfc3339(),
+			}),
+			service::network::NetworkEvent::PairingRejected { session_id, reason } => {
+				Some(Event::PairingRejected { session_id, reason })
+			}
 			_ => None, // Some events don't map to core events
 		}
 	}
