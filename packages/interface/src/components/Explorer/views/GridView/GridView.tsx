@@ -7,6 +7,7 @@ import { FileCard } from "./FileCard";
 import type { DirectorySortBy, File } from "@sd/ts-client";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
 import { DragSelect } from "./DragSelect";
+import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
 
 const VIRTUALIZATION_THRESHOLD = 0; // Disabled - always virtualize
 
@@ -23,6 +24,7 @@ export function GridView() {
 		setSelectedFiles,
 	} = useSelection();
 	const { gridSize, gapSize } = viewSettings;
+	const emptySpaceContextMenu = useEmptySpaceContextMenu();
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -41,6 +43,7 @@ export function GridView() {
 		resourceType: "file",
 		enabled: !!currentPath && !isVirtualView,
 		pathScope: currentPath ?? undefined,
+		// debug: true,
 	});
 
 	const files = isVirtualView
@@ -58,13 +61,26 @@ export function GridView() {
 		}
 	};
 
+	const handleContainerContextMenu = async (e: React.MouseEvent) => {
+		if (e.target === e.currentTarget) {
+			e.preventDefault();
+			e.stopPropagation();
+			await emptySpaceContextMenu.show(e);
+		}
+	};
+
 	// Conditional virtualization - use simple grid for small directories
 	const shouldVirtualize = files.length > VIRTUALIZATION_THRESHOLD;
 	const gridContainerRef = useRef<HTMLDivElement>(null);
 
 	if (!shouldVirtualize) {
 		return (
-			<div ref={gridContainerRef} className="h-full overflow-auto" onClick={handleContainerClick}>
+			<div
+				ref={gridContainerRef}
+				className="h-full overflow-auto"
+				onClick={handleContainerClick}
+				onContextMenu={handleContainerContextMenu}
+			>
 				<DragSelect files={files} scrollRef={gridContainerRef}>
 					<div
 						className="grid p-3 min-h-full"
@@ -104,6 +120,7 @@ export function GridView() {
 			selectFile={selectFile}
 			setSelectedFiles={setSelectedFiles}
 			onContainerClick={handleContainerClick}
+			onContainerContextMenu={handleContainerContextMenu}
 		/>
 	);
 }
@@ -124,6 +141,7 @@ interface VirtualizedGridProps {
 	) => void;
 	setSelectedFiles: (files: File[]) => void;
 	onContainerClick: (e: React.MouseEvent) => void;
+	onContainerContextMenu: (e: React.MouseEvent) => void;
 }
 
 function VirtualizedGrid({
@@ -137,6 +155,7 @@ function VirtualizedGrid({
 	selectFile,
 	setSelectedFiles,
 	onContainerClick,
+	onContainerContextMenu,
 }: VirtualizedGridProps) {
 	const parentRef = useRef<HTMLDivElement>(null);
 	const [containerWidth, setContainerWidth] = useState<number | null>(null);
@@ -259,6 +278,7 @@ function VirtualizedGrid({
 			ref={parentRef}
 			className="h-full overflow-auto"
 			onClick={onContainerClick}
+			onContextMenu={onContainerContextMenu}
 		>
 			<DragSelect files={files} scrollRef={parentRef}>
 				<div
@@ -306,7 +326,9 @@ function VirtualizedGrid({
 												fileIndex={fileIndex}
 												allFiles={files}
 												selected={isSelected(file.id)}
-												focused={fileIndex === focusedIndex}
+												focused={
+													fileIndex === focusedIndex
+												}
 												selectedFiles={selectedFiles}
 												selectFile={selectFile}
 											/>

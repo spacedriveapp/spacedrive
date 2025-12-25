@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag as TagIcon, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Button } from '@sd/ui';
 import { useNormalizedQuery, useLibraryMutation } from '../../context';
 import { useSelection } from './SelectionContext';
+import { useKeybind } from '../../hooks/useKeybind';
 import type { Tag } from '@sd/ts-client';
 
 interface TagAssignmentModeProps {
@@ -46,34 +47,18 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 	) ?? [];
 	const paletteTags = allTags.slice(0, 10) as Tag[];
 
-	// Keyboard shortcuts
-	useEffect(() => {
-		if (!isActive) return;
-
-		const handleKeyDown = (e: KeyboardEvent) => {
-			// Exit on Escape
-			if (e.key === 'Escape') {
-				e.preventDefault();
-				onExit();
-				return;
-			}
-
-			// Number keys 1-9, 0
-			if (e.key >= '1' && e.key <= '9') {
-				e.preventDefault();
-				const index = parseInt(e.key) - 1;
-				handleToggleTag(index);
-			} else if (e.key === '0') {
-				e.preventDefault();
-				handleToggleTag(9);
-			}
-
-			// TODO: Palette switching with Cmd+Shift+[1-9]
-		};
-
-		window.addEventListener('keydown', handleKeyDown);
-		return () => window.removeEventListener('keydown', handleKeyDown);
-	}, [isActive, selectedFiles, paletteTags]);
+	// Keyboard shortcuts using keybind registry
+	useKeybind('explorer.exitTagMode', onExit, { enabled: isActive });
+	useKeybind('explorer.toggleTag1', () => handleToggleTag(0), { enabled: isActive });
+	useKeybind('explorer.toggleTag2', () => handleToggleTag(1), { enabled: isActive });
+	useKeybind('explorer.toggleTag3', () => handleToggleTag(2), { enabled: isActive });
+	useKeybind('explorer.toggleTag4', () => handleToggleTag(3), { enabled: isActive });
+	useKeybind('explorer.toggleTag5', () => handleToggleTag(4), { enabled: isActive });
+	useKeybind('explorer.toggleTag6', () => handleToggleTag(5), { enabled: isActive });
+	useKeybind('explorer.toggleTag7', () => handleToggleTag(6), { enabled: isActive });
+	useKeybind('explorer.toggleTag8', () => handleToggleTag(7), { enabled: isActive });
+	useKeybind('explorer.toggleTag9', () => handleToggleTag(8), { enabled: isActive });
+	useKeybind('explorer.toggleTag10', () => handleToggleTag(9), { enabled: isActive });
 
 	const handleToggleTag = async (index: number) => {
 		const tag = paletteTags[index];

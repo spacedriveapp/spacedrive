@@ -18,15 +18,18 @@ import {
 	Cube,
 } from "@phosphor-icons/react";
 import { VideoPlayer } from "./VideoPlayer";
-import type { VideoControlsState, VideoControlsCallbacks } from "./VideoControls";
+import type {
+	VideoControlsState,
+	VideoControlsCallbacks,
+} from "./VideoControls";
 import { AudioPlayer } from "./AudioPlayer";
 import { useZoomPan } from "./useZoomPan";
 import { TextViewer } from "./TextViewer";
 import { WithPrismTheme } from "./prism";
-import { Folder } from "@sd/assets/icons";
 import { SplatShimmerEffect } from "./SplatShimmerEffect";
 import { sounds } from "@sd/assets/sounds";
 import { TopBarButton } from "@sd/ui";
+import { DirectoryPreview } from "./DirectoryPreview";
 
 const MeshViewer = lazy(() =>
 	import("./MeshViewer").then((m) => ({ default: m.MeshViewer })),
@@ -392,7 +395,13 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 	);
 }
 
-function VideoRenderer({ file, onZoomChange, onVideoControlsStateChange, onShowVideoControlsChange, getVideoCallbacks }: ContentRendererProps) {
+function VideoRenderer({
+	file,
+	onZoomChange,
+	onVideoControlsStateChange,
+	onShowVideoControlsChange,
+	getVideoCallbacks,
+}: ContentRendererProps) {
 	const platform = usePlatform();
 	const [videoUrl, setVideoUrl] = useState<string | null>(null);
 	const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
@@ -578,7 +587,7 @@ function TextRenderer({ file }: ContentRendererProps) {
 		setTextUrl(url);
 	}, [shouldLoadText, textFileId, file.sd_path, platform]);
 
-	const extension = file.name.split('.').pop()?.toLowerCase();
+	const extension = file.name.split(".").pop()?.toLowerCase();
 
 	if (!textUrl) {
 		return (
@@ -625,23 +634,16 @@ function DefaultRenderer({ file }: ContentRendererProps) {
 	);
 }
 
-export function ContentRenderer({ file, onZoomChange, onVideoControlsStateChange, onShowVideoControlsChange, getVideoCallbacks }: ContentRendererProps) {
-	// Handle directories first
-	if (file.kind.type === "Directory") {
-		return (
-			<div className="flex flex-col items-center justify-center h-full text-ink-dull">
-				<img
-					src={Folder}
-					alt="Folder Icon"
-					className="w-16 h-16 mb-4"
-				/>
-				<div className="text-lg font-medium text-ink">{file.name}</div>
-				<div className="text-sm mt-2">Folder</div>
-				{file.size > 0 && (
-					<div className="text-xs mt-1">{formatBytes(file.size)}</div>
-				)}
-			</div>
-		);
+export function ContentRenderer({
+	file,
+	onZoomChange,
+	onVideoControlsStateChange,
+	onShowVideoControlsChange,
+	getVideoCallbacks,
+}: ContentRendererProps) {
+	// Handle directories with grid preview of subdirectories
+	if (file.kind === "Directory") {
+		return <DirectoryPreview file={file} />;
 	}
 
 	const kind = getContentKind(file);
@@ -650,7 +652,15 @@ export function ContentRenderer({ file, onZoomChange, onVideoControlsStateChange
 		case "image":
 			return <ImageRenderer file={file} onZoomChange={onZoomChange} />;
 		case "video":
-			return <VideoRenderer file={file} onZoomChange={onZoomChange} onVideoControlsStateChange={onVideoControlsStateChange} onShowVideoControlsChange={onShowVideoControlsChange} getVideoCallbacks={getVideoCallbacks} />;
+			return (
+				<VideoRenderer
+					file={file}
+					onZoomChange={onZoomChange}
+					onVideoControlsStateChange={onVideoControlsStateChange}
+					onShowVideoControlsChange={onShowVideoControlsChange}
+					getVideoCallbacks={getVideoCallbacks}
+				/>
+			);
 		case "audio":
 			return <AudioRenderer file={file} />;
 		case "mesh":

@@ -11,6 +11,7 @@ import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from "../../utils/virtualFiles";
 import { VolumeSizeBar } from "../../components/VolumeSizeBar";
+import { InlineNameEdit } from "../../components/InlineNameEdit";
 import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface FileCardProps {
@@ -40,45 +41,48 @@ export const FileCard = memo(
 	}: FileCardProps) {
 		const { viewSettings, navigateToPath } = useExplorer();
 		const { gridSize, showFileSize } = viewSettings;
+		const { renamingFileId, saveRename, cancelRename } = useSelection();
 
-	const contextMenu = useFileContextMenu({
-		file,
-		selectedFiles,
-		selected,
-	});
+		const isRenaming = renamingFileId === file.id;
 
-	// Set up file opening for non-directory files
-	const physicalPath =
-		file.kind === "File" && "Physical" in file.sd_path
-			? [(file.sd_path as any).Physical.path]
-			: [];
-	const { openWithDefault } = useOpenWith(physicalPath);
+		const contextMenu = useFileContextMenu({
+			file,
+			selectedFiles,
+			selected,
+		});
 
-	const handleClick = (e: React.MouseEvent) => {
-		const multi = e.metaKey || e.ctrlKey;
-		const range = e.shiftKey;
-		selectFile(file, allFiles, multi, range);
-	};
+		// Set up file opening for non-directory files
+		const physicalPath =
+			file.kind === "File" && "Physical" in file.sd_path
+				? [(file.sd_path as any).Physical.path]
+				: [];
+		const { openWithDefault } = useOpenWith(physicalPath);
 
-	const handleDoubleClick = async () => {
-		// Virtual files (locations, volumes, devices) always navigate to their sd_path
-		if (isVirtualFile(file) && file.sd_path) {
-			navigateToPath(file.sd_path);
-			return;
-		}
+		const handleClick = (e: React.MouseEvent) => {
+			const multi = e.metaKey || e.ctrlKey;
+			const range = e.shiftKey;
+			selectFile(file, allFiles, multi, range);
+		};
 
-		// Regular directories navigate normally
-		if (file.kind === "Directory") {
-			navigateToPath(file.sd_path);
-			return;
-		}
+		const handleDoubleClick = async () => {
+			// Virtual files (locations, volumes, devices) always navigate to their sd_path
+			if (isVirtualFile(file) && file.sd_path) {
+				navigateToPath(file.sd_path);
+				return;
+			}
 
-		// Open regular files with default application
-		if (file.kind === "File" && "Physical" in file.sd_path) {
-			const physicalPath = (file.sd_path as any).Physical.path;
-			await openWithDefault(physicalPath);
-		}
-	};
+			// Regular directories navigate normally
+			if (file.kind === "Directory") {
+				navigateToPath(file.sd_path);
+				return;
+			}
+
+			// Open regular files with default application
+			if (file.kind === "File" && "Physical" in file.sd_path) {
+				const physicalPath = (file.sd_path as any).Physical.path;
+				await openWithDefault(physicalPath);
+			}
+		};
 
 		const handleContextMenu = async (e: React.MouseEvent) => {
 			e.preventDefault();
@@ -123,14 +127,14 @@ export const FileCard = memo(
 
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
-	// Check if this is a virtual volume file
-	const isVolume =
-		isVirtualFile(file) &&
-		(file as any)._virtual?.type === "volume" &&
-		(file as any)._virtual?.data;
+		// Check if this is a virtual volume file
+		const isVolume =
+			isVirtualFile(file) &&
+			(file as any)._virtual?.type === "volume" &&
+			(file as any)._virtual?.data;
 
-	// Extract volume data
-	const volumeData = isVolume ? (file as any)._virtual.data : null;
+		// Extract volume data
+		const volumeData = isVolume ? (file as any)._virtual.data : null;
 		const hasVolumeCapacity =
 			volumeData?.total_capacity != null &&
 			volumeData?.available_capacity != null &&
@@ -173,14 +177,23 @@ export const FileCard = memo(
 						<FileComponent.Thumb file={file} size={thumbSize} />
 					</div>
 					<div className="w-full flex flex-col items-center">
-						<div
-							className={clsx(
-								"text-sm truncate px-2 py-0.5 rounded-md inline-block max-w-full",
-								selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
-							)}
-						>
-							{file.name}{file.extension && `.${file.extension}`}
-						</div>
+						{isRenaming ? (
+							<InlineNameEdit
+								file={file}
+								onSave={saveRename}
+								onCancel={cancelRename}
+								className="max-w-full"
+							/>
+						) : (
+							<div
+								className={clsx(
+									"text-sm truncate px-2 py-0.5 rounded-md inline-block max-w-full",
+									selected && !dndIsDragging ? "bg-accent text-white" : "text-ink",
+								)}
+							>
+								{file.name}{file.extension && `.${file.extension}`}
+							</div>
+						)}
 
 						{/* Volume size bar */}
 						{showFileSize && hasVolumeCapacity && (

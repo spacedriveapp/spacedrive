@@ -407,6 +407,28 @@ impl VolumeBackend for CloudBackend {
 		Ok(())
 	}
 
+	async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError> {
+		let mut cloud_path = self.to_cloud_path(path);
+		debug!(
+			"CloudBackend::create_directory: {} (recursive: {})",
+			cloud_path, recursive
+		);
+
+		// Cloud storage directories are implicit, created by writing a marker object
+		// Ensure path ends with / to indicate directory
+		if !cloud_path.ends_with('/') {
+			cloud_path.push('/');
+		}
+
+		// OpenDAL's create_dir creates the directory (some backends need explicit creation)
+		self.operator
+			.create_dir(&cloud_path)
+			.await
+			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
+
+		Ok(())
+	}
+
 	fn is_local(&self) -> bool {
 		false
 	}

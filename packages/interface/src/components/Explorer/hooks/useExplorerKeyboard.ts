@@ -8,6 +8,7 @@ import { useKeybind } from "../../../hooks/useKeybind";
 import { useKeybindScope } from "../../../hooks/useKeybindScope";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../FileOperationModal";
+import { isInputFocused } from "../../../util/keybinds/platform";
 
 export function useExplorerKeyboard() {
 	const {
@@ -30,6 +31,8 @@ export function useExplorerKeyboard() {
 		focusedIndex,
 		setFocusedIndex,
 		setSelectedFiles,
+		startRename,
+		isRenaming,
 	} = useSelection();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
@@ -126,8 +129,42 @@ export function useExplorerKeyboard() {
 		{ enabled: clipboard.hasClipboard() && !!currentPath },
 	);
 
+	// Rename: Enter key triggers rename mode for any selected file or directory
+	useKeybind(
+		"explorer.renameFile",
+		() => {
+			if (selectedFiles.length === 1 && !isRenaming) {
+				startRename(selectedFiles[0].id);
+			}
+		},
+		{ enabled: selectedFiles.length === 1 && !isRenaming },
+	);
+
+	// Tag mode: T key enters tag assignment mode
+	useKeybind(
+		"explorer.enterTagMode",
+		() => {
+			setTagModeActive(true);
+		},
+		{ enabled: !tagModeActive },
+	);
+
+	// Quick Preview: Spacebar opens quick preview
+	useKeybind(
+		"explorer.toggleQuickPreview",
+		() => {
+			if (selectedFiles.length === 1) {
+				openQuickPreview(selectedFiles[0].id);
+			}
+		},
+		{ enabled: selectedFiles.length === 1 },
+	);
+
 	useEffect(() => {
 		const handleKeyDown = async (e: KeyboardEvent) => {
+			// Skip all keyboard shortcuts if renaming or typing in an input
+			if (isRenaming || isInputFocused()) return;
+
 			// Arrow keys: Navigation
 			if (
 				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
@@ -193,30 +230,6 @@ export function useExplorerKeyboard() {
 				return;
 			}
 
-			// Spacebar: Open Quick Preview (in-app modal)
-			if (e.code === "Space" && selectedFiles.length === 1) {
-				e.preventDefault();
-				openQuickPreview(selectedFiles[0].id);
-				return;
-			}
-
-			// Enter: Navigate into directory
-			if (e.key === "Enter" && selectedFiles.length === 1) {
-				const selected = selectedFiles[0];
-				if (selected.kind === "Directory") {
-					e.preventDefault();
-					navigateToPath(selected.sd_path);
-				}
-				return;
-			}
-
-			// T: Enter tag assignment mode
-			if (e.key === "t" && !e.metaKey && !e.ctrlKey && !tagModeActive) {
-				e.preventDefault();
-				setTagModeActive(true);
-				return;
-			}
-
 			// Escape: Clear selection
 			if (e.code === "Escape" && selectedFiles.length > 0) {
 				clearSelection();
@@ -245,5 +258,7 @@ export function useExplorerKeyboard() {
 		setFocusedIndex,
 		setSelectedFiles,
 		openQuickPreview,
+		isRenaming,
+		typeahead,
 	]);
 }

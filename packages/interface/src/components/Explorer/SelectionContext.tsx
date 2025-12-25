@@ -10,6 +10,7 @@ import {
 import { usePlatform } from "../../platform";
 import type { File } from "@sd/ts-client";
 import { useClipboard } from "../../hooks/useClipboard";
+import { useLibraryMutation } from "../../context";
 
 interface SelectionContextValue {
 	selectedFiles: File[];
@@ -30,6 +31,12 @@ interface SelectionContextValue {
 		direction: "up" | "down" | "left" | "right",
 		files: File[],
 	) => void;
+	// Rename state
+	renamingFileId: string | null;
+	startRename: (fileId: string) => void;
+	cancelRename: () => void;
+	saveRename: (newName: string) => Promise<void>;
+	isRenaming: boolean;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -48,6 +55,8 @@ export function SelectionProvider({
 	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
+	const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
+	const renameFile = useLibraryMutation("files.rename");
 
 	// Sync selected file IDs to platform (for cross-window state sharing)
 	// Only sync for the active tab to avoid conflicts
@@ -73,15 +82,13 @@ export function SelectionProvider({
 
 		const hasSelection = selectedFiles.length > 0;
 		const isSingleSelection = selectedFiles.length === 1;
-		const hasClipboard = clipboard.hasClipboard();
 
 		platform.updateMenuItems?.([
-			{ id: "copy", enabled: hasSelection },
-			{ id: "cut", enabled: hasSelection },
+			// NOTE: copy/cut/paste are always enabled to support text input operations
+			// They intelligently route to file ops or native clipboard based on focus
 			{ id: "duplicate", enabled: hasSelection },
 			{ id: "rename", enabled: isSingleSelection },
 			{ id: "delete", enabled: hasSelection },
-			{ id: "paste", enabled: hasClipboard },
 		]);
 	}, [selectedFiles, clipboard, platform, isActiveTab]);
 
@@ -186,6 +193,54 @@ export function SelectionProvider({
 		[],
 	);
 
+	// Rename functions
+	const startRename = useCallback((fileId: string) => {
+		// Only allow rename when a single file is selected
+		if (selectedFiles.length === 1) {
+			setRenamingFileId(fileId);
+		}
+	}, [selectedFiles.length]);
+
+	const cancelRename = useCallback(() => {
+		setRenamingFileId(null);
+	}, []);
+
+	const saveRename = useCallback(async (newName: string) => {
+		if (!renamingFileId) return;
+
+		const file = selectedFiles.find(f => f.id === renamingFileId);
+		if (!file) {
+			setRenamingFileId(null);
+			return;
+		}
+
+		// Don't submit if name is empty or unchanged
+		const currentFullName = file.extension ? `${file.name}.${file.extension}` : file.name;
+		if (!newName.trim() || newName === currentFullName) {
+			setRenamingFileId(null);
+			return;
+		}
+
+		try {
+			await renameFile.mutateAsync({
+				target: file.sd_path,
+				new_name: newName,
+			});
+			setRenamingFileId(null);
+		} catch (error) {
+			// Keep in edit mode on error so user can retry
+			console.error('Rename failed:', error);
+			throw error;
+		}
+	}, [renamingFileId, selectedFiles, renameFile]);
+
+	// Cancel rename when selection changes
+	useEffect(() => {
+		if (renamingFileId && !selectedFiles.some(f => f.id === renamingFileId)) {
+			setRenamingFileId(null);
+		}
+	}, [selectedFiles, renamingFileId]);
+
 	// Create a Set of selected file IDs for O(1) lookup
 	const selectedFileIds = useMemo(
 		() => new Set(selectedFiles.map((f) => f.id)),
@@ -197,6 +252,8 @@ export function SelectionProvider({
 		(fileId: string) => selectedFileIds.has(fileId),
 		[selectedFileIds],
 	);
+
+	const isRenaming = renamingFileId !== null;
 
 	const value = useMemo(
 		() => ({
@@ -210,6 +267,12 @@ export function SelectionProvider({
 			focusedIndex,
 			setFocusedIndex,
 			moveFocus,
+			// Rename state
+			renamingFileId,
+			startRename,
+			cancelRename,
+			saveRename,
+			isRenaming,
 		}),
 		[
 			selectedFiles,
@@ -220,6 +283,11 @@ export function SelectionProvider({
 			selectAll,
 			focusedIndex,
 			moveFocus,
+			renamingFileId,
+			startRename,
+			cancelRename,
+			saveRename,
+			isRenaming,
 		],
 	);
 

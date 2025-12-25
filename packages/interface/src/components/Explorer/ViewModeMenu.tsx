@@ -90,6 +90,11 @@ export function ViewModeMenu({
 	const panelRef = useRef<HTMLDivElement>(null);
 	const [position, setPosition] = useState({ top: 0, right: 0 });
 
+	// Filter out knowledge view in production
+	const availableViews = viewOptions.filter(
+		(option) => option.id !== "knowledge" || import.meta.env.DEV
+	);
+
 	useEffect(() => {
 		if (isOpen && buttonRef.current) {
 			const rect = buttonRef.current.getBoundingClientRect();
@@ -147,7 +152,7 @@ export function ViewModeMenu({
 							className="w-[240px] rounded-lg bg-app border border-app-line shadow-2xl p-2 z-50"
 						>
 							<div className="grid grid-cols-3 gap-1">
-								{viewOptions.map((option) => (
+								{availableViews.map((option) => (
 									<button
 										key={`${option.id}-${option.label}`}
 										onClick={() => {

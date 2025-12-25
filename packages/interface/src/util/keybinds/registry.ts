@@ -118,7 +118,8 @@ export const explorerKeybinds = {
 		id: 'explorer.toggleQuickPreview',
 		label: 'Quick Preview',
 		combo: { modifiers: [], key: 'Space' },
-		scope: 'explorer'
+		scope: 'explorer',
+		preventDefault: true
 	}),
 
 	// Grid/List navigation (arrow keys)
@@ -184,6 +185,83 @@ export const explorerKeybinds = {
 		id: 'explorer.enterTagMode',
 		label: 'Enter Tag Mode',
 		combo: { modifiers: [], key: 't' },
+		scope: 'explorer'
+	}),
+
+	exitTagMode: defineKeybind({
+		id: 'explorer.exitTagMode',
+		label: 'Exit Tag Mode',
+		combo: { modifiers: [], key: 'Escape' },
+		scope: 'explorer'
+	}),
+
+	toggleTag1: defineKeybind({
+		id: 'explorer.toggleTag1',
+		label: 'Toggle Tag 1',
+		combo: { modifiers: [], key: '1' },
+		scope: 'explorer'
+	}),
+
+	toggleTag2: defineKeybind({
+		id: 'explorer.toggleTag2',
+		label: 'Toggle Tag 2',
+		combo: { modifiers: [], key: '2' },
+		scope: 'explorer'
+	}),
+
+	toggleTag3: defineKeybind({
+		id: 'explorer.toggleTag3',
+		label: 'Toggle Tag 3',
+		combo: { modifiers: [], key: '3' },
+		scope: 'explorer'
+	}),
+
+	toggleTag4: defineKeybind({
+		id: 'explorer.toggleTag4',
+		label: 'Toggle Tag 4',
+		combo: { modifiers: [], key: '4' },
+		scope: 'explorer'
+	}),
+
+	toggleTag5: defineKeybind({
+		id: 'explorer.toggleTag5',
+		label: 'Toggle Tag 5',
+		combo: { modifiers: [], key: '5' },
+		scope: 'explorer'
+	}),
+
+	toggleTag6: defineKeybind({
+		id: 'explorer.toggleTag6',
+		label: 'Toggle Tag 6',
+		combo: { modifiers: [], key: '6' },
+		scope: 'explorer'
+	}),
+
+	toggleTag7: defineKeybind({
+		id: 'explorer.toggleTag7',
+		label: 'Toggle Tag 7',
+		combo: { modifiers: [], key: '7' },
+		scope: 'explorer'
+	}),
+
+	toggleTag8: defineKeybind({
+		id: 'explorer.toggleTag8',
+		label: 'Toggle Tag 8',
+		combo: { modifiers: [], key: '8' },
+		scope: 'explorer'
+	}),
+
+	toggleTag9: defineKeybind({
+		id: 'explorer.toggleTag9',
+		label: 'Toggle Tag 9',
+		combo: { modifiers: [], key: '9' },
+		scope: 'explorer'
+	}),
+
+	toggleTag10: defineKeybind({
+		id: 'explorer.toggleTag10',
+		label: 'Toggle Tag 10',
+		combo: { modifiers: [], key: '0' },
 		scope: 'explorer'
 	}),
 

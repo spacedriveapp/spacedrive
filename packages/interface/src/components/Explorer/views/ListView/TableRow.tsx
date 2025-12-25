@@ -11,6 +11,7 @@ import { TagPill } from "../../../Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from "../../utils/virtualFiles";
+import { InlineNameEdit } from "../../components/InlineNameEdit";
 import { useOpenWith } from "../../../../hooks/useOpenWith";
 
 interface TableRowProps {
@@ -47,47 +48,47 @@ export const TableRow = memo(
 		const { navigateToPath } = useExplorer();
 		const { selectedFiles } = useSelection();
 
-	const contextMenu = useFileContextMenu({
-		file,
-		selectedFiles,
-		selected: isSelected,
-	});
+		const contextMenu = useFileContextMenu({
+			file,
+			selectedFiles,
+			selected: isSelected,
+		});
 
-	// Set up file opening for non-directory files
-	const physicalPath =
-		file.kind === "File" && "Physical" in file.sd_path
-			? [(file.sd_path as any).Physical.path]
-			: [];
-	const { openWithDefault } = useOpenWith(physicalPath);
+		// Set up file opening for non-directory files
+		const physicalPath =
+			file.kind === "File" && "Physical" in file.sd_path
+				? [(file.sd_path as any).Physical.path]
+				: [];
+		const { openWithDefault } = useOpenWith(physicalPath);
 
-	const handleClick = useCallback(
-		(e: React.MouseEvent) => {
-			const multi = e.metaKey || e.ctrlKey;
-			const range = e.shiftKey;
-			selectFile(file, files, multi, range);
-		},
-		[file, files, selectFile],
-	);
+		const handleClick = useCallback(
+			(e: React.MouseEvent) => {
+				const multi = e.metaKey || e.ctrlKey;
+				const range = e.shiftKey;
+				selectFile(file, files, multi, range);
+			},
+			[file, files, selectFile],
+		);
 
-	const handleDoubleClick = useCallback(async () => {
-		// Virtual files (locations, volumes, devices) always navigate to their sd_path
-		if (isVirtualFile(file) && file.sd_path) {
-			navigateToPath(file.sd_path);
-			return;
-		}
+		const handleDoubleClick = useCallback(async () => {
+			// Virtual files (locations, volumes, devices) always navigate to their sd_path
+			if (isVirtualFile(file) && file.sd_path) {
+				navigateToPath(file.sd_path);
+				return;
+			}
 
-		// Regular directories navigate normally
-		if (file.kind === "Directory") {
-			navigateToPath(file.sd_path);
-			return;
-		}
+			// Regular directories navigate normally
+			if (file.kind === "Directory") {
+				navigateToPath(file.sd_path);
+				return;
+			}
 
-		// Open regular files with default application
-		if (file.kind === "File" && "Physical" in file.sd_path) {
-			const physicalPath = (file.sd_path as any).Physical.path;
-			await openWithDefault(physicalPath);
-		}
-	}, [file, navigateToPath, openWithDefault]);
+			// Open regular files with default application
+			if (file.kind === "File" && "Physical" in file.sd_path) {
+				const physicalPath = (file.sd_path as any).Physical.path;
+				await openWithDefault(physicalPath);
+			}
+		}, [file, navigateToPath, openWithDefault]);
 
 		const handleContextMenu = useCallback(
 			async (e: React.MouseEvent) => {
@@ -201,6 +202,9 @@ export const TableRow = memo(
 
 // Name cell with icon and tags
 const NameCell = memo(function NameCell({ file }: { file: File }) {
+	const { renamingFileId, saveRename, cancelRename } = useSelection();
+	const isRenaming = renamingFileId === file.id;
+
 	return (
 		<div className="flex min-w-0 flex-1 items-center gap-2">
 			{/* File icon */}
@@ -208,11 +212,20 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 				<FileComponent.Thumb file={file} size={20} />
 			</div>
 
-			{/* File name */}
-			<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
+			{/* File name or inline edit */}
+			{isRenaming ? (
+				<InlineNameEdit
+					file={file}
+					onSave={saveRename}
+					onCancel={cancelRename}
+					className="flex-1 min-w-0"
+				/>
+			) : (
+				<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
+			)}
 
-			{/* Tags (inline, compact) */}
-			{file.tags && file.tags.length > 0 && (
+			{/* Tags (inline, compact) - hide when renaming */}
+			{!isRenaming && file.tags && file.tags.length > 0 && (
 				<div className="flex flex-shrink-0 items-center gap-1">
 					{file.tags.slice(0, 2).map((tag) => (
 						<TagPill

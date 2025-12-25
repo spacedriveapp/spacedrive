@@ -7,6 +7,7 @@ import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
+import { isVirtualFile } from "../../utils/virtualFiles";
 
 /** Get path string from SdPath for comparison */
 function getPathString(path: SdPath | null | undefined): string {
@@ -142,10 +143,21 @@ export function ColumnView() {
 	);
 
 	// Find the active column (the one containing the first selected file)
+	// In virtual view: -1 = virtual column, 0+ = columnStack indices
+	// In regular view: 0+ = columnStack indices
 	const activeColumnIndex = useMemo(() => {
-		if (selectedFiles.length === 0) return columnStack.length - 1;
+		if (selectedFiles.length === 0) {
+			// No selection: last column is active
+			return isVirtualView ? columnStack.length - 1 : columnStack.length - 1;
+		}
 
 		const firstSelected = selectedFiles[0];
+
+		// Check if selected file is from virtual column
+		if (isVirtualView && isVirtualFile(firstSelected)) {
+			return -1; // Virtual column
+		}
+
 		const filePath =
 			"Physical" in firstSelected.sd_path
 				? firstSelected.sd_path.Physical?.path
@@ -158,7 +170,7 @@ export function ColumnView() {
 			const columnPath = "Physical" in path ? path.Physical?.path : null;
 			return columnPath === fileParent;
 		});
-	}, [selectedFiles, columnStack]);
+	}, [selectedFiles, columnStack, isVirtualView]);
 
 	const activeColumnPath = columnStack[activeColumnIndex];
 
@@ -175,11 +187,15 @@ export function ColumnView() {
 				}
 			: null!,
 		resourceType: "file",
-		enabled: !!activeColumnPath,
+		enabled: !!activeColumnPath && activeColumnIndex >= 0,
 		pathScope: activeColumnPath,
 	});
 
-	const activeColumnFiles = (activeColumnQuery.data as any)?.files || [];
+	// Use virtual files if we're in the virtual column, otherwise use query data
+	const activeColumnFiles =
+		isVirtualView && activeColumnIndex === -1
+			? virtualFiles || []
+			: ((activeColumnQuery.data as any)?.files || []);
 
 	// Typeahead search for active column
 	const typeahead = useTypeaheadSearch({
@@ -263,16 +279,43 @@ export function ColumnView() {
 						}
 					}
 				} else if (e.key === "ArrowLeft") {
-					if (activeColumnIndex > 0) {
+					// In virtual view, special handling for moving back to virtual column
+					if (isVirtualView && activeColumnIndex === 0) {
+						// We're in the first real column, go back to virtual column
+						setColumnStack([]);
+						clearSelectionRef.current();
+					} else if (activeColumnIndex > 0) {
+						// Regular navigation: truncate columnStack
 						setColumnStack(columnStack.slice(0, activeColumnIndex));
 						clearSelectionRef.current();
 					}
 				} else if (e.key === "ArrowRight") {
 					const firstSelected = selectedFiles[0];
-					if (
+
+					// In virtual view, special handling for moving from virtual to first real column
+					if (isVirtualView && activeColumnIndex === -1) {
+						// We're in virtual column, navigate to first file in first real column
+						if (columnStack.length > 0 && nextColumnFiles.length > 0) {
+							const firstFile = nextColumnFiles[0];
+							handleSelectFile(firstFile, 0, nextColumnFiles);
+
+							setTimeout(() => {
+								const element = document.querySelector(
+									`[data-file-id="${firstFile.id}"]`,
+								);
+								if (element) {
+									element.scrollIntoView({
+										block: "nearest",
+										behavior: "smooth",
+									});
+								}
+							}, 0);
+						}
+					} else if (
 						firstSelected?.kind === "Directory" &&
 						activeColumnIndex < columnStack.length - 1
 					) {
+						// Regular navigation: move to next column
 						if (nextColumnFiles.length > 0) {
 							const firstFile = nextColumnFiles[0];
 							handleSelectFile(
@@ -315,6 +358,7 @@ export function ColumnView() {
 		setColumnStack,
 		handleSelectFile,
 		typeahead,
+		isVirtualView,
 	]);
 
 	// Compute which columns are active based on selection
@@ -341,47 +385,69 @@ export function ColumnView() {
 		);
 	}
 
-	// Virtual listings: Show virtual column + next column if directory selected
+	// Virtual listings: Show virtual column + subsequent navigation columns
 	if (isVirtualView && virtualFiles) {
-		const selectedDirectory =
-			selectedFiles.length === 1 &&
-			selectedFiles[0].kind === "Directory" &&
-			selectedFiles[0].sd_path
-				? selectedFiles[0]
-				: null;
-
+		// Render virtual column + all columns in the stack
 		return (
 			<div className="flex h-full overflow-x-auto bg-app">
+				{/* First column: Virtual listing */}
 				<Column
 					key="virtual-column"
 					path={null as any}
 					isSelected={isSelected}
 					selectedFileIds={selectedFileIds}
 					onSelectFile={(file, files, multi, range) => {
+						// Use global selectFile to update selection state
 						selectFile(file, files, multi, range);
+
+						// Only update columns for single selection (not multi/range)
+						if (!multi && !range) {
+							if (file.kind === "Directory" && file.sd_path) {
+								// Start a new column stack with the selected directory
+								setColumnStack([file.sd_path]);
+							} else {
+								// For files, clear the stack
+								setColumnStack([]);
+							}
+						}
 					}}
 					onNavigate={handleNavigate}
-					nextColumnPath={selectedDirectory?.sd_path}
+					nextColumnPath={columnStack[0]}
 					columnIndex={0}
-					isActive={!selectedDirectory}
+					isActive={columnStack.length === 0}
 					virtualFiles={virtualFiles}
 				/>
 
-				{selectedDirectory && (
-					<Column
-						key={`dir-${selectedDirectory.id}`}
-						path={selectedDirectory.sd_path}
-						isSelected={isSelected}
-						selectedFileIds={selectedFileIds}
-						onSelectFile={(file, files, multi, range) =>
-							handleSelectFile(file, 1, files, multi, range)
-						}
-						onNavigate={handleNavigate}
-						nextColumnPath={undefined}
-						columnIndex={1}
-						isActive={true}
-					/>
-				)}
+				{/* Subsequent columns: Real directory navigation */}
+				{columnStack.map((path, index) => {
+					const columnPath =
+						"Physical" in path ? path.Physical?.path || "" : "";
+					const isActive =
+						selectedFiles.length > 0
+							? activeColumnPaths.has(columnPath)
+							: index === columnStack.length - 1;
+
+					const deviceSlug =
+						"Physical" in path ? path.Physical?.device_slug : "unknown";
+					const pathStr =
+						"Physical" in path ? path.Physical?.path : "unknown";
+
+					return (
+						<Column
+							key={`${deviceSlug}-${pathStr}-${index}`}
+							path={path}
+							isSelected={isSelected}
+							selectedFileIds={selectedFileIds}
+							onSelectFile={(file, files, multi, range) =>
+								handleSelectFile(file, index, files, multi, range)
+							}
+							onNavigate={handleNavigate}
+							nextColumnPath={columnStack[index + 1]}
+							columnIndex={index + 1} // +1 because virtual column is at 0
+							isActive={isActive}
+						/>
+					);
+				})}
 			</div>
 		);
 	}
