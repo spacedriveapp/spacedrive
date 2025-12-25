@@ -47,22 +47,41 @@ pub async fn search_ephemeral_index(
 
 		// Try exact name match first
 		let mut paths = index.find_by_name(&query_lower);
+		tracing::debug!("Exact match for '{}': {} paths", query_lower, paths.len());
 
 		// If no exact matches, try prefix search
 		if paths.is_empty() {
 			paths = index.find_by_prefix(&query_lower);
+			tracing::debug!("Prefix match for '{}': {} paths", query_lower, paths.len());
 		}
 
 		// If still no matches, try substring search
-		// Note: We'll use find_by_prefix as a fallback since registry is private
-		// This is a reasonable approximation for basic search
+		if paths.is_empty() {
+			paths = index.find_containing(&query_lower);
+			tracing::debug!(
+				"Substring match for '{}': {} paths",
+				query_lower,
+				paths.len()
+			);
+		}
+
+		tracing::debug!("Total paths before scope filter: {}", paths.len());
+		tracing::debug!("Scope path: {:?}", local_path);
 
 		// Filter to only paths within scope
-		paths
+		let filtered: Vec<PathBuf> = paths
 			.into_iter()
 			.filter(|path| path.starts_with(&local_path))
-			.collect()
+			.collect();
+
+		tracing::debug!("Paths after scope filter: {}", filtered.len());
+		filtered
 	};
+
+	tracing::debug!(
+		"Converting {} matching paths to results",
+		matching_paths.len()
+	);
 
 	// Convert to FileSearchResult with filtering
 	let mut results = Vec::new();
@@ -70,6 +89,7 @@ pub async fn search_ephemeral_index(
 		if let Some(metadata) = index.get_entry_ref(&path) {
 			// Skip directories (only search files)
 			if matches!(metadata.kind, EntryKind::Directory) {
+				tracing::debug!("Skipping directory: {:?}", path);
 				continue;
 			}
 

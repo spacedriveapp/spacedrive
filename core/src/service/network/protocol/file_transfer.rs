@@ -662,15 +662,16 @@ impl FileTransferProtocolHandler {
 					});
 				}
 
-				println!("File checksum verified: {}", received_checksum);
+				tracing::debug!("File checksum verified: {}", received_checksum);
 			}
 
 			// Mark transfer as completed
 			self.update_session_state(&transfer_id, TransferState::Completed)?;
 
-			println!(
+			tracing::info!(
 				"File transfer {} completed: {} bytes",
-				transfer_id, total_bytes
+				transfer_id,
+				total_bytes
 			);
 
 			// Return final acknowledgment
@@ -729,7 +730,7 @@ impl FileTransferProtocolHandler {
 				.get(transfer_id)
 				.ok_or_else(|| "Transfer session not found".to_string())?;
 
-			// Use the destination path from the transfer request (already includes filename)
+			// Use the destination path as the full file path (sender joins filename)
 			let file_path = PathBuf::from(&session.destination_path);
 
 			(file_path, 64 * 1024u32) // 64KB chunk size
@@ -1065,21 +1066,23 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 							.await;
 
 						// Get device ID from node ID using device registry
-						let device_id =
-							if let Some(device_registry) = &self.device_registry {
-								let registry = device_registry.read().await;
-								registry
-							.get_device_by_node(remote_node_id)
-							.unwrap_or_else(|| {
-								// Note: Can't use await in closure, this should be refactored
-								eprintln!("Warning: Could not find device ID for node {}, using random ID", remote_node_id);
-								uuid::Uuid::new_v4()
-							})
-							} else {
-								// Note: Need to await this call properly
-								eprintln!("Warning: Device registry not available, using random device ID");
-								uuid::Uuid::new_v4()
-							};
+						let device_id = if let Some(device_registry) = &self.device_registry {
+							let registry = device_registry.read().await;
+							registry
+								.get_device_by_node(remote_node_id)
+								.unwrap_or_else(|| {
+									// Note: Can't use await in closure, this should be refactored
+									tracing::warn!(
+										"Could not find device ID for node {}, using random ID",
+										remote_node_id
+									);
+									uuid::Uuid::new_v4()
+								})
+						} else {
+							// Note: Need to await this call properly
+							tracing::warn!("Device registry not available, using random device ID");
+							uuid::Uuid::new_v4()
+						};
 
 						// Process the message based on type
 						match message {

@@ -771,14 +771,14 @@ async fn stream_file_data<'a>(
 			transfer_mode: crate::service::network::protocol::TransferMode::TrustedCopy,
 			chunk_size,
 			total_chunks,
-			destination_path,
+			destination_path: destination_path.clone(),
 		};
 
 	let request_data = rmp_serde::to_vec(&transfer_request)?;
 
 	ctx.log(format!(
-		"Sending TransferRequest for {} bytes ({} chunks)",
-		total_size, total_chunks
+		"Sending TransferRequest for {} bytes ({} chunks) to destination: {}",
+		total_size, total_chunks, destination_path
 	));
 
 	// Send transfer request: type (0) + length + data
