@@ -26,7 +26,7 @@ Journey to v2.0.0-pre.1:
 ☐ Remote file access on demand @critical
 ✔ Rename files, create folders, new folder with items @done(25-12-24 09:08)
 ☐ Inspector multi-select
-☐ Open files with default app (cross platform) @critical
+✔ Open files with default app (cross platform) @critical @done(25-12-25 08:17)
 ☐ Sometimes quick preview reporting file not found @today (happens in the second column of column view)
 ☐ Ensure updater and changelog are working @today
 ☐ Drop external items INTO spacedrive explorer @today
@@ -42,7 +42,7 @@ Journey to v2.0.0-pre.1:
 # It has an issue where it conflicts with the tab focus navigation and is out of order often
 ☐ Device owned data count mismatch reconciliation
 ☐ Synced directories seem to be missing relationships to form tree (sometimes)
-☐ Drag selection area + command to add to selection @today
+✔ Drag selection area + command to add to selection @today @done(25-12-25 08:18)
 ✔ Back/forward button navigation not working @critical @done(25-12-22 05:43)
 # Investigate sync integrity
 ✔ Refetch all queries when window focus @today @done(25-12-20 09:55)
@@ -56,7 +56,7 @@ Journey to v2.0.0-pre.1:
 ✔ Explorer should render results for a device, show volumes @today @done(25-12-20 09:55)
 ☐ Tags are not reactive, anywhere side from Inspector @today
 ☐ Tags should support ephemeral
-☐ Starting up screen when Core/daemon is initializing @critical
+✔ Starting up screen when Core/daemon is initializing @critical @done(25-12-25 08:18)
 # This is complex because ephemeral entries do not have a content identity
 ☐ Fix unique bytes calculation
 ☐ Disable knowledge view @today
@@ -93,8 +93,8 @@ Journey to v2.0.0-pre.1:
 # See INDEX-009 for stale detection
 ☐ RAW support
 ☐ Sign Windows build
-☐ Increase connection limit from 100 to 1000
-☐ During pairing make it so the QR code confirms scan before submitting pairing action
+✔ fix connection limit bug @done(25-12-25 08:19)
+✔ During pairing make it so the QR code confirms scan before submitting pairing action @done(25-12-25 08:19)
 ✔ Fix volume tracking, removal and naming @done(25-12-18 23:12)
 ✔ Gaussian splat generation @done(25-12-18 23:09)
 ✔ Gaussian splat viewer @done(25-12-18 23:09)
