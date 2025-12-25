@@ -415,6 +415,7 @@ impl ThumbnailPolicy {
 			regenerate: self.regenerate,
 			batch_size: 50,
 			max_concurrent: 4,
+			run_in_background: false,
 		}
 	}
 }
