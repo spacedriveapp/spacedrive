@@ -73,10 +73,10 @@ pub async fn search_ephemeral_index(
 				continue;
 			}
 
-		// Apply filters
-		if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
-			continue;
-		}
+			// Apply filters
+			if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
+				continue;
+			}
 
 			// Get UUID
 			let uuid = index.get_entry_uuid(&path).unwrap_or_else(Uuid::new_v4);
