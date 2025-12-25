@@ -41,7 +41,7 @@ export function GridView() {
 		resourceType: "file",
 		enabled: !!currentPath && !isVirtualView,
 		pathScope: currentPath ?? undefined,
-		debug: true,
+		// debug: true,
 	});
 
 	const files = isVirtualView
