@@ -6,6 +6,8 @@ import { ColumnView } from "./views/ColumnView";
 import { SizeView } from "./views/SizeView";
 import { KnowledgeView } from "./views/KnowledgeView";
 import { EmptyView } from "./views/EmptyView";
+import { SearchView } from "./views/SearchView";
+import { SearchToolbar } from "./SearchToolbar";
 import { TopBarPortal } from "../../TopBar";
 import { useVirtualListing } from "./hooks/useVirtualListing";
 import { VirtualPathBar } from "./components/VirtualPathBar";
@@ -22,6 +24,7 @@ import { ViewSettings } from "../Explorer/ViewSettings";
 import { SortMenu } from "./SortMenu";
 import { ViewModeMenu } from "./ViewModeMenu";
 import { TabNavigationGuard } from "./TabNavigationGuard";
+import { useState, useEffect, useCallback } from "react";
 
 export function ExplorerView() {
 	const {
@@ -45,10 +48,42 @@ export function ExplorerView() {
 		navigateToPath,
 		devices,
 		quickPreviewFileId,
+		mode,
+		enterSearchMode,
+		exitSearchMode,
 	} = useExplorer();
 
 	const { isVirtualView } = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
+
+	const [searchValue, setSearchValue] = useState("");
+
+	const handleSearchChange = useCallback(
+		(value: string) => {
+			setSearchValue(value);
+
+			if (value.length >= 2) {
+				const timeoutId = setTimeout(() => {
+					enterSearchMode(value);
+				}, 300);
+				return () => clearTimeout(timeoutId);
+			} else if (value.length === 0 && mode.type === "search") {
+				exitSearchMode();
+			}
+		},
+		[enterSearchMode, exitSearchMode, mode.type]
+	);
+
+	const handleSearchClear = useCallback(() => {
+		setSearchValue("");
+		exitSearchMode();
+	}, [exitSearchMode]);
+
+	useEffect(() => {
+		if (mode.type !== "search") {
+			setSearchValue("");
+		}
+	}, [mode.type]);
 
 	// Allow rendering if either we have a currentPath or we're in a virtual view
 	if (!currentPath && !isVirtualView) {
@@ -99,7 +134,14 @@ export function ExplorerView() {
 						<div className="flex items-center gap-2">
 							<SearchBar
 								className="w-64"
-								placeholder="Search..."
+								placeholder={
+									currentPath
+										? "Search in current folder..."
+										: "Search..."
+								}
+								value={searchValue}
+								onChange={handleSearchChange}
+								onClear={handleSearchClear}
 							/>
 							<TopBarButton
 								icon={TagIcon}
@@ -129,6 +171,7 @@ export function ExplorerView() {
 			)}
 
 			<div className="relative flex w-full flex-col pt-1.5 h-full overflow-hidden bg-app/80">
+				{mode.type === "search" && <SearchToolbar />}
 				<div className="flex-1 overflow-auto">
 					<TabNavigationGuard>
 						{mode.type === "search" ? (

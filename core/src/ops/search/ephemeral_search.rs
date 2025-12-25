@@ -13,7 +13,6 @@ use crate::ops::search::input::{DateField, SearchFilters};
 use crate::ops::search::output::{FileSearchResult, ScoreBreakdown};
 use std::cmp::Ordering;
 use std::path::PathBuf;
-use std::sync::Arc;
 use uuid::Uuid;
 
 /// Search the ephemeral index for files matching the query
@@ -74,10 +73,10 @@ pub async fn search_ephemeral_index(
 				continue;
 			}
 
-			// Apply filters
-			if !passes_ephemeral_filters(&metadata, &path, filters, file_type_registry) {
-				continue;
-			}
+		// Apply filters
+		if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
+			continue;
+		}
 
 			// Get UUID
 			let uuid = index.get_entry_uuid(&path).unwrap_or_else(Uuid::new_v4);
@@ -121,7 +120,6 @@ pub async fn search_ephemeral_index(
 /// Check if metadata passes ephemeral filters
 fn passes_ephemeral_filters(
 	metadata: &EntryMetadata,
-	path: &PathBuf,
 	filters: &SearchFilters,
 	file_type_registry: &FileTypeRegistry,
 ) -> bool {
@@ -156,29 +154,24 @@ fn passes_ephemeral_filters(
 	if let Some(ref range) = filters.date_range {
 		use chrono::{DateTime, Utc};
 
-		// metadata.modified, created, and accessed are Option<SystemTime>
 		let system_time_opt = match range.field {
 			DateField::ModifiedAt => metadata.modified,
-			DateField::CreatedAt => metadata.created.or(metadata.modified),
-			DateField::AccessedAt => metadata.accessed.or(metadata.modified),
+			DateField::CreatedAt => metadata.created,
+			DateField::AccessedAt => metadata.accessed,
 		};
 
-		// If we don't have a timestamp, skip this filter check
-		let system_time = match system_time_opt {
-			Some(time) => time,
-			None => return true, // No timestamp available, allow the file
-		};
+		if let Some(system_time) = system_time_opt {
+			let date = DateTime::<Utc>::from(system_time);
 
-		let date = DateTime::<Utc>::from(system_time);
-
-		if let Some(start) = range.start {
-			if date < start {
-				return false;
+			if let Some(start) = range.start {
+				if date < start {
+					return false;
+				}
 			}
-		}
-		if let Some(end) = range.end {
-			if date > end {
-				return false;
+			if let Some(end) = range.end {
+				if date > end {
+					return false;
+				}
 			}
 		}
 	}
@@ -186,7 +179,7 @@ fn passes_ephemeral_filters(
 	// Content type filter (via extension using FileTypeRegistry)
 	if let Some(ref content_types) = filters.content_types {
 		// Use FileTypeRegistry to identify content kind by extension
-		let identified_kind = file_type_registry.identify_by_extension(path);
+		let identified_kind = file_type_registry.identify_by_extension(&metadata.path);
 
 		// Check if the identified kind matches any of the requested types
 		if !content_types.contains(&identified_kind) {
