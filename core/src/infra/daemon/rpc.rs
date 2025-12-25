@@ -160,13 +160,6 @@ impl RpcServer {
 					);
 
 					if should_forward {
-						tracing::debug!(
-							"Forwarding event to connection: connection_id={}, event_type={}, filter={:?}",
-							connection.id,
-							event.variant_name(),
-							connection.filter
-						);
-
 						// Ignore errors if connection is closed
 						let _ = connection
 							.response_tx
@@ -274,13 +267,6 @@ impl RpcServer {
 			if let Some(path_scope) = &filter.path_scope {
 				let include_descendants = filter.include_descendants.unwrap_or(false);
 				let affects = event.affects_path(path_scope, include_descendants);
-
-				tracing::debug!(
-					"Path scope filter check: scope={:?}, include_descendants={}, affects={}",
-					path_scope,
-					include_descendants,
-					affects
-				);
 
 				if !affects {
 					return false;

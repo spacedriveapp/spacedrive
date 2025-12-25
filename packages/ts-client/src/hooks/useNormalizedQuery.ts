@@ -47,6 +47,8 @@ export type UseNormalizedQueryOptions<I> = Simplify<{
 	includeDescendants?: boolean;
 	/** Resource ID for single-resource queries */
 	resourceId?: string;
+	/** Enable debug logging for this query instance */
+	debug?: boolean;
 }>;
 
 // Runtime Validation Schemas (Valibot)
@@ -182,6 +184,7 @@ export function useNormalizedQuery<I, O>(
 				optionsRef.current,
 				capturedQueryKey, // Use captured queryKey, not ref
 				queryClient,
+				optionsRef.current.debug, // Pass debug flag
 			);
 		};
 
@@ -234,6 +237,7 @@ export function handleResourceEvent(
 	options: UseNormalizedQueryOptions<any>,
 	queryKey: any[],
 	queryClient: QueryClient,
+	debug?: boolean,
 ) {
 	// Skip string events (like "CoreStarted", "CoreShutdown")
 	if (typeof event === "string") {
@@ -242,6 +246,12 @@ export function handleResourceEvent(
 
 	// Refresh event - invalidate all queries
 	if ("Refresh" in event) {
+		if (debug) {
+			console.log(
+				`[useNormalizedQuery] ${options.wireMethod} processing Refresh`,
+				event,
+			);
+		}
 		queryClient.invalidateQueries();
 		return;
 	}
@@ -256,6 +266,12 @@ export function handleResourceEvent(
 		const { resource_type, resource, metadata } =
 			result.output.ResourceChanged;
 		if (resource_type === options.resourceType) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChanged`,
+					event,
+				);
+			}
 			updateSingleResource(
 				resource,
 				metadata,
@@ -280,6 +296,12 @@ export function handleResourceEvent(
 			resource_type === options.resourceType &&
 			Array.isArray(resources)
 		) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChangedBatch`,
+					event,
+				);
+			}
 			updateBatchResources(
 				resources,
 				metadata,
@@ -299,6 +321,12 @@ export function handleResourceEvent(
 
 		const { resource_type, resource_id } = result.output.ResourceDeleted;
 		if (resource_type === options.resourceType) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceDeleted`,
+					event,
+				);
+			}
 			deleteResource(resource_id, queryKey, queryClient);
 		}
 	}
@@ -411,7 +439,11 @@ export function updateSingleResource<O>(
 	if (options) {
 		resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
 		if (resourcesToUpdate.length === 0) {
-			return; // Resource was filtered out
+			// Resource was filtered out - may have moved out of scope, remove from cache
+			if (resource.id) {
+				deleteResource(resource.id, queryKey, queryClient);
+			}
+			return;
 		}
 	}
 
@@ -457,8 +489,15 @@ export function updateBatchResources<O>(
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
 
+	// If all resources were filtered out, they may have moved OUT of scope
+	// Remove them from cache if they exist (handles file moves out of current view)
 	if (filteredResources.length === 0) {
-		return; // No matching resources
+		for (const resource of resources) {
+			if (resource.id) {
+				deleteResource(resource.id, queryKey, queryClient);
+			}
+		}
+		return;
 	}
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
@@ -535,17 +574,40 @@ function updateArrayCache(
 	const newData = [...oldData];
 	const seenIds = new Set();
 
-	// Update existing items
+	// Update existing items by ID
 	for (let i = 0; i < newData.length; i++) {
 		const item: any = newData[i];
 		const match = newResources.find((r: any) => r.id === item.id);
 		if (match) {
 			newData[i] = safeMerge(item, match, noMergeFields);
-			seenIds.add(item.id);
+			seenIds.add(match.id);
 		}
 	}
 
-	// Append new items
+	// Handle Content entries that represent the same file as an existing Physical entry
+	// When content identification happens, a new Content entry is created with a different ID
+	// We need to merge it into the existing Physical entry by matching paths
+	for (const resource of newResources) {
+		if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+			// Try to find existing Physical entry by matching alternate_paths
+			const physicalPath = resource.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+			if (physicalPath) {
+				const existingIndex = newData.findIndex((item: any) => {
+					const itemPath = item.sd_path?.Physical?.path ||
+					                 item.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+					return itemPath === physicalPath;
+				});
+
+				if (existingIndex !== -1) {
+					// Merge Content entry into existing Physical entry
+					newData[existingIndex] = safeMerge(newData[existingIndex], resource, noMergeFields);
+					seenIds.add(resource.id);
+				}
+			}
+		}
+	}
+
+	// Append new items (excluding Content paths that didn't match an existing entry)
 	for (const resource of newResources) {
 		if (!seenIds.has(resource.id)) {
 			// Skip resources with Content paths - they represent alternate instances
@@ -584,27 +646,55 @@ function updateWrappedCache(
 		const array = [...oldData[arrayField]];
 		const seenIds = new Set();
 
-		// Update existing
+		// Update existing by ID
 		for (let i = 0; i < array.length; i++) {
 			const item: any = array[i];
 			const match = newResources.find((r: any) => r.id === item.id);
 			if (match) {
 				array[i] = safeMerge(item, match, noMergeFields);
-				seenIds.add(item.id);
+				seenIds.add(match.id);
 			}
 		}
 
-		// Append new
+		// Handle Content entries that represent the same file as an existing Physical entry
+		for (const resource of newResources) {
+			if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+				// Try to find existing Physical entry by matching alternate_paths
+				const physicalPath = resource.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+				if (physicalPath) {
+					const existingIndex = array.findIndex((item: any) => {
+						const itemPath = item.sd_path?.Physical?.path ||
+						                 item.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+						return itemPath === physicalPath;
+					});
+
+					if (existingIndex !== -1) {
+						// Merge Content entry into existing Physical entry
+						array[existingIndex] = safeMerge(array[existingIndex], resource, noMergeFields);
+						seenIds.add(resource.id);
+					}
+				}
+			}
+		}
+
+		// Append new items (excluding Content paths that didn't match an existing entry)
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
+				// Skip resources with Content paths - they represent alternate instances
+				if (resource.sd_path?.Content) {
+					continue;
+				}
+
 				// Check if resource already exists in the array (by ID)
-				const alreadyExists = array.some((item: any) => item.id === resource.id);
+				const alreadyExists = array.some(
+					(item: any) => item.id === resource.id,
+				);
 
 				if (alreadyExists) {
 					continue;
 				}
 
-				// New resource - append it (including Content paths for new files!)
+				// New resource - append it
 				array.push(resource);
 			}
 		}

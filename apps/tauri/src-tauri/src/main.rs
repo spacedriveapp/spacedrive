@@ -453,6 +453,113 @@ async fn set_current_library_id(
 	Ok(())
 }
 
+/// Validate that the current library exists, reset state if it doesn't
+async fn validate_and_reset_library_if_needed(
+	app: AppHandle,
+	current_library_id_arc: &Arc<RwLock<Option<String>>>,
+	daemon_state: &Arc<RwLock<DaemonState>>,
+	data_dir: &PathBuf,
+) -> Result<(), String> {
+	let current_library_id = {
+		let library_id = current_library_id_arc.read().await;
+		library_id.clone()
+	};
+
+	let Some(library_id) = current_library_id else {
+		// No library selected, nothing to validate
+		return Ok(());
+	};
+
+	// Query daemon for list of libraries
+	let request = json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "query:libraries.list",
+		"params": {
+			"input": {
+				"include_stats": false
+			}
+		}
+	});
+
+	let socket_addr = {
+		let state = daemon_state.read().await;
+		state.socket_addr.clone()
+	};
+
+	// Use direct TCP communication (same as daemon_request but without Tauri State)
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+	use tokio::net::TcpStream;
+
+	let mut stream = TcpStream::connect(&socket_addr)
+		.await
+		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
+
+	let request_line = serde_json::to_string(&request)
+		.map_err(|e| format!("Failed to serialize request: {}", e))?;
+
+	stream
+		.write_all(format!("{}\n", request_line).as_bytes())
+		.await
+		.map_err(|e| format!("Failed to write request: {}", e))?;
+
+	let mut reader = BufReader::new(stream);
+	let mut response_line = String::new();
+
+	reader
+		.read_line(&mut response_line)
+		.await
+		.map_err(|e| format!("Failed to read response: {}", e))?;
+
+	let response: serde_json::Value = serde_json::from_str(&response_line).map_err(|e| {
+		format!(
+			"Failed to parse response: {}. Raw: {}",
+			e,
+			response_line.trim()
+		)
+	})?;
+
+	// Parse response to get library list
+	let libraries: Vec<serde_json::Value> = response
+		.get("result")
+		.and_then(|r| r.as_array())
+		.ok_or_else(|| "Invalid response format from libraries.list query".to_string())?
+		.clone();
+
+	// Check if current library ID exists in the list
+	let library_exists = libraries.iter().any(|lib| {
+		lib.get("id")
+			.and_then(|id| id.as_str())
+			.map(|id| id == library_id)
+			.unwrap_or(false)
+	});
+
+	if !library_exists {
+		tracing::warn!(
+			"Current library {} no longer exists, resetting library state",
+			library_id
+		);
+
+		// Clear library ID from app state
+		*current_library_id_arc.write().await = None;
+
+		// Remove persisted library ID file
+		let library_id_file = data_dir.join("current_library_id.txt");
+		if let Err(e) = tokio::fs::remove_file(&library_id_file).await {
+			tracing::warn!("Failed to remove persisted library ID file: {}", e);
+		} else {
+			tracing::debug!("Removed persisted library ID file: {:?}", library_id_file);
+		}
+
+		// Emit library-changed event with empty string to indicate no library (frontend uses Platform abstraction)
+		if let Err(e) = app.emit("library-changed", "") {
+			tracing::warn!("Failed to emit library-changed event: {}", e);
+		}
+	}
+
+	Ok(())
+}
+
 /// Get selected file IDs from app state
 #[tauri::command]
 async fn get_selected_file_ids(
@@ -1940,6 +2047,12 @@ fn main() {
 				subscription_manager: SubscriptionManager::new(),
 			};
 
+			// Clone references needed for validation before managing state (which moves it)
+			let app_handle = app.handle().clone();
+			let app_state_current_library_id = app_state.current_library_id.clone();
+			let daemon_state_clone = daemon_state.clone();
+			let data_dir_clone = data_dir.clone();
+
 			app.manage(daemon_state.clone());
 			app.manage(app_state);
 			app.manage(drag::DragCoordinator::new());
@@ -1950,11 +2063,11 @@ fn main() {
 
 			// Initialize daemon connection in background
 			tauri::async_runtime::spawn(async move {
-				tracing::info!("Data directory: {:?}", data_dir);
+				tracing::info!("Data directory: {:?}", data_dir_clone);
 				tracing::info!("Socket address: {:?}", socket_addr);
 
 				// Start HTTP server for serving files/sidecars
-				match server::start_server(data_dir.clone()).await {
+				match server::start_server(data_dir_clone.clone()).await {
 					Ok((server_url, shutdown_tx)) => {
 						tracing::info!("HTTP server started at {}", server_url);
 						let mut state = daemon_state.write().await;
@@ -1973,7 +2086,7 @@ fn main() {
 					(false, None)
 				} else {
 					tracing::info!("No daemon running, starting new instance");
-					match start_daemon(&data_dir, &socket_addr).await {
+					match start_daemon(&data_dir_clone, &socket_addr).await {
 						Ok(child) => (
 							true,
 							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
@@ -1991,6 +2104,28 @@ fn main() {
 				state.daemon_process = child_process;
 
 				tracing::info!("Daemon connection established");
+
+				// Validate persisted library ID in background (non-blocking)
+				// If library no longer exists, reset the state
+				let app_handle_validate = app_handle.clone();
+				let app_state_validate = app_state_current_library_id.clone();
+				let daemon_state_validate = daemon_state_clone.clone();
+				let data_dir_validate = data_dir_clone.clone();
+				tokio::spawn(async move {
+					// Wait a bit for daemon to be fully ready
+					tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+					if let Err(e) = validate_and_reset_library_if_needed(
+						app_handle_validate,
+						&app_state_validate,
+						&daemon_state_validate,
+						&data_dir_validate,
+					)
+					.await
+					{
+						tracing::warn!("Failed to validate library: {}", e);
+					}
+				});
 			});
 
 			// In dev mode, show window immediately
