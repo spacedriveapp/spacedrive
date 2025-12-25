@@ -14,9 +14,15 @@ let package = Package(
             targets: ["FileOpening"]
         )
     ],
+    dependencies: [
+        .package(url: "https://github.com/brendonovich/swift-rs", branch: "specta"),
+    ],
     targets: [
         .target(
             name: "FileOpening",
+            dependencies: [
+                .product(name: "SwiftRs", package: "swift-rs")
+            ],
             path: "src-swift"
         )
     ]

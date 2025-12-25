@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import SwiftRs
 
 struct OpenWithApp: Codable {
     let id: String
@@ -72,9 +73,9 @@ enum OpenResult: Codable {
 }
 
 @_cdecl("get_apps_for_path")
-func getAppsForPath(path: SRString) -> SRArray<SRData> {
+func getAppsForPath(path: SRString) -> SRString {
     let url = URL(fileURLWithPath: path.toString())
-    
+
     // macOS 12+: Use modern API
     let appURLs: [URL]
     if #available(macOS 12.0, *) {
@@ -83,15 +84,15 @@ func getAppsForPath(path: SRString) -> SRArray<SRData> {
         // Fallback for older macOS
         appURLs = getAppsLegacy(for: url)
     }
-    
+
     // Filter to standard app directories
     // /Applications/ - user/admin installed apps
     // /System/Applications/ - system apps (macOS 10.15+)
     // ~/Applications/ - user-specific apps
     let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
     let validPrefixes = ["/Applications/", "/System/Applications/", "\(homeDir)/Applications/"]
-    
-    let apps: [Data] = appURLs
+
+    let apps: [OpenWithApp] = appURLs
         .filter { appURL in
             validPrefixes.contains { appURL.path.hasPrefix($0) }
         }
@@ -102,12 +103,12 @@ func getAppsForPath(path: SRString) -> SRArray<SRData> {
                     ?? bundle.infoDictionary?["CFBundleName"] as? String else {
                 return nil
             }
-            
-            let app = OpenWithApp(id: bundleId, name: displayName, icon: nil)
-            return try? JSONEncoder().encode(app)
+
+            return OpenWithApp(id: bundleId, name: displayName, icon: nil)
         }
-    
-    return SRArray(apps.map { SRData($0) })
+
+    let json = (try? JSONEncoder().encode(apps)) ?? Data()
+    return SRString(String(data: json, encoding: .utf8) ?? "[]")
 }
 
 @_cdecl("open_path_with_default")

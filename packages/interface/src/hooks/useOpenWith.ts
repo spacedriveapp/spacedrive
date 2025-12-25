@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { usePlatform, type OpenResult } from "~/platform";
+import { usePlatform, type OpenResult } from "../platform";
 import { toast } from "@sd/ui";
 
 export function useOpenWith(paths: string[]) {
