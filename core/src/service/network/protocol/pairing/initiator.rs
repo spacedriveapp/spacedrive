@@ -140,18 +140,8 @@ impl PairingProtocolHandler {
 		))
 		.await;
 
-		// We need to return something to the joiner to indicate we received their request
-		// but are waiting for user confirmation. We'll send an acknowledgment response.
-		// Note: The actual Challenge will be sent when user confirms via confirm_pairing_request
-		let ack_response = PairingMessage::Complete {
-			session_id,
-			success: false,
-			reason: Some("Awaiting user confirmation".to_string()),
-		};
-
-		// Actually, we should NOT send anything yet - the joiner should wait.
-		// Let's return an empty vec to indicate no immediate response.
-		// The UI will call confirm_pairing_request which will send the actual challenge.
+		// Return empty response - the joiner will wait for either a Challenge or Reject message
+		// which is sent when the user confirms via confirm_pairing_request
 		Ok(Vec::new())
 	}
 

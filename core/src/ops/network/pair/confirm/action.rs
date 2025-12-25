@@ -54,33 +54,45 @@ impl CoreAction for PairConfirmAction {
 				if let Some(data) = response_data {
 					// Get the remote node ID from the session to send the response
 					let sessions = pairing.get_active_sessions().await;
-					if let Some(session) = sessions.iter().find(|s| s.id == self.session_id) {
-						if let Some(ref info) = session.remote_device_info {
-							if let Ok(node_id) =
-								info.network_fingerprint.node_id.parse::<iroh::NodeId>()
-							{
-								// Send the response to the joiner
-								if let Some(endpoint) = net.endpoint() {
-									let msg: crate::service::network::protocol::pairing::PairingMessage =
-										serde_json::from_slice(&data).map_err(|e| {
-											ActionError::Internal(format!(
-												"Failed to parse response: {}",
-												e
-											))
-										})?;
+					let session = sessions
+						.iter()
+						.find(|s| s.id == self.session_id)
+						.ok_or_else(|| {
+							ActionError::Internal(format!(
+								"Session {} not found after confirmation",
+								self.session_id
+							))
+						})?;
 
-									if let Err(e) = pairing
-										.send_pairing_message_to_node(endpoint, node_id, &msg)
-										.await
-									{
-										return Ok(PairConfirmOutput {
-											success: false,
-											error: Some(format!("Failed to send response: {}", e)),
-										});
-									}
-								}
-							}
-						}
+					let info = session.remote_device_info.as_ref().ok_or_else(|| {
+						ActionError::Internal("Remote device info not found in session".to_string())
+					})?;
+
+					let node_id = info
+						.network_fingerprint
+						.node_id
+						.parse::<iroh::NodeId>()
+						.map_err(|e| {
+							ActionError::Internal(format!("Failed to parse remote node ID: {}", e))
+						})?;
+
+					let endpoint = net.endpoint().ok_or_else(|| {
+						ActionError::Internal("Network endpoint not available".to_string())
+					})?;
+
+					let msg: crate::service::network::protocol::pairing::PairingMessage =
+						serde_json::from_slice(&data).map_err(|e| {
+							ActionError::Internal(format!("Failed to parse response: {}", e))
+						})?;
+
+					if let Err(e) = pairing
+						.send_pairing_message_to_node(endpoint, node_id, &msg)
+						.await
+					{
+						return Ok(PairConfirmOutput {
+							success: false,
+							error: Some(format!("Failed to send response: {}", e)),
+						});
 					}
 				}
 

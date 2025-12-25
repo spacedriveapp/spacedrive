@@ -5,10 +5,8 @@ use sd_core::{
 	domain::addressing::SdPath,
 	ops::network::{
 		pair::{
-			cancel::input::PairCancelInput,
-			confirm::input::PairConfirmInput,
-			generate::input::PairGenerateInput,
-			join::input::PairJoinInput,
+			cancel::input::PairCancelInput, confirm::input::PairConfirmInput,
+			generate::input::PairGenerateInput, join::input::PairJoinInput,
 		},
 		revoke::input::DeviceRevokeInput,
 		spacedrop::send::input::SpacedropSendInput,
@@ -101,8 +99,8 @@ impl PairCmd {
 				accept,
 				reject,
 			} => {
-				// Default to accept if neither flag specified
-				let accepted = if *reject { false } else { *accept || true };
+				// Require explicit --accept or --reject flag
+				let accepted = if *reject { false } else { *accept };
 				Some(PairConfirmInput {
 					session_id: *session_id,
 					accepted,
