@@ -80,7 +80,7 @@ export function Overview() {
 			<div className="flex flex-col h-full overflow-hidden">
 				<div className="flex-1 flex gap-2 overflow-hidden">
 					{/* Main content - scrollable */}
-					<div className="flex-1 overflow-auto p-6 space-y-4">
+					<div className="flex-1 overflow-auto p-3 space-y-4">
 						{/* Hero Stats */}
 						<HeroStats
 							totalStorage={stats.total_capacity}

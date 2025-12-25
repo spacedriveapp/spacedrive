@@ -97,6 +97,9 @@ export type Platform = {
 	/** Listen for selected file changes across all windows (Tauri only) */
 	onSelectedFilesChanged?(callback: (fileIds: string[]) => void): Promise<() => void>;
 
+	/** Get app version (Tauri only) */
+	getAppVersion?(): Promise<string>;
+
 	/** Get daemon status (Tauri only) */
 	getDaemonStatus?(): Promise<{
 		is_running: boolean;

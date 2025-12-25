@@ -178,6 +178,11 @@ export const platform: Platform = {
 		return unlisten;
 	},
 
+	async getAppVersion() {
+		const { getVersion } = await import("@tauri-apps/api/app");
+		return await getVersion();
+	},
+
 	async getDaemonStatus() {
 		return await invoke<{
 			is_running: boolean;

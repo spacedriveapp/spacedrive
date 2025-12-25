@@ -7,7 +7,7 @@ import {
 	useLocation,
 	useParams,
 } from "react-router-dom";
-import { useEffect, useMemo, memo } from "react";
+import { useEffect, useMemo, memo, useRef } from "react";
 import { Dialogs } from "@sd/ui";
 import { Inspector, type InspectorVariant } from "./Inspector";
 import { TopBarProvider, TopBar } from "./TopBar";
@@ -49,6 +49,8 @@ import { useState } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "./components/Explorer/File";
 import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
+import { DaemonStartupOverlay } from "./components/DaemonStartupOverlay";
+import { useDaemonStatus } from "./hooks/useDaemonStatus";
 import { useFileOperationDialog } from "./components/FileOperationModal";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 import {
@@ -865,20 +867,68 @@ function ExplorerWithTabs() {
 }
 
 export function Explorer({ client }: AppProps) {
+	const platform = usePlatform();
+	const isTauri = platform.platform === "tauri";
+
 	return (
 		<SpacedriveProvider client={client}>
 			<ServerProvider>
-				<TabManagerProvider routes={explorerRoutes}>
-					<TabKeyboardHandler />
-					<ExplorerWithTabs />
-				</TabManagerProvider>
-				<DaemonDisconnectedOverlay />
-				<Dialogs />
-				<ReactQueryDevtools
-					initialIsOpen={false}
-					buttonPosition="bottom-right"
-				/>
+				{isTauri ? (
+					// Tauri: Wait for daemon connection before rendering content
+					<ExplorerWithDaemonCheck />
+				) : (
+					// Web: Render immediately (daemon connection handled differently)
+					<>
+						<TabManagerProvider routes={explorerRoutes}>
+							<TabKeyboardHandler />
+							<ExplorerWithTabs />
+						</TabManagerProvider>
+						<Dialogs />
+						<ReactQueryDevtools
+							initialIsOpen={false}
+							buttonPosition="bottom-right"
+						/>
+					</>
+				)}
 			</ServerProvider>
 		</SpacedriveProvider>
+	);
+}
+
+/**
+ * Tauri-specific wrapper that prevents Explorer from rendering until daemon is connected.
+ * This avoids the connection storm where hundreds of queries try to execute before daemon is ready.
+ */
+function ExplorerWithDaemonCheck() {
+	const daemonStatus = useDaemonStatus();
+	const { isConnected, isStarting } = daemonStatus;
+
+	return (
+		<>
+			{isConnected ? (
+				// Daemon connected - render full app
+				<>
+					<TabManagerProvider routes={explorerRoutes}>
+						<TabKeyboardHandler />
+						<ExplorerWithTabs />
+					</TabManagerProvider>
+					<Dialogs />
+					<ReactQueryDevtools
+						initialIsOpen={false}
+						buttonPosition="bottom-right"
+					/>
+				</>
+			) : (
+				// Daemon not connected - show appropriate overlay
+				<>
+					<DaemonStartupOverlay show={isStarting} />
+					{!isStarting && (
+						<DaemonDisconnectedOverlay
+							daemonStatus={daemonStatus}
+						/>
+					)}
+				</>
+			)}
+		</>
 	);
 }
