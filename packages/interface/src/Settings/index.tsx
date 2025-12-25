@@ -1,20 +1,33 @@
 import { useState } from "react";
 import clsx from "clsx";
-import { useCoreMutation } from "../context";
+import {
+  GeneralSettings,
+  AppearanceSettings,
+  LibrarySettings,
+  IndexerSettings,
+  ServicesSettings,
+  PrivacySettings,
+  AdvancedSettings,
+  AboutSettings,
+} from "./pages";
 
 interface SettingsSidebarProps {
   currentPage: string;
   onPageChange: (page: string) => void;
 }
 
-function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
-  const sections = [
-    { id: "general", label: "General" },
-    { id: "library", label: "Library" },
-    { id: "privacy", label: "Privacy" },
-    { id: "about", label: "About" },
-  ];
+const sections = [
+  { id: "general", label: "General" },
+  { id: "appearance", label: "Appearance" },
+  { id: "library", label: "Library" },
+  { id: "indexer", label: "Indexer" },
+  { id: "services", label: "Services" },
+  { id: "privacy", label: "Privacy" },
+  { id: "advanced", label: "Advanced" },
+  { id: "about", label: "About" },
+];
 
+function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
   return (
     <div className="space-y-1">
       {sections.map((section) => (
@@ -43,144 +56,23 @@ function SettingsContent({ page }: SettingsContentProps) {
   switch (page) {
     case "general":
       return <GeneralSettings />;
+    case "appearance":
+      return <AppearanceSettings />;
     case "library":
       return <LibrarySettings />;
+    case "indexer":
+      return <IndexerSettings />;
+    case "services":
+      return <ServicesSettings />;
     case "privacy":
       return <PrivacySettings />;
+    case "advanced":
+      return <AdvancedSettings />;
     case "about":
       return <AboutSettings />;
     default:
       return <GeneralSettings />;
   }
-}
-
-function GeneralSettings() {
-  const resetData = useCoreMutation("core.reset");
-
-  const handleResetData = () => {
-    const confirmed = window.confirm(
-      "Reset All Data\n\nThis will permanently delete all libraries, settings, and cached data. The app will need to be restarted. Are you sure?"
-    );
-
-    if (confirmed) {
-      resetData.mutate(
-        { confirm: true },
-        {
-          onSuccess: (result) => {
-            alert(
-              result.message || "Data has been reset. Please restart the application."
-            );
-          },
-          onError: (error) => {
-            alert("Error: " + (error.message || "Failed to reset data"));
-          },
-        }
-      );
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">General</h2>
-        <p className="text-sm text-ink-dull">
-          Configure general application settings.
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Theme</h3>
-          <p className="text-xs text-ink-dull">Choose your preferred theme</p>
-        </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Language</h3>
-          <p className="text-xs text-ink-dull">Select your language</p>
-        </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-medium text-ink mb-1">Reset All Data</h3>
-              <p className="text-xs text-ink-dull">
-                Permanently delete all libraries and settings
-              </p>
-            </div>
-            <button
-              onClick={handleResetData}
-              disabled={resetData.isPending}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
-            >
-              {resetData.isPending ? "Resetting..." : "Reset"}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LibrarySettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">Library</h2>
-        <p className="text-sm text-ink-dull">
-          Manage your Spacedrive libraries.
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">
-            Current Library
-          </h3>
-          <p className="text-xs text-ink-dull">View and switch libraries</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PrivacySettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">Privacy</h2>
-        <p className="text-sm text-ink-dull">
-          Control your privacy and data sharing preferences.
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Telemetry</h3>
-          <p className="text-xs text-ink-dull">
-            Help improve Spacedrive by sharing anonymous usage data
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function AboutSettings() {
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">About</h2>
-        <p className="text-sm text-ink-dull">
-          Information about Spacedrive.
-        </p>
-      </div>
-      <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Version</h3>
-          <p className="text-xs text-ink-dull">Spacedrive v0.1.0</p>
-        </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">License</h3>
-          <p className="text-xs text-ink-dull">AGPL-3.0</p>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function Settings() {
