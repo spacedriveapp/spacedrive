@@ -274,14 +274,29 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 	let test_location = harness.create_test_location("test_bulk").await?;
 
 	// Create subfolder with 20 files
+	// Mix of text files and files that will get content identity
 	test_location.create_dir("bulk_test").await?;
 	for i in 1..=20 {
-		test_location
-			.write_file(
-				&format!("bulk_test/file{:02}.txt", i),
-				&format!("Content of file {}", i),
-			)
-			.await?;
+		if i <= 10 {
+			// First 10: simple text files (likely Physical paths)
+			test_location
+				.write_file(
+					&format!("bulk_test/file{:02}.txt", i),
+					&format!("Content of file {}", i),
+				)
+				.await?;
+		} else {
+			// Last 10: larger files more likely to get content identity
+			// Create files with more content to trigger content identification
+			let content = format!(
+				"# File {}\n{}",
+				i,
+				"Lorem ipsum dolor sit amet. ".repeat(100)
+			);
+			test_location
+				.write_file(&format!("bulk_test/file{:02}.md", i), &content)
+				.await?;
+		}
 	}
 
 	// Also create a couple files in root to verify they're not affected
@@ -292,13 +307,19 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 		.write_file("root_file2.rs", "fn main() {}")
 		.await?;
 
-	// Index the location
+	// Index the location with Content mode to enable content identification
+	// Shallow mode only indexes metadata; Content mode computes hashes and creates content identity
+	// This is critical for testing the cache update bug with content-addressed files
+	tracing::info!("Starting indexing with Content mode (includes content identification)...");
 	let location = test_location
-		.index("TypeScript Bulk Test Location", IndexMode::Shallow)
+		.index("TypeScript Bulk Test Location", IndexMode::Content)
 		.await?;
 
-	// Wait for indexing to complete
-	tokio::time::sleep(Duration::from_secs(2)).await;
+	tracing::info!("Indexing completed, waiting for content identification to settle...");
+	// Wait extra time for content identification and event processing
+	tokio::time::sleep(Duration::from_secs(5)).await;
+
+	tracing::info!("Ready to start TypeScript test");
 
 	// Get daemon socket address
 	let socket_addr = harness
@@ -322,8 +343,8 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 
 	tracing::info!("Bridge config written to: {}", config_path.display());
 
-	// Spawn TypeScript test process - run only the bulk moves test
-	let ts_test_file = "packages/ts-client/tests/integration/useNormalizedQuery.test.ts";
+	// Spawn TypeScript test process - use dedicated bulk moves test file
+	let ts_test_file = "packages/ts-client/tests/integration/useNormalizedQuery.bulk-moves.test.ts";
 	let workspace_root = std::env::current_dir()?.parent().unwrap().to_path_buf();
 	let ts_test_path = workspace_root.join(ts_test_file);
 	let bun_config = workspace_root.join("packages/ts-client/tests/integration/bunfig.toml");
@@ -347,8 +368,6 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 		.arg("--config")
 		.arg(&bun_config)
 		.arg(&ts_test_path)
-		.arg("--test-name-pattern")
-		.arg("should update cache when moving 20 files from subfolder to root")
 		.env("BRIDGE_CONFIG_PATH", config_path.to_str().unwrap())
 		.env("RUST_LOG", "debug")
 		.current_dir(&workspace_root)
