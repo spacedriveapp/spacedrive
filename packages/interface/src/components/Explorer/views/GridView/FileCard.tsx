@@ -142,6 +142,8 @@ export const FileCard = memo(
 				{...listeners}
 				{...attributes}
 				data-file-id={file.id}
+				data-index={fileIndex}
+				data-selectable="true"
 				tabIndex={-1}
 				className="relative outline-none focus:outline-none"
 			>
@@ -158,7 +160,6 @@ export const FileCard = memo(
 					layout="column"
 					className={clsx(
 						"flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
-						focused && !selected && "ring-2 ring-accent/50",
 						dndIsDragging && "opacity-40",
 						isFolder && isDropOver && "bg-accent/10",
 					)}
