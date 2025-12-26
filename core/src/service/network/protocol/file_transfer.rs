@@ -122,7 +122,7 @@ pub struct FileMetadata {
 /// Universal message types for file operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FileTransferMessage {
-	/// Request to initiate file transfer
+	/// Request to initiate file transfer (PUSH: sender → receiver)
 	TransferRequest {
 		transfer_id: Uuid,
 		file_metadata: FileMetadata,
@@ -173,6 +173,27 @@ pub enum FileTransferMessage {
 
 	/// Final acknowledgment from receiver after getting TransferComplete
 	TransferFinalAck { transfer_id: Uuid },
+
+	/// Request to pull a file from remote device (PULL: requester ← source)
+	PullRequest {
+		/// Unique identifier for this transfer
+		transfer_id: Uuid,
+		/// The path on the remote device to pull from
+		source_path: PathBuf,
+		/// The device ID making the request
+		requested_by: Uuid,
+	},
+
+	/// Response to a pull request
+	PullResponse {
+		transfer_id: Uuid,
+		/// File metadata if accepted
+		file_metadata: Option<FileMetadata>,
+		/// Whether the pull was accepted
+		accepted: bool,
+		/// Error message if rejected
+		error: Option<String>,
+	},
 }
 
 /// Types of transfer errors
@@ -186,6 +207,17 @@ pub enum TransferErrorType {
 	Timeout,
 	Cancelled,
 	ProtocolError,
+	PathNotFound,
+	AccessDenied,
+}
+
+/// Transfer direction for cross-device operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferDirection {
+	/// Local source -> Remote destination (existing PUSH behavior)
+	Push,
+	/// Remote source -> Local destination (new PULL behavior)
+	Pull,
 }
 
 impl FileTransferProtocolHandler {
@@ -265,6 +297,32 @@ impl FileTransferProtocolHandler {
 			}
 			FileTransferMessage::TransferFinalAck { transfer_id } => {
 				format!("TransferFinalAck {{ transfer_id: {} }}", transfer_id)
+			}
+			FileTransferMessage::PullRequest {
+				transfer_id,
+				source_path,
+				requested_by,
+			} => {
+				format!(
+					"PullRequest {{ transfer_id: {}, source_path: \"{}\", requested_by: {} }}",
+					transfer_id,
+					source_path.display(),
+					requested_by
+				)
+			}
+			FileTransferMessage::PullResponse {
+				transfer_id,
+				file_metadata,
+				accepted,
+				error,
+			} => {
+				format!(
+					"PullResponse {{ transfer_id: {}, file_metadata: {:?}, accepted: {}, error: {:?} }}",
+					transfer_id,
+					file_metadata.as_ref().map(|m| &m.name),
+					accepted,
+					error
+				)
 			}
 		}
 	}
@@ -943,6 +1001,254 @@ impl FileTransferProtocolHandler {
 			.await;
 		Ok(())
 	}
+
+	/// Validate that a path is safe to access for PULL requests.
+	/// Prevents directory traversal attacks and enforces access boundaries.
+	fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
+		// Normalize path to prevent directory traversal.
+		// canonicalize() resolves all symlinks and `..` components.
+		let normalized = match path.canonicalize() {
+			Ok(p) => p,
+			Err(_) => return false, // Path doesn't exist or can't be accessed
+		};
+
+		// Verify the path exists and is a file (not a directory for file transfers)
+		if !normalized.exists() || normalized.is_dir() {
+			return false;
+		}
+
+		// Note: Device pairing already establishes trust. Additional library-level
+		// access control (restricting to indexed locations) can be added later.
+
+		true
+	}
+
+	/// Handle an incoming PULL request - stream file back to requester
+	pub async fn handle_pull_request(
+		&self,
+		transfer_id: Uuid,
+		source_path: PathBuf,
+		requested_by: Uuid,
+		send: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
+	) -> Result<()> {
+		use tokio::io::AsyncWriteExt;
+
+		self.logger
+			.info(&format!(
+				"Handling PULL request {} for path: {} from device {}",
+				transfer_id,
+				source_path.display(),
+				requested_by
+			))
+			.await;
+
+		// Security validation
+		if !self.validate_path_access(&source_path, requested_by) {
+			self.logger
+				.warn(&format!(
+					"PULL request {} rejected: access denied for path {}",
+					transfer_id,
+					source_path.display()
+				))
+				.await;
+
+			let response = FileTransferMessage::PullResponse {
+				transfer_id,
+				file_metadata: None,
+				accepted: false,
+				error: Some("Access denied".to_string()),
+			};
+
+			let response_data = rmp_serde::to_vec(&response)
+				.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+			send.write_u8(0).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+			})?;
+			send.write_all(&(response_data.len() as u32).to_be_bytes())
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+				})?;
+			send.write_all(&response_data).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write response: {}", e))
+			})?;
+			send.flush()
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+			return Ok(());
+		}
+
+		// Get file metadata
+		let metadata = tokio::fs::metadata(&source_path).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to read file metadata: {}", e))
+		})?;
+
+		let file_size = metadata.len();
+
+		// Calculate checksum
+		let checksum = self.calculate_file_checksum(&source_path).await.ok();
+
+		let file_metadata = FileMetadata {
+			name: source_path
+				.file_name()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string(),
+			size: file_size,
+			modified: metadata.modified().ok(),
+			is_directory: metadata.is_dir(),
+			checksum: checksum.clone(),
+			mime_type: None,
+		};
+
+		// Send acceptance response
+		let response = FileTransferMessage::PullResponse {
+			transfer_id,
+			file_metadata: Some(file_metadata.clone()),
+			accepted: true,
+			error: None,
+		};
+
+		let response_data = rmp_serde::to_vec(&response)
+			.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+		send.write_u8(0).await.map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+		})?;
+		send.write_all(&(response_data.len() as u32).to_be_bytes())
+			.await
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+			})?;
+		send.write_all(&response_data)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to write response: {}", e)))?;
+		send.flush()
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+		self.logger
+			.info(&format!(
+				"PULL request {} accepted, streaming {} bytes",
+				transfer_id, file_size
+			))
+			.await;
+
+		// Stream file chunks to requester
+		self.stream_file_for_pull(transfer_id, &source_path, file_size, checksum, send)
+			.await?;
+
+		Ok(())
+	}
+
+	/// Stream file data back to a PULL requester
+	async fn stream_file_for_pull(
+		&self,
+		transfer_id: Uuid,
+		source_path: &PathBuf,
+		file_size: u64,
+		final_checksum: Option<String>,
+		send: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
+	) -> Result<()> {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+		let mut file = File::open(source_path).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to open file: {}", e))
+		})?;
+
+		let chunk_size = self.config.chunk_size as usize;
+		let mut buffer = vec![0u8; chunk_size];
+		let mut chunk_index = 0u32;
+		let mut bytes_sent = 0u64;
+
+		loop {
+			let bytes_read = file.read(&mut buffer).await.map_err(|e| {
+				NetworkingError::file_system_error(format!("Failed to read file: {}", e))
+			})?;
+
+			if bytes_read == 0 {
+				break;
+			}
+
+			let chunk_data = &buffer[..bytes_read];
+			let chunk_checksum = blake3::hash(chunk_data);
+
+			// Skip encryption - Iroh provides E2E encryption
+			let chunk_message = FileTransferMessage::FileChunk {
+				transfer_id,
+				chunk_index,
+				data: chunk_data.to_vec(),
+				nonce: [0u8; 12], // Dummy nonce since we're not encrypting
+				chunk_checksum: *chunk_checksum.as_bytes(),
+			};
+
+			let message_data = rmp_serde::to_vec(&chunk_message)
+				.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+			send.write_u8(0).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+			})?;
+			send.write_all(&(message_data.len() as u32).to_be_bytes())
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+				})?;
+			send.write_all(&message_data)
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to write chunk: {}", e)))?;
+			send.flush()
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+			bytes_sent += bytes_read as u64;
+			chunk_index += 1;
+
+			if chunk_index % 100 == 0 {
+				self.logger
+					.debug(&format!(
+						"PULL transfer {}: sent chunk {}, {} bytes total",
+						transfer_id, chunk_index, bytes_sent
+					))
+					.await;
+			}
+		}
+
+		// Send completion message
+		let completion_message = FileTransferMessage::TransferComplete {
+			transfer_id,
+			final_checksum: final_checksum.unwrap_or_default(),
+			total_bytes: bytes_sent,
+		};
+
+		let completion_data = rmp_serde::to_vec(&completion_message)
+			.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+		send.write_u8(0).await.map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+		})?;
+		send.write_all(&(completion_data.len() as u32).to_be_bytes())
+			.await
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+			})?;
+		send.write_all(&completion_data)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to write completion: {}", e)))?;
+		send.flush()
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+		self.logger
+			.info(&format!(
+				"PULL transfer {} completed: {} chunks, {} bytes",
+				transfer_id, chunk_index, bytes_sent
+			))
+			.await;
+
+		Ok(())
+	}
 }
 
 #[async_trait]
@@ -1162,6 +1468,35 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 											))
 											.await;
 									}
+								}
+							}
+							FileTransferMessage::PullRequest {
+								transfer_id,
+								source_path,
+								requested_by,
+							} => {
+								// Handle PULL request - stream file back to requester
+								self.logger
+									.info(&format!(
+										"Received PullRequest {} for path: {} from device {}",
+										transfer_id,
+										source_path.display(),
+										requested_by
+									))
+									.await;
+
+								if let Err(e) = self
+									.handle_pull_request(
+										transfer_id,
+										source_path,
+										requested_by,
+										&mut *send,
+									)
+									.await
+								{
+									self.logger
+										.error(&format!("Failed to handle PULL request: {}", e))
+										.await;
 								}
 							}
 							_ => {

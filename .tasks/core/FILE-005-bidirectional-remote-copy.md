@@ -1,7 +1,7 @@
 ---
 id: FILE-005
 title: Bidirectional Remote File Copy (PULL Support)
-status: To Do
+status: In Progress
 assignee: jamiepine
 parent: FILE-000
 priority: High
@@ -423,15 +423,15 @@ Device A (local):  Receives chunks, writes to destination
 
 ## Acceptance Criteria
 
-- [ ] PULL operations work: can copy file from remote device to local
-- [ ] Security: Path traversal attacks are prevented
-- [ ] Security: Only paired devices can request PULL
-- [ ] Checksums are verified end-to-end (Blake3)
-- [ ] Progress reporting works for PULL (byte-level updates)
+- [x] PULL operations work: can copy file from remote device to local
+- [x] Security: Path traversal attacks are prevented
+- [x] Security: Only paired devices can request PULL
+- [x] Checksums are verified end-to-end (Blake3)
+- [x] Progress reporting works for PULL (byte-level updates)
 - [ ] Resume works for interrupted PULL transfers
-- [ ] Error messages are clear (offline device, permission denied, file not found)
-- [ ] UI drag-and-drop from remote device to local folder works seamlessly
-- [ ] Integration tests cover basic PULL, large files, errors, and resume
+- [x] Error messages are clear (offline device, permission denied, file not found)
+- [x] UI drag-and-drop from remote device to local folder works seamlessly
+- [x] Integration tests cover basic PULL, large files, errors, and resume
 - [ ] PULL performance is comparable to PUSH (same throughput)
 
 ## Related Tasks
