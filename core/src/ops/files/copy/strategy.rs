@@ -246,24 +246,53 @@ impl CopyStrategy for FastCopyStrategy {
 	}
 }
 
-/// Strategy for transferring a file to another device
+/// Strategy for transferring a file to/from another device
 pub struct RemoteTransferStrategy;
 
-#[async_trait]
-impl CopyStrategy for RemoteTransferStrategy {
-	async fn execute<'a>(
+impl RemoteTransferStrategy {
+	/// Detect the transfer direction based on source and destination paths.
+	/// Returns Push if source is local and destination is remote.
+	/// Returns Pull if source is remote and destination is local.
+	fn detect_direction(
+		source: &SdPath,
+		destination: &SdPath,
+	) -> crate::service::network::protocol::TransferDirection {
+		use crate::service::network::protocol::TransferDirection;
+
+		let source_is_local = source.is_local();
+		let dest_is_local = destination.is_local();
+
+		match (source_is_local, dest_is_local) {
+			(true, false) => TransferDirection::Push,
+			(false, true) => TransferDirection::Pull,
+			(true, true) => {
+				// Both local - this shouldn't use RemoteTransferStrategy
+				// Default to Push to match existing behavior
+				debug!("Both source and destination are local - defaulting to Push");
+				TransferDirection::Push
+			}
+			(false, false) => {
+				// Both remote - not supported yet (would require relay)
+				// Default to Push for now
+				debug!("Both source and destination are remote - defaulting to Push");
+				TransferDirection::Push
+			}
+		}
+	}
+
+	/// Execute a PUSH operation (local -> remote)
+	async fn execute_push<'a>(
 		&self,
 		ctx: &JobContext<'a>,
 		source: &SdPath,
 		destination: &SdPath,
-		verify_checksum: bool,
+		_verify_checksum: bool,
 		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
 		let dest_device_slug = destination.device_slug().ok_or_else(|| {
 			anyhow::anyhow!("Destination must have a device slug for cross-device transfer")
 		})?;
 
-		// Device slugs are library-scoped; resolve to global UUID for network routing.
 		let library = ctx.library();
 		let dest_device_id = library
 			.resolve_device_slug(dest_device_slug)
@@ -274,7 +303,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 			))?;
 
 		debug!(
-			"RemoteTransferStrategy: {} -> device:{} ({})",
+			"RemoteTransferStrategy PUSH: {} -> device:{} ({})",
 			source, dest_device_slug, dest_device_id
 		);
 
@@ -284,7 +313,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 
 		let local_path = source
 			.as_local_path()
-			.ok_or_else(|| anyhow::anyhow!("Source must be local path"))?;
+			.ok_or_else(|| anyhow::anyhow!("Source must be local path for PUSH operation"))?;
 
 		let metadata = tokio::fs::metadata(local_path).await?;
 		let file_size = metadata.len();
@@ -295,7 +324,7 @@ impl CopyStrategy for RemoteTransferStrategy {
 			.map_err(|e| anyhow::anyhow!("Failed to calculate checksum: {}", e))?;
 
 		info!(
-			"Initiating cross-device transfer: {} ({} bytes) -> device:{} ({})",
+			"Initiating PUSH transfer: {} ({} bytes) -> device:{} ({})",
 			local_path.display(),
 			file_size,
 			dest_device_slug,
@@ -303,14 +332,13 @@ impl CopyStrategy for RemoteTransferStrategy {
 		);
 
 		ctx.log(format!(
-			"Initiating cross-device transfer: {} ({} bytes) -> device:{} ({})",
+			"Initiating PUSH transfer: {} ({} bytes) -> device:{} ({})",
 			local_path.display(),
 			file_size,
 			dest_device_slug,
 			dest_device_id
 		));
 
-		// Create file metadata for transfer
 		let file_metadata = crate::service::network::protocol::FileMetadata {
 			name: local_path
 				.file_name()
@@ -345,8 +373,8 @@ impl CopyStrategy for RemoteTransferStrategy {
 			)
 			.await?;
 
-		debug!("Transfer initiated with ID: {}", transfer_id);
-		ctx.log(format!("Transfer initiated with ID: {}", transfer_id));
+		debug!("PUSH transfer initiated with ID: {}", transfer_id);
+		ctx.log(format!("PUSH transfer initiated with ID: {}", transfer_id));
 
 		let result = stream_file_data(
 			local_path,
@@ -366,17 +394,360 @@ impl CopyStrategy for RemoteTransferStrategy {
 
 		match result {
 			Ok(()) => {
-				info!("Cross-device transfer completed: {} bytes", file_size);
+				info!("PUSH transfer completed: {} bytes", file_size);
 				ctx.log(format!(
-					"Cross-device transfer completed successfully: {} bytes",
+					"PUSH transfer completed successfully: {} bytes",
 					file_size
 				));
 				Ok(file_size)
 			}
 			Err(e) => {
-				error!("Cross-device transfer failed: {}", e);
-				ctx.log(format!("Cross-device transfer FAILED: {}", e));
+				error!("PUSH transfer failed: {}", e);
+				ctx.log(format!("PUSH transfer FAILED: {}", e));
 				Err(e)
+			}
+		}
+	}
+
+	/// Execute a PULL operation (remote -> local)
+	async fn execute_pull<'a>(
+		&self,
+		ctx: &JobContext<'a>,
+		source: &SdPath,
+		destination: &SdPath,
+		verify_checksum: bool,
+		progress_callback: Option<&ProgressCallback<'a>>,
+	) -> Result<u64> {
+		let (source_device_slug, source_path) = source
+			.as_physical()
+			.ok_or_else(|| anyhow::anyhow!("Source must be a physical path for PULL operation"))?;
+
+		let local_dest_path = destination
+			.as_local_path()
+			.ok_or_else(|| anyhow::anyhow!("Destination must be local path for PULL operation"))?;
+
+		let library = ctx.library();
+		let source_device_id = library
+			.resolve_device_slug(source_device_slug)
+			.ok_or_else(|| anyhow::anyhow!(
+				"Could not resolve source device slug '{}' to UUID in library {}. Device may not be registered in this library.",
+				source_device_slug,
+				library.id()
+			))?;
+
+		debug!(
+			"RemoteTransferStrategy PULL: device:{} ({}) -> {}",
+			source_device_slug,
+			source_device_id,
+			local_dest_path.display()
+		);
+
+		info!(
+			"Initiating PULL transfer: device:{}:{} -> {}",
+			source_device_slug,
+			source_path.display(),
+			local_dest_path.display()
+		);
+
+		ctx.log(format!(
+			"Initiating PULL transfer: device:{}:{} -> {}",
+			source_device_slug,
+			source_path.display(),
+			local_dest_path.display()
+		));
+
+		let networking = ctx
+			.networking_service()
+			.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
+
+		let networking_guard = &*networking;
+
+		// Resolve device slug to node_id for network routing
+		let device_registry = networking_guard.device_registry();
+		let registry = device_registry.read().await;
+		let node_id = registry
+			.get_node_by_device(source_device_id)
+			.ok_or_else(|| {
+				anyhow::anyhow!(
+					"Could not find node_id for device {} (slug: {}). Device may be offline.",
+					source_device_id,
+					source_device_slug
+				)
+			})?;
+		drop(registry);
+
+		let endpoint = networking_guard
+			.endpoint()
+			.ok_or_else(|| anyhow::anyhow!("Networking endpoint not available"))?;
+
+		ctx.log(format!(
+			"Opening PULL connection to node {} (device {})",
+			node_id, source_device_id
+		));
+
+		// Connect to remote device
+		let node_addr = iroh::NodeAddr::new(node_id);
+		let connection = endpoint
+			.connect(node_addr, b"spacedrive/filetransfer/1")
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to connect to device: {}", e))?;
+
+		let (mut send_stream, mut recv_stream) = connection
+			.open_bi()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to open bidirectional stream: {}", e))?;
+
+		// Send PullRequest
+		let transfer_id = uuid::Uuid::new_v4();
+		let current_device_id = crate::device::get_current_device_id();
+		let pull_request =
+			crate::service::network::protocol::file_transfer::FileTransferMessage::PullRequest {
+				transfer_id,
+				source_path: source_path.clone(),
+				requested_by: current_device_id,
+			};
+
+		let request_data = rmp_serde::to_vec(&pull_request)?;
+
+		ctx.log(format!(
+			"Sending PullRequest {} for path: {}",
+			transfer_id,
+			source_path.display()
+		));
+
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+		send_stream.write_u8(0).await?;
+		send_stream
+			.write_all(&(request_data.len() as u32).to_be_bytes())
+			.await?;
+		send_stream.write_all(&request_data).await?;
+		send_stream.flush().await?;
+
+		// Receive PullResponse
+		let mut msg_type = [0u8; 1];
+		recv_stream.read_exact(&mut msg_type).await?;
+
+		let mut len_buf = [0u8; 4];
+		recv_stream.read_exact(&mut len_buf).await?;
+		let msg_len = u32::from_be_bytes(len_buf) as usize;
+
+		let mut msg_buf = vec![0u8; msg_len];
+		recv_stream.read_exact(&mut msg_buf).await?;
+
+		let response: crate::service::network::protocol::file_transfer::FileTransferMessage =
+			rmp_serde::from_slice(&msg_buf)?;
+
+		let file_metadata = match response {
+			crate::service::network::protocol::file_transfer::FileTransferMessage::PullResponse {
+				accepted: true,
+				file_metadata: Some(metadata),
+				..
+			} => {
+				ctx.log(format!(
+					"PullRequest accepted: {} bytes",
+					metadata.size
+				));
+				metadata
+			}
+			crate::service::network::protocol::file_transfer::FileTransferMessage::PullResponse {
+				accepted: false,
+				error,
+				..
+			} => {
+				let err_msg = error.unwrap_or_else(|| "Unknown error".to_string());
+				return Err(anyhow::anyhow!("Pull request rejected: {}", err_msg));
+			}
+			_ => {
+				return Err(anyhow::anyhow!(
+					"Unexpected response to pull request"
+				));
+			}
+		};
+
+		let file_size = file_metadata.size;
+
+		// Ensure parent directory exists
+		if let Some(parent) = local_dest_path.parent() {
+			fs::create_dir_all(parent).await?;
+		}
+
+		// Determine final file path
+		let final_dest_path =
+			if local_dest_path.is_dir() || local_dest_path.to_string_lossy().ends_with('/') {
+				// Destination is a directory - append source filename
+				let dir_path = local_dest_path.to_path_buf();
+				fs::create_dir_all(&dir_path).await?;
+				dir_path.join(&file_metadata.name)
+			} else {
+				local_dest_path.to_path_buf()
+			};
+
+		// Create file for writing
+		let mut file = fs::File::create(&final_dest_path).await?;
+		let mut hasher = if verify_checksum {
+			Some(blake3::Hasher::new())
+		} else {
+			None
+		};
+		let mut total_bytes_received = 0u64;
+
+		ctx.log(format!(
+			"Receiving file chunks to: {}",
+			final_dest_path.display()
+		));
+
+		// Receive file chunks
+		loop {
+			let mut msg_type = [0u8; 1];
+			if recv_stream.read_exact(&mut msg_type).await.is_err() {
+				break;
+			}
+
+			let mut len_buf = [0u8; 4];
+			recv_stream.read_exact(&mut len_buf).await?;
+			let msg_len = u32::from_be_bytes(len_buf) as usize;
+
+			let mut msg_buf = vec![0u8; msg_len];
+			recv_stream.read_exact(&mut msg_buf).await?;
+
+			let msg: crate::service::network::protocol::file_transfer::FileTransferMessage =
+				rmp_serde::from_slice(&msg_buf)?;
+
+			match msg {
+				crate::service::network::protocol::file_transfer::FileTransferMessage::FileChunk {
+					chunk_index,
+					data,
+					chunk_checksum,
+					..
+				} => {
+					// Verify chunk checksum
+					let calculated = blake3::hash(&data);
+					if calculated.as_bytes() != &chunk_checksum {
+						return Err(anyhow::anyhow!(
+							"Chunk {} checksum mismatch",
+							chunk_index
+						));
+					}
+
+					// Write chunk
+					file.write_all(&data).await?;
+					if let Some(h) = &mut hasher {
+						h.update(&data);
+					}
+					total_bytes_received += data.len() as u64;
+
+					// Progress callback
+					if let Some(cb) = progress_callback {
+						cb(total_bytes_received, file_size);
+					}
+
+					if chunk_index % 100 == 0 {
+						ctx.log(format!(
+							"PULL progress: chunk {}, {} / {} bytes",
+							chunk_index, total_bytes_received, file_size
+						));
+					}
+				}
+				crate::service::network::protocol::file_transfer::FileTransferMessage::TransferComplete {
+					final_checksum,
+					total_bytes,
+					..
+				} => {
+					// Verify final checksum if enabled
+					if verify_checksum {
+						if let Some(h) = hasher.take() {
+							let calculated = h.finalize();
+							let calculated_hex = calculated.to_hex().to_string();
+
+							// Compare with sender's checksum
+							if !final_checksum.is_empty() && calculated_hex != final_checksum {
+								error!(
+									"Final checksum mismatch: expected {}, got {}",
+									final_checksum, calculated_hex
+								);
+								// Clean up partial file
+								let _ = fs::remove_file(&final_dest_path).await;
+								return Err(anyhow::anyhow!("Final checksum mismatch"));
+							}
+						}
+					}
+
+					if total_bytes != total_bytes_received {
+						error!(
+							"Byte count mismatch: expected {}, got {}",
+							total_bytes, total_bytes_received
+						);
+					}
+
+					ctx.log(format!(
+						"PULL transfer completed: {} bytes received",
+						total_bytes_received
+					));
+					break;
+				}
+				crate::service::network::protocol::file_transfer::FileTransferMessage::TransferError {
+					message,
+					..
+				} => {
+					// Clean up partial file
+					let _ = fs::remove_file(&final_dest_path).await;
+					return Err(anyhow::anyhow!("Transfer error: {}", message));
+				}
+				_ => {
+					debug!("Received unexpected message during PULL transfer");
+				}
+			}
+		}
+
+		file.flush().await?;
+		file.sync_all().await?;
+
+		info!(
+			"PULL transfer completed: {} bytes from device:{} to {}",
+			total_bytes_received,
+			source_device_slug,
+			final_dest_path.display()
+		);
+
+		ctx.log(format!(
+			"PULL transfer completed successfully: {} bytes from device:{} to {}",
+			total_bytes_received,
+			source_device_slug,
+			final_dest_path.display()
+		));
+
+		Ok(total_bytes_received)
+	}
+}
+
+#[async_trait]
+impl CopyStrategy for RemoteTransferStrategy {
+	async fn execute<'a>(
+		&self,
+		ctx: &JobContext<'a>,
+		source: &SdPath,
+		destination: &SdPath,
+		verify_checksum: bool,
+		progress_callback: Option<&ProgressCallback<'a>>,
+	) -> Result<u64> {
+		use crate::service::network::protocol::TransferDirection;
+
+		let direction = Self::detect_direction(source, destination);
+
+		debug!(
+			"RemoteTransferStrategy: {} -> {} (direction: {:?})",
+			source, destination, direction
+		);
+
+		match direction {
+			TransferDirection::Push => {
+				self.execute_push(ctx, source, destination, verify_checksum, progress_callback)
+					.await
+			}
+			TransferDirection::Pull => {
+				self.execute_pull(ctx, source, destination, verify_checksum, progress_callback)
+					.await
 			}
 		}
 	}
