@@ -5,7 +5,13 @@ import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../context";
 import { FileCard } from "../GridView/FileCard";
 import { TableRow } from "../ListView/TableRow";
-import { useTable, ROW_HEIGHT, TABLE_PADDING_X, TABLE_PADDING_Y, TABLE_HEADER_HEIGHT } from "../ListView/useTable";
+import {
+	useTable,
+	ROW_HEIGHT,
+	TABLE_PADDING_X,
+	TABLE_PADDING_Y,
+	TABLE_HEADER_HEIGHT,
+} from "../ListView/useTable";
 import { flexRender } from "@tanstack/react-table";
 import { CaretDown } from "@phosphor-icons/react";
 import clsx from "clsx";
@@ -110,7 +116,13 @@ export function SearchView() {
 
 function SearchGridView({ files }: { files: File[] }) {
 	const explorer = useExplorer();
-	const { isSelected, focusedIndex, setFocusedIndex, selectFile, selectedFiles } = useSelection();
+	const {
+		isSelected,
+		focusedIndex,
+		setFocusedIndex,
+		selectFile,
+		selectedFiles,
+	} = useSelection();
 	const { gridSize, gapSize } = explorer.viewSettings;
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -132,7 +144,9 @@ function SearchGridView({ files }: { files: File[] }) {
 	const itemHeight = gridSize + 40;
 	const columnsCount = Math.max(
 		1,
-		Math.floor((containerWidth - padding * 2 + gapSize) / (itemWidth + gapSize))
+		Math.floor(
+			(containerWidth - padding * 2 + gapSize) / (itemWidth + gapSize),
+		),
 	);
 
 	const virtualizer = useVirtualizer({
@@ -152,7 +166,10 @@ function SearchGridView({ files }: { files: File[] }) {
 			>
 				{virtualizer.getVirtualItems().map((virtualRow) => {
 					const startIdx = virtualRow.index * columnsCount;
-					const rowFiles = files.slice(startIdx, startIdx + columnsCount);
+					const rowFiles = files.slice(
+						startIdx,
+						startIdx + columnsCount,
+					);
 
 					return (
 						<div
@@ -184,7 +201,9 @@ function SearchGridView({ files }: { files: File[] }) {
 											focused={focusedIndex === fileIndex}
 											selectedFiles={selectedFiles}
 											selectFile={selectFile}
-											onFocus={() => setFocusedIndex(fileIndex)}
+											onFocus={() =>
+												setFocusedIndex(fileIndex)
+											}
 										/>
 									);
 								})}
@@ -199,7 +218,13 @@ function SearchGridView({ files }: { files: File[] }) {
 
 function SearchListView({ files }: { files: File[] }) {
 	const explorer = useExplorer();
-	const { focusedIndex, setFocusedIndex, isSelected, selectFile, selectedFiles } = useSelection();
+	const {
+		focusedIndex,
+		setFocusedIndex,
+		isSelected,
+		selectFile,
+		selectedFiles,
+	} = useSelection();
 	const { sortBy, setSortBy } = explorer;
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -221,7 +246,8 @@ function SearchListView({ files }: { files: File[] }) {
 
 	const handleBodyScroll = () => {
 		if (bodyScrollRef.current && headerScrollRef.current) {
-			headerScrollRef.current.scrollLeft = bodyScrollRef.current.scrollLeft;
+			headerScrollRef.current.scrollLeft =
+				bodyScrollRef.current.scrollLeft;
 		}
 	};
 
@@ -250,26 +276,26 @@ function SearchListView({ files }: { files: File[] }) {
 								className={clsx(
 									"flex items-center gap-1 px-3 text-xs font-medium text-sidebar-inkDull select-none",
 									header.column.getCanSort() &&
-										"cursor-pointer hover:text-sidebar-ink"
+										"cursor-pointer hover:text-sidebar-ink",
 								)}
 								onClick={header.column.getToggleSortingHandler()}
 							>
 								{flexRender(
 									header.column.columnDef.header,
-									header.getContext()
+									header.getContext(),
 								)}
 								{header.column.getIsSorted() && (
 									<CaretDown
 										className={clsx(
 											"size-3 transition-transform",
-											header.column.getIsSorted() === "asc" &&
-												"rotate-180"
+											header.column.getIsSorted() ===
+												"asc" && "rotate-180",
 										)}
 										weight="bold"
 									/>
 								)}
 							</div>
-						))
+						)),
 					)}
 				</div>
 			</div>
@@ -315,7 +341,9 @@ function SearchListView({ files }: { files: File[] }) {
 									onSelect={(e) =>
 										selectFile(file, virtualRow.index, e)
 									}
-									onFocus={() => setFocusedIndex(virtualRow.index)}
+									onFocus={() =>
+										setFocusedIndex(virtualRow.index)
+									}
 								/>
 							</div>
 						);
