@@ -92,7 +92,7 @@ export function MultiFileInspector({ files }: MultiFileInspectorProps) {
 	}, [files]);
 
 	return (
-		<div className="flex flex-col h-full overflow-y-auto no-scrollbar">
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
 			{/* Stacked thumbnails (v1 style) */}
 			<div className="px-2 pb-4">
 				<div className="relative w-full aspect-square flex items-center justify-center">
@@ -139,54 +139,46 @@ export function MultiFileInspector({ files }: MultiFileInspectorProps) {
 				<InfoRow label="Items" value={files.length} />
 			</Section>
 
-			<Divider />
-
 			{/* File types breakdown */}
 			{aggregatedData.kindCounts.length > 0 && (
-				<>
-					<Section title="Types" icon={Folder}>
-						{aggregatedData.kindCounts.slice(0, 5).map(([kind, count]) => (
-							<InfoRow
-								key={kind}
-								label={kind.charAt(0).toUpperCase() + kind.slice(1)}
-								value={count}
-							/>
-						))}
-					</Section>
-					<Divider />
-				</>
+				<Section title="Types" icon={Folder}>
+					{aggregatedData.kindCounts.slice(0, 5).map(([kind, count]) => (
+						<InfoRow
+							key={kind}
+							label={kind.charAt(0).toUpperCase() + kind.slice(1)}
+							value={count}
+						/>
+					))}
+				</Section>
 			)}
 
 			{/* Tags with opacity based on coverage */}
 			{aggregatedData.tags.length > 0 && (
-				<>
-					<Section title="Tags" icon={TagIcon}>
-						<div className="flex flex-wrap gap-1.5">
-							{aggregatedData.tags.map((tag) => {
-								const coverage = tag.count / files.length;
-								const opacity = coverage === 1 ? 1 : 0.5;
+				<Section title="Tags" icon={TagIcon}>
+					<div className="flex flex-wrap gap-1.5">
+						{aggregatedData.tags.map((tag) => {
+							const coverage = tag.count / files.length;
+							const opacity = coverage === 1 ? 1 : 0.5;
 
-								return (
-									<div
-										key={tag.id}
-										style={{ opacity }}
-										className="transition-opacity"
-									>
-										<Tag color={tag.color}>
-											{tag.name}
-											{coverage < 1 && (
-												<span className="ml-1 text-[10px]">
-													({tag.count})
-												</span>
-											)}
-										</Tag>
-									</div>
-								);
-							})}
-						</div>
-					</Section>
-					<Divider />
-				</>
+							return (
+								<div
+									key={tag.id}
+									style={{ opacity }}
+									className="transition-opacity"
+								>
+									<Tag color={tag.color}>
+										{tag.name}
+										{coverage < 1 && (
+											<span className="ml-1 text-[10px]">
+												({tag.count})
+											</span>
+										)}
+									</Tag>
+								</div>
+							);
+						})}
+					</div>
+				</Section>
 			)}
 
 			{/* Date ranges */}
