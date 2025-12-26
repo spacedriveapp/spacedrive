@@ -234,7 +234,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: self-hosted
     name: Create Release
-    needs: [cli-build, desktop-main]
+    needs: [desktop-main]
     permissions:
       contents: write
     steps:
