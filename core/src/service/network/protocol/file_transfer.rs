@@ -855,40 +855,18 @@ impl FileTransferProtocolHandler {
 			}
 		};
 
-		// Get session keys for decryption
-		let session_keys = if let Some(device_registry) = &self.device_registry {
-			let registry = device_registry.read().await;
-			registry.get_session_keys(source_device_id).ok_or_else(|| {
-				NetworkingError::Protocol(format!(
-					"No session keys for device {}",
-					source_device_id
-				))
-			})?
-		} else {
-			return Err(NetworkingError::Protocol(
-				"Device registry not available".to_string(),
-			));
-		};
-
-		// Decrypt chunk data
-		let chunk_data = self.decrypt_chunk(
-			&session_keys.receive_key,
-			&transfer_id,
-			chunk_index,
-			&encrypted_data,
-			&nonce,
-		)?;
+		// Skip decryption - Iroh already provides E2E encryption for the connection
+		let chunk_data = encrypted_data;
 
 		self.logger
 			.debug(&format!(
-				"Decrypted chunk {} ({} bytes -> {} bytes)",
+				"Received chunk {} ({} bytes)",
 				chunk_index,
-				encrypted_data.len(),
 				chunk_data.len()
 			))
 			.await;
 
-		// Verify chunk checksum (of decrypted data)
+		// Verify chunk checksum (of plaintext data)
 		let calculated_checksum = blake3::hash(&chunk_data);
 		if calculated_checksum.as_bytes() != &chunk_checksum {
 			self.logger

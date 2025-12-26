@@ -659,7 +659,7 @@ export function ExplorerProvider({
 	}, []);
 
 	const enterSearchMode = useCallback(
-		(query: string, scope: SearchScope = "folder") => {
+		(query: string, scope: SearchScope = "library") => {
 			uiDispatch({ type: "ENTER_SEARCH_MODE", query, scope });
 		},
 		[],

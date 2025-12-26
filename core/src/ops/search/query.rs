@@ -72,10 +72,14 @@ impl LibraryQuery for FileSearchQuery {
 		// Determine which index to use (ephemeral or persistent)
 		let index_type = self.determine_index_type(&context, db.conn()).await?;
 
-		tracing::debug!(
-			"Search query using {:?} index for scope: {:?}",
+		tracing::info!(
+			"Search query: '{}', scope: {:?}, index: {:?}, mode: {:?}, limit: {}, offset: {}",
+			self.input.query,
+			self.input.scope,
 			index_type,
-			self.input.scope
+			self.input.mode,
+			self.input.pagination.limit,
+			self.input.pagination.offset
 		);
 
 		match index_type {
@@ -187,6 +191,13 @@ impl FileSearchQuery {
 		let fts_query = self.build_fts5_query();
 		let fts_results = self.execute_fts5_search(db, &fts_query).await?;
 
+		let fts_count = fts_results.len();
+		tracing::info!(
+			"FTS5 search returned {} results for query '{}'",
+			fts_count,
+			self.input.query
+		);
+
 		// Convert FTS5 results to search results with proper path construction
 		let mut results = Vec::new();
 
@@ -286,6 +297,12 @@ impl FileSearchQuery {
 
 			results.push(result);
 		}
+
+		tracing::info!(
+			"Built {} FileSearchResult objects from {} FTS5 results",
+			results.len(),
+			fts_count
+		);
 
 		// Results are already sorted by FTS5 BM25 score, but re-sort with additional factors
 		results.sort_by(|a, b| {
@@ -693,9 +710,15 @@ impl FileSearchQuery {
 		let params = match &self.input.scope {
 			SearchScope::Path { path } if path.path().is_some() => {
 				let path_str = path.path().unwrap().to_string_lossy();
+				let like_pattern = format!("{}%", path_str);
+				tracing::info!(
+					"Path scope FTS5: query='{}', LIKE pattern='{}'",
+					query,
+					like_pattern
+				);
 				vec![
 					query.into(),
-					format!("{}%", path_str).into(),
+					like_pattern.into(),
 					self.input.pagination.limit.to_string().into(),
 					self.input.pagination.offset.to_string().into(),
 				]

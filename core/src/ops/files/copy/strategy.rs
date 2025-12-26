@@ -775,30 +775,9 @@ async fn stream_file_data<'a>(
 		let chunk_data = &buffer[..bytes_read];
 		let chunk_checksum = blake3::hash(chunk_data);
 
-		let session_keys = file_transfer_protocol
-			.get_session_keys_for_device(destination_device_id)
-			.await
-			.map_err(|e| {
-				ctx.log(format!(
-					"ERROR: Failed to get session keys for device {}: {}",
-					destination_device_id, e
-				));
-				e
-			})?;
-
-		if chunk_index == 0 {
-			ctx.log(format!(
-				"Encrypting first chunk with send_key: {}...",
-				hex::encode(&session_keys.send_key[..8])
-			));
-		}
-
-		let (encrypted_data, nonce) = file_transfer_protocol.encrypt_chunk(
-			&session_keys.send_key,
-			&transfer_id,
-			chunk_index,
-			chunk_data,
-		)?;
+		// Skip encryption - Iroh already provides E2E encryption for the connection
+		let encrypted_data = chunk_data.to_vec();
+		let nonce = [0u8; 12]; // Dummy nonce since we're not encrypting
 
 		let chunk_message =
 			crate::service::network::protocol::file_transfer::FileTransferMessage::FileChunk {

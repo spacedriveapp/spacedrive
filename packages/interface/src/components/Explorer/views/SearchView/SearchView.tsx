@@ -37,22 +37,30 @@ export function SearchView() {
 			query,
 			scope:
 				scope === "folder" && currentPath
-					? { type: "path", path: currentPath }
-					: scope === "location"
-						? { type: "location" }
-						: { type: "library" },
-			filters: explorer.searchFilters,
-			limit: 1000,
+					? { Path: { path: currentPath } }
+					: "Library",
+			filters: explorer.searchFilters || {},
+			mode: "Normal",
+			sort: {
+				field: sortBy?.by || "Relevance",
+				direction: sortBy?.direction === "Asc" ? "Asc" : "Desc",
+			},
+			pagination: {
+				limit: 1000,
+				offset: 0,
+			},
 		},
 		resourceType: "file",
+		pathScope: scope === "folder" ? currentPath : undefined,
 		enabled: query.length >= 2,
+		debug: false,
 	});
 
 	const files = (searchQuery.data as any)?.results || [];
 
 	useEffect(() => {
 		explorer.setCurrentFiles(files);
-	}, [files, explorer.setCurrentFiles]);
+	}, [searchQuery.data, explorer.setCurrentFiles]);
 
 	if (query.length < 2) {
 		return (
@@ -102,7 +110,7 @@ export function SearchView() {
 
 function SearchGridView({ files }: { files: File[] }) {
 	const explorer = useExplorer();
-	const { isSelected, focusedIndex, setFocusedIndex, selectFile } = useSelection();
+	const { isSelected, focusedIndex, setFocusedIndex, selectFile, selectedFiles } = useSelection();
 	const { gridSize, gapSize } = explorer.viewSettings;
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -170,9 +178,12 @@ function SearchGridView({ files }: { files: File[] }) {
 										<FileCard
 											key={file.id}
 											file={file}
+											fileIndex={fileIndex}
+											allFiles={files}
 											selected={isSelected(file.id)}
 											focused={focusedIndex === fileIndex}
-											onSelect={(e) => selectFile(file, fileIndex, e)}
+											selectedFiles={selectedFiles}
+											selectFile={selectFile}
 											onFocus={() => setFocusedIndex(fileIndex)}
 										/>
 									);
@@ -188,7 +199,7 @@ function SearchGridView({ files }: { files: File[] }) {
 
 function SearchListView({ files }: { files: File[] }) {
 	const explorer = useExplorer();
-	const { focusedIndex, setFocusedIndex, isSelected, selectFile } = useSelection();
+	const { focusedIndex, setFocusedIndex, isSelected, selectFile, selectedFiles } = useSelection();
 	const { sortBy, setSortBy } = explorer;
 
 	const containerRef = useRef<HTMLDivElement>(null);

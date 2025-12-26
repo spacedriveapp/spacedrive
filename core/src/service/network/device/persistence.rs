@@ -116,6 +116,16 @@ impl DevicePersistence {
 				Ok(data) => match serde_json::from_slice::<PersistedPairedDevice>(&data) {
 					Ok(device) => {
 						if !device.session_keys.is_expired() {
+							// Validate that send_key and receive_key are different
+							if device.session_keys.send_key == device.session_keys.receive_key {
+								tracing::error!(
+									"Device {} has IDENTICAL send_key and receive_key - corrupted pairing! Re-pair this device.",
+									device_id
+								);
+								// Skip loading this device - it's unusable
+								continue;
+							}
+
 							tracing::debug!(
 								"Loaded paired device: {} ({})",
 								device.device_info.device_name,
