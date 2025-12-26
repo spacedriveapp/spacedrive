@@ -1,54 +1,40 @@
-//! Copy strategy implementations for different file operation scenarios
+//! # Copy Strategy Implementations
 //!
-//! This module implements 4 distinct copy strategies, each optimized for specific scenarios.
-//! The strategy selection is handled by `CopyStrategyRouter` based on user preferences
-//! (`CopyMethod`) and system analysis (device topology, filesystem capabilities).
+//! `core::ops::files::copy::strategy` provides 4 specialized copy strategies, each optimized
+//! for specific scenarios. The router selects strategies based on user preferences and system
+//! topology to maximize performance while respecting user intent.
 //!
-//! ## Strategy Overview
+//! ## Why Multiple Strategies?
 //!
-//! ### User-Facing Methods (3 options in `CopyMethod` enum):
-//! - `Auto`: Automatically selects the best strategy based on analysis
-//! - `Atomic`: Prefers instant/atomic operations when possible
-//! - `Streaming`: Forces streaming with progress tracking and cancellation
+//! A single copy implementation can't optimize for all scenarios. Same-volume moves are instant
+//! (metadata update only). CoW filesystems can clone files without copying data. Cross-volume
+//! copies need progress tracking and cancellation. Network transfers require encryption and
+//! fault tolerance.
 //!
-//! ### Implementation Strategies (4 strategies in this file):
+//! ## Strategy Selection
 //!
-//! 1. **`LocalMoveStrategy`** - Atomic filesystem rename
-//!    - **When**: Moving files on the same volume/filesystem
-//!    - **How**: Uses `fs::rename()` syscall - instant metadata update
-//!    - **Performance**: Microseconds, regardless of file size
-//!    - **Example**: Moving `/home/user/file.txt` → `/home/user/Documents/file.txt`
+//! 1. **`LocalMoveStrategy`** - Atomic filesystem rename (same volume, microseconds)
+//! 2. **`FastCopyStrategy`** - CoW-optimized copy (APFS clones, Btrfs reflinks)
+//! 3. **`LocalStreamCopyStrategy`** - Chunked streaming with progress (cross-volume)
+//! 4. **`RemoteTransferStrategy`** - Encrypted network transfer (cross-device)
 //!
-//! 2. **`FastCopyStrategy`** - Copy-on-Write (CoW) optimized copying
-//!    - **When**: Copying on CoW filesystems (APFS, Btrfs, ZFS, ReFS)
-//!    - **How**: Uses `std::fs::copy()` which leverages APFS clones, Btrfs reflinks, etc.
-//!    - **Performance**: Near-instant for CoW filesystems, falls back to normal copy otherwise
-//!    - **Example**: Copying large files on macOS APFS or Linux Btrfs
+//! The router picks RemoteTransferStrategy for cross-device transfers, LocalMoveStrategy for
+//! same-volume moves, and FastCopyStrategy for same-volume copies in Atomic mode. Streaming
+//! mode or cross-volume operations use LocalStreamCopyStrategy for progress tracking.
 //!
-//! 3. **`LocalStreamCopyStrategy`** - Cross-volume streaming with progress
-//!    - **When**: Copying between different local volumes or when user wants progress
-//!    - **How**: Chunked streaming with volume-aware buffer sizes, checksum verification
-//!    - **Performance**: Depends on storage speeds, provides real-time progress
-//!    - **Example**: Copying from internal SSD to external USB drive
+//! ## Example
+//! ```rust,no_run
+//! use spacedrive_core::ops::files::copy::strategy::{CopyStrategy, LocalMoveStrategy};
+//! use spacedrive_core::domain::addressing::SdPath;
 //!
-//! 4. **`RemoteTransferStrategy`** - Encrypted network transfer
-//!    - **When**: Copying to another device (automatically detected by different device IDs)
-//!    - **How**: Encrypted chunked streaming over network protocols
-//!    - **Performance**: Network-dependent, fault-tolerant with retry logic
-//!    - **Example**: Syncing files between laptop and desktop over WiFi
-//!
-//! ## Strategy Selection Logic
-//!
-//! ```rust
-//! match (copy_method, cross_device, same_storage, is_move) {
-//!     (_, true, _, _) => RemoteTransferStrategy,           // Cross-device always uses network
-//!     (Atomic, _, _, true) => LocalMoveStrategy,           // Atomic move preference
-//!     (Atomic, _, _, false) => FastCopyStrategy,           // Atomic copy preference
-//!     (Streaming, _, _, _) => LocalStreamCopyStrategy,     // Streaming preference
-//!     (Auto, _, true, true) => LocalMoveStrategy,          // Auto: same storage move
-//!     (Auto, _, true, false) => FastCopyStrategy,          // Auto: same storage copy
-//!     (Auto, _, false, _) => LocalStreamCopyStrategy,      // Auto: cross storage
-//! }
+//! let strategy = LocalMoveStrategy;
+//! let bytes_moved = strategy.execute(
+//!     &ctx,
+//!     &source_path,
+//!     &dest_path,
+//!     true,  // verify_checksum
+//!     None,  // no progress callback
+//! ).await?;
 //! ```
 
 use crate::{
@@ -66,7 +52,12 @@ use tracing::{debug, error, info};
 /// Parameters: bytes_copied_for_current_file, total_bytes_for_current_file
 pub type ProgressCallback<'a> = Box<dyn Fn(u64, u64) + Send + Sync + 'a>;
 
-/// Defines a method for performing a file copy operation
+/// Strategy pattern for file copy operations with different performance characteristics.
+///
+/// Each implementation optimizes for specific scenarios (same-volume moves, CoW filesystems,
+/// cross-device transfers). The trait abstracts these differences so callers don't need to
+/// know which strategy is running - they all provide the same interface with progress callbacks
+/// and checksum verification.
 #[async_trait]
 pub trait CopyStrategy: Send + Sync {
 	/// Executes the copy strategy for a single source path
@@ -100,7 +91,7 @@ impl CopyStrategy for LocalMoveStrategy {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Destination path is not local"))?;
 
-		// Get file size before moving
+		// Read size before rename since source path becomes invalid after move.
 		let metadata = fs::metadata(source_path).await?;
 		let size = if metadata.is_file() {
 			metadata.len()
@@ -108,20 +99,17 @@ impl CopyStrategy for LocalMoveStrategy {
 			get_path_size(source_path).await?
 		};
 
-		// Report progress at current offset before starting
+		// Send initial progress event so UI shows 0% before the instant rename.
 		if let Some(callback) = progress_callback {
 			callback(0, size);
 		}
 
-		// Create destination directory if needed
 		if let Some(parent) = dest_path.parent() {
 			fs::create_dir_all(parent).await?;
 		}
 
-		// Use atomic rename for same-volume moves
 		fs::rename(source_path, dest_path).await?;
 
-		// Report progress at 100% after completion
 		if let Some(callback) = progress_callback {
 			callback(size, size);
 		}
@@ -156,7 +144,7 @@ impl CopyStrategy for LocalStreamCopyStrategy {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Destination path is not local"))?;
 
-		// Get volume information for optimization
+		// Query volume characteristics for optimal buffer sizing (SSD vs HDD, USB speeds, etc).
 		let (source_vol, dest_vol) = if let Some(volume_manager) = ctx.volume_manager() {
 			let source_vol = volume_manager.volume_for_path(source_path).await;
 			let dest_vol = volume_manager.volume_for_path(dest_path).await;
@@ -191,8 +179,11 @@ impl CopyStrategy for LocalStreamCopyStrategy {
 	}
 }
 
-/// Strategy for fast local copy operations on CoW filesystems
-/// Uses std::fs::copy which automatically handles APFS clones, Btrfs reflinks, ZFS clones, and ReFS block clones
+/// Fast copy strategy leveraging CoW filesystem optimizations.
+///
+/// Uses std::fs::copy which automatically invokes APFS clones, Btrfs reflinks, ZFS clones,
+/// and ReFS block clones when available. On traditional filesystems, falls back to standard
+/// copy. Directory copies delegate to streaming strategy since std::fs::copy only handles files.
 pub struct FastCopyStrategy;
 
 #[async_trait]
@@ -212,12 +203,11 @@ impl CopyStrategy for FastCopyStrategy {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Destination path is not local"))?;
 
-		// Check if source is a directory
 		let metadata = fs::metadata(source_path).await?;
 		if metadata.is_dir() {
-			// FastCopyStrategy doesn't support directories - delegate to streaming
+			// std::fs::copy only handles files; delegate recursive copies to streaming strategy.
 			ctx.log(format!(
-				"FastCopyStrategy: Source is a directory, delegating to LocalStreamCopyStrategy for recursive copy: {}",
+				"FastCopyStrategy delegating directory to LocalStreamCopyStrategy: {}",
 				source_path.display()
 			));
 			return LocalStreamCopyStrategy
@@ -225,12 +215,10 @@ impl CopyStrategy for FastCopyStrategy {
 				.await;
 		}
 
-		// Create destination directory if needed
 		if let Some(parent) = dest_path.parent() {
 			fs::create_dir_all(parent).await?;
 		}
 
-		// Use std::fs::copy which automatically handles filesystem optimizations (CoW on APFS, etc.)
 		let bytes_copied = tokio::task::spawn_blocking({
 			let source_path = source_path.to_path_buf();
 			let dest_path = dest_path.to_path_buf();
@@ -238,7 +226,7 @@ impl CopyStrategy for FastCopyStrategy {
 		})
 		.await??;
 
-		// Verify checksum if requested
+		// Post-copy verification detects CoW bugs and hardware errors (bit flips, bad sectors).
 		if verify_checksum {
 			let source_checksum = calculate_file_checksum(source_path).await?;
 			let dest_checksum = calculate_file_checksum(dest_path).await?;
@@ -271,12 +259,11 @@ impl CopyStrategy for RemoteTransferStrategy {
 		verify_checksum: bool,
 		progress_callback: Option<&ProgressCallback<'a>>,
 	) -> Result<u64> {
-		// Get destination device slug and resolve to UUID
 		let dest_device_slug = destination.device_slug().ok_or_else(|| {
 			anyhow::anyhow!("Destination must have a device slug for cross-device transfer")
 		})?;
 
-		// Resolve device slug to UUID using library-specific device cache
+		// Device slugs are library-scoped; resolve to global UUID for network routing.
 		let library = ctx.library();
 		let dest_device_id = library
 			.resolve_device_slug(dest_device_slug)
@@ -291,17 +278,14 @@ impl CopyStrategy for RemoteTransferStrategy {
 			source, dest_device_slug, dest_device_id
 		);
 
-		// Get networking service
 		let networking = ctx
 			.networking_service()
 			.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
 
-		// Get local path
 		let local_path = source
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Source must be local path"))?;
 
-		// Read file metadata
 		let metadata = tokio::fs::metadata(local_path).await?;
 		let file_size = metadata.len();
 
@@ -340,7 +324,6 @@ impl CopyStrategy for RemoteTransferStrategy {
 			mime_type: None,
 		};
 
-		// Get file transfer protocol handler
 		let networking_guard = &*networking;
 		let protocol_registry = networking_guard.protocol_registry();
 		let registry_guard = protocol_registry.read().await;
@@ -354,7 +337,6 @@ impl CopyStrategy for RemoteTransferStrategy {
 			.downcast_ref::<crate::service::network::protocol::FileTransferProtocolHandler>()
 			.ok_or_else(|| anyhow::anyhow!("Invalid file transfer protocol handler"))?;
 
-		// Initiate transfer
 		let transfer_id = file_transfer_protocol
 			.initiate_transfer(
 				dest_device_id,
@@ -443,7 +425,7 @@ async fn copy_single_file<'a>(
 	)
 	.await?;
 
-	// For single file copies, send completion signal
+	// Signal completion so aggregator knows the file is done.
 	if let Some(callback) = progress_callback {
 		callback(result, u64::MAX);
 	}
@@ -462,7 +444,6 @@ async fn copy_single_file_with_offset<'a>(
 	progress_callback: Option<&ProgressCallback<'a>>,
 	byte_offset: u64,
 ) -> Result<u64, std::io::Error> {
-	// Create destination directory if needed
 	if let Some(parent) = destination.parent() {
 		fs::create_dir_all(parent).await?;
 	}
@@ -470,20 +451,19 @@ async fn copy_single_file_with_offset<'a>(
 	let mut source_file = fs::File::open(source).await?;
 	let mut dest_file = fs::File::create(destination).await?;
 
-	// Determine optimal chunk size based on volume characteristics
+	// Use smaller of source/dest optimal sizes to avoid overwhelming slower device.
 	let chunk_size = if let Some((source_vol, dest_vol)) = volume_info {
 		source_vol
 			.optimal_chunk_size()
 			.min(dest_vol.optimal_chunk_size())
 	} else {
-		64 * 1024 // Default 64KB chunks
+		64 * 1024
 	};
 
 	let mut buffer = vec![0u8; chunk_size];
 	let mut total_copied = 0u64;
 	let mut last_progress_update = std::time::Instant::now();
 
-	// Initialize checksums if verification is enabled
 	let mut source_hasher = if verify_checksum {
 		Some(blake3::Hasher::new())
 	} else {
@@ -497,9 +477,8 @@ async fn copy_single_file_with_offset<'a>(
 	};
 
 	loop {
-		// Check for cancellation
 		if let Err(_) = ctx.check_interrupt().await {
-			// Clean up partial file on cancellation
+			// Clean up partial file so resume doesn't see corrupted data.
 			let _ = fs::remove_file(destination).await;
 			return Err(std::io::Error::new(
 				std::io::ErrorKind::Interrupted,
@@ -509,14 +488,13 @@ async fn copy_single_file_with_offset<'a>(
 
 		let bytes_read = source_file.read(&mut buffer).await?;
 		if bytes_read == 0 {
-			break; // EOF
+			break;
 		}
 
 		let chunk = &buffer[..bytes_read];
 		dest_file.write_all(chunk).await?;
 		total_copied += bytes_read as u64;
 
-		// Update checksums if verification is enabled
 		if let Some(hasher) = &mut source_hasher {
 			hasher.update(chunk);
 		}
@@ -524,14 +502,11 @@ async fn copy_single_file_with_offset<'a>(
 			hasher.update(chunk);
 		}
 
-		// Update progress every 50ms for smoother updates
+		// Throttle progress updates to 50ms intervals for UI smoothness without overhead.
 		if last_progress_update.elapsed() >= std::time::Duration::from_millis(50) {
 			if let Some(callback) = progress_callback {
-				// Send bytes copied within current file
-				// The aggregator will add this to the bytes_completed_before_current
 				callback(total_copied, file_size);
 
-				// Debug log every 100MB
 				if total_copied % (100 * 1024 * 1024) < bytes_read as u64 {
 					ctx.log(format!(
 						"Strategy progress callback: {} / {} bytes",
@@ -541,16 +516,14 @@ async fn copy_single_file_with_offset<'a>(
 			}
 			last_progress_update = std::time::Instant::now();
 
-			// Explicitly yield to the scheduler to allow other tasks (like progress reporting) to run
+			// Yield to scheduler so progress reporting and cancellation checks can run.
 			tokio::task::yield_now().await;
 		}
 	}
 
-	// Ensure all data is written to disk
 	dest_file.flush().await?;
 	dest_file.sync_all().await?;
 
-	// Final progress update to ensure we show 100%
 	if let Some(callback) = progress_callback {
 		callback(total_copied, file_size);
 		ctx.log(format!(
@@ -559,14 +532,12 @@ async fn copy_single_file_with_offset<'a>(
 		));
 	}
 
-	// Verify checksums if enabled
 	if verify_checksum {
 		if let (Some(source_hasher), Some(dest_hasher)) = (source_hasher, dest_hasher) {
 			let source_hash = source_hasher.finalize();
 			let dest_hash = dest_hasher.finalize();
 
 			if source_hash != dest_hash {
-				// Clean up corrupted file
 				let _ = fs::remove_file(destination).await;
 				return Err(std::io::Error::new(
 					std::io::ErrorKind::InvalidData,
@@ -586,7 +557,6 @@ async fn copy_single_file_with_offset<'a>(
 		}
 	}
 
-	// Copy file permissions and timestamps if requested
 	let source_metadata = fs::metadata(source).await?;
 	let dest_file = fs::File::open(destination).await?;
 
@@ -609,18 +579,16 @@ async fn copy_file_streaming<'a>(
 	verify_checksum: bool,
 	progress_callback: Option<&ProgressCallback<'a>>,
 ) -> Result<u64, std::io::Error> {
-	// Create destination directory if needed
 	if let Some(parent) = destination.parent() {
 		fs::create_dir_all(parent).await?;
 	}
 
 	let metadata = fs::metadata(source).await?;
 	if metadata.is_dir() {
-		// For directories, we need to accumulate progress across multiple files
 		fs::create_dir_all(destination).await?;
 		let mut total_size = 0u64;
 
-		// First, collect all files to copy
+		// Collect all files first to avoid holding directory handles during copy.
 		let mut files_to_copy = Vec::new();
 		let mut stack = vec![(source.to_path_buf(), destination.to_path_buf())];
 
@@ -638,10 +606,8 @@ async fn copy_file_streaming<'a>(
 			}
 		}
 
-		// Now copy all files, tracking cumulative progress
 		let mut cumulative_bytes = 0u64;
 		for (src_path, dest_path) in files_to_copy {
-			// Check for cancellation
 			if let Err(_) = ctx.check_interrupt().await {
 				return Err(std::io::Error::new(
 					std::io::ErrorKind::Interrupted,
@@ -652,7 +618,6 @@ async fn copy_file_streaming<'a>(
 			let file_metadata = fs::metadata(&src_path).await?;
 			let file_size = file_metadata.len();
 
-			// Copy the file (offset no longer needed as aggregator tracks it)
 			let bytes_copied = copy_single_file_with_offset(
 				&src_path,
 				&dest_path,
@@ -667,9 +632,9 @@ async fn copy_file_streaming<'a>(
 			cumulative_bytes += bytes_copied;
 			total_size += bytes_copied;
 
-			// Signal completion of this file, passing its total size
+			// Signal file completion with u64::MAX so aggregator advances to next file.
 			if let Some(callback) = progress_callback {
-				callback(bytes_copied, u64::MAX); // Send file size and MAX signal
+				callback(bytes_copied, u64::MAX);
 			}
 		}
 
@@ -677,7 +642,6 @@ async fn copy_file_streaming<'a>(
 	}
 
 	let file_size = metadata.len();
-	// Use the copy_single_file helper function
 	copy_single_file(
 		source,
 		destination,
@@ -717,14 +681,13 @@ async fn stream_file_data<'a>(
 		total_size, destination_device_id
 	);
 
-	// Get networking service
 	let networking = ctx
 		.networking_service()
 		.ok_or_else(|| anyhow::anyhow!("Networking service not available"))?;
 
 	let networking_guard = &*networking;
 
-	// Get device registry to lookup node_id
+	// Map device UUID to Iroh node_id for network routing.
 	let device_registry = networking_guard.device_registry();
 	let registry = device_registry.read().await;
 	let node_id = registry
@@ -737,7 +700,6 @@ async fn stream_file_data<'a>(
 		})?;
 	drop(registry);
 
-	// Get endpoint for creating connection
 	let endpoint = networking_guard
 		.endpoint()
 		.ok_or_else(|| anyhow::anyhow!("Networking endpoint not available"))?;
@@ -747,20 +709,18 @@ async fn stream_file_data<'a>(
 		node_id, destination_device_id
 	));
 
-	// Connect to the target device using file_transfer ALPN
 	let node_addr = iroh::NodeAddr::new(node_id);
 	let connection = endpoint
 		.connect(node_addr, b"spacedrive/filetransfer/1")
 		.await
 		.map_err(|e| anyhow::anyhow!("Failed to connect to device: {}", e))?;
 
-	// Open bidirectional stream for the transfer (so we can receive acknowledgment)
+	// Bidirectional stream allows receiving acknowledgment after transfer completion.
 	let (mut send_stream, mut recv_stream) = connection
 		.open_bi()
 		.await
 		.map_err(|e| anyhow::anyhow!("Failed to open stream: {}", e))?;
 
-	// First, send the TransferRequest message
 	let chunk_size = 64 * 1024u32;
 	let total_chunks = ((total_size + chunk_size as u64 - 1) / chunk_size as u64) as u32;
 
@@ -771,17 +731,16 @@ async fn stream_file_data<'a>(
 			transfer_mode: crate::service::network::protocol::TransferMode::TrustedCopy,
 			chunk_size,
 			total_chunks,
-			destination_path,
+			destination_path: destination_path.clone(),
 		};
 
 	let request_data = rmp_serde::to_vec(&transfer_request)?;
 
 	ctx.log(format!(
-		"Sending TransferRequest for {} bytes ({} chunks)",
-		total_size, total_chunks
+		"Sending TransferRequest for {} bytes ({} chunks) to destination: {}",
+		total_size, total_chunks, destination_path
 	));
 
-	// Send transfer request: type (0) + length + data
 	send_stream.write_u8(0).await?;
 	send_stream
 		.write_all(&(request_data.len() as u32).to_be_bytes())
@@ -791,7 +750,6 @@ async fn stream_file_data<'a>(
 
 	ctx.log("TransferRequest sent, now sending file chunks".to_string());
 
-	// Open file for reading
 	let mut file = tokio::fs::File::open(file_path).await?;
 
 	let chunk_size = 64 * 1024u64; // 64KB chunks
@@ -805,33 +763,22 @@ async fn stream_file_data<'a>(
 		total_chunks, total_size, destination_device_id
 	));
 
-	// Send all chunks over the stream
 	loop {
 		ctx.check_interrupt().await?;
 
 		let bytes_read = file.read(&mut buffer).await?;
 		if bytes_read == 0 {
-			break; // End of file
+			break;
 		}
 
-		// Calculate chunk checksum (of original data)
+		// Checksum before encryption so receiver can verify decrypted data.
 		let chunk_data = &buffer[..bytes_read];
 		let chunk_checksum = blake3::hash(chunk_data);
 
-		// Get session keys for encryption
-		let session_keys = file_transfer_protocol
-			.get_session_keys_for_device(destination_device_id)
-			.await?;
+		// Skip encryption - Iroh already provides E2E encryption for the connection
+		let encrypted_data = chunk_data.to_vec();
+		let nonce = [0u8; 12]; // Dummy nonce since we're not encrypting
 
-		// Encrypt chunk using file transfer protocol
-		let (encrypted_data, nonce) = file_transfer_protocol.encrypt_chunk(
-			&session_keys.send_key,
-			&transfer_id,
-			chunk_index,
-			chunk_data,
-		)?;
-
-		// Create encrypted file chunk message
 		let chunk_message =
 			crate::service::network::protocol::file_transfer::FileTransferMessage::FileChunk {
 				transfer_id,
@@ -841,11 +788,9 @@ async fn stream_file_data<'a>(
 				chunk_checksum: *chunk_checksum.as_bytes(),
 			};
 
-		// Serialize message
 		let message_data = rmp_serde::to_vec(&chunk_message)?;
 
-		// Send transfer type (0 for messages) + message length + message data
-		send_stream.write_u8(0).await?; // Type 0 = message-based transfer
+		send_stream.write_u8(0).await?;
 		send_stream
 			.write_all(&(message_data.len() as u32).to_be_bytes())
 			.await
@@ -859,14 +804,12 @@ async fn stream_file_data<'a>(
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to flush stream: {}", e))?;
 
-		// Record chunk sent
 		file_transfer_protocol.record_chunk_received(
 			&transfer_id,
 			chunk_index,
 			bytes_read as u64,
 		)?;
 
-		// Update progress
 		bytes_transferred += bytes_read as u64;
 		if let Some(callback) = progress_callback {
 			callback(bytes_transferred, total_size);
@@ -874,7 +817,6 @@ async fn stream_file_data<'a>(
 
 		chunk_index += 1;
 
-		// Log every 100 chunks or on first/last chunk
 		if chunk_index == 1 || chunk_index % 100 == 0 || chunk_index == total_chunks as u32 {
 			ctx.log(format!(
 				"Sent chunk {}/{} ({} bytes total)",
@@ -882,7 +824,6 @@ async fn stream_file_data<'a>(
 			));
 		}
 
-		// Yield to allow other tasks to run
 		tokio::task::yield_now().await;
 	}
 
@@ -891,7 +832,6 @@ async fn stream_file_data<'a>(
 		chunk_index
 	));
 
-	// Send transfer completion message
 	let final_checksum = calculate_file_checksum(file_path).await?;
 	let completion_message =
 		crate::service::network::protocol::file_transfer::FileTransferMessage::TransferComplete {
@@ -902,7 +842,6 @@ async fn stream_file_data<'a>(
 
 	let completion_data = rmp_serde::to_vec(&completion_message)?;
 
-	// Send completion message
 	send_stream.write_u8(0).await?;
 	send_stream
 		.write_all(&(completion_data.len() as u32).to_be_bytes())
@@ -914,15 +853,12 @@ async fn stream_file_data<'a>(
 		"Completion message sent, waiting for final acknowledgment from receiver"
 	));
 
-	// Close the send side to signal we're done sending
 	send_stream
 		.finish()
 		.map_err(|e| anyhow::anyhow!("Failed to finish stream: {}", e))?;
 
-	// Wait for TransferFinalAck response from receiver
 	ctx.log("Waiting for TransferFinalAck from receiver...".to_string());
 
-	// Read the response message
 	let mut msg_type = [0u8; 1];
 	recv_stream.read_exact(&mut msg_type).await?;
 
@@ -940,7 +876,6 @@ async fn stream_file_data<'a>(
 	let ack_message: crate::service::network::protocol::file_transfer::FileTransferMessage =
 		rmp_serde::from_slice(&msg_buf)?;
 
-	// Verify it's a TransferFinalAck for our transfer
 	match ack_message {
 		crate::service::network::protocol::file_transfer::FileTransferMessage::TransferFinalAck { transfer_id: ack_id } => {
 			if ack_id != transfer_id {
@@ -953,7 +888,7 @@ async fn stream_file_data<'a>(
 		}
 	}
 
-	// Now mark transfer as completed locally (only after receiving confirmation)
+	// Only mark completed after receiver confirms to detect network failures.
 	file_transfer_protocol.update_session_state(
 		&transfer_id,
 		crate::service::network::protocol::file_transfer::TransferState::Completed,

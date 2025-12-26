@@ -18,89 +18,89 @@ env:
 
 jobs:
   # CLI builds for v2
-  cli-build:
-    strategy:
-      matrix:
-        include:
-          # macOS builds
-          - host: self-hosted
-            target: aarch64-apple-darwin
-            platform: macos-aarch64
-          - host: macos-15-intel
-            target: x86_64-apple-darwin
-            platform: macos-x86_64
-          # Linux builds
-          - host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            platform: linux-x86_64
-          # Windows builds
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: windows-x86_64
-    name: CLI - ${{ matrix.platform }}
-    runs-on: ${{ matrix.host }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  # cli-build:
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         # macOS builds
+  #         - host: self-hosted
+  #           target: aarch64-apple-darwin
+  #           platform: macos-aarch64
+  #         - host: macos-15-intel
+  #           target: x86_64-apple-darwin
+  #           platform: macos-x86_64
+  #         # Linux builds
+  #         - host: ubuntu-22.04
+  #           target: x86_64-unknown-linux-gnu
+  #           platform: linux-x86_64
+  #         # Windows builds
+  #         - host: windows-latest
+  #           target: x86_64-pc-windows-msvc
+  #           platform: windows-x86_64
+  #   name: CLI - ${{ matrix.platform }}
+  #   runs-on: ${{ matrix.host }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+  #     - name: Setup Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         targets: ${{ matrix.target }}
 
-      - name: Setup System and Rust
-        uses: ./.github/actions/setup-system
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          target: ${{ matrix.target }}
+  #     - name: Setup System and Rust
+  #       uses: ./.github/actions/setup-system
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         target: ${{ matrix.target }}
 
-      - name: Install cross-compilation tools (Linux ARM)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
+  #     - name: Install cross-compilation tools (Linux ARM)
+  #       if: matrix.target == 'aarch64-unknown-linux-gnu'
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Setup native dependencies
-        run: cargo run -p xtask -- setup
+  #     - name: Setup native dependencies
+  #       run: cargo run -p xtask -- setup
 
-      - name: Build CLI binaries
-        run: |
-          cargo build --release --bin sd-cli --bin sd-daemon --features heif,ffmpeg --target ${{ matrix.target }}
-        env:
-          # Set linker for cross-compilation
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+  #     - name: Build CLI binaries
+  #       run: |
+  #         cargo build --release --bin sd-cli --bin sd-daemon --features heif,ffmpeg --target ${{ matrix.target }}
+  #       env:
+  #         # Set linker for cross-compilation
+  #         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
-      - name: Prepare binaries (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          mkdir -p dist
-          cp target/${{ matrix.target }}/release/sd-cli dist/sd-${{ matrix.platform }}
-          cp target/${{ matrix.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.platform }}
-          chmod +x dist/*
+  #     - name: Prepare binaries (Unix)
+  #       if: runner.os != 'Windows'
+  #       run: |
+  #         mkdir -p dist
+  #         cp target/${{ matrix.target }}/release/sd-cli dist/sd-${{ matrix.platform }}
+  #         cp target/${{ matrix.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.platform }}
+  #         chmod +x dist/*
 
-      - name: Prepare binaries (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target/${{ matrix.target }}/release/sd-cli.exe dist/sd-${{ matrix.platform }}.exe
-          Copy-Item target/${{ matrix.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.platform }}.exe
+  #     - name: Prepare binaries (Windows)
+  #       if: runner.os == 'Windows'
+  #       shell: pwsh
+  #       run: |
+  #         New-Item -ItemType Directory -Force -Path dist
+  #         Copy-Item target/${{ matrix.target }}/release/sd-cli.exe dist/sd-${{ matrix.platform }}.exe
+  #         Copy-Item target/${{ matrix.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.platform }}.exe
 
-      - name: Generate checksums
-        shell: bash
-        run: |
-          cd dist
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            sha256sum *.exe > checksums-${{ matrix.platform }}.txt
-          else
-            sha256sum * > checksums-${{ matrix.platform }}.txt
-          fi
+  #     - name: Generate checksums
+  #       shell: bash
+  #       run: |
+  #         cd dist
+  #         if [ "$RUNNER_OS" == "Windows" ]; then
+  #           sha256sum *.exe > checksums-${{ matrix.platform }}.txt
+  #         else
+  #           sha256sum * > checksums-${{ matrix.platform }}.txt
+  #         fi
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: cli-${{ matrix.platform }}
-          path: dist/*
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: cli-${{ matrix.platform }}
+  #         path: dist/*
 
   # V2 Desktop builds
   desktop-main:
@@ -234,7 +234,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: self-hosted
     name: Create Release
-    needs: [cli-build, desktop-main]
+    needs: [desktop-main]
     permissions:
       contents: write
     steps:
@@ -245,4 +245,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: "*/**"
+          files: |
+            cli-*/*
+            */*.dmg
+            */*.msi
+            */*.deb
+            */*.tar.xz
+            */*.sig

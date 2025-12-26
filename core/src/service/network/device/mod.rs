@@ -156,3 +156,42 @@ impl SessionKeys {
 		}
 	}
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[test]
+	fn test_session_keys_are_different() {
+		// Create a test shared secret
+		let shared_secret = vec![1u8; 32];
+
+		// Generate session keys
+		let keys = SessionKeys::from_shared_secret(shared_secret);
+
+		// Verify send_key and receive_key are DIFFERENT
+		assert_ne!(
+			keys.send_key,
+			keys.receive_key,
+			"BUG: send_key and receive_key should be different! send={:?}, recv={:?}",
+			&keys.send_key[..8],
+			&keys.receive_key[..8]
+		);
+	}
+
+	#[test]
+	fn test_swap_keys_works() {
+		let shared_secret = vec![1u8; 32];
+		let keys = SessionKeys::from_shared_secret(shared_secret);
+
+		let original_send = keys.send_key.clone();
+		let original_recv = keys.receive_key.clone();
+
+		let swapped = keys.swap_keys();
+
+		// After swap, send should equal original receive
+		assert_eq!(swapped.send_key, original_recv);
+		// After swap, receive should equal original send
+		assert_eq!(swapped.receive_key, original_send);
+	}
+}

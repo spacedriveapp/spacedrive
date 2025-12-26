@@ -177,7 +177,7 @@ impl LibraryQuery for FileByPathQuery {
 				};
 
 			// Convert to File using from_entity_model
-			let mut file = File::from_entity_model(entry_model, sd_path);
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
 			file.sidecars = sidecars;
 			file.content_identity = content_identity_domain;
 			file.image_media_data = image_media;
@@ -186,6 +186,13 @@ impl LibraryQuery for FileByPathQuery {
 			file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
 			if let Some(ref ci) = file.content_identity {
 				file.content_kind = ci.kind;
+			}
+
+			// Populate alternate paths (other instances of same content)
+			if let Some(content_id) = entry_model.content_id {
+				file.alternate_paths = self
+					.get_alternate_paths(content_id, entry_model.id, db.conn())
+					.await?;
 			}
 
 			return Ok(Some(file));
@@ -213,6 +220,91 @@ impl LibraryQuery for FileByPathQuery {
 }
 
 impl FileByPathQuery {
+	/// Get alternate paths for all other entries with the same content_id
+	async fn get_alternate_paths(
+		&self,
+		content_id: i32,
+		current_entry_id: i32,
+		db: &DatabaseConnection,
+	) -> QueryResult<Vec<SdPath>> {
+		use crate::infra::db::entities::{device, directory_paths, location};
+
+		// Find all entries with the same content_id (excluding current entry)
+		let alternate_entries = entry::Entity::find()
+			.filter(entry::Column::ContentId.eq(content_id))
+			.filter(entry::Column::Id.ne(current_entry_id))
+			.all(db)
+			.await?;
+
+		let mut alternate_paths = Vec::new();
+
+		// Resolve path for each alternate entry
+		for alt_entry in alternate_entries {
+			// Build the full path for this entry
+			let mut path_components = Vec::new();
+
+			// Add the file name with extension
+			let file_name = if let Some(ext) = &alt_entry.extension {
+				format!("{}.{}", alt_entry.name, ext)
+			} else {
+				alt_entry.name.clone()
+			};
+			path_components.push(file_name);
+
+			// Walk up parent chain
+			let mut current_parent_id = alt_entry.parent_id;
+			let mut location_entry_id = None;
+
+			while let Some(parent_id) = current_parent_id {
+				if let Some(parent) = entry::Entity::find_by_id(parent_id).one(db).await? {
+					if parent.parent_id.is_none() {
+						location_entry_id = Some(parent.id);
+						break;
+					}
+					path_components.push(parent.name.clone());
+					current_parent_id = parent.parent_id;
+				} else {
+					break;
+				}
+			}
+
+			if let Some(location_entry_id) = location_entry_id {
+				path_components.reverse();
+
+				// Get location and device info
+				if let Some(location_model) = location::Entity::find()
+					.filter(location::Column::EntryId.eq(location_entry_id))
+					.one(db)
+					.await?
+				{
+					if let Some(device_model) = device::Entity::find_by_id(location_model.device_id)
+						.one(db)
+						.await?
+					{
+						if let Some(location_root_path) = directory_paths::Entity::find()
+							.filter(directory_paths::Column::EntryId.eq(location_entry_id))
+							.one(db)
+							.await?
+						{
+							// Build absolute path
+							let mut absolute_path = PathBuf::from(&location_root_path.path);
+							for component in path_components {
+								absolute_path.push(component);
+							}
+
+							alternate_paths.push(SdPath::Physical {
+								device_slug: device_model.slug,
+								path: absolute_path.into(),
+							});
+						}
+					}
+				}
+			}
+		}
+
+		Ok(alternate_paths)
+	}
+
 	/// Find entry by SdPath
 	async fn find_entry_by_sd_path(
 		&self,

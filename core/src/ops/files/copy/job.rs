@@ -283,15 +283,18 @@ impl JobHandler for FileCopyJob {
 					self.destination.clone()
 				}
 			} else {
-				// Non-local destination (Cloud, Content, Sidecar)
-				// For multiple sources, join with filename; for single source, use as-is
-				if self.sources.paths.len() > 1 {
-					self.destination
-						.join(resolved_source.file_name().unwrap_or_default())
-				} else {
-					self.destination.clone()
-				}
+				// Non-local destination (remote device, Cloud, Content, Sidecar)
+				// For remote destinations, we can't check if path is a directory,
+				// so always join filename to be safe
+				self.destination
+					.join(resolved_source.file_name().unwrap_or_default())
 			};
+
+			ctx.log(format!(
+				"Final destination calculated: {} -> {}",
+				resolved_source.display(),
+				final_destination.display()
+			));
 
 			// Count files in this source path for accurate progress tracking
 			let files_in_source = if let Some(local_path) = resolved_source.as_local_path() {

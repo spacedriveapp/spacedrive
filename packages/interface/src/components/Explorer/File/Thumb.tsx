@@ -119,7 +119,7 @@ export const Thumb = memo(function Thumb({
       ? contentKind
       : file.kind === "File"
         ? file.extension || "File"
-        : file.kind;
+        : file.kind || "File";
   const kindCapitalized = fileKind.charAt(0).toUpperCase() + fileKind.slice(1);
 
   // Use icon override from virtual files (devices, volumes), otherwise use default icon logic
@@ -249,7 +249,7 @@ export function Icon({
       ? contentKind
       : file.kind === "File"
         ? file.extension || "File"
-        : file.kind;
+        : file.kind || "File";
   const kindCapitalized = fileKind.charAt(0).toUpperCase() + fileKind.slice(1);
 
   // Use icon override from virtual files (devices, volumes), otherwise use default icon logic

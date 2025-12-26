@@ -45,6 +45,22 @@ export interface ViewSettings {
 	foldersFirst: boolean;
 }
 
+export type SearchScope = "folder" | "location" | "library";
+
+export interface SearchFilters {
+	fileTypes?: string[];
+	contentTypes?: string[];
+	sizeMin?: number;
+	sizeMax?: number;
+	dateModifiedStart?: Date;
+	dateModifiedEnd?: Date;
+	tags?: string[];
+}
+
+export type ExplorerMode =
+	| { type: "browse" }
+	| { type: "search"; query: string; scope: SearchScope };
+
 export type NavigationTarget =
 	| { type: "path"; path: SdPath }
 	| {
@@ -159,6 +175,8 @@ interface UIState {
 	inspectorVisible: boolean;
 	quickPreviewFileId: string | null;
 	tagModeActive: boolean;
+	mode: ExplorerMode;
+	searchFilters: SearchFilters;
 }
 
 type UIAction =
@@ -169,6 +187,9 @@ type UIAction =
 	| { type: "SET_INSPECTOR_VISIBLE"; visible: boolean }
 	| { type: "SET_QUICK_PREVIEW"; fileId: string | null }
 	| { type: "SET_TAG_MODE"; active: boolean }
+	| { type: "ENTER_SEARCH_MODE"; query: string; scope: SearchScope }
+	| { type: "EXIT_SEARCH_MODE" }
+	| { type: "SET_SEARCH_FILTERS"; filters: SearchFilters }
 	| {
 			type: "LOAD_PREFERENCES";
 			viewMode: ViewMode;
@@ -209,6 +230,25 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 		case "SET_TAG_MODE":
 			return { ...state, tagModeActive: action.active };
 
+		case "ENTER_SEARCH_MODE":
+			return {
+				...state,
+				mode: { type: "search", query: action.query, scope: action.scope },
+			};
+
+		case "EXIT_SEARCH_MODE":
+			return {
+				...state,
+				mode: { type: "browse" },
+				searchFilters: {},
+			};
+
+		case "SET_SEARCH_FILTERS":
+			return {
+				...state,
+				searchFilters: action.filters,
+			};
+
 		case "LOAD_PREFERENCES":
 			return {
 				...state,
@@ -231,6 +271,8 @@ const initialUIState: UIState = {
 	inspectorVisible: true,
 	quickPreviewFileId: null,
 	tagModeActive: false,
+	mode: { type: "browse" },
+	searchFilters: {},
 };
 
 function targetToUrl(target: NavigationTarget): string {
@@ -343,6 +385,12 @@ interface ExplorerContextValue {
 
 	tagModeActive: boolean;
 	setTagModeActive: (active: boolean) => void;
+
+	mode: ExplorerMode;
+	enterSearchMode: (query: string, scope?: SearchScope) => void;
+	exitSearchMode: () => void;
+	searchFilters: SearchFilters;
+	setSearchFilters: (filters: SearchFilters) => void;
 
 	devices: Map<string, Device>;
 
@@ -610,6 +658,21 @@ export function ExplorerProvider({
 		uiDispatch({ type: "SET_TAG_MODE", active });
 	}, []);
 
+	const enterSearchMode = useCallback(
+		(query: string, scope: SearchScope = "library") => {
+			uiDispatch({ type: "ENTER_SEARCH_MODE", query, scope });
+		},
+		[],
+	);
+
+	const exitSearchMode = useCallback(() => {
+		uiDispatch({ type: "EXIT_SEARCH_MODE" });
+	}, []);
+
+	const setSearchFilters = useCallback((filters: SearchFilters) => {
+		uiDispatch({ type: "SET_SEARCH_FILTERS", filters });
+	}, []);
+
 	const loadPreferencesForSpaceItem = useCallback(
 		(id: string) => {
 			const prefs = viewPrefs.getPreferences(id);
@@ -656,6 +719,11 @@ export function ExplorerProvider({
 			setCurrentFiles,
 			tagModeActive: uiState.tagModeActive,
 			setTagModeActive,
+			mode: uiState.mode,
+			enterSearchMode,
+			exitSearchMode,
+			searchFilters: uiState.searchFilters,
+			setSearchFilters,
 			devices,
 			loadPreferencesForSpaceItem,
 			activeTabId,
@@ -690,6 +758,11 @@ export function ExplorerProvider({
 			currentFiles,
 			uiState.tagModeActive,
 			setTagModeActive,
+			uiState.mode,
+			enterSearchMode,
+			exitSearchMode,
+			uiState.searchFilters,
+			setSearchFilters,
 			devices,
 			loadPreferencesForSpaceItem,
 			activeTabId,

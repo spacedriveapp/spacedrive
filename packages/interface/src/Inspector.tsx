@@ -6,12 +6,14 @@ import { useLibraryQuery, useNormalizedQuery } from "./context";
 import { usePlatform } from "./platform";
 import { useSelection } from "./components/Explorer/SelectionContext";
 import { FileInspector } from "./inspectors/FileInspector";
+import { MultiFileInspector } from "./inspectors/MultiFileInspector";
 import { LocationInspector } from "./inspectors/LocationInspector";
 import { isVirtualFile } from "./components/Explorer/utils/virtualFiles";
 import clsx from "clsx";
 
 export type InspectorVariant =
   | { type: "file"; file: File }
+  | { type: "multi-file"; files: File[] }
   | { type: "location"; location: LocationInfo }
   | { type: "empty" }
   | null;
@@ -33,6 +35,10 @@ export function Inspector({
 
   // Compute inspector variant based on selection
   const variant: InspectorVariant = useMemo(() => {
+    if (selectedFiles.length > 1) {
+      // Multiple files selected
+      return { type: "multi-file", files: selectedFiles };
+    }
     if (selectedFiles.length > 0 && selectedFiles[0]) {
       const file = selectedFiles[0];
 
@@ -88,6 +94,8 @@ function InspectorView({
           <EmptyState />
         ) : variant.type === "file" ? (
           <FileInspector file={variant.file} />
+        ) : variant.type === "multi-file" ? (
+          <MultiFileInspector files={variant.files} />
         ) : variant.type === "location" ? (
           <LocationInspector location={variant.location} />
         ) : null}

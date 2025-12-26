@@ -36,7 +36,11 @@ import {
 import { TagSelectorButton } from "../components/Tags";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
-import { useNormalizedQuery, useLibraryMutation } from "../context";
+import {
+	useNormalizedQuery,
+	useLibraryMutation,
+	getDeviceIcon,
+} from "../context";
 import { formatBytes } from "../components/Explorer/utils";
 import { File as FileComponent } from "../components/Explorer/File";
 import { useContextMenu } from "../hooks/useContextMenu";
@@ -948,10 +952,137 @@ function SidecarItem({
 }
 
 function InstancesTab({ file }: { file: File }) {
-	const alternatePaths = file.alternate_paths || [];
-	const allPaths = [file.sd_path, ...alternatePaths];
 
-	const getPathDisplay = (sdPath: typeof file.sd_path) => {
+	// Query for alternate instances with full File data
+	const instancesQuery = useNormalizedQuery<
+		{ entry_uuid: string },
+		{ instances: File[]; total_count: number }
+	>({
+		wireMethod: "query:files.alternate_instances",
+		input: { entry_uuid: file?.id || "" },
+		enabled: !!file?.id && !!file?.content_identity,
+	});
+
+	const instances = instancesQuery.data?.instances || [];
+
+	// Query devices to get proper names and icons
+	const devicesQuery = useNormalizedQuery<any, any[]>({
+		wireMethod: "query:devices.list",
+		input: {
+			include_offline: true,
+			include_details: false,
+			show_paired: true,
+		},
+		resourceType: "device",
+	});
+
+	const devices = devicesQuery.data || [];
+
+	// Group instances by device_slug
+	const instancesByDevice = instances.reduce(
+		(acc, instance) => {
+			let deviceSlug = "unknown";
+			if ("Physical" in instance.sd_path) {
+				deviceSlug = instance.sd_path.Physical.device_slug;
+			} else if ("Cloud" in instance.sd_path) {
+				deviceSlug = "cloud";
+			}
+
+			if (!acc[deviceSlug]) {
+				acc[deviceSlug] = [];
+			}
+			acc[deviceSlug].push(instance);
+			return acc;
+		},
+		{} as Record<string, File[]>,
+	);
+
+	const getDeviceName = (deviceSlug: string) => {
+		const device = devices.find((d) => d.slug === deviceSlug);
+		return device?.name || deviceSlug;
+	};
+
+	const getDeviceInfo = (deviceSlug: string) => {
+		return devices.find((d) => d.slug === deviceSlug);
+	};
+
+	if (instancesQuery.isLoading) {
+		return (
+			<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+				Loading instances...
+			</div>
+		);
+	}
+
+	if (!file.content_identity) {
+		return (
+			<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
+				<p className="text-xs text-sidebar-inkDull">
+					This file has not been content-hashed yet. Instances will
+					appear after indexing completes.
+				</p>
+			</div>
+		);
+	}
+
+	return (
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
+			<p className="text-xs text-sidebar-inkDull">
+				All copies of this file across your devices and locations
+			</p>
+
+			{instances.length === 0 || instances.length === 1 ? (
+				<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+					No alternate instances found
+				</div>
+			) : (
+				<div className="space-y-4">
+					{Object.entries(instancesByDevice).map(
+						([deviceSlug, deviceInstances]) => {
+							const deviceInfo = getDeviceInfo(deviceSlug);
+							const deviceName = getDeviceName(deviceSlug);
+
+							return (
+								<div key={deviceSlug} className="space-y-1">
+									{/* Device Header */}
+									<div className="flex items-center gap-2 px-2">
+										<img
+											src={getDeviceIcon(deviceInfo)}
+											className="size-4 shrink-0"
+											alt=""
+										/>
+										<span className="text-xs font-semibold text-sidebar-ink">
+											{deviceName}
+										</span>
+										<div className="flex-1" />
+										<div className="flex items-center justify-center size-5 rounded-full bg-app-box border border-app-line text-[10px] font-semibold text-sidebar-inkDull">
+											{deviceInstances.length}
+										</div>
+									</div>
+
+									{/* List of instances */}
+									<div className="space-y-0.5">
+										{deviceInstances.map(
+											(instance, i) => (
+												<InstanceRow
+													key={i}
+													instance={instance}
+												/>
+											),
+										)}
+									</div>
+								</div>
+							);
+						},
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
+function InstanceRow({ instance }: { instance: File }) {
+	const getPathDisplay = (sdPath: typeof instance.sd_path) => {
 		if ("Physical" in sdPath) {
 			return sdPath.Physical.path;
 		} else if ("Cloud" in sdPath) {
@@ -961,44 +1092,80 @@ function InstancesTab({ file }: { file: File }) {
 		}
 	};
 
-	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<p className="text-xs text-sidebar-inkDull">
-				All copies of this file across your devices and locations
-			</p>
+	const formatDate = (dateStr: string) => {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+		});
+	};
 
-			{allPaths.length === 1 ? (
-				<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
-					No alternate instances found
-				</div>
-			) : (
-				<div className="space-y-2">
-					{allPaths.map((sdPath, i) => (
-						<div
-							key={i}
-							className="p-2.5 bg-app-box/40 rounded-lg border border-app-line/50 space-y-2"
-						>
-							<div className="flex items-start gap-2">
-								<span className="text-accent shrink-0 mt-0.5">
-									<MapPin size={16} weight="bold" />
-								</span>
-								<div className="flex-1 min-w-0">
-									<div className="text-xs font-medium text-sidebar-ink truncate font-mono">
-										{getPathDisplay(sdPath)}
-									</div>
-									<div className="text-[11px] text-sidebar-inkDull mt-1">
-										{"Physical" in sdPath && "Local Device"}
-										{"Cloud" in sdPath && "Cloud Storage"}
-										{"Content" in sdPath &&
-											"Content Addressed"}
-									</div>
-								</div>
-								<div className="size-2 rounded-full shrink-0 mt-1 bg-accent" />
-							</div>
-						</div>
-					))}
-				</div>
-			)}
+	return (
+		<div
+			className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-app-box/40 transition-colors cursor-default"
+			title={getPathDisplay(instance.sd_path)}
+		>
+			{/* Thumbnail */}
+			<div className="flex-shrink-0 [&_*]:!rounded-[3px]">
+				<FileComponent.Thumb file={instance} size={20} />
+			</div>
+
+			{/* File info */}
+			<div className="flex-1 min-w-0 flex items-center gap-2">
+				<span className="text-xs text-sidebar-ink truncate">
+					{instance.name}
+					{instance.extension && `.${instance.extension}`}
+				</span>
+			</div>
+
+			{/* Metadata */}
+			<div className="flex items-center gap-2 shrink-0">
+				{/* Tags */}
+				{instance.tags && instance.tags.length > 0 && (
+					<div
+						className="flex items-center gap-0.5"
+						title={instance.tags
+							.map((t) => t.canonical_name)
+							.join(", ")}
+					>
+						{instance.tags.slice(0, 3).map((tag) => (
+							<div
+								key={tag.id}
+								className="size-1.5 rounded-full"
+								style={{
+									backgroundColor: tag.color || "#3B82F6",
+								}}
+							/>
+						))}
+						{instance.tags.length > 3 && (
+							<span className="text-[9px] text-ink-faint font-medium">
+								+{instance.tags.length - 3}
+							</span>
+						)}
+					</div>
+				)}
+
+				{/* Modified date */}
+				<span className="text-[10px] text-sidebar-inkDull">
+					{formatDate(instance.modified_at)}
+				</span>
+
+				{/* Size */}
+				<span className="text-[10px] text-sidebar-inkDull min-w-[50px] text-right">
+					{formatBytes(instance.size)}
+				</span>
+
+				{/* Local indicator */}
+				<div
+					className={clsx(
+						"size-1.5 rounded-full",
+						instance.is_local
+							? "bg-accent"
+							: "bg-sidebar-inkDull/40",
+					)}
+					title={instance.is_local ? "Available locally" : "Remote"}
+				/>
+			</div>
 		</div>
 	);
 }
