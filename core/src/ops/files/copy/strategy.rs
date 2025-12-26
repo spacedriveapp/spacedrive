@@ -578,7 +578,14 @@ impl RemoteTransferStrategy {
 				// Destination is a directory - append source filename
 				let dir_path = local_dest_path.to_path_buf();
 				fs::create_dir_all(&dir_path).await?;
-				dir_path.join(&file_metadata.name)
+
+				// Sanitize remote filename to prevent path traversal attacks
+				let safe_name = std::path::Path::new(&file_metadata.name)
+					.file_name()
+					.map(|n| n.to_string_lossy().to_string())
+					.unwrap_or_else(|| "unnamed_file".to_string());
+
+				dir_path.join(&safe_name)
 			} else {
 				local_dest_path.to_path_buf()
 			};
@@ -597,11 +604,24 @@ impl RemoteTransferStrategy {
 			final_dest_path.display()
 		));
 
+		// Track whether we received a proper TransferComplete message
+		let mut transfer_completed = false;
+
 		// Receive file chunks
 		loop {
 			let mut msg_type = [0u8; 1];
-			if recv_stream.read_exact(&mut msg_type).await.is_err() {
-				break;
+			match recv_stream.read_exact(&mut msg_type).await {
+				Ok(_) => {}
+				Err(e) => {
+					// Check if this is an expected EOF (connection closed cleanly)
+					let err_str = e.to_string();
+					if err_str.contains("finish") || err_str.contains("closed") {
+						// Connection closed - will check transfer_completed below
+						break;
+					}
+					let _ = fs::remove_file(&final_dest_path).await;
+					return Err(anyhow::anyhow!("Failed to read message type: {}", e));
+				}
 			}
 
 			let mut len_buf = [0u8; 4];
@@ -654,32 +674,37 @@ impl RemoteTransferStrategy {
 					total_bytes,
 					..
 				} => {
+					// Verify byte count first
+					if total_bytes != total_bytes_received {
+						let _ = fs::remove_file(&final_dest_path).await;
+						return Err(anyhow::anyhow!(
+							"Byte count mismatch: expected {}, got {}",
+							total_bytes,
+							total_bytes_received
+						));
+					}
+
 					// Verify final checksum if enabled
 					if verify_checksum {
 						if let Some(h) = hasher.take() {
 							let calculated = h.finalize();
 							let calculated_hex = calculated.to_hex().to_string();
 
-							// Compare with sender's checksum
-							if !final_checksum.is_empty() && calculated_hex != final_checksum {
+							if final_checksum.is_empty() {
+								// Warn when checksum verification enabled but no checksum provided
+								ctx.log("Warning: checksum verification enabled but remote did not provide checksum".to_string());
+							} else if calculated_hex != final_checksum {
 								error!(
 									"Final checksum mismatch: expected {}, got {}",
 									final_checksum, calculated_hex
 								);
-								// Clean up partial file
 								let _ = fs::remove_file(&final_dest_path).await;
 								return Err(anyhow::anyhow!("Final checksum mismatch"));
 							}
 						}
 					}
 
-					if total_bytes != total_bytes_received {
-						error!(
-							"Byte count mismatch: expected {}, got {}",
-							total_bytes, total_bytes_received
-						);
-					}
-
+					transfer_completed = true;
 					ctx.log(format!(
 						"PULL transfer completed: {} bytes received",
 						total_bytes_received
@@ -698,6 +723,16 @@ impl RemoteTransferStrategy {
 					debug!("Received unexpected message during PULL transfer");
 				}
 			}
+		}
+
+		// Verify transfer completed properly
+		if !transfer_completed {
+			let _ = fs::remove_file(&final_dest_path).await;
+			return Err(anyhow::anyhow!(
+				"Transfer interrupted: received {} of {} bytes before connection closed",
+				total_bytes_received,
+				file_size
+			));
 		}
 
 		file.flush().await?;
