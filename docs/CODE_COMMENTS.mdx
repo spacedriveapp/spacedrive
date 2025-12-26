@@ -11,13 +11,16 @@ Explain why, not what. Keep it as short as possible.
 
 The code already shows what happens. Comments exist to explain the reasoning behind decisions, the consequences of trade-offs, and the context future maintainers need. If a comment restates obvious code, delete it.
 
-<Tip>One powerful sentence explaining rationale is better than three paragraphs describing syntax.</Tip>
+<Tip>
+	One powerful sentence explaining rationale is better than three paragraphs
+	describing syntax.
+</Tip>
 
 ## Module Documentation
 
 Module-level docs (`//!`) introduce the file's purpose and explain architectural decisions. Start with a title using `#`, describe what the module does in prose, and include runnable examples.
 
-```rust
+````rust
 //! # File Indexing System
 //!
 //! `core::ops::indexing` provides a multi-phase indexing pipeline that turns
@@ -39,7 +42,7 @@ Module-level docs (`//!`) introduce the file's purpose and explain architectural
 //! let job = IndexerJob::new(config);
 //! library.jobs().dispatch(job).await?;
 //! ```
-```
+````
 
 This replaces bullet-point feature lists with integrated prose that teaches how the system works and why it was designed this way.
 
@@ -70,7 +73,10 @@ pub async fn link_to_content_identity(
 ) -> Result<ContentLinkResult>
 ```
 
-<Info>Document the consequences of decisions, not implementation blockers. Explain what the function enables, not just what it does.</Info>
+<Info>
+	Document the consequences of decisions, not implementation blockers. Explain
+	what the function enables, not just what it does.
+</Info>
 
 ## Inline Comments
 
@@ -165,7 +171,10 @@ Err(e) => {
 }
 ```
 
-<Warning>Never reference unstable API issue numbers in comments. Focus on the design decision and its impact, not the implementation blocker.</Warning>
+<Warning>
+	Never reference unstable API issue numbers in comments. Focus on the design
+	decision and its impact, not the implementation blocker.
+</Warning>
 
 ## Comments to Delete
 
@@ -187,7 +196,10 @@ loop { ... }
 
 These comments add no information. The code structure and function names already communicate what's happening.
 
-<Danger>Never use markdown formatting (`**bold**`, `_italic_`) in code comments. It doesn't render and creates noise.</Danger>
+<Danger>
+	Never use markdown formatting (`**bold**`, `_italic_`) in code comments. It
+	doesn't render and creates noise.
+</Danger>
 
 ## Refactoring Checklist
 
@@ -236,4 +248,3 @@ rg "#\[cfg\(.*\)\]" --type rust -A 5
 ```
 
 The bulk of the work is manual: reading code, understanding intent, and rewriting comments to explain why rather than what.
-

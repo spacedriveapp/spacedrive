@@ -215,6 +215,8 @@ impl FileSearchQuery {
 			.collect::<Vec<_>>()
 			.join(",");
 
+		// Join directory_paths on parent_id directly - every directory has its full
+		// absolute path stored, so the parent of any file gives us the containing folder path.
 		let sql_query = format!(
 			r#"
 			SELECT
@@ -232,20 +234,20 @@ impl FileSearchQuery {
 				e.accessed_at as entry_accessed_at,
 				e.device_id as entry_device_id,
 				e.content_id as entry_content_id,
-				dp.path as full_path,
+				dp.path as parent_path,
 				d.slug as device_slug,
-				ck.name as content_kind_name
+				ck.name as content_kind_name,
+				ci.uuid as content_identity_uuid,
+				ci.content_hash as content_hash,
+				ci.integrity_hash as integrity_hash,
+				ci.mime_type_id as mime_type_id,
+				ci.text_content as text_content,
+				ci.total_size as ci_total_size,
+				ci.entry_count as ci_entry_count,
+				ci.first_seen_at as first_seen_at,
+				ci.last_verified_at as last_verified_at
 			FROM entries e
-			LEFT JOIN directory_paths dp ON dp.entry_id = (
-				WITH RECURSIVE ancestors AS (
-					SELECT id, parent_id FROM entries WHERE id = e.id
-					UNION ALL
-					SELECT ent.id, ent.parent_id FROM entries ent
-					INNER JOIN ancestors a ON ent.id = a.parent_id
-					WHERE ent.parent_id IS NOT NULL
-				)
-				SELECT id FROM ancestors WHERE parent_id IS NULL LIMIT 1
-			)
+			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
 			LEFT JOIN devices d ON e.device_id = d.id
 			LEFT JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
@@ -260,6 +262,48 @@ impl FileSearchQuery {
 				sql_query,
 			))
 			.await?;
+
+		// Collect all content UUIDs for batch sidecar query
+		let content_uuids: Vec<Uuid> = rows
+			.iter()
+			.filter_map(|row| {
+				row.try_get::<Option<Uuid>>("", "content_identity_uuid")
+					.ok()
+					.flatten()
+			})
+			.collect();
+
+		// Batch fetch all sidecars for these content UUIDs
+		let all_sidecars = if !content_uuids.is_empty() {
+			sidecar::Entity::find()
+				.filter(sidecar::Column::ContentUuid.is_in(content_uuids.clone()))
+				.all(db)
+				.await?
+		} else {
+			Vec::new()
+		};
+
+		// Group sidecars by content_uuid for fast lookup
+		let mut sidecars_by_content: std::collections::HashMap<
+			Uuid,
+			Vec<crate::domain::file::Sidecar>,
+		> = std::collections::HashMap::new();
+		for s in all_sidecars {
+			sidecars_by_content
+				.entry(s.content_uuid)
+				.or_insert_with(Vec::new)
+				.push(crate::domain::file::Sidecar {
+					id: s.id,
+					content_uuid: s.content_uuid,
+					kind: s.kind,
+					variant: s.variant,
+					format: s.format,
+					status: s.status,
+					size: s.size,
+					created_at: s.created_at,
+					updated_at: s.updated_at,
+				});
+		}
 
 		// Convert results to FileSearchResult objects
 		let mut results = Vec::new();
@@ -286,20 +330,39 @@ impl FileSearchQuery {
 				row.try_get("", "entry_accessed_at").ok();
 
 			// Get joined data
-			let full_path: Option<String> = row.try_get("", "full_path").ok();
+			let parent_path: Option<String> = row.try_get("", "parent_path").ok();
 			let device_slug: Option<String> = row.try_get("", "device_slug").ok();
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
+			let content_identity_uuid: Option<Uuid> =
+				row.try_get("", "content_identity_uuid").ok().flatten();
 
-			// Build full path for file
-			let file_path = if let Some(base_path) = full_path {
+			// Content identity fields for building ContentIdentity object
+			let content_hash: Option<String> = row.try_get("", "content_hash").ok();
+			let integrity_hash: Option<String> = row.try_get("", "integrity_hash").ok();
+			let mime_type_id: Option<i32> = row.try_get("", "mime_type_id").ok();
+			let text_content: Option<String> = row.try_get("", "text_content").ok();
+			let ci_total_size: Option<i64> = row.try_get("", "ci_total_size").ok();
+			let ci_entry_count: Option<i32> = row.try_get("", "ci_entry_count").ok();
+			let first_seen_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "first_seen_at").ok();
+			let last_verified_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "last_verified_at").ok();
+
+			// Build full path: parent directory path + filename (with extension)
+			let file_path = if let Some(dir_path) = parent_path {
 				let file_name = if let Some(ext) = &entry_extension {
 					format!("{}.{}", entry_name, ext)
 				} else {
 					entry_name.clone()
 				};
-				format!("{}/{}", base_path, file_name)
+				if dir_path.ends_with('/') {
+					format!("{}{}", dir_path, file_name)
+				} else {
+					format!("{}/{}", dir_path, file_name)
+				}
 			} else {
-				format!("/unknown/path/{}", entry_name)
+				// Entry has no parent (is a root entry) - use name directly
+				format!("/{}", entry_name)
 			};
 
 			// Create SdPath with device_slug from join
@@ -334,8 +397,39 @@ impl FileSearchQuery {
 			// Convert to File
 			let mut file = File::from_entity_model(entity_model, sd_path);
 
-			// Set content kind from join
-			if let Some(kind_name) = content_kind_name {
+			// Build and set content identity if we have the required fields
+			if let (Some(ci_uuid), Some(ci_hash), Some(ci_first_seen), Some(ci_last_verified)) = (
+				content_identity_uuid,
+				content_hash,
+				first_seen_at,
+				last_verified_at,
+			) {
+				// Convert content_kind name to ContentKind enum
+				let kind = content_kind_name
+					.as_ref()
+					.map(|name| crate::domain::ContentKind::from(name.as_str()))
+					.unwrap_or(crate::domain::ContentKind::Unknown);
+
+				file.content_identity = Some(crate::domain::content_identity::ContentIdentity {
+					uuid: ci_uuid,
+					kind,
+					content_hash: ci_hash,
+					integrity_hash,
+					mime_type_id,
+					text_content,
+					total_size: ci_total_size.unwrap_or(0),
+					entry_count: ci_entry_count.unwrap_or(0),
+					first_seen_at: ci_first_seen,
+					last_verified_at: ci_last_verified,
+				});
+				file.content_kind = kind;
+
+				// Add sidecars from batch lookup
+				if let Some(sidecars) = sidecars_by_content.get(&ci_uuid) {
+					file.sidecars = sidecars.clone();
+				}
+			} else if let Some(kind_name) = content_kind_name {
+				// Fallback: set content kind even without full content identity
 				file.content_kind = crate::domain::ContentKind::from(kind_name.as_str());
 			}
 

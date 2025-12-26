@@ -62,7 +62,7 @@ export function SearchView() {
 		debug: false,
 	});
 
-	const files = (searchQuery.data as any)?.results || [];
+	const files = (searchQuery.data as any)?.files || [];
 
 	useEffect(() => {
 		explorer.setCurrentFiles(files);

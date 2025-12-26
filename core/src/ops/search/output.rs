@@ -11,6 +11,9 @@ use uuid::Uuid;
 /// Main output structure for file search operations
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileSearchOutput {
+	/// Flat file array matching DirectoryListingOutput - primary field for explorer
+	pub files: Vec<File>,
+	/// Search results with scoring metadata - use for search-specific UI (scores, highlights)
 	pub results: Vec<FileSearchResult>,
 	pub total_found: u64,
 	pub search_id: Uuid,
@@ -115,8 +118,10 @@ impl FileSearchOutput {
 	) -> Self {
 		let facets = SearchFacets::from_results(&results);
 		let pagination = PaginationInfo::new(0, 50, total_found);
+		let files = results.iter().map(|r| r.file.clone()).collect();
 
 		Self {
+			files,
 			results,
 			total_found,
 			search_id,
@@ -145,8 +150,10 @@ impl FileSearchOutput {
 	) -> Self {
 		let facets = SearchFacets::from_results(&results);
 		let pagination = PaginationInfo::new(0, 200, total_found);
+		let files = results.iter().map(|r| r.file.clone()).collect();
 
 		Self {
+			files,
 			results,
 			total_found,
 			search_id,
@@ -173,8 +180,10 @@ impl FileSearchOutput {
 	) -> Self {
 		let facets = SearchFacets::from_results(&results);
 		let pagination = PaginationInfo::new(0, 1000, total_found);
+		let files = results.iter().map(|r| r.file.clone()).collect();
 
 		Self {
+			files,
 			results,
 			total_found,
 			search_id,
@@ -197,6 +206,7 @@ impl FileSearchOutput {
 	/// Create an empty search output
 	pub fn empty(query: &str) -> Self {
 		Self {
+			files: Vec::new(),
 			results: Vec::new(),
 			total_found: 0,
 			search_id: Uuid::new_v4(),
