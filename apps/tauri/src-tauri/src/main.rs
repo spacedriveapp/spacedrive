@@ -1991,6 +1991,17 @@ fn main() {
 			if let Err(e) = setup_menu(app.handle()) {
 				tracing::warn!("Failed to setup menu: {}", e);
 			}
+
+			// Explicitly remove menu on Windows
+			#[cfg(target_os = "windows")]
+			{
+				use tauri::menu::MenuBuilder;
+				// Create an empty menu to ensure no menu bar is shown on Windows
+				if let Ok(empty_menu) = MenuBuilder::new(app.handle()).build() {
+					let _ = app.handle().set_menu(empty_menu);
+				}
+			}
+
 			tracing::info!("Spacedrive Tauri app starting...");
 
 			// Apply macOS-specific window customizations
