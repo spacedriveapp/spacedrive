@@ -181,12 +181,14 @@ impl FileSearchQuery {
 		}
 	}
 
-	/// Execute fast search using FTS5 with directory path joins
+	/// Execute fast search using FTS5 with efficient batch joins
 	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
-		device_slug_map: &std::collections::HashMap<Uuid, String>,
+		_device_slug_map: &std::collections::HashMap<Uuid, String>,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
+		use sea_orm::Statement;
+
 		// Use FTS5 for high-performance text search
 		let fts_query = self.build_fts5_query();
 		let fts_results = self.execute_fts5_search(db, &fts_query).await?;
@@ -198,98 +200,160 @@ impl FileSearchQuery {
 			self.input.query
 		);
 
-		// Convert FTS5 results to search results with proper path construction
+		if fts_results.is_empty() {
+			return Ok(Vec::new());
+		}
+
+		// Build a map of entry_id -> bm25_score for later lookup
+		let score_map: std::collections::HashMap<i32, f64> = fts_results.iter().cloned().collect();
+		let entry_ids: Vec<i32> = fts_results.iter().map(|(id, _)| *id).collect();
+
+		// Build single efficient query with all joins
+		let entry_ids_str = entry_ids
+			.iter()
+			.map(|id| id.to_string())
+			.collect::<Vec<_>>()
+			.join(",");
+
+		let sql_query = format!(
+			r#"
+			SELECT
+				e.id as entry_id,
+				e.uuid as entry_uuid,
+				e.name as entry_name,
+				e.kind as entry_kind,
+				e.extension as entry_extension,
+				e.size as entry_size,
+				e.aggregate_size as entry_aggregate_size,
+				e.child_count as entry_child_count,
+				e.file_count as entry_file_count,
+				e.created_at as entry_created_at,
+				e.modified_at as entry_modified_at,
+				e.accessed_at as entry_accessed_at,
+				e.device_id as entry_device_id,
+				e.content_id as entry_content_id,
+				dp.path as full_path,
+				d.slug as device_slug,
+				ck.name as content_kind_name
+			FROM entries e
+			LEFT JOIN directory_paths dp ON dp.entry_id = (
+				WITH RECURSIVE ancestors AS (
+					SELECT id, parent_id FROM entries WHERE id = e.id
+					UNION ALL
+					SELECT ent.id, ent.parent_id FROM entries ent
+					INNER JOIN ancestors a ON ent.id = a.parent_id
+					WHERE ent.parent_id IS NOT NULL
+				)
+				SELECT id FROM ancestors WHERE parent_id IS NULL LIMIT 1
+			)
+			LEFT JOIN devices d ON e.device_id = d.id
+			LEFT JOIN content_identities ci ON e.content_id = ci.id
+			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
+			WHERE e.id IN ({})
+			"#,
+			entry_ids_str
+		);
+
+		let rows = db
+			.query_all(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				sql_query,
+			))
+			.await?;
+
+		// Convert results to FileSearchResult objects
 		let mut results = Vec::new();
+		let relevance_calc =
+			crate::ops::search::sorting::RelevanceCalculator::new(self.input.query.clone());
 
-		for (entry_id, bm25_score) in fts_results {
-			// Get the full entry data
-			let entry_model = entry::Entity::find_by_id(entry_id)
-				.one(db)
-				.await?
-				.ok_or_else(|| {
-					QueryError::Internal(format!("Entry not found: {}", entry_id.to_string()))
-				})?;
+		for row in rows {
+			let entry_id: i32 = row.try_get("", "entry_id").unwrap_or(0);
+			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
+			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
+			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
+			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
+			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
+			let entry_aggregate_size: i64 = row.try_get("", "entry_aggregate_size").unwrap_or(0);
+			let entry_child_count: i32 = row.try_get("", "entry_child_count").unwrap_or(0);
+			let entry_file_count: i32 = row.try_get("", "entry_file_count").unwrap_or(0);
+			let entry_created_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_created_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
+			let entry_modified_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_modified_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
+			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "entry_accessed_at").ok();
 
-			// Apply additional filters (non-text filters)
-			if !self.passes_additional_filters(&entry_model, db).await? {
-				continue;
+			// Get joined data
+			let full_path: Option<String> = row.try_get("", "full_path").ok();
+			let device_slug: Option<String> = row.try_get("", "device_slug").ok();
+			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
+
+			// Build full path for file
+			let file_path = if let Some(base_path) = full_path {
+				let file_name = if let Some(ext) = &entry_extension {
+					format!("{}.{}", entry_name, ext)
+				} else {
+					entry_name.clone()
+				};
+				format!("{}/{}", base_path, file_name)
+			} else {
+				format!("/unknown/path/{}", entry_name)
+			};
+
+			// Create SdPath with device_slug from join
+			let sd_path = SdPath::Physical {
+				device_slug: device_slug.unwrap_or_else(|| "unknown-device".to_string()),
+				path: file_path.into(),
+			};
+
+			// Create entity model for File conversion
+			let entity_model = entry::Model {
+				id: entry_id,
+				uuid: entry_uuid,
+				name: entry_name.clone(),
+				kind: entry_kind,
+				extension: entry_extension.clone(),
+				metadata_id: None,
+				content_id: None,
+				size: entry_size,
+				aggregate_size: entry_aggregate_size,
+				child_count: entry_child_count,
+				file_count: entry_file_count,
+				created_at: entry_created_at,
+				modified_at: entry_modified_at,
+				accessed_at: entry_accessed_at,
+				indexed_at: None,
+				permissions: None,
+				inode: None,
+				parent_id: None,
+				device_id: None,
+			};
+
+			// Convert to File
+			let mut file = File::from_entity_model(entity_model, sd_path);
+
+			// Set content kind from join
+			if let Some(kind_name) = content_kind_name {
+				file.content_kind = crate::domain::ContentKind::from(kind_name.as_str());
 			}
 
-			// Construct the full path by joining with directory_paths
-			let full_path = self
-				.construct_full_path(&entry_model, db)
-				.await
-				.unwrap_or_else(|_| format!("/unknown/path/{}", entry_model.name));
-
-			// Get device UUID from location if available
-			let device_uuid = self
-				.get_device_uuid_for_entry(&entry_model, db)
-				.await
-				.unwrap_or_else(|| Uuid::new_v4());
-
-			// Get location UUID if available
-			let location_uuid = self.get_location_uuid_for_entry(&entry_model, db).await;
-
-			// Get metadata UUID if available
-			let metadata_uuid = if let Some(metadata_id) = entry_model.metadata_id {
-				self.get_metadata_uuid_for_entry(metadata_id, db)
-					.await
-					.unwrap_or_else(|| Uuid::new_v4())
-			} else {
-				Uuid::new_v4()
-			};
-
-			// Get content UUID if available
-			let content_uuid = if let Some(content_id) = entry_model.content_id {
-				self.get_content_uuid_for_entry(content_id, db).await
-			} else {
-				None
-			};
-
-			// Get parent UUID if available
-			let parent_uuid = if let Some(parent_id) = entry_model.parent_id {
-				self.get_parent_uuid_for_entry(parent_id, db).await
-			} else {
-				None
-			};
-
-			// Extract values before using entry_model
-			let entry_name = entry_model.name.clone();
-			let entry_extension = entry_model.extension.clone();
-			let entry_id_for_boost = entry_model.id;
-
-			// Create SdPath
-			let device_slug = device_slug_map
-				.get(&device_uuid)
-				.cloned()
-				.unwrap_or_else(|| format!("device-{}", device_uuid));
-			let sd_path = SdPath::Physical {
-				device_slug,
-				path: full_path.into(),
-			};
-
-			// Convert to File using from_entity_model
-			let file = File::from_entity_model(entry_model, sd_path);
-
-			// Use BM25 score from FTS5 as base relevance score
-			let relevance_calc =
-				crate::ops::search::sorting::RelevanceCalculator::new(self.input.query.clone());
+			// Get BM25 score and calculate final score
+			let bm25_score = score_map.get(&entry_id).copied().unwrap_or(0.0);
 			let recency_boost = relevance_calc.calculate_recency_boost(file.modified_at);
-			let user_preference_boost =
-				relevance_calc.calculate_user_preference_boost(entry_id_for_boost);
-
-			// Combine FTS5 BM25 score with additional scoring factors
+			let user_preference_boost = relevance_calc.calculate_user_preference_boost(entry_id);
 			let final_score = bm25_score as f32 + recency_boost + user_preference_boost;
 
 			let result = crate::ops::search::output::FileSearchResult {
 				file,
 				score: final_score,
 				score_breakdown: crate::ops::search::output::ScoreBreakdown::new(
-					bm25_score as f32,     // temporal_score (FTS5 BM25)
-					None,                  // semantic_score
-					0.0,                   // metadata_score
-					recency_boost,         // recency_boost
-					user_preference_boost, // user_preference_boost
+					bm25_score as f32,
+					None,
+					0.0,
+					recency_boost,
+					user_preference_boost,
 				),
 				highlights: self.extract_highlights(&fts_query, &entry_name, &entry_extension),
 				matched_content: None,
@@ -304,7 +368,7 @@ impl FileSearchQuery {
 			fts_count
 		);
 
-		// Results are already sorted by FTS5 BM25 score, but re-sort with additional factors
+		// Sort by final score
 		results.sort_by(|a, b| {
 			b.score
 				.partial_cmp(&a.score)
@@ -493,27 +557,50 @@ impl FileSearchQuery {
 		condition
 	}
 
-	/// Get device UUID for an entry by looking up through location
+	/// Get device UUID for an entry by traversing parent chain to find location root
 	async fn get_device_uuid_for_entry(
 		&self,
 		entry_model: &entry::Model,
 		db: &DatabaseConnection,
 	) -> Option<Uuid> {
-		// First, find the location for this entry
-		if let Ok(Some(location)) = crate::infra::db::entities::location::Entity::find()
-			.filter(crate::infra::db::entities::location::Column::EntryId.eq(entry_model.id))
-			.one(db)
+		use sea_orm::{sea_query::Expr, Statement};
+
+		// Traverse parent chain to find the location root using recursive CTE
+		let query = format!(
+			r#"
+			WITH RECURSIVE parent_chain AS (
+				SELECT id, parent_id FROM entries WHERE id = {}
+				UNION ALL
+				SELECT e.id, e.parent_id FROM entries e
+				INNER JOIN parent_chain pc ON e.id = pc.parent_id
+			)
+			SELECT l.device_id
+			FROM parent_chain pc
+			INNER JOIN locations l ON l.entry_id = pc.id
+			LIMIT 1
+			"#,
+			entry_model.id
+		);
+
+		let result = db
+			.query_one(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				query,
+			))
 			.await
+			.ok()??;
+
+		let device_db_id: i32 = result.try_get("", "device_id").ok()?;
+
+		// Now get the device UUID from the device_id
+		if let Ok(Some(device)) =
+			crate::infra::db::entities::device::Entity::find_by_id(device_db_id)
+				.one(db)
+				.await
 		{
-			// Then, find the device for this location
-			if let Ok(Some(device)) =
-				crate::infra::db::entities::device::Entity::find_by_id(location.device_id)
-					.one(db)
-					.await
-			{
-				return Some(device.uuid);
-			}
+			return Some(device.uuid);
 		}
+
 		None
 	}
 
@@ -580,6 +667,36 @@ impl FileSearchQuery {
 		} else {
 			None
 		}
+	}
+
+	/// Get content kind for an entry by looking up content identity
+	async fn get_content_kind_for_entry(
+		&self,
+		content_id: i32,
+		db: &DatabaseConnection,
+	) -> Option<crate::domain::ContentKind> {
+		use sea_orm::Statement;
+
+		let query = format!(
+			r#"
+			SELECT ck.name
+			FROM content_identities ci
+			INNER JOIN content_kinds ck ON ci.kind_id = ck.id
+			WHERE ci.id = {}
+			"#,
+			content_id
+		);
+
+		let result = db
+			.query_one(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				query,
+			))
+			.await
+			.ok()??;
+
+		let kind_name: String = result.try_get("", "name").ok()?;
+		Some(crate::domain::ContentKind::from(kind_name.as_str()))
 	}
 
 	/// Get total count of matching entries for pagination

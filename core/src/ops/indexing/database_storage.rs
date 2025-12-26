@@ -364,6 +364,7 @@ impl DatabaseStorage {
 			permissions: Set(None),
 			inode: Set(entry.inode.map(|i| i as i64)),
 			parent_id: Set(parent_id),
+			device_id: Set(Some(device_id)),
 			..Default::default()
 		};
 

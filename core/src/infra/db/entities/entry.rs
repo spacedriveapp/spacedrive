@@ -27,6 +27,7 @@ pub struct Model {
 	pub permissions: Option<String>,     // Unix permissions as string
 	pub inode: Option<i64>,              // Platform-specific file identifier for change detection
 	pub parent_id: Option<i32>,          // Reference to parent entry for hierarchical relationships
+	pub device_id: Option<i32>, // Device that owns this entry (denormalized for efficient queries)
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -45,6 +46,12 @@ pub enum Relation {
 	ContentIdentity,
 	#[sea_orm(belongs_to = "Entity", from = "Column::ParentId", to = "Column::Id")]
 	Parent,
+	#[sea_orm(
+		belongs_to = "super::device::Entity",
+		from = "Column::DeviceId",
+		to = "super::device::Column::Id"
+	)]
+	Device,
 }
 
 impl Related<super::user_metadata::Entity> for Entity {
@@ -56,6 +63,12 @@ impl Related<super::user_metadata::Entity> for Entity {
 impl Related<super::content_identity::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::ContentIdentity.def()
+	}
+}
+
+impl Related<super::device::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::Device.def()
 	}
 }
 
@@ -79,16 +92,17 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		// Entries depend on content_identity and user_metadata to ensure FK references
+		// Entries depend on device, content_identity, and user_metadata to ensure FK references
 		// exist before entries arrive. parent_id is self-reference (handled via closure rebuild).
-		// This prevents entries arriving with content_id references that don't exist yet.
-		&["content_identity", "user_metadata"]
+		// This prevents entries arriving with FK references that don't exist yet.
+		&["device", "content_identity", "user_metadata"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
 		// All FKs use dependency tracking - NEVER set to NULL on missing reference
 		// Source data with NULL values is handled correctly (null UUID → null FK)
 		vec![
+			crate::infra::sync::FKMapping::new("device_id", "devices"),
 			crate::infra::sync::FKMapping::new("parent_id", "entries"),
 			crate::infra::sync::FKMapping::new("metadata_id", "user_metadata"),
 			crate::infra::sync::FKMapping::new("content_id", "content_identities"),
@@ -462,6 +476,7 @@ impl Model {
 			serde_json::from_value(get_field("permissions")?).unwrap();
 		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
 		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
+		let device_id: Option<i32> = serde_json::from_value(get_field("device_id")?).unwrap();
 
 		// Check if parent is tombstoned (prevents orphaned children)
 		if let Some(parent) = parent_id {
@@ -503,6 +518,7 @@ impl Model {
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),
+				device_id: Set(device_id),
 			};
 			active.update(db).await?;
 			existing_entry.id
@@ -527,6 +543,7 @@ impl Model {
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),
+				device_id: Set(device_id),
 			};
 			let inserted = active.insert(db).await?;
 			inserted.id
