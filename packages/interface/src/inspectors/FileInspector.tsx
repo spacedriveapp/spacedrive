@@ -948,8 +948,17 @@ function SidecarItem({
 }
 
 function InstancesTab({ file }: { file: File }) {
-	const alternatePaths = file.alternate_paths || [];
-	const allPaths = [file.sd_path, ...alternatePaths];
+	// Query for alternate instances with full File data
+	const instancesQuery = useNormalizedQuery<
+		{ entry_uuid: string },
+		{ instances: File[]; total_count: number }
+	>({
+		wireMethod: "query:files.alternate_instances",
+		input: { entry_uuid: file?.id || "" },
+		enabled: !!file?.id && !!file?.content_identity,
+	});
+
+	const instances = instancesQuery.data?.instances || [];
 
 	const getPathDisplay = (sdPath: typeof file.sd_path) => {
 		if ("Physical" in sdPath) {
@@ -961,39 +970,118 @@ function InstancesTab({ file }: { file: File }) {
 		}
 	};
 
+	const getDeviceDisplay = (sdPath: typeof file.sd_path) => {
+		if ("Physical" in sdPath) {
+			return sdPath.Physical.device_slug || "Local Device";
+		} else if ("Cloud" in sdPath) {
+			return "Cloud Storage";
+		} else {
+			return "Content Addressed";
+		}
+	};
+
+	const formatDate = (dateStr: string) => {
+		const date = new Date(dateStr);
+		return date.toLocaleDateString("en-US", {
+			month: "short",
+			day: "numeric",
+			year: "numeric",
+		});
+	};
+
+	if (instancesQuery.isLoading) {
+		return (
+			<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+				Loading instances...
+			</div>
+		);
+	}
+
+	if (!file.content_identity) {
+		return (
+			<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
+				<p className="text-xs text-sidebar-inkDull">
+					This file has not been content-hashed yet. Instances will
+					appear after indexing completes.
+				</p>
+			</div>
+		);
+	}
+
 	return (
 		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
 			<p className="text-xs text-sidebar-inkDull">
 				All copies of this file across your devices and locations
 			</p>
 
-			{allPaths.length === 1 ? (
+			{instances.length === 0 || instances.length === 1 ? (
 				<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
 					No alternate instances found
 				</div>
 			) : (
-				<div className="space-y-2">
-					{allPaths.map((sdPath, i) => (
+				<div className="space-y-2.5">
+					{instances.map((instance, i) => (
 						<div
 							key={i}
-							className="p-2.5 bg-app-box/40 rounded-lg border border-app-line/50 space-y-2"
+							className="p-2.5 bg-app-box/40 rounded-lg border border-app-line/50 hover:bg-app-box/60 transition-colors"
 						>
-							<div className="flex items-start gap-2">
-								<span className="text-accent shrink-0 mt-0.5">
-									<MapPin size={16} weight="bold" />
-								</span>
-								<div className="flex-1 min-w-0">
-									<div className="text-xs font-medium text-sidebar-ink truncate font-mono">
-										{getPathDisplay(sdPath)}
+							<div className="flex items-start gap-3">
+								{/* Thumbnail */}
+								<div className="shrink-0">
+									<FileComponent.Thumb
+										file={instance}
+										size={64}
+										iconScale={0.5}
+										className="rounded overflow-hidden"
+									/>
+								</div>
+
+								{/* Info */}
+								<div className="flex-1 min-w-0 space-y-1.5">
+									<div className="flex items-start justify-between gap-2">
+										<div className="flex-1 min-w-0">
+											<div className="text-xs font-medium text-sidebar-ink truncate">
+												{instance.name}
+												{instance.extension &&
+													`.${instance.extension}`}
+											</div>
+											<div className="text-[11px] text-sidebar-inkDull mt-0.5">
+												{formatBytes(instance.size)}
+											</div>
+										</div>
+										<div
+											className={clsx(
+												"size-2 rounded-full shrink-0 mt-1",
+												instance.is_local
+													? "bg-accent"
+													: "bg-sidebar-inkDull/40",
+											)}
+											title={
+												instance.is_local
+													? "Available locally"
+													: "Remote"
+											}
+										/>
 									</div>
-									<div className="text-[11px] text-sidebar-inkDull mt-1">
-										{"Physical" in sdPath && "Local Device"}
-										{"Cloud" in sdPath && "Cloud Storage"}
-										{"Content" in sdPath &&
-											"Content Addressed"}
+
+									<div className="flex items-center gap-1.5 text-[11px] text-sidebar-inkDull">
+										<MapPin size={12} weight="bold" />
+										<span className="truncate">
+											{getDeviceDisplay(
+												instance.sd_path,
+											)}
+										</span>
+									</div>
+
+									<div className="text-[10px] text-sidebar-inkDull/70 font-mono truncate">
+										{getPathDisplay(instance.sd_path)}
+									</div>
+
+									<div className="text-[10px] text-sidebar-inkDull/70">
+										Modified{" "}
+										{formatDate(instance.modified_at)}
 									</div>
 								</div>
-								<div className="size-2 rounded-full shrink-0 mt-1 bg-accent" />
 							</div>
 						</div>
 					))}
