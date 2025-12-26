@@ -807,22 +807,22 @@ function SidecarItem({
 	// Get appropriate Spacedrive icon based on sidecar format/kind
 	const getSidecarIcon = () => {
 		const format = String(sidecar.format).toLowerCase();
-		
+
 		// PLY files (3D mesh) use Mesh icon
 		if (format === "ply") {
 			return getIcon("Mesh", true);
 		}
-		
+
 		// Text files use Text icon
 		if (format === "text" || format === "txt" || format === "srt") {
 			return getIcon("Text", true);
 		}
-		
+
 		// Thumbs/thumbstrips use Image icon
 		if (sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") {
 			return getIcon("Image", true);
 		}
-		
+
 		// Default to Document icon
 		return getIcon("Document", true);
 	};
@@ -952,7 +952,6 @@ function SidecarItem({
 }
 
 function InstancesTab({ file }: { file: File }) {
-
 	// Query for alternate instances with full File data
 	const instancesQuery = useNormalizedQuery<
 		{ entry_uuid: string },
@@ -1062,14 +1061,12 @@ function InstancesTab({ file }: { file: File }) {
 
 									{/* List of instances */}
 									<div className="space-y-0.5">
-										{deviceInstances.map(
-											(instance, i) => (
-												<InstanceRow
-													key={i}
-													instance={instance}
-												/>
-											),
-										)}
+										{deviceInstances.map((instance, i) => (
+											<InstanceRow
+												key={i}
+												instance={instance}
+											/>
+										))}
 									</div>
 								</div>
 							);

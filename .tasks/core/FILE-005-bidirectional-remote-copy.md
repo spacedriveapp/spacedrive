@@ -1,7 +1,7 @@
 ---
 id: FILE-005
 title: Bidirectional Remote File Copy (PULL Support)
-status: In Progress
+status: Done
 assignee: jamiepine
 parent: FILE-000
 priority: High
@@ -15,6 +15,7 @@ Extend the FileCopyJob to support bidirectional file transfers, enabling files t
 ## Problem Statement
 
 **Current State:**
+
 - ✅ PUSH: `local://device-a/file.jpg` → `local://device-b/dest/` (works)
 - ❌ PULL: `local://device-b/file.jpg` → `local://device-a/dest/` (fails with "Source must be local path")
 
@@ -35,6 +36,7 @@ let local_path = source
 ```
 
 Flow:
+
 ```
 Device A (local):  Has file, creates job
                    ↓
@@ -102,10 +104,13 @@ Device A (local):  Receives chunks, writes to destination
 ### Phase 1: Protocol Extension
 
 **Files:**
+
 - `core/src/service/network/protocol/file_transfer.rs`
 
 **Changes:**
+
 1. Add new message types to `FileTransferMessage` enum:
+
    ```rust
    pub enum FileTransferMessage {
        // Existing PUSH messages
@@ -135,10 +140,13 @@ Device A (local):  Receives chunks, writes to destination
 ### Phase 2: Strategy Refactor
 
 **Files:**
+
 - `core/src/ops/files/copy/strategy.rs`
 
 **Changes:**
+
 1. Refactor `RemoteTransferStrategy::execute()` to detect direction:
+
    ```rust
    async fn execute(&self, ctx: &JobContext, source: &SdPath, dest: &SdPath, ...) -> Result<()> {
        let direction = Self::detect_direction(source, dest, ctx)?;
@@ -153,6 +161,7 @@ Device A (local):  Receives chunks, writes to destination
 2. Extract current logic into `execute_push()` (minimal refactor)
 
 3. Implement new `execute_pull()`:
+
    ```rust
    async fn execute_pull(
        &self,
@@ -269,10 +278,13 @@ Device A (local):  Receives chunks, writes to destination
 ### Phase 3: Protocol Handler Implementation
 
 **Files:**
+
 - `core/src/service/network/protocol/file_transfer.rs`
 
 **Changes:**
+
 1. Add `handle_pull_request()` method:
+
    ```rust
    async fn handle_pull_request(
        &self,
@@ -329,6 +341,7 @@ Device A (local):  Receives chunks, writes to destination
    ```
 
 2. Add path validation:
+
    ```rust
    async fn validate_path_access(&self, path: &Path, requested_by: Uuid) -> Result<bool> {
        // Check if path is within a library location
@@ -346,9 +359,11 @@ Device A (local):  Receives chunks, writes to destination
 ### Phase 4: Testing
 
 **Files:**
+
 - `core/tests/file_copy_pull.rs` (new)
 
 **Test Cases:**
+
 1. **Basic PULL**: Copy single file from remote device to local
 2. **Large file PULL**: Test chunked transfer with progress
 3. **Checksum verification**: Verify Blake3 validation on PULL
@@ -360,9 +375,11 @@ Device A (local):  Receives chunks, writes to destination
 ### Phase 5: UI Integration
 
 **Files:**
+
 - `packages/interface/src/app/$libraryId/Explorer/DragAndDrop.tsx`
 
 **Changes:**
+
 - Remove/update any UI-level blocking for remote files
 - Ensure drag-from-remote-to-local triggers FileCopyJob correctly
 - Update error messages to be more helpful

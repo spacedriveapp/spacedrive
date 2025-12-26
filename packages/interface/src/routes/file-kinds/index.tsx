@@ -117,16 +117,22 @@ export function FileKindsView() {
 			</div>
 
 			{/* Content Grid */}
-			<div className="flex-1 overflow-auto p-6">
-				<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+			<div className="flex-1 overflow-auto p-3">
+				<div
+					className="grid"
+					style={{
+						gridTemplateColumns:
+							"repeat(auto-fill, minmax(140px, 1fr))",
+						gap: "8px",
+					}}
+				>
 					{stats.map((stat) => {
-						// Get config for this content kind
 						const config =
 							CONTENT_KIND_CONFIG[stat.name] ||
 							CONTENT_KIND_CONFIG.unknown;
 						const icon = getIcon(
 							config.iconName,
-							true, // Dark theme
+							true,
 							null,
 							false,
 						);
@@ -135,49 +141,25 @@ export function FileKindsView() {
 							<button
 								key={stat.name}
 								onClick={() => handleKindClick(stat.kind)}
-								className="relative flex flex-col items-start p-6 rounded-lg border border-app-line hover:bg-app-box/30 transition-all group"
+								className="flex flex-col items-center justify-center p-4 rounded-lg hover:bg-app-box/50 transition-colors group aspect-square"
 							>
 								<img
 									src={icon}
 									alt={stat.name}
-									className="absolute top-6 right-6 w-16 h-16"
+									className="w-16 h-16 mb-3"
 								/>
-								<div className="w-full text-left">
-									<div className="text-lg font-semibold text-ink mb-1">
+								<div className="text-center w-full">
+									<div className="text-sm font-medium text-ink capitalize mb-1">
 										{stat.name}
 									</div>
-									<div className="flex items-baseline gap-2">
-										<span className="text-2xl font-bold text-ink">
-											{formatFileCount(
-												Number(stat.file_count),
-											)}
-										</span>
-										<span className="text-xs text-ink-dull">
-											{Number(stat.file_count) === 1
-												? "file"
-												: "files"}
-										</span>
+									<div className="text-xs text-ink-dull">
+										{formatFileCount(
+											Number(stat.file_count),
+										)}{" "}
+										{Number(stat.file_count) === 1
+											? "file"
+											: "files"}
 									</div>
-									{totalFiles > 0 && (
-										<div className="mt-2">
-											<div className="h-1 bg-app-line rounded-full overflow-hidden">
-												<div
-													className="h-full rounded-full transition-all bg-accent"
-													style={{
-														width: `${(Number(stat.file_count) / totalFiles) * 100}%`,
-													}}
-												/>
-											</div>
-											<div className="text-xs text-ink-faint mt-1">
-												{(
-													(Number(stat.file_count) /
-														totalFiles) *
-													100
-												).toFixed(1)}
-												% of library
-											</div>
-										</div>
-									)}
 								</div>
 							</button>
 						);
