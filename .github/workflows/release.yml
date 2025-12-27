@@ -159,6 +159,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install 7-Zip (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        shell: cmd
+        run: |
+          choco install 7zip -y
+          echo C:\Program Files\7-Zip>>"%GITHUB_PATH%"
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
