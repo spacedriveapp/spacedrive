@@ -135,8 +135,8 @@ jobs:
     steps:
       - name: Set PowerShell Execution Policy
         if: ${{ runner.os == 'Windows' }}
-        shell: powershell
-        run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+        shell: cmd
+        run: powershell -ExecutionPolicy Bypass -Command "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force"
 
       - name: Maximize build space
         if: ${{ runner.os == 'Linux' }}
@@ -151,10 +151,10 @@ jobs:
 
       - name: Symlink target to C:\
         if: ${{ runner.os == 'Windows' }}
-        shell: powershell
+        shell: cmd
         run: |
-          New-Item -ItemType Directory -Force -Path C:\spacedrive_target
-          New-Item -Path target -ItemType Junction -Value C:\spacedrive_target
+          powershell -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Force -Path C:\spacedrive_target"
+          powershell -ExecutionPolicy Bypass -Command "New-Item -Path target -ItemType Junction -Value C:\spacedrive_target"
 
       - name: Checkout repository
         uses: actions/checkout@v4
