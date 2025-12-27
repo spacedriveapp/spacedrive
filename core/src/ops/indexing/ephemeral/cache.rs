@@ -6,15 +6,16 @@
 //! paths are indexed (queryable), in-progress (being scanned), or watched
 //! (receiving live filesystem updates via `MemoryAdapter`).
 
-use super::EphemeralIndex;
+use super::{EphemeralIndex, EphemeralSidecarCache};
 use parking_lot::RwLock;
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::Arc,
 	time::Instant,
 };
 use tokio::sync::RwLock as TokioRwLock;
+use uuid::Uuid;
 
 /// Global cache with a single unified ephemeral index
 ///
@@ -33,6 +34,9 @@ pub struct EphemeralIndexCache {
 	/// Paths registered for filesystem watching (subset of indexed_paths)
 	watched_paths: RwLock<HashSet<PathBuf>>,
 
+	/// Ephemeral sidecar caches per library (lazy-initialized)
+	sidecar_caches: RwLock<HashMap<Uuid, Arc<EphemeralSidecarCache>>>,
+
 	/// When the cache was created
 	created_at: Instant,
 }
@@ -45,6 +49,7 @@ impl EphemeralIndexCache {
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
+			sidecar_caches: RwLock::new(HashMap::new()),
 			created_at: Instant::now(),
 		})
 	}
@@ -228,6 +233,10 @@ impl EphemeralIndexCache {
 	}
 
 	/// Clear the entire cache (all paths and entries)
+	///
+	/// Also clears all ephemeral sidecars across all libraries. This is a
+	/// complete cache reset, typically called on app shutdown or manual cache
+	/// clear action.
 	pub async fn clear_all(&self) -> usize {
 		let cleared_paths = {
 			let mut indexed = self.indexed_paths.write();
@@ -243,10 +252,44 @@ impl EphemeralIndexCache {
 			count
 		};
 
+		// Clear all ephemeral sidecars
+		let sidecar_caches = {
+			let mut caches = self.sidecar_caches.write();
+			std::mem::take(&mut *caches)
+		};
+
+		for (_, cache) in sidecar_caches {
+			let _ = cache.clear_all().await;
+		}
+
 		let mut index = self.index.write().await;
 		*index = EphemeralIndex::new().expect("Failed to create new ephemeral index");
 
 		cleared_paths
+	}
+
+	/// Get or create the ephemeral sidecar cache for a library
+	///
+	/// Sidecar caches are lazy-initialized per library on first access.
+	/// The cache is stored in memory and persists for the lifetime of this
+	/// `EphemeralIndexCache` instance.
+	pub fn get_sidecar_cache(&self, library_id: Uuid) -> Arc<EphemeralSidecarCache> {
+		let caches = self.sidecar_caches.read();
+		if let Some(cache) = caches.get(&library_id) {
+			return cache.clone();
+		}
+		drop(caches);
+
+		let mut caches = self.sidecar_caches.write();
+		caches
+			.entry(library_id)
+			.or_insert_with(|| {
+				Arc::new(
+					EphemeralSidecarCache::new(library_id)
+						.expect("Failed to create ephemeral sidecar cache"),
+				)
+			})
+			.clone()
 	}
 
 	/// Get cache statistics

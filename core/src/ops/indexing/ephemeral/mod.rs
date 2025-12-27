@@ -43,6 +43,7 @@ pub mod index;
 pub mod name;
 pub mod registry;
 pub mod responder;
+pub mod sidecar_cache;
 pub mod types;
 pub mod writer;
 
@@ -52,5 +53,6 @@ pub use cache::EphemeralIndexCache;
 pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
+pub use sidecar_cache::{EphemeralSidecarCache, EphemeralSidecarCacheStats};
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
 pub use writer::MemoryAdapter;

@@ -16,6 +16,29 @@ use std::{net::Ipv4Addr, path::PathBuf};
 use tokio::{fs::File, io, net::TcpListener};
 use tracing::{error, info};
 
+/// Validate a path segment to prevent directory traversal attacks.
+///
+/// Rejects segments containing `..`, path separators, or null bytes. These checks
+/// prevent attackers from escaping the intended directory via URL-encoded sequences
+/// like `%2E%2E` (which Axum decodes to `..` before we see it).
+fn is_safe_path_segment(segment: &str) -> bool {
+	// Reject empty segments
+	if segment.is_empty() {
+		return false;
+	}
+
+	// Reject segments containing path traversal or separator characters
+	if segment.contains("..")
+		|| segment.contains('/')
+		|| segment.contains('\\')
+		|| segment.contains('\0')
+	{
+		return false;
+	}
+
+	true
+}
+
 #[derive(Clone)]
 pub struct ServerState {
 	/// Path to the Spacedrive data directory
@@ -59,15 +82,57 @@ async fn find_library_folder(
 }
 
 /// Serve a sidecar file (e.g., thumbnail)
+///
+/// Supports both managed sidecars (content-addressed in library folder) and
+/// ephemeral sidecars (entry-addressed in temp directory). Tries managed
+/// first, falls back to ephemeral if not found.
 async fn serve_sidecar(
 	State(state): State<ServerState>,
 	Path((library_id, content_uuid, kind, variant_and_ext)): Path<(String, String, String, String)>,
 ) -> Result<Response<Body>, StatusCode> {
+	// Try managed sidecar first (content-addressed)
+	if let Ok(response) =
+		serve_managed_sidecar(&state, &library_id, &content_uuid, &kind, &variant_and_ext).await
+	{
+		return Ok(response);
+	}
+
+	// Fall back to ephemeral sidecar (entry-addressed)
+	serve_ephemeral_sidecar(&state, &library_id, &content_uuid, &kind, &variant_and_ext).await
+}
+
+/// Serve a managed sidecar (content-addressed in library folder)
+async fn serve_managed_sidecar(
+	state: &ServerState,
+	library_id: &str,
+	content_uuid: &str,
+	kind: &str,
+	variant_and_ext: &str,
+) -> Result<Response<Body>, StatusCode> {
+	// Security: validate all user-provided path segments to prevent directory traversal.
+	// Axum URL-decodes segments, so `%2E%2E` becomes `..` before reaching this code.
+	if !is_safe_path_segment(library_id)
+		|| !is_safe_path_segment(content_uuid)
+		|| !is_safe_path_segment(kind)
+		|| !is_safe_path_segment(variant_and_ext)
+	{
+		error!(
+			"Invalid path segment detected: library_id={:?}, content_uuid={:?}, kind={:?}, variant={:?}",
+			library_id, content_uuid, kind, variant_and_ext
+		);
+		return Err(StatusCode::BAD_REQUEST);
+	}
+
 	// Find the actual library folder (might be named differently than the ID)
-	let library_folder = find_library_folder(&state.data_dir, &library_id).await?;
+	let library_folder = find_library_folder(&state.data_dir, library_id).await?;
 
 	// Actual path structure: sidecars/content/{first2}/{next2}/{uuid}/{kind}s/{variant}.{ext}
 	// Example: sidecars/content/0c/c0/0cc0b48f-a475-53ec-a580-bc7d47b486a9/thumbs/detail@1x.webp
+	// content_uuid is validated above, so indexing is safe (minimum 4 chars for UUID prefix)
+	if content_uuid.len() < 4 {
+		error!("Content UUID too short: {:?}", content_uuid);
+		return Err(StatusCode::BAD_REQUEST);
+	}
 	let first_two = &content_uuid[0..2];
 	let next_two = &content_uuid[2..4];
 
@@ -83,11 +148,12 @@ async fn serve_sidecar(
 		.join("content")
 		.join(first_two)
 		.join(next_two)
-		.join(&content_uuid)
+		.join(content_uuid)
 		.join(&kind_dir)
-		.join(&variant_and_ext);
+		.join(variant_and_ext);
 
-	// Security: prevent directory traversal
+	// Secondary defense: verify the constructed path is under the expected root.
+	// This catches edge cases the segment validation might miss.
 	let sidecars_root = state.data_dir.join("libraries");
 	if !sidecar_path.starts_with(&sidecars_root) {
 		error!(
@@ -100,16 +166,82 @@ async fn serve_sidecar(
 	// Open the file
 	let file = File::open(&sidecar_path).await.map_err(|e| {
 		if e.kind() == io::ErrorKind::NotFound {
-			error!("Sidecar file not found: {:?}", sidecar_path);
 			StatusCode::NOT_FOUND
 		} else {
-			error!("Error opening sidecar {:?}: {}", sidecar_path, e);
+			error!("Error opening managed sidecar {:?}: {}", sidecar_path, e);
 			StatusCode::INTERNAL_SERVER_ERROR
 		}
 	})?;
 
+	serve_file(file, variant_and_ext).await
+}
+
+/// Serve an ephemeral sidecar (entry-addressed in temp directory)
+async fn serve_ephemeral_sidecar(
+	_state: &ServerState,
+	library_id: &str,
+	entry_uuid: &str,
+	kind: &str,
+	variant_and_ext: &str,
+) -> Result<Response<Body>, StatusCode> {
+	// Security: validate all user-provided path segments to prevent directory traversal.
+	// Axum URL-decodes segments, so `%2E%2E` becomes `..` before reaching this code.
+	if !is_safe_path_segment(library_id)
+		|| !is_safe_path_segment(entry_uuid)
+		|| !is_safe_path_segment(kind)
+		|| !is_safe_path_segment(variant_and_ext)
+	{
+		error!(
+			"Invalid path segment in ephemeral: library_id={:?}, entry_uuid={:?}, kind={:?}, variant={:?}",
+			library_id, entry_uuid, kind, variant_and_ext
+		);
+		return Err(StatusCode::BAD_REQUEST);
+	}
+
+	// Ephemeral path structure: /tmp/spacedrive-ephemeral-{library_id}/sidecars/entry/{entry_uuid}/{kind}s/{variant}.{ext}
+	let temp_root = std::env::temp_dir()
+		.join(format!("spacedrive-ephemeral-{}", library_id))
+		.join("sidecars");
+
+	let kind_dir = if kind == "transcript" {
+		kind.to_string()
+	} else {
+		format!("{}s", kind)
+	};
+
+	let sidecar_path = temp_root
+		.join("entry")
+		.join(entry_uuid)
+		.join(&kind_dir)
+		.join(variant_and_ext);
+
+	// Secondary defense: verify the constructed path is under the expected root.
+	// This catches edge cases the segment validation might miss.
+	if !sidecar_path.starts_with(&temp_root) {
+		error!(
+			"Directory traversal attempt in ephemeral: {:?} not under {:?}",
+			sidecar_path, temp_root
+		);
+		return Err(StatusCode::FORBIDDEN);
+	}
+
+	// Open the file
+	let file = File::open(&sidecar_path).await.map_err(|e| {
+		if e.kind() == io::ErrorKind::NotFound {
+			StatusCode::NOT_FOUND
+		} else {
+			error!("Error opening ephemeral sidecar {:?}: {}", sidecar_path, e);
+			StatusCode::INTERNAL_SERVER_ERROR
+		}
+	})?;
+
+	serve_file(file, variant_and_ext).await
+}
+
+/// Common file serving logic
+async fn serve_file(file: File, variant_and_ext: &str) -> Result<Response<Body>, StatusCode> {
 	let metadata = file.metadata().await.map_err(|e| {
-		error!("Error reading metadata for {:?}: {}", sidecar_path, e);
+		error!("Error reading file metadata: {}", e);
 		StatusCode::INTERNAL_SERVER_ERROR
 	})?;
 
@@ -121,6 +253,8 @@ async fn serve_sidecar(
 			"webp" => Some("image/webp"),
 			"jpg" | "jpeg" => Some("image/jpeg"),
 			"png" => Some("image/png"),
+			"mp4" => Some("video/mp4"),
+			"txt" => Some("text/plain"),
 			_ => None,
 		})
 		.unwrap_or("application/octet-stream");
