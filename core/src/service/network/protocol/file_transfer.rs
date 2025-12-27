@@ -40,6 +40,11 @@ pub struct FileTransferProtocolHandler {
 		Option<Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>>,
 	/// Logger for protocol operations
 	logger: Arc<dyn NetworkLogger>,
+	/// Allowed paths for file transfers (indexed locations).
+	/// File writes are restricted to these directories for security.
+	allowed_paths: Arc<RwLock<Vec<PathBuf>>>,
+	/// Core context for dynamic location lookup (if available).
+	core_context: Option<std::sync::Arc<crate::context::CoreContext>>,
 }
 
 /// Configuration for file transfers
@@ -228,6 +233,8 @@ impl FileTransferProtocolHandler {
 			config,
 			device_registry: None,
 			logger,
+			allowed_paths: Arc::new(RwLock::new(Vec::new())),
+			core_context: None,
 		}
 	}
 
@@ -333,6 +340,113 @@ impl FileTransferProtocolHandler {
 		device_registry: Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>,
 	) {
 		self.device_registry = Some(device_registry);
+	}
+
+	/// Set the allowed paths for file transfers.
+	/// Only paths under these directories will be accepted for read/write operations.
+	/// This is a critical security measure to prevent arbitrary file access.
+	pub fn set_allowed_paths(&self, paths: Vec<PathBuf>) {
+		let mut allowed = self.allowed_paths.write().unwrap();
+		*allowed = paths;
+	}
+
+	/// Add a single allowed path.
+	pub fn add_allowed_path(&self, path: PathBuf) {
+		let mut allowed = self.allowed_paths.write().unwrap();
+		if !allowed.iter().any(|p| p == &path) {
+			allowed.push(path);
+		}
+	}
+
+	/// Set the core context for dynamic location lookup.
+	/// This enables the handler to query registered locations from all libraries.
+	pub fn set_context(&mut self, context: std::sync::Arc<crate::context::CoreContext>) {
+		self.core_context = Some(context);
+	}
+
+	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
+	/// This queries all libraries for their registered locations.
+	fn get_all_allowed_paths(&self) -> Vec<PathBuf> {
+		let mut paths = Vec::new();
+
+		// Add statically configured allowed paths
+		{
+			let allowed = self.allowed_paths.read().unwrap();
+			paths.extend(allowed.clone());
+		}
+
+		// Add dynamic location paths from all libraries via CoreContext
+		if let Some(ctx) = &self.core_context {
+			let library_manager_guard = ctx.library_manager.blocking_read();
+			if let Some(library_manager) = library_manager_guard.as_ref() {
+				// Get all active libraries using tokio's block_on (safe in async context)
+				let library_list: Vec<std::sync::Arc<crate::library::Library>> =
+					tokio::runtime::Handle::current().block_on(library_manager.list());
+				for library in library_list {
+					// Get locations for this library using LocationManager
+					let location_manager =
+						crate::location::LocationManager::new((*ctx.events).clone());
+					if let Ok(locations) = tokio::runtime::Handle::current()
+						.block_on(location_manager.list_locations(&library))
+					{
+						for loc in locations {
+							paths.push(loc.path.clone());
+						}
+					}
+				}
+			}
+		}
+
+		paths
+	}
+
+	/// Check if a path is within one of the allowed paths.
+	/// Uses canonicalization to prevent traversal attacks.
+	fn is_path_allowed(&self, path: &std::path::Path) -> bool {
+		// Canonicalize the target path to resolve symlinks and `..`
+		let canonical_path = match path.canonicalize() {
+			Ok(p) => p,
+			Err(_) => {
+				// If the path doesn't exist yet (for writes), check the parent
+				if let Some(parent) = path.parent() {
+					match parent.canonicalize() {
+						Ok(p) => p,
+						Err(_) => return false, // Parent doesn't exist
+					}
+				} else {
+					return false; // No parent (root path)
+				}
+			}
+		};
+
+		// Get all allowed paths (static + dynamic from locations)
+		let allowed_paths = self.get_all_allowed_paths();
+
+		// If no allowed paths are configured and no context, deny all (fail-safe)
+		if allowed_paths.is_empty() {
+			tracing::warn!("No allowed paths configured for file transfer - denying access");
+			return false;
+		}
+
+		for allowed_root in allowed_paths.iter() {
+			// Canonicalize the allowed root for comparison
+			let canonical_root = match allowed_root.canonicalize() {
+				Ok(p) => p,
+				Err(_) => continue, // Skip non-existent allowed paths
+			};
+
+			// Check if the target path starts with the allowed root
+			if canonical_path.starts_with(&canonical_root) {
+				return true;
+			}
+		}
+
+		tracing::warn!(
+			"Path {:?} is not within any allowed location. Allowed: {:?}",
+			path,
+			allowed_paths.iter().take(5).collect::<Vec<_>>() // Log first 5 for brevity
+		);
+		false
 	}
 
 	/// Derive chunk encryption key from session keys
@@ -552,6 +666,22 @@ impl FileTransferProtocolHandler {
 			..
 		} = request
 		{
+			// SECURITY: Validate destination path is within allowed locations
+			let dest_path = std::path::Path::new(&destination_path);
+			if !self.is_path_allowed(dest_path) {
+				tracing::warn!(
+					path = %destination_path,
+					from_device = %from_device,
+					"Transfer request rejected: destination path outside allowed locations"
+				);
+				return Ok(FileTransferMessage::TransferResponse {
+					transfer_id,
+					accepted: false,
+					reason: Some("Destination path not within allowed locations".to_string()),
+					supported_resume: false,
+				});
+			}
+
 			// For trusted devices, auto-accept transfers
 			let accepted = match transfer_mode {
 				TransferMode::TrustedCopy => true,
@@ -851,6 +981,22 @@ impl FileTransferProtocolHandler {
 			))
 			.await;
 
+		// Validate destination path is within allowed locations
+		// This prevents arbitrary file write attacks from malicious peers.
+		let dest_path_buf = PathBuf::from(&destination_path);
+		if !self.is_path_allowed(&dest_path_buf) {
+			self.logger
+				.warn(&format!(
+					"Transfer {} rejected: destination path {:?} is not within allowed locations",
+					transfer_id, destination_path
+				))
+				.await;
+			return Err(NetworkingError::Protocol(format!(
+				"Destination path not allowed: {}",
+				destination_path
+			)));
+		}
+
 		// Create new transfer session
 		let session = TransferSession {
 			id: transfer_id,
@@ -1004,6 +1150,7 @@ impl FileTransferProtocolHandler {
 
 	/// Validate that a path is safe to access for PULL requests.
 	/// Prevents directory traversal attacks and enforces access boundaries.
+	/// SECURITY: Only allows access to files within registered locations.
 	fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
 		// Normalize path to prevent directory traversal.
 		// canonicalize() resolves all symlinks and `..` components.
@@ -1017,8 +1164,15 @@ impl FileTransferProtocolHandler {
 			return false;
 		}
 
-		// Note: Device pairing already establishes trust. Additional library-level
-		// access control (restricting to indexed locations) can be added later.
+		// Validate path is within allowed locations
+		// This prevents arbitrary file read attacks from malicious peers.
+		if !self.is_path_allowed(&normalized) {
+			tracing::warn!(
+				"Path access denied: {:?} is not within allowed locations",
+				path
+			);
+			return false;
+		}
 
 		true
 	}
@@ -1722,5 +1876,122 @@ mod tests {
 		assert!(handler
 			.update_session_state(&transfer_id, TransferState::Active)
 			.is_err());
+	}
+
+	// Path validation security tests
+
+	#[test]
+	fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the only allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed");
+		std::fs::create_dir_all(&temp_dir).ok();
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path outside allowed location should be REJECTED
+		let outside_path = std::path::Path::new("/etc/passwd");
+		assert!(
+			!handler.is_path_allowed(outside_path),
+			"Paths outside allowed locations must be rejected"
+		);
+
+		// Test: Windows system path should be REJECTED
+		#[cfg(windows)]
+		{
+			let system_path = std::path::Path::new("C:\\Windows\\System32\\config\\SAM");
+			assert!(
+				!handler.is_path_allowed(system_path),
+				"System paths must be rejected"
+			);
+		}
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[test]
+	fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed_inner");
+		let inner_path = temp_dir.join("subdir").join("file.txt");
+		std::fs::create_dir_all(inner_path.parent().unwrap()).ok();
+		std::fs::write(&inner_path, "test content").ok();
+
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path inside allowed location should be ACCEPTED
+		assert!(
+			handler.is_path_allowed(&inner_path),
+			"Paths inside allowed locations should be accepted"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[test]
+	fn test_is_path_allowed_rejects_traversal_attempts() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the only allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_traversal");
+		std::fs::create_dir_all(&temp_dir).ok();
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path traversal attempt should be REJECTED
+		// Note: canonicalize() will resolve this, but if it resolves outside, it's rejected
+		let traversal_path = temp_dir.join("..").join("..").join("etc").join("passwd");
+		assert!(
+			!handler.is_path_allowed(&traversal_path),
+			"Path traversal attempts must be rejected"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[test]
+	fn test_is_path_allowed_denies_all_when_no_paths_configured() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Don't configure any allowed paths - this should deny ALL access (fail-safe)
+		let any_path = std::env::temp_dir().join("some_file.txt");
+		assert!(
+			!handler.is_path_allowed(&any_path),
+			"When no allowed paths configured, all access should be denied"
+		);
+	}
+
+	#[test]
+	fn test_add_allowed_path_works() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_add_path");
+		std::fs::create_dir_all(&temp_dir).ok();
+		let file_path = temp_dir.join("test_file.txt");
+		std::fs::write(&file_path, "content").ok();
+
+		// Initially denied
+		assert!(!handler.is_path_allowed(&file_path));
+
+		// Add the path
+		handler.add_allowed_path(temp_dir.clone());
+
+		// Now allowed
+		assert!(
+			handler.is_path_allowed(&file_path),
+			"add_allowed_path should permit access to paths within the added directory"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
 	}
 }
