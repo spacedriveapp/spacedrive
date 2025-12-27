@@ -119,17 +119,17 @@ jobs:
           #   os: darwin
           #   arch: x86_64
           # Windows builds
-          # - host: windows-latest
-          #   target: x86_64-pc-windows-msvc
-          #   bundles: msi
-          #   os: windows
-          #   arch: x86_64
-          # Linux builds
-          - host: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
-            bundles: deb
-            os: linux
+          - host: self-hosted
+            target: x86_64-pc-windows-msvc
+            bundles: msi
+            os: windows
             arch: x86_64
+          # Linux builds
+          # - host: ubuntu-22.04
+          #   target: x86_64-unknown-linux-gnu
+          #   bundles: deb
+          #   os: linux
+          #   arch: x86_64
     name: Desktop - Main ${{ matrix.settings.target }}
     runs-on: ${{ matrix.settings.host }}
     steps:
