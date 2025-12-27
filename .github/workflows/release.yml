@@ -163,7 +163,7 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         shell: cmd
         run: |
-          choco install 7zip -y
+          winget install --id 7zip.7zip --silent --accept-package-agreements --accept-source-agreements
           echo C:\Program Files\7-Zip>>"%GITHUB_PATH%"
 
       - name: Setup Rust
