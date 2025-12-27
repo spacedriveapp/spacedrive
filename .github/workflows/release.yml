@@ -154,6 +154,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set PowerShell Execution Policy
+        if: ${{ runner.os == 'Windows' }}
+        shell: powershell
+        run: Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
