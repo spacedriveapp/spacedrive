@@ -773,7 +773,7 @@ impl IndexerJob {
 				kind: entry_kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
-				inode: DatabaseStorage::get_inode(&metadata),
+				inode: DatabaseStorage::get_inode(&path, &metadata),
 			};
 
 			state.pending_entries.push(dir_entry);

@@ -38,21 +38,49 @@ impl LocalBackend {
 	}
 
 	/// Extract inode from metadata (platform-specific)
+	///
+	/// On Unix/Linux/macOS, extracts the inode number directly from metadata.
+	/// On Windows NTFS, opens the file to retrieve the 64-bit File ID.
+	/// Returns None on FAT32/exFAT filesystems or when file access fails.
 	#[cfg(unix)]
-	fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
+	fn get_inode(_path: &Path, metadata: &std::fs::Metadata) -> Option<u64> {
 		use std::os::unix::fs::MetadataExt;
 		Some(metadata.ino())
 	}
 
 	#[cfg(windows)]
-	fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
-		// Windows 'file_index' is unstable (issue #63010).
-		// Returning None is safe as the field is Optional.
-		None
+	fn get_inode(path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
+		use std::os::windows::io::AsRawHandle;
+		use windows_sys::Win32::Storage::FileSystem::{
+			GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+		};
+
+		// Open file to get handle for File ID extraction
+		let file = match std::fs::File::open(path) {
+			Ok(f) => f,
+			Err(_) => return None, // File access failed (e.g., permission denied)
+		};
+
+		let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+
+		unsafe {
+			if GetFileInformationByHandle(file.as_raw_handle() as isize, &mut info) != 0 {
+				let file_id = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
+
+				// File ID of 0 indicates FAT32/exFAT (no File ID support)
+				if file_id == 0 {
+					None
+				} else {
+					Some(file_id)
+				}
+			} else {
+				None // GetFileInformationByHandle failed
+			}
+		}
 	}
 
 	#[cfg(not(any(unix, windows)))]
-	fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+	fn get_inode(_path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
 		None
 	}
 }
@@ -141,12 +169,14 @@ impl VolumeBackend for LocalBackend {
 				EntryKind::File
 			};
 
+			let entry_path = entry.path();
+
 			entries.push(RawDirEntry {
 				name: entry.file_name().to_string_lossy().to_string(),
 				kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
-				inode: Self::get_inode(&metadata),
+				inode: Self::get_inode(&entry_path, &metadata),
 			});
 		}
 
@@ -184,7 +214,7 @@ impl VolumeBackend for LocalBackend {
 			modified: metadata.modified().ok(),
 			created: metadata.created().ok(),
 			accessed: metadata.accessed().ok(),
-			inode: Self::get_inode(&metadata),
+			inode: Self::get_inode(&full_path, &metadata),
 			permissions,
 		})
 	}

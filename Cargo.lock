@@ -8981,6 +8981,7 @@ dependencies = [
  "webp",
  "whisper-rs",
  "whoami",
+ "windows-sys 0.52.0",
  "x25519-dalek",
 ]
 
