@@ -50,21 +50,40 @@ impl LocalBackend {
 
 	#[cfg(windows)]
 	fn get_inode(path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
-		use std::os::windows::io::AsRawHandle;
+		use std::os::windows::ffi::OsStrExt;
+		use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
 		use windows_sys::Win32::Storage::FileSystem::{
-			GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+			FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+			OPEN_EXISTING,
+		};
+		use windows_sys::Win32::System::SystemServices::GENERIC_READ;
+
+		// Convert path to wide string for Windows API
+		let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+		// Use CreateFileW with FILE_FLAG_BACKUP_SEMANTICS to allow opening directories.
+		// std::fs::File::open fails for directories on Windows without this flag.
+		let handle = unsafe {
+			CreateFileW(
+				wide_path.as_ptr(),
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				std::ptr::null(),
+				OPEN_EXISTING,
+				FILE_FLAG_BACKUP_SEMANTICS, // Required to open directories
+				std::ptr::null_mut(),
+			)
 		};
 
-		// Open file to get handle for File ID extraction
-		let file = match std::fs::File::open(path) {
-			Ok(f) => f,
-			Err(_) => return None, // File access failed (e.g., permission denied)
-		};
+		if handle == INVALID_HANDLE_VALUE {
+			return None; // Failed to open path (e.g., permission denied)
+		}
 
 		let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
 
-		unsafe {
-			if GetFileInformationByHandle(file.as_raw_handle() as isize, &mut info) != 0 {
+		let result = unsafe {
+			if GetFileInformationByHandle(handle, &mut info) != 0 {
 				let file_id = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
 
 				// File ID of 0 indicates FAT32/exFAT (no File ID support)
@@ -76,7 +95,14 @@ impl LocalBackend {
 			} else {
 				None // GetFileInformationByHandle failed
 			}
+		};
+
+		// Always close the handle
+		unsafe {
+			CloseHandle(handle);
 		}
+
+		result
 	}
 
 	#[cfg(not(any(unix, windows)))]

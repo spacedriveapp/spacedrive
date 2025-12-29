@@ -149,28 +149,44 @@ impl DatabaseStorage {
 
 	#[cfg(windows)]
 	pub fn get_inode(path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
-		use std::os::windows::io::AsRawHandle;
+		use std::os::windows::ffi::OsStrExt;
+		use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
 		use windows_sys::Win32::Storage::FileSystem::{
-			GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+			FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+			OPEN_EXISTING,
+		};
+		use windows_sys::Win32::System::SystemServices::GENERIC_READ;
+
+		// Convert path to wide string for Windows API
+		let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+		// Use CreateFileW with FILE_FLAG_BACKUP_SEMANTICS to allow opening directories.
+		// std::fs::File::open fails for directories on Windows without this flag.
+		let handle = unsafe {
+			CreateFileW(
+				wide_path.as_ptr(),
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				std::ptr::null(),
+				OPEN_EXISTING,
+				FILE_FLAG_BACKUP_SEMANTICS, // Required to open directories
+				std::ptr::null_mut(),
+			)
 		};
 
-		// Open file to get handle for File ID extraction
-		let file = match std::fs::File::open(path) {
-			Ok(f) => f,
-			Err(e) => {
-				tracing::debug!(
-					"Failed to open file for File ID extraction ({}): {}",
-					path.display(),
-					e
-				);
-				return None;
-			}
-		};
+		if handle == INVALID_HANDLE_VALUE {
+			tracing::debug!(
+				"Failed to open path for File ID extraction: {}",
+				path.display()
+			);
+			return None;
+		}
 
 		let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
 
-		unsafe {
-			if GetFileInformationByHandle(file.as_raw_handle() as isize, &mut info) != 0 {
+		let result = unsafe {
+			if GetFileInformationByHandle(handle, &mut info) != 0 {
 				// Combine high and low 32-bit values into 64-bit File ID
 				let file_id = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
 
@@ -180,16 +196,15 @@ impl DatabaseStorage {
 						"File ID is 0 for {:?} (likely FAT32/exFAT filesystem)",
 						path.file_name().unwrap_or_default()
 					);
-					return None;
+					None
+				} else {
+					tracing::trace!(
+						"Extracted File ID: 0x{:016X} for {:?}",
+						file_id,
+						path.file_name().unwrap_or_default()
+					);
+					Some(file_id)
 				}
-
-				tracing::trace!(
-					"Extracted File ID: 0x{:016X} for {:?}",
-					file_id,
-					path.file_name().unwrap_or_default()
-				);
-
-				Some(file_id)
 			} else {
 				// GetFileInformationByHandle failed
 				// Common reasons: FAT32/exFAT filesystem, permission denied
@@ -199,7 +214,14 @@ impl DatabaseStorage {
 				);
 				None
 			}
+		};
+
+		// Always close the handle
+		unsafe {
+			CloseHandle(handle);
 		}
+
+		result
 	}
 
 	#[cfg(not(any(unix, windows)))]
