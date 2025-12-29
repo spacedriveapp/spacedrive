@@ -213,13 +213,49 @@ fn setup() -> Result<()> {
 	// Create target-suffixed daemon binary for Tauri bundler
 	// Tauri's externalBin appends the target triple to binary names
 	let target_triple = system.target_triple();
-	let daemon_source = project_root.join("target/release/sd-daemon");
-	let daemon_target = project_root.join(format!("target/release/sd-daemon-{}", target_triple));
+	let exe_ext = if cfg!(windows) { ".exe" } else { "" };
+	let daemon_source = project_root.join(format!("target/release/sd-daemon{}", exe_ext));
+	let daemon_target = project_root.join(format!(
+		"target/release/sd-daemon-{}{}",
+		target_triple, exe_ext
+	));
 
 	if daemon_source.exists() {
 		fs::copy(&daemon_source, &daemon_target)
 			.context("Failed to create target-suffixed daemon binary")?;
-		println!("   ✓ Created sd-daemon-{}", target_triple);
+		println!("   ✓ Created sd-daemon-{}{}", target_triple, exe_ext);
+	}
+
+	// On Windows, copy DLLs to target directories so executables can find them at runtime
+	#[cfg(windows)]
+	{
+		println!();
+		println!("Copying DLLs to target directories...");
+		let dll_source_dir = native_deps_dir.join("bin");
+		if dll_source_dir.exists() {
+			// Copy to both debug and release directories
+			for target_profile in ["debug", "release"] {
+				let target_dir = project_root.join("target").join(target_profile);
+				fs::create_dir_all(&target_dir).ok();
+
+				if let Ok(entries) = fs::read_dir(&dll_source_dir) {
+					for entry in entries.flatten() {
+						let path = entry.path();
+						if path.extension().map_or(false, |ext| ext == "dll") {
+							let dest = target_dir.join(path.file_name().unwrap());
+							if let Err(e) = fs::copy(&path, &dest) {
+								eprintln!(
+									"   Warning: Failed to copy {}: {}",
+									path.file_name().unwrap().to_string_lossy(),
+									e
+								);
+							}
+						}
+					}
+				}
+				println!("   ✓ DLLs copied to target/{}/", target_profile);
+			}
+		}
 	}
 
 	println!();
