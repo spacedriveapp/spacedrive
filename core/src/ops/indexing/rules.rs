@@ -545,6 +545,12 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
         RulePerKind::new_reject_files_by_globs_str(
             [
                 vec!["**/.spacedrive"],
+                // Cross-platform: macOS metadata files that can appear on any OS (network shares, USB drives, etc.)
+                vec![
+                    "**/.{DS_Store,AppleDouble,LSOverride}",
+                    "**/Icon\r\r",
+                    "**/._*",
+                ],
                 #[cfg(target_os = "windows")]
                 vec![
                     "**/{Thumbs.db,Thumbs.db:encryptable,ehthumbs.db,ehthumbs_vista.db}",
@@ -563,12 +569,6 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
                     "C:/{config,pagefile,hiberfil}.sys",
                     "[A-Z]:/swapfile.sys",
                     "C:/DumpStack.log.tmp",
-                ],
-                #[cfg(any(target_os = "ios", target_os = "macos"))]
-                vec![
-                    "**/.{DS_Store,AppleDouble,LSOverride}",
-                    "**/Icon\r\r",
-                    "**/._*",
                 ],
                 #[cfg(target_os = "macos")]
                 vec![
