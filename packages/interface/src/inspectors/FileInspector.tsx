@@ -55,6 +55,7 @@ interface FileInspectorProps {
 
 export function FileInspector({ file }: FileInspectorProps) {
 	const [activeTab, setActiveTab] = useState("overview");
+	const isDev = import.meta.env.DEV;
 
 	const fileQuery = useNormalizedQuery<{ file_id: string }, File>({
 		wireMethod: "query:files.by_id",
@@ -70,8 +71,8 @@ export function FileInspector({ file }: FileInspectorProps) {
 		{ id: "overview", label: "Overview", icon: Info },
 		{ id: "sidecars", label: "Sidecars", icon: Image },
 		{ id: "instances", label: "Instances", icon: MapPin },
-		{ id: "chat", label: "Chat", icon: ChatCircle, badge: 3 },
-		{ id: "activity", label: "Activity", icon: ClockCounterClockwise },
+		...(isDev ? [{ id: "chat", label: "Chat", icon: ChatCircle, badge: 3 }] : []),
+		...(isDev ? [{ id: "activity", label: "Activity", icon: ClockCounterClockwise }] : []),
 		{ id: "details", label: "More", icon: DotsThree },
 	];
 
@@ -94,13 +95,17 @@ export function FileInspector({ file }: FileInspectorProps) {
 					<InstancesTab file={fileData} />
 				</TabContent>
 
-				<TabContent id="chat" activeTab={activeTab}>
-					<ChatTab />
-				</TabContent>
+				{isDev && (
+					<TabContent id="chat" activeTab={activeTab}>
+						<ChatTab />
+					</TabContent>
+				)}
 
-				<TabContent id="activity" activeTab={activeTab}>
-					<ActivityTab />
-				</TabContent>
+				{isDev && (
+					<TabContent id="activity" activeTab={activeTab}>
+						<ActivityTab />
+					</TabContent>
+				)}
 
 				<TabContent id="details" activeTab={activeTab}>
 					<DetailsTab file={fileData} />
