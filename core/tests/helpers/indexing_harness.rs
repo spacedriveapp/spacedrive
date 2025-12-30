@@ -53,7 +53,9 @@ impl IndexingHarnessBuilder {
 		// Use home directory for proper filesystem watcher support on macOS
 		// On Windows, use USERPROFILE; on Unix, use HOME
 		let home = if cfg!(windows) {
-			std::env::var("USERPROFILE").unwrap_or_else(|_| std::env::var("TEMP").unwrap_or_else(|_| "C:\\temp".to_string()))
+			std::env::var("USERPROFILE").unwrap_or_else(|_| {
+				std::env::var("TEMP").unwrap_or_else(|_| "C:\\temp".to_string())
+			})
 		} else {
 			std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
 		};
