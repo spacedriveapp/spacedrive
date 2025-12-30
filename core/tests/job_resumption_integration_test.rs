@@ -81,8 +81,8 @@ async fn test_job_resumption_at_various_points() {
 		.await
 		.expect("Failed to prepare test data");
 
-	// Define interruption points to test with realistic event counts for smaller datasets
-	// For Downloads folder, use lower event counts since there are fewer files
+	// Define interruption points to test with realistic event counts
+	// Use lower event counts for faster test execution
 	let interruption_points = vec![
 		InterruptionPoint::DiscoveryAfterEvents(2), // Interrupt early in discovery
 		InterruptionPoint::ProcessingAfterEvents(2), // Interrupt early in processing
@@ -128,25 +128,24 @@ async fn test_job_resumption_at_various_points() {
 	info!("Test logs and data available in: test_data/");
 }
 
-/// Generate test data using benchmark data generation
+/// Generate test data using Spacedrive source code for deterministic testing
 async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
-	// Use Downloads folder instead of benchmark data
-	let home_dir = std::env::var("HOME")
-		.map(PathBuf::from)
-		.or_else(|_| std::env::current_dir())?;
-
-	let indexing_data_path = home_dir.join("Downloads");
+	// Use Spacedrive core/src directory for deterministic cross-platform testing
+	let indexing_data_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.ok_or("Failed to get project root")?
+		.join("core/src");
 
 	if !indexing_data_path.exists() {
 		return Err(format!(
-			"Downloads folder does not exist at: {}",
+			"Spacedrive core/src folder does not exist at: {}",
 			indexing_data_path.display()
 		)
 		.into());
 	}
 
 	info!(
-		"Using Downloads folder at: {}",
+		"Using Spacedrive core/src folder at: {}",
 		indexing_data_path.display()
 	);
 	Ok(indexing_data_path)

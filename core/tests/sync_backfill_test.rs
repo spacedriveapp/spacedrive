@@ -16,9 +16,8 @@ use sd_core::{
 	Core,
 };
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use tokio::{fs, time::Duration};
-use uuid::Uuid;
 
 #[tokio::test]
 async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
@@ -61,10 +60,14 @@ async fn test_initial_backfill_alice_indexes_first() -> anyhow::Result<()> {
 		.await?
 		.ok_or_else(|| anyhow::anyhow!("Device not found"))?;
 
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing across all environments
+	let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
 	let location_args = LocationCreateArgs {
-		path: std::path::PathBuf::from(&desktop_path),
-		name: Some("Desktop".to_string()),
+		path: test_path.clone(),
+		name: Some("spacedrive".to_string()),
 		index_mode: IndexMode::Content,
 	};
 

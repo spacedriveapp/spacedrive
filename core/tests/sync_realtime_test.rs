@@ -5,7 +5,7 @@
 //!
 //! ## Features
 //! - Pre-paired devices (Alice & Bob)
-//! - Indexes real folders
+//! - Indexes Spacedrive source code for deterministic testing
 //! - Event-driven architecture
 //! - Captures sync logs, databases, and event bus events
 //! - Timestamped snapshot folders for each run
@@ -39,9 +39,13 @@ async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 	// Phase 1: Add location on Alice
 	tracing::info!("=== Phase 1: Adding location on Alice ===");
 
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing across all environments
+	let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
 	let location_uuid = harness
-		.add_and_index_location_alice(&desktop_path, "Desktop")
+		.add_and_index_location_alice(test_path.to_str().unwrap(), "spacedrive")
 		.await?;
 
 	tracing::info!(
@@ -144,9 +148,14 @@ async fn test_realtime_sync_bob_to_alice() -> anyhow::Result<()> {
 		.await?;
 
 	// Add location on Bob (reverse direction)
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
+	// Use Spacedrive crates directory for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let crates_path = project_root.join("crates");
 	harness
-		.add_and_index_location_bob(&downloads_path, "Downloads")
+		.add_and_index_location_bob(crates_path.to_str().unwrap(), "crates")
 		.await?;
 
 	// Wait for sync
@@ -184,12 +193,17 @@ async fn test_concurrent_indexing() -> anyhow::Result<()> {
 		.await?;
 
 	// Add different locations on both devices simultaneously
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let core_path = project_root.join("core");
+	let apps_path = project_root.join("apps");
 
 	// Start indexing on both
-	let alice_task = harness.add_and_index_location_alice(&downloads_path, "Downloads");
-	let bob_task = harness.add_and_index_location_bob(&desktop_path, "Desktop");
+	let alice_task = harness.add_and_index_location_alice(core_path.to_str().unwrap(), "core");
+	let bob_task = harness.add_and_index_location_bob(apps_path.to_str().unwrap(), "apps");
 
 	// Wait for both
 	tokio::try_join!(alice_task, bob_task)?;
@@ -223,9 +237,14 @@ async fn test_content_identity_linkage() -> anyhow::Result<()> {
 		.await?;
 
 	// Index on Alice
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
+	// Use Spacedrive docs directory for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let docs_path = project_root.join("docs");
 	harness
-		.add_and_index_location_alice(&downloads_path, "Downloads")
+		.add_and_index_location_alice(docs_path.to_str().unwrap(), "docs")
 		.await?;
 
 	// Wait for content identification to complete

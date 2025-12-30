@@ -340,10 +340,20 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	let harness = BackfillRaceHarness::new("backfill_race").await?;
 
 	// Step 1: Alice indexes first location
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
-	tracing::info!("Step 1: Alice indexes Downloads");
+	// Use Spacedrive crates directory for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let crates_path = project_root.join("crates");
+	tracing::info!("Step 1: Alice indexes crates");
 
-	add_and_index_location(&harness.library_alice, &downloads_path, "Downloads").await?;
+	add_and_index_location(
+		&harness.library_alice,
+		crates_path.to_str().unwrap(),
+		"crates",
+	)
+	.await?;
 
 	let alice_entries_after_loc1 = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())
@@ -373,10 +383,18 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	// Step 2: Start backfill on Bob while Alice continues indexing
 	tracing::info!("Step 2: Starting Bob's backfill AND Alice's second indexing concurrently");
 
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing across all environments
+	let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
 
 	let backfill_future = harness.trigger_bob_backfill();
-	let indexing_future = add_and_index_location(&harness.library_alice, &desktop_path, "Desktop");
+	let indexing_future = add_and_index_location(
+		&harness.library_alice,
+		test_path.to_str().unwrap(),
+		"spacedrive",
+	);
 
 	// Run concurrently - this is the key to triggering the race
 	let (backfill_result, indexing_result) = tokio::join!(backfill_future, indexing_future);
@@ -448,13 +466,18 @@ async fn test_sequential_backfill_control() -> anyhow::Result<()> {
 	let harness = BackfillRaceHarness::new("sequential_control").await?;
 
 	// Alice indexes both locations first
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let core_path = project_root.join("core");
+	let apps_path = project_root.join("apps");
 
 	tracing::info!("Indexing both locations on Alice first");
 
-	add_and_index_location(&harness.library_alice, &downloads_path, "Downloads").await?;
-	add_and_index_location(&harness.library_alice, &desktop_path, "Desktop").await?;
+	add_and_index_location(&harness.library_alice, core_path.to_str().unwrap(), "core").await?;
+	add_and_index_location(&harness.library_alice, apps_path.to_str().unwrap(), "apps").await?;
 
 	let alice_entries = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())
