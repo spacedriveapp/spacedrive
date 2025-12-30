@@ -614,7 +614,7 @@ async fn register_default_protocol_handlers(
 			networking.device_registry(),
 			logger.clone(),
 			command_sender,
-			data_dir,
+			data_dir.clone(),
 			networking.endpoint().cloned(),
 			networking.active_connections(),
 		),
@@ -652,6 +652,11 @@ async fn register_default_protocol_handlers(
 
 	// Inject device registry into file transfer handler for encryption
 	file_transfer_handler.set_device_registry(networking.device_registry());
+
+	// Inject context for dynamic location-based path validation
+	// The handler will query all libraries for registered locations at runtime.
+	// This ensures file transfers can only target directories that are managed by Spacedrive.
+	file_transfer_handler.set_context(context.clone());
 
 	// Get device ID for job activity handler
 	let device_id = context
