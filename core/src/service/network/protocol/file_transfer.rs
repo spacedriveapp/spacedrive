@@ -365,30 +365,29 @@ impl FileTransferProtocolHandler {
 	}
 
 	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
-	/// This queries all libraries for their registered locations.
-	fn get_all_allowed_paths(&self) -> Vec<PathBuf> {
+	/// This queries all libraries for their registered locations asynchronously.
+	async fn get_all_allowed_paths(&self) -> Vec<PathBuf> {
 		let mut paths = Vec::new();
 
-		// Add statically configured allowed paths
-		{
+		// Add statically configured allowed paths (clone to avoid holding lock across await)
+		let static_paths = {
 			let allowed = self.allowed_paths.read().unwrap();
-			paths.extend(allowed.clone());
-		}
+			allowed.clone()
+		};
+
+		paths.extend(static_paths);
 
 		// Add dynamic location paths from all libraries via CoreContext
 		if let Some(ctx) = &self.core_context {
-			let library_manager_guard = ctx.library_manager.blocking_read();
+			let library_manager_guard = ctx.library_manager.read().await;
 			if let Some(library_manager) = library_manager_guard.as_ref() {
-				// Get all active libraries using tokio's block_on (safe in async context)
-				let library_list: Vec<std::sync::Arc<crate::library::Library>> =
-					tokio::runtime::Handle::current().block_on(library_manager.list());
+				// Get all active libraries
+				let library_list = library_manager.list().await;
 				for library in library_list {
 					// Get locations for this library using LocationManager
 					let location_manager =
 						crate::location::LocationManager::new((*ctx.events).clone());
-					if let Ok(locations) = tokio::runtime::Handle::current()
-						.block_on(location_manager.list_locations(&library))
-					{
+					if let Ok(locations) = location_manager.list_locations(&library).await {
 						for loc in locations {
 							paths.push(loc.path.clone());
 						}
@@ -402,7 +401,7 @@ impl FileTransferProtocolHandler {
 
 	/// Check if a path is within one of the allowed paths.
 	/// Uses canonicalization to prevent traversal attacks.
-	fn is_path_allowed(&self, path: &std::path::Path) -> bool {
+	async fn is_path_allowed(&self, path: &std::path::Path) -> bool {
 		// Canonicalize the target path to resolve symlinks and `..`
 		let canonical_path = match path.canonicalize() {
 			Ok(p) => p,
@@ -411,16 +410,27 @@ impl FileTransferProtocolHandler {
 				if let Some(parent) = path.parent() {
 					match parent.canonicalize() {
 						Ok(p) => p,
-						Err(_) => return false, // Parent doesn't exist
+						Err(e) => {
+							tracing::warn!(
+								path = ?path,
+								error = %e,
+								"File transfer path validation failed: parent directory doesn't exist"
+							);
+							return false; // Parent doesn't exist
+						}
 					}
 				} else {
+					tracing::warn!(
+						path = ?path,
+						"File transfer path validation failed: no parent directory"
+					);
 					return false; // No parent (root path)
 				}
 			}
 		};
 
 		// Get all allowed paths (static + dynamic from locations)
-		let allowed_paths = self.get_all_allowed_paths();
+		let allowed_paths = self.get_all_allowed_paths().await;
 
 		// If no allowed paths are configured and no context, deny all (fail-safe)
 		if allowed_paths.is_empty() {
@@ -442,9 +452,9 @@ impl FileTransferProtocolHandler {
 		}
 
 		tracing::warn!(
-			"Path {:?} is not within any allowed location. Allowed: {:?}",
-			path,
-			allowed_paths.iter().take(5).collect::<Vec<_>>() // Log first 5 for brevity
+			path = ?path,
+			allowed_paths = ?allowed_paths.iter().take(5).collect::<Vec<_>>(),
+			"File transfer denied: path is not within any allowed location"
 		);
 		false
 	}
@@ -668,7 +678,7 @@ impl FileTransferProtocolHandler {
 		{
 			// SECURITY: Validate destination path is within allowed locations
 			let dest_path = std::path::Path::new(&destination_path);
-			if !self.is_path_allowed(dest_path) {
+			if !self.is_path_allowed(dest_path).await {
 				tracing::warn!(
 					path = %destination_path,
 					from_device = %from_device,
@@ -984,7 +994,7 @@ impl FileTransferProtocolHandler {
 		// Validate destination path is within allowed locations
 		// This prevents arbitrary file write attacks from malicious peers.
 		let dest_path_buf = PathBuf::from(&destination_path);
-		if !self.is_path_allowed(&dest_path_buf) {
+		if !self.is_path_allowed(&dest_path_buf).await {
 			self.logger
 				.warn(&format!(
 					"Transfer {} rejected: destination path {:?} is not within allowed locations",
@@ -1151,7 +1161,7 @@ impl FileTransferProtocolHandler {
 	/// Validate that a path is safe to access for PULL requests.
 	/// Prevents directory traversal attacks and enforces access boundaries.
 	/// SECURITY: Only allows access to files within registered locations.
-	fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
+	async fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
 		// Normalize path to prevent directory traversal.
 		// canonicalize() resolves all symlinks and `..` components.
 		let normalized = match path.canonicalize() {
@@ -1166,7 +1176,7 @@ impl FileTransferProtocolHandler {
 
 		// Validate path is within allowed locations
 		// This prevents arbitrary file read attacks from malicious peers.
-		if !self.is_path_allowed(&normalized) {
+		if !self.is_path_allowed(&normalized).await {
 			tracing::warn!(
 				"Path access denied: {:?} is not within allowed locations",
 				path
@@ -1197,7 +1207,7 @@ impl FileTransferProtocolHandler {
 			.await;
 
 		// Security validation
-		if !self.validate_path_access(&source_path, requested_by) {
+		if !self.validate_path_access(&source_path, requested_by).await {
 			self.logger
 				.warn(&format!(
 					"PULL request {} rejected: access denied for path {}",
@@ -1880,8 +1890,8 @@ mod tests {
 
 	// Path validation security tests
 
-	#[test]
-	fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+	#[tokio::test]
+	async fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
@@ -1893,7 +1903,7 @@ mod tests {
 		// Test: Path outside allowed location should be REJECTED
 		let outside_path = std::path::Path::new("/etc/passwd");
 		assert!(
-			!handler.is_path_allowed(outside_path),
+			!handler.is_path_allowed(outside_path).await,
 			"Paths outside allowed locations must be rejected"
 		);
 
@@ -1902,7 +1912,7 @@ mod tests {
 		{
 			let system_path = std::path::Path::new("C:\\Windows\\System32\\config\\SAM");
 			assert!(
-				!handler.is_path_allowed(system_path),
+				!handler.is_path_allowed(system_path).await,
 				"System paths must be rejected"
 			);
 		}
@@ -1911,8 +1921,8 @@ mod tests {
 		std::fs::remove_dir_all(&temp_dir).ok();
 	}
 
-	#[test]
-	fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+	#[tokio::test]
+	async fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
@@ -1926,7 +1936,7 @@ mod tests {
 
 		// Test: Path inside allowed location should be ACCEPTED
 		assert!(
-			handler.is_path_allowed(&inner_path),
+			handler.is_path_allowed(&inner_path).await,
 			"Paths inside allowed locations should be accepted"
 		);
 
@@ -1934,8 +1944,8 @@ mod tests {
 		std::fs::remove_dir_all(&temp_dir).ok();
 	}
 
-	#[test]
-	fn test_is_path_allowed_rejects_traversal_attempts() {
+	#[tokio::test]
+	async fn test_is_path_allowed_rejects_traversal_attempts() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
@@ -1948,7 +1958,7 @@ mod tests {
 		// Note: canonicalize() will resolve this, but if it resolves outside, it's rejected
 		let traversal_path = temp_dir.join("..").join("..").join("etc").join("passwd");
 		assert!(
-			!handler.is_path_allowed(&traversal_path),
+			!handler.is_path_allowed(&traversal_path).await,
 			"Path traversal attempts must be rejected"
 		);
 
@@ -1956,21 +1966,21 @@ mod tests {
 		std::fs::remove_dir_all(&temp_dir).ok();
 	}
 
-	#[test]
-	fn test_is_path_allowed_denies_all_when_no_paths_configured() {
+	#[tokio::test]
+	async fn test_is_path_allowed_denies_all_when_no_paths_configured() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
 		// Don't configure any allowed paths - this should deny ALL access (fail-safe)
 		let any_path = std::env::temp_dir().join("some_file.txt");
 		assert!(
-			!handler.is_path_allowed(&any_path),
+			!handler.is_path_allowed(&any_path).await,
 			"When no allowed paths configured, all access should be denied"
 		);
 	}
 
-	#[test]
-	fn test_add_allowed_path_works() {
+	#[tokio::test]
+	async fn test_add_allowed_path_works() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
@@ -1980,14 +1990,14 @@ mod tests {
 		std::fs::write(&file_path, "content").ok();
 
 		// Initially denied
-		assert!(!handler.is_path_allowed(&file_path));
+		assert!(!handler.is_path_allowed(&file_path).await);
 
 		// Add the path
 		handler.add_allowed_path(temp_dir.clone());
 
 		// Now allowed
 		assert!(
-			handler.is_path_allowed(&file_path),
+			handler.is_path_allowed(&file_path).await,
 			"add_allowed_path should permit access to paths within the added directory"
 		);
 
