@@ -1,8 +1,8 @@
 //! Integration test for job resumption at various interruption points
 //!
-//! This test generates benchmark data and tests job resumption by interrupting
-//! indexing jobs at different phases and progress points, then verifying they
-//! can resume and complete successfully.
+//! This test uses the Spacedrive source code as deterministic test data and tests
+//! job resumption by interrupting indexing jobs at different phases and progress
+//! points, then verifying they can resume and complete successfully.
 
 use sd_core::{
 	domain::SdPath,
@@ -28,14 +28,6 @@ use tokio::{
 use tracing::{info, warn};
 use uuid::Uuid;
 
-/// Benchmark recipe name to use for test data generation
-/// Using existing generated data from desktop_complex (or fallback to shape_medium if available)
-const TEST_RECIPE_NAME: &str = "desktop_complex";
-
-/// Path where the benchmark data will be generated (relative to workspace root)
-/// Will check for desktop_complex first, then fallback to shape_medium if it exists
-const TEST_INDEXING_DATA_PATH: &str = "core/benchdata/desktop_complex";
-
 /// Different interruption points to test
 #[derive(Debug, Clone)]
 enum InterruptionPoint {
@@ -59,23 +51,23 @@ struct TestResult {
 	test_log_path: Option<PathBuf>,
 }
 
-/// Main integration test for job resumption with realistic desktop-scale data
+/// Main integration test for job resumption with realistic data
 ///
-/// This test uses the desktop_complex recipe (500k files, 8 levels deep) to simulate
-/// real-world indexing scenarios where jobs take 5+ minutes and users may interrupt
-/// at any point. Each phase should generate many progress events, allowing us to test
-/// interruption and resumption at various points within each phase.
+/// This test uses the Spacedrive core/src directory as deterministic test data to simulate
+/// real-world indexing scenarios where users may interrupt jobs at any point. Each phase
+/// should generate multiple progress events, allowing us to test interruption and resumption
+/// at various points within each phase.
 ///
 /// Expected behavior:
-/// - Discovery: Should generate 50+ progress events with 500k files across deep directories
-/// - Processing: Should generate 100+ progress events while processing file metadata
-/// - Content Identification: Should generate 500+ progress events while hashing files
+/// - Discovery: Should generate progress events while discovering files
+/// - Processing: Should generate progress events while processing file metadata
+/// - Content Identification: Should generate progress events while hashing files
 /// - Each interrupted job should cleanly pause and resume from where it left off
 #[tokio::test]
 async fn test_job_resumption_at_various_points() {
 	info!("Starting job resumption integration test");
 
-	// Generate benchmark data (or use existing data)
+	// Prepare test data (uses Spacedrive source code)
 	info!("Preparing test data");
 	let indexing_data_path = generate_test_data()
 		.await

@@ -3,7 +3,9 @@
 //! Provides reusable components for indexing integration tests,
 //! reducing boilerplate and making it easy to test change detection.
 
-use super::{init_test_tracing, register_device, wait_for_indexing, TestConfigBuilder};
+use super::{
+	init_test_tracing, register_device, wait_for_indexing, TestConfigBuilder, TestDataDir,
+};
 use anyhow::Context;
 use sd_core::{
 	infra::db::entities::{self, entry_closure},
@@ -15,7 +17,6 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-use tempfile::TempDir;
 use tokio::time::Duration;
 use uuid::Uuid;
 
@@ -50,20 +51,9 @@ impl IndexingHarnessBuilder {
 
 	/// Build the harness
 	pub async fn build(self) -> anyhow::Result<IndexingHarness> {
-		// Use home directory for proper filesystem watcher support on macOS
-		// On Windows, use USERPROFILE; on Unix, use HOME
-		let home = if cfg!(windows) {
-			std::env::var("USERPROFILE").unwrap_or_else(|_| {
-				std::env::var("TEMP").unwrap_or_else(|_| "C:\\temp".to_string())
-			})
-		} else {
-			std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string())
-		};
-		let test_root = PathBuf::from(home).join(format!(".spacedrive_test_{}", self.test_name));
-
-		// Clean up any existing test directory
-		let _ = tokio::fs::remove_dir_all(&test_root).await;
-		tokio::fs::create_dir_all(&test_root).await?;
+		// Use TestDataDir with watcher support (uses home directory for macOS compatibility)
+		let test_data = TestDataDir::new_for_watcher(&self.test_name)?;
+		let test_root = test_data.path().to_path_buf();
 
 		let snapshot_dir = test_root.join("snapshots");
 		tokio::fs::create_dir_all(&snapshot_dir).await?;
@@ -142,8 +132,7 @@ impl IndexingHarnessBuilder {
 		};
 
 		Ok(IndexingHarness {
-			_test_name: self.test_name,
-			_test_root: test_root,
+			test_data,
 			snapshot_dir,
 			core,
 			library,
@@ -156,8 +145,7 @@ impl IndexingHarnessBuilder {
 
 /// Indexing test harness with convenient helper methods
 pub struct IndexingHarness {
-	_test_name: String,
-	_test_root: PathBuf,
+	test_data: TestDataDir,
 	pub snapshot_dir: PathBuf,
 	pub core: Arc<Core>,
 	pub library: Arc<sd_core::library::Library>,
@@ -169,7 +157,12 @@ pub struct IndexingHarness {
 impl IndexingHarness {
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
-		&self._test_root
+		self.test_data.path()
+	}
+
+	/// Get access to the snapshot manager (if snapshots enabled via SD_TEST_SNAPSHOTS=1)
+	pub fn snapshot_manager(&self) -> Option<&super::SnapshotManager> {
+		self.test_data.snapshot_manager()
 	}
 
 	/// Get the daemon socket address (only available if daemon is enabled)
@@ -274,7 +267,6 @@ impl IndexingHarness {
 	/// Shutdown the harness
 	pub async fn shutdown(self) -> anyhow::Result<()> {
 		let lib_id = self.library.id();
-		let test_root = self._test_root.clone();
 
 		self.core.libraries.close_library(lib_id).await?;
 		drop(self.library);
@@ -283,9 +275,7 @@ impl IndexingHarness {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
 
-		// Clean up test directory
-		tokio::fs::remove_dir_all(&test_root).await?;
-
+		// TestDataDir handles cleanup automatically on drop
 		Ok(())
 	}
 }

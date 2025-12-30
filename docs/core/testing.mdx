@@ -488,6 +488,127 @@ perform_operation_on_a(&core_a).await?;
 wait_for_sync(&core_b).await?;
 ```
 
+## Test Data & Snapshot Conventions
+
+### Data Directory Requirements
+
+All test data MUST be created in the system temp directory. Never persist data outside temp unless using the snapshot flag.
+
+**Naming convention**: `spacedrive-test-{test_name}`
+
+```rust
+// ✅ CORRECT: Platform-aware temp directory
+let test_data = TestDataDir::new("file_operations")?;
+// Creates: /tmp/spacedrive-test-file_operations/ (Unix)
+//      or: %TEMP%\spacedrive-test-file_operations\ (Windows)
+
+// ❌ INCORRECT: Hardcoded paths outside temp
+let test_dir = PathBuf::from("~/Library/Application Support/spacedrive/tests");
+let test_dir = PathBuf::from("core/data/test");
+```
+
+**Standard structure**:
+```
+/tmp/spacedrive-test-{test_name}/
+├── core_data/       # Core database and state
+├── locations/       # Test file locations
+└── logs/            # Test execution logs
+```
+
+**Cleanup**: Temp directories are automatically cleaned up after test completion using RAII pattern.
+
+### Snapshot System
+
+Snapshots preserve test state for post-mortem debugging. They are optional and controlled by an environment variable.
+
+**Enable snapshots**:
+```bash
+# Single test
+SD_TEST_SNAPSHOTS=1 cargo test file_move_test --nocapture
+
+# Entire suite
+SD_TEST_SNAPSHOTS=1 cargo xtask test-core
+```
+
+**Snapshot location** (when enabled):
+```
+~/Library/Application Support/spacedrive/test_snapshots/  (macOS)
+~/.local/share/spacedrive/test_snapshots/                 (Linux)
+%APPDATA%\spacedrive\test_snapshots\                      (Windows)
+```
+
+**Structure**:
+```
+test_snapshots/
+└── {test_name}/
+    └── {timestamp}/
+        ├── summary.md           # Test metadata and statistics
+        ├── core_data/           # Database copies
+        │   ├── database.db
+        │   └── sync.db
+        ├── events.json          # Event bus events (JSON lines)
+        └── logs/                # Test execution logs
+```
+
+**When to use snapshots**:
+- Debugging sync tests (database state, event logs)
+- Complex indexing scenarios (closure table analysis)
+- Multi-phase operations (capture state at each phase)
+- Investigating flaky tests
+
+**Not needed for**:
+- Simple unit tests
+- Tests with assertion-only validation
+- Tests where console output is sufficient
+
+### Helper Abstractions
+
+**TestDataDir** - Manages test data directories with automatic cleanup and snapshot support:
+
+```rust
+#[tokio::test]
+async fn test_file_operations() -> Result<()> {
+    let test_data = TestDataDir::new("file_operations")?;
+    let core = Core::new(test_data.core_data_path()).await?;
+
+    // Perform test operations...
+
+    // Optional: capture snapshot at specific point
+    if let Some(manager) = test_data.snapshot_manager() {
+        manager.capture("after_indexing").await?;
+    }
+
+    // Automatic cleanup and final snapshot (if enabled) on drop
+    Ok(())
+}
+```
+
+**SnapshotManager** - Captures test snapshots (accessed via `TestDataDir`):
+
+```rust
+// Multi-phase snapshot capture
+if let Some(manager) = test_data.snapshot_manager() {
+    manager.capture("after_setup").await?;
+    manager.capture("after_sync").await?;
+    manager.capture("final_state").await?;
+}
+```
+
+**Integration with existing harnesses**:
+
+```rust
+// IndexingHarness uses TestDataDir internally
+let harness = IndexingHarnessBuilder::new("my_test").build().await?;
+
+// Access snapshot manager through harness
+if let Some(manager) = harness.snapshot_manager() {
+    manager.capture("after_indexing").await?;
+}
+
+// TwoDeviceHarness has built-in snapshot method
+harness.capture_snapshot("after_sync").await?;
+```
+
 ## Test Helpers
 
 ### Common Utilities
@@ -745,17 +866,24 @@ RUST_LOG=debug cargo test test_name --nocapture
 
 ### Test Data
 
-1. **Prefer project source code**: Use `env!("CARGO_MANIFEST_DIR")` to locate the Spacedrive repo
-2. **Avoid user directories**: Don't hardcode paths like `$HOME/Desktop` or `$HOME/Downloads`
-3. **Use subdirectories for multiple locations**: `core/`, `apps/`, etc. when testing multi-location scenarios
-4. **Cross-platform paths**: Ensure test paths work on Linux, macOS, and Windows
+1. **All test data in temp directory**: Use `TestDataDir` or `TempDir` (see Test Data & Snapshot Conventions)
+2. **Prefer project source code**: Use `env!("CARGO_MANIFEST_DIR")` to locate the Spacedrive repo for test indexing
+3. **Avoid user directories**: Don't hardcode paths like `$HOME/Desktop` or `$HOME/Downloads`
+4. **Use subdirectories for multiple locations**: `core/`, `apps/`, etc. when testing multi-location scenarios
+5. **Cross-platform paths**: Ensure test paths work on Linux, macOS, and Windows
 
 ```rust
-// ✅ Good: Uses project source code (deterministic)
+// ✅ Good: Platform-aware temp directory for test data
+let test_data = TestDataDir::new("my_test")?;
+
+// ✅ Good: Uses project source code for deterministic indexing
 let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
     .parent()
     .unwrap()
     .to_path_buf();
+
+// ❌ Bad: Data outside temp directory
+let test_dir = PathBuf::from("core/data/test");
 
 // ❌ Bad: Uses user directory (non-deterministic)
 let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
@@ -793,11 +921,11 @@ Common debugging approaches:
 ### Single-Device Test Checklist
 
 - [ ] Create test with `#[tokio::test]`
-- [ ] Use `IntegrationTestSetup` for isolation
+- [ ] Use `TestDataDir` or harness for test data (never hardcode paths outside temp)
+- [ ] Use deterministic test data for indexing (project source code, not user directories)
 - [ ] Wait for events instead of sleeping
 - [ ] Verify both positive and negative cases
-- [ ] Clean up temporary files
-- [ ] Use deterministic test data (project source code, not user directories)
+- [ ] Automatic cleanup via RAII pattern (no manual cleanup needed with helpers)
 
 ### Multi-Device Test Checklist
 

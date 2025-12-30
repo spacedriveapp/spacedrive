@@ -53,12 +53,9 @@ async fn find_entry_by_name(
 async fn test_entry_metadata_preservation_on_move() {
 	println!("Starting entry metadata preservation test");
 
-	// 1. Clean slate - delete entire data directory first
-	let data_dir = std::path::PathBuf::from("core/data/move-integrity-test");
-	if data_dir.exists() {
-		std::fs::remove_dir_all(&data_dir).unwrap();
-		println!("Deleted existing data directory for clean test");
-	}
+	// 1. Clean slate - use temp directory
+	let temp_data = TempDir::new().unwrap();
+	let data_dir = temp_data.path().join("core_data");
 	std::fs::create_dir_all(&data_dir).unwrap();
 	println!("Created fresh data directory: {:?}", data_dir);
 
@@ -384,11 +381,9 @@ async fn test_entry_metadata_preservation_on_move() {
 async fn test_child_entry_metadata_preservation_on_parent_move() {
 	println!("Starting child entry metadata preservation test");
 
-	// Setup similar to main test - use same persistent database
-	let data_dir = std::path::PathBuf::from("core/data/spacedrive-search-demo");
-	if data_dir.exists() {
-		std::fs::remove_dir_all(&data_dir).unwrap();
-	}
+	// Setup similar to main test - use temp directory
+	let temp_data = TempDir::new().unwrap();
+	let data_dir = temp_data.path().join("core_data");
 	std::fs::create_dir_all(&data_dir).unwrap();
 
 	let core = Arc::new(Core::new(data_dir.clone()).await.unwrap());
