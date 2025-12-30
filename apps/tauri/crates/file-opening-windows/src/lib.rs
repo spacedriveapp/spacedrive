@@ -84,8 +84,11 @@ impl FileOpener for WindowsFileOpener {
 			loop {
 				let mut handler_array: [Option<IAssocHandler>; 1] = [None];
 				let mut fetched = 0u32;
-				
-				if handlers.Next(&mut handler_array, Some(&mut fetched)).is_err() || fetched == 0 {
+
+				if handlers
+					.Next(&mut handler_array, Some(&mut fetched))
+					.is_err() || fetched == 0
+				{
 					break;
 				}
 
@@ -101,8 +104,8 @@ impl FileOpener for WindowsFileOpener {
 						let path_str = path.to_string_lossy();
 						let h_path = HSTRING::from(&*path_str);
 
-						let shell_item: IShellItem =
-							SHCreateItemFromParsingName(&h_path, None).map_err(|e| e.to_string())?;
+						let shell_item: IShellItem = SHCreateItemFromParsingName(&h_path, None)
+							.map_err(|e| e.to_string())?;
 
 						let data_object: IDataObject = shell_item
 							.BindToHandler(None, &BHID_DataObject)
@@ -128,12 +131,15 @@ fn list_apps_for_extension(ext: &str) -> std::result::Result<Vec<OpenWithApp>, S
 			.map_err(|e| e.to_string())?;
 
 		let mut apps = Vec::new();
-		
+
 		loop {
 			let mut handler_array: [Option<IAssocHandler>; 1] = [None];
 			let mut fetched = 0u32;
-			
-			if handlers.Next(&mut handler_array, Some(&mut fetched)).is_err() || fetched == 0 {
+
+			if handlers
+				.Next(&mut handler_array, Some(&mut fetched))
+				.is_err() || fetched == 0
+			{
 				break;
 			}
 
