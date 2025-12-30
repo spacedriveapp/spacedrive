@@ -27,6 +27,7 @@
 mod config;
 mod native_deps;
 mod system;
+mod test_core;
 
 use anyhow::{Context, Result};
 use std::fs;
@@ -44,11 +45,13 @@ fn main() -> Result<()> {
 		);
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
+		eprintln!("  test-core    Run all core integration tests with progress tracking");
 		eprintln!();
 		eprintln!("Examples:");
 		eprintln!("  cargo xtask setup          # First time setup");
 		eprintln!("  cargo xtask build-ios      # Build iOS framework");
 		eprintln!("  cargo xtask build-mobile   # Build mobile core for React Native");
+		eprintln!("  cargo xtask test-core      # Run all core tests");
 		eprintln!("  cargo ios                  # Convenient alias for build-ios");
 		std::process::exit(1);
 	}
@@ -57,6 +60,13 @@ fn main() -> Result<()> {
 		"setup" => setup()?,
 		"build-ios" => build_ios()?,
 		"build-mobile" => build_mobile()?,
+		"test-core" => {
+			let verbose = args
+				.get(2)
+				.map(|s| s == "--verbose" || s == "-v")
+				.unwrap_or(false);
+			test_core_command(verbose)?;
+		}
 		_ => {
 			eprintln!("Unknown command: {}", args[1]);
 			eprintln!("Run 'cargo xtask' for usage information.");
@@ -578,4 +588,25 @@ fn create_framework_info_plist(framework_name: &str, platform: &str) -> String {
 "#,
 		framework_name, framework_name, platform
 	)
+}
+
+/// Run all core integration tests with progress tracking
+///
+/// This command runs all sd-core integration tests defined in test_core.rs.
+/// Tests are run sequentially with --test-threads=1 to avoid conflicts.
+/// Use --verbose to see full test output.
+fn test_core_command(verbose: bool) -> Result<()> {
+	let results = test_core::run_tests(verbose)?;
+
+	let failed_count = results.iter().filter(|r| !r.passed).count();
+
+	if failed_count > 0 {
+		std::process::exit(1);
+	} else {
+		if verbose {
+			println!("All tests passed!");
+		}
+	}
+
+	Ok(())
 }
