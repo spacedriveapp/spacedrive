@@ -18,11 +18,11 @@ pub mod event_bus;
 pub mod event_log;
 pub mod fk_mapper;
 pub mod hlc;
-pub mod time_source;
 pub mod peer_log;
 pub mod peer_watermarks;
 pub mod registry;
 pub mod syncable;
+pub mod time_source;
 pub mod transaction;
 pub mod transport;
 pub mod watermarks;
@@ -46,7 +46,6 @@ pub use fk_mapper::{
 	FKMapping,
 };
 pub use hlc::{HLCGenerator, HLC};
-pub use time_source::{FakeTimeSource, SystemTimeSource, TimeSource};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};
 pub use peer_watermarks::PeerWatermarkStore;
 pub use registry::{
@@ -54,6 +53,7 @@ pub use registry::{
 	get_table_name, is_device_owned, ApplyError, SyncableInventoryEntry, SyncableModelRegistration,
 };
 pub use syncable::Syncable;
+pub use time_source::{FakeTimeSource, SystemTimeSource, TimeSource};
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
 pub use transport::NetworkTransport;
 pub use watermarks::{ResourceWatermarkStore, WatermarkError};
