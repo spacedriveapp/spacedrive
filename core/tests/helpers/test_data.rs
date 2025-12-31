@@ -57,14 +57,20 @@ impl TestDataDir {
 			}
 		};
 
-		// On Windows, add a random suffix to avoid file lock contention in parallel tests
+		// On Windows, add timestamp + counter to ensure uniqueness even across test runs
+		// This prevents conflicts with leftover files from previous runs where cleanup failed
 		let dir_name = if use_home_for_watcher {
 			#[cfg(windows)]
 			{
 				use std::sync::atomic::{AtomicU64, Ordering};
+				use std::time::{SystemTime, UNIX_EPOCH};
 				static COUNTER: AtomicU64 = AtomicU64::new(0);
 				let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-				format!(".spacedrive_test_{}_{}", test_name, id)
+				let timestamp = SystemTime::now()
+					.duration_since(UNIX_EPOCH)
+					.unwrap()
+					.as_secs();
+				format!(".spacedrive_test_{}_{}_{}", test_name, timestamp, id)
 			}
 			#[cfg(not(windows))]
 			{
@@ -74,9 +80,14 @@ impl TestDataDir {
 			#[cfg(windows)]
 			{
 				use std::sync::atomic::{AtomicU64, Ordering};
+				use std::time::{SystemTime, UNIX_EPOCH};
 				static COUNTER: AtomicU64 = AtomicU64::new(0);
 				let id = COUNTER.fetch_add(1, Ordering::Relaxed);
-				format!("spacedrive-test-{}-{}", test_name, id)
+				let timestamp = SystemTime::now()
+					.duration_since(UNIX_EPOCH)
+					.unwrap()
+					.as_secs();
+				format!("spacedrive-test-{}-{}-{}", test_name, timestamp, id)
 			}
 			#[cfg(not(windows))]
 			{
@@ -86,8 +97,28 @@ impl TestDataDir {
 
 		let temp_path = PathBuf::from(temp_base).join(dir_name);
 
-		// Clean up any existing test directory
-		let _ = std::fs::remove_dir_all(&temp_path);
+		// On Windows, try to clean up any leftover directory from failed previous cleanup
+		// Retry a few times since file locks may be released shortly
+		#[cfg(windows)]
+		{
+			for attempt in 0..3 {
+				match std::fs::remove_dir_all(&temp_path) {
+					Ok(_) => break,
+					Err(e) if attempt < 2 => {
+						std::thread::sleep(std::time::Duration::from_millis(100));
+					}
+					Err(_) => {
+						// After retries, ignore - we have unique timestamp+counter so no conflict
+						break;
+					}
+				}
+			}
+		}
+		#[cfg(not(windows))]
+		{
+			let _ = std::fs::remove_dir_all(&temp_path);
+		}
+
 		std::fs::create_dir_all(&temp_path)?;
 
 		// Create standard subdirectories
@@ -164,7 +195,21 @@ impl Drop for TestDataDir {
 			}
 		}
 
-		// Always clean up temp directory
-		let _ = std::fs::remove_dir_all(&self.temp_path);
+		// Clean up temp directory
+		// On Windows, SQLite file locks may persist even after shutdown, causing
+		// removal to fail. Since tests use unique directories (via atomic counter),
+		// we can safely ignore cleanup failures. Windows will clean temp directories
+		// periodically.
+		if let Err(e) = std::fs::remove_dir_all(&self.temp_path) {
+			#[cfg(windows)]
+			{
+				// Silently ignore on Windows - file locks are expected
+				let _ = e;
+			}
+			#[cfg(not(windows))]
+			{
+				eprintln!("Warning: Failed to clean up test directory {:?}: {}", self.temp_path, e);
+			}
+		}
 	}
 }

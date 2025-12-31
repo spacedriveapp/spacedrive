@@ -277,10 +277,10 @@ impl IndexingHarness {
 
 		// On Windows, SQLite file locks can persist after shutdown even after WAL checkpoint
 		// This is due to the connection pool in SeaORM potentially holding onto connections
-		// Give the OS sufficient time to release all locks before TestDataDir cleanup
-		// Tests running in sequence need time for previous test's locks to fully release
+		// Give the OS time to release locks to reduce leftover test directories
+		// TestDataDir cleanup ignores errors on Windows, so this is just best-effort
 		#[cfg(windows)]
-		tokio::time::sleep(Duration::from_secs(2)).await;
+		tokio::time::sleep(Duration::from_millis(500)).await;
 
 		// TestDataDir handles cleanup automatically on drop
 		Ok(())
