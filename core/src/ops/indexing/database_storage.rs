@@ -167,7 +167,7 @@ impl DatabaseStorage {
 				wide_path.as_ptr(),
 				GENERIC_READ,
 				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-				std::ptr::null(),
+				std::ptr::null_mut(),
 				OPEN_EXISTING,
 				FILE_FLAG_BACKUP_SEMANTICS, // Required to open directories
 				0,

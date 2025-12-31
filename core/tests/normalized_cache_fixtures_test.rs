@@ -2,6 +2,15 @@
 //!
 //! Generates real event and query data for TypeScript normalized cache tests.
 //! Uses high-level Core APIs to create authentic backend responses.
+//!
+//! ## Fixture Generation
+//!
+//! By default, fixtures are written to the temp directory (following testing conventions).
+//! To update the source fixtures used by TypeScript tests, run with:
+//!
+//! ```bash
+//! SD_REGENERATE_FIXTURES=1 cargo test normalized_cache_fixtures_test --nocapture
+//! ```
 
 use sd_core::{
 	infra::{db::entities, event::Event, job::types::JobStatus},
@@ -483,23 +492,40 @@ async fn capture_event_fixtures_for_typescript() -> Result<(), Box<dyn std::erro
 
 	fixtures["test_cases"] = json!([test_case_exact, test_case_recursive, test_case_location]);
 
-	// Write fixtures to file
-	let fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-		.parent()
-		.unwrap()
-		.join("packages/ts-client/src/__fixtures__");
-	std::fs::create_dir_all(&fixtures_dir)?;
-
-	let fixtures_path = fixtures_dir.join("backend_events.json");
-	std::fs::write(&fixtures_path, serde_json::to_string_pretty(&fixtures)?)?;
+	// Write fixtures to temp directory (follows testing conventions)
+	let temp_fixtures_path = temp_dir.path().join("backend_events.json");
+	let fixtures_json = serde_json::to_string_pretty(&fixtures)?;
+	std::fs::write(&temp_fixtures_path, &fixtures_json)?;
 
 	tracing::info!(
-		fixtures_path = %fixtures_path.display(),
-		"Fixtures written successfully"
+		fixtures_path = %temp_fixtures_path.display(),
+		"Fixtures written to temp directory"
 	);
 
-	println!("\n=== FIXTURE GENERATION COMPLETE ===");
-	println!("Test cases generated: 3");
+	// Only copy to source if explicitly requested (similar to snapshot system)
+	if std::env::var("SD_REGENERATE_FIXTURES").is_ok() {
+		let source_fixtures_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.parent()
+			.unwrap()
+			.join("packages/ts-client/src/__fixtures__");
+		std::fs::create_dir_all(&source_fixtures_dir)?;
+
+		let source_fixtures_path = source_fixtures_dir.join("backend_events.json");
+		std::fs::copy(&temp_fixtures_path, &source_fixtures_path)?;
+
+		tracing::info!(
+			source_path = %source_fixtures_path.display(),
+			"Fixtures copied to source tree (SD_REGENERATE_FIXTURES=1)"
+		);
+		println!("\n=== FIXTURES COPIED TO SOURCE ===");
+		println!("Source path: {}", source_fixtures_path.display());
+	} else {
+		println!("\n=== FIXTURE GENERATION COMPLETE ===");
+		println!("Note: Fixtures written to temp directory only.");
+		println!("To update source fixtures, run with: SD_REGENERATE_FIXTURES=1");
+	}
+
+	println!("\nTest cases generated: 3");
 	println!("  - directory_view_exact_mode (direct children only)");
 	println!("  - media_view_recursive_mode (all descendants)");
 	println!("  - location_updates (location resource events)");
@@ -516,7 +542,7 @@ async fn capture_event_fixtures_for_typescript() -> Result<(), Box<dyn std::erro
 	println!("  - Location events: {}", location_events.len());
 	println!("Direct children: {}", direct_children.len());
 	println!("Subdirectory files: {}", subdirectory_files.len());
-	println!("Fixtures written to: {}", fixtures_path.display());
+	println!("Temp fixtures: {}", temp_fixtures_path.display());
 
 	Ok(())
 }

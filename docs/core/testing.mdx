@@ -561,6 +561,63 @@ test_snapshots/
 - Tests with assertion-only validation
 - Tests where console output is sufficient
 
+### Fixture Generation
+
+Some tests generate fixtures used by other test suites (e.g., TypeScript tests consuming Rust-generated event data). These fixtures follow the same conventions as snapshots: always write to temp, only copy to source when explicitly requested.
+
+**Generate fixtures**:
+```bash
+# Single fixture test
+SD_REGENERATE_FIXTURES=1 cargo test normalized_cache_fixtures_test --nocapture
+```
+
+**Fixture location** (when enabled):
+```
+packages/ts-client/src/__fixtures/backend_events.json  (TypeScript test fixtures)
+```
+
+**Default behavior**:
+- Fixtures written to temp directory
+- Test validates generation works
+- No modification of source tree
+
+**When `SD_REGENERATE_FIXTURES=1` is set**:
+- Fixtures generated in temp first (validation)
+- Copied to source tree for commit
+- Used by TypeScript tests
+
+**Example fixture test**:
+```rust
+#[tokio::test]
+async fn generate_typescript_fixtures() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+    
+    // Generate fixture data
+    let fixture_data = generate_real_backend_events().await?;
+    
+    // Always write to temp
+    let temp_fixture_path = temp_dir.path().join("backend_events.json");
+    std::fs::write(&temp_fixture_path, serde_json::to_string_pretty(&fixture_data)?)?;
+    
+    // Only copy to source if explicitly requested
+    if std::env::var("SD_REGENERATE_FIXTURES").is_ok() {
+        let source_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap()
+            .join("packages/ts-client/src/__fixtures__/backend_events.json");
+        std::fs::copy(&temp_fixture_path, &source_path)?;
+        println!("Fixtures copied to source: {}", source_path.display());
+    }
+    
+    Ok(())
+}
+```
+
+**When to regenerate fixtures**:
+- Backend event format changes
+- TypeScript types updated
+- New query responses added
+- Resource change events modified
+
 ### Helper Abstractions
 
 **TestDataDir** - Manages test data directories with automatic cleanup and snapshot support:

@@ -7,11 +7,22 @@ use anyhow::{Context, Result};
 use std::process::Command;
 use std::time::Instant;
 
-/// Test suite definition with name and cargo test arguments
+/// Test suite definition with name and specific test arguments
 #[derive(Debug, Clone)]
 pub struct TestSuite {
 	pub name: &'static str,
-	pub args: &'static [&'static str],
+	/// Specific args that go between the common prefix and suffix
+	pub test_args: &'static [&'static str],
+}
+
+impl TestSuite {
+	/// Build complete cargo test command arguments
+	pub fn build_args(&self) -> Vec<&str> {
+		let mut args = vec!["test", "-p", "sd-core"];
+		args.extend_from_slice(self.test_args);
+		args.extend_from_slice(&["--", "--test-threads=1", "--nocapture"]);
+		args
+	}
 }
 
 /// All core integration tests that should run in CI and locally
@@ -21,173 +32,90 @@ pub struct TestSuite {
 /// CI workflows and local test scripts.
 pub const CORE_TESTS: &[TestSuite] = &[
 	TestSuite {
+		name: "Database migration test",
+		test_args: &["--test", "database_migration_test"],
+	},
+	TestSuite {
 		name: "Library tests",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--lib",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		test_args: &["--lib"],
 	},
 	TestSuite {
 		name: "Indexing test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"indexing_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		test_args: &["--test", "indexing_test"],
 	},
 	TestSuite {
 		name: "Indexing rules test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"indexing_rules_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
-	},
-	// TestSuite {
-	// 	name: "Indexing responder reindex test",
-	// 	args: &[
-	// 		"test",
-	// 		"-p",
-	// 		"sd-core",
-	// 		"--test",
-	// 		"indexing_responder_reindex_test",
-	// 		"--",
-	// 		"--test-threads=1",
-	// 		"--nocapture",
-	// 	],
-	// },
-	TestSuite {
-		name: "Sync backfill test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"sync_backfill_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		test_args: &["--test", "indexing_rules_test"],
 	},
 	TestSuite {
-		name: "Sync backfill race test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"sync_backfill_race_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		name: "Indexing responder reindex test",
+		test_args: &["--test", "indexing_responder_reindex_test"],
 	},
 	// TestSuite {
 	// 	name: "Sync event log test",
-	// 	args: &[
-	// 		"test",
-	// 		"-p",
-	// 		"sd-core",
-	// 		"--test",
-	// 		"sync_event_log_test",
-	// 		"--",
-	// 		"--test-threads=1",
-	// 		"--nocapture",
-	// 	],
+	// 	test_args: &["--test", "sync_event_log_test"],
 	// },
 	// TestSuite {
 	// 	name: "Sync metrics test",
-	// 	args: &[
-	// 		"test",
-	// 		"-p",
-	// 		"sd-core",
-	// 		"--test",
-	// 		"sync_metrics_test",
-	// 		"--",
-	// 		"--test-threads=1",
-	// 		"--nocapture",
-	// 	],
+	// 	test_args: &["--test", "sync_metrics_test"],
 	// },
 	// TestSuite {
 	// 	name: "Sync realtime test",
-	// 	args: &[
-	// 		"test",
-	// 		"-p",
-	// 		"sd-core",
-	// 		"--test",
-	// 		"sync_realtime_test",
-	// 		"--",
-	// 		"--test-threads=1",
-	// 		"--nocapture",
-	// 	],
+	// 	test_args: &["--test", "sync_realtime_test"],
 	// },
 	TestSuite {
 		name: "Sync setup test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"sync_setup_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		test_args: &["--test", "sync_setup_test"],
 	},
 	TestSuite {
 		name: "File sync simple test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"file_sync_simple_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
+		test_args: &["--test", "file_sync_simple_test"],
+	},
+	TestSuite {
+		name: "File move test",
+		test_args: &["--test", "file_move_test"],
+	},
+	TestSuite {
+		name: "File copy pull test",
+		test_args: &["--test", "file_copy_pull_test"],
+	},
+	TestSuite {
+		name: "Entry move integrity test",
+		test_args: &["--test", "entry_move_integrity_test"],
+	},
+	TestSuite {
+		name: "File structure test",
+		test_args: &["--test", "file_structure_test"],
+	},
+	TestSuite {
+		name: "Normalized cache fixtures test",
+		test_args: &["--test", "normalized_cache_fixtures_test"],
+	},
+	TestSuite {
+		name: "Pairing test",
+		test_args: &["--test", "pairing_test"],
+	},
+	TestSuite {
+		name: "Typescript bridge test",
+		test_args: &["--test", "typescript_bridge_test"],
+	},
+	TestSuite {
+		name: "Typescript search bridge test",
+		test_args: &["--test", "typescript_search_bridge_test"],
 	},
 	// TestSuite {
 	// 	name: "File sync test",
-	// 	args: &[
-	// 		"test",
-	// 		"-p",
-	// 		"sd-core",
-	// 		"--test",
-	// 		"file_sync_test",
-	// 		"--",
-	// 		"--test-threads=1",
-	// 		"--nocapture",
-	// 	],
+	// 	test_args: &["--test", "file_sync_test"],
 	// },
-	TestSuite {
-		name: "Database migration test",
-		args: &[
-			"test",
-			"-p",
-			"sd-core",
-			"--test",
-			"database_migration_test",
-			"--",
-			"--test-threads=1",
-			"--nocapture",
-		],
-	},
+
+	// TestSuite {
+	// 	name: "Sync backfill test",
+	// 	test_args: &["--test", "sync_backfill_test"],
+	// },
+	// TestSuite {
+	// 	name: "Sync backfill race test",
+	// 	test_args: &["--test", "sync_backfill_race_test"],
+	// },
 ];
 
 /// Test result for a single test suite
@@ -219,7 +147,7 @@ pub fn run_tests(verbose: bool) -> Result<Vec<TestResult>> {
 		let test_start = Instant::now();
 
 		let mut cmd = Command::new("cargo");
-		cmd.args(test_suite.args);
+		cmd.args(test_suite.build_args());
 
 		if !verbose {
 			cmd.stdout(std::process::Stdio::null());
