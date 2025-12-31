@@ -146,9 +146,12 @@ fn accept_by_git_pattern(
 			Ok(p) => p,
 			Err(_) => return true,
 		};
-		let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
+		let Some(path_str) = relative.to_str() else {
 			return false;
 		};
+		// Gitignore patterns expect forward slashes, even on Windows
+		let normalized_path = path_str.replace('\\', "/");
+		let src = normalized_path.as_bytes().into();
 		search
 			.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
 			.map_or(true, |rule| rule.pattern.is_negative())

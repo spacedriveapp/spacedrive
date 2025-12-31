@@ -57,10 +57,31 @@ impl TestDataDir {
 			}
 		};
 
+		// On Windows, add a random suffix to avoid file lock contention in parallel tests
 		let dir_name = if use_home_for_watcher {
-			format!(".spacedrive_test_{}", test_name)
+			#[cfg(windows)]
+			{
+				use std::sync::atomic::{AtomicU64, Ordering};
+				static COUNTER: AtomicU64 = AtomicU64::new(0);
+				let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+				format!(".spacedrive_test_{}_{}", test_name, id)
+			}
+			#[cfg(not(windows))]
+			{
+				format!(".spacedrive_test_{}", test_name)
+			}
 		} else {
-			format!("spacedrive-test-{}", test_name)
+			#[cfg(windows)]
+			{
+				use std::sync::atomic::{AtomicU64, Ordering};
+				static COUNTER: AtomicU64 = AtomicU64::new(0);
+				let id = COUNTER.fetch_add(1, Ordering::Relaxed);
+				format!("spacedrive-test-{}-{}", test_name, id)
+			}
+			#[cfg(not(windows))]
+			{
+				format!("spacedrive-test-{}", test_name)
+			}
 		};
 
 		let temp_path = PathBuf::from(temp_base).join(dir_name);

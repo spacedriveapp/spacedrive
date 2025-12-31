@@ -275,6 +275,13 @@ impl IndexingHarness {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
 
+		// On Windows, SQLite file locks can persist after shutdown even after WAL checkpoint
+		// This is due to the connection pool in SeaORM potentially holding onto connections
+		// Give the OS sufficient time to release all locks before TestDataDir cleanup
+		// Tests running in sequence need time for previous test's locks to fully release
+		#[cfg(windows)]
+		tokio::time::sleep(Duration::from_secs(2)).await;
+
 		// TestDataDir handles cleanup automatically on drop
 		Ok(())
 	}
