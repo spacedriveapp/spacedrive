@@ -256,6 +256,10 @@ pub async fn wait_for_indexing(
 
 		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
+		if !completed_jobs.is_empty() {
+			job_seen = true;
+		}
+
 		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
 		{
 			if current_entries == last_entry_count {

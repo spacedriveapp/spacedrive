@@ -508,6 +508,7 @@ let test_dir = PathBuf::from("core/data/test");
 ```
 
 **Standard structure**:
+
 ```
 /tmp/spacedrive-test-{test_name}/
 ├── core_data/       # Core database and state
@@ -522,6 +523,7 @@ let test_dir = PathBuf::from("core/data/test");
 Snapshots preserve test state for post-mortem debugging. They are optional and controlled by an environment variable.
 
 **Enable snapshots**:
+
 ```bash
 # Single test
 SD_TEST_SNAPSHOTS=1 cargo test file_move_test --nocapture
@@ -531,6 +533,7 @@ SD_TEST_SNAPSHOTS=1 cargo xtask test-core
 ```
 
 **Snapshot location** (when enabled):
+
 ```
 ~/Library/Application Support/spacedrive/test_snapshots/  (macOS)
 ~/.local/share/spacedrive/test_snapshots/                 (Linux)
@@ -538,6 +541,7 @@ SD_TEST_SNAPSHOTS=1 cargo xtask test-core
 ```
 
 **Structure**:
+
 ```
 test_snapshots/
 └── {test_name}/
@@ -551,12 +555,14 @@ test_snapshots/
 ```
 
 **When to use snapshots**:
+
 - Debugging sync tests (database state, event logs)
 - Complex indexing scenarios (closure table analysis)
 - Multi-phase operations (capture state at each phase)
 - Investigating flaky tests
 
 **Not needed for**:
+
 - Simple unit tests
 - Tests with assertion-only validation
 - Tests where console output is sufficient
@@ -566,39 +572,44 @@ test_snapshots/
 Some tests generate fixtures used by other test suites (e.g., TypeScript tests consuming Rust-generated event data). These fixtures follow the same conventions as snapshots: always write to temp, only copy to source when explicitly requested.
 
 **Generate fixtures**:
+
 ```bash
 # Single fixture test
 SD_REGENERATE_FIXTURES=1 cargo test normalized_cache_fixtures_test --nocapture
 ```
 
 **Fixture location** (when enabled):
+
 ```
 packages/ts-client/src/__fixtures/backend_events.json  (TypeScript test fixtures)
 ```
 
 **Default behavior**:
+
 - Fixtures written to temp directory
 - Test validates generation works
 - No modification of source tree
 
 **When `SD_REGENERATE_FIXTURES=1` is set**:
+
 - Fixtures generated in temp first (validation)
 - Copied to source tree for commit
 - Used by TypeScript tests
 
 **Example fixture test**:
+
 ```rust
 #[tokio::test]
 async fn generate_typescript_fixtures() -> Result<()> {
     let temp_dir = TempDir::new()?;
-    
+
     // Generate fixture data
     let fixture_data = generate_real_backend_events().await?;
-    
+
     // Always write to temp
     let temp_fixture_path = temp_dir.path().join("backend_events.json");
     std::fs::write(&temp_fixture_path, serde_json::to_string_pretty(&fixture_data)?)?;
-    
+
     // Only copy to source if explicitly requested
     if std::env::var("SD_REGENERATE_FIXTURES").is_ok() {
         let source_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -607,12 +618,13 @@ async fn generate_typescript_fixtures() -> Result<()> {
         std::fs::copy(&temp_fixture_path, &source_path)?;
         println!("Fixtures copied to source: {}", source_path.display());
     }
-    
+
     Ok(())
 }
 ```
 
 **When to regenerate fixtures**:
+
 - Backend event format changes
 - TypeScript types updated
 - New query responses added
