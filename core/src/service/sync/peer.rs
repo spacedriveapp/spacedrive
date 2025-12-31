@@ -82,7 +82,7 @@ use crate::{
 		event::{Event, EventBus},
 		sync::{
 			HLCGenerator, NetworkTransport, PeerLog, PeerLogError, ResourceWatermarkStore,
-			SharedChangeEntry, HLC,
+			SharedChangeEntry, SystemTimeSource, HLC,
 		},
 	},
 	library::Library,
@@ -200,7 +200,10 @@ impl PeerSync {
 			state: Arc::new(RwLock::new(DeviceSyncState::Uninitialized)),
 			buffer: Arc::new(BufferQueue::new()),
 			last_realtime_activity: Arc::new(RwLock::new(None)),
-			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(device_id))),
+			hlc_generator: Arc::new(tokio::sync::Mutex::new(HLCGenerator::new(
+				device_id,
+				Arc::new(SystemTimeSource),
+			))),
 			peer_log,
 			watermark_store,
 			backfill_manager: Arc::new(RwLock::new(None)),
