@@ -210,7 +210,7 @@ vergen         = { version = "8", features = ["cargo", "git", "gitcl"] }
 libc = "0.2"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.52", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_System_SystemServices", "Win32_Security"] }
+windows-sys = { version = "0.52", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_Security"] }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.15.1", features = ["metal"] }

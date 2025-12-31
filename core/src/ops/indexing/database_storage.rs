@@ -154,9 +154,8 @@ impl DatabaseStorage {
 		use windows_sys::Win32::Storage::FileSystem::{
 			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 			FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
-			OPEN_EXISTING,
+			GENERIC_READ, OPEN_EXISTING,
 		};
-		use windows_sys::Win32::System::SystemServices::GENERIC_READ;
 
 		// Convert path to wide string for Windows API
 		let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
