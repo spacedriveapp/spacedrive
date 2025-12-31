@@ -47,7 +47,7 @@ jobs:
         if: ${{ matrix.settings.os == 'windows' }}
         shell: cmd
         run: |
-          if exist target rmdir target
+          if exist target rmdir /S /Q target
           if not exist C:\spacedrive_target mkdir C:\spacedrive_target
           mklink /J target C:\spacedrive_target
 
