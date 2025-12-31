@@ -150,13 +150,12 @@ impl DatabaseStorage {
 	#[cfg(windows)]
 	pub fn get_inode(path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
 		use std::os::windows::ffi::OsStrExt;
-		use windows_sys::Win32::Foundation::{CloseHandle, INVALID_HANDLE_VALUE};
+		use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
 		use windows_sys::Win32::Storage::FileSystem::{
 			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
 			FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
 			OPEN_EXISTING,
 		};
-		use windows_sys::Win32::System::SystemServices::GENERIC_READ;
 
 		// Convert path to wide string for Windows API
 		let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
@@ -171,7 +170,7 @@ impl DatabaseStorage {
 				std::ptr::null(),
 				OPEN_EXISTING,
 				FILE_FLAG_BACKUP_SEMANTICS, // Required to open directories
-				std::ptr::null_mut(),
+				0,
 			)
 		};
 

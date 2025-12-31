@@ -246,10 +246,21 @@ mod tests {
 		assert_eq!(hlc1.counter, 0);
 		assert_eq!(hlc1.device_id, device_id);
 
-		// Generate next in same millisecond (simulated)
+		// Generate next HLC - it should either:
+		// 1. Have same timestamp and incremented counter (same millisecond), OR
+		// 2. Have newer timestamp and reset counter to 0 (different millisecond)
 		let hlc2 = HLC::generate(Some(hlc1), device_id);
-		assert_eq!(hlc2.timestamp, hlc1.timestamp);
-		assert_eq!(hlc2.counter, hlc1.counter + 1);
+
+		if hlc2.timestamp == hlc1.timestamp {
+			// Same millisecond - counter should increment
+			assert_eq!(hlc2.counter, hlc1.counter + 1);
+		} else {
+			// Different millisecond - timestamp advanced and counter reset
+			assert!(hlc2.timestamp > hlc1.timestamp);
+			assert_eq!(hlc2.counter, 0);
+		}
+
+		assert_eq!(hlc2.device_id, device_id);
 	}
 
 	#[test]
