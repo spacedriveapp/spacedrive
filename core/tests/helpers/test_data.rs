@@ -208,7 +208,10 @@ impl Drop for TestDataDir {
 			}
 			#[cfg(not(windows))]
 			{
-				eprintln!("Warning: Failed to clean up test directory {:?}: {}", self.temp_path, e);
+				eprintln!(
+					"Warning: Failed to clean up test directory {:?}: {}",
+					self.temp_path, e
+				);
 			}
 		}
 	}

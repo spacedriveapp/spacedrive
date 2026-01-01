@@ -13631,6 +13631,7 @@ dependencies = [
  "anyhow",
  "flate2",
  "mustache",
+ "owo-colors",
  "reqwest 0.12.23",
  "serde",
  "serde_json",
