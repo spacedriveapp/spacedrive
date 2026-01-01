@@ -4,6 +4,7 @@
 //! which tests should run when testing the core, used both by CI and local development.
 
 use anyhow::{Context, Result};
+use owo_colors::OwoColorize;
 use std::process::Command;
 use std::time::Instant;
 
@@ -32,12 +33,12 @@ impl TestSuite {
 /// CI workflows and local test scripts.
 pub const CORE_TESTS: &[TestSuite] = &[
 	TestSuite {
-		name: "Database migration test",
-		test_args: &["--test", "database_migration_test"],
+		name: "All core unit tests",
+		test_args: &["--lib"],
 	},
 	TestSuite {
-		name: "Library tests",
-		test_args: &["--lib"],
+		name: "Database migration test",
+		test_args: &["--test", "database_migration_test"],
 	},
 	TestSuite {
 		name: "Indexing test",
@@ -92,8 +93,36 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		test_args: &["--test", "normalized_cache_fixtures_test"],
 	},
 	TestSuite {
-		name: "Pairing test",
-		test_args: &["--test", "pairing_test"],
+		name: "Device pairing test",
+		test_args: &["--test", "device_pairing_test"],
+	},
+	TestSuite {
+		name: "Library test",
+		test_args: &["--test", "library_test"],
+	},
+	TestSuite {
+		name: "File transfer test",
+		test_args: &["--test", "file_transfer_test"],
+	},
+	TestSuite {
+		name: "FS watcher test",
+		test_args: &["--test", "fs_watcher_test"],
+	},
+	TestSuite {
+		name: "Ephemeral watcher test",
+		test_args: &["--test", "ephemeral_watcher_test"],
+	},
+	TestSuite {
+		name: "Volume detection test",
+		test_args: &["--test", "volume_detection_test"],
+	},
+	TestSuite {
+		name: "Volume tracking test",
+		test_args: &["--test", "volume_tracking_test"],
+	},
+	TestSuite {
+		name: "Cross device copy test",
+		test_args: &["--test", "cross_device_copy_test"],
 	},
 	TestSuite {
 		name: "Typescript bridge test",
@@ -130,19 +159,21 @@ pub fn run_tests(verbose: bool) -> Result<Vec<TestResult>> {
 	let total_tests = CORE_TESTS.len();
 	let mut results = Vec::new();
 
-	println!("════════════════════════════════════════════════════════════════");
-	println!("  Spacedrive Core Tests Runner");
-	println!("  Running {} test suite(s)", total_tests);
-	println!("════════════════════════════════════════════════════════════════");
 	println!();
+	println!("{}", "Spacedrive Core Tests Runner".bright_cyan().bold());
+	println!("Running {} test suite(s)\n", total_tests);
 
 	let overall_start = Instant::now();
 
 	for (index, test_suite) in CORE_TESTS.iter().enumerate() {
 		let current = index + 1;
 
-		println!("[{}/{}] Running: {}", current, total_tests, test_suite.name);
-		println!("────────────────────────────────────────────────────────────────");
+		print!("[{}/{}] ", current, total_tests);
+		print!("{} ", "●".bright_blue());
+		println!("{}", test_suite.name.bold());
+
+		let args_display = test_suite.test_args.join(" ");
+		println!("      {} {}", "args:".dimmed(), args_display.dimmed());
 
 		let test_start = Instant::now();
 
@@ -163,11 +194,15 @@ pub fn run_tests(verbose: bool) -> Result<Vec<TestResult>> {
 		let passed = status.success();
 
 		if passed {
-			println!("✓ PASSED ({}s)", duration);
+			println!("      {} {}s\n", "✓".bright_green(), duration);
 		} else {
-			println!("✗ FAILED (exit code: {}, {}s)", exit_code, duration);
+			println!(
+				"      {} {}s (exit code: {})\n",
+				"✗".bright_red(),
+				duration,
+				exit_code
+			);
 		}
-		println!();
 
 		results.push(TestResult {
 			name: test_suite.name.to_string(),
@@ -190,29 +225,32 @@ fn print_summary(results: &[TestResult], total_duration: std::time::Duration) {
 	let minutes = total_duration.as_secs() / 60;
 	let seconds = total_duration.as_secs() % 60;
 
-	println!("════════════════════════════════════════════════════════════════");
-	println!("  Test Results Summary");
-	println!("════════════════════════════════════════════════════════════════");
-	println!();
-	println!("Total time: {}m {}s", minutes, seconds);
-	println!();
+	println!("{}", "Test Results Summary".bright_cyan().bold());
+	println!("{} {}m {}s\n", "Total time:".dimmed(), minutes, seconds);
 
 	if !passed_tests.is_empty() {
-		println!("✓ Passed ({}/{}):", passed_tests.len(), total_tests);
+		println!(
+			"{} {}/{}",
+			"✓ Passed".bright_green().bold(),
+			passed_tests.len(),
+			total_tests
+		);
 		for result in passed_tests {
-			println!("  ✓ {}", result.name);
+			println!("  {} {}", "✓".bright_green(), result.name);
 		}
 		println!();
 	}
 
 	if !failed_tests.is_empty() {
-		println!("✗ Failed ({}/{}):", failed_tests.len(), total_tests);
+		println!(
+			"{} {}/{}",
+			"✗ Failed".bright_red().bold(),
+			failed_tests.len(),
+			total_tests
+		);
 		for result in failed_tests {
-			println!("  ✗ {}", result.name);
+			println!("  {} {}", "✗".bright_red(), result.name);
 		}
 		println!();
 	}
-
-	println!("════════════════════════════════════════════════════════════════");
-	println!();
 }
