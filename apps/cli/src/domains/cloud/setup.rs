@@ -238,8 +238,7 @@ async fn add_dropbox_interactive(ctx: &Context) -> Result<()> {
 	let client_id = text("App Key (Client ID)", false)?.unwrap();
 	let client_secret = password("App Secret (Client Secret)", false)?.unwrap();
 
-	println!("\nAfter authorizing, you'll receive tokens:");
-	let access_token = password("Access Token", false)?.unwrap();
+	println!("\nAfter completing OAuth flow, you'll receive a refresh token:");
 	let refresh_token = password("Refresh Token", false)?.unwrap();
 
 	println!("\nSummary:");
@@ -257,7 +256,6 @@ async fn add_dropbox_interactive(ctx: &Context) -> Result<()> {
 		display_name: name.clone(),
 		config: CloudStorageConfig::Dropbox {
 			root,
-			access_token,
 			refresh_token,
 			client_id,
 			client_secret,

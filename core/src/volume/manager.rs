@@ -238,13 +238,15 @@ impl VolumeManager {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
 									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_google_drive(
 										access_token,
 										refresh_token,
-										"", // client_id not stored yet
-										"", // client_secret not stored yet
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
@@ -256,13 +258,15 @@ impl VolumeManager {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
 									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_onedrive(
 										access_token,
 										refresh_token,
-										"",
-										"",
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
@@ -272,15 +276,16 @@ impl VolumeManager {
 							}
 							crate::volume::CloudServiceType::Dropbox => {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
-									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
+									..
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_dropbox(
-										access_token,
 										refresh_token,
-										"",
-										"",
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
