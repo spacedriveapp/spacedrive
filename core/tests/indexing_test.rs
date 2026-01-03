@@ -409,9 +409,17 @@ async fn test_change_detection_bulk_move_to_nested_directory() -> Result<()> {
 
 	// Verify final state
 	let final_files = handle.count_files().await?;
+	println!("DEBUG: final_files = {}", final_files);
 	assert_eq!(final_files, 4, "Should still have 4 files after moving");
 
 	let entries_after = handle.get_all_entries().await?;
+	println!("DEBUG: entries_after count = {}", entries_after.len());
+	for entry in &entries_after {
+		println!(
+			"DEBUG: entry: name={}, kind={}, inode={:?}, uuid={:?}",
+			entry.name, entry.kind, entry.inode, entry.uuid
+		);
+	}
 
 	// Verify moved files exist with new names in nested directory
 	let file1_after = entries_after
@@ -428,21 +436,42 @@ async fn test_change_detection_bulk_move_to_nested_directory() -> Result<()> {
 		.expect("file3 should exist after move");
 
 	// Verify inodes and UUIDs are preserved (proves move, not delete+create)
+	println!(
+		"DEBUG: file1 - before inode={:?}, after inode={:?}",
+		inode1, file1_after.inode
+	);
+	println!(
+		"DEBUG: file1 - before uuid={:?}, after uuid={:?}",
+		uuid1, file1_after.uuid
+	);
+	println!(
+		"DEBUG: file2 - before inode={:?}, after inode={:?}",
+		inode2, file2_after.inode
+	);
+	println!(
+		"DEBUG: file2 - before uuid={:?}, after uuid={:?}",
+		uuid2, file2_after.uuid
+	);
+
 	assert_eq!(
 		inode1, file1_after.inode,
-		"file1 inode should be preserved after move"
+		"file1 inode should be preserved after move (before={:?}, after={:?})",
+		inode1, file1_after.inode
 	);
 	assert_eq!(
 		uuid1, file1_after.uuid,
-		"file1 UUID should be preserved after move with inode tracking"
+		"file1 UUID should be preserved after move with inode tracking (before={:?}, after={:?})",
+		uuid1, file1_after.uuid
 	);
 	assert_eq!(
 		inode2, file2_after.inode,
-		"file2 inode should be preserved after move"
+		"file2 inode should be preserved after move (before={:?}, after={:?})",
+		inode2, file2_after.inode
 	);
 	assert_eq!(
 		uuid2, file2_after.uuid,
-		"file2 UUID should be preserved after move with inode tracking"
+		"file2 UUID should be preserved after move with inode tracking (before={:?}, after={:?})",
+		uuid2, file2_after.uuid
 	);
 
 	// Verify file4 remained at root

@@ -23,7 +23,17 @@
 	z-index: 9999;
 }
 
-/* Scrollbar styling */
+/* Hide all scrollbars globally */
+*::-webkit-scrollbar {
+	display: none;
+}
+
+* {
+	-ms-overflow-style: none;
+	scrollbar-width: none;
+}
+
+/* Legacy class for explicit scrollbar hiding (still works) */
 .no-scrollbar::-webkit-scrollbar {
 	display: none;
 }

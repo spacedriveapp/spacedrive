@@ -146,9 +146,12 @@ fn accept_by_git_pattern(
 			Ok(p) => p,
 			Err(_) => return true,
 		};
-		let Some(src) = relative.to_str().map(|s| s.as_bytes().into()) else {
+		let Some(path_str) = relative.to_str() else {
 			return false;
 		};
+		// Gitignore patterns expect forward slashes, even on Windows
+		let normalized_path = path_str.replace('\\', "/");
+		let src = normalized_path.as_bytes().into();
 		search
 			.pattern_matching_relative_path(src, Some(source.is_dir()), Case::Fold)
 			.map_or(true, |rule| rule.pattern.is_negative())
@@ -545,6 +548,12 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
         RulePerKind::new_reject_files_by_globs_str(
             [
                 vec!["**/.spacedrive"],
+                // Cross-platform: macOS metadata files that can appear on any OS (network shares, USB drives, etc.)
+                vec![
+                    "**/.{DS_Store,AppleDouble,LSOverride}",
+                    "**/Icon\r\r",
+                    "**/._*",
+                ],
                 #[cfg(target_os = "windows")]
                 vec![
                     "**/{Thumbs.db,Thumbs.db:encryptable,ehthumbs.db,ehthumbs_vista.db}",
@@ -563,12 +572,6 @@ pub static NO_SYSTEM_FILES: Lazy<SystemIndexerRule> = Lazy::new(|| {
                     "C:/{config,pagefile,hiberfil}.sys",
                     "[A-Z]:/swapfile.sys",
                     "C:/DumpStack.log.tmp",
-                ],
-                #[cfg(any(target_os = "ios", target_os = "macos"))]
-                vec![
-                    "**/.{DS_Store,AppleDouble,LSOverride}",
-                    "**/Icon\r\r",
-                    "**/._*",
                 ],
                 #[cfg(target_os = "macos")]
                 vec![

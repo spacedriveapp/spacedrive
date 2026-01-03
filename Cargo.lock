@@ -8981,6 +8981,7 @@ dependencies = [
  "webp",
  "whisper-rs",
  "whoami",
+ "windows-sys 0.52.0",
  "x25519-dalek",
 ]
 
@@ -13630,6 +13631,7 @@ dependencies = [
  "anyhow",
  "flate2",
  "mustache",
+ "owo-colors",
  "reqwest 0.12.23",
  "serde",
  "serde_json",

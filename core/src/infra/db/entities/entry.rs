@@ -204,7 +204,8 @@ impl crate::infra::sync::Syncable for Model {
 		let mut query = Entity::find();
 
 		// Filter by device ownership if specified (critical for device-owned data sync)
-		// Entries are owned via their location's device_id
+		// Entries now have device_id directly - use that instead of entry_closure during backfill
+		// to avoid circular dependency (entry_closure is rebuilt AFTER backfill)
 		if let Some(owner_device_uuid) = device_id {
 			// Get device's internal ID
 			let device = super::device::Entity::find()
@@ -213,18 +214,31 @@ impl crate::infra::sync::Syncable for Model {
 				.await?;
 
 			if let Some(dev) = device {
-				// Use raw SQL for device ownership filter (same proven pattern as get_device_owned_counts)
-				// Filter to only entries whose root location is owned by this device via entry_closure
-				use sea_orm::sea_query::SimpleExpr;
-
-				query = query.filter(
-					SimpleExpr::from(sea_orm::sea_query::Expr::cust_with_values::<&str, sea_orm::Value, Vec<sea_orm::Value>>(
-						"id IN (SELECT DISTINCT ec.descendant_id FROM entry_closure ec WHERE ec.ancestor_id IN (SELECT entry_id FROM locations WHERE device_id = ?))",
-						vec![dev.id.into()],
-					))
+				tracing::debug!(
+					device_uuid = %owner_device_uuid,
+					device_id = dev.id,
+					"Filtering entries by device_id"
 				);
+
+				// Check how many entries have this device_id for debugging
+				let count_with_device = Entity::find()
+					.filter(Column::DeviceId.eq(dev.id))
+					.count(db)
+					.await?;
+
+				tracing::debug!(
+					entries_with_device_id = count_with_device,
+					"Entries matching device_id before other filters"
+				);
+
+				// Filter by device_id directly (recently added to entry table)
+				// This avoids the circular dependency with entry_closure table
+				query = query.filter(Column::DeviceId.eq(dev.id));
 			} else {
-				// Device not found, return empty
+				tracing::warn!(
+					device_uuid = %owner_device_uuid,
+					"Device not found in database, returning empty"
+				);
 				return Ok(Vec::new());
 			}
 		}
@@ -256,6 +270,12 @@ impl crate::infra::sync::Syncable for Model {
 		query = query.limit(batch_size as u64);
 
 		let results = query.all(db).await?;
+
+		tracing::debug!(
+			result_count = results.len(),
+			batch_size = batch_size,
+			"Query executed, returning results"
+		);
 
 		// Batch lookup directory paths for all directories to avoid N+1 queries
 		let directory_ids: Vec<i32> = results

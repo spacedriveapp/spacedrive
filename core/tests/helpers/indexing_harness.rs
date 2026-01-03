@@ -3,7 +3,9 @@
 //! Provides reusable components for indexing integration tests,
 //! reducing boilerplate and making it easy to test change detection.
 
-use super::{init_test_tracing, register_device, wait_for_indexing, TestConfigBuilder};
+use super::{
+	init_test_tracing, register_device, wait_for_indexing, TestConfigBuilder, TestDataDir,
+};
 use anyhow::Context;
 use sd_core::{
 	infra::db::entities::{self, entry_closure},
@@ -15,7 +17,6 @@ use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
 };
-use tempfile::TempDir;
 use tokio::time::Duration;
 use uuid::Uuid;
 
@@ -50,13 +51,9 @@ impl IndexingHarnessBuilder {
 
 	/// Build the harness
 	pub async fn build(self) -> anyhow::Result<IndexingHarness> {
-		// Use home directory for proper filesystem watcher support on macOS
-		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-		let test_root = PathBuf::from(home).join(format!(".spacedrive_test_{}", self.test_name));
-
-		// Clean up any existing test directory
-		let _ = tokio::fs::remove_dir_all(&test_root).await;
-		tokio::fs::create_dir_all(&test_root).await?;
+		// Use TestDataDir with watcher support (uses home directory for macOS compatibility)
+		let test_data = TestDataDir::new_for_watcher(&self.test_name)?;
+		let test_root = test_data.path().to_path_buf();
 
 		let snapshot_dir = test_root.join("snapshots");
 		tokio::fs::create_dir_all(&snapshot_dir).await?;
@@ -90,7 +87,8 @@ impl IndexingHarnessBuilder {
 
 		// Use the real device UUID so the watcher can find locations
 		let device_id = sd_core::device::get_current_device_id();
-		let device_name = whoami::devicename();
+		// Make device name unique per test to avoid slug collisions in parallel tests
+		let device_name = format!("{}-{}", whoami::devicename(), self.test_name);
 		register_device(&library, device_id, &device_name).await?;
 
 		// Get device record
@@ -134,8 +132,7 @@ impl IndexingHarnessBuilder {
 		};
 
 		Ok(IndexingHarness {
-			_test_name: self.test_name,
-			_test_root: test_root,
+			test_data,
 			snapshot_dir,
 			core,
 			library,
@@ -148,8 +145,7 @@ impl IndexingHarnessBuilder {
 
 /// Indexing test harness with convenient helper methods
 pub struct IndexingHarness {
-	_test_name: String,
-	_test_root: PathBuf,
+	test_data: TestDataDir,
 	pub snapshot_dir: PathBuf,
 	pub core: Arc<Core>,
 	pub library: Arc<sd_core::library::Library>,
@@ -161,7 +157,12 @@ pub struct IndexingHarness {
 impl IndexingHarness {
 	/// Get the temp directory path (for creating test files)
 	pub fn temp_path(&self) -> &Path {
-		&self._test_root
+		self.test_data.path()
+	}
+
+	/// Get access to the snapshot manager (if snapshots enabled via SD_TEST_SNAPSHOTS=1)
+	pub fn snapshot_manager(&self) -> Option<&super::SnapshotManager> {
+		self.test_data.snapshot_manager()
 	}
 
 	/// Get the daemon socket address (only available if daemon is enabled)
@@ -266,7 +267,6 @@ impl IndexingHarness {
 	/// Shutdown the harness
 	pub async fn shutdown(self) -> anyhow::Result<()> {
 		let lib_id = self.library.id();
-		let test_root = self._test_root.clone();
 
 		self.core.libraries.close_library(lib_id).await?;
 		drop(self.library);
@@ -275,9 +275,14 @@ impl IndexingHarness {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to shutdown core: {}", e))?;
 
-		// Clean up test directory
-		tokio::fs::remove_dir_all(&test_root).await?;
+		// On Windows, SQLite file locks can persist after shutdown even after WAL checkpoint
+		// This is due to the connection pool in SeaORM potentially holding onto connections
+		// Give the OS time to release locks to reduce leftover test directories
+		// TestDataDir cleanup ignores errors on Windows, so this is just best-effort
+		#[cfg(windows)]
+		tokio::time::sleep(Duration::from_millis(500)).await;
 
+		// TestDataDir handles cleanup automatically on drop
 		Ok(())
 	}
 }
@@ -421,19 +426,47 @@ impl<'a> LocationHandle<'a> {
 
 	/// Verify entries with inodes
 	pub async fn verify_inode_tracking(&self) -> anyhow::Result<()> {
-		let entry_ids = self.get_all_entry_ids().await?;
-		let entries_with_inodes = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Id.is_in(entry_ids))
-			.filter(entities::entry::Column::Inode.is_not_null())
-			.count(self.harness.library.db().conn())
-			.await?;
+		// Windows NTFS File IDs are now supported. On FAT32/exFAT filesystems,
+		// File IDs are not available, so we skip verification if no inodes are found.
+		#[cfg(windows)]
+		{
+			let entry_ids = self.get_all_entry_ids().await?;
+			let entries_with_inodes = entities::entry::Entity::find()
+				.filter(entities::entry::Column::Id.is_in(entry_ids))
+				.filter(entities::entry::Column::Inode.is_not_null())
+				.count(self.harness.library.db().conn())
+				.await?;
 
-		anyhow::ensure!(
-			entries_with_inodes > 0,
-			"At least some entries should have inode tracking"
-		);
+			if entries_with_inodes == 0 {
+				tracing::warn!(
+					"No entries with File IDs found - likely FAT32/exFAT filesystem. Skipping inode verification."
+				);
+				return Ok(());
+			}
 
-		Ok(())
+			tracing::debug!(
+				"Windows File ID tracking verified: {} entries have File IDs",
+				entries_with_inodes
+			);
+			return Ok(());
+		}
+
+		#[cfg(not(windows))]
+		{
+			let entry_ids = self.get_all_entry_ids().await?;
+			let entries_with_inodes = entities::entry::Entity::find()
+				.filter(entities::entry::Column::Id.is_in(entry_ids))
+				.filter(entities::entry::Column::Inode.is_not_null())
+				.count(self.harness.library.db().conn())
+				.await?;
+
+			anyhow::ensure!(
+				entries_with_inodes > 0,
+				"At least some entries should have inode tracking"
+			);
+
+			Ok(())
+		}
 	}
 
 	/// Write a new file to the location

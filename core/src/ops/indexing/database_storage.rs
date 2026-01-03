@@ -76,8 +76,9 @@ fn normalize_cloud_dir_path(path: &Path) -> PathBuf {
 /// touching the database, while persistent indexing converts them to ActiveModels
 /// in batch transactions.
 ///
-/// The `inode` field is populated on Unix systems but remains `None` on Windows,
-/// where file indices are unstable across reboots. Change detection uses
+/// The `inode` field is populated on Unix/Linux/macOS and Windows NTFS filesystems
+/// for stable file identification across renames. On Windows, this uses NTFS File IDs
+/// (64-bit identifiers). On FAT32/exFAT, inode remains None. Change detection uses
 /// (inode, mtime, size) tuples when available, falling back to path-only matching.
 #[derive(Debug, Clone)]
 pub struct EntryMetadata {
@@ -136,23 +137,94 @@ pub struct ContentLinkResult {
 
 impl DatabaseStorage {
 	/// Get platform-specific inode
+	///
+	/// On Unix/Linux/macOS, extracts the inode number directly from metadata.
+	/// On Windows NTFS, opens the file to retrieve the 64-bit File ID via GetFileInformationByHandle.
+	/// Returns None on FAT32/exFAT filesystems or when file access fails.
 	#[cfg(unix)]
-	pub fn get_inode(metadata: &std::fs::Metadata) -> Option<u64> {
+	pub fn get_inode(_path: &Path, metadata: &std::fs::Metadata) -> Option<u64> {
 		use std::os::unix::fs::MetadataExt;
 		Some(metadata.ino())
 	}
 
 	#[cfg(windows)]
-	pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
-		// Windows file indices exist but are unstable across reboots and volume operations,
-		// making them unsuitable for change detection. We return None and fall back to
-		// path-only matching, which is sufficient since Windows NTFS doesn't support hard
-		// links for directories (the main inode use case on Unix).
-		None
+	pub fn get_inode(path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
+		use std::os::windows::ffi::OsStrExt;
+		use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
+		use windows_sys::Win32::Storage::FileSystem::{
+			CreateFileW, GetFileInformationByHandle, BY_HANDLE_FILE_INFORMATION,
+			FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_DELETE, FILE_SHARE_READ, FILE_SHARE_WRITE,
+			OPEN_EXISTING,
+		};
+
+		// Convert path to wide string for Windows API
+		let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+		// Use CreateFileW with FILE_FLAG_BACKUP_SEMANTICS to allow opening directories.
+		// std::fs::File::open fails for directories on Windows without this flag.
+		let handle = unsafe {
+			CreateFileW(
+				wide_path.as_ptr(),
+				GENERIC_READ,
+				FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+				std::ptr::null_mut(),
+				OPEN_EXISTING,
+				FILE_FLAG_BACKUP_SEMANTICS, // Required to open directories
+				0,
+			)
+		};
+
+		if handle == INVALID_HANDLE_VALUE {
+			tracing::debug!(
+				"Failed to open path for File ID extraction: {}",
+				path.display()
+			);
+			return None;
+		}
+
+		let mut info: BY_HANDLE_FILE_INFORMATION = unsafe { std::mem::zeroed() };
+
+		let result = unsafe {
+			if GetFileInformationByHandle(handle, &mut info) != 0 {
+				// Combine high and low 32-bit values into 64-bit File ID
+				let file_id = ((info.nFileIndexHigh as u64) << 32) | (info.nFileIndexLow as u64);
+
+				// File ID of 0 indicates FAT32/exFAT (no File ID support)
+				if file_id == 0 {
+					tracing::debug!(
+						"File ID is 0 for {:?} (likely FAT32/exFAT filesystem)",
+						path.file_name().unwrap_or_default()
+					);
+					None
+				} else {
+					tracing::trace!(
+						"Extracted File ID: 0x{:016X} for {:?}",
+						file_id,
+						path.file_name().unwrap_or_default()
+					);
+					Some(file_id)
+				}
+			} else {
+				// GetFileInformationByHandle failed
+				// Common reasons: FAT32/exFAT filesystem, permission denied
+				tracing::debug!(
+					"GetFileInformationByHandle failed for {:?} (likely FAT32/exFAT or permission issue)",
+					path.file_name().unwrap_or_default()
+				);
+				None
+			}
+		};
+
+		// Always close the handle
+		unsafe {
+			CloseHandle(handle);
+		}
+
+		result
 	}
 
 	#[cfg(not(any(unix, windows)))]
-	pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+	pub fn get_inode(_path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
 		None
 	}
 
@@ -236,7 +308,7 @@ impl DatabaseStorage {
 				EntryKind::File
 			};
 
-			let inode = Self::get_inode(&metadata);
+			let inode = Self::get_inode(path, &metadata);
 
 			#[cfg(unix)]
 			let permissions = {

@@ -256,6 +256,17 @@ if ($LASTEXITCODE -ne 0) {
     Exit-WithError "Something went wrong, exit code: $LASTEXITCODE"
 }
 
+# Run xtask setup to download native dependencies and configure cargo
+if (-not $env:CI) {
+    Write-Host
+    Write-Host 'Running cargo xtask setup to download native dependencies...' -ForegroundColor Yellow
+    Set-Location $projectRoot
+    cargo xtask setup
+    if ($LASTEXITCODE -ne 0) {
+        Exit-WithError 'Failed to run cargo xtask setup'
+    }
+}
+
 if (-not $env:CI) {
     Write-Host
     Write-Host 'Your machine has been setup for Spacedrive development!' -ForegroundColor Green

@@ -126,13 +126,20 @@ async function main() {
             throw new Error(`Daemon binary not found at: ${DAEMON_BIN}`);
         }
 
+        const depsLibPath = join(PROJECT_ROOT, "apps/.deps/lib");
+        const depsBinPath = join(PROJECT_ROOT, "apps/.deps/bin");
+
         daemonProcess = spawn(DAEMON_BIN, ["--data-dir", DATA_DIR], {
             cwd: PROJECT_ROOT,
             stdio: ["ignore", "pipe", "pipe"],
             env: {
                 ...process.env,
-                // On Windows DYLD_LIBRARY_PATH does nothing, but keeping it doesn't hurt
-                DYLD_LIBRARY_PATH: join(PROJECT_ROOT, "apps/.deps/lib"),
+                // macOS library path
+                DYLD_LIBRARY_PATH: depsLibPath,
+                // Windows: Add DLLs directory to PATH
+                PATH: IS_WIN
+                    ? `${depsBinPath};${process.env.PATH || ""}`
+                    : process.env.PATH,
             },
         });
 

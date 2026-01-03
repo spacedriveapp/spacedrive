@@ -192,7 +192,8 @@ pub async fn create_location(
 		indexed_at: Set(Some(now)), // CRITICAL: Must be set for sync to work (enables StateChange emission)
 		permissions: Set(None),
 		inode: Set(None),
-		parent_id: Set(None), // Location root has no parent
+		parent_id: Set(None),            // Location root has no parent
+		device_id: Set(Some(device_id)), // CRITICAL: Must be set for device-owned sync queries
 		..Default::default()
 	};
 

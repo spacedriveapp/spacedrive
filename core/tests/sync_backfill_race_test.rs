@@ -18,7 +18,7 @@ mod helpers;
 
 use helpers::{
 	add_and_index_location, create_snapshot_dir, init_test_tracing, register_device,
-	set_all_devices_synced, MockTransport, TestConfigBuilder,
+	set_all_devices_synced, MockTransport, TestConfigBuilder, TestDataDir,
 };
 use sd_core::{
 	infra::{db::entities, sync::NetworkTransport},
@@ -33,8 +33,8 @@ use uuid::Uuid;
 
 /// Test harness for backfill race condition testing
 struct BackfillRaceHarness {
-	_data_dir_alice: PathBuf,
-	_data_dir_bob: PathBuf,
+	_test_data_alice: TestDataDir,
+	_test_data_bob: TestDataDir,
 	_core_alice: Core,
 	_core_bob: Core,
 	library_alice: Arc<Library>,
@@ -52,23 +52,17 @@ impl BackfillRaceHarness {
 		let snapshot_dir = create_snapshot_dir(test_name).await?;
 		init_test_tracing(test_name, &snapshot_dir)?;
 
-		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-		let test_root = std::path::PathBuf::from(home)
-			.join("Library/Application Support/spacedrive/sync_tests");
+		// Use TestDataDir helper for proper cross-platform directory management
+		let test_data_alice = TestDataDir::new("backfill_race_alice")?;
+		let test_data_bob = TestDataDir::new("backfill_race_bob")?;
 
-		let data_dir = test_root.join("data_backfill_race");
-		if data_dir.exists() {
-			fs::remove_dir_all(&data_dir).await?;
-		}
-		fs::create_dir_all(&data_dir).await?;
-
-		let temp_dir_alice = data_dir.join("alice");
-		let temp_dir_bob = data_dir.join("bob");
-		fs::create_dir_all(&temp_dir_alice).await?;
-		fs::create_dir_all(&temp_dir_bob).await?;
+		let temp_dir_alice = test_data_alice.core_data_path();
+		let temp_dir_bob = test_data_bob.core_data_path();
 
 		tracing::info!(
 			snapshot_dir = %snapshot_dir.display(),
+			alice_dir = %temp_dir_alice.display(),
+			bob_dir = %temp_dir_bob.display(),
 			"Starting backfill race condition test"
 		);
 
@@ -170,8 +164,8 @@ impl BackfillRaceHarness {
 		tokio::time::sleep(Duration::from_millis(100)).await;
 
 		Ok(Self {
-			_data_dir_alice: temp_dir_alice,
-			_data_dir_bob: temp_dir_bob,
+			_test_data_alice: test_data_alice,
+			_test_data_bob: test_data_bob,
 			_core_alice: core_alice,
 			_core_bob: core_bob,
 			library_alice,
@@ -340,10 +334,20 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	let harness = BackfillRaceHarness::new("backfill_race").await?;
 
 	// Step 1: Alice indexes first location
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
-	tracing::info!("Step 1: Alice indexes Downloads");
+	// Use Spacedrive crates directory for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let crates_path = project_root.join("crates");
+	tracing::info!("Step 1: Alice indexes crates");
 
-	add_and_index_location(&harness.library_alice, &downloads_path, "Downloads").await?;
+	add_and_index_location(
+		&harness.library_alice,
+		crates_path.to_str().unwrap(),
+		"crates",
+	)
+	.await?;
 
 	let alice_entries_after_loc1 = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())
@@ -373,10 +377,18 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	// Step 2: Start backfill on Bob while Alice continues indexing
 	tracing::info!("Step 2: Starting Bob's backfill AND Alice's second indexing concurrently");
 
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing across all environments
+	let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
 
 	let backfill_future = harness.trigger_bob_backfill();
-	let indexing_future = add_and_index_location(&harness.library_alice, &desktop_path, "Desktop");
+	let indexing_future = add_and_index_location(
+		&harness.library_alice,
+		test_path.to_str().unwrap(),
+		"spacedrive",
+	);
 
 	// Run concurrently - this is the key to triggering the race
 	let (backfill_result, indexing_result) = tokio::join!(backfill_future, indexing_future);
@@ -448,13 +460,18 @@ async fn test_sequential_backfill_control() -> anyhow::Result<()> {
 	let harness = BackfillRaceHarness::new("sequential_control").await?;
 
 	// Alice indexes both locations first
-	let downloads_path = std::env::var("HOME").unwrap() + "/Downloads";
-	let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+	// Use Spacedrive source code for deterministic testing
+	let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.unwrap()
+		.to_path_buf();
+	let core_path = project_root.join("core");
+	let apps_path = project_root.join("apps");
 
 	tracing::info!("Indexing both locations on Alice first");
 
-	add_and_index_location(&harness.library_alice, &downloads_path, "Downloads").await?;
-	add_and_index_location(&harness.library_alice, &desktop_path, "Desktop").await?;
+	add_and_index_location(&harness.library_alice, core_path.to_str().unwrap(), "core").await?;
+	add_and_index_location(&harness.library_alice, apps_path.to_str().unwrap(), "apps").await?;
 
 	let alice_entries = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())
