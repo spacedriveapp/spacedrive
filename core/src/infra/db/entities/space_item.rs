@@ -74,7 +74,8 @@ impl Syncable for Model {
 		vec![
 			crate::infra::sync::FKMapping::new("space_id", "spaces"),
 			crate::infra::sync::FKMapping::new("group_id", "space_groups"),
-			crate::infra::sync::FKMapping::new("entry_uuid", "entries"),
+			// Note: entry_uuid is NOT listed here because it's already a UUID field.
+			// FKMapping is only for integer ID fields that need ID→UUID conversion.
 		]
 	}
 
