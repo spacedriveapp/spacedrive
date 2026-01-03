@@ -6,6 +6,7 @@
 
 pub mod action;
 mod config;
+mod ephemeral_job;
 mod error;
 mod generator;
 mod job;
@@ -16,6 +17,7 @@ mod utils;
 
 pub use action::ThumbnailAction;
 pub use config::{ThumbnailVariantConfig, ThumbnailVariants};
+pub use ephemeral_job::{EphemeralThumbnailJob, EphemeralThumbnailOutput};
 pub use error::{ThumbnailError, ThumbnailResult};
 pub use generator::{ImageGenerator, ThumbnailGenerator, ThumbnailInfo, VideoGenerator};
 pub use job::{ThumbnailJob, ThumbnailJobConfig};
