@@ -22,6 +22,7 @@ pub mod peer_log;
 pub mod peer_watermarks;
 pub mod registry;
 pub mod syncable;
+pub mod time_source;
 pub mod transaction;
 pub mod transport;
 pub mod watermarks;
@@ -52,6 +53,7 @@ pub use registry::{
 	get_table_name, is_device_owned, ApplyError, SyncableInventoryEntry, SyncableModelRegistration,
 };
 pub use syncable::Syncable;
+pub use time_source::{FakeTimeSource, SystemTimeSource, TimeSource};
 pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
 pub use transport::NetworkTransport;
 pub use watermarks::{ResourceWatermarkStore, WatermarkError};

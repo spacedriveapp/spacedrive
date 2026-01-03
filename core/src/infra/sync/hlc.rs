@@ -4,10 +4,10 @@
 //! requiring clock synchronization. It combines physical time with a logical counter
 //! to ensure causality is preserved.
 
-use chrono::Utc;
+use crate::infra::sync::time_source::TimeSource;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use uuid::Uuid;
 
 /// Hybrid Logical Clock
@@ -30,9 +30,9 @@ pub struct HLC {
 
 impl HLC {
 	/// Create a new HLC with current time and zero counter
-	pub fn now(device_id: Uuid) -> Self {
+	pub fn now(device_id: Uuid, time_source: &dyn TimeSource) -> Self {
 		Self {
-			timestamp: current_time_ms(),
+			timestamp: time_source.current_time_ms(),
 			counter: 0,
 			device_id,
 		}
@@ -42,8 +42,8 @@ impl HLC {
 	///
 	/// If the timestamp is the same millisecond, increments the counter.
 	/// Otherwise, resets counter to 0 with new timestamp.
-	pub fn generate(last: Option<HLC>, device_id: Uuid) -> Self {
-		let now = current_time_ms();
+	pub fn generate(last: Option<HLC>, device_id: Uuid, time_source: &dyn TimeSource) -> Self {
+		let now = time_source.current_time_ms();
 
 		match last {
 			Some(last) if last.timestamp == now => {
@@ -71,8 +71,8 @@ impl HLC {
 	/// - Take max of local and received timestamp
 	/// - If same timestamp, take max counter + 1
 	/// - Otherwise reset counter based on which timestamp is used
-	pub fn update(&mut self, received: HLC) {
-		let now = current_time_ms();
+	pub fn update(&mut self, received: HLC, time_source: &dyn TimeSource) {
+		let now = time_source.current_time_ms();
 
 		// Take max of all three: local, received, and physical time
 		let max_timestamp = self.timestamp.max(received.timestamp).max(now);
@@ -177,14 +177,16 @@ impl FromStr for HLC {
 pub struct HLCGenerator {
 	device_id: Uuid,
 	last_hlc: Mutex<Option<HLC>>,
+	time_source: Arc<dyn TimeSource>,
 }
 
 impl HLCGenerator {
-	/// Create a new HLC generator for this device
-	pub fn new(device_id: Uuid) -> Self {
+	/// Create a new HLC generator for this device with specified time source
+	pub fn new(device_id: Uuid, time_source: Arc<dyn TimeSource>) -> Self {
 		Self {
 			device_id,
 			last_hlc: Mutex::new(None),
+			time_source,
 		}
 	}
 
@@ -193,7 +195,7 @@ impl HLCGenerator {
 	/// This is the primary method for creating HLCs for local events.
 	pub fn next(&self) -> HLC {
 		let mut last = self.last_hlc.lock().unwrap();
-		let new_hlc = HLC::generate(*last, self.device_id);
+		let new_hlc = HLC::generate(*last, self.device_id, self.time_source.as_ref());
 		*last = Some(new_hlc);
 		new_hlc
 	}
@@ -207,7 +209,7 @@ impl HLCGenerator {
 
 		match *last {
 			Some(mut local) => {
-				local.update(received);
+				local.update(received, self.time_source.as_ref());
 				*last = Some(local);
 			}
 			None => {
@@ -230,37 +232,31 @@ pub enum HLCError {
 	ParseError(String),
 }
 
-/// Get current time in milliseconds since Unix epoch
-fn current_time_ms() -> u64 {
-	Utc::now().timestamp_millis() as u64
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::infra::sync::time_source::FakeTimeSource;
 
 	#[test]
 	fn test_hlc_generation() {
 		let device_id = Uuid::new_v4();
-		let hlc1 = HLC::now(device_id);
+		let time = FakeTimeSource::new(1000);
+
+		let hlc1 = HLC::now(device_id, &time);
 		assert_eq!(hlc1.counter, 0);
+		assert_eq!(hlc1.timestamp, 1000);
 		assert_eq!(hlc1.device_id, device_id);
 
-		// Generate next HLC - it should either:
-		// 1. Have same timestamp and incremented counter (same millisecond), OR
-		// 2. Have newer timestamp and reset counter to 0 (different millisecond)
-		let hlc2 = HLC::generate(Some(hlc1), device_id);
+		// Generate next in same millisecond (time hasn't advanced)
+		let hlc2 = HLC::generate(Some(hlc1), device_id, &time);
+		assert_eq!(hlc2.timestamp, hlc1.timestamp);
+		assert_eq!(hlc2.counter, hlc1.counter + 1);
 
-		if hlc2.timestamp == hlc1.timestamp {
-			// Same millisecond - counter should increment
-			assert_eq!(hlc2.counter, hlc1.counter + 1);
-		} else {
-			// Different millisecond - timestamp advanced and counter reset
-			assert!(hlc2.timestamp > hlc1.timestamp);
-			assert_eq!(hlc2.counter, 0);
-		}
-
-		assert_eq!(hlc2.device_id, device_id);
+		// Advance time and generate again
+		time.advance(100);
+		let hlc3 = HLC::generate(Some(hlc2), device_id, &time);
+		assert_eq!(hlc3.timestamp, 1100);
+		assert_eq!(hlc3.counter, 0);
 	}
 
 	#[test]
@@ -299,6 +295,7 @@ mod tests {
 	fn test_hlc_update_causality() {
 		let device_a = Uuid::new_v4();
 		let device_b = Uuid::new_v4();
+		let time = FakeTimeSource::new(1000);
 
 		let mut local = HLC {
 			timestamp: 1000,
@@ -312,19 +309,25 @@ mod tests {
 			device_id: device_b,
 		};
 
-		local.update(received);
+		local.update(received, &time);
 
-		// Should take max of local, received, and physical time
-		// Physical time will be much larger than test values, so it will be chosen
-		// Counter should reset to 0 when physical time advances
-		assert!(
-			local.timestamp >= 1005,
-			"Timestamp should be at least the received value"
-		);
-		assert_eq!(
-			local.counter, 0,
-			"Counter should reset when physical time advances"
-		);
+		// Since physical time (1000) < received (1005), should adopt received + 1
+		assert_eq!(local.timestamp, 1005);
+		assert_eq!(local.counter, 4);
+
+		// Now advance time ahead of both
+		time.set(2000);
+		let received2 = HLC {
+			timestamp: 1500,
+			counter: 0,
+			device_id: device_b,
+		};
+
+		local.update(received2, &time);
+
+		// Physical time (2000) is max, counter resets
+		assert_eq!(local.timestamp, 2000);
+		assert_eq!(local.counter, 0);
 	}
 
 	#[test]
@@ -345,13 +348,24 @@ mod tests {
 	#[test]
 	fn test_hlc_generator() {
 		let device_id = Uuid::new_v4();
-		let gen = HLCGenerator::new(device_id);
+		let time = FakeTimeSource::new(1000);
+		let gen = HLCGenerator::new(device_id, Arc::new(time.clone()));
 
 		let hlc1 = gen.next();
 		assert_eq!(hlc1.device_id, device_id);
+		assert_eq!(hlc1.timestamp, 1000);
+		assert_eq!(hlc1.counter, 0);
 
+		// Same millisecond
 		let hlc2 = gen.next();
-		assert!(hlc2 >= hlc1);
+		assert_eq!(hlc2.timestamp, 1000);
+		assert_eq!(hlc2.counter, 1);
+
+		// Advance time
+		time.advance(500);
+		let hlc3 = gen.next();
+		assert_eq!(hlc3.timestamp, 1500);
+		assert_eq!(hlc3.counter, 0);
 	}
 
 	#[test]
@@ -359,19 +373,26 @@ mod tests {
 		let device_a = Uuid::new_v4();
 		let device_b = Uuid::new_v4();
 
-		let gen_a = HLCGenerator::new(device_a);
-		let gen_b = HLCGenerator::new(device_b);
+		let time_a = FakeTimeSource::new(1000);
+		let time_b = FakeTimeSource::new(1000);
 
-		// Device A generates event
+		let gen_a = HLCGenerator::new(device_a, Arc::new(time_a.clone()));
+		let gen_b = HLCGenerator::new(device_b, Arc::new(time_b.clone()));
+
+		// Device A generates event at t=1000
 		let hlc_a = gen_a.next();
+		assert_eq!(hlc_a.timestamp, 1000);
 
-		// Device B receives it and updates
+		// Device B receives it (still at t=1000) and updates
 		gen_b.update(hlc_a);
 
-		// Device B generates next event
+		// Device B generates next event (still t=1000)
 		let hlc_b = gen_b.next();
 
 		// B's event must be after A's (causality preserved)
+		// Same timestamp, but counter incremented
 		assert!(hlc_b > hlc_a);
+		assert_eq!(hlc_b.timestamp, 1000);
+		assert_eq!(hlc_b.counter, 1);
 	}
 }
