@@ -83,11 +83,11 @@ impl LibraryAction for AddItemAction {
 		let item_id = uuid::Uuid::new_v4();
 		let now = Utc::now();
 
-		// Resolve entry_id if this is a Path item
-		let entry_id = if let ItemType::Path { ref sd_path } = self.input.item_type {
-			tracing::info!("Resolving SdPath to entry_id: {:?}", sd_path);
-			let resolved = resolve_sd_path_to_entry_id(sd_path, db).await;
-			tracing::info!("Resolved entry_id: {:?}", resolved);
+		// Resolve entry_uuid if this is a Path item
+		let entry_uuid = if let ItemType::Path { ref sd_path } = self.input.item_type {
+			tracing::info!("Resolving SdPath to entry_uuid: {:?}", sd_path);
+			let resolved = resolve_sd_path_to_entry_uuid(sd_path, db).await;
+			tracing::info!("Resolved entry_uuid: {:?}", resolved);
 			resolved
 		} else {
 			None
@@ -102,7 +102,7 @@ impl LibraryAction for AddItemAction {
 			uuid: Set(item_id),
 			space_id: Set(space_model.id),
 			group_id: Set(group_model_id),
-			entry_id: Set(entry_id),
+			entry_uuid: Set(entry_uuid),
 			item_type: Set(item_type_json),
 			order: Set(max_order + 1),
 			created_at: Set(now.into()),
@@ -154,11 +154,11 @@ impl LibraryAction for AddItemAction {
 
 crate::register_library_action!(AddItemAction, "spaces.add_item");
 
-/// Resolve an SdPath to an entry ID by looking up the entry in the database
-async fn resolve_sd_path_to_entry_id(
+/// Resolve an SdPath to an entry UUID by looking up the entry in the database
+async fn resolve_sd_path_to_entry_uuid(
 	sd_path: &SdPath,
 	db: &sea_orm::DatabaseConnection,
-) -> Option<i32> {
+) -> Option<uuid::Uuid> {
 	match sd_path {
 		SdPath::Physical { path, .. } => {
 			let path_str = path.to_string_lossy();
@@ -203,8 +203,8 @@ async fn resolve_sd_path_to_entry_id(
 					{
 						tracing::debug!("Entry {} parent path: {}", e.id, parent_path_model.path);
 						if parent_path_model.path == parent_path {
-							tracing::info!("Matched entry_id: {}", e.id);
-							return Some(e.id);
+							tracing::info!("Matched entry_uuid: {:?}", e.uuid);
+							return e.uuid;
 						}
 					}
 				}
