@@ -276,6 +276,8 @@ pub enum CredentialData {
 	OAuth {
 		access_token: String,
 		refresh_token: String,
+		client_id: String,
+		client_secret: String,
 	},
 
 	/// Simple API key
@@ -310,6 +312,8 @@ impl CloudCredential {
 		service: crate::volume::CloudServiceType,
 		access_token: String,
 		refresh_token: String,
+		client_id: String,
+		client_secret: String,
 		expires_at: Option<chrono::DateTime<chrono::Utc>>,
 	) -> Self {
 		Self {
@@ -317,6 +321,8 @@ impl CloudCredential {
 			data: CredentialData::OAuth {
 				access_token,
 				refresh_token,
+				client_id,
+				client_secret,
 			},
 			created_at: chrono::Utc::now(),
 			expires_at,
@@ -426,6 +432,8 @@ mod tests {
 			crate::volume::CloudServiceType::GoogleDrive,
 			"access_token".to_string(),
 			"refresh_token".to_string(),
+			"client_id".to_string(),
+			"client_secret".to_string(),
 			Some(future),
 		);
 
@@ -433,6 +441,8 @@ mod tests {
 			crate::volume::CloudServiceType::GoogleDrive,
 			"access_token".to_string(),
 			"refresh_token".to_string(),
+			"client_id".to_string(),
+			"client_secret".to_string(),
 			Some(past),
 		);
 

@@ -136,15 +136,17 @@ impl CloudBackend {
 	}
 
 	/// Create a new cloud backend for Dropbox
+	///
+	/// Uses OAuth 2.0 refresh token for long-term access. OpenDAL automatically
+	/// refreshes the access token when it expires, ensuring continuous operation
+	/// without manual intervention.
 	pub async fn new_dropbox(
-		access_token: impl AsRef<str>,
 		refresh_token: impl AsRef<str>,
 		client_id: impl AsRef<str>,
 		client_secret: impl AsRef<str>,
 		root: Option<String>,
 	) -> Result<Self, VolumeError> {
 		let mut builder = opendal::services::Dropbox::default()
-			.access_token(access_token.as_ref())
 			.refresh_token(refresh_token.as_ref())
 			.client_id(client_id.as_ref())
 			.client_secret(client_secret.as_ref());
