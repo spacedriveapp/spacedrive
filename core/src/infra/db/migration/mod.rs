@@ -33,6 +33,7 @@ mod m20251209_000001_add_indexing_stats_to_volumes;
 mod m20251216_000001_add_device_hardware_specs;
 mod m20251220_000001_add_file_count_to_content_kinds;
 mod m20251226_000001_add_device_id_to_entries;
+mod m20250103_000001_migrate_space_item_entry_id_to_uuid;
 
 pub struct Migrator;
 
@@ -71,6 +72,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251216_000001_add_device_hardware_specs::Migration),
 			Box::new(m20251220_000001_add_file_count_to_content_kinds::Migration),
 			Box::new(m20251226_000001_add_device_id_to_entries::Migration),
+			Box::new(m20250103_000001_migrate_space_item_entry_id_to_uuid::Migration),
 		]
 	}
 }

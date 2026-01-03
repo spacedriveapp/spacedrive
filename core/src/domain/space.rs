@@ -377,9 +377,14 @@ impl Identifiable for SpaceItem {
 				None
 			};
 
-			// Build resolved_file if entry_id exists
-			let resolved_file = if let Some(entry_id) = item_model.entry_id {
-				if let Some(entry_model) = entry::Entity::find_by_id(entry_id).one(db).await? {
+			// Build resolved_file if entry_uuid exists
+			let resolved_file = if let Some(entry_uuid) = item_model.entry_uuid {
+				let entry_model = entry::Entity::find()
+					.filter(entry::Column::Uuid.eq(entry_uuid))
+					.one(db)
+					.await?;
+
+				if let Some(entry_model) = entry_model {
 					super::file::File::from_entry_model_with_item_type(entry_model, &item_type, db)
 						.await
 						.map(Box::new)
