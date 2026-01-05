@@ -89,8 +89,8 @@ pub struct NetworkingService {
 	/// Canonical device ID (stored in device.json)
 	device_id: Uuid,
 
-	/// Data directory for Iroh state persistence
-	data_dir: Option<PathBuf>,
+	/// Iroh data directory for state persistence
+	iroh_data_dir: Option<PathBuf>,
 
 	/// Discovery service for finding peers
 	discovery: Option<Box<dyn Discovery>>,
@@ -191,7 +191,7 @@ impl NetworkingService {
 			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device ID: {}", e)))?;
 
 		// Derive network identity from device ID
-		let identity = NetworkIdentity::from_device_id(device_id).await?;
+		let identity = NetworkIdentity::from_device_id(device_id)?;
 
 		// Convert identity to Iroh format
 		let secret_key = identity.to_iroh_secret_key()?;
@@ -231,7 +231,7 @@ impl NetworkingService {
 			identity,
 			node_id,
 			device_id,
-			data_dir: Some(data_dir_path),
+			iroh_data_dir: Some(iroh_data_dir),
 			discovery: None,
 			shutdown_sender: Arc::new(RwLock::new(None)),
 			command_sender: None,

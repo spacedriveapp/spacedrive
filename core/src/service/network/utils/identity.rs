@@ -34,7 +34,7 @@ impl NetworkIdentity {
 	///
 	/// This ensures network identity is tied to the canonical device identity
 	/// and remains stable as long as `device_id` doesn't change.
-	pub async fn from_device_id(device_id: Uuid) -> Result<Self> {
+	pub fn from_device_id(device_id: Uuid) -> Result<Self> {
 		use hkdf::Hkdf;
 		use sha2::Sha256;
 
@@ -59,30 +59,6 @@ impl NetworkIdentity {
 			ed25519_seed,
 		})
 	pub fn from_device_id(device_id: Uuid) -> Result<Self> {
-
-	// OLD: Only kept for reference, not used
-	// Can be deleted in future cleanup
-	#[allow(dead_code)]
-	async fn from_device_key_old(device_key: &[u8; 32]) -> Result<Self> {
-		use hkdf::Hkdf;
-		use sha2::Sha256;
-
-		let hk = Hkdf::<Sha256>::new(None, device_key);
-		let mut ed25519_seed = [0u8; 32];
-		hk.expand(b"spacedrive-network-identity", &mut ed25519_seed)
-			.map_err(|e| {
-				NetworkingError::Protocol(format!("Failed to derive network key: {}", e))
-			})?;
-
-		let secret_key = SecretKey::from_bytes(&ed25519_seed);
-		let node_id = secret_key.public();
-
-		Ok(Self {
-			secret_key,
-			node_id,
-			ed25519_seed,
-		})
-	}
 
 	/// Convert to Iroh SecretKey
 	pub fn to_iroh_secret_key(&self) -> Result<SecretKey> {
@@ -186,31 +162,31 @@ mod tests {
 	use super::*;
 	use uuid::Uuid;
 
-	#[tokio::test]
-	async fn test_device_id_derivation_is_deterministic() {
+	#[test]
+	fn test_device_id_derivation_is_deterministic() {
 		let device_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
 
-		let identity1 = NetworkIdentity::from_device_id(device_id).await.unwrap();
-		let identity2 = NetworkIdentity::from_device_id(device_id).await.unwrap();
+		let identity1 = NetworkIdentity::from_device_id(device_id).unwrap();
+		let identity2 = NetworkIdentity::from_device_id(device_id).unwrap();
 
 		assert_eq!(identity1.node_id, identity2.node_id);
 	}
 
-	#[tokio::test]
-	async fn test_different_device_ids_produce_different_node_ids() {
+	#[test]
+	fn test_different_device_ids_produce_different_node_ids() {
 		let device_id1 = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
 		let device_id2 = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440001").unwrap();
 
-		let identity1 = NetworkIdentity::from_device_id(device_id1).await.unwrap();
-		let identity2 = NetworkIdentity::from_device_id(device_id2).await.unwrap();
+		let identity1 = NetworkIdentity::from_device_id(device_id1).unwrap();
+		let identity2 = NetworkIdentity::from_device_id(device_id2).unwrap();
 
 		assert_ne!(identity1.node_id, identity2.node_id);
 	}
 
-	#[tokio::test]
-	async fn test_node_id_is_valid_ed25519_key() {
+	#[test]
+	fn test_node_id_is_valid_ed25519_key() {
 		let device_id = Uuid::parse_str("550e8400-e29b-41d4-a716-446655440000").unwrap();
-		let identity = NetworkIdentity::from_device_id(device_id).await.unwrap();
+		let identity = NetworkIdentity::from_device_id(device_id).unwrap();
 
 		assert_eq!(identity.node_id.as_bytes().len(), 32);
 	}
