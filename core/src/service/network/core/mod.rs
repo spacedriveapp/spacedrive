@@ -222,7 +222,9 @@ impl NetworkingService {
 		let iroh_data_dir = self
 			.iroh_data_dir
 			.as_ref()
-			.ok_or_else(|| NetworkingError::Protocol("No Iroh data directory configured".to_string()))?
+			.ok_or_else(|| {
+				NetworkingError::Protocol("No Iroh data directory configured".to_string())
+			})?
 			.clone();
 
 		// Create endpoint with combined discovery:
