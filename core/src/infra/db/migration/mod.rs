@@ -6,8 +6,6 @@ mod m20240101_000001_initial_schema;
 mod m20240102_000001_populate_lookups;
 mod m20240107_000001_create_collections;
 mod m20250103_000001_migrate_space_item_entry_id_to_uuid;
-mod m20250104_000001_replace_device_id_with_volume_id;
-mod m20250105_000001_add_volume_id_to_locations;
 mod m20250109_000001_create_sidecars;
 mod m20250110_000001_refactor_volumes_table;
 mod m20250111_000001_create_spaces;
@@ -36,6 +34,8 @@ mod m20251209_000001_add_indexing_stats_to_volumes;
 mod m20251216_000001_add_device_hardware_specs;
 mod m20251220_000001_add_file_count_to_content_kinds;
 mod m20251226_000001_add_device_id_to_entries;
+mod m20260104_000001_replace_device_id_with_volume_id;
+mod m20260105_000001_add_volume_id_to_locations;
 
 pub struct Migrator;
 
@@ -75,8 +75,8 @@ impl MigratorTrait for Migrator {
 			Box::new(m20251220_000001_add_file_count_to_content_kinds::Migration),
 			Box::new(m20251226_000001_add_device_id_to_entries::Migration),
 			Box::new(m20250103_000001_migrate_space_item_entry_id_to_uuid::Migration),
-			Box::new(m20250104_000001_replace_device_id_with_volume_id::Migration),
-			Box::new(m20250105_000001_add_volume_id_to_locations::Migration),
+			Box::new(m20260104_000001_replace_device_id_with_volume_id::Migration),
+			Box::new(m20260105_000001_add_volume_id_to_locations::Migration),
 		]
 	}
 }
