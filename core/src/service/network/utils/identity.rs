@@ -58,7 +58,7 @@ impl NetworkIdentity {
 			node_id,
 			ed25519_seed,
 		})
-	}
+	pub fn from_device_id(device_id: Uuid) -> Result<Self> {
 
 	// OLD: Only kept for reference, not used
 	// Can be deleted in future cleanup
