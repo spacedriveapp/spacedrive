@@ -27,7 +27,7 @@ pub struct Model {
 	pub permissions: Option<String>,     // Unix permissions as string
 	pub inode: Option<i64>,              // Platform-specific file identifier for change detection
 	pub parent_id: Option<i32>,          // Reference to parent entry for hierarchical relationships
-	pub device_id: Option<i32>, // Device that owns this entry (denormalized for efficient queries)
+	pub volume_id: Option<i32>, // Volume this entry is on (ownership inherited from volume's device)
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -47,11 +47,11 @@ pub enum Relation {
 	#[sea_orm(belongs_to = "Entity", from = "Column::ParentId", to = "Column::Id")]
 	Parent,
 	#[sea_orm(
-		belongs_to = "super::device::Entity",
-		from = "Column::DeviceId",
-		to = "super::device::Column::Id"
+		belongs_to = "super::volume::Entity",
+		from = "Column::VolumeId",
+		to = "super::volume::Column::Id"
 	)]
-	Device,
+	Volume,
 }
 
 impl Related<super::user_metadata::Entity> for Entity {
@@ -66,9 +66,9 @@ impl Related<super::content_identity::Entity> for Entity {
 	}
 }
 
-impl Related<super::device::Entity> for Entity {
+impl Related<super::volume::Entity> for Entity {
 	fn to() -> RelationDef {
-		Relation::Device.def()
+		Relation::Volume.def()
 	}
 }
 
@@ -92,17 +92,17 @@ impl crate::infra::sync::Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		// Entries depend on device, content_identity, and user_metadata to ensure FK references
+		// Entries depend on volume, content_identity, and user_metadata to ensure FK references
 		// exist before entries arrive. parent_id is self-reference (handled via closure rebuild).
 		// This prevents entries arriving with FK references that don't exist yet.
-		&["device", "content_identity", "user_metadata"]
+		&["volume", "content_identity", "user_metadata"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
 		// All FKs use dependency tracking - NEVER set to NULL on missing reference
 		// Source data with NULL values is handled correctly (null UUID → null FK)
 		vec![
-			crate::infra::sync::FKMapping::new("device_id", "devices"),
+			crate::infra::sync::FKMapping::new("volume_id", "volumes"),
 			crate::infra::sync::FKMapping::new("parent_id", "entries"),
 			crate::infra::sync::FKMapping::new("metadata_id", "user_metadata"),
 			crate::infra::sync::FKMapping::new("content_id", "content_identities"),
@@ -204,40 +204,32 @@ impl crate::infra::sync::Syncable for Model {
 		let mut query = Entity::find();
 
 		// Filter by device ownership if specified (critical for device-owned data sync)
-		// Entries now have device_id directly - use that instead of entry_closure during backfill
-		// to avoid circular dependency (entry_closure is rebuilt AFTER backfill)
+		// Entries reference volumes, which reference devices - join through the chain
 		if let Some(owner_device_uuid) = device_id {
-			// Get device's internal ID
-			let device = super::device::Entity::find()
-				.filter(super::device::Column::Uuid.eq(owner_device_uuid))
-				.one(db)
-				.await?;
+			tracing::debug!(
+				device_uuid = %owner_device_uuid,
+				"Filtering entries by volume ownership"
+			);
 
-			if let Some(dev) = device {
-				tracing::debug!(
-					device_uuid = %owner_device_uuid,
-					device_id = dev.id,
-					"Filtering entries by device_id"
-				);
+			// Join through volume to filter by device ownership
+			// This allows volume ownership changes to automatically transfer all entries
+			use sea_orm::JoinType;
+			query = query
+				.join(JoinType::InnerJoin, super::entry::Relation::Volume.def())
+				.filter(super::volume::Column::DeviceId.eq(owner_device_uuid));
 
-				// Check how many entries have this device_id for debugging
-				let count_with_device = Entity::find()
-					.filter(Column::DeviceId.eq(dev.id))
-					.count(db)
-					.await?;
+			// Check how many entries match for debugging
+			let count_with_device = query.clone().count(db).await?;
 
-				tracing::debug!(
-					entries_with_device_id = count_with_device,
-					"Entries matching device_id before other filters"
-				);
+			tracing::debug!(
+				entries_with_device = count_with_device,
+				"Entries matching device ownership through volume"
+			);
 
-				// Filter by device_id directly (recently added to entry table)
-				// This avoids the circular dependency with entry_closure table
-				query = query.filter(Column::DeviceId.eq(dev.id));
-			} else {
+			if count_with_device == 0 {
 				tracing::warn!(
 					device_uuid = %owner_device_uuid,
-					"Device not found in database, returning empty"
+					"No entries found for device, returning empty"
 				);
 				return Ok(Vec::new());
 			}
@@ -496,7 +488,7 @@ impl Model {
 			serde_json::from_value(get_field("permissions")?).unwrap();
 		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
 		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
-		let device_id: Option<i32> = serde_json::from_value(get_field("device_id")?).unwrap();
+		let volume_id: Option<i32> = serde_json::from_value(get_field("volume_id")?).unwrap();
 
 		// Check if parent is tombstoned (prevents orphaned children)
 		if let Some(parent) = parent_id {
@@ -538,7 +530,7 @@ impl Model {
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),
-				device_id: Set(device_id),
+				volume_id: Set(volume_id),
 			};
 			active.update(db).await?;
 			existing_entry.id
@@ -563,7 +555,7 @@ impl Model {
 				permissions: Set(permissions.clone()),
 				inode: Set(inode),
 				parent_id: Set(parent_id),
-				device_id: Set(device_id),
+				volume_id: Set(volume_id),
 			};
 			let inserted = active.insert(db).await?;
 			inserted.id

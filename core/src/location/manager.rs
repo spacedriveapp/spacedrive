@@ -121,8 +121,8 @@ impl LocationManager {
 			indexed_at: Set(Some(now)), // Record when location root was created
 			permissions: Set(None),
 			inode: Set(None),
-			parent_id: Set(None),            // Location root has no parent
-			device_id: Set(Some(device_id)), // CRITICAL: Must be set for device-owned sync queries
+			parent_id: Set(None), // Location root has no parent
+			volume_id: Set(None), // Resolved lazily on first index
 			..Default::default()
 		};
 
@@ -154,6 +154,7 @@ impl LocationManager {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(location_id),
 			device_id: Set(device_id),
+			volume_id: Set(None), // Resolved lazily on first index
 			entry_id: Set(Some(entry_id)),
 			name: Set(Some(display_name.clone())),
 			index_mode: Set(index_mode.to_string()),

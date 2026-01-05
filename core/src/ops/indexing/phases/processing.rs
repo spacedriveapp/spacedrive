@@ -83,14 +83,17 @@ pub async fn run_processing_phase(
 		.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 		.ok_or_else(|| JobError::execution("Location not found in database".to_string()))?;
 
-	let device_id = location_record.device_id;
+	// Use volume_id if available, otherwise fall back to device_id for legacy locations
+	let volume_id = location_record
+		.volume_id
+		.unwrap_or(location_record.device_id);
 	let location_id_i32 = location_record.id;
 	let location_entry_id = location_record
 		.entry_id
 		.ok_or_else(|| JobError::execution("Location entry_id not set (not yet synced)"))?;
 	ctx.log(format!(
-		"Found location record: device_id={}, location_id={}, entry_id={}",
-		device_id, location_id_i32, location_entry_id
+		"Found location record: volume_id={}, location_id={}, entry_id={}",
+		volume_id, location_id_i32, location_entry_id
 	));
 
 	// SAFETY: Validate indexing path is within location boundaries to prevent catastrophic
@@ -287,7 +290,7 @@ pub async fn run_processing_phase(
 					match DatabaseStorage::create_entry_in_conn(
 						state,
 						&entry,
-						device_id,
+						volume_id,
 						location_root_path,
 						&txn,
 						&mut bulk_self_closures,

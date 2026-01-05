@@ -84,7 +84,7 @@ impl PersistenceFactory {
 		ctx: &'a crate::infra::job::prelude::JobContext<'a>,
 		library_id: uuid::Uuid,
 		location_root_entry_id: Option<i32>,
-		device_id: i32,
+		volume_id: i32,
 	) -> Box<dyn IndexPersistence + 'a> {
 		use crate::ops::indexing::change_detection::DatabaseAdapterForJob;
 
@@ -92,7 +92,7 @@ impl PersistenceFactory {
 			ctx,
 			library_id,
 			location_root_entry_id,
-			device_id,
+			volume_id,
 		))
 	}
 

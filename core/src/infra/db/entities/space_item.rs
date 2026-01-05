@@ -11,9 +11,9 @@ pub struct Model {
 	pub id: i32,
 	pub uuid: Uuid,
 	pub space_id: i32,
-	pub group_id: Option<i32>,      // Nullable - None = space-level item
-	pub entry_uuid: Option<Uuid>,   // Nullable - populated for Path items
-	pub item_type: String,          // JSON-serialized ItemType enum
+	pub group_id: Option<i32>,    // Nullable - None = space-level item
+	pub entry_uuid: Option<Uuid>, // Nullable - populated for Path items
+	pub item_type: String,        // JSON-serialized ItemType enum
 	pub order: i32,
 	pub created_at: DateTimeUtc,
 }

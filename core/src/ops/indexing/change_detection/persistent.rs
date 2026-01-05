@@ -32,7 +32,7 @@ pub struct DatabaseAdapter {
 	library_id: Uuid,
 	location_id: Uuid,
 	location_root_entry_id: i32,
-	device_id: i32,
+	volume_id: i32,
 	db: sea_orm::DatabaseConnection,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	entry_id_cache: HashMap<PathBuf, i32>,
@@ -63,14 +63,18 @@ impl DatabaseAdapter {
 			.entry_id
 			.ok_or_else(|| anyhow::anyhow!("Location {} has no root entry", location_id))?;
 
-		let device_id = location_record.device_id;
+		// Use volume_id if available, otherwise fall back to device_id
+		// This handles locations created before the volume_id field was added
+		let volume_id = location_record
+			.volume_id
+			.unwrap_or(location_record.device_id);
 
 		Ok(Self {
 			context,
 			library_id,
 			location_id,
 			location_root_entry_id,
-			device_id,
+			volume_id,
 			db,
 			volume_backend,
 			entry_id_cache: HashMap::new(),
@@ -236,7 +240,7 @@ impl ChangeHandler for DatabaseAdapter {
 			&self.db,
 			library.as_deref(),
 			metadata,
-			self.device_id,
+			self.volume_id,
 			parent_path,
 		)
 		.await
@@ -717,7 +721,7 @@ pub struct DatabaseAdapterForJob<'a> {
 	ctx: &'a JobContext<'a>,
 	library_id: Uuid,
 	location_root_entry_id: Option<i32>,
-	device_id: i32,
+	volume_id: i32,
 }
 
 impl<'a> DatabaseAdapterForJob<'a> {
@@ -725,13 +729,13 @@ impl<'a> DatabaseAdapterForJob<'a> {
 		ctx: &'a JobContext<'a>,
 		library_id: Uuid,
 		location_root_entry_id: Option<i32>,
-		device_id: i32,
+		volume_id: i32,
 	) -> Self {
 		Self {
 			ctx,
 			library_id,
 			location_root_entry_id,
-			device_id,
+			volume_id,
 		}
 	}
 }
@@ -770,7 +774,7 @@ impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 			self.ctx.library_db(),
 			Some(self.ctx.library()),
 			entry,
-			self.device_id,
+			self.volume_id,
 			location_root_path,
 		)
 		.await?;
