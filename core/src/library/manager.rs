@@ -526,7 +526,7 @@ impl LibraryManager {
 			sync_service: OnceCell::new(),      // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
-			_lock: lock,
+			_lock: std::sync::Mutex::new(Some(lock)),
 		});
 
 		// Ensure device is registered in this library

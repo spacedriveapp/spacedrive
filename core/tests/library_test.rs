@@ -25,18 +25,7 @@ async fn test_library_lifecycle() {
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
 	assert!(lib_path.join("library.db").exists());
-	assert!(lib_path.join("thumbnails").exists());
-	assert!(lib_path.join("thumbnails/metadata.json").exists());
-
-	// Test thumbnail operations
-	// let cas_id = "test123";
-	// let thumb_data = b"test thumbnail data";
-
-	// library.save_thumbnail(cas_id, thumb_data).await.unwrap();
-	// assert!(library.has_thumbnail(cas_id).await);
-
-	// let retrieved = library.get_thumbnail(cas_id).await.unwrap();
-	// assert_eq!(retrieved, thumb_data);
+	assert!(lib_path.join("sidecars").exists());
 
 	// Test configuration update
 	library
@@ -202,5 +191,5 @@ async fn test_default_library_creation() {
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
 	assert!(lib_path.join("library.db").exists());
-	assert!(lib_path.join("thumbnails").exists());
+	assert!(lib_path.join("sidecars").exists());
 }

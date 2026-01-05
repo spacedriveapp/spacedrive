@@ -119,6 +119,13 @@ impl LibraryLock {
 
 		Ok(Some(info))
 	}
+
+	/// Explicitly release the lock (for use during shutdown)
+	/// This is called during library shutdown to ensure the lock is released
+	/// even if there are lingering Arc references
+	pub fn release(&mut self) {
+		let _ = std::fs::remove_file(&self.path);
+	}
 }
 
 /// Check if a process is still running (Unix-specific implementation)
