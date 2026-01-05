@@ -58,7 +58,7 @@ impl NetworkIdentity {
 			node_id,
 			ed25519_seed,
 		})
-	}
+	pub fn from_device_id(device_id: Uuid) -> Result<Self> {
 
 	/// Convert to Iroh SecretKey
 	pub fn to_iroh_secret_key(&self) -> Result<SecretKey> {
