@@ -23,27 +23,7 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 
-		// Add foreign key constraint to volumes table
-		manager
-			.alter_table(
-				Table::alter()
-					.table(Locations::Table)
-					.add_foreign_key(
-						&TableForeignKey::new()
-							.name("fk_locations_volume_id")
-							.from_tbl(Locations::Table)
-							.from_col(Locations::VolumeId)
-							.to_tbl(Volumes::Table)
-							.to_col(Volumes::Id)
-							.on_delete(ForeignKeyAction::SetNull)
-							.on_update(ForeignKeyAction::Cascade)
-							.to_owned(),
-					)
-					.to_owned(),
-			)
-			.await?;
-
-		// Add index for efficient joins
+		// Add index for efficient joins (SQLite doesn't support adding FKs to existing tables)
 		manager
 			.create_index(
 				Index::create()
@@ -62,16 +42,6 @@ impl MigrationTrait for Migration {
 	}
 
 	async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-		// Drop foreign key
-		manager
-			.alter_table(
-				Table::alter()
-					.table(Locations::Table)
-					.drop_foreign_key(Alias::new("fk_locations_volume_id"))
-					.to_owned(),
-			)
-			.await?;
-
 		// Drop index
 		manager
 			.drop_index(

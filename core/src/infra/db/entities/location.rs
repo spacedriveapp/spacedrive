@@ -378,6 +378,7 @@ mod tests {
 			id: 1,
 			uuid: Uuid::new_v4(),
 			device_id: 1,
+			volume_id: Some(1),
 			entry_id: Some(1),
 			name: Some("Photos".to_string()),
 			index_mode: "deep".to_string(),
