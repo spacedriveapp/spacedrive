@@ -12,6 +12,7 @@ use crate::service::network::{
 use iroh::discovery::{dns::DnsDiscovery, mdns::MdnsDiscovery, pkarr::PkarrPublisher, Discovery};
 use iroh::endpoint::Connection;
 use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
@@ -85,6 +86,12 @@ pub struct NetworkingService {
 	/// Our Iroh node ID
 	node_id: NodeId,
 
+	/// Canonical device ID (stored in device.json)
+	device_id: Uuid,
+
+	/// Data directory for Iroh state persistence
+	data_dir: Option<PathBuf>,
+
 	/// Discovery service for finding peers
 	discovery: Option<Box<dyn Discovery>>,
 
@@ -122,16 +129,33 @@ impl NetworkingService {
 		data_dir: impl AsRef<std::path::Path>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Result<Self> {
-		// Generate network identity from master key
-		let device_key = device_manager
-			.master_key()
-			.await
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device key: {}", e)))?;
-		let identity = NetworkIdentity::from_device_key(&device_key).await?;
+		let data_dir_path = data_dir.as_ref().to_path_buf();
+
+		// Get canonical device ID (stable, stored in device.json)
+		let device_id = device_manager
+			.device_id()
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device ID: {}", e)))?;
+
+		// Derive network identity from device ID
+		let identity = NetworkIdentity::from_device_id(device_id).await?;
 
 		// Convert identity to Iroh format
 		let secret_key = identity.to_iroh_secret_key()?;
 		let node_id = secret_key.public();
+
+		// Log for debugging
+		logger
+			.info(&format!(
+				"Network identity: device_id={}, node_id={}",
+				device_id, node_id
+			))
+			.await;
+
+		// Create Iroh data directory
+		let iroh_data_dir = data_dir_path.join("iroh");
+		std::fs::create_dir_all(&iroh_data_dir).map_err(|e| {
+			NetworkingError::Transport(format!("Failed to create Iroh data dir: {}", e))
+		})?;
 
 		// Create event broadcast channel (capacity of 1000 events)
 		// Using broadcast allows multiple subscribers (NetworkEventBridge + PeerSync instances)
@@ -152,6 +176,8 @@ impl NetworkingService {
 			endpoint: None,
 			identity,
 			node_id,
+			device_id,
+			data_dir: Some(data_dir_path),
 			discovery: None,
 			shutdown_sender: Arc::new(RwLock::new(None)),
 			command_sender: None,
@@ -193,12 +219,19 @@ impl NetworkingService {
 			))
 			.await;
 
+		let iroh_data_dir = self
+			.data_dir
+			.as_ref()
+			.ok_or_else(|| NetworkingError::Protocol("No data directory configured".to_string()))?
+			.join("iroh");
+
 		// Create endpoint with combined discovery:
 		// - mDNS for local network discovery
 		// - PkarrPublisher to publish our address to dns.iroh.link (enables remote discovery)
 		// - DnsDiscovery to resolve other nodes from dns.iroh.link
 		let endpoint = Endpoint::builder()
 			.secret_key(secret_key)
+			.bind_data_dir(iroh_data_dir)
 			.alpns(vec![
 				PAIRING_ALPN.to_vec(),
 				FILE_TRANSFER_ALPN.to_vec(),
@@ -921,7 +954,7 @@ impl NetworkingService {
 
 	/// Get the local device ID
 	pub fn device_id(&self) -> Uuid {
-		self.identity.device_id()
+		self.device_id
 	}
 
 	/// Get the command sender for the event loop

@@ -17,13 +17,23 @@ Manages device configuration and cryptographic keys.
 // Device initialization
 let device_manager = DeviceManager::init()?;
 let device_id = device_manager.device_id()?;
+
+// Network identity derives from device_id
+let network_identity = NetworkIdentity::from_device_id(device_id).await?;
+let node_id = network_identity.node_id();
 ```
 
 **Storage locations**:
 
+Device config:
 - macOS: `~/Library/Application Support/com.spacedrive/device.json`
 - Linux: `~/.config/spacedrive/device.json`
 - Windows: `%APPDATA%/Spacedrive/device.json`
+
+Network state (Iroh):
+- macOS: `~/Library/Application Support/com.spacedrive/iroh/`
+- Linux: `~/.config/spacedrive/iroh/`
+- Windows: `%APPDATA%/Spacedrive/iroh/`
 
 ### Domain Layer
 
