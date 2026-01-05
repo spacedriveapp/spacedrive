@@ -219,19 +219,12 @@ impl NetworkingService {
 			))
 			.await;
 
-		let iroh_data_dir = self
-			.data_dir
-			.as_ref()
-			.ok_or_else(|| NetworkingError::Protocol("No data directory configured".to_string()))?
-			.join("iroh");
-
 		// Create endpoint with combined discovery:
 		// - mDNS for local network discovery
 		// - PkarrPublisher to publish our address to dns.iroh.link (enables remote discovery)
 		// - DnsDiscovery to resolve other nodes from dns.iroh.link
 		let endpoint = Endpoint::builder()
 			.secret_key(secret_key)
-			.bind_data_dir(iroh_data_dir)
 			.alpns(vec![
 				PAIRING_ALPN.to_vec(),
 				FILE_TRANSFER_ALPN.to_vec(),
