@@ -1,0 +1,22 @@
+{
+	"useTabs": true,
+	"tabWidth": 2,
+	"endOfLine": "lf",
+	"trailingComma": "none",
+	"semi": true,
+	"singleQuote": true,
+	"bracketSpacing": false,
+	"plugins": [
+		"@ianvs/prettier-plugin-sort-imports",
+		"prettier-plugin-tailwindcss"
+	],
+	"overrides": [
+		{
+			"files": ["*.ts", "*.tsx", "*.js", "*.jsx", "*.mjs", "*.cjs"],
+			"options": {
+				"tabWidth": 4
+			}
+		}
+	]
+}
+

@@ -69,68 +69,15 @@ impl MigrationTrait for Migration {
 		)
 		.await?;
 
-		// 5. Drop the old device_id index
-		manager
-			.drop_index(
-				Index::drop()
-					.name("idx_entries_device_id")
-					.table(Entries::Table)
-					.to_owned(),
-			)
-			.await?;
-
-		// 6. Drop the device_id column
-		manager
-			.alter_table(
-				Table::alter()
-					.table(Entries::Table)
-					.drop_column(Entries::DeviceId)
-					.to_owned(),
-			)
-			.await?;
+		// Note: We keep device_id column for now as a fallback while volume_id is being adopted
+		// It will be dropped in a future migration once volume_id is fully populated
+		// The entity only references volume_id, so device_id is effectively unused
 
 		Ok(())
 	}
 
 	async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
-		let db = manager.get_connection();
-
-		// 1. Re-add device_id column
-		manager
-			.alter_table(
-				Table::alter()
-					.table(Entries::Table)
-					.add_column(ColumnDef::new(Entries::DeviceId).integer())
-					.to_owned(),
-			)
-			.await?;
-
-		// 2. Re-add device_id index
-		manager
-			.create_index(
-				Index::create()
-					.name("idx_entries_device_id")
-					.table(Entries::Table)
-					.col(Entries::DeviceId)
-					.to_owned(),
-			)
-			.await?;
-
-		// 3. Backfill device_id from volume_id
-		db.execute_unprepared(
-			r#"
-			UPDATE entries SET device_id = (
-				SELECT d.id
-				FROM volumes v
-				INNER JOIN devices d ON d.uuid = v.device_id
-				WHERE v.id = entries.volume_id
-			)
-			WHERE device_id IS NULL AND volume_id IS NOT NULL
-			"#,
-		)
-		.await?;
-
-		// 4. Drop volume_id index
+		// Drop volume_id index
 		manager
 			.drop_index(
 				Index::drop()
@@ -140,7 +87,7 @@ impl MigrationTrait for Migration {
 			)
 			.await?;
 
-		// 6. Drop volume_id column
+		// Drop volume_id column
 		manager
 			.alter_table(
 				Table::alter()

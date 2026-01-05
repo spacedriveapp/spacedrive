@@ -24,7 +24,7 @@ async fn test_library_lifecycle() {
 	let lib_path = library.path();
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
-	assert!(lib_path.join("database.db").exists());
+	assert!(lib_path.join("library.db").exists());
 	assert!(lib_path.join("thumbnails").exists());
 	assert!(lib_path.join("thumbnails/metadata.json").exists());
 
@@ -201,6 +201,6 @@ async fn test_default_library_creation() {
 	let lib_path = default_library.path();
 	assert!(lib_path.exists());
 	assert!(lib_path.join("library.json").exists());
-	assert!(lib_path.join("database.db").exists());
+	assert!(lib_path.join("library.db").exists());
 	assert!(lib_path.join("thumbnails").exists());
 }
