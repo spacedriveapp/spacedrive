@@ -154,7 +154,19 @@ impl MacOsHandler {
 
 		// Get inode for rename detection (works for both files and directories)
 		let Some(inode) = Self::get_inode(&path).await else {
-			// Path might have been deleted already
+			// Can't get inode - check if path actually exists
+			if !path.exists() {
+				// File doesn't exist - this is likely a misreported Create event from FSEvents
+				// that should be a Remove. Emit Remove instead.
+				debug!(
+					"Create event for non-existent path (likely misreported by FSEvents): {}",
+					path.display()
+				);
+				return Ok(vec![FsEvent::remove(path)]);
+			}
+
+			// Path exists but we couldn't get inode (permission issue?)
+			// Emit Create event anyway
 			debug!("Could not get inode for created path: {}", path.display());
 			let event = if is_dir {
 				FsEvent::create_dir(path)
