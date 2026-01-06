@@ -104,8 +104,10 @@ export function TagsGroup({
 		resourceType: 'tag'
 	});
 
-	// Extract tags from search results (tags is an array of { tag, relevance, ... })
-	const tags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
+	// Extract tags from search results
+	// Handle both TagSearchResult ({ tag, relevance, ... }) and raw Tag objects
+	// (resource events may inject raw Tag objects into the cache)
+	const tags = tagsData?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? [];
 
 	const handleCreateTag = async () => {
 		if (!newTagName.trim()) return;
@@ -118,9 +120,9 @@ export function TagsGroup({
 			});
 
 			// Navigate to the new tag
-			if (result?.tag?.id) {
-				loadPreferencesForSpaceItem(`tag:${result.tag.id}`);
-				navigate(`/tag/${result.tag.id}`);
+			if (result?.tag_id) {
+				loadPreferencesForSpaceItem(`tag:${result.tag_id}`);
+				navigate(`/tag/${result.tag_id}`);
 			}
 
 			setNewTagName('');

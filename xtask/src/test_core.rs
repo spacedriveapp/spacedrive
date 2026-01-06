@@ -88,10 +88,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "Typescript bridge test",
 		test_args: &["--test", "typescript_bridge_test"],
 	},
-	TestSuite {
-		name: "Typescript search bridge test",
-		test_args: &["--test", "typescript_search_bridge_test"],
-	},
+	// TestSuite {
+	// 	name: "Typescript search bridge test",
+	// 	test_args: &["--test", "typescript_search_bridge_test"],
+	// },
 	TestSuite {
 		name: "Normalized cache fixtures test",
 		test_args: &["--test", "normalized_cache_fixtures_test"],

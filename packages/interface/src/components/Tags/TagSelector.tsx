@@ -42,8 +42,10 @@ export function TagSelector({
 		resourceType: 'tag'
 	});
 
-	// Extract tags from search results (tags is an array of { tag, relevance, ... })
-	const allTags = tagsData?.tags?.map((result: any) => result.tag) ?? [];
+	// Extract tags from search results
+	// Handle both TagSearchResult ({ tag, relevance, ... }) and raw Tag objects
+	// (resource events may inject raw Tag objects into the cache)
+	const allTags = tagsData?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? [];
 
 	// Check if query matches an existing tag
 	const exactMatch = allTags.find(
@@ -98,10 +100,11 @@ export function TagSelector({
 		if (!query.trim()) return;
 
 		try {
-			const newTag = await createTag.mutateAsync({
+			const color = `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`;
+			const result = await createTag.mutateAsync({
 				canonical_name: query.trim(),
 				aliases: [],
-				color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`, // Random color
+				color,
 				apply_to: contentId
 					? { type: 'Content', ids: [contentId] }
 					: fileId
@@ -109,12 +112,33 @@ export function TagSelector({
 					: undefined,
 			});
 
-			// Select the newly created tag
-			if (newTag?.tag) {
-				onSelect(newTag.tag);
-				setQuery('');
-				onClose?.();
-			}
+			// Construct a Tag object from the result to pass to onSelect
+			// The full tag will be available in the cache shortly via resource events
+			const newTag: Tag = {
+				id: result.tag_id,
+				canonical_name: result.canonical_name,
+				display_name: null,
+				formal_name: null,
+				abbreviation: null,
+				aliases: [],
+				namespace: result.namespace || null,
+				tag_type: 'Standard',
+				color,
+				icon: null,
+				description: null,
+				is_organizational_anchor: false,
+				privacy_level: 'Normal',
+				search_weight: 0,
+				attributes: {},
+				composition_rules: [],
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				created_by_device: result.tag_id // Placeholder
+			};
+
+			onSelect(newTag);
+			setQuery('');
+			onClose?.();
 		} catch (err) {
 			console.error('Failed to create tag:', err);
 		}
