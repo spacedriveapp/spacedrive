@@ -235,6 +235,9 @@ async fn test_volume_tracking_lifecycle() {
 	}
 
 	info!("Volume tracking lifecycle test completed successfully");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -440,6 +443,9 @@ async fn test_volume_tracking_multiple_libraries() {
 	);
 
 	info!("Multiple library volume tracking test completed successfully");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -503,6 +509,9 @@ async fn test_automatic_system_volume_tracking() {
 	}
 
 	info!("Automatic system volume tracking test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -592,6 +601,9 @@ async fn test_auto_tracking_disabled() {
 	}
 
 	info!("Manual tracking control test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -683,6 +695,9 @@ async fn test_volume_state_updates() {
 	);
 
 	info!("Volume state update test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -762,6 +777,9 @@ async fn test_volume_speed_test() {
 	}
 
 	info!("Volume speed test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -842,6 +860,9 @@ async fn test_volume_types_and_properties() {
 
 	// Should have at least one system volume
 	assert!(system_count > 0, "Should detect at least one system volume");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -971,6 +992,9 @@ async fn test_volume_tracking_persistence() {
 	}
 
 	info!("Volume tracking persistence test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -1096,6 +1120,9 @@ async fn test_volume_tracking_edge_cases() {
 	}
 
 	info!("Volume edge cases test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -1164,6 +1191,9 @@ async fn test_volume_refresh_and_detection() {
 	}
 
 	info!("Volume refresh and detection test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }
 
 #[tokio::test]
@@ -1268,4 +1298,7 @@ async fn test_volume_monitor_service() {
 	// Don't stop the monitor as it's managed by Core
 
 	info!("Volume monitor service test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown core");
 }

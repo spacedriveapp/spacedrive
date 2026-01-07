@@ -36,16 +36,13 @@ export function TagSelector({
 	const createTag = useLibraryMutation('tags.create');
 
 	// Fetch all tags using search with empty query
-	const { data: tagsData } = useNormalizedQuery({
+	// Using select to normalize TagSearchResult[] to Tag[] for consistent cache structure
+	const { data: allTags = [] } = useNormalizedQuery({
 		wireMethod: 'query:tags.search',
 		input: { query: '' },
-		resourceType: 'tag'
+		resourceType: 'tag',
+		select: (data: any) => data?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? []
 	});
-
-	// Extract tags from search results
-	// Handle both TagSearchResult ({ tag, relevance, ... }) and raw Tag objects
-	// (resource events may inject raw Tag objects into the cache)
-	const allTags = tagsData?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? [];
 
 	// Check if query matches an existing tag
 	const exactMatch = allTags.find(

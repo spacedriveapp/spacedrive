@@ -1,4 +1,4 @@
-import { Tag as TagIcon, Plus } from '@phosphor-icons/react';
+import { Tag as TagIcon, Plus, CaretRight } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
@@ -98,16 +98,13 @@ export function TagsGroup({
 	const createTag = useLibraryMutation('tags.create');
 
 	// Fetch tags with real-time updates using search with empty query
-	const { data: tagsData, isLoading } = useNormalizedQuery({
+	// Using select to normalize TagSearchResult[] to Tag[] for consistent cache structure
+	const { data: tags = [], isLoading } = useNormalizedQuery({
 		wireMethod: 'query:tags.search',
 		input: { query: '' },
-		resourceType: 'tag'
+		resourceType: 'tag',
+		select: (data: any) => data?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? []
 	});
-
-	// Extract tags from search results
-	// Handle both TagSearchResult ({ tag, relevance, ... }) and raw Tag objects
-	// (resource events may inject raw Tag objects into the cache)
-	const tags = tagsData?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? [];
 
 	const handleCreateTag = async () => {
 		if (!newTagName.trim()) return;
@@ -115,8 +112,20 @@ export function TagsGroup({
 		try {
 			const result = await createTag.mutateAsync({
 				canonical_name: newTagName.trim(),
+				display_name: null,
+				formal_name: null,
+				abbreviation: null,
 				aliases: [],
+				namespace: null,
+				tag_type: null,
 				color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+				icon: null,
+				description: null,
+				is_organizational_anchor: null,
+				privacy_level: null,
+				search_weight: null,
+				attributes: null,
+				apply_to: null
 			});
 
 			// Navigate to the new tag

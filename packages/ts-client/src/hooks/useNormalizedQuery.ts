@@ -26,13 +26,14 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 import type { Event } from "../generated/types";
+import type { SdPath } from "../types";
 import invariant from "tiny-invariant";
 import * as v from "valibot";
 import type { Simplify } from "type-fest";
 
 // Types
 
-export type UseNormalizedQueryOptions<I> = Simplify<{
+export type UseNormalizedQueryOptions<I, O = any, TSelected = O> = Simplify<{
 	/** Wire method to call (e.g., "query:files.directory_listing") */
 	wireMethod: string;
 	/** Input for the query */
@@ -42,13 +43,15 @@ export type UseNormalizedQueryOptions<I> = Simplify<{
 	/** Whether query is enabled (default: true) */
 	enabled?: boolean;
 	/** Optional path scope for server-side filtering */
-	pathScope?: any; // SdPath type
+	pathScope?: SdPath;
 	/** Whether to include descendants (recursive) or only direct children (exact) */
 	includeDescendants?: boolean;
 	/** Resource ID for single-resource queries */
 	resourceId?: string;
 	/** Enable debug logging for this query instance */
 	debug?: boolean;
+	/** Optional select function to transform query data */
+	select?: (data: O) => TSelected;
 }>;
 
 // Runtime Validation Schemas (Valibot)
@@ -93,8 +96,8 @@ const ResourceDeletedSchema = v.object({
 /**
  * useNormalizedQuery - Main hook
  */
-export function useNormalizedQuery<I, O>(
-	options: UseNormalizedQueryOptions<I>,
+export function useNormalizedQuery<I, O = any, TSelected = O>(
+	options: UseNormalizedQueryOptions<I, O, TSelected>,
 ) {
 	const client = useSpacedriveClient();
 	const queryClient = useQueryClient();
@@ -121,7 +124,7 @@ export function useNormalizedQuery<I, O>(
 	);
 
 	// Standard TanStack Query
-	const query = useQuery<O>({
+	const query = useQuery<O, Error, TSelected>({
 		queryKey,
 		queryFn: async () => {
 			invariant(libraryId, "Library ID must be set before querying");
@@ -131,6 +134,7 @@ export function useNormalizedQuery<I, O>(
 			);
 		},
 		enabled: (options.enabled ?? true) && !!libraryId,
+		select: options.select,
 	});
 
 	// Refs for stable access to latest values without triggering re-subscription
