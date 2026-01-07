@@ -1,7 +1,7 @@
 import { ArrowSquareOut } from "@phosphor-icons/react";
 import { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
-import type { File, LocationInfo } from "@sd/ts-client";
+import type { File, Location } from "@sd/ts-client";
 import { useLibraryQuery, useNormalizedQuery } from "./context";
 import { usePlatform } from "./platform";
 import { useSelection } from "./components/Explorer/SelectionContext";
@@ -14,14 +14,14 @@ import clsx from "clsx";
 export type InspectorVariant =
   | { type: "file"; file: File }
   | { type: "multi-file"; files: File[] }
-  | { type: "location"; location: LocationInfo }
+  | { type: "location"; location: Location }
   | { type: "empty" }
   | null;
 
 interface InspectorProps {
   onPopOut?: () => void;
   showPopOutButton?: boolean;
-  currentLocation?: LocationInfo | null;
+  currentLocation?: Location | null;
   isPreviewActive?: boolean;
 }
 
@@ -45,7 +45,7 @@ export function Inspector({
       // Check if this is a virtual location file
       if (isVirtualFile(file) && (file as any)._virtual?.type === "location") {
         // Show LocationInspector for virtual locations
-        const locationData = (file as any)._virtual.data as LocationInfo;
+        const locationData = (file as any)._virtual.data as Location;
         return { type: "location", location: locationData };
       }
 

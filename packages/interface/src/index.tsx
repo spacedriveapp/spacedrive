@@ -5,7 +5,7 @@
 // Import global styles
 import "./styles.css";
 
-export { Explorer } from "./Explorer";
+export { Shell } from "./Shell";
 export { DemoWindow } from "./DemoWindow";
 export { ErrorBoundary } from "./ErrorBoundary";
 export { FloatingControls } from "./FloatingControls";

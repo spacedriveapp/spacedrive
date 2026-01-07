@@ -38,9 +38,9 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 				<div ref={rightRef} data-tauri-drag-region className="flex items-center gap-2" />
 
 				{/* Right fade mask - hide when preview active */}
-				{!isPreviewActive && (
+				{/* {!isPreviewActive && (
 					<div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-app to-transparent pointer-events-none" />
-				)}
+				)} */}
 			</div>
 		</div>
 	);
