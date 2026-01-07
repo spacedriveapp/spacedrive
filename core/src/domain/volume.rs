@@ -2,6 +2,12 @@
 //!
 //! This represents volumes in Spacedrive, combining runtime detection capabilities
 //! with database tracking and user preferences. Supports local, network, and cloud volumes.
+//!
+//! # Encryption Detection
+//!
+//! Volumes may have encryption status detected from the underlying filesystem.
+//! This information is used to optimize secure deletion strategies - encrypted volumes
+//! don't require multi-pass overwrites since the data is already ciphertext.
 
 use crate::domain::resource::Identifiable;
 use chrono::{DateTime, Utc};
@@ -82,6 +88,87 @@ impl VolumeFingerprint {
 impl fmt::Display for VolumeFingerprint {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		write!(f, "{}", self.0)
+	}
+}
+
+/// Type of full-disk encryption detected on a volume
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+pub enum EncryptionType {
+	/// macOS FileVault (APFS encrypted)
+	FileVault,
+	/// Windows BitLocker
+	BitLocker,
+	/// Linux Unified Key Setup
+	LUKS,
+	/// Linux eCryptfs (stacked filesystem encryption)
+	ECryptfs,
+	/// VeraCrypt (cross-platform)
+	VeraCrypt,
+	/// Hardware-based encryption (SED, Opal)
+	Hardware,
+	/// Other or unknown encryption type
+	Other,
+}
+
+impl fmt::Display for EncryptionType {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		match self {
+			EncryptionType::FileVault => write!(f, "FileVault"),
+			EncryptionType::BitLocker => write!(f, "BitLocker"),
+			EncryptionType::LUKS => write!(f, "LUKS"),
+			EncryptionType::ECryptfs => write!(f, "eCryptfs"),
+			EncryptionType::VeraCrypt => write!(f, "VeraCrypt"),
+			EncryptionType::Hardware => write!(f, "Hardware"),
+			EncryptionType::Other => write!(f, "Other"),
+		}
+	}
+}
+
+/// Encryption information for a volume
+///
+/// Stores detected encryption status and type. Used to optimize secure deletion
+/// strategies - encrypted volumes don't require multi-pass overwrites since data
+/// is already ciphertext on disk.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
+pub struct VolumeEncryption {
+	/// Whether encryption is enabled on this volume
+	pub enabled: bool,
+
+	/// Type of encryption detected
+	pub encryption_type: EncryptionType,
+
+	/// Whether the volume is currently unlocked (accessible)
+	/// For FileVault/BitLocker, this means the key is loaded
+	pub is_unlocked: bool,
+}
+
+impl VolumeEncryption {
+	/// Create a new VolumeEncryption instance
+	pub fn new(encryption_type: EncryptionType, is_unlocked: bool) -> Self {
+		Self {
+			enabled: true,
+			encryption_type,
+			is_unlocked,
+		}
+	}
+
+	/// Create an unencrypted volume marker
+	pub fn none() -> Option<Self> {
+		None
+	}
+
+	/// Check if this encryption provides at-rest protection
+	/// Used to determine if multi-pass secure delete is necessary
+	pub fn provides_at_rest_protection(&self) -> bool {
+		self.enabled
+			&& matches!(
+				self.encryption_type,
+				EncryptionType::FileVault
+					| EncryptionType::BitLocker
+					| EncryptionType::LUKS
+					| EncryptionType::VeraCrypt
+					| EncryptionType::Hardware
+			)
 	}
 }
 
@@ -276,6 +363,9 @@ pub struct Volume {
 
 	/// Disk type (SSD, HDD, etc.)
 	pub disk_type: DiskType,
+
+	/// Encryption status (FileVault, BitLocker, LUKS, etc.)
+	pub encryption: Option<VolumeEncryption>,
 
 	/// Filesystem type
 	pub file_system: FileSystem,
@@ -597,6 +687,7 @@ impl Volume {
 			volume_type: VolumeType::Unknown,
 			mount_type: MountType::System,
 			disk_type: DiskType::Unknown,
+			encryption: None,
 			file_system: FileSystem::Other("Unknown".to_string()),
 			total_capacity: 0,
 			available_space: 0,
@@ -693,6 +784,48 @@ impl Volume {
 			self.file_system,
 			FileSystem::APFS | FileSystem::Btrfs | FileSystem::ZFS | FileSystem::ReFS
 		)
+	}
+
+	/// Check if this volume has full-disk encryption enabled
+	pub fn is_encrypted(&self) -> bool {
+		self.encryption.as_ref().is_some_and(|e| e.enabled)
+	}
+
+	/// Get the encryption type if the volume is encrypted
+	pub fn encryption_type(&self) -> Option<EncryptionType> {
+		self.encryption.as_ref().map(|e| e.encryption_type)
+	}
+
+	/// Check if multi-pass secure delete is necessary for this volume
+	///
+	/// Returns false if the volume has at-rest encryption (data is already
+	/// ciphertext on disk) or is an SSD (where TRIM is more appropriate).
+	pub fn needs_multi_pass_secure_delete(&self) -> bool {
+		// Encrypted volumes don't need multi-pass overwrite
+		if self.encryption.as_ref().is_some_and(|e| e.provides_at_rest_protection()) {
+			return false;
+		}
+		// SSDs should use TRIM instead of overwriting
+		if matches!(self.disk_type, DiskType::SSD) {
+			return false;
+		}
+		// HDDs and unknown types benefit from multi-pass overwrite
+		true
+	}
+
+	/// Get the recommended number of secure delete passes for this volume
+	///
+	/// Modern guidance (NIST SP 800-88): 1 pass sufficient for most drives.
+	/// Encrypted volumes: 1 pass (data is ciphertext anyway).
+	/// HDDs without encryption: 3 passes for extra assurance.
+	pub fn recommended_secure_delete_passes(&self) -> usize {
+		if self.is_encrypted() {
+			1
+		} else if matches!(self.disk_type, DiskType::SSD) {
+			1 // TRIM is more effective than overwriting for SSDs
+		} else {
+			3 // HDDs benefit from multi-pass for magnetic remnants
+		}
 	}
 
 	/// Get capacity utilization percentage
@@ -860,6 +993,7 @@ impl TrackedVolume {
 			},
 			mount_type: MountType::External,
 			disk_type: DiskType::Unknown,
+			encryption: None, // Encryption status is only known at runtime
 			file_system: FileSystem::from_string(
 				&self
 					.file_system

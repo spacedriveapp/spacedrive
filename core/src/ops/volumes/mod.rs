@@ -6,8 +6,10 @@
 //! - Adding/removing cloud volumes
 //! - Listing volumes
 //! - Ephemeral indexing entire volumes
+//! - Querying encryption status for secure delete optimization
 
 pub mod add_cloud;
+pub mod encryption;
 pub mod index;
 pub mod list;
 pub mod refresh;
@@ -17,8 +19,13 @@ pub mod track;
 pub mod untrack;
 
 pub use add_cloud::{action::VolumeAddCloudAction, VolumeAddCloudOutput};
+pub use encryption::{
+	PathEncryptionInfo, VolumeEncryptionOutput, VolumeEncryptionQuery, VolumeEncryptionQueryInput,
+};
 pub use index::{IndexVolumeAction, IndexVolumeInput, IndexVolumeOutput};
-pub use list::{VolumeFilter, VolumeListOutput, VolumeListQuery, VolumeListQueryInput};
+pub use list::{
+	VolumeEncryptionInfo, VolumeFilter, VolumeListOutput, VolumeListQuery, VolumeListQueryInput,
+};
 pub use refresh::{action::VolumeRefreshAction, VolumeRefreshOutput};
 pub use remove_cloud::{action::VolumeRemoveCloudAction, VolumeRemoveCloudOutput};
 pub use speed_test::{action::VolumeSpeedTestAction, VolumeSpeedTestOutput};

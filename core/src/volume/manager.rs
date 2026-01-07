@@ -349,6 +349,7 @@ impl VolumeManager {
 									volume_type: crate::volume::types::VolumeType::Network,
 									mount_type: crate::volume::types::MountType::Network,
 									disk_type: crate::volume::types::DiskType::Unknown,
+									encryption: None, // Cloud volumes don't have local encryption detection
 									file_system: crate::volume::types::FileSystem::Other(format!(
 										"{:?}",
 										credential.service
@@ -1796,6 +1797,73 @@ impl VolumeManager {
 			.filter(|volume| volume.name.to_lowercase().contains(&name_lower))
 			.cloned()
 			.collect()
+	}
+
+	/// Check if a volume is encrypted.
+	/// Returns the encryption information if the volume is encrypted.
+	pub async fn is_volume_encrypted(
+		&self,
+		fingerprint: &VolumeFingerprint,
+	) -> Option<crate::domain::volume::VolumeEncryption> {
+		let volumes = self.volumes.read().await;
+		volumes.get(fingerprint).and_then(|v| v.encryption.clone())
+	}
+
+	/// Get all encrypted volumes.
+	/// Returns volumes that have full-disk encryption enabled (FileVault, BitLocker, LUKS, etc.)
+	pub async fn get_encrypted_volumes(&self) -> Vec<Volume> {
+		self.volumes
+			.read()
+			.await
+			.values()
+			.filter(|v| v.is_encrypted())
+			.cloned()
+			.collect()
+	}
+
+	/// Check if a path is on an encrypted volume.
+	/// Useful for determining secure delete strategy.
+	pub async fn is_path_on_encrypted_volume(&self, path: &Path) -> bool {
+		if let Some(volume) = self.volume_for_path(path).await {
+			volume.is_encrypted()
+		} else {
+			false
+		}
+	}
+
+	/// Get encryption information for a path.
+	/// Returns encryption details if the path is on an encrypted volume.
+	pub async fn get_encryption_for_path(
+		&self,
+		path: &Path,
+	) -> Option<crate::domain::volume::VolumeEncryption> {
+		self.volume_for_path(path).await.and_then(|v| v.encryption)
+	}
+
+	/// Determine the recommended number of secure delete passes for a path.
+	/// Takes into account both encryption status and disk type.
+	/// - Encrypted SSDs: 1 pass (data already encrypted, TRIM handles blocks)
+	/// - Encrypted HDDs: 1 pass (data already encrypted)
+	/// - Unencrypted SSDs: 1 pass (TRIM is more effective than overwriting)
+	/// - Unencrypted HDDs: 3 passes (DOD standard for magnetic media)
+	pub async fn recommended_secure_delete_passes(&self, path: &Path) -> u32 {
+		if let Some(volume) = self.volume_for_path(path).await {
+			volume.recommended_secure_delete_passes()
+		} else {
+			// Default to conservative 3 passes if volume unknown
+			3
+		}
+	}
+
+	/// Check if multi-pass secure delete is needed for a path.
+	/// Returns false for encrypted volumes or SSDs, true for unencrypted HDDs.
+	pub async fn needs_multi_pass_secure_delete(&self, path: &Path) -> bool {
+		if let Some(volume) = self.volume_for_path(path).await {
+			volume.needs_multi_pass_secure_delete()
+		} else {
+			// Default to conservative behavior if volume unknown
+			true
+		}
 	}
 
 	/// Create or read Spacedrive identifier file for a volume

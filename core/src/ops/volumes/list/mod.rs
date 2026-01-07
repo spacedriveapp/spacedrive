@@ -3,5 +3,5 @@
 pub mod output;
 pub mod query;
 
-pub use output::VolumeListOutput;
+pub use output::{VolumeEncryptionInfo, VolumeListOutput};
 pub use query::{VolumeFilter, VolumeListQuery, VolumeListQueryInput};

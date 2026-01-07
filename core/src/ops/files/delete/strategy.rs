@@ -11,9 +11,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::fs;
+use tracing::debug;
 use uuid::Uuid;
 
-use super::job::DeleteMode;
+use super::job::{DeleteMode, SecureDeleteOptions};
+use super::trim;
 
 /// Result of a delete operation for a single path
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +50,7 @@ impl DeleteStrategy for LocalDeleteStrategy {
 		mode: DeleteMode,
 	) -> Result<Vec<DeleteResult>> {
 		let mut results = Vec::new();
+		let volume_manager = ctx.volume_manager();
 
 		for path in paths {
 			let result = match path {
@@ -59,10 +62,20 @@ impl DeleteStrategy for LocalDeleteStrategy {
 
 					let size = self.get_path_size(local_path).await.unwrap_or(0);
 
-					let deletion_result = match mode {
+					let deletion_result = match &mode {
 						DeleteMode::Trash => self.move_to_trash(local_path).await,
 						DeleteMode::Permanent => self.permanent_delete(local_path).await,
-						DeleteMode::Secure => self.secure_delete(local_path).await,
+						DeleteMode::Secure(opts) => {
+							// Use encryption-aware options for secure delete
+							let optimal_opts = self
+								.determine_optimal_options(
+									local_path,
+									opts,
+									volume_manager.as_deref(),
+								)
+								.await;
+							self.secure_delete(local_path, &optimal_opts).await
+						}
 					};
 
 					DeleteResult {
@@ -328,53 +341,160 @@ impl LocalDeleteStrategy {
 		Ok(())
 	}
 
-	/// Securely delete file by overwriting with random data
-	pub async fn secure_delete(&self, path: &Path) -> Result<(), std::io::Error> {
+	/// Securely delete file by overwriting with random data.
+	/// Uses the crypto crate's erase function with configurable options.
+	pub async fn secure_delete(
+		&self,
+		path: &Path,
+		options: &SecureDeleteOptions,
+	) -> Result<(), std::io::Error> {
 		let metadata = fs::metadata(path).await?;
 
 		if metadata.is_file() {
-			self.secure_overwrite_file(path, metadata.len()).await?;
+			self.secure_overwrite_file(path, metadata.len(), options)
+				.await?;
 			fs::remove_file(path).await?;
 		} else if metadata.is_dir() {
-			self.secure_delete_directory(path).await?;
+			self.secure_delete_directory(path, options).await?;
 			fs::remove_dir_all(path).await?;
 		}
 
 		Ok(())
 	}
 
-	/// Securely overwrite a file with random data
-	async fn secure_overwrite_file(&self, path: &Path, size: u64) -> Result<(), std::io::Error> {
-		use rand::RngCore;
-		use tokio::io::{AsyncSeekExt, AsyncWriteExt};
+	/// Determine optimal SecureDeleteOptions for a path based on volume encryption status.
+	/// This is the encryption-aware deletion strategy that auto-tunes passes.
+	///
+	/// Strategy:
+	/// - Encrypted volumes (FileVault, BitLocker, LUKS): 1 pass (data is ciphertext anyway)
+	/// - Unencrypted SSDs: 1 pass + TRIM (TRIM is more effective than overwriting)
+	/// - Unencrypted HDDs: 3 passes (DOD standard for magnetic media)
+	/// - Unknown: 3 passes (conservative default)
+	pub async fn determine_optimal_options(
+		&self,
+		path: &Path,
+		base_options: &SecureDeleteOptions,
+		volume_manager: Option<&crate::volume::VolumeManager>,
+	) -> SecureDeleteOptions {
+		let mut options = base_options.clone();
+
+		// If passes are explicitly set and force_overwrite is true, use as-is
+		if options.passes.is_some() && options.force_overwrite {
+			return options;
+		}
+
+		// Try to get volume info for this path
+		if let Some(vm) = volume_manager {
+			if let Some(volume) = vm.volume_for_path(path).await {
+				// Check encryption status
+				let is_encrypted = volume.is_encrypted();
+				let is_ssd = matches!(
+					volume.disk_type,
+					crate::volume::types::DiskType::SSD
+						| crate::volume::types::DiskType::NVMe
+						| crate::volume::types::DiskType::Flash
+				);
+
+				// Auto-determine passes if not explicitly set
+				if options.passes.is_none() {
+					options.passes = Some(volume.recommended_secure_delete_passes());
+					debug!(
+						"Auto-determined {} passes for path {} (encrypted: {}, SSD: {})",
+						options.passes.unwrap(),
+						path.display(),
+						is_encrypted,
+						is_ssd
+					);
+				}
+
+				// Enable TRIM for SSDs if not explicitly disabled
+				if is_ssd && !options.force_overwrite {
+					options.use_trim = true;
+				}
+
+				// On encrypted volumes, skip overwrite unless force_overwrite is set
+				if is_encrypted && !options.force_overwrite && options.passes.is_none() {
+					options.passes = Some(1);
+					debug!(
+						"Encrypted volume detected, using single pass for {}",
+						path.display()
+					);
+				}
+			}
+		}
+
+		// Default to conservative 3 passes if we couldn't determine
+		if options.passes.is_none() {
+			options.passes = Some(3);
+			debug!(
+				"Could not determine volume info, using default 3 passes for {}",
+				path.display()
+			);
+		}
+
+		options
+	}
+
+	/// Securely overwrite a file with random data using crypto crate's erase function.
+	/// Respects SecureDeleteOptions for number of passes, TRIM support, and truncation behavior.
+	///
+	/// Strategy:
+	/// 1. If use_trim is enabled and TRIM is supported, try TRIM first (more effective on SSDs)
+	/// 2. If TRIM fails or is disabled, fall back to multi-pass overwrite
+	/// 3. Optionally truncate file to clean up metadata
+	async fn secure_overwrite_file(
+		&self,
+		path: &Path,
+		size: u64,
+		options: &SecureDeleteOptions,
+	) -> Result<(), std::io::Error> {
+		use tokio::io::AsyncWriteExt;
+
+		// Determine number of passes (default to 1 if not specified, will be auto-determined by caller)
+		let passes = options.passes.unwrap_or(1) as usize;
+
+		// Skip overwrite if passes is 0 (useful for encrypted volumes where overwrite is unnecessary)
+		if passes == 0 {
+			return Ok(());
+		}
+
+		// Try TRIM first if enabled (more effective on SSDs)
+		if options.use_trim {
+			let trim_result = trim::trim_file(path).await;
+			if trim_result.success {
+				debug!(
+					"TRIM succeeded for file: {} ({} bytes)",
+					path.display(),
+					trim_result.bytes_trimmed
+				);
+				// TRIM succeeded, but we still do at least one overwrite pass for extra security
+				// unless we're on an encrypted volume (handled by passes=0 above)
+			} else {
+				debug!(
+					"TRIM not available or failed: {:?}, falling back to overwrite",
+					trim_result.error
+				);
+			}
+		}
 
 		let mut file = fs::OpenOptions::new()
+			.read(true)
 			.write(true)
 			.truncate(false)
 			.open(path)
 			.await?;
 
-		// Overwrite with random data (3 passes)
-		for _ in 0..3 {
-			file.seek(std::io::SeekFrom::Start(0)).await?;
+		// Use crypto crate's erase function for cryptographically secure overwriting
+		sd_crypto::erase(&mut file, size as usize, passes)
+			.await
+			.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))?;
 
-			let mut remaining = size;
+		// Sync to ensure data is written to disk
+		file.sync_all().await?;
 
-			while remaining > 0 {
-				let chunk_size = std::cmp::min(remaining, 64 * 1024) as usize;
-
-				let buffer = {
-					let mut rng = rand::thread_rng();
-					let mut buf = vec![0u8; chunk_size];
-					rng.fill_bytes(&mut buf);
-					buf
-				};
-
-				file.write_all(&buffer).await?;
-				remaining -= chunk_size as u64;
-			}
-
-			file.flush().await?;
+		// Optionally truncate file to zero length after erasure
+		if options.truncate_after {
+			file.set_len(0).await?;
 			file.sync_all().await?;
 		}
 
@@ -382,7 +502,11 @@ impl LocalDeleteStrategy {
 	}
 
 	/// Secure delete directory using iterative approach
-	async fn secure_delete_directory(&self, path: &Path) -> Result<(), std::io::Error> {
+	async fn secure_delete_directory(
+		&self,
+		path: &Path,
+		options: &SecureDeleteOptions,
+	) -> Result<(), std::io::Error> {
 		let mut stack = vec![path.to_path_buf()];
 
 		while let Some(current_path) = stack.pop() {
@@ -393,7 +517,7 @@ impl LocalDeleteStrategy {
 
 				if entry_path.is_file() {
 					let metadata = fs::metadata(&entry_path).await?;
-					self.secure_overwrite_file(&entry_path, metadata.len())
+					self.secure_overwrite_file(&entry_path, metadata.len(), options)
 						.await?;
 					fs::remove_file(&entry_path).await?;
 				} else if entry_path.is_dir() {

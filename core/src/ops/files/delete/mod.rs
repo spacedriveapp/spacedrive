@@ -6,6 +6,7 @@ pub mod job;
 pub mod output;
 pub mod routing;
 pub mod strategy;
+pub mod trim;
 
 pub use action::FileDeleteAction;
 pub use input::FileDeleteInput;

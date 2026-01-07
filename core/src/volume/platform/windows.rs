@@ -1,5 +1,6 @@
 //! Windows-specific volume detection helpers
 
+use crate::domain::volume::{EncryptionType, VolumeEncryption};
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
@@ -9,7 +10,7 @@ use crate::volume::{
 use std::path::PathBuf;
 use std::process::Command;
 use tokio::task;
-use tracing::warn;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// Windows volume information from PowerShell/WMI
@@ -137,11 +138,15 @@ fn parse_wmic_output(
 			let volume_type = classify_volume(&mount_path, &file_system, &name);
 			let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 
+			// Detect BitLocker encryption status
+			let encryption = detect_bitlocker_encryption(caption);
+
 			let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 			volume.mount_type = mount_type;
 			volume.volume_type = volume_type;
 			volume.disk_type = disk_type;
+			volume.encryption = encryption;
 			volume.file_system = file_system;
 			volume.total_capacity = total_bytes;
 			volume.available_space = available_bytes;
@@ -182,6 +187,91 @@ fn determine_mount_type_windows(drive_letter: &str) -> MountType {
 	}
 }
 
+/// Detect BitLocker encryption status for a Windows drive.
+/// Uses PowerShell's Get-BitLockerVolume cmdlet or manage-bde command.
+fn detect_bitlocker_encryption(drive_letter: &str) -> Option<VolumeEncryption> {
+	// Normalize drive letter format (e.g., "C:" or "C:\")
+	let drive = drive_letter.trim_end_matches('\\');
+
+	// Try Get-BitLockerVolume first (requires admin, but provides detailed info)
+	let powershell_result = Command::new("powershell")
+		.args([
+			"-Command",
+			&format!(
+				"$vol = Get-BitLockerVolume -MountPoint '{}' -ErrorAction SilentlyContinue; \
+				if ($vol) {{ $vol.ProtectionStatus.ToString() }} else {{ 'NotFound' }}",
+				drive
+			),
+		])
+		.output();
+
+	if let Ok(output) = powershell_result {
+		if output.status.success() {
+			let status = String::from_utf8_lossy(&output.stdout).trim().to_string();
+			match status.as_str() {
+				"On" => {
+					debug!("Detected BitLocker encryption (enabled) for drive {}", drive);
+					return Some(VolumeEncryption::new(EncryptionType::BitLocker, true));
+				}
+				"Off" => {
+					// BitLocker is configured but protection is suspended/off
+					debug!("BitLocker present but protection off for drive {}", drive);
+					return Some(VolumeEncryption {
+						enabled: true,
+						encryption_type: EncryptionType::BitLocker,
+						is_unlocked: true,
+					});
+				}
+				"Unknown" => {
+					// Encryption in progress or unknown state
+					debug!("BitLocker in unknown state for drive {}", drive);
+					return Some(VolumeEncryption::new(EncryptionType::BitLocker, true));
+				}
+				_ => {} // "NotFound" or other - try fallback
+			}
+		}
+	}
+
+	// Fallback: Use manage-bde (available on all Windows versions with BitLocker)
+	let manage_bde_result = Command::new("manage-bde")
+		.args(["-status", drive])
+		.output();
+
+	if let Ok(output) = manage_bde_result {
+		let output_str = String::from_utf8_lossy(&output.stdout);
+
+		// Check for encryption status indicators
+		if output_str.contains("Protection Status:") {
+			if output_str.contains("Protection On") {
+				debug!("Detected BitLocker encryption via manage-bde for drive {}", drive);
+				return Some(VolumeEncryption::new(EncryptionType::BitLocker, true));
+			} else if output_str.contains("Protection Off") {
+				// BitLocker present but suspended
+				debug!("BitLocker suspended via manage-bde for drive {}", drive);
+				return Some(VolumeEncryption {
+					enabled: true,
+					encryption_type: EncryptionType::BitLocker,
+					is_unlocked: true,
+				});
+			}
+		}
+
+		// Check if drive is fully encrypted
+		if output_str.contains("Percentage Encrypted:") {
+			if output_str.contains("100%") || output_str.contains("100.0%") {
+				debug!("Detected fully encrypted BitLocker drive {}", drive);
+				return Some(VolumeEncryption::new(EncryptionType::BitLocker, true));
+			}
+		}
+	}
+
+	// Check for hardware encryption (some SSDs with OPAL)
+	// This would require WMI queries for MSFT_PhysicalDisk EncryptionType
+	// For now, we don't detect hardware encryption without explicit queries
+
+	None
+}
+
 /// Get Windows volume info using PowerShell (stub for now)
 pub async fn get_windows_volume_info() -> VolumeResult<Vec<WindowsVolumeInfo>> {
 	// This would be implemented with proper PowerShell parsing
@@ -217,11 +307,19 @@ pub fn create_volume_from_windows_info(
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 	let fingerprint = VolumeFingerprint::new(&name, info.size, &file_system.to_string());
 
+	// Detect BitLocker encryption status
+	let encryption = if let Some(drive) = &info.drive_letter {
+		detect_bitlocker_encryption(&format!("{}:", drive))
+	} else {
+		None
+	};
+
 	let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 	volume.mount_type = mount_type;
 	volume.volume_type = volume_type;
 	volume.disk_type = DiskType::Unknown;
+	volume.encryption = encryption;
 	volume.file_system = file_system;
 	volume.total_capacity = info.size;
 	volume.available_space = info.size_remaining;

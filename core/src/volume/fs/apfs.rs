@@ -4,6 +4,7 @@
 //! optimizations like copy-on-write cloning. While primarily used on macOS,
 //! this module is designed to work on any platform that supports APFS.
 
+use crate::domain::volume::{EncryptionType, VolumeEncryption};
 use crate::volume::{
 	error::{VolumeError, VolumeResult},
 	types::{
@@ -392,6 +393,13 @@ pub fn containers_to_volumes(
 				volume_info.name.clone()
 			};
 
+			// Detect FileVault encryption status
+			let encryption = if volume_info.filevault {
+				Some(VolumeEncryption::new(EncryptionType::FileVault, true))
+			} else {
+				None
+			};
+
 			let volume = Volume {
 				// Use fingerprint to generate stable UUID
 				id: uuid::Uuid::new_v5(&uuid::Uuid::NAMESPACE_OID, fingerprint.0.as_bytes()),
@@ -405,6 +413,7 @@ pub fn containers_to_volumes(
 				volume_type,
 				mount_type,
 				disk_type: DiskType::Unknown,
+				encryption,
 				file_system: FileSystem::APFS,
 				total_capacity: total_bytes,
 				available_space: available_bytes,

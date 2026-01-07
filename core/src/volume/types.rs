@@ -5,7 +5,7 @@
 
 // Re-export all volume types from domain
 pub use crate::domain::volume::{
-	ApfsContainer, ApfsVolumeInfo, ApfsVolumeRole, DiskType, FileSystem, MountType, PathMapping,
-	SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeEvent,
-	VolumeFingerprint, VolumeInfo, VolumeType,
+	ApfsContainer, ApfsVolumeInfo, ApfsVolumeRole, DiskType, EncryptionType, FileSystem, MountType,
+	PathMapping, SpacedriveVolumeId, TrackedVolume, Volume, VolumeDetectionConfig, VolumeEncryption,
+	VolumeEvent, VolumeFingerprint, VolumeInfo, VolumeType,
 };
