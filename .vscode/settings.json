@@ -106,5 +106,9 @@
 	"i18n-ally.keystyle": "flat",
 	// You need to add this to your locale settings file "i18n-ally.translate.google.apiKey": "xxx"
 	"i18n-ally.translate.engines": ["google"],
-	"evenBetterToml.taplo.configFile.path": ".taplo.toml"
+	"evenBetterToml.taplo.configFile.path": ".taplo.toml",
+	"files.insertFinalNewline": false,
+	"files.trimFinalNewlines": true,
+	"editor.formatOnSave": false,
+	"editor.formatOnSaveMode": "file"
 }

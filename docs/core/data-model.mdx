@@ -101,6 +101,7 @@ pub struct Entry {
     pub parent_id: Option<i32>,       // Parent directory (self-referential)
     pub metadata_id: Option<i32>,     // User metadata (when present)
     pub content_id: Option<i32>,      // Content identity (for deduplication)
+    pub volume_id: Option<i32>,       // Volume this entry is on (ownership inherited from volume's device)
 
     // Size and hierarchy
     pub size: i64,                    // File size in bytes

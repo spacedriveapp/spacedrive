@@ -4,6 +4,7 @@
 //! resolves paths to their storage locations, and selects optimal copy strategies.
 
 use sd_core::{
+	device::get_current_device_slug,
 	domain::addressing::SdPath,
 	infra::event::EventBus,
 	ops::files::copy::{input::CopyMethod, routing::CopyStrategyRouter},
@@ -13,7 +14,6 @@ use sd_core::{
 	},
 };
 use std::{path::PathBuf, sync::Arc};
-use tokio::fs;
 use uuid::Uuid;
 
 /// Test volume detection on macOS
@@ -254,9 +254,10 @@ async fn test_copy_strategy_selection() {
 
 		// Only test if both paths exist
 		if source_path.exists() && dest_path.exists() {
-			// Create SdPath instances (using current device ID)
-			let source_sdpath = SdPath::new("test-device".to_string(), source_path.clone());
-			let dest_sdpath = SdPath::new("test-device".to_string(), dest_path.clone());
+			// Create SdPath instances (using current device slug)
+			let device_slug = get_current_device_slug();
+			let source_sdpath = SdPath::new(device_slug.clone(), source_path.clone());
+			let dest_sdpath = SdPath::new(device_slug, dest_path.clone());
 
 			// Test strategy selection
 			let strategy = CopyStrategyRouter::select_strategy(
@@ -429,8 +430,9 @@ async fn test_full_copy_workflow_simulation() {
 					println!("  Dest volume: {} ({})", dst_vol.name, dst_vol.file_system);
 
 					// Step 3: Select copy strategy
-					let source_sdpath = SdPath::new("test-device".to_string(), source_path.clone());
-					let dest_sdpath = SdPath::new("test-device".to_string(), dest_path.clone());
+					let device_slug = get_current_device_slug();
+					let source_sdpath = SdPath::new(device_slug.clone(), source_path.clone());
+					let dest_sdpath = SdPath::new(device_slug, dest_path.clone());
 
 					let description = CopyStrategyRouter::describe_strategy(
 						&source_sdpath,

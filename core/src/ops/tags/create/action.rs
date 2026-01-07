@@ -75,6 +75,18 @@ impl LibraryAction for CreateTagAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to sync tag: {}", e)))?;
 
+		// Emit resource event for the new tag (sidebar reactivity)
+		let resource_manager = crate::domain::ResourceManager::new(
+			Arc::new(library.db().conn().clone()),
+			_context.events.clone(),
+		);
+		resource_manager
+			.emit_resource_events("tag", vec![tag_entity.uuid])
+			.await
+			.map_err(|e| {
+				ActionError::Internal(format!("Failed to emit tag resource event: {}", e))
+			})?;
+
 		// If apply_to is provided, apply the tag to those targets
 		if let Some(targets) = &self.input.apply_to {
 			let metadata_manager = UserMetadataManager::new(Arc::new(library.db().conn().clone()));

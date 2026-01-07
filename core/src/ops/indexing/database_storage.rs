@@ -32,7 +32,7 @@
 //!     &mut state,
 //!     &ctx,
 //!     &entry,
-//!     device_id,
+//!     volume_id,
 //!     &location_root,
 //! ).await?;
 //! ```
@@ -342,7 +342,7 @@ impl DatabaseStorage {
 	pub async fn create_entry_in_conn<C: ConnectionTrait>(
 		state: &mut IndexerState,
 		entry: &DirEntry,
-		device_id: i32,
+		volume_id: i32,
 		location_root_path: &Path,
 		conn: &C,
 		out_self_closures: &mut Vec<entry_closure::ActiveModel>,
@@ -436,7 +436,7 @@ impl DatabaseStorage {
 			permissions: Set(None),
 			inode: Set(entry.inode.map(|i| i as i64)),
 			parent_id: Set(parent_id),
-			device_id: Set(Some(device_id)),
+			volume_id: Set(Some(volume_id)),
 			..Default::default()
 		};
 
@@ -505,7 +505,7 @@ impl DatabaseStorage {
 		db: &DatabaseConnection,
 		library: Option<&Library>,
 		entry: &DirEntry,
-		device_id: i32,
+		volume_id: i32,
 		location_root_path: &Path,
 	) -> Result<i32, JobError> {
 		let txn = db
@@ -518,7 +518,7 @@ impl DatabaseStorage {
 		let result = Self::create_entry_in_conn(
 			state,
 			entry,
-			device_id,
+			volume_id,
 			location_root_path,
 			&txn,
 			&mut self_closures,

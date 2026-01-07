@@ -538,4 +538,238 @@ mod tests {
 
 		watcher.stop().await.unwrap();
 	}
+
+	#[tokio::test]
+	async fn test_file_deletion_events() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter("sd_fs_watcher=debug")
+			.try_init();
+
+		let watcher = FsWatcher::new(WatcherConfig::default());
+		watcher.start().await.unwrap();
+
+		// Use home directory instead of temp - macOS FSEvents doesn't watch temp dirs
+		let home = std::env::var("HOME").unwrap();
+		let test_dir = PathBuf::from(home).join("SD_FS_WATCHER_TEST");
+		if test_dir.exists() {
+			std::fs::remove_dir_all(&test_dir).unwrap();
+		}
+		std::fs::create_dir_all(&test_dir).unwrap();
+		let test_file = test_dir.join("test.txt");
+
+		// Subscribe BEFORE watching to ensure we get all events
+		let mut rx = watcher.subscribe();
+
+		// Watch the directory
+		watcher
+			.watch_path(&test_dir, WatchConfig::recursive())
+			.await
+			.unwrap();
+
+		// Give the watcher time to settle
+		tokio::time::sleep(Duration::from_millis(200)).await;
+
+		// Drain any startup events
+		while let Ok(_) = rx.try_recv() {}
+
+		// Create a file
+		std::fs::write(&test_file, "initial content").unwrap();
+		println!("Created file: {}", test_file.display());
+
+		// macOS buffers creates for 500ms for rename detection, plus some processing time
+		// Wait for create event with generous timeout
+		let create_event = tokio::time::timeout(Duration::from_secs(3), async {
+			loop {
+				match rx.recv().await {
+					Ok(event) => {
+						println!(
+							"Received event: {:?} for path: {}",
+							event.kind,
+							event.path.display()
+						);
+						// Match by filename to handle /var vs /private/var differences
+						if event.path.file_name() == test_file.file_name() {
+							return event;
+						}
+					}
+					Err(e) => {
+						println!("Event recv error: {}", e);
+						panic!("Broadcast channel closed: {}", e);
+					}
+				}
+			}
+		})
+		.await
+		.expect("Timeout waiting for create event");
+
+		println!("Got create event: {:?}", create_event.kind);
+		assert!(
+			matches!(create_event.kind, crate::event::FsEventKind::Create),
+			"Expected Create event, got {:?}",
+			create_event.kind
+		);
+
+		// Give a moment for any additional events to settle
+		tokio::time::sleep(Duration::from_millis(200)).await;
+
+		// Delete the file
+		std::fs::remove_file(&test_file).unwrap();
+		println!("Deleted file: {}", test_file.display());
+
+		// Wait for remove event (NOT create!)
+		let delete_event = tokio::time::timeout(Duration::from_secs(5), async {
+			loop {
+				match rx.recv().await {
+					Ok(event) if event.path == test_file => {
+						println!(
+							"Received event after delete: {:?} for {}",
+							event.kind,
+							event.path.display()
+						);
+						return event;
+					}
+					Ok(event) => {
+						println!(
+							"Ignoring unrelated event after delete: {:?} for {}",
+							event.kind,
+							event.path.display()
+						);
+					}
+					Err(e) => {
+						println!("Event recv error after delete: {}", e);
+						break;
+					}
+				}
+			}
+			panic!("No delete event received within timeout");
+		})
+		.await
+		.expect("Timeout waiting for delete event");
+
+		println!("Got delete event: {:?}", delete_event.kind);
+
+		// This is the critical assertion - we should get a Remove event, not a Create event
+		assert!(
+			matches!(delete_event.kind, crate::event::FsEventKind::Remove),
+			"BUG: Expected Remove event after file deletion, but got {:?}. \
+			This indicates the watcher is misreporting deletions as creates.",
+			delete_event.kind
+		);
+
+		watcher.stop().await.unwrap();
+
+		// Cleanup
+		let _ = std::fs::remove_dir_all(&test_dir);
+	}
+
+	#[tokio::test]
+	async fn test_file_modify_then_delete() {
+		let _ = tracing_subscriber::fmt()
+			.with_env_filter("sd_fs_watcher=debug")
+			.try_init();
+
+		let watcher = FsWatcher::new(WatcherConfig::default());
+		watcher.start().await.unwrap();
+
+		// Use home directory instead of temp - macOS FSEvents doesn't watch temp dirs
+		let home = std::env::var("HOME").unwrap();
+		let test_dir = PathBuf::from(home).join("SD_FS_WATCHER_TEST_2");
+		if test_dir.exists() {
+			std::fs::remove_dir_all(&test_dir).unwrap();
+		}
+		std::fs::create_dir_all(&test_dir).unwrap();
+		let test_file = test_dir.join("document.txt");
+
+		let mut rx = watcher.subscribe();
+
+		watcher
+			.watch_path(&test_dir, WatchConfig::recursive())
+			.await
+			.unwrap();
+
+		tokio::time::sleep(Duration::from_millis(200)).await;
+
+		// Drain any startup events
+		while let Ok(_) = rx.try_recv() {}
+
+		// Create file
+		std::fs::write(&test_file, "Hello World").unwrap();
+		println!("Created file: {}", test_file.display());
+
+		// Wait for create event
+		let _create = tokio::time::timeout(Duration::from_secs(2), async {
+			loop {
+				if let Ok(event) = rx.recv().await {
+					if event.path == test_file
+						&& matches!(event.kind, crate::event::FsEventKind::Create)
+					{
+						println!("Got create event");
+						return;
+					}
+				}
+			}
+		})
+		.await
+		.expect("Timeout waiting for create");
+
+		tokio::time::sleep(Duration::from_millis(200)).await;
+
+		// Modify file using tokio::fs::write (like the failing test does)
+		tokio::fs::write(&test_file, "Hello World - Updated!")
+			.await
+			.unwrap();
+		println!("Modified file: {}", test_file.display());
+
+		// Collect modify events (could be Create or Modify depending on platform)
+		tokio::time::sleep(Duration::from_millis(500)).await;
+		while let Ok(event) = rx.try_recv() {
+			if event.path == test_file {
+				println!("Got modify-related event: {:?}", event.kind);
+			}
+		}
+
+		// Delete file
+		tokio::fs::remove_file(&test_file).await.unwrap();
+		println!("Deleted file: {}", test_file.display());
+
+		// Wait for delete event
+		let delete_event = tokio::time::timeout(Duration::from_secs(5), async {
+			loop {
+				match rx.recv().await {
+					Ok(event) if event.path == test_file => {
+						println!(
+							"Received event after delete: {:?} for {}",
+							event.kind,
+							event.path.display()
+						);
+						return event;
+					}
+					Ok(event) => {
+						println!(
+							"Ignoring event: {:?} for {}",
+							event.kind,
+							event.path.display()
+						);
+					}
+					Err(_) => break,
+				}
+			}
+			panic!("No delete event received");
+		})
+		.await
+		.expect("Timeout waiting for delete event");
+
+		// Critical assertion - this mimics what the integration test does
+		assert!(
+			matches!(delete_event.kind, crate::event::FsEventKind::Remove),
+			"BUG: After create->modify->delete sequence, expected Remove event but got {:?}. \
+			This reproduces the integration test failure where deletions are reported as Creates.",
+			delete_event.kind
+		);
+
+		watcher.stop().await.unwrap();
+
+		// Cleanup
+		let _ = std::fs::remove_dir_all(&test_dir);
+	}
 }

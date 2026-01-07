@@ -526,7 +526,7 @@ impl LibraryManager {
 			sync_service: OnceCell::new(),      // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
-			_lock: lock,
+			_lock: std::sync::Mutex::new(Some(lock)),
 		});
 
 		// Ensure device is registered in this library
@@ -1199,8 +1199,8 @@ impl LibraryManager {
 				id: NotSet,
 				uuid: Set(item_uuid),
 				space_id: Set(space_result.id),
-				group_id: Set(None), // Space-level items have no group
-				entry_id: Set(None), // Default items don't have entries
+				group_id: Set(None),   // Space-level items have no group
+				entry_uuid: Set(None), // Default items don't have entries
 				item_type: Set(item_type_json),
 				order: Set(order),
 				created_at: Set(now.into()),

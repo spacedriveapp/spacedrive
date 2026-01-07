@@ -84,7 +84,11 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 			// Resolve entry if entry_uuid is set
 			let resolved_file = if let Some(entry_uuid) = item_model.entry_uuid {
-				tracing::debug!("Space item {} has entry_uuid: {}", item_model.uuid, entry_uuid);
+				tracing::debug!(
+					"Space item {} has entry_uuid: {}",
+					item_model.uuid,
+					entry_uuid
+				);
 				if let Ok(Some(entry_model)) = entry::Entity::find()
 					.filter(entry::Column::Uuid.eq(entry_uuid))
 					.one(db)
@@ -164,7 +168,11 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 				// Resolve entry if entry_uuid is set
 				let resolved_file = if let Some(entry_uuid) = item_model.entry_uuid {
-					tracing::debug!("Group item {} has entry_uuid: {}", item_model.uuid, entry_uuid);
+					tracing::debug!(
+						"Group item {} has entry_uuid: {}",
+						item_model.uuid,
+						entry_uuid
+					);
 					if let Ok(Some(entry_model)) = entry::Entity::find()
 						.filter(entry::Column::Uuid.eq(entry_uuid))
 						.one(db)

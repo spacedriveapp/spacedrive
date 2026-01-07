@@ -196,6 +196,11 @@ async fn alice_pull_source_scenario() {
 	}
 
 	println!("Alice: PULL source test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown()
+		.await
+		.expect("Failed to shutdown Alice core");
 }
 
 /// Bob's role in PULL test - initiates PULL to get files from Alice
@@ -505,6 +510,9 @@ async fn bob_pull_receiver_scenario() {
 	}
 
 	println!("Bob: PULL test completed");
+
+	// Cleanup: shutdown core to release file descriptors
+	core.shutdown().await.expect("Failed to shutdown Bob core");
 }
 
 /// Main test orchestrator for PULL operations
