@@ -1,17 +1,16 @@
-import React, { useEffect, useState, ReactNode } from "react";
-import { QueryClientProvider } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { Event } from "@sd/ts-client/src/generated/types";
 import {
-  SpacedriveClientContext,
   queryClient,
+  SpacedriveClientContext,
   useSpacedriveClient,
 } from "@sd/ts-client/src/hooks/useClient";
-import type { Event } from "@sd/ts-client/src/generated/types";
-import { SpacedriveClient } from "../SpacedriveClient";
-import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SDMobileCore } from "sd-mobile-core";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { type ReactNode, useEffect, useState } from "react";
+import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { usePreferencesStore } from "../../stores/preferences";
 import { useSidebarStore } from "../../stores/sidebar";
+import { SpacedriveClient } from "../SpacedriveClient";
 
 // Re-export the shared hook
 export { useSpacedriveClient };
@@ -35,7 +34,7 @@ export function SpacedriveProvider({
 
   useEffect(() => {
     let mounted = true;
-    let unsubscribeLogs: (() => void) | null = null;
+    const unsubscribeLogs: (() => void) | null = null;
 
     async function init() {
       try {
@@ -63,7 +62,7 @@ export function SpacedriveProvider({
           if (parsed.state?.currentLibraryId) {
             console.log(
               "[SpacedriveProvider] Restoring library ID:",
-              parsed.state.currentLibraryId,
+              parsed.state.currentLibraryId
             );
             client.setCurrentLibrary(parsed.state.currentLibraryId);
             libraryIdSet = true;
@@ -81,7 +80,7 @@ export function SpacedriveProvider({
               console.log(
                 "[SpacedriveProvider] Auto-selecting first library:",
                 firstLibrary.name,
-                firstLibrary.id,
+                firstLibrary.id
               );
               client.setCurrentLibrary(firstLibrary.id);
 
@@ -93,17 +92,17 @@ export function SpacedriveProvider({
                     currentLibraryId: firstLibrary.id,
                     collapsedGroups: [],
                   },
-                }),
+                })
               );
             } else {
               console.warn(
-                "[SpacedriveProvider] No libraries available to auto-select",
+                "[SpacedriveProvider] No libraries available to auto-select"
               );
             }
           } catch (error) {
             console.error(
               "[SpacedriveProvider] Failed to auto-select library:",
-              error,
+              error
             );
           }
         }
@@ -124,7 +123,7 @@ export function SpacedriveProvider({
 
             if (autoSwitchEnabled) {
               console.log(
-                `[Auto-Switch] Received synced library "${name}", switching...`,
+                `[Auto-Switch] Received synced library "${name}", switching...`
               );
 
               // Update client state
@@ -134,7 +133,7 @@ export function SpacedriveProvider({
               useSidebarStore.getState().setCurrentLibrary(id);
             } else {
               console.log(
-                `[Auto-Switch] Received synced library "${name}", but auto-switch is disabled`,
+                `[Auto-Switch] Received synced library "${name}", but auto-switch is disabled`
               );
             }
           }
@@ -181,7 +180,7 @@ export function SpacedriveProvider({
   if (!initialized) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#2599FF" />
+        <ActivityIndicator color="#2599FF" size="large" />
         <Text style={styles.loadingText}>Initializing Spacedrive...</Text>
       </View>
     );

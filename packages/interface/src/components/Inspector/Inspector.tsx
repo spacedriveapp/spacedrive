@@ -1,24 +1,23 @@
 import { ArrowSquareOut } from "@phosphor-icons/react";
-import { useEffect, useState, useMemo } from "react";
-import { useParams } from "react-router-dom";
 import type { File, Location } from "@sd/ts-client";
-import { useLibraryQuery, useNormalizedQuery } from "../../contexts/SpacedriveContext";
-import { usePlatform } from "../../contexts/PlatformContext";
-import { useSelection } from "../../routes/explorer/SelectionContext";
-import { FileInspector } from "./variants/FileInspector";
-import { MultiFileInspector } from "./variants/MultiFileInspector";
-import { LocationInspector } from "./variants/LocationInspector";
-import { isVirtualFile } from "../../routes/explorer/utils/virtualFiles";
 import clsx from "clsx";
+import { useEffect, useMemo, useState } from "react";
+import { usePlatform } from "../../contexts/PlatformContext";
+import { useLibraryQuery } from "../../contexts/SpacedriveContext";
+import { useSelection } from "../../routes/explorer/SelectionContext";
+import { isVirtualFile } from "../../routes/explorer/utils/virtualFiles";
+import { FileInspector } from "./variants/FileInspector";
+import { LocationInspector } from "./variants/LocationInspector";
+import { MultiFileInspector } from "./variants/MultiFileInspector";
 
 // Re-export primitives for convenience
 export {
-	InfoRow,
-	Tag,
-	Section,
-	Divider,
-	Tabs,
-	TabContent,
+  Divider,
+  InfoRow,
+  Section,
+  TabContent,
+  Tabs,
+  Tag,
 } from "./primitives";
 
 export type InspectorVariant =
@@ -70,10 +69,10 @@ export function Inspector({
 
   return (
     <InspectorView
-      variant={variant}
+      isPreviewActive={isPreviewActive}
       onPopOut={onPopOut}
       showPopOutButton={showPopOutButton}
-      isPreviewActive={isPreviewActive}
+      variant={variant}
     />
   );
 }
@@ -94,8 +93,8 @@ function InspectorView({
   return (
     <div
       className={clsx(
-        "flex flex-col h-full rounded-2xl overflow-hidden",
-        isPreviewActive ? "backdrop-blur-2xl bg-sidebar/80" : "bg-sidebar/65",
+        "flex h-full flex-col overflow-hidden rounded-2xl",
+        isPreviewActive ? "bg-sidebar/80 backdrop-blur-2xl" : "bg-sidebar/65"
       )}
     >
       <div className="relative z-[51] flex h-full flex-col p-2.5 pb-2">
@@ -112,14 +111,14 @@ function InspectorView({
 
         {/* Footer with pop-out button */}
         {showPopOutButton && onPopOut && (
-          <div className="border-t border-sidebar-line pt-2 flex justify-center mt-2.5">
+          <div className="mt-2.5 flex justify-center border-sidebar-line border-t pt-2">
             <button
+              className="rounded-lg p-1.5 transition-colors hover:bg-sidebar-selected"
               onClick={onPopOut}
-              className="p-1.5 rounded-lg hover:bg-sidebar-selected transition-colors"
               title="Pop out Inspector"
             >
               <ArrowSquareOut
-                className="size-4 text-sidebar-inkDull hover:text-sidebar-ink transition-colors"
+                className="size-4 text-sidebar-inkDull transition-colors hover:text-sidebar-ink"
                 weight="bold"
               />
             </button>
@@ -132,8 +131,8 @@ function InspectorView({
 
 function EmptyState() {
   return (
-    <div className="flex-1 flex items-center justify-center px-4 text-center">
-      <p className="text-xs text-sidebar-inkDull">
+    <div className="flex flex-1 items-center justify-center px-4 text-center">
+      <p className="text-sidebar-inkDull text-xs">
         Select an item to view details
       </p>
     </div>
@@ -151,7 +150,8 @@ export function PopoutInspector() {
   // Query selected file IDs from platform on mount
   useEffect(() => {
     if (platform.getSelectedFileIds) {
-      platform.getSelectedFileIds()
+      platform
+        .getSelectedFileIds()
         .then((fileIds) => {
           setSelectedFileIds(fileIds);
         })
@@ -168,19 +168,22 @@ export function PopoutInspector() {
     let unlisten: (() => void) | undefined;
     let mounted = true;
 
-    platform.onSelectedFilesChanged((fileIds) => {
-      if (mounted) {
-        setSelectedFileIds(fileIds);
-      }
-    }).then((unlistenFn) => {
-      if (mounted) {
-        unlisten = unlistenFn;
-      } else {
-        unlistenFn();
-      }
-    }).catch((err) => {
-      console.error("Failed to listen for selected files changes:", err);
-    });
+    platform
+      .onSelectedFilesChanged((fileIds) => {
+        if (mounted) {
+          setSelectedFileIds(fileIds);
+        }
+      })
+      .then((unlistenFn) => {
+        if (mounted) {
+          unlisten = unlistenFn;
+        } else {
+          unlistenFn();
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to listen for selected files changes:", err);
+      });
 
     return () => {
       mounted = false;
@@ -205,18 +208,18 @@ export function PopoutInspector() {
   const variant: InspectorVariant = file
     ? { type: "file", file }
     : selectedFileIds.length > 0
-    ? { type: "empty" } // Loading state
-    : { type: "empty" }; // No selection
+      ? { type: "empty" } // Loading state
+      : { type: "empty" }; // No selection
 
   if (isLoading) {
     return (
-      <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-sidebar/65">
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-xs text-sidebar-inkDull">Loading...</p>
+      <div className="flex h-full flex-col overflow-hidden rounded-2xl bg-sidebar/65">
+        <div className="flex flex-1 items-center justify-center">
+          <p className="text-sidebar-inkDull text-xs">Loading...</p>
         </div>
       </div>
     );
   }
 
-  return <InspectorView variant={variant} showPopOutButton={false} />;
+  return <InspectorView showPopOutButton={false} variant={variant} />;
 }

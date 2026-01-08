@@ -1,51 +1,49 @@
-import React, { Children, ReactElement, cloneElement } from "react";
-import { View, Text } from "react-native";
+import React, { Children, cloneElement, type ReactElement } from "react";
+import { Text, View } from "react-native";
 import { cn } from "~/utils/cn";
-import { SettingsRowProps } from "./SettingsRow";
+import type { SettingsRowProps } from "./SettingsRow";
 
 interface SettingsGroupProps {
-	header?: string;
-	footer?: string;
-	children: ReactElement<SettingsRowProps> | ReactElement<SettingsRowProps>[];
-	className?: string;
+  header?: string;
+  footer?: string;
+  children: ReactElement<SettingsRowProps> | ReactElement<SettingsRowProps>[];
+  className?: string;
 }
 
 export function SettingsGroup({
-	header,
-	footer,
-	children,
-	className,
+  header,
+  footer,
+  children,
+  className,
 }: SettingsGroupProps) {
-	const childArray = Children.toArray(children);
-	const totalChildren = childArray.length;
+  const childArray = Children.toArray(children);
+  const totalChildren = childArray.length;
 
-	return (
-		<View className={cn("mb-6", className)}>
-			{/* Header */}
-			{header && (
-				<Text className="text-xs font-semibold text-ink-dull uppercase tracking-wider mb-2 px-4">
-					{header}
-				</Text>
-			)}
+  return (
+    <View className={cn("mb-6", className)}>
+      {/* Header */}
+      {header && (
+        <Text className="mb-2 px-4 font-semibold text-ink-dull text-xs uppercase tracking-wider">
+          {header}
+        </Text>
+      )}
 
-			{/* Rows container */}
-			<View className="rounded-[32px] overflow-hidden">
-				{Children.map(children, (child, index) => {
-					if (!React.isValidElement(child)) return child;
+      {/* Rows container */}
+      <View className="overflow-hidden rounded-[32px]">
+        {Children.map(children, (child, index) => {
+          if (!React.isValidElement(child)) return child;
 
-					return cloneElement(child, {
-						isFirst: index === 0,
-						isLast: index === totalChildren - 1,
-					});
-				})}
-			</View>
+          return cloneElement(child, {
+            isFirst: index === 0,
+            isLast: index === totalChildren - 1,
+          });
+        })}
+      </View>
 
-			{/* Footer */}
-			{footer && (
-				<Text className="text-xs text-ink-faint mt-2 px-4">
-					{footer}
-				</Text>
-			)}
-		</View>
-	);
+      {/* Footer */}
+      {footer && (
+        <Text className="mt-2 px-4 text-ink-faint text-xs">{footer}</Text>
+      )}
+    </View>
+  );
 }

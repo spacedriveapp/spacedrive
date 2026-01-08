@@ -5,64 +5,61 @@
 // Import global styles
 import "./styles.css";
 
-export { Shell } from "./Shell";
-export { DemoWindow } from "./windows/DemoWindow";
 export { ErrorBoundary } from "./components/ErrorBoundary";
-export { FloatingControls } from "./windows/FloatingControls";
-export { LocationCacheDemo } from "./demo/LocationCacheDemo";
-export { Inspector, PopoutInspector } from "./components/Inspector/Inspector";
 export type { InspectorVariant } from "./components/Inspector/Inspector";
-export { QuickPreview } from "./components/QuickPreview";
+export { Inspector, PopoutInspector } from "./components/Inspector/Inspector";
 export { JobsScreen } from "./components/JobManager";
-export { Settings } from "./routes/settings";
-export { Spacedrop } from "./windows/Spacedrop";
 export { PairingModal } from "./components/modals/PairingModal";
-export { TopBarProvider, TopBarPortal, useTopBar } from "./TopBar";
-export { Overview } from "./routes/overview";
-
+export { QuickPreview } from "./components/QuickPreview";
 // Platform abstraction
 export type { Platform } from "./contexts/PlatformContext";
 export { PlatformProvider, usePlatform } from "./contexts/PlatformContext";
-
+export {
+  type ServerContextValue,
+  ServerProvider,
+  useServer,
+} from "./contexts/ServerContext";
 // Context
 export { SpacedriveProvider } from "./contexts/SpacedriveContext";
-export {
-	ServerProvider,
-	useServer,
-	type ServerContextValue,
-} from "./contexts/ServerContext";
-
-// Hooks
-export { useContextMenu } from "./hooks/useContextMenu";
-export type {
-	ContextMenuItem,
-	ContextMenuConfig,
-} from "./hooks/useContextMenu";
-
-// Keybind hooks
-export { useKeybind } from "./hooks/useKeybind";
-export type { KeybindHandler, UseKeybindOptions } from "./hooks/useKeybind";
-export { useKeybindScope, isScopeActive } from "./hooks/useKeybindScope";
-export { useKeybindMeta, useKeybindDisplayString } from "./hooks/useKeybindMeta";
-export type { KeybindMeta } from "./hooks/useKeybindMeta";
-
+export { LocationCacheDemo } from "./demo/LocationCacheDemo";
+export type { ClipboardState } from "./hooks/useClipboard";
 // Clipboard hook
 export { useClipboard, useClipboardStore } from "./hooks/useClipboard";
-export type { ClipboardState } from "./hooks/useClipboard";
-
+export type {
+  ContextMenuConfig,
+  ContextMenuItem,
+} from "./hooks/useContextMenu";
+// Hooks
+export { useContextMenu } from "./hooks/useContextMenu";
+export type { KeybindHandler, UseKeybindOptions } from "./hooks/useKeybind";
+// Keybind hooks
+export { useKeybind } from "./hooks/useKeybind";
+export type { KeybindMeta } from "./hooks/useKeybindMeta";
+export {
+  useKeybindDisplayString,
+  useKeybindMeta,
+} from "./hooks/useKeybindMeta";
+export { isScopeActive, useKeybindScope } from "./hooks/useKeybindScope";
+export { Overview } from "./routes/overview";
+export { Settings } from "./routes/settings";
+export { Shell } from "./Shell";
+export { TopBarPortal, TopBarProvider, useTopBar } from "./TopBar";
+export type {
+  KeybindDefinition,
+  KeybindId,
+  KeybindScope,
+  KeyCombo,
+} from "./util/keybinds";
 // Keybind utilities
 export {
-	KEYBINDS,
-	getKeybind,
-	getAllKeybinds,
-	getKeybindsByScope,
-	getCurrentPlatform,
-	getComboForPlatform,
-	toDisplayString,
+  getAllKeybinds,
+  getComboForPlatform,
+  getCurrentPlatform,
+  getKeybind,
+  getKeybindsByScope,
+  KEYBINDS,
+  toDisplayString,
 } from "./util/keybinds";
-export type {
-	KeybindId,
-	KeybindScope,
-	KeybindDefinition,
-	KeyCombo,
-} from "./util/keybinds";
+export { DemoWindow } from "./windows/DemoWindow";
+export { FloatingControls } from "./windows/FloatingControls";
+export { Spacedrop } from "./windows/Spacedrop";

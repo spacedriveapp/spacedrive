@@ -1,138 +1,124 @@
 {
-	// Use IntelliSense to learn about possible attributes.
-	// Hover to view descriptions of existing attributes.
-	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-	"version": "0.2.0",
-	"configurations": [
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Tauri Development Debug",
-			"cargo": {
-				"args": [
-					"build",
-					"--profile=dev-debug",
-					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-					"--no-default-features"
-				],
-				"problemMatcher": "$rustc"
-			},
-			"env": {
-				"RUST_BACKTRACE": "short"
-			},
-			"sourceLanguages": [
-				"rust"
-			],
-			"preLaunchTask": "ui:dev"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Tauri Production Debug",
-			"cargo": {
-				"args": [
-					"build",
-					"--release",
-					"--manifest-path=./apps/desktop/src-tauri/Cargo.toml"
-				],
-				"problemMatcher": "$rustc"
-			},
-			"sourceLanguages": [
-				"rust"
-			],
-			"preLaunchTask": "ui:build"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug unit tests in library 'sd-core'",
-			"cargo": {
-				"args": [
-					"test",
-					"--no-run",
-					"--lib",
-					"--package=sd-core"
-				],
-				"filter": {
-					"name": "sd-core",
-					"kind": "lib"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "lldb",
-			"request": "launch",
-			"name": "Debug unit tests in library 'sd-crypto'",
-			"cargo": {
-				"args": [
-					"test",
-					"--no-run",
-					"--lib",
-					"--package=sd-crypto"
-				],
-				"filter": {
-					"name": "sd-crypto",
-					"kind": "lib"
-				}
-			},
-			"args": [],
-			"cwd": "${workspaceFolder}"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
-			"name": "Debug SpacedriveCompanion (apps/spacedrive-companion)",
-			"program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/debug/SpacedriveCompanion",
-			"preLaunchTask": "swift: Build Debug SpacedriveCompanion (apps/spacedrive-companion)"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
-			"name": "Release SpacedriveCompanion (apps/spacedrive-companion)",
-			"program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/release/SpacedriveCompanion",
-			"preLaunchTask": "swift: Build Release SpacedriveCompanion (apps/spacedrive-companion)"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui",
-			"name": "Debug SwiftUIDemo (packages/rust-swift/swift-ui)",
-			"program": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui/.build/debug/SwiftUIDemo",
-			"preLaunchTask": "swift: Build Debug SwiftUIDemo (packages/rust-swift/swift-ui)"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui",
-			"name": "Release SwiftUIDemo (packages/rust-swift/swift-ui)",
-			"program": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui/.build/release/SwiftUIDemo",
-			"preLaunchTask": "swift: Build Release SwiftUIDemo (packages/rust-swift/swift-ui)"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/apps/macos",
-			"name": "Debug Spacedrive (apps/macos)",
-			"program": "${workspaceFolder:spacedrive}/apps/macos/.build/debug/Spacedrive",
-			"preLaunchTask": "swift: Build Debug Spacedrive (apps/macos)"
-		},
-		{
-			"type": "swift",
-			"request": "launch",
-			"args": [],
-			"cwd": "${workspaceFolder:spacedrive}/apps/macos",
-			"name": "Release Spacedrive (apps/macos)",
-			"program": "${workspaceFolder:spacedrive}/apps/macos/.build/release/Spacedrive",
-			"preLaunchTask": "swift: Build Release Spacedrive (apps/macos)"
-		}
-	]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Tauri Development Debug",
+      "cargo": {
+        "args": [
+          "build",
+          "--profile=dev-debug",
+          "--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
+          "--no-default-features"
+        ],
+        "problemMatcher": "$rustc"
+      },
+      "env": {
+        "RUST_BACKTRACE": "short"
+      },
+      "sourceLanguages": ["rust"],
+      "preLaunchTask": "ui:dev"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Tauri Production Debug",
+      "cargo": {
+        "args": [
+          "build",
+          "--release",
+          "--manifest-path=./apps/desktop/src-tauri/Cargo.toml"
+        ],
+        "problemMatcher": "$rustc"
+      },
+      "sourceLanguages": ["rust"],
+      "preLaunchTask": "ui:build"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'sd-core'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=sd-core"],
+        "filter": {
+          "name": "sd-core",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug unit tests in library 'sd-crypto'",
+      "cargo": {
+        "args": ["test", "--no-run", "--lib", "--package=sd-crypto"],
+        "filter": {
+          "name": "sd-crypto",
+          "kind": "lib"
+        }
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
+      "name": "Debug SpacedriveCompanion (apps/spacedrive-companion)",
+      "program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/debug/SpacedriveCompanion",
+      "preLaunchTask": "swift: Build Debug SpacedriveCompanion (apps/spacedrive-companion)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/apps/spacedrive-companion",
+      "name": "Release SpacedriveCompanion (apps/spacedrive-companion)",
+      "program": "${workspaceFolder:spacedrive}/apps/spacedrive-companion/.build/release/SpacedriveCompanion",
+      "preLaunchTask": "swift: Build Release SpacedriveCompanion (apps/spacedrive-companion)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui",
+      "name": "Debug SwiftUIDemo (packages/rust-swift/swift-ui)",
+      "program": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui/.build/debug/SwiftUIDemo",
+      "preLaunchTask": "swift: Build Debug SwiftUIDemo (packages/rust-swift/swift-ui)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui",
+      "name": "Release SwiftUIDemo (packages/rust-swift/swift-ui)",
+      "program": "${workspaceFolder:spacedrive}/packages/rust-swift/swift-ui/.build/release/SwiftUIDemo",
+      "preLaunchTask": "swift: Build Release SwiftUIDemo (packages/rust-swift/swift-ui)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/apps/macos",
+      "name": "Debug Spacedrive (apps/macos)",
+      "program": "${workspaceFolder:spacedrive}/apps/macos/.build/debug/Spacedrive",
+      "preLaunchTask": "swift: Build Debug Spacedrive (apps/macos)"
+    },
+    {
+      "type": "swift",
+      "request": "launch",
+      "args": [],
+      "cwd": "${workspaceFolder:spacedrive}/apps/macos",
+      "name": "Release Spacedrive (apps/macos)",
+      "program": "${workspaceFolder:spacedrive}/apps/macos/.build/release/Spacedrive",
+      "preLaunchTask": "swift: Build Release Spacedrive (apps/macos)"
+    }
+  ]
 }

@@ -1,16 +1,16 @@
-import { Meta, StoryFn } from '@storybook/react';
+import type { Meta, StoryFn } from "@storybook/react";
 
-import { Root } from './Dropdown';
+import { Root } from "./Dropdown";
 
 const meta: Meta<typeof Root> = {
-	title: 'Dropdown',
-	component: Root,
-	argTypes: {},
-	parameters: {
-		backgrounds: {
-			default: 'dark'
-		}
-	}
+  title: "Dropdown",
+  component: Root,
+  argTypes: {},
+  parameters: {
+    backgrounds: {
+      default: "dark",
+    },
+  },
 };
 
 export default meta;

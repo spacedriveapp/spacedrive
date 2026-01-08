@@ -1,94 +1,93 @@
-import React from "react";
-import { View, Text } from "react-native";
+import { Text, View } from "react-native";
 
 interface HeroStatsProps {
-	totalStorage: number; // bytes
-	usedStorage: number; // bytes
-	totalFiles: number;
-	locationCount: number;
-	tagCount: number;
-	deviceCount: number;
-	uniqueContentCount: number;
+  totalStorage: number; // bytes
+  usedStorage: number; // bytes
+  totalFiles: number;
+  locationCount: number;
+  tagCount: number;
+  deviceCount: number;
+  uniqueContentCount: number;
 }
 
 function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
-	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
-	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+  if (bytes === 0) return "0 B";
+  const k = 1024;
+  const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / k ** i).toFixed(1)} ${sizes[i]}`;
 }
 
 export function HeroStats({
-	totalStorage,
-	usedStorage,
-	totalFiles,
-	locationCount,
-	deviceCount,
-	uniqueContentCount,
+  totalStorage,
+  usedStorage,
+  totalFiles,
+  locationCount,
+  deviceCount,
+  uniqueContentCount,
 }: HeroStatsProps) {
-	const usagePercent =
-		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
+  const usagePercent =
+    totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
-	return (
-		<View className="bg-app-box border border-app-line rounded-2xl p-6 mb-6">
-			<View className="flex-row flex-wrap gap-4">
-				{/* Total Storage */}
-				<StatCard
-					label="Total Storage"
-					value={formatBytes(totalStorage)}
-					subtitle={`${formatBytes(usedStorage)} used`}
-					progress={usagePercent}
-				/>
+  return (
+    <View className="mb-6 rounded-2xl border border-app-line bg-app-box p-6">
+      <View className="flex-row flex-wrap gap-4">
+        {/* Total Storage */}
+        <StatCard
+          label="Total Storage"
+          progress={usagePercent}
+          subtitle={`${formatBytes(usedStorage)} used`}
+          value={formatBytes(totalStorage)}
+        />
 
-				{/* Files */}
-				<StatCard
-					label="Files Indexed"
-					value={totalFiles.toLocaleString()}
-					subtitle={`${uniqueContentCount.toLocaleString()} unique`}
-				/>
+        {/* Files */}
+        <StatCard
+          label="Files Indexed"
+          subtitle={`${uniqueContentCount.toLocaleString()} unique`}
+          value={totalFiles.toLocaleString()}
+        />
 
-				{/* Devices */}
-				<StatCard
-					label="Devices"
-					value={deviceCount.toString()}
-					subtitle="connected"
-				/>
+        {/* Devices */}
+        <StatCard
+          label="Devices"
+          subtitle="connected"
+          value={deviceCount.toString()}
+        />
 
-				{/* Locations */}
-				<StatCard
-					label="Locations"
-					value={locationCount.toString()}
-					subtitle="tracked"
-				/>
-			</View>
-		</View>
-	);
+        {/* Locations */}
+        <StatCard
+          label="Locations"
+          subtitle="tracked"
+          value={locationCount.toString()}
+        />
+      </View>
+    </View>
+  );
 }
 
 interface StatCardProps {
-	label: string;
-	value: string | number;
-	subtitle: string;
-	progress?: number;
+  label: string;
+  value: string | number;
+  subtitle: string;
+  progress?: number;
 }
 
 function StatCard({ label, value, subtitle, progress }: StatCardProps) {
-	return (
-		<View className="flex-1 min-w-[140px]">
-			<View className="mb-2">
-				<Text className="text-2xl font-bold text-ink">{value}</Text>
-				<Text className="text-xs text-ink-dull mt-0.5">{label}</Text>
-				<Text className="text-xs text-ink-faint">{subtitle}</Text>
-			</View>
-			{progress !== undefined && (
-				<View className="h-1.5 bg-app-darkBox rounded-full overflow-hidden">
-					<View
-						className="h-full bg-accent rounded-full"
-						style={{ width: `${Math.min(progress, 100)}%` }}
-					/>
-				</View>
-			)}
-		</View>
-	);
+  return (
+    <View className="min-w-[140px] flex-1">
+      <View className="mb-2">
+        <Text className="font-bold text-2xl text-ink">{value}</Text>
+        <Text className="mt-0.5 text-ink-dull text-xs">{label}</Text>
+        <Text className="text-ink-faint text-xs">{subtitle}</Text>
+      </View>
+      {progress !== undefined && (
+        <View className="h-1.5 overflow-hidden rounded-full bg-app-darkBox">
+          <View
+            className="h-full rounded-full bg-accent"
+            style={{ width: `${Math.min(progress, 100)}%` }}
+          />
+        </View>
+      )}
+    </View>
+  );
 }

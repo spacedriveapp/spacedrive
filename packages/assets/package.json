@@ -1,24 +1,24 @@
 {
-	"name": "@sd/assets",
-	"version": "1.0.0",
-	"license": "GPL-3.0-only",
-	"publishConfig": {
-		"name": "@spacedriveapp/assets"
-	},
-	"sideEffects": false,
-	"files": [
-		"icons",
-		"images",
-		"lottie",
-		"sounds",
-		"svgs",
-		"videos",
-		"util"
-	],
-	"scripts": {
-		"gen": "node ./scripts/generate.mjs"
-	},
-	"dependencies": {
-		"react": "^19.0.0"
-	}
+  "name": "@sd/assets",
+  "version": "1.0.0",
+  "license": "GPL-3.0-only",
+  "publishConfig": {
+    "name": "@spacedriveapp/assets"
+  },
+  "sideEffects": false,
+  "files": [
+    "icons",
+    "images",
+    "lottie",
+    "sounds",
+    "svgs",
+    "videos",
+    "util"
+  ],
+  "scripts": {
+    "gen": "node ./scripts/generate.mjs"
+  },
+  "dependencies": {
+    "react": "^19.0.0"
+  }
 }

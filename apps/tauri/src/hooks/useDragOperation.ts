@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useState, useRef } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   beginDrag,
+  type DragConfig,
+  type DragMoveEvent,
+  type DragResult,
+  type DragSession,
   endDrag,
   onDragBegan,
   onDragEnded,
   onDragMoved,
-  type DragConfig,
-  type DragSession,
-  type DragResult,
-  type DragMoveEvent,
-} from '../lib/drag';
+} from "../lib/drag";
 
 export interface UseDragOperationOptions {
   onDragStart?: (sessionId: string) => void;
@@ -64,12 +64,12 @@ export function useDragOperation(options: UseDragOperationOptions = {}) {
   }, []);
 
   const startDrag = useCallback(
-    async (config: Omit<DragConfig, 'overlayUrl' | 'overlaySize'>) => {
+    async (config: Omit<DragConfig, "overlayUrl" | "overlaySize">) => {
       const currentWindow = getCurrentWebviewWindow();
       const sessionId = await beginDrag(
         {
           ...config,
-          overlayUrl: '/drag-overlay',
+          overlayUrl: "/drag-overlay",
           overlaySize: [200, 150],
         },
         currentWindow.label
@@ -80,7 +80,7 @@ export function useDragOperation(options: UseDragOperationOptions = {}) {
   );
 
   const cancelDrag = useCallback(async (sessionId: string) => {
-    await endDrag(sessionId, { type: 'Cancelled' });
+    await endDrag(sessionId, { type: "Cancelled" });
   }, []);
 
   return {

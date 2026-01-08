@@ -1,9 +1,14 @@
-import { ListBullets, CircleNotch, FunnelSimple, ArrowsOut } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@sd/ui";
+import {
+  ArrowsOut,
+  CircleNotch,
+  FunnelSimple,
+  ListBullets,
+} from "@phosphor-icons/react";
+import { Popover, TopBarButton, usePopover } from "@sd/ui";
 import clsx from "clsx";
-import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { JobList } from "./components/JobList";
 import { useJobs } from "./hooks/useJobs";
 import { CARD_HEIGHT } from "./types";
@@ -18,7 +23,8 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   const [showOnlyRunning, setShowOnlyRunning] = useState(true);
 
   // Unified hook for job data and badge/icon
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } =
+    useJobs();
 
   // Reset filter to "active only" when popover opens
   useEffect(() => {
@@ -29,45 +35,45 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
 
   return (
     <Popover
+      align="start"
+      className={clsx(
+        "z-50 max-h-[480px] w-[360px]",
+        "!p-0 !bg-app !rounded-xl"
+      )}
       popover={popover}
+      side="top"
+      sideOffset={8}
       trigger={
         <button
           className={clsx(
-            "w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium",
-            "text-sidebar-inkDull cursor-default",
+            "relative flex w-full items-center gap-2 rounded-lg px-2 py-1.5 font-medium text-sm",
+            "cursor-default text-sidebar-inkDull",
             className
           )}
         >
           <div className="size-4">
             {hasRunningJobs ? (
-              <CircleNotch className="animate-spin" weight="bold" size={16} />
+              <CircleNotch className="animate-spin" size={16} weight="bold" />
             ) : (
-              <ListBullets weight="bold" size={16} />
+              <ListBullets size={16} weight="bold" />
             )}
           </div>
           <span>Jobs</span>
           {activeJobCount > 0 && (
-            <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 text-[10px] font-bold text-white bg-accent rounded-full">
+            <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 font-bold text-[10px] text-white">
               {activeJobCount}
             </span>
           )}
         </button>
       }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className={clsx(
-        "w-[360px] max-h-[480px] z-50",
-        "!p-0 !bg-app !rounded-xl"
-      )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
+      <div className="flex items-center justify-between border-app-line border-b px-4 py-3">
+        <h3 className="font-semibold text-ink text-sm">Job Manager</h3>
 
         <div className="flex items-center gap-2">
           {activeJobCount > 0 && (
-            <span className="text-xs text-ink-dull">
+            <span className="text-ink-dull text-xs">
               {activeJobCount} active
             </span>
           )}
@@ -81,8 +87,8 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
 
           {/* Filter toggle button */}
           <TopBarButton
-            icon={FunnelSimple}
             active={showOnlyRunning}
+            icon={FunnelSimple}
             onClick={() => setShowOnlyRunning(!showOnlyRunning)}
             title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
           />
@@ -92,12 +98,12 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
       {/* Popover content with full job manager */}
       {popover.open && (
         <JobManagerPopoverContent
+          cancel={cancel}
           jobs={jobs}
-          showOnlyRunning={showOnlyRunning}
-          setShowOnlyRunning={setShowOnlyRunning}
           pause={pause}
           resume={resume}
-          cancel={cancel}
+          setShowOnlyRunning={setShowOnlyRunning}
+          showOnlyRunning={showOnlyRunning}
         />
       )}
     </Popover>
@@ -125,17 +131,22 @@ function JobManagerPopoverContent({
 
   return (
     <motion.div
-      className="overflow-y-auto no-scrollbar"
-      initial={false}
       animate={{
         height:
           filteredJobs.length === 0
             ? CARD_HEIGHT + 16
             : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
       }}
+      className="no-scrollbar overflow-y-auto"
+      initial={false}
       transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
     >
-      <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+      <JobList
+        jobs={filteredJobs}
+        onCancel={cancel}
+        onPause={pause}
+        onResume={resume}
+      />
     </motion.div>
   );
 }

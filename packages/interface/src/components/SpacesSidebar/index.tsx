@@ -1,30 +1,45 @@
-import { useState, useEffect } from "react";
-import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
-import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
-import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
-import { TopBarButton, Popover, usePopover } from "@sd/ui";
-import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
-import { SpaceSwitcher } from "./SpaceSwitcher";
-import { SpaceGroup } from "./SpaceGroup";
-import { SpaceItem } from "./SpaceItem";
-import { AddGroupButton } from "./AddGroupButton";
-import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
+import { useDndContext, useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
+  ArrowsClockwise,
+  ArrowsOut,
+  CircleNotch,
+  FunnelSimple,
+  GearSix,
+  ListBullets,
+  Palette,
+} from "@phosphor-icons/react";
+import type {
+  SpaceGroup as SpaceGroupType,
+  SpaceItem as SpaceItemType,
+} from "@sd/ts-client";
+import { useLibraryMutation, useSidebarStore } from "@sd/ts-client";
+import { Popover, TopBarButton, usePopover } from "@sd/ui";
+import clsx from "clsx";
+import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { usePlatform } from "../../contexts/PlatformContext";
 import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
-import { usePlatform } from "../../contexts/PlatformContext";
+import { JobList } from "../JobManager/components/JobList";
 import { useJobs } from "../JobManager/hooks/useJobs";
+import { CARD_HEIGHT } from "../JobManager/types";
+import { ActivityFeed } from "../SyncMonitor/components/ActivityFeed";
+import { PeerList } from "../SyncMonitor/components/PeerList";
 import { useSyncCount } from "../SyncMonitor/hooks/useSyncCount";
 import { useSyncMonitor } from "../SyncMonitor/hooks/useSyncMonitor";
-import { PeerList } from "../SyncMonitor/components/PeerList";
-import { ActivityFeed } from "../SyncMonitor/components/ActivityFeed";
-import { JobList } from "../JobManager/components/JobList";
-import { motion } from "framer-motion";
-import { CARD_HEIGHT } from "../JobManager/types";
-import clsx from "clsx";
-import { useDroppable, useDndContext } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { useNavigate } from "react-router-dom";
+import { AddGroupButton } from "./AddGroupButton";
+import { useSpaceLayout, useSpaces } from "./hooks/useSpaces";
+import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
+import { SpaceGroup } from "./SpaceGroup";
+import { SpaceItem } from "./SpaceItem";
+import { SpaceSwitcher } from "./SpaceSwitcher";
 
 // Wrapper that adds a space-level drop zone before each group and makes it sortable
 function SpaceGroupWithDropZone({
@@ -39,16 +54,16 @@ function SpaceGroupWithDropZone({
   isFirst: boolean;
 }) {
   const { active } = useDndContext();
-  
+
   // Disable drop zone when dragging groups or space items (they have 'label' in their data)
   // This allows sortable collision detection to work for reordering
   const isDraggingSortableItem = active?.data?.current?.label != null;
-  
+
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `space-root-before-${group.id}`,
     disabled: !spaceId || isDraggingSortableItem,
     data: {
-      action: 'add-to-space',
+      action: "add-to-space",
       spaceId,
       groupId: null,
     },
@@ -76,19 +91,26 @@ function SpaceGroupWithDropZone({
   };
 
   return (
-    <div ref={setSortableRef} style={style} className={clsx("relative", isDragging && "opacity-50 z-50")}>
+    <div
+      className={clsx("relative", isDragging && "z-50 opacity-50")}
+      ref={setSortableRef}
+      style={style}
+    >
       {/* Drop zone before this group (for adding root-level items) */}
-      <div ref={setDropRef} className="absolute -top-2.5 left-0 right-0 h-5 z-10">
+      <div
+        className="absolute -top-2.5 right-0 left-0 z-10 h-5"
+        ref={setDropRef}
+      >
         {isOver && !isDragging && !isDraggingSortableItem && (
-          <div className="absolute top-1/2 -translate-y-1/2 left-2 right-2 h-[2px] bg-accent rounded-full" />
+          <div className="absolute top-1/2 right-2 left-2 h-[2px] -translate-y-1/2 rounded-full bg-accent" />
         )}
       </div>
       <SpaceGroup
         group={group}
         items={items}
-        spaceId={spaceId}
         sortableAttributes={attributes}
         sortableListeners={listeners}
+        spaceId={spaceId}
       />
     </div>
   );
@@ -127,12 +149,19 @@ function SyncButton() {
 
   return (
     <Popover
+      align="start"
+      className="!p-0 !bg-app !rounded-xl z-50 max-h-[520px] w-[380px]"
       popover={popover}
+      side="top"
+      sideOffset={8}
       trigger={
         <TopBarButton
-          icon={({ className, ...props }) => 
+          icon={({ className, ...props }) =>
             isSyncing ? (
-              <CircleNotch className={clsx(className, "animate-spin")} {...props} />
+              <CircleNotch
+                className={clsx(className, "animate-spin")}
+                {...props}
+              />
             ) : (
               <ArrowsClockwise className={className} {...props} />
             )
@@ -140,18 +169,15 @@ function SyncButton() {
           title="Sync Monitor"
         />
       }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
+      <div className="flex items-center justify-between border-app-line border-b px-4 py-3">
+        <h3 className="font-semibold text-ink text-sm">Sync Monitor</h3>
 
         <div className="flex items-center gap-2">
           {onlinePeerCount > 0 && (
-            <span className="text-xs text-ink-dull">
-              {onlinePeerCount} {onlinePeerCount === 1 ? "peer" : "peers"} online
+            <span className="text-ink-dull text-xs">
+              {onlinePeerCount} {onlinePeerCount === 1 ? "peer" : "peers"}{" "}
+              online
             </span>
           )}
 
@@ -162,8 +188,8 @@ function SyncButton() {
           />
 
           <TopBarButton
-            icon={FunnelSimple}
             active={showActivityFeed}
+            icon={FunnelSimple}
             onClick={() => setShowActivityFeed(!showActivityFeed)}
             title={showActivityFeed ? "Show peers" : "Show activity feed"}
           />
@@ -172,26 +198,30 @@ function SyncButton() {
 
       {popover.open && (
         <>
-          <div className="px-4 py-2 border-b border-app-line bg-app-box/50">
+          <div className="border-app-line border-b bg-app-box/50 px-4 py-2">
             <div className="flex items-center gap-2">
-              <div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
-              <span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
+              <div
+                className={`size-2 rounded-full ${getStateColor(sync.currentState)}`}
+              />
+              <span className="font-medium text-ink-dull text-xs">
+                {sync.currentState}
+              </span>
             </div>
           </div>
           <motion.div
-            className="overflow-y-auto no-scrollbar"
-            initial={false}
             animate={{
               height: showActivityFeed
                 ? Math.min(sync.recentActivity.length * 40 + 16, 400)
                 : Math.min(sync.peers.length * 80 + 16, 400),
             }}
+            className="no-scrollbar overflow-y-auto"
+            initial={false}
             transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
           >
             {showActivityFeed ? (
               <ActivityFeed activities={sync.recentActivity} />
             ) : (
-              <PeerList peers={sync.peers} currentState={sync.currentState} />
+              <PeerList currentState={sync.currentState} peers={sync.peers} />
             )}
           </motion.div>
         </>
@@ -201,15 +231,15 @@ function SyncButton() {
 }
 
 // Jobs Button with Popover
-function JobsButton({ 
-  activeJobCount, 
-  hasRunningJobs, 
-  jobs, 
-  pause, 
-  resume, 
+function JobsButton({
+  activeJobCount,
+  hasRunningJobs,
+  jobs,
+  pause,
+  resume,
   cancel,
-  navigate 
-}: { 
+  navigate,
+}: {
   activeJobCount: number;
   hasRunningJobs: boolean;
   jobs: any[];
@@ -233,12 +263,19 @@ function JobsButton({
 
   return (
     <Popover
+      align="start"
+      className="!p-0 !bg-app !rounded-xl z-50 max-h-[480px] w-[360px]"
       popover={popover}
+      side="top"
+      sideOffset={8}
       trigger={
         <TopBarButton
-          icon={({ className, ...props }) => 
+          icon={({ className, ...props }) =>
             hasRunningJobs ? (
-              <CircleNotch className={clsx(className, "animate-spin")} {...props} />
+              <CircleNotch
+                className={clsx(className, "animate-spin")}
+                {...props}
+              />
             ) : (
               <ListBullets className={className} {...props} />
             )
@@ -246,17 +283,15 @@ function JobsButton({
           title="Job Manager"
         />
       }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className="w-[360px] max-h-[480px] z-50 !p-0 !bg-app !rounded-xl"
     >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
+      <div className="flex items-center justify-between border-app-line border-b px-4 py-3">
+        <h3 className="font-semibold text-ink text-sm">Job Manager</h3>
 
         <div className="flex items-center gap-2">
           {activeJobCount > 0 && (
-            <span className="text-xs text-ink-dull">{activeJobCount} active</span>
+            <span className="text-ink-dull text-xs">
+              {activeJobCount} active
+            </span>
           )}
 
           <TopBarButton
@@ -266,8 +301,8 @@ function JobsButton({
           />
 
           <TopBarButton
-            icon={FunnelSimple}
             active={showOnlyRunning}
+            icon={FunnelSimple}
             onClick={() => setShowOnlyRunning(!showOnlyRunning)}
             title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
           />
@@ -276,17 +311,22 @@ function JobsButton({
 
       {popover.open && (
         <motion.div
-          className="overflow-y-auto no-scrollbar"
-          initial={false}
           animate={{
             height:
               filteredJobs.length === 0
                 ? CARD_HEIGHT + 16
                 : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
           }}
+          className="no-scrollbar overflow-y-auto"
+          initial={false}
           transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
         >
-          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+          <JobList
+            jobs={filteredJobs}
+            onCancel={cancel}
+            onPause={pause}
+            onResume={resume}
+          />
         </motion.div>
       )}
     </Popover>
@@ -302,14 +342,15 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const platform = usePlatform();
   const navigate = useNavigate();
   const { data: libraries } = useLibraries();
-  const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
-    () => client.getCurrentLibraryId(),
+  const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(() =>
+    client.getCurrentLibraryId()
   );
   const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
 
   // Get sync and job status for icons
   const { onlinePeerCount, isSyncing } = useSyncCount();
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } =
+    useJobs();
 
   const { currentSpaceId, setCurrentSpace } = useSidebarStore();
   const { data: spacesData } = useSpaces();
@@ -334,9 +375,9 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
       // Set library ID via platform (syncs to all windows on Tauri)
       if (platform.setCurrentLibraryId) {
-        platform.setCurrentLibraryId(firstLib.id).catch((err) =>
-          console.error("Failed to set library ID:", err),
-        );
+        platform
+          .setCurrentLibraryId(firstLib.id)
+          .catch((err) => console.error("Failed to set library ID:", err));
       } else {
         // Web fallback - just update client
         client.setCurrentLibrary(firstLib.id);
@@ -359,39 +400,39 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
   const addItem = useLibraryMutation("spaces.add_item");
 
   return (
-    <div className="w-[220px] min-w-[176px] max-w-[300px] flex flex-col h-full p-2 bg-transparent">
+    <div className="flex h-full w-[220px] min-w-[176px] max-w-[300px] flex-col bg-transparent p-2">
       <div
         className={clsx(
-          "flex flex-col h-full rounded-2xl overflow-hidden",
-          isPreviewActive ? "backdrop-blur-2xl bg-sidebar/80" : "bg-sidebar/65",
+          "flex h-full flex-col overflow-hidden rounded-2xl",
+          isPreviewActive ? "bg-sidebar/80 backdrop-blur-2xl" : "bg-sidebar/65"
         )}
       >
-        <nav className="relative z-[51] flex h-full flex-col gap-2.5 p-2.5 pb-2 pt-[52px]">
+        <nav className="relative z-[51] flex h-full flex-col gap-2.5 p-2.5 pt-[52px] pb-2">
           {/* Space Switcher */}
           <SpaceSwitcher
-            spaces={spaces}
             currentSpace={currentSpace}
             onSwitch={setCurrentSpace}
+            spaces={spaces}
           />
 
           {/* Scrollable Content */}
-          <div className="no-scrollbar mt-3 mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
+          <div className="no-scrollbar mask-fade-out mt-3 flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
             {/* Space-level items (pinned shortcuts) */}
             {layout?.space_items && layout.space_items.length > 0 && (
               <SortableContext
-                items={layout.space_items.map(item => item.id)}
+                items={layout.space_items.map((item) => item.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="space-y-0.5">
                   {layout.space_items.map((item, index) => (
                     <SpaceItem
-                      key={item.id}
-                      item={item}
-                      isLastItem={index === layout.space_items.length - 1}
                       allowInsertion={true}
-                      spaceId={currentSpace?.id}
                       groupId={null}
+                      isLastItem={index === layout.space_items.length - 1}
+                      item={item}
+                      key={item.id}
                       sortable={true}
+                      spaceId={currentSpace?.id}
                     />
                   ))}
                 </div>
@@ -406,11 +447,11 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
               >
                 {layout.groups.map(({ group, items }, index) => (
                   <SpaceGroupWithDropZone
-                    key={group.id}
                     group={group}
-                    items={items}
-                    spaceId={currentSpace?.id}
                     isFirst={index === 0}
+                    items={items}
+                    key={group.id}
+                    spaceId={currentSpace?.id}
                   />
                 ))}
               </SortableContext>
@@ -424,31 +465,33 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SyncButton />
-              <JobsButton 
+              <JobsButton
                 activeJobCount={activeJobCount}
+                cancel={cancel}
                 hasRunningJobs={hasRunningJobs}
                 jobs={jobs}
+                navigate={navigate}
                 pause={pause}
                 resume={resume}
-                cancel={cancel}
-                navigate={navigate}
               />
               <TopBarButton
                 icon={Palette}
-                title="Customize"
                 onClick={() => setCustomizePanelOpen(true)}
+                title="Customize"
               />
             </div>
             <TopBarButton
               icon={GearSix}
-              title="Settings"
               onClick={() => {
                 if (platform.showWindow) {
-                  platform.showWindow({ type: "Settings", page: "general" }).catch(err =>
-                    console.error("Failed to open settings:", err)
-                  );
+                  platform
+                    .showWindow({ type: "Settings", page: "general" })
+                    .catch((err) =>
+                      console.error("Failed to open settings:", err)
+                    );
                 }
               }}
+              title="Settings"
             />
           </div>
         </nav>

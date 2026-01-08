@@ -4,123 +4,223 @@
 /**
  * Represents an APFS container (physical storage with multiple volumes)
  */
-export type ApfsContainer = { 
-/**
- * Container identifier (e.g., "disk3")
- */
-container_id: string; 
-/**
- * Container UUID
- */
-uuid: string; 
-/**
- * Physical store device (e.g., "disk0s2")
- */
-physical_store: string; 
-/**
- * Total container capacity in bytes
- */
-total_capacity: number; 
-/**
- * Capacity in use by all volumes in bytes
- */
-capacity_in_use: number; 
-/**
- * Capacity not allocated in bytes
- */
-capacity_free: number; 
-/**
- * All volumes in this container
- */
-volumes: ApfsVolumeInfo[] };
+export type ApfsContainer = {
+  /**
+   * Container identifier (e.g., "disk3")
+   */
+  container_id: string;
+  /**
+   * Container UUID
+   */
+  uuid: string;
+  /**
+   * Physical store device (e.g., "disk0s2")
+   */
+  physical_store: string;
+  /**
+   * Total container capacity in bytes
+   */
+  total_capacity: number;
+  /**
+   * Capacity in use by all volumes in bytes
+   */
+  capacity_in_use: number;
+  /**
+   * Capacity not allocated in bytes
+   */
+  capacity_free: number;
+  /**
+   * All volumes in this container
+   */
+  volumes: ApfsVolumeInfo[];
+};
 
 /**
  * APFS volume information within a container
  */
-export type ApfsVolumeInfo = { 
-/**
- * Volume disk identifier (e.g., "disk3s5")
- */
-disk_id: string; 
-/**
- * Volume UUID
- */
-uuid: string; 
-/**
- * Volume role (System, Data, Preboot, etc.)
- */
-role: ApfsVolumeRole; 
-/**
- * Volume name
- */
-name: string; 
-/**
- * Mount point (if mounted)
- */
-mount_point: string | null; 
-/**
- * Capacity consumed by this volume in bytes
- */
-capacity_consumed: number; 
-/**
- * Whether the volume is sealed
- */
-sealed: boolean; 
-/**
- * Whether FileVault is enabled
- */
-filevault: boolean };
+export type ApfsVolumeInfo = {
+  /**
+   * Volume disk identifier (e.g., "disk3s5")
+   */
+  disk_id: string;
+  /**
+   * Volume UUID
+   */
+  uuid: string;
+  /**
+   * Volume role (System, Data, Preboot, etc.)
+   */
+  role: ApfsVolumeRole;
+  /**
+   * Volume name
+   */
+  name: string;
+  /**
+   * Mount point (if mounted)
+   */
+  mount_point: string | null;
+  /**
+   * Capacity consumed by this volume in bytes
+   */
+  capacity_consumed: number;
+  /**
+   * Whether the volume is sealed
+   */
+  sealed: boolean;
+  /**
+   * Whether FileVault is enabled
+   */
+  filevault: boolean;
+};
 
 /**
  * APFS volume roles in the container
  */
-export type ApfsVolumeRole = 
-/**
- * System volume (read-only system files)
- */
-"System" | 
-/**
- * Data volume (user data and applications)
- */
-"Data" | 
-/**
- * Preboot volume (boot support files)
- */
-"Preboot" | 
-/**
- * Recovery volume (recovery environment)
- */
-"Recovery" | 
-/**
- * VM volume (virtual memory)
- */
-"VM" | 
-/**
- * Other role or no specific role
- */
-{ Other: string };
+export type ApfsVolumeRole =
+  /**
+   * System volume (read-only system files)
+   */
+  | "System"
+  /**
+   * Data volume (user data and applications)
+   */
+  | "Data"
+  /**
+   * Preboot volume (boot support files)
+   */
+  | "Preboot"
+  /**
+   * Recovery volume (recovery environment)
+   */
+  | "Recovery"
+  /**
+   * VM volume (virtual memory)
+   */
+  | "VM"
+  /**
+   * Other role or no specific role
+   */
+  | { Other: string };
 
 /**
  * Represents the type of physical storage device
  */
-export type DiskType = 
-/**
- * Solid State Drive
- */
-"SSD" | 
-/**
- * Hard Disk Drive
- */
-"HDD" | 
-/**
- * Unknown or virtual disk type
- */
-"Unknown";
+export type DiskType =
+  /**
+   * Solid State Drive
+   */
+  | "SSD"
+  /**
+   * Hard Disk Drive
+   */
+  | "HDD"
+  /**
+   * Unknown or virtual disk type
+   */
+  | "Unknown";
 
 /**
  * A central event type that represents all events that can be emitted throughout the system
  */
-export type Event = "CoreStarted" | "CoreShutdown" | { LibraryCreated: { id: string; name: string; path: string } } | { LibraryOpened: { id: string; name: string; path: string } } | { LibraryClosed: { id: string; name: string } } | { LibraryDeleted: { id: string; name: string; deleted_data: boolean } } | { EntryCreated: { library_id: string; entry_id: string } } | { EntryModified: { library_id: string; entry_id: string } } | { EntryDeleted: { library_id: string; entry_id: string } } | { EntryMoved: { library_id: string; entry_id: string; old_path: string; new_path: string } } | { FsRawChange: { library_id: string; kind: FsRawEventKind } } | { VolumeAdded: Volume } | { VolumeRemoved: { fingerprint: VolumeFingerprint } } | { VolumeUpdated: { fingerprint: VolumeFingerprint; old_info: VolumeInfo; new_info: VolumeInfo } } | { VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed_mbps: number; write_speed_mbps: number } } | { VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string } } | { JobStarted: { job_id: string; job_type: string } } | { JobProgress: { job_id: string; job_type: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; error: string } } | { JobCancelled: { job_id: string; job_type: string } } | { JobPaused: { job_id: string } } | { JobResumed: { job_id: string } } | { IndexingStarted: { location_id: string } } | { IndexingProgress: { location_id: string; processed: number; total: number | null } } | { IndexingCompleted: { location_id: string; total_files: number; total_dirs: number } } | { IndexingFailed: { location_id: string; error: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | { LocationAdded: { library_id: string; location_id: string; path: string } } | { LocationRemoved: { library_id: string; location_id: string } } | { FilesIndexed: { library_id: string; location_id: string; count: number } } | { ThumbnailsGenerated: { library_id: string; count: number } } | { FileOperationCompleted: { library_id: string; operation: FileOperation; affected_files: number } } | { FilesModified: { library_id: string; paths: string[] } } | { LogMessage: { timestamp: string; level: string; target: string; message: string; job_id: string | null; library_id: string | null } } | { Custom: { event_type: string } };
+export type Event =
+  | "CoreStarted"
+  | "CoreShutdown"
+  | { LibraryCreated: { id: string; name: string; path: string } }
+  | { LibraryOpened: { id: string; name: string; path: string } }
+  | { LibraryClosed: { id: string; name: string } }
+  | { LibraryDeleted: { id: string; name: string; deleted_data: boolean } }
+  | { EntryCreated: { library_id: string; entry_id: string } }
+  | { EntryModified: { library_id: string; entry_id: string } }
+  | { EntryDeleted: { library_id: string; entry_id: string } }
+  | {
+      EntryMoved: {
+        library_id: string;
+        entry_id: string;
+        old_path: string;
+        new_path: string;
+      };
+    }
+  | { FsRawChange: { library_id: string; kind: FsRawEventKind } }
+  | { VolumeAdded: Volume }
+  | { VolumeRemoved: { fingerprint: VolumeFingerprint } }
+  | {
+      VolumeUpdated: {
+        fingerprint: VolumeFingerprint;
+        old_info: VolumeInfo;
+        new_info: VolumeInfo;
+      };
+    }
+  | {
+      VolumeSpeedTested: {
+        fingerprint: VolumeFingerprint;
+        read_speed_mbps: number;
+        write_speed_mbps: number;
+      };
+    }
+  | {
+      VolumeMountChanged: {
+        fingerprint: VolumeFingerprint;
+        is_mounted: boolean;
+      };
+    }
+  | { VolumeError: { fingerprint: VolumeFingerprint; error: string } }
+  | { JobQueued: { job_id: string; job_type: string } }
+  | { JobStarted: { job_id: string; job_type: string } }
+  | {
+      JobProgress: {
+        job_id: string;
+        job_type: string;
+        progress: number;
+        message: string | null;
+        generic_progress: GenericProgress | null;
+      };
+    }
+  | { JobCompleted: { job_id: string; job_type: string; output: JobOutput } }
+  | { JobFailed: { job_id: string; job_type: string; error: string } }
+  | { JobCancelled: { job_id: string; job_type: string } }
+  | { JobPaused: { job_id: string } }
+  | { JobResumed: { job_id: string } }
+  | { IndexingStarted: { location_id: string } }
+  | {
+      IndexingProgress: {
+        location_id: string;
+        processed: number;
+        total: number | null;
+      };
+    }
+  | {
+      IndexingCompleted: {
+        location_id: string;
+        total_files: number;
+        total_dirs: number;
+      };
+    }
+  | { IndexingFailed: { location_id: string; error: string } }
+  | { DeviceConnected: { device_id: string; device_name: string } }
+  | { DeviceDisconnected: { device_id: string } }
+  | { LocationAdded: { library_id: string; location_id: string; path: string } }
+  | { LocationRemoved: { library_id: string; location_id: string } }
+  | { FilesIndexed: { library_id: string; location_id: string; count: number } }
+  | { ThumbnailsGenerated: { library_id: string; count: number } }
+  | {
+      FileOperationCompleted: {
+        library_id: string;
+        operation: FileOperation;
+        affected_files: number;
+      };
+    }
+  | { FilesModified: { library_id: string; paths: string[] } }
+  | {
+      LogMessage: {
+        timestamp: string;
+        level: string;
+        target: string;
+        message: string;
+        job_id: string | null;
+        library_id: string | null;
+      };
+    }
+  | { Custom: { event_type: string } };
 
 /**
  * Types of file operations
@@ -130,371 +230,457 @@ export type FileOperation = "Copy" | "Move" | "Delete" | "Rename";
 /**
  * Represents the filesystem type of the volume
  */
-export type FileSystem = 
-/**
- * Windows NTFS filesystem
- */
-"NTFS" | 
-/**
- * FAT32 filesystem
- */
-"FAT32" | 
-/**
- * Linux EXT4 filesystem
- */
-"EXT4" | 
-/**
- * Apple APFS filesystem
- */
-"APFS" | 
-/**
- * ExFAT filesystem
- */
-"ExFAT" | 
-/**
- * Btrfs filesystem (Linux)
- */
-"Btrfs" | 
-/**
- * ZFS filesystem
- */
-"ZFS" | 
-/**
- * Windows ReFS filesystem
- */
-"ReFS" | 
-/**
- * Other/unknown filesystem type
- */
-{ Other: string };
+export type FileSystem =
+  /**
+   * Windows NTFS filesystem
+   */
+  | "NTFS"
+  /**
+   * FAT32 filesystem
+   */
+  | "FAT32"
+  /**
+   * Linux EXT4 filesystem
+   */
+  | "EXT4"
+  /**
+   * Apple APFS filesystem
+   */
+  | "APFS"
+  /**
+   * ExFAT filesystem
+   */
+  | "ExFAT"
+  /**
+   * Btrfs filesystem (Linux)
+   */
+  | "Btrfs"
+  /**
+   * ZFS filesystem
+   */
+  | "ZFS"
+  /**
+   * Windows ReFS filesystem
+   */
+  | "ReFS"
+  /**
+   * Other/unknown filesystem type
+   */
+  | { Other: string };
 
 /**
  * Raw filesystem event kinds emitted by the watcher without DB resolution
  */
-export type FsRawEventKind = { Create: { path: string } } | { Modify: { path: string } } | { Remove: { path: string } } | { Rename: { from: string; to: string } };
+export type FsRawEventKind =
+  | { Create: { path: string } }
+  | { Modify: { path: string } }
+  | { Remove: { path: string } }
+  | { Rename: { from: string; to: string } };
 
 /**
  * Generic progress information that all job types can convert into
  */
-export type GenericProgress = { 
-/**
- * Current progress as a percentage (0.0 to 1.0)
- */
-percentage: number; 
-/**
- * Current phase or stage name (e.g., "Discovery", "Processing", "Finalizing")
- */
-phase: string; 
-/**
- * Current path being processed (if applicable)
- */
-current_path: SdPath | null; 
-/**
- * Human-readable message describing current activity
- */
-message: string; 
-/**
- * Completion metrics
- */
-completion: ProgressCompletion; 
-/**
- * Performance metrics
- */
-performance: PerformanceMetrics };
+export type GenericProgress = {
+  /**
+   * Current progress as a percentage (0.0 to 1.0)
+   */
+  percentage: number;
+  /**
+   * Current phase or stage name (e.g., "Discovery", "Processing", "Finalizing")
+   */
+  phase: string;
+  /**
+   * Current path being processed (if applicable)
+   */
+  current_path: SdPath | null;
+  /**
+   * Human-readable message describing current activity
+   */
+  message: string;
+  /**
+   * Completion metrics
+   */
+  completion: ProgressCompletion;
+  /**
+   * Performance metrics
+   */
+  performance: PerformanceMetrics;
+};
 
 /**
  * Comprehensive metrics for indexing operations
  */
-export type IndexerMetrics = { total_duration: { secs: number; nanos: number }; discovery_duration: { secs: number; nanos: number }; processing_duration: { secs: number; nanos: number }; content_duration: { secs: number; nanos: number }; files_per_second: number; bytes_per_second: number; dirs_per_second: number; db_writes: number; db_reads: number; batch_count: number; avg_batch_size: number; total_errors: number; critical_errors: number; non_critical_errors: number; skipped_paths: number; peak_memory_bytes: number | null; avg_memory_bytes: number | null };
+export type IndexerMetrics = {
+  total_duration: { secs: number; nanos: number };
+  discovery_duration: { secs: number; nanos: number };
+  processing_duration: { secs: number; nanos: number };
+  content_duration: { secs: number; nanos: number };
+  files_per_second: number;
+  bytes_per_second: number;
+  dirs_per_second: number;
+  db_writes: number;
+  db_reads: number;
+  batch_count: number;
+  avg_batch_size: number;
+  total_errors: number;
+  critical_errors: number;
+  non_critical_errors: number;
+  skipped_paths: number;
+  peak_memory_bytes: number | null;
+  avg_memory_bytes: number | null;
+};
 
 /**
  * Statistics collected during indexing
  */
-export type IndexerStats = { files: number; dirs: number; bytes: number; symlinks: number; skipped: number; errors: number };
+export type IndexerStats = {
+  files: number;
+  dirs: number;
+  bytes: number;
+  symlinks: number;
+  skipped: number;
+  errors: number;
+};
 
-export type JobListItem = { id: string; name: string; status: JobStatus; progress: number };
+export type JobListItem = {
+  id: string;
+  name: string;
+  status: JobStatus;
+  progress: number;
+};
 
 export type JobListOutput = { jobs: JobListItem[] };
 
 /**
  * Output from a completed job
  */
-export type JobOutput = 
-/**
- * Job completed successfully with no specific output
- */
-{ type: "Success" } | 
-/**
- * File copy job output
- */
-{ type: "FileCopy"; data: { copied_count: number; total_bytes: number } } | 
-/**
- * Indexer job output
- */
-{ type: "Indexed"; data: { stats: IndexerStats; metrics: IndexerMetrics } } | 
-/**
- * Thumbnail generation output
- */
-{ type: "ThumbnailsGenerated"; data: { generated_count: number; failed_count: number } } | 
-/**
- * Thumbnail generation output (detailed)
- */
-{ type: "ThumbnailGeneration"; data: { generated_count: number; skipped_count: number; error_count: number; total_size_bytes: number } } | 
-/**
- * File move/rename operation output
- */
-{ type: "FileMove"; data: { moved_count: number; failed_count: number; total_bytes: number } } | 
-/**
- * File delete operation output
- */
-{ type: "FileDelete"; data: { deleted_count: number; failed_count: number; total_bytes: number } } | 
-/**
- * Duplicate detection output
- */
-{ type: "DuplicateDetection"; data: { duplicate_groups: number; total_duplicates: number; potential_savings: number } } | 
-/**
- * File validation output
- */
-{ type: "FileValidation"; data: { validated_count: number; issues_found: number; total_bytes_validated: number } };
+export type JobOutput =
+  /**
+   * Job completed successfully with no specific output
+   */
+  | { type: "Success" }
+  /**
+   * File copy job output
+   */
+  | { type: "FileCopy"; data: { copied_count: number; total_bytes: number } }
+  /**
+   * Indexer job output
+   */
+  | { type: "Indexed"; data: { stats: IndexerStats; metrics: IndexerMetrics } }
+  /**
+   * Thumbnail generation output
+   */
+  | {
+      type: "ThumbnailsGenerated";
+      data: { generated_count: number; failed_count: number };
+    }
+  /**
+   * Thumbnail generation output (detailed)
+   */
+  | {
+      type: "ThumbnailGeneration";
+      data: {
+        generated_count: number;
+        skipped_count: number;
+        error_count: number;
+        total_size_bytes: number;
+      };
+    }
+  /**
+   * File move/rename operation output
+   */
+  | {
+      type: "FileMove";
+      data: { moved_count: number; failed_count: number; total_bytes: number };
+    }
+  /**
+   * File delete operation output
+   */
+  | {
+      type: "FileDelete";
+      data: {
+        deleted_count: number;
+        failed_count: number;
+        total_bytes: number;
+      };
+    }
+  /**
+   * Duplicate detection output
+   */
+  | {
+      type: "DuplicateDetection";
+      data: {
+        duplicate_groups: number;
+        total_duplicates: number;
+        potential_savings: number;
+      };
+    }
+  /**
+   * File validation output
+   */
+  | {
+      type: "FileValidation";
+      data: {
+        validated_count: number;
+        issues_found: number;
+        total_bytes_validated: number;
+      };
+    };
 
 /**
  * Current status of a job
  */
-export type JobStatus = 
-/**
- * Job is waiting to be executed
- */
-"queued" | 
-/**
- * Job is currently running
- */
-"running" | 
-/**
- * Job has been paused
- */
-"paused" | 
-/**
- * Job completed successfully
- */
-"completed" | 
-/**
- * Job failed with an error
- */
-"failed" | 
-/**
- * Job was cancelled
- */
-"cancelled";
+export type JobStatus =
+  /**
+   * Job is waiting to be executed
+   */
+  | "queued"
+  /**
+   * Job is currently running
+   */
+  | "running"
+  /**
+   * Job has been paused
+   */
+  | "paused"
+  /**
+   * Job completed successfully
+   */
+  | "completed"
+  /**
+   * Job failed with an error
+   */
+  | "failed"
+  /**
+   * Job was cancelled
+   */
+  | "cancelled";
 
 /**
  * Input for creating a new library
  */
-export type LibraryCreateInput = { 
-/**
- * Name of the library
- */
-name: string; 
-/**
- * Optional path for the library (if not provided, will use default location)
- */
-path: string | null };
+export type LibraryCreateInput = {
+  /**
+   * Name of the library
+   */
+  name: string;
+  /**
+   * Optional path for the library (if not provided, will use default location)
+   */
+  path: string | null;
+};
 
 /**
  * Output from library create action dispatch
  */
-export type LibraryCreateOutput = { library_id: string; name: string; path: string };
+export type LibraryCreateOutput = {
+  library_id: string;
+  name: string;
+  path: string;
+};
 
 /**
  * Information about a library for listing purposes
  */
-export type LibraryInfo = { 
-/**
- * Library unique identifier
- */
-id: string; 
-/**
- * Human-readable library name
- */
-name: string; 
-/**
- * Path to the library directory
- */
-path: string; 
-/**
- * Optional statistics if requested
- */
-stats: LibraryStatistics | null };
+export type LibraryInfo = {
+  /**
+   * Library unique identifier
+   */
+  id: string;
+  /**
+   * Human-readable library name
+   */
+  name: string;
+  /**
+   * Path to the library directory
+   */
+  path: string;
+  /**
+   * Optional statistics if requested
+   */
+  stats: LibraryStatistics | null;
+};
 
 /**
  * Library statistics
  */
-export type LibraryStatistics = { 
-/**
- * Total number of files indexed
- */
-total_files: number; 
-/**
- * Total size of all files in bytes
- */
-total_size: number; 
-/**
- * Number of locations in this library
- */
-location_count: number; 
-/**
- * Number of tags created
- */
-tag_count: number; 
-/**
- * Number of thumbnails generated
- */
-thumbnail_count: number; 
-/**
- * Last time the library was fully indexed
- */
-last_indexed: string | null; 
-/**
- * When these statistics were last updated
- */
-updated_at: string };
+export type LibraryStatistics = {
+  /**
+   * Total number of files indexed
+   */
+  total_files: number;
+  /**
+   * Total size of all files in bytes
+   */
+  total_size: number;
+  /**
+   * Number of locations in this library
+   */
+  location_count: number;
+  /**
+   * Number of tags created
+   */
+  tag_count: number;
+  /**
+   * Number of thumbnails generated
+   */
+  thumbnail_count: number;
+  /**
+   * Last time the library was fully indexed
+   */
+  last_indexed: string | null;
+  /**
+   * When these statistics were last updated
+   */
+  updated_at: string;
+};
 
 /**
  * Represents how the volume is mounted in the system
  */
-export type MountType = 
-/**
- * System/boot volume
- */
-"System" | 
-/**
- * External/removable volume
- */
-"External" | 
-/**
- * Network-attached volume
- */
-"Network" | 
-/**
- * Virtual/container volume
- */
-"Virtual";
+export type MountType =
+  /**
+   * System/boot volume
+   */
+  | "System"
+  /**
+   * External/removable volume
+   */
+  | "External"
+  /**
+   * Network-attached volume
+   */
+  | "Network"
+  /**
+   * Virtual/container volume
+   */
+  | "Virtual";
 
 /**
  * Path mapping for resolving virtual paths to actual storage locations
  */
-export type PathMapping = { 
-/**
- * Virtual path (e.g., "/Users")
- */
-virtual_path: string; 
-/**
- * Actual storage path (e.g., "/System/Volumes/Data/Users")
- */
-actual_path: string };
+export type PathMapping = {
+  /**
+   * Virtual path (e.g., "/Users")
+   */
+  virtual_path: string;
+  /**
+   * Actual storage path (e.g., "/System/Volumes/Data/Users")
+   */
+  actual_path: string;
+};
 
 /**
  * Performance and timing metrics
  */
-export type PerformanceMetrics = { 
-/**
- * Processing rate (items per second)
- */
-rate: number; 
-/**
- * Estimated time remaining
- */
-estimated_remaining: { secs: number; nanos: number } | null; 
-/**
- * Time elapsed since start
- */
-elapsed: { secs: number; nanos: number } | null; 
-/**
- * Number of errors encountered
- */
-error_count: number; 
-/**
- * Number of warnings
- */
-warning_count: number };
+export type PerformanceMetrics = {
+  /**
+   * Processing rate (items per second)
+   */
+  rate: number;
+  /**
+   * Estimated time remaining
+   */
+  estimated_remaining: { secs: number; nanos: number } | null;
+  /**
+   * Time elapsed since start
+   */
+  elapsed: { secs: number; nanos: number } | null;
+  /**
+   * Number of errors encountered
+   */
+  error_count: number;
+  /**
+   * Number of warnings
+   */
+  warning_count: number;
+};
 
 /**
  * Progress information for a job
  */
-export type Progress = 
-/**
- * Simple count-based progress
- */
-{ type: "Count"; data: { current: number; total: number } } | 
-/**
- * Percentage-based progress (0.0 to 1.0)
- */
-{ type: "Percentage"; data: number } | 
-/**
- * Indeterminate progress with a message
- */
-{ type: "Indeterminate"; data: string } | 
-/**
- * Bytes-based progress
- */
-{ type: "Bytes"; data: { current: number; total: number } } | 
-/**
- * Generic progress (recommended for all jobs)
- */
-{ type: "Generic"; data: GenericProgress };
+export type Progress =
+  /**
+   * Simple count-based progress
+   */
+  | { type: "Count"; data: { current: number; total: number } }
+  /**
+   * Percentage-based progress (0.0 to 1.0)
+   */
+  | { type: "Percentage"; data: number }
+  /**
+   * Indeterminate progress with a message
+   */
+  | { type: "Indeterminate"; data: string }
+  /**
+   * Bytes-based progress
+   */
+  | { type: "Bytes"; data: { current: number; total: number } }
+  /**
+   * Generic progress (recommended for all jobs)
+   */
+  | { type: "Generic"; data: GenericProgress };
 
 /**
  * Progress completion information
  */
-export type ProgressCompletion = { 
-/**
- * Items completed (files, entries, operations, etc.)
- */
-completed: number; 
-/**
- * Total items to complete
- */
-total: number; 
-/**
- * Bytes processed (if applicable)
- */
-bytes_completed: number | null; 
-/**
- * Total bytes to process (if applicable)
- */
-total_bytes: number | null };
+export type ProgressCompletion = {
+  /**
+   * Items completed (files, entries, operations, etc.)
+   */
+  completed: number;
+  /**
+   * Total items to complete
+   */
+  total: number;
+  /**
+   * Bytes processed (if applicable)
+   */
+  bytes_completed: number | null;
+  /**
+   * Total bytes to process (if applicable)
+   */
+  total_bytes: number | null;
+};
 
 /**
  * A path within the Spacedrive Virtual Distributed File System
- * 
+ *
  * This is the core abstraction that enables cross-device operations.
  * An SdPath can represent:
  * - A physical file at a specific path on a specific device
  * - A content-addressed file that can be sourced from any device
- * 
+ *
  * This enum-based approach enables resilient file operations by allowing
  * content-based paths to be resolved to optimal physical locations at runtime.
  */
-export type SdPath = 
-/**
- * A direct pointer to a file at a specific path on a specific device
- */
-{ Physical: { 
-/**
- * The device where this file exists
- */
-device_id: string; 
-/**
- * The local path on that device
- */
-path: string } } | 
-/**
- * An abstract, location-independent handle that refers to file content
- */
-{ Content: { 
-/**
- * The unique content identifier
- */
-content_id: string } };
+export type SdPath =
+  /**
+   * A direct pointer to a file at a specific path on a specific device
+   */
+  | {
+      Physical: {
+        /**
+         * The device where this file exists
+         */
+        device_id: string;
+        /**
+         * The local path on that device
+         */
+        path: string;
+      };
+    }
+  /**
+   * An abstract, location-independent handle that refers to file content
+   */
+  | {
+      Content: {
+        /**
+         * The unique content identifier
+         */
+        content_id: string;
+      };
+    };
 
 /**
  * A batch of SdPaths, useful for operations on multiple files
@@ -504,99 +690,100 @@ export type SdPathBatch = { paths: SdPath[] };
 /**
  * Represents a physical or virtual storage volume in the system
  */
-export type Volume = { 
-/**
- * Unique fingerprint for this volume
- */
-fingerprint: VolumeFingerprint; 
-/**
- * Device this volume belongs to
- */
-device_id: string; 
-/**
- * Human-readable volume name
- */
-name: string; 
-/**
- * Type of mount (system, external, etc)
- */
-mount_type: MountType; 
-/**
- * Classification of this volume for UX decisions
- */
-volume_type: VolumeType; 
-/**
- * Primary path where the volume is mounted
- */
-mount_point: string; 
-/**
- * Additional mount points (for APFS volumes, etc.)
- */
-mount_points: string[]; 
-/**
- * Whether the volume is currently mounted
- */
-is_mounted: boolean; 
-/**
- * Type of storage device (SSD, HDD, etc)
- */
-disk_type: DiskType; 
-/**
- * Filesystem type (NTFS, EXT4, etc)
- */
-file_system: FileSystem; 
-/**
- * Whether the volume is mounted read-only
- */
-read_only: boolean; 
-/**
- * Hardware identifier (platform-specific)
- */
-hardware_id: string | null; 
-/**
- * Current error status if any
- */
-error_status: string | null; 
-/**
- * APFS container information (macOS only)
- */
-apfs_container: ApfsContainer | null; 
-/**
- * Container-relative volume ID for same-container detection
- */
-container_volume_id: string | null; 
-/**
- * Path resolution mappings (for firmlinks/symlinks)
- */
-path_mappings: PathMapping[]; 
-/**
- * Total storage capacity in bytes
- */
-total_bytes_capacity: number; 
-/**
- * Available storage space in bytes
- */
-total_bytes_available: number; 
-/**
- * Read speed in megabytes per second
- */
-read_speed_mbps: number | null; 
-/**
- * Write speed in megabytes per second
- */
-write_speed_mbps: number | null; 
-/**
- * Whether this volume should be visible in default views
- */
-is_user_visible: boolean; 
-/**
- * Whether this volume should be auto-tracked
- */
-auto_track_eligible: boolean; 
-/**
- * When this volume information was last updated
- */
-last_updated: string };
+export type Volume = {
+  /**
+   * Unique fingerprint for this volume
+   */
+  fingerprint: VolumeFingerprint;
+  /**
+   * Device this volume belongs to
+   */
+  device_id: string;
+  /**
+   * Human-readable volume name
+   */
+  name: string;
+  /**
+   * Type of mount (system, external, etc)
+   */
+  mount_type: MountType;
+  /**
+   * Classification of this volume for UX decisions
+   */
+  volume_type: VolumeType;
+  /**
+   * Primary path where the volume is mounted
+   */
+  mount_point: string;
+  /**
+   * Additional mount points (for APFS volumes, etc.)
+   */
+  mount_points: string[];
+  /**
+   * Whether the volume is currently mounted
+   */
+  is_mounted: boolean;
+  /**
+   * Type of storage device (SSD, HDD, etc)
+   */
+  disk_type: DiskType;
+  /**
+   * Filesystem type (NTFS, EXT4, etc)
+   */
+  file_system: FileSystem;
+  /**
+   * Whether the volume is mounted read-only
+   */
+  read_only: boolean;
+  /**
+   * Hardware identifier (platform-specific)
+   */
+  hardware_id: string | null;
+  /**
+   * Current error status if any
+   */
+  error_status: string | null;
+  /**
+   * APFS container information (macOS only)
+   */
+  apfs_container: ApfsContainer | null;
+  /**
+   * Container-relative volume ID for same-container detection
+   */
+  container_volume_id: string | null;
+  /**
+   * Path resolution mappings (for firmlinks/symlinks)
+   */
+  path_mappings: PathMapping[];
+  /**
+   * Total storage capacity in bytes
+   */
+  total_bytes_capacity: number;
+  /**
+   * Available storage space in bytes
+   */
+  total_bytes_available: number;
+  /**
+   * Read speed in megabytes per second
+   */
+  read_speed_mbps: number | null;
+  /**
+   * Write speed in megabytes per second
+   */
+  write_speed_mbps: number | null;
+  /**
+   * Whether this volume should be visible in default views
+   */
+  is_user_visible: boolean;
+  /**
+   * Whether this volume should be auto-tracked
+   */
+  auto_track_eligible: boolean;
+  /**
+   * When this volume information was last updated
+   */
+  last_updated: string;
+};
 
 /**
  * Unique fingerprint for a storage volume
@@ -606,43 +793,49 @@ export type VolumeFingerprint = string;
 /**
  * Summary information about a volume (for updates and caching)
  */
-export type VolumeInfo = { is_mounted: boolean; total_bytes_available: number; read_speed_mbps: number | null; write_speed_mbps: number | null; error_status: string | null };
+export type VolumeInfo = {
+  is_mounted: boolean;
+  total_bytes_available: number;
+  read_speed_mbps: number | null;
+  write_speed_mbps: number | null;
+  error_status: string | null;
+};
 
 /**
  * Classification of volume types for UX and auto-tracking decisions
  */
-export type VolumeType = 
-/**
- * Primary system drive containing OS and user data
- * Examples: C:\ on Windows, / on Linux, Macintosh HD on macOS
- */
-"Primary" | 
-/**
- * Dedicated user data volumes (separate from OS)
- * Examples: /System/Volumes/Data on macOS, separate /home on Linux
- */
-"UserData" | 
-/**
- * External or removable storage devices
- * Examples: USB drives, external HDDs, /Volumes/* on macOS
- */
-"External" | 
-/**
- * Secondary internal storage (additional drives/partitions)
- * Examples: D:, E: drives on Windows, additional mounted drives
- */
-"Secondary" | 
-/**
- * System/OS internal volumes (hidden from normal view)
- * Examples: /System/Volumes/* on macOS, Recovery partitions
- */
-"System" | 
-/**
- * Network attached storage
- * Examples: SMB mounts, NFS, cloud storage
- */
-"Network" | 
-/**
- * Unknown or unclassified volumes
- */
-"Unknown";
+export type VolumeType =
+  /**
+   * Primary system drive containing OS and user data
+   * Examples: C:\ on Windows, / on Linux, Macintosh HD on macOS
+   */
+  | "Primary"
+  /**
+   * Dedicated user data volumes (separate from OS)
+   * Examples: /System/Volumes/Data on macOS, separate /home on Linux
+   */
+  | "UserData"
+  /**
+   * External or removable storage devices
+   * Examples: USB drives, external HDDs, /Volumes/* on macOS
+   */
+  | "External"
+  /**
+   * Secondary internal storage (additional drives/partitions)
+   * Examples: D:, E: drives on Windows, additional mounted drives
+   */
+  | "Secondary"
+  /**
+   * System/OS internal volumes (hidden from normal view)
+   * Examples: /System/Volumes/* on macOS, Recovery partitions
+   */
+  | "System"
+  /**
+   * Network attached storage
+   * Examples: SMB mounts, NFS, cloud storage
+   */
+  | "Network"
+  /**
+   * Unknown or unclassified volumes
+   */
+  | "Unknown";

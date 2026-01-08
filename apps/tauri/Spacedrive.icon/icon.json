@@ -1,98 +1,90 @@
 {
-  "fill-specializations" : [
+  "fill-specializations": [
     {
-      "value" : "automatic"
+      "value": "automatic"
     },
     {
-      "appearance" : "dark",
-      "value" : "system-dark"
+      "appearance": "dark",
+      "value": "system-dark"
     }
   ],
-  "groups" : [
+  "groups": [
     {
-      "layers" : [
+      "layers": [
         {
-          "blend-mode-specializations" : [
+          "blend-mode-specializations": [
             {
-              "appearance" : "tinted",
-              "value" : "screen"
+              "appearance": "tinted",
+              "value": "screen"
             }
           ],
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "display-p3:1.00000,0.72781,0.41766,1.00000"
+              "appearance": "tinted",
+              "value": {
+                "solid": "display-p3:1.00000,0.72781,0.41766,1.00000"
               }
             }
           ],
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "Ball.png",
-          "name" : "Ball",
-          "opacity-specializations" : [
+          "glass": true,
+          "hidden": false,
+          "image-name": "Ball.png",
+          "name": "Ball",
+          "opacity-specializations": [
             {
-              "value" : 0.4
+              "value": 0.4
             },
             {
-              "appearance" : "dark",
-              "value" : 0
+              "appearance": "dark",
+              "value": 0
             },
             {
-              "appearance" : "tinted",
-              "value" : 0.53
+              "appearance": "tinted",
+              "value": 0.53
             }
           ],
-          "position" : {
-            "scale" : 2,
-            "translation-in-points" : [
-              1.7218333746113785,
-              2.7640092574830533
-            ]
+          "position": {
+            "scale": 2,
+            "translation-in-points": [1.7218333746113785, 2.7640092574830533]
           }
         },
         {
-          "blend-mode-specializations" : [
+          "blend-mode-specializations": [
             {
-              "appearance" : "tinted",
-              "value" : "normal"
+              "appearance": "tinted",
+              "value": "normal"
             }
           ],
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "display-p3:1.00000,0.72781,0.41766,1.00000"
+              "appearance": "tinted",
+              "value": {
+                "solid": "display-p3:1.00000,0.72781,0.41766,1.00000"
               }
             }
           ],
-          "glass" : true,
-          "hidden" : false,
-          "image-name" : "Ball.png",
-          "name" : "Ball",
-          "position" : {
-            "scale" : 2,
-            "translation-in-points" : [
-              1.7218333746113785,
-              2.7640092574830533
-            ]
+          "glass": true,
+          "hidden": false,
+          "image-name": "Ball.png",
+          "name": "Ball",
+          "position": {
+            "scale": 2,
+            "translation-in-points": [1.7218333746113785, 2.7640092574830533]
           }
         }
       ],
-      "shadow" : {
-        "kind" : "neutral",
-        "opacity" : 0.5
+      "shadow": {
+        "kind": "neutral",
+        "opacity": 0.5
       },
-      "translucency" : {
-        "enabled" : true,
-        "value" : 0.5
+      "translucency": {
+        "enabled": true,
+        "value": 0.5
       }
     }
   ],
-  "supported-platforms" : {
-    "circles" : [
-      "watchOS"
-    ],
-    "squares" : "shared"
+  "supported-platforms": {
+    "circles": ["watchOS"],
+    "squares": "shared"
   }
 }

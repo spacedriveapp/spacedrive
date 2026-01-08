@@ -1,16 +1,15 @@
-import React from "react";
 import { View } from "react-native";
-import { SettingsRow, SettingsRowProps } from "./SettingsRow";
+import { SettingsRow, type SettingsRowProps } from "./SettingsRow";
 
 type SettingsLinkProps = Omit<SettingsRowProps, "trailing">;
 
 export function SettingsLink(props: SettingsLinkProps) {
-	return (
-		<SettingsRow
-			{...props}
-			trailing={
-				<View className="w-2 h-2 border-r-2 border-t-2 border-ink-dull rotate-45" />
-			}
-		/>
-	);
+  return (
+    <SettingsRow
+      {...props}
+      trailing={
+        <View className="h-2 w-2 rotate-45 border-ink-dull border-t-2 border-r-2" />
+      }
+    />
+  );
 }

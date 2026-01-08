@@ -1,16 +1,13 @@
-import type { JobStatus } from "@sd/ts-client";
 import {
-  MagnifyingGlass,
-  Image,
+  CheckCircle,
+  Database,
   Files,
   FolderOpen,
-  Database,
-  HardDrive,
-  FolderPlus,
+  Image,
+  MagnifyingGlass,
   Sparkle,
-  CheckCircle,
 } from "@phosphor-icons/react";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { JobListItem } from "../types";
 
 interface JobStatusIndicatorProps {
@@ -66,7 +63,7 @@ export function JobStatusIndicator({ job }: JobStatusIndicatorProps) {
 
   // If job has phases and we know the current phase, show carousel
   if (phases && currentPhase) {
-    const currentIndex = phases.findIndex(p => p.name === currentPhase);
+    const currentIndex = phases.findIndex((p) => p.name === currentPhase);
 
     // Show 3 icons: previous, current, next
     const PrevIcon = phases[currentIndex - 1]?.icon;
@@ -74,41 +71,41 @@ export function JobStatusIndicator({ job }: JobStatusIndicatorProps) {
     const NextIcon = phases[currentIndex + 1]?.icon;
 
     return (
-      <div className="flex-shrink-0 flex items-center justify-center w-10 h-full overflow-hidden">
-        <div className="relative h-full w-full flex flex-col items-center justify-center">
+      <div className="flex h-full w-10 flex-shrink-0 items-center justify-center overflow-hidden">
+        <div className="relative flex h-full w-full flex-col items-center justify-center">
           <AnimatePresence mode="popLayout">
             <motion.div
-              key={currentIndex}
-              className="flex flex-col items-center gap-2"
-              initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
+              className="flex flex-col items-center gap-2"
               exit={{ y: -20, opacity: 0 }}
+              initial={{ y: 20, opacity: 0 }}
+              key={currentIndex}
               transition={{ duration: 0.3, ease: [0.25, 1, 0.5, 1] }}
             >
               {/* Previous phase (dimmed) */}
               {PrevIcon && (
                 <PrevIcon
+                  className="text-ink-faint opacity-30"
                   size={12}
                   weight="duotone"
-                  className="text-ink-faint opacity-30"
                 />
               )}
 
               {/* Current phase (highlighted) */}
               {CurrentIcon && (
                 <CurrentIcon
+                  className="text-ink-faint"
                   size={16}
                   weight="duotone"
-                  className="text-ink-faint"
                 />
               )}
 
               {/* Next phase (dimmed) */}
               {NextIcon && (
                 <NextIcon
+                  className="text-ink-faint opacity-30"
                   size={12}
                   weight="duotone"
-                  className="text-ink-faint opacity-30"
                 />
               )}
             </motion.div>
@@ -121,8 +118,8 @@ export function JobStatusIndicator({ job }: JobStatusIndicatorProps) {
   // No phases - show single icon
   const Icon = getJobIcon(job.name);
   return (
-    <div className="flex-shrink-0 flex items-center justify-center w-10 h-full">
-      <Icon size={16} weight="duotone" className="text-ink-faint" />
+    <div className="flex h-full w-10 flex-shrink-0 items-center justify-center">
+      <Icon className="text-ink-faint" size={16} weight="duotone" />
     </div>
   );
 }

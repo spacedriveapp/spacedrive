@@ -1,6 +1,18 @@
-export { ExplorerProvider, useExplorer, getSpaceItemKey, getSpaceItemKeyFromRoute, targetToKey, targetsEqual } from "./context";
-export type { NavigationTarget, ViewMode, ViewSettings, SortBy } from "./context";
-export { SelectionProvider, useSelection } from "./SelectionContext";
-export { Sidebar } from "./Sidebar";
+export type {
+  NavigationTarget,
+  SortBy,
+  ViewMode,
+  ViewSettings,
+} from "./context";
+export {
+  ExplorerProvider,
+  getSpaceItemKey,
+  getSpaceItemKeyFromRoute,
+  targetsEqual,
+  targetToKey,
+  useExplorer,
+} from "./context";
 export { ExplorerView } from "./ExplorerView";
 export { File } from "./File";
+export { SelectionProvider, useSelection } from "./SelectionContext";
+export { Sidebar } from "./Sidebar";

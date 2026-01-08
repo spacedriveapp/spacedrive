@@ -1,5 +1,5 @@
 import { cva, type VariantProps } from "class-variance-authority";
-import { ReactNode } from "react";
+import type { ReactNode } from "react";
 
 const infoBannerStyles = cva(
   "relative mb-6 overflow-hidden rounded-xl border-2",
@@ -15,7 +15,7 @@ const infoBannerStyles = cva(
     defaultVariants: {
       variant: "info",
     },
-  },
+  }
 );
 
 const infoBannerIconStyles = cva("mt-0.5", {
@@ -51,9 +51,9 @@ export function InfoBanner({ icon, children, variant }: InfoBannerProps) {
 }
 
 export function InfoBannerText({ children }: { children: ReactNode }) {
-  return <p className="text-sm text-ink">{children}</p>;
+  return <p className="text-ink text-sm">{children}</p>;
 }
 
 export function InfoBannerSubtext({ children }: { children: ReactNode }) {
-  return <p className="mt-1 text-xs text-ink-dull">{children}</p>;
+  return <p className="mt-1 text-ink-dull text-xs">{children}</p>;
 }

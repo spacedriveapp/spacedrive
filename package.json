@@ -3,20 +3,24 @@
   "private": true,
   "scripts": {
     "preinstall": "npx only-allow bun",
-    "typecheck": "bun run --filter @sd/tauri typecheck"
+    "typecheck": "bun run --filter @sd/tauri typecheck",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@babel/plugin-syntax-import-assertions": "^7.24.0",
+    "@biomejs/biome": "2.3.11",
     "@cspell/dict-rust": "^4.0.2",
     "@cspell/dict-typescript": "^3.1.2",
     "@ianvs/prettier-plugin-sort-imports": "^4.3.1",
     "@taplo/cli": "^0.7.0",
     "cspell": "^8.6.0",
+    "husky": "^9.1.7",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.6",
     "turbo": "^1.12.5",
     "turbo-ignore": "^1.12.5",
     "typescript": "^5.6.2",
+    "ultracite": "7.0.9",
     "vite": "^5.4.9"
   },
   "engines": {

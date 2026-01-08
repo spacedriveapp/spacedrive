@@ -1,9 +1,9 @@
 import {
-	createContext,
-	useContext,
-	useState,
-	useEffect,
-	type ReactNode,
+  createContext,
+  type ReactNode,
+  useContext,
+  useEffect,
+  useState,
 } from "react";
 import { usePlatform } from "./PlatformContext";
 import { useClient } from "./SpacedriveContext";
@@ -17,28 +17,28 @@ import { useClient } from "./SpacedriveContext";
  */
 
 export interface ServerContextValue {
-	/** Base URL of the daemon HTTP server (e.g., "http://localhost:9420") */
-	serverUrl: string | null;
-	/** Currently active library ID */
-	libraryId: string | null;
-	/** Whether both serverUrl and libraryId are available */
-	isReady: boolean;
-	/**
-	 * Build a sidecar URL for fetching thumbnails, thumbstrips, transcripts, etc.
-	 * Returns null if serverUrl or libraryId is not available.
-	 */
-	buildSidecarUrl: (
-		contentUuid: string,
-		kind: string,
-		variant: string,
-		format: string,
-	) => string | null;
+  /** Base URL of the daemon HTTP server (e.g., "http://localhost:9420") */
+  serverUrl: string | null;
+  /** Currently active library ID */
+  libraryId: string | null;
+  /** Whether both serverUrl and libraryId are available */
+  isReady: boolean;
+  /**
+   * Build a sidecar URL for fetching thumbnails, thumbstrips, transcripts, etc.
+   * Returns null if serverUrl or libraryId is not available.
+   */
+  buildSidecarUrl: (
+    contentUuid: string,
+    kind: string,
+    variant: string,
+    format: string
+  ) => string | null;
 }
 
 const ServerContext = createContext<ServerContextValue | null>(null);
 
 export interface ServerProviderProps {
-	children: ReactNode;
+  children: ReactNode;
 }
 
 /**
@@ -48,119 +48,112 @@ export interface ServerProviderProps {
  * Must be rendered inside PlatformProvider and SpacedriveProvider.
  */
 export function ServerProvider({ children }: ServerProviderProps) {
-	const platform = usePlatform();
-	const client = useClient();
+  const platform = usePlatform();
+  const client = useClient();
 
-	const [serverUrl, setServerUrl] = useState<string | null>(null);
-	const [libraryId, setLibraryId] = useState<string | null>(() => {
-		// Initialize from client if already set
-		return client.getCurrentLibraryId();
-	});
+  const [serverUrl, setServerUrl] = useState<string | null>(null);
+  const [libraryId, setLibraryId] = useState<string | null>(() => {
+    // Initialize from client if already set
+    return client.getCurrentLibraryId();
+  });
 
-	// Get initial server URL from platform
-	useEffect(() => {
-		if (platform.getDaemonStatus) {
-			platform
-				.getDaemonStatus()
-				.then((status) => {
-					if (status.server_url) {
-						setServerUrl(status.server_url);
-					}
-				})
-				.catch((err) => {
-					console.warn(
-						"[ServerContext] Failed to get daemon status:",
-						err,
-					);
-				});
-		}
-	}, [platform]);
+  // Get initial server URL from platform
+  useEffect(() => {
+    if (platform.getDaemonStatus) {
+      platform
+        .getDaemonStatus()
+        .then((status) => {
+          if (status.server_url) {
+            setServerUrl(status.server_url);
+          }
+        })
+        .catch((err) => {
+          console.warn("[ServerContext] Failed to get daemon status:", err);
+        });
+    }
+  }, [platform]);
 
-	// Get initial library ID from platform (may differ from client state)
-	useEffect(() => {
-		if (platform.getCurrentLibraryId) {
-			platform
-				.getCurrentLibraryId()
-				.then((id) => {
-					if (id) {
-						setLibraryId(id);
-					}
-				})
-				.catch(() => {
-					// Library not selected yet - this is fine
-				});
-		}
-	}, [platform]);
+  // Get initial library ID from platform (may differ from client state)
+  useEffect(() => {
+    if (platform.getCurrentLibraryId) {
+      platform
+        .getCurrentLibraryId()
+        .then((id) => {
+          if (id) {
+            setLibraryId(id);
+          }
+        })
+        .catch(() => {
+          // Library not selected yet - this is fine
+        });
+    }
+  }, [platform]);
 
-	// Listen for library ID changes via platform events
-	useEffect(() => {
-		if (platform.onLibraryIdChanged) {
-			const unlistenPromise = platform.onLibraryIdChanged(
-				(newLibraryId) => {
-					setLibraryId(newLibraryId);
-				},
-			);
+  // Listen for library ID changes via platform events
+  useEffect(() => {
+    if (platform.onLibraryIdChanged) {
+      const unlistenPromise = platform.onLibraryIdChanged((newLibraryId) => {
+        setLibraryId(newLibraryId);
+      });
 
-			return () => {
-				unlistenPromise.then((unlisten) => unlisten());
-			};
-		}
-	}, [platform]);
+      return () => {
+        unlistenPromise.then((unlisten) => unlisten());
+      };
+    }
+  }, [platform]);
 
-	// Listen for library changes via client events
-	useEffect(() => {
-		const handleLibraryChange = (newLibraryId: string) => {
-			setLibraryId(newLibraryId);
-		};
+  // Listen for library changes via client events
+  useEffect(() => {
+    const handleLibraryChange = (newLibraryId: string) => {
+      setLibraryId(newLibraryId);
+    };
 
-		client.on("library-changed", handleLibraryChange);
-		return () => {
-			client.off("library-changed", handleLibraryChange);
-		};
-	}, [client]);
+    client.on("library-changed", handleLibraryChange);
+    return () => {
+      client.off("library-changed", handleLibraryChange);
+    };
+  }, [client]);
 
-	// Listen for daemon connection events to update server URL
-	useEffect(() => {
-		if (platform.onDaemonConnected && platform.getDaemonStatus) {
-			const unlistenPromise = platform.onDaemonConnected(() => {
-				// Re-fetch daemon status when connection established
-				platform.getDaemonStatus!().then((status) => {
-					if (status.server_url) {
-						setServerUrl(status.server_url);
-					}
-				});
-			});
+  // Listen for daemon connection events to update server URL
+  useEffect(() => {
+    if (platform.onDaemonConnected && platform.getDaemonStatus) {
+      const unlistenPromise = platform.onDaemonConnected(() => {
+        // Re-fetch daemon status when connection established
+        platform.getDaemonStatus!().then((status) => {
+          if (status.server_url) {
+            setServerUrl(status.server_url);
+          }
+        });
+      });
 
-			return () => {
-				unlistenPromise.then((unlisten) => unlisten());
-			};
-		}
-	}, [platform]);
+      return () => {
+        unlistenPromise.then((unlisten) => unlisten());
+      };
+    }
+  }, [platform]);
 
-	const buildSidecarUrl = (
-		contentUuid: string,
-		kind: string,
-		variant: string,
-		format: string,
-	): string | null => {
-		if (!serverUrl || !libraryId) {
-			return null;
-		}
-		return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${kind}/${variant}.${format}`;
-	};
+  const buildSidecarUrl = (
+    contentUuid: string,
+    kind: string,
+    variant: string,
+    format: string
+  ): string | null => {
+    if (!(serverUrl && libraryId)) {
+      return null;
+    }
+    return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${kind}/${variant}.${format}`;
+  };
 
-	const value: ServerContextValue = {
-		serverUrl,
-		libraryId,
-		isReady: serverUrl !== null && libraryId !== null,
-		buildSidecarUrl,
-	};
+  const value: ServerContextValue = {
+    serverUrl,
+    libraryId,
+    isReady: serverUrl !== null && libraryId !== null,
+    buildSidecarUrl,
+  };
 
-	return (
-		<ServerContext.Provider value={value}>
-			{children}
-		</ServerContext.Provider>
-	);
+  return (
+    <ServerContext.Provider value={value}>{children}</ServerContext.Provider>
+  );
 }
 
 /**
@@ -187,14 +180,14 @@ export function ServerProvider({ children }: ServerProviderProps) {
  * ```
  */
 export function useServer(): ServerContextValue {
-	const context = useContext(ServerContext);
+  const context = useContext(ServerContext);
 
-	if (!context) {
-		throw new Error(
-			"useServer must be used within a ServerProvider. " +
-				"Make sure ServerProvider is mounted above this component.",
-		);
-	}
+  if (!context) {
+    throw new Error(
+      "useServer must be used within a ServerProvider. " +
+        "Make sure ServerProvider is mounted above this component."
+    );
+  }
 
-	return context;
+  return context;
 }

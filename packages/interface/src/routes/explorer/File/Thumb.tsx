@@ -1,11 +1,11 @@
-import { useState, memo, useEffect } from "react";
-import clsx from "clsx";
-import { getIcon, getBeardedIcon, beardedIconUrls } from "@sd/assets/util";
+import { beardedIconUrls, getBeardedIcon, getIcon } from "@sd/assets/util";
 import type { File } from "@sd/ts-client";
-import { ThumbstripScrubber } from "./ThumbstripScrubber";
-import { getContentKind } from "../utils";
+import clsx from "clsx";
+import { memo, useEffect, useState } from "react";
 import { useServer } from "../../../contexts/ServerContext";
+import { getContentKind } from "../utils";
 import { getVirtualMetadata } from "../utils/virtualFiles";
+import { ThumbstripScrubber } from "./ThumbstripScrubber";
 
 interface ThumbProps {
   file: File;
@@ -31,11 +31,11 @@ export const Thumb = memo(function Thumb({
   const cacheKey = `${file.id}-${size}`;
   const { buildSidecarUrl } = useServer();
 
-  const [thumbLoaded, setThumbLoaded] = useState(
-    () => thumbLoadedCache.get(cacheKey) || false,
+  const [thumbLoaded, setThumbLoaded] = useState(() =>
+    thumbLoadedCache.get(cacheKey)
   );
-  const [thumbError, setThumbError] = useState(
-    () => thumbErrorCache.get(cacheKey) || false,
+  const [thumbError, setThumbError] = useState(() =>
+    thumbErrorCache.get(cacheKey)
   );
 
   // Update cache when state changes
@@ -77,18 +77,18 @@ export const Thumb = memo(function Thumb({
 
     const thumbnail = thumbnails.sort((a, b) => {
       // Parse variant (e.g., "grid@1x", "detail@1x") to get size and scale
-      const aSize = parseInt(
-        a.variant.split("x")[0]?.replace(/\D/g, "") || "0",
+      const aSize = Number.parseInt(
+        a.variant.split("x")[0]?.replace(/\D/g, "") || "0"
       );
-      const bSize = parseInt(
-        b.variant.split("x")[0]?.replace(/\D/g, "") || "0",
+      const bSize = Number.parseInt(
+        b.variant.split("x")[0]?.replace(/\D/g, "") || "0"
       );
 
       // Extract scale factor (1x, 2x, 3x) from variants like "grid@1x" or "detail@2x"
       const aScaleMatch = a.variant.match(/@(\d+)x/);
       const bScaleMatch = b.variant.match(/@(\d+)x/);
-      const aScale = aScaleMatch ? parseInt(aScaleMatch[1]) : 1;
-      const bScale = bScaleMatch ? parseInt(bScaleMatch[1]) : 1;
+      const aScale = aScaleMatch ? Number.parseInt(aScaleMatch[1]) : 1;
+      const bScale = bScaleMatch ? Number.parseInt(bScaleMatch[1]) : 1;
 
       // Strongly prefer 1x variants (add penalty for higher scales)
       const aPenalty = (aScale - 1) * 100;
@@ -106,7 +106,7 @@ export const Thumb = memo(function Thumb({
       file.content_identity.uuid,
       thumbnail.kind,
       thumbnail.variant,
-      thumbnail.format,
+      thumbnail.format
     );
   };
 
@@ -129,7 +129,7 @@ export const Thumb = memo(function Thumb({
       kindCapitalized,
       true, // Dark theme
       file.extension,
-      file.kind === "Directory",
+      file.kind === "Directory"
     );
 
   // Check if using generic Document icon (not a Spacedrive variant like Document_pdf)
@@ -159,8 +159,8 @@ export const Thumb = memo(function Thumb({
   return (
     <div
       className={clsx(
-        "relative pointer-events-none flex shrink-0 grow-0 items-center justify-center",
-        className,
+        "pointer-events-none relative flex shrink-0 grow-0 items-center justify-center",
+        className
       )}
       style={{
         width: size,
@@ -175,13 +175,13 @@ export const Thumb = memo(function Thumb({
       {/* Hide document icon if small and showing bearded badge */}
       {!(isSmallIcon && showBeardedBadge) && (
         <img
-          src={icon}
           alt=""
           className={clsx(
             "object-contain transition-opacity",
             // Only hide icon if we actually have a thumbnail that loaded
-            thumbLoaded && thumbnailSrc && "opacity-0",
+            thumbLoaded && thumbnailSrc && "opacity-0"
           )}
+          src={icon}
           style={{
             width: iconSize,
             height: iconSize,
@@ -194,26 +194,26 @@ export const Thumb = memo(function Thumb({
       {/* Load thumbnail if available */}
       {thumbnailSrc && !thumbError && (
         <img
-          src={thumbnailSrc}
           alt={file.name}
           className={clsx(
             "absolute inset-0 m-auto max-h-full max-w-full object-contain transition-opacity",
             // Default frame styling (can be overridden)
             frameClassName ||
               "rounded-lg border border-app-line/50 bg-app-box/30",
-            !thumbLoaded && "opacity-0",
+            !thumbLoaded && "opacity-0"
           )}
-          onLoad={() => setThumbLoaded(true)}
           onError={() => setThumbError(true)}
+          onLoad={() => setThumbLoaded(true)}
+          src={thumbnailSrc}
         />
       )}
 
       {/* Bearded icon badge overlay (centered, slightly toward bottom) */}
       {showBeardedBadge && beardedIconUrl && (
         <img
-          src={beardedIconUrl}
           alt=""
-          className="absolute left-1/2 top-[55%] -translate-x-1/2 -translate-y-1/2"
+          className="absolute top-[55%] left-1/2 -translate-x-1/2 -translate-y-1/2"
+          src={beardedIconUrl}
           style={{
             width: badgeSize,
             height: badgeSize,
@@ -259,14 +259,14 @@ export function Icon({
       kindCapitalized,
       true, // Dark theme
       file.extension,
-      file.kind === "Directory",
+      file.kind === "Directory"
     );
 
   return (
     <img
-      src={icon}
       alt=""
       className={className}
+      src={icon}
       style={{ width: size, height: size }}
     />
   );

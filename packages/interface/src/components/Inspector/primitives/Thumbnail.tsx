@@ -1,5 +1,12 @@
+import {
+  File,
+  FileCode,
+  FileText,
+  FilmStrip,
+  Image,
+  MusicNote,
+} from "@phosphor-icons/react";
 import clsx from "clsx";
-import { File, FileText, Image, FilmStrip, MusicNote, FileCode } from "@phosphor-icons/react";
 
 interface ThumbnailProps {
   src?: string;
@@ -14,8 +21,10 @@ const iconForKind = (kind?: string) => {
   const k = kind.toLowerCase();
   if (k.includes("image") || ["jpg", "png", "gif", "svg"].includes(k))
     return Image;
-  if (k.includes("video") || ["mp4", "mov", "avi"].includes(k)) return FilmStrip;
-  if (k.includes("audio") || ["mp3", "wav", "flac"].includes(k)) return MusicNote;
+  if (k.includes("video") || ["mp4", "mov", "avi"].includes(k))
+    return FilmStrip;
+  if (k.includes("audio") || ["mp3", "wav", "flac"].includes(k))
+    return MusicNote;
   if (["js", "ts", "tsx", "jsx", "py", "rs"].includes(k)) return FileCode;
   if (["pdf", "txt", "md"].includes(k)) return FileText;
   return File;
@@ -45,17 +54,17 @@ export function Thumbnail({
   return (
     <div
       className={clsx(
-        "relative flex items-center justify-center rounded-lg bg-app-box border border-app-line overflow-hidden",
+        "relative flex items-center justify-center overflow-hidden rounded-lg border border-app-line bg-app-box",
         sizeClasses[size],
-        className,
+        className
       )}
     >
       {src ? (
         <img
-          src={src}
           alt={name}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           loading="lazy"
+          src={src}
         />
       ) : (
         <Icon

@@ -1,4 +1,5 @@
-const config = require('@sd/ui/tailwind');
+"use strict";
+const config = require("@sd/ui/tailwind");
 
 /** @type {import('tailwindcss').Config} */
-module.exports = config('tauri');
+module.exports = config("tauri");

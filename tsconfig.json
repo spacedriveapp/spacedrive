@@ -1,14 +1,17 @@
 {
-	"files": [],
-	"references": [
-		{
-			"path": "apps/tauri"
-		},
-		{
-			"path": "packages/ui"
-		},
-		{
-			"path": "packages/config"
-		}
-	]
+  "files": [],
+  "references": [
+    {
+      "path": "apps/tauri"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "packages/config"
+    }
+  ],
+  "compilerOptions": {
+    "strictNullChecks": true
+  }
 }

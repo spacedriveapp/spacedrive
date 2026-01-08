@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
+import { useEffect, useRef, useState } from "react";
 import {
+  type DragItem,
+  onDragEnded,
   onDragEntered,
   onDragLeft,
-  onDragEnded,
-  type DragItem,
-  type DragResult,
-} from '../lib/drag';
+} from "../lib/drag";
 
 export interface UseDropZoneOptions {
   onDrop?: (items: DragItem[]) => void;
@@ -48,10 +47,12 @@ export function useDropZone(options: UseDropZoneOptions = {}) {
     const unlistenEnded = onDragEnded((event) => {
       setIsHovered((prevHovered) => {
         setDragItems((prevItems) => {
-          if (currentSessionRef.current === event.sessionId && prevHovered) {
-            if (event.result.type === 'Dropped') {
-              onDropRef.current?.(prevItems);
-            }
+          if (
+            currentSessionRef.current === event.sessionId &&
+            prevHovered &&
+            event.result.type === "Dropped"
+          ) {
+            onDropRef.current?.(prevItems);
           }
           return [];
         });
@@ -68,8 +69,8 @@ export function useDropZone(options: UseDropZoneOptions = {}) {
   }, [currentWindowLabel]);
 
   const dropZoneProps = {
-    'data-drop-zone': true,
-    'data-hovered': isHovered,
+    "data-drop-zone": true,
+    "data-hovered": isHovered,
   };
 
   return {

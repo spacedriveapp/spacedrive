@@ -1,13 +1,13 @@
-export { TabManagerProvider } from "./TabManagerContext";
-export type {
-	Tab,
-	TabExplorerState,
-	ViewMode,
-	SortBy,
-} from "./TabManagerContext";
-export { useTabManager } from "./useTabManager";
 export { TabBar } from "./TabBar";
-export { TabView } from "./TabView";
-export { TabNavigationSync } from "./TabNavigationSync";
 export { TabDefaultsSync } from "./TabDefaultsSync";
 export { TabKeyboardHandler } from "./TabKeyboardHandler";
+export type {
+  SortBy,
+  Tab,
+  TabExplorerState,
+  ViewMode,
+} from "./TabManagerContext";
+export { TabManagerProvider } from "./TabManagerContext";
+export { TabNavigationSync } from "./TabNavigationSync";
+export { TabView } from "./TabView";
+export { useTabManager } from "./useTabManager";

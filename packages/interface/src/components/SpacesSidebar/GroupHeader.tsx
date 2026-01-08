@@ -1,9 +1,14 @@
-import { CaretRight, DotsSixVertical, PencilSimple, Trash } from "@phosphor-icons/react";
+import {
+  CaretRight,
+  DotsSixVertical,
+  PencilSimple,
+  Trash,
+} from "@phosphor-icons/react";
+import type { SpaceGroup } from "@sd/ts-client";
+import { useLibraryMutation } from "@sd/ts-client";
 import clsx from "clsx";
 import { useState } from "react";
 import { useContextMenu } from "../../hooks/useContextMenu";
-import { useLibraryMutation } from "@sd/ts-client";
-import type { SpaceGroup } from "@sd/ts-client";
 
 interface GroupHeaderProps {
   label: string;
@@ -29,12 +34,12 @@ export function GroupHeader({
   const hasSortable = sortableAttributes && sortableListeners;
   const [isRenaming, setIsRenaming] = useState(false);
   const [newName, setNewName] = useState(label);
-  
+
   const updateGroup = useLibraryMutation("spaces.update_group");
   const deleteGroup = useLibraryMutation("spaces.delete_group");
 
   const handleRename = async () => {
-    if (!group || !newName.trim() || newName === label) {
+    if (!(group && newName.trim()) || newName === label) {
       setIsRenaming(false);
       setNewName(label);
       return;
@@ -55,7 +60,7 @@ export function GroupHeader({
 
   const handleDelete = async () => {
     if (!group) return;
-    
+
     try {
       await deleteGroup.mutateAsync({ group_id: group.id });
     } catch (error) {
@@ -99,7 +104,7 @@ export function GroupHeader({
         <div
           {...sortableAttributes}
           {...sortableListeners}
-          className="cursor-grab active:cursor-grabbing py-2 px-0.5 -ml-1 text-sidebar-inkFaint hover:text-sidebar-ink transition-colors"
+          className="-ml-1 cursor-grab px-0.5 py-2 text-sidebar-inkFaint transition-colors hover:text-sidebar-ink active:cursor-grabbing"
         >
           <DotsSixVertical size={12} weight="bold" />
         </div>
@@ -108,8 +113,9 @@ export function GroupHeader({
       {/* Collapsible Button or Rename Input */}
       {isRenaming ? (
         <input
-          type="text"
-          value={newName}
+          autoFocus
+          className="flex-1 rounded-md border border-sidebar-line bg-sidebar-box px-2 py-1 font-semibold text-sidebar-ink text-tiny tracking-wider outline-none placeholder:text-sidebar-ink-faint focus:border-accent"
+          onBlur={handleRename}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -119,18 +125,20 @@ export function GroupHeader({
               setNewName(label);
             }
           }}
-          onBlur={handleRename}
-          autoFocus
-          className="flex-1 px-2 py-1 text-tiny font-semibold tracking-wider rounded-md bg-sidebar-box border border-sidebar-line text-sidebar-ink placeholder:text-sidebar-ink-faint outline-none focus:border-accent"
+          type="text"
+          value={newName}
         />
       ) : (
         <button
+          className="flex min-h-[32px] flex-1 items-center gap-2 py-2 font-semibold text-sidebar-ink-faint text-tiny tracking-wider opacity-60 transition-colors hover:text-sidebar-ink"
           onClick={onToggle}
           onContextMenu={handleContextMenu}
-          className="flex-1 flex items-center gap-2 py-2 text-tiny font-semibold tracking-wider opacity-60 text-sidebar-ink-faint hover:text-sidebar-ink transition-colors min-h-[32px]"
         >
           <CaretRight
-            className={clsx("transition-transform", !isCollapsed && "rotate-90")}
+            className={clsx(
+              "transition-transform",
+              !isCollapsed && "rotate-90"
+            )}
             size={10}
             weight="bold"
           />

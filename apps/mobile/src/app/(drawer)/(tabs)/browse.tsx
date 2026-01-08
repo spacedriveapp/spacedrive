@@ -1,3 +1,3 @@
-import { BrowseScreen } from '../../../screens/browse/BrowseScreen';
+import { BrowseScreen } from "../../../screens/browse/BrowseScreen";
 
 export default BrowseScreen;

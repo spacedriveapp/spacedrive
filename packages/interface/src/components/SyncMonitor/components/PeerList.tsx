@@ -11,10 +11,10 @@ interface PeerListProps {
 export function PeerList({ peers }: PeerListProps) {
   if (peers.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-12 px-4">
-        <Circle className="size-8 text-ink-faint mb-2" weight="duotone" />
-        <p className="text-sm text-ink-dull text-center">No paired devices</p>
-        <p className="text-xs text-ink-faint text-center mt-1">
+      <div className="flex flex-col items-center justify-center px-4 py-12">
+        <Circle className="mb-2 size-8 text-ink-faint" weight="duotone" />
+        <p className="text-center text-ink-dull text-sm">No paired devices</p>
+        <p className="mt-1 text-center text-ink-faint text-xs">
           Pair a device to start syncing
         </p>
       </div>
@@ -38,21 +38,21 @@ function PeerCard({ peer }: { peer: SyncPeerActivity }) {
   };
 
   return (
-    <div className="bg-app-box rounded-lg p-3 border border-app-line">
-      <div className="flex items-start justify-between mb-2">
+    <div className="rounded-lg border border-app-line bg-app-box p-3">
+      <div className="mb-2 flex items-start justify-between">
         <div className="flex items-center gap-2">
           <div
             className={clsx(
               "size-2 rounded-full",
-              peer.isOnline ? "bg-green-500" : "bg-ink-faint",
+              peer.isOnline ? "bg-green-500" : "bg-ink-faint"
             )}
           />
-          <span className="text-sm font-medium text-ink">
+          <span className="font-medium text-ink text-sm">
             {peer.deviceName}
           </span>
         </div>
 
-        {peer.watermarkLagMs && peer.watermarkLagMs > 60000 && (
+        {peer.watermarkLagMs && peer.watermarkLagMs > 60_000 && (
           <Lightning className="size-4 text-yellow-500" weight="fill" />
         )}
         <span>
@@ -60,12 +60,12 @@ function PeerCard({ peer }: { peer: SyncPeerActivity }) {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 mt-2 text-xs text-ink-faint">
-        <div className="flex gap-2 flex-row">
+      <div className="mt-2 flex items-center gap-2 text-ink-faint text-xs">
+        <div className="flex flex-row gap-2">
           <span>{formatBytes(peer.bytesReceived)}</span>
           <span className="text-[10px]">received</span>
         </div>
-        <div className="flex gap-2 flex-row">
+        <div className="flex flex-row gap-2">
           <span>{peer.entriesReceived.toLocaleString()}</span>
           <span className="text-[10px]">changes</span>
         </div>

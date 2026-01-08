@@ -1,5 +1,9 @@
-import { useState, useEffect, useRef } from "react";
-import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
+import { useEffect, useRef, useState } from "react";
+import {
+  useLibraryMutation,
+  useLibraryQuery,
+  useSpacedriveClient,
+} from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 
 export function useJobManager() {
@@ -34,9 +38,15 @@ export function useJobManager() {
     let isCancelled = false;
 
     const handleEvent = (event: any) => {
-      if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
-          "JobFailed" in event || "JobPaused" in event || "JobResumed" in event ||
-          "JobCancelled" in event) {
+      if (
+        "JobQueued" in event ||
+        "JobStarted" in event ||
+        "JobCompleted" in event ||
+        "JobFailed" in event ||
+        "JobPaused" in event ||
+        "JobResumed" in event ||
+        "JobCancelled" in event
+      ) {
         refetchRef.current();
       } else if ("JobProgress" in event) {
         const progressData = event.JobProgress;
@@ -57,13 +67,22 @@ export function useJobManager() {
                 status_message: generic.message,
               }),
             };
-          }),
+          })
         );
       }
     };
 
     const filter = {
-      event_types: ["JobQueued", "JobStarted", "JobProgress", "JobCompleted", "JobFailed", "JobPaused", "JobResumed", "JobCancelled"],
+      event_types: [
+        "JobQueued",
+        "JobStarted",
+        "JobProgress",
+        "JobCompleted",
+        "JobFailed",
+        "JobPaused",
+        "JobResumed",
+        "JobCancelled",
+      ],
     };
 
     client.subscribeFiltered(filter, handleEvent).then((unsub) => {

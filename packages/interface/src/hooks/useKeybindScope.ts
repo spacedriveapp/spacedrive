@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
-import type { KeybindScope } from '../util/keybinds/types';
-import { getWebListener } from '../util/keybinds/listener';
+import { useEffect } from "react";
+import { getWebListener } from "../util/keybinds/listener";
+import type { KeybindScope } from "../util/keybinds/types";
 
 /**
  * Push a keybind scope for the lifetime of the component.
@@ -24,17 +24,17 @@ import { getWebListener } from '../util/keybinds/listener';
  * ```
  */
 export function useKeybindScope(scope: KeybindScope): void {
-	useEffect(() => {
-		// Don't push global scope - it's always active
-		if (scope === 'global') return;
+  useEffect(() => {
+    // Don't push global scope - it's always active
+    if (scope === "global") return;
 
-		const listener = getWebListener();
-		listener.pushScope(scope);
+    const listener = getWebListener();
+    listener.pushScope(scope);
 
-		return () => {
-			listener.popScope(scope);
-		};
-	}, [scope]);
+    return () => {
+      listener.popScope(scope);
+    };
+  }, [scope]);
 }
 
 /**
@@ -44,6 +44,6 @@ export function useKeybindScope(scope: KeybindScope): void {
  * @returns true if the scope is active
  */
 export function isScopeActive(scope: KeybindScope): boolean {
-	if (scope === 'global') return true;
-	return getWebListener().hasScope(scope);
+  if (scope === "global") return true;
+  return getWebListener().hasScope(scope);
 }

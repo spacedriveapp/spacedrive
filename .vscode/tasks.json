@@ -1,83 +1,86 @@
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"type": "cargo",
-			"command": "clippy",
-			"problemMatcher": ["$rustc"],
-			"group": {
-				"kind": "build",
-				"isDefault": true
-			},
-			"label": "rust: cargo clippy",
-			"args": ["--all-targets", "--all-features", "--all"]
-		},
-		{
-			"type": "npm",
-			"script": "prep",
-			"label": "pnpm: prep",
-			"group": "none",
-			"problemMatcher": ["$rustc"]
-		},
-		{
-			"type": "shell",
-			"label": "start",
-			"command": "sh",
-			"args": ["-c", "'pnpm i && pnpm prep'"],
-			"problemMatcher": ["$tsc-watch", "$rustc"]
-		},
-		{
-			"type": "shell",
-			"label": "ui:dev",
-			"problemMatcher": {
-				"base": "$tsc-watch",
-				"background": {
-					"activeOnStart": true,
-					"beginsPattern": "VITE v",
-					"endsPattern": "http://localhost:8001/"
-				}
-			},
-			"isBackground": true,
-			"command": "pnpm",
-			"args": ["desktop", "vite", "--clearScreen=false", "--mode=development"],
-			"runOptions": {
-				"instanceLimit": 1
-			}
-		},
-		{
-			"type": "shell",
-			"label": "ui:build",
-			"problemMatcher": "$tsc",
-			"command": "pnpm",
-			"args": ["desktop", "vite", "build"]
-		},
-		{
-			"type": "cargo",
-			"command": "run",
-			"args": [
-				"--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
-				"--no-default-features"
-			],
-			"env": {
-				"RUST_BACKTRACE": "short"
-				// "RUST_LOG": "sd_core::invalidate-query=trace"
-			},
-			"problemMatcher": ["$rustc"],
-			"group": "build",
-			"label": "rust: run spacedrive",
-			"dependsOn": ["ui:dev"]
-		},
-		{
-			"type": "cargo",
-			"command": "run",
-			"args": ["--manifest-path=./apps/desktop/src-tauri/Cargo.toml", "--release"],
-			"env": {
-				"RUST_BACKTRACE": "short"
-			},
-			"problemMatcher": ["$rustc"],
-			"group": "build",
-			"label": "rust: run spacedrive release",
-			"dependsOn": ["ui:build"]
-		}
-	]
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "cargo",
+      "command": "clippy",
+      "problemMatcher": ["$rustc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "label": "rust: cargo clippy",
+      "args": ["--all-targets", "--all-features", "--all"]
+    },
+    {
+      "type": "npm",
+      "script": "prep",
+      "label": "pnpm: prep",
+      "group": "none",
+      "problemMatcher": ["$rustc"]
+    },
+    {
+      "type": "shell",
+      "label": "start",
+      "command": "sh",
+      "args": ["-c", "'pnpm i && pnpm prep'"],
+      "problemMatcher": ["$tsc-watch", "$rustc"]
+    },
+    {
+      "type": "shell",
+      "label": "ui:dev",
+      "problemMatcher": {
+        "base": "$tsc-watch",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "http://localhost:8001/"
+        }
+      },
+      "isBackground": true,
+      "command": "pnpm",
+      "args": ["desktop", "vite", "--clearScreen=false", "--mode=development"],
+      "runOptions": {
+        "instanceLimit": 1
+      }
+    },
+    {
+      "type": "shell",
+      "label": "ui:build",
+      "problemMatcher": "$tsc",
+      "command": "pnpm",
+      "args": ["desktop", "vite", "build"]
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": [
+        "--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
+        "--no-default-features"
+      ],
+      "env": {
+        "RUST_BACKTRACE": "short"
+        // "RUST_LOG": "sd_core::invalidate-query=trace"
+      },
+      "problemMatcher": ["$rustc"],
+      "group": "build",
+      "label": "rust: run spacedrive",
+      "dependsOn": ["ui:dev"]
+    },
+    {
+      "type": "cargo",
+      "command": "run",
+      "args": [
+        "--manifest-path=./apps/desktop/src-tauri/Cargo.toml",
+        "--release"
+      ],
+      "env": {
+        "RUST_BACKTRACE": "short"
+      },
+      "problemMatcher": ["$rustc"],
+      "group": "build",
+      "label": "rust: run spacedrive release",
+      "dependsOn": ["ui:build"]
+    }
+  ]
 }

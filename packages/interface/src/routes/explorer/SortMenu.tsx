@@ -1,18 +1,18 @@
-import { useState, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
 import {
+  CalendarBlank,
+  Camera,
+  Check,
+  FileText,
+  Ruler,
   SortAscending,
   TextAa,
-  CalendarBlank,
-  Ruler,
-  FileText,
-  Check,
-  Camera,
 } from "@phosphor-icons/react";
-import { motion, AnimatePresence } from "framer-motion";
-import clsx from "clsx";
-import { TopBarButton } from "@sd/ui";
 import type { DirectorySortBy, MediaSortBy } from "@sd/ts-client";
+import { TopBarButton } from "@sd/ui";
+import clsx from "clsx";
+import { AnimatePresence, motion } from "framer-motion";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 interface SortMenuPanelProps {
   sortBy: DirectorySortBy | MediaSortBy;
@@ -20,25 +20,30 @@ interface SortMenuPanelProps {
   viewMode: "grid" | "list" | "media" | "column";
 }
 
-export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelProps) {
-  const sortOptions = viewMode === "media"
-    ? [
-        { value: "datetaken", label: "Date Taken", icon: Camera },
-        { value: "modified", label: "Date Modified", icon: CalendarBlank },
-        { value: "created", label: "Date Created", icon: CalendarBlank },
-        { value: "name", label: "Name", icon: TextAa },
-        { value: "size", label: "Size", icon: Ruler },
-      ]
-    : [
-        { value: "name", label: "Name", icon: TextAa },
-        { value: "modified", label: "Date Modified", icon: CalendarBlank },
-        { value: "size", label: "Size", icon: Ruler },
-        { value: "type", label: "Type", icon: FileText },
-      ];
+export function SortMenuPanel({
+  sortBy,
+  onSortChange,
+  viewMode,
+}: SortMenuPanelProps) {
+  const sortOptions =
+    viewMode === "media"
+      ? [
+          { value: "datetaken", label: "Date Taken", icon: Camera },
+          { value: "modified", label: "Date Modified", icon: CalendarBlank },
+          { value: "created", label: "Date Created", icon: CalendarBlank },
+          { value: "name", label: "Name", icon: TextAa },
+          { value: "size", label: "Size", icon: Ruler },
+        ]
+      : [
+          { value: "name", label: "Name", icon: TextAa },
+          { value: "modified", label: "Date Modified", icon: CalendarBlank },
+          { value: "size", label: "Size", icon: Ruler },
+          { value: "type", label: "Type", icon: FileText },
+        ];
 
   return (
-    <div className="w-56 bg-app-box border border-app-line rounded-lg shadow-lg overflow-hidden">
-      <div className="px-3 py-2 text-xs font-semibold text-sidebar-ink uppercase tracking-wider border-b border-app-line">
+    <div className="w-56 overflow-hidden rounded-lg border border-app-line bg-app-box shadow-lg">
+      <div className="border-app-line border-b px-3 py-2 font-semibold text-sidebar-ink text-xs uppercase tracking-wider">
         Sort By
       </div>
 
@@ -49,14 +54,14 @@ export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelP
 
           return (
             <button
+              className={clsx(
+                "flex w-full items-center gap-2.5 px-3 py-2 text-sm transition-colors hover:bg-app-hover",
+                isActive ? "text-accent" : "text-ink"
+              )}
               key={option.value}
               onClick={() => {
                 onSortChange(option.value as DirectorySortBy | MediaSortBy);
               }}
-              className={clsx(
-                "flex items-center gap-2.5 w-full px-3 py-2 hover:bg-app-hover transition-colors text-sm",
-                isActive ? "text-accent" : "text-ink"
-              )}
             >
               <Icon className="size-4" weight="bold" />
               <span className="flex-1 text-left">{option.label}</span>
@@ -76,7 +81,12 @@ interface SortMenuProps {
   className?: string;
 }
 
-export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenuProps) {
+export function SortMenu({
+  sortBy,
+  onSortChange,
+  viewMode,
+  className,
+}: SortMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -108,7 +118,8 @@ export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenu
 
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [isOpen]);
 
@@ -116,10 +127,10 @@ export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenu
     <>
       <div className={clsx(className)}>
         <TopBarButton
-          ref={buttonRef}
+          active={isOpen}
           icon={SortAscending}
           onClick={() => setIsOpen(!isOpen)}
-          active={isOpen}
+          ref={buttonRef}
           title="Sort"
         />
       </div>
@@ -128,21 +139,21 @@ export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenu
         createPortal(
           <AnimatePresence>
             <motion.div
-              ref={panelRef}
-              initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
+              className="z-50"
               exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.15 }}
+              initial={{ opacity: 0, y: -10 }}
+              ref={panelRef}
               style={{
                 position: "fixed",
                 top: `${position.top}px`,
                 right: `${position.right}px`,
               }}
-              className="z-50"
+              transition={{ duration: 0.15 }}
             >
               <SortMenuPanel
-                sortBy={sortBy}
                 onSortChange={onSortChange}
+                sortBy={sortBy}
                 viewMode={viewMode}
               />
             </motion.div>

@@ -3,12 +3,12 @@
 import * as RDialog from "@radix-ui/react-dialog";
 import { animated, useTransition } from "@react-spring/web";
 import clsx from "clsx";
-import { ReactElement, ReactNode, useEffect, useState } from "react";
-import { FieldValues, UseFormHandleSubmit } from "react-hook-form";
+import { type ReactElement, type ReactNode, useEffect, useState } from "react";
+import type { FieldValues, UseFormHandleSubmit } from "react-hook-form";
 
 import { Button } from "./Button";
+import { Form, type FormProps } from "./forms/Form";
 import { Loader } from "./Loader";
-import { Form, FormProps } from "./forms/Form";
 
 export interface DialogState {
   open: boolean;
@@ -30,7 +30,7 @@ class DialogManager {
 
   create(
     dialog: (props: UseDialogProps) => ReactElement,
-    options?: DialogOptions,
+    options?: DialogOptions
   ) {
     const id = this.getId();
 
@@ -127,7 +127,7 @@ function Remover({ id }: { id: number }) {
     () => () => {
       dialogManager.remove(id);
     },
-    [id],
+    [id]
   );
 
   return null;
@@ -216,11 +216,11 @@ export function Dialog<S extends FieldValues>({
   const transitions = useTransition(dialog.state.open, {
     from: {
       opacity: 0,
-      transform: `translateY(20px)`,
+      transform: "translateY(20px)",
       transformOrigin: props.transformOrigin || "bottom",
     },
-    enter: { opacity: 1, transform: `translateY(0px)` },
-    leave: { opacity: 0, transform: `translateY(20px)` },
+    enter: { opacity: 1, transform: "translateY(0px)" },
+    leave: { opacity: 0, transform: "translateY(20px)" },
     config: { mass: 0.4, tension: 200, friction: 10, bounce: 0 },
   });
 
@@ -230,10 +230,10 @@ export function Dialog<S extends FieldValues>({
   const cancelButton = (
     <RDialog.Close asChild>
       <Button
+        className={clsx(props.cancelDanger && "border-red-500 bg-red-500")}
+        onClick={typeof onCancelled === "function" ? onCancelled : undefined}
         size="sm"
         variant={props.cancelDanger ? "colored" : "gray"}
-        onClick={typeof onCancelled === "function" ? onCancelled : undefined}
-        className={clsx(props.cancelDanger && "border-red-500 bg-red-500")}
       >
         {props.cancelLabel || "Cancel"}
       </Button>
@@ -244,9 +244,9 @@ export function Dialog<S extends FieldValues>({
     <RDialog.Close asChild>
       <Button
         disabled={props.loading}
+        onClick={typeof onCancelled === "function" ? onCancelled : undefined}
         size="sm"
         variant="gray"
-        onClick={typeof onCancelled === "function" ? onCancelled : undefined}
       >
         {props.closeLabel || "Close"}
       </Button>
@@ -254,72 +254,74 @@ export function Dialog<S extends FieldValues>({
   );
 
   const disableCheck = props.errorMessageException
-    ? !form.formState.isValid &&
-      !form.formState.errors.root?.serverError?.message?.startsWith(
-        props.errorMessageException as string,
+    ? !(
+        form.formState.isValid ||
+        form.formState.errors.root?.serverError?.message?.startsWith(
+          props.errorMessageException as string
+        )
       )
     : !form.formState.isValid;
 
   const submitButton = props.ctaLabel ? (
-    !props.ctaSecondLabel ? (
-      <Button
-        type="submit"
-        size="sm"
-        disabled={
-          form.formState.isSubmitting || props.submitDisabled || disableCheck
-        }
-        variant={props.ctaDanger ? "colored" : "accent"}
-        // className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
-        onClick={async (e: React.MouseEvent<HTMLElement>) => {
-          e.preventDefault();
-          await onSubmit?.(e);
-          dialog.onSubmit?.();
-          // Note: onSubmit handler should manage dialog.state.open if needed
-        }}
-      >
-        {props.ctaLabel}
-      </Button>
-    ) : (
+    props.ctaSecondLabel ? (
       <div className="flex flex-row gap-x-2">
         <Button
-          type="submit"
-          size="sm"
+          className={clsx(props.ctaDanger && "border-red-500 bg-red-500")}
           disabled={
             form.formState.isSubmitting || props.submitDisabled || disableCheck
           }
-          variant={props.ctaDanger ? "colored" : "accent"}
-          className={clsx(props.ctaDanger && "border-red-500 bg-red-500")}
           onClick={async (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
             await onSubmit?.(e);
             dialog.onSubmit?.();
             // Note: onSubmit handler should manage dialog.state.open if needed
           }}
+          size="sm"
+          type="submit"
+          variant={props.ctaDanger ? "colored" : "accent"}
         >
           {props.ctaLabel}
         </Button>
         <Button
-          type="submit"
-          size="sm"
           disabled={
             form.formState.isSubmitting || props.submitDisabled || disableCheck
           }
-          variant="accent"
           onClick={async (e: React.MouseEvent<HTMLElement>) => {
             e.preventDefault();
             await onSubmitSecond?.(e);
             dialog.onSubmit?.();
             // Note: onSubmit handler should manage dialog.state.open if needed
           }}
+          size="sm"
+          type="submit"
+          variant="accent"
         >
           {props.ctaSecondLabel}
         </Button>
       </div>
+    ) : (
+      <Button
+        disabled={
+          form.formState.isSubmitting || props.submitDisabled || disableCheck
+        }
+        onClick={async (e: React.MouseEvent<HTMLElement>) => {
+          e.preventDefault();
+          await onSubmit?.(e);
+          dialog.onSubmit?.();
+          // Note: onSubmit handler should manage dialog.state.open if needed
+        }}
+        size="sm"
+        type="submit"
+        // className={clsx(props.ctaDanger && 'border-red-500 bg-red-500')}
+        variant={props.ctaDanger ? "colored" : "accent"}
+      >
+        {props.ctaLabel}
+      </Button>
     )
   ) : null;
 
   return (
-    <RDialog.Root open={dialog.state.open} onOpenChange={setOpen}>
+    <RDialog.Root onOpenChange={setOpen} open={dialog.state.open}>
       {props.trigger && (
         <RDialog.Trigger asChild>{props.trigger}</RDialog.Trigger>
       )}
@@ -335,12 +337,17 @@ export function Dialog<S extends FieldValues>({
 
             <AnimatedDialogContent
               className="!pointer-events-none fixed inset-0 z-[103] grid place-items-center overflow-y-auto"
-              style={styles}
               onInteractOutside={(e) =>
                 props.ignoreClickOutside && e.preventDefault()
               }
+              style={styles}
             >
               <Form
+                className={clsx(
+                  "!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-xl",
+                  "border border-app-line bg-app-box text-ink shadow-app-shade",
+                  props.formClassName
+                )}
                 form={form}
                 onSubmit={async (e) => {
                   e?.preventDefault();
@@ -350,67 +357,64 @@ export function Dialog<S extends FieldValues>({
                     await onSubmit(e);
                   }
                 }}
-                className={clsx(
-                  "!pointer-events-auto my-8 min-w-[300px] max-w-[400px] rounded-xl",
-                  "border border-app-line bg-app-box text-ink shadow-app-shade",
-                  props.formClassName,
-                )}
               >
                 {!props.hideHeader && (
-                  <RDialog.Title className="flex items-center gap-2.5 border-b border-app-line bg-app-input/60 p-3 font-bold">
+                  <RDialog.Title className="flex items-center gap-2.5 border-app-line border-b bg-app-input/60 p-3 font-bold">
                     {props.icon && props.icon}
                     {props.title}
                   </RDialog.Title>
                 )}
-                <div className="p-5 flex-1 overflow-auto">
+                <div className="flex-1 overflow-auto p-5">
                   {props.description && (
-                    <RDialog.Description className="mb-2 text-sm text-ink-dull">
+                    <RDialog.Description className="mb-2 text-ink-dull text-sm">
                       {props.description}
                     </RDialog.Description>
                   )}
 
                   {props.children}
                 </div>
-                {(props.buttonsSideContent || (!props.hideButtons && (submitButton || props.cancelBtn || onCancelled))) && (
-                    <div
-                      className={clsx(
-                        "flex items-center justify-end space-x-2 border-t border-app-line bg-app-input/60 p-3",
-                      )}
-                    >
-                      {form.formState.isSubmitting && <Loader />}
-                      {props.buttonsSideContent && (
-                        <div>{props.buttonsSideContent}</div>
-                      )}
-                      <div className="grow" />
-                      {!props.hideButtons && (
-                        <div
-                          className={clsx(
-                            invertButtonFocus ? "flex-row-reverse" : "flex-row",
-                            "flex gap-2",
-                          )}
-                        >
-                          {invertButtonFocus ? (
-                            <>
-                              {submitButton}
-                              {props.cancelBtn && cancelButton}
-                              {onCancelled && closeButton}
-                            </>
-                          ) : (
-                            <>
-                              {onCancelled && closeButton}
-                              {props.cancelBtn && cancelButton}
-                              {submitButton}
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                {(props.buttonsSideContent ||
+                  (!props.hideButtons &&
+                    (submitButton || props.cancelBtn || onCancelled))) && (
+                  <div
+                    className={clsx(
+                      "flex items-center justify-end space-x-2 border-app-line border-t bg-app-input/60 p-3"
+                    )}
+                  >
+                    {form.formState.isSubmitting && <Loader />}
+                    {props.buttonsSideContent && (
+                      <div>{props.buttonsSideContent}</div>
+                    )}
+                    <div className="grow" />
+                    {!props.hideButtons && (
+                      <div
+                        className={clsx(
+                          invertButtonFocus ? "flex-row-reverse" : "flex-row",
+                          "flex gap-2"
+                        )}
+                      >
+                        {invertButtonFocus ? (
+                          <>
+                            {submitButton}
+                            {props.cancelBtn && cancelButton}
+                            {onCancelled && closeButton}
+                          </>
+                        ) : (
+                          <>
+                            {onCancelled && closeButton}
+                            {props.cancelBtn && cancelButton}
+                            {submitButton}
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </Form>
               <Remover id={dialog.id} />
             </AnimatedDialogContent>
           </RDialog.Portal>
-        ) : null,
+        ) : null
       )}
     </RDialog.Root>
   );

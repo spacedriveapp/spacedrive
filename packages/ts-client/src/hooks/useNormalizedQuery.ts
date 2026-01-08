@@ -22,73 +22,77 @@
  * ```
  */
 
-import { useEffect, useMemo, useState, useRef } from "react";
-import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
-import { useSpacedriveClient } from "./useClient";
+import {
+  type QueryClient,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+import { useEffect, useMemo, useRef, useState } from "react";
+import invariant from "tiny-invariant";
+import type { Simplify } from "type-fest";
+import * as v from "valibot";
 import type { Event } from "../generated/types";
 import type { SdPath } from "../types";
-import invariant from "tiny-invariant";
-import * as v from "valibot";
-import type { Simplify } from "type-fest";
+import { useSpacedriveClient } from "./useClient";
 
 // Types
 
 export type UseNormalizedQueryOptions<I, O = any, TSelected = O> = Simplify<{
-	/** Wire method to call (e.g., "query:files.directory_listing") */
-	wireMethod: string;
-	/** Input for the query */
-	input: I;
-	/** Resource type for event filtering (e.g., "file", "location") */
-	resourceType: string;
-	/** Whether query is enabled (default: true) */
-	enabled?: boolean;
-	/** Optional path scope for server-side filtering */
-	pathScope?: SdPath;
-	/** Whether to include descendants (recursive) or only direct children (exact) */
-	includeDescendants?: boolean;
-	/** Resource ID for single-resource queries */
-	resourceId?: string;
-	/** Enable debug logging for this query instance */
-	debug?: boolean;
-	/** Optional select function to transform query data */
-	select?: (data: O) => TSelected;
+  /** Wire method to call (e.g., "query:files.directory_listing") */
+  wireMethod: string;
+  /** Input for the query */
+  input: I;
+  /** Resource type for event filtering (e.g., "file", "location") */
+  resourceType: string;
+  /** Whether query is enabled (default: true) */
+  enabled?: boolean;
+  /** Optional path scope for server-side filtering */
+  pathScope?: SdPath;
+  /** Whether to include descendants (recursive) or only direct children (exact) */
+  includeDescendants?: boolean;
+  /** Resource ID for single-resource queries */
+  resourceId?: string;
+  /** Enable debug logging for this query instance */
+  debug?: boolean;
+  /** Optional select function to transform query data */
+  select?: (data: O) => TSelected;
 }>;
 
 // Runtime Validation Schemas (Valibot)
 
 const ResourceChangedSchema = v.object({
-	ResourceChanged: v.object({
-		resource_type: v.string(),
-		resource: v.any(),
-		metadata: v.nullish(
-			v.object({
-				no_merge_fields: v.optional(v.array(v.string())),
-				affected_paths: v.optional(v.array(v.any())),
-				alternate_ids: v.optional(v.array(v.any())),
-			}),
-		),
-	}),
+  ResourceChanged: v.object({
+    resource_type: v.string(),
+    resource: v.any(),
+    metadata: v.nullish(
+      v.object({
+        no_merge_fields: v.optional(v.array(v.string())),
+        affected_paths: v.optional(v.array(v.any())),
+        alternate_ids: v.optional(v.array(v.any())),
+      })
+    ),
+  }),
 });
 
 const ResourceChangedBatchSchema = v.object({
-	ResourceChangedBatch: v.object({
-		resource_type: v.string(),
-		resources: v.array(v.any()),
-		metadata: v.nullish(
-			v.object({
-				no_merge_fields: v.optional(v.array(v.string())),
-				affected_paths: v.optional(v.array(v.any())),
-				alternate_ids: v.optional(v.array(v.any())),
-			}),
-		),
-	}),
+  ResourceChangedBatch: v.object({
+    resource_type: v.string(),
+    resources: v.array(v.any()),
+    metadata: v.nullish(
+      v.object({
+        no_merge_fields: v.optional(v.array(v.string())),
+        affected_paths: v.optional(v.array(v.any())),
+        alternate_ids: v.optional(v.array(v.any())),
+      })
+    ),
+  }),
 });
 
 const ResourceDeletedSchema = v.object({
-	ResourceDeleted: v.object({
-		resource_type: v.string(),
-		resource_id: v.string(),
-	}),
+  ResourceDeleted: v.object({
+    resource_type: v.string(),
+    resource_id: v.string(),
+  }),
 });
 
 // Main Hook
@@ -97,135 +101,132 @@ const ResourceDeletedSchema = v.object({
  * useNormalizedQuery - Main hook
  */
 export function useNormalizedQuery<I, O = any, TSelected = O>(
-	options: UseNormalizedQueryOptions<I, O, TSelected>,
+  options: UseNormalizedQueryOptions<I, O, TSelected>
 ) {
-	const client = useSpacedriveClient();
-	const queryClient = useQueryClient();
-	const [libraryId, setLibraryId] = useState<string | null>(
-		client.getCurrentLibraryId(),
-	);
+  const client = useSpacedriveClient();
+  const queryClient = useQueryClient();
+  const [libraryId, setLibraryId] = useState<string | null>(
+    client.getCurrentLibraryId()
+  );
 
-	// Listen for library changes
-	useEffect(() => {
-		const handleLibraryChange = (newLibraryId: string) => {
-			setLibraryId(newLibraryId);
-		};
+  // Listen for library changes
+  useEffect(() => {
+    const handleLibraryChange = (newLibraryId: string) => {
+      setLibraryId(newLibraryId);
+    };
 
-		client.on("library-changed", handleLibraryChange);
-		return () => {
-			client.off("library-changed", handleLibraryChange);
-		};
-	}, [client]);
+    client.on("library-changed", handleLibraryChange);
+    return () => {
+      client.off("library-changed", handleLibraryChange);
+    };
+  }, [client]);
 
-	// Query key
-	const queryKey = useMemo(
-		() => [options.wireMethod, libraryId, options.input],
-		[options.wireMethod, libraryId, JSON.stringify(options.input)],
-	);
+  // Query key
+  const queryKey = useMemo(
+    () => [options.wireMethod, libraryId, options.input],
+    [options.wireMethod, libraryId, JSON.stringify(options.input)]
+  );
 
-	// Standard TanStack Query
-	const query = useQuery<O, Error, TSelected>({
-		queryKey,
-		queryFn: async () => {
-			invariant(libraryId, "Library ID must be set before querying");
-			return await client.execute<I, O>(
-				options.wireMethod,
-				options.input,
-			);
-		},
-		enabled: (options.enabled ?? true) && !!libraryId,
-		select: options.select,
-	});
+  // Standard TanStack Query
+  const query = useQuery<O, Error, TSelected>({
+    queryKey,
+    queryFn: async () => {
+      invariant(libraryId, "Library ID must be set before querying");
+      return await client.execute<I, O>(options.wireMethod, options.input);
+    },
+    enabled: (options.enabled ?? true) && !!libraryId,
+    select: options.select,
+  });
 
-	// Refs for stable access to latest values without triggering re-subscription
-	const optionsRef = useRef(options);
-	const queryKeyRef = useRef(queryKey);
+  // Refs for stable access to latest values without triggering re-subscription
+  const optionsRef = useRef(options);
+  const queryKeyRef = useRef(queryKey);
 
-	// Update refs on every render
-	useEffect(() => {
-		optionsRef.current = options;
-		queryKeyRef.current = queryKey;
-	});
+  // Update refs on every render
+  useEffect(() => {
+    optionsRef.current = options;
+    queryKeyRef.current = queryKey;
+  });
 
-	// Serialize pathScope for deep comparison in dependency array
-	// This ensures subscription re-runs when path changes, even if object reference stays same
-	const pathScopeSerialized = useMemo(
-		() => JSON.stringify(options.pathScope),
-		[options.pathScope],
-	);
+  // Serialize pathScope for deep comparison in dependency array
+  // This ensures subscription re-runs when path changes, even if object reference stays same
+  const pathScopeSerialized = useMemo(
+    () => JSON.stringify(options.pathScope),
+    [options.pathScope]
+  );
 
-	// Event subscription
-	// Only re-subscribe when filter criteria change
-	// Using refs for event handler to avoid re-subscription on every render
-	useEffect(() => {
-		if (!libraryId) return;
+  // Event subscription
+  // Only re-subscribe when filter criteria change
+  // Using refs for event handler to avoid re-subscription on every render
+  useEffect(() => {
+    if (!libraryId) return;
 
-		// Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
-		// File resources are too numerous - global subscriptions cause massive event spam
-		// Single-file queries (FileInspector) will use stale-while-revalidate instead
-		if (options.resourceType === "file" && !options.pathScope) {
-			return;
-		}
+    // Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
+    // File resources are too numerous - global subscriptions cause massive event spam
+    // Single-file queries (FileInspector) will use stale-while-revalidate instead
+    if (options.resourceType === "file" && !options.pathScope) {
+      return;
+    }
 
-		let unsubscribe: (() => void) | undefined;
-		let isCancelled = false;
+    let unsubscribe: (() => void) | undefined;
+    let isCancelled = false;
 
-		// Capture current pathScope in closure to prevent stale events from updating wrong query
-		const capturedPathScope = options.pathScope;
-		const capturedQueryKey = queryKey;
+    // Capture current pathScope in closure to prevent stale events from updating wrong query
+    const capturedPathScope = options.pathScope;
+    const capturedQueryKey = queryKey;
 
-		const handleEvent = (event: Event) => {
-			// Guard: only process events if pathScope hasn't changed since subscription
-			if (
-				JSON.stringify(optionsRef.current.pathScope) !==
-				JSON.stringify(capturedPathScope)
-			) {
-				return;
-			}
+    const handleEvent = (event: Event) => {
+      // Guard: only process events if pathScope hasn't changed since subscription
+      if (
+        JSON.stringify(optionsRef.current.pathScope) !==
+        JSON.stringify(capturedPathScope)
+      ) {
+        return;
+      }
 
-			handleResourceEvent(
-				event,
-				optionsRef.current,
-				capturedQueryKey, // Use captured queryKey, not ref
-				queryClient,
-				optionsRef.current.debug, // Pass debug flag
-			);
-		};
+      handleResourceEvent(
+        event,
+        optionsRef.current,
+        capturedQueryKey, // Use captured queryKey, not ref
+        queryClient,
+        optionsRef.current.debug // Pass debug flag
+      );
+    };
 
-		client
-			.subscribeFiltered(
-				{
-					resource_type: options.resourceType,
-					path_scope: options.pathScope,
-					library_id: libraryId,
-					include_descendants: options.includeDescendants ?? false,
-				},
-				handleEvent,
-			)
-			.then((unsub) => {
-				if (isCancelled) {
-					unsub();
-				} else {
-					unsubscribe = unsub;
-				}
-			});
+    client
+      .subscribeFiltered(
+        {
+          resource_type: options.resourceType,
+          path_scope: options.pathScope,
+          library_id: libraryId,
+          include_descendants: options.includeDescendants ?? false,
+        },
+        handleEvent
+      )
+      .then((unsub) => {
+        if (isCancelled) {
+          unsub();
+        } else {
+          unsubscribe = unsub;
+        }
+      });
 
-		return () => {
-			isCancelled = true;
-			unsubscribe?.();
-		};
-	}, [
-		client,
-		queryClient,
-		options.resourceType,
-		options.resourceId,
-		pathScopeSerialized, // Use serialized version for deep comparison
-		options.includeDescendants,
-		libraryId,
-		// options and queryKey accessed via refs - don't need to be in deps
-	]);
+    return () => {
+      isCancelled = true;
+      unsubscribe?.();
+    };
+  }, [
+    client,
+    queryClient,
+    options.resourceType,
+    options.resourceId,
+    pathScopeSerialized, // Use serialized version for deep comparison
+    options.includeDescendants,
+    libraryId,
+    // options and queryKey accessed via refs - don't need to be in deps
+  ]);
 
-	return query;
+  return query;
 }
 
 // Event Handling
@@ -237,103 +238,87 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
  * Exported for testing.
  */
 export function handleResourceEvent(
-	event: Event,
-	options: UseNormalizedQueryOptions<any>,
-	queryKey: any[],
-	queryClient: QueryClient,
-	debug?: boolean,
+  event: Event,
+  options: UseNormalizedQueryOptions<any>,
+  queryKey: any[],
+  queryClient: QueryClient,
+  debug?: boolean
 ) {
-	// Skip string events (like "CoreStarted", "CoreShutdown")
-	if (typeof event === "string") {
-		return;
-	}
+  // Skip string events (like "CoreStarted", "CoreShutdown")
+  if (typeof event === "string") {
+    return;
+  }
 
-	// Refresh event - invalidate all queries
-	if ("Refresh" in event) {
-		if (debug) {
-			console.log(
-				`[useNormalizedQuery] ${options.wireMethod} processing Refresh`,
-				event,
-			);
-		}
-		queryClient.invalidateQueries();
-		return;
-	}
+  // Refresh event - invalidate all queries
+  if ("Refresh" in event) {
+    if (debug) {
+      console.log(
+        `[useNormalizedQuery] ${options.wireMethod} processing Refresh`,
+        event
+      );
+    }
+    queryClient.invalidateQueries();
+    return;
+  }
 
-	// Single resource changed - validate and process
-	if ("ResourceChanged" in event) {
-		const result = v.safeParse(ResourceChangedSchema, event);
-		if (!result.success) {
-			return;
-		}
+  // Single resource changed - validate and process
+  if ("ResourceChanged" in event) {
+    const result = v.safeParse(ResourceChangedSchema, event);
+    if (!result.success) {
+      return;
+    }
 
-		const { resource_type, resource, metadata } =
-			result.output.ResourceChanged;
-		if (resource_type === options.resourceType) {
-			if (debug) {
-				console.log(
-					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChanged`,
-					event,
-				);
-			}
-			updateSingleResource(
-				resource,
-				metadata,
-				queryKey,
-				queryClient,
-				options,
-			);
-		}
-	}
+    const { resource_type, resource, metadata } = result.output.ResourceChanged;
+    if (resource_type === options.resourceType) {
+      if (debug) {
+        console.log(
+          `[useNormalizedQuery] ${options.wireMethod} processing ResourceChanged`,
+          event
+        );
+      }
+      updateSingleResource(resource, metadata, queryKey, queryClient, options);
+    }
+  }
 
-	// Batch resource changed - validate and process
-	else if ("ResourceChangedBatch" in event) {
-		const result = v.safeParse(ResourceChangedBatchSchema, event);
-		if (!result.success) {
-			return;
-		}
+  // Batch resource changed - validate and process
+  else if ("ResourceChangedBatch" in event) {
+    const result = v.safeParse(ResourceChangedBatchSchema, event);
+    if (!result.success) {
+      return;
+    }
 
-		const { resource_type, resources, metadata } =
-			result.output.ResourceChangedBatch;
+    const { resource_type, resources, metadata } =
+      result.output.ResourceChangedBatch;
 
-		if (
-			resource_type === options.resourceType &&
-			Array.isArray(resources)
-		) {
-			if (debug) {
-				console.log(
-					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChangedBatch`,
-					event,
-				);
-			}
-			updateBatchResources(
-				resources,
-				metadata,
-				options,
-				queryKey,
-				queryClient,
-			);
-		}
-	}
+    if (resource_type === options.resourceType && Array.isArray(resources)) {
+      if (debug) {
+        console.log(
+          `[useNormalizedQuery] ${options.wireMethod} processing ResourceChangedBatch`,
+          event
+        );
+      }
+      updateBatchResources(resources, metadata, options, queryKey, queryClient);
+    }
+  }
 
-	// Resource deleted - validate and process
-	else if ("ResourceDeleted" in event) {
-		const result = v.safeParse(ResourceDeletedSchema, event);
-		if (!result.success) {
-			return;
-		}
+  // Resource deleted - validate and process
+  else if ("ResourceDeleted" in event) {
+    const result = v.safeParse(ResourceDeletedSchema, event);
+    if (!result.success) {
+      return;
+    }
 
-		const { resource_type, resource_id } = result.output.ResourceDeleted;
-		if (resource_type === options.resourceType) {
-			if (debug) {
-				console.log(
-					`[useNormalizedQuery] ${options.wireMethod} processing ResourceDeleted`,
-					event,
-				);
-			}
-			deleteResource(resource_id, queryKey, queryClient);
-		}
-	}
+    const { resource_type, resource_id } = result.output.ResourceDeleted;
+    if (resource_type === options.resourceType) {
+      if (debug) {
+        console.log(
+          `[useNormalizedQuery] ${options.wireMethod} processing ResourceDeleted`,
+          event
+        );
+      }
+      deleteResource(resource_id, queryKey, queryClient);
+    }
+  }
 }
 
 // Batch Filtering
@@ -363,63 +348,61 @@ export function handleResourceEvent(
  * Exported for testing
  */
 export function filterBatchResources(
-	resources: any[],
-	options: UseNormalizedQueryOptions<any>,
+  resources: any[],
+  options: UseNormalizedQueryOptions<any>
 ): any[] {
-	let filtered = resources;
+  let filtered = resources;
 
-	// Filter by resourceId (single-resource queries like file inspector)
-	if (options.resourceId) {
-		filtered = filtered.filter((r: any) => r.id === options.resourceId);
-	}
+  // Filter by resourceId (single-resource queries like file inspector)
+  if (options.resourceId) {
+    filtered = filtered.filter((r: any) => r.id === options.resourceId);
+  }
 
-	// Filter by pathScope for file resources in exact mode
-	if (
-		options.pathScope &&
-		options.resourceType === "file" &&
-		!options.includeDescendants
-	) {
-		const beforeCount = filtered.length;
-		filtered = filtered.filter((resource: any) => {
-			// Get the scope path (must be Physical)
-			const scopeStr = (options.pathScope as any).Physical?.path;
-			if (!scopeStr) {
-				return false; // No Physical scope path
-			}
+  // Filter by pathScope for file resources in exact mode
+  if (
+    options.pathScope &&
+    options.resourceType === "file" &&
+    !options.includeDescendants
+  ) {
+    const beforeCount = filtered.length;
+    filtered = filtered.filter((resource: any) => {
+      // Get the scope path (must be Physical)
+      const scopeStr = (options.pathScope as any).Physical?.path;
+      if (!scopeStr) {
+        return false; // No Physical scope path
+      }
 
-			// Normalize scope: remove trailing slashes for consistent comparison
-			const normalizedScope = String(scopeStr).replace(/\/+$/, "");
+      // Normalize scope: remove trailing slashes for consistent comparison
+      const normalizedScope = String(scopeStr).replace(/\/+$/, "");
 
-			// Try to find a Physical path - check alternate_paths first, then sd_path
-			const alternatePaths = resource.alternate_paths || [];
-			const physicalFromAlternate = alternatePaths.find(
-				(p: any) => p.Physical,
-			);
-			const physicalFromSdPath = resource.sd_path?.Physical;
+      // Try to find a Physical path - check alternate_paths first, then sd_path
+      const alternatePaths = resource.alternate_paths || [];
+      const physicalFromAlternate = alternatePaths.find((p: any) => p.Physical);
+      const physicalFromSdPath = resource.sd_path?.Physical;
 
-			const physicalPath =
-				physicalFromAlternate?.Physical || physicalFromSdPath;
+      const physicalPath =
+        physicalFromAlternate?.Physical || physicalFromSdPath;
 
-			if (!physicalPath?.path) {
-				return false; // No physical path found
-			}
+      if (!physicalPath?.path) {
+        return false; // No physical path found
+      }
 
-			const pathStr = String(physicalPath.path);
+      const pathStr = String(physicalPath.path);
 
-			// Extract parent directory from file path
-			const lastSlash = pathStr.lastIndexOf("/");
-			if (lastSlash === -1) {
-				return false; // File path has no parent directory
-			}
+      // Extract parent directory from file path
+      const lastSlash = pathStr.lastIndexOf("/");
+      if (lastSlash === -1) {
+        return false; // File path has no parent directory
+      }
 
-			const parentDir = pathStr.substring(0, lastSlash);
+      const parentDir = pathStr.substring(0, lastSlash);
 
-			// Only match if parent equals scope (normalized)
-			return parentDir === normalizedScope;
-		});
-	}
+      // Only match if parent equals scope (normalized)
+      return parentDir === normalizedScope;
+    });
+  }
 
-	return filtered;
+  return filtered;
 }
 
 // Cache Update Functions
@@ -430,50 +413,42 @@ export function filterBatchResources(
  * Exported for testing
  */
 export function updateSingleResource<O>(
-	resource: any,
-	metadata: any,
-	queryKey: any[],
-	queryClient: QueryClient,
-	options?: UseNormalizedQueryOptions<any>,
+  resource: any,
+  metadata: any,
+  queryKey: any[],
+  queryClient: QueryClient,
+  options?: UseNormalizedQueryOptions<any>
 ) {
-	const noMergeFields = metadata?.no_merge_fields || [];
+  const noMergeFields = metadata?.no_merge_fields || [];
 
-	// Apply client-side filtering if options provided (same as batch)
-	let resourcesToUpdate = [resource];
-	if (options) {
-		resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
-		if (resourcesToUpdate.length === 0) {
-			// Resource was filtered out - may have moved out of scope, remove from cache
-			if (resource.id) {
-				deleteResource(resource.id, queryKey, queryClient);
-			}
-			return;
-		}
-	}
+  // Apply client-side filtering if options provided (same as batch)
+  let resourcesToUpdate = [resource];
+  if (options) {
+    resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
+    if (resourcesToUpdate.length === 0) {
+      // Resource was filtered out - may have moved out of scope, remove from cache
+      if (resource.id) {
+        deleteResource(resource.id, queryKey, queryClient);
+      }
+      return;
+    }
+  }
 
-	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
-		if (!oldData) return oldData;
+  queryClient.setQueryData<O>(queryKey, (oldData: any) => {
+    if (!oldData) return oldData;
 
-		// Handle array responses
-		if (Array.isArray(oldData)) {
-			return updateArrayCache(
-				oldData,
-				resourcesToUpdate,
-				noMergeFields,
-			) as O;
-		}
+    // Handle array responses
+    if (Array.isArray(oldData)) {
+      return updateArrayCache(oldData, resourcesToUpdate, noMergeFields) as O;
+    }
 
-		// Handle wrapped responses { files: [...] }
-		if (oldData && typeof oldData === "object") {
-			return updateWrappedCache(
-				oldData,
-				resourcesToUpdate,
-				noMergeFields,
-			) as O;
-		}
+    // Handle wrapped responses { files: [...] }
+    if (oldData && typeof oldData === "object") {
+      return updateWrappedCache(oldData, resourcesToUpdate, noMergeFields) as O;
+    }
 
-		return oldData;
-	});
+    return oldData;
+  });
 }
 
 /**
@@ -482,51 +457,43 @@ export function updateSingleResource<O>(
  * Exported for testing
  */
 export function updateBatchResources<O>(
-	resources: any[],
-	metadata: any,
-	options: UseNormalizedQueryOptions<any>,
-	queryKey: any[],
-	queryClient: QueryClient,
+  resources: any[],
+  metadata: any,
+  options: UseNormalizedQueryOptions<any>,
+  queryKey: any[],
+  queryClient: QueryClient
 ) {
-	const noMergeFields = metadata?.no_merge_fields || [];
+  const noMergeFields = metadata?.no_merge_fields || [];
 
-	// Apply client-side filtering (safety fallback)
-	const filteredResources = filterBatchResources(resources, options);
+  // Apply client-side filtering (safety fallback)
+  const filteredResources = filterBatchResources(resources, options);
 
-	// If all resources were filtered out, they may have moved OUT of scope
-	// Remove them from cache if they exist (handles file moves out of current view)
-	if (filteredResources.length === 0) {
-		for (const resource of resources) {
-			if (resource.id) {
-				deleteResource(resource.id, queryKey, queryClient);
-			}
-		}
-		return;
-	}
+  // If all resources were filtered out, they may have moved OUT of scope
+  // Remove them from cache if they exist (handles file moves out of current view)
+  if (filteredResources.length === 0) {
+    for (const resource of resources) {
+      if (resource.id) {
+        deleteResource(resource.id, queryKey, queryClient);
+      }
+    }
+    return;
+  }
 
-	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
-		if (!oldData) return oldData;
+  queryClient.setQueryData<O>(queryKey, (oldData: any) => {
+    if (!oldData) return oldData;
 
-		// Handle array responses
-		if (Array.isArray(oldData)) {
-			return updateArrayCache(
-				oldData,
-				filteredResources,
-				noMergeFields,
-			) as O;
-		}
+    // Handle array responses
+    if (Array.isArray(oldData)) {
+      return updateArrayCache(oldData, filteredResources, noMergeFields) as O;
+    }
 
-		// Handle wrapped responses { files: [...] }
-		if (oldData && typeof oldData === "object") {
-			return updateWrappedCache(
-				oldData,
-				filteredResources,
-				noMergeFields,
-			) as O;
-		}
+    // Handle wrapped responses { files: [...] }
+    if (oldData && typeof oldData === "object") {
+      return updateWrappedCache(oldData, filteredResources, noMergeFields) as O;
+    }
 
-		return oldData;
-	});
+    return oldData;
+  });
 }
 
 /**
@@ -535,34 +502,34 @@ export function updateBatchResources<O>(
  * Exported for testing
  */
 export function deleteResource<O>(
-	resourceId: string,
-	queryKey: any[],
-	queryClient: QueryClient,
+  resourceId: string,
+  queryKey: any[],
+  queryClient: QueryClient
 ) {
-	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
-		if (!oldData) return oldData;
+  queryClient.setQueryData<O>(queryKey, (oldData: any) => {
+    if (!oldData) return oldData;
 
-		if (Array.isArray(oldData)) {
-			return oldData.filter((item: any) => item.id !== resourceId) as O;
-		}
+    if (Array.isArray(oldData)) {
+      return oldData.filter((item: any) => item.id !== resourceId) as O;
+    }
 
-		if (oldData && typeof oldData === "object") {
-			const arrayField = Object.keys(oldData).find((key) =>
-				Array.isArray((oldData as any)[key]),
-			);
+    if (oldData && typeof oldData === "object") {
+      const arrayField = Object.keys(oldData).find((key) =>
+        Array.isArray((oldData as any)[key])
+      );
 
-			if (arrayField) {
-				return {
-					...oldData,
-					[arrayField]: (oldData as any)[arrayField].filter(
-						(item: any) => item.id !== resourceId,
-					),
-				};
-			}
-		}
+      if (arrayField) {
+        return {
+          ...oldData,
+          [arrayField]: (oldData as any)[arrayField].filter(
+            (item: any) => item.id !== resourceId
+          ),
+        };
+      }
+    }
 
-		return oldData;
-	});
+    return oldData;
+  });
 }
 
 // Cache Update Helpers
@@ -571,177 +538,176 @@ export function deleteResource<O>(
  * Update array cache (direct array response)
  */
 function updateArrayCache(
-	oldData: any[],
-	newResources: any[],
-	noMergeFields: string[],
+  oldData: any[],
+  newResources: any[],
+  noMergeFields: string[]
 ): any[] {
-	const newData = [...oldData];
-	const seenIds = new Set();
+  const newData = [...oldData];
+  const seenIds = new Set();
 
-	// Update existing items by ID
-	for (let i = 0; i < newData.length; i++) {
-		const item: any = newData[i];
-		const match = newResources.find((r: any) => r.id === item.id);
-		if (match) {
-			newData[i] = safeMerge(item, match, noMergeFields);
-			seenIds.add(match.id);
-		}
-	}
+  // Update existing items by ID
+  for (let i = 0; i < newData.length; i++) {
+    const item: any = newData[i];
+    const match = newResources.find((r: any) => r.id === item.id);
+    if (match) {
+      newData[i] = safeMerge(item, match, noMergeFields);
+      seenIds.add(match.id);
+    }
+  }
 
-	// Handle Content entries that represent the same file as an existing Physical entry
-	// When content identification happens, a new Content entry is created with a different ID
-	// We need to merge it into the existing Physical entry by matching paths
-	for (const resource of newResources) {
-		if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
-			// Try to find existing Physical entry by matching alternate_paths
-			const physicalPath = resource.alternate_paths?.find(
-				(p: any) => p.Physical,
-			)?.Physical?.path;
-			if (physicalPath) {
-				const existingIndex = newData.findIndex((item: any) => {
-					const itemPath =
-						item.sd_path?.Physical?.path ||
-						item.alternate_paths?.find((p: any) => p.Physical)
-							?.Physical?.path;
-					return itemPath === physicalPath;
-				});
+  // Handle Content entries that represent the same file as an existing Physical entry
+  // When content identification happens, a new Content entry is created with a different ID
+  // We need to merge it into the existing Physical entry by matching paths
+  for (const resource of newResources) {
+    if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+      // Try to find existing Physical entry by matching alternate_paths
+      const physicalPath = resource.alternate_paths?.find(
+        (p: any) => p.Physical
+      )?.Physical?.path;
+      if (physicalPath) {
+        const existingIndex = newData.findIndex((item: any) => {
+          const itemPath =
+            item.sd_path?.Physical?.path ||
+            item.alternate_paths?.find((p: any) => p.Physical)?.Physical?.path;
+          return itemPath === physicalPath;
+        });
 
-				if (existingIndex !== -1) {
-					// Merge Content entry into existing Physical entry
-					newData[existingIndex] = safeMerge(
-						newData[existingIndex],
-						resource,
-						noMergeFields,
-					);
-					seenIds.add(resource.id);
-				}
-			}
-		}
-	}
+        if (existingIndex !== -1) {
+          // Merge Content entry into existing Physical entry
+          newData[existingIndex] = safeMerge(
+            newData[existingIndex],
+            resource,
+            noMergeFields
+          );
+          seenIds.add(resource.id);
+        }
+      }
+    }
+  }
 
-	// Append new items (excluding Content paths that didn't match an existing entry)
-	for (const resource of newResources) {
-		if (!seenIds.has(resource.id)) {
-			// For Content paths: only add if they don't belong to an existing Physical entry
-			// Content paths without matching Physical entries are either:
-			// 1. Files moved into this directory (have alternate_paths but no match) → ADD
-			// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
-			if (resource.sd_path?.Content) {
-				// Skip if no alternate_paths (pure metadata update)
-				if (
-					!resource.alternate_paths ||
-					resource.alternate_paths.length === 0
-				) {
-					continue;
-				}
-				// Otherwise, this is a real file that belongs here - add it
-			}
-			newData.push(resource);
-		}
-	}
+  // Append new items (excluding Content paths that didn't match an existing entry)
+  for (const resource of newResources) {
+    if (!seenIds.has(resource.id)) {
+      // For Content paths: only add if they don't belong to an existing Physical entry
+      // Content paths without matching Physical entries are either:
+      // 1. Files moved into this directory (have alternate_paths but no match) → ADD
+      // 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
+      if (resource.sd_path?.Content) {
+        // Skip if no alternate_paths (pure metadata update)
+        if (
+          !resource.alternate_paths ||
+          resource.alternate_paths.length === 0
+        ) {
+          continue;
+        }
+        // Otherwise, this is a real file that belongs here - add it
+      }
+      newData.push(resource);
+    }
+  }
 
-	return newData;
+  return newData;
 }
 
 /**
  * Update wrapped cache ({ files: [...], locations: [...], etc. })
  */
 function updateWrappedCache(
-	oldData: any,
-	newResources: any[],
-	noMergeFields: string[],
+  oldData: any,
+  newResources: any[],
+  noMergeFields: string[]
 ): any {
-	// First check: if oldData has an id that matches incoming, merge directly
-	// This handles single object responses like files.by_id
-	const match = newResources.find((r: any) => r.id === oldData.id);
-	if (match) {
-		return safeMerge(oldData, match, noMergeFields);
-	}
+  // First check: if oldData has an id that matches incoming, merge directly
+  // This handles single object responses like files.by_id
+  const match = newResources.find((r: any) => r.id === oldData.id);
+  if (match) {
+    return safeMerge(oldData, match, noMergeFields);
+  }
 
-	// Second check: wrapped responses like { files: [...] }
-	const arrayField = Object.keys(oldData).find((key) =>
-		Array.isArray(oldData[key]),
-	);
+  // Second check: wrapped responses like { files: [...] }
+  const arrayField = Object.keys(oldData).find((key) =>
+    Array.isArray(oldData[key])
+  );
 
-	if (arrayField) {
-		const array = [...oldData[arrayField]];
-		const seenIds = new Set();
+  if (arrayField) {
+    const array = [...oldData[arrayField]];
+    const seenIds = new Set();
 
-		// Update existing by ID
-		for (let i = 0; i < array.length; i++) {
-			const item: any = array[i];
-			const match = newResources.find((r: any) => r.id === item.id);
-			if (match) {
-				array[i] = safeMerge(item, match, noMergeFields);
-				seenIds.add(match.id);
-			}
-		}
+    // Update existing by ID
+    for (let i = 0; i < array.length; i++) {
+      const item: any = array[i];
+      const match = newResources.find((r: any) => r.id === item.id);
+      if (match) {
+        array[i] = safeMerge(item, match, noMergeFields);
+        seenIds.add(match.id);
+      }
+    }
 
-		// Handle Content entries that represent the same file as an existing Physical entry
-		for (const resource of newResources) {
-			if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
-				// Try to find existing Physical entry by matching alternate_paths
-				const physicalPath = resource.alternate_paths?.find(
-					(p: any) => p.Physical,
-				)?.Physical?.path;
-				if (physicalPath) {
-					const existingIndex = array.findIndex((item: any) => {
-						const itemPath =
-							item.sd_path?.Physical?.path ||
-							item.alternate_paths?.find((p: any) => p.Physical)
-								?.Physical?.path;
-						return itemPath === physicalPath;
-					});
+    // Handle Content entries that represent the same file as an existing Physical entry
+    for (const resource of newResources) {
+      if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+        // Try to find existing Physical entry by matching alternate_paths
+        const physicalPath = resource.alternate_paths?.find(
+          (p: any) => p.Physical
+        )?.Physical?.path;
+        if (physicalPath) {
+          const existingIndex = array.findIndex((item: any) => {
+            const itemPath =
+              item.sd_path?.Physical?.path ||
+              item.alternate_paths?.find((p: any) => p.Physical)?.Physical
+                ?.path;
+            return itemPath === physicalPath;
+          });
 
-					if (existingIndex !== -1) {
-						// Merge Content entry into existing Physical entry
-						array[existingIndex] = safeMerge(
-							array[existingIndex],
-							resource,
-							noMergeFields,
-						);
-						seenIds.add(resource.id);
-					}
-				}
-			}
-		}
+          if (existingIndex !== -1) {
+            // Merge Content entry into existing Physical entry
+            array[existingIndex] = safeMerge(
+              array[existingIndex],
+              resource,
+              noMergeFields
+            );
+            seenIds.add(resource.id);
+          }
+        }
+      }
+    }
 
-		// Append new items (excluding Content paths that didn't match an existing entry)
-		for (const resource of newResources) {
-			if (!seenIds.has(resource.id)) {
-				// For Content paths: only add if they don't belong to an existing Physical entry
-				// Content paths without matching Physical entries are either:
-				// 1. Files moved into this directory (have alternate_paths but no match) → ADD
-				// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
-				if (resource.sd_path?.Content) {
-					// Skip if no alternate_paths (pure metadata update)
-					if (
-						!resource.alternate_paths ||
-						resource.alternate_paths.length === 0
-					) {
-						continue;
-					}
-					// Otherwise, this is a real file that belongs here - add it
-				}
+    // Append new items (excluding Content paths that didn't match an existing entry)
+    for (const resource of newResources) {
+      if (!seenIds.has(resource.id)) {
+        // For Content paths: only add if they don't belong to an existing Physical entry
+        // Content paths without matching Physical entries are either:
+        // 1. Files moved into this directory (have alternate_paths but no match) → ADD
+        // 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
+        if (resource.sd_path?.Content) {
+          // Skip if no alternate_paths (pure metadata update)
+          if (
+            !resource.alternate_paths ||
+            resource.alternate_paths.length === 0
+          ) {
+            continue;
+          }
+          // Otherwise, this is a real file that belongs here - add it
+        }
 
-				// Check if resource already exists in the array (by ID)
-				const alreadyExists = array.some(
-					(item: any) => item.id === resource.id,
-				);
+        // Check if resource already exists in the array (by ID)
+        const alreadyExists = array.some(
+          (item: any) => item.id === resource.id
+        );
 
-				if (alreadyExists) {
-					continue;
-				}
+        if (alreadyExists) {
+          continue;
+        }
 
-				// New resource - append it
-				array.push(resource);
-			}
-		}
+        // New resource - append it
+        array.push(resource);
+      }
+    }
 
-		return { ...oldData, [arrayField]: array };
-	}
+    return { ...oldData, [arrayField]: array };
+  }
 
-	return oldData;
+  return oldData;
 }
 
 /**
@@ -757,47 +723,45 @@ function updateWrappedCache(
  * Exported for testing
  */
 export function safeMerge(
-	existing: any,
-	incoming: any,
-	noMergeFields: string[] = [],
+  existing: any,
+  incoming: any,
+  noMergeFields: string[] = []
 ): any {
-	// Handle null/undefined
-	if (incoming === null || incoming === undefined) {
-		return existing !== null && existing !== undefined
-			? existing
-			: incoming;
-	}
+  // Handle null/undefined
+  if (incoming === null || incoming === undefined) {
+    return existing !== null && existing !== undefined ? existing : incoming;
+  }
 
-	// Shallow merge with incoming winning, but deep merge nested objects
-	const result: any = { ...existing };
+  // Shallow merge with incoming winning, but deep merge nested objects
+  const result: any = { ...existing };
 
-	for (const key of Object.keys(incoming)) {
-		const incomingVal = incoming[key];
-		const existingVal = existing[key];
+  for (const key of Object.keys(incoming)) {
+    const incomingVal = incoming[key];
+    const existingVal = existing[key];
 
-		// noMergeFields: incoming always wins
-		if (noMergeFields.includes(key)) {
-			result[key] = incomingVal;
-		}
-		// Arrays: replace entirely (don't concatenate)
-		else if (Array.isArray(incomingVal)) {
-			result[key] = incomingVal;
-		}
-		// Nested objects: deep merge recursively
-		else if (
-			incomingVal !== null &&
-			typeof incomingVal === "object" &&
-			existingVal !== null &&
-			typeof existingVal === "object" &&
-			!Array.isArray(existingVal)
-		) {
-			result[key] = safeMerge(existingVal, incomingVal, noMergeFields);
-		}
-		// Primitives: incoming wins
-		else {
-			result[key] = incomingVal;
-		}
-	}
+    // noMergeFields: incoming always wins
+    if (noMergeFields.includes(key)) {
+      result[key] = incomingVal;
+    }
+    // Arrays: replace entirely (don't concatenate)
+    else if (Array.isArray(incomingVal)) {
+      result[key] = incomingVal;
+    }
+    // Nested objects: deep merge recursively
+    else if (
+      incomingVal !== null &&
+      typeof incomingVal === "object" &&
+      existingVal !== null &&
+      typeof existingVal === "object" &&
+      !Array.isArray(existingVal)
+    ) {
+      result[key] = safeMerge(existingVal, incomingVal, noMergeFields);
+    }
+    // Primitives: incoming wins
+    else {
+      result[key] = incomingVal;
+    }
+  }
 
-	return result;
+  return result;
 }

@@ -1,17 +1,18 @@
-'use client';
+"use client";
 
-import * as Radix from '@radix-ui/react-popover';
-import clsx from 'clsx';
-import React, { useEffect, useRef, useState } from 'react';
-import { useKeys } from 'rooks';
+import * as Radix from "@radix-ui/react-popover";
+import clsx from "clsx";
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import { useKeys } from "rooks";
 
-import { tw } from './utils';
+import { tw } from "./utils";
 
 interface Props extends Radix.PopoverContentProps {
-	trigger: React.ReactNode;
-	disabled?: boolean;
-	keybind?: string[];
-	popover: ReturnType<typeof usePopover>;
+  trigger: React.ReactNode;
+  disabled?: boolean;
+  keybind?: string[];
+  popover: ReturnType<typeof usePopover>;
 }
 
 export const PopoverContainer = tw.div`flex flex-col p-1.5`;
@@ -19,61 +20,69 @@ export const PopoverSection = tw.div`flex flex-col`;
 export const PopoverDivider = tw.div`my-2 border-b border-app-line`;
 
 export function usePopover() {
-	const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);
 
-	return { open, setOpen };
+  return { open, setOpen };
 }
 
-export const Popover = ({ popover, trigger, children, disabled, className, ...props }: Props) => {
-	const triggerRef = useRef<HTMLButtonElement>(null);
+export const Popover = ({
+  popover,
+  trigger,
+  children,
+  disabled,
+  className,
+  ...props
+}: Props) => {
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
-	const { setOpen } = popover;
+  const { setOpen } = popover;
 
-	useKeys(props.keybind ?? [], (e) => {
-		if (!props.keybind) return;
-		e.stopPropagation();
-		setOpen((o) => !o);
-	});
+  useKeys(props.keybind ?? [], (e) => {
+    if (!props.keybind) return;
+    e.stopPropagation();
+    setOpen((o) => !o);
+  });
 
-	useEffect(() => {
-		const onResize = () => {
-			if (triggerRef.current && triggerRef.current.offsetWidth === 0) setOpen(false);
-		};
+  useEffect(() => {
+    const onResize = () => {
+      if (triggerRef.current && triggerRef.current.offsetWidth === 0)
+        setOpen(false);
+    };
 
-		window.addEventListener('resize', onResize);
-		return () => {
-			window.removeEventListener('resize', onResize);
-		};
-	}, [setOpen]);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+    };
+  }, [setOpen]);
 
-	return (
-		<Radix.Root open={popover.open} onOpenChange={setOpen}>
-			<Radix.Trigger ref={triggerRef} disabled={disabled} asChild>
-				{trigger}
-			</Radix.Trigger>
+  return (
+    <Radix.Root onOpenChange={setOpen} open={popover.open}>
+      <Radix.Trigger asChild disabled={disabled} ref={triggerRef}>
+        {trigger}
+      </Radix.Trigger>
 
-			<Radix.Portal>
-				<Radix.Content
-					onOpenAutoFocus={(event) => event.preventDefault()}
-					onCloseAutoFocus={(event) => event.preventDefault()}
-					className={clsx(
-						'flex flex-col',
-						'z-[9999] m-2 min-w-44',
-						'cursor-default select-none rounded-lg',
-						'text-left text-sm text-ink',
-						'bg-app-overlay',
-						'border border-app-line',
-						'shadow-2xl',
-						'radix-state-closed:animate-out radix-state-closed:fade-out-0',
-						className
-					)}
-					{...props}
-				>
-					{children}
-				</Radix.Content>
-			</Radix.Portal>
-		</Radix.Root>
-	);
+      <Radix.Portal>
+        <Radix.Content
+          className={clsx(
+            "flex flex-col",
+            "z-[9999] m-2 min-w-44",
+            "cursor-default select-none rounded-lg",
+            "text-left text-ink text-sm",
+            "bg-app-overlay",
+            "border border-app-line",
+            "shadow-2xl",
+            "radix-state-closed:fade-out-0 radix-state-closed:animate-out",
+            className
+          )}
+          onCloseAutoFocus={(event) => event.preventDefault()}
+          onOpenAutoFocus={(event) => event.preventDefault()}
+          {...props}
+        >
+          {children}
+        </Radix.Content>
+      </Radix.Portal>
+    </Radix.Root>
+  );
 };
 
-export { Close as PopoverClose } from '@radix-ui/react-popover';
+export { Close as PopoverClose } from "@radix-ui/react-popover";

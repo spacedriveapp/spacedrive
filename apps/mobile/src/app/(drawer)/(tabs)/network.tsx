@@ -1,11 +1,10 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import { Text, View } from "react-native";
 
 export default function NetworkScreen() {
   return (
-    <View className="flex-1 bg-sidebar items-center justify-center">
+    <View className="flex-1 items-center justify-center bg-sidebar">
       <Text className="text-ink text-xl">Network</Text>
-      <Text className="text-ink-dull text-sm mt-2">Coming soon</Text>
+      <Text className="mt-2 text-ink-dull text-sm">Coming soon</Text>
     </View>
   );
 }

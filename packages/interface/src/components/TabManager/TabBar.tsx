@@ -1,85 +1,82 @@
-import clsx from "clsx";
-import { motion, LayoutGroup } from "framer-motion";
 import { Plus, X } from "@phosphor-icons/react";
-import { useTabManager } from "./useTabManager";
+import clsx from "clsx";
+import { LayoutGroup, motion } from "framer-motion";
 import { useMemo } from "react";
+import { useTabManager } from "./useTabManager";
 
 export function TabBar() {
-	const { tabs, activeTabId, switchTab, closeTab, createTab } =
-		useTabManager();
+  const { tabs, activeTabId, switchTab, closeTab, createTab } = useTabManager();
 
-	// Don't show tab bar if only one tab
-	if (tabs.length <= 1) {
-		return null;
-	}
+  // Don't show tab bar if only one tab
+  if (tabs.length <= 1) {
+    return null;
+  }
 
-	// Ensure activeTabId exists in tabs array, fallback to first tab
-	// Memoize to prevent unnecessary rerenders during rapid state updates
-	const safeActiveTabId = useMemo(() => {
-		return tabs.find((t) => t.id === activeTabId)?.id ?? tabs[0]?.id;
-	}, [tabs, activeTabId]);
+  // Ensure activeTabId exists in tabs array, fallback to first tab
+  // Memoize to prevent unnecessary rerenders during rapid state updates
+  const safeActiveTabId = useMemo(() => {
+    return tabs.find((t) => t.id === activeTabId)?.id ?? tabs[0]?.id;
+  }, [tabs, activeTabId]);
 
-	return (
-		<div className="flex items-center h-9 px-1 gap-1 mx-2 bg-app-box/50 rounded-full shrink-0">
-			<LayoutGroup id="tab-bar">
-				<div className="flex items-center flex-1 gap-1 min-w-0">
-					{tabs.map((tab) => {
-						const isActive = tab.id === safeActiveTabId;
+  return (
+    <div className="mx-2 flex h-9 shrink-0 items-center gap-1 rounded-full bg-app-box/50 px-1">
+      <LayoutGroup id="tab-bar">
+        <div className="flex min-w-0 flex-1 items-center gap-1">
+          {tabs.map((tab) => {
+            const isActive = tab.id === safeActiveTabId;
 
-						return (
-							<button
-								key={tab.id}
-								onClick={() => switchTab(tab.id)}
-								className={clsx(
-									"relative flex items-center justify-center py-1.5 rounded-full text-[13px] group flex-1 min-w-0",
-									isActive
-										? "text-ink"
-										: "text-ink-dull hover:text-ink hover:bg-app-hover/50",
-								)}
-							>
-								{isActive && (
-									<motion.div
-										layoutId="activeTab"
-										className="absolute inset-0 bg-app-selected rounded-full shadow-sm"
-										initial={false}
-										transition={{
-											type: "spring",
-											stiffness: 500,
-											damping: 35,
-										}}
-									/>
-								)}
-								{/* Close button - absolutely positioned left */}
-								<span
-									onClick={(e) => {
-										e.stopPropagation();
-										closeTab(tab.id);
-									}}
-									className={clsx(
-										"absolute left-1.5 z-10 size-5 flex items-center justify-center rounded-full transition-all cursor-pointer",
-										isActive
-											? "opacity-60 hover:opacity-100 hover:bg-app-hover"
-											: "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-app-hover",
-									)}
-									title="Close tab"
-								>
-									<X size={10} weight="bold" />
-								</span>
-								<span className="relative z-10 truncate px-6">
-									{tab.title}
-								</span>
-							</button>
-						);
-					})}
-				</div>
-			</LayoutGroup>
-			<button
-				onClick={() => createTab()}
-				className="size-7 flex items-center justify-center rounded-full hover:bg-app-hover text-ink-dull hover:text-ink shrink-0 transition-colors"
-				title="New tab (⌘T)"
-			>
-				<Plus size={14} weight="bold" />
-			</button>
-		</div>
-	);
+            return (
+              <button
+                className={clsx(
+                  "group relative flex min-w-0 flex-1 items-center justify-center rounded-full py-1.5 text-[13px]",
+                  isActive
+                    ? "text-ink"
+                    : "text-ink-dull hover:bg-app-hover/50 hover:text-ink"
+                )}
+                key={tab.id}
+                onClick={() => switchTab(tab.id)}
+              >
+                {isActive && (
+                  <motion.div
+                    className="absolute inset-0 rounded-full bg-app-selected shadow-sm"
+                    initial={false}
+                    layoutId="activeTab"
+                    transition={{
+                      type: "spring",
+                      stiffness: 500,
+                      damping: 35,
+                    }}
+                  />
+                )}
+                {/* Close button - absolutely positioned left */}
+                <span
+                  className={clsx(
+                    "absolute left-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full transition-all",
+                    isActive
+                      ? "opacity-60 hover:bg-app-hover hover:opacity-100"
+                      : "hover:!opacity-100 opacity-0 hover:bg-app-hover group-hover:opacity-60"
+                  )}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    closeTab(tab.id);
+                  }}
+                  title="Close tab"
+                >
+                  <X size={10} weight="bold" />
+                </span>
+                <span className="relative z-10 truncate px-6">{tab.title}</span>
+              </button>
+            );
+          })}
+        </div>
+      </LayoutGroup>
+      <button
+        className="flex size-7 shrink-0 items-center justify-center rounded-full text-ink-dull transition-colors hover:bg-app-hover hover:text-ink"
+        onClick={() => createTab()}
+        title="New tab (⌘T)"
+      >
+        <Plus size={14} weight="bold" />
+      </button>
+    </div>
+  );
 }

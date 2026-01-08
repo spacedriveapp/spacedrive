@@ -7,16 +7,16 @@ import type { Platform } from "@sd/interface/platform";
  * Unlike Tauri, web platform cannot access native file system or daemon state directly.
  */
 export const platform: Platform = {
-	platform: "web",
+  platform: "web",
 
-	openLink(url: string) {
-		window.open(url, "_blank", "noopener,noreferrer");
-	},
+  openLink(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  },
 
-	confirm(message: string, callback: (result: boolean) => void) {
-		callback(window.confirm(message));
-	},
+  confirm(message: string, callback: (result: boolean) => void) {
+    callback(window.confirm(message));
+  },
 
-	// Web-specific implementations (no native capabilities)
-	// File pickers, daemon control, etc. are not available on web
+  // Web-specific implementations (no native capabilities)
+  // File pickers, daemon control, etc. are not available on web
 };

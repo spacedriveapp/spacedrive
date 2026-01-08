@@ -11,15 +11,15 @@ export function InfoRow({ label, value, mono, className }: InfoRowProps) {
   return (
     <div
       className={clsx(
-        "flex justify-between items-start gap-3 text-xs",
-        className,
+        "flex items-start justify-between gap-3 text-xs",
+        className
       )}
     >
-      <span className="text-sidebar-inkDull shrink-0">{label}</span>
+      <span className="shrink-0 text-sidebar-inkDull">{label}</span>
       <span
         className={clsx(
-          "text-sidebar-ink font-medium text-right truncate",
-          mono && "font-mono text-[11px]",
+          "truncate text-right font-medium text-sidebar-ink",
+          mono && "font-mono text-[11px]"
         )}
       >
         {value}

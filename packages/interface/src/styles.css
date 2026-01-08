@@ -2,148 +2,148 @@
 
 /* Top bar blur effect (macOS specific) */
 .top-bar-blur {
-	backdrop-filter: saturate(120%) blur(18px);
+  backdrop-filter: saturate(120%) blur(18px);
 }
 
 /* Window frame border (macOS) */
 .frame::before {
-	content: "";
-	pointer-events: none;
-	user-select: none;
-	position: absolute;
-	inset: 0px;
-	border-radius: inherit;
-	padding: 1px;
-	background: var(--color-app-frame);
-	mask:
-		linear-gradient(black, black) content-box content-box,
-		linear-gradient(black, black);
-	mask-composite: xor;
-	-webkit-mask-composite: xor;
-	z-index: 9999;
+  content: "";
+  pointer-events: none;
+  user-select: none;
+  position: absolute;
+  inset: 0px;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--color-app-frame);
+  mask:
+    linear-gradient(black, black) content-box content-box,
+    linear-gradient(black, black);
+  mask-composite: xor;
+  -webkit-mask-composite: xor;
+  z-index: 9999;
 }
 
 /* Hide all scrollbars globally */
 *::-webkit-scrollbar {
-	display: none;
+  display: none;
 }
 
 * {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Legacy class for explicit scrollbar hiding (still works) */
 .no-scrollbar::-webkit-scrollbar {
-	display: none;
+  display: none;
 }
 
 .no-scrollbar {
-	-ms-overflow-style: none;
-	scrollbar-width: none;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Fade mask for scrollable content */
 .mask-fade-out {
-	mask-image: linear-gradient(
-		to bottom,
-		black calc(100% - 40px),
-		transparent 100%
-	);
-	-webkit-mask-image: linear-gradient(
-		to bottom,
-		black calc(100% - 40px),
-		transparent 100%
-	);
+  mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - 40px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    black calc(100% - 40px),
+    transparent 100%
+  );
 }
 
 /* Checkerboard pattern for transparent images */
 .checkerboard {
-	background-image:
-		linear-gradient(45deg, #16161b 25%, transparent 25%),
-		linear-gradient(-45deg, #16161b 25%, transparent 25%),
-		linear-gradient(45deg, transparent 75%, #16161b 75%),
-		linear-gradient(-45deg, transparent 75%, #16161b 75%);
-	background-size: 20px 20px;
-	background-position:
-		0 0,
-		0 10px,
-		10px -10px,
-		-10px 0px;
+  background-image:
+    linear-gradient(45deg, #16161b 25%, transparent 25%),
+    linear-gradient(-45deg, #16161b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #16161b 75%),
+    linear-gradient(-45deg, transparent 75%, #16161b 75%);
+  background-size: 20px 20px;
+  background-position:
+    0 0,
+    0 10px,
+    10px -10px,
+    -10px 0px;
 }
 
 /* Animated gradient for audio player background */
 .audio-gradient {
-	position: relative;
-	background: #000;
+  position: relative;
+  background: #000;
 }
 
 .audio-gradient::before {
-	content: "";
-	position: absolute;
-	inset: 0;
-	background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
-	background-size: 400% 400%;
-	animation: audio-gradient-shift 15s ease infinite;
-	opacity: 0.7;
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
+  background-size: 400% 400%;
+  animation: audio-gradient-shift 15s ease infinite;
+  opacity: 0.7;
 }
 
 .audio-gradient::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	background: radial-gradient(
-		ellipse at center,
-		transparent 0%,
-		transparent 40%,
-		rgba(0, 0, 0, 0.8) 100%
-	);
-	pointer-events: none;
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    ellipse at center,
+    transparent 0%,
+    transparent 40%,
+    rgba(0, 0, 0, 0.8) 100%
+  );
+  pointer-events: none;
 }
 
 .audio-gradient.paused::before {
-	animation-play-state: paused;
+  animation-play-state: paused;
 }
 
 @keyframes audio-gradient-shift {
-	0% {
-		background-position: 0% 50%;
-	}
-	50% {
-		background-position: 100% 50%;
-	}
-	100% {
-		background-position: 0% 50%;
-	}
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 @keyframes barber-pole {
-	0% {
-		background-position: 0 0;
-	}
-	100% {
-		background-position: 28px 0;
-	}
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 28px 0;
+  }
 }
 
 /* Hide TanStack Query devtools button logo but keep it clickable */
 .tsqd-open-btn-container {
-	width: 24px !important;
-	height: 24px !important;
-	overflow: hidden !important;
+  width: 24px !important;
+  height: 24px !important;
+  overflow: hidden !important;
 }
 
 .tsqd-open-btn-container > [aria-hidden="true"] {
-	display: none !important;
+  display: none !important;
 }
 
 .tsqd-open-btn-container .tsqd-open-btn {
-	background: transparent !important;
-	box-shadow: none !important;
-	width: 24px !important;
-	height: 24px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  width: 24px !important;
+  height: 24px !important;
 }
 
 .tsqd-open-btn-container .tsqd-open-btn > * {
-	display: none !important;
+  display: none !important;
 }

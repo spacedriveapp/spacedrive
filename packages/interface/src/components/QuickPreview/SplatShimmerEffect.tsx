@@ -1,50 +1,50 @@
-import { useRef, useEffect } from "react";
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
 
 interface SplatShimmerEffectProps {
-	children: React.ReactNode;
-	maskImage?: string; // Optional image URL to use as mask
+  children: React.ReactNode;
+  maskImage?: string; // Optional image URL to use as mask
 }
 
 export function SplatShimmerEffect({
-	children,
-	maskImage,
+  children,
+  maskImage,
 }: SplatShimmerEffectProps) {
-	const canvasRef = useRef<HTMLDivElement>(null);
-	const rafRef = useRef<number | null>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
 
-	useEffect(() => {
-		if (!canvasRef.current) return;
+  useEffect(() => {
+    if (!canvasRef.current) return;
 
-		const container = canvasRef.current;
-		const width = container.clientWidth;
-		const height = container.clientHeight;
+    const container = canvasRef.current;
+    const width = container.clientWidth;
+    const height = container.clientHeight;
 
-		const scene = new THREE.Scene();
-		const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+    const scene = new THREE.Scene();
+    const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
-		const renderer = new THREE.WebGLRenderer({
-			antialias: false,
-			alpha: true,
-			powerPreference: "high-performance",
-			precision: "lowp",
-			stencil: false,
-			depth: false,
-		});
-		renderer.setSize(width, height);
-		renderer.setPixelRatio(0.25); // Ultra low resolution - 16x fewer pixels
-		container.appendChild(renderer.domElement);
+    const renderer = new THREE.WebGLRenderer({
+      antialias: false,
+      alpha: true,
+      powerPreference: "high-performance",
+      precision: "lowp",
+      stencil: false,
+      depth: false,
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(0.25); // Ultra low resolution - 16x fewer pixels
+    container.appendChild(renderer.domElement);
 
-		// Ultra simple shader
-		const material = new THREE.ShaderMaterial({
-			vertexShader: `
+    // Ultra simple shader
+    const material = new THREE.ShaderMaterial({
+      vertexShader: `
 				varying vec2 vUv;
 				void main() {
 					vUv = uv;
 					gl_Position = vec4(position, 1.0);
 				}
 			`,
-			fragmentShader: `
+      fragmentShader: `
 				uniform float uTime;
 				varying vec2 vUv;
 				void main() {
@@ -54,59 +54,59 @@ export function SplatShimmerEffect({
 					gl_FragColor = vec4(0.4, 0.65, 0.95, intensity);
 				}
 			`,
-			uniforms: { uTime: { value: 0 } },
-			transparent: true,
-			depthWrite: false,
-			depthTest: false,
-		});
+      uniforms: { uTime: { value: 0 } },
+      transparent: true,
+      depthWrite: false,
+      depthTest: false,
+    });
 
-		const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
-		scene.add(mesh);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+    scene.add(mesh);
 
-		// Throttled animation - only update every 3rd frame
-		let frameCount = 0;
-		const animate = () => {
-			frameCount++;
-			if (frameCount % 3 === 0) {
-				material.uniforms.uTime.value += 0.05;
-				renderer.render(scene, camera);
-			}
-			rafRef.current = requestAnimationFrame(animate);
-		};
-		rafRef.current = requestAnimationFrame(animate);
+    // Throttled animation - only update every 3rd frame
+    let frameCount = 0;
+    const animate = () => {
+      frameCount++;
+      if (frameCount % 3 === 0) {
+        material.uniforms.uTime.value += 0.05;
+        renderer.render(scene, camera);
+      }
+      rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
 
-		return () => {
-			if (rafRef.current) cancelAnimationFrame(rafRef.current);
-			renderer.dispose();
-			material.dispose();
-			mesh.geometry.dispose();
-			if (container.contains(renderer.domElement)) {
-				container.removeChild(renderer.domElement);
-			}
-		};
-	}, []);
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      renderer.dispose();
+      material.dispose();
+      mesh.geometry.dispose();
+      if (container.contains(renderer.domElement)) {
+        container.removeChild(renderer.domElement);
+      }
+    };
+  }, []);
 
-	return (
-		<div className="relative w-full h-full">
-			{children}
-			<div
-				ref={canvasRef}
-				className="absolute inset-0 pointer-events-none"
-				style={
-					maskImage
-						? {
-								maskImage: `url(${maskImage})`,
-								maskSize: "contain",
-								maskPosition: "center",
-								maskRepeat: "no-repeat",
-								WebkitMaskImage: `url(${maskImage})`,
-								WebkitMaskSize: "contain",
-								WebkitMaskPosition: "center",
-								WebkitMaskRepeat: "no-repeat",
-							}
-						: undefined
-				}
-			/>
-		</div>
-	);
+  return (
+    <div className="relative h-full w-full">
+      {children}
+      <div
+        className="pointer-events-none absolute inset-0"
+        ref={canvasRef}
+        style={
+          maskImage
+            ? {
+                maskImage: `url(${maskImage})`,
+                maskSize: "contain",
+                maskPosition: "center",
+                maskRepeat: "no-repeat",
+                WebkitMaskImage: `url(${maskImage})`,
+                WebkitMaskSize: "contain",
+                WebkitMaskPosition: "center",
+                WebkitMaskRepeat: "no-repeat",
+              }
+            : undefined
+        }
+      />
+    </div>
+  );
 }

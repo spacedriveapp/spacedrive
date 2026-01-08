@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
-import type { JobListItem } from "../types";
 import { sounds } from "@sd/assets/sounds";
+import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useLibraryMutation,
+  useLibraryQuery,
+  useSpacedriveClient,
+} from "../../../contexts/SpacedriveContext";
+import type { JobListItem } from "../types";
 
 // Global set to track which jobs have already played their completion sound
 // This prevents multiple hook instances from playing the sound multiple times
@@ -47,9 +51,15 @@ export function useJobs() {
     let isCancelled = false;
 
     const handleEvent = (event: any) => {
-      if ("JobQueued" in event || "JobStarted" in event || "JobCompleted" in event ||
-          "JobFailed" in event || "JobPaused" in event || "JobResumed" in event ||
-          "JobCancelled" in event) {
+      if (
+        "JobQueued" in event ||
+        "JobStarted" in event ||
+        "JobCompleted" in event ||
+        "JobFailed" in event ||
+        "JobPaused" in event ||
+        "JobResumed" in event ||
+        "JobCancelled" in event
+      ) {
         if ("JobCompleted" in event) {
           const jobId = event.JobCompleted?.job_id;
           const jobType = event.JobCompleted?.job_type;
@@ -87,13 +97,22 @@ export function useJobs() {
                 status_message: generic.message,
               }),
             };
-          }),
+          })
         );
       }
     };
 
     const filter = {
-      event_types: ["JobQueued", "JobStarted", "JobProgress", "JobCompleted", "JobFailed", "JobPaused", "JobResumed", "JobCancelled"],
+      event_types: [
+        "JobQueued",
+        "JobStarted",
+        "JobProgress",
+        "JobCompleted",
+        "JobFailed",
+        "JobPaused",
+        "JobResumed",
+        "JobCancelled",
+      ],
     };
 
     client.subscribeFiltered(filter, handleEvent).then((unsub) => {

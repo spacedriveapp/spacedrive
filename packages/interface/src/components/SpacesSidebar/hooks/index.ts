@@ -1,29 +1,31 @@
 // Space item utilities
 export {
-	isOverviewItem,
-	isRecentsItem,
-	isFavoritesItem,
-	isFileKindsItem,
-	isLocationItem,
-	isVolumeItem,
-	isTagItem,
-	isPathItem,
-	isRawLocation,
-	isDropTargetItem,
-	getDropTargetType,
-	buildDropTargetPath,
-	resolveItemMetadata,
-	type IconData,
-	type ItemMetadata,
-	type ResolveMetadataOptions,
-	type DropTargetType,
+  buildDropTargetPath,
+  type DropTargetType,
+  getDropTargetType,
+  type IconData,
+  type ItemMetadata,
+  isDropTargetItem,
+  isFavoritesItem,
+  isFileKindsItem,
+  isLocationItem,
+  isOverviewItem,
+  isPathItem,
+  isRawLocation,
+  isRecentsItem,
+  isTagItem,
+  isVolumeItem,
+  type ResolveMetadataOptions,
+  resolveItemMetadata,
 } from "./spaceItemUtils";
 
 // Space item hooks
 export { useSpaceItemActive } from "./useSpaceItemActive";
-export { useSpaceItemDropZones, type UseSpaceItemDropZonesResult } from "./useSpaceItemDropZones";
 export { useSpaceItemContextMenu } from "./useSpaceItemContextMenu";
+export {
+  type UseSpaceItemDropZonesResult,
+  useSpaceItemDropZones,
+} from "./useSpaceItemDropZones";
 
 // Space data hooks
-export { useSpaces, useSpaceLayout } from "./useSpaces";
-
+export { useSpaceLayout, useSpaces } from "./useSpaces";

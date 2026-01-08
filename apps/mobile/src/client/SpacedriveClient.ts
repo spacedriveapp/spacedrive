@@ -1,8 +1,8 @@
-import { SDMobileCore } from "sd-mobile-core";
-import { ReactNativeTransport } from "./transport";
 import { WIRE_METHODS } from "@sd/ts-client";
 import type { Event } from "@sd/ts-client/generated/types";
+import { SDMobileCore } from "sd-mobile-core";
 import { SubscriptionManager } from "./subscriptionManager";
+import { ReactNativeTransport } from "./transport";
 
 /**
  * Simple event emitter for browser compatibility
@@ -82,7 +82,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
    * Set the current library context for queries.
    * @param emitEvent - Whether to emit library-changed event (default: true)
    */
-  setCurrentLibrary(libraryId: string | null, emitEvent: boolean = true) {
+  setCurrentLibrary(libraryId: string | null, emitEvent = true) {
     this.currentLibraryId = libraryId;
 
     if (emitEvent && libraryId) {
@@ -105,7 +105,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
     const isQuery = wireMethod.startsWith("query:");
     const isAction = wireMethod.startsWith("action:");
 
-    if (!isQuery && !isAction) {
+    if (!(isQuery || isAction)) {
       throw new Error(`Invalid wire method: ${wireMethod}`);
     }
 
@@ -120,7 +120,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
    */
   async coreQuery<T = unknown>(
     method: string,
-    input: unknown = {},
+    input: unknown = {}
   ): Promise<T> {
     const wireMethod = (WIRE_METHODS.coreQueries as any)[method];
     if (!wireMethod) {
@@ -134,7 +134,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
    */
   async libraryQuery<T = unknown>(
     method: string,
-    input: unknown = {},
+    input: unknown = {}
   ): Promise<T> {
     if (!this.currentLibraryId) {
       throw new Error("No library selected");
@@ -156,7 +156,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
    */
   async coreAction<T = unknown>(
     method: string,
-    input: unknown = {},
+    input: unknown = {}
   ): Promise<T> {
     const wireMethod = (WIRE_METHODS.coreActions as any)[method];
     if (!wireMethod) {
@@ -170,7 +170,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
    */
   async libraryAction<T = unknown>(
     method: string,
-    input: unknown = {},
+    input: unknown = {}
   ): Promise<T> {
     if (!this.currentLibraryId) {
       throw new Error("No library selected");
@@ -212,7 +212,7 @@ export class SpacedriveClient extends SimpleEventEmitter {
       include_descendants?: boolean;
       event_types?: string[];
     },
-    callback: (event: Event) => void,
+    callback: (event: Event) => void
   ): Promise<() => void> {
     return this.subscriptionManager.subscribe(filter, callback);
   }

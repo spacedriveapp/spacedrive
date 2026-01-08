@@ -1,10 +1,10 @@
-import { useState } from 'react';
-import { Stack } from 'expo-router';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { SpacedriveProvider } from '../client';
-import { AppResetContext } from '../contexts';
-import '../global.css';
+import { Stack } from "expo-router";
+import { useState } from "react";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SpacedriveProvider } from "../client";
+import { AppResetContext } from "../contexts";
+import "../global.css";
 
 export default function RootLayout() {
   const [resetKey, setResetKey] = useState(0);
@@ -14,7 +14,7 @@ export default function RootLayout() {
   };
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }} className="bg-sidebar">
+    <GestureHandlerRootView className="bg-sidebar" style={{ flex: 1 }}>
       <SafeAreaProvider>
         <AppResetContext.Provider value={{ resetApp }}>
           <SpacedriveProvider key={resetKey}>
@@ -23,8 +23,8 @@ export default function RootLayout() {
               <Stack.Screen
                 name="search"
                 options={{
-                  presentation: 'modal',
-                  animation: 'slide_from_bottom'
+                  presentation: "modal",
+                  animation: "slide_from_bottom",
                 }}
               />
             </Stack>

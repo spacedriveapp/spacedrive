@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
-import clsx from "clsx";
 import type { File } from "@sd/ts-client";
+import clsx from "clsx";
+import { useEffect, useRef, useState } from "react";
 
 interface TitleProps {
   file: File;
@@ -65,19 +65,20 @@ export function Title({
 
   return (
     <div
-      ref={ref}
-      contentEditable={isEditing}
-      suppressContentEditableWarning
-      onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
       className={clsx(
-        "cursor-default overflow-hidden rounded-md px-1.5 py-px text-xs text-ink outline-none",
+        "cursor-default overflow-hidden rounded-md px-1.5 py-px text-ink text-xs outline-none",
         isEditing && "bg-app ring-2 ring-accent",
         !isEditing && "truncate",
         className
       )}
+      contentEditable={isEditing}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+      ref={ref}
+      suppressContentEditableWarning
     >
-      {file.name}{file.extension && `.${file.extension}`}
+      {file.name}
+      {file.extension && `.${file.extension}`}
     </div>
   );
 }

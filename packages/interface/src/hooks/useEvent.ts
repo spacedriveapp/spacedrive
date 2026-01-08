@@ -1,5 +1,5 @@
-import { useEffect } from 'react';
-import { useSpacedriveClient } from '../contexts/SpacedriveContext';
+import { useEffect } from "react";
+import { useSpacedriveClient } from "../contexts/SpacedriveContext";
 
 /**
  * Subscribe to core events
@@ -7,31 +7,31 @@ import { useSpacedriveClient } from '../contexts/SpacedriveContext';
  * @param handler - Callback when event is received
  */
 export function useEvent(eventType: string, handler: (event: any) => void) {
-	const client = useSpacedriveClient();
+  const client = useSpacedriveClient();
 
-	useEffect(() => {
-		if (!client) return;
+  useEffect(() => {
+    if (!client) return;
 
-		const handleEvent = (event: any) => {
-			// Fast path: check event type match before doing anything else
-			// Events come as { EventName: { ...data } } not { type: "EventName", ...data }
-			if (!eventType || eventType in event) {
-				handler(event);
-			}
-		};
+    const handleEvent = (event: any) => {
+      // Fast path: check event type match before doing anything else
+      // Events come as { EventName: { ...data } } not { type: "EventName", ...data }
+      if (!eventType || eventType in event) {
+        handler(event);
+      }
+    };
 
-		// Listen to all events from the client
-		client.on('spacedrive-event', handleEvent);
+    // Listen to all events from the client
+    client.on("spacedrive-event", handleEvent);
 
-		return () => {
-			client.off('spacedrive-event', handleEvent);
-		};
-	}, [eventType, client]);
+    return () => {
+      client.off("spacedrive-event", handleEvent);
+    };
+  }, [eventType, client]);
 }
 
 /**
  * Subscribe to all core events
  */
 export function useAllEvents(handler: (event: any) => void) {
-	return useEvent('', handler);
+  return useEvent("", handler);
 }

@@ -6,17 +6,17 @@
  */
 
 interface TabViewProps {
-	isActive: boolean;
-	children: React.ReactNode;
+  isActive: boolean;
+  children: React.ReactNode;
 }
 
 export function TabView({ isActive, children }: TabViewProps) {
-	return (
-		<div
-			style={{ display: isActive ? "flex" : "none" }}
-			className="flex-1 overflow-hidden"
-		>
-			{children}
-		</div>
-	);
+  return (
+    <div
+      className="flex-1 overflow-hidden"
+      style={{ display: isActive ? "flex" : "none" }}
+    >
+      {children}
+    </div>
+  );
 }

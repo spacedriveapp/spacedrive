@@ -1,6 +1,6 @@
-import { Sparkle, PaperPlaneRight, Paperclip } from "@phosphor-icons/react";
-import { useState } from "react";
+import { Paperclip, PaperPlaneRight, Sparkle } from "@phosphor-icons/react";
 import clsx from "clsx";
+import { useState } from "react";
 
 interface Message {
   id: number;
@@ -47,15 +47,15 @@ export function KnowledgeInspector() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-3 py-2.5 border-b border-sidebar-line">
+      <div className="border-sidebar-line border-b px-3 py-2.5">
         <div className="flex items-center gap-2">
-          <div className="size-7 rounded-full bg-accent/20 flex items-center justify-center">
+          <div className="flex size-7 items-center justify-center rounded-full bg-accent/20">
             <Sparkle className="size-4 text-accent" weight="fill" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-sidebar-ink">
+            <div className="font-semibold text-sidebar-ink text-sm">
               AI Assistant
             </div>
             <div className="text-[10px] text-sidebar-inkDull">
@@ -66,51 +66,51 @@ export function KnowledgeInspector() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-3 py-4 space-y-4 no-scrollbar">
+      <div className="no-scrollbar flex-1 space-y-4 overflow-y-auto px-3 py-4">
         {messages.map((msg) => (
           <div
-            key={msg.id}
             className={clsx(
               "flex gap-2.5",
-              msg.role === "user" ? "flex-row-reverse" : "flex-row",
+              msg.role === "user" ? "flex-row-reverse" : "flex-row"
             )}
+            key={msg.id}
           >
             {/* Avatar */}
             <div
               className={clsx(
-                "size-7 rounded-full shrink-0 flex items-center justify-center",
+                "flex size-7 shrink-0 items-center justify-center rounded-full",
                 msg.role === "assistant"
                   ? "bg-accent/20"
-                  : "bg-sidebar-selected",
+                  : "bg-sidebar-selected"
               )}
             >
               {msg.role === "assistant" ? (
                 <Sparkle className="size-3.5 text-accent" weight="fill" />
               ) : (
-                <div className="text-[10px] font-bold text-sidebar-ink">U</div>
+                <div className="font-bold text-[10px] text-sidebar-ink">U</div>
               )}
             </div>
 
             {/* Message content */}
             <div
               className={clsx(
-                "flex flex-col max-w-[80%]",
-                msg.role === "user" ? "items-end" : "items-start",
+                "flex max-w-[80%] flex-col",
+                msg.role === "user" ? "items-end" : "items-start"
               )}
             >
               <div
                 className={clsx(
-                  "px-3 py-2 rounded-lg",
+                  "rounded-lg px-3 py-2",
                   msg.role === "assistant"
-                    ? "bg-app-box/60 border border-app-line/50"
-                    : "bg-accent/10 border border-accent/20",
+                    ? "border border-app-line/50 bg-app-box/60"
+                    : "border border-accent/20 bg-accent/10"
                 )}
               >
-                <p className="text-xs text-sidebar-ink leading-relaxed">
+                <p className="text-sidebar-ink text-xs leading-relaxed">
                   {msg.content}
                 </p>
               </div>
-              <span className="text-[10px] text-sidebar-inkDull mt-1 px-1">
+              <span className="mt-1 px-1 text-[10px] text-sidebar-inkDull">
                 {msg.timestamp.toLocaleTimeString([], {
                   hour: "2-digit",
                   minute: "2-digit",
@@ -122,19 +122,18 @@ export function KnowledgeInspector() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-sidebar-line p-3 space-y-2">
+      <div className="space-y-2 border-sidebar-line border-t p-3">
         <div className="flex items-end gap-2">
           <button
-            className="p-2 rounded-lg hover:bg-sidebar-selected transition-colors text-sidebar-inkDull hover:text-sidebar-ink"
+            className="rounded-lg p-2 text-sidebar-inkDull transition-colors hover:bg-sidebar-selected hover:text-sidebar-ink"
             title="Attach file"
           >
             <Paperclip className="size-4" weight="bold" />
           </button>
 
-          <div className="flex-1 flex items-center gap-2 bg-app-box border border-app-line rounded-lg px-3 py-2">
+          <div className="flex flex-1 items-center gap-2 rounded-lg border border-app-line bg-app-box px-3 py-2">
             <input
-              type="text"
-              value={message}
+              className="flex-1 bg-transparent text-sidebar-ink text-sm outline-none placeholder:text-sidebar-inkDull"
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={(e) => {
                 if (e.key === "Enter" && !e.shiftKey) {
@@ -143,19 +142,20 @@ export function KnowledgeInspector() {
                 }
               }}
               placeholder="Ask me anything..."
-              className="flex-1 bg-transparent text-sm text-sidebar-ink placeholder:text-sidebar-inkDull outline-none"
+              type="text"
+              value={message}
             />
           </div>
 
           <button
-            onClick={handleSend}
-            disabled={!message.trim()}
             className={clsx(
-              "p-2 rounded-lg transition-colors",
+              "rounded-lg p-2 transition-colors",
               message.trim()
-                ? "bg-accent hover:bg-accent/90 text-white"
-                : "bg-app-box text-sidebar-inkDull cursor-not-allowed",
+                ? "bg-accent text-white hover:bg-accent/90"
+                : "cursor-not-allowed bg-app-box text-sidebar-inkDull"
             )}
+            disabled={!message.trim()}
+            onClick={handleSend}
             title="Send message"
           >
             <PaperPlaneRight className="size-4" weight="fill" />
@@ -164,13 +164,13 @@ export function KnowledgeInspector() {
 
         {/* Quick actions */}
         <div className="flex flex-wrap gap-1.5">
-          <button className="px-2.5 py-1.5 text-[11px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors">
+          <button className="rounded-md bg-app-box/40 px-2.5 py-1.5 font-medium text-[11px] text-sidebar-inkDull transition-colors hover:bg-app-box/60 hover:text-sidebar-ink">
             Organize files
           </button>
-          <button className="px-2.5 py-1.5 text-[11px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors">
+          <button className="rounded-md bg-app-box/40 px-2.5 py-1.5 font-medium text-[11px] text-sidebar-inkDull transition-colors hover:bg-app-box/60 hover:text-sidebar-ink">
             Find duplicates
           </button>
-          <button className="px-2.5 py-1.5 text-[11px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors">
+          <button className="rounded-md bg-app-box/40 px-2.5 py-1.5 font-medium text-[11px] text-sidebar-inkDull transition-colors hover:bg-app-box/60 hover:text-sidebar-ink">
             Smart search
           </button>
         </div>

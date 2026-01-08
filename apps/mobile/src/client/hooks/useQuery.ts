@@ -1,8 +1,8 @@
 import {
-	useQuery,
-	useMutation,
-	UseQueryOptions,
-	UseMutationOptions,
+  type UseMutationOptions,
+  type UseQueryOptions,
+  useMutation,
+  useQuery,
 } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 
@@ -10,17 +10,17 @@ import { useSpacedriveClient } from "./useClient";
  * Hook for executing core-level queries (no library context).
  */
 export function useCoreQuery<T = unknown>(
-	method: string,
-	input: unknown = {},
-	options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">,
+  method: string,
+  input: unknown = {},
+  options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">
 ) {
-	const client = useSpacedriveClient();
+  const client = useSpacedriveClient();
 
-	return useQuery<T, Error>({
-		queryKey: ["core", method, input],
-		queryFn: () => client.coreQuery<T>(method, input),
-		...options,
-	});
+  return useQuery<T, Error>({
+    queryKey: ["core", method, input],
+    queryFn: () => client.coreQuery<T>(method, input),
+    ...options,
+  });
 }
 
 /**
@@ -28,49 +28,47 @@ export function useCoreQuery<T = unknown>(
  * Automatically uses the current library context.
  */
 export function useLibraryQuery<T = unknown>(
-	method: string,
-	input: unknown = {},
-	options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">,
+  method: string,
+  input: unknown = {},
+  options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">
 ) {
-	const client = useSpacedriveClient();
-	const libraryId = client.getCurrentLibraryId();
+  const client = useSpacedriveClient();
+  const libraryId = client.getCurrentLibraryId();
 
-	return useQuery<T, Error>({
-		queryKey: ["library", libraryId, method, input],
-		queryFn: () => client.libraryQuery<T>(method, input),
-		enabled: !!libraryId && (options?.enabled ?? true),
-		...options,
-	});
+  return useQuery<T, Error>({
+    queryKey: ["library", libraryId, method, input],
+    queryFn: () => client.libraryQuery<T>(method, input),
+    enabled: !!libraryId && (options?.enabled ?? true),
+    ...options,
+  });
 }
 
 /**
  * Hook for executing core-level actions (mutations).
  */
 export function useCoreAction<TInput = unknown, TOutput = unknown>(
-	method: string,
-	options?: UseMutationOptions<TOutput, Error, TInput>,
+  method: string,
+  options?: UseMutationOptions<TOutput, Error, TInput>
 ) {
-	const client = useSpacedriveClient();
+  const client = useSpacedriveClient();
 
-	return useMutation<TOutput, Error, TInput>({
-		mutationFn: (input: TInput) =>
-			client.coreAction<TOutput>(method, input),
-		...options,
-	});
+  return useMutation<TOutput, Error, TInput>({
+    mutationFn: (input: TInput) => client.coreAction<TOutput>(method, input),
+    ...options,
+  });
 }
 
 /**
  * Hook for executing library-level actions (mutations).
  */
 export function useLibraryAction<TInput = unknown, TOutput = unknown>(
-	method: string,
-	options?: UseMutationOptions<TOutput, Error, TInput>,
+  method: string,
+  options?: UseMutationOptions<TOutput, Error, TInput>
 ) {
-	const client = useSpacedriveClient();
+  const client = useSpacedriveClient();
 
-	return useMutation<TOutput, Error, TInput>({
-		mutationFn: (input: TInput) =>
-			client.libraryAction<TOutput>(method, input),
-		...options,
-	});
+  return useMutation<TOutput, Error, TInput>({
+    mutationFn: (input: TInput) => client.libraryAction<TOutput>(method, input),
+    ...options,
+  });
 }

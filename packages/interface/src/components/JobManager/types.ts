@@ -1,10 +1,14 @@
-import type { JobStatus, JobListItem as GeneratedJobListItem, JsonValue, SdPath } from "@sd/ts-client";
+import type {
+  JobListItem as GeneratedJobListItem,
+  JsonValue,
+  SdPath,
+} from "@sd/ts-client";
 
 // Extend the generated type with runtime fields from JobProgress events
 export type JobListItem = GeneratedJobListItem & {
-	current_phase?: string;
-	current_path?: SdPath;
-	status_message?: string;
+  current_phase?: string;
+  current_path?: SdPath;
+  status_message?: string;
 };
 
 export const JOB_STATUS_COLORS = {
@@ -32,9 +36,10 @@ export function getJobDisplayName(job: JobListItem): string {
     if (job.name === "thumbnail_generation") {
       return "Generating Thumbnails";
     }
-    return job.name.split("_").map(word =>
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(" ");
+    return job.name
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   }
 
   const { action_type, action_input } = job.action_context;
@@ -105,12 +110,15 @@ export function getJobSubtext(job: JobListItem): string {
       if (job.status_message) return job.status_message;
       if (job.current_phase) return job.current_phase;
       if (job.current_path) {
-        const pathStr = typeof job.current_path === 'string'
-          ? job.current_path
-          : JSON.stringify(job.current_path);
+        const pathStr =
+          typeof job.current_path === "string"
+            ? job.current_path
+            : JSON.stringify(job.current_path);
         return pathStr;
       }
-      return job.progress > 0 ? `${Math.round(job.progress * 100)}%` : "Processing...";
+      return job.progress > 0
+        ? `${Math.round(job.progress * 100)}%`
+        : "Processing...";
     }
     case "completed":
       return "Completed";
@@ -197,7 +205,11 @@ function extractPath(input: JsonValue): string | null {
     // Handle Physical path: { Physical: { device_slug: "...", path: "..." } }
     if (typeof path === "object" && path !== null && "Physical" in path) {
       const physical = path.Physical;
-      if (typeof physical === "object" && physical !== null && "path" in physical) {
+      if (
+        typeof physical === "object" &&
+        physical !== null &&
+        "path" in physical
+      ) {
         return String(physical.path);
       }
     }

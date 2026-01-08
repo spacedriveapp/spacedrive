@@ -1,33 +1,31 @@
 {
-	"runs": [
-		{
-			"dirs": 16507,
-			"dirs_per_s": 5.647859855612961,
-			"durations": {
-				"content_s": 2922.7,
-				"discovery_s": 2990.7,
-				"processing_s": 2984.5,
-				"total_s": 2922.7
-			},
-			"errors": 0,
-			"files": 100000,
-			"files_per_s": 34.214938,
-			"meta": {
-				"hardware_label": "External HDD (Seagate)",
-				"host": {
-					"cpu_model": "Apple M3 Max",
-					"cpu_physical_cores": 16,
-					"memory_total_gb": 48
-				},
-				"id": "f84809a7-b9bd-4647-b724-d837643831d7",
-				"location_paths": [
-					"/Volumes/Seagate/benchdata/shape_large"
-				],
-				"recipe_name": "shape_large",
-				"timestamp_utc": "2025-08-10T10:36:35.604531+00:00"
-			},
-			"scenario": "content-identification",
-			"total_gb": 11882.38
-		}
-	]
+  "runs": [
+    {
+      "dirs": 16507,
+      "dirs_per_s": 5.647859855612961,
+      "durations": {
+        "content_s": 2922.7,
+        "discovery_s": 2990.7,
+        "processing_s": 2984.5,
+        "total_s": 2922.7
+      },
+      "errors": 0,
+      "files": 100000,
+      "files_per_s": 34.214938,
+      "meta": {
+        "hardware_label": "External HDD (Seagate)",
+        "host": {
+          "cpu_model": "Apple M3 Max",
+          "cpu_physical_cores": 16,
+          "memory_total_gb": 48
+        },
+        "id": "f84809a7-b9bd-4647-b724-d837643831d7",
+        "location_paths": ["/Volumes/Seagate/benchdata/shape_large"],
+        "recipe_name": "shape_large",
+        "timestamp_utc": "2025-08-10T10:36:35.604531+00:00"
+      },
+      "scenario": "content-identification",
+      "total_gb": 11882.38
+    }
+  ]
 }

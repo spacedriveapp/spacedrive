@@ -1,8 +1,12 @@
 // @ts-nocheck
-import { useQuery, type UseQueryOptions, type UseQueryResult } from "@tanstack/react-query";
-import { useSpacedriveClient } from "./useClient";
+import {
+  type UseQueryOptions,
+  type UseQueryResult,
+  useQuery,
+} from "@tanstack/react-query";
 import type { CoreQuery, LibraryQuery } from "../generated/types";
 import { WIRE_METHODS } from "../generated/types";
+import { useSpacedriveClient } from "./useClient";
 
 /**
  * Type-safe hook for core-scoped queries
@@ -20,20 +24,20 @@ import { WIRE_METHODS } from "../generated/types";
  * ```
  */
 export function useCoreQuery<T extends CoreQuery["type"]>(
-	query: { type: T; input: Extract<CoreQuery, { type: T }>["input"] },
-	options?: Omit<
-		UseQueryOptions<Extract<CoreQuery, { type: T }>["output"]>,
-		"queryKey" | "queryFn"
-	>
+  query: { type: T; input: Extract<CoreQuery, { type: T }>["input"] },
+  options?: Omit<
+    UseQueryOptions<Extract<CoreQuery, { type: T }>["output"]>,
+    "queryKey" | "queryFn"
+  >
 ): UseQueryResult<Extract<CoreQuery, { type: T }>["output"]> {
-	const client = useSpacedriveClient();
-	const wireMethod = WIRE_METHODS.coreQueries[query.type];  // ← Auto-generated!
+  const client = useSpacedriveClient();
+  const wireMethod = WIRE_METHODS.coreQueries[query.type]; // ← Auto-generated!
 
-	return useQuery({
-		queryKey: [query.type, query.input],
-		queryFn: () => client.execute(wireMethod, query.input),
-		...options,
-	}) as UseQueryResult<Extract<CoreQuery, { type: T }>["output"]>;
+  return useQuery({
+    queryKey: [query.type, query.input],
+    queryFn: () => client.execute(wireMethod, query.input),
+    ...options,
+  }) as UseQueryResult<Extract<CoreQuery, { type: T }>["output"]>;
 }
 
 /**
@@ -59,28 +63,30 @@ export function useCoreQuery<T extends CoreQuery["type"]>(
  * ```
  */
 export function useLibraryQuery<T extends LibraryQuery["type"]>(
-	query: { type: T; input: Extract<LibraryQuery, { type: T }>["input"] },
-	options?: Omit<
-		UseQueryOptions<Extract<LibraryQuery, { type: T }>["output"]>,
-		"queryKey" | "queryFn"
-	>
+  query: { type: T; input: Extract<LibraryQuery, { type: T }>["input"] },
+  options?: Omit<
+    UseQueryOptions<Extract<LibraryQuery, { type: T }>["output"]>,
+    "queryKey" | "queryFn"
+  >
 ): UseQueryResult<Extract<LibraryQuery, { type: T }>["output"]> {
-	const client = useSpacedriveClient();
-	const wireMethod = WIRE_METHODS.libraryQueries[query.type];  // ← Auto-generated!
-	const libraryId = client.getCurrentLibraryId();
+  const client = useSpacedriveClient();
+  const wireMethod = WIRE_METHODS.libraryQueries[query.type]; // ← Auto-generated!
+  const libraryId = client.getCurrentLibraryId();
 
-	return useQuery({
-		queryKey: [query.type, libraryId, query.input],
-		queryFn: () => {
-			if (!libraryId) {
-				throw new Error("No library selected. Use client.switchToLibrary() first.");
-			}
+  return useQuery({
+    queryKey: [query.type, libraryId, query.input],
+    queryFn: () => {
+      if (!libraryId) {
+        throw new Error(
+          "No library selected. Use client.switchToLibrary() first."
+        );
+      }
 
-			// Client.execute() automatically adds library_id to the request
-			// as a sibling field (not inside payload)
-			return client.execute(wireMethod, query.input);
-		},
-		enabled: !!libraryId && (options?.enabled ?? true),
-		...options,
-	}) as UseQueryResult<Extract<LibraryQuery, { type: T }>["output"]>;
+      // Client.execute() automatically adds library_id to the request
+      // as a sibling field (not inside payload)
+      return client.execute(wireMethod, query.input);
+    },
+    enabled: !!libraryId && (options?.enabled ?? true),
+    ...options,
+  }) as UseQueryResult<Extract<LibraryQuery, { type: T }>["output"]>;
 }

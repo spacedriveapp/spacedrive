@@ -1,11 +1,11 @@
-import { useRef, useEffect } from "react";
+import { useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { useExplorer } from "./context";
 import { useTabManager } from "../../components/TabManager";
+import { useExplorer } from "./context";
 
 interface TabNavigationGuardProps {
-	children: React.ReactNode;
-	fallback?: React.ReactNode;
+  children: React.ReactNode;
+  fallback?: React.ReactNode;
 }
 
 /**
@@ -18,36 +18,36 @@ interface TabNavigationGuardProps {
  * Regular in-tab navigation (sidebar, breadcrumbs) is NOT blocked.
  */
 export function TabNavigationGuard({
-	children,
-	fallback,
+  children,
+  fallback,
 }: TabNavigationGuardProps) {
-	const { activeTabId } = useExplorer();
-	const { tabs } = useTabManager();
-	const location = useLocation();
+  const { activeTabId } = useExplorer();
+  const { tabs } = useTabManager();
+  const location = useLocation();
 
-	// Track when we last switched tabs
-	const lastTabIdRef = useRef(activeTabId);
-	const tabSwitchedAtRef = useRef<number>(0);
+  // Track when we last switched tabs
+  const lastTabIdRef = useRef(activeTabId);
+  const tabSwitchedAtRef = useRef<number>(0);
 
-	const activeTab = tabs.find((t) => t.id === activeTabId);
-	const currentUrlPath = location.pathname + location.search;
+  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const currentUrlPath = location.pathname + location.search;
 
-	// Detect tab switch and record timestamp
-	if (lastTabIdRef.current !== activeTabId) {
-		lastTabIdRef.current = activeTabId;
-		tabSwitchedAtRef.current = Date.now();
-	}
+  // Detect tab switch and record timestamp
+  if (lastTabIdRef.current !== activeTabId) {
+    lastTabIdRef.current = activeTabId;
+    tabSwitchedAtRef.current = Date.now();
+  }
 
-	// Check if we just switched tabs (within last 50ms)
-	const justSwitchedTabs = Date.now() - tabSwitchedAtRef.current < 50;
+  // Check if we just switched tabs (within last 50ms)
+  const justSwitchedTabs = Date.now() - tabSwitchedAtRef.current < 50;
 
-	// Only block if we JUST switched tabs AND URL hasn't caught up yet
-	const isNavigating =
-		justSwitchedTabs && activeTab && currentUrlPath !== activeTab.savedPath;
+  // Only block if we JUST switched tabs AND URL hasn't caught up yet
+  const isNavigating =
+    justSwitchedTabs && activeTab && currentUrlPath !== activeTab.savedPath;
 
-	if (isNavigating) {
-		return fallback ?? <div className="h-full overflow-auto" />;
-	}
+  if (isNavigating) {
+    return fallback ?? <div className="h-full overflow-auto" />;
+  }
 
-	return <>{children}</>;
+  return <>{children}</>;
 }

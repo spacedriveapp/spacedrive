@@ -42,29 +42,24 @@
 
 // Core client
 export { SpacedriveClient } from "./client";
-export type { Transport } from "./transport";
-export { UnixSocketTransport, TauriTransport } from "./transport";
-export { SubscriptionManager } from "./subscriptionManager";
-
-// Event filtering utilities
-export {
-	DEFAULT_EVENT_SUBSCRIPTION,
-	NOISY_EVENTS,
-	type EventVariant,
-} from "./event-filter";
-
-// React hooks (requires @tanstack/react-query peer dependency)
-export * from "./hooks";
-
-// Zustand stores
-export * from "./stores/sidebar";
-export * from "./stores/viewPreferences";
-export * from "./stores/sortPreferences";
-export * from "./stores/syncPreferences";
-
 // Device and volume utilities
 export * from "./deviceIcons";
-export * from "./volumeIcons";
-
+// Event filtering utilities
+export {
+  DEFAULT_EVENT_SUBSCRIPTION,
+  type EventVariant,
+  NOISY_EVENTS,
+} from "./event-filter";
 // All auto-generated types
 export * from "./generated/types";
+// React hooks (requires @tanstack/react-query peer dependency)
+export * from "./hooks";
+// Zustand stores
+export * from "./stores/sidebar";
+export * from "./stores/sortPreferences";
+export * from "./stores/syncPreferences";
+export * from "./stores/viewPreferences";
+export { SubscriptionManager } from "./subscriptionManager";
+export type { Transport } from "./transport";
+export { TauriTransport, UnixSocketTransport } from "./transport";
+export * from "./volumeIcons";

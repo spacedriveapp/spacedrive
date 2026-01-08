@@ -1,5 +1,5 @@
-import clsx from "clsx";
 import type { SdPath } from "@sd/ts-client";
+import clsx from "clsx";
 
 interface BreadcrumbProps {
   path: SdPath;
@@ -54,16 +54,16 @@ export function Breadcrumb({ path, onNavigate }: BreadcrumbProps) {
       {segments.map((segment, index) => {
         const isLast = index === segments.length - 1;
         return (
-          <div key={index} className="flex items-center gap-1">
+          <div className="flex items-center gap-1" key={index}>
             {index > 0 && <span className="text-ink-faint">/</span>}
             <button
-              onClick={() => !isLast && onNavigate(segment.path)}
-              disabled={isLast}
               className={clsx(
                 isLast
-                  ? "text-ink font-medium cursor-default"
-                  : "text-ink-dull hover:text-ink cursor-pointer"
+                  ? "cursor-default font-medium text-ink"
+                  : "cursor-pointer text-ink-dull hover:text-ink"
               )}
+              disabled={isLast}
+              onClick={() => !isLast && onNavigate(segment.path)}
             >
               {segment.name}
             </button>

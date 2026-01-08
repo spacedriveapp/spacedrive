@@ -5,27 +5,24 @@
  * Both work identically!
  */
 
-// Re-export hooks from @sd/ts-client (no longer duplicated!)
-export {
-	SpacedriveProvider,
-	useSpacedriveClient,
-	useClient,
-	useCoreQuery,
-	useLibraryQuery,
-	useCoreMutation,
-	useLibraryMutation,
-	useNormalizedQuery,
-} from "@sd/ts-client/hooks";
-
 // Export client type
-export type { SpacedriveClient } from "@sd/ts-client";
-
 // Export commonly used types for convenience
 export type {
-	Location,
-	LocationsListOutput,
-	LibraryInfo,
+  LibraryInfo,
+  Location,
+  LocationsListOutput,
+  SpacedriveClient,
 } from "@sd/ts-client";
-
 // Export icon utilities
 export { getDeviceIcon, getVolumeIcon } from "@sd/ts-client";
+// Re-export hooks from @sd/ts-client (no longer duplicated!)
+export {
+  SpacedriveProvider,
+  useClient,
+  useCoreMutation,
+  useCoreQuery,
+  useLibraryMutation,
+  useLibraryQuery,
+  useNormalizedQuery,
+  useSpacedriveClient,
+} from "@sd/ts-client/hooks";

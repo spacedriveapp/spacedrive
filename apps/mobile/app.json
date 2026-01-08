@@ -7,10 +7,7 @@
     "icon": "./icon.png",
     "userInterfaceStyle": "dark",
     "scheme": "spacedrive",
-    "platforms": [
-      "ios",
-      "android"
-    ],
+    "platforms": ["ios", "android"],
     "newArchEnabled": true,
     "experiments": {
       "typedRoutes": true

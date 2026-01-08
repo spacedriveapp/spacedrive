@@ -1,7 +1,8 @@
 {
-	"extends": "./base.tsconfig.json",
-	"compilerOptions": {
-		"noEmit": true
-	},
-	"include": ["."]
+  "extends": "./base.tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "strictNullChecks": true
+  },
+  "include": ["."]
 }

@@ -1,15 +1,15 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { useRef, useEffect } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { Plus } from "@phosphor-icons/react";
-import clsx from "clsx";
+import { Location } from "@sd/assets/icons";
 import type { Location } from "@sd/ts-client";
+import clsx from "clsx";
+import { useEffect, useRef } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
+import { useEvent } from "../../../hooks/useEvent";
+import { useAddLocationDialog } from "./AddLocationModal";
 import { Section } from "./Section";
 import { SidebarItem } from "./SidebarItem";
-import { useAddLocationDialog } from "./AddLocationModal";
-import { Location } from "@sd/assets/icons";
-import { useEvent } from "../../../hooks/useEvent";
-import { useDroppable } from "@dnd-kit/core";
 
 export function LocationsSection() {
   const navigate = useNavigate();
@@ -34,7 +34,11 @@ export function LocationsSection() {
     if ("ResourceChanged" in event) {
       const { resource_type, resource } = event.ResourceChanged;
 
-      if (resource_type === "location" && typeof resource === "object" && resource !== null) {
+      if (
+        resource_type === "location" &&
+        typeof resource === "object" &&
+        resource !== null
+      ) {
         const newLocation = resource as Location;
 
         // Check if this is a new location (not in our previous set)
@@ -57,13 +61,13 @@ export function LocationsSection() {
   return (
     <Section title="Locations">
       {locationsQuery.isLoading && (
-        <div className="px-2 py-1 text-xs text-sidebar-inkFaint">
+        <div className="px-2 py-1 text-sidebar-inkFaint text-xs">
           Loading...
         </div>
       )}
 
       {locationsQuery.error && (
-        <div className="px-2 py-1 text-xs text-red-400">
+        <div className="px-2 py-1 text-red-400 text-xs">
           Error: {(locationsQuery.error as Error).message}
         </div>
       )}
@@ -71,25 +75,25 @@ export function LocationsSection() {
       {locations.length === 0 &&
         !locationsQuery.isLoading &&
         !locationsQuery.error && (
-          <div className="px-2 py-1 text-xs text-sidebar-inkFaint">
+          <div className="px-2 py-1 text-sidebar-inkFaint text-xs">
             No locations yet
           </div>
         )}
 
       {locations.map((location) => (
         <LocationDropZone
+          active={locationId === location.id}
           key={location.id}
           location={location}
-          active={locationId === location.id}
           onClick={() => handleLocationClick(location)}
         />
       ))}
 
       <SidebarItem
+        className="text-ink-faint hover:text-ink"
         icon={Plus}
         label="Add Location"
         onClick={handleAddLocation}
-        className="text-ink-faint hover:text-ink"
       />
     </Section>
   );
@@ -116,16 +120,16 @@ function LocationDropZone({
   });
 
   return (
-    <div ref={setNodeRef} className="relative">
+    <div className="relative" ref={setNodeRef}>
       {isOver && (
-        <div className="absolute inset-0 rounded-lg ring-2 ring-accent ring-inset pointer-events-none z-10" />
+        <div className="pointer-events-none absolute inset-0 z-10 rounded-lg ring-2 ring-accent ring-inset" />
       )}
       <SidebarItem
+        active={active}
+        className={clsx(isOver && "bg-accent/10")}
         icon={Location}
         label={location.name || "Unnamed"}
-        active={active}
         onClick={onClick}
-        className={clsx(isOver && "bg-accent/10")}
       />
     </div>
   );

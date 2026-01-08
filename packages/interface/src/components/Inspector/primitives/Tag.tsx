@@ -14,7 +14,7 @@ export function Tag({ color, children, size = "sm", className }: TagProps) {
         "inline-flex items-center gap-1.5 rounded-full font-medium",
         size === "sm" && "px-2 py-0.5 text-xs",
         size === "md" && "px-2.5 py-1 text-sm",
-        className,
+        className
       )}
       style={{ backgroundColor: `${color}20`, color }}
     >
@@ -22,7 +22,7 @@ export function Tag({ color, children, size = "sm", className }: TagProps) {
         className={clsx(
           "rounded-full",
           size === "sm" && "size-1.5",
-          size === "md" && "size-2",
+          size === "md" && "size-2"
         )}
         style={{ backgroundColor: color }}
       />

@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import type { File } from "@sd/ts-client";
 import {
-  getCoreRowModel,
-  useReactTable,
   type ColumnDef,
   type ColumnSizingState,
+  getCoreRowModel,
+  useReactTable,
 } from "@tanstack/react-table";
-import type { File } from "@sd/ts-client";
+import { useMemo } from "react";
 
 import { formatBytes, formatRelativeTime } from "../../utils";
 
@@ -17,7 +17,10 @@ export const TABLE_HEADER_HEIGHT = 32;
 // Column definitions for the list view
 export function useTable(files: File[]) {
   // Memoize files array reference to prevent unnecessary table updates
-  const stableFiles = useMemo(() => files, [JSON.stringify(files.map(f => f.id))]);
+  const stableFiles = useMemo(
+    () => files,
+    [JSON.stringify(files.map((f) => f.id))]
+  );
 
   const columns = useMemo<ColumnDef<File>[]>(
     () => [

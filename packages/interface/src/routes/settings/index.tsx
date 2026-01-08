@@ -1,5 +1,5 @@
-import { useState } from "react";
 import clsx from "clsx";
+import { useState } from "react";
 import { useCoreMutation } from "../../contexts/SpacedriveContext";
 
 interface SettingsSidebarProps {
@@ -19,14 +19,14 @@ function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
     <div className="space-y-1">
       {sections.map((section) => (
         <button
-          key={section.id}
-          onClick={() => onPageChange(section.id)}
           className={clsx(
-            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            "w-full rounded-md px-3 py-2 text-left font-medium text-sm transition-colors",
             currentPage === section.id
               ? "bg-sidebar-selected text-sidebar-ink"
-              : "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-box"
+              : "text-sidebar-inkDull hover:bg-sidebar-box hover:text-sidebar-ink"
           )}
+          key={section.id}
+          onClick={() => onPageChange(section.id)}
         >
           {section.label}
         </button>
@@ -68,7 +68,8 @@ function GeneralSettings() {
         {
           onSuccess: (result) => {
             alert(
-              result.message || "Data has been reset. Please restart the application."
+              result.message ||
+                "Data has been reset. Please restart the application."
             );
           },
           onError: (error) => {
@@ -82,32 +83,34 @@ function GeneralSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">General</h2>
-        <p className="text-sm text-ink-dull">
+        <h2 className="mb-2 font-semibold text-ink text-lg">General</h2>
+        <p className="text-ink-dull text-sm">
           Configure general application settings.
         </p>
       </div>
       <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Theme</h3>
-          <p className="text-xs text-ink-dull">Choose your preferred theme</p>
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">Theme</h3>
+          <p className="text-ink-dull text-xs">Choose your preferred theme</p>
         </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Language</h3>
-          <p className="text-xs text-ink-dull">Select your language</p>
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">Language</h3>
+          <p className="text-ink-dull text-xs">Select your language</p>
         </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-medium text-ink mb-1">Reset All Data</h3>
-              <p className="text-xs text-ink-dull">
+              <h3 className="mb-1 font-medium text-ink text-sm">
+                Reset All Data
+              </h3>
+              <p className="text-ink-dull text-xs">
                 Permanently delete all libraries and settings
               </p>
             </div>
             <button
-              onClick={handleResetData}
+              className="rounded-lg bg-red-600 px-4 py-2 font-medium text-sm text-white transition-colors hover:bg-red-700 disabled:opacity-50"
               disabled={resetData.isPending}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              onClick={handleResetData}
             >
               {resetData.isPending ? "Resetting..." : "Reset"}
             </button>
@@ -122,17 +125,15 @@ function LibrarySettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">Library</h2>
-        <p className="text-sm text-ink-dull">
+        <h2 className="mb-2 font-semibold text-ink text-lg">Library</h2>
+        <p className="text-ink-dull text-sm">
           Manage your Spacedrive libraries.
         </p>
       </div>
       <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">
-            Current Library
-          </h3>
-          <p className="text-xs text-ink-dull">View and switch libraries</p>
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">Current Library</h3>
+          <p className="text-ink-dull text-xs">View and switch libraries</p>
         </div>
       </div>
     </div>
@@ -143,15 +144,15 @@ function PrivacySettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">Privacy</h2>
-        <p className="text-sm text-ink-dull">
+        <h2 className="mb-2 font-semibold text-ink text-lg">Privacy</h2>
+        <p className="text-ink-dull text-sm">
           Control your privacy and data sharing preferences.
         </p>
       </div>
       <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Telemetry</h3>
-          <p className="text-xs text-ink-dull">
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">Telemetry</h3>
+          <p className="text-ink-dull text-xs">
             Help improve Spacedrive by sharing anonymous usage data
           </p>
         </div>
@@ -164,19 +165,17 @@ function AboutSettings() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">About</h2>
-        <p className="text-sm text-ink-dull">
-          Information about Spacedrive.
-        </p>
+        <h2 className="mb-2 font-semibold text-ink text-lg">About</h2>
+        <p className="text-ink-dull text-sm">Information about Spacedrive.</p>
       </div>
       <div className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Version</h3>
-          <p className="text-xs text-ink-dull">Spacedrive v0.1.0</p>
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">Version</h3>
+          <p className="text-ink-dull text-xs">Spacedrive v0.1.0</p>
         </div>
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">License</h3>
-          <p className="text-xs text-ink-dull">AGPL-3.0</p>
+        <div className="rounded-lg border border-app-line bg-app-box p-4">
+          <h3 className="mb-1 font-medium text-ink text-sm">License</h3>
+          <p className="text-ink-dull text-xs">AGPL-3.0</p>
         </div>
       </div>
     </div>
@@ -189,11 +188,11 @@ export function Settings() {
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   return (
-    <div className="h-screen bg-app flex">
+    <div className="flex h-screen bg-app">
       {/* Sidebar */}
-      <nav className="w-48 bg-sidebar border-r border-sidebar-line p-4">
+      <nav className="w-48 border-sidebar-line border-r bg-sidebar p-4">
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-sidebar-ink">Settings</h1>
+          <h1 className="font-semibold text-sidebar-ink text-xl">Settings</h1>
         </div>
         <SettingsSidebar
           currentPage={currentPage}

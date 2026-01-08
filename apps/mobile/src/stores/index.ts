@@ -1,8 +1,8 @@
-export { useSidebarStore } from "./sidebar";
 export {
-	useExplorerStore,
-	type LayoutMode,
-	type SortBy,
-	type SortOrder,
+  type LayoutMode,
+  type SortBy,
+  type SortOrder,
+  useExplorerStore,
 } from "./explorer";
-export { usePreferencesStore, type ThemeMode } from "./preferences";
+export { type ThemeMode, usePreferencesStore } from "./preferences";
+export { useSidebarStore } from "./sidebar";

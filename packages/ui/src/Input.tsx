@@ -3,11 +3,11 @@
 import {
   Eye,
   EyeSlash,
-  Icon,
-  IconProps,
+  type Icon,
+  type IconProps,
   MagnifyingGlass,
 } from "@phosphor-icons/react";
-import { cva, VariantProps } from "class-variance-authority";
+import { cva, type VariantProps } from "class-variance-authority";
 import clsx from "clsx";
 import { createElement, forwardRef, isValidElement, useState } from "react";
 
@@ -43,7 +43,7 @@ export const inputStyles = cva(
     variants: {
       variant: {
         default: [
-          "border-app-line bg-app-input/50 border-app-line active:border-app-line placeholder-ink-faint",
+          "border-app-line border-app-line bg-app-input/50 placeholder-ink-faint active:border-app-line",
         ],
         transparent: [
           "border-transparent bg-transparent placeholder-ink-dull focus-within:bg-transparent",
@@ -59,7 +59,7 @@ export const inputStyles = cva(
       variant: "default",
       size: "sm",
     },
-  },
+  }
 );
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(
@@ -74,7 +74,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
       error,
       ...props
     },
-    ref,
+    ref
   ) => (
     <div
       className={clsx(
@@ -84,20 +84,20 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           size: right && !size ? "md" : size,
           error,
           className,
-        }),
+        })
       )}
     >
       <div
         className={clsx(
           "flex h-full flex-1 overflow-hidden",
-          iconPosition === "right" && "flex-row-reverse",
+          iconPosition === "right" && "flex-row-reverse"
         )}
       >
         {icon && (
           <div
             className={clsx(
               "flex h-full items-center",
-              iconPosition === "left" ? "pl-[10px] pr-2" : "pl-2 pr-[10px]",
+              iconPosition === "left" ? "pr-2 pl-[10px]" : "pr-[10px] pl-2"
             )}
           >
             {isValidElement(icon)
@@ -110,18 +110,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         )}
 
         <input
+          autoComplete={props.autoComplete || "off"}
           className={clsx(
-            "flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint focus:!ring-0",
+            "focus:!ring-0 flex-1 truncate border-none bg-transparent px-3 text-sm outline-none placeholder:text-ink-faint",
             (right || (icon && iconPosition === "right")) && "pr-0",
             icon && iconPosition === "left" && "pl-0",
             size === "xs" && "!py-0",
-            props.inputElementClassName,
+            props.inputElementClassName
           )}
           onKeyDown={(e) => {
             e.stopPropagation();
           }}
           ref={ref}
-          autoComplete={props.autoComplete || "off"}
           {...props}
         />
       </div>
@@ -130,18 +130,18 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         <div
           className={clsx(
             "flex h-full min-w-[12px] items-center",
-            size === "lg" ? "px-[5px]" : "px-1",
+            size === "lg" ? "px-[5px]" : "px-1"
           )}
         >
           {right}
         </div>
       )}
     </div>
-  ),
+  )
 );
 
 export const SearchInput = forwardRef<HTMLInputElement, InputProps>(
-  (props, ref) => <Input {...props} ref={ref} icon={MagnifyingGlass} />,
+  (props, ref) => <Input {...props} icon={MagnifyingGlass} ref={ref} />
 );
 
 export const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(
@@ -149,18 +149,18 @@ export const TextArea = forwardRef<HTMLTextAreaElement, TextareaProps>(
     return (
       <textarea
         {...props}
-        ref={ref}
-        onKeyDown={(e) => {
-          e.stopPropagation();
-        }}
         className={clsx(
           "h-auto p-2",
           inputStyles({ size, variant, error }),
-          props.className,
+          props.className
         )}
+        onKeyDown={(e) => {
+          e.stopPropagation();
+        }}
+        ref={ref}
       />
     );
-  },
+  }
 );
 
 export interface LabelProps
@@ -171,8 +171,8 @@ export interface LabelProps
 export function Label({ slug, children, className, ...props }: LabelProps) {
   return (
     <label
+      className={clsx("font-bold font-plex text-sm", className)}
       htmlFor={slug}
-      className={clsx("font-plex text-sm font-bold", className)}
       {...props}
     >
       {children}
@@ -193,22 +193,22 @@ export const PasswordInput = forwardRef<HTMLInputElement, Props>(
     return (
       <Input
         {...props}
-        type={showPassword ? "text" : "password"}
-        ref={ref}
         onKeyDown={(e) => {
           e.stopPropagation();
         }}
+        ref={ref}
         right={
           <Button
-            tabIndex={0}
+            className={clsx(props.buttonClassnames)}
             onClick={() => setShowPassword(!showPassword)}
             size="icon"
-            className={clsx(props.buttonClassnames)}
+            tabIndex={0}
           >
             <CurrentEyeIcon className="!pointer-events-none size-4" />
           </Button>
         }
+        type={showPassword ? "text" : "password"}
       />
     );
-  },
+  }
 );

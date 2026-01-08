@@ -20,9 +20,7 @@
           "memory_total_gb": 48
         },
         "id": "f01681c8-bc82-4e05-a26e-eeaedc3e1239",
-        "location_paths": [
-          "/Volumes/Seagate/benchdata/shape_large"
-        ],
+        "location_paths": ["/Volumes/Seagate/benchdata/shape_large"],
         "recipe_name": "shape_large",
         "timestamp_utc": "2025-08-10T09:46:25.346840+00:00"
       },

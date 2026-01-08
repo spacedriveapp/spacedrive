@@ -13,9 +13,9 @@ import BloomThree from "./BloomThree.png";
 import BloomTwo from "./BloomTwo.png";
 import Dropbox from "./Dropbox.png";
 import GoogleDrive from "./GoogleDrive.png";
+import iCloud from "./iCloud.png";
 import Mega from "./Mega.png";
 import Transparent from "./Transparent.png";
-import iCloud from "./iCloud.png";
 
 export {
   AlphaBg,

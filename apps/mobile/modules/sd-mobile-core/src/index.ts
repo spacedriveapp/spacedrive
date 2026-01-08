@@ -1,7 +1,7 @@
 import {
-  NativeModule,
-  requireNativeModule,
   EventEmitter,
+  type NativeModule,
+  requireNativeModule,
 } from "expo-modules-core";
 
 export interface CoreEvent {
@@ -35,7 +35,7 @@ export interface CoreModule {
 interface SDMobileCoreNativeModule extends NativeModule<SDMobileCoreEvents> {
   initialize(
     dataDir: string | null,
-    deviceName: string | null,
+    deviceName: string | null
   ): Promise<number>;
   sendMessage(query: string): Promise<string>;
   shutdown(): void;
@@ -47,7 +47,9 @@ const SDMobileCoreModule =
   requireNativeModule<SDMobileCoreNativeModule>("SDMobileCore");
 
 if (!SDMobileCoreModule) {
-  throw new Error("SDMobileCoreModule has not been initialized. Did you run 'cargo xtask build-mobile' and rebuild the app?")
+  throw new Error(
+    "SDMobileCoreModule has not been initialized. Did you run 'cargo xtask build-mobile' and rebuild the app?"
+  );
 }
 
 const emitter = new EventEmitter<SDMobileCoreEvents>(SDMobileCoreModule as any);

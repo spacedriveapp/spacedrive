@@ -1,44 +1,40 @@
 // Types
-export type {
-	Platform,
-	Modifier,
-	Key,
-	KeyCombo,
-	PlatformKeyCombo,
-	KeybindScope,
-	KeybindDefinition,
-} from './types';
 
-export { defineKeybind, isPlatformKeyCombo } from './types';
+export type { KeybindHandler } from "./listener";
+// Listener
+export {
+  getWebListener,
+  resetWebListener,
+} from "./listener";
 
 // Platform utilities
 export {
-	getCurrentPlatform,
-	getComboForPlatform,
-	normalizeModifiers,
-	toTauriAccelerator,
-	toDisplayString,
-	isInputFocused,
-} from './platform';
-
+  getComboForPlatform,
+  getCurrentPlatform,
+  isInputFocused,
+  normalizeModifiers,
+  toDisplayString,
+  toTauriAccelerator,
+} from "./platform";
+export type { KeybindId } from "./registry";
 // Registry
 export {
-	KEYBINDS,
-	explorerKeybinds,
-	globalKeybinds,
-	mediaViewerKeybinds,
-	quickPreviewKeybinds,
-	getKeybind,
-	getAllKeybinds,
-	getKeybindsByScope,
-} from './registry';
-
-export type { KeybindId } from './registry';
-
-// Listener
-export {
-	getWebListener,
-	resetWebListener,
-} from './listener';
-
-export type { KeybindHandler } from './listener';
+  explorerKeybinds,
+  getAllKeybinds,
+  getKeybind,
+  getKeybindsByScope,
+  globalKeybinds,
+  KEYBINDS,
+  mediaViewerKeybinds,
+  quickPreviewKeybinds,
+} from "./registry";
+export type {
+  Key,
+  KeybindDefinition,
+  KeybindScope,
+  KeyCombo,
+  Modifier,
+  Platform,
+  PlatformKeyCombo,
+} from "./types";
+export { defineKeybind, isPlatformKeyCombo } from "./types";

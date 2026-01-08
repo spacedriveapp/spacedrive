@@ -1,18 +1,18 @@
-import React, { useState, useEffect } from "react";
+import Clipboard from "@react-native-clipboard/clipboard";
+import { CameraView, useCameraPermissions } from "expo-camera";
+import React, { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  Modal,
-  Pressable,
-  TextInput,
-  ScrollView,
   ActivityIndicator,
   Alert,
+  Modal,
+  Pressable,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import QRCode from "react-native-qrcode-svg";
-import Clipboard from "@react-native-clipboard/clipboard";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useCoreAction, useCoreQuery } from "../client";
 
 interface PairingPanelProps {
@@ -39,7 +39,7 @@ export function PairingPanel({
 
   const { data: pairingStatus, refetch: refetchStatus } = useCoreQuery(
     "network.pair.status",
-    null,
+    null
   );
 
   // Poll status when in active pairing
@@ -96,7 +96,7 @@ export function PairingPanel({
       // QR code contains: { version, words, node_id, relay_url, session_id }
       if (parsed.words || parsed.code) {
         console.log(
-          "[PairingPanel] QR scanned, auto-joining with full QR data",
+          "[PairingPanel] QR scanned, auto-joining with full QR data"
         );
         const words = parsed.words || parsed.code;
         setJoinCode(words);
@@ -111,7 +111,7 @@ export function PairingPanel({
       // If not JSON, treat as plain word code (local pairing)
       console.log(
         "[PairingPanel] QR scanned, auto-joining with plain code:",
-        data,
+        data
       );
       setJoinCode(data);
       setShowScanner(false);
@@ -129,7 +129,7 @@ export function PairingPanel({
       if (!result.granted) {
         Alert.alert(
           "Camera Permission",
-          "Camera access is required to scan QR codes",
+          "Camera access is required to scan QR codes"
         );
         return;
       }
@@ -153,30 +153,30 @@ export function PairingPanel({
 
   return (
     <Modal
-      visible={isOpen}
       animationType="slide"
-      transparent
       onRequestClose={handleClose}
+      transparent
+      visible={isOpen}
     >
       <View className="flex-1 bg-black/50">
         <View
-          className="flex-1 bg-app-box rounded-t-3xl overflow-hidden"
+          className="flex-1 overflow-hidden rounded-t-3xl bg-app-box"
           style={{ marginTop: insets.top + 40 }}
         >
           {/* Header */}
-          <View className="px-6 py-4 border-b border-app-line">
+          <View className="border-app-line border-b px-6 py-4">
             <View className="flex-row items-center justify-between">
               <View>
-                <Text className="text-lg font-semibold text-ink">
+                <Text className="font-semibold text-ink text-lg">
                   Device Pairing
                 </Text>
-                <Text className="text-xs text-ink-dull mt-0.5">
+                <Text className="mt-0.5 text-ink-dull text-xs">
                   Connect another device to share files
                 </Text>
               </View>
               <Pressable
+                className="rounded-lg p-2 active:bg-app-hover"
                 onPress={handleClose}
-                className="p-2 active:bg-app-hover rounded-lg"
               >
                 <Text className="text-ink-dull text-xl">✕</Text>
               </Pressable>
@@ -184,15 +184,15 @@ export function PairingPanel({
           </View>
 
           {/* Mode Tabs */}
-          <View className="flex-row border-b border-app-line">
+          <View className="flex-row border-app-line border-b">
             <Pressable
-              onPress={() => setMode("generate")}
               className={`flex-1 px-6 py-3 ${
-                mode === "generate" ? "border-b-2 border-accent" : ""
+                mode === "generate" ? "border-accent border-b-2" : ""
               }`}
+              onPress={() => setMode("generate")}
             >
               <Text
-                className={`text-sm font-medium text-center ${
+                className={`text-center font-medium text-sm ${
                   mode === "generate" ? "text-accent" : "text-ink-dull"
                 }`}
               >
@@ -200,13 +200,13 @@ export function PairingPanel({
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setMode("join")}
               className={`flex-1 px-6 py-3 ${
-                mode === "join" ? "border-b-2 border-accent" : ""
+                mode === "join" ? "border-accent border-b-2" : ""
               }`}
+              onPress={() => setMode("join")}
             >
               <Text
-                className={`text-sm font-medium text-center ${
+                className={`text-center font-medium text-sm ${
                   mode === "join" ? "text-accent" : "text-ink-dull"
                 }`}
               >
@@ -225,40 +225,40 @@ export function PairingPanel({
           >
             {mode === "generate" ? (
               <GenerateMode
-                generatePairing={generatePairing}
                 currentSession={currentSession}
-                onGenerate={handleGenerate}
+                generatePairing={generatePairing}
                 onCancel={handleCancel}
                 onCopyCode={copyCode}
+                onGenerate={handleGenerate}
               />
             ) : showScanner ? (
               <ScannerMode
-                onScan={handleQRScan}
                 onClose={() => setShowScanner(false)}
+                onScan={handleQRScan}
               />
             ) : (
               <JoinMode
-                joinCode={joinCode}
-                setJoinCode={setJoinCode}
-                joinNodeId={joinNodeId}
-                setJoinNodeId={setJoinNodeId}
-                joinPairing={joinPairing}
                 currentSession={currentSession}
-                onJoin={handleJoin}
+                joinCode={joinCode}
+                joinNodeId={joinNodeId}
+                joinPairing={joinPairing}
                 onCancel={handleCancel}
+                onJoin={handleJoin}
                 onOpenScanner={openScanner}
+                setJoinCode={setJoinCode}
+                setJoinNodeId={setJoinNodeId}
               />
             )}
 
             {/* Success State */}
             {isCompleted && (
-              <View className="flex-row items-center gap-3 p-4 bg-accent/10 border border-accent/30 rounded-lg mt-6">
+              <View className="mt-6 flex-row items-center gap-3 rounded-lg border border-accent/30 bg-accent/10 p-4">
                 <Text className="text-accent text-xl">✓</Text>
                 <View className="flex-1">
-                  <Text className="text-sm font-medium text-accent">
+                  <Text className="font-medium text-accent text-sm">
                     Pairing successful!
                   </Text>
-                  <Text className="text-xs text-ink-dull mt-0.5">
+                  <Text className="mt-0.5 text-ink-dull text-xs">
                     {joinPairing.data
                       ? `Connected to ${joinPairing.data.device_name}`
                       : "Device paired"}
@@ -286,63 +286,33 @@ function GenerateMode({
 
   return (
     <View className="gap-6">
-      {!hasCode ? (
-        <>
-          {/* Info */}
-          <View className="flex-row gap-3 p-4 bg-sidebar-box/40 rounded-lg border border-sidebar-line">
-            <View className="w-10 h-10 rounded-full bg-accent/10 items-center justify-center">
-              <Text className="text-accent text-xl">◊</Text>
-            </View>
-            <View className="flex-1">
-              <Text className="text-sm font-medium text-ink">How it works</Text>
-              <Text className="text-xs text-ink-dull mt-1">
-                Generate a secure code to share with another device. They'll
-                scan or enter the code to connect.
-              </Text>
-            </View>
-          </View>
-
-          {/* Generate Button */}
-          <Pressable
-            onPress={onGenerate}
-            disabled={isLoading}
-            className={`flex-row items-center justify-center gap-2 px-4 py-3 rounded-lg ${
-              isLoading ? "bg-accent/50" : "bg-accent active:bg-accent/90"
-            }`}
-          >
-            {isLoading && <ActivityIndicator size="small" color="white" />}
-            <Text className="text-white font-medium">
-              {isLoading ? "Generating..." : "Generate Pairing Code"}
-            </Text>
-          </Pressable>
-        </>
-      ) : (
+      {hasCode ? (
         <>
           {/* QR Code */}
           <View className="items-center gap-3">
-            <Text className="text-sm text-ink-dull">
+            <Text className="text-ink-dull text-sm">
               Scan with mobile device
             </Text>
-            <View className="p-4 bg-white rounded-lg">
-              <QRCode value={generatePairing.data.qr_json} size={200} />
+            <View className="rounded-lg bg-white p-4">
+              <QRCode size={200} value={generatePairing.data.qr_json} />
             </View>
           </View>
 
           {/* Word Code */}
           <View>
-            <Text className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2">
+            <Text className="mb-2 font-medium text-ink-dull text-xs uppercase tracking-wider">
               Or type manually:
             </Text>
-            <View className="p-4 bg-sidebar-box border border-sidebar-line rounded-lg">
-              <Text className="font-mono text-sm text-ink">
+            <View className="rounded-lg border border-sidebar-line bg-sidebar-box p-4">
+              <Text className="font-mono text-ink text-sm">
                 {generatePairing.data.code}
               </Text>
             </View>
             <Pressable
+              className="mt-2 rounded-lg border border-app-line bg-app-box p-2 active:bg-app-hover"
               onPress={onCopyCode}
-              className="mt-2 p-2 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
             >
-              <Text className="text-sm text-ink-dull text-center">
+              <Text className="text-center text-ink-dull text-sm">
                 Copy Code
               </Text>
             </Pressable>
@@ -350,9 +320,9 @@ function GenerateMode({
 
           {/* Status */}
           {state && (
-            <View className="flex-row items-center gap-2 p-3 bg-app-box/40 rounded-lg border border-app-line">
-              <View className="w-2 h-2 rounded-full bg-accent" />
-              <Text className="text-sm text-ink-dull">
+            <View className="flex-row items-center gap-2 rounded-lg border border-app-line bg-app-box/40 p-3">
+              <View className="h-2 w-2 rounded-full bg-accent" />
+              <Text className="text-ink-dull text-sm">
                 {state === "Broadcasting" || state === "WaitingForConnection"
                   ? "Waiting for device to connect..."
                   : state === "Authenticating"
@@ -366,11 +336,41 @@ function GenerateMode({
 
           {/* Cancel Button */}
           <Pressable
+            className="rounded-lg border border-app-line bg-app-box px-4 py-2.5 active:bg-app-hover"
             onPress={onCancel}
-            className="px-4 py-2.5 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
           >
-            <Text className="text-sm font-medium text-ink-dull text-center">
+            <Text className="text-center font-medium text-ink-dull text-sm">
               Cancel
+            </Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
+          {/* Info */}
+          <View className="flex-row gap-3 rounded-lg border border-sidebar-line bg-sidebar-box/40 p-4">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/10">
+              <Text className="text-accent text-xl">◊</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="font-medium text-ink text-sm">How it works</Text>
+              <Text className="mt-1 text-ink-dull text-xs">
+                Generate a secure code to share with another device. They'll
+                scan or enter the code to connect.
+              </Text>
+            </View>
+          </View>
+
+          {/* Generate Button */}
+          <Pressable
+            className={`flex-row items-center justify-center gap-2 rounded-lg px-4 py-3 ${
+              isLoading ? "bg-accent/50" : "bg-accent active:bg-accent/90"
+            }`}
+            disabled={isLoading}
+            onPress={onGenerate}
+          >
+            {isLoading && <ActivityIndicator color="white" size="small" />}
+            <Text className="font-medium text-white">
+              {isLoading ? "Generating..." : "Generate Pairing Code"}
             </Text>
           </Pressable>
         </>
@@ -378,13 +378,13 @@ function GenerateMode({
 
       {/* Error */}
       {generatePairing.isError && (
-        <View className="flex-row gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <View className="flex-row gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
           <Text className="text-red-500 text-xl">⚠</Text>
           <View className="flex-1">
-            <Text className="text-sm font-medium text-red-500">
+            <Text className="font-medium text-red-500 text-sm">
               Failed to generate code
             </Text>
-            <Text className="text-xs text-ink-dull mt-0.5">
+            <Text className="mt-0.5 text-ink-dull text-xs">
               {String(generatePairing.error)}
             </Text>
           </View>
@@ -411,15 +411,15 @@ function JoinMode({
   return (
     <View className="gap-6">
       {/* Instructions */}
-      <View className="flex-row gap-3 p-4 bg-sidebar-box/40 rounded-lg border border-sidebar-line">
-        <View className="w-10 h-10 rounded-full bg-accent/10 items-center justify-center">
+      <View className="flex-row gap-3 rounded-lg border border-sidebar-line bg-sidebar-box/40 p-4">
+        <View className="h-10 w-10 items-center justify-center rounded-full bg-accent/10">
           <Text className="text-accent text-xl">◊</Text>
         </View>
         <View className="flex-1">
-          <Text className="text-sm font-medium text-ink">
+          <Text className="font-medium text-ink text-sm">
             Enter pairing code
           </Text>
-          <Text className="text-xs text-ink-dull mt-1">
+          <Text className="mt-1 text-ink-dull text-xs">
             Scan the QR code or enter the 12-word code from the other device.
           </Text>
         </View>
@@ -427,13 +427,13 @@ function JoinMode({
 
       {/* QR Scanner Button */}
       <Pressable
-        onPress={onOpenScanner}
-        disabled={isLoading || !!state}
-        className={`flex-row items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 border-dashed ${
+        className={`flex-row items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-3 ${
           isLoading || state
             ? "border-app-line bg-app-box/50"
             : "border-accent bg-accent/10 active:bg-accent/20"
         }`}
+        disabled={isLoading || !!state}
+        onPress={onOpenScanner}
       >
         <Text
           className={`text-xl ${
@@ -453,45 +453,45 @@ function JoinMode({
 
       {/* Code Input */}
       <View>
-        <Text className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2">
+        <Text className="mb-2 font-medium text-ink-dull text-xs uppercase tracking-wider">
           Or Enter Code Manually
         </Text>
         <TextInput
-          value={joinCode}
+          className="rounded-lg border border-sidebar-line bg-sidebar-box px-4 py-3 text-ink text-sm"
+          editable={!(isLoading || state)}
+          multiline
+          numberOfLines={3}
           onChangeText={setJoinCode}
           placeholder="brave-lion-sunset-river-eagle-mountain..."
           placeholderTextColor="hsl(235, 10%, 55%)"
-          editable={!isLoading && !state}
-          multiline
-          numberOfLines={3}
-          className="px-4 py-3 bg-sidebar-box border border-sidebar-line rounded-lg text-sm text-ink"
           style={{ textAlignVertical: "top" }}
+          value={joinCode}
         />
-        <Text className="text-xs text-ink-dull mt-2">
+        <Text className="mt-2 text-ink-dull text-xs">
           Paste the full code or type the 12 words separated by hyphens
         </Text>
       </View>
 
       {/* Node ID Input */}
       <View>
-        <Text className="text-xs font-medium text-ink-dull uppercase tracking-wider mb-2">
+        <Text className="mb-2 font-medium text-ink-dull text-xs uppercase tracking-wider">
           Node ID <Text className="text-ink-faint">(optional)</Text>
         </Text>
         <TextInput
-          value={joinNodeId}
+          className="rounded-lg border border-sidebar-line bg-sidebar-box px-4 py-2.5 font-mono text-ink text-xs"
+          editable={!(isLoading || state)}
           onChangeText={setJoinNodeId}
           placeholder="For cross-network pairing"
           placeholderTextColor="hsl(235, 10%, 55%)"
-          editable={!isLoading && !state}
-          className="px-4 py-2.5 bg-sidebar-box border border-sidebar-line rounded-lg text-xs text-ink font-mono"
+          value={joinNodeId}
         />
       </View>
 
       {/* Status */}
       {state && (
-        <View className="flex-row items-center gap-2 p-3 bg-app-box/40 rounded-lg border border-app-line">
-          <View className="w-2 h-2 rounded-full bg-accent" />
-          <Text className="text-sm text-ink-dull">
+        <View className="flex-row items-center gap-2 rounded-lg border border-app-line bg-app-box/40 p-3">
+          <View className="h-2 w-2 rounded-full bg-accent" />
+          <Text className="text-ink-dull text-sm">
             {state === "Scanning" || state === "Connecting"
               ? "Finding device..."
               : state === "Authenticating"
@@ -509,34 +509,34 @@ function JoinMode({
       <View className="flex-row gap-3">
         {state ? (
           <Pressable
+            className="flex-1 rounded-lg border border-app-line bg-app-box px-4 py-2.5 active:bg-app-hover"
             onPress={onCancel}
-            className="flex-1 px-4 py-2.5 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
           >
-            <Text className="text-sm font-medium text-ink-dull text-center">
+            <Text className="text-center font-medium text-ink-dull text-sm">
               Cancel
             </Text>
           </Pressable>
         ) : (
           <>
             <Pressable
+              className="rounded-lg border border-app-line bg-app-box px-6 py-2.5 active:bg-app-hover"
               onPress={onCancel}
-              className="px-6 py-2.5 bg-app-box border border-app-line rounded-lg active:bg-app-hover"
             >
-              <Text className="text-sm font-medium text-ink-dull text-center">
+              <Text className="text-center font-medium text-ink-dull text-sm">
                 Clear
               </Text>
             </Pressable>
             <Pressable
-              onPress={onJoin}
-              disabled={isLoading || !joinCode.trim()}
-              className={`flex-1 flex-row items-center justify-center gap-2 px-4 py-2.5 rounded-lg ${
+              className={`flex-1 flex-row items-center justify-center gap-2 rounded-lg px-4 py-2.5 ${
                 isLoading || !joinCode.trim()
                   ? "bg-accent/50"
                   : "bg-accent active:bg-accent/90"
               }`}
+              disabled={isLoading || !joinCode.trim()}
+              onPress={onJoin}
             >
-              {isLoading && <ActivityIndicator size="small" color="white" />}
-              <Text className="text-white font-medium">
+              {isLoading && <ActivityIndicator color="white" size="small" />}
+              <Text className="font-medium text-white">
                 {isLoading ? "Joining..." : "Join"}
               </Text>
             </Pressable>
@@ -546,13 +546,13 @@ function JoinMode({
 
       {/* Error */}
       {joinPairing.isError && (
-        <View className="flex-row gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+        <View className="flex-row gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3">
           <Text className="text-red-500 text-xl">⚠</Text>
           <View className="flex-1">
-            <Text className="text-sm font-medium text-red-500">
+            <Text className="font-medium text-red-500 text-sm">
               Failed to join
             </Text>
-            <Text className="text-xs text-ink-dull mt-0.5">
+            <Text className="mt-0.5 text-ink-dull text-xs">
               {String(joinPairing.error)}
             </Text>
           </View>
@@ -579,26 +579,26 @@ function ScannerMode({
   };
 
   return (
-    <View className="flex-1 -mx-6 -my-6">
+    <View className="-mx-6 -my-6 flex-1">
       <CameraView
-        style={{ flex: 1 }}
-        facing="back"
         barcodeScannerSettings={{
           barcodeTypes: ["qr"],
         }}
+        facing="back"
         onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        style={{ flex: 1 }}
       >
         <View className="flex-1 items-center justify-center">
-          <View className="w-64 h-64 border-2 border-accent rounded-lg" />
-          <Text className="text-white text-center mt-4 px-6">
+          <View className="h-64 w-64 rounded-lg border-2 border-accent" />
+          <Text className="mt-4 px-6 text-center text-white">
             {scanned ? "Scanned! Processing..." : "Point camera at QR code"}
           </Text>
         </View>
       </CameraView>
 
       <Pressable
+        className="absolute top-4 right-4 rounded-full bg-black/50 p-3"
         onPress={onClose}
-        className="absolute top-4 right-4 p-3 bg-black/50 rounded-full"
       >
         <Text className="text-white text-xl">✕</Text>
       </Pressable>

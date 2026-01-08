@@ -1,7 +1,7 @@
-import { useNavigate } from "react-router-dom";
 import { useNormalizedQuery } from "@sd/ts-client";
-import { SpaceItem } from "./SpaceItem";
+import { useNavigate } from "react-router-dom";
 import { GroupHeader } from "./GroupHeader";
+import { SpaceItem } from "./SpaceItem";
 
 interface LocationsGroupProps {
   isCollapsed: boolean;
@@ -29,8 +29,8 @@ export function LocationsGroup({
   return (
     <div>
       <GroupHeader
-        label="Locations"
         isCollapsed={isCollapsed}
+        label="Locations"
         onToggle={onToggle}
         sortableAttributes={sortableAttributes}
         sortableListeners={sortableListeners}
@@ -41,10 +41,10 @@ export function LocationsGroup({
         <div className="space-y-0.5">
           {locations.map((location, index) => (
             <SpaceItem
-              key={location.id}
-              item={location}
               allowInsertion={false}
               isLastItem={index === locations.length - 1}
+              item={location}
+              key={location.id}
             />
           ))}
         </div>

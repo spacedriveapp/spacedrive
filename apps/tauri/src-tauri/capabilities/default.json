@@ -1,23 +1,29 @@
 {
-	"$schema": "../gen/schemas/desktop-schema.json",
-	"identifier": "default",
-	"description": "Default permissions for Spacedrive",
-	"windows": ["main", "inspector-*", "quick-preview-*", "settings-*", "job-manager"],
-	"permissions": [
-		"core:default",
-		"core:event:allow-listen",
-		"core:event:allow-emit",
-		"core:window:allow-create",
-		"core:window:allow-close",
-		"core:window:allow-get-all-windows",
-		"core:window:allow-start-dragging",
-		"core:webview:allow-create-webview-window",
-		"core:path:default",
-		"dialog:allow-open",
-		"dialog:allow-save",
-		"shell:allow-open",
-		"fs:allow-home-read-recursive",
-		"clipboard-manager:allow-read-text",
-		"clipboard-manager:allow-write-text"
-	]
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Default permissions for Spacedrive",
+  "windows": [
+    "main",
+    "inspector-*",
+    "quick-preview-*",
+    "settings-*",
+    "job-manager"
+  ],
+  "permissions": [
+    "core:default",
+    "core:event:allow-listen",
+    "core:event:allow-emit",
+    "core:window:allow-create",
+    "core:window:allow-close",
+    "core:window:allow-get-all-windows",
+    "core:window:allow-start-dragging",
+    "core:webview:allow-create-webview-window",
+    "core:path:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "shell:allow-open",
+    "fs:allow-home-read-recursive",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
+  ]
 }

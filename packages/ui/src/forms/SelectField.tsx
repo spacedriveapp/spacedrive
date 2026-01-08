@@ -1,25 +1,31 @@
-import { FieldValues, useController, UseControllerProps } from 'react-hook-form';
+import {
+  type FieldValues,
+  type UseControllerProps,
+  useController,
+} from "react-hook-form";
 
-import * as Root from '../Select';
-import { FormField, useFormField, UseFormFieldProps } from './FormField';
+import * as Root from "../Select";
+import { FormField, type UseFormFieldProps, useFormField } from "./FormField";
 
 export interface SelectFieldProps<T extends FieldValues>
-	extends Omit<UseFormFieldProps, 'name'>,
-		Omit<Root.SelectProps, 'value' | 'onChange'>,
-		UseControllerProps<T> {}
+  extends Omit<UseFormFieldProps, "name">,
+    Omit<Root.SelectProps, "value" | "onChange">,
+    UseControllerProps<T> {}
 
-export const SelectField = <T extends FieldValues>(props: SelectFieldProps<T>) => {
-	const { formFieldProps, childProps } = useFormField(props);
-	const { field } = useController({ name: props.name });
+export const SelectField = <T extends FieldValues>(
+  props: SelectFieldProps<T>
+) => {
+  const { formFieldProps, childProps } = useFormField(props);
+  const { field } = useController({ name: props.name });
 
-	return (
-		<FormField {...formFieldProps}>
-			<Root.Select
-				{...childProps}
-				className="w-full"
-				value={field.value}
-				onChange={field.onChange}
-			/>
-		</FormField>
-	);
+  return (
+    <FormField {...formFieldProps}>
+      <Root.Select
+        {...childProps}
+        className="w-full"
+        onChange={field.onChange}
+        value={field.value}
+      />
+    </FormField>
+  );
 };

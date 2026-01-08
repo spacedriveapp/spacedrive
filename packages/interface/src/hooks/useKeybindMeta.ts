@@ -1,20 +1,24 @@
-import { useMemo } from 'react';
-import type { KeybindId } from '../util/keybinds/registry';
-import { getKeybind } from '../util/keybinds/registry';
-import type { KeyCombo, KeybindScope } from '../util/keybinds/types';
-import { getComboForPlatform, getCurrentPlatform, toDisplayString } from '../util/keybinds/platform';
+import { useMemo } from "react";
+import {
+  getComboForPlatform,
+  getCurrentPlatform,
+  toDisplayString,
+} from "../util/keybinds/platform";
+import type { KeybindId } from "../util/keybinds/registry";
+import { getKeybind } from "../util/keybinds/registry";
+import type { KeybindScope, KeyCombo } from "../util/keybinds/types";
 
 export interface KeybindMeta {
-	/** The keybind ID */
-	id: string;
-	/** Human-readable label for the keybind */
-	label: string;
-	/** Platform-specific display string (e.g., "⌘C" on macOS, "Ctrl+C" on Windows) */
-	displayString: string;
-	/** The resolved key combo for the current platform */
-	combo: KeyCombo;
-	/** The scope this keybind belongs to */
-	scope: KeybindScope;
+  /** The keybind ID */
+  id: string;
+  /** Human-readable label for the keybind */
+  label: string;
+  /** Platform-specific display string (e.g., "⌘C" on macOS, "Ctrl+C" on Windows) */
+  displayString: string;
+  /** The resolved key combo for the current platform */
+  combo: KeyCombo;
+  /** The scope this keybind belongs to */
+  scope: KeybindScope;
 }
 
 /**
@@ -37,22 +41,22 @@ export interface KeybindMeta {
  * ```
  */
 export function useKeybindMeta(keybindId: KeybindId): KeybindMeta | null {
-	return useMemo(() => {
-		const keybind = getKeybind(keybindId);
-		if (!keybind) return null;
+  return useMemo(() => {
+    const keybind = getKeybind(keybindId);
+    if (!keybind) return null;
 
-		const platform = getCurrentPlatform();
-		const combo = getComboForPlatform(keybind.combo, platform);
-		const displayString = toDisplayString(combo, platform);
+    const platform = getCurrentPlatform();
+    const combo = getComboForPlatform(keybind.combo, platform);
+    const displayString = toDisplayString(combo, platform);
 
-		return {
-			id: keybind.id,
-			label: keybind.label,
-			displayString,
-			combo,
-			scope: keybind.scope,
-		};
-	}, [keybindId]);
+    return {
+      id: keybind.id,
+      label: keybind.label,
+      displayString,
+      combo,
+      scope: keybind.scope,
+    };
+  }, [keybindId]);
 }
 
 /**
@@ -71,6 +75,6 @@ export function useKeybindMeta(keybindId: KeybindId): KeybindMeta | null {
  * ```
  */
 export function useKeybindDisplayString(keybindId: KeybindId): string {
-	const meta = useKeybindMeta(keybindId);
-	return meta?.displayString ?? '';
+  const meta = useKeybindMeta(keybindId);
+  return meta?.displayString ?? "";
 }
