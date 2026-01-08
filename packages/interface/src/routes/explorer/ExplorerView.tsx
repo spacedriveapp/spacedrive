@@ -8,7 +8,7 @@ import { KnowledgeView } from "./views/KnowledgeView";
 import { EmptyView } from "./views/EmptyView";
 import { SearchView } from "./views/SearchView";
 import { SearchToolbar } from "./SearchToolbar";
-import { TopBarPortal } from "../../TopBar";
+import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { useVirtualListing } from "./hooks/useVirtualListing";
 import { VirtualPathBar } from "./components/VirtualPathBar";
 import { ExpandableSearchButton } from "./components/ExpandableSearchButton";
@@ -96,76 +96,136 @@ export function ExplorerView() {
 			{!isPreviewActive && (
 				<TopBarPortal
 					left={
-						<div className="flex items-center gap-2">
-							<TopBarButton
-								icon={SidebarSimple}
-								onClick={() =>
-									setSidebarVisible(!sidebarVisible)
-								}
-								active={sidebarVisible}
-							/>
-							<TopBarButtonGroup>
+						<>
+							<TopBarItem
+								id="sidebar-toggle"
+								label="Sidebar"
+								priority="high"
+							>
 								<TopBarButton
-									icon={ArrowLeft}
-									onClick={goBack}
-									disabled={!canGoBack}
+									icon={SidebarSimple}
+									onClick={() =>
+										setSidebarVisible(!sidebarVisible)
+									}
+									active={sidebarVisible}
 								/>
-								<TopBarButton
-									icon={ArrowRight}
-									onClick={goForward}
-									disabled={!canGoForward}
-								/>
-							</TopBarButtonGroup>
+							</TopBarItem>
+							<TopBarItem
+								id="navigation"
+								label="Navigation"
+								priority="normal"
+							>
+								<TopBarButtonGroup>
+									<TopBarButton
+										icon={ArrowLeft}
+										onClick={goBack}
+										disabled={!canGoBack}
+									/>
+									<TopBarButton
+										icon={ArrowRight}
+										onClick={goForward}
+										disabled={!canGoForward}
+									/>
+								</TopBarButtonGroup>
+							</TopBarItem>
 							{currentPath && (
-								<PathBar
-									path={currentPath}
-									devices={devices}
-									onNavigate={navigateToPath}
-								/>
+								<TopBarItem
+									id="path-bar"
+									label="Path"
+									priority="high"
+								>
+									<PathBar
+										path={currentPath}
+										devices={devices}
+										onNavigate={navigateToPath}
+									/>
+								</TopBarItem>
 							)}
 							{currentView && (
-								<VirtualPathBar
-									view={currentView}
-									devices={devices}
-								/>
+								<TopBarItem
+									id="virtual-path-bar"
+									label="Path"
+									priority="high"
+								>
+									<VirtualPathBar
+										view={currentView}
+										devices={devices}
+									/>
+								</TopBarItem>
 							)}
-						</div>
+						</>
 					}
 					right={
-						<div className="flex items-center gap-2">
-							<ExpandableSearchButton
-								placeholder={
-									currentPath
-										? "Search in current folder..."
-										: "Search..."
-								}
-								value={searchValue}
-								onChange={handleSearchChange}
-								onClear={handleSearchClear}
-							/>
-							<TopBarButton
-								icon={TagIcon}
-								onClick={() => setTagModeActive(!tagModeActive)}
-								active={tagModeActive}
-							/>
-							<ViewModeMenu
-								viewMode={viewMode}
-								onViewModeChange={setViewMode}
-							/>
-							<ViewSettings />
-							<SortMenu
-								sortBy={sortBy}
-								onSortChange={setSortBy}
-								viewMode={viewMode as any}
-							/>
-							<TopBarButton
-								icon={Info}
-								onClick={() =>
-									setInspectorVisible(!inspectorVisible)
-								}
-								active={inspectorVisible}
-							/>
-						</div>
+						<>
+							<TopBarItem
+								id="search"
+								label="Search"
+								priority="high"
+							>
+								<ExpandableSearchButton
+									placeholder={
+										currentPath
+											? "Search in current folder..."
+											: "Search..."
+									}
+									value={searchValue}
+									onChange={handleSearchChange}
+									onClear={handleSearchClear}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="tag-mode"
+								label="Tags"
+								priority="normal"
+							>
+								<TopBarButton
+									icon={TagIcon}
+									onClick={() => setTagModeActive(!tagModeActive)}
+									active={tagModeActive}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="view-mode"
+								label="Views"
+								priority="normal"
+							>
+								<ViewModeMenu
+									viewMode={viewMode}
+									onViewModeChange={setViewMode}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="view-settings"
+								label="View Settings"
+								priority="low"
+							>
+								<ViewSettings />
+							</TopBarItem>
+							<TopBarItem
+								id="sort"
+								label="Sort"
+								priority="low"
+							>
+								<SortMenu
+									sortBy={sortBy}
+									onSortChange={setSortBy}
+									viewMode={viewMode as any}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="inspector-toggle"
+								label="Inspector"
+								priority="high"
+							>
+								<TopBarButton
+									icon={Info}
+									onClick={() =>
+										setInspectorVisible(!inspectorVisible)
+									}
+									active={inspectorVisible}
+								/>
+							</TopBarItem>
+						</>
 					}
 				/>
 			)}
