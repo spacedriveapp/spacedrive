@@ -12,6 +12,7 @@ export interface TopBarItem {
 	onClick?: () => void;
 	element: React.ReactNode;
 	elementVersion: number;
+	submenuContent?: React.ReactNode; // Optional: custom submenu content for overflow
 }
 
 interface TopBarContextValue {
@@ -19,7 +20,7 @@ interface TopBarContextValue {
 	visibleItems: Set<string>;
 	overflowItems: Map<TopBarPosition, TopBarItem[]>;
 
-	registerItem: (item: Omit<TopBarItem, "width">) => void;
+	registerItem: (item: Omit<TopBarItem, "width" | "elementVersion">) => void;
 	unregisterItem: (id: string) => void;
 	updateItemWidth: (id: string, width: number) => void;
 
@@ -41,10 +42,14 @@ export function TopBarProvider({ children }: { children: React.ReactNode }) {
 	const [rightContainerRef, setRightContainerRef] = useState<React.RefObject<HTMLDivElement> | null>(null);
 	const [recalculationTrigger, setRecalculationTrigger] = useState(0);
 	const elementsRef = useRef<Map<string, React.ReactNode>>(new Map());
+	const submenuContentRef = useRef<Map<string, React.ReactNode>>(new Map());
 
 	const registerItem = useCallback((item: Omit<TopBarItem, "width" | "elementVersion">) => {
-		// Store element in ref (doesn't trigger re-render)
+		// Store element and submenuContent in refs (don't trigger re-render)
 		elementsRef.current.set(item.id, item.element);
+		if (item.submenuContent) {
+			submenuContentRef.current.set(item.id, item.submenuContent);
+		}
 
 		setItems(prev => {
 			const existingItem = prev.get(item.id);
@@ -53,35 +58,35 @@ export function TopBarProvider({ children }: { children: React.ReactNode }) {
 			const structureChanged = !existingItem ||
 				existingItem.label !== item.label ||
 				existingItem.priority !== item.priority ||
-				existingItem.position !== item.position;
+				existingItem.position !== item.position ||
+				existingItem.onClick !== item.onClick;
 
-			// Only update state if structure changed
+			// Always create new Map so consumers re-render with updated element/submenuContent
+			const newItems = new Map(prev);
+
 			if (!structureChanged) {
-				// Just update the element in the existing item without triggering recalc
-				const newItems = new Map(prev);
+				// Only element/submenuContent changed - update without triggering recalculation
 				newItems.set(item.id, {
 					...existingItem,
 					element: item.element,
-					onClick: item.onClick,
+					submenuContent: item.submenuContent,
 				});
-				return newItems;
-			}
-
-			// Structure changed - full update
-			const newItems = new Map(prev);
-			newItems.set(item.id, {
-				...item,
-				width: existingItem?.width || 0,
-				elementVersion: 0
-			});
-
-			// Initially add to visible so it can be measured
-			if (!existingItem) {
-				setVisibleItemsState(prev2 => {
-					const newVisible = new Set(prev2);
-					newVisible.add(item.id);
-					return newVisible;
+			} else {
+				// Structure changed - full update and trigger recalculation
+				newItems.set(item.id, {
+					...item,
+					width: existingItem?.width || 0,
+					elementVersion: 0
 				});
+
+				// Initially add to visible so it can be measured
+				if (!existingItem) {
+					setVisibleItemsState(prev2 => {
+						const newVisible = new Set(prev2);
+						newVisible.add(item.id);
+						return newVisible;
+					});
+				}
 			}
 
 			return newItems;

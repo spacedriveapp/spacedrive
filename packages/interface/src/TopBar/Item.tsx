@@ -15,6 +15,7 @@ interface TopBarItemProps {
 	priority?: TopBarPriority;
 	onClick?: () => void;
 	children: React.ReactNode;
+	submenuContent?: React.ReactNode;
 }
 
 export function TopBarItem({
@@ -23,11 +24,13 @@ export function TopBarItem({
 	priority = "normal",
 	onClick,
 	children,
+	submenuContent,
 }: TopBarItemProps) {
 	const { registerItem, unregisterItem } = useTopBar();
 	const position = useTopBarPosition();
 
-	// Register/unregister on mount/unmount
+	// Register on mount, update when props change, unregister on unmount
+	// Note: children and submenuContent should be memoized by parent to prevent infinite loops
 	useEffect(() => {
 		registerItem({
 			id,
@@ -36,22 +39,14 @@ export function TopBarItem({
 			position,
 			onClick,
 			element: children,
+			submenuContent,
 		});
+	}, [id, label, priority, position, onClick, registerItem, children, submenuContent]);
 
+	// Unregister on unmount
+	useEffect(() => {
 		return () => unregisterItem(id);
-	}, [id, registerItem, unregisterItem]);
-
-	// Update element when children, label, priority, position, or onClick changes
-	useEffect(() => {
-		registerItem({
-			id,
-			label,
-			priority,
-			position,
-			onClick,
-			element: children,
-		});
-	}, [children, label, priority, position, onClick, id, registerItem]);
+	}, [id, unregisterItem]);
 
 	// Don't render anything - items are rendered by TopBarSection
 	return null;

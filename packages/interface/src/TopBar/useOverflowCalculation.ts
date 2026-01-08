@@ -18,6 +18,7 @@ function calculateFitting(
 
 	let usedWidth = 0;
 	let willHaveOverflow = false;
+	const SAFETY_MARGIN = 60; // Extra buffer to prevent items from going off-screen
 
 	// First pass: add all high-priority items
 	for (const item of items) {
@@ -34,7 +35,7 @@ function calculateFitting(
 		const itemWidth = item.width + GAP;
 		const reservedSpace = overflow.length > 0 || willHaveOverflow ? OVERFLOW_BUTTON_WIDTH : 0;
 
-		if (usedWidth + itemWidth + reservedSpace <= containerWidth) {
+		if (usedWidth + itemWidth + reservedSpace + SAFETY_MARGIN <= containerWidth) {
 			visible.push(item);
 			usedWidth += itemWidth;
 		} else {
@@ -54,15 +55,14 @@ export function useOverflowCalculation() {
 	const calculateOverflow = useCallback(() => {
 		if (!leftContainerRef?.current || !rightContainerRef?.current || !parentContainerRef.current) return;
 
-		// Calculate available space based on parent container width
 		const parentWidth = parentContainerRef.current.offsetWidth;
 		const PADDING = 24; // px-3 = 12px on each side
-		const GAPS = 24; // gap-3 between 3 sections = 12px * 2
-		const availableWidth = parentWidth - PADDING - GAPS;
+		const SECTION_GAPS = 24; // gap-3 between 3 sections = 12px * 2
 
-		// Split available space between left and right (center gets flex-1, the remainder)
-		// Give each side up to 45% of available space (leaving 10% minimum for center)
-		const maxSideWidth = availableWidth * 0.45;
+		// Calculate how much space each side can use
+		// We split available width: left takes what it needs, right takes what it needs,
+		// center (flex-1) takes the rest
+		const totalAvailable = parentWidth - PADDING - SECTION_GAPS;
 
 		const leftItems = Array.from(items.values())
 			.filter(item => item.position === "left")
@@ -75,6 +75,9 @@ export function useOverflowCalculation() {
 		const centerItems = Array.from(items.values())
 			.filter(item => item.position === "center");
 
+		// Each side gets up to 45% of total space, but we need to account for the overflow button
+		// when items start overflowing
+		const maxSideWidth = totalAvailable * 0.45;
 
 		const leftResult = calculateFitting(leftItems, maxSideWidth);
 		const rightResult = calculateFitting(rightItems, maxSideWidth);

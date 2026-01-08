@@ -21,11 +21,11 @@ import {
 } from "@phosphor-icons/react";
 import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import { PathBar } from "./components/PathBar";
-import { ViewSettings } from "./ViewSettings";
-import { SortMenu } from "./SortMenu";
-import { ViewModeMenu } from "./ViewModeMenu";
+import { ViewSettings, ViewSettingsPanel } from "./ViewSettings";
+import { SortMenu, SortMenuPanel } from "./SortMenu";
+import { ViewModeMenu, ViewModeMenuPanel } from "./ViewModeMenu";
 import { TabNavigationGuard } from "./TabNavigationGuard";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 
 export function ExplorerView() {
 	const {
@@ -40,6 +40,8 @@ export function ExplorerView() {
 		setViewMode,
 		sortBy,
 		setSortBy,
+		viewSettings,
+		setViewSettings,
 		goBack,
 		goForward,
 		canGoBack,
@@ -86,6 +88,39 @@ export function ExplorerView() {
 		}
 	}, [mode.type]);
 
+	// Memoize submenu content to prevent infinite re-renders
+	const viewModeSubmenu = useMemo(
+		() => (
+			<ViewModeMenuPanel
+				viewMode={viewMode}
+				onViewModeChange={setViewMode}
+			/>
+		),
+		[viewMode, setViewMode]
+	);
+
+	const viewSettingsSubmenu = useMemo(
+		() => (
+			<ViewSettingsPanel
+				viewSettings={viewSettings}
+				setViewSettings={setViewSettings}
+				viewMode={viewMode}
+			/>
+		),
+		[viewSettings, setViewSettings, viewMode]
+	);
+
+	const sortSubmenu = useMemo(
+		() => (
+			<SortMenuPanel
+				sortBy={sortBy}
+				onSortChange={setSortBy}
+				viewMode={viewMode as any}
+			/>
+		),
+		[sortBy, setSortBy, viewMode]
+	);
+
 	// Allow rendering if either we have a currentPath or we're in a virtual view
 	if (!currentPath && !isVirtualView) {
 		return <EmptyView />;
@@ -100,7 +135,8 @@ export function ExplorerView() {
 							<TopBarItem
 								id="sidebar-toggle"
 								label="Sidebar"
-								priority="high"
+								priority="normal"
+								onClick={() => setSidebarVisible(!sidebarVisible)}
 							>
 								<TopBarButton
 									icon={SidebarSimple}
@@ -113,7 +149,7 @@ export function ExplorerView() {
 							<TopBarItem
 								id="navigation"
 								label="Navigation"
-								priority="normal"
+								priority="high"
 							>
 								<TopBarButtonGroup>
 									<TopBarButton
@@ -173,21 +209,23 @@ export function ExplorerView() {
 									onClear={handleSearchClear}
 								/>
 							</TopBarItem>
-							<TopBarItem
-								id="tag-mode"
-								label="Tags"
-								priority="normal"
-							>
-								<TopBarButton
-									icon={TagIcon}
-									onClick={() => setTagModeActive(!tagModeActive)}
-									active={tagModeActive}
-								/>
-							</TopBarItem>
+						<TopBarItem
+							id="tag-mode"
+							label="Tags"
+							priority="low"
+							onClick={() => setTagModeActive(!tagModeActive)}
+						>
+							<TopBarButton
+								icon={TagIcon}
+								onClick={() => setTagModeActive(!tagModeActive)}
+								active={tagModeActive}
+							/>
+						</TopBarItem>
 							<TopBarItem
 								id="view-mode"
 								label="Views"
 								priority="normal"
+								submenuContent={viewModeSubmenu}
 							>
 								<ViewModeMenu
 									viewMode={viewMode}
@@ -198,6 +236,7 @@ export function ExplorerView() {
 								id="view-settings"
 								label="View Settings"
 								priority="low"
+								submenuContent={viewSettingsSubmenu}
 							>
 								<ViewSettings />
 							</TopBarItem>
@@ -205,6 +244,7 @@ export function ExplorerView() {
 								id="sort"
 								label="Sort"
 								priority="low"
+								submenuContent={sortSubmenu}
 							>
 								<SortMenu
 									sortBy={sortBy}
@@ -212,19 +252,20 @@ export function ExplorerView() {
 									viewMode={viewMode as any}
 								/>
 							</TopBarItem>
-							<TopBarItem
-								id="inspector-toggle"
-								label="Inspector"
-								priority="high"
-							>
-								<TopBarButton
-									icon={Info}
-									onClick={() =>
-										setInspectorVisible(!inspectorVisible)
-									}
-									active={inspectorVisible}
-								/>
-							</TopBarItem>
+						<TopBarItem
+							id="inspector-toggle"
+							label="Inspector"
+							priority="high"
+							onClick={() => setInspectorVisible(!inspectorVisible)}
+						>
+							<TopBarButton
+								icon={Info}
+								onClick={() =>
+									setInspectorVisible(!inspectorVisible)
+								}
+								active={inspectorVisible}
+							/>
+						</TopBarItem>
 						</>
 					}
 				/>
