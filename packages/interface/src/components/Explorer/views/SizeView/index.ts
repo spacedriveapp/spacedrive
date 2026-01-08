@@ -1,1 +1,0 @@
-export { SizeView } from "./SizeView";

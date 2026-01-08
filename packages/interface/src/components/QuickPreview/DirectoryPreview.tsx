@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { File } from "@sd/ts-client";
-import { File as FileComponent } from "../Explorer/File";
-import { useNormalizedQuery } from "../../context";
+import { File as FileComponent } from "../../routes/explorer/File";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import { Folder } from "@sd/assets/icons";
 
 interface DirectoryPreviewProps {
@@ -103,4 +103,3 @@ export function DirectoryPreview({ file }: DirectoryPreviewProps) {
 		</div>
 	);
 }
-

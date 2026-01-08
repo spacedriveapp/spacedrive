@@ -2,16 +2,16 @@ import { Outlet, useLocation, useParams } from "react-router-dom";
 import { useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { TopBarProvider, TopBar } from "./TopBar";
-import { ExplorerProvider, useExplorer } from "./components/Explorer";
-import { SelectionProvider } from "./components/Explorer/SelectionContext";
-import { KeyboardHandler } from "./components/Explorer/KeyboardHandler";
-import { TagAssignmentMode } from "./components/Explorer/TagAssignmentMode";
+import { ExplorerProvider, useExplorer } from "./routes/explorer";
+import { SelectionProvider } from "./routes/explorer/SelectionContext";
+import { KeyboardHandler } from "./routes/explorer/KeyboardHandler";
+import { TagAssignmentMode } from "./routes/explorer/TagAssignmentMode";
 import { SpacesSidebar } from "./components/SpacesSidebar";
 import { QuickPreviewController, QuickPreviewSyncer, PREVIEW_LAYER_ID } from "./components/QuickPreview";
-import { useNormalizedQuery } from "./context";
-import { usePlatform } from "./platform";
+import { useNormalizedQuery } from "./contexts/SpacedriveContext";
+import { usePlatform } from "./contexts/PlatformContext";
 import type { Location } from "@sd/ts-client";
-import { Inspector } from "./Inspector";
+import { Inspector } from "./components/Inspector/Inspector";
 import { TabBar, TabNavigationSync, TabDefaultsSync } from "./components/TabManager";
 
 function ShellLayoutContent() {

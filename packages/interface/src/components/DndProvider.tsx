@@ -10,12 +10,12 @@ import type { CollisionDetection } from "@dnd-kit/core";
 import { useState } from "react";
 import { House, Clock, Heart, Folders } from "@phosphor-icons/react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useLibraryMutation, useSpacedriveClient } from "../context";
+import { useLibraryMutation, useSpacedriveClient } from "../contexts/SpacedriveContext";
 import { useSidebarStore } from "@sd/ts-client";
 import type { File, SdPath } from "@sd/ts-client";
 import { useSpaces } from "./SpacesSidebar/hooks/useSpaces";
-import { useFileOperationDialog } from "./FileOperationModal";
-import { File as FileComponent } from "./Explorer/File";
+import { useFileOperationDialog } from "./modals/FileOperationModal";
+import { File as FileComponent } from "../routes/explorer/File";
 
 /**
  * DndProvider - Global drag-and-drop coordinator

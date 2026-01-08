@@ -1,8 +1,8 @@
 import { useParams } from "react-router-dom";
 import { CaretRight, Funnel } from "@phosphor-icons/react";
 import { Fragment } from "react";
-import { useNormalizedQuery } from "../../context";
-import { ExplorerView } from "../../components/Explorer";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
+import { ExplorerView } from "../explorer/ExplorerView";
 import type { Tag } from "@sd/ts-client";
 
 /**

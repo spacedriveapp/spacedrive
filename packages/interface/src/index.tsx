@@ -6,31 +6,31 @@
 import "./styles.css";
 
 export { Shell } from "./Shell";
-export { DemoWindow } from "./DemoWindow";
-export { ErrorBoundary } from "./ErrorBoundary";
-export { FloatingControls } from "./FloatingControls";
-export { LocationCacheDemo } from "./LocationCacheDemo";
-export { Inspector, PopoutInspector } from "./Inspector";
-export type { InspectorVariant } from "./Inspector";
+export { DemoWindow } from "./windows/DemoWindow";
+export { ErrorBoundary } from "./components/ErrorBoundary";
+export { FloatingControls } from "./windows/FloatingControls";
+export { LocationCacheDemo } from "./demo/LocationCacheDemo";
+export { Inspector, PopoutInspector } from "./components/Inspector/Inspector";
+export type { InspectorVariant } from "./components/Inspector/Inspector";
 export { QuickPreview } from "./components/QuickPreview";
 export { JobsScreen } from "./components/JobManager";
-export { Settings } from "./Settings";
-export { Spacedrop } from "./Spacedrop";
-export { PairingModal } from "./components/PairingModal";
+export { Settings } from "./routes/settings";
+export { Spacedrop } from "./windows/Spacedrop";
+export { PairingModal } from "./components/modals/PairingModal";
 export { TopBarProvider, TopBarPortal, useTopBar } from "./TopBar";
 export { Overview } from "./routes/overview";
 
 // Platform abstraction
-export type { Platform } from "./platform";
-export { PlatformProvider, usePlatform } from "./platform";
+export type { Platform } from "./contexts/PlatformContext";
+export { PlatformProvider, usePlatform } from "./contexts/PlatformContext";
 
 // Context
-export { SpacedriveProvider } from "./context";
+export { SpacedriveProvider } from "./contexts/SpacedriveContext";
 export {
 	ServerProvider,
 	useServer,
 	type ServerContextValue,
-} from "./ServerContext";
+} from "./contexts/ServerContext";
 
 // Hooks
 export { useContextMenu } from "./hooks/useContextMenu";

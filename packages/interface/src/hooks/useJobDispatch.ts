@@ -1,4 +1,4 @@
-import {useLibraryMutation} from "../context";
+import {useLibraryMutation} from "../contexts/SpacedriveContext";
 
 export interface JobConfig {
 	job_type: "thumbnail" | "ocr" | "speech_to_text" | "thumbstrip" | "proxy";
@@ -55,7 +55,6 @@ export function useJobDispatch() {
 
 	return {runJob, isDispatching: dispatchJob.isPending};
 }
-
 
 
 

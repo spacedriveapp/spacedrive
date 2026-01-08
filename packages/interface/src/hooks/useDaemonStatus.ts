@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { usePlatform } from '../platform';
+import { usePlatform } from '../contexts/PlatformContext';
 
 export interface DaemonStatus {
 	isConnected: boolean;

@@ -1,20 +1,20 @@
-import { SpacedriveProvider, type SpacedriveClient } from "./context";
-import { ServerProvider } from "./ServerContext";
+import { SpacedriveProvider, type SpacedriveClient } from "./contexts/SpacedriveContext";
+import { ServerProvider } from "./contexts/ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
 import { Dialogs } from "@sd/ui";
 import { ShellLayout } from "./ShellLayout";
 import { explorerRoutes } from "./router";
 import { useDaemonStatus } from "./hooks/useDaemonStatus";
-import { DaemonDisconnectedOverlay } from "./components/DaemonDisconnectedOverlay";
-import { DaemonStartupOverlay } from "./components/DaemonStartupOverlay";
+import { DaemonDisconnectedOverlay } from "./components/overlays/DaemonDisconnectedOverlay";
+import { DaemonStartupOverlay } from "./components/overlays/DaemonStartupOverlay";
 import { DndProvider } from "./components/DndProvider";
 import {
 	TabManagerProvider,
 	TabKeyboardHandler,
 	useTabManager,
 } from "./components/TabManager";
-import { usePlatform } from "./platform";
+import { usePlatform } from "./contexts/PlatformContext";
 
 interface ShellProps {
 	client: SpacedriveClient;

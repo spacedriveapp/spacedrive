@@ -9,7 +9,7 @@ import {
 } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { File } from "@sd/ts-client";
-import { useServer } from "../../ServerContext";
+import { useServer } from "../../contexts/ServerContext";
 
 interface SubtitleCue {
 	index: number;

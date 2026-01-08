@@ -2,10 +2,10 @@ import { Tag as TagIcon, Plus, CaretRight } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
-import { useNormalizedQuery, useLibraryMutation } from '../../context';
+import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import type { Tag } from '@sd/ts-client';
 import { GroupHeader } from './GroupHeader';
-import { useExplorer } from '../Explorer/context';
+import { useExplorer } from '../../routes/explorer/context';
 
 interface TagsGroupProps {
 	isCollapsed: boolean;

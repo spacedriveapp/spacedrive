@@ -1,6 +1,6 @@
 import { memo } from "react";
-import { useExplorer } from "../Explorer";
-import { useSelection } from "../Explorer/SelectionContext";
+import { useExplorer } from "../../routes/explorer";
+import { useSelection } from "../../routes/explorer/SelectionContext";
 import { QuickPreviewFullscreen } from "./QuickPreviewFullscreen";
 
 /**

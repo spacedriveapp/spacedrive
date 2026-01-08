@@ -10,8 +10,8 @@ import {
 	type VideoControlsCallbacks,
 } from "./VideoControls";
 import { TopBarPortal } from "../../TopBar";
-import { getContentKind } from "../Explorer/utils";
-import { useExplorer } from "../Explorer/context";
+import { getContentKind } from "../../routes/explorer/utils";
+import { useExplorer } from "../../routes/explorer/context";
 
 interface QuickPreviewFullscreenProps {
 	fileId: string;
