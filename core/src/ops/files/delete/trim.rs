@@ -328,7 +328,10 @@ async fn trim_file_windows(path: &Path) -> TrimResult {
 				FILE_SHARE_READ | FILE_SHARE_WRITE,
 				std::ptr::null(),
 				OPEN_EXISTING,
-				0,
+				&format!(
+					"$disk = Get-PhysicalDisk | Where-Object {{ $_.DeviceId -eq (Get-Partition -DriveLetter '{}' -ErrorAction SilentlyContinue).DiskNumber }}; if ($disk) {{ $disk.MediaType }} else {{ 'Unknown' }}",
+					drive.chars().next().unwrap_or('C')
+				),
 				std::ptr::null_mut() as HANDLE,
 			)
 		};
