@@ -11,6 +11,7 @@ import { SearchToolbar } from "./SearchToolbar";
 import { TopBarPortal } from "../../TopBar";
 import { useVirtualListing } from "./hooks/useVirtualListing";
 import { VirtualPathBar } from "./components/VirtualPathBar";
+import { ExpandableSearchButton } from "./components/ExpandableSearchButton";
 import {
 	SidebarSimple,
 	Info,
@@ -18,7 +19,7 @@ import {
 	ArrowRight,
 	Tag as TagIcon,
 } from "@phosphor-icons/react";
-import { TopBarButton, TopBarButtonGroup, SearchBar } from "@sd/ui";
+import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import { PathBar } from "./components/PathBar";
 import { ViewSettings } from "./ViewSettings";
 import { SortMenu } from "./SortMenu";
@@ -132,8 +133,7 @@ export function ExplorerView() {
 					}
 					right={
 						<div className="flex items-center gap-2">
-							<SearchBar
-								className="w-64"
+							<ExpandableSearchButton
 								placeholder={
 									currentPath
 										? "Search in current folder..."
