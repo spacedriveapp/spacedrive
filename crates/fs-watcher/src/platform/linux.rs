@@ -158,4 +158,3 @@ mod tests {
 		assert!(events[0].kind.is_rename());
 	}
 }
-

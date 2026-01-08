@@ -92,4 +92,3 @@ enum Entries {
 	Table,
 	DeviceId,
 }
-

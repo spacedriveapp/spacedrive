@@ -8,4 +8,3 @@ mod persistent;
 
 pub use ephemeral::EphemeralEventHandler;
 pub use persistent::{LocationMeta, PersistentEventHandler};
-

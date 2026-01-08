@@ -67,4 +67,3 @@ pub use watcher::{FsWatcher, WatchHandle};
 
 // Re-export notify types that users might need
 pub use notify::RecursiveMode;
-

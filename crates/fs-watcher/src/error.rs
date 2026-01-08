@@ -53,4 +53,3 @@ pub enum WatcherError {
 	#[error("Configuration error: {0}")]
 	ConfigError(String),
 }
-

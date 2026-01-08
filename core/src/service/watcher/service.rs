@@ -397,4 +397,3 @@ mod tests {
 	// Note: Full service tests require CoreContext which needs async runtime
 	// See integration tests for complete service lifecycle testing
 }
-

@@ -222,4 +222,3 @@ mod tests {
 		assert_eq!(registry.total_entries(), 6);
 	}
 }
-

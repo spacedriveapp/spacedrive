@@ -174,4 +174,3 @@ mod tests {
 	// Integration tests would require full context setup
 	// The handler logic is straightforward - subscribe, filter, route
 }
-

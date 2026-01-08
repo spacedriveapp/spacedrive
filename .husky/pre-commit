@@ -15,14 +15,39 @@ STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACMR)
 PARTIALLY_STAGED=$(git diff --name-only)
 
+# Check if there are any Rust files staged
+RUST_FILES=$(echo "$STAGED_FILES" | grep -E '\.(rs|toml)$' || true)
+
 # Stash unstaged changes to preserve working directory
 # --keep-index keeps staged changes in working tree
 git stash push --quiet --keep-index --message "pre-commit-stash" || true
 STASHED=$?
 
-# Run formatter on the staged files
+# Format Rust code if there are Rust files
+if [ -n "$RUST_FILES" ]; then
+  echo "🦀 Formatting Rust code..."
+  cargo fmt --all
+  RUST_FORMAT_EXIT_CODE=$?
+  
+  # Re-stage formatted Rust files
+  echo "$RUST_FILES" | while IFS= read -r file; do
+    if [ -f "$file" ]; then
+      git add "$file"
+    fi
+  done
+else
+  RUST_FORMAT_EXIT_CODE=0
+fi
+
+# Format TypeScript/React code
+echo "⚡ Formatting TypeScript/React code..."
 bun x ultracite fix
 FORMAT_EXIT_CODE=$?
+
+# Combined exit code (fail if either formatter failed)
+if [ $RUST_FORMAT_EXIT_CODE -ne 0 ] || [ $FORMAT_EXIT_CODE -ne 0 ]; then
+  FORMAT_EXIT_CODE=1
+fi
 
 # Restore working directory state
 if [ $STASHED -eq 0 ]; then
@@ -62,7 +87,7 @@ fi
 # Check if staged files actually changed
 NEW_STAGED_HASH=$(git diff --cached | sha256sum | cut -d' ' -f1)
 if [ "$STAGED_HASH" != "$NEW_STAGED_HASH" ]; then
-  echo "✨ Files formatted by Ultracite"
+  echo "✨ Files formatted successfully"
 fi
 
 exit $FORMAT_EXIT_CODE

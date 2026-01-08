@@ -9,4 +9,3 @@ pub mod query;
 pub use action::*;
 pub use output::*;
 pub use query::*;
-

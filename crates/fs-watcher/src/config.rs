@@ -256,4 +256,3 @@ mod tests {
 		assert!(!config.recursive);
 	}
 }
-
