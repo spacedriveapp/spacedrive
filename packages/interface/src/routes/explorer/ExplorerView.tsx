@@ -1,31 +1,31 @@
-import { useExplorer } from "./context";
-import { GridView } from "./views/GridView";
-import { ListView } from "./views/ListView";
-import { MediaView } from "./views/MediaView";
-import { ColumnView } from "./views/ColumnView";
-import { SizeView } from "./views/SizeView";
-import { KnowledgeView } from "./views/KnowledgeView";
-import { EmptyView } from "./views/EmptyView";
-import { SearchView } from "./views/SearchView";
-import { SearchToolbar } from "./SearchToolbar";
-import { TopBarPortal, TopBarItem } from "../../TopBar";
-import { useVirtualListing } from "./hooks/useVirtualListing";
-import { VirtualPathBar } from "./components/VirtualPathBar";
-import { ExpandableSearchButton } from "./components/ExpandableSearchButton";
 import {
-	SidebarSimple,
-	Info,
 	ArrowLeft,
 	ArrowRight,
-	Tag as TagIcon,
-} from "@phosphor-icons/react";
-import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
-import { PathBar } from "./components/PathBar";
-import { ViewSettings, ViewSettingsPanel } from "./ViewSettings";
-import { SortMenu, SortMenuPanel } from "./SortMenu";
-import { ViewModeMenu, ViewModeMenuPanel } from "./ViewModeMenu";
-import { TabNavigationGuard } from "./TabNavigationGuard";
-import { useState, useEffect, useCallback, useMemo } from "react";
+	Info,
+	SidebarSimple,
+	Tag as TagIcon
+} from '@phosphor-icons/react';
+import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {TopBarItem, TopBarPortal} from '../../TopBar';
+import {ExpandableSearchButton} from './components/ExpandableSearchButton';
+import {PathBar} from './components/PathBar';
+import {VirtualPathBar} from './components/VirtualPathBar';
+import {useExplorer} from './context';
+import {useVirtualListing} from './hooks/useVirtualListing';
+import {SearchToolbar} from './SearchToolbar';
+import {SortMenu, SortMenuPanel} from './SortMenu';
+import {TabNavigationGuard} from './TabNavigationGuard';
+import {ViewModeMenu, ViewModeMenuPanel} from './ViewModeMenu';
+import {ColumnView} from './views/ColumnView';
+import {EmptyView} from './views/EmptyView';
+import {GridView} from './views/GridView';
+import {KnowledgeView} from './views/KnowledgeView';
+import {ListView} from './views/ListView';
+import {MediaView} from './views/MediaView';
+import {SearchView} from './views/SearchView';
+import {SizeView} from './views/SizeView';
+import {ViewSettings, ViewSettingsPanel} from './ViewSettings';
 
 export function ExplorerView() {
 	const {
@@ -53,13 +53,13 @@ export function ExplorerView() {
 		quickPreviewFileId,
 		mode,
 		enterSearchMode,
-		exitSearchMode,
+		exitSearchMode
 	} = useExplorer();
 
-	const { isVirtualView } = useVirtualListing();
+	const {isVirtualView} = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
 
-	const [searchValue, setSearchValue] = useState("");
+	const [searchValue, setSearchValue] = useState('');
 
 	const handleSearchChange = useCallback(
 		(value: string) => {
@@ -70,7 +70,7 @@ export function ExplorerView() {
 					enterSearchMode(value);
 				}, 300);
 				return () => clearTimeout(timeoutId);
-			} else if (value.length === 0 && mode.type === "search") {
+			} else if (value.length === 0 && mode.type === 'search') {
 				exitSearchMode();
 			}
 		},
@@ -78,13 +78,13 @@ export function ExplorerView() {
 	);
 
 	const handleSearchClear = useCallback(() => {
-		setSearchValue("");
+		setSearchValue('');
 		exitSearchMode();
 	}, [exitSearchMode]);
 
 	useEffect(() => {
-		if (mode.type !== "search") {
-			setSearchValue("");
+		if (mode.type !== 'search') {
+			setSearchValue('');
 		}
 	}, [mode.type]);
 
@@ -136,7 +136,9 @@ export function ExplorerView() {
 								id="sidebar-toggle"
 								label="Sidebar"
 								priority="normal"
-								onClick={() => setSidebarVisible(!sidebarVisible)}
+								onClick={() =>
+									setSidebarVisible(!sidebarVisible)
+								}
 							>
 								<TopBarButton
 									icon={SidebarSimple}
@@ -201,26 +203,28 @@ export function ExplorerView() {
 								<ExpandableSearchButton
 									placeholder={
 										currentPath
-											? "Search in current folder..."
-											: "Search..."
+											? 'Search in current folder...'
+											: 'Search...'
 									}
 									value={searchValue}
 									onChange={handleSearchChange}
 									onClear={handleSearchClear}
 								/>
 							</TopBarItem>
-						<TopBarItem
-							id="tag-mode"
-							label="Tags"
-							priority="low"
-							onClick={() => setTagModeActive(!tagModeActive)}
-						>
-							<TopBarButton
-								icon={TagIcon}
+							<TopBarItem
+								id="tag-mode"
+								label="Tags"
+								priority="low"
 								onClick={() => setTagModeActive(!tagModeActive)}
-								active={tagModeActive}
-							/>
-						</TopBarItem>
+							>
+								<TopBarButton
+									icon={TagIcon}
+									onClick={() =>
+										setTagModeActive(!tagModeActive)
+									}
+									active={tagModeActive}
+								/>
+							</TopBarItem>
 							<TopBarItem
 								id="view-mode"
 								label="Views"
@@ -252,40 +256,42 @@ export function ExplorerView() {
 									viewMode={viewMode as any}
 								/>
 							</TopBarItem>
-						<TopBarItem
-							id="inspector-toggle"
-							label="Inspector"
-							priority="high"
-							onClick={() => setInspectorVisible(!inspectorVisible)}
-						>
-							<TopBarButton
-								icon={Info}
+							<TopBarItem
+								id="inspector-toggle"
+								label="Inspector"
+								priority="high"
 								onClick={() =>
 									setInspectorVisible(!inspectorVisible)
 								}
-								active={inspectorVisible}
-							/>
-						</TopBarItem>
+							>
+								<TopBarButton
+									icon={Info}
+									onClick={() =>
+										setInspectorVisible(!inspectorVisible)
+									}
+									active={inspectorVisible}
+								/>
+							</TopBarItem>
 						</>
 					}
 				/>
 			)}
 
-			<div className="relative flex w-full flex-col pt-1.5 h-full overflow-hidden bg-app/80">
-				{mode.type === "search" && <SearchToolbar />}
+			<div className="bg-app/80 relative flex h-full w-full flex-col overflow-hidden pt-1.5">
+				{mode.type === 'search' && <SearchToolbar />}
 				<div className="flex-1 overflow-auto">
 					<TabNavigationGuard>
-						{mode.type === "search" ? (
+						{mode.type === 'search' ? (
 							<SearchView />
-						) : viewMode === "grid" ? (
+						) : viewMode === 'grid' ? (
 							<GridView />
-						) : viewMode === "list" ? (
+						) : viewMode === 'list' ? (
 							<ListView />
-						) : viewMode === "column" ? (
+						) : viewMode === 'column' ? (
 							<ColumnView />
-						) : viewMode === "size" ? (
+						) : viewMode === 'size' ? (
 							<SizeView />
-						) : viewMode === "knowledge" ? (
+						) : viewMode === 'knowledge' ? (
 							<KnowledgeView />
 						) : (
 							<MediaView />
