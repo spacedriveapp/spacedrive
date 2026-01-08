@@ -1,4 +1,4 @@
-import { CaretDown, GearSix, Plus } from "@phosphor-icons/react";
+import { CaretDownIcon, GearSixIcon, PlusIcon } from "@phosphor-icons/react";
 import type { Space } from "@sd/ts-client";
 import { DropdownMenu } from "@sd/ui";
 import clsx from "clsx";
@@ -30,6 +30,7 @@ export function SpaceSwitcher({
             "transition-colors",
             !currentSpace && "text-sidebar-inkFaint"
           )}
+          type="button"
         >
           <div
             className="size-2 shrink-0 rounded-full"
@@ -38,7 +39,7 @@ export function SpaceSwitcher({
           <span className="flex-1 truncate text-left">
             {currentSpace?.name || "Select Space"}
           </span>
-          <CaretDown className="size-3 opacity-50" />
+          <CaretDownIcon aria-hidden="true" size={12} />
         </button>
       }
     >
@@ -69,14 +70,14 @@ export function SpaceSwitcher({
       )}
       <DropdownMenu.Item
         className="rounded-md px-2 py-1 font-medium text-sidebar-ink text-sm hover:bg-sidebar-selected"
-        icon={Plus}
+        icon={PlusIcon}
         onClick={() => createSpaceDialog()}
       >
         New Space
       </DropdownMenu.Item>
       <DropdownMenu.Item
         className="rounded-md px-2 py-1 font-medium text-sidebar-ink text-sm hover:bg-sidebar-selected"
-        icon={GearSix}
+        icon={GearSixIcon}
       >
         Space Settings
       </DropdownMenu.Item>

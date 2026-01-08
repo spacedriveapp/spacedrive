@@ -217,7 +217,9 @@ cargo test -- --nocapture
 
 ### Code Quality
 
-Before submitting a PR, ensure your code passes all checks:
+#### Rust Code
+
+Before submitting a PR, ensure your Rust code passes all checks:
 
 ```bash
 # Format code
@@ -229,6 +231,59 @@ cargo clippy
 # Run all checks
 cargo fmt && cargo clippy && cargo test
 ```
+
+#### TypeScript/React Code
+
+The project uses [Ultracite](https://www.ultracite.ai) with [Biome](https://biomejs.dev) for fast, zero-config linting and formatting of TypeScript and React code.
+
+**Manual Commands:**
+
+```bash
+# Check formatting and linting (dry run)
+bun biome check .
+
+# Fix all auto-fixable issues
+bun biome check --write .
+
+# Format only
+bun biome format --write .
+
+# Lint only
+bun biome lint --write .
+
+# Run TypeScript type checking
+bun run typecheck
+```
+
+**Editor Integration:**
+
+Format-on-save is configured in `.vscode/settings.json`. The Biome extension is listed as a recommended extension in `.vscode/extensions.json`, so Cursor/VS Code will automatically prompt you to install it when you open the project.
+
+If you don't see the prompt, you can manually install it:
+- Open Extensions: `Cmd + Shift + X` (Mac) or `Ctrl + Shift + X` (Windows/Linux)
+- Search for "Biome" and install the official extension by **Biomejs**
+
+Once installed, files will automatically format when you save them.
+
+**Pre-commit Hooks:**
+
+The project uses Husky pre-commit hooks to automatically format staged files before committing:
+
+- Staged files are automatically formatted with `bun x ultracite fix`
+- If formatting changes files, they're automatically re-staged
+- Partially staged files are preserved
+
+The hook runs automatically on `git commit`. If you need to bypass it (not recommended):
+
+```bash
+git commit --no-verify
+```
+
+**Configuration:**
+
+- **Biome config:** `biome.jsonc` (extends `ultracite/biome/core`)
+- **VS Code settings:** `.vscode/settings.json`
+- **Pre-commit hook:** `.husky/pre-commit`
 
 ### Working with Examples
 
@@ -612,15 +667,26 @@ Once you have finished making your changes, create a pull request (PR) to submit
 
 1. **Run all checks:**
 
+   **Rust:**
    ```bash
    cargo fmt && cargo clippy && cargo test
    ```
+
+   **TypeScript/React:**
+   ```bash
+   bun biome check --write .
+   bun run typecheck
+   ```
+
+   **Note:** Pre-commit hooks will automatically format your code, but running checks manually ensures everything passes before pushing.
 
 2. **Update documentation** if you've changed public APIs
 
 3. **Add tests** for new functionality
 
 4. **Test on relevant platforms** (especially for iOS/macOS changes)
+
+5. **Verify pre-commit hooks work** - Try a test commit to ensure hooks format correctly
 
 ### Creating the PR
 

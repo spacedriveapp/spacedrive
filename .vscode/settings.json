@@ -1,17 +1,21 @@
 {
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.defaultFormatter": "biomejs.biome",
   "[typescript]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
   },
   "[javascript]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
   },
   "[javascriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.formatOnSave": true
   },
   "typescript.tsdk": "node_modules/typescript/lib",
   "editor.formatOnPaste": true,
@@ -49,5 +53,21 @@
   "editor.codeActionsOnSave": {
     "source.fixAll.biome": "explicit",
     "source.organizeImports.biome": "explicit"
+  },
+  "tailwindCSS.experimental.configFile": {
+    "apps/landing/tailwind.config.js": ["apps/landing/**"],
+    "apps/mobile/tailwind.config.js": ["apps/mobile/**"],
+    "apps/tauri/tailwind.config.cjs": ["apps/tauri/**"],
+    "packages/ui/tailwind.config.js": [
+      "packages/ui/**",
+      "packages/interface/**"
+    ]
+  },
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"]
+  ],
+  "files.watcherExclude": {
+    "**/core/apps/**": true
   }
 }

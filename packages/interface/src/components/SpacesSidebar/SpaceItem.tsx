@@ -48,7 +48,15 @@ export interface SpaceItemProps {
 // Icon component that handles both component icons and image icons
 function ItemIcon({ icon }: { icon: IconData }) {
   if (icon.type === "image") {
-    return <img alt="" className="size-4 shrink-0" src={icon.icon} />;
+    return (
+      <img
+        alt=""
+        className="size-4 shrink-0"
+        height={16}
+        src={icon.icon}
+        width={16}
+      />
+    );
   }
   const IconComponent = icon.icon;
   return (
@@ -60,7 +68,9 @@ function ItemIcon({ icon }: { icon: IconData }) {
 
 // Insertion line indicator
 function InsertionLine({ visible }: { visible: boolean }) {
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
   return (
     <div className="absolute -top-[1px] right-2 left-2 z-20 h-[2px] rounded-full bg-accent" />
   );
@@ -68,7 +78,9 @@ function InsertionLine({ visible }: { visible: boolean }) {
 
 // Bottom insertion line (for last items)
 function BottomInsertionLine({ visible }: { visible: boolean }) {
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
   return (
     <div className="absolute right-2 -bottom-[1px] left-2 z-20 h-[2px] rounded-full bg-accent" />
   );
@@ -76,7 +88,9 @@ function BottomInsertionLine({ visible }: { visible: boolean }) {
 
 // Drop highlight ring for drop-into targets
 function DropHighlight({ visible }: { visible: boolean }) {
-  if (!visible) return null;
+  if (!visible) {
+    return null;
+  }
   return (
     <div className="pointer-events-none absolute inset-0 z-10 rounded-md ring-2 ring-accent/50 ring-inset" />
   );
@@ -243,7 +257,7 @@ export function SpaceItem({
     } else if (path) {
       // Extract pathname and search from the path
       const [pathname, search] = path.includes("?")
-        ? [path.split("?")[0], "?" + path.split("?")[1]]
+        ? [path.split("?")[0], `?${path.split("?")[1]}`]
         : [path, ""];
       const spaceItemKey = getSpaceItemKeyFromRoute(pathname, search);
       loadPreferencesForSpaceItem(spaceItemKey);

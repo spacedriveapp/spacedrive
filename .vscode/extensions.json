@@ -1,10 +1,3 @@
 {
-  "recommendations": [
-    "rust-lang.rust-analyzer", // Provides Rust language support
-    "editorconfig.editorconfig", // EditorConfig helps maintain consistent coding styles for multiple developers working on the same project across various editors and IDEs
-    "bradlc.vscode-tailwindcss", // Provides Tailwind CSS IntelliSense
-    "dbaeumer.vscode-eslint", // Integrates ESLint JavaScript into VS Code
-    "esbenp.prettier-vscode", // Code formatter using prettier,
-    "lokalise.i18n-ally" // i18n-ally is an all-in-one i18n (internationalization) extension for VS Code
-  ]
+  "recommendations": ["biomejs.biome", "bradlc.vscode-tailwindcss"]
 }

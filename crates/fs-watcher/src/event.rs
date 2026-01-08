@@ -262,3 +262,4 @@ mod tests {
 		assert_eq!(event.is_dir(), Some(true));
 	}
 }
+
