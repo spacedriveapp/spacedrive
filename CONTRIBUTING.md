@@ -269,7 +269,8 @@ Once installed, files will automatically format when you save them.
 
 The project uses Husky pre-commit hooks to automatically format staged files before committing:
 
-- Staged files are automatically formatted with `bun x ultracite fix`
+- **Rust files** (`.rs`, `.toml`): Automatically formatted with `cargo fmt`
+- **TypeScript/React files**: Automatically formatted with `bun x ultracite fix` (Biome)
 - If formatting changes files, they're automatically re-staged
 - Partially staged files are preserved
 
