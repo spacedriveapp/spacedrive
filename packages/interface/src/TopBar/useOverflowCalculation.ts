@@ -52,6 +52,9 @@ export function useOverflowCalculation() {
 	const { setVisibleItems, setOverflowItems, recalculationTrigger } = useTopBarInternal();
 	const parentContainerRef = useRef<HTMLDivElement>(null);
 
+	const lastVisibleRef = useRef<Set<string>>(new Set());
+	const lastOverflowRef = useRef<Map<TopBarPosition, TopBarItem[]>>(new Map());
+
 	const calculateOverflow = useCallback(() => {
 		if (!leftContainerRef?.current || !rightContainerRef?.current || !parentContainerRef.current) return;
 
@@ -94,8 +97,25 @@ export function useOverflowCalculation() {
 			["center", []],
 		]);
 
-		setVisibleItems(newVisibleItems);
-		setOverflowItems(newOverflowItems);
+		// Only update if visible items actually changed
+		const visibleChanged =
+			newVisibleItems.size !== lastVisibleRef.current.size ||
+			!Array.from(newVisibleItems).every(id => lastVisibleRef.current.has(id));
+
+		// Only update if overflow items actually changed
+		const overflowChanged =
+			leftResult.overflow.length !== (lastOverflowRef.current.get("left")?.length ?? 0) ||
+			rightResult.overflow.length !== (lastOverflowRef.current.get("right")?.length ?? 0);
+
+		if (visibleChanged) {
+			lastVisibleRef.current = newVisibleItems;
+			setVisibleItems(newVisibleItems);
+		}
+
+		if (overflowChanged) {
+			lastOverflowRef.current = newOverflowItems;
+			setOverflowItems(newOverflowItems);
+		}
 	}, [items, leftContainerRef, rightContainerRef, setVisibleItems, setOverflowItems]);
 
 	useLayoutEffect(() => {
