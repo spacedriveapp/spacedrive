@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { usePlatform } from '../platform';
+import { usePlatform } from '../contexts/PlatformContext';
 import type { KeybindId } from '../util/keybinds/registry';
 import { getKeybind } from '../util/keybinds/registry';
 import { getComboForPlatform, getCurrentPlatform, toTauriAccelerator } from '../util/keybinds/platform';

@@ -11,10 +11,10 @@ import {
 	type ContextMenuItem,
 	type ContextMenuResult,
 } from "../../../hooks/useContextMenu";
-import { usePlatform } from "../../../platform";
-import { useLibraryMutation } from "../../../context";
+import { usePlatform } from "../../../contexts/PlatformContext";
+import { useLibraryMutation } from "../../../contexts/SpacedriveContext";
 import { isVolumeItem, isPathItem } from "./spaceItemUtils";
-import { useExplorer, getSpaceItemKeyFromRoute } from "../../Explorer/context";
+import { useExplorer, getSpaceItemKeyFromRoute } from "../../../routes/explorer/context";
 
 interface UseSpaceItemContextMenuOptions {
 	item: SpaceItemType;

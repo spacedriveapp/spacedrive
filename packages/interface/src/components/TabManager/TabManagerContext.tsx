@@ -6,7 +6,7 @@ import {
 	type ReactNode,
 } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
-import type { Router } from "@remix-run/router";
+type Router = ReturnType<typeof createBrowserRouter>;
 
 /**
  * Derives a tab title from the current route pathname and search params
@@ -119,7 +119,7 @@ interface TabManagerContextValue {
 	// Tab management
 	tabs: Tab[];
 	activeTabId: string;
-	router: Router;
+	router: RemixRouter;
 	createTab: (title?: string, path?: string) => void;
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { useLibraryQuery, useSpacedriveClient } from "../../../context";
+import { useLibraryQuery, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 
 /**
  * Lightweight hook for job count indicator.

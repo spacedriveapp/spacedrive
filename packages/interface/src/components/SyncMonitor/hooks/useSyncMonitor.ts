@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLibraryQuery, useSpacedriveClient } from '../../../context';
+import { useLibraryQuery, useSpacedriveClient } from '../../../contexts/SpacedriveContext';
 import type { SyncPeerActivity, SyncActivity, SyncState } from '../types';
 
 interface SyncMonitorState {

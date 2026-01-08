@@ -12,13 +12,13 @@ import {
 import { TopBarButton, Popover, usePopover } from "@sd/ui";
 import clsx from "clsx";
 import { TopBarPortal } from "../../TopBar";
-import { PairingModal } from "../../components/PairingModal";
-import { useAddStorageDialog } from "../../components/Explorer/components/AddStorageModal";
-import { useSyncSetupDialog } from "../../components/SyncSetupModal";
-import { useCreateLibraryDialog } from "../../components/CreateLibraryModal";
-import { useSpacedriveClient } from "../../context";
+import { PairingModal } from "../../components/modals/PairingModal";
+import { useAddStorageDialog } from "../explorer/components/AddStorageModal";
+import { useSyncSetupDialog } from "../../components/modals/SyncSetupModal";
+import { useCreateLibraryDialog } from "../../components/modals/CreateLibraryModal";
+import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
-import { usePlatform } from "../../platform";
+import { usePlatform } from "../../contexts/PlatformContext";
 import { useLibraryMutation } from "@sd/ts-client";
 
 interface OverviewTopBarProps {

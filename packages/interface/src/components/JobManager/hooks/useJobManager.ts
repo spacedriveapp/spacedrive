@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 
 export function useJobManager() {

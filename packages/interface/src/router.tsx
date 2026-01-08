@@ -1,9 +1,9 @@
 import { createBrowserRouter } from "react-router-dom";
 import { Overview } from "./routes/overview";
-import { ExplorerView } from "./components/Explorer";
-import { ExplorerLayout } from "./Explorer";
+import { ExplorerView } from "./routes/explorer";
+import { ShellLayout } from "./ShellLayout";
 import { JobsScreen } from "./components/JobManager";
-import { DaemonManager } from "./routes/DaemonManager";
+import { DaemonManager } from "./routes/daemon";
 import { TagView } from "./routes/tag";
 import { FileKindsView } from "./routes/file-kinds";
 
@@ -13,7 +13,7 @@ import { FileKindsView } from "./routes/file-kinds";
 export const explorerRoutes = [
 	{
 		path: "/",
-		element: <ExplorerLayout />,
+		element: <ShellLayout />,
 		children: [
 			{
 				index: true,

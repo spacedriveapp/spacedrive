@@ -8,16 +8,15 @@ import { useState, useMemo } from "react";
 import { HeroStats } from "./HeroStats";
 import { DevicePanel } from "./DevicePanel";
 import { ProjectCards } from "./ProjectCards";
-import { DevicesPanel } from "./DevicesPanel";
 import { ContentBreakdown } from "./ContentBreakdown";
 import { OverviewTopBar } from "./OverviewTopBar";
-import { useNormalizedQuery } from "../../context";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import type {
-	LibraryInfoOutput,
+	Library,
 	LocationsListOutput,
 	LocationsListQueryInput,
 } from "@sd/ts-client";
-import { Inspector } from "../../Inspector";
+import { Inspector } from "../../components/Inspector/Inspector";
 
 export function Overview() {
 	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
@@ -30,7 +29,7 @@ export function Overview() {
 		data: libraryInfo,
 		isLoading,
 		error,
-	} = useNormalizedQuery<null, LibraryInfoOutput>({
+	} = useNormalizedQuery<null, Library>({
 		wireMethod: "query:libraries.info",
 		input: null,
 		resourceType: "library",

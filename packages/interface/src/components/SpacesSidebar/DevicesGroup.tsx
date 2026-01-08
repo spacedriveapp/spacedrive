@@ -1,9 +1,9 @@
 import { WifiHigh, WifiNoneIcon, WifiSlashIcon, Trash } from "@phosphor-icons/react";
-import { useNormalizedQuery, getDeviceIcon, useCoreMutation } from "../../context";
-import { useExplorer } from "../Explorer/context";
+import { useNormalizedQuery, getDeviceIcon, useCoreMutation } from "../../contexts/SpacedriveContext";
+import { useExplorer } from "../../routes/explorer/context";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
-import type { ListLibraryDevicesInput, LibraryDeviceInfo } from "@sd/ts-client";
+import type { ListLibraryDevicesInput, Device } from "@sd/ts-client";
 
 interface DevicesGroupProps {
 	isCollapsed: boolean;
@@ -23,7 +23,7 @@ export function DevicesGroup({
 	// Use normalized query for automatic updates when device events are emitted
 	const { data: devices, isLoading } = useNormalizedQuery<
 		ListLibraryDevicesInput,
-		LibraryDeviceInfo[]
+		Device[]
 	>({
 		wireMethod: "query:devices.list",
 		input: {
@@ -38,7 +38,7 @@ export function DevicesGroup({
 	const revokeDevice = useCoreMutation("network.device.revoke");
 
 	// Handler for device context menu
-	const handleDeviceContextMenu = (device: LibraryDeviceInfo) => async (e: React.MouseEvent) => {
+	const handleDeviceContextMenu = (device: Device) => async (e: React.MouseEvent) => {
 		e.preventDefault();
 		e.stopPropagation();
 

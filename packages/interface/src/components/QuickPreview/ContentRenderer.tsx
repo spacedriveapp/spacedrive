@@ -1,8 +1,8 @@
 import type { File, ContentKind } from "@sd/ts-client";
-import { File as FileComponent } from "../Explorer/File";
-import { formatBytes, getContentKind } from "../Explorer/utils";
-import { usePlatform } from "../../platform";
-import { useServer } from "../../ServerContext";
+import { File as FileComponent } from "../../routes/explorer/File";
+import { formatBytes, getContentKind } from "../../routes/explorer/utils";
+import { usePlatform } from "../../contexts/PlatformContext";
+import { useServer } from "../../contexts/ServerContext";
 import {
 	useState,
 	useEffect,

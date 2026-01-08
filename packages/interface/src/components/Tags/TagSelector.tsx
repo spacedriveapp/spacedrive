@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Popover, usePopover } from '@sd/ui';
-import { useNormalizedQuery, useLibraryMutation } from '../../context';
+import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import type { Tag } from '@sd/ts-client';
 
 interface TagSelectorProps {

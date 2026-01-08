@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { Icon } from '@phosphor-icons/react';
-import { usePlatform } from '../platform';
+import { usePlatform } from '../contexts/PlatformContext';
 import type { KeybindId } from '../util/keybinds/registry';
 import { getKeybind } from '../util/keybinds/registry';
 import { getComboForPlatform, getCurrentPlatform, toDisplayString } from '../util/keybinds/platform';

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 import { sounds } from "@sd/assets/sounds";
 

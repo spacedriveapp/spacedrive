@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
-	Explorer,
+	Shell,
 	FloatingControls,
 	LocationCacheDemo,
 	PopoutInspector,
@@ -293,7 +293,7 @@ function App() {
 
 	return (
 		<PlatformProvider platform={platform}>
-			<Explorer client={client} />
+			<Shell client={client} />
 		</PlatformProvider>
 	);
 }

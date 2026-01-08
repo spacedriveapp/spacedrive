@@ -47,21 +47,68 @@
 ```
 packages/interface/
 ├── src/
-│   ├── Explorer.tsx          # Main explorer window
-│   ├── DemoWindow.tsx        # Demo/testing window
-│   ├── FloatingControls.tsx  # Floating controls UI
-│   ├── components/           # Feature components
-│   │   └── TrafficLights.tsx # macOS window controls
-│   ├── hooks/                # React hooks
-│   │   ├── useLibraries.ts
-│   │   └── useEvent.ts
-│   ├── hooks-client/         # TanStack Query hooks
-│   │   ├── useClient.tsx
-│   │   ├── useQuery.ts
-│   │   └── useMutation.ts
-│   ├── context.tsx           # Re-exports from hooks-client
-│   ├── styles.css            # Global CSS variables
-│   └── index.tsx             # Public exports
+│   ├── Shell.tsx                 # App entry point (providers, daemon check)
+│   ├── ShellLayout.tsx           # Layout shell (sidebar, inspector, TopBar)
+│   ├── router.tsx                # Route configuration
+│   ├── DemoWindow.tsx            # Demo/testing window
+│   ├── FloatingControls.tsx      # Floating controls UI
+│   ├── components/
+│   │   ├── DndProvider.tsx       # Drag-and-drop coordinator
+│   │   ├── Explorer/
+│   │   │   ├── ExplorerView.tsx  # File browser view
+│   │   │   ├── context.tsx       # Explorer state/context
+│   │   │   └── ...
+│   │   ├── QuickPreview/
+│   │   │   ├── Controller.tsx    # Preview navigation
+│   │   │   ├── Syncer.tsx        # Selection sync
+│   │   │   └── ...
+│   │   └── ...
+│   ├── TopBar/                   # TopBar portal system
+│   │   ├── TopBar.tsx
+│   │   ├── Context.tsx
+│   │   └── Portal.tsx
+│   ├── routes/                   # Route components
+│   │   └── overview/
+│   ├── hooks/                    # React hooks
+│   ├── context.tsx               # Client context and hooks
+│   ├── styles.css                # Global CSS variables
+│   └── index.tsx                 # Public exports
+```
+
+### Architecture Layers
+
+The interface is organized into clear separation of concerns:
+
+**Shell Layer** (`Shell.tsx`):
+- Root entry point
+- Provider setup (Spacedrive, Server, TabManager, Platform)
+- Daemon connection management (Tauri-specific)
+
+**Layout Layer** (`ShellLayout.tsx`):
+- Chrome/frame (sidebar, inspector, TopBar containers)
+- Provider setup (TopBar, Selection, Explorer)
+- Tab bar positioning
+- QuickPreview coordination
+
+**View Layer** (routes like `ExplorerView.tsx`):
+- Actual content rendering
+- TopBar button registration (via portal)
+- Feature-specific logic
+
+**Coordination Layer**:
+- `DndProvider.tsx` - Global drag-and-drop
+- `QuickPreview/Controller.tsx` - Preview navigation
+- `QuickPreview/Syncer.tsx` - Selection-to-preview sync
+
+**Visual Hierarchy:**
+```
+Shell (providers) → DndProvider → Router
+                                    ↓
+                            ShellLayout (chrome)
+                                    ↓
+                              <Outlet> (routes)
+                                    ↓
+                  Overview | ExplorerView | Settings | etc.
 ```
 
 ---
@@ -603,7 +650,7 @@ Explorer/
 Only export what's needed:
 ```tsx
 // index.tsx
-export { Explorer } from './Explorer';
+export { Shell } from './Shell';
 export { DemoWindow } from './DemoWindow';
 // Don't export everything
 ```
@@ -712,6 +759,55 @@ Decision: V2 is more rounded than V1.
 ---
 
 ## Common Patterns
+
+### Shell Entry Point Pattern
+
+The app entry point follows a clean provider hierarchy:
+
+```tsx
+// Shell.tsx
+export function Shell({ client }: { client: SpacedriveClient }) {
+  const platform = usePlatform();
+
+  return (
+    <SpacedriveProvider client={client}>
+      <ServerProvider>
+        <TabManagerProvider routes={explorerRoutes}>
+          <TabKeyboardHandler />
+          <DndProvider>
+            <RouterProvider router={router} />
+          </DndProvider>
+        </TabManagerProvider>
+      </ServerProvider>
+    </SpacedriveProvider>
+  );
+}
+
+// ShellLayout renders inside router, provides layout chrome
+// Routes (ExplorerView, Overview, etc.) render inside <Outlet />
+```
+
+### TopBar Portal Pattern
+
+Views register their TopBar buttons via portal:
+
+```tsx
+// ExplorerView.tsx
+import { TopBarPortal } from '../../TopBar';
+
+function ExplorerView() {
+  return (
+    <>
+      <TopBarPortal
+        left={<BackButton />}
+        center={<PathBar />}
+        right={<ViewControls />}
+      />
+      <div>{/* View content */}</div>
+    </>
+  );
+}
+```
 
 ### Library Switcher Pattern
 
@@ -873,11 +969,11 @@ const { data, isLoading, error } = useCoreQuery({
 
 ```tsx
 import { render, screen } from '@testing-library/react';
-import { Explorer } from './Explorer';
+import { Shell } from './Shell';
 
 test('switches libraries', async () => {
   const user = userEvent.setup();
-  render(<Explorer client={mockClient} />);
+  render(<Shell client={mockClient} />);
 
   await user.click(screen.getByText('Switch Library'));
   // ...
@@ -970,6 +1066,10 @@ Before writing code:
 - Expanding dropdown (DropdownMenu primitive)
 - Explorer with sidebar and library switcher
 - TanStack Query integration
+- Clean architecture refactor (Shell → ShellLayout → Views)
+- Extracted DndProvider for drag-and-drop coordination
+- QuickPreview components (Controller + Syncer)
+- TopBar portal system for view-specific controls
 
 **In Progress:**
 - Port remaining V1 components

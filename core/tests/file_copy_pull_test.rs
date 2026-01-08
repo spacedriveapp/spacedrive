@@ -57,7 +57,7 @@ async fn alice_pull_source_scenario() {
 		.unwrap();
 	println!("Alice: Library created");
 
-	// Create test files that Bob will pull
+	// Create test files that Bob will pull (directory must exist before adding as allowed path)
 	println!("Alice: Creating test files for Bob to PULL...");
 	let test_files_dir = data_dir.join("files_for_bob");
 	std::fs::create_dir_all(&test_files_dir).unwrap();
@@ -101,6 +101,22 @@ async fn alice_pull_source_scenario() {
 		file_info.join("\n"),
 	)
 	.unwrap();
+
+	// Add allowed path for file transfers (security requirement from PR #2944)
+	if let Some(networking) = core.networking() {
+		let protocol_registry = networking.protocol_registry();
+		let registry = protocol_registry.read().await;
+		if let Some(handler) = registry.get_handler("file_transfer") {
+			if let Some(ft_handler) =
+				handler
+					.as_any()
+					.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>(
+					) {
+				ft_handler.add_allowed_path(test_files_dir.clone());
+				println!("Alice: Added {} as allowed path", test_files_dir.display());
+			}
+		}
+	}
 
 	// Start pairing as initiator
 	println!("Alice: Starting pairing as initiator...");
@@ -348,6 +364,22 @@ async fn bob_pull_receiver_scenario() {
 		"Bob: Created destination directory: {}",
 		pull_dest_dir.display()
 	);
+
+	// Add allowed path for file transfers (security requirement from PR #2944)
+	if let Some(networking) = core.networking() {
+		let protocol_registry = networking.protocol_registry();
+		let registry = protocol_registry.read().await;
+		if let Some(handler) = registry.get_handler("file_transfer") {
+			if let Some(ft_handler) =
+				handler
+					.as_any()
+					.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>(
+					) {
+				ft_handler.add_allowed_path(pull_dest_dir.clone());
+				println!("Bob: Added {} as allowed path", pull_dest_dir.display());
+			}
+		}
+	}
 
 	// Get action manager
 	let action_manager = core

@@ -1,5 +1,5 @@
 import { useNormalizedQuery } from '@sd/ts-client';
-import { useSpacedriveClient } from '../../../context';
+import { useSpacedriveClient } from '../../../contexts/SpacedriveContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import type { Event } from '@sd/ts-client';
