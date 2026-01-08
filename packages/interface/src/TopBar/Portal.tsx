@@ -3,17 +3,15 @@ import { useTopBar } from "./Context";
 
 interface TopBarPortalProps {
 	left?: React.ReactNode;
-	center?: React.ReactNode;
 	right?: React.ReactNode;
 }
 
-export function TopBarPortal({ left, center, right }: TopBarPortalProps) {
-	const { leftRef, centerRef, rightRef } = useTopBar();
+export function TopBarPortal({ left, right }: TopBarPortalProps) {
+	const { leftRef, rightRef } = useTopBar();
 
 	return (
 		<>
 			{left && leftRef?.current && createPortal(left, leftRef.current)}
-			{center && centerRef?.current && createPortal(center, centerRef.current)}
 			{right && rightRef?.current && createPortal(right, rightRef.current)}
 		</>
 	);
