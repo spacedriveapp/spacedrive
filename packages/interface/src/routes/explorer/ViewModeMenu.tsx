@@ -76,6 +76,61 @@ const viewOptions: ViewOption[] = [
 	},
 ];
 
+interface ViewModeMenuPanelProps {
+	viewMode: ViewMode;
+	onViewModeChange: (mode: ViewMode) => void;
+	onClose?: () => void;
+}
+
+export function ViewModeMenuPanel({
+	viewMode,
+	onViewModeChange,
+	onClose,
+}: ViewModeMenuPanelProps) {
+	const availableViews = viewOptions.filter(
+		(option) => option.id !== "knowledge" || import.meta.env.DEV
+	);
+
+	return (
+		<div className="w-[240px] rounded-lg bg-app border border-app-line shadow-2xl p-2">
+			<div className="grid grid-cols-3 gap-1">
+				{availableViews.map((option) => (
+					<button
+						key={`${option.id}-${option.label}`}
+						onClick={() => {
+							if (option.id !== "timeline") {
+								onViewModeChange(option.id as ViewMode);
+							}
+							onClose?.();
+						}}
+						className={clsx(
+							"flex flex-col items-center gap-1.5 px-2 py-2 rounded-md",
+							option.id === "timeline" &&
+								"opacity-50 cursor-not-allowed",
+							viewMode === option.id
+								? "bg-app-selected"
+								: "hover:bg-app-hover/50",
+						)}
+					>
+						<option.icon
+							className="size-6 text-white"
+							weight={viewMode === option.id ? "fill" : "bold"}
+						/>
+						<div className="flex flex-col items-center gap-0.5">
+							<div className="text-xs font-medium text-menu-ink">
+								{option.label}
+							</div>
+							<div className="text-[10px] text-menu-faint">
+								{option.keybind}
+							</div>
+						</div>
+					</button>
+				))}
+			</div>
+		</div>
+	);
+}
+
 interface ViewModeMenuProps {
 	viewMode: ViewMode;
 	onViewModeChange: (mode: ViewMode) => void;
@@ -89,11 +144,6 @@ export function ViewModeMenu({
 	const buttonRef = useRef<HTMLButtonElement>(null);
 	const panelRef = useRef<HTMLDivElement>(null);
 	const [position, setPosition] = useState({ top: 0, right: 0 });
-
-	// Filter out knowledge view in production
-	const availableViews = viewOptions.filter(
-		(option) => option.id !== "knowledge" || import.meta.env.DEV
-	);
 
 	useEffect(() => {
 		if (isOpen && buttonRef.current) {
@@ -149,49 +199,13 @@ export function ViewModeMenu({
 								top: `${position.top}px`,
 								right: `${position.right}px`,
 							}}
-							className="w-[240px] rounded-lg bg-app border border-app-line shadow-2xl p-2 z-50"
+							className="z-50"
 						>
-							<div className="grid grid-cols-3 gap-1">
-								{availableViews.map((option) => (
-									<button
-										key={`${option.id}-${option.label}`}
-										onClick={() => {
-											if (option.id !== "timeline") {
-												onViewModeChange(
-													option.id as ViewMode,
-												);
-											}
-											setIsOpen(false);
-										}}
-										className={clsx(
-											"flex flex-col items-center gap-1.5 px-2 py-2 rounded-md",
-
-											option.id === "timeline" &&
-												"opacity-50 cursor-not-allowed",
-											viewMode === option.id
-												? "bg-app-selected"
-												: "hover:bg-app-hover/50",
-										)}
-									>
-										<option.icon
-											className="size-6 text-white"
-											weight={
-												viewMode === option.id
-													? "fill"
-													: "bold"
-											}
-										/>
-										<div className="flex flex-col items-center gap-0.5">
-											<div className="text-xs font-medium text-menu-ink">
-												{option.label}
-											</div>
-											<div className="text-[10px] text-menu-faint">
-												{option.keybind}
-											</div>
-										</div>
-									</button>
-								))}
-							</div>
+							<ViewModeMenuPanel
+								viewMode={viewMode}
+								onViewModeChange={onViewModeChange}
+								onClose={() => setIsOpen(false)}
+							/>
 						</motion.div>
 					</AnimatePresence>,
 					document.body,

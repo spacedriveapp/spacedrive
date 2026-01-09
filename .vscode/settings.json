@@ -1,114 +1,16 @@
 {
-	"cSpell.words": [
-		"actix",
-		"bpfrpt",
-		"callees",
-		"consts",
-		"countup",
-		"creationdate",
-		"Deque",
-		"dotenv",
-		"dotenvy",
-		"fontsource",
-		"ianvs",
-		"ipfs",
-		"Keepsafe",
-		"nodestate",
-		"normalise",
-		"overscan",
-		"pathctx",
-		"prismjs",
-		"proptype",
-		"quicktime",
-		"repr",
-		"rescan",
-		"Roadmap",
-		"subpackage",
-		"svgr",
-		"tailwindcss",
-		"tanstack",
-		"titlebar",
-		"tsparticles",
-		"unlisten",
-		"upsert",
-		"valtio"
-	],
-	"[rust]": {
-		"editor.defaultFormatter": "rust-lang.rust-analyzer"
+	"editor.formatOnSave": true,
+	"editor.defaultFormatter": "esbenp.prettier-vscode",
+	"[typescript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"[toml]": {
-		"editor.defaultFormatter": "tamasfe.even-better-toml"
+	"[typescriptreact]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"rust-analyzer.procMacro.enable": true,
-	"rust-analyzer.diagnostics.experimental.enable": false,
-	"tailwindCSS.experimental.classRegex": [
-		["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"], // cva(....)`...`
-		["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"], // clsx(....)`...`
-		"tw\\.[^`]+`([^`]*)`", // tw.xxx`...`
-		"tw\\(.*?\\).*?`([^`]*)", // tw(....)`...`
-		"tw`([^`]*)", // tw`...` (mobile)
-		"twStyle(([^)]*)", // twStyle(....) (mobile)
-		"twStyle\\(([^)]*)\\)", // twStyle(....) (mobile)
-		["styled\\([^,)]+,([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"] // styled(....)`...` (mobile)
-	],
-	"search.exclude": {
-		"node_modules": true,
-		"**/node_modules": true,
-		"**/bower_components": true,
-		"**/*.code-search": true,
-		// Hiding these folders bcs they create a lot of noise in the search results
-		"**/*.contentlayer": true,
-		"**/*.next": true,
-		"**/dist": true,
-		"apps/mobile/ios/Pods": true,
-		"apps/mobile/android": true,
-		"apps/mobile/ios": true
+	"[javascript]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
 	},
-	"eslint.workingDirectories": [
-		"apps/desktop",
-		"apps/landing",
-		"apps/mobile",
-		"interface",
-		"packages/client",
-		"packages/config",
-		"packages/ui"
-	],
-	"eslint.lintTask.enable": true,
-	"explorer.fileNesting.enabled": true,
-	"explorer.fileNesting.patterns": {
-		"*.ts": "${capture}.js",
-		"*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
-		"*.jsx": "${capture}.js",
-		"*.tsx": "${capture}.ts",
-		".npmrc": ".nvmrc, .yarnrc.yml",
-		".gitignore": ".eslintignore, .prettierignore",
-		"README.md": "CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md",
-		"Cargo.toml": "Cargo.lock",
-		".eslintrc.js": ".eslintcache",
-		"package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, pnpm-workspace.yaml, .pnp.cjs, .pnp.loader.mjs",
-		"tsconfig.json": "tsconfig.*.json"
-	},
-	"rust-analyzer.linkedProjects": [],
-	"rust-analyzer.cargo.extraEnv": {},
-	"rust-analyzer.check.targets": null,
-	"rust-analyzer.showUnlinkedFileNotification": false,
-	"i18n-ally.localesPaths": [
-		"interface/locales",
-		"apps/mobile/ios/Pods/RCT-Folly/folly/lang",
-		"apps/mobile/ios/Pods/boost/boost/locale",
-		"apps/mobile/ios/Pods/boost/boost/predef/language"
-	],
-	"i18n-ally.enabledParsers": ["ts", "json"],
-	"i18n-ally.sortKeys": true,
-	"i18n-ally.namespace": true,
-	"i18n-ally.pathMatcher": "{locale}/common.json",
-	"i18n-ally.enabledFrameworks": ["react"],
-	"i18n-ally.keystyle": "flat",
-	// You need to add this to your locale settings file "i18n-ally.translate.google.apiKey": "xxx"
-	"i18n-ally.translate.engines": ["google"],
-	"evenBetterToml.taplo.configFile.path": ".taplo.toml",
-	"files.insertFinalNewline": false,
-	"files.trimFinalNewlines": true,
-	"editor.formatOnSave": false,
-	"editor.formatOnSaveMode": "file"
+	"[javascriptreact]": {
+		"editor.defaultFormatter": "esbenp.prettier-vscode"
+	}
 }

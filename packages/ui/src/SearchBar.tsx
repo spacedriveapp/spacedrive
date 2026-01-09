@@ -51,7 +51,8 @@ export const SearchBar = forwardRef<HTMLInputElement, SearchBarProps>(
 					className={clsx(
 						"flex-1 bg-transparent outline-none border-0 p-0",
 						"text-xs font-medium text-sidebar-ink placeholder:text-sidebar-inkFaint",
-						"min-w-0"
+						"min-w-0",
+						"focus:outline-none focus:ring-0 focus:border-0"
 					)}
 					{...props}
 				/>

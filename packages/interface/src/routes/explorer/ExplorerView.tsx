@@ -1,30 +1,31 @@
-import { useExplorer } from "./context";
-import { GridView } from "./views/GridView";
-import { ListView } from "./views/ListView";
-import { MediaView } from "./views/MediaView";
-import { ColumnView } from "./views/ColumnView";
-import { SizeView } from "./views/SizeView";
-import { KnowledgeView } from "./views/KnowledgeView";
-import { EmptyView } from "./views/EmptyView";
-import { SearchView } from "./views/SearchView";
-import { SearchToolbar } from "./SearchToolbar";
-import { TopBarPortal } from "../../TopBar";
-import { useVirtualListing } from "./hooks/useVirtualListing";
-import { VirtualPathBar } from "./components/VirtualPathBar";
 import {
-	SidebarSimple,
-	Info,
 	ArrowLeft,
 	ArrowRight,
-	Tag as TagIcon,
-} from "@phosphor-icons/react";
-import { TopBarButton, TopBarButtonGroup, SearchBar } from "@sd/ui";
-import { PathBar } from "./components/PathBar";
-import { ViewSettings } from "./ViewSettings";
-import { SortMenu } from "./SortMenu";
-import { ViewModeMenu } from "./ViewModeMenu";
-import { TabNavigationGuard } from "./TabNavigationGuard";
-import { useState, useEffect, useCallback } from "react";
+	Info,
+	SidebarSimple,
+	Tag as TagIcon
+} from '@phosphor-icons/react';
+import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import {useCallback, useEffect, useMemo, useState} from 'react';
+import {TopBarItem, TopBarPortal} from '../../TopBar';
+import {ExpandableSearchButton} from './components/ExpandableSearchButton';
+import {PathBar} from './components/PathBar';
+import {VirtualPathBar} from './components/VirtualPathBar';
+import {useExplorer} from './context';
+import {useVirtualListing} from './hooks/useVirtualListing';
+import {SearchToolbar} from './SearchToolbar';
+import {SortMenu, SortMenuPanel} from './SortMenu';
+import {TabNavigationGuard} from './TabNavigationGuard';
+import {ViewModeMenu, ViewModeMenuPanel} from './ViewModeMenu';
+import {ColumnView} from './views/ColumnView';
+import {EmptyView} from './views/EmptyView';
+import {GridView} from './views/GridView';
+import {KnowledgeView} from './views/KnowledgeView';
+import {ListView} from './views/ListView';
+import {MediaView} from './views/MediaView';
+import {SearchView} from './views/SearchView';
+import {SizeView} from './views/SizeView';
+import {ViewSettings, ViewSettingsPanel} from './ViewSettings';
 
 export function ExplorerView() {
 	const {
@@ -39,6 +40,8 @@ export function ExplorerView() {
 		setViewMode,
 		sortBy,
 		setSortBy,
+		viewSettings,
+		setViewSettings,
 		goBack,
 		goForward,
 		canGoBack,
@@ -50,13 +53,13 @@ export function ExplorerView() {
 		quickPreviewFileId,
 		mode,
 		enterSearchMode,
-		exitSearchMode,
+		exitSearchMode
 	} = useExplorer();
 
-	const { isVirtualView } = useVirtualListing();
+	const {isVirtualView} = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
 
-	const [searchValue, setSearchValue] = useState("");
+	const [searchValue, setSearchValue] = useState('');
 
 	const handleSearchChange = useCallback(
 		(value: string) => {
@@ -67,7 +70,7 @@ export function ExplorerView() {
 					enterSearchMode(value);
 				}, 300);
 				return () => clearTimeout(timeoutId);
-			} else if (value.length === 0 && mode.type === "search") {
+			} else if (value.length === 0 && mode.type === 'search') {
 				exitSearchMode();
 			}
 		},
@@ -75,15 +78,48 @@ export function ExplorerView() {
 	);
 
 	const handleSearchClear = useCallback(() => {
-		setSearchValue("");
+		setSearchValue('');
 		exitSearchMode();
 	}, [exitSearchMode]);
 
 	useEffect(() => {
-		if (mode.type !== "search") {
-			setSearchValue("");
+		if (mode.type !== 'search') {
+			setSearchValue('');
 		}
 	}, [mode.type]);
+
+	// Memoize submenu content to prevent infinite re-renders
+	const viewModeSubmenu = useMemo(
+		() => (
+			<ViewModeMenuPanel
+				viewMode={viewMode}
+				onViewModeChange={setViewMode}
+			/>
+		),
+		[viewMode, setViewMode]
+	);
+
+	const viewSettingsSubmenu = useMemo(
+		() => (
+			<ViewSettingsPanel
+				viewSettings={viewSettings}
+				setViewSettings={setViewSettings}
+				viewMode={viewMode}
+			/>
+		),
+		[viewSettings, setViewSettings, viewMode]
+	);
+
+	const sortSubmenu = useMemo(
+		() => (
+			<SortMenuPanel
+				sortBy={sortBy}
+				onSortChange={setSortBy}
+				viewMode={viewMode as any}
+			/>
+		),
+		[sortBy, setSortBy, viewMode]
+	);
 
 	// Allow rendering if either we have a currentPath or we're in a virtual view
 	if (!currentPath && !isVirtualView) {
@@ -95,96 +131,167 @@ export function ExplorerView() {
 			{!isPreviewActive && (
 				<TopBarPortal
 					left={
-						<div className="flex items-center gap-2">
-							<TopBarButton
-								icon={SidebarSimple}
+						<>
+							<TopBarItem
+								id="sidebar-toggle"
+								label="Sidebar"
+								priority="normal"
 								onClick={() =>
 									setSidebarVisible(!sidebarVisible)
 								}
-								active={sidebarVisible}
-							/>
-							<TopBarButtonGroup>
+							>
 								<TopBarButton
-									icon={ArrowLeft}
-									onClick={goBack}
-									disabled={!canGoBack}
+									icon={SidebarSimple}
+									onClick={() =>
+										setSidebarVisible(!sidebarVisible)
+									}
+									active={sidebarVisible}
 								/>
-								<TopBarButton
-									icon={ArrowRight}
-									onClick={goForward}
-									disabled={!canGoForward}
-								/>
-							</TopBarButtonGroup>
+							</TopBarItem>
+							<TopBarItem
+								id="navigation"
+								label="Navigation"
+								priority="high"
+							>
+								<TopBarButtonGroup>
+									<TopBarButton
+										icon={ArrowLeft}
+										onClick={goBack}
+										disabled={!canGoBack}
+									/>
+									<TopBarButton
+										icon={ArrowRight}
+										onClick={goForward}
+										disabled={!canGoForward}
+									/>
+								</TopBarButtonGroup>
+							</TopBarItem>
 							{currentPath && (
-								<PathBar
-									path={currentPath}
-									devices={devices}
-									onNavigate={navigateToPath}
-								/>
+								<TopBarItem
+									id="path-bar"
+									label="Path"
+									priority="high"
+								>
+									<PathBar
+										path={currentPath}
+										devices={devices}
+										onNavigate={navigateToPath}
+									/>
+								</TopBarItem>
 							)}
 							{currentView && (
-								<VirtualPathBar
-									view={currentView}
-									devices={devices}
-								/>
+								<TopBarItem
+									id="virtual-path-bar"
+									label="Path"
+									priority="high"
+								>
+									<VirtualPathBar
+										view={currentView}
+										devices={devices}
+									/>
+								</TopBarItem>
 							)}
-						</div>
+						</>
 					}
 					right={
-						<div className="flex items-center gap-2">
-							<SearchBar
-								className="w-64"
-								placeholder={
-									currentPath
-										? "Search in current folder..."
-										: "Search..."
-								}
-								value={searchValue}
-								onChange={handleSearchChange}
-								onClear={handleSearchClear}
-							/>
-							<TopBarButton
-								icon={TagIcon}
+						<>
+							<TopBarItem
+								id="search"
+								label="Search"
+								priority="high"
+							>
+								<ExpandableSearchButton
+									placeholder={
+										currentPath
+											? 'Search in current folder...'
+											: 'Search...'
+									}
+									value={searchValue}
+									onChange={handleSearchChange}
+									onClear={handleSearchClear}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="tag-mode"
+								label="Tags"
+								priority="low"
 								onClick={() => setTagModeActive(!tagModeActive)}
-								active={tagModeActive}
-							/>
-							<ViewModeMenu
-								viewMode={viewMode}
-								onViewModeChange={setViewMode}
-							/>
-							<ViewSettings />
-							<SortMenu
-								sortBy={sortBy}
-								onSortChange={setSortBy}
-								viewMode={viewMode as any}
-							/>
-							<TopBarButton
-								icon={Info}
+							>
+								<TopBarButton
+									icon={TagIcon}
+									onClick={() =>
+										setTagModeActive(!tagModeActive)
+									}
+									active={tagModeActive}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="view-mode"
+								label="Views"
+								priority="normal"
+								submenuContent={viewModeSubmenu}
+							>
+								<ViewModeMenu
+									viewMode={viewMode}
+									onViewModeChange={setViewMode}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="view-settings"
+								label="View Settings"
+								priority="low"
+								submenuContent={viewSettingsSubmenu}
+							>
+								<ViewSettings />
+							</TopBarItem>
+							<TopBarItem
+								id="sort"
+								label="Sort"
+								priority="low"
+								submenuContent={sortSubmenu}
+							>
+								<SortMenu
+									sortBy={sortBy}
+									onSortChange={setSortBy}
+									viewMode={viewMode as any}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="inspector-toggle"
+								label="Inspector"
+								priority="high"
 								onClick={() =>
 									setInspectorVisible(!inspectorVisible)
 								}
-								active={inspectorVisible}
-							/>
-						</div>
+							>
+								<TopBarButton
+									icon={Info}
+									onClick={() =>
+										setInspectorVisible(!inspectorVisible)
+									}
+									active={inspectorVisible}
+								/>
+							</TopBarItem>
+						</>
 					}
 				/>
 			)}
 
-			<div className="relative flex w-full flex-col pt-1.5 h-full overflow-hidden bg-app/80">
-				{mode.type === "search" && <SearchToolbar />}
+			<div className="bg-app/80 relative flex h-full w-full flex-col overflow-hidden pt-1.5">
+				{mode.type === 'search' && <SearchToolbar />}
 				<div className="flex-1 overflow-auto">
 					<TabNavigationGuard>
-						{mode.type === "search" ? (
+						{mode.type === 'search' ? (
 							<SearchView />
-						) : viewMode === "grid" ? (
+						) : viewMode === 'grid' ? (
 							<GridView />
-						) : viewMode === "list" ? (
+						) : viewMode === 'list' ? (
 							<ListView />
-						) : viewMode === "column" ? (
+						) : viewMode === 'column' ? (
 							<ColumnView />
-						) : viewMode === "size" ? (
+						) : viewMode === 'size' ? (
 							<SizeView />
-						) : viewMode === "knowledge" ? (
+						) : viewMode === 'knowledge' ? (
 							<KnowledgeView />
 						) : (
 							<MediaView />

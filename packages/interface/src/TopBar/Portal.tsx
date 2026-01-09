@@ -1,5 +1,4 @@
-import { createPortal } from "react-dom";
-import { useTopBar } from "./Context";
+import { PositionContext } from "./Item";
 
 interface TopBarPortalProps {
 	left?: React.ReactNode;
@@ -8,13 +7,23 @@ interface TopBarPortalProps {
 }
 
 export function TopBarPortal({ left, center, right }: TopBarPortalProps) {
-	const { leftRef, centerRef, rightRef } = useTopBar();
-
 	return (
 		<>
-			{left && leftRef?.current && createPortal(left, leftRef.current)}
-			{center && centerRef?.current && createPortal(center, centerRef.current)}
-			{right && rightRef?.current && createPortal(right, rightRef.current)}
+			{left && (
+				<PositionContext.Provider value="left">
+					{left}
+				</PositionContext.Provider>
+			)}
+			{center && (
+				<PositionContext.Provider value="center">
+					{center}
+				</PositionContext.Provider>
+			)}
+			{right && (
+				<PositionContext.Provider value="right">
+					{right}
+				</PositionContext.Provider>
+			)}
 		</>
 	);
 }

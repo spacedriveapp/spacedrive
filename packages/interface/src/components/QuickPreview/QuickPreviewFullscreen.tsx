@@ -9,7 +9,7 @@ import {
 	type VideoControlsState,
 	type VideoControlsCallbacks,
 } from "./VideoControls";
-import { TopBarPortal } from "../../TopBar";
+import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { getContentKind } from "../../routes/explorer/utils";
 import { useExplorer } from "../../routes/explorer/context";
 
@@ -103,6 +103,51 @@ export function QuickPreviewFullscreen({
 		}
 	};
 
+	// Memoize TopBarItem children to prevent infinite re-renders
+	const navigationButtons = useMemo(
+		() => (
+			<div className="flex items-center gap-2">
+				<button
+					onClick={onPrevious}
+					disabled={!hasPrevious}
+					className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+				>
+					<ArrowLeft size={16} weight="bold" />
+				</button>
+				<button
+					onClick={onNext}
+					disabled={!hasNext}
+					className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
+				>
+					<ArrowRight size={16} weight="bold" />
+				</button>
+				<div className="h-4 w-px bg-white/20 mx-1" />
+			</div>
+		),
+		[onPrevious, onNext, hasPrevious, hasNext]
+	);
+
+	const filenameDisplay = useMemo(
+		() => (
+			<div className="truncate text-sm font-medium text-white/90">
+				{file?.name}
+			</div>
+		),
+		[file?.name]
+	);
+
+	const closeButton = useMemo(
+		() => (
+			<button
+				onClick={onClose}
+				className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+			>
+				<X size={16} weight="bold" />
+			</button>
+		),
+		[onClose]
+	);
+
 	if (!portalTarget) return null;
 
 	const content = (
@@ -138,46 +183,36 @@ export function QuickPreviewFullscreen({
 							{/* TopBar content via portal */}
 							<TopBarPortal
 								left={
-									<div className="flex items-center gap-2">
+									<>
 										{(hasPrevious || hasNext) && (
-											<>
-												<button
-													onClick={onPrevious}
-													disabled={!hasPrevious}
-													className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
-												>
-													<ArrowLeft
-														size={16}
-														weight="bold"
-													/>
-												</button>
-												<button
-													onClick={onNext}
-													disabled={!hasNext}
-													className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-30"
-												>
-													<ArrowRight
-														size={16}
-														weight="bold"
-													/>
-												</button>
-												<div className="h-4 w-px bg-white/20 mx-1" />
-											</>
+											<TopBarItem
+												id="preview-navigation"
+												label="Navigation"
+												priority="high"
+											>
+												{navigationButtons}
+											</TopBarItem>
 										)}
-									</div>
+									</>
 								}
 								center={
-									<div className="truncate text-sm font-medium text-white/90">
-										{file.name}
-									</div>
+									<TopBarItem
+										id="preview-filename"
+										label="File Name"
+										priority="high"
+									>
+										{filenameDisplay}
+									</TopBarItem>
 								}
 								right={
-									<button
+									<TopBarItem
+										id="preview-close"
+										label="Close"
+										priority="high"
 										onClick={onClose}
-										className="rounded-md p-1.5 text-white/70 transition-colors hover:bg-white/10 hover:text-white"
 									>
-										<X size={16} weight="bold" />
-									</button>
+										{closeButton}
+									</TopBarItem>
 								}
 							/>
 
