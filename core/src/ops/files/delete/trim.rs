@@ -287,7 +287,8 @@ async fn trim_file_windows(path: &Path) -> TrimResult {
 	use tokio::fs;
 	use windows_sys::Win32::Foundation::{CloseHandle, HANDLE};
 	use windows_sys::Win32::Storage::FileSystem::{
-		CreateFileW, DeviceIoControl, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
+		CreateFileW, DeviceIoControl, FILE_ATTRIBUTE_NORMAL, FILE_SHARE_READ, FILE_SHARE_WRITE,
+		OPEN_EXISTING,
 	};
 	use windows_sys::Win32::System::Ioctl::FSCTL_FILE_LEVEL_TRIM;
 
@@ -328,10 +329,7 @@ async fn trim_file_windows(path: &Path) -> TrimResult {
 				FILE_SHARE_READ | FILE_SHARE_WRITE,
 				std::ptr::null(),
 				OPEN_EXISTING,
-				&format!(
-					"$disk = Get-PhysicalDisk | Where-Object {{ $_.DeviceId -eq (Get-Partition -DriveLetter '{}' -ErrorAction SilentlyContinue).DiskNumber }}; if ($disk) {{ $disk.MediaType }} else {{ 'Unknown' }}",
-					drive.chars().next().unwrap_or('C')
-				),
+				FILE_ATTRIBUTE_NORMAL,
 				std::ptr::null_mut() as HANDLE,
 			)
 		};
