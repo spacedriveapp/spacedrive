@@ -35,8 +35,8 @@ const DAEMON_PORT = 6969;
 const DAEMON_ADDR = `127.0.0.1:${DAEMON_PORT}`;
 
 // Fix Data Directory for Windows (Optional but recommended)
-const DATA_DIR = IS_WIN 
-    ? join(homedir(), "AppData/Roaming/spacedrive") 
+const DATA_DIR = IS_WIN
+    ? join(homedir(), "AppData/Roaming/spacedrive")
     : join(homedir(), "Library/Application Support/spacedrive");
 
 let daemonProcess: any = null;
@@ -67,30 +67,6 @@ process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
 async function main() {
-    console.log("Building daemon (dev profile)...");
-    console.log("Project root:", PROJECT_ROOT);
-    console.log("Daemon binary:", DAEMON_BIN);
-
-    // Build daemon
-    // On Windows, the binary target name is still just "sd-daemon" (Cargo handles the .exe)
-    const build = spawn("cargo", ["build", "--bin", "sd-daemon"], {
-        cwd: PROJECT_ROOT,
-        stdio: "inherit",
-        shell: IS_WIN, // shell: true is often needed on Windows for spawn to work correctly
-    });
-
-    await new Promise<void>((resolve, reject) => {
-        build.on("exit", (code) => {
-            if (code === 0) {
-                resolve();
-            } else {
-                reject(new Error(`Daemon build failed with code ${code}`));
-            }
-        });
-    });
-
-    console.log("Daemon built successfully");
-
     // Check if daemon is already running by trying to connect to TCP port
     let daemonAlreadyRunning = false;
     console.log(`Checking if daemon is running on ${DAEMON_ADDR}...`);
@@ -117,6 +93,31 @@ async function main() {
         console.log("Daemon already running, will connect to existing instance");
         startedDaemon = false;
     } else {
+    console.log("Building daemon (dev profile)...");
+    console.log("Project root:", PROJECT_ROOT);
+    console.log("Daemon binary:", DAEMON_BIN);
+
+    // Build daemon
+    // On Windows, the binary target name is still just "sd-daemon" (Cargo handles the .exe)
+    const build = spawn("cargo", ["build", "--bin", "sd-daemon"], {
+        cwd: PROJECT_ROOT,
+        stdio: "inherit",
+        shell: IS_WIN, // shell: true is often needed on Windows for spawn to work correctly
+    });
+
+    await new Promise<void>((resolve, reject) => {
+        build.on("exit", (code) => {
+            if (code === 0) {
+                resolve();
+            } else {
+                reject(new Error(`Daemon build failed with code ${code}`));
+            }
+        });
+    });
+
+    console.log("Daemon built successfully");
+
+
         // Start daemon
         console.log("Starting daemon...");
         startedDaemon = true;
@@ -185,11 +186,11 @@ async function main() {
 
     // Start Vite
     console.log("Starting Vite dev server...");
-    
+
     // Use 'bun' explicitly, with shell true for Windows compatibility
     viteProcess = spawn("bun", ["run", "dev"], {
         stdio: "inherit",
-        shell: IS_WIN, 
+        shell: IS_WIN,
     });
 
     // Keep running

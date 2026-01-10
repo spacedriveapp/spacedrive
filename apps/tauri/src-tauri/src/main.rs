@@ -2072,7 +2072,7 @@ fn main() {
 
 			// Get data directory (use default Spacedrive location)
 			let data_dir =
-				sd_core::config::default_data_dir().expect("Failed to get default data directory");
+				sd_config::default_data_dir().expect("Failed to get default data directory");
 
 			let socket_addr = "127.0.0.1:6969".to_string();
 

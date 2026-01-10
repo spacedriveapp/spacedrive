@@ -330,6 +330,15 @@ impl LibraryAction for FileCopyAction {
 		}
 	}
 
+	#[tracing::instrument(
+		name = "files.copy.execute",
+		skip(self, library, _context),
+		fields(
+			source_count = self.sources.paths.len(),
+			destination = ?self.destination,
+			move_mode = ?self.options.move_mode
+		)
+	)]
 	async fn execute(
 		mut self,
 		library: std::sync::Arc<crate::library::Library>,
@@ -376,6 +385,7 @@ impl LibraryAction for FileCopyAction {
 
 impl FileCopyAction {
 	/// Check if any destination files would cause conflicts
+	#[tracing::instrument(name = "files.copy.check_conflicts", skip(self))]
 	async fn check_for_conflicts(&self) -> Result<Option<PathBuf>, ActionError> {
 		// For now, implement a simple check for single file destination conflicts
 		// In a full implementation, this would check each source against the destination

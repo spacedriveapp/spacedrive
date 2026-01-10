@@ -7,6 +7,7 @@ edition = "2021"
 default = []
 heif = ["sd-core/heif"]
 ffmpeg = ["sd-core/ffmpeg"]
+telemetry = ["sd-core/telemetry"]
 
 [dependencies]
 # Spacedrive core
@@ -18,7 +19,7 @@ axum-extra = { version = "0.9", features = ["typed-header"] }
 http       = "1.1"
 tokio      = { version = "1", features = ["rt-multi-thread", "signal", "sync", "io-util"] }
 tower      = "0.4"
-tower-http = { version = "0.5", features = ["fs", "cors"] }
+tower-http = { version = "0.5", features = ["fs", "cors", "trace"] }
 
 # Auth
 secstr = "0.5"

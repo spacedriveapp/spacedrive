@@ -44,6 +44,16 @@ impl LibraryQuery for FileSearchQuery {
 		Ok(Self { input })
 	}
 
+	#[tracing::instrument(
+		name = "search.execute",
+		skip(self, context, session),
+		fields(
+			query = %self.input.query,
+			scope = ?self.input.scope,
+			mode = ?self.input.mode,
+			limit = self.input.pagination.limit
+		)
+	)]
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
@@ -182,6 +192,11 @@ impl FileSearchQuery {
 	}
 
 	/// Execute fast search using FTS5 with efficient batch joins
+	#[tracing::instrument(
+		name = "search.fast_search",
+		skip(self, db, _device_slug_map),
+		fields(query = %self.input.query)
+	)]
 	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
@@ -863,6 +878,11 @@ impl FileSearchQuery {
 	}
 
 	/// Execute FTS5 search with BM25 ranking
+	#[tracing::instrument(
+		name = "search.fts5",
+		skip(self, db),
+		fields(query = %query)
+	)]
 	async fn execute_fts5_search(
 		&self,
 		db: &DatabaseConnection,
@@ -1279,6 +1299,11 @@ impl FileSearchQuery {
 	}
 
 	/// Execute search using ephemeral index
+	#[tracing::instrument(
+		name = "search.ephemeral",
+		skip(self, context, start_time),
+		fields(search_id = %search_id, query = %self.input.query)
+	)]
 	async fn execute_ephemeral_search(
 		&self,
 		context: Arc<CoreContext>,
