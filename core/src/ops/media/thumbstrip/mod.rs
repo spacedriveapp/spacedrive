@@ -204,3 +204,15 @@ pub async fn generate_thumbstrip_for_file(
 
 	Ok(generated_count)
 }
+
+/// Generate thumbstrip without ffmpeg feature (returns error)
+#[cfg(not(feature = "ffmpeg"))]
+pub async fn generate_thumbstrip_for_file(
+	_library: &std::sync::Arc<crate::library::Library>,
+	_content_uuid: &uuid::Uuid,
+	_video_path: &std::path::Path,
+	_variants: &[()], // Can't reference ThumbstripVariantConfig without feature
+	_regenerate: bool,
+) -> Result<usize, String> {
+	Err("Thumbstrip generation requires FFmpeg feature to be enabled".to_string())
+}
