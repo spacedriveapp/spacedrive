@@ -258,49 +258,55 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
-		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
-			if let Some(vm) = ctx.volume_manager() {
-				match vm
-					.resolve_volume_for_sdpath(&self.config.path, ctx.library())
-					.await
-				{
-					Ok(Some(mut volume)) => {
+		// Resolve volume for this path - keep both the Volume struct (for lazy volume_id persistence)
+		// and the backend (for I/O operations). The Volume is needed to call ensure_volume_in_db()
+		// when a location's volume_id is NULL.
+		let (resolved_volume, volume_backend): (
+			Option<crate::volume::types::Volume>,
+			Option<Arc<dyn crate::volume::VolumeBackend>>,
+		) = if let Some(vm) = ctx.volume_manager() {
+			match vm
+				.resolve_volume_for_sdpath(&self.config.path, ctx.library())
+				.await
+			{
+				Ok(Some(mut volume)) => {
+					ctx.log(format!(
+						"Using volume backend: {} for path: {}",
+						volume.name, self.config.path
+					));
+					let backend = vm.backend_for_volume(&mut volume);
+					(Some(volume), Some(backend))
+				}
+				Ok(None) => {
+					if self.config.path.is_cloud() {
 						ctx.log(format!(
-							"Using volume backend: {} for path: {}",
-							volume.name, self.config.path
-						));
-						Some(vm.backend_for_volume(&mut volume))
-					}
-					Ok(None) => {
-						if self.config.path.is_cloud() {
-							ctx.log(format!(
-								"Cloud volume not found for path: {}",
-								self.config.path
-							));
-							return Err(JobError::execution(format!(
-								"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
-								self.config.path
-							)));
-						}
-
-						ctx.log(format!(
-							"No volume found for path: {}, will use LocalBackend fallback",
+							"Cloud volume not found for path: {}",
 							self.config.path
 						));
-						None
-					}
-					Err(e) => {
-						ctx.log(format!("Failed to resolve volume: {}", e));
 						return Err(JobError::execution(format!(
-							"Failed to resolve volume: {}",
-							e
+							"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
+							self.config.path
 						)));
 					}
+
+					ctx.log(format!(
+						"No volume found for path: {}, will use LocalBackend fallback",
+						self.config.path
+					));
+					(None, None)
 				}
-			} else {
-				ctx.log("No volume manager available, will use LocalBackend fallback");
-				None
-			};
+				Err(e) => {
+					ctx.log(format!("Failed to resolve volume: {}", e));
+					return Err(JobError::execution(format!(
+						"Failed to resolve volume: {}",
+						e
+					)));
+				}
+			}
+		} else {
+			ctx.log("No volume manager available, will use LocalBackend fallback");
+			(None, None)
+		};
 
 		if state.dirs_to_walk.is_empty() {
 			state.dirs_to_walk.push_back(root_path.to_path_buf());
@@ -364,6 +370,7 @@ impl IndexerJob {
 							self.config.mode,
 							root_path,
 							volume_backend.as_ref(),
+							resolved_volume.as_ref(),
 						)
 						.await?;
 

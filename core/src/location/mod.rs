@@ -1,5 +1,6 @@
 //! Location management - simplified implementation matching core patterns
 
+pub mod backfill;
 pub mod manager;
 
 use crate::{

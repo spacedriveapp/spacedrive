@@ -643,3 +643,87 @@ impl std::str::FromStr for IndexMode {
 		}
 	}
 }
+
+/// Update location and its root entry to reference a volume.
+///
+/// This is the "lazy resolution" promised in migration comments.
+/// Called when a volume is first detected for a location during indexing.
+pub async fn update_location_volume_id(
+	db: &sea_orm::DatabaseConnection,
+	location_id: i32,
+	entry_id: Option<i32>,
+	volume_id: i32,
+) -> Result<(), sea_orm::DbErr> {
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	// Update location
+	entities::location::Entity::update_many()
+		.filter(entities::location::Column::Id.eq(location_id))
+		.col_expr(
+			entities::location::Column::VolumeId,
+			sea_orm::sea_query::Expr::value(volume_id),
+		)
+		.exec(db)
+		.await?;
+
+	// CRITICAL: Also update location's root entry
+	// Without this, root entry has volume_id=NULL and won't sync
+	if let Some(entry_id) = entry_id {
+		entities::entry::Entity::update_many()
+			.filter(entities::entry::Column::Id.eq(entry_id))
+			.col_expr(
+				entities::entry::Column::VolumeId,
+				sea_orm::sea_query::Expr::value(volume_id),
+			)
+			.exec(db)
+			.await?;
+	}
+
+	Ok(())
+}
+
+/// Check for locations with NULL volume_id and return health report
+pub async fn validate_locations_health(
+	library: &crate::library::Library,
+) -> Result<LocationHealthReport, sea_orm::DbErr> {
+	use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
+	let total = entities::location::Entity::find()
+		.count(library.db().conn())
+		.await?;
+
+	let null_volume_id = entities::location::Entity::find()
+		.filter(entities::location::Column::VolumeId.is_null())
+		.all(library.db().conn())
+		.await?;
+
+	if !null_volume_id.is_empty() {
+		tracing::warn!(
+			count = null_volume_id.len(),
+			total = total,
+			"Found locations with NULL volume_id - these locations may have indexing/sync issues until their volumes are mounted and re-indexed"
+		);
+
+		for loc in &null_volume_id {
+			tracing::debug!(
+				location_id = loc.id,
+				location_name = ?loc.name,
+				"Location missing volume_id - mount the volume and trigger a re-index to resolve"
+			);
+		}
+	}
+
+	Ok(LocationHealthReport {
+		total: total as usize,
+		healthy: total as usize - null_volume_id.len(),
+		missing_volume_id: null_volume_id,
+	})
+}
+
+/// Health report for locations in a library
+#[derive(Debug)]
+pub struct LocationHealthReport {
+	pub total: usize,
+	pub healthy: usize,
+	pub missing_volume_id: Vec<entities::location::Model>,
+}

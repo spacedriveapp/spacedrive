@@ -42,6 +42,10 @@ fn is_unique_constraint_violation(error: &JobError) -> bool {
 /// change detection to identify new/modified/moved/deleted entries, processes changes within
 /// batch transactions, preserves ephemeral UUIDs from browsing sessions, validates indexing
 /// boundaries to prevent cross-location corruption, and emits sync/event batches for UI updates.
+///
+/// When `resolved_volume` is provided and the location's `volume_id` is NULL, this function
+/// implements lazy resolution by persisting the volume to the database and updating both
+/// the location and its root entry with the resolved volume_id.
 pub async fn run_processing_phase(
 	location_id: Uuid,
 	state: &mut IndexerState,
@@ -49,6 +53,7 @@ pub async fn run_processing_phase(
 	mode: IndexMode,
 	location_root_path: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+	resolved_volume: Option<&crate::volume::types::Volume>,
 ) -> Result<(), JobError> {
 	let total_batches = state.entry_batches.len();
 	ctx.log(format!(
@@ -83,14 +88,75 @@ pub async fn run_processing_phase(
 		.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 		.ok_or_else(|| JobError::execution("Location not found in database".to_string()))?;
 
-	// Use volume_id if available, otherwise fall back to device_id for legacy locations
-	let volume_id = location_record
-		.volume_id
-		.unwrap_or(location_record.device_id);
 	let location_id_i32 = location_record.id;
 	let location_entry_id = location_record
 		.entry_id
 		.ok_or_else(|| JobError::execution("Location entry_id not set (not yet synced)"))?;
+
+	// Lazy resolution: persist volume_id if location has NULL and we have resolved_volume
+	let volume_id = if let Some(existing_volume_id) = location_record.volume_id {
+		// Volume already persisted, use it
+		ctx.log(format!(
+			"Using existing volume_id={} for location_id={}",
+			existing_volume_id, location_id_i32
+		));
+		existing_volume_id
+	} else if let Some(volume) = resolved_volume {
+		// Location has NULL volume_id - persist the resolved volume
+		ctx.log(format!(
+			"Location has NULL volume_id, persisting resolved volume '{}'",
+			volume.name
+		));
+
+		if let Some(vm) = ctx.volume_manager() {
+			match vm.ensure_volume_in_db(volume, ctx.library()).await {
+				Ok(persisted_volume_id) => {
+					// Update location and root entry with the volume_id
+					if let Err(e) = crate::location::manager::update_location_volume_id(
+						ctx.library_db(),
+						location_id_i32,
+						Some(location_entry_id),
+						persisted_volume_id,
+					)
+					.await
+					{
+						warn!(
+							"Failed to persist volume_id for location {}: {}",
+							location_id_i32, e
+						);
+						// Fall back to device_id on error
+						location_record.device_id
+					} else {
+						ctx.log(format!(
+							"Persisted volume_id={} for location_id={} (lazy resolution)",
+							persisted_volume_id, location_id_i32
+						));
+						persisted_volume_id
+					}
+				}
+				Err(e) => {
+					warn!(
+						"Failed to ensure volume in database for location {}: {}",
+						location_id_i32, e
+					);
+					// Fall back to device_id on error
+					location_record.device_id
+				}
+			}
+		} else {
+			// No volume manager available, fall back to device_id
+			ctx.log("No volume manager available, falling back to device_id");
+			location_record.device_id
+		}
+	} else {
+		// No resolved_volume and NULL volume_id - fall back to device_id for legacy locations
+		ctx.log(format!(
+			"No resolved volume for location with NULL volume_id, using device_id={} as fallback",
+			location_record.device_id
+		));
+		location_record.device_id
+	};
+
 	ctx.log(format!(
 		"Found location record: volume_id={}, location_id={}, entry_id={}",
 		volume_id, location_id_i32, location_entry_id

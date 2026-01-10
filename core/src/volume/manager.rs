@@ -1314,6 +1314,86 @@ impl VolumeManager {
 		Ok(model)
 	}
 
+	/// Ensure volume exists in database, returning its internal ID.
+	///
+	/// This implements the lazy resolution pattern for volume_id. During indexing,
+	/// we resolve which volume a path belongs to and need its database ID for
+	/// foreign key relationships. If the volume is already tracked, return its
+	/// existing ID. If not, insert it and return the new ID.
+	///
+	/// Unlike `track_volume`, this method:
+	/// - Takes a `Volume` directly instead of requiring fingerprint lookup
+	/// - Returns the integer database ID (for FK relationships) not the Model
+	/// - Skips Spacedrive ID file management (that's for explicit user tracking)
+	/// - Is designed for internal indexer use, not user-facing operations
+	pub async fn ensure_volume_in_db(
+		&self,
+		volume: &Volume,
+		library: &crate::library::Library,
+	) -> VolumeResult<i32> {
+		let db = library.db().conn();
+
+		// Check if volume already exists by fingerprint and device_id
+		if let Some(existing) = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Fingerprint.eq(volume.fingerprint.0.clone()))
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+			.one(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?
+		{
+			debug!(
+				"Volume '{}' already in database with id={}",
+				volume.name, existing.id
+			);
+			return Ok(existing.id);
+		}
+
+		// Volume not in database - insert it
+		let is_removable = matches!(volume.mount_type, crate::volume::types::MountType::External);
+		let is_network_drive =
+			matches!(volume.mount_type, crate::volume::types::MountType::Network);
+
+		let active_model = entities::volume::ActiveModel {
+			uuid: Set(volume.id),
+			device_id: Set(volume.device_id),
+			fingerprint: Set(volume.fingerprint.0.clone()),
+			display_name: Set(volume.display_name.clone().or(Some(volume.name.clone()))),
+			tracked_at: Set(chrono::Utc::now()),
+			last_seen_at: Set(chrono::Utc::now()),
+			is_online: Set(volume.is_mounted),
+			total_capacity: Set(Some(volume.total_capacity as i64)),
+			available_capacity: Set(Some(volume.available_space as i64)),
+			read_speed_mbps: Set(volume.read_speed_mbps.map(|s| s as i32)),
+			write_speed_mbps: Set(volume.write_speed_mbps.map(|s| s as i32)),
+			last_speed_test_at: Set(None),
+			file_system: Set(Some(volume.file_system.to_string())),
+			mount_point: Set(Some(volume.mount_point.to_string_lossy().to_string())),
+			is_removable: Set(Some(is_removable)),
+			is_network_drive: Set(Some(is_network_drive)),
+			device_model: Set(volume.hardware_id.clone()),
+			volume_type: Set(Some(format!("{:?}", volume.volume_type))),
+			is_user_visible: Set(Some(volume.is_user_visible)),
+			auto_track_eligible: Set(Some(volume.auto_track_eligible)),
+			cloud_identifier: Set(volume.cloud_identifier.clone()),
+			cloud_config: Set(volume.cloud_config.as_ref().map(|c| c.to_string())),
+			..Default::default()
+		};
+
+		let model = active_model
+			.insert(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		info!(
+			"Auto-tracked volume '{}' (id={}) during indexing for library '{}'",
+			volume.name,
+			model.id,
+			library.name().await
+		);
+
+		Ok(model.id)
+	}
+
 	/// Untrack a volume from the database
 	pub async fn untrack_volume(
 		&self,

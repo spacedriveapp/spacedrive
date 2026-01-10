@@ -619,6 +619,42 @@ impl LibraryManager {
 			warn!("Failed to auto-track user-relevant volumes: {}", e);
 		}
 
+		// Backfill NULL volume_id values for existing locations
+		// This handles legacy locations created before volume tracking was implemented
+		let backfill_result =
+			crate::location::backfill::backfill_location_volume_ids(&library, &self.volume_manager)
+				.await;
+		if !backfill_result.is_success() {
+			warn!(
+				"Volume ID backfill completed with failures: {}",
+				backfill_result.summary()
+			);
+		} else if backfill_result.locations_found > 0 {
+			info!("Volume ID backfill: {}", backfill_result.summary());
+		}
+
+		// Health check: report any locations still missing volume_id after backfill
+		// These represent actual issues that need investigation (offline volumes, corrupted data, etc.)
+		match crate::location::manager::validate_locations_health(&library).await {
+			Ok(report) => {
+				if !report.missing_volume_id.is_empty() {
+					warn!(
+						"Library {} has {} locations with unresolved volume_id (of {} total). \
+						 These locations may have issues with indexing and sync until their volumes are online.",
+						config.id,
+						report.missing_volume_id.len(),
+						report.total
+					);
+				}
+			}
+			Err(e) => {
+				warn!(
+					"Failed to run location health check for library {}: {}",
+					config.id, e
+				);
+			}
+		}
+
 		// Emit event
 		let library_name = config.name.clone();
 		self.event_bus.emit(Event::LibraryOpened {
