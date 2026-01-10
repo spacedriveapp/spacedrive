@@ -1734,6 +1734,35 @@ export type GenerateSplatOutput = {
 };
 
 /**
+ * Generate thumbstrip for a single video file
+ */
+export type GenerateThumbstripInput = {
+	/**
+	 * UUID of the entry to generate thumbstrip for
+	 */
+	entry_uuid: string;
+	/**
+	 * Optional variant names (defaults to thumbstrip_preview)
+	 */
+	variants: string[] | null;
+	/**
+	 * Force regeneration even if thumbstrip exists
+	 */
+	force: boolean;
+};
+
+export type GenerateThumbstripOutput = {
+	/**
+	 * Number of thumbstrips generated
+	 */
+	generated_count: number;
+	/**
+	 * Variant names that were generated
+	 */
+	variants: string[];
+};
+
+/**
  * Generic progress information that all job types can convert into
  */
 export type GenericProgress = {
@@ -3705,6 +3734,32 @@ export type ProxyPolicy = {
 	regenerate: boolean;
 };
 
+export type RegenerateThumbnailInput = {
+	/**
+	 * UUID of the entry to regenerate thumbnails for
+	 */
+	entry_uuid: string;
+	/**
+	 * Optional variant names (defaults to grid@1x, grid@2x, detail@1x)
+	 */
+	variants: string[] | null;
+	/**
+	 * Force regeneration even if thumbnails exist
+	 */
+	force: boolean;
+};
+
+export type RegenerateThumbnailOutput = {
+	/**
+	 * Number of thumbnails generated
+	 */
+	generated_count: number;
+	/**
+	 * Variant names that were generated
+	 */
+	variants: string[];
+};
+
 /**
  * State of a job running on a remote device
  */
@@ -4675,6 +4730,8 @@ export type TextHighlight = {
 	end: number;
 };
 
+export type ThumbnailInput = {paths: string[]; size: number; quality: number};
+
 /**
  * Thumbnail generation policy
  */
@@ -4709,6 +4766,19 @@ export type ThumbstripPolicy = {
 	 * Whether to regenerate existing thumbstrips
 	 */
 	regenerate: boolean;
+};
+
+export type TranscribeAudioInput = {
+	entry_uuid: string;
+	model: string | null;
+	language: string | null;
+};
+
+export type TranscribeAudioOutput = {
+	/**
+	 * Job ID for tracking transcription progress
+	 */
+	job_id: string;
 };
 
 /**
@@ -5297,16 +5367,6 @@ export type CoreAction =
 			type: 'network.sync_setup';
 			input: LibrarySyncSetupInput;
 			output: LibrarySyncSetupOutput;
-	  }
-	| {
-			type: 'network.pair.cancel';
-			input: PairCancelInput;
-			output: PairCancelOutput;
-	  }
-	| {
-			type: 'libraries.open';
-			input: LibraryOpenInput;
-			output: LibraryOpenOutput;
 	  };
 
 export type LibraryAction =
@@ -5638,9 +5698,7 @@ export const WIRE_METHODS = {
 		'network.spacedrop.send': 'action:network.spacedrop.send.input',
 		'network.start': 'action:network.start.input',
 		'network.stop': 'action:network.stop.input',
-		'network.sync_setup': 'action:network.sync_setup.input',
-		'network.pair.cancel': 'action:network.pair.cancel.input',
-		'libraries.open': 'action:libraries.open.input'
+		'network.sync_setup': 'action:network.sync_setup.input'
 	},
 
 	libraryActions: {
