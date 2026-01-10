@@ -48,6 +48,7 @@ import { usePlatform } from "../../../contexts/PlatformContext";
 import { useServer } from "../../../contexts/ServerContext";
 import { useJobs } from "../../../components/JobManager/hooks/useJobs";
 import { getIcon } from "@sd/assets/util";
+import { toast } from "@sd/ui";
 
 interface FileInspectorProps {
 	file: File;
@@ -547,6 +548,20 @@ function OverviewTab({ file }: { file: File }) {
 													"Transcription error:",
 													error,
 												);
+
+												// Check if it's a feature-disabled error
+												const errorMessage = error instanceof Error ? error.message : String(error);
+												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg")) {
+													toast.error({
+														title: "Feature Not Available",
+														body: "Speech-to-text requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`"
+													});
+												} else {
+													toast.error({
+														title: "Transcription Failed",
+														body: errorMessage
+													});
+												}
 											},
 										},
 									);
@@ -603,6 +618,19 @@ function OverviewTab({ file }: { file: File }) {
 													"Thumbnail regeneration error:",
 													error,
 												);
+
+												const errorMessage = error instanceof Error ? error.message : String(error);
+												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg") || errorMessage.includes("FFmpeg feature")) {
+													toast.error({
+														title: "Feature Not Available",
+														body: "Video thumbnail generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg or use `cargo daemon`"
+													});
+												} else {
+													toast.error({
+														title: "Thumbnail Generation Failed",
+														body: errorMessage
+													});
+												}
 											},
 										},
 									);
@@ -653,6 +681,19 @@ function OverviewTab({ file }: { file: File }) {
 													"Thumbstrip generation error:",
 													error,
 												);
+
+												const errorMessage = error instanceof Error ? error.message : String(error);
+												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg")) {
+													toast.error({
+														title: "Feature Not Available",
+														body: "Thumbstrip generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`"
+													});
+												} else {
+													toast.error({
+														title: "Thumbstrip Generation Failed",
+														body: errorMessage
+													});
+												}
 											},
 										},
 									);

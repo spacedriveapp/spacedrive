@@ -208,9 +208,16 @@ fn setup() -> Result<()> {
 	// The Tauri config references the release daemon in externalBin, so we need to build it
 	// once even for dev mode to satisfy Tauri's path validation
 	println!();
-	println!("Building release daemon for Tauri...");
+	println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
 	let status = Command::new("cargo")
-		.args(["build", "--release", "--bin", "sd-daemon"])
+		.args([
+			"build",
+			"--release",
+			"--features",
+			"sd-core/ffmpeg,sd-core/heif",
+			"--bin",
+			"sd-daemon",
+		])
 		.current_dir(&project_root)
 		.status()
 		.context("Failed to build release daemon")?;

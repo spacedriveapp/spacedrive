@@ -549,7 +549,7 @@ function AddStorageDialog(props: {
 
 		let validation;
 		try {
-			validation = await client.query("locations.validate_path", validateInput);
+			validation = await client.execute("query:locations.validate_path", validateInput);
 		} catch (error) {
 			console.error("Failed to validate path:", error);
 			// Continue anyway if validation fails
