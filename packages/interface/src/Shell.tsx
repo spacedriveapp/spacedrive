@@ -2,7 +2,7 @@ import { SpacedriveProvider, type SpacedriveClient } from "./contexts/Spacedrive
 import { ServerProvider } from "./contexts/ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
-import { Dialogs } from "@sd/ui";
+import { Dialogs, Toaster } from "@sd/ui";
 import { ShellLayout } from "./ShellLayout";
 import { explorerRoutes } from "./router";
 import { useDaemonStatus } from "./hooks/useDaemonStatus";
@@ -48,6 +48,7 @@ function ShellWithDaemonCheck() {
 						<ShellWithTabs />
 					</TabManagerProvider>
 					<Dialogs />
+					<Toaster />
 					<ReactQueryDevtools
 						initialIsOpen={false}
 						buttonPosition="bottom-right"
@@ -86,6 +87,7 @@ export function Shell({ client }: ShellProps) {
 							<ShellWithTabs />
 						</TabManagerProvider>
 						<Dialogs />
+						<Toaster />
 						<ReactQueryDevtools
 							initialIsOpen={false}
 							buttonPosition="bottom-right"
