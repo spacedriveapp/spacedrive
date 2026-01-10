@@ -63,11 +63,12 @@ impl DatabaseAdapter {
 			.entry_id
 			.ok_or_else(|| anyhow::anyhow!("Location {} has no root entry", location_id))?;
 
-		// Use volume_id if available, otherwise fall back to device_id
-		// This handles locations created before the volume_id field was added
-		let volume_id = location_record
-			.volume_id
-			.unwrap_or(location_record.device_id);
+		let volume_id = location_record.volume_id.ok_or_else(|| {
+			anyhow::anyhow!(
+				"Location {} has no volume_id - volume must be detected before change detection",
+				location_id
+			)
+		})?;
 
 		Ok(Self {
 			context,

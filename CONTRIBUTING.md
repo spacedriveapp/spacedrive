@@ -111,7 +111,11 @@ bun install
 cargo run -p xtask -- setup
 
 # Build core Rust binaries (CLI, daemon, and core library)
+# Note: Basic build without media features
 cargo build
+
+# OR build with media processing features (recommended for development)
+cargo build --features ffmpeg,heif
 ```
 
 The `xtask setup` command:
@@ -119,8 +123,14 @@ The `xtask setup` command:
 - Downloads prebuilt native dependencies (FFmpeg, etc.)
 - Creates symlinks for shared libraries
 - Builds the release daemon for Tauri bundler validation
-- Generates `.cargo/config.toml` with cargo aliases
+- Generates `.cargo/config.toml` with cargo aliases (including `cargo daemon` and `cargo cli`)
 - Downloads iOS dependencies if iOS targets are installed
+
+**Important:** After running `xtask setup`, you can use convenient aliases:
+```bash
+cargo daemon  # Runs sd-daemon with ffmpeg,heif features enabled
+cargo cli     # Runs sd-cli with ffmpeg,heif features enabled
+```
 
 **Note:** The release daemon build is required because Tauri's `externalBin` config validates binary paths even in dev mode. The daemon is built once during setup and rebuilt when needed during release builds.
 
@@ -155,6 +165,25 @@ Running `cargo build` from the project root builds all core Rust components:
 - `sd-core` - Core library with VDFS implementation
 - Various helper crates
 
+**Important: Media Processing Features**
+
+By default, `cargo build` compiles without optional features to speed up builds and avoid native dependency issues during testing. However, this means media processing features are **disabled by default**:
+
+- ❌ **Without features:** No video thumbnails, no audio transcription, no HEIF image support
+- ✅ **With `--features ffmpeg,heif`:** Full media processing capabilities
+
+**For development, use:**
+```bash
+# Build with all media features (recommended)
+cargo build --features ffmpeg,heif
+
+# Or use the convenient aliases (after running `xtask setup`)
+cargo daemon  # Automatically includes ffmpeg,heif features
+cargo cli     # Automatically includes ffmpeg,heif features
+```
+
+The Tauri desktop app **always** includes these features by default, so end users get full functionality. This design keeps the test suite fast while giving developers easy access to full features when needed.
+
 **Note:** The Tauri desktop app is excluded from `cargo build` because it requires the frontend to be built first. See [Desktop Development](#desktop-development-tauri) for Tauri-specific setup.
 
 ## Core Development
@@ -166,19 +195,20 @@ The heart of Spacedrive is the Rust core (`core/`). Most contributions will invo
 The fastest way to start developing is with the CLI:
 
 ```bash
-# Create a library and start exploring
-cargo run -p sd-cli -- library create "Dev Library"
+# Using the cargo alias (recommended - includes media features)
+cargo cli library create "Dev Library"
+cargo cli location add ~/Documents
+cargo cli search .
 
-# Add a location to index
-cargo run -p sd-cli -- location add ~/Documents
-
-# Search for files
-cargo run -p sd-cli -- search .
+# Or use the long form with features
+cargo run -p sd-cli --features ffmpeg,heif -- library create "Dev Library"
 ```
 
-#### Setting Up a CLI Alias
+**Tip:** The `cargo cli` alias is created by `xtask setup` and automatically includes `ffmpeg,heif` features.
 
-To avoid typing `cargo run -p sd-cli --` every time, add an alias to your shell config:
+#### Setting Up a Shell Alias
+
+For even shorter commands, add a shell alias:
 
 **Bash/Zsh** (`~/.bashrc` or `~/.zshrc`):
 
@@ -200,7 +230,7 @@ sd location add ~/Documents
 sd search .
 ```
 
-**Note:** Update the path to match your Spacedrive project location. The binary is located at `target/debug/sd-cli` after running `cargo build`.
+**Note:** Update the path to match your Spacedrive project location. The binary is located at `target/debug/sd-cli` after running `cargo build` (or use `cargo cli` which includes media features).
 
 ### Running Tests
 
@@ -651,6 +681,33 @@ Once your PR is merged, your changes will be included in the next release of the
 - On Linux, ensure all system dependencies are installed
 - Run `./scripts/setup.sh` again to verify dependencies
 
+### Media Processing Features Not Working
+
+**Error:** "Feature is not enabled" or media buttons (transcription, thumbnails, thumbstrips) fail in the UI
+
+**Cause:** The daemon was built without the `ffmpeg` and `heif` features.
+
+**Solution:**
+
+```bash
+# Build with media features enabled
+cargo build --features ffmpeg,heif
+
+# Or use the convenient alias (recommended)
+cargo daemon
+
+# Then restart your daemon
+sd stop
+sd start
+```
+
+**Why does this happen?**
+
+- `cargo build` (without features) compiles a minimal daemon for faster builds and testing
+- Media processing features require native dependencies (FFmpeg, libheif) which can cause issues in CI
+- GUI apps (Tauri, iOS, macOS) always include these features by default
+- CLI/daemon developers should use `cargo daemon` or `cargo cli` aliases for full functionality
+
 ### ARM Build Issues (Apple Silicon)
 
 #### `whisper-rs-sys` CMake build errors with i8mm instructions
@@ -855,8 +912,9 @@ cargo run -p sd-server  # Backend server
 ```bash
 bun install                              # Install JS dependencies
 cargo run -p xtask -- setup              # Setup native deps and cargo config
-cargo run -p sd-cli -- library create "My Library"  # CLI-first
-cd apps/tauri && bun run tauri:dev       # Desktop app
+cargo cli library create "My Library"    # CLI-first (includes media features)
+cargo daemon                             # Or run daemon separately (includes media features)
+cd apps/tauri && bun run tauri:dev       # Desktop app (includes media features by default)
 open apps/ios/Spacedrive.xcodeproj       # Native iOS (submodule)
 ```
 
@@ -1026,15 +1084,15 @@ packages/
 
 ### Quick Reference: Command Mapping
 
-| V1 Command               | V2 Equivalent                                     |
-| ------------------------ | ------------------------------------------------- |
-| `bun install`            | `bun install` (still required for Tauri app)      |
-| `bun prep`               | `cargo run -p xtask -- setup`                     |
-| `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`              |
-| `bun mobile ios`         | `cd apps/mobile && bun run ios`                   |
-| `bun mobile android`     | `cd apps/mobile && bun run android`               |
-| `cargo run -p sd-server` | `cargo run -p sd-cli` or `cargo run -p sd-daemon` |
-| `bun dev:web`            | Not yet available (web in progress)               |
+| V1 Command               | V2 Equivalent                                            |
+| ------------------------ | -------------------------------------------------------- |
+| `bun install`            | `bun install` (still required for Tauri app)             |
+| `bun prep`               | `cargo run -p xtask -- setup`                            |
+| `bun tauri dev`          | `cd apps/tauri && bun run tauri:dev`                     |
+| `bun mobile ios`         | `cd apps/mobile && bun run ios`                          |
+| `bun mobile android`     | `cd apps/mobile && bun run android`                      |
+| `cargo run -p sd-server` | `cargo cli` or `cargo daemon` (includes media features)  |
+| `bun dev:web`            | Not yet available (web in progress)                      |
 
 ### Getting Help with Migration
 

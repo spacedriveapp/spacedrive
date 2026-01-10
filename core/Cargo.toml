@@ -5,12 +5,12 @@ version = "2.0.0-pre.1"
 
 [features]
 default = []
-# FFmpeg support for video thumbnails (enable for release builds)
-ffmpeg = ["dep:sd-ffmpeg", "dep:sd-images"]
+# FFmpeg support for video thumbnails and audio transcription
+ffmpeg = ["dep:sd-ffmpeg"]
 # AI models support
 ai = []
-# HEIF image support
-heif = ["dep:sd-images", "sd-images/heif"]
+# HEIF image support (extends sd-images with HEIF format)
+heif = ["sd-images/heif"]
 # Mobile platform support
 mobile = []
 # CLI support (clap is now always available)
@@ -116,7 +116,7 @@ blurhash         = "0.2"
 image            = "0.25"
 sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-fs-watcher    = { path = "../crates/fs-watcher" }
-sd-images        = { path = "../crates/images", optional = true }
+sd-images        = { path = "../crates/images" }
 sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
 webp             = "0.3"

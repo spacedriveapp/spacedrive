@@ -5,26 +5,46 @@
 //! (for batch operations).
 
 pub mod action;
+
+#[cfg(feature = "ffmpeg")]
 mod config;
+#[cfg(feature = "ffmpeg")]
 mod error;
+#[cfg(feature = "ffmpeg")]
 mod generator;
+#[cfg(feature = "ffmpeg")]
 pub mod job;
+#[cfg(feature = "ffmpeg")]
 pub mod processor;
+#[cfg(feature = "ffmpeg")]
 mod state;
 
 pub use action::GenerateThumbstripAction;
+
+#[cfg(feature = "ffmpeg")]
 pub use config::{ThumbstripJobConfig, ThumbstripVariantConfig, ThumbstripVariants};
+#[cfg(feature = "ffmpeg")]
 pub use error::{ThumbstripError, ThumbstripResult};
+#[cfg(feature = "ffmpeg")]
 pub use generator::{ThumbstripGenerator, ThumbstripInfo};
+#[cfg(feature = "ffmpeg")]
 pub use job::ThumbstripJob;
+#[cfg(feature = "ffmpeg")]
 pub use processor::ThumbstripProcessor;
+#[cfg(feature = "ffmpeg")]
 pub use state::{ThumbstripPhase, ThumbstripState};
 
+#[cfg(feature = "ffmpeg")]
 use crate::library::Library;
+#[cfg(feature = "ffmpeg")]
 use crate::ops::sidecar::types::SidecarKind;
+#[cfg(feature = "ffmpeg")]
 use std::path::Path;
+#[cfg(feature = "ffmpeg")]
 use std::sync::Arc;
+#[cfg(feature = "ffmpeg")]
 use tracing::{info, warn};
+#[cfg(feature = "ffmpeg")]
 use uuid::Uuid;
 
 /// Generate thumbstrip for a single video file
@@ -183,18 +203,4 @@ pub async fn generate_thumbstrip_for_file(
 	}
 
 	Ok(generated_count)
-}
-
-/// Generate thumbstrip without ffmpeg feature (returns error)
-#[cfg(not(feature = "ffmpeg"))]
-pub async fn generate_thumbstrip_for_file(
-	_library: &Arc<Library>,
-	_content_uuid: &Uuid,
-	_video_path: &Path,
-	_variants: &[ThumbstripVariantConfig],
-	_regenerate: bool,
-) -> ThumbstripResult<usize> {
-	Err(ThumbstripError::other(
-		"Thumbstrip generation requires FFmpeg feature to be enabled",
-	))
 }

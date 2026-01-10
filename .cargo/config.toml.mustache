@@ -108,3 +108,5 @@ rustflags = ["-L", "{{{mobileNativeDeps}}}/x86_64-linux-android/lib"]
 [alias]
 xtask = "run --package xtask --"
 ios = "run --package xtask -- build-ios"
+daemon = "run --package sd-daemon --features ffmpeg,heif"
+cli = "run --package sd-cli --features ffmpeg,heif"

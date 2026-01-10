@@ -4,11 +4,17 @@
 //! Generates .srt subtitle files as sidecars.
 
 pub mod action;
+
+#[cfg(feature = "ffmpeg")]
 pub mod job;
+#[cfg(feature = "ffmpeg")]
 pub mod processor;
 
 pub use action::{TranscribeAudioAction, TranscribeAudioInput, TranscribeAudioOutput};
+
+#[cfg(feature = "ffmpeg")]
 pub use job::{SpeechToTextJob, SpeechToTextJobConfig};
+#[cfg(feature = "ffmpeg")]
 pub use processor::SpeechToTextProcessor;
 
 use anyhow::{Context, Result};
@@ -16,6 +22,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 /// Transcribe audio/video to text using whisper
+#[cfg(feature = "ffmpeg")]
 pub async fn transcribe_audio_file(
 	source_path: &Path,
 	model: &str,
@@ -90,6 +97,7 @@ pub async fn transcribe_audio_file(
 
 /// Load audio file and convert to 16kHz mono f32 samples required by Whisper
 /// Uses FFmpeg libraries directly (no subprocess)
+#[cfg(feature = "ffmpeg")]
 fn load_audio_samples(path: &Path) -> Result<Vec<f32>> {
 	// Use sd-ffmpeg to extract audio samples directly
 	// This returns 16kHz mono f32 PCM samples, exactly what Whisper needs
@@ -97,6 +105,7 @@ fn load_audio_samples(path: &Path) -> Result<Vec<f32>> {
 }
 
 /// Format a single SRT subtitle segment
+#[cfg(feature = "ffmpeg")]
 fn format_srt_segment(index: usize, start: f64, end: f64, text: &str) -> String {
 	let start_time = format_srt_timestamp(start);
 	let end_time = format_srt_timestamp(end);
@@ -111,6 +120,7 @@ fn format_srt_segment(index: usize, start: f64, end: f64, text: &str) -> String 
 }
 
 /// Format timestamp in SRT format (HH:MM:SS,mmm)
+#[cfg(feature = "ffmpeg")]
 fn format_srt_timestamp(seconds: f64) -> String {
 	let hours = (seconds / 3600.0).floor() as u32;
 	let minutes = ((seconds % 3600.0) / 60.0).floor() as u32;
@@ -137,6 +147,7 @@ pub fn is_speech_supported(mime_type: &str) -> bool {
 }
 
 /// Get audio duration in seconds using ffprobe (public for job progress estimation)
+#[cfg(feature = "ffmpeg")]
 pub async fn get_audio_duration_public(path: &Path) -> Result<f32> {
 	use std::process::Command;
 

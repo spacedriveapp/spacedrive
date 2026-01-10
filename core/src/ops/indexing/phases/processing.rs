@@ -83,10 +83,11 @@ pub async fn run_processing_phase(
 		.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 		.ok_or_else(|| JobError::execution("Location not found in database".to_string()))?;
 
-	// Use volume_id if available, otherwise fall back to device_id for legacy locations
-	let volume_id = location_record
-		.volume_id
-		.unwrap_or(location_record.device_id);
+	let volume_id = location_record.volume_id.ok_or_else(|| {
+		JobError::execution(
+			"Location volume_id not set - volume must be detected before indexing can proceed",
+		)
+	})?;
 	let location_id_i32 = location_record.id;
 	let location_entry_id = location_record
 		.entry_id
