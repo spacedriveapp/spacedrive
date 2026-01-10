@@ -213,10 +213,10 @@ fn setup() -> Result<()> {
 		.args([
 			"build",
 			"--release",
-			"--bin",
-			"sd-daemon",
 			"--features",
 			"sd-core/ffmpeg,sd-core/heif",
+			"--bin",
+			"sd-daemon",
 		])
 		.current_dir(&project_root)
 		.status()

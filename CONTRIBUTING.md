@@ -115,7 +115,7 @@ cargo run -p xtask -- setup
 cargo build
 
 # OR build with media processing features (recommended for development)
-cargo build --features ffmpeg,heif
+cargo build --features sd-core/ffmpeg,sd-core/heif
 ```
 
 The `xtask setup` command:
@@ -175,11 +175,11 @@ By default, `cargo build` compiles without optional features to speed up builds 
 **For development, use:**
 ```bash
 # Build with all media features (recommended)
-cargo build --features ffmpeg,heif
+cargo build --features sd-core/ffmpeg,sd-core/heif
 
 # Or use the convenient aliases (after running `xtask setup`)
-cargo daemon  # Automatically includes ffmpeg,heif features
-cargo cli     # Automatically includes ffmpeg,heif features
+cargo daemon  # Automatically includes sd-core/ffmpeg,sd-core/heif features
+cargo cli     # Automatically includes sd-core/ffmpeg,sd-core/heif features
 ```
 
 The Tauri desktop app **always** includes these features by default, so end users get full functionality. This design keeps the test suite fast while giving developers easy access to full features when needed.
@@ -201,7 +201,7 @@ cargo cli location add ~/Documents
 cargo cli search .
 
 # Or use the long form with features
-cargo run -p sd-cli --features ffmpeg,heif -- library create "Dev Library"
+cargo run --features sd-core/ffmpeg,sd-core/heif --bin sd-cli -- library create "Dev Library"
 ```
 
 **Tip:** The `cargo cli` alias is created by `xtask setup` and automatically includes `ffmpeg,heif` features.
@@ -691,7 +691,7 @@ Once your PR is merged, your changes will be included in the next release of the
 
 ```bash
 # Build with media features enabled
-cargo build --features ffmpeg,heif
+cargo build --features sd-core/ffmpeg,sd-core/heif
 
 # Or use the convenient alias (recommended)
 cargo daemon
