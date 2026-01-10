@@ -4,7 +4,7 @@ name    = "sd-core"
 version = "2.0.0-pre.1"
 
 [features]
-default = ["telemetry"]
+default = []
 # FFmpeg support for video thumbnails (enable for release builds)
 ffmpeg = ["dep:sd-ffmpeg", "dep:sd-images"]
 # AI models support
