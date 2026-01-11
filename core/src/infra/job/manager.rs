@@ -124,6 +124,7 @@ impl JobManager {
 		}
 
 		// Check if it's an extension job (contains colon)
+		#[cfg(feature = "wasm")]
 		if job_name.contains(':') {
 			// Try extension job registry
 			if let Some(plugin_manager) = self.context.get_plugin_manager().await {

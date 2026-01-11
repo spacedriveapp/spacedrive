@@ -5,17 +5,19 @@ version = "2.0.0-pre.1"
 autobins = true
 
 [features]
-default = []
+default = ["wasm"]
 # FFmpeg support for video thumbnails and audio transcription
 ffmpeg = ["dep:sd-ffmpeg"]
 # AI models support
 ai = []
 # HEIF image support (extends sd-images with HEIF format)
 heif = ["sd-images/heif"]
-# Mobile platform support
+# Mobile platform support (excludes wasm which doesn't work on iOS)
 mobile = []
 # CLI support (clap is now always available)
 cli = []
+# WASM plugin system (disabled on mobile)
+wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 
 
 [dependencies]
@@ -94,8 +96,8 @@ tracing-appender   = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 # WASM Plugin System
-wasmer             = "4.2"
-wasmer-middlewares = "4.2"
+wasmer             = { version = "4.2", optional = true }
+wasmer-middlewares = { version = "4.2", optional = true }
 
 # Indexer rules engine
 futures-concurrency = "7.6"

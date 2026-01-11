@@ -22,40 +22,43 @@
 
 Journey to v2.0.0-pre.1:
 ✔ Get all desktop release CI working @done(25-12-16 23:51)
-☐ Ephemeral sidecars @critical
 ☐ Remote file access on demand @critical
-✔ Rename files, create folders, new folder with items @done(25-12-24 09:08)
-☐ Inspector multi-select
-✔ Open files with default app (cross platform) @critical @done(25-12-25 08:17)
-☐ Sometimes quick preview reporting file not found @today (happens in the second column of column view)
 ☐ Ensure updater and changelog are working @today
-☐ Drop external items INTO spacedrive explorer @today
+☐ Ephemeral sidecars @critical
+☐ Make a separate data folder for dev builds @critical
+☐ Sometimes quick preview reporting file not found @today (happens in the second column of column view)
 ☐ Connection info on device panel (lan/relay)
+☐ Improve job panel data display, layout and ordering @today
+☐ Pop out job viewer
+☐ More metadata in file copy jobs, to show more visually appealing transfer job @today
+☐ Drag between columns in column view
+✔ Rename files, create folders, new folder with items @done(25-12-24 09:08)
+✔ Inspector multi-select @done(26-01-10 22:22)
+✔ Open files with default app (cross platform) @critical @done(25-12-25 08:17)
 ✔ Grid view render bug, shows as column for split second on first render of results @done(25-12-22 07:49)
 ✔ Job sound: make copy sound a varient, not play also @done(25-12-24 07:24)
-☐ Improve job panel data display, layout and ordering @today
-☐ Run now button in Location Inspector doesn't work well @today
 ✔ Sidebar active based on Explorer path @today @done(25-12-20 07:59)
+☐ Fix three device sync @critical
+☐ Run now button in Location Inspector doesn't work well @today
 ☐ Delete location UX improvement
-☐ Drag between columns in column view
+☐ Drop external items INTO spacedrive explorer @today
+☐ Eject volume button
 ✔ Fix explorer arrow key navigation @critical @done(25-12-22 06:13)
 ✔ Complete Spaces Sidebar with customize palette @done(25-12-20 09:56)
 # It has an issue where it conflicts with the tab focus navigation and is out of order often
-☐ Device owned data count mismatch reconciliation
-☐ Synced directories seem to be missing relationships to form tree (sometimes)
+☐ Device owned data count mismatch reconciliation / improve sync testing
+	☐ Improve sync testing, synced directories seem to be missing relationships to form tree (sometimes)
 ✔ Drag selection area + command to add to selection @today @done(25-12-25 08:18)
 ✔ Back/forward button navigation not working @critical @done(25-12-22 05:43)
 # Investigate sync integrity
 ✔ Refetch all queries when window focus @today @done(25-12-20 09:55)
 ✔ Fix job reactivity @today @done(25-12-21 06:14)
 # CLI reactivity works fine, but interface job manager often doesn't show up for jobs, generating thubmnails ALWAYS does, but speech, splat and indexing don't show in the UI
-☐ Pop out job viewer
 ✔ Polish large job manager @today @done(25-12-22 10:27)
-☐ More metadata in file copy jobs, to show more visually appealing transfer job @today
-☐ Fix top bar styles, crispier positioning, windows support.
+✔ Fix top bar styles, crispier positioning, windows support. @done(26-01-10 22:21)
 # Copy from v1
 ✔ Explorer should render results for a device, show volumes @today @done(25-12-20 09:55)
-☐ Tags are not reactive, anywhere side from Inspector @today
+✔ Tags are not reactive, anywhere side from Inspector @today @done(26-01-10 22:21)
 ☐ Tags should support ephemeral
 ✔ Starting up screen when Core/daemon is initializing @critical @done(25-12-25 08:18)
 # This is complex because ephemeral entries do not have a content identity
@@ -71,11 +74,10 @@ Journey to v2.0.0-pre.1:
 ☐ Sometimes device shows as online even if its not
 ☐ Stale detection background discovery reindex @critical
 # Looks like cache state issue, even though the devices due
-☐ Eject volume button
-☐ Index mode not showing in location inspector
-☐ Space Item by entry UUID, not entry id and should have constraints against duplicates, for both entries and categories like Overview and Favorites
+✔ Index mode not showing in location inspector @done(26-01-10 22:23)
+✔ Space Item by entry UUID, not entry id and should have constraints against duplicates, for both entries and categories like Overview and Favorites @done(26-01-10 22:23)
 ✔ Editable path bar @done(25-12-22 08:37)
-☐ Basic Search
+✔ Basic Search @done(26-01-10 22:23)
 # Filters, scope
 # Search ephemeral index as well as persistent index
 ☐ PDF Viewer
@@ -88,7 +90,6 @@ Journey to v2.0.0-pre.1:
 ☐ Add Users and comments
 ☐ History tab of the File Inspector is dummy data
 ☐ Improve copy/paste/move flow to actually validate before showing modal
-☐ Fix three device sync
 ☐ Refactor the CLI
 ☐ Improve inspector design
 # See INDEX-009 for stale detection
