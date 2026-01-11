@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Pause, Play, X } from "@phosphor-icons/react";
+import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
+import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import type { JobListItem } from "../types";
+import type { SpeedSample } from "../hooks/useJobs";
 import {
   CARD_HEIGHT,
   getJobDisplayName,
@@ -10,16 +12,19 @@ import {
 } from "../types";
 import { JobStatusIndicator } from "./JobStatusIndicator";
 import { JobProgressBar } from "./JobProgressBar";
+import { CopyJobDetails } from "./CopyJobDetails";
 
 interface JobCardProps {
   job: JobListItem;
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
+  getSpeedHistory: (jobId: string) => SpeedSample[];
 }
 
-export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
+export function JobCard({ job, onPause, onResume, onCancel, getSpeedHistory }: JobCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const displayName = getJobDisplayName(job);
   const subtext = getJobSubtext(job);
@@ -46,13 +51,24 @@ export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
     }
   };
 
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  const isCopyJob = job.name === "file_copy";
+
   return (
-    <div
-      className="flex rounded-xl border border-app-line/30 bg-app-box overflow-hidden"
-      style={{ height: CARD_HEIGHT }}
+    <motion.div
+      layout
+      className="rounded-xl border border-app-line/30 bg-app-box overflow-hidden"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      <div
+        className="flex cursor-pointer"
+        style={{ height: CARD_HEIGHT }}
+        onClick={toggleExpanded}
+      >
       {/* Left icon area */}
       <JobStatusIndicator job={job} />
 
@@ -70,6 +86,17 @@ export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
           <span className="flex-shrink-0 text-[11px] font-medium text-ink-dull max-w-[80px] truncate">
             {statusBadge}
           </span>
+
+          {/* Expansion caret */}
+          {isCopyJob && (
+            <motion.div
+              animate={{ rotate: isExpanded ? 180 : 0 }}
+              transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
+              className="flex-shrink-0"
+            >
+              <CaretDown size={12} weight="bold" className="text-ink-dull" />
+            </motion.div>
+          )}
 
           {isHovered && (
             <div className="flex items-center gap-1">
@@ -112,6 +139,24 @@ export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
         {/* Row 3: Progress bar */}
         <JobProgressBar progress={job.progress} status={job.status} />
       </div>
-    </div>
+      </div>
+
+      {/* Expanded details section */}
+      <AnimatePresence>
+        {isExpanded && isCopyJob && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-app-line/30">
+              <CopyJobDetails job={job} speedHistory={getSpeedHistory(job.id)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

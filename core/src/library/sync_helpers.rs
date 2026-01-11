@@ -96,15 +96,14 @@ impl Library {
 				})?;
 		}
 
-		// Special handling for Entry model: include directory_path for location roots
-		// Location roots need absolute paths for universal addressing
-		// Regular directories get paths via batch sync (query_for_sync)
+		// Special handling for Entry model: include directory_path for ALL directories
+		// This ensures receiving devices can materialize directory_paths table correctly
+		// Without this, navigation fails for synced locations (bug discovered in sync_realtime_test)
 		if M::SYNC_MODEL == "entry" {
 			let is_directory = data.get("kind").and_then(|v| v.as_i64()) == Some(1);
-			let is_root = data.get("parent_id").map(|v| v.is_null()).unwrap_or(false);
 
-			if is_directory && is_root {
-				// This is a location root - include absolute path
+			if is_directory {
+				// Include absolute path for all directories (roots and subdirectories)
 				// Use the entry_db_id we captured before field exclusions
 				if let Some(id) = entry_db_id {
 					use crate::infra::db::entities::directory_paths;
@@ -159,6 +158,16 @@ impl Library {
 		// Convert all models to sync JSON with FK mapping
 		let mut sync_data = Vec::new();
 		for model in models {
+			// Capture entry ID before field exclusions (needed for directory_path lookup)
+			let entry_db_id = if M::SYNC_MODEL == "entry" {
+				serde_json::to_value(model)
+					.ok()
+					.and_then(|v| v.get("id").and_then(|id| id.as_i64()))
+					.map(|id| id as i32)
+			} else {
+				None
+			};
+
 			let mut data = model
 				.to_sync_json()
 				.map_err(|e| anyhow::anyhow!("Failed to serialize model: {}", e))?;
@@ -169,6 +178,33 @@ impl Library {
 					.map_err(|e| {
 						anyhow::anyhow!("FK conversion failed for {}: {}", fk.local_field, e)
 					})?;
+			}
+
+			// Special handling for Entry model: include directory_path for ALL directories
+			// Critical for navigation to work on synced locations
+			if M::SYNC_MODEL == "entry" {
+				let is_directory = data.get("kind").and_then(|v| v.as_i64()) == Some(1);
+
+				if is_directory {
+					if let Some(id) = entry_db_id {
+						use crate::infra::db::entities::directory_paths;
+						use sea_orm::ColumnTrait;
+						use sea_orm::QueryFilter;
+
+						if let Ok(Some(dir_path)) = directory_paths::Entity::find()
+							.filter(directory_paths::Column::EntryId.eq(id))
+							.one(db)
+							.await
+						{
+							if let Some(obj) = data.as_object_mut() {
+								obj.insert(
+									"directory_path".to_string(),
+									serde_json::Value::String(dir_path.path),
+								);
+							}
+						}
+					}
+				}
 			}
 
 			sync_data.push((model.sync_id(), data));

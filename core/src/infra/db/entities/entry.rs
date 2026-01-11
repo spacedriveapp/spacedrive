@@ -184,6 +184,9 @@ impl crate::infra::sync::Syncable for Model {
 		// Note: FK mapping to UUIDs will be done by the sync system
 		// when broadcasting, not here. This is because we need database
 		// access to look up UUIDs, which isn't available in this trait method.
+		//
+		// Note: directory_path enrichment is now handled automatically by
+		// sync_helpers.rs for all directories during broadcast.
 
 		Ok(value)
 	}
