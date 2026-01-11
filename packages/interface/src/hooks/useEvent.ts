@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSpacedriveClient } from '../context';
+import { useSpacedriveClient } from '../contexts/SpacedriveContext';
 
 /**
  * Subscribe to core events

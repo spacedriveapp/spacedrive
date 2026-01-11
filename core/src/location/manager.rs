@@ -44,6 +44,7 @@ impl LocationManager {
 		index_mode: IndexMode,
 		action_context: Option<crate::infra::action::context::ActionContext>,
 		job_policies: Option<String>,
+		volume_manager: &crate::volume::VolumeManager,
 	) -> LocationResult<(Uuid, String)> {
 		info!("Adding location: {}", sd_path);
 
@@ -75,8 +76,8 @@ impl LocationManager {
 		// Begin transaction
 		let txn = library.db().conn().begin().await?;
 
-		// Get directory name and path string from SdPath
-		let (directory_name, path_str) = match &sd_path {
+		// Get directory name, path string, and inode from SdPath
+		let (directory_name, path_str, inode) = match &sd_path {
 			crate::domain::addressing::SdPath::Physical { path, .. } => {
 				let name = path
 					.file_name()
@@ -84,7 +85,33 @@ impl LocationManager {
 					.unwrap_or("Unknown")
 					.to_string();
 				let path_str = path.to_string_lossy().to_string();
-				(name, path_str)
+
+				// Get inode for the directory
+				let inode = if path.exists() {
+					match std::fs::metadata(path) {
+						Ok(metadata) => {
+							#[cfg(unix)]
+							{
+								use std::os::unix::fs::MetadataExt;
+								Some(metadata.ino())
+							}
+							#[cfg(windows)]
+							{
+								// Windows has file IDs but they're more complex to extract
+								// For now, leave as None for Windows
+								None
+							}
+						}
+						Err(e) => {
+							warn!("Failed to get metadata for location root {}: {}", path.display(), e);
+							None
+						}
+					}
+				} else {
+					None
+				};
+
+				(name, path_str, inode)
 			}
 			crate::domain::addressing::SdPath::Cloud {
 				service,
@@ -98,9 +125,34 @@ impl LocationManager {
 					.unwrap_or("Cloud Root")
 					.to_string();
 				let path_str = format!("{}://{}/{}", service.scheme(), identifier, path);
-				(name, path_str)
+				(name, path_str, None) // Cloud paths don't have inodes
 			}
 			_ => unreachable!("Content paths already rejected"),
+		};
+
+		// Resolve volume for this location path BEFORE creating the entry
+		// Volume detection is required - all locations must have a volume
+		let volume_id = match volume_manager.resolve_volume_for_sdpath(&sd_path, &library).await {
+			Ok(Some(volume)) => {
+				info!("Resolved volume '{}' for location path", volume.name);
+				// Ensure volume is in database and get its ID
+				volume_manager
+					.ensure_volume_in_db(&volume, &library)
+					.await
+					.map_err(|e| LocationError::Other(format!("Failed to register volume: {}", e)))?
+			}
+			Ok(None) => {
+				return Err(LocationError::Other(format!(
+					"No volume found for location path: {}. Volume detection is required for all locations.",
+					sd_path
+				)));
+			}
+			Err(e) => {
+				return Err(LocationError::Other(format!(
+					"Failed to resolve volume for location: {}",
+					e
+				)));
+			}
 		};
 
 		let now = chrono::Utc::now();
@@ -120,8 +172,9 @@ impl LocationManager {
 			accessed_at: Set(None),
 			indexed_at: Set(Some(now)), // Record when location root was created
 			permissions: Set(None),
-			inode: Set(None),
+			inode: Set(inode.map(|i| i as i64)), // Use extracted inode
 			parent_id: Set(None), // Location root has no parent
+			volume_id: Set(Some(volume_id)), // Volume is required for all locations
 			..Default::default()
 		};
 
@@ -153,6 +206,7 @@ impl LocationManager {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(location_id),
 			device_id: Set(device_id),
+			volume_id: Set(Some(volume_id)),
 			entry_id: Set(Some(entry_id)),
 			name: Set(Some(display_name.clone())),
 			index_mode: Set(index_mode.to_string()),
@@ -640,4 +694,88 @@ impl std::str::FromStr for IndexMode {
 			_ => Err(format!("Unknown index mode: {}", s)),
 		}
 	}
+}
+
+/// Update location and its root entry to reference a volume.
+///
+/// This is the "lazy resolution" promised in migration comments.
+/// Called when a volume is first detected for a location during indexing.
+pub async fn update_location_volume_id(
+	db: &sea_orm::DatabaseConnection,
+	location_id: i32,
+	entry_id: Option<i32>,
+	volume_id: i32,
+) -> Result<(), sea_orm::DbErr> {
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	// Update location
+	entities::location::Entity::update_many()
+		.filter(entities::location::Column::Id.eq(location_id))
+		.col_expr(
+			entities::location::Column::VolumeId,
+			sea_orm::sea_query::Expr::value(volume_id),
+		)
+		.exec(db)
+		.await?;
+
+	// CRITICAL: Also update location's root entry
+	// Without this, root entry has volume_id=NULL and won't sync
+	if let Some(entry_id) = entry_id {
+		entities::entry::Entity::update_many()
+			.filter(entities::entry::Column::Id.eq(entry_id))
+			.col_expr(
+				entities::entry::Column::VolumeId,
+				sea_orm::sea_query::Expr::value(volume_id),
+			)
+			.exec(db)
+			.await?;
+	}
+
+	Ok(())
+}
+
+/// Check for locations with NULL volume_id and return health report
+pub async fn validate_locations_health(
+	library: &crate::library::Library,
+) -> Result<LocationHealthReport, sea_orm::DbErr> {
+	use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
+
+	let total = entities::location::Entity::find()
+		.count(library.db().conn())
+		.await?;
+
+	let null_volume_id = entities::location::Entity::find()
+		.filter(entities::location::Column::VolumeId.is_null())
+		.all(library.db().conn())
+		.await?;
+
+	if !null_volume_id.is_empty() {
+		tracing::warn!(
+			count = null_volume_id.len(),
+			total = total,
+			"Found locations with NULL volume_id - these locations may have indexing/sync issues until their volumes are mounted and re-indexed"
+		);
+
+		for loc in &null_volume_id {
+			tracing::debug!(
+				location_id = loc.id,
+				location_name = ?loc.name,
+				"Location missing volume_id - mount the volume and trigger a re-index to resolve"
+			);
+		}
+	}
+
+	Ok(LocationHealthReport {
+		total: total as usize,
+		healthy: total as usize - null_volume_id.len(),
+		missing_volume_id: null_volume_id,
+	})
+}
+
+/// Health report for locations in a library
+#[derive(Debug)]
+pub struct LocationHealthReport {
+	pub total: usize,
+	pub healthy: usize,
+	pub missing_volume_id: Vec<entities::location::Model>,
 }

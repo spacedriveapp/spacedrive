@@ -1,0 +1,250 @@
+---
+title: Code Comments
+sidebarTitle: Code Comments
+---
+
+Spacedrive code comments explain why decisions were made, not what the code does. A single sentence capturing rationale beats a paragraph restating syntax. This guide shows you how to write comments that teach architecture and preserve design context without adding noise.
+
+## Core Philosophy
+
+Explain why, not what. Keep it as short as possible.
+
+The code already shows what happens. Comments exist to explain the reasoning behind decisions, the consequences of trade-offs, and the context future maintainers need. If a comment restates obvious code, delete it.
+
+<Tip>
+	One powerful sentence explaining rationale is better than three paragraphs
+	describing syntax.
+</Tip>
+
+## Module Documentation
+
+Module-level docs (`//!`) introduce the file's purpose and explain architectural decisions. Start with a title using `#`, describe what the module does in prose, and include runnable examples.
+
+````rust
+//! # File Indexing System
+//!
+//! `core::ops::indexing` provides a multi-phase indexing pipeline that turns
+//! raw filesystem paths into searchable database entries. The system handles
+//! both persistent locations and ephemeral browsing sessions, ensuring every
+//! file gets a stable UUID for sync and user data attachment.
+//!
+//! Files browsed before enabling indexing keep the same UUID when the directory
+//! is later added as a managed location. This prevents orphaning user metadata
+//! (tags, notes) attached during browsing. Parent-child relationships use a
+//! closure table instead of recursive queries, making tree traversal O(1)
+//! regardless of depth.
+//!
+//! ## Example
+//! ```rust,no_run
+//! use spacedrive_core::ops::indexing::{IndexerJob, IndexerJobConfig};
+//!
+//! let config = IndexerJobConfig::new(location_id, path, IndexMode::Content);
+//! let job = IndexerJob::new(config);
+//! library.jobs().dispatch(job).await?;
+//! ```
+````
+
+This replaces bullet-point feature lists with integrated prose that teaches how the system works and why it was designed this way.
+
+## Function Documentation
+
+Function docs (`///`) explain what the function does, why it exists, and how error cases are handled. The first line provides a brief summary. Subsequent paragraphs explain design rationale, trade-offs, and non-obvious behavior.
+
+```rust
+/// Links an entry to its content identity, deduplicating files with identical hashes.
+///
+/// Content identities are shared across all entries with the same content hash
+/// (computed via BLAKE3). When two files have identical content, they reference
+/// the same `content_identity` row, enabling "find all duplicates" queries and
+/// reducing thumbnail storage (one thumbnail per content, not per entry).
+///
+/// Each content identity gets a globally deterministic UUID (v5 hash of content_hash only)
+/// so any device can independently identify the same content and merge their
+/// metadata without coordination. This enables offline duplicate detection across
+/// all devices and libraries.
+///
+/// Returns both the content identity and the updated entry for batch sync operations.
+/// The caller must sync both models if running outside the job system.
+pub async fn link_to_content_identity(
+    ctx: &impl IndexingCtx,
+    entry_id: i32,
+    path: &Path,
+    content_hash: String,
+) -> Result<ContentLinkResult>
+```
+
+<Info>
+	Document the consequences of decisions, not implementation blockers. Explain
+	what the function enables, not just what it does.
+</Info>
+
+## Inline Comments
+
+Inline comments explain decisions that aren't obvious from the code itself. Delete comments that restate what the code already shows.
+
+**Good - explains rationale:**
+
+```rust
+// Lowercase for case-insensitive search matching.
+let ext = path.extension().map(|e| e.to_lowercase());
+```
+
+**Bad - restates code:**
+
+```rust
+// Extract file extension and convert to lowercase
+let ext = path.extension().map(|e| e.to_lowercase());
+```
+
+**Good - explains consequences:**
+
+```rust
+// Preserve ephemeral UUIDs so tags attached during browsing survive promotion to managed location.
+let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+```
+
+**Bad - describes obvious logic:**
+
+```rust
+// UUID assignment strategy:
+// 1. First check if there's an ephemeral UUID to preserve
+// 2. If not, generate a new UUID
+let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+```
+
+## Algorithmic Explanations
+
+Complex algorithms deserve comments that explain precedence rules, ordering invariants, and design decisions that affect correctness.
+
+```rust
+// AND has the lowest precedence and is implicit between whitespace-delimited
+// terms. We accumulate a Vec instead of nesting binary nodes so callers get
+// a normalized structure regardless of how many terms are chained.
+fn parse_and(&mut self) -> Result<Expr, ParseError>
+```
+
+This comment teaches the parser's design: why AND is special, why we use Vec over binary trees, and what benefit that provides to callers.
+
+## Platform Differences
+
+Platform-specific code should explain why the behavior differs and what the consequences are, not just that the platform lacks a feature.
+
+**Good - explains consequences and fallback:**
+
+```rust
+#[cfg(windows)]
+pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+    // Windows file indices are unstable across reboots; fall back to path-only matching.
+    None
+}
+```
+
+**Bad - states the limitation without context:**
+
+```rust
+#[cfg(windows)]
+pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
+    // Windows doesn't have inodes.
+    None
+}
+```
+
+## Error Handling
+
+Error handling comments explain the recovery strategy and what happens next, not just that an error occurred.
+
+**Good - explains strategy and recovery:**
+
+```rust
+Err(e) => {
+    // Best-effort: continue with remaining moves, stale paths cleaned up on next reindex.
+    ctx.log(format!("Failed to move entry: {}", e));
+}
+```
+
+**Bad - states the obvious:**
+
+```rust
+Err(e) => {
+    // Log error but continue
+    ctx.log(format!("Failed to move entry: {}", e));
+}
+```
+
+<Warning>
+	Never reference unstable API issue numbers in comments. Focus on the design
+	decision and its impact, not the implementation blocker.
+</Warning>
+
+## Comments to Delete
+
+Remove these patterns entirely:
+
+```rust
+// Create entry
+let entry = ActiveModel { ... };
+
+// For now, return defaults
+permissions: Set(None),
+
+// Re-exports for convenience
+pub use action::IndexingAction;
+
+// Main loop
+loop { ... }
+```
+
+These comments add no information. The code structure and function names already communicate what's happening.
+
+<Danger>
+	Never use markdown formatting (`**bold**`, `_italic_`) in code comments. It
+	doesn't render and creates noise.
+</Danger>
+
+## Refactoring Checklist
+
+When writing or refactoring a comment, ask:
+
+**Does this explain why or just what?** If it restates code, delete it. If it explains rationale, keep it brief.
+
+**Can this be said in one sentence?** Multi-paragraph comments are rarely justified. One powerful sentence usually suffices.
+
+**Does this assume the reader knows the context?** Explain what abstractions are (VolumeBackend, closure table) and why they exist.
+
+**Does this include concrete consequences?** Show what breaks if the code changes (orphaned tags, broken sync, stale paths).
+
+**Is this a placeholder?** Delete "for now", "could be improved", and "will be calculated later" comments. Track future work in GitHub issues.
+
+## Brevity and Depth
+
+Use one sentence when the decision is straightforward:
+
+```rust
+// Falls back to direct I/O when no volume backend is provided.
+```
+
+Use more context when the abstraction is complex or consequences are non-obvious:
+
+```rust
+// Volume backends abstract cloud storage and local filesystems behind a unified
+// interface. Cloud volumes MUST provide a backend since there's no local file to read.
+```
+
+Stop when the reader understands why. More words don't make better comments.
+
+## Finding Comments to Refactor
+
+These commands help identify patterns worth reviewing:
+
+```bash
+# Find "Create X" comments to evaluate
+rg "// Create " --type rust
+
+# Find functions without doc comments
+rg "^pub (async )?fn " --type rust -A 1 | rg -v "///"
+
+# Find platform-specific comments
+rg "#\[cfg\(.*\)\]" --type rust -A 5
+```
+
+The bulk of the work is manual: reading code, understanding intent, and rewriting comments to explain why rather than what.

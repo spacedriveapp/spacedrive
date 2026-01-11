@@ -9,6 +9,50 @@ type KeybindHandler = () => void | Promise<void>;
 
 const keybindHandlers = new Map<string, KeybindHandler>();
 let eventUnlisten: UnlistenFn | null = null;
+let clipboardUnlisten: UnlistenFn | null = null;
+
+// Check if an input element is currently focused
+function isInputFocused(): boolean {
+	const activeElement = document.activeElement;
+	console.log('[Clipboard] Active element:', {
+		element: activeElement,
+		tagName: activeElement?.tagName,
+		type: (activeElement as HTMLInputElement)?.type,
+		contenteditable: activeElement?.getAttribute('contenteditable')
+	});
+
+	if (!activeElement) {
+		console.log('[Clipboard] No active element');
+		return false;
+	}
+
+	const tagName = activeElement.tagName.toLowerCase();
+	if (tagName === 'input' || tagName === 'textarea' || tagName === 'select') {
+		console.log('[Clipboard] Input element focused:', tagName);
+		return true;
+	}
+
+	// Check for contenteditable
+	if (activeElement.getAttribute('contenteditable') === 'true') {
+		console.log('[Clipboard] Contenteditable element focused');
+		return true;
+	}
+
+	console.log('[Clipboard] Non-input element focused:', tagName);
+	return false;
+}
+
+// Execute native clipboard operation (for text inputs)
+function executeNativeClipboard(action: 'copy' | 'cut' | 'paste'): void {
+	console.log(`[Clipboard] Executing native ${action} operation`);
+	try {
+		// Use execCommand for compatibility (deprecated but still works)
+		const result = document.execCommand(action);
+		console.log(`[Clipboard] execCommand('${action}') result:`, result);
+	} catch (err) {
+		console.error(`[Clipboard] Failed to execute native ${action}:`, err);
+	}
+}
 
 // Initialize Tauri keybind listener
 export async function initializeKeybindHandler(): Promise<void> {
@@ -26,6 +70,36 @@ export async function initializeKeybindHandler(): Promise<void> {
 			}
 		}
 	});
+
+	// Listen for clipboard actions from native menu
+	clipboardUnlisten = await listen<string>('clipboard-action', async (event) => {
+		const action = event.payload as 'copy' | 'cut' | 'paste';
+		console.log(`[Clipboard] Received clipboard-action event:`, action);
+
+		// Check if an input is focused
+		if (isInputFocused()) {
+			// Execute native browser clipboard operation
+			console.log('[Clipboard] Input focused, executing native operation');
+			executeNativeClipboard(action);
+		} else {
+			// Trigger file operation via keybind system
+			const keybindId = `explorer.${action}`;
+			console.log('[Clipboard] No input focused, triggering file operation:', keybindId);
+			const handler = keybindHandlers.get(keybindId);
+			if (handler) {
+				try {
+					await handler();
+					console.log(`[Clipboard] File operation ${keybindId} completed`);
+				} catch (err) {
+					console.error(`[Clipboard] Handler error for ${keybindId}:`, err);
+				}
+			} else {
+				console.warn(`[Clipboard] No handler registered for ${keybindId}`);
+			}
+		}
+	});
+
+	console.log('[Clipboard] Action listener initialized');
 
 	console.log('[Keybind] Handler initialized');
 }
@@ -67,6 +141,11 @@ export async function cleanupKeybindHandler(): Promise<void> {
 	if (eventUnlisten) {
 		eventUnlisten();
 		eventUnlisten = null;
+	}
+
+	if (clipboardUnlisten) {
+		clipboardUnlisten();
+		clipboardUnlisten = null;
 	}
 
 	// Unregister all keybinds

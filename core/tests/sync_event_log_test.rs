@@ -5,7 +5,7 @@
 
 mod helpers;
 
-use helpers::MockTransport;
+use helpers::{MockTransport, TestDataDir};
 use sd_core::{
 	infra::{
 		db::entities,
@@ -22,7 +22,7 @@ use uuid::Uuid;
 
 /// Test harness for event log testing
 struct EventLogTestHarness {
-	data_dir_alice: PathBuf,
+	_test_data_alice: TestDataDir,
 	core_alice: Core,
 	library_alice: Arc<Library>,
 	device_alice_id: Uuid,
@@ -32,26 +32,16 @@ struct EventLogTestHarness {
 
 impl EventLogTestHarness {
 	async fn new(test_name: &str) -> anyhow::Result<Self> {
-		// Create test directories
-		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-		let test_root = std::path::PathBuf::from(home)
-			.join("Library/Application Support/spacedrive/event_log_tests");
-
-		// Use unique data directory per test with timestamp to avoid any conflicts
-		let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S_%f");
-		let data_dir = test_root
-			.join("data")
-			.join(format!("{}_{}", test_name, timestamp));
-		fs::create_dir_all(&data_dir).await?;
-
-		let temp_dir_alice = data_dir.join("alice");
-		fs::create_dir_all(&temp_dir_alice).await?;
+		// Use TestDataDir helper for proper cross-platform directory management
+		let test_data_alice = TestDataDir::new(format!("event_log_{}", test_name))?;
+		let temp_dir_alice = test_data_alice.core_data_path();
 
 		// Create snapshot directory
 		let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-		let snapshot_dir = test_root
+		let snapshot_dir = test_data_alice
+			.path()
 			.join("snapshots")
-			.join(format!("{}_{}", test_name, timestamp));
+			.join(timestamp.to_string());
 		fs::create_dir_all(&snapshot_dir).await?;
 
 		// Initialize tracing
@@ -59,6 +49,12 @@ impl EventLogTestHarness {
 			.with_test_writer()
 			.with_env_filter("sd_core::service::sync=debug,sd_core::infra::sync::event_log=trace")
 			.try_init();
+
+		tracing::info!(
+			test_data_dir = %test_data_alice.path().display(),
+			snapshot_dir = %snapshot_dir.display(),
+			"Event log test initialized"
+		);
 
 		// Initialize core
 		let core_alice = Core::new(temp_dir_alice.clone())
@@ -92,7 +88,7 @@ impl EventLogTestHarness {
 		);
 
 		Ok(Self {
-			data_dir_alice: temp_dir_alice,
+			_test_data_alice: test_data_alice,
 			core_alice,
 			library_alice,
 			device_alice_id,

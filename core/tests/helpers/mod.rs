@@ -2,11 +2,15 @@
 
 pub mod event_collector;
 pub mod indexing_harness;
+pub mod snapshot;
 pub mod sync_harness;
 pub mod sync_transport;
+pub mod test_data;
 pub mod test_volumes;
 
 pub use event_collector::*;
 pub use indexing_harness::*;
+pub use snapshot::*;
 pub use sync_harness::*;
 pub use sync_transport::*;
+pub use test_data::*;

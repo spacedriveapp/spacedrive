@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import {
 	MagnifyingGlass,
@@ -11,14 +11,14 @@ import {
 } from "@phosphor-icons/react";
 import { TopBarButton, Popover, usePopover } from "@sd/ui";
 import clsx from "clsx";
-import { TopBarPortal } from "../../TopBar";
-import { PairingModal } from "../../components/PairingModal";
-import { useAddStorageDialog } from "../../components/Explorer/components/AddStorageModal";
-import { useSyncSetupDialog } from "../../components/SyncSetupModal";
-import { useCreateLibraryDialog } from "../../components/CreateLibraryModal";
-import { useSpacedriveClient } from "../../context";
+import { TopBarPortal, TopBarItem } from "../../TopBar";
+import { PairingModal } from "../../components/modals/PairingModal";
+import { useAddStorageDialog } from "../explorer/components/AddStorageModal";
+import { useSyncSetupDialog } from "../../components/modals/SyncSetupModal";
+import { useCreateLibraryDialog } from "../../components/modals/CreateLibraryModal";
+import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
-import { usePlatform } from "../../platform";
+import { usePlatform } from "../../contexts/PlatformContext";
 import { useLibraryMutation } from "@sd/ts-client";
 
 interface OverviewTopBarProps {
@@ -117,115 +117,198 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 		}
 	};
 
+	// Memoize TopBarItem children to prevent infinite re-renders
+	const overviewTitleContent = useMemo(
+		() => (
+			<div className="flex items-center gap-3">
+				<h1 className="text-xl font-bold text-ink">Overview</h1>
+				<span className="text-ink-dull">•</span>
+				<Popover
+					popover={librarySwitcher}
+					trigger={
+						<button
+							className={clsx(
+								"flex items-center gap-2 h-8 px-3 rounded-full text-xs font-medium",
+								"backdrop-blur-xl transition-all",
+								"border border-sidebar-line/30",
+								"bg-sidebar-box/20 text-sidebar-inkDull hover:bg-sidebar-box/30 hover:text-sidebar-ink",
+								"active:scale-95",
+								!currentLibrary && "text-ink-faint",
+							)}
+						>
+							<span className="truncate max-w-[200px]">
+								{currentLibrary?.name ||
+									libraryName ||
+									"Select Library"}
+							</span>
+							<CaretDown size={12} weight="bold" />
+						</button>
+					}
+					className="p-2 min-w-[200px]"
+				>
+					<div className="space-y-1">
+						{libraries && libraries.length > 1 && (
+							<>
+								{libraries.map((lib) => (
+									<button
+										key={lib.id}
+										onClick={() =>
+											handleLibrarySwitch(lib.id)
+										}
+										className={clsx(
+											"w-full px-3 py-2 text-sm rounded-md cursor-pointer text-left",
+											lib.id === currentLibraryId
+												? "bg-accent text-white"
+												: "text-ink hover:bg-app-selected",
+										)}
+									>
+										{lib.name}
+									</button>
+								))}
+								<div className="border-t border-app-line my-1" />
+							</>
+						)}
+						<button
+							onClick={() => {
+								librarySwitcher.setOpen(false);
+								useCreateLibraryDialog();
+							}}
+							className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-app-selected text-ink font-medium cursor-pointer"
+						>
+							<Plus size={16} weight="bold" />
+							<span>New Library</span>
+						</button>
+						<button
+							onClick={() =>
+								librarySwitcher.setOpen(false)
+							}
+							className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-app-selected text-ink font-medium cursor-pointer"
+						>
+							<GearSix size={16} weight="bold" />
+							<span>Library Settings</span>
+						</button>
+					</div>
+				</Popover>
+			</div>
+		),
+		[libraries, currentLibrary, libraryName, currentLibraryId, librarySwitcher, handleLibrarySwitch]
+	);
+
+	const searchButton = useMemo(
+		() => <TopBarButton icon={MagnifyingGlass} title="Search" />,
+		[]
+	);
+
+	const pairButton = useMemo(
+		() => (
+			<TopBarButton
+				icon={DeviceMobile}
+				title="Pair Device"
+				onClick={() => setIsPairingOpen(true)}
+			>
+				Pair
+			</TopBarButton>
+		),
+		[]
+	);
+
+	const syncButton = useMemo(
+		() => (
+			<TopBarButton
+				icon={CloudArrowUp}
+				title="Setup Sync"
+				onClick={handleSyncSetup}
+			>
+				Setup Sync
+			</TopBarButton>
+		),
+		[handleSyncSetup]
+	);
+
+	const refreshButton = useMemo(
+		() => (
+			<TopBarButton
+				icon={ArrowsClockwise}
+				title="Refresh Statistics"
+				onClick={handleRefresh}
+				disabled={isRefreshing}
+				className={clsx(isRefreshing && "animate-spin")}
+			>
+				Refresh
+			</TopBarButton>
+		),
+		[handleRefresh, isRefreshing]
+	);
+
+	const addStorageButton = useMemo(
+		() => (
+			<TopBarButton
+				icon={Plus}
+				className="!bg-accent hover:!bg-accent-deep !text-white"
+				onClick={handleAddStorage}
+			>
+				Add Storage
+			</TopBarButton>
+		),
+		[handleAddStorage]
+	);
+
 	return (
 		<>
 			<TopBarPortal
 				left={
-					<div className="flex items-center gap-3">
-						<h1 className="text-xl font-bold text-ink">Overview</h1>
-						<span className="text-ink-dull">•</span>
-						<Popover
-							popover={librarySwitcher}
-							trigger={
-								<button
-									className={clsx(
-										"flex items-center gap-2 h-8 px-3 rounded-full text-xs font-medium",
-										"backdrop-blur-xl transition-all",
-										"border border-sidebar-line/30",
-										"bg-sidebar-box/20 text-sidebar-inkDull hover:bg-sidebar-box/30 hover:text-sidebar-ink",
-										"active:scale-95",
-										!currentLibrary && "text-ink-faint",
-									)}
-								>
-									<span className="truncate max-w-[200px]">
-										{currentLibrary?.name ||
-											libraryName ||
-											"Select Library"}
-									</span>
-									<CaretDown size={12} weight="bold" />
-								</button>
-							}
-							className="p-2 min-w-[200px]"
+					<>
+						<TopBarItem
+							id="overview-title"
+							label="Overview"
+							priority="high"
 						>
-							<div className="space-y-1">
-								{libraries && libraries.length > 1 && (
-									<>
-										{libraries.map((lib) => (
-											<button
-												key={lib.id}
-												onClick={() =>
-													handleLibrarySwitch(lib.id)
-												}
-												className={clsx(
-													"w-full px-3 py-2 text-sm rounded-md cursor-pointer text-left",
-													lib.id === currentLibraryId
-														? "bg-accent text-white"
-														: "text-ink hover:bg-app-selected",
-												)}
-											>
-												{lib.name}
-											</button>
-										))}
-										<div className="border-t border-app-line my-1" />
-									</>
-								)}
-								<button
-									onClick={() => {
-										librarySwitcher.setOpen(false);
-										useCreateLibraryDialog();
-									}}
-									className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-app-selected text-ink font-medium cursor-pointer"
-								>
-									<Plus size={16} weight="bold" />
-									<span>New Library</span>
-								</button>
-								<button
-									onClick={() =>
-										librarySwitcher.setOpen(false)
-									}
-									className="w-full flex items-center gap-2 px-3 py-2 text-sm rounded-md hover:bg-app-selected text-ink font-medium cursor-pointer"
-								>
-									<GearSix size={16} weight="bold" />
-									<span>Library Settings</span>
-								</button>
-							</div>
-						</Popover>
-					</div>
+							{overviewTitleContent}
+						</TopBarItem>
+					</>
 				}
 				right={
-					<div className="flex items-center gap-2">
-						<TopBarButton icon={MagnifyingGlass} title="Search" />
-						<TopBarButton
-							icon={DeviceMobile}
-							title="Pair Device"
+					<>
+						<TopBarItem
+							id="search"
+							label="Search"
+							priority="high"
+						>
+							{searchButton}
+						</TopBarItem>
+						<TopBarItem
+							id="pair-device"
+							label="Pair Device"
+							priority="normal"
 							onClick={() => setIsPairingOpen(true)}
 						>
-							Pair
-						</TopBarButton>
-						<TopBarButton
-							icon={CloudArrowUp}
-							title="Setup Sync"
+							{pairButton}
+						</TopBarItem>
+						<TopBarItem
+							id="setup-sync"
+							label="Setup Sync"
+							priority="low"
 							onClick={handleSyncSetup}
 						>
-							Setup Sync
-						</TopBarButton>
-						<TopBarButton
-							icon={ArrowsClockwise}
-							title="Refresh Statistics"
+							{syncButton}
+						</TopBarItem>
+						<TopBarItem
+							id="refresh"
+							label="Refresh Statistics"
+							priority="low"
 							onClick={handleRefresh}
-							disabled={isRefreshing}
-							className={clsx(isRefreshing && "animate-spin")}
 						>
-							Refresh
-						</TopBarButton>
-						<TopBarButton
-							icon={Plus}
-							className="!bg-accent hover:!bg-accent-deep !text-white"
+							{refreshButton}
+						</TopBarItem>
+						<TopBarItem
+							id="add-storage"
+							label="Add Storage"
+							priority="high"
 							onClick={handleAddStorage}
 						>
-							Add Storage
-						</TopBarButton>
-					</div>
+							{addStorageButton}
+						</TopBarItem>
+					</>
 				}
 			/>
 

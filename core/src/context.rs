@@ -29,6 +29,7 @@ pub struct CoreContext {
 	pub sidecar_manager: Arc<RwLock<Option<Arc<SidecarManager>>>>,
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
+	#[cfg(feature = "wasm")]
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
 	pub fs_watcher: Arc<RwLock<Option<Arc<FsWatcherService>>>>,
 	// Ephemeral index cache for unmanaged paths
@@ -61,6 +62,7 @@ impl CoreContext {
 			sidecar_manager: Arc::new(RwLock::new(None)),
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
+			#[cfg(feature = "wasm")]
 			plugin_manager: Arc::new(RwLock::new(None)),
 			fs_watcher: Arc::new(RwLock::new(None)),
 			ephemeral_index_cache: Arc::new(
@@ -137,6 +139,7 @@ impl CoreContext {
 	}
 
 	/// Method for Core to set plugin manager after it's initialized
+	#[cfg(feature = "wasm")]
 	pub async fn set_plugin_manager(
 		&self,
 		plugin_manager: Arc<RwLock<crate::infra::extension::PluginManager>>,
@@ -145,6 +148,7 @@ impl CoreContext {
 	}
 
 	/// Get plugin manager
+	#[cfg(feature = "wasm")]
 	pub async fn get_plugin_manager(
 		&self,
 	) -> Option<Arc<RwLock<crate::infra::extension::PluginManager>>> {

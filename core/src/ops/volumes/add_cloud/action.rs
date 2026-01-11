@@ -32,6 +32,8 @@ pub enum CloudStorageConfig {
 		secret_access_key: String,
 		endpoint: Option<String>,
 	},
+	/// Google Drive with OAuth 2.0 credentials.
+	/// Requires both access_token and refresh_token for automatic token renewal.
 	GoogleDrive {
 		root: Option<String>,
 		access_token: String,
@@ -39,6 +41,8 @@ pub enum CloudStorageConfig {
 		client_id: String,
 		client_secret: String,
 	},
+	/// OneDrive with OAuth 2.0 credentials.
+	/// Requires both access_token and refresh_token for automatic token renewal.
 	OneDrive {
 		root: Option<String>,
 		access_token: String,
@@ -46,9 +50,11 @@ pub enum CloudStorageConfig {
 		client_id: String,
 		client_secret: String,
 	},
+	/// Dropbox with OAuth 2.0 refresh token for long-term access.
+	/// OpenDAL automatically obtains and refreshes access tokens as needed.
+	/// Only refresh_token is required (not access_token).
 	Dropbox {
 		root: Option<String>,
-		access_token: String,
 		refresh_token: String,
 		client_id: String,
 		client_secret: String,
@@ -148,6 +154,28 @@ impl LibraryAction for VolumeAddCloudAction {
 				client_id,
 				client_secret,
 			} => {
+				// Validate required OAuth credentials for Google Drive
+				if access_token.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Google Drive requires a valid access_token".to_string(),
+					));
+				}
+				if refresh_token.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Google Drive requires a valid refresh_token".to_string(),
+					));
+				}
+				if client_id.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Google Drive requires a valid client_id".to_string(),
+					));
+				}
+				if client_secret.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Google Drive requires a valid client_secret".to_string(),
+					));
+				}
+
 				let backend = CloudBackend::new_google_drive(
 					access_token,
 					refresh_token,
@@ -167,6 +195,8 @@ impl LibraryAction for VolumeAddCloudAction {
 					CloudServiceType::GoogleDrive,
 					access_token.clone(),
 					refresh_token.clone(),
+					client_id.clone(),
+					client_secret.clone(),
 					None, // Google Drive tokens typically don't have a fixed expiry in the refresh flow
 				);
 
@@ -190,6 +220,28 @@ impl LibraryAction for VolumeAddCloudAction {
 				client_id,
 				client_secret,
 			} => {
+				// Validate required OAuth credentials for OneDrive
+				if access_token.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"OneDrive requires a valid access_token".to_string(),
+					));
+				}
+				if refresh_token.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"OneDrive requires a valid refresh_token".to_string(),
+					));
+				}
+				if client_id.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"OneDrive requires a valid client_id".to_string(),
+					));
+				}
+				if client_secret.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"OneDrive requires a valid client_secret".to_string(),
+					));
+				}
+
 				let backend = CloudBackend::new_onedrive(
 					access_token,
 					refresh_token,
@@ -206,6 +258,8 @@ impl LibraryAction for VolumeAddCloudAction {
 					CloudServiceType::OneDrive,
 					access_token.clone(),
 					refresh_token.clone(),
+					client_id.clone(),
+					client_secret.clone(),
 					None,
 				);
 
@@ -224,13 +278,28 @@ impl LibraryAction for VolumeAddCloudAction {
 			}
 			CloudStorageConfig::Dropbox {
 				root,
-				access_token,
 				refresh_token,
 				client_id,
 				client_secret,
 			} => {
+				// Validate required OAuth credentials for Dropbox
+				if refresh_token.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Dropbox requires a valid refresh_token".to_string(),
+					));
+				}
+				if client_id.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Dropbox requires a valid client_id".to_string(),
+					));
+				}
+				if client_secret.trim().is_empty() {
+					return Err(ActionError::InvalidInput(
+						"Dropbox requires a valid client_secret".to_string(),
+					));
+				}
+
 				let backend = CloudBackend::new_dropbox(
-					access_token,
 					refresh_token,
 					client_id,
 					client_secret,
@@ -243,8 +312,10 @@ impl LibraryAction for VolumeAddCloudAction {
 
 				let credential = CloudCredential::new_oauth(
 					CloudServiceType::Dropbox,
-					access_token.clone(),
+					"".to_string(),
 					refresh_token.clone(),
+					client_id.clone(),
+					client_secret.clone(),
 					None,
 				);
 

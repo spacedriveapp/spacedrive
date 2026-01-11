@@ -15,6 +15,7 @@ Spacedrive Core provides two primary testing approaches:
 ### Test Organization
 
 Tests live in two locations:
+
 - `core/tests/` - Integration tests that verify complete workflows
 - `core/src/testing/` - Test framework utilities and helpers
 
@@ -27,12 +28,12 @@ For single-device tests, use Tokio's async test framework:
 async fn test_library_creation() {
     let setup = IntegrationTestSetup::new("library_test").await.unwrap();
     let core = setup.create_core().await.unwrap();
-    
+
     let library = core.libraries
         .create_library("Test Library", None)
         .await
         .unwrap();
-    
+
     assert!(!library.id.is_empty());
 }
 ```
@@ -55,6 +56,7 @@ let setup = IntegrationTestSetup::with_config("test_name", |builder| {
 ```
 
 Key features:
+
 - Isolated temporary directories per test
 - Structured logging to `test_data/{test_name}/library/logs/`
 - Automatic cleanup on drop
@@ -67,6 +69,7 @@ Spacedrive provides two approaches for testing multi-device scenarios:
 ### When to Use Subprocess Framework
 
 **Use `CargoTestRunner` subprocess framework when:**
+
 - Testing **real networking** with actual network discovery, NAT traversal, and connections
 - Testing **device pairing** workflows that require independent network stacks
 - Scenarios need **true process isolation** (separate memory spaces, different ports)
@@ -85,6 +88,7 @@ let mut runner = CargoTestRunner::new()
 ### When to Use Custom Transport/Harness
 
 **Use custom harness with mock transport when:**
+
 - Testing **sync logic** without network overhead
 - Fast iteration on **data synchronization** algorithms
 - Testing **deterministic scenarios** without network timing issues
@@ -103,14 +107,14 @@ let harness = TwoDeviceHarnessBuilder::new("sync_test")
 
 ### Comparison
 
-| Aspect | Subprocess Framework | Custom Harness |
-|--------|---------------------|----------------|
-| **Speed** | Slower (real networking) | Fast (in-memory) |
-| **Networking** | Real (discovery, NAT) | Mock transport |
-| **Isolation** | True process isolation | Shared process |
-| **Debugging** | Harder (multiple processes) | Easier (single process) |
-| **Determinism** | Network timing varies | Fully deterministic |
-| **Use Case** | Network features | Sync/data logic |
+| Aspect          | Subprocess Framework        | Custom Harness          |
+| --------------- | --------------------------- | ----------------------- |
+| **Speed**       | Slower (real networking)    | Fast (in-memory)        |
+| **Networking**  | Real (discovery, NAT)       | Mock transport          |
+| **Isolation**   | True process isolation      | Shared process          |
+| **Debugging**   | Harder (multiple processes) | Easier (single process) |
+| **Determinism** | Network timing varies       | Fully deterministic     |
+| **Use Case**    | Network features            | Sync/data logic         |
 
 ## Subprocess Testing Framework
 
@@ -137,7 +141,7 @@ async fn test_device_pairing() {
     let mut runner = CargoTestRunner::new()
         .add_subprocess("alice", "alice_pairing")
         .add_subprocess("bob", "bob_pairing");
-        
+
     runner.run_until_success(|outputs| {
         outputs.values().all(|o| o.contains("PAIRING_SUCCESS"))
     }).await.unwrap();
@@ -149,14 +153,14 @@ async fn alice_pairing() {
     if env::var("TEST_ROLE").unwrap_or_default() != "alice" {
         return;
     }
-    
+
     let data_dir = PathBuf::from(env::var("TEST_DATA_DIR").unwrap());
     let core = create_test_core(data_dir).await.unwrap();
-    
+
     // Alice initiates pairing
     let (code, _) = core.start_pairing_as_initiator().await.unwrap();
     fs::write("/tmp/pairing_code.txt", &code).unwrap();
-    
+
     // Wait for connection
     wait_for_connection(&core).await;
     println!("PAIRING_SUCCESS");
@@ -164,12 +168,14 @@ async fn alice_pairing() {
 ```
 
 <Note>
-Device scenario functions must be marked with `#[ignore]` to prevent direct execution. They only run when called by the subprocess framework.
+	Device scenario functions must be marked with `#[ignore]` to prevent direct
+	execution. They only run when called by the subprocess framework.
 </Note>
 
 ### Process Coordination
 
 Processes coordinate through:
+
 - **Environment variables**: `TEST_ROLE` and `TEST_DATA_DIR`
 - **Temporary files**: Share data like pairing codes
 - **Output patterns**: Success markers for the runner to detect
@@ -240,7 +246,8 @@ watcher.watch_ephemeral(dest_dir.clone()).await?;
 ```
 
 <Note>
-The `IndexerJob` automatically calls `watch_ephemeral()` after successful indexing, so manual registration is only needed when bypassing the indexer.
+	The `IndexerJob` automatically calls `watch_ephemeral()` after successful
+	indexing, so manual registration is only needed when bypassing the indexer.
 </Note>
 
 #### Persistent Location Watching
@@ -290,6 +297,7 @@ assert!(stats.resource_changed.get("file").copied().unwrap_or(0) >= 2);
 ```
 
 The `EventCollector` automatically filters out:
+
 - Library statistics updates (`LibraryStatisticsUpdated`)
 - Library resource events (non-file/entry events)
 
@@ -365,12 +373,14 @@ let indexing_events = collector.get_events_by_type("IndexingCompleted").await;
 ```
 
 The `EventCollector` tracks:
+
 - **ResourceChanged/ResourceChangedBatch** events by resource type
 - **Indexing** start/completion events
 - **Job** lifecycle events (started/completed)
 - **Entry** events (created/modified/deleted/moved)
 
 **Statistics Output:**
+
 ```
 Event Statistics:
 ==================
@@ -394,6 +404,7 @@ Job events:
 ```
 
 **Detailed Event Output (with `with_capture()`):**
+
 ```
 === Collected Events (8) ===
 
@@ -418,6 +429,7 @@ Job events:
 ```
 
 **Use Cases:**
+
 - Verifying watcher events during file operations
 - Testing normalized cache updates
 - Debugging event emission patterns
@@ -449,7 +461,7 @@ let job_id = core.jobs.dispatch(IndexingJob::new(...)).await?;
 
 // Monitor progress
 wait_for_event(&mut events, |e| matches!(
-    e, 
+    e,
     Event::JobProgress { id, .. } if *id == job_id
 ), timeout).await?;
 
@@ -476,6 +488,196 @@ perform_operation_on_a(&core_a).await?;
 wait_for_sync(&core_b).await?;
 ```
 
+## Test Data & Snapshot Conventions
+
+### Data Directory Requirements
+
+All test data MUST be created in the system temp directory. Never persist data outside temp unless using the snapshot flag.
+
+**Naming convention**: `spacedrive-test-{test_name}`
+
+```rust
+// ✅ CORRECT: Platform-aware temp directory
+let test_data = TestDataDir::new("file_operations")?;
+// Creates: /tmp/spacedrive-test-file_operations/ (Unix)
+//      or: %TEMP%\spacedrive-test-file_operations\ (Windows)
+
+// ❌ INCORRECT: Hardcoded paths outside temp
+let test_dir = PathBuf::from("~/Library/Application Support/spacedrive/tests");
+let test_dir = PathBuf::from("core/data/test");
+```
+
+**Standard structure**:
+
+```
+/tmp/spacedrive-test-{test_name}/
+├── core_data/       # Core database and state
+├── locations/       # Test file locations
+└── logs/            # Test execution logs
+```
+
+**Cleanup**: Temp directories are automatically cleaned up after test completion using RAII pattern.
+
+### Snapshot System
+
+Snapshots preserve test state for post-mortem debugging. They are optional and controlled by an environment variable.
+
+**Enable snapshots**:
+
+```bash
+# Single test
+SD_TEST_SNAPSHOTS=1 cargo test file_move_test --nocapture
+
+# Entire suite
+SD_TEST_SNAPSHOTS=1 cargo xtask test-core
+```
+
+**Snapshot location** (when enabled):
+
+```
+~/Library/Application Support/spacedrive/test_snapshots/  (macOS)
+~/.local/share/spacedrive/test_snapshots/                 (Linux)
+%APPDATA%\spacedrive\test_snapshots\                      (Windows)
+```
+
+**Structure**:
+
+```
+test_snapshots/
+└── {test_name}/
+    └── {timestamp}/
+        ├── summary.md           # Test metadata and statistics
+        ├── core_data/           # Database copies
+        │   ├── database.db
+        │   └── sync.db
+        ├── events.json          # Event bus events (JSON lines)
+        └── logs/                # Test execution logs
+```
+
+**When to use snapshots**:
+
+- Debugging sync tests (database state, event logs)
+- Complex indexing scenarios (closure table analysis)
+- Multi-phase operations (capture state at each phase)
+- Investigating flaky tests
+
+**Not needed for**:
+
+- Simple unit tests
+- Tests with assertion-only validation
+- Tests where console output is sufficient
+
+### Fixture Generation
+
+Some tests generate fixtures used by other test suites (e.g., TypeScript tests consuming Rust-generated event data). These fixtures follow the same conventions as snapshots: always write to temp, only copy to source when explicitly requested.
+
+**Generate fixtures**:
+
+```bash
+# Single fixture test
+SD_REGENERATE_FIXTURES=1 cargo test normalized_cache_fixtures_test --nocapture
+```
+
+**Fixture location** (when enabled):
+
+```
+packages/ts-client/src/__fixtures/backend_events.json  (TypeScript test fixtures)
+```
+
+**Default behavior**:
+
+- Fixtures written to temp directory
+- Test validates generation works
+- No modification of source tree
+
+**When `SD_REGENERATE_FIXTURES=1` is set**:
+
+- Fixtures generated in temp first (validation)
+- Copied to source tree for commit
+- Used by TypeScript tests
+
+**Example fixture test**:
+
+```rust
+#[tokio::test]
+async fn generate_typescript_fixtures() -> Result<()> {
+    let temp_dir = TempDir::new()?;
+
+    // Generate fixture data
+    let fixture_data = generate_real_backend_events().await?;
+
+    // Always write to temp
+    let temp_fixture_path = temp_dir.path().join("backend_events.json");
+    std::fs::write(&temp_fixture_path, serde_json::to_string_pretty(&fixture_data)?)?;
+
+    // Only copy to source if explicitly requested
+    if std::env::var("SD_REGENERATE_FIXTURES").is_ok() {
+        let source_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent().unwrap()
+            .join("packages/ts-client/src/__fixtures__/backend_events.json");
+        std::fs::copy(&temp_fixture_path, &source_path)?;
+        println!("Fixtures copied to source: {}", source_path.display());
+    }
+
+    Ok(())
+}
+```
+
+**When to regenerate fixtures**:
+
+- Backend event format changes
+- TypeScript types updated
+- New query responses added
+- Resource change events modified
+
+### Helper Abstractions
+
+**TestDataDir** - Manages test data directories with automatic cleanup and snapshot support:
+
+```rust
+#[tokio::test]
+async fn test_file_operations() -> Result<()> {
+    let test_data = TestDataDir::new("file_operations")?;
+    let core = Core::new(test_data.core_data_path()).await?;
+
+    // Perform test operations...
+
+    // Optional: capture snapshot at specific point
+    if let Some(manager) = test_data.snapshot_manager() {
+        manager.capture("after_indexing").await?;
+    }
+
+    // Automatic cleanup and final snapshot (if enabled) on drop
+    Ok(())
+}
+```
+
+**SnapshotManager** - Captures test snapshots (accessed via `TestDataDir`):
+
+```rust
+// Multi-phase snapshot capture
+if let Some(manager) = test_data.snapshot_manager() {
+    manager.capture("after_setup").await?;
+    manager.capture("after_sync").await?;
+    manager.capture("final_state").await?;
+}
+```
+
+**Integration with existing harnesses**:
+
+```rust
+// IndexingHarness uses TestDataDir internally
+let harness = IndexingHarnessBuilder::new("my_test").build().await?;
+
+// Access snapshot manager through harness
+if let Some(manager) = harness.snapshot_manager() {
+    manager.capture("after_indexing").await?;
+}
+
+// TwoDeviceHarness has built-in snapshot method
+harness.capture_snapshot("after_sync").await?;
+```
+
 ## Test Helpers
 
 ### Common Utilities
@@ -483,27 +685,32 @@ wait_for_sync(&core_b).await?;
 The framework provides comprehensive test helpers in `core/tests/helpers/`:
 
 **Event Collection:**
+
 - `EventCollector` - Collect and analyze all events from the event bus
 - `EventStats` - Statistics about collected events with formatted output
 
 **Indexing Tests:**
+
 - `IndexingHarnessBuilder` - Create isolated test environments with indexing support
 - `TestLocation` - Builder for test locations with files
 - `LocationHandle` - Handle to indexed locations with verification methods
 
 **Sync Tests:**
+
 - `TwoDeviceHarnessBuilder` - Pre-configured two-device sync test environments
 - `MockTransport` - Mock network transport for deterministic sync testing
 - `wait_for_sync()` - Sophisticated sync completion detection
 - `TestConfigBuilder` - Custom test configurations
 
 **Database & Jobs:**
+
 - `wait_for_event()` - Wait for specific events with timeout
 - `wait_for_indexing()` - Wait for indexing job completion
 - `register_device()` - Register a device in a library
 
 <Tip>
-See `core/tests/helpers/README.md` for detailed documentation on all available helpers including usage examples and migration guides.
+	See `core/tests/helpers/README.md` for detailed documentation on all available
+	helpers including usage examples and migration guides.
 </Tip>
 
 ### Test Volumes
@@ -518,25 +725,201 @@ let volume = test_volumes::create_test_volume().await?;
 test_volumes::cleanup_test_volume(volume).await?;
 ```
 
+## Core Integration Test Suite
+
+Spacedrive maintains a curated suite of core integration tests that run in CI and during local development. These tests are defined in a single source of truth using the `xtask` pattern.
+
+### Running the Core Test Suite
+
+The `cargo xtask test-core` command runs all core integration tests with progress tracking:
+
+```bash
+# Run all core tests (minimal output)
+cargo xtask test-core
+
+# Run with full test output
+cargo xtask test-core --verbose
+```
+
+**Example output:**
+
+```
+════════════════════════════════════════════════════════════════
+  Spacedrive Core Tests Runner
+  Running 13 test suite(s)
+════════════════════════════════════════════════════════════════
+
+[1/13] Running: Library tests
+────────────────────────────────────────────────────────────────
+✓ PASSED (2s)
+
+[2/13] Running: Indexing test
+────────────────────────────────────────────────────────────────
+✓ PASSED (15s)
+
+...
+
+════════════════════════════════════════════════════════════════
+  Test Results Summary
+════════════════════════════════════════════════════════════════
+
+Total time: 7m 24s
+
+✓ Passed (11/13):
+  ✓ Library tests
+  ✓ Indexing test
+  ...
+
+✗ Failed (2/13):
+  ✗ Sync realtime test
+  ✗ File sync test
+```
+
+### Single Source of Truth
+
+All core integration tests are defined in `xtask/src/test_core.rs` in the `CORE_TESTS` constant:
+
+```rust
+pub const CORE_TESTS: &[TestSuite] = &[
+    TestSuite {
+        name: "Library tests",
+        args: &["test", "-p", "sd-core", "--lib", "--", "--test-threads=1"],
+    },
+    TestSuite {
+        name: "Indexing test",
+        args: &["test", "-p", "sd-core", "--test", "indexing_test", "--", "--test-threads=1"],
+    },
+    // ... more tests
+];
+```
+
+**Benefits:**
+
+- CI and local development use identical test definitions
+- Add or remove tests in one place
+- Automatic progress tracking and result summary
+- Continues running even if some tests fail
+
+### CI Integration
+
+The GitHub Actions workflow runs the core test suite on all platforms:
+
+```yaml
+# .github/workflows/core_tests.yml
+- name: Run all tests
+  run: cargo xtask test-core --verbose
+```
+
+Tests run in parallel on:
+
+- **macOS** (ARM64 self-hosted)
+- **Linux** (Ubuntu 22.04)
+- **Windows** (latest)
+
+With `fail-fast: false`, all platforms complete even if one fails.
+
+### Deterministic Test Data
+
+Core integration tests use the Spacedrive source code itself as test data instead of user directories. This ensures:
+
+- **Consistent results** across all machines and CI
+- **No user data access** required
+- **Cross-platform compatibility** without setup
+- **Predictable file structure** for test assertions
+
+```rust
+// Tests index the Spacedrive project root
+let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .to_path_buf();
+
+let location = harness
+    .add_and_index_location(test_path.to_str().unwrap(), "spacedrive")
+    .await?;
+```
+
+Tests that need multiple locations use different subdirectories:
+
+```rust
+let project_root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .to_path_buf();
+let core_path = project_root.join("core");
+let apps_path = project_root.join("apps");
+```
+
+### Adding Tests to the Suite
+
+To add a new test to the core suite:
+
+1. Create your test in `core/tests/your_test.rs`
+2. Add it to `CORE_TESTS` in `xtask/src/test_core.rs`:
+
+```rust
+pub const CORE_TESTS: &[TestSuite] = &[
+    // ... existing tests
+    TestSuite {
+        name: "Your new test",
+        args: &[
+            "test",
+            "-p",
+            "sd-core",
+            "--test",
+            "your_test",
+            "--",
+            "--test-threads=1",
+            "--nocapture",
+        ],
+    },
+];
+```
+
+The test will automatically:
+
+- Run in CI on all platforms
+- Appear in `cargo xtask test-core` output
+- Show in progress tracking and summary
+
+<Note>
+	Core integration tests use `--test-threads=1` to avoid conflicts when
+	accessing the same locations or performing filesystem operations.
+</Note>
+
 ## Running Tests
 
 ### All Tests
+
 ```bash
 cargo test --workspace
 ```
 
+### Core Integration Tests
+
+```bash
+# Run curated core test suite
+cargo xtask test-core
+
+# With full output
+cargo xtask test-core --verbose
+```
+
 ### Specific Test
+
 ```bash
 cargo test test_device_pairing --nocapture
 ```
 
 ### Debug Subprocess Tests
+
 ```bash
 # Run individual scenario
 TEST_ROLE=alice TEST_DATA_DIR=/tmp/test cargo test alice_scenario -- --ignored --nocapture
 ```
 
 ### With Logging
+
 ```bash
 RUST_LOG=debug cargo test test_name --nocapture
 ```
@@ -548,6 +931,32 @@ RUST_LOG=debug cargo test test_name --nocapture
 1. **Use descriptive names**: `test_cross_device_file_transfer` over `test_transfer`
 2. **One concern per test**: Focus on a single feature or workflow
 3. **Clean up resources**: Use RAII patterns or explicit cleanup
+4. **Use deterministic test data**: Index Spacedrive source code instead of user directories
+
+### Test Data
+
+1. **All test data in temp directory**: Use `TestDataDir` or `TempDir` (see Test Data & Snapshot Conventions)
+2. **Prefer project source code**: Use `env!("CARGO_MANIFEST_DIR")` to locate the Spacedrive repo for test indexing
+3. **Avoid user directories**: Don't hardcode paths like `$HOME/Desktop` or `$HOME/Downloads`
+4. **Use subdirectories for multiple locations**: `core/`, `apps/`, etc. when testing multi-location scenarios
+5. **Cross-platform paths**: Ensure test paths work on Linux, macOS, and Windows
+
+```rust
+// ✅ Good: Platform-aware temp directory for test data
+let test_data = TestDataDir::new("my_test")?;
+
+// ✅ Good: Uses project source code for deterministic indexing
+let test_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+    .parent()
+    .unwrap()
+    .to_path_buf();
+
+// ❌ Bad: Data outside temp directory
+let test_dir = PathBuf::from("core/data/test");
+
+// ❌ Bad: Uses user directory (non-deterministic)
+let desktop_path = std::env::var("HOME").unwrap() + "/Desktop";
+```
 
 ### Subprocess Tests
 
@@ -559,10 +968,12 @@ RUST_LOG=debug cargo test test_name --nocapture
 ### Debugging
 
 <Tip>
-When tests fail, check the logs in `test_data/{test_name}/library/logs/` for detailed information about what went wrong.
+	When tests fail, check the logs in `test_data/{test_name}/library/logs/` for
+	detailed information about what went wrong.
 </Tip>
 
 Common debugging approaches:
+
 - Run with `--nocapture` to see all output
 - Check job logs in `test_data/{test_name}/library/job_logs/`
 - Run scenarios individually with manual environment variables
@@ -579,10 +990,11 @@ Common debugging approaches:
 ### Single-Device Test Checklist
 
 - [ ] Create test with `#[tokio::test]`
-- [ ] Use `IntegrationTestSetup` for isolation
+- [ ] Use `TestDataDir` or harness for test data (never hardcode paths outside temp)
+- [ ] Use deterministic test data for indexing (project source code, not user directories)
 - [ ] Wait for events instead of sleeping
 - [ ] Verify both positive and negative cases
-- [ ] Clean up temporary files
+- [ ] Automatic cleanup via RAII pattern (no manual cleanup needed with helpers)
 
 ### Multi-Device Test Checklist
 
@@ -592,19 +1004,350 @@ Common debugging approaches:
 - [ ] Define clear success patterns
 - [ ] Handle process coordination properly
 - [ ] Set reasonable timeouts
+- [ ] Use deterministic test data for cross-platform compatibility
+
+### Core Integration Test Checklist
+
+When adding a test to the core suite (`cargo xtask test-core`):
+
+- [ ] Test uses deterministic data (Spacedrive source code)
+- [ ] Test runs reliably on Linux, macOS, and Windows
+- [ ] Test includes `--test-threads=1` if accessing shared resources
+- [ ] Add test definition to `xtask/src/test_core.rs`
+- [ ] Verify test runs successfully in CI workflow
+
+## TypeScript Integration Testing
+
+Spacedrive provides a bridge infrastructure for running TypeScript tests against a real Rust daemon. This enables true end-to-end testing across the Rust backend and TypeScript frontend, verifying that cache updates, WebSocket events, and React hooks work correctly with real data.
+
+### Architecture
+
+The TypeScript bridge test pattern works as follows:
+
+1. **Rust test** creates a daemon with indexed locations using `IndexingHarnessBuilder`
+2. **Connection info** (TCP socket address, library ID, paths) written to JSON config file
+3. **Rust spawns** `bun test` with specific TypeScript test file
+4. **TypeScript test** reads config, connects to daemon via `SpacedriveClient.fromTcpSocket()`
+5. **TypeScript test** performs file operations and validates cache updates via React hooks
+6. **Rust validates** test exit code and cleans up
+
+This pattern tests the entire stack: Rust daemon → RPC transport → TypeScript client → React hooks → cache updates.
+
+### Writing Bridge Tests
+
+#### Rust Side
+
+Create a test in `core/tests/` that spawns the daemon and TypeScript test:
+
+```rust
+#[tokio::test]
+async fn test_typescript_cache_updates() -> anyhow::Result<()> {
+    // Create daemon with RPC server enabled
+    let harness = IndexingHarnessBuilder::new("typescript_bridge_test")
+        .enable_daemon() // Start RPC server for TypeScript client
+        .build()
+        .await?;
+
+    // Create test location with files
+    let test_location = harness.create_test_location("test_files").await?;
+    test_location.create_dir("folder_a").await?;
+    test_location.write_file("folder_a/file1.txt", "Content").await?;
+
+    // Index the location
+    let location = test_location
+        .index("Test Location", IndexMode::Shallow)
+        .await?;
+
+    // Get daemon socket address
+    let socket_addr = harness
+        .daemon_socket_addr()
+        .expect("Daemon should be enabled")
+        .to_string();
+
+    // Prepare bridge config for TypeScript
+    let bridge_config = TestBridgeConfig {
+        socket_addr,
+        library_id: harness.library.id().to_string(),
+        location_db_id: location.db_id,
+        location_path: test_location.path().to_path_buf(),
+        test_data_path: harness.temp_path().to_path_buf(),
+    };
+
+    // Write config to temp file
+    let config_path = harness.temp_path().join("bridge_config.json");
+    tokio::fs::write(&config_path, serde_json::to_string_pretty(&bridge_config)?).await?;
+
+    // Spawn TypeScript test
+    let ts_test_file = "packages/ts-client/tests/integration/mytest.test.ts";
+    let workspace_root = std::env::current_dir()?.parent().unwrap().to_path_buf();
+    let output = tokio::process::Command::new("bun")
+        .arg("test")
+        .arg(workspace_root.join(ts_test_file))
+        .env("BRIDGE_CONFIG_PATH", config_path.to_str().unwrap())
+        .current_dir(&workspace_root)
+        .output()
+        .await?;
+
+    // Verify TypeScript test passed
+    if !output.status.success() {
+        anyhow::bail!("TypeScript test failed: {:?}", output.status.code());
+    }
+
+    harness.shutdown().await?;
+    Ok(())
+}
+```
+
+<Note>
+	Use `.enable_daemon()` on `IndexingHarnessBuilder` to start the RPC server.
+	The daemon listens on a random TCP port returned by `.daemon_socket_addr()`.
+</Note>
+
+#### TypeScript Side
+
+Create a test in `packages/ts-client/tests/integration/`:
+
+```typescript
+import { describe, test, expect, beforeAll } from "bun:test";
+import { readFile } from "fs/promises";
+import { SpacedriveClient } from "../../src/client";
+import { renderHook, waitFor } from "@testing-library/react";
+import { SpacedriveProvider } from "../../src/hooks/useClient";
+import { useNormalizedQuery } from "../../src/hooks/useNormalizedQuery";
+
+interface BridgeConfig {
+	socket_addr: string;
+	library_id: string;
+	location_db_id: number;
+	location_path: string;
+	test_data_path: string;
+}
+
+let bridgeConfig: BridgeConfig;
+let client: SpacedriveClient;
+
+beforeAll(async () => {
+	// Read bridge config from Rust test
+	const configPath = process.env.BRIDGE_CONFIG_PATH;
+	const configJson = await readFile(configPath, "utf-8");
+	bridgeConfig = JSON.parse(configJson);
+
+	// Connect to daemon via TCP socket
+	client = SpacedriveClient.fromTcpSocket(bridgeConfig.socket_addr);
+	client.setCurrentLibrary(bridgeConfig.library_id);
+});
+
+describe("Cache Update Tests", () => {
+	test("should update cache when files move", async () => {
+		const wrapper = ({ children }) =>
+			React.createElement(SpacedriveProvider, { client }, children);
+
+		// Query directory listing with useNormalizedQuery
+		const { result } = renderHook(
+			() =>
+				useNormalizedQuery({
+					wireMethod: "query:files.directory_listing",
+					input: { path: { Physical: { path: folderPath } } },
+					resourceType: "file",
+					pathScope: { Physical: { path: folderPath } },
+					debug: true, // Enable debug logging
+				}),
+			{ wrapper },
+		);
+
+		// Wait for initial data
+		await waitFor(() => {
+			expect(result.current.data).toBeDefined();
+		});
+
+		// Perform file operation
+		await rename(oldPath, newPath);
+
+		// Wait for watcher to detect change (500ms buffer + processing)
+		await new Promise((resolve) => setTimeout(resolve, 2000));
+
+		// Verify cache updated
+		expect(result.current.data.files).toContainEqual(
+			expect.objectContaining({ name: "newfile" }),
+		);
+	});
+});
+```
+
+### TCP Transport
+
+TypeScript tests connect to the daemon via TCP socket using `TcpSocketTransport`. This transport is designed for Bun/Node.js environments and enables testing outside the browser.
+
+```typescript
+// Automatic with factory method
+const client = SpacedriveClient.fromTcpSocket("127.0.0.1:6969");
+
+// Manual construction
+import { TcpSocketTransport } from "@sd/ts-client/transports";
+const transport = new TcpSocketTransport("127.0.0.1:6969");
+const client = new SpacedriveClient(transport);
+```
+
+The TCP transport:
+
+- Uses JSON-RPC 2.0 over TCP
+- Supports WebSocket-style subscriptions for events
+- Automatically reconnects on connection loss
+- Works in both Bun and Node.js runtimes
+
+### Testing Cache Updates
+
+The primary use case for bridge tests is verifying that `useNormalizedQuery` cache updates work correctly when the daemon emits `ResourceChanged` or `ResourceChangedBatch` events.
+
+**Key patterns:**
+
+1. **Enable debug logging** with `debug: true` in `useNormalizedQuery` options
+2. **Wait for watcher delays** (500ms buffer + processing time, typically 2-8 seconds)
+3. **Collect events** by wrapping the subscription manager to log all received events
+4. **Verify cache state** using React Testing Library's `waitFor` and assertions
+
+```typescript
+// Enable debug logging
+const { result } = renderHook(
+	() =>
+		useNormalizedQuery({
+			wireMethod: "query:files.directory_listing",
+			input: {
+				/* ... */
+			},
+			resourceType: "file",
+			pathScope: {
+				/* ... */
+			},
+			debug: true, // Logs event processing
+		}),
+	{ wrapper },
+);
+
+// Collect all events for debugging
+const allEvents: any[] = [];
+const originalCreateSubscription = (client as any).subscriptionManager
+	.createSubscription;
+(client as any).subscriptionManager.createSubscription = function (
+	filter: any,
+	callback: any,
+) {
+	const wrappedCallback = (event: any) => {
+		allEvents.push({ timestamp: new Date().toISOString(), event });
+		console.log(`Event received:`, JSON.stringify(event, null, 2));
+		callback(event);
+	};
+	return originalCreateSubscription.call(this, filter, wrappedCallback);
+};
+```
+
+### Running Bridge Tests
+
+```bash
+# Run all TypeScript bridge tests
+cargo test --package sd-core --test typescript_bridge_test -- --nocapture
+
+# Run specific bridge test
+cargo test test_typescript_use_normalized_query_with_file_moves -- --nocapture
+
+# Run only the TypeScript side (requires manual daemon setup)
+cd packages/ts-client
+BRIDGE_CONFIG_PATH=/path/to/config.json bun test tests/integration/mytest.test.ts
+```
+
+<Tip>
+	Use `--nocapture` to see TypeScript test output. The Rust test prints all
+	stdout/stderr from the TypeScript test process.
+</Tip>
+
+### Common Scenarios
+
+**File moves between folders:**
+
+- Tests that files removed from one directory appear in another
+- Verifies UUID preservation (move detection vs delete+create)
+
+**Folder renames:**
+
+- Tests that nested files update their paths correctly
+- Verifies parent path updates propagate to descendants
+
+**Bulk operations:**
+
+- Tests 20+ file moves with mixed Physical/Content paths
+- Verifies cache updates don't miss files during batched events
+
+**Content-addressed files:**
+
+- Uses `IndexMode::Content` to enable content identification
+- Tests that files with `alternate_paths` update correctly
+- Verifies metadata-only updates don't add duplicate cache entries
+
+### Debugging Bridge Tests
+
+**Check Rust logs:**
+
+```bash
+RUST_LOG=debug cargo test typescript_bridge -- --nocapture
+```
+
+**Check TypeScript output:**
+The Rust test prints all TypeScript stdout/stderr. Look for:
+
+- `[TS]` prefixed log messages
+- Event payloads with `🔔` emoji
+- Final event summary at test end
+
+**Verify daemon is running:**
+
+```bash
+# In Rust test output, look for:
+Socket address: 127.0.0.1:XXXXX
+Library ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+**Check bridge config:**
+
+```bash
+# The config file is written to test_data directory
+cat /tmp/test_data/typescript_bridge_test/bridge_config.json
+```
+
+**Common issues:**
+
+- **TypeScript test times out**: Increase watcher wait time (filesystem events can be slow)
+- **Cache not updating**: Enable `debug: true` to see if events are received
+- **Connection refused**: Verify daemon started with `.enable_daemon()`
+- **Wrong library**: Check that `client.setCurrentLibrary()` uses correct ID from config
 
 ## Examples
 
 For complete examples, refer to:
 
+**Core Test Infrastructure:**
+
+- `xtask/src/test_core.rs` - Single source of truth for all core integration tests
+- `.github/workflows/core_tests.yml` - CI workflow using xtask test runner
+
 **Single Device Tests:**
+
 - `tests/copy_action_test.rs` - Event collection during file operations (persistent + ephemeral)
 - `tests/job_resumption_integration_test.rs` - Job interruption handling
 
 **Subprocess Framework (Real Networking):**
+
 - `tests/device_pairing_test.rs` - Device pairing with real network discovery
 
 **Custom Harness (Mock Transport):**
-- `tests/sync_realtime_test.rs` - Real-time sync testing with deterministic transport
-- `tests/sync_integration_test.rs` - Complex sync scenarios with mock networking
+
+- `tests/sync_realtime_test.rs` - Real-time sync testing with deterministic transport using Spacedrive source code
+- `tests/sync_backfill_test.rs` - Backfill sync with deterministic test data
+- `tests/sync_backfill_race_test.rs` - Race condition testing with concurrent operations
 - `tests/file_transfer_test.rs` - Cross-device file operations
+
+**TypeScript Bridge Tests:**
+
+- `tests/typescript_bridge_test.rs` - Rust harness that spawns TypeScript tests
+- `packages/ts-client/tests/integration/useNormalizedQuery.test.ts` - File move cache updates
+- `packages/ts-client/tests/integration/useNormalizedQuery.folder-rename.test.ts` - Folder rename propagation
+- `packages/ts-client/tests/integration/useNormalizedQuery.bulk-moves.test.ts` - Bulk operations with content-addressed files

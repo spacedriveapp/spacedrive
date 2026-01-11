@@ -1,6 +1,6 @@
-import { useEffect, useRef, memo } from "react";
-import { useTopBar } from "./Context";
-import clsx from "clsx";
+import { memo, useMemo } from "react";
+import { TopBarSection } from "./Section";
+import { useOverflowCalculation } from "./useOverflowCalculation";
 
 interface TopBarProps {
 	sidebarWidth?: number;
@@ -8,17 +8,23 @@ interface TopBarProps {
 	isPreviewActive?: boolean;
 }
 
-export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0, isPreviewActive = false }: TopBarProps) {
-	const { setLeftRef, setCenterRef, setRightRef } = useTopBar();
-	const leftRef = useRef<HTMLDivElement>(null);
-	const centerRef = useRef<HTMLDivElement>(null);
-	const rightRef = useRef<HTMLDivElement>(null);
+// Traffic lights on macOS are ~80px from left edge when sidebar is collapsed
+const MACOS_TRAFFIC_LIGHT_WIDTH = 90;
 
-	useEffect(() => {
-		setLeftRef(leftRef);
-		setCenterRef(centerRef);
-		setRightRef(rightRef);
-	}, [setLeftRef, setCenterRef, setRightRef]);
+// Detect macOS once
+const isMacOS = typeof navigator !== 'undefined' &&
+	(navigator.platform.toLowerCase().includes('mac') || navigator.userAgent.includes('Mac'));
+
+export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0, isPreviewActive = false }: TopBarProps) {
+	const containerRef = useOverflowCalculation();
+
+	const isSidebarCollapsed = sidebarWidth === 0;
+
+	// Add padding for macOS traffic lights when sidebar is collapsed
+	const leftPadding = useMemo(
+		() => (isMacOS && isSidebarCollapsed ? MACOS_TRAFFIC_LIGHT_WIDTH : 0),
+		[isSidebarCollapsed]
+	);
 
 	return (
 		<div
@@ -30,17 +36,16 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 			}}
 		>
 			<div
+				ref={containerRef}
 				className="relative flex items-center h-full px-3 gap-3 overflow-hidden"
 				data-tauri-drag-region
+				style={{
+					paddingLeft: leftPadding ? `${leftPadding}px` : undefined,
+				}}
 			>
-				<div ref={leftRef} data-tauri-drag-region className="flex items-center gap-2" />
-				<div ref={centerRef} data-tauri-drag-region className="flex-1 flex items-center justify-center gap-2" />
-				<div ref={rightRef} data-tauri-drag-region className="flex items-center gap-2" />
-
-				{/* Right fade mask - hide when preview active */}
-				{!isPreviewActive && (
-					<div className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-app to-transparent pointer-events-none" />
-				)}
+				<TopBarSection position="left" />
+				<TopBarSection position="center" />
+				<TopBarSection position="right" />
 			</div>
 		</div>
 	);

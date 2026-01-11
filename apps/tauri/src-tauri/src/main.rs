@@ -301,6 +301,19 @@ impl SubscriptionManager {
 			false
 		}
 	}
+
+	async fn cancel_all(&self) {
+		let mut subscriptions = self.subscriptions.write().await;
+		let count = subscriptions.len();
+		for (_, cancel_tx) in subscriptions.drain() {
+			let _ = cancel_tx.send(());
+		}
+		tracing::info!("Cancelled {} subscriptions", count);
+	}
+
+	async fn get_active_count(&self) -> usize {
+		self.subscriptions.read().await.len()
+	}
 }
 
 /// App state - stores global application state shared across all windows
@@ -453,6 +466,113 @@ async fn set_current_library_id(
 	Ok(())
 }
 
+/// Validate that the current library exists, reset state if it doesn't
+async fn validate_and_reset_library_if_needed(
+	app: AppHandle,
+	current_library_id_arc: &Arc<RwLock<Option<String>>>,
+	daemon_state: &Arc<RwLock<DaemonState>>,
+	data_dir: &PathBuf,
+) -> Result<(), String> {
+	let current_library_id = {
+		let library_id = current_library_id_arc.read().await;
+		library_id.clone()
+	};
+
+	let Some(library_id) = current_library_id else {
+		// No library selected, nothing to validate
+		return Ok(());
+	};
+
+	// Query daemon for list of libraries
+	let request = json!({
+		"jsonrpc": "2.0",
+		"id": 1,
+		"method": "query:libraries.list",
+		"params": {
+			"input": {
+				"include_stats": false
+			}
+		}
+	});
+
+	let socket_addr = {
+		let state = daemon_state.read().await;
+		state.socket_addr.clone()
+	};
+
+	// Use direct TCP communication (same as daemon_request but without Tauri State)
+	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+	use tokio::net::TcpStream;
+
+	let mut stream = TcpStream::connect(&socket_addr)
+		.await
+		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
+
+	let request_line = serde_json::to_string(&request)
+		.map_err(|e| format!("Failed to serialize request: {}", e))?;
+
+	stream
+		.write_all(format!("{}\n", request_line).as_bytes())
+		.await
+		.map_err(|e| format!("Failed to write request: {}", e))?;
+
+	let mut reader = BufReader::new(stream);
+	let mut response_line = String::new();
+
+	reader
+		.read_line(&mut response_line)
+		.await
+		.map_err(|e| format!("Failed to read response: {}", e))?;
+
+	let response: serde_json::Value = serde_json::from_str(&response_line).map_err(|e| {
+		format!(
+			"Failed to parse response: {}. Raw: {}",
+			e,
+			response_line.trim()
+		)
+	})?;
+
+	// Parse response to get library list
+	let libraries: Vec<serde_json::Value> = response
+		.get("result")
+		.and_then(|r| r.as_array())
+		.ok_or_else(|| "Invalid response format from libraries.list query".to_string())?
+		.clone();
+
+	// Check if current library ID exists in the list
+	let library_exists = libraries.iter().any(|lib| {
+		lib.get("id")
+			.and_then(|id| id.as_str())
+			.map(|id| id == library_id)
+			.unwrap_or(false)
+	});
+
+	if !library_exists {
+		tracing::warn!(
+			"Current library {} no longer exists, resetting library state",
+			library_id
+		);
+
+		// Clear library ID from app state
+		*current_library_id_arc.write().await = None;
+
+		// Remove persisted library ID file
+		let library_id_file = data_dir.join("current_library_id.txt");
+		if let Err(e) = tokio::fs::remove_file(&library_id_file).await {
+			tracing::warn!("Failed to remove persisted library ID file: {}", e);
+		} else {
+			tracing::debug!("Removed persisted library ID file: {:?}", library_id_file);
+		}
+
+		// Emit library-changed event with empty string to indicate no library (frontend uses Platform abstraction)
+		if let Err(e) = app.emit("library-changed", "") {
+			tracing::warn!("Failed to emit library-changed event: {}", e);
+		}
+	}
+
+	Ok(())
+}
+
 /// Get selected file IDs from app state
 #[tauri::command]
 async fn get_selected_file_ids(
@@ -495,9 +615,11 @@ async fn daemon_request(
 	use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 	use tokio::net::TcpStream;
 
-	let mut stream = TcpStream::connect(&daemon_state.socket_addr)
+	let stream = TcpStream::connect(&daemon_state.socket_addr)
 		.await
 		.map_err(|e| format!("Failed to connect to daemon: {}", e))?;
+
+	let (reader, mut writer) = stream.into_split();
 
 	// Send request
 	let request_line = serde_json::to_string(&request)
@@ -505,21 +627,25 @@ async fn daemon_request(
 
 	tracing::debug!("Sending to daemon: {}", request_line);
 
-	stream
+	writer
 		.write_all(format!("{}\n", request_line).as_bytes())
 		.await
 		.map_err(|e| format!("Failed to write request: {}", e))?;
 
 	// Read response
-	let mut reader = BufReader::new(stream);
+	let mut buf_reader = BufReader::new(reader);
 	let mut response_line = String::new();
 
-	reader
+	buf_reader
 		.read_line(&mut response_line)
 		.await
 		.map_err(|e| format!("Failed to read response: {}", e))?;
 
 	tracing::debug!("Received from daemon: {}", response_line.trim());
+
+	// Explicitly close the connection by dropping both halves
+	drop(writer);
+	drop(buf_reader);
 
 	serde_json::from_str(&response_line).map_err(|e| {
 		format!(
@@ -570,7 +696,11 @@ async fn subscribe_to_events(
 
 	// Spawn background task to listen for events
 	tauri::async_runtime::spawn(async move {
-		let stream = match TcpStream::connect(&socket_addr).await {
+		tracing::debug!(
+			subscription_id = subscription_id,
+			"Creating TCP connection for subscription"
+		);
+		let mut stream = match TcpStream::connect(&socket_addr).await {
 			Ok(s) => s,
 			Err(e) => {
 				tracing::error!("Failed to connect for events: {}", e);
@@ -578,7 +708,7 @@ async fn subscribe_to_events(
 			}
 		};
 
-		let (reader, mut writer) = stream.into_split();
+		let (reader, mut writer) = stream.split();
 
 		// Send subscription request
 		// Frontend controls which events to subscribe to via eventTypes parameter
@@ -679,6 +809,11 @@ async fn subscribe_to_events(
 				"Unsubscribe sent successfully"
 			);
 		}
+
+		// Explicitly shutdown and drop the stream to close the TCP connection
+		drop(writer);
+		drop(reader);
+		tracing::info!(subscription_id = subscription_id, "TCP connection closed");
 	});
 
 	Ok(subscription_id)
@@ -700,6 +835,21 @@ async fn unsubscribe_from_events(
 	} else {
 		Err(format!("Subscription {} not found", subscription_id))
 	}
+}
+
+/// Cleanup all active subscriptions (useful for app reloads)
+#[tauri::command]
+async fn cleanup_all_connections(app_state: tauri::State<'_, AppState>) -> Result<(), String> {
+	let count = app_state.subscription_manager.get_active_count().await;
+	tracing::info!("Cleaning up {} active subscriptions", count);
+	app_state.subscription_manager.cancel_all().await;
+	Ok(())
+}
+
+/// Get active subscription count (for debugging)
+#[tauri::command]
+async fn get_active_subscriptions(app_state: tauri::State<'_, AppState>) -> Result<usize, String> {
+	Ok(app_state.subscription_manager.get_active_count().await)
 }
 
 /// Update menu item states
@@ -1534,22 +1684,24 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.item(&delete_item)
 		.build()?;
 
-	// Edit menu with custom file operations and text operations
+	// Edit menu with custom file operations and native text operations
+	// Accelerators are handled smartly: native clipboard for text inputs, file ops for explorer
+	// IMPORTANT: Keep these always enabled so accelerators work in text inputs
 	let cut_item = MenuItemBuilder::with_id("cut", "Cut")
 		.accelerator("Cmd+X")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("cut".to_string(), cut_item.clone());
 
 	let copy_item = MenuItemBuilder::with_id("copy", "Copy")
 		.accelerator("Cmd+C")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("copy".to_string(), copy_item.clone());
 
 	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
 		.accelerator("Cmd+V")
-		.enabled(false)
+		.enabled(true)
 		.build(app)?;
 	menu_items_map.insert("paste".to_string(), paste_item.clone());
 
@@ -1757,10 +1909,18 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}
 			}
-			// Edit menu clipboard actions - trigger keybind handlers
+			// Edit menu clipboard actions - emit event for smart handling in frontend
 			"cut" | "copy" | "paste" => {
-				let keybind_id = format!("explorer.{}", event_id);
-				keybinds::emit_keybind_triggered(&app_handle, &keybind_id);
+				tracing::info!("[Menu] Clipboard action triggered: {}", event_id);
+				// Emit generic clipboard event - frontend will decide if it's a text or file operation
+				if let Err(e) = app_handle.emit("clipboard-action", event_id) {
+					tracing::error!("Failed to emit clipboard action: {}", e);
+				} else {
+					tracing::info!(
+						"[Menu] Clipboard action event emitted successfully: {}",
+						event_id
+					);
+				}
 			}
 			_ => {}
 		}
@@ -1797,6 +1957,8 @@ fn main() {
 			daemon_request,
 			subscribe_to_events,
 			unsubscribe_from_events,
+			cleanup_all_connections,
+			get_active_subscriptions,
 			update_menu_items,
 			get_daemon_status,
 			start_daemon_process,
@@ -1829,6 +1991,17 @@ fn main() {
 			if let Err(e) = setup_menu(app.handle()) {
 				tracing::warn!("Failed to setup menu: {}", e);
 			}
+
+			// Explicitly remove menu on Windows
+			#[cfg(target_os = "windows")]
+			{
+				use tauri::menu::MenuBuilder;
+				// Create an empty menu to ensure no menu bar is shown on Windows
+				if let Ok(empty_menu) = MenuBuilder::new(app.handle()).build() {
+					let _ = app.handle().set_menu(empty_menu);
+				}
+			}
+
 			tracing::info!("Spacedrive Tauri app starting...");
 
 			// Apply macOS-specific window customizations
@@ -1899,7 +2072,7 @@ fn main() {
 
 			// Get data directory (use default Spacedrive location)
 			let data_dir =
-				sd_core::config::default_data_dir().expect("Failed to get default data directory");
+				sd_tauri_core::default_data_dir().expect("Failed to get default data directory");
 
 			let socket_addr = "127.0.0.1:6969".to_string();
 
@@ -1940,6 +2113,12 @@ fn main() {
 				subscription_manager: SubscriptionManager::new(),
 			};
 
+			// Clone references needed for validation before managing state (which moves it)
+			let app_handle = app.handle().clone();
+			let app_state_current_library_id = app_state.current_library_id.clone();
+			let daemon_state_clone = daemon_state.clone();
+			let data_dir_clone = data_dir.clone();
+
 			app.manage(daemon_state.clone());
 			app.manage(app_state);
 			app.manage(drag::DragCoordinator::new());
@@ -1950,11 +2129,11 @@ fn main() {
 
 			// Initialize daemon connection in background
 			tauri::async_runtime::spawn(async move {
-				tracing::info!("Data directory: {:?}", data_dir);
+				tracing::info!("Data directory: {:?}", data_dir_clone);
 				tracing::info!("Socket address: {:?}", socket_addr);
 
 				// Start HTTP server for serving files/sidecars
-				match server::start_server(data_dir.clone()).await {
+				match server::start_server(data_dir_clone.clone()).await {
 					Ok((server_url, shutdown_tx)) => {
 						tracing::info!("HTTP server started at {}", server_url);
 						let mut state = daemon_state.write().await;
@@ -1973,7 +2152,7 @@ fn main() {
 					(false, None)
 				} else {
 					tracing::info!("No daemon running, starting new instance");
-					match start_daemon(&data_dir, &socket_addr).await {
+					match start_daemon(&data_dir_clone, &socket_addr).await {
 						Ok(child) => (
 							true,
 							Some(std::sync::Arc::new(tokio::sync::Mutex::new(Some(child)))),
@@ -1991,6 +2170,28 @@ fn main() {
 				state.daemon_process = child_process;
 
 				tracing::info!("Daemon connection established");
+
+				// Validate persisted library ID in background (non-blocking)
+				// If library no longer exists, reset the state
+				let app_handle_validate = app_handle.clone();
+				let app_state_validate = app_state_current_library_id.clone();
+				let daemon_state_validate = daemon_state_clone.clone();
+				let data_dir_validate = data_dir_clone.clone();
+				tokio::spawn(async move {
+					// Wait a bit for daemon to be fully ready
+					tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
+
+					if let Err(e) = validate_and_reset_library_if_needed(
+						app_handle_validate,
+						&app_state_validate,
+						&daemon_state_validate,
+						&data_dir_validate,
+					)
+					.await
+					{
+						tracing::warn!("Failed to validate library: {}", e);
+					}
+				});
 			});
 
 			// In dev mode, show window immediately

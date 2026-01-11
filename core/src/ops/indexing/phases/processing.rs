@@ -83,14 +83,19 @@ pub async fn run_processing_phase(
 		.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 		.ok_or_else(|| JobError::execution("Location not found in database".to_string()))?;
 
-	let device_id = location_record.device_id;
+	let volume_id = location_record.volume_id.ok_or_else(|| {
+		JobError::execution(
+			"Location volume_id not set - volume must be detected before indexing can proceed",
+		)
+	})?;
 	let location_id_i32 = location_record.id;
 	let location_entry_id = location_record
 		.entry_id
 		.ok_or_else(|| JobError::execution("Location entry_id not set (not yet synced)"))?;
+
 	ctx.log(format!(
-		"Found location record: device_id={}, location_id={}, entry_id={}",
-		device_id, location_id_i32, location_entry_id
+		"Found location record: volume_id={}, location_id={}, entry_id={}",
+		volume_id, location_id_i32, location_entry_id
 	));
 
 	// SAFETY: Validate indexing path is within location boundaries to prevent catastrophic
@@ -287,7 +292,7 @@ pub async fn run_processing_phase(
 					match DatabaseStorage::create_entry_in_conn(
 						state,
 						&entry,
-						device_id,
+						volume_id,
 						location_root_path,
 						&txn,
 						&mut bulk_self_closures,
@@ -492,6 +497,103 @@ pub async fn run_processing_phase(
 		));
 
 		// Note: State will be automatically saved during job serialization on shutdown
+	}
+
+	// Explicitly update the root entry metadata (including inode).
+	// The root entry is loaded from the database but never "discovered" during the directory walk,
+	// so it never goes through the normal processing loop. This ensures the root entry gets
+	// updated with current filesystem metadata, especially important for updating null inodes
+	// from older Spacedrive versions.
+	ctx.log("Checking root entry for updates...");
+	if let Ok(metadata) = std::fs::symlink_metadata(location_root_path) {
+		// Get the root entry from the database
+		if let Ok(Some(root_entry)) = entities::entry::Entity::find_by_id(location_entry_id)
+			.one(ctx.library_db())
+			.await
+		{
+			#[cfg(unix)]
+			let inode = {
+				use std::os::unix::fs::MetadataExt;
+				Some(metadata.ino())
+			};
+
+			#[cfg(windows)]
+			let inode = {
+				use std::os::windows::fs::MetadataExt;
+				metadata.file_index()
+			};
+
+			#[cfg(not(any(unix, windows)))]
+			let inode = None;
+
+			// Check if the root entry needs updating
+			let needs_update = root_entry.inode.is_none()
+				|| inode.map(|i| i != root_entry.inode.unwrap_or(-1) as u64).unwrap_or(false)
+				|| root_entry.size != metadata.len() as i64
+				|| {
+					if let Ok(modified) = metadata.modified() {
+						if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+							if let Some(timestamp) = chrono::DateTime::from_timestamp(
+								duration.as_secs() as i64,
+								0,
+							) {
+								root_entry.modified_at != timestamp
+							} else {
+								false
+							}
+						} else {
+							false
+						}
+					} else {
+						false
+					}
+				};
+
+			if needs_update {
+				ctx.log(format!(
+					"Updating root entry (id: {}, inode: {:?} -> {:?})",
+					location_entry_id, root_entry.inode, inode
+				));
+
+				let kind = if metadata.is_dir() {
+					crate::ops::indexing::state::EntryKind::Directory
+				} else if metadata.is_symlink() {
+					crate::ops::indexing::state::EntryKind::Symlink
+				} else {
+					crate::ops::indexing::state::EntryKind::File
+				};
+
+				let root_dir_entry = crate::ops::indexing::state::DirEntry {
+					path: location_root_path.to_path_buf(),
+					kind,
+					size: metadata.len(),
+					modified: metadata.modified().ok(),
+					inode,
+				};
+
+				let txn = ctx.library_db().begin().await.map_err(|e| {
+					JobError::execution(format!("Failed to begin root update transaction: {}", e))
+				})?;
+
+				if let Err(e) = DatabaseStorage::update_entry_in_conn(
+					location_entry_id,
+					&root_dir_entry,
+					&txn,
+				)
+				.await
+				{
+					ctx.add_non_critical_error(format!("Failed to update root entry: {}", e));
+					if let Err(rollback_err) = txn.rollback().await {
+						warn!("Failed to rollback root update transaction: {}", rollback_err);
+					}
+				} else {
+					txn.commit().await.map_err(|e| {
+						JobError::execution(format!("Failed to commit root update: {}", e))
+					})?;
+					ctx.log("Root entry updated successfully");
+				}
+			}
+		}
 	}
 
 	// Handle deleted entries

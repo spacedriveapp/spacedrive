@@ -259,11 +259,6 @@ impl NetworkingService {
 		// Start periodic reconnection attempts
 		self.start_periodic_reconnection().await;
 
-		// Start periodic health checks for connected devices
-		// TODO: Health checks opening streams causes connection closure
-		// Need to implement proper QUIC keep-alive instead
-		// self.start_health_check_task().await;
-
 		Ok(())
 	}
 
@@ -274,7 +269,7 @@ impl NetworkingService {
 		// Load paired devices from persistence
 		let loaded_device_ids = device_registry.load_paired_devices().await?;
 		self.logger
-			.info(&format!(
+			.debug(&format!(
 				"Loaded {} paired devices from persistence",
 				loaded_device_ids.len()
 			))
@@ -283,7 +278,7 @@ impl NetworkingService {
 		// Get devices that should auto-reconnect
 		let auto_reconnect_devices = device_registry.get_auto_reconnect_devices().await?;
 		self.logger
-			.info(&format!(
+			.debug(&format!(
 				"Found {} devices for auto-reconnection",
 				auto_reconnect_devices.len()
 			))

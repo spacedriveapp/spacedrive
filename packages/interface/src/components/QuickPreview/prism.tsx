@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 
+// @ts-ignore - SCSS imports
 import oneDarkCss from './one-dark.scss?url';
+// @ts-ignore - SCSS imports
 import oneLightCss from './one-light.scss?url';
 
 export const languageMapping = Object.entries({

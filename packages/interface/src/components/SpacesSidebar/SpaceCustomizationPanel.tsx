@@ -6,7 +6,7 @@ import type { ItemType, SpaceItem as SpaceItemType, GroupType } from "@sd/ts-cli
 import { SpaceItem } from "./SpaceItem";
 import { createPortal } from "react-dom";
 import { useState } from "react";
-import { useLibraryMutation } from "../../context";
+import { useLibraryMutation } from "../../contexts/SpacedriveContext";
 import { Input } from "@sd/ui";
 
 interface PaletteItem {
@@ -298,4 +298,3 @@ export function SpaceCustomizationPanel({
 
 	return createPortal(content, document.body);
 }
-

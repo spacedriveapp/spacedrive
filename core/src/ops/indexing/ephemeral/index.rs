@@ -402,6 +402,14 @@ impl EphemeralIndex {
 			.collect()
 	}
 
+	pub fn find_containing(&self, substring: &str) -> Vec<PathBuf> {
+		self.registry
+			.find_containing(substring)
+			.iter()
+			.filter_map(|&id| self.reconstruct_path(id))
+			.collect()
+	}
+
 	pub fn age(&self) -> Duration {
 		self.created_at.elapsed()
 	}

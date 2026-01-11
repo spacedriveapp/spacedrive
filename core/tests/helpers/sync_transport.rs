@@ -1,7 +1,7 @@
 //! Mock network transport for sync integration tests
 
 use sd_core::{
-	infra::sync::NetworkTransport,
+	infra::sync::{NetworkTransport, SystemTimeSource},
 	service::{network::protocol::sync::messages::SyncMessage, sync::SyncService},
 };
 use std::{
@@ -242,9 +242,10 @@ impl MockTransport {
 											.unwrap_or(record_data.clone());
 
 										// Use registry to apply change polymorphically
+										let time = SystemTimeSource;
 										if let Err(e) = registry::apply_shared_change(
 											SharedChangeEntry {
-												hlc: HLC::now(self.my_device_id),
+												hlc: HLC::now(self.my_device_id, &time),
 												model_type: model_type.clone(),
 												record_uuid: uuid,
 												change_type: ChangeType::Insert,

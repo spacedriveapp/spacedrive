@@ -5,11 +5,12 @@ sidebarTitle: Introduction
 ---
 
 <Warning>
-**Code Open-Sourced: December 1, 2025**
+**v2.0.0-alpha.1 Released: December 26, 2025**
 
-This codebase is being released early for community testing and feedback. The first public release (2.0.0-pre.1) is coming before Christmas 2025.
+The complete ground-up rewrite is here. This is an alpha release for testing and feedback. macOS and Linux are supported now. Windows support coming in alpha.2.
 
-spacedrive.com still shows v0.4.3. The new site launches with the release. Until then, these docs are your primary resource.
+Read the [full release notes](https://github.com/spacedriveapp/spacedrive/releases) for more details on the rewrite.
+
 </Warning>
 
 ## What is Spacedrive?
@@ -26,15 +27,17 @@ This is infrastructure for the next era of computing.
 
 ## Current State
 
-### What Works Now (December 2025)
+### What Works Now (v2.0.0-alpha.1)
 
 **Core Infrastructure**
+
 - Daemon-client architecture with persistent background operations
 - Tauri desktop app with working interface
 - CLI with full library, location, job, and network management
 - Resumable job system with checkpointing and progress tracking
 
 **Multi-Device Sync**
+
 - Peer-to-peer library sync via Iroh/QUIC with NAT traversal
 - Device pairing with BIP39 mnemonic codes
 - Local network discovery (mDNS) and relay fallback
@@ -43,6 +46,7 @@ This is infrastructure for the next era of computing.
 - Incremental sync with watermarks for offline periods
 
 **File Management**
+
 - File indexing with shallow, content, and deep modes
 - Content identity and deduplication across devices
 - Unified addressing: `local://`, `s3://`, `content://` URIs
@@ -50,40 +54,47 @@ This is infrastructure for the next era of computing.
 - Checksum verification and progress tracking
 
 **Cloud Storage**
+
 - Integration via OpenDAL (40+ services supported)
 - S3, Google Drive, OneDrive, Dropbox, Azure Blob, GCS
 - Cloud files indexed and searchable like local files
 - Cross-storage operations (local to cloud, cloud to cloud)
 
 **Media & Analysis**
+
 - Thumbnail generation
 - OCR text extraction
 - Speech transcription
 - Sampled content hashing (58KB identifies any file size)
 
 **Organization**
+
 - Semantic tagging with hierarchies and polymorphic naming
 - Spaces for custom workspace layouts
 - Collections for grouping files
 
 **Security**
+
 - Ed25519 device identity with session key derivation
 - XChaCha20-Poly1305 credential encryption
 - OS keyring integration (Keychain, Credential Manager, Secret Service)
 
 **Platform Support**
-- macOS: Primary testing platform, fully functional
-- Windows & Linux: Should work, community testing needed
-- Mobile: Coming in 2.0.0-pre.1
 
-### Coming in 2.0.0-pre.1 (Before Christmas)
+- macOS: Fully supported
+- Linux: Fully supported
+- Windows: Coming in alpha.2
+- iOS & Android: Coming soon
 
-- Mobile apps (iOS and Android via React Native)
-- Spacedrive Cloud relay servers
-- Extension SDK (stable API)
-- AI integration with local models (Ollama)
-- File sync between devices (library metadata sync works now)
-- New spacedrive.com with public roadmap
+### Coming Soon
+
+- **alpha.2**: Windows support
+- **Future releases**:
+  - iOS app
+  - Android app
+  - Server edition for headless deployments
+  - Extension SDK (stable API)
+  - AI integration with local models
 
 ### Prototypes (Not Public)
 
@@ -94,6 +105,7 @@ Native Swift apps (iOS, macOS) and a GPUI media viewer exist as private prototyp
 Spacedrive treats files as first-class objects with content identity. A photo on your laptop and the same photo on your NAS are recognized as one piece of content.
 
 **Core capabilities:**
+
 - Search millions of files in under 100ms
 - Preview operations before execution (conflicts, space savings, outcomes)
 - Sync peer-to-peer without servers or consensus protocols
@@ -104,25 +116,29 @@ Files stay in place. Spacedrive makes them universally addressable with rich met
 
 ## Testing & Feedback
 
-This testing period is important. We need community help validating:
-- Cross-platform compatibility (especially Windows/Linux)
+This is an alpha release. We need community help validating:
+
+- macOS and Linux stability
 - v1 to v2 library migration
 - Multi-device sync scenarios
 - Performance at scale
 
-Current v0.4.3 users will migrate when 2.0.0-pre.1 releases. Your testing helps ensure that transition is smooth.
-
 <Tip>
-MacOS users: Focus on testing indexing, multi-device sync, and the interface. Windows/Linux users: Report any bugs you encounter. All feedback is valuable.
+	macOS and Linux users: Test indexing, multi-device sync, and cloud
+	integration. Report bugs on GitHub or Discord. All feedback helps improve
+	stability for the beta release.
 </Tip>
 
 ## For Developers
 
 <Warning>
-**Most architecture docs are in the Developer section.** The core technical documentation lives under [Architecture](/core/architecture), not in overview guides.
+	**Most architecture docs are in the Developer section.** The core technical
+	documentation lives under [Architecture](/core/architecture), not in overview
+	guides.
 </Warning>
 
 Key technical docs:
+
 - [Architecture Overview](/core/architecture) - System design and principles
 - [Data Model](/core/data-model) - How data is structured
 - [Content Addressing](/core/addressing) - Content identity system
@@ -131,17 +147,18 @@ Key technical docs:
 
 ## Roadmap
 
-The `.tasks` folder in the repo tracks core development work. The new landing page (releasing with 2.0.0-pre.1) will have a public roadmap. For now, `.tasks` and these docs are the best reference.
+The `.tasks` folder in the repo tracks core development work. Check the [releases page](https://github.com/spacedriveapp/spacedrive/releases) for the public roadmap. These docs provide detailed technical reference.
 
 <Info>
-Some guides are written as if features are complete. This is intentional—they document the release state, not current state. When features aren't ready yet, you'll see callouts like this.
+	Some guides document planned features that aren't in alpha.1 yet. When
+	features aren't ready, you'll see callouts indicating their status.
 </Info>
 
 ## Project Timeline
 
 Spacedrive v2 development began in June 2025. This is a ground-up rewrite addressing lessons from the v1 alpha. The architecture is designed for long-term sustainability, not quick feature delivery.
 
-Six months later, the core is stable enough for community testing. The Christmas release will be feature-complete for the advertised capabilities.
+v2.0.0-alpha.1 released December 26, 2025 after six months of development. This alpha provides the core infrastructure for multi-device file management. Additional platforms and features will roll out in subsequent releases.
 
 ## Get Involved
 
@@ -151,5 +168,6 @@ Six months later, the core is stable enough for community testing. The Christmas
 - **Explore architecture docs** - Start with [core/architecture](/core/architecture)
 
 <Note>
-This is a living document. As development progresses toward the Christmas release, this page will be updated to reflect current status.
+	This is a living document. As development progresses through alpha and beta
+	releases, this page will be updated to reflect current status.
 </Note>

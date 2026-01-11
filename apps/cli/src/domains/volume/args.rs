@@ -177,9 +177,6 @@ impl VolumeAddCloudArgs {
 				}
 			}
 			CloudServiceArg::Dropbox => {
-				let access_token = self
-					.access_token
-					.ok_or("--access-token is required for Dropbox")?;
 				let refresh_token = self
 					.refresh_token
 					.ok_or("--refresh-token is required for Dropbox")?;
@@ -192,7 +189,6 @@ impl VolumeAddCloudArgs {
 
 				CloudStorageConfig::Dropbox {
 					root: self.root,
-					access_token,
 					refresh_token,
 					client_id,
 					client_secret,

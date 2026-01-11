@@ -256,6 +256,10 @@ pub async fn wait_for_indexing(
 
 		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
+		if !completed_jobs.is_empty() {
+			job_seen = true;
+		}
+
 		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
 		{
 			if current_entries == last_entry_count {
@@ -708,6 +712,7 @@ impl SnapshotCapture {
 #[allow(dead_code)]
 pub struct TwoDeviceHarnessBuilder {
 	test_name: String,
+	test_data: super::TestDataDir,
 	data_dir_alice: PathBuf,
 	data_dir_bob: PathBuf,
 	snapshot_dir: PathBuf,
@@ -719,10 +724,11 @@ pub struct TwoDeviceHarnessBuilder {
 #[allow(dead_code)]
 impl TwoDeviceHarnessBuilder {
 	pub async fn new(test_name: impl Into<String>) -> anyhow::Result<Self> {
-		let test_name = test_name.into();
-		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-		let test_root = std::path::PathBuf::from(home)
-			.join("Library/Application Support/spacedrive/sync_tests");
+		let test_name_str = test_name.into();
+
+		// Use TestDataDir for proper temp directory management
+		let test_data = super::TestDataDir::new(&test_name_str)?;
+		let test_root = test_data.path().to_path_buf();
 
 		let data_dir = test_root.join("data");
 		fs::create_dir_all(&data_dir).await?;
@@ -732,10 +738,12 @@ impl TwoDeviceHarnessBuilder {
 		fs::create_dir_all(&temp_dir_alice).await?;
 		fs::create_dir_all(&temp_dir_bob).await?;
 
-		let snapshot_dir = create_snapshot_dir(&test_name).await?;
+		let snapshot_dir = test_root.join("snapshots");
+		fs::create_dir_all(&snapshot_dir).await?;
 
 		Ok(Self {
-			test_name,
+			test_name: test_name_str,
+			test_data,
 			data_dir_alice: temp_dir_alice,
 			data_dir_bob: temp_dir_bob,
 			snapshot_dir,
@@ -905,6 +913,7 @@ impl TwoDeviceHarnessBuilder {
 		};
 
 		Ok(TwoDeviceHarness {
+			test_data: self.test_data,
 			data_dir_alice: self.data_dir_alice,
 			data_dir_bob: self.data_dir_bob,
 			core_alice,
@@ -926,6 +935,7 @@ impl TwoDeviceHarnessBuilder {
 
 /// Two-device sync test harness
 pub struct TwoDeviceHarness {
+	test_data: super::TestDataDir,
 	pub data_dir_alice: PathBuf,
 	pub data_dir_bob: PathBuf,
 	pub core_alice: Core,
@@ -944,6 +954,19 @@ pub struct TwoDeviceHarness {
 }
 
 impl TwoDeviceHarness {
+	/// Get access to the snapshot manager (if snapshots enabled via SD_TEST_SNAPSHOTS=1)
+	pub fn snapshot_manager(&self) -> Option<&super::SnapshotManager> {
+		self.test_data.snapshot_manager()
+	}
+
+	/// Capture snapshot with label (convenience method)
+	pub async fn capture_snapshot(&self, label: &str) -> anyhow::Result<()> {
+		if let Some(manager) = self.snapshot_manager() {
+			manager.capture(label).await?;
+		}
+		Ok(())
+	}
+
 	/// Wait for sync to complete using the sophisticated algorithm
 	pub async fn wait_for_sync(&self, max_duration: Duration) -> anyhow::Result<()> {
 		wait_for_sync(&self.library_alice, &self.library_bob, max_duration).await
@@ -961,109 +984,6 @@ impl TwoDeviceHarness {
 	/// Add and index a location on Bob
 	pub async fn add_and_index_location_bob(&self, path: &str, name: &str) -> anyhow::Result<Uuid> {
 		add_and_index_location(&self.library_bob, path, name).await
-	}
-
-	/// Capture comprehensive snapshot
-	pub async fn capture_snapshot(&self, scenario_name: &str) -> anyhow::Result<PathBuf> {
-		let snapshot_path = self.snapshot_dir.join(scenario_name);
-		fs::create_dir_all(&snapshot_path).await?;
-
-		tracing::info!(
-			scenario = scenario_name,
-			path = %snapshot_path.display(),
-			"Capturing snapshot"
-		);
-
-		let capture = SnapshotCapture::new(snapshot_path.clone());
-
-		// Copy Alice's data
-		capture
-			.copy_database(&self.library_alice, "alice", "database.db")
-			.await?;
-		capture
-			.copy_database(&self.library_alice, "alice", "sync.db")
-			.await?;
-		capture.copy_logs(&self.library_alice, "alice").await?;
-
-		if let Some(events) = &self.event_log_alice {
-			let events = events.lock().await;
-			capture
-				.write_event_log(&events, "alice", "events.log")
-				.await?;
-		}
-
-		if let Some(sync_events) = &self.sync_event_log_alice {
-			let events = sync_events.lock().await;
-			capture
-				.write_sync_event_log(&events, "alice", "sync_events.log")
-				.await?;
-		}
-
-		// Copy Bob's data
-		capture
-			.copy_database(&self.library_bob, "bob", "database.db")
-			.await?;
-		capture
-			.copy_database(&self.library_bob, "bob", "sync.db")
-			.await?;
-		capture.copy_logs(&self.library_bob, "bob").await?;
-
-		if let Some(events) = &self.event_log_bob {
-			let events = events.lock().await;
-			capture
-				.write_event_log(&events, "bob", "events.log")
-				.await?;
-		}
-
-		if let Some(sync_events) = &self.sync_event_log_bob {
-			let events = sync_events.lock().await;
-			capture
-				.write_sync_event_log(&events, "bob", "sync_events.log")
-				.await?;
-		}
-
-		// Write summary
-		let alice_events = self
-			.event_log_alice
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let bob_events = self
-			.event_log_bob
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let alice_sync_events = self
-			.sync_event_log_alice
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let bob_sync_events = self
-			.sync_event_log_bob
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-
-		capture
-			.write_summary(
-				scenario_name,
-				&self.library_alice,
-				&self.library_bob,
-				self.device_alice_id,
-				self.device_bob_id,
-				alice_events,
-				bob_events,
-				alice_sync_events,
-				bob_sync_events,
-			)
-			.await?;
-
-		tracing::info!(
-			snapshot_path = %snapshot_path.display(),
-			"Snapshot captured"
-		);
-
-		Ok(snapshot_path)
 	}
 }
 

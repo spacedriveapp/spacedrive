@@ -69,8 +69,8 @@ pub struct Library {
 	/// Loaded from this library's devices table for per-library device resolution
 	device_cache: Arc<StdRwLock<HashMap<String, Uuid>>>,
 
-	/// Lock preventing concurrent access
-	_lock: LibraryLock,
+	/// Lock preventing concurrent access (wrapped in Mutex to allow explicit release during shutdown)
+	_lock: std::sync::Mutex<Option<LibraryLock>>,
 }
 
 impl Library {
@@ -479,6 +479,15 @@ impl Library {
 		// Clear device cache from DeviceManager
 		if let Err(e) = self.core_context.device_manager.clear_paired_device_cache() {
 			warn!("Failed to clear paired device cache: {}", e);
+		}
+
+		// Explicitly release the lock to ensure the lock file is removed
+		// even if there are lingering Arc references to the Library
+		if let Ok(mut lock_guard) = self._lock.lock() {
+			if let Some(mut lock) = lock_guard.take() {
+				lock.release();
+				debug!("Library lock explicitly released during shutdown");
+			}
 		}
 
 		Ok(())

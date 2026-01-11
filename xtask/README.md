@@ -38,6 +38,31 @@ cargo ios
 
 ## Available Commands
 
+### `test-core`
+
+**Single source of truth for core integration tests!**
+
+Runs all sd-core integration tests with progress tracking and result summary.
+This command is used by both CI and local development, ensuring consistency.
+
+**Usage:**
+
+```bash
+cargo xtask test-core           # Run with minimal output
+cargo xtask test-core --verbose # Show full test output
+```
+
+**Features:**
+
+- Progress tracking (shows which test is running)
+- Timing for each test suite
+- Summary report showing passed/failed tests
+- Same test definitions used in CI workflows
+- Continues running even if some tests fail
+
+All tests are defined in `xtask/src/test_core.rs` as the single source of truth.
+Add or remove tests there and they automatically apply to both CI and local runs.
+
 ### `setup`
 
 **Replaces `pnpm prep` with a pure Rust implementation!**
@@ -51,11 +76,13 @@ Sets up your development environment:
 5. Generates `.cargo/config.toml` from the template
 
 **Usage:**
+
 ```bash
 cargo xtask setup
 ```
 
 **First time setup:**
+
 ```bash
 # Install Rust if you haven't already
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
@@ -117,12 +144,14 @@ The `xtask` binary is just a regular Rust program that uses `std::process::Comma
 ### Replaced: `pnpm prep` (JavaScript)
 
 **Old way:**
+
 ```bash
 pnpm i              # Install JS dependencies
 pnpm prep           # Run JavaScript setup script
 ```
 
 **New way:**
+
 ```bash
 cargo xtask setup   # Pure Rust, no JS needed!
 ```
@@ -130,11 +159,13 @@ cargo xtask setup   # Pure Rust, no JS needed!
 ### Replaced: `scripts/build_ios_xcframework.sh` (Bash)
 
 **Old way:**
+
 ```bash
 ./scripts/build_ios_xcframework.sh
 ```
 
 **New way:**
+
 ```bash
 cargo ios           # Convenient alias
 # or

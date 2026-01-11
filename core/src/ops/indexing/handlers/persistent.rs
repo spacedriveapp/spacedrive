@@ -417,28 +417,52 @@ impl PersistentEventHandler {
 		let mut pending_removes: HashMap<u64, (PathBuf, Instant, Option<bool>)> = HashMap::new();
 		const RENAME_TIMEOUT: Duration = Duration::from_millis(1000);
 
-		while let Some(first_event) = rx.recv().await {
-			// Start batching window
-			let mut batch = vec![first_event];
-			let deadline = Instant::now() + Duration::from_millis(config.debounce_window_ms);
+		// Create a periodic tick for evicting expired pending removes
+		// This ensures removes are processed even if no new events arrive
+		let mut eviction_tick = tokio::time::interval(Duration::from_millis(500));
+		eviction_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-			// Collect events within the debounce window
-			while Instant::now() < deadline && batch.len() < config.max_batch_size {
-				match rx.try_recv() {
-					Ok(event) => batch.push(event),
-					Err(mpsc::error::TryRecvError::Empty) => {
-						// Brief sleep to avoid busy waiting
-						tokio::time::sleep(Duration::from_millis(10)).await;
+		loop {
+			// Wait for either an event or an eviction tick
+			let batch = tokio::select! {
+				// Process incoming events
+				Some(first_event) = rx.recv() => {
+					let mut batch = vec![first_event];
+					let deadline = Instant::now() + Duration::from_millis(config.debounce_window_ms);
+
+					// Collect events within the debounce window
+					while Instant::now() < deadline && batch.len() < config.max_batch_size {
+						match rx.try_recv() {
+							Ok(event) => batch.push(event),
+							Err(mpsc::error::TryRecvError::Empty) => {
+								// Brief sleep to avoid busy waiting
+								tokio::time::sleep(Duration::from_millis(10)).await;
+							}
+							Err(mpsc::error::TryRecvError::Disconnected) => break,
+						}
 					}
-					Err(mpsc::error::TryRecvError::Disconnected) => break,
-				}
-			}
 
-			debug!(
-				"Processing batch of {} events for location {}",
-				batch.len(),
-				meta.id
-			);
+					debug!(
+						"Processing batch of {} events for location {}",
+						batch.len(),
+						meta.id
+					);
+
+					batch
+				}
+				// Periodic eviction tick
+				_ = eviction_tick.tick() => {
+					Vec::new() // Empty batch - just check for evictions
+				}
+			};
+
+			// Check if worker should stop (channel disconnected and no pending removes)
+			if batch.is_empty() && pending_removes.is_empty() {
+				if rx.is_closed() {
+					break;
+				}
+				continue;
+			}
 
 			// Evict expired pending removes
 			let now = Instant::now();

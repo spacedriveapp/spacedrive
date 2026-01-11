@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import type { File } from "@sd/ts-client";
-import { useServer } from "../../ServerContext";
+import { useServer } from "../../contexts/ServerContext";
 
 interface SubtitleCue {
 	index: number;

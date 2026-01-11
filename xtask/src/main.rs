@@ -27,10 +27,32 @@
 mod config;
 mod native_deps;
 mod system;
+mod test_core;
 
 use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
+
+/// Find the workspace root by walking up the directory tree
+fn find_workspace_root() -> Result<std::path::PathBuf> {
+	let mut current = std::env::current_dir()?;
+
+	loop {
+		let cargo_toml = current.join("Cargo.toml");
+		if cargo_toml.exists() {
+			let contents = std::fs::read_to_string(&cargo_toml)?;
+			if contents.contains("[workspace]") {
+				return Ok(current);
+			}
+		}
+
+		if !current.pop() {
+			anyhow::bail!(
+				"Could not find workspace root. Please run from within the Spacedrive workspace."
+			);
+		}
+	}
+}
 
 fn main() -> Result<()> {
 	let args: Vec<String> = std::env::args().collect();
@@ -44,11 +66,13 @@ fn main() -> Result<()> {
 		);
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
+		eprintln!("  test-core    Run all core integration tests with progress tracking");
 		eprintln!();
 		eprintln!("Examples:");
 		eprintln!("  cargo xtask setup          # First time setup");
 		eprintln!("  cargo xtask build-ios      # Build iOS framework");
 		eprintln!("  cargo xtask build-mobile   # Build mobile core for React Native");
+		eprintln!("  cargo xtask test-core      # Run all core tests");
 		eprintln!("  cargo ios                  # Convenient alias for build-ios");
 		std::process::exit(1);
 	}
@@ -57,6 +81,13 @@ fn main() -> Result<()> {
 		"setup" => setup()?,
 		"build-ios" => build_ios()?,
 		"build-mobile" => build_mobile()?,
+		"test-core" => {
+			let verbose = args
+				.get(2)
+				.map(|s| s == "--verbose" || s == "-v")
+				.unwrap_or(false);
+			test_core_command(verbose)?;
+		}
 		_ => {
 			eprintln!("Unknown command: {}", args[1]);
 			eprintln!("Run 'cargo xtask' for usage information.");
@@ -75,7 +106,7 @@ fn setup() -> Result<()> {
 	println!("Setting up Spacedrive development environment...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 
 	// Detect system
 	let system = system::SystemInfo::detect()?;
@@ -198,9 +229,16 @@ fn setup() -> Result<()> {
 	// The Tauri config references the release daemon in externalBin, so we need to build it
 	// once even for dev mode to satisfy Tauri's path validation
 	println!();
-	println!("Building release daemon for Tauri...");
+	println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
 	let status = Command::new("cargo")
-		.args(["build", "--release", "--bin", "sd-daemon"])
+		.args([
+			"build",
+			"--release",
+			"--features",
+			"sd-core/ffmpeg,sd-core/heif",
+			"--bin",
+			"sd-daemon",
+		])
 		.current_dir(&project_root)
 		.status()
 		.context("Failed to build release daemon")?;
@@ -213,13 +251,49 @@ fn setup() -> Result<()> {
 	// Create target-suffixed daemon binary for Tauri bundler
 	// Tauri's externalBin appends the target triple to binary names
 	let target_triple = system.target_triple();
-	let daemon_source = project_root.join("target/release/sd-daemon");
-	let daemon_target = project_root.join(format!("target/release/sd-daemon-{}", target_triple));
+	let exe_ext = if cfg!(windows) { ".exe" } else { "" };
+	let daemon_source = project_root.join(format!("target/release/sd-daemon{}", exe_ext));
+	let daemon_target = project_root.join(format!(
+		"target/release/sd-daemon-{}{}",
+		target_triple, exe_ext
+	));
 
 	if daemon_source.exists() {
 		fs::copy(&daemon_source, &daemon_target)
 			.context("Failed to create target-suffixed daemon binary")?;
-		println!("   ✓ Created sd-daemon-{}", target_triple);
+		println!("   ✓ Created sd-daemon-{}{}", target_triple, exe_ext);
+	}
+
+	// On Windows, copy DLLs to target directories so executables can find them at runtime
+	#[cfg(windows)]
+	{
+		println!();
+		println!("Copying DLLs to target directories...");
+		let dll_source_dir = native_deps_dir.join("bin");
+		if dll_source_dir.exists() {
+			// Copy to both debug and release directories
+			for target_profile in ["debug", "release"] {
+				let target_dir = project_root.join("target").join(target_profile);
+				fs::create_dir_all(&target_dir).ok();
+
+				if let Ok(entries) = fs::read_dir(&dll_source_dir) {
+					for entry in entries.flatten() {
+						let path = entry.path();
+						if path.extension().map_or(false, |ext| ext == "dll") {
+							let dest = target_dir.join(path.file_name().unwrap());
+							if let Err(e) = fs::copy(&path, &dest) {
+								eprintln!(
+									"   Warning: Failed to copy {}: {}",
+									path.file_name().unwrap().to_string_lossy(),
+									e
+								);
+							}
+						}
+					}
+				}
+				println!("   ✓ DLLs copied to target/{}/", target_profile);
+			}
+		}
 	}
 
 	println!();
@@ -254,7 +328,7 @@ fn build_ios() -> Result<()> {
 	println!("Building Spacedrive v2 Core XCFramework for iOS...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 	let ios_core_dir = project_root.join("apps/ios/sd-ios-core");
 	let framework_name = "sd_ios_core";
 
@@ -273,7 +347,7 @@ fn build_ios() -> Result<()> {
 		let status = Command::new("cargo")
 			.args(["build", "--release", "--target", target])
 			.current_dir(&ios_core_dir)
-			.env("IPHONEOS_DEPLOYMENT_TARGET", "12.0")
+			.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
 			.status()
 			.context(format!("Failed to build for {}", target))?;
 
@@ -390,7 +464,7 @@ fn build_mobile() -> Result<()> {
 	println!("Building Spacedrive Mobile Core for React Native...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 	let mobile_core_dir = project_root.join("apps/mobile/modules/sd-mobile-core/core");
 
 	if !mobile_core_dir.exists() {
@@ -542,4 +616,25 @@ fn create_framework_info_plist(framework_name: &str, platform: &str) -> String {
 "#,
 		framework_name, framework_name, platform
 	)
+}
+
+/// Run all core integration tests with progress tracking
+///
+/// This command runs all sd-core integration tests defined in test_core.rs.
+/// Tests are run sequentially with --test-threads=1 to avoid conflicts.
+/// Use --verbose to see full test output.
+fn test_core_command(verbose: bool) -> Result<()> {
+	let results = test_core::run_tests(verbose)?;
+
+	let failed_count = results.iter().filter(|r| !r.passed).count();
+
+	if failed_count > 0 {
+		std::process::exit(1);
+	} else {
+		if verbose {
+			println!("All tests passed!");
+		}
+	}
+
+	Ok(())
 }

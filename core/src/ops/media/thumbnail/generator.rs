@@ -357,10 +357,18 @@ mod tests {
 			Ok(ThumbnailGenerator::Image(_))
 		));
 
-		assert!(matches!(
-			ThumbnailGenerator::for_mime_type("video/mp4"),
-			Ok(ThumbnailGenerator::Video(_))
-		));
+		#[cfg(feature = "ffmpeg")]
+		{
+			assert!(matches!(
+				ThumbnailGenerator::for_mime_type("video/mp4"),
+				Ok(ThumbnailGenerator::Video(_))
+			));
+		}
+
+		#[cfg(not(feature = "ffmpeg"))]
+		{
+			assert!(ThumbnailGenerator::for_mime_type("video/mp4").is_err());
+		}
 
 		assert!(matches!(
 			ThumbnailGenerator::for_mime_type("application/pdf"),

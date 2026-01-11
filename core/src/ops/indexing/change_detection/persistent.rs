@@ -32,6 +32,7 @@ pub struct DatabaseAdapter {
 	library_id: Uuid,
 	location_id: Uuid,
 	location_root_entry_id: i32,
+	volume_id: i32,
 	db: sea_orm::DatabaseConnection,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	entry_id_cache: HashMap<PathBuf, i32>,
@@ -62,11 +63,19 @@ impl DatabaseAdapter {
 			.entry_id
 			.ok_or_else(|| anyhow::anyhow!("Location {} has no root entry", location_id))?;
 
+		let volume_id = location_record.volume_id.ok_or_else(|| {
+			anyhow::anyhow!(
+				"Location {} has no volume_id - volume must be detected before change detection",
+				location_id
+			)
+		})?;
+
 		Ok(Self {
 			context,
 			library_id,
 			location_id,
 			location_root_entry_id,
+			volume_id,
 			db,
 			volume_backend,
 			entry_id_cache: HashMap::new(),
@@ -232,7 +241,7 @@ impl ChangeHandler for DatabaseAdapter {
 			&self.db,
 			library.as_deref(),
 			metadata,
-			0,
+			self.volume_id,
 			parent_path,
 		)
 		.await
@@ -657,7 +666,7 @@ impl ChangeHandler for DatabaseAdapter {
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
 		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::{IndexMode, IndexerJob};
+		use crate::ops::indexing::{IndexMode, IndexerJob, IndexerJobConfig};
 
 		let Some(library) = self.context.get_library(self.library_id).await else {
 			return Ok(());
@@ -678,18 +687,20 @@ impl ChangeHandler for DatabaseAdapter {
 			IndexMode::Content
 		};
 
-		let indexer_job =
-			IndexerJob::from_location(self.location_id, SdPath::local(path), index_mode);
+		let mut config = IndexerJobConfig::new(self.location_id, SdPath::local(path), index_mode);
+		config.run_in_background = true;
+
+		let indexer_job = IndexerJob::new(config);
 
 		if let Err(e) = library.jobs().dispatch(indexer_job).await {
 			tracing::warn!(
-				"Failed to spawn indexer job for directory {}: {}",
+				"Failed to spawn background indexer job for directory {}: {}",
 				path.display(),
 				e
 			);
 		} else {
 			tracing::debug!(
-				"Spawned recursive indexer job for directory: {}",
+				"Spawned background indexer job for directory: {}",
 				path.display()
 			);
 		}
@@ -711,6 +722,7 @@ pub struct DatabaseAdapterForJob<'a> {
 	ctx: &'a JobContext<'a>,
 	library_id: Uuid,
 	location_root_entry_id: Option<i32>,
+	volume_id: i32,
 }
 
 impl<'a> DatabaseAdapterForJob<'a> {
@@ -718,11 +730,13 @@ impl<'a> DatabaseAdapterForJob<'a> {
 		ctx: &'a JobContext<'a>,
 		library_id: Uuid,
 		location_root_entry_id: Option<i32>,
+		volume_id: i32,
 	) -> Self {
 		Self {
 			ctx,
 			library_id,
 			location_root_entry_id,
+			volume_id,
 		}
 	}
 }
@@ -761,7 +775,7 @@ impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 			self.ctx.library_db(),
 			Some(self.ctx.library()),
 			entry,
-			0,
+			self.volume_id,
 			location_root_path,
 		)
 		.await?;

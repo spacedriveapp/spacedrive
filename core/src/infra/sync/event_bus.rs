@@ -168,7 +168,7 @@ impl Default for SyncEventBus {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::infra::sync::{ChangeType, HLC};
+	use crate::infra::sync::{time_source::SystemTimeSource, ChangeType, HLC};
 
 	#[test]
 	fn test_sync_event_bus_creation() {
@@ -224,10 +224,11 @@ mod tests {
 	async fn test_shared_change_event() {
 		let bus = SyncEventBus::new();
 		let mut subscriber = bus.subscribe();
+		let time = SystemTimeSource;
 
 		let library_id = Uuid::new_v4();
 		let entry = SharedChangeEntry {
-			hlc: HLC::now(Uuid::new_v4()),
+			hlc: HLC::now(Uuid::new_v4(), &time),
 			model_type: "tag".to_string(),
 			record_uuid: Uuid::new_v4(),
 			change_type: ChangeType::Insert,
@@ -257,6 +258,8 @@ mod tests {
 
 	#[test]
 	fn test_event_criticality() {
+		let time = SystemTimeSource;
+
 		let state_event = SyncEvent::StateChange {
 			library_id: Uuid::new_v4(),
 			model_type: "entry".to_string(),
@@ -270,7 +273,7 @@ mod tests {
 		let shared_event = SyncEvent::SharedChange {
 			library_id: Uuid::new_v4(),
 			entry: SharedChangeEntry {
-				hlc: HLC::now(Uuid::new_v4()),
+				hlc: HLC::now(Uuid::new_v4(), &time),
 				model_type: "tag".to_string(),
 				record_uuid: Uuid::new_v4(),
 				change_type: ChangeType::Insert,

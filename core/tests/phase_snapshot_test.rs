@@ -51,10 +51,9 @@ async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
 		}
 	};
 
-	// Create output directory for snapshots in project root
-	let snapshot_dir =
-		std::path::PathBuf::from("/Users/jamespine/Projects/spacedrive/test_snapshots");
-	std::fs::create_dir_all(&snapshot_dir)?;
+	// Create output directory for snapshots in temp
+	let temp_snapshot = TempDir::new()?;
+	let snapshot_dir = temp_snapshot.path().to_path_buf();
 	eprintln!("Snapshots will be saved to: {:?}\n", snapshot_dir);
 
 	// Collect all events

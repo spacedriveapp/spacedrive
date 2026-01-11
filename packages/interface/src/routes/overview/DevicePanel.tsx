@@ -16,18 +16,18 @@ import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
 import LocationIcon from "@sd/assets/icons/Location.png";
-import { TopBarButton } from "@sd/ui/TopBarButton";
+import { TopBarButton } from "@sd/ui";
 import {
 	useNormalizedQuery,
 	useLibraryMutation,
 	getDeviceIcon,
 	useCoreQuery,
-} from "../../context";
+} from "../../contexts/SpacedriveContext";
 import type {
 	VolumeListOutput,
 	VolumeListQueryInput,
 	VolumeItem,
-	LibraryDeviceInfo,
+	Device,
 	ListLibraryDevicesInput,
 	JobListItem,
 	LocationsListOutput,
@@ -91,7 +91,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 	// Fetch all devices using normalized cache
 	const { data: devicesData, isLoading: devicesLoading } = useNormalizedQuery<
 		ListLibraryDevicesInput,
-		LibraryDeviceInfo[]
+		Device[]
 	>({
 		wireMethod: "query:devices.list",
 		input: { include_offline: true, include_details: false },
@@ -196,7 +196,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 			acc[device.id] = device;
 			return acc;
 		},
-		{} as Record<string, LibraryDeviceInfo>,
+		{} as Record<string, Device>,
 	);
 
 	// Group jobs by device_id
@@ -268,7 +268,7 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 }
 
 interface DeviceCardProps {
-	device?: LibraryDeviceInfo;
+	device?: Device;
 	volumes: VolumeItem[];
 	jobs: JobListItem[];
 	locations: Location[];

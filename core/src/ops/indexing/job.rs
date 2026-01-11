@@ -109,6 +109,9 @@ pub struct IndexerJobConfig {
 	pub max_depth: Option<u32>,
 	#[serde(default)]
 	pub rule_toggles: super::rules::RuleToggles,
+	/// Whether to run this job in the background (not persisted to database, no UI updates)
+	#[serde(default)]
+	pub run_in_background: bool,
 }
 
 impl IndexerJobConfig {
@@ -121,6 +124,7 @@ impl IndexerJobConfig {
 			persistence: IndexPersistence::Persistent,
 			max_depth: None,
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -133,6 +137,7 @@ impl IndexerJobConfig {
 			persistence: IndexPersistence::Persistent,
 			max_depth: Some(1),
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -149,6 +154,7 @@ impl IndexerJobConfig {
 				None
 			},
 			rule_toggles: Default::default(),
+			run_in_background: false,
 		}
 	}
 
@@ -196,7 +202,7 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
-		!self.config.is_ephemeral()
+		!self.config.is_ephemeral() && !self.config.run_in_background
 	}
 }
 
@@ -252,6 +258,7 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
+		// Resolve volume backend for I/O operations
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
 				match vm
@@ -272,9 +279,9 @@ impl IndexerJob {
 								self.config.path
 							));
 							return Err(JobError::execution(format!(
-								"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
-								self.config.path
-							)));
+							"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
+							self.config.path
+						)));
 						}
 
 						ctx.log(format!(
@@ -548,7 +555,10 @@ impl IndexerJob {
 				None
 			};
 
-			let thumbnail_config = ThumbnailJobConfig::default();
+			let mut thumbnail_config = ThumbnailJobConfig::default();
+			// Inherit background flag from the indexer job
+			thumbnail_config.run_in_background = self.config.run_in_background;
+
 			let thumbnail_job = if let Some(uuids) = entry_uuids {
 				ThumbnailJob::for_entries(uuids, thumbnail_config)
 			} else {
@@ -764,7 +774,7 @@ impl IndexerJob {
 				kind: entry_kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
-				inode: DatabaseStorage::get_inode(&metadata),
+				inode: DatabaseStorage::get_inode(&path, &metadata),
 			};
 
 			state.pending_entries.push(dir_entry);

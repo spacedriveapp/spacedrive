@@ -136,13 +136,17 @@ After pairing, devices must register with libraries to enable sync.
 
 ### Device-Owned Data
 
-Each device owns specific data that only it can modify:
+Ownership flows through volumes. Each device owns its volumes, and volumes own the locations and entries on them:
 
-- **Locations**: Filesystem paths on that device
-- **Entries**: Files and folders within those locations
 - **Volumes**: Physical drives attached to the device
+- **Locations**: Filesystem paths on a volume
+- **Entries**: Files and folders within those locations
 
-This ownership model is fundamental to Spacedrive's conflict-free sync design.
+This indirection enables portable storage: when an external drive moves between machines, updating the volume's device reference transfers ownership of all associated data instantly.
+
+<Info>
+See [Library Sync](/docs/core/library-sync) for details on the ownership chain and portable volume handling.
+</Info>
 
 ## Sync Participation
 
@@ -151,19 +155,19 @@ This ownership model is fundamental to Spacedrive's conflict-free sync design.
 	authority.
 </Info>
 
-The `devices` table is the **source of truth** for all sync state within a library:
+The `devices` table tracks device state within a library:
 
 - **Connection State**: `is_online`, `last_seen_at` track real-time availability
 - **Sync Enablement**: `sync_enabled` controls whether a device participates
-- **Watermarks**: Track what data has been synchronized
-  - `last_state_watermark`: Timestamp for device-owned data (locations, entries)
-  - `last_shared_watermark`: HLC for shared resources (tags, albums)
+- **Last Sync**: `last_sync_at` records when the device last synced
+
+Watermarks for incremental sync are stored separately in sync.db on a per-resource basis. See [Library Sync](/docs/core/library-sync) for details.
 
 ### How Devices Participate in Sync
 
 Devices sync data using two protocols based on ownership:
 
-- **Device-owned data** (locations, entries): Owner broadcasts state, peers apply. Tracked via `last_state_watermark`.
+- **Device-owned data** (volumes, locations, entries): Owner broadcasts state, peers apply. Entries inherit ownership through their volume's device. Tracked via `last_state_watermark`.
 - **Shared resources** (tags, collections): Any device can modify. Changes ordered via HLC. Tracked via `last_shared_watermark`.
 
 For detailed protocol documentation, see [Library Sync](/docs/core/library-sync).
@@ -187,29 +191,9 @@ let online_devices = entities::device::Entity::find()
     .await?;
 ```
 
-### Watermark Tracking
+### Incremental Sync
 
-Watermarks enable incremental sync by tracking the last successfully synchronized state:
-
-```rust
-// Get device's sync watermarks
-let device = entities::device::Entity::find()
-    .filter(entities::device::Column::Uuid.eq(device_id))
-    .one(db)
-    .await?;
-
-if let Some(d) = device {
-    // State watermark: last timestamp synced for device-owned data
-    let state_watermark: Option<DateTime<Utc>> = d.last_state_watermark;
-
-    // Shared watermark: last HLC synced for shared resources
-    let shared_watermark: Option<HLC> = d.last_shared_watermark
-        .as_ref()
-        .and_then(|s| serde_json::from_str(s).ok());
-}
-```
-
-When devices reconnect after being offline, they compare watermarks to determine what data needs to be synchronized incrementally, avoiding full re-sync.
+When devices reconnect after being offline, they use watermarks to determine what data needs synchronization, avoiding full re-sync. Watermarks are tracked per-resource in sync.db. See [Library Sync](/docs/core/library-sync) for implementation details.
 
 ## API Reference
 
@@ -315,8 +299,7 @@ If changes aren't syncing between devices:
 ```bash
 # Check device registration and sync state in library
 sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/database.db \
-  "SELECT uuid, name, is_online, sync_enabled, last_sync_at,
-          last_state_watermark, last_shared_watermark
+  "SELECT uuid, name, is_online, sync_enabled, last_sync_at
    FROM devices;"
 
 # Check which devices are online and sync-enabled
@@ -325,11 +308,9 @@ sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/database.db \
    FROM devices
    WHERE sync_enabled = 1;"
 
-# View watermarks for a specific device
-sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/database.db \
-  "SELECT name, last_state_watermark, last_shared_watermark
-   FROM devices
-   WHERE uuid='device-uuid';"
+# View watermarks (stored in sync.db, not devices table)
+sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/sync.db \
+  "SELECT * FROM device_resource_watermarks;"
 
 # Monitor sync activity
 RUST_LOG=sd_core::sync=debug,sd_core::service::sync=debug cargo run
@@ -355,25 +336,43 @@ CREATE TABLE devices (
     id INTEGER PRIMARY KEY,
     uuid TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,   -- URL-safe identifier for unified addressing
+    slug TEXT UNIQUE NOT NULL,
     os TEXT NOT NULL,
     os_version TEXT,
     hardware_model TEXT,
-    network_addresses TEXT, -- JSON array
+
+    -- Hardware specifications
+    cpu_model TEXT,
+    cpu_architecture TEXT,
+    cpu_cores_physical INTEGER,
+    cpu_cores_logical INTEGER,
+    cpu_frequency_mhz INTEGER,
+    memory_total_bytes INTEGER,
+    form_factor TEXT,
+    manufacturer TEXT,
+    gpu_models TEXT,              -- JSON array
+    boot_disk_type TEXT,
+    boot_disk_capacity_bytes INTEGER,
+    swap_total_bytes INTEGER,
+
+    -- Network and status
+    network_addresses TEXT,       -- JSON array
     is_online BOOLEAN DEFAULT 0,
     last_seen_at TEXT NOT NULL,
+    capabilities TEXT,            -- JSON object
 
-    -- Sync management fields
+    -- Sync coordination
     sync_enabled BOOLEAN DEFAULT 1,
     last_sync_at TEXT,
-    last_state_watermark TEXT,   -- Timestamp for device-owned data
-    last_shared_watermark TEXT,  -- HLC for shared resources (JSON)
 
-    capabilities TEXT,  -- JSON object
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
 ```
+
+<Note>
+Watermarks for incremental sync are stored in sync.db, not the devices table. See [Library Sync](/docs/core/library-sync) for watermark tracking details.
+</Note>
 
 ### Connection State Management
 

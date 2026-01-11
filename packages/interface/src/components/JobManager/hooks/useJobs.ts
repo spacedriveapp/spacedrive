@@ -1,11 +1,15 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../context";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 import { sounds } from "@sd/assets/sounds";
 
 // Global set to track which jobs have already played their completion sound
 // This prevents multiple hook instances from playing the sound multiple times
 const completedJobSounds = new Set<string>();
+
+// Global throttle to prevent multiple sounds within 5 seconds
+let lastSoundPlayedAt = 0;
+const SOUND_THROTTLE_MS = 5000;
 
 /**
  * Unified hook for job management and counting.
@@ -56,11 +60,17 @@ export function useJobs() {
           if (jobId && !completedJobSounds.has(jobId)) {
             completedJobSounds.add(jobId);
 
-            // Play job-specific sound
-            if (jobType?.includes("copy") || jobType?.includes("Copy")) {
-              sounds.copy();
-            } else {
-              sounds.jobDone();
+            // Throttle: only play sound if enough time has passed since last sound
+            const now = Date.now();
+            if (now - lastSoundPlayedAt >= SOUND_THROTTLE_MS) {
+              lastSoundPlayedAt = now;
+
+              // Play job-specific sound
+              if (jobType?.includes("copy") || jobType?.includes("Copy")) {
+                sounds.copy();
+              } else {
+                sounds.jobDone();
+              }
             }
 
             // Clean up old entries after 5 seconds to prevent memory leak

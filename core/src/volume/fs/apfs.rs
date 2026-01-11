@@ -360,10 +360,9 @@ pub fn containers_to_volumes(
 			let is_user_visible =
 				should_be_user_visible(mount_point, &volume_info.role, &volume_info.name);
 
-			// Auto-track eligibility: Only UserData volume
-			// Previously we auto-tracked System, Primary, etc., but that created too many overlapping volumes
+			// Auto-track eligibility: Only Primary volume (Data volume on modern macOS)
 			let auto_track_eligible =
-				matches!(volume_type, crate::volume::types::VolumeType::UserData)
+				matches!(volume_type, crate::volume::types::VolumeType::Primary)
 					&& is_user_visible;
 
 			debug!(
@@ -489,7 +488,9 @@ fn classify_volume_type(
 
 	match role {
 		ApfsVolumeRole::System => VolumeType::System,
-		ApfsVolumeRole::Data => VolumeType::UserData,
+		// Data volume is the primary volume on modern macOS (Catalina+)
+		// This is where all user data, applications, and writable files live
+		ApfsVolumeRole::Data => VolumeType::Primary,
 		ApfsVolumeRole::Preboot | ApfsVolumeRole::Recovery => VolumeType::System,
 		ApfsVolumeRole::VM => VolumeType::System,
 		ApfsVolumeRole::Other(_) => {
@@ -649,6 +650,11 @@ impl ApfsHandler {
 		if path_str.starts_with("/var/") && !path_str.starts_with("/var/db/") {
 			return PathBuf::from(format!("/System/Volumes/Data{}", path_str));
 		}
+		// /private contains etc, tmp, var subdirectories on the Data volume
+		// When /tmp symlink canonicalizes, it becomes /private/tmp
+		if path_str.starts_with("/private/") {
+			return PathBuf::from(format!("/System/Volumes/Data{}", path_str));
+		}
 
 		canonical_path
 	}
@@ -745,6 +751,12 @@ pub fn generate_macos_path_mappings() -> Vec<PathMapping> {
 		PathMapping {
 			virtual_path: PathBuf::from("/var"),
 			actual_path: PathBuf::from("/System/Volumes/Data/var"),
+		},
+		// /private is a firmlink that contains etc, tmp, var
+		// When /tmp canonicalizes, it becomes /private/tmp
+		PathMapping {
+			virtual_path: PathBuf::from("/private"),
+			actual_path: PathBuf::from("/System/Volumes/Data/private"),
 		},
 	]
 }

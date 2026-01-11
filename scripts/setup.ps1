@@ -87,7 +87,7 @@ To set up your machine for Spacedrive development, this script will do the follo
 3) Install Rust and Cargo
 4) Install Rust tools
 5) Install Strawberry perl (used by to build the openssl-sys crate)
-6) Install Node.js, npm and pnpm
+6) Install Node.js and Bun
 7) Install LLVM $llvmVersion (compiler for ffmpeg-sys-next crate)
 "@
 
@@ -226,34 +226,45 @@ https://learn.microsoft.com/windows/package-manager/winget/
     }
 
     Write-Host
-    Write-Host 'Installing for pnpm...' -ForegroundColor Yellow
-    # Check if pnpm is already installed and if it's compatible with the project
-    $currentPnpmVersion = if (-not (Get-Command pnpm -ea 0)) { $null } elseif ((pnpm --version) -match '(?sm)(\d+(\.\d+)*)') { [Version]$matches[1] } else { $null }
-    $enginesPnpmVersion = if ($packageJson.engines.pnpm -match '(?sm)(\d+(\.\d+)*)') { [Version]$matches[1] } else { $null }
+    Write-Host 'Installing Bun...' -ForegroundColor Yellow
+    # Check if Bun is already installed and if it's compatible with the project
+    $currentBunVersion = if (-not (Get-Command bun -ea 0)) { $null } elseif ((bun --version) -match '(?sm)(\d+(\.\d+)*)') { [Version]$matches[1] } else { $null }
+    $enginesBunVersion = if ($packageJson.engines.bun -match '(?sm)(\d+(\.\d+)*)') { [Version]$matches[1] } else { $null }
 
-    if (-not $currentPnpmVersion) {
-        # Remove possible remaining envvars from old pnpm installation
-        [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::Machine)
-        [System.Environment]::SetEnvironmentVariable('PNPM_HOME', $null, [System.EnvironmentVariableTarget]::User)
-
-        # Install pnpm
-        npm install -g "pnpm@latest-$($enginesPnpmVersion.Major)"
-        if ($LASTEXITCODE -ne 0) {
-            Exit-WithError 'Failed to install pnpm'
+    if (-not $currentBunVersion) {
+        # Install Bun using PowerShell installer
+        Write-Host 'Downloading and installing Bun...' -ForegroundColor Cyan
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-Expression "& { $(Invoke-RestMethod https://bun.sh/install.ps1) }"
+        $ProgressPreference = 'Continue'
+        
+        if (-not $?) {
+            Exit-WithError 'Failed to install Bun'
         }
 
-        # Add NPM global modules to the PATH
-        if (Test-Path "$env:APPDATA\npm" -PathType Container) {
-            Add-DirectoryToPath "$env:APPDATA\npm"
+        # Add Bun to the PATH
+        if (Test-Path "$env:USERPROFILE\.bun\bin" -PathType Container) {
+            Add-DirectoryToPath "$env:USERPROFILE\.bun\bin"
         }
-    } elseif ($currentPnpmVersion -and $enginesPnpmVersion -and $currentPnpmVersion.CompareTo($enginesPnpmVersion) -lt 0) {
-        Exit-WithError "Current pnpm version: $currentPnpmVersion (required: $enginesPnpmVersion)" `
-            'Uninstall the current version of pnpm and run this script again'
+    } elseif ($currentBunVersion -and $enginesBunVersion -and $currentBunVersion.CompareTo($enginesBunVersion) -lt 0) {
+        Exit-WithError "Current Bun version: $currentBunVersion (required: $enginesBunVersion)" `
+            'Uninstall the current version of Bun and run this script again'
     }
 }
 
 if ($LASTEXITCODE -ne 0) {
     Exit-WithError "Something went wrong, exit code: $LASTEXITCODE"
+}
+
+# Run xtask setup to download native dependencies and configure cargo
+if (-not $env:CI) {
+    Write-Host
+    Write-Host 'Running cargo xtask setup to download native dependencies...' -ForegroundColor Yellow
+    Set-Location $projectRoot
+    cargo xtask setup
+    if ($LASTEXITCODE -ne 0) {
+        Exit-WithError 'Failed to run cargo xtask setup'
+    }
 }
 
 if (-not $env:CI) {

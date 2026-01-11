@@ -526,7 +526,7 @@ impl LibraryManager {
 			sync_service: OnceCell::new(),      // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
-			_lock: lock,
+			_lock: std::sync::Mutex::new(Some(lock)),
 		});
 
 		// Ensure device is registered in this library
@@ -617,6 +617,42 @@ impl LibraryManager {
 		);
 		if let Err(e) = self.volume_manager.auto_track_user_volumes(&library).await {
 			warn!("Failed to auto-track user-relevant volumes: {}", e);
+		}
+
+		// Backfill NULL volume_id values for existing locations
+		// This handles legacy locations created before volume tracking was implemented
+		let backfill_result =
+			crate::location::backfill::backfill_location_volume_ids(&library, &self.volume_manager)
+				.await;
+		if !backfill_result.is_success() {
+			warn!(
+				"Volume ID backfill completed with failures: {}",
+				backfill_result.summary()
+			);
+		} else if backfill_result.locations_found > 0 {
+			info!("Volume ID backfill: {}", backfill_result.summary());
+		}
+
+		// Health check: report any locations still missing volume_id after backfill
+		// These represent actual issues that need investigation (offline volumes, corrupted data, etc.)
+		match crate::location::manager::validate_locations_health(&library).await {
+			Ok(report) => {
+				if !report.missing_volume_id.is_empty() {
+					warn!(
+						"Library {} has {} locations with unresolved volume_id (of {} total). \
+						 These locations may have issues with indexing and sync until their volumes are online.",
+						config.id,
+						report.missing_volume_id.len(),
+						report.total
+					);
+				}
+			}
+			Err(e) => {
+				warn!(
+					"Failed to run location health check for library {}: {}",
+					config.id, e
+				);
+			}
 		}
 
 		// Emit event
@@ -1199,8 +1235,8 @@ impl LibraryManager {
 				id: NotSet,
 				uuid: Set(item_uuid),
 				space_id: Set(space_result.id),
-				group_id: Set(None), // Space-level items have no group
-				entry_id: Set(None), // Default items don't have entries
+				group_id: Set(None),   // Space-level items have no group
+				entry_uuid: Set(None), // Default items don't have entries
 				item_type: Set(item_type_json),
 				order: Set(order),
 				created_at: Set(now.into()),
@@ -1448,6 +1484,7 @@ impl LibraryManager {
 					IndexMode::None,
 					None, // No action context
 					None, // No job policies
+					&context.volume_manager,
 				)
 				.await
 			{
