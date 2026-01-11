@@ -1,15 +1,9 @@
 //! Thumbnail generation action handlers
 
-use super::{
-	job::{ThumbnailJob, ThumbnailJobConfig},
-	processor::ThumbnailProcessor,
-};
+use super::{job::{ThumbnailJob, ThumbnailJobConfig}, processor::ThumbnailProcessor};
 use crate::{
 	context::CoreContext,
-	infra::{
-		action::{error::ActionError, LibraryAction},
-		job::handle::JobHandle,
-	},
+	infra::action::{error::ActionError, LibraryAction},
 	ops::indexing::{path_resolver::PathResolver, processor::ProcessorEntry},
 };
 use specta::Type;
@@ -46,7 +40,7 @@ impl LibraryAction for ThumbnailAction {
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
+		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		// Create thumbnail job config from size
 		let config = ThumbnailJobConfig::from_sizes(vec![self.input.size]);
@@ -202,7 +196,7 @@ impl LibraryAction for RegenerateThumbnailAction {
 			));
 		}
 
-		// Process the file
+		// Process the file - will fail with proper error if video without ffmpeg
 		let result = processor
 			.process(db, &proc_entry)
 			.await

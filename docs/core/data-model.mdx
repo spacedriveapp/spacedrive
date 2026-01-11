@@ -16,7 +16,7 @@ The system separates concerns into distinct entities:
 - **Location** - Monitored directories
 - **Device** - Individual machines in your network
 - **Volume** - Real storage volumes, local, external and cloud
-- **Sidecar** - Dirivitive and associated data
+- **Sidecar** - Derivative and associated data
 
 ## Domain vs. Database Entity Models
 
@@ -101,7 +101,7 @@ pub struct Entry {
     pub parent_id: Option<i32>,       // Parent directory (self-referential)
     pub metadata_id: Option<i32>,     // User metadata (when present)
     pub content_id: Option<i32>,      // Content identity (for deduplication)
-    pub volume_id: Option<i32>,       // Volume this entry is on (ownership inherited from volume's device)
+    pub volume_id: Option<i32>,       // Volume this entry resides on (determines sync ownership)
 
     // Size and hierarchy
     pub size: i64,                    // File size in bytes
@@ -121,6 +121,12 @@ pub struct Entry {
 
 }
 ```
+
+### Ownership via Volume
+
+Entries inherit sync ownership from their volume, not directly from a device. When you plug a portable drive into a different machine, updating the volume's device reference instantly transfers ownership of all entries on that volume. No bulk updates needed.
+
+This design enables portable storage to move seamlessly between devices while maintaining correct sync behavior.
 
 ### UUID Assignment
 
@@ -407,8 +413,9 @@ pub struct Volume {
     pub is_online: bool,
 
 }
-
 ```
+
+Volumes serve as the ownership anchor for entries. The `device_id` field determines which device owns all entries on this volume. When a portable drive moves between machines, updating this single field transfers ownership of the entire volume's contents. See [Library Sync](/docs/core/library-sync) for details on portable volume handling.
 
 ## Sidecar
 
@@ -511,13 +518,17 @@ struct Person {
 
 ### Device-Owned Resources
 
-**Entities**: Entry, Location
-**Behavior**: Only owning device can modify, last state wins
+**Entities**: Device, Volume, Location, Entry
+
+Ownership flows through volumes. A device owns its volumes. Locations and entries reference a volume, inheriting ownership from the volume's device. This indirection enables portable storage: when a drive moves between machines, updating the volume's device reference transfers ownership of all associated entries instantly.
+
+Only the owning device can modify these resources. Last state wins.
 
 ### Shared Resources
 
-**Entities**: Tag, UserMetadata, TagRelationship
-**Behavior**: Any device can modify, HLC ordering for consistency
+**Entities**: Tag, UserMetadata, TagRelationship, ContentIdentity
+
+Any device can modify shared resources. Changes are ordered using Hybrid Logical Clocks for consistency across devices.
 
 ### Foreign Key Mapping
 

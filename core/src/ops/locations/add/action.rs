@@ -97,6 +97,7 @@ impl LibraryAction for LocationAddAction {
 				location_mode,
 				Some(action_context),
 				job_policies_json,
+				&context.volume_manager,
 			)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;

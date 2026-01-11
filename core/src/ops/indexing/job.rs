@@ -258,6 +258,7 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
+		// Resolve volume backend for I/O operations
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
 				match vm
@@ -278,9 +279,9 @@ impl IndexerJob {
 								self.config.path
 							));
 							return Err(JobError::execution(format!(
-								"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
-								self.config.path
-							)));
+							"Cloud volume not found for path: {}. The cloud volume may not be registered yet.",
+							self.config.path
+						)));
 						}
 
 						ctx.log(format!(

@@ -9,9 +9,137 @@ use std::path::Path;
 
 // Import our type extraction system (same as Swift)
 use sd_core::infra::wire::type_extraction::{
-	create_spacedrive_api_structure, generate_spacedrive_api,
+	create_spacedrive_api_structure, generate_spacedrive_api, ApiOperationType, ApiQueryType,
+	SpacedriveApiStructure,
 };
 use specta_typescript::Typescript;
+
+/// Trait for types that can generate TypeScript union members
+trait TypeScriptUnionMember {
+	fn identifier(&self) -> &str;
+	fn input_type_name(&self) -> &str;
+	fn output_type_name(&self) -> &str;
+}
+
+impl TypeScriptUnionMember for ApiOperationType {
+	fn identifier(&self) -> &str {
+		&self.identifier
+	}
+	fn input_type_name(&self) -> &str {
+		&self.input_type_name
+	}
+	fn output_type_name(&self) -> &str {
+		&self.output_type_name
+	}
+}
+
+impl TypeScriptUnionMember for ApiQueryType {
+	fn identifier(&self) -> &str {
+		&self.identifier
+	}
+	fn input_type_name(&self) -> &str {
+		&self.input_type_name
+	}
+	fn output_type_name(&self) -> &str {
+		&self.output_type_name
+	}
+}
+
+/// Trait for types that can generate wire method mappings
+trait WireMethodMember {
+	fn identifier(&self) -> &str;
+	fn wire_method(&self) -> &str;
+}
+
+impl WireMethodMember for ApiOperationType {
+	fn identifier(&self) -> &str {
+		&self.identifier
+	}
+	fn wire_method(&self) -> &str {
+		&self.wire_method
+	}
+}
+
+impl WireMethodMember for ApiQueryType {
+	fn identifier(&self) -> &str {
+		&self.identifier
+	}
+	fn wire_method(&self) -> &str {
+		&self.wire_method
+	}
+}
+
+/// Generate a TypeScript type union from a list of items
+fn generate_type_union<T: TypeScriptUnionMember + Clone>(
+	code: &mut String,
+	type_name: &str,
+	items: &[T],
+) {
+	if items.is_empty() {
+		return;
+	}
+
+	code.push_str(&format!("export type {} =\n", type_name));
+	let mut sorted_items: Vec<T> = items.to_vec();
+	sorted_items.sort_by(|a, b| a.identifier().cmp(b.identifier()));
+
+	for (i, item) in sorted_items.iter().enumerate() {
+		let separator = if i == 0 { "  " } else { "| " };
+		code.push_str(&format!(
+			"  {} {{ type: '{}'; input: {}; output: {} }}\n",
+			separator,
+			item.identifier(),
+			item.input_type_name(),
+			item.output_type_name()
+		));
+	}
+	code.push_str(";\n\n");
+}
+
+/// Generate wire method mappings for a section
+fn generate_wire_methods<T: WireMethodMember + Clone>(
+	code: &mut String,
+	section_name: &str,
+	items: &[T],
+) {
+	if items.is_empty() {
+		return;
+	}
+
+	code.push_str(&format!("  {}: {{\n", section_name));
+	let mut sorted_items: Vec<T> = items.to_vec();
+	sorted_items.sort_by(|a, b| a.identifier().cmp(b.identifier()));
+
+	for item in &sorted_items {
+		code.push_str(&format!(
+			"    '{}': '{}',\n",
+			item.identifier(),
+			item.wire_method()
+		));
+	}
+	code.push_str("  },\n\n");
+}
+
+/// Print summary statistics for API structure
+fn print_summary(api_structure: &SpacedriveApiStructure) {
+	println!("\nSummary:");
+	println!(
+		"   • Core Actions: {} operations",
+		api_structure.core_actions.len()
+	);
+	println!(
+		"   • Library Actions: {} operations",
+		api_structure.library_actions.len()
+	);
+	println!(
+		"   • Core Queries: {} queries",
+		api_structure.core_queries.len()
+	);
+	println!(
+		"   • Library Queries: {} queries",
+		api_structure.library_queries.len()
+	);
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("️Generating TypeScript types using Specta + rspc-inspired type extraction...");
@@ -96,109 +224,51 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// Generate operation/query type unions (like Swift enums)
 	typescript_code.push_str("// ===== API Type Unions =====\n\n");
 
-	// Core Actions
-	if !api_structure.core_actions.is_empty() {
-		typescript_code.push_str("export type CoreAction =\n");
-		for (i, action) in api_structure.core_actions.iter().enumerate() {
-			let separator = if i == 0 { "  " } else { "| " };
-			typescript_code.push_str(&format!(
-				"  {} {{ type: '{}'; input: {}; output: {} }}\n",
-				separator, action.identifier, action.input_type_name, action.output_type_name
-			));
-		}
-		typescript_code.push_str(";\n\n");
-	}
-
-	// Library Actions
-	if !api_structure.library_actions.is_empty() {
-		typescript_code.push_str("export type LibraryAction =\n");
-		for (i, action) in api_structure.library_actions.iter().enumerate() {
-			let separator = if i == 0 { "  " } else { "| " };
-			typescript_code.push_str(&format!(
-				"  {} {{ type: '{}'; input: {}; output: {} }}\n",
-				separator, action.identifier, action.input_type_name, action.output_type_name
-			));
-		}
-		typescript_code.push_str(";\n\n");
-	}
-
-	// Core Queries
-	if !api_structure.core_queries.is_empty() {
-		typescript_code.push_str("export type CoreQuery =\n");
-		for (i, query) in api_structure.core_queries.iter().enumerate() {
-			let separator = if i == 0 { "  " } else { "| " };
-			typescript_code.push_str(&format!(
-				"  {} {{ type: '{}'; input: {}; output: {} }}\n",
-				separator, query.identifier, query.input_type_name, query.output_type_name
-			));
-		}
-		typescript_code.push_str(";\n\n");
-	}
-
-	// Library Queries
-	if !api_structure.library_queries.is_empty() {
-		typescript_code.push_str("export type LibraryQuery =\n");
-		for (i, query) in api_structure.library_queries.iter().enumerate() {
-			let separator = if i == 0 { "  " } else { "| " };
-			typescript_code.push_str(&format!(
-				"  {} {{ type: '{}'; input: {}; output: {} }}\n",
-				separator, query.identifier, query.input_type_name, query.output_type_name
-			));
-		}
-		typescript_code.push_str(";\n\n");
-	}
+	generate_type_union(
+		&mut typescript_code,
+		"CoreAction",
+		&api_structure.core_actions,
+	);
+	generate_type_union(
+		&mut typescript_code,
+		"LibraryAction",
+		&api_structure.library_actions,
+	);
+	generate_type_union(
+		&mut typescript_code,
+		"CoreQuery",
+		&api_structure.core_queries,
+	);
+	generate_type_union(
+		&mut typescript_code,
+		"LibraryQuery",
+		&api_structure.library_queries,
+	);
 
 	// Wire method mapping (for client implementation)
 	typescript_code.push_str("// ===== Wire Method Mappings =====\n\n");
 	typescript_code.push_str("export const WIRE_METHODS = {\n");
 
-	// Core actions
-	if !api_structure.core_actions.is_empty() {
-		typescript_code.push_str("  coreActions: {\n");
-		for action in &api_structure.core_actions {
-			typescript_code.push_str(&format!(
-				"    '{}': '{}',\n",
-				action.identifier, action.wire_method
-			));
-		}
-		typescript_code.push_str("  },\n\n");
-	}
-
-	// Library actions
-	if !api_structure.library_actions.is_empty() {
-		typescript_code.push_str("  libraryActions: {\n");
-		for action in &api_structure.library_actions {
-			typescript_code.push_str(&format!(
-				"    '{}': '{}',\n",
-				action.identifier, action.wire_method
-			));
-		}
-		typescript_code.push_str("  },\n\n");
-	}
-
-	// Core queries
-	if !api_structure.core_queries.is_empty() {
-		typescript_code.push_str("  coreQueries: {\n");
-		for query in &api_structure.core_queries {
-			typescript_code.push_str(&format!(
-				"    '{}': '{}',\n",
-				query.identifier, query.wire_method
-			));
-		}
-		typescript_code.push_str("  },\n\n");
-	}
-
-	// Library queries
-	if !api_structure.library_queries.is_empty() {
-		typescript_code.push_str("  libraryQueries: {\n");
-		for query in &api_structure.library_queries {
-			typescript_code.push_str(&format!(
-				"    '{}': '{}',\n",
-				query.identifier, query.wire_method
-			));
-		}
-		typescript_code.push_str("  },\n");
-	}
+	generate_wire_methods(
+		&mut typescript_code,
+		"coreActions",
+		&api_structure.core_actions,
+	);
+	generate_wire_methods(
+		&mut typescript_code,
+		"libraryActions",
+		&api_structure.library_actions,
+	);
+	generate_wire_methods(
+		&mut typescript_code,
+		"coreQueries",
+		&api_structure.core_queries,
+	);
+	generate_wire_methods(
+		&mut typescript_code,
+		"libraryQueries",
+		&api_structure.library_queries,
+	);
 
 	typescript_code.push_str("} as const;\n");
 
@@ -215,23 +285,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Generate a summary of what was created
-	println!("\nSummary:");
-	println!(
-		"   • Core Actions: {} operations",
-		api_structure.core_actions.len()
-	);
-	println!(
-		"   • Library Actions: {} operations",
-		api_structure.library_actions.len()
-	);
-	println!(
-		"   • Core Queries: {} queries",
-		api_structure.core_queries.len()
-	);
-	println!(
-		"   • Library Queries: {} queries",
-		api_structure.library_queries.len()
-	);
+	print_summary(&api_structure);
 	println!("\nNext steps:");
 	println!("   1. Check packages/ts-client/src/generated/types.ts");
 	println!("   2. Import types in your client code");

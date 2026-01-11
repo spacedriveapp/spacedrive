@@ -120,7 +120,17 @@ mod tests {
 	fn test_is_thumbnail_supported() {
 		assert!(ThumbnailUtils::is_thumbnail_supported("image/jpeg"));
 		assert!(ThumbnailUtils::is_thumbnail_supported("image/png"));
-		assert!(ThumbnailUtils::is_thumbnail_supported("video/mp4"));
+
+		#[cfg(feature = "ffmpeg")]
+		{
+			assert!(ThumbnailUtils::is_thumbnail_supported("video/mp4"));
+		}
+
+		#[cfg(not(feature = "ffmpeg"))]
+		{
+			assert!(!ThumbnailUtils::is_thumbnail_supported("video/mp4"));
+		}
+
 		assert!(ThumbnailUtils::is_thumbnail_supported("application/pdf"));
 		assert!(!ThumbnailUtils::is_thumbnail_supported("text/plain"));
 		assert!(!ThumbnailUtils::is_thumbnail_supported("application/json"));

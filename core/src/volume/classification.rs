@@ -27,13 +27,14 @@ impl VolumeClassifier for MacOSClassifier {
 		let mount_str = info.mount_point.to_string_lossy();
 
 		match mount_str.as_ref() {
-			// Primary system drive
+			// Primary system drive (legacy pre-Catalina)
 			"/" => VolumeType::Primary,
 
-			// User data volume (modern macOS separates this)
-			path if path.starts_with("/System/Volumes/Data") => VolumeType::UserData,
+			// Primary data volume (modern macOS Catalina+ with APFS system/data split)
+			// This is where all user data, applications, and writable files live
+			path if path.starts_with("/System/Volumes/Data") => VolumeType::Primary,
 
-			// System internal volumes
+			// System internal volumes (preboot, recovery, VM, etc.)
 			path if path.starts_with("/System/Volumes/") => VolumeType::System,
 
 			// macOS autofs system and /home mount
@@ -172,3 +173,4 @@ pub fn get_classifier() -> Box<dyn VolumeClassifier> {
 	#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
 	return Box::new(UnknownClassifier);
 }
+// test comment

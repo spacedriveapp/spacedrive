@@ -17,7 +17,14 @@ pub fn download_native_deps(filename: &str, dest_dir: &Path) -> Result<()> {
 	println!("Downloading native dependencies from:");
 	println!("   {}", url);
 
-	let response = reqwest::blocking::get(&url)
+	let client = reqwest::blocking::Client::builder()
+		.timeout(std::time::Duration::from_secs(300))
+		.build()
+		.context("Failed to create HTTP client")?;
+
+	let response = client
+		.get(&url)
+		.send()
 		.context("Failed to download native dependencies")?
 		.error_for_status()
 		.context("Server returned error")?;
@@ -48,7 +55,14 @@ pub fn download_ios_deps(target: &str, dest_dir: &Path) -> Result<()> {
 	println!("Downloading iOS dependencies for {}...", target);
 	println!("   {}", url);
 
-	let response = reqwest::blocking::get(&url)
+	let client = reqwest::blocking::Client::builder()
+		.timeout(std::time::Duration::from_secs(300))
+		.build()
+		.context("Failed to create HTTP client")?;
+
+	let response = client
+		.get(&url)
+		.send()
 		.context("Failed to download iOS dependencies")?
 		.error_for_status()
 		.context("Server returned error")?;
@@ -79,7 +93,14 @@ pub fn download_android_deps(target: &str, dest_dir: &Path) -> Result<()> {
 	println!("Downloading Android dependencies for {}...", target);
 	println!("   {}", url);
 
-	let response = reqwest::blocking::get(&url)
+	let client = reqwest::blocking::Client::builder()
+		.timeout(std::time::Duration::from_secs(300))
+		.build()
+		.context("Failed to create HTTP client")?;
+
+	let response = client
+		.get(&url)
+		.send()
 		.context("Failed to download Android dependencies")?
 		.error_for_status()
 		.context("Server returned error")?;
