@@ -156,6 +156,9 @@ export const Thumb = memo(function Thumb({
       contentKind === "document" ||
       contentKind === "config");
 
+  // Scale border radius with size (8% of size, clamped between 2px and 8px)
+  const borderRadius = Math.min(8, Math.max(2, size * 0.08));
+
   return (
     <div
       className={clsx(
@@ -199,10 +202,10 @@ export const Thumb = memo(function Thumb({
           className={clsx(
             "absolute inset-0 m-auto max-h-full max-w-full object-contain transition-opacity",
             // Default frame styling (can be overridden)
-            frameClassName ||
-              "rounded-lg border border-app-line/50 bg-app-box/30",
+            frameClassName || "border border-app-line/50 bg-app-box/30",
             !thumbLoaded && "opacity-0",
           )}
+          style={frameClassName ? undefined : { borderRadius: `${borderRadius}px` }}
           onLoad={() => setThumbLoaded(true)}
           onError={() => setThumbError(true)}
         />
