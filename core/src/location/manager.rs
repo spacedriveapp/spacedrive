@@ -131,28 +131,27 @@ impl LocationManager {
 		};
 
 		// Resolve volume for this location path BEFORE creating the entry
+		// Volume detection is required - all locations must have a volume
 		let volume_id = match volume_manager.resolve_volume_for_sdpath(&sd_path, &library).await {
 			Ok(Some(volume)) => {
 				info!("Resolved volume '{}' for location path", volume.name);
 				// Ensure volume is in database and get its ID
-				match volume_manager.ensure_volume_in_db(&volume, &library).await {
-					Ok(vol_id) => {
-						info!("Location will use volume_id={}", vol_id);
-						Some(vol_id)
-					}
-					Err(e) => {
-						warn!("Failed to ensure volume in database: {}, location will have NULL volume_id", e);
-						None
-					}
-				}
+				volume_manager
+					.ensure_volume_in_db(&volume, &library)
+					.await
+					.map_err(|e| LocationError::Other(format!("Failed to register volume: {}", e)))?
 			}
 			Ok(None) => {
-				warn!("No volume found for location path, volume_id will be NULL");
-				None
+				return Err(LocationError::Other(format!(
+					"No volume found for location path: {}. Volume detection is required for all locations.",
+					sd_path
+				)));
 			}
 			Err(e) => {
-				warn!("Error resolving volume for location: {}, volume_id will be NULL", e);
-				None
+				return Err(LocationError::Other(format!(
+					"Failed to resolve volume for location: {}",
+					e
+				)));
 			}
 		};
 
@@ -175,7 +174,7 @@ impl LocationManager {
 			permissions: Set(None),
 			inode: Set(inode.map(|i| i as i64)), // Use extracted inode
 			parent_id: Set(None), // Location root has no parent
-			volume_id: Set(volume_id), // Use resolved volume_id
+			volume_id: Set(Some(volume_id)), // Volume is required for all locations
 			..Default::default()
 		};
 
@@ -207,7 +206,7 @@ impl LocationManager {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(location_id),
 			device_id: Set(device_id),
-			volume_id: Set(volume_id),
+			volume_id: Set(Some(volume_id)),
 			entry_id: Set(Some(entry_id)),
 			name: Set(Some(display_name.clone())),
 			index_mode: Set(index_mode.to_string()),

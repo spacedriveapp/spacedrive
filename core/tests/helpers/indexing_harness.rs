@@ -8,8 +8,9 @@ use super::{
 };
 use anyhow::Context;
 use sd_core::{
+	domain::addressing::SdPath,
 	infra::db::entities::{self, entry_closure},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	location::{IndexMode, LocationManager},
 	Core,
 };
 use sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
@@ -68,6 +69,8 @@ impl IndexingHarnessBuilder {
 
 		// Set watcher state based on builder configuration
 		config.services.fs_watcher_enabled = self.watcher_enabled;
+		// Enable volume monitoring so VolumeManager detects volumes
+		config.services.volume_monitoring_enabled = true;
 		config.save()?;
 
 		// Initialize core
@@ -197,25 +200,30 @@ impl IndexingHarness {
 			"Creating and indexing location"
 		);
 
-		let location_args = LocationCreateArgs {
-			path: path.to_path_buf(),
-			name: Some(name.to_string()),
-			index_mode: mode,
-		};
+		let device_slug = sd_core::device::get_current_device_slug();
+		let sd_path = SdPath::new(device_slug, path.to_path_buf());
 
-		let location_db_id = create_location(
-			self.library.clone(),
-			&self.core.events,
-			location_args,
-			self.device_db_id,
-		)
-		.await?;
+		let location_manager = LocationManager::new((*self.core.events).clone());
+		let (location_uuid, _display_path) = location_manager
+			.add_location(
+				self.library.clone(),
+				sd_path,
+				Some(name.to_string()),
+				self.device_db_id,
+				mode,
+				None, // No action context for tests
+				None, // Use default job policies
+				&self.core.context.volume_manager,
+			)
+			.await?;
 
-		// Get the location record to find its entry_id
-		let location_record = entities::location::Entity::find_by_id(location_db_id)
+		// Get the location record to find its database ID and entry_id
+		let location_record = entities::location::Entity::find()
+			.filter(entities::location::Column::Uuid.eq(location_uuid))
 			.one(self.library.db().conn())
 			.await?
 			.ok_or_else(|| anyhow::anyhow!("Location not found after creation"))?;
+		let location_db_id = location_record.id;
 
 		// Wait for indexing to complete
 		wait_for_indexing(&self.library, location_db_id, Duration::from_secs(30)).await?;
