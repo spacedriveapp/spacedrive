@@ -113,7 +113,7 @@ async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 	);
 
 	// Check content_id linkage
-	let orphaned_bob = entities::entry::Entity::find()
+	let orphaned_content_bob = entities::entry::Entity::find()
 		.filter(entities::entry::Column::Kind.eq(0))
 		.filter(entities::entry::Column::Size.gt(0))
 		.filter(entities::entry::Column::ContentId.is_null())
@@ -126,15 +126,69 @@ async fn test_realtime_sync_alice_to_bob() -> anyhow::Result<()> {
 		.count(harness.library_bob.db().conn())
 		.await?;
 
-	let max_allowed_orphaned = ((total_files as f64) * 0.05).ceil() as u64;
+	let max_allowed_orphaned_content = ((total_files as f64) * 0.05).ceil() as u64;
 
 	assert!(
-		orphaned_bob <= max_allowed_orphaned,
-		"Too many orphaned files on Bob: {}/{} ({:.1}%)",
-		orphaned_bob,
+		orphaned_content_bob <= max_allowed_orphaned_content,
+		"Too many files without content_id on Bob: {}/{} ({:.1}%)",
+		orphaned_content_bob,
 		total_files,
-		(orphaned_bob as f64 / total_files as f64) * 100.0
+		(orphaned_content_bob as f64 / total_files as f64) * 100.0
 	);
+
+	// CRITICAL: Check for orphaned parent_id entries (the actual sync bug)
+	// Files and subdirectories should NEVER have NULL parent_id (except location roots)
+	let orphaned_hierarchy_bob = entities::entry::Entity::find()
+		.filter(entities::entry::Column::ParentId.is_null())
+		.filter(entities::entry::Column::Kind.eq(0)) // Files only
+		.count(harness.library_bob.db().conn())
+		.await?;
+
+	assert_eq!(
+		orphaned_hierarchy_bob, 0,
+		"SYNC BUG: Found {} files with NULL parent_id on Bob (should be 0). \
+		This indicates batch FK remapping failed because children arrived before parents.",
+		orphaned_hierarchy_bob
+	);
+
+	// Also check for duplicate entries (same name/content, different UUID)
+	// This would indicate re-creation of entries that already exist
+	use sea_orm::sea_query::Query;
+	use sea_orm::FromQueryResult;
+
+	#[derive(Debug, FromQueryResult)]
+	struct DuplicateCount {
+		dup_count: i64,
+	}
+
+	let duplicate_check = sea_orm::Statement::from_sql_and_values(
+		sea_orm::DbBackend::Sqlite,
+		r#"
+			SELECT COUNT(*) as dup_count
+			FROM (
+				SELECT e1.name, e1.extension, e1.volume_id, COUNT(*) as cnt
+				FROM entries e1
+				JOIN content_identities ci ON e1.content_id = ci.id
+				WHERE e1.kind = 0
+				GROUP BY e1.name, e1.extension, e1.volume_id, ci.content_hash
+				HAVING COUNT(*) > 1
+			)
+		"#,
+		vec![],
+	);
+
+	let dup_result = DuplicateCount::find_by_statement(duplicate_check)
+		.one(harness.library_bob.db().conn())
+		.await?;
+
+	if let Some(result) = dup_result {
+		assert_eq!(
+			result.dup_count, 0,
+			"SYNC BUG: Found {} sets of duplicate files on Bob (same content, different UUIDs). \
+			This indicates entries were re-created instead of properly FK-mapped.",
+			result.dup_count
+		);
+	}
 
 	Ok(())
 }
@@ -181,6 +235,19 @@ async fn test_realtime_sync_bob_to_alice() -> anyhow::Result<()> {
 		diff
 	);
 
+	// Check for orphaned parent_id on Alice (reverse direction)
+	let orphaned_alice = entities::entry::Entity::find()
+		.filter(entities::entry::Column::ParentId.is_null())
+		.filter(entities::entry::Column::Kind.eq(0))
+		.count(harness.library_alice.db().conn())
+		.await?;
+
+	assert_eq!(
+		orphaned_alice, 0,
+		"SYNC BUG: Found {} files with NULL parent_id on Alice (should be 0)",
+		orphaned_alice
+	);
+
 	Ok(())
 }
 
@@ -224,6 +291,29 @@ async fn test_concurrent_indexing() -> anyhow::Result<()> {
 
 	assert_eq!(locations_alice, 2, "Alice should have 2 locations");
 	assert_eq!(locations_bob, 2, "Bob should have 2 locations");
+
+	// Check for orphaned parent_id on both devices
+	let orphaned_alice = entities::entry::Entity::find()
+		.filter(entities::entry::Column::ParentId.is_null())
+		.filter(entities::entry::Column::Kind.eq(0))
+		.count(harness.library_alice.db().conn())
+		.await?;
+	let orphaned_bob = entities::entry::Entity::find()
+		.filter(entities::entry::Column::ParentId.is_null())
+		.filter(entities::entry::Column::Kind.eq(0))
+		.count(harness.library_bob.db().conn())
+		.await?;
+
+	assert_eq!(
+		orphaned_alice, 0,
+		"SYNC BUG: Found {} files with NULL parent_id on Alice",
+		orphaned_alice
+	);
+	assert_eq!(
+		orphaned_bob, 0,
+		"SYNC BUG: Found {} files with NULL parent_id on Bob",
+		orphaned_bob
+	);
 
 	Ok(())
 }
@@ -285,6 +375,19 @@ async fn test_content_identity_linkage() -> anyhow::Result<()> {
 		files_with_content_bob,
 		files_with_content_alice,
 		target
+	);
+
+	// Check for orphaned parent_id
+	let orphaned_bob = entities::entry::Entity::find()
+		.filter(entities::entry::Column::ParentId.is_null())
+		.filter(entities::entry::Column::Kind.eq(0))
+		.count(harness.library_bob.db().conn())
+		.await?;
+
+	assert_eq!(
+		orphaned_bob, 0,
+		"SYNC BUG: Found {} files with NULL parent_id on Bob",
+		orphaned_bob
 	);
 
 	Ok(())

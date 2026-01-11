@@ -35,8 +35,8 @@ use uuid::Uuid;
 struct BackfillRaceHarness {
 	_test_data_alice: TestDataDir,
 	_test_data_bob: TestDataDir,
-	_core_alice: Core,
-	_core_bob: Core,
+	core_alice: Core,
+	core_bob: Core,
 	library_alice: Arc<Library>,
 	library_bob: Arc<Library>,
 	device_alice_id: Uuid,
@@ -78,6 +78,11 @@ impl BackfillRaceHarness {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to create Bob core: {}", e))?;
 		let device_bob_id = core_bob.device.device_id()?;
+
+		// Initialize volume managers
+		tracing::info!("Initializing volume managers");
+		core_alice.volumes.initialize().await?;
+		core_bob.volumes.initialize().await?;
 
 		let library_alice = core_alice
 			.libraries
@@ -166,8 +171,8 @@ impl BackfillRaceHarness {
 		Ok(Self {
 			_test_data_alice: test_data_alice,
 			_test_data_bob: test_data_bob,
-			_core_alice: core_alice,
-			_core_bob: core_bob,
+			core_alice,
+			core_bob,
 			library_alice,
 			library_bob,
 			device_alice_id,
@@ -344,6 +349,7 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 
 	add_and_index_location(
 		&harness.library_alice,
+		&harness.core_alice.volumes,
 		crates_path.to_str().unwrap(),
 		"crates",
 	)
@@ -386,6 +392,7 @@ async fn test_backfill_with_concurrent_indexing() -> anyhow::Result<()> {
 	let backfill_future = harness.trigger_bob_backfill();
 	let indexing_future = add_and_index_location(
 		&harness.library_alice,
+		&harness.core_alice.volumes,
 		test_path.to_str().unwrap(),
 		"spacedrive",
 	);
@@ -470,8 +477,8 @@ async fn test_sequential_backfill_control() -> anyhow::Result<()> {
 
 	tracing::info!("Indexing both locations on Alice first");
 
-	add_and_index_location(&harness.library_alice, core_path.to_str().unwrap(), "core").await?;
-	add_and_index_location(&harness.library_alice, apps_path.to_str().unwrap(), "apps").await?;
+	add_and_index_location(&harness.library_alice, &harness.core_alice.volumes, core_path.to_str().unwrap(), "core").await?;
+	add_and_index_location(&harness.library_alice, &harness.core_alice.volumes, apps_path.to_str().unwrap(), "apps").await?;
 
 	let alice_entries = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())

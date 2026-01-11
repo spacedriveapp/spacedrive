@@ -904,6 +904,11 @@ impl JobManager {
 		REGISTRY.get_schema(job_name)
 	}
 
+	/// Get read-only access to the job database for queries
+	pub fn database(&self) -> &super::database::JobDb {
+		&self.db
+	}
+
 	/// List currently running jobs from memory (for live monitoring)
 	pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
 		let device_id = self

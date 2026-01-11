@@ -34,6 +34,9 @@ pub struct ConfirmationRequest {
 	pub message: String,
 	/// A list of choices to present to the user.
 	pub choices: Vec<String>,
+	/// Optional metadata for rich UI display (strategy info, file counts, etc.)
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub metadata: Option<serde_json::Value>,
 }
 
 // handler and registry modules removed - using unified ActionTrait instead
