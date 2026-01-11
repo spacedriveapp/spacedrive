@@ -901,9 +901,21 @@ impl VolumeManager {
 		}
 
 		// Search through all volumes using canonical path
+		// IMPORTANT: Sort by mount point length (longest first) so more specific mounts
+		// are checked before generic ones (e.g., /System/Volumes/Data before /)
 		let volumes = self.volumes.read().await;
-		for volume in volumes.values() {
+		info!("volume_for_path: Looking for path {} in {} volumes", canonical_path.display(), volumes.len());
+
+		let mut sorted_volumes: Vec<_> = volumes.iter().collect();
+		sorted_volumes.sort_by(|a, b| {
+			b.1.mount_point.to_string_lossy().len()
+				.cmp(&a.1.mount_point.to_string_lossy().len())
+		});
+
+		for (fp, volume) in sorted_volumes {
+			info!("volume_for_path: Checking volume '{}' at {} (fingerprint: {})", volume.name, volume.mount_point.display(), fp.0);
 			if volume.contains_path(&canonical_path) {
+				info!("volume_for_path: MATCH! Path {} is on volume '{}'", canonical_path.display(), volume.name);
 				// Cache the result using canonical path
 				let mut cache = self.path_cache.write().await;
 				cache.insert(canonical_path.clone(), volume.fingerprint.clone());
@@ -911,7 +923,7 @@ impl VolumeManager {
 			}
 		}
 
-		debug!("No volume found for path: {}", canonical_path.display());
+		info!("No volume found for path: {} (searched {} volumes)", canonical_path.display(), volumes.len());
 		None
 	}
 
@@ -932,15 +944,19 @@ impl VolumeManager {
 		sdpath: &crate::domain::addressing::SdPath,
 		_library: &crate::library::Library,
 	) -> VolumeResult<Option<Volume>> {
+		info!("resolve_volume_for_sdpath called with: {}", sdpath);
 		// Check if this is a cloud path
 		if let Some((service, identifier, _path)) = sdpath.as_cloud() {
 			// Cloud path - use identity-based lookup
+			info!("Cloud path detected: service={:?}, identifier={}", service, identifier);
 			Ok(self.find_cloud_volume(service, identifier).await)
 		} else {
 			// Local path - resolve by filesystem path
 			if let Some(local_path) = sdpath.as_local_path() {
+				info!("Local path extracted: {}", local_path.display());
 				Ok(self.volume_for_path(local_path).await)
 			} else {
+				info!("as_local_path() returned None for sdpath: {}", sdpath);
 				Ok(None)
 			}
 		}

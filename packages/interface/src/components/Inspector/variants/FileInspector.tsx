@@ -1,80 +1,76 @@
 import {
-	Info,
-	Tag as TagIcon,
+	ArrowsClockwise,
 	Calendar,
+	ChatCircle,
+	ClockCounterClockwise,
+	Cube,
+	DotsThree,
+	FilmStrip,
+	Fingerprint,
 	HardDrive,
 	Hash,
-	Fingerprint,
-	Palette,
 	Image,
-	ClockCounterClockwise,
-	DotsThree,
-	MapPin,
-	ChatCircle,
-	PaperPlaneRight,
-	Paperclip,
-	Sparkle,
-	TextAa,
-	Microphone,
-	ArrowsClockwise,
+	Info,
 	MagnifyingGlass,
+	MapPin,
+	Microphone,
+	Palette,
+	Paperclip,
+	PaperPlaneRight,
+	Sparkle,
+	Tag as TagIcon,
+	TextAa,
 	Trash,
-	FilmStrip,
-	VideoCamera,
-	Cube,
-} from "@phosphor-icons/react";
-import { useState } from "react";
-import { getContentKind } from "../../../routes/explorer/utils";
+	VideoCamera
+} from '@phosphor-icons/react';
+import {getIcon} from '@sd/assets/util';
+import type {File} from '@sd/ts-client';
+import {toast} from '@sd/ui';
+import clsx from 'clsx';
+import {useState} from 'react';
+import {useJobs} from '../../../components/JobManager/hooks/useJobs';
+import {TagSelectorButton} from '../../../components/Tags';
+import {usePlatform} from '../../../contexts/PlatformContext';
+import {useServer} from '../../../contexts/ServerContext';
 import {
-	InfoRow,
-	Tag,
-	Section,
-	Divider,
-	Tabs,
-	TabContent,
-} from "../Inspector";
-import { TagSelectorButton } from "../../../components/Tags";
-import clsx from "clsx";
-import type { File } from "@sd/ts-client";
-import {
-	useNormalizedQuery,
-	useLibraryMutation,
 	getDeviceIcon,
-} from "../../../contexts/SpacedriveContext";
-import { formatBytes } from "../../../routes/explorer/utils";
-import { File as FileComponent } from "../../../routes/explorer/File";
-import { useContextMenu } from "../../../hooks/useContextMenu";
-import { usePlatform } from "../../../contexts/PlatformContext";
-import { useServer } from "../../../contexts/ServerContext";
-import { useJobs } from "../../../components/JobManager/hooks/useJobs";
-import { getIcon } from "@sd/assets/util";
-import { toast } from "@sd/ui";
+	useLibraryMutation,
+	useNormalizedQuery
+} from '../../../contexts/SpacedriveContext';
+import {useContextMenu} from '../../../hooks/useContextMenu';
+import {File as FileComponent} from '../../../routes/explorer/File';
+import {formatBytes, getContentKind} from '../../../routes/explorer/utils';
+import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
 
 interface FileInspectorProps {
 	file: File;
 }
 
-export function FileInspector({ file }: FileInspectorProps) {
-	const [activeTab, setActiveTab] = useState("overview");
+export function FileInspector({file}: FileInspectorProps) {
+	const [activeTab, setActiveTab] = useState('overview');
 	const isDev = import.meta.env.DEV;
 
-	const fileQuery = useNormalizedQuery<{ file_id: string }, File>({
-		wireMethod: "query:files.by_id",
-		input: { file_id: file?.id || "" },
-		resourceType: "file",
+	const fileQuery = useNormalizedQuery<{file_id: string}, File>({
+		wireMethod: 'query:files.by_id',
+		input: {file_id: file?.id || ''},
+		resourceType: 'file',
 		resourceId: file?.id, // Filter batch events to only this file
-		enabled: !!file?.id,
+		enabled: !!file?.id
 	});
 
 	const fileData = fileQuery.data || file;
 
 	const tabs = [
-		{ id: "overview", label: "Overview", icon: Info },
-		{ id: "sidecars", label: "Sidecars", icon: Image },
-		{ id: "instances", label: "Instances", icon: MapPin },
-		...(isDev ? [{ id: "chat", label: "Chat", icon: ChatCircle, badge: 3 }] : []),
-		...(isDev ? [{ id: "activity", label: "Activity", icon: ClockCounterClockwise }] : []),
-		{ id: "details", label: "More", icon: DotsThree },
+		{id: 'overview', label: 'Overview', icon: Info},
+		{id: 'sidecars', label: 'Sidecars', icon: Image},
+		{id: 'instances', label: 'Instances', icon: MapPin},
+		...(isDev
+			? [{id: 'chat', label: 'Chat', icon: ChatCircle, badge: 3}]
+			: []),
+		...(isDev
+			? [{id: 'activity', label: 'Activity', icon: ClockCounterClockwise}]
+			: []),
+		{id: 'details', label: 'More', icon: DotsThree}
 	];
 
 	return (
@@ -83,7 +79,7 @@ export function FileInspector({ file }: FileInspectorProps) {
 			<Tabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
 			{/* Tab Content */}
-			<div className="flex-1 overflow-hidden flex flex-col mt-2.5">
+			<div className="mt-2.5 flex flex-1 flex-col overflow-hidden">
 				<TabContent id="overview" activeTab={activeTab}>
 					<OverviewTab file={fileData} />
 				</TabContent>
@@ -116,55 +112,55 @@ export function FileInspector({ file }: FileInspectorProps) {
 	);
 }
 
-function OverviewTab({ file }: { file: File }) {
+function OverviewTab({file}: {file: File}) {
 	const formatDate = (dateStr: string) => {
 		const date = new Date(dateStr);
-		return date.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
-			year: "numeric",
+		return date.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric',
+			year: 'numeric'
 		});
 	};
 
 	// Tag mutations
-	const applyTag = useLibraryMutation("tags.apply");
+	const applyTag = useLibraryMutation('tags.apply');
 
 	// AI Processing mutations
-	const extractText = useLibraryMutation("media.ocr.extract");
-	const transcribeAudio = useLibraryMutation("media.speech.transcribe");
-	const generateSplat = useLibraryMutation("media.splat.generate");
+	const extractText = useLibraryMutation('media.ocr.extract');
+	const transcribeAudio = useLibraryMutation('media.speech.transcribe');
+	const generateSplat = useLibraryMutation('media.splat.generate');
 	const regenerateThumbnail = useLibraryMutation(
-		"media.thumbnail.regenerate",
+		'media.thumbnail.regenerate'
 	);
-	const generateThumbstrip = useLibraryMutation("media.thumbstrip.generate");
-	const generateProxy = useLibraryMutation("media.proxy.generate");
+	const generateThumbstrip = useLibraryMutation('media.thumbstrip.generate');
+	const generateProxy = useLibraryMutation('media.proxy.generate');
 
 	// Job tracking for long-running operations
-	const { jobs } = useJobs();
+	const {jobs} = useJobs();
 	const isSpeechJobRunning = jobs.some(
 		(job) =>
-			job.name === "speech_to_text" &&
-			(job.status === "running" || job.status === "queued"),
+			job.name === 'speech_to_text' &&
+			(job.status === 'running' || job.status === 'queued')
 	);
 
 	// Check content kind for available actions
-	const isImage = getContentKind(file) === "image";
-	const isVideo = getContentKind(file) === "video";
-	const isAudio = getContentKind(file) === "audio";
+	const isImage = getContentKind(file) === 'image';
+	const isVideo = getContentKind(file) === 'video';
+	const isAudio = getContentKind(file) === 'audio';
 	const hasText = file?.content_identity?.text_content;
 
 	const contentKind = getContentKind(file);
 	const fileKind =
-		contentKind && contentKind !== "unknown"
+		contentKind && contentKind !== 'unknown'
 			? contentKind
-			: file.kind === "File"
-				? file.extension || "File"
+			: file.kind === 'File'
+				? file.extension || 'File'
 				: file.kind;
 
 	return (
 		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
 			{/* Thumbnail */}
-			<div className="flex justify-center w-full px-4">
+			<div className="flex w-full justify-center px-4">
 				<FileComponent.Thumb
 					file={file}
 					size={200}
@@ -175,11 +171,11 @@ function OverviewTab({ file }: { file: File }) {
 
 			{/* File name */}
 			<div className="px-2 text-center">
-				<h4 className="text-sm font-semibold text-sidebar-ink truncate">
+				<h4 className="text-sidebar-ink truncate text-sm font-semibold">
 					{file.name}
-					{file.extension ? `.${file.extension}` : ""}
+					{file.extension ? `.${file.extension}` : ''}
 				</h4>
-				<p className="text-xs text-sidebar-inkDull mt-1">{fileKind}</p>
+				<p className="text-sidebar-inkDull mt-1 text-xs">{fileKind}</p>
 			</div>
 
 			<Divider />
@@ -187,7 +183,7 @@ function OverviewTab({ file }: { file: File }) {
 			{/* Details */}
 			<Section title="Details" icon={Info}>
 				<InfoRow label="Size" value={formatBytes(file.size)} />
-				{file.kind === "File" && file.extension && (
+				{file.kind === 'File' && file.extension && (
 					<InfoRow label="Extension" value={file.extension} />
 				)}
 				<InfoRow label="Kind" value={fileKind} />
@@ -231,7 +227,7 @@ function OverviewTab({ file }: { file: File }) {
 					{file.image_media_data.camera_make && (
 						<InfoRow
 							label="Camera"
-							value={`${file.image_media_data.camera_make} ${file.image_media_data.camera_model || ""}`}
+							value={`${file.image_media_data.camera_make} ${file.image_media_data.camera_model || ''}`}
 						/>
 					)}
 					{file.image_media_data.lens_model && (
@@ -277,7 +273,7 @@ function OverviewTab({ file }: { file: File }) {
 					{file.video_media_data.duration_seconds && (
 						<InfoRow
 							label="Duration"
-							value={`${Math.floor(file.video_media_data.duration_seconds / 60)}:${String(Math.floor(file.video_media_data.duration_seconds % 60)).padStart(2, "0")}`}
+							value={`${Math.floor(file.video_media_data.duration_seconds / 60)}:${String(Math.floor(file.video_media_data.duration_seconds % 60)).padStart(2, '0')}`}
 						/>
 					)}
 					{file.video_media_data.codec && (
@@ -303,7 +299,7 @@ function OverviewTab({ file }: { file: File }) {
 					{file.video_media_data.audio_codec && (
 						<InfoRow
 							label="Audio"
-							value={`${file.video_media_data.audio_codec} · ${file.video_media_data.audio_channels || ""}`}
+							value={`${file.video_media_data.audio_codec} · ${file.video_media_data.audio_channels || ''}`}
 						/>
 					)}
 				</Section>
@@ -333,7 +329,7 @@ function OverviewTab({ file }: { file: File }) {
 					{file.audio_media_data.duration_seconds && (
 						<InfoRow
 							label="Duration"
-							value={`${Math.floor(file.audio_media_data.duration_seconds / 60)}:${String(Math.floor(file.audio_media_data.duration_seconds % 60)).padStart(2, "0")}`}
+							value={`${Math.floor(file.audio_media_data.duration_seconds / 60)}:${String(Math.floor(file.audio_media_data.duration_seconds % 60)).padStart(2, '0')}`}
 						/>
 					)}
 					{file.audio_media_data.codec && (
@@ -368,14 +364,14 @@ function OverviewTab({ file }: { file: File }) {
 				<InfoRow
 					label="Path"
 					value={
-						"Physical" in file.sd_path
+						'Physical' in file.sd_path
 							? String(file.sd_path.Physical.path)
-							: "Cloud" in file.sd_path
+							: 'Cloud' in file.sd_path
 								? String(file.sd_path.Cloud.path)
-								: "Content"
+								: 'Content'
 					}
 				/>
-				<InfoRow label="Local" value={file.is_local ? "Yes" : "No"} />
+				<InfoRow label="Local" value={file.is_local ? 'Yes' : 'No'} />
 			</Section>
 
 			{/* Tags */}
@@ -386,7 +382,7 @@ function OverviewTab({ file }: { file: File }) {
 						file.tags.map((tag) => (
 							<Tag
 								key={tag.id}
-								color={tag.color || "#3B82F6"}
+								color={tag.color || '#3B82F6'}
 								size="sm"
 							>
 								{tag.canonical_name}
@@ -401,23 +397,23 @@ function OverviewTab({ file }: { file: File }) {
 							await applyTag.mutateAsync({
 								targets: file.content_identity?.uuid
 									? {
-											type: "Content",
-											ids: [file.content_identity.uuid],
+											type: 'Content',
+											ids: [file.content_identity.uuid]
 										}
 									: {
-											type: "Entry",
-											ids: [parseInt(file.id)],
+											type: 'Entry',
+											ids: [parseInt(file.id)]
 										},
 								tag_ids: [tag.id],
-								source: "User",
-								confidence: 1.0,
+								source: 'User',
+								confidence: 1.0
 							});
 						}}
 						contextTags={file.tags || []}
 						fileId={file.id}
 						contentId={file.content_identity?.uuid}
 						trigger={
-							<button className="px-2 py-0.5 text-xs font-medium rounded-full bg-app-box hover:bg-app-hover border border-app-line text-ink-dull hover:text-ink transition-colors">
+							<button className="bg-app-box hover:bg-app-hover border-app-line text-ink-dull hover:text-ink rounded-full border px-2 py-0.5 text-xs font-medium transition-colors">
 								+ Add tags
 							</button>
 						}
@@ -434,44 +430,44 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Extract text clicked for file:",
-										file.id,
+										'Extract text clicked for file:',
+										file.id
 									);
 									extractText.mutate(
 										{
 											entry_uuid: file.id,
-											languages: ["eng"],
-											force: false,
+											languages: ['eng'],
+											force: false
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"OCR success:",
-													data,
+													'OCR success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"OCR error:",
-													error,
+													'OCR error:',
+													error
 												);
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={extractText.isPending}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									extractText.isPending &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<TextAa size={4} weight="bold" />
 								<span>
 									{extractText.isPending
-										? "Extracting..."
-										: "Extract Text (OCR)"}
+										? 'Extracting...'
+										: 'Extract Text (OCR)'}
 								</span>
 							</button>
 						)}
@@ -481,43 +477,43 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Generate splat clicked for file:",
-										file.id,
+										'Generate splat clicked for file:',
+										file.id
 									);
 									generateSplat.mutate(
 										{
 											entry_uuid: file.id,
-											model_path: null,
+											model_path: null
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"Splat generation success:",
-													data,
+													'Splat generation success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"Splat generation error:",
-													error,
+													'Splat generation error:',
+													error
 												);
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={generateSplat.isPending}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									generateSplat.isPending &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<Cube size={4} weight="bold" />
 								<span>
 									{generateSplat.isPending
-										? "Generating..."
-										: "Generate 3D Splat"}
+										? 'Generating...'
+										: 'Generate 3D Splat'}
 								</span>
 							</button>
 						)}
@@ -527,43 +523,53 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Transcribe clicked for file:",
-										file.id,
+										'Transcribe clicked for file:',
+										file.id
 									);
 									transcribeAudio.mutate(
 										{
 											entry_uuid: file.id,
-											model: "base",
-											language: null,
+											model: 'base',
+											language: null
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"Transcription success:",
-													data,
+													'Transcription success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"Transcription error:",
-													error,
+													'Transcription error:',
+													error
 												);
 
 												// Check if it's a feature-disabled error
-												const errorMessage = error instanceof Error ? error.message : String(error);
-												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg")) {
+												const errorMessage =
+													error instanceof Error
+														? error.message
+														: String(error);
+												if (
+													errorMessage.includes(
+														'feature is not enabled'
+													) ||
+													errorMessage.includes(
+														'--features ffmpeg'
+													)
+												) {
 													toast.error({
-														title: "Feature Not Available",
-														body: "Speech-to-text requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`"
+														title: 'Feature Not Available',
+														body: 'Speech-to-text requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`'
 													});
 												} else {
 													toast.error({
-														title: "Transcription Failed",
+														title: 'Transcription Failed',
 														body: errorMessage
 													});
 												}
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={
@@ -571,19 +577,19 @@ function OverviewTab({ file }: { file: File }) {
 									isSpeechJobRunning
 								}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									(transcribeAudio.isPending ||
 										isSpeechJobRunning) &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<Microphone size={4} weight="bold" />
 								<span>
 									{transcribeAudio.isPending ||
 									isSpeechJobRunning
-										? "Transcribing..."
-										: "Generate Subtitles"}
+										? 'Transcribing...'
+										: 'Generate Subtitles'}
 								</span>
 							</button>
 						)}
@@ -593,61 +599,74 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Regenerate thumbnails clicked for file:",
-										file.id,
+										'Regenerate thumbnails clicked for file:',
+										file.id
 									);
 									regenerateThumbnail.mutate(
 										{
 											entry_uuid: file.id,
 											variants: [
-												"grid@1x",
-												"grid@2x",
-												"detail@1x",
+												'grid@1x',
+												'grid@2x',
+												'detail@1x'
 											],
-											force: true,
+											force: true
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"Thumbnail regeneration success:",
-													data,
+													'Thumbnail regeneration success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"Thumbnail regeneration error:",
-													error,
+													'Thumbnail regeneration error:',
+													error
 												);
 
-												const errorMessage = error instanceof Error ? error.message : String(error);
-												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg") || errorMessage.includes("FFmpeg feature")) {
+												const errorMessage =
+													error instanceof Error
+														? error.message
+														: String(error);
+												if (
+													errorMessage.includes(
+														'feature is not enabled'
+													) ||
+													errorMessage.includes(
+														'--features ffmpeg'
+													) ||
+													errorMessage.includes(
+														'FFmpeg feature'
+													)
+												) {
 													toast.error({
-														title: "Feature Not Available",
-														body: "Video thumbnail generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg or use `cargo daemon`"
+														title: 'Feature Not Available',
+														body: 'Video thumbnail generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg or use `cargo daemon`'
 													});
 												} else {
 													toast.error({
-														title: "Thumbnail Generation Failed",
+														title: 'Thumbnail Generation Failed',
 														body: errorMessage
 													});
 												}
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={regenerateThumbnail.isPending}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									regenerateThumbnail.isPending &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<ArrowsClockwise size={4} weight="bold" />
 								<span>
 									{regenerateThumbnail.isPending
-										? "Generating..."
-										: "Regenerate Thumbnails"}
+										? 'Generating...'
+										: 'Regenerate Thumbnails'}
 								</span>
 							</button>
 						)}
@@ -657,60 +676,70 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Generate thumbstrip clicked for file:",
-										file.id,
+										'Generate thumbstrip clicked for file:',
+										file.id
 									);
 									generateThumbstrip.mutate(
 										{
 											entry_uuid: file.id,
 											variants: [
-												"thumbstrip_preview",
-												"thumbstrip_detailed",
+												'thumbstrip_preview',
+												'thumbstrip_detailed'
 											],
-											force: false,
+											force: false
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"Thumbstrip generation success:",
-													data,
+													'Thumbstrip generation success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"Thumbstrip generation error:",
-													error,
+													'Thumbstrip generation error:',
+													error
 												);
 
-												const errorMessage = error instanceof Error ? error.message : String(error);
-												if (errorMessage.includes("feature is not enabled") || errorMessage.includes("--features ffmpeg")) {
+												const errorMessage =
+													error instanceof Error
+														? error.message
+														: String(error);
+												if (
+													errorMessage.includes(
+														'feature is not enabled'
+													) ||
+													errorMessage.includes(
+														'--features ffmpeg'
+													)
+												) {
 													toast.error({
-														title: "Feature Not Available",
-														body: "Thumbstrip generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`"
+														title: 'Feature Not Available',
+														body: 'Thumbstrip generation requires FFmpeg. Please rebuild the daemon with --features ffmpeg,heif or use `cargo daemon`'
 													});
 												} else {
 													toast.error({
-														title: "Thumbstrip Generation Failed",
+														title: 'Thumbstrip Generation Failed',
 														body: errorMessage
 													});
 												}
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={generateThumbstrip.isPending}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									generateThumbstrip.isPending &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<FilmStrip size={4} weight="bold" />
 								<span>
 									{generateThumbstrip.isPending
-										? "Generating..."
-										: "Generate Thumbstrip"}
+										? 'Generating...'
+										: 'Generate Thumbstrip'}
 								</span>
 							</button>
 						)}
@@ -720,61 +749,61 @@ function OverviewTab({ file }: { file: File }) {
 							<button
 								onClick={() => {
 									console.log(
-										"Generate proxy clicked for file:",
-										file.id,
+										'Generate proxy clicked for file:',
+										file.id
 									);
 									generateProxy.mutate(
 										{
 											entry_uuid: file.id,
-											resolution: "scrubbing", // Fast scrubbing proxy
+											resolution: 'scrubbing', // Fast scrubbing proxy
 											force: false,
-											use_hardware_accel: true,
+											use_hardware_accel: true
 										},
 										{
 											onSuccess: (data) => {
 												console.log(
-													"Proxy generation success:",
-													data,
+													'Proxy generation success:',
+													data
 												);
 											},
 											onError: (error) => {
 												console.error(
-													"Proxy generation error:",
-													error,
+													'Proxy generation error:',
+													error
 												);
-											},
-										},
+											}
+										}
 									);
 								}}
 								disabled={generateProxy.isPending}
 								className={clsx(
-									"flex items-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors",
-									"bg-app-box hover:bg-app-hover border border-app-line",
+									'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+									'bg-app-box hover:bg-app-hover border-app-line border',
 									generateProxy.isPending &&
-										"opacity-50 cursor-not-allowed",
+										'cursor-not-allowed opacity-50'
 								)}
 							>
 								<VideoCamera size={4} weight="bold" />
 								<span>
 									{generateProxy.isPending
-										? "Encoding..."
-										: "Generate Scrubbing Proxy"}
+										? 'Encoding...'
+										: 'Generate Scrubbing Proxy'}
 								</span>
 							</button>
 						)}
 
 						{/* Show extracted text if available */}
 						{hasText && (
-							<div className="mt-2 p-3 bg-app-box/40 rounded-lg border border-app-line/50">
-								<div className="flex items-center gap-2 mb-2">
+							<div className="bg-app-box/40 border-app-line/50 mt-2 rounded-lg border p-3">
+								<div className="mb-2 flex items-center gap-2">
 									<span className="text-accent">
 										<TextAa size={16} weight="bold" />
 									</span>
-									<span className="text-xs font-medium text-sidebar-ink">
+									<span className="text-sidebar-ink text-xs font-medium">
 										Extracted Text
 									</span>
 								</div>
-								<pre className="text-xs text-sidebar-inkDull whitespace-pre-wrap max-h-40 overflow-y-auto no-scrollbar">
+								<pre className="text-sidebar-inkDull no-scrollbar max-h-40 overflow-y-auto whitespace-pre-wrap text-xs">
 									{file.content_identity.text_content}
 								</pre>
 							</div>
@@ -786,10 +815,10 @@ function OverviewTab({ file }: { file: File }) {
 	);
 }
 
-function SidecarsTab({ file }: { file: File }) {
+function SidecarsTab({file}: {file: File}) {
 	const sidecars = file.sidecars || [];
 	const platform = usePlatform();
-	const { buildSidecarUrl, libraryId } = useServer();
+	const {buildSidecarUrl, libraryId} = useServer();
 
 	// Helper to get sidecar URL
 	const getSidecarUrl = (sidecar: any) => {
@@ -799,18 +828,18 @@ function SidecarsTab({ file }: { file: File }) {
 			file.content_identity.uuid,
 			sidecar.kind,
 			sidecar.variant,
-			sidecar.format,
+			sidecar.format
 		);
 	};
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<p className="text-xs text-sidebar-inkDull">
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
+			<p className="text-sidebar-inkDull text-xs">
 				Derivative files and associated content generated by Spacedrive
 			</p>
 
 			{sidecars.length === 0 ? (
-				<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+				<div className="text-sidebar-inkDull flex items-center justify-center py-8 text-xs">
 					No sidecars generated yet
 				</div>
 			) : (
@@ -836,7 +865,7 @@ function SidecarItem({
 	file,
 	sidecarUrl,
 	platform,
-	libraryId,
+	libraryId
 }: {
 	sidecar: any;
 	file: File;
@@ -845,32 +874,32 @@ function SidecarItem({
 	libraryId: string | null;
 }) {
 	const isImage =
-		(sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") &&
-		(sidecar.format === "webp" ||
-			sidecar.format === "jpg" ||
-			sidecar.format === "png");
+		(sidecar.kind === 'thumb' || sidecar.kind === 'thumbstrip') &&
+		(sidecar.format === 'webp' ||
+			sidecar.format === 'jpg' ||
+			sidecar.format === 'png');
 
 	// Get appropriate Spacedrive icon based on sidecar format/kind
 	const getSidecarIcon = () => {
 		const format = String(sidecar.format).toLowerCase();
 
 		// PLY files (3D mesh) use Mesh icon
-		if (format === "ply") {
-			return getIcon("Mesh", true);
+		if (format === 'ply') {
+			return getIcon('Mesh', true);
 		}
 
 		// Text files use Text icon
-		if (format === "text" || format === "txt" || format === "srt") {
-			return getIcon("Text", true);
+		if (format === 'text' || format === 'txt' || format === 'srt') {
+			return getIcon('Text', true);
 		}
 
 		// Thumbs/thumbstrips use Image icon
-		if (sidecar.kind === "thumb" || sidecar.kind === "thumbstrip") {
-			return getIcon("Image", true);
+		if (sidecar.kind === 'thumb' || sidecar.kind === 'thumbstrip') {
+			return getIcon('Image', true);
 		}
 
 		// Default to Document icon
-		return getIcon("Document", true);
+		return getIcon('Document', true);
 	};
 
 	const sidecarIcon = getSidecarIcon();
@@ -879,7 +908,7 @@ function SidecarItem({
 		items: [
 			{
 				icon: MagnifyingGlass,
-				label: "Show in Finder",
+				label: 'Show in Finder',
 				onClick: async () => {
 					if (
 						platform.getSidecarPath &&
@@ -890,20 +919,20 @@ function SidecarItem({
 						try {
 							// Convert "text" format to "txt" extension (matches actual file on disk)
 							const format =
-								sidecar.format === "text"
-									? "txt"
+								sidecar.format === 'text'
+									? 'txt'
 									: sidecar.format;
 							const sidecarPath = await platform.getSidecarPath(
 								libraryId,
 								file.content_identity.uuid,
 								sidecar.kind,
 								sidecar.variant,
-								format,
+								format
 							);
 
 							await platform.revealFile(sidecarPath);
 						} catch (err) {
-							console.error("Failed to reveal sidecar:", err);
+							console.error('Failed to reveal sidecar:', err);
 						}
 					}
 				},
@@ -911,18 +940,18 @@ function SidecarItem({
 					!!platform.getSidecarPath &&
 					!!platform.revealFile &&
 					!!file.content_identity &&
-					!!libraryId,
+					!!libraryId
 			},
 			{
 				icon: Trash,
-				label: "Delete Sidecar",
+				label: 'Delete Sidecar',
 				onClick: () => {
-					console.log("Delete sidecar:", sidecar);
+					console.log('Delete sidecar:', sidecar);
 					// TODO: Implement sidecar deletion
 				},
-				variant: "danger" as const,
-			},
-		],
+				variant: 'danger' as const
+			}
+		]
 	});
 
 	const handleContextMenu = async (e: React.MouseEvent) => {
@@ -934,27 +963,27 @@ function SidecarItem({
 	return (
 		<div
 			onContextMenu={handleContextMenu}
-			className="flex items-start gap-3 p-2.5 bg-app-box/40 rounded-lg border border-app-line/50 hover:bg-app-box/60 transition-colors cursor-default"
+			className="bg-app-box/40 border-app-line/50 hover:bg-app-box/60 flex cursor-default items-start gap-3 rounded-lg border p-2.5 transition-colors"
 		>
 			{/* Preview thumbnail for image sidecars */}
 			{isImage && sidecarUrl ? (
-				<div className="size-12 shrink-0 rounded overflow-hidden bg-app-box border border-app-line">
+				<div className="bg-app-box border-app-line size-12 shrink-0 overflow-hidden rounded border">
 					<img
 						src={sidecarUrl}
 						alt={`${sidecar.variant} preview`}
-						className="w-full h-full object-cover"
+						className="h-full w-full object-cover"
 						onError={(e) => {
 							// Fallback to icon on error
-							e.currentTarget.style.display = "none";
+							e.currentTarget.style.display = 'none';
 							if (e.currentTarget.nextElementSibling) {
 								(
 									e.currentTarget
 										.nextElementSibling as HTMLElement
-								).style.display = "flex";
+								).style.display = 'flex';
 							}
 						}}
 					/>
-					<div className="hidden items-center justify-center w-full h-full">
+					<div className="hidden h-full w-full items-center justify-center">
 						<img
 							src={sidecarIcon}
 							alt=""
@@ -963,7 +992,7 @@ function SidecarItem({
 					</div>
 				</div>
 			) : (
-				<div className="size-12 shrink-0 rounded bg-app-box border border-app-line flex items-center justify-center">
+				<div className="bg-app-box border-app-line flex size-12 shrink-0 items-center justify-center rounded border">
 					<img
 						src={sidecarIcon}
 						alt=""
@@ -972,14 +1001,14 @@ function SidecarItem({
 				</div>
 			)}
 
-			<div className="flex-1 min-w-0">
-				<div className="text-xs font-medium text-sidebar-ink">
+			<div className="min-w-0 flex-1">
+				<div className="text-sidebar-ink text-xs font-medium">
 					{String(sidecar.kind)}
 				</div>
-				<div className="text-[11px] text-sidebar-inkDull">
+				<div className="text-sidebar-inkDull text-[11px]">
 					{String(sidecar.variant)} · {formatBytes(sidecar.size)}
 				</div>
-				<div className="text-[10px] text-sidebar-inkDull/70 mt-0.5">
+				<div className="text-sidebar-inkDull/70 mt-0.5 text-[10px]">
 					{String(sidecar.format).toUpperCase()}
 				</div>
 			</div>
@@ -997,28 +1026,28 @@ function SidecarItem({
 	);
 }
 
-function InstancesTab({ file }: { file: File }) {
+function InstancesTab({file}: {file: File}) {
 	// Query for alternate instances with full File data
 	const instancesQuery = useNormalizedQuery<
-		{ entry_uuid: string },
-		{ instances: File[]; total_count: number }
+		{entry_uuid: string},
+		{instances: File[]; total_count: number}
 	>({
-		wireMethod: "query:files.alternate_instances",
-		input: { entry_uuid: file?.id || "" },
-		enabled: !!file?.id && !!file?.content_identity,
+		wireMethod: 'query:files.alternate_instances',
+		input: {entry_uuid: file?.id || ''},
+		enabled: !!file?.id && !!file?.content_identity
 	});
 
 	const instances = instancesQuery.data?.instances || [];
 
 	// Query devices to get proper names and icons
 	const devicesQuery = useNormalizedQuery<any, any[]>({
-		wireMethod: "query:devices.list",
+		wireMethod: 'query:devices.list',
 		input: {
 			include_offline: true,
 			include_details: false,
-			show_paired: true,
+			show_paired: true
 		},
-		resourceType: "device",
+		resourceType: 'device'
 	});
 
 	const devices = devicesQuery.data || [];
@@ -1026,11 +1055,11 @@ function InstancesTab({ file }: { file: File }) {
 	// Group instances by device_slug
 	const instancesByDevice = instances.reduce(
 		(acc, instance) => {
-			let deviceSlug = "unknown";
-			if ("Physical" in instance.sd_path) {
+			let deviceSlug = 'unknown';
+			if ('Physical' in instance.sd_path) {
 				deviceSlug = instance.sd_path.Physical.device_slug;
-			} else if ("Cloud" in instance.sd_path) {
-				deviceSlug = "cloud";
+			} else if ('Cloud' in instance.sd_path) {
+				deviceSlug = 'cloud';
 			}
 
 			if (!acc[deviceSlug]) {
@@ -1039,7 +1068,7 @@ function InstancesTab({ file }: { file: File }) {
 			acc[deviceSlug].push(instance);
 			return acc;
 		},
-		{} as Record<string, File[]>,
+		{} as Record<string, File[]>
 	);
 
 	const getDeviceName = (deviceSlug: string) => {
@@ -1053,7 +1082,7 @@ function InstancesTab({ file }: { file: File }) {
 
 	if (instancesQuery.isLoading) {
 		return (
-			<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+			<div className="text-sidebar-inkDull flex items-center justify-center py-8 text-xs">
 				Loading instances...
 			</div>
 		);
@@ -1061,8 +1090,8 @@ function InstancesTab({ file }: { file: File }) {
 
 	if (!file.content_identity) {
 		return (
-			<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-				<p className="text-xs text-sidebar-inkDull">
+			<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
+				<p className="text-sidebar-inkDull text-xs">
 					This file has not been content-hashed yet. Instances will
 					appear after indexing completes.
 				</p>
@@ -1071,13 +1100,13 @@ function InstancesTab({ file }: { file: File }) {
 	}
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<p className="text-xs text-sidebar-inkDull">
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
+			<p className="text-sidebar-inkDull text-xs">
 				All copies of this file across your devices and locations
 			</p>
 
 			{instances.length === 0 || instances.length === 1 ? (
-				<div className="flex items-center justify-center py-8 text-xs text-sidebar-inkDull">
+				<div className="text-sidebar-inkDull flex items-center justify-center py-8 text-xs">
 					No alternate instances found
 				</div>
 			) : (
@@ -1096,11 +1125,11 @@ function InstancesTab({ file }: { file: File }) {
 											className="size-4 shrink-0"
 											alt=""
 										/>
-										<span className="text-xs font-semibold text-sidebar-ink">
+										<span className="text-sidebar-ink text-xs font-semibold">
 											{deviceName}
 										</span>
 										<div className="flex-1" />
-										<div className="flex items-center justify-center size-5 rounded-full bg-app-box border border-app-line text-[10px] font-semibold text-sidebar-inkDull">
+										<div className="bg-app-box border-app-line text-sidebar-inkDull flex size-5 items-center justify-center rounded-full border text-[10px] font-semibold">
 											{deviceInstances.length}
 										</div>
 									</div>
@@ -1116,7 +1145,7 @@ function InstancesTab({ file }: { file: File }) {
 									</div>
 								</div>
 							);
-						},
+						}
 					)}
 				</div>
 			)}
@@ -1124,28 +1153,28 @@ function InstancesTab({ file }: { file: File }) {
 	);
 }
 
-function InstanceRow({ instance }: { instance: File }) {
+function InstanceRow({instance}: {instance: File}) {
 	const getPathDisplay = (sdPath: typeof instance.sd_path) => {
-		if ("Physical" in sdPath) {
+		if ('Physical' in sdPath) {
 			return sdPath.Physical.path;
-		} else if ("Cloud" in sdPath) {
+		} else if ('Cloud' in sdPath) {
 			return sdPath.Cloud.path;
 		} else {
-			return "Content";
+			return 'Content';
 		}
 	};
 
 	const formatDate = (dateStr: string) => {
 		const date = new Date(dateStr);
-		return date.toLocaleDateString("en-US", {
-			month: "short",
-			day: "numeric",
+		return date.toLocaleDateString('en-US', {
+			month: 'short',
+			day: 'numeric'
 		});
 	};
 
 	return (
 		<div
-			className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-app-box/40 transition-colors cursor-default"
+			className="hover:bg-app-box/40 flex cursor-default items-center gap-2 rounded-md px-2 py-1.5 transition-colors"
 			title={getPathDisplay(instance.sd_path)}
 		>
 			{/* Thumbnail */}
@@ -1154,34 +1183,34 @@ function InstanceRow({ instance }: { instance: File }) {
 			</div>
 
 			{/* File info */}
-			<div className="flex-1 min-w-0 flex items-center gap-2">
-				<span className="text-xs text-sidebar-ink truncate">
+			<div className="flex min-w-0 flex-1 items-center gap-2">
+				<span className="text-sidebar-ink truncate text-xs">
 					{instance.name}
 					{instance.extension && `.${instance.extension}`}
 				</span>
 			</div>
 
 			{/* Metadata */}
-			<div className="flex items-center gap-2 shrink-0">
+			<div className="flex shrink-0 items-center gap-2">
 				{/* Tags */}
 				{instance.tags && instance.tags.length > 0 && (
 					<div
 						className="flex items-center gap-0.5"
 						title={instance.tags
 							.map((t) => t.canonical_name)
-							.join(", ")}
+							.join(', ')}
 					>
 						{instance.tags.slice(0, 3).map((tag) => (
 							<div
 								key={tag.id}
 								className="size-1.5 rounded-full"
 								style={{
-									backgroundColor: tag.color || "#3B82F6",
+									backgroundColor: tag.color || '#3B82F6'
 								}}
 							/>
 						))}
 						{instance.tags.length > 3 && (
-							<span className="text-[9px] text-ink-faint font-medium">
+							<span className="text-ink-faint text-[9px] font-medium">
 								+{instance.tags.length - 3}
 							</span>
 						)}
@@ -1189,24 +1218,24 @@ function InstanceRow({ instance }: { instance: File }) {
 				)}
 
 				{/* Modified date */}
-				<span className="text-[10px] text-sidebar-inkDull">
+				<span className="text-sidebar-inkDull text-[10px]">
 					{formatDate(instance.modified_at)}
 				</span>
 
 				{/* Size */}
-				<span className="text-[10px] text-sidebar-inkDull min-w-[50px] text-right">
+				<span className="text-sidebar-inkDull min-w-[50px] text-right text-[10px]">
 					{formatBytes(instance.size)}
 				</span>
 
 				{/* Local indicator */}
 				<div
 					className={clsx(
-						"size-1.5 rounded-full",
+						'size-1.5 rounded-full',
 						instance.is_local
-							? "bg-accent"
-							: "bg-sidebar-inkDull/40",
+							? 'bg-accent'
+							: 'bg-sidebar-inkDull/40'
 					)}
-					title={instance.is_local ? "Available locally" : "Remote"}
+					title={instance.is_local ? 'Available locally' : 'Remote'}
 				/>
 			</div>
 		</div>
@@ -1214,77 +1243,77 @@ function InstanceRow({ instance }: { instance: File }) {
 }
 
 function ChatTab() {
-	const [message, setMessage] = useState("");
+	const [message, setMessage] = useState('');
 
 	const messages = [
 		{
 			id: 1,
-			sender: "Sarah",
-			avatar: "S",
-			content: "Can you check if this photo is also on the NAS?",
-			time: "2:34 PM",
-			isUser: false,
+			sender: 'Sarah',
+			avatar: 'S',
+			content: 'Can you check if this photo is also on the NAS?',
+			time: '2:34 PM',
+			isUser: false
 		},
 		{
 			id: 2,
-			sender: "You",
-			avatar: "J",
+			sender: 'You',
+			avatar: 'J',
 			content: "Yeah, it's synced. Shows 3 instances across devices.",
-			time: "2:35 PM",
-			isUser: true,
+			time: '2:35 PM',
+			isUser: true
 		},
 		{
 			id: 3,
-			sender: "AI Assistant",
-			avatar: "",
+			sender: 'AI Assistant',
+			avatar: '',
 			content:
-				"I found 2 similar photos in your library from the same location. Would you like me to create a collection?",
-			time: "2:36 PM",
+				'I found 2 similar photos in your library from the same location. Would you like me to create a collection?',
+			time: '2:36 PM',
 			isUser: false,
 			isAI: true,
-			unread: true,
+			unread: true
 		},
 		{
 			id: 4,
-			sender: "Sarah",
-			avatar: "S",
-			content: "Perfect, thanks! Can you share the collection with me?",
-			time: "2:37 PM",
+			sender: 'Sarah',
+			avatar: 'S',
+			content: 'Perfect, thanks! Can you share the collection with me?',
+			time: '2:37 PM',
 			isUser: false,
-			unread: true,
+			unread: true
 		},
 		{
 			id: 5,
-			sender: "Alex",
-			avatar: "A",
-			content: "I just tagged this as Summer 2025 btw",
-			time: "2:38 PM",
+			sender: 'Alex',
+			avatar: 'A',
+			content: 'I just tagged this as Summer 2025 btw',
+			time: '2:38 PM',
 			isUser: false,
-			unread: true,
-		},
+			unread: true
+		}
 	];
 
 	return (
-		<div className="flex flex-col h-full">
+		<div className="flex h-full flex-col">
 			{/* Messages */}
-			<div className="flex-1 overflow-y-auto px-2 pt-2 space-y-3">
+			<div className="flex-1 space-y-3 overflow-y-auto px-2 pt-2">
 				{messages.map((msg) => (
 					<div
 						key={msg.id}
 						className={clsx(
-							"flex gap-2",
-							msg.isUser ? "flex-row-reverse" : "flex-row",
+							'flex gap-2',
+							msg.isUser ? 'flex-row-reverse' : 'flex-row'
 						)}
 					>
 						{/* Avatar */}
 						<div
 							className={clsx(
-								"size-6 rounded-full shrink-0 flex items-center justify-center text-[10px] font-bold",
+								'flex size-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
 								msg.isAI
-									? "bg-accent/20 text-accent"
+									? 'bg-accent/20 text-accent'
 									: msg.isUser
-										? "bg-sidebar-selected text-sidebar-ink"
-										: "bg-app-box text-sidebar-inkDull",
+										? 'bg-sidebar-selected text-sidebar-ink'
+										: 'bg-app-box text-sidebar-inkDull'
 							)}
 						>
 							{msg.avatar}
@@ -1293,38 +1322,38 @@ function ChatTab() {
 						{/* Message bubble */}
 						<div
 							className={clsx(
-								"flex flex-col max-w-[75%]",
-								msg.isUser ? "items-end" : "items-start",
+								'flex max-w-[75%] flex-col',
+								msg.isUser ? 'items-end' : 'items-start'
 							)}
 						>
 							<div
 								className={clsx(
-									"px-2.5 py-1.5 rounded-lg",
+									'rounded-lg px-2.5 py-1.5',
 									msg.isAI
-										? "bg-accent/10 border border-accent/20"
+										? 'bg-accent/10 border-accent/20 border'
 										: msg.isUser
-											? "bg-sidebar-selected/60"
-											: "bg-app-box/60",
-									msg.unread && "ring-1 ring-accent/50",
+											? 'bg-sidebar-selected/60'
+											: 'bg-app-box/60',
+									msg.unread && 'ring-accent/50 ring-1'
 								)}
 							>
 								{!msg.isUser && (
 									<div
 										className={clsx(
-											"text-[10px] font-semibold mb-0.5",
+											'mb-0.5 text-[10px] font-semibold',
 											msg.isAI
-												? "text-accent"
-												: "text-sidebar-inkDull",
+												? 'text-accent'
+												: 'text-sidebar-inkDull'
 										)}
 									>
 										{msg.sender}
 									</div>
 								)}
-								<p className="text-xs text-sidebar-ink leading-relaxed">
+								<p className="text-sidebar-ink text-xs leading-relaxed">
 									{msg.content}
 								</p>
 							</div>
-							<span className="text-[10px] text-sidebar-inkDull mt-0.5 px-1">
+							<span className="text-sidebar-inkDull mt-0.5 px-1 text-[10px]">
 								{msg.time}
 							</span>
 						</div>
@@ -1333,27 +1362,27 @@ function ChatTab() {
 			</div>
 
 			{/* Input */}
-			<div className="border-t border-sidebar-line p-2 space-y-2">
+			<div className="border-sidebar-line space-y-2 border-t p-2">
 				<div className="flex items-end gap-1.5">
 					<button
-						className="p-1.5 rounded-lg hover:bg-sidebar-selected transition-colors text-sidebar-inkDull hover:text-sidebar-ink"
+						className="hover:bg-sidebar-selected text-sidebar-inkDull hover:text-sidebar-ink rounded-lg p-1.5 transition-colors"
 						title="Attach file"
 					>
 						<Paperclip size={4} weight="bold" />
 					</button>
 
-					<div className="flex-1 flex items-center gap-1.5 bg-app-box border border-app-line rounded-lg px-2 py-1.5">
+					<div className="bg-app-box border-app-line flex flex-1 items-center gap-1.5 rounded-lg border px-2 py-1.5">
 						<input
 							type="text"
 							value={message}
 							onChange={(e) => setMessage(e.target.value)}
 							placeholder="Type a message..."
-							className="flex-1 bg-transparent text-xs text-sidebar-ink placeholder:text-sidebar-inkDull outline-none"
+							className="text-sidebar-ink placeholder:text-sidebar-inkDull flex-1 bg-transparent text-xs outline-none"
 						/>
 					</div>
 
 					<button
-						className="p-1.5 rounded-lg bg-accent hover:bg-accent/90 transition-colors text-white"
+						className="bg-accent hover:bg-accent/90 rounded-lg p-1.5 text-white transition-colors"
 						title="Send message"
 					>
 						<PaperPlaneRight size={4} weight="bold" />
@@ -1361,14 +1390,14 @@ function ChatTab() {
 				</div>
 
 				<div className="flex gap-1">
-					<button className="px-2 py-1 text-[10px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors flex items-center gap-1">
+					<button className="text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors">
 						<Sparkle size={3} weight="bold" />
 						Ask AI
 					</button>
-					<button className="px-2 py-1 text-[10px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors">
+					<button className="text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md px-2 py-1 text-[10px] font-medium transition-colors">
 						Share File
 					</button>
-					<button className="px-2 py-1 text-[10px] font-medium text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md transition-colors">
+					<button className="text-sidebar-inkDull hover:text-sidebar-ink bg-app-box/40 hover:bg-app-box/60 rounded-md px-2 py-1 text-[10px] font-medium transition-colors">
 						Create Task
 					</button>
 				</div>
@@ -1379,20 +1408,20 @@ function ChatTab() {
 
 function ActivityTab() {
 	const activity = [
-		{ action: "Synced to NAS", time: "2 min ago", device: "MacBook Pro" },
-		{ action: "Uploaded to S3", time: "1 hour ago", device: "MacBook Pro" },
+		{action: 'Synced to NAS', time: '2 min ago', device: 'MacBook Pro'},
+		{action: 'Uploaded to S3', time: '1 hour ago', device: 'MacBook Pro'},
 		{
-			action: "Thumbnail generated",
-			time: "2 hours ago",
-			device: "MacBook Pro",
+			action: 'Thumbnail generated',
+			time: '2 hours ago',
+			device: 'MacBook Pro'
 		},
-		{ action: "Tagged as 'Travel'", time: "3 hours ago", device: "iPhone" },
-		{ action: "Created", time: "Jan 15, 2025", device: "iPhone" },
+		{action: "Tagged as 'Travel'", time: '3 hours ago', device: 'iPhone'},
+		{action: 'Created', time: 'Jan 15, 2025', device: 'iPhone'}
 	];
 
 	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<p className="text-xs text-sidebar-inkDull">
+		<div className="no-scrollbar mask-fade-out flex flex-col space-y-4 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
+			<p className="text-sidebar-inkDull text-xs">
 				History of changes and sync operations
 			</p>
 
@@ -1400,16 +1429,16 @@ function ActivityTab() {
 				{activity.map((item, i) => (
 					<div
 						key={i}
-						className="flex items-start gap-3 p-2 hover:bg-app-box/40 rounded-lg transition-colors"
+						className="hover:bg-app-box/40 flex items-start gap-3 rounded-lg p-2 transition-colors"
 					>
-						<span className="text-sidebar-inkDull shrink-0 mt-0.5">
+						<span className="text-sidebar-inkDull mt-0.5 shrink-0">
 							<ClockCounterClockwise size={16} weight="bold" />
 						</span>
-						<div className="flex-1 min-w-0">
-							<div className="text-xs text-sidebar-ink">
+						<div className="min-w-0 flex-1">
+							<div className="text-sidebar-ink text-xs">
 								{item.action}
 							</div>
-							<div className="text-[11px] text-sidebar-inkDull mt-0.5">
+							<div className="text-sidebar-inkDull mt-0.5 text-[11px]">
 								{item.time} · {item.device}
 							</div>
 						</div>
@@ -1420,7 +1449,7 @@ function ActivityTab() {
 	);
 }
 
-function DetailsTab({ file }: { file: File }) {
+function DetailsTab({file}: {file: File}) {
 	return (
 		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
 			{/* Content Identity */}
@@ -1431,8 +1460,8 @@ function DetailsTab({ file }: { file: File }) {
 						value={
 							String(file.content_identity.content_hash).slice(
 								0,
-								16,
-							) + "..."
+								16
+							) + '...'
 						}
 						mono
 					/>
@@ -1441,8 +1470,8 @@ function DetailsTab({ file }: { file: File }) {
 							label="Integrity Hash"
 							value={
 								String(
-									file.content_identity.integrity_hash,
-								).slice(0, 16) + "..."
+									file.content_identity.integrity_hash
+								).slice(0, 16) + '...'
 							}
 							mono
 						/>
@@ -1460,12 +1489,12 @@ function DetailsTab({ file }: { file: File }) {
 			<Section title="Metadata" icon={Hash}>
 				<InfoRow
 					label="File ID"
-					value={String(file.id).slice(0, 8) + "..."}
+					value={String(file.id).slice(0, 8) + '...'}
 					mono
 				/>
 				<InfoRow
 					label="Content Kind"
-					value={String(file.content_kind || "Unknown")}
+					value={String(file.content_kind || 'Unknown')}
 				/>
 				{file.extension && (
 					<InfoRow label="Extension" value={String(file.extension)} />
@@ -1475,7 +1504,7 @@ function DetailsTab({ file }: { file: File }) {
 			{/* System */}
 			<Section title="System" icon={DotsThree}>
 				<InfoRow label="Entry Kind" value={file.kind} />
-				<InfoRow label="Local" value={file.is_local ? "Yes" : "No"} />
+				<InfoRow label="Local" value={file.is_local ? 'Yes' : 'No'} />
 				<InfoRow
 					label="Instances"
 					value={String((file.alternate_paths?.length || 0) + 1)}

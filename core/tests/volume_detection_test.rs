@@ -87,17 +87,48 @@ async fn test_macos_volume_detection() {
 	);
 	println!("Found {} APFS volumes", apfs_volumes.len());
 
-	// Check for Data volume with path mappings
+	// Check for Data volume (should be Primary type) with path mappings
 	let data_volumes: Vec<_> = apfs_volumes
 		.iter()
-		.filter(|v| matches!(v.volume_type, VolumeType::UserData) && !v.path_mappings.is_empty())
+		.filter(|v| matches!(v.volume_type, VolumeType::Primary) && !v.path_mappings.is_empty())
 		.collect();
 
 	if !data_volumes.is_empty() {
 		println!(
-			"Found {} APFS Data volumes with path mappings",
+			"Found {} APFS Data volumes (Primary type) with path mappings",
 			data_volumes.len()
 		);
+	}
+
+	// Test that user paths resolve to the correct volume (Data, not Macintosh HD at /)
+	println!("\nTesting user path resolution:");
+	let user_paths = vec![
+		("/Users", "Data"),
+		("/Applications", "Data"),
+		("/Library", "Data"),
+		("/tmp", "Data"),
+		("/var", "Data"),
+	];
+
+	for (path_str, expected_volume) in user_paths {
+		let path = std::path::PathBuf::from(path_str);
+		if path.exists() {
+			if let Some(volume) = volume_manager.volume_for_path(&path).await {
+				println!(
+					"  {} -> {} ({})",
+					path_str,
+					volume.name,
+					if volume.name == expected_volume { "✓" } else { "✗ WRONG" }
+				);
+				assert_eq!(
+					volume.name, expected_volume,
+					"Path {} should resolve to '{}' volume, not '{}'",
+					path_str, expected_volume, volume.name
+				);
+			} else {
+				panic!("Path {} should resolve to a volume", path_str);
+			}
+		}
 	}
 }
 

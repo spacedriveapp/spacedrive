@@ -1484,6 +1484,7 @@ impl LibraryManager {
 					IndexMode::None,
 					None, // No action context
 					None, // No job policies
+					&context.volume_manager,
 				)
 				.await
 			{

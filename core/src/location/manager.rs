@@ -44,6 +44,7 @@ impl LocationManager {
 		index_mode: IndexMode,
 		action_context: Option<crate::infra::action::context::ActionContext>,
 		job_policies: Option<String>,
+		volume_manager: &crate::volume::VolumeManager,
 	) -> LocationResult<(Uuid, String)> {
 		info!("Adding location: {}", sd_path);
 
@@ -75,8 +76,8 @@ impl LocationManager {
 		// Begin transaction
 		let txn = library.db().conn().begin().await?;
 
-		// Get directory name and path string from SdPath
-		let (directory_name, path_str) = match &sd_path {
+		// Get directory name, path string, and inode from SdPath
+		let (directory_name, path_str, inode) = match &sd_path {
 			crate::domain::addressing::SdPath::Physical { path, .. } => {
 				let name = path
 					.file_name()
@@ -84,7 +85,33 @@ impl LocationManager {
 					.unwrap_or("Unknown")
 					.to_string();
 				let path_str = path.to_string_lossy().to_string();
-				(name, path_str)
+
+				// Get inode for the directory
+				let inode = if path.exists() {
+					match std::fs::metadata(path) {
+						Ok(metadata) => {
+							#[cfg(unix)]
+							{
+								use std::os::unix::fs::MetadataExt;
+								Some(metadata.ino())
+							}
+							#[cfg(windows)]
+							{
+								// Windows has file IDs but they're more complex to extract
+								// For now, leave as None for Windows
+								None
+							}
+						}
+						Err(e) => {
+							warn!("Failed to get metadata for location root {}: {}", path.display(), e);
+							None
+						}
+					}
+				} else {
+					None
+				};
+
+				(name, path_str, inode)
 			}
 			crate::domain::addressing::SdPath::Cloud {
 				service,
@@ -98,9 +125,35 @@ impl LocationManager {
 					.unwrap_or("Cloud Root")
 					.to_string();
 				let path_str = format!("{}://{}/{}", service.scheme(), identifier, path);
-				(name, path_str)
+				(name, path_str, None) // Cloud paths don't have inodes
 			}
 			_ => unreachable!("Content paths already rejected"),
+		};
+
+		// Resolve volume for this location path BEFORE creating the entry
+		let volume_id = match volume_manager.resolve_volume_for_sdpath(&sd_path, &library).await {
+			Ok(Some(volume)) => {
+				info!("Resolved volume '{}' for location path", volume.name);
+				// Ensure volume is in database and get its ID
+				match volume_manager.ensure_volume_in_db(&volume, &library).await {
+					Ok(vol_id) => {
+						info!("Location will use volume_id={}", vol_id);
+						Some(vol_id)
+					}
+					Err(e) => {
+						warn!("Failed to ensure volume in database: {}, location will have NULL volume_id", e);
+						None
+					}
+				}
+			}
+			Ok(None) => {
+				warn!("No volume found for location path, volume_id will be NULL");
+				None
+			}
+			Err(e) => {
+				warn!("Error resolving volume for location: {}, volume_id will be NULL", e);
+				None
+			}
 		};
 
 		let now = chrono::Utc::now();
@@ -120,9 +173,9 @@ impl LocationManager {
 			accessed_at: Set(None),
 			indexed_at: Set(Some(now)), // Record when location root was created
 			permissions: Set(None),
-			inode: Set(None),
+			inode: Set(inode.map(|i| i as i64)), // Use extracted inode
 			parent_id: Set(None), // Location root has no parent
-			volume_id: Set(None), // Resolved lazily on first index
+			volume_id: Set(volume_id), // Use resolved volume_id
 			..Default::default()
 		};
 
@@ -154,7 +207,7 @@ impl LocationManager {
 			id: sea_orm::ActiveValue::NotSet,
 			uuid: Set(location_id),
 			device_id: Set(device_id),
-			volume_id: Set(None), // Resolved lazily on first index
+			volume_id: Set(volume_id),
 			entry_id: Set(Some(entry_id)),
 			name: Set(Some(display_name.clone())),
 			index_mode: Set(index_mode.to_string()),
