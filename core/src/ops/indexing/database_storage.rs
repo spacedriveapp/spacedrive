@@ -1114,6 +1114,13 @@ impl DatabaseStorage {
 			}
 		}
 
+		if let Some(inode) = entry.inode {
+			entry_active.inode = Set(Some(inode as i64));
+		}
+
+		// Update indexed_at so incremental sync picks up this change.
+		entry_active.indexed_at = Set(Some(chrono::Utc::now()));
+
 		entry_active
 			.update(txn)
 			.await
