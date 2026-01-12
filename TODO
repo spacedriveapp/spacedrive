@@ -42,6 +42,7 @@ Journey to v2.0.0-pre.1:
 ☐ Fix three device sync @critical
 ☐ Run now button in Location Inspector doesn't work well @today
 ☐ Delete location UX improvement
+☐ Delete jobs
 ☐ Drop external items INTO spacedrive explorer @today
 ☐ Eject volume button
 ✔ Fix explorer arrow key navigation @critical @done(25-12-22 06:13)

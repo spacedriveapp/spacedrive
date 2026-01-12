@@ -56,8 +56,27 @@ function SpeedGraphVisualization({
   speedHistory: SpeedSample[];
   maxRate: number;
 }) {
-  const width = 328; // Match container width minus padding
-  const height = 96; // 24 * 4 = 96px (h-24)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState({ width: 328, height: 96 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const updateDimensions = () => {
+      if (containerRef.current) {
+        setDimensions({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+
+    updateDimensions();
+    window.addEventListener("resize", updateDimensions);
+    return () => window.removeEventListener("resize", updateDimensions);
+  }, []);
+
+  const { width, height } = dimensions;
   const padding = { top: 8, right: 8, bottom: 8, left: 8 };
 
   const graphWidth = width - padding.left - padding.right;
@@ -84,8 +103,9 @@ function SpeedGraphVisualization({
     : "";
 
   return (
-    <svg width={width} height={height} className="w-full h-full">
-      <defs>
+    <div ref={containerRef} className="w-full h-full">
+      <svg width={width} height={height} className="w-full h-full">
+        <defs>
         {/* Gradient fill for area under curve */}
         <linearGradient id={`speed-gradient-${jobId}`} x1="0%" y1="0%" x2="0%" y2="100%">
           <stop offset="0%" stopColor="rgb(0, 122, 255)" stopOpacity="0.3" />
@@ -141,6 +161,7 @@ function SpeedGraphVisualization({
         />
       )}
     </svg>
+    </div>
   );
 }
 

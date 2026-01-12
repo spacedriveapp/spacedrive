@@ -34,11 +34,13 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
   const filesProgress = `${generic.completion?.completed || 0} / ${generic.completion?.total || 0}`;
   const bytesCompleted = generic.completion?.bytes_completed || 0;
   const totalBytes = generic.completion?.total_bytes || 0;
-  const bytesProgress = `${formatBytes(bytesCompleted)} / ${formatBytes(totalBytes)}`;
+  const bytesProgress = totalBytes > 0
+    ? `${formatBytes(bytesCompleted)} / ${formatBytes(totalBytes)}`
+    : `${formatBytes(bytesCompleted)} / calculating...`;
   const speed = generic.performance?.rate ? formatSpeed(generic.performance.rate) : "—";
   const eta = generic.performance?.estimated_remaining
     ? formatDurationSeconds(generic.performance.estimated_remaining.secs)
-    : "—";
+    : totalBytes === 0 ? "calculating..." : "—";
 
   return (
     <div className="p-4 space-y-3">

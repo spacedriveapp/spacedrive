@@ -1006,6 +1006,8 @@ impl FileCopyJob {
 
 	/// Calculate total size for progress reporting
 	async fn calculate_total_size(&self, ctx: &JobContext<'_>) -> JobResult<u64> {
+		use crate::ops::indexing::PathResolver;
+
 		let mut total = 0u64;
 
 		for source in &self.sources.paths {
@@ -1013,19 +1015,34 @@ impl FileCopyJob {
 				// Local path - calculate directly from filesystem
 				total += self.get_path_size(local_path).await.unwrap_or(0);
 			} else {
-				// Non-local path (remote device, Cloud, Content) - query database
-				let db_query = super::database::CopyDatabaseQuery::new(ctx.library_db().clone());
-				if let Ok(estimates) = db_query.get_estimates_for_paths(&[source.clone()]).await {
-					total += estimates.total_size;
-					ctx.log(format!(
-						"Remote source: using database estimate of {} bytes",
-						estimates.total_size
-					));
-				} else {
-					ctx.log(format!(
-						"Warning: Could not estimate size for remote source: {}",
-						source.display()
-					));
+				// Non-local path - query database for synced metadata
+				match PathResolver::resolve_to_entry(ctx.library_db(), source).await {
+					Ok(Some(entry)) => {
+						let size = match entry.kind {
+							0 => entry.size as u64,                      // File
+							1 => entry.aggregate_size as u64,            // Directory
+							_ => 0,
+						};
+						total += size;
+						ctx.log(format!(
+							"Remote source '{}': found in database ({} bytes)",
+							source.display(),
+							size
+						));
+					}
+					Ok(None) => {
+						ctx.log(format!(
+							"Remote source '{}': not indexed, size unknown",
+							source.display()
+						));
+					}
+					Err(e) => {
+						ctx.log(format!(
+							"Remote source '{}': database error: {}",
+							source.display(),
+							e
+						));
+					}
 				}
 			}
 		}
@@ -1037,6 +1054,7 @@ impl FileCopyJob {
 	/// Directories are represented as a single entry (not flattened).
 	async fn collect_file_metadata(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
 		use super::metadata::{CopyFileEntry, CopyFileStatus};
+		use crate::ops::indexing::PathResolver;
 
 		self.job_metadata = super::metadata::CopyJobMetadata::new(self.options.delete_after_copy);
 
@@ -1045,41 +1063,65 @@ impl FileCopyJob {
 				JobError::execution(format!("Failed to resolve source path: {}", e))
 			})?;
 
-			if let Some(local_path) = resolved_source.as_local_path() {
+			let (size_bytes, is_directory) = if let Some(local_path) = resolved_source.as_local_path() {
+				// Local path - get from filesystem
 				let metadata = tokio::fs::metadata(local_path)
 					.await
 					.map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
 
-				let size_bytes = if metadata.is_file() {
+				let size = if metadata.is_file() {
 					metadata.len()
 				} else {
 					self.get_path_size(local_path).await.unwrap_or(0)
 				};
 
-				// Calculate destination path
-				let dest_path = if let Some(dest_local) = self.destination.as_local_path() {
-					if dest_local.is_dir() || self.sources.paths.len() > 1 {
-						self.destination
-							.join(resolved_source.file_name().unwrap_or_default())
-					} else {
-						self.destination.clone()
+				(size, metadata.is_dir())
+			} else {
+				// Remote path - query database for synced metadata
+				match PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source).await {
+					Ok(Some(entry)) => {
+						let size = match entry.kind {
+							0 => entry.size as u64,
+							1 => entry.aggregate_size as u64,
+							_ => 0,
+						};
+						let is_dir = entry.kind == 1;
+						(size, is_dir)
 					}
-				} else {
+					Ok(None) | Err(_) => {
+						// Entry not found - skip this file
+						ctx.log(format!(
+							"Warning: Could not find metadata for remote source: {}",
+							resolved_source.display()
+						));
+						continue;
+					}
+				}
+			};
+
+			// Calculate destination path
+			let dest_path = if let Some(dest_local) = self.destination.as_local_path() {
+				if dest_local.is_dir() || self.sources.paths.len() > 1 {
 					self.destination
 						.join(resolved_source.file_name().unwrap_or_default())
-				};
+				} else {
+					self.destination.clone()
+				}
+			} else {
+				self.destination
+					.join(resolved_source.file_name().unwrap_or_default())
+			};
 
-				let entry = CopyFileEntry {
-					source_path: resolved_source.clone(),
-					dest_path,
-					size_bytes,
-					is_directory: metadata.is_dir(),
-					status: CopyFileStatus::Pending,
-					error: None,
-				};
+			let entry = CopyFileEntry {
+				source_path: resolved_source.clone(),
+				dest_path,
+				size_bytes,
+				is_directory,
+				status: CopyFileStatus::Pending,
+				error: None,
+			};
 
-				self.job_metadata.add_file(entry);
-			}
+			self.job_metadata.add_file(entry);
 		}
 
 		ctx.log(format!(
