@@ -89,12 +89,6 @@ impl LibraryQuery for CopyMetadataQuery {
 			.filter_map(|entry| entry.entry_id)
 			.collect();
 
-		tracing::info!(
-			"Copy metadata query: {} files, {} with entry_id",
-			metadata.files.len(),
-			entry_uuids.len()
-		);
-
 		// Batch load File objects
 		if !entry_uuids.is_empty() {
 			match crate::domain::file::File::from_entry_uuids(
@@ -104,7 +98,6 @@ impl LibraryQuery for CopyMetadataQuery {
 			.await
 			{
 				Ok(files) => {
-					tracing::info!("Successfully loaded {} File objects", files.len());
 					metadata.file_objects = files;
 				}
 				Err(e) => {
