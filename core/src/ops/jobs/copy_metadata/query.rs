@@ -79,8 +79,43 @@ impl LibraryQuery for CopyMetadataQuery {
 			QueryError::Internal(format!("Failed to deserialize job state: {}", e))
 		})?;
 
+		// Build File domain objects from entry UUIDs
+		let mut metadata = copy_job.job_metadata;
+
+		// Collect entry UUIDs that are available
+		let entry_uuids: Vec<uuid::Uuid> = metadata
+			.files
+			.iter()
+			.filter_map(|entry| entry.entry_id)
+			.collect();
+
+		tracing::info!(
+			"Copy metadata query: {} files, {} with entry_id",
+			metadata.files.len(),
+			entry_uuids.len()
+		);
+
+		// Batch load File objects
+		if !entry_uuids.is_empty() {
+			match crate::domain::file::File::from_entry_uuids(
+				library.db().conn(),
+				&entry_uuids,
+			)
+			.await
+			{
+				Ok(files) => {
+					tracing::info!("Successfully loaded {} File objects", files.len());
+					metadata.file_objects = files;
+				}
+				Err(e) => {
+					// Log error but don't fail the query
+					tracing::warn!("Failed to load File objects: {}", e);
+				}
+			}
+		}
+
 		// Return the metadata
-		Ok(CopyMetadataOutput::with_metadata(copy_job.job_metadata))
+		Ok(CopyMetadataOutput::with_metadata(metadata))
 	}
 }
 

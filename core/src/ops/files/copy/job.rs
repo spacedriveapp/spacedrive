@@ -304,6 +304,9 @@ impl JobHandler for FileCopyJob {
 		// Collect file metadata for queryable list
 		self.collect_file_metadata(&ctx).await?;
 
+		// Persist job metadata to database for querying
+		self.persist_job_state_to_db(&ctx).await?;
+
 		ctx.log(format!(
 			"Preparing to copy {} files ({}) from {} source paths",
 			actual_file_count,
@@ -1050,6 +1053,33 @@ impl FileCopyJob {
 		Ok(total)
 	}
 
+	/// Persist the job state to the database so metadata can be queried
+	async fn persist_job_state_to_db(&self, ctx: &JobContext<'_>) -> JobResult<()> {
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+		// Serialize current job state
+		let job_state = rmp_serde::to_vec(self)
+			.map_err(|e| JobError::serialization(format!("Failed to serialize job state: {}", e)))?;
+
+		// Update the jobs.state field in the database
+		let job_db = ctx.library.jobs().database();
+		let mut job_model = crate::infra::job::database::jobs::ActiveModel {
+			id: Set(ctx.id.to_string()),
+			state: Set(job_state.clone()),
+			..Default::default()
+		};
+
+		job_model.update(job_db.conn()).await
+			.map_err(|e| JobError::execution(format!("Failed to persist job state: {}", e)))?;
+
+		ctx.log(format!(
+			"Persisted job metadata to database ({} files in queue)",
+			self.job_metadata.files.len()
+		));
+
+		Ok(())
+	}
+
 	/// Collect file metadata for the queryable file list.
 	/// Directories are represented as a single entry (not flattened).
 	async fn collect_file_metadata(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
@@ -1063,7 +1093,7 @@ impl FileCopyJob {
 				JobError::execution(format!("Failed to resolve source path: {}", e))
 			})?;
 
-			let (size_bytes, is_directory) = if let Some(local_path) = resolved_source.as_local_path() {
+			let (size_bytes, is_directory, entry_id) = if let Some(local_path) = resolved_source.as_local_path() {
 				// Local path - get from filesystem
 				let metadata = tokio::fs::metadata(local_path)
 					.await
@@ -1075,7 +1105,14 @@ impl FileCopyJob {
 					self.get_path_size(local_path).await.unwrap_or(0)
 				};
 
-				(size, metadata.is_dir())
+				// Try to find entry UUID for local paths too
+				let entry_id = PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source)
+					.await
+					.ok()
+					.flatten()
+					.and_then(|e| e.uuid);
+
+				(size, metadata.is_dir(), entry_id)
 			} else {
 				// Remote path - query database for synced metadata
 				match PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source).await {
@@ -1086,7 +1123,7 @@ impl FileCopyJob {
 							_ => 0,
 						};
 						let is_dir = entry.kind == 1;
-						(size, is_dir)
+						(size, is_dir, entry.uuid)
 					}
 					Ok(None) | Err(_) => {
 						// Entry not found - skip this file
@@ -1119,6 +1156,7 @@ impl FileCopyJob {
 				is_directory,
 				status: CopyFileStatus::Pending,
 				error: None,
+				entry_id,
 			};
 
 			self.job_metadata.add_file(entry);

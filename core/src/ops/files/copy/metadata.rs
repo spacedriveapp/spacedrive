@@ -45,6 +45,8 @@ pub struct CopyFileEntry {
 	pub status: CopyFileStatus,
 	/// Error message if status is Failed
 	pub error: Option<String>,
+	/// Entry UUID if source is in database (for building File objects)
+	pub entry_id: Option<uuid::Uuid>,
 }
 
 /// Full metadata for a copy job, queryable via jobs.get_copy_metadata.
@@ -60,6 +62,9 @@ pub struct CopyJobMetadata {
 	pub total_file_count: usize,
 	/// Whether this is a move operation
 	pub is_move_operation: bool,
+	/// Full File domain objects (populated by query, not stored in job)
+	#[serde(default)]
+	pub file_objects: Vec<crate::domain::file::File>,
 }
 
 impl Default for CopyJobMetadata {
@@ -70,6 +75,7 @@ impl Default for CopyJobMetadata {
 			total_bytes: 0,
 			total_file_count: 0,
 			is_move_operation: false,
+			file_objects: Vec::new(),
 		}
 	}
 }
@@ -83,6 +89,7 @@ impl CopyJobMetadata {
 			total_bytes: 0,
 			total_file_count: 0,
 			is_move_operation,
+			file_objects: Vec::new(),
 		}
 	}
 

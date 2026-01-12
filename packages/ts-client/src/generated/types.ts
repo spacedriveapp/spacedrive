@@ -251,7 +251,11 @@ status: CopyFileStatus;
 /**
  * Error message if status is Failed
  */
-error: string | null };
+error: string | null; 
+/**
+ * Entry UUID if source is in database (for building File objects)
+ */
+entry_id: string | null };
 
 /**
  * Status of a file in the copy operation.
@@ -301,7 +305,11 @@ total_file_count: number;
 /**
  * Whether this is a move operation
  */
-is_move_operation: boolean };
+is_move_operation: boolean; 
+/**
+ * Full File domain objects (populated by query, not stored in job)
+ */
+file_objects?: File[] };
 
 /**
  * Output from the copy metadata query.
