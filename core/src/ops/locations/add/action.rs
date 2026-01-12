@@ -191,7 +191,7 @@ impl LibraryAction for LocationAddAction {
 		// Check for duplicate locations
 		// TODO: Implement proper duplicate detection for both Physical and Cloud paths
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 import { sounds } from "@sd/assets/sounds";
@@ -211,10 +211,10 @@ export function useJobs() {
   const runningCount = jobs.filter((j) => j.status === "running").length;
   const pausedCount = jobs.filter((j) => j.status === "paused").length;
 
-  // Helper to get speed history for a job
-  const getSpeedHistory = (jobId: string): SpeedSample[] => {
+  // Helper to get speed history for a job (memoized to prevent re-creation)
+  const getSpeedHistory = useCallback((jobId: string): SpeedSample[] => {
     return speedHistoryRef.current.get(jobId) || [];
-  };
+  }, []);
 
   return {
     jobs,

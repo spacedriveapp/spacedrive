@@ -98,6 +98,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
           pause={pause}
           resume={resume}
           cancel={cancel}
+          getSpeedHistory={getSpeedHistory}
         />
       )}
     </Popover>
@@ -111,6 +112,7 @@ function JobManagerPopoverContent({
   pause,
   resume,
   cancel,
+  getSpeedHistory,
 }: {
   jobs: any[];
   showOnlyRunning: boolean;
@@ -118,6 +120,7 @@ function JobManagerPopoverContent({
   pause: (jobId: string) => Promise<void>;
   resume: (jobId: string) => Promise<void>;
   cancel: (jobId: string) => Promise<void>;
+  getSpeedHistory: (jobId: string) => import("./hooks/useJobs").SpeedSample[];
 }) {
   const filteredJobs = showOnlyRunning
     ? jobs.filter((job) => job.status === "running" || job.status === "paused")

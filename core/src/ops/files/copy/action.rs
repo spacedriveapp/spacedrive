@@ -321,10 +321,10 @@ impl LibraryAction for FileCopyAction {
 					"strategy": strategy_metadata,
 					"file_count": file_count,
 					"total_bytes": total_bytes,
-					"conflicts": conflicts.iter().map(|c| {
+					"conflicts": conflicts.iter().map(|(source, dest)| {
 						json!({
-							"source": c.to_string_lossy(),
-							"destination": c.to_string_lossy(),
+							"source": source.to_string_lossy(),
+							"destination": dest.to_string_lossy(),
 						})
 					}).collect::<Vec<_>>(),
 					"is_fast_operation": strategy_metadata.is_fast_operation,
@@ -357,7 +357,9 @@ impl LibraryAction for FileCopyAction {
 
 		// If it's a fast operation with no conflicts, return success with metadata
 		// Frontend can use this to decide whether to show a modal or auto-proceed
-		Ok(ValidationResult::Success)
+		Ok(ValidationResult::Success {
+			metadata: Some(metadata),
+		})
 	}
 
 	fn resolve_confirmation(&mut self, choice_index: usize) -> Result<(), ActionError> {
@@ -474,8 +476,8 @@ impl FileCopyAction {
 		Ok((count, size))
 	}
 
-	/// Check for all file conflicts and return list of conflicting paths
-	async fn check_for_conflicts_detailed(&self) -> Result<Vec<PathBuf>, ActionError> {
+	/// Check for all file conflicts and return list of conflicting (source, destination) pairs
+	async fn check_for_conflicts_detailed(&self) -> Result<Vec<(PathBuf, PathBuf)>, ActionError> {
 		let mut conflicts = Vec::new();
 
 		let dest_path = match self.destination.as_local_path() {
@@ -501,7 +503,7 @@ impl FileCopyAction {
 
 				// Check if this would conflict
 				if actual_dest.exists() {
-					conflicts.push(actual_dest);
+					conflicts.push((source_path.to_path_buf(), actual_dest));
 				}
 			}
 		}
@@ -512,7 +514,7 @@ impl FileCopyAction {
 	/// Check if any destination files would cause conflicts (legacy method)
 	async fn check_for_conflicts(&self) -> Result<Option<PathBuf>, ActionError> {
 		let conflicts = self.check_for_conflicts_detailed().await?;
-		Ok(conflicts.into_iter().next())
+		Ok(conflicts.into_iter().next().map(|(_, dest)| dest))
 	}
 
 	/// Generate a unique destination path by appending a number if the original exists

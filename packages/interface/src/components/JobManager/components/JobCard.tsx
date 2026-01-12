@@ -19,7 +19,7 @@ interface JobCardProps {
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
-  getSpeedHistory: (jobId: string) => SpeedSample[];
+  getSpeedHistory?: (jobId: string) => SpeedSample[];
 }
 
 export function JobCard({ job, onPause, onResume, onCancel, getSpeedHistory }: JobCardProps) {
@@ -143,7 +143,7 @@ export function JobCard({ job, onPause, onResume, onCancel, getSpeedHistory }: J
 
       {/* Expanded details section */}
       <AnimatePresence>
-        {isExpanded && isCopyJob && (
+        {isExpanded && isCopyJob && getSpeedHistory && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}

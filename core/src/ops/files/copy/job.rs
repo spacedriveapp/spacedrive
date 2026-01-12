@@ -915,6 +915,13 @@ impl ToGenericProgress for CopyProgress {
 			progress = progress.with_current_path(path.clone());
 		}
 
+		// Add strategy metadata for UI display
+		if let Some(ref strategy_metadata) = self.strategy_metadata {
+			progress = progress.with_metadata(serde_json::json!({
+				"strategy": strategy_metadata
+			}));
+		}
+
 		progress
 	}
 }

@@ -22,7 +22,11 @@ pub mod receipt;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ValidationResult {
 	/// The action is valid and can proceed without user interaction.
-	Success,
+	Success {
+		/// Optional metadata for rich UI display (strategy info, file counts, etc.)
+		#[serde(skip_serializing_if = "Option::is_none")]
+		metadata: Option<serde_json::Value>,
+	},
 	/// The action is valid, but requires user confirmation to proceed.
 	RequiresConfirmation(ConfirmationRequest),
 }
@@ -64,7 +68,7 @@ pub trait CoreAction: Send + Sync + 'static {
 	) -> impl std::future::Future<
 		Output = Result<ValidationResult, crate::infra::action::error::ActionError>,
 	> + Send {
-		async { Ok(ValidationResult::Success) }
+		async { Ok(ValidationResult::Success { metadata: None }) }
 	}
 
 	/// Resolve a user confirmation choice (optional)
@@ -112,7 +116,7 @@ pub trait LibraryAction: Send + Sync + 'static {
 	) -> impl std::future::Future<
 		Output = Result<ValidationResult, crate::infra::action::error::ActionError>,
 	> + Send {
-		async { Ok(ValidationResult::Success) }
+		async { Ok(ValidationResult::Success { metadata: None }) }
 	}
 
 	/// Resolve a user confirmation choice (optional)

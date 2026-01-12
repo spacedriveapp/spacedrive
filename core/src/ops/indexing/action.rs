@@ -75,7 +75,7 @@ impl LibraryAction for IndexingAction {
 				message: errors.join("; "),
 			});
 		}
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

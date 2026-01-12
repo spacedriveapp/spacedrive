@@ -72,7 +72,7 @@ impl LibraryAction for FileRenameAction {
 			_ => {}
 		}
 
-		Ok(ValidationResult::Success)
+		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(
