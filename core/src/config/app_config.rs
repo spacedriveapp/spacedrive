@@ -156,7 +156,6 @@ pub struct TelemetryConfig {
 
 	/// OTLP endpoint URL (must include full path for traces)
 	/// For HTTP: "http://localhost:4318/v1/traces" (default)
-	/// For gRPC: "http://localhost:4317"
 	pub endpoint: String,
 
 	/// Service name reported to the collector

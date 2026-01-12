@@ -174,12 +174,12 @@ where
 
 	// Add custom headers if configured (e.g., for authentication)
 	if !config.headers.is_empty() {
-		let headers: Vec<(String, String)> = config
+		let headers = config
 			.headers
 			.iter()
 			.map(|(k, v)| (k.clone(), v.clone()))
 			.collect();
-		exporter_builder = exporter_builder.with_headers(headers.into_iter().collect());
+		exporter_builder = exporter_builder.with_headers(headers);
 	}
 
 	let exporter = exporter_builder.build()?;
