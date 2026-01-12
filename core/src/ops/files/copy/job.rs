@@ -1010,7 +1010,23 @@ impl FileCopyJob {
 
 		for source in &self.sources.paths {
 			if let Some(local_path) = source.as_local_path() {
+				// Local path - calculate directly from filesystem
 				total += self.get_path_size(local_path).await.unwrap_or(0);
+			} else {
+				// Non-local path (remote device, Cloud, Content) - query database
+				let db_query = super::database::CopyDatabaseQuery::new(ctx.library_db().clone());
+				if let Ok(estimates) = db_query.get_estimates_for_paths(&[source.clone()]).await {
+					total += estimates.total_size;
+					ctx.log(format!(
+						"Remote source: using database estimate of {} bytes",
+						estimates.total_size
+					));
+				} else {
+					ctx.log(format!(
+						"Warning: Could not estimate size for remote source: {}",
+						source.display()
+					));
+				}
 			}
 		}
 
@@ -1081,7 +1097,12 @@ impl FileCopyJob {
 
 		for source in &self.sources.paths {
 			if let Some(local_path) = source.as_local_path() {
+				// Local path - count directly from filesystem
 				total_count += self.count_files_in_path(local_path).await.unwrap_or(0);
+			} else {
+				// Non-local path - use database estimate
+				// For now, count as 1 item (will be refined during actual transfer)
+				total_count += 1;
 			}
 		}
 

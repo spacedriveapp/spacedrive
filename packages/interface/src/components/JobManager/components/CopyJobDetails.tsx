@@ -25,11 +25,9 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
   const isCrossDevice = metadata?.strategy?.is_cross_device || false;
   const isCrossVolume = metadata?.strategy?.is_cross_volume || false;
 
-  // Format current file path
+  // Format current file path from SdPath
   const currentPath = generic.current_path
-    ? typeof generic.current_path === "string"
-      ? generic.current_path
-      : JSON.stringify(generic.current_path)
+    ? formatSdPath(generic.current_path)
     : null;
 
   // Calculate formatted values
@@ -92,6 +90,28 @@ function Stat({ label, value }: { label: string; value: string }) {
       <span className="text-xs font-medium text-ink">{value}</span>
     </div>
   );
+}
+
+// Format SdPath to human-readable string
+function formatSdPath(path: any): string {
+  if (typeof path === "string") {
+    return path;
+  }
+
+  // Handle Physical path: { Physical: { device_slug: "...", path: "..." } }
+  if (path?.Physical?.path) {
+    const pathStr = path.Physical.path;
+    // Show home directory as ~
+    return pathStr.replace(/^\/Users\/[^/]+/, "~");
+  }
+
+  // Handle Local path: { Local: { path: "..." } }
+  if (path?.Local?.path) {
+    return path.Local.path.replace(/^\/Users\/[^/]+/, "~");
+  }
+
+  // Fallback to JSON string
+  return JSON.stringify(path);
 }
 
 // Format bytes to human readable

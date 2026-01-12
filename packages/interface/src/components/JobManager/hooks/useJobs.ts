@@ -150,6 +150,7 @@ export function useJobs() {
                 current_phase: generic.phase,
                 current_path: generic.current_path,
                 status_message: generic.message,
+                generic_progress: generic,
               }),
             };
           }),
