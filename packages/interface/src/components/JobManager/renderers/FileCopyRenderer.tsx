@@ -1,5 +1,27 @@
+import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
+import { motion } from "framer-motion";
 import type { JobRenderer, JobRendererProps, JobDetailsRendererProps } from "./index";
 import { CopyJobDetails } from "../components/CopyJobDetails";
+
+/**
+ * Map strategy name to display label (enables i18n in future)
+ */
+function getStrategyLabel(strategyName: string | undefined, isMove: boolean): string | null {
+	if (!strategyName) return null;
+
+	switch (strategyName) {
+		case "RemoteTransfer":
+			return isMove ? "Network move" : "Network copy";
+		case "LocalMove":
+			return "Atomic move";
+		case "FastCopy":
+			return "Fast copy";
+		case "LocalStream":
+			return isMove ? "Streaming move" : "Streaming copy";
+		default:
+			return strategyName;
+	}
+}
 
 /**
  * Extract first filename from copy job for display
@@ -77,14 +99,25 @@ function formatDurationSeconds(seconds: number): string {
 
 /**
  * Custom card content for file copy jobs
- * Returns ONLY the content (title + subtext), JobCard provides the container
+ * Renders the full card content: title row + subtext row
  */
-function FileCopyCardContent({ job }: JobRendererProps) {
+function FileCopyCardContent({
+	job,
+	isExpanded,
+	statusBadge,
+	canExpand,
+	isHovered,
+	showActionButton,
+	canPause,
+	canResume,
+	canCancel,
+	onAction,
+	onCancel,
+}: JobRendererProps) {
 	const generic = job.generic_progress;
 	const metadata = generic?.metadata as any;
-	const strategyDescription = metadata?.strategy?.strategy_description || null;
-	const isCrossDevice = metadata?.strategy?.is_cross_device || false;
-	const isCrossVolume = metadata?.strategy?.is_cross_volume || false;
+	const strategyName = metadata?.strategy?.strategy_name;
+	const strategyLabel = getStrategyLabel(strategyName, job.action_context?.action_type === "files.move");
 
 	// Determine if this is a move operation
 	const isMove = job.action_context?.action_type === "files.move";
@@ -118,41 +151,75 @@ function FileCopyCardContent({ job }: JobRendererProps) {
 			: "Preparing...";
 
 	return (
-		<div className="flex-1 flex flex-col gap-1.5 min-h-0">
-			{/* Title with badges */}
-			<div className="flex items-center gap-2 min-h-0">
-				<span className="truncate text-[13px] font-medium text-ink">
+		<>
+			{/* Row 1: Title, badges, status badge, and controls */}
+			<div className="flex items-center gap-3 min-h-0">
+				<span className="flex-1 truncate text-[13px] font-medium text-ink">
 					{title}
 				</span>
 
-				{/* Transfer method badges */}
-				{strategyDescription && (
-					<span className="px-1.5 py-0.5 text-[9px] font-medium text-ink-faint bg-app-darkBox rounded-md truncate max-w-[120px]">
-						{strategyDescription}
-					</span>
-				)}
-				{isCrossDevice && (
-					<span className="px-1.5 py-0.5 text-[9px] font-medium text-accent bg-accent/10 rounded-md whitespace-nowrap">
-						Cross-device
-					</span>
-				)}
-				{!isCrossDevice && isCrossVolume && (
+				{/* Transfer method badge */}
+				{strategyLabel && (
 					<span className="px-1.5 py-0.5 text-[9px] font-medium text-ink-faint bg-app-darkBox rounded-md whitespace-nowrap">
-						Cross-volume
+						{strategyLabel}
 					</span>
+				)}
+
+				{/* Status badge */}
+				<span className="flex-shrink-0 text-[11px] font-medium text-ink-dull max-w-[80px] truncate">
+					{statusBadge}
+				</span>
+
+				{/* Expansion caret */}
+				{canExpand && (
+					<motion.div
+						animate={{ rotate: isExpanded ? 180 : 0 }}
+						transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
+						className="flex-shrink-0"
+					>
+						<CaretDown size={12} weight="bold" className="text-ink-dull" />
+					</motion.div>
+				)}
+
+				{/* Action buttons */}
+				{isHovered && (
+					<div className="flex items-center gap-1">
+						{showActionButton && (canPause || canResume) && (
+							<button
+								onClick={onAction}
+								className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-app-selected transition-colors"
+								title={canPause ? "Pause job" : "Resume job"}
+							>
+								{canPause ? (
+									<Pause size={10} weight="fill" className="text-ink" />
+								) : (
+									<Play size={10} weight="fill" className="text-ink" />
+								)}
+							</button>
+						)}
+						{canCancel && (
+							<button
+								onClick={onCancel}
+								className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-red-500 transition-colors"
+								title="Cancel job"
+							>
+								<X size={10} weight="bold" className="text-ink hover:text-white" />
+							</button>
+						)}
+					</div>
 				)}
 			</div>
 
-			{/* Rich subtext */}
+			{/* Row 2: Rich subtext */}
 			<div className="min-h-0">
 				<span
-					className="text-[10px] text-ink-dull truncate block"
+					className="text-[10px] text-ink-dull max-w-[200px] truncate block"
 					style={{ opacity: 0.7 }}
 				>
 					{subtext}
 				</span>
 			</div>
-		</div>
+		</>
 	);
 }
 

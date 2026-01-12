@@ -3,6 +3,26 @@ import type { SpeedSample } from "../hooks/useJobs";
 import { SpeedGraph } from "./SpeedGraph";
 import { formatDuration } from "../types";
 
+/**
+ * Map strategy name to display label (enables i18n in future)
+ */
+function getStrategyLabel(strategyName: string | undefined, isMove: boolean): string {
+  if (!strategyName) return "Unknown method";
+
+  switch (strategyName) {
+    case "RemoteTransfer":
+      return isMove ? "Network move" : "Network copy";
+    case "LocalMove":
+      return "Atomic move";
+    case "FastCopy":
+      return "Fast copy";
+    case "LocalStream":
+      return isMove ? "Streaming move" : "Streaming copy";
+    default:
+      return strategyName;
+  }
+}
+
 interface CopyJobDetailsProps {
   job: JobListItem;
   speedHistory: SpeedSample[];
@@ -21,7 +41,9 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
 
   // Extract copy metadata from generic progress
   const metadata = generic.metadata as any;
-  const strategyDescription = metadata?.strategy?.strategy_description || "Unknown method";
+  const isMove = job.action_context?.action_type === "files.move";
+  const strategyName = metadata?.strategy?.strategy_name;
+  const strategyLabel = getStrategyLabel(strategyName, isMove);
   const isCrossDevice = metadata?.strategy?.is_cross_device || false;
   const isCrossVolume = metadata?.strategy?.is_cross_volume || false;
 
@@ -47,17 +69,7 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
       {/* Transfer method info */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-ink-faint">Method:</span>
-        <span className="text-xs font-medium text-ink">{strategyDescription}</span>
-        {isCrossDevice && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium text-ink-faint bg-app-darkBox rounded">
-            Cross-device
-          </span>
-        )}
-        {!isCrossDevice && isCrossVolume && (
-          <span className="px-1.5 py-0.5 text-[10px] font-medium text-ink-faint bg-app-darkBox rounded">
-            Cross-volume
-          </span>
-        )}
+        <span className="text-xs font-medium text-ink">{strategyLabel}</span>
       </div>
 
       {/* Current file */}

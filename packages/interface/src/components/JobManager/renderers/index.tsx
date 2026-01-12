@@ -9,6 +9,15 @@ import { GenericRenderer } from "./GenericRenderer";
 export interface JobRendererProps {
 	job: JobListItem;
 	isExpanded: boolean;
+	statusBadge: string;
+	canExpand: boolean;
+	isHovered: boolean;
+	showActionButton: boolean;
+	canPause: boolean;
+	canResume: boolean;
+	canCancel: boolean;
+	onAction: (e: React.MouseEvent) => void;
+	onCancel: (e: React.MouseEvent) => void;
 }
 
 /**
