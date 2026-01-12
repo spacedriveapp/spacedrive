@@ -115,7 +115,7 @@ impl LibraryAction for LocationUpdateAction {
 			return Err(ActionError::LocationNotFound(self.input.id));
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

@@ -51,6 +51,7 @@ export function useJobManager() {
             return {
               ...job,
               progress: progressData.progress,
+              generic_progress: generic,
               ...(generic && {
                 current_phase: generic.phase,
                 current_path: generic.current_path,

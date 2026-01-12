@@ -137,6 +137,7 @@ async fn run_copy_with_confirmation(
 					"Rename the new file(s) (e.g., file.txt -> file (1).txt)".to_string(),
 					"Abort this copy operation".to_string(),
 				],
+				metadata: None,
 			};
 
 			let choice_index = prompt_for_choice(request)?;

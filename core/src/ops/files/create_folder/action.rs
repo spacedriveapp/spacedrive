@@ -87,7 +87,7 @@ impl LibraryAction for CreateFolderAction {
 			}
 		}
 
-		Ok(ValidationResult::Success)
+		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

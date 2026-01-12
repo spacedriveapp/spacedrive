@@ -5,11 +5,14 @@
 //! are resolved by joining their parent's cached path with the filename. This table is updated during
 //! indexing and move operations to keep paths in sync with the entry hierarchy.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use sea_orm::{prelude::*, ConnectionTrait, QuerySelect, Statement};
 
-use crate::infra::db::entities::{directory_paths, entry, DirectoryPaths, Entry};
+use crate::{
+	domain::addressing::SdPath,
+	infra::db::entities::{device, directory_paths, entry, location, volume, DirectoryPaths, Entry},
+};
 
 pub struct PathResolver;
 
@@ -206,5 +209,168 @@ impl PathResolver {
 			.await?;
 
 		Ok(result.rows_affected())
+	}
+
+	/// Resolve an SdPath to its entry in the database (reverse lookup)
+	/// Returns the entry with full metadata (size, file_count, aggregate_size, etc.)
+	pub async fn resolve_to_entry<C: ConnectionTrait>(
+		db: &C,
+		path: &SdPath,
+	) -> Result<Option<entry::Model>, DbErr> {
+		match path {
+			SdPath::Physical { device_slug, path } => {
+				Self::resolve_physical_to_entry(db, device_slug, path).await
+			}
+			SdPath::Cloud { .. } => {
+				// TODO: Implement cloud path resolution
+				Ok(None)
+			}
+			SdPath::Content { content_id } => {
+				// Query by content_id
+				entry::Entity::find()
+					.filter(entry::Column::ContentId.eq(*content_id))
+					.one(db)
+					.await
+			}
+			SdPath::Sidecar { .. } => {
+				// Sidecars don't have entries
+				Ok(None)
+			}
+		}
+	}
+
+	/// Resolve a Physical path to its entry
+	async fn resolve_physical_to_entry<C: ConnectionTrait>(
+		db: &C,
+		device_slug: &str,
+		path: &PathBuf,
+	) -> Result<Option<entry::Model>, DbErr> {
+		// Find device by slug
+		let device = device::Entity::find()
+			.filter(device::Column::Slug.eq(device_slug))
+			.one(db)
+			.await?;
+
+		let Some(device) = device else {
+			return Ok(None);
+		};
+
+		// Find volumes for this device (device_id FK is uuid, not id)
+		let volumes = volume::Entity::find()
+			.filter(volume::Column::DeviceId.eq(device.uuid))
+			.all(db)
+			.await?;
+
+		let path_str = path.to_string_lossy();
+
+		// Check each volume's locations
+		for volume in volumes {
+			let locations = location::Entity::find()
+				.filter(location::Column::VolumeId.eq(volume.id))
+				.all(db)
+				.await?;
+
+			for location in locations {
+				let Some(entry_id) = location.entry_id else {
+					continue;
+				};
+
+				// Get location root path from directory_paths
+				let location_path = Self::get_full_path(db, entry_id).await?;
+				let location_path_str = location_path.to_string_lossy();
+
+				// Check if target path is within this location
+				if path_str.starts_with(location_path_str.as_ref()) {
+					// Exact match - return location root
+					if path == &location_path {
+						return entry::Entity::find_by_id(entry_id).one(db).await;
+					}
+
+					// Find entry by traversing path
+					return Self::find_entry_by_path(db, entry_id, path, &location_path).await;
+				}
+			}
+		}
+
+		Ok(None)
+	}
+
+	/// Find an entry by traversing from a parent directory
+	async fn find_entry_by_path<C: ConnectionTrait>(
+		db: &C,
+		parent_entry_id: i32,
+		target_path: &Path,
+		parent_path: &Path,
+	) -> Result<Option<entry::Model>, DbErr> {
+		// Get relative path
+		let relative_path = match target_path.strip_prefix(parent_path) {
+			Ok(rel) => rel,
+			Err(_) => return Ok(None),
+		};
+
+		let components: Vec<&str> = relative_path
+			.components()
+			.filter_map(|c| c.as_os_str().to_str())
+			.collect();
+
+		if components.is_empty() {
+			return Ok(None);
+		}
+
+		// Traverse hierarchy
+		let mut current_parent_id = Some(parent_entry_id);
+		let component_count = components.len();
+
+		for (index, component) in components.iter().enumerate() {
+			let Some(parent_id) = current_parent_id else {
+				return Ok(None);
+			};
+
+			// Strip extension for entry lookup (extensions stored separately)
+			let component_without_ext = component
+				.rfind('.')
+				.map(|pos| &component[..pos])
+				.unwrap_or(component);
+
+			// Try exact match first
+			let mut child = entry::Entity::find()
+				.filter(entry::Column::ParentId.eq(parent_id))
+				.filter(entry::Column::Name.eq(component_without_ext))
+				.one(db)
+				.await?;
+
+			// If not found, try with Unicode space variations (database may have Unicode spaces)
+			if child.is_none() {
+				let with_narrow_nbsp = component_without_ext.replace(' ', "\u{202f}");
+				child = entry::Entity::find()
+					.filter(entry::Column::ParentId.eq(parent_id))
+					.filter(entry::Column::Name.eq(with_narrow_nbsp))
+					.one(db)
+					.await?;
+			}
+
+			// Still not found? Try non-breaking space
+			if child.is_none() {
+				let with_nbsp = component_without_ext.replace(' ', "\u{00a0}");
+				child = entry::Entity::find()
+					.filter(entry::Column::ParentId.eq(parent_id))
+					.filter(entry::Column::Name.eq(with_nbsp))
+					.one(db)
+					.await?;
+			}
+
+			match child {
+				Some(c) => {
+					current_parent_id = Some(c.id);
+					// If this is the last component, return the entry
+					if index == component_count - 1 {
+						return Ok(Some(c));
+					}
+				}
+				None => return Ok(None),
+			}
+		}
+
+		Ok(None)
 	}
 }

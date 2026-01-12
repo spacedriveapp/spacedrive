@@ -18,7 +18,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   const [showOnlyRunning, setShowOnlyRunning] = useState(true);
 
   // Unified hook for job data and badge/icon
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel, getSpeedHistory } = useJobs();
 
   // Reset filter to "active only" when popover opens
   useEffect(() => {
@@ -98,6 +98,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
           pause={pause}
           resume={resume}
           cancel={cancel}
+          getSpeedHistory={getSpeedHistory}
         />
       )}
     </Popover>
@@ -111,6 +112,7 @@ function JobManagerPopoverContent({
   pause,
   resume,
   cancel,
+  getSpeedHistory,
 }: {
   jobs: any[];
   showOnlyRunning: boolean;
@@ -118,6 +120,7 @@ function JobManagerPopoverContent({
   pause: (jobId: string) => Promise<void>;
   resume: (jobId: string) => Promise<void>;
   cancel: (jobId: string) => Promise<void>;
+  getSpeedHistory: (jobId: string) => import("./hooks/useJobs").SpeedSample[];
 }) {
   const filteredJobs = showOnlyRunning
     ? jobs.filter((job) => job.status === "running" || job.status === "paused")
@@ -135,7 +138,7 @@ function JobManagerPopoverContent({
       }}
       transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
     >
-      <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+      <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} getSpeedHistory={getSpeedHistory} />
     </motion.div>
   );
 }

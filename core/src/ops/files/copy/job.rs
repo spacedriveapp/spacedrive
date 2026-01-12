@@ -1,4 +1,7 @@
-//! Simplified FileCopyJob using the Strategy Pattern
+//! # File Copy Job
+//!
+//! Implements file copy and move operations using the Strategy Pattern with real-time
+//! progress tracking and transfer speed calculation. Supports resume on interruption.
 
 use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter};
 use crate::{
@@ -7,6 +10,7 @@ use crate::{
 	infra::job::prelude::*,
 };
 use serde::{Deserialize, Serialize};
+use specta::Type;
 use std::{
 	collections::HashMap,
 	path::PathBuf,
@@ -15,6 +19,91 @@ use std::{
 };
 use tracing::info;
 use uuid::Uuid;
+
+/// Tracks transfer speed with exponential moving average for stable ETA calculation.
+#[derive(Debug)]
+pub struct SpeedTracker {
+	start_time: Instant,
+	last_update: Instant,
+	last_bytes: u64,
+	current_rate: f32,
+	avg_rate: f32,
+	/// Exponential smoothing factor (0.3 balances responsiveness and stability)
+	alpha: f32,
+}
+
+impl SpeedTracker {
+	pub fn new() -> Self {
+		let now = Instant::now();
+		Self {
+			start_time: now,
+			last_update: now,
+			last_bytes: 0,
+			current_rate: 0.0,
+			avg_rate: 0.0,
+			alpha: 0.3,
+		}
+	}
+
+	/// Update speed tracker with current bytes copied. Returns current rate in bytes/sec.
+	pub fn update(&mut self, bytes_copied: u64) -> f32 {
+		let now = Instant::now();
+		let elapsed = now.duration_since(self.last_update).as_secs_f32();
+
+		// Throttle updates to at least 50ms intervals
+		if elapsed < 0.05 {
+			return self.current_rate;
+		}
+
+		let delta_bytes = bytes_copied.saturating_sub(self.last_bytes);
+		let rate = delta_bytes as f32 / elapsed;
+
+		// Exponential moving average for smoother ETA
+		self.avg_rate = if self.avg_rate == 0.0 {
+			rate
+		} else {
+			self.alpha * rate + (1.0 - self.alpha) * self.avg_rate
+		};
+
+		self.current_rate = rate;
+		self.last_update = now;
+		self.last_bytes = bytes_copied;
+
+		rate
+	}
+
+	/// Calculate estimated time remaining based on average rate.
+	pub fn calculate_eta(&self, bytes_remaining: u64) -> Option<Duration> {
+		// Require minimum rate to avoid division issues
+		if self.avg_rate < 1.0 {
+			return None;
+		}
+		Some(Duration::from_secs_f32(
+			bytes_remaining as f32 / self.avg_rate,
+		))
+	}
+
+	/// Get elapsed time since tracker was created.
+	pub fn elapsed(&self) -> Duration {
+		Instant::now().duration_since(self.start_time)
+	}
+
+	/// Get current instantaneous rate in bytes/sec.
+	pub fn current_rate(&self) -> f32 {
+		self.current_rate
+	}
+
+	/// Get smoothed average rate in bytes/sec (better for ETA calculation).
+	pub fn avg_rate(&self) -> f32 {
+		self.avg_rate
+	}
+}
+
+impl Default for SpeedTracker {
+	fn default() -> Self {
+		Self::new()
+	}
+}
 
 /// Move operation modes for UI context
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -66,6 +155,10 @@ pub struct FileCopyJob {
 	pub completed_indices: Vec<usize>,
 	#[serde(skip, default = "Instant::now")]
 	started_at: Instant,
+
+	/// Queryable metadata about this copy operation (collected during preparation)
+	#[serde(default)]
+	pub job_metadata: super::metadata::CopyJobMetadata,
 }
 
 impl Job for FileCopyJob {
@@ -94,6 +187,7 @@ impl JobHandler for FileCopyJob {
 		let progress = CopyProgress {
 			phase: CopyPhase::Initializing,
 			current_file: String::new(),
+			current_source_path: None,
 			files_copied: 0,
 			total_files: 0,
 			bytes_copied: 0,
@@ -102,6 +196,9 @@ impl JobHandler for FileCopyJob {
 			estimated_remaining: None,
 			preparation_complete: false,
 			error_count: 0,
+			transfer_rate: 0.0,
+			elapsed: None,
+			strategy_metadata: None,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
@@ -123,6 +220,7 @@ impl JobHandler for FileCopyJob {
 		let progress = CopyProgress {
 			phase: CopyPhase::DatabaseQuery,
 			current_file: String::new(),
+			current_source_path: None,
 			files_copied: 0,
 			total_files: 0,
 			bytes_copied: 0,
@@ -131,6 +229,9 @@ impl JobHandler for FileCopyJob {
 			estimated_remaining: None,
 			preparation_complete: false,
 			error_count: 0,
+			transfer_rate: 0.0,
+			elapsed: None,
+			strategy_metadata: None,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
@@ -177,6 +278,7 @@ impl JobHandler for FileCopyJob {
 		let progress = CopyProgress {
 			phase: CopyPhase::Preparation,
 			current_file: String::new(),
+			current_source_path: None,
 			files_copied: 0,
 			total_files: estimated_files,
 			bytes_copied: 0,
@@ -189,12 +291,21 @@ impl JobHandler for FileCopyJob {
 			estimated_remaining: None,
 			preparation_complete: false,
 			error_count: 0,
+			transfer_rate: 0.0,
+			elapsed: None,
+			strategy_metadata: None,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
-		// Calculate actual file count and total size
+		// Calculate actual file count and total size, and collect file metadata
 		let actual_file_count = self.count_total_files().await?;
 		let estimated_total_bytes = self.calculate_total_size(&ctx).await?;
+
+		// Collect file metadata for queryable list
+		self.collect_file_metadata(&ctx).await?;
+
+		// Persist job metadata to database for querying
+		self.persist_job_state_to_db(&ctx).await?;
 
 		ctx.log(format!(
 			"Preparing to copy {} files ({}) from {} source paths",
@@ -207,6 +318,7 @@ impl JobHandler for FileCopyJob {
 		let progress = CopyProgress {
 			phase: CopyPhase::Preparation,
 			current_file: String::new(),
+			current_source_path: None,
 			files_copied: 0,
 			total_files: actual_file_count,
 			bytes_copied: 0,
@@ -215,6 +327,9 @@ impl JobHandler for FileCopyJob {
 			estimated_remaining: None,
 			preparation_complete: true,
 			error_count: 0,
+			transfer_rate: 0.0,
+			elapsed: None,
+			strategy_metadata: None,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
 
@@ -258,6 +373,9 @@ impl JobHandler for FileCopyJob {
 				};
 
 				copied_count += files_in_source; // Count actual files as copied for progress tracking
+
+				// Mark as completed in metadata (already done during previous run)
+				self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
 				continue;
 			}
 
@@ -303,6 +421,12 @@ impl JobHandler for FileCopyJob {
 				1
 			};
 
+			// Mark file as currently copying in metadata
+			self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Copying);
+
+			// Persist immediately so UI can show "copying" status in real-time
+			self.persist_job_state_to_db(&ctx).await?;
+
 			// Update aggregator with current file info
 			let operation_description = CopyStrategyRouter::describe_strategy(
 				&resolved_source,
@@ -313,7 +437,11 @@ impl JobHandler for FileCopyJob {
 			)
 			.await;
 
-			progress_aggregator.start_file(resolved_source.display(), operation_description);
+			progress_aggregator.start_file(
+				resolved_source.display(),
+				resolved_source.clone(),
+				operation_description,
+			);
 			progress_aggregator.set_error_count(failed_copies.len());
 
 			// Update progress - show files already completed
@@ -322,9 +450,19 @@ impl JobHandler for FileCopyJob {
 				.bytes_completed_before_current
 				.lock()
 				.unwrap();
+			let (current_rate, current_elapsed) = {
+				let tracker = progress_aggregator.speed_tracker.lock().unwrap();
+				(tracker.current_rate(), Some(tracker.elapsed()))
+			}; // MutexGuard dropped here before any await
+			let current_strategy_metadata = progress_aggregator
+				.strategy_metadata
+				.lock()
+				.unwrap()
+				.clone();
 			let progress = CopyProgress {
 				phase: CopyPhase::Copying,
 				current_file: resolved_source.display(),
+				current_source_path: Some(resolved_source.clone()),
 				files_copied: files_completed_count,
 				total_files: actual_file_count,
 				bytes_copied: bytes_completed_snapshot,
@@ -333,11 +471,14 @@ impl JobHandler for FileCopyJob {
 				estimated_remaining: None,
 				preparation_complete: true,
 				error_count: failed_copies.len(),
+				transfer_rate: current_rate,
+				elapsed: current_elapsed,
+				strategy_metadata: current_strategy_metadata,
 			};
 			ctx.progress(Progress::generic(progress.to_generic_progress()));
 
-			// 1. Select the strategy
-			let strategy = CopyStrategyRouter::select_strategy(
+			// 1. Select the strategy with metadata
+			let (strategy, strategy_metadata) = CopyStrategyRouter::select_strategy_with_metadata(
 				&resolved_source,
 				&final_destination,
 				is_move,
@@ -345,6 +486,9 @@ impl JobHandler for FileCopyJob {
 				volume_manager.as_deref(),
 			)
 			.await;
+
+			// Store strategy metadata for progress updates
+			progress_aggregator.set_strategy_metadata(strategy_metadata);
 
 			info!(
 				"[JOB] About to execute strategy for {} -> {}",
@@ -360,6 +504,10 @@ impl JobHandler for FileCopyJob {
 						if let Some(dest_path) = final_destination.as_local_path() {
 							if dest_path.exists() {
 								ctx.log(format!("Skipping existing file: {}", dest_path.display()));
+
+								// Mark as skipped in metadata
+								self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Skipped);
+
 								// Skip this file
 								progress_aggregator.complete_source();
 								copied_count += files_in_source;
@@ -423,6 +571,9 @@ impl JobHandler for FileCopyJob {
 					// Track successful completion for resume
 					self.completed_indices.push(index);
 
+					// Mark as completed in metadata
+					self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
+
 					// If this is a move operation and the strategy didn't handle deletion,
 					// we need to delete the source after successful copy
 					if is_move && resolved_source.device_slug() == final_destination.device_slug() {
@@ -473,29 +624,48 @@ impl JobHandler for FileCopyJob {
 						resolved_source.display(),
 						e
 					));
+
+					// Mark as failed in metadata
+					self.job_metadata.set_error(&resolved_source, e.to_string());
 				}
 			}
 
-			// Checkpoint every 20 files to save completed_indices
+			// Persist after every file so UI can show real-time checkbox updates
+			self.persist_job_state_to_db(&ctx).await?;
+
+			// Checkpoint every 20 files to save job state to disk
 			if copied_count % 20 == 0 {
 				ctx.checkpoint().await?;
 			}
 		}
 
 		// Phase 4: Complete
+		let final_elapsed = progress_aggregator.speed_tracker.lock().unwrap().elapsed();
+		let final_strategy_metadata = progress_aggregator
+			.strategy_metadata
+			.lock()
+			.unwrap()
+			.clone();
 		let progress = CopyProgress {
 			phase: CopyPhase::Complete,
 			current_file: String::new(),
+			current_source_path: None,
 			files_copied: copied_count,
 			total_files: actual_file_count,
 			bytes_copied: total_bytes,
 			total_bytes: estimated_total_bytes,
 			current_operation: "Copy operation complete".to_string(),
-			estimated_remaining: None,
+			estimated_remaining: Some(Duration::ZERO),
 			preparation_complete: true,
 			error_count: failed_copies.len(),
+			transfer_rate: 0.0,
+			elapsed: Some(final_elapsed),
+			strategy_metadata: final_strategy_metadata,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
+
+		// Persist final job state with all file statuses
+		self.persist_job_state_to_db(&ctx).await?;
 
 		ctx.log(format!(
 			"Copy operation completed: {} copied, {} failed",
@@ -515,7 +685,7 @@ impl JobHandler for FileCopyJob {
 }
 
 /// Copy operation phases
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Type)]
 pub enum CopyPhase {
 	Initializing,
 	DatabaseQuery,
@@ -536,11 +706,14 @@ impl CopyPhase {
 	}
 }
 
-/// Copy progress information
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Copy progress information with real-time transfer metrics.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CopyProgress {
 	pub phase: CopyPhase,
 	pub current_file: String,
+	/// Current source path being processed (for GenericProgress.current_path)
+	#[serde(default)]
+	pub current_source_path: Option<SdPath>,
 	pub files_copied: usize,
 	pub total_files: usize,
 	pub bytes_copied: u64,
@@ -549,11 +722,20 @@ pub struct CopyProgress {
 	pub estimated_remaining: Option<Duration>,
 	pub preparation_complete: bool,
 	pub error_count: usize,
+	/// Current transfer rate in bytes per second
+	#[serde(default)]
+	pub transfer_rate: f32,
+	/// Time elapsed since copy started
+	#[serde(default)]
+	pub elapsed: Option<Duration>,
+	/// Strategy metadata for UI display
+	#[serde(default)]
+	pub strategy_metadata: Option<super::routing::CopyStrategyMetadata>,
 }
 
 impl JobProgress for CopyProgress {}
 
-/// Progress aggregator that tracks overall copy job progress
+/// Progress aggregator that tracks overall copy job progress with real-time speed calculation.
 struct ProgressAggregator<'a> {
 	ctx: &'a JobContext<'a>,
 	current_file_index: usize,
@@ -561,9 +743,12 @@ struct ProgressAggregator<'a> {
 	bytes_completed_before_current: Arc<Mutex<u64>>,
 	total_bytes: u64,
 	current_file_path: String,
+	current_source_path: Arc<Mutex<Option<SdPath>>>,
 	current_operation: String,
 	error_count: usize,
 	files_completed: Arc<Mutex<usize>>,
+	speed_tracker: Arc<Mutex<SpeedTracker>>,
+	strategy_metadata: Arc<Mutex<Option<super::routing::CopyStrategyMetadata>>>,
 }
 
 impl<'a> ProgressAggregator<'a> {
@@ -575,16 +760,25 @@ impl<'a> ProgressAggregator<'a> {
 			bytes_completed_before_current: Arc::new(Mutex::new(0)),
 			total_bytes,
 			current_file_path: String::new(),
+			current_source_path: Arc::new(Mutex::new(None)),
 			current_operation: String::new(),
 			error_count: 0,
 			files_completed: Arc::new(Mutex::new(0)),
+			speed_tracker: Arc::new(Mutex::new(SpeedTracker::new())),
+			strategy_metadata: Arc::new(Mutex::new(None)),
 		}
 	}
 
-	/// Start processing a new file
-	fn start_file(&mut self, file_path: String, current_operation: String) {
+	/// Start processing a new file with strategy metadata
+	fn start_file(&mut self, file_path: String, source_path: SdPath, current_operation: String) {
 		self.current_file_path = file_path;
+		*self.current_source_path.lock().unwrap() = Some(source_path);
 		self.current_operation = current_operation;
+	}
+
+	/// Set the current strategy metadata
+	fn set_strategy_metadata(&mut self, metadata: super::routing::CopyStrategyMetadata) {
+		*self.strategy_metadata.lock().unwrap() = Some(metadata);
 	}
 
 	/// Complete the current source item and update index
@@ -599,7 +793,7 @@ impl<'a> ProgressAggregator<'a> {
 		*self.files_completed.lock().unwrap() += files_in_operation;
 	}
 
-	/// Create a progress callback for strategy implementations
+	/// Create a progress callback for strategy implementations with speed tracking.
 	fn create_callback(&self) -> Box<dyn Fn(u64, u64) + Send + Sync + 'a> {
 		let ctx = self.ctx;
 		let files_completed = self.files_completed.clone();
@@ -607,49 +801,81 @@ impl<'a> ProgressAggregator<'a> {
 		let bytes_before = self.bytes_completed_before_current.clone();
 		let total_bytes = self.total_bytes;
 		let current_file = self.current_file_path.clone();
+		let current_source_path = self.current_source_path.clone();
 		let current_operation = self.current_operation.clone();
 		let error_count = self.error_count;
+		let speed_tracker = self.speed_tracker.clone();
+		let strategy_metadata = self.strategy_metadata.clone();
 
 		Box::new(move |bytes_value: u64, signal_value: u64| {
-			// NEW SIGNAL: A signal_value of u64::MAX means a file has finished.
-			// The bytes_value will be the size of the completed file.
+			// Signal: u64::MAX means a file has finished, bytes_value is its size
 			if signal_value == u64::MAX {
+				// Update backend state
 				let mut files = files_completed.lock().unwrap();
 				*files += 1;
+				drop(files);
 				let mut bytes = bytes_before.lock().unwrap();
-				*bytes += bytes_value; // Add the completed file's size to the total
-				ctx.log(format!(
-					"File completed. Total files: {}/{}, Total bytes: {}",
-					*files, total_files, *bytes
-				));
-				return;
+				*bytes += bytes_value;
+				drop(bytes);
 			}
 
-			// Normal byte-level progress update
-			let bytes_before_snapshot = *bytes_before.lock().unwrap();
-			let total_bytes_copied = bytes_before_snapshot + bytes_value;
+			// Read current backend state for progress event (AFTER mutations above)
 			let files_completed_count = *files_completed.lock().unwrap();
+			let bytes_before_snapshot = *bytes_before.lock().unwrap();
+
+			// Calculate total bytes for this progress event
+			let total_bytes_copied = if signal_value == u64::MAX {
+				// File just completed - bytes were already added to bytes_before above
+				bytes_before_snapshot
+			} else {
+				// Byte-level progress - bytes_value is current file progress within current file
+				bytes_before_snapshot + bytes_value
+			};
+
+			// Update speed tracker and get current rate
+			let mut tracker = speed_tracker.lock().unwrap();
+			let rate = tracker.update(total_bytes_copied);
+			let bytes_remaining = total_bytes.saturating_sub(total_bytes_copied);
+			let estimated_remaining = tracker.calculate_eta(bytes_remaining);
+			let elapsed = tracker.elapsed();
+			drop(tracker);
+
+			let current_strategy_metadata = strategy_metadata.lock().unwrap().clone();
+			let current_src_path = current_source_path.lock().unwrap().clone();
 
 			let copy_progress = CopyProgress {
 				phase: CopyPhase::Copying,
 				current_file: current_file.clone(),
+				current_source_path: current_src_path,
 				files_copied: files_completed_count,
 				total_files,
 				bytes_copied: total_bytes_copied,
 				total_bytes,
 				current_operation: current_operation.clone(),
-				estimated_remaining: None,
+				estimated_remaining,
 				preparation_complete: true,
 				error_count,
+				transfer_rate: rate,
+				elapsed: Some(elapsed),
+				strategy_metadata: current_strategy_metadata,
 			};
 
-			// Log progress details every 100MB
-			if total_bytes_copied % (100 * 1024 * 1024) < bytes_value {
+			// Log progress details every 100MB or on file completion
+			if signal_value == u64::MAX {
 				ctx.log(format!(
-					"Progress update: {} / {} bytes ({:.1}%)",
+					"File completed. Total files: {}/{}, Total bytes: {}",
+					files_completed_count, total_files, total_bytes_copied
+				));
+			} else if total_bytes_copied % (100 * 1024 * 1024) < bytes_value {
+				ctx.log(format!(
+					"Progress: {} / {} bytes ({:.1}%), {}/s, ETA: {}",
 					total_bytes_copied,
 					total_bytes,
-					(total_bytes_copied as f64 / total_bytes as f64) * 100.0
+					(total_bytes_copied as f64 / total_bytes as f64) * 100.0,
+					format_bytes(rate as u64),
+					estimated_remaining
+						.map(|d| format!("{:.0}s", d.as_secs_f32()))
+						.unwrap_or_else(|| "calculating...".to_string())
 				));
 			}
 
@@ -709,14 +935,12 @@ impl ToGenericProgress for CopyProgress {
 
 		progress = progress.with_bytes(self.bytes_copied, self.total_bytes);
 
-		// Add performance metrics if we're actively copying
+		// Add performance metrics with real transfer rate
 		if self.phase == CopyPhase::Copying && self.bytes_copied > 0 {
-			// Calculate rate if we have timing information
-			// For now, just pass through the estimated remaining time
 			progress = progress.with_performance(
-				0.0, // Rate will be calculated by job system
+				self.transfer_rate,
 				self.estimated_remaining,
-				None, // Elapsed time tracked by job system
+				self.elapsed,
 			);
 		}
 
@@ -725,10 +949,16 @@ impl ToGenericProgress for CopyProgress {
 			progress = progress.with_errors(self.error_count as u64, 0);
 		}
 
-		// Add current file path if available
-		if !self.current_file.is_empty() && self.phase == CopyPhase::Copying {
-			// Convert current file string to SdPath if possible
-			// For now, we'll skip this as we'd need device_id context
+		// Add current path if available
+		if let Some(ref path) = self.current_source_path {
+			progress = progress.with_current_path(path.clone());
+		}
+
+		// Add strategy metadata for UI display
+		if let Some(ref strategy_metadata) = self.strategy_metadata {
+			progress = progress.with_metadata(serde_json::json!({
+				"strategy": strategy_metadata
+			}));
 		}
 
 		progress
@@ -752,6 +982,7 @@ impl FileCopyJob {
 			options: Default::default(),
 			completed_indices: Vec::new(),
 			started_at: Instant::now(),
+			job_metadata: super::metadata::CopyJobMetadata::default(),
 		}
 	}
 
@@ -763,6 +994,7 @@ impl FileCopyJob {
 			options: Default::default(),
 			completed_indices: Vec::new(),
 			started_at: Instant::now(),
+			job_metadata: super::metadata::CopyJobMetadata::default(),
 		}
 	}
 
@@ -788,6 +1020,7 @@ impl FileCopyJob {
 			options,
 			completed_indices: Vec::new(),
 			started_at: Instant::now(),
+			job_metadata: super::metadata::CopyJobMetadata::new(true),
 		}
 	}
 
@@ -812,15 +1045,166 @@ impl FileCopyJob {
 
 	/// Calculate total size for progress reporting
 	async fn calculate_total_size(&self, ctx: &JobContext<'_>) -> JobResult<u64> {
+		use crate::ops::indexing::PathResolver;
+
 		let mut total = 0u64;
 
 		for source in &self.sources.paths {
 			if let Some(local_path) = source.as_local_path() {
+				// Local path - calculate directly from filesystem
 				total += self.get_path_size(local_path).await.unwrap_or(0);
+			} else {
+				// Non-local path - query database for synced metadata
+				match PathResolver::resolve_to_entry(ctx.library_db(), source).await {
+					Ok(Some(entry)) => {
+						let size = match entry.kind {
+							0 => entry.size as u64,                      // File
+							1 => entry.aggregate_size as u64,            // Directory
+							_ => 0,
+						};
+						total += size;
+						ctx.log(format!(
+							"Remote source '{}': found in database ({} bytes)",
+							source.display(),
+							size
+						));
+					}
+					Ok(None) => {
+						ctx.log(format!(
+							"Remote source '{}': not indexed, size unknown",
+							source.display()
+						));
+					}
+					Err(e) => {
+						ctx.log(format!(
+							"Remote source '{}': database error: {}",
+							source.display(),
+							e
+						));
+					}
+				}
 			}
 		}
 
 		Ok(total)
+	}
+
+	/// Persist the job state to the database so metadata can be queried
+	async fn persist_job_state_to_db(&self, ctx: &JobContext<'_>) -> JobResult<()> {
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+		// Serialize current job state
+		let job_state = rmp_serde::to_vec(self)
+			.map_err(|e| JobError::serialization(format!("Failed to serialize job state: {}", e)))?;
+
+		// Update the jobs.state field in the database
+		let job_db = ctx.library.jobs().database();
+		let mut job_model = crate::infra::job::database::jobs::ActiveModel {
+			id: Set(ctx.id.to_string()),
+			state: Set(job_state.clone()),
+			..Default::default()
+		};
+
+		job_model.update(job_db.conn()).await
+			.map_err(|e| JobError::execution(format!("Failed to persist job state: {}", e)))?;
+
+		ctx.log(format!(
+			"Persisted job metadata to database ({} files in queue)",
+			self.job_metadata.files.len()
+		));
+
+		Ok(())
+	}
+
+	/// Collect file metadata for the queryable file list.
+	/// Directories are represented as a single entry (not flattened).
+	async fn collect_file_metadata(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
+		use super::metadata::{CopyFileEntry, CopyFileStatus};
+		use crate::ops::indexing::PathResolver;
+
+		self.job_metadata = super::metadata::CopyJobMetadata::new(self.options.delete_after_copy);
+
+		for source in &self.sources.paths {
+			let resolved_source = source.resolve_in_job(ctx).await.map_err(|e| {
+				JobError::execution(format!("Failed to resolve source path: {}", e))
+			})?;
+
+			let (size_bytes, is_directory, entry_id) = if let Some(local_path) = resolved_source.as_local_path() {
+				// Local path - get from filesystem
+				let metadata = tokio::fs::metadata(local_path)
+					.await
+					.map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
+
+				let size = if metadata.is_file() {
+					metadata.len()
+				} else {
+					self.get_path_size(local_path).await.unwrap_or(0)
+				};
+
+				// Try to find entry UUID for local paths too
+				let entry_id = PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source)
+					.await
+					.ok()
+					.flatten()
+					.and_then(|e| e.uuid);
+
+				(size, metadata.is_dir(), entry_id)
+			} else {
+				// Remote path - query database for synced metadata
+				match PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source).await {
+					Ok(Some(entry)) => {
+						let size = match entry.kind {
+							0 => entry.size as u64,
+							1 => entry.aggregate_size as u64,
+							_ => 0,
+						};
+						let is_dir = entry.kind == 1;
+						(size, is_dir, entry.uuid)
+					}
+					Ok(None) | Err(_) => {
+						// Entry not found - skip this file
+						ctx.log(format!(
+							"Warning: Could not find metadata for remote source: {}",
+							resolved_source.display()
+						));
+						continue;
+					}
+				}
+			};
+
+			// Calculate destination path
+			let dest_path = if let Some(dest_local) = self.destination.as_local_path() {
+				if dest_local.is_dir() || self.sources.paths.len() > 1 {
+					self.destination
+						.join(resolved_source.file_name().unwrap_or_default())
+				} else {
+					self.destination.clone()
+				}
+			} else {
+				self.destination
+					.join(resolved_source.file_name().unwrap_or_default())
+			};
+
+			let entry = CopyFileEntry {
+				source_path: resolved_source.clone(),
+				dest_path,
+				size_bytes,
+				is_directory,
+				status: CopyFileStatus::Pending,
+				error: None,
+				entry_id,
+			};
+
+			self.job_metadata.add_file(entry);
+		}
+
+		ctx.log(format!(
+			"Collected metadata for {} source items ({} total bytes)",
+			self.job_metadata.files.len(),
+			self.job_metadata.total_bytes
+		));
+
+		Ok(())
 	}
 
 	/// Count total number of files to be copied (including files within directories)
@@ -829,7 +1213,12 @@ impl FileCopyJob {
 
 		for source in &self.sources.paths {
 			if let Some(local_path) = source.as_local_path() {
+				// Local path - count directly from filesystem
 				total_count += self.count_files_in_path(local_path).await.unwrap_or(0);
+			} else {
+				// Non-local path - use database estimate
+				// For now, count as 1 item (will be refined during actual transfer)
+				total_count += 1;
 			}
 		}
 
@@ -1025,6 +1414,7 @@ impl JobHandler for MoveJob {
 			options: copy_options,
 			completed_indices: Vec::new(),
 			started_at: Instant::now(),
+			job_metadata: super::metadata::CopyJobMetadata::new(true),
 		};
 
 		// Run the copy job
@@ -1135,5 +1525,182 @@ fn format_bytes(bytes: u64) -> String {
 		format!("{} {}", size as u64, UNITS[unit_idx])
 	} else {
 		format!("{:.2} {}", size, UNITS[unit_idx])
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use std::thread;
+
+	#[test]
+	fn test_speed_tracker_creation() {
+		let tracker = SpeedTracker::new();
+		assert_eq!(tracker.current_rate(), 0.0);
+		assert_eq!(tracker.avg_rate(), 0.0);
+	}
+
+	#[test]
+	fn test_speed_tracker_update() {
+		let mut tracker = SpeedTracker::new();
+
+		// Wait to ensure we exceed the 50ms throttle
+		thread::sleep(Duration::from_millis(60));
+
+		// Simulate 1MB transferred
+		let rate = tracker.update(1024 * 1024);
+
+		// Rate should be positive (bytes transferred over time)
+		assert!(rate > 0.0, "Rate should be positive after transfer");
+		assert!(tracker.current_rate() > 0.0);
+		assert!(tracker.avg_rate() > 0.0);
+	}
+
+	#[test]
+	fn test_speed_tracker_throttling() {
+		let mut tracker = SpeedTracker::new();
+
+		// First call should return 0 (no time elapsed)
+		let rate1 = tracker.update(1000);
+		assert_eq!(rate1, 0.0, "First immediate call should be throttled");
+
+		// Call again immediately - should still be throttled
+		let rate2 = tracker.update(2000);
+		assert_eq!(rate2, 0.0, "Immediate second call should be throttled");
+	}
+
+	#[test]
+	fn test_speed_tracker_eta() {
+		let mut tracker = SpeedTracker::new();
+
+		// Wait and update to establish a rate
+		thread::sleep(Duration::from_millis(60));
+		tracker.update(1024 * 1024); // 1MB
+
+		// Calculate ETA for remaining bytes
+		let eta = tracker.calculate_eta(1024 * 1024 * 10); // 10MB remaining
+
+		// Should have an ETA now
+		assert!(
+			eta.is_some(),
+			"ETA should be calculable after rate established"
+		);
+	}
+
+	#[test]
+	fn test_speed_tracker_eta_zero_rate() {
+		let tracker = SpeedTracker::new();
+
+		// No updates, rate is 0
+		let eta = tracker.calculate_eta(1024 * 1024);
+
+		// Should return None when rate is too low
+		assert!(eta.is_none(), "ETA should be None when rate is 0");
+	}
+
+	#[test]
+	fn test_speed_tracker_elapsed() {
+		let tracker = SpeedTracker::new();
+
+		thread::sleep(Duration::from_millis(50));
+
+		let elapsed = tracker.elapsed();
+		assert!(
+			elapsed >= Duration::from_millis(50),
+			"Elapsed time should be at least 50ms"
+		);
+	}
+
+	#[test]
+	fn test_speed_tracker_exponential_smoothing() {
+		let mut tracker = SpeedTracker::new();
+
+		// Simulate varying speeds
+		thread::sleep(Duration::from_millis(60));
+		tracker.update(1024 * 100); // 100KB
+
+		thread::sleep(Duration::from_millis(60));
+		let rate1 = tracker.update(1024 * 200); // 200KB total
+
+		thread::sleep(Duration::from_millis(60));
+		let rate2 = tracker.update(1024 * 400); // 400KB total
+
+		// Average rate should be smoothed (not jumping wildly)
+		let avg = tracker.avg_rate();
+		assert!(avg > 0.0, "Average rate should be positive");
+
+		// The smoothed average should be between the current rates
+		// (exponential smoothing prevents extreme jumps)
+	}
+
+	#[test]
+	fn test_copy_progress_to_generic() {
+		let progress = CopyProgress {
+			phase: CopyPhase::Copying,
+			current_file: "test.txt".to_string(),
+			current_source_path: None,
+			files_copied: 5,
+			total_files: 10,
+			bytes_copied: 1024 * 1024 * 50, // 50MB
+			total_bytes: 1024 * 1024 * 100, // 100MB
+			current_operation: "Copying files".to_string(),
+			estimated_remaining: Some(Duration::from_secs(30)),
+			preparation_complete: true,
+			error_count: 0,
+			transfer_rate: 10.0 * 1024.0 * 1024.0, // 10 MB/s
+			elapsed: Some(Duration::from_secs(5)),
+			strategy_metadata: None,
+		};
+
+		let generic = progress.to_generic_progress();
+
+		assert_eq!(generic.percentage, 0.5); // 50%
+		assert_eq!(generic.phase, "Copying");
+		assert_eq!(generic.completion.completed, 5);
+		assert_eq!(generic.completion.total, 10);
+		assert_eq!(generic.completion.bytes_completed, Some(1024 * 1024 * 50));
+		assert_eq!(generic.performance.rate, 10.0 * 1024.0 * 1024.0);
+		assert_eq!(
+			generic.performance.estimated_remaining,
+			Some(Duration::from_secs(30))
+		);
+	}
+
+	#[test]
+	fn test_copy_progress_with_strategy_metadata() {
+		use crate::ops::files::copy::input::CopyMethod;
+		use crate::ops::files::copy::routing::CopyStrategyMetadata;
+
+		let metadata = CopyStrategyMetadata {
+			strategy_name: "FastCopy".to_string(),
+			strategy_description: "Fast copy (APFS clone)".to_string(),
+			is_cross_device: false,
+			is_cross_volume: false,
+			is_fast_operation: true,
+			copy_method: CopyMethod::Auto,
+		};
+
+		let progress = CopyProgress {
+			phase: CopyPhase::Copying,
+			current_file: "test.txt".to_string(),
+			current_source_path: None,
+			files_copied: 1,
+			total_files: 5,
+			bytes_copied: 1024,
+			total_bytes: 5120,
+			current_operation: "Fast copy (APFS clone)".to_string(),
+			estimated_remaining: Some(Duration::from_secs(10)),
+			preparation_complete: true,
+			error_count: 0,
+			transfer_rate: 512.0,
+			elapsed: Some(Duration::from_secs(2)),
+			strategy_metadata: Some(metadata.clone()),
+		};
+
+		assert!(progress.strategy_metadata.is_some());
+		let meta = progress.strategy_metadata.unwrap();
+		assert_eq!(meta.strategy_name, "FastCopy");
+		assert!(meta.is_fast_operation);
+		assert!(!meta.is_cross_device);
 	}
 }

@@ -320,19 +320,11 @@ impl NetworkingEventLoop {
 				bi_result = conn.accept_bi() => {
 					match bi_result {
 						Ok((send, recv)) => {
-							logger.info(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
-
 					// Check if this device is already paired
 					let (is_paired, paired_device_id) = {
 						let registry = device_registry.read().await;
 						if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
 							let state = registry.get_device_state(device_id);
-							logger.debug(&format!(
-								"Found device {} for node {}, state: {:?}",
-								device_id,
-								remote_node_id,
-								state.as_ref().map(|s| format!("{:?}", s))
-							)).await;
 							let paired = match state {
 								Some(crate::service::network::device::DeviceState::Paired { .. }) |
 								Some(crate::service::network::device::DeviceState::Connected { .. }) |
@@ -341,7 +333,6 @@ impl NetworkingEventLoop {
 							};
 							(paired, Some(device_id))
 						} else {
-							logger.debug(&format!("No device found for node {}", remote_node_id)).await;
 							(false, None)
 						}
 					};
@@ -389,7 +380,6 @@ impl NetworkingEventLoop {
 					} else if alpn_bytes == SYNC_ALPN {
 						let registry = protocol_registry.read().await;
 						if let Some(handler) = registry.get_handler("sync") {
-							logger.info("Routing to sync handler (ALPN match)").await;
 							handler
 								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
 								.await;

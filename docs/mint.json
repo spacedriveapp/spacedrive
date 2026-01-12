@@ -57,6 +57,7 @@
       "icon": "compass",
       "pages": [
         "overview/get-started",
+        "overview/self-hosting",
         "overview/backup-photos-ios",
         "overview/manage-libraries",
         "overview/add-index-locations"
