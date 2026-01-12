@@ -220,7 +220,7 @@ impl TestConfigBuilder {
 				statistics_listener_enabled: self.statistics_listener_enabled,
 			},
 			logging: crate::config::app_config::LoggingConfig::default(),
-			telemetry: crate::config::app_config::TelemetryConfig::default(),
+			otel: crate::config::app_config::OpenTelemetryConfig::default(),
 		}
 	}
 

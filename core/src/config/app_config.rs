@@ -41,7 +41,7 @@ pub struct AppConfig {
 
 	/// OpenTelemetry distributed tracing configuration
 	#[serde(default)]
-	pub telemetry: TelemetryConfig,
+	pub otel: OpenTelemetryConfig,
 }
 
 /// Configuration for core services
@@ -150,7 +150,7 @@ impl Default for LoggingConfig {
 
 /// Configuration for OpenTelemetry distributed tracing
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TelemetryConfig {
+pub struct OpenTelemetryConfig {
 	/// Whether OpenTelemetry export is enabled
 	pub enabled: bool,
 
@@ -170,7 +170,7 @@ pub struct TelemetryConfig {
 	pub timeout_secs: u64,
 }
 
-impl Default for TelemetryConfig {
+impl Default for OpenTelemetryConfig {
 	fn default() -> Self {
 		Self {
 			enabled: false,
@@ -249,7 +249,7 @@ impl AppConfig {
 			job_logging: JobLoggingConfig::default(),
 			services: ServiceConfig::default(),
 			logging: LoggingConfig::default(),
-			telemetry: TelemetryConfig::default(),
+			otel: OpenTelemetryConfig::default(),
 		}
 	}
 
@@ -313,7 +313,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		5 // Added OpenTelemetry configuration
+		4
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -341,13 +341,6 @@ impl Migrate for AppConfig {
 				self.version = 4;
 				self.migrate()
 			}
-			4 => {
-				// Migration from v4 to v5: Add OpenTelemetry configuration
-				self.telemetry = TelemetryConfig::default();
-				self.version = 5;
-				Ok(())
-			}
-			5 => Ok(()), // Already at target version
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
 	}
