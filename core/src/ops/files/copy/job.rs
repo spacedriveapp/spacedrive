@@ -424,6 +424,9 @@ impl JobHandler for FileCopyJob {
 			// Mark file as currently copying in metadata
 			self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Copying);
 
+			// Persist immediately so UI can show "copying" status in real-time
+			self.persist_job_state_to_db(&ctx).await?;
+
 			// Update aggregator with current file info
 			let operation_description = CopyStrategyRouter::describe_strategy(
 				&resolved_source,

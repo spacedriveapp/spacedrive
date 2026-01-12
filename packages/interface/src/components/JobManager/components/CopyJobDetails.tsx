@@ -7,6 +7,7 @@ import type { SpeedSample } from "../hooks/useJobs";
 import type { File } from "@sd/ts-client";
 import { SpeedGraph } from "./SpeedGraph";
 import { Thumb } from "../../../routes/explorer/File/Thumb";
+import { formatBytes } from "../../../routes/explorer/utils";
 
 interface CopyJobDetailsProps {
   job: JobListItem;
@@ -23,15 +24,24 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
     input: { job_id: job.id },
   });
 
-  // Refetch when completed count changes
+  // Refetch when completed count changes OR when current file changes
   const prevCompletedRef = useRef<number>(0);
+  const prevCurrentPathRef = useRef<string>("");
   useEffect(() => {
     const currentCompleted = generic?.completion?.completed || 0;
-    if (currentCompleted !== prevCompletedRef.current) {
+    const currentPath = generic?.current_path?.Physical?.path ||
+                        generic?.current_path?.Local?.path ||
+                        generic?.message || "";
+
+    const completedChanged = currentCompleted !== prevCompletedRef.current;
+    const currentFileChanged = currentPath !== prevCurrentPathRef.current && currentPath !== "";
+
+    if (completedChanged || currentFileChanged) {
       prevCompletedRef.current = currentCompleted;
+      prevCurrentPathRef.current = currentPath;
       refetch();
     }
-  }, [generic?.completion?.completed, refetch]);
+  }, [generic?.completion?.completed, generic?.current_path, generic?.message, refetch]);
 
   if (!generic) {
     return (
@@ -51,23 +61,45 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
   });
 
   // Auto-scroll to center the currently copying file
+  // Match files by current_path from progress, not by "copying" status (which is too fast to catch)
+  const prevScrollIndexRef = useRef<number>(-1);
+
   useEffect(() => {
-    const currentFileIndex = files.findIndex(f => f.status === "copying");
-    if (currentFileIndex !== -1 && scrollContainerRef.current) {
-      const container = scrollContainerRef.current;
-      const fileElements = container.children;
-      const currentElement = fileElements[currentFileIndex] as HTMLElement;
+    const container = scrollContainerRef.current;
+    if (!container || !generic?.current_path) return;
 
-      if (currentElement) {
-        const containerHeight = container.clientHeight;
-        const elementTop = currentElement.offsetTop;
-        const elementHeight = currentElement.clientHeight;
-        const scrollTop = elementTop - containerHeight / 2 + elementHeight / 2;
+    // Extract current file path from progress
+    const currentPath = generic.current_path.Physical?.path || generic.current_path.Local?.path;
+    if (!currentPath) return;
 
-        container.scrollTo({ top: scrollTop, behavior: "smooth" });
-      }
-    }
-  }, [files]);
+    // Find the file in our list that matches the current path
+    const currentIndex = files.findIndex(f => {
+      const filePath = f.source_path?.Physical?.path || f.source_path?.Local?.path;
+      return filePath === currentPath;
+    });
+
+    // Only scroll if the file index actually changed
+    if (currentIndex === -1 || currentIndex === prevScrollIndexRef.current) return;
+
+    prevScrollIndexRef.current = currentIndex;
+
+    const currentElement = container.children[currentIndex] as HTMLElement;
+    if (!currentElement) return;
+
+    // Manually calculate and scroll the container
+    const containerRect = container.getBoundingClientRect();
+    const elementRect = currentElement.getBoundingClientRect();
+
+    // Calculate how much to scroll to center the element
+    const elementCenter = elementRect.top + elementRect.height / 2;
+    const containerCenter = containerRect.top + containerRect.height / 2;
+    const scrollOffset = elementCenter - containerCenter;
+
+    container.scrollBy({
+      top: scrollOffset,
+      behavior: "smooth"
+    });
+  }, [files, generic?.current_path]);
 
   return (
     <div className="p-4 space-y-4">
@@ -136,6 +168,11 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
                       {formatPath(file.source_path)}
                     </div>
                   </div>
+
+                  {/* File size */}
+                  <div className="text-[10px] text-ink-faint font-mono flex-shrink-0">
+                    {formatBytes(file.size_bytes)}
+                  </div>
                 </div>
               );
             })}
@@ -181,4 +218,3 @@ function formatPath(path: any): string {
 
   return JSON.stringify(path);
 }
-
