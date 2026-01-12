@@ -10,6 +10,7 @@ use specta::Type;
 
 /// Status of a file in the copy operation.
 #[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq)]
+#[serde(rename_all = "lowercase")]
 pub enum CopyFileStatus {
 	/// File is waiting to be copied
 	Pending,

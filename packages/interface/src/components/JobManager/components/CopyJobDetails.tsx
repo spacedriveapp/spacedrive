@@ -1,5 +1,6 @@
-import { Check, Circle, X, Spinner } from "@phosphor-icons/react";
+import { CheckCircle, Circle, X, Spinner } from "@phosphor-icons/react";
 import clsx from "clsx";
+import { useEffect, useRef } from "react";
 import { useLibraryQuery } from "../../../contexts/SpacedriveContext";
 import type { JobListItem } from "../types";
 import type { SpeedSample } from "../hooks/useJobs";
@@ -14,12 +15,23 @@ interface CopyJobDetailsProps {
 
 export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
   const generic = job.generic_progress;
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Fetch copy metadata (file queue with File objects)
-  const { data: metadata } = useLibraryQuery({
+  const { data: metadata, refetch } = useLibraryQuery({
     type: "jobs.get_copy_metadata",
     input: { job_id: job.id },
   });
+
+  // Refetch when completed count changes
+  const prevCompletedRef = useRef<number>(0);
+  useEffect(() => {
+    const currentCompleted = generic?.completion?.completed || 0;
+    if (currentCompleted !== prevCompletedRef.current) {
+      prevCompletedRef.current = currentCompleted;
+      refetch();
+    }
+  }, [generic?.completion?.completed, refetch]);
 
   if (!generic) {
     return (
@@ -38,6 +50,25 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
     fileMap.set(file.id, file);
   });
 
+  // Auto-scroll to center the currently copying file
+  useEffect(() => {
+    const currentFileIndex = files.findIndex(f => f.status === "copying");
+    if (currentFileIndex !== -1 && scrollContainerRef.current) {
+      const container = scrollContainerRef.current;
+      const fileElements = container.children;
+      const currentElement = fileElements[currentFileIndex] as HTMLElement;
+
+      if (currentElement) {
+        const containerHeight = container.clientHeight;
+        const elementTop = currentElement.offsetTop;
+        const elementHeight = currentElement.clientHeight;
+        const scrollTop = elementTop - containerHeight / 2 + elementHeight / 2;
+
+        container.scrollTo({ top: scrollTop, behavior: "smooth" });
+      }
+    }
+  }, [files]);
+
   return (
     <div className="p-4 space-y-4">
       {/* Speed graph */}
@@ -47,7 +78,10 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
       {files.length > 0 && (
         <div>
           <div className="text-xs font-medium text-ink mb-2">Transfer Queue</div>
-          <div className="space-y-0 max-h-[200px] overflow-y-auto border border-app-line rounded-lg">
+          <div
+            ref={scrollContainerRef}
+            className="space-y-0 max-h-[200px] overflow-y-auto border border-app-line rounded-lg"
+          >
             {files.map((file, index) => {
               const fileObj = file.entry_id ? fileMap.get(file.entry_id) : null;
               const isEven = index % 2 === 0;
@@ -56,15 +90,16 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
                 <div
                   key={index}
                   className={clsx(
-                    "flex items-center gap-3 px-3 py-2",
+                    "flex items-center gap-3 px-3 py-2 transition-opacity",
                     isEven ? "bg-app/30" : "bg-app/10",
                     index === 0 && "rounded-t-lg",
-                    index === files.length - 1 && "rounded-b-lg"
+                    index === files.length - 1 && "rounded-b-lg",
+                    file.status === "completed" && "opacity-50"
                   )}
                 >
                   {/* Status icon */}
                   {file.status === "completed" ? (
-                    <Check size={14} weight="bold" className="text-green-500 flex-shrink-0" />
+                    <CheckCircle size={14} weight="fill" className="text-ink-dull flex-shrink-0" />
                   ) : file.status === "copying" ? (
                     <Spinner size={14} className="text-accent animate-spin flex-shrink-0" />
                   ) : file.status === "failed" ? (
@@ -89,7 +124,7 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
                   <div className="flex-1 min-w-0">
                     <div className={clsx(
                       "text-xs font-medium truncate",
-                      file.status === "completed" && "text-ink-dull line-through",
+                      file.status === "completed" && "text-ink-dull",
                       file.status === "copying" && "text-ink",
                       file.status === "failed" && "text-red-400",
                       file.status === "skipped" && "text-ink-dull",

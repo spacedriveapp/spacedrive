@@ -111,7 +111,7 @@ impl CopyStrategy for LocalMoveStrategy {
 		fs::rename(source_path, dest_path).await?;
 
 		if let Some(callback) = progress_callback {
-			callback(size, size);
+			callback(size, u64::MAX);
 		}
 
 		ctx.log(format!(
@@ -233,6 +233,11 @@ impl CopyStrategy for FastCopyStrategy {
 			if source_checksum != dest_checksum {
 				return Err(anyhow::anyhow!("Checksum verification failed"));
 			}
+		}
+
+		// Signal file completion to aggregator
+		if let Some(callback) = progress_callback {
+			callback(bytes_copied, u64::MAX);
 		}
 
 		ctx.log(format!(
@@ -752,6 +757,11 @@ impl RemoteTransferStrategy {
 			final_dest_path.display()
 		));
 
+		// Signal file completion to aggregator
+		if let Some(callback) = progress_callback {
+			callback(total_bytes_received, u64::MAX);
+		}
+
 		Ok(total_bytes_received)
 	}
 }
@@ -931,7 +941,7 @@ async fn copy_single_file_with_offset<'a>(
 	dest_file.sync_all().await?;
 
 	if let Some(callback) = progress_callback {
-		callback(total_copied, file_size);
+		callback(file_size, u64::MAX);
 		ctx.log(format!(
 			"Strategy final progress: {} / {} bytes (100%)",
 			total_copied, file_size
@@ -1304,6 +1314,11 @@ async fn stream_file_data<'a>(
 		"File streaming completed and acknowledged: {} chunks, {} bytes sent to device {}",
 		chunk_index, bytes_transferred, destination_device_id
 	));
+
+	// Signal file completion to aggregator
+	if let Some(callback) = progress_callback {
+		callback(bytes_transferred, u64::MAX);
+	}
 
 	Ok(())
 }

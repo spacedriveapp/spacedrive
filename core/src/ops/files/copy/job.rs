@@ -373,6 +373,9 @@ impl JobHandler for FileCopyJob {
 				};
 
 				copied_count += files_in_source; // Count actual files as copied for progress tracking
+
+				// Mark as completed in metadata (already done during previous run)
+				self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
 				continue;
 			}
 
@@ -417,6 +420,9 @@ impl JobHandler for FileCopyJob {
 			} else {
 				1
 			};
+
+			// Mark file as currently copying in metadata
+			self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Copying);
 
 			// Update aggregator with current file info
 			let operation_description = CopyStrategyRouter::describe_strategy(
@@ -495,6 +501,10 @@ impl JobHandler for FileCopyJob {
 						if let Some(dest_path) = final_destination.as_local_path() {
 							if dest_path.exists() {
 								ctx.log(format!("Skipping existing file: {}", dest_path.display()));
+
+								// Mark as skipped in metadata
+								self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Skipped);
+
 								// Skip this file
 								progress_aggregator.complete_source();
 								copied_count += files_in_source;
@@ -558,6 +568,9 @@ impl JobHandler for FileCopyJob {
 					// Track successful completion for resume
 					self.completed_indices.push(index);
 
+					// Mark as completed in metadata
+					self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
+
 					// If this is a move operation and the strategy didn't handle deletion,
 					// we need to delete the source after successful copy
 					if is_move && resolved_source.device_slug() == final_destination.device_slug() {
@@ -608,10 +621,16 @@ impl JobHandler for FileCopyJob {
 						resolved_source.display(),
 						e
 					));
+
+					// Mark as failed in metadata
+					self.job_metadata.set_error(&resolved_source, e.to_string());
 				}
 			}
 
-			// Checkpoint every 20 files to save completed_indices
+			// Persist after every file so UI can show real-time checkbox updates
+			self.persist_job_state_to_db(&ctx).await?;
+
+			// Checkpoint every 20 files to save job state to disk
 			if copied_count % 20 == 0 {
 				ctx.checkpoint().await?;
 			}
@@ -641,6 +660,9 @@ impl JobHandler for FileCopyJob {
 			strategy_metadata: final_strategy_metadata,
 		};
 		ctx.progress(Progress::generic(progress.to_generic_progress()));
+
+		// Persist final job state with all file statuses
+		self.persist_job_state_to_db(&ctx).await?;
 
 		ctx.log(format!(
 			"Copy operation completed: {} copied, {} failed",
@@ -785,21 +807,27 @@ impl<'a> ProgressAggregator<'a> {
 		Box::new(move |bytes_value: u64, signal_value: u64| {
 			// Signal: u64::MAX means a file has finished, bytes_value is its size
 			if signal_value == u64::MAX {
+				// Update backend state
 				let mut files = files_completed.lock().unwrap();
 				*files += 1;
+				drop(files);
 				let mut bytes = bytes_before.lock().unwrap();
 				*bytes += bytes_value;
-				ctx.log(format!(
-					"File completed. Total files: {}/{}, Total bytes: {}",
-					*files, total_files, *bytes
-				));
-				return;
+				drop(bytes);
 			}
 
-			// Normal byte-level progress update
-			let bytes_before_snapshot = *bytes_before.lock().unwrap();
-			let total_bytes_copied = bytes_before_snapshot + bytes_value;
+			// Read current backend state for progress event (AFTER mutations above)
 			let files_completed_count = *files_completed.lock().unwrap();
+			let bytes_before_snapshot = *bytes_before.lock().unwrap();
+
+			// Calculate total bytes for this progress event
+			let total_bytes_copied = if signal_value == u64::MAX {
+				// File just completed - bytes were already added to bytes_before above
+				bytes_before_snapshot
+			} else {
+				// Byte-level progress - bytes_value is current file progress within current file
+				bytes_before_snapshot + bytes_value
+			};
 
 			// Update speed tracker and get current rate
 			let mut tracker = speed_tracker.lock().unwrap();
@@ -829,8 +857,13 @@ impl<'a> ProgressAggregator<'a> {
 				strategy_metadata: current_strategy_metadata,
 			};
 
-			// Log progress details every 100MB
-			if total_bytes_copied % (100 * 1024 * 1024) < bytes_value {
+			// Log progress details every 100MB or on file completion
+			if signal_value == u64::MAX {
+				ctx.log(format!(
+					"File completed. Total files: {}/{}, Total bytes: {}",
+					files_completed_count, total_files, total_bytes_copied
+				));
+			} else if total_bytes_copied % (100 * 1024 * 1024) < bytes_value {
 				ctx.log(format!(
 					"Progress: {} / {} bytes ({:.1}%), {}/s, ETA: {}",
 					total_bytes_copied,

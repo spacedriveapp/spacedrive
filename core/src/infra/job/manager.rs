@@ -351,6 +351,9 @@ impl JobManager {
 		match task_handle {
 			Ok(handle_result) => {
 				// Track running job
+				// Clone latest_progress for monitoring task before moving into RunningJob
+				let latest_progress_for_monitor = latest_progress.clone();
+
 				self.running_jobs.write().await.insert(
 					job_id,
 					RunningJob {
@@ -407,6 +410,35 @@ impl JobManager {
 											Ok(JobOutput::Success)
 										}
 									};
+
+									// Emit final progress event if one exists (may have been throttled)
+									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+										let generic_progress = match final_progress {
+											Progress::Structured(value) => {
+												// Try to deserialize CopyProgress and convert to GenericProgress
+												if let Ok(copy_progress) = serde_json::from_value::<
+													crate::ops::files::copy::CopyProgress,
+												>(value.clone())
+												{
+													use crate::infra::job::generic_progress::ToGenericProgress;
+													Some(copy_progress.to_generic_progress())
+												} else {
+													None
+												}
+											}
+											Progress::Generic(gp) => Some(gp.clone()),
+											_ => None,
+										};
+
+										event_bus.emit(Event::JobProgress {
+											job_id: job_id_clone.to_string(),
+											job_type: job_type_str.to_string(),
+											device_id,
+											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											message: Some(final_progress.to_string()),
+											generic_progress,
+										});
+									}
 
 									// Emit completion event with the job's output
 									event_bus.emit(Event::JobCompleted {
@@ -759,6 +791,7 @@ impl JobManager {
 				let job_type_str = J::NAME;
 				let library_id_clone = self.library_id;
 				let context = self.context.clone();
+				let latest_progress_for_monitor = latest_progress.clone();
 				let device_id = self
 					.context
 					.device_manager
@@ -797,6 +830,35 @@ impl JobManager {
 											Ok(JobOutput::Success)
 										}
 									};
+
+									// Emit final progress event if one exists (may have been throttled)
+									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+										let generic_progress = match final_progress {
+											Progress::Structured(value) => {
+												// Try to deserialize CopyProgress and convert to GenericProgress
+												if let Ok(copy_progress) = serde_json::from_value::<
+													crate::ops::files::copy::CopyProgress,
+												>(value.clone())
+												{
+													use crate::infra::job::generic_progress::ToGenericProgress;
+													Some(copy_progress.to_generic_progress())
+												} else {
+													None
+												}
+											}
+											Progress::Generic(gp) => Some(gp.clone()),
+											_ => None,
+										};
+
+										event_bus.emit(Event::JobProgress {
+											job_id: job_id_clone.to_string(),
+											job_type: job_type_str.to_string(),
+											device_id,
+											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											message: Some(final_progress.to_string()),
+											generic_progress,
+										});
+									}
 
 									// Emit completion event with the job's output
 									event_bus.emit(Event::JobCompleted {
@@ -1412,6 +1474,9 @@ impl JobManager {
 						{
 							Ok(task_handle) => {
 								// Track running job
+								// Clone latest_progress for monitoring task before moving into RunningJob
+								let latest_progress_for_monitor = latest_progress.clone();
+
 								self.running_jobs.write().await.insert(
 									job_id,
 									RunningJob {
