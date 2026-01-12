@@ -97,16 +97,22 @@ fn display_event(event: &Event, args: &EventsMonitorArgs) {
 
 	let event_variant = event.variant_name();
 
-	if args.verbose || args.pretty {
-		// Verbose mode: show full JSON
-		let json_str = if args.pretty {
+	// Determine output format (new format flag takes precedence over legacy flags)
+	let use_json_pretty = matches!(args.format, OutputFormat::JsonPretty) || args.pretty;
+	let use_json = matches!(args.format, OutputFormat::Json)
+		|| use_json_pretty
+		|| args.verbose;
+
+	if use_json {
+		// JSON mode: show full JSON
+		let json_str = if use_json_pretty {
 			serde_json::to_string_pretty(&event).unwrap_or_else(|_| format!("{:?}", event))
 		} else {
 			serde_json::to_string(&event).unwrap_or_else(|_| format!("{:?}", event))
 		};
 		println!("{}{}: {}", timestamp, event_variant, json_str);
 	} else {
-		// Compact mode: show event type and key fields
+		// Human-readable mode: show event type and key fields
 		let summary = summarize_event(event);
 		println!("{}{}: {}", timestamp, event_variant, summary);
 	}

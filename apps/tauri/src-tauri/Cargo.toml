@@ -21,7 +21,6 @@ tauri-plugin-os = "2.0"
 
 # Core bridge
 sd-tauri-core = { path = "../sd-tauri-core" }
-sd-config = { path = "../../../crates/config" }
 
 # File opening
 file-opening = { path = "../crates/file-opening" }

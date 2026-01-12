@@ -102,6 +102,71 @@ jobs:
   #         name: cli-${{ matrix.platform }}
   #         path: dist/*
 
+  # Server builds for self-hosting
+  server-build:
+    strategy:
+      matrix:
+        settings:
+          - host: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            platform: linux-x86_64
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            platform: linux-aarch64
+    name: Server - ${{ matrix.settings.platform }}
+    runs-on: ${{ matrix.settings.host }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - name: Setup System and Rust
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          target: ${{ matrix.settings.target }}
+
+      - name: Install cross-compilation tools (ARM)
+        if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+
+      - name: Setup native dependencies
+        run: cargo run -p xtask -- setup
+
+      - name: Build server binary
+        run: |
+          cargo build --release --bin sd-server --features sd-core/heif,sd-core/ffmpeg --target ${{ matrix.settings.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Prepare server binary
+        run: |
+          mkdir -p dist
+          cp target/${{ matrix.settings.target }}/release/sd-server dist/sd-server-${{ matrix.settings.platform }}
+          chmod +x dist/sd-server-${{ matrix.settings.platform }}
+
+      - name: Generate checksum
+        run: |
+          cd dist
+          sha256sum sd-server-${{ matrix.settings.platform }} > sd-server-${{ matrix.settings.platform }}.sha256
+
+      - name: Create archive
+        run: |
+          cd dist
+          tar -czf sd-server-${{ matrix.settings.platform }}.tar.gz sd-server-${{ matrix.settings.platform }} sd-server-${{ matrix.settings.platform }}.sha256
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-${{ matrix.settings.platform }}
+          path: dist/sd-server-${{ matrix.settings.platform }}.tar.gz
+
   # V2 Desktop builds
   desktop-main:
     strategy:
@@ -229,12 +294,12 @@ jobs:
         if: always() && runner.os == 'macOS'
         run: security delete-keychain signing_temp.keychain || true
 
-  # Create unified release with CLI and Desktop artifacts
+  # Create unified release with Server, CLI, and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: self-hosted
     name: Create Release
-    needs: [desktop-main]
+    needs: [server-build, desktop-main]
     permissions:
       contents: write
     steps:
@@ -247,8 +312,10 @@ jobs:
           draft: true
           files: |
             cli-*/*
+            server-*/*
             */*.dmg
             */*.msi
             */*.deb
             */*.tar.xz
+            */*.tar.gz
             */*.sig

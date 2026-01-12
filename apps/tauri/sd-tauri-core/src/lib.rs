@@ -40,3 +40,26 @@ pub mod commands {
 	// Tauri command implementations will go here
 	// Following the pattern from sd-ios-core but for Tauri's IPC
 }
+
+/// Platform-specific data directory resolution
+pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
+	#[cfg(target_os = "macos")]
+	let dir = dirs::data_dir()
+		.ok_or_else(|| anyhow::anyhow!("Could not determine data directory"))?
+		.join("spacedrive");
+
+	#[cfg(target_os = "windows")]
+	let dir = dirs::data_dir()
+		.ok_or_else(|| anyhow::anyhow!("Could not determine data directory"))?
+		.join("Spacedrive");
+
+	#[cfg(target_os = "linux")]
+	let dir = dirs::data_local_dir()
+		.ok_or_else(|| anyhow::anyhow!("Could not determine data directory"))?
+		.join("spacedrive");
+
+	// Create directory if it doesn't exist
+	std::fs::create_dir_all(&dir)?;
+
+	Ok(dir)
+}

@@ -731,10 +731,6 @@ impl DeviceRegistry {
 
 	/// Set a device as connected with its node ID
 	pub async fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId) -> Result<()> {
-		self.logger
-			.info(&format!("Setting device {} as connected", device_id))
-			.await;
-
 		// Update the node_to_device mapping
 		self.node_to_device.insert(node_id, device_id);
 
@@ -775,12 +771,6 @@ impl DeviceRegistry {
 					Some(info_clone)
 				}
 				DeviceState::Connected { .. } => {
-					self.logger
-						.debug(&format!(
-							"Device {} already connected, updating node mapping",
-							device_id
-						))
-						.await;
 					None // No state change
 				}
 				DeviceState::Disconnected {

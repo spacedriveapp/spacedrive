@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import type { JobListItem } from "../types";
+import type { SpeedSample } from "../hooks/useJobs";
 import { JobCard } from "./JobCard";
 import { EmptyState } from "./EmptyState";
 
@@ -8,9 +9,10 @@ interface JobListProps {
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
+  getSpeedHistory: (jobId: string) => SpeedSample[];
 }
 
-export function JobList({ jobs, onPause, onResume, onCancel }: JobListProps) {
+export function JobList({ jobs, onPause, onResume, onCancel, getSpeedHistory }: JobListProps) {
   if (jobs.length === 0) {
     return <EmptyState />;
   }
@@ -26,7 +28,7 @@ export function JobList({ jobs, onPause, onResume, onCancel }: JobListProps) {
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
           >
-            <JobCard job={job} onPause={onPause} onResume={onResume} onCancel={onCancel} />
+            <JobCard job={job} onPause={onPause} onResume={onResume} onCancel={onCancel} getSpeedHistory={getSpeedHistory} />
           </motion.div>
         ))}
       </AnimatePresence>

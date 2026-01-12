@@ -16,11 +16,8 @@ pub mod ocr;
 pub mod proxy;
 pub mod splat;
 
-#[cfg(feature = "ffmpeg")]
 pub mod speech;
-#[cfg(feature = "ffmpeg")]
 pub mod thumbnail;
-#[cfg(feature = "ffmpeg")]
 pub mod thumbstrip;
 
 pub use metadata_extractor::{extract_image_metadata, extract_image_metadata_with_blurhash};

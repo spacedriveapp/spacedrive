@@ -286,7 +286,7 @@ function DeviceCard({
 }: DeviceCardProps) {
 	const deviceName = device?.name || "Unknown Device";
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
-	const { pause, resume } = useJobs();
+	const { pause, resume, getSpeedHistory } = useJobs();
 
 	// Format hardware specs
 	const cpuInfo = device?.cpu_model
@@ -386,6 +386,7 @@ function DeviceCard({
 								job={job}
 								onPause={pause}
 								onResume={resume}
+								getSpeedHistory={getSpeedHistory}
 							/>
 						))}
 					</div>

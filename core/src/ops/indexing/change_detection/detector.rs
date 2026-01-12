@@ -80,9 +80,11 @@ impl ChangeDetector {
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
 		// Create a persistent writer adapter to leverage the unified query logic
-		let volume_id = location_record
-			.volume_id
-			.unwrap_or(location_record.device_id);
+		let volume_id = location_record.volume_id.ok_or_else(|| {
+			JobError::execution(
+				"Location has no volume_id - volume must be detected before change detection",
+			)
+		})?;
 		let persistence = DatabaseAdapterForJob::new(
 			ctx,
 			location_record.uuid,

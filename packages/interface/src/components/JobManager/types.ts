@@ -1,10 +1,33 @@
 import type { JobStatus, JobListItem as GeneratedJobListItem, JsonValue, SdPath } from "@sd/ts-client";
 
+// GenericProgress type from Rust (matches core/src/infra/job/generic_progress.rs)
+export interface GenericProgress {
+	percentage: number;
+	phase: string;
+	current_path?: SdPath;
+	message: string;
+	completion: {
+		completed: number;
+		total: number;
+		bytes_completed?: number;
+		total_bytes?: number;
+	};
+	performance: {
+		rate: number;
+		estimated_remaining?: { secs: number; nanos: number };
+		elapsed?: { secs: number; nanos: number };
+		error_count: number;
+		warning_count: number;
+	};
+	metadata: any;
+}
+
 // Extend the generated type with runtime fields from JobProgress events
 export type JobListItem = GeneratedJobListItem & {
 	current_phase?: string;
 	current_path?: SdPath;
 	status_message?: string;
+	generic_progress?: GenericProgress;
 };
 
 export const JOB_STATUS_COLORS = {

@@ -18,6 +18,9 @@ thiserror = "1.0"
 # Logging
 tracing = "0.1"
 
+# Platform directories
+dirs = "5.0"
+
 [lib]
 crate-type = ["lib"]
 

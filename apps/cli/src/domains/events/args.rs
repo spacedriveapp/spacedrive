@@ -1,9 +1,19 @@
-use clap::{Args, Subcommand};
+use clap::{Args, Subcommand, ValueEnum};
 
 #[derive(Debug, Subcommand)]
 pub enum EventsCmd {
 	/// Monitor events in real-time
 	Monitor(EventsMonitorArgs),
+}
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum OutputFormat {
+	/// Human-readable summary (default)
+	Human,
+	/// Compact JSON output
+	Json,
+	/// Pretty-printed JSON output
+	JsonPretty,
 }
 
 #[derive(Debug, Args)]
@@ -28,6 +38,10 @@ pub struct EventsMonitorArgs {
 	/// Show timestamps
 	#[arg(long)]
 	pub timestamps: bool,
+
+	/// Output format
+	#[arg(short = 'f', long, value_enum, default_value = "human")]
+	pub format: OutputFormat,
 
 	/// Show full event JSON (verbose mode)
 	#[arg(short = 'v', long)]

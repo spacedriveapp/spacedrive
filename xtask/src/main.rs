@@ -33,6 +33,27 @@ use anyhow::{Context, Result};
 use std::fs;
 use std::process::Command;
 
+/// Find the workspace root by walking up the directory tree
+fn find_workspace_root() -> Result<std::path::PathBuf> {
+	let mut current = std::env::current_dir()?;
+
+	loop {
+		let cargo_toml = current.join("Cargo.toml");
+		if cargo_toml.exists() {
+			let contents = std::fs::read_to_string(&cargo_toml)?;
+			if contents.contains("[workspace]") {
+				return Ok(current);
+			}
+		}
+
+		if !current.pop() {
+			anyhow::bail!(
+				"Could not find workspace root. Please run from within the Spacedrive workspace."
+			);
+		}
+	}
+}
+
 fn main() -> Result<()> {
 	let args: Vec<String> = std::env::args().collect();
 
@@ -85,7 +106,7 @@ fn setup() -> Result<()> {
 	println!("Setting up Spacedrive development environment...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 
 	// Detect system
 	let system = system::SystemInfo::detect()?;
@@ -208,9 +229,16 @@ fn setup() -> Result<()> {
 	// The Tauri config references the release daemon in externalBin, so we need to build it
 	// once even for dev mode to satisfy Tauri's path validation
 	println!();
-	println!("Building release daemon for Tauri...");
+	println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
 	let status = Command::new("cargo")
-		.args(["build", "--release", "--bin", "sd-daemon"])
+		.args([
+			"build",
+			"--release",
+			"--features",
+			"sd-core/ffmpeg,sd-core/heif",
+			"--bin",
+			"sd-daemon",
+		])
 		.current_dir(&project_root)
 		.status()
 		.context("Failed to build release daemon")?;
@@ -300,7 +328,7 @@ fn build_ios() -> Result<()> {
 	println!("Building Spacedrive v2 Core XCFramework for iOS...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 	let ios_core_dir = project_root.join("apps/ios/sd-ios-core");
 	let framework_name = "sd_ios_core";
 
@@ -319,7 +347,7 @@ fn build_ios() -> Result<()> {
 		let status = Command::new("cargo")
 			.args(["build", "--release", "--target", target])
 			.current_dir(&ios_core_dir)
-			.env("IPHONEOS_DEPLOYMENT_TARGET", "12.0")
+			.env("IPHONEOS_DEPLOYMENT_TARGET", "13.0")
 			.status()
 			.context(format!("Failed to build for {}", target))?;
 
@@ -436,7 +464,7 @@ fn build_mobile() -> Result<()> {
 	println!("Building Spacedrive Mobile Core for React Native...");
 	println!();
 
-	let project_root = std::env::current_dir()?;
+	let project_root = find_workspace_root()?;
 	let mobile_core_dir = project_root.join("apps/mobile/modules/sd-mobile-core/core");
 
 	if !mobile_core_dir.exists() {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
@@ -95,7 +95,7 @@ function SpaceGroupWithDropZone({
 }
 
 // Sync Monitor Button with Popover
-function SyncButton() {
+const SyncButton = memo(function SyncButton() {
   const popover = usePopover();
   const navigate = useNavigate();
   const [showActivityFeed, setShowActivityFeed] = useState(false);
@@ -198,18 +198,18 @@ function SyncButton() {
       )}
     </Popover>
   );
-}
+});
 
 // Jobs Button with Popover
-function JobsButton({ 
-  activeJobCount, 
-  hasRunningJobs, 
-  jobs, 
-  pause, 
-  resume, 
+const JobsButton = memo(function JobsButton({
+  activeJobCount,
+  hasRunningJobs,
+  jobs,
+  pause,
+  resume,
   cancel,
-  navigate 
-}: { 
+  navigate
+}: {
   activeJobCount: number;
   hasRunningJobs: boolean;
   jobs: any[];
@@ -291,7 +291,13 @@ function JobsButton({
       )}
     </Popover>
   );
-}
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific values change
+  return (
+    prevProps.activeJobCount === nextProps.activeJobCount &&
+    prevProps.hasRunningJobs === nextProps.hasRunningJobs
+  );
+});
 
 interface SpacesSidebarProps {
   isPreviewActive?: boolean;

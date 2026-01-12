@@ -9253,6 +9253,7 @@ name = "sd-tauri-core"
 version = "2.0.0"
 dependencies = [
  "anyhow",
+ "dirs 5.0.1",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
@@ -10076,7 +10077,6 @@ dependencies = [
  "file-opening-macos",
  "file-opening-windows",
  "parking_lot",
- "sd-config",
  "sd-desktop-macos",
  "sd-tauri-core",
  "serde",

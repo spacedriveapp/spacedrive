@@ -26,7 +26,7 @@ pub async fn get_sidecar_path(
 	format: String,
 ) -> Result<String, String> {
 	// Get the data directory
-	let data_dir = sd_config::default_data_dir()
+	let data_dir = sd_tauri_core::default_data_dir()
 		.map_err(|e| format!("Failed to get data directory: {}", e))?;
 
 	// Find the actual library folder (might be named differently than the ID)

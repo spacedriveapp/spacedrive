@@ -1,28 +1,27 @@
 import { useState } from "react";
-import { Pause, Play, X } from "@phosphor-icons/react";
-import clsx from "clsx";
+import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
+import { motion, AnimatePresence } from "framer-motion";
 import type { JobListItem } from "../types";
-import {
-  CARD_HEIGHT,
-  getJobDisplayName,
-  getJobSubtext,
-  getStatusBadge,
-} from "../types";
+import type { SpeedSample } from "../hooks/useJobs";
+import { CARD_HEIGHT, getStatusBadge } from "../types";
 import { JobStatusIndicator } from "./JobStatusIndicator";
 import { JobProgressBar } from "./JobProgressBar";
+import { getJobRenderer } from "../renderers";
 
 interface JobCardProps {
   job: JobListItem;
   onPause?: (jobId: string) => void;
   onResume?: (jobId: string) => void;
   onCancel?: (jobId: string) => void;
+  getSpeedHistory?: (jobId: string) => SpeedSample[];
 }
 
-export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
+export function JobCard({ job, onPause, onResume, onCancel, getSpeedHistory }: JobCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
-  const displayName = getJobDisplayName(job);
-  const subtext = getJobSubtext(job);
+  // Get the renderer for this job type
+  const renderer = getJobRenderer(job.name);
   const statusBadge = getStatusBadge(job);
 
   const showActionButton = job.status === "running" || job.status === "paused";
@@ -46,72 +45,69 @@ export function JobCard({ job, onPause, onResume, onCancel }: JobCardProps) {
     }
   };
 
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+  };
+
+  // Check if this job can expand (has a details panel)
+  const canExpand = !!renderer.DetailsPanel;
+
   return (
-    <div
-      className="flex rounded-xl border border-app-line/30 bg-app-box overflow-hidden"
-      style={{ height: CARD_HEIGHT }}
+    <motion.div
+      layout
+      className="rounded-xl border border-app-line/30 bg-app-box overflow-hidden"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      <div
+        className="flex cursor-pointer"
+        style={{ height: CARD_HEIGHT }}
+        onClick={toggleExpanded}
+      >
       {/* Left icon area */}
       <JobStatusIndicator job={job} />
 
       {/* Divider line */}
       <div className="w-px bg-app-line/30" />
 
-      {/* Main content area */}
-      <div className="flex-1 flex flex-col gap-2 p-3.5">
-        {/* Row 1: Title, badge, action button */}
-        <div className="flex items-center gap-3 min-h-0">
-          <span className="flex-1 truncate text-[13px] font-medium text-ink">
-            {displayName}
-          </span>
+      {/* Content column */}
+      <div className="flex-1 flex flex-col gap-2 p-3.5 min-h-0">
+        {/* Custom content (delegated to renderer) */}
+        <renderer.CardContent
+          job={job}
+          isExpanded={isExpanded}
+          statusBadge={statusBadge}
+          canExpand={canExpand}
+          isHovered={isHovered}
+          showActionButton={showActionButton}
+          canPause={canPause}
+          canResume={canResume}
+          canCancel={canCancel}
+          onAction={handleAction}
+          onCancel={handleCancel}
+        />
 
-          <span className="flex-shrink-0 text-[11px] font-medium text-ink-dull max-w-[80px] truncate">
-            {statusBadge}
-          </span>
-
-          {isHovered && (
-            <div className="flex items-center gap-1">
-              {showActionButton && (canPause || canResume) && (
-                <button
-                  onClick={handleAction}
-                  className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-app-selected transition-colors"
-                  title={canPause ? "Pause job" : "Resume job"}
-                >
-                  {canPause ? (
-                    <Pause size={10} weight="fill" className="text-ink" />
-                  ) : (
-                    <Play size={10} weight="fill" className="text-ink" />
-                  )}
-                </button>
-              )}
-              {canCancel && (
-                <button
-                  onClick={handleCancel}
-                  className="flex-shrink-0 flex items-center justify-center w-4 h-4 rounded-full bg-app-hover hover:bg-red-500 transition-colors"
-                  title="Cancel job"
-                >
-                  <X size={10} weight="bold" className="text-ink hover:text-white" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Row 2: Subtext */}
-        <div className="min-h-0">
-          <span
-            className="text-[10px] text-ink-dull max-w-[200px] truncate block"
-            style={{ opacity: 0.7 }}
-          >
-            {subtext}
-          </span>
-        </div>
-
-        {/* Row 3: Progress bar */}
+        {/* Progress bar (always at bottom) */}
         <JobProgressBar progress={job.progress} status={job.status} />
       </div>
-    </div>
+      </div>
+
+      {/* Expanded details section - only if renderer provides DetailsPanel */}
+      <AnimatePresence>
+        {isExpanded && renderer.DetailsPanel && getSpeedHistory && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.15, ease: [0.25, 1, 0.5, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="border-t border-app-line/30">
+              <renderer.DetailsPanel job={job} speedHistory={getSpeedHistory(job.id)} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }

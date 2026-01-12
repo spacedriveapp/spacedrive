@@ -116,6 +116,14 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "Sync setup test",
 		test_args: &["--test", "sync_setup_test"],
 	},
+	TestSuite {
+		name: "Sync backfill test",
+		test_args: &["--test", "sync_backfill_test"],
+	},
+	TestSuite {
+		name: "Sync realtime test",
+		test_args: &["--test", "sync_realtime_test"],
+	},
 	// TestSuite {
 	// 	name: "Sync event log test",
 	// 	test_args: &["--test", "sync_event_log_test"],

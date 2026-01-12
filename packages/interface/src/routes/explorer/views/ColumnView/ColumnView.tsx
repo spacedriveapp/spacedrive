@@ -25,6 +25,7 @@ export function ColumnView() {
 		columnStack,
 		setColumnStack,
 		activeTabId,
+		setCurrentFiles,
 	} = useExplorer();
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 	const {
@@ -196,6 +197,11 @@ export function ColumnView() {
 		isVirtualView && activeColumnIndex === -1
 			? virtualFiles || []
 			: ((activeColumnQuery.data as any)?.files || []);
+
+	// Update currentFiles when active column changes (required for QuickPreview)
+	useEffect(() => {
+		setCurrentFiles(activeColumnFiles);
+	}, [activeColumnFiles, setCurrentFiles]);
 
 	// Typeahead search for active column
 	const typeahead = useTypeaheadSearch({
