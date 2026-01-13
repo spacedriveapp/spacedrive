@@ -162,7 +162,9 @@ function ThumbOverlay({
 	} = useDraggableFile({
 		file: overlay.file,
 		selectedFiles: selected && selectedFiles.length > 0 ? selectedFiles : undefined,
-		gridSize: overlay.size,
+		// Pass the actual thumb size as gridSize so DragOverlay renders it at the right size
+		// DragOverlay multiplies by 0.6, so we reverse it
+		gridSize: overlay.size / 0.6,
 	});
 
 	return (
@@ -173,16 +175,28 @@ function ThumbOverlay({
 			key={overlay.id}
 			className="pointer-events-auto absolute cursor-pointer overflow-hidden rounded-lg"
 			style={{
-				left: overlay.screenX,
-				top: overlay.screenY,
-				transform: 'translate(-50%, -60%)',
+				// Adjust left/top to center the thumb instead of using transform
+				// This prevents drag offset issues with @dnd-kit
+				left: overlay.screenX - (overlay.size / 2),
+				top: overlay.screenY - (overlay.size * 0.6),
+				width: overlay.size,
+				height: overlay.size,
 				opacity: isDragging ? 0.4 : 1,
+			}}
+			onWheel={(event) => {
+				// Forward wheel events to the SVG to allow pinch-to-zoom over thumbnails
+				if (svgRef.current) {
+					const wheelEvent = new WheelEvent(event.type, event.nativeEvent);
+					svgRef.current.dispatchEvent(wheelEvent);
+				}
 			}}
 			onClick={(event) => {
 				event.stopPropagation();
 
-				const multi = event.metaKey || event.ctrlKey;
-				const range = event.shiftKey;
+				// In size view, treat shift as multi-select (not range)
+				// Range selection doesn't make sense with circular bubble positioning
+				const multi = event.metaKey || event.ctrlKey || event.shiftKey;
+				const range = false;
 
 				selectFileRef.current(
 					overlay.file,
@@ -451,7 +465,7 @@ export function SizeView() {
 						file: d.data.file,
 						screenX,
 						screenY,
-						size: Math.min(screenRadius * 0.9, 180) // Slightly smaller
+						size: Math.min(screenRadius * 0.9, 400)
 					});
 				}
 			});
@@ -742,8 +756,10 @@ export function SizeView() {
 			.on('click', (event, d) => {
 				event.stopPropagation();
 
-				const multi = event.metaKey || event.ctrlKey;
-				const range = event.shiftKey;
+				// In size view, treat shift as multi-select (not range)
+				// Range selection doesn't make sense with circular bubble positioning
+				const multi = event.metaKey || event.ctrlKey || event.shiftKey;
+				const range = false;
 
 				// Select immediately for responsive feedback
 				selectFileRef.current(
