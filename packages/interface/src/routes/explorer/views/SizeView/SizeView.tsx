@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import * as d3 from "d3";
 import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
@@ -21,6 +22,9 @@ const colorCache = new Map<string, string>();
 
 // Gradient ID for folder bubbles
 const FOLDER_GRADIENT_ID = "folder-accent-gradient";
+
+// Portal layer for fullscreen size view
+const SIZE_VIEW_LAYER_ID = "size-view-layer";
 
 // Get computed color from Tailwind class
 function getTailwindColor(className: string): string {
@@ -113,9 +117,21 @@ function getFileType(file: File): string {
 }
 
 export function SizeView() {
-	const { currentPath, sortBy, navigateToPath, viewSettings } = useExplorer();
+	const { currentPath, sortBy, navigateToPath, viewSettings, sidebarVisible, inspectorVisible } = useExplorer();
 	const { selectedFiles, selectFile } = useSelection();
 	const serverContext = useServer();
+	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+
+	// Calculate sidebar and inspector widths
+	const sidebarWidth = sidebarVisible ? 220 : 0;
+	const inspectorWidth = inspectorVisible ? 280 : 0;
+
+	// Find portal target on mount
+	useEffect(() => {
+		const target = document.getElementById(SIZE_VIEW_LAYER_ID);
+		console.log('SizeView portal target:', target);
+		setPortalTarget(target);
+	}, []);
 
 	const directoryQuery = useNormalizedQuery({
 		wireMethod: "query:files.directory_listing",
@@ -185,6 +201,8 @@ export function SizeView() {
 	const updateThumbOverlays = (transform: d3.ZoomTransform) => {
 		if (!svgRef.current || !gRef.current) return;
 
+		const svgRect = svgRef.current.getBoundingClientRect();
+
 		const overlays: Array<{
 			id: string;
 			file: File;
@@ -198,8 +216,9 @@ export function SizeView() {
 
 			// Show thumbnails when effective screen radius > 40px
 			if (screenRadius > 40) {
-				const screenX = d.x * transform.k + transform.x;
-				const screenY = d.y * transform.k + transform.y;
+				// Convert SVG coordinates to absolute screen coordinates
+				const screenX = d.x * transform.k + transform.x + svgRect.left;
+				const screenY = d.y * transform.k + transform.y + svgRect.top;
 
 				overlays.push({
 					id: d.data.id,
@@ -214,9 +233,9 @@ export function SizeView() {
 		setThumbOverlays(overlays);
 	};
 
-	// Initialize zoom behavior once
+	// Initialize zoom behavior once (after portal is ready)
 	useEffect(() => {
-		if (!svgRef.current) return;
+		if (!svgRef.current || !portalTarget) return;
 
 		const svg = d3.select(svgRef.current);
 
@@ -345,7 +364,7 @@ export function SizeView() {
 				clearTimeout(clickTimeoutRef.current);
 			}
 		};
-	}, []); // Only run once
+	}, [portalTarget]); // Run when portal is ready
 
 	// Reset zoom when path changes
 	useEffect(() => {
@@ -662,74 +681,103 @@ export function SizeView() {
 			);
 	};
 
-	return (
-		<div className="relative w-full h-full overflow-hidden">
-			<svg
-				ref={svgRef}
-				className="w-full h-full relative"
-				style={{ fontFamily: "system-ui, sans-serif" }}
-			/>
-
-			{/* Thumb overlays positioned absolutely */}
-			{thumbOverlays.map((overlay) => (
-				<div
-					key={overlay.id}
-					className="absolute pointer-events-none rounded-lg overflow-hidden"
-					style={{
-						left: overlay.screenX,
-						top: overlay.screenY,
-						transform: "translate(-50%, -60%)",
-					}}
-				>
-					<Thumb
-						file={overlay.file}
-						size={overlay.size}
-						className="drop-shadow-lg"
-						frameClassName="border-0 bg-transparent rounded-lg"
-						iconScale={0.7}
-					/>
-				</div>
-			))}
-
-			{/* Empty state message */}
-			{bubbleData.length === 0 && (
-				<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-					<p className="text-ink-dull">
-						No files with size data to display
-					</p>
-				</div>
-			)}
-
-			{/* Floating footer controls */}
-			<div className="absolute bottom-4 right-4 flex items-center gap-2 bg-app-box/95 backdrop-blur-lg border border-app-line rounded-lg p-1.5 shadow-lg">
-				<TopBarButtonGroup>
-					<TopBarButton
-						icon={Minus}
-						onClick={handleZoomOut}
-						title="Zoom Out"
-						disabled={currentZoom <= 0.1}
-					/>
-					<TopBarButton
-						icon={Plus}
-						onClick={handleZoomIn}
-						title="Zoom In"
-						disabled={currentZoom >= 100}
-					/>
-				</TopBarButtonGroup>
-				<TopBarButton
-					icon={ArrowsOut}
-					onClick={handleFitToView}
-					title="Fit to View"
+	if (!portalTarget) {
+		console.log('SizeView: No portal target found, rendering fallback');
+		// Fallback: render in normal flow if portal not available
+		return (
+			<div className="relative w-full h-full overflow-hidden">
+				<svg
+					ref={svgRef}
+					className="w-full h-full relative"
+					style={{ fontFamily: "system-ui, sans-serif" }}
 				/>
-				<TopBarButton
-					icon={ArrowCounterClockwise}
-					onClick={handleResetZoom}
-					title="Reset Zoom"
+			</div>
+		);
+	}
+
+	const content = (
+		<div className="absolute inset-0 flex flex-col overflow-visible">
+			{/* Content area with padding for sidebar/inspector */}
+			<div
+				className="relative flex-1 overflow-visible"
+				style={{
+					paddingLeft: sidebarWidth,
+					paddingRight: inspectorWidth,
+					paddingTop: 56, // TopBar height
+					transition: "padding 0.3s ease-out",
+				}}
+			>
+				<svg
+					ref={svgRef}
+					className="w-full h-full relative overflow-visible"
+					style={{ fontFamily: "system-ui, sans-serif" }}
 				/>
-				<div className="px-2 text-xs text-ink-dull font-medium">
-					{currentZoom.toFixed(1)}x
+
+				{/* Thumb overlays positioned absolutely */}
+				{thumbOverlays.map((overlay) => (
+					<div
+						key={overlay.id}
+						className="absolute pointer-events-none rounded-lg overflow-hidden"
+						style={{
+							left: overlay.screenX,
+							top: overlay.screenY,
+							transform: "translate(-50%, -60%)",
+						}}
+					>
+						<Thumb
+							file={overlay.file}
+							size={overlay.size}
+							className="drop-shadow-lg"
+							frameClassName="border-0 bg-transparent rounded-lg"
+							iconScale={0.7}
+						/>
+					</div>
+				))}
+
+				{/* Empty state message */}
+				{bubbleData.length === 0 && (
+					<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+						<p className="text-ink-dull">
+							No files with size data to display
+						</p>
+					</div>
+				)}
+
+				{/* Floating footer controls */}
+				<div className="absolute bottom-4 right-4 flex items-center gap-2 bg-app-box/95 backdrop-blur-lg border border-app-line rounded-lg p-1.5 shadow-lg">
+					<TopBarButtonGroup>
+						<TopBarButton
+							icon={Minus}
+							onClick={handleZoomOut}
+							title="Zoom Out"
+							disabled={currentZoom <= 0.1}
+						/>
+						<TopBarButton
+							icon={Plus}
+							onClick={handleZoomIn}
+							title="Zoom In"
+							disabled={currentZoom >= 100}
+						/>
+					</TopBarButtonGroup>
+					<TopBarButton
+						icon={ArrowsOut}
+						onClick={handleFitToView}
+						title="Fit to View"
+					/>
+					<TopBarButton
+						icon={ArrowCounterClockwise}
+						onClick={handleResetZoom}
+						title="Reset Zoom"
+					/>
+					<div className="px-2 text-xs text-ink-dull font-medium">
+						{currentZoom.toFixed(1)}x
+					</div>
 				</div>
 			</div>
 		</div>
 	);
+
+	return createPortal(content, portalTarget);
 }
+
+export { SIZE_VIEW_LAYER_ID };

@@ -123,6 +123,7 @@ function ShellLayoutContent() {
 	};
 
 	const isPreviewActive = !!quickPreviewFileId;
+	const isSizeViewActive = viewMode === 'size';
 
 	return (
 		<div className="relative flex flex-col h-screen select-none overflow-hidden text-sidebar-ink bg-app rounded-[10px] border border-transparent frame">
@@ -132,6 +133,12 @@ function ShellLayoutContent() {
 				className="absolute inset-0 z-40 pointer-events-none [&>*]:pointer-events-auto"
 			/>
 
+			{/* Size view layer - portal target for fullscreen size view, sits below preview */}
+			<div
+				id="size-view-layer"
+				className="absolute inset-0 z-[35] pointer-events-none [&>*]:pointer-events-auto"
+			/>
+
 			<TopBar
 				sidebarWidth={sidebarVisible ? 224 : 0}
 				inspectorWidth={
@@ -139,7 +146,7 @@ function ShellLayoutContent() {
 						? 284
 						: 0
 				}
-				isPreviewActive={isPreviewActive}
+				isPreviewActive={isPreviewActive || isSizeViewActive}
 			/>
 
 			{/* Main content area with sidebar and content */}
@@ -156,15 +163,17 @@ function ShellLayoutContent() {
 							}}
 							className="relative z-50 overflow-hidden"
 						>
-							<SpacesSidebar isPreviewActive={isPreviewActive} />
+							<SpacesSidebar isPreviewActive={isPreviewActive || isSizeViewActive} />
 						</motion.div>
 					)}
 				</AnimatePresence>
 
 				{/* Content area with tabs - positioned between sidebar and inspector */}
 				<div className="relative flex-1 flex flex-col overflow-hidden z-30 pt-12">
-					{/* Tab Bar - nested inside content area like Finder */}
-					<TabBar />
+					{/* Tab Bar - nested inside content area like Finder, elevated above size view */}
+					<div className="relative z-[60]">
+						<TabBar />
+					</div>
 
 					{/* Router content renders here */}
 					<div className="relative flex-1 overflow-hidden">
@@ -201,7 +210,7 @@ function ShellLayoutContent() {
 								<Inspector
 									currentLocation={currentLocation}
 									onPopOut={handlePopOutInspector}
-									isPreviewActive={isPreviewActive}
+									isPreviewActive={isPreviewActive || isSizeViewActive}
 								/>
 							</div>
 						</motion.div>
