@@ -35,7 +35,7 @@ export interface ServerContextValue {
 	) => string | null;
 }
 
-const ServerContext = createContext<ServerContextValue | null>(null);
+export const ServerContext = createContext<ServerContextValue | null>(null);
 
 export interface ServerProviderProps {
 	children: ReactNode;

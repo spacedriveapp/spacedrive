@@ -381,7 +381,7 @@ function DeviceCard({
 							<p className="text-ink-dull text-sm">
 								{volumes.length}{' '}
 								{volumes.length === 1 ? 'volume' : 'volumes'}
-								{device?.is_online === false && ' � Offline'}
+								{device?.is_online === false && 'Offline'}
 							</p>
 						</div>
 					</div>
@@ -405,9 +405,15 @@ function DeviceCard({
 									className="flex items-center gap-1"
 									title={`${device.cpu_cores_physical} Cores / ${device.cpu_cores_logical} Threads`}
 								>
-									<Cpu className="size-3.5 opacity-50" weight="duotone" />
+									<Cpu
+										className="size-3.5 opacity-50"
+										weight="duotone"
+									/>
 									<span>
-										{Math.max(device.cpu_cores_physical || 0, device.cpu_cores_logical || 0)}
+										{Math.max(
+											device.cpu_cores_physical || 0,
+											device.cpu_cores_logical || 0
+										)}
 									</span>
 								</div>
 							)}
@@ -416,7 +422,10 @@ function DeviceCard({
 									className="flex items-center gap-1"
 									title={`${ramInfo} Total Memory`}
 								>
-									<Memory className="size-3.5 opacity-50" weight="duotone" />
+									<Memory
+										className="size-3.5 opacity-50"
+										weight="duotone"
+									/>
 									<span>{ramInfo}</span>
 								</div>
 							)}

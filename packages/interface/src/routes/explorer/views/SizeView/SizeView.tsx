@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import * as d3 from "d3";
 import type { File, DirectorySortBy } from "@sd/ts-client";
 import { useExplorer } from "../../context";
@@ -13,6 +13,8 @@ import {
 	Minus,
 } from "@phosphor-icons/react";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
+import { Thumb } from "../../File/Thumb";
+import { useServer, ServerContext } from "../../../../contexts/ServerContext";
 
 // Cache for computed colors
 const colorCache = new Map<string, string>();
@@ -106,17 +108,14 @@ function getFileColor(file: File): string {
 
 function getFileType(file: File): string {
 	if (file.kind === "Directory") return "Folder";
-
-	const name = file.name;
-	const lastDot = name.lastIndexOf(".");
-	if (lastDot === -1 || lastDot === 0) return "File";
-
-	return name.slice(lastDot + 1).toUpperCase();
+	if (file.extension) return file.extension.toUpperCase();
+	return "File";
 }
 
 export function SizeView() {
 	const { currentPath, sortBy, navigateToPath, viewSettings } = useExplorer();
 	const { selectedFiles, selectFile } = useSelection();
+	const serverContext = useServer();
 
 	const directoryQuery = useNormalizedQuery({
 		wireMethod: "query:files.directory_listing",
@@ -144,6 +143,15 @@ export function SizeView() {
 	const [currentZoom, setCurrentZoom] = useState(1);
 	const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const [contextMenuFile, setContextMenuFile] = useState<File | null>(null);
+	const [thumbOverlays, setThumbOverlays] = useState<
+		Array<{
+			id: string;
+			file: File;
+			screenX: number;
+			screenY: number;
+			size: number;
+		}>
+	>([]);
 
 	// Create context menu for the current file
 	const contextMenu = useFileContextMenu({
@@ -172,6 +180,39 @@ export function SizeView() {
 		filesRef.current = files;
 		contextMenuRef.current = contextMenu;
 	}, [selectFile, navigateToPath, files, contextMenu]);
+
+	// Function to update thumb overlay positions based on current transform
+	const updateThumbOverlays = (transform: d3.ZoomTransform) => {
+		if (!svgRef.current || !gRef.current) return;
+
+		const overlays: Array<{
+			id: string;
+			file: File;
+			screenX: number;
+			screenY: number;
+			size: number;
+		}> = [];
+
+		gRef.current.selectAll<SVGGElement, any>("g.bubble-node").each(function (d: any) {
+			const screenRadius = d.r * transform.k;
+
+			// Show thumbnails when effective screen radius > 40px
+			if (screenRadius > 40) {
+				const screenX = d.x * transform.k + transform.x;
+				const screenY = d.y * transform.k + transform.y;
+
+				overlays.push({
+					id: d.data.id,
+					file: d.data.file,
+					screenX,
+					screenY,
+					size: Math.min(screenRadius * 0.9, 180), // Slightly smaller
+				});
+			}
+		});
+
+		setThumbOverlays(overlays);
+	};
 
 	// Initialize zoom behavior once
 	useEffect(() => {
@@ -234,17 +275,21 @@ export function SizeView() {
 
 				if (effectiveRadius < 25) return;
 
+				// For large circles with Thumb, position text at bottom
+				const hasThumb = effectiveRadius > 40;
+				const baseY = hasThumb ? effectiveRadius * 0.55 : effectiveRadius > 40 ? -10 : 0;
+
 				const nameTspan = textElement
 					.append("tspan")
 					.attr("x", 0)
-					.attr("y", effectiveRadius > 40 ? -10 : 0);
+					.attr("y", baseY);
 
 				if (effectiveRadius > 80) {
-					nameTspan.attr("font-size", "14px");
+					nameTspan.attr("font-size", "11px");
 				} else if (effectiveRadius > 50) {
-					nameTspan.attr("font-size", "12px");
-				} else {
 					nameTspan.attr("font-size", "10px");
+				} else {
+					nameTspan.attr("font-size", "9px");
 				}
 
 				const maxLength = Math.floor(effectiveRadius / 5);
@@ -258,18 +303,10 @@ export function SizeView() {
 					textElement
 						.append("tspan")
 						.attr("x", 0)
-						.attr("y", 5)
-						.attr("font-size", "10px")
-						.attr("fill-opacity", 0.8)
-						.text(d.data.type);
-
-					textElement
-						.append("tspan")
-						.attr("x", 0)
-						.attr("y", 20)
+						.attr("y", baseY + 14)
 						.attr(
 							"font-size",
-							effectiveRadius > 80 ? "14px" : "12px",
+							effectiveRadius > 80 ? "11px" : "10px",
 						)
 						.attr("font-weight", "700")
 						.text(formatBytes(d.data.value));
@@ -284,6 +321,7 @@ export function SizeView() {
 				g.attr("transform", event.transform);
 				setCurrentZoom(event.transform.k);
 				updateTextOnZoom(event.transform.k);
+				updateThumbOverlays(event.transform);
 			});
 
 		svg.call(zoom);
@@ -346,6 +384,7 @@ export function SizeView() {
 		// Clear bubbles if no data or no dimensions
 		if (bubbleData.length === 0 || width === 0 || height === 0) {
 			g.selectAll("g.bubble-node").remove();
+			setThumbOverlays([]);
 			return;
 		}
 
@@ -371,7 +410,7 @@ export function SizeView() {
 				(exit) => exit.remove(),
 			);
 
-		// Update or create circles
+		// Update or create circles (background for Thumb or standalone for small circles)
 		nodes
 			.selectAll<SVGCircleElement, any>("circle")
 			.data((d) => [d])
@@ -489,6 +528,12 @@ export function SizeView() {
 			.join("title")
 			.text((d) => `${d.data.name}\n${formatBytes(d.data.value)}`);
 
+		// Update thumb overlays after bubbles are rendered
+		if (svgRef.current) {
+			const currentTransform = d3.zoomTransform(svgRef.current);
+			updateThumbOverlays(currentTransform);
+		}
+
 		// Update or create text elements
 		nodes
 			.selectAll<SVGTextElement, any>("text")
@@ -519,17 +564,21 @@ export function SizeView() {
 
 				if (effectiveRadius < 25) return;
 
+				// For large circles with Thumb, position text at bottom
+				const hasThumb = effectiveRadius > 40;
+				const baseY = hasThumb ? effectiveRadius * 0.55 : effectiveRadius > 40 ? -10 : 0;
+
 				const nameTspan = textElement
 					.append("tspan")
 					.attr("x", 0)
-					.attr("y", effectiveRadius > 40 ? -10 : 0);
+					.attr("y", baseY);
 
 				if (effectiveRadius > 80) {
-					nameTspan.attr("font-size", "14px");
+					nameTspan.attr("font-size", "11px");
 				} else if (effectiveRadius > 50) {
-					nameTspan.attr("font-size", "12px");
-				} else {
 					nameTspan.attr("font-size", "10px");
+				} else {
+					nameTspan.attr("font-size", "9px");
 				}
 
 				const maxLength = Math.floor(effectiveRadius / 5);
@@ -543,18 +592,10 @@ export function SizeView() {
 					textElement
 						.append("tspan")
 						.attr("x", 0)
-						.attr("y", 5)
-						.attr("font-size", "10px")
-						.attr("fill-opacity", 0.8)
-						.text(d.data.type);
-
-					textElement
-						.append("tspan")
-						.attr("x", 0)
-						.attr("y", 20)
+						.attr("y", baseY + 14)
 						.attr(
 							"font-size",
-							effectiveRadius > 80 ? "14px" : "12px",
+							effectiveRadius > 80 ? "11px" : "10px",
 						)
 						.attr("font-weight", "700")
 						.text(formatBytes(d.data.value));
@@ -628,6 +669,27 @@ export function SizeView() {
 				className="w-full h-full relative"
 				style={{ fontFamily: "system-ui, sans-serif" }}
 			/>
+
+			{/* Thumb overlays positioned absolutely */}
+			{thumbOverlays.map((overlay) => (
+				<div
+					key={overlay.id}
+					className="absolute pointer-events-none rounded-lg overflow-hidden"
+					style={{
+						left: overlay.screenX,
+						top: overlay.screenY,
+						transform: "translate(-50%, -60%)",
+					}}
+				>
+					<Thumb
+						file={overlay.file}
+						size={overlay.size}
+						className="drop-shadow-lg"
+						frameClassName="border-0 bg-transparent rounded-lg"
+						iconScale={0.7}
+					/>
+				</div>
+			))}
 
 			{/* Empty state message */}
 			{bubbleData.length === 0 && (
