@@ -70,6 +70,9 @@ pub struct Device {
 	/// Total swap space in bytes
 	pub swap_total_bytes: Option<i64>,
 
+	/// Total AI compute power in TOPS (computed from CPU Neural Engine + GPU capabilities)
+	pub ai_tops: Option<f64>,
+
 	/// Network addresses for P2P connections
 	pub network_addresses: Vec<String>,
 
@@ -144,9 +147,18 @@ impl Device {
 
 	/// Create a new device
 	pub fn new(name: String) -> Self {
+		use super::hardware_specs::lookup_ai_capabilities;
+
 		let now = Utc::now();
 		let slug = Self::generate_slug(&name);
 		let system_info = detect_system_info();
+
+		// Compute AI TOPS from CPU and GPU models
+		let ai_tops = lookup_ai_capabilities(
+			system_info.cpu_model.as_deref(),
+			system_info.gpu_models.as_ref(),
+		);
+
 		Self {
 			id: Uuid::new_v4(),
 			name,
@@ -168,6 +180,7 @@ impl Device {
 			boot_disk_type: system_info.boot_disk_type,
 			boot_disk_capacity_bytes: system_info.boot_disk_capacity_bytes,
 			swap_total_bytes: system_info.swap_total_bytes,
+			ai_tops,
 			network_addresses: Vec::new(),
 			capabilities: serde_json::json!({
 				"indexing": true,
@@ -276,6 +289,7 @@ impl Device {
 			boot_disk_type: None,
 			boot_disk_capacity_bytes: None,
 			swap_total_bytes: None,
+			ai_tops: None, // Not available from network info
 			network_addresses: Vec::new(),
 			capabilities: serde_json::json!({
 				"indexing": true,
@@ -1121,11 +1135,16 @@ impl TryFrom<entities::device::Model> for Device {
 	type Error = serde_json::Error;
 
 	fn try_from(model: entities::device::Model) -> Result<Self, Self::Error> {
+		use super::hardware_specs::lookup_ai_capabilities;
+
 		let network_addresses: Vec<String> = serde_json::from_value(model.network_addresses)?;
 
 		let gpu_models: Option<Vec<String>> = model
 			.gpu_models
 			.and_then(|v| serde_json::from_value(v).ok());
+
+		// Compute AI TOPS from CPU and GPU models
+		let ai_tops = lookup_ai_capabilities(model.cpu_model.as_deref(), gpu_models.as_ref());
 
 		Ok(Device {
 			id: model.uuid,
@@ -1146,6 +1165,7 @@ impl TryFrom<entities::device::Model> for Device {
 			boot_disk_type: model.boot_disk_type,
 			boot_disk_capacity_bytes: model.boot_disk_capacity_bytes,
 			swap_total_bytes: model.swap_total_bytes,
+			ai_tops,
 			network_addresses,
 			capabilities: model.capabilities,
 			is_online: model.is_online,
