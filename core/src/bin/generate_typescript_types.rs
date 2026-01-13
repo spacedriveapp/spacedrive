@@ -170,9 +170,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Generate TypeScript types from the discovered types
-	// Use CARGO_MANIFEST_DIR to ensure we write to core/packages, not relative to cwd
+	// Write to the shared ts-client package at repo root (parent of core/)
 	let core_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
-	let output_path = core_dir.join("packages/ts-client/src/generated/types.ts");
+	let output_path = core_dir
+		.parent()
+		.expect("core should have parent directory")
+		.join("packages/ts-client/src/generated/types.ts");
 	if let Some(parent) = output_path.parent() {
 		std::fs::create_dir_all(parent)?;
 	}
