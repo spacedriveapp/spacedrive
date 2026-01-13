@@ -99,8 +99,8 @@ export interface TabExplorerState {
 	scrollTop: number;
 	scrollLeft: number;
 
-	// Size view zoom level
-	sizeViewZoom: number;
+	// Size view transform (zoom + pan)
+	sizeViewTransform: { k: number; x: number; y: number };
 }
 
 /** Default explorer state for new tabs */
@@ -113,7 +113,7 @@ const DEFAULT_EXPLORER_STATE: TabExplorerState = {
 	columnStack: [],
 	scrollTop: 0,
 	scrollLeft: 0,
-	sizeViewZoom: 1,
+	sizeViewTransform: { k: 1, x: 0, y: 0 },
 };
 
 // ============================================================================
@@ -248,6 +248,7 @@ export function TabManagerProvider({
 		return initialMap;
 	});
 
+
 	const [defaultNewTabPath, setDefaultNewTabPathState] = useState<string>(
 		() => {
 			const persisted = loadPersistedState();
@@ -339,7 +340,9 @@ export function TabManagerProvider({
 
 	const switchTab = useCallback(
 		(newTabId: string) => {
-			if (newTabId === activeTabId) return;
+			if (newTabId === activeTabId) {
+				return;
+			}
 
 			setTabs((prev) =>
 				prev.map((tab) =>

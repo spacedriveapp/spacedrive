@@ -9,6 +9,7 @@ import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
 import * as d3 from 'd3';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
+import {useTabManager} from '../../../../components/TabManager/useTabManager';
 import {ServerContext, useServer} from '../../../../contexts/ServerContext';
 import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
 import {useExplorer} from '../../context';
@@ -125,9 +126,14 @@ export function SizeView() {
 		sidebarVisible,
 		inspectorVisible,
 		activeTabId,
-		sizeViewZoom,
-		setSizeViewZoom
+		sizeViewTransform,
+		setSizeViewTransform,
+		viewMode
 	} = useExplorer();
+
+	const { tabs } = useTabManager();
+
+
 	const {selectedFiles, selectFile} = useSelection();
 	const serverContext = useServer();
 
@@ -196,6 +202,10 @@ export function SizeView() {
 		unknown
 	> | null>(null);
 	const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+	const lastContextRef = useRef<{tabId: string, path: SdPath | null} | null>(null);
+	const lastAppliedZoomRef = useRef<{tabId: string, zoom: number} | null>(null);
+	// Track which tab we just switched to (allows one path update from TabNavigationSync)
+	const justSwitchedToTabRef = useRef<string | null>(null);
 	const [contextMenuFile, setContextMenuFile] = useState<File | null>(null);
 	const [thumbOverlays, setThumbOverlays] = useState<
 		Array<{
@@ -384,7 +394,11 @@ export function SizeView() {
 			.scaleExtent([0.1, 100])
 			.on('zoom', (event) => {
 				g.attr('transform', event.transform);
-				setSizeViewZoom(event.transform.k);
+				setSizeViewTransform({
+					k: event.transform.k,
+					x: event.transform.x,
+					y: event.transform.y,
+				});
 				updateTextOnZoom(event.transform.k);
 				updateThumbOverlays(event.transform);
 			});
@@ -398,7 +412,7 @@ export function SizeView() {
 				.duration(300)
 				.call(zoom.transform, d3.zoomIdentity)
 				.on('end', () => {
-					setSizeViewZoom(1);
+					setSizeViewTransform({ k: 1, x: 0, y: 0 });
 					updateTextOnZoom(1);
 				});
 		});
@@ -412,13 +426,43 @@ export function SizeView() {
 		};
 	}, [portalTarget]); // Run when portal is ready
 
-	// Reset zoom when path changes
+	// Reset zoom when path changes within the same tab (but not on tab switch or initial mount)
 	useEffect(() => {
-		if (!svgRef.current || !zoomBehaviorRef.current) return;
-		const svg = d3.select(svgRef.current);
-		svg.call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-		setSizeViewZoom(1);
-	}, [currentPath]);
+		const lastContext = lastContextRef.current;
+		const currentContext = { tabId: activeTabId, path: currentPath };
+
+		// Detect tab switch or initial mount
+		const tabIdChanged = lastContext && lastContext.tabId !== currentContext.tabId;
+		const justMounted = !lastContext;
+
+		// When we switch tabs or mount, mark this tab as "expecting path sync"
+		if (tabIdChanged || justMounted) {
+			justSwitchedToTabRef.current = currentContext.tabId;
+		}
+
+		// Check if path changed
+		const pathChanged = lastContext && JSON.stringify(lastContext.path) !== JSON.stringify(currentContext.path);
+
+		// If we're still in the tab we just switched to, this is TabNavigationSync catching up
+		const isPathSyncingAfterTabSwitch = justSwitchedToTabRef.current === currentContext.tabId;
+
+		// Reset zoom if path changed AND we're not syncing after tab switch
+		if (pathChanged && !isPathSyncingAfterTabSwitch) {
+			if (svgRef.current && zoomBehaviorRef.current) {
+				const svg = d3.select(svgRef.current);
+				svg.call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
+				setSizeViewTransform({ k: 1, x: 0, y: 0 });
+			}
+		}
+
+		// If path changed while we were syncing, clear the flag (next change will reset)
+		if (pathChanged && isPathSyncingAfterTabSwitch) {
+			justSwitchedToTabRef.current = null;
+		}
+
+		// Update last context for next comparison
+		lastContextRef.current = currentContext;
+	}, [currentPath, activeTabId, setSizeViewTransform]);
 
 	const bubbleData = useMemo(() => {
 		const filesWithSize = files.filter((f) => f.size > 0);
@@ -679,6 +723,24 @@ export function SizeView() {
 		}
 	}, [bubbleData]);
 
+	// Apply stored transform when tab changes or bubbles first render
+	useEffect(() => {
+		if (!svgRef.current || !zoomBehaviorRef.current || bubbleData.length === 0) return;
+
+		// Check if we've already applied transform for this tab
+		if (lastAppliedZoomRef.current?.tabId === activeTabId) {
+			return;
+		}
+		const svg = d3.select(svgRef.current);
+		const transform = d3.zoomIdentity
+			.translate(sizeViewTransform.x, sizeViewTransform.y)
+			.scale(sizeViewTransform.k);
+		svg.call(zoomBehaviorRef.current.transform, transform);
+
+		// Mark this tab as having transform applied
+		lastAppliedZoomRef.current = { tabId: activeTabId, zoom: sizeViewTransform.k };
+	}, [activeTabId, bubbleData.length, sizeViewTransform]);
+
 	// Update selection strokes when selectedFiles changes
 	useEffect(() => {
 		if (!svgRef.current) return;
@@ -707,7 +769,7 @@ export function SizeView() {
 		svg.transition()
 			.duration(300)
 			.call(zoomBehaviorRef.current.transform, d3.zoomIdentity)
-			.on('end', () => setSizeViewZoom(1));
+			.on('end', () => setSizeViewTransform({ k: 1, x: 0, y: 0 }));
 	};
 
 	const handleZoomIn = () => {
@@ -794,13 +856,13 @@ export function SizeView() {
 							icon={Minus}
 							onClick={handleZoomOut}
 							title="Zoom Out"
-							disabled={sizeViewZoom <= 0.1}
+							disabled={sizeViewTransform.k <= 0.1}
 						/>
 						<TopBarButton
 							icon={Plus}
 							onClick={handleZoomIn}
 							title="Zoom In"
-							disabled={sizeViewZoom >= 100}
+							disabled={sizeViewTransform.k >= 100}
 						/>
 					</TopBarButtonGroup>
 					<TopBarButton
@@ -814,7 +876,7 @@ export function SizeView() {
 						title="Reset Zoom"
 					/>
 					<div className="text-ink-dull px-2 text-xs font-medium">
-						{sizeViewZoom.toFixed(1)}x
+						{sizeViewTransform.k.toFixed(1)}x
 					</div>
 				</div>
 			</div>

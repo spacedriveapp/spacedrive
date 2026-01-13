@@ -371,9 +371,9 @@ interface ExplorerContextValue {
 	scrollPosition: { top: number; left: number };
 	setScrollPosition: (pos: { top: number; left: number }) => void;
 
-	// Size view zoom (per-tab, stored in TabManager)
-	sizeViewZoom: number;
-	setSizeViewZoom: (zoom: number) => void;
+	// Size view transform (per-tab, stored in TabManager)
+	sizeViewTransform: { k: number; x: number; y: number };
+	setSizeViewTransform: (transform: { k: number; x: number; y: number }) => void;
 
 	sidebarVisible: boolean;
 	setSidebarVisible: (visible: boolean) => void;
@@ -481,15 +481,15 @@ export function ExplorerProvider({
 		[activeTabId, updateExplorerState],
 	);
 
-	const sizeViewZoom = useMemo(
-		() => tabState.sizeViewZoom ?? 1,
-		[activeTabId, tabState.sizeViewZoom],
+	const sizeViewTransform = useMemo(
+		() => tabState.sizeViewTransform ?? { k: 1, x: 0, y: 0 },
+		[activeTabId, tabState.sizeViewTransform],
 	);
 
-	const setSizeViewZoom = useCallback(
-		(zoom: number) => {
+	const setSizeViewTransform = useCallback(
+		(transform: { k: number; x: number; y: number }) => {
 			updateExplorerState(activeTabId, {
-				sizeViewZoom: zoom,
+				sizeViewTransform: transform,
 			});
 		},
 		[activeTabId, updateExplorerState],
@@ -726,8 +726,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
-			sizeViewZoom,
-			setSizeViewZoom,
+			sizeViewTransform,
+			setSizeViewTransform,
 			sidebarVisible: uiState.sidebarVisible,
 			setSidebarVisible,
 			inspectorVisible: uiState.inspectorVisible,
@@ -768,8 +768,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
-			sizeViewZoom,
-			setSizeViewZoom,
+			sizeViewTransform,
+			setSizeViewTransform,
 			uiState.sidebarVisible,
 			setSidebarVisible,
 			uiState.inspectorVisible,
