@@ -3,6 +3,89 @@ import { motion, LayoutGroup } from "framer-motion";
 import { Plus, X } from "@phosphor-icons/react";
 import { useTabManager } from "./useTabManager";
 import { useMemo } from "react";
+import {
+	SortableContext,
+	horizontalListSortingStrategy,
+	useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import type { Tab } from ".";
+
+interface SortableTabProps {
+	tab: Tab;
+	isActive: boolean;
+	onSwitch: (tabId: string) => void;
+	onClose: (tabId: string) => void;
+}
+
+function SortableTab({ tab, isActive, onSwitch, onClose }: SortableTabProps) {
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		transform,
+		transition,
+		isDragging,
+	} = useSortable({
+		id: tab.id,
+		data: {
+			type: "tab",
+			tabId: tab.id,
+		},
+	});
+
+	const style = {
+		transform: CSS.Transform.toString(transform),
+		transition,
+	};
+
+	return (
+		<button
+			ref={setNodeRef}
+			style={style}
+			{...attributes}
+			{...listeners}
+			onClick={() => onSwitch(tab.id)}
+			className={clsx(
+				"relative flex items-center justify-center py-1.5 rounded-full text-[13px] group flex-1 min-w-0",
+				isActive
+					? "text-ink"
+					: "text-ink-dull hover:text-ink hover:bg-app-hover/50",
+				isDragging && "opacity-50 z-50",
+			)}
+		>
+			{isActive && (
+				<motion.div
+					layoutId="activeTab"
+					className="absolute inset-0 bg-app-selected rounded-full shadow-sm"
+					initial={false}
+					transition={{
+						type: "spring",
+						stiffness: 500,
+						damping: 35,
+					}}
+				/>
+			)}
+			{/* Close button - absolutely positioned left */}
+			<span
+				onClick={(e) => {
+					e.stopPropagation();
+					onClose(tab.id);
+				}}
+				className={clsx(
+					"absolute left-1.5 z-10 size-5 flex items-center justify-center rounded-full transition-all cursor-pointer",
+					isActive
+						? "opacity-60 hover:opacity-100 hover:bg-app-hover"
+						: "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-app-hover",
+				)}
+				title="Close tab"
+			>
+				<X size={10} weight="bold" />
+			</span>
+			<span className="relative z-10 truncate px-6">{tab.title}</span>
+		</button>
+	);
+}
 
 export function TabBar() {
 	const { tabs, activeTabId, switchTab, closeTab, createTab } =
@@ -22,56 +105,26 @@ export function TabBar() {
 	return (
 		<div className="flex items-center h-9 px-1 gap-1 mx-2 bg-app-box/50 rounded-full shrink-0">
 			<LayoutGroup id="tab-bar">
-				<div className="flex items-center flex-1 gap-1 min-w-0">
-					{tabs.map((tab) => {
-						const isActive = tab.id === safeActiveTabId;
+				<SortableContext
+					items={tabs.map((tab) => tab.id)}
+					strategy={horizontalListSortingStrategy}
+				>
+					<div className="flex items-center flex-1 gap-1 min-w-0">
+						{tabs.map((tab) => {
+							const isActive = tab.id === safeActiveTabId;
 
-						return (
-							<button
-								key={tab.id}
-								onClick={() => switchTab(tab.id)}
-								className={clsx(
-									"relative flex items-center justify-center py-1.5 rounded-full text-[13px] group flex-1 min-w-0",
-									isActive
-										? "text-ink"
-										: "text-ink-dull hover:text-ink hover:bg-app-hover/50",
-								)}
-							>
-								{isActive && (
-									<motion.div
-										layoutId="activeTab"
-										className="absolute inset-0 bg-app-selected rounded-full shadow-sm"
-										initial={false}
-										transition={{
-											type: "spring",
-											stiffness: 500,
-											damping: 35,
-										}}
-									/>
-								)}
-								{/* Close button - absolutely positioned left */}
-								<span
-									onClick={(e) => {
-										e.stopPropagation();
-										closeTab(tab.id);
-									}}
-									className={clsx(
-										"absolute left-1.5 z-10 size-5 flex items-center justify-center rounded-full transition-all cursor-pointer",
-										isActive
-											? "opacity-60 hover:opacity-100 hover:bg-app-hover"
-											: "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-app-hover",
-									)}
-									title="Close tab"
-								>
-									<X size={10} weight="bold" />
-								</span>
-								<span className="relative z-10 truncate px-6">
-									{tab.title}
-								</span>
-							</button>
-						);
-					})}
-				</div>
+							return (
+								<SortableTab
+									key={tab.id}
+									tab={tab}
+									isActive={isActive}
+									onSwitch={switchTab}
+									onClose={closeTab}
+								/>
+							);
+						})}
+					</div>
+				</SortableContext>
 			</LayoutGroup>
 			<button
 				onClick={() => createTab()}
