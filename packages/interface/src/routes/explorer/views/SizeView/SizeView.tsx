@@ -465,22 +465,41 @@ export function SizeView() {
 	}, [currentPath, activeTabId, setSizeViewTransform]);
 
 	const bubbleData = useMemo(() => {
-		const filesWithSize = files.filter((f) => f.size > 0);
+		const itemLimit = viewSettings.sizeViewItemLimit || 100;
 
-		if (filesWithSize.length === 0) return [];
+		// Separate folders and files
+		const folders = files.filter((f) => f.kind === 'Directory');
+		const regularFiles = files.filter((f) => f.kind !== 'Directory' && f.size > 0);
 
-		return filesWithSize
-			.sort((a, b) => b.size - a.size)
-			.slice(0, 50)
-			.map((file) => ({
-				id: file.id,
-				name: file.name,
-				value: file.size,
-				file,
-				color: getFileColor(file),
-				type: getFileType(file)
-			}));
-	}, [files]);
+		// Always include all folders, then fill with largest files
+		const sortedFiles = regularFiles.sort((a, b) => b.size - a.size);
+		const topFiles = sortedFiles.slice(0, Math.max(0, itemLimit - folders.length));
+
+		const combined = [...folders, ...topFiles];
+
+		if (combined.length === 0) return [];
+
+		// Calculate average size of files to give folders a reasonable minimum
+		const averageFileSize = topFiles.length > 0
+			? topFiles.reduce((sum, f) => sum + f.size, 0) / topFiles.length
+			: 1000000; // 1MB default
+
+		// Give folders a minimum size of 2.5% of average file size (so they're visible)
+		const minFolderSize = averageFileSize * 0.025;
+
+		const mapped = combined.map((file) => ({
+			id: file.id,
+			name: file.name,
+			value: file.kind === 'Directory'
+				? Math.max(file.size, minFolderSize)
+				: file.size,
+			file,
+			color: getFileColor(file),
+			type: getFileType(file)
+		}));
+
+		return mapped;
+	}, [files, viewSettings.sizeViewItemLimit]);
 
 	// Update chart data (preserves zoom state)
 	useEffect(() => {
@@ -741,7 +760,7 @@ export function SizeView() {
 		lastAppliedZoomRef.current = { tabId: activeTabId, zoom: sizeViewTransform.k };
 	}, [activeTabId, bubbleData.length, sizeViewTransform]);
 
-	// Update selection strokes when selectedFiles changes
+	// Update selection strokes when selectedFiles changes or bubbles are rendered
 	useEffect(() => {
 		if (!svgRef.current) return;
 
@@ -761,7 +780,7 @@ export function SizeView() {
 				);
 				return isSelected ? 4 : 0;
 			});
-	}, [selectedFiles]);
+	}, [selectedFiles, bubbleData.length]);
 
 	const handleResetZoom = () => {
 		if (!svgRef.current || !zoomBehaviorRef.current) return;
@@ -850,7 +869,10 @@ export function SizeView() {
 					)}
 
 				{/* Floating footer controls */}
-				<div className="bg-app-box/95 border-app-line absolute bottom-4 right-4 flex items-center gap-2 rounded-lg border p-1.5 shadow-lg backdrop-blur-lg">
+				<div
+					className="bg-app-box/95 border-app-line absolute bottom-4 flex items-center gap-2 rounded-lg border p-1.5 shadow-lg backdrop-blur-lg transition-all duration-300"
+					style={{ right: `${inspectorWidth + 16}px` }}
+				>
 					<TopBarButtonGroup>
 						<TopBarButton
 							icon={Minus}

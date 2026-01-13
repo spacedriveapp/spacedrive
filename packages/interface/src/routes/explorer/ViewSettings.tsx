@@ -10,12 +10,14 @@ interface ViewSettingsPanelProps {
 	viewSettings: any;
 	setViewSettings: (settings: any) => void;
 	viewMode: string;
+	totalFileCount?: number;
 }
 
 export function ViewSettingsPanel({
 	viewSettings,
 	setViewSettings,
 	viewMode,
+	totalFileCount,
 }: ViewSettingsPanelProps) {
 	return (
 		<div className="w-64 bg-app-box border border-app-line rounded-lg shadow-lg p-3 space-y-4">
@@ -94,6 +96,31 @@ export function ViewSettingsPanel({
 						value={viewSettings.gapSize}
 						onChange={(e) =>
 							setViewSettings({ gapSize: parseInt(e.target.value) })
+						}
+						className="w-full h-1 bg-app-line rounded-lg appearance-none cursor-pointer
+							[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer
+							[&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-0"
+					/>
+				</div>
+			)}
+
+			{/* Item Limit (Size View Only) */}
+			{viewMode === "size" && (
+				<div className="space-y-2">
+					<div className="flex items-center justify-between">
+						<label className="text-xs text-sidebar-inkDull">Items Shown</label>
+						<span className="text-xs text-sidebar-ink font-medium">
+							{viewSettings.sizeViewItemLimit || 100} / {totalFileCount || 0}
+						</span>
+					</div>
+					<input
+						type="range"
+						min="50"
+						max={Math.max(50, totalFileCount || 500)}
+						step="10"
+						value={viewSettings.sizeViewItemLimit || 100}
+						onChange={(e) =>
+							setViewSettings({ sizeViewItemLimit: parseInt(e.target.value) })
 						}
 						className="w-full h-1 bg-app-line rounded-lg appearance-none cursor-pointer
 							[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer

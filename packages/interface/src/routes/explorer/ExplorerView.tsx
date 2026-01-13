@@ -54,7 +54,8 @@ export function ExplorerView() {
 		quickPreviewFileId,
 		mode,
 		enterSearchMode,
-		exitSearchMode
+		exitSearchMode,
+		currentFiles
 	} = useExplorer();
 
 	const {isVirtualView} = useVirtualListing();
@@ -106,9 +107,10 @@ export function ExplorerView() {
 				viewSettings={viewSettings}
 				setViewSettings={setViewSettings}
 				viewMode={viewMode}
+				totalFileCount={currentFiles.length}
 			/>
 		),
-		[viewSettings, setViewSettings, viewMode]
+		[viewSettings, setViewSettings, viewMode, currentFiles.length]
 	);
 
 	const sortSubmenu = useMemo(
