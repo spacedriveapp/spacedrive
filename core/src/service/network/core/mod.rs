@@ -1843,6 +1843,13 @@ async fn spawn_connection_watcher_task(
 			))
 			.await;
 
+		// Always remove from watched nodes when watcher completes.
+		// This allows future connection closures to spawn new watchers.
+		{
+			let mut watched = watched_nodes.write().await;
+			watched.remove(&node_id);
+		}
+
 		// Remove only this specific connection (by node_id AND alpn)
 		let has_other_connections = {
 			let mut connections = active_connections.write().await;
@@ -1854,12 +1861,6 @@ async fn spawn_connection_watcher_task(
 
 		// Only mark device as offline if ALL connections are gone
 		if !has_other_connections {
-			// Remove from watched nodes set since no connections remain
-			{
-				let mut watched = watched_nodes.write().await;
-				watched.remove(&node_id);
-			}
-
 			// Find the device ID for this node and update state
 			let mut registry = device_registry.write().await;
 			if let Some(device_id) = registry.get_device_by_node_id(node_id) {
