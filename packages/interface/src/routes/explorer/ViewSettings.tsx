@@ -178,9 +178,10 @@ export function ViewSettingsPanel({
 
 interface ViewSettingsProps {
   className?: string;
+  totalFileCount?: number;
 }
 
-export function ViewSettings({ className }: ViewSettingsProps) {
+export function ViewSettings({ className, totalFileCount }: ViewSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -248,6 +249,7 @@ export function ViewSettings({ className }: ViewSettingsProps) {
                 viewSettings={viewSettings}
                 setViewSettings={setViewSettings}
                 viewMode={viewMode}
+                totalFileCount={totalFileCount}
               />
             </motion.div>
           </AnimatePresence>,

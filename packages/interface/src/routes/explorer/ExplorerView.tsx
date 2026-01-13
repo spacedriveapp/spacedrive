@@ -245,7 +245,7 @@ export function ExplorerView() {
 								priority="low"
 								submenuContent={viewSettingsSubmenu}
 							>
-								<ViewSettings />
+								<ViewSettings totalFileCount={currentFiles.length} />
 							</TopBarItem>
 							<TopBarItem
 								id="sort"

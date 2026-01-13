@@ -128,7 +128,8 @@ export function SizeView() {
 		activeTabId,
 		sizeViewTransform,
 		setSizeViewTransform,
-		viewMode
+		viewMode,
+		setCurrentFiles
 	} = useExplorer();
 
 	const { tabs } = useTabManager();
@@ -196,6 +197,11 @@ export function SizeView() {
 		return directoryQuery.data.files;
 	}, [directoryQuery.data, activeTabId, currentPath, dataSource]);
 
+	// Update explorer context with raw file count (not filtered)
+	useEffect(() => {
+		setCurrentFiles(directoryQuery.data?.files || []);
+	}, [directoryQuery.data?.files, setCurrentFiles]);
+
 	const svgRef = useRef<SVGSVGElement>(null);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<
 		SVGSVGElement,
@@ -230,6 +236,7 @@ export function SizeView() {
 	const selectFileRef = useRef(selectFile);
 	const navigateToPathRef = useRef(navigateToPath);
 	const filesRef = useRef(files);
+	const selectedFilesRef = useRef(selectedFiles);
 	const gRef = useRef<d3.Selection<
 		SVGGElement,
 		unknown,
@@ -242,8 +249,9 @@ export function SizeView() {
 		selectFileRef.current = selectFile;
 		navigateToPathRef.current = navigateToPath;
 		filesRef.current = files;
+		selectedFilesRef.current = selectedFiles;
 		contextMenuRef.current = contextMenu;
-	}, [selectFile, navigateToPath, files, contextMenu]);
+	}, [selectFile, navigateToPath, files, selectedFiles, contextMenu]);
 
 	// Function to update thumb overlay positions based on current transform
 	const updateThumbOverlays = (transform: d3.ZoomTransform) => {
@@ -389,6 +397,21 @@ export function SizeView() {
 			});
 		};
 
+		const updateStrokeWidthsForZoom = (scale: number) => {
+			// Only adjust stroke width for zoom, don't change selection state
+			const baseStrokeWidth = 4;
+
+			svg.selectAll<SVGCircleElement, any>('circle[data-file-id]').each(function() {
+				const circle = d3.select(this);
+				const currentStroke = circle.attr('stroke');
+
+				// If this circle has a stroke (is selected), update its width
+				if (currentStroke && currentStroke !== 'transparent') {
+					circle.attr('stroke-width', baseStrokeWidth / scale);
+				}
+			});
+		};
+
 		const zoom = d3
 			.zoom<SVGSVGElement, unknown>()
 			.scaleExtent([0.1, 100])
@@ -400,6 +423,7 @@ export function SizeView() {
 					y: event.transform.y,
 				});
 				updateTextOnZoom(event.transform.k);
+				updateStrokeWidthsForZoom(event.transform.k);
 				updateThumbOverlays(event.transform);
 			});
 
@@ -766,7 +790,11 @@ export function SizeView() {
 
 		const svg = d3.select(svgRef.current);
 		const accentColor = getTailwindColor('bg-accent');
+		const currentTransform = d3.zoomTransform(svgRef.current);
+		const scale = currentTransform.k;
+		const baseStrokeWidth = 4;
 
+		// Update both stroke color and width based on selection and current zoom
 		svg.selectAll<SVGCircleElement, any>('circle[data-file-id]')
 			.attr('stroke', (d) => {
 				const isSelected = selectedFiles.some(
@@ -778,7 +806,7 @@ export function SizeView() {
 				const isSelected = selectedFiles.some(
 					(f) => f.id === d.data.id
 				);
-				return isSelected ? 4 : 0;
+				return isSelected ? baseStrokeWidth / scale : 0;
 			});
 	}, [selectedFiles, bubbleData.length]);
 
@@ -840,11 +868,104 @@ export function SizeView() {
 				{thumbOverlays.map((overlay) => (
 					<div
 						key={overlay.id}
-						className="pointer-events-none absolute overflow-hidden rounded-lg"
+						className="pointer-events-auto absolute cursor-pointer overflow-hidden rounded-lg"
 						style={{
 							left: overlay.screenX,
 							top: overlay.screenY,
 							transform: 'translate(-50%, -60%)'
+						}}
+						onClick={(event) => {
+							event.stopPropagation();
+
+							const multi = event.metaKey || event.ctrlKey;
+							const range = event.shiftKey;
+
+							selectFileRef.current(
+								overlay.file,
+								filesRef.current,
+								multi,
+								range
+							);
+
+							// Clear any existing zoom timeout
+							if (clickTimeoutRef.current) {
+								clearTimeout(clickTimeoutRef.current);
+								clickTimeoutRef.current = null;
+							}
+
+							// Delay zoom-to-focus to allow double-click detection
+							if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {
+								// Find the bubble data for this overlay
+								const bubbleNode = gRef.current?.selectAll<SVGGElement, any>('g.bubble-node')
+									.filter((d: any) => d.data.id === overlay.id);
+
+								if (bubbleNode && !bubbleNode.empty()) {
+									const d = bubbleNode.datum();
+
+									clickTimeoutRef.current = setTimeout(() => {
+										if (!svgRef.current || !zoomBehaviorRef.current) return;
+
+										const svgElement = svgRef.current;
+										const width = svgElement.clientWidth;
+										const height = svgElement.clientHeight;
+										const centerX = width / 2;
+										const centerY = height / 2;
+
+										const targetBubbleScreenSize = Math.min(width, height) * 0.4;
+										const bubbleSize = d.r * 2;
+										const targetScale = targetBubbleScreenSize / bubbleSize;
+
+										const newTransform = d3.zoomIdentity
+											.translate(centerX, centerY)
+											.scale(targetScale)
+											.translate(-d.x, -d.y);
+
+										d3.select(svgElement)
+											.transition()
+											.duration(400)
+											.call(zoomBehaviorRef.current!.transform, newTransform);
+									}, 200);
+								}
+							}
+						}}
+						onDoubleClick={(event) => {
+							event.stopPropagation();
+
+							// Clear single click timeout
+							if (clickTimeoutRef.current) {
+								clearTimeout(clickTimeoutRef.current);
+								clickTimeoutRef.current = null;
+							}
+
+							// Navigate if directory
+							if (overlay.file.kind === 'Directory') {
+								navigateToPathRef.current(overlay.file.sd_path);
+							}
+						}}
+						onContextMenu={async (event) => {
+							event.preventDefault();
+							event.stopPropagation();
+
+							// Select the file if not already selected
+							const isSelected = selectedFiles.some(
+								(f) => f.id === overlay.file.id
+							);
+							if (!isSelected) {
+								selectFileRef.current(
+									overlay.file,
+									filesRef.current,
+									false,
+									false
+								);
+							}
+
+							// Set the context menu file and show menu
+							setContextMenuFile(overlay.file);
+
+							// Show context menu on next tick after state updates
+							setTimeout(async () => {
+								await contextMenuRef.current.show(event);
+							}, 0);
 						}}
 					>
 						<Thumb
