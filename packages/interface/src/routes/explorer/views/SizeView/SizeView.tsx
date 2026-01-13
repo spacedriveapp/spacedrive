@@ -1,30 +1,30 @@
-import { useEffect, useRef, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import * as d3 from "d3";
-import type { File, DirectorySortBy } from "@sd/ts-client";
-import { useExplorer } from "../../context";
-import { useSelection } from "../../SelectionContext";
-import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
-import { formatBytes } from "../../utils";
-import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
 import {
-	ArrowsOut,
 	ArrowCounterClockwise,
-	Plus,
+	ArrowsOut,
 	Minus,
-} from "@phosphor-icons/react";
-import { useFileContextMenu } from "../../hooks/useFileContextMenu";
-import { Thumb } from "../../File/Thumb";
-import { useServer, ServerContext } from "../../../../contexts/ServerContext";
+	Plus
+} from '@phosphor-icons/react';
+import type {DirectorySortBy, File} from '@sd/ts-client';
+import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import * as d3 from 'd3';
+import {useEffect, useMemo, useRef, useState} from 'react';
+import {createPortal} from 'react-dom';
+import {ServerContext, useServer} from '../../../../contexts/ServerContext';
+import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
+import {useExplorer} from '../../context';
+import {Thumb} from '../../File/Thumb';
+import {useFileContextMenu} from '../../hooks/useFileContextMenu';
+import {useSelection} from '../../SelectionContext';
+import {formatBytes} from '../../utils';
 
 // Cache for computed colors
 const colorCache = new Map<string, string>();
 
 // Gradient ID for folder bubbles
-const FOLDER_GRADIENT_ID = "folder-accent-gradient";
+const FOLDER_GRADIENT_ID = 'folder-accent-gradient';
 
 // Portal layer for fullscreen size view
-const SIZE_VIEW_LAYER_ID = "size-view-layer";
+const SIZE_VIEW_LAYER_ID = 'size-view-layer';
 
 // Get computed color from Tailwind class
 function getTailwindColor(className: string): string {
@@ -32,9 +32,9 @@ function getTailwindColor(className: string): string {
 		return colorCache.get(className)!;
 	}
 
-	const div = document.createElement("div");
+	const div = document.createElement('div');
 	div.className = className;
-	div.style.display = "none";
+	div.style.display = 'none';
 	document.body.appendChild(div);
 	const color = getComputedStyle(div).backgroundColor;
 	document.body.removeChild(div);
@@ -44,81 +44,88 @@ function getTailwindColor(className: string): string {
 }
 
 // Get accent colors for gradient from CSS custom properties
-function getAccentColors(): { faint: string; base: string; deep: string } {
+function getAccentColors(): {faint: string; base: string; deep: string} {
 	const root = document.documentElement;
 	const style = getComputedStyle(root);
 
 	// CSS variables store HSL values like "208, 100%, 57%"
-	const accentFaint = style.getPropertyValue("--color-accent-faint").trim();
-	const accent = style.getPropertyValue("--color-accent").trim();
-	const accentDeep = style.getPropertyValue("--color-accent-deep").trim();
+	const accentFaint = style.getPropertyValue('--color-accent-faint').trim();
+	const accent = style.getPropertyValue('--color-accent').trim();
+	const accentDeep = style.getPropertyValue('--color-accent-deep').trim();
 
 	return {
-		faint: accentFaint ? `hsl(${accentFaint})` : "hsl(208, 100%, 64%)",
-		base: accent ? `hsl(${accent})` : "hsl(208, 100%, 57%)",
-		deep: accentDeep ? `hsl(${accentDeep})` : "hsl(208, 100%, 47%)",
+		faint: accentFaint ? `hsl(${accentFaint})` : 'hsl(208, 100%, 64%)',
+		base: accent ? `hsl(${accent})` : 'hsl(208, 100%, 57%)',
+		deep: accentDeep ? `hsl(${accentDeep})` : 'hsl(208, 100%, 47%)'
 	};
 }
 
 function getFileColorClass(file: File): string {
-	if (file.kind === "Directory") return "bg-accent"; // Used for selection stroke
+	if (file.kind === 'Directory') return 'bg-accent'; // Used for selection stroke
 
-	const ext = file.name.split(".").pop()?.toLowerCase() || "";
+	const ext = file.name.split('.').pop()?.toLowerCase() || '';
 
 	// Images - lighter app-box
-	if (["jpg", "jpeg", "png", "gif", "svg", "webp", "heic"].includes(ext)) {
-		return "bg-app-light-box";
+	if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp', 'heic'].includes(ext)) {
+		return 'bg-app-light-box';
 	}
 
 	// Videos - app-selected
-	if (["mp4", "mov", "avi", "mkv", "webm"].includes(ext)) {
-		return "bg-app-selected";
+	if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) {
+		return 'bg-app-selected';
 	}
 
 	// Audio - app-hover
-	if (["mp3", "wav", "flac", "aac", "ogg"].includes(ext)) {
-		return "bg-app-hover";
+	if (['mp3', 'wav', 'flac', 'aac', 'ogg'].includes(ext)) {
+		return 'bg-app-hover';
 	}
 
 	// Documents - app-active
-	if (["pdf", "doc", "docx", "txt", "md"].includes(ext)) {
-		return "bg-app-active";
+	if (['pdf', 'doc', 'docx', 'txt', 'md'].includes(ext)) {
+		return 'bg-app-active';
 	}
 
 	// Code - app-input
 	if (
-		["js", "ts", "jsx", "tsx", "py", "rs", "go", "java", "cpp"].includes(
-			ext,
+		['js', 'ts', 'jsx', 'tsx', 'py', 'rs', 'go', 'java', 'cpp'].includes(
+			ext
 		)
 	) {
-		return "bg-app-input";
+		return 'bg-app-input';
 	}
 
 	// Archives - app-button
-	if (["zip", "tar", "gz", "rar", "7z"].includes(ext)) {
-		return "bg-app-button";
+	if (['zip', 'tar', 'gz', 'rar', '7z'].includes(ext)) {
+		return 'bg-app-button';
 	}
 
-	return "bg-app-box";
+	return 'bg-app-box';
 }
 
 function getFileColor(file: File): string {
 	// Directories use the gradient
-	if (file.kind === "Directory") {
+	if (file.kind === 'Directory') {
 		return `url(#${FOLDER_GRADIENT_ID})`;
 	}
 	return getTailwindColor(getFileColorClass(file));
 }
 
 function getFileType(file: File): string {
-	if (file.kind === "Directory") return "Folder";
+	if (file.kind === 'Directory') return 'Folder';
 	if (file.extension) return file.extension.toUpperCase();
-	return "File";
+	return 'File';
 }
 
 export function SizeView() {
-	const { currentPath, sortBy, navigateToPath, viewSettings, sidebarVisible, inspectorVisible } = useExplorer();
-	const { selectedFiles, selectFile } = useSelection();
+	const {
+		currentPath,
+		sortBy,
+		navigateToPath,
+		viewSettings,
+		sidebarVisible,
+		inspectorVisible
+	} = useExplorer();
+	const {selectedFiles, selectFile} = useSelection();
 	const serverContext = useServer();
 	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
@@ -134,19 +141,19 @@ export function SizeView() {
 	}, []);
 
 	const directoryQuery = useNormalizedQuery({
-		wireMethod: "query:files.directory_listing",
+		wireMethod: 'query:files.directory_listing',
 		input: currentPath
 			? {
 					path: currentPath,
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
-					folders_first: viewSettings.foldersFirst,
+					folders_first: viewSettings.foldersFirst
 				}
 			: null!,
-		resourceType: "file",
+		resourceType: 'file',
 		enabled: !!currentPath,
-		pathScope: currentPath ?? undefined,
+		pathScope: currentPath ?? undefined
 	});
 
 	const files = directoryQuery.data?.files || [];
@@ -175,7 +182,7 @@ export function SizeView() {
 		selectedFiles,
 		selected: contextMenuFile
 			? selectedFiles.some((f) => f.id === contextMenuFile.id)
-			: false,
+			: false
 	});
 
 	// Use refs for stable function references
@@ -211,24 +218,28 @@ export function SizeView() {
 			size: number;
 		}> = [];
 
-		gRef.current.selectAll<SVGGElement, any>("g.bubble-node").each(function (d: any) {
-			const screenRadius = d.r * transform.k;
+		gRef.current
+			.selectAll<SVGGElement, any>('g.bubble-node')
+			.each(function (d: any) {
+				const screenRadius = d.r * transform.k;
 
-			// Show thumbnails when effective screen radius > 40px
-			if (screenRadius > 40) {
-				// Convert SVG coordinates to absolute screen coordinates
-				const screenX = d.x * transform.k + transform.x + svgRect.left;
-				const screenY = d.y * transform.k + transform.y + svgRect.top;
+				// Show thumbnails when effective screen radius > 40px
+				if (screenRadius > 40) {
+					// Convert SVG coordinates to absolute screen coordinates
+					const screenX =
+						d.x * transform.k + transform.x + svgRect.left;
+					const screenY =
+						d.y * transform.k + transform.y + svgRect.top;
 
-				overlays.push({
-					id: d.data.id,
-					file: d.data.file,
-					screenX,
-					screenY,
-					size: Math.min(screenRadius * 0.9, 180), // Slightly smaller
-				});
-			}
-		});
+					overlays.push({
+						id: d.data.id,
+						file: d.data.file,
+						screenX,
+						screenY,
+						size: Math.min(screenRadius * 0.9, 180) // Slightly smaller
+					});
+				}
+			});
 
 		setThumbOverlays(overlays);
 	};
@@ -242,92 +253,96 @@ export function SizeView() {
 		// Only create g element if it doesn't exist
 		let g = gRef.current;
 		if (!g || g.empty()) {
-			svg.selectAll("*").remove();
+			svg.selectAll('*').remove();
 
 			// Add gradient definition for folder bubbles
-			const defs = svg.append("defs");
+			const defs = svg.append('defs');
 			const accentColors = getAccentColors();
 
 			const gradient = defs
-				.append("radialGradient")
-				.attr("id", FOLDER_GRADIENT_ID)
-				.attr("cx", "30%")
-				.attr("cy", "30%")
-				.attr("r", "70%");
+				.append('radialGradient')
+				.attr('id', FOLDER_GRADIENT_ID)
+				.attr('cx', '30%')
+				.attr('cy', '30%')
+				.attr('r', '70%');
 
 			// Highlight at top-left for 3D effect
 			gradient
-				.append("stop")
-				.attr("offset", "0%")
-				.attr("stop-color", accentColors.faint);
+				.append('stop')
+				.attr('offset', '0%')
+				.attr('stop-color', accentColors.faint);
 
 			gradient
-				.append("stop")
-				.attr("offset", "50%")
-				.attr("stop-color", accentColors.base);
+				.append('stop')
+				.attr('offset', '50%')
+				.attr('stop-color', accentColors.base);
 
 			gradient
-				.append("stop")
-				.attr("offset", "100%")
-				.attr("stop-color", accentColors.deep);
+				.append('stop')
+				.attr('offset', '100%')
+				.attr('stop-color', accentColors.deep);
 
-			g = svg.append("g");
+			g = svg.append('g');
 			gRef.current = g;
 		}
 
 		const updateTextOnZoom = (scale: number) => {
 			// Update text transform for constant size
-			g.selectAll<SVGTextElement, any>("text").attr(
-				"transform",
-				`scale(${1 / scale})`,
+			g.selectAll<SVGTextElement, any>('text').attr(
+				'transform',
+				`scale(${1 / scale})`
 			);
 
 			// Update text content based on effective radius
-			g.selectAll<SVGGElement, any>("g.bubble-node").each(function (
-				d: any,
+			g.selectAll<SVGGElement, any>('g.bubble-node').each(function (
+				d: any
 			) {
 				const node = d3.select(this);
-				const textElement = node.select("text");
+				const textElement = node.select('text');
 				const effectiveRadius = d.r * scale;
 
-				textElement.selectAll("tspan").remove();
+				textElement.selectAll('tspan').remove();
 
 				if (effectiveRadius < 25) return;
 
 				// For large circles with Thumb, position text at bottom
 				const hasThumb = effectiveRadius > 40;
-				const baseY = hasThumb ? effectiveRadius * 0.55 : effectiveRadius > 40 ? -10 : 0;
+				const baseY = hasThumb
+					? effectiveRadius * 0.55
+					: effectiveRadius > 40
+						? -10
+						: 0;
 
 				const nameTspan = textElement
-					.append("tspan")
-					.attr("x", 0)
-					.attr("y", baseY);
+					.append('tspan')
+					.attr('x', 0)
+					.attr('y', baseY);
 
 				if (effectiveRadius > 80) {
-					nameTspan.attr("font-size", "11px");
+					nameTspan.attr('font-size', '11px');
 				} else if (effectiveRadius > 50) {
-					nameTspan.attr("font-size", "10px");
+					nameTspan.attr('font-size', '10px');
 				} else {
-					nameTspan.attr("font-size", "9px");
+					nameTspan.attr('font-size', '9px');
 				}
 
 				const maxLength = Math.floor(effectiveRadius / 5);
 				nameTspan.text(
 					d.data.name.length > maxLength
-						? d.data.name.slice(0, maxLength) + "..."
-						: d.data.name,
+						? d.data.name.slice(0, maxLength) + '...'
+						: d.data.name
 				);
 
 				if (effectiveRadius > 40) {
 					textElement
-						.append("tspan")
-						.attr("x", 0)
-						.attr("y", baseY + 14)
+						.append('tspan')
+						.attr('x', 0)
+						.attr('y', baseY + 14)
 						.attr(
-							"font-size",
-							effectiveRadius > 80 ? "11px" : "10px",
+							'font-size',
+							effectiveRadius > 80 ? '11px' : '10px'
 						)
-						.attr("font-weight", "700")
+						.attr('font-weight', '700')
 						.text(formatBytes(d.data.value));
 				}
 			});
@@ -336,8 +351,8 @@ export function SizeView() {
 		const zoom = d3
 			.zoom<SVGSVGElement, unknown>()
 			.scaleExtent([0.1, 100])
-			.on("zoom", (event) => {
-				g.attr("transform", event.transform);
+			.on('zoom', (event) => {
+				g.attr('transform', event.transform);
 				setCurrentZoom(event.transform.k);
 				updateTextOnZoom(event.transform.k);
 				updateThumbOverlays(event.transform);
@@ -347,18 +362,18 @@ export function SizeView() {
 		zoomBehaviorRef.current = zoom;
 
 		// Double-click to reset zoom
-		svg.on("dblclick.zoom", () => {
+		svg.on('dblclick.zoom', () => {
 			svg.transition()
 				.duration(300)
 				.call(zoom.transform, d3.zoomIdentity)
-				.on("end", () => {
+				.on('end', () => {
 					setCurrentZoom(1);
 					updateTextOnZoom(1);
 				});
 		});
 
 		return () => {
-			svg.selectAll("*").remove();
+			svg.selectAll('*').remove();
 			gRef.current = null;
 			if (clickTimeoutRef.current) {
 				clearTimeout(clickTimeoutRef.current);
@@ -388,7 +403,7 @@ export function SizeView() {
 				value: file.size,
 				file,
 				color: getFileColor(file),
-				type: getFileType(file),
+				type: getFileType(file)
 			}));
 	}, [files]);
 
@@ -402,7 +417,7 @@ export function SizeView() {
 
 		// Clear bubbles if no data or no dimensions
 		if (bubbleData.length === 0 || width === 0 || height === 0) {
-			g.selectAll("g.bubble-node").remove();
+			g.selectAll('g.bubble-node').remove();
 			setThumbOverlays([]);
 			return;
 		}
@@ -410,37 +425,37 @@ export function SizeView() {
 		const pack = d3.pack().size([width, height]).padding(3);
 
 		const root = pack(
-			d3.hierarchy({ children: bubbleData }).sum((d) => d.value),
+			d3.hierarchy({children: bubbleData}).sum((d) => d.value)
 		);
 
 		// Update nodes with data join (preserves existing nodes when possible)
 		const nodes = g
-			.selectAll<SVGGElement, any>("g.bubble-node")
+			.selectAll<SVGGElement, any>('g.bubble-node')
 			.data(root.leaves(), (d: any) => d.data.id)
 			.join(
 				(enter) =>
 					enter
-						.append("g")
-						.attr("class", "bubble-node")
-						.attr("transform", (d) => `translate(${d.x},${d.y})`)
-						.style("cursor", "pointer"),
+						.append('g')
+						.attr('class', 'bubble-node')
+						.attr('transform', (d) => `translate(${d.x},${d.y})`)
+						.style('cursor', 'pointer'),
 				(update) =>
-					update.attr("transform", (d) => `translate(${d.x},${d.y})`),
-				(exit) => exit.remove(),
+					update.attr('transform', (d) => `translate(${d.x},${d.y})`),
+				(exit) => exit.remove()
 			);
 
 		// Update or create circles (background for Thumb or standalone for small circles)
 		nodes
-			.selectAll<SVGCircleElement, any>("circle")
+			.selectAll<SVGCircleElement, any>('circle')
 			.data((d) => [d])
-			.join("circle")
-			.attr("r", (d) => d.r)
-			.attr("fill", (d) => d.data.color)
-			.attr("fill-opacity", 1)
-			.attr("stroke", "transparent")
-			.attr("stroke-width", 0)
-			.attr("data-file-id", (d) => d.data.id)
-			.on("click", (event, d) => {
+			.join('circle')
+			.attr('r', (d) => d.r)
+			.attr('fill', (d) => d.data.color)
+			.attr('fill-opacity', 0.4)
+			.attr('stroke', 'transparent')
+			.attr('stroke-width', 0)
+			.attr('data-file-id', (d) => d.data.id)
+			.on('click', (event, d) => {
 				event.stopPropagation();
 
 				const multi = event.metaKey || event.ctrlKey;
@@ -451,7 +466,7 @@ export function SizeView() {
 					d.data.file,
 					filesRef.current,
 					multi,
-					range,
+					range
 				);
 
 				// Clear any existing zoom timeout
@@ -461,7 +476,12 @@ export function SizeView() {
 				}
 
 				// Delay zoom-to-focus to allow double-click detection
-				if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {
+				if (
+					!multi &&
+					!range &&
+					svgRef.current &&
+					zoomBehaviorRef.current
+				) {
 					clickTimeoutRef.current = setTimeout(() => {
 						if (!svgRef.current || !zoomBehaviorRef.current) return;
 
@@ -472,7 +492,8 @@ export function SizeView() {
 						const centerY = height / 2;
 
 						// Target: make the bubble appear at a consistent size on screen
-						const targetBubbleScreenSize = Math.min(width, height) * 0.4;
+						const targetBubbleScreenSize =
+							Math.min(width, height) * 0.4;
 						const bubbleSize = d.r * 2;
 						const targetScale = targetBubbleScreenSize / bubbleSize;
 
@@ -486,12 +507,12 @@ export function SizeView() {
 							.duration(400)
 							.call(
 								zoomBehaviorRef.current!.transform,
-								newTransform,
+								newTransform
 							);
 					}, 200);
 				}
 			})
-			.on("dblclick", (event, d) => {
+			.on('dblclick', (event, d) => {
 				event.stopPropagation();
 
 				// Clear single click timeout
@@ -501,24 +522,24 @@ export function SizeView() {
 				}
 
 				// Navigate if directory
-				if (d.data.file.kind === "Directory") {
+				if (d.data.file.kind === 'Directory') {
 					navigateToPathRef.current(d.data.file.sd_path);
 				}
 			})
-			.on("contextmenu", async (event, d) => {
+			.on('contextmenu', async (event, d) => {
 				event.preventDefault();
 				event.stopPropagation();
 
 				// Select the file if not already selected
 				const isSelected = selectedFiles.some(
-					(f) => f.id === d.data.file.id,
+					(f) => f.id === d.data.file.id
 				);
 				if (!isSelected) {
 					selectFileRef.current(
 						d.data.file,
 						filesRef.current,
 						false,
-						false,
+						false
 					);
 				}
 
@@ -530,21 +551,21 @@ export function SizeView() {
 					await contextMenuRef.current.show(event);
 				}, 0);
 			})
-			.on("mouseenter", function (event, d) {
+			.on('mouseenter', function (event, d) {
 				d3.select(this)
 					.transition()
 					.duration(150)
-					.attr("filter", "brightness(1.15)");
+					.attr('filter', 'brightness(1.15)');
 			})
-			.on("mouseleave", function (event, d) {
-				d3.select(this).transition().duration(150).attr("filter", null);
+			.on('mouseleave', function (event, d) {
+				d3.select(this).transition().duration(150).attr('filter', null);
 			});
 
 		// Update or create titles
 		nodes
-			.selectAll<SVGTitleElement, any>("title")
+			.selectAll<SVGTitleElement, any>('title')
 			.data((d) => [d])
-			.join("title")
+			.join('title')
 			.text((d) => `${d.data.name}\n${formatBytes(d.data.value)}`);
 
 		// Update thumb overlays after bubbles are rendered
@@ -555,13 +576,13 @@ export function SizeView() {
 
 		// Update or create text elements
 		nodes
-			.selectAll<SVGTextElement, any>("text")
+			.selectAll<SVGTextElement, any>('text')
 			.data((d) => [d])
-			.join("text")
-			.attr("text-anchor", "middle")
-			.attr("fill", "white")
-			.attr("font-weight", "600")
-			.style("pointer-events", "none");
+			.join('text')
+			.attr('text-anchor', 'middle')
+			.attr('fill', 'white')
+			.attr('font-weight', '600')
+			.style('pointer-events', 'none');
 
 		// Trigger text update with current zoom level
 		if (svgRef.current) {
@@ -569,54 +590,58 @@ export function SizeView() {
 			const scale = currentTransform.k;
 
 			// Update text transform and content
-			g.selectAll<SVGTextElement, any>("text").attr(
-				"transform",
-				`scale(${1 / scale})`,
+			g.selectAll<SVGTextElement, any>('text').attr(
+				'transform',
+				`scale(${1 / scale})`
 			);
 
 			nodes.each(function (d) {
 				const node = d3.select(this);
-				const textElement = node.select("text");
+				const textElement = node.select('text');
 				const effectiveRadius = d.r * scale;
 
-				textElement.selectAll("tspan").remove();
+				textElement.selectAll('tspan').remove();
 
 				if (effectiveRadius < 25) return;
 
 				// For large circles with Thumb, position text at bottom
 				const hasThumb = effectiveRadius > 40;
-				const baseY = hasThumb ? effectiveRadius * 0.55 : effectiveRadius > 40 ? -10 : 0;
+				const baseY = hasThumb
+					? effectiveRadius * 0.55
+					: effectiveRadius > 40
+						? -10
+						: 0;
 
 				const nameTspan = textElement
-					.append("tspan")
-					.attr("x", 0)
-					.attr("y", baseY);
+					.append('tspan')
+					.attr('x', 0)
+					.attr('y', baseY);
 
 				if (effectiveRadius > 80) {
-					nameTspan.attr("font-size", "11px");
+					nameTspan.attr('font-size', '11px');
 				} else if (effectiveRadius > 50) {
-					nameTspan.attr("font-size", "10px");
+					nameTspan.attr('font-size', '10px');
 				} else {
-					nameTspan.attr("font-size", "9px");
+					nameTspan.attr('font-size', '9px');
 				}
 
 				const maxLength = Math.floor(effectiveRadius / 5);
 				nameTspan.text(
 					d.data.name.length > maxLength
-						? d.data.name.slice(0, maxLength) + "..."
-						: d.data.name,
+						? d.data.name.slice(0, maxLength) + '...'
+						: d.data.name
 				);
 
 				if (effectiveRadius > 40) {
 					textElement
-						.append("tspan")
-						.attr("x", 0)
-						.attr("y", baseY + 14)
+						.append('tspan')
+						.attr('x', 0)
+						.attr('y', baseY + 14)
 						.attr(
-							"font-size",
-							effectiveRadius > 80 ? "11px" : "10px",
+							'font-size',
+							effectiveRadius > 80 ? '11px' : '10px'
 						)
-						.attr("font-weight", "700")
+						.attr('font-weight', '700')
 						.text(formatBytes(d.data.value));
 				}
 			});
@@ -628,18 +653,18 @@ export function SizeView() {
 		if (!svgRef.current) return;
 
 		const svg = d3.select(svgRef.current);
-		const accentColor = getTailwindColor("bg-accent");
+		const accentColor = getTailwindColor('bg-accent');
 
-		svg.selectAll<SVGCircleElement, any>("circle[data-file-id]")
-			.attr("stroke", (d) => {
+		svg.selectAll<SVGCircleElement, any>('circle[data-file-id]')
+			.attr('stroke', (d) => {
 				const isSelected = selectedFiles.some(
-					(f) => f.id === d.data.id,
+					(f) => f.id === d.data.id
 				);
-				return isSelected ? accentColor : "transparent";
+				return isSelected ? accentColor : 'transparent';
 			})
-			.attr("stroke-width", (d) => {
+			.attr('stroke-width', (d) => {
 				const isSelected = selectedFiles.some(
-					(f) => f.id === d.data.id,
+					(f) => f.id === d.data.id
 				);
 				return isSelected ? 4 : 0;
 			});
@@ -651,7 +676,7 @@ export function SizeView() {
 		svg.transition()
 			.duration(300)
 			.call(zoomBehaviorRef.current.transform, d3.zoomIdentity)
-			.on("end", () => setCurrentZoom(1));
+			.on('end', () => setCurrentZoom(1));
 	};
 
 	const handleZoomIn = () => {
@@ -677,51 +702,37 @@ export function SizeView() {
 			.duration(500)
 			.call(
 				zoomBehaviorRef.current.transform,
-				d3.zoomIdentity.translate(0, 0).scale(1),
+				d3.zoomIdentity.translate(0, 0).scale(1)
 			);
 	};
 
-	if (!portalTarget) {
-		console.log('SizeView: No portal target found, rendering fallback');
-		// Fallback: render in normal flow if portal not available
-		return (
-			<div className="relative w-full h-full overflow-hidden">
-				<svg
-					ref={svgRef}
-					className="w-full h-full relative"
-					style={{ fontFamily: "system-ui, sans-serif" }}
-				/>
-			</div>
-		);
-	}
-
 	const content = (
-		<div className="absolute inset-0 flex flex-col overflow-visible">
+		<div className="pointer-events-auto absolute inset-0 flex flex-col overflow-visible">
 			{/* Content area with padding for sidebar/inspector */}
 			<div
-				className="relative flex-1 overflow-visible"
+				className="pointer-events-auto relative flex-1 overflow-visible"
 				style={{
 					paddingLeft: sidebarWidth,
 					paddingRight: inspectorWidth,
 					paddingTop: 56, // TopBar height
-					transition: "padding 0.3s ease-out",
+					transition: 'padding 0.3s ease-out'
 				}}
 			>
 				<svg
 					ref={svgRef}
-					className="w-full h-full relative overflow-visible"
-					style={{ fontFamily: "system-ui, sans-serif" }}
+					className="pointer-events-auto relative h-full w-full overflow-visible"
+					style={{fontFamily: 'system-ui, sans-serif'}}
 				/>
 
 				{/* Thumb overlays positioned absolutely */}
 				{thumbOverlays.map((overlay) => (
 					<div
 						key={overlay.id}
-						className="absolute pointer-events-none rounded-lg overflow-hidden"
+						className="pointer-events-none absolute overflow-hidden rounded-lg"
 						style={{
 							left: overlay.screenX,
 							top: overlay.screenY,
-							transform: "translate(-50%, -60%)",
+							transform: 'translate(-50%, -60%)'
 						}}
 					>
 						<Thumb
@@ -736,7 +747,7 @@ export function SizeView() {
 
 				{/* Empty state message */}
 				{bubbleData.length === 0 && (
-					<div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
 						<p className="text-ink-dull">
 							No files with size data to display
 						</p>
@@ -744,7 +755,7 @@ export function SizeView() {
 				)}
 
 				{/* Floating footer controls */}
-				<div className="absolute bottom-4 right-4 flex items-center gap-2 bg-app-box/95 backdrop-blur-lg border border-app-line rounded-lg p-1.5 shadow-lg">
+				<div className="bg-app-box/95 border-app-line absolute bottom-4 right-4 flex items-center gap-2 rounded-lg border p-1.5 shadow-lg backdrop-blur-lg">
 					<TopBarButtonGroup>
 						<TopBarButton
 							icon={Minus}
@@ -769,7 +780,7 @@ export function SizeView() {
 						onClick={handleResetZoom}
 						title="Reset Zoom"
 					/>
-					<div className="px-2 text-xs text-ink-dull font-medium">
+					<div className="text-ink-dull px-2 text-xs font-medium">
 						{currentZoom.toFixed(1)}x
 					</div>
 				</div>
@@ -777,7 +788,7 @@ export function SizeView() {
 		</div>
 	);
 
-	return createPortal(content, portalTarget);
+	return portalTarget ? createPortal(content, portalTarget) : null;
 }
 
-export { SIZE_VIEW_LAYER_ID };
+export {SIZE_VIEW_LAYER_ID};

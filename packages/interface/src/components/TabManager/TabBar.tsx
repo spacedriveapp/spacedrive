@@ -1,15 +1,15 @@
-import clsx from "clsx";
-import { motion, LayoutGroup } from "framer-motion";
-import { Plus, X } from "@phosphor-icons/react";
-import { useTabManager } from "./useTabManager";
-import { useMemo } from "react";
 import {
-	SortableContext,
 	horizontalListSortingStrategy,
-	useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import type { Tab } from ".";
+	SortableContext,
+	useSortable
+} from '@dnd-kit/sortable';
+import {CSS} from '@dnd-kit/utilities';
+import {Plus, X} from '@phosphor-icons/react';
+import clsx from 'clsx';
+import {LayoutGroup, motion} from 'framer-motion';
+import {useMemo} from 'react';
+import type {Tab} from '.';
+import {useTabManager} from './useTabManager';
 
 interface SortableTabProps {
 	tab: Tab;
@@ -18,25 +18,25 @@ interface SortableTabProps {
 	onClose: (tabId: string) => void;
 }
 
-function SortableTab({ tab, isActive, onSwitch, onClose }: SortableTabProps) {
+function SortableTab({tab, isActive, onSwitch, onClose}: SortableTabProps) {
 	const {
 		attributes,
 		listeners,
 		setNodeRef,
 		transform,
 		transition,
-		isDragging,
+		isDragging
 	} = useSortable({
 		id: tab.id,
 		data: {
-			type: "tab",
-			tabId: tab.id,
-		},
+			type: 'tab',
+			tabId: tab.id
+		}
 	});
 
 	const style = {
 		transform: CSS.Transform.toString(transform),
-		transition,
+		transition
 	};
 
 	return (
@@ -47,22 +47,22 @@ function SortableTab({ tab, isActive, onSwitch, onClose }: SortableTabProps) {
 			{...listeners}
 			onClick={() => onSwitch(tab.id)}
 			className={clsx(
-				"relative flex items-center justify-center py-1.5 rounded-full text-[13px] group flex-1 min-w-0",
+				'group relative flex min-w-0 flex-1 items-center justify-center rounded-full py-1.5 text-[13px]',
 				isActive
-					? "text-ink"
-					: "text-ink-dull hover:text-ink hover:bg-app-hover/50",
-				isDragging && "opacity-50 z-50",
+					? 'text-ink'
+					: 'text-ink-dull hover:text-ink hover:bg-app-hover/50',
+				isDragging && 'z-50 opacity-50'
 			)}
 		>
 			{isActive && (
 				<motion.div
 					layoutId="activeTab"
-					className="absolute inset-0 bg-app-selected rounded-full shadow-sm"
+					className="bg-app-selected absolute inset-0 rounded-full shadow-sm"
 					initial={false}
 					transition={{
-						type: "spring",
+						type: 'spring',
 						stiffness: 500,
-						damping: 35,
+						damping: 35
 					}}
 				/>
 			)}
@@ -73,10 +73,10 @@ function SortableTab({ tab, isActive, onSwitch, onClose }: SortableTabProps) {
 					onClose(tab.id);
 				}}
 				className={clsx(
-					"absolute left-1.5 z-10 size-5 flex items-center justify-center rounded-full transition-all cursor-pointer",
+					'absolute left-1.5 z-10 flex size-5 cursor-pointer items-center justify-center rounded-full transition-all',
 					isActive
-						? "opacity-60 hover:opacity-100 hover:bg-app-hover"
-						: "opacity-0 group-hover:opacity-60 hover:!opacity-100 hover:bg-app-hover",
+						? 'hover:bg-app-hover opacity-60 hover:opacity-100'
+						: 'hover:bg-app-hover opacity-0 hover:!opacity-100 group-hover:opacity-60'
 				)}
 				title="Close tab"
 			>
@@ -88,8 +88,7 @@ function SortableTab({ tab, isActive, onSwitch, onClose }: SortableTabProps) {
 }
 
 export function TabBar() {
-	const { tabs, activeTabId, switchTab, closeTab, createTab } =
-		useTabManager();
+	const {tabs, activeTabId, switchTab, closeTab, createTab} = useTabManager();
 
 	// Don't show tab bar if only one tab
 	if (tabs.length <= 1) {
@@ -103,13 +102,13 @@ export function TabBar() {
 	}, [tabs, activeTabId]);
 
 	return (
-		<div className="flex items-center h-9 px-1 gap-1 mx-2 bg-app-box/50 rounded-full shrink-0">
+		<div className="bg-app-box/80 mx-2 flex h-9 shrink-0 items-center gap-1 rounded-full px-1 shadow-sm backdrop-blur-sm">
 			<LayoutGroup id="tab-bar">
 				<SortableContext
 					items={tabs.map((tab) => tab.id)}
 					strategy={horizontalListSortingStrategy}
 				>
-					<div className="flex items-center flex-1 gap-1 min-w-0">
+					<div className="flex min-w-0 flex-1 items-center gap-1">
 						{tabs.map((tab) => {
 							const isActive = tab.id === safeActiveTabId;
 
@@ -128,7 +127,7 @@ export function TabBar() {
 			</LayoutGroup>
 			<button
 				onClick={() => createTab()}
-				className="size-7 flex items-center justify-center rounded-full hover:bg-app-hover text-ink-dull hover:text-ink shrink-0 transition-colors"
+				className="hover:bg-app-hover text-ink-dull hover:text-ink flex size-7 shrink-0 items-center justify-center rounded-full transition-colors"
 				title="New tab (⌘T)"
 			>
 				<Plus size={14} weight="bold" />
