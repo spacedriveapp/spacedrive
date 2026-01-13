@@ -111,14 +111,22 @@ impl CopyJobMetadata {
 
 	/// Update status of a file by source path
 	pub fn update_status(&mut self, source_path: &SdPath, status: CopyFileStatus) {
-		if let Some(entry) = self.files.iter_mut().find(|e| &e.source_path == source_path) {
+		if let Some(entry) = self
+			.files
+			.iter_mut()
+			.find(|e| &e.source_path == source_path)
+		{
 			entry.status = status;
 		}
 	}
 
 	/// Set error for a file by source path
 	pub fn set_error(&mut self, source_path: &SdPath, error: String) {
-		if let Some(entry) = self.files.iter_mut().find(|e| &e.source_path == source_path) {
+		if let Some(entry) = self
+			.files
+			.iter_mut()
+			.find(|e| &e.source_path == source_path)
+		{
 			entry.status = CopyFileStatus::Failed;
 			entry.error = Some(error);
 		}

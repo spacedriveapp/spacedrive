@@ -85,11 +85,23 @@ function SpeedGraphVisualization({
   // Add 10% headroom to max for better visualization
   const yMax = maxRate * 1.1;
 
-  // Generate points for the line
-  const points = speedHistory.map((sample, index) => {
+  // Apply exponential smoothing to debounce rapid changes while retaining shape
+  const smoothingFactor = 0.3; // Lower = smoother (0.1-0.4 range works well)
+  const smoothedRates = speedHistory.reduce<number[]>((acc, sample, index) => {
+    if (index === 0) {
+      acc.push(sample.bytesPerSecond);
+    } else {
+      const smoothed = acc[index - 1] + smoothingFactor * (sample.bytesPerSecond - acc[index - 1]);
+      acc.push(smoothed);
+    }
+    return acc;
+  }, []);
+
+  // Generate points for the line using smoothed rates
+  const points = smoothedRates.map((smoothedRate, index) => {
     const x = padding.left + (index / Math.max(speedHistory.length - 1, 1)) * graphWidth;
-    const y = padding.top + graphHeight - (sample.bytesPerSecond / yMax) * graphHeight;
-    return { x, y, rate: sample.bytesPerSecond };
+    const y = padding.top + graphHeight - (smoothedRate / yMax) * graphHeight;
+    return { x, y, rate: smoothedRate };
   });
 
   // Generate SVG path for smooth curve using quadratic bezier

@@ -107,6 +107,9 @@ pub struct NetworkingService {
 	/// Each ALPN protocol requires its own connection since ALPN is negotiated at connection establishment
 	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
+	/// Nodes that already have connection watchers spawned (to prevent duplicates)
+	watched_nodes: Arc<RwLock<std::collections::HashSet<NodeId>>>,
+
 	/// Sync multiplexer for routing sync messages to correct library
 	sync_multiplexer: Arc<SyncMultiplexer>,
 
@@ -159,6 +162,7 @@ impl NetworkingService {
 			device_registry,
 			event_sender,
 			active_connections: Arc::new(RwLock::new(std::collections::HashMap::new())),
+			watched_nodes: Arc::new(RwLock::new(std::collections::HashSet::new())),
 			sync_multiplexer,
 			logger,
 		})
@@ -171,6 +175,15 @@ impl NetworkingService {
 	pub async fn set_event_bus(&self, event_bus: std::sync::Arc<crate::infra::event::EventBus>) {
 		let mut registry = self.device_registry.write().await;
 		registry.set_event_bus(event_bus);
+	}
+
+	/// Set the library manager for querying complete device data
+	///
+	/// This enables the device registry to emit complete device data with hardware_model
+	/// by querying the library database instead of just using network DeviceInfo.
+	pub async fn set_library_manager(&self, library_manager: std::sync::Weak<crate::library::LibraryManager>) {
+		let mut registry = self.device_registry.write().await;
+		registry.set_library_manager(library_manager);
 	}
 
 	/// Start the networking service
@@ -965,6 +978,82 @@ impl NetworkingService {
 		)
 	}
 
+	/// Spawn a background task to watch for connection closure
+	///
+	/// This provides instant reactivity when connections drop by waiting on
+	/// Iroh's Connection::closed() future, instead of relying on the 10-second
+	/// polling interval in update_connection_states().
+	async fn spawn_connection_watcher(&self, conn: Connection, node_id: NodeId) {
+		// Check if we already have a watcher for this node
+		{
+			let mut watched = self.watched_nodes.write().await;
+			if watched.contains(&node_id) {
+				// Already watching this node, skip to prevent duplicates
+				return;
+			}
+			watched.insert(node_id);
+		}
+
+		let device_registry = self.device_registry.clone();
+		let active_connections = self.active_connections.clone();
+		let watched_nodes = self.watched_nodes.clone();
+		let logger = self.logger.clone();
+
+		tokio::spawn(async move {
+			// Wait for the connection to close
+			let close_reason = conn.closed().await;
+
+			logger
+				.info(&format!(
+					"Connection to {} closed instantly: {:?}",
+					node_id, close_reason
+				))
+				.await;
+
+			// Remove from active connections
+			{
+				let mut connections = active_connections.write().await;
+				connections.retain(|(nid, _alpn), _conn| *nid != node_id);
+			}
+
+			// Remove from watched nodes set so future reconnections can spawn a new watcher
+			{
+				let mut watched = watched_nodes.write().await;
+				watched.remove(&node_id);
+			}
+
+			// Find the device ID for this node and update state
+			let mut registry = device_registry.write().await;
+			if let Some(device_id) = registry.get_device_by_node_id(node_id) {
+				// Use update_device_from_connection with ConnectionType::None
+				// This handles any current state and transitions appropriately
+				if let Err(e) = registry
+					.update_device_from_connection(
+						device_id,
+						node_id,
+						iroh::endpoint::ConnectionType::None,
+						None,
+					)
+					.await
+				{
+					logger
+						.warn(&format!(
+							"Failed to update device {} after connection closed: {}",
+							device_id, e
+						))
+						.await;
+				} else {
+					logger
+						.info(&format!(
+							"Device {} instantly marked as offline after connection closed",
+							device_id
+						))
+						.await;
+				}
+			}
+		});
+	}
+
 	/// Connect to a node at a specific address
 	///
 	/// # Parameters
@@ -989,7 +1078,7 @@ impl NetworkingService {
 			let node_id = node_addr.node_id;
 			{
 				let mut connections = self.active_connections.write().await;
-				connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
+				connections.insert((node_id, PAIRING_ALPN.to_vec()), conn.clone());
 				self.logger
 					.info(&format!(
 						"Tracked outbound pairing connection to {}",
@@ -997,6 +1086,9 @@ impl NetworkingService {
 					))
 					.await;
 			}
+
+			// Spawn a task to watch for connection closure for instant reactivity
+			self.spawn_connection_watcher(conn, node_id).await;
 
 			Ok(())
 		} else {
@@ -1160,8 +1252,11 @@ impl NetworkingService {
 				// Track the connection for the pairing protocol
 				{
 					let mut connections = self.active_connections.write().await;
-					connections.insert((node_id, PAIRING_ALPN.to_vec()), conn);
+					connections.insert((node_id, PAIRING_ALPN.to_vec()), conn.clone());
 				}
+
+				// Spawn a task to watch for connection closure for instant reactivity
+				self.spawn_connection_watcher(conn, node_id).await;
 
 				Ok(())
 			}

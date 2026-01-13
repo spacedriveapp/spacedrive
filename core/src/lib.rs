@@ -329,6 +329,8 @@ impl Core {
 						context.set_networking(networking.clone()).await;
 						// Set event bus for device registry to emit ResourceChanged events
 						networking.set_event_bus(context.events.clone()).await;
+						// Set library manager for device registry to query complete device data
+						networking.set_library_manager(Arc::downgrade(&context.libraries().await)).await;
 						info!("Networking service registered in context");
 
 						// Initialize sync service on already-loaded libraries
@@ -540,6 +542,8 @@ impl Core {
 
 			// Set event bus for device registry to emit ResourceChanged events
 			networking_service.set_event_bus(self.events.clone()).await;
+			// Set library manager for device registry to query complete device data
+			networking_service.set_library_manager(Arc::downgrade(&self.context.libraries().await)).await;
 		}
 
 		logger.info("Networking initialized successfully").await;
