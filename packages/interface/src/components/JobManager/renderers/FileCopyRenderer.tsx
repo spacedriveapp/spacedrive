@@ -137,8 +137,11 @@ function FileCopyCardContent({
 	// Find current device and infer destination device
 	const currentDevice = devices?.find(d => d.is_current);
 
-	// For cross-device transfers, the destination is the device that's NOT current
-	// (assuming only 2 devices in the transfer scenario)
+	// For cross-device transfers, infer the destination device
+	// LIMITATION: This assumes only 2 devices in the transfer scenario.
+	// TODO: Add destination_device_id to CopyStrategyMetadata in Rust
+	// (core/src/ops/files/copy/routing.rs) to properly identify the destination
+	// device in multi-device environments instead of inferring it.
 	const destinationDevice = isCrossDevice && currentDevice
 		? devices?.find(d => !d.is_current)
 		: null;

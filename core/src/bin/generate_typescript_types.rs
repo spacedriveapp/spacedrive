@@ -279,7 +279,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Always write the file, even if type generation had issues
 	// The wire method mappings and type unions are still valuable!
-	std::fs::write(output_path, &typescript_code)?;
+	std::fs::write(&output_path, &typescript_code)?;
 
 	println!("\nGenerated TypeScript types to: {}", output_path.display());
 	println!("Specta TypeScript generation completed!");

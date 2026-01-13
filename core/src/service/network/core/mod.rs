@@ -984,74 +984,15 @@ impl NetworkingService {
 	/// Iroh's Connection::closed() future, instead of relying on the 10-second
 	/// polling interval in update_connection_states().
 	async fn spawn_connection_watcher(&self, conn: Connection, node_id: NodeId) {
-		// Check if we already have a watcher for this node
-		{
-			let mut watched = self.watched_nodes.write().await;
-			if watched.contains(&node_id) {
-				// Already watching this node, skip to prevent duplicates
-				return;
-			}
-			watched.insert(node_id);
-		}
-
-		let device_registry = self.device_registry.clone();
-		let active_connections = self.active_connections.clone();
-		let watched_nodes = self.watched_nodes.clone();
-		let logger = self.logger.clone();
-
-		tokio::spawn(async move {
-			// Wait for the connection to close
-			let close_reason = conn.closed().await;
-
-			logger
-				.info(&format!(
-					"Connection to {} closed instantly: {:?}",
-					node_id, close_reason
-				))
-				.await;
-
-			// Remove from active connections
-			{
-				let mut connections = active_connections.write().await;
-				connections.retain(|(nid, _alpn), _conn| *nid != node_id);
-			}
-
-			// Remove from watched nodes set so future reconnections can spawn a new watcher
-			{
-				let mut watched = watched_nodes.write().await;
-				watched.remove(&node_id);
-			}
-
-			// Find the device ID for this node and update state
-			let mut registry = device_registry.write().await;
-			if let Some(device_id) = registry.get_device_by_node_id(node_id) {
-				// Use update_device_from_connection with ConnectionType::None
-				// This handles any current state and transitions appropriately
-				if let Err(e) = registry
-					.update_device_from_connection(
-						device_id,
-						node_id,
-						iroh::endpoint::ConnectionType::None,
-						None,
-					)
-					.await
-				{
-					logger
-						.warn(&format!(
-							"Failed to update device {} after connection closed: {}",
-							device_id, e
-						))
-						.await;
-				} else {
-					logger
-						.info(&format!(
-							"Device {} instantly marked as offline after connection closed",
-							device_id
-						))
-						.await;
-				}
-			}
-		});
+		spawn_connection_watcher_task(
+			conn,
+			node_id,
+			self.watched_nodes.clone(),
+			self.device_registry.clone(),
+			self.active_connections.clone(),
+			self.logger.clone(),
+		)
+		.await;
 	}
 
 	/// Connect to a node at a specific address
@@ -1861,6 +1802,102 @@ impl NetworkingService {
 			tokio::time::sleep(tokio::time::Duration::from_millis(POLL_INTERVAL)).await;
 		}
 	}
+}
+
+/// Shared helper function to spawn a background task that watches for connection closure
+///
+/// This provides instant reactivity when connections drop by waiting on
+/// Iroh's Connection::closed() future, instead of relying on the 10-second
+/// polling interval in update_connection_states().
+async fn spawn_connection_watcher_task(
+	conn: Connection,
+	node_id: NodeId,
+	watched_nodes: Arc<RwLock<std::collections::HashSet<NodeId>>>,
+	device_registry: Arc<RwLock<DeviceRegistry>>,
+	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
+	logger: Arc<dyn NetworkLogger>,
+) {
+	// Check if we already have a watcher for this node
+	{
+		let mut watched = watched_nodes.write().await;
+		if watched.contains(&node_id) {
+			// Already watching this node, skip to prevent duplicates
+			return;
+		}
+		watched.insert(node_id);
+	}
+
+	tokio::spawn(async move {
+		// Wait for the connection to close
+		let close_reason = conn.closed().await;
+
+		// Get the ALPN for this specific connection
+		let alpn_bytes = conn.alpn().unwrap_or_default();
+
+		logger
+			.info(&format!(
+				"Connection to {} (ALPN: {:?}) closed instantly: {:?}",
+				node_id,
+				String::from_utf8_lossy(&alpn_bytes),
+				close_reason
+			))
+			.await;
+
+		// Remove only this specific connection (by node_id AND alpn)
+		let has_other_connections = {
+			let mut connections = active_connections.write().await;
+			connections.remove(&(node_id, alpn_bytes.clone()));
+
+			// Check if there are any other active connections to this node
+			connections.keys().any(|(nid, _)| *nid == node_id)
+		};
+
+		// Only mark device as offline if ALL connections are gone
+		if !has_other_connections {
+			// Remove from watched nodes set since no connections remain
+			{
+				let mut watched = watched_nodes.write().await;
+				watched.remove(&node_id);
+			}
+
+			// Find the device ID for this node and update state
+			let mut registry = device_registry.write().await;
+			if let Some(device_id) = registry.get_device_by_node_id(node_id) {
+				// Use update_device_from_connection with ConnectionType::None
+				if let Err(e) = registry
+					.update_device_from_connection(
+						device_id,
+						node_id,
+						iroh::endpoint::ConnectionType::None,
+						None,
+					)
+					.await
+				{
+					logger
+						.warn(&format!(
+							"Failed to update device {} after all connections closed: {}",
+							device_id, e
+						))
+						.await;
+				} else {
+					logger
+						.info(&format!(
+							"Device {} marked as offline after all connections closed",
+							device_id
+						))
+						.await;
+				}
+			}
+		} else {
+			logger
+				.info(&format!(
+					"Connection to {} (ALPN: {:?}) closed, but other connections remain active",
+					node_id,
+					String::from_utf8_lossy(&alpn_bytes)
+				))
+				.await;
+		}
+	});
 }
 
 // Ensure NetworkingService is Send + Sync for proper async usage

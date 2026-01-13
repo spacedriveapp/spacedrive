@@ -213,7 +213,7 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 					}
 
 					// Convert network DeviceInfo to domain Device
-					let mut device = Device::from_network_info(&info, is_actually_connected, connection_method);
+					let device = Device::from_network_info(&info, is_actually_connected, connection_method);
 					result.push(device);
 				}
 			}

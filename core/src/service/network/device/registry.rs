@@ -129,73 +129,64 @@ impl DeviceRegistry {
 			return;
 		};
 
-		// Try to query the full device from database to get hardware_model
-		let device = if let Some(library_manager_weak) = &self.library_manager {
-			if let Some(library_manager) = library_manager_weak.upgrade() {
-				// Try to get device from first available library
-				// (device data should be consistent across libraries since it's synced)
-				let rt = tokio::runtime::Handle::try_current();
-				if let Ok(handle) = rt {
-					let device_result = handle.block_on(async {
-						// Get all libraries
-						let all_libraries = library_manager.list().await;
+		let event_bus = event_bus.clone();
+		let info = info.clone();
+		let library_manager_weak = self.library_manager.clone();
 
-						for lib in all_libraries {
-							let db = lib.db().conn();
+		// Spawn a background task to query database and emit event
+		// This avoids blocking the current thread with database I/O
+		tokio::spawn(async move {
+			// Try to query the full device from database to get hardware_model
+			let device = if let Some(library_manager_weak) = library_manager_weak {
+				if let Some(library_manager) = library_manager_weak.upgrade() {
+					// Try to get device from first available library
+					// (device data should be consistent across libraries since it's synced)
+					let all_libraries = library_manager.list().await;
 
-							// Query device from database by UUID
-							use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-							if let Ok(Some(model)) = crate::infra::db::entities::device::Entity::find()
-								.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
-								.one(db)
-								.await
-							{
-								// Convert to domain Device
-								if let Ok(mut device) = crate::domain::Device::try_from(model) {
-									// Merge with network state
-									device.is_connected = is_connected;
-									device.is_online = is_connected;
-									device.is_paired = true;
+					let mut device_from_db = None;
+					for lib in all_libraries {
+						let db = lib.db().conn();
 
-									// Note: We don't have access to endpoint here to get connection_method
-									// but that's okay - the query will populate it with the correct data
-									// from Iroh's RemoteInfo
-									device.connection_method = None;
+						// Query device from database by UUID
+						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+						if let Ok(Some(model)) = crate::infra::db::entities::device::Entity::find()
+							.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
+							.one(db)
+							.await
+						{
+							// Convert to domain Device
+							if let Ok(mut device) = crate::domain::Device::try_from(model) {
+								// Merge with network state
+								device.is_connected = is_connected;
+								device.is_online = is_connected;
+								device.is_paired = true;
+								device.connection_method = None;
 
-									return Some(device);
-								}
+								device_from_db = Some(device);
+								break;
 							}
 						}
-						None
-					});
-
-					if let Some(device) = device_result {
-						device
-					} else {
-						// Fallback to network data if database query fails
-						crate::domain::Device::from_network_info(info, is_connected, None)
 					}
+
+					device_from_db.unwrap_or_else(|| {
+						crate::domain::Device::from_network_info(&info, is_connected, None)
+					})
 				} else {
-					// No runtime, fallback to network data
-					crate::domain::Device::from_network_info(info, is_connected, None)
+					crate::domain::Device::from_network_info(&info, is_connected, None)
 				}
 			} else {
-				// Libraries dropped, fallback to network data
-				crate::domain::Device::from_network_info(info, is_connected, None)
-			}
-		} else {
-			// No libraries set, fallback to network data
-			crate::domain::Device::from_network_info(info, is_connected, None)
-		};
+				crate::domain::Device::from_network_info(&info, is_connected, None)
+			};
 
-		use crate::domain::resource::EventEmitter;
-		if let Err(e) = device.emit_changed(event_bus) {
-			tracing::warn!(
-				device_id = %device_id,
-				error = %e,
-				"Failed to emit device ResourceChanged event"
-			);
-		}
+			use crate::domain::resource::EventEmitter;
+			if let Err(e) = device.emit_changed(&event_bus) {
+				tracing::warn!(
+					device_id = %device_id,
+					error = %e,
+					"Failed to emit device ResourceChanged event"
+				);
+			}
+		});
 	}
 
 	/// Load paired devices from persistence on startup
