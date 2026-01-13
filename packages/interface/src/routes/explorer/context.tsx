@@ -203,7 +203,7 @@ const defaultViewSettings: ViewSettings = {
 	showFileSize: true,
 	columnWidth: 256,
 	foldersFirst: false,
-	sizeViewItemLimit: 100,
+	sizeViewItemLimit: 500,
 };
 
 function uiReducer(state: UIState, action: UIAction): UIState {

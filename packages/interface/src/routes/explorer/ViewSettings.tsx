@@ -110,7 +110,7 @@ export function ViewSettingsPanel({
 					<div className="flex items-center justify-between">
 						<label className="text-xs text-sidebar-inkDull">Items Shown</label>
 						<span className="text-xs text-sidebar-ink font-medium">
-							{viewSettings.sizeViewItemLimit || 100} / {totalFileCount || 0}
+							{Math.min(viewSettings.sizeViewItemLimit || 500, totalFileCount || 500)} / {totalFileCount || 0}
 						</span>
 					</div>
 					<input
@@ -118,7 +118,7 @@ export function ViewSettingsPanel({
 						min="50"
 						max={Math.max(50, totalFileCount || 500)}
 						step="10"
-						value={viewSettings.sizeViewItemLimit || 100}
+						value={Math.min(viewSettings.sizeViewItemLimit || 500, totalFileCount || 500)}
 						onChange={(e) =>
 							setViewSettings({ sizeViewItemLimit: parseInt(e.target.value) })
 						}

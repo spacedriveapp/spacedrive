@@ -15,6 +15,7 @@ import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
 import {useExplorer} from '../../context';
 import {Thumb} from '../../File/Thumb';
 import {useFileContextMenu} from '../../hooks/useFileContextMenu';
+import {useDraggableFile} from '../../hooks/useDraggableFile';
 import {useSelection} from '../../SelectionContext';
 import {formatBytes} from '../../utils';
 
@@ -115,6 +116,171 @@ function getFileType(file: File): string {
 	if (file.kind === 'Directory') return 'Folder';
 	if (file.extension) return file.extension.toUpperCase();
 	return 'File';
+}
+
+// Thumb overlay component with drag support
+interface ThumbOverlayProps {
+	overlay: {
+		id: string;
+		file: File;
+		screenX: number;
+		screenY: number;
+		size: number;
+	};
+	selectedFiles: File[];
+	selectFileRef: React.MutableRefObject<any>;
+	navigateToPathRef: React.MutableRefObject<any>;
+	filesRef: React.MutableRefObject<File[]>;
+	contextMenuRef: React.MutableRefObject<any>;
+	setContextMenuFile: (file: File) => void;
+	clickTimeoutRef: React.MutableRefObject<NodeJS.Timeout | null>;
+	svgRef: React.RefObject<SVGSVGElement>;
+	zoomBehaviorRef: React.MutableRefObject<d3.ZoomBehavior<SVGSVGElement, unknown> | null>;
+	gRef: React.MutableRefObject<d3.Selection<SVGGElement, unknown, null, undefined> | null>;
+}
+
+function ThumbOverlay({
+	overlay,
+	selectedFiles,
+	selectFileRef,
+	navigateToPathRef,
+	filesRef,
+	contextMenuRef,
+	setContextMenuFile,
+	clickTimeoutRef,
+	svgRef,
+	zoomBehaviorRef,
+	gRef,
+}: ThumbOverlayProps) {
+	const selected = selectedFiles.some((f) => f.id === overlay.file.id);
+
+	const {
+		attributes,
+		listeners,
+		setNodeRef,
+		isDragging,
+	} = useDraggableFile({
+		file: overlay.file,
+		selectedFiles: selected && selectedFiles.length > 0 ? selectedFiles : undefined,
+		gridSize: overlay.size,
+	});
+
+	return (
+		<div
+			ref={setNodeRef}
+			{...listeners}
+			{...attributes}
+			key={overlay.id}
+			className="pointer-events-auto absolute cursor-pointer overflow-hidden rounded-lg"
+			style={{
+				left: overlay.screenX,
+				top: overlay.screenY,
+				transform: 'translate(-50%, -60%)',
+				opacity: isDragging ? 0.4 : 1,
+			}}
+			onClick={(event) => {
+				event.stopPropagation();
+
+				const multi = event.metaKey || event.ctrlKey;
+				const range = event.shiftKey;
+
+				selectFileRef.current(
+					overlay.file,
+					filesRef.current,
+					multi,
+					range
+				);
+
+				// Clear any existing zoom timeout
+				if (clickTimeoutRef.current) {
+					clearTimeout(clickTimeoutRef.current);
+					clickTimeoutRef.current = null;
+				}
+
+				// Delay zoom-to-focus to allow double-click detection
+				if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {
+					// Find the bubble data for this overlay
+					const bubbleNode = gRef.current?.selectAll<SVGGElement, any>('g.bubble-node')
+						.filter((d: any) => d.data.id === overlay.id);
+
+					if (bubbleNode && !bubbleNode.empty()) {
+						const d = bubbleNode.datum();
+
+						clickTimeoutRef.current = setTimeout(() => {
+							if (!svgRef.current || !zoomBehaviorRef.current) return;
+
+							const svgElement = svgRef.current;
+							const width = svgElement.clientWidth;
+							const height = svgElement.clientHeight;
+							const centerX = width / 2;
+							const centerY = height / 2;
+
+							const targetBubbleScreenSize = Math.min(width, height) * 0.4;
+							const bubbleSize = d.r * 2;
+							const targetScale = targetBubbleScreenSize / bubbleSize;
+
+							const newTransform = d3.zoomIdentity
+								.translate(centerX, centerY)
+								.scale(targetScale)
+								.translate(-d.x, -d.y);
+
+							d3.select(svgElement)
+								.transition()
+								.duration(400)
+								.call(zoomBehaviorRef.current!.transform, newTransform);
+						}, 200);
+					}
+				}
+			}}
+			onDoubleClick={(event) => {
+				event.stopPropagation();
+
+				// Clear single click timeout
+				if (clickTimeoutRef.current) {
+					clearTimeout(clickTimeoutRef.current);
+					clickTimeoutRef.current = null;
+				}
+
+				// Navigate if directory
+				if (overlay.file.kind === 'Directory') {
+					navigateToPathRef.current(overlay.file.sd_path);
+				}
+			}}
+			onContextMenu={async (event) => {
+				event.preventDefault();
+				event.stopPropagation();
+
+				// Select the file if not already selected
+				const isSelected = selectedFiles.some(
+					(f) => f.id === overlay.file.id
+				);
+				if (!isSelected) {
+					selectFileRef.current(
+						overlay.file,
+						filesRef.current,
+						false,
+						false
+					);
+				}
+
+				// Set the context menu file and show menu
+				setContextMenuFile(overlay.file);
+
+				// Show context menu on next tick after state updates
+				setTimeout(async () => {
+					await contextMenuRef.current.show(event);
+				}, 0);
+			}}
+		>
+			<Thumb
+				file={overlay.file}
+				size={overlay.size}
+				className="drop-shadow-lg"
+				frameClassName="border-0 bg-transparent rounded-lg"
+				iconScale={0.7}
+			/>
+		</div>
+	);
 }
 
 export function SizeView() {
@@ -489,7 +655,7 @@ export function SizeView() {
 	}, [currentPath, activeTabId, setSizeViewTransform]);
 
 	const bubbleData = useMemo(() => {
-		const itemLimit = viewSettings.sizeViewItemLimit || 100;
+		const itemLimit = Math.min(viewSettings.sizeViewItemLimit || 500, files.length);
 
 		// Separate folders and files
 		const folders = files.filter((f) => f.kind === 'Directory');
@@ -866,116 +1032,20 @@ export function SizeView() {
 
 				{/* Thumb overlays positioned absolutely */}
 				{thumbOverlays.map((overlay) => (
-					<div
+					<ThumbOverlay
 						key={overlay.id}
-						className="pointer-events-auto absolute cursor-pointer overflow-hidden rounded-lg"
-						style={{
-							left: overlay.screenX,
-							top: overlay.screenY,
-							transform: 'translate(-50%, -60%)'
-						}}
-						onClick={(event) => {
-							event.stopPropagation();
-
-							const multi = event.metaKey || event.ctrlKey;
-							const range = event.shiftKey;
-
-							selectFileRef.current(
-								overlay.file,
-								filesRef.current,
-								multi,
-								range
-							);
-
-							// Clear any existing zoom timeout
-							if (clickTimeoutRef.current) {
-								clearTimeout(clickTimeoutRef.current);
-								clickTimeoutRef.current = null;
-							}
-
-							// Delay zoom-to-focus to allow double-click detection
-							if (!multi && !range && svgRef.current && zoomBehaviorRef.current) {
-								// Find the bubble data for this overlay
-								const bubbleNode = gRef.current?.selectAll<SVGGElement, any>('g.bubble-node')
-									.filter((d: any) => d.data.id === overlay.id);
-
-								if (bubbleNode && !bubbleNode.empty()) {
-									const d = bubbleNode.datum();
-
-									clickTimeoutRef.current = setTimeout(() => {
-										if (!svgRef.current || !zoomBehaviorRef.current) return;
-
-										const svgElement = svgRef.current;
-										const width = svgElement.clientWidth;
-										const height = svgElement.clientHeight;
-										const centerX = width / 2;
-										const centerY = height / 2;
-
-										const targetBubbleScreenSize = Math.min(width, height) * 0.4;
-										const bubbleSize = d.r * 2;
-										const targetScale = targetBubbleScreenSize / bubbleSize;
-
-										const newTransform = d3.zoomIdentity
-											.translate(centerX, centerY)
-											.scale(targetScale)
-											.translate(-d.x, -d.y);
-
-										d3.select(svgElement)
-											.transition()
-											.duration(400)
-											.call(zoomBehaviorRef.current!.transform, newTransform);
-									}, 200);
-								}
-							}
-						}}
-						onDoubleClick={(event) => {
-							event.stopPropagation();
-
-							// Clear single click timeout
-							if (clickTimeoutRef.current) {
-								clearTimeout(clickTimeoutRef.current);
-								clickTimeoutRef.current = null;
-							}
-
-							// Navigate if directory
-							if (overlay.file.kind === 'Directory') {
-								navigateToPathRef.current(overlay.file.sd_path);
-							}
-						}}
-						onContextMenu={async (event) => {
-							event.preventDefault();
-							event.stopPropagation();
-
-							// Select the file if not already selected
-							const isSelected = selectedFiles.some(
-								(f) => f.id === overlay.file.id
-							);
-							if (!isSelected) {
-								selectFileRef.current(
-									overlay.file,
-									filesRef.current,
-									false,
-									false
-								);
-							}
-
-							// Set the context menu file and show menu
-							setContextMenuFile(overlay.file);
-
-							// Show context menu on next tick after state updates
-							setTimeout(async () => {
-								await contextMenuRef.current.show(event);
-							}, 0);
-						}}
-					>
-						<Thumb
-							file={overlay.file}
-							size={overlay.size}
-							className="drop-shadow-lg"
-							frameClassName="border-0 bg-transparent rounded-lg"
-							iconScale={0.7}
-						/>
-					</div>
+						overlay={overlay}
+						selectedFiles={selectedFiles}
+						selectFileRef={selectFileRef}
+						navigateToPathRef={navigateToPathRef}
+						filesRef={filesRef}
+						contextMenuRef={contextMenuRef}
+						setContextMenuFile={setContextMenuFile}
+						clickTimeoutRef={clickTimeoutRef}
+						svgRef={svgRef}
+						zoomBehaviorRef={zoomBehaviorRef}
+						gRef={gRef}
+					/>
 				))}
 
 				{/* Empty state message - only show after data has loaded */}
