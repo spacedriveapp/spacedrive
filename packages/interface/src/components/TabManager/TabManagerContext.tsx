@@ -167,7 +167,7 @@ interface TabManagerContextValue {
 	// Tab management
 	tabs: Tab[];
 	activeTabId: string;
-	router: RemixRouter;
+	router: Router;
 	createTab: (title?: string, path?: string) => void;
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;
@@ -185,6 +185,10 @@ interface TabManagerContextValue {
 		tabId: string,
 		updates: Partial<TabExplorerState>,
 	) => void;
+
+	// Selection state (per-tab, ephemeral - not persisted)
+	getSelectionIds: (tabId: string) => string[];
+	updateSelectionIds: (tabId: string, fileIds: string[]) => void;
 }
 
 const TabManagerContext = createContext<TabManagerContextValue | null>(null);
@@ -248,6 +252,15 @@ export function TabManagerProvider({
 		return initialMap;
 	});
 
+	// Per-tab selection state (ephemeral, not persisted to localStorage)
+	const [selectionStates, setSelectionStates] = useState<
+		Map<string, string[]>
+	>(() => {
+		const initialMap = new Map<string, string[]>();
+		// Initialize with empty selection for first tab
+		initialMap.set(tabs[0].id, []);
+		return initialMap;
+	});
 
 	const [defaultNewTabPath, setDefaultNewTabPathState] = useState<string>(
 		() => {
@@ -301,6 +314,9 @@ export function TabManagerProvider({
 				new Map(prev).set(newTab.id, { ...DEFAULT_EXPLORER_STATE }),
 			);
 
+			// Initialize empty selection state for the new tab
+			setSelectionStates((prev) => new Map(prev).set(newTab.id, []));
+
 			setTabs((prev) => [...prev, newTab]);
 			setActiveTabId(newTab.id);
 		},
@@ -330,6 +346,13 @@ export function TabManagerProvider({
 
 			// Clean up explorer state for closed tab
 			setExplorerStates((prev) => {
+				const next = new Map(prev);
+				next.delete(tabId);
+				return next;
+			});
+
+			// Clean up selection state for closed tab
+			setSelectionStates((prev) => {
 				const next = new Map(prev);
 				next.delete(tabId);
 				return next;
@@ -433,6 +456,21 @@ export function TabManagerProvider({
 	);
 
 	// ========================================================================
+	// Selection state (per-tab)
+	// ========================================================================
+
+	const getSelectionIds = useCallback(
+		(tabId: string): string[] => {
+			return selectionStates.get(tabId) ?? [];
+		},
+		[selectionStates],
+	);
+
+	const updateSelectionIds = useCallback((tabId: string, fileIds: string[]) => {
+		setSelectionStates((prev) => new Map(prev).set(tabId, fileIds));
+	}, []);
+
+	// ========================================================================
 	// Context value
 	// ========================================================================
 
@@ -453,6 +491,8 @@ export function TabManagerProvider({
 			setDefaultNewTabPath,
 			getExplorerState,
 			updateExplorerState,
+			getSelectionIds,
+			updateSelectionIds,
 		}),
 		[
 			tabs,
@@ -470,6 +510,8 @@ export function TabManagerProvider({
 			setDefaultNewTabPath,
 			getExplorerState,
 			updateExplorerState,
+			getSelectionIds,
+			updateSelectionIds,
 		],
 	);
 

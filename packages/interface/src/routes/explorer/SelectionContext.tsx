@@ -11,6 +11,7 @@ import { usePlatform } from "../../contexts/PlatformContext";
 import type { File } from "@sd/ts-client";
 import { useClipboard } from "../../hooks/useClipboard";
 import { useLibraryMutation } from "../../contexts/SpacedriveContext";
+import { useTabManager } from "../../components/TabManager";
 
 interface SelectionContextValue {
 	selectedFiles: File[];
@@ -52,11 +53,67 @@ export function SelectionProvider({
 }: SelectionProviderProps) {
 	const platform = usePlatform();
 	const clipboard = useClipboard();
-	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+	const tabManager = useTabManager();
+	const { activeTabId, getSelectionIds, updateSelectionIds } = tabManager;
+	const renameFile = useLibraryMutation("files.rename");
+
+	// Local state for File objects (not serializable, can't be stored in TabManager)
+	const [selectedFiles, setSelectedFilesInternal] = useState<File[]>([]);
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 	const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
-	const renameFile = useLibraryMutation("files.rename");
+
+	// Load selection from TabManager when activeTabId changes
+	useEffect(() => {
+		const storedIds = getSelectionIds(activeTabId);
+
+		if (storedIds.length === 0) {
+			// Clear selection if tab has no selection
+			setSelectedFilesInternal([]);
+			setFocusedIndex(-1);
+			setLastSelectedIndex(-1);
+		} else {
+			// Keep existing File objects if they match the stored IDs
+			// This prevents losing File objects when TabManager state updates
+			setSelectedFilesInternal((prev) => {
+				const prevIds = new Set(prev.map((f) => f.id));
+				const storedIdSet = new Set(storedIds);
+
+				// If the IDs match, keep the existing objects
+				if (
+					prevIds.size === storedIds.length &&
+					storedIds.every((id) => prevIds.has(id))
+				) {
+					return prev;
+				}
+
+				// Otherwise, filter to only keep files that are in the stored IDs
+				return prev.filter((f) => storedIdSet.has(f.id));
+			});
+		}
+	}, [activeTabId, getSelectionIds]);
+
+	// Wrapper for setSelectedFiles that syncs to TabManager
+	// Supports both direct values and updater functions
+	const setSelectedFiles = useCallback(
+		(filesOrUpdater: File[] | ((prev: File[]) => File[])) => {
+			setSelectedFilesInternal((prev) => {
+				const nextFiles =
+					typeof filesOrUpdater === "function"
+						? filesOrUpdater(prev)
+						: filesOrUpdater;
+
+				// Sync to TabManager
+				updateSelectionIds(
+					activeTabId,
+					nextFiles.map((f) => f.id),
+				);
+
+				return nextFiles;
+			});
+		},
+		[activeTabId, updateSelectionIds],
+	);
 
 	// Sync selected file IDs to platform (for cross-window state sharing)
 	// Only sync for the active tab to avoid conflicts
@@ -96,12 +153,15 @@ export function SelectionProvider({
 		setSelectedFiles([]);
 		setFocusedIndex(-1);
 		setLastSelectedIndex(-1);
-	}, []);
+	}, [setSelectedFiles]);
 
-	const selectAll = useCallback((files: File[]) => {
-		setSelectedFiles([...files]);
-		setLastSelectedIndex(files.length - 1);
-	}, []);
+	const selectAll = useCallback(
+		(files: File[]) => {
+			setSelectedFiles([...files]);
+			setLastSelectedIndex(files.length - 1);
+		},
+		[setSelectedFiles],
+	);
 
 	const selectFile = useCallback(
 		(file: File, files: File[], multi = false, range = false) => {
@@ -157,7 +217,7 @@ export function SelectionProvider({
 				setLastSelectedIndex(fileIndex);
 			}
 		},
-		[],
+		[setSelectedFiles],
 	);
 
 	const moveFocus = useCallback(
@@ -190,7 +250,7 @@ export function SelectionProvider({
 				return newIndex;
 			});
 		},
-		[],
+		[setSelectedFiles],
 	);
 
 	// Rename functions

@@ -1,5 +1,9 @@
-import { motion } from "framer-motion";
-import { CloudArrowUp, HardDrives, Files, Cpu } from "@phosphor-icons/react";
+import Ball from '@sd/assets/icons/Ball.png';
+import ComputeIcon from '@sd/assets/icons/Compute.png';
+import DevicesIcon from '@sd/assets/icons/Devices.png';
+import HDD from '@sd/assets/icons/HDD.png';
+import IndexedIcon from '@sd/assets/icons/Indexed.png';
+import {motion} from 'framer-motion';
 
 interface HeroStatsProps {
 	totalStorage: number; // bytes
@@ -12,9 +16,9 @@ interface HeroStatsProps {
 }
 
 function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
+	if (bytes === 0) return '0 B';
 	const k = 1024;
-	const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
+	const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
@@ -25,24 +29,31 @@ export function HeroStats({
 	totalFiles,
 	locationCount,
 	deviceCount,
-	uniqueContentCount,
+	uniqueContentCount
 }: HeroStatsProps) {
 	const usagePercent =
 		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
 	return (
-		<div className="bg-app-box border border-app-line rounded-2xl p-8">
-			<div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+		<div className="px-8 py-8">
+			<div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
 				{/* Total Storage */}
 				<StatCard
-					icon={HardDrives}
+					icon={
+						<img
+							src={HDD}
+							alt="Storage"
+							className="size-8 opacity-80"
+							// style={{ filter: 'drop-shadow(0 0 4px rgba(217, 70, 239, 0.4))' }}
+						/>
+					}
 					label="Total Storage"
 					value={formatBytes(totalStorage)}
 					subtitle={
 						<>
 							<span className="text-accent">
 								{formatBytes(usedStorage)}
-							</span>{" "}
+							</span>{' '}
 							used
 						</>
 					}
@@ -52,7 +63,13 @@ export function HeroStats({
 
 				{/* Files */}
 				<StatCard
-					icon={Files}
+					icon={
+						<img
+							src={IndexedIcon}
+							alt="Files"
+							className="size-8 opacity-80"
+						/>
+					}
 					label="Files Indexed"
 					value={totalFiles.toLocaleString()}
 					subtitle={`${uniqueContentCount.toLocaleString()} unique files`}
@@ -61,7 +78,13 @@ export function HeroStats({
 
 				{/* Devices */}
 				<StatCard
-					icon={CloudArrowUp}
+					icon={
+						<img
+							src={DevicesIcon}
+							alt="Devices"
+							className="size-8 opacity-80"
+						/>
+					}
 					label="Connected Devices"
 					value={deviceCount}
 					subtitle={`registered in library`}
@@ -70,7 +93,13 @@ export function HeroStats({
 
 				{/* Storage Health - Future feature */}
 				<StatCard
-					icon={Cpu}
+					icon={
+						<img
+							src={ComputeIcon}
+							alt="Compute"
+							className="size-8 opacity-80"
+						/>
+					}
 					label="AI Compute Power"
 					value="70 TOPS"
 					subtitle="across all devices"
@@ -82,7 +111,7 @@ export function HeroStats({
 }
 
 interface StatCardProps {
-	icon: React.ElementType;
+	icon: React.ReactNode;
 	label: string;
 	value: string | number;
 	subtitle: React.ReactNode;
@@ -93,49 +122,44 @@ interface StatCardProps {
 }
 
 function StatCard({
-	icon: Icon,
+	icon,
 	label,
 	value,
 	subtitle,
 	progress,
 	pulse,
 	color,
-	badge,
+	badge
 }: StatCardProps) {
 	return (
 		<div className="relative">
 			{badge && (
-				<div className="absolute -top-2 -right-2 px-2 py-0.5 bg-sidebar-box text-sidebar-ink text-xs font-medium rounded-full border border-sidebar-line">
+				<div className="bg-sidebar-box text-sidebar-ink border-sidebar-line absolute -right-2 -top-2 rounded-full border px-2 py-0.5 text-xs font-medium">
 					{badge}
 				</div>
 			)}
 
-			<div className="flex flex-col gap-3">
-				<div className="flex items-center gap-2">
-					<div className="p-2 rounded-lg bg-sidebar-box">
-						<Icon
-							className="size-5 text-sidebar-ink"
-							weight="duotone"
-						/>
-					</div>
+			<div className="flex items-start gap-3">
+				<div className="relative mt-2">
+					{icon}
 					{pulse && (
 						<motion.div
 							animate={{
 								scale: [1, 1.2, 1],
-								opacity: [1, 0.5, 1],
+								opacity: [1, 0.5, 1]
 							}}
-							transition={{ duration: 2, repeat: Infinity }}
-							className="size-2 rounded-full bg-accent"
+							transition={{duration: 2, repeat: Infinity}}
+							className="bg-accent absolute -right-1 -top-1 size-2 rounded-full"
 						/>
 					)}
 				</div>
 
 				<div>
-					<div className="text-3xl font-bold text-ink mb-1">
+					<div className="text-ink mb-1 text-3xl font-bold">
 						{value}
 					</div>
-					<div className="text-xs text-ink-dull mb-1">{label}</div>
-					<div className="text-xs text-ink-faint">{subtitle}</div>
+					<div className="text-ink-dull mb-1 text-xs">{label}</div>
+					<div className="text-ink-faint text-xs">{subtitle}</div>
 				</div>
 			</div>
 		</div>

@@ -279,30 +279,16 @@ interface ConnectionBadgeProps {
 }
 
 function ConnectionBadge({method}: ConnectionBadgeProps) {
-	const colors = {
-		Direct: {
-			dot: 'bg-green-500',
-			text: 'text-green-500',
-			label: 'Local'
-		},
-		Relay: {
-			dot: 'bg-yellow-500',
-			text: 'text-yellow-500',
-			label: 'Relay'
-		},
-		Mixed: {
-			dot: 'bg-blue-500',
-			text: 'text-blue-500',
-			label: 'Mixed'
-		}
+	const labels = {
+		Direct: 'Local',
+		Relay: 'Relay',
+		Mixed: 'Mixed'
 	};
-
-	const {dot, text, label} = colors[method];
 
 	return (
 		<div className="flex items-center gap-1.5">
-			<div className={clsx('size-2 rounded-full', dot)} />
-			<span className={clsx('text-xs font-medium', text)}>{label}</span>
+			<div className="bg-ink-dull size-2 rounded-full" />
+			<span className="text-ink-dull text-xs font-medium">{labels[method]}</span>
 		</div>
 	);
 }
