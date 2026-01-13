@@ -123,22 +123,29 @@ export function SizeView() {
 		navigateToPath,
 		viewSettings,
 		sidebarVisible,
-		inspectorVisible
+		inspectorVisible,
+		activeTabId,
+		sizeViewZoom,
+		setSizeViewZoom
 	} = useExplorer();
 	const {selectedFiles, selectFile} = useSelection();
 	const serverContext = useServer();
-	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
 
 	// Calculate sidebar and inspector widths
 	const sidebarWidth = sidebarVisible ? 220 : 0;
 	const inspectorWidth = inspectorVisible ? 280 : 0;
 
-	// Find portal target on mount
-	useEffect(() => {
-		const target = document.getElementById(SIZE_VIEW_LAYER_ID);
-		console.log('SizeView portal target:', target);
-		setPortalTarget(target);
-	}, []);
+	// Find portal target (re-lookup when tab changes to ensure it's always found)
+	const portalTarget = useMemo(
+		() => document.getElementById(SIZE_VIEW_LAYER_ID),
+		[activeTabId]
+	);
+
+	// Track which path+tab the current data belongs to
+	const [dataSource, setDataSource] = useState<{
+		tabId: string;
+		path: SdPath | null;
+	} | null>(null);
 
 	const directoryQuery = useNormalizedQuery({
 		wireMethod: 'query:files.directory_listing',
@@ -153,17 +160,41 @@ export function SizeView() {
 			: null!,
 		resourceType: 'file',
 		enabled: !!currentPath,
-		pathScope: currentPath ?? undefined
+		pathScope: currentPath ?? undefined,
+		queryKey: ['directory_listing', 'size_view', activeTabId, currentPath]
 	});
 
-	const files = directoryQuery.data?.files || [];
+	// Update data source when query succeeds
+	useEffect(() => {
+		if (directoryQuery.isSuccess && currentPath) {
+			setDataSource({tabId: activeTabId, path: currentPath});
+		}
+	}, [directoryQuery.isSuccess, activeTabId, currentPath]);
+
+	// Only show files if they match the current tab and path
+	const files = useMemo(() => {
+		if (!directoryQuery.data?.files) return [];
+
+		// Check if data source matches current context
+		const currentSource = JSON.stringify({
+			tabId: activeTabId,
+			path: currentPath
+		});
+		const loadedSource = JSON.stringify(dataSource);
+
+		if (currentSource !== loadedSource) {
+			// Data doesn't match current tab/path, don't show it
+			return [];
+		}
+
+		return directoryQuery.data.files;
+	}, [directoryQuery.data, activeTabId, currentPath, dataSource]);
 
 	const svgRef = useRef<SVGSVGElement>(null);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<
 		SVGSVGElement,
 		unknown
 	> | null>(null);
-	const [currentZoom, setCurrentZoom] = useState(1);
 	const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 	const [contextMenuFile, setContextMenuFile] = useState<File | null>(null);
 	const [thumbOverlays, setThumbOverlays] = useState<
@@ -353,7 +384,7 @@ export function SizeView() {
 			.scaleExtent([0.1, 100])
 			.on('zoom', (event) => {
 				g.attr('transform', event.transform);
-				setCurrentZoom(event.transform.k);
+				setSizeViewZoom(event.transform.k);
 				updateTextOnZoom(event.transform.k);
 				updateThumbOverlays(event.transform);
 			});
@@ -367,7 +398,7 @@ export function SizeView() {
 				.duration(300)
 				.call(zoom.transform, d3.zoomIdentity)
 				.on('end', () => {
-					setCurrentZoom(1);
+					setSizeViewZoom(1);
 					updateTextOnZoom(1);
 				});
 		});
@@ -386,7 +417,7 @@ export function SizeView() {
 		if (!svgRef.current || !zoomBehaviorRef.current) return;
 		const svg = d3.select(svgRef.current);
 		svg.call(zoomBehaviorRef.current.transform, d3.zoomIdentity);
-		setCurrentZoom(1);
+		setSizeViewZoom(1);
 	}, [currentPath]);
 
 	const bubbleData = useMemo(() => {
@@ -676,7 +707,7 @@ export function SizeView() {
 		svg.transition()
 			.duration(300)
 			.call(zoomBehaviorRef.current.transform, d3.zoomIdentity)
-			.on('end', () => setCurrentZoom(1));
+			.on('end', () => setSizeViewZoom(1));
 	};
 
 	const handleZoomIn = () => {
@@ -745,14 +776,16 @@ export function SizeView() {
 					</div>
 				))}
 
-				{/* Empty state message */}
-				{bubbleData.length === 0 && (
-					<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-						<p className="text-ink-dull">
-							No files with size data to display
-						</p>
-					</div>
-				)}
+				{/* Empty state message - only show after data has loaded */}
+				{bubbleData.length === 0 &&
+					!directoryQuery.isLoading &&
+					dataSource && (
+						<div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+							<p className="text-ink-dull">
+								No files with size data to display
+							</p>
+						</div>
+					)}
 
 				{/* Floating footer controls */}
 				<div className="bg-app-box/95 border-app-line absolute bottom-4 right-4 flex items-center gap-2 rounded-lg border p-1.5 shadow-lg backdrop-blur-lg">
@@ -761,13 +794,13 @@ export function SizeView() {
 							icon={Minus}
 							onClick={handleZoomOut}
 							title="Zoom Out"
-							disabled={currentZoom <= 0.1}
+							disabled={sizeViewZoom <= 0.1}
 						/>
 						<TopBarButton
 							icon={Plus}
 							onClick={handleZoomIn}
 							title="Zoom In"
-							disabled={currentZoom >= 100}
+							disabled={sizeViewZoom >= 100}
 						/>
 					</TopBarButtonGroup>
 					<TopBarButton
@@ -781,7 +814,7 @@ export function SizeView() {
 						title="Reset Zoom"
 					/>
 					<div className="text-ink-dull px-2 text-xs font-medium">
-						{currentZoom.toFixed(1)}x
+						{sizeViewZoom.toFixed(1)}x
 					</div>
 				</div>
 			</div>

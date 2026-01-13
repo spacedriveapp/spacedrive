@@ -371,6 +371,10 @@ interface ExplorerContextValue {
 	scrollPosition: { top: number; left: number };
 	setScrollPosition: (pos: { top: number; left: number }) => void;
 
+	// Size view zoom (per-tab, stored in TabManager)
+	sizeViewZoom: number;
+	setSizeViewZoom: (zoom: number) => void;
+
 	sidebarVisible: boolean;
 	setSidebarVisible: (visible: boolean) => void;
 	inspectorVisible: boolean;
@@ -472,6 +476,20 @@ export function ExplorerProvider({
 			updateExplorerState(activeTabId, {
 				scrollTop: pos.top,
 				scrollLeft: pos.left,
+			});
+		},
+		[activeTabId, updateExplorerState],
+	);
+
+	const sizeViewZoom = useMemo(
+		() => tabState.sizeViewZoom ?? 1,
+		[activeTabId, tabState.sizeViewZoom],
+	);
+
+	const setSizeViewZoom = useCallback(
+		(zoom: number) => {
+			updateExplorerState(activeTabId, {
+				sizeViewZoom: zoom,
 			});
 		},
 		[activeTabId, updateExplorerState],
@@ -708,6 +726,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
+			sizeViewZoom,
+			setSizeViewZoom,
 			sidebarVisible: uiState.sidebarVisible,
 			setSidebarVisible,
 			inspectorVisible: uiState.inspectorVisible,
@@ -748,6 +768,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
+			sizeViewZoom,
+			setSizeViewZoom,
 			uiState.sidebarVisible,
 			setSidebarVisible,
 			uiState.inspectorVisible,

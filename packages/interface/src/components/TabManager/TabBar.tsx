@@ -90,16 +90,16 @@ function SortableTab({tab, isActive, onSwitch, onClose}: SortableTabProps) {
 export function TabBar() {
 	const {tabs, activeTabId, switchTab, closeTab, createTab} = useTabManager();
 
-	// Don't show tab bar if only one tab
-	if (tabs.length <= 1) {
-		return null;
-	}
-
 	// Ensure activeTabId exists in tabs array, fallback to first tab
 	// Memoize to prevent unnecessary rerenders during rapid state updates
 	const safeActiveTabId = useMemo(() => {
 		return tabs.find((t) => t.id === activeTabId)?.id ?? tabs[0]?.id;
 	}, [tabs, activeTabId]);
+
+	// Don't show tab bar if only one tab
+	if (tabs.length <= 1) {
+		return null;
+	}
 
 	return (
 		<div className="bg-app-box/80 mx-2 flex h-9 shrink-0 items-center gap-1 rounded-full px-1 shadow-sm backdrop-blur-sm">

@@ -145,6 +145,11 @@ function ShellLayoutContent() {
 				className="pointer-events-none absolute inset-0 z-[35] [&>*]:pointer-events-auto"
 			/>
 
+			{/* Top fade mask - spans full width beyond sidebar/inspector */}
+			<div
+				className="pointer-events-none absolute left-0 right-0 top-0 z-[37] h-32 bg-gradient-to-b from-app to-transparent"
+			/>
+
 			<TopBar
 				sidebarWidth={sidebarVisible ? 224 : 0}
 				inspectorWidth={
@@ -185,7 +190,7 @@ function ShellLayoutContent() {
 								duration: 0.3,
 								ease: [0.25, 1, 0.5, 1]
 							}}
-							className="relative z-50 overflow-hidden"
+							className="relative z-[65] overflow-hidden"
 						>
 							<SpacesSidebar
 								isPreviewActive={
@@ -200,7 +205,7 @@ function ShellLayoutContent() {
 				<div
 					className={clsx(
 						'relative flex flex-1 flex-col overflow-hidden pt-12',
-						isSizeViewActive ? 'z-[30]' : 'z-[45]'
+						isSizeViewActive ? 'z-[30]' : 'z-[38]'
 					)}
 				>
 					{/* Tab Bar - nested inside content area like Finder (hidden in size view) */}
@@ -235,7 +240,7 @@ function ShellLayoutContent() {
 								duration: 0.3,
 								ease: [0.25, 1, 0.5, 1]
 							}}
-							className="relative z-50 overflow-hidden"
+							className="relative z-[65] overflow-hidden"
 						>
 							<div className="flex h-full w-[280px] min-w-[280px] flex-col bg-transparent p-2">
 								<Inspector

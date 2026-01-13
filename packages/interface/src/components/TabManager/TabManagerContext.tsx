@@ -98,6 +98,9 @@ export interface TabExplorerState {
 	// Scroll position
 	scrollTop: number;
 	scrollLeft: number;
+
+	// Size view zoom level
+	sizeViewZoom: number;
 }
 
 /** Default explorer state for new tabs */
@@ -110,6 +113,7 @@ const DEFAULT_EXPLORER_STATE: TabExplorerState = {
 	columnStack: [],
 	scrollTop: 0,
 	scrollLeft: 0,
+	sizeViewZoom: 1,
 };
 
 // ============================================================================
