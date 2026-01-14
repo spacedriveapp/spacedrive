@@ -87,12 +87,6 @@ pub async fn search_ephemeral_index(
 	let mut results = Vec::new();
 	for path in matching_paths {
 		if let Some(metadata) = index.get_entry_ref(&path) {
-			// Skip directories (only search files)
-			if matches!(metadata.kind, EntryKind::Directory) {
-				tracing::debug!("Skipping directory: {:?}", path);
-				continue;
-			}
-
 			// Apply filters
 			if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
 				continue;

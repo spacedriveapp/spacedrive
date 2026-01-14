@@ -232,7 +232,6 @@ impl FileSearchQuery {
 				e.created_at as entry_created_at,
 				e.modified_at as entry_modified_at,
 				e.accessed_at as entry_accessed_at,
-				e.device_id as entry_device_id,
 				e.content_id as entry_content_id,
 				dp.path as parent_path,
 				d.slug as device_slug,
@@ -248,7 +247,8 @@ impl FileSearchQuery {
 				ci.last_verified_at as last_verified_at
 			FROM entries e
 			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
-			LEFT JOIN devices d ON e.device_id = d.id
+			LEFT JOIN volumes v ON e.volume_id = v.id
+			LEFT JOIN devices d ON v.device_id = d.uuid
 			LEFT JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
 			WHERE e.id IN ({})
@@ -885,7 +885,6 @@ impl FileSearchQuery {
 						JOIN entries e ON e.id = fts.rowid
 						JOIN directory_paths dp ON dp.entry_id = e.parent_id
 						WHERE dp.path LIKE ?
-						AND e.kind = 0
 						ORDER BY fts.rank
 						LIMIT ? OFFSET ?
 					"#
@@ -896,7 +895,6 @@ impl FileSearchQuery {
 						FROM search_index
 						JOIN entries e ON e.id = search_index.rowid
 						WHERE search_index MATCH ?
-						AND e.kind = 0
 						ORDER BY rank
 						LIMIT ? OFFSET ?
 					"#
@@ -909,7 +907,6 @@ impl FileSearchQuery {
 					FROM search_index
 					JOIN entries e ON e.id = search_index.rowid
 					WHERE search_index MATCH ?
-					AND e.kind = 0
 					ORDER BY rank
 					LIMIT ? OFFSET ?
 				"#
