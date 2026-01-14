@@ -352,6 +352,7 @@ impl DeviceManager {
 			is_current: true,
 			is_paired: false,
 			is_connected: false,
+			connection_method: None, // Current device doesn't connect to itself
 		}
 	}
 

@@ -22,6 +22,7 @@ export function GridView() {
 		selectFile,
 		clearSelection,
 		setSelectedFiles,
+		restoreSelectionFromFiles,
 	} = useSelection();
 	const { gridSize, gapSize } = viewSettings;
 	const emptySpaceContextMenu = useEmptySpaceContextMenu();
@@ -54,6 +55,11 @@ export function GridView() {
 	useEffect(() => {
 		setCurrentFiles(files);
 	}, [files, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(files);
+	}, [files, restoreSelectionFromFiles]);
 
 	const handleContainerClick = (e: React.MouseEvent) => {
 		if (e.target === e.currentTarget) {

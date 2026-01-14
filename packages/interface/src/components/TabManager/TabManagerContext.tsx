@@ -3,6 +3,7 @@ import {
 	useState,
 	useCallback,
 	useMemo,
+	useEffect,
 	type ReactNode,
 } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router-dom";
@@ -97,6 +98,9 @@ export interface TabExplorerState {
 	// Scroll position
 	scrollTop: number;
 	scrollLeft: number;
+
+	// Size view transform (zoom + pan)
+	sizeViewTransform: { k: number; x: number; y: number };
 }
 
 /** Default explorer state for new tabs */
@@ -109,7 +113,51 @@ const DEFAULT_EXPLORER_STATE: TabExplorerState = {
 	columnStack: [],
 	scrollTop: 0,
 	scrollLeft: 0,
+	sizeViewTransform: { k: 1, x: 0, y: 0 },
 };
+
+// ============================================================================
+// Persistence
+// ============================================================================
+
+const STORAGE_KEY = "sd-tabs-state";
+
+interface PersistedState {
+	tabs: Tab[];
+	activeTabId: string;
+	explorerStates: Record<string, TabExplorerState>;
+	defaultNewTabPath: string;
+}
+
+function loadPersistedState(): PersistedState | null {
+	try {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (!stored) return null;
+
+		const parsed = JSON.parse(stored) as PersistedState;
+
+		// Validate structure
+		if (
+			!Array.isArray(parsed.tabs) ||
+			typeof parsed.activeTabId !== "string" ||
+			typeof parsed.explorerStates !== "object"
+		) {
+			return null;
+		}
+
+		return parsed;
+	} catch {
+		return null;
+	}
+}
+
+function savePersistedState(state: PersistedState): void {
+	try {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+	} catch {
+		// Silently fail if localStorage is unavailable
+	}
+}
 
 // ============================================================================
 // Context
@@ -119,12 +167,13 @@ interface TabManagerContextValue {
 	// Tab management
 	tabs: Tab[];
 	activeTabId: string;
-	router: RemixRouter;
+	router: Router;
 	createTab: (title?: string, path?: string) => void;
 	closeTab: (tabId: string) => void;
 	switchTab: (tabId: string) => void;
 	updateTabTitle: (tabId: string, title: string) => void;
 	updateTabPath: (tabId: string, path: string) => void;
+	reorderTabs: (activeId: string, overId: string) => void;
 	nextTab: () => void;
 	previousTab: () => void;
 	selectTabAtIndex: (index: number) => void;
@@ -136,6 +185,10 @@ interface TabManagerContextValue {
 		tabId: string,
 		updates: Partial<TabExplorerState>,
 	) => void;
+
+	// Selection state (per-tab, ephemeral - not persisted)
+	getSelectionIds: (tabId: string) => string[];
+	updateSelectionIds: (tabId: string, fileIds: string[]) => void;
 }
 
 const TabManagerContext = createContext<TabManagerContextValue | null>(null);
@@ -156,6 +209,11 @@ export function TabManagerProvider({
 	const router = useMemo(() => createBrowserRouter(routes), [routes]);
 
 	const [tabs, setTabs] = useState<Tab[]>(() => {
+		const persisted = loadPersistedState();
+		if (persisted && persisted.tabs.length > 0) {
+			return persisted.tabs;
+		}
+
 		const initialTabId = crypto.randomUUID();
 		return [
 			{
@@ -169,18 +227,62 @@ export function TabManagerProvider({
 		];
 	});
 
-	const [activeTabId, setActiveTabId] = useState<string>(tabs[0].id);
+	const [activeTabId, setActiveTabId] = useState<string>(() => {
+		const persisted = loadPersistedState();
+		if (persisted && persisted.activeTabId) {
+			// Verify the activeTabId exists in tabs
+			const tabExists = persisted.tabs.some(
+				(t) => t.id === persisted.activeTabId,
+			);
+			if (tabExists) return persisted.activeTabId;
+		}
+		return tabs[0].id;
+	});
 
-	// Initialize explorerStates with the first tab's state
 	const [explorerStates, setExplorerStates] = useState<
 		Map<string, TabExplorerState>
 	>(() => {
+		const persisted = loadPersistedState();
+		if (persisted && persisted.explorerStates) {
+			return new Map(Object.entries(persisted.explorerStates));
+		}
+
 		const initialMap = new Map<string, TabExplorerState>();
 		initialMap.set(tabs[0].id, { ...DEFAULT_EXPLORER_STATE });
 		return initialMap;
 	});
-	const [defaultNewTabPath, setDefaultNewTabPathState] =
-		useState<string>("/");
+
+	// Per-tab selection state (ephemeral, not persisted to localStorage)
+	const [selectionStates, setSelectionStates] = useState<
+		Map<string, string[]>
+	>(() => {
+		const initialMap = new Map<string, string[]>();
+		// Initialize with empty selection for first tab
+		initialMap.set(tabs[0].id, []);
+		return initialMap;
+	});
+
+	const [defaultNewTabPath, setDefaultNewTabPathState] = useState<string>(
+		() => {
+			const persisted = loadPersistedState();
+			return persisted?.defaultNewTabPath ?? "/";
+		},
+	);
+
+	// ========================================================================
+	// Persistence
+	// ========================================================================
+
+	useEffect(() => {
+		const explorerStatesObject = Object.fromEntries(explorerStates);
+
+		savePersistedState({
+			tabs,
+			activeTabId,
+			explorerStates: explorerStatesObject,
+			defaultNewTabPath,
+		});
+	}, [tabs, activeTabId, explorerStates, defaultNewTabPath]);
 
 	// ========================================================================
 	// Tab management
@@ -211,6 +313,9 @@ export function TabManagerProvider({
 			setExplorerStates((prev) =>
 				new Map(prev).set(newTab.id, { ...DEFAULT_EXPLORER_STATE }),
 			);
+
+			// Initialize empty selection state for the new tab
+			setSelectionStates((prev) => new Map(prev).set(newTab.id, []));
 
 			setTabs((prev) => [...prev, newTab]);
 			setActiveTabId(newTab.id);
@@ -245,13 +350,22 @@ export function TabManagerProvider({
 				next.delete(tabId);
 				return next;
 			});
+
+			// Clean up selection state for closed tab
+			setSelectionStates((prev) => {
+				const next = new Map(prev);
+				next.delete(tabId);
+				return next;
+			});
 		},
 		[activeTabId],
 	);
 
 	const switchTab = useCallback(
 		(newTabId: string) => {
-			if (newTabId === activeTabId) return;
+			if (newTabId === activeTabId) {
+				return;
+			}
 
 			setTabs((prev) =>
 				prev.map((tab) =>
@@ -278,6 +392,23 @@ export function TabManagerProvider({
 				tab.id === tabId ? { ...tab, savedPath: path } : tab,
 			),
 		);
+	}, []);
+
+	const reorderTabs = useCallback((activeId: string, overId: string) => {
+		setTabs((prev) => {
+			const oldIndex = prev.findIndex((tab) => tab.id === activeId);
+			const newIndex = prev.findIndex((tab) => tab.id === overId);
+
+			if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) {
+				return prev;
+			}
+
+			const newTabs = [...prev];
+			const [movedTab] = newTabs.splice(oldIndex, 1);
+			newTabs.splice(newIndex, 0, movedTab);
+
+			return newTabs;
+		});
 	}, []);
 
 	const nextTab = useCallback(() => {
@@ -325,6 +456,21 @@ export function TabManagerProvider({
 	);
 
 	// ========================================================================
+	// Selection state (per-tab)
+	// ========================================================================
+
+	const getSelectionIds = useCallback(
+		(tabId: string): string[] => {
+			return selectionStates.get(tabId) ?? [];
+		},
+		[selectionStates],
+	);
+
+	const updateSelectionIds = useCallback((tabId: string, fileIds: string[]) => {
+		setSelectionStates((prev) => new Map(prev).set(tabId, fileIds));
+	}, []);
+
+	// ========================================================================
 	// Context value
 	// ========================================================================
 
@@ -338,12 +484,15 @@ export function TabManagerProvider({
 			switchTab,
 			updateTabTitle,
 			updateTabPath,
+			reorderTabs,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,
 			setDefaultNewTabPath,
 			getExplorerState,
 			updateExplorerState,
+			getSelectionIds,
+			updateSelectionIds,
 		}),
 		[
 			tabs,
@@ -354,12 +503,15 @@ export function TabManagerProvider({
 			switchTab,
 			updateTabTitle,
 			updateTabPath,
+			reorderTabs,
 			nextTab,
 			previousTab,
 			selectTabAtIndex,
 			setDefaultNewTabPath,
 			getExplorerState,
 			updateExplorerState,
+			getSelectionIds,
+			updateSelectionIds,
 		],
 	);
 

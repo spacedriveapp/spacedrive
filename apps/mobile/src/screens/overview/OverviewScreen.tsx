@@ -1,10 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { View, Text, ScrollView, Pressable } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { useNormalizedQuery } from "../../client";
-import type { LibraryInfoOutput } from "@sd/ts-client";
-import { HeroStats, PairedDevices, StorageOverview } from "./components";
+import type { Library } from "@sd/ts-client";
+import { HeroStats, DevicePanel } from "./components";
 import { PairingPanel } from "../../components/PairingPanel";
 import { LibrarySwitcherPanel } from "../../components/LibrarySwitcherPanel";
 
@@ -13,17 +13,37 @@ export function OverviewScreen() {
 	const navigation = useNavigation();
 	const [showPairing, setShowPairing] = useState(false);
 	const [showLibrarySwitcher, setShowLibrarySwitcher] = useState(false);
+	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
+		null
+	);
 
 	// Fetch library info with real-time statistics updates
 	const {
 		data: libraryInfo,
 		isLoading,
 		error,
-	} = useNormalizedQuery<null, LibraryInfoOutput>({
+	} = useNormalizedQuery<null, Library>({
 		wireMethod: "query:libraries.info",
 		input: null,
 		resourceType: "library",
 	});
+
+	// Fetch locations list to get the selected location reactively
+	const { data: locationsData } = useNormalizedQuery<any, any>({
+		wireMethod: "query:locations.list",
+		input: null,
+		resourceType: "location",
+	});
+
+	// Find the selected location from the list reactively
+	const selectedLocation = useMemo(() => {
+		if (!selectedLocationId || !locationsData?.locations) return null;
+		return (
+			locationsData.locations.find(
+				(loc: any) => loc.id === selectedLocationId
+			) || null
+		);
+	}, [selectedLocationId, locationsData]);
 
 	const openDrawer = () => {
 		navigation.dispatch(DrawerActions.openDrawer());
@@ -34,29 +54,10 @@ export function OverviewScreen() {
 			<ScrollView
 				className="flex-1 bg-app"
 				contentContainerStyle={{
-					paddingTop: insets.top + 16,
 					paddingBottom: insets.bottom + 100,
 					paddingHorizontal: 16,
 				}}
 			>
-				{/* Header */}
-				<View className="flex-row items-center justify-between mb-6">
-					<Pressable onPress={openDrawer} className="p-2 -ml-2">
-						<View className="w-6 h-0.5 bg-ink mb-1.5" />
-						<View className="w-6 h-0.5 bg-ink mb-1.5" />
-						<View className="w-6 h-0.5 bg-ink" />
-					</Pressable>
-					<Text className="text-xl font-bold text-ink">
-						{libraryInfo?.name || "Loading..."}
-					</Text>
-					<Pressable
-						onPress={() => setShowPairing(true)}
-						className="p-2 -mr-2 active:bg-app-hover rounded-lg"
-					>
-						<Text className="text-accent text-xl">◊</Text>
-					</Pressable>
-				</View>
-
 				<View className="items-center justify-center py-12">
 					<Text className="text-ink-dull">
 						Loading library statistics...
@@ -71,32 +72,13 @@ export function OverviewScreen() {
 			<ScrollView
 				className="flex-1 bg-app"
 				contentContainerStyle={{
-					paddingTop: insets.top + 16,
 					paddingBottom: insets.bottom + 100,
 					paddingHorizontal: 16,
 				}}
 			>
-				{/* Header */}
-				<View className="flex-row items-center justify-between mb-6">
-					<Pressable onPress={openDrawer} className="p-2 -ml-2">
-						<View className="w-6 h-0.5 bg-ink mb-1.5" />
-						<View className="w-6 h-0.5 bg-ink mb-1.5" />
-						<View className="w-6 h-0.5 bg-ink" />
-					</Pressable>
-					<Text className="text-xl font-bold text-ink">Overview</Text>
-					<Pressable
-						onPress={() => setShowPairing(true)}
-						className="p-2 -mr-2 active:bg-app-hover rounded-lg"
-					>
-						<Text className="text-accent text-xl">◊</Text>
-					</Pressable>
-				</View>
-
 				<View className="items-center justify-center py-12">
 					<Text className="text-red-500 font-semibold">Error</Text>
-					<Text className="text-ink-dull mt-2">
-						{String(error)}
-					</Text>
+					<Text className="text-ink-dull mt-2">{String(error)}</Text>
 				</View>
 			</ScrollView>
 		);
@@ -108,34 +90,9 @@ export function OverviewScreen() {
 		<ScrollView
 			className="flex-1 bg-app"
 			contentContainerStyle={{
-				paddingTop: insets.top + 16,
 				paddingBottom: insets.bottom + 100,
-				paddingHorizontal: 16,
 			}}
 		>
-			{/* Header */}
-			<View className="flex-row items-center justify-between mb-6">
-				<Pressable onPress={openDrawer} className="p-2 -ml-2">
-					<View className="w-6 h-0.5 bg-ink mb-1.5" />
-					<View className="w-6 h-0.5 bg-ink mb-1.5" />
-					<View className="w-6 h-0.5 bg-ink" />
-				</Pressable>
-				<Pressable
-					onPress={() => setShowLibrarySwitcher(true)}
-					className="flex-1 items-center active:opacity-70"
-				>
-					<Text className="text-xl font-bold text-ink">
-						{libraryInfo.name}
-					</Text>
-				</Pressable>
-				<Pressable
-					onPress={() => setShowPairing(true)}
-					className="p-2 -mr-2 active:bg-app-hover rounded-lg"
-				>
-					<Text className="text-accent text-xl">◊</Text>
-				</Pressable>
-			</View>
-
 			{/* Hero Stats */}
 			<HeroStats
 				totalStorage={stats.total_capacity}
@@ -147,11 +104,14 @@ export function OverviewScreen() {
 				uniqueContentCount={Number(stats.unique_content_count)}
 			/>
 
-			{/* Paired Devices */}
-			<PairedDevices />
-
-			{/* Storage Volumes */}
-			<StorageOverview />
+			{/* Device Panel */}
+			<View className="px-4">
+				<DevicePanel
+					onLocationSelect={(location) =>
+						setSelectedLocationId(location?.id || null)
+					}
+				/>
+			</View>
 
 			{/* Pairing Panel */}
 			<PairingPanel

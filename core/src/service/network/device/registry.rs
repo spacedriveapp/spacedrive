@@ -36,6 +36,9 @@ pub struct DeviceRegistry {
 
 	/// Event bus for emitting resource change events
 	event_bus: Option<Arc<EventBus>>,
+
+	/// Library manager for querying device data from database
+	library_manager: Option<std::sync::Weak<crate::library::LibraryManager>>,
 }
 
 impl DeviceRegistry {
@@ -55,6 +58,7 @@ impl DeviceRegistry {
 			persistence,
 			logger,
 			event_bus: None,
+			library_manager: None,
 		}
 	}
 
@@ -63,23 +67,126 @@ impl DeviceRegistry {
 		self.event_bus = Some(event_bus);
 	}
 
-	/// Emit a ResourceChanged event for a device
+	/// Set the library manager for querying device data
+	pub fn set_library_manager(&mut self, library_manager: std::sync::Weak<crate::library::LibraryManager>) {
+		self.library_manager = Some(library_manager);
+	}
+
+	/// Update device online status in library database
+	async fn update_device_online_status(&self, device_id: Uuid, is_online: bool) {
+		let Some(library_manager_weak) = &self.library_manager else {
+			return;
+		};
+
+		let Some(library_manager) = library_manager_weak.upgrade() else {
+			return;
+		};
+
+		// Update in all libraries (device data is synced across libraries)
+		let all_libraries = library_manager.list().await;
+
+		for lib in all_libraries {
+			let db = lib.db().conn();
+
+			// Update device is_online status in database
+			use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+			match crate::infra::db::entities::device::Entity::find()
+				.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
+				.one(db)
+				.await
+			{
+				Ok(Some(model)) => {
+					let mut active_model: crate::infra::db::entities::device::ActiveModel = model.into();
+					active_model.is_online = Set(is_online);
+					active_model.last_seen_at = Set(chrono::Utc::now());
+
+					if let Err(e) = active_model.update(db).await {
+						tracing::warn!(
+							device_id = %device_id,
+							error = %e,
+							"Failed to update device online status in database"
+						);
+					}
+				}
+				Ok(None) => {
+					// Device not in this library's database, skip
+				}
+				Err(e) => {
+					tracing::warn!(
+						device_id = %device_id,
+						error = %e,
+						"Failed to query device from database"
+					);
+				}
+			}
+		}
+	}
+
+	/// Emit a ResourceChanged event for a device with complete database data
 	fn emit_device_changed(&self, device_id: Uuid, info: &DeviceInfo, is_connected: bool) {
 		let Some(event_bus) = &self.event_bus else {
 			return;
 		};
 
-		// Convert network DeviceInfo to domain Device
-		let device = crate::domain::Device::from_network_info(info, is_connected);
+		let event_bus = event_bus.clone();
+		let info = info.clone();
+		let library_manager_weak = self.library_manager.clone();
 
-		use crate::domain::resource::EventEmitter;
-		if let Err(e) = device.emit_changed(event_bus) {
-			tracing::warn!(
-				device_id = %device_id,
-				error = %e,
-				"Failed to emit device ResourceChanged event"
-			);
-		}
+		// Spawn a background task to query database and emit event
+		// This avoids blocking the current thread with database I/O
+		tokio::spawn(async move {
+			// Try to query the full device from database to get hardware_model
+			let device = if let Some(library_manager_weak) = library_manager_weak {
+				if let Some(library_manager) = library_manager_weak.upgrade() {
+					// Try to get device from first available library
+					// (device data should be consistent across libraries since it's synced)
+					let all_libraries = library_manager.list().await;
+
+					let mut device_from_db = None;
+					for lib in all_libraries {
+						let db = lib.db().conn();
+
+						// Query device from database by UUID
+						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+						if let Ok(Some(model)) = crate::infra::db::entities::device::Entity::find()
+							.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
+							.one(db)
+							.await
+						{
+							// Convert to domain Device
+							if let Ok(mut device) = crate::domain::Device::try_from(model) {
+								// Merge with network state
+								device.is_connected = is_connected;
+								device.is_online = is_connected;
+								device.is_paired = true;
+								device.connection_method = None;
+
+								device_from_db = Some(device);
+								break;
+							}
+						}
+					}
+
+					device_from_db.unwrap_or_else(|| {
+						crate::domain::Device::from_network_info(&info, is_connected, None)
+					})
+				} else {
+					crate::domain::Device::from_network_info(&info, is_connected, None)
+				}
+			} else {
+				crate::domain::Device::from_network_info(&info, is_connected, None)
+			};
+
+			use crate::domain::resource::EventEmitter;
+			if let Err(e) = device.emit_changed(&event_bus) {
+				tracing::warn!(
+					device_id = %device_id,
+					error = %e,
+					"Failed to emit device ResourceChanged event"
+				);
+			}
+		});
 	}
 
 	/// Load paired devices from persistence on startup
@@ -329,6 +436,9 @@ impl DeviceRegistry {
 				.await;
 		}
 
+		// Update device online status in library database
+		self.update_device_online_status(device_id, true).await;
+
 		// Emit ResourceChanged event for UI reactivity
 		self.emit_device_changed(device_id, &info, true);
 
@@ -382,6 +492,9 @@ impl DeviceRegistry {
 				))
 				.await;
 		}
+
+		// Update device online status in library database
+		self.update_device_online_status(device_id, false).await;
 
 		// Emit ResourceChanged event for UI reactivity
 		self.emit_device_changed(device_id, &info, false);
@@ -564,6 +677,9 @@ impl DeviceRegistry {
 					.await
 					.ok();
 
+				// Update device online status in library database
+				self.update_device_online_status(device_id, true).await;
+
 				// Emit ResourceChanged event for UI reactivity
 				self.emit_device_changed(device_id, &info, true);
 			}
@@ -600,6 +716,9 @@ impl DeviceRegistry {
 					.update_device_connection(device_id, false, None)
 					.await
 					.ok();
+
+				// Update device online status in library database
+				self.update_device_online_status(device_id, false).await;
 
 				// Emit ResourceChanged event for UI reactivity
 				self.emit_device_changed(device_id, &info, false);

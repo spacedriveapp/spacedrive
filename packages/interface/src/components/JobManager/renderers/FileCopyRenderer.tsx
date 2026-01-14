@@ -2,6 +2,8 @@ import { Pause, Play, X, CaretDown } from "@phosphor-icons/react";
 import { motion } from "framer-motion";
 import type { JobRenderer, JobRendererProps, JobDetailsRendererProps } from "./index";
 import { CopyJobDetails } from "../components/CopyJobDetails";
+import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
+import type { Device } from "@sd/ts-client";
 
 /**
  * Map strategy name to display label (enables i18n in future)
@@ -11,13 +13,13 @@ function getStrategyLabel(strategyName: string | undefined, isMove: boolean): st
 
 	switch (strategyName) {
 		case "RemoteTransfer":
-			return isMove ? "Network move" : "Network copy";
+			return "Network";
 		case "LocalMove":
-			return "Atomic move";
+			return "Atomic";
 		case "FastCopy":
-			return "Fast copy";
+			return "Fast";
 		case "LocalStream":
-			return isMove ? "Streaming move" : "Streaming copy";
+			return "Streaming";
 		default:
 			return strategyName;
 	}
@@ -119,16 +121,41 @@ function FileCopyCardContent({
 	const strategyName = metadata?.strategy?.strategy_name;
 	const strategyLabel = getStrategyLabel(strategyName, job.action_context?.action_type === "files.move");
 
+	// Fetch devices to determine if destination is remote
+	const { data: devices } = useNormalizedQuery<any, Device[]>({
+		wireMethod: "query:devices.list",
+		input: { include_offline: true, include_details: false },
+		resourceType: "device",
+	});
+
 	// Determine if this is a move operation
 	const isMove = job.action_context?.action_type === "files.move";
+
+	// Check if this is a cross-device transfer from metadata
+	const isCrossDevice = metadata?.strategy?.is_cross_device === true;
+
+	// Find current device and infer destination device
+	const currentDevice = devices?.find(d => d.is_current);
+
+	// For cross-device transfers, infer the destination device
+	// LIMITATION: This assumes only 2 devices in the transfer scenario.
+	// TODO: Add destination_device_id to CopyStrategyMetadata in Rust
+	// (core/src/ops/files/copy/routing.rs) to properly identify the destination
+	// device in multi-device environments instead of inferring it.
+	const destinationDevice = isCrossDevice && currentDevice
+		? devices?.find(d => !d.is_current)
+		: null;
 
 	// Calculate title
 	const fileCount = generic?.completion?.total || 0;
 	const fileName = extractFirstFileName(job);
-	const title =
-		fileCount > 1
-			? `${isMove ? "Moving" : "Copying"} ${fileCount} items`
-			: `${isMove ? "Moving" : "Copying"} '${fileName}'`;
+	const baseTitle = fileCount > 1
+		? `${isMove ? "Moving" : "Copying"} ${fileCount} items`
+		: `${isMove ? "Moving" : "Copying"} '${fileName}'`;
+
+	const title = destinationDevice
+		? `${baseTitle} to ${destinationDevice.name}`
+		: baseTitle;
 
 	// Calculate rich subtext with progress, speed, and ETA
 	const completed = generic?.completion?.completed || 0;

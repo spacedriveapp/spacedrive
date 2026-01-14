@@ -84,6 +84,9 @@ pub struct NetworkingEventLoop {
 	/// Active connections tracker (keyed by NodeId and ALPN)
 	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
+	/// Nodes that already have connection watchers spawned (to prevent duplicates)
+	watched_nodes: Arc<RwLock<std::collections::HashSet<NodeId>>>,
+
 	/// Logger for event loop operations
 	logger: Arc<dyn NetworkLogger>,
 }
@@ -113,6 +116,7 @@ impl NetworkingEventLoop {
 			shutdown_tx,
 			identity,
 			active_connections,
+			watched_nodes: Arc::new(RwLock::new(std::collections::HashSet::new())),
 			logger,
 		}
 	}
@@ -213,6 +217,9 @@ impl NetworkingEventLoop {
 			let mut connections = self.active_connections.write().await;
 			connections.insert((remote_node_id, alpn_bytes), conn.clone());
 		}
+
+		// Spawn a task to watch for connection closure for instant reactivity
+		self.spawn_connection_watcher(conn.clone(), remote_node_id).await;
 
 		// For now, we'll need to detect ALPN from the first stream
 		// TODO: Find the correct way to get ALPN from iroh Connection
@@ -647,6 +654,9 @@ impl NetworkingEventLoop {
 					connections.insert((node_id, alpn_bytes.clone()), conn.clone());
 				}
 
+				// Spawn a task to watch for connection closure for instant reactivity
+				self.spawn_connection_watcher(conn.clone(), node_id).await;
+
 				self.logger
 					.info(&format!(
 						"Tracking outbound connection to {} (ALPN: {:?}), spawning stream handler",
@@ -755,6 +765,9 @@ impl NetworkingEventLoop {
 					let alpn_bytes = conn.alpn().unwrap_or_default();
 					connections.insert((node_id, alpn_bytes), conn.clone());
 				}
+
+				// Spawn a task to watch for connection closure for instant reactivity
+				self.spawn_connection_watcher(conn.clone(), node_id).await;
 
 				// Open appropriate stream based on protocol
 				match protocol {
@@ -968,5 +981,21 @@ impl NetworkingEventLoop {
 				}
 			}
 		}
+	}
+
+	/// Spawn a background task to watch for connection closure
+	///
+	/// This provides instant reactivity when connections drop, instead of waiting
+	/// for the 10-second polling interval in update_connection_states().
+	async fn spawn_connection_watcher(&self, conn: Connection, node_id: NodeId) {
+		super::spawn_connection_watcher_task(
+			conn,
+			node_id,
+			self.watched_nodes.clone(),
+			self.device_registry.clone(),
+			self.active_connections.clone(),
+			self.logger.clone(),
+		)
+		.await;
 	}
 }
