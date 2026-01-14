@@ -32,6 +32,7 @@ export const ListView = memo(function ListView() {
 		isSelected,
 		selectFile,
 		moveFocus,
+		restoreSelectionFromFiles,
 	} = useSelection();
 
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -77,6 +78,11 @@ export const ListView = memo(function ListView() {
 	useEffect(() => {
 		setCurrentFiles(files);
 	}, [files, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(files);
+	}, [files, restoreSelectionFromFiles]);
 
 	// Virtual row rendering - uses the container as scroll element
 	const rowVirtualizer = useVirtualizer({

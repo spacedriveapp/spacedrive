@@ -10,12 +10,14 @@ interface ViewSettingsPanelProps {
 	viewSettings: any;
 	setViewSettings: (settings: any) => void;
 	viewMode: string;
+	totalFileCount?: number;
 }
 
 export function ViewSettingsPanel({
 	viewSettings,
 	setViewSettings,
 	viewMode,
+	totalFileCount,
 }: ViewSettingsPanelProps) {
 	return (
 		<div className="w-64 bg-app-box border border-app-line rounded-lg shadow-lg p-3 space-y-4">
@@ -102,6 +104,31 @@ export function ViewSettingsPanel({
 				</div>
 			)}
 
+			{/* Item Limit (Size View Only) */}
+			{viewMode === "size" && (
+				<div className="space-y-2">
+					<div className="flex items-center justify-between">
+						<label className="text-xs text-sidebar-inkDull">Items Shown</label>
+						<span className="text-xs text-sidebar-ink font-medium">
+							{Math.min(viewSettings.sizeViewItemLimit || 500, totalFileCount || 500)} / {totalFileCount || 0}
+						</span>
+					</div>
+					<input
+						type="range"
+						min="50"
+						max={Math.max(50, totalFileCount || 500)}
+						step="10"
+						value={Math.min(viewSettings.sizeViewItemLimit || 500, totalFileCount || 500)}
+						onChange={(e) =>
+							setViewSettings({ sizeViewItemLimit: parseInt(e.target.value) })
+						}
+						className="w-full h-1 bg-app-line rounded-lg appearance-none cursor-pointer
+							[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-pointer
+							[&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:border-0"
+					/>
+				</div>
+			)}
+
 			{/* Show File Size Toggle */}
 			<div className="flex items-center justify-between pt-1">
 				<label className="text-xs text-sidebar-inkDull">Show File Size</label>
@@ -151,9 +178,10 @@ export function ViewSettingsPanel({
 
 interface ViewSettingsProps {
   className?: string;
+  totalFileCount?: number;
 }
 
-export function ViewSettings({ className }: ViewSettingsProps) {
+export function ViewSettings({ className, totalFileCount }: ViewSettingsProps) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -221,6 +249,7 @@ export function ViewSettings({ className }: ViewSettingsProps) {
                 viewSettings={viewSettings}
                 setViewSettings={setViewSettings}
                 viewMode={viewMode}
+                totalFileCount={totalFileCount}
               />
             </motion.div>
           </AnimatePresence>,

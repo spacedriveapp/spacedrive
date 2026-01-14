@@ -34,6 +34,7 @@ export function ColumnView() {
 		isSelected,
 		selectFile,
 		clearSelection,
+		restoreSelectionFromFiles,
 	} = useSelection();
 
 	// Store clearSelection in ref to avoid effect re-runs
@@ -202,6 +203,11 @@ export function ColumnView() {
 	useEffect(() => {
 		setCurrentFiles(activeColumnFiles);
 	}, [activeColumnFiles, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(activeColumnFiles);
+	}, [activeColumnFiles, restoreSelectionFromFiles]);
 
 	// Typeahead search for active column
 	const typeahead = useTypeaheadSearch({

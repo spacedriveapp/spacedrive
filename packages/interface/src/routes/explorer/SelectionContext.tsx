@@ -11,6 +11,7 @@ import { usePlatform } from "../../contexts/PlatformContext";
 import type { File } from "@sd/ts-client";
 import { useClipboard } from "../../hooks/useClipboard";
 import { useLibraryMutation } from "../../contexts/SpacedriveContext";
+import { useTabManager } from "../../components/TabManager";
 
 interface SelectionContextValue {
 	selectedFiles: File[];
@@ -37,6 +38,8 @@ interface SelectionContextValue {
 	cancelRename: () => void;
 	saveRename: (newName: string) => Promise<void>;
 	isRenaming: boolean;
+	// Restore selection from available files (called by views when files load)
+	restoreSelectionFromFiles: (files: File[]) => void;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -52,11 +55,47 @@ export function SelectionProvider({
 }: SelectionProviderProps) {
 	const platform = usePlatform();
 	const clipboard = useClipboard();
-	const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+	const tabManager = useTabManager();
+	const { activeTabId, getSelectionIds, updateSelectionIds } = tabManager;
+	const renameFile = useLibraryMutation("files.rename");
+
+	// Local state for File objects (not serializable, can't be stored in TabManager)
+	const [selectedFiles, setSelectedFilesInternal] = useState<File[]>([]);
 	const [focusedIndex, setFocusedIndex] = useState(-1);
 	const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 	const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
-	const renameFile = useLibraryMutation("files.rename");
+
+	// Track the stored IDs for the active tab (separate from File objects)
+	const storedIds = getSelectionIds(activeTabId);
+
+	// Clear selection when activeTabId changes (we'll restore it when files load)
+	useEffect(() => {
+		setSelectedFilesInternal([]);
+		setFocusedIndex(-1);
+		setLastSelectedIndex(-1);
+	}, [activeTabId]);
+
+	// Wrapper for setSelectedFiles that syncs to TabManager
+	// Supports both direct values and updater functions
+	const setSelectedFiles = useCallback(
+		(filesOrUpdater: File[] | ((prev: File[]) => File[])) => {
+			setSelectedFilesInternal((prev) => {
+				const nextFiles =
+					typeof filesOrUpdater === "function"
+						? filesOrUpdater(prev)
+						: filesOrUpdater;
+
+				// Sync to TabManager
+				updateSelectionIds(
+					activeTabId,
+					nextFiles.map((f) => f.id),
+				);
+
+				return nextFiles;
+			});
+		},
+		[activeTabId, updateSelectionIds],
+	);
 
 	// Sync selected file IDs to platform (for cross-window state sharing)
 	// Only sync for the active tab to avoid conflicts
@@ -96,12 +135,15 @@ export function SelectionProvider({
 		setSelectedFiles([]);
 		setFocusedIndex(-1);
 		setLastSelectedIndex(-1);
-	}, []);
+	}, [setSelectedFiles]);
 
-	const selectAll = useCallback((files: File[]) => {
-		setSelectedFiles([...files]);
-		setLastSelectedIndex(files.length - 1);
-	}, []);
+	const selectAll = useCallback(
+		(files: File[]) => {
+			setSelectedFiles([...files]);
+			setLastSelectedIndex(files.length - 1);
+		},
+		[setSelectedFiles],
+	);
 
 	const selectFile = useCallback(
 		(file: File, files: File[], multi = false, range = false) => {
@@ -157,7 +199,7 @@ export function SelectionProvider({
 				setLastSelectedIndex(fileIndex);
 			}
 		},
-		[],
+		[setSelectedFiles],
 	);
 
 	const moveFocus = useCallback(
@@ -190,7 +232,7 @@ export function SelectionProvider({
 				return newIndex;
 			});
 		},
-		[],
+		[setSelectedFiles],
 	);
 
 	// Rename functions
@@ -241,16 +283,52 @@ export function SelectionProvider({
 		}
 	}, [selectedFiles, renamingFileId]);
 
-	// Create a Set of selected file IDs for O(1) lookup
+	// Use stored IDs for selection checking (allows highlighting before File objects are restored)
 	const selectedFileIds = useMemo(
-		() => new Set(selectedFiles.map((f) => f.id)),
-		[selectedFiles],
+		() => new Set(storedIds),
+		[storedIds],
 	);
 
 	// Stable function for checking if a file is selected
 	const isSelected = useCallback(
 		(fileId: string) => selectedFileIds.has(fileId),
 		[selectedFileIds],
+	);
+
+	// Restore File objects for selected IDs when files become available
+	const restoreSelectionFromFiles = useCallback(
+		(files: File[]) => {
+			if (storedIds.length === 0) return;
+
+			const fileMap = new Map(files.map((f) => [f.id, f]));
+			const matchingFiles: File[] = [];
+
+			for (const id of storedIds) {
+				const file = fileMap.get(id);
+				if (file) {
+					matchingFiles.push(file);
+				}
+			}
+
+			// Only update if we found matching files and they're different from current
+			if (matchingFiles.length > 0) {
+				setSelectedFilesInternal((prev) => {
+					const prevIds = new Set(prev.map((f) => f.id));
+					const newIds = new Set(matchingFiles.map((f) => f.id));
+
+					// Skip update if selection already matches
+					if (
+						prevIds.size === newIds.size &&
+						[...newIds].every((id) => prevIds.has(id))
+					) {
+						return prev;
+					}
+
+					return matchingFiles;
+				});
+			}
+		},
+		[storedIds],
 	);
 
 	const isRenaming = renamingFileId !== null;
@@ -273,11 +351,14 @@ export function SelectionProvider({
 			cancelRename,
 			saveRename,
 			isRenaming,
+			// Restore selection
+			restoreSelectionFromFiles,
 		}),
 		[
 			selectedFiles,
 			selectedFileIds,
 			isSelected,
+			setSelectedFiles,
 			selectFile,
 			clearSelection,
 			selectAll,
@@ -288,6 +369,7 @@ export function SelectionProvider({
 			cancelRename,
 			saveRename,
 			isRenaming,
+			restoreSelectionFromFiles,
 		],
 	);
 

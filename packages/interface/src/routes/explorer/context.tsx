@@ -43,6 +43,7 @@ export interface ViewSettings {
 	showFileSize: boolean;
 	columnWidth: number;
 	foldersFirst: boolean;
+	sizeViewItemLimit: number;
 }
 
 export type SearchScope = "folder" | "location" | "library";
@@ -202,6 +203,7 @@ const defaultViewSettings: ViewSettings = {
 	showFileSize: true,
 	columnWidth: 256,
 	foldersFirst: false,
+	sizeViewItemLimit: 500,
 };
 
 function uiReducer(state: UIState, action: UIAction): UIState {
@@ -371,6 +373,10 @@ interface ExplorerContextValue {
 	scrollPosition: { top: number; left: number };
 	setScrollPosition: (pos: { top: number; left: number }) => void;
 
+	// Size view transform (per-tab, stored in TabManager)
+	sizeViewTransform: { k: number; x: number; y: number };
+	setSizeViewTransform: (transform: { k: number; x: number; y: number }) => void;
+
 	sidebarVisible: boolean;
 	setSidebarVisible: (visible: boolean) => void;
 	inspectorVisible: boolean;
@@ -472,6 +478,20 @@ export function ExplorerProvider({
 			updateExplorerState(activeTabId, {
 				scrollTop: pos.top,
 				scrollLeft: pos.left,
+			});
+		},
+		[activeTabId, updateExplorerState],
+	);
+
+	const sizeViewTransform = useMemo(
+		() => tabState.sizeViewTransform ?? { k: 1, x: 0, y: 0 },
+		[activeTabId, tabState.sizeViewTransform],
+	);
+
+	const setSizeViewTransform = useCallback(
+		(transform: { k: number; x: number; y: number }) => {
+			updateExplorerState(activeTabId, {
+				sizeViewTransform: transform,
 			});
 		},
 		[activeTabId, updateExplorerState],
@@ -586,14 +606,18 @@ export function ExplorerProvider({
 			gridSize: tabState.gridSize,
 			gapSize: tabState.gapSize,
 			foldersFirst: tabState.foldersFirst,
-			showFileSize: true, // Not stored per-tab for now
-			columnWidth: 256, // Not stored per-tab for now
+			showFileSize: uiState.viewSettings.showFileSize,
+			columnWidth: uiState.viewSettings.columnWidth,
+			sizeViewItemLimit: uiState.viewSettings.sizeViewItemLimit,
 		}),
 		[
 			activeTabId,
 			tabState.gridSize,
 			tabState.gapSize,
 			tabState.foldersFirst,
+			uiState.viewSettings.showFileSize,
+			uiState.viewSettings.columnWidth,
+			uiState.viewSettings.sizeViewItemLimit,
 		],
 	);
 
@@ -619,11 +643,22 @@ export function ExplorerProvider({
 
 	const setViewSettings = useCallback(
 		(settings: Partial<ViewSettings>) => {
+			// Update tab state for tab-specific settings
 			updateExplorerState(activeTabId, {
 				gridSize: settings.gridSize ?? tabState.gridSize,
 				gapSize: settings.gapSize ?? tabState.gapSize,
 				foldersFirst: settings.foldersFirst ?? tabState.foldersFirst,
 			});
+
+			// Update UI state for global settings (showFileSize, sizeViewItemLimit)
+			if (settings.showFileSize !== undefined || settings.sizeViewItemLimit !== undefined) {
+				uiDispatch({
+					type: "SET_VIEW_SETTINGS",
+					settings,
+				});
+			}
+
+			// Save to preferences
 			viewPrefs.setPreferences(spaceKey, {
 				viewSettings: { ...viewSettings, ...settings },
 			});
@@ -708,6 +743,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
+			sizeViewTransform,
+			setSizeViewTransform,
 			sidebarVisible: uiState.sidebarVisible,
 			setSidebarVisible,
 			inspectorVisible: uiState.inspectorVisible,
@@ -748,6 +785,8 @@ export function ExplorerProvider({
 			setColumnStack,
 			scrollPosition,
 			setScrollPosition,
+			sizeViewTransform,
+			setSizeViewTransform,
 			uiState.sidebarVisible,
 			setSidebarVisible,
 			uiState.inspectorVisible,
