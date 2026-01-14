@@ -1,8 +1,8 @@
-import Ball from '@sd/assets/icons/Ball.png';
+import {Lightning} from '@phosphor-icons/react';
 import ComputeIcon from '@sd/assets/icons/Compute.png';
-import DevicesIcon from '@sd/assets/icons/Devices.png';
-import HDD from '@sd/assets/icons/HDD.png';
 import IndexedIcon from '@sd/assets/icons/Indexed.png';
+import MobileIcon from '@sd/assets/icons/Mobile.png';
+import StorageIcon from '@sd/assets/icons/Storage.png';
 import {motion} from 'framer-motion';
 
 interface HeroStatsProps {
@@ -15,12 +15,23 @@ interface HeroStatsProps {
 	uniqueContentCount: number;
 }
 
-function formatBytes(bytes: number): string {
-	if (bytes === 0) return '0 B';
+function formatBytes(bytes: number): {value: string; unit: string} {
+	if (bytes === 0) return {value: '0', unit: 'B'};
 	const k = 1024;
 	const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+	return {
+		value: (bytes / Math.pow(k, i)).toFixed(1),
+		unit: sizes[i]
+	};
+}
+
+function getTOPSRank(tops: number): {label: string} {
+	if (tops >= 100) return {label: 'Extreme'};
+	if (tops >= 70) return {label: 'Very High'};
+	if (tops >= 40) return {label: 'High'};
+	if (tops >= 20) return {label: 'Moderate'};
+	return {label: 'Low'};
 }
 
 export function HeroStats({
@@ -34,6 +45,11 @@ export function HeroStats({
 	const usagePercent =
 		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
+	const storageFormatted = formatBytes(totalStorage);
+	const usedFormatted = formatBytes(usedStorage);
+	const topsValue = 70;
+	const topsRank = getTOPSRank(topsValue);
+
 	return (
 		<div className="px-8 py-8">
 			<div className="grid grid-cols-2 gap-8 lg:grid-cols-4">
@@ -41,18 +57,28 @@ export function HeroStats({
 				<StatCard
 					icon={
 						<img
-							src={HDD}
+							src={StorageIcon}
 							alt="Storage"
-							className="size-8 opacity-80"
+							className="size-10 opacity-80"
 							// style={{ filter: 'drop-shadow(0 0 4px rgba(217, 70, 239, 0.4))' }}
 						/>
 					}
 					label="Total Storage"
-					value={formatBytes(totalStorage)}
+					value={
+						<>
+							{storageFormatted.value}{' '}
+							<span className="text-ink-faint text-xl">
+								{storageFormatted.unit}
+							</span>
+						</>
+					}
 					subtitle={
 						<>
 							<span className="text-accent">
-								{formatBytes(usedStorage)}
+								{usedFormatted.value}{' '}
+								<span className="text-accent/70 text-[10px]">
+									{usedFormatted.unit}
+								</span>
 							</span>{' '}
 							used
 						</>
@@ -67,7 +93,7 @@ export function HeroStats({
 						<img
 							src={IndexedIcon}
 							alt="Files"
-							className="size-8 opacity-80"
+							className="size-10 opacity-80"
 						/>
 					}
 					label="Files Indexed"
@@ -80,9 +106,9 @@ export function HeroStats({
 				<StatCard
 					icon={
 						<img
-							src={DevicesIcon}
+							src={MobileIcon}
 							alt="Devices"
-							className="size-8 opacity-80"
+							className="size-10 opacity-80"
 						/>
 					}
 					label="Connected Devices"
@@ -97,12 +123,26 @@ export function HeroStats({
 						<img
 							src={ComputeIcon}
 							alt="Compute"
-							className="size-8 opacity-80"
+							className="size-10 opacity-80"
 						/>
 					}
 					label="AI Compute Power"
-					value="70 TOPS"
-					subtitle="across all devices"
+					value={
+						<>
+							{topsValue}{' '}
+							<span className="text-ink-faint text-xl">TOPS</span>
+						</>
+					}
+					subtitle={
+						<span className="flex items-center gap-1">
+							<Lightning
+								size={12}
+								weight="bold"
+								className="text-ink-faint"
+							/>
+							{topsRank.label}
+						</span>
+					}
 					color="from-purple-500 to-pink-500"
 				/>
 			</div>
@@ -113,7 +153,7 @@ export function HeroStats({
 interface StatCardProps {
 	icon: React.ReactNode;
 	label: string;
-	value: string | number;
+	value: string | number | React.ReactNode;
 	subtitle: React.ReactNode;
 	progress?: number;
 	pulse?: boolean;
@@ -139,28 +179,25 @@ function StatCard({
 				</div>
 			)}
 
-			<div className="flex items-start gap-3">
-				<div className="relative mt-2">
-					{icon}
-					{pulse && (
-						<motion.div
-							animate={{
-								scale: [1, 1.2, 1],
-								opacity: [1, 0.5, 1]
-							}}
-							transition={{duration: 2, repeat: Infinity}}
-							className="bg-accent absolute -right-1 -top-1 size-2 rounded-full"
-						/>
-					)}
-				</div>
-
-				<div>
-					<div className="text-ink mb-1 text-3xl font-bold">
-						{value}
+			<div>
+				<div className="text-ink mb-1 flex items-center gap-3 text-3xl font-bold">
+					<div className="relative">
+						{icon}
+						{pulse && (
+							<motion.div
+								animate={{
+									scale: [1, 1.2, 1],
+									opacity: [1, 0.5, 1]
+								}}
+								transition={{duration: 2, repeat: Infinity}}
+								className="bg-accent absolute -right-1 -top-1 size-2 rounded-full"
+							/>
+						)}
 					</div>
-					<div className="text-ink-dull mb-1 text-xs">{label}</div>
-					<div className="text-ink-faint text-xs">{subtitle}</div>
+					{value}
 				</div>
+				<div className="text-ink-dull mb-1 text-xs">{label}</div>
+				<div className="text-ink-faint text-xs">{subtitle}</div>
 			</div>
 		</div>
 	);

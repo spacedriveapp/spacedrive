@@ -38,6 +38,8 @@ interface SelectionContextValue {
 	cancelRename: () => void;
 	saveRename: (newName: string) => Promise<void>;
 	isRenaming: boolean;
+	// Restore selection from available files (called by views when files load)
+	restoreSelectionFromFiles: (files: File[]) => void;
 }
 
 const SelectionContext = createContext<SelectionContextValue | null>(null);
@@ -63,35 +65,15 @@ export function SelectionProvider({
 	const [lastSelectedIndex, setLastSelectedIndex] = useState(-1);
 	const [renamingFileId, setRenamingFileId] = useState<string | null>(null);
 
-	// Load selection from TabManager when activeTabId changes
+	// Track the stored IDs for the active tab (separate from File objects)
+	const storedIds = getSelectionIds(activeTabId);
+
+	// Clear selection when activeTabId changes (we'll restore it when files load)
 	useEffect(() => {
-		const storedIds = getSelectionIds(activeTabId);
-
-		if (storedIds.length === 0) {
-			// Clear selection if tab has no selection
-			setSelectedFilesInternal([]);
-			setFocusedIndex(-1);
-			setLastSelectedIndex(-1);
-		} else {
-			// Keep existing File objects if they match the stored IDs
-			// This prevents losing File objects when TabManager state updates
-			setSelectedFilesInternal((prev) => {
-				const prevIds = new Set(prev.map((f) => f.id));
-				const storedIdSet = new Set(storedIds);
-
-				// If the IDs match, keep the existing objects
-				if (
-					prevIds.size === storedIds.length &&
-					storedIds.every((id) => prevIds.has(id))
-				) {
-					return prev;
-				}
-
-				// Otherwise, filter to only keep files that are in the stored IDs
-				return prev.filter((f) => storedIdSet.has(f.id));
-			});
-		}
-	}, [activeTabId, getSelectionIds]);
+		setSelectedFilesInternal([]);
+		setFocusedIndex(-1);
+		setLastSelectedIndex(-1);
+	}, [activeTabId]);
 
 	// Wrapper for setSelectedFiles that syncs to TabManager
 	// Supports both direct values and updater functions
@@ -301,16 +283,52 @@ export function SelectionProvider({
 		}
 	}, [selectedFiles, renamingFileId]);
 
-	// Create a Set of selected file IDs for O(1) lookup
+	// Use stored IDs for selection checking (allows highlighting before File objects are restored)
 	const selectedFileIds = useMemo(
-		() => new Set(selectedFiles.map((f) => f.id)),
-		[selectedFiles],
+		() => new Set(storedIds),
+		[storedIds],
 	);
 
 	// Stable function for checking if a file is selected
 	const isSelected = useCallback(
 		(fileId: string) => selectedFileIds.has(fileId),
 		[selectedFileIds],
+	);
+
+	// Restore File objects for selected IDs when files become available
+	const restoreSelectionFromFiles = useCallback(
+		(files: File[]) => {
+			if (storedIds.length === 0) return;
+
+			const fileMap = new Map(files.map((f) => [f.id, f]));
+			const matchingFiles: File[] = [];
+
+			for (const id of storedIds) {
+				const file = fileMap.get(id);
+				if (file) {
+					matchingFiles.push(file);
+				}
+			}
+
+			// Only update if we found matching files and they're different from current
+			if (matchingFiles.length > 0) {
+				setSelectedFilesInternal((prev) => {
+					const prevIds = new Set(prev.map((f) => f.id));
+					const newIds = new Set(matchingFiles.map((f) => f.id));
+
+					// Skip update if selection already matches
+					if (
+						prevIds.size === newIds.size &&
+						[...newIds].every((id) => prevIds.has(id))
+					) {
+						return prev;
+					}
+
+					return matchingFiles;
+				});
+			}
+		},
+		[storedIds],
 	);
 
 	const isRenaming = renamingFileId !== null;
@@ -333,11 +351,14 @@ export function SelectionProvider({
 			cancelRename,
 			saveRename,
 			isRenaming,
+			// Restore selection
+			restoreSelectionFromFiles,
 		}),
 		[
 			selectedFiles,
 			selectedFileIds,
 			isSelected,
+			setSelectedFiles,
 			selectFile,
 			clearSelection,
 			selectAll,
@@ -348,6 +369,7 @@ export function SelectionProvider({
 			cancelRename,
 			saveRename,
 			isRenaming,
+			restoreSelectionFromFiles,
 		],
 	);
 

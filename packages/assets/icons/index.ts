@@ -171,6 +171,7 @@ import SilverBox from './SilverBox.png';
 import Spacedrop_Light from './Spacedrop_Light.png';
 import Spacedrop1 from './Spacedrop-1.png';
 import Spacedrop from './Spacedrop.png';
+import Storage from './Storage.png';
 import Sync_Light from './Sync_Light.png';
 import Sync from './Sync.png';
 import Tablet_Light from './Tablet_Light.png';
@@ -187,7 +188,6 @@ import TextAlt_Light from './TextAlt_Light.png';
 import TextAlt from './TextAlt.png';
 import TexturedMesh_Light from './TexturedMesh_Light.png';
 import TexturedMesh from './TexturedMesh.png';
-import TheDrive from './TheDrive.png';
 import Trash_Light from './Trash_Light.png';
 import Trash from './Trash.png';
 import Undefined_Light from './Undefined_Light.png';
@@ -370,6 +370,7 @@ export {
 	Spacedrop1,
 	Spacedrop,
 	Spacedrop_Light,
+	Storage,
 	Sync,
 	Sync_Light,
 	Tablet,
@@ -386,7 +387,6 @@ export {
 	Text_txt,
 	TexturedMesh,
 	TexturedMesh_Light,
-	TheDrive,
 	Trash,
 	Trash_Light,
 	Undefined,

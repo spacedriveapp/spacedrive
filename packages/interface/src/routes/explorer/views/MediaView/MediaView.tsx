@@ -26,6 +26,7 @@ export function MediaView() {
 		setSelectedFiles,
 		isSelected,
 		selectedFileIds,
+		restoreSelectionFromFiles,
 	} = useSelection();
 
 	// Set default sort to "datetaken" when entering media view
@@ -143,6 +144,11 @@ export function MediaView() {
 	useEffect(() => {
 		setCurrentFiles(files);
 	}, [files, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(files);
+	}, [files, restoreSelectionFromFiles]);
 
 	// Check if element is ready when files load
 	useEffect(() => {

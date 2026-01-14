@@ -315,7 +315,7 @@ export function SizeView() {
 	const { tabs } = useTabManager();
 
 
-	const {selectedFiles, selectFile} = useSelection();
+	const {selectedFiles, selectFile, restoreSelectionFromFiles} = useSelection();
 	const serverContext = useServer();
 
 	// Calculate sidebar and inspector widths
@@ -381,6 +381,11 @@ export function SizeView() {
 	useEffect(() => {
 		setCurrentFiles(directoryQuery.data?.files || []);
 	}, [directoryQuery.data?.files, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(directoryQuery.data?.files || []);
+	}, [directoryQuery.data?.files, restoreSelectionFromFiles]);
 
 	const svgRef = useRef<SVGSVGElement>(null);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<

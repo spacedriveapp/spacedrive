@@ -1,5 +1,9 @@
 import React from "react";
-import { View, Text } from "react-native";
+import { View, Text, Image } from "react-native";
+import NodeIcon from "@sd/assets/icons/Node.png";
+import IndexedIcon from "@sd/assets/icons/Indexed.png";
+import ServerIcon from "@sd/assets/icons/Server.png";
+import ComputeIcon from "@sd/assets/icons/Compute.png";
 
 interface HeroStatsProps {
 	totalStorage: number; // bytes
@@ -11,12 +15,23 @@ interface HeroStatsProps {
 	uniqueContentCount: number;
 }
 
-function formatBytes(bytes: number): string {
-	if (bytes === 0) return "0 B";
+function formatBytes(bytes: number): { value: string; unit: string } {
+	if (bytes === 0) return { value: "0", unit: "B" };
 	const k = 1024;
 	const sizes = ["B", "KB", "MB", "GB", "TB", "PB"];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
-	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
+	return {
+		value: (bytes / Math.pow(k, i)).toFixed(1),
+		unit: sizes[i],
+	};
+}
+
+function getTOPSRank(tops: number): { label: string } {
+	if (tops >= 100) return { label: "Extreme" };
+	if (tops >= 70) return { label: "Very High" };
+	if (tops >= 40) return { label: "High" };
+	if (tops >= 20) return { label: "Moderate" };
+	return { label: "Low" };
 }
 
 export function HeroStats({
@@ -30,36 +45,71 @@ export function HeroStats({
 	const usagePercent =
 		totalStorage > 0 ? (usedStorage / totalStorage) * 100 : 0;
 
+	const storageFormatted = formatBytes(totalStorage);
+	const usedFormatted = formatBytes(usedStorage);
+	const topsValue = 70;
+	const topsRank = getTOPSRank(topsValue);
+
 	return (
-		<View className="bg-app-box border border-app-line rounded-2xl p-6 mb-6">
-			<View className="flex-row flex-wrap gap-4">
+		<View className="px-8 pt-8 pb-12">
+			<View className="flex-row flex-wrap gap-8">
 				{/* Total Storage */}
 				<StatCard
+					icon={NodeIcon}
 					label="Total Storage"
-					value={formatBytes(totalStorage)}
-					subtitle={`${formatBytes(usedStorage)} used`}
+					value={
+						<>
+							<Text className="text-ink text-3xl font-bold">
+								{storageFormatted.value}{" "}
+								<Text className="text-ink-faint text-xl">
+									{storageFormatted.unit}
+								</Text>
+							</Text>
+						</>
+					}
+					subtitle={
+						<>
+							<Text className="text-accent">
+								{usedFormatted.value}{" "}
+								<Text className="text-accent/70 text-[10px]">
+									{usedFormatted.unit}
+								</Text>
+							</Text>{" "}
+							used
+						</>
+					}
 					progress={usagePercent}
 				/>
 
 				{/* Files */}
 				<StatCard
+					icon={IndexedIcon}
 					label="Files Indexed"
 					value={totalFiles.toLocaleString()}
-					subtitle={`${uniqueContentCount.toLocaleString()} unique`}
+					subtitle={`${uniqueContentCount.toLocaleString()} unique files`}
 				/>
 
 				{/* Devices */}
 				<StatCard
-					label="Devices"
-					value={deviceCount.toString()}
-					subtitle="connected"
+					icon={ServerIcon}
+					label="Connected Devices"
+					value={deviceCount}
+					subtitle="registered in library"
 				/>
 
-				{/* Locations */}
+				{/* AI Compute Power */}
 				<StatCard
-					label="Locations"
-					value={locationCount.toString()}
-					subtitle="tracked"
+					icon={ComputeIcon}
+					label="AI Compute Power"
+					value={
+						<>
+							<Text className="text-ink text-3xl font-bold">
+								{topsValue}{" "}
+								<Text className="text-ink-faint text-xl">TOPS</Text>
+							</Text>
+						</>
+					}
+					subtitle={topsRank.label}
 				/>
 			</View>
 		</View>
@@ -67,28 +117,32 @@ export function HeroStats({
 }
 
 interface StatCardProps {
+	icon: any;
 	label: string;
-	value: string | number;
-	subtitle: string;
+	value: string | number | React.ReactNode;
+	subtitle: React.ReactNode | string;
 	progress?: number;
 }
 
-function StatCard({ label, value, subtitle, progress }: StatCardProps) {
+function StatCard({ icon, label, value, subtitle, progress }: StatCardProps) {
 	return (
 		<View className="flex-1 min-w-[140px]">
-			<View className="mb-2">
-				<Text className="text-2xl font-bold text-ink">{value}</Text>
-				<Text className="text-xs text-ink-dull mt-0.5">{label}</Text>
-				<Text className="text-xs text-ink-faint">{subtitle}</Text>
+			<View className="mb-1 flex-row items-center gap-3">
+				<Image
+					source={icon}
+					className="w-8 h-8 opacity-80"
+					style={{ resizeMode: "contain" }}
+				/>
+				{typeof value === 'string' || typeof value === 'number' ? (
+					<Text className="text-ink text-3xl font-bold">
+						{value}
+					</Text>
+				) : (
+					value
+				)}
 			</View>
-			{progress !== undefined && (
-				<View className="h-1.5 bg-app-darkBox rounded-full overflow-hidden">
-					<View
-						className="h-full bg-accent rounded-full"
-						style={{ width: `${Math.min(progress, 100)}%` }}
-					/>
-				</View>
-			)}
+			<Text className="text-ink-dull text-xs mb-1">{label}</Text>
+			<Text className="text-ink-faint text-xs">{subtitle}</Text>
 		</View>
 	);
 }

@@ -16,6 +16,38 @@ pub async fn reveal_file(path: String) -> Result<(), String> {
 	})
 }
 
+/// Share files using the native system share sheet (macOS/iOS only)
+#[tauri::command]
+pub async fn share_files(paths: Vec<String>) -> Result<(), String> {
+	#[cfg(target_os = "macos")]
+	{
+		// Verify all paths exist
+		for path in &paths {
+			let path_buf = PathBuf::from(path);
+			if !path_buf.exists() {
+				return Err(format!("Path does not exist: {}", path));
+			}
+		}
+
+		// Join paths with null separator (similar to open_file_paths_with pattern)
+		let joined_paths = paths.join("\0");
+
+		unsafe {
+			let success = sd_desktop_macos::share_items(&joined_paths.as_str().into());
+			if success {
+				Ok(())
+			} else {
+				Err("Failed to show share sheet".to_string())
+			}
+		}
+	}
+
+	#[cfg(not(target_os = "macos"))]
+	{
+		Err("Share sheet is only supported on macOS".to_string())
+	}
+}
+
 /// Get the physical path to a sidecar file
 #[tauri::command]
 pub async fn get_sidecar_path(

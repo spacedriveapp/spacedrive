@@ -19,6 +19,7 @@ import {
 	Pencil,
 	FolderPlus,
 	ArrowSquareOut,
+	ShareNetwork,
 } from "@phosphor-icons/react";
 import type { File } from "@sd/ts-client";
 import { useContextMenu } from "../../../hooks/useContextMenu";
@@ -159,6 +160,29 @@ export function useFileContextMenu({
 				keybind: "⌘⇧R",
 				condition: () =>
 					!!file && "Physical" in file.sd_path && !!platform.revealFile,
+			},
+			{
+				icon: ShareNetwork,
+				label:
+					selected && selectedFiles.length > 1
+						? `Share ${selectedFiles.length} items`
+						: "Share",
+				onClick: async () => {
+					const paths = physicalPaths;
+					if (paths.length === 0) {
+						console.warn("No physical files to share");
+						return;
+					}
+					if (platform.shareFiles) {
+						try {
+							await platform.shareFiles(paths);
+						} catch (err) {
+							console.error("Failed to share files:", err);
+							alert(`Failed to share: ${err}`);
+						}
+					}
+				},
+				condition: () => physicalPaths.length > 0 && !!platform.shareFiles,
 			},
 			{ type: "separator" },
 			{

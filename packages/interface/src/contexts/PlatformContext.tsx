@@ -40,6 +40,9 @@ export type Platform = {
 	/** Reveal a file in the native file manager (Finder on macOS, Explorer on Windows, etc.) */
 	revealFile?(filePath: string): Promise<void>;
 
+	/** Share files using native system share sheet (macOS/iOS only) */
+	shareFiles?(filePaths: string[]): Promise<void>;
+
 	/** Get applications that can open the given file paths (intersection for multiple files) */
 	getAppsForPaths?(paths: string[]): Promise<OpenWithApp[]>;
 

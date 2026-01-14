@@ -1977,6 +1977,7 @@ fn main() {
 			drag::get_drag_session,
 			drag::force_clear_drag_state,
 			files::reveal_file,
+			files::share_files,
 			files::get_sidecar_path,
 			file_opening::get_apps_for_paths,
 			file_opening::open_path_default,
