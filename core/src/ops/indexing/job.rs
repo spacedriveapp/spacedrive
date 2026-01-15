@@ -208,11 +208,16 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
-		// Volume indexing should emit events even when ephemeral
+		// Database persistence only for truly persistent jobs
+		!self.config.is_ephemeral() && !self.config.run_in_background
+	}
+
+	fn should_emit_events(&self) -> bool {
+		// Emit events for persistent jobs AND volume indexing jobs
 		if self.config.is_volume_indexing {
 			return true;
 		}
-		!self.config.is_ephemeral() && !self.config.run_in_background
+		self.should_persist()
 	}
 }
 
@@ -889,7 +894,32 @@ impl IndexerJob {
 			root_path.to_path_buf(),
 		);
 
+		let total_batches = state.entry_batches.len();
+		let mut batch_number = 0;
+
 		while let Some(batch) = state.entry_batches.pop() {
+			ctx.check_interrupt().await?;
+
+			batch_number += 1;
+
+			// Emit progress
+			let indexer_progress = IndexerProgress {
+				phase: IndexPhase::Processing {
+					batch: batch_number,
+					total_batches,
+				},
+				current_path: format!("Batch {}/{}", batch_number, total_batches),
+				total_found: state.stats,
+				processing_rate: state.calculate_rate(),
+				estimated_remaining: state.estimate_remaining(),
+				scope: None,
+				persistence: None,
+				is_ephemeral: false,
+				action_context: None,
+				volume_total_capacity: state.volume_total_capacity,
+			};
+			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
+
 			for entry in batch {
 				let _entry_id = persistence.store_entry(&entry, None, root_path).await?;
 			}

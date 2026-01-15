@@ -167,10 +167,11 @@ impl JobManager {
 	) -> JobResult<JobHandle> {
 		let job_id = JobId::new();
 		let should_persist = erased_job.should_persist();
+		let should_emit_events = erased_job.should_emit_events();
 
 		info!(
-			"Dispatching job {} ({}): {} [persist: {}]",
-			job_id, job_name, job_name, should_persist
+			"Dispatching job {} ({}): {} [persist: {}, emit_events: {}]",
+			job_id, job_name, job_name, should_persist, should_emit_events
 		);
 
 		// Only persist to database if the job should be persisted
@@ -212,12 +213,12 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task
-		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
 		let job_id_clone = job_id.clone();
 		let job_type_str = job_name.to_string();
+		let should_emit_events_clone = should_emit_events;
 		let device_id = self
 			.context
 			.device_manager
@@ -232,8 +233,8 @@ impl JobManager {
 				*latest_progress_clone.lock().await = Some(progress.clone());
 				let _ = broadcast_tx_clone.send(progress.clone());
 
-				// Skip event updates for ephemeral jobs
-				if !should_persist {
+				// Skip event emission for background jobs
+				if !should_emit_events_clone {
 					continue;
 				}
 
@@ -539,6 +540,7 @@ impl JobManager {
 	{
 		let job_id = JobId::new();
 		let should_persist = job.should_persist();
+		let should_emit_events = job.should_emit_events();
 
 		if let Some(ref ctx) = action_context {
 			info!(
@@ -607,13 +609,13 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task with batching and throttling
-		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
 		let job_id_clone = job_id.clone();
 		let job_type_str = J::NAME;
 		let job_db_clone = self.db.clone();
+		let should_emit_events_clone = should_emit_events;
 		let device_id = self
 			.context
 			.device_manager
@@ -635,17 +637,19 @@ impl JobManager {
 				// Ignore errors if no one is listening
 				let _ = broadcast_tx_clone.send(progress.clone());
 
-				// Skip database and event updates for ephemeral jobs
-				if !should_persist {
-					continue;
+				// Database persistence (only for non-ephemeral jobs)
+				if should_persist {
+					if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
+						if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
+							debug!("Failed to persist job progress to database: {}", e);
+						}
+						last_db_update = std::time::Instant::now();
+					}
 				}
 
-				// Persist progress to database with throttling
-				if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
-					if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
-						debug!("Failed to persist job progress to database: {}", e);
-					}
-					last_db_update = std::time::Instant::now();
+				// Event emission (for both persistent and volume indexing jobs)
+				if !should_emit_events_clone {
+					continue;
 				}
 
 				// Throttle event emission to prevent flooding

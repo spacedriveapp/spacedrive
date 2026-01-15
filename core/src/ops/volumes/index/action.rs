@@ -4,13 +4,17 @@ use super::{IndexVolumeInput, IndexVolumeOutput};
 use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
-	infra::action::{error::ActionError, LibraryAction},
+	infra::{
+		action::{context::ActionContext, error::ActionError, LibraryAction},
+		job::types::JobPriority,
+	},
 	library::Library,
 	ops::indexing::job::{IndexerJob, IndexerJobConfig},
 	volume::VolumeFingerprint,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -102,10 +106,22 @@ impl LibraryAction for IndexVolumeAction {
 			);
 		}
 
-		// 7. Dispatch job
+		// 7. Dispatch job with volume fingerprint in action context
+		let action_context = ActionContext::new(
+			"volumes.index",
+			json!({
+				"fingerprint": fingerprint.to_string(),
+				"scope": format!("{:?}", self.input.scope),
+			}),
+			json!({
+				"volume_fingerprint": fingerprint.to_string(),
+				"volume_name": volume.name,
+			}),
+		);
+
 		let job_handle = library
 			.jobs()
-			.dispatch(indexer_job)
+			.dispatch_with_priority(indexer_job, JobPriority::NORMAL, Some(action_context))
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to dispatch job: {}", e)))?;
 

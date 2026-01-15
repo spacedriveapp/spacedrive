@@ -31,9 +31,9 @@ pub async fn search_ephemeral_index(
 		}
 	};
 
-	// Get ephemeral index
+	// Get ephemeral index (use get_for_search to check parent paths)
 	let index_arc = cache
-		.get_for_path(&local_path)
+		.get_for_search(&local_path)
 		.ok_or_else(|| QueryError::Internal("Ephemeral index not found".to_string()))?;
 	let index = index_arc.read().await;
 
