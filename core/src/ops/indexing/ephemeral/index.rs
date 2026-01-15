@@ -201,6 +201,23 @@ impl EphemeralIndex {
 		Ok(Some(content_kind))
 	}
 
+	/// Add multiple entries in a batch (faster than individual add_entry calls)
+	///
+	/// Acquires write lock once for the entire batch instead of per-entry.
+	pub fn add_entries_batch(
+		&mut self,
+		entries: Vec<(PathBuf, Uuid, EntryMetadata)>,
+	) -> std::io::Result<Vec<Option<ContentKind>>> {
+		let mut results = Vec::with_capacity(entries.len());
+
+		for (path, uuid, metadata) in entries {
+			let result = self.add_entry(path, uuid, metadata)?;
+			results.push(result);
+		}
+
+		Ok(results)
+	}
+
 	pub fn get_entry(&mut self, path: &PathBuf) -> Option<EntryMetadata> {
 		let id = self.path_index.get(path)?;
 		let node = self.arena.get(*id)?;

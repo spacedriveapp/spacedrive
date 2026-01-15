@@ -143,7 +143,8 @@ async fn test_copy_with_ephemeral_index() -> anyhow::Result<()> {
 	};
 
 	let dest_sd_path = SdPath::local(dest_dir.clone());
-	let indexer_config = IndexerJobConfig::ephemeral_browse(dest_sd_path, IndexScope::Current);
+	let indexer_config =
+		IndexerJobConfig::ephemeral_browse(dest_sd_path, IndexScope::Current, false);
 	let indexer_job = IndexerJob::new(indexer_config);
 
 	tracing::info!("Indexing destination directory (ephemeral)");

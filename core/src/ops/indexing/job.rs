@@ -882,18 +882,13 @@ impl IndexerJob {
 		root_path: &Path,
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	) -> JobResult<()> {
-		use super::persistence::PersistenceFactory;
+		use super::database_storage::EntryMetadata;
+		use super::state::EntryKind as StateEntryKind;
+		use crate::domain::{file::EntryKind as DomainEntryKind, File};
 
 		ctx.log("Starting ephemeral processing");
 
-		let event_bus = Some(ctx.library().event_bus().clone());
-
-		let persistence = PersistenceFactory::ephemeral(
-			ephemeral_index.clone(),
-			event_bus,
-			root_path.to_path_buf(),
-		);
-
+		let event_bus = ctx.library().event_bus().clone();
 		let total_batches = state.entry_batches.len();
 		let mut batch_number = 0;
 
@@ -920,8 +915,121 @@ impl IndexerJob {
 			};
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-			for entry in batch {
-				let _entry_id = persistence.store_entry(&entry, None, root_path).await?;
+			// Convert DirEntry to (PathBuf, Uuid, EntryMetadata) tuples
+			let entries_with_metadata: Vec<(PathBuf, Uuid, EntryMetadata)> = batch
+				.iter()
+				.map(|entry| {
+					let metadata = EntryMetadata {
+						path: entry.path.clone(),
+						kind: entry.kind,
+						size: entry.size,
+						modified: entry.modified,
+						accessed: None,
+						created: None, // DirEntry doesn't have created time
+						inode: entry.inode,
+						permissions: None,
+						is_hidden: entry
+							.path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map(|n| n.starts_with('.'))
+							.unwrap_or(false),
+					};
+					(entry.path.clone(), Uuid::new_v4(), metadata)
+				})
+				.collect();
+
+			// Batch add to index (single write lock acquisition)
+			let content_kinds = {
+				let mut index = ephemeral_index.write().await;
+				index.add_entries_batch(entries_with_metadata)?
+			};
+
+			// Collect files for ResourceChangedBatch event
+			let mut files_for_event = Vec::new();
+
+			for (entry, content_kind_opt) in batch.iter().zip(content_kinds.iter()) {
+				if let Some(content_kind) = content_kind_opt {
+					// Skip hidden files from events
+					let is_hidden = entry
+						.path
+						.file_name()
+						.and_then(|n| n.to_str())
+						.map(|n| n.starts_with('.'))
+						.unwrap_or(false);
+
+					if !is_hidden {
+						// Build File for event
+						let uuid = {
+							let index = ephemeral_index.read().await;
+							index.get_entry_uuid(&entry.path)
+						};
+
+						if let Some(uuid) = uuid {
+							use chrono::{DateTime, Utc};
+
+							let file = File {
+								id: uuid,
+								sd_path: crate::domain::addressing::SdPath::local(entry.path.clone()),
+								kind: match entry.kind {
+									StateEntryKind::File => DomainEntryKind::File,
+									StateEntryKind::Directory => DomainEntryKind::Directory,
+									StateEntryKind::Symlink => DomainEntryKind::Symlink,
+								},
+								name: entry
+									.path
+									.file_name()
+									.unwrap_or_default()
+									.to_string_lossy()
+									.to_string(),
+								extension: entry
+									.path
+									.extension()
+									.and_then(|e| e.to_str())
+									.map(String::from),
+								size: entry.size,
+								content_identity: None,
+								alternate_paths: vec![],
+								tags: vec![],
+								sidecars: vec![],
+								image_media_data: None,
+								video_media_data: None,
+								audio_media_data: None,
+								created_at: Utc::now(), // Unknown, use current time
+								modified_at: entry
+									.modified
+									.and_then(|t| DateTime::from_timestamp(
+										t.duration_since(std::time::UNIX_EPOCH)
+											.ok()?
+											.as_secs() as i64,
+										0,
+									))
+									.unwrap_or_else(Utc::now),
+								accessed_at: None,
+								content_kind: *content_kind,
+								is_local: true,
+								duration_seconds: None,
+							};
+							files_for_event.push(file);
+						}
+					}
+				}
+			}
+
+			// Emit single ResourceChangedBatch event for entire batch
+			if !files_for_event.is_empty() {
+				event_bus.emit(crate::infra::event::Event::ResourceChangedBatch {
+					resource_type: "file".to_string(),
+					resources: serde_json::to_value(&files_for_event).unwrap_or_default(),
+					metadata: Some(crate::infra::event::ResourceMetadata {
+						no_merge_fields: vec![],
+						alternate_ids: vec![],
+						affected_paths: files_for_event
+							.iter()
+							.map(|f| f.sd_path.clone())
+							.collect(),
+					}),
+				});
 			}
 		}
 

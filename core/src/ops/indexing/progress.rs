@@ -102,27 +102,18 @@ impl ToGenericProgress for IndexerProgress {
 			None
 		};
 
-		let final_completion = completion_info;
+		// Use actual file counts for completion (not batch numbers)
+		let completed_count = self.total_found.files + self.total_found.dirs;
 
 		let mut progress = GenericProgress::new(percentage, &phase_name, &phase_message)
 			.with_bytes(
 				self.total_found.bytes,
 				self.volume_total_capacity.unwrap_or(self.total_found.bytes),
 			)
+			.with_completion(completed_count, 0) // Total unknown during indexing
 			.with_performance(self.processing_rate, self.estimated_remaining, None)
 			.with_errors(self.total_found.errors, 0)
 			.with_metadata(self);
-
-		// Finalizing phase uses manual completion to preserve custom percentage ranges.
-		match &self.phase {
-			IndexPhase::Finalizing { .. } => {
-				progress.completion.completed = final_completion.0;
-				progress.completion.total = final_completion.1;
-			}
-			_ => {
-				progress = progress.with_completion(final_completion.0, final_completion.1);
-			}
-		}
 
 		if let Some(path) = current_path {
 			progress = progress.with_current_path(path);
