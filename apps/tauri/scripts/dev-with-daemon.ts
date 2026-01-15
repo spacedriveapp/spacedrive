@@ -67,30 +67,6 @@ process.on("SIGINT", cleanup);
 process.on("SIGTERM", cleanup);
 
 async function main() {
-    console.log("Building daemon (dev profile)...");
-    console.log("Project root:", PROJECT_ROOT);
-    console.log("Daemon binary:", DAEMON_BIN);
-
-    // Build daemon
-    // On Windows, the binary target name is still just "sd-daemon" (Cargo handles the .exe)
-    const build = spawn("cargo", ["build", "--bin", "sd-daemon"], {
-        cwd: PROJECT_ROOT,
-        stdio: "inherit",
-        shell: IS_WIN, // shell: true is often needed on Windows for spawn to work correctly
-    });
-
-    await new Promise<void>((resolve, reject) => {
-        build.on("exit", (code) => {
-            if (code === 0) {
-                resolve();
-            } else {
-                reject(new Error(`Daemon build failed with code ${code}`));
-            }
-        });
-    });
-
-    console.log("Daemon built successfully");
-
     // Check if daemon is already running by trying to connect to TCP port
     let daemonAlreadyRunning = false;
     console.log(`Checking if daemon is running on ${DAEMON_ADDR}...`);
@@ -114,9 +90,32 @@ async function main() {
     }
 
     if (daemonAlreadyRunning) {
-        console.log("Daemon already running, will connect to existing instance");
+        console.log("Daemon already running, skipping build and using existing instance");
         startedDaemon = false;
     } else {
+        console.log("Building daemon (dev profile)...");
+        console.log("Project root:", PROJECT_ROOT);
+        console.log("Daemon binary:", DAEMON_BIN);
+
+        // Build daemon
+        // On Windows, the binary target name is still just "sd-daemon" (Cargo handles the .exe)
+        const build = spawn("cargo", ["build", "--bin", "sd-daemon"], {
+            cwd: PROJECT_ROOT,
+            stdio: "inherit",
+            shell: IS_WIN, // shell: true is often needed on Windows for spawn to work correctly
+        });
+
+        await new Promise<void>((resolve, reject) => {
+            build.on("exit", (code) => {
+                if (code === 0) {
+                    resolve();
+                } else {
+                    reject(new Error(`Daemon build failed with code ${code}`));
+                }
+            });
+        });
+
+        console.log("Daemon built successfully");
         // Start daemon
         console.log("Starting daemon...");
         startedDaemon = true;

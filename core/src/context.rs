@@ -4,6 +4,7 @@ use crate::{
 	config::JobLoggingConfig,
 	crypto::key_manager::KeyManager,
 	device::DeviceManager,
+	filetype::FileTypeRegistry,
 	infra::action::manager::ActionManager,
 	infra::event::EventBus,
 	infra::sync::TransactionManager,
@@ -36,6 +37,8 @@ pub struct CoreContext {
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Remote job cache for cross-device job visibility
 	pub remote_job_cache: Arc<RemoteJobCache>,
+	// File type registry (loaded once at startup, never changes)
+	pub file_type_registry: Arc<FileTypeRegistry>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -69,6 +72,7 @@ impl CoreContext {
 				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
 			),
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
+			file_type_registry: Arc::new(FileTypeRegistry::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
@@ -78,6 +82,11 @@ impl CoreContext {
 	/// Get the ephemeral index cache
 	pub fn ephemeral_cache(&self) -> &Arc<EphemeralIndexCache> {
 		&self.ephemeral_index_cache
+	}
+
+	/// Get the file type registry
+	pub fn file_type_registry(&self) -> &Arc<FileTypeRegistry> {
+		&self.file_type_registry
 	}
 
 	/// Get the library manager

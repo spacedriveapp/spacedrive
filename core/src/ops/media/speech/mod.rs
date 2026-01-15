@@ -131,11 +131,8 @@ fn format_srt_timestamp(seconds: f64) -> String {
 }
 
 /// Check if a file type supports speech-to-text based on content kind
-pub fn is_speech_supported(mime_type: &str) -> bool {
+pub fn is_speech_supported(mime_type: &str, registry: &crate::filetype::FileTypeRegistry) -> bool {
 	use crate::domain::ContentKind;
-	use crate::filetype::FileTypeRegistry;
-
-	let registry = FileTypeRegistry::new();
 
 	if let Some(file_type) = registry.get_by_mime(mime_type) {
 		// Speech-to-text supported for audio and video

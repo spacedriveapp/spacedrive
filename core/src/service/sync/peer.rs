@@ -2138,9 +2138,11 @@ impl PeerSync {
 			.record_entries_synced(&change.model_type, 1)
 			.await;
 
-		// Update PER-RESOURCE watermark
-		self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
-			.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
+				.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,
@@ -2242,13 +2244,15 @@ impl PeerSync {
 		let latency_ms = start_time.elapsed().as_millis() as u64;
 		self.metrics.record_apply_latency(latency_ms);
 
-		// Update PER-RESOURCE watermark (FIX: use resource-specific tracking)
-		self.update_resource_watermark(
-			change.device_id,
-			&change.model_type, // Resource type (location, entry, volume, etc.)
-			change.timestamp,
-		)
-		.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(
+				change.device_id,
+				&change.model_type, // Resource type (location, entry, volume, etc.)
+				change.timestamp,
+			)
+			.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,

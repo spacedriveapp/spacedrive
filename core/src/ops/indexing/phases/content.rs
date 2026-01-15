@@ -133,6 +133,7 @@ pub async fn run_content_phase(
 						entry_id,
 						&path,
 						content_hash.clone(),
+						ctx.library().core_context().file_type_registry(),
 					)
 					.await
 					{
