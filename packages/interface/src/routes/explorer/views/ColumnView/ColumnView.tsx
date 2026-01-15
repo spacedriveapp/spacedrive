@@ -8,6 +8,7 @@ import { Column } from "./Column";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
 import { isVirtualFile } from "../../utils/virtualFiles";
+import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 
 /** Get path string from SdPath for comparison */
 function getPathString(path: SdPath | null | undefined): string {
@@ -26,8 +27,13 @@ export function ColumnView() {
 		setColumnStack,
 		activeTabId,
 		setCurrentFiles,
+		mode,
 	} = useExplorer();
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
+
+	// Get files from centralized hook (handles search mode automatically)
+	const { files: searchFiles, source } = useExplorerFiles();
+	const isSearchMode = mode.type === "search";
 	const {
 		selectedFiles,
 		selectedFileIds,
@@ -201,13 +207,21 @@ export function ColumnView() {
 
 	// Update currentFiles when active column changes (required for QuickPreview)
 	useEffect(() => {
-		setCurrentFiles(activeColumnFiles);
-	}, [activeColumnFiles, setCurrentFiles]);
+		if (isSearchMode) {
+			setCurrentFiles(searchFiles);
+		} else {
+			setCurrentFiles(activeColumnFiles);
+		}
+	}, [isSearchMode, searchFiles, activeColumnFiles, setCurrentFiles]);
 
 	// Restore selection when files load (for tab switching)
 	useEffect(() => {
-		restoreSelectionFromFiles(activeColumnFiles);
-	}, [activeColumnFiles, restoreSelectionFromFiles]);
+		if (isSearchMode) {
+			restoreSelectionFromFiles(searchFiles);
+		} else {
+			restoreSelectionFromFiles(activeColumnFiles);
+		}
+	}, [isSearchMode, searchFiles, activeColumnFiles, restoreSelectionFromFiles]);
 
 	// Typeahead search for active column
 	const typeahead = useTypeaheadSearch({
@@ -388,6 +402,28 @@ export function ColumnView() {
 		}
 		return paths;
 	}, [selectedFiles]);
+
+	// In search mode, show a single column with search results
+	if (isSearchMode) {
+		return (
+			<div className="flex h-full overflow-x-auto bg-app">
+				<Column
+					key="search-results"
+					path={null as any}
+					isSelected={isSelected}
+					selectedFileIds={selectedFileIds}
+					onSelectFile={(file, files, multi, range) => {
+						selectFile(file, files, multi, range);
+					}}
+					onNavigate={navigateToPath}
+					nextColumnPath={undefined}
+					columnIndex={0}
+					isActive={true}
+					virtualFiles={searchFiles}
+				/>
+			</div>
+		);
+	}
 
 	if (!currentPath && !isVirtualView) {
 		return (

@@ -410,7 +410,13 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 	const trackVolume = useLibraryAction("volumes.track");
 	const indexVolume = useLibraryAction("volumes.index");
 
-	const { data: currentDevice } = useCoreQuery("devices.current", null);
+	const devicesQuery = useNormalizedQuery<any, Device[]>({
+		wireMethod: "query:devices.list",
+		input: { include_offline: true, include_details: false },
+		resourceType: "device",
+	});
+
+	const currentDevice = devicesQuery.data?.find(d => d.is_current);
 
 	const handleTrack = async () => {
 		try {

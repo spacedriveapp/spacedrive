@@ -601,9 +601,21 @@ function VolumeBar({volume, index}: VolumeBarProps) {
 	const indexVolume = useLibraryMutation('volumes.index');
 
 	// Get current device to check if this volume is local
-	const {data: currentDevice} = useCoreQuery({
-		type: 'devices.current',
-		input: null
+	const devicesQuery = useNormalizedQuery<any, Device[]>({
+		wireMethod: 'query:devices.list',
+		input: {include_offline: true, include_details: false},
+		resourceType: 'device'
+	});
+
+	const currentDevice = devicesQuery.data?.find(d => d.is_current);
+
+	console.log('VolumeBar Debug:', {
+		volumeName: volume.name,
+		volumeDeviceId: volume.device_id,
+		currentDevice: currentDevice,
+		currentDeviceId: currentDevice?.id,
+		matches: currentDevice && volume.device_id === currentDevice.id,
+		showButton: !!(currentDevice && volume.device_id === currentDevice.id)
 	});
 
 	const handleTrack = async () => {

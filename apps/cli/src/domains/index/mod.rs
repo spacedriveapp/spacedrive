@@ -287,6 +287,10 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 						"Memory usage",
 						&format_bytes(stats.memory_bytes as u64),
 					]);
+					stats_table.add_row(vec![
+						"Total file size",
+						&format_bytes(stats.total_file_bytes),
+					]);
 					stats_table.add_row(vec!["Cache age", &format!("{:.1}s", stats.age_seconds)]);
 					stats_table.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
 

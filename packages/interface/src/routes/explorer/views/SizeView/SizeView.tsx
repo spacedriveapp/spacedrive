@@ -18,6 +18,7 @@ import {useFileContextMenu} from '../../hooks/useFileContextMenu';
 import {useDraggableFile} from '../../hooks/useDraggableFile';
 import {useSelection} from '../../SelectionContext';
 import {formatBytes} from '../../utils';
+import {useExplorerFiles} from '../../hooks/useExplorerFiles';
 
 // Cache for computed colors
 const colorCache = new Map<string, string>();
@@ -309,11 +310,15 @@ export function SizeView() {
 		sizeViewTransform,
 		setSizeViewTransform,
 		viewMode,
-		setCurrentFiles
+		setCurrentFiles,
+		mode,
 	} = useExplorer();
 
 	const { tabs } = useTabManager();
 
+	// Get files from centralized hook (handles search mode automatically)
+	const { files: searchFiles, source } = useExplorerFiles();
+	const isSearchMode = mode.type === "search";
 
 	const {selectedFiles, selectFile, restoreSelectionFromFiles} = useSelection();
 	const serverContext = useServer();
@@ -346,7 +351,7 @@ export function SizeView() {
 				}
 			: null!,
 		resourceType: 'file',
-		enabled: !!currentPath,
+		enabled: !!currentPath && !isSearchMode,
 		pathScope: currentPath ?? undefined,
 		queryKey: ['directory_listing', 'size_view', activeTabId, currentPath]
 	});
@@ -360,6 +365,11 @@ export function SizeView() {
 
 	// Only show files if they match the current tab and path
 	const files = useMemo(() => {
+		if (isSearchMode) {
+			// In search mode, use files from useExplorerFiles
+			return searchFiles;
+		}
+
 		if (!directoryQuery.data?.files) return [];
 
 		// Check if data source matches current context
@@ -375,17 +385,17 @@ export function SizeView() {
 		}
 
 		return directoryQuery.data.files;
-	}, [directoryQuery.data, activeTabId, currentPath, dataSource]);
+	}, [isSearchMode, searchFiles, directoryQuery.data, activeTabId, currentPath, dataSource]);
 
 	// Update explorer context with raw file count (not filtered)
 	useEffect(() => {
-		setCurrentFiles(directoryQuery.data?.files || []);
-	}, [directoryQuery.data?.files, setCurrentFiles]);
+		setCurrentFiles(files);
+	}, [files, setCurrentFiles]);
 
 	// Restore selection when files load (for tab switching)
 	useEffect(() => {
-		restoreSelectionFromFiles(directoryQuery.data?.files || []);
-	}, [directoryQuery.data?.files, restoreSelectionFromFiles]);
+		restoreSelectionFromFiles(files);
+	}, [files, restoreSelectionFromFiles]);
 
 	const svgRef = useRef<SVGSVGElement>(null);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<

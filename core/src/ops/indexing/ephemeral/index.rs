@@ -442,6 +442,7 @@ impl EphemeralIndex {
 			unique_names: self.registry.unique_names(),
 			interned_strings: self.cache.len(),
 			memory_bytes: self.memory_usage(),
+			total_file_bytes: self.stats.bytes,
 		}
 	}
 
@@ -554,6 +555,67 @@ impl EphemeralIndex {
 
 		result
 	}
+
+	/// Save this index to a snapshot file for fast restoration
+	///
+	/// Snapshots are compressed with zstd and written atomically.
+	pub fn save_snapshot(&self, snapshot_path: &Path) -> anyhow::Result<()> {
+		super::snapshot::save_snapshot_impl(self, snapshot_path)
+	}
+
+	/// Load an index from a snapshot file
+	///
+	/// Returns None if the snapshot doesn't exist or is incompatible.
+	pub fn load_snapshot(snapshot_path: &Path) -> anyhow::Result<Option<Self>> {
+		super::snapshot::load_snapshot_impl(snapshot_path)
+	}
+
+	/// Internal accessor for snapshot serialization
+	pub(super) fn snapshot_data(
+		&self,
+	) -> (
+		&NodeArena,
+		&Arc<NameCache>,
+		&NameRegistry,
+		&HashMap<PathBuf, EntryId>,
+		&HashMap<PathBuf, Uuid>,
+		&HashMap<PathBuf, ContentKind>,
+		&IndexerStats,
+	) {
+		(
+			&self.arena,
+			&self.cache,
+			&self.registry,
+			&self.path_index,
+			&self.entry_uuids,
+			&self.content_kinds,
+			&self.stats,
+		)
+	}
+
+	/// Internal constructor for snapshot deserialization
+	pub(super) fn from_snapshot_parts(
+		arena: NodeArena,
+		cache: Arc<NameCache>,
+		registry: NameRegistry,
+		path_index: HashMap<PathBuf, EntryId>,
+		entry_uuids: HashMap<PathBuf, Uuid>,
+		content_kinds: HashMap<PathBuf, ContentKind>,
+		stats: IndexerStats,
+	) -> Self {
+		let now = Instant::now();
+		Self {
+			arena,
+			cache,
+			registry,
+			path_index,
+			entry_uuids,
+			content_kinds,
+			created_at: now,
+			last_accessed: now,
+			stats,
+		}
+	}
 }
 
 impl Default for EphemeralIndex {
@@ -569,4 +631,5 @@ pub struct EphemeralIndexStats {
 	pub unique_names: usize,
 	pub interned_strings: usize,
 	pub memory_bytes: usize,
+	pub total_file_bytes: u64,
 }

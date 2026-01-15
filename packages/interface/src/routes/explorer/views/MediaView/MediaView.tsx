@@ -14,9 +14,19 @@ import type { File } from "@sd/ts-client";
 import { MediaViewItem } from "./MediaViewItem";
 import { DateHeader, DATE_HEADER_HEIGHT } from "./DateHeader";
 import { formatDate, getItemDate, normalizeDateToMidnight } from "./utils";
+import { useExplorerFiles } from "../../hooks/useExplorerFiles";
+
+// Helper to check if a file is a media file (image or video)
+function isMediaFile(file: File): boolean {
+	if (!file.extension) return false;
+	const ext = file.extension.toLowerCase();
+	const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'svg', 'bmp', 'tiff'];
+	const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm', 'm4v', 'flv', 'wmv'];
+	return imageExts.includes(ext) || videoExts.includes(ext);
+}
 
 export function MediaView() {
-	const { currentPath, viewSettings, sortBy, setSortBy, setCurrentFiles } =
+	const { currentPath, viewSettings, sortBy, setSortBy, setCurrentFiles, mode } =
 		useExplorer();
 	const {
 		selectedFiles,
@@ -116,7 +126,11 @@ export function MediaView() {
 		};
 	}, []);
 
-	// Query for all media files from current path with descendants
+	// Get files from centralized hook (handles search mode automatically)
+	const { files: explorerFiles, source } = useExplorerFiles();
+	const isSearchMode = mode.type === "search";
+
+	// Query for all media files from current path with descendants (only when NOT in search mode)
 	const mediaQuery = useNormalizedQuery({
 		wireMethod: "query:files.media_listing",
 		input: currentPath
@@ -131,14 +145,19 @@ export function MediaView() {
 		resourceType: "file",
 		pathScope: currentPath,
 		includeDescendants: true, // Recursive - show all media in subdirectories
-		enabled: !!currentPath,
+		enabled: !!currentPath && !isSearchMode,
 		// No resourceFilter needed - the backend query already filters for media
 	});
 
 	// Access files from the query response (reversed for inverted scroll)
 	const files = useMemo(() => {
+		if (isSearchMode) {
+			// In search mode, filter explorerFiles to only show media
+			return [...explorerFiles.filter(isMediaFile)].reverse();
+		}
+		// Normal mode: use media_listing query
 		return [...(mediaQuery.data?.files || [])].reverse();
-	}, [mediaQuery.data?.files]);
+	}, [isSearchMode, explorerFiles, mediaQuery.data?.files]);
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -345,8 +364,8 @@ export function MediaView() {
 	}, [files, virtualRows, columns, scrollOffset, parentRef]);
 
 	// NOW we can do conditional returns after all hooks are called
-	// Show loading state
-	if (mediaQuery.isLoading) {
+	// Show loading state (only for non-search mode, search uses explorerFiles)
+	if (!isSearchMode && mediaQuery.isLoading) {
 		return (
 			<div className="flex items-center justify-center h-full text-ink-dull">
 				Loading media...
@@ -371,7 +390,9 @@ export function MediaView() {
 			<div className="flex flex-col items-center justify-center h-full text-ink-dull gap-2">
 				<div className="text-lg">No media files found</div>
 				<div className="text-sm">
-					No images or videos in this location
+					{isSearchMode
+						? "No images or videos match your search"
+						: "No images or videos in this location"}
 				</div>
 			</div>
 		);

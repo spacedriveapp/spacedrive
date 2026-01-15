@@ -53,13 +53,50 @@ impl EphemeralIndexCache {
 	///
 	/// Returns Some(index) if this path's contents are available,
 	/// None if the path hasn't been browsed yet.
+	///
+	/// Checks both exact match and parent paths - if searching /Users/foo
+	/// and /System/Volumes/Data (which contains /Users via symlink) is indexed,
+	/// returns the index after resolving symlinks.
 	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
 		let indexed = self.indexed_paths.read();
+
+		// First check for exact match
 		if indexed.contains(path) {
-			Some(self.index.clone())
-		} else {
-			None
+			return Some(self.index.clone());
 		}
+
+		// Canonicalize the search path to resolve symlinks (e.g., /Users -> /System/Volumes/Data/Users)
+		let canonical_path = path.canonicalize().ok();
+
+		// Check if path or its canonical form is under any indexed parent
+		for indexed_path in indexed.iter() {
+			// Try with original path
+			if path.starts_with(indexed_path) {
+				return Some(self.index.clone());
+			}
+
+			// Try with canonical path if available
+			if let Some(ref canon) = canonical_path {
+				if canon.starts_with(indexed_path) {
+					return Some(self.index.clone());
+				}
+			}
+
+			// Also try canonicalizing the indexed path (in case it has symlinks)
+			if let Ok(canonical_indexed) = indexed_path.canonicalize() {
+				if path.starts_with(&canonical_indexed) {
+					return Some(self.index.clone());
+				}
+
+				if let Some(ref canon) = canonical_path {
+					if canon.starts_with(&canonical_indexed) {
+						return Some(self.index.clone());
+					}
+				}
+			}
+		}
+
+		None
 	}
 
 	/// Get the global index unconditionally (for internal use)
@@ -75,6 +112,50 @@ impl EphemeralIndexCache {
 	/// Check if indexing is in progress for a path
 	pub fn is_indexing(&self, path: &Path) -> bool {
 		self.indexing_in_progress.read().contains(path)
+	}
+
+	/// Try to load a snapshot from disk, falling back to creating a new index
+	///
+	/// This method should be called before indexing. If a valid snapshot exists,
+	/// it loads in 1-2 seconds instead of 10+ minutes of re-indexing.
+	pub async fn try_load_snapshot_or_create(&self, path: &Path) -> anyhow::Result<bool> {
+		// Check if already indexed
+		if self.is_indexed(path) {
+			return Ok(true);
+		}
+
+		// Try to load from snapshot
+		if let Ok(snapshot_cache_dir) = super::snapshot::get_snapshot_cache_dir() {
+			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir) {
+				if let Ok(Some(loaded_index)) = EphemeralIndex::load_snapshot(&snapshot_path) {
+					// Replace the global index with the loaded one
+					let mut index = self.index.write().await;
+					*index = loaded_index;
+					drop(index);
+
+					// Mark as indexed
+					let mut indexed = self.indexed_paths.write();
+					indexed.insert(path.to_path_buf());
+
+					tracing::info!("Loaded snapshot for path: {}", path.display());
+					return Ok(true);
+				}
+			}
+		}
+
+		Ok(false)
+	}
+
+	/// Save the current index to a snapshot file
+	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
+		if let Ok(snapshot_cache_dir) = super::snapshot::get_snapshot_cache_dir() {
+			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir) {
+				let index = self.index.read().await;
+				index.save_snapshot(&snapshot_path)?;
+				tracing::info!("Saved snapshot for path: {}", path.display());
+			}
+		}
+		Ok(())
 	}
 
 	/// Prepare the global index for indexing a new path
