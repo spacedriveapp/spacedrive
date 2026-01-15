@@ -84,7 +84,8 @@ impl LibraryAction for IndexVolumeAction {
 		};
 
 		// 4. Create ephemeral indexing job
-		let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
+		// Volume indexing always indexes from the mount point root, so is_volume = true
+		let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, true);
 		let mut indexer_job = IndexerJob::new(indexer_config);
 
 		// 5. Get ephemeral cache and create/reuse index for this volume

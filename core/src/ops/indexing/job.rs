@@ -112,6 +112,9 @@ pub struct IndexerJobConfig {
 	/// Whether to run this job in the background (not persisted to database, no UI updates)
 	#[serde(default)]
 	pub run_in_background: bool,
+	/// Whether this is indexing a full volume (for progress tracking)
+	#[serde(default)]
+	pub is_volume_indexing: bool,
 }
 
 impl IndexerJobConfig {
@@ -125,6 +128,7 @@ impl IndexerJobConfig {
 			max_depth: None,
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: false,
 		}
 	}
 
@@ -138,10 +142,11 @@ impl IndexerJobConfig {
 			max_depth: Some(1),
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: false,
 		}
 	}
 
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
+	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
 		Self {
 			location_id: None,
 			path,
@@ -155,6 +160,7 @@ impl IndexerJobConfig {
 			},
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: is_volume,
 		}
 	}
 
@@ -202,6 +208,10 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
+		// Volume indexing should emit events even when ephemeral
+		if self.config.is_volume_indexing {
+			return true;
+		}
 		!self.config.is_ephemeral() && !self.config.run_in_background
 	}
 }
@@ -258,7 +268,8 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
-		// Resolve volume backend for I/O operations
+		// Resolve volume backend for I/O operations and get capacity for progress
+		let mut volume_total_capacity: Option<u64> = None;
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
 				match vm
@@ -270,6 +281,16 @@ impl IndexerJob {
 							"Using volume backend: {} for path: {}",
 							volume.name, self.config.path
 						));
+
+						// Store volume capacity for progress calculations if indexing full volume
+						if self.config.is_volume_indexing {
+							volume_total_capacity = Some(volume.total_capacity);
+							ctx.log(format!(
+								"Volume indexing: total capacity {} GB",
+								volume.total_capacity / (1024 * 1024 * 1024)
+							));
+						}
+
 						Some(vm.backend_for_volume(&mut volume))
 					}
 					Ok(None) => {
@@ -302,6 +323,9 @@ impl IndexerJob {
 				ctx.log("No volume manager available, will use LocalBackend fallback");
 				None
 			};
+
+		// Store volume capacity in state for progress calculations
+		state.volume_total_capacity = volume_total_capacity;
 
 		if state.dirs_to_walk.is_empty() {
 			state.dirs_to_walk.push_back(root_path.to_path_buf());
@@ -433,6 +457,7 @@ impl IndexerJob {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
 
@@ -777,8 +802,8 @@ impl IndexerJob {
 		self.ephemeral_index = Some(index);
 	}
 
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
-		Self::new(IndexerJobConfig::ephemeral_browse(path, scope))
+	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
+		Self::new(IndexerJobConfig::ephemeral_browse(path, scope, is_volume))
 	}
 
 	async fn run_current_scope_discovery_static(

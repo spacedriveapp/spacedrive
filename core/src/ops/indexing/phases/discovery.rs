@@ -205,6 +205,7 @@ async fn run_parallel_discovery(
 					persistence: None,
 					is_ephemeral: false,
 					action_context: None,
+					volume_total_capacity: state.volume_total_capacity,
 				};
 				ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 				state.items_since_last_update += 1;
@@ -454,6 +455,7 @@ async fn run_discovery_phase_sequential(
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: state.volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 

@@ -763,6 +763,7 @@ impl DirectoryListingQuery {
 			let config = IndexerJobConfig::ephemeral_browse(
 				self.input.path.clone(),
 				IndexScope::Current, // Only current directory, not recursive
+				false,               // Directory browsing, not volume indexing
 			);
 
 			let mut indexer_job = IndexerJob::new(config);

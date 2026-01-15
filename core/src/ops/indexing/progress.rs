@@ -13,11 +13,10 @@ use std::path::PathBuf;
 
 impl ToGenericProgress for IndexerProgress {
 	fn to_generic_progress(&self) -> GenericProgress {
-		let (percentage, completion_info, phase_name, phase_message) = match &self.phase {
+		// Extract phase info
+		let (phase_based_pct, completion_info, phase_name, phase_message) = match &self.phase {
 			IndexPhase::Discovery { dirs_queued } => {
-				// Discovery phase - 0-20% range
 				let message = format!("Discovering files and directories ({} queued)", dirs_queued);
-				// Start at very beginning for discovery
 				let percentage = if *dirs_queued > 0 { 0.0 } else { 0.05 };
 				(percentage, (0, 0), "Discovery".to_string(), message)
 			}
@@ -25,13 +24,11 @@ impl ToGenericProgress for IndexerProgress {
 				batch,
 				total_batches,
 			} => {
-				// Processing phase - show batch progress (20-60% of total)
 				let batch_progress = if *total_batches > 0 {
 					*batch as f32 / *total_batches as f32
 				} else {
 					0.0
 				};
-				// Map to 20-60% range
 				let percentage = 0.2 + (batch_progress * 0.4);
 				let message = format!("Processing entries (batch {}/{})", batch, total_batches);
 				(
@@ -42,13 +39,11 @@ impl ToGenericProgress for IndexerProgress {
 				)
 			}
 			IndexPhase::ContentIdentification { current, total } => {
-				// Content ID phase - show item progress (70-98% of total)
 				let content_progress = if *total > 0 {
 					(*current as f32 / *total as f32).min(1.0)
 				} else {
 					0.0
 				};
-				// Map to 70-98% range, never reach 100% in this phase
 				let percentage = 0.7 + (content_progress * 0.28);
 				let message = format!("Generating content identities ({}/{})", current, total);
 				(
@@ -59,13 +54,11 @@ impl ToGenericProgress for IndexerProgress {
 				)
 			}
 			IndexPhase::Finalizing { processed, total } => {
-				// Final phase - show actual progress of directory aggregation
 				let finalizing_progress = if *total > 0 {
-					(*processed as f32 / *total as f32).min(0.99) // Cap at 99% until truly complete
+					(*processed as f32 / *total as f32).min(0.99)
 				} else {
 					0.99
 				};
-				// Map to 99-100% range but reserve 100% for completion
 				let percentage = 0.99 + (finalizing_progress * 0.01);
 				let message = format!("Finalizing ({}/{})", processed, total);
 				(
@@ -75,6 +68,18 @@ impl ToGenericProgress for IndexerProgress {
 					message,
 				)
 			}
+		};
+
+		// Use volume-based percentage if available, otherwise use phase-based
+		let percentage = if let Some(volume_capacity) = self.volume_total_capacity {
+			if volume_capacity > 0 {
+				// Calculate actual progress as bytes_indexed / total_volume_capacity
+				(self.total_found.bytes as f64 / volume_capacity as f64).min(1.0) as f32
+			} else {
+				phase_based_pct
+			}
+		} else {
+			phase_based_pct
 		};
 
 		// Filter out status messages from current_path - only convert real filesystem paths to SdPath.
@@ -100,7 +105,10 @@ impl ToGenericProgress for IndexerProgress {
 		let final_completion = completion_info;
 
 		let mut progress = GenericProgress::new(percentage, &phase_name, &phase_message)
-			.with_bytes(self.total_found.bytes, self.total_found.bytes)
+			.with_bytes(
+				self.total_found.bytes,
+				self.volume_total_capacity.unwrap_or(self.total_found.bytes),
+			)
 			.with_performance(self.processing_rate, self.estimated_remaining, None)
 			.with_errors(self.total_found.errors, 0)
 			.with_metadata(self);
@@ -142,6 +150,7 @@ mod tests {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
@@ -172,11 +181,12 @@ mod tests {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Processing");
-		assert_eq!(generic.percentage, 0.3); // 3/10
+		assert_eq!(generic.percentage, 0.32); // 0.2 + (0.3 * 0.4) = 0.32
 		assert_eq!(generic.completion.completed, 3);
 		assert_eq!(generic.completion.total, 10);
 		assert_eq!(generic.performance.rate, 25.5);
@@ -202,11 +212,12 @@ mod tests {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Content Identification");
-		assert_eq!(generic.percentage, 0.75); // 75/100
+		assert_eq!(generic.percentage, 0.91); // 0.7 + (0.75 * 0.28) = 0.91
 		assert_eq!(generic.completion.completed, 75);
 		assert_eq!(generic.completion.total, 100);
 	}
@@ -226,6 +237,7 @@ mod tests {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: None,
 		};
 
 		let generic = indexer_progress.to_generic_progress();

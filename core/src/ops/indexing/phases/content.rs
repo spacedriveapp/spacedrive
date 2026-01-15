@@ -85,6 +85,7 @@ pub async fn run_content_phase(
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: state.volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
