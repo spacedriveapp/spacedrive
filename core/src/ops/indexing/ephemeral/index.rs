@@ -42,6 +42,46 @@ pub struct EphemeralIndex {
 	pub stats: IndexerStats,
 }
 
+/// Detailed memory breakdown by component
+#[derive(Debug, Clone)]
+pub struct MemoryBreakdown {
+	pub arena: usize,
+	pub cache: usize,
+	pub registry: usize,
+	pub path_index_overhead: usize,
+	pub path_index_entries: usize,
+	pub entry_uuids_overhead: usize,
+	pub entry_uuids_entries: usize,
+	pub content_kinds_overhead: usize,
+	pub content_kinds_entries: usize,
+}
+
+impl MemoryBreakdown {
+	pub fn total(&self) -> usize {
+		self.arena
+			+ self.cache
+			+ self.registry
+			+ self.path_index_overhead
+			+ self.path_index_entries
+			+ self.entry_uuids_overhead
+			+ self.entry_uuids_entries
+			+ self.content_kinds_overhead
+			+ self.content_kinds_entries
+	}
+
+	pub fn path_index_total(&self) -> usize {
+		self.path_index_overhead + self.path_index_entries
+	}
+
+	pub fn entry_uuids_total(&self) -> usize {
+		self.entry_uuids_overhead + self.entry_uuids_entries
+	}
+
+	pub fn content_kinds_total(&self) -> usize {
+		self.content_kinds_overhead + self.content_kinds_entries
+	}
+}
+
 impl std::fmt::Debug for EphemeralIndex {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("EphemeralIndex")
@@ -119,9 +159,6 @@ impl EphemeralIndex {
 		self.path_index.insert(path.to_path_buf(), id);
 		self.registry.insert(name, id);
 
-		let uuid = Uuid::new_v4();
-		self.entry_uuids.insert(path.to_path_buf(), uuid);
-
 		Ok(id)
 	}
 
@@ -138,13 +175,13 @@ impl EphemeralIndex {
 		metadata: EntryMetadata,
 	) -> std::io::Result<Option<ContentKind>> {
 		let registry = FileTypeRegistry::default();
-		self.add_entry_with_registry(path, uuid, metadata, &registry)
+		self.add_entry_with_registry(path, Some(uuid), metadata, &registry)
 	}
 
 	fn add_entry_with_registry(
 		&mut self,
 		path: PathBuf,
-		uuid: Uuid,
+		uuid: Option<Uuid>,
 		metadata: EntryMetadata,
 		registry: &FileTypeRegistry,
 	) -> std::io::Result<Option<ContentKind>> {
@@ -204,7 +241,12 @@ impl EphemeralIndex {
 
 		self.path_index.insert(path.clone(), id);
 		self.registry.insert(name, id);
-		self.entry_uuids.insert(path.clone(), uuid);
+
+		// Only store UUID if provided (volume indexing passes None to skip UUID generation)
+		if let Some(uuid) = uuid {
+			self.entry_uuids.insert(path.clone(), uuid);
+		}
+
 		self.content_kinds.insert(path, content_kind);
 
 		self.last_accessed = Instant::now();
@@ -216,7 +258,7 @@ impl EphemeralIndex {
 	/// Acquires write lock once for the entire batch instead of per-entry.
 	pub fn add_entries_batch(
 		&mut self,
-		entries: Vec<(PathBuf, Uuid, EntryMetadata)>,
+		entries: Vec<(PathBuf, Option<Uuid>, EntryMetadata)>,
 	) -> std::io::Result<Vec<Option<ContentKind>>> {
 		let mut results = Vec::with_capacity(entries.len());
 
@@ -278,6 +320,22 @@ impl EphemeralIndex {
 
 	pub fn get_entry_uuid(&self, path: &PathBuf) -> Option<Uuid> {
 		self.entry_uuids.get(path).copied()
+	}
+
+	/// Get or assign a UUID for the given path (lazy generation).
+	///
+	/// Returns cached UUID if exists, otherwise generates a new random UUID
+	/// and caches it. UUIDs are random (v4) for global uniqueness across devices,
+	/// avoiding collisions when syncing ephemeral indexes that are later upgraded
+	/// to persistent indexes.
+	pub fn get_or_assign_uuid(&mut self, path: &PathBuf) -> Uuid {
+		if let Some(&uuid) = self.entry_uuids.get(path) {
+			return uuid;
+		}
+
+		let uuid = Uuid::new_v4();
+		self.entry_uuids.insert(path.clone(), uuid);
+		uuid
 	}
 
 	/// Get the path for an entry by its UUID
@@ -457,13 +515,50 @@ impl EphemeralIndex {
 	}
 
 	pub fn memory_usage(&self) -> usize {
-		self.arena.memory_usage()
-			+ self.cache.memory_usage()
-			+ self.registry.memory_usage()
-			+ self.path_index.capacity()
-				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<EntryId>())
-			+ self.entry_uuids.capacity()
-				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<Uuid>())
+		self.detailed_memory_breakdown().total()
+	}
+
+	/// Get a detailed breakdown of memory usage by component
+	pub fn detailed_memory_breakdown(&self) -> MemoryBreakdown {
+		// Estimate average path length from a sample
+		let avg_path_len = self.estimate_avg_path_length();
+
+		MemoryBreakdown {
+			arena: self.arena.memory_usage(),
+			cache: self.cache.memory_usage(),
+			registry: self.registry.memory_usage(),
+			// path_index: HashMap<PathBuf, EntryId>
+			path_index_overhead: self.path_index.capacity(),
+			path_index_entries: self.path_index.len()
+				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<EntryId>() + avg_path_len),
+			// entry_uuids: HashMap<PathBuf, Uuid>
+			entry_uuids_overhead: self.entry_uuids.capacity(),
+			entry_uuids_entries: self.entry_uuids.len()
+				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<Uuid>() + avg_path_len),
+			// content_kinds: HashMap<PathBuf, ContentKind>
+			content_kinds_overhead: self.content_kinds.capacity(),
+			content_kinds_entries: self.content_kinds.len()
+				* (std::mem::size_of::<PathBuf>()
+					+ std::mem::size_of::<ContentKind>() + avg_path_len),
+		}
+	}
+
+	/// Estimate average path length by sampling entries
+	fn estimate_avg_path_length(&self) -> usize {
+		if self.path_index.is_empty() {
+			return 80; // default estimate
+		}
+
+		// Sample up to 1000 paths to estimate average length
+		let sample_size = self.path_index.len().min(1000);
+		let total_len: usize = self
+			.path_index
+			.keys()
+			.take(sample_size)
+			.map(|p| p.as_os_str().len())
+			.sum();
+
+		total_len / sample_size
 	}
 
 	pub fn get_stats(&self) -> EphemeralIndexStats {
@@ -473,6 +568,7 @@ impl EphemeralIndex {
 			interned_strings: self.cache.len(),
 			memory_bytes: self.memory_usage(),
 			total_file_bytes: self.stats.bytes,
+			uuid_count: self.entry_uuids.len(),
 		}
 	}
 
@@ -662,4 +758,5 @@ pub struct EphemeralIndexStats {
 	pub interned_strings: usize,
 	pub memory_bytes: usize,
 	pub total_file_bytes: u64,
+	pub uuid_count: usize,
 }

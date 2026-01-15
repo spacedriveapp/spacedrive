@@ -40,6 +40,8 @@ pub struct UnifiedIndexStats {
 	pub interned_strings: usize,
 	/// Number of content kinds stored
 	pub content_kinds: usize,
+	/// Number of UUIDs generated (lazy assignment)
+	pub uuid_count: usize,
 	/// Estimated memory usage in bytes
 	pub memory_bytes: usize,
 	/// Total size of all indexed files in bytes
@@ -48,6 +50,23 @@ pub struct UnifiedIndexStats {
 	pub age_seconds: f64,
 	/// Seconds since last access
 	pub idle_seconds: f64,
+	/// Detailed memory breakdown (optional, expensive to compute)
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub memory_breakdown: Option<MemoryBreakdownStats>,
+}
+
+/// Detailed breakdown of memory usage by component
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct MemoryBreakdownStats {
+	pub arena: usize,
+	pub cache: usize,
+	pub registry: usize,
+	pub path_index_overhead: usize,
+	pub path_index_entries: usize,
+	pub entry_uuids_overhead: usize,
+	pub entry_uuids_entries: usize,
+	pub content_kinds_overhead: usize,
+	pub content_kinds_entries: usize,
 }
 
 /// Information about an indexed path

@@ -22,7 +22,7 @@ use std::{
 	time::Duration,
 };
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use super::{
@@ -230,15 +230,17 @@ impl IndexerJob {
 				"Starting new indexer job (scope: {}, persistence: {:?})",
 				self.config.scope, self.config.persistence
 			));
-			info!("INDEXER_STATE: Job starting with NO saved state - creating new state");
+			ctx.log_debug("Job starting with no saved state - creating new state");
 			self.state = Some(IndexerState::new(&self.config.path));
 		} else {
 			ctx.log("Resuming indexer from saved state");
-			info!("INDEXER_STATE: Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
+			ctx.log_debug(format!(
+				"Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
 				self.state.as_ref().unwrap().phase,
 				self.state.as_ref().unwrap().entry_batches.len(),
 				self.state.as_ref().unwrap().entries_for_content.len(),
-				self.state.as_ref().unwrap().seen_paths.len());
+				self.state.as_ref().unwrap().seen_paths.len()
+			));
 		}
 
 		let state = self.state.as_mut().unwrap();
@@ -544,8 +546,8 @@ impl IndexerJob {
 												}
 											}
 											Err(e) => {
-												ctx.log(format!(
-													"Warning: Failed to query entry UUIDs for location: {}",
+												ctx.add_warning(format!(
+													"Failed to query entry UUIDs for location: {}",
 													e
 												));
 												None
@@ -567,8 +569,8 @@ impl IndexerJob {
 						}
 					}
 					Ok(None) => {
-						ctx.log(format!(
-							"Warning: Location {} not found, dispatching thumbnail job for all entries",
+						ctx.add_warning(format!(
+							"Location {} not found, dispatching thumbnail job for all entries",
 							location_id
 						));
 						None
@@ -601,7 +603,7 @@ impl IndexerJob {
 					ctx.log("Successfully dispatched thumbnail generation job");
 				}
 				Err(e) => {
-					ctx.log(format!("Warning: Failed to dispatch thumbnail job: {}", e));
+					ctx.add_warning(format!("Failed to dispatch thumbnail job: {}", e));
 				}
 			}
 		}
@@ -648,7 +650,10 @@ impl JobHandler for IndexerJob {
 						false
 					}
 					Err(e) => {
-						ctx.log(format!("Failed to load snapshot, will perform full index: {}", e));
+						ctx.log(format!(
+							"Failed to load snapshot, will perform full index: {}",
+							e
+						));
 						false
 					}
 				}
@@ -658,8 +663,9 @@ impl JobHandler for IndexerJob {
 
 			// If snapshot not loaded, create new index for indexing
 			if !snapshot_loaded {
-				let index = EphemeralIndex::new()
-					.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
+				let index = EphemeralIndex::new().map_err(|e| {
+					JobError::Other(format!("Failed to create ephemeral index: {}", e))
+				})?;
 				self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
 				ctx.log("Initialized ephemeral index for non-persistent job");
 			}
@@ -705,8 +711,8 @@ impl JobHandler for IndexerJob {
 						if let Some(watcher) = ctx.library().core_context().get_fs_watcher().await {
 							if let Err(e) = watcher.watch_ephemeral(local_path.to_path_buf()).await
 							{
-								ctx.log(format!(
-									"Warning: Failed to add ephemeral watch for {}: {}",
+								ctx.add_warning(format!(
+									"Failed to add ephemeral watch for {}: {}",
 									local_path.display(),
 									e
 								));
@@ -917,12 +923,19 @@ impl IndexerJob {
 			};
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-			// Convert DirEntry to (PathBuf, Uuid, EntryMetadata) tuples
-			// Keep the UUIDs so we don't need to query them back
-			let entries_with_metadata: Vec<(PathBuf, Uuid, EntryMetadata)> = batch
+			// Convert DirEntry to (PathBuf, Option<Uuid>, EntryMetadata) tuples
+			// For volume indexing, pass None to skip UUID generation (lazy generation on access)
+			// For directory browsing, generate UUIDs upfront (needed for events)
+			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = batch
 				.iter()
 				.map(|entry| {
-					let uuid = Uuid::new_v4();
+					// Only generate UUID for directory browsing (needs events)
+					let uuid = if !is_volume_indexing {
+						Some(Uuid::new_v4())
+					} else {
+						None
+					};
+
 					let metadata = EntryMetadata {
 						path: entry.path.clone(),
 						kind: entry.kind,
@@ -955,10 +968,11 @@ impl IndexerJob {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
 
-			// Build UUID lookup map (avoids 1.4M lock acquisitions)
+			// Build UUID lookup map for directory browsing (only contains Some values)
+			// Volume indexing has None values so map will be empty (no events emitted anyway)
 			let uuid_map: std::collections::HashMap<PathBuf, Uuid> = entries_with_metadata
 				.iter()
-				.map(|(path, uuid, _)| (path.clone(), *uuid))
+				.filter_map(|(path, uuid, _)| uuid.map(|u| (path.clone(), u)))
 				.collect();
 
 			// Only emit file events for directory browsing, not volume indexing
@@ -1019,12 +1033,13 @@ impl IndexerJob {
 							created_at: Utc::now(),
 							modified_at: entry
 								.modified
-								.and_then(|t| DateTime::from_timestamp(
-									t.duration_since(std::time::UNIX_EPOCH)
-										.ok()?
-										.as_secs() as i64,
-									0,
-								))
+								.and_then(|t| {
+									DateTime::from_timestamp(
+										t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs()
+											as i64,
+										0,
+									)
+								})
 								.unwrap_or_else(Utc::now),
 							accessed_at: None,
 							content_kind,

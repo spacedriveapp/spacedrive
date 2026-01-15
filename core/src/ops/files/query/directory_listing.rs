@@ -653,29 +653,34 @@ impl DirectoryListingQuery {
 			);
 
 			// Try to get directory listing from cached index
-			let index_guard = index.read().await;
+			// First, get the children list with a read lock
+			let children = {
+				let index_guard = index.read().await;
+				index_guard.list_directory(&local_path)
+			};
 
 			// Check if the index actually has entries for this directory
-			if let Some(children) = index_guard.list_directory(&local_path) {
+			if let Some(children) = children {
 				tracing::debug!(
 					"Cached index has {} children for {}",
 					children.len(),
 					local_path.display()
 				);
 
-				// Convert cached entries to File objects
+				// Convert cached entries to File objects with lazy UUID assignment
+				// Acquire write lock once for the entire batch instead of per-entry
+				let mut index_write = index.write().await;
 				let mut files = Vec::new();
+
 				for child_path in children {
-					if let Some(metadata) = index_guard.get_entry_ref(&child_path) {
+					if let Some(metadata) = index_write.get_entry_ref(&child_path) {
 						// Apply hidden file filter
 						if !self.input.include_hidden.unwrap_or(false) && metadata.is_hidden {
 							continue;
 						}
 
-						// Get UUID from index
-						let entry_uuid = index_guard
-							.get_entry_uuid(&child_path)
-							.unwrap_or_else(Uuid::new_v4);
+						// Get or assign UUID (lazy generation)
+						let entry_uuid = index_write.get_or_assign_uuid(&child_path);
 
 						// Build SdPath for this entry
 						let entry_sd_path = SdPath::Physical {
@@ -687,7 +692,7 @@ impl DirectoryListingQuery {
 						};
 
 						// Get content kind from index (identified by extension)
-						let content_kind = index_guard.get_content_kind(&child_path);
+						let content_kind = index_write.get_content_kind(&child_path);
 
 						// Convert to File
 						let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
@@ -695,6 +700,7 @@ impl DirectoryListingQuery {
 						files.push(file);
 					}
 				}
+				drop(index_write);
 
 				// Apply sorting
 				self.sort_files(&mut files);
