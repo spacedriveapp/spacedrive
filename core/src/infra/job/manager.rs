@@ -43,6 +43,8 @@ struct RunningJob {
 	status_tx: watch::Sender<JobStatus>,
 	latest_progress: Arc<Mutex<Option<Progress>>>,
 	persistence_complete_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+	job_name: String,
+	action_context: Option<crate::infra::action::context::ActionContext>,
 }
 
 impl JobManager {
@@ -363,6 +365,8 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress,
 						persistence_complete_rx: Some(persistence_complete_rx),
+						job_name: job_name.to_string(),
+						action_context: action_context.clone(),
 					},
 				);
 
@@ -785,6 +789,8 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress: latest_progress.clone(),
 						persistence_complete_rx: Some(persistence_complete_rx),
+						job_name: J::NAME.to_string(),
+						action_context: action_context.clone(),
 					},
 				);
 
@@ -1060,8 +1066,23 @@ impl JobManager {
 					0.0
 				};
 
-			// Get job data from database for complete info
-			let (job_name, action_type, action_context) =
+			// Get job data from in-memory struct (for non-persisted jobs) or database
+			let (job_name, action_type, action_context) = if let Some(ctx) = &running_job.action_context {
+				// Use in-memory action_context (for ephemeral volume jobs)
+				let action_context_info = ActionContextInfo {
+					action_type: ctx.action_type.clone(),
+					initiated_at: ctx.initiated_at,
+					initiated_by: ctx.initiated_by.clone(),
+					action_input: ctx.action_input.clone().into(),
+					context: ctx.context.clone().into(),
+				};
+				(
+					running_job.job_name.clone(),
+					Some(ctx.action_type.clone()),
+					Some(action_context_info),
+				)
+			} else {
+				// Fall back to database query for persisted jobs
 				match database::jobs::Entity::find_by_id(job_id.0.to_string())
 					.one(self.db.conn())
 					.await?
@@ -1086,8 +1107,9 @@ impl JobManager {
 						};
 						(db_job.name, db_job.action_type, action_context)
 					}
-					None => (format!("Job {}", job_id.0), None, None),
-				};
+					None => (running_job.job_name.clone(), None, None),
+				}
+			};
 
 			all_jobs.push(JobInfo {
 				id: job_id.0,
@@ -1481,6 +1503,13 @@ impl JobManager {
 								// Clone latest_progress for monitoring task before moving into RunningJob
 								let latest_progress_for_monitor = latest_progress.clone();
 
+								// Deserialize action context from database if available
+								let action_context = if let Some(context_data) = &job_record.action_context {
+									rmp_serde::from_slice::<crate::infra::action::context::ActionContext>(context_data).ok()
+								} else {
+									None
+								};
+
 								self.running_jobs.write().await.insert(
 									job_id,
 									RunningJob {
@@ -1489,6 +1518,8 @@ impl JobManager {
 										status_tx: status_tx.clone(),
 										latest_progress,
 										persistence_complete_rx: Some(persistence_complete_rx),
+										job_name: job_record.name.clone(),
+										action_context,
 									},
 								);
 
@@ -1779,12 +1810,19 @@ impl JobManager {
 					)));
 				}
 
-				Some((job_record.name.clone(), job_record.state.clone()))
+				// Deserialize action context from database if available
+				let action_context = if let Some(context_data) = &job_record.action_context {
+					rmp_serde::from_slice::<crate::infra::action::context::ActionContext>(context_data).ok()
+				} else {
+					None
+				};
+
+				Some((job_record.name.clone(), job_record.state.clone(), action_context))
 			}
 		};
 
 		// If job was not in memory, recreate and dispatch it
-		if let Some((job_name, job_state)) = job_info {
+		if let Some((job_name, job_state, action_context)) = job_info {
 			// Deserialize job from binary data
 			info!(
 				"RESUME_STATE_LOAD: Job {} loading {} bytes of state from database (manual resume)",
@@ -1917,6 +1955,8 @@ impl JobManager {
 					status_tx: status_tx.clone(),
 					latest_progress,
 					persistence_complete_rx: Some(persistence_complete_rx),
+					job_name: job_name.clone(),
+					action_context,
 				},
 			);
 

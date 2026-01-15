@@ -103,6 +103,13 @@ export function getJobDisplayName(job: JobListItem): string {
         return "Extracting Media";
       case "indexing.start":
         return "Indexing Location";
+      case "volumes.index": {
+        const volumeName = job.action_context?.context?.volume_name;
+        if (volumeName && typeof volumeName === 'string') {
+          return `Indexing ${volumeName}`;
+        }
+        return "Indexing Volume";
+      }
       default: {
         // Capitalize and format action type
         return action_type

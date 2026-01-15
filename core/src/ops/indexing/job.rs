@@ -382,6 +382,7 @@ impl IndexerJob {
 							ephemeral_index,
 							root_path,
 							volume_backend.as_ref(),
+							self.config.is_volume_indexing,
 						)
 						.await?;
 					} else {
@@ -881,6 +882,7 @@ impl IndexerJob {
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
 		root_path: &Path,
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+		is_volume_indexing: bool,
 	) -> JobResult<()> {
 		use super::database_storage::EntryMetadata;
 		use super::state::EntryKind as StateEntryKind;
@@ -916,16 +918,18 @@ impl IndexerJob {
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
 			// Convert DirEntry to (PathBuf, Uuid, EntryMetadata) tuples
+			// Keep the UUIDs so we don't need to query them back
 			let entries_with_metadata: Vec<(PathBuf, Uuid, EntryMetadata)> = batch
 				.iter()
 				.map(|entry| {
+					let uuid = Uuid::new_v4();
 					let metadata = EntryMetadata {
 						path: entry.path.clone(),
 						kind: entry.kind,
 						size: entry.size,
 						modified: entry.modified,
 						accessed: None,
-						created: None, // DirEntry doesn't have created time
+						created: None,
 						inode: entry.inode,
 						permissions: None,
 						is_hidden: entry
@@ -935,101 +939,116 @@ impl IndexerJob {
 							.map(|n| n.starts_with('.'))
 							.unwrap_or(false),
 					};
-					(entry.path.clone(), Uuid::new_v4(), metadata)
+					(entry.path.clone(), uuid, metadata)
 				})
 				.collect();
 
-			// Batch add to index (single write lock acquisition)
-			let content_kinds = {
-				let mut index = ephemeral_index.write().await;
-				index.add_entries_batch(entries_with_metadata)?
-			};
+			// Batch add to index - use spawn_blocking for CPU-intensive work
+			// This allows the task to be interrupted even during blocking operations
+			let index_clone = ephemeral_index.clone();
+			let entries_clone = entries_with_metadata.clone();
+			let content_kinds = tokio::task::spawn_blocking(move || {
+				let rt = tokio::runtime::Handle::current();
+				let mut index = rt.block_on(index_clone.write());
+				index.add_entries_batch(entries_clone)
+			})
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
 
-			// Collect files for ResourceChangedBatch event
-			let mut files_for_event = Vec::new();
+			// Build UUID lookup map (avoids 1.4M lock acquisitions)
+			let uuid_map: std::collections::HashMap<PathBuf, Uuid> = entries_with_metadata
+				.iter()
+				.map(|(path, uuid, _)| (path.clone(), *uuid))
+				.collect();
 
-			for (entry, content_kind_opt) in batch.iter().zip(content_kinds.iter()) {
-				if let Some(content_kind) = content_kind_opt {
-					// Skip hidden files from events
-					let is_hidden = entry
-						.path
-						.file_name()
-						.and_then(|n| n.to_str())
-						.map(|n| n.starts_with('.'))
-						.unwrap_or(false);
+			// Only emit file events for directory browsing, not volume indexing
+			// Volume indexing only needs job progress events (emitted above)
+			// Directory browsing needs ResourceChangedBatch events to populate UI
+			if !is_volume_indexing {
+				// Build event files using the UUID map (no lock acquisitions)
+				let files_for_event: Vec<File> = batch
+					.iter()
+					.zip(content_kinds.iter())
+					.filter_map(|(entry, content_kind_opt)| {
+						let content_kind = (*content_kind_opt)?;
 
-					if !is_hidden {
-						// Build File for event
-						let uuid = {
-							let index = ephemeral_index.read().await;
-							index.get_entry_uuid(&entry.path)
-						};
+						// Skip hidden files from events
+						let is_hidden = entry
+							.path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map(|n| n.starts_with('.'))
+							.unwrap_or(false);
 
-						if let Some(uuid) = uuid {
-							use chrono::{DateTime, Utc};
-
-							let file = File {
-								id: uuid,
-								sd_path: crate::domain::addressing::SdPath::local(entry.path.clone()),
-								kind: match entry.kind {
-									StateEntryKind::File => DomainEntryKind::File,
-									StateEntryKind::Directory => DomainEntryKind::Directory,
-									StateEntryKind::Symlink => DomainEntryKind::Symlink,
-								},
-								name: entry
-									.path
-									.file_name()
-									.unwrap_or_default()
-									.to_string_lossy()
-									.to_string(),
-								extension: entry
-									.path
-									.extension()
-									.and_then(|e| e.to_str())
-									.map(String::from),
-								size: entry.size,
-								content_identity: None,
-								alternate_paths: vec![],
-								tags: vec![],
-								sidecars: vec![],
-								image_media_data: None,
-								video_media_data: None,
-								audio_media_data: None,
-								created_at: Utc::now(), // Unknown, use current time
-								modified_at: entry
-									.modified
-									.and_then(|t| DateTime::from_timestamp(
-										t.duration_since(std::time::UNIX_EPOCH)
-											.ok()?
-											.as_secs() as i64,
-										0,
-									))
-									.unwrap_or_else(Utc::now),
-								accessed_at: None,
-								content_kind: *content_kind,
-								is_local: true,
-								duration_seconds: None,
-							};
-							files_for_event.push(file);
+						if is_hidden {
+							return None;
 						}
-					}
-				}
-			}
 
-			// Emit single ResourceChangedBatch event for entire batch
-			if !files_for_event.is_empty() {
-				event_bus.emit(crate::infra::event::Event::ResourceChangedBatch {
-					resource_type: "file".to_string(),
-					resources: serde_json::to_value(&files_for_event).unwrap_or_default(),
-					metadata: Some(crate::infra::event::ResourceMetadata {
-						no_merge_fields: vec![],
-						alternate_ids: vec![],
-						affected_paths: files_for_event
-							.iter()
-							.map(|f| f.sd_path.clone())
-							.collect(),
-					}),
-				});
+						// Get UUID from our map (no lock acquisition needed!)
+						let uuid = *uuid_map.get(&entry.path)?;
+
+						use chrono::{DateTime, Utc};
+
+						Some(File {
+							id: uuid,
+							sd_path: crate::domain::addressing::SdPath::local(entry.path.clone()),
+							kind: match entry.kind {
+								StateEntryKind::File => DomainEntryKind::File,
+								StateEntryKind::Directory => DomainEntryKind::Directory,
+								StateEntryKind::Symlink => DomainEntryKind::Symlink,
+							},
+							name: entry
+								.path
+								.file_name()
+								.unwrap_or_default()
+								.to_string_lossy()
+								.to_string(),
+							extension: entry
+								.path
+								.extension()
+								.and_then(|e| e.to_str())
+								.map(String::from),
+							size: entry.size,
+							content_identity: None,
+							alternate_paths: vec![],
+							tags: vec![],
+							sidecars: vec![],
+							image_media_data: None,
+							video_media_data: None,
+							audio_media_data: None,
+							created_at: Utc::now(),
+							modified_at: entry
+								.modified
+								.and_then(|t| DateTime::from_timestamp(
+									t.duration_since(std::time::UNIX_EPOCH)
+										.ok()?
+										.as_secs() as i64,
+									0,
+								))
+								.unwrap_or_else(Utc::now),
+							accessed_at: None,
+							content_kind,
+							is_local: true,
+							duration_seconds: None,
+						})
+					})
+					.collect();
+
+				// Emit single ResourceChangedBatch event for entire batch
+				if !files_for_event.is_empty() {
+					event_bus.emit(crate::infra::event::Event::ResourceChangedBatch {
+						resource_type: "file".to_string(),
+						resources: serde_json::to_value(&files_for_event).unwrap_or_default(),
+						metadata: Some(crate::infra::event::ResourceMetadata {
+							no_merge_fields: vec![],
+							alternate_ids: vec![],
+							affected_paths: files_for_event
+								.iter()
+								.map(|f| f.sd_path.clone())
+								.collect(),
+						}),
+					});
+				}
 			}
 		}
 

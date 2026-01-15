@@ -137,6 +137,17 @@ impl EphemeralIndex {
 		uuid: Uuid,
 		metadata: EntryMetadata,
 	) -> std::io::Result<Option<ContentKind>> {
+		let registry = FileTypeRegistry::default();
+		self.add_entry_with_registry(path, uuid, metadata, &registry)
+	}
+
+	fn add_entry_with_registry(
+		&mut self,
+		path: PathBuf,
+		uuid: Uuid,
+		metadata: EntryMetadata,
+		registry: &FileTypeRegistry,
+	) -> std::io::Result<Option<ContentKind>> {
 		if self.path_index.contains_key(&path) {
 			tracing::trace!("Skipping duplicate entry: {}", path.display());
 			return Ok(None);
@@ -184,7 +195,6 @@ impl EphemeralIndex {
 		}
 
 		let content_kind = if metadata.kind == EntryKind::File {
-			let registry = FileTypeRegistry::default();
 			registry.identify_by_extension(&path)
 		} else if metadata.kind == EntryKind::Directory {
 			ContentKind::Unknown
@@ -210,8 +220,11 @@ impl EphemeralIndex {
 	) -> std::io::Result<Vec<Option<ContentKind>>> {
 		let mut results = Vec::with_capacity(entries.len());
 
+		// Create registry once for entire batch instead of per-file
+		let registry = FileTypeRegistry::default();
+
 		for (path, uuid, metadata) in entries {
-			let result = self.add_entry(path, uuid, metadata)?;
+			let result = self.add_entry_with_registry(path, uuid, metadata, &registry)?;
 			results.push(result);
 		}
 

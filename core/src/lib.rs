@@ -697,38 +697,7 @@ async fn register_default_protocol_handlers(
 			.await;
 	}
 
-	// Set up job activity client for auto-subscription
-	let job_activity_client = service::network::JobActivityClient::new(
-		networking
-			.endpoint()
-			.cloned()
-			.ok_or("Endpoint not initialized")?,
-		networking.active_connections(),
-		context.remote_job_cache.clone(),
-		networking.device_registry(),
-	);
-
-	// Auto-subscribe to job activity from connected devices
-	let mut event_subscriber = networking.subscribe_events();
-
-	tokio::spawn(async move {
-		while let Ok(event) = event_subscriber.recv().await {
-			if let service::network::NetworkEvent::ConnectionEstablished { device_id, .. } = event {
-				if let Err(e) = job_activity_client
-					.subscribe_to_device(device_id, None)
-					.await
-				{
-					tracing::error!(
-						"Auto-subscribe to job activity failed for device {}: {}",
-						device_id,
-						e
-					);
-				} else {
-					tracing::info!("Auto-subscribed to job activity from device {}", device_id);
-				}
-			}
-		}
-	});
+	// Job activity auto-subscription disabled
 
 	// Brief delay to ensure protocol handlers are fully initialized and background
 	// tasks have started before accepting connections. This prevents race conditions
