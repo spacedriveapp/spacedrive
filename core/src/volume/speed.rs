@@ -351,6 +351,7 @@ mod tests {
 			volume_type: VolumeType::External,
 			mount_type: MountType::External,
 			disk_type: DiskType::Unknown,
+			encryption: None,
 			file_system: FileSystem::Other("test".to_string()),
 			total_capacity: 1000000000,
 			available_space: 500000000,

@@ -117,6 +117,7 @@ pub async fn detect_non_apfs_volumes(
 					volume_type,
 					mount_type,
 					disk_type,
+					encryption: None, // Non-APFS macOS volumes don't have encryption detection yet
 					file_system,
 					total_capacity: total_bytes,
 					available_space: available_bytes,

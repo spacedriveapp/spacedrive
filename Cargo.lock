@@ -8946,6 +8946,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rubato",
+ "sd-crypto",
  "sd-ffmpeg",
  "sd-fs-watcher",
  "sd-images",

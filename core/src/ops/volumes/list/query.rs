@@ -1,8 +1,9 @@
 //! Volume list query
 
-use super::output::VolumeListOutput;
+use super::output::{VolumeEncryptionInfo, VolumeListOutput};
 use crate::{
 	context::CoreContext,
+	domain::volume::VolumeEncryption,
 	infra::{
 		db::entities,
 		query::{LibraryQuery, QueryError, QueryResult},
@@ -14,6 +15,15 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::HashMap, sync::Arc};
 use uuid::Uuid;
+
+/// Convert domain VolumeEncryption to API-friendly VolumeEncryptionInfo
+fn encryption_to_info(encryption: &VolumeEncryption) -> VolumeEncryptionInfo {
+	VolumeEncryptionInfo {
+		enabled: encryption.enabled,
+		encryption_type: encryption.encryption_type.to_string(),
+		is_unlocked: encryption.is_unlocked,
+	}
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub enum VolumeFilter {
@@ -190,6 +200,14 @@ impl LibraryQuery for VolumeListQuery {
 		let volume_manager = &context.volume_manager;
 		let mut volume_items = Vec::new();
 
+		// Get all runtime volumes for encryption lookup
+		let runtime_volumes = volume_manager.get_all_volumes().await;
+		let runtime_by_fingerprint: HashMap<String, &crate::domain::volume::Volume> =
+			runtime_volumes
+				.iter()
+				.map(|v| (v.fingerprint.0.clone(), v))
+				.collect();
+
 		match self.filter {
 			VolumeFilter::TrackedOnly | VolumeFilter::All => {
 				// For TrackedOnly and All, return volumes from database (all devices)
@@ -206,6 +224,12 @@ impl LibraryQuery for VolumeListQuery {
 						.get(&tracked_vol.device_id)
 						.cloned()
 						.unwrap_or_else(|| "unknown".to_string());
+
+					// Get encryption info from runtime volume if available
+					let encryption = runtime_by_fingerprint
+						.get(&tracked_vol.fingerprint)
+						.and_then(|v| v.encryption.as_ref())
+						.map(encryption_to_info);
 
 					volume_items.push(super::output::VolumeItem {
 						id: tracked_vol.uuid,
@@ -226,6 +250,7 @@ impl LibraryQuery for VolumeListQuery {
 						unique_bytes,
 						file_system: tracked_vol.file_system.clone(),
 						disk_type,
+						encryption,
 						read_speed_mbps: tracked_vol.read_speed_mbps.map(|s| s as u32),
 						write_speed_mbps: tracked_vol.write_speed_mbps.map(|s| s as u32),
 						device_id: tracked_vol.device_id,
@@ -235,14 +260,15 @@ impl LibraryQuery for VolumeListQuery {
 
 				// For All filter, also add untracked volumes from volume_manager
 				if matches!(self.filter, VolumeFilter::All) {
-					let all_volumes = volume_manager.get_all_volumes().await;
-					for vol in all_volumes {
+					for vol in &runtime_volumes {
 						// Only show user-visible volumes
 						if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
 							let device_slug = device_slug_map
 								.get(&vol.device_id)
 								.cloned()
 								.unwrap_or_else(|| "unknown".to_string());
+
+							let encryption = vol.encryption.as_ref().map(encryption_to_info);
 
 							volume_items.push(super::output::VolumeItem {
 								id: vol.id,
@@ -257,6 +283,7 @@ impl LibraryQuery for VolumeListQuery {
 								unique_bytes: None,
 								file_system: Some(vol.file_system.to_string()),
 								disk_type: Some(format!("{:?}", vol.disk_type)),
+								encryption,
 								read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
 								write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 								device_id: vol.device_id,
@@ -267,16 +294,15 @@ impl LibraryQuery for VolumeListQuery {
 				}
 			}
 			VolumeFilter::UntrackedOnly => {
-				// Get all detected volumes from volume manager (current device only)
-				let all_volumes = volume_manager.get_all_volumes().await;
-
 				// Only return volumes that are NOT tracked and are user-visible
-				for vol in all_volumes {
+				for vol in &runtime_volumes {
 					if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
 						let device_slug = device_slug_map
 							.get(&vol.device_id)
 							.cloned()
 							.unwrap_or_else(|| "unknown".to_string());
+
+						let encryption = vol.encryption.as_ref().map(encryption_to_info);
 
 						volume_items.push(super::output::VolumeItem {
 							id: vol.id,
@@ -291,6 +317,7 @@ impl LibraryQuery for VolumeListQuery {
 							unique_bytes: None,
 							file_system: Some(vol.file_system.to_string()),
 							disk_type: Some(format!("{:?}", vol.disk_type)),
+							encryption,
 							read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
 							write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 							device_id: vol.device_id,

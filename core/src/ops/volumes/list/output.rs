@@ -5,6 +5,17 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
+/// Encryption information for a volume (frontend-friendly subset of VolumeEncryption)
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct VolumeEncryptionInfo {
+	/// Whether encryption is enabled on this volume
+	pub enabled: bool,
+	/// Type of encryption (FileVault, BitLocker, LUKS, etc.)
+	pub encryption_type: String,
+	/// Whether the volume is currently unlocked
+	pub is_unlocked: bool,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct VolumeItem {
 	pub id: Uuid,
@@ -26,6 +37,9 @@ pub struct VolumeItem {
 	pub file_system: Option<String>,
 	/// Disk type (SSD, HDD, etc.)
 	pub disk_type: Option<String>,
+	/// Encryption status (FileVault, BitLocker, LUKS, etc.)
+	/// Only available for currently-mounted volumes on the local device
+	pub encryption: Option<VolumeEncryptionInfo>,
 	/// Read speed in MB/s
 	pub read_speed_mbps: Option<u32>,
 	/// Write speed in MB/s

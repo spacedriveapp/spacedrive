@@ -1,15 +1,17 @@
 //! Linux-specific volume detection helpers
 
+use crate::domain::volume::{EncryptionType, VolumeEncryption};
 use crate::volume::{
 	classification::{get_classifier, VolumeDetectionInfo},
 	error::{VolumeError, VolumeResult},
 	types::{DiskType, FileSystem, MountType, Volume, VolumeDetectionConfig, VolumeFingerprint},
 	utils,
 };
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::process::Command;
 use tokio::task;
-use tracing::debug;
+use tracing::{debug, warn};
 use uuid::Uuid;
 
 /// Mount information from /proc/mounts or df output
@@ -105,11 +107,15 @@ fn parse_df_line(
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 	let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
 
+	// Detect LUKS/eCryptfs encryption status
+	let encryption = detect_luks_encryption(filesystem_device);
+
 	let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 	volume.mount_type = mount_type;
 	volume.volume_type = volume_type;
 	volume.disk_type = disk_type;
+	volume.encryption = encryption;
 	volume.file_system = file_system;
 	volume.total_capacity = total_bytes;
 	volume.available_space = available_bytes;
@@ -168,6 +174,76 @@ fn determine_mount_type(mount_point: &str, device: &str) -> MountType {
 	} else {
 		MountType::System
 	}
+}
+
+/// Detect LUKS encryption status for a device.
+/// Checks if the device is a dm-crypt/LUKS encrypted volume by examining /sys/block/*/dm/uuid
+/// and querying lsblk for crypto information.
+fn detect_luks_encryption(device: &str) -> Option<VolumeEncryption> {
+	// Extract device name (e.g., "dm-0" from "/dev/mapper/luks-xxx" or "sda1" from "/dev/sda1")
+	let device_name = device.strip_prefix("/dev/").unwrap_or(device);
+
+	// Check if this is a device-mapper device (common for LUKS)
+	if device.starts_with("/dev/mapper/") || device.starts_with("/dev/dm-") {
+		// Try to get the dm device name for /dev/mapper paths
+		let dm_name = if device.starts_with("/dev/mapper/") {
+			// Resolve the mapper name to dm-X
+			if let Ok(resolved) = std::fs::read_link(device) {
+				resolved
+					.file_name()
+					.and_then(|n| n.to_str())
+					.map(|s| s.to_string())
+			} else {
+				None
+			}
+		} else {
+			Some(device_name.to_string())
+		};
+
+		if let Some(dm_device) = dm_name {
+			// Check /sys/block/dm-X/dm/uuid for CRYPT-LUKS prefix
+			let uuid_path = format!("/sys/block/{}/dm/uuid", dm_device);
+			if let Ok(uuid) = std::fs::read_to_string(&uuid_path) {
+				let uuid = uuid.trim();
+				if uuid.starts_with("CRYPT-LUKS") {
+					debug!("Detected LUKS encryption for device {} (uuid: {})", device, uuid);
+					return Some(VolumeEncryption::new(EncryptionType::LUKS, true));
+				}
+			}
+		}
+	}
+
+	// Alternative: use lsblk to detect crypto devices
+	// lsblk -o NAME,FSTYPE,TYPE -J shows TYPE=crypt for encrypted devices
+	if let Ok(output) = Command::new("lsblk")
+		.args(["-o", "NAME,TYPE", "-J", device])
+		.output()
+	{
+		if output.status.success() {
+			let lsblk_output = String::from_utf8_lossy(&output.stdout);
+			// Check if any device in the hierarchy has type "crypt"
+			if lsblk_output.contains("\"type\":\"crypt\"") || lsblk_output.contains("\"type\": \"crypt\"") {
+				debug!("Detected LUKS encryption via lsblk for device {}", device);
+				return Some(VolumeEncryption::new(EncryptionType::LUKS, true));
+			}
+		}
+	}
+
+	// Check for eCryptfs (stacked filesystem encryption)
+	if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
+		for line in mounts.lines() {
+			let parts: Vec<&str> = line.split_whitespace().collect();
+			if parts.len() >= 3 && parts[2] == "ecryptfs" {
+				// Check if this mount point matches our device's mount
+				if parts[0] == device {
+					debug!("Detected eCryptfs encryption for device {}", device);
+					return Some(VolumeEncryption::new(EncryptionType::ECryptfs, true));
+				}
+			}
+		}
+	}
+
+	None
 }
 
 /// Parse /proc/mounts for detailed mount information
@@ -249,11 +325,15 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 	let fingerprint = VolumeFingerprint::new(&name, mount.total_bytes, &file_system.to_string());
 
+	// Detect LUKS/eCryptfs encryption status
+	let encryption = detect_luks_encryption(&mount.device);
+
 	let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
 	volume.mount_type = mount_type;
 	volume.volume_type = volume_type;
 	volume.disk_type = disk_type;
+	volume.encryption = encryption;
 	volume.file_system = file_system;
 	volume.total_capacity = mount.total_bytes;
 	volume.available_space = mount.available_bytes;

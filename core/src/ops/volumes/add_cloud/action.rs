@@ -428,6 +428,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			volume_type: crate::volume::types::VolumeType::Network,
 			mount_type: crate::volume::types::MountType::Network,
 			disk_type: crate::volume::types::DiskType::Unknown,
+			encryption: None, // Cloud volumes don't have local encryption detection
 			file_system: crate::volume::types::FileSystem::Other(format!(
 				"{:?}",
 				self.input.service
