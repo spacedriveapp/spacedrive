@@ -617,7 +617,10 @@ impl JobHandler for IndexerJob {
 						false
 					}
 					Err(e) => {
-						ctx.log(format!("Failed to load snapshot, will perform full index: {}", e));
+						ctx.log(format!(
+							"Failed to load snapshot, will perform full index: {}",
+							e
+						));
 						false
 					}
 				}
@@ -627,8 +630,9 @@ impl JobHandler for IndexerJob {
 
 			// If snapshot not loaded, create new index for indexing
 			if !snapshot_loaded {
-				let index = EphemeralIndex::new()
-					.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
+				let index = EphemeralIndex::new().map_err(|e| {
+					JobError::Other(format!("Failed to create ephemeral index: {}", e))
+				})?;
 				self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
 				ctx.log("Initialized ephemeral index for non-persistent job");
 			}

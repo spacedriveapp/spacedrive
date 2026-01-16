@@ -158,7 +158,10 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 					if let Some(node_id) = node_id {
 						// Query Iroh for connection info
 						if let Some(remote_info) = ep.remote_info(node_id) {
-							let conn_method = crate::domain::device::ConnectionMethod::from_iroh_connection_type(remote_info.conn_type);
+							let conn_method =
+								crate::domain::device::ConnectionMethod::from_iroh_connection_type(
+									remote_info.conn_type,
+								);
 							let is_connected = conn_method.is_some();
 							(is_connected, conn_method)
 						} else {
@@ -213,7 +216,8 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 					}
 
 					// Convert network DeviceInfo to domain Device
-					let device = Device::from_network_info(&info, is_actually_connected, connection_method);
+					let device =
+						Device::from_network_info(&info, is_actually_connected, connection_method);
 					result.push(device);
 				}
 			}

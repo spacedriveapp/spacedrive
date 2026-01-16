@@ -68,7 +68,10 @@ impl DeviceRegistry {
 	}
 
 	/// Set the library manager for querying device data
-	pub fn set_library_manager(&mut self, library_manager: std::sync::Weak<crate::library::LibraryManager>) {
+	pub fn set_library_manager(
+		&mut self,
+		library_manager: std::sync::Weak<crate::library::LibraryManager>,
+	) {
 		self.library_manager = Some(library_manager);
 	}
 
@@ -92,12 +95,16 @@ impl DeviceRegistry {
 			use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 
 			match crate::infra::db::entities::device::Entity::find()
-				.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
+				.filter(
+					crate::infra::db::entities::device::Column::Uuid
+						.eq(device_id.as_bytes().to_vec()),
+				)
 				.one(db)
 				.await
 			{
 				Ok(Some(model)) => {
-					let mut active_model: crate::infra::db::entities::device::ActiveModel = model.into();
+					let mut active_model: crate::infra::db::entities::device::ActiveModel =
+						model.into();
 					active_model.is_online = Set(is_online);
 					active_model.last_seen_at = Set(chrono::Utc::now());
 
@@ -150,7 +157,10 @@ impl DeviceRegistry {
 						// Query device from database by UUID
 						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 						if let Ok(Some(model)) = crate::infra::db::entities::device::Entity::find()
-							.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_id.as_bytes().to_vec()))
+							.filter(
+								crate::infra::db::entities::device::Column::Uuid
+									.eq(device_id.as_bytes().to_vec()),
+							)
 							.one(db)
 							.await
 						{

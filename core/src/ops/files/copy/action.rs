@@ -299,14 +299,15 @@ impl LibraryAction for FileCopyAction {
 
 		// Get strategy metadata for rich UI display
 		let first_source = &self.sources.paths[0];
-		let (_, strategy_metadata) = super::routing::CopyStrategyRouter::select_strategy_with_metadata(
-			first_source,
-			&self.destination,
-			self.options.delete_after_copy,
-			&self.options.copy_method,
-			Some(&*context.volume_manager),
-		)
-		.await;
+		let (_, strategy_metadata) =
+			super::routing::CopyStrategyRouter::select_strategy_with_metadata(
+				first_source,
+				&self.destination,
+				self.options.delete_after_copy,
+				&self.options.copy_method,
+				Some(&*context.volume_manager),
+			)
+			.await;
 
 		// Calculate file counts and total bytes
 		let (file_count, total_bytes) = self.calculate_totals().await?;
@@ -453,9 +454,9 @@ impl FileCopyAction {
 		let mut stack = vec![path.to_path_buf()];
 
 		while let Some(current) = stack.pop() {
-			let metadata = tokio::fs::metadata(&current).await.map_err(|e| {
-				ActionError::Internal(format!("Failed to read metadata: {}", e))
-			})?;
+			let metadata = tokio::fs::metadata(&current)
+				.await
+				.map_err(|e| ActionError::Internal(format!("Failed to read metadata: {}", e)))?;
 
 			if metadata.is_file() {
 				count += 1;

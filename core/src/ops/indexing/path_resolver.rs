@@ -11,7 +11,9 @@ use sea_orm::{prelude::*, ConnectionTrait, QuerySelect, Statement};
 
 use crate::{
 	domain::addressing::SdPath,
-	infra::db::entities::{device, directory_paths, entry, location, volume, DirectoryPaths, Entry},
+	infra::db::entities::{
+		device, directory_paths, entry, location, volume, DirectoryPaths, Entry,
+	},
 };
 
 pub struct PathResolver;

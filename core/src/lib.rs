@@ -155,12 +155,9 @@ impl Core {
 			data_dir.clone(),
 		);
 
-		// Enable per-job file logging by default
-		let mut app_config = config.write().await;
-		if !app_config.job_logging.enabled {
-			app_config.job_logging.enabled = true;
-		}
-		// Job logs are now stored per-library, not globally
+		// Set job logging configuration from config (respects environment-aware defaults)
+		// Job logs are stored per-library, not globally
+		let app_config = config.read().await;
 		context_inner.set_job_logging(app_config.job_logging.clone(), None);
 		drop(app_config);
 
@@ -330,7 +327,9 @@ impl Core {
 						// Set event bus for device registry to emit ResourceChanged events
 						networking.set_event_bus(context.events.clone()).await;
 						// Set library manager for device registry to query complete device data
-						networking.set_library_manager(Arc::downgrade(&context.libraries().await)).await;
+						networking
+							.set_library_manager(Arc::downgrade(&context.libraries().await))
+							.await;
 						info!("Networking service registered in context");
 
 						// Initialize sync service on already-loaded libraries
@@ -543,7 +542,9 @@ impl Core {
 			// Set event bus for device registry to emit ResourceChanged events
 			networking_service.set_event_bus(self.events.clone()).await;
 			// Set library manager for device registry to query complete device data
-			networking_service.set_library_manager(Arc::downgrade(&self.context.libraries().await)).await;
+			networking_service
+				.set_library_manager(Arc::downgrade(&self.context.libraries().await))
+				.await;
 		}
 
 		logger.info("Networking initialized successfully").await;

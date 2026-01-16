@@ -26,6 +26,10 @@ pub struct AppConfig {
 	/// User preferences
 	pub preferences: Preferences,
 
+	/// Daemon file logging configuration
+	#[serde(default)]
+	pub daemon_logging: DaemonLoggingConfig,
+
 	/// Job logging configuration
 	#[serde(default)]
 	pub job_logging: JobLoggingConfig,
@@ -71,14 +75,54 @@ impl Default for ServiceConfig {
 	}
 }
 
+/// Configuration for daemon-level file logging
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonLoggingConfig {
+	/// Enable daemon file logging (stdout always enabled)
+	pub enabled: bool,
+
+	/// Directory for daemon logs (relative to data_dir or absolute)
+	pub log_directory: PathBuf,
+
+	/// Enable daily log rotation
+	pub enable_rotation: bool,
+
+	/// Log filename format
+	/// true: daemon-YYYY-MM-DD.log (tooling-compatible, .log extension)
+	/// false: daemon.log.YYYY-MM-DD (legacy behavior, breaks tooling)
+	pub standard_naming: bool,
+
+	/// Maximum number of rotated log files to keep (0 = unlimited)
+	/// Note: Cleanup not yet implemented, reserved for future use
+	pub max_rotated_files: usize,
+}
+
+impl Default for DaemonLoggingConfig {
+	fn default() -> Self {
+		// Environment-aware defaults: disable file logging in production builds
+		#[cfg(debug_assertions)]
+		let enabled = true;
+		#[cfg(not(debug_assertions))]
+		let enabled = false;
+
+		Self {
+			enabled,
+			log_directory: PathBuf::from("logs"),
+			enable_rotation: true,
+			standard_naming: true,
+			max_rotated_files: 7,
+		}
+	}
+}
+
 /// Configuration for job-specific logging
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobLoggingConfig {
 	/// Whether job logging is enabled
 	pub enabled: bool,
 
-	/// Directory for job logs (relative to data_dir)
-	pub log_directory: String,
+	/// Directory for job logs (relative to library path or absolute)
+	pub log_directory: PathBuf,
 
 	/// Maximum log file size in bytes (0 = unlimited)
 	pub max_file_size: u64,
@@ -93,9 +137,15 @@ pub struct JobLoggingConfig {
 
 impl Default for JobLoggingConfig {
 	fn default() -> Self {
+		// Environment-aware defaults: disable file logging in production builds
+		#[cfg(debug_assertions)]
+		let enabled = true;
+		#[cfg(not(debug_assertions))]
+		let enabled = false;
+
 		Self {
-			enabled: true,
-			log_directory: "job_logs".to_string(),
+			enabled,
+			log_directory: PathBuf::from("logs"),
 			max_file_size: 10 * 1024 * 1024, // 10MB default
 			include_debug: false,
 			log_ephemeral_jobs: false,
@@ -207,6 +257,7 @@ impl AppConfig {
 			log_level: "info".to_string(),
 			telemetry_enabled: true,
 			preferences: Preferences::default(),
+			daemon_logging: DaemonLoggingConfig::default(),
 			job_logging: JobLoggingConfig::default(),
 			services: ServiceConfig::default(),
 			logging: LoggingConfig::default(),
@@ -225,9 +276,14 @@ impl AppConfig {
 		Ok(())
 	}
 
-	/// Get the path for logs directory
+	/// Get the path for daemon logs directory
+	/// Resolves relative paths against data_dir, absolute paths used as-is
 	pub fn logs_dir(&self) -> PathBuf {
-		self.data_dir.join("logs")
+		if self.daemon_logging.log_directory.is_absolute() {
+			self.daemon_logging.log_directory.clone()
+		} else {
+			self.data_dir.join(&self.daemon_logging.log_directory)
+		}
 	}
 
 	/// Get the path for libraries directory
@@ -251,9 +307,12 @@ impl AppConfig {
 		#[cfg(not(target_os = "ios"))]
 		{
 			fs::create_dir_all(&self.data_dir)?;
-			fs::create_dir_all(self.logs_dir())?;
+			// Only create daemon log directory if file logging is enabled
+			if self.daemon_logging.enabled {
+				fs::create_dir_all(self.logs_dir())?;
+			}
 			fs::create_dir_all(self.libraries_dir())?;
-			// Job logs are now stored per-library
+			// Job logs are created per-library when enabled
 		}
 
 		Ok(())
@@ -273,7 +332,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		4 // Updated schema version for multi-stream logging
+		5 // Updated schema version for daemon logging configuration
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -299,9 +358,19 @@ impl Migrate for AppConfig {
 				// Migration from v3 to v4: Add multi-stream logging configuration
 				self.logging = LoggingConfig::default();
 				self.version = 4;
+				self.migrate()
+			}
+			4 => {
+				// Migration from v4 to v5: Add daemon logging configuration
+				// Daemon logging defaults are environment-aware (enabled in debug, disabled in release)
+				self.daemon_logging = DaemonLoggingConfig::default();
+				// Update job_logging to use new PathBuf type and environment-aware defaults
+				// Preserve existing enabled setting if explicitly set, otherwise use new defaults
+				self.job_logging.log_directory = PathBuf::from("logs");
+				self.version = 5;
 				Ok(())
 			}
-			4 => Ok(()), // Already at target version
+			5 => Ok(()), // Already at target version
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
 	}

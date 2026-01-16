@@ -63,7 +63,15 @@ impl LibraryQuery for ValidateLocationPathQuery {
 		let volume_manager = &context.volume_manager;
 		let volume_opt = volume_manager.volume_for_path(path).await;
 
-		tracing::info!("Volume lookup for path {}: {:?}", path.display(), volume_opt.as_ref().map(|v| (v.name.as_str(), &v.volume_type, v.fingerprint.0.as_str())));
+		tracing::info!(
+			"Volume lookup for path {}: {:?}",
+			path.display(),
+			volume_opt.as_ref().map(|v| (
+				v.name.as_str(),
+				&v.volume_type,
+				v.fingerprint.0.as_str()
+			))
+		);
 
 		let is_primary = volume_opt
 			.as_ref()
@@ -87,7 +95,11 @@ impl LibraryQuery for ValidateLocationPathQuery {
 			}
 			matches
 		});
-		tracing::info!("is_system_dir: {}, is_primary: {}", is_system_dir, is_primary);
+		tracing::info!(
+			"is_system_dir: {}, is_primary: {}",
+			is_system_dir,
+			is_primary
+		);
 
 		// Determine risk level using hybrid approach (depth + system directory check)
 		let risk_level = if is_system_dir || depth <= 1 {

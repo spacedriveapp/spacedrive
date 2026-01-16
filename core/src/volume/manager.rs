@@ -904,18 +904,33 @@ impl VolumeManager {
 		// IMPORTANT: Sort by mount point length (longest first) so more specific mounts
 		// are checked before generic ones (e.g., /System/Volumes/Data before /)
 		let volumes = self.volumes.read().await;
-		info!("volume_for_path: Looking for path {} in {} volumes", canonical_path.display(), volumes.len());
+		info!(
+			"volume_for_path: Looking for path {} in {} volumes",
+			canonical_path.display(),
+			volumes.len()
+		);
 
 		let mut sorted_volumes: Vec<_> = volumes.iter().collect();
 		sorted_volumes.sort_by(|a, b| {
-			b.1.mount_point.to_string_lossy().len()
+			b.1.mount_point
+				.to_string_lossy()
+				.len()
 				.cmp(&a.1.mount_point.to_string_lossy().len())
 		});
 
 		for (fp, volume) in sorted_volumes {
-			info!("volume_for_path: Checking volume '{}' at {} (fingerprint: {})", volume.name, volume.mount_point.display(), fp.0);
+			info!(
+				"volume_for_path: Checking volume '{}' at {} (fingerprint: {})",
+				volume.name,
+				volume.mount_point.display(),
+				fp.0
+			);
 			if volume.contains_path(&canonical_path) {
-				info!("volume_for_path: MATCH! Path {} is on volume '{}'", canonical_path.display(), volume.name);
+				info!(
+					"volume_for_path: MATCH! Path {} is on volume '{}'",
+					canonical_path.display(),
+					volume.name
+				);
 				// Cache the result using canonical path
 				let mut cache = self.path_cache.write().await;
 				cache.insert(canonical_path.clone(), volume.fingerprint.clone());
@@ -923,7 +938,11 @@ impl VolumeManager {
 			}
 		}
 
-		info!("No volume found for path: {} (searched {} volumes)", canonical_path.display(), volumes.len());
+		info!(
+			"No volume found for path: {} (searched {} volumes)",
+			canonical_path.display(),
+			volumes.len()
+		);
 		None
 	}
 
@@ -948,7 +967,10 @@ impl VolumeManager {
 		// Check if this is a cloud path
 		if let Some((service, identifier, _path)) = sdpath.as_cloud() {
 			// Cloud path - use identity-based lookup
-			info!("Cloud path detected: service={:?}, identifier={}", service, identifier);
+			info!(
+				"Cloud path detected: service={:?}, identifier={}",
+				service, identifier
+			);
 			Ok(self.find_cloud_volume(service, identifier).await)
 		} else {
 			// Local path - resolve by filesystem path

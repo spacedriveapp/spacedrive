@@ -362,8 +362,7 @@ pub fn containers_to_volumes(
 
 			// Auto-track eligibility: Only Primary volume (Data volume on modern macOS)
 			let auto_track_eligible =
-				matches!(volume_type, crate::volume::types::VolumeType::Primary)
-					&& is_user_visible;
+				matches!(volume_type, crate::volume::types::VolumeType::Primary) && is_user_visible;
 
 			debug!(
 				"APFS_CONVERT: Volume '{}' classified as Type={:?}, user_visible={}, auto_track_eligible={}",

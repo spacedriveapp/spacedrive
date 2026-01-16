@@ -1,6 +1,9 @@
 //! Thumbnail generation action handlers
 
-use super::{job::{ThumbnailJob, ThumbnailJobConfig}, processor::ThumbnailProcessor};
+use super::{
+	job::{ThumbnailJob, ThumbnailJobConfig},
+	processor::ThumbnailProcessor,
+};
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},

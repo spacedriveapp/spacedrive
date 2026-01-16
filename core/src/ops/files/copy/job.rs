@@ -375,7 +375,8 @@ impl JobHandler for FileCopyJob {
 				copied_count += files_in_source; // Count actual files as copied for progress tracking
 
 				// Mark as completed in metadata (already done during previous run)
-				self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
+				self.job_metadata
+					.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
 				continue;
 			}
 
@@ -422,7 +423,8 @@ impl JobHandler for FileCopyJob {
 			};
 
 			// Mark file as currently copying in metadata
-			self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Copying);
+			self.job_metadata
+				.update_status(&resolved_source, super::metadata::CopyFileStatus::Copying);
 
 			// Persist immediately so UI can show "copying" status in real-time
 			self.persist_job_state_to_db(&ctx).await?;
@@ -506,7 +508,10 @@ impl JobHandler for FileCopyJob {
 								ctx.log(format!("Skipping existing file: {}", dest_path.display()));
 
 								// Mark as skipped in metadata
-								self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Skipped);
+								self.job_metadata.update_status(
+									&resolved_source,
+									super::metadata::CopyFileStatus::Skipped,
+								);
 
 								// Skip this file
 								progress_aggregator.complete_source();
@@ -572,7 +577,10 @@ impl JobHandler for FileCopyJob {
 					self.completed_indices.push(index);
 
 					// Mark as completed in metadata
-					self.job_metadata.update_status(&resolved_source, super::metadata::CopyFileStatus::Completed);
+					self.job_metadata.update_status(
+						&resolved_source,
+						super::metadata::CopyFileStatus::Completed,
+					);
 
 					// If this is a move operation and the strategy didn't handle deletion,
 					// we need to delete the source after successful copy
@@ -1058,8 +1066,8 @@ impl FileCopyJob {
 				match PathResolver::resolve_to_entry(ctx.library_db(), source).await {
 					Ok(Some(entry)) => {
 						let size = match entry.kind {
-							0 => entry.size as u64,                      // File
-							1 => entry.aggregate_size as u64,            // Directory
+							0 => entry.size as u64,           // File
+							1 => entry.aggregate_size as u64, // Directory
 							_ => 0,
 						};
 						total += size;
@@ -1094,8 +1102,9 @@ impl FileCopyJob {
 		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
 
 		// Serialize current job state
-		let job_state = rmp_serde::to_vec(self)
-			.map_err(|e| JobError::serialization(format!("Failed to serialize job state: {}", e)))?;
+		let job_state = rmp_serde::to_vec(self).map_err(|e| {
+			JobError::serialization(format!("Failed to serialize job state: {}", e))
+		})?;
 
 		// Update the jobs.state field in the database
 		let job_db = ctx.library.jobs().database();
@@ -1105,7 +1114,9 @@ impl FileCopyJob {
 			..Default::default()
 		};
 
-		job_model.update(job_db.conn()).await
+		job_model
+			.update(job_db.conn())
+			.await
 			.map_err(|e| JobError::execution(format!("Failed to persist job state: {}", e)))?;
 
 		ctx.log(format!(
@@ -1129,7 +1140,9 @@ impl FileCopyJob {
 				JobError::execution(format!("Failed to resolve source path: {}", e))
 			})?;
 
-			let (size_bytes, is_directory, entry_id) = if let Some(local_path) = resolved_source.as_local_path() {
+			let (size_bytes, is_directory, entry_id) = if let Some(local_path) =
+				resolved_source.as_local_path()
+			{
 				// Local path - get from filesystem
 				let metadata = tokio::fs::metadata(local_path)
 					.await

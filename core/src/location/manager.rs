@@ -103,7 +103,11 @@ impl LocationManager {
 							}
 						}
 						Err(e) => {
-							warn!("Failed to get metadata for location root {}: {}", path.display(), e);
+							warn!(
+								"Failed to get metadata for location root {}: {}",
+								path.display(),
+								e
+							);
 							None
 						}
 					}
@@ -132,14 +136,19 @@ impl LocationManager {
 
 		// Resolve volume for this location path BEFORE creating the entry
 		// Volume detection is required - all locations must have a volume
-		let volume_id = match volume_manager.resolve_volume_for_sdpath(&sd_path, &library).await {
+		let volume_id = match volume_manager
+			.resolve_volume_for_sdpath(&sd_path, &library)
+			.await
+		{
 			Ok(Some(volume)) => {
 				info!("Resolved volume '{}' for location path", volume.name);
 				// Ensure volume is in database and get its ID
 				volume_manager
 					.ensure_volume_in_db(&volume, &library)
 					.await
-					.map_err(|e| LocationError::Other(format!("Failed to register volume: {}", e)))?
+					.map_err(|e| {
+						LocationError::Other(format!("Failed to register volume: {}", e))
+					})?
 			}
 			Ok(None) => {
 				return Err(LocationError::Other(format!(
@@ -173,8 +182,8 @@ impl LocationManager {
 			indexed_at: Set(Some(now)), // Record when location root was created
 			permissions: Set(None),
 			inode: Set(inode.map(|i| i as i64)), // Use extracted inode
-			parent_id: Set(None), // Location root has no parent
-			volume_id: Set(Some(volume_id)), // Volume is required for all locations
+			parent_id: Set(None),                // Location root has no parent
+			volume_id: Set(Some(volume_id)),     // Volume is required for all locations
 			..Default::default()
 		};
 

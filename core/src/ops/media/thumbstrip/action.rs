@@ -144,10 +144,9 @@ impl LibraryAction for GenerateThumbstripAction {
 			}
 
 			// Process the file
-			let result = processor
-				.process(db, &proc_entry)
-				.await
-				.map_err(|e| ActionError::Internal(format!("Thumbstrip generation failed: {}", e)))?;
+			let result = processor.process(db, &proc_entry).await.map_err(|e| {
+				ActionError::Internal(format!("Thumbstrip generation failed: {}", e))
+			})?;
 
 			if !result.success {
 				return Err(ActionError::Internal(

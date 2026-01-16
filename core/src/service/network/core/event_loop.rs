@@ -219,7 +219,8 @@ impl NetworkingEventLoop {
 		}
 
 		// Spawn a task to watch for connection closure for instant reactivity
-		self.spawn_connection_watcher(conn.clone(), remote_node_id).await;
+		self.spawn_connection_watcher(conn.clone(), remote_node_id)
+			.await;
 
 		// For now, we'll need to detect ALPN from the first stream
 		// TODO: Find the correct way to get ALPN from iroh Connection

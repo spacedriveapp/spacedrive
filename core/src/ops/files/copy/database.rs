@@ -35,7 +35,7 @@ impl CopyDatabaseQuery {
 			match PathResolver::resolve_to_entry(&self.db, source).await {
 				Ok(Some(entry)) => {
 					let (file_count, total_size) = match entry.kind {
-						0 => (1u64, entry.size as u64),                    // File
+						0 => (1u64, entry.size as u64),                              // File
 						1 => (entry.file_count as u64, entry.aggregate_size as u64), // Directory
 						_ => (0, 0),
 					};
@@ -316,7 +316,8 @@ impl CopyDatabaseQuery {
 					for component in components {
 						if let Some(parent_id) = current_parent_id {
 							// Remove extension for entry lookup (extensions stored separately)
-							let component_without_ext = if let Some(dot_pos) = component.rfind('.') {
+							let component_without_ext = if let Some(dot_pos) = component.rfind('.')
+							{
 								&component[..dot_pos]
 							} else {
 								component
@@ -325,8 +326,8 @@ impl CopyDatabaseQuery {
 							// Normalize Unicode spaces (macOS uses special space characters)
 							// Replace narrow no-break space (\u{202f}) and other space variants with regular space
 							let normalized_name = component_without_ext
-								.replace('\u{202f}', " ")  // Narrow no-break space
-								.replace('\u{00a0}', " ")  // Non-breaking space
+								.replace('\u{202f}', " ") // Narrow no-break space
+								.replace('\u{00a0}', " ") // Non-breaking space
 								.replace('\u{2009}', " "); // Thin space
 
 							let child = entry::Entity::find()
