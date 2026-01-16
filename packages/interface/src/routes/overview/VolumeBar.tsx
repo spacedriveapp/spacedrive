@@ -200,18 +200,18 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 			className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border"
 			onContextMenu={contextMenu.show}
 		>
-			{/* Top row: Info */}
-			<div className="flex items-center gap-3 px-3 py-2">
+			{/* Top row: Info - fixed height */}
+			<div className="flex h-[64px] items-center gap-3 px-3">
 				{/* Icon */}
 				<img
 					src={iconSrc}
 					alt={volumeTypeStr}
-					className="size-6 flex-shrink-0 opacity-80"
+					className="size-10 flex-shrink-0 opacity-80"
 				/>
 
 				{/* Name, actions, and badges */}
 				<div className="min-w-0 flex-1">
-					<div className="mb-0.5 flex items-center gap-2">
+					<div className="mb-1.5 flex items-center gap-2">
 						<span className="text-ink truncate text-sm font-semibold">
 							{volume.display_name || volume.name}
 						</span>
@@ -222,21 +222,10 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 								className="text-ink-faint/50"
 							/>
 						)}
-						{currentDevice &&
-							volume.device_id === currentDevice.id && (
-								<TopBarButton
-									icon={DotsThree}
-									onClick={(e) => {
-										e.stopPropagation();
-										contextMenu.show(e);
-									}}
-									title="Volume actions"
-								/>
-							)}
 					</div>
 
-					{/* Badges under name */}
-					<div className="text-ink-dull flex flex-wrap items-center gap-1.5 text-[10px]">
+					{/* Badges under name - fixed height */}
+					<div className="text-ink-dull flex h-[18px] items-center gap-1.5 text-[10px]">
 						{fileSystem && (
 							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 								{fileSystem}
@@ -273,35 +262,43 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 					</div>
 				</div>
 
-				{/* Capacity info */}
-				<div className="flex-shrink-0 text-right">
+				{/* Capacity info - fixed 3-row layout */}
+				<div className="flex h-[48px] flex-shrink-0 flex-col justify-between text-right">
 					<div className="text-ink text-sm font-medium">
 						{formatBytes(totalCapacity)}
 					</div>
 					<div className="text-ink-dull text-[10px]">
 						{formatBytes(availableBytes)} free
 					</div>
-					{(volume.read_speed_mbps || volume.write_speed_mbps) && (
-						<div className="text-ink-faint flex items-center gap-1.5 text-[10px]">
-							{volume.read_speed_mbps && (
-								<span className="flex items-center gap-0.5">
-									<ArrowDown size={10} weight="bold" />
-									{volume.read_speed_mbps}MB/s
-								</span>
-							)}
-							{volume.write_speed_mbps && (
-								<span className="flex items-center gap-0.5">
-									<ArrowUp size={10} weight="bold" />
-									{volume.write_speed_mbps}MB/s
-								</span>
-							)}
-						</div>
-					)}
+					<div className="text-ink-faint flex h-3.5 items-center justify-end gap-1.5 text-[10px]">
+						{volume.read_speed_mbps && (
+							<span className="flex items-center gap-0.5">
+								<ArrowDown size={10} weight="bold" />
+								{volume.read_speed_mbps}MB/s
+							</span>
+						)}
+						{volume.write_speed_mbps && (
+							<span className="flex items-center gap-0.5">
+								<ArrowUp size={10} weight="bold" />
+								{volume.write_speed_mbps}MB/s
+							</span>
+						)}
+					</div>
 				</div>
+
+				{/* Three dots button - far right */}
+				<TopBarButton
+					icon={DotsThree}
+					onClick={(e) => {
+						e.stopPropagation();
+						contextMenu.show(e);
+					}}
+					title="Volume actions"
+				/>
 			</div>
 
 			{/* Bottom: Full-width capacity bar with padding */}
-			<div className="px-3 pb-3 pt-2">
+			<div className="px-3 pb-3 pt-1">
 				<div className="bg-app border-app-line relative h-8 overflow-hidden rounded-md border">
 					{/* Base capacity visualization */}
 					<div className="flex h-full">
