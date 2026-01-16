@@ -37,6 +37,15 @@ impl LibraryAction for CreateTagAction {
 		Ok(CreateTagAction::new(input))
 	}
 
+	#[tracing::instrument(
+		name = "tags.create.execute",
+		skip(self, library, _context),
+		fields(
+			canonical_name = %self.input.canonical_name,
+			namespace = ?self.input.namespace,
+			tag_type = ?self.input.tag_type
+		)
+	)]
 	async fn execute(
 		self,
 		library: Arc<Library>,
@@ -230,6 +239,7 @@ impl LibraryAction for CreateTagAction {
 crate::register_library_action!(CreateTagAction, "tags.create");
 
 /// Look up entry UUID from entry database ID
+#[tracing::instrument(name = "tags.lookup_entry_uuid", skip(db), fields(entry_id = entry_id))]
 async fn lookup_entry_uuid(
 	db: &sea_orm::DatabaseConnection,
 	entry_id: i32,

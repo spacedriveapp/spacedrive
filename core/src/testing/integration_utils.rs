@@ -201,7 +201,7 @@ impl TestConfigBuilder {
 	/// Build the AppConfig
 	pub fn build(self) -> AppConfig {
 		AppConfig {
-			version: 4,
+			version: 5,
 			data_dir: self.data_dir,
 			log_level: self.log_level,
 			telemetry_enabled: self.telemetry_enabled,
@@ -220,6 +220,7 @@ impl TestConfigBuilder {
 				statistics_listener_enabled: self.statistics_listener_enabled,
 			},
 			logging: crate::config::app_config::LoggingConfig::default(),
+			otel: crate::config::app_config::OpenTelemetryConfig::default(),
 		}
 	}
 

@@ -105,23 +105,23 @@ impl LibraryQuery for DirectoryListingQuery {
 	type Output = DirectoryListingOutput;
 
 	fn from_input(input: Self::Input) -> QueryResult<Self> {
-		tracing::info!(
-			"DirectoryListingQuery::from_input called with input: {:?}",
-			input
-		);
 		Ok(Self { input })
 	}
 
+	#[tracing::instrument(
+		name = "directory_listing.execute",
+		skip(self, context, session),
+		fields(
+			path = ?self.input.path,
+			limit = ?self.input.limit,
+			sort_by = ?self.input.sort_by
+		)
+	)]
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
 		session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		tracing::info!(
-			"DirectoryListingQuery::execute called with path: {:?}",
-			self.input.path
-		);
-
 		let library_id = session
 			.current_library_id
 			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
@@ -165,6 +165,11 @@ impl LibraryQuery for DirectoryListingQuery {
 
 impl DirectoryListingQuery {
 	/// Query indexed directory from database
+	#[tracing::instrument(
+		name = "directory_listing.query_indexed",
+		skip(self, db),
+		fields(parent_id = parent_id)
+	)]
 	async fn query_indexed_directory_impl(
 		&self,
 		parent_id: i32,
@@ -619,6 +624,11 @@ impl DirectoryListingQuery {
 	}
 
 	/// Query ephemeral directory (not indexed) - check cache first, then trigger on-demand indexing
+	#[tracing::instrument(
+		name = "directory_listing.query_ephemeral",
+		skip(self, context),
+		fields(library_id = %library_id, path = ?self.input.path)
+	)]
 	async fn query_ephemeral_directory_impl(
 		&self,
 		context: Arc<CoreContext>,
@@ -837,6 +847,7 @@ impl DirectoryListingQuery {
 impl DirectoryListingQuery {
 	/// Check if the location containing this path has IndexMode::None
 	/// Returns Some(true) if should use ephemeral, Some(false) if indexed, None if location not found
+	#[tracing::instrument(name = "directory_listing.check_index_mode", skip(self, db))]
 	async fn check_location_index_mode(&self, db: &DatabaseConnection) -> Option<bool> {
 		use crate::infra::db::entities::location;
 
@@ -874,12 +885,12 @@ impl DirectoryListingQuery {
 	}
 
 	/// Find the parent directory entry for the given SdPath
+	#[tracing::instrument(
+		name = "directory_listing.find_parent",
+		skip(self, db),
+		fields(path = ?self.input.path)
+	)]
 	async fn find_parent_directory(&self, db: &DatabaseConnection) -> QueryResult<entry::Model> {
-		tracing::debug!(
-			" find_parent_directory called with path: {:?}",
-			self.input.path
-		);
-
 		match &self.input.path {
 			SdPath::Physical { device_slug, path } => {
 				// For directory browsing, we need to find the directory entry

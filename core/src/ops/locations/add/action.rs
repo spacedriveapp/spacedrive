@@ -48,6 +48,15 @@ impl LibraryAction for LocationAddAction {
 		Ok(LocationAddAction::new(input))
 	}
 
+	#[tracing::instrument(
+		name = "locations.add.execute",
+		skip(self, library, context),
+		fields(
+			path = ?self.input.path,
+			name = ?self.input.name,
+			mode = ?self.input.mode
+		)
+	)]
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
@@ -125,6 +134,11 @@ impl LibraryAction for LocationAddAction {
 		"locations.add"
 	}
 
+	#[tracing::instrument(
+		name = "locations.add.validate",
+		skip(self, library, context),
+		fields(path = ?self.input.path)
+	)]
 	async fn validate(
 		&self,
 		library: &std::sync::Arc<crate::library::Library>,

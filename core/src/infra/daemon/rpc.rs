@@ -189,6 +189,7 @@ impl RpcServer {
 	/// Execute a JSON operation using the registry handlers
 	///
 	/// Made public for reuse in embedded implementations (iOS, etc.)
+	#[tracing::instrument(skip(json_payload, core))]
 	pub async fn execute_json_operation(
 		method: &str,
 		library_id: Option<uuid::Uuid>,

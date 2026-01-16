@@ -16,6 +16,13 @@ heif = ["sd-images/heif"]
 mobile = []
 # CLI support (clap is now always available)
 cli = []
+# OpenTelemetry distributed tracing support
+telemetry = [
+	"dep:opentelemetry",
+	"dep:opentelemetry_sdk",
+	"dep:opentelemetry-otlp",
+	"dep:tracing-opentelemetry",
+]
 # WASM plugin system (disabled on mobile)
 wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 
@@ -95,6 +102,12 @@ tracing            = "0.1"
 tracing-appender   = "0.2"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
+# OpenTelemetry (optional, enabled via `telemetry` feature)
+opentelemetry = { version = "0.31", features = ["trace"], optional = true }
+opentelemetry_sdk = { version = "0.31", features = ["trace", "rt-tokio", "experimental_trace_batch_span_processor_with_async_runtime"], optional = true }
+opentelemetry-otlp = { version = "0.31", default-features = false, features = ["trace", "http-proto", "reqwest-client"], optional = true }
+tracing-opentelemetry = { version = "0.32", optional = true }
+
 # WASM Plugin System
 wasmer             = { version = "4.2", optional = true }
 wasmer-middlewares = { version = "4.2", optional = true }
@@ -121,6 +134,7 @@ sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-fs-watcher    = { path = "../crates/fs-watcher" }
 sd-images        = { path = "../crates/images" }
 sd-media-metadata = { path = "../crates/media-metadata" }
+sd-config        = { path = "../crates/config"}
 tokio-rustls     = "0.26"
 webp             = "0.3"
 

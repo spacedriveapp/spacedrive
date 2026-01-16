@@ -43,7 +43,6 @@ pub mod commands {
 
 /// Platform-specific data directory resolution
 pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
-
 	#[cfg(target_os = "macos")]
 	let dir = dirs::data_dir()
 		.ok_or_else(|| anyhow::anyhow!("Could not determine data directory"))?

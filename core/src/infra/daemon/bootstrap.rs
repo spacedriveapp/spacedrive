@@ -12,7 +12,9 @@ pub async fn start_default_server(
 	enable_networking: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
 	// Initialize basic tracing with file logging first
-	initialize_tracing_with_file_logging(&data_dir)?;
+	// Returns a telemetry handle if OpenTelemetry is enabled
+	#[allow(unused_variables)]
+	let telemetry_handle = initialize_tracing_with_file_logging(&data_dir)?;
 
 	// Create a single Core instance
 	let mut core = Core::new(data_dir.clone())
@@ -52,14 +54,34 @@ pub async fn start_default_server(
 	let mut server = RpcServer::new(socket_addr, core.clone());
 
 	// Start the server, which will initialize event streaming
-	server.start().await
+	let result = server.start().await;
+
+	// Gracefully shutdown OpenTelemetry to flush pending spans
+	#[cfg(feature = "telemetry")]
+	if let Some(handle) = telemetry_handle {
+		info!("Shutting down OpenTelemetry...");
+		if let Err(e) = handle.shutdown() {
+			warn!("Failed to shutdown OpenTelemetry cleanly: {:?}", e);
+		}
+	}
+
+	result
 }
 
+/// Handle for OpenTelemetry shutdown (only available with `telemetry` feature)
+#[cfg(feature = "telemetry")]
+type TelemetryHandleOption = Option<crate::infra::telemetry::TelemetryHandle>;
+
+#[cfg(not(feature = "telemetry"))]
+type TelemetryHandleOption = ();
+
 /// Initialize tracing with file logging to {data_dir}/logs/daemon.log
-/// Supports multi-stream logging with per-stream filters
+/// Supports multi-stream logging with per-stream filters.
+/// When the `telemetry` feature is enabled and configured, also sets up
+/// OpenTelemetry span export.
 fn initialize_tracing_with_file_logging(
 	data_dir: &PathBuf,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<TelemetryHandleOption, Box<dyn std::error::Error>> {
 	use crate::config::AppConfig;
 	use crate::infra::event::log_emitter::LogEventLayer;
 	use std::sync::Once;
@@ -69,7 +91,12 @@ fn initialize_tracing_with_file_logging(
 	};
 
 	static INIT: Once = Once::new();
-	let mut result: Result<(), Box<dyn std::error::Error>> = Ok(());
+	let mut result: Result<TelemetryHandleOption, Box<dyn std::error::Error>> = Ok(
+		#[cfg(feature = "telemetry")]
+		None,
+		#[cfg(not(feature = "telemetry"))]
+		(),
+	);
 
 	INIT.call_once(|| {
 		// Ensure logs directory exists
@@ -83,7 +110,8 @@ fn initialize_tracing_with_file_logging(
 		let config = match AppConfig::load_from(data_dir) {
 			Ok(c) => c,
 			Err(e) => {
-				warn!(
+				// Can't use warn! here since tracing isn't initialized yet
+				eprintln!(
 					"Failed to load config for logging streams: {}, using defaults",
 					e
 				);
@@ -127,11 +155,7 @@ fn initialize_tracing_with_file_logging(
 
 		// Add custom log streams
 		for stream in config.logging.streams.iter().filter(|s| s.enabled) {
-			info!(
-				"Configuring log stream: {} -> {} (filter: {})",
-				stream.name, stream.file_name, stream.filter
-			);
-
+			// Note: Can't log here since tracing isn't initialized yet
 			let stream_appender =
 				RollingFileAppender::new(Rotation::DAILY, &logs_dir, &stream.file_name);
 
@@ -146,16 +170,54 @@ fn initialize_tracing_with_file_logging(
 							.with_filter(filter)
 							.boxed(),
 					);
-					info!("Log stream '{}' configured successfully", stream.name);
 				}
 				Err(e) => {
-					warn!(
+					eprintln!(
 						"Failed to parse filter for log stream '{}': {}. Skipping stream.",
 						stream.name, e
 					);
 				}
 			}
 		}
+
+		// OpenTelemetry layer (when feature is enabled and configured)
+		#[cfg(feature = "telemetry")]
+		let (telemetry_handle, telemetry_status) = if config.telemetry.enabled {
+			match crate::infra::telemetry::create_otel_layer(&config.telemetry) {
+				Ok((otel_layer, handle)) => {
+					layers.push(otel_layer.boxed());
+					(
+						Some(handle),
+						Some(format!(
+							"OpenTelemetry ENABLED - exporting to {} (service: {})",
+							config.telemetry.endpoint, config.telemetry.service_name
+						)),
+					)
+				}
+				Err(e) => {
+					eprintln!(
+						"Failed to initialize OpenTelemetry: {}. Continuing without telemetry.",
+						e
+					);
+					(
+						None,
+						Some(format!("OpenTelemetry FAILED to initialize: {}", e)),
+					)
+				}
+			}
+		} else {
+			(
+				None,
+				Some(
+					"OpenTelemetry DISABLED (set telemetry.enabled=true in spacedrive.json)"
+						.to_string(),
+				),
+			)
+		};
+
+		#[cfg(not(feature = "telemetry"))]
+		let telemetry_status: Option<String> =
+			Some("OpenTelemetry NOT AVAILABLE (compile with 'telemetry' feature)".to_string());
 
 		// Set up layered subscriber with all streams plus the log event streaming layer
 		if let Err(e) = tracing_subscriber::registry()
@@ -164,6 +226,28 @@ fn initialize_tracing_with_file_logging(
 			.try_init()
 		{
 			result = Err(format!("Failed to initialize tracing: {}", e).into());
+			return;
+		}
+
+		// Log telemetry status now that tracing is initialized
+		if let Some(status) = telemetry_status {
+			info!("{}", status);
+		}
+
+		// Create a test span to verify OpenTelemetry is working
+		#[cfg(feature = "telemetry")]
+		if config.telemetry.enabled {
+			let test_span = tracing::info_span!("telemetry_test", test = true);
+			let _guard = test_span.enter();
+			info!(
+				"OpenTelemetry test span created - check your collector for 'telemetry_test' span"
+			);
+		}
+
+		// Return the telemetry handle for graceful shutdown
+		#[cfg(feature = "telemetry")]
+		{
+			result = Ok(telemetry_handle);
 		}
 	});
 

@@ -16,7 +16,8 @@ use tokio::{
 	signal,
 	sync::RwLock,
 };
-use tracing::{info, warn};
+use tower_http::trace::{DefaultMakeSpan, DefaultOnResponse, TraceLayer};
+use tracing::{info, warn, Level};
 
 #[derive(Clone)]
 struct AppState {
@@ -221,6 +222,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			)
 		})
 		.layer(middleware::from_fn_with_state(state.clone(), basic_auth))
+		// HTTP request tracing - creates a span for each request with method, path, status
+		.layer(
+			TraceLayer::new_for_http()
+				.make_span_with(DefaultMakeSpan::new().level(Level::INFO))
+				.on_response(DefaultOnResponse::new().level(Level::INFO)),
+		)
 		.with_state(state);
 
 	// Bind server

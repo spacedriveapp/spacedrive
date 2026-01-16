@@ -4,6 +4,7 @@ use super::{default_data_dir, Preferences};
 use crate::config::migration::Migrate;
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use tracing::{info, warn};
@@ -20,7 +21,7 @@ pub struct AppConfig {
 	/// Logging level
 	pub log_level: String,
 
-	/// Whether telemetry is enabled
+	/// Whether telemetry is enabled (legacy field, use `telemetry.enabled` instead)
 	pub telemetry_enabled: bool,
 
 	/// User preferences
@@ -37,6 +38,10 @@ pub struct AppConfig {
 	/// Daemon logging configuration with multi-stream support
 	#[serde(default)]
 	pub logging: LoggingConfig,
+
+	/// OpenTelemetry distributed tracing configuration
+	#[serde(default)]
+	pub otel: OpenTelemetryConfig,
 }
 
 /// Configuration for core services
@@ -143,6 +148,40 @@ impl Default for LoggingConfig {
 	}
 }
 
+/// Configuration for OpenTelemetry distributed tracing
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OpenTelemetryConfig {
+	/// Whether OpenTelemetry export is enabled
+	pub enabled: bool,
+
+	/// OTLP endpoint URL (must include full path for traces)
+	/// For HTTP: "http://localhost:4318/v1/traces" (default)
+	pub endpoint: String,
+
+	/// Service name reported to the collector
+	pub service_name: String,
+
+	/// Optional HTTP headers for authentication (e.g., API keys)
+	/// Example: {"Authorization": "Bearer token123"}
+	#[serde(default)]
+	pub headers: HashMap<String, String>,
+
+	/// Export timeout in seconds
+	pub timeout_secs: u64,
+}
+
+impl Default for OpenTelemetryConfig {
+	fn default() -> Self {
+		Self {
+			enabled: false,
+			endpoint: "http://localhost:4318/v1/traces".to_string(),
+			service_name: "spacedrive-daemon".to_string(),
+			headers: HashMap::new(),
+			timeout_secs: 10,
+		}
+	}
+}
+
 impl AppConfig {
 	/// Load configuration from the default location
 	pub fn load() -> Result<Self> {
@@ -210,6 +249,7 @@ impl AppConfig {
 			job_logging: JobLoggingConfig::default(),
 			services: ServiceConfig::default(),
 			logging: LoggingConfig::default(),
+			otel: OpenTelemetryConfig::default(),
 		}
 	}
 
@@ -273,7 +313,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		4 // Updated schema version for multi-stream logging
+		4
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -299,9 +339,8 @@ impl Migrate for AppConfig {
 				// Migration from v3 to v4: Add multi-stream logging configuration
 				self.logging = LoggingConfig::default();
 				self.version = 4;
-				Ok(())
+				self.migrate()
 			}
-			4 => Ok(()), // Already at target version
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
 	}

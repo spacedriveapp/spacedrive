@@ -299,14 +299,15 @@ impl LibraryAction for FileCopyAction {
 
 		// Get strategy metadata for rich UI display
 		let first_source = &self.sources.paths[0];
-		let (_, strategy_metadata) = super::routing::CopyStrategyRouter::select_strategy_with_metadata(
-			first_source,
-			&self.destination,
-			self.options.delete_after_copy,
-			&self.options.copy_method,
-			Some(&*context.volume_manager),
-		)
-		.await;
+		let (_, strategy_metadata) =
+			super::routing::CopyStrategyRouter::select_strategy_with_metadata(
+				first_source,
+				&self.destination,
+				self.options.delete_after_copy,
+				&self.options.copy_method,
+				Some(&*context.volume_manager),
+			)
+			.await;
 
 		// Calculate file counts and total bytes
 		let (file_count, total_bytes) = self.calculate_totals().await?;
@@ -376,6 +377,15 @@ impl LibraryAction for FileCopyAction {
 		}
 	}
 
+	#[tracing::instrument(
+		name = "files.copy.execute",
+		skip(self, library, _context),
+		fields(
+			source_count = self.sources.paths.len(),
+			destination = ?self.destination,
+			move_mode = ?self.options.move_mode
+		)
+	)]
 	async fn execute(
 		mut self,
 		library: std::sync::Arc<crate::library::Library>,
@@ -422,6 +432,7 @@ impl LibraryAction for FileCopyAction {
 
 impl FileCopyAction {
 	/// Calculate total file count and bytes for the sources
+	#[tracing::instrument(name = "files.copy.check_conflicts", skip(self))]
 	async fn calculate_totals(&self) -> Result<(usize, u64), ActionError> {
 		let mut total_files = 0usize;
 		let mut total_bytes = 0u64;
@@ -453,9 +464,9 @@ impl FileCopyAction {
 		let mut stack = vec![path.to_path_buf()];
 
 		while let Some(current) = stack.pop() {
-			let metadata = tokio::fs::metadata(&current).await.map_err(|e| {
-				ActionError::Internal(format!("Failed to read metadata: {}", e))
-			})?;
+			let metadata = tokio::fs::metadata(&current)
+				.await
+				.map_err(|e| ActionError::Internal(format!("Failed to read metadata: {}", e)))?;
 
 			if metadata.is_file() {
 				count += 1;
