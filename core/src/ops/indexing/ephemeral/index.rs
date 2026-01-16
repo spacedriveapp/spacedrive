@@ -727,15 +727,15 @@ impl EphemeralIndex {
 	/// Snapshots are compressed with zstd and written atomically.
 	#[deprecated(note = "Use save_snapshot_with_root to include root path in snapshot")]
 	pub fn save_snapshot(&self, snapshot_path: &Path) -> anyhow::Result<()> {
-		super::snapshot::save_snapshot_impl(self, snapshot_path, Path::new(""))
+		super::snapshot::save_snapshot_impl(self, snapshot_path)
 	}
 
 	/// Save this index to a snapshot file with the root path
 	///
 	/// The root path is stored in the snapshot so it can be restored to
 	/// indexed_paths when loaded, making the cached data queryable.
-	pub fn save_snapshot_with_root(&self, snapshot_path: &Path, root_path: &Path) -> anyhow::Result<()> {
-		super::snapshot::save_snapshot_impl(self, snapshot_path, root_path)
+	pub fn save_snapshot_with_root(&self, snapshot_path: &Path, _root_path: &Path) -> anyhow::Result<()> {
+		super::snapshot::save_snapshot_impl(self, snapshot_path)
 	}
 
 	/// Load an index from a snapshot file

@@ -171,7 +171,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	}
 
 	const totalCapacity = volume.total_capacity;
-	const availableBytes = volume.available_capacity || 0;
+	const availableBytes = volume.available_space || 0;
 	const usedBytes = totalCapacity - availableBytes;
 
 	const uniqueBytes = volume.unique_bytes ?? Math.floor(usedBytes * 0.7);
@@ -180,26 +180,37 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	const uniquePercent = (uniqueBytes / totalCapacity) * 100;
 	const duplicatePercent = (duplicateBytes / totalCapacity) * 100;
 
+	// Helper to filter out unknown values
+	const filterUnknown = (value: string | null): string | null => {
+		if (!value || value.toLowerCase() === 'unknown') return null;
+		return value;
+	};
+
 	// Convert enum values to strings for safe rendering
-	const fileSystem = volume.file_system
-		? typeof volume.file_system === 'string'
-			? volume.file_system
-			: (volume.file_system as any)?.Other ||
-				JSON.stringify(volume.file_system)
-		: 'Unknown';
-	const diskType = volume.disk_type
-		? typeof volume.disk_type === 'string'
-			? volume.disk_type
-			: (volume.disk_type as any)?.Other ||
-				JSON.stringify(volume.disk_type)
-		: 'Unknown';
+	const fileSystem = filterUnknown(
+		volume.file_system
+			? typeof volume.file_system === 'string'
+				? volume.file_system
+				: (volume.file_system as any)?.Other ||
+					JSON.stringify(volume.file_system)
+			: null
+	);
+	const diskType = filterUnknown(
+		volume.disk_type
+			? typeof volume.disk_type === 'string'
+				? volume.disk_type
+				: (volume.disk_type as any)?.Other ||
+					JSON.stringify(volume.disk_type)
+			: null
+	);
 
 	const iconSrc = getVolumeIcon(volume.volume_type, volume.name);
-	const volumeTypeStr =
+	const volumeTypeStr = filterUnknown(
 		typeof volume.volume_type === 'string'
 			? volume.volume_type
 			: (volume.volume_type as any)?.Other ||
-				JSON.stringify(volume.volume_type);
+				JSON.stringify(volume.volume_type)
+	);
 
 	return (
 		<motion.div
@@ -223,7 +234,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 						<span className="text-ink truncate text-sm font-semibold">
 							{volume.display_name || volume.name}
 						</span>
-						{!volume.is_online && (
+						{!volume.is_mounted && (
 							<span className="bg-app-box text-ink-faint border-app-line rounded border px-1.5 py-0.5 text-[10px]">
 								Offline
 							</span>
@@ -262,15 +273,21 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 
 					{/* Badges under name */}
 					<div className="text-ink-dull flex flex-wrap items-center gap-1.5 text-[10px]">
+						{fileSystem && (
 						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 							{fileSystem}
 						</span>
+					)}
+					{diskType && (
 						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{getDiskTypeLabel(diskType)}
+								{getDiskTypeLabel(diskType)}
 						</span>
+					)}
+					{volumeTypeStr && (
 						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 							{volumeTypeStr}
 						</span>
+					)}
 						{indexingProgress ? (
 							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
 								{indexingProgress.filesIndexed.toLocaleString()}{' '}

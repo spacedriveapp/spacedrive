@@ -241,6 +241,21 @@ impl Default for VolumeDetectionConfig {
 	}
 }
 
+/// Helper function to skip serializing Unknown disk types
+fn is_unknown_disk_type(disk_type: &DiskType) -> bool {
+	matches!(disk_type, DiskType::Unknown)
+}
+
+/// Helper function to skip serializing Unknown volume types
+fn is_unknown_volume_type(volume_type: &VolumeType) -> bool {
+	matches!(volume_type, VolumeType::Unknown)
+}
+
+/// Helper function to skip serializing Unknown file systems
+fn is_unknown_file_system(file_system: &FileSystem) -> bool {
+	matches!(file_system, FileSystem::Other(s) if s.eq_ignore_ascii_case("unknown"))
+}
+
 /// A volume in Spacedrive - unified model for runtime and database
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Volume {
@@ -269,15 +284,18 @@ pub struct Volume {
 	pub mount_points: Vec<PathBuf>,
 
 	/// Volume type/category
+	#[serde(skip_serializing_if = "is_unknown_volume_type")]
 	pub volume_type: VolumeType,
 
 	/// Mount type classification
 	pub mount_type: MountType,
 
 	/// Disk type (SSD, HDD, etc.)
+	#[serde(skip_serializing_if = "is_unknown_disk_type")]
 	pub disk_type: DiskType,
 
 	/// Filesystem type
+	#[serde(skip_serializing_if = "is_unknown_file_system")]
 	pub file_system: FileSystem,
 
 	/// Total capacity in bytes

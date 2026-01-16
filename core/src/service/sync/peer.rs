@@ -883,7 +883,7 @@ impl PeerSync {
 										entry.model_type, entry.hlc
 									));
 
-									info!(
+									debug!(
 										hlc = %entry.hlc,
 										model_type = %entry.model_type,
 										"PeerSync received shared change event"
@@ -1227,8 +1227,8 @@ impl PeerSync {
 		);
 
 		// Group changes by (model_type, device_id) for batched sending
-		use std::collections::HashMap;
 		use crate::service::network::protocol::sync::messages::StateRecord;
+		use std::collections::HashMap;
 
 		let mut grouped: HashMap<(String, Uuid), Vec<StateRecord>> = HashMap::new();
 
@@ -1311,9 +1311,7 @@ impl PeerSync {
 			};
 
 			// Get connected partners
-			let connected_partners = match network
-				.get_connected_sync_partners(library_id, db)
-				.await
+			let connected_partners = match network.get_connected_sync_partners(library_id, db).await
 			{
 				Ok(partners) => partners,
 				Err(e) => {
@@ -1362,7 +1360,10 @@ impl PeerSync {
 						{
 							Ok(Ok(())) => (partner, Ok(())),
 							Ok(Err(e)) => (partner, Err(e)),
-							Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs))),
+							Err(_) => (
+								partner,
+								Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
+							),
 						}
 					}
 				})

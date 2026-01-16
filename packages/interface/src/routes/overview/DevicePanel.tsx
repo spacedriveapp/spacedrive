@@ -20,7 +20,7 @@ import type {
 	Location,
 	LocationsListOutput,
 	LocationsListQueryInput,
-	VolumeItem,
+	Volume,
 	VolumeListOutput,
 	VolumeListQueryInput
 } from '@sd/ts-client';
@@ -166,7 +166,7 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 			acc[deviceId].push(volume);
 			return acc;
 		},
-		{} as Record<string, VolumeItem[]>
+		{} as Record<string, Volume[]>
 	);
 
 	// Group locations by device slug
@@ -290,7 +290,7 @@ function ConnectionBadge({method}: ConnectionBadgeProps) {
 
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
-	volumes: VolumeItem[];
+	volumes: Volume[];
 	jobs: JobListItem[];
 	locations: Location[];
 	selectedLocationId: string | null;

@@ -45,6 +45,7 @@ struct RunningJob {
 	persistence_complete_rx: Option<tokio::sync::oneshot::Receiver<()>>,
 	job_name: String,
 	action_context: Option<crate::infra::action::context::ActionContext>,
+	should_emit_events: bool,
 }
 
 impl JobManager {
@@ -367,6 +368,7 @@ impl JobManager {
 						persistence_complete_rx: Some(persistence_complete_rx),
 						job_name: job_name.to_string(),
 						action_context: action_context.clone(),
+						should_emit_events,
 					},
 				);
 
@@ -791,6 +793,7 @@ impl JobManager {
 						persistence_complete_rx: Some(persistence_complete_rx),
 						job_name: J::NAME.to_string(),
 						action_context: action_context.clone(),
+						should_emit_events,
 					},
 				);
 
@@ -995,8 +998,9 @@ impl JobManager {
 			let handle = &running_job.handle;
 			let status = handle.status();
 
-			// Only include active jobs (running or paused)
-			if status.is_active() {
+			// Only include active jobs (running or paused) that should emit events
+			// Background jobs (run_in_background=true) have should_emit_events=false
+			if status.is_active() && running_job.should_emit_events {
 				// Get latest progress
 				let progress_percentage =
 					if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
@@ -1520,6 +1524,7 @@ impl JobManager {
 										persistence_complete_rx: Some(persistence_complete_rx),
 										job_name: job_record.name.clone(),
 										action_context,
+										should_emit_events: true, // Resumed jobs were persisted, so they should emit events
 									},
 								);
 
@@ -1751,30 +1756,68 @@ impl JobManager {
 		}
 	}
 
-	/// Cancel a running job
+	/// Cancel a running job and remove it from the database
+	/// Works on both in-memory jobs and stale database entries
 	pub async fn cancel_job(&self, job_id: JobId) -> JobResult<()> {
-		let mut running_jobs = self.running_jobs.write().await;
+		use database::jobs;
 
-		if let Some(running_job) = running_jobs.get_mut(&job_id) {
-			// Check if job is in a cancellable state
-			let current_status = running_job.handle.status();
-			if current_status.is_terminal() {
-				return Err(JobError::invalid_state(&format!(
-					"Cannot cancel job in {:?} state",
-					current_status
-				)));
+		// Check if job is in running_jobs memory map
+		let is_in_memory = {
+			let running_jobs = self.running_jobs.read().await;
+			running_jobs.contains_key(&job_id)
+		};
+
+		// Cancel if in memory
+		if is_in_memory {
+			let mut running_jobs = self.running_jobs.write().await;
+
+			if let Some(running_job) = running_jobs.get_mut(&job_id) {
+				// Check if job is in a cancellable state
+				let current_status = running_job.handle.status();
+				if current_status.is_terminal() {
+					return Err(JobError::invalid_state(&format!(
+						"Cannot cancel job in {:?} state",
+						current_status
+					)));
+				}
+
+				// Cancel the task
+				if let Err(e) = running_job.task_handle.cancel().await {
+					warn!("Failed to send cancel signal to job {}: {}", job_id, e);
+				}
 			}
 
-			// Cancel the task - this will cause the executor to handle cancellation
-			if let Err(e) = running_job.task_handle.cancel().await {
-				warn!("Failed to send cancel signal to job {}: {}", job_id, e);
-			}
+			// Remove from running jobs map
+			running_jobs.remove(&job_id);
+			drop(running_jobs);
 
-			info!("Job {} cancellation requested", job_id);
-			Ok(())
-		} else {
-			Err(JobError::NotFound(format!("Job {} not found", job_id)))
+			// Wait for cancellation to complete
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 		}
+
+		// Check if job exists in database
+		let db_job = jobs::Entity::find_by_id(job_id.to_string())
+			.one(self.db.conn())
+			.await?;
+
+		// Delete from database if it exists
+		if db_job.is_some() {
+			let result = jobs::Entity::delete_by_id(job_id.to_string())
+				.exec(self.db.conn())
+				.await?;
+
+			if result.rows_affected == 0 {
+				return Err(JobError::NotFound(format!("Job {} not found in database", job_id)));
+			}
+		}
+
+		// If job wasn't in memory OR database, it doesn't exist
+		if !is_in_memory && db_job.is_none() {
+			return Err(JobError::NotFound(format!("Job {} not found", job_id)));
+		}
+
+		info!("Job {} cancelled (in memory: {}, in db: {})", job_id, is_in_memory, db_job.is_some());
+		Ok(())
 	}
 
 	/// Resume a paused job
@@ -1957,6 +2000,7 @@ impl JobManager {
 					persistence_complete_rx: Some(persistence_complete_rx),
 					job_name: job_name.clone(),
 					action_context,
+					should_emit_events: true, // Manually resumed jobs were persisted, so they should emit events
 				},
 			);
 

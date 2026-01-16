@@ -142,7 +142,7 @@ impl crate::service::network::protocol::ProtocolHandler for SyncMultiplexer {
 		};
 
 		let library_id = message.library_id();
-		tracing::info!(
+		tracing::debug!(
 			"SyncMultiplexer: Routing message for library {} from device {}",
 			library_id,
 			from_device

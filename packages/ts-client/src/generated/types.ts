@@ -4100,7 +4100,7 @@ mount_points: string[];
 /**
  * Volume type/category
  */
-volume_type: VolumeType; 
+volume_type?: VolumeType; 
 /**
  * Mount type classification
  */
@@ -4108,11 +4108,11 @@ mount_type: MountType;
 /**
  * Disk type (SSD, HDD, etc.)
  */
-disk_type: DiskType; 
+disk_type?: DiskType; 
 /**
  * Filesystem type
  */
-file_system: FileSystem; 
+file_system?: FileSystem; 
 /**
  * Total capacity in bytes
  */
@@ -4217,57 +4217,7 @@ export type VolumeIndexingSuggestion = { volume_fingerprint: string; volume_name
  */
 export type VolumeInfo = { is_mounted: boolean; total_bytes_available: number; read_speed_mbps: number | null; write_speed_mbps: number | null; error_status: string | null };
 
-export type VolumeItem = { id: string; name: string; fingerprint: VolumeFingerprint; volume_type: string; mount_point: string | null; 
-/**
- * Whether this volume is currently tracked in the library
- */
-is_tracked: boolean; 
-/**
- * Whether this volume is currently online/mounted
- */
-is_online: boolean; 
-/**
- * Total capacity in bytes
- */
-total_capacity: number | null; 
-/**
- * Available capacity in bytes
- */
-available_capacity: number | null; 
-/**
- * Unique bytes (deduplicated by content_identity)
- */
-unique_bytes: number | null; 
-/**
- * Filesystem type (APFS, NTFS, ext4, etc.)
- */
-file_system: string | null; 
-/**
- * Disk type (SSD, HDD, etc.)
- */
-disk_type: string | null; 
-/**
- * Read speed in MB/s
- */
-read_speed_mbps: number | null; 
-/**
- * Write speed in MB/s
- */
-write_speed_mbps: number | null; 
-/**
- * Device ID that owns this volume
- */
-device_id: string; 
-/**
- * Device slug for constructing SdPaths
- */
-device_slug: string; 
-/**
- * Total file count from ephemeral index (if indexed)
- */
-total_file_count: number | null };
-
-export type VolumeListOutput = { volumes: VolumeItem[] };
+export type VolumeListOutput = { volumes: Volume[] };
 
 export type VolumeListQueryInput = { 
 /**

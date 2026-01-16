@@ -219,7 +219,8 @@ impl NetworkingEventLoop {
 		}
 
 		// Spawn a task to watch for connection closure for instant reactivity
-		self.spawn_connection_watcher(conn.clone(), remote_node_id).await;
+		self.spawn_connection_watcher(conn.clone(), remote_node_id)
+			.await;
 
 		// For now, we'll need to detect ALPN from the first stream
 		// TODO: Find the correct way to get ALPN from iroh Connection
@@ -436,10 +437,10 @@ impl NetworkingEventLoop {
 					}
 				}
 				// Try unidirectional stream (file transfer)
-				uni_result = conn.accept_uni() => {
+				 uni_result = conn.accept_uni() => {
 					match uni_result {
 						Ok(recv) => {
-							logger.info(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
+							logger.debug(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
 
 							// Get ALPN to determine which protocol handler to use
 							let alpn_bytes = conn.alpn().unwrap_or_default();

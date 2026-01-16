@@ -74,6 +74,12 @@ export function useJobs() {
 		refetchRef.current = refetch;
 	}, [refetch]);
 
+	// Ref for stable jobs access to avoid stale closures in event handlers
+	const jobsRef = useRef<JobListItem[]>([]);
+	useEffect(() => {
+		jobsRef.current = jobs;
+	}, [jobs]);
+
 	useEffect(() => {
 		if (data?.jobs) {
 			// Filter out background jobs (they have run_in_background: true and no action_context)
@@ -135,7 +141,8 @@ export function useJobs() {
 
 					if (jobId) {
 						// Clear volume indexing mapping if this was a volume job
-						const completedJob = jobs.find((j) => j.id === jobId);
+						// Use jobsRef.current to avoid stale closure (jobs state may be outdated)
+						const completedJob = jobsRef.current.find((j) => j.id === jobId);
 						if (completedJob?.name === 'indexer') {
 							const volumeFingerprint =
 								completedJob.action_context?.context
