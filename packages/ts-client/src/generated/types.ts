@@ -4127,6 +4127,7 @@ available_space: number;
 is_read_only: boolean; 
 /**
  * Whether volume is currently mounted/available
+ * Also deserializes from legacy "is_online" field for backwards compatibility
  */
 is_mounted: boolean; 
 /**

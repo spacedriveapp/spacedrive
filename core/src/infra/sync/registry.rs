@@ -847,7 +847,7 @@ pub async fn run_post_backfill_rebuilds(db: Arc<DatabaseConnection>) -> Result<(
 	};
 
 	for (model_type, rebuild_fn) in rebuild_fns {
-		tracing::info!(model = %model_type, "Running post-backfill rebuild");
+		tracing::debug!(model = %model_type, "Running post-backfill rebuild");
 		rebuild_fn(db.clone()).await.map_err(|e| {
 			ApplyError::DatabaseError(format!("{} rebuild failed: {}", model_type, e))
 		})?;

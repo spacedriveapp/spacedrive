@@ -1,4 +1,4 @@
-import {DotsThree, EyeSlash} from '@phosphor-icons/react';
+import {ArrowDown, ArrowUp, DotsThree, EyeSlash} from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.png';
 import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
 import DriveDropboxIcon from '@sd/assets/icons/Drive-Dropbox.png';
@@ -6,8 +6,8 @@ import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.png';
 import DriveIcon from '@sd/assets/icons/Drive.png';
 import HDDIcon from '@sd/assets/icons/HDD.png';
 import ServerIcon from '@sd/assets/icons/Server.png';
+import type {Device, Volume} from '@sd/ts-client';
 import {TopBarButton} from '@sd/ui';
-import type {Device, VolumeItem} from '@sd/ts-client';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
@@ -24,7 +24,7 @@ function getDiskTypeLabel(diskType: string): string {
 }
 
 interface VolumeBarProps {
-	volume: VolumeItem;
+	volume: Volume;
 	index: number;
 }
 
@@ -189,7 +189,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 		typeof volume.volume_type === 'string'
 			? volume.volume_type
 			: (volume.volume_type as any)?.Other ||
-				JSON.stringify(volume.volume_type)
+					JSON.stringify(volume.volume_type)
 	);
 
 	return (
@@ -211,15 +211,10 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 
 				{/* Name, actions, and badges */}
 				<div className="min-w-0 flex-1">
-					<div className="mb-1 flex items-center gap-2">
+					<div className="mb-0.5 flex items-center gap-2">
 						<span className="text-ink truncate text-sm font-semibold">
 							{volume.display_name || volume.name}
 						</span>
-						{!volume.is_mounted && (
-							<span className="bg-app-box text-ink-faint border-app-line rounded border px-1.5 py-0.5 text-[10px]">
-								Offline
-							</span>
-						)}
 						{!volume.is_tracked && (
 							<EyeSlash
 								size={14}
@@ -243,20 +238,20 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 					{/* Badges under name */}
 					<div className="text-ink-dull flex flex-wrap items-center gap-1.5 text-[10px]">
 						{fileSystem && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{fileSystem}
-						</span>
-					)}
-					{diskType && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+								{fileSystem}
+							</span>
+						)}
+						{diskType && (
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 								{getDiskTypeLabel(diskType)}
-						</span>
-					)}
-					{volumeTypeStr && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{volumeTypeStr}
-						</span>
-					)}
+							</span>
+						)}
+						{volumeTypeStr && (
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+								{volumeTypeStr}
+							</span>
+						)}
 						{indexingProgress ? (
 							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
 								{indexingProgress.filesIndexed.toLocaleString()}{' '}
@@ -268,9 +263,9 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 								)}
 							</span>
 						) : (
-							volume.total_file_count != null && (
+							volume.total_files != null && (
 								<span className="bg-accent/10 border-accent/20 text-accent rounded border px-1.5 py-0.5">
-									{volume.total_file_count.toLocaleString()}{' '}
+									{volume.total_files.toLocaleString()}{' '}
 									files
 								</span>
 							)
@@ -287,19 +282,18 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 						{formatBytes(availableBytes)} free
 					</div>
 					{(volume.read_speed_mbps || volume.write_speed_mbps) && (
-						<div className="text-ink-faint text-[10px]">
+						<div className="text-ink-faint flex items-center gap-1.5 text-[10px]">
 							{volume.read_speed_mbps && (
-								<>
-									{volume.read_speed_mbps}MB/s read
-								</>
-							)}
-							{volume.read_speed_mbps && volume.write_speed_mbps && (
-								<span className="mx-1">•</span>
+								<span className="flex items-center gap-0.5">
+									<ArrowDown size={10} weight="bold" />
+									{volume.read_speed_mbps}MB/s
+								</span>
 							)}
 							{volume.write_speed_mbps && (
-								<>
-									{volume.write_speed_mbps}MB/s write
-								</>
+								<span className="flex items-center gap-0.5">
+									<ArrowUp size={10} weight="bold" />
+									{volume.write_speed_mbps}MB/s
+								</span>
 							)}
 						</div>
 					)}

@@ -22,7 +22,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Manages backfill process for new devices
@@ -151,7 +151,7 @@ impl BackfillManager {
 		let selected_peer =
 			select_backfill_peer(available_peers.clone()).map_err(|e| anyhow::anyhow!("{}", e))?;
 
-		info!(
+		debug!(
 			selected_peer = %selected_peer,
 			"Selected backfill peer"
 		);
@@ -195,11 +195,18 @@ impl BackfillManager {
 
 		// Set state to Backfilling
 		{
+			let old_state = self.peer_sync.state().await;
 			let mut state = self.peer_sync.state.write().await;
 			*state = DeviceSyncState::Backfilling {
 				peer: selected_peer,
 				progress: 0,
 			};
+			info!(
+				from_state = ?old_state,
+				to_state = ?DeviceSyncState::Backfilling { peer: selected_peer, progress: 0 },
+				peer = %selected_peer,
+				"Sync state transition"
+			);
 		}
 
 		// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
@@ -214,7 +221,7 @@ impl BackfillManager {
 		// Phase 3.5: Run post-backfill rebuilds via registry (polymorphic)
 		// Models that registered post_backfill_rebuild will have their derived tables rebuilt
 		// (e.g., entry_closure for entries, tag_closure for tag_relationships)
-		info!("Running post-backfill rebuilds via registry...");
+		debug!("Running post-backfill rebuilds via registry...");
 		if let Err(e) =
 			crate::infra::sync::registry::run_post_backfill_rebuilds(self.peer_sync.db().clone())
 				.await
@@ -360,14 +367,14 @@ impl BackfillManager {
 		primary_peer: Uuid,
 		_since_watermark: Option<chrono::DateTime<chrono::Utc>>, // Deprecated: use per-resource watermarks
 	) -> Result<Option<String>> {
-		info!("Backfilling device-owned state with per-resource watermarks");
+		debug!("Backfilling device-owned state with per-resource watermarks");
 
 		// Compute sync order based on model dependencies to prevent FK violations
 		let sync_order = crate::infra::sync::compute_registry_sync_order()
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to compute sync order: {}", e))?;
 
-		info!(
+		debug!(
 			sync_order = ?sync_order,
 			"Computed dependency-ordered sync sequence"
 		);
@@ -389,7 +396,7 @@ impl BackfillManager {
 				.get_resource_watermark(primary_peer, &model_type)
 				.await?;
 
-			info!(
+			debug!(
 				model_type = %model_type,
 				watermark = ?resource_watermark,
 				"Backfilling resource type with per-resource watermark"
@@ -405,7 +412,7 @@ impl BackfillManager {
 				)
 				.await?;
 
-			info!(
+			debug!(
 				model_type = %model_type,
 				progress = checkpoint.progress,
 				final_checkpoint = ?checkpoint.resume_token,
@@ -420,7 +427,7 @@ impl BackfillManager {
 					.update_resource_watermark(primary_peer, &model_type, max_ts)
 					.await?;
 
-				info!(
+				debug!(
 					model_type = %model_type,
 					watermark = %max_ts,
 					"Updated resource watermark from received data"
@@ -428,9 +435,9 @@ impl BackfillManager {
 			} else {
 				// No data received - watermark MUST NOT advance!
 				// If we advanced it, we'd filter out unsynced data permanently
-				info!(
+				debug!(
 					model_type = %model_type,
-					"No data received, watermark unchanged (prevents data loss)"
+					"No data received, watermark unchanged"
 				);
 			}
 
@@ -438,7 +445,7 @@ impl BackfillManager {
 			final_checkpoint = checkpoint.resume_token;
 		}
 
-		info!("Device-owned state backfill complete (all resource types)");
+		debug!("Device-owned state backfill complete");
 
 		// Return the final checkpoint for legacy watermark update
 		Ok(final_checkpoint)
@@ -465,7 +472,7 @@ impl BackfillManager {
 				continue; // Already done
 			}
 
-			info!(
+			debug!(
 				peer = %peer,
 				model_type = %model_type,
 				"Backfilling model type"
@@ -607,7 +614,7 @@ impl BackfillManager {
 
 						// Add failed records to dependency tracker
 						if !result.failed.is_empty() {
-							tracing::info!(
+							tracing::warn!(
 								model_type = %model_type,
 								failed_count = result.failed.len(),
 								"Records have missing FK dependencies - adding to dependency tracker for retry"
@@ -682,7 +689,7 @@ impl BackfillManager {
 								self.peer_sync.dependency_tracker().resolve(uuid).await;
 
 							if !waiting_updates.is_empty() {
-								tracing::info!(
+								tracing::debug!(
 									resolved_uuid = %uuid,
 									model_type = %model_type,
 									waiting_count = waiting_updates.len(),
@@ -768,7 +775,8 @@ impl BackfillManager {
 		if let Some(hlc) = since_hlc {
 			info!("Backfilling shared resources incrementally since {:?}", hlc);
 		} else {
-			info!("Backfilling shared resources (full)");
+			// NOTE: we keep hitting this almost always, I don't think I've ever seen the above log. This concerns me greatly.
+			info!("Backfilling all shared resources");
 		}
 
 		// Request shared changes from peer in batches (can be 100k+ records)
@@ -822,7 +830,7 @@ impl BackfillManager {
 							};
 
 							if let Some(records_array) = records_value.as_array() {
-								info!(
+								debug!(
 									model_type = %model_type,
 									count = records_array.len(),
 									"Applying current state snapshot for pre-sync data"
@@ -1066,7 +1074,7 @@ impl BackfillManager {
 								"Failed to send ACK for shared changes (pruning may be delayed)"
 							);
 						} else {
-							info!(
+							debug!(
 								peer = %peer,
 								hlc = %up_to_hlc,
 								batch_size = batch_size,
@@ -1093,14 +1101,14 @@ impl BackfillManager {
 
 				// Log progress every 10,000 records for large backfills
 				if total_applied >= last_progress_log + 10_000 {
-					info!(
+					debug!(
 						total_applied = total_applied,
 						batch_size = batch_size,
 						"Backfilling shared resources - progress update"
 					);
 					last_progress_log = total_applied;
 				} else {
-					info!(
+					debug!(
 						"Applied {} shared changes (total: {})",
 						batch_size, total_applied
 					);
@@ -1120,7 +1128,7 @@ impl BackfillManager {
 			}
 		}
 
-		info!(
+		debug!(
 			"Shared resources backfill complete (total: {} entries)",
 			total_applied
 		);
@@ -1140,7 +1148,7 @@ impl BackfillManager {
 		// - Any peer entries created after now will have higher timestamp regardless of device_id
 		if last_hlc.is_none() && received_any_data {
 			let watermark_hlc = self.peer_sync.hlc_generator().lock().await.next();
-			info!(
+			debug!(
 				watermark_hlc = %watermark_hlc,
 				"Snapshot-only sync (no peer log entries), using current time as watermark"
 			);
