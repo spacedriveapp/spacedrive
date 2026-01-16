@@ -335,15 +335,10 @@ pub fn containers_to_volumes(
 				Vec::new()
 			};
 
-			// Create volume fingerprint using stable identifiers only
-			// Use UUIDs for fingerprint (stable across reboots), not disk IDs (disk3 can become disk4)
-			// DO NOT use capacity_consumed as it changes when files are added/deleted!
-			// Use container total capacity (stable for the physical drive)
-			let fingerprint = crate::volume::types::VolumeFingerprint::new(
-				&format!("{}:{}", container.uuid, volume_info.uuid),
-				container.total_capacity, // Use container capacity (stable), not consumed (changes)
-				"APFS",
-			);
+			// Create stable volume fingerprint for APFS volumes
+			// APFS volumes are always local system/primary volumes, use mount_point + device_id
+			let fingerprint =
+				crate::volume::types::VolumeFingerprint::from_primary_volume(mount_point, device_id);
 
 			debug!(
 				"APFS_CONVERT: Generated fingerprint {} for volume '{}' (consumed: {} bytes)",

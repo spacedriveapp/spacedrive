@@ -1,4 +1,4 @@
-import {Database, Plus} from '@phosphor-icons/react';
+import {DotsThree, EyeSlash} from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.png';
 import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
 import DriveDropboxIcon from '@sd/assets/icons/Drive-Dropbox.png';
@@ -6,9 +6,11 @@ import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.png';
 import DriveIcon from '@sd/assets/icons/Drive.png';
 import HDDIcon from '@sd/assets/icons/HDD.png';
 import ServerIcon from '@sd/assets/icons/Server.png';
+import {TopBarButton} from '@sd/ui';
 import type {Device, VolumeItem} from '@sd/ts-client';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
+import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
 import {
 	useLibraryMutation,
 	useNormalizedQuery,
@@ -34,11 +36,11 @@ interface IndexingProgress {
 }
 
 export function VolumeBar({volume, index}: VolumeBarProps) {
-	const trackVolume = useLibraryMutation('volumes.track');
-	const indexVolume = useLibraryMutation('volumes.index');
 	const [indexingProgress, setIndexingProgress] =
 		useState<IndexingProgress | null>(null);
 	const client = useSpacedriveClient();
+
+	const contextMenu = useVolumeContextMenu({volume: volume as any});
 
 	// Get the job ID for this volume from the store
 	const jobId = useVolumeIndexingStore((state) =>
@@ -144,28 +146,6 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 
 	const currentDevice = devicesQuery.data?.find((d) => d.is_current);
 
-	const handleTrack = async () => {
-		try {
-			await trackVolume.mutateAsync({
-				fingerprint: volume.fingerprint
-			});
-		} catch (error) {
-			console.error('Failed to track volume:', error);
-		}
-	};
-
-	const handleIndex = async () => {
-		try {
-			const result = await indexVolume.mutateAsync({
-				fingerprint: volume.fingerprint,
-				scope: 'Recursive'
-			});
-			console.log('Volume indexed:', result.message);
-		} catch (error) {
-			console.error('Failed to index volume:', error);
-		}
-	};
-
 	if (!volume.total_capacity) {
 		return null;
 	}
@@ -218,6 +198,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 			animate={{opacity: 1, y: 0}}
 			transition={{delay: index * 0.05}}
 			className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border"
+			onContextMenu={contextMenu.show}
 		>
 			{/* Top row: Info */}
 			<div className="flex items-center gap-3 px-3 py-2">
@@ -240,34 +221,22 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 							</span>
 						)}
 						{!volume.is_tracked && (
-							<button
-								onClick={handleTrack}
-								disabled={trackVolume.isPending}
-								className="bg-accent/10 hover:bg-accent/20 text-accent border-accent/20 hover:border-accent/30 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-								title="Track this volume"
-							>
-								<Plus className="size-2.5" weight="bold" />
-								{trackVolume.isPending
-									? 'Tracking...'
-									: 'Track'}
-							</button>
+							<EyeSlash
+								size={14}
+								weight="bold"
+								className="text-ink-faint/50"
+							/>
 						)}
 						{currentDevice &&
 							volume.device_id === currentDevice.id && (
-								<button
-									onClick={handleIndex}
-									disabled={indexVolume.isPending}
-									className="bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink border-sidebar-line flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-									title="Index this volume"
-								>
-									<Database
-										className="size-2.5"
-										weight="bold"
-									/>
-									{indexVolume.isPending
-										? 'Indexing...'
-										: 'Index'}
-								</button>
+								<TopBarButton
+									icon={DotsThree}
+									onClick={(e) => {
+										e.stopPropagation();
+										contextMenu.show(e);
+									}}
+									title="Volume actions"
+								/>
 							)}
 					</div>
 
@@ -317,6 +286,23 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 					<div className="text-ink-dull text-[10px]">
 						{formatBytes(availableBytes)} free
 					</div>
+					{(volume.read_speed_mbps || volume.write_speed_mbps) && (
+						<div className="text-ink-faint text-[10px]">
+							{volume.read_speed_mbps && (
+								<>
+									{volume.read_speed_mbps}MB/s read
+								</>
+							)}
+							{volume.read_speed_mbps && volume.write_speed_mbps && (
+								<span className="mx-1">•</span>
+							)}
+							{volume.write_speed_mbps && (
+								<>
+									{volume.write_speed_mbps}MB/s write
+								</>
+							)}
+						</div>
+					)}
 				</div>
 			</div>
 

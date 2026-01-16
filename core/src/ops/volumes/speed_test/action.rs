@@ -65,6 +65,28 @@ impl LibraryAction for VolumeSpeedTestAction {
 		let read_speed = volume.read_speed_mbps.unwrap_or(0);
 		let write_speed = volume.write_speed_mbps.unwrap_or(0);
 
+		// Save results to database
+		context
+			.volume_manager
+			.save_speed_test_results(
+				&self.input.fingerprint,
+				read_speed,
+				write_speed,
+				&[library.clone()],
+			)
+			.await
+			.map_err(|e| {
+				ActionError::InvalidInput(format!("Failed to save speed test results: {}", e))
+			})?;
+
+		// Emit ResourceChanged event for the volume
+		use crate::domain::resource::EventEmitter;
+		volume
+			.emit_changed(&context.events)
+			.map_err(|e| {
+				ActionError::Internal(format!("Failed to emit volume event: {}", e))
+			})?;
+
 		// Return native output directly
 		Ok(VolumeSpeedTestOutput::new(
 			self.input.fingerprint,

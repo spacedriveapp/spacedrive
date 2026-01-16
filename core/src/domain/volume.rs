@@ -12,24 +12,46 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Dotfile name for persistent volume identification
+pub const SPACEDRIVE_VOLUME_ID_FILE: &str = ".spacedrive-volume-id";
+
 /// Unique fingerprint for a storage volume
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Type)]
 pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
-	/// Create a new volume fingerprint from volume properties
-	/// Uses stable identifiers: UUIDs + total physical capacity + filesystem
-	pub fn new(name: &str, total_bytes: u64, file_system: &str) -> Self {
+	/// Create fingerprint for primary/system volume using stable mount point + device
+	/// This is used for system volumes where the mount point is stable and never changes
+	pub fn from_primary_volume(mount_point: &std::path::Path, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
-		hasher.update(b"uuid_based:");
-		hasher.update(name.as_bytes());
-		hasher.update(&total_bytes.to_be_bytes());
-		hasher.update(file_system.as_bytes());
-		hasher.update(&(name.len() as u64).to_be_bytes());
+		hasher.update(b"stable_primary_v1:");
+		hasher.update(mount_point.to_string_lossy().as_bytes());
+		hasher.update(device_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for external volume using dotfile UUID
+	/// This is used for removable drives with a .spacedrive-volume-id file
+	pub fn from_external_volume(spacedrive_id: Uuid, device_id: Uuid) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"stable_external_v1:");
+		hasher.update(spacedrive_id.as_bytes());
+		hasher.update(device_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for network/cloud volume using backend identifier
+	/// This is used for network shares, cloud storage, etc.
+	pub fn from_network_volume(backend_id: &str, mount_uri: &str) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"stable_network_v1:");
+		hasher.update(backend_id.as_bytes());
+		hasher.update(mount_uri.as_bytes());
 		Self(hasher.finalize().to_hex().to_string())
 	}
 
 	/// Create a fingerprint from a Spacedrive identifier UUID
+	/// Deprecated: Use from_external_volume instead for proper device binding
 	pub fn from_spacedrive_id(spacedrive_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"spacedrive_id:");

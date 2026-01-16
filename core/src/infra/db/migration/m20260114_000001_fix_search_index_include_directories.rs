@@ -34,7 +34,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_insert
+                CREATE TRIGGER IF NOT EXISTS entries_search_insert
                 AFTER INSERT ON entries
                 BEGIN
                     INSERT INTO search_index(rowid, name, extension)
@@ -49,7 +49,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_update
+                CREATE TRIGGER IF NOT EXISTS entries_search_update
                 AFTER UPDATE ON entries
                 BEGIN
                     UPDATE search_index SET
@@ -66,7 +66,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_delete
+                CREATE TRIGGER IF NOT EXISTS entries_search_delete
                 AFTER DELETE ON entries
                 BEGIN
                     DELETE FROM search_index WHERE rowid = old.id;
@@ -112,7 +112,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_insert
+                CREATE TRIGGER IF NOT EXISTS entries_search_insert
                 AFTER INSERT ON entries WHEN new.kind = 0
                 BEGIN
                     INSERT INTO search_index(rowid, name, extension)
@@ -127,7 +127,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_update
+                CREATE TRIGGER IF NOT EXISTS entries_search_update
                 AFTER UPDATE ON entries WHEN new.kind = 0
                 BEGIN
                     UPDATE search_index SET
@@ -144,7 +144,7 @@ impl MigrationTrait for Migration {
 			.get_connection()
 			.execute_unprepared(
 				r#"
-                CREATE TRIGGER entries_search_delete
+                CREATE TRIGGER IF NOT EXISTS entries_search_delete
                 AFTER DELETE ON entries WHEN old.kind = 0
                 BEGIN
                     DELETE FROM search_index WHERE rowid = old.id;

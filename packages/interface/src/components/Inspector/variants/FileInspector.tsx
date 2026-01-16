@@ -28,7 +28,7 @@ import type {File} from '@sd/ts-client';
 import {toast} from '@sd/ui';
 import clsx from 'clsx';
 import {useState} from 'react';
-import {useJobs} from '../../../components/JobManager/hooks/useJobs';
+import {useJobsContext} from '../../../components/JobManager/hooks/JobsContext';
 import {TagSelectorButton} from '../../../components/Tags';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useServer} from '../../../contexts/ServerContext';
@@ -136,7 +136,7 @@ function OverviewTab({file}: {file: File}) {
 	const generateProxy = useLibraryMutation('media.proxy.generate');
 
 	// Job tracking for long-running operations
-	const {jobs} = useJobs();
+	const {jobs} = useJobsContext();
 	const isSpeechJobRunning = jobs.some(
 		(job) =>
 			job.name === 'speech_to_text' &&
