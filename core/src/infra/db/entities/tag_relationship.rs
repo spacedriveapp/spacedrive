@@ -186,7 +186,7 @@ impl Syncable for Model {
 		use super::tag_closure;
 		use sea_orm::{ConnectionTrait, DbBackend, PaginatorTrait, Statement};
 
-		tracing::info!("Starting tag_closure rebuild from tag_relationships...");
+		tracing::debug!("Starting tag_closure rebuild from tag_relationships...");
 
 		// Clear existing tag_closure table
 		tag_closure::Entity::delete_many().exec(db).await?;
@@ -263,7 +263,7 @@ impl Syncable for Model {
 
 		let total = tag_closure::Entity::find().count(db).await?;
 
-		tracing::info!(
+		tracing::debug!(
 			iterations = iteration,
 			total_relationships = total,
 			"tag_closure rebuild complete"

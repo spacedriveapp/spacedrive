@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobList } from "./components/JobList";
-import { useJobs } from "./hooks/useJobs";
+import { useJobsContext } from "./hooks/JobsContext";
 import { CARD_HEIGHT } from "./types";
 
 interface JobManagerPopoverProps {
@@ -18,7 +18,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   const [showOnlyRunning, setShowOnlyRunning] = useState(true);
 
   // Unified hook for job data and badge/icon
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel, getSpeedHistory } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel, getSpeedHistory } = useJobsContext();
 
   // Reset filter to "active only" when popover opens
   useEffect(() => {

@@ -208,16 +208,18 @@ impl LibraryQuery for VolumeListQuery {
 			VolumeFilter::TrackedOnly | VolumeFilter::All => {
 				// For tracked volumes, prefer live data if available, otherwise use DB
 				for tracked_vol in tracked_map.values() {
-					if let Some(live_vol) = live_volumes_map.remove(&tracked_vol.fingerprint) {
+					if let Some(mut live_vol) = live_volumes_map.remove(&tracked_vol.fingerprint) {
 						// Use live volume data (current device, online)
+						// Mark as tracked since it's in the database
+						live_vol.is_tracked = true;
+						live_vol.library_id = Some(library_id);
 						volumes.push(live_vol);
 					} else {
-					// Volume is offline or on another device
-					// Skip offline volumes from current device to avoid duplicates
-					if tracked_vol.device_id == current_device_id && !tracked_vol.is_online {
-						continue;
-					}
-					volumes.push(tracked_vol.to_tracked_volume().to_offline_volume());
+						// Volume is offline or on another device
+						// Skip offline volumes from current device to avoid duplicates
+						if tracked_vol.device_id == current_device_id && !tracked_vol.is_online {
+							continue;
+						}
 						volumes.push(tracked_vol.to_tracked_volume().to_offline_volume());
 					}
 				}

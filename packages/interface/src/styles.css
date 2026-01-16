@@ -1,5 +1,12 @@
 @import "@sd/ui/style/colors.scss";
 
+/* Prevent overscroll/rubber-band effect on macOS */
+html,
+body {
+	overscroll-behavior: none;
+	overflow: hidden;
+}
+
 /* Top bar blur effect (macOS specific) */
 .top-bar-blur {
 	backdrop-filter: saturate(120%) blur(18px);

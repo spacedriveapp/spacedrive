@@ -29,7 +29,7 @@ import clsx from 'clsx';
 import {useEffect, useRef, useState} from 'react';
 import Masonry from 'react-masonry-css';
 import {JobCard} from '../../components/JobManager/components/JobCard';
-import {useJobs} from '../../components/JobManager/hooks/useJobs';
+import {useJobsContext} from '../../components/JobManager/hooks/JobsContext';
 import {
 	getDeviceIcon,
 	useCoreQuery,
@@ -107,7 +107,7 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		});
 
 	// Get all jobs with real-time updates (local jobs)
-	const {jobs: localJobs} = useJobs();
+	const {jobs: localJobs} = useJobsContext();
 
 	// Get remote device jobs
 	// TODO: This should have its own hook like useJobs, this will not work reactively
@@ -311,7 +311,7 @@ function DeviceCard({
 }: DeviceCardProps) {
 	const deviceName = device?.name || 'Unknown Device';
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
-	const {pause, resume, getSpeedHistory} = useJobs();
+	const {pause, resume, cancel, getSpeedHistory} = useJobsContext();
 	// Format hardware specs
 	const cpuInfo = device?.cpu_model
 		? `${device.cpu_model}${device.cpu_cores_physical ? ` � ${device.cpu_cores_physical}C` : ''}`
@@ -430,6 +430,7 @@ function DeviceCard({
 								job={job}
 								onPause={pause}
 								onResume={resume}
+								onCancel={cancel}
 								getSpeedHistory={getSpeedHistory}
 							/>
 						))}

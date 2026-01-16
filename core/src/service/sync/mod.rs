@@ -364,8 +364,15 @@ impl SyncService {
 											Err(e) => {
 												warn!("Automatic backfill failed: {}", e);
 												// Reset state to Uninitialized so retry logic runs
+												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
 												*state = DeviceSyncState::Uninitialized;
+												info!(
+													from_state = ?old_state,
+													to_state = ?DeviceSyncState::Uninitialized,
+													reason = "backfill_failed",
+													"Sync state transition"
+												);
 												// Reset flag to retry on next loop
 												backfill_attempted = false;
 											}
@@ -432,8 +439,15 @@ impl SyncService {
 											retry_state.record_success(); // Reset retry state
 
 											// Transition to Uninitialized to trigger full backfill
+											let old_state = peer_sync.state().await;
 											let mut state = peer_sync.state.write().await;
 											*state = DeviceSyncState::Uninitialized;
+											info!(
+												from_state = ?old_state,
+												to_state = ?DeviceSyncState::Uninitialized,
+												reason = "too_many_catchup_failures",
+												"Sync state transition"
+											);
 											backfill_attempted = false; // Allow backfill to run again
 											continue; // Skip to next iteration
 										}
@@ -452,8 +466,15 @@ impl SyncService {
 
 										// Transition to CatchingUp state
 										{
+											let old_state = peer_sync.state().await;
 											let mut state = peer_sync.state.write().await;
 											*state = DeviceSyncState::CatchingUp { buffered_count: 0 };
+											info!(
+												from_state = ?old_state,
+												to_state = ?DeviceSyncState::CatchingUp { buffered_count: 0 },
+												reason = "incremental_catchup",
+												"Sync state transition"
+											);
 										}
 
 										// Perform incremental catch-up using watermarks
@@ -469,15 +490,29 @@ impl SyncService {
 												info!("Incremental catch-up completed");
 												retry_state.record_success();
 												// Transition back to Ready
+												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
 												*state = DeviceSyncState::Ready;
+												info!(
+													from_state = ?old_state,
+													to_state = ?DeviceSyncState::Ready,
+													reason = "catchup_completed",
+													"Sync state transition"
+												);
 											}
 											Err(e) => {
 												warn!("Incremental catch-up failed: {}", e);
 												retry_state.record_failure();
 												// Transition back to Ready even on error
+												let old_state = peer_sync.state().await;
 												let mut state = peer_sync.state.write().await;
 												*state = DeviceSyncState::Ready;
+												info!(
+													from_state = ?old_state,
+													to_state = ?DeviceSyncState::Ready,
+													reason = "catchup_failed_but_continuing",
+													"Sync state transition"
+												);
 											}
 										}
 									}

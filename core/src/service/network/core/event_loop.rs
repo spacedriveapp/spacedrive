@@ -631,9 +631,6 @@ impl NetworkingEventLoop {
 
 						// Spawn reconnection with a small delay to prevent immediate retry loops
 						tokio::spawn(async move {
-							// Wait 2 seconds before attempting reconnection to avoid tight loop
-							tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
 							crate::service::network::core::NetworkingService::attempt_device_reconnection(
 							device_id,
 							persisted_device,

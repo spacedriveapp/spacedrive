@@ -426,7 +426,7 @@ impl PeerSync {
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to persist peer watermark: {}", e))?;
 
-			info!(
+			debug!(
 				peer = %peer,
 				max_received_hlc = %hlc,
 				"Persisted shared watermark for peer"
@@ -2674,7 +2674,7 @@ impl PeerSync {
 			}
 		}
 
-		info!(
+		debug!(
 			count = all_records.len(),
 			"Retrieved device state records for backfill"
 		);
@@ -2741,7 +2741,7 @@ impl PeerSync {
 		// Truncate to limit
 		entries.truncate(limit);
 
-		info!(
+		debug!(
 			count = entries.len(),
 			has_more = has_more,
 			"Retrieved shared changes from peer log"
@@ -2818,11 +2818,16 @@ impl PeerSync {
 		}
 
 		// Set to catching up
+		let buffered_count = self.buffer.len().await + dep_stats.total_waiting_updates;
 		{
 			let mut state = self.state.write().await;
-			*state = DeviceSyncState::CatchingUp {
-				buffered_count: self.buffer.len().await + dep_stats.total_waiting_updates,
-			};
+			*state = DeviceSyncState::CatchingUp { buffered_count };
+			info!(
+				from_state = ?current_state,
+				to_state = ?DeviceSyncState::CatchingUp { buffered_count },
+				buffered_count = buffered_count,
+				"Sync state transition"
+			);
 		}
 
 		// Record state transition
@@ -2912,7 +2917,7 @@ impl PeerSync {
 			}
 		}
 
-		info!(
+		debug!(
 			state_changes = state_changes_to_broadcast.len(),
 			shared_changes = shared_changes_to_broadcast.len(),
 			"Processing buffered updates - will broadcast to peers after local application"
@@ -2975,9 +2980,15 @@ impl PeerSync {
 		}
 
 		// Now ready!
+		let current_state_before_ready = self.state().await;
 		{
 			let mut state = self.state.write().await;
 			*state = DeviceSyncState::Ready;
+			info!(
+				from_state = ?current_state_before_ready,
+				to_state = ?DeviceSyncState::Ready,
+				"Sync state transition"
+			);
 		}
 
 		// Record state transition

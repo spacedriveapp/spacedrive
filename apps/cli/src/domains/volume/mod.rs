@@ -86,9 +86,9 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 				println!("   ID: {}", volume.id);
 				println!("   Fingerprint: {}", volume.fingerprint);
 				println!("   Type: {:?}", volume.volume_type);
-ttttprintln!("   Mount: {}", volume.mount_point.display());
-ttttprintln!("   Mounted: {}", volume.is_mounted);
-ttttprintln!("   Tracked: {}", volume.is_tracked);
+println!("   Mount: {}", volume.mount_point.display());
+println!("   Mounted: {}", volume.is_mounted);
+println!("   Tracked: {}", volume.is_tracked);
 				println!();
 			}
 		}

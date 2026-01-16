@@ -4127,6 +4127,7 @@ available_space: number;
 is_read_only: boolean; 
 /**
  * Whether volume is currently mounted/available
+ * Also deserializes from legacy "is_online" field for backwards compatibility
  */
 is_mounted: boolean; 
 /**
@@ -4187,6 +4188,32 @@ error_message: string | null };
 export type VolumeAddCloudInput = { service: CloudServiceType; display_name: string; config: CloudStorageConfig };
 
 export type VolumeAddCloudOutput = { fingerprint: VolumeFingerprint; volume_name: string; service: CloudServiceType };
+
+/**
+ * Input for ejecting a volume
+ */
+export type VolumeEjectInput = { 
+/**
+ * Fingerprint of the volume to eject
+ */
+fingerprint: string };
+
+/**
+ * Output from volume eject operation
+ */
+export type VolumeEjectOutput = { 
+/**
+ * The fingerprint of the ejected volume
+ */
+fingerprint: string; 
+/**
+ * Whether the eject was successful
+ */
+success: boolean; 
+/**
+ * Optional message (error or success details)
+ */
+message: string | null };
 
 export type VolumeFilter = 
 /**
@@ -4408,6 +4435,7 @@ export type LibraryAction =
   |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
   |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
   |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
+  |  { type: 'volumes.eject'; input: VolumeEjectInput; output: VolumeEjectOutput }
   |  { type: 'volumes.index'; input: IndexVolumeInput; output: IndexVolumeOutput }
   |  { type: 'volumes.refresh'; input: VolumeRefreshInput; output: VolumeRefreshOutput }
   |  { type: 'volumes.remove_cloud'; input: VolumeRemoveCloudInput; output: VolumeRemoveCloudOutput }
@@ -4520,6 +4548,7 @@ export const WIRE_METHODS = {
     'tags.apply': 'action:tags.apply.input',
     'tags.create': 'action:tags.create.input',
     'volumes.add_cloud': 'action:volumes.add_cloud.input',
+    'volumes.eject': 'action:volumes.eject.input',
     'volumes.index': 'action:volumes.index.input',
     'volumes.refresh': 'action:volumes.refresh.input',
     'volumes.remove_cloud': 'action:volumes.remove_cloud.input',

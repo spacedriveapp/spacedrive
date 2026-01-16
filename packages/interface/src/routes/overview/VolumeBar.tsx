@@ -1,4 +1,4 @@
-import {Database, Plus} from '@phosphor-icons/react';
+import {ArrowDown, ArrowUp, DotsThree, EyeSlash} from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.png';
 import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
 import DriveDropboxIcon from '@sd/assets/icons/Drive-Dropbox.png';
@@ -6,9 +6,11 @@ import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.png';
 import DriveIcon from '@sd/assets/icons/Drive.png';
 import HDDIcon from '@sd/assets/icons/HDD.png';
 import ServerIcon from '@sd/assets/icons/Server.png';
-import type {Device, VolumeItem} from '@sd/ts-client';
+import type {Device, Volume} from '@sd/ts-client';
+import {TopBarButton} from '@sd/ui';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
+import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
 import {
 	useLibraryMutation,
 	useNormalizedQuery,
@@ -22,7 +24,7 @@ function getDiskTypeLabel(diskType: string): string {
 }
 
 interface VolumeBarProps {
-	volume: VolumeItem;
+	volume: Volume;
 	index: number;
 }
 
@@ -34,11 +36,11 @@ interface IndexingProgress {
 }
 
 export function VolumeBar({volume, index}: VolumeBarProps) {
-	const trackVolume = useLibraryMutation('volumes.track');
-	const indexVolume = useLibraryMutation('volumes.index');
 	const [indexingProgress, setIndexingProgress] =
 		useState<IndexingProgress | null>(null);
 	const client = useSpacedriveClient();
+
+	const contextMenu = useVolumeContextMenu({volume: volume as any});
 
 	// Get the job ID for this volume from the store
 	const jobId = useVolumeIndexingStore((state) =>
@@ -144,28 +146,6 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 
 	const currentDevice = devicesQuery.data?.find((d) => d.is_current);
 
-	const handleTrack = async () => {
-		try {
-			await trackVolume.mutateAsync({
-				fingerprint: volume.fingerprint
-			});
-		} catch (error) {
-			console.error('Failed to track volume:', error);
-		}
-	};
-
-	const handleIndex = async () => {
-		try {
-			const result = await indexVolume.mutateAsync({
-				fingerprint: volume.fingerprint,
-				scope: 'Recursive'
-			});
-			console.log('Volume indexed:', result.message);
-		} catch (error) {
-			console.error('Failed to index volume:', error);
-		}
-	};
-
 	if (!volume.total_capacity) {
 		return null;
 	}
@@ -209,7 +189,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 		typeof volume.volume_type === 'string'
 			? volume.volume_type
 			: (volume.volume_type as any)?.Other ||
-				JSON.stringify(volume.volume_type)
+					JSON.stringify(volume.volume_type)
 	);
 
 	return (
@@ -218,76 +198,49 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 			animate={{opacity: 1, y: 0}}
 			transition={{delay: index * 0.05}}
 			className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border"
+			onContextMenu={contextMenu.show}
 		>
-			{/* Top row: Info */}
-			<div className="flex items-center gap-3 px-3 py-2">
+			{/* Top row: Info - fixed height */}
+			<div className="flex h-[64px] items-center gap-3 px-3">
 				{/* Icon */}
 				<img
 					src={iconSrc}
 					alt={volumeTypeStr}
-					className="size-6 flex-shrink-0 opacity-80"
+					className="size-10 flex-shrink-0 opacity-80"
 				/>
 
 				{/* Name, actions, and badges */}
 				<div className="min-w-0 flex-1">
-					<div className="mb-1 flex items-center gap-2">
+					<div className="mb-1.5 flex items-center gap-2">
 						<span className="text-ink truncate text-sm font-semibold">
 							{volume.display_name || volume.name}
 						</span>
-						{!volume.is_mounted && (
-							<span className="bg-app-box text-ink-faint border-app-line rounded border px-1.5 py-0.5 text-[10px]">
-								Offline
-							</span>
-						)}
 						{!volume.is_tracked && (
-							<button
-								onClick={handleTrack}
-								disabled={trackVolume.isPending}
-								className="bg-accent/10 hover:bg-accent/20 text-accent border-accent/20 hover:border-accent/30 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-								title="Track this volume"
-							>
-								<Plus className="size-2.5" weight="bold" />
-								{trackVolume.isPending
-									? 'Tracking...'
-									: 'Track'}
-							</button>
+							<EyeSlash
+								size={14}
+								weight="bold"
+								className="text-ink-faint/50"
+							/>
 						)}
-						{currentDevice &&
-							volume.device_id === currentDevice.id && (
-								<button
-									onClick={handleIndex}
-									disabled={indexVolume.isPending}
-									className="bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink border-sidebar-line flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-									title="Index this volume"
-								>
-									<Database
-										className="size-2.5"
-										weight="bold"
-									/>
-									{indexVolume.isPending
-										? 'Indexing...'
-										: 'Index'}
-								</button>
-							)}
 					</div>
 
-					{/* Badges under name */}
-					<div className="text-ink-dull flex flex-wrap items-center gap-1.5 text-[10px]">
+					{/* Badges under name - fixed height */}
+					<div className="text-ink-dull flex h-[18px] items-center gap-1.5 text-[10px]">
 						{fileSystem && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{fileSystem}
-						</span>
-					)}
-					{diskType && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+								{fileSystem}
+							</span>
+						)}
+						{diskType && (
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
 								{getDiskTypeLabel(diskType)}
-						</span>
-					)}
-					{volumeTypeStr && (
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{volumeTypeStr}
-						</span>
-					)}
+							</span>
+						)}
+						{volumeTypeStr && (
+							<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+								{volumeTypeStr}
+							</span>
+						)}
 						{indexingProgress ? (
 							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
 								{indexingProgress.filesIndexed.toLocaleString()}{' '}
@@ -299,9 +252,9 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 								)}
 							</span>
 						) : (
-							volume.total_file_count != null && (
+							volume.total_files != null && (
 								<span className="bg-accent/10 border-accent/20 text-accent rounded border px-1.5 py-0.5">
-									{volume.total_file_count.toLocaleString()}{' '}
+									{volume.total_files.toLocaleString()}{' '}
 									files
 								</span>
 							)
@@ -309,19 +262,43 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 					</div>
 				</div>
 
-				{/* Capacity info */}
-				<div className="flex-shrink-0 text-right">
+				{/* Capacity info - fixed 3-row layout */}
+				<div className="flex h-[48px] flex-shrink-0 flex-col justify-between text-right">
 					<div className="text-ink text-sm font-medium">
 						{formatBytes(totalCapacity)}
 					</div>
 					<div className="text-ink-dull text-[10px]">
 						{formatBytes(availableBytes)} free
 					</div>
+					<div className="text-ink-faint flex h-3.5 items-center justify-end gap-1.5 text-[10px]">
+						{volume.read_speed_mbps && (
+							<span className="flex items-center gap-0.5">
+								<ArrowDown size={10} weight="bold" />
+								{volume.read_speed_mbps}MB/s
+							</span>
+						)}
+						{volume.write_speed_mbps && (
+							<span className="flex items-center gap-0.5">
+								<ArrowUp size={10} weight="bold" />
+								{volume.write_speed_mbps}MB/s
+							</span>
+						)}
+					</div>
 				</div>
+
+				{/* Three dots button - far right */}
+				<TopBarButton
+					icon={DotsThree}
+					onClick={(e) => {
+						e.stopPropagation();
+						contextMenu.show(e);
+					}}
+					title="Volume actions"
+				/>
 			</div>
 
 			{/* Bottom: Full-width capacity bar with padding */}
-			<div className="px-3 pb-3 pt-2">
+			<div className="px-3 pb-3 pt-1">
 				<div className="bg-app border-app-line relative h-8 overflow-hidden rounded-md border">
 					{/* Base capacity visualization */}
 					<div className="flex h-full">

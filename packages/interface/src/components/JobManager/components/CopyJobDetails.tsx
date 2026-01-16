@@ -17,6 +17,9 @@ interface CopyJobDetailsProps {
 export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
   const generic = job.generic_progress;
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const prevScrollIndexRef = useRef<number>(-1);
+  const prevCompletedRef = useRef<number>(0);
+  const prevCurrentPathRef = useRef<string>("");
 
   // Fetch copy metadata (file queue with File objects)
   const { data: metadata, refetch } = useLibraryQuery({
@@ -24,9 +27,10 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
     input: { job_id: job.id },
   });
 
+  const files = metadata?.metadata?.files || [];
+  const fileObjects = metadata?.metadata?.file_objects || [];
+
   // Refetch when completed count changes OR when current file changes
-  const prevCompletedRef = useRef<number>(0);
-  const prevCurrentPathRef = useRef<string>("");
   useEffect(() => {
     const currentCompleted = generic?.completion?.completed || 0;
     const currentPath = generic?.current_path?.Physical?.path ||
@@ -43,42 +47,19 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
     }
   }, [generic?.completion?.completed, generic?.current_path, generic?.message, refetch]);
 
-  if (!generic) {
-    return (
-      <div className="p-4 text-xs text-ink-faint">
-        No progress data available
-      </div>
-    );
-  }
-
-  const files = metadata?.metadata?.files || [];
-  const fileObjects = metadata?.metadata?.file_objects || [];
-
-  // Create a map of entry_id → File for quick lookup
-  const fileMap = new Map<string, File>();
-  fileObjects.forEach(file => {
-    fileMap.set(file.id, file);
-  });
-
   // Auto-scroll to center the currently copying file
-  // Match files by current_path from progress, not by "copying" status (which is too fast to catch)
-  const prevScrollIndexRef = useRef<number>(-1);
-
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container || !generic?.current_path) return;
 
-    // Extract current file path from progress
     const currentPath = generic.current_path.Physical?.path || generic.current_path.Local?.path;
     if (!currentPath) return;
 
-    // Find the file in our list that matches the current path
     const currentIndex = files.findIndex(f => {
       const filePath = f.source_path?.Physical?.path || f.source_path?.Local?.path;
       return filePath === currentPath;
     });
 
-    // Only scroll if the file index actually changed
     if (currentIndex === -1 || currentIndex === prevScrollIndexRef.current) return;
 
     prevScrollIndexRef.current = currentIndex;
@@ -86,11 +67,9 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
     const currentElement = container.children[currentIndex] as HTMLElement;
     if (!currentElement) return;
 
-    // Manually calculate and scroll the container
     const containerRect = container.getBoundingClientRect();
     const elementRect = currentElement.getBoundingClientRect();
 
-    // Calculate how much to scroll to center the element
     const elementCenter = elementRect.top + elementRect.height / 2;
     const containerCenter = containerRect.top + containerRect.height / 2;
     const scrollOffset = elementCenter - containerCenter;
@@ -100,6 +79,20 @@ export function CopyJobDetails({ job, speedHistory }: CopyJobDetailsProps) {
       behavior: "smooth"
     });
   }, [files, generic?.current_path]);
+
+  if (!generic) {
+    return (
+      <div className="p-4 text-xs text-ink-faint">
+        No progress data available
+      </div>
+    );
+  }
+
+  // Create a map of entry_id → File for quick lookup
+  const fileMap = new Map<string, File>();
+  fileObjects.forEach(file => {
+    fileMap.set(file.id, file);
+  });
 
   return (
     <div className="p-4 space-y-4">

@@ -336,7 +336,7 @@ impl SyncProtocolHandler {
 					None
 				};
 
-				info!(
+				debug!(
 					count = entries.len(),
 					has_more = has_more,
 					has_state_snapshot = current_state.is_some(),

@@ -172,13 +172,13 @@ impl crate::infra::sync::Syncable for Model {
 		data: serde_json::Value,
 		db: &DatabaseConnection,
 	) -> Result<(), sea_orm::DbErr> {
-		tracing::info!("[DEVICE_SYNC] apply_state_change called");
+		tracing::debug!("[DEVICE_SYNC] apply_state_change called");
 
 		// Deserialize incoming data
 		let device: Model = serde_json::from_value(data)
 			.map_err(|e| sea_orm::DbErr::Custom(format!("Device deserialization failed: {}", e)))?;
 
-		tracing::info!(
+		tracing::debug!(
 			"[DEVICE_SYNC] Processing device: uuid={}, slug={}",
 			device.uuid,
 			device.slug
@@ -195,14 +195,14 @@ impl crate::infra::sync::Syncable for Model {
 		// Determine the slug to use
 		let slug_to_use = if let Some(existing) = existing_device {
 			// Device exists - keep its existing slug to avoid breaking references
-			tracing::info!(
+			tracing::debug!(
 				"[DEVICE_SYNC] Device exists, keeping existing slug: {}",
 				existing.slug
 			);
 			existing.slug
 		} else {
 			// New device - check for slug collisions
-			tracing::info!("[DEVICE_SYNC] New device, checking for slug collisions");
+			tracing::debug!("[DEVICE_SYNC] New device, checking for slug collisions");
 			let existing_slugs: Vec<String> = Entity::find()
 				.all(db)
 				.await?
@@ -210,7 +210,7 @@ impl crate::infra::sync::Syncable for Model {
 				.map(|d| d.slug.clone())
 				.collect();
 
-			tracing::info!(
+			tracing::debug!(
 				"[DEVICE_SYNC] Existing slugs in database: {:?}",
 				existing_slugs
 			);
@@ -219,13 +219,13 @@ impl crate::infra::sync::Syncable for Model {
 				crate::library::Library::ensure_unique_slug(&device.slug, &existing_slugs);
 
 			if unique_slug != device.slug {
-				tracing::info!(
+				tracing::debug!(
 					"[DEVICE_SYNC] Slug collision! Using '{}' instead of '{}'",
 					unique_slug,
 					device.slug
 				);
 			} else {
-				tracing::info!("[DEVICE_SYNC] No collision, using slug: {}", unique_slug);
+				tracing::debug!("[DEVICE_SYNC] No collision, using slug: {}", unique_slug);
 			}
 
 			unique_slug

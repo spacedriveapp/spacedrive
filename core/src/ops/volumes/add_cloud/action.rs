@@ -407,11 +407,9 @@ impl LibraryAction for VolumeAddCloudAction {
 			}
 		};
 
-		let fingerprint = VolumeFingerprint::new(
-			&self.input.display_name,
-			0, // Cloud volumes don't have a fixed size
-			&format!("{:?}", self.input.service),
-		);
+		// Generate stable fingerprint for cloud volume using service type and cloud identifier
+		let backend_id = format!("{:?}", self.input.service);
+		let fingerprint = VolumeFingerprint::from_network_volume(&backend_id, &cloud_identifier);
 
 		let backend_arc: Arc<dyn crate::volume::VolumeBackend> = Arc::new(backend);
 		let now = chrono::Utc::now();

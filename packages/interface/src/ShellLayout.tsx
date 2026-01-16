@@ -4,6 +4,7 @@ import {AnimatePresence, motion} from 'framer-motion';
 import {useEffect, useMemo} from 'react';
 import {Outlet, useLocation, useParams} from 'react-router-dom';
 import {Inspector} from './components/Inspector/Inspector';
+import {JobsProvider} from './components/JobManager/hooks/JobsContext';
 import {
 	PREVIEW_LAYER_ID,
 	QuickPreviewController,
@@ -271,15 +272,17 @@ function ShellLayoutContent() {
 
 export function ShellLayout() {
 	return (
-		<TopBarProvider>
-			<SelectionProvider>
-				<ExplorerProvider>
-					{/* Sync tab navigation and defaults with router */}
-					<TabNavigationSync />
-					<TabDefaultsSync />
-					<ShellLayoutContent />
-				</ExplorerProvider>
-			</SelectionProvider>
-		</TopBarProvider>
+		<JobsProvider>
+			<TopBarProvider>
+				<SelectionProvider>
+					<ExplorerProvider>
+						{/* Sync tab navigation and defaults with router */}
+						<TabNavigationSync />
+						<TabDefaultsSync />
+						<ShellLayoutContent />
+					</ExplorerProvider>
+				</SelectionProvider>
+			</TopBarProvider>
+		</JobsProvider>
 	);
 }
