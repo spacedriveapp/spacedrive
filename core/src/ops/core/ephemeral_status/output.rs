@@ -42,6 +42,8 @@ pub struct UnifiedIndexStats {
 	pub content_kinds: usize,
 	/// Estimated memory usage in bytes
 	pub memory_bytes: usize,
+	/// Total size of all indexed files in bytes
+	pub total_file_bytes: u64,
 	/// Age of the cache in seconds
 	pub age_seconds: f64,
 	/// Seconds since last access

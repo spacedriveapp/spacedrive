@@ -64,6 +64,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			interned_strings: stats.interned_strings,
 			content_kinds: index.content_kinds_count(),
 			memory_bytes: stats.memory_bytes,
+			total_file_bytes: stats.total_file_bytes,
 			age_seconds: cache.age().as_secs_f64(),
 			idle_seconds: index.idle_time().as_secs_f64(),
 		};

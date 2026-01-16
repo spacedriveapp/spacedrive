@@ -601,10 +601,37 @@ impl JobHandler for IndexerJob {
 		}
 
 		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
-			let index = EphemeralIndex::new()
-				.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
-			self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
-			ctx.log("Initialized ephemeral index for non-persistent job");
+			// Try to load from snapshot first
+			let cache = ctx.library().core_context().ephemeral_cache();
+			let snapshot_loaded = if let Some(local_path) = self.config.path.as_local_path() {
+				match cache.try_load_snapshot_or_create(local_path).await {
+					Ok(true) => {
+						ctx.log(format!(
+							"Loaded ephemeral index from snapshot for: {}",
+							local_path.display()
+						));
+						true
+					}
+					Ok(false) => {
+						ctx.log("No snapshot found, will perform full index");
+						false
+					}
+					Err(e) => {
+						ctx.log(format!("Failed to load snapshot, will perform full index: {}", e));
+						false
+					}
+				}
+			} else {
+				false
+			};
+
+			// If snapshot not loaded, create new index for indexing
+			if !snapshot_loaded {
+				let index = EphemeralIndex::new()
+					.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
+				self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
+				ctx.log("Initialized ephemeral index for non-persistent job");
+			}
 		}
 
 		let result = self.run_job_phases(&ctx).await;
@@ -624,6 +651,23 @@ impl JobHandler for IndexerJob {
 							"Marked ephemeral indexing complete for: {}",
 							local_path.display()
 						));
+
+						// Save snapshot for fast restoration next time
+						if let Err(e) = ctx
+							.library()
+							.core_context()
+							.ephemeral_cache()
+							.save_snapshot(local_path)
+							.await
+						{
+							ctx.log(format!(
+								"Warning: Failed to save snapshot for {}: {}",
+								local_path.display(),
+								e
+							));
+						} else {
+							ctx.log(format!("Saved snapshot for: {}", local_path.display()));
+						}
 
 						// Automatically add filesystem watch for successfully indexed ephemeral paths
 						// This enables real-time updates when files change in browsed directories

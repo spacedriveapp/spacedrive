@@ -1,8 +1,8 @@
 import {Lightning} from '@phosphor-icons/react';
 import ComputeIcon from '@sd/assets/icons/Compute.png';
+import DevicesIcon from '@sd/assets/icons/Devices.png';
 import IndexedIcon from '@sd/assets/icons/Indexed.png';
 import MobileIcon from '@sd/assets/icons/Mobile.png';
-import StorageIcon from '@sd/assets/icons/Storage.png';
 import {motion} from 'framer-motion';
 
 interface HeroStatsProps {
@@ -57,7 +57,7 @@ export function HeroStats({
 				<StatCard
 					icon={
 						<img
-							src={StorageIcon}
+							src={DevicesIcon}
 							alt="Storage"
 							className="size-10 opacity-80"
 							// style={{ filter: 'drop-shadow(0 0 4px rgba(217, 70, 239, 0.4))' }}
@@ -179,25 +179,27 @@ function StatCard({
 				</div>
 			)}
 
-			<div>
-				<div className="text-ink mb-1 flex items-center gap-3 text-3xl font-bold">
-					<div className="relative">
-						{icon}
-						{pulse && (
-							<motion.div
-								animate={{
-									scale: [1, 1.2, 1],
-									opacity: [1, 0.5, 1]
-								}}
-								transition={{duration: 2, repeat: Infinity}}
-								className="bg-accent absolute -right-1 -top-1 size-2 rounded-full"
-							/>
-						)}
-					</div>
-					{value}
+			<div className="flex gap-3">
+				<div className="relative">
+					{icon}
+					{pulse && (
+						<motion.div
+							animate={{
+								scale: [1, 1.2, 1],
+								opacity: [1, 0.5, 1]
+							}}
+							transition={{duration: 2, repeat: Infinity}}
+							className="bg-accent absolute -right-1 -top-1 size-2 rounded-full"
+						/>
+					)}
 				</div>
-				<div className="text-ink-dull mb-1 text-xs">{label}</div>
-				<div className="text-ink-faint text-xs">{subtitle}</div>
+				<div className="flex-1">
+					<div className="text-ink mb-1 text-3xl font-bold">
+						{value}
+					</div>
+					<div className="text-ink-dull mb-1 text-xs">{label}</div>
+					<div className="text-ink-faint text-xs">{subtitle}</div>
+				</div>
 			</div>
 		</div>
 	);

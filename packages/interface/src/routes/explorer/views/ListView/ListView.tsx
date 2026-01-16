@@ -1,14 +1,13 @@
-import { useCallback, useRef, useEffect, memo, useMemo } from "react";
+import { useCallback, useRef, useEffect, memo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { flexRender } from "@tanstack/react-table";
 import { CaretDown } from "@phosphor-icons/react";
 import clsx from "clsx";
 
-import type { File, DirectorySortBy } from "@sd/ts-client";
+import type { File } from "@sd/ts-client";
 
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import { TableRow } from "./TableRow";
 import {
 	useTable,
@@ -17,13 +16,12 @@ import {
 	TABLE_PADDING_Y,
 	TABLE_HEADER_HEIGHT,
 } from "./useTable";
-import { useVirtualListing } from "../../hooks/useVirtualListing";
+import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 import { DragSelect } from "./DragSelect";
 import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
 
 export const ListView = memo(function ListView() {
-	const { currentPath, sortBy, setSortBy, viewSettings, setCurrentFiles } =
-		useExplorer();
+	const { sortBy, setSortBy, setCurrentFiles } = useExplorer();
 	const {
 		focusedIndex,
 		setFocusedIndex,
@@ -42,35 +40,8 @@ export const ListView = memo(function ListView() {
 
 	// TODO: Preserve scroll position per tab using scrollPosition from context
 
-	// Check for virtual listing first
-	const { files: virtualFiles, isVirtualView } = useVirtualListing();
-
-	// Memoize query input to prevent unnecessary re-fetches
-	const queryInput = useMemo(
-		() =>
-			currentPath
-				? {
-						path: currentPath,
-						limit: null,
-						include_hidden: false,
-						sort_by: sortBy as DirectorySortBy,
-						folders_first: viewSettings.foldersFirst,
-					}
-				: null!,
-		[currentPath, sortBy, viewSettings.foldersFirst],
-	);
-
-	const pathScope = useMemo(() => currentPath ?? undefined, [currentPath]);
-
-	const directoryQuery = useNormalizedQuery({
-		wireMethod: "query:files.directory_listing",
-		input: queryInput,
-		resourceType: "file",
-		enabled: !!currentPath && !isVirtualView,
-		pathScope,
-	});
-
-	const files = isVirtualView ? (virtualFiles || []) : (directoryQuery.data?.files || []);
+	// Get files from centralized hook (handles search, virtual, and directory)
+	const { files } = useExplorerFiles();
 	const { table } = useTable(files);
 	const { rows } = table.getRowModel();
 
