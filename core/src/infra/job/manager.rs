@@ -43,6 +43,9 @@ struct RunningJob {
 	status_tx: watch::Sender<JobStatus>,
 	latest_progress: Arc<Mutex<Option<Progress>>>,
 	persistence_complete_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+	job_name: String,
+	action_context: Option<crate::infra::action::context::ActionContext>,
+	should_emit_events: bool,
 }
 
 impl JobManager {
@@ -167,10 +170,11 @@ impl JobManager {
 	) -> JobResult<JobHandle> {
 		let job_id = JobId::new();
 		let should_persist = erased_job.should_persist();
+		let should_emit_events = erased_job.should_emit_events();
 
 		info!(
-			"Dispatching job {} ({}): {} [persist: {}]",
-			job_id, job_name, job_name, should_persist
+			"Dispatching job {} ({}): {} [persist: {}, emit_events: {}]",
+			job_id, job_name, job_name, should_persist, should_emit_events
 		);
 
 		// Only persist to database if the job should be persisted
@@ -212,12 +216,12 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task
-		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
 		let job_id_clone = job_id.clone();
 		let job_type_str = job_name.to_string();
+		let should_emit_events_clone = should_emit_events;
 		let device_id = self
 			.context
 			.device_manager
@@ -232,8 +236,8 @@ impl JobManager {
 				*latest_progress_clone.lock().await = Some(progress.clone());
 				let _ = broadcast_tx_clone.send(progress.clone());
 
-				// Skip event updates for ephemeral jobs
-				if !should_persist {
+				// Skip event emission for background jobs
+				if !should_emit_events_clone {
 					continue;
 				}
 
@@ -351,6 +355,9 @@ impl JobManager {
 		match task_handle {
 			Ok(handle_result) => {
 				// Track running job
+				// Clone latest_progress for monitoring task before moving into RunningJob
+				let latest_progress_for_monitor = latest_progress.clone();
+
 				self.running_jobs.write().await.insert(
 					job_id,
 					RunningJob {
@@ -359,6 +366,9 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress,
 						persistence_complete_rx: Some(persistence_complete_rx),
+						job_name: job_name.to_string(),
+						action_context: action_context.clone(),
+						should_emit_events,
 					},
 				);
 
@@ -407,6 +417,35 @@ impl JobManager {
 											Ok(JobOutput::Success)
 										}
 									};
+
+									// Emit final progress event if one exists (may have been throttled)
+									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+										let generic_progress = match final_progress {
+											Progress::Structured(value) => {
+												// Try to deserialize CopyProgress and convert to GenericProgress
+												if let Ok(copy_progress) = serde_json::from_value::<
+													crate::ops::files::copy::CopyProgress,
+												>(value.clone())
+												{
+													use crate::infra::job::generic_progress::ToGenericProgress;
+													Some(copy_progress.to_generic_progress())
+												} else {
+													None
+												}
+											}
+											Progress::Generic(gp) => Some(gp.clone()),
+											_ => None,
+										};
+
+										event_bus.emit(Event::JobProgress {
+											job_id: job_id_clone.to_string(),
+											job_type: job_type_str.to_string(),
+											device_id,
+											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											message: Some(final_progress.to_string()),
+											generic_progress,
+										});
+									}
 
 									// Emit completion event with the job's output
 									event_bus.emit(Event::JobCompleted {
@@ -507,6 +546,7 @@ impl JobManager {
 	{
 		let job_id = JobId::new();
 		let should_persist = job.should_persist();
+		let should_emit_events = job.should_emit_events();
 
 		if let Some(ref ctx) = action_context {
 			info!(
@@ -575,13 +615,13 @@ impl JobManager {
 		let latest_progress = Arc::new(Mutex::new(None));
 
 		// Create progress forwarding task with batching and throttling
-		// For ephemeral jobs, skip database updates and event emission
 		let broadcast_tx_clone = broadcast_tx.clone();
 		let latest_progress_clone = latest_progress.clone();
 		let event_bus = self.context.events.clone();
 		let job_id_clone = job_id.clone();
 		let job_type_str = J::NAME;
 		let job_db_clone = self.db.clone();
+		let should_emit_events_clone = should_emit_events;
 		let device_id = self
 			.context
 			.device_manager
@@ -603,17 +643,19 @@ impl JobManager {
 				// Ignore errors if no one is listening
 				let _ = broadcast_tx_clone.send(progress.clone());
 
-				// Skip database and event updates for ephemeral jobs
-				if !should_persist {
-					continue;
+				// Database persistence (only for non-ephemeral jobs)
+				if should_persist {
+					if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
+						if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
+							debug!("Failed to persist job progress to database: {}", e);
+						}
+						last_db_update = std::time::Instant::now();
+					}
 				}
 
-				// Persist progress to database with throttling
-				if last_db_update.elapsed() >= DB_UPDATE_INTERVAL {
-					if let Err(e) = job_db_clone.update_progress(job_id_clone, &progress).await {
-						debug!("Failed to persist job progress to database: {}", e);
-					}
-					last_db_update = std::time::Instant::now();
+				// Event emission (for both persistent and volume indexing jobs)
+				if !should_emit_events_clone {
+					continue;
 				}
 
 				// Throttle event emission to prevent flooding
@@ -749,6 +791,9 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress: latest_progress.clone(),
 						persistence_complete_rx: Some(persistence_complete_rx),
+						job_name: J::NAME.to_string(),
+						action_context: action_context.clone(),
+						should_emit_events,
 					},
 				);
 
@@ -759,6 +804,7 @@ impl JobManager {
 				let job_type_str = J::NAME;
 				let library_id_clone = self.library_id;
 				let context = self.context.clone();
+				let latest_progress_for_monitor = latest_progress.clone();
 				let device_id = self
 					.context
 					.device_manager
@@ -797,6 +843,35 @@ impl JobManager {
 											Ok(JobOutput::Success)
 										}
 									};
+
+									// Emit final progress event if one exists (may have been throttled)
+									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+										let generic_progress = match final_progress {
+											Progress::Structured(value) => {
+												// Try to deserialize CopyProgress and convert to GenericProgress
+												if let Ok(copy_progress) = serde_json::from_value::<
+													crate::ops::files::copy::CopyProgress,
+												>(value.clone())
+												{
+													use crate::infra::job::generic_progress::ToGenericProgress;
+													Some(copy_progress.to_generic_progress())
+												} else {
+													None
+												}
+											}
+											Progress::Generic(gp) => Some(gp.clone()),
+											_ => None,
+										};
+
+										event_bus.emit(Event::JobProgress {
+											job_id: job_id_clone.to_string(),
+											job_type: job_type_str.to_string(),
+											device_id,
+											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											message: Some(final_progress.to_string()),
+											generic_progress,
+										});
+									}
 
 									// Emit completion event with the job's output
 									event_bus.emit(Event::JobCompleted {
@@ -904,6 +979,11 @@ impl JobManager {
 		REGISTRY.get_schema(job_name)
 	}
 
+	/// Get read-only access to the job database for queries
+	pub fn database(&self) -> &super::database::JobDb {
+		&self.db
+	}
+
 	/// List currently running jobs from memory (for live monitoring)
 	pub async fn list_running_jobs(&self) -> Vec<JobInfo> {
 		let device_id = self
@@ -918,8 +998,9 @@ impl JobManager {
 			let handle = &running_job.handle;
 			let status = handle.status();
 
-			// Only include active jobs (running or paused)
-			if status.is_active() {
+			// Only include active jobs (running or paused) that should emit events
+			// Background jobs (run_in_background=true) have should_emit_events=false
+			if status.is_active() && running_job.should_emit_events {
 				// Get latest progress
 				let progress_percentage =
 					if let Some(progress) = running_job.latest_progress.lock().await.as_ref() {
@@ -989,8 +1070,23 @@ impl JobManager {
 					0.0
 				};
 
-			// Get job data from database for complete info
-			let (job_name, action_type, action_context) =
+			// Get job data from in-memory struct (for non-persisted jobs) or database
+			let (job_name, action_type, action_context) = if let Some(ctx) = &running_job.action_context {
+				// Use in-memory action_context (for ephemeral volume jobs)
+				let action_context_info = ActionContextInfo {
+					action_type: ctx.action_type.clone(),
+					initiated_at: ctx.initiated_at,
+					initiated_by: ctx.initiated_by.clone(),
+					action_input: ctx.action_input.clone().into(),
+					context: ctx.context.clone().into(),
+				};
+				(
+					running_job.job_name.clone(),
+					Some(ctx.action_type.clone()),
+					Some(action_context_info),
+				)
+			} else {
+				// Fall back to database query for persisted jobs
 				match database::jobs::Entity::find_by_id(job_id.0.to_string())
 					.one(self.db.conn())
 					.await?
@@ -1015,8 +1111,9 @@ impl JobManager {
 						};
 						(db_job.name, db_job.action_type, action_context)
 					}
-					None => (format!("Job {}", job_id.0), None, None),
-				};
+					None => (running_job.job_name.clone(), None, None),
+				}
+			};
 
 			all_jobs.push(JobInfo {
 				id: job_id.0,
@@ -1407,6 +1504,16 @@ impl JobManager {
 						{
 							Ok(task_handle) => {
 								// Track running job
+								// Clone latest_progress for monitoring task before moving into RunningJob
+								let latest_progress_for_monitor = latest_progress.clone();
+
+								// Deserialize action context from database if available
+								let action_context = if let Some(context_data) = &job_record.action_context {
+									rmp_serde::from_slice::<crate::infra::action::context::ActionContext>(context_data).ok()
+								} else {
+									None
+								};
+
 								self.running_jobs.write().await.insert(
 									job_id,
 									RunningJob {
@@ -1415,6 +1522,9 @@ impl JobManager {
 										status_tx: status_tx.clone(),
 										latest_progress,
 										persistence_complete_rx: Some(persistence_complete_rx),
+										job_name: job_record.name.clone(),
+										action_context,
+										should_emit_events: true, // Resumed jobs were persisted, so they should emit events
 									},
 								);
 
@@ -1646,30 +1756,68 @@ impl JobManager {
 		}
 	}
 
-	/// Cancel a running job
+	/// Cancel a running job and remove it from the database
+	/// Works on both in-memory jobs and stale database entries
 	pub async fn cancel_job(&self, job_id: JobId) -> JobResult<()> {
-		let mut running_jobs = self.running_jobs.write().await;
+		use database::jobs;
 
-		if let Some(running_job) = running_jobs.get_mut(&job_id) {
-			// Check if job is in a cancellable state
-			let current_status = running_job.handle.status();
-			if current_status.is_terminal() {
-				return Err(JobError::invalid_state(&format!(
-					"Cannot cancel job in {:?} state",
-					current_status
-				)));
+		// Check if job is in running_jobs memory map
+		let is_in_memory = {
+			let running_jobs = self.running_jobs.read().await;
+			running_jobs.contains_key(&job_id)
+		};
+
+		// Cancel if in memory
+		if is_in_memory {
+			let mut running_jobs = self.running_jobs.write().await;
+
+			if let Some(running_job) = running_jobs.get_mut(&job_id) {
+				// Check if job is in a cancellable state
+				let current_status = running_job.handle.status();
+				if current_status.is_terminal() {
+					return Err(JobError::invalid_state(&format!(
+						"Cannot cancel job in {:?} state",
+						current_status
+					)));
+				}
+
+				// Cancel the task
+				if let Err(e) = running_job.task_handle.cancel().await {
+					warn!("Failed to send cancel signal to job {}: {}", job_id, e);
+				}
 			}
 
-			// Cancel the task - this will cause the executor to handle cancellation
-			if let Err(e) = running_job.task_handle.cancel().await {
-				warn!("Failed to send cancel signal to job {}: {}", job_id, e);
-			}
+			// Remove from running jobs map
+			running_jobs.remove(&job_id);
+			drop(running_jobs);
 
-			info!("Job {} cancellation requested", job_id);
-			Ok(())
-		} else {
-			Err(JobError::NotFound(format!("Job {} not found", job_id)))
+			// Wait for cancellation to complete
+			tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 		}
+
+		// Check if job exists in database
+		let db_job = jobs::Entity::find_by_id(job_id.to_string())
+			.one(self.db.conn())
+			.await?;
+
+		// Delete from database if it exists
+		if db_job.is_some() {
+			let result = jobs::Entity::delete_by_id(job_id.to_string())
+				.exec(self.db.conn())
+				.await?;
+
+			if result.rows_affected == 0 {
+				return Err(JobError::NotFound(format!("Job {} not found in database", job_id)));
+			}
+		}
+
+		// If job wasn't in memory OR database, it doesn't exist
+		if !is_in_memory && db_job.is_none() {
+			return Err(JobError::NotFound(format!("Job {} not found", job_id)));
+		}
+
+		info!("Job {} cancelled (in memory: {}, in db: {})", job_id, is_in_memory, db_job.is_some());
+		Ok(())
 	}
 
 	/// Resume a paused job
@@ -1705,12 +1853,19 @@ impl JobManager {
 					)));
 				}
 
-				Some((job_record.name.clone(), job_record.state.clone()))
+				// Deserialize action context from database if available
+				let action_context = if let Some(context_data) = &job_record.action_context {
+					rmp_serde::from_slice::<crate::infra::action::context::ActionContext>(context_data).ok()
+				} else {
+					None
+				};
+
+				Some((job_record.name.clone(), job_record.state.clone(), action_context))
 			}
 		};
 
 		// If job was not in memory, recreate and dispatch it
-		if let Some((job_name, job_state)) = job_info {
+		if let Some((job_name, job_state, action_context)) = job_info {
 			// Deserialize job from binary data
 			info!(
 				"RESUME_STATE_LOAD: Job {} loading {} bytes of state from database (manual resume)",
@@ -1843,6 +1998,9 @@ impl JobManager {
 					status_tx: status_tx.clone(),
 					latest_progress,
 					persistence_complete_rx: Some(persistence_complete_rx),
+					job_name: job_name.clone(),
+					action_context,
+					should_emit_events: true, // Manually resumed jobs were persisted, so they should emit events
 				},
 			);
 

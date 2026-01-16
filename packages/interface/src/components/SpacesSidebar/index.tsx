@@ -12,7 +12,7 @@ import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
 import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../contexts/PlatformContext";
-import { useJobs } from "../JobManager/hooks/useJobs";
+import { useJobsContext } from "../JobManager/hooks/JobsContext";
 import { useSyncCount } from "../SyncMonitor/hooks/useSyncCount";
 import { useSyncMonitor } from "../SyncMonitor/hooks/useSyncMonitor";
 import { PeerList } from "../SyncMonitor/components/PeerList";
@@ -208,6 +208,7 @@ const JobsButton = memo(function JobsButton({
   pause,
   resume,
   cancel,
+  getSpeedHistory,
   navigate
 }: {
   activeJobCount: number;
@@ -216,6 +217,7 @@ const JobsButton = memo(function JobsButton({
   pause: (jobId: string) => Promise<void>;
   resume: (jobId: string) => Promise<void>;
   cancel: (jobId: string) => Promise<void>;
+  getSpeedHistory: (jobId: string) => any[];
   navigate: any;
 }) {
   const popover = usePopover();
@@ -286,7 +288,7 @@ const JobsButton = memo(function JobsButton({
           }}
           transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
         >
-          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} getSpeedHistory={getSpeedHistory} />
         </motion.div>
       )}
     </Popover>
@@ -315,7 +317,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
   // Get sync and job status for icons
   const { onlinePeerCount, isSyncing } = useSyncCount();
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel, getSpeedHistory } = useJobsContext();
 
   const { currentSpaceId, setCurrentSpace } = useSidebarStore();
   const { data: spacesData } = useSpaces();
@@ -430,13 +432,14 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SyncButton />
-              <JobsButton 
+              <JobsButton
                 activeJobCount={activeJobCount}
                 hasRunningJobs={hasRunningJobs}
                 jobs={jobs}
                 pause={pause}
                 resume={resume}
                 cancel={cancel}
+                getSpeedHistory={getSpeedHistory}
                 navigate={navigate}
               />
               <TopBarButton

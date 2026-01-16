@@ -430,10 +430,11 @@ pub async fn wait_for_sync(
 /// Add a location and wait for indexing to complete
 pub async fn add_and_index_location(
 	library: &Arc<Library>,
+	volume_manager: &Arc<sd_core::volume::VolumeManager>,
 	path: &str,
 	name: &str,
 ) -> anyhow::Result<Uuid> {
-	use sd_core::location::{create_location, IndexMode, LocationCreateArgs};
+	use sd_core::location::{create_location, manager::update_location_volume_id, IndexMode, LocationCreateArgs};
 
 	tracing::info!(path = %path, name = %name, "Creating location and indexing");
 
@@ -462,6 +463,64 @@ pub async fn add_and_index_location(
 		.ok_or_else(|| anyhow::anyhow!("Location not found"))?;
 
 	let location_uuid = location_record.uuid;
+	let entry_id = location_record.entry_id;
+
+	// Detect volume for the location path before indexing
+	let location_path = std::path::PathBuf::from(path);
+	if let Some(volume) = volume_manager.volume_for_path(&location_path).await {
+		tracing::info!(
+			location_uuid = %location_uuid,
+			volume_name = %volume.name,
+			volume_fingerprint = ?volume.fingerprint,
+			volume_uuid = ?volume.id,
+			"Detected volume for location"
+		);
+
+		// Check if volume already exists by UUID (for test environments where multiple
+		// "devices" share the same physical machine/volumes)
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		let volume_id = if let Some(existing) = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Uuid.eq(volume.id))
+			.one(library.db().conn())
+			.await?
+		{
+			tracing::info!(
+				volume_uuid = %volume.id,
+				volume_id = existing.id,
+				"Volume already exists in database (shared between test devices)"
+			);
+			existing.id
+		} else {
+			// Ensure volume is in the database
+			let id = volume_manager.ensure_volume_in_db(&volume, library).await?;
+			tracing::info!(
+				volume_uuid = %volume.id,
+				volume_id = id,
+				"Inserted new volume into database"
+			);
+			id
+		};
+
+		// Update location and root entry with volume_id
+		update_location_volume_id(
+			library.db().conn(),
+			location_db_id,
+			entry_id,
+			volume_id,
+		)
+		.await?;
+
+		tracing::info!(
+			location_uuid = %location_uuid,
+			volume_id = volume_id,
+			"Updated location with volume_id"
+		);
+	} else {
+		anyhow::bail!(
+			"No volume detected for path '{}' - volume must be mounted for testing",
+			path
+		);
+	}
 
 	// Wait for indexing with 120s timeout
 	wait_for_indexing(library, location_db_id, Duration::from_secs(120)).await?;
@@ -797,6 +856,19 @@ impl TwoDeviceHarnessBuilder {
 			.map_err(|e| anyhow::anyhow!("Failed to create Bob core: {}", e))?;
 		let device_bob_id = core_bob.device.device_id()?;
 
+		// Initialize volume managers for both cores
+		tracing::info!("Initializing volume managers");
+		core_alice
+			.volumes
+			.initialize()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to initialize Alice volume manager: {}", e))?;
+		core_bob
+			.volumes
+			.initialize()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to initialize Bob volume manager: {}", e))?;
+
 		// Create libraries
 		let library_alice = core_alice
 			.libraries
@@ -978,12 +1050,12 @@ impl TwoDeviceHarness {
 		path: &str,
 		name: &str,
 	) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_alice, path, name).await
+		add_and_index_location(&self.library_alice, &self.core_alice.volumes, path, name).await
 	}
 
 	/// Add and index a location on Bob
 	pub async fn add_and_index_location_bob(&self, path: &str, name: &str) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_bob, path, name).await
+		add_and_index_location(&self.library_bob, &self.core_bob.volumes, path, name).await
 	}
 }
 

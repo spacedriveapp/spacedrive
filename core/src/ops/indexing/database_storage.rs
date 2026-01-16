@@ -820,6 +820,7 @@ impl DatabaseStorage {
 		entry_id: i32,
 		path: &Path,
 		content_hash: String,
+		registry: &crate::filetype::FileTypeRegistry,
 	) -> Result<ContentLinkResult, JobError> {
 		let existing = entities::content_identity::Entity::find()
 			.filter(entities::content_identity::Column::ContentHash.eq(&content_hash))
@@ -849,7 +850,6 @@ impl DatabaseStorage {
 			let deterministic_uuid =
 				entities::content_identity::Model::deterministic_uuid(&content_hash);
 
-			let registry = FileTypeRegistry::default();
 			let file_type_result = registry.identify(path).await;
 
 			let (kind_id, mime_type_id) = match file_type_result {

@@ -2,18 +2,16 @@ import { useEffect, useLayoutEffect, useRef, useState, useMemo } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import { FileCard } from "./FileCard";
-import type { DirectorySortBy, File } from "@sd/ts-client";
-import { useVirtualListing } from "../../hooks/useVirtualListing";
+import type { File } from "@sd/ts-client";
+import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 import { DragSelect } from "./DragSelect";
 import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
 
 const VIRTUALIZATION_THRESHOLD = 0; // Disabled - always virtualize
 
 export function GridView() {
-	const { currentPath, sortBy, viewSettings, setCurrentFiles } =
-		useExplorer();
+	const { viewSettings, setCurrentFiles } = useExplorer();
 	const {
 		isSelected,
 		focusedIndex,
@@ -22,38 +20,23 @@ export function GridView() {
 		selectFile,
 		clearSelection,
 		setSelectedFiles,
+		restoreSelectionFromFiles,
 	} = useSelection();
 	const { gridSize, gapSize } = viewSettings;
 	const emptySpaceContextMenu = useEmptySpaceContextMenu();
 
-	// Check for virtual listing first
-	const { files: virtualFiles, isVirtualView } = useVirtualListing();
-
-	const directoryQuery = useNormalizedQuery({
-		wireMethod: "query:files.directory_listing",
-		input: currentPath
-			? {
-					path: currentPath,
-					limit: null,
-					include_hidden: false,
-					sort_by: sortBy as DirectorySortBy,
-					folders_first: viewSettings.foldersFirst,
-				}
-			: null!,
-		resourceType: "file",
-		enabled: !!currentPath && !isVirtualView,
-		pathScope: currentPath ?? undefined,
-		// debug: true,
-	});
-
-	const files = isVirtualView
-		? virtualFiles || []
-		: (directoryQuery.data as any)?.files || [];
+	// Get files from centralized hook (handles search, virtual, and directory)
+	const { files } = useExplorerFiles();
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
 		setCurrentFiles(files);
 	}, [files, setCurrentFiles]);
+
+	// Restore selection when files load (for tab switching)
+	useEffect(() => {
+		restoreSelectionFromFiles(files);
+	}, [files, restoreSelectionFromFiles]);
 
 	const handleContainerClick = (e: React.MouseEvent) => {
 		if (e.target === e.currentTarget) {

@@ -3,86 +3,79 @@
 //! Run with: cargo run --example fingerprint_test
 
 use sd_core::domain::volume::VolumeFingerprint;
+use std::path::PathBuf;
+use uuid::Uuid;
 
 fn main() {
 	println!("\n=== Volume Fingerprint Stability Tests ===\n");
 
-	// Test 1: Deterministic
-	println!("Test 1: Same inputs → Same fingerprint");
-	let uuid_pair = "CONTAINER-UUID:VOLUME-UUID";
-	let capacity = 1_000_000_000_000u64; // 1TB
+	let device_id = Uuid::new_v4();
 
-	let fp1 = VolumeFingerprint::new(uuid_pair, capacity, "APFS");
-	let fp2 = VolumeFingerprint::new(uuid_pair, capacity, "APFS");
+	// Test 1: Primary volume stability
+	println!("Test 1: Primary volume - Same inputs → Same fingerprint");
+	let mount_point = PathBuf::from("/System/Volumes/Data");
+
+	let fp1 = VolumeFingerprint::from_primary_volume(&mount_point, device_id);
+	let fp2 = VolumeFingerprint::from_primary_volume(&mount_point, device_id);
 
 	println!("  First run:  {}", fp1.short_id());
 	println!("  Second run: {}", fp2.short_id());
 	println!("  Match: {}\n", fp1 == fp2);
 
-	// Test 2: Total capacity vs consumed capacity
-	println!("Test 2: TOTAL capacity (stable) vs CONSUMED (changes)");
-	let container_total = 1_000_000_000_000u64; // Physical drive: 1TB (never changes)
-	let consumed_today = 50_000_000_000u64; // Used space: 50GB today
-	let consumed_tomorrow = 100_000_000_000u64; // Used space: 100GB tomorrow
+	// Test 2: External volume with dotfile UUID
+	println!("Test 2: External volume - Dotfile UUID provides stability");
+	let spacedrive_id = Uuid::new_v4();
+	let fp_ext1 = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+	let fp_ext2 = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
 
-	let fp_with_total = VolumeFingerprint::new(uuid_pair, container_total, "APFS");
-	let fp_with_consumed_50 = VolumeFingerprint::new(uuid_pair, consumed_today, "APFS");
-	let fp_with_consumed_100 = VolumeFingerprint::new(uuid_pair, consumed_tomorrow, "APFS");
+	println!("  With same dotfile UUID: {} == {}", fp_ext1.short_id(), fp_ext2.short_id());
+	println!("  Match: {}\n", fp_ext1 == fp_ext2);
 
-	println!(
-		"  Using total (1TB):           {}",
-		fp_with_total.short_id()
-	);
-	println!(
-		"  Using consumed (50GB today): {}",
-		fp_with_consumed_50.short_id()
-	);
-	println!(
-		"  Using consumed (100GB tmrw): {}",
-		fp_with_consumed_100.short_id()
-	);
-	println!("  Total stays same:     {}", fp_with_total == fp_with_total);
-	println!(
-		"  Consumed changes:     {} (BAD!)\n",
-		fp_with_consumed_50 != fp_with_consumed_100
-	);
+	// Test 3: Network volume stability
+	println!("Test 3: Network volume - Backend ID provides stability");
+	let backend_id = "s3";
+	let bucket_name = "my-bucket";
 
-	// Test 3: Disk IDs vs UUIDs
-	println!("Test 3: disk3 → disk4 on reboot (unstable) vs UUID (stable)");
+	let fp_net1 = VolumeFingerprint::from_network_volume(backend_id, bucket_name);
+	let fp_net2 = VolumeFingerprint::from_network_volume(backend_id, bucket_name);
 
-	// UUID-based (stable)
-	let uuid_based = "ABCD-1234:VOL-5678";
-	let fp_uuid_run1 = VolumeFingerprint::new(uuid_based, capacity, "APFS");
-	let fp_uuid_run2 = VolumeFingerprint::new(uuid_based, capacity, "APFS");
+	println!("  First run:  {}", fp_net1.short_id());
+	println!("  Second run: {}", fp_net2.short_id());
+	println!("  Match: {}\n", fp_net1 == fp_net2);
 
-	// Disk ID-based (changes on reboot)
-	let disk_id_before = "disk3:disk3s5"; // Before reboot
-	let disk_id_after = "disk4:disk4s5"; // After reboot (same physical volume!)
+	// Test 4: Primary volume - Mount point changes break fingerprint
+	println!("Test 4: Primary volume - Different mount points = Different fingerprints");
+	let mount1 = PathBuf::from("/Volumes/MyDrive");
+	let mount2 = PathBuf::from("/Volumes/MyDrive1"); // Remounted at different path
 
-	let fp_disk3 = VolumeFingerprint::new(disk_id_before, capacity, "APFS");
-	let fp_disk4 = VolumeFingerprint::new(disk_id_after, capacity, "APFS");
+	let fp_mount1 = VolumeFingerprint::from_primary_volume(&mount1, device_id);
+	let fp_mount2 = VolumeFingerprint::from_primary_volume(&mount2, device_id);
 
-	println!("  UUID-based before reboot: {}", fp_uuid_run1.short_id());
-	println!("  UUID-based after reboot:  {}", fp_uuid_run2.short_id());
-	println!("  UUID stable: {}\n", fp_uuid_run1 == fp_uuid_run2);
+	println!("  Mount at /Volumes/MyDrive:  {}", fp_mount1.short_id());
+	println!("  Mount at /Volumes/MyDrive1: {}", fp_mount2.short_id());
+	println!("  Different: {} (expected for primary volumes)\n", fp_mount1 != fp_mount2);
 
-	println!("  disk3 before reboot: {}", fp_disk3.short_id());
-	println!("  disk4 after reboot:  {}", fp_disk4.short_id());
-	println!(
-		"  Disk ID changes: {} (creates duplicates!)\n",
-		fp_disk3 != fp_disk4
-	);
+	// Test 5: External volume - Same dotfile UUID, different mount points
+	println!("Test 5: External volume - Dotfile UUID stable across remounts");
+	let ext_uuid = Uuid::new_v4();
+	let fp_at_mount1 = VolumeFingerprint::from_external_volume(ext_uuid, device_id);
+	let fp_at_mount2 = VolumeFingerprint::from_external_volume(ext_uuid, device_id);
+
+	println!("  Mounted at /Volumes/USB:  {}", fp_at_mount1.short_id());
+	println!("  Mounted at /Volumes/USB1: {}", fp_at_mount2.short_id());
+	println!("  Match: {} (dotfile UUID is stable!)\n", fp_at_mount1 == fp_at_mount2);
 
 	// Summary
 	println!("=== Summary ===");
-	println!("GOOD: Use container.uuid:volume.uuid + container.total_capacity");
-	println!("BAD:  Use container_id:disk_id (changes on reboot)");
-	println!("BAD:  Use capacity_consumed (changes with file operations)");
+	println!("Primary volumes: Use mount_point + device_id");
+	println!("  - Stable for system volumes with fixed mount points");
+	println!("  - Examples: /System/Volumes/Data, C:\\, /");
 	println!();
-	println!("Current implementation:");
-	println!("  VolumeFingerprint::new(");
-	println!("    &format!(\"{{}}:{{}}\", container.uuid, volume.uuid),");
-	println!("    container.total_capacity,  // ← Stable!");
-	println!("    \"APFS\"");
-	println!("  )");
+	println!("External volumes: Use dotfile UUID + device_id");
+	println!("  - Stable across remounts to different paths");
+	println!("  - Fallback to mount_point + device_id if read-only");
+	println!();
+	println!("Network volumes: Use backend_id + mount_uri");
+	println!("  - Stable based on cloud service and identifier");
+	println!("  - Examples: S3 bucket ARN, WebDAV URL");
 }

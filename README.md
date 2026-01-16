@@ -135,7 +135,7 @@ Peer-to-peer synchronization without central coordinators. Device-specific data 
 **Apps**
 
 - **CLI** - Command-line interface (available now)
-- **Server** - Headless daemon for Docker deployment (available now)
+- **Server** - Headless daemon for Docker deployment ([self-hosting guide](https://v2.spacedrive.com/overview/self-hosting))
 - **Tauri** - Cross-platform desktop with React frontend (macOS and Linux now, Windows in alpha.2)
 - **Web** - Web interface and shared UI components (available now)
 - **Mobile** - React Native mobile app (iOS and Android coming soon)
@@ -331,6 +331,7 @@ Optional cloud integration (Spacedrive Cloud) is available for backup and remote
 ## Documentation
 
 - **[v2 Documentation](https://v2.spacedrive.com)** - Complete guides and API reference
+- **[Self-Hosting Guide](https://v2.spacedrive.com/overview/self-hosting)** - Deploy Spacedrive server
 - **[Whitepaper](whitepaper/spacedrive.pdf)** - Technical architecture (work in progress)
 - **[Contributing Guide](CONTRIBUTING.md)** - How to contribute
 - **[Architecture Docs](docs/core/architecture.md)** - Detailed system design

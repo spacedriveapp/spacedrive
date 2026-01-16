@@ -22,7 +22,7 @@ use std::{
 	time::Duration,
 };
 use tokio::sync::RwLock;
-use tracing::{info, warn};
+use tracing::info;
 use uuid::Uuid;
 
 use super::{
@@ -112,6 +112,9 @@ pub struct IndexerJobConfig {
 	/// Whether to run this job in the background (not persisted to database, no UI updates)
 	#[serde(default)]
 	pub run_in_background: bool,
+	/// Whether this is indexing a full volume (for progress tracking)
+	#[serde(default)]
+	pub is_volume_indexing: bool,
 }
 
 impl IndexerJobConfig {
@@ -125,6 +128,7 @@ impl IndexerJobConfig {
 			max_depth: None,
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: false,
 		}
 	}
 
@@ -138,10 +142,11 @@ impl IndexerJobConfig {
 			max_depth: Some(1),
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: false,
 		}
 	}
 
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
+	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
 		Self {
 			location_id: None,
 			path,
@@ -155,6 +160,7 @@ impl IndexerJobConfig {
 			},
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: is_volume,
 		}
 	}
 
@@ -202,7 +208,16 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
+		// Database persistence only for truly persistent jobs
 		!self.config.is_ephemeral() && !self.config.run_in_background
+	}
+
+	fn should_emit_events(&self) -> bool {
+		// Emit events for persistent jobs AND volume indexing jobs
+		if self.config.is_volume_indexing {
+			return true;
+		}
+		self.should_persist()
 	}
 }
 
@@ -215,15 +230,17 @@ impl IndexerJob {
 				"Starting new indexer job (scope: {}, persistence: {:?})",
 				self.config.scope, self.config.persistence
 			));
-			info!("INDEXER_STATE: Job starting with NO saved state - creating new state");
+			ctx.log_debug("Job starting with no saved state - creating new state");
 			self.state = Some(IndexerState::new(&self.config.path));
 		} else {
 			ctx.log("Resuming indexer from saved state");
-			info!("INDEXER_STATE: Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
+			ctx.log_debug(format!(
+				"Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
 				self.state.as_ref().unwrap().phase,
 				self.state.as_ref().unwrap().entry_batches.len(),
 				self.state.as_ref().unwrap().entries_for_content.len(),
-				self.state.as_ref().unwrap().seen_paths.len());
+				self.state.as_ref().unwrap().seen_paths.len()
+			));
 		}
 
 		let state = self.state.as_mut().unwrap();
@@ -258,7 +275,8 @@ impl IndexerJob {
 		};
 		let root_path = root_path_buf.as_path();
 
-		// Resolve volume backend for I/O operations
+		// Resolve volume backend for I/O operations and get capacity for progress
+		let mut volume_total_capacity: Option<u64> = None;
 		let volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>> =
 			if let Some(vm) = ctx.volume_manager() {
 				match vm
@@ -270,6 +288,16 @@ impl IndexerJob {
 							"Using volume backend: {} for path: {}",
 							volume.name, self.config.path
 						));
+
+						// Store volume capacity for progress calculations if indexing full volume
+						if self.config.is_volume_indexing {
+							volume_total_capacity = Some(volume.total_capacity);
+							ctx.log(format!(
+								"Volume indexing: total capacity {} GB",
+								volume.total_capacity / (1024 * 1024 * 1024)
+							));
+						}
+
 						Some(vm.backend_for_volume(&mut volume))
 					}
 					Ok(None) => {
@@ -302,6 +330,9 @@ impl IndexerJob {
 				ctx.log("No volume manager available, will use LocalBackend fallback");
 				None
 			};
+
+		// Store volume capacity in state for progress calculations
+		state.volume_total_capacity = volume_total_capacity;
 
 		if state.dirs_to_walk.is_empty() {
 			state.dirs_to_walk.push_back(root_path.to_path_buf());
@@ -353,6 +384,7 @@ impl IndexerJob {
 							ephemeral_index,
 							root_path,
 							volume_backend.as_ref(),
+							self.config.is_volume_indexing,
 						)
 						.await?;
 					} else {
@@ -433,6 +465,7 @@ impl IndexerJob {
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(final_progress.to_generic_progress()));
 
@@ -513,8 +546,8 @@ impl IndexerJob {
 												}
 											}
 											Err(e) => {
-												ctx.log(format!(
-													"Warning: Failed to query entry UUIDs for location: {}",
+												ctx.add_warning(format!(
+													"Failed to query entry UUIDs for location: {}",
 													e
 												));
 												None
@@ -536,8 +569,8 @@ impl IndexerJob {
 						}
 					}
 					Ok(None) => {
-						ctx.log(format!(
-							"Warning: Location {} not found, dispatching thumbnail job for all entries",
+						ctx.add_warning(format!(
+							"Location {} not found, dispatching thumbnail job for all entries",
 							location_id
 						));
 						None
@@ -570,7 +603,7 @@ impl IndexerJob {
 					ctx.log("Successfully dispatched thumbnail generation job");
 				}
 				Err(e) => {
-					ctx.log(format!("Warning: Failed to dispatch thumbnail job: {}", e));
+					ctx.add_warning(format!("Failed to dispatch thumbnail job: {}", e));
 				}
 			}
 		}
@@ -601,10 +634,41 @@ impl JobHandler for IndexerJob {
 		}
 
 		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
-			let index = EphemeralIndex::new()
-				.map_err(|e| JobError::Other(format!("Failed to create ephemeral index: {}", e)))?;
-			self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
-			ctx.log("Initialized ephemeral index for non-persistent job");
+			// Try to load from snapshot first
+			let cache = ctx.library().core_context().ephemeral_cache();
+			let snapshot_loaded = if let Some(local_path) = self.config.path.as_local_path() {
+				match cache.try_load_snapshot_or_create(local_path).await {
+					Ok(true) => {
+						ctx.log(format!(
+							"Loaded ephemeral index from snapshot for: {}",
+							local_path.display()
+						));
+						true
+					}
+					Ok(false) => {
+						ctx.log("No snapshot found, will perform full index");
+						false
+					}
+					Err(e) => {
+						ctx.log(format!(
+							"Failed to load snapshot, will perform full index: {}",
+							e
+						));
+						false
+					}
+				}
+			} else {
+				false
+			};
+
+			// If snapshot not loaded, create new index for indexing
+			if !snapshot_loaded {
+				let index = EphemeralIndex::new().map_err(|e| {
+					JobError::Other(format!("Failed to create ephemeral index: {}", e))
+				})?;
+				self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
+				ctx.log("Initialized ephemeral index for non-persistent job");
+			}
 		}
 
 		let result = self.run_job_phases(&ctx).await;
@@ -625,13 +689,30 @@ impl JobHandler for IndexerJob {
 							local_path.display()
 						));
 
+						// Save snapshot for fast restoration next time
+						if let Err(e) = ctx
+							.library()
+							.core_context()
+							.ephemeral_cache()
+							.save_snapshot(local_path)
+							.await
+						{
+							ctx.log(format!(
+								"Warning: Failed to save snapshot for {}: {}",
+								local_path.display(),
+								e
+							));
+						} else {
+							ctx.log(format!("Saved snapshot for: {}", local_path.display()));
+						}
+
 						// Automatically add filesystem watch for successfully indexed ephemeral paths
 						// This enables real-time updates when files change in browsed directories
 						if let Some(watcher) = ctx.library().core_context().get_fs_watcher().await {
 							if let Err(e) = watcher.watch_ephemeral(local_path.to_path_buf()).await
 							{
-								ctx.log(format!(
-									"Warning: Failed to add ephemeral watch for {}: {}",
+								ctx.add_warning(format!(
+									"Failed to add ephemeral watch for {}: {}",
 									local_path.display(),
 									e
 								));
@@ -733,8 +814,8 @@ impl IndexerJob {
 		self.ephemeral_index = Some(index);
 	}
 
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope) -> Self {
-		Self::new(IndexerJobConfig::ephemeral_browse(path, scope))
+	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
+		Self::new(IndexerJobConfig::ephemeral_browse(path, scope, is_volume))
 	}
 
 	async fn run_current_scope_discovery_static(
@@ -807,22 +888,182 @@ impl IndexerJob {
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
 		root_path: &Path,
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+		is_volume_indexing: bool,
 	) -> JobResult<()> {
-		use super::persistence::PersistenceFactory;
+		use super::database_storage::EntryMetadata;
+		use super::state::EntryKind as StateEntryKind;
+		use crate::domain::{file::EntryKind as DomainEntryKind, File};
 
 		ctx.log("Starting ephemeral processing");
 
-		let event_bus = Some(ctx.library().event_bus().clone());
-
-		let persistence = PersistenceFactory::ephemeral(
-			ephemeral_index.clone(),
-			event_bus,
-			root_path.to_path_buf(),
-		);
+		let event_bus = ctx.library().event_bus().clone();
+		let total_batches = state.entry_batches.len();
+		let mut batch_number = 0;
 
 		while let Some(batch) = state.entry_batches.pop() {
-			for entry in batch {
-				let _entry_id = persistence.store_entry(&entry, None, root_path).await?;
+			ctx.check_interrupt().await?;
+
+			batch_number += 1;
+
+			// Emit progress
+			let indexer_progress = IndexerProgress {
+				phase: IndexPhase::Processing {
+					batch: batch_number,
+					total_batches,
+				},
+				current_path: format!("Batch {}/{}", batch_number, total_batches),
+				total_found: state.stats,
+				processing_rate: state.calculate_rate(),
+				estimated_remaining: state.estimate_remaining(),
+				scope: None,
+				persistence: None,
+				is_ephemeral: false,
+				action_context: None,
+				volume_total_capacity: state.volume_total_capacity,
+			};
+			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
+
+			// Convert DirEntry to (PathBuf, Option<Uuid>, EntryMetadata) tuples
+			// For volume indexing, pass None to skip UUID generation (lazy generation on access)
+			// For directory browsing, generate UUIDs upfront (needed for events)
+			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = batch
+				.iter()
+				.map(|entry| {
+					// Only generate UUID for directory browsing (needs events)
+					let uuid = if !is_volume_indexing {
+						Some(Uuid::new_v4())
+					} else {
+						None
+					};
+
+					let metadata = EntryMetadata {
+						path: entry.path.clone(),
+						kind: entry.kind,
+						size: entry.size,
+						modified: entry.modified,
+						accessed: None,
+						created: None,
+						inode: entry.inode,
+						permissions: None,
+						is_hidden: entry
+							.path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map(|n| n.starts_with('.'))
+							.unwrap_or(false),
+					};
+					(entry.path.clone(), uuid, metadata)
+				})
+				.collect();
+
+			// Batch add to index - use spawn_blocking for CPU-intensive work
+			// This allows the task to be interrupted even during blocking operations
+			let index_clone = ephemeral_index.clone();
+			let entries_clone = entries_with_metadata.clone();
+			let content_kinds = tokio::task::spawn_blocking(move || {
+				let rt = tokio::runtime::Handle::current();
+				let mut index = rt.block_on(index_clone.write());
+				index.add_entries_batch(entries_clone)
+			})
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
+
+			// Build UUID lookup map for directory browsing (only contains Some values)
+			// Volume indexing has None values so map will be empty (no events emitted anyway)
+			let uuid_map: std::collections::HashMap<PathBuf, Uuid> = entries_with_metadata
+				.iter()
+				.filter_map(|(path, uuid, _)| uuid.map(|u| (path.clone(), u)))
+				.collect();
+
+			// Only emit file events for directory browsing, not volume indexing
+			// Volume indexing only needs job progress events (emitted above)
+			// Directory browsing needs ResourceChangedBatch events to populate UI
+			if !is_volume_indexing {
+				// Build event files using the UUID map (no lock acquisitions)
+				let files_for_event: Vec<File> = batch
+					.iter()
+					.zip(content_kinds.iter())
+					.filter_map(|(entry, content_kind_opt)| {
+						let content_kind = (*content_kind_opt)?;
+
+						// Skip hidden files from events
+						let is_hidden = entry
+							.path
+							.file_name()
+							.and_then(|n| n.to_str())
+							.map(|n| n.starts_with('.'))
+							.unwrap_or(false);
+
+						if is_hidden {
+							return None;
+						}
+
+						// Get UUID from our map (no lock acquisition needed!)
+						let uuid = *uuid_map.get(&entry.path)?;
+
+						use chrono::{DateTime, Utc};
+
+						Some(File {
+							id: uuid,
+							sd_path: crate::domain::addressing::SdPath::local(entry.path.clone()),
+							kind: match entry.kind {
+								StateEntryKind::File => DomainEntryKind::File,
+								StateEntryKind::Directory => DomainEntryKind::Directory,
+								StateEntryKind::Symlink => DomainEntryKind::Symlink,
+							},
+							name: entry
+								.path
+								.file_name()
+								.unwrap_or_default()
+								.to_string_lossy()
+								.to_string(),
+							extension: entry
+								.path
+								.extension()
+								.and_then(|e| e.to_str())
+								.map(String::from),
+							size: entry.size,
+							content_identity: None,
+							alternate_paths: vec![],
+							tags: vec![],
+							sidecars: vec![],
+							image_media_data: None,
+							video_media_data: None,
+							audio_media_data: None,
+							created_at: Utc::now(),
+							modified_at: entry
+								.modified
+								.and_then(|t| {
+									DateTime::from_timestamp(
+										t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs()
+											as i64,
+										0,
+									)
+								})
+								.unwrap_or_else(Utc::now),
+							accessed_at: None,
+							content_kind,
+							is_local: true,
+							duration_seconds: None,
+						})
+					})
+					.collect();
+
+				// Emit single ResourceChangedBatch event for entire batch
+				if !files_for_event.is_empty() {
+					event_bus.emit(crate::infra::event::Event::ResourceChangedBatch {
+						resource_type: "file".to_string(),
+						resources: serde_json::to_value(&files_for_event).unwrap_or_default(),
+						metadata: Some(crate::infra::event::ResourceMetadata {
+							no_merge_fields: vec![],
+							alternate_ids: vec![],
+							affected_paths: files_for_event
+								.iter()
+								.map(|f| f.sd_path.clone())
+								.collect(),
+						}),
+					});
+				}
 			}
 		}
 

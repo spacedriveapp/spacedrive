@@ -17,6 +17,9 @@ pub struct EphemeralCacheStatusInput {
 	/// Optional: only include indexed paths containing this substring
 	#[serde(default)]
 	pub path_filter: Option<String>,
+	/// Include detailed memory breakdown (more expensive to compute)
+	#[serde(default)]
+	pub detailed: bool,
 }
 
 /// Input for resetting the ephemeral cache
@@ -56,6 +59,24 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 		let index = global_index.read().await;
 		let stats = index.get_stats();
 
+		// Optionally compute detailed memory breakdown
+		let memory_breakdown = if self.input.detailed {
+			let breakdown = index.detailed_memory_breakdown();
+			Some(super::output::MemoryBreakdownStats {
+				arena: breakdown.arena,
+				cache: breakdown.cache,
+				registry: breakdown.registry,
+				path_index_overhead: breakdown.path_index_overhead,
+				path_index_entries: breakdown.path_index_entries,
+				entry_uuids_overhead: breakdown.entry_uuids_overhead,
+				entry_uuids_entries: breakdown.entry_uuids_entries,
+				content_kinds_overhead: breakdown.content_kinds_overhead,
+				content_kinds_entries: breakdown.content_kinds_entries,
+			})
+		} else {
+			None
+		};
+
 		// Build unified index stats
 		let index_stats = UnifiedIndexStats {
 			total_entries: stats.total_entries,
@@ -63,9 +84,12 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			unique_names: stats.unique_names,
 			interned_strings: stats.interned_strings,
 			content_kinds: index.content_kinds_count(),
+			uuid_count: stats.uuid_count,
 			memory_bytes: stats.memory_bytes,
+			total_file_bytes: stats.total_file_bytes,
 			age_seconds: cache.age().as_secs_f64(),
 			idle_seconds: index.idle_time().as_secs_f64(),
+			memory_breakdown,
 		};
 
 		// Build indexed paths info with child counts

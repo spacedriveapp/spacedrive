@@ -72,7 +72,15 @@
     ],
     "linux": {
       "deb": {
-        "depends": ["libc6", "libxdo3", "libwebkit2gtk-4.1-0", "libgtk-3-0"]
+        "depends": [
+          "libc6",
+          "libxdo3",
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0"
+        ],
+        "files": {
+          "../../../apps/.deps/lib/": "/usr/lib/spacedrive/"
+        }
       }
     },
     "macOS": {

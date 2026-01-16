@@ -12,24 +12,46 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Dotfile name for persistent volume identification
+pub const SPACEDRIVE_VOLUME_ID_FILE: &str = ".spacedrive-volume-id";
+
 /// Unique fingerprint for a storage volume
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq, Hash, Type)]
 pub struct VolumeFingerprint(pub String);
 
 impl VolumeFingerprint {
-	/// Create a new volume fingerprint from volume properties
-	/// Uses stable identifiers: UUIDs + total physical capacity + filesystem
-	pub fn new(name: &str, total_bytes: u64, file_system: &str) -> Self {
+	/// Create fingerprint for primary/system volume using stable mount point + device
+	/// This is used for system volumes where the mount point is stable and never changes
+	pub fn from_primary_volume(mount_point: &std::path::Path, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
-		hasher.update(b"uuid_based:");
-		hasher.update(name.as_bytes());
-		hasher.update(&total_bytes.to_be_bytes());
-		hasher.update(file_system.as_bytes());
-		hasher.update(&(name.len() as u64).to_be_bytes());
+		hasher.update(b"stable_primary_v1:");
+		hasher.update(mount_point.to_string_lossy().as_bytes());
+		hasher.update(device_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for external volume using dotfile UUID
+	/// This is used for removable drives with a .spacedrive-volume-id file
+	pub fn from_external_volume(spacedrive_id: Uuid, device_id: Uuid) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"stable_external_v1:");
+		hasher.update(spacedrive_id.as_bytes());
+		hasher.update(device_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for network/cloud volume using backend identifier
+	/// This is used for network shares, cloud storage, etc.
+	pub fn from_network_volume(backend_id: &str, mount_uri: &str) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"stable_network_v1:");
+		hasher.update(backend_id.as_bytes());
+		hasher.update(mount_uri.as_bytes());
 		Self(hasher.finalize().to_hex().to_string())
 	}
 
 	/// Create a fingerprint from a Spacedrive identifier UUID
+	/// Deprecated: Use from_external_volume instead for proper device binding
 	pub fn from_spacedrive_id(spacedrive_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"spacedrive_id:");
@@ -241,6 +263,21 @@ impl Default for VolumeDetectionConfig {
 	}
 }
 
+/// Helper function to skip serializing Unknown disk types
+fn is_unknown_disk_type(disk_type: &DiskType) -> bool {
+	matches!(disk_type, DiskType::Unknown)
+}
+
+/// Helper function to skip serializing Unknown volume types
+fn is_unknown_volume_type(volume_type: &VolumeType) -> bool {
+	matches!(volume_type, VolumeType::Unknown)
+}
+
+/// Helper function to skip serializing Unknown file systems
+fn is_unknown_file_system(file_system: &FileSystem) -> bool {
+	matches!(file_system, FileSystem::Other(s) if s.eq_ignore_ascii_case("unknown"))
+}
+
 /// A volume in Spacedrive - unified model for runtime and database
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Volume {
@@ -269,15 +306,18 @@ pub struct Volume {
 	pub mount_points: Vec<PathBuf>,
 
 	/// Volume type/category
+	#[serde(skip_serializing_if = "is_unknown_volume_type")]
 	pub volume_type: VolumeType,
 
 	/// Mount type classification
 	pub mount_type: MountType,
 
 	/// Disk type (SSD, HDD, etc.)
+	#[serde(skip_serializing_if = "is_unknown_disk_type")]
 	pub disk_type: DiskType,
 
 	/// Filesystem type
+	#[serde(skip_serializing_if = "is_unknown_file_system")]
 	pub file_system: FileSystem,
 
 	/// Total capacity in bytes
@@ -290,6 +330,8 @@ pub struct Volume {
 	pub is_read_only: bool,
 
 	/// Whether volume is currently mounted/available
+	/// Also deserializes from legacy "is_online" field for backwards compatibility
+	#[serde(alias = "is_online")]
 	pub is_mounted: bool,
 
 	/// Hardware identifier (device path, UUID, etc.)

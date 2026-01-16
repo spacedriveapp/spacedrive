@@ -44,6 +44,40 @@ pub struct VolumeListQuery {
 }
 
 impl VolumeListQuery {
+	/// Get file count from ephemeral index if this volume's mount point has been indexed
+	///
+	/// Returns the total number of entries under this mount point (recursive count).
+	/// Only returns counts for volumes on the current device (where the ephemeral index lives).
+	/// If a snapshot exists on disk but isn't loaded yet, returns None (lazy loading happens
+	/// when user explicitly indexes the volume).
+	fn get_ephemeral_file_count(
+		index: &crate::ops::indexing::ephemeral::EphemeralIndex,
+		indexed_paths: &[std::path::PathBuf],
+		mount_point: &Option<String>,
+		volume_device_id: Uuid,
+		current_device_id: Uuid,
+	) -> Option<usize> {
+		// Only return file count if this volume belongs to the current device
+		// (ephemeral index only exists on the local device)
+		if volume_device_id != current_device_id {
+			return None;
+		}
+
+		let mount_path = mount_point.as_ref()?;
+		let mount_pathbuf = std::path::PathBuf::from(mount_path);
+
+		// Check if this exact mount point is indexed in memory
+		if indexed_paths.contains(&mount_pathbuf) {
+			// Use efficient method to count entries under this mount point
+			let count = index.count_entries_under_path(&mount_pathbuf);
+			return Some(count);
+		}
+
+		// Note: Snapshots exist on disk but aren't auto-loaded to avoid blocking startup.
+		// They'll be loaded when the user explicitly clicks "Index" on a volume.
+		None
+	}
+
 	/// Calculate unique bytes for a volume by deduplicating content using content_identity
 	///
 	/// NOTE: This should NOT be called in the query path! This is expensive.
@@ -95,39 +129,6 @@ impl VolumeListQuery {
 		}
 	}
 
-	/// Infer disk type from device model or volume type
-	/// TODO: Implement this properly!!! - jamie
-	fn infer_disk_type(
-		device_model: &Option<String>,
-		volume_type: &Option<String>,
-	) -> Option<String> {
-		// Check device model first
-		if let Some(model) = device_model {
-			let model_lower = model.to_lowercase();
-			if model_lower.contains("ssd") || model_lower.contains("nvme") {
-				return Some("SSD".to_string());
-			}
-			if model_lower.contains("hdd") || model_lower.contains("hard") {
-				return Some("HDD".to_string());
-			}
-		}
-
-		// Check volume type
-		if let Some(vtype) = volume_type {
-			let vtype_lower = vtype.to_lowercase();
-			if vtype_lower.contains("ssd") {
-				return Some("SSD".to_string());
-			}
-			if vtype_lower.contains("external") {
-				return Some("External".to_string());
-			}
-			if vtype_lower.contains("network") || vtype_lower.contains("cloud") {
-				return Some("Network".to_string());
-			}
-		}
-
-		None
-	}
 }
 
 impl LibraryQuery for VolumeListQuery {
@@ -188,128 +189,68 @@ impl LibraryQuery for VolumeListQuery {
 		);
 
 		let volume_manager = &context.volume_manager;
-		let mut volume_items = Vec::new();
+		let mut volumes = Vec::new();
+
+		// Get current device ID
+		let current_device_id = context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| Uuid::nil());
+
+		// Get live volumes from VolumeManager (current device)
+		let live_volumes = volume_manager.get_all_volumes().await;
+		let mut live_volumes_map: HashMap<String, crate::domain::volume::Volume> = live_volumes
+			.into_iter()
+			.map(|v| (v.fingerprint.0.clone(), v))
+			.collect();
 
 		match self.filter {
 			VolumeFilter::TrackedOnly | VolumeFilter::All => {
-				// For TrackedOnly and All, return volumes from database (all devices)
+				// For tracked volumes, prefer live data if available, otherwise use DB
 				for tracked_vol in tracked_map.values() {
-					// Read cached unique_bytes from database (calculated by volume manager)
-					let unique_bytes = tracked_vol.unique_bytes.map(|b| b as u64);
-
-					// Determine disk type from device_model or volume_type
-					let disk_type =
-						Self::infer_disk_type(&tracked_vol.device_model, &tracked_vol.volume_type);
-
-					// Get device slug for this volume
-					let device_slug = device_slug_map
-						.get(&tracked_vol.device_id)
-						.cloned()
-						.unwrap_or_else(|| "unknown".to_string());
-
-					volume_items.push(super::output::VolumeItem {
-						id: tracked_vol.uuid,
-						name: tracked_vol
-							.display_name
-							.clone()
-							.unwrap_or_else(|| "Unnamed".to_string()),
-						fingerprint: VolumeFingerprint(tracked_vol.fingerprint.clone()),
-						volume_type: tracked_vol
-							.volume_type
-							.clone()
-							.unwrap_or_else(|| "Unknown".to_string()),
-						mount_point: tracked_vol.mount_point.clone(),
-						is_tracked: true,
-						is_online: tracked_vol.is_online,
-						total_capacity: tracked_vol.total_capacity.map(|c| c as u64),
-						available_capacity: tracked_vol.available_capacity.map(|c| c as u64),
-						unique_bytes,
-						file_system: tracked_vol.file_system.clone(),
-						disk_type,
-						read_speed_mbps: tracked_vol.read_speed_mbps.map(|s| s as u32),
-						write_speed_mbps: tracked_vol.write_speed_mbps.map(|s| s as u32),
-						device_id: tracked_vol.device_id,
-						device_slug,
-					});
+					if let Some(mut live_vol) = live_volumes_map.remove(&tracked_vol.fingerprint) {
+						// Use live volume data (current device, online)
+						// Mark as tracked since it's in the database
+						live_vol.is_tracked = true;
+						live_vol.library_id = Some(library_id);
+						volumes.push(live_vol);
+					} else {
+						// Volume is offline or on another device
+						// Skip offline volumes from current device to avoid duplicates
+						if tracked_vol.device_id == current_device_id && !tracked_vol.is_online {
+							continue;
+						}
+						volumes.push(tracked_vol.to_tracked_volume().to_offline_volume());
+					}
 				}
 
-				// For All filter, also add untracked volumes from volume_manager
+				// For All filter, also add untracked volumes
 				if matches!(self.filter, VolumeFilter::All) {
-					let all_volumes = volume_manager.get_all_volumes().await;
-					for vol in all_volumes {
-						// Only show user-visible volumes
-						if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
-							let device_slug = device_slug_map
-								.get(&vol.device_id)
-								.cloned()
-								.unwrap_or_else(|| "unknown".to_string());
-
-							volume_items.push(super::output::VolumeItem {
-								id: vol.id,
-								name: vol.display_name.clone().unwrap_or_else(|| vol.name.clone()),
-								fingerprint: vol.fingerprint.clone(),
-								volume_type: format!("{:?}", vol.volume_type),
-								mount_point: Some(vol.mount_point.to_string_lossy().to_string()),
-								is_tracked: false,
-								is_online: vol.is_mounted,
-								total_capacity: Some(vol.total_capacity),
-								available_capacity: Some(vol.available_space),
-								unique_bytes: None,
-								file_system: Some(vol.file_system.to_string()),
-								disk_type: Some(format!("{:?}", vol.disk_type)),
-								read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
-								write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
-								device_id: vol.device_id,
-								device_slug,
-							});
+					// Add remaining live volumes that aren't tracked
+					for vol in live_volumes_map.into_values() {
+						if vol.is_user_visible {
+							volumes.push(vol);
 						}
 					}
 				}
 			}
 			VolumeFilter::UntrackedOnly => {
-				// Get all detected volumes from volume manager (current device only)
-				let all_volumes = volume_manager.get_all_volumes().await;
-
-				// Only return volumes that are NOT tracked and are user-visible
-				for vol in all_volumes {
-					if !tracked_map.contains_key(&vol.fingerprint.0) && vol.is_user_visible {
-						let device_slug = device_slug_map
-							.get(&vol.device_id)
-							.cloned()
-							.unwrap_or_else(|| "unknown".to_string());
-
-						volume_items.push(super::output::VolumeItem {
-							id: vol.id,
-							name: vol.display_name.clone().unwrap_or_else(|| vol.name.clone()),
-							fingerprint: vol.fingerprint.clone(),
-							volume_type: format!("{:?}", vol.volume_type),
-							mount_point: Some(vol.mount_point.to_string_lossy().to_string()),
-							is_tracked: false,
-							is_online: vol.is_mounted,
-							total_capacity: Some(vol.total_capacity),
-							available_capacity: Some(vol.available_space),
-							unique_bytes: None,
-							file_system: Some(vol.file_system.to_string()),
-							disk_type: Some(format!("{:?}", vol.disk_type)),
-							read_speed_mbps: vol.read_speed_mbps.map(|s| s as u32),
-							write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
-							device_id: vol.device_id,
-							device_slug,
-						});
+				// Only return untracked volumes from volume manager
+				for vol in live_volumes_map.into_values() {
+					if !vol.is_tracked && vol.is_user_visible {
+						volumes.push(vol);
 					}
 				}
 			}
 		}
 
 		tracing::info!(
-			volume_items_count = volume_items.len(),
+			volume_count = volumes.len(),
 			filter = ?self.filter,
-			"[volumes.list] Returning volume items"
+			"[volumes.list] Returning volumes"
 		);
 
-		Ok(VolumeListOutput {
-			volumes: volume_items,
-		})
+		Ok(VolumeListOutput { volumes })
 	}
 }
 

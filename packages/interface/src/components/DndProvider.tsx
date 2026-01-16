@@ -16,6 +16,7 @@ import type { File, SdPath } from "@sd/ts-client";
 import { useSpaces } from "./SpacesSidebar/hooks/useSpaces";
 import { useFileOperationDialog } from "./modals/FileOperationModal";
 import { File as FileComponent } from "../routes/explorer/File";
+import { useTabManager } from "./TabManager/useTabManager";
 
 /**
  * DndProvider - Global drag-and-drop coordinator
@@ -59,6 +60,7 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 	const { currentSpaceId } = useSidebarStore();
 	const { data: spacesData } = useSpaces();
 	const spaces = spacesData?.spaces;
+	const { reorderTabs } = useTabManager();
 
 	// Custom collision detection: prefer -top zones over -bottom zones to avoid double lines
 	const customCollision: CollisionDetection = (args) => {
@@ -86,6 +88,21 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 		setActiveItem(null);
 
 		if (!over) return;
+
+		// Handle tab reordering
+		if (
+			active.id !== over.id &&
+			active.data.current?.type === "tab" &&
+			over.data.current?.type === "tab"
+		) {
+			console.log("[DnD] Tab reorder:", {
+				activeId: active.id,
+				overId: over.id,
+			});
+
+			reorderTabs(active.id, over.id);
+			return;
+		}
 
 		// Handle sortable reordering (no drag data, just active/over IDs)
 		if (active.id !== over.id && !active.data.current?.type) {

@@ -82,13 +82,13 @@ pub async fn run(ctx: &Context, cmd: VolumeCmd) -> Result<()> {
 			println!("Tracked {} volume(s):\n", output.volumes.len());
 
 			for volume in output.volumes {
-				println!("{}", volume.name);
+				println!("{}", volume.display_name.as_ref().unwrap_or(&volume.name));
 				println!("   ID: {}", volume.id);
 				println!("   Fingerprint: {}", volume.fingerprint);
-				println!("   Type: {}", volume.volume_type);
-				if let Some(mount) = &volume.mount_point {
-					println!("   Mount: {}", mount);
-				}
+				println!("   Type: {:?}", volume.volume_type);
+println!("   Mount: {}", volume.mount_point.display());
+println!("   Mounted: {}", volume.is_mounted);
+println!("   Tracked: {}", volume.is_tracked);
 				println!();
 			}
 		}

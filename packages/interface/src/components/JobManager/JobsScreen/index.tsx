@@ -2,12 +2,12 @@ import { X, FunnelSimple } from "@phosphor-icons/react";
 import { TopBarButton } from "@sd/ui";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useJobs } from "../hooks/useJobs";
+import { useJobsContext } from "../hooks/JobsContext";
 import { JobRow } from "./JobRow";
 
 export function JobsScreen() {
 	const navigate = useNavigate();
-	const { jobs, pause, resume, cancel } = useJobs();
+	const { jobs, pause, resume, cancel } = useJobsContext();
 	const [showOnlyRunning, setShowOnlyRunning] = useState(false);
 
 	// Filter jobs based on toggle

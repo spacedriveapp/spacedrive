@@ -84,6 +84,9 @@ pub struct NetworkingEventLoop {
 	/// Active connections tracker (keyed by NodeId and ALPN)
 	active_connections: Arc<RwLock<std::collections::HashMap<(NodeId, Vec<u8>), Connection>>>,
 
+	/// Nodes that already have connection watchers spawned (to prevent duplicates)
+	watched_nodes: Arc<RwLock<std::collections::HashSet<NodeId>>>,
+
 	/// Logger for event loop operations
 	logger: Arc<dyn NetworkLogger>,
 }
@@ -113,6 +116,7 @@ impl NetworkingEventLoop {
 			shutdown_tx,
 			identity,
 			active_connections,
+			watched_nodes: Arc::new(RwLock::new(std::collections::HashSet::new())),
 			logger,
 		}
 	}
@@ -213,6 +217,10 @@ impl NetworkingEventLoop {
 			let mut connections = self.active_connections.write().await;
 			connections.insert((remote_node_id, alpn_bytes), conn.clone());
 		}
+
+		// Spawn a task to watch for connection closure for instant reactivity
+		self.spawn_connection_watcher(conn.clone(), remote_node_id)
+			.await;
 
 		// For now, we'll need to detect ALPN from the first stream
 		// TODO: Find the correct way to get ALPN from iroh Connection
@@ -320,19 +328,11 @@ impl NetworkingEventLoop {
 				bi_result = conn.accept_bi() => {
 					match bi_result {
 						Ok((send, recv)) => {
-							logger.info(&format!("Accepted bidirectional stream from {}", remote_node_id)).await;
-
 					// Check if this device is already paired
 					let (is_paired, paired_device_id) = {
 						let registry = device_registry.read().await;
 						if let Some(device_id) = registry.get_device_by_node(remote_node_id) {
 							let state = registry.get_device_state(device_id);
-							logger.debug(&format!(
-								"Found device {} for node {}, state: {:?}",
-								device_id,
-								remote_node_id,
-								state.as_ref().map(|s| format!("{:?}", s))
-							)).await;
 							let paired = match state {
 								Some(crate::service::network::device::DeviceState::Paired { .. }) |
 								Some(crate::service::network::device::DeviceState::Connected { .. }) |
@@ -341,7 +341,6 @@ impl NetworkingEventLoop {
 							};
 							(paired, Some(device_id))
 						} else {
-							logger.debug(&format!("No device found for node {}", remote_node_id)).await;
 							(false, None)
 						}
 					};
@@ -389,7 +388,6 @@ impl NetworkingEventLoop {
 					} else if alpn_bytes == SYNC_ALPN {
 						let registry = protocol_registry.read().await;
 						if let Some(handler) = registry.get_handler("sync") {
-							logger.info("Routing to sync handler (ALPN match)").await;
 							handler
 								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
 								.await;
@@ -439,10 +437,10 @@ impl NetworkingEventLoop {
 					}
 				}
 				// Try unidirectional stream (file transfer)
-				uni_result = conn.accept_uni() => {
+				 uni_result = conn.accept_uni() => {
 					match uni_result {
 						Ok(recv) => {
-							logger.info(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
+							logger.debug(&format!("Accepted unidirectional stream from {}", remote_node_id)).await;
 
 							// Get ALPN to determine which protocol handler to use
 							let alpn_bytes = conn.alpn().unwrap_or_default();
@@ -633,9 +631,6 @@ impl NetworkingEventLoop {
 
 						// Spawn reconnection with a small delay to prevent immediate retry loops
 						tokio::spawn(async move {
-							// Wait 2 seconds before attempting reconnection to avoid tight loop
-							tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
-
 							crate::service::network::core::NetworkingService::attempt_device_reconnection(
 							device_id,
 							persisted_device,
@@ -656,6 +651,9 @@ impl NetworkingEventLoop {
 					let mut connections = self.active_connections.write().await;
 					connections.insert((node_id, alpn_bytes.clone()), conn.clone());
 				}
+
+				// Spawn a task to watch for connection closure for instant reactivity
+				self.spawn_connection_watcher(conn.clone(), node_id).await;
 
 				self.logger
 					.info(&format!(
@@ -765,6 +763,9 @@ impl NetworkingEventLoop {
 					let alpn_bytes = conn.alpn().unwrap_or_default();
 					connections.insert((node_id, alpn_bytes), conn.clone());
 				}
+
+				// Spawn a task to watch for connection closure for instant reactivity
+				self.spawn_connection_watcher(conn.clone(), node_id).await;
 
 				// Open appropriate stream based on protocol
 				match protocol {
@@ -978,5 +979,21 @@ impl NetworkingEventLoop {
 				}
 			}
 		}
+	}
+
+	/// Spawn a background task to watch for connection closure
+	///
+	/// This provides instant reactivity when connections drop, instead of waiting
+	/// for the 10-second polling interval in update_connection_states().
+	async fn spawn_connection_watcher(&self, conn: Connection, node_id: NodeId) {
+		super::spawn_connection_watcher_task(
+			conn,
+			node_id,
+			self.watched_nodes.clone(),
+			self.device_registry.clone(),
+			self.active_connections.clone(),
+			self.logger.clone(),
+		)
+		.await;
 	}
 }

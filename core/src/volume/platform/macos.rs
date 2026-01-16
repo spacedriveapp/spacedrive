@@ -84,22 +84,41 @@ pub async fn detect_non_apfs_volumes(
 					.unwrap_or(FileSystem::Other("Unknown".to_string()));
 
 				let volume_type = classify_volume(&mount_path, &file_system, &name);
-				let fingerprint =
-					VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+
+				// Generate stable fingerprint based on volume type
+				let fingerprint = match volume_type {
+					crate::volume::types::VolumeType::External => {
+						// Try to read/create dotfile for external volumes
+						if let Some(spacedrive_id) =
+							utils::read_or_create_dotfile_sync(&mount_path, device_id, None)
+						{
+							VolumeFingerprint::from_external_volume(spacedrive_id, device_id)
+						} else {
+							// Fallback to mount_point + device_id for read-only external volumes
+							VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+						}
+					}
+					crate::volume::types::VolumeType::Network => {
+						// Use filesystem as backend identifier for network volumes
+						VolumeFingerprint::from_network_volume(
+							filesystem,
+							&mount_path.to_string_lossy(),
+						)
+					}
+					_ => {
+						// Primary, UserData, Secondary, System, Virtual, Unknown
+						// All use stable mount_point + device_id
+						VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+					}
+				};
 
 				// Check if volume should be user-visible
 				let is_user_visible = should_be_user_visible(&mount_path, &name);
 
-				// Auto-track eligibility: Primary, UserData, System volumes
-				// Also track Secondary volumes if they're system mounts
-				let auto_track_eligible = matches!(
-					volume_type,
-					crate::volume::types::VolumeType::Primary
-						| crate::volume::types::VolumeType::UserData
-						| crate::volume::types::VolumeType::System
-				) || (volume_type
-					== crate::volume::types::VolumeType::Secondary
-					&& mount_type == crate::volume::types::MountType::System);
+				// Auto-track eligibility: Only Primary volumes that are user-visible
+				let auto_track_eligible =
+					matches!(volume_type, crate::volume::types::VolumeType::Primary)
+						&& is_user_visible;
 
 				let now = chrono::Utc::now();
 

@@ -82,6 +82,7 @@ pub struct VolumeManager {
 
 	/// Weak reference to library manager for database operations
 	library_manager: Arc<RwLock<Option<Weak<LibraryManager>>>>,
+
 }
 
 impl VolumeManager {
@@ -111,7 +112,7 @@ impl VolumeManager {
 
 	/// Initialize the volume manager and perform initial detection
 	#[instrument(skip(self))]
-	pub async fn initialize(&self) -> VolumeResult<()> {
+	pub async fn initialize(self: &Arc<Self>) -> VolumeResult<()> {
 		info!("Initializing volume manager");
 
 		// Perform initial volume detection (for local volumes)
@@ -470,6 +471,7 @@ impl VolumeManager {
 					&events,
 					&config,
 					&library_manager,
+					None,
 				)
 				.await
 				{
@@ -552,6 +554,7 @@ impl VolumeManager {
 								&events,
 								&config,
 								&library_manager,
+								None,
 							)
 							.await
 							{
@@ -591,7 +594,7 @@ impl VolumeManager {
 
 	/// Refresh all volumes and detect changes
 	#[instrument(skip(self))]
-	pub async fn refresh_volumes(&self) -> VolumeResult<()> {
+	pub async fn refresh_volumes(self: &Arc<Self>) -> VolumeResult<()> {
 		Self::refresh_volumes_internal(
 			self.device_id,
 			&self.volumes,
@@ -599,6 +602,7 @@ impl VolumeManager {
 			&self.events,
 			&self.config,
 			&self.library_manager,
+			Some(self.clone()),
 		)
 		.await
 	}
@@ -611,11 +615,13 @@ impl VolumeManager {
 		events: &Arc<EventBus>,
 		config: &VolumeDetectionConfig,
 		library_manager: &RwLock<Option<Weak<LibraryManager>>>,
+		manager: Option<Arc<VolumeManager>>,
 	) -> VolumeResult<()> {
 		debug!("Refreshing volumes for device {}", device_id);
 
 		// Detect current volumes
 		let detected_volumes = detection::detect_volumes(device_id, config).await?;
+
 		debug!("VOLUME_DETECT: Detected {} volumes", detected_volumes.len());
 		for vol in &detected_volumes {
 			debug!(
@@ -628,7 +634,7 @@ impl VolumeManager {
 		}
 
 		// Query database for tracked volumes to merge metadata
-		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>)> =
+		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>, Option<u64>, Option<u64>)> =
 			HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
@@ -652,10 +658,17 @@ impl VolumeManager {
 						);
 						for db_vol in tracked_vols {
 							let fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
-							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}",
-								fingerprint.short_id(), db_vol.display_name);
-							tracked_volumes_map
-								.insert(fingerprint, (library.id(), db_vol.display_name));
+							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}, read_speed: {:?}, write_speed: {:?}",
+								fingerprint.short_id(), db_vol.display_name, db_vol.read_speed_mbps, db_vol.write_speed_mbps);
+							tracked_volumes_map.insert(
+								fingerprint,
+								(
+									library.id(),
+									db_vol.display_name,
+									db_vol.read_speed_mbps.map(|s| s as u64),
+									db_vol.write_speed_mbps.map(|s| s as u64),
+								),
+							);
 						}
 					} else {
 						debug!(
@@ -683,10 +696,12 @@ impl VolumeManager {
 			seen_fingerprints.insert(fingerprint.clone());
 
 			// Merge tracked volume metadata from database
-			if let Some((library_id, display_name)) = tracked_volumes_map.get(&fingerprint) {
+			if let Some((library_id, display_name, read_speed, write_speed)) = tracked_volumes_map.get(&fingerprint) {
 				detected.is_tracked = true;
 				detected.library_id = Some(*library_id);
 				detected.display_name = display_name.clone();
+				detected.read_speed_mbps = *read_speed;
+				detected.write_speed_mbps = *write_speed;
 			}
 
 			debug!(
@@ -725,6 +740,24 @@ impl VolumeManager {
 								fingerprint: fingerprint.clone(),
 								is_mounted: new_info.is_mounted,
 							});
+
+							// Auto-run speed test when volume is mounted
+							if new_info.is_mounted
+								&& updated_volume.is_user_visible
+								&& !updated_volume.is_read_only
+							{
+								if let Some(ref mgr) = manager {
+									let mgr = mgr.clone();
+									let fp = fingerprint.clone();
+									let vol_name = updated_volume.name.clone();
+									tokio::spawn(async move {
+										info!("Auto-running speed test for mounted volume: {}", vol_name);
+										if let Err(e) = mgr.run_speed_test(&fp).await {
+											warn!("Auto speed test failed: {}", e);
+										}
+									});
+								}
+							}
 						}
 
 						// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
@@ -750,6 +783,21 @@ impl VolumeManager {
 
 					// Emit volume added event
 					events.emit(Event::VolumeAdded(detected.clone()));
+
+					// Auto-run speed test for newly discovered mounted volumes
+					if detected.is_mounted && detected.is_user_visible && !detected.is_read_only {
+						if let Some(ref mgr) = manager {
+							let mgr = mgr.clone();
+							let fp = fingerprint.clone();
+							let vol_name = detected.name.clone();
+							tokio::spawn(async move {
+								info!("Auto-running speed test for new volume: {}", vol_name);
+								if let Err(e) = mgr.run_speed_test(&fp).await {
+									warn!("Auto speed test failed: {}", e);
+								}
+							});
+						}
+					}
 
 					// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
 					if detected.is_user_visible {
@@ -1306,10 +1354,38 @@ impl VolumeManager {
 			..Default::default()
 		};
 
+		debug!(
+			"About to insert volume into database - fingerprint: {}, device_id: {}, display_name: {:?}",
+			fingerprint.0,
+			volume.device_id,
+			final_display_name
+		);
+
 		let model = active_model
 			.insert(library.db().conn())
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		debug!(
+			"Successfully inserted volume into database - id: {}, uuid: {}",
+			model.id,
+			model.uuid
+		);
+
+		// Verify the insert by immediately querying it back
+		let verify_count = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+			.count(library.db().conn())
+			.await
+			.unwrap_or(0);
+
+		debug!(
+			"Verification query after insert - found {} volumes with fingerprint {} and device_id {}",
+			verify_count,
+			fingerprint.0,
+			volume.device_id
+		);
 
 		info!(
 			"Tracked volume '{}' for library '{}'",
@@ -1980,6 +2056,7 @@ impl VolumeManager {
 
 		None
 	}
+
 }
 
 /// Statistics about detected volumes

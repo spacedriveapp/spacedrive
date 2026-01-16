@@ -3,56 +3,56 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import React from "react";
+import React from 'react';
 
 const Academia = React.lazy(async () => ({
-  default: (await import("./Academia.svg")).ReactComponent,
+	default: (await import('./Academia.svg')).ReactComponent
 }));
 const Apple = React.lazy(async () => ({
-  default: (await import("./Apple.svg")).ReactComponent,
+	default: (await import('./Apple.svg')).ReactComponent
 }));
 const Discord = React.lazy(async () => ({
-  default: (await import("./Discord.svg")).ReactComponent,
+	default: (await import('./Discord.svg')).ReactComponent
 }));
 const Docker = React.lazy(async () => ({
-  default: (await import("./Docker.svg")).ReactComponent,
+	default: (await import('./Docker.svg')).ReactComponent
 }));
 const Dribbble = React.lazy(async () => ({
-  default: (await import("./Dribbble.svg")).ReactComponent,
+	default: (await import('./Dribbble.svg')).ReactComponent
 }));
 const Github = React.lazy(async () => ({
-  default: (await import("./Github.svg")).ReactComponent,
+	default: (await import('./Github.svg')).ReactComponent
 }));
 const Gitlab = React.lazy(async () => ({
-  default: (await import("./Gitlab.svg")).ReactComponent,
+	default: (await import('./Gitlab.svg')).ReactComponent
 }));
 const Instagram = React.lazy(async () => ({
-  default: (await import("./Instagram.svg")).ReactComponent,
+	default: (await import('./Instagram.svg')).ReactComponent
 }));
 const Opencollective = React.lazy(async () => ({
-  default: (await import("./Opencollective.svg")).ReactComponent,
+	default: (await import('./Opencollective.svg')).ReactComponent
 }));
 const Twitch = React.lazy(async () => ({
-  default: (await import("./Twitch.svg")).ReactComponent,
+	default: (await import('./Twitch.svg')).ReactComponent
 }));
 const Twitter = React.lazy(async () => ({
-  default: (await import("./Twitter.svg")).ReactComponent,
+	default: (await import('./Twitter.svg')).ReactComponent
 }));
 const Website = React.lazy(async () => ({
-  default: (await import("./Website.svg")).ReactComponent,
+	default: (await import('./Website.svg')).ReactComponent
 }));
 
 export {
-  Academia,
-  Apple,
-  Discord,
-  Docker,
-  Dribbble,
-  Github,
-  Gitlab,
-  Instagram,
-  Opencollective,
-  Twitch,
-  Twitter,
-  Website,
+	Academia,
+	Apple,
+	Discord,
+	Docker,
+	Dribbble,
+	Github,
+	Gitlab,
+	Instagram,
+	Opencollective,
+	Twitch,
+	Twitter,
+	Website
 };

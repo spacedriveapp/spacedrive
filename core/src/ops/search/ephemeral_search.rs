@@ -31,51 +31,54 @@ pub async fn search_ephemeral_index(
 		}
 	};
 
-	// Get ephemeral index
+	// Get ephemeral index (use get_for_search to check parent paths)
 	let index_arc = cache
-		.get_for_path(&local_path)
+		.get_for_search(&local_path)
 		.ok_or_else(|| QueryError::Internal("Ephemeral index not found".to_string()))?;
-	let index = index_arc.read().await;
 
-	// Perform name-based search
-	let matching_paths = if query.is_empty() {
-		// Empty query: return all files in scope
-		index.list_directory(&local_path).unwrap_or_default()
-	} else {
-		// Use registry for substring search
-		let query_lower = query.to_lowercase();
+	// Perform name-based search with read lock
+	let matching_paths = {
+		let index = index_arc.read().await;
 
-		// Try exact name match first
-		let mut paths = index.find_by_name(&query_lower);
-		tracing::debug!("Exact match for '{}': {} paths", query_lower, paths.len());
+		if query.is_empty() {
+			// Empty query: return all files in scope
+			index.list_directory(&local_path).unwrap_or_default()
+		} else {
+			// Use registry for substring search
+			let query_lower = query.to_lowercase();
 
-		// If no exact matches, try prefix search
-		if paths.is_empty() {
-			paths = index.find_by_prefix(&query_lower);
-			tracing::debug!("Prefix match for '{}': {} paths", query_lower, paths.len());
+			// Try exact name match first
+			let mut paths = index.find_by_name(&query_lower);
+			tracing::debug!("Exact match for '{}': {} paths", query_lower, paths.len());
+
+			// If no exact matches, try prefix search
+			if paths.is_empty() {
+				paths = index.find_by_prefix(&query_lower);
+				tracing::debug!("Prefix match for '{}': {} paths", query_lower, paths.len());
+			}
+
+			// If still no matches, try substring search
+			if paths.is_empty() {
+				paths = index.find_containing(&query_lower);
+				tracing::debug!(
+					"Substring match for '{}': {} paths",
+					query_lower,
+					paths.len()
+				);
+			}
+
+			tracing::debug!("Total paths before scope filter: {}", paths.len());
+			tracing::debug!("Scope path: {:?}", local_path);
+
+			// Filter to only paths within scope
+			let filtered: Vec<PathBuf> = paths
+				.into_iter()
+				.filter(|path| path.starts_with(&local_path))
+				.collect();
+
+			tracing::debug!("Paths after scope filter: {}", filtered.len());
+			filtered
 		}
-
-		// If still no matches, try substring search
-		if paths.is_empty() {
-			paths = index.find_containing(&query_lower);
-			tracing::debug!(
-				"Substring match for '{}': {} paths",
-				query_lower,
-				paths.len()
-			);
-		}
-
-		tracing::debug!("Total paths before scope filter: {}", paths.len());
-		tracing::debug!("Scope path: {:?}", local_path);
-
-		// Filter to only paths within scope
-		let filtered: Vec<PathBuf> = paths
-			.into_iter()
-			.filter(|path| path.starts_with(&local_path))
-			.collect();
-
-		tracing::debug!("Paths after scope filter: {}", filtered.len());
-		filtered
 	};
 
 	tracing::debug!(
@@ -83,23 +86,20 @@ pub async fn search_ephemeral_index(
 		matching_paths.len()
 	);
 
-	// Convert to FileSearchResult with filtering
+	// Convert to FileSearchResult with lazy UUID assignment
+	// Acquire write lock once for the entire batch instead of per-entry
+	let mut index = index_arc.write().await;
 	let mut results = Vec::new();
+
 	for path in matching_paths {
 		if let Some(metadata) = index.get_entry_ref(&path) {
-			// Skip directories (only search files)
-			if matches!(metadata.kind, EntryKind::Directory) {
-				tracing::debug!("Skipping directory: {:?}", path);
-				continue;
-			}
-
 			// Apply filters
 			if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
 				continue;
 			}
 
-			// Get UUID
-			let uuid = index.get_entry_uuid(&path).unwrap_or_else(Uuid::new_v4);
+			// Get or assign UUID (lazy generation)
+			let uuid = index.get_or_assign_uuid(&path);
 
 			// Build SdPath
 			let sd_path = match path_scope {

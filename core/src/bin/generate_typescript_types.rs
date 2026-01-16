@@ -170,7 +170,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Generate TypeScript types from the discovered types
-	let output_path = Path::new("packages/ts-client/src/generated/types.ts");
+	// Write to the shared ts-client package at repo root (parent of core/)
+	let core_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+	let output_path = core_dir
+		.parent()
+		.expect("core should have parent directory")
+		.join("packages/ts-client/src/generated/types.ts");
 	if let Some(parent) = output_path.parent() {
 		std::fs::create_dir_all(parent)?;
 	}
@@ -274,7 +279,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Always write the file, even if type generation had issues
 	// The wire method mappings and type unions are still valuable!
-	std::fs::write(output_path, &typescript_code)?;
+	std::fs::write(&output_path, &typescript_code)?;
 
 	println!("\nGenerated TypeScript types to: {}", output_path.display());
 	println!("Specta TypeScript generation completed!");

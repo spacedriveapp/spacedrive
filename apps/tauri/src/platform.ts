@@ -60,6 +60,10 @@ export const platform: Platform = {
 		await invoke("reveal_file", { path: filePath });
 	},
 
+	async shareFiles(filePaths: string[]) {
+		await invoke("share_files", { paths: filePaths });
+	},
+
 	async getAppsForPaths(paths: string[]) {
 		return await invoke<Array<{ id: string; name: string; icon?: string }>>(
 			"get_apps_for_paths",

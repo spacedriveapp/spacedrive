@@ -426,7 +426,7 @@ impl PeerSync {
 				.await
 				.map_err(|e| anyhow::anyhow!("Failed to persist peer watermark: {}", e))?;
 
-			info!(
+			debug!(
 				peer = %peer,
 				max_received_hlc = %hlc,
 				"Persisted shared watermark for peer"
@@ -883,7 +883,7 @@ impl PeerSync {
 										entry.model_type, entry.hlc
 									));
 
-									info!(
+									debug!(
 										hlc = %entry.hlc,
 										model_type = %entry.model_type,
 										"PeerSync received shared change event"
@@ -1226,25 +1226,194 @@ impl PeerSync {
 			"Flushing batched state changes (real-time batching optimization)"
 		);
 
-		// Process each state change in the batch
+		// Group changes by (model_type, device_id) for batched sending
+		use crate::service::network::protocol::sync::messages::StateRecord;
+		use std::collections::HashMap;
+
+		let mut grouped: HashMap<(String, Uuid), Vec<StateRecord>> = HashMap::new();
+
 		for change_data in batch.drain(..) {
-			if let Err(e) = Self::handle_state_change_event_static(
-				library_id,
-				change_data,
-				network,
-				state,
-				buffer,
-				retry_queue,
-				db,
-				config,
-				last_realtime_activity,
-				metrics,
-			)
-			.await
+			// Parse the change data
+			let model_type = match change_data.get("model_type").and_then(|v| v.as_str()) {
+				Some(mt) => mt.to_string(),
+				None => {
+					warn!("Skipping change with missing model_type");
+					continue;
+				}
+			};
+
+			let device_id = match change_data
+				.get("device_id")
+				.and_then(|v| v.as_str())
+				.and_then(|s| Uuid::parse_str(s).ok())
 			{
-				warn!(error = %e, "Failed to handle batched state change");
-			}
+				Some(id) => id,
+				None => {
+					warn!(model_type = %model_type, "Skipping change with missing/invalid device_id");
+					continue;
+				}
+			};
+
+			let record_uuid = match change_data
+				.get("record_uuid")
+				.and_then(|v| v.as_str())
+				.and_then(|s| Uuid::parse_str(s).ok())
+			{
+				Some(uuid) => uuid,
+				None => {
+					warn!(model_type = %model_type, "Skipping change with missing/invalid record_uuid");
+					continue;
+				}
+			};
+
+			let data = match change_data.get("data") {
+				Some(d) => d.clone(),
+				None => {
+					warn!(model_type = %model_type, record_uuid = %record_uuid, "Skipping change with missing data");
+					continue;
+				}
+			};
+
+			let timestamp = change_data
+				.get("timestamp")
+				.and_then(|v| v.as_str())
+				.and_then(|s| chrono::DateTime::parse_from_rfc3339(s).ok())
+				.map(|dt| dt.with_timezone(&chrono::Utc))
+				.unwrap_or_else(Utc::now);
+
+			// Add to grouped batch
+			grouped
+				.entry((model_type.clone(), device_id))
+				.or_insert_with(Vec::new)
+				.push(StateRecord {
+					uuid: record_uuid,
+					data,
+					timestamp,
+				});
 		}
+
+		// Send batched messages for each (model_type, device_id) group
+		for ((model_type, device_id), records) in grouped {
+			let record_count = records.len();
+
+			debug!(
+				model_type = %model_type,
+				device_id = %device_id,
+				record_count = record_count,
+				"Sending StateBatch message"
+			);
+
+			let message = SyncMessage::StateBatch {
+				library_id,
+				model_type: model_type.clone(),
+				device_id,
+				records,
+			};
+
+			// Get connected partners
+			let connected_partners = match network.get_connected_sync_partners(library_id, db).await
+			{
+				Ok(partners) => partners,
+				Err(e) => {
+					warn!(error = %e, "Failed to get connected partners for batch");
+					continue;
+				}
+			};
+
+			if connected_partners.is_empty() {
+				debug!("No connected sync partners, queuing batch for retry");
+
+				// Get all library devices for queueing
+				let library_devices = match Self::get_library_devices_static(db).await {
+					Ok(devices) => devices,
+					Err(e) => {
+						warn!(error = %e, "Failed to get library devices for retry queue");
+						continue;
+					}
+				};
+
+				// Queue for all devices except self
+				for target_device_id in library_devices {
+					if target_device_id != device_id {
+						retry_queue.enqueue(target_device_id, message.clone()).await;
+					}
+				}
+
+				continue;
+			}
+
+			// Broadcast batch to all partners in parallel
+			use futures::future::join_all;
+
+			let timeout_secs = config.network.message_timeout_secs;
+			let send_futures: Vec<_> = connected_partners
+				.iter()
+				.map(|&partner| {
+					let network = network.clone();
+					let msg = message.clone();
+					async move {
+						match tokio::time::timeout(
+							std::time::Duration::from_secs(timeout_secs),
+							network.send_sync_message(partner, msg),
+						)
+						.await
+						{
+							Ok(Ok(())) => (partner, Ok(())),
+							Ok(Err(e)) => (partner, Err(e)),
+							Err(_) => (
+								partner,
+								Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
+							),
+						}
+					}
+				})
+				.collect();
+
+			let results = join_all(send_futures).await;
+
+			// Process results
+			let mut success_count = 0;
+			let mut error_count = 0;
+
+			for (partner_uuid, result) in results {
+				match result {
+					Ok(()) => {
+						success_count += 1;
+						debug!(partner = %partner_uuid, "StateBatch sent successfully");
+					}
+					Err(e) => {
+						error_count += 1;
+						warn!(
+							partner = %partner_uuid,
+							error = %e,
+							"Failed to send StateBatch to partner, enqueuing for retry"
+						);
+						retry_queue.enqueue(partner_uuid, message.clone()).await;
+					}
+				}
+			}
+
+			// Record metrics
+			if success_count > 0 {
+				metrics.record_broadcast(true, None);
+			}
+			if error_count > 0 {
+				for _ in 0..error_count {
+					metrics.record_failed_broadcast();
+				}
+			}
+
+			debug!(
+				model_type = %model_type,
+				record_count = record_count,
+				success_count = success_count,
+				error_count = error_count,
+				"StateBatch broadcast complete"
+			);
+		}
+
+		// Update real-time activity timestamp
+		*last_realtime_activity.write().await = Some(chrono::Utc::now());
 
 		info!(
 			batch_size = batch_size,
@@ -1970,9 +2139,11 @@ impl PeerSync {
 			.record_entries_synced(&change.model_type, 1)
 			.await;
 
-		// Update PER-RESOURCE watermark
-		self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
-			.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
+				.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,
@@ -2074,13 +2245,15 @@ impl PeerSync {
 		let latency_ms = start_time.elapsed().as_millis() as u64;
 		self.metrics.record_apply_latency(latency_ms);
 
-		// Update PER-RESOURCE watermark (FIX: use resource-specific tracking)
-		self.update_resource_watermark(
-			change.device_id,
-			&change.model_type, // Resource type (location, entry, volume, etc.)
-			change.timestamp,
-		)
-		.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(
+				change.device_id,
+				&change.model_type, // Resource type (location, entry, volume, etc.)
+				change.timestamp,
+			)
+			.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,
@@ -2501,7 +2674,7 @@ impl PeerSync {
 			}
 		}
 
-		info!(
+		debug!(
 			count = all_records.len(),
 			"Retrieved device state records for backfill"
 		);
@@ -2568,7 +2741,7 @@ impl PeerSync {
 		// Truncate to limit
 		entries.truncate(limit);
 
-		info!(
+		debug!(
 			count = entries.len(),
 			has_more = has_more,
 			"Retrieved shared changes from peer log"
@@ -2645,11 +2818,16 @@ impl PeerSync {
 		}
 
 		// Set to catching up
+		let buffered_count = self.buffer.len().await + dep_stats.total_waiting_updates;
 		{
 			let mut state = self.state.write().await;
-			*state = DeviceSyncState::CatchingUp {
-				buffered_count: self.buffer.len().await + dep_stats.total_waiting_updates,
-			};
+			*state = DeviceSyncState::CatchingUp { buffered_count };
+			info!(
+				from_state = ?current_state,
+				to_state = ?DeviceSyncState::CatchingUp { buffered_count },
+				buffered_count = buffered_count,
+				"Sync state transition"
+			);
 		}
 
 		// Record state transition
@@ -2739,7 +2917,7 @@ impl PeerSync {
 			}
 		}
 
-		info!(
+		debug!(
 			state_changes = state_changes_to_broadcast.len(),
 			shared_changes = shared_changes_to_broadcast.len(),
 			"Processing buffered updates - will broadcast to peers after local application"
@@ -2802,9 +2980,15 @@ impl PeerSync {
 		}
 
 		// Now ready!
+		let current_state_before_ready = self.state().await;
 		{
 			let mut state = self.state.write().await;
 			*state = DeviceSyncState::Ready;
+			info!(
+				from_state = ?current_state_before_ready,
+				to_state = ?DeviceSyncState::Ready,
+				"Sync state transition"
+			);
 		}
 
 		// Record state transition

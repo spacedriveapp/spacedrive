@@ -118,6 +118,7 @@ impl IndexVerifyAction {
 			max_depth: None,
 			rule_toggles: Default::default(),
 			run_in_background: false,
+			is_volume_indexing: false, // Verification, not volume indexing
 		};
 
 		// Create the job and set our ephemeral index storage BEFORE dispatching

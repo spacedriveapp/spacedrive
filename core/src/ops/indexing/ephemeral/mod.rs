@@ -3,6 +3,10 @@
 //! This module provides memory-efficient storage for ephemeral file indexes,
 //! achieving 3-4x memory reduction compared to HashMap<PathBuf, EntryMetadata>.
 //!
+//! The design of this system is heavily inspired by Cardinal's search-cache implementation,
+//! particularly the memory-mapped arena storage, string interning, and snapshot persistence
+//! patterns. See: https://github.com/cardisoft/cardinal
+//!
 //! ## Architecture
 //!
 //! ```text
@@ -12,15 +16,6 @@
 //! ├── NameRegistry: BTreeMap          - Fast name lookups
 //! └── path_index: HashMap<PathBuf, EntryId>  - Path to node mapping
 //! ```
-//!
-//! ## Memory Comparison
-//!
-//! | Files | HashMap Approach | This Module | Reduction |
-//! |-------|------------------|-------------|-----------|
-//! | 10K   | 2-3 MB           | 0.5 MB      | 4-6x      |
-//! | 100K  | 20-30 MB         | 5 MB        | 4-6x      |
-//! | 1M    | 200-300 MB       | 50 MB       | 4-6x      |
-//!
 //! ## Usage
 //!
 //! ```rust,ignore
@@ -43,6 +38,7 @@ pub mod index;
 pub mod name;
 pub mod registry;
 pub mod responder;
+pub mod snapshot;
 pub mod types;
 pub mod writer;
 
@@ -52,5 +48,6 @@ pub use cache::EphemeralIndexCache;
 pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
+pub use snapshot::{get_snapshot_cache_dir, snapshot_path_for};
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
 pub use writer::MemoryAdapter;

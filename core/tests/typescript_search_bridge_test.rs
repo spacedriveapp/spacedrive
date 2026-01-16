@@ -116,7 +116,7 @@ async fn test_typescript_search_persistent_and_ephemeral() -> anyhow::Result<()>
 	let global_index = harness.core.context.ephemeral_cache().get_global_index();
 
 	let indexer_config =
-		IndexerJobConfig::ephemeral_browse(ephemeral_sd.clone(), IndexScope::Recursive);
+		IndexerJobConfig::ephemeral_browse(ephemeral_sd.clone(), IndexScope::Recursive, false);
 	eprintln!(
 		"[Rust] Indexer config: path={:?}, scope={:?}, persistence={:?}",
 		ephemeral_sd, indexer_config.scope, indexer_config.persistence

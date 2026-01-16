@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
+use tracing::info;
 
 /// Persisted paired device data (plain data structure)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -107,7 +108,7 @@ impl DevicePersistence {
 	/// Load paired devices from key manager (decrypt)
 	pub async fn load_paired_devices(&self) -> Result<HashMap<Uuid, PersistedPairedDevice>> {
 		let device_ids = self.get_device_list().await?;
-		tracing::info!("Loading {} device IDs from persistence", device_ids.len());
+		tracing::debug!("Loading {} device IDs from persistence", device_ids.len());
 		let mut devices = HashMap::new();
 
 		for device_id in device_ids {
@@ -149,7 +150,7 @@ impl DevicePersistence {
 			}
 		}
 
-		tracing::info!(
+		tracing::debug!(
 			"Successfully loaded {} paired devices from persistence",
 			devices.len()
 		);
@@ -288,7 +289,7 @@ impl DevicePersistence {
 				let should_reconnect = !is_expired && !is_blocked;
 
 				// Debug logging
-				eprintln!(
+				info!(
 					"[AUTO-RECONNECT] Device {}: trust={:?}, expired={}, blocked={}, include={}",
 					device.device_info.device_name,
 					device.trust_level,

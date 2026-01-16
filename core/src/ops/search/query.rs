@@ -114,7 +114,10 @@ impl LibraryQuery for FileSearchQuery {
 				let execution_time = start_time.elapsed().as_millis() as u64;
 
 				// Get actual total count for pagination
-				let total_count = self.get_total_count(db.conn()).await.unwrap_or(0);
+				let total_count = self
+				.get_total_count(db.conn(), context.file_type_registry())
+				.await
+				.unwrap_or(0);
 
 				// Create output with persistent index type
 				let output = FileSearchOutput::new_persistent(
@@ -232,7 +235,6 @@ impl FileSearchQuery {
 				e.created_at as entry_created_at,
 				e.modified_at as entry_modified_at,
 				e.accessed_at as entry_accessed_at,
-				e.device_id as entry_device_id,
 				e.content_id as entry_content_id,
 				dp.path as parent_path,
 				d.slug as device_slug,
@@ -248,7 +250,8 @@ impl FileSearchQuery {
 				ci.last_verified_at as last_verified_at
 			FROM entries e
 			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
-			LEFT JOIN devices d ON e.device_id = d.id
+			LEFT JOIN volumes v ON e.volume_id = v.id
+			LEFT JOIN devices d ON v.device_id = d.uuid
 			LEFT JOIN content_identities ci ON e.content_id = ci.id
 			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
 			WHERE e.id IN ({})
@@ -794,7 +797,11 @@ impl FileSearchQuery {
 	}
 
 	/// Get total count of matching entries for pagination
-	async fn get_total_count(&self, db: &DatabaseConnection) -> QueryResult<u64> {
+	async fn get_total_count(
+		&self,
+		db: &DatabaseConnection,
+		registry: &FileTypeRegistry,
+	) -> QueryResult<u64> {
 		let mut condition = Condition::any()
 			.add(entry::Column::Name.contains(&self.input.query))
 			.add(entry::Column::Extension.contains(&self.input.query));
@@ -802,11 +809,8 @@ impl FileSearchQuery {
 		// Apply scope filters
 		condition = self.apply_scope_filter(condition);
 
-		// Get file type registry for content type filtering
-		let registry = FileTypeRegistry::new();
-
 		// Apply additional filters
-		condition = self.apply_filters(condition, &registry);
+		condition = self.apply_filters(condition, registry);
 
 		// Build count query
 		let mut query = entry::Entity::find()
@@ -885,7 +889,6 @@ impl FileSearchQuery {
 						JOIN entries e ON e.id = fts.rowid
 						JOIN directory_paths dp ON dp.entry_id = e.parent_id
 						WHERE dp.path LIKE ?
-						AND e.kind = 0
 						ORDER BY fts.rank
 						LIMIT ? OFFSET ?
 					"#
@@ -896,7 +899,6 @@ impl FileSearchQuery {
 						FROM search_index
 						JOIN entries e ON e.id = search_index.rowid
 						WHERE search_index MATCH ?
-						AND e.kind = 0
 						ORDER BY rank
 						LIMIT ? OFFSET ?
 					"#
@@ -909,7 +911,6 @@ impl FileSearchQuery {
 					FROM search_index
 					JOIN entries e ON e.id = search_index.rowid
 					WHERE search_index MATCH ?
-					AND e.kind = 0
 					ORDER BY rank
 					LIMIT ? OFFSET ?
 				"#
@@ -966,6 +967,7 @@ impl FileSearchQuery {
 		&self,
 		entry_model: &entry::Model,
 		db: &DatabaseConnection,
+		registry: &FileTypeRegistry,
 	) -> QueryResult<bool> {
 		// File type filter
 		if let Some(file_types) = &self.input.filters.file_types {
@@ -1019,7 +1021,6 @@ impl FileSearchQuery {
 		// Content type filter using file type registry
 		if let Some(content_types) = &self.input.filters.content_types {
 			if !content_types.is_empty() {
-				let registry = FileTypeRegistry::new();
 				let mut matches_content_type = false;
 
 				for content_type in content_types {
@@ -1295,13 +1296,12 @@ impl FileSearchQuery {
 		};
 
 		let cache = context.ephemeral_cache();
-		let file_type_registry = crate::filetype::FileTypeRegistry::new();
 		let results = crate::ops::search::ephemeral_search::search_ephemeral_index(
 			&self.input.query,
 			path,
 			&self.input.filters,
 			cache,
-			&file_type_registry,
+			context.file_type_registry(),
 		)
 		.await?;
 

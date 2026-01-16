@@ -235,7 +235,7 @@ impl LibraryAction for LocationTriggerJobAction {
 			return Err(ActionError::LocationNotFound(self.input.location_id));
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

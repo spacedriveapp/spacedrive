@@ -195,7 +195,7 @@ impl RpcServer {
 		json_payload: serde_json::Value,
 		core: &Arc<crate::Core>,
 	) -> Result<serde_json::Value, String> {
-		tracing::info!(
+		tracing::debug!(
 			"[RPC Operation]: method={}, library_id={:?}",
 			method,
 			library_id

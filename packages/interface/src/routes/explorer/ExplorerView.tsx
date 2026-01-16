@@ -6,6 +6,7 @@ import {
 	Tag as TagIcon
 } from '@phosphor-icons/react';
 import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
@@ -53,7 +54,8 @@ export function ExplorerView() {
 		quickPreviewFileId,
 		mode,
 		enterSearchMode,
-		exitSearchMode
+		exitSearchMode,
+		currentFiles
 	} = useExplorer();
 
 	const {isVirtualView} = useVirtualListing();
@@ -105,9 +107,10 @@ export function ExplorerView() {
 				viewSettings={viewSettings}
 				setViewSettings={setViewSettings}
 				viewMode={viewMode}
+				totalFileCount={currentFiles.length}
 			/>
 		),
-		[viewSettings, setViewSettings, viewMode]
+		[viewSettings, setViewSettings, viewMode, currentFiles.length]
 	);
 
 	const sortSubmenu = useMemo(
@@ -242,7 +245,7 @@ export function ExplorerView() {
 								priority="low"
 								submenuContent={viewSettingsSubmenu}
 							>
-								<ViewSettings />
+								<ViewSettings totalFileCount={currentFiles.length} />
 							</TopBarItem>
 							<TopBarItem
 								id="sort"
@@ -277,9 +280,15 @@ export function ExplorerView() {
 				/>
 			)}
 
-			<div className="bg-app/80 relative flex h-full w-full flex-col overflow-hidden pt-1.5">
+			<div className={clsx(
+				"relative flex h-full w-full flex-col overflow-hidden pt-1.5",
+				viewMode === 'size' ? "bg-transparent" : "bg-app/80"
+			)}>
 				{mode.type === 'search' && <SearchToolbar />}
-				<div className="flex-1 overflow-auto">
+				<div className={clsx(
+					"flex-1",
+					viewMode === 'size' ? "overflow-visible" : "overflow-auto"
+				)}>
 					<TabNavigationGuard>
 						{mode.type === 'search' ? (
 							<SearchView />
