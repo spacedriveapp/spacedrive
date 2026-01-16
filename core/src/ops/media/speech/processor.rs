@@ -55,10 +55,9 @@ impl SpeechToTextProcessor {
 			return false;
 		}
 
-		entry
-			.mime_type
-			.as_ref()
-			.map_or(false, |m| super::is_speech_supported(m))
+		entry.mime_type.as_ref().map_or(false, |m| {
+			super::is_speech_supported(m, self.library.core_context().file_type_registry())
+		})
 	}
 
 	pub async fn process(

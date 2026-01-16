@@ -2,10 +2,8 @@ import {
 	CaretLeft,
 	CaretRight,
 	Cpu,
-	Database,
 	HardDrive,
-	Memory,
-	Plus
+	Memory
 } from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.png';
 import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
@@ -22,13 +20,12 @@ import type {
 	Location,
 	LocationsListOutput,
 	LocationsListQueryInput,
-	VolumeItem,
+	Volume,
 	VolumeListOutput,
 	VolumeListQueryInput
 } from '@sd/ts-client';
 import {TopBarButton} from '@sd/ui';
 import clsx from 'clsx';
-import {motion} from 'framer-motion';
 import {useEffect, useRef, useState} from 'react';
 import Masonry from 'react-masonry-css';
 import {JobCard} from '../../components/JobManager/components/JobCard';
@@ -36,16 +33,16 @@ import {useJobs} from '../../components/JobManager/hooks/useJobs';
 import {
 	getDeviceIcon,
 	useCoreQuery,
-	useLibraryMutation,
 	useNormalizedQuery
 } from '../../contexts/SpacedriveContext';
+import {VolumeBar} from './VolumeBar';
 
 // Temporary type extension until types are regenerated
 type DeviceWithConnection = Device & {
 	connection_method?: 'Direct' | 'Relay' | 'Mixed' | null;
 };
 
-function formatBytes(bytes: number): string {
+export function formatBytes(bytes: number): string {
 	if (bytes === 0) return '0 B';
 	const k = 1024;
 	const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
@@ -53,7 +50,7 @@ function formatBytes(bytes: number): string {
 	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
-function getVolumeIcon(volumeType: any, name?: string): string {
+export function getVolumeIcon(volumeType: any, name?: string): string {
 	// Convert volume type to string if it's an enum variant object
 	const volumeTypeStr =
 		typeof volumeType === 'string'
@@ -70,10 +67,6 @@ function getVolumeIcon(volumeType: any, name?: string): string {
 	if (volumeTypeStr === 'Network') return ServerIcon;
 	if (volumeTypeStr === 'Virtual') return DatabaseIcon;
 	return HDDIcon;
-}
-
-function getDiskTypeLabel(diskType: string): string {
-	return diskType === 'SSD' ? 'SSD' : diskType === 'HDD' ? 'HDD' : diskType;
 }
 
 interface DevicePanelProps {
@@ -141,16 +134,14 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 			: [])
 	] as JobListItem[];
 
-	if (volumesLoading || devicesLoading || locationsLoading) {
+	// Only block on devices loading (foundation data)
+	// Volumes and locations can load progressively within each device card
+	if (devicesLoading) {
 		return (
 			<div className="bg-app-box border-app-line overflow-hidden rounded-xl border">
 				<div className="border-app-line border-b px-6 py-4">
-					<h2 className="text-ink text-base font-semibold">
-						Storage Volumes
-					</h2>
-					<p className="text-ink-dull mt-1 text-sm">
-						Loading volumes...
-					</p>
+					<h2 className="text-ink text-base font-semibold">Devices</h2>
+					<p className="text-ink-dull mt-1 text-sm">Loading devices...</p>
 				</div>
 			</div>
 		);
@@ -175,7 +166,7 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 			acc[deviceId].push(volume);
 			return acc;
 		},
-		{} as Record<string, VolumeItem[]>
+		{} as Record<string, Volume[]>
 	);
 
 	// Group locations by device slug
@@ -246,6 +237,8 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 							jobs={deviceJobs}
 							locations={deviceLocations}
 							selectedLocationId={selectedLocationId}
+							volumesLoading={volumesLoading}
+							locationsLoading={locationsLoading}
 							onLocationSelect={(location) => {
 								if (location) {
 									setSelectedLocationId(location.id);
@@ -288,17 +281,21 @@ function ConnectionBadge({method}: ConnectionBadgeProps) {
 	return (
 		<div className="flex items-center gap-1.5">
 			<div className="bg-ink-dull size-2 rounded-full" />
-			<span className="text-ink-dull text-xs font-medium">{labels[method]}</span>
+			<span className="text-ink-dull text-xs font-medium">
+				{labels[method]}
+			</span>
 		</div>
 	);
 }
 
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
-	volumes: VolumeItem[];
+	volumes: Volume[];
 	jobs: JobListItem[];
 	locations: Location[];
 	selectedLocationId: string | null;
+	volumesLoading: boolean;
+	locationsLoading: boolean;
 	onLocationSelect?: (location: Location | null) => void;
 }
 
@@ -308,6 +305,8 @@ function DeviceCard({
 	jobs,
 	locations,
 	selectedLocationId,
+	volumesLoading,
+	locationsLoading,
 	onLocationSelect
 }: DeviceCardProps) {
 	const deviceName = device?.name || 'Unknown Device';
@@ -365,9 +364,10 @@ function DeviceCard({
 								)}
 							</div>
 							<p className="text-ink-dull text-sm">
-								{volumes.length}{' '}
-								{volumes.length === 1 ? 'volume' : 'volumes'}
-								{device?.is_online === false && 'Offline'}
+								{volumesLoading
+									? 'Loading volumes...'
+									: `${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`}
+								{device?.is_online === false && ' • Offline'}
 							</p>
 						</div>
 					</div>
@@ -437,17 +437,29 @@ function DeviceCard({
 				)}
 
 				{/* Locations for this device */}
-				{locations.length > 0 && (
-					<LocationsScroller
-						locations={locations}
-						selectedLocationId={selectedLocationId}
-						onLocationSelect={onLocationSelect}
-					/>
+				{locationsLoading ? (
+					<div className="border-app-line bg-app/50 border-b px-3 py-3">
+						<div className="text-ink-dull text-center text-xs">
+							Loading locations...
+						</div>
+					</div>
+				) : (
+					locations.length > 0 && (
+						<LocationsScroller
+							locations={locations}
+							selectedLocationId={selectedLocationId}
+							onLocationSelect={onLocationSelect}
+						/>
+					)
 				)}
 
 				{/* Volumes for this device */}
 				<div className="space-y-3 px-3 py-3">
-					{volumes.length > 0 ? (
+					{volumesLoading ? (
+						<div className="text-ink-dull text-center text-xs">
+							Loading volumes...
+						</div>
+					) : volumes.length > 0 ? (
 						volumes.map((volume, idx) => (
 							<VolumeBar
 								key={volume.id}
@@ -588,217 +600,5 @@ function LocationsScroller({
 				)}
 			</div>
 		</div>
-	);
-}
-
-interface VolumeBarProps {
-	volume: VolumeItem;
-	index: number;
-}
-
-function VolumeBar({volume, index}: VolumeBarProps) {
-	const trackVolume = useLibraryMutation('volumes.track');
-	const indexVolume = useLibraryMutation('volumes.index');
-
-	// Get current device to check if this volume is local
-	const devicesQuery = useNormalizedQuery<any, Device[]>({
-		wireMethod: 'query:devices.list',
-		input: {include_offline: true, include_details: false},
-		resourceType: 'device'
-	});
-
-	const currentDevice = devicesQuery.data?.find(d => d.is_current);
-
-	console.log('VolumeBar Debug:', {
-		volumeName: volume.name,
-		volumeDeviceId: volume.device_id,
-		currentDevice: currentDevice,
-		currentDeviceId: currentDevice?.id,
-		matches: currentDevice && volume.device_id === currentDevice.id,
-		showButton: !!(currentDevice && volume.device_id === currentDevice.id)
-	});
-
-	const handleTrack = async () => {
-		try {
-			await trackVolume.mutateAsync({
-				fingerprint: volume.fingerprint
-			});
-		} catch (error) {
-			console.error('Failed to track volume:', error);
-		}
-	};
-
-	const handleIndex = async () => {
-		try {
-			const result = await indexVolume.mutateAsync({
-				fingerprint: volume.fingerprint,
-				scope: 'Recursive'
-			});
-			console.log('Volume indexed:', result.message);
-		} catch (error) {
-			console.error('Failed to index volume:', error);
-		}
-	};
-
-	if (!volume.total_capacity) {
-		return null;
-	}
-
-	const totalCapacity = volume.total_capacity;
-	const availableBytes = volume.available_capacity || 0;
-	const usedBytes = totalCapacity - availableBytes;
-
-	const uniqueBytes = volume.unique_bytes ?? Math.floor(usedBytes * 0.7);
-	const duplicateBytes = usedBytes - uniqueBytes;
-
-	const usagePercent = (usedBytes / totalCapacity) * 100;
-	const uniquePercent = (uniqueBytes / totalCapacity) * 100;
-	const duplicatePercent = (duplicateBytes / totalCapacity) * 100;
-
-	// Convert enum values to strings for safe rendering
-	const fileSystem = volume.file_system
-		? typeof volume.file_system === 'string'
-			? volume.file_system
-			: (volume.file_system as any)?.Other ||
-				JSON.stringify(volume.file_system)
-		: 'Unknown';
-	const diskType = volume.disk_type
-		? typeof volume.disk_type === 'string'
-			? volume.disk_type
-			: (volume.disk_type as any)?.Other ||
-				JSON.stringify(volume.disk_type)
-		: 'Unknown';
-	const readSpeed = volume.read_speed_mbps;
-
-	const iconSrc = getVolumeIcon(volume.volume_type, volume.name);
-	const volumeTypeStr =
-		typeof volume.volume_type === 'string'
-			? volume.volume_type
-			: (volume.volume_type as any)?.Other ||
-				JSON.stringify(volume.volume_type);
-
-	return (
-		<motion.div
-			initial={{opacity: 0, y: 10}}
-			animate={{opacity: 1, y: 0}}
-			transition={{delay: index * 0.05}}
-			className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border"
-		>
-			{/* Top row: Info */}
-			<div className="flex items-center gap-3 px-3 py-2">
-				{/* Icon */}
-				<img
-					src={iconSrc}
-					alt={volumeTypeStr}
-					className="size-6 flex-shrink-0 opacity-80"
-				/>
-
-				{/* Name, actions, and badges */}
-				<div className="min-w-0 flex-1">
-					<div className="mb-1 flex items-center gap-2">
-						<span className="text-ink truncate text-sm font-semibold">
-							{volume.display_name || volume.name}
-						</span>
-						{!volume.is_online && (
-							<span className="bg-app-box text-ink-faint border-app-line rounded border px-1.5 py-0.5 text-[10px]">
-								Offline
-							</span>
-						)}
-						{!volume.is_tracked && (
-							<button
-								onClick={handleTrack}
-								disabled={trackVolume.isPending}
-								className="bg-accent/10 hover:bg-accent/20 text-accent border-accent/20 hover:border-accent/30 flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-								title="Track this volume"
-							>
-								<Plus className="size-2.5" weight="bold" />
-								{trackVolume.isPending
-									? 'Tracking...'
-									: 'Track'}
-							</button>
-						)}
-						{currentDevice &&
-							volume.device_id === currentDevice.id && (
-								<button
-									onClick={handleIndex}
-									disabled={indexVolume.isPending}
-									className="bg-sidebar-box hover:bg-sidebar-selected text-sidebar-ink border-sidebar-line flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] transition-colors disabled:opacity-50"
-									title="Index this volume"
-								>
-									<Database
-										className="size-2.5"
-										weight="bold"
-									/>
-									{indexVolume.isPending
-										? 'Indexing...'
-										: 'Index'}
-								</button>
-							)}
-					</div>
-
-					{/* Badges under name */}
-					<div className="text-ink-dull flex flex-wrap items-center gap-1.5 text-[10px]">
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{fileSystem}
-						</span>
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{getDiskTypeLabel(diskType)}
-						</span>
-						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							{volumeTypeStr}
-						</span>
-						{volume.total_file_count != null && (
-							<span className="bg-accent/10 border-accent/20 text-accent rounded border px-1.5 py-0.5">
-								{volume.total_file_count.toLocaleString()} files
-							</span>
-						)}
-					</div>
-				</div>
-
-				{/* Capacity info */}
-				<div className="flex-shrink-0 text-right">
-					<div className="text-ink text-sm font-medium">
-						{formatBytes(totalCapacity)}
-					</div>
-					<div className="text-ink-dull text-[10px]">
-						{formatBytes(availableBytes)} free
-					</div>
-				</div>
-			</div>
-
-			{/* Bottom: Full-width capacity bar with padding */}
-			<div className="px-3 pb-3 pt-2">
-				<div className="bg-app border-app-line h-8 overflow-hidden rounded-md border">
-					<div className="flex h-full">
-						<motion.div
-							initial={{width: 0}}
-							animate={{width: `${uniquePercent}%`}}
-							transition={{
-								duration: 1,
-								ease: 'easeOut',
-								delay: index * 0.05
-							}}
-							className="bg-accent border-accent-deep border-r"
-							title={`Unique: ${formatBytes(uniqueBytes)} (${uniquePercent.toFixed(1)}%)`}
-						/>
-						<motion.div
-							initial={{width: 0}}
-							animate={{width: `${duplicatePercent}%`}}
-							transition={{
-								duration: 1,
-								ease: 'easeOut',
-								delay: index * 0.05 + 0.2
-							}}
-							className="bg-accent/60"
-							style={{
-								backgroundImage:
-									'repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.1) 4px, rgba(255,255,255,0.1) 8px)'
-							}}
-							title={`Duplicate: ${formatBytes(duplicateBytes)} (${duplicatePercent.toFixed(1)}%)`}
-						/>
-					</div>
-				</div>
-			</div>
-		</motion.div>
 	);
 }

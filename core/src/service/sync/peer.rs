@@ -883,7 +883,7 @@ impl PeerSync {
 										entry.model_type, entry.hlc
 									));
 
-									info!(
+									debug!(
 										hlc = %entry.hlc,
 										model_type = %entry.model_type,
 										"PeerSync received shared change event"
@@ -1227,8 +1227,8 @@ impl PeerSync {
 		);
 
 		// Group changes by (model_type, device_id) for batched sending
-		use std::collections::HashMap;
 		use crate::service::network::protocol::sync::messages::StateRecord;
+		use std::collections::HashMap;
 
 		let mut grouped: HashMap<(String, Uuid), Vec<StateRecord>> = HashMap::new();
 
@@ -1311,9 +1311,7 @@ impl PeerSync {
 			};
 
 			// Get connected partners
-			let connected_partners = match network
-				.get_connected_sync_partners(library_id, db)
-				.await
+			let connected_partners = match network.get_connected_sync_partners(library_id, db).await
 			{
 				Ok(partners) => partners,
 				Err(e) => {
@@ -1362,7 +1360,10 @@ impl PeerSync {
 						{
 							Ok(Ok(())) => (partner, Ok(())),
 							Ok(Err(e)) => (partner, Err(e)),
-							Err(_) => (partner, Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs))),
+							Err(_) => (
+								partner,
+								Err(anyhow::anyhow!("Send timeout after {}s", timeout_secs)),
+							),
 						}
 					}
 				})
@@ -2138,9 +2139,11 @@ impl PeerSync {
 			.record_entries_synced(&change.model_type, 1)
 			.await;
 
-		// Update PER-RESOURCE watermark
-		self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
-			.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(change.device_id, &change.model_type, change.timestamp)
+				.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,
@@ -2242,13 +2245,15 @@ impl PeerSync {
 		let latency_ms = start_time.elapsed().as_millis() as u64;
 		self.metrics.record_apply_latency(latency_ms);
 
-		// Update PER-RESOURCE watermark (FIX: use resource-specific tracking)
-		self.update_resource_watermark(
-			change.device_id,
-			&change.model_type, // Resource type (location, entry, volume, etc.)
-			change.timestamp,
-		)
-		.await?;
+		// Update PER-RESOURCE watermark (only for changes from other devices)
+		if change.device_id != self.device_id {
+			self.update_resource_watermark(
+				change.device_id,
+				&change.model_type, // Resource type (location, entry, volume, etc.)
+				change.timestamp,
+			)
+			.await?;
+		}
 
 		info!(
 			model_type = %change.model_type,

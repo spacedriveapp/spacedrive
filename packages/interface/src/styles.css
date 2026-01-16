@@ -126,6 +126,15 @@
 	}
 }
 
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
 /* Hide TanStack Query devtools button logo but keep it clickable */
 .tsqd-open-btn-container {
 	width: 24px !important;

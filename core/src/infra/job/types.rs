@@ -155,6 +155,11 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 	fn should_persist(&self) -> bool {
 		true
 	}
+
+	/// Whether this job should emit progress events (even if not persisted to database)
+	fn should_emit_events(&self) -> bool {
+		self.should_persist() // Default: emit events if persisted
+	}
 }
 
 /// Information about a job (for display/querying)

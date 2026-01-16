@@ -45,10 +45,10 @@ pub struct IndexSnapshot {
 	pub created_at_secs: u64,
 	/// Path to node ID mappings
 	pub path_index: HashMap<PathBuf, EntryId>,
-	/// File UUIDs
-	pub entry_uuids: HashMap<PathBuf, Uuid>,
-	/// Content kind cache
-	pub content_kinds: HashMap<PathBuf, ContentKind>,
+	/// File UUIDs (keyed by EntryId for memory efficiency)
+	pub entry_uuids: HashMap<EntryId, Uuid>,
+	/// Content kind cache (keyed by EntryId for memory efficiency)
+	pub content_kinds: HashMap<EntryId, ContentKind>,
 	/// Indexer statistics
 	pub stats: IndexerStats,
 	/// Name cache (string interning pool)

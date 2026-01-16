@@ -54,10 +54,22 @@ impl EphemeralIndexCache {
 	/// Returns Some(index) if this path's contents are available,
 	/// None if the path hasn't been browsed yet.
 	///
-	/// Checks both exact match and parent paths - if searching /Users/foo
-	/// and /System/Volumes/Data (which contains /Users via symlink) is indexed,
-	/// returns the index after resolving symlinks.
+	/// Only returns the index for exact path matches (for directory listing).
+	/// For search, use `get_for_search()` which checks parent paths.
 	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
+		let indexed = self.indexed_paths.read();
+		if indexed.contains(path) {
+			Some(self.index.clone())
+		} else {
+			None
+		}
+	}
+
+	/// Get the global index for searching within a path
+	///
+	/// Checks if the path OR any parent path is indexed, handling symlinks.
+	/// Used by ephemeral search to find indexed content under parent directories.
+	pub fn get_for_search(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
 		let indexed = self.indexed_paths.read();
 
 		// First check for exact match

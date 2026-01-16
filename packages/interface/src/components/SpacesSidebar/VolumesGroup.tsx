@@ -3,7 +3,7 @@ import { Plugs, WifiSlash } from "@phosphor-icons/react";
 import { useNormalizedQuery, getVolumeIcon } from "@sd/ts-client";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
-import type { VolumeItem } from "@sd/ts-client";
+import type { Volume } from "@sd/ts-client";
 
 interface VolumesGroupProps {
 	isCollapsed: boolean;
@@ -32,7 +32,7 @@ export function VolumesGroup({
 	const volumes = volumesData?.volumes || [];
 
 	// Helper to render volume status indicator
-	const getVolumeIndicator = (volume: VolumeItem) => (
+	const getVolumeIndicator = (volume: Volume) => (
 		<>
 			{!volume.is_tracked && (
 				<Plugs size={14} weight="bold" className="text-ink-faint" />

@@ -127,6 +127,7 @@ pub async fn run_aggregation_phase(
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None, // TODO: Pass action context from job state
+			volume_total_capacity: state.volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 

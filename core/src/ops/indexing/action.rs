@@ -90,11 +90,12 @@ impl LibraryAction for IndexingAction {
 
 			let mut config = match self.input.persistence {
 				IndexPersistence::Ephemeral => {
-					IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope)
+					// Directory browsing, not volume indexing
+					IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false)
 				}
 				IndexPersistence::Persistent => {
 					// Persistent mode stores entries in the database but doesn't require a location binding yet.
-					let mut c = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
+					let mut c = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false);
 					c.persistence = IndexPersistence::Persistent;
 					c
 				}

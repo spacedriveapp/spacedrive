@@ -155,9 +155,8 @@ export function useSyncMonitor() {
 						...prev.recentActivity.slice(0, 49),
 					],
 				}));
-			} else {
-				refetchRef.current();
 			}
+			// Removed else-refetch: only refetch on specific sync events, not every event
 		};
 
 		const filter = {

@@ -35,11 +35,51 @@ pub struct EphemeralIndex {
 	cache: Arc<NameCache>,
 	registry: NameRegistry,
 	path_index: HashMap<PathBuf, EntryId>,
-	entry_uuids: HashMap<PathBuf, Uuid>,
-	content_kinds: HashMap<PathBuf, ContentKind>,
+	entry_uuids: HashMap<EntryId, Uuid>,
+	content_kinds: HashMap<EntryId, ContentKind>,
 	created_at: Instant,
 	last_accessed: Instant,
 	pub stats: IndexerStats,
+}
+
+/// Detailed memory breakdown by component
+#[derive(Debug, Clone)]
+pub struct MemoryBreakdown {
+	pub arena: usize,
+	pub cache: usize,
+	pub registry: usize,
+	pub path_index_overhead: usize,
+	pub path_index_entries: usize,
+	pub entry_uuids_overhead: usize,
+	pub entry_uuids_entries: usize,
+	pub content_kinds_overhead: usize,
+	pub content_kinds_entries: usize,
+}
+
+impl MemoryBreakdown {
+	pub fn total(&self) -> usize {
+		self.arena
+			+ self.cache
+			+ self.registry
+			+ self.path_index_overhead
+			+ self.path_index_entries
+			+ self.entry_uuids_overhead
+			+ self.entry_uuids_entries
+			+ self.content_kinds_overhead
+			+ self.content_kinds_entries
+	}
+
+	pub fn path_index_total(&self) -> usize {
+		self.path_index_overhead + self.path_index_entries
+	}
+
+	pub fn entry_uuids_total(&self) -> usize {
+		self.entry_uuids_overhead + self.entry_uuids_entries
+	}
+
+	pub fn content_kinds_total(&self) -> usize {
+		self.content_kinds_overhead + self.content_kinds_entries
+	}
 }
 
 impl std::fmt::Debug for EphemeralIndex {
@@ -119,9 +159,6 @@ impl EphemeralIndex {
 		self.path_index.insert(path.to_path_buf(), id);
 		self.registry.insert(name, id);
 
-		let uuid = Uuid::new_v4();
-		self.entry_uuids.insert(path.to_path_buf(), uuid);
-
 		Ok(id)
 	}
 
@@ -136,6 +173,17 @@ impl EphemeralIndex {
 		path: PathBuf,
 		uuid: Uuid,
 		metadata: EntryMetadata,
+	) -> std::io::Result<Option<ContentKind>> {
+		let registry = FileTypeRegistry::default();
+		self.add_entry_with_registry(path, Some(uuid), metadata, &registry)
+	}
+
+	fn add_entry_with_registry(
+		&mut self,
+		path: PathBuf,
+		uuid: Option<Uuid>,
+		metadata: EntryMetadata,
+		registry: &FileTypeRegistry,
 	) -> std::io::Result<Option<ContentKind>> {
 		if self.path_index.contains_key(&path) {
 			tracing::trace!("Skipping duplicate entry: {}", path.display());
@@ -184,7 +232,6 @@ impl EphemeralIndex {
 		}
 
 		let content_kind = if metadata.kind == EntryKind::File {
-			let registry = FileTypeRegistry::default();
 			registry.identify_by_extension(&path)
 		} else if metadata.kind == EntryKind::Directory {
 			ContentKind::Unknown
@@ -194,11 +241,36 @@ impl EphemeralIndex {
 
 		self.path_index.insert(path.clone(), id);
 		self.registry.insert(name, id);
-		self.entry_uuids.insert(path.clone(), uuid);
-		self.content_kinds.insert(path, content_kind);
+
+		// Only store UUID if provided (volume indexing passes None to skip UUID generation)
+		if let Some(uuid) = uuid {
+			self.entry_uuids.insert(id, uuid);
+		}
+
+		self.content_kinds.insert(id, content_kind);
 
 		self.last_accessed = Instant::now();
 		Ok(Some(content_kind))
+	}
+
+	/// Add multiple entries in a batch (faster than individual add_entry calls)
+	///
+	/// Acquires write lock once for the entire batch instead of per-entry.
+	pub fn add_entries_batch(
+		&mut self,
+		entries: Vec<(PathBuf, Option<Uuid>, EntryMetadata)>,
+	) -> std::io::Result<Vec<Option<ContentKind>>> {
+		let mut results = Vec::with_capacity(entries.len());
+
+		// Create registry once for entire batch instead of per-file
+		let registry = FileTypeRegistry::default();
+
+		for (path, uuid, metadata) in entries {
+			let result = self.add_entry_with_registry(path, uuid, metadata, &registry)?;
+			results.push(result);
+		}
+
+		Ok(results)
 	}
 
 	pub fn get_entry(&mut self, path: &PathBuf) -> Option<EntryMetadata> {
@@ -247,20 +319,58 @@ impl EphemeralIndex {
 	}
 
 	pub fn get_entry_uuid(&self, path: &PathBuf) -> Option<Uuid> {
-		self.entry_uuids.get(path).copied()
+		let entry_id = self.path_index.get(path)?;
+		self.entry_uuids.get(entry_id).copied()
+	}
+
+	/// Get or assign a UUID for the given path (lazy generation).
+	///
+	/// Returns cached UUID if exists, otherwise generates a new random UUID
+	/// and caches it. UUIDs are random (v4) for global uniqueness across devices,
+	/// avoiding collisions when syncing ephemeral indexes that are later upgraded
+	/// to persistent indexes.
+	pub fn get_or_assign_uuid(&mut self, path: &PathBuf) -> Uuid {
+		// Look up EntryId for this path
+		let entry_id = match self.path_index.get(path) {
+			Some(&id) => id,
+			None => return Uuid::new_v4(), // Path not found, return random UUID
+		};
+
+		// Check if UUID already exists for this EntryId
+		if let Some(&uuid) = self.entry_uuids.get(&entry_id) {
+			return uuid;
+		}
+
+		// Generate and cache new UUID
+		let uuid = Uuid::new_v4();
+		self.entry_uuids.insert(entry_id, uuid);
+		uuid
 	}
 
 	/// Get the path for an entry by its UUID
 	pub fn get_path_by_uuid(&self, uuid: Uuid) -> Option<PathBuf> {
-		self.entry_uuids
+		// Find the EntryId that has this UUID
+		let entry_id = self
+			.entry_uuids
 			.iter()
 			.find(|(_, &entry_uuid)| entry_uuid == uuid)
+			.map(|(&id, _)| id)?;
+
+		// Look up the path for this EntryId
+		self.path_index
+			.iter()
+			.find(|(_, &id)| id == entry_id)
 			.map(|(path, _)| path.clone())
 	}
 
 	pub fn get_content_kind(&self, path: &PathBuf) -> ContentKind {
+		let entry_id = match self.path_index.get(path) {
+			Some(&id) => id,
+			None => return ContentKind::Unknown,
+		};
+
 		self.content_kinds
-			.get(path)
+			.get(&entry_id)
 			.copied()
 			.unwrap_or(ContentKind::Unknown)
 	}
@@ -332,10 +442,10 @@ impl EphemeralIndex {
 		let cleared = children_to_remove.len();
 
 		// Remove from indexes
-		for (child_path, _) in &children_to_remove {
+		for (child_path, child_id) in &children_to_remove {
 			self.path_index.remove(child_path);
-			self.entry_uuids.remove(child_path);
-			self.content_kinds.remove(child_path);
+			self.entry_uuids.remove(child_id);
+			self.content_kinds.remove(child_id);
 		}
 
 		// Update parent's children list
@@ -427,13 +537,49 @@ impl EphemeralIndex {
 	}
 
 	pub fn memory_usage(&self) -> usize {
-		self.arena.memory_usage()
-			+ self.cache.memory_usage()
-			+ self.registry.memory_usage()
-			+ self.path_index.capacity()
-				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<EntryId>())
-			+ self.entry_uuids.capacity()
-				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<Uuid>())
+		self.detailed_memory_breakdown().total()
+	}
+
+	/// Get a detailed breakdown of memory usage by component
+	pub fn detailed_memory_breakdown(&self) -> MemoryBreakdown {
+		// Estimate average path length from a sample
+		let avg_path_len = self.estimate_avg_path_length();
+
+		MemoryBreakdown {
+			arena: self.arena.memory_usage(),
+			cache: self.cache.memory_usage(),
+			registry: self.registry.memory_usage(),
+			// path_index: HashMap<PathBuf, EntryId>
+			path_index_overhead: self.path_index.capacity(),
+			path_index_entries: self.path_index.len()
+				* (std::mem::size_of::<PathBuf>() + std::mem::size_of::<EntryId>() + avg_path_len),
+			// entry_uuids: HashMap<EntryId, Uuid> - now using EntryId keys!
+			entry_uuids_overhead: self.entry_uuids.capacity(),
+			entry_uuids_entries: self.entry_uuids.len()
+				* (std::mem::size_of::<EntryId>() + std::mem::size_of::<Uuid>()),
+			// content_kinds: HashMap<EntryId, ContentKind> - now using EntryId keys!
+			content_kinds_overhead: self.content_kinds.capacity(),
+			content_kinds_entries: self.content_kinds.len()
+				* (std::mem::size_of::<EntryId>() + std::mem::size_of::<ContentKind>()),
+		}
+	}
+
+	/// Estimate average path length by sampling entries
+	fn estimate_avg_path_length(&self) -> usize {
+		if self.path_index.is_empty() {
+			return 80; // default estimate
+		}
+
+		// Sample up to 1000 paths to estimate average length
+		let sample_size = self.path_index.len().min(1000);
+		let total_len: usize = self
+			.path_index
+			.keys()
+			.take(sample_size)
+			.map(|p| p.as_os_str().len())
+			.sum();
+
+		total_len / sample_size
 	}
 
 	pub fn get_stats(&self) -> EphemeralIndexStats {
@@ -443,6 +589,7 @@ impl EphemeralIndex {
 			interned_strings: self.cache.len(),
 			memory_bytes: self.memory_usage(),
 			total_file_bytes: self.stats.bytes,
+			uuid_count: self.entry_uuids.len(),
 		}
 	}
 
@@ -452,6 +599,21 @@ impl EphemeralIndex {
 
 	pub fn path_index_count(&self) -> usize {
 		self.path_index.len()
+	}
+
+	/// Count entries under a specific path prefix (including the prefix itself if it exists)
+	pub fn count_entries_under_path(&self, prefix: &Path) -> usize {
+		let prefix_str = prefix.to_string_lossy();
+		self.path_index
+			.keys()
+			.filter(|path| {
+				let path_str = path.to_string_lossy();
+				// Match paths that are under the prefix (including the prefix itself)
+				path_str.starts_with(prefix_str.as_ref())
+					&& (path_str.len() == prefix_str.len()
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/'))
+			})
+			.count()
 	}
 
 	/// Check if an entry exists at the given path.
@@ -467,11 +629,13 @@ impl EphemeralIndex {
 	pub fn remove_entry(&mut self, path: &Path) -> bool {
 		// Get the entry ID before removing from path_index
 		let entry_id = self.path_index.remove(path);
-		self.entry_uuids.remove(path);
-		self.content_kinds.remove(path);
+
+		// Remove from other HashMaps using EntryId
+		if let Some(id) = entry_id {
+			self.entry_uuids.remove(&id);
+			self.content_kinds.remove(&id);
 
 		// Also remove from parent's children list in arena
-		if let Some(id) = entry_id {
 			// Get the parent's entry ID
 			if let Some(parent_path) = path.parent() {
 				if let Some(&parent_id) = self.path_index.get(parent_path) {
@@ -505,9 +669,11 @@ impl EphemeralIndex {
 
 		let count = keys_to_remove.len();
 		for key in keys_to_remove {
-			self.path_index.remove(&key);
-			self.entry_uuids.remove(&key);
-			self.content_kinds.remove(&key);
+			// Get EntryId before removing from path_index
+			if let Some(entry_id) = self.path_index.remove(&key) {
+				self.entry_uuids.remove(&entry_id);
+				self.content_kinds.remove(&entry_id);
+			}
 		}
 
 		// Remove root directory from parent's children list
@@ -559,7 +725,16 @@ impl EphemeralIndex {
 	/// Save this index to a snapshot file for fast restoration
 	///
 	/// Snapshots are compressed with zstd and written atomically.
+	#[deprecated(note = "Use save_snapshot_with_root to include root path in snapshot")]
 	pub fn save_snapshot(&self, snapshot_path: &Path) -> anyhow::Result<()> {
+		super::snapshot::save_snapshot_impl(self, snapshot_path)
+	}
+
+	/// Save this index to a snapshot file with the root path
+	///
+	/// The root path is stored in the snapshot so it can be restored to
+	/// indexed_paths when loaded, making the cached data queryable.
+	pub fn save_snapshot_with_root(&self, snapshot_path: &Path, _root_path: &Path) -> anyhow::Result<()> {
 		super::snapshot::save_snapshot_impl(self, snapshot_path)
 	}
 
@@ -578,8 +753,8 @@ impl EphemeralIndex {
 		&Arc<NameCache>,
 		&NameRegistry,
 		&HashMap<PathBuf, EntryId>,
-		&HashMap<PathBuf, Uuid>,
-		&HashMap<PathBuf, ContentKind>,
+		&HashMap<EntryId, Uuid>,
+		&HashMap<EntryId, ContentKind>,
 		&IndexerStats,
 	) {
 		(
@@ -599,8 +774,8 @@ impl EphemeralIndex {
 		cache: Arc<NameCache>,
 		registry: NameRegistry,
 		path_index: HashMap<PathBuf, EntryId>,
-		entry_uuids: HashMap<PathBuf, Uuid>,
-		content_kinds: HashMap<PathBuf, ContentKind>,
+		entry_uuids: HashMap<EntryId, Uuid>,
+		content_kinds: HashMap<EntryId, ContentKind>,
 		stats: IndexerStats,
 	) -> Self {
 		let now = Instant::now();
@@ -632,4 +807,5 @@ pub struct EphemeralIndexStats {
 	pub interned_strings: usize,
 	pub memory_bytes: usize,
 	pub total_file_bytes: u64,
+	pub uuid_count: usize,
 }

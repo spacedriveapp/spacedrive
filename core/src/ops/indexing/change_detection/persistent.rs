@@ -481,7 +481,10 @@ impl ChangeHandler for DatabaseAdapter {
 		{
 			let proc_entry = build_proc_entry(&self.db, entry).await?;
 			let content_proc = ContentHashProcessor::new(self.library_id);
-			if let Err(e) = content_proc.process(&self.db, &proc_entry).await {
+			if let Err(e) = content_proc
+				.process(&self.db, &proc_entry, self.context.file_type_registry())
+				.await
+			{
 				tracing::warn!("Content hash processing failed: {}", e);
 			}
 		}
@@ -791,9 +794,15 @@ impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
 	) -> JobResult<()> {
 		use crate::ops::indexing::database_storage::DatabaseStorage;
 
-		DatabaseStorage::link_to_content_identity(self.ctx.library_db(), entry_id, path, cas_id)
-			.await
-			.map(|_| ())
+		DatabaseStorage::link_to_content_identity(
+			self.ctx.library_db(),
+			entry_id,
+			path,
+			cas_id,
+			self.ctx.library().core_context().file_type_registry(),
+		)
+		.await
+		.map(|_| ())
 	}
 
 	async fn get_existing_entries(
