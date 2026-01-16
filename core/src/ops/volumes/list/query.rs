@@ -44,6 +44,40 @@ pub struct VolumeListQuery {
 }
 
 impl VolumeListQuery {
+	/// Get file count from ephemeral index if this volume's mount point has been indexed
+	///
+	/// Returns the total number of entries under this mount point (recursive count).
+	/// Only returns counts for volumes on the current device (where the ephemeral index lives).
+	/// If a snapshot exists on disk but isn't loaded yet, returns None (lazy loading happens
+	/// when user explicitly indexes the volume).
+	fn get_ephemeral_file_count(
+		index: &crate::ops::indexing::ephemeral::EphemeralIndex,
+		indexed_paths: &[std::path::PathBuf],
+		mount_point: &Option<String>,
+		volume_device_id: Uuid,
+		current_device_id: Uuid,
+	) -> Option<usize> {
+		// Only return file count if this volume belongs to the current device
+		// (ephemeral index only exists on the local device)
+		if volume_device_id != current_device_id {
+			return None;
+		}
+
+		let mount_path = mount_point.as_ref()?;
+		let mount_pathbuf = std::path::PathBuf::from(mount_path);
+
+		// Check if this exact mount point is indexed in memory
+		if indexed_paths.contains(&mount_pathbuf) {
+			// Use efficient method to count entries under this mount point
+			let count = index.count_entries_under_path(&mount_pathbuf);
+			return Some(count);
+		}
+
+		// Note: Snapshots exist on disk but aren't auto-loaded to avoid blocking startup.
+		// They'll be loaded when the user explicitly clicks "Index" on a volume.
+		None
+	}
+
 	/// Calculate unique bytes for a volume by deduplicating content using content_identity
 	///
 	/// NOTE: This should NOT be called in the query path! This is expensive.
@@ -190,6 +224,18 @@ impl LibraryQuery for VolumeListQuery {
 		let volume_manager = &context.volume_manager;
 		let mut volume_items = Vec::new();
 
+		// Get ephemeral cache to check for indexed file counts
+		let ephemeral_cache = context.ephemeral_cache();
+		let indexed_paths = ephemeral_cache.indexed_paths();
+		let global_index = ephemeral_cache.get_global_index();
+		let index = global_index.read().await;
+
+		// Get current device ID to filter ephemeral index results
+		let current_device_id = context
+			.device_manager
+			.device_id()
+			.unwrap_or_else(|_| Uuid::nil());
+
 		match self.filter {
 			VolumeFilter::TrackedOnly | VolumeFilter::All => {
 				// For TrackedOnly and All, return volumes from database (all devices)
@@ -206,6 +252,15 @@ impl LibraryQuery for VolumeListQuery {
 						.get(&tracked_vol.device_id)
 						.cloned()
 						.unwrap_or_else(|| "unknown".to_string());
+
+					// Get file count from ephemeral index if available
+					let total_file_count = Self::get_ephemeral_file_count(
+						&index,
+						&indexed_paths,
+						&tracked_vol.mount_point,
+						tracked_vol.device_id,
+						current_device_id,
+					);
 
 					volume_items.push(super::output::VolumeItem {
 						id: tracked_vol.uuid,
@@ -230,6 +285,7 @@ impl LibraryQuery for VolumeListQuery {
 						write_speed_mbps: tracked_vol.write_speed_mbps.map(|s| s as u32),
 						device_id: tracked_vol.device_id,
 						device_slug,
+						total_file_count,
 					});
 				}
 
@@ -244,12 +300,23 @@ impl LibraryQuery for VolumeListQuery {
 								.cloned()
 								.unwrap_or_else(|| "unknown".to_string());
 
+							let mount_point_str = Some(vol.mount_point.to_string_lossy().to_string());
+
+							// Get file count from ephemeral index if available
+							let total_file_count = Self::get_ephemeral_file_count(
+								&index,
+								&indexed_paths,
+								&mount_point_str,
+								vol.device_id,
+								current_device_id,
+							);
+
 							volume_items.push(super::output::VolumeItem {
 								id: vol.id,
 								name: vol.display_name.clone().unwrap_or_else(|| vol.name.clone()),
 								fingerprint: vol.fingerprint.clone(),
 								volume_type: format!("{:?}", vol.volume_type),
-								mount_point: Some(vol.mount_point.to_string_lossy().to_string()),
+								mount_point: mount_point_str,
 								is_tracked: false,
 								is_online: vol.is_mounted,
 								total_capacity: Some(vol.total_capacity),
@@ -261,6 +328,7 @@ impl LibraryQuery for VolumeListQuery {
 								write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 								device_id: vol.device_id,
 								device_slug,
+								total_file_count,
 							});
 						}
 					}
@@ -278,12 +346,23 @@ impl LibraryQuery for VolumeListQuery {
 							.cloned()
 							.unwrap_or_else(|| "unknown".to_string());
 
+						let mount_point_str = Some(vol.mount_point.to_string_lossy().to_string());
+
+						// Get file count from ephemeral index if available
+						let total_file_count = Self::get_ephemeral_file_count(
+							&index,
+							&indexed_paths,
+							&mount_point_str,
+							vol.device_id,
+							current_device_id,
+						);
+
 						volume_items.push(super::output::VolumeItem {
 							id: vol.id,
 							name: vol.display_name.clone().unwrap_or_else(|| vol.name.clone()),
 							fingerprint: vol.fingerprint.clone(),
 							volume_type: format!("{:?}", vol.volume_type),
-							mount_point: Some(vol.mount_point.to_string_lossy().to_string()),
+							mount_point: mount_point_str,
 							is_tracked: false,
 							is_online: vol.is_mounted,
 							total_capacity: Some(vol.total_capacity),
@@ -295,6 +374,7 @@ impl LibraryQuery for VolumeListQuery {
 							write_speed_mbps: vol.write_speed_mbps.map(|s| s as u32),
 							device_id: vol.device_id,
 							device_slug,
+							total_file_count,
 						});
 					}
 				}

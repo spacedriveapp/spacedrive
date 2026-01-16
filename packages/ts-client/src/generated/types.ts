@@ -179,6 +179,23 @@ export type CompositionOperator =
 export type CompositionRule = { operator: CompositionOperator; operands: string[]; result_attribute: string };
 
 /**
+ * Network connection method for a device
+ */
+export type ConnectionMethod = 
+/**
+ * Direct peer-to-peer connection (mDNS/local network)
+ */
+"Direct" | 
+/**
+ * Connection via relay server
+ */
+"Relay" | 
+/**
+ * Mixed connection (both direct and relay)
+ */
+"Mixed";
+
+/**
  * Domain representation of content identity
  */
 export type ContentIdentity = { uuid: string; kind: ContentKind; content_hash: string; integrity_hash: string | null; mime_type_id: number | null; text_content: string | null; total_size: number; entry_count: number; first_seen_at: string; last_verified_at: string };
@@ -264,23 +281,23 @@ export type CopyFileStatus =
 /**
  * File is waiting to be copied
  */
-"Pending" | 
+"pending" | 
 /**
  * File is currently being copied
  */
-"Copying" | 
+"copying" | 
 /**
  * File has been successfully copied
  */
-"Completed" | 
+"completed" | 
 /**
  * File copy failed
  */
-"Failed" | 
+"failed" | 
 /**
  * File was skipped (already exists or user choice)
  */
-"Skipped";
+"skipped";
 
 /**
  * Full metadata for a copy job, queryable via jobs.get_copy_metadata.
@@ -612,7 +629,11 @@ is_paired?: boolean;
 /**
  * Whether this device is currently connected via network
  */
-is_connected?: boolean };
+is_connected?: boolean; 
+/**
+ * Connection method when connected (Direct, Relay, or Mixed)
+ */
+connection_method?: ConnectionMethod | null };
 
 /**
  * Device form factor types
@@ -882,7 +903,11 @@ export type EphemeralCacheStatusInput = {
 /**
  * Optional: only include indexed paths containing this substring
  */
-path_filter?: string | null };
+path_filter?: string | null; 
+/**
+ * Include detailed memory breakdown (more expensive to compute)
+ */
+detailed?: boolean };
 
 /**
  * Legacy: Information about a single ephemeral index (for backward compatibility)
@@ -2735,6 +2760,11 @@ export type MediaSortBy =
 "size";
 
 /**
+ * Detailed breakdown of memory usage by component
+ */
+export type MemoryBreakdownStats = { arena: number; cache: number; registry: number; path_index_overhead: number; path_index_entries: number; entry_uuids_overhead: number; entry_uuids_entries: number; content_kinds_overhead: number; content_kinds_entries: number };
+
+/**
  * Information about a model
  */
 export type ModelInfo = { 
@@ -3929,9 +3959,17 @@ interned_strings: number;
  */
 content_kinds: number; 
 /**
+ * Number of UUIDs generated (lazy assignment)
+ */
+uuid_count: number; 
+/**
  * Estimated memory usage in bytes
  */
 memory_bytes: number; 
+/**
+ * Total size of all indexed files in bytes
+ */
+total_file_bytes: number; 
 /**
  * Age of the cache in seconds
  */
@@ -3939,7 +3977,11 @@ age_seconds: number;
 /**
  * Seconds since last access
  */
-idle_seconds: number };
+idle_seconds: number; 
+/**
+ * Detailed memory breakdown (optional, expensive to compute)
+ */
+memory_breakdown?: MemoryBreakdownStats | null };
 
 /**
  * Input for finding files unique to a location
@@ -4219,7 +4261,11 @@ device_id: string;
 /**
  * Device slug for constructing SdPaths
  */
-device_slug: string };
+device_slug: string; 
+/**
+ * Total file count from ephemeral index (if indexed)
+ */
+total_file_count: number | null };
 
 export type VolumeListOutput = { volumes: VolumeItem[] };
 

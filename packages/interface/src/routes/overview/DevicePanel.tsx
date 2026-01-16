@@ -134,16 +134,14 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 			: [])
 	] as JobListItem[];
 
-	if (volumesLoading || devicesLoading || locationsLoading) {
+	// Only block on devices loading (foundation data)
+	// Volumes and locations can load progressively within each device card
+	if (devicesLoading) {
 		return (
 			<div className="bg-app-box border-app-line overflow-hidden rounded-xl border">
 				<div className="border-app-line border-b px-6 py-4">
-					<h2 className="text-ink text-base font-semibold">
-						Storage Volumes
-					</h2>
-					<p className="text-ink-dull mt-1 text-sm">
-						Loading volumes...
-					</p>
+					<h2 className="text-ink text-base font-semibold">Devices</h2>
+					<p className="text-ink-dull mt-1 text-sm">Loading devices...</p>
 				</div>
 			</div>
 		);
@@ -239,6 +237,8 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 							jobs={deviceJobs}
 							locations={deviceLocations}
 							selectedLocationId={selectedLocationId}
+							volumesLoading={volumesLoading}
+							locationsLoading={locationsLoading}
 							onLocationSelect={(location) => {
 								if (location) {
 									setSelectedLocationId(location.id);
@@ -294,6 +294,8 @@ interface DeviceCardProps {
 	jobs: JobListItem[];
 	locations: Location[];
 	selectedLocationId: string | null;
+	volumesLoading: boolean;
+	locationsLoading: boolean;
 	onLocationSelect?: (location: Location | null) => void;
 }
 
@@ -303,6 +305,8 @@ function DeviceCard({
 	jobs,
 	locations,
 	selectedLocationId,
+	volumesLoading,
+	locationsLoading,
 	onLocationSelect
 }: DeviceCardProps) {
 	const deviceName = device?.name || 'Unknown Device';
@@ -360,9 +364,10 @@ function DeviceCard({
 								)}
 							</div>
 							<p className="text-ink-dull text-sm">
-								{volumes.length}{' '}
-								{volumes.length === 1 ? 'volume' : 'volumes'}
-								{device?.is_online === false && 'Offline'}
+								{volumesLoading
+									? 'Loading volumes...'
+									: `${volumes.length} ${volumes.length === 1 ? 'volume' : 'volumes'}`}
+								{device?.is_online === false && ' • Offline'}
 							</p>
 						</div>
 					</div>
@@ -432,17 +437,29 @@ function DeviceCard({
 				)}
 
 				{/* Locations for this device */}
-				{locations.length > 0 && (
-					<LocationsScroller
-						locations={locations}
-						selectedLocationId={selectedLocationId}
-						onLocationSelect={onLocationSelect}
-					/>
+				{locationsLoading ? (
+					<div className="border-app-line bg-app/50 border-b px-3 py-3">
+						<div className="text-ink-dull text-center text-xs">
+							Loading locations...
+						</div>
+					</div>
+				) : (
+					locations.length > 0 && (
+						<LocationsScroller
+							locations={locations}
+							selectedLocationId={selectedLocationId}
+							onLocationSelect={onLocationSelect}
+						/>
+					)
 				)}
 
 				{/* Volumes for this device */}
 				<div className="space-y-3 px-3 py-3">
-					{volumes.length > 0 ? (
+					{volumesLoading ? (
+						<div className="text-ink-dull text-center text-xs">
+							Loading volumes...
+						</div>
+					) : volumes.length > 0 ? (
 						volumes.map((volume, idx) => (
 							<VolumeBar
 								key={volume.id}

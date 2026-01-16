@@ -34,6 +34,8 @@ pub struct VolumeItem {
 	pub device_id: Uuid,
 	/// Device slug for constructing SdPaths
 	pub device_slug: String,
+	/// Total file count from ephemeral index (if indexed)
+	pub total_file_count: Option<usize>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

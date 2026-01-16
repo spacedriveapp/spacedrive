@@ -601,6 +601,21 @@ impl EphemeralIndex {
 		self.path_index.len()
 	}
 
+	/// Count entries under a specific path prefix (including the prefix itself if it exists)
+	pub fn count_entries_under_path(&self, prefix: &Path) -> usize {
+		let prefix_str = prefix.to_string_lossy();
+		self.path_index
+			.keys()
+			.filter(|path| {
+				let path_str = path.to_string_lossy();
+				// Match paths that are under the prefix (including the prefix itself)
+				path_str.starts_with(prefix_str.as_ref())
+					&& (path_str.len() == prefix_str.len()
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/'))
+			})
+			.count()
+	}
+
 	/// Check if an entry exists at the given path.
 	pub fn has_entry(&self, path: &Path) -> bool {
 		self.path_index.contains_key(path)
@@ -710,8 +725,17 @@ impl EphemeralIndex {
 	/// Save this index to a snapshot file for fast restoration
 	///
 	/// Snapshots are compressed with zstd and written atomically.
+	#[deprecated(note = "Use save_snapshot_with_root to include root path in snapshot")]
 	pub fn save_snapshot(&self, snapshot_path: &Path) -> anyhow::Result<()> {
-		super::snapshot::save_snapshot_impl(self, snapshot_path)
+		super::snapshot::save_snapshot_impl(self, snapshot_path, Path::new(""))
+	}
+
+	/// Save this index to a snapshot file with the root path
+	///
+	/// The root path is stored in the snapshot so it can be restored to
+	/// indexed_paths when loaded, making the cached data queryable.
+	pub fn save_snapshot_with_root(&self, snapshot_path: &Path, root_path: &Path) -> anyhow::Result<()> {
+		super::snapshot::save_snapshot_impl(self, snapshot_path, root_path)
 	}
 
 	/// Load an index from a snapshot file
