@@ -51,7 +51,7 @@ function downsampleSpeedHistory(samples: SpeedSample[]): SpeedSample[] {
 export function useJobs() {
 	const [jobs, setJobs] = useState<JobListItem[]>([]);
 	const client = useSpacedriveClient();
-	const {setVolumeJob, clearVolumeJob} = useVolumeIndexingStore();
+	const {setVolumeJob} = useVolumeIndexingStore();
 
 	// Speed history for graphing (job_id -> samples)
 	const speedHistoryRef = useRef<Map<string, SpeedSample[]>>(new Map());
@@ -134,17 +134,12 @@ export function useJobs() {
 						event.JobCancelled?.job_id;
 
 					if (jobId) {
-						// Clear volume indexing mapping if this was a volume job
-						const completedJob = jobs.find((j) => j.id === jobId);
-						if (completedJob?.name === 'indexer') {
-							const volumeFingerprint =
-								completedJob.action_context?.context
-									?.volume_fingerprint;
-							if (
-								volumeFingerprint &&
-								typeof volumeFingerprint === 'string'
-							) {
-								clearVolumeJob(volumeFingerprint);
+						// Clear volume indexing mappings using latest store state.
+						const {volumeToJob, clearVolumeJob} =
+							useVolumeIndexingStore.getState();
+						for (const [fingerprint, mappedJobId] of volumeToJob) {
+							if (mappedJobId === jobId) {
+								clearVolumeJob(fingerprint);
 							}
 						}
 
