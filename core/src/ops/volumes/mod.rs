@@ -6,8 +6,10 @@
 //! - Adding/removing cloud volumes
 //! - Listing volumes
 //! - Ephemeral indexing entire volumes
+//! - Ejecting removable volumes
 
 pub mod add_cloud;
+pub mod eject;
 pub mod index;
 pub mod list;
 pub mod refresh;
@@ -17,6 +19,7 @@ pub mod track;
 pub mod untrack;
 
 pub use add_cloud::{action::VolumeAddCloudAction, VolumeAddCloudOutput};
+pub use eject::{VolumeEjectAction, VolumeEjectInput, VolumeEjectOutput};
 pub use index::{IndexVolumeAction, IndexVolumeInput, IndexVolumeOutput};
 pub use list::{VolumeFilter, VolumeListOutput, VolumeListQuery, VolumeListQueryInput};
 pub use refresh::{action::VolumeRefreshAction, VolumeRefreshOutput};

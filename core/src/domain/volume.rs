@@ -330,6 +330,8 @@ pub struct Volume {
 	pub is_read_only: bool,
 
 	/// Whether volume is currently mounted/available
+	/// Also deserializes from legacy "is_online" field for backwards compatibility
+	#[serde(alias = "is_online")]
 	pub is_mounted: bool,
 
 	/// Hardware identifier (device path, UUID, etc.)

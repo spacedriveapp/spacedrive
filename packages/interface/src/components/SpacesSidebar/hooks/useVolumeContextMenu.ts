@@ -25,6 +25,7 @@ interface UseVolumeContextMenuOptions {
  * - Untrack Volume: Remove volume from library tracking
  * - Speed Test: Test read/write performance
  * - Index Volume: Trigger full volume indexing
+ * - Eject Volume: Safely eject removable media
  */
 export function useVolumeContextMenu({
 	volume
@@ -33,6 +34,9 @@ export function useVolumeContextMenu({
 	const untrackVolume = useLibraryMutation('volumes.untrack');
 	const speedTestVolume = useLibraryMutation('volumes.speed_test');
 	const indexVolume = useLibraryMutation('volumes.index');
+	const ejectVolume = useLibraryMutation('volumes.eject');
+
+	const isRemovable = volume.mount_type === 'External';
 
 	const items: ContextMenuItem[] = [
 		{
@@ -102,6 +106,26 @@ export function useVolumeContextMenu({
 				}
 			},
 			condition: () => volume.is_mounted
+		},
+		{
+			icon: EjectSimple,
+			label: 'Eject',
+			onClick: async () => {
+				try {
+					const result = await ejectVolume.mutateAsync({
+						fingerprint: volume.fingerprint
+					});
+					if (result.success) {
+						console.log('Volume ejected successfully');
+					} else {
+						console.error('Eject failed:', result.message);
+					}
+				} catch (err) {
+					console.error('Failed to eject volume:', err);
+				}
+			},
+			keybind: '⌘E',
+			condition: () => isRemovable && volume.is_mounted
 		}
 	];
 

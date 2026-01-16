@@ -137,7 +137,7 @@ export const FileCard = memo(
 		const volumeData = isVolume ? (file as any)._virtual.data : null;
 		const hasVolumeCapacity =
 			volumeData?.total_capacity != null &&
-			volumeData?.available_capacity != null &&
+			volumeData?.available_space != null &&
 			volumeData.total_capacity > 0;
 
 		return (
@@ -199,7 +199,7 @@ export const FileCard = memo(
 						{showFileSize && hasVolumeCapacity && (
 							<VolumeSizeBar
 								totalBytes={Number(volumeData.total_capacity)}
-								availableBytes={Number(volumeData.available_capacity)}
+								availableBytes={Number(volumeData.available_space)}
 								className="mt-1.5"
 							/>
 						)}

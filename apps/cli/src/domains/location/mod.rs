@@ -180,16 +180,13 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		let volume_choices: Vec<String> = volumes
 			.volumes
 			.iter()
-			.filter_map(|v| {
-				// Parse mount_point to get service and identifier
-				v.mount_point.as_ref().map(|mp| {
-					format!(
-						"{} ({}) - {}",
-						v.name,
-						mp, // Show mount point like "s3://bucket"
-						v.volume_type
-					)
-				})
+			.map(|v| {
+				format!(
+					"{} ({}) - {}",
+					v.name,
+					v.mount_point.display(), // Show mount point like "s3://bucket"
+					v.volume_type
+				)
 			})
 			.collect();
 
@@ -203,10 +200,7 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 
 		// Get the mount point for the selected volume
 		let selected_volume = &volumes.volumes[volume_idx];
-		let mount_point = selected_volume
-			.mount_point
-			.as_ref()
-			.ok_or_else(|| anyhow::anyhow!("Selected volume has no mount point"))?;
+		let mount_point = &selected_volume.mount_point;
 
 		// Get cloud path within the volume
 		let cloud_path = text(
@@ -216,10 +210,11 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 		.unwrap();
 
 		// Construct service-based URI: mount_point + path
+		let mount_point_str = mount_point.to_string_lossy();
 		let full_uri = if cloud_path.starts_with('/') {
-			format!("{}{}", mount_point, cloud_path)
+			format!("{}{}", mount_point_str, cloud_path)
 		} else {
-			format!("{}/{}", mount_point, cloud_path)
+			format!("{}/{}", mount_point_str, cloud_path)
 		};
 
 		// Parse the URI to create SdPath

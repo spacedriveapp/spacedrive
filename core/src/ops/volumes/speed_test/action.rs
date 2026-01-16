@@ -53,7 +53,7 @@ impl LibraryAction for VolumeSpeedTestAction {
 			.map_err(|e| ActionError::InvalidInput(format!("Speed test failed: {}", e)))?;
 
 		// Get the updated volume with speed test results
-		let volume = context
+		let mut volume = context
 			.volume_manager
 			.get_volume(&self.input.fingerprint)
 			.await
@@ -79,7 +79,18 @@ impl LibraryAction for VolumeSpeedTestAction {
 				ActionError::InvalidInput(format!("Failed to save speed test results: {}", e))
 			})?;
 
-		// Emit ResourceChanged event for the volume
+		// Update volume timestamps to match what was saved to database
+		volume.updated_at = chrono::Utc::now();
+
+		// Log the volume data before emitting to verify it has speeds
+		tracing::info!(
+			"Emitting ResourceChanged for volume '{}' with speeds: read={}MB/s write={}MB/s",
+			volume.name,
+			volume.read_speed_mbps.unwrap_or(0),
+			volume.write_speed_mbps.unwrap_or(0)
+		);
+
+		// Emit ResourceChanged event for the volume with complete data
 		use crate::domain::resource::EventEmitter;
 		volume
 			.emit_changed(&context.events)

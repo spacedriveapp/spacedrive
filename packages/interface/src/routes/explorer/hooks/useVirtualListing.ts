@@ -100,7 +100,7 @@ export function useVirtualListing(): VirtualListingResult {
 
 			// Add volumes for this device
 			const deviceVolumes = volumes.filter(
-				(vol: any) => vol.device_slug === device.slug,
+				(vol: any) => vol.device_id === device.id,
 			);
 
 			virtualFiles.push(
