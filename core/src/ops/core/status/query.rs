@@ -54,6 +54,7 @@ impl CoreQuery for CoreStatusQuery {
 		let device_info = DeviceInfo {
 			id: device_config.id,
 			name: device_config.name,
+			slug: device_config.slug,
 			os: device_config.os,
 			hardware_model: device_config.hardware_model,
 			created_at: device_config.created_at,

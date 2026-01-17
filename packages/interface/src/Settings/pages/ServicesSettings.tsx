@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCoreQuery, useCoreMutation } from "../../context";
+import { useCoreQuery, useCoreMutation } from "../../contexts/SpacedriveContext";
 
 interface ServicesSettingsForm {
   networking_enabled: boolean;
@@ -9,7 +9,7 @@ interface ServicesSettingsForm {
 }
 
 export function ServicesSettings() {
-  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: {} });
+  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: null as any });
   const updateConfig = useCoreMutation("config.app.update");
 
   const form = useForm<ServicesSettingsForm>({
@@ -24,7 +24,7 @@ export function ServicesSettings() {
   const onSubmit = form.handleSubmit(async (data) => {
     const result = await updateConfig.mutateAsync(data);
     refetch();
-    
+
     if (result.requires_restart) {
       alert("Some changes require a daemon restart to take effect.");
     }

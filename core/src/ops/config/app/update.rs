@@ -125,7 +125,7 @@ impl CoreAction for UpdateAppConfigAction {
 			}
 		}
 
-		Ok(ValidationResult::Success)
+		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {

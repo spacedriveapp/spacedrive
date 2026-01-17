@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 import {
   GeneralSettings,
@@ -10,6 +10,8 @@ import {
   AdvancedSettings,
   AboutSettings,
 } from "../../Settings/pages";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 
 interface SettingsSidebarProps {
   currentPage: string;
@@ -28,6 +30,8 @@ const sections = [
 ];
 
 function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
+  const isAboutPage = currentPage === "about";
+
   return (
     <div className="space-y-1">
       {sections.map((section) => (
@@ -35,9 +39,13 @@ function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
           key={section.id}
           onClick={() => onPageChange(section.id)}
           className={clsx(
-            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors",
+            "w-full text-left px-3 py-2 rounded-md text-sm font-medium transition-colors duration-300",
             currentPage === section.id
-              ? "bg-sidebar-selected text-sidebar-ink"
+              ? isAboutPage
+                ? "bg-white/20 text-white"
+                : "bg-sidebar-selected text-sidebar-ink"
+              : isAboutPage
+              ? "text-white/60 hover:text-white hover:bg-white/10"
               : "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-box"
           )}
         >
@@ -75,17 +83,28 @@ function SettingsContent({ page }: SettingsContentProps) {
   }
 }
 
-export function Settings() {
+function SettingsContentWrapper() {
   const pathname = window.location.pathname;
   const initialPage = pathname.split("/").filter(Boolean)[1] || "general";
   const [currentPage, setCurrentPage] = useState(initialPage);
 
   return (
-    <div className="h-screen bg-app flex">
+    <div className={clsx(
+      "h-screen flex transition-colors duration-500",
+      currentPage === "about" ? "bg-black" : "bg-app"
+    )}>
       {/* Sidebar */}
-      <nav className="w-48 bg-sidebar border-r border-sidebar-line p-4">
+      <nav className={clsx(
+        "w-48 border-r p-4 pt-[52px] transition-all duration-500",
+        currentPage === "about"
+          ? "bg-black border-black"
+          : "bg-sidebar border-sidebar-line"
+      )}>
         <div className="mb-6">
-          <h1 className="text-xl font-semibold text-sidebar-ink">Settings</h1>
+          <h1 className={clsx(
+            "text-xl font-semibold transition-colors duration-500",
+            currentPage === "about" ? "text-white" : "text-sidebar-ink"
+          )}>Settings</h1>
         </div>
         <SettingsSidebar
           currentPage={currentPage}
@@ -94,9 +113,33 @@ export function Settings() {
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto p-8">
+      <main className="flex-1 overflow-auto p-8 pt-[52px]">
         <SettingsContent page={currentPage} />
       </main>
     </div>
+  );
+}
+
+/**
+ * Settings component for separate settings window.
+ * Renders immediately since daemon is already connected in main window.
+ */
+export function Settings() {
+  const client = useSpacedriveClient();
+
+  useEffect(() => {
+    console.log("[Settings] Component mounted");
+    console.log("[Settings] Client:", client);
+    console.log("[Settings] Current library ID:", client.getCurrentLibraryId());
+  }, [client]);
+
+  return (
+    <>
+      <SettingsContentWrapper />
+      <ReactQueryDevtools
+        initialIsOpen={false}
+        buttonPosition="bottom-right"
+      />
+    </>
   );
 }

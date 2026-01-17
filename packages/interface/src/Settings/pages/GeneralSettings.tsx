@@ -1,27 +1,54 @@
 import { useForm } from "react-hook-form";
-import { useCoreQuery, useCoreMutation } from "../../context";
+import { useCoreQuery, useCoreMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";
+import { useEffect } from "react";
 
-interface GeneralSettingsForm {
-  log_level: string;
+interface DeviceSettingsForm {
+  name: string;
+  slug: string;
 }
 
 export function GeneralSettings() {
-  const { data: status } = useCoreQuery({ type: "core.status", input: {} });
-  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: {} });
-  const updateConfig = useCoreMutation("config.app.update");
+  const client = useSpacedriveClient();
+  const statusQuery = useCoreQuery({ type: "core.status", input: null as any });
+  const configQuery = useCoreQuery({ type: "config.app.get", input: null as any });
+  const updateDevice = useCoreMutation("device.update");
   const resetData = useCoreMutation("core.reset");
 
-  const form = useForm<GeneralSettingsForm>({
+  const { data: status } = statusQuery;
+  const { data: config } = configQuery;
+
+  useEffect(() => {
+    console.log("[GeneralSettings] Mounted");
+    console.log("[GeneralSettings] Client:", client);
+    console.log("[GeneralSettings] Status query:", {
+      data: statusQuery.data,
+      isLoading: statusQuery.isLoading,
+      error: statusQuery.error,
+      status: statusQuery.status,
+      fetchStatus: statusQuery.fetchStatus,
+    });
+    console.log("[GeneralSettings] Config query:", {
+      data: configQuery.data,
+      isLoading: configQuery.isLoading,
+      error: configQuery.error,
+      status: configQuery.status,
+      fetchStatus: configQuery.fetchStatus,
+    });
+  }, [client, statusQuery.data, statusQuery.isLoading, statusQuery.error, statusQuery.status, statusQuery.fetchStatus, configQuery.data, configQuery.isLoading, configQuery.error, configQuery.status, configQuery.fetchStatus]);
+
+  const deviceForm = useForm<DeviceSettingsForm>({
     values: {
-      log_level: config?.log_level || "info",
+      name: status?.device_info?.name || "",
+      slug: status?.device_info?.slug || "",
     },
   });
 
-  const onSubmit = form.handleSubmit(async (data) => {
-    await updateConfig.mutateAsync({
-      log_level: data.log_level,
+  const onDeviceSubmit = deviceForm.handleSubmit(async (data) => {
+    await updateDevice.mutateAsync({
+      name: data.name,
+      slug: data.slug,
     });
-    refetch();
+    statusQuery.refetch();
   });
 
   const handleResetData = () => {
@@ -55,31 +82,63 @@ export function GeneralSettings() {
         </p>
       </div>
 
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
+      <div className="space-y-4">
+        {/* Device Configuration */}
+        <form onSubmit={onDeviceSubmit} className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
+          <h3 className="text-sm font-medium text-ink">Device</h3>
+
           <label className="block">
-            <span className="text-sm font-medium text-ink mb-1 block">Log Level</span>
-            <p className="text-xs text-ink-dull mb-2">Set the verbosity of daemon logs</p>
-            <select
-              {...form.register("log_level")}
+            <span className="text-sm font-medium text-ink mb-1 block">Device Name</span>
+            <p className="text-xs text-ink-dull mb-2">
+              User-friendly name for this device
+            </p>
+            <input
+              type="text"
+              {...deviceForm.register("name")}
               className="w-full px-3 py-2 bg-app border border-app-line rounded-md text-ink text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-            >
-              <option value="trace">Trace</option>
-              <option value="debug">Debug</option>
-              <option value="info">Info</option>
-              <option value="warn">Warn</option>
-              <option value="error">Error</option>
-            </select>
+              placeholder="My Computer"
+            />
           </label>
-          {form.formState.isDirty && (
+
+          <label className="block">
+            <span className="text-sm font-medium text-ink mb-1 block">Device Slug</span>
+            <p className="text-xs text-ink-dull mb-2">
+              Unique identifier for this device (alphanumeric and hyphens only)
+            </p>
+            <input
+              type="text"
+              {...deviceForm.register("slug")}
+              className="w-full px-3 py-2 bg-app border border-app-line rounded-md text-ink text-sm focus:outline-none focus:ring-2 focus:ring-accent font-mono"
+              placeholder="my-computer"
+            />
+          </label>
+
+          {deviceForm.formState.isDirty && (
             <button
               type="submit"
-              disabled={updateConfig.isPending}
-              className="mt-3 px-4 py-2 bg-accent hover:bg-accent-deep text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+              disabled={updateDevice.isPending}
+              className="px-4 py-2 bg-accent hover:bg-accent-deep text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50"
             >
-              {updateConfig.isPending ? "Saving..." : "Save"}
+              {updateDevice.isPending ? "Saving..." : "Save Changes"}
             </button>
           )}
+        </form>
+
+        {/* Version Info */}
+        <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-3">
+          <h3 className="text-sm font-medium text-ink">Version Information</h3>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-ink">Version</span>
+            <span className="text-sm text-ink-dull font-mono">
+              {status?.version || "Loading..."}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-ink">Built</span>
+            <span className="text-sm text-ink-dull font-mono">
+              {status?.built_at || "Loading..."}
+            </span>
+          </div>
         </div>
 
         <div className="p-4 bg-app-box rounded-lg border border-app-line">
@@ -88,14 +147,6 @@ export function GeneralSettings() {
           <code className="block text-xs text-ink-dull bg-app rounded px-2 py-1 overflow-x-auto">
             {config?.data_dir || status?.system?.data_directory || "Loading..."}
           </code>
-        </div>
-
-        <div className="p-4 bg-app-box rounded-lg border border-app-line">
-          <h3 className="text-sm font-medium text-ink mb-1">Instance Name</h3>
-          <p className="text-xs text-ink-dull mb-2">Name of this Spacedrive instance</p>
-          <span className="text-sm text-ink">
-            {status?.system?.instance_name || status?.device_info?.name || "Default Instance"}
-          </span>
         </div>
 
         <div className="p-4 bg-app-box rounded-lg border border-app-line">
@@ -116,7 +167,7 @@ export function GeneralSettings() {
             </button>
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

@@ -1,124 +1,117 @@
-import { useCoreQuery } from "../../context";
+import { motion } from "framer-motion";
+import { Ball } from "@sd/assets/images";
+import Orb from "../../components/Orb";
+import { TopBarButton } from "@sd/ui";
+import { GlobeHemisphereWest, GithubLogo, DiscordLogo } from "@phosphor-icons/react";
 
 export function AboutSettings() {
-  const { data: status } = useCoreQuery({ type: "core.status", input: {} });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-ink mb-2">About</h2>
-        <p className="text-sm text-ink-dull">
-          Information about Spacedrive.
-        </p>
-      </div>
+    <div className="flex flex-col items-center justify-center min-h-[600px]">
+      {/* Animated orb with ball */}
+      <motion.div
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="relative w-64 h-64 mb-8"
+      >
+        {/* Ball image - behind the orb */}
+        <div className="absolute inset-[8%] z-0">
+          <img
+            src={Ball}
+            alt="Spacedrive"
+            className="w-full h-full object-contain select-none"
+            draggable={false}
+          />
+        </div>
+        {/* Orb animation - inset to make it smaller */}
+        <div className="absolute inset-[15%] z-10">
+          <Orb
+            hue={-30}
+            hoverIntensity={0}
+            rotateOnHover={false}
+            forceHoverState={true}
+          />
+        </div>
+      </motion.div>
 
       {/* Branding */}
-      <div className="p-6 bg-app-box rounded-lg border border-app-line text-center">
-        <div className="flex justify-center mb-4">
-          <div className="w-16 h-16 bg-accent rounded-xl flex items-center justify-center">
-            <svg
-              className="w-10 h-10 text-white"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
-          </div>
-        </div>
-        <h3 className="text-xl font-bold text-ink mb-1">Spacedrive</h3>
-        <p className="text-sm text-ink-dull">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.3 }}
+        className="text-center mb-6"
+      >
+        <h3 className="text-2xl font-bold text-white mb-2">Spacedrive</h3>
+        <p className="text-sm text-white/60">
           A file explorer from the future.
         </p>
-      </div>
+      </motion.div>
 
-      {/* Version Info */}
-      <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-3">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-ink">Version</span>
-          <span className="text-sm text-ink-dull font-mono">
-            {status?.version || "Loading..."}
-          </span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-ink">Built</span>
-          <span className="text-sm text-ink-dull font-mono">
-            {status?.built_at || "Loading..."}
-          </span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-ink">Data Directory</span>
-          <span className="text-sm text-ink-dull font-mono truncate max-w-[200px]">
-            {status?.system?.data_directory || "Loading..."}
-          </span>
-        </div>
-        {status?.system?.instance_name && (
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-ink">Instance</span>
-            <span className="text-sm text-ink-dull">
-              {status.system.instance_name}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* License */}
-      <div className="p-4 bg-app-box rounded-lg border border-app-line">
-        <div className="flex justify-between items-center">
-          <span className="text-sm text-ink">License</span>
-          <a
-            href="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-accent hover:underline"
-          >
-            AGPL-3.0
-          </a>
-        </div>
-      </div>
+      {/* Manifesto */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.35 }}
+        className="max-w-md text-center mb-8 px-4"
+      >
+        <p className="text-sm text-white/70 leading-relaxed">
+          Infrastructure for the next era of computing. An architecture designed for multi-device environments from the ground up—not cloud services retrofitted with offline support, but local-first sync that scales to the cloud when you want it.
+        </p>
+      </motion.div>
 
       {/* Links */}
-      <div className="flex flex-wrap gap-3">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.4 }}
+        className="flex gap-3 mb-6"
+      >
         <a
           href="https://spacedrive.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 min-w-[120px] px-4 py-3 bg-app-box rounded-lg border border-app-line text-center hover:bg-app-hover transition-colors"
         >
-          <span className="text-sm font-medium text-ink">Website</span>
+          <TopBarButton icon={GlobeHemisphereWest}>
+            Website
+          </TopBarButton>
         </a>
         <a
           href="https://github.com/spacedriveapp/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 min-w-[120px] px-4 py-3 bg-app-box rounded-lg border border-app-line text-center hover:bg-app-hover transition-colors"
         >
-          <span className="text-sm font-medium text-ink">GitHub</span>
+          <TopBarButton icon={GithubLogo}>
+            GitHub
+          </TopBarButton>
         </a>
         <a
           href="https://discord.gg/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 min-w-[120px] px-4 py-3 bg-app-box rounded-lg border border-app-line text-center hover:bg-app-hover transition-colors"
         >
-          <span className="text-sm font-medium text-ink">Discord</span>
+          <TopBarButton icon={DiscordLogo}>
+            Discord
+          </TopBarButton>
         </a>
-      </div>
+      </motion.div>
 
-      {/* Changelog */}
-      <div className="p-4 bg-app-box rounded-lg border border-app-line">
-        <h3 className="text-sm font-medium text-ink mb-2">Changelog</h3>
-        <p className="text-xs text-ink-dull mb-2">
-          See what's new in the latest release.
-        </p>
+      {/* License */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5, delay: 0.5 }}
+        className="text-center"
+      >
         <a
-          href="https://github.com/spacedriveapp/spacedrive/releases"
+          href="https://github.com/spacedriveapp/spacedrive/blob/main/LICENSE"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm text-accent hover:underline"
+          className="text-sm text-white/40 hover:text-white/60 transition-colors"
         >
-          View Release Notes
+          AGPL-3.0
         </a>
-      </div>
+      </motion.div>
     </div>
   );
 }

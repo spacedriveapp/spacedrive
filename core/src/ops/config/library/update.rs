@@ -108,7 +108,7 @@ impl LibraryAction for UpdateLibraryConfigAction {
 			}
 		}
 
-		Ok(ValidationResult::Success)
+		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

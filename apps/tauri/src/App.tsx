@@ -13,6 +13,7 @@ import {
 	SpacedriveProvider,
 	ServerProvider,
 } from "@sd/interface";
+import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import {
 	SpacedriveClient,
 	TauriTransport,
@@ -236,10 +237,15 @@ function App() {
 
 	// Route to different UIs based on window type
 	if (route === "/settings") {
+		console.log("[App] Rendering Settings route");
+		console.log("[App] Client for Settings:", client);
+		console.log("[App] Client library ID:", client.getCurrentLibraryId());
 		return (
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
-					<Settings />
+					<ServerProvider>
+						<Settings />
+					</ServerProvider>
 				</SpacedriveProvider>
 			</PlatformProvider>
 		);

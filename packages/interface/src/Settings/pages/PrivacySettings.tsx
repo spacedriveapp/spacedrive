@@ -1,12 +1,12 @@
 import { useForm } from "react-hook-form";
-import { useCoreQuery, useCoreMutation } from "../../context";
+import { useCoreQuery, useCoreMutation } from "../../contexts/SpacedriveContext";
 
 interface PrivacySettingsForm {
   telemetry_enabled: boolean;
 }
 
 export function PrivacySettings() {
-  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: {} });
+  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: null as any });
   const updateConfig = useCoreMutation("config.app.update");
 
   const form = useForm<PrivacySettingsForm>({
@@ -32,7 +32,7 @@ export function PrivacySettings() {
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Telemetry</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">Anonymous Usage Data</span>

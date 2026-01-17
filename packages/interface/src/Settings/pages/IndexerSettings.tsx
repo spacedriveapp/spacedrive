@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useLibraryQuery, useLibraryMutation } from "../../context";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";
 
 interface IndexerSettingsForm {
   no_system_files: boolean;
@@ -11,7 +11,12 @@ interface IndexerSettingsForm {
 }
 
 export function IndexerSettings() {
-  const { data: config, refetch } = useLibraryQuery({ type: "config.library.get", input: {} });
+  const client = useSpacedriveClient();
+  const libraryId = client.getCurrentLibraryId();
+  const { data: config, refetch, isLoading } = useLibraryQuery(
+    { type: "config.library.get", input: null as any },
+    { enabled: !!libraryId }
+  );
   const updateConfig = useLibraryMutation("config.library.update");
 
   const form = useForm<IndexerSettingsForm>({
@@ -30,7 +35,7 @@ export function IndexerSettings() {
     refetch();
   });
 
-  if (!config) {
+  if (!libraryId) {
     return (
       <div className="space-y-6">
         <div>
@@ -38,6 +43,17 @@ export function IndexerSettings() {
           <p className="text-sm text-ink-dull">
             No library selected. Please select a library first.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-ink mb-2">Indexer</h2>
+          <p className="text-sm text-ink-dull">Loading...</p>
         </div>
       </div>
     );
@@ -56,7 +72,7 @@ export function IndexerSettings() {
         {/* Exclusions Section */}
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Exclusions</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">Skip System Files</span>
@@ -109,7 +125,7 @@ export function IndexerSettings() {
         {/* Filters Section */}
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Filters</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">Respect .gitignore</span>

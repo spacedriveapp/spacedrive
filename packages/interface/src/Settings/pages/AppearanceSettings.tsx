@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCoreQuery, useCoreMutation } from "../../context";
+import { useCoreQuery, useCoreMutation } from "../../contexts/SpacedriveContext";
 
 interface AppearanceSettingsForm {
   theme: string;
@@ -7,7 +7,7 @@ interface AppearanceSettingsForm {
 }
 
 export function AppearanceSettings() {
-  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: {} });
+  const { data: config, refetch } = useCoreQuery({ type: "config.app.get", input: null as any });
   const updateConfig = useCoreMutation("config.app.update");
 
   const form = useForm<AppearanceSettingsForm>({

@@ -70,17 +70,8 @@ impl ToGenericProgress for IndexerProgress {
 			}
 		};
 
-		// Use volume-based percentage if available, otherwise use phase-based
-		let percentage = if let Some(volume_capacity) = self.volume_total_capacity {
-			if volume_capacity > 0 {
-				// Calculate actual progress as bytes_indexed / total_volume_capacity
-				(self.total_found.bytes as f64 / volume_capacity as f64).min(1.0) as f32
-			} else {
-				phase_based_pct
-			}
-		} else {
-			phase_based_pct
-		};
+		// Always use phase-based percentage for accurate progress tracking
+		let percentage = phase_based_pct;
 
 		// Filter out status messages from current_path - only convert real filesystem paths to SdPath.
 		let current_path = if !self.current_path.is_empty()

@@ -1,5 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useLibraryQuery, useLibraryMutation } from "../../context";
+import { useLibraryQuery, useLibraryMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";
 
 interface LibrarySettingsForm {
   generate_thumbnails: boolean;
@@ -12,7 +12,12 @@ interface LibrarySettingsForm {
 }
 
 export function LibrarySettings() {
-  const { data: config, refetch } = useLibraryQuery({ type: "config.library.get", input: {} });
+  const client = useSpacedriveClient();
+  const libraryId = client.getCurrentLibraryId();
+  const { data: config, refetch, isLoading } = useLibraryQuery(
+    { type: "config.library.get", input: null as any },
+    { enabled: !!libraryId }
+  );
   const updateConfig = useLibraryMutation("config.library.update");
 
   const form = useForm<LibrarySettingsForm>({
@@ -32,7 +37,7 @@ export function LibrarySettings() {
     refetch();
   });
 
-  if (!config) {
+  if (!libraryId) {
     return (
       <div className="space-y-6">
         <div>
@@ -40,6 +45,17 @@ export function LibrarySettings() {
           <p className="text-sm text-ink-dull">
             No library selected. Please select a library first.
           </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-lg font-semibold text-ink mb-2">Library</h2>
+          <p className="text-sm text-ink-dull">Loading...</p>
         </div>
       </div>
     );
@@ -58,7 +74,7 @@ export function LibrarySettings() {
         {/* Media Section */}
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Media</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">Generate Thumbnails</span>
@@ -80,7 +96,10 @@ export function LibrarySettings() {
                 min="1"
                 max="100"
                 {...form.register("thumbnail_quality", { valueAsNumber: true })}
-                className="flex-1 h-2 bg-app rounded-lg appearance-none cursor-pointer accent-accent"
+                className="flex-1 h-2 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-moz-range-thumb]:appearance-none [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0"
+                style={{
+                  background: `linear-gradient(to right, hsl(var(--color-accent)) 0%, hsl(var(--color-accent)) ${((form.watch("thumbnail_quality") - 1) / 99) * 100}%, hsl(var(--color-app)) ${((form.watch("thumbnail_quality") - 1) / 99) * 100}%, hsl(var(--color-app)) 100%)`
+                }}
               />
               <span className="text-sm text-ink w-8">{form.watch("thumbnail_quality")}</span>
             </div>
@@ -102,7 +121,7 @@ export function LibrarySettings() {
         {/* Sync & Security Section */}
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Sync & Security</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">Sync Enabled</span>
@@ -131,7 +150,7 @@ export function LibrarySettings() {
         {/* Auto-Tracking Section */}
         <div className="p-4 bg-app-box rounded-lg border border-app-line space-y-4">
           <h3 className="text-sm font-medium text-ink">Auto-Tracking</h3>
-          
+
           <label className="flex items-center justify-between">
             <div>
               <span className="text-sm text-ink">System Volumes</span>
