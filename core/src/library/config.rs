@@ -173,6 +173,11 @@ pub struct LibraryStatistics {
 	#[serde(default)]
 	pub available_capacity: u64,
 
+	/// Total AI compute power across all devices in TOPS (Trillion Operations Per Second)
+	/// Computed from known CPU Neural Engines and GPU tensor cores
+	#[serde(default)]
+	pub total_ai_tops: Option<f64>,
+
 	/// Number of thumbnails generated
 	pub thumbnail_count: u64,
 
@@ -197,6 +202,7 @@ impl Default for LibraryStatistics {
 			unique_content_count: 0,
 			total_capacity: 0,
 			available_capacity: 0,
+			total_ai_tops: None,
 			thumbnail_count: 0,
 			database_size: 0,
 			last_indexed: None,

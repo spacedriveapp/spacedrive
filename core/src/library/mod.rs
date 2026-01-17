@@ -929,6 +929,14 @@ impl Library {
 			"Completed volume capacity calculation"
 		);
 
+		debug!("Starting AI TOPS calculation");
+		// Calculate total AI compute power across all devices
+		let total_ai_tops = Self::calculate_total_ai_tops_static(&db_conn).await?;
+		debug!(
+			total_ai_tops = ?total_ai_tops,
+			"Completed AI TOPS calculation"
+		);
+
 		debug!("Starting thumbnail count calculation");
 		// Calculate thumbnail count
 		let thumbnail_count = Self::calculate_thumbnail_count_static(path).await?;
@@ -954,6 +962,7 @@ impl Library {
 			unique_content_count,
 			total_capacity,
 			available_capacity,
+			total_ai_tops,
 			thumbnail_count,
 			database_size,
 			last_indexed: None, // Will be preserved from existing config
@@ -983,6 +992,9 @@ impl Library {
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) = self.calculate_volume_capacity(db).await?;
 
+		// Calculate total AI compute power
+		let total_ai_tops = Self::calculate_total_ai_tops_static(db).await?;
+
 		// Calculate thumbnail count
 		let thumbnail_count = self.calculate_thumbnail_count().await?;
 
@@ -998,6 +1010,7 @@ impl Library {
 			unique_content_count,
 			total_capacity,
 			available_capacity,
+			total_ai_tops,
 			thumbnail_count,
 			database_size,
 			last_indexed: self.config.read().await.statistics.last_indexed,
@@ -1560,6 +1573,57 @@ impl Library {
 		);
 
 		Ok((total_capacity, available_capacity))
+	}
+
+	/// Calculate total AI compute power (TOPS) across all devices in the library.
+	///
+	/// Iterates through all devices, loads their CPU/GPU models, and uses the hardware_specs
+	/// lookup to compute their AI capabilities. Returns None if no devices have known AI TOPS.
+	async fn calculate_total_ai_tops_static(
+		db: &sea_orm::DatabaseConnection,
+	) -> Result<Option<f64>> {
+		use crate::domain::hardware_specs::lookup_ai_capabilities;
+		use crate::infra::db::entities::device;
+		use sea_orm::EntityTrait;
+
+		debug!("Executing AI TOPS calculation query");
+		let devices = device::Entity::find().all(db).await?;
+
+		let mut total_tops = 0.0;
+		let mut devices_with_tops = 0;
+
+		for dev in devices {
+			// Parse GPU models from JSON
+			let gpu_models: Option<Vec<String>> =
+				dev.gpu_models.and_then(|v| serde_json::from_value(v).ok());
+
+			// Lookup AI capabilities for this device
+			if let Some(tops) =
+				lookup_ai_capabilities(dev.cpu_model.as_deref(), gpu_models.as_ref())
+			{
+				total_tops += tops;
+				devices_with_tops += 1;
+				debug!(
+					device_slug = %dev.slug,
+					cpu_model = ?dev.cpu_model,
+					gpu_models = ?gpu_models,
+					tops = tops,
+					"Device contributes to AI TOPS"
+				);
+			}
+		}
+
+		debug!(
+			total_ai_tops = total_tops,
+			devices_with_tops = devices_with_tops,
+			"AI TOPS calculation completed"
+		);
+
+		if total_tops > 0.0 {
+			Ok(Some(total_tops))
+		} else {
+			Ok(None)
+		}
 	}
 
 	/// Calculate thumbnail count by scanning thumbnail directory (static version)
