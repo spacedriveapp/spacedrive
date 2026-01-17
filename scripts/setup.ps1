@@ -110,7 +110,7 @@ https://learn.microsoft.com/windows/package-manager/winget/
 
     # Check connectivity to GitHub
     $ProgressPreference = 'SilentlyContinue'
-    if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 80).TcpTestSucceeded)) {
+    if (-not ((Test-NetConnection -ComputerName 'github.com' -Port 443 -WarningAction SilentlyContinue).TcpTestSucceeded)) {
         Exit-WithError "Can't connect to github, check your internet connection and run this script again"
     }
     $ProgressPreference = 'Continue'

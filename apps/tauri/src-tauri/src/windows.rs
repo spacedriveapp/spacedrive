@@ -382,6 +382,12 @@ fn create_window(
 		.always_on_top(always_on_top)
 		.center();
 
+	// macOS: Hide title bar but keep traffic lights (like main window)
+	#[cfg(target_os = "macos")]
+	{
+		builder = builder.hidden_title(true);
+	}
+
 	// Enable DevTools in dev mode
 	#[cfg(debug_assertions)]
 	{
@@ -391,6 +397,16 @@ fn create_window(
 	let window = builder
 		.build()
 		.map_err(|e| format!("Failed to create window: {}", e))?;
+
+	// macOS: Apply titlebar styling after window creation
+	#[cfg(target_os = "macos")]
+	{
+		if let Ok(ns_window) = window.ns_window() {
+			unsafe {
+				sd_desktop_macos::set_titlebar_style(&ns_window, false);
+			}
+		}
+	}
 
 	window.show().ok();
 	window.set_focus().ok();
