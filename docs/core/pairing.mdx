@@ -56,6 +56,24 @@ The pairing protocol provides multiple security guarantees:
 **Integrity**: Challenge-response prevents tampering
 **Forward secrecy**: New keys for each session
 
+## Network Identity
+
+Spacedrive derives network identity directly from device identity:
+
+```rust
+device_id (device.json) → HKDF-SHA256 → Ed25519 seed → Iroh SecretKey → NodeId
+```
+
+This ensures:
+- Network identity is stable as long as `device_id` doesn't change
+- Survives keyring resets and OS migrations
+- Creates 1:1 mapping between device and network identity
+- Enables easy backup/restore (just backup `device.json`)
+
+Storage locations:
+- Device identity: `{config_dir}/device.json`
+- Network state (best-effort cache): `{config_dir}/iroh/known_nodes.json`
+
 ## Choosing a Pairing Method
 
 ### When to Use Text Codes

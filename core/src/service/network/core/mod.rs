@@ -12,6 +12,7 @@ use crate::service::network::{
 use iroh::discovery::{dns::DnsDiscovery, mdns::MdnsDiscovery, pkarr::PkarrPublisher, Discovery};
 use iroh::endpoint::Connection;
 use iroh::{Endpoint, NodeAddr, NodeId, RelayMode, RelayUrl, Watcher};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, RwLock};
 use uuid::Uuid;
@@ -85,6 +86,12 @@ pub struct NetworkingService {
 	/// Our Iroh node ID
 	node_id: NodeId,
 
+	/// Canonical device ID (stored in device.json)
+	device_id: Uuid,
+
+	/// Iroh data directory for state persistence
+	iroh_data_dir: Option<PathBuf>,
+
 	/// Discovery service for finding peers
 	discovery: Option<Box<dyn Discovery>>,
 
@@ -118,6 +125,60 @@ pub struct NetworkingService {
 }
 
 impl NetworkingService {
+	fn iroh_state_dir(&self) -> Result<PathBuf> {
+		let base = self
+			.data_dir
+			.as_ref()
+			.ok_or_else(|| NetworkingError::Protocol("No data directory configured".to_string()))?;
+		Ok(base.join("iroh"))
+	}
+
+	fn known_nodes_path(&self) -> Result<PathBuf> {
+		Ok(self.iroh_state_dir()?.join("known_nodes.json"))
+	}
+
+	async fn load_known_nodes(&self) -> Vec<NodeAddr> {
+		let Ok(path) = self.known_nodes_path() else {
+			return Vec::new();
+		};
+
+		let data = match tokio::fs::read(&path).await {
+			Ok(data) => data,
+			Err(_) => return Vec::new(),
+		};
+
+		serde_json::from_slice::<Vec<NodeAddr>>(&data).unwrap_or_default()
+	}
+
+	async fn save_known_nodes(&self, nodes: &[NodeAddr]) -> Result<()> {
+		let dir = self.iroh_state_dir()?;
+		tokio::fs::create_dir_all(&dir).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to create Iroh data dir: {}", e))
+		})?;
+
+		let path = self.known_nodes_path()?;
+		let data = serde_json::to_vec_pretty(nodes)
+			.map_err(|e| NetworkingError::Serialization(e))?;
+		tokio::fs::write(&path, data).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to persist known nodes: {}", e))
+		})?;
+
+		Ok(())
+	}
+
+	async fn persist_known_node(&self, node_addr: NodeAddr) {
+		let mut nodes: std::collections::BTreeSet<NodeAddr> =
+			self.load_known_nodes().await.into_iter().collect();
+		nodes.insert(node_addr);
+		let nodes: Vec<NodeAddr> = nodes.into_iter().collect();
+
+		if let Err(e) = self.save_known_nodes(&nodes).await {
+			self.logger
+				.debug(&format!("Failed to persist known nodes cache: {}", e))
+				.await;
+		}
+	}
+
 	/// Create a new networking service
 	pub async fn new(
 		device_manager: Arc<DeviceManager>,
@@ -125,16 +186,33 @@ impl NetworkingService {
 		data_dir: impl AsRef<std::path::Path>,
 		logger: Arc<dyn NetworkLogger>,
 	) -> Result<Self> {
-		// Generate network identity from master key
-		let device_key = device_manager
-			.master_key()
-			.await
-			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device key: {}", e)))?;
-		let identity = NetworkIdentity::from_device_key(&device_key).await?;
+		let data_dir_path = data_dir.as_ref().to_path_buf();
+
+		// Get canonical device ID (stable, stored in device.json)
+		let device_id = device_manager
+			.device_id()
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to get device ID: {}", e)))?;
+
+		// Derive network identity from device ID
+		let identity = NetworkIdentity::from_device_id(device_id)?;
 
 		// Convert identity to Iroh format
 		let secret_key = identity.to_iroh_secret_key()?;
 		let node_id = secret_key.public();
+
+		// Log for debugging
+		logger
+			.info(&format!(
+				"Network identity: device_id={}, node_id={}",
+				device_id, node_id
+			))
+			.await;
+
+		// Create Iroh data directory
+		let iroh_data_dir = data_dir_path.join("iroh");
+		tokio::fs::create_dir_all(&iroh_data_dir).await.map_err(|e| {
+			NetworkingError::Transport(format!("Failed to create Iroh data dir: {}", e))
+		})?;
 
 		// Create event broadcast channel (capacity of 1000 events)
 		// Using broadcast allows multiple subscribers (NetworkEventBridge + PeerSync instances)
@@ -155,6 +233,8 @@ impl NetworkingService {
 			endpoint: None,
 			identity,
 			node_id,
+			device_id,
+			iroh_data_dir: Some(iroh_data_dir),
 			discovery: None,
 			shutdown_sender: Arc::new(RwLock::new(None)),
 			command_sender: None,
@@ -206,12 +286,52 @@ impl NetworkingService {
 			))
 			.await;
 
+		// Preload paired devices and seed Iroh with a best-effort known node cache.
+		//
+		// Iroh does not (currently, in our pinned revision) expose an endpoint "data dir"
+		// for internal persistence. Instead we:
+		// - restore paired devices into the DeviceRegistry (node_id -> device_id mapping)
+		// - persist/restore a cache of `NodeAddr` values under `{config_dir}/iroh/known_nodes.json`
+		// - pass the merged list to `Endpoint::builder().known_nodes(...)`
+		let paired_nodes = {
+			let mut registry = self.device_registry.write().await;
+			let _ = registry.load_paired_devices().await?;
+			registry.get_auto_reconnect_devices().await.unwrap_or_default()
+		};
+
+		let mut known_nodes: std::collections::BTreeSet<NodeAddr> =
+			self.load_known_nodes().await.into_iter().collect();
+
+		for (_device_id, persisted) in paired_nodes {
+			let Ok(node_id) = persisted
+				.device_info
+				.network_fingerprint
+				.node_id
+				.parse::<NodeId>()
+			else {
+				continue;
+			};
+
+			let mut addr = NodeAddr::new(node_id);
+			if let Some(relay_url) = persisted.relay_url {
+				if let Ok(url) = relay_url.parse::<RelayUrl>() {
+					addr = addr.with_relay_url(url);
+				}
+			}
+
+			known_nodes.insert(addr);
+		}
+
+		let known_nodes: Vec<NodeAddr> = known_nodes.into_iter().collect();
+		self.save_known_nodes(&known_nodes).await?;
+
 		// Create endpoint with combined discovery:
 		// - mDNS for local network discovery
 		// - PkarrPublisher to publish our address to dns.iroh.link (enables remote discovery)
 		// - DnsDiscovery to resolve other nodes from dns.iroh.link
 		let endpoint = Endpoint::builder()
 			.secret_key(secret_key)
+			.known_nodes(known_nodes)
 			.alpns(vec![
 				PAIRING_ALPN.to_vec(),
 				FILE_TRANSFER_ALPN.to_vec(),
@@ -403,8 +523,14 @@ impl NetworkingService {
 				.node_id
 				.parse::<NodeId>()
 			{
-				// Build NodeAddr - Iroh will discover addresses automatically
-				let node_addr = NodeAddr::new(node_id);
+				// Build NodeAddr with cached relay URL (if available).
+				// This improves reconnection reliability, especially across NATs.
+				let mut node_addr = NodeAddr::new(node_id);
+				if let Some(relay_url) = &persisted_device.relay_url {
+					if let Ok(url) = relay_url.parse::<RelayUrl>() {
+						node_addr = node_addr.with_relay_url(url);
+					}
+				}
 
 				// Attempt connection with retries to give discovery time to work
 				let mut retry_count = 0;
@@ -934,7 +1060,7 @@ impl NetworkingService {
 
 	/// Get the local device ID
 	pub fn device_id(&self) -> Uuid {
-		self.identity.device_id()
+		self.device_id
 	}
 
 	/// Get the command sender for the event loop
@@ -1105,6 +1231,7 @@ impl NetworkingService {
 										item.node_info().data.relay_url().cloned(),
 										item.node_info().data.direct_addresses().clone()
 									);
+									self.persist_known_node(node_addr.clone()).await;
 
 									// Try to connect to the initiator
 									if let Err(e) = self.connect_to_node(node_addr.clone(), force_relay).await {
