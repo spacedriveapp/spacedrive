@@ -239,7 +239,9 @@ function App() {
 		return (
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
-					<Settings />
+					<ServerProvider>
+						<Settings />
+					</ServerProvider>
 				</SpacedriveProvider>
 			</PlatformProvider>
 		);

@@ -23,6 +23,7 @@ pub struct CoreStatus {
 pub struct DeviceInfo {
 	pub id: Uuid,
 	pub name: String,
+	pub slug: String,
 	pub os: String,
 	pub hardware_model: Option<String>,
 	pub created_at: DateTime<Utc>,

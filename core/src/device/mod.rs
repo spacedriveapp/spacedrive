@@ -2,7 +2,7 @@
 //!
 //! Handles persistent device identification across Spacedrive installations
 
-mod config;
+pub mod config;
 mod id;
 mod manager;
 

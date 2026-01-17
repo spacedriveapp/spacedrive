@@ -9,6 +9,7 @@
 //! - Metadata operations (hierarchical tagging)
 
 pub mod addressing;
+pub mod config;
 // pub mod content;
 pub mod core;
 pub mod devices;

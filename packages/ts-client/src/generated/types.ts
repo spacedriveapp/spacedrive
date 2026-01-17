@@ -59,6 +59,43 @@ export type ApfsVolumeInfo = { disk_id: string; uuid: string; role: ApfsVolumeRo
  */
 export type ApfsVolumeRole = "System" | "Data" | "Preboot" | "Recovery" | "VM" | { Other: string };
 
+/**
+ * App configuration response with all fields exposed
+ */
+export type AppConfigOutput = { 
+/**
+ * Config schema version
+ */
+version: number; 
+/**
+ * Data directory path
+ */
+data_dir: string; 
+/**
+ * Logging level
+ */
+log_level: string; 
+/**
+ * Whether telemetry is enabled
+ */
+telemetry_enabled: boolean; 
+/**
+ * User preferences
+ */
+preferences: PreferencesOutput; 
+/**
+ * Job logging configuration
+ */
+job_logging: JobLoggingConfigOutput; 
+/**
+ * Service configuration
+ */
+services: ServiceConfigOutput; 
+/**
+ * Daemon logging configuration
+ */
+logging: LoggingConfigOutput };
+
 export type ApplyTagsInput = { 
 /**
  * What to tag: content identities or specific entries
@@ -640,7 +677,7 @@ connection_method?: ConnectionMethod | null };
  */
 export type DeviceFormFactor = "Desktop" | "Laptop" | "Mobile" | "Tablet" | "Server" | "Other";
 
-export type DeviceInfo = { id: string; name: string; os: string; hardware_model: string | null; created_at: string };
+export type DeviceInfo = { id: string; name: string; slug: string; os: string; hardware_model: string | null; created_at: string };
 
 /**
  * Device metrics snapshot
@@ -1483,6 +1520,16 @@ completion: ProgressCompletion;
 performance: PerformanceMetrics };
 
 /**
+ * Input for getting app configuration
+ */
+export type GetAppConfigQueryInput = null;
+
+/**
+ * Input for getting library configuration
+ */
+export type GetLibraryConfigQueryInput = null;
+
+/**
  * Input for getting sync activity summary
  */
 export type GetSyncActivityInput = Record<string, never>;
@@ -1825,6 +1872,35 @@ export type IndexerMetrics = { total_duration: { secs: number; nanos: number }; 
 export type IndexerSettings = { no_system_files?: boolean; no_git?: boolean; no_dev_dirs?: boolean; no_hidden?: boolean; gitignore?: boolean; only_images?: boolean };
 
 /**
+ * Indexer settings output
+ */
+export type IndexerSettingsOutput = { 
+/**
+ * Skip system files
+ */
+no_system_files: boolean; 
+/**
+ * Skip .git repositories
+ */
+no_git: boolean; 
+/**
+ * Skip dev directories (node_modules, etc.)
+ */
+no_dev_dirs: boolean; 
+/**
+ * Skip hidden files
+ */
+no_hidden: boolean; 
+/**
+ * Respect .gitignore files
+ */
+gitignore: boolean; 
+/**
+ * Only index images
+ */
+only_images: boolean };
+
+/**
  * Cumulative statistics tracked throughout the indexing process.
  */
 export type IndexerStats = { files: number; dirs: number; bytes: number; symlinks: number; skipped: number; errors: number };
@@ -1960,6 +2036,11 @@ export type JobListInput = { status: JobStatus | null };
 export type JobListItem = { id: string; name: string; device_id: string; status: JobStatus; progress: number; action_type: string | null; action_context: ActionContextInfo | null; created_at: string; started_at: string | null; completed_at: string | null };
 
 export type JobListOutput = { jobs: JobListItem[] };
+
+/**
+ * Job logging configuration output
+ */
+export type JobLoggingConfigOutput = { enabled: boolean; log_directory: string; max_file_size: number; include_debug: boolean; log_ephemeral_jobs: boolean };
 
 /**
  * Output from a completed job
@@ -2316,6 +2397,43 @@ auto_track_external_volumes: boolean;
  * Indexer settings (rule toggles and related)
  */
 indexer?: IndexerSettings };
+
+/**
+ * Library settings output
+ */
+export type LibrarySettingsOutput = { 
+/**
+ * Whether to generate thumbnails for media files
+ */
+generate_thumbnails: boolean; 
+/**
+ * Thumbnail quality (0-100)
+ */
+thumbnail_quality: number; 
+/**
+ * Whether to enable AI-powered tagging
+ */
+enable_ai_tagging: boolean; 
+/**
+ * Whether sync is enabled for this library
+ */
+sync_enabled: boolean; 
+/**
+ * Whether the library is encrypted at rest
+ */
+encryption_enabled: boolean; 
+/**
+ * Whether to automatically track system volumes
+ */
+auto_track_system_volumes: boolean; 
+/**
+ * Whether to automatically track external volumes when connected
+ */
+auto_track_external_volumes: boolean; 
+/**
+ * Indexer settings
+ */
+indexer: IndexerSettingsOutput };
 
 /**
  * Library statistics
@@ -2693,6 +2811,11 @@ export type LocationsListOutput = { locations: Location[] };
 export type LocationsListQueryInput = null;
 
 /**
+ * Logging configuration output
+ */
+export type LoggingConfigOutput = { main_filter: string };
+
+/**
  * Input for media listing
  */
 export type MediaListingInput = { 
@@ -3032,6 +3155,11 @@ export type PerformanceSnapshot = { broadcast_latency: LatencySnapshot; apply_la
 export type PingInput = { message: string; count?: number | null };
 
 export type PingOutput = { echo: string; count: number; extension_works: boolean };
+
+/**
+ * User preferences output
+ */
+export type PreferencesOutput = { theme: string; language: string };
 
 /**
  * Privacy levels for tag visibility control
@@ -3415,6 +3543,11 @@ query: string;
 filters: TagSearchFilters };
 
 export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
+
+/**
+ * Service configuration output
+ */
+export type ServiceConfigOutput = { networking_enabled: boolean; volume_monitoring_enabled: boolean; fs_watcher_enabled: boolean; statistics_listener_enabled: boolean };
 
 export type ServiceState = { running: boolean; details: string | null };
 
@@ -4013,9 +4146,169 @@ total_count: number;
  */
 total_size: number };
 
+/**
+ * Input for updating app configuration
+ * All fields are optional for partial updates
+ */
+export type UpdateAppConfigInput = { 
+/**
+ * Whether telemetry is enabled
+ */
+telemetry_enabled?: boolean | null; 
+/**
+ * Logging level
+ */
+log_level?: string | null; 
+/**
+ * Theme preference (system, light, dark)
+ */
+theme?: string | null; 
+/**
+ * Language preference (ISO 639-1 code)
+ */
+language?: string | null; 
+/**
+ * Whether networking is enabled
+ */
+networking_enabled?: boolean | null; 
+/**
+ * Whether volume monitoring is enabled
+ */
+volume_monitoring_enabled?: boolean | null; 
+/**
+ * Whether filesystem watcher is enabled
+ */
+fs_watcher_enabled?: boolean | null; 
+/**
+ * Whether statistics listener is enabled
+ */
+statistics_listener_enabled?: boolean | null; 
+/**
+ * Whether job logging is enabled
+ */
+job_logging_enabled?: boolean | null; 
+/**
+ * Whether to include debug logs in job logs
+ */
+job_logging_include_debug?: boolean | null };
+
+/**
+ * Output for update app configuration action
+ */
+export type UpdateAppConfigOutput = { 
+/**
+ * Whether the update was successful
+ */
+success: boolean; 
+/**
+ * Message describing the result
+ */
+message: string; 
+/**
+ * Whether a restart is recommended for changes to take effect
+ */
+requires_restart: boolean };
+
+/**
+ * Input for updating device configuration
+ */
+export type UpdateDeviceInput = { 
+/**
+ * Device name
+ */
+name?: string | null; 
+/**
+ * Device slug
+ */
+slug?: string | null };
+
+/**
+ * Output from updating device configuration
+ */
+export type UpdateDeviceOutput = { 
+/**
+ * Updated device name
+ */
+name: string; 
+/**
+ * Updated device slug
+ */
+slug: string };
+
 export type UpdateGroupInput = { group_id: string; name: string | null; is_collapsed: boolean | null };
 
 export type UpdateGroupOutput = { group: SpaceGroup };
+
+/**
+ * Input for updating library configuration
+ * All fields are optional for partial updates
+ */
+export type UpdateLibraryConfigInput = { 
+/**
+ * Whether to generate thumbnails for media files
+ */
+generate_thumbnails?: boolean | null; 
+/**
+ * Thumbnail quality (1-100)
+ */
+thumbnail_quality?: number | null; 
+/**
+ * Whether to enable AI-powered tagging
+ */
+enable_ai_tagging?: boolean | null; 
+/**
+ * Whether sync is enabled for this library
+ */
+sync_enabled?: boolean | null; 
+/**
+ * Whether the library is encrypted at rest
+ */
+encryption_enabled?: boolean | null; 
+/**
+ * Whether to automatically track system volumes
+ */
+auto_track_system_volumes?: boolean | null; 
+/**
+ * Whether to automatically track external volumes when connected
+ */
+auto_track_external_volumes?: boolean | null; 
+/**
+ * Skip system files
+ */
+no_system_files?: boolean | null; 
+/**
+ * Skip .git repositories
+ */
+no_git?: boolean | null; 
+/**
+ * Skip dev directories (node_modules, etc.)
+ */
+no_dev_dirs?: boolean | null; 
+/**
+ * Skip hidden files
+ */
+no_hidden?: boolean | null; 
+/**
+ * Respect .gitignore files
+ */
+gitignore?: boolean | null; 
+/**
+ * Only index images
+ */
+only_images?: boolean | null };
+
+/**
+ * Output for update library configuration action
+ */
+export type UpdateLibraryConfigOutput = { 
+/**
+ * Whether the update was successful
+ */
+success: boolean; 
+/**
+ * Message describing the result
+ */
+message: string };
 
 /**
  * Input for location path validation
@@ -4378,8 +4671,10 @@ success: boolean };
 // ===== API Type Unions =====
 
 export type CoreAction =
-     { type: 'core.ephemeral_reset'; input: EphemeralCacheResetInput; output: EphemeralCacheResetOutput }
+     { type: 'config.app.update'; input: UpdateAppConfigInput; output: UpdateAppConfigOutput }
+  |  { type: 'core.ephemeral_reset'; input: EphemeralCacheResetInput; output: EphemeralCacheResetOutput }
   |  { type: 'core.reset'; input: ResetDataInput; output: ResetDataOutput }
+  |  { type: 'device.update'; input: UpdateDeviceInput; output: UpdateDeviceOutput }
   |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
   |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
@@ -4396,7 +4691,8 @@ export type CoreAction =
 ;
 
 export type LibraryAction =
-     { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
+     { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
+  |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
   |  { type: 'files.rename'; input: FileRenameInput; output: JobReceipt }
@@ -4445,7 +4741,8 @@ export type LibraryAction =
 ;
 
 export type CoreQuery =
-     { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
+     { type: 'config.app.get'; input: GetAppConfigQueryInput; output: AppConfigOutput }
+  |  { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
@@ -4459,7 +4756,8 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
+     { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
+  |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
@@ -4491,8 +4789,10 @@ export type LibraryQuery =
 
 export const WIRE_METHODS = {
   coreActions: {
+    'config.app.update': 'action:config.app.update.input',
     'core.ephemeral_reset': 'action:core.ephemeral_reset.input',
     'core.reset': 'action:core.reset.input',
+    'device.update': 'action:device.update.input',
     'libraries.create': 'action:libraries.create.input',
     'libraries.delete': 'action:libraries.delete.input',
     'libraries.open': 'action:libraries.open.input',
@@ -4509,6 +4809,7 @@ export const WIRE_METHODS = {
   },
 
   libraryActions: {
+    'config.library.update': 'action:config.library.update.input',
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
     'files.delete': 'action:files.delete.input',
@@ -4558,6 +4859,7 @@ export const WIRE_METHODS = {
   },
 
   coreQueries: {
+    'config.app.get': 'query:config.app.get',
     'core.ephemeral_status': 'query:core.ephemeral_status',
     'core.events.list': 'query:core.events.list',
     'core.status': 'query:core.status',
@@ -4572,6 +4874,7 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
+    'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
     'files.alternate_instances': 'query:files.alternate_instances',
     'files.by_id': 'query:files.by_id',
