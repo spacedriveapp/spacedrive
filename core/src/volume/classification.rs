@@ -143,6 +143,22 @@ impl VolumeClassifier for LinuxClassifier {
 	}
 }
 
+/// iOS volume classifier
+///
+/// iOS presents unified device storage with no user-accessible separate volumes.
+/// All classification happens during detection - this classifier always returns Primary.
+#[cfg(target_os = "ios")]
+pub struct IosClassifier;
+
+#[cfg(target_os = "ios")]
+impl VolumeClassifier for IosClassifier {
+	fn classify(&self, _info: &VolumeDetectionInfo) -> VolumeType {
+		// iOS only has one volume type - the system volume
+		// All classification happens during detection
+		VolumeType::Primary
+	}
+}
+
 /// Fallback classifier for unknown platforms
 pub struct UnknownClassifier;
 
@@ -170,7 +186,14 @@ pub fn get_classifier() -> Box<dyn VolumeClassifier> {
 	#[cfg(target_os = "linux")]
 	return Box::new(LinuxClassifier);
 
-	#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+	#[cfg(target_os = "ios")]
+	return Box::new(IosClassifier);
+
+	#[cfg(not(any(
+		target_os = "macos",
+		target_os = "windows",
+		target_os = "linux",
+		target_os = "ios"
+	)))]
 	return Box::new(UnknownClassifier);
 }
-// test comment

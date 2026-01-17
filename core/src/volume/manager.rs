@@ -49,6 +49,13 @@ fn get_volume_watch_paths() -> Vec<PathBuf> {
 		// Could potentially use WMI events in the future
 	}
 
+	#[cfg(target_os = "ios")]
+	{
+		// iOS doesn't support filesystem watching for volumes
+		// Volume changes detected via app lifecycle events instead
+		// See VolumeManager::refresh_on_lifecycle_event()
+	}
+
 	// Filter to only existing directories
 	paths.into_iter().filter(|p: &PathBuf| p.exists()).collect()
 }
@@ -82,7 +89,6 @@ pub struct VolumeManager {
 
 	/// Weak reference to library manager for database operations
 	library_manager: Arc<RwLock<Option<Weak<LibraryManager>>>>,
-
 }
 
 impl VolumeManager {
@@ -634,8 +640,10 @@ impl VolumeManager {
 		}
 
 		// Query database for tracked volumes to merge metadata
-		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>, Option<u64>, Option<u64>)> =
-			HashMap::new();
+		let mut tracked_volumes_map: HashMap<
+			VolumeFingerprint,
+			(Uuid, Option<String>, Option<u64>, Option<u64>),
+		> = HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
 				let libraries = lib_mgr.get_open_libraries().await;
@@ -696,7 +704,9 @@ impl VolumeManager {
 			seen_fingerprints.insert(fingerprint.clone());
 
 			// Merge tracked volume metadata from database
-			if let Some((library_id, display_name, read_speed, write_speed)) = tracked_volumes_map.get(&fingerprint) {
+			if let Some((library_id, display_name, read_speed, write_speed)) =
+				tracked_volumes_map.get(&fingerprint)
+			{
 				detected.is_tracked = true;
 				detected.library_id = Some(*library_id);
 				detected.display_name = display_name.clone();
@@ -751,7 +761,10 @@ impl VolumeManager {
 									let fp = fingerprint.clone();
 									let vol_name = updated_volume.name.clone();
 									tokio::spawn(async move {
-										info!("Auto-running speed test for mounted volume: {}", vol_name);
+										info!(
+											"Auto-running speed test for mounted volume: {}",
+											vol_name
+										);
 										if let Err(e) = mgr.run_speed_test(&fp).await {
 											warn!("Auto speed test failed: {}", e);
 										}
@@ -952,18 +965,33 @@ impl VolumeManager {
 		// IMPORTANT: Sort by mount point length (longest first) so more specific mounts
 		// are checked before generic ones (e.g., /System/Volumes/Data before /)
 		let volumes = self.volumes.read().await;
-		info!("volume_for_path: Looking for path {} in {} volumes", canonical_path.display(), volumes.len());
+		info!(
+			"volume_for_path: Looking for path {} in {} volumes",
+			canonical_path.display(),
+			volumes.len()
+		);
 
 		let mut sorted_volumes: Vec<_> = volumes.iter().collect();
 		sorted_volumes.sort_by(|a, b| {
-			b.1.mount_point.to_string_lossy().len()
+			b.1.mount_point
+				.to_string_lossy()
+				.len()
 				.cmp(&a.1.mount_point.to_string_lossy().len())
 		});
 
 		for (fp, volume) in sorted_volumes {
-			info!("volume_for_path: Checking volume '{}' at {} (fingerprint: {})", volume.name, volume.mount_point.display(), fp.0);
+			info!(
+				"volume_for_path: Checking volume '{}' at {} (fingerprint: {})",
+				volume.name,
+				volume.mount_point.display(),
+				fp.0
+			);
 			if volume.contains_path(&canonical_path) {
-				info!("volume_for_path: MATCH! Path {} is on volume '{}'", canonical_path.display(), volume.name);
+				info!(
+					"volume_for_path: MATCH! Path {} is on volume '{}'",
+					canonical_path.display(),
+					volume.name
+				);
 				// Cache the result using canonical path
 				let mut cache = self.path_cache.write().await;
 				cache.insert(canonical_path.clone(), volume.fingerprint.clone());
@@ -971,7 +999,11 @@ impl VolumeManager {
 			}
 		}
 
-		info!("No volume found for path: {} (searched {} volumes)", canonical_path.display(), volumes.len());
+		info!(
+			"No volume found for path: {} (searched {} volumes)",
+			canonical_path.display(),
+			volumes.len()
+		);
 		None
 	}
 
@@ -996,7 +1028,10 @@ impl VolumeManager {
 		// Check if this is a cloud path
 		if let Some((service, identifier, _path)) = sdpath.as_cloud() {
 			// Cloud path - use identity-based lookup
-			info!("Cloud path detected: service={:?}, identifier={}", service, identifier);
+			info!(
+				"Cloud path detected: service={:?}, identifier={}",
+				service, identifier
+			);
 			Ok(self.find_cloud_volume(service, identifier).await)
 		} else {
 			// Local path - resolve by filesystem path
@@ -1368,8 +1403,7 @@ impl VolumeManager {
 
 		debug!(
 			"Successfully inserted volume into database - id: {}, uuid: {}",
-			model.id,
-			model.uuid
+			model.id, model.uuid
 		);
 
 		// Verify the insert by immediately querying it back
@@ -2057,6 +2091,36 @@ impl VolumeManager {
 		None
 	}
 
+	/// Refresh volumes on iOS app lifecycle transition
+	///
+	/// iOS doesn't support filesystem watching for volume changes.
+	/// This method should be called from the Swift layer when:
+	/// - applicationDidBecomeActive (app enters foreground)
+	/// - applicationWillResignActive (app enters background)
+	///
+	/// This ensures storage capacity information stays current without
+	/// unnecessary polling that would drain battery.
+	#[cfg(target_os = "ios")]
+	pub async fn refresh_on_lifecycle_event(&self, event: &str) {
+		debug!("iOS lifecycle event: {}, refreshing volumes", event);
+
+		// Re-detect volumes to get updated capacity information
+		match detection::detect_volumes(self.device_id, &self.config).await {
+			Ok(volumes) => {
+				let mut volumes_map = self.volumes.write().await;
+				for volume in volumes {
+					volumes_map.insert(volume.fingerprint.clone(), volume);
+				}
+				debug!(
+					"Successfully refreshed volumes on lifecycle event: {}",
+					event
+				);
+			}
+			Err(e) => {
+				warn!("Failed to refresh volumes on lifecycle event: {}", e);
+			}
+		}
+	}
 }
 
 /// Statistics about detected volumes

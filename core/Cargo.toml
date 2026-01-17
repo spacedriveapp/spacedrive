@@ -220,6 +220,20 @@ windows-sys = { version = "0.52", features = ["Win32_Storage_FileSystem", "Win32
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.15.1", features = ["metal"] }
 
+# iOS-specific dependencies for volume detection via Objective-C FFI
+[target.'cfg(target_os = "ios")'.dependencies]
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+	"NSFileManager",
+	"NSURL",
+	"NSString",
+	"NSArray",
+	"NSValue",
+	"NSDictionary",
+	"NSError",
+] }
+objc2-ui-kit = { version = "0.3", features = ["UIDevice"] }
+
 [[bin]]
 name = "spacedrive"
 path = "src/bin/cli.rs"
