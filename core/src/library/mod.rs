@@ -381,8 +381,13 @@ impl Library {
 	}
 
 	/// Get the job logs directory for this library
-	pub fn job_logs_dir(&self) -> PathBuf {
-		self.path.join("logs")
+	/// Resolves relative paths against library path, absolute paths used as-is
+	pub fn job_logs_dir(&self, config: &crate::config::JobLoggingConfig) -> PathBuf {
+		if config.log_directory.is_absolute() {
+			config.log_directory.clone()
+		} else {
+			self.path.join(&config.log_directory)
+		}
 	}
 
 	/// Get the path for a specific thumbnail with size

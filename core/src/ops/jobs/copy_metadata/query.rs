@@ -75,9 +75,8 @@ impl LibraryQuery for CopyMetadataQuery {
 		}
 
 		// Deserialize the job state
-		let copy_job: FileCopyJob = rmp_serde::from_slice(&job_record.state).map_err(|e| {
-			QueryError::Internal(format!("Failed to deserialize job state: {}", e))
-		})?;
+		let copy_job: FileCopyJob = rmp_serde::from_slice(&job_record.state)
+			.map_err(|e| QueryError::Internal(format!("Failed to deserialize job state: {}", e)))?;
 
 		// Build File domain objects from entry UUIDs
 		let mut metadata = copy_job.job_metadata;
@@ -91,11 +90,8 @@ impl LibraryQuery for CopyMetadataQuery {
 
 		// Batch load File objects
 		if !entry_uuids.is_empty() {
-			match crate::domain::file::File::from_entry_uuids(
-				library.db().conn(),
-				&entry_uuids,
-			)
-			.await
+			match crate::domain::file::File::from_entry_uuids(library.db().conn(), &entry_uuids)
+				.await
 			{
 				Ok(files) => {
 					metadata.file_objects = files;

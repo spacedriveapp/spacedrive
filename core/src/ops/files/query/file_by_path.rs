@@ -316,7 +316,9 @@ impl FileByPathQuery {
 		PathResolver::resolve_to_entry(db, sd_path)
 			.await
 			.map_err(|e| QueryError::Internal(format!("Database error: {}", e)))?
-			.ok_or_else(|| QueryError::Internal(format!("Entry not found for path: {}", sd_path.display())))
+			.ok_or_else(|| {
+				QueryError::Internal(format!("Entry not found for path: {}", sd_path.display()))
+			})
 	}
 }
 

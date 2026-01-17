@@ -181,7 +181,10 @@ impl NetworkingService {
 	///
 	/// This enables the device registry to emit complete device data with hardware_model
 	/// by querying the library database instead of just using network DeviceInfo.
-	pub async fn set_library_manager(&self, library_manager: std::sync::Weak<crate::library::LibraryManager>) {
+	pub async fn set_library_manager(
+		&self,
+		library_manager: std::sync::Weak<crate::library::LibraryManager>,
+	) {
 		let mut registry = self.device_registry.write().await;
 		registry.set_library_manager(library_manager);
 	}

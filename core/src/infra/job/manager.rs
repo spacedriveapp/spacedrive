@@ -325,6 +325,11 @@ impl JobManager {
 			None
 		};
 
+		// Resolve job logs directory using config (if available)
+		let job_logs_dir = job_logging_config
+			.as_ref()
+			.map(|config| library.job_logs_dir(config));
+
 		// Create executor using the erased job
 		let executor = erased_job.create_executor(
 			job_id,
@@ -341,7 +346,7 @@ impl JobManager {
 			networking,
 			volume_manager,
 			job_logging_config,
-			Some(library.job_logs_dir()),
+			job_logs_dir,
 			Some(persistence_complete_tx),
 		);
 
@@ -419,13 +424,16 @@ impl JobManager {
 									};
 
 									// Emit final progress event if one exists (may have been throttled)
-									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+									if let Some(final_progress) =
+										latest_progress_for_monitor.lock().await.as_ref()
+									{
 										let generic_progress = match final_progress {
 											Progress::Structured(value) => {
 												// Try to deserialize CopyProgress and convert to GenericProgress
-												if let Ok(copy_progress) = serde_json::from_value::<
-													crate::ops::files::copy::CopyProgress,
-												>(value.clone())
+												if let Ok(copy_progress) =
+													serde_json::from_value::<
+														crate::ops::files::copy::CopyProgress,
+													>(value.clone())
 												{
 													use crate::infra::job::generic_progress::ToGenericProgress;
 													Some(copy_progress.to_generic_progress())
@@ -441,7 +449,8 @@ impl JobManager {
 											job_id: job_id_clone.to_string(),
 											job_type: job_type_str.to_string(),
 											device_id,
-											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											progress: final_progress.as_percentage().unwrap_or(0.0)
+												as f64,
 											message: Some(final_progress.to_string()),
 											generic_progress,
 										});
@@ -753,6 +762,11 @@ impl JobManager {
 			None
 		};
 
+		// Resolve job logs directory using config (if available)
+		let job_logs_dir = job_logging_config
+			.as_ref()
+			.map(|config| library.job_logs_dir(config));
+
 		// Create executor
 		let executor = JobExecutor::new(
 			job,
@@ -770,7 +784,7 @@ impl JobManager {
 			networking,
 			volume_manager,
 			job_logging_config,
-			Some(library.job_logs_dir()),
+			job_logs_dir,
 			Some(persistence_complete_tx),
 		);
 
@@ -845,13 +859,16 @@ impl JobManager {
 									};
 
 									// Emit final progress event if one exists (may have been throttled)
-									if let Some(final_progress) = latest_progress_for_monitor.lock().await.as_ref() {
+									if let Some(final_progress) =
+										latest_progress_for_monitor.lock().await.as_ref()
+									{
 										let generic_progress = match final_progress {
 											Progress::Structured(value) => {
 												// Try to deserialize CopyProgress and convert to GenericProgress
-												if let Ok(copy_progress) = serde_json::from_value::<
-													crate::ops::files::copy::CopyProgress,
-												>(value.clone())
+												if let Ok(copy_progress) =
+													serde_json::from_value::<
+														crate::ops::files::copy::CopyProgress,
+													>(value.clone())
 												{
 													use crate::infra::job::generic_progress::ToGenericProgress;
 													Some(copy_progress.to_generic_progress())
@@ -867,7 +884,8 @@ impl JobManager {
 											job_id: job_id_clone.to_string(),
 											job_type: job_type_str.to_string(),
 											device_id,
-											progress: final_progress.as_percentage().unwrap_or(0.0) as f64,
+											progress: final_progress.as_percentage().unwrap_or(0.0)
+												as f64,
 											message: Some(final_progress.to_string()),
 											generic_progress,
 										});

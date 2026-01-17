@@ -138,7 +138,8 @@ impl EphemeralIndexCache {
 
 		// Try to load from snapshot
 		if let Ok(snapshot_cache_dir) = super::snapshot::get_snapshot_cache_dir() {
-			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir) {
+			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir)
+			{
 				if let Ok(Some(loaded_index)) = EphemeralIndex::load_snapshot(&snapshot_path) {
 					// Replace the global index with the loaded one
 					let mut index = self.index.write().await;
@@ -161,7 +162,8 @@ impl EphemeralIndexCache {
 	/// Save the current index to a snapshot file
 	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
 		if let Ok(snapshot_cache_dir) = super::snapshot::get_snapshot_cache_dir() {
-			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir) {
+			if let Ok(snapshot_path) = super::snapshot::snapshot_path_for(path, &snapshot_cache_dir)
+			{
 				let index = self.index.read().await;
 				index.save_snapshot(&snapshot_path)?;
 				tracing::info!("Saved snapshot for path: {}", path.display());

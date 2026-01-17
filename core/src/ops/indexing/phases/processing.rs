@@ -529,15 +529,16 @@ pub async fn run_processing_phase(
 
 			// Check if the root entry needs updating
 			let needs_update = root_entry.inode.is_none()
-				|| inode.map(|i| i != root_entry.inode.unwrap_or(-1) as u64).unwrap_or(false)
+				|| inode
+					.map(|i| i != root_entry.inode.unwrap_or(-1) as u64)
+					.unwrap_or(false)
 				|| root_entry.size != metadata.len() as i64
 				|| {
 					if let Ok(modified) = metadata.modified() {
 						if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
-							if let Some(timestamp) = chrono::DateTime::from_timestamp(
-								duration.as_secs() as i64,
-								0,
-							) {
+							if let Some(timestamp) =
+								chrono::DateTime::from_timestamp(duration.as_secs() as i64, 0)
+							{
 								root_entry.modified_at != timestamp
 							} else {
 								false
@@ -576,16 +577,16 @@ pub async fn run_processing_phase(
 					JobError::execution(format!("Failed to begin root update transaction: {}", e))
 				})?;
 
-				if let Err(e) = DatabaseStorage::update_entry_in_conn(
-					location_entry_id,
-					&root_dir_entry,
-					&txn,
-				)
-				.await
+				if let Err(e) =
+					DatabaseStorage::update_entry_in_conn(location_entry_id, &root_dir_entry, &txn)
+						.await
 				{
 					ctx.add_non_critical_error(format!("Failed to update root entry: {}", e));
 					if let Err(rollback_err) = txn.rollback().await {
-						warn!("Failed to rollback root update transaction: {}", rollback_err);
+						warn!(
+							"Failed to rollback root update transaction: {}",
+							rollback_err
+						);
 					}
 				} else {
 					txn.commit().await.map_err(|e| {
