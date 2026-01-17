@@ -677,7 +677,7 @@ connection_method?: ConnectionMethod | null };
  */
 export type DeviceFormFactor = "Desktop" | "Laptop" | "Mobile" | "Tablet" | "Server" | "Other";
 
-export type DeviceInfo = { id: string; name: string; os: string; hardware_model: string | null; created_at: string };
+export type DeviceInfo = { id: string; name: string; slug: string; os: string; hardware_model: string | null; created_at: string };
 
 /**
  * Device metrics snapshot
@@ -4209,6 +4209,32 @@ message: string;
  */
 requires_restart: boolean };
 
+/**
+ * Input for updating device configuration
+ */
+export type UpdateDeviceInput = { 
+/**
+ * Device name
+ */
+name?: string | null; 
+/**
+ * Device slug
+ */
+slug?: string | null };
+
+/**
+ * Output from updating device configuration
+ */
+export type UpdateDeviceOutput = { 
+/**
+ * Updated device name
+ */
+name: string; 
+/**
+ * Updated device slug
+ */
+slug: string };
+
 export type UpdateGroupInput = { group_id: string; name: string | null; is_collapsed: boolean | null };
 
 export type UpdateGroupOutput = { group: SpaceGroup };
@@ -4648,6 +4674,7 @@ export type CoreAction =
      { type: 'config.app.update'; input: UpdateAppConfigInput; output: UpdateAppConfigOutput }
   |  { type: 'core.ephemeral_reset'; input: EphemeralCacheResetInput; output: EphemeralCacheResetOutput }
   |  { type: 'core.reset'; input: ResetDataInput; output: ResetDataOutput }
+  |  { type: 'device.update'; input: UpdateDeviceInput; output: UpdateDeviceOutput }
   |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
   |  { type: 'libraries.delete'; input: LibraryDeleteInput; output: LibraryDeleteOutput }
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
@@ -4765,6 +4792,7 @@ export const WIRE_METHODS = {
     'config.app.update': 'action:config.app.update.input',
     'core.ephemeral_reset': 'action:core.ephemeral_reset.input',
     'core.reset': 'action:core.reset.input',
+    'device.update': 'action:device.update.input',
     'libraries.create': 'action:libraries.create.input',
     'libraries.delete': 'action:libraries.delete.input',
     'libraries.open': 'action:libraries.open.input',

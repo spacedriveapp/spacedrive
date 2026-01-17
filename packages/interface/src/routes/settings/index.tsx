@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import clsx from "clsx";
 import {
   GeneralSettings,
@@ -11,7 +11,6 @@ import {
   AboutSettings,
 } from "../../Settings/pages";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 
 interface SettingsSidebarProps {
   currentPage: string;
@@ -125,14 +124,6 @@ function SettingsContentWrapper() {
  * Renders immediately since daemon is already connected in main window.
  */
 export function Settings() {
-  const client = useSpacedriveClient();
-
-  useEffect(() => {
-    console.log("[Settings] Component mounted");
-    console.log("[Settings] Client:", client);
-    console.log("[Settings] Current library ID:", client.getCurrentLibraryId());
-  }, [client]);
-
   return (
     <>
       <SettingsContentWrapper />

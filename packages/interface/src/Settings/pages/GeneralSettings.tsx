@@ -1,6 +1,5 @@
 import { useForm } from "react-hook-form";
-import { useCoreQuery, useCoreMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";
-import { useEffect } from "react";
+import { useCoreQuery, useCoreMutation } from "../../contexts/SpacedriveContext";
 
 interface DeviceSettingsForm {
   name: string;
@@ -8,7 +7,6 @@ interface DeviceSettingsForm {
 }
 
 export function GeneralSettings() {
-  const client = useSpacedriveClient();
   const statusQuery = useCoreQuery({ type: "core.status", input: null as any });
   const configQuery = useCoreQuery({ type: "config.app.get", input: null as any });
   const updateDevice = useCoreMutation("device.update");
@@ -16,25 +14,6 @@ export function GeneralSettings() {
 
   const { data: status } = statusQuery;
   const { data: config } = configQuery;
-
-  useEffect(() => {
-    console.log("[GeneralSettings] Mounted");
-    console.log("[GeneralSettings] Client:", client);
-    console.log("[GeneralSettings] Status query:", {
-      data: statusQuery.data,
-      isLoading: statusQuery.isLoading,
-      error: statusQuery.error,
-      status: statusQuery.status,
-      fetchStatus: statusQuery.fetchStatus,
-    });
-    console.log("[GeneralSettings] Config query:", {
-      data: configQuery.data,
-      isLoading: configQuery.isLoading,
-      error: configQuery.error,
-      status: configQuery.status,
-      fetchStatus: configQuery.fetchStatus,
-    });
-  }, [client, statusQuery.data, statusQuery.isLoading, statusQuery.error, statusQuery.status, statusQuery.fetchStatus, configQuery.data, configQuery.isLoading, configQuery.error, configQuery.status, configQuery.fetchStatus]);
 
   const deviceForm = useForm<DeviceSettingsForm>({
     values: {
