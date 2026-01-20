@@ -191,6 +191,15 @@ impl NetworkingService {
 		registry.set_event_bus(event_bus);
 	}
 
+	/// Set the library manager for querying device data from database
+	pub async fn set_library_manager(
+		&self,
+		library_manager: std::sync::Weak<crate::library::LibraryManager>,
+	) {
+		let mut registry = self.device_registry.write().await;
+		registry.set_library_manager(library_manager);
+	}
+
 	/// Start the networking service
 	pub async fn start(&mut self) -> Result<()> {
 		// Check if already started

@@ -26,9 +26,13 @@ pub enum SerializablePairingState {
 	ResponsePending,
 	ResponseSent,
 	Completed,
-	Failed { reason: String },
+	Failed {
+		reason: String,
+	},
 	/// Pairing was rejected by the user
-	Rejected { reason: String },
+	Rejected {
+		reason: String,
+	},
 }
 
 impl From<PairingState> for SerializablePairingState {

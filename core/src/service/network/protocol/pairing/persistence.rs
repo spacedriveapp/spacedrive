@@ -35,11 +35,17 @@ enum SerializablePairingState {
 		confirmation_code: String,
 		expires_at: chrono::DateTime<chrono::Utc>,
 	},
-	ChallengeReceived { challenge: Vec<u8> },
+	ChallengeReceived {
+		challenge: Vec<u8>,
+	},
 	ResponseSent,
 	Completed,
-	Failed { reason: String },
-	Rejected { reason: String },
+	Failed {
+		reason: String,
+	},
+	Rejected {
+		reason: String,
+	},
 }
 
 impl From<&PairingSession> for SerializablePairingSession {
