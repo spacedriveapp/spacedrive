@@ -895,7 +895,11 @@ impl ProtocolHandler for PairingProtocolHandler {
 			}
 			// Reject messages are handled by handle_response, not here
 			PairingMessage::Reject { session_id, reason } => {
-				self.log_warn(&format!("Received Reject in handle_request for session {}: {}", session_id, reason)).await;
+				self.log_warn(&format!(
+					"Received Reject in handle_request for session {}: {}",
+					session_id, reason
+				))
+				.await;
 				Ok(Vec::new())
 			}
 		};

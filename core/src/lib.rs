@@ -68,6 +68,7 @@ pub struct Core {
 	pub services: Services,
 
 	/// WASM plugin manager
+	#[cfg(feature = "wasm")]
 	pub plugin_manager: Option<Arc<RwLock<crate::infra::extension::PluginManager>>>,
 
 	/// Shared context for core components
@@ -328,6 +329,10 @@ impl Core {
 						context.set_networking(networking.clone()).await;
 						// Set event bus for device registry to emit ResourceChanged events
 						networking.set_event_bus(context.events.clone()).await;
+						// Set library manager for device registry to query complete device data
+						networking
+							.set_library_manager(Arc::downgrade(&context.libraries().await))
+							.await;
 						info!("Networking service registered in context");
 
 						// Initialize sync service on already-loaded libraries
@@ -437,17 +442,21 @@ impl Core {
 		let api_dispatcher = ApiDispatcher::new(context.clone());
 
 		// Initialize plugin manager (WASM extensions)
-		let plugin_dir = data_dir.join("extensions");
-		let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
+		#[cfg(feature = "wasm")]
+		let plugin_manager = {
+			let plugin_dir = data_dir.join("extensions");
+			let _ = std::fs::create_dir_all(&plugin_dir); // Ensure directory exists
 
-		let plugin_manager = Arc::new(RwLock::new(crate::infra::extension::PluginManager::new(
-			plugin_dir,
-			context.clone(),
-			Arc::new(api_dispatcher.clone()),
-		)));
+			let pm = Arc::new(RwLock::new(crate::infra::extension::PluginManager::new(
+				plugin_dir,
+				context.clone(),
+				Arc::new(api_dispatcher.clone()),
+			)));
 
-		// Set in context so jobs can access it
-		context.set_plugin_manager(plugin_manager.clone()).await;
+			// Set in context so jobs can access it
+			context.set_plugin_manager(pm.clone()).await;
+			pm
+		};
 
 		events.emit(Event::CoreStarted);
 
@@ -459,6 +468,7 @@ impl Core {
 			events,
 			logs,
 			services,
+			#[cfg(feature = "wasm")]
 			plugin_manager: Some(plugin_manager),
 			context,
 			api_dispatcher,
@@ -534,6 +544,10 @@ impl Core {
 
 			// Set event bus for device registry to emit ResourceChanged events
 			networking_service.set_event_bus(self.events.clone()).await;
+			// Set library manager for device registry to query complete device data
+			networking_service
+				.set_library_manager(Arc::downgrade(&self.context.libraries().await))
+				.await;
 		}
 
 		logger.info("Networking initialized successfully").await;
@@ -618,7 +632,7 @@ async fn register_default_protocol_handlers(
 			logger.clone(),
 			command_sender,
 			event_sender,
-			data_dir,
+			data_dir.clone(),
 			networking.endpoint().cloned(),
 			networking.active_connections(),
 		),
@@ -657,6 +671,11 @@ async fn register_default_protocol_handlers(
 	// Inject device registry into file transfer handler for encryption
 	file_transfer_handler.set_device_registry(networking.device_registry());
 
+	// Inject context for dynamic location-based path validation
+	// The handler will query all libraries for registered locations at runtime.
+	// This ensures file transfers can only target directories that are managed by Spacedrive.
+	file_transfer_handler.set_context(context.clone());
+
 	// Get device ID for job activity handler
 	let device_id = context
 		.device_manager
@@ -686,38 +705,7 @@ async fn register_default_protocol_handlers(
 			.await;
 	}
 
-	// Set up job activity client for auto-subscription
-	let job_activity_client = service::network::JobActivityClient::new(
-		networking
-			.endpoint()
-			.cloned()
-			.ok_or("Endpoint not initialized")?,
-		networking.active_connections(),
-		context.remote_job_cache.clone(),
-		networking.device_registry(),
-	);
-
-	// Auto-subscribe to job activity from connected devices
-	let mut event_subscriber = networking.subscribe_events();
-
-	tokio::spawn(async move {
-		while let Ok(event) = event_subscriber.recv().await {
-			if let service::network::NetworkEvent::ConnectionEstablished { device_id, .. } = event {
-				if let Err(e) = job_activity_client
-					.subscribe_to_device(device_id, None)
-					.await
-				{
-					tracing::error!(
-						"Auto-subscribe to job activity failed for device {}: {}",
-						device_id,
-						e
-					);
-				} else {
-					tracing::info!("Auto-subscribed to job activity from device {}", device_id);
-				}
-			}
-		}
-	});
+	// Job activity auto-subscription disabled
 
 	// Brief delay to ensure protocol handlers are fully initialized and background
 	// tasks have started before accepting connections. This prevents race conditions

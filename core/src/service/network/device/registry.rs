@@ -36,6 +36,9 @@ pub struct DeviceRegistry {
 
 	/// Event bus for emitting resource change events
 	event_bus: Option<Arc<EventBus>>,
+
+	/// Library manager for querying device data from database
+	library_manager: Option<std::sync::Weak<crate::library::LibraryManager>>,
 }
 
 impl DeviceRegistry {
@@ -55,12 +58,78 @@ impl DeviceRegistry {
 			persistence,
 			logger,
 			event_bus: None,
+			library_manager: None,
 		}
 	}
 
 	/// Set the event bus for emitting resource change events
 	pub fn set_event_bus(&mut self, event_bus: Arc<EventBus>) {
 		self.event_bus = Some(event_bus);
+	}
+
+	/// Set the library manager for querying device data from database
+	pub fn set_library_manager(
+		&mut self,
+		library_manager: std::sync::Weak<crate::library::LibraryManager>,
+	) {
+		self.library_manager = Some(library_manager);
+	}
+
+	/// Update device online status in library database
+	async fn update_device_online_status(&self, device_id: Uuid, is_online: bool) {
+		let Some(library_manager_weak) = &self.library_manager else {
+			return;
+		};
+
+		let Some(library_manager) = library_manager_weak.upgrade() else {
+			return;
+		};
+
+		// Update in all libraries (device data is synced across libraries)
+		let all_libraries = library_manager.list().await;
+
+		for lib in all_libraries {
+			let db = lib.db().conn();
+
+			// Update device is_online status in database
+			use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+
+			match crate::infra::db::entities::device::Entity::find()
+				.filter(
+					crate::infra::db::entities::device::Column::Uuid
+						.eq(device_id.as_bytes().to_vec()),
+				)
+				.one(db)
+				.await
+			{
+				Ok(Some(model)) => {
+					let mut active_model: crate::infra::db::entities::device::ActiveModel =
+						model.into();
+					active_model.is_online = Set(is_online);
+					active_model.last_seen_at = Set(chrono::Utc::now());
+
+					if let Err(e) = active_model.update(db).await {
+						tracing::warn!(
+							device_id = %device_id,
+							library_id = %lib.id(),
+							error = %e,
+							"Failed to update device online status in database"
+						);
+					}
+				}
+				Ok(None) => {
+					// Device not found in this library - that's normal, device may not be synced yet
+				}
+				Err(e) => {
+					tracing::warn!(
+						device_id = %device_id,
+						library_id = %lib.id(),
+						error = %e,
+						"Failed to query device from database"
+					);
+				}
+			}
+		}
 	}
 
 	/// Emit a ResourceChanged event for a device
@@ -329,6 +398,9 @@ impl DeviceRegistry {
 				.await;
 		}
 
+		// Update device online status in library database
+		self.update_device_online_status(device_id, true).await;
+
 		// Emit ResourceChanged event for UI reactivity
 		self.emit_device_changed(device_id, &info, true);
 
@@ -382,6 +454,9 @@ impl DeviceRegistry {
 				))
 				.await;
 		}
+
+		// Update device online status in library database
+		self.update_device_online_status(device_id, false).await;
 
 		// Emit ResourceChanged event for UI reactivity
 		self.emit_device_changed(device_id, &info, false);
@@ -564,6 +639,9 @@ impl DeviceRegistry {
 					.await
 					.ok();
 
+				// Update device online status in library database
+				self.update_device_online_status(device_id, true).await;
+
 				// Emit ResourceChanged event for UI reactivity
 				self.emit_device_changed(device_id, &info, true);
 			}
@@ -600,6 +678,9 @@ impl DeviceRegistry {
 					.update_device_connection(device_id, false, None)
 					.await
 					.ok();
+
+				// Update device online status in library database
+				self.update_device_online_status(device_id, false).await;
 
 				// Emit ResourceChanged event for UI reactivity
 				self.emit_device_changed(device_id, &info, false);
@@ -821,6 +902,9 @@ impl DeviceRegistry {
 
 		// Emit ResourceChanged event for UI reactivity (after releasing borrow)
 		if let Some(info) = info_for_event {
+			// Update device online status in library database
+			self.update_device_online_status(device_id, true).await;
+
 			self.emit_device_changed(device_id, &info, true);
 		}
 

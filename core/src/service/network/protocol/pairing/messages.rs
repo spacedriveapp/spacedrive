@@ -35,8 +35,5 @@ pub enum PairingMessage {
 	///
 	/// Sent when the initiator's user rejects the pairing request
 	/// or when the confirmation times out.
-	Reject {
-		session_id: Uuid,
-		reason: String,
-	},
+	Reject { session_id: Uuid, reason: String },
 }

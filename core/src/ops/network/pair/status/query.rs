@@ -41,7 +41,10 @@ impl CoreQuery for PairStatusQuery {
 				// Extract device info
 				let (remote_device_name, remote_device_os) =
 					if let Some(ref info) = s.remote_device_info {
-						(Some(info.device_name.clone()), Some(info.os_version.clone()))
+						(
+							Some(info.device_name.clone()),
+							Some(info.os_version.clone()),
+						)
 					} else {
 						(None, None)
 					};

@@ -17,11 +17,7 @@ impl PairingProtocolHandler {
 	///
 	/// This is sent when the initiator's user rejects the pairing request
 	/// or when the confirmation times out.
-	pub(crate) async fn handle_rejection(
-		&self,
-		session_id: Uuid,
-		reason: String,
-	) -> Result<()> {
+	pub(crate) async fn handle_rejection(&self, session_id: Uuid, reason: String) -> Result<()> {
 		self.log_info(&format!(
 			"Pairing request rejected for session {}: {}",
 			session_id, reason
