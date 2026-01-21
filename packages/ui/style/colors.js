@@ -11,9 +11,9 @@
 const colors = {
 	// Accent color
 	accent: {
-		DEFAULT: '220, 90%, 56%',
-		faint: '220, 90%, 64%',
-		deep: '220, 90%, 47%',
+		DEFAULT: '208, 100%, 57%',
+		faint: '208, 100%, 64%',
+		deep: '208, 100%, 47%',
 	},
 
 	// Text colors (ink)

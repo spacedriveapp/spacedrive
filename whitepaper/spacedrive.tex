@@ -1245,7 +1245,7 @@ This domain separation eliminates central coordinators, single points of failure
 
 \paragraph{Device-Authoritative Data}
 
-Each device maintains authoritative control over its own filesystem index, including its Locations, Entries, and Volumes. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible by construction. Synchronization employs a per-resource watermark system that enables efficient incremental sync.
+Each device maintains authoritative control over its own filesystem index. Ownership flows through volumes: each device owns its attached volumes, and locations and entries inherit ownership from their volume. This indirection enables portable storage---when an external drive moves between machines, a single volume update transfers ownership of all associated data instantly. Since no other device can modify another's local filesystem, write conflicts for this data class are impossible by construction. Synchronization employs a per-resource watermark system that enables efficient incremental sync.
 
 Rather than tracking sync progress globally, the system maintains independent watermarks for each resource type (locations, entries, volumes). This granular approach enables targeted recovery: if entry synchronization falls behind, only entries require re-syncing while location and volume sync remain unaffected. Each watermark advances only when data is actually received---a critical invariant that prevents data loss when network requests return empty results.
 

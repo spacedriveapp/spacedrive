@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
@@ -9,10 +9,10 @@ import { SpaceGroup } from "./SpaceGroup";
 import { SpaceItem } from "./SpaceItem";
 import { AddGroupButton } from "./AddGroupButton";
 import { SpaceCustomizationPanel } from "./SpaceCustomizationPanel";
-import { useSpacedriveClient } from "../../context";
+import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
-import { usePlatform } from "../../platform";
-import { useJobs } from "../JobManager/hooks/useJobs";
+import { usePlatform } from "../../contexts/PlatformContext";
+import { useJobsContext } from "../JobManager/hooks/JobsContext";
 import { useSyncCount } from "../SyncMonitor/hooks/useSyncCount";
 import { useSyncMonitor } from "../SyncMonitor/hooks/useSyncMonitor";
 import { PeerList } from "../SyncMonitor/components/PeerList";
@@ -95,7 +95,7 @@ function SpaceGroupWithDropZone({
 }
 
 // Sync Monitor Button with Popover
-function SyncButton() {
+const SyncButton = memo(function SyncButton() {
   const popover = usePopover();
   const navigate = useNavigate();
   const [showActivityFeed, setShowActivityFeed] = useState(false);
@@ -198,24 +198,26 @@ function SyncButton() {
       )}
     </Popover>
   );
-}
+});
 
 // Jobs Button with Popover
-function JobsButton({ 
-  activeJobCount, 
-  hasRunningJobs, 
-  jobs, 
-  pause, 
-  resume, 
+const JobsButton = memo(function JobsButton({
+  activeJobCount,
+  hasRunningJobs,
+  jobs,
+  pause,
+  resume,
   cancel,
-  navigate 
-}: { 
+  getSpeedHistory,
+  navigate
+}: {
   activeJobCount: number;
   hasRunningJobs: boolean;
   jobs: any[];
   pause: (jobId: string) => Promise<void>;
   resume: (jobId: string) => Promise<void>;
   cancel: (jobId: string) => Promise<void>;
+  getSpeedHistory: (jobId: string) => any[];
   navigate: any;
 }) {
   const popover = usePopover();
@@ -286,12 +288,18 @@ function JobsButton({
           }}
           transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
         >
-          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} />
+          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} getSpeedHistory={getSpeedHistory} />
         </motion.div>
       )}
     </Popover>
   );
-}
+}, (prevProps, nextProps) => {
+  // Only re-render if these specific values change
+  return (
+    prevProps.activeJobCount === nextProps.activeJobCount &&
+    prevProps.hasRunningJobs === nextProps.hasRunningJobs
+  );
+});
 
 interface SpacesSidebarProps {
   isPreviewActive?: boolean;
@@ -309,7 +317,7 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
 
   // Get sync and job status for icons
   const { onlinePeerCount, isSyncing } = useSyncCount();
-  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel } = useJobs();
+  const { activeJobCount, hasRunningJobs, jobs, pause, resume, cancel, getSpeedHistory } = useJobsContext();
 
   const { currentSpaceId, setCurrentSpace } = useSidebarStore();
   const { data: spacesData } = useSpaces();
@@ -424,13 +432,14 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <SyncButton />
-              <JobsButton 
+              <JobsButton
                 activeJobCount={activeJobCount}
                 hasRunningJobs={hasRunningJobs}
                 jobs={jobs}
                 pause={pause}
                 resume={resume}
                 cancel={cancel}
+                getSpeedHistory={getSpeedHistory}
                 navigate={navigate}
               />
               <TopBarButton

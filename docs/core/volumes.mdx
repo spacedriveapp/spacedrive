@@ -32,6 +32,14 @@ println!("Volume: {} ({})", volume.name, volume.fingerprint);
 
 This fingerprint remains stable even when mount points change.
 
+### Sync Ownership
+
+Volumes serve as the ownership anchor for the sync system. Entries and locations reference a volume, inheriting ownership from the volume's device. This indirection enables portable storage: when you plug an external drive into a different machine, updating the volume's device reference transfers ownership of all associated files instantly. No bulk updates needed.
+
+<Info>
+See [Library Sync](/docs/core/library-sync) for details on how ownership flows through volumes and enables seamless device transfers.
+</Info>
+
 ### Unified Addressing
 
 Spacedrive uses service-native URIs for cloud volumes that match industry tools:

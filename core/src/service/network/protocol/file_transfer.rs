@@ -40,6 +40,11 @@ pub struct FileTransferProtocolHandler {
 		Option<Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>>,
 	/// Logger for protocol operations
 	logger: Arc<dyn NetworkLogger>,
+	/// Allowed paths for file transfers (indexed locations).
+	/// File writes are restricted to these directories for security.
+	allowed_paths: Arc<RwLock<Vec<PathBuf>>>,
+	/// Core context for dynamic location lookup (if available).
+	core_context: Option<std::sync::Arc<crate::context::CoreContext>>,
 }
 
 /// Configuration for file transfers
@@ -122,7 +127,7 @@ pub struct FileMetadata {
 /// Universal message types for file operations
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FileTransferMessage {
-	/// Request to initiate file transfer
+	/// Request to initiate file transfer (PUSH: sender → receiver)
 	TransferRequest {
 		transfer_id: Uuid,
 		file_metadata: FileMetadata,
@@ -173,6 +178,27 @@ pub enum FileTransferMessage {
 
 	/// Final acknowledgment from receiver after getting TransferComplete
 	TransferFinalAck { transfer_id: Uuid },
+
+	/// Request to pull a file from remote device (PULL: requester ← source)
+	PullRequest {
+		/// Unique identifier for this transfer
+		transfer_id: Uuid,
+		/// The path on the remote device to pull from
+		source_path: PathBuf,
+		/// The device ID making the request
+		requested_by: Uuid,
+	},
+
+	/// Response to a pull request
+	PullResponse {
+		transfer_id: Uuid,
+		/// File metadata if accepted
+		file_metadata: Option<FileMetadata>,
+		/// Whether the pull was accepted
+		accepted: bool,
+		/// Error message if rejected
+		error: Option<String>,
+	},
 }
 
 /// Types of transfer errors
@@ -186,6 +212,17 @@ pub enum TransferErrorType {
 	Timeout,
 	Cancelled,
 	ProtocolError,
+	PathNotFound,
+	AccessDenied,
+}
+
+/// Transfer direction for cross-device operations
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TransferDirection {
+	/// Local source -> Remote destination (existing PUSH behavior)
+	Push,
+	/// Remote source -> Local destination (new PULL behavior)
+	Pull,
 }
 
 impl FileTransferProtocolHandler {
@@ -196,6 +233,8 @@ impl FileTransferProtocolHandler {
 			config,
 			device_registry: None,
 			logger,
+			allowed_paths: Arc::new(RwLock::new(Vec::new())),
+			core_context: None,
 		}
 	}
 
@@ -266,6 +305,32 @@ impl FileTransferProtocolHandler {
 			FileTransferMessage::TransferFinalAck { transfer_id } => {
 				format!("TransferFinalAck {{ transfer_id: {} }}", transfer_id)
 			}
+			FileTransferMessage::PullRequest {
+				transfer_id,
+				source_path,
+				requested_by,
+			} => {
+				format!(
+					"PullRequest {{ transfer_id: {}, source_path: \"{}\", requested_by: {} }}",
+					transfer_id,
+					source_path.display(),
+					requested_by
+				)
+			}
+			FileTransferMessage::PullResponse {
+				transfer_id,
+				file_metadata,
+				accepted,
+				error,
+			} => {
+				format!(
+					"PullResponse {{ transfer_id: {}, file_metadata: {:?}, accepted: {}, error: {:?} }}",
+					transfer_id,
+					file_metadata.as_ref().map(|m| &m.name),
+					accepted,
+					error
+				)
+			}
 		}
 	}
 
@@ -275,6 +340,123 @@ impl FileTransferProtocolHandler {
 		device_registry: Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>,
 	) {
 		self.device_registry = Some(device_registry);
+	}
+
+	/// Set the allowed paths for file transfers.
+	/// Only paths under these directories will be accepted for read/write operations.
+	/// This is a critical security measure to prevent arbitrary file access.
+	pub fn set_allowed_paths(&self, paths: Vec<PathBuf>) {
+		let mut allowed = self.allowed_paths.write().unwrap();
+		*allowed = paths;
+	}
+
+	/// Add a single allowed path.
+	pub fn add_allowed_path(&self, path: PathBuf) {
+		let mut allowed = self.allowed_paths.write().unwrap();
+		if !allowed.iter().any(|p| p == &path) {
+			allowed.push(path);
+		}
+	}
+
+	/// Set the core context for dynamic location lookup.
+	/// This enables the handler to query registered locations from all libraries.
+	pub fn set_context(&mut self, context: std::sync::Arc<crate::context::CoreContext>) {
+		self.core_context = Some(context);
+	}
+
+	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
+	/// This queries all libraries for their registered locations asynchronously.
+	async fn get_all_allowed_paths(&self) -> Vec<PathBuf> {
+		let mut paths = Vec::new();
+
+		// Add statically configured allowed paths (clone to avoid holding lock across await)
+		let static_paths = {
+			let allowed = self.allowed_paths.read().unwrap();
+			allowed.clone()
+		};
+
+		paths.extend(static_paths);
+
+		// Add dynamic location paths from all libraries via CoreContext
+		if let Some(ctx) = &self.core_context {
+			let library_manager_guard = ctx.library_manager.read().await;
+			if let Some(library_manager) = library_manager_guard.as_ref() {
+				// Get all active libraries
+				let library_list = library_manager.list().await;
+				for library in library_list {
+					// Get locations for this library using LocationManager
+					let location_manager =
+						crate::location::LocationManager::new((*ctx.events).clone());
+					if let Ok(locations) = location_manager.list_locations(&library).await {
+						for loc in locations {
+							paths.push(loc.path.clone());
+						}
+					}
+				}
+			}
+		}
+
+		paths
+	}
+
+	/// Check if a path is within one of the allowed paths.
+	/// Uses canonicalization to prevent traversal attacks.
+	async fn is_path_allowed(&self, path: &std::path::Path) -> bool {
+		// Canonicalize the target path to resolve symlinks and `..`
+		let canonical_path = match path.canonicalize() {
+			Ok(p) => p,
+			Err(_) => {
+				// If the path doesn't exist yet (for writes), check the parent
+				if let Some(parent) = path.parent() {
+					match parent.canonicalize() {
+						Ok(p) => p,
+						Err(e) => {
+							tracing::warn!(
+								path = ?path,
+								error = %e,
+								"File transfer path validation failed: parent directory doesn't exist"
+							);
+							return false; // Parent doesn't exist
+						}
+					}
+				} else {
+					tracing::warn!(
+						path = ?path,
+						"File transfer path validation failed: no parent directory"
+					);
+					return false; // No parent (root path)
+				}
+			}
+		};
+
+		// Get all allowed paths (static + dynamic from locations)
+		let allowed_paths = self.get_all_allowed_paths().await;
+
+		// If no allowed paths are configured and no context, deny all (fail-safe)
+		if allowed_paths.is_empty() {
+			tracing::warn!("No allowed paths configured for file transfer - denying access");
+			return false;
+		}
+
+		for allowed_root in allowed_paths.iter() {
+			// Canonicalize the allowed root for comparison
+			let canonical_root = match allowed_root.canonicalize() {
+				Ok(p) => p,
+				Err(_) => continue, // Skip non-existent allowed paths
+			};
+
+			// Check if the target path starts with the allowed root
+			if canonical_path.starts_with(&canonical_root) {
+				return true;
+			}
+		}
+
+		tracing::warn!(
+			path = ?path,
+			allowed_paths = ?allowed_paths.iter().take(5).collect::<Vec<_>>(),
+			"File transfer denied: path is not within any allowed location"
+		);
+		false
 	}
 
 	/// Derive chunk encryption key from session keys
@@ -354,6 +536,13 @@ impl FileTransferProtocolHandler {
 		let session_keys = registry_guard.get_session_keys(device_id).ok_or_else(|| {
 			NetworkingError::Protocol(format!("No session keys found for device {}", device_id))
 		})?;
+
+		tracing::debug!(
+			"Retrieved session keys for device {}: send_key={}, receive_key={}",
+			device_id,
+			hex::encode(&session_keys.send_key[..8]),
+			hex::encode(&session_keys.receive_key[..8])
+		);
 
 		Ok(SessionKeys {
 			send_key: session_keys.send_key,
@@ -487,6 +676,22 @@ impl FileTransferProtocolHandler {
 			..
 		} = request
 		{
+			// SECURITY: Validate destination path is within allowed locations
+			let dest_path = std::path::Path::new(&destination_path);
+			if !self.is_path_allowed(dest_path).await {
+				tracing::warn!(
+					path = %destination_path,
+					from_device = %from_device,
+					"Transfer request rejected: destination path outside allowed locations"
+				);
+				return Ok(FileTransferMessage::TransferResponse {
+					transfer_id,
+					accepted: false,
+					reason: Some("Destination path not within allowed locations".to_string()),
+					supported_resume: false,
+				});
+			}
+
 			// For trusted devices, auto-accept transfers
 			let accepted = match transfer_mode {
 				TransferMode::TrustedCopy => true,
@@ -662,15 +867,16 @@ impl FileTransferProtocolHandler {
 					});
 				}
 
-				println!("File checksum verified: {}", received_checksum);
+				tracing::debug!("File checksum verified: {}", received_checksum);
 			}
 
 			// Mark transfer as completed
 			self.update_session_state(&transfer_id, TransferState::Completed)?;
 
-			println!(
+			tracing::info!(
 				"File transfer {} completed: {} bytes",
-				transfer_id, total_bytes
+				transfer_id,
+				total_bytes
 			);
 
 			// Return final acknowledgment
@@ -729,7 +935,7 @@ impl FileTransferProtocolHandler {
 				.get(transfer_id)
 				.ok_or_else(|| "Transfer session not found".to_string())?;
 
-			// Use the destination path from the transfer request (already includes filename)
+			// Use the destination path as the full file path (sender joins filename)
 			let file_path = PathBuf::from(&session.destination_path);
 
 			(file_path, 64 * 1024u32) // 64KB chunk size
@@ -784,6 +990,22 @@ impl FileTransferProtocolHandler {
 				file_metadata.name, file_metadata.size, destination_path
 			))
 			.await;
+
+		// Validate destination path is within allowed locations
+		// This prevents arbitrary file write attacks from malicious peers.
+		let dest_path_buf = PathBuf::from(&destination_path);
+		if !self.is_path_allowed(&dest_path_buf).await {
+			self.logger
+				.warn(&format!(
+					"Transfer {} rejected: destination path {:?} is not within allowed locations",
+					transfer_id, destination_path
+				))
+				.await;
+			return Err(NetworkingError::Protocol(format!(
+				"Destination path not allowed: {}",
+				destination_path
+			)));
+		}
 
 		// Create new transfer session
 		let session = TransferSession {
@@ -847,40 +1069,18 @@ impl FileTransferProtocolHandler {
 			}
 		};
 
-		// Get session keys for decryption
-		let session_keys = if let Some(device_registry) = &self.device_registry {
-			let registry = device_registry.read().await;
-			registry.get_session_keys(source_device_id).ok_or_else(|| {
-				NetworkingError::Protocol(format!(
-					"No session keys for device {}",
-					source_device_id
-				))
-			})?
-		} else {
-			return Err(NetworkingError::Protocol(
-				"Device registry not available".to_string(),
-			));
-		};
-
-		// Decrypt chunk data
-		let chunk_data = self.decrypt_chunk(
-			&session_keys.receive_key,
-			&transfer_id,
-			chunk_index,
-			&encrypted_data,
-			&nonce,
-		)?;
+		// Skip decryption - Iroh already provides E2E encryption for the connection
+		let chunk_data = encrypted_data;
 
 		self.logger
 			.debug(&format!(
-				"Decrypted chunk {} ({} bytes -> {} bytes)",
+				"Received chunk {} ({} bytes)",
 				chunk_index,
-				encrypted_data.len(),
 				chunk_data.len()
 			))
 			.await;
 
-		// Verify chunk checksum (of decrypted data)
+		// Verify chunk checksum (of plaintext data)
 		let calculated_checksum = blake3::hash(&chunk_data);
 		if calculated_checksum.as_bytes() != &chunk_checksum {
 			self.logger
@@ -955,6 +1155,262 @@ impl FileTransferProtocolHandler {
 		self.logger
 			.info(&format!("Transfer {} completed successfully", transfer_id))
 			.await;
+		Ok(())
+	}
+
+	/// Validate that a path is safe to access for PULL requests.
+	/// Prevents directory traversal attacks and enforces access boundaries.
+	/// SECURITY: Only allows access to files within registered locations.
+	async fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
+		// Normalize path to prevent directory traversal.
+		// canonicalize() resolves all symlinks and `..` components.
+		let normalized = match path.canonicalize() {
+			Ok(p) => p,
+			Err(_) => return false, // Path doesn't exist or can't be accessed
+		};
+
+		// Verify the path exists and is a file (not a directory for file transfers)
+		if !normalized.exists() || normalized.is_dir() {
+			return false;
+		}
+
+		// Validate path is within allowed locations
+		// This prevents arbitrary file read attacks from malicious peers.
+		if !self.is_path_allowed(&normalized).await {
+			tracing::warn!(
+				"Path access denied: {:?} is not within allowed locations",
+				path
+			);
+			return false;
+		}
+
+		true
+	}
+
+	/// Handle an incoming PULL request - stream file back to requester
+	pub async fn handle_pull_request(
+		&self,
+		transfer_id: Uuid,
+		source_path: PathBuf,
+		requested_by: Uuid,
+		send: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
+	) -> Result<()> {
+		use tokio::io::AsyncWriteExt;
+
+		self.logger
+			.info(&format!(
+				"Handling PULL request {} for path: {} from device {}",
+				transfer_id,
+				source_path.display(),
+				requested_by
+			))
+			.await;
+
+		// Security validation
+		if !self.validate_path_access(&source_path, requested_by).await {
+			self.logger
+				.warn(&format!(
+					"PULL request {} rejected: access denied for path {}",
+					transfer_id,
+					source_path.display()
+				))
+				.await;
+
+			let response = FileTransferMessage::PullResponse {
+				transfer_id,
+				file_metadata: None,
+				accepted: false,
+				error: Some("Access denied".to_string()),
+			};
+
+			let response_data = rmp_serde::to_vec(&response)
+				.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+			send.write_u8(0).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+			})?;
+			send.write_all(&(response_data.len() as u32).to_be_bytes())
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+				})?;
+			send.write_all(&response_data).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write response: {}", e))
+			})?;
+			send.flush()
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+			return Ok(());
+		}
+
+		// Get file metadata
+		let metadata = tokio::fs::metadata(&source_path).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to read file metadata: {}", e))
+		})?;
+
+		let file_size = metadata.len();
+
+		// Calculate checksum
+		let checksum = self.calculate_file_checksum(&source_path).await.ok();
+
+		let file_metadata = FileMetadata {
+			name: source_path
+				.file_name()
+				.unwrap_or_default()
+				.to_string_lossy()
+				.to_string(),
+			size: file_size,
+			modified: metadata.modified().ok(),
+			is_directory: metadata.is_dir(),
+			checksum: checksum.clone(),
+			mime_type: None,
+		};
+
+		// Send acceptance response
+		let response = FileTransferMessage::PullResponse {
+			transfer_id,
+			file_metadata: Some(file_metadata.clone()),
+			accepted: true,
+			error: None,
+		};
+
+		let response_data = rmp_serde::to_vec(&response)
+			.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+		send.write_u8(0).await.map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+		})?;
+		send.write_all(&(response_data.len() as u32).to_be_bytes())
+			.await
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+			})?;
+		send.write_all(&response_data)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to write response: {}", e)))?;
+		send.flush()
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+		self.logger
+			.info(&format!(
+				"PULL request {} accepted, streaming {} bytes",
+				transfer_id, file_size
+			))
+			.await;
+
+		// Stream file chunks to requester
+		self.stream_file_for_pull(transfer_id, &source_path, file_size, checksum, send)
+			.await?;
+
+		Ok(())
+	}
+
+	/// Stream file data back to a PULL requester
+	async fn stream_file_for_pull(
+		&self,
+		transfer_id: Uuid,
+		source_path: &PathBuf,
+		file_size: u64,
+		final_checksum: Option<String>,
+		send: &mut (dyn tokio::io::AsyncWrite + Send + Unpin),
+	) -> Result<()> {
+		use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+		let mut file = File::open(source_path).await.map_err(|e| {
+			NetworkingError::file_system_error(format!("Failed to open file: {}", e))
+		})?;
+
+		let chunk_size = self.config.chunk_size as usize;
+		let mut buffer = vec![0u8; chunk_size];
+		let mut chunk_index = 0u32;
+		let mut bytes_sent = 0u64;
+
+		loop {
+			let bytes_read = file.read(&mut buffer).await.map_err(|e| {
+				NetworkingError::file_system_error(format!("Failed to read file: {}", e))
+			})?;
+
+			if bytes_read == 0 {
+				break;
+			}
+
+			let chunk_data = &buffer[..bytes_read];
+			let chunk_checksum = blake3::hash(chunk_data);
+
+			// Skip encryption - Iroh provides E2E encryption
+			let chunk_message = FileTransferMessage::FileChunk {
+				transfer_id,
+				chunk_index,
+				data: chunk_data.to_vec(),
+				nonce: [0u8; 12], // Dummy nonce since we're not encrypting
+				chunk_checksum: *chunk_checksum.as_bytes(),
+			};
+
+			let message_data = rmp_serde::to_vec(&chunk_message)
+				.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+			send.write_u8(0).await.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+			})?;
+			send.write_all(&(message_data.len() as u32).to_be_bytes())
+				.await
+				.map_err(|e| {
+					NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+				})?;
+			send.write_all(&message_data)
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to write chunk: {}", e)))?;
+			send.flush()
+				.await
+				.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+			bytes_sent += bytes_read as u64;
+			chunk_index += 1;
+
+			if chunk_index % 100 == 0 {
+				self.logger
+					.debug(&format!(
+						"PULL transfer {}: sent chunk {}, {} bytes total",
+						transfer_id, chunk_index, bytes_sent
+					))
+					.await;
+			}
+		}
+
+		// Send completion message
+		let completion_message = FileTransferMessage::TransferComplete {
+			transfer_id,
+			final_checksum: final_checksum.unwrap_or_default(),
+			total_bytes: bytes_sent,
+		};
+
+		let completion_data = rmp_serde::to_vec(&completion_message)
+			.map_err(|e| NetworkingError::Protocol(format!("Serialization failed: {}", e)))?;
+
+		send.write_u8(0).await.map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to write message type: {}", e))
+		})?;
+		send.write_all(&(completion_data.len() as u32).to_be_bytes())
+			.await
+			.map_err(|e| {
+				NetworkingError::Protocol(format!("Failed to write message length: {}", e))
+			})?;
+		send.write_all(&completion_data)
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to write completion: {}", e)))?;
+		send.flush()
+			.await
+			.map_err(|e| NetworkingError::Protocol(format!("Failed to flush stream: {}", e)))?;
+
+		self.logger
+			.info(&format!(
+				"PULL transfer {} completed: {} chunks, {} bytes",
+				transfer_id, chunk_index, bytes_sent
+			))
+			.await;
+
 		Ok(())
 	}
 }
@@ -1065,21 +1521,23 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 							.await;
 
 						// Get device ID from node ID using device registry
-						let device_id =
-							if let Some(device_registry) = &self.device_registry {
-								let registry = device_registry.read().await;
-								registry
-							.get_device_by_node(remote_node_id)
-							.unwrap_or_else(|| {
-								// Note: Can't use await in closure, this should be refactored
-								eprintln!("Warning: Could not find device ID for node {}, using random ID", remote_node_id);
-								uuid::Uuid::new_v4()
-							})
-							} else {
-								// Note: Need to await this call properly
-								eprintln!("Warning: Device registry not available, using random device ID");
-								uuid::Uuid::new_v4()
-							};
+						let device_id = if let Some(device_registry) = &self.device_registry {
+							let registry = device_registry.read().await;
+							registry
+								.get_device_by_node(remote_node_id)
+								.unwrap_or_else(|| {
+									// Note: Can't use await in closure, this should be refactored
+									tracing::warn!(
+										"Could not find device ID for node {}, using random ID",
+										remote_node_id
+									);
+									uuid::Uuid::new_v4()
+								})
+						} else {
+							// Note: Need to await this call properly
+							tracing::warn!("Device registry not available, using random device ID");
+							uuid::Uuid::new_v4()
+						};
 
 						// Process the message based on type
 						match message {
@@ -1174,6 +1632,35 @@ impl super::ProtocolHandler for FileTransferProtocolHandler {
 											))
 											.await;
 									}
+								}
+							}
+							FileTransferMessage::PullRequest {
+								transfer_id,
+								source_path,
+								requested_by,
+							} => {
+								// Handle PULL request - stream file back to requester
+								self.logger
+									.info(&format!(
+										"Received PullRequest {} for path: {} from device {}",
+										transfer_id,
+										source_path.display(),
+										requested_by
+									))
+									.await;
+
+								if let Err(e) = self
+									.handle_pull_request(
+										transfer_id,
+										source_path,
+										requested_by,
+										&mut *send,
+									)
+									.await
+								{
+									self.logger
+										.error(&format!("Failed to handle PULL request: {}", e))
+										.await;
 								}
 							}
 							_ => {
@@ -1399,5 +1886,122 @@ mod tests {
 		assert!(handler
 			.update_session_state(&transfer_id, TransferState::Active)
 			.is_err());
+	}
+
+	// Path validation security tests
+
+	#[tokio::test]
+	async fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the only allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed");
+		std::fs::create_dir_all(&temp_dir).ok();
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path outside allowed location should be REJECTED
+		let outside_path = std::path::Path::new("/etc/passwd");
+		assert!(
+			!handler.is_path_allowed(outside_path).await,
+			"Paths outside allowed locations must be rejected"
+		);
+
+		// Test: Windows system path should be REJECTED
+		#[cfg(windows)]
+		{
+			let system_path = std::path::Path::new("C:\\Windows\\System32\\config\\SAM");
+			assert!(
+				!handler.is_path_allowed(system_path).await,
+				"System paths must be rejected"
+			);
+		}
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[tokio::test]
+	async fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed_inner");
+		let inner_path = temp_dir.join("subdir").join("file.txt");
+		std::fs::create_dir_all(inner_path.parent().unwrap()).ok();
+		std::fs::write(&inner_path, "test content").ok();
+
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path inside allowed location should be ACCEPTED
+		assert!(
+			handler.is_path_allowed(&inner_path).await,
+			"Paths inside allowed locations should be accepted"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[tokio::test]
+	async fn test_is_path_allowed_rejects_traversal_attempts() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Create a temp directory as the only allowed location
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_traversal");
+		std::fs::create_dir_all(&temp_dir).ok();
+		handler.set_allowed_paths(vec![temp_dir.clone()]);
+
+		// Test: Path traversal attempt should be REJECTED
+		// Note: canonicalize() will resolve this, but if it resolves outside, it's rejected
+		let traversal_path = temp_dir.join("..").join("..").join("etc").join("passwd");
+		assert!(
+			!handler.is_path_allowed(&traversal_path).await,
+			"Path traversal attempts must be rejected"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
+	}
+
+	#[tokio::test]
+	async fn test_is_path_allowed_denies_all_when_no_paths_configured() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		// Don't configure any allowed paths - this should deny ALL access (fail-safe)
+		let any_path = std::env::temp_dir().join("some_file.txt");
+		assert!(
+			!handler.is_path_allowed(&any_path).await,
+			"When no allowed paths configured, all access should be denied"
+		);
+	}
+
+	#[tokio::test]
+	async fn test_add_allowed_path_works() {
+		let logger = Arc::new(SilentLogger);
+		let handler = FileTransferProtocolHandler::new_default(logger);
+
+		let temp_dir = std::env::temp_dir().join("spacedrive_test_add_path");
+		std::fs::create_dir_all(&temp_dir).ok();
+		let file_path = temp_dir.join("test_file.txt");
+		std::fs::write(&file_path, "content").ok();
+
+		// Initially denied
+		assert!(!handler.is_path_allowed(&file_path).await);
+
+		// Add the path
+		handler.add_allowed_path(temp_dir.clone());
+
+		// Now allowed
+		assert!(
+			handler.is_path_allowed(&file_path).await,
+			"add_allowed_path should permit access to paths within the added directory"
+		);
+
+		// Clean up
+		std::fs::remove_dir_all(&temp_dir).ok();
 	}
 }

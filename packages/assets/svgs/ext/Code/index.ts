@@ -3,76 +3,76 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import React from "react";
+import React from 'react';
 
 const angular = React.lazy(async () => ({
-  default: (await import("./angular.svg")).ReactComponent,
+	default: (await import('./angular.svg')).ReactComponent
 }));
 const bun = React.lazy(async () => ({
-  default: (await import("./bun.svg")).ReactComponent,
+	default: (await import('./bun.svg')).ReactComponent
 }));
 const c = React.lazy(async () => ({
-  default: (await import("./c.svg")).ReactComponent,
+	default: (await import('./c.svg')).ReactComponent
 }));
 const cmake = React.lazy(async () => ({
-  default: (await import("./cmake.svg")).ReactComponent,
+	default: (await import('./cmake.svg')).ReactComponent
 }));
 const cpp = React.lazy(async () => ({
-  default: (await import("./cpp.svg")).ReactComponent,
+	default: (await import('./cpp.svg')).ReactComponent
 }));
 const csharp = React.lazy(async () => ({
-  default: (await import("./csharp.svg")).ReactComponent,
+	default: (await import('./csharp.svg')).ReactComponent
 }));
 const css = React.lazy(async () => ({
-  default: (await import("./css.svg")).ReactComponent,
+	default: (await import('./css.svg')).ReactComponent
 }));
 const dartlang = React.lazy(async () => ({
-  default: (await import("./dartlang.svg")).ReactComponent,
+	default: (await import('./dartlang.svg')).ReactComponent
 }));
 const go = React.lazy(async () => ({
-  default: (await import("./go.svg")).ReactComponent,
+	default: (await import('./go.svg')).ReactComponent
 }));
 const html = React.lazy(async () => ({
-  default: (await import("./html.svg")).ReactComponent,
+	default: (await import('./html.svg')).ReactComponent
 }));
 const java = React.lazy(async () => ({
-  default: (await import("./java.svg")).ReactComponent,
+	default: (await import('./java.svg')).ReactComponent
 }));
 const js = React.lazy(async () => ({
-  default: (await import("./js.svg")).ReactComponent,
+	default: (await import('./js.svg')).ReactComponent
 }));
 const kotlin = React.lazy(async () => ({
-  default: (await import("./kotlin.svg")).ReactComponent,
+	default: (await import('./kotlin.svg')).ReactComponent
 }));
 const php = React.lazy(async () => ({
-  default: (await import("./php.svg")).ReactComponent,
+	default: (await import('./php.svg')).ReactComponent
 }));
 const py = React.lazy(async () => ({
-  default: (await import("./py.svg")).ReactComponent,
+	default: (await import('./py.svg')).ReactComponent
 }));
 const ts = React.lazy(async () => ({
-  default: (await import("./ts.svg")).ReactComponent,
+	default: (await import('./ts.svg')).ReactComponent
 }));
 const vue = React.lazy(async () => ({
-  default: (await import("./vue.svg")).ReactComponent,
+	default: (await import('./vue.svg')).ReactComponent
 }));
 
 export {
-  angular,
-  bun,
-  c,
-  cmake,
-  cpp,
-  csharp,
-  css,
-  dartlang,
-  go,
-  html,
-  java,
-  js,
-  kotlin,
-  php,
-  py,
-  ts,
-  vue,
+	angular,
+	bun,
+	c,
+	cmake,
+	cpp,
+	csharp,
+	css,
+	dartlang,
+	go,
+	html,
+	java,
+	js,
+	kotlin,
+	php,
+	py,
+	ts,
+	vue
 };

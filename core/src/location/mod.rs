@@ -1,5 +1,6 @@
 //! Location management - simplified implementation matching core patterns
 
+pub mod backfill;
 pub mod manager;
 
 use crate::{
@@ -133,7 +134,7 @@ pub enum LocationError {
 
 pub type LocationResult<T> = Result<T, LocationError>;
 
-/// Create a new location and start indexing (production pattern)
+/// Create a new location and start indexing (simplified for tests - use LocationManager in production)
 pub async fn create_location(
 	library: Arc<Library>,
 	events: &EventBus,
@@ -193,6 +194,7 @@ pub async fn create_location(
 		permissions: Set(None),
 		inode: Set(None),
 		parent_id: Set(None), // Location root has no parent
+		volume_id: Set(None), // Use LocationManager::add_location for volume detection
 		..Default::default()
 	};
 
@@ -254,6 +256,7 @@ pub async fn create_location(
 		id: NotSet, // Auto-increment handled by database
 		uuid: Set(location_id),
 		device_id: Set(device_id),
+		volume_id: Set(None), // Resolved lazily on first index
 		entry_id: Set(Some(entry_id)),
 		name: Set(Some(name.clone())),
 		index_mode: Set(args.index_mode.to_string()),

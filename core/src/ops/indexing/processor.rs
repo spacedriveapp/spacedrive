@@ -140,6 +140,7 @@ impl ContentHashProcessor {
 		&self,
 		db: &DatabaseConnection,
 		entry: &ProcessorEntry,
+		registry: &crate::filetype::FileTypeRegistry,
 	) -> Result<ProcessorResult> {
 		if !matches!(entry.kind, EntryKind::File) || entry.content_id.is_some() {
 			return Ok(ProcessorResult::success(0, 0));
@@ -150,7 +151,7 @@ impl ContentHashProcessor {
 		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
 		debug!("✓ Generated content hash: {}", content_hash);
 
-		DatabaseStorage::link_to_content_identity(db, entry.id, &entry.path, content_hash).await?;
+		DatabaseStorage::link_to_content_identity(db, entry.id, &entry.path, content_hash, registry).await?;
 
 		debug!("✓ Linked content identity for entry {}", entry.id);
 

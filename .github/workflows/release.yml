@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   pull_request:
     paths:
       - ".github/workflows/release.yml"
@@ -15,27 +18,103 @@ env:
 
 jobs:
   # CLI builds for v2
-  cli-build:
+  # cli-build:
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         # macOS builds
+  #         - host: self-hosted
+  #           target: aarch64-apple-darwin
+  #           platform: macos-aarch64
+  #         - host: macos-15-intel
+  #           target: x86_64-apple-darwin
+  #           platform: macos-x86_64
+  #         # Linux builds
+  #         - host: ubuntu-22.04
+  #           target: x86_64-unknown-linux-gnu
+  #           platform: linux-x86_64
+  #         # Windows builds
+  #         - host: windows-latest
+  #           target: x86_64-pc-windows-msvc
+  #           platform: windows-x86_64
+  #   name: CLI - ${{ matrix.platform }}
+  #   runs-on: ${{ matrix.host }}
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+
+  #     - name: Setup Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         targets: ${{ matrix.target }}
+
+  #     - name: Setup System and Rust
+  #       uses: ./.github/actions/setup-system
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         target: ${{ matrix.target }}
+
+  #     - name: Install cross-compilation tools (Linux ARM)
+  #       if: matrix.target == 'aarch64-unknown-linux-gnu'
+  #       run: |
+  #         sudo apt-get update
+  #         sudo apt-get install -y gcc-aarch64-linux-gnu
+
+  #     - name: Setup native dependencies
+  #       run: cargo run -p xtask -- setup
+
+  #     - name: Build CLI binaries
+  #       run: |
+  #         cargo build --release --bin sd-cli --bin sd-daemon --features heif,ffmpeg --target ${{ matrix.target }}
+  #       env:
+  #         # Set linker for cross-compilation
+  #         CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+  #     - name: Prepare binaries (Unix)
+  #       if: runner.os != 'Windows'
+  #       run: |
+  #         mkdir -p dist
+  #         cp target/${{ matrix.target }}/release/sd-cli dist/sd-${{ matrix.platform }}
+  #         cp target/${{ matrix.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.platform }}
+  #         chmod +x dist/*
+
+  #     - name: Prepare binaries (Windows)
+  #       if: runner.os == 'Windows'
+  #       shell: pwsh
+  #       run: |
+  #         New-Item -ItemType Directory -Force -Path dist
+  #         Copy-Item target/${{ matrix.target }}/release/sd-cli.exe dist/sd-${{ matrix.platform }}.exe
+  #         Copy-Item target/${{ matrix.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.platform }}.exe
+
+  #     - name: Generate checksums
+  #       shell: bash
+  #       run: |
+  #         cd dist
+  #         if [ "$RUNNER_OS" == "Windows" ]; then
+  #           sha256sum *.exe > checksums-${{ matrix.platform }}.txt
+  #         else
+  #           sha256sum * > checksums-${{ matrix.platform }}.txt
+  #         fi
+
+  #     - name: Upload artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: cli-${{ matrix.platform }}
+  #         path: dist/*
+
+  # Server builds for self-hosting
+  server-build:
     strategy:
       matrix:
-        include:
-          # macOS builds
-          - host: self-hosted
-            target: aarch64-apple-darwin
-            platform: macos-aarch64
-          - host: macos-15-intel
-            target: x86_64-apple-darwin
-            platform: macos-x86_64
-          # Linux builds
+        settings:
           - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             platform: linux-x86_64
-          # Windows builds
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            platform: windows-x86_64
-    name: CLI - ${{ matrix.platform }}
-    runs-on: ${{ matrix.host }}
+          - host: ubuntu-22.04
+            target: aarch64-unknown-linux-gnu
+            platform: linux-aarch64
+    name: Server - ${{ matrix.settings.platform }}
+    runs-on: ${{ matrix.settings.host }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -43,61 +122,53 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ matrix.settings.target }}
 
       - name: Setup System and Rust
         uses: ./.github/actions/setup-system
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          target: ${{ matrix.target }}
+          target: ${{ matrix.settings.target }}
 
-      - name: Install cross-compilation tools (Linux ARM)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - name: Install cross-compilation tools (ARM)
+        if: matrix.settings.target == 'aarch64-unknown-linux-gnu'
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
 
+      - name: Install OpenSSL
+        run: sudo apt-get update && sudo apt-get install -y pkg-config libssl-dev
+
       - name: Setup native dependencies
         run: cargo run -p xtask -- setup
 
-      - name: Build CLI binaries
+      - name: Build server binary
         run: |
-          cargo build --release --bin sd-cli --bin sd-daemon --features heif,ffmpeg --target ${{ matrix.target }}
+          cargo build --release --bin sd-server --features sd-core/heif,sd-core/ffmpeg --target ${{ matrix.settings.target }}
         env:
-          # Set linker for cross-compilation
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
-      - name: Prepare binaries (Unix)
-        if: runner.os != 'Windows'
+      - name: Prepare server binary
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/sd-cli dist/sd-${{ matrix.platform }}
-          cp target/${{ matrix.target }}/release/sd-daemon dist/sd-daemon-${{ matrix.platform }}
-          chmod +x dist/*
+          cp target/${{ matrix.settings.target }}/release/sd-server dist/sd-server-${{ matrix.settings.platform }}
+          chmod +x dist/sd-server-${{ matrix.settings.platform }}
 
-      - name: Prepare binaries (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target/${{ matrix.target }}/release/sd-cli.exe dist/sd-${{ matrix.platform }}.exe
-          Copy-Item target/${{ matrix.target }}/release/sd-daemon.exe dist/sd-daemon-${{ matrix.platform }}.exe
-
-      - name: Generate checksums
-        shell: bash
+      - name: Generate checksum
         run: |
           cd dist
-          if [ "$RUNNER_OS" == "Windows" ]; then
-            sha256sum *.exe > checksums-${{ matrix.platform }}.txt
-          else
-            sha256sum * > checksums-${{ matrix.platform }}.txt
-          fi
+          sha256sum sd-server-${{ matrix.settings.platform }} > sd-server-${{ matrix.settings.platform }}.sha256
+
+      - name: Create archive
+        run: |
+          cd dist
+          tar -czf sd-server-${{ matrix.settings.platform }}.tar.gz sd-server-${{ matrix.settings.platform }} sd-server-${{ matrix.settings.platform }}.sha256
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: cli-${{ matrix.platform }}
-          path: dist/*
+          name: server-${{ matrix.settings.platform }}
+          path: dist/sd-server-${{ matrix.settings.platform }}.tar.gz
 
   # V2 Desktop builds
   desktop-main:
@@ -110,17 +181,17 @@ jobs:
             bundles: dmg,app
             os: darwin
             arch: aarch64
-          # - host: self-hosted
-          #   target: x86_64-apple-darwin
-          #   bundles: dmg,app
-          #   os: darwin
-          #   arch: x86_64
-          # Windows builds
-          - host: windows-latest
-            target: x86_64-pc-windows-msvc
-            bundles: msi
-            os: windows
+          - host: self-hosted
+            target: x86_64-apple-darwin
+            bundles: dmg,app
+            os: darwin
             arch: x86_64
+          # Windows builds
+          # - host: windows-latest
+          #   target: x86_64-pc-windows-msvc
+          #   bundles: msi
+          #   os: windows
+          #   arch: x86_64
           # Linux builds
           - host: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
@@ -226,12 +297,12 @@ jobs:
         if: always() && runner.os == 'macOS'
         run: security delete-keychain signing_temp.keychain || true
 
-  # Create unified release with CLI and Desktop artifacts
+  # Create unified release with Server, CLI, and Desktop artifacts
   release:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: self-hosted
     name: Create Release
-    needs: [cli-build, desktop-main]
+    needs: [server-build, desktop-main]
     permissions:
       contents: write
     steps:
@@ -242,4 +313,12 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          files: "*/**"
+          files: |
+            cli-*/*
+            server-*/*
+            */*.dmg
+            */*.msi
+            */*.deb
+            */*.tar.xz
+            */*.tar.gz
+            */*.sig

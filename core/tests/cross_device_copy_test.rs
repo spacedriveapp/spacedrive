@@ -104,11 +104,10 @@ async fn alice_cross_device_copy_scenario() {
 
 	// Wait for pairing completion
 	println!("Alice: Waiting for Bob to connect...");
-	let mut bob_device_id = None;
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
 
-	loop {
+	let bob_id = loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
 		let connected_devices = core
@@ -118,11 +117,8 @@ async fn alice_cross_device_copy_scenario() {
 			.await
 			.unwrap();
 		if !connected_devices.is_empty() {
-			bob_device_id = Some(connected_devices[0].device_id);
-			println!(
-				"Alice: Bob connected! Device ID: {}",
-				connected_devices[0].device_id
-			);
+			let device_id = connected_devices[0].device_id;
+			println!("Alice: Bob connected! Device ID: {}", device_id);
 			println!(
 				"Alice: Connected device: {} ({})",
 				connected_devices[0].device_name, connected_devices[0].device_id
@@ -131,7 +127,7 @@ async fn alice_cross_device_copy_scenario() {
 			// Wait for session keys to be established
 			println!("Alice: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
+			break device_id;
 		}
 
 		attempts += 1;
@@ -142,9 +138,7 @@ async fn alice_cross_device_copy_scenario() {
 		if attempts % 5 == 0 {
 			println!("Alice: Pairing status check {} - waiting", attempts / 5);
 		}
-	}
-
-	let bob_id = bob_device_id.unwrap();
+	};
 
 	// Create test files to copy
 	println!("Alice: Creating test files for cross-device copy...");
@@ -201,10 +195,11 @@ async fn alice_cross_device_copy_scenario() {
 		// Note: slug is generated from device name "Alice's Test Device" → "alice-s-test-device"
 		let source_sdpath = SdPath::physical("alice-s-test-device".to_string(), source_path);
 
-		// Create destination SdPath (on Bob's device)
+		// Create destination SdPath (on Bob's device) - use directory, not full path
+		// The job will automatically join the filename for cross-device copies
 		// Note: slug is generated from device name "Bob's Test Device" → "bob-s-test-device"
-		let dest_path = PathBuf::from("/tmp/received_files").join(filename);
-		let dest_sdpath = SdPath::physical("bob-s-test-device".to_string(), &dest_path);
+		let dest_dir = PathBuf::from("/tmp/received_files");
+		let dest_sdpath = SdPath::physical("bob-s-test-device".to_string(), &dest_dir);
 
 		println!(
 			"  Source: {} (device: {})",
@@ -212,9 +207,10 @@ async fn alice_cross_device_copy_scenario() {
 			alice_device_id
 		);
 		println!(
-			"  Destination: {} (device: {})",
-			dest_path.display(),
-			bob_id
+			"  Destination dir: {} (device: {}) - file will be: {}",
+			dest_dir.display(),
+			bob_id,
+			filename
 		);
 
 		// Build the copy action directly with SdPath
@@ -329,6 +325,27 @@ async fn bob_cross_device_copy_scenario() {
 	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized successfully");
 
+	// Set up allowed paths for file transfers BEFORE pairing
+	let received_dir = std::path::Path::new("/tmp/received_files");
+	std::fs::create_dir_all(received_dir).unwrap();
+	println!(
+		"Bob: Adding {} to allowed file transfer paths...",
+		received_dir.display()
+	);
+	if let Some(networking) = core.networking() {
+		let protocol_registry = networking.protocol_registry();
+		let registry_guard = protocol_registry.read().await;
+		if let Some(file_transfer_handler) = registry_guard.get_handler("file_transfer") {
+			if let Some(handler) = file_transfer_handler
+				.as_any()
+				.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>(
+			) {
+				handler.add_allowed_path(received_dir.to_path_buf());
+				println!("Bob: Added {} to allowed paths", received_dir.display());
+			}
+		}
+	}
+
 	// Create a library for job dispatch
 	println!("Bob: Creating library for copy operations...");
 	let _library = core
@@ -402,13 +419,8 @@ async fn bob_cross_device_copy_scenario() {
 		}
 	}
 
-	// Create directory for received files
+	// Directory already created and added to allowed paths above
 	let received_dir = std::path::Path::new("/tmp/received_files");
-	std::fs::create_dir_all(received_dir).unwrap();
-	println!(
-		"Bob: Created directory for received files: {:?}",
-		received_dir
-	);
 
 	// Load expected files
 	println!("Bob: Loading expected file list...");

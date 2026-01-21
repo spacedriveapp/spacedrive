@@ -191,7 +191,7 @@ impl LibraryAction for EnableIndexingAction {
 			});
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

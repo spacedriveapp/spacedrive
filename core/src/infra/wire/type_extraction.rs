@@ -277,6 +277,7 @@ pub struct SpacedriveApiStructure {
 }
 
 /// Represents a single API operation with actual type information
+#[derive(Clone)]
 pub struct ApiOperationType {
 	pub identifier: String,
 	pub wire_method: String,
@@ -287,6 +288,7 @@ pub struct ApiOperationType {
 }
 
 /// Represents a single API query with actual type information
+#[derive(Clone)]
 pub struct ApiQueryType {
 	pub identifier: String,
 	pub wire_method: String,

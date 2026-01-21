@@ -134,6 +134,13 @@ impl NameRegistry {
 				.sum::<usize>()
 	}
 
+	/// Export the internal map for snapshot serialization
+	pub(crate) fn export_map(&self) -> Vec<(String, Vec<EntryId>)> {
+		self.iter()
+			.map(|(name, ids)| (name.to_string(), ids.to_vec()))
+			.collect()
+	}
+
 	/// Iterate over all (name, entry_ids) pairs
 	pub fn iter(&self) -> impl Iterator<Item = (&str, &[EntryId])> {
 		self.map.iter().map(|(k, v)| (k.as_str(), v.as_slice()))

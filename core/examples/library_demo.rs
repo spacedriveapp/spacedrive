@@ -126,6 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			accessed_at: Set(None),
 			indexed_at: Set(None),
 			permissions: Set(None),
+			device_id: Set(Some(inserted_device.id)),
 			inode: Set(None),
 		};
 		let entry_record = entry.insert(db.conn()).await?;

@@ -85,6 +85,7 @@ pub async fn run_content_phase(
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: state.volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
@@ -119,6 +120,7 @@ pub async fn run_content_phase(
 
 		let hash_results = futures::future::join_all(content_hash_futures).await;
 
+		let mut mime_types_to_sync = Vec::new();
 		let mut content_identities_to_sync = Vec::new();
 		let mut entries_to_sync = Vec::new();
 
@@ -132,6 +134,7 @@ pub async fn run_content_phase(
 						entry_id,
 						&path,
 						content_hash.clone(),
+						ctx.library().core_context().file_type_registry(),
 					)
 					.await
 					{
@@ -141,6 +144,13 @@ pub async fn run_content_phase(
 								path.display(),
 								content_hash
 							));
+
+							// Collect mime_type if it was newly created
+							if let Some(mime_type) = result.mime_type {
+								if result.is_new_mime_type {
+									mime_types_to_sync.push(mime_type);
+								}
+							}
 
 							content_identities_to_sync.push(result.content_identity);
 							entries_to_sync.push(result.entry);
@@ -184,6 +194,36 @@ pub async fn run_content_phase(
 					}
 				}
 			}
+		}
+
+		// Sync mime_types first (content_identities depend on them via FK)
+		if !mime_types_to_sync.is_empty() {
+			let library = ctx.library();
+			match library
+				.sync_models_batch(
+					&mime_types_to_sync,
+					crate::infra::sync::ChangeType::Insert,
+					ctx.library_db(),
+				)
+				.await
+			{
+				Ok(()) => {
+					ctx.log(format!(
+						"Batch synced {} mime types",
+						mime_types_to_sync.len()
+					));
+				}
+				Err(e) => {
+					tracing::warn!(
+						"Failed to batch sync {} mime types: {}",
+						mime_types_to_sync.len(),
+						e
+					);
+				}
+			}
+
+			// Yield to let mime_type sync messages propagate before content_identity inserts
+			tokio::task::yield_now().await;
 		}
 
 		if !content_identities_to_sync.is_empty() {

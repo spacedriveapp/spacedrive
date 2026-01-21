@@ -2,8 +2,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ArrowLeft, ArrowRight } from '@phosphor-icons/react';
 import { useEffect } from 'react';
 import type { File } from '@sd/ts-client';
-import { useLibraryQuery } from '../../context';
-import { Inspector } from '../../Inspector';
+import { useLibraryQuery } from '../../contexts/SpacedriveContext';
+import { Inspector } from '../Inspector/Inspector';
 import { ContentRenderer } from './ContentRenderer';
 
 interface QuickPreviewModalProps {

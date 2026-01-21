@@ -24,7 +24,7 @@ pub mod volume;
 // Re-export commonly used types
 pub use addressing::{PathResolutionError, SdPath, SdPathBatch, SdPathParseError};
 pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdentity, ContentKind};
-pub use device::{Device, OperatingSystem};
+pub use device::{ConnectionMethod, Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
 pub use library::Library;
 pub use location::{IndexMode, Location, ScanState};

@@ -1,10 +1,15 @@
 //! Shared utilities for volume detection across platforms
 
-use crate::volume::{
-	error::{VolumeError, VolumeResult},
-	types::FileSystem,
+use crate::{
+	domain::volume::{SpacedriveVolumeId, SPACEDRIVE_VOLUME_ID_FILE},
+	volume::{
+		error::{VolumeError, VolumeResult},
+		types::FileSystem,
+	},
 };
-use tracing::warn;
+use std::path::Path;
+use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 /// Parse size strings from df output (e.g., "1.5G", "931Gi", "1024K")
 pub fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
@@ -77,6 +82,130 @@ pub fn parse_filesystem_type(fs_type: &str) -> FileSystem {
 		"hfs+" | "hfsplus" => FileSystem::Other("HFS+".to_string()),
 		_ => FileSystem::Other(fs_type.to_string()),
 	}
+}
+
+/// Read or create .spacedrive-volume-id file on external volumes (async version)
+/// This file provides persistent identification for removable drives
+/// Returns the UUID from the file, or None if the volume is read-only
+pub async fn read_or_create_dotfile(
+	mount_point: &Path,
+	device_id: Uuid,
+	library_id: Option<Uuid>,
+) -> Option<Uuid> {
+	let id_file_path = mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
+
+	// Try to read existing dotfile
+	if let Ok(content) = tokio::fs::read_to_string(&id_file_path).await {
+		if let Ok(spacedrive_id) = serde_json::from_str::<SpacedriveVolumeId>(&content) {
+			debug!(
+				"Found existing dotfile ID: {} at {}",
+				spacedrive_id.id,
+				id_file_path.display()
+			);
+			return Some(spacedrive_id.id);
+		}
+	}
+
+	// Try to create new dotfile (if writable)
+	if !mount_point.exists() {
+		return None;
+	}
+
+	let spacedrive_id = SpacedriveVolumeId {
+		id: Uuid::new_v4(),
+		created: chrono::Utc::now(),
+		device_name: None,
+		volume_name: mount_point
+			.file_name()
+			.map(|n| n.to_string_lossy().to_string())
+			.unwrap_or_else(|| "Unknown".to_string()),
+		device_id,
+		library_id: library_id.unwrap_or(Uuid::nil()),
+	};
+
+	if let Ok(content) = serde_json::to_string_pretty(&spacedrive_id) {
+		match tokio::fs::write(&id_file_path, content).await {
+			Ok(()) => {
+				info!(
+					"Created dotfile with ID: {} at {}",
+					spacedrive_id.id,
+					id_file_path.display()
+				);
+				return Some(spacedrive_id.id);
+			}
+			Err(e) => {
+				debug!(
+					"Could not write dotfile to {}: {}",
+					id_file_path.display(),
+					e
+				);
+			}
+		}
+	}
+
+	None
+}
+
+/// Read or create .spacedrive-volume-id file on external volumes (sync version)
+/// This file provides persistent identification for removable drives
+/// Returns the UUID from the file, or None if the volume is read-only
+pub fn read_or_create_dotfile_sync(
+	mount_point: &Path,
+	device_id: Uuid,
+	library_id: Option<Uuid>,
+) -> Option<Uuid> {
+	let id_file_path = mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
+
+	// Try to read existing dotfile
+	if let Ok(content) = std::fs::read_to_string(&id_file_path) {
+		if let Ok(spacedrive_id) = serde_json::from_str::<SpacedriveVolumeId>(&content) {
+			debug!(
+				"Found existing dotfile ID: {} at {}",
+				spacedrive_id.id,
+				id_file_path.display()
+			);
+			return Some(spacedrive_id.id);
+		}
+	}
+
+	// Try to create new dotfile (if writable)
+	if !mount_point.exists() {
+		return None;
+	}
+
+	let spacedrive_id = SpacedriveVolumeId {
+		id: Uuid::new_v4(),
+		created: chrono::Utc::now(),
+		device_name: None,
+		volume_name: mount_point
+			.file_name()
+			.map(|n| n.to_string_lossy().to_string())
+			.unwrap_or_else(|| "Unknown".to_string()),
+		device_id,
+		library_id: library_id.unwrap_or(Uuid::nil()),
+	};
+
+	if let Ok(content) = serde_json::to_string_pretty(&spacedrive_id) {
+		match std::fs::write(&id_file_path, content) {
+			Ok(()) => {
+				info!(
+					"Created dotfile with ID: {} at {}",
+					spacedrive_id.id,
+					id_file_path.display()
+				);
+				return Some(spacedrive_id.id);
+			}
+			Err(e) => {
+				debug!(
+					"Could not write dotfile to {}: {}",
+					id_file_path.display(),
+					e
+				);
+			}
+		}
+	}
+
+	None
 }
 
 #[cfg(test)]

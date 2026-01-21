@@ -43,7 +43,7 @@ prettier.resolveConfig(join(__dirname, '..', '..', '..', '.prettierrc.js')).then
 
 			// Generate the import statements for each asset.
 			const assetImports = fileNames
-				.filter((fileName) => fileName !== 'index.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
+				.filter((fileName) => fileName !== 'index.ts' && fileName !== 'urls.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
 				.map((fileName) => {
 					const variableName = fileName.split('.')[0].replace(/-/g, '');
 					if (folder.startsWith('svgs')) {
@@ -58,7 +58,7 @@ prettier.resolveConfig(join(__dirname, '..', '..', '..', '.prettierrc.js')).then
 
 			// Generate the export statements for each asset.
 			const assetExports = fileNames
-				.filter((fileName) => fileName !== 'index.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
+				.filter((fileName) => fileName !== 'index.ts' && fileName !== 'urls.ts' && !/(^|\/)\.[^\/\.]/g.test(fileName))
 				.map((fileName) => `${fileName.split('.')[0].replace(/-/g, '')}`)
 				.join(',\n');
 

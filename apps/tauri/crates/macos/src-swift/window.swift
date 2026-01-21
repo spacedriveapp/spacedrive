@@ -73,3 +73,36 @@ public func setTitlebarStyle(window: NSWindow, fullScreen: Bool) {
   }
   window.titleVisibility = fullScreen ? .visible : .hidden
 }
+
+@_cdecl("share_items")
+public func shareItems(paths: SRString) -> Bool {
+    // Split null-separated paths (similar to open_file_path_with pattern)
+    let pathStrings = paths.toString().components(separatedBy: "\0").filter { !$0.isEmpty }
+    let urls = pathStrings.compactMap { URL(fileURLWithPath: $0) }
+
+    guard !urls.isEmpty else {
+        return false
+    }
+
+    // NSSharingServicePicker must be called on the main thread
+    DispatchQueue.main.async {
+        guard let window = NSApp.keyWindow else {
+            return
+        }
+
+        let picker = NSSharingServicePicker(items: urls)
+
+        // Get the mouse location to position the share menu
+        let mouseLocation = NSEvent.mouseLocation
+        let windowFrame = window.frame
+        let pointInWindow = NSPoint(
+            x: mouseLocation.x - windowFrame.origin.x,
+            y: mouseLocation.y - windowFrame.origin.y
+        )
+
+        // Show the picker at the mouse location
+        picker.show(relativeTo: NSRect(origin: pointInWindow, size: .zero), of: window.contentView!, preferredEdge: NSRectEdge.minY)
+    }
+
+    return true
+}

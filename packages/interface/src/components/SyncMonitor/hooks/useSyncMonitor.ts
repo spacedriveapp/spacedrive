@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useLibraryQuery, useSpacedriveClient } from '../../../context';
+import { useLibraryQuery, useSpacedriveClient } from '../../../contexts/SpacedriveContext';
 import type { SyncPeerActivity, SyncActivity, SyncState } from '../types';
 
 interface SyncMonitorState {
@@ -155,9 +155,8 @@ export function useSyncMonitor() {
 						...prev.recentActivity.slice(0, 49),
 					],
 				}));
-			} else {
-				refetchRef.current();
 			}
+			// Removed else-refetch: only refetch on specific sync events, not every event
 		};
 
 		const filter = {

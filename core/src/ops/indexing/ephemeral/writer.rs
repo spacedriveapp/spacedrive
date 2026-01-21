@@ -303,7 +303,7 @@ impl ChangeHandler for MemoryAdapter {
 					modified: metadata.modified().ok(),
 					accessed: metadata.accessed().ok(),
 					created: metadata.created().ok(),
-					inode: DatabaseStorage::get_inode(&metadata),
+					inode: DatabaseStorage::get_inode(&entry_path, &metadata),
 					permissions: None,
 					is_hidden: entry_path
 						.file_name()

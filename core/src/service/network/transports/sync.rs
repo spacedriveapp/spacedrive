@@ -369,7 +369,7 @@ impl NetworkTransport for NetworkingService {
 			.map(|device| device.uuid)
 			.collect();
 
-		tracing::info!(
+		tracing::debug!(
 			library_id = %library_id,
 			our_device_id = %our_device_id,
 			total_lib_devices = library_devices.len(),
@@ -384,7 +384,7 @@ impl NetworkTransport for NetworkingService {
 		for device in &library_devices {
 			if device.uuid != our_device_id {
 				let node_id = registry.get_node_id_for_device(device.uuid);
-				tracing::info!(
+				tracing::debug!(
 					device_uuid = %device.uuid,
 					device_name = %device.name,
 					sync_enabled = device.sync_enabled,

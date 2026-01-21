@@ -50,12 +50,8 @@ pub async fn extract_text_from_file(source_path: &Path, languages: &[String]) ->
 }
 
 /// Check if a file type supports OCR based on content kind
-pub fn is_ocr_supported(mime_type: &str) -> bool {
+pub fn is_ocr_supported(mime_type: &str, registry: &crate::filetype::FileTypeRegistry) -> bool {
 	use crate::domain::ContentKind;
-	use crate::filetype::FileTypeRegistry;
-
-	// Create registry instance (consider caching this globally)
-	let registry = FileTypeRegistry::new();
 
 	// Get file type by MIME
 	if let Some(file_type) = registry.get_by_mime(mime_type) {

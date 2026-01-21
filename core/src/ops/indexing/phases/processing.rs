@@ -83,14 +83,19 @@ pub async fn run_processing_phase(
 		.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 		.ok_or_else(|| JobError::execution("Location not found in database".to_string()))?;
 
-	let device_id = location_record.device_id;
+	let volume_id = location_record.volume_id.ok_or_else(|| {
+		JobError::execution(
+			"Location volume_id not set - volume must be detected before indexing can proceed",
+		)
+	})?;
 	let location_id_i32 = location_record.id;
 	let location_entry_id = location_record
 		.entry_id
 		.ok_or_else(|| JobError::execution("Location entry_id not set (not yet synced)"))?;
+
 	ctx.log(format!(
-		"Found location record: device_id={}, location_id={}, entry_id={}",
-		device_id, location_id_i32, location_entry_id
+		"Found location record: volume_id={}, location_id={}, entry_id={}",
+		volume_id, location_id_i32, location_entry_id
 	));
 
 	// SAFETY: Validate indexing path is within location boundaries to prevent catastrophic
@@ -143,16 +148,18 @@ pub async fn run_processing_phase(
 		.await;
 
 	let mut change_detector = ChangeDetector::new();
-	if !state.existing_entries.is_empty() || mode != IndexMode::Shallow {
-		ctx.log("Loading existing entries for change detection...");
-		change_detector
-			.load_existing_entries(ctx, location_id_i32, location_root_path)
-			.await?;
-		ctx.log(format!(
-			"Loaded {} existing entries",
-			change_detector.entry_count()
-		));
-	}
+	// Always load existing entries for change detection during reindexing.
+	// This is required to detect moves, modifications, and deletions regardless
+	// of IndexMode. The mode only affects what metadata gets extracted, not
+	// whether we detect changes.
+	ctx.log("Loading existing entries for change detection...");
+	change_detector
+		.load_existing_entries(ctx, location_id_i32, location_root_path)
+		.await?;
+	ctx.log(format!(
+		"Loaded {} existing entries",
+		change_detector.entry_count()
+	));
 
 	// Sort all discovered entries by depth (parents before children) to ensure parent entries
 	// exist in the database before we try to create children with parent_id foreign keys.
@@ -234,6 +241,7 @@ pub async fn run_processing_phase(
 			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
+			volume_total_capacity: state.volume_total_capacity,
 		};
 		ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
@@ -285,7 +293,7 @@ pub async fn run_processing_phase(
 					match DatabaseStorage::create_entry_in_conn(
 						state,
 						&entry,
-						device_id,
+						volume_id,
 						location_root_path,
 						&txn,
 						&mut bulk_self_closures,
@@ -492,10 +500,115 @@ pub async fn run_processing_phase(
 		// Note: State will be automatically saved during job serialization on shutdown
 	}
 
+	// Explicitly update the root entry metadata (including inode).
+	// The root entry is loaded from the database but never "discovered" during the directory walk,
+	// so it never goes through the normal processing loop. This ensures the root entry gets
+	// updated with current filesystem metadata, especially important for updating null inodes
+	// from older Spacedrive versions.
+	ctx.log("Checking root entry for updates...");
+	if let Ok(metadata) = std::fs::symlink_metadata(location_root_path) {
+		// Get the root entry from the database
+		if let Ok(Some(root_entry)) = entities::entry::Entity::find_by_id(location_entry_id)
+			.one(ctx.library_db())
+			.await
+		{
+			#[cfg(unix)]
+			let inode = {
+				use std::os::unix::fs::MetadataExt;
+				Some(metadata.ino())
+			};
+
+			#[cfg(windows)]
+			let inode = {
+				use std::os::windows::fs::MetadataExt;
+				metadata.file_index()
+			};
+
+			#[cfg(not(any(unix, windows)))]
+			let inode = None;
+
+			// Check if the root entry needs updating
+			let needs_update = root_entry.inode.is_none()
+				|| inode.map(|i| i != root_entry.inode.unwrap_or(-1) as u64).unwrap_or(false)
+				|| root_entry.size != metadata.len() as i64
+				|| {
+					if let Ok(modified) = metadata.modified() {
+						if let Ok(duration) = modified.duration_since(std::time::UNIX_EPOCH) {
+							if let Some(timestamp) = chrono::DateTime::from_timestamp(
+								duration.as_secs() as i64,
+								0,
+							) {
+								root_entry.modified_at != timestamp
+							} else {
+								false
+							}
+						} else {
+							false
+						}
+					} else {
+						false
+					}
+				};
+
+			if needs_update {
+				ctx.log(format!(
+					"Updating root entry (id: {}, inode: {:?} -> {:?})",
+					location_entry_id, root_entry.inode, inode
+				));
+
+				let kind = if metadata.is_dir() {
+					crate::ops::indexing::state::EntryKind::Directory
+				} else if metadata.is_symlink() {
+					crate::ops::indexing::state::EntryKind::Symlink
+				} else {
+					crate::ops::indexing::state::EntryKind::File
+				};
+
+				let root_dir_entry = crate::ops::indexing::state::DirEntry {
+					path: location_root_path.to_path_buf(),
+					kind,
+					size: metadata.len(),
+					modified: metadata.modified().ok(),
+					inode,
+				};
+
+				let txn = ctx.library_db().begin().await.map_err(|e| {
+					JobError::execution(format!("Failed to begin root update transaction: {}", e))
+				})?;
+
+				if let Err(e) = DatabaseStorage::update_entry_in_conn(
+					location_entry_id,
+					&root_dir_entry,
+					&txn,
+				)
+				.await
+				{
+					ctx.add_non_critical_error(format!("Failed to update root entry: {}", e));
+					if let Err(rollback_err) = txn.rollback().await {
+						warn!("Failed to rollback root update transaction: {}", rollback_err);
+					}
+				} else {
+					txn.commit().await.map_err(|e| {
+						JobError::execution(format!("Failed to commit root update: {}", e))
+					})?;
+					ctx.log("Root entry updated successfully");
+				}
+			}
+		}
+	}
+
 	// Handle deleted entries
 	if change_detector.entry_count() > 0 {
 		ctx.log("Checking for deleted entries...");
-		let seen_paths: std::collections::HashSet<_> = state.seen_paths.iter().cloned().collect();
+
+		// Build seen_paths, ensuring the indexing root is included. The indexing path is
+		// loaded as an existing entry but never "seen" during discovery (which only scans
+		// children). Without this, an indexer job spawned for a subdirectory would detect
+		// the subdirectory itself as "missing" and delete it along with all its children.
+		let mut seen_paths: std::collections::HashSet<_> =
+			state.seen_paths.iter().cloned().collect();
+		seen_paths.insert(location_root_path.to_path_buf());
+
 		let deleted = change_detector.find_deleted(&seen_paths);
 
 		if !deleted.is_empty() {

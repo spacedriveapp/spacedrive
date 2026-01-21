@@ -1,8 +1,10 @@
 //! Pairing protocol message definitions
 
-use crate::service::network::device::DeviceInfo;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
+
+use super::proxy::{AcceptedDevice, RejectedDevice};
+use crate::service::network::device::{DeviceInfo, SessionKeys};
 
 /// Messages exchanged during the pairing protocol
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,4 +38,28 @@ pub enum PairingMessage {
 	/// Sent when the initiator's user rejects the pairing request
 	/// or when the confirmation times out.
 	Reject { session_id: Uuid, reason: String },
+	// Voucher -> Other device: "Trust this new device"
+	ProxyPairingRequest {
+		session_id: Uuid,
+		vouchee_device_info: DeviceInfo,
+		vouchee_public_key: Vec<u8>,
+		voucher_device_id: Uuid,
+		voucher_signature: Vec<u8>,
+		timestamp: chrono::DateTime<chrono::Utc>,
+		proxied_session_keys: SessionKeys,
+	},
+	// Other device -> Voucher: "I accept or reject this vouch"
+	ProxyPairingResponse {
+		session_id: Uuid,
+		accepting_device_id: Uuid,
+		accepted: bool,
+		reason: Option<String>,
+	},
+	// Voucher -> Vouchee: "These devices accepted you"
+	ProxyPairingComplete {
+		session_id: Uuid,
+		voucher_device_id: Uuid,
+		accepted_by: Vec<AcceptedDevice>,
+		rejected_by: Vec<RejectedDevice>,
+	},
 }

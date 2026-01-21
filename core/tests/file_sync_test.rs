@@ -61,6 +61,7 @@ impl FileSyncTestSetup {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
 				fs_watcher_enabled: false,
+				statistics_listener_enabled: false,
 			},
 			logging: sd_core::config::LoggingConfig::default(),
 		};

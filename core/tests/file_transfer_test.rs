@@ -51,6 +51,25 @@ async fn alice_file_transfer_scenario() {
 	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Alice: Networking initialized successfully");
 
+	// Create directory for received files BEFORE adding as allowed path
+	std::fs::create_dir_all("/tmp/received_files").unwrap();
+
+	// Add allowed path for file transfers (security requirement from PR #2944)
+	if let Some(networking) = core.networking() {
+		let protocol_registry = networking.protocol_registry();
+		let registry = protocol_registry.read().await;
+		if let Some(handler) = registry.get_handler("file_transfer") {
+			if let Some(ft_handler) =
+				handler
+					.as_any()
+					.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>(
+					) {
+				ft_handler.add_allowed_path(std::path::PathBuf::from("/tmp/received_files"));
+				println!("Alice: Added /tmp/received_files as allowed path");
+			}
+		}
+	}
+
 	// Create a library for job dispatch (required for file transfers)
 	println!("Alice: Creating library for file transfer jobs...");
 	let _library = core
@@ -97,20 +116,18 @@ async fn alice_file_transfer_scenario() {
 	println!("Alice: Waiting for Bob to connect...");
 	let mut attempts = 0;
 	let max_attempts = 45; // 45 seconds
-	let mut receiver_device_id = None;
 
-	loop {
+	let receiver_id = loop {
 		tokio::time::sleep(Duration::from_secs(1)).await;
 
 		let connected_devices = core.services.device.get_connected_devices().await.unwrap();
 		if !connected_devices.is_empty() {
-			receiver_device_id = Some(connected_devices[0]);
 			println!("Alice: Bob connected! Device ID: {}", connected_devices[0]);
 
 			// Wait a bit longer to ensure session keys are properly established
 			println!("Alice: Allowing extra time for session key establishment...");
 			tokio::time::sleep(Duration::from_secs(2)).await;
-			break;
+			break connected_devices[0];
 		}
 
 		// Also check if there are any paired devices (even if not currently connected)
@@ -127,12 +144,11 @@ async fn alice_file_transfer_scenario() {
 					);
 				}
 				// Use the first paired device as the receiver
-				receiver_device_id = Some(paired_devices[0].device_id);
 				println!(
 					"Alice: Using paired device as receiver: {}",
 					paired_devices[0].device_id
 				);
-				break;
+				break paired_devices[0].device_id;
 			}
 		}
 
@@ -144,9 +160,7 @@ async fn alice_file_transfer_scenario() {
 		if attempts % 5 == 0 {
 			println!("Alice: Pairing status check {} - waiting", attempts / 5);
 		}
-	}
-
-	let receiver_id = receiver_device_id.unwrap();
+	};
 
 	// Create test files to transfer
 	println!("Alice: Creating test files for transfer...");
@@ -378,6 +392,30 @@ async fn bob_file_transfer_scenario() {
 	tokio::time::sleep(Duration::from_secs(3)).await;
 	println!("Bob: Networking initialized successfully");
 
+	// Create directory for received files BEFORE pairing (security requirement from PR #2944)
+	let received_dir = std::path::Path::new("/tmp/received_files");
+	std::fs::create_dir_all(received_dir).unwrap();
+	println!(
+		"Bob: Created directory for received files: {:?}",
+		received_dir
+	);
+
+	// Add allowed path for file transfers AFTER directory creation (security requirement from PR #2944)
+	if let Some(networking) = core.networking() {
+		let protocol_registry = networking.protocol_registry();
+		let registry = protocol_registry.read().await;
+		if let Some(handler) = registry.get_handler("file_transfer") {
+			if let Some(ft_handler) =
+				handler
+					.as_any()
+					.downcast_ref::<sd_core::service::network::protocol::FileTransferProtocolHandler>(
+					) {
+				ft_handler.add_allowed_path(std::path::PathBuf::from("/tmp/received_files"));
+				println!("Bob: Added /tmp/received_files as allowed path");
+			}
+		}
+	}
+
 	// Create a library for job dispatch (required for file transfers)
 	println!("Bob: Creating library for file transfer jobs...");
 	let _library = core
@@ -480,13 +518,7 @@ async fn bob_file_transfer_scenario() {
 	// Wait for file transfers
 	println!("Bob: Waiting for file transfers...");
 
-	// Create directory for received files
-	let received_dir = std::path::Path::new("/tmp/received_files");
-	std::fs::create_dir_all(received_dir).unwrap();
-	println!(
-		"Bob: Created directory for received files: {:?}",
-		received_dir
-	);
+	// Directory and allowed path already configured before pairing
 
 	// Wait for expected files to arrive
 	let expected_files = loop {

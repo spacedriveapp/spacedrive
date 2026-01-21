@@ -26,13 +26,14 @@ import { useEffect, useMemo, useState, useRef } from "react";
 import { useQuery, useQueryClient, QueryClient } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
 import type { Event } from "../generated/types";
+import type { SdPath } from "../types";
 import invariant from "tiny-invariant";
 import * as v from "valibot";
 import type { Simplify } from "type-fest";
 
 // Types
 
-export type UseNormalizedQueryOptions<I> = Simplify<{
+export type UseNormalizedQueryOptions<I, O = any, TSelected = O> = Simplify<{
 	/** Wire method to call (e.g., "query:files.directory_listing") */
 	wireMethod: string;
 	/** Input for the query */
@@ -42,11 +43,15 @@ export type UseNormalizedQueryOptions<I> = Simplify<{
 	/** Whether query is enabled (default: true) */
 	enabled?: boolean;
 	/** Optional path scope for server-side filtering */
-	pathScope?: any; // SdPath type
+	pathScope?: SdPath;
 	/** Whether to include descendants (recursive) or only direct children (exact) */
 	includeDescendants?: boolean;
 	/** Resource ID for single-resource queries */
 	resourceId?: string;
+	/** Enable debug logging for this query instance */
+	debug?: boolean;
+	/** Optional select function to transform query data */
+	select?: (data: O) => TSelected;
 }>;
 
 // Runtime Validation Schemas (Valibot)
@@ -91,8 +96,8 @@ const ResourceDeletedSchema = v.object({
 /**
  * useNormalizedQuery - Main hook
  */
-export function useNormalizedQuery<I, O>(
-	options: UseNormalizedQueryOptions<I>,
+export function useNormalizedQuery<I, O = any, TSelected = O>(
+	options: UseNormalizedQueryOptions<I, O, TSelected>,
 ) {
 	const client = useSpacedriveClient();
 	const queryClient = useQueryClient();
@@ -119,7 +124,7 @@ export function useNormalizedQuery<I, O>(
 	);
 
 	// Standard TanStack Query
-	const query = useQuery<O>({
+	const query = useQuery<O, Error, TSelected>({
 		queryKey,
 		queryFn: async () => {
 			invariant(libraryId, "Library ID must be set before querying");
@@ -129,6 +134,7 @@ export function useNormalizedQuery<I, O>(
 			);
 		},
 		enabled: (options.enabled ?? true) && !!libraryId,
+		select: options.select,
 	});
 
 	// Refs for stable access to latest values without triggering re-subscription
@@ -155,12 +161,9 @@ export function useNormalizedQuery<I, O>(
 		if (!libraryId) return;
 
 		// Skip subscription for file queries without pathScope (prevent overly broad subscriptions)
-		// Unless resourceId is provided (single-file queries like FileInspector don't need pathScope)
-		if (
-			options.resourceType === "file" &&
-			!options.pathScope &&
-			!options.resourceId
-		) {
+		// File resources are too numerous - global subscriptions cause massive event spam
+		// Single-file queries (FileInspector) will use stale-while-revalidate instead
+		if (options.resourceType === "file" && !options.pathScope) {
 			return;
 		}
 
@@ -172,29 +175,11 @@ export function useNormalizedQuery<I, O>(
 		const capturedQueryKey = queryKey;
 
 		const handleEvent = (event: Event) => {
-			// Debug: log every batch event to understand what's happening
-			// if (typeof event !== "string" && "ResourceChangedBatch" in event) {
-			//   const batch = (event as any).ResourceChangedBatch;
-			//   console.log("[useNormalizedQuery] Batch event received", {
-			//     capturedPath: capturedPathScope,
-			//     currentRefPath: optionsRef.current.pathScope,
-			//     pathsMatch:
-			//       JSON.stringify(optionsRef.current.pathScope) ===
-			//       JSON.stringify(capturedPathScope),
-			//     resourceCount: batch.resources?.length || 0,
-			//     resourceType: batch.resource_type,
-			//   });
-			// }
-
 			// Guard: only process events if pathScope hasn't changed since subscription
 			if (
 				JSON.stringify(optionsRef.current.pathScope) !==
 				JSON.stringify(capturedPathScope)
 			) {
-				// console.log("[useNormalizedQuery] Dropping stale event", {
-				// 	eventPathScope: capturedPathScope,
-				// 	currentPathScope: optionsRef.current.pathScope,
-				// });
 				return;
 			}
 
@@ -203,6 +188,7 @@ export function useNormalizedQuery<I, O>(
 				optionsRef.current,
 				capturedQueryKey, // Use captured queryKey, not ref
 				queryClient,
+				optionsRef.current.debug, // Pass debug flag
 			);
 		};
 
@@ -218,22 +204,13 @@ export function useNormalizedQuery<I, O>(
 			)
 			.then((unsub) => {
 				if (isCancelled) {
-					// console.log(
-					//   "[useNormalizedQuery] Subscription cancelled before creation completed",
-					// );
 					unsub();
 				} else {
-					// console.log("[useNormalizedQuery] Subscription active", {
-					//   pathScope: options.pathScope,
-					// });
 					unsubscribe = unsub;
 				}
 			});
 
 		return () => {
-			// console.log("[useNormalizedQuery] Cleaning up subscription", {
-			//   pathScope: options.pathScope,
-			// });
 			isCancelled = true;
 			unsubscribe?.();
 		};
@@ -264,6 +241,7 @@ export function handleResourceEvent(
 	options: UseNormalizedQueryOptions<any>,
 	queryKey: any[],
 	queryClient: QueryClient,
+	debug?: boolean,
 ) {
 	// Skip string events (like "CoreStarted", "CoreShutdown")
 	if (typeof event === "string") {
@@ -272,6 +250,12 @@ export function handleResourceEvent(
 
 	// Refresh event - invalidate all queries
 	if ("Refresh" in event) {
+		if (debug) {
+			console.log(
+				`[useNormalizedQuery] ${options.wireMethod} processing Refresh`,
+				event,
+			);
+		}
 		queryClient.invalidateQueries();
 		return;
 	}
@@ -280,16 +264,18 @@ export function handleResourceEvent(
 	if ("ResourceChanged" in event) {
 		const result = v.safeParse(ResourceChangedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChanged event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
 		const { resource_type, resource, metadata } =
 			result.output.ResourceChanged;
 		if (resource_type === options.resourceType) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChanged`,
+					event,
+				);
+			}
 			updateSingleResource(
 				resource,
 				metadata,
@@ -304,10 +290,6 @@ export function handleResourceEvent(
 	else if ("ResourceChangedBatch" in event) {
 		const result = v.safeParse(ResourceChangedBatchSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceChangedBatch event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
@@ -318,6 +300,12 @@ export function handleResourceEvent(
 			resource_type === options.resourceType &&
 			Array.isArray(resources)
 		) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceChangedBatch`,
+					event,
+				);
+			}
 			updateBatchResources(
 				resources,
 				metadata,
@@ -332,15 +320,17 @@ export function handleResourceEvent(
 	else if ("ResourceDeleted" in event) {
 		const result = v.safeParse(ResourceDeletedSchema, event);
 		if (!result.success) {
-			// console.warn(
-			//   "[useNormalizedQuery] Invalid ResourceDeleted event:",
-			//   result.issues,
-			// );
 			return;
 		}
 
 		const { resource_type, resource_id } = result.output.ResourceDeleted;
 		if (resource_type === options.resourceType) {
+			if (debug) {
+				console.log(
+					`[useNormalizedQuery] ${options.wireMethod} processing ResourceDeleted`,
+					event,
+				);
+			}
 			deleteResource(resource_id, queryKey, queryClient);
 		}
 	}
@@ -427,16 +417,6 @@ export function filterBatchResources(
 			// Only match if parent equals scope (normalized)
 			return parentDir === normalizedScope;
 		});
-
-		// const afterCount = filtered.length;
-		// if (beforeCount !== afterCount) {
-		//   console.log("[filterBatchResources] Filtered resources", {
-		//     pathScope: options.pathScope,
-		//     before: beforeCount,
-		//     after: afterCount,
-		//     filtered: beforeCount - afterCount,
-		//   });
-		// }
 	}
 
 	return filtered;
@@ -463,11 +443,11 @@ export function updateSingleResource<O>(
 	if (options) {
 		resourcesToUpdate = filterBatchResources(resourcesToUpdate, options);
 		if (resourcesToUpdate.length === 0) {
-			// console.log("[updateSingleResource] Filtered out resource", {
-			//   pathScope: options.pathScope,
-			//   resourcePath: resource.sd_path,
-			// });
-			return; // Resource was filtered out
+			// Resource was filtered out - may have moved out of scope, remove from cache
+			if (resource.id) {
+				deleteResource(resource.id, queryKey, queryClient);
+			}
+			return;
 		}
 	}
 
@@ -513,8 +493,15 @@ export function updateBatchResources<O>(
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
 
+	// If all resources were filtered out, they may have moved OUT of scope
+	// Remove them from cache if they exist (handles file moves out of current view)
 	if (filteredResources.length === 0) {
-		return; // No matching resources
+		for (const resource of resources) {
+			if (resource.id) {
+				deleteResource(resource.id, queryKey, queryClient);
+			}
+		}
+		return;
 	}
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
@@ -591,23 +578,63 @@ function updateArrayCache(
 	const newData = [...oldData];
 	const seenIds = new Set();
 
-	// Update existing items
+	// Update existing items by ID
 	for (let i = 0; i < newData.length; i++) {
 		const item: any = newData[i];
 		const match = newResources.find((r: any) => r.id === item.id);
 		if (match) {
 			newData[i] = safeMerge(item, match, noMergeFields);
-			seenIds.add(item.id);
+			seenIds.add(match.id);
 		}
 	}
 
-	// Append new items
+	// Handle Content entries that represent the same file as an existing Physical entry
+	// When content identification happens, a new Content entry is created with a different ID
+	// We need to merge it into the existing Physical entry by matching paths
+	for (const resource of newResources) {
+		if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+			// Try to find existing Physical entry by matching alternate_paths
+			const physicalPath = resource.alternate_paths?.find(
+				(p: any) => p.Physical,
+			)?.Physical?.path;
+			if (physicalPath) {
+				const existingIndex = newData.findIndex((item: any) => {
+					const itemPath =
+						item.sd_path?.Physical?.path ||
+						item.alternate_paths?.find((p: any) => p.Physical)
+							?.Physical?.path;
+					return itemPath === physicalPath;
+				});
+
+				if (existingIndex !== -1) {
+					// Merge Content entry into existing Physical entry
+					newData[existingIndex] = safeMerge(
+						newData[existingIndex],
+						resource,
+						noMergeFields,
+					);
+					seenIds.add(resource.id);
+				}
+			}
+		}
+	}
+
+	// Append new items (excluding Content paths that didn't match an existing entry)
 	for (const resource of newResources) {
 		if (!seenIds.has(resource.id)) {
-			// Skip resources with Content paths - they represent alternate instances
-			// and should only update existing entries (e.g., thumbnail generation)
+			// For Content paths: only add if they don't belong to an existing Physical entry
+			// Content paths without matching Physical entries are either:
+			// 1. Files moved into this directory (have alternate_paths but no match) → ADD
+			// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
 			if (resource.sd_path?.Content) {
-				continue;
+				// Skip if no alternate_paths (pure metadata update)
+				if (
+					!resource.alternate_paths ||
+					resource.alternate_paths.length === 0
+				) {
+					continue;
+				}
+				// Otherwise, this is a real file that belongs here - add it
 			}
 			newData.push(resource);
 		}
@@ -640,24 +667,73 @@ function updateWrappedCache(
 		const array = [...oldData[arrayField]];
 		const seenIds = new Set();
 
-		// Update existing
+		// Update existing by ID
 		for (let i = 0; i < array.length; i++) {
 			const item: any = array[i];
 			const match = newResources.find((r: any) => r.id === item.id);
 			if (match) {
 				array[i] = safeMerge(item, match, noMergeFields);
-				seenIds.add(item.id);
+				seenIds.add(match.id);
 			}
 		}
 
-		// Append new
+		// Handle Content entries that represent the same file as an existing Physical entry
+		for (const resource of newResources) {
+			if (!seenIds.has(resource.id) && resource.sd_path?.Content) {
+				// Try to find existing Physical entry by matching alternate_paths
+				const physicalPath = resource.alternate_paths?.find(
+					(p: any) => p.Physical,
+				)?.Physical?.path;
+				if (physicalPath) {
+					const existingIndex = array.findIndex((item: any) => {
+						const itemPath =
+							item.sd_path?.Physical?.path ||
+							item.alternate_paths?.find((p: any) => p.Physical)
+								?.Physical?.path;
+						return itemPath === physicalPath;
+					});
+
+					if (existingIndex !== -1) {
+						// Merge Content entry into existing Physical entry
+						array[existingIndex] = safeMerge(
+							array[existingIndex],
+							resource,
+							noMergeFields,
+						);
+						seenIds.add(resource.id);
+					}
+				}
+			}
+		}
+
+		// Append new items (excluding Content paths that didn't match an existing entry)
 		for (const resource of newResources) {
 			if (!seenIds.has(resource.id)) {
-				// Skip resources with Content paths - they represent alternate instances
-				// and should only update existing entries (e.g., thumbnail generation)
+				// For Content paths: only add if they don't belong to an existing Physical entry
+				// Content paths without matching Physical entries are either:
+				// 1. Files moved into this directory (have alternate_paths but no match) → ADD
+				// 2. Metadata updates for files elsewhere (no relevant alternate_paths) → SKIP
 				if (resource.sd_path?.Content) {
+					// Skip if no alternate_paths (pure metadata update)
+					if (
+						!resource.alternate_paths ||
+						resource.alternate_paths.length === 0
+					) {
+						continue;
+					}
+					// Otherwise, this is a real file that belongs here - add it
+				}
+
+				// Check if resource already exists in the array (by ID)
+				const alreadyExists = array.some(
+					(item: any) => item.id === resource.id,
+				);
+
+				if (alreadyExists) {
 					continue;
 				}
+
+				// New resource - append it
 				array.push(resource);
 			}
 		}

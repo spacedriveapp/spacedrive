@@ -14,6 +14,7 @@ swift!(pub fn enable_app_nap() -> Bool);
 swift!(pub fn lock_app_theme(theme_type: Int));
 swift!(pub fn set_titlebar_style(window: &NSObject, is_fullscreen: Bool));
 swift!(pub fn reload_webview(webview: &NSObject));
+swift!(pub fn share_items(paths: &SRString) -> Bool);
 
 #[repr(C)]
 pub struct OpenWithApplication {

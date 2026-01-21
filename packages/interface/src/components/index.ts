@@ -1,8 +1,8 @@
-export { ExplorerView } from "./Explorer/ExplorerView";
-export { Sidebar } from "./Explorer/Sidebar";
-export { ExplorerProvider, useExplorer } from "./Explorer/context";
-export * from "./Explorer/utils";
-export * from "./Explorer/File";
-export * from "./Inspector";
-export { useCreateLibraryDialog } from "./CreateLibraryModal";
-export { useFileOperationDialog } from "./FileOperationModal";
+export { ExplorerView } from "../routes/explorer/ExplorerView";
+export { Sidebar } from "../routes/explorer/Sidebar";
+export { ExplorerProvider, useExplorer } from "../routes/explorer/context";
+export * from "../routes/explorer/utils";
+export * from "../routes/explorer/File";
+export * from "./Inspector/Inspector";
+export { useCreateLibraryDialog } from "./modals/CreateLibraryModal";
+export { useFileOperationDialog } from "./modals/FileOperationModal";

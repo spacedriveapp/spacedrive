@@ -33,7 +33,7 @@ export function SettingsRow({
 					"flex-row items-center px-6 py-3 bg-app-box min-h-[56px]",
 					isFirst && "rounded-t-[32px]",
 					isLast && "rounded-b-[32px]",
-					onPress && "active:bg-app-hover",
+					onPress && "active:bg-app-selected",
 					className
 				)}
 				{...props}

@@ -135,8 +135,6 @@ impl Syncable for Model {
 	fn exclude_fields() -> Option<&'static [&'static str]> {
 		Some(&[
 			"id",
-			"mime_type_id",
-			"kind_id",
 			"entry_count",
 			"image_media_data_id",
 			"video_media_data_id",
@@ -147,7 +145,14 @@ impl Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		&[]
+		&["mime_type"]
+	}
+
+	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
+		vec![crate::infra::sync::FKMapping::new(
+			"mime_type_id",
+			"mime_types",
+		)]
 	}
 
 	// FK Lookup Methods (content_identity is FK target for entries)
@@ -247,13 +252,28 @@ impl Syncable for Model {
 				continue;
 			}
 
-			let json = match content.to_sync_json() {
+			let mut json = match content.to_sync_json() {
 				Ok(j) => j,
 				Err(e) => {
 					tracing::warn!(error = %e, content_hash = %content.content_hash, "Failed to serialize content_identity for sync");
 					continue;
 				}
 			};
+
+			// Convert FK to UUID for cross-device compatibility
+			for fk in Self::foreign_key_mappings() {
+				if let Err(e) =
+					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+				{
+					tracing::warn!(
+						error = %e,
+						uuid = %content.uuid.unwrap(),
+						fk_field = fk.local_field,
+						"Failed to convert FK to UUID, skipping content_identity"
+					);
+					continue;
+				}
+			}
 
 			sync_results.push((content.uuid.unwrap(), json, content.last_verified_at));
 		}
@@ -267,7 +287,14 @@ impl Syncable for Model {
 	) -> Result<(), sea_orm::DbErr> {
 		match entry.change_type {
 			ChangeType::Insert | ChangeType::Update => {
-				let data = entry.data.as_object().ok_or_else(|| {
+				// Map UUIDs to local IDs for FK fields
+				use crate::infra::sync::fk_mapper;
+				let data =
+					fk_mapper::map_sync_json_to_local(entry.data, Self::foreign_key_mappings(), db)
+						.await
+						.map_err(|e| sea_orm::DbErr::Custom(format!("FK mapping failed: {}", e)))?;
+
+				let data = data.as_object().ok_or_else(|| {
 					sea_orm::DbErr::Custom("ContentIdentity data is not an object".to_string())
 				})?;
 
@@ -285,6 +312,20 @@ impl Syncable for Model {
 				)
 				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid content_hash: {}", e)))?;
 
+				let mime_type_id: Option<i32> = serde_json::from_value(
+					data.get("mime_type_id")
+						.cloned()
+						.unwrap_or(serde_json::Value::Null),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid mime_type_id: {}", e)))?;
+
+				let kind_id: i32 = serde_json::from_value(
+					data.get("kind_id")
+						.cloned()
+						.unwrap_or(serde_json::Value::Number(0.into())),
+				)
+				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid kind_id: {}", e)))?;
+
 				let active = ActiveModel {
 					id: NotSet,
 					uuid: Set(Some(uuid)),
@@ -295,8 +336,8 @@ impl Syncable for Model {
 					)
 					.unwrap()),
 					content_hash: Set(content_hash),
-					mime_type_id: Set(None),
-					kind_id: Set(1),
+					mime_type_id: Set(mime_type_id),
+					kind_id: Set(kind_id),
 					text_content: Set(serde_json::from_value(
 						data.get("text_content")
 							.cloned()
@@ -323,6 +364,8 @@ impl Syncable for Model {
 							.update_columns([
 								Column::IntegrityHash,
 								Column::ContentHash,
+								Column::MimeTypeId,
+								Column::KindId,
 								Column::TextContent,
 								Column::TotalSize,
 								Column::LastVerifiedAt,

@@ -11,7 +11,14 @@ RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/
 	git \
 	pkg-config \
 	libssl-dev \
-	ca-certificates
+	ca-certificates \
+	cmake \
+	nasm \
+	libavcodec-dev \
+	libavformat-dev \
+	libavutil-dev \
+	libswscale-dev \
+	libheif-dev
 
 # Install Rust
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
@@ -28,17 +35,32 @@ COPY core ./core
 COPY crates ./crates
 COPY apps/server ./apps/server
 
-# Build server (RPC only, no assets)
+# Build server with media processing features
 RUN --mount=type=cache,target=/root/.cargo/registry \
 	--mount=type=cache,target=/root/.cargo/git \
 	--mount=type=cache,target=/build/target \
-	cargo build --release -p sd-server && \
+	cargo build --release -p sd-server --features sd-core/heif,sd-core/ffmpeg && \
 	cp target/release/sd-server /usr/local/bin/sd-server
 
 #--
 # Runtime image
 #--
-FROM gcr.io/distroless/cc-debian12:nonroot
+FROM debian:bookworm-slim
+
+# Install runtime dependencies only
+RUN --mount=type=cache,target=/var/cache/apt --mount=type=cache,target=/var/lib/apt \
+	apt-get update && apt-get install -y \
+	libssl3 \
+	ca-certificates \
+	libavcodec59 \
+	libavformat59 \
+	libavutil57 \
+	libswscale6 \
+	libheif1 \
+	&& rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN useradd -m -u 1000 spacedrive
 
 # Copy binary
 COPY --from=builder /usr/local/bin/sd-server /usr/bin/sd-server
@@ -58,7 +80,7 @@ EXPOSE 7373
 VOLUME ["/data"]
 
 # Run as non-root user
-USER nonroot:nonroot
+USER spacedrive:spacedrive
 
 # Start server
 ENTRYPOINT ["/usr/bin/sd-server"]

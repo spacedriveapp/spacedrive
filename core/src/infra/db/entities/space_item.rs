@@ -11,9 +11,9 @@ pub struct Model {
 	pub id: i32,
 	pub uuid: Uuid,
 	pub space_id: i32,
-	pub group_id: Option<i32>, // Nullable - None = space-level item
-	pub entry_id: Option<i32>, // Nullable - populated for Path items
-	pub item_type: String,     // JSON-serialized ItemType enum
+	pub group_id: Option<i32>,    // Nullable - None = space-level item
+	pub entry_uuid: Option<Uuid>, // Nullable - populated for Path items
+	pub item_type: String,        // JSON-serialized ItemType enum
 	pub order: i32,
 	pub created_at: DateTimeUtc,
 }
@@ -32,12 +32,6 @@ pub enum Relation {
 		to = "super::space_group::Column::Id"
 	)]
 	SpaceGroup,
-	#[sea_orm(
-		belongs_to = "super::entry::Entity",
-		from = "Column::EntryId",
-		to = "super::entry::Column::Id"
-	)]
-	Entry,
 }
 
 impl Related<super::space::Entity> for Entity {
@@ -49,12 +43,6 @@ impl Related<super::space::Entity> for Entity {
 impl Related<super::space_group::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::SpaceGroup.def()
-	}
-}
-
-impl Related<super::entry::Entity> for Entity {
-	fn to() -> RelationDef {
-		Relation::Entry.def()
 	}
 }
 
@@ -86,6 +74,8 @@ impl Syncable for Model {
 		vec![
 			crate::infra::sync::FKMapping::new("space_id", "spaces"),
 			crate::infra::sync::FKMapping::new("group_id", "space_groups"),
+			// Note: entry_uuid is NOT listed here because it's already a UUID field.
+			// FKMapping is only for integer ID fields that need ID→UUID conversion.
 		]
 	}
 
@@ -239,8 +229,8 @@ impl Syncable for Model {
 				)
 				.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid group_id: {}", e)))?;
 
-				let entry_id: Option<i32> = data
-					.get("entry_id")
+				let entry_uuid: Option<Uuid> = data
+					.get("entry_uuid")
 					.map(|v| serde_json::from_value(v.clone()).ok())
 					.flatten();
 
@@ -249,7 +239,7 @@ impl Syncable for Model {
 					uuid: Set(uuid),
 					space_id: Set(space_id),
 					group_id: Set(group_id),
-					entry_id: Set(entry_id),
+					entry_uuid: Set(entry_uuid),
 					item_type: Set(serde_json::from_value(
 						data.get("item_type")
 							.ok_or_else(|| sea_orm::DbErr::Custom("Missing item_type".to_string()))?

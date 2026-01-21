@@ -27,13 +27,14 @@ impl VolumeClassifier for MacOSClassifier {
 		let mount_str = info.mount_point.to_string_lossy();
 
 		match mount_str.as_ref() {
-			// Primary system drive
+			// Primary system drive (legacy pre-Catalina)
 			"/" => VolumeType::Primary,
 
-			// User data volume (modern macOS separates this)
-			path if path.starts_with("/System/Volumes/Data") => VolumeType::UserData,
+			// Primary data volume (modern macOS Catalina+ with APFS system/data split)
+			// This is where all user data, applications, and writable files live
+			path if path.starts_with("/System/Volumes/Data") => VolumeType::Primary,
 
-			// System internal volumes
+			// System internal volumes (preboot, recovery, VM, etc.)
 			path if path.starts_with("/System/Volumes/") => VolumeType::System,
 
 			// macOS autofs system and /home mount
@@ -142,6 +143,22 @@ impl VolumeClassifier for LinuxClassifier {
 	}
 }
 
+/// iOS volume classifier
+///
+/// iOS presents unified device storage with no user-accessible separate volumes.
+/// All classification happens during detection - this classifier always returns Primary.
+#[cfg(target_os = "ios")]
+pub struct IosClassifier;
+
+#[cfg(target_os = "ios")]
+impl VolumeClassifier for IosClassifier {
+	fn classify(&self, _info: &VolumeDetectionInfo) -> VolumeType {
+		// iOS only has one volume type - the system volume
+		// All classification happens during detection
+		VolumeType::Primary
+	}
+}
+
 /// Fallback classifier for unknown platforms
 pub struct UnknownClassifier;
 
@@ -169,6 +186,14 @@ pub fn get_classifier() -> Box<dyn VolumeClassifier> {
 	#[cfg(target_os = "linux")]
 	return Box::new(LinuxClassifier);
 
-	#[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
+	#[cfg(target_os = "ios")]
+	return Box::new(IosClassifier);
+
+	#[cfg(not(any(
+		target_os = "macos",
+		target_os = "windows",
+		target_os = "linux",
+		target_os = "ios"
+	)))]
 	return Box::new(UnknownClassifier);
 }

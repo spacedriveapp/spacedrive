@@ -36,6 +36,11 @@ pub async fn detect_volumes(
 		volumes.extend(detect_windows_volumes(device_id, config).await?);
 	}
 
+	#[cfg(target_os = "ios")]
+	{
+		volumes.extend(detect_ios_volumes(device_id, config).await?);
+	}
+
 	// Enhance volumes with filesystem-specific capabilities
 	enhance_volumes_with_fs_capabilities(&mut volumes).await?;
 
@@ -182,4 +187,15 @@ async fn detect_generic_volumes_macos(
 ) -> VolumeResult<Vec<Volume>> {
 	use crate::volume::platform::macos;
 	macos::detect_non_apfs_volumes(device_id, config).await
+}
+
+#[cfg(target_os = "ios")]
+async fn detect_ios_volumes(
+	device_id: Uuid,
+	config: &VolumeDetectionConfig,
+) -> VolumeResult<Vec<Volume>> {
+	use crate::volume::platform::ios;
+
+	debug!("Starting iOS volume detection");
+	ios::detect_volumes(device_id, config).await
 }

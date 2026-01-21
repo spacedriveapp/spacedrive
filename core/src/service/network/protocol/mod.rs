@@ -17,7 +17,8 @@ use uuid::Uuid;
 
 pub use file_delete::FileDeleteProtocolHandler;
 pub use file_transfer::{
-	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferMode, TransferSession,
+	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferDirection,
+	TransferMode, TransferSession,
 };
 pub use job_activity::{JobActivityMessage, JobActivityProtocolHandler, RemoteJobEvent};
 pub use library_messages::{LibraryDiscoveryInfo, LibraryMessage};

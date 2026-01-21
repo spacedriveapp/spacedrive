@@ -12,10 +12,12 @@
     "prebuild:clean": "bun run patch && bunx expo prebuild --clean",
     "xcode": "open ios/Spacedrive.xcworkspace",
     "android-studio": "open -a '/Applications/Android Studio.app' ./android",
+    "data": "open \"$(xcrun simctl get_app_container booted com.spacedrive.app data)\"",
     "lint": "eslint src --cache",
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@dev-plugins/react-query": "^0.4.0",
     "@gorhom/bottom-sheet": "^5.0.6",
     "@react-native-async-storage/async-storage": "^2.1.0",
     "@react-native-clipboard/clipboard": "^1.16.3",

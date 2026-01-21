@@ -58,7 +58,7 @@ impl LibraryAction for LocationImportAction {
 			});
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

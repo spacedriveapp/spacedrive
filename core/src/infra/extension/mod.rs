@@ -17,15 +17,26 @@
 //! - `permissions`: Capability-based security model
 //! - `types`: Shared types and manifest format
 
+#[cfg(feature = "wasm")]
 mod host_functions;
+#[cfg(feature = "wasm")]
 mod job_registry;
+#[cfg(feature = "wasm")]
 mod manager;
+#[cfg(feature = "wasm")]
 mod permissions;
+#[cfg(feature = "wasm")]
 mod types;
+#[cfg(feature = "wasm")]
 mod wasm_job;
 
+#[cfg(feature = "wasm")]
 pub use job_registry::{ExtensionJobRegistration, ExtensionJobRegistry};
+#[cfg(feature = "wasm")]
 pub use manager::PluginManager;
+#[cfg(feature = "wasm")]
 pub use permissions::{ExtensionPermissions, PermissionError};
+#[cfg(feature = "wasm")]
 pub use types::{ExtensionManifest, PluginManifest};
+#[cfg(feature = "wasm")]
 pub use wasm_job::WasmJob;

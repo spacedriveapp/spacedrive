@@ -4,6 +4,7 @@ use crate::{
 	config::JobLoggingConfig,
 	crypto::key_manager::KeyManager,
 	device::DeviceManager,
+	filetype::FileTypeRegistry,
 	infra::action::manager::ActionManager,
 	infra::event::EventBus,
 	infra::sync::TransactionManager,
@@ -29,12 +30,15 @@ pub struct CoreContext {
 	pub sidecar_manager: Arc<RwLock<Option<Arc<SidecarManager>>>>,
 	pub action_manager: Arc<RwLock<Option<Arc<ActionManager>>>>,
 	pub networking: Arc<RwLock<Option<Arc<NetworkingService>>>>,
+	#[cfg(feature = "wasm")]
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
 	pub fs_watcher: Arc<RwLock<Option<Arc<FsWatcherService>>>>,
 	// Ephemeral index cache for unmanaged paths
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Remote job cache for cross-device job visibility
 	pub remote_job_cache: Arc<RemoteJobCache>,
+	// File type registry (loaded once at startup, never changes)
+	pub file_type_registry: Arc<FileTypeRegistry>,
 	// Job logging configuration
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
@@ -61,12 +65,14 @@ impl CoreContext {
 			sidecar_manager: Arc::new(RwLock::new(None)),
 			action_manager: Arc::new(RwLock::new(None)),
 			networking: Arc::new(RwLock::new(None)),
+			#[cfg(feature = "wasm")]
 			plugin_manager: Arc::new(RwLock::new(None)),
 			fs_watcher: Arc::new(RwLock::new(None)),
 			ephemeral_index_cache: Arc::new(
 				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
 			),
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
+			file_type_registry: Arc::new(FileTypeRegistry::new()),
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
@@ -76,6 +82,11 @@ impl CoreContext {
 	/// Get the ephemeral index cache
 	pub fn ephemeral_cache(&self) -> &Arc<EphemeralIndexCache> {
 		&self.ephemeral_index_cache
+	}
+
+	/// Get the file type registry
+	pub fn file_type_registry(&self) -> &Arc<FileTypeRegistry> {
+		&self.file_type_registry
 	}
 
 	/// Get the library manager
@@ -137,6 +148,7 @@ impl CoreContext {
 	}
 
 	/// Method for Core to set plugin manager after it's initialized
+	#[cfg(feature = "wasm")]
 	pub async fn set_plugin_manager(
 		&self,
 		plugin_manager: Arc<RwLock<crate::infra::extension::PluginManager>>,
@@ -145,6 +157,7 @@ impl CoreContext {
 	}
 
 	/// Get plugin manager
+	#[cfg(feature = "wasm")]
 	pub async fn get_plugin_manager(
 		&self,
 	) -> Option<Arc<RwLock<crate::infra::extension::PluginManager>>> {

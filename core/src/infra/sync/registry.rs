@@ -847,7 +847,7 @@ pub async fn run_post_backfill_rebuilds(db: Arc<DatabaseConnection>) -> Result<(
 	};
 
 	for (model_type, rebuild_fn) in rebuild_fns {
-		tracing::info!(model = %model_type, "Running post-backfill rebuild");
+		tracing::debug!(model = %model_type, "Running post-backfill rebuild");
 		rebuild_fn(db.clone()).await.map_err(|e| {
 			ApplyError::DatabaseError(format!("{} rebuild failed: {}", model_type, e))
 		})?;
@@ -917,6 +917,16 @@ mod tests {
 		// Access registry to trigger initialization
 		let registry = SYNCABLE_REGISTRY.read().await;
 
+		// Print all registered models for debugging
+		let mut models: Vec<_> = registry.keys().cloned().collect();
+		models.sort();
+		println!("Registered syncable models ({}):", models.len());
+		for model in &models {
+			let reg = registry.get(model).unwrap();
+			let sync_type = if reg.is_device_owned { "device-owned" } else { "shared" };
+			println!("  - {} ({})", model, sync_type);
+		}
+
 		// Verify location is registered as device-owned
 		assert!(registry.contains_key("location"));
 		let location_reg = registry.get("location").unwrap();
@@ -934,6 +944,18 @@ mod tests {
 		assert!(!tag_reg.is_device_owned);
 		assert!(tag_reg.state_apply_fn.is_none());
 		assert!(tag_reg.shared_apply_fn.is_some());
+
+		// Verify mime_type is registered as shared
+		assert!(
+			registry.contains_key("mime_type"),
+			"mime_type should be registered but was not found. Registered models: {:?}",
+			models
+		);
+		let mime_type_reg = registry.get("mime_type").unwrap();
+		assert_eq!(mime_type_reg.model_type, "mime_type");
+		assert_eq!(mime_type_reg.table_name, "mime_types");
+		assert!(!mime_type_reg.is_device_owned);
+		assert!(mime_type_reg.shared_apply_fn.is_some());
 	}
 
 	#[tokio::test]

@@ -503,6 +503,7 @@ pub enum PeerLogError {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::infra::sync::time_source::SystemTimeSource;
 	use tempfile::TempDir;
 
 	async fn create_test_peer_log() -> (PeerLog, TempDir) {
@@ -520,9 +521,10 @@ mod tests {
 	#[tokio::test]
 	async fn test_append_and_retrieve() {
 		let (peer_log, _temp) = create_test_peer_log().await;
+		let time = SystemTimeSource;
 
 		let entry = SharedChangeEntry {
-			hlc: HLC::now(peer_log.device_id),
+			hlc: HLC::now(peer_log.device_id, &time),
 			model_type: "tag".to_string(),
 			record_uuid: Uuid::new_v4(),
 			change_type: ChangeType::Insert,
@@ -539,11 +541,12 @@ mod tests {
 	#[tokio::test]
 	async fn test_ack_and_prune() {
 		let (peer_log, _temp) = create_test_peer_log().await;
+		let time = SystemTimeSource;
 
 		// Add 3 entries
 		for i in 0..3 {
 			let entry = SharedChangeEntry {
-				hlc: HLC::generate(None, peer_log.device_id),
+				hlc: HLC::generate(None, peer_log.device_id, &time),
 				model_type: "tag".to_string(),
 				record_uuid: Uuid::new_v4(),
 				change_type: ChangeType::Insert,

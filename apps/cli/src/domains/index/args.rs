@@ -177,12 +177,17 @@ pub struct EphemeralCacheArgs {
 	/// Filter by path substring
 	#[arg(long)]
 	pub filter: Option<String>,
+
+	/// Show detailed memory breakdown
+	#[arg(long, default_value_t = false)]
+	pub detailed: bool,
 }
 
 impl EphemeralCacheArgs {
 	pub fn to_input(&self) -> EphemeralCacheStatusInput {
 		EphemeralCacheStatusInput {
 			path_filter: self.filter.clone(),
+			detailed: self.detailed,
 		}
 	}
 }

@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import clsx from "clsx";
 import type { SpaceItem as SpaceItemType } from "@sd/ts-client";
-import { Thumb } from "../Explorer/File/Thumb";
+import { Thumb } from "../../routes/explorer/File/Thumb";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
@@ -13,7 +13,7 @@ import {
 import { useSpaceItemActive } from "./hooks/useSpaceItemActive";
 import { useSpaceItemDropZones } from "./hooks/useSpaceItemDropZones";
 import { useSpaceItemContextMenu } from "./hooks/useSpaceItemContextMenu";
-import { useExplorer, getSpaceItemKeyFromRoute } from "../Explorer/context";
+import { useExplorer, getSpaceItemKeyFromRoute } from "../../routes/explorer/context";
 
 // Overrides for customizing item appearance and behavior
 export interface SpaceItemOverrides {

@@ -49,6 +49,13 @@ fn get_volume_watch_paths() -> Vec<PathBuf> {
 		// Could potentially use WMI events in the future
 	}
 
+	#[cfg(target_os = "ios")]
+	{
+		// iOS doesn't support filesystem watching for volumes
+		// Volume changes detected via app lifecycle events instead
+		// See VolumeManager::refresh_on_lifecycle_event()
+	}
+
 	// Filter to only existing directories
 	paths.into_iter().filter(|p: &PathBuf| p.exists()).collect()
 }
@@ -111,7 +118,7 @@ impl VolumeManager {
 
 	/// Initialize the volume manager and perform initial detection
 	#[instrument(skip(self))]
-	pub async fn initialize(&self) -> VolumeResult<()> {
+	pub async fn initialize(self: &Arc<Self>) -> VolumeResult<()> {
 		info!("Initializing volume manager");
 
 		// Perform initial volume detection (for local volumes)
@@ -238,13 +245,15 @@ impl VolumeManager {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
 									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_google_drive(
 										access_token,
 										refresh_token,
-										"", // client_id not stored yet
-										"", // client_secret not stored yet
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
@@ -256,13 +265,15 @@ impl VolumeManager {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
 									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_onedrive(
 										access_token,
 										refresh_token,
-										"",
-										"",
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
@@ -272,15 +283,16 @@ impl VolumeManager {
 							}
 							crate::volume::CloudServiceType::Dropbox => {
 								if let crate::crypto::cloud_credentials::CredentialData::OAuth {
-									access_token,
 									refresh_token,
+									client_id,
+									client_secret,
+									..
 								} = &credential.data
 								{
 									crate::volume::CloudBackend::new_dropbox(
-										access_token,
 										refresh_token,
-										"",
-										"",
+										client_id,
+										client_secret,
 										Some(cloud_identifier.clone()),
 									).await
 								} else {
@@ -465,6 +477,7 @@ impl VolumeManager {
 					&events,
 					&config,
 					&library_manager,
+					None,
 				)
 				.await
 				{
@@ -547,6 +560,7 @@ impl VolumeManager {
 								&events,
 								&config,
 								&library_manager,
+								None,
 							)
 							.await
 							{
@@ -586,7 +600,7 @@ impl VolumeManager {
 
 	/// Refresh all volumes and detect changes
 	#[instrument(skip(self))]
-	pub async fn refresh_volumes(&self) -> VolumeResult<()> {
+	pub async fn refresh_volumes(self: &Arc<Self>) -> VolumeResult<()> {
 		Self::refresh_volumes_internal(
 			self.device_id,
 			&self.volumes,
@@ -594,6 +608,7 @@ impl VolumeManager {
 			&self.events,
 			&self.config,
 			&self.library_manager,
+			Some(self.clone()),
 		)
 		.await
 	}
@@ -606,11 +621,13 @@ impl VolumeManager {
 		events: &Arc<EventBus>,
 		config: &VolumeDetectionConfig,
 		library_manager: &RwLock<Option<Weak<LibraryManager>>>,
+		manager: Option<Arc<VolumeManager>>,
 	) -> VolumeResult<()> {
 		debug!("Refreshing volumes for device {}", device_id);
 
 		// Detect current volumes
 		let detected_volumes = detection::detect_volumes(device_id, config).await?;
+
 		debug!("VOLUME_DETECT: Detected {} volumes", detected_volumes.len());
 		for vol in &detected_volumes {
 			debug!(
@@ -623,8 +640,10 @@ impl VolumeManager {
 		}
 
 		// Query database for tracked volumes to merge metadata
-		let mut tracked_volumes_map: HashMap<VolumeFingerprint, (Uuid, Option<String>)> =
-			HashMap::new();
+		let mut tracked_volumes_map: HashMap<
+			VolumeFingerprint,
+			(Uuid, Option<String>, Option<u64>, Option<u64>),
+		> = HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
 				let libraries = lib_mgr.get_open_libraries().await;
@@ -647,10 +666,17 @@ impl VolumeManager {
 						);
 						for db_vol in tracked_vols {
 							let fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
-							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}",
-								fingerprint.short_id(), db_vol.display_name);
-							tracked_volumes_map
-								.insert(fingerprint, (library.id(), db_vol.display_name));
+							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}, read_speed: {:?}, write_speed: {:?}",
+								fingerprint.short_id(), db_vol.display_name, db_vol.read_speed_mbps, db_vol.write_speed_mbps);
+							tracked_volumes_map.insert(
+								fingerprint,
+								(
+									library.id(),
+									db_vol.display_name,
+									db_vol.read_speed_mbps.map(|s| s as u64),
+									db_vol.write_speed_mbps.map(|s| s as u64),
+								),
+							);
 						}
 					} else {
 						debug!(
@@ -678,10 +704,14 @@ impl VolumeManager {
 			seen_fingerprints.insert(fingerprint.clone());
 
 			// Merge tracked volume metadata from database
-			if let Some((library_id, display_name)) = tracked_volumes_map.get(&fingerprint) {
+			if let Some((library_id, display_name, read_speed, write_speed)) =
+				tracked_volumes_map.get(&fingerprint)
+			{
 				detected.is_tracked = true;
 				detected.library_id = Some(*library_id);
 				detected.display_name = display_name.clone();
+				detected.read_speed_mbps = *read_speed;
+				detected.write_speed_mbps = *write_speed;
 			}
 
 			debug!(
@@ -720,6 +750,27 @@ impl VolumeManager {
 								fingerprint: fingerprint.clone(),
 								is_mounted: new_info.is_mounted,
 							});
+
+							// Auto-run speed test when volume is mounted
+							if new_info.is_mounted
+								&& updated_volume.is_user_visible
+								&& !updated_volume.is_read_only
+							{
+								if let Some(ref mgr) = manager {
+									let mgr = mgr.clone();
+									let fp = fingerprint.clone();
+									let vol_name = updated_volume.name.clone();
+									tokio::spawn(async move {
+										info!(
+											"Auto-running speed test for mounted volume: {}",
+											vol_name
+										);
+										if let Err(e) = mgr.run_speed_test(&fp).await {
+											warn!("Auto speed test failed: {}", e);
+										}
+									});
+								}
+							}
 						}
 
 						// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
@@ -745,6 +796,21 @@ impl VolumeManager {
 
 					// Emit volume added event
 					events.emit(Event::VolumeAdded(detected.clone()));
+
+					// Auto-run speed test for newly discovered mounted volumes
+					if detected.is_mounted && detected.is_user_visible && !detected.is_read_only {
+						if let Some(ref mgr) = manager {
+							let mgr = mgr.clone();
+							let fp = fingerprint.clone();
+							let vol_name = detected.name.clone();
+							tokio::spawn(async move {
+								info!("Auto-running speed test for new volume: {}", vol_name);
+								if let Err(e) = mgr.run_speed_test(&fp).await {
+									warn!("Auto speed test failed: {}", e);
+								}
+							});
+						}
+					}
 
 					// Emit ResourceChanged event for UI reactivity (only for user-visible volumes)
 					if detected.is_user_visible {
@@ -896,9 +962,36 @@ impl VolumeManager {
 		}
 
 		// Search through all volumes using canonical path
+		// IMPORTANT: Sort by mount point length (longest first) so more specific mounts
+		// are checked before generic ones (e.g., /System/Volumes/Data before /)
 		let volumes = self.volumes.read().await;
-		for volume in volumes.values() {
+		info!(
+			"volume_for_path: Looking for path {} in {} volumes",
+			canonical_path.display(),
+			volumes.len()
+		);
+
+		let mut sorted_volumes: Vec<_> = volumes.iter().collect();
+		sorted_volumes.sort_by(|a, b| {
+			b.1.mount_point
+				.to_string_lossy()
+				.len()
+				.cmp(&a.1.mount_point.to_string_lossy().len())
+		});
+
+		for (fp, volume) in sorted_volumes {
+			info!(
+				"volume_for_path: Checking volume '{}' at {} (fingerprint: {})",
+				volume.name,
+				volume.mount_point.display(),
+				fp.0
+			);
 			if volume.contains_path(&canonical_path) {
+				info!(
+					"volume_for_path: MATCH! Path {} is on volume '{}'",
+					canonical_path.display(),
+					volume.name
+				);
 				// Cache the result using canonical path
 				let mut cache = self.path_cache.write().await;
 				cache.insert(canonical_path.clone(), volume.fingerprint.clone());
@@ -906,7 +999,11 @@ impl VolumeManager {
 			}
 		}
 
-		debug!("No volume found for path: {}", canonical_path.display());
+		info!(
+			"No volume found for path: {} (searched {} volumes)",
+			canonical_path.display(),
+			volumes.len()
+		);
 		None
 	}
 
@@ -927,15 +1024,22 @@ impl VolumeManager {
 		sdpath: &crate::domain::addressing::SdPath,
 		_library: &crate::library::Library,
 	) -> VolumeResult<Option<Volume>> {
+		info!("resolve_volume_for_sdpath called with: {}", sdpath);
 		// Check if this is a cloud path
 		if let Some((service, identifier, _path)) = sdpath.as_cloud() {
 			// Cloud path - use identity-based lookup
+			info!(
+				"Cloud path detected: service={:?}, identifier={}",
+				service, identifier
+			);
 			Ok(self.find_cloud_volume(service, identifier).await)
 		} else {
 			// Local path - resolve by filesystem path
 			if let Some(local_path) = sdpath.as_local_path() {
+				info!("Local path extracted: {}", local_path.display());
 				Ok(self.volume_for_path(local_path).await)
 			} else {
+				info!("as_local_path() returned None for sdpath: {}", sdpath);
 				Ok(None)
 			}
 		}
@@ -1285,10 +1389,37 @@ impl VolumeManager {
 			..Default::default()
 		};
 
+		debug!(
+			"About to insert volume into database - fingerprint: {}, device_id: {}, display_name: {:?}",
+			fingerprint.0,
+			volume.device_id,
+			final_display_name
+		);
+
 		let model = active_model
 			.insert(library.db().conn())
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		debug!(
+			"Successfully inserted volume into database - id: {}, uuid: {}",
+			model.id, model.uuid
+		);
+
+		// Verify the insert by immediately querying it back
+		let verify_count = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Fingerprint.eq(fingerprint.0.clone()))
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+			.count(library.db().conn())
+			.await
+			.unwrap_or(0);
+
+		debug!(
+			"Verification query after insert - found {} volumes with fingerprint {} and device_id {}",
+			verify_count,
+			fingerprint.0,
+			volume.device_id
+		);
 
 		info!(
 			"Tracked volume '{}' for library '{}'",
@@ -1307,6 +1438,86 @@ impl VolumeManager {
 		});
 
 		Ok(model)
+	}
+
+	/// Ensure volume exists in database, returning its internal ID.
+	///
+	/// This implements the lazy resolution pattern for volume_id. During indexing,
+	/// we resolve which volume a path belongs to and need its database ID for
+	/// foreign key relationships. If the volume is already tracked, return its
+	/// existing ID. If not, insert it and return the new ID.
+	///
+	/// Unlike `track_volume`, this method:
+	/// - Takes a `Volume` directly instead of requiring fingerprint lookup
+	/// - Returns the integer database ID (for FK relationships) not the Model
+	/// - Skips Spacedrive ID file management (that's for explicit user tracking)
+	/// - Is designed for internal indexer use, not user-facing operations
+	pub async fn ensure_volume_in_db(
+		&self,
+		volume: &Volume,
+		library: &crate::library::Library,
+	) -> VolumeResult<i32> {
+		let db = library.db().conn();
+
+		// Check if volume already exists by fingerprint and device_id
+		if let Some(existing) = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Fingerprint.eq(volume.fingerprint.0.clone()))
+			.filter(entities::volume::Column::DeviceId.eq(volume.device_id))
+			.one(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?
+		{
+			debug!(
+				"Volume '{}' already in database with id={}",
+				volume.name, existing.id
+			);
+			return Ok(existing.id);
+		}
+
+		// Volume not in database - insert it
+		let is_removable = matches!(volume.mount_type, crate::volume::types::MountType::External);
+		let is_network_drive =
+			matches!(volume.mount_type, crate::volume::types::MountType::Network);
+
+		let active_model = entities::volume::ActiveModel {
+			uuid: Set(volume.id),
+			device_id: Set(volume.device_id),
+			fingerprint: Set(volume.fingerprint.0.clone()),
+			display_name: Set(volume.display_name.clone().or(Some(volume.name.clone()))),
+			tracked_at: Set(chrono::Utc::now()),
+			last_seen_at: Set(chrono::Utc::now()),
+			is_online: Set(volume.is_mounted),
+			total_capacity: Set(Some(volume.total_capacity as i64)),
+			available_capacity: Set(Some(volume.available_space as i64)),
+			read_speed_mbps: Set(volume.read_speed_mbps.map(|s| s as i32)),
+			write_speed_mbps: Set(volume.write_speed_mbps.map(|s| s as i32)),
+			last_speed_test_at: Set(None),
+			file_system: Set(Some(volume.file_system.to_string())),
+			mount_point: Set(Some(volume.mount_point.to_string_lossy().to_string())),
+			is_removable: Set(Some(is_removable)),
+			is_network_drive: Set(Some(is_network_drive)),
+			device_model: Set(volume.hardware_id.clone()),
+			volume_type: Set(Some(format!("{:?}", volume.volume_type))),
+			is_user_visible: Set(Some(volume.is_user_visible)),
+			auto_track_eligible: Set(Some(volume.auto_track_eligible)),
+			cloud_identifier: Set(volume.cloud_identifier.clone()),
+			cloud_config: Set(volume.cloud_config.as_ref().map(|c| c.to_string())),
+			..Default::default()
+		};
+
+		let model = active_model
+			.insert(db)
+			.await
+			.map_err(|e| VolumeError::Database(e.to_string()))?;
+
+		info!(
+			"Auto-tracked volume '{}' (id={}) during indexing for library '{}'",
+			volume.name,
+			model.id,
+			library.name().await
+		);
+
+		Ok(model.id)
 	}
 
 	/// Untrack a volume from the database
@@ -1878,6 +2089,37 @@ impl VolumeManager {
 		}
 
 		None
+	}
+
+	/// Refresh volumes on iOS app lifecycle transition
+	///
+	/// iOS doesn't support filesystem watching for volume changes.
+	/// This method should be called from the Swift layer when:
+	/// - applicationDidBecomeActive (app enters foreground)
+	/// - applicationWillResignActive (app enters background)
+	///
+	/// This ensures storage capacity information stays current without
+	/// unnecessary polling that would drain battery.
+	#[cfg(target_os = "ios")]
+	pub async fn refresh_on_lifecycle_event(&self, event: &str) {
+		debug!("iOS lifecycle event: {}, refreshing volumes", event);
+
+		// Re-detect volumes to get updated capacity information
+		match detection::detect_volumes(self.device_id, &self.config).await {
+			Ok(volumes) => {
+				let mut volumes_map = self.volumes.write().await;
+				for volume in volumes {
+					volumes_map.insert(volume.fingerprint.clone(), volume);
+				}
+				debug!(
+					"Successfully refreshed volumes on lifecycle event: {}",
+					event
+				);
+			}
+			Err(e) => {
+				warn!("Failed to refresh volumes on lifecycle event: {}", e);
+			}
+		}
 	}
 }
 

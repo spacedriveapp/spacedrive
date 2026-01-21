@@ -11,7 +11,8 @@ pub struct Model {
 	pub id: i32,
 	pub uuid: Uuid,
 	pub device_id: i32,
-	pub entry_id: Option<i32>, // Nullable to handle circular FK with entries during sync
+	pub volume_id: Option<i32>, // Resolved lazily; NULL for locations created before this field
+	pub entry_id: Option<i32>,  // Nullable to handle circular FK with entries during sync
 	pub name: Option<String>,
 	pub index_mode: String, // "shallow", "content", "deep"
 	pub scan_state: String, // "pending", "scanning", "completed", "error"
@@ -33,6 +34,12 @@ pub enum Relation {
 	)]
 	Device,
 	#[sea_orm(
+		belongs_to = "super::volume::Entity",
+		from = "Column::VolumeId",
+		to = "super::volume::Column::Id"
+	)]
+	Volume,
+	#[sea_orm(
 		belongs_to = "super::entry::Entity",
 		from = "Column::EntryId",
 		to = "super::entry::Column::Id"
@@ -43,6 +50,12 @@ pub enum Relation {
 impl Related<super::device::Entity> for Entity {
 	fn to() -> RelationDef {
 		Relation::Device.def()
+	}
+}
+
+impl Related<super::volume::Entity> for Entity {
+	fn to() -> RelationDef {
+		Relation::Volume.def()
 	}
 }
 
@@ -86,19 +99,20 @@ impl Syncable for Model {
 	}
 
 	fn sync_depends_on() -> &'static [&'static str] {
-		// Location belongs to a device
+		// Location belongs to a device and references a volume
 		// Note: entry_id references the root entry of this location's tree, but this creates
 		// a circular dependency (location → entry, entry → location). We handle this by making
 		// entry_id nullable during sync and fixing it up after both are synced.
-		&["device"]
+		&["device", "volume"]
 	}
 
 	fn foreign_key_mappings() -> Vec<crate::infra::sync::FKMapping> {
-		// entry_id may be NULL in source (location created before root entry indexed)
-		// If source has entry_uuid=null → FK is null (handled by FK mapper)
-		// If source has entry_uuid=xxx but missing → fail for dependency tracking
+		// entry_id and volume_id may be NULL in source
+		// If source has UUID=null → FK is null (handled by FK mapper)
+		// If source has UUID=xxx but missing → fail for dependency tracking
 		vec![
 			crate::infra::sync::FKMapping::new("device_id", "devices"),
+			crate::infra::sync::FKMapping::new("volume_id", "volumes"),
 			crate::infra::sync::FKMapping::new("entry_id", "entries"),
 		]
 	}
@@ -154,7 +168,7 @@ impl Syncable for Model {
 	///
 	/// Note: This method handles FK to UUID conversion internally before returning.
 	async fn query_for_sync(
-		_device_id: Option<Uuid>,
+		device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
 		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
@@ -164,6 +178,15 @@ impl Syncable for Model {
 		use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
 		let mut query = Entity::find();
+
+		// Filter by device ownership - need to join through devices table
+		// since location.device_id is an integer FK to devices.id
+		if let Some(device_uuid) = device_id {
+			use super::device;
+			query = query
+				.inner_join(device::Entity)
+				.filter(device::Column::Uuid.eq(device_uuid));
+		}
 
 		// Filter by watermark timestamp if specified
 		if let Some(since_time) = since {
@@ -258,8 +281,16 @@ impl Syncable for Model {
 		)
 		.map_err(|e| sea_orm::DbErr::Custom(format!("Invalid device_id: {}", e)))?;
 
-		// entry_id may be null if the referenced entry hasn't been synced yet (circular FK)
+		// entry_id and volume_id may be null
 		let entry_id: Option<i32> = data.get("entry_id").and_then(|v| {
+			if v.is_null() {
+				None
+			} else {
+				serde_json::from_value(v.clone()).ok()
+			}
+		});
+
+		let volume_id: Option<i32> = data.get("volume_id").and_then(|v| {
 			if v.is_null() {
 				None
 			} else {
@@ -274,6 +305,7 @@ impl Syncable for Model {
 			id: NotSet, // Database PK, not synced
 			uuid: Set(location_uuid),
 			device_id: Set(device_id),
+			volume_id: Set(volume_id),
 			entry_id: Set(entry_id),
 			name: Set(data.get("name").and_then(|v| v.as_str()).map(String::from)),
 			index_mode: Set(data
@@ -303,6 +335,7 @@ impl Syncable for Model {
 				sea_orm::sea_query::OnConflict::column(Column::Uuid)
 					.update_columns([
 						Column::DeviceId,
+						Column::VolumeId,
 						Column::EntryId,
 						Column::Name,
 						Column::IndexMode,
@@ -354,6 +387,7 @@ mod tests {
 			id: 1,
 			uuid: Uuid::new_v4(),
 			device_id: 1,
+			volume_id: Some(1),
 			entry_id: Some(1),
 			name: Some("Photos".to_string()),
 			index_mode: "deep".to_string(),

@@ -1,8 +1,9 @@
-import { useNormalizedQuery } from "../../context";
-import { usePlatform } from "../../platform";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
+import { usePlatform } from "../../contexts/PlatformContext";
 import type { File } from "@sd/ts-client";
+import { getContentKind } from "@sd/ts-client";
 import { useEffect, useState } from "react";
-import { formatBytes, getContentKind } from "../Explorer/utils";
+import { formatBytes } from "../../routes/explorer/utils";
 import { X } from "@phosphor-icons/react";
 import { ContentRenderer } from "./ContentRenderer";
 

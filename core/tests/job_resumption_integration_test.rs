@@ -1,8 +1,8 @@
 //! Integration test for job resumption at various interruption points
 //!
-//! This test generates benchmark data and tests job resumption by interrupting
-//! indexing jobs at different phases and progress points, then verifying they
-//! can resume and complete successfully.
+//! This test uses the Spacedrive source code as deterministic test data and tests
+//! job resumption by interrupting indexing jobs at different phases and progress
+//! points, then verifying they can resume and complete successfully.
 
 use sd_core::{
 	domain::SdPath,
@@ -28,14 +28,6 @@ use tokio::{
 use tracing::{info, warn};
 use uuid::Uuid;
 
-/// Benchmark recipe name to use for test data generation
-/// Using existing generated data from desktop_complex (or fallback to shape_medium if available)
-const TEST_RECIPE_NAME: &str = "desktop_complex";
-
-/// Path where the benchmark data will be generated (relative to workspace root)
-/// Will check for desktop_complex first, then fallback to shape_medium if it exists
-const TEST_INDEXING_DATA_PATH: &str = "core/benchdata/desktop_complex";
-
 /// Different interruption points to test
 #[derive(Debug, Clone)]
 enum InterruptionPoint {
@@ -59,30 +51,30 @@ struct TestResult {
 	test_log_path: Option<PathBuf>,
 }
 
-/// Main integration test for job resumption with realistic desktop-scale data
+/// Main integration test for job resumption with realistic data
 ///
-/// This test uses the desktop_complex recipe (500k files, 8 levels deep) to simulate
-/// real-world indexing scenarios where jobs take 5+ minutes and users may interrupt
-/// at any point. Each phase should generate many progress events, allowing us to test
-/// interruption and resumption at various points within each phase.
+/// This test uses the Spacedrive core/src directory as deterministic test data to simulate
+/// real-world indexing scenarios where users may interrupt jobs at any point. Each phase
+/// should generate multiple progress events, allowing us to test interruption and resumption
+/// at various points within each phase.
 ///
 /// Expected behavior:
-/// - Discovery: Should generate 50+ progress events with 500k files across deep directories
-/// - Processing: Should generate 100+ progress events while processing file metadata
-/// - Content Identification: Should generate 500+ progress events while hashing files
+/// - Discovery: Should generate progress events while discovering files
+/// - Processing: Should generate progress events while processing file metadata
+/// - Content Identification: Should generate progress events while hashing files
 /// - Each interrupted job should cleanly pause and resume from where it left off
 #[tokio::test]
 async fn test_job_resumption_at_various_points() {
 	info!("Starting job resumption integration test");
 
-	// Generate benchmark data (or use existing data)
+	// Prepare test data (uses Spacedrive source code)
 	info!("Preparing test data");
 	let indexing_data_path = generate_test_data()
 		.await
 		.expect("Failed to prepare test data");
 
-	// Define interruption points to test with realistic event counts for smaller datasets
-	// For Downloads folder, use lower event counts since there are fewer files
+	// Define interruption points to test with realistic event counts
+	// Use lower event counts for faster test execution
 	let interruption_points = vec![
 		InterruptionPoint::DiscoveryAfterEvents(2), // Interrupt early in discovery
 		InterruptionPoint::ProcessingAfterEvents(2), // Interrupt early in processing
@@ -128,25 +120,24 @@ async fn test_job_resumption_at_various_points() {
 	info!("Test logs and data available in: test_data/");
 }
 
-/// Generate test data using benchmark data generation
+/// Generate test data using Spacedrive source code for deterministic testing
 async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
-	// Use Downloads folder instead of benchmark data
-	let home_dir = std::env::var("HOME")
-		.map(PathBuf::from)
-		.or_else(|_| std::env::current_dir())?;
-
-	let indexing_data_path = home_dir.join("Downloads");
+	// Use Spacedrive core/src directory for deterministic cross-platform testing
+	let indexing_data_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+		.parent()
+		.ok_or("Failed to get project root")?
+		.join("core/src");
 
 	if !indexing_data_path.exists() {
 		return Err(format!(
-			"Downloads folder does not exist at: {}",
+			"Spacedrive core/src folder does not exist at: {}",
 			indexing_data_path.display()
 		)
 		.into());
 	}
 
 	info!(
-		"Using Downloads folder at: {}",
+		"Using Spacedrive core/src folder at: {}",
 		indexing_data_path.display()
 	);
 	Ok(indexing_data_path)

@@ -15,6 +15,7 @@ pub mod file_sync;
 pub mod network;
 pub mod session;
 pub mod sidecar_manager;
+pub mod statistics_listener;
 pub mod sync;
 pub mod volume_monitor;
 pub mod watcher;
@@ -24,6 +25,7 @@ use device::DeviceService;
 use file_sharing::FileSharingService;
 use network::NetworkingService;
 use sidecar_manager::SidecarManager;
+use statistics_listener::StatisticsListenerService;
 use volume_monitor::{VolumeMonitorConfig, VolumeMonitorService};
 use watcher::{FsWatcherService, FsWatcherServiceConfig};
 
@@ -40,6 +42,8 @@ pub struct Services {
 	pub networking: Option<Arc<NetworkingService>>,
 	/// Volume monitoring service
 	pub volume_monitor: Option<Arc<VolumeMonitorService>>,
+	/// Statistics listener service - recalculates library statistics
+	pub statistics_listener: Option<Arc<StatisticsListenerService>>,
 	/// Sidecar manager
 	pub sidecar_manager: Arc<SidecarManager>,
 	/// Key manager
@@ -60,12 +64,14 @@ impl Services {
 		let device = Arc::new(DeviceService::new(context.clone()));
 		let sidecar_manager = Arc::new(SidecarManager::new(context.clone()));
 		let key_manager = context.key_manager.clone();
+		let statistics_listener = Some(Arc::new(StatisticsListenerService::new(context.clone())));
 		Self {
 			fs_watcher,
 			file_sharing,
 			device,
 			networking: None,     // Initialized separately when needed
 			volume_monitor: None, // Initialized after library manager is available
+			statistics_listener,
 			sidecar_manager,
 			key_manager,
 			context,
@@ -127,6 +133,15 @@ impl Services {
 			info!("Networking disabled in configuration");
 		}
 
+		// Start statistics listener if initialized and enabled
+		if config.statistics_listener_enabled {
+			if let Some(stats) = &self.statistics_listener {
+				stats.start().await?;
+			}
+		} else {
+			info!("Statistics listener disabled in configuration");
+		}
+
 		Ok(())
 	}
 
@@ -139,6 +154,11 @@ impl Services {
 		// Stop volume monitor if initialized
 		if let Some(monitor) = &self.volume_monitor {
 			monitor.stop().await?;
+		}
+
+		// Stop statistics listener if initialized
+		if let Some(stats) = &self.statistics_listener {
+			stats.stop().await?;
 		}
 
 		// Stop networking service if initialized

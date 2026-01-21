@@ -118,7 +118,7 @@ impl CoreAction for LibraryOpenAction {
 			});
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

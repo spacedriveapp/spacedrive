@@ -112,16 +112,10 @@ export class SubscriptionManager {
 		key: string,
 		filter: EventFilter,
 	): Promise<SubscriptionEntry> {
-		console.log("[SubscriptionManager] Creating subscription for:", filter);
-
 		const unsubscribe = await this.transport.subscribe((event) => {
-			console.log("[SubscriptionManager] Received event:", typeof event === "string" ? event : Object.keys(event)[0]);
 			const currentEntry = this.subscriptions.get(key);
 			if (currentEntry && this.matchesFilter(event, filter)) {
-				console.log("[SubscriptionManager] Event matches filter, notifying", currentEntry.listeners.size, "listeners");
 				currentEntry.listeners.forEach((listener) => listener(event));
-			} else {
-				console.log("[SubscriptionManager] Event filtered out");
 			}
 		});
 
@@ -174,9 +168,6 @@ export class SubscriptionManager {
 	 * Force cleanup all subscriptions (for testing/cleanup)
 	 */
 	destroy() {
-		console.log(
-			`[SubscriptionManager] Destroying ${this.subscriptions.size} subscriptions`,
-		);
 		this.subscriptions.forEach((entry) => entry.unsubscribe());
 		this.subscriptions.clear();
 	}

@@ -33,6 +33,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024,
 			include_debug: true,
+			log_ephemeral_jobs: false,
 		};
 
 		config.save()?;

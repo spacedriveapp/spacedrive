@@ -8,13 +8,14 @@
 //!
 //! Memory per node: ~48 bytes vs ~200 bytes with HashMap<PathBuf, EntryMetadata>
 
+use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Identifies a node in the arena. Uses u32 to halve memory vs u64
 /// while supporting up to 4.3 billion nodes.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct EntryId(u32);
 
 impl EntryId {
@@ -45,7 +46,7 @@ impl EntryId {
 /// Optional EntryId using u32::MAX as None sentinel
 /// This saves 8 bytes per optional reference vs Option<EntryId>
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MaybeEntryId(u32);
 
 impl MaybeEntryId {
@@ -95,7 +96,7 @@ impl From<Option<EntryId>> for MaybeEntryId {
 
 /// Node state indicating accessibility
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum NodeState {
 	#[default]
 	Unknown = 0,
@@ -116,7 +117,7 @@ impl NodeState {
 
 /// File type classification
 #[repr(u8)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Default)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub enum FileType {
 	#[default]
 	Unknown = 0,
@@ -169,7 +170,7 @@ impl From<FileType> for super::super::state::EntryKind {
 /// - mtime: seconds since epoch (32 bits)
 /// - ctime: seconds since epoch (32 bits)
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct PackedMetadata {
 	/// Bits 62-63: state, 60-61: type, 0-59: size
 	state_type_size: u64,
@@ -268,8 +269,12 @@ impl Default for PackedMetadata {
 /// - len: 4 bytes (string length)
 /// - parent: 4 bytes (parent EntryId or NONE)
 #[repr(C)]
+#[derive(Serialize, Deserialize)]
 pub struct NameRef {
 	/// Pointer to string in NameCache (stable reference)
+	/// Serialized as 0, reconstructed during snapshot load
+	#[serde(skip)]
+	#[serde(default)]
 	ptr: *const u8,
 	/// String length
 	len: u32,
@@ -329,6 +334,7 @@ impl std::fmt::Debug for NameRef {
 /// - name_ref: 16 bytes
 /// - children: 8-24 bytes (SmallVec with inline storage)
 /// - meta: 16 bytes
+#[derive(Serialize, Deserialize)]
 pub struct FileNode {
 	/// Interned filename + parent reference
 	pub name_ref: NameRef,

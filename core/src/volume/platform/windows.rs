@@ -135,7 +135,30 @@ fn parse_wmic_output(
 			let disk_type = DiskType::Unknown; // Would need additional WMI queries
 
 			let volume_type = classify_volume(&mount_path, &file_system, &name);
-			let fingerprint = VolumeFingerprint::new(&name, total_bytes, &file_system.to_string());
+
+			// Generate stable fingerprint based on volume type
+			let fingerprint = match volume_type {
+				crate::volume::types::VolumeType::External => {
+					// Try to read/create dotfile for external volumes
+					if let Some(spacedrive_id) =
+						utils::read_or_create_dotfile_sync(&mount_path, device_id, None)
+					{
+						VolumeFingerprint::from_external_volume(spacedrive_id, device_id)
+					} else {
+						// Fallback to mount_point + device_id for read-only external volumes
+						VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+					}
+				}
+				crate::volume::types::VolumeType::Network => {
+					// Use caption as backend identifier for network volumes
+					VolumeFingerprint::from_network_volume(caption, &mount_path.to_string_lossy())
+				}
+				_ => {
+					// Primary, UserData, Secondary, System, Virtual, Unknown
+					// All use stable mount_point + device_id
+					VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+				}
+			};
 
 			let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 
@@ -215,7 +238,31 @@ pub fn create_volume_from_windows_info(
 		MountType::System
 	};
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
-	let fingerprint = VolumeFingerprint::new(&name, info.size, &file_system.to_string());
+
+	// Generate stable fingerprint based on volume type
+	let fingerprint = match volume_type {
+		crate::volume::types::VolumeType::External => {
+			// Try to read/create dotfile for external volumes
+			if let Some(spacedrive_id) =
+				utils::read_or_create_dotfile_sync(&mount_path, device_id, None)
+			{
+				VolumeFingerprint::from_external_volume(spacedrive_id, device_id)
+			} else {
+				// Fallback to mount_point + device_id for read-only external volumes
+				VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+			}
+		}
+		crate::volume::types::VolumeType::Network => {
+			// Use mount path as backend identifier for network volumes
+			let backend_id = info.volume_guid.as_deref().unwrap_or(&mount_path.to_string_lossy());
+			VolumeFingerprint::from_network_volume(backend_id, &mount_path.to_string_lossy())
+		}
+		_ => {
+			// Primary, UserData, Secondary, System, Virtual, Unknown
+			// All use stable mount_point + device_id
+			VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+		}
+	};
 
 	let mut volume = Volume::new(device_id, fingerprint, name.clone(), mount_path);
 

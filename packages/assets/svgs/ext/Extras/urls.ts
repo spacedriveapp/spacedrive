@@ -1,6 +1,9 @@
 /*
- * Bearded icon SVG URLs for use in interface package.
+ * Bearded icon SVG URLs for use in interface package (web/desktop only).
  * Auto-generated mapping.
+ *
+ * NOTE: This file uses import.meta.glob which is Vite-specific and not compatible
+ * with React Native. Mobile apps should not import this file.
  */
 
 // Use glob to import all SVGs as URLs

@@ -1,4 +1,4 @@
-import { useCoreQuery } from '../context';
+import { useCoreQuery } from '../contexts/SpacedriveContext';
 
 /**
  * Hook to get all libraries using auto-generated types

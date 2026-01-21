@@ -231,6 +231,9 @@ impl PairingProtocolHandler {
 						initiator_device_info.clone(),
 						session_keys,
 						relay_url,
+						crate::service::network::device::PairingType::Direct,
+						None,
+						None,
 					)
 					.await?;
 			}

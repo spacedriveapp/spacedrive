@@ -63,6 +63,8 @@ impl LibraryQuery for ValidateLocationPathQuery {
 		let volume_manager = &context.volume_manager;
 		let volume_opt = volume_manager.volume_for_path(path).await;
 
+		tracing::info!("Volume lookup for path {}: {:?}", path.display(), volume_opt.as_ref().map(|v| (v.name.as_str(), &v.volume_type, v.fingerprint.0.as_str())));
+
 		let is_primary = volume_opt
 			.as_ref()
 			.map(|v| v.volume_type == VolumeType::Primary)
@@ -70,7 +72,22 @@ impl LibraryQuery for ValidateLocationPathQuery {
 
 		// Check if path matches known system directories
 		let system_dirs = get_system_directories();
-		let is_system_dir = system_dirs.iter().any(|d| path.starts_with(d));
+		tracing::info!("Validating path: {} (depth: {})", path.display(), depth);
+		tracing::info!("System directories: {:?}", system_dirs);
+		let is_system_dir = system_dirs.iter().any(|d| {
+			// Special case: "/" should only match if path IS "/", not if it starts with "/"
+			// Otherwise every absolute path would be considered a system directory
+			let matches = if d.to_string_lossy() == "/" {
+				path == d
+			} else {
+				path.starts_with(d)
+			};
+			if matches {
+				tracing::info!("Path {} matches system dir {}", path.display(), d.display());
+			}
+			matches
+		});
+		tracing::info!("is_system_dir: {}, is_primary: {}", is_system_dir, is_primary);
 
 		// Determine risk level using hybrid approach (depth + system directory check)
 		let risk_level = if is_system_dir || depth <= 1 {

@@ -138,4 +138,10 @@ pub trait DynJob: Send + Sync {
 	fn should_persist(&self) -> bool {
 		true
 	}
+
+	/// Whether this job should emit progress events (even if not persisted to database)
+	/// Volume indexing jobs are ephemeral but need events for UI progress tracking
+	fn should_emit_events(&self) -> bool {
+		self.should_persist() // Default: emit events if persisted
+	}
 }

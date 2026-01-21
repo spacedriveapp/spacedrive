@@ -60,6 +60,49 @@ export const platform: Platform = {
 		await invoke("reveal_file", { path: filePath });
 	},
 
+	async shareFiles(filePaths: string[]) {
+		await invoke("share_files", { paths: filePaths });
+	},
+
+	async getAppsForPaths(paths: string[]) {
+		return await invoke<Array<{ id: string; name: string; icon?: string }>>(
+			"get_apps_for_paths",
+			{ paths }
+		);
+	},
+
+	async openPathDefault(path: string) {
+		return await invoke<
+			| { status: "success" }
+			| { status: "file_not_found"; path: string }
+			| { status: "app_not_found"; app_id: string }
+			| { status: "permission_denied"; path: string }
+			| { status: "platform_error"; message: string }
+		>("open_path_default", { path });
+	},
+
+	async openPathWithApp(path: string, appId: string) {
+		return await invoke<
+			| { status: "success" }
+			| { status: "file_not_found"; path: string }
+			| { status: "app_not_found"; app_id: string }
+			| { status: "permission_denied"; path: string }
+			| { status: "platform_error"; message: string }
+		>("open_path_with_app", { path, appId });
+	},
+
+	async openPathsWithApp(paths: string[], appId: string) {
+		return await invoke<
+			Array<
+				| { status: "success" }
+				| { status: "file_not_found"; path: string }
+				| { status: "app_not_found"; app_id: string }
+				| { status: "permission_denied"; path: string }
+				| { status: "platform_error"; message: string }
+			>
+		>("open_paths_with_app", { paths, appId });
+	},
+
 	async getSidecarPath(
 		libraryId: string,
 		contentUuid: string,
@@ -139,6 +182,11 @@ export const platform: Platform = {
 		return unlisten;
 	},
 
+	async getAppVersion() {
+		const { getVersion } = await import("@tauri-apps/api/app");
+		return await getVersion();
+	},
+
 	async getDaemonStatus() {
 		return await invoke<{
 			is_running: boolean;
@@ -193,6 +241,10 @@ export const platform: Platform = {
 		await invoke("open_macos_settings");
 	},
 
+	async applyMacOSStyling() {
+		await invoke("apply_macos_styling");
+	},
+
 	async startDrag(config) {
 		const currentWindow = getCurrentWebviewWindow();
 		const sessionId = await beginDrag(
@@ -234,5 +286,19 @@ export const platform: Platform = {
 
 	isDragging() {
 		return _isDragging;
+	},
+
+	async registerKeybind(id, accelerator, handler) {
+		// Use the global handler if available (initialized in keybinds.ts)
+		if (window.__SPACEDRIVE__?.registerKeybind) {
+			await window.__SPACEDRIVE__.registerKeybind(id, accelerator, handler);
+		}
+	},
+
+	async unregisterKeybind(id) {
+		// Use the global handler if available (initialized in keybinds.ts)
+		if (window.__SPACEDRIVE__?.unregisterKeybind) {
+			await window.__SPACEDRIVE__.unregisterKeybind(id);
+		}
 	},
 };

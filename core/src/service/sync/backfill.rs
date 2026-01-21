@@ -22,7 +22,7 @@ use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{oneshot, Mutex};
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Manages backfill process for new devices
@@ -151,7 +151,7 @@ impl BackfillManager {
 		let selected_peer =
 			select_backfill_peer(available_peers.clone()).map_err(|e| anyhow::anyhow!("{}", e))?;
 
-		info!(
+		debug!(
 			selected_peer = %selected_peer,
 			"Selected backfill peer"
 		);
@@ -195,11 +195,18 @@ impl BackfillManager {
 
 		// Set state to Backfilling
 		{
+			let old_state = self.peer_sync.state().await;
 			let mut state = self.peer_sync.state.write().await;
 			*state = DeviceSyncState::Backfilling {
 				peer: selected_peer,
 				progress: 0,
 			};
+			info!(
+				from_state = ?old_state,
+				to_state = ?DeviceSyncState::Backfilling { peer: selected_peer, progress: 0 },
+				peer = %selected_peer,
+				"Sync state transition"
+			);
 		}
 
 		// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
@@ -214,7 +221,7 @@ impl BackfillManager {
 		// Phase 3.5: Run post-backfill rebuilds via registry (polymorphic)
 		// Models that registered post_backfill_rebuild will have their derived tables rebuilt
 		// (e.g., entry_closure for entries, tag_closure for tag_relationships)
-		info!("Running post-backfill rebuilds via registry...");
+		debug!("Running post-backfill rebuilds via registry...");
 		if let Err(e) =
 			crate::infra::sync::registry::run_post_backfill_rebuilds(self.peer_sync.db().clone())
 				.await
@@ -360,14 +367,14 @@ impl BackfillManager {
 		primary_peer: Uuid,
 		_since_watermark: Option<chrono::DateTime<chrono::Utc>>, // Deprecated: use per-resource watermarks
 	) -> Result<Option<String>> {
-		info!("Backfilling device-owned state with per-resource watermarks");
+		debug!("Backfilling device-owned state with per-resource watermarks");
 
 		// Compute sync order based on model dependencies to prevent FK violations
 		let sync_order = crate::infra::sync::compute_registry_sync_order()
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to compute sync order: {}", e))?;
 
-		info!(
+		debug!(
 			sync_order = ?sync_order,
 			"Computed dependency-ordered sync sequence"
 		);
@@ -389,7 +396,7 @@ impl BackfillManager {
 				.get_resource_watermark(primary_peer, &model_type)
 				.await?;
 
-			info!(
+			debug!(
 				model_type = %model_type,
 				watermark = ?resource_watermark,
 				"Backfilling resource type with per-resource watermark"
@@ -405,7 +412,7 @@ impl BackfillManager {
 				)
 				.await?;
 
-			info!(
+			debug!(
 				model_type = %model_type,
 				progress = checkpoint.progress,
 				final_checkpoint = ?checkpoint.resume_token,
@@ -420,7 +427,7 @@ impl BackfillManager {
 					.update_resource_watermark(primary_peer, &model_type, max_ts)
 					.await?;
 
-				info!(
+				debug!(
 					model_type = %model_type,
 					watermark = %max_ts,
 					"Updated resource watermark from received data"
@@ -428,9 +435,9 @@ impl BackfillManager {
 			} else {
 				// No data received - watermark MUST NOT advance!
 				// If we advanced it, we'd filter out unsynced data permanently
-				info!(
+				debug!(
 					model_type = %model_type,
-					"No data received, watermark unchanged (prevents data loss)"
+					"No data received, watermark unchanged"
 				);
 			}
 
@@ -438,7 +445,7 @@ impl BackfillManager {
 			final_checkpoint = checkpoint.resume_token;
 		}
 
-		info!("Device-owned state backfill complete (all resource types)");
+		debug!("Device-owned state backfill complete");
 
 		// Return the final checkpoint for legacy watermark update
 		Ok(final_checkpoint)
@@ -465,7 +472,7 @@ impl BackfillManager {
 				continue; // Already done
 			}
 
-			info!(
+			debug!(
 				peer = %peer,
 				model_type = %model_type,
 				"Backfilling model type"
@@ -607,7 +614,7 @@ impl BackfillManager {
 
 						// Add failed records to dependency tracker
 						if !result.failed.is_empty() {
-							tracing::info!(
+							tracing::warn!(
 								model_type = %model_type,
 								failed_count = result.failed.len(),
 								"Records have missing FK dependencies - adding to dependency tracker for retry"
@@ -660,6 +667,9 @@ impl BackfillManager {
 
 					// Apply updates via registry with FKs already resolved
 					// The idempotent map_sync_json_to_local in apply_state_change will skip already-resolved FKs
+					// Collect successfully applied UUIDs for batch event emission
+					let mut applied_uuids = Vec::new();
+
 					for data in processed_data {
 						// Extract UUID before moving data
 						let record_uuid = data
@@ -675,6 +685,11 @@ impl BackfillManager {
 						.await
 						.map_err(|e| anyhow::anyhow!("{}", e))?;
 
+						// Track successfully applied UUID for batch event emission
+						if let Some(uuid) = record_uuid {
+							applied_uuids.push(uuid);
+						}
+
 						// After successfully applying, resolve any records waiting for this one
 						// (e.g., child entries waiting for their parent entry)
 						if let Some(uuid) = record_uuid {
@@ -682,7 +697,7 @@ impl BackfillManager {
 								self.peer_sync.dependency_tracker().resolve(uuid).await;
 
 							if !waiting_updates.is_empty() {
-								tracing::info!(
+								tracing::debug!(
 									resolved_uuid = %uuid,
 									model_type = %model_type,
 									waiting_count = waiting_updates.len(),
@@ -709,6 +724,25 @@ impl BackfillManager {
 									}
 								}
 							}
+						}
+					}
+
+					// Emit resource events in batch for UI reactivity
+					if !applied_uuids.is_empty() {
+						let resource_manager = crate::domain::ResourceManager::new(
+							db.clone(),
+							self.peer_sync.event_bus().clone(),
+						);
+
+						if let Err(e) = resource_manager
+							.emit_batch_resource_events(&model_type, applied_uuids)
+							.await
+						{
+							warn!(
+								model_type = %model_type,
+								error = %e,
+								"Failed to emit batch resource events after backfill"
+							);
 						}
 					}
 
@@ -768,7 +802,8 @@ impl BackfillManager {
 		if let Some(hlc) = since_hlc {
 			info!("Backfilling shared resources incrementally since {:?}", hlc);
 		} else {
-			info!("Backfilling shared resources (full)");
+			// NOTE: we keep hitting this almost always, I don't think I've ever seen the above log. This concerns me greatly.
+			info!("Backfilling all shared resources");
 		}
 
 		// Request shared changes from peer in batches (can be 100k+ records)
@@ -822,11 +857,14 @@ impl BackfillManager {
 							};
 
 							if let Some(records_array) = records_value.as_array() {
-								info!(
+								debug!(
 									model_type = %model_type,
 									count = records_array.len(),
 									"Applying current state snapshot for pre-sync data"
 								);
+
+								// Collect successfully applied UUIDs for batch event emission
+								let mut applied_snapshot_uuids: Vec<Uuid> = Vec::new();
 
 								for record_value in records_array {
 									if let Some(record_obj) = record_value.as_object() {
@@ -855,63 +893,147 @@ impl BackfillManager {
 													};
 
 													let db = self.peer_sync.db().clone();
-													if let Err(e) = crate::infra::sync::registry::apply_shared_change(entry, db).await {
-														warn!(
-															model_type = %model_type,
-															uuid = %record_uuid,
-															error = %e,
-															"Failed to apply current state record"
-														);
-													} else {
-														// Resolve any state changes waiting for this shared resource
-														let waiting_updates = self
-															.peer_sync
-															.dependency_tracker()
-															.resolve(record_uuid)
-															.await;
+													match crate::infra::sync::registry::apply_shared_change(entry.clone(), db.clone()).await {
+														Ok(()) => {
+															// Track successfully applied UUID for batch event emission
+															applied_snapshot_uuids.push(record_uuid);
 
-														if !waiting_updates.is_empty() {
-															tracing::debug!(
-																resolved_uuid = %record_uuid,
-																model_type = %model_type,
-																waiting_count = waiting_updates.len(),
-																"Resolving dependencies after current_state snapshot"
-															);
+															// Resolve any state changes waiting for this shared resource
+															let waiting_updates = self
+																.peer_sync
+																.dependency_tracker()
+																.resolve(record_uuid)
+																.await;
 
-															for update in waiting_updates {
-																match update {
-																	super::state::BufferedUpdate::StateChange(dependent_change) => {
-																		if let Err(e) = self
-																			.peer_sync
-																			.apply_state_change(dependent_change.clone())
-																			.await
-																		{
-																			tracing::warn!(
-																				error = %e,
-																				record_uuid = %dependent_change.record_uuid,
-																				"Failed to apply dependent state change after current_state snapshot"
-																			);
+															if !waiting_updates.is_empty() {
+																tracing::debug!(
+																	resolved_uuid = %record_uuid,
+																	model_type = %model_type,
+																	waiting_count = waiting_updates.len(),
+																	"Resolving dependencies after current_state snapshot"
+																);
+
+																for update in waiting_updates {
+																	match update {
+																		super::state::BufferedUpdate::StateChange(dependent_change) => {
+																			if let Err(e) = self
+																				.peer_sync
+																				.apply_state_change(dependent_change.clone())
+																				.await
+																			{
+																				tracing::warn!(
+																					error = %e,
+																					record_uuid = %dependent_change.record_uuid,
+																					"Failed to apply dependent state change after current_state snapshot"
+																				);
+																			}
 																		}
-																	}
-																	super::state::BufferedUpdate::SharedChange(dependent_entry) => {
-																		// Retry the shared change now that its dependency exists
-																		let entry_clone = dependent_entry.clone();
-																		let db = self.peer_sync.db().clone();
-																		if let Err(e) = crate::infra::sync::registry::apply_shared_change(entry_clone, db).await {
-																			tracing::warn!(
-																				error = %e,
-																				record_uuid = %dependent_entry.record_uuid,
-																				"Failed to apply dependent shared change after current_state snapshot"
-																			);
+																		super::state::BufferedUpdate::SharedChange(dependent_entry) => {
+																			// Retry the shared change now that its dependency exists
+																			let entry_clone = dependent_entry.clone();
+																			let db = self.peer_sync.db().clone();
+																			if let Err(e) = crate::infra::sync::registry::apply_shared_change(entry_clone, db).await {
+																				tracing::warn!(
+																					error = %e,
+																					record_uuid = %dependent_entry.record_uuid,
+																					"Failed to apply dependent shared change after current_state snapshot"
+																				);
+																			}
 																		}
 																	}
 																}
 															}
 														}
+														Err(e) => {
+															let error_str = e.to_string();
+
+															// Check if this is a FK dependency error
+															if error_str.contains("Sync dependency missing")
+																|| error_str.contains("FOREIGN KEY constraint failed")
+															{
+																// Try to extract the missing UUID from the error message
+																if let Some(missing_uuid) =
+																	super::dependency::extract_missing_dependency_uuid(&error_str)
+																{
+																	tracing::debug!(
+																		record_uuid = %record_uuid,
+																		model_type = %model_type,
+																		missing_uuid = %missing_uuid,
+																		"Snapshot record has missing FK dependency, buffering for retry"
+																	);
+
+																	// Buffer this shared change for retry when dependency arrives
+																	self.peer_sync
+																		.dependency_tracker()
+																		.add_dependency(
+																			missing_uuid,
+																			super::state::BufferedUpdate::SharedChange(
+																				entry.clone(),
+																			),
+																		)
+																		.await;
+
+																	continue; // Skip to next record
+																} else {
+																	// FK error but can't extract UUID
+																	let fk_mappings = crate::infra::sync::registry::get_fk_mappings(&model_type);
+																	let uuid_fields: Vec<String> = if let Some(obj) = data.as_object() {
+																		obj.keys()
+																			.filter(|k| k.ends_with("_uuid"))
+																			.map(|k| {
+																				let value = obj.get(k).and_then(|v| v.as_str()).unwrap_or("null");
+																				format!("{}={}", k, value)
+																			})
+																			.collect()
+																	} else {
+																		vec![]
+																	};
+
+																	warn!(
+																		model_type = %model_type,
+																		uuid = %record_uuid,
+																		error = %e,
+																		fk_mappings = ?fk_mappings,
+																		uuid_fields = ?uuid_fields,
+																		"Failed to apply current_state snapshot record - FK constraint failed but cannot extract missing UUID"
+																	);
+
+																	continue; // Skip this record
+																}
+															}
+
+															// Non-dependency error - this is unexpected, log but continue
+															warn!(
+																model_type = %model_type,
+																uuid = %record_uuid,
+																error = %e,
+																"Failed to apply current_state snapshot record - unexpected error"
+															);
+														}
 													}
 												}
 											}
 										}
+									}
+								}
+
+								// Emit batch resource events for all successfully applied snapshot records
+								if !applied_snapshot_uuids.is_empty() {
+									let db = self.peer_sync.db().clone();
+									let resource_manager = crate::domain::ResourceManager::new(
+										db.clone(),
+										self.peer_sync.event_bus().clone(),
+									);
+
+									if let Err(e) = resource_manager
+										.emit_batch_resource_events(&model_type, applied_snapshot_uuids)
+										.await
+									{
+										warn!(
+											model_type = %model_type,
+											error = %e,
+											"Failed to emit batch resource events after snapshot application"
+										);
 									}
 								}
 							}
@@ -959,14 +1081,37 @@ impl BackfillManager {
 									continue; // Skip to next entry
 								} else {
 									// FK error but can't extract UUID (raw SQLite error)
-									// For models with dependencies, buffer on a placeholder and retry after snapshot completes
-									// This handles the case where peer log entries depend on snapshot data
-									tracing::warn!(
+									// Extract diagnostic information for troubleshooting
+									let fk_mappings = crate::infra::sync::registry::get_fk_mappings(&entry.model_type);
+
+									// Extract UUID fields from entry data to show which FKs are present
+									let uuid_fields: Vec<String> = if let Some(obj) = entry.data.as_object() {
+										obj.keys()
+											.filter(|k| k.ends_with("_uuid"))
+											.map(|k| {
+												let value = obj.get(k).and_then(|v| v.as_str()).unwrap_or("null");
+												format!("{}={}", k, value)
+											})
+											.collect()
+									} else {
+										vec![]
+									};
+
+									// Log comprehensive diagnostic information
+									tracing::info!(
 										error = %e,
 										record_uuid = %entry.record_uuid,
 										model_type = %entry.model_type,
-										"FK constraint failed but couldn't extract UUID - skipping (will retry from snapshot dependencies)"
+										hlc = %entry.hlc,
+										change_type = ?entry.change_type,
+										fk_mappings = ?fk_mappings,
+										uuid_fields = ?uuid_fields,
+										"FK constraint failed during shared resource backfill - cannot extract missing UUID from SQLite error. \
+										This typically means: (1) parent was deleted before backfill started, (2) peer log has orphaned records, \
+										(3) snapshot query failed for a dependency model, or (4) HLC ordering issue. \
+										Record will be skipped and retried in next backfill attempt."
 									);
+
 									// Skip this record - if it's in the snapshot dependencies, it will be resolved
 									// If not, it will be re-requested in next backfill attempt
 									continue;
@@ -1066,7 +1211,7 @@ impl BackfillManager {
 								"Failed to send ACK for shared changes (pruning may be delayed)"
 							);
 						} else {
-							info!(
+							debug!(
 								peer = %peer,
 								hlc = %up_to_hlc,
 								batch_size = batch_size,
@@ -1093,14 +1238,14 @@ impl BackfillManager {
 
 				// Log progress every 10,000 records for large backfills
 				if total_applied >= last_progress_log + 10_000 {
-					info!(
+					debug!(
 						total_applied = total_applied,
 						batch_size = batch_size,
 						"Backfilling shared resources - progress update"
 					);
 					last_progress_log = total_applied;
 				} else {
-					info!(
+					debug!(
 						"Applied {} shared changes (total: {})",
 						batch_size, total_applied
 					);
@@ -1120,7 +1265,7 @@ impl BackfillManager {
 			}
 		}
 
-		info!(
+		debug!(
 			"Shared resources backfill complete (total: {} entries)",
 			total_applied
 		);
@@ -1140,7 +1285,7 @@ impl BackfillManager {
 		// - Any peer entries created after now will have higher timestamp regardless of device_id
 		if last_hlc.is_none() && received_any_data {
 			let watermark_hlc = self.peer_sync.hlc_generator().lock().await.next();
-			info!(
+			debug!(
 				watermark_hlc = %watermark_hlc,
 				"Snapshot-only sync (no peer log entries), using current time as watermark"
 			);

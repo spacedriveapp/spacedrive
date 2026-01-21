@@ -283,14 +283,98 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 						&stats.interned_strings.to_string(),
 					]);
 					stats_table.add_row(vec!["Content kinds", &stats.content_kinds.to_string()]);
+					stats_table.add_row(vec!["UUID count (lazy)", &stats.uuid_count.to_string()]);
 					stats_table.add_row(vec![
 						"Memory usage",
 						&format_bytes(stats.memory_bytes as u64),
+					]);
+					stats_table.add_row(vec![
+						"Total file size",
+						&format_bytes(stats.total_file_bytes),
 					]);
 					stats_table.add_row(vec!["Cache age", &format!("{:.1}s", stats.age_seconds)]);
 					stats_table.add_row(vec!["Idle time", &format!("{:.1}s", stats.idle_seconds)]);
 
 					println!("{}", stats_table);
+
+					// Show detailed memory breakdown if available
+					if let Some(ref breakdown) = stats.memory_breakdown {
+						println!();
+						let mut breakdown_table = Table::new();
+						breakdown_table.load_preset(UTF8_BORDERS_ONLY);
+						breakdown_table.set_header(vec![
+							Cell::new("MEMORY BREAKDOWN (DETAILED)").add_attribute(Attribute::Bold),
+							Cell::new("Overhead"),
+							Cell::new("Entries"),
+							Cell::new("Total"),
+						]);
+
+						breakdown_table.add_row(vec![
+							"Arena",
+							"-",
+							"-",
+							&format_bytes(breakdown.arena as u64),
+						]);
+						breakdown_table.add_row(vec![
+							"Cache (string interning)",
+							"-",
+							"-",
+							&format_bytes(breakdown.cache as u64),
+						]);
+						breakdown_table.add_row(vec![
+							"Registry (name search)",
+							"-",
+							"-",
+							&format_bytes(breakdown.registry as u64),
+						]);
+						breakdown_table.add_row(vec![
+							"path_index HashMap",
+							&format_bytes(breakdown.path_index_overhead as u64),
+							&format_bytes(breakdown.path_index_entries as u64),
+							&format_bytes(
+								(breakdown.path_index_overhead + breakdown.path_index_entries) as u64
+							),
+						]);
+						breakdown_table.add_row(vec![
+							"entry_uuids HashMap",
+							&format_bytes(breakdown.entry_uuids_overhead as u64),
+							&format_bytes(breakdown.entry_uuids_entries as u64),
+							&format_bytes(
+								(breakdown.entry_uuids_overhead + breakdown.entry_uuids_entries) as u64
+							),
+						]);
+						breakdown_table.add_row(vec![
+							"content_kinds HashMap",
+							&format_bytes(breakdown.content_kinds_overhead as u64),
+							&format_bytes(breakdown.content_kinds_entries as u64),
+							&format_bytes(
+								(breakdown.content_kinds_overhead + breakdown.content_kinds_entries)
+									as u64
+							),
+						]);
+
+						let total = breakdown.arena
+							+ breakdown.cache
+							+ breakdown.registry
+							+ breakdown.path_index_overhead
+							+ breakdown.path_index_entries
+							+ breakdown.entry_uuids_overhead
+							+ breakdown.entry_uuids_entries
+							+ breakdown.content_kinds_overhead
+							+ breakdown.content_kinds_entries;
+
+						breakdown_table.add_row(vec![
+							Cell::new("TOTAL").add_attribute(Attribute::Bold),
+							Cell::new(""),
+							Cell::new(""),
+							Cell::new(&format_bytes(total as u64)).add_attribute(Attribute::Bold),
+						]);
+
+						println!("{}", breakdown_table);
+						println!();
+						println!("Note: 'Overhead' = HashMap control bytes (~1 byte/capacity)");
+						println!("      'Entries' = Actual key+value data (len × entry_size + heap strings)");
+					}
 
 					// Show indexed paths
 					if status.indexed_paths.is_empty() && status.paths_in_progress.is_empty() {

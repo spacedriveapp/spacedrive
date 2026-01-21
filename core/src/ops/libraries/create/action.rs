@@ -77,7 +77,7 @@ impl CoreAction for LibraryCreateAction {
 				message: "Library name cannot be empty".to_string(),
 			});
 		}
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

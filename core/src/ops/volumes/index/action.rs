@@ -4,13 +4,17 @@ use super::{IndexVolumeInput, IndexVolumeOutput};
 use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
-	infra::action::{error::ActionError, LibraryAction},
+	infra::{
+		action::{context::ActionContext, error::ActionError, LibraryAction},
+		job::types::JobPriority,
+	},
 	library::Library,
 	ops::indexing::job::{IndexerJob, IndexerJobConfig},
 	volume::VolumeFingerprint,
 };
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -84,7 +88,8 @@ impl LibraryAction for IndexVolumeAction {
 		};
 
 		// 4. Create ephemeral indexing job
-		let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope);
+		// Volume indexing always indexes from the mount point root, so is_volume = true
+		let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, true);
 		let mut indexer_job = IndexerJob::new(indexer_config);
 
 		// 5. Get ephemeral cache and create/reuse index for this volume
@@ -101,10 +106,22 @@ impl LibraryAction for IndexVolumeAction {
 			);
 		}
 
-		// 7. Dispatch job
+		// 7. Dispatch job with volume fingerprint in action context
+		let action_context = ActionContext::new(
+			"volumes.index",
+			json!({
+				"fingerprint": fingerprint.to_string(),
+				"scope": format!("{:?}", self.input.scope),
+			}),
+			json!({
+				"volume_fingerprint": fingerprint.to_string(),
+				"volume_name": volume.name,
+			}),
+		);
+
 		let job_handle = library
 			.jobs()
-			.dispatch(indexer_job)
+			.dispatch_with_priority(indexer_job, JobPriority::NORMAL, Some(action_context))
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to dispatch job: {}", e)))?;
 
@@ -114,49 +131,76 @@ impl LibraryAction for IndexVolumeAction {
 			job_id, volume.name
 		);
 
-		// 8. Wait for job completion to extract stats
-		let output = match job_handle.wait().await {
-			Ok(output) => output,
-			Err(e) => {
-				error!("Ephemeral indexing job failed: {}", e);
-				return Err(ActionError::Internal(format!("Indexing failed: {}", e)));
+		// 8. Spawn background task to save stats on completion
+		let library_clone = library.clone();
+		let context_clone = context.clone();
+		let fingerprint_clone = fingerprint.clone();
+		let mount_point_clone = volume.mount_point.clone();
+		let volume_name = volume.name.clone();
+		let job_id_str = job_id.to_string();
+
+		tokio::spawn(async move {
+			let mut event_rx = context_clone.events.subscribe();
+
+			while let Ok(event) = event_rx.recv().await {
+				match event {
+					crate::infra::event::Event::JobCompleted {
+						job_id: event_job_id,
+						output,
+						..
+					} => {
+						if event_job_id == job_id_str {
+							// Extract stats from job output
+							if let crate::infra::job::output::JobOutput::Indexed { stats, .. } =
+								output
+							{
+								info!(
+									"Volume indexing complete: {} files, {} directories",
+									stats.files, stats.dirs
+								);
+
+								// Save stats to database
+								if let Err(e) = Self::save_volume_stats_static(
+									&library_clone,
+									&fingerprint_clone,
+									stats.files,
+									stats.dirs,
+								)
+								.await
+								{
+									error!("Failed to save volume stats: {}", e);
+								}
+
+								// Mark as indexed and register for watching
+								let ephemeral_cache = context_clone.ephemeral_cache();
+								ephemeral_cache.mark_indexing_complete(&mount_point_clone);
+								let _ = ephemeral_cache
+									.register_for_watching(mount_point_clone.clone());
+							}
+							break;
+						}
+					}
+					crate::infra::event::Event::JobFailed {
+						job_id: event_job_id,
+						error,
+						..
+					} => {
+						if event_job_id == job_id_str {
+							error!("Volume indexing job failed: {}", error);
+							break;
+						}
+					}
+					_ => {}
+				}
 			}
-		};
-
-		// 9. Extract stats from job output
-		let (file_count, dir_count) = match output {
-			crate::infra::job::output::JobOutput::Indexed { stats, .. } => {
-				(stats.files, stats.dirs)
-			}
-			_ => {
-				return Err(ActionError::Internal(
-					"Expected Indexed output from indexer job".to_string(),
-				));
-			}
-		};
-
-		info!(
-			"Volume indexing complete: {} files, {} directories",
-			file_count, dir_count
-		);
-
-		// 10. Save stats to database
-		self.save_volume_stats(&library, &fingerprint, file_count, dir_count)
-			.await?;
-
-		// 11. Mark as indexed and register for watching
-		ephemeral_cache.mark_indexing_complete(&volume.mount_point);
-		let _ = ephemeral_cache.register_for_watching(volume.mount_point.clone());
+		});
 
 		Ok(IndexVolumeOutput {
 			volume_id: volume.id,
 			job_id: job_id.into(),
-			total_files: Some(file_count),
-			total_directories: Some(dir_count),
-			message: format!(
-				"Indexed {} files and {} directories on volume '{}'",
-				file_count, dir_count, volume.name
-			),
+			total_files: None,
+			total_directories: None,
+			message: format!("Indexing volume '{}' (job {})", volume_name, job_id),
 		})
 	}
 
@@ -167,8 +211,7 @@ impl LibraryAction for IndexVolumeAction {
 
 impl IndexVolumeAction {
 	/// Save volume indexing stats to database and trigger sync
-	async fn save_volume_stats(
-		&self,
+	async fn save_volume_stats_static(
 		library: &Library,
 		fingerprint: &VolumeFingerprint,
 		file_count: u64,

@@ -85,7 +85,7 @@ impl LibraryAction for FileDeleteAction {
 			});
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

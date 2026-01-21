@@ -36,7 +36,7 @@ impl ActionManager {
 
 		// Check if confirmation is required
 		match validation_result {
-			super::ValidationResult::Success => {
+			super::ValidationResult::Success { .. } => {
 				// Proceed with execution
 			}
 			super::ValidationResult::RequiresConfirmation(_request) => {
@@ -95,7 +95,7 @@ impl ActionManager {
 
 		// Check if confirmation is required
 		match validation_result {
-			super::ValidationResult::Success => {
+			super::ValidationResult::Success { .. } => {
 				// Proceed with execution
 			}
 			super::ValidationResult::RequiresConfirmation(_request) => {

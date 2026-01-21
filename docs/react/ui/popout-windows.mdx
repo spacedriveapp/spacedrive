@@ -1,0 +1,136 @@
+---
+title: Popout Windows
+sidebarTitle: Popout Windows
+---
+
+Popout windows let you move interface components into separate native windows. The Inspector and Settings windows can be popped out, moved independently, and stay synchronized with the main window through shared state.
+
+## How It Works
+
+Popout windows are separate Tauri windows that share state with the main window. When you pop out the Inspector, it opens in its own window while maintaining real-time synchronization with file selections, library changes, and other state updates.
+
+The system uses three layers for coordination: Tauri's global app state stores shared values, Tauri's event system broadcasts changes to all windows, and the Platform abstraction provides a consistent API for window management across platforms.
+
+## Window Creation Flow
+
+When you click "Pop out Inspector" or open Settings, the frontend calls the platform abstraction:
+
+```typescript
+await platform.showWindow({
+  type: 'Inspector',
+  item_id: null
+});
+```
+
+The platform routes this to Tauri's backend, which creates a new window with specific configuration. Each window type has predefined size, position, and behavior settings. Inspector windows are always-on-top floating panels, while Settings windows are standard resizable windows.
+
+If a window of that type already exists, the system focuses the existing window instead of creating a duplicate. This ensures single-instance behavior for windows like Settings and Inspector.
+
+## Routing System
+
+Each window determines what to render based on its label. The main App component reads the window label and sets the route accordingly:
+
+```typescript
+const label = getCurrentWebviewWindow().label;
+
+if (label.startsWith("inspector")) {
+  setRoute("/inspector");
+} else if (label.startsWith("settings")) {
+  setRoute("/settings");
+}
+```
+
+The route then renders the appropriate component with the full provider stack. This ensures each popout window has access to the same contexts and hooks as the main window.
+
+## State Synchronization
+
+Popout windows stay synchronized with the main window through Tauri's global app state and event system.
+
+### Selected Files
+
+When you select files in the main window, the selection context syncs to platform state:
+
+```typescript
+useEffect(() => {
+  const fileIds = selectedFiles.map((f) => f.id);
+  platform.setSelectedFileIds(fileIds);
+}, [selectedFiles]);
+```
+
+The backend stores this in global state and emits an event to all windows. Popout windows listen for this event and update their display:
+
+```typescript
+platform.onSelectedFilesChanged((fileIds) => {
+  setSelectedFileIds(fileIds);
+});
+```
+
+This keeps the Inspector popout showing the same selection as the main window, updating in real time as you change selections.
+
+### Library Switching
+
+Library changes work the same way. When you switch libraries in any window, the backend updates global state and broadcasts to all windows. Each window updates its GraphQL client to use the new library, ensuring queries and mutations target the correct library.
+
+### Other State
+
+The same pattern applies to any shared state. The backend maintains global values, and windows subscribe to change events. This keeps all windows in sync without complex coordination logic.
+
+## macOS Styling
+
+Popout windows on macOS need special handling for the traffic lights area. Each window adds 52px of top padding and a drag region:
+
+```typescript
+<div className="h-screen bg-app overflow-hidden pt-[52px]">
+  <div
+    data-tauri-drag-region
+    className="absolute inset-x-0 top-0 h-[52px] z-50"
+  />
+  {/* Window content */}
+</div>
+```
+
+When the window mounts, it calls `platform.applyMacOSStyling()` to configure the native window. This hides the titlebar while keeping the traffic lights visible, matching the main window's appearance.
+
+## Provider Hierarchy
+
+Each popout window needs the same provider stack as the main window:
+
+```typescript
+<PlatformProvider platform={platform}>
+  <SpacedriveProvider client={client}>
+    <ServerProvider>
+      <JobsProvider>
+        {/* Window content */}
+      </JobsProvider>
+    </ServerProvider>
+  </SpacedriveProvider>
+</PlatformProvider>
+```
+
+This ensures platform methods work, GraphQL queries function, and hooks have access to their contexts. Without this stack, components would fail with context errors.
+
+## Window Lifecycle
+
+Some windows are single-instance. If you try to open Settings while it's already open, the system focuses the existing window instead of creating a new one. This prevents duplicate windows and keeps the interface clean.
+
+Other windows can have multiple instances. Explorer windows can open multiple times for different paths, each with its own label and state.
+
+When a popout window closes, it can notify the main window. The Inspector window emits a close event that tells the main window to show the embedded inspector again. This maintains a smooth user experience.
+
+## Implementation Details
+
+Window creation happens in the Rust backend. The `SpacedriveWindow` enum defines all window types, each with its own configuration. The `show_window` command creates or focuses windows based on their type.
+
+State synchronization uses Tauri's `emit` system. When state changes, the backend emits events that all windows receive. Frontend code subscribes to these events and updates local state accordingly.
+
+The Platform abstraction provides a consistent API regardless of platform. On Tauri, it routes to native commands. On web, these methods are undefined, allowing graceful degradation.
+
+<Note>
+Popout windows only work on Tauri desktop builds. The web version shows components inline since browsers don't support multiple windows with shared state.
+</Note>
+
+## Adding New Popout Windows
+
+To add a new popout window type, define it in the `SpacedriveWindow` enum with its configuration. Add routing logic in the App component to render the appropriate component. Ensure the component has the full provider stack and handles state synchronization if needed.
+
+The window will automatically benefit from single-instance behavior, state synchronization, and platform-specific styling if configured correctly.

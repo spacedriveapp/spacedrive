@@ -113,7 +113,7 @@ impl MigrationTrait for Migration {
 							.auto_increment()
 							.primary_key(),
 					)
-					.col(ColumnDef::new(MimeTypes::Uuid).uuid().not_null())
+					.col(ColumnDef::new(MimeTypes::Uuid).uuid().not_null().unique_key())
 					.col(
 						ColumnDef::new(MimeTypes::MimeType)
 							.string()

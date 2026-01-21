@@ -132,6 +132,20 @@ pub enum Event {
 	/// Emitted after major data recalculations (e.g., volume unique_bytes refresh)
 	Refresh,
 
+	// Pairing events
+	ProxyPairingConfirmationRequired {
+		session_id: Uuid,
+		vouchee_device_name: String,
+		vouchee_device_os: String,
+		voucher_device_name: String,
+		voucher_device_id: Uuid,
+		expires_at: String,
+	},
+	ProxyPairingVouchingReady {
+		session_id: Uuid,
+		vouchee_device_id: Uuid,
+	},
+
 	// Entry events (file/directory operations)
 	// DEPRECATED: Use ResourceChanged instead
 	EntryCreated {

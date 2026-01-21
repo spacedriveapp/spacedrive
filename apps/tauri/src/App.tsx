@@ -2,9 +2,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
 import {
-	Explorer,
+	Shell,
 	FloatingControls,
-	LocationCacheDemo,
 	PopoutInspector,
 	QuickPreview,
 	JobsScreen,
@@ -12,6 +11,7 @@ import {
 	PlatformProvider,
 	SpacedriveProvider,
 	ServerProvider,
+	JobsProvider,
 } from "@sd/interface";
 import {
 	SpacedriveClient,
@@ -27,6 +27,7 @@ import { DragDemo } from "./components/DragDemo";
 import { SpacedropWindow } from "./routes/Spacedrop";
 import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
+import { initializeKeybindGlobal } from "./keybinds";
 
 function App() {
 	const [client, setClient] = useState<SpacedriveClient | null>(null);
@@ -46,6 +47,9 @@ function App() {
 
 		// Initialize Tauri native context menu handler
 		initializeContextMenuHandler();
+
+		// Initialize Tauri keybind handler
+		initializeKeybindGlobal();
 
 		// Prevent default context menu globally (except in context menu windows)
 		const currentWindow = getCurrentWebviewWindow();
@@ -80,8 +84,6 @@ function App() {
 			setRoute("/inspector");
 		} else if (label.startsWith("quick-preview")) {
 			setRoute("/quick-preview");
-		} else if (label.startsWith("cache-demo")) {
-			setRoute("/cache-demo");
 		} else if (label.startsWith("job-manager")) {
 			setRoute("/job-manager");
 		}
@@ -170,6 +172,12 @@ function App() {
 			if (unsubscribePromise) {
 				unsubscribePromise.then((unsubscribe) => unsubscribe());
 			}
+
+			// Clean up all backend TCP connections to prevent connection leaks
+			// This is especially important during development hot reloads
+			invoke("cleanup_all_connections").catch((err) => {
+				console.warn("Failed to cleanup connections:", err);
+			});
 		};
 	}, []);
 
@@ -229,7 +237,9 @@ function App() {
 		return (
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
-					<Settings />
+					<ServerProvider>
+						<Settings />
+					</ServerProvider>
 				</SpacedriveProvider>
 			</PlatformProvider>
 		);
@@ -240,17 +250,20 @@ function App() {
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
 					<ServerProvider>
-						<div className="h-screen bg-app overflow-hidden">
-							<PopoutInspector />
-						</div>
+						<JobsProvider>
+							<div className="h-screen bg-app overflow-hidden pt-[52px]">
+								{/* Drag region for macOS traffic lights area */}
+								<div
+									data-tauri-drag-region
+									className="absolute inset-x-0 top-0 h-[52px] z-50"
+								/>
+								<PopoutInspector />
+							</div>
+						</JobsProvider>
 					</ServerProvider>
 				</SpacedriveProvider>
 			</PlatformProvider>
 		);
-	}
-
-	if (route === "/cache-demo") {
-		return <LocationCacheDemo />;
 	}
 
 	if (route === "/quick-preview") {
@@ -283,7 +296,7 @@ function App() {
 
 	return (
 		<PlatformProvider platform={platform}>
-			<Explorer client={client} />
+			<Shell client={client} />
 		</PlatformProvider>
 	);
 }

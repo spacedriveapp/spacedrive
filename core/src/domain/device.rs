@@ -106,6 +106,35 @@ pub struct Device {
 	/// Whether this device is currently connected via network
 	#[serde(default)]
 	pub is_connected: bool,
+
+	/// Connection method when connected (Direct, Relay, or Mixed)
+	#[serde(default)]
+	#[specta(optional)]
+	pub connection_method: Option<ConnectionMethod>,
+}
+
+/// Network connection method for a device
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Type)]
+pub enum ConnectionMethod {
+	/// Direct peer-to-peer connection (mDNS/local network)
+	Direct,
+	/// Connection via relay server
+	Relay,
+	/// Mixed connection (both direct and relay)
+	Mixed,
+}
+
+impl ConnectionMethod {
+	/// Convert from Iroh's ConnectionType
+	pub fn from_iroh_connection_type(conn_type: iroh::endpoint::ConnectionType) -> Option<Self> {
+		use iroh::endpoint::ConnectionType;
+		match conn_type {
+			ConnectionType::Direct(_) => Some(Self::Direct),
+			ConnectionType::Relay(_) => Some(Self::Relay),
+			ConnectionType::Mixed(_, _) => Some(Self::Mixed),
+			ConnectionType::None => None,
+		}
+	}
 }
 
 /// Operating system types
@@ -184,6 +213,7 @@ impl Device {
 			is_current: false,
 			is_paired: false,
 			is_connected: false,
+			connection_method: None,
 		}
 	}
 
@@ -223,6 +253,7 @@ impl Device {
 	pub fn from_network_info(
 		info: &crate::service::network::device::DeviceInfo,
 		is_connected: bool,
+		connection_method: Option<ConnectionMethod>,
 	) -> Self {
 		use crate::service::network::device::DeviceType;
 
@@ -292,6 +323,7 @@ impl Device {
 			is_current: false,
 			is_paired: true,
 			is_connected,
+			connection_method,
 		}
 	}
 }
@@ -1158,6 +1190,7 @@ impl TryFrom<entities::device::Model> for Device {
 			is_current: false,
 			is_paired: false,
 			is_connected: false,
+			connection_method: None, // Populated by caller when connection info available
 		})
 	}
 }

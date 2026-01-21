@@ -30,6 +30,10 @@ pub struct ThumbnailJobConfig {
 
 	/// Maximum concurrent thumbnail generations
 	pub max_concurrent: usize,
+
+	/// Whether to run this job in the background (not persisted to database, no UI updates)
+	#[serde(default)]
+	pub run_in_background: bool,
 }
 
 impl Default for ThumbnailJobConfig {
@@ -39,6 +43,7 @@ impl Default for ThumbnailJobConfig {
 			regenerate: false,
 			batch_size: 50,
 			max_concurrent: 4,
+			run_in_background: false,
 		}
 	}
 }
@@ -110,6 +115,10 @@ impl Job for ThumbnailJob {
 impl crate::infra::job::traits::DynJob for ThumbnailJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	fn should_persist(&self) -> bool {
+		!self.config.run_in_background
 	}
 }
 

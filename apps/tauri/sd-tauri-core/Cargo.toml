@@ -4,9 +4,6 @@ version = "2.0.0"
 edition = "2021"
 
 [dependencies]
-# Core
-sd-core = { path = "../../../core", features = ["heif", "ffmpeg"] }
-
 # Async runtime
 tokio = { version = "1.40", features = ["full"] }
 
@@ -20,6 +17,9 @@ thiserror = "1.0"
 
 # Logging
 tracing = "0.1"
+
+# Platform directories
+dirs = "5.0"
 
 [lib]
 crate-type = ["lib"]

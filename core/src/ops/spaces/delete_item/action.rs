@@ -68,7 +68,7 @@ impl LibraryAction for DeleteItemAction {
 		_library: &std::sync::Arc<crate::library::Library>,
 		_context: std::sync::Arc<CoreContext>,
 	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

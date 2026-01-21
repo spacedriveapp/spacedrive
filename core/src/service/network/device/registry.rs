@@ -75,6 +75,10 @@ impl DeviceRegistry {
 		self.library_manager = Some(library_manager);
 	}
 
+	/// Clone the persistence manager for async usage without locking
+	pub fn persistence(&self) -> DevicePersistence {
+		self.persistence.clone()
+	}
 	/// Update device online status in library database
 	async fn update_device_online_status(&self, device_id: Uuid, is_online: bool) {
 		let Some(library_manager_weak) = &self.library_manager else {
@@ -132,23 +136,73 @@ impl DeviceRegistry {
 		}
 	}
 
-	/// Emit a ResourceChanged event for a device
+	/// Emit a ResourceChanged event for a device with complete database data
 	fn emit_device_changed(&self, device_id: Uuid, info: &DeviceInfo, is_connected: bool) {
 		let Some(event_bus) = &self.event_bus else {
 			return;
 		};
 
-		// Convert network DeviceInfo to domain Device
-		let device = crate::domain::Device::from_network_info(info, is_connected);
+		let event_bus = event_bus.clone();
+		let info = info.clone();
+		let library_manager_weak = self.library_manager.clone();
 
-		use crate::domain::resource::EventEmitter;
-		if let Err(e) = device.emit_changed(event_bus) {
-			tracing::warn!(
-				device_id = %device_id,
-				error = %e,
-				"Failed to emit device ResourceChanged event"
-			);
-		}
+		// Spawn a background task to query database and emit event
+		// This avoids blocking the current thread with database I/O
+		tokio::spawn(async move {
+			// Try to query the full device from database to get hardware_model
+			let device = if let Some(library_manager_weak) = library_manager_weak {
+				if let Some(library_manager) = library_manager_weak.upgrade() {
+					// Try to get device from first available library
+					// (device data should be consistent across libraries since it's synced)
+					let all_libraries = library_manager.list().await;
+
+					let mut device_from_db = None;
+					for lib in all_libraries {
+						let db = lib.db().conn();
+
+						// Query device from database by UUID
+						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+						if let Ok(Some(model)) = crate::infra::db::entities::device::Entity::find()
+							.filter(
+								crate::infra::db::entities::device::Column::Uuid
+									.eq(device_id.as_bytes().to_vec()),
+							)
+							.one(db)
+							.await
+						{
+							// Convert to domain Device
+							if let Ok(mut device) = crate::domain::Device::try_from(model) {
+								// Merge with network state
+								device.is_connected = is_connected;
+								device.is_online = is_connected;
+								device.is_paired = true;
+								device.connection_method = None;
+
+								device_from_db = Some(device);
+								break;
+							}
+						}
+					}
+
+					device_from_db.unwrap_or_else(|| {
+						crate::domain::Device::from_network_info(&info, is_connected, None)
+					})
+				} else {
+					crate::domain::Device::from_network_info(&info, is_connected, None)
+				}
+			} else {
+				crate::domain::Device::from_network_info(&info, is_connected, None)
+			};
+
+			use crate::domain::resource::EventEmitter;
+			if let Err(e) = device.emit_changed(&event_bus) {
+				tracing::warn!(
+					device_id = %device_id,
+					error = %e,
+					"Failed to emit device ResourceChanged event"
+				);
+			}
+		});
 	}
 
 	/// Load paired devices from persistence on startup
@@ -260,6 +314,9 @@ impl DeviceRegistry {
 		info: DeviceInfo,
 		session_keys: SessionKeys,
 		relay_url: Option<String>,
+		pairing_type: super::PairingType,
+		vouched_by: Option<Uuid>,
+		vouched_at: Option<DateTime<Utc>>,
 	) -> Result<()> {
 		// Parse node ID from network fingerprint
 		let node_id = info
@@ -310,7 +367,15 @@ impl DeviceRegistry {
 		// Persist the paired device for future reconnection (with relay_url for optimization)
 		if let Err(e) = self
 			.persistence
-			.add_paired_device(device_id, info.clone(), session_keys.clone(), relay_url)
+			.add_paired_device(
+				device_id,
+				info.clone(),
+				session_keys.clone(),
+				relay_url,
+				pairing_type,
+				vouched_by,
+				vouched_at,
+			)
 			.await
 		{
 			self.logger
@@ -541,6 +606,14 @@ impl DeviceRegistry {
 	/// Remove a paired device from persistence
 	pub async fn remove_paired_device(&self, device_id: Uuid) -> Result<bool> {
 		self.persistence.remove_paired_device(device_id).await
+	}
+
+	/// Get persisted paired device info
+	pub async fn get_persisted_device(
+		&self,
+		device_id: Uuid,
+	) -> Result<Option<PersistedPairedDevice>> {
+		self.persistence.get_paired_device(device_id).await
 	}
 
 	/// Get peer ID for a device
@@ -812,10 +885,6 @@ impl DeviceRegistry {
 
 	/// Set a device as connected with its node ID
 	pub async fn set_device_connected(&mut self, device_id: Uuid, node_id: NodeId) -> Result<()> {
-		self.logger
-			.info(&format!("Setting device {} as connected", device_id))
-			.await;
-
 		// Update the node_to_device mapping
 		self.node_to_device.insert(node_id, device_id);
 
@@ -856,12 +925,6 @@ impl DeviceRegistry {
 					Some(info_clone)
 				}
 				DeviceState::Connected { .. } => {
-					self.logger
-						.debug(&format!(
-							"Device {} already connected, updating node mapping",
-							device_id
-						))
-						.await;
 					None // No state change
 				}
 				DeviceState::Disconnected {

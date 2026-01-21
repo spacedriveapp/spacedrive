@@ -439,6 +439,7 @@ impl LibraryQuery for MediaListingQuery {
 				permissions: None,
 				inode: None,
 				parent_id: None,
+				volume_id: None,
 			};
 
 			// Convert to File using from_entity_model

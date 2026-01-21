@@ -46,6 +46,9 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// Delete file or directory
 	async fn delete(&self, path: &Path) -> Result<(), VolumeError>;
 
+	/// Create a directory at the specified path
+	async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError>;
+
 	/// Backend identification (used to optimize operations)
 	fn is_local(&self) -> bool;
 

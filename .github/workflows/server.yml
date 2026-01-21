@@ -1,12 +1,13 @@
 name: Server release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   pull_request:
     paths:
       - '.github/workflows/server.yml'
-      - 'apps/server/docker/*'
+      - 'apps/server/**'
   workflow_dispatch:
 
 jobs:
@@ -81,10 +82,12 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          if [ "$GITHUB_EVENT_NAME" == "release" ]; then
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
             IMAGE_TAG="${GITHUB_REF##*/}"
+            EXTRA_TAG="latest"
           else
             IMAGE_TAG="$(git rev-parse --short "$GITHUB_SHA")"
+            EXTRA_TAG="staging"
           fi
           IMAGE_TAG="${IMAGE_TAG,,}"
           IMAGE_NAME="${GITHUB_REPOSITORY,,}/server"
@@ -92,6 +95,7 @@ jobs:
           echo "Building ${IMAGE_NAME}:${IMAGE_TAG}"
 
           echo "tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "extra_tag=${EXTRA_TAG}" >> "$GITHUB_OUTPUT"
           echo "name=${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
           echo "repo=${GITHUB_REPOSITORY}" >> "$GITHUB_OUTPUT"
           echo "repo_ref=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
@@ -105,16 +109,16 @@ jobs:
         id: build-image
         uses: redhat-actions/buildah-build@v2
         with:
-          tags: ${{ steps.image_info.outputs.tag }} ${{ github.event_name == 'release' && 'latest' || 'staging' }}
-          archs: amd64
+          tags: ${{ steps.image_info.outputs.tag }} ${{ steps.image_info.outputs.extra_tag }}
+          archs: amd64, arm64
           image: ${{ steps.image_info.outputs.name }}
           layers: 'false'
-          context: ./apps/server/docker
+          context: .
           build-args: |
             REPO=${{ steps.image_info.outputs.repo }}
             REPO_REF=${{ steps.image_info.outputs.repo_ref }}
           containerfiles: |
-            ./apps/server/docker/Dockerfile
+            ./apps/server/Dockerfile
 
       - name: Push image to ghcr.io
         uses: redhat-actions/push-to-registry@v2

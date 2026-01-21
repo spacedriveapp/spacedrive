@@ -1,7 +1,7 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { PlatformProvider } from "@sd/interface/platform";
-import { Explorer } from "@sd/interface";
+import { Shell } from "@sd/interface";
 import { platform } from "./platform";
 import "@sd/interface/styles.css";
 
@@ -11,7 +11,7 @@ import "@sd/interface/styles.css";
 function App() {
 	return (
 		<PlatformProvider platform={platform}>
-			<Explorer />
+			<Shell />
 		</PlatformProvider>
 	);
 }

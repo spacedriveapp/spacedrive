@@ -1,0 +1,379 @@
+---
+title: Proxy Pairing
+sidebarTitle: Proxy Pairing
+---
+
+Proxy pairing lets a new device join a network after a single direct pairing. The device that paired directly can vouch for the new device to other trusted devices. This reduces repeated pairing while keeping explicit user approval.
+
+## Goals
+
+- Reduce the number of direct pairing sessions required to grow a network.
+- Keep the user confirmation flow for direct pairing.
+- Let receiving devices choose to accept or reject a vouch.
+- Record the trust chain for audit and review.
+- Support offline devices by queueing vouches.
+
+## Non goals
+
+- Multi hop vouching. Only directly paired devices can vouch.
+- Shared group keys or a central authority.
+- Automatic trust propagation without user control.
+
+## Trust model
+
+Direct pairings remain the base trust relationship. Proxy pairings are derived from a trusted voucher.
+
+```
+A <-> direct <-> B <-> direct <-> C
+      |
+      +-> proxied to C
+```
+
+Persisted paired devices record the pairing type and the voucher.
+
+```rust
+pub struct PersistedPairedDevice {
+    pub device_info: DeviceInfo,
+    pub session_keys: SessionKeys,
+    pub paired_at: DateTime<Utc>,
+    pub last_connected_at: Option<DateTime<Utc>>,
+    pub connection_attempts: u32,
+    pub trust_level: TrustLevel,
+    pub relay_url: Option<String>,
+
+    pub pairing_type: PairingType,
+    pub vouched_by: Option<Uuid>,
+    pub vouched_at: Option<DateTime<Utc>>,
+}
+
+pub enum PairingType {
+    Direct,
+    Proxied,
+}
+```
+
+## Compatibility with direct confirmation
+
+Proxy pairing builds on the direct confirmation flow. The direct pairing must reach a confirmed state before any vouching starts. The voucher then offers to vouch the new device to other devices. Receiving devices can auto accept or ask for user confirmation.
+
+## Protocol additions
+
+```rust
+pub enum PairingMessage {
+    // Existing messages:
+    // PairingRequest, Challenge, Response, Complete, Reject
+
+    ProxyPairingRequest {
+        session_id: Uuid,
+        vouchee_device_info: DeviceInfo,
+        vouchee_public_key: Vec<u8>,
+        voucher_device_id: Uuid,
+        voucher_signature: Vec<u8>,
+        timestamp: DateTime<Utc>,
+    },
+
+    ProxyPairingResponse {
+        session_id: Uuid,
+        accepting_device_id: Uuid,
+        accepted: bool,
+        reason: Option<String>,
+    },
+
+    ProxyPairingComplete {
+        session_id: Uuid,
+        accepted_by: Vec<AcceptedDevice>,
+        rejected_by: Vec<RejectedDevice>,
+    },
+}
+
+pub struct AcceptedDevice {
+    pub device_id: Uuid,
+    pub device_name: String,
+    pub node_id: Option<String>,
+}
+
+pub struct RejectedDevice {
+    pub device_id: Uuid,
+    pub device_name: String,
+    pub reason: String,
+}
+```
+
+## Resource model for UI
+
+The vouching session is a resource that the UI can subscribe to with `ResourceChanged` events.
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VouchingSession {
+    pub id: Uuid,
+    pub vouchee_device_id: Uuid,
+    pub vouchee_device_name: String,
+    pub voucher_device_id: Uuid,
+    pub created_at: DateTime<Utc>,
+    pub state: VouchingSessionState,
+    pub vouches: HashMap<Uuid, VouchState>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum VouchingSessionState {
+    Pending,
+    InProgress,
+    Completed,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VouchState {
+    pub device_id: Uuid,
+    pub device_name: String,
+    pub status: VouchStatus,
+    pub updated_at: DateTime<Utc>,
+    pub reason: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum VouchStatus {
+    Selected,
+    Queued,
+    Waiting,
+    Accepted,
+    Rejected,
+    Unreachable,
+}
+
+impl Identifiable for VouchingSession {
+    type Id = Uuid;
+
+    fn id(&self) -> Self::Id {
+        self.id
+    }
+}
+
+crate::register_resource_type!(VouchingSession, "vouching_session");
+```
+
+## Events for confirmation prompts
+
+The vouching session is driven by resource updates. Events are only needed for confirmation prompts and UI entry points.
+
+```rust
+pub enum Event {
+    ProxyPairingConfirmationRequired {
+        session_id: Uuid,
+        vouchee_device_name: String,
+        vouchee_device_os: String,
+        voucher_device_name: String,
+        voucher_device_id: Uuid,
+        expires_at: String,
+    },
+
+    ProxyPairingVouchingReady {
+        session_id: Uuid,
+        vouchee_device_id: Uuid,
+    },
+}
+```
+
+## Actions
+
+```rust
+pub struct PairVouchInput {
+    pub session_id: Uuid,
+    pub target_device_ids: Vec<Uuid>,
+}
+
+pub struct PairVouchOutput {
+    pub success: bool,
+    pub accepted_by: Vec<AcceptedDevice>,
+    pub rejected_by: Vec<RejectedDevice>,
+    pub pending_count: u32,
+}
+
+pub struct PairConfirmProxyInput {
+    pub session_id: Uuid,
+    pub accepted: bool,
+}
+
+pub struct PairConfirmProxyOutput {
+    pub success: bool,
+    pub error: Option<String>,
+}
+```
+
+## Voucher flow
+
+1. The new device sends `PairingRequest`.
+2. The voucher enters the confirmation state and the user confirms.
+3. Direct pairing completes and session keys are stored.
+4. The voucher creates a `VouchingSession` resource in `Pending`.
+5. The voucher emits `ProxyPairingVouchingReady` so the UI can open a modal.
+6. The user selects target devices and triggers `network.pair.vouch`.
+7. The background worker processes each target:
+   - Online devices move to `Waiting` and receive `ProxyPairingRequest`.
+   - Offline devices move to `Queued` and are stored in `vouching_queue`.
+8. Responses update the vouch status to `Accepted` or `Rejected`.
+9. When all vouches reach a terminal state, the session becomes `Completed`.
+10. The voucher sends `ProxyPairingComplete` to the vouchee.
+
+## Receiving device flow
+
+1. Receive `ProxyPairingRequest`.
+2. Verify the voucher is a trusted, directly paired device.
+3. Verify the vouch signature and timestamp.
+4. Check that the vouchee is not already paired.
+5. If auto accept is enabled, accept and store the device.
+6. If manual confirmation is required, emit `ProxyPairingConfirmationRequired`.
+7. Send `ProxyPairingResponse` with accepted or rejected.
+8. Store the vouchee as `pairing_type: Proxied` when accepted.
+
+## Vouchee flow
+
+1. Complete direct pairing with the voucher.
+2. Receive `ProxyPairingComplete`.
+3. Store accepted devices with `pairing_type: Proxied`.
+4. Update the device registry and emit resource updates.
+
+## Vouch payload signature
+
+```rust
+pub struct VouchPayload {
+    pub vouchee_device_id: Uuid,
+    pub vouchee_public_key: Vec<u8>,
+    pub vouchee_device_info: DeviceInfo,
+    pub timestamp: DateTime<Utc>,
+    pub session_id: Uuid,
+}
+
+impl VouchPayload {
+    pub fn sign(&self, signing_key: &SigningKey) -> Vec<u8> {
+        let serialized = bincode::serialize(self).unwrap();
+        signing_key.sign(&serialized).to_bytes().to_vec()
+    }
+
+    pub fn verify(&self, signature: &[u8], verifying_key: &VerifyingKey) -> bool {
+        let serialized = bincode::serialize(self).unwrap();
+        let signature = Signature::from_bytes(signature.try_into().unwrap());
+        verifying_key.verify(&serialized, &signature).is_ok()
+    }
+}
+```
+
+The receiver accepts vouches that are within the configured age window and that come from a trusted voucher.
+
+## Session key derivation for proxied pairing
+
+The receiving device and the vouchee derive keys from the voucher and vouchee shared secret.
+
+```rust
+pub fn derive_proxied_session_keys(
+    voucher_device_id: Uuid,
+    vouchee_device_id: Uuid,
+    vouchee_public_key: &[u8],
+    voucher_vouchee_shared_secret: &[u8],
+) -> SessionKeys {
+    let context = format!(
+        "spacedrive-proxy-pairing-{}:{}:{}",
+        voucher_device_id,
+        vouchee_device_id,
+        hex::encode(vouchee_public_key)
+    );
+
+    let hkdf = Hkdf::<Sha256>::new(None, voucher_vouchee_shared_secret);
+    let mut send_key = [0u8; 32];
+    let mut receive_key = [0u8; 32];
+
+    hkdf.expand(format!("{}-send", context).as_bytes(), &mut send_key).unwrap();
+    hkdf.expand(format!("{}-recv", context).as_bytes(), &mut receive_key).unwrap();
+
+    SessionKeys {
+        send_key: send_key.to_vec(),
+        receive_key: receive_key.to_vec(),
+        created_at: Utc::now(),
+        expires_at: Some(Utc::now() + Duration::days(1)),
+    }
+}
+```
+
+The voucher includes derived keys in the proxy request for the receiving device, encrypted with the existing shared secret. The voucher also includes keys in the completion message sent to the vouchee.
+
+## Persistent queue for offline devices
+
+Queued vouches are stored in `sync.db` so the system can retry when a device comes online.
+
+```sql
+CREATE TABLE vouching_queue (
+    id INTEGER PRIMARY KEY,
+    session_id TEXT NOT NULL,
+    target_device_id TEXT NOT NULL,
+    vouchee_device_id TEXT NOT NULL,
+    vouchee_device_info TEXT NOT NULL,
+    vouchee_public_key BLOB NOT NULL,
+    vouch_signature BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    expires_at TEXT NOT NULL,
+    retry_count INTEGER DEFAULT 0,
+    last_attempt_at TEXT,
+
+    UNIQUE(session_id, target_device_id)
+);
+
+CREATE INDEX idx_vouching_queue_target ON vouching_queue(target_device_id);
+CREATE INDEX idx_vouching_queue_expires ON vouching_queue(expires_at);
+```
+
+Processing logic:
+
+1. A worker polls the queue every 10 seconds.
+2. If a target device is online, send `ProxyPairingRequest` and move the vouch to `Waiting`.
+3. Remove entries after success or after the max retry count.
+4. Delete entries after `expires_at`.
+
+## Configuration
+
+```rust
+pub struct ProxyPairingConfig {
+    pub auto_accept_vouched: bool,
+    pub auto_vouch_to_all: bool,
+    pub vouch_signature_max_age: u64,
+    pub vouch_response_timeout: u64,
+}
+```
+
+Suggested defaults:
+
+- `auto_accept_vouched`: true
+- `auto_vouch_to_all`: false
+- `vouch_signature_max_age`: 300
+- `vouch_response_timeout`: 30
+
+## Security checks
+
+- The voucher must be trusted and directly paired.
+- The vouch signature must match the voucher public key.
+- The vouch timestamp must be within the allowed window.
+- The vouchee must not already be paired.
+- Devices with unreliable or blocked trust levels reject proxy pairing.
+
+## Backwards compatibility
+
+- Devices without proxy pairing ignore `ProxyPairingRequest`.
+- The voucher records the lack of response as a rejection.
+- Existing direct pairings remain unchanged.
+
+## Cleanup and retention
+
+- Remove `VouchingSession` data one hour after completion.
+- Remove queued vouches after seven days.
+
+## Testing
+
+- Unit tests for vouch signature verification and timestamp checks.
+- Integration tests for accept and reject flows.
+- Queue processing tests for offline devices.
+- Tests for trust level rules and auto accept settings.
+
+## Open questions
+
+- Key rotation for proxied session keys.
+- Whether to allow multi hop vouching in a future version.
+- Vouch revocation when a voucher is unpaired.

@@ -437,7 +437,7 @@ impl TestHarness {
 
 		// Run ephemeral indexing job
 		let sd_path = sd_core::domain::addressing::SdPath::local(test_dir.clone());
-		let config = IndexerJobConfig::ephemeral_browse(sd_path, IndexScope::Current);
+		let config = IndexerJobConfig::ephemeral_browse(sd_path, IndexScope::Current, false);
 		let mut indexer_job = IndexerJob::new(config);
 
 		// Get the global ephemeral index to share with the job

@@ -43,6 +43,7 @@ impl FilterBuilder {
 				DateField::CreatedAt => crate::infra::db::entities::entry::Column::CreatedAt,
 				DateField::ModifiedAt => crate::infra::db::entities::entry::Column::ModifiedAt,
 				DateField::AccessedAt => crate::infra::db::entities::entry::Column::AccessedAt,
+				DateField::IndexedAt => crate::infra::db::entities::entry::Column::IndexedAt,
 			};
 
 			if let Some(start) = range.start {

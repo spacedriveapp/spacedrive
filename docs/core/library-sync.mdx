@@ -65,11 +65,7 @@ This ownership model eliminates most conflicts and simplifies synchronization.
 
 ## Sync State Machine
 
-The sync service runs as a background process with well-defined state transitions:
-
-```
-Uninitialized → Backfilling → CatchingUp → Ready ⇄ Paused
-```
+The sync service runs as a background process with well-defined state transitions.
 
 ### States
 
@@ -83,26 +79,17 @@ Uninitialized → Backfilling → CatchingUp → Ready ⇄ Paused
 
 ### Transitions
 
-```
-Uninitialized
-    → [peer available] → Backfilling
-    → [already has data] → Ready
-
-Backfilling
-    → [complete] → CatchingUp
-    → [peer disconnected] → save checkpoint, select new peer
-
-CatchingUp
-    → [buffer empty] → Ready
-    → [5 consecutive failures] → Uninitialized (escalate to full backfill)
-
-Ready
-    → [offline] → Paused
-    → [watermarks stale] → CatchingUp
-
-Paused
-    → [online] → Ready or CatchingUp
-```
+| From | Trigger | To |
+| ---- | ------- | -- |
+| `Uninitialized` | Peer becomes available | `Backfilling` |
+| `Uninitialized` | Already has data | `Ready` |
+| `Backfilling` | Transfer complete | `CatchingUp` |
+| `Backfilling` | Peer disconnected | Save checkpoint, select new peer |
+| `CatchingUp` | Buffer empty | `Ready` |
+| `CatchingUp` | 5 consecutive failures | `Uninitialized` (escalate to full backfill) |
+| `Ready` | Device goes offline | `Paused` |
+| `Ready` | Watermarks stale | `CatchingUp` |
+| `Paused` | Device comes online | `Ready` or `CatchingUp` |
 
 ### Buffer Queue
 
@@ -115,16 +102,16 @@ During backfill, incoming real-time updates are buffered to prevent data loss:
 
 ### Catch-Up Escalation
 
-If incremental catch-up fails repeatedly, the system escalates:
+If incremental catch-up fails repeatedly, the system uses exponential backoff before escalating to a full backfill.
 
-```
-Attempt 1: Wait 10s, retry
-Attempt 2: Wait 20s, retry
-Attempt 3: Wait 40s, retry
-Attempt 4: Wait 80s, retry
-Attempt 5: Wait 160s (capped), retry
-After 5 failures: Reset to Uninitialized, trigger full backfill
-```
+| Attempt | Delay | Action |
+| ------- | ----- | ------ |
+| 1 | 10s | Retry |
+| 2 | 20s | Retry |
+| 3 | 40s | Retry |
+| 4 | 80s | Retry |
+| 5 | 160s (capped) | Retry |
+| 6+ | - | Reset to `Uninitialized`, trigger full backfill |
 
 This prevents permanent sync failures from transient network issues.
 
@@ -161,32 +148,11 @@ No version tracking needed. The owner's state is always authoritative.
   See `core/tests/sync_realtime_test.rs` for shared resource sync tests.
 </Info>
 
-Log-based sync uses two mechanisms depending on the scenario:
+Shared resources sync through an ordered log. When you create a tag, the device inserts it locally, generates an HLC timestamp, appends to the sync log, and broadcasts a `SharedChange` message. Receiving devices apply changes in HLC order, then acknowledge receipt. Once all peers acknowledge, the entry is pruned from the log.
 
-**Single item sync**: When you create a tag:
+Batch operations work the same way but send a single `SharedChangeBatch` message containing multiple entries. This reduces network overhead during bulk imports while preserving HLC ordering for each individual record.
 
-```
-1. Device A inserts tag in database
-2. Device A generates HLC timestamp
-3. Device A appends to sync log
-4. Device A broadcasts SharedChange message
-5. Other devices apply in HLC order
-6. After acknowledgment, prune from log
-```
-
-**Batch sync**: When creating many items (e.g., 1000 tags during bulk import):
-
-```
-1. Device A inserts all tags in database
-2. Device A generates HLC for each and appends to sync log
-3. Device A broadcasts single SharedChangeBatch message
-4. Other devices apply all entries in HLC order
-5. After acknowledgment, prune from log
-```
-
-The log ensures all devices apply changes in the same order. Batch operations reduce network overhead by sending one message instead of one per item.
-
-For large datasets, the system uses HLC-based pagination. Each batch request includes the last seen HLC, and the peer responds with the next batch. This scales to millions of shared resources.
+For large datasets, the system uses HLC-based pagination. Each request includes the last seen HLC, and the peer responds with the next batch. This scales to millions of shared resources.
 
 ## Hybrid Logical Clocks
 
@@ -299,21 +265,39 @@ Contains all library data from all devices:
 
 ```sql
 -- Device-owned tables
+CREATE TABLE devices (
+    id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    name TEXT,
+    slug TEXT
+);
+
+CREATE TABLE volumes (
+    id INTEGER PRIMARY KEY,
+    uuid TEXT UNIQUE,
+    device_id INTEGER,    -- Owner device
+    fingerprint TEXT,     -- Stable cross-mount identifier
+    FOREIGN KEY (device_id) REFERENCES devices(id)
+);
+
 CREATE TABLE locations (
     id INTEGER PRIMARY KEY,
     uuid TEXT UNIQUE,
-    device_id INTEGER,  -- Owner
-    path TEXT,
-    name TEXT
+    volume_id INTEGER,    -- Ownership via volume
+    entry_id INTEGER,     -- Root entry
+    name TEXT,
+    FOREIGN KEY (volume_id) REFERENCES volumes(id)
 );
 
 CREATE TABLE entries (
     id INTEGER PRIMARY KEY,
     uuid TEXT UNIQUE,
-    location_id INTEGER,  -- Inherits ownership
+    volume_id INTEGER,    -- Ownership via volume
+    parent_id INTEGER,
     name TEXT,
     kind INTEGER,
-    size_bytes INTEGER
+    size_bytes INTEGER,
+    FOREIGN KEY (volume_id) REFERENCES volumes(id)
 );
 
 -- Shared resource tables
@@ -321,9 +305,10 @@ CREATE TABLE tags (
     id INTEGER PRIMARY KEY,
     uuid TEXT UNIQUE,
     canonical_name TEXT
-    -- No device_id (anyone can modify)
 );
 ```
+
+Ownership flows through volumes: Device → Volume → Location/Entry. This indirection enables portable storage to transfer between devices with a single volume update.
 
 ### Sync Database (sync.db)
 
@@ -523,24 +508,23 @@ To prevent foreign key violations, the sync system must process models in a spec
 
 The process works as follows:
 
-1.  **Dependency Declaration**: Each syncable model declares its parent models using the `sync_depends_on()` function. This creates a dependency graph where an edge from `Location` to `Device` means `Location` depends on `Device`.
+1.  **Dependency Declaration**: Each syncable model declares its parent models using the `sync_depends_on()` function. This creates a dependency graph where an edge from `Entry` to `Volume` means `Entry` depends on `Volume`.
 
-2.  **Topological Sort**: The `SyncRegistry` takes the full list of models and their dependencies and performs a **topological sort** using Kahn's algorithm. This algorithm produces a linear ordering of the models where every parent model comes before its children. It also detects impossible sync scenarios by reporting any circular dependencies (e.g., A depends on B, and B depends on A).
+2.  **Topological Sort**: The `SyncRegistry` takes the full list of models and their dependencies and performs a **topological sort** using Kahn's algorithm. This algorithm produces a linear ordering of the models where every parent model comes before its children. It also detects circular dependencies (e.g., A depends on B, and B depends on A).
 
-3.  **Ordered Execution**: The `BackfillManager` receives this ordered list (e.g., `["device", "tag", "location", "entry"]`) and uses it to sync data in the correct sequence, guaranteeing that no foreign key violations can occur.
+3.  **Ordered Execution**: The `BackfillManager` receives this ordered list (e.g., `["device", "volume", "tag", "location", "entry"]`) and uses it to sync data in the correct sequence, guaranteeing that no foreign key violations can occur.
 
 ### Dependency Management
 
 The sync system respects model dependencies and enforces ordering:
 
-```
-Sync Order During Backfill:
-1. Shared resources (tags, collections, content_identities)
-2. Devices
-3. Locations (needs devices)
-4. Volumes (needs devices)
-5. Entries (needs locations and content_identities)
-```
+| Order | Models | Reason |
+| ----- | ------ | ------ |
+| 1 | Shared resources (tags, collections, content_identities) | No dependencies, entries reference these |
+| 2 | Devices | Root of ownership chain |
+| 3 | Volumes | Needs devices |
+| 4 | Locations | Needs volumes |
+| 5 | Entries | Needs volumes and content_identities |
 
 Shared resources sync first because entries reference content identities via foreign key. This prevents NULL foreign key references during backfill.
 
@@ -1247,7 +1231,7 @@ All errors implement `std::error::Error` and include context for debugging.
 
 ## Metrics & Observability
 
-The sync system collects comprehensive metrics for monitoring and debugging.
+The sync system collects metrics for monitoring and debugging.
 
 ### Metric Categories
 
@@ -1445,9 +1429,9 @@ This reduces network overhead during rapid operations (e.g., bulk tagging).
 | Model | Table | Dependencies | FK Mappings | Features |
 | ----- | ----- | ------------ | ----------- | -------- |
 | Device | `devices` | None | None | Root model |
-| Location | `locations` | `device` | `device_id → devices`, `entry_id → entries` | with_deletion |
-| Entry | `entries` | `content_identity`, `user_metadata` | `parent_id → entries`, `metadata_id → user_metadata`, `content_id → content_identities` | with_deletion, with_rebuild |
-| Volume | `volumes` | `device` | None | with_deletion |
+| Volume | `volumes` | `device` | `device_id → devices` | with_deletion |
+| Location | `locations` | `volume` | `volume_id → volumes`, `entry_id → entries` | with_deletion |
+| Entry | `entries` | `volume`, `content_identity`, `user_metadata` | `volume_id → volumes`, `parent_id → entries`, `metadata_id → user_metadata`, `content_id → content_identities` | with_deletion, with_rebuild |
 
 **Shared Models (15):**
 
@@ -1583,13 +1567,15 @@ Configuration can also be set via environment variables or a TOML file. The load
 
 ## Summary
 
-The sync system combines state-based and log-based protocols to provide reliable peer-to-peer synchronization:
+Library Sync is not traditional multi-leader replication. While multi-leader systems treat all nodes as equal for all data, Spacedrive recognizes a fundamental truth: `/Users/alice/Photos` can only be modified by Alice's laptop. This ownership model eliminates the entire class of filesystem conflicts that plague distributed systems.
 
-**State-based sync** for device-owned data eliminates conflicts by enforcing single ownership. Changes propagate via real-time broadcasts (`StateChange` messages) to connected peers. Historical data transfers via pull requests (`StateRequest`/`StateResponse`) when devices join or reconnect.
+**Hybrid ownership** splits the problem in two. Device-owned data (files, folders, volumes) uses single-leader-per-resource semantics. No CRDTs, no version vectors, no conflict resolution needed. The owner's state is authoritative. Shared resources (tags, collections) use multi-leader semantics with HLC-based ordering. Only this small subset of data requires conflict resolution, and last-write-wins is sufficient.
 
-**Log-based sync** for shared resources uses Hybrid Logical Clocks to maintain causal ordering without clock synchronization. All devices converge to the same state regardless of network topology.
+**State-based sync** handles device-owned data. Changes propagate via real-time broadcasts to connected peers. Historical data transfers via pull requests when devices join or reconnect.
 
-**Automatic recovery** handles offline periods through watermark-based incremental sync. Reconnecting devices send pull requests with watermarks, receiving only changes since their last sync. This typically transfers a small number of changed records instead of re-syncing the entire dataset.
+**Log-based sync** handles shared resources. Hybrid Logical Clocks maintain causal ordering without clock synchronization. All devices converge to the same state regardless of network topology.
+
+**Automatic recovery** handles offline periods through watermark-based incremental sync. Reconnecting devices receive only changes since their last sync, typically a small delta rather than the full dataset.
 
 The system is production-ready with all core models syncing automatically. Extensions can use the same infrastructure to sync custom models.
 

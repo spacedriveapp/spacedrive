@@ -42,11 +42,9 @@ async fn find_entry_by_name(
 
 #[tokio::test]
 async fn test_tagging_persists_to_database() {
-	// Use a clean, test-scoped data directory
-	let data_dir = std::path::PathBuf::from("core/data/tagging-persistence-test");
-	if data_dir.exists() {
-		std::fs::remove_dir_all(&data_dir).unwrap();
-	}
+	// Use a clean, test-scoped data directory in temp
+	let temp_data = TempDir::new().unwrap();
+	let data_dir = temp_data.path().join("core_data");
 	std::fs::create_dir_all(&data_dir).unwrap();
 
 	// Init Core and a fresh library

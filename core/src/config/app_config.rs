@@ -37,6 +37,10 @@ pub struct AppConfig {
 	/// Daemon logging configuration with multi-stream support
 	#[serde(default)]
 	pub logging: LoggingConfig,
+
+	/// Proxy pairing configuration
+	#[serde(default)]
+	pub proxy_pairing: ProxyPairingConfig,
 }
 
 /// Configuration for core services
@@ -50,6 +54,14 @@ pub struct ServiceConfig {
 
 	/// Whether filesystem watcher is enabled
 	pub fs_watcher_enabled: bool,
+
+	/// Whether statistics listener is enabled
+	#[serde(default = "default_true")]
+	pub statistics_listener_enabled: bool,
+}
+
+fn default_true() -> bool {
+	true
 }
 
 impl Default for ServiceConfig {
@@ -58,6 +70,7 @@ impl Default for ServiceConfig {
 			networking_enabled: true,
 			volume_monitoring_enabled: true,
 			fs_watcher_enabled: true,
+			statistics_listener_enabled: true,
 		}
 	}
 }
@@ -76,6 +89,10 @@ pub struct JobLoggingConfig {
 
 	/// Whether to include debug logs
 	pub include_debug: bool,
+
+	/// Whether to create log files for ephemeral (non-persistent) jobs
+	#[serde(default)]
+	pub log_ephemeral_jobs: bool,
 }
 
 impl Default for JobLoggingConfig {
@@ -85,6 +102,7 @@ impl Default for JobLoggingConfig {
 			log_directory: "job_logs".to_string(),
 			max_file_size: 10 * 1024 * 1024, // 10MB default
 			include_debug: false,
+			log_ephemeral_jobs: false,
 		}
 	}
 }
@@ -118,6 +136,33 @@ pub struct LoggingConfig {
 	/// Additional log streams with custom filters
 	#[serde(default)]
 	pub streams: Vec<LogStreamConfig>,
+}
+
+/// Proxy pairing configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyPairingConfig {
+	/// Automatically accept vouches from trusted devices
+	pub auto_accept_vouched: bool,
+	/// Automatically vouch new devices to all paired devices
+	pub auto_vouch_to_all: bool,
+	/// Maximum age of vouch signatures in seconds
+	pub vouch_signature_max_age: u64,
+	/// Timeout for proxy confirmation in seconds
+	pub vouch_response_timeout: u64,
+	/// Maximum retries for queued vouches
+	pub vouch_queue_retry_limit: u32,
+}
+
+impl Default for ProxyPairingConfig {
+	fn default() -> Self {
+		Self {
+			auto_accept_vouched: true,
+			auto_vouch_to_all: false,
+			vouch_signature_max_age: 300,
+			vouch_response_timeout: 60,
+			vouch_queue_retry_limit: 5,
+		}
+	}
 }
 
 impl Default for LoggingConfig {
@@ -196,6 +241,7 @@ impl AppConfig {
 			job_logging: JobLoggingConfig::default(),
 			services: ServiceConfig::default(),
 			logging: LoggingConfig::default(),
+			proxy_pairing: ProxyPairingConfig::default(),
 		}
 	}
 
@@ -259,7 +305,7 @@ impl Migrate for AppConfig {
 	}
 
 	fn target_version() -> u32 {
-		4 // Updated schema version for multi-stream logging
+		5 // Added proxy pairing configuration
 	}
 
 	fn migrate(&mut self) -> Result<()> {
@@ -287,7 +333,13 @@ impl Migrate for AppConfig {
 				self.version = 4;
 				Ok(())
 			}
-			4 => Ok(()), // Already at target version
+			4 => {
+				// Migration from v4 to v5: Add proxy pairing configuration
+				self.proxy_pairing = ProxyPairingConfig::default();
+				self.version = 5;
+				Ok(())
+			}
+			5 => Ok(()), // Already at target version
 			v => Err(anyhow!("Unknown config version: {}", v)),
 		}
 	}

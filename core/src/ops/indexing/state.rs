@@ -31,6 +31,9 @@ pub struct IndexerProgress {
 	pub is_ephemeral: bool,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub action_context: Option<crate::infra::action::context::ActionContext>,
+	/// Total volume capacity in bytes (for calculating accurate progress percentage)
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub volume_total_capacity: Option<u64>,
 }
 
 /// Cumulative statistics tracked throughout the indexing process.
@@ -134,6 +137,9 @@ pub struct IndexerState {
 	pub(crate) discovery_concurrency: usize,
 	pub(crate) dirs_channel_capacity: usize,
 	pub(crate) entries_channel_capacity: usize,
+	/// Total volume capacity for progress percentage calculation (volume indexing only)
+	#[serde(skip)]
+	pub(crate) volume_total_capacity: Option<u64>,
 }
 
 impl IndexerState {
@@ -166,6 +172,7 @@ impl IndexerState {
 			discovery_concurrency,
 			dirs_channel_capacity: 4096,
 			entries_channel_capacity: 16384,
+			volume_total_capacity: None,
 		}
 	}
 

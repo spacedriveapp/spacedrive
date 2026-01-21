@@ -167,7 +167,7 @@ impl LibraryQuery for FileByIdQuery {
 				};
 
 			// Convert to File using from_entity_model
-			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path.clone());
 			file.sidecars = sidecars;
 			file.content_identity = content_identity_domain;
 			file.image_media_data = image_media;
@@ -176,6 +176,13 @@ impl LibraryQuery for FileByIdQuery {
 			file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
 			if let Some(ref ci) = file.content_identity {
 				file.content_kind = ci.kind;
+			}
+
+			// Populate alternate paths (other instances of same content)
+			if let Some(content_id) = entry_model.content_id {
+				file.alternate_paths = self
+					.get_alternate_paths(content_id, entry_model.id, db.conn())
+					.await?;
 			}
 
 			// Load tags for this entry
@@ -255,6 +262,32 @@ impl LibraryQuery for FileByIdQuery {
 }
 
 impl FileByIdQuery {
+	/// Get alternate paths for all other entries with the same content_id
+	async fn get_alternate_paths(
+		&self,
+		content_id: i32,
+		current_entry_id: i32,
+		db: &DatabaseConnection,
+	) -> QueryResult<Vec<SdPath>> {
+		// Find all entries with the same content_id (excluding current entry)
+		let alternate_entries = entry::Entity::find()
+			.filter(entry::Column::ContentId.eq(content_id))
+			.filter(entry::Column::Id.ne(current_entry_id))
+			.all(db)
+			.await?;
+
+		let mut alternate_paths = Vec::new();
+
+		// Resolve path for each alternate entry
+		for alt_entry in alternate_entries {
+			if let Ok(alt_path) = self.resolve_file_path(&alt_entry, db).await {
+				alternate_paths.push(alt_path);
+			}
+		}
+
+		Ok(alternate_paths)
+	}
+
 	/// Resolve the full absolute SdPath for a file entry
 	async fn resolve_file_path(
 		&self,

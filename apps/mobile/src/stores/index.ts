@@ -6,3 +6,4 @@ export {
 	type SortOrder,
 } from "./explorer";
 export { usePreferencesStore, type ThemeMode } from "./preferences";
+export { useVolumeIndexingStore } from "./volumeIndexingStore";

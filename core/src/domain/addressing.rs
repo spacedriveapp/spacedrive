@@ -213,7 +213,8 @@ impl SdPath {
 	pub fn as_local_path(&self) -> Option<&Path> {
 		match self {
 			Self::Physical { device_slug, path } => {
-				if *device_slug == get_current_device_slug() {
+				// "local" is a special placeholder from the frontend meaning "current device"
+				if *device_slug == "local" || *device_slug == get_current_device_slug() {
 					Some(path)
 				} else {
 					None

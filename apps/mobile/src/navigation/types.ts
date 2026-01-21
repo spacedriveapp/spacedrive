@@ -28,9 +28,9 @@ export type OverviewStackParamList = {
 // Browse stack
 export type BrowseStackParamList = {
 	BrowseHome: undefined;
-	Location: { locationId: string; name?: string };
-	Tag: { tagId: string; name?: string };
-	Explorer: { path: string; locationId?: string };
+	Explorer:
+		| { type: "path"; path: string } // JSON.stringify(SdPath)
+		| { type: "view"; view: string; id?: string }; // Virtual views
 };
 
 // Network stack

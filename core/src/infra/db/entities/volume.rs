@@ -180,7 +180,7 @@ impl Syncable for Model {
 	}
 
 	async fn query_for_sync(
-		_device_id: Option<Uuid>,
+		device_id: Option<Uuid>,
 		since: Option<chrono::DateTime<chrono::Utc>>,
 		cursor: Option<(chrono::DateTime<chrono::Utc>, Uuid)>,
 		batch_size: usize,
@@ -190,6 +190,11 @@ impl Syncable for Model {
 		use sea_orm::{ColumnTrait, Condition, EntityTrait, QueryFilter, QueryOrder, QuerySelect};
 
 		let mut query = Entity::find();
+
+		// Filter by device ownership
+		if let Some(device_uuid) = device_id {
+			query = query.filter(Column::DeviceId.eq(device_uuid));
+		}
 
 		if let Some(since_time) = since {
 			query = query.filter(Column::LastSeenAt.gte(since_time));

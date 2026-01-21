@@ -8,16 +8,15 @@ import { useState, useMemo } from "react";
 import { HeroStats } from "./HeroStats";
 import { DevicePanel } from "./DevicePanel";
 import { ProjectCards } from "./ProjectCards";
-import { DevicesPanel } from "./DevicesPanel";
 import { ContentBreakdown } from "./ContentBreakdown";
 import { OverviewTopBar } from "./OverviewTopBar";
-import { useNormalizedQuery } from "../../context";
+import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import type {
-	LibraryInfoOutput,
+	Library,
 	LocationsListOutput,
 	LocationsListQueryInput,
 } from "@sd/ts-client";
-import { Inspector } from "../../Inspector";
+import { Inspector } from "../../components/Inspector/Inspector";
 
 export function Overview() {
 	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
@@ -30,7 +29,7 @@ export function Overview() {
 		data: libraryInfo,
 		isLoading,
 		error,
-	} = useNormalizedQuery<null, LibraryInfoOutput>({
+	} = useNormalizedQuery<null, Library>({
 		wireMethod: "query:libraries.info",
 		input: null,
 		resourceType: "library",
@@ -60,7 +59,7 @@ export function Overview() {
 		return (
 			<>
 				<OverviewTopBar libraryName="Loading..." />
-				<div className="flex flex-col h-full overflow-hidden pt-[52px]">
+				<div className="flex flex-col h-full overflow-hidden">
 					<div className="flex-1 overflow-auto p-6 space-y-4">
 						<div className="text-center text-ink-dull">
 							Loading library statistics...
@@ -77,10 +76,10 @@ export function Overview() {
 		<>
 			<OverviewTopBar libraryName={libraryInfo.name} />
 
-			<div className="flex flex-col h-full overflow-hidden pt-[52px]">
+			<div className="flex flex-col h-full overflow-hidden">
 				<div className="flex-1 flex gap-2 overflow-hidden">
 					{/* Main content - scrollable */}
-					<div className="flex-1 overflow-auto p-6 space-y-4">
+					<div className="flex-1 overflow-auto p-3 space-y-4">
 						{/* Hero Stats */}
 						<HeroStats
 							totalStorage={stats.total_capacity}

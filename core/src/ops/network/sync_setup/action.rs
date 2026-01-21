@@ -109,7 +109,7 @@ impl CoreAction for LibrarySyncSetupAction {
 			});
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 
@@ -221,7 +221,7 @@ impl LibrarySyncSetupAction {
 			);
 		}
 
-		Ok(crate::infra::action::ValidationResult::Success)
+		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 
 	/// Execute ShareLocalLibrary action - share local library to remote device

@@ -73,7 +73,7 @@ impl QueryManager {
 	) -> QueryResult<Q::Output> {
 		let query_type = std::any::type_name::<Q>();
 
-		tracing::info!(
+		tracing::debug!(
 			query_type = query_type,
 			library_id = %library_id,
 			device_id = %session.auth.device_id,

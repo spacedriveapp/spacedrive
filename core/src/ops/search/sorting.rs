@@ -42,6 +42,9 @@ impl SortBuilder {
 			SortField::CreatedAt => {
 				self.order.push(("created_at".to_string(), direction));
 			}
+			SortField::IndexedAt => {
+				self.order.push(("indexed_at".to_string(), direction));
+			}
 		}
 
 		self

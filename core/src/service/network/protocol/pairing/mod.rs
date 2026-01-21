@@ -4,8 +4,10 @@ pub mod initiator;
 pub mod joiner;
 pub mod messages;
 pub mod persistence;
+pub mod proxy;
 pub mod security;
 pub mod types;
+pub mod vouching_queue;
 
 /// Maximum message size for pairing protocol (1MB)
 /// Prevents DoS attacks via oversized message claims
@@ -13,24 +15,35 @@ const MAX_MESSAGE_SIZE: usize = 1024 * 1024;
 
 // Re-export main types
 pub use messages::PairingMessage;
+pub use proxy::{
+	AcceptedDevice, RejectedDevice, VouchPayload, VouchState, VouchStatus, VouchingSession,
+	VouchingSessionState,
+};
 pub use types::{PairingAdvertisement, PairingCode, PairingRole, PairingSession, PairingState};
 
-use super::{ProtocolEvent, ProtocolHandler};
-use crate::service::network::{
-	device::{DeviceInfo, DeviceRegistry, SessionKeys},
-	utils::{self, identity::NetworkFingerprint, logging::NetworkLogger, NetworkIdentity},
-	NetworkingError, Result,
-};
-use async_trait::async_trait;
-use blake3;
-use iroh::{endpoint::Connection, Endpoint, NodeAddr, NodeId, Watcher};
-use persistence::PairingPersistence;
-use security::PairingSecurity;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
+
+use async_trait::async_trait;
+use blake3;
+use iroh::{endpoint::Connection, Endpoint, NodeAddr, NodeId, Watcher};
 use tokio::sync::RwLock;
 use uuid::Uuid;
+
+use super::{ProtocolEvent, ProtocolHandler};
+use crate::{
+	config::ProxyPairingConfig,
+	infra::event::{Event, EventBus, ResourceMetadata},
+	service::network::{
+		device::{DeviceInfo, DeviceRegistry, SessionKeys},
+		utils::{self, identity::NetworkFingerprint, logging::NetworkLogger, NetworkIdentity},
+		NetworkingError, Result,
+	},
+};
+use persistence::PairingPersistence;
+use security::PairingSecurity;
+use vouching_queue::{VouchQueueStatus, VouchingQueue, VouchingQueueEntry};
 
 /// Pairing protocol handler
 pub struct PairingProtocolHandler {
@@ -68,6 +81,35 @@ pub struct PairingProtocolHandler {
 
 	/// Cached connections to remote nodes (keyed by NodeId and ALPN)
 	connections: Arc<RwLock<HashMap<(NodeId, Vec<u8>), Connection>>>,
+
+	/// Event bus for emitting pairing events
+	event_bus: Arc<RwLock<Option<Arc<EventBus>>>>,
+
+	/// Proxy pairing configuration
+	proxy_config: Arc<RwLock<ProxyPairingConfig>>,
+
+	/// Active proxy vouching sessions
+	vouching_sessions: Arc<RwLock<HashMap<Uuid, VouchingSession>>>,
+
+	/// Pending proxy confirmations awaiting user action
+	pending_proxy_confirmations: Arc<RwLock<HashMap<Uuid, PendingProxyConfirmation>>>,
+
+	/// Persistent queue for offline vouches
+	vouching_queue: Arc<RwLock<Option<Arc<VouchingQueue>>>>,
+
+	/// Cached vouchee session keys for proxy pairing completion
+	vouching_keys: Arc<RwLock<HashMap<(Uuid, Uuid), SessionKeys>>>,
+}
+
+#[derive(Debug, Clone)]
+struct PendingProxyConfirmation {
+	session_id: Uuid,
+	voucher_device_id: Uuid,
+	voucher_device_name: String,
+	vouchee_device_info: DeviceInfo,
+	vouchee_public_key: Vec<u8>,
+	proxied_session_keys: SessionKeys,
+	created_at: chrono::DateTime<chrono::Utc>,
 }
 
 impl PairingProtocolHandler {
@@ -95,6 +137,12 @@ impl PairingProtocolHandler {
 			persistence: None,
 			endpoint,
 			connections: active_connections,
+			event_bus: Arc::new(RwLock::new(None)),
+			proxy_config: Arc::new(RwLock::new(ProxyPairingConfig::default())),
+			vouching_sessions: Arc::new(RwLock::new(HashMap::new())),
+			pending_proxy_confirmations: Arc::new(RwLock::new(HashMap::new())),
+			vouching_queue: Arc::new(RwLock::new(None)),
+			vouching_keys: Arc::new(RwLock::new(HashMap::new())),
 		}
 	}
 
@@ -124,6 +172,12 @@ impl PairingProtocolHandler {
 			persistence: Some(persistence),
 			endpoint,
 			connections: active_connections,
+			event_bus: Arc::new(RwLock::new(None)),
+			proxy_config: Arc::new(RwLock::new(ProxyPairingConfig::default())),
+			vouching_sessions: Arc::new(RwLock::new(HashMap::new())),
+			pending_proxy_confirmations: Arc::new(RwLock::new(HashMap::new())),
+			vouching_queue: Arc::new(RwLock::new(None)),
+			vouching_keys: Arc::new(RwLock::new(HashMap::new())),
 		}
 	}
 
@@ -143,6 +197,37 @@ impl PairingProtocolHandler {
 		} else {
 			Ok(0)
 		}
+	}
+
+	pub async fn set_event_bus(&self, event_bus: Arc<EventBus>) {
+		let mut guard = self.event_bus.write().await;
+		*guard = Some(event_bus);
+	}
+
+	pub async fn set_proxy_config(&self, config: ProxyPairingConfig) {
+		let mut guard = self.proxy_config.write().await;
+		*guard = config;
+	}
+
+	pub async fn init_vouching_queue(&self, data_dir: PathBuf) -> Result<()> {
+		let queue = VouchingQueue::open(data_dir).await?;
+		let mut guard = self.vouching_queue.write().await;
+		*guard = Some(Arc::new(queue));
+		Ok(())
+	}
+
+	pub fn start_vouching_queue_task(handler: Arc<Self>) {
+		tokio::spawn(async move {
+			let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(10));
+			loop {
+				interval.tick().await;
+				if let Err(e) = handler.process_vouching_queue().await {
+					handler
+						.log_error(&format!("Vouching queue error: {}", e))
+						.await;
+				}
+			}
+		});
 	}
 
 	/// Save current sessions to persistence
@@ -569,6 +654,1162 @@ impl PairingProtocolHandler {
 		Ok(pairing_code.secret().to_vec())
 	}
 
+	fn build_vouch_payload(
+		&self,
+		session_id: Uuid,
+		vouchee_device_info: &DeviceInfo,
+		vouchee_public_key: &[u8],
+		timestamp: chrono::DateTime<chrono::Utc>,
+	) -> VouchPayload {
+		VouchPayload {
+			vouchee_device_id: vouchee_device_info.device_id,
+			vouchee_public_key: vouchee_public_key.to_vec(),
+			vouchee_device_info: vouchee_device_info.clone(),
+			timestamp,
+			session_id,
+		}
+	}
+
+	fn sign_vouch_payload(&self, payload: &VouchPayload) -> Result<Vec<u8>> {
+		let serialized =
+			bincode::serialize(payload).map_err(|e| NetworkingError::Serialization(e))?;
+		self.identity.sign(&serialized)
+	}
+
+	fn verify_vouch_signature(
+		&self,
+		payload: &VouchPayload,
+		signature: &[u8],
+		public_key_bytes: &[u8],
+	) -> Result<bool> {
+		PairingSecurity::validate_public_key(public_key_bytes)?;
+		PairingSecurity::validate_signature(signature)?;
+		let serialized =
+			bincode::serialize(payload).map_err(|e| NetworkingError::Serialization(e))?;
+
+		use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+		let verifying_key =
+			VerifyingKey::from_bytes(public_key_bytes.try_into().map_err(|_| {
+				NetworkingError::Protocol("Invalid voucher public key length".to_string())
+			})?)
+			.map_err(|e| NetworkingError::Protocol(format!("Invalid voucher public key: {}", e)))?;
+
+		let sig = Signature::from_slice(signature)
+			.map_err(|e| NetworkingError::Protocol(format!("Invalid signature: {}", e)))?;
+
+		Ok(verifying_key.verify(&serialized, &sig).is_ok())
+	}
+
+	fn derive_proxy_shared_secret(
+		&self,
+		voucher_device_id: Uuid,
+		target_device_id: Uuid,
+		vouchee_device_id: Uuid,
+		vouchee_public_key: &[u8],
+		base_secret: &[u8],
+	) -> Result<Vec<u8>> {
+		use hkdf::Hkdf;
+		use sha2::Sha256;
+
+		let context = format!(
+			"spacedrive-proxy-pairing-{}:{}:{}:{}",
+			voucher_device_id,
+			target_device_id,
+			vouchee_device_id,
+			hex::encode(vouchee_public_key)
+		);
+
+		let hkdf = Hkdf::<Sha256>::new(None, base_secret);
+		let mut derived = [0u8; 32];
+		hkdf.expand(context.as_bytes(), &mut derived).map_err(|e| {
+			NetworkingError::Protocol(format!("Failed to derive proxy shared secret: {}", e))
+		})?;
+
+		Ok(derived.to_vec())
+	}
+
+	fn derive_proxy_session_keys(
+		&self,
+		voucher_device_id: Uuid,
+		target_device_id: Uuid,
+		vouchee_device_id: Uuid,
+		vouchee_public_key: &[u8],
+		base_secret: &[u8],
+	) -> Result<(SessionKeys, SessionKeys)> {
+		let shared_secret = self.derive_proxy_shared_secret(
+			voucher_device_id,
+			target_device_id,
+			vouchee_device_id,
+			vouchee_public_key,
+			base_secret,
+		)?;
+		let receiver_keys = SessionKeys::from_shared_secret(shared_secret);
+		let vouchee_keys = receiver_keys.clone().swap_keys();
+		Ok((receiver_keys, vouchee_keys))
+	}
+
+	async fn emit_vouching_session(&self, session: &VouchingSession) -> Result<()> {
+		let event_bus = { self.event_bus.read().await.clone() };
+		let Some(event_bus) = event_bus else {
+			return Ok(());
+		};
+
+		let resource =
+			serde_json::to_value(session).map_err(|e| NetworkingError::Serialization(e))?;
+
+		event_bus.emit(Event::ResourceChanged {
+			resource_type: "vouching_session".to_string(),
+			resource,
+			metadata: Some(ResourceMetadata {
+				no_merge_fields: vec!["vouches".to_string()],
+				alternate_ids: vec![],
+				affected_paths: vec![],
+			}),
+		});
+
+		Ok(())
+	}
+
+	async fn update_vouch_status(
+		&self,
+		session_id: Uuid,
+		device_id: Uuid,
+		status: VouchStatus,
+		reason: Option<String>,
+	) -> Result<()> {
+		if matches!(status, VouchStatus::Rejected | VouchStatus::Unreachable) {
+			let mut keys = self.vouching_keys.write().await;
+			keys.remove(&(session_id, device_id));
+		}
+
+		let mut should_finalize = false;
+		let session_snapshot = {
+			let mut sessions = self.vouching_sessions.write().await;
+			let session = sessions.get_mut(&session_id).ok_or_else(|| {
+				NetworkingError::Protocol(format!("Vouching session not found: {}", session_id))
+			})?;
+
+			if let Some(entry) = session
+				.vouches
+				.iter_mut()
+				.find(|v| v.device_id == device_id)
+			{
+				entry.status = status;
+				entry.reason = reason;
+				entry.updated_at = chrono::Utc::now();
+			} else {
+				session.vouches.push(VouchState {
+					device_id,
+					device_name: "Unknown device".to_string(),
+					status,
+					updated_at: chrono::Utc::now(),
+					reason,
+				});
+			}
+
+			let all_terminal = session.vouches.iter().all(|v| {
+				matches!(
+					v.status,
+					VouchStatus::Accepted | VouchStatus::Rejected | VouchStatus::Unreachable
+				)
+			});
+
+			if all_terminal && !matches!(session.state, VouchingSessionState::Completed) {
+				session.state = VouchingSessionState::Completed;
+				should_finalize = true;
+			}
+
+			session.clone()
+		};
+
+		self.emit_vouching_session(&session_snapshot).await?;
+
+		if should_finalize {
+			self.finalize_vouching_session(session_id).await?;
+		}
+
+		Ok(())
+	}
+
+	async fn finalize_vouching_session(&self, session_id: Uuid) -> Result<()> {
+		let session = {
+			let sessions = self.vouching_sessions.read().await;
+			sessions.get(&session_id).cloned().ok_or_else(|| {
+				NetworkingError::Protocol(format!("Vouching session not found: {}", session_id))
+			})?
+		};
+
+		let mut accepted = Vec::new();
+		let mut rejected = Vec::new();
+
+		for vouch in &session.vouches {
+			match vouch.status {
+				VouchStatus::Accepted => {
+					let device_info = {
+						let registry = self.device_registry.read().await;
+						match registry.get_device_state(vouch.device_id) {
+							Some(crate::service::network::device::DeviceState::Paired {
+								info,
+								..
+							})
+							| Some(crate::service::network::device::DeviceState::Connected {
+								info,
+								..
+							})
+							| Some(crate::service::network::device::DeviceState::Disconnected {
+								info,
+								..
+							}) => Some(info.clone()),
+							_ => None,
+						}
+					};
+
+					let session_keys = {
+						let keys = self.vouching_keys.read().await;
+						keys.get(&(session_id, vouch.device_id)).cloned()
+					};
+
+					if let (Some(info), Some(keys)) = (device_info, session_keys) {
+						accepted.push(super::proxy::AcceptedDevice {
+							device_info: info,
+							session_keys: keys,
+						});
+					} else {
+						self.log_warn(&format!(
+							"Missing device info or keys for accepted device {}",
+							vouch.device_id
+						))
+						.await;
+					}
+				}
+				VouchStatus::Rejected | VouchStatus::Unreachable => {
+					let reason = vouch
+						.reason
+						.clone()
+						.unwrap_or_else(|| "Vouch rejected".to_string());
+					rejected.push(super::proxy::RejectedDevice {
+						device_id: vouch.device_id,
+						device_name: vouch.device_name.clone(),
+						reason,
+					});
+				}
+				_ => {}
+			}
+		}
+
+		let vouchee_node_id = {
+			let registry = self.device_registry.read().await;
+			registry.get_node_id_for_device(session.vouchee_device_id)
+		};
+
+		if let Some(node_id) = vouchee_node_id {
+			let message = PairingMessage::ProxyPairingComplete {
+				session_id,
+				voucher_device_id: session.voucher_device_id,
+				accepted_by: accepted,
+				rejected_by: rejected,
+			};
+			self.send_pairing_message_fire_and_forget(node_id, &message)
+				.await?;
+		} else {
+			self.log_warn(&format!(
+				"No node ID for vouchee device {}, cannot send completion",
+				session.vouchee_device_id
+			))
+			.await;
+		}
+
+		{
+			let mut keys = self.vouching_keys.write().await;
+			keys.retain(|(sid, _), _| *sid != session_id);
+		}
+
+		self.schedule_vouching_cleanup(session_id).await;
+
+		Ok(())
+	}
+
+	async fn schedule_vouching_cleanup(&self, session_id: Uuid) {
+		let vouching_sessions = self.vouching_sessions.clone();
+		let event_bus = self.event_bus.clone();
+		let vouching_keys = self.vouching_keys.clone();
+		tokio::spawn(async move {
+			tokio::time::sleep(tokio::time::Duration::from_secs(3600)).await;
+			{
+				let mut sessions = vouching_sessions.write().await;
+				sessions.remove(&session_id);
+			}
+			{
+				let mut keys = vouching_keys.write().await;
+				keys.retain(|(sid, _), _| *sid != session_id);
+			}
+
+			let event_bus = { event_bus.read().await.clone() };
+			if let Some(event_bus) = event_bus {
+				event_bus.emit(Event::ResourceDeleted {
+					resource_type: "vouching_session".to_string(),
+					resource_id: session_id,
+				});
+			}
+		});
+	}
+
+	pub async fn get_vouching_session(&self, session_id: Uuid) -> Option<VouchingSession> {
+		let sessions = self.vouching_sessions.read().await;
+		sessions.get(&session_id).cloned()
+	}
+
+	pub async fn create_vouching_session(
+		&self,
+		session_id: Uuid,
+		vouchee_device_info: &DeviceInfo,
+	) -> Result<()> {
+		let voucher_device_id = self.get_device_info().await?.device_id;
+		let session = VouchingSession {
+			id: session_id,
+			vouchee_device_id: vouchee_device_info.device_id,
+			vouchee_device_name: vouchee_device_info.device_name.clone(),
+			voucher_device_id,
+			created_at: chrono::Utc::now(),
+			state: VouchingSessionState::Pending,
+			vouches: Vec::new(),
+		};
+
+		{
+			let mut sessions = self.vouching_sessions.write().await;
+			sessions.insert(session_id, session.clone());
+		}
+
+		self.emit_vouching_session(&session).await?;
+
+		let event_bus = { self.event_bus.read().await.clone() };
+		if let Some(event_bus) = event_bus {
+			event_bus.emit(Event::ProxyPairingVouchingReady {
+				session_id,
+				vouchee_device_id: vouchee_device_info.device_id,
+			});
+		}
+
+		let proxy_config = { self.proxy_config.read().await.clone() };
+		if proxy_config.auto_vouch_to_all {
+			let target_device_ids = {
+				let registry = self.device_registry.read().await;
+				registry
+					.get_paired_devices()
+					.into_iter()
+					.map(|device| device.device_id)
+					.filter(|device_id| {
+						*device_id != voucher_device_id
+							&& *device_id != vouchee_device_info.device_id
+					})
+					.collect::<Vec<_>>()
+			};
+
+			if !target_device_ids.is_empty() {
+				if let Err(e) = self
+					.start_proxy_vouching(session_id, target_device_ids)
+					.await
+				{
+					self.log_warn(&format!(
+						"Failed to auto vouch session {}: {}",
+						session_id, e
+					))
+					.await;
+				}
+			}
+		}
+
+		Ok(())
+	}
+
+	pub async fn start_proxy_vouching(
+		&self,
+		session_id: Uuid,
+		target_device_ids: Vec<Uuid>,
+	) -> Result<VouchingSession> {
+		let (vouchee_device_info, vouchee_public_key, shared_secret) = {
+			let sessions = self.active_sessions.read().await;
+			let session = sessions.get(&session_id).ok_or_else(|| {
+				NetworkingError::Protocol(format!("Pairing session not found: {}", session_id))
+			})?;
+
+			if !matches!(session.state, PairingState::Completed) {
+				return Err(NetworkingError::Protocol(
+					"Pairing session is not completed".to_string(),
+				));
+			}
+
+			let device_info = session.remote_device_info.clone().ok_or_else(|| {
+				NetworkingError::Protocol("Missing vouchee device info".to_string())
+			})?;
+			let public_key = session.remote_public_key.clone().ok_or_else(|| {
+				NetworkingError::Protocol("Missing vouchee public key".to_string())
+			})?;
+			let secret = session.shared_secret.clone();
+			(device_info, public_key, secret)
+		};
+
+		let voucher_device_id = self.get_device_info().await?.device_id;
+		let base_secret = match shared_secret {
+			Some(secret) => secret,
+			None => self.generate_shared_secret(session_id).await?,
+		};
+
+		let now = chrono::Utc::now();
+		let initial_vouches = {
+			let registry = self.device_registry.read().await;
+			target_device_ids
+				.iter()
+				.map(|device_id| {
+					let device_name = match registry.get_device_state(*device_id) {
+						Some(crate::service::network::device::DeviceState::Paired {
+							info, ..
+						})
+						| Some(crate::service::network::device::DeviceState::Connected {
+							info,
+							..
+						})
+						| Some(crate::service::network::device::DeviceState::Disconnected {
+							info,
+							..
+						}) => info.device_name.clone(),
+						_ => "Unknown device".to_string(),
+					};
+					VouchState {
+						device_id: *device_id,
+						device_name,
+						status: VouchStatus::Selected,
+						updated_at: now,
+						reason: None,
+					}
+				})
+				.collect::<Vec<_>>()
+		};
+
+		let mut session_snapshot = {
+			let mut sessions = self.vouching_sessions.write().await;
+			let entry = sessions
+				.entry(session_id)
+				.or_insert_with(|| VouchingSession {
+					id: session_id,
+					vouchee_device_id: vouchee_device_info.device_id,
+					vouchee_device_name: vouchee_device_info.device_name.clone(),
+					voucher_device_id,
+					created_at: now,
+					state: VouchingSessionState::Pending,
+					vouches: Vec::new(),
+				});
+
+			entry.state = VouchingSessionState::InProgress;
+			entry.vouches = initial_vouches;
+			entry.clone()
+		};
+
+		self.emit_vouching_session(&session_snapshot).await?;
+
+		if target_device_ids.is_empty() {
+			{
+				let mut sessions = self.vouching_sessions.write().await;
+				if let Some(session) = sessions.get_mut(&session_id) {
+					session.state = VouchingSessionState::Completed;
+					session_snapshot = session.clone();
+				}
+			}
+			self.emit_vouching_session(&session_snapshot).await?;
+			self.finalize_vouching_session(session_id).await?;
+			return Ok(session_snapshot);
+		}
+
+		for target_device_id in target_device_ids {
+			if target_device_id == voucher_device_id
+				|| target_device_id == vouchee_device_info.device_id
+			{
+				self.update_vouch_status(
+					session_id,
+					target_device_id,
+					VouchStatus::Rejected,
+					Some("Invalid vouch target".to_string()),
+				)
+				.await?;
+				continue;
+			}
+
+			let target_device_info = {
+				let registry = self.device_registry.read().await;
+				match registry.get_device_state(target_device_id) {
+					Some(crate::service::network::device::DeviceState::Paired { info, .. })
+					| Some(crate::service::network::device::DeviceState::Connected {
+						info, ..
+					})
+					| Some(crate::service::network::device::DeviceState::Disconnected {
+						info,
+						..
+					}) => Some(info.clone()),
+					_ => None,
+				}
+			};
+
+			let Some(target_device_info) = target_device_info else {
+				self.update_vouch_status(
+					session_id,
+					target_device_id,
+					VouchStatus::Rejected,
+					Some("Target device not paired".to_string()),
+				)
+				.await?;
+				continue;
+			};
+
+			let timestamp = chrono::Utc::now();
+			let payload = self.build_vouch_payload(
+				session_id,
+				&vouchee_device_info,
+				&vouchee_public_key,
+				timestamp,
+			);
+			let signature = self.sign_vouch_payload(&payload)?;
+			let (receiver_keys, vouchee_keys) = self.derive_proxy_session_keys(
+				voucher_device_id,
+				target_device_id,
+				vouchee_device_info.device_id,
+				&vouchee_public_key,
+				&base_secret,
+			)?;
+
+			{
+				let mut keys = self.vouching_keys.write().await;
+				keys.insert((session_id, target_device_id), vouchee_keys);
+			}
+
+			let queue_entry = VouchingQueueEntry {
+				session_id,
+				target_device_id,
+				voucher_device_id,
+				vouchee_device_id: vouchee_device_info.device_id,
+				vouchee_device_info: vouchee_device_info.clone(),
+				vouchee_public_key: vouchee_public_key.clone(),
+				voucher_signature: signature.clone(),
+				proxied_session_keys: receiver_keys.clone(),
+				created_at: timestamp,
+				expires_at: timestamp + chrono::Duration::days(7),
+				status: VouchQueueStatus::Queued,
+				retry_count: 0,
+				last_attempt_at: None,
+			};
+
+			let queue = { self.vouching_queue.read().await.clone() };
+			if let Some(queue) = queue {
+				queue.upsert_entry(&queue_entry).await?;
+			}
+
+			let mut sent_now = false;
+			if let Some(endpoint) = &self.endpoint {
+				let registry = self.device_registry.read().await;
+				if registry.is_node_connected(endpoint, target_device_id) {
+					if let Some(node_id) = registry.get_node_id_for_device(target_device_id) {
+						let request = PairingMessage::ProxyPairingRequest {
+							session_id,
+							vouchee_device_info: vouchee_device_info.clone(),
+							vouchee_public_key: vouchee_public_key.clone(),
+							voucher_device_id,
+							voucher_signature: signature,
+							timestamp,
+							proxied_session_keys: receiver_keys,
+						};
+						match self
+							.send_pairing_message_fire_and_forget(node_id, &request)
+							.await
+						{
+							Ok(_) => {
+								sent_now = true;
+							}
+							Err(e) => {
+								self.log_warn(&format!(
+									"Failed to send proxy pairing request to {}: {}",
+									target_device_id, e
+								))
+								.await;
+							}
+						}
+					}
+				}
+			}
+
+			if sent_now {
+				let queue = { self.vouching_queue.read().await.clone() };
+				if let Some(queue) = queue {
+					queue
+						.update_status(
+							session_id,
+							target_device_id,
+							VouchQueueStatus::Waiting,
+							1,
+							Some(chrono::Utc::now()),
+						)
+						.await?;
+				}
+				self.update_vouch_status(session_id, target_device_id, VouchStatus::Waiting, None)
+					.await?;
+			} else {
+				self.update_vouch_status(session_id, target_device_id, VouchStatus::Queued, None)
+					.await?;
+			}
+		}
+
+		let session = self
+			.get_vouching_session(session_id)
+			.await
+			.ok_or_else(|| NetworkingError::Protocol("Vouching session missing".to_string()))?;
+		session_snapshot = session.clone();
+
+		Ok(session_snapshot)
+	}
+
+	pub async fn confirm_proxy_pairing(&self, session_id: Uuid, accepted: bool) -> Result<()> {
+		let pending = {
+			let mut pending = self.pending_proxy_confirmations.write().await;
+			pending.remove(&session_id)
+		};
+
+		let Some(pending) = pending else {
+			return Err(NetworkingError::Protocol(
+				"No pending proxy confirmation found".to_string(),
+			));
+		};
+
+		let accepting_device_id = self.get_device_info().await?.device_id;
+		let voucher_node_id = {
+			let registry = self.device_registry.read().await;
+			registry.get_node_id_for_device(pending.voucher_device_id)
+		};
+
+		if accepted {
+			{
+				let mut registry = self.device_registry.write().await;
+				registry
+					.complete_pairing(
+						pending.vouchee_device_info.device_id,
+						pending.vouchee_device_info.clone(),
+						pending.proxied_session_keys.clone(),
+						None,
+						crate::service::network::device::PairingType::Proxied,
+						Some(pending.voucher_device_id),
+						Some(chrono::Utc::now()),
+					)
+					.await?;
+			}
+
+			if let Some(node_id) = voucher_node_id {
+				let response = PairingMessage::ProxyPairingResponse {
+					session_id,
+					accepting_device_id,
+					accepted: true,
+					reason: None,
+				};
+				self.send_pairing_message_fire_and_forget(node_id, &response)
+					.await?;
+			}
+		} else if let Some(node_id) = voucher_node_id {
+			let response = PairingMessage::ProxyPairingResponse {
+				session_id,
+				accepting_device_id,
+				accepted: false,
+				reason: Some("User rejected proxy pairing".to_string()),
+			};
+			self.send_pairing_message_fire_and_forget(node_id, &response)
+				.await?;
+		}
+
+		Ok(())
+	}
+
+	async fn handle_proxy_pairing_request(
+		&self,
+		session_id: Uuid,
+		vouchee_device_info: DeviceInfo,
+		vouchee_public_key: Vec<u8>,
+		voucher_device_id: Uuid,
+		voucher_signature: Vec<u8>,
+		timestamp: chrono::DateTime<chrono::Utc>,
+		proxied_session_keys: SessionKeys,
+		remote_node_id: NodeId,
+	) -> Result<()> {
+		let proxy_config = { self.proxy_config.read().await.clone() };
+
+		let (voucher_info, voucher_node_id) = {
+			let registry = self.device_registry.read().await;
+			let voucher_info = match registry.get_device_state(voucher_device_id) {
+				Some(crate::service::network::device::DeviceState::Paired { info, .. })
+				| Some(crate::service::network::device::DeviceState::Connected { info, .. })
+				| Some(crate::service::network::device::DeviceState::Disconnected {
+					info, ..
+				}) => Some(info.clone()),
+				_ => None,
+			};
+			(
+				voucher_info,
+				registry.get_node_id_for_device(voucher_device_id),
+			)
+		};
+
+		if let Some(node_id) = voucher_node_id {
+			if node_id != remote_node_id {
+				self.send_proxy_pairing_rejection(
+					remote_node_id,
+					session_id,
+					"Voucher node mismatch".to_string(),
+				)
+				.await?;
+				return Ok(());
+			}
+		}
+
+		let Some(voucher_info) = voucher_info else {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Voucher not paired".to_string(),
+			)
+			.await?;
+			return Ok(());
+		};
+
+		let payload = self.build_vouch_payload(
+			session_id,
+			&vouchee_device_info,
+			&vouchee_public_key,
+			timestamp,
+		);
+
+		PairingSecurity::validate_public_key(&vouchee_public_key)?;
+
+		if !self.verify_vouch_signature(&payload, &voucher_signature, remote_node_id.as_bytes())? {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Invalid voucher signature".to_string(),
+			)
+			.await?;
+			return Ok(());
+		}
+
+		let max_age = chrono::Duration::seconds(proxy_config.vouch_signature_max_age as i64);
+		if chrono::Utc::now().signed_duration_since(timestamp) > max_age {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Vouch signature expired".to_string(),
+			)
+			.await?;
+			return Ok(());
+		}
+
+		{
+			let registry = self.device_registry.read().await;
+			if registry
+				.get_device_state(vouchee_device_info.device_id)
+				.is_some()
+			{
+				self.send_proxy_pairing_rejection(
+					remote_node_id,
+					session_id,
+					"Device already paired".to_string(),
+				)
+				.await?;
+				return Ok(());
+			}
+		}
+
+		let persistence = {
+			let registry = self.device_registry.read().await;
+			registry.persistence()
+		};
+		let persisted_voucher = persistence.get_paired_device(voucher_device_id).await?;
+
+		let Some(persisted_voucher) = persisted_voucher else {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Voucher not in persistence".to_string(),
+			)
+			.await?;
+			return Ok(());
+		};
+
+		let voucher_is_trusted = matches!(
+			persisted_voucher.trust_level,
+			crate::service::network::device::TrustLevel::Trusted
+		);
+		let voucher_is_direct = matches!(
+			persisted_voucher.pairing_type,
+			crate::service::network::device::PairingType::Direct
+		);
+
+		if !voucher_is_trusted || !voucher_is_direct {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Voucher not trusted for proxy pairing".to_string(),
+			)
+			.await?;
+			return Ok(());
+		}
+
+		if proxied_session_keys.send_key == proxied_session_keys.receive_key {
+			self.send_proxy_pairing_rejection(
+				remote_node_id,
+				session_id,
+				"Invalid session keys".to_string(),
+			)
+			.await?;
+			return Ok(());
+		}
+
+		if proxy_config.auto_accept_vouched && voucher_is_trusted {
+			{
+				let mut registry = self.device_registry.write().await;
+				registry
+					.complete_pairing(
+						vouchee_device_info.device_id,
+						vouchee_device_info.clone(),
+						proxied_session_keys.clone(),
+						None,
+						crate::service::network::device::PairingType::Proxied,
+						Some(voucher_device_id),
+						Some(chrono::Utc::now()),
+					)
+					.await?;
+			}
+
+			let accepting_device_id = self.get_device_info().await?.device_id;
+			let response = PairingMessage::ProxyPairingResponse {
+				session_id,
+				accepting_device_id,
+				accepted: true,
+				reason: None,
+			};
+			self.send_pairing_message_fire_and_forget(remote_node_id, &response)
+				.await?;
+			return Ok(());
+		}
+
+		let pending = PendingProxyConfirmation {
+			session_id,
+			voucher_device_id,
+			voucher_device_name: voucher_info.device_name.clone(),
+			vouchee_device_info: vouchee_device_info.clone(),
+			vouchee_public_key: vouchee_public_key.clone(),
+			proxied_session_keys,
+			created_at: chrono::Utc::now(),
+		};
+
+		{
+			let mut pending_map = self.pending_proxy_confirmations.write().await;
+			pending_map.insert(session_id, pending);
+		}
+
+		let event_bus = { self.event_bus.read().await.clone() };
+		if let Some(event_bus) = event_bus {
+			let expires_at = (chrono::Utc::now()
+				+ chrono::Duration::seconds(proxy_config.vouch_response_timeout as i64))
+			.to_rfc3339();
+			event_bus.emit(Event::ProxyPairingConfirmationRequired {
+				session_id,
+				vouchee_device_name: vouchee_device_info.device_name.clone(),
+				vouchee_device_os: vouchee_device_info.os_version.clone(),
+				voucher_device_name: voucher_info.device_name,
+				voucher_device_id,
+				expires_at,
+			});
+		}
+
+		let pending_map = self.pending_proxy_confirmations.clone();
+		let command_sender = self.command_sender.clone();
+		let registry = self.device_registry.clone();
+		let timeout = proxy_config.vouch_response_timeout;
+		let accepting_device_id = self.get_device_info().await?.device_id;
+
+		tokio::spawn(async move {
+			tokio::time::sleep(tokio::time::Duration::from_secs(timeout)).await;
+			let pending = {
+				let mut guard = pending_map.write().await;
+				guard.remove(&session_id)
+			};
+
+			if let Some(pending) = pending {
+				let node_id = {
+					let registry = registry.read().await;
+					registry.get_node_id_for_device(pending.voucher_device_id)
+				};
+				if let Some(node_id) = node_id {
+					if let Ok(data) = serde_json::to_vec(&PairingMessage::ProxyPairingResponse {
+						session_id,
+						accepting_device_id,
+						accepted: false,
+						reason: Some("Proxy confirmation timed out".to_string()),
+					}) {
+						let _ = command_sender.send(
+							crate::service::network::core::event_loop::EventLoopCommand::SendMessageToNode {
+								node_id,
+								protocol: "pairing".to_string(),
+								data,
+							},
+						);
+					}
+				}
+			}
+		});
+
+		Ok(())
+	}
+
+	async fn send_proxy_pairing_rejection(
+		&self,
+		remote_node_id: NodeId,
+		session_id: Uuid,
+		reason: String,
+	) -> Result<()> {
+		let accepting_device_id = self.get_device_info().await?.device_id;
+		let response = PairingMessage::ProxyPairingResponse {
+			session_id,
+			accepting_device_id,
+			accepted: false,
+			reason: Some(reason),
+		};
+		self.send_pairing_message_fire_and_forget(remote_node_id, &response)
+			.await
+	}
+
+	async fn handle_proxy_pairing_response(
+		&self,
+		session_id: Uuid,
+		accepting_device_id: Uuid,
+		accepted: bool,
+		reason: Option<String>,
+	) -> Result<()> {
+		if self.get_vouching_session(session_id).await.is_none() {
+			self.log_warn(&format!(
+				"Proxy pairing response for unknown session {}",
+				session_id
+			))
+			.await;
+			return Ok(());
+		}
+
+		let status = if accepted {
+			VouchStatus::Accepted
+		} else {
+			VouchStatus::Rejected
+		};
+
+		if !accepted {
+			let mut keys = self.vouching_keys.write().await;
+			keys.remove(&(session_id, accepting_device_id));
+		}
+
+		let queue = { self.vouching_queue.read().await.clone() };
+		if let Some(queue) = queue {
+			queue.remove_entry(session_id, accepting_device_id).await?;
+		}
+
+		self.update_vouch_status(session_id, accepting_device_id, status, reason)
+			.await?;
+
+		Ok(())
+	}
+
+	async fn handle_proxy_pairing_complete(
+		&self,
+		session_id: Uuid,
+		voucher_device_id: Uuid,
+		accepted_by: Vec<super::proxy::AcceptedDevice>,
+		rejected_by: Vec<super::proxy::RejectedDevice>,
+	) -> Result<()> {
+		for accepted in accepted_by {
+			let device_id = accepted.device_info.device_id;
+			let mut registry = self.device_registry.write().await;
+			registry
+				.complete_pairing(
+					device_id,
+					accepted.device_info.clone(),
+					accepted.session_keys.clone(),
+					None,
+					crate::service::network::device::PairingType::Proxied,
+					Some(voucher_device_id),
+					Some(chrono::Utc::now()),
+				)
+				.await?;
+		}
+
+		if !rejected_by.is_empty() {
+			self.log_info(&format!(
+				"Proxy pairing completed with {} rejections",
+				rejected_by.len()
+			))
+			.await;
+		}
+
+		self.log_info(&format!(
+			"Proxy pairing completion handled for session {}",
+			session_id
+		))
+		.await;
+
+		Ok(())
+	}
+
+	async fn process_vouching_queue(&self) -> Result<()> {
+		let queue = { self.vouching_queue.read().await.clone() };
+		let Some(queue) = queue else {
+			return Ok(());
+		};
+
+		let config = { self.proxy_config.read().await.clone() };
+		let entries = queue.list_entries().await?;
+		let now = chrono::Utc::now();
+
+		for entry in entries {
+			if self.get_vouching_session(entry.session_id).await.is_none() {
+				queue
+					.remove_entry(entry.session_id, entry.target_device_id)
+					.await?;
+				continue;
+			}
+
+			if entry.expires_at <= now {
+				queue
+					.remove_entry(entry.session_id, entry.target_device_id)
+					.await?;
+				self.update_vouch_status(
+					entry.session_id,
+					entry.target_device_id,
+					VouchStatus::Unreachable,
+					Some("Vouch expired".to_string()),
+				)
+				.await?;
+				continue;
+			}
+
+			if entry.retry_count >= config.vouch_queue_retry_limit {
+				queue
+					.remove_entry(entry.session_id, entry.target_device_id)
+					.await?;
+				self.update_vouch_status(
+					entry.session_id,
+					entry.target_device_id,
+					VouchStatus::Unreachable,
+					Some("Vouch retry limit exceeded".to_string()),
+				)
+				.await?;
+				continue;
+			}
+
+			if matches!(entry.status, VouchQueueStatus::Waiting) {
+				if let Some(last_attempt_at) = entry.last_attempt_at {
+					let timeout = chrono::Duration::seconds(config.vouch_response_timeout as i64);
+					if now.signed_duration_since(last_attempt_at) > timeout {
+						queue
+							.remove_entry(entry.session_id, entry.target_device_id)
+							.await?;
+						self.update_vouch_status(
+							entry.session_id,
+							entry.target_device_id,
+							VouchStatus::Unreachable,
+							Some("Proxy response timeout".to_string()),
+						)
+						.await?;
+					}
+				}
+				continue;
+			}
+
+			if !matches!(entry.status, VouchQueueStatus::Queued) {
+				continue;
+			}
+
+			let endpoint = match &self.endpoint {
+				Some(endpoint) => endpoint,
+				None => continue,
+			};
+
+			let (is_connected, node_id) = {
+				let registry = self.device_registry.read().await;
+				(
+					registry.is_node_connected(endpoint, entry.target_device_id),
+					registry.get_node_id_for_device(entry.target_device_id),
+				)
+			};
+
+			if !is_connected {
+				continue;
+			}
+
+			let Some(node_id) = node_id else {
+				continue;
+			};
+
+			let timestamp = chrono::Utc::now();
+			let payload = self.build_vouch_payload(
+				entry.session_id,
+				&entry.vouchee_device_info,
+				&entry.vouchee_public_key,
+				timestamp,
+			);
+			let signature = self.sign_vouch_payload(&payload)?;
+
+			let request = PairingMessage::ProxyPairingRequest {
+				session_id: entry.session_id,
+				vouchee_device_info: entry.vouchee_device_info.clone(),
+				vouchee_public_key: entry.vouchee_public_key.clone(),
+				voucher_device_id: entry.voucher_device_id,
+				voucher_signature: signature,
+				timestamp,
+				proxied_session_keys: entry.proxied_session_keys.clone(),
+			};
+
+			if let Err(e) = self
+				.send_pairing_message_fire_and_forget(node_id, &request)
+				.await
+			{
+				self.log_warn(&format!(
+					"Failed to send queued proxy pairing request to {}: {}",
+					entry.target_device_id, e
+				))
+				.await;
+				queue
+					.update_status(
+						entry.session_id,
+						entry.target_device_id,
+						VouchQueueStatus::Queued,
+						entry.retry_count + 1,
+						Some(now),
+					)
+					.await?;
+				continue;
+			}
+
+			queue
+				.update_status(
+					entry.session_id,
+					entry.target_device_id,
+					VouchQueueStatus::Waiting,
+					entry.retry_count + 1,
+					Some(now),
+				)
+				.await?;
+
+			self.update_vouch_status(
+				entry.session_id,
+				entry.target_device_id,
+				VouchStatus::Waiting,
+				None,
+			)
+			.await?;
+		}
+
+		Ok(())
+	}
+
 	/// Handle a pairing message received over stream
 	async fn handle_pairing_message(
 		&self,
@@ -622,6 +1863,58 @@ impl PairingProtocolHandler {
 			PairingMessage::Reject { session_id, reason } => {
 				self.handle_rejection(session_id, reason).await?;
 				Ok(None) // No response needed
+			}
+			PairingMessage::ProxyPairingRequest {
+				session_id,
+				vouchee_device_info,
+				vouchee_public_key,
+				voucher_device_id,
+				voucher_signature,
+				timestamp,
+				proxied_session_keys,
+			} => {
+				self.handle_proxy_pairing_request(
+					session_id,
+					vouchee_device_info,
+					vouchee_public_key,
+					voucher_device_id,
+					voucher_signature,
+					timestamp,
+					proxied_session_keys,
+					remote_node_id,
+				)
+				.await?;
+				Ok(None)
+			}
+			PairingMessage::ProxyPairingResponse {
+				session_id,
+				accepting_device_id,
+				accepted,
+				reason,
+			} => {
+				self.handle_proxy_pairing_response(
+					session_id,
+					accepting_device_id,
+					accepted,
+					reason,
+				)
+				.await?;
+				Ok(None)
+			}
+			PairingMessage::ProxyPairingComplete {
+				session_id,
+				voucher_device_id,
+				accepted_by,
+				rejected_by,
+			} => {
+				self.handle_proxy_pairing_complete(
+					session_id,
+					voucher_device_id,
+					accepted_by,
+					rejected_by,
+				)
+				.await?;
+				Ok(None)
 			}
 		}
 	}
@@ -707,6 +2000,24 @@ impl PairingProtocolHandler {
 			Err(_) => Ok(None),
 		}
 	}
+
+	pub async fn send_pairing_message_fire_and_forget(
+		&self,
+		node_id: NodeId,
+		message: &PairingMessage,
+	) -> Result<()> {
+		let data = serde_json::to_vec(message).map_err(NetworkingError::Serialization)?;
+		self.command_sender
+			.send(
+				crate::service::network::core::event_loop::EventLoopCommand::SendMessageToNode {
+					node_id,
+					protocol: "pairing".to_string(),
+					data,
+				},
+			)
+			.map_err(|_| NetworkingError::Protocol("Pairing command channel closed".to_string()))?;
+		Ok(())
+	}
 }
 
 #[async_trait]
@@ -787,6 +2098,9 @@ impl ProtocolHandler for PairingProtocolHandler {
 						PairingMessage::Response { .. } => "Response",
 						PairingMessage::Complete { .. } => "Complete",
 						PairingMessage::Reject { .. } => "Reject",
+						PairingMessage::ProxyPairingRequest { .. } => "ProxyPairingRequest",
+						PairingMessage::ProxyPairingResponse { .. } => "ProxyPairingResponse",
+						PairingMessage::ProxyPairingComplete { .. } => "ProxyPairingComplete",
 					};
 					self.logger
 						.info(&format!(
@@ -888,9 +2202,15 @@ impl ProtocolHandler for PairingProtocolHandler {
 				self.handle_pairing_response(from_device, session_id, response, device_info)
 					.await
 			}
-			// These are handled by handle_response, not handle_request
-			PairingMessage::Challenge { .. } | PairingMessage::Complete { .. } => {
-				self.log_warn("Received Challenge or Complete in handle_request - this should be handled by handle_response").await;
+			PairingMessage::ProxyPairingRequest { .. }
+			| PairingMessage::ProxyPairingResponse { .. }
+			| PairingMessage::ProxyPairingComplete { .. }
+			| PairingMessage::Challenge { .. }
+			| PairingMessage::Complete { .. } => {
+				self.log_warn(
+					"Received message in handle_request - this should be handled by stream",
+				)
+				.await;
 				Ok(Vec::new())
 			}
 			// Reject messages are handled by handle_response, not here
@@ -914,6 +2234,9 @@ impl ProtocolHandler for PairingProtocolHandler {
 					PairingMessage::Response { session_id, .. } => Some(session_id),
 					PairingMessage::Complete { session_id, .. } => Some(session_id),
 					PairingMessage::Reject { session_id, .. } => Some(session_id),
+					PairingMessage::ProxyPairingRequest { session_id, .. } => Some(session_id),
+					PairingMessage::ProxyPairingResponse { session_id, .. } => Some(session_id),
+					PairingMessage::ProxyPairingComplete { session_id, .. } => Some(session_id),
 				};
 
 				if let Some(session_id) = session_id {
@@ -1180,9 +2503,12 @@ impl ProtocolHandler for PairingProtocolHandler {
 				self.handle_completion(session_id, success, reason, from_device, from_node)
 					.await?;
 			}
-			// These are handled by handle_request, not handle_response
-			PairingMessage::PairingRequest { .. } | PairingMessage::Response { .. } => {
-				self.log_warn("Received PairingRequest or Response in handle_response - this should be handled by handle_request").await;
+			PairingMessage::ProxyPairingRequest { .. }
+			| PairingMessage::ProxyPairingResponse { .. }
+			| PairingMessage::ProxyPairingComplete { .. }
+			| PairingMessage::PairingRequest { .. }
+			| PairingMessage::Response { .. } => {
+				self.log_warn("Received message in handle_response - this should be handled by handle_request or stream").await;
 			}
 			// Handle rejection from initiator (joiner receives this)
 			PairingMessage::Reject { session_id, reason } => {

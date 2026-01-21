@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { File } from "@sd/ts-client";
-import { useServer } from "../../ServerContext";
+import { useServer } from "../../contexts/ServerContext";
 
 interface TimelineScrubberProps {
 	file: File;

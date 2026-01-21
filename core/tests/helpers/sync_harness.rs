@@ -69,6 +69,7 @@ impl TestConfigBuilder {
 				networking_enabled: false,
 				volume_monitoring_enabled: false,
 				fs_watcher_enabled: false,
+				statistics_listener_enabled: false,
 			},
 		};
 
@@ -152,7 +153,16 @@ pub async fn register_device(
 		last_sync_at: Set(None),
 	};
 
-	device_model.insert(library.db().conn()).await?;
+	// Check if device already exists
+	let existing = entities::device::Entity::find()
+		.filter(entities::device::Column::Uuid.eq(device_id))
+		.one(library.db().conn())
+		.await?;
+
+	if existing.is_none() {
+		device_model.insert(library.db().conn()).await?;
+	}
+
 	Ok(())
 }
 
@@ -162,12 +172,14 @@ pub async fn create_test_volume(
 	device_id: Uuid,
 	fingerprint: &str,
 	display_name: &str,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<Uuid> {
 	use chrono::Utc;
+
+	let volume_uuid = Uuid::new_v4();
 
 	let volume_model = entities::volume::ActiveModel {
 		id: sea_orm::ActiveValue::NotSet,
-		uuid: Set(Uuid::new_v4()),
+		uuid: Set(volume_uuid),
 		device_id: Set(device_id),
 		fingerprint: Set(fingerprint.to_string()),
 		display_name: Set(Some(display_name.to_string())),
@@ -196,7 +208,7 @@ pub async fn create_test_volume(
 	};
 
 	volume_model.insert(library.db().conn()).await?;
-	Ok(())
+	Ok(volume_uuid)
 }
 
 /// Set all devices in a library to "synced" state (prevents auto-backfill)
@@ -246,6 +258,10 @@ pub async fn wait_for_indexing(
 
 		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
 
+		if !completed_jobs.is_empty() {
+			job_seen = true;
+		}
+
 		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
 		{
 			if current_entries == last_entry_count {
@@ -293,9 +309,11 @@ pub async fn wait_for_sync(
 	let mut last_alice_entries = 0;
 	let mut last_alice_content = 0;
 	let mut last_bob_entries = 0;
+	let mut last_bob_closure = 0;
 	let mut stable_iterations = 0;
 	let mut no_progress_iterations = 0;
 	let mut alice_stable_iterations = 0;
+	let mut closure_stable_iterations = 0;
 
 	while start.elapsed() < max_duration {
 		let alice_entries = entities::entry::Entity::find()
@@ -333,20 +351,46 @@ pub async fn wait_for_sync(
 			no_progress_iterations = 0;
 		}
 
+		// Check Bob's entry_closure table stability
+		// The rebuild runs in multiple iterations, we need to wait for it to finish
+		let bob_closure_count = entities::entry_closure::Entity::find()
+			.count(library_bob.db().conn())
+			.await?;
+
+		if bob_closure_count == last_bob_closure {
+			closure_stable_iterations += 1;
+		} else {
+			closure_stable_iterations = 0;
+		}
+
 		// Only check sync completion if Alice has stabilized first
 		if alice_stable_iterations >= 5 {
 			if alice_entries == bob_entries && alice_content == bob_content {
-				stable_iterations += 1;
-				if stable_iterations >= 5 {
-					tracing::info!(
-						duration_ms = start.elapsed().as_millis(),
-						alice_entries = alice_entries,
-						bob_entries = bob_entries,
-						alice_content = alice_content,
-						bob_content = bob_content,
-						"Sync completed - Alice stable and Bob caught up"
+				// Also check that Bob's entry_closure table has stabilized
+				// This prevents race condition where we check integrity before rebuild completes
+				// The rebuild runs many iterations, so we need several stable checks
+				if closure_stable_iterations >= 3 {
+					stable_iterations += 1;
+					if stable_iterations >= 5 {
+						tracing::info!(
+							duration_ms = start.elapsed().as_millis(),
+							alice_entries = alice_entries,
+							bob_entries = bob_entries,
+							alice_content = alice_content,
+							bob_content = bob_content,
+							bob_closure_count = bob_closure_count,
+							"Sync completed - Alice stable, Bob caught up, and closure table rebuilt"
+						);
+						return Ok(());
+					}
+				} else {
+					stable_iterations = 0;
+					tracing::debug!(
+						bob_closure_count = bob_closure_count,
+						last_bob_closure = last_bob_closure,
+						closure_stable_iters = closure_stable_iterations,
+						"Waiting for entry_closure rebuild to stabilize"
 					);
-					return Ok(());
 				}
 			} else {
 				stable_iterations = 0;
@@ -394,6 +438,7 @@ pub async fn wait_for_sync(
 		last_alice_entries = alice_entries;
 		last_alice_content = alice_content;
 		last_bob_entries = bob_entries;
+		last_bob_closure = bob_closure_count;
 
 		tokio::time::sleep(Duration::from_millis(100)).await;
 	}
@@ -416,10 +461,11 @@ pub async fn wait_for_sync(
 /// Add a location and wait for indexing to complete
 pub async fn add_and_index_location(
 	library: &Arc<Library>,
+	volume_manager: &Arc<sd_core::volume::VolumeManager>,
 	path: &str,
 	name: &str,
 ) -> anyhow::Result<Uuid> {
-	use sd_core::location::{create_location, IndexMode, LocationCreateArgs};
+	use sd_core::location::{create_location, manager::update_location_volume_id, IndexMode, LocationCreateArgs};
 
 	tracing::info!(path = %path, name = %name, "Creating location and indexing");
 
@@ -448,6 +494,64 @@ pub async fn add_and_index_location(
 		.ok_or_else(|| anyhow::anyhow!("Location not found"))?;
 
 	let location_uuid = location_record.uuid;
+	let entry_id = location_record.entry_id;
+
+	// Detect volume for the location path before indexing
+	let location_path = std::path::PathBuf::from(path);
+	if let Some(volume) = volume_manager.volume_for_path(&location_path).await {
+		tracing::info!(
+			location_uuid = %location_uuid,
+			volume_name = %volume.name,
+			volume_fingerprint = ?volume.fingerprint,
+			volume_uuid = ?volume.id,
+			"Detected volume for location"
+		);
+
+		// Check if volume already exists by UUID (for test environments where multiple
+		// "devices" share the same physical machine/volumes)
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		let volume_id = if let Some(existing) = entities::volume::Entity::find()
+			.filter(entities::volume::Column::Uuid.eq(volume.id))
+			.one(library.db().conn())
+			.await?
+		{
+			tracing::info!(
+				volume_uuid = %volume.id,
+				volume_id = existing.id,
+				"Volume already exists in database (shared between test devices)"
+			);
+			existing.id
+		} else {
+			// Ensure volume is in the database
+			let id = volume_manager.ensure_volume_in_db(&volume, library).await?;
+			tracing::info!(
+				volume_uuid = %volume.id,
+				volume_id = id,
+				"Inserted new volume into database"
+			);
+			id
+		};
+
+		// Update location and root entry with volume_id
+		update_location_volume_id(
+			library.db().conn(),
+			location_db_id,
+			entry_id,
+			volume_id,
+		)
+		.await?;
+
+		tracing::info!(
+			location_uuid = %location_uuid,
+			volume_id = volume_id,
+			"Updated location with volume_id"
+		);
+	} else {
+		anyhow::bail!(
+			"No volume detected for path '{}' - volume must be mounted for testing",
+			path
+		);
+	}
 
 	// Wait for indexing with 120s timeout
 	wait_for_indexing(library, location_db_id, Duration::from_secs(120)).await?;
@@ -698,6 +802,7 @@ impl SnapshotCapture {
 #[allow(dead_code)]
 pub struct TwoDeviceHarnessBuilder {
 	test_name: String,
+	test_data: super::TestDataDir,
 	data_dir_alice: PathBuf,
 	data_dir_bob: PathBuf,
 	snapshot_dir: PathBuf,
@@ -709,10 +814,11 @@ pub struct TwoDeviceHarnessBuilder {
 #[allow(dead_code)]
 impl TwoDeviceHarnessBuilder {
 	pub async fn new(test_name: impl Into<String>) -> anyhow::Result<Self> {
-		let test_name = test_name.into();
-		let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
-		let test_root = std::path::PathBuf::from(home)
-			.join("Library/Application Support/spacedrive/sync_tests");
+		let test_name_str = test_name.into();
+
+		// Use TestDataDir for proper temp directory management
+		let test_data = super::TestDataDir::new(&test_name_str)?;
+		let test_root = test_data.path().to_path_buf();
 
 		let data_dir = test_root.join("data");
 		fs::create_dir_all(&data_dir).await?;
@@ -722,10 +828,12 @@ impl TwoDeviceHarnessBuilder {
 		fs::create_dir_all(&temp_dir_alice).await?;
 		fs::create_dir_all(&temp_dir_bob).await?;
 
-		let snapshot_dir = create_snapshot_dir(&test_name).await?;
+		let snapshot_dir = test_root.join("snapshots");
+		fs::create_dir_all(&snapshot_dir).await?;
 
 		Ok(Self {
-			test_name,
+			test_name: test_name_str,
+			test_data,
 			data_dir_alice: temp_dir_alice,
 			data_dir_bob: temp_dir_bob,
 			snapshot_dir,
@@ -778,6 +886,19 @@ impl TwoDeviceHarnessBuilder {
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to create Bob core: {}", e))?;
 		let device_bob_id = core_bob.device.device_id()?;
+
+		// Initialize volume managers for both cores
+		tracing::info!("Initializing volume managers");
+		core_alice
+			.volumes
+			.initialize()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to initialize Alice volume manager: {}", e))?;
+		core_bob
+			.volumes
+			.initialize()
+			.await
+			.map_err(|e| anyhow::anyhow!("Failed to initialize Bob volume manager: {}", e))?;
 
 		// Create libraries
 		let library_alice = core_alice
@@ -895,6 +1016,7 @@ impl TwoDeviceHarnessBuilder {
 		};
 
 		Ok(TwoDeviceHarness {
+			test_data: self.test_data,
 			data_dir_alice: self.data_dir_alice,
 			data_dir_bob: self.data_dir_bob,
 			core_alice,
@@ -916,6 +1038,7 @@ impl TwoDeviceHarnessBuilder {
 
 /// Two-device sync test harness
 pub struct TwoDeviceHarness {
+	test_data: super::TestDataDir,
 	pub data_dir_alice: PathBuf,
 	pub data_dir_bob: PathBuf,
 	pub core_alice: Core,
@@ -934,6 +1057,19 @@ pub struct TwoDeviceHarness {
 }
 
 impl TwoDeviceHarness {
+	/// Get access to the snapshot manager (if snapshots enabled via SD_TEST_SNAPSHOTS=1)
+	pub fn snapshot_manager(&self) -> Option<&super::SnapshotManager> {
+		self.test_data.snapshot_manager()
+	}
+
+	/// Capture snapshot with label (convenience method)
+	pub async fn capture_snapshot(&self, label: &str) -> anyhow::Result<()> {
+		if let Some(manager) = self.snapshot_manager() {
+			manager.capture(label).await?;
+		}
+		Ok(())
+	}
+
 	/// Wait for sync to complete using the sophisticated algorithm
 	pub async fn wait_for_sync(&self, max_duration: Duration) -> anyhow::Result<()> {
 		wait_for_sync(&self.library_alice, &self.library_bob, max_duration).await
@@ -945,115 +1081,12 @@ impl TwoDeviceHarness {
 		path: &str,
 		name: &str,
 	) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_alice, path, name).await
+		add_and_index_location(&self.library_alice, &self.core_alice.volumes, path, name).await
 	}
 
 	/// Add and index a location on Bob
 	pub async fn add_and_index_location_bob(&self, path: &str, name: &str) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_bob, path, name).await
-	}
-
-	/// Capture comprehensive snapshot
-	pub async fn capture_snapshot(&self, scenario_name: &str) -> anyhow::Result<PathBuf> {
-		let snapshot_path = self.snapshot_dir.join(scenario_name);
-		fs::create_dir_all(&snapshot_path).await?;
-
-		tracing::info!(
-			scenario = scenario_name,
-			path = %snapshot_path.display(),
-			"Capturing snapshot"
-		);
-
-		let capture = SnapshotCapture::new(snapshot_path.clone());
-
-		// Copy Alice's data
-		capture
-			.copy_database(&self.library_alice, "alice", "database.db")
-			.await?;
-		capture
-			.copy_database(&self.library_alice, "alice", "sync.db")
-			.await?;
-		capture.copy_logs(&self.library_alice, "alice").await?;
-
-		if let Some(events) = &self.event_log_alice {
-			let events = events.lock().await;
-			capture
-				.write_event_log(&events, "alice", "events.log")
-				.await?;
-		}
-
-		if let Some(sync_events) = &self.sync_event_log_alice {
-			let events = sync_events.lock().await;
-			capture
-				.write_sync_event_log(&events, "alice", "sync_events.log")
-				.await?;
-		}
-
-		// Copy Bob's data
-		capture
-			.copy_database(&self.library_bob, "bob", "database.db")
-			.await?;
-		capture
-			.copy_database(&self.library_bob, "bob", "sync.db")
-			.await?;
-		capture.copy_logs(&self.library_bob, "bob").await?;
-
-		if let Some(events) = &self.event_log_bob {
-			let events = events.lock().await;
-			capture
-				.write_event_log(&events, "bob", "events.log")
-				.await?;
-		}
-
-		if let Some(sync_events) = &self.sync_event_log_bob {
-			let events = sync_events.lock().await;
-			capture
-				.write_sync_event_log(&events, "bob", "sync_events.log")
-				.await?;
-		}
-
-		// Write summary
-		let alice_events = self
-			.event_log_alice
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let bob_events = self
-			.event_log_bob
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let alice_sync_events = self
-			.sync_event_log_alice
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-		let bob_sync_events = self
-			.sync_event_log_bob
-			.as_ref()
-			.map(|e| e.blocking_lock().len())
-			.unwrap_or(0);
-
-		capture
-			.write_summary(
-				scenario_name,
-				&self.library_alice,
-				&self.library_bob,
-				self.device_alice_id,
-				self.device_bob_id,
-				alice_events,
-				bob_events,
-				alice_sync_events,
-				bob_sync_events,
-			)
-			.await?;
-
-		tracing::info!(
-			snapshot_path = %snapshot_path.display(),
-			"Snapshot captured"
-		);
-
-		Ok(snapshot_path)
+		add_and_index_location(&self.library_bob, &self.core_bob.volumes, path, name).await
 	}
 }
 

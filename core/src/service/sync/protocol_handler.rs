@@ -57,14 +57,37 @@ impl LogSyncHandler {
 		// Use registry to apply with conflict resolution (shared models)
 		// Models implement their own merge strategies (union, LWW, etc.)
 
-		// Extract HLC info before moving entry
+		// Extract info before moving entry
 		let hlc_device_id = entry.hlc.device_id;
 		let hlc = entry.hlc;
+		let model_type = entry.model_type.clone();
+		let record_uuid = entry.record_uuid;
+		let change_type = entry.change_type;
 
 		let db = Arc::new(self.peer_sync.db().as_ref().clone());
-		crate::infra::sync::registry::apply_shared_change(entry, db)
+		crate::infra::sync::registry::apply_shared_change(entry, db.clone())
 			.await
 			.map_err(|e| anyhow::anyhow!("{}", e))?;
+
+		// Emit resource event for UI reactivity (for insert/update changes)
+		if matches!(change_type, ChangeType::Insert | ChangeType::Update) {
+			let resource_manager = crate::domain::ResourceManager::new(
+				db.clone(),
+				self.peer_sync.event_bus().clone(),
+			);
+
+			if let Err(e) = resource_manager
+				.emit_resource_events(&model_type, vec![record_uuid])
+				.await
+			{
+				warn!(
+					model_type = %model_type,
+					uuid = %record_uuid,
+					error = %e,
+					"Failed to emit resource event after shared change"
+				);
+			}
+		}
 
 		// Send ACK to sender
 		self.peer_sync.on_ack_received(hlc_device_id, hlc).await?;

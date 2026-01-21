@@ -177,7 +177,7 @@ impl LibraryQuery for FileByPathQuery {
 				};
 
 			// Convert to File using from_entity_model
-			let mut file = File::from_entity_model(entry_model, sd_path);
+			let mut file = File::from_entity_model(entry_model.clone(), sd_path);
 			file.sidecars = sidecars;
 			file.content_identity = content_identity_domain;
 			file.image_media_data = image_media;
@@ -186,6 +186,13 @@ impl LibraryQuery for FileByPathQuery {
 			file.duration_seconds = video_media.as_ref().and_then(|v| v.duration_seconds);
 			if let Some(ref ci) = file.content_identity {
 				file.content_kind = ci.kind;
+			}
+
+			// Populate alternate paths (other instances of same content)
+			if let Some(content_id) = entry_model.content_id {
+				file.alternate_paths = self
+					.get_alternate_paths(content_id, entry_model.id, db.conn())
+					.await?;
 			}
 
 			return Ok(Some(file));
@@ -213,102 +220,103 @@ impl LibraryQuery for FileByPathQuery {
 }
 
 impl FileByPathQuery {
-	/// Find entry by SdPath
+	/// Get alternate paths for all other entries with the same content_id
+	async fn get_alternate_paths(
+		&self,
+		content_id: i32,
+		current_entry_id: i32,
+		db: &DatabaseConnection,
+	) -> QueryResult<Vec<SdPath>> {
+		use crate::infra::db::entities::{device, directory_paths, location};
+
+		// Find all entries with the same content_id (excluding current entry)
+		let alternate_entries = entry::Entity::find()
+			.filter(entry::Column::ContentId.eq(content_id))
+			.filter(entry::Column::Id.ne(current_entry_id))
+			.all(db)
+			.await?;
+
+		let mut alternate_paths = Vec::new();
+
+		// Resolve path for each alternate entry
+		for alt_entry in alternate_entries {
+			// Build the full path for this entry
+			let mut path_components = Vec::new();
+
+			// Add the file name with extension
+			let file_name = if let Some(ext) = &alt_entry.extension {
+				format!("{}.{}", alt_entry.name, ext)
+			} else {
+				alt_entry.name.clone()
+			};
+			path_components.push(file_name);
+
+			// Walk up parent chain
+			let mut current_parent_id = alt_entry.parent_id;
+			let mut location_entry_id = None;
+
+			while let Some(parent_id) = current_parent_id {
+				if let Some(parent) = entry::Entity::find_by_id(parent_id).one(db).await? {
+					if parent.parent_id.is_none() {
+						location_entry_id = Some(parent.id);
+						break;
+					}
+					path_components.push(parent.name.clone());
+					current_parent_id = parent.parent_id;
+				} else {
+					break;
+				}
+			}
+
+			if let Some(location_entry_id) = location_entry_id {
+				path_components.reverse();
+
+				// Get location and device info
+				if let Some(location_model) = location::Entity::find()
+					.filter(location::Column::EntryId.eq(location_entry_id))
+					.one(db)
+					.await?
+				{
+					if let Some(device_model) = device::Entity::find_by_id(location_model.device_id)
+						.one(db)
+						.await?
+					{
+						if let Some(location_root_path) = directory_paths::Entity::find()
+							.filter(directory_paths::Column::EntryId.eq(location_entry_id))
+							.one(db)
+							.await?
+						{
+							// Build absolute path
+							let mut absolute_path = PathBuf::from(&location_root_path.path);
+							for component in path_components {
+								absolute_path.push(component);
+							}
+
+							alternate_paths.push(SdPath::Physical {
+								device_slug: device_model.slug,
+								path: absolute_path.into(),
+							});
+						}
+					}
+				}
+			}
+		}
+
+		Ok(alternate_paths)
+	}
+
+	/// Find entry by SdPath using canonical PathResolver
 	async fn find_entry_by_sd_path(
 		&self,
 		sd_path: &SdPath,
 		db: &DatabaseConnection,
 	) -> QueryResult<entry::Model> {
-		match sd_path {
-			SdPath::Physical { .. } | SdPath::Cloud { .. } => {
-				// Use SdPath API for consistent path handling
-				let file_name = sd_path
-					.file_name()
-					.ok_or_else(|| QueryError::Internal("Invalid file name in path".to_string()))?;
+		use crate::ops::indexing::PathResolver;
 
-				let parent_sd_path = sd_path
-					.parent()
-					.ok_or_else(|| QueryError::Internal("No parent directory".to_string()))?;
-
-				// Parse extension from filename
-				let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
-					let name_without_ext = &file_name[..dot_idx];
-					let ext = &file_name[dot_idx + 1..];
-					(name_without_ext.to_string(), Some(ext.to_string()))
-				} else {
-					(file_name.to_string(), None)
-				};
-
-				// Find entries with matching name and extension
-				let mut query = entry::Entity::find()
-					.filter(entry::Column::Name.eq(&name))
-					.filter(entry::Column::Kind.eq(0)); // Only files, not directories
-
-				if let Some(ext) = &extension {
-					query = query.filter(entry::Column::Extension.eq(ext));
-				}
-
-				let entries = query.all(db).await?;
-
-				// Get parent path string for comparison
-				let parent_path_str = match &parent_sd_path {
-					SdPath::Physical { path, .. } => path.to_string_lossy().to_string(),
-					SdPath::Cloud { path, .. } => path.clone(),
-					_ => return Err(QueryError::Internal("Invalid parent path".to_string())),
-				};
-
-				// For each matching entry, check if its parent directory path matches
-				for entry_model in entries {
-					if let Some(parent_id) = entry_model.parent_id {
-						// Get parent directory path
-						if let Ok(parent_path_model) =
-							crate::infra::db::entities::directory_paths::Entity::find_by_id(
-								parent_id,
-							)
-							.one(db)
-							.await
-						{
-							if let Some(parent_path_model) = parent_path_model {
-								// Check if the parent directory path matches
-								if parent_path_model.path == parent_path_str {
-									return Ok(entry_model);
-								}
-							}
-						}
-					}
-				}
-
-				Err(QueryError::Internal(format!(
-					"File not found at path: {}",
-					sd_path.display()
-				)))
-			}
-			SdPath::Content { content_id } => {
-				// For content-addressed paths, find any entry with this content_id
-				// First we need to find the content_identity with this UUID
-				let content_identity = crate::infra::db::entities::content_identity::Entity::find()
-					.filter(
-						crate::infra::db::entities::content_identity::Column::Uuid.eq(*content_id),
-					)
-					.one(db)
-					.await?
-					.ok_or_else(|| {
-						QueryError::Internal("Content identity not found".to_string())
-					})?;
-
-				// Find any entry with this content_id
-				entry::Entity::find()
-					.filter(entry::Column::ContentId.eq(content_identity.id))
-					.one(db)
-					.await?
-					.ok_or_else(|| QueryError::Internal("Entry not found for content".to_string()))
-			}
-			SdPath::Sidecar { .. } => {
-				return Err(QueryError::Internal(
-					"Sidecar paths not yet implemented for file queries".to_string(),
-				));
-			}
-		}
+		PathResolver::resolve_to_entry(db, sd_path)
+			.await
+			.map_err(|e| QueryError::Internal(format!("Database error: {}", e)))?
+			.ok_or_else(|| QueryError::Internal(format!("Entry not found for path: {}", sd_path.display())))
 	}
 }
 

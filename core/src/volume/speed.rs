@@ -333,16 +333,17 @@ mod tests {
 	async fn test_full_speed_test() {
 		let temp_dir = TempDir::new().unwrap();
 
-		let fingerprint = VolumeFingerprint::new("Test Volume", 1000000000, "test");
-		let now = chrono::Utc::now();
+		let device_id = uuid::Uuid::new_v4();
 		let mount_path = temp_dir.path().to_path_buf();
+		let fingerprint = VolumeFingerprint::from_primary_volume(&mount_path, device_id);
+		let now = chrono::Utc::now();
 
 		let volume = Volume {
 			id: uuid::Uuid::new_v4(),
 			fingerprint,
 			cloud_identifier: None,
 			cloud_config: None,
-			device_id: uuid::Uuid::new_v4(),
+			device_id,
 			name: "Test Volume".to_string(),
 			library_id: None,
 			is_tracked: false,

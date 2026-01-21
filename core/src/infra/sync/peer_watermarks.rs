@@ -223,6 +223,7 @@ pub enum WatermarkError {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::infra::sync::time_source::SystemTimeSource;
 	use sea_orm::Database;
 	use tempfile::TempDir;
 
@@ -244,8 +245,9 @@ mod tests {
 		let device_uuid = Uuid::new_v4();
 		let peer = Uuid::new_v4();
 		let store = PeerWatermarkStore::new(device_uuid);
+		let time = SystemTimeSource;
 
-		let hlc = HLC::now(peer);
+		let hlc = HLC::now(peer, &time);
 
 		// Store watermark
 		store.upsert(&conn, peer, hlc).await.unwrap();
@@ -261,8 +263,9 @@ mod tests {
 
 		let device_uuid = Uuid::new_v4();
 		let store = PeerWatermarkStore::new(device_uuid);
+		let time = SystemTimeSource;
 
-		let hlc = HLC::now(device_uuid);
+		let hlc = HLC::now(device_uuid, &time);
 
 		// Attempt to track self
 		let result = store.upsert(&conn, device_uuid, hlc).await;
@@ -346,12 +349,13 @@ mod tests {
 
 		let device_uuid = Uuid::new_v4();
 		let store = PeerWatermarkStore::new(device_uuid);
+		let time = SystemTimeSource;
 
 		let peer1 = Uuid::new_v4();
 		let peer2 = Uuid::new_v4();
 
-		let hlc1 = HLC::now(peer1);
-		let hlc2 = HLC::now(peer2);
+		let hlc1 = HLC::now(peer1, &time);
+		let hlc2 = HLC::now(peer2, &time);
 
 		store.upsert(&conn, peer1, hlc1).await.unwrap();
 		store.upsert(&conn, peer2, hlc2).await.unwrap();
