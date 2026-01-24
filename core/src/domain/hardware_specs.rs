@@ -181,7 +181,7 @@ fn get_gpu_ai_tops(model: &str) -> Option<f64> {
 	} else if model_lower.contains("rtx 4070") {
 		Some(392.0)
 	} else if model_lower.contains("rtx 4060 ti") {
-		Some(242.0)
+		Some(353.0)
 	} else if model_lower.contains("rtx 4060") {
 		Some(242.0)
 	}
