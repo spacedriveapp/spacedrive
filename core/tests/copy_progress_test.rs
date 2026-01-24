@@ -189,7 +189,8 @@ async fn test_copy_progress_with_metadata_tracking() {
 	let mut event_subscriber = core.events.subscribe();
 
 	// Start monitoring task BEFORE dispatching to avoid missing events
-	let (job_id_tx, job_id_rx) = tokio::sync::oneshot::channel::<sd_core::infra::job::types::JobId>();
+	let (job_id_tx, job_id_rx) =
+		tokio::sync::oneshot::channel::<sd_core::infra::job::types::JobId>();
 
 	let monitor_handle = tokio::spawn(async move {
 		// Wait for job ID to be sent
@@ -292,9 +293,10 @@ async fn test_copy_progress_with_metadata_tracking() {
 						// Limit queries
 						use sd_core::infra::query::LibraryQuery;
 
-						let query_input = sd_core::ops::jobs::copy_metadata::query::CopyMetadataQueryInput {
-							job_id: job_id.into(),
-						};
+						let query_input =
+							sd_core::ops::jobs::copy_metadata::query::CopyMetadataQueryInput {
+								job_id: job_id.into(),
+							};
 
 						let query =
 							sd_core::ops::jobs::copy_metadata::query::CopyMetadataQuery::from_input(
@@ -357,7 +359,9 @@ async fn test_copy_progress_with_metadata_tracking() {
 	let job_id = job_handle.id;
 
 	// Send job ID to monitoring task
-	job_id_tx.send(job_id).expect("Monitor task should be running");
+	job_id_tx
+		.send(job_id)
+		.expect("Monitor task should be running");
 
 	// Wait for job completion with timeout
 	let (event_count, metadata_query_count) =
@@ -374,8 +378,9 @@ async fn test_copy_progress_with_metadata_tracking() {
 	// Query final metadata state
 	println!("\nQuerying final job metadata...");
 	use sd_core::infra::query::LibraryQuery;
-	let query_input =
-		sd_core::ops::jobs::copy_metadata::query::CopyMetadataQueryInput { job_id: job_id.into() };
+	let query_input = sd_core::ops::jobs::copy_metadata::query::CopyMetadataQueryInput {
+		job_id: job_id.into(),
+	};
 	let query =
 		sd_core::ops::jobs::copy_metadata::query::CopyMetadataQuery::from_input(query_input)
 			.unwrap();
@@ -412,9 +417,8 @@ async fn test_copy_progress_with_metadata_tracking() {
 		0
 	};
 
-	let test_passed = files_completed_at_end == file_count
-		&& max_percentage >= 0.99
-		&& max_jump < 50.0;
+	let test_passed =
+		files_completed_at_end == file_count && max_percentage >= 0.99 && max_jump < 50.0;
 
 	let failure_reason = if !test_passed {
 		if files_completed_at_end != file_count {
@@ -478,9 +482,7 @@ async fn test_copy_progress_with_metadata_tracking() {
 		// Always write to temp dir for local inspection
 		let temp_snapshot_path = test_root.join("test_snapshot.json");
 		let snapshot_json = serde_json::to_string_pretty(&snapshot).unwrap();
-		fs::write(&temp_snapshot_path, snapshot_json)
-			.await
-			.unwrap();
+		fs::write(&temp_snapshot_path, snapshot_json).await.unwrap();
 		println!(
 			"\n📄 Snapshot written to temp: {}",
 			temp_snapshot_path.display()
@@ -518,4 +520,3 @@ async fn test_copy_progress_with_metadata_tracking() {
 		);
 	}
 }
-

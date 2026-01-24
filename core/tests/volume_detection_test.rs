@@ -118,7 +118,11 @@ async fn test_macos_volume_detection() {
 					"  {} -> {} ({})",
 					path_str,
 					volume.name,
-					if volume.name == expected_volume { "✓" } else { "✗ WRONG" }
+					if volume.name == expected_volume {
+						"✓"
+					} else {
+						"✗ WRONG"
+					}
 				);
 				assert_eq!(
 					volume.name, expected_volume,

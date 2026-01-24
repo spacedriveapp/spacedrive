@@ -8977,6 +8977,7 @@ dependencies = [
  "tracing-subscriber",
  "uuid",
  "vergen",
+ "walkdir",
  "wasmer",
  "wasmer-middlewares",
  "webp",

@@ -477,8 +477,20 @@ async fn test_sequential_backfill_control() -> anyhow::Result<()> {
 
 	tracing::info!("Indexing both locations on Alice first");
 
-	add_and_index_location(&harness.library_alice, &harness.core_alice.volumes, core_path.to_str().unwrap(), "core").await?;
-	add_and_index_location(&harness.library_alice, &harness.core_alice.volumes, apps_path.to_str().unwrap(), "apps").await?;
+	add_and_index_location(
+		&harness.library_alice,
+		&harness.core_alice.volumes,
+		core_path.to_str().unwrap(),
+		"core",
+	)
+	.await?;
+	add_and_index_location(
+		&harness.library_alice,
+		&harness.core_alice.volumes,
+		apps_path.to_str().unwrap(),
+		"apps",
+	)
+	.await?;
 
 	let alice_entries = entities::entry::Entity::find()
 		.count(harness.library_alice.db().conn())

@@ -99,9 +99,7 @@ fn display_event(event: &Event, args: &EventsMonitorArgs) {
 
 	// Determine output format (new format flag takes precedence over legacy flags)
 	let use_json_pretty = matches!(args.format, OutputFormat::JsonPretty) || args.pretty;
-	let use_json = matches!(args.format, OutputFormat::Json)
-		|| use_json_pretty
-		|| args.verbose;
+	let use_json = matches!(args.format, OutputFormat::Json) || use_json_pretty || args.verbose;
 
 	if use_json {
 		// JSON mode: show full JSON

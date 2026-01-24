@@ -434,7 +434,9 @@ pub async fn add_and_index_location(
 	path: &str,
 	name: &str,
 ) -> anyhow::Result<Uuid> {
-	use sd_core::location::{create_location, manager::update_location_volume_id, IndexMode, LocationCreateArgs};
+	use sd_core::location::{
+		create_location, manager::update_location_volume_id, IndexMode, LocationCreateArgs,
+	};
 
 	tracing::info!(path = %path, name = %name, "Creating location and indexing");
 
@@ -502,13 +504,7 @@ pub async fn add_and_index_location(
 		};
 
 		// Update location and root entry with volume_id
-		update_location_volume_id(
-			library.db().conn(),
-			location_db_id,
-			entry_id,
-			volume_id,
-		)
-		.await?;
+		update_location_volume_id(library.db().conn(), location_db_id, entry_id, volume_id).await?;
 
 		tracing::info!(
 			location_uuid = %location_uuid,

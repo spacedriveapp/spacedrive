@@ -2,6 +2,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tracing::{info, warn};
 
+use chrono::{NaiveDate, Utc};
+
 use crate::infra::daemon::rpc::RpcServer;
 use crate::Core;
 
@@ -55,6 +57,58 @@ pub async fn start_default_server(
 	server.start().await
 }
 
+/// Clean up large log directories created by v2.0.0-alpha.1 release.
+/// Deletes the logs folder if it exceeds 1GB and was created before 2026-01-24.
+/// This cleanup can be removed in a future version.
+fn cleanup_legacy_logs(logs_dir: &std::path::Path) {
+	const ONE_GB: u64 = 1024 * 1024 * 1024;
+	// Hardcoded cutoff date: 2026-01-24 (today's date when this cleanup was added)
+	let cutoff_date = NaiveDate::from_ymd_opt(2026, 1, 24).unwrap();
+
+	if !logs_dir.exists() {
+		return;
+	}
+
+	// Check if directory was created before the cutoff date
+	let was_created_before_cutoff = match std::fs::metadata(logs_dir) {
+		Ok(metadata) => match metadata.created().or_else(|_| metadata.modified()) {
+			Ok(created_time) => {
+				let created_date = chrono::DateTime::<Utc>::from(created_time).date_naive();
+				created_date < cutoff_date
+			}
+			Err(_) => false,
+		},
+		Err(_) => return,
+	};
+
+	if !was_created_before_cutoff {
+		return;
+	}
+
+	// Calculate total size of logs directory
+	let total_size: u64 = walkdir::WalkDir::new(logs_dir)
+		.into_iter()
+		.filter_map(|e| e.ok())
+		.filter_map(|e| e.metadata().ok())
+		.filter(|m| m.is_file())
+		.map(|m| m.len())
+		.sum();
+
+	if total_size > ONE_GB {
+		eprintln!(
+			"Cleaning up legacy logs directory {:?} ({:.2} GB) created before {} - \
+			this is to clean up large log files created by the v2.0.0-alpha.1 release",
+			logs_dir,
+			total_size as f64 / ONE_GB as f64,
+			cutoff_date
+		);
+
+		if let Err(e) = std::fs::remove_dir_all(logs_dir) {
+			eprintln!("Failed to remove legacy logs directory: {}", e);
+		}
+	}
+}
+
 /// Initialize tracing with optional file logging to {data_dir}/logs/
 /// File logging is controlled by config.daemon_logging.enabled
 /// Supports multi-stream logging with per-stream filters
@@ -84,6 +138,9 @@ fn initialize_tracing_with_file_logging(
 
 		// Resolve logs directory path (absolute or relative to data_dir)
 		let logs_dir = config.logs_dir();
+
+		// Clean up legacy large log directories from v2.0.0-alpha.1
+		cleanup_legacy_logs(&logs_dir);
 
 		// Set up main environment filter (for stdout and main daemon.log)
 		let main_filter =
