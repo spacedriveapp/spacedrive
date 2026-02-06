@@ -42,6 +42,18 @@ runs:
         key: ${{ steps.cache-llvm-restore.outputs.cache-primary-key }}
         path: C:/Program Files/LLVM
 
+    - name: Configure LLVM for Windows
+      if: ${{ runner.os == 'Windows' }}
+      shell: bash
+      run: |
+        # Keep LIBCLANG_PATH for bindgen but remove clang from PATH
+        # so aws-lc-sys/CMake don't pick up Clang over MSVC's cl.exe
+        echo "LIBCLANG_PATH=C:/Program Files/LLVM/bin" >> $GITHUB_ENV
+        echo "CC=cl" >> $GITHUB_ENV
+        echo "CXX=cl" >> $GITHUB_ENV
+        # Remove LLVM bin from PATH to prevent CMake finding clang
+        echo "PATH=$(echo "$PATH" | sed 's|C:/Program Files/LLVM/bin:||g; s|C:\\Program Files\\LLVM\\bin;||g')" >> $GITHUB_ENV
+
     - name: Install current Bash on macOS
       shell: bash
       if: runner.os == 'macOS'
