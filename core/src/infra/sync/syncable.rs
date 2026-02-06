@@ -3,7 +3,7 @@
 //! Models that implement `Syncable` can be automatically logged in the sync log
 //! when they are created, updated, or deleted via the TransactionManager.
 
-use sea_orm::DatabaseConnection;
+use sea_orm::{ConnectionTrait, DatabaseConnection};
 use serde::Serialize;
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
@@ -283,6 +283,56 @@ pub trait Syncable: Serialize + Clone {
 			.is_some();
 
 		Ok(exists)
+	}
+
+	/// Create a tombstone for this model (for local deletions)
+	///
+	/// This creates a tombstone record in `device_state_tombstones` to mark
+	/// a record as deleted. The tombstone will be synced to peer devices during
+	/// incremental sync, allowing them to delete the corresponding records.
+	///
+	/// # Parameters
+	/// - `uuid`: The UUID of the record being deleted
+	/// - `device_db_id`: The database ID (i32) of the device that owns this record
+	/// - `db`: Database connection or transaction (accepts both for atomicity)
+	///
+	/// # Note
+	/// For cascading deletions (e.g., entries), only create a tombstone for the
+	/// root UUID. The receiving device will cascade the deletion using the
+	/// `apply_deletion` method.
+	async fn create_tombstone<C: ConnectionTrait>(
+		uuid: Uuid,
+		device_db_id: i32,
+		db: &C,
+	) -> Result<(), sea_orm::DbErr>
+	where
+		Self: Sized,
+	{
+		use sea_orm::{ActiveValue::NotSet, Set, sea_query::OnConflict};
+		use crate::infra::db::entities::device_state_tombstone;
+
+		let tombstone = device_state_tombstone::ActiveModel {
+			id: NotSet,
+			model_type: Set(Self::SYNC_MODEL.to_string()),
+			record_uuid: Set(uuid),
+			device_id: Set(device_db_id),
+			deleted_at: Set(chrono::Utc::now().into()),
+		};
+
+		device_state_tombstone::Entity::insert(tombstone)
+			.on_conflict(
+				OnConflict::columns(vec![
+					device_state_tombstone::Column::ModelType,
+					device_state_tombstone::Column::RecordUuid,
+					device_state_tombstone::Column::DeviceId,
+				])
+				.do_nothing()
+				.to_owned(),
+			)
+			.exec(db)
+			.await
+			.ok(); // Ignore duplicate conflict (idempotent)
+		Ok(())
 	}
 
 	// ============================================

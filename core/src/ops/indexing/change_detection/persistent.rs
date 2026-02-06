@@ -33,6 +33,7 @@ pub struct DatabaseAdapter {
 	location_id: Uuid,
 	location_root_entry_id: i32,
 	volume_id: i32,
+	device_db_id: i32,
 	db: sea_orm::DatabaseConnection,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	entry_id_cache: HashMap<PathBuf, i32>,
@@ -70,12 +71,25 @@ impl DatabaseAdapter {
 			)
 		})?;
 
+		// Resolve device_db_id from volume for tombstone creation
+		let volume_record = entities::volume::Entity::find_by_id(volume_id)
+			.one(&db)
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Volume {} not found", volume_id))?;
+		let device_record = entities::device::Entity::find()
+			.filter(entities::device::Column::Uuid.eq(volume_record.device_id))
+			.one(&db)
+			.await?
+			.ok_or_else(|| anyhow::anyhow!("Device {} not found", volume_record.device_id))?;
+		let device_db_id = device_record.id;
+
 		Ok(Self {
 			context,
 			library_id,
 			location_id,
 			location_root_entry_id,
 			volume_id,
+			device_db_id,
 			db,
 			volume_backend,
 			entry_id_cache: HashMap::new(),
@@ -361,6 +375,16 @@ impl ChangeHandler for DatabaseAdapter {
 		} else {
 			Vec::new()
 		};
+
+		// Create tombstone for root entry only (cascading design)
+		// This must happen before database deletion for atomicity
+		// device_db_id is cached in DatabaseAdapter to avoid queries per deletion
+		if let Some(root_uuid) = entry.uuid {
+			use crate::infra::sync::Syncable;
+			entities::entry::Model::create_tombstone(root_uuid, self.device_db_id, &self.db)
+				.await
+				.map_err(|e| anyhow::anyhow!("Failed to create tombstone: {}", e))?;
+		}
 
 		if !entries_to_delete.is_empty() {
 			if let Some(library) = self.context.get_library(self.library_id).await {

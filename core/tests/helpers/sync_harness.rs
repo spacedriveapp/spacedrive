@@ -461,6 +461,81 @@ pub async fn wait_for_sync(
 	);
 }
 
+/// Wait for deletion sync to complete - waits for Bob's entry count to decrease to expected value
+pub async fn wait_for_deletion_sync(
+	_library_alice: &Arc<Library>,
+	library_bob: &Arc<Library>,
+	expected_bob_entries: u64,
+	max_duration: Duration,
+) -> anyhow::Result<()> {
+	let start = tokio::time::Instant::now();
+	let mut stable_iterations = 0;
+
+	while start.elapsed() < max_duration {
+		let bob_entries = entities::entry::Entity::find()
+			.count(library_bob.db().conn())
+			.await?;
+
+		if bob_entries == expected_bob_entries {
+			stable_iterations += 1;
+			if stable_iterations >= 3 {
+				tracing::info!(
+					duration_ms = start.elapsed().as_millis(),
+					bob_entries = bob_entries,
+					expected_entries = expected_bob_entries,
+					"Deletion sync completed"
+				);
+				return Ok(());
+			}
+		} else {
+			stable_iterations = 0;
+		}
+
+		tokio::time::sleep(Duration::from_millis(100)).await;
+	}
+
+	let bob_entries = entities::entry::Entity::find()
+		.count(library_bob.db().conn())
+		.await?;
+
+	anyhow::bail!(
+		"Deletion sync timeout after {:?}. Expected {} entries on Bob, got {}",
+		max_duration,
+		expected_bob_entries,
+		bob_entries
+	);
+}
+
+/// Count tombstones in device_state_tombstones table
+pub async fn count_tombstones(
+	library: &Arc<Library>,
+	model_type: Option<&str>,
+) -> anyhow::Result<u64> {
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	let mut query = entities::device_state_tombstone::Entity::find();
+
+	if let Some(model_type) = model_type {
+		query = query.filter(entities::device_state_tombstone::Column::ModelType.eq(model_type));
+	}
+
+	let count = query.count(library.db().conn()).await?;
+	Ok(count)
+}
+
+/// Create an entry tombstone directly (for testing before the fix lands)
+pub async fn create_entry_tombstone(
+	library: &Arc<Library>,
+	entry_uuid: uuid::Uuid,
+	device_db_id: i32,
+) -> anyhow::Result<()> {
+	use sd_core::infra::sync::Syncable;
+	entities::entry::Model::create_tombstone(entry_uuid, device_db_id, library.db().conn())
+		.await
+		.map_err(|e| anyhow::anyhow!("Failed to create tombstone: {}", e))?;
+	Ok(())
+}
+
 /// Add a location and wait for indexing to complete
 pub async fn add_and_index_location(
 	library: &Arc<Library>,

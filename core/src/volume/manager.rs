@@ -1585,30 +1585,13 @@ impl VolumeManager {
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;
 
-		// Create tombstone for device-owned deletion sync
-		let tombstone = entities::device_state_tombstone::ActiveModel {
-			id: sea_orm::NotSet,
-			model_type: sea_orm::Set("volume".to_string()),
-			record_uuid: sea_orm::Set(volume.uuid),
-			device_id: sea_orm::Set(device.id),
-			deleted_at: sea_orm::Set(chrono::Utc::now()),
-		};
-
-		entities::device_state_tombstone::Entity::insert(tombstone)
-			.on_conflict(
-				OnConflict::columns(vec![
-					entities::device_state_tombstone::Column::ModelType,
-					entities::device_state_tombstone::Column::RecordUuid,
-					entities::device_state_tombstone::Column::DeviceId,
-				])
-				.do_nothing()
-				.to_owned(),
-			)
-			.exec(&txn)
+		// Create tombstone for device-owned deletion sync using unified API (inside transaction for atomicity)
+		use crate::infra::sync::Syncable;
+		entities::volume::Model::create_tombstone(volume.uuid, device.id, &txn)
 			.await
-			.map_err(|e| VolumeError::Database(e.to_string()))?;
+			.map_err(|e| VolumeError::Database(format!("Failed to create tombstone: {}", e)))?;
 
-		// Commit transaction
+		// Commit transaction (tombstone and deletion are now atomic)
 		txn.commit()
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?;

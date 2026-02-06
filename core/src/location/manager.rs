@@ -582,30 +582,13 @@ impl LocationManager {
 			.exec(&txn)
 			.await?;
 
-		// Create tombstone for the location
-		let tombstone = entities::device_state_tombstone::ActiveModel {
-			id: NotSet,
-			model_type: Set("location".to_string()),
-			record_uuid: Set(location_id),
-			device_id: Set(location.device_id),
-			deleted_at: Set(chrono::Utc::now().into()),
-		};
+		// Create tombstone for the location using unified API (inside transaction for atomicity)
+		use crate::infra::sync::Syncable;
+		entities::location::Model::create_tombstone(location_id, location.device_id, &txn)
+			.await
+			.map_err(|e| LocationError::Other(format!("Failed to create tombstone: {}", e)))?;
 
-		use sea_orm::sea_query::OnConflict;
-		entities::device_state_tombstone::Entity::insert(tombstone)
-			.on_conflict(
-				OnConflict::columns(vec![
-					entities::device_state_tombstone::Column::ModelType,
-					entities::device_state_tombstone::Column::RecordUuid,
-					entities::device_state_tombstone::Column::DeviceId,
-				])
-				.do_nothing()
-				.to_owned(),
-			)
-			.exec(&txn)
-			.await?;
-
-		// Commit transaction
+		// Commit transaction (tombstone and deletion are now atomic)
 		txn.commit().await?;
 
 		// Emit legacy event
