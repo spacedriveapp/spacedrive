@@ -94,7 +94,7 @@ impl LibraryAction for IndexVolumeAction {
 
 		// 5. Get ephemeral cache and create/reuse index for this volume
 		let ephemeral_cache = context.ephemeral_cache();
-		let index = ephemeral_cache.create_for_indexing(volume.mount_point.clone());
+		let index = ephemeral_cache.create_for_indexing(volume.mount_point.clone(), self.input.scope);
 		indexer_job.set_ephemeral_index(index.clone());
 
 		// 6. Clear stale entries if this volume was previously indexed
@@ -138,6 +138,7 @@ impl LibraryAction for IndexVolumeAction {
 		let mount_point_clone = volume.mount_point.clone();
 		let volume_name = volume.name.clone();
 		let job_id_str = job_id.to_string();
+		let scope_clone = self.input.scope;
 
 		tokio::spawn(async move {
 			let mut event_rx = context_clone.events.subscribe();
@@ -171,9 +172,9 @@ impl LibraryAction for IndexVolumeAction {
 									error!("Failed to save volume stats: {}", e);
 								}
 
-								// Mark as indexed and register for watching
-								let ephemeral_cache = context_clone.ephemeral_cache();
-								ephemeral_cache.mark_indexing_complete(&mount_point_clone);
+							// Mark as indexed and register for watching
+							let ephemeral_cache = context_clone.ephemeral_cache();
+							ephemeral_cache.mark_indexing_complete(&mount_point_clone, scope_clone);
 								let _ = ephemeral_cache
 									.register_for_watching(mount_point_clone.clone());
 

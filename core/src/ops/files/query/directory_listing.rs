@@ -12,6 +12,7 @@ use crate::{
 		video_media_data,
 	},
 	infra::query::LibraryQuery,
+	ops::indexing::IndexScope,
 };
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
@@ -753,7 +754,7 @@ impl DirectoryListingQuery {
 		// Get library to dispatch indexer job
 		if let Some(library) = context.get_library(library_id).await {
 			// Create cache entry and get the index to share with the job
-			let ephemeral_index = cache.create_for_indexing(local_path.clone());
+			let ephemeral_index = cache.create_for_indexing(local_path.clone(), IndexScope::Current);
 
 			// Clear any stale entries from previous indexing (prevents ghost files)
 			let cleared = cache.clear_for_reindex(&local_path).await;
@@ -790,7 +791,7 @@ impl DirectoryListingQuery {
 						e
 					);
 					// Mark indexing as not in progress since job failed
-					cache.mark_indexing_complete(&local_path);
+					cache.mark_indexing_complete(&local_path, IndexScope::Current);
 				}
 			}
 		}

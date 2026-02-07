@@ -7,9 +7,10 @@
 //! (receiving live filesystem updates via `MemoryAdapter`).
 
 use super::EphemeralIndex;
+use crate::ops::indexing::IndexScope;
 use parking_lot::RwLock;
 use std::{
-	collections::HashSet,
+	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
 	sync::Arc,
 	time::Instant,
@@ -25,7 +26,8 @@ pub struct EphemeralIndexCache {
 	index: Arc<TokioRwLock<EphemeralIndex>>,
 
 	/// Paths whose immediate children have been indexed (ready for queries)
-	indexed_paths: RwLock<HashSet<PathBuf>>,
+	/// Maps path to its indexing scope (Current vs Recursive)
+	indexed_paths: RwLock<HashMap<PathBuf, IndexScope>>,
 
 	/// Paths currently being indexed
 	indexing_in_progress: RwLock<HashSet<PathBuf>>,
@@ -42,7 +44,7 @@ impl EphemeralIndexCache {
 	pub fn new() -> std::io::Result<Self> {
 		Ok(Self {
 			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
-			indexed_paths: RwLock::new(HashSet::new()),
+			indexed_paths: RwLock::new(HashMap::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
 			created_at: Instant::now(),
@@ -58,11 +60,38 @@ impl EphemeralIndexCache {
 	/// For search, use `get_for_search()` which checks parent paths.
 	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
 		let indexed = self.indexed_paths.read();
-		if indexed.contains(path) {
-			Some(self.index.clone())
-		} else {
-			None
+
+		// Check exact match
+		if indexed.contains_key(path) {
+			return Some(self.index.clone());
 		}
+
+		// Check canonical form
+		let canonical = path.canonicalize().ok();
+		if let Some(ref c) = canonical {
+			if indexed.contains_key(c.as_path()) {
+				return Some(self.index.clone());
+			}
+		}
+
+		// Check if any recursively-indexed parent covers this path
+		for (indexed_path, scope) in indexed.iter() {
+			if *scope != IndexScope::Recursive {
+				continue;
+			}
+
+			if path.starts_with(indexed_path) {
+				return Some(self.index.clone());
+			}
+
+			if let Some(ref c) = canonical {
+				if c.starts_with(indexed_path) {
+					return Some(self.index.clone());
+				}
+			}
+		}
+
+		None
 	}
 
 	/// Get the global index for searching within a path
@@ -73,7 +102,7 @@ impl EphemeralIndexCache {
 		let indexed = self.indexed_paths.read();
 
 		// First check for exact match
-		if indexed.contains(path) {
+		if indexed.contains_key(path) {
 			return Some(self.index.clone());
 		}
 
@@ -81,7 +110,7 @@ impl EphemeralIndexCache {
 		let canonical_path = path.canonicalize().ok();
 
 		// Check if path or its canonical form is under any indexed parent
-		for indexed_path in indexed.iter() {
+		for (indexed_path, _scope) in indexed.iter() {
 			// Try with original path
 			if path.starts_with(indexed_path) {
 				return Some(self.index.clone());
@@ -118,7 +147,39 @@ impl EphemeralIndexCache {
 
 	/// Check if a path has been fully indexed
 	pub fn is_indexed(&self, path: &Path) -> bool {
-		self.indexed_paths.read().contains(path)
+		let indexed = self.indexed_paths.read();
+
+		// Check exact match
+		if indexed.contains_key(path) {
+			return true;
+		}
+
+		// Check canonical form
+		let canonical = path.canonicalize().ok();
+		if let Some(ref c) = canonical {
+			if indexed.contains_key(c.as_path()) {
+				return true;
+			}
+		}
+
+		// Check if any recursively-indexed parent covers this path
+		for (indexed_path, scope) in indexed.iter() {
+			if *scope != IndexScope::Recursive {
+				continue;
+			}
+
+			if path.starts_with(indexed_path) {
+				return true;
+			}
+
+			if let Some(ref c) = canonical {
+				if c.starts_with(indexed_path) {
+					return true;
+				}
+			}
+		}
+
+		false
 	}
 
 	/// Check if indexing is in progress for a path
@@ -146,9 +207,9 @@ impl EphemeralIndexCache {
 					*index = loaded_index;
 					drop(index);
 
-					// Mark as indexed
-					let mut indexed = self.indexed_paths.write();
-					indexed.insert(path.to_path_buf());
+				// Mark as indexed
+				let mut indexed = self.indexed_paths.write();
+				indexed.insert(path.to_path_buf(), IndexScope::Recursive);
 
 					tracing::info!("Loaded snapshot for path: {}", path.display());
 					return Ok(true);
@@ -179,7 +240,39 @@ impl EphemeralIndexCache {
 	///
 	/// If the path was previously indexed, clears its children first to
 	/// prevent ghost entries from deleted files.
-	pub fn create_for_indexing(&self, path: PathBuf) -> Arc<TokioRwLock<EphemeralIndex>> {
+	///
+	/// If the path is already covered by a recursive parent, returns the
+	/// existing index without registering (prevents redundant scans).
+	pub fn create_for_indexing(
+		&self,
+		path: PathBuf,
+		scope: IndexScope,
+	) -> Arc<TokioRwLock<EphemeralIndex>> {
+		let indexed = self.indexed_paths.read();
+		let canonical = path.canonicalize().ok();
+
+		// Check if already covered by a recursive parent
+		for (existing_path, existing_scope) in indexed.iter() {
+			if *existing_scope != IndexScope::Recursive {
+				continue;
+			}
+
+			let covered = path.starts_with(existing_path)
+				|| canonical
+					.as_ref()
+					.map_or(false, |c| c.starts_with(existing_path));
+
+			if covered {
+				tracing::debug!(
+					"Path {} already covered by recursive index at {}, skipping",
+					path.display(),
+					existing_path.display()
+				);
+				return self.index.clone();
+			}
+		}
+		drop(indexed);
+
 		let mut in_progress = self.indexing_in_progress.write();
 		let mut indexed = self.indexed_paths.write();
 
@@ -214,12 +307,19 @@ impl EphemeralIndexCache {
 	/// Mark indexing as complete for a path
 	///
 	/// Moves the path from "in progress" to "indexed" state.
-	pub fn mark_indexing_complete(&self, path: &Path) {
+	/// If scope is Recursive, subsumes child paths (removes redundant entries).
+	pub fn mark_indexing_complete(&self, path: &Path, scope: IndexScope) {
 		let mut in_progress = self.indexing_in_progress.write();
 		let mut indexed = self.indexed_paths.write();
 
 		in_progress.remove(path);
-		indexed.insert(path.to_path_buf());
+
+		// If this is a recursive scan, subsume child paths
+		if scope == IndexScope::Recursive {
+			indexed.retain(|existing, _| !existing.starts_with(path) || existing == path);
+		}
+
+		indexed.insert(path.to_path_buf(), scope);
 	}
 
 	/// Remove a path from the indexed set (e.g., on invalidation)
@@ -243,7 +343,7 @@ impl EphemeralIndexCache {
 
 	/// Get all indexed paths
 	pub fn indexed_paths(&self) -> Vec<PathBuf> {
-		self.indexed_paths.read().iter().cloned().collect()
+		self.indexed_paths.read().keys().cloned().collect()
 	}
 
 	/// Get all paths currently being indexed
@@ -258,7 +358,7 @@ impl EphemeralIndexCache {
 	/// must already be indexed.
 	pub fn register_for_watching(&self, path: PathBuf) -> bool {
 		let indexed = self.indexed_paths.read();
-		if !indexed.contains(&path) {
+		if !indexed.contains_key(&path) {
 			return false;
 		}
 		drop(indexed);
@@ -385,7 +485,7 @@ impl EphemeralIndexCache {
 	#[deprecated(note = "Entries should be added directly to the global index")]
 	pub fn insert(&self, path: PathBuf, _index: Arc<TokioRwLock<EphemeralIndex>>) {
 		let mut indexed = self.indexed_paths.write();
-		indexed.insert(path);
+		indexed.insert(path, IndexScope::Recursive);
 	}
 
 	/// Legacy: Remove (just invalidates the path)
@@ -443,12 +543,12 @@ mod tests {
 		let path = PathBuf::from("/test/path");
 
 		// Start indexing
-		let _index = cache.create_for_indexing(path.clone());
+		let _index = cache.create_for_indexing(path.clone(), IndexScope::Recursive);
 		assert!(cache.is_indexing(&path));
 		assert!(!cache.is_indexed(&path));
 
 		// Complete indexing
-		cache.mark_indexing_complete(&path);
+		cache.mark_indexing_complete(&path, IndexScope::Recursive);
 		assert!(!cache.is_indexing(&path));
 		assert!(cache.is_indexed(&path));
 
@@ -464,15 +564,15 @@ mod tests {
 		let path2 = PathBuf::from("/test/path2");
 
 		// Start indexing both paths
-		let index1 = cache.create_for_indexing(path1.clone());
-		let index2 = cache.create_for_indexing(path2.clone());
+		let index1 = cache.create_for_indexing(path1.clone(), IndexScope::Current);
+		let index2 = cache.create_for_indexing(path2.clone(), IndexScope::Current);
 
 		// They should be the same index
 		assert!(Arc::ptr_eq(&index1, &index2));
 
 		// Complete both
-		cache.mark_indexing_complete(&path1);
-		cache.mark_indexing_complete(&path2);
+		cache.mark_indexing_complete(&path1, IndexScope::Current);
+		cache.mark_indexing_complete(&path2, IndexScope::Current);
 
 		// Both paths now indexed
 		assert!(cache.is_indexed(&path1));
@@ -486,8 +586,8 @@ mod tests {
 		let path = PathBuf::from("/test/path");
 
 		// Index the path
-		let _index = cache.create_for_indexing(path.clone());
-		cache.mark_indexing_complete(&path);
+		let _index = cache.create_for_indexing(path.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&path, IndexScope::Recursive);
 		assert!(cache.is_indexed(&path));
 
 		// Invalidate it
@@ -506,10 +606,10 @@ mod tests {
 		let path2 = PathBuf::from("/in_progress");
 
 		// One indexed, one in progress
-		let _index = cache.create_for_indexing(path1.clone());
-		cache.mark_indexing_complete(&path1);
+		let _index = cache.create_for_indexing(path1.clone(), IndexScope::Current);
+		cache.mark_indexing_complete(&path1, IndexScope::Current);
 
-		let _index = cache.create_for_indexing(path2.clone());
+		let _index = cache.create_for_indexing(path2.clone(), IndexScope::Current);
 
 		let stats = cache.stats();
 		assert_eq!(stats.indexed_paths, 1);
@@ -526,8 +626,8 @@ mod tests {
 		assert!(!cache.is_watched(&path));
 
 		// Index the path first
-		let _index = cache.create_for_indexing(path.clone());
-		cache.mark_indexing_complete(&path);
+		let _index = cache.create_for_indexing(path.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&path, IndexScope::Recursive);
 
 		// Now we can register for watching
 		assert!(cache.register_for_watching(path.clone()));
@@ -550,8 +650,8 @@ mod tests {
 		let child = PathBuf::from("/mnt/nas/documents/report.pdf");
 
 		// Index and watch the root
-		let _index = cache.create_for_indexing(root.clone());
-		cache.mark_indexing_complete(&root);
+		let _index = cache.create_for_indexing(root.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&root, IndexScope::Recursive);
 		cache.register_for_watching(root.clone());
 
 		// Child path should find the watched root
@@ -559,5 +659,94 @@ mod tests {
 
 		// Unrelated path should not find a root
 		assert_eq!(cache.find_watched_root(Path::new("/other/path")), None);
+	}
+
+	#[test]
+	fn test_parent_path_coverage() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		let root = PathBuf::from("/mnt/volume");
+		let _index = cache.create_for_indexing(root.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&root, IndexScope::Recursive);
+
+		// Child path should be considered indexed
+		assert!(cache.is_indexed(&PathBuf::from("/mnt/volume/photos/2024")));
+		assert!(cache.get_for_path(&PathBuf::from("/mnt/volume/photos/2024")).is_some());
+	}
+
+	#[test]
+	fn test_shallow_browse_no_parent_coverage() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		// Shallow browse of root (Current scope)
+		let root = PathBuf::from("/mnt/volume");
+		let _index = cache.create_for_indexing(root.clone(), IndexScope::Current);
+		cache.mark_indexing_complete(&root, IndexScope::Current);
+
+		// Child path should NOT be covered by a shallow scan
+		assert!(!cache.is_indexed(&PathBuf::from("/mnt/volume/photos/2024")));
+	}
+
+	#[test]
+	fn test_no_redundant_scan_under_volume() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		let root = PathBuf::from("/mnt/volume");
+		let _index = cache.create_for_indexing(root.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&root, IndexScope::Recursive);
+
+		// Attempting to create_for_indexing on a child should be a no-op
+		let child = PathBuf::from("/mnt/volume/photos");
+		let _index = cache.create_for_indexing(child.clone(), IndexScope::Current);
+
+		// indexed_paths should still only contain the root
+		assert_eq!(cache.len(), 1);
+	}
+
+	#[test]
+	fn test_volume_subsumes_child_paths() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		// Browse individual directories first
+		let dir1 = PathBuf::from("/mnt/volume/photos");
+		let dir2 = PathBuf::from("/mnt/volume/documents");
+		let _index = cache.create_for_indexing(dir1.clone(), IndexScope::Current);
+		cache.mark_indexing_complete(&dir1, IndexScope::Current);
+		let _index = cache.create_for_indexing(dir2.clone(), IndexScope::Current);
+		cache.mark_indexing_complete(&dir2, IndexScope::Current);
+
+		assert_eq!(cache.len(), 2);
+
+		// Now volume index the root (recursive)
+		let root = PathBuf::from("/mnt/volume");
+		let _index = cache.create_for_indexing(root.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&root, IndexScope::Recursive);
+
+		// Child paths subsumed — only root remains
+		assert_eq!(cache.len(), 1);
+		// Children still covered via parent
+		assert!(cache.is_indexed(&dir1));
+		assert!(cache.is_indexed(&dir2));
+	}
+
+	#[test]
+	#[cfg(target_os = "macos")]
+	fn test_symlink_path_resolution() {
+		let cache = EphemeralIndexCache::new().expect("failed to create cache");
+
+		// Simulate volume index at real path
+		let real_root = PathBuf::from("/System/Volumes/Data");
+		let _index = cache.create_for_indexing(real_root.clone(), IndexScope::Recursive);
+		cache.mark_indexing_complete(&real_root, IndexScope::Recursive);
+
+		// Symlink path should be considered indexed (on macOS /Users -> /System/Volumes/Data/Users)
+		// This test verifies the canonicalization logic
+		let symlink_path = PathBuf::from("/Users/jamespine");
+		// Only test if the path exists and canonicalizes to something under the indexed root
+		if let Ok(canonical) = symlink_path.canonicalize() {
+			if canonical.starts_with(&real_root) {
+				assert!(cache.is_indexed(&symlink_path));
+			}
+		}
 	}
 }

@@ -681,7 +681,7 @@ impl JobHandler for IndexerJob {
 				ctx.library()
 					.core_context()
 					.ephemeral_cache()
-					.mark_indexing_complete(local_path);
+					.mark_indexing_complete(local_path, self.config.scope);
 				match &result {
 					Ok(_) => {
 						ctx.log(format!(

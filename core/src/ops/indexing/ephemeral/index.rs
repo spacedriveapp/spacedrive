@@ -123,6 +123,20 @@ impl EphemeralIndex {
 		})
 	}
 
+	/// Resolve a path to its EntryId, handling symlinks.
+	///
+	/// Tries direct lookup first (fast path), then canonicalizes and retries (slow path).
+	/// Canonicalization resolves symlinks so queries like `/Users/jamespine` find entries
+	/// stored as `/System/Volumes/Data/Users/jamespine` on macOS.
+	fn resolve_entry_id(&self, path: &Path) -> Option<EntryId> {
+		if let Some(&id) = self.path_index.get(path) {
+			return Some(id);
+		}
+		path.canonicalize()
+			.ok()
+			.and_then(|canonical| self.path_index.get(&canonical).copied())
+	}
+
 	/// Ensures a directory exists, creating all missing ancestors recursively.
 	///
 	/// This method guarantees that `list_directory()` works immediately after
@@ -286,8 +300,8 @@ impl EphemeralIndex {
 	}
 
 	pub fn get_entry(&mut self, path: &PathBuf) -> Option<EntryMetadata> {
-		let id = self.path_index.get(path)?;
-		let node = self.arena.get(*id)?;
+		let id = self.resolve_entry_id(path)?;
+		let node = self.arena.get(id)?;
 
 		self.last_accessed = Instant::now();
 
@@ -310,8 +324,8 @@ impl EphemeralIndex {
 
 	/// Get entry reference for read-only access (doesn't update last_accessed)
 	pub fn get_entry_ref(&self, path: &PathBuf) -> Option<EntryMetadata> {
-		let id = self.path_index.get(path)?;
-		let node = self.arena.get(*id)?;
+		let id = self.resolve_entry_id(path)?;
+		let node = self.arena.get(id)?;
 
 		Some(EntryMetadata {
 			path: path.clone(),
@@ -331,8 +345,8 @@ impl EphemeralIndex {
 	}
 
 	pub fn get_entry_uuid(&self, path: &PathBuf) -> Option<Uuid> {
-		let entry_id = self.path_index.get(path)?;
-		self.entry_uuids.get(entry_id).copied()
+		let entry_id = self.resolve_entry_id(path)?;
+		self.entry_uuids.get(&entry_id).copied()
 	}
 
 	/// Get or assign a UUID for the given path (lazy generation).
@@ -343,8 +357,8 @@ impl EphemeralIndex {
 	/// to persistent indexes.
 	pub fn get_or_assign_uuid(&mut self, path: &PathBuf) -> Uuid {
 		// Look up EntryId for this path
-		let entry_id = match self.path_index.get(path) {
-			Some(&id) => id,
+		let entry_id = match self.resolve_entry_id(path) {
+			Some(id) => id,
 			None => return Uuid::new_v4(), // Path not found, return random UUID
 		};
 
@@ -376,8 +390,8 @@ impl EphemeralIndex {
 	}
 
 	pub fn get_content_kind(&self, path: &PathBuf) -> ContentKind {
-		let entry_id = match self.path_index.get(path) {
-			Some(&id) => id,
+		let entry_id = match self.resolve_entry_id(path) {
+			Some(id) => id,
 			None => return ContentKind::Unknown,
 		};
 
@@ -388,8 +402,8 @@ impl EphemeralIndex {
 	}
 
 	pub fn list_directory(&self, path: &Path) -> Option<Vec<PathBuf>> {
-		let id = self.path_index.get(path)?;
-		let node = self.arena.get(*id)?;
+		let id = self.resolve_entry_id(path)?;
+		let node = self.arena.get(id)?;
 
 		Some(
 			node.children
@@ -410,7 +424,7 @@ impl EphemeralIndex {
 	pub fn clear_directory_children(
 		&mut self,
 		dir_path: &Path,
-		indexed_paths: &std::collections::HashSet<PathBuf>,
+		indexed_paths: &std::collections::HashMap<PathBuf, crate::ops::indexing::IndexScope>,
 	) -> (usize, Vec<PathBuf>) {
 		let dir_id = match self.path_index.get(dir_path) {
 			Some(&id) => id,
@@ -432,8 +446,8 @@ impl EphemeralIndex {
 				let child_node = self.arena.get(child_id)?;
 				let child_path = self.reconstruct_path(child_id)?;
 
-				// Preserve subdirectories that were explicitly browsed AND still exist
-				if child_node.is_directory() && indexed_paths.contains(&child_path) {
+			// Preserve subdirectories that were explicitly browsed AND still exist
+			if child_node.is_directory() && indexed_paths.contains_key(&child_path) {
 					// Verify the directory still exists on the filesystem
 					if std::fs::metadata(&child_path).is_ok() {
 						return None; // Preserve - still exists and was browsed
@@ -615,7 +629,7 @@ impl EphemeralIndex {
 
 	/// Check if an entry exists at the given path.
 	pub fn has_entry(&self, path: &Path) -> bool {
-		self.path_index.contains_key(path)
+		self.resolve_entry_id(path).is_some()
 	}
 
 	/// Remove an entry at the given path.
