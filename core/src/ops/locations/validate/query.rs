@@ -85,7 +85,9 @@ impl LibraryQuery for ValidateLocationPathQuery {
 		let is_system_dir = system_dirs.iter().any(|d| {
 			// Special case: "/" should only match if path IS "/", not if it starts with "/"
 			// Otherwise every absolute path would be considered a system directory
-			let matches = if d.to_string_lossy() == "/" {
+			// Same for Windows drive roots like "C:\" - only match if path IS the drive root
+			let d_str = d.to_string_lossy();
+			let matches = if d_str == "/" || (cfg!(target_os = "windows") && d_str.ends_with(":\\")) {
 				path == d
 			} else {
 				path.starts_with(d)
