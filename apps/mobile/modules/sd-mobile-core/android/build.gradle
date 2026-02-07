@@ -1,5 +1,26 @@
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'io.gitlab.arturbosch.detekt'
+apply plugin: 'org.jlleitschuh.gradle.ktlint'
+
+detekt {
+  config.setFrom("${rootProject.projectDir}/config/detekt.yml")
+  buildUponDefaultConfig = true
+  allRules = false
+  autoCorrect = false
+  parallel = true
+}
+
+ktlint {
+  android = true
+  outputToConsole = true
+  outputColorName = "RED"
+  ignoreFailures = false
+  filter {
+    exclude("**/generated/**")
+    include("**/kotlin/**")
+  }
+}
 
 android {
   compileSdkVersion 35
@@ -39,4 +60,5 @@ tasks.named('preBuild').configure {
 dependencies {
   implementation project(':expo-modules-core')
   implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.25"
+  implementation "androidx.documentfile:documentfile:1.0.1"
 }

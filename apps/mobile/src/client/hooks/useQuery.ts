@@ -5,6 +5,12 @@ import {
 	UseMutationOptions,
 } from "@tanstack/react-query";
 import { useSpacedriveClient } from "./useClient";
+import type { SpacedriveClient } from "../SpacedriveClient";
+
+// Cast hook result to mobile's client type
+function useMobileClient(): SpacedriveClient {
+	return useSpacedriveClient() as unknown as SpacedriveClient;
+}
 
 /**
  * Hook for executing core-level queries (no library context).
@@ -14,7 +20,7 @@ export function useCoreQuery<T = unknown>(
 	input: unknown = {},
 	options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">,
 ) {
-	const client = useSpacedriveClient();
+	const client = useMobileClient();
 
 	return useQuery<T, Error>({
 		queryKey: ["core", method, input],
@@ -32,7 +38,7 @@ export function useLibraryQuery<T = unknown>(
 	input: unknown = {},
 	options?: Omit<UseQueryOptions<T, Error>, "queryKey" | "queryFn">,
 ) {
-	const client = useSpacedriveClient();
+	const client = useMobileClient();
 	const libraryId = client.getCurrentLibraryId();
 
 	return useQuery<T, Error>({
@@ -50,7 +56,7 @@ export function useCoreAction<TInput = unknown, TOutput = unknown>(
 	method: string,
 	options?: UseMutationOptions<TOutput, Error, TInput>,
 ) {
-	const client = useSpacedriveClient();
+	const client = useMobileClient();
 
 	return useMutation<TOutput, Error, TInput>({
 		mutationFn: (input: TInput) =>
@@ -66,7 +72,7 @@ export function useLibraryAction<TInput = unknown, TOutput = unknown>(
 	method: string,
 	options?: UseMutationOptions<TOutput, Error, TInput>,
 ) {
-	const client = useSpacedriveClient();
+	const client = useMobileClient();
 
 	return useMutation<TOutput, Error, TInput>({
 		mutationFn: (input: TInput) =>

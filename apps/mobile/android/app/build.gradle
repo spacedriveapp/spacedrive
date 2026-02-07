@@ -81,6 +81,43 @@ def enableMinifyInReleaseBuilds = (findProperty('android.enableMinifyInReleaseBu
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+/**
+ * Calculate dynamic versionCode based on:
+ * 1. CI build number (GITHUB_RUN_NUMBER or CI_BUILD_NUMBER env var)
+ * 2. Git commit count as fallback
+ * 3. Default value of 1 if neither available
+ *
+ * This ensures versionCode always increases for Play Store uploads.
+ */
+def getVersionCode = {
+    // Priority 1: Use CI build number if available
+    def ciBuildNumber = System.getenv("GITHUB_RUN_NUMBER") ?: System.getenv("CI_BUILD_NUMBER")
+    if (ciBuildNumber != null && ciBuildNumber.isInteger()) {
+        return ciBuildNumber.toInteger()
+    }
+
+    // Priority 2: Count git commits
+    try {
+        def gitCommitCount = 'git rev-list --count HEAD'.execute([], rootDir).text.trim()
+        if (gitCommitCount.isInteger()) {
+            return gitCommitCount.toInteger()
+        }
+    } catch (Exception e) {
+        logger.warn("Failed to get git commit count: ${e.message}")
+    }
+
+    // Fallback: return 1
+    return 1
+}
+
+/**
+ * Get version name from environment or default.
+ * Use SPACEDRIVE_VERSION env var in CI to set semantic version.
+ */
+def getVersionName = {
+    return System.getenv("SPACEDRIVE_VERSION") ?: "1.0.0"
+}
+
 android {
     ndkVersion rootProject.ext.ndkVersion
 
@@ -92,8 +129,8 @@ android {
         applicationId 'com.spacedrive.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0.0"
+        versionCode getVersionCode()
+        versionName getVersionName()
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -104,15 +141,36 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Release signing config - uses environment variables for security
+        // Required env vars for release builds:
+        //   SPACEDRIVE_KEYSTORE_PATH - Path to the release keystore file
+        //   SPACEDRIVE_KEYSTORE_PASSWORD - Password for the keystore
+        //   SPACEDRIVE_KEY_ALIAS - Alias of the signing key
+        //   SPACEDRIVE_KEY_PASSWORD - Password for the signing key
+        // See: apps/mobile/android/SIGNING.md for setup instructions
+        release {
+            def keystorePath = System.getenv("SPACEDRIVE_KEYSTORE_PATH")
+            if (keystorePath != null && file(keystorePath).exists()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv("SPACEDRIVE_KEYSTORE_PASSWORD") ?: ""
+                keyAlias System.getenv("SPACEDRIVE_KEY_ALIAS") ?: ""
+                keyPassword System.getenv("SPACEDRIVE_KEY_PASSWORD") ?: ""
+            } else {
+                // Fall back to debug keystore if release signing not configured
+                // This allows development builds without release keys
+                storeFile file('debug.keystore')
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             def enableShrinkResources = findProperty('android.enableShrinkResourcesInReleaseBuilds') ?: 'false'
             shrinkResources enableShrinkResources.toBoolean()
             minifyEnabled enableMinifyInReleaseBuilds

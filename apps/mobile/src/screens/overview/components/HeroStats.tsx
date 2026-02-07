@@ -201,6 +201,7 @@ export function HeroStats({
 				onScroll={handleScroll}
 				scrollEventThrottle={16}
 				decelerationRate="fast"
+				nestedScrollEnabled={true}
 			>
 				{pages.map((pageStats, pageIndex) => (
 					<View

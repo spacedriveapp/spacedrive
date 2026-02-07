@@ -1,9 +1,10 @@
 import React, { useState } from "react";
-import { View, Text, ScrollView, Pressable, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useCoreAction } from "../../client";
 import { useAppReset } from "../../contexts";
+import { useStoragePermission } from "../../hooks/useStoragePermission";
 import {
 	Card,
 	Divider,
@@ -27,6 +28,7 @@ export function SettingsScreen() {
 
 	const resetData = useCoreAction("core.reset");
 	const { resetApp } = useAppReset();
+	const storagePermission = useStoragePermission();
 
 	const handleResetData = () => {
 		Alert.alert(
@@ -680,6 +682,31 @@ export function SettingsScreen() {
 						onPress={handleResetData}
 					/>
 				</SettingsGroup>
+
+				{/* Permissions Section (Android only) */}
+				{Platform.OS === "android" && storagePermission.isRequired && (
+					<SettingsGroup
+						header="Permissions"
+						footer="All Files Access is required to browse and index files on your device."
+					>
+						<SettingsLink
+							icon={
+								<View
+									className={`w-6 h-6 rounded-full ${
+										storagePermission.isGranted ? "bg-green-500" : "bg-amber-500"
+									}`}
+								/>
+							}
+							label="All Files Access"
+							description={
+								storagePermission.isGranted
+									? "Permission granted"
+									: "Tap to grant permission"
+							}
+							onPress={storagePermission.openSettings}
+						/>
+					</SettingsGroup>
+				)}
 			</View>
 
 			{/* Footer */}

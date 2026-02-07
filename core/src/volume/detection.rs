@@ -41,6 +41,11 @@ pub async fn detect_volumes(
 		volumes.extend(detect_ios_volumes(device_id, config).await?);
 	}
 
+	#[cfg(target_os = "android")]
+	{
+		volumes.extend(detect_android_volumes(device_id, config).await?);
+	}
+
 	// Enhance volumes with filesystem-specific capabilities
 	enhance_volumes_with_fs_capabilities(&mut volumes).await?;
 
@@ -198,4 +203,15 @@ async fn detect_ios_volumes(
 
 	debug!("Starting iOS volume detection");
 	ios::detect_volumes(device_id, config).await
+}
+
+#[cfg(target_os = "android")]
+async fn detect_android_volumes(
+	device_id: Uuid,
+	config: &VolumeDetectionConfig,
+) -> VolumeResult<Vec<Volume>> {
+	use crate::volume::platform::android;
+
+	debug!("Starting Android volume detection");
+	android::detect_volumes(device_id, config).await
 }

@@ -171,7 +171,8 @@ export function SpacedriveProvider({
 
     return () => {
       mounted = false;
-      if (unsubscribeLogs) unsubscribeLogs();
+      // unsubscribeLogs is commented out above, so skip the cleanup
+      // if (unsubscribeLogs) unsubscribeLogs();
       initPromise.then((unsubscribe) => {
         if (unsubscribe) unsubscribe();
       });
@@ -199,9 +200,11 @@ export function SpacedriveProvider({
     );
   }
 
+  // Cast to any because mobile's SpacedriveClient has a different interface
+  // than ts-client's SpacedriveClient but is compatible at runtime
   return (
     <QueryClientProvider client={queryClient}>
-      <SpacedriveClientContext.Provider value={client}>
+      <SpacedriveClientContext.Provider value={client as any}>
         {children}
       </SpacedriveClientContext.Provider>
     </QueryClientProvider>

@@ -25,3 +25,5 @@ openssl-sys = { version = "0.9", features = ["vendored"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 jni = "0.21"
+log = "0.4.29"
+android_logger = "0.15.1"

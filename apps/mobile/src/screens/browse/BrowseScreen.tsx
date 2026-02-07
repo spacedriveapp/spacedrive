@@ -4,6 +4,7 @@ import {
 	Text,
 	ScrollView,
 	Dimensions,
+	Platform,
 	type NativeScrollEvent,
 	type NativeSyntheticEvent,
 } from "react-native";
@@ -62,7 +63,12 @@ function SpaceContent({
 	});
 
 	// Space name scale on overscroll (anchored left)
+	// Note: transformOrigin doesn't work well on Android
+	const isIOS = Platform.OS === 'ios';
 	const spaceNameScale = useAnimatedStyle(() => {
+		if (!isIOS) {
+			return {};
+		}
 		const scale = interpolate(
 			scrollY.value,
 			[-200, 0],

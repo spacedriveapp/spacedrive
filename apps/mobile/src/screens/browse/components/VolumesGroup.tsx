@@ -1,5 +1,5 @@
 import React from "react";
-import { Image } from "react-native";
+import { Image, ImageSourcePropType } from "react-native";
 import { useRouter } from "expo-router";
 import { useNormalizedQuery } from "../../../client";
 import type { Volume, Device } from "@sd/ts-client";
@@ -35,9 +35,15 @@ export function VolumesGroup() {
 	return (
 		<SettingsGroup header="Volumes">
 			{volumes.map((volume) => {
-				const volumeIconSrc = getVolumeIcon(volume);
-				const device = devices?.find((d) => d.id === volume.device_id);
-
+				// Cast volume_type for compatibility with getVolumeIcon's expected type
+				const volumeIconSrc = getVolumeIcon({
+					mount_point: volume.mount_point,
+					volume_type: volume.volume_type as
+						| "Internal"
+						| "External"
+						| "Removable"
+						| undefined,
+				}) as ImageSourcePropType;
 				return (
 					<SettingsLink
 						key={volume.id}
@@ -53,21 +59,13 @@ export function VolumesGroup() {
 							volume.is_tracked ? "Tracked" : "Not tracked"
 						}
 						onPress={() => {
-							if (device) {
-								const sdPath = {
-									Physical: {
-										device_slug: device.slug,
-										path: volume.mount_point || "/",
-									},
-								};
-								router.push({
-									pathname: "/explorer",
-									params: {
-										type: "path",
-										path: JSON.stringify(sdPath),
-									},
-								});
-							}
+							router.push({
+								pathname: "/volume/[volumeId]",
+								params: {
+									volumeId: volume.id,
+									name: volume.display_name || volume.name,
+								},
+							});
 						}}
 					/>
 				);

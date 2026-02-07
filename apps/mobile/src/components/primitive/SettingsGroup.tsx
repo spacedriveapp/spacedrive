@@ -6,7 +6,7 @@ import { SettingsRowProps } from "./SettingsRow";
 interface SettingsGroupProps {
 	header?: string;
 	footer?: string;
-	children: ReactElement<SettingsRowProps> | ReactElement<SettingsRowProps>[];
+	children: React.ReactNode;
 	className?: string;
 }
 
@@ -33,7 +33,7 @@ export function SettingsGroup({
 				{Children.map(children, (child, index) => {
 					if (!React.isValidElement(child)) return child;
 
-					return cloneElement(child, {
+					return cloneElement(child as ReactElement<SettingsRowProps>, {
 						isFirst: index === 0,
 						isLast: index === totalChildren - 1,
 					});

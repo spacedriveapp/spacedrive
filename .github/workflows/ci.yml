@@ -200,3 +200,95 @@ jobs:
         if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
         run: bun run typecheck
         working-directory: apps/tauri
+
+  android-lint:
+    name: Android Lint
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if files have changed
+        uses: dorny/paths-filter@v3
+        continue-on-error: true
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'apps/mobile/android/**'
+              - 'apps/mobile/modules/**/android/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup Java
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Bun
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: "1.3.4"
+
+      - name: Install dependencies
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: bun install
+
+      - name: Run detekt
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: ./gradlew :sd-mobile-core:detekt --no-daemon
+        working-directory: apps/mobile/android
+
+      - name: Run ktlint
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: ./gradlew :sd-mobile-core:ktlintCheck --no-daemon
+        working-directory: apps/mobile/android
+
+  mobile-rust-tests:
+    name: Mobile Rust Tests
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          swap-size-mb: 3072
+          root-reserve-mb: 6144
+          remove-dotnet: "true"
+          remove-codeql: "true"
+          remove-haskell: "true"
+          remove-docker-images: "true"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check if files have changed
+        uses: dorny/paths-filter@v3
+        continue-on-error: true
+        id: filter
+        with:
+          filters: |
+            changes:
+              - 'apps/mobile/modules/sd-mobile-core/core/**'
+              - 'core/**'
+              - 'crates/**'
+              - 'Cargo.toml'
+              - 'Cargo.lock'
+              - '.github/workflows/ci.yml'
+
+      - name: Setup System and Rust
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        uses: ./.github/actions/setup-system
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run mobile core tests
+        if: steps.filter.outcome != 'success' || steps.filter.outputs.changes == 'true'
+        run: cargo test --manifest-path apps/mobile/modules/sd-mobile-core/core/Cargo.toml --locked

@@ -572,81 +572,105 @@ pub struct SystemInfoConfig {
 
 /// Detect comprehensive system information using sysinfo
 fn detect_system_info() -> SystemInfo {
-	use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
-
-	let mut sys = System::new_with_specifics(
-		RefreshKind::new()
-			.with_cpu(CpuRefreshKind::everything())
-			.with_memory(MemoryRefreshKind::everything()),
-	);
-
-	// Refresh to get accurate data
-	sys.refresh_cpu_all();
-	sys.refresh_memory();
-
-	// CPU information
-	let cpu_model = sys
-		.cpus()
-		.first()
-		.map(|cpu| cpu.brand().to_string())
-		.filter(|s| !s.is_empty());
-
-	let cpu_architecture = Some(std::env::consts::ARCH.to_string());
-
-	let cpu_cores_physical = sys.physical_core_count().map(|c| c as u32);
-
-	let cpu_cores_logical = Some(sys.cpus().len() as u32);
-
-	let cpu_frequency_mhz = sys
-		.cpus()
-		.first()
-		.map(|cpu| cpu.frequency() as i64)
-		.filter(|&freq| freq > 0);
-
-	// Memory information
-	let memory_total_bytes = {
-		let total = sys.total_memory();
-		if total > 0 {
-			Some(total as i64)
-		} else {
-			None
-		}
-	};
-
-	let swap_total_bytes = {
-		let total = sys.total_swap();
-		if total > 0 {
-			Some(total as i64)
-		} else {
-			None
-		}
-	};
-
-	// Form factor detection
-	let form_factor = detect_form_factor();
-
-	// Manufacturer detection
-	let manufacturer = detect_manufacturer();
-
-	// Phase 2: GPU and storage detection
-	let gpu_models = detect_gpu_models();
-	let boot_disk_type = detect_boot_disk_type();
-	let boot_disk_capacity_bytes = detect_boot_disk_capacity();
-
-	SystemInfo {
-		cpu_model,
-		cpu_architecture,
-		cpu_cores_physical,
-		cpu_cores_logical,
-		cpu_frequency_mhz,
-		memory_total_bytes,
-		swap_total_bytes,
-		form_factor,
-		manufacturer,
-		gpu_models,
-		boot_disk_type,
-		boot_disk_capacity_bytes,
+	// Skip sysinfo on mobile platforms - it was causing crashes on Android
+	// (likely due to SELinux denying access to /proc files) and is unreliable on iOS.
+	// TODO: Implement with native APIs (android.os.Build, UIDevice) for richer device info.
+	#[cfg(any(target_os = "android", target_os = "ios"))]
+	{
+		return SystemInfo {
+			cpu_model: None,
+			cpu_architecture: Some(std::env::consts::ARCH.to_string()),
+			cpu_cores_physical: None,
+			cpu_cores_logical: None,
+			cpu_frequency_mhz: None,
+			memory_total_bytes: None,
+			swap_total_bytes: None,
+			form_factor: None,
+			manufacturer: None,
+			gpu_models: None,
+			boot_disk_type: None,
+			boot_disk_capacity_bytes: None,
+		};
 	}
+
+	#[cfg(not(any(target_os = "android", target_os = "ios")))]
+	{
+		use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
+
+		let mut sys = System::new_with_specifics(
+			RefreshKind::new()
+				.with_cpu(CpuRefreshKind::everything())
+				.with_memory(MemoryRefreshKind::everything()),
+		);
+
+		// Refresh to get accurate data
+		sys.refresh_cpu_all();
+		sys.refresh_memory();
+
+		// CPU information
+		let cpu_model = sys
+			.cpus()
+			.first()
+			.map(|cpu| cpu.brand().to_string())
+			.filter(|s| !s.is_empty());
+
+		let cpu_architecture = Some(std::env::consts::ARCH.to_string());
+
+		let cpu_cores_physical = sys.physical_core_count().map(|c| c as u32);
+
+		let cpu_cores_logical = Some(sys.cpus().len() as u32);
+
+		let cpu_frequency_mhz = sys
+			.cpus()
+			.first()
+			.map(|cpu| cpu.frequency() as i64)
+			.filter(|&freq| freq > 0);
+
+		// Memory information
+		let memory_total_bytes = {
+			let total = sys.total_memory();
+			if total > 0 {
+				Some(total as i64)
+			} else {
+				None
+			}
+		};
+
+		let swap_total_bytes = {
+			let total = sys.total_swap();
+			if total > 0 {
+				Some(total as i64)
+			} else {
+				None
+			}
+		};
+
+		// Form factor detection
+		let form_factor = detect_form_factor();
+
+		// Manufacturer detection
+		let manufacturer = detect_manufacturer();
+
+		// Phase 2: GPU and storage detection
+		let gpu_models = detect_gpu_models();
+		let boot_disk_type = detect_boot_disk_type();
+		let boot_disk_capacity_bytes = detect_boot_disk_capacity();
+
+		SystemInfo {
+			cpu_model,
+			cpu_architecture,
+			cpu_cores_physical,
+			cpu_cores_logical,
+			cpu_frequency_mhz,
+			memory_total_bytes,
+			swap_total_bytes,
+			form_factor,
+			manufacturer,
+			gpu_models,
+			boot_disk_type,
+			boot_disk_capacity_bytes,
+		}
+	} // end #[cfg(not(any(target_os = "android", target_os = "ios")))]
 }
 
 /// Public function to detect system info for DeviceConfig

@@ -176,6 +176,7 @@ impl VolumeBackend for LocalBackend {
 		debug!("LocalBackend::read_dir: {}", full_path.display());
 
 		let mut entries = Vec::new();
+		let mut skipped_count = 0u32;
 		let mut dir = fs::read_dir(&full_path)
 			.await
 			.map_err(|e| VolumeError::Io(e))?;
@@ -183,7 +184,23 @@ impl VolumeBackend for LocalBackend {
 		while let Some(entry) = dir.next_entry().await.map_err(|e| VolumeError::Io(e))? {
 			let metadata = match entry.metadata().await {
 				Ok(m) => m,
-				Err(_) => continue, // Skip entries we can't read
+				Err(e) => {
+					// Log the error instead of silently skipping
+					// This is particularly important on Android where permission issues
+					// can cause files to be inaccessible without MANAGE_EXTERNAL_STORAGE
+					skipped_count += 1;
+					if skipped_count <= 3 {
+						// Only log filename (not full path) to avoid information disclosure
+						// in crash reports and remote logging systems
+						let filename = entry.file_name();
+						tracing::warn!(
+							"Failed to read metadata for '{}': {} (check storage permissions on Android)",
+							filename.to_string_lossy(),
+							e.kind()
+						);
+					}
+					continue;
+				}
 			};
 
 			let kind = if metadata.is_dir() {
@@ -203,6 +220,14 @@ impl VolumeBackend for LocalBackend {
 				modified: metadata.modified().ok(),
 				inode: Self::get_inode(&entry_path, &metadata),
 			});
+		}
+
+		// Log a summary if entries were skipped (without exposing directory path)
+		if skipped_count > 0 {
+			tracing::warn!(
+				"Skipped {} entries while reading directory entries (often permission-related on Android).",
+				skipped_count
+			);
 		}
 
 		Ok(entries)

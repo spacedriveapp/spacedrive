@@ -4,24 +4,34 @@ import { useRouter } from "expo-router";
 import { useNormalizedQuery } from "../../../client";
 import { SettingsGroup, SettingsLink } from "../../../components/primitive";
 import FolderIcon from "@sd/assets/icons/Folder.png";
-import type { Device } from "@sd/ts-client";
+import type { Location, SdPath } from "@sd/ts-client";
+
+// Extract path string and device slug from SdPath
+function extractPathInfo(sdPath: SdPath): { path: string; deviceSlug: string } {
+	if ("Physical" in sdPath) {
+		return {
+			path: sdPath.Physical.path,
+			deviceSlug: sdPath.Physical.device_slug,
+		};
+	}
+	if ("Cloud" in sdPath) {
+		return {
+			path: sdPath.Cloud.path,
+			deviceSlug: `cloud-${sdPath.Cloud.service}`,
+		};
+	}
+	return { path: "/", deviceSlug: "local" };
+}
 
 export function LocationsGroup() {
 	const router = useRouter();
-	const { data: locationsData } = useNormalizedQuery({
+	const { data: locationsData } = useNormalizedQuery<
+		any,
+		{ locations: Location[] }
+	>({
 		query: "locations.list",
 		input: null,
 		resourceType: "location",
-	});
-
-	const { data: devices } = useNormalizedQuery<any, Device[]>({
-		query: "devices.list",
-		input: {
-			include_offline: true,
-			include_details: false,
-			show_paired: true,
-		},
-		resourceType: "device",
 	});
 
 	const locations = locationsData?.locations ?? [];
@@ -30,39 +40,36 @@ export function LocationsGroup() {
 		return null;
 	}
 
-	// Helper to get device name from device_slug
-	const getDeviceName = (location: any) => {
-		const deviceSlug = location.sd_path?.Physical?.device_slug;
-		if (!deviceSlug) return "Unknown device";
-		const device = devices?.find((d) => d.slug === deviceSlug);
-		return device?.name || "Unknown device";
-	};
-
 	return (
 		<SettingsGroup header="Locations">
-			{locations.map((location: any) => (
-				<SettingsLink
-					key={location.id}
-					icon={
-						<Image
-							source={FolderIcon}
-							className="w-8 h-8"
-							style={{ resizeMode: "contain" }}
-						/>
-					}
-					label={location.name || "Unnamed"}
-					description={getDeviceName(location)}
-					onPress={() => {
-						router.push({
-							pathname: "/explorer",
-							params: {
-								type: "path",
-								path: JSON.stringify(location.sd_path),
-							},
-						});
-					}}
-				/>
-			))}
+			{locations.map((location) => {
+				const { path, deviceSlug } = extractPathInfo(location.sd_path);
+				return (
+					<SettingsLink
+						key={location.id}
+						icon={
+							<Image
+								source={FolderIcon}
+								className="w-6 h-6"
+								style={{ resizeMode: "contain" }}
+							/>
+						}
+						label={location.name || "Unnamed"}
+						description={path || "No path"}
+						onPress={() => {
+							router.push({
+								pathname: "/location/[locationId]",
+								params: {
+									locationId: location.id,
+									name: location.name || "Location",
+									path: path,
+									deviceSlug: deviceSlug,
+								},
+							});
+						}}
+					/>
+				);
+			})}
 		</SettingsGroup>
 	);
 }

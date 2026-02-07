@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Data extraction rules for Android 12 (API 31) and above.
+  Controls both cloud backup and device-to-device transfer.
+  See: https://developer.android.com/about/versions/12/backup-restore
+-->
+<data-extraction-rules>
+    <!-- Rules for cloud backup -->
+    <cloud-backup>
+        <!-- Exclude all sensitive data from cloud backups -->
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="spacedrive" />
+        <exclude domain="file" path="libraries" />
+        <exclude domain="external" path="." />
+    </cloud-backup>
+
+    <!-- Rules for device-to-device transfer -->
+    <device-transfer>
+        <!-- Also exclude sensitive data from D2D transfers -->
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="spacedrive" />
+        <exclude domain="file" path="libraries" />
+        <exclude domain="external" path="." />
+    </device-transfer>
+</data-extraction-rules>

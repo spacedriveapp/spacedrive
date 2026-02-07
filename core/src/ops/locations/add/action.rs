@@ -17,8 +17,51 @@ use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
-use std::{path::PathBuf, sync::Arc};
+use std::{
+	path::{Path, PathBuf},
+	sync::Arc,
+};
+use tracing::warn;
 use uuid::Uuid;
+
+/// Safely canonicalize a path, with fallback for paths that can't be fully resolved.
+/// This handles cases where the path exists but can't be canonicalized (e.g., on some
+/// Android file systems or when intermediate directories have restrictive permissions).
+fn safe_canonicalize(path: &Path) -> Result<PathBuf, ActionError> {
+	// Try full canonicalization first
+	match path.canonicalize() {
+		Ok(canonical) => Ok(canonical),
+		Err(e) => {
+			// Try partial resolution: canonicalize parent + filename
+			if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+				if let Ok(canonical_parent) = parent.canonicalize() {
+					let partial = canonical_parent.join(name);
+					warn!(
+						"Using partially canonicalized path: {} (full canonicalization failed: {})",
+						partial.display(),
+						e
+					);
+					return Ok(partial);
+				}
+			}
+
+			// If path exists, use it as-is with a warning
+			if path.exists() {
+				warn!(
+					"Using non-canonical path: {} (canonicalization failed: {})",
+					path.display(),
+					e
+				);
+				Ok(path.to_path_buf())
+			} else {
+				Err(ActionError::Validation {
+					field: "path".to_string(),
+					message: format!("Cannot resolve path: {}", e),
+				})
+			}
+		}
+	}
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationAddInput {
@@ -60,6 +103,10 @@ impl LibraryAction for LocationAddAction {
 			.map_err(ActionError::device_manager_error)?;
 
 		// Get device record from database to get the integer ID
+		// Note: There's a theoretical race condition between this lookup and location creation.
+		// If the device is deleted between these operations, the location creation will fail
+		// with a foreign key constraint error. This is an acceptable failure mode as device
+		// deletion during location creation is extremely rare.
 		let db = library.db().conn();
 		let device_record = entities::device::Entity::find()
 			.filter(entities::device::Column::Uuid.eq(device_uuid))
@@ -67,6 +114,18 @@ impl LibraryAction for LocationAddAction {
 			.await
 			.map_err(ActionError::SeaOrm)?
 			.ok_or_else(|| ActionError::DeviceNotFound(device_uuid))?;
+
+		// Canonicalize the path to match what was validated
+		let normalized_path = match &self.input.path {
+			crate::domain::addressing::SdPath::Physical { device_slug, path } => {
+				let canonical = safe_canonicalize(path)?;
+				crate::domain::addressing::SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: canonical,
+				}
+			}
+			other => other.clone(),
+		};
 
 		// Add the location using LocationManager
 		let location_manager = LocationManager::new(context.events.as_ref().clone());
@@ -91,7 +150,7 @@ impl LibraryAction for LocationAddAction {
 		let (location_id, job_id_string) = location_manager
 			.add_location(
 				library.clone(),
-				self.input.path.clone(),
+				normalized_path.clone(),
 				self.input.name.clone(),
 				device_record.id,
 				location_mode,
@@ -112,7 +171,7 @@ impl LibraryAction for LocationAddAction {
 			None
 		};
 
-		let mut output = LocationAddOutput::new(location_id, self.input.path, self.input.name);
+		let mut output = LocationAddOutput::new(location_id, normalized_path, self.input.name);
 
 		if let Some(job_id) = job_id {
 			output = output.with_job_id(job_id);
@@ -137,18 +196,43 @@ impl LibraryAction for LocationAddAction {
 				device_slug: _,
 				path,
 			} => {
+				// Safely canonicalize the path (handles Android and other edge cases)
+				let canonical_path = safe_canonicalize(path)?;
+
 				// Validate local filesystem path
-				if !path.exists() {
+				if !canonical_path.exists() {
 					return Err(ActionError::Validation {
 						field: "path".to_string(),
 						message: "Path does not exist".to_string(),
 					});
 				}
-				if !path.is_dir() {
+				if !canonical_path.is_dir() {
 					return Err(ActionError::Validation {
 						field: "path".to_string(),
 						message: "Path must be a directory".to_string(),
 					});
+				}
+
+				// Verify read permissions by attempting to read the directory
+				match tokio::fs::read_dir(&canonical_path).await {
+					Ok(_) => {
+						// Can read directory, permissions are sufficient
+					}
+					Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+						return Err(ActionError::Validation {
+							field: "path".to_string(),
+							message: format!(
+								"Permission denied reading directory: {}",
+								canonical_path.display()
+							),
+						});
+					}
+					Err(e) => {
+						return Err(ActionError::Validation {
+							field: "path".to_string(),
+							message: format!("Cannot read directory: {}", e),
+						});
+					}
 				}
 			}
 			SdPath::Cloud {

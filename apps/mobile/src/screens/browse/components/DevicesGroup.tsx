@@ -1,5 +1,5 @@
 import React from "react";
-import { View, Image } from "react-native";
+import { View, Image, ImageSourcePropType } from "react-native";
 import { useRouter } from "expo-router";
 import { useNormalizedQuery } from "../../../client";
 import type { Device } from "@sd/ts-client";
@@ -25,7 +25,8 @@ export function DevicesGroup() {
 	return (
 		<SettingsGroup header="Devices">
 			{devices.map((device) => {
-				const deviceIconSrc = getDeviceIcon(device);
+				// Cast since getDeviceIcon returns imported PNG modules
+				const deviceIconSrc = getDeviceIcon(device as any) as ImageSourcePropType;
 				return (
 					<SettingsLink
 						key={device.id}
@@ -46,11 +47,10 @@ export function DevicesGroup() {
 						}
 						onPress={() => {
 							router.push({
-								pathname: "/explorer",
+								pathname: "/device/[deviceId]",
 								params: {
-									type: "view",
-									view: "device",
-									id: device.id,
+									deviceId: device.id,
+									name: device.name,
 								},
 							});
 						}}

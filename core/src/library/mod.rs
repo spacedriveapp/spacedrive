@@ -35,6 +35,9 @@ use uuid::Uuid;
 
 /// Represents an open Spacedrive library
 pub struct Library {
+	/// Library ID (immutable, stored separately for lock-free access)
+	id: Uuid,
+
 	/// Root directory of the library (the .sdlibrary folder)
 	path: PathBuf,
 
@@ -74,13 +77,9 @@ pub struct Library {
 }
 
 impl Library {
-	/// Get the library ID
+	/// Get the library ID (lock-free, stored separately for reliability)
 	pub fn id(&self) -> Uuid {
-		// Config is immutable for ID, so we can use try_read
-		self.config.try_read().map(|c| c.id).unwrap_or_else(|_| {
-			// This should never happen in practice
-			panic!("Failed to read library config for ID")
-		})
+		self.id
 	}
 
 	/// Get the library name

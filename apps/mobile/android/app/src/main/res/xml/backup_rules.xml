@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backup rules for Android 11 (API 30) and below.
+  Excludes sensitive data from cloud backups.
+  See: https://developer.android.com/guide/topics/data/autobackup
+-->
+<full-backup-content>
+    <!-- Exclude database files containing user data -->
+    <exclude domain="database" path="." />
+
+    <!-- Exclude shared preferences that may contain sensitive config -->
+    <exclude domain="sharedpref" path="." />
+
+    <!-- Exclude Spacedrive data directory -->
+    <exclude domain="file" path="spacedrive" />
+
+    <!-- Exclude any cached files -->
+    <exclude domain="external" path="." />
+
+    <!-- Exclude library database files -->
+    <exclude domain="file" path="libraries" />
+</full-backup-content>

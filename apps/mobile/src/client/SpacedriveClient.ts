@@ -1,5 +1,9 @@
 import { SDMobileCore } from "sd-mobile-core";
-import { ReactNativeTransport } from "./transport";
+import {
+	ReactNativeTransport,
+	type HealthCheckResult,
+	type HealthStatus,
+} from "./transport";
 import { WIRE_METHODS } from "@sd/ts-client";
 import type { Event } from "@sd/ts-client/generated/types";
 import { SubscriptionManager } from "./subscriptionManager";
@@ -225,9 +229,53 @@ export class SpacedriveClient extends SimpleEventEmitter {
   }
 
   /**
+   * Start connection health monitoring.
+   * Health checks run periodically and emit 'connection-health' events.
+   * @param intervalMs Interval between checks (default: 30 seconds)
+   */
+  startHealthMonitoring(intervalMs?: number): void {
+    this.transport.startHealthCheck(intervalMs);
+  }
+
+  /**
+   * Stop connection health monitoring.
+   */
+  stopHealthMonitoring(): void {
+    this.transport.stopHealthCheck();
+  }
+
+  /**
+   * Get the current connection health status.
+   */
+  getHealthStatus(): HealthStatus {
+    return this.transport.getHealthStatus();
+  }
+
+  /**
+   * Add a listener for connection health changes.
+   * @returns Cleanup function to remove the listener
+   */
+  onHealthChange(listener: (result: HealthCheckResult) => void): () => void {
+    const cleanup = this.transport.onHealthChange((result) => {
+      listener(result);
+      // Also emit as event for compatibility
+      this.emit("connection-health", result);
+    });
+    return cleanup;
+  }
+
+  /**
+   * Perform a single health check and return the result.
+   */
+  async checkHealth(): Promise<HealthCheckResult> {
+    return this.transport.performHealthCheck();
+  }
+
+  /**
    * Shutdown the core and clean up resources.
    */
   destroy() {
+    this.stopHealthMonitoring();
     this.subscriptionManager.destroy();
     this.transport.destroy();
     SDMobileCore.shutdown();

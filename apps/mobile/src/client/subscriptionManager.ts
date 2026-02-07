@@ -28,12 +28,16 @@ interface SubscriptionEntry {
 	listeners: Set<(event: Event) => void>;
 	refCount: number;
 	filter: EventFilter;
+	/** Flag to prevent double cleanup */
+	cleaned: boolean;
 }
 
 export class SubscriptionManager {
 	private subscriptions = new Map<string, SubscriptionEntry>();
 	private pendingSubscriptions = new Map<string, Promise<SubscriptionEntry>>();
 	private transport: ReactNativeTransport;
+	/** Flag to prevent cleanup races during destruction */
+	private isDestroying = false;
 
 	constructor(transport: ReactNativeTransport) {
 		this.transport = transport;
@@ -114,7 +118,8 @@ export class SubscriptionManager {
 	): Promise<SubscriptionEntry> {
 		const unsubscribe = await this.transport.subscribe((event) => {
 			const currentEntry = this.subscriptions.get(key);
-			if (currentEntry && this.matchesFilter(event, filter)) {
+			// Check cleaned flag to prevent processing during cleanup
+			if (currentEntry && !currentEntry.cleaned && this.matchesFilter(event, filter)) {
 				currentEntry.listeners.forEach((listener) => listener(event));
 			}
 		});
@@ -124,6 +129,7 @@ export class SubscriptionManager {
 			listeners: new Set(),
 			refCount: 0,
 			filter,
+			cleaned: false,
 		};
 
 		this.subscriptions.set(key, entry);
@@ -134,16 +140,35 @@ export class SubscriptionManager {
 		key: string,
 		callback: (event: Event) => void,
 	): () => void {
+		let hasRun = false;
+
 		return () => {
+			// Guard against double cleanup
+			if (hasRun) return;
+			hasRun = true;
+
+			// Don't cleanup during destruction - destroy() handles it
+			if (this.isDestroying) return;
+
 			const currentEntry = this.subscriptions.get(key);
-			if (!currentEntry) return;
+			if (!currentEntry || currentEntry.cleaned) return;
 
 			currentEntry.listeners.delete(callback);
 			currentEntry.refCount--;
 
 			if (currentEntry.refCount === 0) {
-				currentEntry.unsubscribe();
-				this.subscriptions.delete(key);
+				// Mark as cleaned first to prevent race conditions
+				currentEntry.cleaned = true;
+
+				// Defer unsubscribe to next tick to allow pending operations to complete
+				setTimeout(() => {
+					// Double check the entry is still the one we expect
+					const entry = this.subscriptions.get(key);
+					if (entry === currentEntry) {
+						entry.unsubscribe();
+						this.subscriptions.delete(key);
+					}
+				}, 0);
 			}
 		};
 	}
@@ -168,7 +193,27 @@ export class SubscriptionManager {
 	 * Force cleanup all subscriptions (for testing/cleanup)
 	 */
 	destroy() {
-		this.subscriptions.forEach((entry) => entry.unsubscribe());
+		// Set flag to prevent individual cleanup handlers from running
+		this.isDestroying = true;
+
+		// Mark all entries as cleaned first
+		this.subscriptions.forEach((entry) => {
+			entry.cleaned = true;
+		});
+
+		// Then unsubscribe all
+		this.subscriptions.forEach((entry) => {
+			try {
+				entry.unsubscribe();
+			} catch (e) {
+				console.warn("[SubscriptionManager] Error during unsubscribe:", e);
+			}
+		});
+
 		this.subscriptions.clear();
+		this.pendingSubscriptions.clear();
+
+		// Reset flag in case manager is reused
+		this.isDestroying = false;
 	}
 }

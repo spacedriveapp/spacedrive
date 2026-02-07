@@ -24,12 +24,26 @@ type SDMobileCoreEvents = {
   SDCoreLog: (log: CoreLog) => void;
 };
 
+export interface FolderPickerResult {
+  uri: string;
+  path: string | null;
+  name: string;
+}
+
 export interface CoreModule {
   initialize(dataDir?: string, deviceName?: string): Promise<number>;
   sendMessage(query: string): Promise<string>;
   shutdown(): void;
   addListener(callback: (event: CoreEvent) => void): () => void;
   addLogListener(callback: (log: CoreLog) => void): () => void;
+  pickFolder(): Promise<FolderPickerResult>;
+  getPathFromUri(uri: string): string | null;
+  /** Check if the app has full storage access permission (Android 11+) */
+  hasStoragePermission(): boolean;
+  /** Check if full storage permission is required for this Android version */
+  requiresStoragePermission(): boolean;
+  /** Open system settings to grant "All Files Access" permission */
+  openStoragePermissionSettings(): boolean;
 }
 
 interface SDMobileCoreNativeModule extends NativeModule<SDMobileCoreEvents> {
@@ -41,6 +55,11 @@ interface SDMobileCoreNativeModule extends NativeModule<SDMobileCoreEvents> {
   shutdown(): void;
   addListener(callback: (event: CoreEvent) => void): () => void;
   addLogListener(callback: (log: CoreLog) => void): () => void;
+  pickFolder(options: Record<string, unknown>): Promise<FolderPickerResult>;
+  getPathFromUri(uri: string): string | null;
+  hasStoragePermission(): boolean;
+  requiresStoragePermission(): boolean;
+  openStoragePermissionSettings(): boolean;
 }
 
 const SDMobileCoreModule =
@@ -69,5 +88,20 @@ export const SDMobileCore: CoreModule = {
   addLogListener: (callback: (log: CoreLog) => void) => {
     const subscription = emitter.addListener("SDCoreLog", callback);
     return () => subscription.remove();
+  },
+  pickFolder: async () => {
+    return SDMobileCoreModule.pickFolder({});
+  },
+  getPathFromUri: (uri: string) => {
+    return SDMobileCoreModule.getPathFromUri(uri);
+  },
+  hasStoragePermission: () => {
+    return SDMobileCoreModule.hasStoragePermission();
+  },
+  requiresStoragePermission: () => {
+    return SDMobileCoreModule.requiresStoragePermission();
+  },
+  openStoragePermissionSettings: () => {
+    return SDMobileCoreModule.openStoragePermissionSettings();
   },
 };

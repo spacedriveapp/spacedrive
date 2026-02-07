@@ -1,5 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
+import { View, Text, Pressable, ScrollView, StyleSheet, Alert, Platform } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import Animated, {
@@ -13,14 +13,17 @@ import Animated, {
 	Easing,
 } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
-import { useNormalizedQuery } from "../../client";
-import type { Library } from "@sd/ts-client";
+import * as DocumentPicker from "expo-document-picker";
+import { SDMobileCore } from "sd-mobile-core";
+import { useNormalizedQuery, useMobileClient } from "../../client";
+import type { Library, Device } from "@sd/ts-client";
 import { HeroStats, DevicePanel, ActionButtons } from "./components";
 import { PairingPanel } from "../../components/PairingPanel";
 import { LibrarySwitcherPanel } from "../../components/LibrarySwitcherPanel";
 import { GlassButton } from "../../components/GlassButton";
 import { GlassSearchBar } from "../../components/GlassSearchBar";
 import { JobManagerPanel } from "../../components/JobManagerPanel";
+import { StoragePermissionBanner } from "../../components/StoragePermissionBanner";
 import { useRouter } from "expo-router";
 import { useSearchStore } from "../explorer/context/SearchContext";
 import { CircleNotch, ListBullets } from "phosphor-react-native";
@@ -35,6 +38,7 @@ export function OverviewScreen() {
 	const insets = useSafeAreaInsets();
 	const navigation = useNavigation();
 	const router = useRouter();
+	const client = useMobileClient();
 	const scrollY = useSharedValue(0);
 	const expandedOffsetY = useSharedValue(0);
 	const [showPairing, setShowPairing] = useState(false);
@@ -44,6 +48,7 @@ export function OverviewScreen() {
 	);
 	const { enterSearchMode } = useSearchStore();
 	const { activeJobCount, hasRunningJobs } = useJobs();
+	const [isAddingStorage, setIsAddingStorage] = useState(false);
 
 	// Spinning animation for jobs icon
 	const spinRotation = useSharedValue(0);
@@ -90,6 +95,21 @@ export function OverviewScreen() {
 		resourceType: "location",
 	});
 
+	// Fetch devices to get current device slug
+	const { data: devicesData, error: devicesError } = useNormalizedQuery<any, Device[]>({
+		query: "devices.list",
+		input: { include_offline: true, include_details: false },
+		resourceType: "device",
+	});
+
+	// Get the current device
+	const currentDevice = useMemo(() => {
+		if (!devicesData) return null;
+		const devices = Array.isArray(devicesData) ? devicesData : (devicesData as any).devices;
+		if (!devices) return null;
+		return devices.find((d: Device) => d.is_current) || null;
+	}, [devicesData]);
+
 	// Find the selected location from the list reactively
 	const selectedLocation = useMemo(() => {
 		if (!selectedLocationId || !locationsData?.locations) return null;
@@ -103,6 +123,90 @@ export function OverviewScreen() {
 	const openDrawer = () => {
 		navigation.dispatch(DrawerActions.openDrawer());
 	};
+
+	// Handle adding storage location
+	const handleAddStorage = useCallback(async () => {
+		if (!currentDevice) {
+			const errorMsg = devicesError
+				? `Device query failed: ${devicesError}`
+				: "Device information not loaded yet. Please wait a moment and try again.";
+			Alert.alert("Error", errorMsg);
+			console.log("[handleAddStorage] No current device. Error:", devicesError);
+			return;
+		}
+
+		if (isAddingStorage) return;
+
+		try {
+			setIsAddingStorage(true);
+
+			if (Platform.OS === "android") {
+				// Use native SAF folder picker for Android
+				console.log("[handleAddStorage] Opening Android folder picker...");
+				const result = await SDMobileCore.pickFolder();
+				console.log("[handleAddStorage] Folder picker result:", result);
+
+				if (!result.path) {
+					Alert.alert(
+						"Cannot Access Folder",
+						"The selected folder cannot be accessed directly. This may be due to Android storage restrictions.\n\nPlease try selecting a folder from internal storage (not an SD card or cloud storage).",
+						[{ text: "OK" }]
+					);
+					return;
+				}
+
+				// Add the location with the real filesystem path
+				await client.libraryAction("locations.add", {
+					path: {
+						Physical: {
+							device_slug: currentDevice.slug,
+							path: result.path,
+						},
+					},
+					name: result.name,
+					mode: "Deep",
+					job_policies: null,
+				});
+
+				Alert.alert("Success", `Added "${result.name}" to your library! Indexing will begin shortly.`);
+			} else {
+				// iOS - use expo-document-picker
+				const result = await DocumentPicker.getDocumentAsync({
+					type: "*/*",
+					copyToCacheDirectory: false,
+				});
+
+				if (result.canceled || !result.assets || result.assets.length === 0) {
+					return;
+				}
+
+				const selectedUri = result.assets[0].uri;
+
+				await client.libraryAction("locations.add", {
+					path: {
+						Physical: {
+							device_slug: currentDevice.slug,
+							path: selectedUri,
+						},
+					},
+					name: null,
+					mode: "Deep",
+					job_policies: null,
+				});
+
+				Alert.alert("Success", "Storage location added! Indexing will begin shortly.");
+			}
+		} catch (err: any) {
+			console.error("Failed to add storage:", err);
+			// Handle cancellation gracefully
+			if (err?.code === "CANCELLED" || err?.message?.includes("cancel")) {
+				return;
+			}
+			Alert.alert("Error", `Failed to add storage: ${err?.message || err}`);
+		} finally {
+			setIsAddingStorage(false);
+		}
+	}, [client, currentDevice, isAddingStorage, devicesError]);
 
 	// Entrance animation on mount
 	useEffect(() => {
@@ -142,7 +246,12 @@ export function OverviewScreen() {
 	});
 
 	// Library name scale on overscroll (anchored left)
+	// Note: transformOrigin doesn't work well on Android, so we skip scaling there
+	const isIOS = Platform.OS === 'ios';
 	const libraryNameScale = useAnimatedStyle(() => {
+		if (!isIOS) {
+			return {};
+		}
 		const scale = interpolate(
 			scrollY.value,
 			[-200, 0],
@@ -277,6 +386,47 @@ export function OverviewScreen() {
 		return { opacity };
 	});
 
+	// Android constants for slide-over layout
+	const ANDROID_HERO_HEIGHT = 380;
+	const ANDROID_HEADER_HEIGHT = 70;
+
+	// Android scroll handler - tracks scroll position for parallax
+	// Must be defined before early returns to maintain consistent hook order
+	const androidScrollHandler = useAnimatedScrollHandler({
+		onScroll: (event) => {
+			scrollY.value = event.contentOffset.y;
+		},
+	});
+
+	// Android hero parallax style - moves slower than scroll for depth effect
+	const androidHeroParallax = useAnimatedStyle(() => {
+		const translateY = interpolate(
+			scrollY.value,
+			[0, ANDROID_HERO_HEIGHT],
+			[0, ANDROID_HERO_HEIGHT * 0.3],
+			Extrapolation.CLAMP
+		);
+		const opacity = interpolate(
+			scrollY.value,
+			[0, ANDROID_HERO_HEIGHT * 0.6],
+			[1, 0],
+			Extrapolation.CLAMP
+		);
+		return { transform: [{ translateY }], opacity };
+	});
+
+	// Android sticky network header - appears when scrolled past hero
+	const androidNetworkHeaderStyle = useAnimatedStyle(() => {
+		// Show when scroll position passes the hero section
+		const opacity = interpolate(
+			scrollY.value,
+			[ANDROID_HERO_HEIGHT - 100, ANDROID_HERO_HEIGHT - 50],
+			[0, 1],
+			Extrapolation.CLAMP
+		);
+		return { opacity };
+	});
+
 	if (isLoading || !libraryInfo) {
 		return (
 			<ScrollView
@@ -314,6 +464,164 @@ export function OverviewScreen() {
 
 	const stats = libraryInfo.statistics;
 
+	// Android layout - M3 collapsing header (hero scrolls with parallax + fade, content overlaps)
+	if (Platform.OS === 'android') {
+		return (
+			<View className="flex-1 bg-black">
+				{/* Fixed Header - library name stays at top */}
+				<View
+					style={{
+						position: 'absolute',
+						top: 0,
+						left: 0,
+						right: 0,
+						paddingTop: insets.top,
+						zIndex: 100,
+						backgroundColor: 'black',
+					}}
+				>
+					<View className="px-4 py-4 flex-row items-center gap-3">
+						<Text className="text-ink text-[28px] font-bold flex-1">
+							{libraryInfo.name}
+						</Text>
+						<GlassButton
+							onPress={handleJobsPress}
+							icon={
+								<View>
+									{hasRunningJobs ? (
+										<Animated.View style={spinStyle}>
+											<CircleNotch
+												size={22}
+												color="hsl(208, 100%, 57%)"
+												weight="bold"
+											/>
+										</Animated.View>
+									) : (
+										<ListBullets
+											size={22}
+											color="hsl(235, 10%, 55%)"
+											weight="bold"
+										/>
+									)}
+									{activeJobCount > 0 && (
+										<View className="absolute -top-1 -right-1 bg-accent rounded-full min-w-[16px] h-[16px] items-center justify-center">
+											<Text className="text-white text-[10px] font-bold">
+												{activeJobCount > 9 ? "9+" : activeJobCount}
+											</Text>
+										</View>
+									)}
+								</View>
+							}
+						/>
+						<GlassButton
+							icon={<Text className="text-ink text-2xl leading-none">⋯</Text>}
+						/>
+					</View>
+				</View>
+
+				{/* Fixed MY NETWORK Header - fades in when scrolled past hero */}
+				<Animated.View
+					style={[
+						{
+							position: 'absolute',
+							top: insets.top + ANDROID_HEADER_HEIGHT,
+							left: 0,
+							right: 0,
+							height: 50,
+							zIndex: 99,
+							backgroundColor: 'hsl(235, 15%, 13%)', // bg-app color
+							justifyContent: 'center',
+							borderBottomWidth: 1,
+							borderBottomColor: 'hsla(235, 15%, 23%, 0.3)',
+						},
+						androidNetworkHeaderStyle,
+					]}
+					pointerEvents="none"
+				>
+					<Text className="text-ink-faint text-xs font-semibold text-center">
+						MY NETWORK
+					</Text>
+				</Animated.View>
+
+				<Animated.ScrollView
+					onScroll={androidScrollHandler}
+					scrollEventThrottle={16}
+					showsVerticalScrollIndicator={false}
+					contentContainerStyle={{
+						paddingTop: insets.top + ANDROID_HEADER_HEIGHT,
+						paddingBottom: insets.bottom + 100,
+					}}
+				>
+					{/* Index 0: Hero Section - parallax effect (moves slower) + fades out */}
+					<Animated.View style={androidHeroParallax}>
+						{/* Search Bar */}
+						<View className="px-4 mb-4">
+							<GlassSearchBar onPress={handleSearchPress} editable={false} />
+						</View>
+
+						{/* Hero Stats - horizontal scroll works naturally here */}
+						<HeroStats
+							totalStorage={stats.total_capacity}
+							usedStorage={stats.total_capacity - stats.available_capacity}
+							totalFiles={Number(stats.total_files)}
+							locationCount={stats.location_count}
+							tagCount={stats.tag_count}
+							deviceCount={stats.device_count}
+							uniqueContentCount={Number(stats.unique_content_count)}
+							databaseSize={Number(stats.database_size)}
+							sidecarCount={Number(stats.sidecar_count ?? 0)}
+							sidecarSize={Number(stats.sidecar_size ?? 0)}
+						/>
+					</Animated.View>
+
+					{/* Content Card - overlaps hero, has inline MY NETWORK that scrolls away */}
+					<View className="bg-app rounded-t-[30px]" style={{ marginTop: -30 }}>
+						{/* Section Header - scrolls away, fixed one fades in to replace it */}
+						<View style={{ height: 50 }} className="justify-center">
+							<Text className="text-ink-faint text-xs font-semibold text-center">
+								MY NETWORK
+							</Text>
+						</View>
+						{/* Storage Permission Banner */}
+						<StoragePermissionBanner />
+
+						<View className="px-4">
+							{/* Device Panel */}
+							<DevicePanel
+								onLocationSelect={(location) =>
+									setSelectedLocationId(location?.id || null)
+								}
+							/>
+
+							{/* Job Manager Panel */}
+							<JobManagerPanel />
+
+							{/* Action Buttons */}
+							<ActionButtons
+								onPairDevice={() => setShowPairing(true)}
+								onSetupSync={() => {/* TODO: Open sync setup */}}
+								onAddStorage={handleAddStorage}
+							/>
+						</View>
+					</View>
+				</Animated.ScrollView>
+
+				{/* Pairing Panel */}
+				<PairingPanel
+					isOpen={showPairing}
+					onClose={() => setShowPairing(false)}
+				/>
+
+				{/* Library Switcher Panel */}
+				<LibrarySwitcherPanel
+					isOpen={showLibrarySwitcher}
+					onClose={() => setShowLibrarySwitcher(false)}
+				/>
+			</View>
+		);
+	}
+
+	// iOS layout with parallax animations
 	return (
 		<View className="flex-1 bg-black">
 			{/* Hero Clipping Container - clips hero at page container's top edge */}
@@ -539,8 +847,12 @@ export function OverviewScreen() {
 				}}
 				onScroll={scrollHandler}
 				scrollEventThrottle={16}
-				pointerEvents="box-none"
 			>
+				{/* Storage Permission Banner (Android only) */}
+				<View className="pt-4" pointerEvents="auto">
+					<StoragePermissionBanner />
+				</View>
+
 				<View className="px-4 pt-4" pointerEvents="auto">
 
 				{/* Device Panel */}
@@ -557,7 +869,7 @@ export function OverviewScreen() {
 				<ActionButtons
 					onPairDevice={() => setShowPairing(true)}
 					onSetupSync={() => {/* TODO: Open sync setup */}}
-					onAddStorage={() => {/* TODO: Open location picker */}}
+					onAddStorage={handleAddStorage}
 				/>
 				</View>
 			</Animated.ScrollView>
