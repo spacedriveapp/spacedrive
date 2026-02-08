@@ -35,8 +35,8 @@
 	},
 	"devDependencies": {
 		"@tauri-apps/cli": "^2.1.0",
-		"@types/react": "npm:types-react@rc",
-		"@types/react-dom": "npm:types-react-dom@rc",
+		"@types/react": "~19.1.10",
+		"@types/react-dom": "~19.1.10",
 		"@vitejs/plugin-react-swc": "^3.7.1",
 		"autoprefixer": "^10.4.18",
 		"postcss": "^8.4.36",

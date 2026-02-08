@@ -59,8 +59,8 @@
 	},
 	"devDependencies": {
 		"@types/prismjs": "^1.26.5",
-		"@types/react": "npm:types-react@rc",
-		"@types/react-dom": "npm:types-react-dom@rc",
+		"@types/react": "~19.1.10",
+		"@types/react-dom": "~19.1.10",
 		"@types/three": "^0.182.0",
 		"typescript": "^5.6.2"
 	}
