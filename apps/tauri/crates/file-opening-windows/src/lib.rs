@@ -29,7 +29,7 @@ impl FileOpener for WindowsFileOpener {
 		ensure_com_initialized();
 
 		let mut actual_path = path.to_path_buf();
-		if path.extension().and_then(|e| e.to_str()) == Some("lnk") {
+		if path.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("lnk")) {
 			if let Some(target) = resolve_shortcut(path) {
 				actual_path = target;
 			}
@@ -52,7 +52,7 @@ impl FileOpener for WindowsFileOpener {
 		ensure_com_initialized();
 
 		let mut actual_path = path.to_path_buf();
-		if path.extension().and_then(|e| e.to_str()) == Some("lnk") {
+		if path.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("lnk")) {
 			if let Some(target) = resolve_shortcut(path) {
 				actual_path = target;
 			}
@@ -207,3 +207,4 @@ fn resolve_shortcut(path: &Path) -> Option<PathBuf> {
 		}
 	}
 }
+
