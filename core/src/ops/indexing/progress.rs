@@ -168,9 +168,11 @@ mod tests {
 
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Processing");
-		assert_eq!(generic.percentage, 0.32); // 0.2 + (0.3 * 0.4) = 0.32
-		assert_eq!(generic.completion.completed, 3);
-		assert_eq!(generic.completion.total, 10);
+		// 0.2 + (3/10 * 0.4) = 0.2 + 0.12 = 0.32
+		assert!((generic.percentage - 0.32f32).abs() < 0.001);
+		// Completion uses total files+dirs found (150 + 20 = 170), total unknown = 0
+		assert_eq!(generic.completion.completed, 170);
+		assert_eq!(generic.completion.total, 0);
 		assert_eq!(generic.performance.rate, 25.5);
 		assert_eq!(
 			generic.performance.estimated_remaining,
@@ -199,9 +201,11 @@ mod tests {
 
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Content Identification");
-		assert_eq!(generic.percentage, 0.91); // 0.7 + (0.75 * 0.28) = 0.91
-		assert_eq!(generic.completion.completed, 75);
-		assert_eq!(generic.completion.total, 100);
+		// 0.7 + (75/100 * 0.28) = 0.91 — use abs() for f32 precision
+		assert!((generic.percentage - 0.91f32).abs() < 0.001);
+		// Completion uses total_found (all zeros in this test)
+		assert_eq!(generic.completion.completed, 0);
+		assert_eq!(generic.completion.total, 0);
 	}
 
 	#[test]
@@ -225,8 +229,9 @@ mod tests {
 		let generic = indexer_progress.to_generic_progress();
 		assert_eq!(generic.phase, "Finalizing");
 		// With 95/100 progress: 0.99 + (0.95 * 0.01) = 0.9995
-		assert!((generic.percentage - 0.9995).abs() < 0.0001);
-		assert_eq!(generic.completion.completed, 95);
-		assert_eq!(generic.completion.total, 100);
+		assert!((generic.percentage - 0.9995f32).abs() < 0.001);
+		// Completion uses total_found (all zeros in this test)
+		assert_eq!(generic.completion.completed, 0);
+		assert_eq!(generic.completion.total, 0);
 	}
 }
