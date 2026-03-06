@@ -9,7 +9,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::fs;
 use uuid::Uuid;
 
@@ -213,106 +213,26 @@ impl LocalDeleteStrategy {
 		Ok(total)
 	}
 
-	/// Move file to system trash/recycle bin
+	/// Move file to the system trash/recycle bin.
+	///
+	/// Uses the `trash` crate for native platform support:
+	/// - Windows: SHFileOperation → Recycle Bin
+	/// - macOS: NSFileManager → Trash
+	/// - Linux: XDG trash spec
 	pub async fn move_to_trash(&self, path: &Path) -> Result<(), std::io::Error> {
-		#[cfg(target_os = "macos")]
-		{
-			self.move_to_trash_macos(path).await?;
-		}
-
-		#[cfg(all(unix, not(target_os = "macos")))]
-		{
-			self.move_to_trash_unix(path).await?;
-		}
-
-		#[cfg(windows)]
-		{
-			self.move_to_trash_windows(path).await?;
-		}
+		let path = path.to_path_buf();
+		tokio::task::spawn_blocking(move || {
+			trash::delete(&path).map_err(|e| {
+				std::io::Error::new(
+					std::io::ErrorKind::Other,
+					format!("Failed to move to trash: {}", e),
+				)
+			})
+		})
+		.await
+		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))??;
 
 		Ok(())
-	}
-
-	#[cfg(unix)]
-	async fn move_to_trash_unix(&self, path: &Path) -> Result<(), std::io::Error> {
-		let home = std::env::var("HOME")
-			.map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "HOME not set"))?;
-
-		let trash_dir = std::path::Path::new(&home).join(".local/share/Trash/files");
-		fs::create_dir_all(&trash_dir).await?;
-
-		let filename = path.file_name().ok_or_else(|| {
-			std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid filename")
-		})?;
-
-		let trash_path = trash_dir.join(filename);
-		let final_trash_path = self.find_unique_trash_name(&trash_path).await?;
-
-		fs::rename(path, final_trash_path).await?;
-
-		Ok(())
-	}
-
-	#[cfg(windows)]
-	async fn move_to_trash_windows(&self, path: &Path) -> Result<(), std::io::Error> {
-		let temp_dir = std::env::temp_dir().join("spacedrive_trash");
-		fs::create_dir_all(&temp_dir).await?;
-
-		let filename = path.file_name().ok_or_else(|| {
-			std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid filename")
-		})?;
-
-		let trash_path = temp_dir.join(filename);
-		let final_trash_path = self.find_unique_trash_name(&trash_path).await?;
-
-		fs::rename(path, final_trash_path).await?;
-
-		Ok(())
-	}
-
-	#[cfg(target_os = "macos")]
-	async fn move_to_trash_macos(&self, path: &Path) -> Result<(), std::io::Error> {
-		let home = std::env::var("HOME")
-			.map_err(|_| std::io::Error::new(std::io::ErrorKind::NotFound, "HOME not set"))?;
-
-		let trash_dir = std::path::Path::new(&home).join(".Trash");
-
-		let filename = path.file_name().ok_or_else(|| {
-			std::io::Error::new(std::io::ErrorKind::InvalidInput, "Invalid filename")
-		})?;
-
-		let trash_path = trash_dir.join(filename);
-		let final_trash_path = self.find_unique_trash_name(&trash_path).await?;
-
-		fs::rename(path, final_trash_path).await?;
-
-		Ok(())
-	}
-
-	/// Find a unique name in the trash directory
-	async fn find_unique_trash_name(&self, base_path: &Path) -> Result<PathBuf, std::io::Error> {
-		let mut candidate = base_path.to_path_buf();
-		let mut counter = 1;
-
-		while fs::try_exists(&candidate).await? {
-			let stem = base_path.file_stem().unwrap_or_default();
-			let extension = base_path.extension();
-
-			let new_name = if let Some(ext) = extension {
-				format!("{} ({})", stem.to_string_lossy(), counter)
-			} else {
-				format!("{} ({})", stem.to_string_lossy(), counter)
-			};
-
-			candidate = base_path.with_file_name(new_name);
-			if let Some(ext) = extension {
-				candidate.set_extension(ext);
-			}
-
-			counter += 1;
-		}
-
-		Ok(candidate)
 	}
 
 	/// Permanently delete file or directory
