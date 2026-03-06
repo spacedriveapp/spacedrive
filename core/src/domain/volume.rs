@@ -25,7 +25,21 @@ impl VolumeFingerprint {
 	pub fn from_primary_volume(mount_point: &std::path::Path, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"stable_primary_v1:");
-		hasher.update(mount_point.to_string_lossy().as_bytes());
+
+		// Normalize path for consistent fingerprinting: case-insensitive on Windows/macOS
+		// prevents "C:\" vs "c:\" from generating different fingerprints.
+		let path_str = mount_point.to_string_lossy();
+		let normalized = if cfg!(windows) || cfg!(target_os = "macos") {
+			path_str.to_lowercase()
+		} else {
+			path_str.into_owned()
+		};
+
+		// Trim trailing slash/backslash for consistency, but preserve root paths (e.g. "C:\", "/")
+		let trimmed = normalized.trim_end_matches(['/', '\\']);
+		let final_path = if trimmed.is_empty() { &normalized } else { trimmed };
+
+		hasher.update(final_path.as_bytes());
 		hasher.update(device_id.as_bytes());
 		Self(hasher.finalize().to_hex().to_string())
 	}
