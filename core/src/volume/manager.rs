@@ -643,7 +643,7 @@ impl VolumeManager {
 		// Query database for tracked volumes to merge metadata
 		let mut tracked_volumes_map: HashMap<
 			VolumeFingerprint,
-			(Uuid, Option<String>, Option<u64>, Option<u64>),
+			(Uuid, Uuid, Option<String>, Option<u64>, Option<u64>),
 		> = HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
@@ -673,6 +673,7 @@ impl VolumeManager {
 								fingerprint,
 								(
 									library.id(),
+									db_vol.uuid,
 									db_vol.display_name,
 									db_vol.read_speed_mbps.map(|s| s as u64),
 									db_vol.write_speed_mbps.map(|s| s as u64),
@@ -705,9 +706,10 @@ impl VolumeManager {
 			seen_fingerprints.insert(fingerprint.clone());
 
 			// Merge tracked volume metadata from database
-			if let Some((library_id, display_name, read_speed, write_speed)) =
+			if let Some((library_id, db_uuid, display_name, read_speed, write_speed)) =
 				tracked_volumes_map.get(&fingerprint)
 			{
+				detected.id = *db_uuid;
 				detected.is_tracked = true;
 				detected.library_id = Some(*library_id);
 				detected.display_name = display_name.clone();
