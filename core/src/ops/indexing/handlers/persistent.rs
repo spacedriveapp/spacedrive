@@ -159,8 +159,8 @@ impl PersistentEventHandler {
 				location_id
 			);
 		} else {
-			warn!(
-				"FsWatcher not connected, cannot watch path {} for location {}",
+			debug!(
+				"FsWatcher not yet connected, deferring watch for path {} location {} (will register on start)",
 				root_path.display(),
 				location_id
 			);
