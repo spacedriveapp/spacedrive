@@ -62,7 +62,7 @@ pub struct SharingOptions {
 impl Default for SharingOptions {
 	fn default() -> Self {
 		Self {
-			destination_path: PathBuf::from("/tmp/spacedrive"),
+			destination_path: std::env::temp_dir().join("spacedrive"),
 			overwrite: false,
 			preserve_timestamps: true,
 			sender_name: "Spacedrive User".to_string(),

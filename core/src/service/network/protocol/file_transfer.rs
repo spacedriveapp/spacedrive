@@ -595,7 +595,7 @@ impl FileTransferProtocolHandler {
 			chunks_received: Vec::new(),
 			source_device: None, // Will be set when we know our device ID
 			destination_device: Some(target_device),
-			destination_path: "/tmp".to_string(), // Default destination, will be set by caller
+			destination_path: std::env::temp_dir().to_string_lossy().to_string(), // Default destination, will be set by caller
 		};
 
 		// Store session
