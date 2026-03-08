@@ -148,7 +148,7 @@ impl EphemeralIndex {
 			path.file_name()
 				.map(|s| s.to_string_lossy())
 				.as_deref()
-				.unwrap_or("/"),
+				.unwrap_or(&path.to_string_lossy()),
 		);
 
 		let parent_ref = parent_id
@@ -608,7 +608,8 @@ impl EphemeralIndex {
 				// Match paths that are under the prefix (including the prefix itself)
 				path_str.starts_with(prefix_str.as_ref())
 					&& (path_str.len() == prefix_str.len()
-						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/'))
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/')
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'\\'))
 			})
 			.count()
 	}
@@ -660,7 +661,7 @@ impl EphemeralIndex {
 			.keys()
 			.filter(|k| {
 				let k_str = k.to_string_lossy();
-				k_str == prefix || k_str.starts_with(&format!("{}/", prefix))
+				k_str == prefix || k_str.starts_with(&format!("{}/", prefix)) || k_str.starts_with(&format!("{}\\", prefix))
 			})
 			.cloned()
 			.collect();
