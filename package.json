@@ -52,6 +52,7 @@
   "dependencies": {
     "class-variance-authority": "^0.7.1",
     "gray-matter": "^4.0.3",
+    "maplibre-gl": "^4.7.1",
     "react": "19.1.0"
   }
 }
