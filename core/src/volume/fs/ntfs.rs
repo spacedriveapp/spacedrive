@@ -5,8 +5,7 @@
 
 use crate::volume::{error::VolumeResult, types::Volume};
 use async_trait::async_trait;
-use std::path::{Path, PathBuf};
-use tracing::debug;
+use std::path::Path;
 
 /// Get the volume GUID path (e.g. `\?\Volume{guid}\`) for the volume containing `path`.
 ///
@@ -76,35 +75,11 @@ impl NtfsHandler {
 		true
 	}
 
-	/// Resolve junction points and symbolic links
-	///
-	/// Uses `std::fs::canonicalize` to resolve symlinks and junctions natively.
-	pub fn resolve_ntfs_path(&self, path: &Path) -> PathBuf {
-		std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
-	}
-
-	/// Get NTFS file system features
-	///
-	/// Returns hardcoded NTFS capabilities. All modern NTFS volumes support
-	/// hardlinks, junctions, symlinks, streams, compression, and encryption.
-	pub fn get_ntfs_features(&self) -> NtfsFeatures {
-		NtfsFeatures {
-			supports_hardlinks: true,
-			supports_junctions: true,
-			supports_symlinks: true,
-			supports_streams: true,
-			supports_compression: true,
-			supports_encryption: true,
-		}
-	}
 }
 
 #[async_trait]
 impl super::FilesystemHandler for NtfsHandler {
-	async fn enhance_volume(&self, volume: &mut Volume) -> VolumeResult<()> {
-		// Log NTFS feature support — all modern NTFS volumes have the same capabilities
-		let features = self.get_ntfs_features();
-		debug!("NTFS volume {:?} features: {:?}", volume.mount_point, features);
+	async fn enhance_volume(&self, _volume: &mut Volume) -> VolumeResult<()> {
 		Ok(())
 	}
 
@@ -135,17 +110,6 @@ impl super::FilesystemHandler for NtfsHandler {
 
 		false
 	}
-}
-
-/// NTFS filesystem features
-#[derive(Debug, Clone)]
-pub struct NtfsFeatures {
-	pub supports_hardlinks: bool,
-	pub supports_junctions: bool,
-	pub supports_symlinks: bool,
-	pub supports_streams: bool,
-	pub supports_compression: bool,
-	pub supports_encryption: bool,
 }
 
 /// Enhance volume with NTFS-specific information from Windows
