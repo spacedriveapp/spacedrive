@@ -84,6 +84,15 @@ impl Database {
 				"PRAGMA mmap_size=67108864",
 			))
 			.await;
+		// Retry up to 5 seconds on SQLITE_BUSY instead of failing immediately.
+		// Prevents SQLITE_BUSY errors when multiple operations (indexing, sync,
+		// location removal) race for write access.
+		let _ = conn
+			.execute(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				"PRAGMA busy_timeout=5000",
+			))
+			.await;
 
 		info!("Created new database at {:?}", path);
 
@@ -146,6 +155,13 @@ impl Database {
 			.execute(Statement::from_string(
 				sea_orm::DatabaseBackend::Sqlite,
 				"PRAGMA mmap_size=67108864",
+			))
+			.await;
+		// Retry up to 5 seconds on SQLITE_BUSY instead of failing immediately.
+		let _ = conn
+			.execute(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				"PRAGMA busy_timeout=5000",
 			))
 			.await;
 
