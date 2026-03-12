@@ -486,7 +486,7 @@ async fn validate_and_reset_library_if_needed(
 	// Query daemon for list of libraries
 	let request = json!({
 		"Query": {
-			"method": "libraries.list",
+			"method": "query:libraries.list",
 			"library_id": null,
 			"payload": {
 				"include_stats": false
@@ -1739,7 +1739,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 						// Create the DaemonRequest
 						let request = serde_json::json!({
 							"Action": {
-								"method": "libraries.open.input",
+								"method": "action:libraries.open.input",
 								"library_id": null,
 								"payload": {
 									"path": path_buf.to_string_lossy().to_string()
