@@ -63,18 +63,6 @@ impl NtfsHandler {
 		false
 	}
 
-	/// Check if NTFS hardlinks are supported (they always are on NTFS)
-	pub fn supports_hardlinks(&self) -> bool {
-		// NTFS always supports hardlinks — no runtime check needed
-		true
-	}
-
-	/// Check if NTFS junction points are supported
-	pub fn supports_junctions(&self) -> bool {
-		// NTFS always supports junction points — no runtime check needed
-		true
-	}
-
 }
 
 #[async_trait]
