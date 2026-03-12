@@ -17,7 +17,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::database_storage::EntryMetadata;
+use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
@@ -300,11 +300,7 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
-			is_hidden: path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
+			is_hidden: is_hidden_path(path),
 		})
 	}
 
@@ -322,11 +318,7 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
-			is_hidden: path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
+			is_hidden: is_hidden_path(path),
 		})
 	}
 
@@ -709,11 +701,7 @@ impl EphemeralIndex {
 					created: node.meta.ctime_as_system_time(),
 					inode: None,
 					permissions: None,
-					is_hidden: path
-						.file_name()
-						.and_then(|n| n.to_str())
-						.map(|n| n.starts_with('.'))
-						.unwrap_or(false),
+					is_hidden: is_hidden_path(path),
 				};
 				result.insert(path.clone(), metadata);
 			}
