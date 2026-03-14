@@ -177,11 +177,19 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
 		const capturedQueryKey = queryKey;
 
 		const handleEvent = (event: Event) => {
+			const isDebug = optionsRef.current.debug;
+			if (isDebug) {
+				console.log(`[useNormalizedQuery] RAW EVENT received:`, typeof event, event);
+			}
+
 			// Guard: only process events if pathScope hasn't changed since subscription
 			if (
 				JSON.stringify(optionsRef.current.pathScope) !==
 				JSON.stringify(capturedPathScope)
 			) {
+				if (isDebug) {
+					console.log(`[useNormalizedQuery] STALE pathScope, skipping event`);
+				}
 				return;
 			}
 
@@ -193,6 +201,10 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
 				optionsRef.current.debug, // Pass debug flag
 			);
 		};
+
+		if (options.debug) {
+			console.log(`[useNormalizedQuery] SUBSCRIBING: resourceType=${options.resourceType}, pathScope=`, JSON.stringify(options.pathScope), `includeDescendants=${options.includeDescendants ?? false}`);
+		}
 
 		client
 			.subscribeFiltered(
@@ -206,13 +218,22 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
 			)
 			.then((unsub) => {
 				if (isCancelled) {
+					if (options.debug) {
+						console.log(`[useNormalizedQuery] Subscription created but already cancelled`);
+					}
 					unsub();
 				} else {
+					if (options.debug) {
+						console.log(`[useNormalizedQuery] Subscription ACTIVE`);
+					}
 					unsubscribe = unsub;
 				}
 			});
 
 		return () => {
+			if (options.debug) {
+				console.log(`[useNormalizedQuery] UNSUBSCRIBING`);
+			}
 			isCancelled = true;
 			unsubscribe?.();
 		};
@@ -514,6 +535,14 @@ export function updateBatchResources<O>(
 	// Apply client-side filtering (safety fallback)
 	const filteredResources = filterBatchResources(resources, options);
 
+	const wireMethod = toWireMethod(options.query);
+	if (options.debug) {
+		console.log(`[useNormalizedQuery] ${wireMethod} BATCH: ${resources.length} total, ${filteredResources.length} after filter`);
+		if (filteredResources.length === 0 && resources.length > 0) {
+			console.log(`[useNormalizedQuery] ${wireMethod} ALL FILTERED OUT! First resource:`, JSON.stringify(resources[0]?.sd_path), `pathScope:`, JSON.stringify(options.pathScope));
+		}
+	}
+
 	// If all resources were filtered out, they may have moved OUT of scope
 	// Remove them from cache if they exist (handles file moves out of current view)
 	if (filteredResources.length === 0) {
@@ -526,6 +555,9 @@ export function updateBatchResources<O>(
 	}
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
+		if (options.debug) {
+			console.log(`[useNormalizedQuery] ${wireMethod} setQueryData: oldData has`, Array.isArray(oldData) ? oldData.length : Object.keys(oldData || {}).join(','), `adding ${filteredResources.length} resources`);
+		}
 		if (!oldData) return oldData;
 
 		// Handle array responses

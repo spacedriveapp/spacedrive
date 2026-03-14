@@ -502,12 +502,9 @@ impl Event {
 						return false;
 					}
 
-					// Exact mode: ONLY match the scope directory itself
-					// This indicates files are DIRECTLY in this directory
-					// Subdirectories in affected_paths mean files are in THOSE subdirectories
-					let matches = file_path == scope_path;
-
-					matches
+					// Direct children mode: match files whose parent is the scope directory
+					file_path == scope_path
+						|| file_path.parent().map_or(false, |p| p == scope_path)
 				} else {
 					false
 				}
