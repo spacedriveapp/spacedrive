@@ -1,6 +1,6 @@
 import {EyeSlash, Plugs, WifiSlash} from '@phosphor-icons/react';
 import {getVolumeIcon, useNormalizedQuery} from '@sd/ts-client';
-import type {Volume} from '@sd/ts-client';
+import type {Device, Volume} from '@sd/ts-client';
 import {useNavigate} from 'react-router-dom';
 import {GroupHeader} from './GroupHeader';
 import {SpaceItem} from './SpaceItem';
@@ -29,8 +29,12 @@ const getVolumeIndicator = (volume: Volume) => (
 );
 
 // Component for individual volume items with context menu
-function VolumeItem({volume, index, volumesLength}: {volume: Volume; index: number; volumesLength: number}) {
+function VolumeItem({volume, index, volumesLength, devices}: {volume: Volume; index: number; volumesLength: number; devices: Device[]}) {
 	const contextMenu = useVolumeContextMenu({volume});
+
+	// Look up the device by ID to get the slug (not the UUID)
+	const device = devices.find((d) => d.id === volume.device_id);
+	const deviceSlug = device?.slug || 'local';
 
 	return (
 		<SpaceItem
@@ -47,7 +51,7 @@ function VolumeItem({volume, index, volumesLength}: {volume: Volume; index: numb
 				} as any
 			}
 			volumeData={{
-				device_slug: volume.device_id,
+				device_slug: deviceSlug,
 				mount_path: volume.mount_point || '/'
 			}}
 			rightComponent={getVolumeIndicator(volume)}
@@ -72,7 +76,14 @@ export function VolumesGroup({
 		resourceType: 'volume'
 	});
 
+	const {data: devicesData} = useNormalizedQuery<any, Device[]>({
+		query: 'devices.list',
+		input: {include_offline: true, include_details: false},
+		resourceType: 'device'
+	});
+
 	const volumes = volumesData?.volumes || [];
+	const devices = (devicesData as Device[]) || [];
 
 	return (
 		<div>
@@ -98,6 +109,7 @@ export function VolumesGroup({
 								volume={volume}
 								index={index}
 								volumesLength={volumes.length}
+								devices={devices}
 							/>
 						))
 					)}

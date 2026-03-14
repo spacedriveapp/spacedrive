@@ -199,13 +199,21 @@ impl SdPath {
 		}
 	}
 
+	/// Check if the given device_slug refers to this device.
+	/// Accepts the slug, the UUID string, or the "local" placeholder.
+	fn is_current_device(device_slug: &str) -> bool {
+		device_slug == "local"
+			|| device_slug == get_current_device_slug()
+			|| device_slug == get_current_device_id().to_string()
+	}
+
 	/// Check if this path is on the current device
 	pub fn is_local(&self) -> bool {
 		match self {
-			Self::Physical { device_slug, .. } => *device_slug == get_current_device_slug(),
-			Self::Cloud { .. } => false,   // Cloud paths are never local
-			Self::Content { .. } => false, // Content paths are abstract, not inherently local
-			Self::Sidecar { .. } => false, // Sidecar paths are abstract, must be resolved
+			Self::Physical { device_slug, .. } => Self::is_current_device(device_slug),
+			Self::Cloud { .. } => false,
+			Self::Content { .. } => false,
+			Self::Sidecar { .. } => false,
 		}
 	}
 
@@ -213,8 +221,7 @@ impl SdPath {
 	pub fn as_local_path(&self) -> Option<&Path> {
 		match self {
 			Self::Physical { device_slug, path } => {
-				// "local" is a special placeholder from the frontend meaning "current device"
-				if *device_slug == "local" || *device_slug == get_current_device_slug() {
+				if Self::is_current_device(device_slug) {
 					Some(path)
 				} else {
 					None
