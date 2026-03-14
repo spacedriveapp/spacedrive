@@ -569,10 +569,9 @@ impl LocationManager {
 			.await?
 			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
 
-		// Delete the root entry tree first if it exists
-		// Use delete_subtree_internal to avoid creating entry tombstones (we'll tombstone the location instead)
+		// Delete the root entry tree first if it exists (within the same transaction to avoid lock contention)
 		if let Some(entry_id) = location.entry_id {
-			crate::ops::indexing::DatabaseStorage::delete_subtree(entry_id, library.db().conn())
+			crate::ops::indexing::DatabaseStorage::delete_subtree_in_txn(entry_id, &txn)
 				.await
 				.map_err(|e| LocationError::Other(format!("Failed to delete entry tree: {}", e)))?;
 		}
