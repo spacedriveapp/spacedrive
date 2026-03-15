@@ -44,9 +44,10 @@ async fn connect_sqlite(
 ) -> Result<DatabaseConnection, DbErr> {
 	let opts = sqlite_connect_options(url)?;
 
+	let pool_size = pool_size.max(1);
 	let pool = sqlx::pool::PoolOptions::<sqlx::Sqlite>::new()
 		.max_connections(pool_size)
-		.min_connections(5)
+		.min_connections(pool_size.min(5))
 		.acquire_timeout(Duration::from_secs(30))
 		.idle_timeout(Duration::from_secs(30))
 		.max_lifetime(Duration::from_secs(30))
