@@ -51,8 +51,7 @@ pub async fn detect_volumes(
 			};
 
 			let file_system = utils::parse_filesystem_type(&fs_name);
-			let mount_str = mount_point.to_string_lossy();
-			let mount_type = determine_mount_type_windows(&mount_str);
+			let mount_type = determine_mount_type_windows(&mount_point);
 			let disk_type = match disk.kind() {
 				sysinfo::DiskKind::SSD => DiskType::SSD,
 				sysinfo::DiskKind::HDD => DiskType::HDD,
@@ -125,11 +124,13 @@ fn classify_volume(
 	classifier.classify(&detection_info)
 }
 
-/// Determine mount type for Windows drives
-fn determine_mount_type_windows(drive_path: &str) -> MountType {
-	match drive_path.to_uppercase().as_str() {
-		"C:\\" | "D:\\" => MountType::System,
-		_ => MountType::External,
+/// Determine mount type for Windows drives by checking if the volume
+/// hosts the Windows installation (contains `\Windows\System32`).
+fn determine_mount_type_windows(mount_point: &std::path::Path) -> MountType {
+	if mount_point.join("Windows").join("System32").is_dir() {
+		MountType::System
+	} else {
+		MountType::External
 	}
 }
 

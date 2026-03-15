@@ -456,6 +456,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			color: None,
 			icon: None,
 			error_message: None,
+			supports_block_cloning: false,
 		};
 
 		let credential_manager = CloudCredentialManager::new(

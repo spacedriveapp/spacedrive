@@ -7,41 +7,6 @@ use crate::volume::{error::VolumeResult, types::Volume};
 use async_trait::async_trait;
 use std::path::Path;
 
-/// Get the volume GUID path (e.g. `\?\Volume{guid}\`) for the volume containing `path`.
-///
-/// Uses `GetVolumePathNameW` to find the mount point root, then
-/// `GetVolumeNameForVolumeMountPointW` to retrieve the stable GUID.
-/// Returns `None` if either API call fails.
-#[cfg(windows)]
-fn volume_guid(path: &Path) -> Option<String> {
-	use std::ffi::OsString;
-	use std::os::windows::ffi::{OsStrExt, OsStringExt};
-	use windows_sys::Win32::Storage::FileSystem::{
-		GetVolumeNameForVolumeMountPointW, GetVolumePathNameW,
-	};
-
-	let wide: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
-
-	// Step 1: resolve mount point root (e.g. "C:\")
-	let mut root_buf = vec![0u16; 261];
-	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), 261) } == 0 {
-		return None;
-	}
-
-	// Step 2: get stable volume GUID path
-	let mut guid_buf = vec![0u16; 50]; // "\?\Volume{GUID}\" is ~49 chars
-	if unsafe {
-		GetVolumeNameForVolumeMountPointW(root_buf.as_ptr(), guid_buf.as_mut_ptr(), 50)
-	} == 0
-	{
-		return None;
-	}
-
-	let len = guid_buf.iter().position(|&c| c == 0).unwrap_or(guid_buf.len());
-	Some(OsString::from_wide(&guid_buf[..len]).to_string_lossy().into_owned())
-}
-
-
 /// NTFS filesystem handler
 pub struct NtfsHandler;
 
@@ -56,7 +21,7 @@ impl NtfsHandler {
 		// (e.g. \?\Volume{guid}\) and compare — no PowerShell required.
 		#[cfg(windows)]
 		{
-			if let (Some(g1), Some(g2)) = (volume_guid(path1), volume_guid(path2)) {
+			if let (Some(g1), Some(g2)) = (super::volume_guid(path1), super::volume_guid(path2)) {
 				return g1 == g2;
 			}
 		}

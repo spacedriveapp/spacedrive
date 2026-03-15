@@ -390,6 +390,7 @@ impl VolumeManager {
 									color: None,
 									icon: None,
 									error_message: None,
+									supports_block_cloning: false,
 								};
 
 								let mut volumes = self.volumes.write().await;

@@ -228,6 +228,11 @@ export function useNormalizedQuery<I, O = any, TSelected = O>(
 					}
 					unsubscribe = unsub;
 				}
+			})
+			.catch((error) => {
+				if (!isCancelled && options.debug) {
+					console.error("[useNormalizedQuery] Subscription failed", error);
+				}
 			});
 
 		return () => {
@@ -426,10 +431,12 @@ export function filterBatchResources(
 				return false; // No Physical scope path
 			}
 
-			// Normalize scope: convert Windows backslashes and remove trailing slashes
+			// Normalize scope: convert Windows backslashes, remove trailing slashes,
+			// and lower-case for case-insensitive matching on Windows
 			const normalizedScope = String(scopeStr)
 				.replace(/\\/g, "/")
-				.replace(/\/+$/, "");
+				.replace(/\/+$/, "")
+				.toLowerCase();
 
 			// Try to find a Physical path - check alternate_paths first, then sd_path
 			const alternatePaths = resource.alternate_paths || [];
@@ -445,8 +452,8 @@ export function filterBatchResources(
 				return false; // No physical path found
 			}
 
-			// Normalize Windows backslashes so lastIndexOf works on all platforms
-			const pathStr = String(physicalPath.path).replace(/\\/g, "/");
+			// Normalize Windows backslashes and case so matching works on all platforms
+			const pathStr = String(physicalPath.path).replace(/\\/g, "/").toLowerCase();
 
 			// Extract parent directory from file path
 			const lastSlash = pathStr.lastIndexOf("/");

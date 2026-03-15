@@ -6,30 +6,27 @@ use async_trait::async_trait;
 
 /// Get the volume serial number for the volume containing `path`.
 ///
-/// Uses `GetVolumeInformationW` with the drive-letter root (e.g. `C:\`).
-/// Returns `None` if the path has no drive-letter prefix or the API call fails.
+/// Uses `GetVolumePathNameW` to resolve the actual volume mount point
+/// (handles folder-mounted volumes correctly), then queries `GetVolumeInformationW`.
 #[cfg(windows)]
 fn volume_serial(path: &std::path::Path) -> Option<u32> {
 	use std::os::windows::ffi::OsStrExt;
-	use std::path::Component;
-	use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationW;
-
-	// Build "C:\" root from the path's prefix component
-	let prefix = path.components().next()?;
-	let root = match prefix {
-		Component::Prefix(p) => {
-			let mut s = p.as_os_str().to_os_string();
-			s.push("\\");
-			s
-		}
-		_ => return None,
+	use windows_sys::Win32::Storage::FileSystem::{
+		GetVolumeInformationW, GetVolumePathNameW,
 	};
 
-	let wide: Vec<u16> = root.encode_wide().chain(std::iter::once(0)).collect();
+	let wide: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+
+	// Resolve the actual volume mount point (e.g. "C:\" or "C:\mount\othervol\")
+	let mut root_buf = vec![0u16; 261];
+	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), 261) } == 0 {
+		return None;
+	}
+
 	let mut serial: u32 = 0;
 	let ok = unsafe {
 		GetVolumeInformationW(
-			wide.as_ptr(),
+			root_buf.as_ptr(),
 			std::ptr::null_mut(),
 			0,
 			&mut serial,

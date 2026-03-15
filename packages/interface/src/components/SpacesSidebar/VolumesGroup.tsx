@@ -34,7 +34,7 @@ function VolumeItem({volume, index, volumesLength, devices}: {volume: Volume; in
 
 	// Look up the device by ID to get the slug (not the UUID)
 	const device = devices.find((d) => d.id === volume.device_id);
-	const deviceSlug = device?.slug || 'local';
+	const deviceSlug = device?.slug;
 
 	return (
 		<SpaceItem
@@ -50,10 +50,10 @@ function VolumeItem({volume, index, volumesLength, devices}: {volume: Volume; in
 					}
 				} as any
 			}
-			volumeData={{
+			volumeData={deviceSlug ? {
 				device_slug: deviceSlug,
 				mount_path: volume.mount_point || '/'
-			}}
+			} : undefined}
 			rightComponent={getVolumeIndicator(volume)}
 			customIcon={getVolumeIcon(volume)}
 			allowInsertion={false}

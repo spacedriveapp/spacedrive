@@ -427,6 +427,7 @@ pub fn containers_to_volumes(
 				color: None,
 				icon: None,
 				error_message: None,
+				supports_block_cloning: false,
 			};
 
 			volumes.push(volume);

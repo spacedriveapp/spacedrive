@@ -377,6 +377,7 @@ mod tests {
 			color: None,
 			icon: None,
 			error_message: None,
+			supports_block_cloning: false,
 		};
 
 		let config = SpeedTestConfig {

@@ -4,8 +4,7 @@
 //! optimizations like block cloning operations.
 //!
 //! Block cloning support is detected via native Win32 `FSCTL_GET_REFS_VOLUME_DATA`
-//! IOCTL call instead of spawning PowerShell, which is significantly faster and
-//! avoids the overhead of shell process creation.
+//! IOCTL call. ReFS v2.0+ (Windows 10 1703 / Server 2016) supports block cloning.
 
 use crate::volume::{error::VolumeResult, types::Volume};
 use async_trait::async_trait;
@@ -15,10 +14,125 @@ use std::sync::Mutex;
 use tokio::task;
 use tracing::{debug, warn};
 
-/// Cache to avoid repeated IOCTL calls per volume path.
-/// Populated on first check, reused for the lifetime of the process.
+/// Cached IOCTL results keyed by volume GUID to avoid repeated syscalls.
 #[cfg(windows)]
-static REFS_BLOCK_CLONE_CACHE: Mutex<Option<HashMap<PathBuf, bool>>> = Mutex::new(None);
+static REFS_BLOCK_CLONE_CACHE: Mutex<Option<HashMap<String, RefsIoctlResult>>> =
+	Mutex::new(None);
+
+/// Result of a ReFS IOCTL version query.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy)]
+struct RefsIoctlResult {
+	supports_block_cloning: bool,
+	major_version: u32,
+	minor_version: u32,
+}
+
+/// Query ReFS version and block cloning capability via `FSCTL_GET_REFS_VOLUME_DATA`.
+///
+/// This is a synchronous function meant to be called inside `spawn_blocking`.
+/// Results are cached per volume GUID.
+#[cfg(windows)]
+fn check_refs_version_sync(path: &Path) -> Option<RefsIoctlResult> {
+	use std::mem::size_of;
+	use std::os::windows::ffi::OsStrExt;
+	use std::ptr::{null, null_mut};
+	use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
+	use windows_sys::Win32::Storage::FileSystem::{
+		CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, FILE_SHARE_WRITE,
+		OPEN_EXISTING,
+	};
+	use windows_sys::Win32::System::Ioctl::{FSCTL_GET_REFS_VOLUME_DATA, REFS_VOLUME_DATA_BUFFER};
+	use windows_sys::Win32::System::IO::DeviceIoControl;
+
+	let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+	let handle = unsafe {
+		CreateFileW(
+			wide_path.as_ptr(),
+			GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			null(),
+			OPEN_EXISTING,
+			FILE_FLAG_BACKUP_SEMANTICS,
+			0,
+		)
+	};
+
+	if handle == INVALID_HANDLE_VALUE {
+		warn!("Failed to open handle for ReFS IOCTL: {}", path.display());
+		return None;
+	}
+
+	let mut buffer: REFS_VOLUME_DATA_BUFFER = unsafe { std::mem::zeroed() };
+	let mut bytes_returned = 0u32;
+
+	let ok = unsafe {
+		DeviceIoControl(
+			handle,
+			FSCTL_GET_REFS_VOLUME_DATA,
+			null(),
+			0,
+			&mut buffer as *mut _ as *mut _,
+			size_of::<REFS_VOLUME_DATA_BUFFER>() as u32,
+			&mut bytes_returned,
+			null_mut(),
+		)
+	};
+
+	unsafe { CloseHandle(handle) };
+
+	if ok == 0 {
+		warn!("FSCTL_GET_REFS_VOLUME_DATA failed for: {}", path.display());
+		return None;
+	}
+
+	let result = RefsIoctlResult {
+		supports_block_cloning: buffer.MajorVersion >= 2,
+		major_version: buffer.MajorVersion,
+		minor_version: buffer.MinorVersion,
+	};
+
+	debug!(
+		"ReFS v{}.{} at {}: block cloning = {}",
+		result.major_version,
+		result.minor_version,
+		path.display(),
+		result.supports_block_cloning
+	);
+
+	Some(result)
+}
+
+/// Query ReFS version with caching by volume GUID.
+/// Falls back to uncached query if GUID resolution fails.
+#[cfg(windows)]
+fn check_refs_version_cached(mount_point: &Path) -> Option<RefsIoctlResult> {
+	let guid = super::volume_guid(mount_point);
+
+	// Check cache by GUID
+	if let Some(ref guid_key) = guid {
+		if let Ok(guard) = REFS_BLOCK_CLONE_CACHE.lock() {
+			if let Some(cache) = guard.as_ref() {
+				if let Some(result) = cache.get(guid_key) {
+					return Some(*result);
+				}
+			}
+		}
+	}
+
+	let result = check_refs_version_sync(mount_point)?;
+
+	// Store in cache by GUID
+	if let Some(guid_key) = guid {
+		if let Ok(mut guard) = REFS_BLOCK_CLONE_CACHE.lock() {
+			let cache = guard.get_or_insert_with(HashMap::new);
+			cache.insert(guid_key, result);
+		}
+	}
+
+	Some(result)
+}
 
 /// ReFS filesystem handler
 pub struct RefsHandler;
@@ -28,21 +142,19 @@ impl RefsHandler {
 		Self
 	}
 
-	/// Check if two paths are on the same ReFS volume and support block cloning
+	/// Check if two paths are on the same ReFS volume.
 	pub async fn same_physical_storage(&self, path1: &Path, path2: &Path) -> bool {
 		if let (Ok(vol1), Ok(vol2)) = (
 			self.get_volume_info(path1).await,
 			self.get_volume_info(path2).await,
 		) {
-			return vol1.volume_guid == vol2.volume_guid
-				&& vol1.supports_block_cloning
-				&& vol2.supports_block_cloning;
+			return vol1.volume_guid == vol2.volume_guid;
 		}
 
 		false
 	}
 
-	/// Get ReFS volume information for a path using sysinfo (no PowerShell).
+	/// Get ReFS volume information for a path.
 	async fn get_volume_info(&self, path: &Path) -> VolumeResult<RefsVolumeInfo> {
 		let path = path.to_path_buf();
 
@@ -61,12 +173,26 @@ impl RefsHandler {
 			}
 
 			if let Some((disk, _)) = best_match {
-				let mount_str = disk.mount_point().to_string_lossy();
+				let mount_point = disk.mount_point();
+				let mount_str = mount_point.to_string_lossy();
 				let fs_name = disk.file_system().to_string_lossy().to_string();
-				let is_refs = fs_name == "ReFS";
+
+				// Use stable volume GUID, fall back to mount path
+				let volume_guid = super::volume_guid(mount_point)
+					.unwrap_or_else(|| {
+						warn!("Could not resolve volume GUID for {}, using mount path", mount_str);
+						mount_str.to_string()
+					});
+
+				// Query ReFS version and block cloning via IOCTL
+				let ioctl = if fs_name == "ReFS" {
+					check_refs_version_cached(mount_point)
+				} else {
+					None
+				};
 
 				Ok(RefsVolumeInfo {
-					volume_guid: mount_str.to_string(),
+					volume_guid,
 					file_system: fs_name,
 					drive_letter: mount_str.chars().next(),
 					label: Some(disk.name().to_string_lossy().to_string()),
@@ -79,7 +205,9 @@ impl RefsHandler {
 					} else {
 						"Fixed".to_string()
 					}),
-					supports_block_cloning: is_refs,
+					supports_block_cloning: ioctl.map_or(false, |r| r.supports_block_cloning),
+					refs_major_version: ioctl.map(|r| r.major_version),
+					refs_minor_version: ioctl.map(|r| r.minor_version),
 				})
 			} else {
 				Err(crate::volume::error::VolumeError::NotFound(format!(
@@ -94,121 +222,7 @@ impl RefsHandler {
 		})?
 	}
 
-	/// Check if ReFS block cloning is supported via native Win32 IOCTL.
-	///
-	/// Uses `FSCTL_GET_REFS_VOLUME_DATA` to query ReFS version. ReFS v2.0+
-	/// (Windows 10 1703 / Server 2016) supports block cloning. Result is cached
-	/// per volume path to avoid repeated IOCTL calls.
-	#[cfg(windows)]
-	async fn supports_block_cloning(&self, path: &Path) -> bool {
-		use std::mem::size_of;
-		use std::os::windows::ffi::OsStrExt;
-		use std::ptr::{null, null_mut};
-		use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
-		use windows_sys::Win32::Storage::FileSystem::{
-			CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, FILE_SHARE_WRITE,
-			OPEN_EXISTING,
-		};
-		use windows_sys::Win32::System::Ioctl::{FSCTL_GET_REFS_VOLUME_DATA, REFS_VOLUME_DATA_BUFFER};
-		use windows_sys::Win32::System::IO::DeviceIoControl;
-
-		let path_buf = path.to_path_buf();
-
-		// Check cache first
-		if let Ok(guard) = REFS_BLOCK_CLONE_CACHE.lock() {
-			if let Some(cache) = guard.as_ref() {
-				if let Some(&supported) = cache.get(&path_buf) {
-					return supported;
-				}
-			}
-		}
-
-		let result = task::spawn_blocking(move || {
-			let wide_path: Vec<u16> = path_buf
-				.as_os_str()
-				.encode_wide()
-				.chain(Some(0))
-				.collect();
-
-			// FILE_FLAG_BACKUP_SEMANTICS is required to open a directory handle
-			let handle = unsafe {
-				CreateFileW(
-					wide_path.as_ptr(),
-					GENERIC_READ,
-					FILE_SHARE_READ | FILE_SHARE_WRITE,
-					null(),
-					OPEN_EXISTING,
-					FILE_FLAG_BACKUP_SEMANTICS,
-					0,
-				)
-			};
-
-			if handle == INVALID_HANDLE_VALUE {
-				warn!(
-					"Failed to open volume handle for ReFS IOCTL check: {}",
-					path_buf.display()
-				);
-				return (path_buf, false);
-			}
-
-			let mut buffer: REFS_VOLUME_DATA_BUFFER = unsafe { std::mem::zeroed() };
-			let mut bytes_returned = 0u32;
-
-			let ok = unsafe {
-				DeviceIoControl(
-					handle,
-					FSCTL_GET_REFS_VOLUME_DATA,
-					null(),
-					0,
-					&mut buffer as *mut _ as *mut _,
-					size_of::<REFS_VOLUME_DATA_BUFFER>() as u32,
-					&mut bytes_returned,
-					null_mut(),
-				)
-			};
-
-			unsafe { CloseHandle(handle) };
-
-			if ok == 0 {
-				warn!(
-					"FSCTL_GET_REFS_VOLUME_DATA failed for: {}",
-					path_buf.display()
-				);
-				return (path_buf, false);
-			}
-
-			// ReFS v2+ (Windows 10 1703+) guarantees block cloning support
-			let supported = buffer.MajorVersion >= 2;
-			debug!(
-				"ReFS v{}.{} at {}: block cloning = {}",
-				buffer.MajorVersion,
-				buffer.MinorVersion,
-				path_buf.display(),
-				supported
-			);
-
-			(path_buf, supported)
-		})
-		.await
-		.unwrap_or_else(|_| (path.to_path_buf(), false));
-
-		let (path_key, supported) = result;
-
-		// Populate cache
-		if let Ok(mut guard) = REFS_BLOCK_CLONE_CACHE.lock() {
-			let cache = guard.get_or_insert_with(HashMap::new);
-			cache.insert(path_key, supported);
-		}
-
-		supported
-	}
-
-	#[cfg(not(windows))]
-	async fn supports_block_cloning(&self, _path: &Path) -> bool {
-		false
-	}
-
-	/// Get all ReFS volumes on the system using sysinfo (no PowerShell).
+	/// Get all ReFS volumes on the system.
 	pub async fn get_all_refs_volumes(&self) -> VolumeResult<Vec<RefsVolumeInfo>> {
 		task::spawn_blocking(|| {
 			let disks = sysinfo::Disks::new_with_refreshed_list();
@@ -217,11 +231,18 @@ impl RefsHandler {
 			for disk in &disks {
 				let fs_name = disk.file_system().to_string_lossy().to_string();
 				if fs_name == "ReFS" {
-					let mount_point = disk.mount_point().to_string_lossy();
+					let mount_point = disk.mount_point();
+					let mount_str = mount_point.to_string_lossy();
+
+					let volume_guid = super::volume_guid(mount_point)
+						.unwrap_or_else(|| mount_str.to_string());
+
+					let ioctl = check_refs_version_cached(mount_point);
+
 					refs_volumes.push(RefsVolumeInfo {
-						volume_guid: mount_point.to_string(),
+						volume_guid,
 						file_system: fs_name,
-						drive_letter: mount_point.chars().next(),
+						drive_letter: mount_str.chars().next(),
 						label: Some(disk.name().to_string_lossy().to_string()),
 						size_bytes: disk.total_space(),
 						available_bytes: disk.available_space(),
@@ -232,7 +253,9 @@ impl RefsHandler {
 						} else {
 							"Fixed".to_string()
 						}),
-						supports_block_cloning: true,
+						supports_block_cloning: ioctl.map_or(false, |r| r.supports_block_cloning),
+						refs_major_version: ioctl.map(|r| r.major_version),
+						refs_minor_version: ioctl.map(|r| r.minor_version),
 					});
 				}
 			}
@@ -249,9 +272,13 @@ impl RefsHandler {
 #[async_trait]
 impl super::FilesystemHandler for RefsHandler {
 	async fn enhance_volume(&self, volume: &mut Volume) -> VolumeResult<()> {
-		if let Some(mount_point) = volume.mount_point.to_str() {
-			if self.supports_block_cloning(Path::new(mount_point)).await {
-				debug!("ReFS volume supports block cloning: {}", mount_point);
+		if let Ok(info) = self.get_volume_info(&volume.mount_point).await {
+			volume.supports_block_cloning = info.supports_block_cloning;
+			if let (Some(major), Some(minor)) = (info.refs_major_version, info.refs_minor_version) {
+				debug!(
+					"ReFS v{}.{} at {}: block cloning = {}",
+					major, minor, volume.mount_point.display(), info.supports_block_cloning
+				);
 			}
 		}
 		Ok(())
@@ -303,6 +330,8 @@ pub struct RefsVolumeInfo {
 	pub partition_number: Option<u32>,
 	pub media_type: Option<String>,
 	pub supports_block_cloning: bool,
+	pub refs_major_version: Option<u32>,
+	pub refs_minor_version: Option<u32>,
 }
 
 /// Enhance volume with ReFS-specific information.
@@ -318,7 +347,7 @@ mod tests {
 	#[test]
 	fn test_refs_volume_info_creation() {
 		let info = RefsVolumeInfo {
-			volume_guid: "E:\\".to_string(),
+			volume_guid: "\\\\?\\Volume{abc-123}\\".to_string(),
 			file_system: "ReFS".to_string(),
 			drive_letter: Some('E'),
 			label: Some("DevDrive".to_string()),
@@ -328,11 +357,14 @@ mod tests {
 			partition_number: None,
 			media_type: Some("Fixed".to_string()),
 			supports_block_cloning: true,
+			refs_major_version: Some(3),
+			refs_minor_version: Some(7),
 		};
 
 		assert_eq!(info.file_system, "ReFS");
 		assert!(info.supports_block_cloning);
 		assert_eq!(info.drive_letter, Some('E'));
+		assert_eq!(info.refs_major_version, Some(3));
 	}
 
 	#[test]

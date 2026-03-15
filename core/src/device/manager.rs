@@ -504,51 +504,12 @@ fn detect_hardware_model() -> Option<String> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::ffi::OsString;
-		use std::os::windows::ffi::{OsStrExt, OsStringExt};
-		use windows_sys::Win32::System::Registry::{
-			RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_LOCAL_MACHINE, KEY_READ, REG_SZ,
-		};
-
-		let subkey_wide: Vec<u16> = std::ffi::OsStr::new("HARDWARE\\DESCRIPTION\\System\\BIOS")
-			.encode_wide()
-			.chain(std::iter::once(0))
-			.collect();
-		let value_wide: Vec<u16> = std::ffi::OsStr::new("SystemProductName")
-			.encode_wide()
-			.chain(std::iter::once(0))
-			.collect();
-
-		let mut hkey = 0isize;
-		if unsafe {
-			RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey_wide.as_ptr(), 0, KEY_READ, &mut hkey)
-		} == 0
-		{
-			let mut data_type = 0u32;
-			let mut buf = vec![0u8; 512];
-			let mut size = buf.len() as u32;
-			let ret = unsafe {
-				RegQueryValueExW(
-					hkey,
-					value_wide.as_ptr(),
-					std::ptr::null_mut(),
-					&mut data_type,
-					buf.as_mut_ptr(),
-					&mut size,
-				)
-			};
-			unsafe { RegCloseKey(hkey) };
-
-			if ret == 0 && data_type == REG_SZ {
-				let wide: Vec<u16> = buf[..size as usize]
-					.chunks_exact(2)
-					.map(|c| u16::from_le_bytes([c[0], c[1]]))
-					.collect();
-				let nul = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
-				let model = OsString::from_wide(&wide[..nul]).to_string_lossy().into_owned();
-				if !model.is_empty() {
-					return Some(model);
-				}
+		if let Some(model) = crate::domain::device::reg_read_hklm(
+			"HARDWARE\\DESCRIPTION\\System\\BIOS",
+			"SystemProductName",
+		) {
+			if !model.is_empty() {
+				return Some(model);
 			}
 		}
 	}

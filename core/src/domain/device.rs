@@ -410,9 +410,10 @@ fn detect_operating_system() -> OperatingSystem {
 	return OperatingSystem::Other;
 }
 
-/// Read a REG_SZ value from HKEY_LOCAL_MACHINE
+/// Read a REG_SZ value from HKEY_LOCAL_MACHINE.
+/// Uses a two-pass query: first to get the required buffer size, then to read the data.
 #[cfg(target_os = "windows")]
-fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
+pub(crate) fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
 	use std::ffi::OsString;
 	use std::os::windows::ffi::{OsStrExt, OsStringExt};
 	use windows_sys::Win32::System::Registry::{
@@ -830,11 +831,11 @@ fn detect_form_factor() -> Option<DeviceFormFactor> {
 
 		let mut status: SYSTEM_POWER_STATUS = unsafe { std::mem::zeroed() };
 		if unsafe { GetSystemPowerStatus(&mut status) } != 0 {
-			// BatteryFlag 128 = no system battery → desktop; otherwise battery present → laptop
-			if status.BatteryFlag == 128 {
-				return Some(DeviceFormFactor::Desktop);
-			} else {
-				return Some(DeviceFormFactor::Laptop);
+			// BatteryFlag is a bitmask: 0x80 = no system battery, 0xFF = unknown
+			match status.BatteryFlag {
+				255 => {} // Unknown — fall through to other detection methods
+				flag if flag & 128 != 0 => return Some(DeviceFormFactor::Desktop),
+				_ => return Some(DeviceFormFactor::Laptop),
 			}
 		}
 	}
@@ -1011,8 +1012,12 @@ fn detect_boot_disk_type() -> Option<String> {
 	{
 		use sysinfo::Disks;
 
+		let system_drive = std::env::var("SystemDrive")
+			.map(|d| std::path::PathBuf::from(format!("{}\\", d)))
+			.unwrap_or_else(|_| std::path::PathBuf::from("C:\\"));
+
 		let disks = Disks::new_with_refreshed_list();
-		if let Some(disk) = disks.iter().find(|d| d.mount_point() == std::path::Path::new("C:\\")) {
+		if let Some(disk) = disks.iter().find(|d| d.mount_point() == system_drive) {
 			return match disk.kind() {
 				sysinfo::DiskKind::SSD => Some("SSD".to_string()),
 				sysinfo::DiskKind::HDD => Some("HDD".to_string()),
@@ -1100,8 +1105,12 @@ fn detect_boot_disk_capacity() -> Option<i64> {
 	{
 		use sysinfo::Disks;
 
+		let system_drive = std::env::var("SystemDrive")
+			.map(|d| std::path::PathBuf::from(format!("{}\\", d)))
+			.unwrap_or_else(|_| std::path::PathBuf::from("C:\\"));
+
 		let disks = Disks::new_with_refreshed_list();
-		if let Some(disk) = disks.iter().find(|d| d.mount_point() == std::path::Path::new("C:\\")) {
+		if let Some(disk) = disks.iter().find(|d| d.mount_point() == system_drive) {
 			let size = disk.total_space() as i64;
 			if size > 0 {
 				return Some(size);
