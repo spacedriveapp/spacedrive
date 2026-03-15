@@ -210,6 +210,8 @@ impl LibraryQuery for VolumeListQuery {
 					if let Some(mut live_vol) = live_volumes_map.remove(&tracked_vol.fingerprint) {
 						// Use live volume data (current device, online)
 						// Mark as tracked since it's in the database
+						// Use stable DB UUID to ensure consistency with ResourceChanged events
+						live_vol.id = tracked_vol.uuid;
 						live_vol.is_tracked = true;
 						live_vol.library_id = Some(library_id);
 						volumes.push(live_vol);
