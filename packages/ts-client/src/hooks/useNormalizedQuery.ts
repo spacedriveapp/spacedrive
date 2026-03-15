@@ -431,12 +431,16 @@ export function filterBatchResources(
 				return false; // No Physical scope path
 			}
 
-			// Normalize scope: convert Windows backslashes, remove trailing slashes,
-			// and lower-case for case-insensitive matching on Windows
-			const normalizedScope = String(scopeStr)
+			// Normalize scope: convert Windows backslashes and remove trailing slashes
+			const scopeNormalized = String(scopeStr)
 				.replace(/\\/g, "/")
-				.replace(/\/+$/, "")
-				.toLowerCase();
+				.replace(/\/+$/, "");
+			// Only lower-case for Windows paths (case-insensitive FS)
+			const isWindowsPath =
+				/^[a-zA-Z]:\//.test(scopeNormalized) || scopeNormalized.startsWith("//?/");
+			const normalizedScope = isWindowsPath
+				? scopeNormalized.toLowerCase()
+				: scopeNormalized;
 
 			// Try to find a Physical path - check alternate_paths first, then sd_path
 			const alternatePaths = resource.alternate_paths || [];
@@ -452,8 +456,9 @@ export function filterBatchResources(
 				return false; // No physical path found
 			}
 
-			// Normalize Windows backslashes and case so matching works on all platforms
-			const pathStr = String(physicalPath.path).replace(/\\/g, "/").toLowerCase();
+			// Normalize Windows backslashes, only lower-case for Windows paths
+			const pathNormalized = String(physicalPath.path).replace(/\\/g, "/");
+			const pathStr = isWindowsPath ? pathNormalized.toLowerCase() : pathNormalized;
 
 			// Extract parent directory from file path
 			const lastSlash = pathStr.lastIndexOf("/");
