@@ -9,7 +9,7 @@
  * 5. Cleans up daemon on exit
  */
 
-import { spawn } from "child_process";
+import { spawn, execSync } from "child_process";
 import { existsSync, unlinkSync } from "fs";
 import { join, resolve, dirname } from "path";
 import { homedir, platform } from "os";
@@ -27,9 +27,23 @@ const IS_WIN = platform() === "win32";
 // So PROJECT_ROOT is: ../../../
 const PROJECT_ROOT = resolve(__dirname, "../../../");
 
-// FIX: Add .exe extension if on Windows
+// Resolve target directory from Cargo config (supports custom target-dir)
+function getCargoTargetDir(): string {
+    try {
+        const output = execSync("cargo metadata --format-version 1 --no-deps", {
+            cwd: PROJECT_ROOT,
+            encoding: "utf8",
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+        const metadata = JSON.parse(output);
+        return metadata.target_directory;
+    } catch {
+        return join(PROJECT_ROOT, "target");
+    }
+}
+
 const BIN_NAME = IS_WIN ? "sd-daemon.exe" : "sd-daemon";
-const DAEMON_BIN = join(PROJECT_ROOT, "target/debug", BIN_NAME);
+const DAEMON_BIN = join(getCargoTargetDir(), "debug", BIN_NAME);
 
 const DAEMON_PORT = 6969;
 const DAEMON_ADDR = `127.0.0.1:${DAEMON_PORT}`;
