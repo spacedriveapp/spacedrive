@@ -437,8 +437,26 @@ fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
 	}
 
 	let mut data_type = 0u32;
-	let mut buf = vec![0u8; 512];
-	let mut size = buf.len() as u32;
+	let mut size = 0u32;
+
+	// First call: query required buffer size
+	let ret = unsafe {
+		RegQueryValueExW(
+			hkey,
+			value_wide.as_ptr(),
+			std::ptr::null_mut(),
+			&mut data_type,
+			std::ptr::null_mut(),
+			&mut size,
+		)
+	};
+	if ret != 0 || data_type != REG_SZ || size == 0 {
+		unsafe { RegCloseKey(hkey) };
+		return None;
+	}
+
+	// Second call: read the actual data
+	let mut buf = vec![0u8; size as usize];
 	let ret = unsafe {
 		RegQueryValueExW(
 			hkey,

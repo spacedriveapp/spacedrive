@@ -841,7 +841,7 @@ impl DirectoryListingQuery {
 				tracing::warn!("Ephemeral indexing timed out for {}", local_path.display());
 				break;
 			}
-			tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+			tokio::time::sleep(std::time::Duration::from_millis(25)).await;
 		}
 	}
 

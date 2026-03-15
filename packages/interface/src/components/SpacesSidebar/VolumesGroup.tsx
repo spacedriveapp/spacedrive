@@ -76,14 +76,14 @@ export function VolumesGroup({
 		resourceType: 'volume'
 	});
 
-	const {data: devicesData} = useNormalizedQuery<any, Device[]>({
+	const {data: devicesData} = useNormalizedQuery({
 		query: 'devices.list',
 		input: {include_offline: true, include_details: false},
 		resourceType: 'device'
 	});
 
 	const volumes = volumesData?.volumes || [];
-	const devices = (devicesData as Device[]) || [];
+	const devices: Device[] = (devicesData as Device[]) ?? [];
 
 	return (
 		<div>

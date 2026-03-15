@@ -533,7 +533,7 @@ async fn validate_and_reset_library_if_needed(
 
 	// Parse response to get library list
 	let libraries: Vec<serde_json::Value> = response
-		.get("JsonOk")
+		.get("JsonOk").or_else(|| response.get("result"))
 		.and_then(|r| r.as_array())
 		.ok_or_else(|| format!("Invalid response format from libraries.list query. Raw: {}", response_line.trim()))?
 		.clone();

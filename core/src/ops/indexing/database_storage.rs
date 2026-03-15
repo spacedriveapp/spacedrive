@@ -55,8 +55,8 @@ use uuid::Uuid;
 
 /// Check if a filesystem path should be treated as hidden.
 ///
-/// On Windows, checks `FILE_ATTRIBUTE_HIDDEN` via `GetFileAttributesW` first.
-/// On all platforms, also checks for dot-prefix (Unix convention).
+/// On Windows, uses `FILE_ATTRIBUTE_HIDDEN` via `GetFileAttributesW` exclusively.
+/// On other platforms, uses the dot-prefix convention.
 pub fn is_hidden_path(path: &Path) -> bool {
 	#[cfg(windows)]
 	{
@@ -71,16 +71,16 @@ pub fn is_hidden_path(path: &Path) -> bool {
 			.chain(std::iter::once(0))
 			.collect();
 		let attrs = unsafe { GetFileAttributesW(wide.as_ptr()) };
-		if attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_HIDDEN) != 0 {
-			return true;
-		}
+		return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
 	}
 
-	// Fallback / non-Windows: dot-prefix convention
-	path.file_name()
-		.and_then(|n| n.to_str())
-		.map(|n| n.starts_with('.'))
-		.unwrap_or(false)
+	#[cfg(not(windows))]
+	{
+		path.file_name()
+			.and_then(|n| n.to_str())
+			.map(|n| n.starts_with('.'))
+			.unwrap_or(false)
+	}
 }
 
 /// Normalizes cloud storage paths to match PathBuf::parent() semantics.

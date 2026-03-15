@@ -71,7 +71,13 @@ export class TauriTransport implements Transport {
 			callback(tauriEvent.payload);
 		});
 
-		const subscriptionId = await this.invoke("subscribe_to_events", args);
+		let subscriptionId: any;
+		try {
+			subscriptionId = await this.invoke("subscribe_to_events", args);
+		} catch (e) {
+			unlisten();
+			throw e;
+		}
 
 		// Return cleanup function that properly unsubscribes
 		return async () => {

@@ -59,7 +59,7 @@ pub async fn detect_volumes(
 				_ => DiskType::Unknown,
 			};
 
-			let volume_type = classify_volume(&mount_point, &file_system, &name, is_removable);
+			let volume_type = classify_volume(&mount_point, &file_system, &name, is_removable, total_space);
 
 			// Generate stable fingerprint based on volume type
 			let fingerprint = match volume_type {
@@ -110,12 +110,13 @@ fn classify_volume(
 	file_system: &FileSystem,
 	name: &str,
 	is_removable: bool,
+	total_bytes_capacity: u64,
 ) -> crate::volume::types::VolumeType {
 	let classifier = get_classifier();
 	let detection_info = VolumeDetectionInfo {
 		mount_point: mount_point.clone(),
 		file_system: file_system.clone(),
-		total_bytes_capacity: 0,
+		total_bytes_capacity,
 		is_removable: Some(is_removable),
 		is_network_drive: None,
 		device_model: None,

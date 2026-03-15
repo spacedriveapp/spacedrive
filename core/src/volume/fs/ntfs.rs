@@ -37,7 +37,7 @@ fn volume_guid(path: &Path) -> Option<String> {
 		return None;
 	}
 
-	let len = guid_buf.iter().position(|&c| c == 0).unwrap_or(0);
+	let len = guid_buf.iter().position(|&c| c == 0).unwrap_or(guid_buf.len());
 	Some(OsString::from_wide(&guid_buf[..len]).to_string_lossy().into_owned())
 }
 
