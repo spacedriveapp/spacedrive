@@ -3,9 +3,13 @@
 //! This module contains business logic for managing semantic tags,
 //! including creation, application, search, and hierarchy management.
 
+pub mod ancestors;
 pub mod apply;
+pub mod by_id;
+pub mod children;
 pub mod create;
 pub mod facade;
+pub mod files_by_tag;
 pub mod manager;
 pub mod search;
 pub mod validation;
