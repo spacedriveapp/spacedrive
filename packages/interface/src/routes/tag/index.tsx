@@ -1,9 +1,23 @@
-import {CaretRight, Funnel} from '@phosphor-icons/react';
+import {CaretRight, File, Folder, Funnel} from '@phosphor-icons/react';
 import type {Tag} from '@sd/ts-client';
 import {Fragment} from 'react';
 import {useParams} from 'react-router-dom';
 import {useNormalizedQuery} from '../../contexts/SpacedriveContext';
-import {ExplorerView} from '../explorer/ExplorerView';
+
+interface TaggedFile {
+	id: string;
+	name: string;
+	extension: string | null;
+	size: number;
+}
+
+function formatBytes(bytes: number): string {
+	if (bytes === 0) return '0 B';
+	const k = 1024;
+	const sizes = ['B', 'KB', 'MB', 'GB'];
+	const i = Math.floor(Math.log(bytes) / Math.log(k));
+	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
 
 /**
  * Tag Explorer View
@@ -172,7 +186,7 @@ export function TagView() {
 					)}
 				</div>
 
-				{/* Explorer View */}
+				{/* Tagged Files */}
 				<div className="flex-1 overflow-auto">
 					{filesLoading ? (
 						<div className="flex h-full items-center justify-center">
@@ -190,7 +204,31 @@ export function TagView() {
 							</span>
 						</div>
 					) : (
-						<ExplorerView />
+						<div className="p-2 space-y-0.5">
+							{(files as TaggedFile[]).map((file) => (
+								<div
+									key={file.id}
+									className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-app-hover transition-colors cursor-default"
+								>
+									{file.extension ? (
+										<File size={16} className="text-ink-faint flex-shrink-0" />
+									) : (
+										<Folder size={16} className="text-ink-faint flex-shrink-0" />
+									)}
+									<span className="flex-1 truncate text-sm text-ink">
+										{file.name}
+									</span>
+									{file.extension && (
+										<span className="text-xs text-ink-faint uppercase">
+											{file.extension}
+										</span>
+									)}
+									<span className="text-xs text-ink-faint tabular-nums">
+										{formatBytes(file.size)}
+									</span>
+								</div>
+							))}
+						</div>
 					)}
 				</div>
 			</div>
