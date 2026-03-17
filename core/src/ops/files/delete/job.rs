@@ -106,6 +106,17 @@ impl JobHandler for DeleteJob {
 		// Validate targets exist (only for local paths)
 		self.validate_targets(&ctx).await?;
 
+		// Resolve Content paths to Physical paths before strategy selection
+		let mut resolved = Vec::with_capacity(self.targets.paths.len());
+		for path in &self.targets.paths {
+			resolved.push(
+				path.resolve_in_job(&ctx)
+					.await
+					.map_err(|e| JobError::execution(format!("Failed to resolve path: {e}")))?,
+			);
+		}
+		self.targets = SdPathBatch::new(resolved);
+
 		// Select strategy based on path topology
 		let volume_manager = ctx.volume_manager();
 		let strategy =
