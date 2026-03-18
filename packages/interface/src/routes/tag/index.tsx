@@ -1,7 +1,7 @@
 import {CaretRight, File, Folder, Funnel} from '@phosphor-icons/react';
-import type {Tag} from '@sd/ts-client';
-import {Fragment} from 'react';
-import {useParams} from 'react-router-dom';
+import type {SdPath} from '@sd/ts-client';
+import {Fragment, useCallback} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
 import {useNormalizedQuery} from '../../contexts/SpacedriveContext';
 
 interface TaggedFile {
@@ -9,6 +9,9 @@ interface TaggedFile {
 	name: string;
 	extension: string | null;
 	size: number;
+	kind: number;
+	modified_at: string;
+	sd_path: SdPath;
 }
 
 function formatBytes(bytes: number): string {
@@ -19,12 +22,33 @@ function formatBytes(bytes: number): string {
 	return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
 }
 
+function getParentPath(sdPath: SdPath): SdPath | null {
+	if (!('Physical' in sdPath)) return null;
+	const {device_slug, path} = sdPath.Physical;
+	const lastSep = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+	if (lastSep <= 0) return null;
+	return {Physical: {device_slug, path: path.substring(0, lastSep)}};
+}
+
 /**
  * Tag Explorer View
  * Shows all files tagged with a specific tag, with hierarchy awareness and filtering
  */
 export function TagView() {
 	const {tagId} = useParams<{tagId: string}>();
+	const navigate = useNavigate();
+
+	const handleFileDoubleClick = useCallback(
+		(file: TaggedFile) => {
+			// For directories, navigate into them; for files, navigate to parent folder
+			const targetPath =
+				file.kind === 1 ? file.sd_path : getParentPath(file.sd_path);
+			if (!targetPath) return;
+			const encoded = encodeURIComponent(JSON.stringify(targetPath));
+			navigate(`/explorer?path=${encoded}`);
+		},
+		[navigate]
+	);
 
 	// Fetch the tag details
 	const {data: tagData, isLoading: tagLoading} = useNormalizedQuery({
@@ -67,7 +91,7 @@ export function TagView() {
 		query: 'files.by_tag',
 		input: {
 			tag_id: tagId,
-			include_children: false, // TODO: Make this toggleable
+			include_children: false,
 			min_confidence: 0.0
 		},
 		resourceType: 'file',
@@ -108,7 +132,7 @@ export function TagView() {
 							<Fragment key={ancestor.id}>
 								<button
 									onClick={() =>
-										(window.location.href = `/tag/${ancestor.id}`)
+										navigate(`/tag/${ancestor.id}`)
 									}
 									className="text-ink-dull hover:text-ink font-medium transition-colors"
 								>
@@ -167,7 +191,7 @@ export function TagView() {
 								<button
 									key={child.id}
 									onClick={() =>
-										(window.location.href = `/tag/${child.id}`)
+										navigate(`/tag/${child.id}`)
 									}
 									className="bg-app-box hover:bg-app-hover border-app-line inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium transition-colors"
 									style={{color: child.color || '#3B82F6'}}
@@ -208,15 +232,19 @@ export function TagView() {
 							{(files as TaggedFile[]).map((file) => (
 								<div
 									key={file.id}
-									className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-app-hover transition-colors cursor-default"
+									className="flex items-center gap-3 rounded-md px-3 py-2 hover:bg-app-hover transition-colors cursor-pointer"
+									onDoubleClick={() =>
+										handleFileDoubleClick(file)
+									}
 								>
-									{file.extension ? (
-										<File size={16} className="text-ink-faint flex-shrink-0" />
-									) : (
+									{file.kind === 1 ? (
 										<Folder size={16} className="text-ink-faint flex-shrink-0" />
+									) : (
+										<File size={16} className="text-ink-faint flex-shrink-0" />
 									)}
 									<span className="flex-1 truncate text-sm text-ink">
 										{file.name}
+										{file.extension && `.${file.extension}`}
 									</span>
 									{file.extension && (
 										<span className="text-xs text-ink-faint uppercase">
@@ -245,7 +273,7 @@ export function TagView() {
 								<button
 									key={relatedTag.id}
 									onClick={() =>
-										(window.location.href = `/tag/${relatedTag.id}`)
+										navigate(`/tag/${relatedTag.id}`)
 									}
 									className="hover:bg-app-hover flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm transition-colors"
 								>

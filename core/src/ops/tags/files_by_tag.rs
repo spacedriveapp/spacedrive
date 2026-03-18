@@ -2,6 +2,7 @@
 
 use crate::{
 	context::CoreContext,
+	domain::addressing::SdPath,
 	infra::{
 		db::entities::{
 			content_identity, entry, tag, user_metadata, user_metadata_tag,
@@ -9,10 +10,11 @@ use crate::{
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
 };
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashSet;
+use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -23,13 +25,16 @@ pub struct GetFilesByTagInput {
 	pub min_confidence: f32,
 }
 
-/// Lightweight file summary for tag view (count + basic display)
+/// File summary for tag view — includes sd_path for navigation
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TaggedFileSummary {
 	pub id: Uuid,
 	pub name: String,
 	pub extension: Option<String>,
 	pub size: u64,
+	pub kind: i32,
+	pub modified_at: String,
+	pub sd_path: SdPath,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -72,23 +77,90 @@ impl LibraryQuery for GetFilesByTagQuery {
 			return Ok(GetFilesByTagOutput { files: vec![] });
 		}
 
-		let entries = entry::Entity::find()
-			.filter(entry::Column::Id.is_in(entry_ids))
-			.all(db.conn())
+		// Build SQL with joins to get parent_path and device_slug for SdPath
+		let entry_ids_str = entry_ids
+			.iter()
+			.map(|id| id.to_string())
+			.collect::<Vec<_>>()
+			.join(",");
+
+		let sql_query = format!(
+			r#"
+			SELECT
+				e.id as entry_id,
+				e.uuid as entry_uuid,
+				e.name as entry_name,
+				e.kind as entry_kind,
+				e.extension as entry_extension,
+				e.size as entry_size,
+				e.modified_at as entry_modified_at,
+				dp.path as parent_path,
+				d.slug as device_slug
+			FROM entries e
+			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
+			LEFT JOIN volumes v ON e.volume_id = v.id
+			LEFT JOIN devices d ON v.device_id = d.uuid
+			WHERE e.id IN ({})
+			"#,
+			entry_ids_str
+		);
+
+		let rows = db
+			.conn()
+			.query_all(Statement::from_string(
+				sea_orm::DatabaseBackend::Sqlite,
+				sql_query,
+			))
 			.await
 			.map_err(QueryError::SeaOrm)?;
 
-		let files = entries
-			.into_iter()
-			.filter_map(|e| {
-				Some(TaggedFileSummary {
-					id: e.uuid?,
-					name: e.name,
-					extension: e.extension,
-					size: e.size as u64,
-				})
-			})
-			.collect();
+		let mut files = Vec::new();
+		for row in rows {
+			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
+			let Some(id) = entry_uuid else { continue };
+
+			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
+			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
+			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
+			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
+			let entry_modified_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_modified_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
+
+			let parent_path: Option<String> = row.try_get("", "parent_path").ok();
+			let device_slug: Option<String> = row.try_get("", "device_slug").ok();
+
+			// Build full path: parent directory path + filename
+			let file_path = if let Some(dir_path) = parent_path {
+				let file_name = if let Some(ext) = &entry_extension {
+					format!("{}.{}", entry_name, ext)
+				} else {
+					entry_name.clone()
+				};
+				if dir_path.ends_with('/') {
+					format!("{}{}", dir_path, file_name)
+				} else {
+					format!("{}/{}", dir_path, file_name)
+				}
+			} else {
+				format!("/{}", entry_name)
+			};
+
+			let sd_path = SdPath::Physical {
+				device_slug: device_slug.unwrap_or_else(|| "unknown-device".to_string()),
+				path: PathBuf::from(file_path),
+			};
+
+			files.push(TaggedFileSummary {
+				id,
+				name: entry_name,
+				extension: entry_extension,
+				size: entry_size as u64,
+				kind: entry_kind,
+				modified_at: entry_modified_at.to_rfc3339(),
+				sd_path,
+			});
+		}
 
 		Ok(GetFilesByTagOutput { files })
 	}
