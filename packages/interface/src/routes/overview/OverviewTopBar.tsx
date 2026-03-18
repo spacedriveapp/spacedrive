@@ -195,8 +195,14 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 	);
 
 	const searchButton = useMemo(
-		() => <TopBarButton icon={MagnifyingGlass} title="Search" />,
-		[]
+		() => (
+			<TopBarButton
+				icon={MagnifyingGlass}
+				title="Search"
+				onClick={() => navigate("/explorer")}
+			/>
+		),
+		[navigate]
 	);
 
 	const pairButton = useMemo(
