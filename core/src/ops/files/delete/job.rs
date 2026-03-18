@@ -1,6 +1,9 @@
 //! Delete job implementation
 
-use crate::{domain::addressing::SdPathBatch, infra::job::prelude::*};
+use crate::{
+	domain::addressing::SdPathBatch,
+	infra::job::{generic_progress::GenericProgress, prelude::*},
+};
 use serde::{Deserialize, Serialize};
 use std::{
 	path::PathBuf,
@@ -84,14 +87,22 @@ impl JobHandler for DeleteJob {
 	type Output = DeleteOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		let total_files = self.targets.paths.len();
+		let mode_str = match self.mode {
+			DeleteMode::Trash => "trash",
+			DeleteMode::Permanent => "permanent",
+			DeleteMode::Secure => "secure",
+		};
+
 		ctx.log(format!(
 			"Starting {} deletion of {} files",
-			match self.mode {
-				DeleteMode::Trash => "trash",
-				DeleteMode::Permanent => "permanent",
-				DeleteMode::Secure => "secure",
-			},
-			self.targets.paths.len()
+			mode_str, total_files
+		));
+
+		// Phase: Preparing
+		ctx.progress(Progress::Generic(
+			GenericProgress::new(0.0, "Preparing", format!("Validating {} targets", total_files))
+				.with_completion(0, total_files as u64),
 		));
 
 		// Safety check for permanent deletion
@@ -105,6 +116,12 @@ impl JobHandler for DeleteJob {
 
 		// Validate targets exist (only for local paths)
 		self.validate_targets(&ctx).await?;
+
+		// Phase: Resolving paths
+		ctx.progress(Progress::Generic(
+			GenericProgress::new(0.1, "Preparing", "Resolving paths")
+				.with_completion(0, total_files as u64),
+		));
 
 		// Resolve Content paths to Physical paths before strategy selection
 		let mut resolved = Vec::with_capacity(self.targets.paths.len());
@@ -126,6 +143,16 @@ impl JobHandler for DeleteJob {
 		let strategy_description =
 			DeleteStrategyRouter::describe_strategy(&self.targets.paths).await;
 		ctx.log(format!("Using strategy: {}", strategy_description));
+
+		// Phase: Deleting
+		ctx.progress(Progress::Generic(
+			GenericProgress::new(
+				0.2,
+				"Deleting",
+				format!("Deleting {} files ({})", total_files, mode_str),
+			)
+			.with_completion(0, total_files as u64),
+		));
 
 		// Execute deletion using selected strategy
 		let results = strategy
@@ -150,6 +177,19 @@ impl JobHandler for DeleteJob {
 				error: r.error.unwrap_or_default(),
 			})
 			.collect();
+
+		// Phase: Complete
+		ctx.progress(Progress::Generic(
+			GenericProgress::new(
+				1.0,
+				"Complete",
+				format!("{} deleted, {} failed", deleted_count, failed_count),
+			)
+			.with_completion(total_files as u64, total_files as u64)
+			.with_bytes(total_bytes, total_bytes)
+			.with_performance(0.0, None, Some(self.started_at.elapsed()))
+			.with_errors(failed_count as u64, 0),
+		));
 
 		ctx.log(format!(
 			"Delete operation completed: {} deleted, {} failed",
