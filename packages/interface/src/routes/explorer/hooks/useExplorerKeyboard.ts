@@ -8,6 +8,7 @@ import { useKeybind } from "../../../hooks/useKeybind";
 import { useKeybindScope } from "../../../hooks/useKeybindScope";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../../components/modals/FileOperationModal";
+import { useLibraryMutation } from "../../../contexts/SpacedriveContext";
 import { isInputFocused } from "../../../util/keybinds/platform";
 
 export function useExplorerKeyboard() {
@@ -36,6 +37,7 @@ export function useExplorerKeyboard() {
 	} = useSelection();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+	const deleteFiles = useLibraryMutation("files.delete");
 
 	// Activate explorer keybind scope when this hook is active
 	useKeybindScope("explorer");
@@ -158,6 +160,66 @@ export function useExplorerKeyboard() {
 			}
 		},
 		{ enabled: selectedFiles.length === 1 },
+	);
+
+	// Delete: Move to trash
+	useKeybind(
+		"explorer.delete",
+		async () => {
+			if (selectedFiles.length === 0) return;
+			const hasVirtual = selectedFiles.some((f) => !f.sd_path);
+			if (hasVirtual) return;
+
+			const message =
+				selectedFiles.length > 1
+					? `Delete ${selectedFiles.length} items?`
+					: `Delete "${selectedFiles[0].name}"?`;
+
+			if (confirm(message)) {
+				try {
+					await deleteFiles.mutateAsync({
+						targets: { paths: selectedFiles.map((f) => f.sd_path) },
+						permanent: false,
+						recursive: true,
+					});
+					clearSelection();
+				} catch (err) {
+					console.error("Failed to delete:", err);
+					alert(`Failed to delete: ${err}`);
+				}
+			}
+		},
+		{ enabled: selectedFiles.length > 0 },
+	);
+
+	// Permanent Delete: Shift+Delete / Cmd+Alt+Backspace
+	useKeybind(
+		"explorer.permanentDelete",
+		async () => {
+			if (selectedFiles.length === 0) return;
+			const hasVirtual = selectedFiles.some((f) => !f.sd_path);
+			if (hasVirtual) return;
+
+			const message =
+				selectedFiles.length > 1
+					? `Permanently delete ${selectedFiles.length} items? This cannot be undone.`
+					: `Permanently delete "${selectedFiles[0].name}"? This cannot be undone.`;
+
+			if (confirm(message)) {
+				try {
+					await deleteFiles.mutateAsync({
+						targets: { paths: selectedFiles.map((f) => f.sd_path) },
+						permanent: true,
+						recursive: true,
+					});
+					clearSelection();
+				} catch (err) {
+					console.error("Failed to delete:", err);
+					alert(`Failed to delete: ${err}`);
+				}
+			}
+		},
+		{ enabled: selectedFiles.length > 0 },
 	);
 
 	useEffect(() => {
