@@ -398,6 +398,10 @@ fn create_window(
 		.build()
 		.map_err(|e| format!("Failed to create window: {}", e))?;
 
+	// Windows: force dark titlebar + override accent color
+	#[cfg(target_os = "windows")]
+	apply_dark_titlebar(&window);
+
 	window.show().ok();
 	window.set_focus().ok();
 
@@ -509,4 +513,69 @@ pub async fn position_context_menu(
 	window.set_focus().map_err(|e| e.to_string())?;
 
 	Ok(())
+}
+
+/// Apply dark titlebar on Windows using DWM API.
+///
+/// Sets both `DWMWA_USE_IMMERSIVE_DARK_MODE` (dark window chrome) and
+/// `DWMWA_CAPTION_COLOR` (explicit titlebar color) to override the user's
+/// Windows accent color setting which would otherwise tint the titlebar.
+#[cfg(target_os = "windows")]
+pub fn apply_dark_titlebar_pub(window: &WebviewWindow) {
+	apply_dark_titlebar(window);
+}
+
+#[cfg(target_os = "windows")]
+fn apply_dark_titlebar(window: &WebviewWindow) {
+	#[allow(non_snake_case)]
+	mod dwm {
+		// DWM attribute constants
+		pub const DWMWA_USE_IMMERSIVE_DARK_MODE: u32 = 20;
+		pub const DWMWA_CAPTION_COLOR: u32 = 35;
+		pub const DWMWA_BORDER_COLOR: u32 = 34;
+
+		extern "system" {
+			pub fn DwmSetWindowAttribute(
+				hwnd: isize,
+				attr: u32,
+				value: *const std::ffi::c_void,
+				size: u32,
+			) -> i32;
+		}
+	}
+
+	let Ok(hwnd) = window.hwnd() else {
+		tracing::warn!("Failed to get HWND for dark titlebar");
+		return;
+	};
+	let hwnd = hwnd.0 as isize;
+
+	unsafe {
+		// Enable immersive dark mode (dark close/minimize/maximize icons)
+		let dark_mode: i32 = 1;
+		dwm::DwmSetWindowAttribute(
+			hwnd,
+			dwm::DWMWA_USE_IMMERSIVE_DARK_MODE,
+			&dark_mode as *const _ as *const std::ffi::c_void,
+			std::mem::size_of::<i32>() as u32,
+		);
+
+		// Force caption color to dark gray — overrides user's accent color
+		// COLORREF format is 0x00BBGGRR
+		let caption_color: u32 = 0x00_1E_1E_1E; // #1E1E1E in BGR
+		dwm::DwmSetWindowAttribute(
+			hwnd,
+			dwm::DWMWA_CAPTION_COLOR,
+			&caption_color as *const _ as *const std::ffi::c_void,
+			std::mem::size_of::<u32>() as u32,
+		);
+
+		// Match border color to caption
+		dwm::DwmSetWindowAttribute(
+			hwnd,
+			dwm::DWMWA_BORDER_COLOR,
+			&caption_color as *const _ as *const std::ffi::c_void,
+			std::mem::size_of::<u32>() as u32,
+		);
+	}
 }

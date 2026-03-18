@@ -1970,6 +1970,14 @@ fn main() {
 
 			tracing::info!("Spacedrive Tauri app starting...");
 
+			// Apply Windows-specific window customizations (dark titlebar)
+			#[cfg(target_os = "windows")]
+			{
+				if let Some(window) = app.get_webview_window("main") {
+					crate::windows::apply_dark_titlebar_pub(&window);
+				}
+			}
+
 			// Apply macOS-specific window customizations
 			#[cfg(target_os = "macos")]
 			{
