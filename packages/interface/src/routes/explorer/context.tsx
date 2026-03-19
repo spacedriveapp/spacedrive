@@ -599,8 +599,9 @@ export function ExplorerProvider({
 			const target: NavigationTarget = { type: "path", path };
 			navDispatch({ type: "NAVIGATE", target });
 			routerNavigate(targetToUrl(target));
-			// Exit search mode when navigating
+			// Exit special modes when navigating to a path
 			uiDispatch({ type: "EXIT_SEARCH_MODE" });
+			uiDispatch({ type: "EXIT_TAG_MODE" });
 		},
 		[routerNavigate],
 	);

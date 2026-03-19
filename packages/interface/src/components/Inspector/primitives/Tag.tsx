@@ -1,3 +1,4 @@
+import { X } from "@phosphor-icons/react";
 import clsx from "clsx";
 
 interface TagProps {
@@ -5,9 +6,10 @@ interface TagProps {
   children: React.ReactNode;
   size?: "sm" | "md";
   className?: string;
+  onRemove?: () => void;
 }
 
-export function Tag({ color, children, size = "sm", className }: TagProps) {
+export function Tag({ color, children, size = "sm", className, onRemove }: TagProps) {
   return (
     <span
       className={clsx(
@@ -27,6 +29,18 @@ export function Tag({ color, children, size = "sm", className }: TagProps) {
         style={{ backgroundColor: color }}
       />
       {children}
+      {onRemove && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="ml-0.5 rounded-full p-0.5 opacity-50 hover:opacity-100 hover:bg-black/10 transition-opacity"
+          aria-label="Remove tag"
+        >
+          <X size={size === "sm" ? 8 : 10} weight="bold" />
+        </button>
+      )}
     </span>
   );
 }
