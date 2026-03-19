@@ -8,6 +8,7 @@ import {
 	useLibraryMutation,
 	useNormalizedQuery
 } from '../../contexts/SpacedriveContext';
+import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
 
 interface TagSelectorProps {
 	onSelect: (tag: Tag) => void;
@@ -37,8 +38,9 @@ export function TagSelector({
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
-	const queryClient = useQueryClient();
+	const refetchTagQueries = useRefetchTagQueries();
 	const createTag = useLibraryMutation('tags.create', {
+<<<<<<< HEAD
 		onSuccess: () => {
 			queryClient.refetchQueries({
 				queryKey: ['query:tags.search'],
@@ -53,6 +55,9 @@ export function TagSelector({
 				exact: false
 			});
 		}
+=======
+		onSuccess: refetchTagQueries,
+>>>>>>> 7bf945d6c (refactor: extract shared useRefetchTagQueries hook)
 	});
 
 	// Fetch all tags using search with empty query

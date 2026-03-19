@@ -2,8 +2,8 @@ import { Tag as TagIcon, Plus, CaretRight } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
-import { useQueryClient } from '@tanstack/react-query';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
+import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
 import type { Tag } from '@sd/ts-client';
 import { GroupHeader } from './GroupHeader';
 import { useExplorer } from '../../routes/explorer/context';
@@ -25,12 +25,9 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const location = useLocation();
 	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isExpanded, setIsExpanded] = useState(false);
-	const queryClient = useQueryClient();
+	const refetchTagQueries = useRefetchTagQueries();
 	const deleteTag = useLibraryMutation('tags.delete', {
-		onSuccess: () => {
-			queryClient.refetchQueries({ queryKey: ["query:tags.search"], exact: false });
-			queryClient.refetchQueries({ queryKey: ["query:files.by_tag"], exact: false });
-		},
+		onSuccess: refetchTagQueries,
 	});
 
 	const children: Tag[] = [];

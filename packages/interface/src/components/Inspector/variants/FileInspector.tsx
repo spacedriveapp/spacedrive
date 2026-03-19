@@ -36,7 +36,6 @@ import {TagSelectorButton} from '../../../components/Tags';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useServer} from '../../../contexts/ServerContext';
 import { getContentKind } from "@sd/ts-client";
-import { useQueryClient } from "@tanstack/react-query";
 import {
 	getDeviceIcon,
 	useLibraryMutation,
@@ -47,6 +46,7 @@ import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
 import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
 import {useSelection} from '../../../routes/explorer/SelectionContext';
+import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 
 interface FileInspectorProps {
 	file: File;
@@ -632,13 +632,8 @@ function OverviewTab({file}: {file: File}) {
 	};
 
 	// Tag mutations with optimistic UI updates
-	const queryClient = useQueryClient();
 	const { selectedFiles, setSelectedFiles } = useSelection();
-	// TODO: extract to shared hook (duplicated in useFileContextMenu, TagsGroup, TagSelector)
-	const refetchTagQueries = () => {
-		queryClient.refetchQueries({ queryKey: ["query:files.directory_listing"], exact: false });
-		queryClient.refetchQueries({ queryKey: ["query:files.by_tag"], exact: false });
-	};
+	const refetchTagQueries = useRefetchTagQueries();
 	const updateSelectedFileTags = (newTags: typeof file.tags) => {
 		const updated = selectedFiles.map((f) =>
 			f.id === file.id ? { ...f, tags: newTags } : f
