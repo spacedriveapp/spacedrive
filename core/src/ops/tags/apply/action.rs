@@ -131,9 +131,8 @@ impl LibraryAction for ApplyTagsAction {
 				}
 			}
 			TagTargets::Entry(entry_ids) => {
-				// Entry-based tagging: apply to specific entry instance
+				// Entry-based tagging: apply to specific entry instance (by database ID)
 				for &entry_id in entry_ids {
-					// Look up actual entry UUID from entry ID
 					let entry_uuid =
 						lookup_entry_uuid(&db.conn(), entry_id).await.map_err(|e| {
 							ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
@@ -148,7 +147,6 @@ impl LibraryAction for ApplyTagsAction {
 					{
 						Ok(models) => {
 							successfully_tagged_count += 1;
-							// Sync each user_metadata_tag model (for cross-device sync)
 							for model in models {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
@@ -160,12 +158,42 @@ impl LibraryAction for ApplyTagsAction {
 										))
 									})?;
 							}
-
-							// Track this entry for resource events
 							affected_entry_uuids.push(entry_uuid);
 						}
 						Err(e) => {
 							warnings.push(format!("Failed to tag entry {}: {}", entry_id, e));
+						}
+					}
+				}
+			}
+			TagTargets::EntryUuid(entry_uuids) => {
+				// Entry-based tagging by UUID (from frontend File.id)
+				for &entry_uuid in entry_uuids {
+					match metadata_manager
+						.apply_semantic_tags_to_entry(
+							entry_uuid,
+							tag_applications.clone(),
+							device_id,
+						)
+						.await
+					{
+						Ok(models) => {
+							successfully_tagged_count += 1;
+							for model in models {
+								library
+									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
+									.await
+									.map_err(|e| {
+										ActionError::Internal(format!(
+											"Failed to sync tag association: {}",
+											e
+										))
+									})?;
+							}
+							affected_entry_uuids.push(entry_uuid);
+						}
+						Err(e) => {
+							warnings.push(format!("Failed to tag entry {}: {}", entry_uuid, e));
 						}
 					}
 				}

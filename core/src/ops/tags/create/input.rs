@@ -46,8 +46,10 @@ pub struct CreateTagInput {
 pub enum ApplyToTargets {
 	/// Apply to content identities (all instances)
 	Content(Vec<Uuid>),
-	/// Apply to specific entries (single instance)
+	/// Apply to specific entries by database ID (internal use)
 	Entry(Vec<i32>),
+	/// Apply to specific entries by UUID (from frontend File.id)
+	EntryUuid(Vec<Uuid>),
 }
 
 impl CreateTagInput {

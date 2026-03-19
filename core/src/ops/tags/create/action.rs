@@ -194,7 +194,35 @@ impl LibraryAction for CreateTagAction {
 								})?;
 						}
 
-						// Track this entry for resource events
+						affected_entry_uuids.push(entry_uuid);
+					}
+				}
+				ApplyToTargets::EntryUuid(entry_uuids) => {
+					for &entry_uuid in entry_uuids {
+						let models = metadata_manager
+							.apply_semantic_tags_to_entry(
+								entry_uuid,
+								vec![tag_application.clone()],
+								device_id,
+							)
+							.await
+							.map_err(|e| {
+								ActionError::Internal(format!(
+									"Failed to apply tag to entry: {}",
+									e
+								))
+							})?;
+						for model in models {
+							library
+								.sync_model(&model, ChangeType::Insert)
+								.await
+								.map_err(|e| {
+									ActionError::Internal(format!(
+										"Failed to sync tag association: {}",
+										e
+									))
+								})?;
+						}
 						affected_entry_uuids.push(entry_uuid);
 					}
 				}
