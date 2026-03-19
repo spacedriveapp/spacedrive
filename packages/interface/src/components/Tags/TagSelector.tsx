@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Popover, usePopover } from '@sd/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import type { Tag } from '@sd/ts-client';
 
@@ -33,7 +34,14 @@ export function TagSelector({
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
-	const createTag = useLibraryMutation('tags.create');
+	const queryClient = useQueryClient();
+	const createTag = useLibraryMutation('tags.create', {
+		onSuccess: () => {
+			queryClient.refetchQueries({ queryKey: ["query:tags.search"], exact: false });
+			queryClient.refetchQueries({ queryKey: ["query:files.directory_listing"], exact: false });
+			queryClient.refetchQueries({ queryKey: ["query:files.by_tag"], exact: false });
+		},
+	});
 
 	// Fetch all tags using search with empty query
 	// Using select to normalize TagSearchResult[] to Tag[] for consistent cache structure
@@ -41,6 +49,7 @@ export function TagSelector({
 		query: 'tags.search',
 		input: { query: '' },
 		resourceType: 'tag',
+		// TODO: replace `any` with proper generated types when available
 		select: (data: any) => data?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? []
 	});
 
@@ -105,7 +114,7 @@ export function TagSelector({
 				apply_to: contentId
 					? { type: 'Content', ids: [contentId] }
 					: fileId
-					? { type: 'Entry', ids: [parseInt(fileId)] }
+					? { type: 'EntryUuid', ids: [fileId] }
 					: undefined,
 			});
 

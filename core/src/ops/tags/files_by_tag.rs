@@ -13,7 +13,7 @@ use crate::{
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -59,13 +59,14 @@ impl LibraryQuery for GetFilesByTagQuery {
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
 		let db = library.db();
-		let entry_ids = find_entry_ids_for_tag(db.conn(), self.input.tag_id).await?;
+		let conn = db.conn();
+		let entry_ids = find_entry_ids_for_tag(conn, self.input.tag_id).await?;
 
 		if entry_ids.is_empty() {
 			return Ok(GetFilesByTagOutput { files: vec![] });
 		}
 
-		// Same SQL join pattern as search/query.rs and directory_listing
+		// Same SQL join pattern as directory_listing
 		let entry_ids_str = entry_ids
 			.iter()
 			.map(|id| id.to_string())
@@ -87,9 +88,11 @@ impl LibraryQuery for GetFilesByTagQuery {
 				e.created_at as entry_created_at,
 				e.modified_at as entry_modified_at,
 				e.accessed_at as entry_accessed_at,
+				e.content_id as entry_content_id,
 				dp.path as parent_path,
 				d.slug as device_slug,
-				ck.name as content_kind_name
+				ck.name as content_kind_name,
+				ci.uuid as content_identity_uuid
 			FROM entries e
 			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
 			LEFT JOIN volumes v ON e.volume_id = v.id
@@ -101,8 +104,7 @@ impl LibraryQuery for GetFilesByTagQuery {
 			entry_ids_str
 		);
 
-		let rows = db
-			.conn()
+		let rows = conn
 			.query_all(Statement::from_string(
 				sea_orm::DatabaseBackend::Sqlite,
 				sql_query,
@@ -110,8 +112,22 @@ impl LibraryQuery for GetFilesByTagQuery {
 			.await
 			.map_err(QueryError::SeaOrm)?;
 
+		// Collect UUIDs for batch tag loading
+		let entry_uuids: Vec<Uuid> = rows
+			.iter()
+			.filter_map(|row| row.try_get::<Option<Uuid>>("", "entry_uuid").ok().flatten())
+			.collect();
+		let content_uuids: Vec<Uuid> = rows
+			.iter()
+			.filter_map(|row| row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten())
+			.collect();
+
+		// Batch load tags (same logic as directory_listing)
+		let tags_by_entry = load_tags_for_entries(conn, &entry_uuids, &content_uuids, &rows).await?;
+
+		// Build File objects
 		let mut files = Vec::new();
-		for row in rows {
+		for row in &rows {
 			let entry_id: i32 = row.try_get("", "entry_id").unwrap_or(0);
 			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
 			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
@@ -129,12 +145,10 @@ impl LibraryQuery for GetFilesByTagQuery {
 				.unwrap_or_else(|_| chrono::Utc::now());
 			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
 				row.try_get("", "entry_accessed_at").ok();
-
+			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 			let parent_path: Option<String> = row.try_get("", "parent_path").ok();
 			let device_slug: Option<String> = row.try_get("", "device_slug").ok();
-			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
-			// Build full path: parent directory path + filename
 			let file_path = if let Some(dir_path) = parent_path {
 				let file_name = if let Some(ext) = &entry_extension {
 					format!("{}.{}", entry_name, ext)
@@ -183,6 +197,13 @@ impl LibraryQuery for GetFilesByTagQuery {
 				file.content_kind = crate::domain::ContentKind::from(kind_name.as_str());
 			}
 
+			// Attach tags
+			if let Some(uuid) = entry_uuid {
+				if let Some(tags) = tags_by_entry.get(&uuid) {
+					file.tags = tags.clone();
+				}
+			}
+
 			files.push(file);
 		}
 
@@ -190,10 +211,109 @@ impl LibraryQuery for GetFilesByTagQuery {
 	}
 }
 
+/// Batch load tags for entries, checking both entry_uuid and content_identity_uuid paths.
+/// Same logic as directory_listing's tag loading.
+async fn load_tags_for_entries(
+	conn: &impl ConnectionTrait,
+	entry_uuids: &[Uuid],
+	content_uuids: &[Uuid],
+	rows: &[sea_orm::QueryResult],
+) -> QueryResult<HashMap<Uuid, Vec<crate::domain::tag::Tag>>> {
+	let mut tags_by_entry: HashMap<Uuid, Vec<crate::domain::tag::Tag>> = HashMap::new();
+
+	if entry_uuids.is_empty() && content_uuids.is_empty() {
+		return Ok(tags_by_entry);
+	}
+
+	// Load user_metadata for entries and content
+	let metadata_records = user_metadata::Entity::find()
+		.filter(
+			user_metadata::Column::EntryUuid
+				.is_in(entry_uuids.to_vec())
+				.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.to_vec())),
+		)
+		.all(conn)
+		.await
+		.map_err(QueryError::SeaOrm)?;
+
+	if metadata_records.is_empty() {
+		return Ok(tags_by_entry);
+	}
+
+	let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
+
+	// Load user_metadata_tag records
+	let metadata_tags = user_metadata_tag::Entity::find()
+		.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
+		.all(conn)
+		.await
+		.map_err(QueryError::SeaOrm)?;
+
+	let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
+
+	// Load tag entities
+	let tag_models = tag::Entity::find()
+		.filter(tag::Column::Id.is_in(tag_ids))
+		.all(conn)
+		.await
+		.map_err(QueryError::SeaOrm)?;
+
+	// Build tag_db_id -> Tag mapping
+	let tag_map: HashMap<i32, crate::domain::tag::Tag> = tag_models
+		.into_iter()
+		.filter_map(|t| {
+			let db_id = t.id;
+			crate::ops::tags::manager::model_to_domain(t)
+				.ok()
+				.map(|tag_domain| (db_id, tag_domain))
+		})
+		.collect();
+
+	// Build metadata_id -> Vec<Tag> mapping
+	let mut tags_by_metadata: HashMap<i32, Vec<crate::domain::tag::Tag>> = HashMap::new();
+	for mt in metadata_tags {
+		if let Some(tag_domain) = tag_map.get(&mt.tag_id) {
+			tags_by_metadata
+				.entry(mt.user_metadata_id)
+				.or_default()
+				.push(tag_domain.clone());
+		}
+	}
+
+	// Map tags to entries
+	for metadata in metadata_records {
+		if let Some(tags) = tags_by_metadata.get(&metadata.id) {
+			if let Some(entry_uuid) = metadata.entry_uuid {
+				tags_by_entry.insert(entry_uuid, tags.clone());
+			} else if let Some(content_uuid) = metadata.content_identity_uuid {
+				// Content-scoped: apply to all entries with this content
+				for row in rows {
+					if let Some(ci_uuid) = row
+						.try_get::<Option<Uuid>>("", "content_identity_uuid")
+						.ok()
+						.flatten()
+					{
+						if ci_uuid == content_uuid {
+							if let Some(eu) = row
+								.try_get::<Option<Uuid>>("", "entry_uuid")
+								.ok()
+								.flatten()
+							{
+								tags_by_entry.entry(eu).or_insert_with(|| tags.clone());
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	Ok(tags_by_entry)
+}
+
 /// Find all entry IDs tagged with the given tag UUID.
-/// Handles both entry-scoped and content-scoped user_metadata.
 async fn find_entry_ids_for_tag(
-	db: &DatabaseConnection,
+	db: &impl ConnectionTrait,
 	tag_uuid: Uuid,
 ) -> QueryResult<Vec<i32>> {
 	let Some(tag_model) = tag::Entity::find()

@@ -155,15 +155,19 @@ message: string };
 /**
  * Targets for immediately applying a newly created tag
  */
-export type ApplyToTargets = 
+export type ApplyToTargets =
 /**
  * Apply to content identities (all instances)
  */
-{ type: "Content"; ids: string[] } | 
+{ type: "Content"; ids: string[] } |
 /**
- * Apply to specific entries (single instance)
+ * Apply to specific entries by database ID (internal use)
  */
-{ type: "Entry"; ids: number[] };
+{ type: "Entry"; ids: number[] } |
+/**
+ * Apply to specific entries by UUID (from frontend File.id)
+ */
+{ type: "EntryUuid"; ids: string[] };
 
 /**
  * Audio metadata extracted from FFmpeg
@@ -523,6 +527,14 @@ namespace: string | null;
  * Success message
  */
 message: string };
+
+export type DeleteTagInput = { tag_id: string };
+
+export type DeleteTagOutput = { deleted: boolean };
+
+export type UnapplyTagsInput = { entry_ids: string[]; tag_ids: string[] };
+
+export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
 
 /**
  * Data volume metrics snapshot
@@ -4024,12 +4036,15 @@ export type TagTargets =
  * Tag by content identity (applies to ALL instances of this content across devices)
  * This is the preferred/default approach
  */
-{ type: "Content"; ids: string[] } | 
+{ type: "Content"; ids: string[] } |
 /**
- * Tag by entry ID (applies to ONLY this specific file instance)
- * Use when you want instance-specific tags
+ * Tag by entry database ID (internal use)
  */
-{ type: "Entry"; ids: number[] };
+{ type: "Entry"; ids: number[] } |
+/**
+ * Tag by entry UUID (from frontend File.id)
+ */
+{ type: "EntryUuid"; ids: string[] };
 
 /**
  * Types of semantic tags with different behaviors
@@ -4798,6 +4813,8 @@ export type LibraryAction =
   |  { type: 'spaces.update_group'; input: UpdateGroupInput; output: UpdateGroupOutput }
   |  { type: 'tags.apply'; input: ApplyTagsInput; output: ApplyTagsOutput }
   |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
+  |  { type: 'tags.delete'; input: DeleteTagInput; output: DeleteTagOutput }
+  |  { type: 'tags.unapply'; input: UnapplyTagsInput; output: UnapplyTagsOutput }
   |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
   |  { type: 'volumes.eject'; input: VolumeEjectInput; output: VolumeEjectOutput }
   |  { type: 'volumes.index'; input: IndexVolumeInput; output: IndexVolumeOutput }
@@ -4920,6 +4937,8 @@ export const WIRE_METHODS = {
     'spaces.update_group': 'action:spaces.update_group.input',
     'tags.apply': 'action:tags.apply.input',
     'tags.create': 'action:tags.create.input',
+    'tags.delete': 'action:tags.delete.input',
+    'tags.unapply': 'action:tags.unapply.input',
     'volumes.add_cloud': 'action:volumes.add_cloud.input',
     'volumes.eject': 'action:volumes.eject.input',
     'volumes.index': 'action:volumes.index.input',
