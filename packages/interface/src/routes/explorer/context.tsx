@@ -61,7 +61,8 @@ export interface SearchFilters {
 export type ExplorerMode =
 	| { type: "browse" }
 	| { type: "search"; query: string; scope: SearchScope }
-	| { type: "recents" };
+	| { type: "recents" }
+	| { type: "tag"; tagId: string };
 
 export type NavigationTarget =
 	| { type: "path"; path: SdPath }
@@ -193,6 +194,8 @@ type UIAction =
 	| { type: "EXIT_SEARCH_MODE" }
 	| { type: "ENTER_RECENTS_MODE" }
 	| { type: "EXIT_RECENTS_MODE" }
+	| { type: "ENTER_TAG_MODE"; tagId: string }
+	| { type: "EXIT_TAG_MODE" }
 	| { type: "SET_SEARCH_FILTERS"; filters: SearchFilters }
 	| {
 			type: "LOAD_PREFERENCES";
@@ -255,6 +258,18 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 			};
 
 		case "EXIT_RECENTS_MODE":
+			return {
+				...state,
+				mode: { type: "browse" },
+			};
+
+		case "ENTER_TAG_MODE":
+			return {
+				...state,
+				mode: { type: "tag", tagId: action.tagId },
+			};
+
+		case "EXIT_TAG_MODE":
 			return {
 				...state,
 				mode: { type: "browse" },
@@ -412,6 +427,8 @@ interface ExplorerContextValue {
 	exitSearchMode: () => void;
 	enterRecentsMode: () => void;
 	exitRecentsMode: () => void;
+	enterTagMode: (tagId: string) => void;
+	exitTagMode: () => void;
 	searchFilters: SearchFilters;
 	setSearchFilters: (filters: SearchFilters) => void;
 
@@ -737,6 +754,14 @@ export function ExplorerProvider({
 		uiDispatch({ type: "EXIT_RECENTS_MODE" });
 	}, []);
 
+	const enterTagMode = useCallback((tagId: string) => {
+		uiDispatch({ type: "ENTER_TAG_MODE", tagId });
+	}, []);
+
+	const exitTagMode = useCallback(() => {
+		uiDispatch({ type: "EXIT_TAG_MODE" });
+	}, []);
+
 	const setSearchFilters = useCallback((filters: SearchFilters) => {
 		uiDispatch({ type: "SET_SEARCH_FILTERS", filters });
 	}, []);
@@ -794,6 +819,8 @@ export function ExplorerProvider({
 			exitSearchMode,
 			enterRecentsMode,
 			exitRecentsMode,
+			enterTagMode,
+			exitTagMode,
 			searchFilters: uiState.searchFilters,
 			setSearchFilters,
 			devices,
@@ -837,6 +864,8 @@ export function ExplorerProvider({
 			exitSearchMode,
 			enterRecentsMode,
 			exitRecentsMode,
+			enterTagMode,
+			exitTagMode,
 			uiState.searchFilters,
 			setSearchFilters,
 			devices,

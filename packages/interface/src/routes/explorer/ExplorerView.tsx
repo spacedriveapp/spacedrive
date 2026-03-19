@@ -148,8 +148,8 @@ export function ExplorerView() {
 		[sortBy, setSortBy, viewMode]
 	);
 
-	// Allow rendering if either we have a currentPath or we're in a virtual view
-	if (!currentPath && !isVirtualView) {
+	// Allow rendering if we have a currentPath, a virtual view, or a special mode (tag/recents)
+	if (!currentPath && !isVirtualView && mode.type === "browse") {
 		return <EmptyView />;
 	}
 
