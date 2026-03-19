@@ -2,7 +2,7 @@
 
 use crate::{
 	context::CoreContext,
-	domain::addressing::SdPath,
+	domain::{addressing::SdPath, File},
 	infra::{
 		db::entities::{
 			content_identity, entry, tag, user_metadata, user_metadata_tag,
@@ -25,21 +25,9 @@ pub struct GetFilesByTagInput {
 	pub min_confidence: f32,
 }
 
-/// File summary for tag view — includes sd_path for navigation
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct TaggedFileSummary {
-	pub id: Uuid,
-	pub name: String,
-	pub extension: Option<String>,
-	pub size: u64,
-	pub kind: i32,
-	pub modified_at: String,
-	pub sd_path: SdPath,
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GetFilesByTagOutput {
-	pub files: Vec<TaggedFileSummary>,
+	pub files: Vec<File>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -77,7 +65,7 @@ impl LibraryQuery for GetFilesByTagQuery {
 			return Ok(GetFilesByTagOutput { files: vec![] });
 		}
 
-		// Build SQL with joins to get parent_path and device_slug for SdPath
+		// Same SQL join pattern as search/query.rs and directory_listing
 		let entry_ids_str = entry_ids
 			.iter()
 			.map(|id| id.to_string())
@@ -93,13 +81,21 @@ impl LibraryQuery for GetFilesByTagQuery {
 				e.kind as entry_kind,
 				e.extension as entry_extension,
 				e.size as entry_size,
+				e.aggregate_size as entry_aggregate_size,
+				e.child_count as entry_child_count,
+				e.file_count as entry_file_count,
+				e.created_at as entry_created_at,
 				e.modified_at as entry_modified_at,
+				e.accessed_at as entry_accessed_at,
 				dp.path as parent_path,
-				d.slug as device_slug
+				d.slug as device_slug,
+				ck.name as content_kind_name
 			FROM entries e
 			LEFT JOIN directory_paths dp ON dp.entry_id = e.parent_id
 			LEFT JOIN volumes v ON e.volume_id = v.id
 			LEFT JOIN devices d ON v.device_id = d.uuid
+			LEFT JOIN content_identities ci ON e.content_id = ci.id
+			LEFT JOIN content_kinds ck ON ci.kind_id = ck.id
 			WHERE e.id IN ({})
 			"#,
 			entry_ids_str
@@ -116,19 +112,27 @@ impl LibraryQuery for GetFilesByTagQuery {
 
 		let mut files = Vec::new();
 		for row in rows {
+			let entry_id: i32 = row.try_get("", "entry_id").unwrap_or(0);
 			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
-			let Some(id) = entry_uuid else { continue };
-
 			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
 			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
 			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
 			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
+			let entry_aggregate_size: i64 = row.try_get("", "entry_aggregate_size").unwrap_or(0);
+			let entry_child_count: i32 = row.try_get("", "entry_child_count").unwrap_or(0);
+			let entry_file_count: i32 = row.try_get("", "entry_file_count").unwrap_or(0);
+			let entry_created_at: chrono::DateTime<chrono::Utc> = row
+				.try_get("", "entry_created_at")
+				.unwrap_or_else(|_| chrono::Utc::now());
 			let entry_modified_at: chrono::DateTime<chrono::Utc> = row
 				.try_get("", "entry_modified_at")
 				.unwrap_or_else(|_| chrono::Utc::now());
+			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
+				row.try_get("", "entry_accessed_at").ok();
 
 			let parent_path: Option<String> = row.try_get("", "parent_path").ok();
 			let device_slug: Option<String> = row.try_get("", "device_slug").ok();
+			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
 
 			// Build full path: parent directory path + filename
 			let file_path = if let Some(dir_path) = parent_path {
@@ -151,15 +155,35 @@ impl LibraryQuery for GetFilesByTagQuery {
 				path: PathBuf::from(file_path),
 			};
 
-			files.push(TaggedFileSummary {
-				id,
+			let entity_model = entry::Model {
+				id: entry_id,
+				uuid: entry_uuid,
 				name: entry_name,
-				extension: entry_extension,
-				size: entry_size as u64,
 				kind: entry_kind,
-				modified_at: entry_modified_at.to_rfc3339(),
-				sd_path,
-			});
+				extension: entry_extension,
+				metadata_id: None,
+				content_id: None,
+				size: entry_size,
+				aggregate_size: entry_aggregate_size,
+				child_count: entry_child_count,
+				file_count: entry_file_count,
+				created_at: entry_created_at,
+				modified_at: entry_modified_at,
+				accessed_at: entry_accessed_at,
+				indexed_at: None,
+				permissions: None,
+				inode: None,
+				parent_id: None,
+				volume_id: None,
+			};
+
+			let mut file = File::from_entity_model(entity_model, sd_path);
+
+			if let Some(kind_name) = content_kind_name {
+				file.content_kind = crate::domain::ContentKind::from(kind_name.as_str());
+			}
+
+			files.push(file);
 		}
 
 		Ok(GetFilesByTagOutput { files })
@@ -172,7 +196,6 @@ async fn find_entry_ids_for_tag(
 	db: &DatabaseConnection,
 	tag_uuid: Uuid,
 ) -> QueryResult<Vec<i32>> {
-	// 1. Find tag by UUID
 	let Some(tag_model) = tag::Entity::find()
 		.filter(tag::Column::Uuid.eq(tag_uuid))
 		.one(db)
@@ -182,7 +205,6 @@ async fn find_entry_ids_for_tag(
 		return Ok(vec![]);
 	};
 
-	// 2. Find all user_metadata_tag records for this tag
 	let umt_records = user_metadata_tag::Entity::find()
 		.filter(user_metadata_tag::Column::TagId.eq(tag_model.id))
 		.all(db)
@@ -195,7 +217,6 @@ async fn find_entry_ids_for_tag(
 
 	let um_ids: Vec<i32> = umt_records.iter().map(|r| r.user_metadata_id).collect();
 
-	// 3. Fetch all user_metadata records in batch
 	let um_records = user_metadata::Entity::find()
 		.filter(user_metadata::Column::Id.is_in(um_ids))
 		.all(db)
@@ -208,7 +229,6 @@ async fn find_entry_ids_for_tag(
 
 	let mut entry_ids: HashSet<i32> = HashSet::new();
 
-	// 4a. Entries directly linked via entry_uuid
 	if !entry_uuids.is_empty() {
 		let entries = entry::Entity::find()
 			.filter(entry::Column::Uuid.is_in(entry_uuids))
@@ -218,7 +238,6 @@ async fn find_entry_ids_for_tag(
 		entry_ids.extend(entries.iter().map(|e| e.id));
 	}
 
-	// 4b. Entries linked via content_identity_uuid
 	if !ci_uuids.is_empty() {
 		let cis = content_identity::Entity::find()
 			.filter(content_identity::Column::Uuid.is_in(ci_uuids.into_iter().map(Some)))
