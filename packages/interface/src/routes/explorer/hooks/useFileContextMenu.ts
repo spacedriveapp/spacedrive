@@ -24,7 +24,6 @@ import {
 } from '@phosphor-icons/react';
 import type {File} from '@sd/ts-client';
 import {getContentKind, isVirtualFile} from '@sd/ts-client';
-import {useQueryClient} from '@tanstack/react-query';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
@@ -32,6 +31,7 @@ import {useClipboard} from '../../../hooks/useClipboard';
 import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useJobDispatch} from '../../../hooks/useJobDispatch';
 import {useOpenWith} from '../../../hooks/useOpenWith';
+import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 import {useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
 import {useDeleteFiles} from './useDeleteFiles';
@@ -49,20 +49,11 @@ export function useFileContextMenu({
 }: UseFileContextMenuProps) {
 	const {navigateToPath, currentPath, mode} = useExplorer();
 	const platform = usePlatform();
-	const queryClient = useQueryClient();
+	const refetchTagQueries = useRefetchTagQueries();
 	const copyFiles = useLibraryMutation('files.copy');
 	const {deleteFiles} = useDeleteFiles();
 	const unapplyTags = useLibraryMutation('tags.unapply', {
-		onSuccess: () => {
-			queryClient.refetchQueries({
-				queryKey: ['query:files.directory_listing'],
-				exact: false
-			});
-			queryClient.refetchQueries({
-				queryKey: ['query:files.by_tag'],
-				exact: false
-			});
-		}
+		onSuccess: refetchTagQueries
 	});
 	const createFolder = useLibraryMutation('files.createFolder');
 	const {runJob} = useJobDispatch();
