@@ -3254,15 +3254,15 @@ enabled: boolean;
  */
 regenerate: boolean };
 
-export type RegenerateThumbnailInput = { 
+export type RegenerateThumbnailInput = {
 /**
  * UUID of the entry to regenerate thumbnails for
  */
-entry_uuid: string; 
+entry_uuid: string;
 /**
  * Optional variant names (defaults to grid@1x, grid@2x, detail@1x)
  */
-variants: string[] | null; 
+variants: string[] | null;
 /**
  * Force regeneration even if thumbnails exist
  */
