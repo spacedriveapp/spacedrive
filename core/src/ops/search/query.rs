@@ -391,7 +391,8 @@ impl FileSearchQuery {
 
 			// Create SdPath with device_slug from join
 			let sd_path = SdPath::Physical {
-				device_slug: device_slug.unwrap_or_else(|| "unknown-device".to_string()),
+				device_slug: device_slug
+					.unwrap_or_else(|| crate::device::get_current_device_slug()),
 				path: file_path.into(),
 			};
 
