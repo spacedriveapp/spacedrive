@@ -29,7 +29,6 @@ import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
 import {useContextMenu} from '../../../hooks/useContextMenu';
-import {useJobDispatch} from '../../../hooks/useJobDispatch';
 import {useOpenWith} from '../../../hooks/useOpenWith';
 import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 import {useExplorer} from '../context';
@@ -56,7 +55,27 @@ export function useFileContextMenu({
 		onSuccess: refetchTagQueries
 	});
 	const createFolder = useLibraryMutation('files.createFolder');
-	const {runJob} = useJobDispatch();
+	const regenerateThumbnail = useLibraryMutation(
+		'media.thumbnail.regenerate'
+	);
+	const extractText = useLibraryMutation('media.ocr.extract');
+	const transcribeAudio = useLibraryMutation('media.speech.transcribe');
+	const generateThumbstrip = useLibraryMutation('media.thumbstrip.generate');
+	const generateProxy = useLibraryMutation('media.proxy.generate');
+
+	// Helper to run a mutation on each target file
+	const forEachTarget = async (
+		targets: File[],
+		fn: (f: File) => Promise<unknown>
+	) => {
+		for (const f of targets) {
+			try {
+				await fn(f);
+			} catch (err) {
+				console.error(`Failed for ${f.name}:`, err);
+			}
+		}
+	};
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 	const {startRename} = useSelection();
@@ -359,10 +378,12 @@ export function useFileContextMenu({
 						label: 'Generate Blurhash',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbnail', {
-								file_ids: targets.map((f) => f.id),
-								generate_blurhash: true
-							});
+							await forEachTarget(targets, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						condition: () =>
 							!!file && !file.image_media_data?.blurhash
@@ -372,10 +393,12 @@ export function useFileContextMenu({
 						label: 'Regenerate Thumbnail',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbnail', {
-								file_ids: targets.map((f) => f.id),
-								force: true
-							});
+							await forEachTarget(targets, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: true
+								})
+							);
 						}
 					},
 					{
@@ -383,9 +406,12 @@ export function useFileContextMenu({
 						label: 'Extract Text (OCR)',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('ocr', {
-								file_ids: targets.map((f) => f.id)
-							});
+							await forEachTarget(targets, (f) =>
+								extractText.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						keybind: '⌘⇧T'
 					}
@@ -402,10 +428,12 @@ export function useFileContextMenu({
 						label: 'Generate Thumbstrip',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbstrip', {
-								file_ids: targets.map((f) => f.id),
-								frame_count: 10
-							});
+							await forEachTarget(targets, (f) =>
+								generateThumbstrip.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						condition: () =>
 							!!file &&
@@ -416,10 +444,12 @@ export function useFileContextMenu({
 						label: 'Generate Blurhash',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbnail', {
-								file_ids: targets.map((f) => f.id),
-								generate_blurhash: true
-							});
+							await forEachTarget(targets, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						condition: () =>
 							!!file && !file.video_media_data?.blurhash
@@ -429,10 +459,12 @@ export function useFileContextMenu({
 						label: 'Regenerate Thumbnail',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbnail', {
-								file_ids: targets.map((f) => f.id),
-								force: true
-							});
+							await forEachTarget(targets, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: true
+								})
+							);
 						}
 					},
 					{
@@ -440,10 +472,11 @@ export function useFileContextMenu({
 						label: 'Extract Subtitles',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('speech_to_text', {
-								file_ids: targets.map((f) => f.id),
-								output_format: 'srt'
-							});
+							await forEachTarget(targets, (f) =>
+								transcribeAudio.mutateAsync({
+									entry_uuid: f.id
+								})
+							);
 						}
 					},
 					{
@@ -451,10 +484,12 @@ export function useFileContextMenu({
 						label: 'Generate Proxy',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('proxy', {
-								file_ids: targets.map((f) => f.id),
-								quality: '720p'
-							});
+							await forEachTarget(targets, (f) =>
+								generateProxy.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						keybind: '⌘⇧P'
 					}
@@ -471,10 +506,12 @@ export function useFileContextMenu({
 						label: 'Transcribe Audio',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('speech_to_text', {
-								file_ids: targets.map((f) => f.id),
-								model: 'whisper-base'
-							});
+							await forEachTarget(targets, (f) =>
+								transcribeAudio.mutateAsync({
+									entry_uuid: f.id,
+									model: 'whisper-base'
+								})
+							);
 						},
 						keybind: '⌘⇧T'
 					}
@@ -494,9 +531,12 @@ export function useFileContextMenu({
 						label: 'Extract Text (OCR)',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('ocr', {
-								file_ids: targets.map((f) => f.id)
-							});
+							await forEachTarget(targets, (f) =>
+								extractText.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						keybind: '⌘⇧T'
 					},
@@ -505,10 +545,12 @@ export function useFileContextMenu({
 						label: 'Regenerate Thumbnail',
 						onClick: async () => {
 							const targets = getTargetFiles();
-							await runJob('thumbnail', {
-								file_ids: targets.map((f) => f.id),
-								force: true
-							});
+							await forEachTarget(targets, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: true
+								})
+							);
 						}
 					}
 				]
@@ -524,20 +566,24 @@ export function useFileContextMenu({
 						icon: Crop,
 						label: 'Regenerate All Thumbnails',
 						onClick: async () => {
-							await runJob('thumbnail', {
-								file_ids: selectedFiles.map((f) => f.id),
-								force: true
-							});
+							await forEachTarget(selectedFiles, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: true
+								})
+							);
 						}
 					},
 					{
 						icon: Sparkle,
 						label: 'Generate Blurhashes',
 						onClick: async () => {
-							await runJob('thumbnail', {
-								file_ids: selectedFiles.map((f) => f.id),
-								generate_blurhash: true
-							});
+							await forEachTarget(selectedFiles, (f) =>
+								regenerateThumbnail.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						},
 						keybind: '⌘⇧B'
 					},
@@ -545,9 +591,12 @@ export function useFileContextMenu({
 						icon: TextAa,
 						label: 'Extract Text (OCR)',
 						onClick: async () => {
-							await runJob('ocr', {
-								file_ids: selectedFiles.map((f) => f.id)
-							});
+							await forEachTarget(selectedFiles, (f) =>
+								extractText.mutateAsync({
+									entry_uuid: f.id,
+									force: false
+								})
+							);
 						}
 					}
 				]
