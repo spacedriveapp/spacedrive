@@ -53,6 +53,36 @@ use sea_orm::{
 use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
+/// Check if a filesystem path should be treated as hidden.
+///
+/// On Windows, uses `FILE_ATTRIBUTE_HIDDEN` via `GetFileAttributesW` exclusively.
+/// On other platforms, uses the dot-prefix convention.
+pub fn is_hidden_path(path: &Path) -> bool {
+	#[cfg(windows)]
+	{
+		use std::os::windows::ffi::OsStrExt;
+		use windows_sys::Win32::Storage::FileSystem::{
+			GetFileAttributesW, FILE_ATTRIBUTE_HIDDEN, INVALID_FILE_ATTRIBUTES,
+		};
+
+		let wide: Vec<u16> = path
+			.as_os_str()
+			.encode_wide()
+			.chain(std::iter::once(0))
+			.collect();
+		let attrs = unsafe { GetFileAttributesW(wide.as_ptr()) };
+		return attrs != INVALID_FILE_ATTRIBUTES && (attrs & FILE_ATTRIBUTE_HIDDEN) != 0;
+	}
+
+	#[cfg(not(windows))]
+	{
+		path.file_name()
+			.and_then(|n| n.to_str())
+			.map(|n| n.starts_with('.'))
+			.unwrap_or(false)
+	}
+}
+
 /// Normalizes cloud storage paths to match PathBuf::parent() semantics.
 ///
 /// Cloud backends (S3, Dropbox) store directory paths with trailing slashes
@@ -104,12 +134,7 @@ impl From<DirEntry> for EntryMetadata {
 			created: None,
 			inode: entry.inode,
 			permissions: None,
-			is_hidden: entry
-				.path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
+			is_hidden: is_hidden_path(&entry.path),
 		}
 	}
 }
@@ -293,11 +318,7 @@ impl DatabaseStorage {
 				created: raw.created,
 				inode: raw.inode,
 				permissions: raw.permissions,
-				is_hidden: path
-					.file_name()
-					.and_then(|n| n.to_str())
-					.map(|n| n.starts_with('.'))
-					.unwrap_or(false),
+				is_hidden: is_hidden_path(path),
 			})
 		} else {
 			let metadata = tokio::fs::symlink_metadata(path).await?;
@@ -330,11 +351,7 @@ impl DatabaseStorage {
 				created: metadata.created().ok(),
 				inode,
 				permissions,
-				is_hidden: path
-					.file_name()
-					.and_then(|n| n.to_str())
-					.map(|n| n.starts_with('.'))
-					.unwrap_or(false),
+				is_hidden: is_hidden_path(path),
 			})
 		}
 	}

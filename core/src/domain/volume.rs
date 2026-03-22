@@ -25,7 +25,21 @@ impl VolumeFingerprint {
 	pub fn from_primary_volume(mount_point: &std::path::Path, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"stable_primary_v1:");
-		hasher.update(mount_point.to_string_lossy().as_bytes());
+
+		// Normalize path for consistent fingerprinting: case-insensitive on Windows/macOS
+		// prevents "C:\" vs "c:\" from generating different fingerprints.
+		let path_str = mount_point.to_string_lossy();
+		let normalized = if cfg!(windows) || cfg!(target_os = "macos") {
+			path_str.to_lowercase()
+		} else {
+			path_str.into_owned()
+		};
+
+		// Trim trailing slash/backslash for consistency, but preserve root paths (e.g. "C:\", "/")
+		let trimmed = normalized.trim_end_matches(['/', '\\']);
+		let final_path = if trimmed.is_empty() { &normalized } else { trimmed };
+
+		hasher.update(final_path.as_bytes());
 		hasher.update(device_id.as_bytes());
 		Self(hasher.finalize().to_hex().to_string())
 	}
@@ -387,6 +401,11 @@ pub struct Volume {
 
 	/// Error state
 	pub error_message: Option<String>,
+
+	/// Whether the volume supports block cloning / copy-on-write
+	/// Set by filesystem-specific enhance_volume() (e.g. ReFS IOCTL version check)
+	#[serde(default)]
+	pub supports_block_cloning: bool,
 }
 
 /// Volume type classification
@@ -667,6 +686,7 @@ impl Volume {
 			color: None,
 			icon: None,
 			error_message: None,
+			supports_block_cloning: false,
 		}
 	}
 
@@ -731,10 +751,11 @@ impl Volume {
 
 	/// Check if volume supports copy-on-write
 	pub fn supports_cow(&self) -> bool {
-		matches!(
-			self.file_system,
-			FileSystem::APFS | FileSystem::Btrfs | FileSystem::ZFS | FileSystem::ReFS
-		)
+		match self.file_system {
+			FileSystem::APFS | FileSystem::Btrfs | FileSystem::ZFS => true,
+			FileSystem::ReFS => self.supports_block_cloning,
+			_ => false,
+		}
 	}
 
 	/// Get capacity utilization percentage
@@ -934,6 +955,7 @@ impl TrackedVolume {
 			color: None,
 			icon: None,
 			error_message: None,
+			supports_block_cloning: false,
 		}
 	}
 }
@@ -1089,6 +1111,12 @@ mod tests {
 		assert!(!volume.supports_cow());
 
 		volume.file_system = FileSystem::Btrfs;
+		assert!(volume.supports_cow());
+
+		// ReFS requires explicit block cloning support (detected via IOCTL)
+		volume.file_system = FileSystem::ReFS;
+		assert!(!volume.supports_cow());
+		volume.supports_block_cloning = true;
 		assert!(volume.supports_cow());
 	}
 }

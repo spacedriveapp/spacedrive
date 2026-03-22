@@ -59,18 +59,25 @@ export class TauriTransport implements Transport {
 		callback: (event: any) => void,
 		options?: SubscriptionOptions,
 	): Promise<() => void> {
-		// Start the event subscription on the backend
-		// Returns subscription ID for cleanup
 		const args = {
 			eventTypes: options?.event_types ?? DEFAULT_EVENT_SUBSCRIPTION,
 			filter: options?.filter ?? null,
 		};
-		const subscriptionId = await this.invoke("subscribe_to_events", args);
 
-		// Listen to forwarded events from Tauri
+		// Listen FIRST so buffered events replayed by the daemon are not lost.
+		// subscribe_to_events creates a TCP connection that may emit events
+		// before the invoke promise resolves.
 		const unlisten = await this.listen("core-event", (tauriEvent: any) => {
 			callback(tauriEvent.payload);
 		});
+
+		let subscriptionId: any;
+		try {
+			subscriptionId = await this.invoke("subscribe_to_events", args);
+		} catch (e) {
+			unlisten();
+			throw e;
+		}
 
 		// Return cleanup function that properly unsubscribes
 		return async () => {

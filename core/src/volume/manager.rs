@@ -390,6 +390,7 @@ impl VolumeManager {
 									color: None,
 									icon: None,
 									error_message: None,
+									supports_block_cloning: false,
 								};
 
 								let mut volumes = self.volumes.write().await;
@@ -643,7 +644,7 @@ impl VolumeManager {
 		// Query database for tracked volumes to merge metadata
 		let mut tracked_volumes_map: HashMap<
 			VolumeFingerprint,
-			(Uuid, Option<String>, Option<u64>, Option<u64>),
+			(Uuid, Uuid, Option<String>, Option<u64>, Option<u64>),
 		> = HashMap::new();
 		if let Some(lib_mgr) = library_manager.read().await.as_ref() {
 			if let Some(lib_mgr) = lib_mgr.upgrade() {
@@ -673,6 +674,7 @@ impl VolumeManager {
 								fingerprint,
 								(
 									library.id(),
+									db_vol.uuid,
 									db_vol.display_name,
 									db_vol.read_speed_mbps.map(|s| s as u64),
 									db_vol.write_speed_mbps.map(|s| s as u64),
@@ -705,9 +707,10 @@ impl VolumeManager {
 			seen_fingerprints.insert(fingerprint.clone());
 
 			// Merge tracked volume metadata from database
-			if let Some((library_id, display_name, read_speed, write_speed)) =
+			if let Some((library_id, db_uuid, display_name, read_speed, write_speed)) =
 				tracked_volumes_map.get(&fingerprint)
 			{
+				detected.id = *db_uuid;
 				detected.is_tracked = true;
 				detected.library_id = Some(*library_id);
 				detected.display_name = display_name.clone();
@@ -733,9 +736,12 @@ impl VolumeManager {
 						|| old_info.total_bytes_available != new_info.total_bytes_available
 						|| old_info.error_status != new_info.error_status
 					{
-						// Update the volume - preserve existing ID for cache stability
+						// Update the volume - prefer DB UUID for stability, fall back to cache ID
 						let mut updated_volume = detected.clone();
-						updated_volume.id = existing.id;
+						updated_volume.id = tracked_volumes_map
+							.get(&fingerprint)
+							.map(|(_, db_uuid, ..)| *db_uuid)
+							.unwrap_or(existing.id);
 						updated_volume.update_info(new_info.clone());
 						current_volumes.insert(fingerprint.clone(), updated_volume.clone());
 

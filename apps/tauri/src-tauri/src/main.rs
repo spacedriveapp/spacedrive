@@ -485,11 +485,10 @@ async fn validate_and_reset_library_if_needed(
 
 	// Query daemon for list of libraries
 	let request = json!({
-		"jsonrpc": "2.0",
-		"id": 1,
-		"method": "query:libraries.list",
-		"params": {
-			"input": {
+		"Query": {
+			"method": "query:libraries.list",
+			"library_id": null,
+			"payload": {
 				"include_stats": false
 			}
 		}
@@ -534,9 +533,9 @@ async fn validate_and_reset_library_if_needed(
 
 	// Parse response to get library list
 	let libraries: Vec<serde_json::Value> = response
-		.get("result")
+		.get("JsonOk").or_else(|| response.get("result"))
 		.and_then(|r| r.as_array())
-		.ok_or_else(|| "Invalid response format from libraries.list query".to_string())?
+		.ok_or_else(|| format!("Invalid response format from libraries.list query. Raw: {}", response_line.trim()))?
 		.clone();
 
 	// Check if current library ID exists in the list
@@ -1737,13 +1736,14 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 						let default_path = std::path::PathBuf::from(".");
 						let path_buf = path.as_path().unwrap_or(&default_path);
 
-						// Create the JSON-RPC request
+						// Create the DaemonRequest
 						let request = serde_json::json!({
-							"jsonrpc": "2.0",
-							"id": 1,
-							"method": "action:libraries.open.input",
-							"params": {
-								"path": path_buf.to_string_lossy().to_string()
+							"Action": {
+								"method": "action:libraries.open.input",
+								"library_id": null,
+								"payload": {
+									"path": path_buf.to_string_lossy().to_string()
+								}
 							}
 						});
 

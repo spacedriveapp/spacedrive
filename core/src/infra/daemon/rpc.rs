@@ -243,7 +243,6 @@ impl RpcServer {
 		// If event_types is empty, forward all events
 		// Otherwise, treat event_types as an INCLUSION list (only forward these)
 		if !event_types.is_empty() {
-			// Use the Event's own variant_name() method - single source of truth!
 			let event_type = event.variant_name();
 
 			if !event_types.contains(&event_type.to_string()) {
@@ -260,7 +259,6 @@ impl RpcServer {
 						return false;
 					}
 				} else {
-					// Event is not a resource event, but filter expects one
 					return false;
 				}
 			}
@@ -268,9 +266,7 @@ impl RpcServer {
 			// Filter by path scope (for resource events)
 			if let Some(path_scope) = &filter.path_scope {
 				let include_descendants = filter.include_descendants.unwrap_or(false);
-				let affects = event.affects_path(path_scope, include_descendants);
-
-				if !affects {
+				if !event.affects_path(path_scope, include_descendants) {
 					return false;
 				}
 			}

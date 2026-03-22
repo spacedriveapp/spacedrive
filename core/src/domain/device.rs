@@ -410,6 +410,137 @@ fn detect_operating_system() -> OperatingSystem {
 	return OperatingSystem::Other;
 }
 
+/// Read a REG_SZ value from HKEY_LOCAL_MACHINE.
+/// Uses a two-pass query: first to get the required buffer size, then to read the data.
+#[cfg(target_os = "windows")]
+pub(crate) fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
+	use std::ffi::OsString;
+	use std::os::windows::ffi::{OsStrExt, OsStringExt};
+	use windows_sys::Win32::System::Registry::{
+		RegCloseKey, RegOpenKeyExW, RegQueryValueExW, HKEY_LOCAL_MACHINE, KEY_READ, REG_SZ,
+	};
+
+	let subkey_wide: Vec<u16> = std::ffi::OsStr::new(subkey)
+		.encode_wide()
+		.chain(std::iter::once(0))
+		.collect();
+	let value_wide: Vec<u16> = std::ffi::OsStr::new(value_name)
+		.encode_wide()
+		.chain(std::iter::once(0))
+		.collect();
+
+	let mut hkey = 0isize;
+	if unsafe {
+		RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey_wide.as_ptr(), 0, KEY_READ, &mut hkey)
+	} != 0
+	{
+		return None;
+	}
+
+	let mut data_type = 0u32;
+	let mut size = 0u32;
+
+	// First call: query required buffer size
+	let ret = unsafe {
+		RegQueryValueExW(
+			hkey,
+			value_wide.as_ptr(),
+			std::ptr::null_mut(),
+			&mut data_type,
+			std::ptr::null_mut(),
+			&mut size,
+		)
+	};
+	if ret != 0 || data_type != REG_SZ || size == 0 {
+		unsafe { RegCloseKey(hkey) };
+		return None;
+	}
+
+	// Second call: read the actual data
+	let mut buf = vec![0u8; size as usize];
+	let ret = unsafe {
+		RegQueryValueExW(
+			hkey,
+			value_wide.as_ptr(),
+			std::ptr::null_mut(),
+			&mut data_type,
+			buf.as_mut_ptr(),
+			&mut size,
+		)
+	};
+	unsafe { RegCloseKey(hkey) };
+
+	if ret != 0 || data_type != REG_SZ {
+		return None;
+	}
+
+	let wide: Vec<u16> = buf[..size as usize]
+		.chunks_exact(2)
+		.map(|c| u16::from_le_bytes([c[0], c[1]]))
+		.collect();
+	let nul = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
+	let s = OsString::from_wide(&wide[..nul]).to_string_lossy().into_owned();
+	if s.is_empty() { None } else { Some(s) }
+}
+
+/// Enumerate DriverDesc from all display adapter subkeys
+#[cfg(target_os = "windows")]
+fn reg_enum_display_adapters() -> Vec<String> {
+	use std::ffi::OsString;
+	use std::os::windows::ffi::{OsStrExt, OsStringExt};
+	use windows_sys::Win32::System::Registry::{
+		RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, HKEY_LOCAL_MACHINE, KEY_READ,
+	};
+
+	const CLASS_KEY: &str =
+		"SYSTEM\\CurrentControlSet\\Control\\Class\\{4d36e968-e325-11ce-bfc1-08002be10318}";
+	let key_wide: Vec<u16> = std::ffi::OsStr::new(CLASS_KEY)
+		.encode_wide()
+		.chain(std::iter::once(0))
+		.collect();
+
+	let mut hkey = 0isize;
+	if unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_wide.as_ptr(), 0, KEY_READ, &mut hkey) }
+		!= 0
+	{
+		return Vec::new();
+	}
+
+	let mut gpus = Vec::new();
+	let mut idx = 0u32;
+	loop {
+		let mut name_buf = vec![0u16; 256];
+		let mut name_len = name_buf.len() as u32;
+		let ret = unsafe {
+			RegEnumKeyExW(
+				hkey,
+				idx,
+				name_buf.as_mut_ptr(),
+				&mut name_len,
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+				std::ptr::null_mut(),
+			)
+		};
+		if ret != 0 {
+			break;
+		}
+		idx += 1;
+
+		let subkey_name =
+			OsString::from_wide(&name_buf[..name_len as usize]).to_string_lossy().into_owned();
+		let full_key = format!("{}\\{}", CLASS_KEY, subkey_name);
+		if let Some(desc) = reg_read_hklm(&full_key, "DriverDesc") {
+			if !gpus.contains(&desc) {
+				gpus.push(desc);
+			}
+		}
+	}
+	unsafe { RegCloseKey(hkey) };
+	gpus
+}
+
 /// Get hardware model information
 fn detect_hardware_model() -> Option<String> {
 	#[cfg(target_os = "macos")]
@@ -431,24 +562,7 @@ fn detect_hardware_model() -> Option<String> {
 
 	#[cfg(target_os = "windows")]
 	{
-		// Use wmic to get computer model
-		use std::process::Command;
-
-		let output = Command::new("wmic")
-			.args(["computersystem", "get", "model"])
-			.output()
-			.ok()?;
-
-		if output.status.success() {
-			let stdout = String::from_utf8_lossy(&output.stdout);
-			// Skip first line (header) and get model
-			if let Some(model) = stdout.lines().nth(1) {
-				let model = model.trim().to_string();
-				if !model.is_empty() {
-					return Some(model);
-				}
-			}
-		}
+		return reg_read_hklm("HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemProductName");
 	}
 
 	#[cfg(target_os = "linux")]
@@ -713,27 +827,15 @@ fn detect_form_factor() -> Option<DeviceFormFactor> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
+		use windows_sys::Win32::System::Power::{GetSystemPowerStatus, SYSTEM_POWER_STATUS};
 
-		// Check chassis type using wmic
-		if let Ok(output) = Command::new("wmic")
-			.args(["computersystem", "get", "PCSystemType"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				// PCSystemType values: 1=Desktop, 2=Mobile/Laptop, 3=Workstation, 4=Enterprise Server, etc.
-				if let Some(line) = stdout.lines().nth(1) {
-					if let Ok(system_type) = line.trim().parse::<u32>() {
-						return match system_type {
-							1 => Some(DeviceFormFactor::Desktop),
-							2 => Some(DeviceFormFactor::Laptop),
-							4 | 5 | 6 => Some(DeviceFormFactor::Server),
-							8 => Some(DeviceFormFactor::Tablet),
-							_ => Some(DeviceFormFactor::Other),
-						};
-					}
-				}
+		let mut status: SYSTEM_POWER_STATUS = unsafe { std::mem::zeroed() };
+		if unsafe { GetSystemPowerStatus(&mut status) } != 0 {
+			// BatteryFlag is a bitmask: 0x80 = no system battery, 0xFF = unknown
+			match status.BatteryFlag {
+				255 => {} // Unknown — fall through to other detection methods
+				flag if flag & 128 != 0 => return Some(DeviceFormFactor::Desktop),
+				_ => return Some(DeviceFormFactor::Laptop),
 			}
 		}
 	}
@@ -779,22 +881,7 @@ fn detect_manufacturer() -> Option<String> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
-
-		if let Ok(output) = Command::new("wmic")
-			.args(["computersystem", "get", "manufacturer"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				if let Some(manufacturer) = stdout.lines().nth(1) {
-					let manufacturer = manufacturer.trim().to_string();
-					if !manufacturer.is_empty() {
-						return Some(manufacturer);
-					}
-				}
-			}
-		}
+		return reg_read_hklm("HARDWARE\\DESCRIPTION\\System\\BIOS", "SystemManufacturer");
 	}
 
 	#[cfg(target_os = "linux")]
@@ -858,25 +945,9 @@ fn detect_gpu_models() -> Option<Vec<String>> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
-
-		if let Ok(output) = Command::new("wmic")
-			.args(["path", "win32_VideoController", "get", "name"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				let mut gpus = Vec::new();
-				for line in stdout.lines().skip(1) {
-					let gpu = line.trim().to_string();
-					if !gpu.is_empty() && gpu != "Name" {
-						gpus.push(gpu);
-					}
-				}
-				if !gpus.is_empty() {
-					return Some(gpus);
-				}
-			}
+		let gpus = reg_enum_display_adapters();
+		if !gpus.is_empty() {
+			return Some(gpus);
 		}
 	}
 
@@ -939,38 +1010,19 @@ fn detect_boot_disk_type() -> Option<String> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
+		use sysinfo::Disks;
 
-		// Get the boot drive letter (usually C:)
-		if let Ok(output) = Command::new("wmic")
-			.args(["diskdrive", "get", "MediaType,DeviceID"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				for line in stdout.lines().skip(1) {
-					if line.contains("Fixed hard disk") {
-						if line.contains("SSD") || line.contains("Solid State") {
-							return Some("SSD".to_string());
-						}
-					}
-				}
-			}
-		}
+		let system_drive = std::env::var("SystemDrive")
+			.map(|d| std::path::PathBuf::from(format!("{}\\", d)))
+			.unwrap_or_else(|_| std::path::PathBuf::from("C:\\"));
 
-		// Fallback: check if it's SSD via optimization settings
-		if let Ok(output) = Command::new("powershell")
-			.args(["-Command", "Get-PhysicalDisk | Select MediaType"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				if stdout.contains("SSD") {
-					return Some("SSD".to_string());
-				} else if stdout.contains("HDD") {
-					return Some("HDD".to_string());
-				}
-			}
+		let disks = Disks::new_with_refreshed_list();
+		if let Some(disk) = disks.iter().find(|d| d.mount_point() == system_drive) {
+			return match disk.kind() {
+				sysinfo::DiskKind::SSD => Some("SSD".to_string()),
+				sysinfo::DiskKind::HDD => Some("HDD".to_string()),
+				sysinfo::DiskKind::Unknown(_) => None,
+			};
 		}
 	}
 
@@ -1051,19 +1103,17 @@ fn detect_boot_disk_capacity() -> Option<i64> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
+		use sysinfo::Disks;
 
-		if let Ok(output) = Command::new("wmic")
-			.args(["diskdrive", "get", "Size"])
-			.output()
-		{
-			if output.status.success() {
-				let stdout = String::from_utf8_lossy(&output.stdout);
-				for line in stdout.lines().skip(1) {
-					if let Ok(size) = line.trim().parse::<i64>() {
-						return Some(size);
-					}
-				}
+		let system_drive = std::env::var("SystemDrive")
+			.map(|d| std::path::PathBuf::from(format!("{}\\", d)))
+			.unwrap_or_else(|_| std::path::PathBuf::from("C:\\"));
+
+		let disks = Disks::new_with_refreshed_list();
+		if let Some(disk) = disks.iter().find(|d| d.mount_point() == system_drive) {
+			let size = disk.total_space() as i64;
+			if size > 0 {
+				return Some(size);
 			}
 		}
 	}

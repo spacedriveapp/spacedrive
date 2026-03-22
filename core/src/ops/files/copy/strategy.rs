@@ -43,7 +43,7 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tracing::{debug, error, info};
@@ -505,10 +505,15 @@ impl RemoteTransferStrategy {
 		// Send PullRequest
 		let transfer_id = uuid::Uuid::new_v4();
 		let current_device_id = crate::device::get_current_device_id();
+		// Normalize path separators to forward slashes for cross-platform transmission.
+		// The receiving device may use a different OS separator (Windows \ vs Unix /).
+		let normalized_source_path = PathBuf::from(
+			source_path.to_string_lossy().replace('\\', "/"),
+		);
 		let pull_request =
 			crate::service::network::protocol::file_transfer::FileTransferMessage::PullRequest {
 				transfer_id,
-				source_path: source_path.clone(),
+				source_path: normalized_source_path,
 				requested_by: current_device_id,
 			};
 

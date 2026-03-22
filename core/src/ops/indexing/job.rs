@@ -890,7 +890,7 @@ impl IndexerJob {
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 		is_volume_indexing: bool,
 	) -> JobResult<()> {
-		use super::database_storage::EntryMetadata;
+		use super::database_storage::{is_hidden_path, EntryMetadata};
 		use super::state::EntryKind as StateEntryKind;
 		use crate::domain::{file::EntryKind as DomainEntryKind, File};
 
@@ -945,12 +945,7 @@ impl IndexerJob {
 						created: None,
 						inode: entry.inode,
 						permissions: None,
-						is_hidden: entry
-							.path
-							.file_name()
-							.and_then(|n| n.to_str())
-							.map(|n| n.starts_with('.'))
-							.unwrap_or(false),
+						is_hidden: is_hidden_path(&entry.path),
 					};
 					(entry.path.clone(), uuid, metadata)
 				})
@@ -987,12 +982,7 @@ impl IndexerJob {
 						let content_kind = (*content_kind_opt)?;
 
 						// Skip hidden files from events
-						let is_hidden = entry
-							.path
-							.file_name()
-							.and_then(|n| n.to_str())
-							.map(|n| n.starts_with('.'))
-							.unwrap_or(false);
+						let is_hidden = is_hidden_path(&entry.path);
 
 						if is_hidden {
 							return None;

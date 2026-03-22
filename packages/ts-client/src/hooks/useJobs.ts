@@ -140,6 +140,19 @@ export function useJobs(options: UseJobsOptions = {}): UseJobsReturn {
 						event.JobCancelled?.job_id;
 
 					if (jobId) {
+						// Set progress to 100% on completion so the UI
+						// doesn't stay at 0% when a job finishes before
+						// a throttled progress update is emitted.
+						if ('JobCompleted' in event) {
+							setJobs((prev) =>
+								prev.map((job) =>
+									job.id === jobId
+										? { ...job, progress: 1.0 }
+										: job
+								)
+							);
+						}
+
 						// Clean up speed history for completed/failed/cancelled jobs
 						speedHistoryRef.current.delete(jobId);
 

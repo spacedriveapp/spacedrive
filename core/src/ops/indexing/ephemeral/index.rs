@@ -17,7 +17,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::database_storage::EntryMetadata;
+use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
@@ -148,7 +148,7 @@ impl EphemeralIndex {
 			path.file_name()
 				.map(|s| s.to_string_lossy())
 				.as_deref()
-				.unwrap_or("/"),
+				.unwrap_or(&path.to_string_lossy()),
 		);
 
 		let parent_ref = parent_id
@@ -300,11 +300,7 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
-			is_hidden: path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
+			is_hidden: is_hidden_path(path),
 		})
 	}
 
@@ -322,11 +318,7 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
-			is_hidden: path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false),
+			is_hidden: is_hidden_path(path),
 		})
 	}
 
@@ -608,7 +600,8 @@ impl EphemeralIndex {
 				// Match paths that are under the prefix (including the prefix itself)
 				path_str.starts_with(prefix_str.as_ref())
 					&& (path_str.len() == prefix_str.len()
-						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/'))
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'/')
+						|| path_str.as_bytes().get(prefix_str.len()) == Some(&b'\\'))
 			})
 			.count()
 	}
@@ -660,7 +653,7 @@ impl EphemeralIndex {
 			.keys()
 			.filter(|k| {
 				let k_str = k.to_string_lossy();
-				k_str == prefix || k_str.starts_with(&format!("{}/", prefix))
+				k_str == prefix || k_str.starts_with(&format!("{}/", prefix)) || k_str.starts_with(&format!("{}\\", prefix))
 			})
 			.cloned()
 			.collect();
@@ -708,11 +701,7 @@ impl EphemeralIndex {
 					created: node.meta.ctime_as_system_time(),
 					inode: None,
 					permissions: None,
-					is_hidden: path
-						.file_name()
-						.and_then(|n| n.to_str())
-						.map(|n| n.starts_with('.'))
-						.unwrap_or(false),
+					is_hidden: is_hidden_path(path),
 				};
 				result.insert(path.clone(), metadata);
 			}

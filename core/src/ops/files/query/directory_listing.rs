@@ -12,6 +12,7 @@ use crate::{
 		video_media_data,
 	},
 	infra::query::LibraryQuery,
+	ops::indexing::ephemeral::{cache::EphemeralIndexCache, EphemeralIndex},
 };
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
@@ -20,6 +21,7 @@ use sea_orm::{
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{collections::HashMap, sync::Arc};
+use tokio::sync::RwLock as TokioRwLock;
 use tracing;
 use uuid::Uuid;
 
@@ -624,7 +626,6 @@ impl DirectoryListingQuery {
 		context: Arc<CoreContext>,
 		library_id: Uuid,
 	) -> QueryResult<DirectoryListingOutput> {
-		use crate::domain::file::File;
 		use crate::ops::indexing::{IndexScope, IndexerJob, IndexerJobConfig};
 
 		// Get the local path for cache lookup
@@ -647,7 +648,7 @@ impl DirectoryListingQuery {
 
 		// Check if we have a cached index that covers this path (or a parent path)
 		if let Some(index) = cache.get_for_search(&local_path) {
-			tracing::info!(
+			tracing::debug!(
 				"Found cached ephemeral index for path: {}",
 				local_path.display()
 			);
@@ -660,69 +661,18 @@ impl DirectoryListingQuery {
 			};
 
 			// Check if the index actually has entries for this directory
+			// BUT: if children is empty and this path wasn't explicitly indexed,
+			// it means a parent was indexed and this subdirectory needs its own indexing job
 			if let Some(children) = children {
-				tracing::debug!(
-					"Cached index has {} children for {}",
-					children.len(),
-					local_path.display()
-				);
-
-				// Convert cached entries to File objects with lazy UUID assignment
-				// Acquire write lock once for the entire batch instead of per-entry
-				let mut index_write = index.write().await;
-				let mut files = Vec::new();
-
-				for child_path in children {
-					if let Some(metadata) = index_write.get_entry_ref(&child_path) {
-						// Apply hidden file filter
-						if !self.input.include_hidden.unwrap_or(false) && metadata.is_hidden {
-							continue;
-						}
-
-						// Get or assign UUID (lazy generation)
-						let entry_uuid = index_write.get_or_assign_uuid(&child_path);
-
-						// Build SdPath for this entry
-						let entry_sd_path = SdPath::Physical {
-							device_slug: match &self.input.path {
-								SdPath::Physical { device_slug, .. } => device_slug.clone(),
-								_ => String::new(),
-							},
-							path: child_path.clone(),
-						};
-
-						// Get content kind from index (identified by extension)
-						let content_kind = index_write.get_content_kind(&child_path);
-
-						// Convert to File
-						let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
-						file.content_kind = content_kind;
-						files.push(file);
-					}
+				if children.is_empty() && !cache.is_indexed(&local_path) {
+					tracing::info!(
+						"Subdirectory has no indexed children, triggering indexing: {}",
+						local_path.display()
+					);
+					// Fall through to spawn indexer job
+				} else if let Some(output) = self.read_ephemeral_listing(&index, &local_path).await {
+					return Ok(output);
 				}
-				drop(index_write);
-
-				// Apply sorting
-				self.sort_files(&mut files);
-
-				// Apply limit
-				let total_count = files.len() as u32;
-				let has_more = if let Some(limit) = self.input.limit {
-					if files.len() > limit as usize {
-						files.truncate(limit as usize);
-						true
-					} else {
-						false
-					}
-				} else {
-					false
-				};
-
-				return Ok(DirectoryListingOutput {
-					files,
-					total_count,
-					has_more,
-				});
 			}
 
 			// Index exists but doesn't have this directory yet
@@ -734,19 +684,22 @@ impl DirectoryListingQuery {
 		}
 
 		// No cached index or index doesn't cover this path
-		// Check if indexing is already in progress
+		// If another request is already indexing this path, wait for it
+		// instead of returning empty (avoids flicker on concurrent requests)
 		if cache.is_indexing(&local_path) {
-			tracing::info!("Indexing already in progress for: {}", local_path.display());
-			// Return empty, UI will get updates via events
-			return Ok(DirectoryListingOutput {
-				files: Vec::new(),
-				total_count: 0,
-				has_more: false,
-			});
+			tracing::debug!("Indexing already in progress, waiting: {}", local_path.display());
+			self.wait_for_indexing(&cache, &local_path).await;
+
+			if let Some(index) = cache.get_for_search(&local_path) {
+				if let Some(output) = self.read_ephemeral_listing(&index, &local_path).await {
+					return Ok(output);
+				}
+			}
+			// Fall through if cache still empty after wait
 		}
 
 		tracing::info!(
-			"No cached index, triggering ephemeral indexing for: {:?}",
+			"Triggering ephemeral indexing for: {:?}",
 			self.input.path
 		);
 
@@ -777,11 +730,20 @@ impl DirectoryListingQuery {
 			// Share the cached index with the job
 			indexer_job.set_ephemeral_index(ephemeral_index);
 
-			// Dispatch job asynchronously
-			// The job will emit ResourceChanged events as files are discovered
+			// Dispatch job and wait for completion so we can return results directly.
+			// Ephemeral indexing is very fast (typically <100ms for a single directory),
+			// so waiting is better than relying on event-based UI updates which have
+			// race conditions with subscription setup timing.
 			match library.jobs().dispatch(indexer_job).await {
-				Ok(_) => {
-					tracing::info!("Dispatched ephemeral indexer for {:?}", self.input.path);
+				Ok(_handle) => {
+					tracing::info!("Dispatched ephemeral indexer for {:?}, waiting", self.input.path);
+					self.wait_for_indexing(&cache, &local_path).await;
+
+					if let Some(index) = cache.get_for_search(&local_path) {
+						if let Some(output) = self.read_ephemeral_listing(&index, &local_path).await {
+							return Ok(output);
+						}
+					}
 				}
 				Err(e) => {
 					tracing::warn!(
@@ -789,19 +751,98 @@ impl DirectoryListingQuery {
 						self.input.path,
 						e
 					);
-					// Mark indexing as not in progress since job failed
 					cache.mark_indexing_complete(&local_path);
 				}
 			}
 		}
 
-		// Return empty result immediately
-		// UI will receive ResourceChanged events and populate incrementally
+		// Fallback: return empty if job dispatch failed or cache is empty
 		Ok(DirectoryListingOutput {
 			files: Vec::new(),
 			total_count: 0,
 			has_more: false,
 		})
+	}
+
+	/// Read children from the ephemeral index and convert to a DirectoryListingOutput.
+	///
+	/// Shared by all ephemeral code paths (cache hit, wait-for-indexing, post-dispatch).
+	async fn read_ephemeral_listing(
+		&self,
+		index: &Arc<TokioRwLock<EphemeralIndex>>,
+		local_path: &std::path::Path,
+	) -> Option<DirectoryListingOutput> {
+
+		let children = {
+			let guard = index.read().await;
+			guard.list_directory(local_path)
+		};
+		let children = children?;
+
+		let mut index_write = index.write().await;
+		let mut files = Vec::new();
+
+		for child_path in children {
+			if let Some(metadata) = index_write.get_entry_ref(&child_path) {
+				if !self.input.include_hidden.unwrap_or(false) && metadata.is_hidden {
+					continue;
+				}
+				let entry_uuid = index_write.get_or_assign_uuid(&child_path);
+				let entry_sd_path = SdPath::Physical {
+					device_slug: match &self.input.path {
+						SdPath::Physical { device_slug, .. } => device_slug.clone(),
+						_ => String::new(),
+					},
+					path: child_path.clone(),
+				};
+				let content_kind = index_write.get_content_kind(&child_path);
+				let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
+				file.content_kind = content_kind;
+				files.push(file);
+			}
+		}
+		drop(index_write);
+
+		self.sort_files(&mut files);
+		let total_count = files.len() as u32;
+		let has_more = if let Some(limit) = self.input.limit {
+			if files.len() > limit as usize {
+				files.truncate(limit as usize);
+				true
+			} else {
+				false
+			}
+		} else {
+			false
+		};
+
+		Some(DirectoryListingOutput {
+			files,
+			total_count,
+			has_more,
+		})
+	}
+
+	/// Poll until ephemeral indexing finishes (or 10s timeout).
+	///
+	/// Ephemeral indexing typically completes in <500ms, so this avoids
+	/// returning empty results and relying on event-based UI updates.
+	async fn wait_for_indexing(
+		&self,
+		cache: &EphemeralIndexCache,
+		local_path: &std::path::Path,
+	) {
+		let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+		loop {
+			if !cache.is_indexing(local_path) {
+				break;
+			}
+			if tokio::time::Instant::now() >= deadline {
+				tracing::warn!("Ephemeral indexing timed out for {}", local_path.display());
+				break;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(25)).await;
+		}
 	}
 
 	/// Sort files according to the input options

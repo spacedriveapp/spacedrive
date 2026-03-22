@@ -1,9 +1,10 @@
 //! Database infrastructure using SeaORM
 
-use sea_orm::ConnectionTrait;
 use sea_orm::{ConnectOptions, Database as SeaDatabase, DatabaseConnection, DbErr};
 use sea_orm_migration::MigratorTrait;
+use sqlx::sqlite::SqliteConnectOptions;
 use std::path::Path;
+use std::str::FromStr;
 use std::time::Duration;
 use tracing::info;
 
@@ -22,6 +23,41 @@ impl AsRef<DatabaseConnection> for Database {
 	}
 }
 
+/// Build `SqliteConnectOptions` with PRAGMAs applied to every pooled connection.
+fn sqlite_connect_options(url: &str) -> Result<SqliteConnectOptions, DbErr> {
+	let opts = SqliteConnectOptions::from_str(url)
+		.map_err(|e| DbErr::Custom(format!("Invalid SQLite URL: {}", e)))?
+		.busy_timeout(Duration::from_millis(5000))
+		.journal_mode(sqlx::sqlite::SqliteJournalMode::Wal)
+		.synchronous(sqlx::sqlite::SqliteSynchronous::Normal)
+		.pragma("temp_store", "MEMORY")
+		.pragma("cache_size", "-20000")
+		.pragma("mmap_size", "67108864");
+	Ok(opts)
+}
+
+/// Build a SeaORM `DatabaseConnection` from sqlx `SqliteConnectOptions`,
+/// ensuring all PRAGMAs are applied to every connection in the pool.
+async fn connect_sqlite(
+	url: &str,
+	pool_size: u32,
+) -> Result<DatabaseConnection, DbErr> {
+	let opts = sqlite_connect_options(url)?;
+
+	let pool_size = pool_size.max(1);
+	let pool = sqlx::pool::PoolOptions::<sqlx::Sqlite>::new()
+		.max_connections(pool_size)
+		.min_connections(pool_size.min(5))
+		.acquire_timeout(Duration::from_secs(30))
+		.idle_timeout(Duration::from_secs(30))
+		.max_lifetime(Duration::from_secs(30))
+		.connect_with(opts)
+		.await
+		.map_err(|e| DbErr::Custom(format!("Failed to connect: {}", e)))?;
+
+	Ok(sea_orm::SqlxSqliteConnector::from_sqlx_sqlite_pool(pool))
+}
+
 impl Database {
 	/// Create a new database at the specified path
 	pub async fn create(path: &Path) -> Result<Self, DbErr> {
@@ -36,54 +72,12 @@ impl Database {
 			format!("sqlite://{}?mode=rwc", path.display())
 		};
 
-		// Connection pool sizing for concurrent indexing + sync operations
-		// Supports: indexing (3-5) + sync (8-10) + content ID (3-5) + network (5-8) + headroom (5-10)
 		let pool_size = std::env::var("SPACEDRIVE_DB_POOL_SIZE")
 			.ok()
 			.and_then(|s| s.parse().ok())
 			.unwrap_or(30);
 
-		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(pool_size)
-			.min_connections(5)
-			.connect_timeout(Duration::from_secs(30))
-			.idle_timeout(Duration::from_secs(30))
-			.max_lifetime(Duration::from_secs(30))
-			.sqlx_logging(false); // We'll use tracing instead
-
-		let conn = SeaDatabase::connect(opt).await?;
-		// Apply SQLite PRAGMAs for better write throughput (URL is sqlite:// so this is safe)
-		use sea_orm::Statement;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA journal_mode=WAL",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA synchronous=NORMAL",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA temp_store=MEMORY",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA cache_size=-20000",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA mmap_size=67108864",
-			))
-			.await;
+		let conn = connect_sqlite(&db_url, pool_size).await?;
 
 		info!("Created new database at {:?}", path);
 
@@ -101,53 +95,12 @@ impl Database {
 
 		let db_url = format!("sqlite://{}", path.display());
 
-		// Use same connection pool sizing as create()
 		let pool_size = std::env::var("SPACEDRIVE_DB_POOL_SIZE")
 			.ok()
 			.and_then(|s| s.parse().ok())
 			.unwrap_or(30);
 
-		let mut opt = ConnectOptions::new(db_url);
-		opt.max_connections(pool_size)
-			.min_connections(5)
-			.connect_timeout(Duration::from_secs(30))
-			.idle_timeout(Duration::from_secs(30))
-			.max_lifetime(Duration::from_secs(30))
-			.sqlx_logging(false);
-
-		let conn = SeaDatabase::connect(opt).await?;
-		// Apply SQLite PRAGMAs (URL is sqlite:// so this is safe)
-		use sea_orm::Statement;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA journal_mode=WAL",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA synchronous=NORMAL",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA temp_store=MEMORY",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA cache_size=-20000",
-			))
-			.await;
-		let _ = conn
-			.execute(Statement::from_string(
-				sea_orm::DatabaseBackend::Sqlite,
-				"PRAGMA mmap_size=67108864",
-			))
-			.await;
+		let conn = connect_sqlite(&db_url, pool_size).await?;
 
 		info!("Opened database at {:?}", path);
 

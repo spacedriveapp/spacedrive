@@ -2,12 +2,137 @@
 //!
 //! This module handles ReFS volume detection and provides ReFS-specific
 //! optimizations like block cloning operations.
+//!
+//! Block cloning support is detected via native Win32 `FSCTL_GET_REFS_VOLUME_DATA`
+//! IOCTL call. ReFS v2.0+ (Windows 10 1703 / Server 2016) supports block cloning.
 
 use crate::volume::{error::VolumeResult, types::Volume};
 use async_trait::async_trait;
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 use tokio::task;
 use tracing::{debug, warn};
+
+/// Cached IOCTL results keyed by volume GUID to avoid repeated syscalls.
+#[cfg(windows)]
+static REFS_BLOCK_CLONE_CACHE: Mutex<Option<HashMap<String, RefsIoctlResult>>> =
+	Mutex::new(None);
+
+/// Result of a ReFS IOCTL version query.
+#[cfg(windows)]
+#[derive(Debug, Clone, Copy)]
+struct RefsIoctlResult {
+	supports_block_cloning: bool,
+	major_version: u32,
+	minor_version: u32,
+}
+
+/// Query ReFS version and block cloning capability via `FSCTL_GET_REFS_VOLUME_DATA`.
+///
+/// This is a synchronous function meant to be called inside `spawn_blocking`.
+/// Results are cached per volume GUID.
+#[cfg(windows)]
+fn check_refs_version_sync(path: &Path) -> Option<RefsIoctlResult> {
+	use std::mem::size_of;
+	use std::os::windows::ffi::OsStrExt;
+	use std::ptr::{null, null_mut};
+	use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
+	use windows_sys::Win32::Storage::FileSystem::{
+		CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, FILE_SHARE_WRITE,
+		OPEN_EXISTING,
+	};
+	use windows_sys::Win32::System::Ioctl::{FSCTL_GET_REFS_VOLUME_DATA, REFS_VOLUME_DATA_BUFFER};
+	use windows_sys::Win32::System::IO::DeviceIoControl;
+
+	let wide_path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
+
+	let handle = unsafe {
+		CreateFileW(
+			wide_path.as_ptr(),
+			GENERIC_READ,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			null(),
+			OPEN_EXISTING,
+			FILE_FLAG_BACKUP_SEMANTICS,
+			0,
+		)
+	};
+
+	if handle == INVALID_HANDLE_VALUE {
+		warn!("Failed to open handle for ReFS IOCTL: {}", path.display());
+		return None;
+	}
+
+	let mut buffer: REFS_VOLUME_DATA_BUFFER = unsafe { std::mem::zeroed() };
+	let mut bytes_returned = 0u32;
+
+	let ok = unsafe {
+		DeviceIoControl(
+			handle,
+			FSCTL_GET_REFS_VOLUME_DATA,
+			null(),
+			0,
+			&mut buffer as *mut _ as *mut _,
+			size_of::<REFS_VOLUME_DATA_BUFFER>() as u32,
+			&mut bytes_returned,
+			null_mut(),
+		)
+	};
+
+	unsafe { CloseHandle(handle) };
+
+	if ok == 0 {
+		warn!("FSCTL_GET_REFS_VOLUME_DATA failed for: {}", path.display());
+		return None;
+	}
+
+	let result = RefsIoctlResult {
+		supports_block_cloning: buffer.MajorVersion >= 2,
+		major_version: buffer.MajorVersion,
+		minor_version: buffer.MinorVersion,
+	};
+
+	debug!(
+		"ReFS v{}.{} at {}: block cloning = {}",
+		result.major_version,
+		result.minor_version,
+		path.display(),
+		result.supports_block_cloning
+	);
+
+	Some(result)
+}
+
+/// Query ReFS version with caching by volume GUID.
+/// Falls back to uncached query if GUID resolution fails.
+#[cfg(windows)]
+fn check_refs_version_cached(mount_point: &Path) -> Option<RefsIoctlResult> {
+	let guid = super::volume_guid(mount_point);
+
+	// Check cache by GUID
+	if let Some(ref guid_key) = guid {
+		if let Ok(guard) = REFS_BLOCK_CLONE_CACHE.lock() {
+			if let Some(cache) = guard.as_ref() {
+				if let Some(result) = cache.get(guid_key) {
+					return Some(*result);
+				}
+			}
+		}
+	}
+
+	let result = check_refs_version_sync(mount_point)?;
+
+	// Store in cache by GUID
+	if let Some(guid_key) = guid {
+		if let Ok(mut guard) = REFS_BLOCK_CLONE_CACHE.lock() {
+			let cache = guard.get_or_insert_with(HashMap::new);
+			cache.insert(guid_key, result);
+		}
+	}
+
+	Some(result)
+}
 
 /// ReFS filesystem handler
 pub struct RefsHandler;
@@ -17,67 +142,79 @@ impl RefsHandler {
 		Self
 	}
 
-	/// Check if two paths are on the same ReFS volume and support block cloning
+	/// Check if two paths are on the same ReFS volume.
 	pub async fn same_physical_storage(&self, path1: &Path, path2: &Path) -> bool {
-		// Check if both paths are on the same ReFS volume
 		if let (Ok(vol1), Ok(vol2)) = (
 			self.get_volume_info(path1).await,
 			self.get_volume_info(path2).await,
 		) {
-			// Same volume GUID = same physical storage
-			return vol1.volume_guid == vol2.volume_guid
-				&& vol1.supports_block_cloning
-				&& vol2.supports_block_cloning;
+			return vol1.volume_guid == vol2.volume_guid;
 		}
 
 		false
 	}
 
-	/// Get ReFS volume information for a path
+	/// Get ReFS volume information for a path.
 	async fn get_volume_info(&self, path: &Path) -> VolumeResult<RefsVolumeInfo> {
 		let path = path.to_path_buf();
 
 		task::spawn_blocking(move || {
-			// Use PowerShell to get volume information
-			let script = format!(
-				r#"
-				$volume = Get-Volume -FilePath '{}'
-				$partition = Get-Partition -DriveLetter $volume.DriveLetter
-				$disk = Get-Disk -Number $partition.DiskNumber
+			let disks = sysinfo::Disks::new_with_refreshed_list();
+			let mut best_match: Option<(&sysinfo::Disk, usize)> = None;
 
-				[PSCustomObject]@{{
-					VolumeGuid = $volume.UniqueId
-					FileSystem = $volume.FileSystem
-					DriveLetter = $volume.DriveLetter
-					Label = $volume.FileSystemLabel
-					Size = $volume.Size
-					SizeRemaining = $volume.SizeRemaining
-					DiskNumber = $partition.DiskNumber
-					PartitionNumber = $partition.PartitionNumber
-					MediaType = $disk.MediaType
-				}} | ConvertTo-Json
-				"#,
-				path.display()
-			);
-
-			let output = std::process::Command::new("powershell")
-				.args(["-Command", &script])
-				.output()
-				.map_err(|e| {
-					crate::volume::error::VolumeError::platform(format!(
-						"Failed to run PowerShell: {}",
-						e
-					))
-				})?;
-
-			if !output.status.success() {
-				return Err(crate::volume::error::VolumeError::platform(
-					"PowerShell command failed".to_string(),
-				));
+			for disk in &disks {
+				let mount_point = disk.mount_point();
+				if path.starts_with(mount_point) {
+					let len = mount_point.as_os_str().len();
+					if best_match.map_or(true, |(_, l)| len > l) {
+						best_match = Some((disk, len));
+					}
+				}
 			}
 
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			parse_volume_info(&output_text)
+			if let Some((disk, _)) = best_match {
+				let mount_point = disk.mount_point();
+				let mount_str = mount_point.to_string_lossy();
+				let fs_name = disk.file_system().to_string_lossy().to_string();
+
+				// Use stable volume GUID, fall back to mount path
+				let volume_guid = super::volume_guid(mount_point)
+					.unwrap_or_else(|| {
+						warn!("Could not resolve volume GUID for {}, using mount path", mount_str);
+						mount_str.to_string()
+					});
+
+				// Query ReFS version and block cloning via IOCTL
+				let ioctl = if fs_name == "ReFS" {
+					check_refs_version_cached(mount_point)
+				} else {
+					None
+				};
+
+				Ok(RefsVolumeInfo {
+					volume_guid,
+					file_system: fs_name,
+					drive_letter: mount_str.chars().next(),
+					label: Some(disk.name().to_string_lossy().to_string()),
+					size_bytes: disk.total_space(),
+					available_bytes: disk.available_space(),
+					disk_number: None,
+					partition_number: None,
+					media_type: Some(if disk.is_removable() {
+						"Removable".to_string()
+					} else {
+						"Fixed".to_string()
+					}),
+					supports_block_cloning: ioctl.map_or(false, |r| r.supports_block_cloning),
+					refs_major_version: ioctl.map(|r| r.major_version),
+					refs_minor_version: ioctl.map(|r| r.minor_version),
+				})
+			} else {
+				Err(crate::volume::error::VolumeError::NotFound(format!(
+					"No volume found for path {}",
+					path.display()
+				)))
+			}
 		})
 		.await
 		.map_err(|e| {
@@ -85,101 +222,63 @@ impl RefsHandler {
 		})?
 	}
 
-	/// Check if ReFS block cloning is supported
-	async fn supports_block_cloning(&self, path: &Path) -> bool {
-		// ReFS supports block cloning starting from Windows Server 2016 / Windows 10
-		// Check if the volume supports the feature
-		let path = path.to_path_buf();
-
-		let result = task::spawn_blocking(move || {
-			let script = format!(
-				r#"
-				try {{
-					$volume = Get-Volume -FilePath '{}'
-					# Check if it's ReFS and supports block cloning
-					if ($volume.FileSystem -eq 'ReFS') {{
-						# Try to get ReFS-specific features
-						$refsVolume = Get-RefsVolume -DriveLetter $volume.DriveLetter -ErrorAction SilentlyContinue
-						if ($refsVolume) {{
-							# ReFS volumes generally support block cloning
-							Write-Output 'true'
-						}} else {{
-							Write-Output 'false'
-						}}
-					}} else {{
-						Write-Output 'false'
-					}}
-				}} catch {{
-					Write-Output 'false'
-				}}
-				"#,
-				path.display()
-			);
-
-			let output = std::process::Command::new("powershell")
-				.args(["-Command", &script])
-				.output();
-
-			match output {
-				Ok(output) if output.status.success() => {
-					let output_text = String::from_utf8_lossy(&output.stdout);
-					output_text.trim() == "true"
-				}
-				_ => false,
-			}
-		})
-		.await;
-
-		result.unwrap_or(false)
-	}
-
-	/// Get all ReFS volumes on the system
+	/// Get all ReFS volumes on the system.
 	pub async fn get_all_refs_volumes(&self) -> VolumeResult<Vec<RefsVolumeInfo>> {
 		task::spawn_blocking(|| {
-			let script = r#"
-				Get-Volume | Where-Object { $_.FileSystem -eq 'ReFS' } | ForEach-Object {
-					$partition = Get-Partition -DriveLetter $_.DriveLetter -ErrorAction SilentlyContinue
-					$disk = if ($partition) { Get-Disk -Number $partition.DiskNumber -ErrorAction SilentlyContinue } else { $null }
+			let disks = sysinfo::Disks::new_with_refreshed_list();
+			let mut refs_volumes = Vec::new();
 
-					[PSCustomObject]@{
-						VolumeGuid = $_.UniqueId
-						FileSystem = $_.FileSystem
-						DriveLetter = $_.DriveLetter
-						Label = $_.FileSystemLabel
-						Size = $_.Size
-						SizeRemaining = $_.SizeRemaining
-						DiskNumber = if ($partition) { $partition.DiskNumber } else { $null }
-						PartitionNumber = if ($partition) { $partition.PartitionNumber } else { $null }
-						MediaType = if ($disk) { $disk.MediaType } else { $null }
-					}
-				} | ConvertTo-Json
-			"#;
+			for disk in &disks {
+				let fs_name = disk.file_system().to_string_lossy().to_string();
+				if fs_name == "ReFS" {
+					let mount_point = disk.mount_point();
+					let mount_str = mount_point.to_string_lossy();
 
-			let output = std::process::Command::new("powershell")
-				.args(["-Command", script])
-				.output()
-				.map_err(|e| crate::volume::error::VolumeError::platform(format!("Failed to run PowerShell: {}", e)))?;
+					let volume_guid = super::volume_guid(mount_point)
+						.unwrap_or_else(|| mount_str.to_string());
 
-			if !output.status.success() {
-				return Ok(Vec::new()); // Return empty if command fails
+					let ioctl = check_refs_version_cached(mount_point);
+
+					refs_volumes.push(RefsVolumeInfo {
+						volume_guid,
+						file_system: fs_name,
+						drive_letter: mount_str.chars().next(),
+						label: Some(disk.name().to_string_lossy().to_string()),
+						size_bytes: disk.total_space(),
+						available_bytes: disk.available_space(),
+						disk_number: None,
+						partition_number: None,
+						media_type: Some(if disk.is_removable() {
+							"Removable".to_string()
+						} else {
+							"Fixed".to_string()
+						}),
+						supports_block_cloning: ioctl.map_or(false, |r| r.supports_block_cloning),
+						refs_major_version: ioctl.map(|r| r.major_version),
+						refs_minor_version: ioctl.map(|r| r.minor_version),
+					});
+				}
 			}
 
-			let output_text = String::from_utf8_lossy(&output.stdout);
-			parse_volume_list(&output_text)
+			Ok(refs_volumes)
 		})
 		.await
-		.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
+		.map_err(|e| {
+			crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+		})?
 	}
 }
 
 #[async_trait]
 impl super::FilesystemHandler for RefsHandler {
 	async fn enhance_volume(&self, volume: &mut Volume) -> VolumeResult<()> {
-		// Add ReFS-specific information like block cloning support
-		if let Some(mount_point) = volume.mount_point.to_str() {
-			if self.supports_block_cloning(Path::new(mount_point)).await {
-				debug!("ReFS volume supports block cloning: {}", mount_point);
-				// Could store this capability in volume metadata
+		if let Ok(info) = self.get_volume_info(&volume.mount_point).await {
+			volume.supports_block_cloning = info.supports_block_cloning;
+			if let (Some(major), Some(minor)) = (info.refs_major_version, info.refs_minor_version) {
+				debug!(
+					"ReFS v{}.{} at {}: block cloning = {}",
+					major, minor, volume.mount_point.display(), info.supports_block_cloning
+				);
 			}
 		}
 		Ok(())
@@ -190,26 +289,31 @@ impl super::FilesystemHandler for RefsHandler {
 	}
 
 	fn get_copy_strategy(&self) -> Box<dyn crate::ops::files::copy::strategy::CopyStrategy> {
-		// Use fast copy strategy for ReFS (leverages block cloning)
 		Box::new(crate::ops::files::copy::strategy::FastCopyStrategy)
 	}
 
 	fn contains_path(&self, volume: &Volume, path: &std::path::Path) -> bool {
-		// Check primary mount point
-		if path.starts_with(&volume.mount_point) {
+		// Strip Windows extended path prefix (\\?\) produced by canonicalize()
+		let normalized_path = if let Some(path_str) = path.to_str() {
+			if path_str.starts_with("\\\\?\\UNC\\") {
+				PathBuf::from(format!("\\\\{}", &path_str[8..]))
+			} else if let Some(stripped) = path_str.strip_prefix("\\\\?\\") {
+				PathBuf::from(stripped)
+			} else {
+				path.to_path_buf()
+			}
+		} else {
+			path.to_path_buf()
+		};
+
+		if normalized_path.starts_with(&volume.mount_point) {
 			return true;
 		}
 
-		// Check additional mount points
-		if volume.mount_points.iter().any(|mp| path.starts_with(mp)) {
-			return true;
-		}
-
-		// TODO: ReFS-specific logic for junction points and mount points
-		// Windows can have volumes mounted as folders (mount points) within other volumes
-		// This would require checking Windows-specific mount point resolution
-
-		false
+		volume
+			.mount_points
+			.iter()
+			.any(|mp| normalized_path.starts_with(mp))
 	}
 }
 
@@ -226,97 +330,14 @@ pub struct RefsVolumeInfo {
 	pub partition_number: Option<u32>,
 	pub media_type: Option<String>,
 	pub supports_block_cloning: bool,
+	pub refs_major_version: Option<u32>,
+	pub refs_minor_version: Option<u32>,
 }
 
-/// Parse PowerShell volume info JSON output
-fn parse_volume_info(json_output: &str) -> VolumeResult<RefsVolumeInfo> {
-	// Simple JSON parsing - in production, you'd use serde_json
-	let json_output = json_output.trim();
-
-	// Extract values using simple string parsing (replace with proper JSON parsing)
-	let volume_guid = extract_json_string(json_output, "VolumeGuid").unwrap_or_default();
-	let file_system = extract_json_string(json_output, "FileSystem").unwrap_or_default();
-	let drive_letter_str = extract_json_string(json_output, "DriveLetter");
-	let label = extract_json_string(json_output, "Label");
-	let size_bytes = extract_json_number(json_output, "Size").unwrap_or(0);
-	let available_bytes = extract_json_number(json_output, "SizeRemaining").unwrap_or(0);
-	let disk_number = extract_json_number(json_output, "DiskNumber").map(|n| n as u32);
-	let partition_number = extract_json_number(json_output, "PartitionNumber").map(|n| n as u32);
-	let media_type = extract_json_string(json_output, "MediaType");
-
-	let drive_letter = drive_letter_str.and_then(|s| s.chars().next());
-	let supports_block_cloning = file_system == "ReFS"; // ReFS generally supports block cloning
-
-	Ok(RefsVolumeInfo {
-		volume_guid,
-		file_system,
-		drive_letter,
-		label,
-		size_bytes,
-		available_bytes,
-		disk_number,
-		partition_number,
-		media_type,
-		supports_block_cloning,
-	})
-}
-
-/// Parse PowerShell volume list JSON output
-fn parse_volume_list(json_output: &str) -> VolumeResult<Vec<RefsVolumeInfo>> {
-	// Simple parsing - in production, use proper JSON parser
-	let json_output = json_output.trim();
-
-	if json_output.is_empty() || json_output == "null" {
-		return Ok(Vec::new());
-	}
-
-	// For now, assume single volume (extend for array parsing)
-	match parse_volume_info(json_output) {
-		Ok(volume) => Ok(vec![volume]),
-		Err(_) => Ok(Vec::new()),
-	}
-}
-
-/// Extract string value from JSON (simple implementation)
-fn extract_json_string(json: &str, key: &str) -> Option<String> {
-	let pattern = format!("\"{}\":", key);
-	if let Some(start) = json.find(&pattern) {
-		let start = start + pattern.len();
-		if let Some(value_start) = json[start..].find('"') {
-			let value_start = start + value_start + 1;
-			if let Some(value_end) = json[value_start..].find('"') {
-				let value = &json[value_start..value_start + value_end];
-				if value != "null" && !value.is_empty() {
-					return Some(value.to_string());
-				}
-			}
-		}
-	}
-	None
-}
-
-/// Extract number value from JSON (simple implementation)
-fn extract_json_number(json: &str, key: &str) -> Option<u64> {
-	let pattern = format!("\"{}\":", key);
-	if let Some(start) = json.find(&pattern) {
-		let start = start + pattern.len();
-		// Skip whitespace
-		let remaining = json[start..].trim_start();
-		if let Some(end) = remaining.find(|c: char| !c.is_ascii_digit()) {
-			let number_str = &remaining[..end];
-			return number_str.parse().ok();
-		}
-	}
-	None
-}
-
-/// Enhance volume with ReFS-specific information from Windows
+/// Enhance volume with ReFS-specific information.
 pub async fn enhance_volume_from_windows(volume: &mut Volume) -> VolumeResult<()> {
-	// Import the trait from the parent module so the enhance_volume method is available
 	use super::FilesystemHandler;
-
-	let handler = RefsHandler::new();
-	handler.enhance_volume(volume).await
+	RefsHandler::new().enhance_volume(volume).await
 }
 
 #[cfg(test)]
@@ -324,25 +345,30 @@ mod tests {
 	use super::*;
 
 	#[test]
-	fn test_extract_json_string() {
-		let json =
-			r#"{"VolumeGuid": "12345678-1234-1234-1234-123456789abc", "FileSystem": "ReFS"}"#;
-		assert_eq!(
-			extract_json_string(json, "VolumeGuid"),
-			Some("12345678-1234-1234-1234-123456789abc".to_string())
-		);
-		assert_eq!(
-			extract_json_string(json, "FileSystem"),
-			Some("ReFS".to_string())
-		);
-		assert_eq!(extract_json_string(json, "NonExistent"), None);
+	fn test_refs_volume_info_creation() {
+		let info = RefsVolumeInfo {
+			volume_guid: "\\\\?\\Volume{abc-123}\\".to_string(),
+			file_system: "ReFS".to_string(),
+			drive_letter: Some('E'),
+			label: Some("DevDrive".to_string()),
+			size_bytes: 100_000_000_000,
+			available_bytes: 50_000_000_000,
+			disk_number: None,
+			partition_number: None,
+			media_type: Some("Fixed".to_string()),
+			supports_block_cloning: true,
+			refs_major_version: Some(3),
+			refs_minor_version: Some(7),
+		};
+
+		assert_eq!(info.file_system, "ReFS");
+		assert!(info.supports_block_cloning);
+		assert_eq!(info.drive_letter, Some('E'));
+		assert_eq!(info.refs_major_version, Some(3));
 	}
 
 	#[test]
-	fn test_extract_json_number() {
-		let json = r#"{"Size": 1000000000, "SizeRemaining": 500000000}"#;
-		assert_eq!(extract_json_number(json, "Size"), Some(1000000000));
-		assert_eq!(extract_json_number(json, "SizeRemaining"), Some(500000000));
-		assert_eq!(extract_json_number(json, "NonExistent"), None);
+	fn test_refs_handler_creation() {
+		let _handler = RefsHandler::new();
 	}
 }

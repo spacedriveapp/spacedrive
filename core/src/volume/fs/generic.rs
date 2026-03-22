@@ -4,6 +4,41 @@ use super::FilesystemHandler;
 use crate::volume::{error::VolumeResult, types::Volume};
 use async_trait::async_trait;
 
+/// Get the volume serial number for the volume containing `path`.
+///
+/// Uses `GetVolumePathNameW` to resolve the actual volume mount point
+/// (handles folder-mounted volumes correctly), then queries `GetVolumeInformationW`.
+#[cfg(windows)]
+fn volume_serial(path: &std::path::Path) -> Option<u32> {
+	use std::os::windows::ffi::OsStrExt;
+	use windows_sys::Win32::Storage::FileSystem::{
+		GetVolumeInformationW, GetVolumePathNameW,
+	};
+
+	let wide: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+
+	// Resolve the actual volume mount point (e.g. "C:\" or "C:\mount\othervol\")
+	let mut root_buf = vec![0u16; 1024];
+	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), root_buf.len() as u32) } == 0 {
+		return None;
+	}
+
+	let mut serial: u32 = 0;
+	let ok = unsafe {
+		GetVolumeInformationW(
+			root_buf.as_ptr(),
+			std::ptr::null_mut(),
+			0,
+			&mut serial,
+			std::ptr::null_mut(),
+			std::ptr::null_mut(),
+			std::ptr::null_mut(),
+			0,
+		)
+	};
+	if ok != 0 { Some(serial) } else { None }
+}
+
 /// Generic handler for filesystems without specific optimizations
 pub struct GenericFilesystemHandler;
 
@@ -29,10 +64,12 @@ impl FilesystemHandler for GenericFilesystemHandler {
 				return meta1.dev() == meta2.dev();
 			}
 
-			// On Windows, this is more complex and would need additional logic
+			// On Windows, compare volume serial numbers via GetVolumeInformationW
 			#[cfg(windows)]
 			{
-				// For now, be conservative and assume different storage
+				if let (Some(s1), Some(s2)) = (volume_serial(path1), volume_serial(path2)) {
+					return s1 == s2;
+				}
 				return false;
 			}
 		}

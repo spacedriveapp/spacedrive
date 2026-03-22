@@ -504,20 +504,12 @@ fn detect_hardware_model() -> Option<String> {
 
 	#[cfg(target_os = "windows")]
 	{
-		use std::process::Command;
-
-		let output = Command::new("wmic")
-			.args(["computersystem", "get", "model"])
-			.output()
-			.ok()?;
-
-		if output.status.success() {
-			let stdout = String::from_utf8_lossy(&output.stdout);
-			if let Some(model) = stdout.lines().nth(1) {
-				let model = model.trim().to_string();
-				if !model.is_empty() {
-					return Some(model);
-				}
+		if let Some(model) = crate::domain::device::reg_read_hklm(
+			"HARDWARE\\DESCRIPTION\\System\\BIOS",
+			"SystemProductName",
+		) {
+			if !model.is_empty() {
+				return Some(model);
 			}
 		}
 	}

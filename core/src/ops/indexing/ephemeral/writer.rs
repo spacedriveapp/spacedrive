@@ -9,7 +9,7 @@ use crate::infra::event::{Event, EventBus};
 use crate::infra::job::prelude::{JobError, JobResult};
 use crate::ops::indexing::change_detection::handler::{build_dir_entry, ChangeHandler};
 use crate::ops::indexing::change_detection::types::{ChangeType, EntryRef};
-use crate::ops::indexing::database_storage::EntryMetadata;
+use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::persistence::IndexPersistence;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 
@@ -305,11 +305,7 @@ impl ChangeHandler for MemoryAdapter {
 					created: metadata.created().ok(),
 					inode: DatabaseStorage::get_inode(&entry_path, &metadata),
 					permissions: None,
-					is_hidden: entry_path
-						.file_name()
-						.and_then(|n| n.to_str())
-						.map(|n| n.starts_with('.'))
-						.unwrap_or(false),
+					is_hidden: is_hidden_path(&entry_path),
 				};
 
 				let uuid = Uuid::new_v4();
@@ -363,12 +359,7 @@ impl IndexPersistence for MemoryAdapter {
 			// Hidden files are still indexed but won't trigger UI updates since they're
 			// filtered out by default in directory_listing queries.
 			// TODO: make this configurable
-			let is_hidden = entry
-				.path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.map(|n| n.starts_with('.'))
-				.unwrap_or(false);
+			let is_hidden = is_hidden_path(&entry.path);
 
 			if !is_hidden {
 				self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind)
