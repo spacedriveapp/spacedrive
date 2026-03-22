@@ -353,6 +353,9 @@ impl SpacedriveWindow {
 					.build()
 					.map_err(|e| format!("Failed to create context menu: {}", e))?;
 
+				#[cfg(target_os = "windows")]
+				apply_dark_titlebar(&window);
+
 				Ok(window)
 			}
 		}
@@ -551,31 +554,39 @@ fn apply_dark_titlebar(window: &WebviewWindow) {
 	let hwnd = hwnd.0 as isize;
 
 	unsafe {
+		let set_attr =
+			|attr: u32, value: *const std::ffi::c_void, size: u32, name: &'static str| {
+				let hr = dwm::DwmSetWindowAttribute(hwnd, attr, value, size);
+				if hr < 0 {
+					tracing::warn!(attribute = name, hr, "Failed to apply DWM window attribute");
+				}
+			};
+
 		// Enable immersive dark mode (dark close/minimize/maximize icons)
 		let dark_mode: i32 = 1;
-		dwm::DwmSetWindowAttribute(
-			hwnd,
+		set_attr(
 			dwm::DWMWA_USE_IMMERSIVE_DARK_MODE,
 			&dark_mode as *const _ as *const std::ffi::c_void,
 			std::mem::size_of::<i32>() as u32,
+			"DWMWA_USE_IMMERSIVE_DARK_MODE",
 		);
 
 		// Force caption color to dark gray — overrides user's accent color
 		// COLORREF format is 0x00BBGGRR
 		let caption_color: u32 = 0x00_1E_1E_1E; // #1E1E1E in BGR
-		dwm::DwmSetWindowAttribute(
-			hwnd,
+		set_attr(
 			dwm::DWMWA_CAPTION_COLOR,
 			&caption_color as *const _ as *const std::ffi::c_void,
 			std::mem::size_of::<u32>() as u32,
+			"DWMWA_CAPTION_COLOR",
 		);
 
 		// Match border color to caption
-		dwm::DwmSetWindowAttribute(
-			hwnd,
+		set_attr(
 			dwm::DWMWA_BORDER_COLOR,
 			&caption_color as *const _ as *const std::ffi::c_void,
 			std::mem::size_of::<u32>() as u32,
+			"DWMWA_BORDER_COLOR",
 		);
 	}
 }
