@@ -2,6 +2,7 @@ import { X, FunnelSimple } from "@phosphor-icons/react";
 import { TopBarButton } from "@sd/ui";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../../util/navigation";
 import { useJobsContext } from "../hooks/JobsContext";
 import { JobRow } from "./JobRow";
 
@@ -58,7 +59,7 @@ export function JobsScreen() {
 						{/* Back button */}
 						<TopBarButton
 							icon={X}
-							onClick={() => navigate(-1)}
+							onClick={(e: React.MouseEvent) => { if (!shouldNavigate(e)) return; navigate(-1); }}
 							title="Go back"
 						/>
 					</div>

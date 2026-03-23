@@ -8,6 +8,7 @@ import { Popover, usePopover, TopBarButton } from "@sd/ui";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../util/navigation";
 import { motion } from "framer-motion";
 import { PeerList } from "./components/PeerList";
 import { ActivityFeed } from "./components/ActivityFeed";
@@ -79,7 +80,7 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 
 					<TopBarButton
 						icon={ArrowsOut}
-						onClick={() => navigate("/sync")}
+						onClick={(e: React.MouseEvent) => { if (!shouldNavigate(e)) return; navigate("/sync"); }}
 						title="Open full sync monitor"
 					/>
 

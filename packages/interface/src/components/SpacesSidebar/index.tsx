@@ -25,6 +25,7 @@ import { useDroppable, useDndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../util/navigation";
 
 // Wrapper that adds a space-level drop zone before each group and makes it sortable
 function SpaceGroupWithDropZone({
@@ -157,7 +158,7 @@ const SyncButton = memo(function SyncButton() {
 
           <TopBarButton
             icon={ArrowsOut}
-            onClick={() => navigate("/sync")}
+            onClick={(e: React.MouseEvent) => { if (!shouldNavigate(e)) return; navigate("/sync"); }}
             title="Open full sync monitor"
           />
 
@@ -263,7 +264,7 @@ const JobsButton = memo(function JobsButton({
 
           <TopBarButton
             icon={ArrowsOut}
-            onClick={() => navigate("/jobs")}
+            onClick={(e: React.MouseEvent) => { if (!shouldNavigate(e)) return; navigate("/jobs"); }}
             title="Open full jobs screen"
           />
 

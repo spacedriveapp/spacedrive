@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../util/navigation";
 import clsx from "clsx";
 import type { SpaceItem as SpaceItemType } from "@sd/ts-client";
 import { Thumb } from "../../routes/explorer/File/Thumb";
@@ -236,6 +237,7 @@ export function SpaceItem({
 
 	// Event handlers
 	const handleClick = (e: React.MouseEvent) => {
+		if (!shouldNavigate(e)) return;
 		if (effectiveOverrides.onClick) {
 			effectiveOverrides.onClick(e);
 		} else if (path) {

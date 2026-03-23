@@ -24,6 +24,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../../util/navigation";
 import {
 	InfoRow,
 	Section,
@@ -172,7 +173,8 @@ function OverviewTab({ location }: { location: Location }) {
 				{isOverview && (
 					<TopBarButton
 						icon={FolderOpen}
-						onClick={() => {
+						onClick={(e: React.MouseEvent) => {
+							if (!shouldNavigate(e)) return;
 							const encodedPath = encodeURIComponent(JSON.stringify(location.sd_path));
 							navigate(`/explorer?path=${encodedPath}`);
 						}}

@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
 import clsx from "clsx";
 import {
   House,
@@ -26,13 +25,9 @@ export function Sidebar() {
   const client = useSpacedriveClient();
   const platform = usePlatform();
   const { data: libraries } = useLibraries();
-  const navigate = useNavigate();
-  const location = useLocation();
   const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
     () => client.getCurrentLibraryId(),
   );
-
-  const isActive = (path: string) => location.pathname === path;
 
   // Listen for library changes from client and update local state
   useEffect(() => {
@@ -141,25 +136,9 @@ export function Sidebar() {
 
           <div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
             <div className="space-y-0.5">
-              <SidebarItem
-                icon={Planet}
-                label="Overview"
-                active={isActive("/")}
-                weight={isActive("/") ? "fill" : "bold"}
-                onClick={() => navigate("/")}
-              />
-              <SidebarItem
-                icon={Clock}
-                label="Recents"
-                active={isActive("/recents")}
-                onClick={() => navigate("/recents")}
-              />
-              <SidebarItem
-                icon={Heart}
-                label="Favorites"
-                active={isActive("/favorites")}
-                onClick={() => navigate("/favorites")}
-              />
+              <SidebarItem icon={Planet} label="Overview" to="/" end />
+              <SidebarItem icon={Clock} label="Recents" to="/recents" />
+              <SidebarItem icon={Heart} label="Favorites" to="/favorites" />
             </div>
 
             <LocationsSection />

@@ -3,6 +3,7 @@ import { Popover, usePopover, TopBarButton } from "@sd/ui";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { shouldNavigate } from "../../util/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { JobList } from "./components/JobList";
 import { useJobsContext } from "./hooks/JobsContext";
@@ -75,7 +76,7 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
           {/* Expand to full screen button */}
           <TopBarButton
             icon={ArrowsOut}
-            onClick={() => navigate("/jobs")}
+            onClick={(e: React.MouseEvent) => { if (!shouldNavigate(e)) return; navigate("/jobs"); }}
             title="Open full jobs screen"
           />
 

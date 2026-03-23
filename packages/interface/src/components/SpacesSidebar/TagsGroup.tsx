@@ -1,6 +1,6 @@
 import { Tag as TagIcon, Plus, CaretRight } from '@phosphor-icons/react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import clsx from 'clsx';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import type { Tag } from '@sd/ts-client';
@@ -20,7 +20,6 @@ interface TagItemProps {
 }
 
 function TagItem({ tag, depth = 0 }: TagItemProps) {
-	const navigate = useNavigate();
 	const { loadPreferencesForSpaceItem } = useExplorer();
 	const [isExpanded, setIsExpanded] = useState(false);
 
@@ -28,17 +27,16 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 	const children: Tag[] = [];
 	const hasChildren = children.length > 0;
 
-	const handleClick = () => {
-		loadPreferencesForSpaceItem(`tag:${tag.id}`);
-		navigate(`/tag/${tag.id}`);
-	};
-
 	return (
 		<div>
-			<button
-				onClick={handleClick}
-				className={clsx(
-					'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-sidebar-ink-dull hover:bg-sidebar-box hover:text-sidebar-ink transition-colors',
+			<NavLink
+				to={`/tag/${tag.id}`}
+				onClick={() => loadPreferencesForSpaceItem(`tag:${tag.id}`)}
+				className={({ isActive }) => clsx(
+					'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors',
+					isActive
+						? 'bg-sidebar-selected/30 text-sidebar-ink'
+						: 'text-sidebar-ink-dull hover:bg-sidebar-box hover:text-sidebar-ink',
 					tag.privacy_level === 'Archive' && 'opacity-50',
 					tag.privacy_level === 'Hidden' && 'opacity-25'
 				)}
@@ -54,6 +52,7 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 							isExpanded && 'rotate-90'
 						)}
 						onClick={(e) => {
+							e.preventDefault();
 							e.stopPropagation();
 							setIsExpanded(!isExpanded);
 						}}
@@ -75,7 +74,7 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 
 				{/* File count badge (if available) */}
 				{/* TODO: Add file count when available from backend */}
-			</button>
+			</NavLink>
 
 			{/* Children (recursive) */}
 			{isExpanded &&
