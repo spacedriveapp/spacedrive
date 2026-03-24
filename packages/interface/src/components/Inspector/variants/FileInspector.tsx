@@ -45,7 +45,6 @@ import {useContextMenu} from '../../../hooks/useContextMenu';
 import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
 import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
-import {useSelection} from '../../../routes/explorer/SelectionContext';
 import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 
 interface FileInspectorProps {
@@ -631,15 +630,8 @@ function OverviewTab({file}: {file: File}) {
 		});
 	};
 
-	// Tag mutations with optimistic UI updates
-	const { selectedFiles, setSelectedFiles } = useSelection();
+	// Tag mutations — refetch queries on success to update the UI
 	const refetchTagQueries = useRefetchTagQueries();
-	const updateSelectedFileTags = (newTags: typeof file.tags) => {
-		const updated = selectedFiles.map((f) =>
-			f.id === file.id ? { ...f, tags: newTags } : f
-		);
-		setSelectedFiles(updated);
-	};
 	const applyTag = useLibraryMutation('tags.apply', { onSuccess: refetchTagQueries });
 	const unapplyTag = useLibraryMutation('tags.unapply', { onSuccess: refetchTagQueries });
 
@@ -923,9 +915,6 @@ function OverviewTab({file}: {file: File}) {
 											entry_ids: [file.id],
 											tag_ids: [tag.id],
 										});
-										updateSelectedFileTags(
-											(file.tags || []).filter((t) => t.id !== tag.id)
-										);
 									} catch (err) {
 										console.error('Failed to remove tag:', err);
 									}
@@ -952,7 +941,6 @@ function OverviewTab({file}: {file: File}) {
 								source: 'User',
 								confidence: 1.0
 							});
-							updateSelectedFileTags([...(file.tags || []), tag]);
 						}}
 						contextTags={file.tags || []}
 						fileId={file.id}
