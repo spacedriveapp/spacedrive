@@ -70,6 +70,22 @@ Shipped adapters: Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari H
 
 Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as a separate process alongside Spacedrive, communicating over APIs. Spacedrive provides the data layer. Spacebot provides the intelligence layer. Neither depends on the other. Together, they form an operating surface where humans and agents work side by side.
 
+### File System Intelligence
+
+Spacedrive adds a layer of file system intelligence on top of the native filesystem. It does not just expose files and folders. It understands what they are, why they exist, how they are organized, and what agents are allowed to do with them.
+
+File System Intelligence combines three things:
+
+- **File intelligence** — derivative data for individual files such as OCR, transcripts, extracted metadata, thumbnails, previews, classifications, and sidecars.
+- **Directory intelligence** — contextual knowledge attached to folders and subtrees, like "this is where I keep active projects" or "this archive contains dormant repositories".
+- **Access intelligence** — universal permissions and policy that apply across devices and clouds, so agents can be granted structured access through Spacedrive instead of raw shell access.
+
+This makes the filesystem legible to AI. When an agent navigates a path through Spacedrive, it does not walk blind. It receives the listing, the relevant context for that subtree, the effective permissions, and summaries of what lives there. A projects folder is not just a folder. It is an active workspace. An archive is not just another directory. It carries historical meaning and policy.
+
+That context evolves over time. Users can explain how they organize their system. Agents can add notes and observations with attribution. Jobs can generate summaries from structure and activity. Spacedrive keeps that intelligence attached to the filesystem itself instead of burying it inside temporary session memory.
+
+The result is a file system that feels native to both humans and agents. Finder and Explorer show you where files are. Spacedrive adds the intelligence layer that explains what they are, how they relate, and how automation should interact with them.
+
 ---
 
 ## Architecture

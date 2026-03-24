@@ -7,7 +7,7 @@ setup:
 
 # Run the daemon (default dev workflow: just dev-daemon + just dev-desktop)
 dev-daemon *ARGS:
-    cargo run --bin sd-daemon {{ARGS}}
+	cargo run --features ffmpeg,heif --bin sd-daemon {{ARGS}}
 
 # Run the desktop app in dev mode
 dev-desktop:
