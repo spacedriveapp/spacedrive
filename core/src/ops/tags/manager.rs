@@ -356,64 +356,78 @@ impl TagManager {
 		model_to_domain(updated_model)
 	}
 
-	/// Delete a tag and all its relationships
+	/// Delete a tag and all its relationships (atomic transaction)
 	pub async fn delete_tag(&self, tag_id: Uuid) -> Result<(), TagError> {
 		let db = &*self.db;
 
-		// Find the tag first to ensure it exists
-		let existing_model = tag::Entity::find()
-			.filter(tag::Column::Uuid.eq(tag_id))
-			.one(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?
-			.ok_or_else(|| TagError::TagNotFound)?;
+		db.transaction::<_, (), TagError>(|txn| {
+			let tag_id = tag_id;
+			Box::pin(async move {
+				// Find the tag first to ensure it exists
+				let existing_model = tag::Entity::find()
+					.filter(tag::Column::Uuid.eq(tag_id))
+					.one(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?
+					.ok_or_else(|| TagError::TagNotFound)?;
 
-		// Delete all relationships where this tag is parent or child
-		tag_relationship::Entity::delete_many()
-			.filter(
-				tag_relationship::Column::ParentTagId
-					.eq(existing_model.id)
-					.or(tag_relationship::Column::ChildTagId.eq(existing_model.id)),
-			)
-			.exec(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				// Delete all relationships where this tag is parent or child
+				tag_relationship::Entity::delete_many()
+					.filter(
+						tag_relationship::Column::ParentTagId
+							.eq(existing_model.id)
+							.or(tag_relationship::Column::ChildTagId.eq(existing_model.id)),
+					)
+					.exec(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// Delete all closure table entries for this tag
-		tag_closure::Entity::delete_many()
-			.filter(
-				tag_closure::Column::AncestorId
-					.eq(existing_model.id)
-					.or(tag_closure::Column::DescendantId.eq(existing_model.id)),
-			)
-			.exec(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				// Delete all closure table entries for this tag
+				tag_closure::Entity::delete_many()
+					.filter(
+						tag_closure::Column::AncestorId
+							.eq(existing_model.id)
+							.or(tag_closure::Column::DescendantId.eq(existing_model.id)),
+					)
+					.exec(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// Delete all tag applications
-		user_metadata_tag::Entity::delete_many()
-			.filter(user_metadata_tag::Column::TagId.eq(existing_model.id))
-			.exec(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				// Delete all tag applications
+				user_metadata_tag::Entity::delete_many()
+					.filter(user_metadata_tag::Column::TagId.eq(existing_model.id))
+					.exec(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// Delete all usage patterns involving this tag
-		tag_usage_pattern::Entity::delete_many()
-			.filter(
-				tag_usage_pattern::Column::TagId
-					.eq(existing_model.id)
-					.or(tag_usage_pattern::Column::CoOccurrenceTagId.eq(existing_model.id)),
-			)
-			.exec(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				// Delete all usage patterns involving this tag
+				tag_usage_pattern::Entity::delete_many()
+					.filter(
+						tag_usage_pattern::Column::TagId
+							.eq(existing_model.id)
+							.or(tag_usage_pattern::Column::CoOccurrenceTagId.eq(existing_model.id)),
+					)
+					.exec(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-		// Finally, delete the tag itself
-		tag::Entity::delete_many()
-			.filter(tag::Column::Uuid.eq(tag_id))
-			.exec(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				// Finally, delete the tag itself
+				tag::Entity::delete_many()
+					.filter(tag::Column::Uuid.eq(tag_id))
+					.exec(txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
+				Ok(())
+			})
+		})
+		.await
+		.map_err(|e| match e {
+			sea_orm::TransactionError::Connection(db_err) => {
+				TagError::DatabaseError(db_err.to_string())
+			}
+			sea_orm::TransactionError::Transaction(tag_err) => tag_err,
+		})?;
 
 		Ok(())
 	}
@@ -629,6 +643,11 @@ impl TagManager {
 	pub async fn get_descendants(&self, tag_id: Uuid) -> Result<Vec<Tag>, TagError> {
 		let descendant_ids = self.closure_service.get_all_descendants(tag_id).await?;
 		self.get_tags_by_ids(&descendant_ids).await
+	}
+
+	/// Get direct child tag UUIDs (depth=1 only)
+	pub async fn get_direct_children(&self, tag_id: Uuid) -> Result<Vec<Uuid>, TagError> {
+		self.closure_service.get_direct_children(tag_id).await
 	}
 
 	/// Get all tags that are ancestors of the given tag

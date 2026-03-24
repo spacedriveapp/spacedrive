@@ -9,6 +9,7 @@ use crate::{
 		},
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
+	ops::tags::manager::TagManager,
 };
 use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement};
 use serde::{Deserialize, Serialize};
@@ -60,7 +61,19 @@ impl LibraryQuery for GetFilesByTagQuery {
 
 		let db = library.db();
 		let conn = db.conn();
-		let entry_ids = find_entry_ids_for_tag(conn, self.input.tag_id).await?;
+
+		// Collect tag IDs: the requested tag + its children if include_children is set
+		let mut tag_uuids = vec![self.input.tag_id];
+		if self.input.include_children {
+			let manager = TagManager::new(Arc::new(conn.clone()));
+			let descendants = manager
+				.get_descendants(self.input.tag_id)
+				.await
+				.map_err(|e| QueryError::Internal(format!("Failed to get descendants: {}", e)))?;
+			tag_uuids.extend(descendants.iter().map(|t| t.id));
+		}
+
+		let entry_ids = find_entry_ids_for_tags(conn, &tag_uuids, self.input.min_confidence).await?;
 
 		if entry_ids.is_empty() {
 			return Ok(GetFilesByTagOutput { files: vec![] });
@@ -170,6 +183,8 @@ impl LibraryQuery for GetFilesByTagQuery {
 				path: PathBuf::from(file_path),
 			};
 
+			let entry_content_id: Option<i32> = row.try_get("", "entry_content_id").ok();
+
 			let entity_model = entry::Model {
 				id: entry_id,
 				uuid: entry_uuid,
@@ -177,7 +192,7 @@ impl LibraryQuery for GetFilesByTagQuery {
 				kind: entry_kind,
 				extension: entry_extension,
 				metadata_id: None,
-				content_id: None,
+				content_id: entry_content_id,
 				size: entry_size,
 				aggregate_size: entry_aggregate_size,
 				child_count: entry_child_count,
@@ -281,11 +296,15 @@ async fn load_tags_for_entries(
 		}
 	}
 
-	// Map tags to entries
-	for metadata in metadata_records {
+	// Map tags to entries — merge both entry-scoped and content-scoped tags
+	// Process entry-scoped first, then extend with content-scoped
+	for metadata in &metadata_records {
 		if let Some(tags) = tags_by_metadata.get(&metadata.id) {
 			if let Some(entry_uuid) = metadata.entry_uuid {
-				tags_by_entry.insert(entry_uuid, tags.clone());
+				tags_by_entry
+					.entry(entry_uuid)
+					.or_default()
+					.extend(tags.iter().cloned());
 			} else if let Some(content_uuid) = metadata.content_identity_uuid {
 				// Content-scoped: apply to all entries with this content
 				for row in rows {
@@ -300,7 +319,10 @@ async fn load_tags_for_entries(
 								.ok()
 								.flatten()
 							{
-								tags_by_entry.entry(eu).or_insert_with(|| tags.clone());
+								tags_by_entry
+									.entry(eu)
+									.or_default()
+									.extend(tags.iter().cloned());
 							}
 						}
 					}
@@ -309,25 +331,41 @@ async fn load_tags_for_entries(
 		}
 	}
 
+	// Deduplicate tags per entry (same tag can appear via both entry and content metadata)
+	for tags in tags_by_entry.values_mut() {
+		let mut seen = HashSet::new();
+		tags.retain(|t| seen.insert(t.id));
+	}
+
 	Ok(tags_by_entry)
 }
 
-/// Find all entry IDs tagged with the given tag UUID.
-async fn find_entry_ids_for_tag(
+/// Find all entry IDs tagged with any of the given tag UUIDs, with optional confidence filter.
+async fn find_entry_ids_for_tags(
 	db: &impl ConnectionTrait,
-	tag_uuid: Uuid,
+	tag_uuids: &[Uuid],
+	min_confidence: f32,
 ) -> QueryResult<Vec<i32>> {
-	let Some(tag_model) = tag::Entity::find()
-		.filter(tag::Column::Uuid.eq(tag_uuid))
-		.one(db)
+	let tag_models = tag::Entity::find()
+		.filter(tag::Column::Uuid.is_in(tag_uuids.to_vec()))
+		.all(db)
 		.await
-		.map_err(QueryError::SeaOrm)?
-	else {
-		return Ok(vec![]);
-	};
+		.map_err(QueryError::SeaOrm)?;
 
-	let umt_records = user_metadata_tag::Entity::find()
-		.filter(user_metadata_tag::Column::TagId.eq(tag_model.id))
+	if tag_models.is_empty() {
+		return Ok(vec![]);
+	}
+
+	let tag_db_ids: Vec<i32> = tag_models.iter().map(|t| t.id).collect();
+
+	let mut umt_query = user_metadata_tag::Entity::find()
+		.filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids));
+
+	if min_confidence > 0.0 {
+		umt_query = umt_query.filter(user_metadata_tag::Column::Confidence.gte(min_confidence));
+	}
+
+	let umt_records = umt_query
 		.all(db)
 		.await
 		.map_err(QueryError::SeaOrm)?;

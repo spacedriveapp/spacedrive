@@ -38,8 +38,11 @@ impl LibraryAction for DeleteTagAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to delete tag: {}", e)))?;
 
-		// TODO: call sync_model with ChangeType::Delete for cross-device sync
-		// (not yet implemented in the sync system for deletions)
+		// TODO(sync): Tag deletion is not synced to other devices.
+		// The sync infrastructure supports ChangeType::Delete but the tag deletion
+		// path does not yet call library.sync_model() with it. This means deleted
+		// tags will reappear on other devices after sync. Tracked for a dedicated
+		// sync-deletion PR.
 
 		// Emit resource event so frontend refreshes tag lists
 		let resource_manager = crate::domain::ResourceManager::new(
