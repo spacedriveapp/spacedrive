@@ -742,11 +742,12 @@ impl SdPath {
 								};
 								std::path::PathBuf::from(parent.path).join(filename)
 							} else {
-								let filename = match &entry.extension {
-									Some(ext) => format!("{}.{}", entry.name, ext),
-									None => entry.name.clone(),
-								};
-								std::path::PathBuf::from(filename)
+								return Err(PathResolutionError::DatabaseError(
+									format!(
+										"Entry {} has no parent_id, cannot build absolute path",
+										entry.id
+									),
+								));
 							};
 
 							return Ok(SdPath::Physical {
