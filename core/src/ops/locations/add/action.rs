@@ -102,6 +102,31 @@ impl LibraryAction for LocationAddAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
+		// Register the new location with the filesystem watcher so changes
+		// (creates, deletes, renames) are detected in real-time.
+		// Without this, the watcher only learns about locations at startup.
+		if let Some(local_path) = self.input.path.as_local_path() {
+			if let Some(fs_watcher) = context.get_fs_watcher().await {
+				use crate::ops::indexing::handlers::LocationMeta;
+				use crate::ops::indexing::RuleToggles;
+
+				// Use canonical path to match what add_location stored in DB
+				let root_path = tokio::fs::canonicalize(local_path)
+					.await
+					.unwrap_or_else(|_| local_path.to_path_buf());
+
+				let meta = LocationMeta {
+					id: location_id,
+					library_id: library.id(),
+					root_path,
+					rule_toggles: RuleToggles::default(),
+				};
+				if let Err(e) = fs_watcher.watch_location(meta).await {
+					tracing::warn!("Failed to register location with watcher: {}", e);
+				}
+			}
+		}
+
 		// Parse the job ID from the string returned by add_location
 		let job_id = if !job_id_string.is_empty() {
 			Some(
