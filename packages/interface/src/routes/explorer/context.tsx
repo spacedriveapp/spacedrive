@@ -177,7 +177,6 @@ interface UIState {
 	sidebarVisible: boolean;
 	inspectorVisible: boolean;
 	quickPreviewFileId: string | null;
-	tagModeActive: boolean;
 	mode: ExplorerMode;
 	searchFilters: SearchFilters;
 }
@@ -189,7 +188,6 @@ type UIAction =
 	| { type: "SET_SIDEBAR_VISIBLE"; visible: boolean }
 	| { type: "SET_INSPECTOR_VISIBLE"; visible: boolean }
 	| { type: "SET_QUICK_PREVIEW"; fileId: string | null }
-	| { type: "SET_TAG_MODE"; active: boolean }
 	| { type: "ENTER_SEARCH_MODE"; query: string; scope: SearchScope }
 	| { type: "EXIT_SEARCH_MODE" }
 	| { type: "ENTER_RECENTS_MODE" }
@@ -234,9 +232,6 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 
 		case "SET_QUICK_PREVIEW":
 			return { ...state, quickPreviewFileId: action.fileId };
-
-		case "SET_TAG_MODE":
-			return { ...state, tagModeActive: action.active };
 
 		case "ENTER_SEARCH_MODE":
 			return {
@@ -302,7 +297,6 @@ const initialUIState: UIState = {
 	sidebarVisible: true,
 	inspectorVisible: true,
 	quickPreviewFileId: null,
-	tagModeActive: false,
 	mode: { type: "browse" },
 	searchFilters: {},
 };
@@ -732,9 +726,21 @@ export function ExplorerProvider({
 		uiDispatch({ type: "SET_QUICK_PREVIEW", fileId: null });
 	}, []);
 
-	const setTagModeActive = useCallback((active: boolean) => {
-		uiDispatch({ type: "SET_TAG_MODE", active });
-	}, []);
+	// tagModeActive is derived from mode.type — no separate state needed
+	const tagModeActive = uiState.mode.type === "tag";
+
+	const setTagModeActive = useCallback(
+		(active: boolean) => {
+			if (active) {
+				// When toggling on without a specific tagId, enter tag mode with empty id
+				// (callers that know the tagId should use enterTagMode directly)
+				uiDispatch({ type: "ENTER_TAG_MODE", tagId: "" });
+			} else {
+				uiDispatch({ type: "EXIT_TAG_MODE" });
+			}
+		},
+		[],
+	);
 
 	const enterSearchMode = useCallback(
 		(query: string, scope: SearchScope = "folder") => {
@@ -813,7 +819,7 @@ export function ExplorerProvider({
 			closeQuickPreview,
 			currentFiles,
 			setCurrentFiles,
-			tagModeActive: uiState.tagModeActive,
+			tagModeActive,
 			setTagModeActive,
 			mode: uiState.mode,
 			enterSearchMode,
@@ -858,7 +864,7 @@ export function ExplorerProvider({
 			openQuickPreview,
 			closeQuickPreview,
 			currentFiles,
-			uiState.tagModeActive,
+			tagModeActive,
 			setTagModeActive,
 			uiState.mode,
 			enterSearchMode,
