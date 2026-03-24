@@ -611,8 +611,9 @@ export function ExplorerProvider({
 			const target: NavigationTarget = { type: "view", view, id, params };
 			navDispatch({ type: "NAVIGATE", target });
 			routerNavigate(targetToUrl(target));
-			// Exit search mode when navigating
+			// Exit special modes when navigating
 			uiDispatch({ type: "EXIT_SEARCH_MODE" });
+			uiDispatch({ type: "EXIT_TAG_MODE" });
 		},
 		[routerNavigate],
 	);
@@ -623,8 +624,9 @@ export function ExplorerProvider({
 		if (targetIndex >= 0) {
 			const target = navState.history[targetIndex];
 			routerNavigate(targetToUrl(target), { replace: true });
-			// Exit search mode when navigating
+			// Exit special modes when navigating
 			uiDispatch({ type: "EXIT_SEARCH_MODE" });
+			uiDispatch({ type: "EXIT_TAG_MODE" });
 		}
 	}, [navState.index, navState.history, routerNavigate]);
 
@@ -634,8 +636,9 @@ export function ExplorerProvider({
 		if (targetIndex < navState.history.length) {
 			const target = navState.history[targetIndex];
 			routerNavigate(targetToUrl(target), { replace: true });
-			// Exit search mode when navigating
+			// Exit special modes when navigating
 			uiDispatch({ type: "EXIT_SEARCH_MODE" });
+			uiDispatch({ type: "EXIT_TAG_MODE" });
 		}
 	}, [navState.index, navState.history, routerNavigate]);
 

@@ -15,7 +15,7 @@ use chrono::Utc;
 use sea_orm::DatabaseConnection;
 use sea_orm::{
 	ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, NotSet, QueryFilter, Set,
-	sea_query::OnConflict,
+	sea_query::{Expr, OnConflict},
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -288,6 +288,10 @@ impl UserMetadataManager {
 					user_metadata_tag::Column::UpdatedAt,
 					user_metadata_tag::Column::DeviceUuid,
 				])
+				.value(
+					user_metadata_tag::Column::Version,
+					Expr::col(user_metadata_tag::Column::Version).add(1),
+				)
 				.to_owned();
 
 				user_metadata_tag::Entity::insert(new_model)
