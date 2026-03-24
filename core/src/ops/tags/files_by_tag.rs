@@ -163,7 +163,10 @@ impl LibraryQuery for GetFilesByTagQuery {
 			};
 
 			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
-			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
+			let Ok(entry_kind) = row.try_get::<i32>("", "entry_kind") else {
+				tracing::warn!("Skipping row {}: failed to decode entry_kind", entry_id);
+				continue;
+			};
 			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
 			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
 			let entry_aggregate_size: i64 = row.try_get("", "entry_aggregate_size").unwrap_or(0);
@@ -314,8 +317,26 @@ async fn load_tags_for_entries(
 		}
 	}
 
+	// Pre-index rows: content_identity_uuid -> Vec<entry_uuid>
+	// This avoids O(metadata × rows) rescanning in the content-scoped branch
+	let mut entries_by_content: HashMap<Uuid, Vec<Uuid>> = HashMap::new();
+	for row in rows {
+		if let Some(ci_uuid) = row
+			.try_get::<Option<Uuid>>("", "content_identity_uuid")
+			.ok()
+			.flatten()
+		{
+			if let Some(eu) = row
+				.try_get::<Option<Uuid>>("", "entry_uuid")
+				.ok()
+				.flatten()
+			{
+				entries_by_content.entry(ci_uuid).or_default().push(eu);
+			}
+		}
+	}
+
 	// Map tags to entries — merge both entry-scoped and content-scoped tags
-	// Process entry-scoped first, then extend with content-scoped
 	for metadata in &metadata_records {
 		if let Some(tags) = tags_by_metadata.get(&metadata.id) {
 			if let Some(entry_uuid) = metadata.entry_uuid {
@@ -324,25 +345,13 @@ async fn load_tags_for_entries(
 					.or_default()
 					.extend(tags.iter().cloned());
 			} else if let Some(content_uuid) = metadata.content_identity_uuid {
-				// Content-scoped: apply to all entries with this content
-				for row in rows {
-					if let Some(ci_uuid) = row
-						.try_get::<Option<Uuid>>("", "content_identity_uuid")
-						.ok()
-						.flatten()
-					{
-						if ci_uuid == content_uuid {
-							if let Some(eu) = row
-								.try_get::<Option<Uuid>>("", "entry_uuid")
-								.ok()
-								.flatten()
-							{
-								tags_by_entry
-									.entry(eu)
-									.or_default()
-									.extend(tags.iter().cloned());
-							}
-						}
+				// Content-scoped: lookup pre-indexed entries sharing this content
+				if let Some(entry_uuids) = entries_by_content.get(&content_uuid) {
+					for eu in entry_uuids {
+						tags_by_entry
+							.entry(*eu)
+							.or_default()
+							.extend(tags.iter().cloned());
 					}
 				}
 			}
