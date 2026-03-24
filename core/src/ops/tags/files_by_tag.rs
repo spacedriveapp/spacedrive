@@ -187,7 +187,12 @@ impl LibraryQuery for GetFilesByTagQuery {
 					format!("{}/{}", dir_path, file_name)
 				}
 			} else {
-				format!("/{}", entry_name)
+				let file_name = if let Some(ext) = &entry_extension {
+					format!("{}.{}", entry_name, ext)
+				} else {
+					entry_name.clone()
+				};
+				format!("/{}", file_name)
 			};
 
 			let sd_path = SdPath::Physical {

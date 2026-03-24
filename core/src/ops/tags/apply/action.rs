@@ -12,7 +12,7 @@ use crate::{
 	ops::metadata::manager::UserMetadataManager,
 };
 use chrono::Utc;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -169,6 +169,17 @@ impl LibraryAction for ApplyTagsAction {
 			TagTargets::EntryUuid(entry_uuids) => {
 				// Entry-based tagging by UUID (from frontend File.id)
 				for &entry_uuid in entry_uuids {
+					// Validate entry exists (no FK constraint at DB level on user_metadata.entry_uuid)
+					let entry_exists = crate::infra::db::entities::entry::Entity::find()
+						.filter(crate::infra::db::entities::entry::Column::Uuid.eq(entry_uuid))
+						.one(db.conn())
+						.await
+						.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?
+						.is_some();
+					if !entry_exists {
+						warnings.push(format!("Entry {} not found, skipping", entry_uuid));
+						continue;
+					}
 					match metadata_manager
 						.apply_semantic_tags_to_entry(
 							entry_uuid,
