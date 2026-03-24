@@ -138,24 +138,37 @@ impl LibraryQuery for GetFilesByTagQuery {
 		// Batch load tags (same logic as directory_listing)
 		let tags_by_entry = load_tags_for_entries(conn, &entry_uuids, &content_uuids, &rows).await?;
 
-		// Build File objects
+		// Build File objects — skip rows where required fields can't be decoded
 		let mut files = Vec::new();
 		for row in &rows {
-			let entry_id: i32 = row.try_get("", "entry_id").unwrap_or(0);
+			let Ok(entry_id) = row.try_get::<i32>("", "entry_id") else {
+				tracing::warn!("Skipping row: failed to decode entry_id");
+				continue;
+			};
+			let Ok(entry_name) = row.try_get::<String>("", "entry_name") else {
+				tracing::warn!("Skipping row: failed to decode entry_name");
+				continue;
+			};
+			let Ok(entry_created_at) =
+				row.try_get::<chrono::DateTime<chrono::Utc>>("", "entry_created_at")
+			else {
+				tracing::warn!("Skipping row {}: failed to decode entry_created_at", entry_id);
+				continue;
+			};
+			let Ok(entry_modified_at) =
+				row.try_get::<chrono::DateTime<chrono::Utc>>("", "entry_modified_at")
+			else {
+				tracing::warn!("Skipping row {}: failed to decode entry_modified_at", entry_id);
+				continue;
+			};
+
 			let entry_uuid: Option<Uuid> = row.try_get("", "entry_uuid").ok();
-			let entry_name: String = row.try_get("", "entry_name").unwrap_or_default();
 			let entry_kind: i32 = row.try_get("", "entry_kind").unwrap_or(0);
 			let entry_extension: Option<String> = row.try_get("", "entry_extension").ok();
 			let entry_size: i64 = row.try_get("", "entry_size").unwrap_or(0);
 			let entry_aggregate_size: i64 = row.try_get("", "entry_aggregate_size").unwrap_or(0);
 			let entry_child_count: i32 = row.try_get("", "entry_child_count").unwrap_or(0);
 			let entry_file_count: i32 = row.try_get("", "entry_file_count").unwrap_or(0);
-			let entry_created_at: chrono::DateTime<chrono::Utc> = row
-				.try_get("", "entry_created_at")
-				.unwrap_or_else(|_| chrono::Utc::now());
-			let entry_modified_at: chrono::DateTime<chrono::Utc> = row
-				.try_get("", "entry_modified_at")
-				.unwrap_or_else(|_| chrono::Utc::now());
 			let entry_accessed_at: Option<chrono::DateTime<chrono::Utc>> =
 				row.try_get("", "entry_accessed_at").ok();
 			let content_kind_name: Option<String> = row.try_get("", "content_kind_name").ok();
