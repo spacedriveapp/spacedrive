@@ -113,22 +113,24 @@ impl LibraryAction for UnapplyTagsAction {
 		// reappear on other devices after sync. Tracked for a dedicated
 		// sync-deletion PR. See also delete/action.rs.
 
-		// Collect ALL affected entry UUIDs — both directly specified entries
-		// and entries that share content with them (content-scoped tags)
-		let mut all_affected_uuids: HashSet<uuid::Uuid> = self.input.entry_ids.iter().cloned().collect();
+		// Only collect and notify if rows were actually deleted
+		if total_removed > 0 {
+			// Collect ALL affected entry UUIDs — both directly specified entries
+			// and entries that share content with them (content-scoped tags)
+			let mut all_affected_uuids: HashSet<uuid::Uuid> =
+				self.input.entry_ids.iter().cloned().collect();
 
-		// For content-scoped metadata removal, notify all entries sharing the same content
-		if !content_ids.is_empty() {
-			let ci_entries = entry::Entity::find()
-				.filter(entry::Column::ContentId.is_in(content_ids.into_iter().map(Some)))
-				.all(conn)
-				.await
-				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-			all_affected_uuids.extend(ci_entries.iter().filter_map(|e| e.uuid));
-		}
+			// For content-scoped metadata removal, notify all entries sharing the same content
+			if !content_ids.is_empty() {
+				let ci_entries = entry::Entity::find()
+					.filter(entry::Column::ContentId.is_in(content_ids.into_iter().map(Some)))
+					.all(conn)
+					.await
+					.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
+				all_affected_uuids.extend(ci_entries.iter().filter_map(|e| e.uuid));
+			}
 
-		// Emit resource events for all affected files
-		if !all_affected_uuids.is_empty() {
+			// Emit resource events for all affected files
 			let resource_manager = crate::domain::ResourceManager::new(
 				Arc::new(conn.clone()),
 				_context.events.clone(),
@@ -140,13 +142,19 @@ impl LibraryAction for UnapplyTagsAction {
 			{
 				tracing::warn!("Failed to emit file resource events after untagging: {}", e);
 			}
-		}
 
-		Ok(UnapplyTagsOutput {
-			entries_affected: all_affected_uuids.len(),
-			tags_removed: total_removed,
-			warnings: Vec::new(),
-		})
+			Ok(UnapplyTagsOutput {
+				entries_affected: all_affected_uuids.len(),
+				tags_removed: total_removed,
+				warnings: Vec::new(),
+			})
+		} else {
+			Ok(UnapplyTagsOutput {
+				entries_affected: 0,
+				tags_removed: 0,
+				warnings: vec!["No matching tag applications found".to_string()],
+			})
+		}
 	}
 
 	fn action_kind(&self) -> &'static str {
