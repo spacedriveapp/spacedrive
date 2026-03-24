@@ -51,7 +51,6 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 				}
 			} catch (err) {
 				console.error('Failed to delete tag:', err);
-				alert(`Failed to delete tag: ${err}`);
 			}
 		}
 	};
