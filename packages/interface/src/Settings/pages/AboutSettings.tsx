@@ -135,7 +135,7 @@ export function AboutSettings() {
           rel="noopener noreferrer"
           className="text-sm text-white/40 hover:text-white/60 transition-colors"
         >
-          AGPL-3.0
+          FSL-1.1-ALv2
         </a>
       </motion.div>
     </div>

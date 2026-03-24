@@ -5,7 +5,7 @@
 <h1 align="center">Spacedrive</h1>
 
 <p align="center">
-  <strong>An open source cross-platform file manager.</strong><br/>
+  <strong>An open source cross-platform file operating system.</strong><br/>
   Powered by a virtual distributed filesystem written in Rust.
 </p>
 
@@ -39,6 +39,24 @@ Spacedrive is a file manager that treats files as first-class objects with conte
 - **Cloud volumes** — index S3, Google Drive, Dropbox, OneDrive, Azure, and GCS as first-class volumes alongside local storage.
 - **Nine views** — grid, list, columns, media, size, recents, search, knowledge, and splat. QuickPreview for video, audio, code, documents, 3D, and images.
 - **Local-first** — everything runs on your machine. No data leaves your device unless you choose to sync between your own devices.
+
+### Is this a replacement for Finder or Explorer?
+
+Not exactly.
+
+Spacedrive is not trying to replace Finder on macOS or Explorer on Windows as the default system file manager. That is not the goal, and it is not where the product is strongest.
+
+Spacedrive sits on top of your operating system and adds capabilities the stock file manager does not have:
+
+- **Portal across everything** — one place to search and browse files across local disks, external drives, NAS, cloud storage, and archived data sources.
+- **Operating surface for files** — content identity, sidecars, derivative artifacts, rich metadata, sync, and cross-device awareness built into the core model.
+- **Embeddable and shareable** — run it as a desktop app, a headless server, a hosted file service, or embed the interface and APIs into other products.
+- **AI-ready by design** — prepare data ahead of time through indexing and analysis pipelines instead of giving agents raw shell access to your filesystem.
+- **Safer access model** — route AI and automation through Spacedrive's structured APIs, permissions, and processing layers instead of direct file reads and shell commands.
+
+You still use your operating system for low-level file interactions. Spacedrive adds the cross-platform, cross-device, cloud-aware, shareable, and automation-friendly layer on top.
+
+If Finder or Explorer is the street-level view of your files, Spacedrive is the map, index, archive, and control plane.
 
 ### Data Archival
 

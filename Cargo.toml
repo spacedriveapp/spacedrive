@@ -32,7 +32,7 @@ resolver = "2"
 
 [workspace.package]
 edition      = "2021"
-license      = "AGPL-3.0-only"
+license      = "FSL-1.1-ALv2"
 repository   = "https://github.com/spacedriveapp/spacedrive"
 rust-version = "1.81"
 
