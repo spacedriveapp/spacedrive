@@ -110,10 +110,25 @@ impl LibraryAction for LocationAddAction {
 				use crate::ops::indexing::handlers::LocationMeta;
 				use crate::ops::indexing::RuleToggles;
 
-				// Use canonical path to match what add_location stored in DB
+				// Use canonical path to match what add_location stored in DB,
+				// with the same Windows prefix normalization as manager.rs
 				let root_path = tokio::fs::canonicalize(local_path)
 					.await
 					.unwrap_or_else(|_| local_path.to_path_buf());
+				#[cfg(windows)]
+				let root_path = {
+					if let Some(s) = root_path.to_str() {
+						if s.starts_with(r"\\?\UNC\") {
+							std::path::PathBuf::from(format!(r"\\{}", &s[8..]))
+						} else if let Some(stripped) = s.strip_prefix(r"\\?\") {
+							std::path::PathBuf::from(stripped)
+						} else {
+							root_path
+						}
+					} else {
+						root_path
+					}
+				};
 
 				let meta = LocationMeta {
 					id: location_id,

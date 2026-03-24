@@ -58,13 +58,21 @@ impl LocationManager {
 						e
 					))
 				})?;
-				// On Windows, canonicalize() returns UNC paths (\\?\C:\...) which break
-				// starts_with() matching throughout the codebase. Strip the prefix.
+				// On Windows, canonicalize() returns extended path prefixes that break
+				// starts_with() matching throughout the codebase.
+				// \\?\UNC\server\share\... → \\server\share\... (network UNC)
+				// \\?\C:\... → C:\... (local drive)
+				// Same normalization as volume/fs/refs.rs:contains_path()
 				#[cfg(windows)]
 				let canonical = {
-					let s = canonical.to_string_lossy();
-					if let Some(stripped) = s.strip_prefix(r"\\?\") {
-						std::path::PathBuf::from(stripped)
+					if let Some(s) = canonical.to_str() {
+						if s.starts_with(r"\\?\UNC\") {
+							std::path::PathBuf::from(format!(r"\\{}", &s[8..]))
+						} else if let Some(stripped) = s.strip_prefix(r"\\?\") {
+							std::path::PathBuf::from(stripped)
+						} else {
+							canonical
+						}
 					} else {
 						canonical
 					}
