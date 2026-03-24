@@ -73,7 +73,7 @@ impl LibraryAction for UnapplyTagsAction {
 		let content_ids: Vec<i32> = entries.iter().filter_map(|e| e.content_id).collect();
 		if !content_ids.is_empty() {
 			let cis = content_identity::Entity::find()
-				.filter(content_identity::Column::Id.is_in(content_ids))
+				.filter(content_identity::Column::Id.is_in(content_ids.clone()))
 				.all(conn)
 				.await
 				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
@@ -107,17 +107,35 @@ impl LibraryAction for UnapplyTagsAction {
 
 		let total_removed = result.rows_affected as usize;
 
-		// TODO: call sync_model with ChangeType::Delete for cross-device sync
-		// (not yet implemented in the sync system for deletions)
+		// TODO(sync): Tag unapply is not synced to other devices.
+		// The sync infrastructure supports ChangeType::Delete but tag removal
+		// does not yet call library.sync_model(). This means removed tags will
+		// reappear on other devices after sync. Tracked for a dedicated
+		// sync-deletion PR. See also delete/action.rs.
 
-		// Emit resource events for affected files
-		if !self.input.entry_ids.is_empty() {
+		// Collect ALL affected entry UUIDs — both directly specified entries
+		// and entries that share content with them (content-scoped tags)
+		let mut all_affected_uuids: HashSet<uuid::Uuid> = self.input.entry_ids.iter().cloned().collect();
+
+		// For content-scoped metadata removal, notify all entries sharing the same content
+		if !content_ids.is_empty() {
+			let ci_entries = entry::Entity::find()
+				.filter(entry::Column::ContentId.is_in(content_ids.into_iter().map(Some)))
+				.all(conn)
+				.await
+				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
+			all_affected_uuids.extend(ci_entries.iter().filter_map(|e| e.uuid));
+		}
+
+		// Emit resource events for all affected files
+		if !all_affected_uuids.is_empty() {
 			let resource_manager = crate::domain::ResourceManager::new(
 				Arc::new(conn.clone()),
 				_context.events.clone(),
 			);
+			let affected_vec: Vec<uuid::Uuid> = all_affected_uuids.iter().cloned().collect();
 			if let Err(e) = resource_manager
-				.emit_resource_events("file", self.input.entry_ids.clone())
+				.emit_resource_events("file", affected_vec)
 				.await
 			{
 				tracing::warn!("Failed to emit file resource events after untagging: {}", e);
@@ -125,7 +143,7 @@ impl LibraryAction for UnapplyTagsAction {
 		}
 
 		Ok(UnapplyTagsOutput {
-			entries_affected: self.input.entry_ids.len(),
+			entries_affected: all_affected_uuids.len(),
 			tags_removed: total_removed,
 			warnings: Vec::new(),
 		})

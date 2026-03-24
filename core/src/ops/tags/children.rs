@@ -52,10 +52,15 @@ impl LibraryQuery for GetTagChildrenQuery {
 		let db = library.db();
 		let manager = TagManager::new(Arc::new(db.conn().clone()));
 
-		let children = manager
-			.get_descendants(self.input.tag_id)
+		let child_uuids: Vec<uuid::Uuid> = manager
+			.get_direct_children(self.input.tag_id)
 			.await
 			.map_err(|e| QueryError::Internal(format!("Children lookup failed: {}", e)))?;
+
+		let children = manager
+			.get_tags_by_ids(&child_uuids)
+			.await
+			.map_err(|e| QueryError::Internal(format!("Tag lookup failed: {}", e)))?;
 
 		Ok(GetTagChildrenOutput { children })
 	}
