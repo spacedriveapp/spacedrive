@@ -8,12 +8,13 @@ impl MigrationTrait for Migration {
 	async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
 		let db = manager.get_connection();
 
-		// Remove duplicate (user_metadata_id, tag_id) pairs, keeping the oldest (MIN id).
+		// Remove duplicate (user_metadata_id, tag_id) pairs, keeping the newest (MAX id)
+		// which has the most recent version/updated_at/device_uuid state.
 		// This must run before creating the unique index.
 		db.execute_unprepared(
 			"DELETE FROM user_metadata_tag \
 			 WHERE id NOT IN ( \
-			     SELECT MIN(id) FROM user_metadata_tag \
+			     SELECT MAX(id) FROM user_metadata_tag \
 			     GROUP BY user_metadata_id, tag_id \
 			 )",
 		)
