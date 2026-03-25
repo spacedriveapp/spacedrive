@@ -72,6 +72,7 @@ impl TestConfigBuilder {
 				statistics_listener_enabled: false,
 			},
 			proxy_pairing: sd_core::config::app_config::ProxyPairingConfig::default(),
+			spacebot: sd_core::config::app_config::SpacebotConfig::default(),
 		};
 
 		config.save()?;
