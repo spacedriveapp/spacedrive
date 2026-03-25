@@ -726,7 +726,7 @@ impl TagManager {
 	                sea_orm::DatabaseBackend::Sqlite,
 	                format!(
 	                    "SELECT rowid FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY bm25(tag_search_fts)",
-	                    query.replace("\"", "\"\"")
+	                    escape_fts5_query(&query)
 	                )
 	            )
 	        ).await {
@@ -1652,4 +1652,15 @@ mod tests {
 		assert_eq!(ai_app.confidence, 0.85);
 		assert!(ai_app.is_high_confidence());
 	}
+}
+
+/// Escape a user query for safe use in FTS5 MATCH expressions.
+/// Wraps each whitespace-delimited token in double quotes to prevent
+/// FTS5 operators (AND, OR, NOT, -, *, etc.) from being interpreted.
+fn escape_fts5_query(query: &str) -> String {
+	query
+		.split_whitespace()
+		.map(|token| format!("\"{}\"", token.replace('"', "\"\"")))
+		.collect::<Vec<_>>()
+		.join(" ")
 }
