@@ -17,7 +17,18 @@ export { JobsScreen } from "./components/JobManager";
 export { JobsProvider, useJobsContext } from "./components/JobManager/hooks/JobsContext";
 export { Settings } from "./routes/settings";
 export { Spacedrop } from "./windows/Spacedrop";
-export { Spacebot } from "./Spacebot";
+// Spacebot - Router-based exports
+export {
+	SpacebotProvider,
+	useSpacebot,
+	SpacebotLayout,
+	ChatRoute,
+	ConversationRoute,
+	TasksRoute,
+	MemoriesRoute,
+	AutonomyRoute,
+	ScheduleRoute,
+} from "./Spacebot";
 export { PairingModal } from "./components/modals/PairingModal";
 export { TopBarProvider, TopBarPortal, useTopBar } from "./TopBar";
 export { Overview } from "./routes/overview";

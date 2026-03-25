@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { Overview } from "./routes/overview";
 import { ExplorerView } from "./routes/explorer";
 import { ShellLayout } from "./ShellLayout";
@@ -7,7 +7,25 @@ import { DaemonManager } from "./routes/daemon";
 import { TagView } from "./routes/tag";
 import { FileKindsView } from "./routes/file-kinds";
 import { RecentsView } from "./routes/explorer/views/RecentsView";
-import { Spacebot } from "./Spacebot";
+import { SpacebotProvider } from "./Spacebot/SpacebotContext";
+import { SpacebotLayout } from "./Spacebot/SpacebotLayout";
+import { ChatRoute } from "./Spacebot/routes/ChatRoute";
+import { ConversationRoute } from "./Spacebot/routes/ConversationRoute";
+import { TasksRoute } from "./Spacebot/routes/TasksRoute";
+import { MemoriesRoute } from "./Spacebot/routes/MemoriesRoute";
+import { AutonomyRoute } from "./Spacebot/routes/AutonomyRoute";
+import { ScheduleRoute } from "./Spacebot/routes/ScheduleRoute";
+
+/**
+ * Spacebot wrapper component that provides the Spacebot context
+ */
+function SpacebotRoutes() {
+	return (
+		<SpacebotProvider>
+			<Outlet />
+		</SpacebotProvider>
+	);
+}
 
 /**
  * Router routes configuration (without router instance)
@@ -55,7 +73,51 @@ export const explorerRoutes = [
 			},
 			{
 				path: "spacebot",
-				element: <Spacebot />,
+				element: <SpacebotRoutes />,
+				children: [
+					{
+						index: true,
+						element: <Navigate to="/spacebot/chat" replace />,
+					},
+					{
+						element: <SpacebotLayout />,
+						children: [
+							{
+								path: "chat",
+								children: [
+									{
+										index: true,
+										element: <ChatRoute />,
+									},
+									{
+										path: "new",
+										element: <ChatRoute />,
+									},
+									{
+										path: "conversation/*",
+										element: <ConversationRoute />,
+									},
+								],
+							},
+							{
+								path: "tasks",
+								element: <TasksRoute />,
+							},
+							{
+								path: "memories",
+								element: <MemoriesRoute />,
+							},
+							{
+								path: "autonomy",
+								element: <AutonomyRoute />,
+							},
+							{
+								path: "schedule",
+								element: <ScheduleRoute />,
+							},
+						],
+					},
+				],
 			},
 			{
 				path: "jobs",

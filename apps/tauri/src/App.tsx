@@ -7,7 +7,14 @@ import {
 	PopoutInspector,
 	QuickPreview,
 	JobsScreen,
-	Spacebot,
+	SpacebotProvider,
+	SpacebotLayout,
+	ChatRoute,
+	ConversationRoute,
+	TasksRoute,
+	MemoriesRoute,
+	AutonomyRoute,
+	ScheduleRoute,
 	VoiceOverlay,
 	Settings,
 	PlatformProvider,
@@ -15,6 +22,7 @@ import {
 	ServerProvider,
 	JobsProvider,
 } from "@sd/interface";
+import {createMemoryRouter, Navigate, Outlet, RouterProvider} from "react-router-dom";
 import {
 	SpacedriveClient,
 	TauriTransport,
@@ -296,12 +304,51 @@ function App() {
 	}
 
 	if (route === "/spacebot") {
+		const spacebotRouter = createMemoryRouter(
+			[
+				{
+					path: "/spacebot",
+					element: (
+						<SpacebotProvider>
+							<Outlet />
+						</SpacebotProvider>
+					),
+					children: [
+						{
+							index: true,
+							element: <Navigate to="/spacebot/chat" replace />,
+						},
+						{
+							element: <SpacebotLayout />,
+							children: [
+								{
+									path: "chat",
+									children: [
+										{index: true, element: <ChatRoute />},
+										{path: "new", element: <ChatRoute />},
+										{path: "conversation/*", element: <ConversationRoute />},
+									],
+								},
+								{path: "tasks", element: <TasksRoute />},
+								{path: "memories", element: <MemoriesRoute />},
+								{path: "autonomy", element: <AutonomyRoute />},
+								{path: "schedule", element: <ScheduleRoute />},
+							],
+						},
+					],
+				},
+			],
+			{
+				initialEntries: ["/spacebot"],
+			}
+		);
+
 		return (
 			<PlatformProvider platform={platform}>
 				<SpacedriveProvider client={client}>
 					<ServerProvider>
 						<div className="h-screen overflow-hidden bg-app rounded-[10px] border border-transparent frame">
-							<Spacebot />
+							<RouterProvider router={spacebotRouter} />
 						</div>
 					</ServerProvider>
 				</SpacedriveProvider>

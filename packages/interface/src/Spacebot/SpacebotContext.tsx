@@ -1,0 +1,439 @@
+import {
+	Atom,
+	Brain,
+	CalendarDots,
+	CaretDown,
+	ChatCircleDots,
+	Checks,
+	ClockCounterClockwise,
+	DotsThree
+} from '@phosphor-icons/react';
+import {Ball, BallBlue} from '@sd/assets/images';
+import {Popover, SearchBar, usePopover} from '@sd/ui';
+import {
+	apiClient,
+	getEventsUrl,
+	setServerUrl,
+	type InboundMessageEvent,
+	type OutboundMessageDeltaEvent,
+	type OutboundMessageEvent,
+	type TypingStateEvent,
+	type WebChatConversationResponse,
+	type WebChatConversationSummary
+} from '@spacebot/api-client';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {
+	createContext,
+	useCallback,
+	useContext,
+	useEffect,
+	useMemo,
+	useState,
+	type ReactNode
+} from 'react';
+import {useNavigate, useParams} from 'react-router-dom';
+import {usePlatform} from '../contexts/PlatformContext';
+import {useSpacebotEventSource} from './useSpacebotEventSource';
+
+export const primaryItems = [
+	{icon: ChatCircleDots, label: 'Chat', path: '/spacebot/chat'},
+	{icon: Checks, label: 'Tasks', path: '/spacebot/tasks'},
+	{icon: Brain, label: 'Memories', path: '/spacebot/memories'},
+	{icon: Atom, label: 'Autonomy', path: '/spacebot/autonomy'},
+	{icon: CalendarDots, label: 'Schedule', path: '/spacebot/schedule'}
+];
+
+export const projects = [
+	{name: 'Spacedrive v3', detail: 'Main workspace', ball: BallBlue},
+	{name: 'Spacebot Runtime', detail: 'Remote control plane', ball: Ball},
+	{name: 'Hosted Platform', detail: 'Deploy and observe', ball: Ball}
+];
+
+export const agents = [
+	{id: 'main', name: 'James', detail: 'Founder mode'},
+	{id: 'operations', name: 'Operations', detail: 'Scheduling and triage'},
+	{id: 'builder', name: 'Builder', detail: 'Code and tooling'}
+];
+
+export const projectOptions = ['Spacedrive v3', 'Spacebot Runtime', 'Hosted Platform'];
+export const modelOptions = ['Claude 3.7 Sonnet', 'GPT-5', 'Qwen 2.5 72B'];
+
+interface SpacebotContextType {
+	// Navigation state
+	search: string;
+	setSearch: (value: string) => void;
+	selectedAgent: string;
+	setSelectedAgent: (value: string) => void;
+	activeTab: string;
+
+	// Agent data
+	currentAgent: (typeof agents)[number];
+	agentSelector: ReturnType<typeof usePopover>;
+
+	// Composer state
+	selectedProject: string;
+	setSelectedProject: (value: string) => void;
+	selectedModel: string;
+	setSelectedModel: (value: string) => void;
+	projectOptions: string[];
+	modelOptions: string[];
+	composerProjectSelector: ReturnType<typeof usePopover>;
+	composerModelSelector: ReturnType<typeof usePopover>;
+
+	// Conversation state
+	draft: string;
+	setDraft: (value: string) => void;
+	isTyping: boolean;
+	streamingAssistantText: string;
+	conversations: WebChatConversationSummary[];
+	conversationsLoading: boolean;
+	conversationsError: boolean;
+
+	// Actions
+	handleSendMessage: () => Promise<void>;
+	isSending: boolean;
+	createConversation: (title?: string | null) => Promise<WebChatConversationResponse>;
+	getConversationById: (id: string) => WebChatConversationSummary | undefined;
+	getConversationMessages: (id: string) => WebChatHistoryItem[];
+	openVoiceOverlay: () => void;
+
+	// Navigation
+	navigateToChat: () => void;
+	navigateToConversation: (conversationId: string) => void;
+}
+
+interface WebChatHistoryItem {
+	role: 'user' | 'assistant';
+	content: string;
+	timestamp: string;
+}
+
+const SpacebotContext = createContext<SpacebotContextType | null>(null);
+
+export function useSpacebot() {
+	const context = useContext(SpacebotContext);
+	if (!context) {
+		throw new Error('useSpacebot must be used within SpacebotProvider');
+	}
+	return context;
+}
+
+interface SpacebotProviderProps {
+	children: ReactNode;
+}
+
+export const isMacOS =
+	typeof navigator !== 'undefined' &&
+	(navigator.platform.toLowerCase().includes('mac') ||
+		navigator.userAgent.includes('Mac'));
+
+export function SpacebotProvider({children}: SpacebotProviderProps) {
+	const platform = usePlatform();
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const params = useParams();
+
+	useEffect(() => {
+		setServerUrl('http://127.0.0.1:19898');
+	}, []);
+
+	useEffect(() => {
+		if (platform.applyMacOSStyling) {
+			platform.applyMacOSStyling().catch((error) => {
+				console.warn('Failed to apply macOS styling:', error);
+			});
+		}
+	}, [platform]);
+
+	// Navigation state
+	const [search, setSearch] = useState('');
+	const [selectedAgent, setSelectedAgent] = useState('main');
+	const [activeTab, setActiveTab] = useState('Chat');
+
+	// Composer state
+	const [selectedProject, setSelectedProject] = useState(projectOptions[0] ?? '');
+	const [selectedModel, setSelectedModel] = useState(modelOptions[0] ?? '');
+
+	// Conversation state
+	const [draft, setDraft] = useState('');
+	const [isTyping, setIsTyping] = useState(false);
+	const [streamingAssistantText, setStreamingAssistantText] = useState('');
+	const [conversationMessages, setConversationMessages] = useState<
+		Map<string, WebChatHistoryItem[]>
+	>(new Map());
+
+	const agentSelector = usePopover();
+	const composerProjectSelector = usePopover();
+	const composerModelSelector = usePopover();
+
+	const currentAgent = useMemo(
+		() => agents.find((agent) => agent.id === selectedAgent) ?? agents[0],
+		[selectedAgent]
+	);
+
+	// Reset state when agent changes
+	useEffect(() => {
+		setIsTyping(false);
+		setStreamingAssistantText('');
+	}, [selectedAgent]);
+
+	// Conversations query
+	const conversationsQuery = useQuery({
+		queryKey: ['spacebot', 'conversations', selectedAgent],
+		queryFn: () => apiClient.listWebchatConversations(selectedAgent, false, 100),
+		refetchInterval: 4000
+	});
+
+	const conversations = conversationsQuery.data?.conversations ?? [];
+
+	// Conversation messages query - fetch when viewing a conversation
+	// With splat route "conversation/*", the ID is in params["*"]
+	const conversationId = params["*"] ? decodeURIComponent(params["*"]) : undefined;
+	const historyQuery = useQuery({
+		queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId],
+		queryFn: () =>
+			apiClient.webchatHistory(selectedAgent, conversationId!, 200),
+		enabled: Boolean(conversationId),
+		refetchInterval: false
+	});
+
+	// Update conversation messages cache
+	useEffect(() => {
+		if (historyQuery.data && conversationId) {
+			setConversationMessages((prev) => {
+				const next = new Map(prev);
+				next.set(conversationId, historyQuery.data as WebChatHistoryItem[]);
+				return next;
+			});
+		}
+	}, [historyQuery.data, conversationId]);
+
+	// Create conversation mutation
+	const createConversationMutation = useMutation({
+		mutationFn: (title?: string | null) =>
+			apiClient.createWebchatConversation({
+				agentId: selectedAgent,
+				title
+			}),
+		onSuccess: async (response: WebChatConversationResponse) => {
+			navigateToConversation(response.conversation.id);
+			await queryClient.invalidateQueries({
+				queryKey: ['spacebot', 'conversations', selectedAgent]
+			});
+		}
+	});
+
+	// Send message mutation
+	const sendMessageMutation = useMutation({
+		mutationFn: async (message: string) => {
+			let targetConversationId = conversationId;
+			if (!targetConversationId) {
+				const response = await createConversationMutation.mutateAsync(null);
+				targetConversationId = response.conversation.id;
+			}
+
+			await apiClient.webchatSend({
+				agentId: selectedAgent,
+				sessionId: targetConversationId!,
+				senderName: currentAgent?.name ?? 'user',
+				message
+			});
+
+			return targetConversationId;
+		},
+		onSuccess: async (targetConversationId) => {
+			setDraft('');
+			if (targetConversationId) {
+				navigateToConversation(targetConversationId);
+			}
+			await Promise.all([
+				queryClient.invalidateQueries({
+					queryKey: ['spacebot', 'conversations', selectedAgent]
+				}),
+				queryClient.invalidateQueries({
+					queryKey: ['spacebot', 'webchat-history', selectedAgent, targetConversationId]
+				})
+			]);
+		}
+	});
+
+	// SSE event source
+	useSpacebotEventSource(getEventsUrl(), {
+		enabled: activeTab === 'Chat',
+		onReconnect: () => {
+			void queryClient.invalidateQueries({
+				queryKey: ['spacebot', 'conversations', selectedAgent]
+			});
+			if (conversationId) {
+				void queryClient.invalidateQueries({
+					queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+				});
+			}
+		},
+		handlers: {
+			typing_state: (payload) => {
+				const event = payload as TypingStateEvent;
+				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+					return;
+				}
+				setIsTyping(event.is_typing);
+				if (!event.is_typing) {
+					setStreamingAssistantText('');
+				}
+			},
+			outbound_message_delta: (payload) => {
+				const event = payload as OutboundMessageDeltaEvent;
+				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+					return;
+				}
+				setIsTyping(true);
+				setStreamingAssistantText(event.aggregated_text);
+			},
+			outbound_message: (payload) => {
+				const event = payload as OutboundMessageEvent;
+				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+					return;
+				}
+				setIsTyping(false);
+				setStreamingAssistantText('');
+				void Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'conversations', selectedAgent]
+					}),
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+					})
+				]);
+			},
+			inbound_message: (payload) => {
+				const event = payload as InboundMessageEvent;
+				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+					return;
+				}
+				void Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'conversations', selectedAgent]
+					}),
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+					})
+				]);
+			}
+		}
+	});
+
+	// Actions
+	const handleSendMessage = useCallback(async () => {
+		const message = draft.trim();
+		if (!message || sendMessageMutation.isPending) return;
+		await sendMessageMutation.mutateAsync(message);
+	}, [draft, sendMessageMutation]);
+
+	const createConversation = useCallback(
+		async (title?: string | null) => {
+			return createConversationMutation.mutateAsync(title);
+		},
+		[createConversationMutation]
+	);
+
+	const getConversationById = useCallback(
+		(id: string) => conversations.find((c) => c.id === id),
+		[conversations]
+	);
+
+	const getConversationMessages = useCallback(
+		(id: string) => conversationMessages.get(id) ?? [],
+		[conversationMessages]
+	);
+
+	const openVoiceOverlay = useCallback(() => {
+		if (!platform.showWindow) return;
+		platform.showWindow({type: 'VoiceOverlay'}).catch((error) => {
+			console.warn('Failed to open voice overlay:', error);
+		});
+	}, [platform]);
+
+	const navigateToChat = useCallback(() => {
+		setActiveTab('Chat');
+		setIsTyping(false);
+		setStreamingAssistantText('');
+		navigate('/spacebot/chat');
+	}, [navigate]);
+
+	const navigateToConversation = useCallback(
+		(conversationId: string) => {
+			setActiveTab('Chat');
+			setIsTyping(false);
+			setStreamingAssistantText('');
+			navigate(`/spacebot/chat/conversation/${conversationId}`);
+		},
+		[navigate]
+	);
+
+	const value = useMemo(
+		() => ({
+			search,
+			setSearch,
+			selectedAgent,
+			setSelectedAgent,
+			activeTab,
+			currentAgent,
+			agentSelector,
+			selectedProject,
+			setSelectedProject,
+			selectedModel,
+			setSelectedModel,
+			projectOptions,
+			modelOptions,
+			composerProjectSelector,
+			composerModelSelector,
+			draft,
+			setDraft,
+			isTyping,
+			streamingAssistantText,
+			conversations,
+			conversationsLoading: conversationsQuery.isLoading,
+			conversationsError: conversationsQuery.isError,
+			handleSendMessage,
+			isSending: sendMessageMutation.isPending || createConversationMutation.isPending,
+			createConversation,
+			getConversationById,
+			getConversationMessages,
+			openVoiceOverlay,
+			navigateToChat,
+			navigateToConversation
+		}),
+		[
+			search,
+			selectedAgent,
+			activeTab,
+			currentAgent,
+			agentSelector,
+			selectedProject,
+			selectedModel,
+			projectOptions,
+			modelOptions,
+			composerProjectSelector,
+			composerModelSelector,
+			draft,
+			isTyping,
+			streamingAssistantText,
+			conversations,
+			conversationsQuery.isLoading,
+			conversationsQuery.isError,
+			handleSendMessage,
+			sendMessageMutation.isPending,
+			createConversationMutation.isPending,
+			createConversation,
+			getConversationById,
+			getConversationMessages,
+			openVoiceOverlay,
+			navigateToChat,
+			navigateToConversation
+		]
+	);
+
+	return (
+		<SpacebotContext.Provider value={value}>{children}</SpacebotContext.Provider>
+	);
+}
