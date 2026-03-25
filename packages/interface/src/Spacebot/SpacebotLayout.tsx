@@ -90,7 +90,9 @@ function SidebarHistory() {
 	// Extract the conversation ID from the pathname exactly
 	const pathname = location.pathname;
 	const conversationPathMatch = pathname.match(/\/conversation\/(.+)$/);
-	const activeConversationId = conversationPathMatch ? decodeURIComponent(conversationPathMatch[1]) : null;
+	const activeConversationId = conversationPathMatch
+		? decodeURIComponent(conversationPathMatch[1])
+		: null;
 
 	return filtered.map((conversation) => {
 		const isActive = activeConversationId === conversation.id;
@@ -170,7 +172,7 @@ export function SpacebotLayout() {
 			{/* Top Bar */}
 			<div
 				data-tauri-drag-region
-				className="top-bar-blur border-app-line bg-app/85 absolute inset-x-0 top-0 z-20 flex h-12 items-center justify-between border-b px-3"
+				className="top-bar-blur border-app-line bg-app/85 absolute inset-x-0 top-0 z-20 flex h-12 items-center gap-3 border-b px-3"
 				style={{paddingLeft: isMacOS ? 92 : 12}}
 			>
 				{/* Back/Forward Navigation Buttons */}
@@ -189,7 +191,7 @@ export function SpacebotLayout() {
 					/>
 				</TopBarButtonGroup>
 				<div className="flex items-center gap-3" data-tauri-drag-region>
-					<div className="w-[156px]" data-tauri-drag-region>
+					<div data-tauri-drag-region>
 						<Popover
 							popover={agentSelector}
 							trigger={
@@ -231,6 +233,8 @@ export function SpacebotLayout() {
 						</Popover>
 					</div>
 				</div>
+
+				<div className="flex-grow" />
 
 				<div className="flex items-center gap-2" data-tauri-drag-region>
 					<SearchBar

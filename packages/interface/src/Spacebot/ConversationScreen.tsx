@@ -1,13 +1,23 @@
 import {Copy} from '@phosphor-icons/react';
 import {TopBarButton} from '@sd/ui';
+import {
+	apiClient,
+	type TimelineItem,
+	type WorkerListItem
+} from '@spacebot/api-client';
 import type {
 	WebChatConversationSummary,
 	WebChatHistoryMessage
 } from '@spacebot/api-client';
-import {useEffect, useRef} from 'react';
+import {useQuery} from '@tanstack/react-query';
+import {useVirtualizer} from '@tanstack/react-virtual';
+import {useEffect, useMemo, useRef} from 'react';
 import {ChatComposer} from './ChatComposer';
+import {InlineWorkerCard} from './InlineWorkerCard';
+import {Markdown} from './Markdown';
 
 interface ConversationScreenProps {
+	agentId: string;
 	conversation: WebChatConversationSummary | null;
 	messages: WebChatHistoryMessage[];
 	isTyping: boolean;
@@ -28,8 +38,9 @@ interface ConversationScreenProps {
 }
 
 export function ConversationScreen({
+	agentId,
 	conversation,
-	messages,
+	messages: _messages,
 	isTyping,
 	streamingAssistantText,
 	draft,
@@ -47,6 +58,60 @@ export function ConversationScreen({
 	isSending = false
 }: ConversationScreenProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
+	const previousTimelineLengthRef = useRef(0);
+	const timelineQuery = useQuery({
+		queryKey: ['spacebot', 'channel-timeline', conversation?.id],
+		queryFn: () => apiClient.channelMessages(conversation!.id, 200),
+		enabled: Boolean(conversation?.id),
+		refetchInterval: 2000
+	});
+	const workersQuery = useQuery({
+		queryKey: [
+			'spacebot',
+			'conversation-workers',
+			agentId,
+			conversation?.id
+		],
+		queryFn: () => apiClient.listWorkers({agentId, limit: 20}),
+		enabled: Boolean(conversation?.id),
+		refetchInterval: 2000
+	});
+
+	const timelineItems = timelineQuery.data?.items ?? [];
+	const builtInWorkers = (workersQuery.data?.workers ?? []).filter(
+		(worker: WorkerListItem) => {
+			if (!conversation?.id) return false;
+			if (worker.channel_id !== conversation.id) return false;
+			if (worker.worker_type === 'opencode') return false;
+			return true;
+		}
+	);
+	const builtInWorkerIds = new Set(builtInWorkers.map((worker) => worker.id));
+	const visibleTimelineItems = timelineItems.filter((item: TimelineItem) => {
+		if (item.type !== 'worker_run') return true;
+		return builtInWorkerIds.has(item.id);
+	});
+	const timelineSignature = useMemo(
+		() => visibleTimelineItems.map((item) => `${item.type}:${item.id}`).join('|'),
+		[visibleTimelineItems]
+	);
+
+	const virtualizer = useVirtualizer({
+		count: visibleTimelineItems.length,
+		getScrollElement: () => scrollRef.current,
+		estimateSize: (index) => {
+			const item = visibleTimelineItems[index];
+			if (!item) return 80;
+			if (item.type === 'worker_run') return 96;
+			if (item.type !== 'message') return 80;
+			const base = item.role === 'user' ? 72 : 88;
+			const lines = Math.ceil(
+				item.content.length / (item.role === 'user' ? 42 : 56)
+			);
+			return Math.min(480, base + lines * 28);
+		},
+		overscan: 8
+	});
 
 	const copyMessage = async (content: string) => {
 		await navigator.clipboard.writeText(content);
@@ -55,8 +120,25 @@ export function ConversationScreen({
 	useEffect(() => {
 		const element = scrollRef.current;
 		if (!element) return;
-		element.scrollTop = element.scrollHeight;
-	}, [messages, streamingAssistantText, isTyping, conversation?.id]);
+
+		const previousLength = previousTimelineLengthRef.current;
+		const currentLength = visibleTimelineItems.length;
+		const distanceFromBottom =
+			element.scrollHeight - element.scrollTop - element.clientHeight;
+		const isNearBottom = distanceFromBottom < 160;
+		const shouldAutoScroll =
+			conversation?.id != null &&
+			(currentLength > previousLength || Boolean(streamingAssistantText) || isTyping) &&
+			(previousLength === 0 || isNearBottom);
+
+		if (shouldAutoScroll) {
+			requestAnimationFrame(() => {
+				element.scrollTo({top: element.scrollHeight, behavior: 'auto'});
+			});
+		}
+
+		previousTimelineLengthRef.current = currentLength;
+	}, [timelineSignature, visibleTimelineItems.length, streamingAssistantText, isTyping, conversation?.id]);
 
 	if (!conversation) {
 		return (
@@ -99,51 +181,102 @@ export function ConversationScreen({
 
 	return (
 		<div className="relative flex h-full w-full max-w-4xl flex-col">
-			<div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-6 py-4">
+			{/* <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-6 py-4">
 				<div className="text-ink text-lg font-semibold">
 					{conversation.title}
 				</div>
 				<div className="text-ink-dull mt-1 text-xs uppercase tracking-[0.14em]">
 					{conversation.message_count} messages
 				</div>
-			</div>
+			</div> */}
 
-			<div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6">
+			<div
+				ref={scrollRef}
+				className="flex-1 space-y-4 overflow-y-auto px-6"
+			>
 				<div className="h-24 shrink-0" />
-				{messages.length > 0 ? (
-					messages.map((message) => {
-						const isUser = message.role === 'user';
-						return (
-							<div
-								key={message.id}
-								className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
-							>
+				{visibleTimelineItems.length > 0 ? (
+					<div
+						className="relative w-full"
+						style={{height: virtualizer.getTotalSize()}}
+					>
+						{virtualizer.getVirtualItems().map((virtualRow) => {
+							const item = visibleTimelineItems[virtualRow.index];
+							if (!item) return null;
+
+							return (
 								<div
-									className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
-										isUser
-											? 'bg-accent text-white'
-											: 'border-app-line bg-app text-ink border'
-									}`}
+									key={item.id}
+									data-index={virtualRow.index}
+									ref={virtualizer.measureElement}
+									className="absolute left-0 top-0 w-full"
+									style={{
+										transform: `translateY(${virtualRow.start}px)`
+									}}
 								>
-									<div className="whitespace-pre-wrap break-words">
-										{message.content}
-									</div>
+									{item.type === 'worker_run' ? (
+										<div className="py-2">
+											<InlineWorkerCard
+												agentId={agentId}
+												worker={
+													builtInWorkers.find((worker) => worker.id === item.id) ?? {
+														id: item.id,
+														task: item.task,
+														status: item.status,
+														worker_type: 'builtin',
+														channel_id: conversation.id,
+														channel_name: null,
+														started_at: item.started_at,
+														completed_at: item.completed_at,
+														has_transcript: true,
+														live_status: null,
+														tool_calls: 0,
+														opencode_port: null,
+														opencode_session_id: null,
+														directory: null,
+														interactive: false,
+														project_id: null,
+														project_name: null
+													}
+												}
+											/>
+										</div>
+									) : item.type === 'message' ? (
+										(() => {
+											const isUser = item.role === 'user';
+											return (
+												<div className={`group flex flex-col py-2 ${isUser ? 'items-end' : 'items-start'}`}>
+													<div
+														className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
+															isUser ? 'bg-accent text-white' : 'border-app-line bg-app text-ink border'
+														}`}
+													>
+														{isUser ? (
+															<div className="whitespace-pre-wrap break-words">{item.content}</div>
+														) : (
+															<Markdown className="break-words">{item.content}</Markdown>
+														)}
+													</div>
+													{!isUser ? (
+														<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+															<TopBarButton
+																icon={Copy}
+																onClick={() => void copyMessage(item.content)}
+																title="Copy message"
+																className="h-7 w-7"
+															/>
+														</div>
+													) : null}
+												</div>
+											);
+										})()
+									) : null}
 								</div>
-								{!isUser ? (
-									<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-										<TopBarButton
-											icon={Copy}
-											onClick={() => void copyMessage(message.content)}
-											title="Copy message"
-											className="h-7 w-7"
-										/>
-									</div>
-								) : null}
-							</div>
-						);
-					})
+							);
+						})}
+					</div>
 				) : (
-					<div className="border-app-line bg-app text-ink-dull flex h-full min-h-[240px] items-center justify-center rounded-2xl border border-dashed text-sm">
+					<div className="text-ink-dull flex h-full min-h-[240px] items-center justify-center text-sm">
 						Start the conversation here.
 					</div>
 				)}
@@ -151,9 +284,9 @@ export function ConversationScreen({
 				{streamingAssistantText ? (
 					<div className="flex justify-start">
 						<div className="border-app-line bg-app text-ink max-w-[80%] rounded-2xl border px-4 py-3 text-[15px] leading-7">
-							<div className="whitespace-pre-wrap break-words">
+							<Markdown className="break-words">
 								{streamingAssistantText}
-							</div>
+							</Markdown>
 						</div>
 					</div>
 				) : null}

@@ -44,18 +44,22 @@ export const primaryItems = [
 ];
 
 export const projects = [
-	{name: 'Spacedrive v3', detail: 'Main workspace', ball: BallBlue},
+	{name: 'Spacedrive', detail: 'Main workspace', ball: BallBlue},
 	{name: 'Spacebot Runtime', detail: 'Remote control plane', ball: Ball},
 	{name: 'Hosted Platform', detail: 'Deploy and observe', ball: Ball}
 ];
 
 export const agents = [
-	{id: 'main', name: 'James', detail: 'Founder mode'},
+	{id: 'main', name: 'Star', detail: 'Spacedrive COO'},
 	{id: 'operations', name: 'Operations', detail: 'Scheduling and triage'},
 	{id: 'builder', name: 'Builder', detail: 'Code and tooling'}
 ];
 
-export const projectOptions = ['Spacedrive v3', 'Spacebot Runtime', 'Hosted Platform'];
+export const projectOptions = [
+	'Spacedrive v3',
+	'Spacebot Runtime',
+	'Hosted Platform'
+];
 export const modelOptions = ['Claude 3.7 Sonnet', 'GPT-5', 'Qwen 2.5 72B'];
 
 interface SpacebotContextType {
@@ -92,7 +96,9 @@ interface SpacebotContextType {
 	// Actions
 	handleSendMessage: () => Promise<void>;
 	isSending: boolean;
-	createConversation: (title?: string | null) => Promise<WebChatConversationResponse>;
+	createConversation: (
+		title?: string | null
+	) => Promise<WebChatConversationResponse>;
 	getConversationById: (id: string) => WebChatConversationSummary | undefined;
 	getConversationMessages: (id: string) => WebChatHistoryItem[];
 	openVoiceOverlay: () => void;
@@ -151,7 +157,9 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	const [activeTab, setActiveTab] = useState('Chat');
 
 	// Composer state
-	const [selectedProject, setSelectedProject] = useState(projectOptions[0] ?? '');
+	const [selectedProject, setSelectedProject] = useState(
+		projectOptions[0] ?? ''
+	);
 	const [selectedModel, setSelectedModel] = useState(modelOptions[0] ?? '');
 
 	// Conversation state
@@ -180,7 +188,8 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	// Conversations query
 	const conversationsQuery = useQuery({
 		queryKey: ['spacebot', 'conversations', selectedAgent],
-		queryFn: () => apiClient.listWebchatConversations(selectedAgent, false, 100),
+		queryFn: () =>
+			apiClient.listWebchatConversations(selectedAgent, false, 100),
 		refetchInterval: 4000
 	});
 
@@ -188,9 +197,16 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 
 	// Conversation messages query - fetch when viewing a conversation
 	// With splat route "conversation/*", the ID is in params["*"]
-	const conversationId = params["*"] ? decodeURIComponent(params["*"]) : undefined;
+	const conversationId = params['*']
+		? decodeURIComponent(params['*'])
+		: undefined;
 	const historyQuery = useQuery({
-		queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId],
+		queryKey: [
+			'spacebot',
+			'webchat-history',
+			selectedAgent,
+			conversationId
+		],
 		queryFn: () =>
 			apiClient.webchatHistory(selectedAgent, conversationId!, 200),
 		enabled: Boolean(conversationId),
@@ -202,7 +218,10 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 		if (historyQuery.data && conversationId) {
 			setConversationMessages((prev) => {
 				const next = new Map(prev);
-				next.set(conversationId, historyQuery.data as WebChatHistoryItem[]);
+				next.set(
+					conversationId,
+					historyQuery.data as WebChatHistoryItem[]
+				);
 				return next;
 			});
 		}
@@ -228,7 +247,8 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 		mutationFn: async (message: string) => {
 			let targetConversationId = conversationId;
 			if (!targetConversationId) {
-				const response = await createConversationMutation.mutateAsync(null);
+				const response =
+					await createConversationMutation.mutateAsync(null);
 				targetConversationId = response.conversation.id;
 			}
 
@@ -251,7 +271,12 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 					queryKey: ['spacebot', 'conversations', selectedAgent]
 				}),
 				queryClient.invalidateQueries({
-					queryKey: ['spacebot', 'webchat-history', selectedAgent, targetConversationId]
+					queryKey: [
+						'spacebot',
+						'webchat-history',
+						selectedAgent,
+						targetConversationId
+					]
 				})
 			]);
 		}
@@ -266,14 +291,22 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			});
 			if (conversationId) {
 				void queryClient.invalidateQueries({
-					queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+					queryKey: [
+						'spacebot',
+						'webchat-history',
+						selectedAgent,
+						conversationId
+					]
 				});
 			}
 		},
 		handlers: {
 			typing_state: (payload) => {
 				const event = payload as TypingStateEvent;
-				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+				if (
+					event.agent_id !== selectedAgent ||
+					event.channel_id !== conversationId
+				) {
 					return;
 				}
 				setIsTyping(event.is_typing);
@@ -283,7 +316,10 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			},
 			outbound_message_delta: (payload) => {
 				const event = payload as OutboundMessageDeltaEvent;
-				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+				if (
+					event.agent_id !== selectedAgent ||
+					event.channel_id !== conversationId
+				) {
 					return;
 				}
 				setIsTyping(true);
@@ -291,7 +327,10 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			},
 			outbound_message: (payload) => {
 				const event = payload as OutboundMessageEvent;
-				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+				if (
+					event.agent_id !== selectedAgent ||
+					event.channel_id !== conversationId
+				) {
 					return;
 				}
 				setIsTyping(false);
@@ -301,13 +340,21 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 						queryKey: ['spacebot', 'conversations', selectedAgent]
 					}),
 					queryClient.invalidateQueries({
-						queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+						queryKey: [
+							'spacebot',
+							'webchat-history',
+							selectedAgent,
+							conversationId
+						]
 					})
 				]);
 			},
 			inbound_message: (payload) => {
 				const event = payload as InboundMessageEvent;
-				if (event.agent_id !== selectedAgent || event.channel_id !== conversationId) {
+				if (
+					event.agent_id !== selectedAgent ||
+					event.channel_id !== conversationId
+				) {
 					return;
 				}
 				void Promise.all([
@@ -315,7 +362,12 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 						queryKey: ['spacebot', 'conversations', selectedAgent]
 					}),
 					queryClient.invalidateQueries({
-						queryKey: ['spacebot', 'webchat-history', selectedAgent, conversationId]
+						queryKey: [
+							'spacebot',
+							'webchat-history',
+							selectedAgent,
+							conversationId
+						]
 					})
 				]);
 			}
@@ -395,7 +447,9 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			conversationsLoading: conversationsQuery.isLoading,
 			conversationsError: conversationsQuery.isError,
 			handleSendMessage,
-			isSending: sendMessageMutation.isPending || createConversationMutation.isPending,
+			isSending:
+				sendMessageMutation.isPending ||
+				createConversationMutation.isPending,
 			createConversation,
 			getConversationById,
 			getConversationMessages,
@@ -434,6 +488,8 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	);
 
 	return (
-		<SpacebotContext.Provider value={value}>{children}</SpacebotContext.Provider>
+		<SpacebotContext.Provider value={value}>
+			{children}
+		</SpacebotContext.Provider>
 	);
 }

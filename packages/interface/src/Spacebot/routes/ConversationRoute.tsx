@@ -7,6 +7,7 @@ export function ConversationRoute() {
 	// With splat route "conversation/*", the conversation ID is in params["*"]
 	const conversationId = decodeURIComponent(params["*"] || "");
 	const {
+		selectedAgent,
 		getConversationById,
 		getConversationMessages,
 		isTyping,
@@ -31,6 +32,7 @@ export function ConversationRoute() {
 
 	return (
 		<ConversationScreen
+			agentId={selectedAgent}
 			conversation={conversation}
 			messages={messages}
 			isTyping={isTyping}
