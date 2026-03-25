@@ -1681,11 +1681,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.build(app)?;
 	menu_items_map.insert("copy".to_string(), copy_item.clone());
 
-	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
-		.accelerator("Cmd+V")
-		.enabled(true)
-		.build(app)?;
-	menu_items_map.insert("paste".to_string(), paste_item.clone());
+	let paste_item = PredefinedMenuItem::paste(app, None)?;
 
 	let edit_menu = SubmenuBuilder::new(app, "Edit")
 		.item(&PredefinedMenuItem::undo(app, None)?)
@@ -1892,8 +1888,9 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}
 			}
-			// Edit menu clipboard actions - emit event for smart handling in frontend
-			"cut" | "copy" | "paste" => {
+			// Edit menu clipboard actions - emit event for smart handling in frontend.
+			// Paste uses the native predefined menu item to avoid duplicate text pastes.
+			"cut" | "copy" => {
 				tracing::info!("[Menu] Clipboard action triggered: {}", event_id);
 				// Emit generic clipboard event - frontend will decide if it's a text or file operation
 				if let Err(e) = app_handle.emit("clipboard-action", event_id) {

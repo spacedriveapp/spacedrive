@@ -13,6 +13,14 @@ export default defineConfig(async () => ({
 
 	resolve: {
 		alias: {
+			"openapi-fetch": path.resolve(
+				__dirname,
+				"../../packages/interface/node_modules/openapi-fetch/dist/index.mjs",
+			),
+			"@spacebot/api-client": path.resolve(
+				__dirname,
+				"../../../spacebot/packages/api-client/src",
+			),
 			"@sd/interface": path.resolve(
 				__dirname,
 				"../../packages/interface/src",
