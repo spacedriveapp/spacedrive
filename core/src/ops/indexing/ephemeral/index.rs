@@ -653,7 +653,9 @@ impl EphemeralIndex {
 			.keys()
 			.filter(|k| {
 				let k_str = k.to_string_lossy();
-				k_str == prefix || k_str.starts_with(&format!("{}/", prefix)) || k_str.starts_with(&format!("{}\\", prefix))
+				k_str == prefix
+					|| k_str.starts_with(&format!("{}/", prefix))
+					|| k_str.starts_with(&format!("{}\\", prefix))
 			})
 			.cloned()
 			.collect();

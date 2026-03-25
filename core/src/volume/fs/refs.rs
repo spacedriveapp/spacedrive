@@ -16,8 +16,7 @@ use tracing::{debug, warn};
 
 /// Cached IOCTL results keyed by volume GUID to avoid repeated syscalls.
 #[cfg(windows)]
-static REFS_BLOCK_CLONE_CACHE: Mutex<Option<HashMap<String, RefsIoctlResult>>> =
-	Mutex::new(None);
+static REFS_BLOCK_CLONE_CACHE: Mutex<Option<HashMap<String, RefsIoctlResult>>> = Mutex::new(None);
 
 /// Result of a ReFS IOCTL version query.
 #[cfg(windows)]
@@ -39,8 +38,7 @@ fn check_refs_version_sync(path: &Path) -> Option<RefsIoctlResult> {
 	use std::ptr::{null, null_mut};
 	use windows_sys::Win32::Foundation::{CloseHandle, GENERIC_READ, INVALID_HANDLE_VALUE};
 	use windows_sys::Win32::Storage::FileSystem::{
-		CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, FILE_SHARE_WRITE,
-		OPEN_EXISTING,
+		CreateFileW, FILE_FLAG_BACKUP_SEMANTICS, FILE_SHARE_READ, FILE_SHARE_WRITE, OPEN_EXISTING,
 	};
 	use windows_sys::Win32::System::Ioctl::{FSCTL_GET_REFS_VOLUME_DATA, REFS_VOLUME_DATA_BUFFER};
 	use windows_sys::Win32::System::IO::DeviceIoControl;
@@ -178,11 +176,13 @@ impl RefsHandler {
 				let fs_name = disk.file_system().to_string_lossy().to_string();
 
 				// Use stable volume GUID, fall back to mount path
-				let volume_guid = super::volume_guid(mount_point)
-					.unwrap_or_else(|| {
-						warn!("Could not resolve volume GUID for {}, using mount path", mount_str);
-						mount_str.to_string()
-					});
+				let volume_guid = super::volume_guid(mount_point).unwrap_or_else(|| {
+					warn!(
+						"Could not resolve volume GUID for {}, using mount path",
+						mount_str
+					);
+					mount_str.to_string()
+				});
 
 				// Query ReFS version and block cloning via IOCTL
 				let ioctl = if fs_name == "ReFS" {
@@ -234,8 +234,8 @@ impl RefsHandler {
 					let mount_point = disk.mount_point();
 					let mount_str = mount_point.to_string_lossy();
 
-					let volume_guid = super::volume_guid(mount_point)
-						.unwrap_or_else(|| mount_str.to_string());
+					let volume_guid =
+						super::volume_guid(mount_point).unwrap_or_else(|| mount_str.to_string());
 
 					let ioctl = check_refs_version_cached(mount_point);
 
@@ -277,7 +277,10 @@ impl super::FilesystemHandler for RefsHandler {
 			if let (Some(major), Some(minor)) = (info.refs_major_version, info.refs_minor_version) {
 				debug!(
 					"ReFS v{}.{} at {}: block cloning = {}",
-					major, minor, volume.mount_point.display(), info.supports_block_cloning
+					major,
+					minor,
+					volume.mount_point.display(),
+					info.supports_block_cloning
 				);
 			}
 		}

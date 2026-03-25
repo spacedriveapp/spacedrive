@@ -45,7 +45,10 @@ pub async fn detect_volumes(
 			}
 
 			let name = if label.is_empty() {
-				format!("Local Disk ({})", mount_point.to_string_lossy().trim_end_matches('\\'))
+				format!(
+					"Local Disk ({})",
+					mount_point.to_string_lossy().trim_end_matches('\\')
+				)
 			} else {
 				label
 			};
@@ -58,7 +61,8 @@ pub async fn detect_volumes(
 				_ => DiskType::Unknown,
 			};
 
-			let volume_type = classify_volume(&mount_point, &file_system, &name, is_removable, total_space);
+			let volume_type =
+				classify_volume(&mount_point, &file_system, &name, is_removable, total_space);
 
 			// Generate stable fingerprint based on volume type
 			let fingerprint = match volume_type {
@@ -91,7 +95,9 @@ pub async fn detect_volumes(
 			if should_include_volume(&volume, &config) {
 				debug!(
 					"Detected volume: {} ({}) - {} bytes",
-					volume.name, volume.mount_point.display(), total_space
+					volume.name,
+					volume.mount_point.display(),
+					total_space
 				);
 				volumes.push(volume);
 			}

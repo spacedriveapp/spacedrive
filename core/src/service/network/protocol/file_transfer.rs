@@ -1200,7 +1200,9 @@ impl FileTransferProtocolHandler {
 		// Convert forward-slash-normalized path back to native separators.
 		// Paths are normalized to '/' for cross-platform transmission (see strategy.rs).
 		let source_path = PathBuf::from(
-			source_path.to_string_lossy().replace('/', std::path::MAIN_SEPARATOR_STR),
+			source_path
+				.to_string_lossy()
+				.replace('/', std::path::MAIN_SEPARATOR_STR),
 		);
 
 		self.logger

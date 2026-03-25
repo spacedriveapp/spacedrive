@@ -7,6 +7,7 @@ import { DaemonManager } from "./routes/daemon";
 import { TagView } from "./routes/tag";
 import { FileKindsView } from "./routes/file-kinds";
 import { RecentsView } from "./routes/explorer/views/RecentsView";
+import { Spacebot } from "./Spacebot";
 
 /**
  * Router routes configuration (without router instance)
@@ -51,6 +52,10 @@ export const explorerRoutes = [
 						Search (coming soon)
 					</div>
 				),
+			},
+			{
+				path: "spacebot",
+				element: <Spacebot />,
 			},
 			{
 				path: "jobs",

@@ -7,6 +7,12 @@ body {
 	overflow: hidden;
 }
 
+html.overlay-window,
+body.overlay-window,
+#root.overlay-window {
+	background: transparent !important;
+}
+
 /* Top bar blur effect (macOS specific) */
 .top-bar-blur {
 	backdrop-filter: saturate(120%) blur(18px);

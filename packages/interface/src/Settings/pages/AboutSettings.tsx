@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Ball } from "@sd/assets/images";
+import { BallBlue } from "@sd/assets/images";
 import Orb from "../../components/Orb";
 import { TopBarButton } from "@sd/ui";
 import { GlobeHemisphereWest, GithubLogo, DiscordLogo } from "@phosphor-icons/react";
@@ -19,7 +19,7 @@ export function AboutSettings() {
         {/* Ball image - behind the orb */}
         <div className="absolute inset-[8%] z-0">
           <img
-            src={Ball}
+            src={BallBlue}
             alt="Spacedrive"
             className="w-full h-full object-contain select-none"
             draggable={false}
@@ -28,7 +28,8 @@ export function AboutSettings() {
         {/* Orb animation - inset to make it smaller */}
         <div className="absolute inset-[15%] z-10">
           <Orb
-            hue={-30}
+            palette="blue"
+            hue={0}
             hoverIntensity={0}
             rotateOnHover={false}
             forceHoverState={true}

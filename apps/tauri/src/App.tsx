@@ -7,6 +7,8 @@ import {
 	PopoutInspector,
 	QuickPreview,
 	JobsScreen,
+	Spacebot,
+	VoiceOverlay,
 	Settings,
 	PlatformProvider,
 	SpacedriveProvider,
@@ -19,7 +21,6 @@ import {
 	useSyncPreferencesStore,
 } from "@sd/ts-client";
 import type { Event as CoreEvent } from "@sd/ts-client";
-import { sounds } from "@sd/assets/sounds";
 import { useEffect, useState } from "react";
 import { DragOverlay } from "./routes/DragOverlay";
 import { ContextMenuWindow } from "./routes/ContextMenuWindow";
@@ -29,10 +30,28 @@ import { platform } from "./platform";
 import { initializeContextMenuHandler } from "./contextMenu";
 import { initializeKeybindGlobal } from "./keybinds";
 
+function getInitialRoute() {
+	const label = getCurrentWebviewWindow().label;
+
+	if (label === "floating-controls") return "/floating-controls";
+	if (label.startsWith("drag-overlay")) return "/drag-overlay";
+	if (label.startsWith("context-menu")) return "/contextmenu";
+	if (label.startsWith("drag-demo")) return "/drag-demo";
+	if (label.startsWith("spacedrop")) return "/spacedrop";
+	if (label.startsWith("settings")) return "/settings";
+	if (label.startsWith("inspector")) return "/inspector";
+	if (label.startsWith("quick-preview")) return "/quick-preview";
+	if (label.startsWith("job-manager")) return "/job-manager";
+	if (label.startsWith("spacebot")) return "/spacebot";
+	if (label.startsWith("voice-overlay")) return "/voice-overlay";
+
+	return "/";
+}
+
 function App() {
 	const [client, setClient] = useState<SpacedriveClient | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [route, setRoute] = useState<string>("/");
+	const [route, setRoute] = useState<string>(getInitialRoute);
 
 	useEffect(() => {
 		// React Scan disabled - too heavy for development
@@ -68,25 +87,7 @@ function App() {
 		}
 
 		// Set route based on window label
-		if (label === "floating-controls") {
-			setRoute("/floating-controls");
-		} else if (label.startsWith("drag-overlay")) {
-			setRoute("/drag-overlay");
-		} else if (label.startsWith("context-menu")) {
-			setRoute("/contextmenu");
-		} else if (label.startsWith("drag-demo")) {
-			setRoute("/drag-demo");
-		} else if (label.startsWith("spacedrop")) {
-			setRoute("/spacedrop");
-		} else if (label.startsWith("settings")) {
-			setRoute("/settings");
-		} else if (label.startsWith("inspector")) {
-			setRoute("/inspector");
-		} else if (label.startsWith("quick-preview")) {
-			setRoute("/quick-preview");
-		} else if (label.startsWith("job-manager")) {
-			setRoute("/job-manager");
-		}
+		setRoute(getInitialRoute());
 
 		// Tell Tauri window is ready to be shown
 		invoke("app_ready").catch(console.error);
@@ -290,6 +291,28 @@ function App() {
 						</div>
 					</ServerProvider>
 				</SpacedriveProvider>
+			</PlatformProvider>
+		);
+	}
+
+	if (route === "/spacebot") {
+		return (
+			<PlatformProvider platform={platform}>
+				<SpacedriveProvider client={client}>
+					<ServerProvider>
+						<div className="h-screen overflow-hidden bg-app rounded-[10px] border border-transparent frame">
+							<Spacebot />
+						</div>
+					</ServerProvider>
+				</SpacedriveProvider>
+			</PlatformProvider>
+		);
+	}
+
+	if (route === "/voice-overlay") {
+		return (
+			<PlatformProvider platform={platform}>
+				<VoiceOverlay />
 			</PlatformProvider>
 		);
 	}

@@ -8,6 +8,7 @@ import AlphaBg from './AlphaBg.png';
 import AppLogo from './AppLogo.png';
 import AppLogoV2 from './AppLogoV2.png';
 import Ball from './Ball.png';
+import BallBlue from './BallBlue.png';
 import BloomOne from './BloomOne.png';
 import BloomThree from './BloomThree.png';
 import BloomTwo from './BloomTwo.png';
@@ -23,6 +24,7 @@ export {
 	AppLogo,
 	AppLogoV2,
 	Ball,
+	BallBlue,
 	BloomOne,
 	BloomThree,
 	BloomTwo,

@@ -37,7 +37,11 @@ impl VolumeFingerprint {
 
 		// Trim trailing slash/backslash for consistency, but preserve root paths (e.g. "C:\", "/")
 		let trimmed = normalized.trim_end_matches(['/', '\\']);
-		let final_path = if trimmed.is_empty() { &normalized } else { trimmed };
+		let final_path = if trimmed.is_empty() {
+			&normalized
+		} else {
+			trimmed
+		};
 
 		hasher.update(final_path.as_bytes());
 		hasher.update(device_id.as_bytes());

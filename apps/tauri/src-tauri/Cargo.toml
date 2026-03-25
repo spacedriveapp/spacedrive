@@ -17,6 +17,7 @@ tauri-plugin-dialog = "2.0"
 tauri-plugin-fs = "2.0"
 tauri-plugin-shell = "2.0"
 tauri-plugin-clipboard-manager = "2.0"
+tauri-plugin-global-shortcut = "2.0"
 tauri-plugin-os = "2.0"
 tauri-plugin-updater = "2.0"
 

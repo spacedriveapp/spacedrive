@@ -55,11 +55,20 @@ export function ExplorerView() {
 		mode,
 		enterSearchMode,
 		exitSearchMode,
-		currentFiles
+		currentFiles,
+		columnStack
 	} = useExplorer();
 
 	const {isVirtualView} = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;
+
+	// In column view, the path bar should reflect the deepest column, not the root
+	const pathBarPath = useMemo(() => {
+		if (viewMode === 'column' && columnStack.length > 1) {
+			return columnStack[columnStack.length - 1];
+		}
+		return currentPath;
+	}, [viewMode, columnStack, currentPath]);
 
 	const [searchValue, setSearchValue] = useState('');
 
@@ -90,15 +99,27 @@ export function ExplorerView() {
 		}
 	}, [mode.type]);
 
+	// When leaving column view, navigate to the deepest column so the
+	// new view shows the directory the user was actually looking at.
+	const handleViewModeChange = useCallback(
+		(newMode: string) => {
+			if (viewMode === 'column' && newMode !== 'column' && columnStack.length > 1) {
+				navigateToPath(columnStack[columnStack.length - 1]);
+			}
+			setViewMode(newMode);
+		},
+		[viewMode, columnStack, navigateToPath, setViewMode]
+	);
+
 	// Memoize submenu content to prevent infinite re-renders
 	const viewModeSubmenu = useMemo(
 		() => (
 			<ViewModeMenuPanel
 				viewMode={viewMode}
-				onViewModeChange={setViewMode}
+				onViewModeChange={handleViewModeChange}
 			/>
 		),
-		[viewMode, setViewMode]
+		[viewMode, handleViewModeChange]
 	);
 
 	const viewSettingsSubmenu = useMemo(
@@ -169,19 +190,19 @@ export function ExplorerView() {
 									/>
 								</TopBarButtonGroup>
 							</TopBarItem>
-							{currentPath && (
-								<TopBarItem
-									id="path-bar"
-									label="Path"
-									priority="high"
-								>
-									<PathBar
-										path={currentPath}
-										devices={devices}
-										onNavigate={navigateToPath}
-									/>
-								</TopBarItem>
-							)}
+						{pathBarPath && (
+							<TopBarItem
+								id="path-bar"
+								label="Path"
+								priority="high"
+							>
+								<PathBar
+									path={pathBarPath}
+									devices={devices}
+									onNavigate={navigateToPath}
+								/>
+							</TopBarItem>
+						)}
 							{currentView && (
 								<TopBarItem
 									id="virtual-path-bar"
@@ -234,10 +255,10 @@ export function ExplorerView() {
 								priority="normal"
 								submenuContent={viewModeSubmenu}
 							>
-								<ViewModeMenu
-									viewMode={viewMode}
-									onViewModeChange={setViewMode}
-								/>
+							<ViewModeMenu
+								viewMode={viewMode}
+								onViewModeChange={handleViewModeChange}
+							/>
 							</TopBarItem>
 							<TopBarItem
 								id="view-settings"
