@@ -107,7 +107,6 @@ impl LibraryAction for ApplyTagsAction {
 
 							// Find all entries with this content_id to emit resource events
 							use crate::infra::db::entities::{content_identity, entry};
-							use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 							if let Ok(Some(ci)) = content_identity::Entity::find()
 								.filter(content_identity::Column::Uuid.eq(content_id))
