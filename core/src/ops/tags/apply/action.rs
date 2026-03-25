@@ -131,12 +131,21 @@ impl LibraryAction for ApplyTagsAction {
 				}
 			}
 			TagTargets::Entry(entry_ids) => {
-				// Entry-based tagging: apply to specific entry instance (by database ID)
+				// Batch-lookup all entry UUIDs in one query instead of per-entry round trips
+				let entries = crate::infra::db::entities::entry::Entity::find()
+					.filter(crate::infra::db::entities::entry::Column::Id.is_in(entry_ids.clone()))
+					.all(db.conn())
+					.await
+					.map_err(|e| ActionError::Internal(format!("Failed to batch lookup entries: {}", e)))?;
+				let entry_id_to_uuid: HashMap<i32, Uuid> = entries
+					.into_iter()
+					.filter_map(|e| e.uuid.map(|uuid| (e.id, uuid)))
+					.collect();
 				for &entry_id in entry_ids {
-					let entry_uuid =
-						lookup_entry_uuid(&db.conn(), entry_id).await.map_err(|e| {
-							ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
-						})?;
+					let Some(&entry_uuid) = entry_id_to_uuid.get(&entry_id) else {
+						warnings.push(format!("Entry {} has no UUID, skipping", entry_id));
+						continue;
+					};
 					match metadata_manager
 						.apply_semantic_tags_to_entry(
 							entry_uuid,
@@ -167,16 +176,18 @@ impl LibraryAction for ApplyTagsAction {
 				}
 			}
 			TagTargets::EntryUuid(entry_uuids) => {
-				// Entry-based tagging by UUID (from frontend File.id)
-				for &entry_uuid in entry_uuids {
-					// Validate entry exists (no FK constraint at DB level on user_metadata.entry_uuid)
-					let entry_exists = crate::infra::db::entities::entry::Entity::find()
-						.filter(crate::infra::db::entities::entry::Column::Uuid.eq(entry_uuid))
-						.one(db.conn())
+				// Batch-validate all entry UUIDs exist in one query
+				let existing_entries: std::collections::HashSet<Uuid> =
+					crate::infra::db::entities::entry::Entity::find()
+						.filter(crate::infra::db::entities::entry::Column::Uuid.is_in(entry_uuids.clone()))
+						.all(db.conn())
 						.await
 						.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?
-						.is_some();
-					if !entry_exists {
+						.into_iter()
+						.filter_map(|e| e.uuid)
+						.collect();
+				for &entry_uuid in entry_uuids {
+					if !existing_entries.contains(&entry_uuid) {
 						warnings.push(format!("Entry {} not found, skipping", entry_uuid));
 						continue;
 					}
