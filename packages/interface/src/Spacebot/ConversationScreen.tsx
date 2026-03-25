@@ -1,3 +1,5 @@
+import {Copy} from '@phosphor-icons/react';
+import {TopBarButton} from '@sd/ui';
 import type {
 	WebChatConversationSummary,
 	WebChatHistoryMessage
@@ -46,6 +48,10 @@ export function ConversationScreen({
 }: ConversationScreenProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	const copyMessage = async (content: string) => {
+		await navigator.clipboard.writeText(content);
+	};
+
 	useEffect(() => {
 		const element = scrollRef.current;
 		if (!element) return;
@@ -92,8 +98,8 @@ export function ConversationScreen({
 	}
 
 	return (
-		<div className="border-app-line bg-app-box/90 flex h-full w-full max-w-4xl flex-col overflow-hidden rounded-[28px] border shadow-[0_30px_80px_rgba(0,0,0,0.25)] backdrop-blur-xl">
-			<div className="border-app-line border-b px-6 py-4">
+		<div className="relative flex h-full w-full max-w-4xl flex-col">
+			<div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-6 py-4">
 				<div className="text-ink text-lg font-semibold">
 					{conversation.title}
 				</div>
@@ -102,29 +108,37 @@ export function ConversationScreen({
 				</div>
 			</div>
 
-			<div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+			<div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto px-6">
+				<div className="h-24 shrink-0" />
 				{messages.length > 0 ? (
 					messages.map((message) => {
 						const isUser = message.role === 'user';
 						return (
 							<div
 								key={message.id}
-								className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
+								className={`group flex flex-col ${isUser ? 'items-end' : 'items-start'}`}
 							>
 								<div
-									className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-6 ${
+									className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
 										isUser
 											? 'bg-accent text-white'
 											: 'border-app-line bg-app text-ink border'
 									}`}
 								>
-									<div className="mb-1 text-[11px] uppercase tracking-wide opacity-70">
-										{message.role}
-									</div>
 									<div className="whitespace-pre-wrap break-words">
 										{message.content}
 									</div>
 								</div>
+								{!isUser ? (
+									<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+										<TopBarButton
+											icon={Copy}
+											onClick={() => void copyMessage(message.content)}
+											title="Copy message"
+											className="h-7 w-7"
+										/>
+									</div>
+								) : null}
 							</div>
 						);
 					})
@@ -136,10 +150,7 @@ export function ConversationScreen({
 
 				{streamingAssistantText ? (
 					<div className="flex justify-start">
-						<div className="border-app-line bg-app text-ink max-w-[80%] rounded-2xl border px-4 py-3 text-sm leading-6">
-							<div className="mb-1 text-[11px] uppercase tracking-wide opacity-70">
-								assistant
-							</div>
+						<div className="border-app-line bg-app text-ink max-w-[80%] rounded-2xl border px-4 py-3 text-[15px] leading-7">
 							<div className="whitespace-pre-wrap break-words">
 								{streamingAssistantText}
 							</div>
@@ -154,9 +165,10 @@ export function ConversationScreen({
 						</div>
 					</div>
 				) : null}
+				<div className="h-72 shrink-0" />
 			</div>
 
-			<div className="border-app-line border-t p-4">
+			<div className="absolute inset-x-0 bottom-0 z-10 p-4">
 				<ChatComposer
 					draft={draft}
 					onDraftChange={onDraftChange}

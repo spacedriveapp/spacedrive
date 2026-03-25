@@ -166,7 +166,7 @@ export function SpacebotLayout() {
 	};
 
 	return (
-		<div className="bg-app text-ink relative h-full overflow-hidden">
+		<div className="bg-app text-ink relative h-full">
 			{/* Top Bar */}
 			<div
 				data-tauri-drag-region
@@ -332,10 +332,10 @@ export function SpacebotLayout() {
 				</aside>
 
 				{/* Main Content */}
-				<main className="bg-app relative flex min-w-0 flex-1 items-center justify-center overflow-hidden p-6">
+				<main className="bg-app relative flex min-w-0 flex-1 px-6">
 					<div
 						aria-hidden="true"
-						className="pointer-events-none absolute inset-0 opacity-100"
+						className="pointer-events-none absolute inset-0 z-0 opacity-100"
 						style={{
 							backgroundImage:
 								'linear-gradient(to right, hsla(var(--color-app-line), 0.45) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--color-app-line), 0.45) 1px, transparent 1px)',
@@ -348,14 +348,16 @@ export function SpacebotLayout() {
 					/>
 					<div
 						aria-hidden="true"
-						className="pointer-events-none absolute inset-0"
+						className="pointer-events-none absolute inset-0 z-0"
 						style={{
 							background:
 								'radial-gradient(circle at top, hsla(var(--color-accent), 0.08), transparent 42%)'
 						}}
 					/>
 
-					<Outlet />
+					<div className="relative z-10 flex h-full w-full justify-center">
+						<Outlet />
+					</div>
 				</main>
 			</div>
 		</div>
