@@ -26,11 +26,11 @@ export function SidebarItem({
     <button
       onClick={onClick}
       className={clsx(
-        "w-full flex flex-row items-center gap-0.5 truncate rounded-lg px-2 py-1.5 text-sm font-medium tracking-wide outline-none",
+        "w-full flex flex-row items-center gap-0.5 truncate rounded-lg px-2 py-1.5 text-sm font-medium tracking-wide outline-none cursor-pointer",
         "ring-inset ring-transparent focus:ring-1 focus:ring-accent",
         active
           ? "bg-sidebar-selected/40 text-sidebar-ink"
-          : "text-sidebar-inkDull hover:text-sidebar-ink",
+          : "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-selected/20",
         className
       )}
     >
