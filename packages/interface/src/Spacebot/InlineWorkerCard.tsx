@@ -7,6 +7,7 @@ import {useMemo, useState} from 'react';
 import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
 
 import {ToolCall, pairTranscriptSteps} from './ToolCall';
+import type {ToolCallPair} from '@spaceui/ai';
 
 export function InlineWorkerCard({agentId, worker}: {agentId: string; worker: WorkerListItem}) {
 	const [expanded, setExpanded] = useState(false);
