@@ -31,7 +31,7 @@
 
 ## What is Spacedrive?
 
-Spacedrive is a file manager that treats files as first-class objects with content identity, not paths. A photo on your laptop and the same photo on your NAS are recognized as one piece of content. Organize files across multiple devices, clouds, and platforms from a single interface.
+Spacedrive is a cross-device data platform. Index files, emails, notes, and external sources. Search everything. Sync via P2P. Keep AI agents safe with built-in screening.
 
 - **Content identity** — every file gets a BLAKE3 content hash. Same file on two devices produces the same hash. Spacedrive tracks redundancy and deduplication across all your machines.
 - **Cross-device** — see all your files across all your devices in one place. Files on disconnected devices stay in the index and appear as offline.
@@ -42,7 +42,7 @@ Spacedrive is a file manager that treats files as first-class objects with conte
 
 ### Is this a replacement for Finder or Explorer?
 
-No. Spacedrive sits above your OS file manager and adds capabilities Finder/Explorer don't have:
+No. Spacedrive sits above your OS file manager and adds capabilities Finder/Explorer lack:
 
 - **Portal across everything** — search and browse files across local disks, external drives, NAS, cloud storage, and archived data sources from one interface.
 - **Operating surface for files** — content identity, sidecars, derivative artifacts, rich metadata, sync, and cross-device awareness built into the core model.
@@ -82,7 +82,7 @@ When an agent navigates through Spacedrive, it receives the file listing, subtre
 
 ### Safety Screening
 
-Every record passes through a safety pipeline before becoming searchable:
+When enabled, every record passes through a safety pipeline before becoming searchable:
 
 - **Prompt Guard 2** — local classifier detects prompt injection in emails, messages, and documents before they enter the index.
 - **Trust tiers** — authored content (your notes) gets balanced screening, external content (email inbox) gets strict screening.

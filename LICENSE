@@ -40,6 +40,29 @@ service that:
 
 3. offers the same or substantially similar functionality as the Software.
 
+### Additional Use Restrictions
+
+Notwithstanding the general definition of Competing Use above, you may not use
+the Software to:
+
+1. Provide the Software as a managed cloud service, hosted service, or
+   software-as-a-service offering to third parties;
+
+2. Offer commercial hosting, deployment, or management of Spacedrive instances
+   as a service to third parties;
+
+3. Provide cloud storage, file synchronization, or data management services to
+   third parties based on or incorporating the Software; or
+
+4. Offer any managed AI agent services or automation platforms to third parties
+   that are based on or incorporate the Software.
+
+These restrictions apply regardless of whether Spacedrive Technology Inc.
+currently offers such services, and are intended to preserve our ability to
+offer these categories of services in the future.
+
+### Permitted Purposes
+
 Permitted Purposes specifically include using the Software:
 
 1. for your internal use and access;
