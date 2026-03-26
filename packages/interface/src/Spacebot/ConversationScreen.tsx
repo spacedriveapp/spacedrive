@@ -13,6 +13,7 @@ import {useQuery} from '@tanstack/react-query';
 import {useVirtualizer} from '@tanstack/react-virtual';
 import {useEffect, useMemo, useRef} from 'react';
 import {ChatComposer} from './ChatComposer';
+import {EmptyChatHero} from './EmptyChatHero';
 import {InlineWorkerCard} from './InlineWorkerCard';
 import {Markdown} from './Markdown';
 
@@ -35,6 +36,44 @@ interface ConversationScreenProps {
 	projectSelector: ReturnType<typeof import('@sd/ui').usePopover>;
 	modelSelector: ReturnType<typeof import('@sd/ui').usePopover>;
 	isSending?: boolean;
+}
+
+function MessageBubble({
+	content,
+	isUser,
+	isStreaming = false,
+	onCopy
+}: {
+	content: string;
+	isUser: boolean;
+	isStreaming?: boolean;
+	onCopy?: (content: string) => void;
+}) {
+	return (
+		<div className={`group flex flex-col py-2 ${isUser ? 'items-end' : 'items-start'}`}>
+			<div
+				className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
+					isUser ? 'bg-accent text-white' : 'border-app-line bg-app text-ink border'
+				}`}
+			>
+				{isUser ? (
+					<div className="whitespace-pre-wrap break-words">{content}</div>
+				) : (
+					<Markdown className="break-words">{content}</Markdown>
+				)}
+			</div>
+			{!isUser && onCopy ? (
+				<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+					<TopBarButton
+						icon={Copy}
+						onClick={() => onCopy(content)}
+						title={isStreaming ? 'Copy streaming message' : 'Copy message'}
+						className="h-7 w-7"
+					/>
+				</div>
+			) : null}
+		</div>
+	);
 }
 
 export function ConversationScreen({
@@ -91,6 +130,7 @@ export function ConversationScreen({
 		if (item.type !== 'worker_run') return true;
 		return builtInWorkerIds.has(item.id);
 	});
+	const hasStreamingBubble = streamingAssistantText.trim().length > 0;
 	const timelineSignature = useMemo(
 		() => visibleTimelineItems.map((item) => `${item.type}:${item.id}`).join('|'),
 		[visibleTimelineItems]
@@ -142,39 +182,26 @@ export function ConversationScreen({
 
 	if (!conversation) {
 		return (
-			<div className="w-full max-w-3xl">
-				<div className="mb-6 text-left">
-					<h1 className="text-ink text-[2.65rem] font-semibold tracking-tight">
-						Let&apos;s get to work, James
-					</h1>
-					<p className="text-ink-dull mt-2 text-sm">
-						Learn how to be productive with Spacebot. {''}
-						<a
-							href="https://github.com/spacedriveapp/spacebot"
-							target="_blank"
-							rel="noreferrer"
-							className="text-ink-dull hover:text-ink underline underline-offset-4 transition-colors"
-						>
-							Read the docs.
-						</a>
-					</p>
-				</div>
+			<div className="flex h-full w-full items-center justify-center py-10">
+				<div className="w-full max-w-3xl">
+					<EmptyChatHero />
 
-				<ChatComposer
-					draft={draft}
-					onDraftChange={onDraftChange}
-					onSend={onSend}
-					onOpenVoiceOverlay={onOpenVoiceOverlay}
-					selectedProject={selectedProject}
-					selectedModel={selectedModel}
-					projectOptions={projectOptions}
-					modelOptions={modelOptions}
-					onSelectProject={onSelectProject}
-					onSelectModel={onSelectModel}
-					projectSelector={projectSelector}
-					modelSelector={modelSelector}
-					isSending={isSending}
-				/>
+					<ChatComposer
+						draft={draft}
+						onDraftChange={onDraftChange}
+						onSend={onSend}
+						onOpenVoiceOverlay={onOpenVoiceOverlay}
+						selectedProject={selectedProject}
+						selectedModel={selectedModel}
+						projectOptions={projectOptions}
+						modelOptions={modelOptions}
+						onSelectProject={onSelectProject}
+						onSelectModel={onSelectModel}
+						projectSelector={projectSelector}
+						modelSelector={modelSelector}
+						isSending={isSending}
+					/>
+				</div>
 			</div>
 		);
 	}
@@ -243,31 +270,12 @@ export function ConversationScreen({
 										</div>
 									) : item.type === 'message' ? (
 										(() => {
-											const isUser = item.role === 'user';
 											return (
-												<div className={`group flex flex-col py-2 ${isUser ? 'items-end' : 'items-start'}`}>
-													<div
-														className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
-															isUser ? 'bg-accent text-white' : 'border-app-line bg-app text-ink border'
-														}`}
-													>
-														{isUser ? (
-															<div className="whitespace-pre-wrap break-words">{item.content}</div>
-														) : (
-															<Markdown className="break-words">{item.content}</Markdown>
-														)}
-													</div>
-													{!isUser ? (
-														<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-															<TopBarButton
-																icon={Copy}
-																onClick={() => void copyMessage(item.content)}
-																title="Copy message"
-																className="h-7 w-7"
-															/>
-														</div>
-													) : null}
-												</div>
+												<MessageBubble
+													content={item.content}
+													isUser={item.role === 'user'}
+													onCopy={(content) => void copyMessage(content)}
+												/>
 											);
 										})()
 									) : null}
@@ -281,14 +289,13 @@ export function ConversationScreen({
 					</div>
 				)}
 
-				{streamingAssistantText ? (
-					<div className="flex justify-start">
-						<div className="border-app-line bg-app text-ink max-w-[80%] rounded-2xl border px-4 py-3 text-[15px] leading-7">
-							<Markdown className="break-words">
-								{streamingAssistantText}
-							</Markdown>
-						</div>
-					</div>
+				{hasStreamingBubble ? (
+					<MessageBubble
+						content={streamingAssistantText}
+						isUser={false}
+						isStreaming
+						onCopy={(content) => void copyMessage(content)}
+					/>
 				) : null}
 
 				{isTyping && !streamingAssistantText ? (
@@ -316,6 +323,7 @@ export function ConversationScreen({
 					projectSelector={projectSelector}
 					modelSelector={modelSelector}
 					showHeading={false}
+					showOuterBox={false}
 					isSending={isSending}
 				/>
 			</div>

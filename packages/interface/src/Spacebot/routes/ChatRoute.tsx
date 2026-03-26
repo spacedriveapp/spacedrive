@@ -1,4 +1,5 @@
 import { ChatComposer } from '../ChatComposer';
+import { EmptyChatHero } from '../EmptyChatHero';
 import { useSpacebot } from '../SpacebotContext';
 
 export function ChatRoute() {
@@ -19,22 +20,26 @@ export function ChatRoute() {
 	} = useSpacebot();
 
 	return (
-		<div className="w-full max-w-3xl">
-			<ChatComposer
-				draft={draft}
-				onDraftChange={setDraft}
-				onSend={() => void handleSendMessage()}
-				onOpenVoiceOverlay={openVoiceOverlay}
-				selectedProject={selectedProject}
-				selectedModel={selectedModel}
-				projectOptions={projectOptions}
-				modelOptions={modelOptions}
-				onSelectProject={setSelectedProject}
-				onSelectModel={setSelectedModel}
-				projectSelector={composerProjectSelector}
-				modelSelector={composerModelSelector}
-				isSending={isSending}
-			/>
+		<div className="flex h-full w-full items-center justify-center py-10">
+			<div className="w-full max-w-3xl">
+				<EmptyChatHero />
+
+				<ChatComposer
+					draft={draft}
+					onDraftChange={setDraft}
+					onSend={() => void handleSendMessage()}
+					onOpenVoiceOverlay={openVoiceOverlay}
+					selectedProject={selectedProject}
+					selectedModel={selectedModel}
+					projectOptions={projectOptions}
+					modelOptions={modelOptions}
+					onSelectProject={setSelectedProject}
+					onSelectModel={setSelectedModel}
+					projectSelector={composerProjectSelector}
+					modelSelector={composerModelSelector}
+					isSending={isSending}
+				/>
+			</div>
 		</div>
 	);
 }

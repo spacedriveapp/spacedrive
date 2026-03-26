@@ -17,6 +17,7 @@ interface ChatComposerProps {
 	projectSelector: ReturnType<typeof import('@sd/ui').usePopover>;
 	modelSelector: ReturnType<typeof import('@sd/ui').usePopover>;
 	showHeading?: boolean;
+	showOuterBox?: boolean;
 	isSending?: boolean;
 }
 
@@ -34,15 +35,15 @@ export function ChatComposer({
 	projectSelector,
 	modelSelector,
 	showHeading = true,
+	showOuterBox = true,
 	isSending = false
 }: ChatComposerProps) {
 	const [isFocused, setIsFocused] = useState(false);
 	const isExpanded = isFocused || draft.trim().length > 0;
 
 	const canSend = !isSending && draft.trim().length > 0;
-
-	return (
-		<div className="border-app-line bg-app-box/70 rounded-[28px] border p-4 shadow-[0_30px_80px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+	const composerBody = (
+		<>
 			{showHeading && (
 				<div className="text-ink-dull mb-3 flex items-center gap-2 px-1 text-xs font-medium">
 					<Sparkle className="text-accent size-3.5" weight="fill" />
@@ -50,7 +51,13 @@ export function ChatComposer({
 				</div>
 			)}
 
-			<div className="border-app-line bg-app rounded-[24px] border p-4">
+			<div
+				className={`border-app-line rounded-[24px] border p-4 ${
+					showOuterBox
+						? 'bg-app'
+						: 'bg-app-box/70 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-2xl'
+				}`}
+			>
 				<motion.div
 					animate={{height: isExpanded ? 140 : 90}}
 					transition={{duration: 0.18, ease: 'easeOut'}}
@@ -174,6 +181,14 @@ export function ChatComposer({
 					</motion.div>
 				</div>
 			</div>
+		</>
+	);
+
+	if (!showOuterBox) return composerBody;
+
+	return (
+		<div className="border-app-line bg-app-box/70 rounded-[28px] border p-4 shadow-[0_30px_80px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
+			{composerBody}
 		</div>
 	);
 }

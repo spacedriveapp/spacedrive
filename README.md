@@ -68,7 +68,17 @@ Shipped adapters: Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari H
 
 ### Spacebot
 
-Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as a separate process alongside Spacedrive, communicating over APIs. Spacedrive provides the data layer. Spacebot provides the intelligence layer. Neither depends on the other. Together, they form an operating surface where humans and agents work side by side.
+Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as a separate process alongside Spacedrive, communicating over APIs. Spacedrive provides the data, permission, and execution layer. Spacebot provides the intelligence layer. Neither depends on the other. Together, they form an operating surface where humans and agents work side by side.
+
+**Paired node model** — every Spacebot instance pairs with exactly one Spacedrive node. That node is Spacebot's home device inside the library. It authenticates Spacebot, maintains the device graph, resolves permissions, and forwards operations to peer devices. Spacebot never owns the multi-device graph directly — Spacedrive is the source of truth for device identity, library membership, and access policy.
+
+**Multi-device agent access** — every Spacedrive device in the library can reach Spacebot through the paired node over the existing P2P transport (Iroh/QUIC). A phone, a laptop, a NAS — all talk to the same Spacebot instance without needing a direct network path to it. Spacedrive proxies conversations, events, and approvals through the library graph. One agent runtime serves the entire device fleet.
+
+**Remote execution** — when Spacebot spawns a worker, that worker can target any device in the library. The worker's shell, file, and execution tools proxy through Spacedrive to the target device. From the model's perspective the tools are identical — it still calls `shell` and `file_read` — but the actual execution happens on a different machine, governed by policy. A founder can talk to an agent from their phone while the real work runs on an office server. An agent can read files from a NAS, run commands on a workstation, and report results to a laptop — all in one task.
+
+**Permission enforcement** — every Spacebot operation passes through Spacedrive's permission system before anything executes. Permissions are library-scoped and layered: which devices the agent may access, which paths and subtrees are readable or writable, which operations are allowed, and which actions require live human confirmation. The paired Spacedrive node resolves effective policy before forwarding, and the target device can enforce a second check for defense in depth. One security model, one permission UX, one audit surface across every device and cloud.
+
+**Chat everywhere** — the desktop app embeds a full Spacebot chat surface with conversations, streaming responses, inline worker cards, and tool call inspection. The mobile app reaches the same agent through the P2P proxy — check what the agent is working on, ask questions, review approvals, and speak naturally while the runtime continues on your own infrastructure. Same agent, same memory, same tasks, any device.
 
 ### File System Intelligence
 

@@ -7,11 +7,12 @@ const workspaceRoot = path.resolve(projectRoot, "../..");
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch only relevant directories for hot reload (not entire monorepo)
-// This avoids watching Rust target/ dirs (4.5GB+) and other build artifacts
+// Watch only the app sources and hoisted workspace deps Metro needs to resolve.
+// Expo Router can resolve to files in the hoisted Bun node_modules tree.
 config.watchFolders = [
 	path.resolve(projectRoot, "src"),
 	path.resolve(workspaceRoot, "packages"),
+	path.resolve(workspaceRoot, "node_modules"),
 ];
 
 // Configure resolver for monorepo and SVG support

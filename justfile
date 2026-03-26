@@ -13,6 +13,22 @@ dev-daemon *ARGS:
 dev-desktop:
     cd apps/tauri && bun run tauri:dev
 
+# Run the mobile app in dev mode
+dev-mobile:
+	cd apps/mobile && bun run start
+
+# Run the mobile app on iOS
+dev-mobile-ios:
+	cd apps/mobile && bun run ios
+
+# Run the mobile app on Android
+dev-mobile-android:
+	cd apps/mobile && bun run android
+
+# Build the native mobile core
+build-mobile:
+	cargo xtask build-mobile
+
 # Run the headless server (web UI, no desktop app)
 dev-server *ARGS:
     cargo run --bin sd-server {{ARGS}}

@@ -219,6 +219,7 @@ impl LocalDeleteStrategy {
 	/// - Windows: SHFileOperation → Recycle Bin
 	/// - macOS: NSFileManager → Trash
 	/// - Linux: XDG trash spec
+	#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 	pub async fn move_to_trash(&self, path: &Path) -> Result<(), std::io::Error> {
 		let path = path.to_path_buf();
 		tokio::task::spawn_blocking(move || {
@@ -233,6 +234,14 @@ impl LocalDeleteStrategy {
 		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))??;
 
 		Ok(())
+	}
+
+	#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
+	pub async fn move_to_trash(&self, _path: &Path) -> Result<(), std::io::Error> {
+		Err(std::io::Error::new(
+			std::io::ErrorKind::Unsupported,
+			"move to trash is not supported on this platform",
+		))
 	}
 
 	/// Permanently delete file or directory

@@ -290,14 +290,19 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 				queryKey: ['spacebot', 'conversations', selectedAgent]
 			});
 			if (conversationId) {
-				void queryClient.invalidateQueries({
-					queryKey: [
-						'spacebot',
-						'webchat-history',
-						selectedAgent,
-						conversationId
-					]
-				});
+				void Promise.all([
+					queryClient.invalidateQueries({
+						queryKey: [
+							'spacebot',
+							'webchat-history',
+							selectedAgent,
+							conversationId
+						]
+					}),
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'channel-timeline', conversationId]
+					})
+				]);
 			}
 		},
 		handlers: {
@@ -346,6 +351,9 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 							selectedAgent,
 							conversationId
 						]
+					}),
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'channel-timeline', conversationId]
 					})
 				]);
 			},
@@ -368,6 +376,9 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 							selectedAgent,
 							conversationId
 						]
+					}),
+					queryClient.invalidateQueries({
+						queryKey: ['spacebot', 'channel-timeline', conversationId]
 					})
 				]);
 			}
