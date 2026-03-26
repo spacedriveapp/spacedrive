@@ -497,9 +497,9 @@ This abstraction simplifies cross-device operations into type-safe function call
 \paragraph{Universal URI Scheme}
 To make these addressing modes accessible and ergonomic for clients, APIs, and command-line interfaces, Spacedrive establishes a unified string-based URI scheme. This allows any path, whether physical or content-based, to be represented as a simple, standardized string:
 \begin{itemize}[noitemsep, topsep=0pt]
-    \item \textbf{Physical Path}: A physical location is represented as \texttt{sd://\textless{}device\_id\textgreater{}/path/to/file}.
-    \item \textbf{Cloud Path}: A cloud volume location is represented as \texttt{sd://cloud/\textless{}volume\_id\textgreater{}/path/to/file}.
-    \item \textbf{Content Path}: A content-aware handle is represented as \texttt{sd://content/\textless{}content\_id\textgreater{}}.
+    \item \textbf{Physical Path}: A physical location is represented as\newline \texttt{sd://\textless{}device\_id\textgreater{}/path/to/file}.
+    \item \textbf{Cloud Path}: A cloud volume location is represented as\newline \texttt{sd://cloud/\textless{}volume\_id\textgreater{}/path/to/file}.
+    \item \textbf{Content Path}: A content-aware handle is represented as\newline \texttt{sd://content/\textless{}content\_id\textgreater{}}.
 \end{itemize}
 This design decouples clients from the complexity of path resolution. A user interface or script can operate entirely on these URI strings, passing them to the core engine, which is then responsible for parsing the URI and dispatching the appropriate resolution logic.
 
@@ -1921,10 +1921,10 @@ Spacedrive's architecture allows any core to serve files publicly. The distincti
 \begin{itemize}
     \item \textbf{Personal Device Core}: A user can serve files directly from their laptop or NAS, but this requires manual setup like port forwarding on their router and configuring Dynamic DNS to handle changing IP addresses.
     \item \textbf{Self-Hosted Core}: An organization can deploy a core on their own server with a static IP and manage their own SSL certificates and web server configuration.
-    \item \textbf{Spacedrive Cloud (Managed Core)}: For convenience, the Spacedrive Cloud service automates this. It runs the user's core behind a managed load balancer that handles SSL termination and provides a stable public URL (e.g., \texttt{https://sd.app/user/file.pdf}). This is a feature of the managed service, not a special capability of the core software itself.
+    \item \textbf{Spacedrive Cloud (Managed Core)}: For convenience, the Spacedrive Cloud service automates this. It runs the user's core behind a managed load balancer that handles SSL termination and provides a stable public URL (e.g., \texttt{https://\allowbreak sd.app/\allowbreak user/\allowbreak file.pdf}). This is a feature of the managed service, not a special capability of the core software itself.
 \end{itemize}
 
-\begin{lstlisting}[language=text, caption=Public sharing URL examples]
+\begin{lstlisting}[style=shellstyle, language=text, caption=Public sharing URL examples]
 # Via Spacedrive Cloud (automatic SSL + CDN)
 https://sd.app/user/file.pdf
 
