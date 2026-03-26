@@ -1,0 +1,66 @@
+[adapter]
+id = "slack"
+name = "Slack Export"
+description = "Index messages, channels, and users from a Slack workspace export (JSON). Download your export from Slack admin settings."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "message-square"
+min_spacedrive = "0.1.0"
+trust_tier = "collaborative"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 600
+schedule = ""
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "export_path"
+name = "Export Directory"
+description = "Path to the unzipped Slack export directory (contains channels.json, users.json, and channel folders)"
+type = "string"
+required = true
+
+[[adapter.config]]
+key = "max_messages"
+name = "Max Messages"
+description = "Maximum messages to index (0 = unlimited)"
+type = "integer"
+required = false
+default = 0
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "slack"
+name = "Slack Messages"
+icon = "message-square"
+
+[models.channel]
+fields.name = "string"
+fields.purpose = "text"
+fields.topic = "string"
+fields.is_archived = "boolean"
+fields.member_count = "integer"
+has_many = ["message"]
+
+[models.message]
+fields.text = "text"
+fields.author = "string"
+fields.timestamp = "datetime"
+fields.thread_ts = "string"
+fields.reply_count = "integer"
+fields.reactions = "string"
+
+[models.message.relations]
+belongs_to = ["channel"]
+self_referential = "parent_id"
+
+[search]
+primary_model = "message"
+title = "author"
+preview = "text"
+subtitle = "timestamp"
+search_fields = ["text", "author"]
+date_field = "timestamp"

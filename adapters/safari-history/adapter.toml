@@ -1,0 +1,53 @@
+[adapter]
+id = "safari-history"
+name = "Safari History"
+description = "Index browsing history from Safari on macOS. Requires Full Disk Access for the running process."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "globe"
+min_spacedrive = "0.1.0"
+trust_tier = "external"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 120
+schedule = "*/15 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "max_results"
+name = "Max Results"
+description = "Maximum URLs to index per sync"
+type = "integer"
+required = false
+default = 10000
+
+[[adapter.config]]
+key = "min_visit_count"
+name = "Minimum Visit Count"
+description = "Only index URLs visited at least this many times"
+type = "integer"
+required = false
+default = 1
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "history"
+name = "Browser History"
+icon = "globe"
+
+[models.page]
+fields.title = "string"
+fields.url = "string"
+fields.visit_count = "integer"
+fields.last_visit = "datetime"
+
+[search]
+primary_model = "page"
+title = "title"
+preview = "url"
+subtitle = "last_visit"
+search_fields = ["title", "url"]
+date_field = "last_visit"

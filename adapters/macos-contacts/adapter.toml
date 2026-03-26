@@ -1,0 +1,52 @@
+[adapter]
+id = "macos-contacts"
+name = "macOS Contacts"
+description = "Index contacts from the macOS Address Book. Requires Contacts access permission for the running process."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "user"
+min_spacedrive = "0.1.0"
+trust_tier = "authored"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 120
+schedule = "0 * * * *"
+requires = ["python3 >= 3.9"]
+
+# No config fields — uses the standard macOS AddressBook database.
+# Contacts permission must be granted to the process running Spacedrive.
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "contact"
+name = "Contact"
+icon = "user"
+
+[models.group]
+fields.name = "string"
+
+[models.contact]
+fields.name = "string"
+fields.organization = "string"
+fields.job_title = "string"
+fields.emails = "string"
+fields.phones = "string"
+fields.addresses = "text"
+fields.notes = "text"
+fields.birthday = "string"
+fields.created = "datetime"
+fields.modified = "datetime"
+
+[models.contact.relations]
+many_to_many = ["group"]
+
+[search]
+primary_model = "contact"
+title = "name"
+preview = "notes"
+subtitle = "organization"
+search_fields = ["name", "organization", "job_title", "emails", "phones", "notes"]
+date_field = "modified"

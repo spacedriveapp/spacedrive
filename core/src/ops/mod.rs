@@ -25,6 +25,7 @@ pub mod models;
 pub mod network;
 pub mod search;
 pub mod sidecar;
+pub mod sources;
 pub mod spaces;
 pub mod sync;
 pub mod tags;

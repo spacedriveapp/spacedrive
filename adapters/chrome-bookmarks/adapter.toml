@@ -1,0 +1,51 @@
+[adapter]
+id = "chrome-bookmarks"
+name = "Chrome Bookmarks"
+description = "Index bookmarks from any Chromium-based browser (Chrome, Arc, Brave, Edge)"
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "bookmark"
+min_spacedrive = "0.1.0"
+trust_tier = "external"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 60
+schedule = "0 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "bookmarks_path"
+name = "Bookmarks File Path"
+description = "Path to the Chromium Bookmarks JSON file. Common locations: ~/Library/Application Support/Google/Chrome/Default/Bookmarks, ~/Library/Application Support/Arc/User Data/Default/Bookmarks, ~/Library/Application Support/BraveSoftware/Brave-Browser/Default/Bookmarks"
+type = "string"
+required = true
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "bookmark"
+name = "Bookmark"
+icon = "bookmark"
+
+[models.folder]
+fields.name = "string"
+fields.path = "string"
+
+[models.bookmark]
+fields.title = "string"
+fields.url = "string"
+fields.date_added = "datetime"
+fields.folder_path = "string"
+
+[models.bookmark.relations]
+belongs_to = ["folder"]
+
+[search]
+primary_model = "bookmark"
+title = "title"
+preview = "url"
+subtitle = "folder_path"
+search_fields = ["title", "url"]
+date_field = "date_added"

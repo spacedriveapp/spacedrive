@@ -1010,9 +1010,9 @@ checksum = "175812e0be2bccb6abe50bb8d566126198344f707e304f45c648fd8f2cc0365e"
 
 [[package]]
 name = "bytemuck"
-version = "1.23.2"
+version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3995eaeebcdf32f91f980d360f78732ddc061097ab4e39991ae7a6ace9194677"
+checksum = "94bbb0ad554ad961ddc5da507a12a29b14e4ae5bda06b19f575a3e6079d2e2ae"
 
 [[package]]
 name = "byteorder"
@@ -2754,7 +2754,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f83197f59927b46c04a183a619b7c29df34e63e63c7869320862268c0ef687e0"
 dependencies = [
  "bit_field",
- "half 2.6.0",
+ "half 2.4.1",
  "lebe",
  "miniz_oxide",
  "rayon-core",
@@ -3781,9 +3781,9 @@ checksum = "1b43ede17f21864e81be2fa654110bf1e793774238d86ef8555c37e6519c0403"
 
 [[package]]
 name = "half"
-version = "2.6.0"
+version = "2.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "459196ed295495a68f7d7fe1d84f6c4b7ff0e21fe3017b2f283c6fac3ad803c9"
+checksum = "6dd08c532ae367adf81c312a4580bc67f1d0fe8bc9c460520283f4c0ff277888"
 dependencies = [
  "cfg-if",
  "crunchy",
@@ -8864,6 +8864,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "sd-archive"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "blake3",
+ "chrono",
+ "dashmap",
+ "futures",
+ "indexmap 2.11.4",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "thiserror 2.0.16",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "sd-bench"
 version = "0.1.0"
 dependencies = [
@@ -8993,6 +9013,7 @@ dependencies = [
  "rmp",
  "rmp-serde",
  "rubato",
+ "sd-archive",
  "sd-ffmpeg",
  "sd-fs-watcher",
  "sd-images",
@@ -11272,7 +11293,7 @@ checksum = "af9605de7fee8d9551863fd692cce7637f548dbd9db9180fcc07ccc6d26c336f"
 dependencies = [
  "fax",
  "flate2",
- "half 2.6.0",
+ "half 2.4.1",
  "quick-error",
  "weezl",
  "zune-jpeg",

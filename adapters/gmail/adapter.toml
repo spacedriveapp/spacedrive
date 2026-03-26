@@ -1,0 +1,119 @@
+[adapter]
+id = "gmail"
+name = "Gmail"
+description = "Index emails, threads, labels, and attachments from Gmail via the Gmail API"
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "mail"
+min_spacedrive = "0.1.0"
+trust_tier = "external"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 600
+schedule = "*/5 * * * *"
+requires = ["python3 >= 3.9"]
+
+[adapter.oauth]
+token_url = "https://oauth2.googleapis.com/token"
+scopes = [
+    "https://www.googleapis.com/auth/gmail.readonly",
+    "https://www.googleapis.com/auth/gmail.metadata",
+]
+token_key = "oauth_token"
+
+[[adapter.config]]
+key = "client_id"
+name = "Google Client ID"
+description = "OAuth2 client ID from Google Cloud Console"
+type = "string"
+required = true
+secret = true
+
+[[adapter.config]]
+key = "client_secret"
+name = "Google Client Secret"
+description = "OAuth2 client secret from Google Cloud Console"
+type = "string"
+required = true
+secret = true
+
+[[adapter.config]]
+key = "refresh_token"
+name = "Refresh Token"
+description = "OAuth2 refresh token obtained during initial authorization"
+type = "string"
+required = true
+secret = true
+
+[[adapter.config]]
+key = "email"
+name = "Email Address"
+description = "The Gmail address to index"
+type = "string"
+required = true
+
+[[adapter.config]]
+key = "labels"
+name = "Labels to Index"
+description = "Comma-separated list of labels to index (blank = all)"
+type = "string"
+required = false
+
+[[adapter.config]]
+key = "max_results"
+name = "Max Results per Sync"
+description = "Maximum messages to fetch per sync cycle"
+type = "integer"
+required = false
+default = 500
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "email"
+name = "Email"
+icon = "mail"
+
+[models.thread]
+fields.subject = "string"
+fields.last_date = "datetime"
+fields.message_count = "integer"
+fields.snippet = "text"
+has_many = ["message"]
+
+[models.message]
+fields.subject = "string"
+fields.body = "text"
+fields.from = "string"
+fields.to = "string"
+fields.cc = "string"
+fields.date = "datetime"
+fields.is_read = "boolean"
+fields.is_starred = "boolean"
+
+[models.message.relations]
+belongs_to = ["thread"]
+many_to_many = ["label"]
+
+[models.label]
+fields.name = "string"
+fields.color = "string"
+fields.type = "string"
+
+[models.attachment]
+fields.filename = "string"
+fields.mime_type = "string"
+fields.size = "integer"
+
+[models.attachment.relations]
+belongs_to = ["message"]
+
+[search]
+primary_model = "message"
+title = "subject"
+preview = "body"
+subtitle = "from"
+search_fields = ["subject", "body", "from", "to"]
+date_field = "date"

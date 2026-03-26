@@ -538,6 +538,7 @@ impl LibraryManager {
 			transaction_manager,
 			sync_service: OnceCell::new(),      // Initialized later
 			file_sync_service: OnceCell::new(), // Initialized later
+			source_manager: OnceCell::new(),    // Initialized lazily
 			device_cache: Arc::new(std::sync::RwLock::new(device_cache)),
 			_lock: std::sync::Mutex::new(Some(lock)),
 		});
