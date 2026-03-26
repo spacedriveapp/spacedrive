@@ -5,7 +5,8 @@
 <h1 align="center">Spacedrive</h1>
 
 <p align="center">
-  <strong>A virtual distributed filesystem written in Rust.</strong><br/>
+  <strong>One file manager for all your devices and clouds.</strong><br/>
+	<span>Powered by a Virtual Distributed File System, complete with apps for macOS, Windows, Linux, iOS and Android</span>
 </p>
 
 <p align="center">
@@ -41,81 +42,86 @@ Spacedrive is a file manager that treats files as first-class objects with conte
 
 ### Is this a replacement for Finder or Explorer?
 
-Not exactly.
+No. Spacedrive sits above your OS file manager and adds capabilities Finder/Explorer don't have:
 
-Spacedrive is not trying to replace Finder on macOS or Explorer on Windows as the default system file manager. That is not the goal, and it is not where the product is strongest.
-
-Spacedrive sits on top of your operating system and adds capabilities the stock file manager does not have:
-
-- **Portal across everything** — one place to search and browse files across local disks, external drives, NAS, cloud storage, and archived data sources.
+- **Portal across everything** — search and browse files across local disks, external drives, NAS, cloud storage, and archived data sources from one interface.
 - **Operating surface for files** — content identity, sidecars, derivative artifacts, rich metadata, sync, and cross-device awareness built into the core model.
-- **Embeddable and shareable** — run it as a desktop app, a headless server, a hosted file service, or embed the interface and APIs into other products.
-- **AI-ready by design** — prepare data ahead of time through indexing and analysis pipelines instead of giving agents raw shell access to your filesystem.
-- **Safer access model** — route AI and automation through Spacedrive's structured APIs, permissions, and processing layers instead of direct file reads and shell commands.
+- **Embeddable and shareable** — run it as a desktop app, headless server, hosted file service, or embed the interface and APIs into other products.
+- **AI-ready by design** — indexing and analysis pipelines prepare data ahead of time instead of giving agents raw shell access.
+- **Safer access model** — route AI and automation through structured APIs, permissions, and processing layers instead of direct file operations.
 
-You still use your operating system for low-level file interactions. Spacedrive adds the cross-platform, cross-device, cloud-aware, shareable, and automation-friendly layer on top.
-
-If Finder or Explorer is the street-level view of your files, Spacedrive is the map, index, archive, and control plane.
+You still use your OS for low-level file interactions. Spacedrive adds the cross-platform, cross-device, cloud-aware, and automation-friendly layer on top.
 
 ### Data Archival
 
-Beyond files, Spacedrive can index and archive data from external sources via script-based adapters. Gmail, Apple Notes, Chrome bookmarks, Obsidian, Slack, GitHub, calendar events, contacts. Each data source becomes a searchable repository. Search fans out across files and archived data together.
+Spacedrive indexes external data sources via script-based adapters: Gmail, Apple Notes, Chrome bookmarks, Obsidian, Slack, GitHub, calendar events, contacts. Each source becomes a searchable repository alongside your files.
 
-Adapters are simple: a folder with an `adapter.toml` manifest and a sync script in any language. If it can read stdin and print lines, it can be an adapter.
+Adapters are a folder with an `adapter.toml` manifest and a sync script in any language. If it reads stdin and prints lines, it works.
 
-Shipped adapters: Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari History, Obsidian, OpenCode, Slack, macOS Contacts, macOS Calendar, GitHub.
+**Shipped adapters:** Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari History, Obsidian, OpenCode, Slack, macOS Contacts, macOS Calendar, GitHub.
 
 ### Spacebot
 
-Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as a separate process alongside Spacedrive, communicating over APIs. Spacedrive provides the data, permission, and execution layer. Spacebot provides the intelligence layer. Neither depends on the other. Together, they form an operating surface where humans and agents work side by side.
+Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as an optional separate process. Spacedrive provides the data, permission, and execution layer. Spacebot provides the intelligence.
 
-**Paired node model** — every Spacebot instance pairs with exactly one Spacedrive node. That node is Spacebot's home device inside the library. It authenticates Spacebot, maintains the device graph, resolves permissions, and forwards operations to peer devices. Spacebot never owns the multi-device graph directly — Spacedrive is the source of truth for device identity, library membership, and access policy.
+Each Spacebot instance pairs with one Spacedrive node as its home device. That node authenticates the agent, maintains the device graph, resolves permissions, and forwards operations to peer devices. Every device in your library can reach Spacebot through the paired node over P2P (Iroh/QUIC) without direct network access. One agent runtime serves your entire device fleet.
 
-**Multi-device agent access** — every Spacedrive device in the library can reach Spacebot through the paired node over the existing P2P transport (Iroh/QUIC). A phone, a laptop, a NAS — all talk to the same Spacebot instance without needing a direct network path to it. Spacedrive proxies conversations, events, and approvals through the library graph. One agent runtime serves the entire device fleet.
+When Spacebot spawns a worker, that worker can target any device in the library. File reads, shell commands, and operations proxy through Spacedrive to the target device. Talk to the agent from your phone while work executes on a server. Read files from a NAS, run commands on a workstation, report to a laptop — all in one task.
 
-**Remote execution** — when Spacebot spawns a worker, that worker can target any device in the library. The worker's shell, file, and execution tools proxy through Spacedrive to the target device. From the model's perspective the tools are identical — it still calls `shell` and `file_read` — but the actual execution happens on a different machine, governed by policy. A founder can talk to an agent from their phone while the real work runs on an office server. An agent can read files from a NAS, run commands on a workstation, and report results to a laptop — all in one task.
-
-**Permission enforcement** — every Spacebot operation passes through Spacedrive's permission system before anything executes. Permissions are library-scoped and layered: which devices the agent may access, which paths and subtrees are readable or writable, which operations are allowed, and which actions require live human confirmation. The paired Spacedrive node resolves effective policy before forwarding, and the target device can enforce a second check for defense in depth. One security model, one permission UX, one audit surface across every device and cloud.
-
-**Chat everywhere** — the desktop app embeds a full Spacebot chat surface with conversations, streaming responses, inline worker cards, and tool call inspection. The mobile app reaches the same agent through the P2P proxy — check what the agent is working on, ask questions, review approvals, and speak naturally while the runtime continues on your own infrastructure. Same agent, same memory, same tasks, any device.
+Every operation passes through Spacedrive's permission system: which devices the agent can access, which paths are readable or writable, which operations are allowed, and which require human confirmation. The paired node resolves effective policy before forwarding. One security model, one audit surface across all devices and clouds.
 
 ### File System Intelligence
 
-Spacedrive adds a layer of file system intelligence on top of the native filesystem. It does not just expose files and folders. It understands what they are, why they exist, how they are organized, and what agents are allowed to do with them.
+Spacedrive adds intelligence to your filesystem by combining three layers:
 
-File System Intelligence combines three things:
+- **File intelligence** — derivative data like OCR, transcripts, extracted metadata, thumbnails, previews, classifications, and sidecars.
+- **Directory intelligence** — contextual knowledge attached to folders and subtrees ("active projects", "dormant archives", etc).
+- **Access intelligence** — permissions and policy that apply across devices and clouds, routing agents through structured access instead of raw shell commands.
 
-- **File intelligence** — derivative data for individual files such as OCR, transcripts, extracted metadata, thumbnails, previews, classifications, and sidecars.
-- **Directory intelligence** — contextual knowledge attached to folders and subtrees, like "this is where I keep active projects" or "this archive contains dormant repositories".
-- **Access intelligence** — universal permissions and policy that apply across devices and clouds, so agents can be granted structured access through Spacedrive instead of raw shell access.
+When an agent navigates through Spacedrive, it receives the file listing, subtree context, effective permissions, and summaries. Users can explain how they organize their system. Agents can add attributed notes. Jobs generate summaries from structure and activity. The intelligence stays attached to the filesystem, not buried in temporary session memory.
 
-This makes the filesystem legible to AI. When an agent navigates a path through Spacedrive, it does not walk blind. It receives the listing, the relevant context for that subtree, the effective permissions, and summaries of what lives there. A projects folder is not just a folder. It is an active workspace. An archive is not just another directory. It carries historical meaning and policy.
+### Safety Screening
 
-That context evolves over time. Users can explain how they organize their system. Agents can add notes and observations with attribution. Jobs can generate summaries from structure and activity. Spacedrive keeps that intelligence attached to the filesystem itself instead of burying it inside temporary session memory.
+Every record passes through a safety pipeline before becoming searchable:
 
-The result is a file system that feels native to both humans and agents. Finder and Explorer show you where files are. Spacedrive adds the intelligence layer that explains what they are, how they relate, and how automation should interact with them.
+- **Prompt Guard 2** — local classifier detects prompt injection in emails, messages, and documents before they enter the index.
+- **Trust tiers** — authored content (your notes) gets balanced screening, external content (email inbox) gets strict screening.
+- **Quarantine system** — flagged records excluded from AI agent queries, reviewable in desktop app.
+- **Content fencing** — search results include trust metadata so agents know what's safe vs untrusted.
+
+No other local data tool screens indexed content before exposing it to AI.
 
 ---
 
 ## Architecture
 
-The core is a single Rust crate with CQRS/DDD architecture. Every operation (file copy, tag create, search query) is a registered action or query with type-safe input/output that auto-generates TypeScript types for the frontend.
+The core is built on four principles:
 
-| Component           | Technology                                                        |
-| ------------------- | ----------------------------------------------------------------- |
-| Language            | Rust                                                              |
-| Async runtime       | Tokio                                                             |
-| Database            | SQLite (SeaORM + sqlx)                                            |
-| P2P                 | Iroh (QUIC, hole-punching, local discovery)                       |
-| Content hashing     | BLAKE3                                                            |
-| Vector search       | LanceDB + FastEmbed                                               |
-| Cloud storage       | OpenDAL                                                           |
-| Cryptography        | Ed25519, X25519, ChaCha20-Poly1305, AES-GCM                      |
-| Media               | FFmpeg, libheif, Pdfium, Whisper                                  |
-| Desktop             | Tauri 2                                                           |
-| Mobile              | React Native + Expo                                               |
-| Frontend            | React 19, Vite, TanStack Query, Tailwind CSS                     |
-| Type generation     | Specta                                                            |
+1. **Virtual Distributed Filesystem (VDFS)** — files and folders become first-class objects with rich metadata, independent of physical location. Every file gets a universal address (`SdPath`) that works across devices.
+
+2. **Content Identity System** — adaptive hashing (BLAKE3 with strategic sampling for large files) creates a unique fingerprint for every piece of content. Enables deduplication, redundancy tracking, and content-based operations.
+
+3. **Transactional Actions** — every file operation can be previewed before execution. See space savings, conflicts, and estimated time, then approve or cancel. Operations become durable jobs that survive network interruptions and device restarts.
+
+4. **Leaderless Sync** — peer-to-peer synchronization without central coordinators. Device-specific data uses state replication. Shared metadata uses an HLC-ordered log with deterministic conflict resolution.
+
+The implementation is a single Rust crate with CQRS/DDD architecture. Every operation (file copy, tag create, search query) is a registered action or query with type-safe input/output that auto-generates TypeScript types for the frontend.
+
+| Component       | Technology                                   |
+| --------------- | -------------------------------------------- |
+| Language        | Rust                                         |
+| Async runtime   | Tokio                                        |
+| Database        | SQLite (SeaORM + sqlx)                       |
+| P2P             | Iroh (QUIC, hole-punching, local discovery)  |
+| Content hashing | BLAKE3                                       |
+| Vector search   | LanceDB + FastEmbed                          |
+| Cloud storage   | OpenDAL                                      |
+| Cryptography    | Ed25519, X25519, ChaCha20-Poly1305, AES-GCM  |
+| Media           | FFmpeg, libheif, Pdfium, Whisper             |
+| Desktop         | Tauri 2                                      |
+| Mobile          | React Native + Expo                          |
+| Frontend        | React 19, Vite, TanStack Query, Tailwind CSS |
+| Type generation | Specta                                       |
 
 ```
 spacedrive/
@@ -147,12 +153,23 @@ git clone https://github.com/spacedriveapp/spacedrive
 cd spacedrive
 
 just setup        # bun install + native deps + cargo config
-just dev-daemon   # start the daemon
-just dev-desktop  # launch the desktop app (connects to daemon)
-just dev-server   # headless server (alternative to desktop)
+just dev-desktop  # launch the desktop app (auto-starts daemon)
 just test         # run all workspace tests
-just cli -- help  # run the CLI
 ```
+
+---
+
+## Privacy & Security
+
+Spacedrive is local-first. Your data stays on your devices.
+
+- **End-to-End Encryption** — all P2P traffic encrypted via QUIC/TLS
+- **At-Rest Encryption** — libraries can be encrypted on disk (SQLCipher)
+- **No Telemetry** — zero tracking or analytics
+- **Self-Hostable** — run your own relay servers
+- **Data Sovereignty** — you control where your data lives
+
+Optional cloud integration is available for backup and remote access, but it's never required. The cloud service runs unmodified Spacedrive core as a standard P2P device—no special privileges.
 
 ---
 
