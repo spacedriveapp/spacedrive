@@ -8,6 +8,7 @@ import { useKeybind } from "../../../hooks/useKeybind";
 import { useKeybindScope } from "../../../hooks/useKeybindScope";
 import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../../components/modals/FileOperationModal";
+import { useDeleteFiles } from "./useDeleteFiles";
 import { isInputFocused } from "../../../util/keybinds/platform";
 
 export function useExplorerKeyboard() {
@@ -36,6 +37,7 @@ export function useExplorerKeyboard() {
 	} = useSelection();
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+	const { deleteFiles, isPending: isDeleting } = useDeleteFiles();
 
 	// Activate explorer keybind scope when this hook is active
 	useKeybindScope("explorer");
@@ -158,6 +160,26 @@ export function useExplorerKeyboard() {
 			}
 		},
 		{ enabled: selectedFiles.length === 1 },
+	);
+
+	// Delete: Move to trash
+	useKeybind(
+		"explorer.delete",
+		async () => {
+			const ok = await deleteFiles(selectedFiles, false);
+			if (ok) clearSelection();
+		},
+		{ enabled: selectedFiles.length > 0 && !isDeleting },
+	);
+
+	// Permanent Delete: Shift+Delete / Cmd+Alt+Backspace
+	useKeybind(
+		"explorer.permanentDelete",
+		async () => {
+			const ok = await deleteFiles(selectedFiles, true);
+			if (ok) clearSelection();
+		},
+		{ enabled: selectedFiles.length > 0 && !isDeleting },
 	);
 
 	useEffect(() => {

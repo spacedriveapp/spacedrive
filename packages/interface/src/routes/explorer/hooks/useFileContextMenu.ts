@@ -33,6 +33,7 @@ import { useClipboard } from "../../../hooks/useClipboard";
 import { useFileOperationDialog } from "../../../components/modals/FileOperationModal";
 import { useSelection } from "../SelectionContext";
 import { useOpenWith } from "../../../hooks/useOpenWith";
+import { useDeleteFiles } from "./useDeleteFiles";
 
 interface UseFileContextMenuProps {
 	file?: File | null;
@@ -48,7 +49,7 @@ export function useFileContextMenu({
 	const { navigateToPath, currentPath } = useExplorer();
 	const platform = usePlatform();
 	const copyFiles = useLibraryMutation("files.copy");
-	const deleteFiles = useLibraryMutation("files.delete");
+	const { deleteFiles } = useDeleteFiles();
 	const createFolder = useLibraryMutation("files.createFolder");
 	const { runJob } = useJobDispatch();
 	const clipboard = useClipboard();
@@ -532,60 +533,7 @@ export function useFileContextMenu({
 						: "Delete",
 				onClick: async () => {
 					const targets = getTargetFiles();
-					if (targets.length === 0) {
-						console.warn("Cannot delete virtual files");
-						return;
-					}
-					const message =
-						targets.length > 1
-							? `Delete ${targets.length} items?`
-							: `Delete "${file?.name ?? "this file"}"?`;
-
-					if (confirm(message)) {
-						console.log(
-							"Deleting files:",
-							targets.map((f) => f.name),
-						);
-
-						try {
-							const result = await deleteFiles.mutateAsync({
-								targets: {
-									paths: targets.map((f) => f.sd_path),
-								},
-								permanent: false,
-								recursive: true,
-							});
-
-							console.log("Delete result:", result);
-
-							// Check if it's a confirmation request
-							if (
-								result &&
-								typeof result === "object" &&
-								"NeedsConfirmation" in result
-							) {
-								console.log(
-									"Delete needs confirmation:",
-									result,
-								);
-								alert(
-									"Delete confirmation UI not implemented yet",
-								);
-							} else if (
-								result &&
-								typeof result === "object" &&
-								"job_id" in result
-							) {
-								console.log(
-									"Delete job started:",
-									result.job_id,
-								);
-							}
-						} catch (err) {
-							console.error("Failed to delete:", err);
-							alert(`Failed to delete: ${err}`);
-						}
-					}
+					await deleteFiles(targets, false);
 				},
 				keybind: "⌘⌫",
 				variant: "danger" as const,

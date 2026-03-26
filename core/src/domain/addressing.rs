@@ -682,7 +682,82 @@ impl SdPath {
 			Self::Physical { .. } => Ok(self.clone()),
 			Self::Cloud { .. } => Ok(self.clone()), // Cloud paths are already resolved
 			Self::Content { content_id } => {
-				// In the future, use job_ctx.library_db() to query for content instances
+				use sea_orm::{ColumnTrait, EntityTrait, ModelTrait, QueryFilter};
+				use crate::infra::db::entities::{
+					content_identity, device, location, ContentIdentity, Device, DirectoryPaths,
+					Entry, Location,
+				};
+
+				let db = job_ctx.library_db();
+				let current_device_id = get_current_device_id();
+				let current_device_slug = get_current_device_slug();
+
+				let ci = ContentIdentity::find()
+					.filter(content_identity::Column::Uuid.eq(Some(*content_id)))
+					.one(db)
+					.await
+					.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?
+					.ok_or(PathResolutionError::NoOnlineInstancesFound(*content_id))?;
+
+				let entries = Entry::find()
+					.filter(
+						crate::infra::db::entities::entry::Column::ContentId
+							.eq(Some(ci.id)),
+					)
+					.all(db)
+					.await
+					.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?;
+
+				for entry in entries {
+					let loc = Location::find()
+						.filter(location::Column::EntryId.eq(entry.id))
+						.one(db)
+						.await
+						.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?;
+
+					if let Some(loc) = loc {
+						let dev = Device::find_by_id(loc.device_id)
+							.one(db)
+							.await
+							.map_err(|e| PathResolutionError::DatabaseError(e.to_string()))?;
+
+						if dev.map(|d| d.uuid) == Some(current_device_id) {
+							// Build path from directory_paths cache
+							let path = if let Some(parent_id) = entry.parent_id {
+								let parent = DirectoryPaths::find_by_id(parent_id)
+									.one(db)
+									.await
+									.map_err(|e| {
+										PathResolutionError::DatabaseError(e.to_string())
+									})?
+									.ok_or_else(|| {
+										PathResolutionError::DatabaseError(format!(
+											"Parent path not found for entry {}",
+											entry.id
+										))
+									})?;
+								let filename = match &entry.extension {
+									Some(ext) => format!("{}.{}", entry.name, ext),
+									None => entry.name.clone(),
+								};
+								std::path::PathBuf::from(parent.path).join(filename)
+							} else {
+								return Err(PathResolutionError::DatabaseError(
+									format!(
+										"Entry {} has no parent_id, cannot build absolute path",
+										entry.id
+									),
+								));
+							};
+
+							return Ok(SdPath::Physical {
+								device_slug: current_device_slug,
+								path,
+							});
+						}
+					}
+				}
+
 				Err(PathResolutionError::NoOnlineInstancesFound(*content_id))
 			}
 			Self::Sidecar { content_id, .. } => {

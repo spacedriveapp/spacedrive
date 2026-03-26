@@ -1,6 +1,9 @@
 //! Delete job implementation
 
-use crate::{domain::addressing::SdPathBatch, infra::job::prelude::*};
+use crate::{
+	domain::addressing::SdPathBatch,
+	infra::job::{generic_progress::GenericProgress, prelude::*},
+};
 use serde::{Deserialize, Serialize};
 use std::{
 	path::PathBuf,
@@ -51,19 +54,6 @@ pub struct DeleteJob {
 	started_at: Instant,
 }
 
-/// Delete progress information
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DeleteProgress {
-	pub current_file: String,
-	pub files_deleted: usize,
-	pub total_files: usize,
-	pub bytes_deleted: u64,
-	pub total_bytes: u64,
-	pub current_operation: String,
-	pub estimated_remaining: Option<Duration>,
-}
-
-impl JobProgress for DeleteProgress {}
 
 impl Job for DeleteJob {
 	const NAME: &'static str = "delete_files";
@@ -84,14 +74,21 @@ impl JobHandler for DeleteJob {
 	type Output = DeleteOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		let total_files = self.targets.paths.len();
+		let mode_str = match self.mode {
+			DeleteMode::Trash => "trash",
+			DeleteMode::Permanent => "permanent",
+			DeleteMode::Secure => "secure",
+		};
+
 		ctx.log(format!(
 			"Starting {} deletion of {} files",
-			match self.mode {
-				DeleteMode::Trash => "trash",
-				DeleteMode::Permanent => "permanent",
-				DeleteMode::Secure => "secure",
-			},
-			self.targets.paths.len()
+			mode_str, total_files
+		));
+
+		// Phase: Preparing
+		ctx.progress(Progress::Indeterminate(
+			format!("Validating {} targets", total_files),
 		));
 
 		// Safety check for permanent deletion
@@ -106,6 +103,20 @@ impl JobHandler for DeleteJob {
 		// Validate targets exist (only for local paths)
 		self.validate_targets(&ctx).await?;
 
+		// Phase: Resolving paths
+		ctx.progress(Progress::Indeterminate("Resolving paths".to_string()));
+
+		// Resolve Content paths to Physical paths before strategy selection
+		let mut resolved = Vec::with_capacity(self.targets.paths.len());
+		for path in &self.targets.paths {
+			resolved.push(
+				path.resolve_in_job(&ctx)
+					.await
+					.map_err(|e| JobError::execution(format!("Failed to resolve path: {e}")))?,
+			);
+		}
+		self.targets = SdPathBatch::new(resolved);
+
 		// Select strategy based on path topology
 		let volume_manager = ctx.volume_manager();
 		let strategy =
@@ -115,6 +126,11 @@ impl JobHandler for DeleteJob {
 		let strategy_description =
 			DeleteStrategyRouter::describe_strategy(&self.targets.paths).await;
 		ctx.log(format!("Using strategy: {}", strategy_description));
+
+		// Phase: Deleting
+		ctx.progress(Progress::Indeterminate(
+			format!("Deleting {} files ({})", total_files, mode_str),
+		));
 
 		// Execute deletion using selected strategy
 		let results = strategy
@@ -139,6 +155,19 @@ impl JobHandler for DeleteJob {
 				error: r.error.unwrap_or_default(),
 			})
 			.collect();
+
+		// Phase: Complete
+		ctx.progress(Progress::Generic(
+			GenericProgress::new(
+				1.0,
+				"Complete",
+				format!("{} deleted, {} failed", deleted_count, failed_count),
+			)
+			.with_completion(total_files as u64, total_files as u64)
+			.with_bytes(total_bytes, total_bytes)
+			.with_performance(0.0, None, Some(self.started_at.elapsed()))
+			.with_errors(failed_count as u64, 0),
+		));
 
 		ctx.log(format!(
 			"Delete operation completed: {} deleted, {} failed",
