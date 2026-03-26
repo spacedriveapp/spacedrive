@@ -5,7 +5,6 @@ use sd_core::{
 	infra::job::{prelude::*, registry::REGISTRY},
 	ops::files::copy::job::FileCopyJob,
 };
-use uuid::Uuid;
 
 #[tokio::test]
 async fn test_job_registration() {

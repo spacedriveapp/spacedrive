@@ -5,7 +5,7 @@ use std::time::Duration;
 use tokio::time::sleep;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Initialize logging
 	tracing_subscriber::fmt::init();
 

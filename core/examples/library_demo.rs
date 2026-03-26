@@ -6,7 +6,7 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Initialize logging
 	tracing_subscriber::fmt()
 		.with_env_filter("sd_core=debug")
@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			accessed_at: Set(None),
 			indexed_at: Set(None),
 			permissions: Set(None),
-			device_id: Set(Some(inserted_device.id)),
+			volume_id: Set(None),
 			inode: Set(None),
 		};
 		let entry_record = entry.insert(db.conn()).await?;
@@ -135,6 +135,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			id: NotSet,
 			uuid: Set(Uuid::new_v4()),
 			device_id: Set(inserted_device.id),
+			volume_id: Set(None),
 			entry_id: Set(Some(entry_record.id)),
 			name: Set(Some("Current Directory".to_string())),
 			index_mode: Set("shallow".to_string()),

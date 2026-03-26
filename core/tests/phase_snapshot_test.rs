@@ -15,7 +15,7 @@ use std::{sync::Arc, time::Duration};
 use tempfile::TempDir;
 
 #[tokio::test]
-async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error>> {
+async fn capture_phase_snapshots() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	tracing_subscriber::fmt::init();
 	eprintln!("\nPHASE SNAPSHOT TEST - Indexing Desktop\n");
 	eprintln!("{}", "=".repeat(80));
