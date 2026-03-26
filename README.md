@@ -5,8 +5,7 @@
 <h1 align="center">Spacedrive</h1>
 
 <p align="center">
-  <strong>An open source cross-platform file operating system.</strong><br/>
-  Powered by a virtual distributed filesystem written in Rust.
+  <strong>A virtual distributed filesystem written in Rust.</strong><br/>
 </p>
 
 <p align="center">
