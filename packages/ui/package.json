@@ -12,10 +12,7 @@
 		".": "./src/index.ts",
 		"./src/forms": "./src/forms/index.ts",
 		"./postcss": "./style/postcss.config.js",
-		"./tailwind": "./style/tailwind.js",
 		"./style": "./style/index.js",
-		"./style/colors": "./style/colors.js",
-		"./style/colors.scss": "./style/colors.scss",
 		"./style/style.scss": "./style/style.scss",
 		"./package.json": "./package.json"
 	},
@@ -48,6 +45,7 @@
 		"@radix-ui/react-tooltip": "^1.0.7",
 		"@react-spring/web": "9.7.3",
 		"@sd/assets": "workspace:*",
+		"@spaceui/tokens": "link:@spaceui/tokens",
 		"@zxcvbn-ts/core": "^3.0.4",
 		"@zxcvbn-ts/language-common": "^3.0.4",
 		"@zxcvbn-ts/language-en": "^3.0.2",

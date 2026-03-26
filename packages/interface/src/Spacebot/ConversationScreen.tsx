@@ -6,8 +6,8 @@ import {
 	type WorkerListItem
 } from '@spacebot/api-client';
 import type {
-	WebChatConversationSummary,
-	WebChatHistoryMessage
+	PortalConversationSummary,
+	PortalHistoryMessage
 } from '@spacebot/api-client';
 import {useQuery} from '@tanstack/react-query';
 import {useVirtualizer} from '@tanstack/react-virtual';
@@ -19,8 +19,8 @@ import {Markdown} from './Markdown';
 
 interface ConversationScreenProps {
 	agentId: string;
-	conversation: WebChatConversationSummary | null;
-	messages: WebChatHistoryMessage[];
+	conversation: PortalConversationSummary | null;
+	messages: PortalHistoryMessage[];
 	isTyping: boolean;
 	streamingAssistantText: string;
 	draft: string;

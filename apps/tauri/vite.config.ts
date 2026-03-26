@@ -12,36 +12,110 @@ export default defineConfig(async () => ({
 	},
 
 	resolve: {
-		alias: {
-			"openapi-fetch": path.resolve(
-				__dirname,
-				"../../packages/interface/node_modules/openapi-fetch/dist/index.mjs",
-			),
-			"@spacebot/api-client": path.resolve(
-				__dirname,
-				"../../../spacebot/packages/api-client/src",
-			),
-			"@sd/interface": path.resolve(
-				__dirname,
-				"../../packages/interface/src",
-			),
-			"@sd/ts-client": path.resolve(
-				__dirname,
-				"../../packages/ts-client/src",
-			),
-			"@sd/ui/style": path.resolve(__dirname, "../../packages/ui/style"),
-			"@sd/ui": path.resolve(__dirname, "../../packages/ui/src"),
-		},
+		dedupe: ["react", "react-dom"],
+		alias: [
+			{
+				find: /^react$/,
+				replacement: path.resolve(__dirname, "./node_modules/react/index.js"),
+			},
+			{
+				find: /^react\/jsx-runtime$/,
+				replacement: path.resolve(__dirname, "./node_modules/react/jsx-runtime.js"),
+			},
+			{
+				find: /^react\/jsx-dev-runtime$/,
+				replacement: path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime.js"),
+			},
+			{
+				find: /^react-dom$/,
+				replacement: path.resolve(__dirname, "./node_modules/react-dom/index.js"),
+			},
+			{
+				find: /^react-dom\/client$/,
+				replacement: path.resolve(__dirname, "./node_modules/react-dom/client.js"),
+			},
+			{
+				find: "openapi-fetch",
+				replacement: path.resolve(
+					__dirname,
+					"../../packages/interface/node_modules/openapi-fetch/dist/index.mjs",
+				),
+			},
+			{
+				find: "@spaceui/tokens/css/themes",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spaceui/packages/tokens/src/css/themes",
+				),
+			},
+			{
+				find: "@spaceui/tokens/css",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spaceui/packages/tokens/src/css/base.css",
+				),
+			},
+			{
+				find: "@spaceui/tokens",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spaceui/packages/tokens/src/index.ts",
+				),
+			},
+			{
+				find: "@spaceui/ai",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spaceui/packages/ai/src/index.ts",
+				),
+			},
+			{
+				find: "@spaceui/primitives",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spaceui/packages/primitives/src/index.ts",
+				),
+			},
+			{
+				find: "@spacebot/api-client",
+				replacement: path.resolve(
+					__dirname,
+					"../../../spacebot/packages/api-client/src",
+				),
+			},
+			{
+				find: "@sd/interface",
+				replacement: path.resolve(__dirname, "../../packages/interface/src"),
+			},
+			{
+				find: "@sd/ts-client",
+				replacement: path.resolve(__dirname, "../../packages/ts-client/src"),
+			},
+			{
+				find: "@sd/ui/style",
+				replacement: path.resolve(__dirname, "../../packages/ui/style"),
+			},
+			{
+				find: "@sd/ui",
+				replacement: path.resolve(__dirname, "../../packages/ui/src"),
+			},
+		],
 	},
 
 	optimizeDeps: {
-		include: ["rooks"],
+		exclude: ["@spaceui/ai", "@spaceui/primitives", "@spaceui/tokens"],
 	},
 
 	clearScreen: false,
 	server: {
 		port: 1420,
 		strictPort: true,
+		fs: {
+			allow: [
+				path.resolve(__dirname, "../../.."),
+				path.resolve(__dirname, "../../../spaceui"),
+			],
+		},
 		watch: {
 			ignored: ["**/src-tauri/**"],
 		},

@@ -1,4 +1,10 @@
-@import "@sd/ui/style/colors.scss";
+@import "@spaceui/tokens/css";
+@import "@spaceui/tokens/css/themes/light";
+@import "@spaceui/tokens/css/themes/midnight";
+@import "@spaceui/tokens/css/themes/noir";
+@import "@spaceui/tokens/css/themes/slate";
+@import "@spaceui/tokens/css/themes/nord";
+@import "@spaceui/tokens/css/themes/mocha";
 
 /* Prevent overscroll/rubber-band effect on macOS */
 html,

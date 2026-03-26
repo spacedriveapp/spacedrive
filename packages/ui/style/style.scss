@@ -1,4 +1,12 @@
-@import './colors.scss';
+@use "sass:meta";
+
+@include meta.load-css("@spaceui/tokens/css");
+@include meta.load-css("@spaceui/tokens/css/themes/light");
+@include meta.load-css("@spaceui/tokens/css/themes/midnight");
+@include meta.load-css("@spaceui/tokens/css/themes/noir");
+@include meta.load-css("@spaceui/tokens/css/themes/slate");
+@include meta.load-css("@spaceui/tokens/css/themes/nord");
+@include meta.load-css("@spaceui/tokens/css/themes/mocha");
 
 @tailwind base;
 @tailwind components;

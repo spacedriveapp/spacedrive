@@ -1,4 +1,4 @@
-const config = require('@sd/ui/tailwind');
+const config = require('@spaceui/tokens/spacedrive-tailwind');
 
 /** @type {import('tailwindcss').Config} */
 module.exports = config('tauri');

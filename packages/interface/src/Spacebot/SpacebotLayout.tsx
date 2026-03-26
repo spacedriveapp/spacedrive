@@ -6,6 +6,7 @@ import {
 	DotsThree
 } from '@phosphor-icons/react';
 import {Popover, SearchBar, TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import {ReactQueryDevtools} from '@tanstack/react-query-devtools';
 import {useEffect, useState} from 'react';
 import {Outlet, useLocation, useNavigate} from 'react-router-dom';
 import {
@@ -364,6 +365,11 @@ export function SpacebotLayout() {
 					</div>
 				</main>
 			</div>
+
+			<ReactQueryDevtools
+				initialIsOpen={false}
+				buttonPosition="bottom-left"
+			/>
 		</div>
 	);
 }

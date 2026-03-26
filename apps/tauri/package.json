@@ -31,9 +31,11 @@
 		"@tauri-apps/plugin-shell": "^2.0.1",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
+		"react-router-dom": "=6.20.1",
 		"react-scan": "^0.4.3"
 	},
 	"devDependencies": {
+		"@spaceui/tokens": "link:@spaceui/tokens",
 		"@tauri-apps/cli": "^2.1.0",
 		"@types/react": "npm:types-react@rc",
 		"@types/react-dom": "npm:types-react-dom@rc",

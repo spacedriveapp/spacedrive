@@ -18,8 +18,8 @@ import {
 	type OutboundMessageDeltaEvent,
 	type OutboundMessageEvent,
 	type TypingStateEvent,
-	type WebChatConversationResponse,
-	type WebChatConversationSummary
+	type PortalConversationResponse,
+	type PortalConversationSummary
 } from '@spacebot/api-client';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
@@ -89,7 +89,7 @@ interface SpacebotContextType {
 	setDraft: (value: string) => void;
 	isTyping: boolean;
 	streamingAssistantText: string;
-	conversations: WebChatConversationSummary[];
+	conversations: PortalConversationSummary[];
 	conversationsLoading: boolean;
 	conversationsError: boolean;
 
@@ -98,9 +98,9 @@ interface SpacebotContextType {
 	isSending: boolean;
 	createConversation: (
 		title?: string | null
-	) => Promise<WebChatConversationResponse>;
-	getConversationById: (id: string) => WebChatConversationSummary | undefined;
-	getConversationMessages: (id: string) => WebChatHistoryItem[];
+	) => Promise<PortalConversationResponse>;
+	getConversationById: (id: string) => PortalConversationSummary | undefined;
+	getConversationMessages: (id: string) => PortalHistoryItem[];
 	openVoiceOverlay: () => void;
 
 	// Navigation
@@ -108,7 +108,7 @@ interface SpacebotContextType {
 	navigateToConversation: (conversationId: string) => void;
 }
 
-interface WebChatHistoryItem {
+interface PortalHistoryItem {
 	role: 'user' | 'assistant';
 	content: string;
 	timestamp: string;
@@ -167,7 +167,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	const [isTyping, setIsTyping] = useState(false);
 	const [streamingAssistantText, setStreamingAssistantText] = useState('');
 	const [conversationMessages, setConversationMessages] = useState<
-		Map<string, WebChatHistoryItem[]>
+		Map<string, PortalHistoryItem[]>
 	>(new Map());
 
 	const agentSelector = usePopover();
@@ -189,7 +189,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	const conversationsQuery = useQuery({
 		queryKey: ['spacebot', 'conversations', selectedAgent],
 		queryFn: () =>
-			apiClient.listWebchatConversations(selectedAgent, false, 100),
+			apiClient.listPortalConversations(selectedAgent, false, 100),
 		refetchInterval: 4000
 	});
 
@@ -203,12 +203,12 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	const historyQuery = useQuery({
 		queryKey: [
 			'spacebot',
-			'webchat-history',
+			'portal-history',
 			selectedAgent,
 			conversationId
 		],
 		queryFn: () =>
-			apiClient.webchatHistory(selectedAgent, conversationId!, 200),
+			apiClient.portalHistory(selectedAgent, conversationId!, 200),
 		enabled: Boolean(conversationId),
 		refetchInterval: false
 	});
@@ -218,10 +218,10 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 		if (historyQuery.data && conversationId) {
 			setConversationMessages((prev) => {
 				const next = new Map(prev);
-				next.set(
-					conversationId,
-					historyQuery.data as WebChatHistoryItem[]
-				);
+			next.set(
+				conversationId,
+				historyQuery.data as PortalHistoryItem[]
+			);
 				return next;
 			});
 		}
@@ -230,11 +230,11 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	// Create conversation mutation
 	const createConversationMutation = useMutation({
 		mutationFn: (title?: string | null) =>
-			apiClient.createWebchatConversation({
+			apiClient.createPortalConversation({
 				agentId: selectedAgent,
 				title
 			}),
-		onSuccess: async (response: WebChatConversationResponse) => {
+		onSuccess: async (response: PortalConversationResponse) => {
 			navigateToConversation(response.conversation.id);
 			await queryClient.invalidateQueries({
 				queryKey: ['spacebot', 'conversations', selectedAgent]
@@ -252,7 +252,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 				targetConversationId = response.conversation.id;
 			}
 
-			await apiClient.webchatSend({
+			await apiClient.portalSend({
 				agentId: selectedAgent,
 				sessionId: targetConversationId!,
 				senderName: currentAgent?.name ?? 'user',
@@ -273,7 +273,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 				queryClient.invalidateQueries({
 					queryKey: [
 						'spacebot',
-						'webchat-history',
+						'portal-history',
 						selectedAgent,
 						targetConversationId
 					]
@@ -294,7 +294,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 					queryClient.invalidateQueries({
 						queryKey: [
 							'spacebot',
-							'webchat-history',
+							'portal-history',
 							selectedAgent,
 							conversationId
 						]
@@ -347,7 +347,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 					queryClient.invalidateQueries({
 						queryKey: [
 							'spacebot',
-							'webchat-history',
+							'portal-history',
 							selectedAgent,
 							conversationId
 						]
@@ -372,7 +372,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 					queryClient.invalidateQueries({
 						queryKey: [
 							'spacebot',
-							'webchat-history',
+							'portal-history',
 							selectedAgent,
 							conversationId
 						]

@@ -1,6 +1,6 @@
 import React from "react";
 import { View } from "react-native";
-import sharedColors from "@sd/ui/style/colors";
+import sharedColors from "@spaceui/tokens/raw-colors";
 
 interface PageIndicatorProps {
 	currentIndex: number;
