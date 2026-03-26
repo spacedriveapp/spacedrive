@@ -1,7 +1,7 @@
 use file_opening::{FileOpener, OpenResult, OpenWithApp};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::os::windows::ffi::OsStrExt;
 use windows::core::*;
-use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::UI::Shell::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -28,7 +28,14 @@ impl FileOpener for WindowsFileOpener {
 	fn get_apps_for_file(&self, path: &Path) -> std::result::Result<Vec<OpenWithApp>, String> {
 		ensure_com_initialized();
 
-		let ext = path
+		let mut actual_path = path.to_path_buf();
+		if path.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("lnk")) {
+			if let Some(target) = resolve_shortcut(path) {
+				actual_path = target;
+			}
+		}
+
+		let ext = actual_path
 			.extension()
 			.and_then(|e| e.to_str())
 			.map(|e| format!(".{}", e))
@@ -44,7 +51,14 @@ impl FileOpener for WindowsFileOpener {
 	fn open_with_default(&self, path: &Path) -> std::result::Result<OpenResult, String> {
 		ensure_com_initialized();
 
-		let path_str = path.to_string_lossy();
+		let mut actual_path = path.to_path_buf();
+		if path.extension().and_then(|e| e.to_str()).map_or(false, |e| e.eq_ignore_ascii_case("lnk")) {
+			if let Some(target) = resolve_shortcut(path) {
+				actual_path = target;
+			}
+		}
+
+		let path_str = actual_path.to_string_lossy();
 		let h_path = HSTRING::from(&*path_str);
 
 		unsafe {
@@ -162,3 +176,35 @@ fn list_apps_for_extension(ext: &str) -> std::result::Result<Vec<OpenWithApp>, S
 		Ok(apps)
 	}
 }
+
+fn resolve_shortcut(path: &Path) -> Option<PathBuf> {
+	unsafe {
+		let shell_link: IShellLinkW =
+			CoCreateInstance(&ShellLink, None, CLSCTX_INPROC_SERVER).ok()?;
+		let persist_file: IPersistFile = shell_link.cast().ok()?;
+
+		let path_vec: Vec<u16> = path
+			.as_os_str()
+			.encode_wide()
+			.chain(std::iter::once(0))
+			.collect();
+
+		persist_file
+			.Load(PCWSTR(path_vec.as_ptr()), STGM_READ)
+			.ok()?;
+
+		let mut buffer = [0u16; 260];
+		shell_link
+			.GetPath(&mut buffer, std::ptr::null_mut(), 0)
+			.ok()?;
+
+		let target = String::from_utf16_lossy(&buffer);
+		let target = target.trim_matches('\0');
+		if target.is_empty() {
+			None
+		} else {
+			Some(PathBuf::from(target))
+		}
+	}
+}
+
