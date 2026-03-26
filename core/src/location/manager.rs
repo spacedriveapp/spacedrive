@@ -46,6 +46,30 @@ impl LocationManager {
 		job_policies: Option<String>,
 		volume_manager: &crate::volume::VolumeManager,
 	) -> LocationResult<(Uuid, String)> {
+		// Canonicalize local physical paths to absolute form before storing.
+		// Relative paths break the watcher, volume resolution, and indexer.
+		// Only for local device — remote paths can't be resolved locally.
+		let sd_path = if sd_path.is_local() {
+			if let crate::domain::addressing::SdPath::Physical { device_slug, path } = sd_path {
+				let canonical = tokio::fs::canonicalize(&path).await.map_err(|e| {
+					LocationError::InvalidPath(format!(
+						"Failed to resolve path {}: {}",
+						path.display(),
+						e
+					))
+				})?;
+				let canonical = crate::common::utils::strip_windows_extended_prefix(canonical);
+				crate::domain::addressing::SdPath::Physical {
+					device_slug,
+					path: canonical,
+				}
+			} else {
+				sd_path
+			}
+		} else {
+			sd_path
+		};
+
 		info!("Adding location: {}", sd_path);
 
 		// Validate the path based on type

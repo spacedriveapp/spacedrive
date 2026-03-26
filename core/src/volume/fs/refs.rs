@@ -293,18 +293,7 @@ impl super::FilesystemHandler for RefsHandler {
 	}
 
 	fn contains_path(&self, volume: &Volume, path: &std::path::Path) -> bool {
-		// Strip Windows extended path prefix (\\?\) produced by canonicalize()
-		let normalized_path = if let Some(path_str) = path.to_str() {
-			if path_str.starts_with("\\\\?\\UNC\\") {
-				PathBuf::from(format!("\\\\{}", &path_str[8..]))
-			} else if let Some(stripped) = path_str.strip_prefix("\\\\?\\") {
-				PathBuf::from(stripped)
-			} else {
-				path.to_path_buf()
-			}
-		} else {
-			path.to_path_buf()
-		};
+		let normalized_path = crate::common::utils::strip_windows_extended_prefix(path.to_path_buf());
 
 		if normalized_path.starts_with(&volume.mount_point) {
 			return true;

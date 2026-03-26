@@ -43,12 +43,23 @@ impl LibraryAction for LocationRemoveAction {
 		library: std::sync::Arc<crate::library::Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Remove the location
+		// Remove the location from DB
 		let location_manager = LocationManager::new(context.events.as_ref().clone());
 		location_manager
 			.remove_location(&library, self.input.location_id)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Unwatch the location from the filesystem watcher
+		if let Some(watcher) = context.get_fs_watcher().await {
+			if let Err(e) = watcher.unwatch_location(self.input.location_id).await {
+				tracing::warn!(
+					"Failed to unwatch location {}: {}",
+					self.input.location_id,
+					e
+				);
+			}
+		}
 
 		Ok(LocationRemoveOutput::new(self.input.location_id, None))
 	}
