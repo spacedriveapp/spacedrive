@@ -6,14 +6,13 @@
 	"types": "src/index.ts",
 	"sideEffects": [
 		"./style/index.js",
-		"./style/style.scss"
+		"./style/style.css"
 	],
 	"exports": {
 		".": "./src/index.ts",
 		"./src/forms": "./src/forms/index.ts",
-		"./postcss": "./style/postcss.config.js",
 		"./style": "./style/index.js",
-		"./style/style.scss": "./style/style.scss",
+		"./style/style.css": "./style/style.css",
 		"./package.json": "./package.json"
 	},
 	"files": [
@@ -73,10 +72,7 @@
 		"@types/node": ">18.18.x",
 		"@types/react": "npm:types-react@rc",
 		"@types/react-dom": "npm:types-react-dom@rc",
-		"autoprefixer": "^10.4.18",
-		"postcss": "^8.4.36",
-		"sass": "^1.72.0",
-		"tailwindcss": "^3.4.1",
+		"tailwindcss": "^4.1.0",
 		"tailwindcss-animate": "^1.0.7",
 		"tailwindcss-radix": "^2.8.0",
 		"tsup": "^8.3.5",

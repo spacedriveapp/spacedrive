@@ -1,15 +1,12 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
+import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 const COMMANDS = ["initialize_core", "core_rpc", "subscribe_events"];
 
 export default defineConfig(async () => ({
-	plugins: [react()],
-
-	css: {
-		postcss: "./postcss.config.cjs",
-	},
+	plugins: [react(), tailwindcss()],
 
 	resolve: {
 		dedupe: ["react", "react-dom"],
@@ -42,24 +39,17 @@ export default defineConfig(async () => ({
 				),
 			},
 			{
-				find: "@spaceui/tokens/css/themes",
+				find: "@spaceui/tokens/src/css",
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/tokens/src/css/themes",
-				),
-			},
-			{
-				find: "@spaceui/tokens/css",
-				replacement: path.resolve(
-					__dirname,
-					"../../../spaceui/packages/tokens/src/css/base.css",
+					"../../../spaceui/packages/tokens/src/css",
 				),
 			},
 			{
 				find: "@spaceui/tokens",
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/tokens/src/index.ts",
+					"../../../spaceui/packages/tokens",
 				),
 			},
 			{
