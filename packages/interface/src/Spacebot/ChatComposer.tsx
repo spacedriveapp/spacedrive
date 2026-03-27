@@ -1,6 +1,13 @@
 import {Microphone, Sparkle} from '@phosphor-icons/react';
-import { Popover, usePopover, OptionList, OptionListItem, SelectPill, CircleButton } from '@spaceui/primitives';
-import { ModelSelector, type ModelOption } from '@spaceui/ai';
+import {ModelSelector, type ModelOption} from '@spaceui/ai';
+import {
+	CircleButton,
+	OptionList,
+	OptionListItem,
+	Popover,
+	SelectPill,
+	usePopover
+} from '@spaceui/primitives';
 import {AnimatePresence, motion} from 'framer-motion';
 import {useState} from 'react';
 
@@ -80,16 +87,23 @@ export function ChatComposer({
 
 				<div className="mt-4 flex items-center justify-between gap-3">
 					<div className="w-[210px]">
-						<Popover.Root open={projectSelector.open} onOpenChange={projectSelector.setOpen}>
+						<Popover.Root
+							open={projectSelector.open}
+							onOpenChange={projectSelector.setOpen}
+						>
 							<Popover.Trigger asChild>
-								<SelectPill className="w-full">{selectedProject}</SelectPill>
+								<SelectPill className="w-full">
+									{selectedProject}
+								</SelectPill>
 							</Popover.Trigger>
 							<Popover.Content align="start" sideOffset={8}>
 								<OptionList>
 									{projectOptions.map((project) => (
 										<OptionListItem
 											key={project}
-											selected={project === selectedProject}
+											selected={
+												project === selectedProject
+											}
 											onClick={() => {
 												onSelectProject(project);
 												projectSelector.setOpen(false);
@@ -112,7 +126,10 @@ export function ChatComposer({
 							/>
 						</div>
 
-						<CircleButton icon={Microphone} onClick={onOpenVoiceOverlay} />
+						<CircleButton
+							icon={Microphone}
+							onClick={onOpenVoiceOverlay}
+						/>
 
 						<AnimatePresence initial={false}>
 							{canSend ? (
@@ -122,14 +139,19 @@ export function ChatComposer({
 									initial={{width: 0, opacity: 0, x: 12}}
 									animate={{width: 76, opacity: 1, x: 0}}
 									exit={{width: 0, opacity: 0, x: 12}}
-									transition={{duration: 0.18, ease: 'easeOut'}}
+									transition={{
+										duration: 0.18,
+										ease: 'easeOut'
+									}}
 									className="overflow-hidden"
 								>
 									<button
 										onClick={onSend}
 										className="border-app-line bg-accent hover:bg-accent-faint flex h-9 w-[76px] items-center justify-center rounded-full border px-4 text-xs font-medium text-white"
 									>
-										<span className="whitespace-nowrap">Send</span>
+										<span className="whitespace-nowrap">
+											Send
+										</span>
 									</button>
 								</motion.div>
 							) : null}

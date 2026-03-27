@@ -4,7 +4,17 @@ import {
 	ClockCounterClockwise,
 	DotsThree
 } from '@phosphor-icons/react';
-import { Popover, usePopover, SearchBar, CircleButton, CircleButtonGroup, SelectPill, OptionList, OptionListItem, Button } from '@spaceui/primitives';
+import {
+	Button,
+	CircleButton,
+	CircleButtonGroup,
+	OptionList,
+	OptionListItem,
+	Popover,
+	SearchBar,
+	SelectPill,
+	usePopover
+} from '@spaceui/primitives';
 import {ReactQueryDevtools} from '@tanstack/react-query-devtools';
 import {useEffect, useState} from 'react';
 import {Outlet, useLocation, useNavigate} from 'react-router-dom';
@@ -190,13 +200,18 @@ export function SpacebotLayout() {
 						title="Go forward"
 					/>
 				</CircleButtonGroup>
-				<Popover.Root open={agentSelector.open} onOpenChange={agentSelector.setOpen}>
+				<Popover.Root
+					open={agentSelector.open}
+					onOpenChange={agentSelector.setOpen}
+				>
 					<Popover.Trigger asChild>
-						<SelectPill variant="sidebar">
-							{currentAgent?.name ?? 'Agent'}
-						</SelectPill>
+						<SelectPill>{currentAgent?.name ?? 'Agent'}</SelectPill>
 					</Popover.Trigger>
-					<Popover.Content align="start" sideOffset={8} className="min-w-[180px] p-2">
+					<Popover.Content
+						align="start"
+						sideOffset={8}
+						className="min-w-[180px] p-2"
+					>
 						<OptionList>
 							{agents.map((agent) => (
 								<OptionListItem
@@ -208,8 +223,12 @@ export function SpacebotLayout() {
 									}}
 								>
 									<div>
-										<div className="font-medium">{agent.name}</div>
-										<div className="text-ink-dull text-xs">{agent.detail}</div>
+										<div className="font-medium">
+											{agent.name}
+										</div>
+										<div className="text-ink-dull text-xs">
+											{agent.detail}
+										</div>
 									</div>
 								</OptionListItem>
 							))}
@@ -228,9 +247,9 @@ export function SpacebotLayout() {
 					/>
 					<Button
 						onClick={navigateToChat}
-						variant="accent"
-						size="xs"
-						className="rounded-full"
+						rounding="full"
+						variant="gray"
+						size="md"
 					>
 						New chat
 					</Button>

@@ -103,7 +103,11 @@ export function ExplorerView() {
 	// new view shows the directory the user was actually looking at.
 	const handleViewModeChange = useCallback(
 		(newMode: string) => {
-			if (viewMode === 'column' && newMode !== 'column' && columnStack.length > 1) {
+			if (
+				viewMode === 'column' &&
+				newMode !== 'column' &&
+				columnStack.length > 1
+			) {
 				navigateToPath(columnStack[columnStack.length - 1]);
 			}
 			setViewMode(newMode);
@@ -169,7 +173,7 @@ export function ExplorerView() {
 									onClick={() =>
 										setSidebarVisible(!sidebarVisible)
 									}
-									active={sidebarVisible}
+									active={!sidebarVisible}
 								/>
 							</TopBarItem>
 							<TopBarItem
@@ -190,19 +194,19 @@ export function ExplorerView() {
 									/>
 								</CircleButtonGroup>
 							</TopBarItem>
-						{pathBarPath && (
-							<TopBarItem
-								id="path-bar"
-								label="Path"
-								priority="high"
-							>
-								<PathBar
-									path={pathBarPath}
-									devices={devices}
-									onNavigate={navigateToPath}
-								/>
-							</TopBarItem>
-						)}
+							{pathBarPath && (
+								<TopBarItem
+									id="path-bar"
+									label="Path"
+									priority="high"
+								>
+									<PathBar
+										path={pathBarPath}
+										devices={devices}
+										onNavigate={navigateToPath}
+									/>
+								</TopBarItem>
+							)}
 							{currentView && (
 								<TopBarItem
 									id="virtual-path-bar"
@@ -255,10 +259,10 @@ export function ExplorerView() {
 								priority="normal"
 								submenuContent={viewModeSubmenu}
 							>
-							<ViewModeMenu
-								viewMode={viewMode}
-								onViewModeChange={handleViewModeChange}
-							/>
+								<ViewModeMenu
+									viewMode={viewMode}
+									onViewModeChange={handleViewModeChange}
+								/>
 							</TopBarItem>
 							<TopBarItem
 								id="view-settings"
@@ -266,7 +270,9 @@ export function ExplorerView() {
 								priority="low"
 								submenuContent={viewSettingsSubmenu}
 							>
-								<ViewSettings totalFileCount={currentFiles.length} />
+								<ViewSettings
+									totalFileCount={currentFiles.length}
+								/>
 							</TopBarItem>
 							<TopBarItem
 								id="sort"
@@ -293,7 +299,7 @@ export function ExplorerView() {
 									onClick={() =>
 										setInspectorVisible(!inspectorVisible)
 									}
-									active={inspectorVisible}
+									active={!inspectorVisible}
 								/>
 							</TopBarItem>
 						</>
@@ -301,15 +307,21 @@ export function ExplorerView() {
 				/>
 			)}
 
-			<div className={clsx(
-				"relative flex h-full w-full flex-col overflow-hidden pt-1.5",
-				viewMode === 'size' ? "bg-transparent" : "bg-app/80"
-			)}>
+			<div
+				className={clsx(
+					'relative flex h-full w-full flex-col overflow-hidden pt-1.5',
+					viewMode === 'size' ? 'bg-transparent' : 'bg-app/80'
+				)}
+			>
 				{mode.type === 'search' && <SearchToolbar />}
-				<div className={clsx(
-					"flex-1",
-					viewMode === 'size' ? "overflow-visible" : "overflow-auto"
-				)}>
+				<div
+					className={clsx(
+						'flex-1',
+						viewMode === 'size'
+							? 'overflow-visible'
+							: 'overflow-auto'
+					)}
+				>
 					<TabNavigationGuard>
 						{mode.type === 'search' ? (
 							<SearchView />
