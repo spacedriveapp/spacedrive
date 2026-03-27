@@ -1,99 +1,112 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react-swc";
-import tailwindcss from "@tailwindcss/vite";
-import path from "path";
+import path from 'path';
+import tailwindcss from '@tailwindcss/vite';
+import react from '@vitejs/plugin-react-swc';
+import {defineConfig} from 'vite';
 
-const COMMANDS = ["initialize_core", "core_rpc", "subscribe_events"];
+const COMMANDS = ['initialize_core', 'core_rpc', 'subscribe_events'];
 
 export default defineConfig(async () => ({
 	plugins: [react(), tailwindcss()],
 
 	resolve: {
-		dedupe: ["react", "react-dom"],
+		dedupe: ['react', 'react-dom'],
 		alias: [
 			{
 				find: /^react$/,
-				replacement: path.resolve(__dirname, "./node_modules/react/index.js"),
+				replacement: path.resolve(
+					__dirname,
+					'./node_modules/react/index.js'
+				)
 			},
 			{
 				find: /^react\/jsx-runtime$/,
-				replacement: path.resolve(__dirname, "./node_modules/react/jsx-runtime.js"),
+				replacement: path.resolve(
+					__dirname,
+					'./node_modules/react/jsx-runtime.js'
+				)
 			},
 			{
 				find: /^react\/jsx-dev-runtime$/,
-				replacement: path.resolve(__dirname, "./node_modules/react/jsx-dev-runtime.js"),
+				replacement: path.resolve(
+					__dirname,
+					'./node_modules/react/jsx-dev-runtime.js'
+				)
 			},
 			{
 				find: /^react-dom$/,
-				replacement: path.resolve(__dirname, "./node_modules/react-dom/index.js"),
+				replacement: path.resolve(
+					__dirname,
+					'./node_modules/react-dom/index.js'
+				)
 			},
 			{
 				find: /^react-dom\/client$/,
-				replacement: path.resolve(__dirname, "./node_modules/react-dom/client.js"),
-			},
-			{
-				find: "openapi-fetch",
 				replacement: path.resolve(
 					__dirname,
-					"../../packages/interface/node_modules/openapi-fetch/dist/index.mjs",
-				),
+					'./node_modules/react-dom/client.js'
+				)
 			},
 			{
-				find: "@spaceui/tokens/src/css",
+				find: 'openapi-fetch',
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/tokens/src/css",
-				),
+					'../../packages/interface/node_modules/openapi-fetch/dist/index.mjs'
+				)
 			},
 			{
-				find: "@spaceui/tokens",
+				find: '@spaceui/tokens/src/css',
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/tokens",
-				),
+					'../../../spaceui/packages/tokens/src/css'
+				)
 			},
 			{
-				find: "@spaceui/ai",
+				find: '@spaceui/tokens',
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/ai/src/index.ts",
-				),
+					'../../../spaceui/packages/tokens'
+				)
 			},
 			{
-				find: "@spaceui/primitives",
+				find: '@spaceui/ai',
 				replacement: path.resolve(
 					__dirname,
-					"../../../spaceui/packages/primitives/src/index.ts",
-				),
+					'../../../spaceui/packages/ai/src/index.ts'
+				)
 			},
 			{
-				find: "@spacebot/api-client",
+				find: '@spaceui/primitives',
 				replacement: path.resolve(
 					__dirname,
-					"../../../spacebot/packages/api-client/src",
-				),
+					'../../../spaceui/packages/primitives/src/index.ts'
+				)
 			},
 			{
-				find: "@sd/interface",
-				replacement: path.resolve(__dirname, "../../packages/interface/src"),
+				find: '@spacebot/api-client',
+				replacement: path.resolve(
+					__dirname,
+					'../../../spacebot/packages/api-client/src'
+				)
 			},
 			{
-				find: "@sd/ts-client",
-				replacement: path.resolve(__dirname, "../../packages/ts-client/src"),
+				find: '@sd/interface',
+				replacement: path.resolve(
+					__dirname,
+					'../../packages/interface/src'
+				)
 			},
 			{
-				find: "@sd/ui/style",
-				replacement: path.resolve(__dirname, "../../packages/ui/style"),
-			},
-			{
-				find: "@sd/ui",
-				replacement: path.resolve(__dirname, "../../packages/ui/src"),
-			},
-		],
+				find: '@sd/ts-client',
+				replacement: path.resolve(
+					__dirname,
+					'../../packages/ts-client/src'
+				)
+			}
+		]
 	},
 
 	optimizeDeps: {
-		exclude: ["@spaceui/ai", "@spaceui/primitives", "@spaceui/tokens"],
+		exclude: ['@spaceui/ai', '@spaceui/primitives', '@spaceui/tokens']
 	},
 
 	clearScreen: false,
@@ -102,18 +115,18 @@ export default defineConfig(async () => ({
 		strictPort: true,
 		fs: {
 			allow: [
-				path.resolve(__dirname, "../../.."),
-				path.resolve(__dirname, "../../../spaceui"),
-			],
+				path.resolve(__dirname, '../../..'),
+				path.resolve(__dirname, '../../../spaceui')
+			]
 		},
 		watch: {
-			ignored: ["**/src-tauri/**"],
-		},
+			ignored: ['**/src-tauri/**']
+		}
 	},
-	envPrefix: ["VITE_", "TAURI_ENV_*"],
+	envPrefix: ['VITE_', 'TAURI_ENV_*'],
 	build: {
-		target: ["es2021", "chrome100", "safari13"],
-		minify: !process.env.TAURI_ENV_DEBUG ? "esbuild" : false,
-		sourcemap: !!process.env.TAURI_ENV_DEBUG,
-	},
+		target: ['es2021', 'chrome100', 'safari13'],
+		minify: !process.env.TAURI_ENV_DEBUG ? 'esbuild' : false,
+		sourcemap: !!process.env.TAURI_ENV_DEBUG
+	}
 }));

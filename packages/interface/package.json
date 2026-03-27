@@ -40,7 +40,6 @@
 		"@react-three/fiber": "^9.4.2",
 		"@sd/assets": "workspace:*",
 		"@sd/ts-client": "workspace:*",
-		"@sd/ui": "workspace:*",
 		"@spaceui/ai": "link:@spaceui/ai",
 		"@spaceui/primitives": "link:@spaceui/primitives",
 		"@spaceui/tokens": "link:@spaceui/tokens",

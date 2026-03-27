@@ -24,7 +24,6 @@
 		"@sd/assets": "workspace:*",
 		"@sd/interface": "workspace:*",
 		"@sd/ts-client": "workspace:*",
-		"@sd/ui": "workspace:*",
 		"@tauri-apps/api": "^2.1.1",
 		"@tauri-apps/plugin-dialog": "^2.4.2",
 		"@tauri-apps/plugin-fs": "^2.0.1",
