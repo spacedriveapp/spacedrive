@@ -5,7 +5,7 @@ import { useExplorer } from "../context";
 import type { SearchScope } from "../context";
 import { useVirtualListing } from "./useVirtualListing";
 
-export type FileSource = "search" | "virtual" | "directory" | "recents";
+export type FileSource = "search" | "virtual" | "directory" | "recents" | "tag";
 
 export interface ExplorerFilesResult {
 	files: File[];
@@ -16,10 +16,12 @@ export interface ExplorerFilesResult {
 /**
  * Centralized hook for fetching files in the explorer.
  *
- * Handles three file sources with priority:
- * 1. Search results (when in search mode)
- * 2. Virtual listings (devices/volumes/locations)
- * 3. Directory listings (normal file browsing)
+ * Handles file sources with priority:
+ * 1. Tag mode (when viewing files by tag)
+ * 2. Search results (when in search mode)
+ * 3. Recents (when in recents mode)
+ * 4. Virtual listings (devices/volumes/locations)
+ * 5. Directory listings (normal file browsing)
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
@@ -28,9 +30,10 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
-	// Check for search mode
+	// Check mode types
 	const isSearchMode = mode.type === "search";
 	const isRecentsMode = mode.type === "recents";
+	const isTagMode = mode.type === "tag";
 
 	// Build search query input
 	const searchQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -130,6 +133,23 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isRecentsMode && !!recentsQueryInput,
 	});
 
+	// Tag query — fetches files tagged with a specific tag
+	const tagQueryInput = useMemo(() => {
+		if (!isTagMode || mode.type !== "tag") return null;
+		return {
+			tag_id: mode.tagId,
+			include_children: false,
+			min_confidence: 0.0,
+		};
+	}, [isTagMode, mode]);
+
+	const tagQuery = useNormalizedQuery({
+		query: "files.by_tag",
+		input: tagQueryInput!,
+		resourceType: "file",
+		enabled: isTagMode && !!tagQueryInput,
+	});
+
 	// Directory query
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
@@ -143,20 +163,25 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				}
 			: null!,
 		resourceType: "file",
-		enabled: !!currentPath && !isVirtualView && !isSearchMode && !isRecentsMode,
+		enabled: !!currentPath && !isVirtualView && !isSearchMode && !isRecentsMode && !isTagMode,
 		pathScope: currentPath ?? undefined,
 	});
 
-	// Determine source and files with priority: recents > search > virtual > directory
-	const source: FileSource = isRecentsMode
-		? "recents"
-		: isSearchMode
-			? "search"
-			: isVirtualView
-				? "virtual"
-				: "directory";
+	// Determine source and files with priority: tag > recents > search > virtual > directory
+	const source: FileSource = isTagMode
+		? "tag"
+		: isRecentsMode
+			? "recents"
+			: isSearchMode
+				? "search"
+				: isVirtualView
+					? "virtual"
+					: "directory";
 
 	const files = useMemo(() => {
+		if (isTagMode) {
+			return (tagQuery.data as any)?.files || [];
+		}
 		if (isRecentsMode) {
 			return (recentsQuery.data as FileSearchOutput | undefined)?.files || [];
 		}
@@ -167,15 +192,17 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			return virtualFiles || [];
 		}
 		return (directoryQuery.data as any)?.files || [];
-	}, [isRecentsMode, isSearchMode, isVirtualView, recentsQuery.data, searchQuery.data, virtualFiles, directoryQuery.data]);
+	}, [isTagMode, isRecentsMode, isSearchMode, isVirtualView, tagQuery.data, recentsQuery.data, searchQuery.data, virtualFiles, directoryQuery.data]);
 
-	const isLoading = isRecentsMode
-		? recentsQuery.isLoading
-		: isSearchMode
-			? searchQuery.isLoading
-			: isVirtualView
-				? false
-				: directoryQuery.isLoading;
+	const isLoading = isTagMode
+		? tagQuery.isLoading
+		: isRecentsMode
+			? recentsQuery.isLoading
+			: isSearchMode
+				? searchQuery.isLoading
+				: isVirtualView
+					? false
+					: directoryQuery.isLoading;
 
 	return { files, isLoading, source };
 }

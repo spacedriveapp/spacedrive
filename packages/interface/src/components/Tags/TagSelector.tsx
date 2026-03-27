@@ -3,6 +3,7 @@ import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
 import { Popover, usePopover } from '@sd/ui';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
+import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
 import type { Tag } from '@sd/ts-client';
 
 interface TagSelectorProps {
@@ -33,7 +34,10 @@ export function TagSelector({
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 
-	const createTag = useLibraryMutation('tags.create');
+	const refetchTagQueries = useRefetchTagQueries();
+	const createTag = useLibraryMutation('tags.create', {
+		onSuccess: refetchTagQueries,
+	});
 
 	// Fetch all tags using search with empty query
 	// Using select to normalize TagSearchResult[] to Tag[] for consistent cache structure
@@ -41,6 +45,7 @@ export function TagSelector({
 		query: 'tags.search',
 		input: { query: '' },
 		resourceType: 'tag',
+		// TODO: replace `any` with proper generated types when available
 		select: (data: any) => data?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? []
 	});
 
@@ -105,7 +110,7 @@ export function TagSelector({
 				apply_to: contentId
 					? { type: 'Content', ids: [contentId] }
 					: fileId
-					? { type: 'Entry', ids: [parseInt(fileId)] }
+					? { type: 'EntryUuid', ids: [fileId] }
 					: undefined,
 			});
 

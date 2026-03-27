@@ -10,7 +10,7 @@ use crate::{
 	domain::{addressing::SdPath, File},
 	filetype::FileTypeRegistry,
 	infra::db::entities::{
-		content_identity, directory_paths, entry, sidecar, tag, user_metadata_tag,
+		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
 	},
 	infra::query::LibraryQuery,
 };
@@ -21,6 +21,7 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::HashSet;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -199,7 +200,7 @@ impl FileSearchQuery {
 
 		// Use FTS5 for high-performance text search
 		let fts_query = self.build_fts5_query();
-		let fts_results = self.execute_fts5_search(db, &fts_query).await?;
+		let mut fts_results = self.execute_fts5_search(db, &fts_query).await?;
 
 		let fts_count = fts_results.len();
 		tracing::info!(
@@ -210,6 +211,21 @@ impl FileSearchQuery {
 
 		if fts_results.is_empty() {
 			return Ok(Vec::new());
+		}
+
+		// Apply tag filter on FTS results
+		if let Some(tag_filter) = &self.input.filters.tags {
+			let (include_ids, exclude_ids) = self.resolve_tag_filter(db, tag_filter).await?;
+			let include_set: Option<HashSet<i32>> =
+				include_ids.map(|v| v.into_iter().collect());
+			let exclude_set: HashSet<i32> = exclude_ids.into_iter().collect();
+			fts_results.retain(|(id, _)| {
+				include_set.as_ref().map_or(true, |s| s.contains(id))
+					&& !exclude_set.contains(id)
+			});
+			if fts_results.is_empty() {
+				return Ok(Vec::new());
+			}
 		}
 
 		// Build a map of entry_id -> bm25_score for later lookup
@@ -375,7 +391,8 @@ impl FileSearchQuery {
 
 			// Create SdPath with device_slug from join
 			let sd_path = SdPath::Physical {
-				device_slug: device_slug.unwrap_or_else(|| "unknown-device".to_string()),
+				device_slug: device_slug
+					.unwrap_or_else(|| crate::device::get_current_device_slug()),
 				path: file_path.into(),
 			};
 
@@ -928,6 +945,17 @@ impl FileSearchQuery {
 
 		query = query.filter(filter_builder.build());
 
+		// Apply tag filter
+		if let Some(tag_filter) = &self.input.filters.tags {
+			let (include_ids, exclude_ids) = self.resolve_tag_filter(db, tag_filter).await?;
+			if let Some(ids) = include_ids {
+				query = query.filter(entry::Column::Id.is_in(ids));
+			}
+			if !exclude_ids.is_empty() {
+				query = query.filter(entry::Column::Id.is_not_in(exclude_ids));
+			}
+		}
+
 		// Apply sorting
 		let sort_builder = SortBuilder::new().apply_sort(&self.input.sort);
 		for (column, order) in sort_builder.build() {
@@ -1430,6 +1458,115 @@ impl FileSearchQuery {
 			search_id,
 			execution_time,
 		))
+	}
+
+	/// Find all entry IDs that are tagged with the given tag UUID.
+	/// Handles both entry-scoped and content-scoped user_metadata.
+	async fn find_entry_ids_for_tag(
+		&self,
+		db: &DatabaseConnection,
+		tag_uuid: Uuid,
+	) -> QueryResult<Vec<i32>> {
+		use crate::infra::db::entities::{
+			content_identity::Entity as ContentIdentity, entry::Entity as Entry,
+			tag::Entity as Tag, user_metadata::Entity as UserMetadata,
+			user_metadata_tag::Entity as UserMetadataTag,
+		};
+
+		// 1. Find tag by UUID
+		let Some(tag_model) = Tag::find()
+			.filter(tag::Column::Uuid.eq(tag_uuid))
+			.one(db)
+			.await?
+		else {
+			return Ok(vec![]);
+		};
+
+		// 2. Find all user_metadata_tag records for this tag
+		let umt_records = UserMetadataTag::find()
+			.filter(user_metadata_tag::Column::TagId.eq(tag_model.id))
+			.all(db)
+			.await?;
+
+		if umt_records.is_empty() {
+			return Ok(vec![]);
+		}
+
+		let um_ids: Vec<i32> = umt_records.iter().map(|r| r.user_metadata_id).collect();
+
+		// 3. Fetch all user_metadata records in batch
+		let um_records = UserMetadata::find()
+			.filter(user_metadata::Column::Id.is_in(um_ids))
+			.all(db)
+			.await?;
+
+		let entry_uuids: Vec<Uuid> =
+			um_records.iter().filter_map(|um| um.entry_uuid).collect();
+		let ci_uuids: Vec<Uuid> =
+			um_records.iter().filter_map(|um| um.content_identity_uuid).collect();
+
+		let mut entry_ids: HashSet<i32> = HashSet::new();
+
+		// 4a. Entries directly linked via entry_uuid
+		if !entry_uuids.is_empty() {
+			let entries = Entry::find()
+				.filter(entry::Column::Uuid.is_in(entry_uuids))
+				.all(db)
+				.await?;
+			entry_ids.extend(entries.iter().map(|e| e.id));
+		}
+
+		// 4b. Entries linked via content_identity_uuid
+		if !ci_uuids.is_empty() {
+			let cis = ContentIdentity::find()
+				.filter(content_identity::Column::Uuid.is_in(ci_uuids.into_iter().map(Some)))
+				.all(db)
+				.await?;
+			if !cis.is_empty() {
+				let ci_ids: Vec<i32> = cis.iter().map(|ci| ci.id).collect();
+				let entries = Entry::find()
+					.filter(entry::Column::ContentId.is_in(ci_ids.into_iter().map(Some)))
+					.all(db)
+					.await?;
+				entry_ids.extend(entries.iter().map(|e| e.id));
+			}
+		}
+
+		Ok(entry_ids.into_iter().collect())
+	}
+
+	/// Resolve a TagFilter to (include_ids, exclude_ids) entry ID lists.
+	/// include_ids = None means no include constraint.
+	/// include_ids = Some(ids) means the entry must be in this set (AND logic across tags).
+	async fn resolve_tag_filter(
+		&self,
+		db: &DatabaseConnection,
+		tag_filter: &crate::ops::search::input::TagFilter,
+	) -> QueryResult<(Option<Vec<i32>>, Vec<i32>)> {
+		// Include: AND logic — entry must have ALL listed tags (intersection)
+		let include_ids = if !tag_filter.include.is_empty() {
+			let mut result_set: Option<HashSet<i32>> = None;
+			for tag_uuid in &tag_filter.include {
+				let ids: HashSet<i32> =
+					self.find_entry_ids_for_tag(db, *tag_uuid).await?.into_iter().collect();
+				result_set = Some(match result_set {
+					None => ids,
+					Some(existing) => existing.intersection(&ids).copied().collect(),
+				});
+			}
+			Some(result_set.unwrap_or_default().into_iter().collect())
+		} else {
+			None
+		};
+
+		// Exclude: OR logic — entry must have NONE of the listed tags (union)
+		let mut exclude_ids: HashSet<i32> = HashSet::new();
+		for tag_uuid in &tag_filter.exclude {
+			let ids = self.find_entry_ids_for_tag(db, *tag_uuid).await?;
+			exclude_ids.extend(ids);
+		}
+
+		Ok((include_ids, exclude_ids.into_iter().collect()))
 	}
 }
 

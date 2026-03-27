@@ -45,6 +45,7 @@ import {useContextMenu} from '../../../hooks/useContextMenu';
 import {File as FileComponent} from '../../../routes/explorer/File';
 import { formatBytes } from '../../../routes/explorer/utils';
 import {Divider, InfoRow, Section, TabContent, Tabs, Tag} from '../Inspector';
+import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
 
 interface FileInspectorProps {
 	file: File;
@@ -629,8 +630,10 @@ function OverviewTab({file}: {file: File}) {
 		});
 	};
 
-	// Tag mutations
-	const applyTag = useLibraryMutation('tags.apply');
+	// Tag mutations — refetch queries on success to update the UI
+	const refetchTagQueries = useRefetchTagQueries();
+	const applyTag = useLibraryMutation('tags.apply', { onSuccess: refetchTagQueries });
+	const unapplyTag = useLibraryMutation('tags.unapply', { onSuccess: refetchTagQueries });
 
 	// AI Processing mutations
 	const extractText = useLibraryMutation('media.ocr.extract');
@@ -906,6 +909,16 @@ function OverviewTab({file}: {file: File}) {
 								key={tag.id}
 								color={tag.color || '#3B82F6'}
 								size="sm"
+								onRemove={async () => {
+									try {
+										await unapplyTag.mutateAsync({
+											entry_ids: [file.id],
+											tag_ids: [tag.id],
+										});
+									} catch (err) {
+										console.error('Failed to remove tag:', err);
+									}
+								}}
 							>
 								{tag.canonical_name}
 							</Tag>
@@ -914,8 +927,6 @@ function OverviewTab({file}: {file: File}) {
 					{/* Add Tag Button */}
 					<TagSelectorButton
 						onSelect={async (tag) => {
-							// Use content-based tagging by default (tags all instances)
-							// Fall back to entry-based if no content identity
 							await applyTag.mutateAsync({
 								targets: file.content_identity?.uuid
 									? {
@@ -923,8 +934,8 @@ function OverviewTab({file}: {file: File}) {
 											ids: [file.content_identity.uuid]
 										}
 									: {
-											type: 'Entry',
-											ids: [parseInt(file.id)]
+											type: 'EntryUuid',
+											ids: [file.id]
 										},
 								tag_ids: [tag.id],
 								source: 'User',
