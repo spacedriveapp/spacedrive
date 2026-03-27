@@ -7,7 +7,7 @@ import LocationIcon from '@sd/assets/icons/Location.png';
 import MobileIcon from '@sd/assets/icons/Mobile.png';
 import StorageIcon from '@sd/assets/icons/Storage.png';
 import TagsIcon from '@sd/assets/icons/Tags.png';
-import {TopBarButton} from '@spaceui/primitives';
+import {CircleButton} from '@spaceui/primitives';
 import {motion} from 'framer-motion';
 import {useEffect, useRef, useState} from 'react';
 
@@ -103,7 +103,7 @@ export function HeroStats({
 					<>
 						<div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-24 bg-gradient-to-r from-app to-transparent" />
 						<div className="absolute left-2 top-1/2 z-20 -translate-y-1/2">
-							<TopBarButton
+							<CircleButton
 								icon={CaretLeft}
 								onClick={() => scroll('left')}
 							/>
@@ -291,7 +291,7 @@ export function HeroStats({
 				<>
 					<div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-24 bg-gradient-to-l from-app to-transparent" />
 					<div className="absolute right-2 top-1/2 z-20 -translate-y-1/2">
-						<TopBarButton
+						<CircleButton
 							icon={CaretRight}
 							onClick={() => scroll('right')}
 						/>

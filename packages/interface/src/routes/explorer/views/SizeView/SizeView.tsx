@@ -5,7 +5,7 @@ import {
 	Plus
 } from '@phosphor-icons/react';
 import type {DirectorySortBy, File} from '@sd/ts-client';
-import {TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
+import {CircleButton, CircleButtonGroup} from '@spaceui/primitives';
 import * as d3 from 'd3';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -1095,26 +1095,26 @@ export function SizeView() {
 					className="bg-app-box/95 border-app-line absolute bottom-4 flex items-center gap-2 rounded-lg border p-1.5 shadow-lg backdrop-blur-lg transition-all duration-300"
 					style={{ right: `${inspectorWidth + 16}px` }}
 				>
-					<TopBarButtonGroup>
-						<TopBarButton
+					<CircleButtonGroup>
+						<CircleButton
 							icon={Minus}
 							onClick={handleZoomOut}
 							title="Zoom Out"
 							disabled={sizeViewTransform.k <= 0.1}
 						/>
-						<TopBarButton
+						<CircleButton
 							icon={Plus}
 							onClick={handleZoomIn}
 							title="Zoom In"
 							disabled={sizeViewTransform.k >= 100}
 						/>
-					</TopBarButtonGroup>
-					<TopBarButton
+					</CircleButtonGroup>
+					<CircleButton
 						icon={ArrowsOut}
 						onClick={handleFitToView}
 						title="Fit to View"
 					/>
-					<TopBarButton
+					<CircleButton
 						icon={ArrowCounterClockwise}
 						onClick={handleResetZoom}
 						title="Reset Zoom"

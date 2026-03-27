@@ -1,5 +1,5 @@
 import { ListBullets, CircleNotch, FunnelSimple, ArrowsOut } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@spaceui/primitives";
+import { Popover, usePopover, CircleButton } from "@spaceui/primitives";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -68,14 +68,14 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
             )}
 
             {/* Expand to full screen button */}
-            <TopBarButton
+            <CircleButton
               icon={ArrowsOut}
               onClick={() => navigate("/jobs")}
               title="Open full jobs screen"
             />
 
             {/* Filter toggle button */}
-            <TopBarButton
+            <CircleButton
               icon={FunnelSimple}
               active={showOnlyRunning}
               onClick={() => setShowOnlyRunning(!showOnlyRunning)}

@@ -2,7 +2,7 @@ import { useState, useEffect, memo } from "react";
 import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
-import { Popover, TopBarButton, usePopover } from "@spaceui/primitives";
+import { Popover, CircleButton, usePopover } from "@spaceui/primitives";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";
@@ -128,7 +128,7 @@ const SyncButton = memo(function SyncButton() {
   return (
     <Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
       <Popover.Trigger asChild>
-        <TopBarButton
+        <CircleButton
           icon={({ className, ...props }) =>
             isSyncing ? (
               <CircleNotch className={clsx(className, "animate-spin")} {...props} />
@@ -155,13 +155,13 @@ const SyncButton = memo(function SyncButton() {
               </span>
             )}
 
-            <TopBarButton
+            <CircleButton
               icon={ArrowsOut}
               onClick={() => navigate("/sync")}
               title="Open full sync monitor"
             />
 
-            <TopBarButton
+            <CircleButton
               icon={FunnelSimple}
               active={showActivityFeed}
               onClick={() => setShowActivityFeed(!showActivityFeed)}
@@ -237,7 +237,7 @@ const JobsButton = memo(function JobsButton({
   return (
     <Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
       <Popover.Trigger asChild>
-        <TopBarButton
+        <CircleButton
           icon={({ className, ...props }) =>
             hasRunningJobs ? (
               <CircleNotch className={clsx(className, "animate-spin")} {...props} />
@@ -262,13 +262,13 @@ const JobsButton = memo(function JobsButton({
               <span className="text-xs text-ink-dull">{activeJobCount} active</span>
             )}
 
-            <TopBarButton
+            <CircleButton
               icon={ArrowsOut}
               onClick={() => navigate("/jobs")}
               title="Open full jobs screen"
             />
 
-            <TopBarButton
+            <CircleButton
               icon={FunnelSimple}
               active={showOnlyRunning}
               onClick={() => setShowOnlyRunning(!showOnlyRunning)}
@@ -444,13 +444,13 @@ export function SpacesSidebar({ isPreviewActive = false }: SpacesSidebarProps) {
                 getSpeedHistory={getSpeedHistory}
                 navigate={navigate}
               />
-              <TopBarButton
+              <CircleButton
                 icon={Palette}
                 title="Customize"
                 onClick={() => setCustomizePanelOpen(true)}
               />
             </div>
-            <TopBarButton
+            <CircleButton
               icon={GearSix}
               title="Settings"
               onClick={() => {

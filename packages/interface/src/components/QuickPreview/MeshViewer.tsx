@@ -9,7 +9,7 @@ import { File as FileComponent } from "../../routes/explorer/File";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
 import * as THREE from "three";
-import { TopBarButton, TopBarButtonGroup } from "@spaceui/primitives";
+import { CircleButton, CircleButtonGroup } from "@spaceui/primitives";
 import {
 	Play,
 	Pause,
@@ -815,7 +815,7 @@ export function MeshViewerUI({
 		<>
 			{/* Button controls */}
 			<div className="pointer-events-auto absolute bottom-4 right-4 flex gap-1">
-				<TopBarButton
+				<CircleButton
 					icon={Sliders}
 					onClick={() => setShowSettings(!showSettings)}
 					title="Settings"
@@ -823,13 +823,13 @@ export function MeshViewerUI({
 					activeAccent={true}
 				/>
 				{onResetFocalPoint && (
-					<TopBarButton
+					<CircleButton
 						icon={ArrowCounterClockwise}
 						onClick={onResetFocalPoint}
 						title="Reset focal point"
 					/>
 				)}
-				<TopBarButton
+				<CircleButton
 					icon={autoRotate ? Pause : Play}
 					onClick={() => setAutoRotate(!autoRotate)}
 					title={autoRotate ? "Pause" : "Play"}

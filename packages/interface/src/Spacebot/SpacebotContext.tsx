@@ -60,7 +60,11 @@ export const projectOptions = [
 	'Spacebot Runtime',
 	'Hosted Platform'
 ];
-export const modelOptions = ['Claude 3.7 Sonnet', 'GPT-5', 'Qwen 2.5 72B'];
+export const models = [
+	{ id: 'claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', provider: 'Anthropic', context_window: 200000 },
+	{ id: 'gpt-5', name: 'GPT-5', provider: 'OpenAI', context_window: 128000 },
+	{ id: 'qwen-2.5-72b', name: 'Qwen 2.5 72B', provider: 'Qwen', context_window: 32000 },
+];
 
 interface SpacebotContextType {
 	// Navigation state
@@ -80,9 +84,8 @@ interface SpacebotContextType {
 	selectedModel: string;
 	setSelectedModel: (value: string) => void;
 	projectOptions: string[];
-	modelOptions: string[];
+	models: typeof models;
 	composerProjectSelector: ReturnType<typeof usePopover>;
-	composerModelSelector: ReturnType<typeof usePopover>;
 
 	// Conversation state
 	draft: string;
@@ -160,7 +163,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 	const [selectedProject, setSelectedProject] = useState(
 		projectOptions[0] ?? ''
 	);
-	const [selectedModel, setSelectedModel] = useState(modelOptions[0] ?? '');
+	const [selectedModel, setSelectedModel] = useState(models[0]?.id ?? '');
 
 	// Conversation state
 	const [draft, setDraft] = useState('');
@@ -172,7 +175,6 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 
 	const agentSelector = usePopover();
 	const composerProjectSelector = usePopover();
-	const composerModelSelector = usePopover();
 
 	const currentAgent = useMemo(
 		() => agents.find((agent) => agent.id === selectedAgent) ?? agents[0],
@@ -447,9 +449,8 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			selectedModel,
 			setSelectedModel,
 			projectOptions,
-			modelOptions,
+			models,
 			composerProjectSelector,
-			composerModelSelector,
 			draft,
 			setDraft,
 			isTyping,
@@ -477,9 +478,8 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			selectedProject,
 			selectedModel,
 			projectOptions,
-			modelOptions,
+			models,
 			composerProjectSelector,
-			composerModelSelector,
 			draft,
 			isTyping,
 			streamingAssistantText,

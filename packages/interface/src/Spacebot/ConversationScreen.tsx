@@ -1,5 +1,5 @@
 import {Copy} from '@phosphor-icons/react';
-import {TopBarButton} from '@spaceui/primitives';
+import {CircleButton} from '@spaceui/primitives';
 import {
 	apiClient,
 	type TimelineItem,
@@ -15,7 +15,7 @@ import {useEffect, useMemo, useRef} from 'react';
 import {ChatComposer} from './ChatComposer';
 import {EmptyChatHero} from './EmptyChatHero';
 import {InlineWorkerCard} from './InlineWorkerCard';
-import {Markdown} from './Markdown';
+import {Markdown} from '@spaceui/ai';
 
 interface ConversationScreenProps {
 	agentId: string;
@@ -30,11 +30,10 @@ interface ConversationScreenProps {
 	selectedProject: string;
 	selectedModel: string;
 	projectOptions: string[];
-	modelOptions: string[];
+	models: import('@spaceui/ai').ModelOption[];
 	onSelectProject(project: string): void;
 	onSelectModel(model: string): void;
 	projectSelector: ReturnType<typeof import('@spaceui/primitives').usePopover>;
-	modelSelector: ReturnType<typeof import('@spaceui/primitives').usePopover>;
 	isSending?: boolean;
 }
 
@@ -59,12 +58,12 @@ function MessageBubble({
 				{isUser ? (
 					<div className="whitespace-pre-wrap break-words">{content}</div>
 				) : (
-					<Markdown className="break-words">{content}</Markdown>
+					<Markdown content={content} className="break-words" />
 				)}
 			</div>
 			{!isUser && onCopy ? (
 				<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-					<TopBarButton
+					<CircleButton
 						icon={Copy}
 						onClick={() => onCopy(content)}
 						title={isStreaming ? 'Copy streaming message' : 'Copy message'}
@@ -89,11 +88,11 @@ export function ConversationScreen({
 	selectedProject,
 	selectedModel,
 	projectOptions,
-	modelOptions,
+	models,
 	onSelectProject,
 	onSelectModel,
 	projectSelector,
-	modelSelector,
+	
 	isSending = false
 }: ConversationScreenProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -194,11 +193,11 @@ export function ConversationScreen({
 						selectedProject={selectedProject}
 						selectedModel={selectedModel}
 						projectOptions={projectOptions}
-						modelOptions={modelOptions}
+						models={models}
 						onSelectProject={onSelectProject}
 						onSelectModel={onSelectModel}
 						projectSelector={projectSelector}
-						modelSelector={modelSelector}
+						
 						isSending={isSending}
 					/>
 				</div>
@@ -317,11 +316,11 @@ export function ConversationScreen({
 					selectedProject={selectedProject}
 					selectedModel={selectedModel}
 					projectOptions={projectOptions}
-					modelOptions={modelOptions}
+					models={models}
 					onSelectProject={onSelectProject}
 					onSelectModel={onSelectModel}
 					projectSelector={projectSelector}
-					modelSelector={modelSelector}
+					
 					showHeading={false}
 					showOuterBox={false}
 					isSending={isSending}

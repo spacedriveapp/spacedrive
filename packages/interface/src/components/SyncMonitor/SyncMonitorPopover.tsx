@@ -4,7 +4,7 @@ import {
 	ArrowsOut,
 	FunnelSimple,
 } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@spaceui/primitives";
+import { Popover, usePopover, CircleButton } from "@spaceui/primitives";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -72,13 +72,13 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 							</span>
 						)}
 
-						<TopBarButton
+						<CircleButton
 							icon={ArrowsOut}
 							onClick={() => navigate("/sync")}
 							title="Open full sync monitor"
 						/>
 
-						<TopBarButton
+						<CircleButton
 							icon={FunnelSimple}
 							active={showActivityFeed}
 							onClick={() => setShowActivityFeed(!showActivityFeed)}

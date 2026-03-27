@@ -26,7 +26,7 @@ import type {
 	VolumeListOutput,
 	VolumeListQueryInput
 } from '@sd/ts-client';
-import {Tooltip, TopBarButton} from '@spaceui/primitives';
+import {Tooltip, CircleButton} from '@spaceui/primitives';
 import clsx from 'clsx';
 import {useEffect, useRef, useState} from 'react';
 import Masonry from 'react-masonry-css';
@@ -579,7 +579,7 @@ function LocationsScroller({
 					<>
 						<div className="from-app-darkBox pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-12 bg-gradient-to-r to-transparent" />
 						<div className="absolute left-1 top-1/2 z-20 -translate-y-1/2">
-							<TopBarButton
+							<CircleButton
 								icon={CaretLeft}
 								onClick={() => scroll('left')}
 							/>
@@ -644,7 +644,7 @@ function LocationsScroller({
 					<>
 						<div className="from-app-darkBox pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-12 bg-gradient-to-l to-transparent" />
 						<div className="absolute right-1 top-1/2 z-20 -translate-y-1/2">
-							<TopBarButton
+							<CircleButton
 								icon={CaretRight}
 								onClick={() => scroll('right')}
 							/>

@@ -1,5 +1,6 @@
-import {CaretDown, Microphone, Sparkle} from '@phosphor-icons/react';
-import { Popover, usePopover } from '@spaceui/primitives';
+import {Microphone, Sparkle} from '@phosphor-icons/react';
+import { Popover, usePopover, OptionList, OptionListItem, SelectPill, CircleButton } from '@spaceui/primitives';
+import { ModelSelector, type ModelOption } from '@spaceui/ai';
 import {AnimatePresence, motion} from 'framer-motion';
 import {useState} from 'react';
 
@@ -11,11 +12,10 @@ interface ChatComposerProps {
 	selectedProject: string;
 	selectedModel: string;
 	projectOptions: string[];
-	modelOptions: string[];
+	models: ModelOption[];
 	onSelectProject(project: string): void;
 	onSelectModel(model: string): void;
 	projectSelector: ReturnType<typeof usePopover>;
-	modelSelector: ReturnType<typeof usePopover>;
 	showHeading?: boolean;
 	showOuterBox?: boolean;
 	isSending?: boolean;
@@ -29,11 +29,10 @@ export function ChatComposer({
 	selectedProject,
 	selectedModel,
 	projectOptions,
-	modelOptions,
+	models,
 	onSelectProject,
 	onSelectModel,
 	projectSelector,
-	modelSelector,
 	showHeading = true,
 	showOuterBox = true,
 	isSending = false
@@ -81,76 +80,39 @@ export function ChatComposer({
 
 				<div className="mt-4 flex items-center justify-between gap-3">
 					<div className="w-[210px]">
-					<Popover.Root open={projectSelector.open} onOpenChange={projectSelector.setOpen}>
-						<Popover.Trigger asChild>
-							<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
-								<span className="flex-1 truncate text-left">
-									{selectedProject}
-								</span>
-								<CaretDown
-									className="size-3"
-									weight="bold"
-								/>
-							</button>
-						</Popover.Trigger>
-						<Popover.Content align="start" sideOffset={8} className="min-w-[220px] p-2">
-							<div className="space-y-1">
-								{projectOptions.map((project) => (
-									<button
-										key={project}
-										onClick={() => {
-											onSelectProject(project);
-											projectSelector.setOpen(false);
-										}}
-										className="text-ink hover:bg-app-selected w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm transition-colors"
-									>
-										{project}
-									</button>
-								))}
-							</div>
-						</Popover.Content>
-					</Popover.Root>
+						<Popover.Root open={projectSelector.open} onOpenChange={projectSelector.setOpen}>
+							<Popover.Trigger asChild>
+								<SelectPill className="w-full">{selectedProject}</SelectPill>
+							</Popover.Trigger>
+							<Popover.Content align="start" sideOffset={8}>
+								<OptionList>
+									{projectOptions.map((project) => (
+										<OptionListItem
+											key={project}
+											selected={project === selectedProject}
+											onClick={() => {
+												onSelectProject(project);
+												projectSelector.setOpen(false);
+											}}
+										>
+											{project}
+										</OptionListItem>
+									))}
+								</OptionList>
+							</Popover.Content>
+						</Popover.Root>
 					</div>
 
 					<motion.div layout className="flex items-center gap-2">
 						<div className="w-[180px]">
-						<Popover.Root open={modelSelector.open} onOpenChange={modelSelector.setOpen}>
-							<Popover.Trigger asChild>
-								<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
-									<span className="flex-1 truncate text-left">
-										{selectedModel}
-									</span>
-									<CaretDown
-										className="size-3"
-										weight="bold"
-									/>
-								</button>
-							</Popover.Trigger>
-							<Popover.Content align="end" sideOffset={8} className="min-w-[220px] p-2">
-								<div className="space-y-1">
-									{modelOptions.map((model) => (
-										<button
-											key={model}
-											onClick={() => {
-												onSelectModel(model);
-												modelSelector.setOpen(false);
-											}}
-											className="text-ink hover:bg-app-selected w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm transition-colors"
-										>
-											{model}
-										</button>
-									))}
-								</div>
-							</Popover.Content>
-						</Popover.Root>
+							<ModelSelector
+								models={models}
+								value={selectedModel}
+								onChange={onSelectModel}
+							/>
 						</div>
 
-						<button
-							onClick={onOpenVoiceOverlay}
-							className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex size-9 items-center justify-center rounded-full border transition-colors"
-						>
-							<Microphone className="size-4" weight="fill" />
-						</button>
+						<CircleButton icon={Microphone} onClick={onOpenVoiceOverlay} />
 
 						<AnimatePresence initial={false}>
 							{canSend ? (

@@ -15,7 +15,7 @@ import { sdPathToUri } from "../utils";
 import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import { useNormalizedQuery } from "@sd/ts-client";
 import {
-	TopBarButton,
+	CircleButton,
 	Button,
 	Popover,
 	usePopover,
@@ -160,7 +160,7 @@ function IndexIndicator({ path }: { path: SdPath }) {
 	return (
 		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
 			<Popover.Trigger asChild>
-				<TopBarButton
+				<CircleButton
 					icon={isIndexed ? CircleIcon : CircleDashedIcon}
 					active={isIndexed}
 					className={isIndexed ? "!text-accent" : undefined}

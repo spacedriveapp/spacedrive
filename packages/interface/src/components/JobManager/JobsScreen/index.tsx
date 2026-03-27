@@ -1,5 +1,5 @@
 import { X, FunnelSimple } from "@phosphor-icons/react";
-import { TopBarButton } from "@spaceui/primitives";
+import { CircleButton } from "@spaceui/primitives";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJobsContext } from "../hooks/JobsContext";
@@ -44,7 +44,7 @@ export function JobsScreen() {
 
 					<div className="flex items-center gap-2">
 						{/* Filter toggle */}
-						<TopBarButton
+						<CircleButton
 							icon={FunnelSimple}
 							active={showOnlyRunning}
 							onClick={() => setShowOnlyRunning(!showOnlyRunning)}
@@ -56,7 +56,7 @@ export function JobsScreen() {
 						/>
 
 						{/* Back button */}
-						<TopBarButton
+						<CircleButton
 							icon={X}
 							onClick={() => navigate(-1)}
 							title="Go back"

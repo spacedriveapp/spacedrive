@@ -13,9 +13,8 @@ export function ChatRoute() {
 		selectedModel,
 		setSelectedModel,
 		projectOptions,
-		modelOptions,
+		models,
 		composerProjectSelector,
-		composerModelSelector,
 		openVoiceOverlay
 	} = useSpacebot();
 
@@ -32,11 +31,11 @@ export function ChatRoute() {
 					selectedProject={selectedProject}
 					selectedModel={selectedModel}
 					projectOptions={projectOptions}
-					modelOptions={modelOptions}
+					models={models}
 					onSelectProject={setSelectedProject}
 					onSelectModel={setSelectedModel}
 					projectSelector={composerProjectSelector}
-					modelSelector={composerModelSelector}
+					
 					isSending={isSending}
 				/>
 			</div>

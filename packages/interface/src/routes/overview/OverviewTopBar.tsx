@@ -9,7 +9,7 @@ import {
 	GearSix,
 	CloudArrowUp,
 } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@spaceui/primitives";
+import { Popover, usePopover, CircleButton } from "@spaceui/primitives";
 import clsx from "clsx";
 import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { PairingModal } from "../../components/modals/PairingModal";
@@ -194,39 +194,39 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 	);
 
 	const searchButton = useMemo(
-		() => <TopBarButton icon={MagnifyingGlass} title="Search" />,
+		() => <CircleButton icon={MagnifyingGlass} title="Search" />,
 		[]
 	);
 
 	const pairButton = useMemo(
 		() => (
-			<TopBarButton
+			<CircleButton
 				icon={DeviceMobile}
 				title="Pair Device"
 				onClick={() => setIsPairingOpen(true)}
 			>
 				Pair
-			</TopBarButton>
+			</CircleButton>
 		),
 		[]
 	);
 
 	const syncButton = useMemo(
 		() => (
-			<TopBarButton
+			<CircleButton
 				icon={CloudArrowUp}
 				title="Setup Sync"
 				onClick={handleSyncSetup}
 			>
 				Setup Sync
-			</TopBarButton>
+			</CircleButton>
 		),
 		[handleSyncSetup]
 	);
 
 	const refreshButton = useMemo(
 		() => (
-			<TopBarButton
+			<CircleButton
 				icon={ArrowsClockwise}
 				title="Refresh Statistics"
 				onClick={handleRefresh}
@@ -234,20 +234,20 @@ export function OverviewTopBar({ libraryName }: OverviewTopBarProps) {
 				className={clsx(isRefreshing && "animate-spin")}
 			>
 				Refresh
-			</TopBarButton>
+			</CircleButton>
 		),
 		[handleRefresh, isRefreshing]
 	);
 
 	const addStorageButton = useMemo(
 		() => (
-			<TopBarButton
+			<CircleButton
 				icon={Plus}
 				className="!bg-accent hover:!bg-accent-deep !text-white"
 				onClick={handleAddStorage}
 			>
 				Add Storage
-			</TopBarButton>
+			</CircleButton>
 		),
 		[handleAddStorage]
 	);

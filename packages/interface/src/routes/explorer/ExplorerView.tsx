@@ -5,7 +5,7 @@ import {
 	SidebarSimple,
 	Tag as TagIcon
 } from '@phosphor-icons/react';
-import {TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
+import {CircleButton, CircleButtonGroup} from '@spaceui/primitives';
 import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
@@ -164,7 +164,7 @@ export function ExplorerView() {
 									setSidebarVisible(!sidebarVisible)
 								}
 							>
-								<TopBarButton
+								<CircleButton
 									icon={SidebarSimple}
 									onClick={() =>
 										setSidebarVisible(!sidebarVisible)
@@ -177,18 +177,18 @@ export function ExplorerView() {
 								label="Navigation"
 								priority="high"
 							>
-								<TopBarButtonGroup>
-									<TopBarButton
+								<CircleButtonGroup>
+									<CircleButton
 										icon={ArrowLeft}
 										onClick={goBack}
 										disabled={!canGoBack}
 									/>
-									<TopBarButton
+									<CircleButton
 										icon={ArrowRight}
 										onClick={goForward}
 										disabled={!canGoForward}
 									/>
-								</TopBarButtonGroup>
+								</CircleButtonGroup>
 							</TopBarItem>
 						{pathBarPath && (
 							<TopBarItem
@@ -241,7 +241,7 @@ export function ExplorerView() {
 								priority="low"
 								onClick={() => setTagModeActive(!tagModeActive)}
 							>
-								<TopBarButton
+								<CircleButton
 									icon={TagIcon}
 									onClick={() =>
 										setTagModeActive(!tagModeActive)
@@ -288,7 +288,7 @@ export function ExplorerView() {
 									setInspectorVisible(!inspectorVisible)
 								}
 							>
-								<TopBarButton
+								<CircleButton
 									icon={Info}
 									onClick={() =>
 										setInspectorVisible(!inspectorVisible)

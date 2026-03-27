@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { BallBlue } from "@sd/assets/images";
 import Orb from "../../components/Orb";
-import { TopBarButton } from "@spaceui/primitives";
+import { CircleButton } from "@spaceui/primitives";
 import { GlobeHemisphereWest, GithubLogo, DiscordLogo } from "@phosphor-icons/react";
 import contributors from "../../contributors.json";
 
@@ -74,27 +74,27 @@ export function AboutSettings() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={GlobeHemisphereWest}>
+          <CircleButton icon={GlobeHemisphereWest}>
             Website
-          </TopBarButton>
+          </CircleButton>
         </a>
         <a
           href="https://github.com/spacedriveapp/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={GithubLogo}>
+          <CircleButton icon={GithubLogo}>
             GitHub
-          </TopBarButton>
+          </CircleButton>
         </a>
         <a
           href="https://discord.gg/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={DiscordLogo}>
+          <CircleButton icon={DiscordLogo}>
             Discord
-          </TopBarButton>
+          </CircleButton>
         </a>
       </motion.div>
 

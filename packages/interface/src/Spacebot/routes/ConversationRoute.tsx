@@ -21,9 +21,8 @@ export function ConversationRoute() {
 		selectedModel,
 		setSelectedModel,
 		projectOptions,
-		modelOptions,
+		models,
 		composerProjectSelector,
-		composerModelSelector,
 		openVoiceOverlay
 	} = useSpacebot();
 
@@ -44,11 +43,11 @@ export function ConversationRoute() {
 			selectedProject={selectedProject}
 			selectedModel={selectedModel}
 			projectOptions={projectOptions}
-			modelOptions={modelOptions}
+			models={models}
 			onSelectProject={setSelectedProject}
 			onSelectModel={setSelectedModel}
 			projectSelector={composerProjectSelector}
-			modelSelector={composerModelSelector}
+			
 			isSending={isSending}
 		/>
 	);

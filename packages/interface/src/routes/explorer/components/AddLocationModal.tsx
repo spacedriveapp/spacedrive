@@ -9,7 +9,7 @@ import {
   Dialog,
   dialogManager,
   useDialog,
-  TopBarButton,
+  CircleButton,
   TabsRoot,
   TabsList,
   TabsTrigger,
@@ -264,7 +264,7 @@ function AddLocationDialog(props: {
                 size="lg"
                 className="pr-14"
               />
-              <TopBarButton
+              <CircleButton
                 icon={FolderOpen}
                 onClick={handleBrowse}
                 className="absolute right-2 top-1/2 -translate-y-1/2"

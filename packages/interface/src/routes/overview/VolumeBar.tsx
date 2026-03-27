@@ -7,7 +7,7 @@ import DriveIcon from '@sd/assets/icons/Drive.png';
 import HDDIcon from '@sd/assets/icons/HDD.png';
 import ServerIcon from '@sd/assets/icons/Server.png';
 import type {Device, Volume} from '@sd/ts-client';
-import {TopBarButton} from '@spaceui/primitives';
+import {CircleButton} from '@spaceui/primitives';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
@@ -287,7 +287,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 				</div>
 
 				{/* Three dots button - far right */}
-				<TopBarButton
+				<CircleButton
 					icon={DotsThree}
 					onClick={(e) => {
 						e.stopPropagation();
