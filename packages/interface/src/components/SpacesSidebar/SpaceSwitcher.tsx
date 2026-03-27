@@ -1,8 +1,8 @@
+import {CaretDown, GearSix, Plus} from '@phosphor-icons/react';
+import type {Space} from '@sd/ts-client';
+import {DropdownMenu, SelectPill} from '@spaceui/primitives';
 import clsx from 'clsx';
-import { CaretDown, Plus, GearSix } from '@phosphor-icons/react';
-import { DropdownMenu } from '@spaceui/primitives';
-import type { Space } from '@sd/ts-client';
-import { useCreateSpaceDialog } from './CreateSpaceModal';
+import {useCreateSpaceDialog} from './CreateSpaceModal';
 
 interface SpaceSwitcherProps {
 	spaces: Space[] | undefined;
@@ -10,68 +10,60 @@ interface SpaceSwitcherProps {
 	onSwitch: (spaceId: string) => void;
 }
 
-export function SpaceSwitcher({ spaces, currentSpace, onSwitch }: SpaceSwitcherProps) {
+export function SpaceSwitcher({
+	spaces,
+	currentSpace,
+	onSwitch
+}: SpaceSwitcherProps) {
 	const createSpaceDialog = useCreateSpaceDialog;
 
 	return (
 		<DropdownMenu.Root>
 			<DropdownMenu.Trigger asChild>
-				<button
-					className={clsx(
-						"w-full flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium",
-						"bg-sidebar-box border border-sidebar-line",
-						"text-sidebar-ink hover:bg-sidebar-button",
-						"focus:outline-none focus:ring-1 focus:ring-accent",
-						"transition-colors",
-						!currentSpace && "text-sidebar-inkFaint"
-					)}
-				>
+				<SelectPill variant="sidebar" size="lg">
 					<div
-						className="size-2 rounded-full shrink-0"
-						style={{ backgroundColor: currentSpace?.color || '#666' }}
+						className="size-2 rounded-full"
+						style={{backgroundColor: currentSpace?.color || '#666'}}
 					/>
-					<span className="truncate flex-1 text-left">
+					<span className="flex-1 truncate text-left">
 						{currentSpace?.name || 'Select Space'}
 					</span>
-					<CaretDown className="size-3 opacity-50" />
-				</button>
+				</SelectPill>
 			</DropdownMenu.Trigger>
-			<DropdownMenu.Content className="p-1 min-w-[var(--radix-dropdown-menu-trigger-width)]">
+			<DropdownMenu.Content className="min-w-[var(--radix-dropdown-menu-trigger-width)] p-1">
 				{spaces && spaces.length > 1
 					? spaces.map((space) => (
 							<DropdownMenu.Item
 								key={space.id}
 								onClick={() => onSwitch(space.id)}
 								className={clsx(
-									"px-2 py-1 text-sm rounded-md",
+									'rounded-md px-2 py-1 text-sm',
 									space.id === currentSpace?.id
-										? "bg-accent text-white"
-										: "text-sidebar-ink hover:bg-sidebar-selected"
+										? 'bg-accent text-white'
+										: 'text-sidebar-ink hover:bg-sidebar-selected'
 								)}
 							>
 								<div className="flex items-center gap-2">
 									<div
 										className="size-2 rounded-full"
-										style={{ backgroundColor: space.color }}
+										style={{backgroundColor: space.color}}
 									/>
 									<span>{space.name}</span>
 								</div>
 							</DropdownMenu.Item>
-					  ))
+						))
 					: null}
 				{spaces && spaces.length > 1 && (
 					<DropdownMenu.Separator className="border-sidebar-line my-1" />
 				)}
 				<DropdownMenu.Item
 					onClick={() => createSpaceDialog()}
-					className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
+					className="hover:bg-sidebar-selected text-sidebar-ink rounded-md px-2 py-1 text-sm font-medium"
 				>
 					<Plus className="mr-2 size-4" weight="bold" />
 					New Space
 				</DropdownMenu.Item>
-				<DropdownMenu.Item
-					className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
-				>
+				<DropdownMenu.Item className="hover:bg-sidebar-selected text-sidebar-ink rounded-md px-2 py-1 text-sm font-medium">
 					<GearSix className="mr-2 size-4" weight="bold" />
 					Space Settings
 				</DropdownMenu.Item>
