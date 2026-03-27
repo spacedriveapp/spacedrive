@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag as TagIcon, X } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { Button } from '@sd/ui';
+import { Button } from '@spaceui/primitives';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import { useSelection } from './SelectionContext';
 import { useKeybind } from '../../hooks/useKeybind';

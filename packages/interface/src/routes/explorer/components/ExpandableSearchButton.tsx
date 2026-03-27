@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import { TopBarButton, SearchBar } from "@sd/ui";
+import { TopBarButton, SearchBar } from "@spaceui/primitives";
 
 interface ExpandableSearchButtonProps {
 	value: string;

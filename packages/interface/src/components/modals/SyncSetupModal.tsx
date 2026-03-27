@@ -13,7 +13,7 @@ import type {
   PairedDeviceInfo,
   RemoteLibraryInfo,
 } from "@sd/ts-client";
-import { Button, Dialog, dialogManager, useDialog } from "@sd/ui";
+import { Button, Dialog, dialogManager, useDialog } from "@spaceui/primitives";
 import { useCoreQuery, useCoreMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";
 
 interface SyncSetupDialogProps {

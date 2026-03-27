@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { DotsThree } from "@phosphor-icons/react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { TopBarButton } from "@sd/ui";
+import { TopBarButton } from "@spaceui/primitives";
 import { TopBarItem } from "./Context";
 
 interface OverflowButtonProps {

@@ -11,7 +11,7 @@ import {
 } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
-import { TopBarButton } from "@sd/ui";
+import { TopBarButton } from "@spaceui/primitives";
 import type { DirectorySortBy, MediaSortBy } from "@sd/ts-client";
 
 interface SortMenuPanelProps {

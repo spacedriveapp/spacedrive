@@ -5,7 +5,7 @@ import {
 	Stop,
 } from "@phosphor-icons/react";
 import { BallBlue } from "@sd/assets/images";
-import { Popover, usePopover } from "@sd/ui";
+import { Popover, usePopover } from "@spaceui/primitives";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Orb from "../components/Orb";
 import { usePlatform } from "../contexts/PlatformContext";
@@ -173,33 +173,30 @@ export function VoiceOverlay() {
 						</div>
 						<div className="flex min-w-0 items-center gap-2">
 							<div className="w-[160px]">
-								<Popover
-									popover={profileSelector}
-									trigger={
+								<Popover.Root open={profileSelector.open} onOpenChange={profileSelector.setOpen}>
+									<Popover.Trigger asChild>
 										<button className="flex h-8 w-full items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 text-left text-[11px] font-medium text-ink-dull transition-colors hover:bg-white/10 hover:text-ink">
 											<span className="flex-1 truncate text-left">{profile}</span>
 											<CaretDown className="size-3" weight="bold" />
 										</button>
-									}
-									align="end"
-									sideOffset={8}
-									className="p-2"
-								>
-									<div className="space-y-1">
-										{voiceProfiles.map((option) => (
-											<button
-												key={option}
-												onClick={() => {
-													setProfile(option);
-													profileSelector.setOpen(false);
-												}}
-												className="w-full rounded-md px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-app-selected"
-											>
-												{option}
-											</button>
-										))}
-									</div>
-								</Popover>
+									</Popover.Trigger>
+									<Popover.Content align="end" sideOffset={8} className="p-2">
+										<div className="space-y-1">
+											{voiceProfiles.map((option) => (
+												<button
+													key={option}
+													onClick={() => {
+														setProfile(option);
+														profileSelector.setOpen(false);
+													}}
+													className="w-full rounded-md px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-app-selected"
+												>
+													{option}
+												</button>
+											))}
+										</div>
+									</Popover.Content>
+								</Popover.Root>
 							</div>
 							<button onClick={() => setExpanded(false)} className="text-[11px] text-ink-faint transition-colors hover:text-ink">
 								Collapse

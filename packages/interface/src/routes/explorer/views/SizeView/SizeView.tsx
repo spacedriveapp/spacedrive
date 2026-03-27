@@ -5,7 +5,7 @@ import {
 	Plus
 } from '@phosphor-icons/react';
 import type {DirectorySortBy, File} from '@sd/ts-client';
-import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import {TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
 import * as d3 from 'd3';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';

@@ -5,7 +5,8 @@ import {
 	ClockCounterClockwise,
 	DotsThree
 } from '@phosphor-icons/react';
-import {Popover, SearchBar, TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import { Popover, usePopover } from '@spaceui/primitives';
+import {SearchBar, TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
 import {ReactQueryDevtools} from '@tanstack/react-query-devtools';
 import {useEffect, useState} from 'react';
 import {Outlet, useLocation, useNavigate} from 'react-router-dom';
@@ -193,9 +194,8 @@ export function SpacebotLayout() {
 				</TopBarButtonGroup>
 				<div className="flex items-center gap-3" data-tauri-drag-region>
 					<div data-tauri-drag-region>
-						<Popover
-							popover={agentSelector}
-							trigger={
+						<Popover.Root open={agentSelector.open} onOpenChange={agentSelector.setOpen}>
+							<Popover.Trigger asChild>
 								<button className="border-sidebar-line/30 bg-sidebar-box/20 text-sidebar-inkDull hover:bg-sidebar-box/30 hover:text-sidebar-ink flex h-8 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium backdrop-blur-xl transition-all active:scale-95">
 									<span className="flex-1 truncate text-left">
 										{currentAgent?.name ?? 'Agent'}
@@ -205,33 +205,31 @@ export function SpacebotLayout() {
 										weight="bold"
 									/>
 								</button>
-							}
-							align="start"
-							sideOffset={8}
-							className="min-w-[180px] p-2"
-						>
-							<div className="space-y-1">
-								{agents.map((agent) => (
-									<button
-										key={agent.id}
-										onClick={() => {
-											setSelectedAgent(agent.id);
-											agentSelector.setOpen(false);
-										}}
-										className="text-ink hover:bg-app-selected w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm transition-colors"
-									>
-										<div>
-											<div className="font-medium">
-												{agent.name}
+							</Popover.Trigger>
+							<Popover.Content align="start" sideOffset={8} className="min-w-[180px] p-2">
+								<div className="space-y-1">
+									{agents.map((agent) => (
+										<button
+											key={agent.id}
+											onClick={() => {
+												setSelectedAgent(agent.id);
+												agentSelector.setOpen(false);
+											}}
+											className="text-ink hover:bg-app-selected w-full cursor-pointer rounded-md px-3 py-2 text-left text-sm transition-colors"
+										>
+											<div>
+												<div className="font-medium">
+													{agent.name}
+												</div>
+												<div className="text-ink-dull text-xs">
+													{agent.detail}
+												</div>
 											</div>
-											<div className="text-ink-dull text-xs">
-												{agent.detail}
-											</div>
-										</div>
-									</button>
-								))}
-							</div>
-						</Popover>
+										</button>
+									))}
+								</div>
+							</Popover.Content>
+						</Popover.Root>
 					</div>
 				</div>
 
@@ -343,7 +341,7 @@ export function SpacebotLayout() {
 						className="pointer-events-none absolute inset-0 z-0 opacity-100"
 						style={{
 							backgroundImage:
-								'linear-gradient(to right, hsla(var(--color-app-line), 0.45) 1px, transparent 1px), linear-gradient(to bottom, hsla(var(--color-app-line), 0.45) 1px, transparent 1px)',
+								'linear-gradient(to right, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px)',
 							backgroundSize: '28px 28px',
 							maskImage:
 								'linear-gradient(to bottom, rgba(0,0,0,0.42), rgba(0,0,0,0.08))',
@@ -356,7 +354,7 @@ export function SpacebotLayout() {
 						className="pointer-events-none absolute inset-0 z-0"
 						style={{
 							background:
-								'radial-gradient(circle at top, hsla(var(--color-accent), 0.08), transparent 42%)'
+								'radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 42%)'
 						}}
 					/>
 

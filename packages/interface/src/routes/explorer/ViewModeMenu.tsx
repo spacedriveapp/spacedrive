@@ -8,7 +8,7 @@ import {
 	Sparkle,
 	SquaresFour
 } from '@phosphor-icons/react';
-import {TopBarButton} from '@sd/ui';
+import {TopBarButton} from '@spaceui/primitives';
 import clsx from 'clsx';
 import {AnimatePresence, motion} from 'framer-motion';
 import {useEffect, useRef, useState} from 'react';

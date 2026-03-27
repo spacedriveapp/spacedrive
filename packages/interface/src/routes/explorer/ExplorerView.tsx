@@ -5,7 +5,7 @@ import {
 	SidebarSimple,
 	Tag as TagIcon
 } from '@phosphor-icons/react';
-import {TopBarButton, TopBarButtonGroup} from '@sd/ui';
+import {TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
 import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';

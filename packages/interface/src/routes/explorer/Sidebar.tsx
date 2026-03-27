@@ -12,7 +12,7 @@ import {
   CaretDown,
   Plus,
 } from "@phosphor-icons/react";
-import { DropdownMenu } from "@sd/ui";
+import { DropdownMenu } from "@spaceui/primitives";
 import { useSpacedriveClient } from "../../contexts/SpacedriveContext";
 import { useLibraries } from "../../hooks/useLibraries";
 import { usePlatform } from "../../contexts/PlatformContext";
@@ -86,8 +86,8 @@ export function Sidebar() {
         )}
       >
         <nav className="relative z-[51] flex h-full flex-col gap-2.5 p-2.5 pb-2 pt-[52px]">
-          <DropdownMenu.Root
-            trigger={
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger asChild>
               <button
                 className={clsx(
                   "w-full flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium",
@@ -103,40 +103,40 @@ export function Sidebar() {
                 </span>
                 <CaretDown className="size-3 opacity-50" />
               </button>
-            }
-            className="p-1 bg-sidebar-box border border-sidebar-line rounded-lg shadow-sm overflow-hidden"
-          >
-            {libraries && libraries.length > 1
-              ? libraries.map((lib) => (
-                  <DropdownMenu.Item
-                    key={lib.id}
-                    onClick={() => handleLibrarySwitch(lib.id)}
-                    className={clsx(
-                      "px-2 py-1 text-sm rounded-md",
-                      lib.id === currentLibraryId
-                        ? "bg-accent text-white"
-                        : "text-sidebar-ink hover:bg-sidebar-selected",
-                    )}
-                  >
-                    {lib.name}
-                  </DropdownMenu.Item>
-                ))
-              : null}
-            {libraries && libraries.length > 1 && (
-              <DropdownMenu.Separator className="border-sidebar-line my-1" />
-            )}
-            <DropdownMenu.Item
-              icon={Plus}
-              className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
-            >
-              New Library
-            </DropdownMenu.Item>
-            <DropdownMenu.Item
-              icon={GearSix}
-              className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
-            >
-              Library Settings
-            </DropdownMenu.Item>
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Content className="min-w-[var(--radix-dropdown-menu-trigger-width)]">
+              {libraries && libraries.length > 1
+                ? libraries.map((lib) => (
+                    <DropdownMenu.Item
+                      key={lib.id}
+                      onClick={() => handleLibrarySwitch(lib.id)}
+                      className={clsx(
+                        "px-2 py-1 text-sm rounded-md",
+                        lib.id === currentLibraryId
+                          ? "bg-accent text-white"
+                          : "text-sidebar-ink hover:bg-sidebar-selected",
+                      )}
+                    >
+                      {lib.name}
+                    </DropdownMenu.Item>
+                  ))
+                : null}
+              {libraries && libraries.length > 1 && (
+                <DropdownMenu.Separator className="border-sidebar-line my-1" />
+              )}
+              <DropdownMenu.Item
+                className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
+              >
+                <Plus className="mr-2 size-4" weight="bold" />
+                New Library
+              </DropdownMenu.Item>
+              <DropdownMenu.Item
+                className="px-2 py-1 text-sm rounded-md hover:bg-sidebar-selected text-sidebar-ink font-medium"
+              >
+                <GearSix className="mr-2 size-4" weight="bold" />
+                Library Settings
+              </DropdownMenu.Item>
+            </DropdownMenu.Content>
           </DropdownMenu.Root>
 
           <div className="no-scrollbar mask-fade-out flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">

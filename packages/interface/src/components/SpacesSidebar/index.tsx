@@ -2,7 +2,7 @@ import { useState, useEffect, memo } from "react";
 import { GearSix, Palette, ArrowsClockwise, ListBullets, CircleNotch, ArrowsOut, FunnelSimple } from "@phosphor-icons/react";
 import { useSidebarStore, useLibraryMutation } from "@sd/ts-client";
 import type { SpaceGroup as SpaceGroupType, SpaceItem as SpaceItemType } from "@sd/ts-client";
-import { TopBarButton, Popover, usePopover } from "@sd/ui";
+import { Popover, TopBarButton, usePopover } from "@spaceui/primitives";
 import { useSpaces, useSpaceLayout } from "./hooks/useSpaces";
 import { SpaceSwitcher } from "./SpaceSwitcher";
 import { SpaceGroup } from "./SpaceGroup";
@@ -126,11 +126,10 @@ const SyncButton = memo(function SyncButton() {
   };
 
   return (
-    <Popover
-      popover={popover}
-      trigger={
+    <Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+      <Popover.Trigger asChild>
         <TopBarButton
-          icon={({ className, ...props }) => 
+          icon={({ className, ...props }) =>
             isSyncing ? (
               <CircleNotch className={clsx(className, "animate-spin")} {...props} />
             ) : (
@@ -139,64 +138,66 @@ const SyncButton = memo(function SyncButton() {
           }
           title="Sync Monitor"
         />
-      }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
-    >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
+      </Popover.Trigger>
+      <Popover.Content
+        side="top"
+        align="start"
+        sideOffset={8}
+        className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+          <h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
 
-        <div className="flex items-center gap-2">
-          {onlinePeerCount > 0 && (
-            <span className="text-xs text-ink-dull">
-              {onlinePeerCount} {onlinePeerCount === 1 ? "peer" : "peers"} online
-            </span>
-          )}
-
-          <TopBarButton
-            icon={ArrowsOut}
-            onClick={() => navigate("/sync")}
-            title="Open full sync monitor"
-          />
-
-          <TopBarButton
-            icon={FunnelSimple}
-            active={showActivityFeed}
-            onClick={() => setShowActivityFeed(!showActivityFeed)}
-            title={showActivityFeed ? "Show peers" : "Show activity feed"}
-          />
-        </div>
-      </div>
-
-      {popover.open && (
-        <>
-          <div className="px-4 py-2 border-b border-app-line bg-app-box/50">
-            <div className="flex items-center gap-2">
-              <div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
-              <span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
-            </div>
-          </div>
-          <motion.div
-            className="overflow-y-auto no-scrollbar"
-            initial={false}
-            animate={{
-              height: showActivityFeed
-                ? Math.min(sync.recentActivity.length * 40 + 16, 400)
-                : Math.min(sync.peers.length * 80 + 16, 400),
-            }}
-            transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-          >
-            {showActivityFeed ? (
-              <ActivityFeed activities={sync.recentActivity} />
-            ) : (
-              <PeerList peers={sync.peers} currentState={sync.currentState} />
+          <div className="flex items-center gap-2">
+            {onlinePeerCount > 0 && (
+              <span className="text-xs text-ink-dull">
+                {onlinePeerCount} {onlinePeerCount === 1 ? "peer" : "peers"} online
+              </span>
             )}
-          </motion.div>
-        </>
-      )}
-    </Popover>
+
+            <TopBarButton
+              icon={ArrowsOut}
+              onClick={() => navigate("/sync")}
+              title="Open full sync monitor"
+            />
+
+            <TopBarButton
+              icon={FunnelSimple}
+              active={showActivityFeed}
+              onClick={() => setShowActivityFeed(!showActivityFeed)}
+              title={showActivityFeed ? "Show peers" : "Show activity feed"}
+            />
+          </div>
+        </div>
+
+        {popover.open && (
+          <>
+            <div className="px-4 py-2 border-b border-app-line bg-app-box/50">
+              <div className="flex items-center gap-2">
+                <div className={`size-2 rounded-full ${getStateColor(sync.currentState)}`} />
+                <span className="text-xs font-medium text-ink-dull">{sync.currentState}</span>
+              </div>
+            </div>
+            <motion.div
+              className="overflow-y-auto no-scrollbar"
+              initial={false}
+              animate={{
+                height: showActivityFeed
+                  ? Math.min(sync.recentActivity.length * 40 + 16, 400)
+                  : Math.min(sync.peers.length * 80 + 16, 400),
+              }}
+              transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+            >
+              {showActivityFeed ? (
+                <ActivityFeed activities={sync.recentActivity} />
+              ) : (
+                <PeerList peers={sync.peers} currentState={sync.currentState} />
+              )}
+            </motion.div>
+          </>
+        )}
+      </Popover.Content>
+    </Popover.Root>
   );
 });
 
@@ -234,11 +235,10 @@ const JobsButton = memo(function JobsButton({
     : jobs;
 
   return (
-    <Popover
-      popover={popover}
-      trigger={
+    <Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+      <Popover.Trigger asChild>
         <TopBarButton
-          icon={({ className, ...props }) => 
+          icon={({ className, ...props }) =>
             hasRunningJobs ? (
               <CircleNotch className={clsx(className, "animate-spin")} {...props} />
             ) : (
@@ -247,51 +247,53 @@ const JobsButton = memo(function JobsButton({
           }
           title="Job Manager"
         />
-      }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className="w-[360px] max-h-[480px] z-50 !p-0 !bg-app !rounded-xl"
-    >
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
+      </Popover.Trigger>
+      <Popover.Content
+        side="top"
+        align="start"
+        sideOffset={8}
+        className="w-[360px] max-h-[480px] z-50 !p-0 !bg-app !rounded-xl"
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+          <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
 
-        <div className="flex items-center gap-2">
-          {activeJobCount > 0 && (
-            <span className="text-xs text-ink-dull">{activeJobCount} active</span>
-          )}
+          <div className="flex items-center gap-2">
+            {activeJobCount > 0 && (
+              <span className="text-xs text-ink-dull">{activeJobCount} active</span>
+            )}
 
-          <TopBarButton
-            icon={ArrowsOut}
-            onClick={() => navigate("/jobs")}
-            title="Open full jobs screen"
-          />
+            <TopBarButton
+              icon={ArrowsOut}
+              onClick={() => navigate("/jobs")}
+              title="Open full jobs screen"
+            />
 
-          <TopBarButton
-            icon={FunnelSimple}
-            active={showOnlyRunning}
-            onClick={() => setShowOnlyRunning(!showOnlyRunning)}
-            title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
-          />
+            <TopBarButton
+              icon={FunnelSimple}
+              active={showOnlyRunning}
+              onClick={() => setShowOnlyRunning(!showOnlyRunning)}
+              title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
+            />
+          </div>
         </div>
-      </div>
 
-      {popover.open && (
-        <motion.div
-          className="overflow-y-auto no-scrollbar"
-          initial={false}
-          animate={{
-            height:
-              filteredJobs.length === 0
-                ? CARD_HEIGHT + 16
-                : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
-          }}
-          transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-        >
-          <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} getSpeedHistory={getSpeedHistory} />
-        </motion.div>
-      )}
-    </Popover>
+        {popover.open && (
+          <motion.div
+            className="overflow-y-auto no-scrollbar"
+            initial={false}
+            animate={{
+              height:
+                filteredJobs.length === 0
+                  ? CARD_HEIGHT + 16
+                  : Math.min(filteredJobs.length * (CARD_HEIGHT + 8) + 16, 400),
+            }}
+            transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+          >
+            <JobList jobs={filteredJobs} onPause={pause} onResume={resume} onCancel={cancel} getSpeedHistory={getSpeedHistory} />
+          </motion.div>
+        )}
+      </Popover.Content>
+    </Popover.Root>
   );
 }, (prevProps, nextProps) => {
   // Only re-render if these specific values change

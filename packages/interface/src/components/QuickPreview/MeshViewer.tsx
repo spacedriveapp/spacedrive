@@ -9,7 +9,7 @@ import { File as FileComponent } from "../../routes/explorer/File";
 import { PLYLoader } from "three/examples/jsm/loaders/PLYLoader.js";
 import * as GaussianSplats3D from "@mkkellogg/gaussian-splats-3d";
 import * as THREE from "three";
-import { TopBarButton, TopBarButtonGroup } from "@sd/ui";
+import { TopBarButton, TopBarButtonGroup } from "@spaceui/primitives";
 import {
 	Play,
 	Pause,

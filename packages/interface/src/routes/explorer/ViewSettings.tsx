@@ -4,7 +4,7 @@ import { Sliders } from "@phosphor-icons/react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import { useExplorer } from "./context";
-import { TopBarButton } from "@sd/ui";
+import { TopBarButton } from "@spaceui/primitives";
 
 interface ViewSettingsPanelProps {
 	viewSettings: any;

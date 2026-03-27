@@ -1,5 +1,5 @@
 import { X, FunnelSimple } from "@phosphor-icons/react";
-import { TopBarButton } from "@sd/ui";
+import { TopBarButton } from "@spaceui/primitives";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useJobsContext } from "../hooks/JobsContext";

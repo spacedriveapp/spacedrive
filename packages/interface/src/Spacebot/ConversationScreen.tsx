@@ -1,5 +1,5 @@
 import {Copy} from '@phosphor-icons/react';
-import {TopBarButton} from '@sd/ui';
+import {TopBarButton} from '@spaceui/primitives';
 import {
 	apiClient,
 	type TimelineItem,
@@ -33,8 +33,8 @@ interface ConversationScreenProps {
 	modelOptions: string[];
 	onSelectProject(project: string): void;
 	onSelectModel(model: string): void;
-	projectSelector: ReturnType<typeof import('@sd/ui').usePopover>;
-	modelSelector: ReturnType<typeof import('@sd/ui').usePopover>;
+	projectSelector: ReturnType<typeof import('@spaceui/primitives').usePopover>;
+	modelSelector: ReturnType<typeof import('@spaceui/primitives').usePopover>;
 	isSending?: boolean;
 }
 

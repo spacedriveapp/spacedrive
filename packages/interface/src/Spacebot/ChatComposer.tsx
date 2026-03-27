@@ -1,5 +1,5 @@
 import {CaretDown, Microphone, Sparkle} from '@phosphor-icons/react';
-import {Popover} from '@sd/ui';
+import { Popover, usePopover } from '@spaceui/primitives';
 import {AnimatePresence, motion} from 'framer-motion';
 import {useState} from 'react';
 
@@ -14,8 +14,8 @@ interface ChatComposerProps {
 	modelOptions: string[];
 	onSelectProject(project: string): void;
 	onSelectModel(model: string): void;
-	projectSelector: ReturnType<typeof import('@sd/ui').usePopover>;
-	modelSelector: ReturnType<typeof import('@sd/ui').usePopover>;
+	projectSelector: ReturnType<typeof usePopover>;
+	modelSelector: ReturnType<typeof usePopover>;
 	showHeading?: boolean;
 	showOuterBox?: boolean;
 	isSending?: boolean;
@@ -81,23 +81,19 @@ export function ChatComposer({
 
 				<div className="mt-4 flex items-center justify-between gap-3">
 					<div className="w-[210px]">
-						<Popover
-							popover={projectSelector}
-							trigger={
-								<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
-									<span className="flex-1 truncate text-left">
-										{selectedProject}
-									</span>
-									<CaretDown
-										className="size-3"
-										weight="bold"
-									/>
-								</button>
-							}
-							align="start"
-							sideOffset={8}
-							className="min-w-[220px] p-2"
-						>
+					<Popover.Root open={projectSelector.open} onOpenChange={projectSelector.setOpen}>
+						<Popover.Trigger asChild>
+							<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
+								<span className="flex-1 truncate text-left">
+									{selectedProject}
+								</span>
+								<CaretDown
+									className="size-3"
+									weight="bold"
+								/>
+							</button>
+						</Popover.Trigger>
+						<Popover.Content align="start" sideOffset={8} className="min-w-[220px] p-2">
 							<div className="space-y-1">
 								{projectOptions.map((project) => (
 									<button
@@ -112,28 +108,25 @@ export function ChatComposer({
 									</button>
 								))}
 							</div>
-						</Popover>
+						</Popover.Content>
+					</Popover.Root>
 					</div>
 
 					<motion.div layout className="flex items-center gap-2">
 						<div className="w-[180px]">
-							<Popover
-								popover={modelSelector}
-								trigger={
-									<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
-										<span className="flex-1 truncate text-left">
-											{selectedModel}
-										</span>
-										<CaretDown
-											className="size-3"
-											weight="bold"
-										/>
-									</button>
-								}
-								align="end"
-								sideOffset={8}
-								className="min-w-[220px] p-2"
-							>
+						<Popover.Root open={modelSelector.open} onOpenChange={modelSelector.setOpen}>
+							<Popover.Trigger asChild>
+								<button className="border-app-line bg-app-box text-ink-dull hover:bg-app-hover hover:text-ink flex h-9 w-full items-center gap-2 rounded-full border px-3 text-left text-xs font-medium transition-colors">
+									<span className="flex-1 truncate text-left">
+										{selectedModel}
+									</span>
+									<CaretDown
+										className="size-3"
+										weight="bold"
+									/>
+								</button>
+							</Popover.Trigger>
+							<Popover.Content align="end" sideOffset={8} className="min-w-[220px] p-2">
 								<div className="space-y-1">
 									{modelOptions.map((model) => (
 										<button
@@ -148,7 +141,8 @@ export function ChatComposer({
 										</button>
 									))}
 								</div>
-							</Popover>
+							</Popover.Content>
+						</Popover.Root>
 						</div>
 
 						<button

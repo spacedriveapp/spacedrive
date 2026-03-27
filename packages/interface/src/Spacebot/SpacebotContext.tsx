@@ -9,7 +9,7 @@ import {
 	DotsThree
 } from '@phosphor-icons/react';
 import {Ball, BallBlue} from '@sd/assets/images';
-import {Popover, SearchBar, usePopover} from '@sd/ui';
+import {SearchBar, usePopover} from '@spaceui/primitives';
 import {
 	apiClient,
 	getEventsUrl,

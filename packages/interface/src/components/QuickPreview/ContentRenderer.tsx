@@ -29,7 +29,7 @@ import { TextViewer } from "./TextViewer";
 import { WithPrismTheme } from "./prism";
 import { SplatShimmerEffect } from "./SplatShimmerEffect";
 import { sounds } from "@sd/assets/sounds";
-import { TopBarButton } from "@sd/ui";
+import { TopBarButton } from "@spaceui/primitives";
 import { DirectoryPreview } from "./DirectoryPreview";
 
 const MeshViewer = lazy(() =>

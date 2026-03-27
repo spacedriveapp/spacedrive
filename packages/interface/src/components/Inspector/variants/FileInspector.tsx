@@ -27,7 +27,7 @@ import {
 } from '@phosphor-icons/react';
 import {getIcon} from '@sd/assets/util';
 import type {File} from '@sd/ts-client';
-import {toast} from '@sd/ui';
+import {toast} from '@spaceui/primitives';
 import clsx from 'clsx';
 import {LocationMap} from '../LocationMap';
 import {useState} from 'react';

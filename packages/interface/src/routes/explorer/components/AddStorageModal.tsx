@@ -14,8 +14,8 @@ import {
 	dialogManager,
 	useDialog,
 	TopBarButton,
-} from "@sd/ui";
-import { Tabs } from "@sd/ui";
+} from "@spaceui/primitives";
+import * as Tabs from "@spaceui/primitives";
 import type {
 	IndexMode,
 	LocationAddInput,

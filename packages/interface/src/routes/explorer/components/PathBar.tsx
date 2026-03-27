@@ -16,13 +16,9 @@ import LaptopIcon from "@sd/assets/icons/Laptop.png";
 import { useNormalizedQuery } from "@sd/ts-client";
 import {
 	TopBarButton,
-	Popover,
-	usePopover,
-	PopoverContainer,
-	PopoverSection,
-	PopoverDivider,
 	Button,
-} from "@sd/ui";
+} from "@spaceui/primitives";
+import { Popover, usePopover } from "@spaceui/primitives";
 import { useSelection } from "../SelectionContext";
 import { useAddStorageDialog } from "./AddStorageModal";
 import { useExplorer } from "../context";
@@ -161,89 +157,89 @@ function IndexIndicator({ path }: { path: SdPath }) {
 		matchingLocation.index_mode !== "none";
 
 	return (
-		<Popover
-			popover={popover}
-			trigger={
+		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+			<Popover.Trigger asChild>
 				<TopBarButton
 					icon={isIndexed ? CircleIcon : CircleDashedIcon}
 					active={isIndexed}
 					className={isIndexed ? "!text-accent" : undefined}
 					title={isIndexed ? "Location is indexed" : "Not indexed"}
 				/>
-			}
-		>
-			<PopoverContainer>
-				{matchingLocation ? (
-					<>
-						<PopoverSection>
-							<div className="px-2 py-1.5">
-								<div className="text-xs font-semibold text-ink">
-									{matchingLocation.name}
-								</div>
-								<div className="text-xs text-ink-dull mt-0.5">
-									{isIndexed
-										? `Indexed (${matchingLocation.index_mode})`
-										: "Not indexed"}
+			</Popover.Trigger>
+			<Popover.Content>
+				<div className="p-2">
+					{matchingLocation ? (
+						<>
+							<div className="mb-2">
+								<div className="px-2 py-1.5">
+									<div className="text-xs font-semibold text-ink">
+										{matchingLocation.name}
+									</div>
+									<div className="text-xs text-ink-dull mt-0.5">
+										{isIndexed
+											? `Indexed (${matchingLocation.index_mode})`
+											: "Not indexed"}
+									</div>
 								</div>
 							</div>
-						</PopoverSection>
 
-						<PopoverDivider />
+							<div className="border-t border-app-line my-2" />
 
-						<PopoverSection>
-							{!isIndexed && (
+							<div>
+								{!isIndexed && (
+									<button
+										onClick={async () => {
+											await enableIndexing.mutateAsync({
+												id: matchingLocation.id,
+												index_mode: "deep",
+											});
+											popover.setOpen(false);
+										}}
+										className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
+									>
+										<Eye size={16} />
+										Enable Indexing
+									</button>
+									)}
 								<button
-									onClick={async () => {
-										await enableIndexing.mutateAsync({
-											id: matchingLocation.id,
-											index_mode: "deep",
-										});
+									onClick={() => {
+										clearSelection();
+										setInspectorVisible(true);
 										popover.setOpen(false);
 									}}
 									className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
 								>
-									<Eye size={16} />
-									Enable Indexing
+									<Folder size={16} />
+									Open Location Inspector
 								</button>
-							)}
-							<button
-								onClick={() => {
-									clearSelection();
-									setInspectorVisible(true);
-									popover.setOpen(false);
-								}}
-								className="flex items-center gap-2 px-2 py-1.5 rounded-md text-xs font-medium text-ink hover:bg-app-hover transition-colors"
-							>
-								<Folder size={16} />
-								Open Location Inspector
-							</button>
-						</PopoverSection>
-					</>
-				) : (
-					<PopoverSection>
-						<div className="px-2 py-1.5">
-							<div className="text-xs text-ink-dull mb-2">
-								Path is outside any location
 							</div>
-							<Button
-								size="sm"
-								variant="accent"
-								onClick={() => {
-									const initialPath =
-										"Physical" in path
-											? path.Physical.path
-											: undefined;
-									useAddStorageDialog(undefined, initialPath);
-									popover.setOpen(false);
-								}}
-							>
-								Add Location
-							</Button>
+						</>
+					) : (
+						<div>
+							<div className="px-2 py-1.5">
+								<div className="text-xs text-ink-dull mb-2">
+									Path is outside any location
+								</div>
+								<Button
+									size="sm"
+									variant="accent"
+									onClick={() => {
+										const initialPath =
+											"Physical" in path
+												? path.Physical.path
+												: undefined;
+										useAddStorageDialog(undefined, initialPath);
+										popover.setOpen(false);
+									}}
+								>
+									Add Location
+								</Button>
+							</div>
 						</div>
-					</PopoverSection>
-				)}
-			</PopoverContainer>
-		</Popover>
+					)}
+				</div>
+			</Popover.Content>
+		</Popover.Root>
 	);
 }
 
