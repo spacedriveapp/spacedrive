@@ -17,8 +17,9 @@ import { useNormalizedQuery } from "@sd/ts-client";
 import {
 	TopBarButton,
 	Button,
+	Popover,
+	usePopover,
 } from "@spaceui/primitives";
-import { Popover, usePopover } from "@spaceui/primitives";
 import { useSelection } from "../SelectionContext";
 import { useAddStorageDialog } from "./AddStorageModal";
 import { useExplorer } from "../context";

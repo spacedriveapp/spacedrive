@@ -5,8 +5,7 @@ import {
 	ClockCounterClockwise,
 	DotsThree
 } from '@phosphor-icons/react';
-import { Popover, usePopover } from '@spaceui/primitives';
-import {SearchBar, TopBarButton, TopBarButtonGroup} from '@spaceui/primitives';
+import { Popover, usePopover, SearchBar, TopBarButton, TopBarButtonGroup } from '@spaceui/primitives';
 import {ReactQueryDevtools} from '@tanstack/react-query-devtools';
 import {useEffect, useState} from 'react';
 import {Outlet, useLocation, useNavigate} from 'react-router-dom';

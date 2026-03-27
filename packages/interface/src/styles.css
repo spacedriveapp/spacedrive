@@ -1,4 +1,4 @@
-/* Tailwind, tokens, themes, and @utility blocks are loaded via packages/ui/style/style.css */
+/* Tailwind, tokens, themes, plugins, and @utility blocks are loaded via apps/tauri/src/index.css */
 
 /* Prevent overscroll/rubber-band effect on macOS */
 html,

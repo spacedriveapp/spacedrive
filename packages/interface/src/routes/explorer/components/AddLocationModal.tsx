@@ -10,8 +10,11 @@ import {
   dialogManager,
   useDialog,
   TopBarButton,
+  TabsRoot,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
 } from "@spaceui/primitives";
-import * as Tabs from "@spaceui/primitives";
 import type {
   IndexMode,
   LocationAddInput,
@@ -334,15 +337,15 @@ function AddLocationDialog(props: {
         </div>
 
         {/* Tabs */}
-        <Tabs.Root value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
-          <Tabs.List>
-            <Tabs.Trigger value="preset">Preset</Tabs.Trigger>
-            <Tabs.Trigger value="jobs">
+        <TabsRoot value={tab} onValueChange={(v) => setTab(v as SettingsTab)}>
+          <TabsList>
+            <TabsTrigger value="preset">Preset</TabsTrigger>
+            <TabsTrigger value="jobs">
               Jobs {selectedJobs.size > 0 && `(${selectedJobs.size})`}
-            </Tabs.Trigger>
-          </Tabs.List>
+            </TabsTrigger>
+          </TabsList>
 
-          <Tabs.Content value="preset" className="pt-3">
+          <TabsContent value="preset" className="pt-3">
             <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
               <Label>Indexing Mode</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -373,9 +376,9 @@ function AddLocationDialog(props: {
                 })}
               </div>
             </div>
-          </Tabs.Content>
+          </TabsContent>
 
-          <Tabs.Content value="jobs" className="pt-3">
+          <TabsContent value="jobs" className="pt-3">
             <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
               <p className="text-xs text-ink-faint">
                 Select which jobs to run after indexing. Extensions can add more
@@ -411,8 +414,8 @@ function AddLocationDialog(props: {
                 })}
               </div>
             </div>
-          </Tabs.Content>
-        </Tabs.Root>
+          </TabsContent>
+        </TabsRoot>
 
         {/* Error Display */}
         {form.formState.errors.root && (

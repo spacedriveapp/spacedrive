@@ -285,8 +285,8 @@ export function LocationMap({ latitude, longitude, className }: LocationMapProps
 			markerEl.style.cssText = `
 				width: 32px;
 				height: 32px;
-				background: hsl(var(--color-accent));
-				border: 3px solid hsl(var(--color-app));
+				background: var(--color-accent);
+				border: 3px solid var(--color-app);
 				border-radius: 50% 50% 50% 0;
 				transform: rotate(-45deg);
 				box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
@@ -300,7 +300,7 @@ export function LocationMap({ latitude, longitude, className }: LocationMapProps
 				transform: translate(-50%, -50%);
 				width: 10px;
 				height: 10px;
-				background: hsl(var(--color-app));
+				background: var(--color-app);
 				border-radius: 50%;
 			`;
 			markerEl.appendChild(innerDot);
