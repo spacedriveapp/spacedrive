@@ -1,5 +1,3 @@
-import {Copy} from '@phosphor-icons/react';
-import {CircleButton} from '@spaceui/primitives';
 import {
 	apiClient,
 	type TimelineItem,
@@ -9,13 +7,13 @@ import type {
 	PortalConversationSummary,
 	PortalHistoryMessage
 } from '@spacebot/api-client';
+import {MessageBubble} from '@spaceui/ai';
 import {useQuery} from '@tanstack/react-query';
 import {useVirtualizer} from '@tanstack/react-virtual';
 import {useEffect, useMemo, useRef} from 'react';
 import {ChatComposer} from './ChatComposer';
 import {EmptyChatHero} from './EmptyChatHero';
 import {InlineWorkerCard} from './InlineWorkerCard';
-import {Markdown} from '@spaceui/ai';
 
 interface ConversationScreenProps {
 	agentId: string;
@@ -33,46 +31,10 @@ interface ConversationScreenProps {
 	models: import('@spaceui/ai').ModelOption[];
 	onSelectProject(project: string): void;
 	onSelectModel(model: string): void;
-	projectSelector: ReturnType<typeof import('@spaceui/primitives').usePopover>;
+	projectSelector: ReturnType<
+		typeof import('@spaceui/primitives').usePopover
+	>;
 	isSending?: boolean;
-}
-
-function MessageBubble({
-	content,
-	isUser,
-	isStreaming = false,
-	onCopy
-}: {
-	content: string;
-	isUser: boolean;
-	isStreaming?: boolean;
-	onCopy?: (content: string) => void;
-}) {
-	return (
-		<div className={`group flex flex-col py-2 ${isUser ? 'items-end' : 'items-start'}`}>
-			<div
-				className={`max-w-[80%] rounded-2xl px-4 py-3 text-[15px] leading-7 ${
-					isUser ? 'bg-accent text-white' : 'border-app-line bg-app text-ink border'
-				}`}
-			>
-				{isUser ? (
-					<div className="whitespace-pre-wrap break-words">{content}</div>
-				) : (
-					<Markdown content={content} className="break-words" />
-				)}
-			</div>
-			{!isUser && onCopy ? (
-				<div className="mt-2 flex opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-					<CircleButton
-						icon={Copy}
-						onClick={() => onCopy(content)}
-						title={isStreaming ? 'Copy streaming message' : 'Copy message'}
-						className="h-7 w-7"
-					/>
-				</div>
-			) : null}
-		</div>
-	);
 }
 
 export function ConversationScreen({
@@ -92,7 +54,7 @@ export function ConversationScreen({
 	onSelectProject,
 	onSelectModel,
 	projectSelector,
-	
+
 	isSending = false
 }: ConversationScreenProps) {
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -131,7 +93,10 @@ export function ConversationScreen({
 	});
 	const hasStreamingBubble = streamingAssistantText.trim().length > 0;
 	const timelineSignature = useMemo(
-		() => visibleTimelineItems.map((item) => `${item.type}:${item.id}`).join('|'),
+		() =>
+			visibleTimelineItems
+				.map((item) => `${item.type}:${item.id}`)
+				.join('|'),
 		[visibleTimelineItems]
 	);
 
@@ -167,7 +132,9 @@ export function ConversationScreen({
 		const isNearBottom = distanceFromBottom < 160;
 		const shouldAutoScroll =
 			conversation?.id != null &&
-			(currentLength > previousLength || Boolean(streamingAssistantText) || isTyping) &&
+			(currentLength > previousLength ||
+				Boolean(streamingAssistantText) ||
+				isTyping) &&
 			(previousLength === 0 || isNearBottom);
 
 		if (shouldAutoScroll) {
@@ -177,7 +144,13 @@ export function ConversationScreen({
 		}
 
 		previousTimelineLengthRef.current = currentLength;
-	}, [timelineSignature, visibleTimelineItems.length, streamingAssistantText, isTyping, conversation?.id]);
+	}, [
+		timelineSignature,
+		visibleTimelineItems.length,
+		streamingAssistantText,
+		isTyping,
+		conversation?.id
+	]);
 
 	if (!conversation) {
 		return (
@@ -197,7 +170,6 @@ export function ConversationScreen({
 						onSelectProject={onSelectProject}
 						onSelectModel={onSelectModel}
 						projectSelector={projectSelector}
-						
 						isSending={isSending}
 					/>
 				</div>
@@ -206,7 +178,7 @@ export function ConversationScreen({
 	}
 
 	return (
-		<div className="relative flex h-full w-full max-w-4xl flex-col">
+		<div className="relative mx-auto flex h-full w-full max-w-4xl flex-col">
 			{/* <div className="pointer-events-none absolute inset-x-0 top-0 z-10 px-6 py-4">
 				<div className="text-ink text-lg font-semibold">
 					{conversation.title}
@@ -245,20 +217,28 @@ export function ConversationScreen({
 											<InlineWorkerCard
 												agentId={agentId}
 												worker={
-													builtInWorkers.find((worker) => worker.id === item.id) ?? {
+													builtInWorkers.find(
+														(worker) =>
+															worker.id ===
+															item.id
+													) ?? {
 														id: item.id,
 														task: item.task,
 														status: item.status,
 														worker_type: 'builtin',
-														channel_id: conversation.id,
+														channel_id:
+															conversation.id,
 														channel_name: null,
-														started_at: item.started_at,
-														completed_at: item.completed_at,
+														started_at:
+															item.started_at,
+														completed_at:
+															item.completed_at,
 														has_transcript: true,
 														live_status: null,
 														tool_calls: 0,
 														opencode_port: null,
-														opencode_session_id: null,
+														opencode_session_id:
+															null,
 														directory: null,
 														interactive: false,
 														project_id: null,
@@ -272,8 +252,14 @@ export function ConversationScreen({
 											return (
 												<MessageBubble
 													content={item.content}
-													isUser={item.role === 'user'}
-													onCopy={(content) => void copyMessage(content)}
+													isUser={
+														item.role === 'user'
+													}
+													onCopy={(content) =>
+														void copyMessage(
+															content
+														)
+													}
 												/>
 											);
 										})()
@@ -304,7 +290,7 @@ export function ConversationScreen({
 						</div>
 					</div>
 				) : null}
-				<div className="h-72 shrink-0" />
+				<div className="h-48 shrink-0" />
 			</div>
 
 			<div className="absolute inset-x-0 bottom-0 z-10 p-4">
@@ -320,9 +306,7 @@ export function ConversationScreen({
 					onSelectProject={onSelectProject}
 					onSelectModel={onSelectModel}
 					projectSelector={projectSelector}
-					
 					showHeading={false}
-					showOuterBox={false}
 					isSending={isSending}
 				/>
 			</div>

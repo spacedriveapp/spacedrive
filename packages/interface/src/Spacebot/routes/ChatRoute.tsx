@@ -1,6 +1,6 @@
-import { ChatComposer } from '../ChatComposer';
-import { EmptyChatHero } from '../EmptyChatHero';
-import { useSpacebot } from '../SpacebotContext';
+import {ChatComposer} from '../ChatComposer';
+import {EmptyChatHero} from '../EmptyChatHero';
+import {useSpacebot} from '../SpacebotContext';
 
 export function ChatRoute() {
 	const {
@@ -35,7 +35,7 @@ export function ChatRoute() {
 					onSelectProject={setSelectedProject}
 					onSelectModel={setSelectedModel}
 					projectSelector={composerProjectSelector}
-					
+					showHeading={false}
 					isSending={isSending}
 				/>
 			</div>

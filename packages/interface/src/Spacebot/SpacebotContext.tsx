@@ -9,7 +9,6 @@ import {
 	DotsThree
 } from '@phosphor-icons/react';
 import {Ball, BallBlue} from '@sd/assets/images';
-import {SearchBar, usePopover} from '@spaceui/primitives';
 import {
 	apiClient,
 	getEventsUrl,
@@ -17,10 +16,11 @@ import {
 	type InboundMessageEvent,
 	type OutboundMessageDeltaEvent,
 	type OutboundMessageEvent,
-	type TypingStateEvent,
 	type PortalConversationResponse,
-	type PortalConversationSummary
+	type PortalConversationSummary,
+	type TypingStateEvent
 } from '@spacebot/api-client';
+import {SearchBar, usePopover} from '@spaceui/primitives';
 import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
 	createContext,
@@ -61,9 +61,19 @@ export const projectOptions = [
 	'Hosted Platform'
 ];
 export const models = [
-	{ id: 'claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', provider: 'Anthropic', context_window: 200000 },
-	{ id: 'gpt-5', name: 'GPT-5', provider: 'OpenAI', context_window: 128000 },
-	{ id: 'qwen-2.5-72b', name: 'Qwen 2.5 72B', provider: 'Qwen', context_window: 32000 },
+	{
+		id: 'claude-3.7-sonnet',
+		name: 'Claude 3.7 Sonnet',
+		provider: 'Anthropic',
+		context_window: 200000
+	},
+	{id: 'gpt-5', name: 'GPT-5', provider: 'OpenAI', context_window: 128000},
+	{
+		id: 'qwen-2.5-72b',
+		name: 'Qwen 2.5 72B',
+		provider: 'Qwen',
+		context_window: 32000
+	}
 ];
 
 interface SpacebotContextType {
@@ -94,7 +104,7 @@ interface SpacebotContextType {
 	streamingAssistantText: string;
 	conversations: PortalConversationSummary[];
 	conversationsLoading: boolean;
-	conversationsError: boolean;
+	conversationsError: Error | null;
 
 	// Actions
 	handleSendMessage: () => Promise<void>;
@@ -203,12 +213,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 		? decodeURIComponent(params['*'])
 		: undefined;
 	const historyQuery = useQuery({
-		queryKey: [
-			'spacebot',
-			'portal-history',
-			selectedAgent,
-			conversationId
-		],
+		queryKey: ['spacebot', 'portal-history', selectedAgent, conversationId],
 		queryFn: () =>
 			apiClient.portalHistory(selectedAgent, conversationId!, 200),
 		enabled: Boolean(conversationId),
@@ -220,10 +225,10 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 		if (historyQuery.data && conversationId) {
 			setConversationMessages((prev) => {
 				const next = new Map(prev);
-			next.set(
-				conversationId,
-				historyQuery.data as PortalHistoryItem[]
-			);
+				next.set(
+					conversationId,
+					historyQuery.data as unknown as PortalHistoryItem[]
+				);
 				return next;
 			});
 		}
@@ -302,7 +307,11 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 						]
 					}),
 					queryClient.invalidateQueries({
-						queryKey: ['spacebot', 'channel-timeline', conversationId]
+						queryKey: [
+							'spacebot',
+							'channel-timeline',
+							conversationId
+						]
 					})
 				]);
 			}
@@ -355,7 +364,11 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 						]
 					}),
 					queryClient.invalidateQueries({
-						queryKey: ['spacebot', 'channel-timeline', conversationId]
+						queryKey: [
+							'spacebot',
+							'channel-timeline',
+							conversationId
+						]
 					})
 				]);
 			},
@@ -380,7 +393,11 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 						]
 					}),
 					queryClient.invalidateQueries({
-						queryKey: ['spacebot', 'channel-timeline', conversationId]
+						queryKey: [
+							'spacebot',
+							'channel-timeline',
+							conversationId
+						]
 					})
 				]);
 			}
@@ -457,7 +474,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			streamingAssistantText,
 			conversations,
 			conversationsLoading: conversationsQuery.isLoading,
-			conversationsError: conversationsQuery.isError,
+			conversationsError: conversationsQuery.error ?? null,
 			handleSendMessage,
 			isSending:
 				sendMessageMutation.isPending ||
@@ -485,7 +502,7 @@ export function SpacebotProvider({children}: SpacebotProviderProps) {
 			streamingAssistantText,
 			conversations,
 			conversationsQuery.isLoading,
-			conversationsQuery.isError,
+			conversationsQuery.error,
 			handleSendMessage,
 			sendMessageMutation.isPending,
 			createConversationMutation.isPending,

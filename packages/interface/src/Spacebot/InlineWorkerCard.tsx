@@ -1,44 +1,23 @@
 import {apiClient, type WorkerListItem} from '@spacebot/api-client';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {useMemo, useState} from 'react';
-
 import {
-	InlineWorkerCard as SpaceUIInlineWorkerCard,
-	type TaskInfo,
-	type TranscriptStep,
+	InlineWorkerCard as InlineWorkerCardUI,
+	type TranscriptStep
 } from '@spaceui/ai';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 
-export function InlineWorkerCard({agentId, worker}: {agentId: string; worker: WorkerListItem}) {
-	const [expanded, setExpanded] = useState(false);
+export function InlineWorkerCard({
+	agentId,
+	worker
+}: {
+	agentId: string;
+	worker: WorkerListItem;
+}) {
 	const queryClient = useQueryClient();
 	const detailQuery = useQuery({
 		queryKey: ['spacebot', 'worker-detail', agentId, worker.id],
 		queryFn: () => apiClient.workerDetail(agentId, worker.id),
-		enabled: expanded,
-		refetchInterval: worker.status === 'running' ? 1500 : false,
+		refetchInterval: worker.status === 'running' ? 1500 : false
 	});
-
-	const task = useMemo<TaskInfo>(
-		() => ({
-			id: worker.id,
-			title: worker.task,
-			status: worker.status,
-			priority: 'medium',
-			assignees: [],
-			conversation_id: worker.channel_id ?? undefined,
-		}),
-		[worker.channel_id, worker.id, worker.status, worker.task]
-	);
-
-	const transcript = useMemo<TranscriptStep[]>(() => {
-		return (detailQuery.data?.transcript ?? []).map((step) => ({
-			type: step.type,
-			call_id: step.call_id,
-			name: step.name,
-			content: step.content,
-			text: step.text,
-		}));
-	}, [detailQuery.data?.transcript]);
 
 	const copyLogs = async () => {
 		const detail = detailQuery.data;
@@ -54,7 +33,7 @@ export function InlineWorkerCard({agentId, worker}: {agentId: string; worker: Wo
 			`Started: ${detail.started_at}`,
 			detail.completed_at ? `Completed: ${detail.completed_at}` : null,
 			detail.result ? `Result:\n${detail.result}` : null,
-			transcriptText ? `Transcript:\n${transcriptText}` : null,
+			transcriptText ? `Transcript:\n${transcriptText}` : null
 		]
 			.filter(Boolean)
 			.join('\n\n');
@@ -67,25 +46,41 @@ export function InlineWorkerCard({agentId, worker}: {agentId: string; worker: Wo
 			apiClient.cancelProcess({
 				channelId: worker.channel_id ?? '',
 				processType: 'worker',
-				processId: worker.id,
+				processId: worker.id
 			}),
 		onSuccess: async () => {
 			await Promise.all([
-				queryClient.invalidateQueries({queryKey: ['spacebot', 'conversation-workers', agentId, worker.channel_id]}),
-				queryClient.invalidateQueries({queryKey: ['spacebot', 'worker-detail', agentId, worker.id]}),
-				queryClient.invalidateQueries({queryKey: ['spacebot', 'channel-timeline', worker.channel_id]}),
+				queryClient.invalidateQueries({
+					queryKey: [
+						'spacebot',
+						'conversation-workers',
+						agentId,
+						worker.channel_id
+					]
+				}),
+				queryClient.invalidateQueries({
+					queryKey: ['spacebot', 'worker-detail', agentId, worker.id]
+				}),
+				queryClient.invalidateQueries({
+					queryKey: ['spacebot', 'channel-timeline', worker.channel_id]
+				})
 			]);
-		},
+		}
 	});
 
+	const isRunning = worker.status === 'running';
+	const canCancel = isRunning && !!worker.channel_id && !cancelMutation.isPending;
+
 	return (
-		<SpaceUIInlineWorkerCard
-			task={task}
-			transcript={transcript}
-			expanded={expanded}
-			onExpandedChange={setExpanded}
-			onCopyLogs={() => void copyLogs()}
-			onCancel={worker.status === 'running' && worker.channel_id ? () => void cancelMutation.mutateAsync() : undefined}
+		<InlineWorkerCardUI
+			title={worker.task}
+			status={worker.status}
+			toolCallCount={worker.tool_calls}
+			liveStatus={worker.live_status}
+			transcript={(detailQuery.data?.transcript ?? []) as TranscriptStep[]}
+			isTranscriptLoading={detailQuery.isLoading}
+			onCopyLogs={detailQuery.data ? () => void copyLogs() : undefined}
+			onCancel={canCancel ? () => void cancelMutation.mutateAsync() : undefined}
 		/>
 	);
 }

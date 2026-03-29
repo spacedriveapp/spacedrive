@@ -74,8 +74,11 @@ function SidebarHistory() {
 
 	if (conversationsError) {
 		return (
-			<div className="text-sidebar-inkDull px-3 py-2 text-xs">
-				Could not load conversations.
+			<div className="px-3 py-2 text-xs">
+				<div className="text-red-400">Could not load conversations.</div>
+				<div className="text-sidebar-inkDull mt-1 break-words font-mono text-[10px] leading-relaxed">
+					{conversationsError.message}
+				</div>
 			</div>
 		);
 	}
@@ -340,30 +343,34 @@ export function SpacebotLayout() {
 				</aside>
 
 				{/* Main Content */}
-				<main className="bg-app relative flex min-w-0 flex-1 px-6">
-					<div
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-0 z-0 opacity-100"
-						style={{
-							backgroundImage:
-								'linear-gradient(to right, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px)',
-							backgroundSize: '28px 28px',
-							maskImage:
-								'linear-gradient(to bottom, rgba(0,0,0,0.42), rgba(0,0,0,0.08))',
-							WebkitMaskImage:
-								'linear-gradient(to bottom, rgba(0,0,0,0.42), rgba(0,0,0,0.08))'
-						}}
-					/>
-					<div
-						aria-hidden="true"
-						className="pointer-events-none absolute inset-0 z-0"
-						style={{
-							background:
-								'radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 42%)'
-						}}
-					/>
+				<main className="bg-app relative flex min-w-0 flex-1">
+					{isChatActive && (
+						<>
+							<div
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-0 z-0 opacity-100"
+								style={{
+									backgroundImage:
+										'linear-gradient(to right, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--color-app-line) 45%, transparent) 1px, transparent 1px)',
+									backgroundSize: '28px 28px',
+									maskImage:
+										'linear-gradient(to bottom, rgba(0,0,0,0.42), rgba(0,0,0,0.08))',
+									WebkitMaskImage:
+										'linear-gradient(to bottom, rgba(0,0,0,0.42), rgba(0,0,0,0.08))'
+								}}
+							/>
+							<div
+								aria-hidden="true"
+								className="pointer-events-none absolute inset-0 z-0"
+								style={{
+									background:
+										'radial-gradient(circle at top, color-mix(in srgb, var(--color-accent) 8%, transparent), transparent 42%)'
+								}}
+							/>
+						</>
+					)}
 
-					<div className="relative z-10 flex h-full w-full justify-center">
+					<div className="relative z-10 flex h-full w-full">
 						<Outlet />
 					</div>
 				</main>

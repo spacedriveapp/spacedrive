@@ -24,7 +24,6 @@ interface ChatComposerProps {
 	onSelectModel(model: string): void;
 	projectSelector: ReturnType<typeof usePopover>;
 	showHeading?: boolean;
-	showOuterBox?: boolean;
 	isSending?: boolean;
 }
 
@@ -41,31 +40,32 @@ export function ChatComposer({
 	onSelectModel,
 	projectSelector,
 	showHeading = true,
-	showOuterBox = true,
 	isSending = false
 }: ChatComposerProps) {
 	const [isFocused, setIsFocused] = useState(false);
 	const isExpanded = isFocused || draft.trim().length > 0;
+	const textareaCollapsedHeight = showHeading ? 90 : 48;
+	const textareaExpandedHeight = 140;
 
 	const canSend = !isSending && draft.trim().length > 0;
 	const composerBody = (
 		<>
 			{showHeading && (
 				<div className="text-ink-dull mb-3 flex items-center gap-2 px-1 text-xs font-medium">
-					<Sparkle className="text-accent size-3.5" weight="fill" />
+					<span className="text-accent inline-flex size-3.5 shrink-0">
+						<Sparkle size="100%" weight="fill" />
+					</span>
 					What should Spacebot work on?
 				</div>
 			)}
 
-			<div
-				className={`border-app-line rounded-[24px] border p-4 ${
-					showOuterBox
-						? 'bg-app'
-						: 'bg-app-box/70 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-2xl'
-				}`}
-			>
+			<div className="border-app-line bg-app-box/70 rounded-[24px] border p-4 shadow-[0_20px_60px_rgba(0,0,0,0.18)] backdrop-blur-2xl">
 				<motion.div
-					animate={{height: isExpanded ? 140 : 90}}
+					animate={{
+						height: isExpanded
+							? textareaExpandedHeight
+							: textareaCollapsedHeight
+					}}
 					transition={{duration: 0.18, ease: 'easeOut'}}
 					style={{overflow: 'hidden'}}
 				>
@@ -162,11 +162,5 @@ export function ChatComposer({
 		</>
 	);
 
-	if (!showOuterBox) return composerBody;
-
-	return (
-		<div className="border-app-line bg-app-box/70 rounded-[28px] border p-4 shadow-[0_30px_80px_rgba(0,0,0,0.22)] backdrop-blur-2xl">
-			{composerBody}
-		</div>
-	);
+	return composerBody;
 }
