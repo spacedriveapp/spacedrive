@@ -1,0 +1,49 @@
+[adapter]
+id = "apple-notes"
+name = "Apple Notes"
+description = "Index notes from the Apple Notes app (macOS). Requires Full Disk Access for the running process."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "note"
+min_spacedrive = "0.1.0"
+trust_tier = "authored"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 120
+schedule = "*/10 * * * *"
+requires = ["python3 >= 3.9"]
+
+# No config fields — uses the standard macOS path automatically.
+# Full Disk Access must be granted to the process running Spacedrive.
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "note"
+name = "Note"
+icon = "note"
+
+[models.folder]
+fields.name = "string"
+fields.account = "string"
+
+[models.note]
+fields.title = "string"
+fields.body = "text"
+fields.snippet = "string"
+fields.created = "datetime"
+fields.modified = "datetime"
+fields.is_pinned = "boolean"
+
+[models.note.relations]
+belongs_to = ["folder"]
+
+[search]
+primary_model = "note"
+title = "title"
+preview = "body"
+subtitle = "snippet"
+search_fields = ["title", "body"]
+date_field = "modified"

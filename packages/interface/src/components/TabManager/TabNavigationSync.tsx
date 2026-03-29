@@ -5,13 +5,15 @@ import { useTabManager } from "./useTabManager";
 /**
  * Derives a tab title from the current route pathname and search params
  */
-function deriveTitleFromPath(pathname: string, search: string): string {
+function deriveTitleFromPath(pathname: string, search: string): string | null {
 	// Static route mappings
 	const routeTitles: Record<string, string> = {
 		"/": "Overview",
 		"/favorites": "Favorites",
 		"/recents": "Recents",
 		"/file-kinds": "File Kinds",
+		"/sources": "Sources",
+		"/sources/adapters": "Adapters",
 		"/search": "Search",
 		"/jobs": "Jobs",
 		"/daemon": "Daemon",
@@ -26,6 +28,12 @@ function deriveTitleFromPath(pathname: string, search: string): string {
 	if (pathname.startsWith("/tag/")) {
 		const tagId = pathname.split("/")[2];
 		return tagId ? `Tag: ${tagId.slice(0, 8)}...` : "Tag";
+	}
+
+	// Handle source detail routes: /sources/:sourceId
+	// Title is set dynamically by SourceDetail component, return null to skip overwrite
+	if (pathname.startsWith("/sources/") && pathname !== "/sources/adapters") {
+		return null;
 	}
 
 	// Handle explorer routes
@@ -91,9 +99,9 @@ export function TabNavigationSync() {
 			updateTabPath(activeTabId, currentPath);
 		}
 
-		// Always update title based on current location
+		// Update title based on current location (null = managed by the route component)
 		const newTitle = deriveTitleFromPath(location.pathname, location.search);
-		if (activeTab && newTitle !== activeTab.title) {
+		if (activeTab && newTitle !== null && newTitle !== activeTab.title) {
 			updateTabTitle(activeTabId, newTitle);
 		}
 	}, [currentPath, activeTab, activeTabId, updateTabPath, updateTabTitle, location.pathname, location.search]);

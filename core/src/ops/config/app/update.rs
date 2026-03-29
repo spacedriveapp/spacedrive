@@ -75,6 +75,26 @@ pub struct UpdateAppConfigInput {
 	/// Maximum retries for queued vouches
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub proxy_pairing_vouch_queue_retry_limit: Option<u32>,
+
+	/// Whether Spacebot features are enabled in the UI
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub spacebot_enabled: Option<bool>,
+
+	/// Spacebot API base URL
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub spacebot_base_url: Option<String>,
+
+	/// Optional Spacebot bearer token
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub spacebot_auth_token: Option<String>,
+
+	/// Default Spacebot agent ID for embedded chat
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub spacebot_default_agent_id: Option<String>,
+
+	/// Default sender name for embedded chat
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub spacebot_default_sender_name: Option<String>,
 }
 
 /// Output for update app configuration action
@@ -170,6 +190,33 @@ impl CoreAction for UpdateAppConfigAction {
 				return Err(ActionError::Validation {
 					field: "proxy_pairing_vouch_queue_retry_limit".to_string(),
 					message: "Retry limit must be greater than 0".to_string(),
+				});
+			}
+		}
+
+		if let Some(ref base_url) = self.input.spacebot_base_url {
+			if base_url.trim().is_empty() {
+				return Err(ActionError::Validation {
+					field: "spacebot_base_url".to_string(),
+					message: "Spacebot base URL cannot be empty".to_string(),
+				});
+			}
+		}
+
+		if let Some(ref agent_id) = self.input.spacebot_default_agent_id {
+			if agent_id.trim().is_empty() {
+				return Err(ActionError::Validation {
+					field: "spacebot_default_agent_id".to_string(),
+					message: "Default agent ID cannot be empty".to_string(),
+				});
+			}
+		}
+
+		if let Some(ref sender_name) = self.input.spacebot_default_sender_name {
+			if sender_name.trim().is_empty() {
+				return Err(ActionError::Validation {
+					field: "spacebot_default_sender_name".to_string(),
+					message: "Default sender name cannot be empty".to_string(),
 				});
 			}
 		}
@@ -292,6 +339,49 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.proxy_pairing.vouch_queue_retry_limit != retry_limit {
 				config.proxy_pairing.vouch_queue_retry_limit = retry_limit;
 				changes.push("proxy_pairing_vouch_queue_retry_limit");
+			}
+		}
+
+		if let Some(spacebot_enabled) = self.input.spacebot_enabled {
+			if config.spacebot.enabled != spacebot_enabled {
+				config.spacebot.enabled = spacebot_enabled;
+				changes.push("spacebot_enabled");
+			}
+		}
+
+		if let Some(ref spacebot_base_url) = self.input.spacebot_base_url {
+			let normalized = spacebot_base_url.trim().trim_end_matches('/').to_string();
+			if config.spacebot.base_url != normalized {
+				config.spacebot.base_url = normalized;
+				changes.push("spacebot_base_url");
+			}
+		}
+
+		if let Some(ref spacebot_auth_token) = self.input.spacebot_auth_token {
+			let normalized = if spacebot_auth_token.trim().is_empty() {
+				None
+			} else {
+				Some(spacebot_auth_token.trim().to_string())
+			};
+			if config.spacebot.auth_token != normalized {
+				config.spacebot.auth_token = normalized;
+				changes.push("spacebot_auth_token");
+			}
+		}
+
+		if let Some(ref spacebot_default_agent_id) = self.input.spacebot_default_agent_id {
+			let normalized = spacebot_default_agent_id.trim().to_string();
+			if config.spacebot.default_agent_id != normalized {
+				config.spacebot.default_agent_id = normalized;
+				changes.push("spacebot_default_agent_id");
+			}
+		}
+
+		if let Some(ref spacebot_default_sender_name) = self.input.spacebot_default_sender_name {
+			let normalized = spacebot_default_sender_name.trim().to_string();
+			if config.spacebot.default_sender_name != normalized {
+				config.spacebot.default_sender_name = normalized;
+				changes.push("spacebot_default_sender_name");
 			}
 		}
 

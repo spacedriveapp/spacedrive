@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MagnifyingGlass } from "@phosphor-icons/react";
-import { TopBarButton, SearchBar } from "@sd/ui";
+import { CircleButton, SearchBar } from "@spaceui/primitives";
 
 interface ExpandableSearchButtonProps {
 	value: string;
@@ -86,7 +86,7 @@ export function ExpandableSearchButton({
 							exit={{ opacity: 0 }}
 							transition={{ duration: 0.15 }}
 						>
-							<TopBarButton icon={MagnifyingGlass} onClick={handleButtonClick} />
+							<CircleButton icon={MagnifyingGlass} onClick={handleButtonClick} />
 						</motion.div>
 					) : (
 						<motion.div

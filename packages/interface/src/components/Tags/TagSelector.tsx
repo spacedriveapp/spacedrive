@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { MagnifyingGlass, Plus } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { Popover, usePopover } from '@sd/ui';
+import { Popover, usePopover } from '@spaceui/primitives';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import type { Tag } from '@sd/ts-client';
 
@@ -238,21 +238,22 @@ export function TagSelectorButton({ onSelect, trigger, contextTags, fileId, cont
 	const popover = usePopover();
 
 	return (
-		<Popover
-			popover={popover}
-			trigger={trigger}
-			className="w-64 p-0"
-		>
-			<TagSelector
-				onSelect={(tag) => {
-					onSelect(tag);
-					popover.setOpen(false);
-				}}
-				onClose={() => popover.setOpen(false)}
-				contextTags={contextTags}
-				fileId={fileId}
-				contentId={contentId}
-			/>
-		</Popover>
+		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+			<Popover.Trigger asChild>
+				{trigger}
+			</Popover.Trigger>
+			<Popover.Content className="w-64 p-0">
+				<TagSelector
+					onSelect={(tag) => {
+						onSelect(tag);
+						popover.setOpen(false);
+					}}
+					onClose={() => popover.setOpen(false)}
+					contextTags={contextTags}
+					fileId={fileId}
+					contentId={contentId}
+				/>
+			</Popover.Content>
+		</Popover.Root>
 	);
 }

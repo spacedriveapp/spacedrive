@@ -3,7 +3,7 @@ name = "log-analyzer"
 version = "0.1.0"
 edition = "2021"
 authors = ["Spacedrive Technology Inc."]
-license = "AGPL-3.0-only"
+license = "FSL-1.1-ALv2"
 
 [dependencies]
 # Core functionality
@@ -36,7 +36,6 @@ cli = ["clap"]
 [[example]]
 name = "analyze_sync_log"
 required-features = ["cli"]
-
 
 
 

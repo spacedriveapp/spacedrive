@@ -11,15 +11,22 @@ const keybindHandlers = new Map<string, KeybindHandler>();
 let eventUnlisten: UnlistenFn | null = null;
 let clipboardUnlisten: UnlistenFn | null = null;
 
-// Check if an input element is currently focused
-function isInputFocused(): boolean {
+// Check if the current context should use native text clipboard behavior.
+function shouldUseNativeClipboard(action: 'copy' | 'cut' | 'paste'): boolean {
 	const activeElement = document.activeElement;
+	const selection = window.getSelection()?.toString() ?? '';
 	console.log('[Clipboard] Active element:', {
 		element: activeElement,
 		tagName: activeElement?.tagName,
 		type: (activeElement as HTMLInputElement)?.type,
-		contenteditable: activeElement?.getAttribute('contenteditable')
+		contenteditable: activeElement?.getAttribute('contenteditable'),
+		selection
 	});
+
+	if ((action === 'copy' || action === 'cut') && selection.trim().length > 0) {
+		console.log('[Clipboard] Text selection detected, using native clipboard');
+		return true;
+	}
 
 	if (!activeElement) {
 		console.log('[Clipboard] No active element');
@@ -76,10 +83,15 @@ export async function initializeKeybindHandler(): Promise<void> {
 		const action = event.payload as 'copy' | 'cut' | 'paste';
 		console.log(`[Clipboard] Received clipboard-action event:`, action);
 
-		// Check if an input is focused
-		if (isInputFocused()) {
+		// Use native clipboard behavior for text inputs or active text selection.
+		if (shouldUseNativeClipboard(action)) {
+			if (action === 'paste') {
+				console.log('[Clipboard] Paste is handled by the focused editable target');
+				return;
+			}
+
 			// Execute native browser clipboard operation
-			console.log('[Clipboard] Input focused, executing native operation');
+			console.log('[Clipboard] Native clipboard context detected, executing native operation');
 			executeNativeClipboard(action);
 		} else {
 			// Trigger file operation via keybind system

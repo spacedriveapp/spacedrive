@@ -507,9 +507,8 @@ impl RemoteTransferStrategy {
 		let current_device_id = crate::device::get_current_device_id();
 		// Normalize path separators to forward slashes for cross-platform transmission.
 		// The receiving device may use a different OS separator (Windows \ vs Unix /).
-		let normalized_source_path = PathBuf::from(
-			source_path.to_string_lossy().replace('\\', "/"),
-		);
+		let normalized_source_path =
+			PathBuf::from(source_path.to_string_lossy().replace('\\', "/"));
 		let pull_request =
 			crate::service::network::protocol::file_transfer::FileTransferMessage::PullRequest {
 				transfer_id,

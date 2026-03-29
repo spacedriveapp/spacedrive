@@ -1,0 +1,97 @@
+[adapter]
+id = "github"
+name = "GitHub"
+description = "Index issues, pull requests, and discussions from GitHub repositories via the REST API. Requires a personal access token."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "git-branch"
+min_spacedrive = "0.1.0"
+trust_tier = "collaborative"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 600
+schedule = "*/30 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "token"
+name = "GitHub Token"
+description = "Personal access token with 'repo' scope (or fine-grained with Issues/PRs read access)"
+type = "string"
+required = true
+secret = true
+
+[[adapter.config]]
+key = "repos"
+name = "Repositories"
+description = "Comma-separated list of repos to index (e.g. 'owner/repo1, owner/repo2'). Leave blank to index all repos you have access to."
+type = "string"
+required = false
+
+[[adapter.config]]
+key = "include_prs"
+name = "Include Pull Requests"
+description = "Also index pull requests (not just issues)"
+type = "boolean"
+required = false
+default = true
+
+[[adapter.config]]
+key = "max_items"
+name = "Max Items per Repo"
+description = "Maximum issues/PRs to fetch per repository per sync"
+type = "integer"
+required = false
+default = 500
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "github-issue"
+name = "GitHub Issues & PRs"
+icon = "git-branch"
+
+[models.repository]
+fields.name = "string"
+fields.full_name = "string"
+fields.description = "text"
+fields.language = "string"
+fields.stars = "integer"
+fields.url = "string"
+has_many = ["issue"]
+
+[models.issue]
+fields.title = "string"
+fields.body = "text"
+fields.author = "string"
+fields.state = "string"
+fields.number = "integer"
+fields.url = "string"
+fields.is_pr = "boolean"
+fields.labels = "string"
+fields.comments_count = "integer"
+fields.created_at = "datetime"
+fields.updated_at = "datetime"
+fields.closed_at = "datetime"
+
+[models.issue.relations]
+belongs_to = ["repository"]
+
+[models.comment]
+fields.body = "text"
+fields.author = "string"
+fields.created_at = "datetime"
+fields.url = "string"
+
+[models.comment.relations]
+belongs_to = ["issue"]
+
+[search]
+primary_model = "issue"
+title = "title"
+preview = "body"
+subtitle = "author"
+search_fields = ["title", "body", "author", "labels"]
+date_field = "updated_at"

@@ -163,6 +163,7 @@ pub async fn detect_non_apfs_volumes(
 					color: None,
 					icon: None,
 					error_message: None,
+					supports_block_cloning: false,
 				};
 				volumes.push(volume);
 			}

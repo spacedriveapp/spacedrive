@@ -126,8 +126,7 @@ pub unsafe extern "C" fn initialize_core(
 	}
 
 	// Initialize core
-	let core =
-		rt.block_on(async { Core::new_with_config(data_path, None, device_name_opt).await });
+	let core = rt.block_on(async { Core::new_with_config(data_path, None, device_name_opt).await });
 
 	let mut core = match core {
 		Ok(core) => core,

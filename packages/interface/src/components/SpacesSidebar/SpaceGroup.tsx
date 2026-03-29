@@ -8,6 +8,7 @@ import { DevicesGroup } from "./DevicesGroup";
 import { LocationsGroup } from "./LocationsGroup";
 import { VolumesGroup } from "./VolumesGroup";
 import { TagsGroup } from "./TagsGroup";
+import { SourcesGroup } from "./SourcesGroup";
 import { GroupHeader } from "./GroupHeader";
 import { useDroppable, useDndContext } from "@dnd-kit/core";
 
@@ -106,6 +107,20 @@ export function SpaceGroup({
 		return (
 			<div data-group-id={group.id}>
 				<TagsGroup
+					isCollapsed={isCollapsed}
+					onToggle={handleToggle}
+					sortableAttributes={sortableAttributes}
+					sortableListeners={sortableListeners}
+				/>
+			</div>
+		);
+	}
+
+	// Sources group - fetches archive data sources
+	if (group.group_type === "Sources") {
+		return (
+			<div data-group-id={group.id}>
+				<SourcesGroup
 					isCollapsed={isCollapsed}
 					onToggle={handleToggle}
 					sortableAttributes={sortableAttributes}

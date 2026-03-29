@@ -1,5 +1,5 @@
 import { ListBullets, CircleNotch, FunnelSimple, ArrowsOut } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@sd/ui";
+import { Popover, usePopover, CircleButton } from "@spaceui/primitives";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -28,9 +28,8 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
   }, [popover.open]);
 
   return (
-    <Popover
-      popover={popover}
-      trigger={
+    <Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+      <Popover.Trigger asChild>
         <button
           className={clsx(
             "w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium",
@@ -52,56 +51,53 @@ export function JobManagerPopover({ className }: JobManagerPopoverProps) {
             </span>
           )}
         </button>
-      }
-      side="top"
-      align="start"
-      sideOffset={8}
-      className={clsx(
+      </Popover.Trigger>
+      <Popover.Content side="top" align="start" sideOffset={8} className={clsx(
         "w-[360px] max-h-[480px] z-50",
         "!p-0 !bg-app !rounded-xl"
-      )}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-        <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
+      )}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+          <h3 className="text-sm font-semibold text-ink">Job Manager</h3>
 
-        <div className="flex items-center gap-2">
-          {activeJobCount > 0 && (
-            <span className="text-xs text-ink-dull">
-              {activeJobCount} active
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {activeJobCount > 0 && (
+              <span className="text-xs text-ink-dull">
+                {activeJobCount} active
+              </span>
+            )}
 
-          {/* Expand to full screen button */}
-          <TopBarButton
-            icon={ArrowsOut}
-            onClick={() => navigate("/jobs")}
-            title="Open full jobs screen"
-          />
+            {/* Expand to full screen button */}
+            <CircleButton
+              icon={ArrowsOut}
+              onClick={() => navigate("/jobs")}
+              title="Open full jobs screen"
+            />
 
-          {/* Filter toggle button */}
-          <TopBarButton
-            icon={FunnelSimple}
-            active={showOnlyRunning}
-            onClick={() => setShowOnlyRunning(!showOnlyRunning)}
-            title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
-          />
+            {/* Filter toggle button */}
+            <CircleButton
+              icon={FunnelSimple}
+              active={showOnlyRunning}
+              onClick={() => setShowOnlyRunning(!showOnlyRunning)}
+              title={showOnlyRunning ? "Show all jobs" : "Show only active jobs"}
+            />
+          </div>
         </div>
-      </div>
 
-      {/* Popover content with full job manager */}
-      {popover.open && (
-        <JobManagerPopoverContent
-          jobs={jobs}
-          showOnlyRunning={showOnlyRunning}
-          setShowOnlyRunning={setShowOnlyRunning}
-          pause={pause}
-          resume={resume}
-          cancel={cancel}
-          getSpeedHistory={getSpeedHistory}
-        />
-      )}
-    </Popover>
+        {/* Popover content with full job manager */}
+        {popover.open && (
+          <JobManagerPopoverContent
+            jobs={jobs}
+            showOnlyRunning={showOnlyRunning}
+            setShowOnlyRunning={setShowOnlyRunning}
+            pause={pause}
+            resume={resume}
+            cancel={cancel}
+            getSpeedHistory={getSpeedHistory}
+          />
+        )}
+      </Popover.Content>
+    </Popover.Root>
   );
 }
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Input } from "@sd/ui";
+import { Input } from "@spaceui/primitives";
 import type { File } from "@sd/ts-client";
 import clsx from "clsx";
 

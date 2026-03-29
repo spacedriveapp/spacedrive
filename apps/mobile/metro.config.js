@@ -1,18 +1,28 @@
 const { getDefaultConfig } = require("expo/metro-config");
 const { withNativeWind } = require("nativewind/metro");
+const fs = require("fs");
 const path = require("path");
 
 const projectRoot = __dirname;
 const workspaceRoot = path.resolve(projectRoot, "../..");
+const spaceUiTokensRoot = path.dirname(
+	require.resolve("@spaceui/tokens/raw-colors", { paths: [projectRoot, workspaceRoot] })
+);
+const spaceUiTokensNodeModules = path.resolve(spaceUiTokensRoot, "node_modules");
+
+const existingPaths = (paths) => [...new Set(paths.filter((filePath) => fs.existsSync(filePath)))];
 
 const config = getDefaultConfig(projectRoot);
 
-// Watch only relevant directories for hot reload (not entire monorepo)
-// This avoids watching Rust target/ dirs (4.5GB+) and other build artifacts
-config.watchFolders = [
+// Watch only the app sources and hoisted workspace deps Metro needs to resolve.
+// Expo Router can resolve to files in the hoisted Bun node_modules tree.
+config.watchFolders = existingPaths([
 	path.resolve(projectRoot, "src"),
 	path.resolve(workspaceRoot, "packages"),
-];
+	path.resolve(workspaceRoot, "node_modules"),
+	spaceUiTokensRoot,
+	spaceUiTokensNodeModules,
+]);
 
 // Configure resolver for monorepo and SVG support
 config.resolver = {
@@ -24,10 +34,13 @@ config.resolver = {
 
 	// Critical for Bun monorepo - resolve node_modules from local and workspace root
 	// Local node_modules takes priority to ensure correct React version
-	nodeModulesPaths: [
+	nodeModulesPaths: existingPaths([
 		path.resolve(projectRoot, "node_modules"),
 		path.resolve(workspaceRoot, "node_modules"),
-	],
+		spaceUiTokensNodeModules,
+	]),
+
+	unstable_enableSymlinks: true,
 
 	// Exclude build outputs
 	blockList: [
@@ -37,6 +50,7 @@ config.resolver = {
 
 	// Dynamically resolve React/React Native from wherever the package manager installed them
 	extraNodeModules: {
+		"@spaceui/tokens": spaceUiTokensRoot,
 		react: path.dirname(require.resolve("react/package.json", { paths: [projectRoot, workspaceRoot] })),
 		"react-native": path.dirname(
 			require.resolve("react-native/package.json", { paths: [projectRoot, workspaceRoot] })

@@ -86,14 +86,15 @@ export class SubscriptionManager {
 			return this.createCleanup(key, callback);
 		}
 
-		// Create new subscription
+		// Create new subscription.
+		// The initial callback is added to listeners BEFORE transport.subscribe()
+		// so that buffered events replayed during subscription setup are not lost.
 		console.log(`[SubscriptionManager] Creating new subscription for key: ${key}`);
-		const subscriptionPromise = this.createSubscription(key, filter);
+		const subscriptionPromise = this.createSubscription(key, filter, callback);
 		this.pendingSubscriptions.set(key, subscriptionPromise);
 
 		try {
 			entry = await subscriptionPromise;
-			entry.listeners.add(callback);
 			entry.refCount++;
 			console.log(`[SubscriptionManager] New subscription created, refCount: ${entry.refCount}`);
 			return this.createCleanup(key, callback);
@@ -105,6 +106,7 @@ export class SubscriptionManager {
 	private async createSubscription(
 		key: string,
 		filter: EventFilter,
+		initialCallback: (event: Event) => void,
 	): Promise<SubscriptionEntry> {
 		const eventTypes = filter.event_types ?? [
 			"ResourceChanged",
@@ -112,6 +114,16 @@ export class SubscriptionManager {
 			"ResourceDeleted",
 			"Refresh",
 		];
+
+		// Pre-create the entry with the initial listener so that events
+		// replayed by the daemon during transport.subscribe() are captured.
+		const entry: SubscriptionEntry = {
+			unsubscribe: () => {},
+			listeners: new Set([initialCallback]),
+			refCount: 0,
+		};
+
+		this.subscriptions.set(key, entry);
 
 		const unsubscribe = await this.transport.subscribe(
 			(event) => {
@@ -132,13 +144,7 @@ export class SubscriptionManager {
 			},
 		);
 
-		const entry: SubscriptionEntry = {
-			unsubscribe,
-			listeners: new Set(),
-			refCount: 0,
-		};
-
-		this.subscriptions.set(key, entry);
+		entry.unsubscribe = unsubscribe;
 		return entry;
 	}
 

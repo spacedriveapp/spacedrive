@@ -1,6 +1,5 @@
 import React from "react";
 import { View } from "react-native";
-import sharedColors from "@sd/ui/style/colors";
 
 interface PageIndicatorProps {
 	currentIndex: number;
@@ -14,8 +13,8 @@ interface PageIndicatorProps {
 export function PageIndicator({
 	currentIndex,
 	totalPages,
-	activeColor = `hsl(${sharedColors.accent.DEFAULT})`,
-	inactiveColor = `hsl(${sharedColors.app.line})`,
+	activeColor = "hsl(208, 100%, 57%)",
+	inactiveColor = "hsl(235, 15%, 23%)",
 	pageColors,
 }: PageIndicatorProps) {
 	return (

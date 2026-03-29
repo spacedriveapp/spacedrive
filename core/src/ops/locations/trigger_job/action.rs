@@ -202,7 +202,9 @@ impl LibraryAction for LocationTriggerJobAction {
 			JobType::SpeechToText => {
 				return Err(ActionError::Validation {
 					field: "job_type".to_string(),
-					message: "Speech-to-text requires FFmpeg and Whisper support which is not enabled".to_string(),
+					message:
+						"Speech-to-text requires FFmpeg and Whisper support which is not enabled"
+							.to_string(),
 				});
 			}
 

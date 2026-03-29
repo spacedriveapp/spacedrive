@@ -23,6 +23,7 @@ pub enum SpacedriveWindow {
 	},
 	JobManager,
 	DeviceDiscovery,
+	Spacebot,
 
 	/// Floating panels (always on top)
 	Inspector {
@@ -38,6 +39,7 @@ pub enum SpacedriveWindow {
 
 	/// Floating controls (small, always on top)
 	FloatingControls,
+	VoiceOverlay,
 
 	/// Drag demo window
 	DragDemo,
@@ -68,6 +70,7 @@ impl SpacedriveWindow {
 			Self::Settings { page } => format!("settings-{}", page.as_deref().unwrap_or("general")),
 			Self::JobManager => "job-manager".to_string(),
 			Self::DeviceDiscovery => "device-discovery".to_string(),
+			Self::Spacebot => "spacebot".to_string(),
 			Self::Inspector { item_id } => {
 				format!("inspector-{}", item_id.as_deref().unwrap_or("floating"))
 			}
@@ -75,6 +78,7 @@ impl SpacedriveWindow {
 			Self::TagAssignment => "tag-assignment".to_string(),
 			Self::SearchOverlay => "search-overlay".to_string(),
 			Self::FloatingControls => "floating-controls".to_string(),
+			Self::VoiceOverlay => "voice-overlay".to_string(),
 			Self::DragDemo => "drag-demo".to_string(),
 			Self::Spacedrop => "spacedrop".to_string(),
 			Self::DragOverlay { session_id } => format!("drag-overlay-{}", session_id),
@@ -214,6 +218,18 @@ impl SpacedriveWindow {
 				false,
 			),
 
+			Self::Spacebot => create_window(
+				app,
+				&label,
+				"/spacebot",
+				"Spacebot",
+				(1200.0, 800.0),
+				(800.0, 600.0),
+				true,
+				false,
+				false,
+			),
+
 			Self::QuickPreview { file_id } => {
 				let url = format!("/quick-preview/{}", file_id);
 				create_window(
@@ -290,6 +306,27 @@ impl SpacedriveWindow {
 							.ok();
 					}
 				}
+
+				window.show().ok();
+				Ok(window)
+			}
+
+			Self::VoiceOverlay => {
+				let window =
+					WebviewWindowBuilder::new(app, label, WebviewUrl::App("/voice-overlay".into()))
+						.title("Voice Overlay")
+						.inner_size(520.0, 112.0)
+						.resizable(false)
+						.decorations(false)
+						.shadow(false)
+						.transparent(true)
+						.always_on_top(true)
+						.skip_taskbar(true)
+						.visible(false)
+						.build()
+						.map_err(|e| format!("Failed to create voice overlay: {}", e))?;
+
+				position_overlay_window(&window, 520.0, 112.0)?;
 
 				window.show().ok();
 				Ok(window)
@@ -421,6 +458,30 @@ fn hash_string(s: &str) -> String {
 	format!("{:x}", hasher.finish())
 }
 
+fn position_overlay_window(window: &WebviewWindow, width: f64, height: f64) -> Result<(), String> {
+	use tauri::{PhysicalPosition, Position};
+
+	let monitor = window
+		.current_monitor()
+		.map_err(|e| e.to_string())?
+		.ok_or("No monitor found")?;
+
+	let monitor_size = monitor.size();
+	let monitor_position = monitor.position();
+	let scale_factor = window.scale_factor().map_err(|e| e.to_string())?;
+
+	let physical_width = (width * scale_factor).round() as i32;
+	let physical_height = (height * scale_factor).round() as i32;
+	let bottom_margin = (24.0 * scale_factor).round() as i32;
+
+	let x = monitor_position.x + (monitor_size.width as i32 - physical_width) / 2;
+	let y = monitor_position.y + monitor_size.height as i32 - physical_height - bottom_margin;
+
+	window
+		.set_position(Position::Physical(PhysicalPosition::new(x, y)))
+		.map_err(|e| e.to_string())
+}
+
 /// Tauri command to show a window
 #[tauri::command]
 pub async fn show_window(app: AppHandle, window: SpacedriveWindow) -> Result<String, String> {
@@ -435,6 +496,51 @@ pub async fn close_window(app: AppHandle, label: String) -> Result<(), String> {
 	if let Some(window) = app.get_webview_window(&label) {
 		window.close().map_err(|e| e.to_string())?;
 	}
+	Ok(())
+}
+
+pub fn toggle_voice_overlay_internal(app: AppHandle) -> Result<(), String> {
+	let window = SpacedriveWindow::VoiceOverlay;
+	let label = window.label();
+
+	if let Some(existing) = app.get_webview_window(&label) {
+		existing.close().map_err(|e| e.to_string())?;
+		return Ok(());
+	}
+
+	tauri::async_runtime::spawn(async move {
+		if let Err(error) = window.show(&app).await {
+			tracing::warn!(?error, "Failed to open voice overlay window");
+		}
+	});
+
+	Ok(())
+}
+
+#[tauri::command]
+pub async fn toggle_voice_overlay(app: AppHandle) -> Result<(), String> {
+	toggle_voice_overlay_internal(app)
+}
+
+#[tauri::command]
+pub async fn resize_overlay_window(
+	app: AppHandle,
+	label: String,
+	width: f64,
+	height: f64,
+) -> Result<(), String> {
+	use tauri::{LogicalSize, Size};
+
+	let window = app
+		.get_webview_window(&label)
+		.ok_or("Overlay window not found")?;
+
+	window
+		.set_size(Size::Logical(LogicalSize::new(width, height)))
+		.map_err(|e| e.to_string())?;
+
+	position_overlay_window(&window, width, height)?;
+
 	Ok(())
 }
 

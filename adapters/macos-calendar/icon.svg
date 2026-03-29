@@ -1,0 +1,7 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <rect width="256" height="256" rx="48" fill="#FFFFFF"/>
+  <rect y="0" width="256" height="72" rx="48" fill="#FF3B30"/>
+  <rect x="0" y="48" width="256" height="24" fill="#FF3B30"/>
+  <text x="128" y="42" text-anchor="middle" font-family="SF Pro, Helvetica, Arial, sans-serif" font-size="30" font-weight="600" fill="#FFFFFF">TUESDAY</text>
+  <text x="128" y="180" text-anchor="middle" font-family="SF Pro, Helvetica, Arial, sans-serif" font-size="120" font-weight="300" fill="#333333">10</text>
+</svg>

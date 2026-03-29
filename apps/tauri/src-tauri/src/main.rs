@@ -16,6 +16,7 @@ use std::sync::Arc;
 use tauri::menu::MenuItem;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
+use tauri_plugin_global_shortcut::ShortcutState;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -350,6 +351,18 @@ struct MenuState {
 async fn app_ready(window: tauri::Window) {
 	window.show().ok();
 	window.set_focus().ok();
+
+	#[cfg(debug_assertions)]
+	if window.label() == "main" && window.app_handle().get_webview_window("spacebot").is_none() {
+		if let Err(error) = windows::show_window(
+			window.app_handle().clone(),
+			windows::SpacedriveWindow::Spacebot,
+		)
+		.await
+		{
+			tracing::warn!(?error, "Failed to auto-open Spacebot window");
+		}
+	}
 }
 
 /// Get the daemon socket address for the frontend to connect
@@ -533,9 +546,15 @@ async fn validate_and_reset_library_if_needed(
 
 	// Parse response to get library list
 	let libraries: Vec<serde_json::Value> = response
-		.get("JsonOk").or_else(|| response.get("result"))
+		.get("JsonOk")
+		.or_else(|| response.get("result"))
 		.and_then(|r| r.as_array())
-		.ok_or_else(|| format!("Invalid response format from libraries.list query. Raw: {}", response_line.trim()))?
+		.ok_or_else(|| {
+			format!(
+				"Invalid response format from libraries.list query. Raw: {}",
+				response_line.trim()
+			)
+		})?
 		.clone();
 
 	// Check if current library ID exists in the list
@@ -1662,11 +1681,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		.build(app)?;
 	menu_items_map.insert("copy".to_string(), copy_item.clone());
 
-	let paste_item = MenuItemBuilder::with_id("paste", "Paste")
-		.accelerator("Cmd+V")
-		.enabled(true)
-		.build(app)?;
-	menu_items_map.insert("paste".to_string(), paste_item.clone());
+	let paste_item = PredefinedMenuItem::paste(app, None)?;
 
 	let edit_menu = SubmenuBuilder::new(app, "Edit")
 		.item(&PredefinedMenuItem::undo(app, None)?)
@@ -1873,8 +1888,9 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					tracing::error!("Failed to emit menu action: {}", e);
 				}
 			}
-			// Edit menu clipboard actions - emit event for smart handling in frontend
-			"cut" | "copy" | "paste" => {
+			// Edit menu clipboard actions - emit event for smart handling in frontend.
+			// Paste uses the native predefined menu item to avoid duplicate text pastes.
+			"cut" | "copy" => {
 				tracing::info!("[Menu] Clipboard action triggered: {}", event_id);
 				// Emit generic clipboard event - frontend will decide if it's a text or file operation
 				if let Err(e) = app_handle.emit("clipboard-action", event_id) {
@@ -1910,6 +1926,22 @@ fn main() {
 		.plugin(tauri_plugin_os::init())
 		.plugin(tauri_plugin_shell::init())
 		.plugin(tauri_plugin_updater::Builder::new().build())
+		.plugin(
+			tauri_plugin_global_shortcut::Builder::new()
+				.with_shortcut("Alt+Space")
+				.expect("failed to register Alt+Space global shortcut")
+				.with_handler(|app, _shortcut, event| {
+					if event.state() == ShortcutState::Pressed {
+						if let Err(error) = windows::toggle_voice_overlay_internal(app.clone()) {
+							tracing::warn!(
+								?error,
+								"Failed to toggle voice overlay from global shortcut"
+							);
+						}
+					}
+				})
+				.build(),
+		)
 		.invoke_handler(tauri::generate_handler![
 			app_ready,
 			get_daemon_socket,
@@ -1934,8 +1966,10 @@ fn main() {
 			open_macos_settings,
 			windows::show_window,
 			windows::close_window,
+			windows::toggle_voice_overlay,
 			windows::list_windows,
 			windows::apply_macos_styling,
+			windows::resize_overlay_window,
 			windows::position_context_menu,
 			drag::begin_drag,
 			drag::end_drag,

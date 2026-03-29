@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { X, ShareNetwork, Users } from '@phosphor-icons/react';
 import { useState, useMemo } from 'react';
-import { TopBarButton } from '@sd/ui';
+import { CircleButton } from '@spaceui/primitives';
 
 interface Person {
 	id: string;
@@ -68,16 +68,16 @@ export function Spacedrop({ onClose, people = [] }: SpacedropProps) {
 			{/* Top Bar */}
 			<div className="relative z-10 flex items-center justify-between border-b border-app-line/30 bg-app/80 p-3 backdrop-blur-xl">
 				<div className="flex gap-2">
-					<TopBarButton icon={X} onClick={onClose}>
+					<CircleButton icon={X} onClick={onClose}>
 						Close
-					</TopBarButton>
+					</CircleButton>
 				</div>
 
 				<div className="flex items-center gap-2">
-					<TopBarButton icon={Users}>
+					<CircleButton icon={Users}>
 						{people.length} {people.length === 1 ? 'Device' : 'Devices'}
-					</TopBarButton>
-					<TopBarButton icon={ShareNetwork}>Share</TopBarButton>
+					</CircleButton>
+					<CircleButton icon={ShareNetwork}>Share</CircleButton>
 				</div>
 			</div>
 

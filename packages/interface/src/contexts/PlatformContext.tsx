@@ -82,6 +82,9 @@ export type Platform = {
 	/** Close a window by label (Tauri only) */
 	closeWindow?(label: string): Promise<void>;
 
+	/** Toggle the floating voice overlay window */
+	toggleVoiceOverlay?(): Promise<void>;
+
 	/** Listen for window events (Tauri only) */
 	onWindowEvent?(event: string, callback: () => void): Promise<() => void>;
 
@@ -140,6 +143,9 @@ export type Platform = {
 
 	/** Apply macOS titlebar styling (Tauri/macOS only) */
 	applyMacOSStyling?(): Promise<void>;
+
+	/** Resize a named window and let the host reposition it if needed */
+	resizeWindow?(label: string, width: number, height: number): Promise<void>;
 
 	// Drag and Drop API (Tauri only)
 

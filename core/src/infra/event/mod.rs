@@ -503,8 +503,7 @@ impl Event {
 					}
 
 					// Direct children mode: match files whose parent is the scope directory
-					file_path == scope_path
-						|| file_path.parent().map_or(false, |p| p == scope_path)
+					file_path == scope_path || file_path.parent().map_or(false, |p| p == scope_path)
 				} else {
 					false
 				}

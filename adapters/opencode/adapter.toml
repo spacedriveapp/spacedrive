@@ -1,0 +1,82 @@
+[adapter]
+id = "opencode"
+name = "OpenCode"
+description = "Index coding session transcripts from OpenCode (Claude Code). Captures session context, conversation history, tool usage, and code changes."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "terminal"
+min_spacedrive = "0.1.0"
+trust_tier = "authored"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 300
+schedule = "*/30 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "db_path"
+name = "OpenCode Database Path"
+description = "Path to the OpenCode SQLite database. Default: ~/.local/share/opencode/opencode.db"
+type = "string"
+required = false
+default = "~/.local/share/opencode/opencode.db"
+
+[[adapter.config]]
+key = "include_tool_calls"
+name = "Include Tool Calls"
+description = "Include tool call details (file reads, edits, bash commands) in message bodies. Makes sessions more searchable but increases index size."
+type = "boolean"
+required = false
+default = false
+
+[[adapter.config]]
+key = "project_filter"
+name = "Project Filter"
+description = "Only sync sessions from this project directory (e.g. /Users/jamie/Projects/spacebot). Leave empty for all projects."
+type = "string"
+required = false
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "coding-session"
+name = "Coding Sessions"
+icon = "terminal"
+
+[models.session]
+fields.title = "string"
+fields.summary = "string"
+fields.directory = "string"
+fields.project = "string"
+fields.model = "string"
+fields.message_count = "integer"
+fields.total_input_tokens = "integer"
+fields.total_output_tokens = "integer"
+fields.total_cost = "float"
+fields.files_changed = "integer"
+fields.lines_added = "integer"
+fields.lines_deleted = "integer"
+fields.started_at = "datetime"
+fields.ended_at = "datetime"
+has_many = ["message"]
+
+[models.message]
+fields.role = "string"
+fields.body = "string"
+fields.model = "string"
+fields.input_tokens = "integer"
+fields.output_tokens = "integer"
+fields.cost = "float"
+fields.tool_calls = "string"
+fields.timestamp = "datetime"
+belongs_to = ["session"]
+
+[search]
+primary_model = "session"
+title = "title"
+preview = "directory"
+subtitle = "project"
+search_fields = ["title", "summary", "directory", "project"]
+date_field = "started_at"

@@ -5,6 +5,7 @@ import { Renderer, Program, Mesh, Triangle, Vec3 } from "ogl";
 
 interface OrbProps {
 	hue?: number;
+	palette?: "purple" | "blue";
 	hoverIntensity?: number;
 	rotateOnHover?: boolean;
 	forceHoverState?: boolean;
@@ -12,6 +13,7 @@ interface OrbProps {
 
 export default function Orb({
 	hue = 0,
+	palette = "purple",
 	hoverIntensity = 0.2,
 	rotateOnHover = true,
 	forceHoverState = false,
@@ -35,6 +37,9 @@ export default function Orb({
     uniform float iTime;
     uniform vec3 iResolution;
     uniform float hue;
+    uniform vec3 baseColor1;
+    uniform vec3 baseColor2;
+    uniform vec3 baseColor3;
     uniform float hover;
     uniform float rot;
     uniform float hoverIntensity;
@@ -107,9 +112,6 @@ export default function Orb({
       return vec4(colorIn.rgb / (a + 1e-5), a);
     }
 
-    const vec3 baseColor1 = vec3(0.611765, 0.262745, 0.996078);
-    const vec3 baseColor2 = vec3(0.298039, 0.760784, 0.913725);
-    const vec3 baseColor3 = vec3(0.062745, 0.078431, 0.600000);
     const float innerRadius = 0.6;
     const float noiseScale = 0.65;
 
@@ -181,6 +183,19 @@ export default function Orb({
 		const container = ctnDom.current;
 		if (!container) return;
 
+		const paletteColors =
+			palette === "blue"
+				? {
+					baseColor1: [0.22, 0.48, 0.996],
+					baseColor2: [0.298, 0.69, 0.96],
+					baseColor3: [0.04, 0.065, 0.52],
+				}
+				: {
+					baseColor1: [0.611765, 0.262745, 0.996078],
+					baseColor2: [0.298039, 0.760784, 0.913725],
+					baseColor3: [0.062745, 0.078431, 0.6],
+				};
+
 		const renderer = new Renderer({
 			alpha: true,
 			premultipliedAlpha: false,
@@ -203,6 +218,9 @@ export default function Orb({
 					),
 				},
 				hue: { value: hue },
+				baseColor1: { value: new Vec3(...paletteColors.baseColor1) },
+				baseColor2: { value: new Vec3(...paletteColors.baseColor2) },
+				baseColor3: { value: new Vec3(...paletteColors.baseColor3) },
 				hover: { value: 0 },
 				rot: { value: 0 },
 				hoverIntensity: { value: hoverIntensity },
@@ -289,7 +307,7 @@ export default function Orb({
 			container.removeChild(gl.canvas);
 			gl.getExtension("WEBGL_lose_context")?.loseContext();
 		};
-	}, [hue, hoverIntensity, rotateOnHover, forceHoverState]);
+	}, [hue, palette, hoverIntensity, rotateOnHover, forceHoverState]);
 
 	return (
 		<div
@@ -299,4 +317,3 @@ export default function Orb({
 		/>
 	);
 }
-

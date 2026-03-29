@@ -32,7 +32,7 @@ resolver = "2"
 
 [workspace.package]
 edition      = "2021"
-license      = "AGPL-3.0-only"
+license      = "FSL-1.1-ALv2"
 repository   = "https://github.com/spacedriveapp/spacedrive"
 rust-version = "1.81"
 
@@ -90,6 +90,15 @@ uhlc                = "0.8.0"                                          # Must fo
 uuid                = "1.10"                                           # Must follow version used by specta
 webp                = "0.3.0"
 zeroize             = "1.8"
+sqlx                = { version = "0.8", default-features = false, features = ["sqlite", "runtime-tokio"] }
+lancedb             = "0.15"
+fastembed           = "4"
+arrow-array         = "53.3"
+arrow-schema        = "53.3"
+indexmap            = "2.7"
+dashmap             = "6.1"
+toml                = "0.8"
+ort                 = { version = "2.0.0-rc.9", default-features = false, features = ["download-binaries", "tls-native"] }
 
 # Proper IOS Support
 # TODO: Fix the fork - it has compilation errors with TimerFuture

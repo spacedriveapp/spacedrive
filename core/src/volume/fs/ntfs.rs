@@ -27,7 +27,6 @@ impl NtfsHandler {
 		}
 		false
 	}
-
 }
 
 #[async_trait]
@@ -72,4 +71,3 @@ pub async fn enhance_volume_from_windows(volume: &mut Volume) -> VolumeResult<()
 	let handler = NtfsHandler::new();
 	handler.enhance_volume(volume).await
 }
-

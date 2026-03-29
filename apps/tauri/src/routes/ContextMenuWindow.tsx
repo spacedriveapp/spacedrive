@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import { ContextMenu } from "@sd/ui";
+import { ContextMenu } from "@spaceui/primitives";
 import { useEffect, useRef, useState } from "react";
 
 export interface MenuItem {

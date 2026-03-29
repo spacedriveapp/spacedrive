@@ -1,39 +1,62 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@spaceui/tokens/src/css/theme.css";
+@import "@spaceui/tokens/src/css/base.css";
+@import "@spaceui/tokens/src/css/themes/light.css";
+@import "@spaceui/tokens/src/css/themes/midnight.css";
+@import "@spaceui/tokens/src/css/themes/noir.css";
+@import "@spaceui/tokens/src/css/themes/slate.css";
+@import "@spaceui/tokens/src/css/themes/nord.css";
+@import "@spaceui/tokens/src/css/themes/mocha.css";
 
-/* Utility classes */
-.top-bar-blur {
+/* Tell Tailwind v4 where to scan for utility classes */
+@source "../../../packages/ui/src";
+@source "../../../packages/interface/src";
+@source "../../../../spaceui/packages/primitives/src";
+@source "../../../../spaceui/packages/ai/src";
+@source "../../../../spaceui/packages/explorer/src";
+@source "../../../../spaceui/packages/forms/src";
+
+@plugin "@tailwindcss/forms";
+@plugin "tailwindcss-animate";
+@plugin "@headlessui/tailwindcss";
+@plugin "tailwindcss-radix";
+@plugin "@tailwindcss/typography";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@utility top-bar-blur {
+	@apply border-app-line/50;
 	backdrop-filter: saturate(120%) blur(18px);
 }
 
-.frame::before {
-	content: "";
-	pointer-events: none;
-	user-select: none;
-	position: absolute;
-	inset: 0px;
-	border-radius: inherit;
-	padding: 1px;
-	background: var(--color-app-frame);
-	mask:
-		linear-gradient(black, black) content-box content-box,
-		linear-gradient(black, black);
-	mask-composite: xor;
-	-webkit-mask-composite: xor;
-	z-index: 9999;
+@utility frame {
+	&::before {
+		content: "";
+		pointer-events: none;
+		user-select: none;
+		position: absolute;
+		inset: 0px;
+		border-radius: inherit;
+		padding: 1px;
+		background: var(--color-app-frame);
+		mask:
+			linear-gradient(black, black) content-box content-box,
+			linear-gradient(black, black);
+		mask-composite: xor;
+		-webkit-mask-composite: xor;
+		z-index: 9999;
+	}
 }
 
-.no-scrollbar::-webkit-scrollbar {
-	display: none;
-}
-
-.no-scrollbar {
+@utility no-scrollbar {
+	&::-webkit-scrollbar {
+		display: none;
+	}
 	-ms-overflow-style: none;
 	scrollbar-width: none;
 }
 
-.mask-fade-out {
+@utility mask-fade-out {
 	mask-image: linear-gradient(
 		to bottom,
 		black calc(100% - 40px),

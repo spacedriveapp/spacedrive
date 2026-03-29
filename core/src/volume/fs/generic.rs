@@ -11,15 +11,19 @@ use async_trait::async_trait;
 #[cfg(windows)]
 fn volume_serial(path: &std::path::Path) -> Option<u32> {
 	use std::os::windows::ffi::OsStrExt;
-	use windows_sys::Win32::Storage::FileSystem::{
-		GetVolumeInformationW, GetVolumePathNameW,
-	};
+	use windows_sys::Win32::Storage::FileSystem::{GetVolumeInformationW, GetVolumePathNameW};
 
-	let wide: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+	let wide: Vec<u16> = path
+		.as_os_str()
+		.encode_wide()
+		.chain(std::iter::once(0))
+		.collect();
 
 	// Resolve the actual volume mount point (e.g. "C:\" or "C:\mount\othervol\")
 	let mut root_buf = vec![0u16; 1024];
-	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), root_buf.len() as u32) } == 0 {
+	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), root_buf.len() as u32) }
+		== 0
+	{
 		return None;
 	}
 
@@ -36,7 +40,11 @@ fn volume_serial(path: &std::path::Path) -> Option<u32> {
 			0,
 		)
 	};
-	if ok != 0 { Some(serial) } else { None }
+	if ok != 0 {
+		Some(serial)
+	} else {
+		None
+	}
 }
 
 /// Generic handler for filesystems without specific optimizations

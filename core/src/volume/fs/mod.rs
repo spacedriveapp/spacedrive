@@ -92,23 +92,40 @@ pub(crate) fn volume_guid(path: &Path) -> Option<String> {
 		GetVolumeNameForVolumeMountPointW, GetVolumePathNameW,
 	};
 
-	let wide: Vec<u16> = path.as_os_str().encode_wide().chain(std::iter::once(0)).collect();
+	let wide: Vec<u16> = path
+		.as_os_str()
+		.encode_wide()
+		.chain(std::iter::once(0))
+		.collect();
 
 	// Step 1: resolve mount point root (e.g. "C:\")
 	let mut root_buf = vec![0u16; 1024];
-	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), root_buf.len() as u32) } == 0 {
+	if unsafe { GetVolumePathNameW(wide.as_ptr(), root_buf.as_mut_ptr(), root_buf.len() as u32) }
+		== 0
+	{
 		return None;
 	}
 
 	// Step 2: get stable volume GUID path
 	let mut guid_buf = vec![0u16; 50]; // "\\?\Volume{GUID}\" is ~49 chars
 	if unsafe {
-		GetVolumeNameForVolumeMountPointW(root_buf.as_ptr(), guid_buf.as_mut_ptr(), guid_buf.len() as u32)
+		GetVolumeNameForVolumeMountPointW(
+			root_buf.as_ptr(),
+			guid_buf.as_mut_ptr(),
+			guid_buf.len() as u32,
+		)
 	} == 0
 	{
 		return None;
 	}
 
-	let len = guid_buf.iter().position(|&c| c == 0).unwrap_or(guid_buf.len());
-	Some(OsString::from_wide(&guid_buf[..len]).to_string_lossy().into_owned())
+	let len = guid_buf
+		.iter()
+		.position(|&c| c == 0)
+		.unwrap_or(guid_buf.len());
+	Some(
+		OsString::from_wide(&guid_buf[..len])
+			.to_string_lossy()
+			.into_owned(),
+	)
 }

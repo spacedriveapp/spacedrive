@@ -1,0 +1,40 @@
+[package]
+name    = "sd-archive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Core dependencies - workspace versions
+sqlx    = { workspace = true, features = ["sqlite", "runtime-tokio", "derive"] }
+tokio   = { workspace = true, features = ["process"] }
+serde   = { workspace = true }
+uuid    = { workspace = true, features = ["v4"] }
+blake3  = { workspace = true }
+toml    = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+chrono  = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+futures     = { workspace = true }
+
+# Archive-specific dependencies - workspace versions
+indexmap = { workspace = true, features = ["serde"] }
+dashmap  = { workspace = true }
+
+# Heavy dependencies for search/embedding - disabled for now to speed up integration
+# These will be enabled once core archive system is integrated
+# lancedb  = { workspace = true }
+# fastembed = { workspace = true }
+# arrow-array = { workspace = true }
+# arrow-schema = { workspace = true }
+
+# Optional safety screening features - disabled for now
+# ort         = { version = "2.0.0-rc.9", optional = true, features = ["download-binaries", "tls-native"] }
+# tokenizers  = { version = "0.21", optional = true }
+# hf-hub      = { version = "0.4", optional = true }
+
+[features]
+default = []
+# safety-screening feature temporarily disabled - requires proper TLS configuration for ort
+# safety-screening = ["dep:ort", "dep:tokenizers", "dep:hf-hub"]

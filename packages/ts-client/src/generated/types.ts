@@ -14,6 +14,10 @@ export type ActiveJobsInput = Record<string, never>;
 
 export type ActiveJobsOutput = { jobs: ActiveJobItem[]; running_count: number; paused_count: number };
 
+export type AdapterConfigField = { key: string; name: string; description: string; field_type: string; required: boolean; secret: boolean; default: string | null };
+
+export type AdapterInfo = { id: string; name: string; description: string; version: string; author: string; data_type: string; icon_svg: string | null; update_available: boolean };
+
 export type AddGroupInput = { space_id: string; name: string; group_type: GroupType };
 
 export type AddGroupOutput = { group: SpaceGroup };
@@ -98,7 +102,11 @@ logging: LoggingConfigOutput;
 /**
  * Proxy pairing configuration
  */
-proxy_pairing: ProxyPairingConfigOutput };
+proxy_pairing: ProxyPairingConfigOutput; 
+/**
+ * Spacebot companion configuration
+ */
+spacebot: SpacebotConfigOutput };
 
 export type ApplyTagsInput = { 
 /**
@@ -472,6 +480,44 @@ folder_path: SdPath;
  */
 job_receipt?: JobReceipt | null };
 
+/**
+ * Input for creating a new archive source
+ */
+export type CreateSourceInput = { 
+/**
+ * Display name for the source
+ */
+name: string; 
+/**
+ * Adapter ID (e.g., "gmail", "obsidian", "chrome-bookmarks")
+ */
+adapter_id: string; 
+/**
+ * Adapter-specific configuration
+ */
+config: JsonValue };
+
+/**
+ * Output from creating a new archive source
+ */
+export type CreateSourceOutput = { 
+/**
+ * The ID of the newly created source
+ */
+id: string; 
+/**
+ * The display name of the source
+ */
+name: string; 
+/**
+ * The adapter ID used
+ */
+adapter_id: string; 
+/**
+ * Current status (usually "idle" initially)
+ */
+status: string };
+
 export type CreateTagInput = { 
 /**
  * The canonical name for this tag
@@ -546,6 +592,10 @@ export type DeleteGroupOutput = { success: boolean };
 export type DeleteItemInput = { item_id: string };
 
 export type DeleteItemOutput = { success: boolean };
+
+export type DeleteSourceInput = { source_id: string };
+
+export type DeleteSourceOutput = { deleted: boolean };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -1524,6 +1574,8 @@ completion: ProgressCompletion;
  */
 performance: PerformanceMetrics };
 
+export type GetAdapterConfigInput = { adapter_id: string };
+
 /**
  * Input for getting app configuration
  */
@@ -1533,6 +1585,8 @@ export type GetAppConfigQueryInput = null;
  * Input for getting library configuration
  */
 export type GetLibraryConfigQueryInput = null;
+
+export type GetSourceInput = { source_id: string };
 
 /**
  * Input for getting sync activity summary
@@ -1656,6 +1710,10 @@ export type GroupType =
  * Tag collection
  */
 "Tags" | 
+/**
+ * Archive data sources (email, notes, bookmarks, etc.)
+ */
+"Sources" | 
 /**
  * Cloud storage providers
  */
@@ -2025,7 +2083,15 @@ export type ItemType =
 /**
  * Any arbitrary path (dragged from explorer)
  */
-{ Path: { sd_path: SdPath } };
+{ Path: { sd_path: SdPath } } | 
+/**
+ * All archive data sources screen
+ */
+"Sources" | 
+/**
+ * Specific archive data source
+ */
+{ Source: { source_id: string } };
 
 export type JobCancelInput = { job_id: string };
 
@@ -2579,6 +2645,8 @@ devicesRegistered: boolean;
  */
 message: string };
 
+export type ListAdaptersInput = Record<string, never>;
+
 export type ListEventsInput = Record<string, never>;
 
 export type ListEventsOutput = { 
@@ -2640,6 +2708,14 @@ total: number;
  * Number of currently connected devices
  */
 connected: number };
+
+export type ListSourceItemsInput = { source_id: string; limit: number; offset: number };
+
+export type ListSourcesInput = { 
+/**
+ * Filter by data type
+ */
+data_type: string | null };
 
 export type ListWhisperModelsInput = Record<string, never>;
 
@@ -3632,6 +3708,41 @@ export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedA
 export type SortOptions = { field: SortField; direction: SortDirection };
 
 /**
+ * Information about a source
+ */
+export type SourceInfo = { 
+/**
+ * Source ID
+ */
+id: string; 
+/**
+ * Display name
+ */
+name: string; 
+/**
+ * Data type (e.g., "email", "bookmark", "note")
+ */
+data_type: string; 
+/**
+ * Adapter ID
+ */
+adapter_id: string; 
+/**
+ * Number of items
+ */
+item_count: number; 
+/**
+ * Last sync timestamp
+ */
+last_synced: string | null; 
+/**
+ * Current status
+ */
+status: string };
+
+export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
+
+/**
  * A Space defines a sidebar layout and filtering context
  */
 export type Space = { 
@@ -3778,6 +3889,11 @@ export type SpaceUpdateInput = { space_id: string; name: string | null; icon: st
 
 export type SpaceUpdateOutput = { space: Space };
 
+/**
+ * Spacebot companion configuration output
+ */
+export type SpacebotConfigOutput = { enabled: boolean; base_url: string; auth_token: string | null; default_agent_id: string; default_sender_name: string };
+
 export type SpacedropSendInput = { device_id: string; paths: SdPath[]; sender: string | null };
 
 export type SpacedropSendOutput = { job_id: string | null; session_id: string | null };
@@ -3917,6 +4033,10 @@ errors: ErrorSnapshot };
 export type SyncPartnerInfo = { device_uuid: string; device_name: string; is_paired: boolean };
 
 export type SyncPartnersDebugInfo = { total_devices: number; sync_enabled_devices: number; paired_devices: number; final_sync_partners: number; device_details: DeviceDebugInfo[] };
+
+export type SyncSourceInput = { source_id: string };
+
+export type SyncSourceOutput = { records_upserted: number; records_deleted: number; duration_ms: number; error: string | null };
 
 /**
  * State metrics snapshot
@@ -4180,6 +4300,10 @@ total_count: number;
  */
 total_size: number };
 
+export type UpdateAdapterInput = { adapter_id: string };
+
+export type UpdateAdapterOutput = { adapter_id: string; old_version: string; new_version: string; schema_changed: boolean };
+
 /**
  * Input for updating app configuration
  * All fields are optional for partial updates
@@ -4244,7 +4368,27 @@ proxy_pairing_vouch_response_timeout?: number | null;
 /**
  * Maximum retries for queued vouches
  */
-proxy_pairing_vouch_queue_retry_limit?: number | null };
+proxy_pairing_vouch_queue_retry_limit?: number | null; 
+/**
+ * Whether Spacebot features are enabled in the UI
+ */
+spacebot_enabled?: boolean | null; 
+/**
+ * Spacebot API base URL
+ */
+spacebot_base_url?: string | null; 
+/**
+ * Optional Spacebot bearer token
+ */
+spacebot_auth_token?: string | null; 
+/**
+ * Default Spacebot agent ID for embedded chat
+ */
+spacebot_default_agent_id?: string | null; 
+/**
+ * Default sender name for embedded chat
+ */
+spacebot_default_sender_name?: string | null };
 
 /**
  * Output for update app configuration action
@@ -4530,7 +4674,12 @@ display_name: string | null; is_favorite: boolean; color: string | null; icon: s
 /**
  * Error state
  */
-error_message: string | null };
+error_message: string | null; 
+/**
+ * Whether the volume supports block cloning / copy-on-write
+ * Set by filesystem-specific enhance_volume() (e.g. ReFS IOCTL version check)
+ */
+supports_block_cloning?: boolean };
 
 export type VolumeAddCloudInput = { service: CloudServiceType; display_name: string; config: CloudStorageConfig };
 
@@ -4759,7 +4908,8 @@ export type CoreAction =
 ;
 
 export type LibraryAction =
-     { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
+     { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
+  |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
@@ -4786,6 +4936,9 @@ export type LibraryAction =
   |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
   |  { type: 'media.thumbnail.regenerate'; input: RegenerateThumbnailInput; output: RegenerateThumbnailOutput }
   |  { type: 'media.thumbstrip.generate'; input: GenerateThumbstripInput; output: GenerateThumbstripOutput }
+  |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
+  |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
+  |  { type: 'sources.sync'; input: SyncSourceInput; output: SyncSourceOutput }
   |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
   |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
@@ -4825,7 +4978,9 @@ export type CoreQuery =
 ;
 
 export type LibraryQuery =
-     { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
+     { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
+  |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
+  |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
@@ -4843,6 +4998,9 @@ export type LibraryQuery =
   |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
   |  { type: 'locations.validate_path'; input: ValidateLocationPathInput; output: ValidateLocationPathOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
+  |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
+  |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
   |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayout }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
@@ -4881,6 +5039,7 @@ export const WIRE_METHODS = {
   },
 
   libraryActions: {
+    'adapters.update': 'action:adapters.update.input',
     'config.library.update': 'action:config.library.update.input',
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
@@ -4908,6 +5067,9 @@ export const WIRE_METHODS = {
     'media.thumbnail': 'action:media.thumbnail.input',
     'media.thumbnail.regenerate': 'action:media.thumbnail.regenerate.input',
     'media.thumbstrip.generate': 'action:media.thumbstrip.generate.input',
+    'sources.create': 'action:sources.create.input',
+    'sources.delete': 'action:sources.delete.input',
+    'sources.sync': 'action:sources.sync.input',
     'spaces.add_group': 'action:spaces.add_group.input',
     'spaces.add_item': 'action:spaces.add_item.input',
     'spaces.create': 'action:spaces.create.input',
@@ -4947,6 +5109,8 @@ export const WIRE_METHODS = {
   },
 
   libraryQueries: {
+    'adapters.config': 'query:adapters.config',
+    'adapters.list': 'query:adapters.list',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
     'files.alternate_instances': 'query:files.alternate_instances',
@@ -4965,6 +5129,9 @@ export const WIRE_METHODS = {
     'locations.suggested': 'query:locations.suggested',
     'locations.validate_path': 'query:locations.validate_path',
     'search.files': 'query:search.files',
+    'sources.get': 'query:sources.get',
+    'sources.list': 'query:sources.list',
+    'sources.list_items': 'query:sources.list_items',
     'spaces.get': 'query:spaces.get',
     'spaces.get_layout': 'query:spaces.get_layout',
     'spaces.list': 'query:spaces.list',

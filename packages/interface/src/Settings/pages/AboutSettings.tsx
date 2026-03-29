@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
-import { Ball } from "@sd/assets/images";
+import { BallBlue } from "@sd/assets/images";
 import Orb from "../../components/Orb";
-import { TopBarButton } from "@sd/ui";
+import { CircleButton } from "@spaceui/primitives";
 import { GlobeHemisphereWest, GithubLogo, DiscordLogo } from "@phosphor-icons/react";
 import contributors from "../../contributors.json";
 
@@ -19,7 +19,7 @@ export function AboutSettings() {
         {/* Ball image - behind the orb */}
         <div className="absolute inset-[8%] z-0">
           <img
-            src={Ball}
+            src={BallBlue}
             alt="Spacedrive"
             className="w-full h-full object-contain select-none"
             draggable={false}
@@ -28,7 +28,8 @@ export function AboutSettings() {
         {/* Orb animation - inset to make it smaller */}
         <div className="absolute inset-[15%] z-10">
           <Orb
-            hue={-30}
+            palette="blue"
+            hue={0}
             hoverIntensity={0}
             rotateOnHover={false}
             forceHoverState={true}
@@ -73,27 +74,27 @@ export function AboutSettings() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={GlobeHemisphereWest}>
+          <CircleButton icon={GlobeHemisphereWest}>
             Website
-          </TopBarButton>
+          </CircleButton>
         </a>
         <a
           href="https://github.com/spacedriveapp/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={GithubLogo}>
+          <CircleButton icon={GithubLogo}>
             GitHub
-          </TopBarButton>
+          </CircleButton>
         </a>
         <a
           href="https://discord.gg/spacedrive"
           target="_blank"
           rel="noopener noreferrer"
         >
-          <TopBarButton icon={DiscordLogo}>
+          <CircleButton icon={DiscordLogo}>
             Discord
-          </TopBarButton>
+          </CircleButton>
         </a>
       </motion.div>
 
@@ -135,7 +136,7 @@ export function AboutSettings() {
           rel="noopener noreferrer"
           className="text-sm text-white/40 hover:text-white/60 transition-colors"
         >
-          AGPL-3.0
+          FSL-1.1-ALv2
         </a>
       </motion.div>
     </div>

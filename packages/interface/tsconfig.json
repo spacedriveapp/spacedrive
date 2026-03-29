@@ -1,7 +1,6 @@
 {
 	"extends": "../../tsconfig.json",
 	"compilerOptions": {
-		"composite": true,
 		"noEmit": true,
 		"jsx": "react-jsx",
 		"lib": ["ES2022", "DOM", "DOM.Iterable"],
@@ -11,7 +10,11 @@
 		"resolveJsonModule": true,
 		"baseUrl": ".",
 		"paths": {
-			"~/*": ["./src/*"]
+			"~/*": ["./src/*"],
+			"@spacebot/api-client": [
+				"../../../spacebot/packages/api-client/src/index.ts"
+			],
+			"@spacebot/api-client/*": ["../../../spacebot/packages/api-client/src/*"]
 		},
 		"types": ["@react-three/fiber"]
 	},

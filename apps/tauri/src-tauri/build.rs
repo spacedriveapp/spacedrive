@@ -74,19 +74,22 @@ fn main() {
 		""
 	};
 
-	let daemon_source = format!("{}/target/{}/sd-daemon{}", workspace_dir, profile, exe_ext);
-	let daemon_target = format!(
-		"{}/target/{}/sd-daemon-{}{}",
-		workspace_dir, profile, target_triple, exe_ext
-	);
+	for source_profile in [profile.as_str(), "release"] {
+		let daemon_source = format!(
+			"{}/target/{}/sd-daemon{}",
+			workspace_dir, source_profile, exe_ext
+		);
+		let daemon_target = format!(
+			"{}/target/{}/sd-daemon-{}{}",
+			workspace_dir, source_profile, target_triple, exe_ext
+		);
 
-	if std::path::Path::new(&daemon_source).exists() {
-		// Remove existing file if it exists
-		let _ = std::fs::remove_file(&daemon_target);
+		if std::path::Path::new(&daemon_source).exists() {
+			let _ = std::fs::remove_file(&daemon_target);
 
-		// Copy the daemon binary with target architecture suffix
-		if let Err(e) = std::fs::copy(&daemon_source, &daemon_target) {
-			eprintln!("Warning: Failed to copy daemon: {}", e);
+			if let Err(e) = std::fs::copy(&daemon_source, &daemon_target) {
+				eprintln!("Warning: Failed to copy daemon: {}", e);
+			}
 		}
 	}
 

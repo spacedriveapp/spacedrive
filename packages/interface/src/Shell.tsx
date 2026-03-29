@@ -2,7 +2,7 @@ import { SpacedriveProvider, type SpacedriveClient } from "./contexts/Spacedrive
 import { ServerProvider } from "./contexts/ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { RouterProvider } from "react-router-dom";
-import { Dialogs, Toaster, TooltipProvider } from "@sd/ui";
+import { Dialogs, Toaster, TooltipProvider } from "@spaceui/primitives";
 import { ShellLayout } from "./ShellLayout";
 import { explorerRoutes } from "./router";
 import { useDaemonStatus } from "./hooks/useDaemonStatus";

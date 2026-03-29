@@ -231,6 +231,9 @@ pub enum GroupType {
 	/// Tag collection
 	Tags,
 
+	/// Archive data sources (email, notes, bookmarks, etc.)
+	Sources,
+
 	/// Cloud storage providers
 	Cloud,
 
@@ -436,6 +439,12 @@ pub enum ItemType {
 
 	/// Any arbitrary path (dragged from explorer)
 	Path { sd_path: SdPath },
+
+	/// All archive data sources screen
+	Sources,
+
+	/// Specific archive data source
+	Source { source_id: String },
 }
 /// Complete sidebar layout for a space
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

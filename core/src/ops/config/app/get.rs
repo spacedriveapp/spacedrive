@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 use crate::{
-	config::{AppConfig, JobLoggingConfig, LoggingConfig, Preferences, ServiceConfig},
+	config::{
+		AppConfig, JobLoggingConfig, LoggingConfig, Preferences, ServiceConfig, SpacebotConfig,
+	},
 	context::CoreContext,
 	infra::query::{CoreQuery, QueryError, QueryResult},
 };
@@ -44,6 +46,9 @@ pub struct AppConfigOutput {
 
 	/// Proxy pairing configuration
 	pub proxy_pairing: ProxyPairingConfigOutput,
+
+	/// Spacebot companion configuration
+	pub spacebot: SpacebotConfigOutput,
 }
 
 /// User preferences output
@@ -88,6 +93,28 @@ pub struct ProxyPairingConfigOutput {
 	pub vouch_queue_retry_limit: u32,
 }
 
+/// Spacebot companion configuration output
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SpacebotConfigOutput {
+	pub enabled: bool,
+	pub base_url: String,
+	pub auth_token: Option<String>,
+	pub default_agent_id: String,
+	pub default_sender_name: String,
+}
+
+impl From<&SpacebotConfig> for SpacebotConfigOutput {
+	fn from(config: &SpacebotConfig) -> Self {
+		Self {
+			enabled: config.enabled,
+			base_url: config.base_url.clone(),
+			auth_token: config.auth_token.clone(),
+			default_agent_id: config.default_agent_id.clone(),
+			default_sender_name: config.default_sender_name.clone(),
+		}
+	}
+}
+
 impl From<&AppConfig> for AppConfigOutput {
 	fn from(config: &AppConfig) -> Self {
 		Self {
@@ -122,6 +149,7 @@ impl From<&AppConfig> for AppConfigOutput {
 				vouch_response_timeout: config.proxy_pairing.vouch_response_timeout,
 				vouch_queue_retry_limit: config.proxy_pairing.vouch_queue_retry_limit,
 			},
+			spacebot: SpacebotConfigOutput::from(&config.spacebot),
 		}
 	}
 }

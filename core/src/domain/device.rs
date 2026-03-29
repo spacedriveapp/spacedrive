@@ -431,7 +431,13 @@ pub(crate) fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
 
 	let mut hkey = 0isize;
 	if unsafe {
-		RegOpenKeyExW(HKEY_LOCAL_MACHINE, subkey_wide.as_ptr(), 0, KEY_READ, &mut hkey)
+		RegOpenKeyExW(
+			HKEY_LOCAL_MACHINE,
+			subkey_wide.as_ptr(),
+			0,
+			KEY_READ,
+			&mut hkey,
+		)
 	} != 0
 	{
 		return None;
@@ -479,8 +485,14 @@ pub(crate) fn reg_read_hklm(subkey: &str, value_name: &str) -> Option<String> {
 		.map(|c| u16::from_le_bytes([c[0], c[1]]))
 		.collect();
 	let nul = wide.iter().position(|&c| c == 0).unwrap_or(wide.len());
-	let s = OsString::from_wide(&wide[..nul]).to_string_lossy().into_owned();
-	if s.is_empty() { None } else { Some(s) }
+	let s = OsString::from_wide(&wide[..nul])
+		.to_string_lossy()
+		.into_owned();
+	if s.is_empty() {
+		None
+	} else {
+		Some(s)
+	}
 }
 
 /// Enumerate DriverDesc from all display adapter subkeys
@@ -500,8 +512,15 @@ fn reg_enum_display_adapters() -> Vec<String> {
 		.collect();
 
 	let mut hkey = 0isize;
-	if unsafe { RegOpenKeyExW(HKEY_LOCAL_MACHINE, key_wide.as_ptr(), 0, KEY_READ, &mut hkey) }
-		!= 0
+	if unsafe {
+		RegOpenKeyExW(
+			HKEY_LOCAL_MACHINE,
+			key_wide.as_ptr(),
+			0,
+			KEY_READ,
+			&mut hkey,
+		)
+	} != 0
 	{
 		return Vec::new();
 	}
@@ -528,8 +547,9 @@ fn reg_enum_display_adapters() -> Vec<String> {
 		}
 		idx += 1;
 
-		let subkey_name =
-			OsString::from_wide(&name_buf[..name_len as usize]).to_string_lossy().into_owned();
+		let subkey_name = OsString::from_wide(&name_buf[..name_len as usize])
+			.to_string_lossy()
+			.into_owned();
 		let full_key = format!("{}\\{}", CLASS_KEY, subkey_name);
 		if let Some(desc) = reg_read_hklm(&full_key, "DriverDesc") {
 			if !gpus.contains(&desc) {

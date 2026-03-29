@@ -29,7 +29,7 @@ import { TextViewer } from "./TextViewer";
 import { WithPrismTheme } from "./prism";
 import { SplatShimmerEffect } from "./SplatShimmerEffect";
 import { sounds } from "@sd/assets/sounds";
-import { TopBarButton } from "@sd/ui";
+import { CircleButton } from "@spaceui/primitives";
 import { DirectoryPreview } from "./DirectoryPreview";
 
 const MeshViewer = lazy(() =>
@@ -250,7 +250,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 				<div className="relative w-full h-full z-30 pointer-events-none">
 					{/* Toggle button */}
 					<div className="absolute top-4 left-4 pointer-events-auto">
-						<TopBarButton
+						<CircleButton
 							icon={Cube}
 							onClick={() => {
 								setShowSplat(false);
@@ -311,7 +311,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			{/* Splat Toggle (top-left) */}
 			{hasSplat && (
 				<div className="absolute top-4 left-4 z-10">
-					<TopBarButton
+					<CircleButton
 						icon={Cube}
 						onClick={() => {
 							sounds.splatTrigger();

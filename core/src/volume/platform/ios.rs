@@ -197,6 +197,7 @@ pub async fn detect_volumes(
 		color: None,
 		icon: None,
 		error_message: None,
+		supports_block_cloning: false,
 	};
 
 	debug!("IOS_DETECT: Successfully created iOS volume");

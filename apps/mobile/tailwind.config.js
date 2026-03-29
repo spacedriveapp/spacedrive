@@ -1,4 +1,4 @@
-const sharedColors = require('@sd/ui/style/colors');
+const sharedColors = require('@spaceui/tokens/raw-colors');
 
 /**
  * Convert shared color format (HSL string) to NativeWind format (hsl() function)

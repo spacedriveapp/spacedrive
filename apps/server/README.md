@@ -281,4 +281,4 @@ apps/server/
 
 ## License
 
-AGPL-3.0 - See LICENSE file in repository root.
+FSL-1.1-ALv2 - See LICENSE file in repository root.

@@ -36,7 +36,9 @@ fn get_github_token() -> Option<String> {
 		.ok()
 		.and_then(|o| {
 			if o.status.success() {
-				String::from_utf8(o.stdout).ok().map(|s| s.trim().to_string())
+				String::from_utf8(o.stdout)
+					.ok()
+					.map(|s| s.trim().to_string())
 			} else {
 				None
 			}
@@ -126,8 +128,8 @@ pub fn update(project_root: &Path) -> Result<()> {
 	println!("  resolved {}/{}", contributors.len(), humans.len());
 
 	let output_path = project_root.join(OUTPUT_PATH);
-	let json = serde_json::to_string_pretty(&contributors)
-		.context("Failed to serialize contributors")?;
+	let json =
+		serde_json::to_string_pretty(&contributors).context("Failed to serialize contributors")?;
 
 	std::fs::write(&output_path, format!("{}\n", json))
 		.context("Failed to write contributors.json")?;

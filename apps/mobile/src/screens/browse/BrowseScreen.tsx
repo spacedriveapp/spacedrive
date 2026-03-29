@@ -19,7 +19,6 @@ import { useNormalizedQuery } from "../../client";
 import { PageIndicator } from "../../components/PageIndicator";
 import { GlassSearchBar } from "../../components/GlassSearchBar";
 import { useRouter } from "expo-router";
-import sharedColors from "@sd/ui/style/colors";
 import type { SpaceItem, SpaceGroup } from "@sd/ts-client";
 import { SpaceItem as SpaceItemComponent, SpaceGroupComponent } from "./components";
 import { SettingsGroup } from "../../components/primitive";
@@ -178,7 +177,7 @@ export function BrowseScreen() {
 	// Build page colors array - space colors for space pages, accent for create page
 	const pageColors = [
 		...spacesList.map((space) => space.color),
-		`hsl(${sharedColors.accent.DEFAULT})`, // Create page uses accent color
+		"hsl(208, 100%, 57%)", // Create page uses accent color
 	];
 
 	return (

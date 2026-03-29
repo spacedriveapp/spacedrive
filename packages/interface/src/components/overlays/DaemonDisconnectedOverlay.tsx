@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Copy } from "@phosphor-icons/react";
 import { useDaemonStatus } from "../../hooks/useDaemonStatus";
 import { usePlatform } from "../../contexts/PlatformContext";
-import { Button } from "@sd/ui";
+import { Button } from "@spaceui/primitives";
 import folderIcon from "@sd/assets/icons/FolderNoSpace.png";
 
 function CLICommand({

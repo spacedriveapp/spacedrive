@@ -14,7 +14,7 @@ import {
 	Dialog,
 	dialogManager,
 	useDialog,
-} from "@sd/ui";
+} from "@spaceui/primitives";
 import { queryClient } from "@sd/ts-client/hooks";
 import type { Event } from "@sd/ts-client";
 import { useCoreMutation, useSpacedriveClient } from "../../contexts/SpacedriveContext";

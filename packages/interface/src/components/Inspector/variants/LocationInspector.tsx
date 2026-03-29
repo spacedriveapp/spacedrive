@@ -33,7 +33,7 @@ import {
 } from "../Inspector";
 import clsx from "clsx";
 import type { Location } from "@sd/ts-client";
-import { Button, Dialog, dialogManager, useDialog, TopBarButton, type UseDialogProps } from "@sd/ui";
+import { Button, Dialog, dialogManager, useDialog, CircleButton, type UseDialogProps } from "@spaceui/primitives";
 import { useLibraryMutation } from "../../../contexts/SpacedriveContext";
 import { useContextMenu } from "../../../hooks/useContextMenu";
 import LocationIcon from "@sd/assets/icons/Location.png";
@@ -170,7 +170,7 @@ function OverviewTab({ location }: { location: Location }) {
 			{/* Action Buttons */}
 			<div className="px-2 mb-5 flex gap-2">
 				{isOverview && (
-					<TopBarButton
+					<CircleButton
 						icon={FolderOpen}
 						onClick={() => {
 							const encodedPath = encodeURIComponent(JSON.stringify(location.sd_path));
@@ -179,10 +179,10 @@ function OverviewTab({ location }: { location: Location }) {
 						className="flex-1"
 					>
 						Open Location
-					</TopBarButton>
+					</CircleButton>
 				)}
 
-				<TopBarButton
+				<CircleButton
 					icon={ArrowsClockwise}
 					onClick={reindexMenu.show}
 					title="Reindex location"

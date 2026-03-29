@@ -4,7 +4,7 @@ import {
 	ArrowsOut,
 	FunnelSimple,
 } from "@phosphor-icons/react";
-import { Popover, usePopover, TopBarButton } from "@sd/ui";
+import { Popover, usePopover, CircleButton } from "@spaceui/primitives";
 import clsx from "clsx";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -32,9 +32,8 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 	}, [popover.open]);
 
 	return (
-		<Popover
-			popover={popover}
-			trigger={
+		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+			<Popover.Trigger asChild>
 				<button
 					className={clsx(
 						"w-full relative flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium",
@@ -60,46 +59,43 @@ export function SyncMonitorPopover({ className }: SyncMonitorPopoverProps) {
 						</span>
 					)}
 				</button>
-			}
-			side="top"
-			align="start"
-			sideOffset={8}
-			className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl"
-		>
-			<div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
-				<h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
+			</Popover.Trigger>
+			<Popover.Content side="top" align="start" sideOffset={8} className="w-[380px] max-h-[520px] z-50 !p-0 !bg-app !rounded-xl">
+				<div className="flex items-center justify-between px-4 py-3 border-b border-app-line">
+					<h3 className="text-sm font-semibold text-ink">Sync Monitor</h3>
 
-				<div className="flex items-center gap-2">
-					{onlinePeerCount > 0 && (
-						<span className="text-xs text-ink-dull">
-							{onlinePeerCount}{" "}
-							{onlinePeerCount === 1 ? "peer" : "peers"} online
-						</span>
-					)}
+					<div className="flex items-center gap-2">
+						{onlinePeerCount > 0 && (
+							<span className="text-xs text-ink-dull">
+								{onlinePeerCount}{" "}
+								{onlinePeerCount === 1 ? "peer" : "peers"} online
+							</span>
+						)}
 
-					<TopBarButton
-						icon={ArrowsOut}
-						onClick={() => navigate("/sync")}
-						title="Open full sync monitor"
-					/>
+						<CircleButton
+							icon={ArrowsOut}
+							onClick={() => navigate("/sync")}
+							title="Open full sync monitor"
+						/>
 
-					<TopBarButton
-						icon={FunnelSimple}
-						active={showActivityFeed}
-						onClick={() => setShowActivityFeed(!showActivityFeed)}
-						title={
-							showActivityFeed
-								? "Show peers"
-								: "Show activity feed"
-						}
-					/>
+						<CircleButton
+							icon={FunnelSimple}
+							active={showActivityFeed}
+							onClick={() => setShowActivityFeed(!showActivityFeed)}
+							title={
+								showActivityFeed
+									? "Show peers"
+									: "Show activity feed"
+							}
+						/>
+					</div>
 				</div>
-			</div>
 
-			{popover.open && (
-				<SyncMonitorContent showActivityFeed={showActivityFeed} />
-			)}
-		</Popover>
+				{popover.open && (
+					<SyncMonitorContent showActivityFeed={showActivityFeed} />
+				)}
+			</Popover.Content>
+		</Popover.Root>
 	);
 }
 

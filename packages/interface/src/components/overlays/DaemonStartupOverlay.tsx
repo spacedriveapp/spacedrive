@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Ball } from "@sd/assets/images";
+import { BallBlue } from "@sd/assets/images";
 import { CircleNotch } from "@phosphor-icons/react";
 import { useState, useEffect } from "react";
 import { usePlatform } from "../../contexts/PlatformContext";
@@ -52,7 +52,7 @@ export function DaemonStartupOverlay({ show }: { show: boolean }) {
 						{/* Ball image - behind the orb */}
 						<div className="absolute inset-[8%] z-0">
 							<img
-								src={Ball}
+								src={BallBlue}
 								alt="Spacedrive"
 								className="w-full h-full object-contain select-none"
 								draggable={false}
@@ -61,7 +61,8 @@ export function DaemonStartupOverlay({ show }: { show: boolean }) {
 						{/* Orb animation - inset to make it smaller */}
 						<div className="absolute inset-[15%] z-10">
 							<Orb
-								hue={-30}
+								palette="blue"
+								hue={0}
 								hoverIntensity={0}
 								rotateOnHover={false}
 								forceHoverState={true}

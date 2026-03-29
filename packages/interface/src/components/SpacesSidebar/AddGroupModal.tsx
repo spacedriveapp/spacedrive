@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Input, Label, dialogManager, useDialog, Dialog } from '@sd/ui';
+import { Input, Label, dialogManager, useDialog, Dialog } from '@spaceui/primitives';
 import { useLibraryMutation } from '@sd/ts-client';
 import { useForm } from 'react-hook-form';
 import type { GroupType } from '@sd/ts-client';

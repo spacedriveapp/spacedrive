@@ -1,0 +1,60 @@
+[adapter]
+id = "macos-calendar"
+name = "macOS Calendar"
+description = "Index events from the macOS Calendar app. Requires Calendar access permission (or Full Disk Access) for the running process."
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "calendar"
+min_spacedrive = "0.1.0"
+trust_tier = "authored"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 120
+schedule = "0 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "months_back"
+name = "Months of History"
+description = "How many months of past events to index (0 = all)"
+type = "integer"
+required = false
+default = 12
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "calendar-event"
+name = "Calendar Event"
+icon = "calendar"
+
+[models.calendar]
+fields.name = "string"
+fields.color = "string"
+fields.account = "string"
+has_many = ["event"]
+
+[models.event]
+fields.title = "string"
+fields.location = "string"
+fields.notes = "text"
+fields.start_date = "datetime"
+fields.end_date = "datetime"
+fields.is_all_day = "boolean"
+fields.recurrence = "string"
+fields.attendees = "text"
+fields.url = "string"
+fields.status = "string"
+
+[models.event.relations]
+belongs_to = ["calendar"]
+
+[search]
+primary_model = "event"
+title = "title"
+preview = "notes"
+subtitle = "location"
+search_fields = ["title", "location", "notes", "attendees"]
+date_field = "start_date"

@@ -1,0 +1,57 @@
+[adapter]
+id = "obsidian"
+name = "Obsidian Vault"
+description = "Index markdown notes from an Obsidian vault or any directory of .md files"
+version = "0.1.0"
+author = "spacedrive"
+license = "MIT"
+icon = "note"
+min_spacedrive = "0.1.0"
+trust_tier = "authored"
+
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 300
+schedule = "*/10 * * * *"
+requires = ["python3 >= 3.9"]
+
+[[adapter.config]]
+key = "vault_path"
+name = "Vault Path"
+description = "Path to the Obsidian vault directory (or any folder containing .md files)"
+type = "string"
+required = true
+
+[[adapter.config]]
+key = "exclude_patterns"
+name = "Exclude Patterns"
+description = "Comma-separated glob patterns to exclude (e.g., .obsidian,templates,daily)"
+type = "string"
+required = false
+
+# ── Data type schema ────────────────────────────────────────────────────
+
+[data_type]
+id = "markdown"
+name = "Markdown Note"
+icon = "note"
+
+[models.note]
+fields.title = "string"
+fields.body = "text"
+fields.path = "string"
+fields.tags = "string"
+fields.created = "datetime"
+fields.modified = "datetime"
+fields.word_count = "integer"
+
+[models.note.relations]
+many_to_many = ["note"]
+
+[search]
+primary_model = "note"
+title = "title"
+preview = "body"
+subtitle = "path"
+search_fields = ["title", "body", "tags"]
+date_field = "modified"
