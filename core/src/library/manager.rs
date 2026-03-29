@@ -1438,6 +1438,45 @@ impl LibraryManager {
 
 		info!("Created default Tags group for library {}", library.id());
 
+		// Create Sources group
+		let sources_group_id =
+			deterministic_library_default_uuid(library_id, "space_group", "Sources");
+		let sources_type_json = serde_json::to_string(&GroupType::Sources)
+			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
+
+		let sources_group_model = crate::infra::db::entities::space_group::ActiveModel {
+			id: NotSet,
+			uuid: Set(sources_group_id),
+			space_id: Set(space_result.id),
+			name: Set("Sources".to_string()),
+			group_type: Set(sources_type_json),
+			is_collapsed: Set(true),
+			order: Set(4),
+			created_at: Set(now.into()),
+		};
+
+		// Use atomic upsert to handle race conditions with sync
+		GroupEntity::insert(sources_group_model)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
+					.update_columns([
+						GroupColumn::SpaceId,
+						GroupColumn::Name,
+						GroupColumn::GroupType,
+						GroupColumn::IsCollapsed,
+						GroupColumn::Order,
+					])
+					.to_owned(),
+			)
+			.exec(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
+
+		info!(
+			"Created default Sources group for library {}",
+			library.id()
+		);
+
 		Ok(())
 	}
 

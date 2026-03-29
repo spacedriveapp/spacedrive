@@ -30,7 +30,7 @@ export function TasksRoute() {
 
 	const tasksQuery = useQuery({
 		queryKey,
-		queryFn: () => apiClient.listTasks({agent_id: selectedAgent, limit: 200}),
+		queryFn: () => apiClient.listTasks(selectedAgent, 200),
 		refetchInterval: 5000,
 	});
 

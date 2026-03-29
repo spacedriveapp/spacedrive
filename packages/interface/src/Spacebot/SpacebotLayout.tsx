@@ -42,11 +42,11 @@ function SidebarHistoryItem({
 				isActive ? 'bg-sidebar-selected/40' : 'hover:bg-sidebar-box'
 			}`}
 		>
-			<div>
-				<div className="text-sidebar-ink text-sm font-medium">
+			<div className="min-w-0">
+				<div className="text-sidebar-ink truncate text-sm font-medium">
 					{conversation.title}
 				</div>
-				<div className="text-sidebar-inkDull line-clamp-2 text-xs">
+				<div className="text-ink-dull truncate text-xs">
 					{conversation.last_message_preview ?? 'No messages yet'}
 				</div>
 			</div>

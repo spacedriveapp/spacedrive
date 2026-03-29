@@ -7,6 +7,9 @@ import { DaemonManager } from "./routes/daemon";
 import { TagView } from "./routes/tag";
 import { FileKindsView } from "./routes/file-kinds";
 import { RecentsView } from "./routes/explorer/views/RecentsView";
+import { SourcesHome } from "./routes/sources";
+import { SourceDetail } from "./routes/sources/SourceDetail";
+import { AdaptersScreen } from "./routes/sources/Adapters";
 import { SpacebotProvider } from "./Spacebot/SpacebotContext";
 import { SpacebotLayout } from "./Spacebot/SpacebotLayout";
 import { ChatRoute } from "./Spacebot/routes/ChatRoute";
@@ -62,6 +65,18 @@ export const explorerRoutes = [
 			{
 				path: "tag/:tagId",
 				element: <TagView />,
+			},
+			{
+				path: "sources",
+				element: <SourcesHome />,
+			},
+			{
+				path: "sources/adapters",
+				element: <AdaptersScreen />,
+			},
+			{
+				path: "sources/:sourceId",
+				element: <SourceDetail />,
 			},
 			{
 				path: "search",

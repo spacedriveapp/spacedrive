@@ -1,12 +1,10 @@
 import {
-	Atom,
 	Brain,
 	CalendarDots,
-	CaretDown,
 	ChatCircleDots,
 	Checks,
-	ClockCounterClockwise,
-	DotsThree
+	DotsThree,
+	MoonStars
 } from '@phosphor-icons/react';
 import {Ball, BallBlue} from '@sd/assets/images';
 import {
@@ -39,7 +37,7 @@ export const primaryItems = [
 	{icon: ChatCircleDots, label: 'Chat', path: '/spacebot/chat'},
 	{icon: Checks, label: 'Tasks', path: '/spacebot/tasks'},
 	{icon: Brain, label: 'Memories', path: '/spacebot/memories'},
-	{icon: Atom, label: 'Autonomy', path: '/spacebot/autonomy'},
+	{icon: MoonStars, label: 'Dream', path: '/spacebot/autonomy'},
 	{icon: CalendarDots, label: 'Schedule', path: '/spacebot/schedule'}
 ];
 

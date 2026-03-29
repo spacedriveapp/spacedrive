@@ -92,7 +92,7 @@ impl Engine {
 	}
 
 	/// Load all script adapters from the adapters directory.
-	fn load_script_adapters(
+	pub fn load_script_adapters(
 		adapters_dir: &std::path::Path,
 		registry: &AdapterRegistry,
 	) -> Result<()> {
@@ -527,6 +527,142 @@ impl Engine {
 
 		let manifest = crate::adapter::script::AdapterManifest::from_file(&manifest_path)?;
 		Ok(manifest.adapter.config)
+	}
+
+	/// Check whether a source adapter directory has changed compared to the installed version.
+	pub fn check_adapter_update(
+		&self,
+		adapter_id: &str,
+		source_dir: &std::path::Path,
+	) -> Option<bool> {
+		let installed_toml = self
+			.config
+			.data_dir
+			.join("adapters")
+			.join(adapter_id)
+			.join("adapter.toml");
+		let source_toml = source_dir.join("adapter.toml");
+
+		if !installed_toml.exists() || !source_toml.exists() {
+			return None;
+		}
+
+		let installed_content = std::fs::read(&installed_toml).ok()?;
+		let source_content = std::fs::read(&source_toml).ok()?;
+
+		let installed_hash = blake3::hash(&installed_content);
+		let source_hash = blake3::hash(&source_content);
+
+		Some(installed_hash != source_hash)
+	}
+
+	/// List adapters with update-available status.
+	pub fn list_adapters_with_updates(
+		&self,
+		source_adapters_dir: Option<&std::path::Path>,
+	) -> Vec<crate::adapter::AdapterInfo> {
+		let mut infos = self.adapters.list();
+
+		if let Some(source_dir) = source_adapters_dir {
+			for info in &mut infos {
+				let adapter_source = source_dir.join(&info.id);
+				if let Some(has_update) = self.check_adapter_update(&info.id, &adapter_source) {
+					info.update_available = has_update;
+				}
+			}
+		}
+
+		infos
+	}
+
+	/// The path to the bundled adapters directory (workspace root's adapters/).
+	pub fn source_adapters_dir(&self) -> Option<std::path::PathBuf> {
+		let candidates = [
+			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+				.parent()
+				.map(|p| p.join("adapters")),
+			Some(self.config.data_dir.join("bundled_adapters")),
+		];
+
+		for candidate in candidates.into_iter().flatten() {
+			if candidate.is_dir() {
+				return Some(candidate);
+			}
+		}
+
+		None
+	}
+
+	/// Update an installed adapter from a source directory.
+	///
+	/// Backs up the installed adapter, copies new files, and re-registers.
+	/// Schema migrations happen automatically on next sync.
+	pub fn update_adapter(
+		&self,
+		adapter_id: &str,
+		source_dir: &std::path::Path,
+	) -> Result<crate::adapter::AdapterUpdateResult> {
+		let new_adapter = ScriptAdapter::from_dir(source_dir)?;
+		if new_adapter.id() != adapter_id {
+			return Err(Error::Other(format!(
+				"adapter ID mismatch: expected '{}', got '{}'",
+				adapter_id,
+				new_adapter.id()
+			)));
+		}
+
+		let installed_dir = self.config.data_dir.join("adapters").join(adapter_id);
+		if !installed_dir.exists() {
+			return Err(Error::AdapterNotFound(adapter_id.to_string()));
+		}
+
+		// Read old version
+		let old_manifest = crate::adapter::script::AdapterManifest::from_file(
+			&installed_dir.join("adapter.toml"),
+		)?;
+		let old_version = old_manifest.adapter.version.clone();
+		let new_version = new_adapter.manifest().adapter.version.clone();
+
+		// Schema diff
+		let old_schema = ScriptAdapter::from_dir(&installed_dir)?.schema().clone();
+		let new_schema = new_adapter.schema().clone();
+		let schema_changed = crate::schema::migration::schema_hash(&old_schema)
+			!= crate::schema::migration::schema_hash(&new_schema);
+
+		// Backup
+		let backup_name = format!(
+			"{}.bak.{}",
+			adapter_id,
+			chrono::Utc::now().format("%Y%m%d_%H%M%S")
+		);
+		let backup_dir = self.config.data_dir.join("adapters").join(&backup_name);
+		std::fs::rename(&installed_dir, &backup_dir)?;
+
+		tracing::info!(adapter_id, backup = %backup_dir.display(), "backed up adapter before update");
+
+		// Copy new files (restore backup on failure)
+		if let Err(e) = copy_dir_recursive(source_dir, &installed_dir) {
+			tracing::error!(adapter_id, error = %e, "update failed, restoring backup");
+			if installed_dir.exists() {
+				let _ = std::fs::remove_dir_all(&installed_dir);
+			}
+			std::fs::rename(&backup_dir, &installed_dir)?;
+			return Err(e);
+		}
+
+		// Re-register
+		let adapter = ScriptAdapter::from_dir(&installed_dir)?;
+		self.adapters.register(Arc::new(adapter));
+
+		tracing::info!(adapter_id, %old_version, %new_version, schema_changed, "adapter updated");
+
+		Ok(crate::adapter::AdapterUpdateResult {
+			adapter_id: adapter_id.to_string(),
+			old_version,
+			new_version,
+			schema_changed,
+			backup_path: backup_dir.to_string_lossy().to_string(),
+		})
 	}
 
 	/// Install a script adapter from a directory path (sideloading).
