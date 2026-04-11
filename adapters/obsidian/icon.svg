@@ -2,35 +2,35 @@
 <svg width="256px" height="332px" viewBox="0 0 256 332" version="1.1" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid">
     <title>Obsidian</title>
     <defs>
-        <radialGradient cx="72.8188161%" cy="96.9336384%" fx="72.8188161%" fy="96.9336384%" r="163.793124%" gradientTransform="translate(0,7282, 0,9693), scale(1, 0,534), rotate(-104,5452), translate(-0,7282, -0,9693)" id="radialGradient-1">
+        <radialGradient cx="72.8188161%" cy="96.9336384%" fx="72.8188161%" fy="96.9336384%" r="163.793124%" gradientTransform="translate(0.7282, 0.9693) scale(1, 0.534) rotate(-104.5452) translate(-0.7282, -0.9693)" id="radialGradient-1">
             <stop stop-color="#FFFFFF" stop-opacity="0.4" offset="0%"></stop>
             <stop stop-color="#000000" stop-opacity="0.1" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="52.9165858%" cy="90.6316753%" fx="52.9165858%" fy="90.6316753%" r="190.361461%" gradientTransform="translate(0,5292, 0,9063), scale(1, 0,5013), rotate(-82,4659), translate(-0,5292, -0,9063)" id="radialGradient-2">
+        <radialGradient cx="52.9165858%" cy="90.6316753%" fx="52.9165858%" fy="90.6316753%" r="190.361461%" gradientTransform="translate(0.5292, 0.9063) scale(1, 0.5013) rotate(-82.4659) translate(-0.5292, -0.9063)" id="radialGradient-2">
             <stop stop-color="#FFFFFF" stop-opacity="0.6" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.1" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="31.1735808%" cy="97.1379223%" fx="31.1735808%" fy="97.1379223%" r="178.71402%" gradientTransform="translate(0,3117, 0,9714), scale(1, 0,5782), rotate(-77,6806), translate(-0,3117, -0,9714)" id="radialGradient-3">
+        <radialGradient cx="31.1735808%" cy="97.1379223%" fx="31.1735808%" fy="97.1379223%" r="178.71402%" gradientTransform="translate(0.3117, 0.9714) scale(1, 0.5782) rotate(-77.6806) translate(-0.3117, -0.9714)" id="radialGradient-3">
             <stop stop-color="#FFFFFF" stop-opacity="0.8" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.4" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="71.8134715%" cy="99.9936686%" fx="71.8134715%" fy="99.9936686%" r="92.0858865%" gradientTransform="translate(0,7181, 0,9999), scale(0,8704, 1), rotate(-120,7097), translate(-0,7181, -0,9999)" id="radialGradient-4">
+        <radialGradient cx="71.8134715%" cy="99.9936686%" fx="71.8134715%" fy="99.9936686%" r="92.0858865%" gradientTransform="translate(0.7181, 0.9999) scale(0.8704, 1) rotate(-120.7097) translate(-0.7181, -0.9999)" id="radialGradient-4">
             <stop stop-color="#FFFFFF" stop-opacity="0.3" offset="0%"></stop>
             <stop stop-color="#000000" stop-opacity="0.3" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="117.012845%" cy="34.768667%" fx="117.012845%" fy="34.768667%" r="328.728831%" gradientTransform="translate(1,1701, 0,3477), scale(1, 0,1938), rotate(102,0372), translate(-1,1701, -0,3477)" id="radialGradient-5">
+        <radialGradient cx="117.012845%" cy="34.768667%" fx="117.012845%" fy="34.768667%" r="328.728831%" gradientTransform="translate(1.1701, 0.3477) scale(1, 0.1938) rotate(102.0372) translate(-1.1701, -0.3477)" id="radialGradient-5">
             <stop stop-color="#FFFFFF" stop-opacity="0" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.2" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="-9.43113772%" cy="8.71165644%" fx="-9.43113772%" fy="8.71165644%" r="153.492398%" gradientTransform="translate(-0,0943, 0,0871), scale(1, 0,8196), rotate(45,3951), translate(0,0943, -0,0871)" id="radialGradient-6">
+        <radialGradient cx="-9.43113772%" cy="8.71165644%" fx="-9.43113772%" fy="8.71165644%" r="153.492398%" gradientTransform="translate(-0.0943, 0.0871) scale(1, 0.8196) rotate(45.3951) translate(0.0943, -0.0871)" id="radialGradient-6">
             <stop stop-color="#FFFFFF" stop-opacity="0.2" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.4" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="103.901931%" cy="-22.1716021%" fx="103.901931%" fy="-22.1716021%" r="394.770981%" gradientTransform="translate(1,039, -0,2217), scale(1, 0,2302), rotate(80,3803), translate(-1,039, 0,2217)" id="radialGradient-7">
+        <radialGradient cx="103.901931%" cy="-22.1716021%" fx="103.901931%" fy="-22.1716021%" r="394.770981%" gradientTransform="translate(1.039, -0.2217) scale(1, 0.2302) rotate(80.3803) translate(-1.039, 0.2217)" id="radialGradient-7">
             <stop stop-color="#FFFFFF" stop-opacity="0.1" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.3" offset="100%"></stop>
         </radialGradient>
-        <radialGradient cx="99.3483412%" cy="89.1929661%" fx="99.3483412%" fy="89.1929661%" r="203.824388%" gradientTransform="translate(0,9935, 0,8919), scale(0,5317, 1), rotate(-152,3144), translate(-0,9935, -0,8919)" id="radialGradient-8">
+        <radialGradient cx="99.3483412%" cy="89.1929661%" fx="99.3483412%" fy="89.1929661%" r="203.824388%" gradientTransform="translate(0.9935, 0.8919) scale(0.5317, 1) rotate(-152.3144) translate(-0.9935, -0.8919)" id="radialGradient-8">
             <stop stop-color="#FFFFFF" stop-opacity="0.2" offset="0%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.2" offset="50%"></stop>
             <stop stop-color="#FFFFFF" stop-opacity="0.3" offset="100%"></stop>
