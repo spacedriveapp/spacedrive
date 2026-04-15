@@ -739,7 +739,8 @@ impl TagManager {
 
 			// If FTS5 didn't return results, fall back to LIKE patterns
 			if tag_db_ids.is_empty() {
-				let search_pattern = format!("%{}%", query);
+				let escaped_query = query.replace('%', r"\%").replace('_', r"\_");
+				let search_pattern = format!("%{}%", escaped_query);
 				let like_models = tag::Entity::find()
 					.filter(
 						tag::Column::CanonicalName

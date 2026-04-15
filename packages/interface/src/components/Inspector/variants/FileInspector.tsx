@@ -911,13 +911,14 @@ function OverviewTab({file}: {file: File}) {
 								size="sm"
 								onRemove={async () => {
 									try {
-										await unapplyTag.mutateAsync({
-											entry_ids: [file.id],
-											tag_ids: [tag.id],
-										});
-									} catch (err) {
-										console.error('Failed to remove tag:', err);
-									}
+								await unapplyTag.mutateAsync({
+										entry_ids: [file.id],
+										tag_ids: [tag.id],
+									});
+								} catch (err) {
+									console.error('Failed to remove tag:', err);
+									toast.error(`Failed to remove tag: ${err}`);
+								}
 								}}
 							>
 								{tag.canonical_name}

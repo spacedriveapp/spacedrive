@@ -46,16 +46,19 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 				icon: Trash,
 				label: 'Delete Tag',
 				variant: 'danger',
-				onClick: async () => {
-					try {
-						await deleteTag.mutateAsync({ tag_id: tag.id });
-						if (isActive) {
-							navigate('/');
-						}
-					} catch (err) {
-						console.error('Failed to delete tag:', err);
+			onClick: async () => {
+				if (!confirm(`Delete tag "${tag.canonical_name || tag.display_name || 'this tag'}"? This will remove it from all files.`)) {
+					return;
+				}
+				try {
+					await deleteTag.mutateAsync({ tag_id: tag.id });
+					if (isActive) {
+						navigate('/');
 					}
-				},
+				} catch (err) {
+					console.error('Failed to delete tag:', err);
+				}
+			},
 			},
 		],
 	});

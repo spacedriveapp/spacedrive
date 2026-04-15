@@ -50,7 +50,7 @@ export function useFileContextMenu({
 	const {navigateToPath, currentPath, mode} = useExplorer();
 	const platform = usePlatform();
 	const refetchTagQueries = useRefetchTagQueries();
-	const copyFiles = useLibraryMutation('files.copy');
+
 	const {deleteFiles} = useDeleteFiles();
 	const unapplyTags = useLibraryMutation('tags.unapply', {
 		onSuccess: refetchTagQueries
