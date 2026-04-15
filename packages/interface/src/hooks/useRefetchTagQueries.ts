@@ -9,9 +9,9 @@ export function useRefetchTagQueries() {
 	const queryClient = useQueryClient();
 
 	return useCallback(() => {
-		queryClient.refetchQueries({ queryKey: ["query:files.directory_listing"], exact: false });
-		queryClient.refetchQueries({ queryKey: ["query:files.by_tag"], exact: false });
-		queryClient.refetchQueries({ queryKey: ["query:files.by_id"], exact: false });
-		queryClient.refetchQueries({ queryKey: ["query:tags.search"], exact: false });
+		queryClient.refetchQueries({ queryKey: ["query:files.directory_listing"], exact: false, type: 'all' });
+		queryClient.refetchQueries({ queryKey: ["query:files.by_tag"], exact: false, type: 'all' });
+		queryClient.refetchQueries({ queryKey: ["query:files.by_id"], exact: false, type: 'all' });
+		queryClient.refetchQueries({ queryKey: ["query:tags.search"], exact: false, type: 'all' });
 	}, [queryClient]);
 }

@@ -1,7 +1,6 @@
 import {MagnifyingGlass, Plus} from '@phosphor-icons/react';
 import type {Tag} from '@sd/ts-client';
 import {Popover, usePopover} from '@spacedrive/primitives';
-import {useQueryClient} from '@tanstack/react-query';
 import clsx from 'clsx';
 import {useEffect, useState} from 'react';
 import {
@@ -40,24 +39,7 @@ export function TagSelector({
 
 	const refetchTagQueries = useRefetchTagQueries();
 	const createTag = useLibraryMutation('tags.create', {
-<<<<<<< HEAD
-		onSuccess: () => {
-			queryClient.refetchQueries({
-				queryKey: ['query:tags.search'],
-				exact: false
-			});
-			queryClient.refetchQueries({
-				queryKey: ['query:files.directory_listing'],
-				exact: false
-			});
-			queryClient.refetchQueries({
-				queryKey: ['query:files.by_tag'],
-				exact: false
-			});
-		}
-=======
 		onSuccess: refetchTagQueries,
->>>>>>> 7bf945d6c (refactor: extract shared useRefetchTagQueries hook)
 	});
 
 	// Fetch all tags using search with empty query

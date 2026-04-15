@@ -125,24 +125,34 @@ impl LibraryAction for RegenerateThumbnailAction {
 
 		// Get MIME type: try content_identity first, fall back to extension
 		let mime_type = if let Some(content_id) = entry.content_id {
-			if let Ok(Some(ci)) =
-				entities::content_identity::Entity::find_by_id(content_id)
-					.one(db)
-					.await
+			match entities::content_identity::Entity::find_by_id(content_id)
+				.one(db)
+				.await
 			{
-				if let Some(mime_id) = ci.mime_type_id {
-					entities::mime_type::Entity::find_by_id(mime_id)
-						.one(db)
-						.await
-						.ok()
-						.flatten()
-						.map(|m| m.mime_type)
-						.or_else(|| mime_from_extension(&path))
-				} else {
-					mime_from_extension(&path)
+				Ok(Some(ci)) => {
+					if let Some(mime_id) = ci.mime_type_id {
+						match entities::mime_type::Entity::find_by_id(mime_id)
+							.one(db)
+							.await
+						{
+							Ok(Some(m)) => Some(m.mime_type),
+							Ok(None) => mime_from_extension(&path),
+							Err(e) => {
+								return Err(ActionError::Internal(format!(
+									"Failed to load MIME type {mime_id}: {e}"
+								)))
+							}
+						}
+					} else {
+						mime_from_extension(&path)
+					}
 				}
-			} else {
-				mime_from_extension(&path)
+				Ok(None) => mime_from_extension(&path),
+				Err(e) => {
+					return Err(ActionError::Internal(format!(
+						"Failed to load content identity {content_id}: {e}"
+					)))
+				}
 			}
 		} else {
 			mime_from_extension(&path)

@@ -1,9 +1,10 @@
-import { Tag as TagIcon, Plus, CaretRight } from '@phosphor-icons/react';
+import { Tag as TagIcon, Plus, CaretRight, Trash } from '@phosphor-icons/react';
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import clsx from 'clsx';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
+import { useContextMenu } from '../../hooks/useContextMenu';
 import type { Tag } from '@sd/ts-client';
 import { GroupHeader } from './GroupHeader';
 import { useExplorer } from '../../routes/explorer/context';
@@ -39,27 +40,31 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 		navigate(`/tag/${tag.id}`);
 	};
 
-	const handleContextMenu = async (e: React.MouseEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-
-		if (confirm(`Delete tag "${tag.canonical_name}"? This will remove it from all files.`)) {
-			try {
-				await deleteTag.mutateAsync({ tag_id: tag.id });
-				if (isActive) {
-					navigate('/');
-				}
-			} catch (err) {
-				console.error('Failed to delete tag:', err);
-			}
-		}
-	};
+	const contextMenu = useContextMenu({
+		items: [
+			{
+				icon: Trash,
+				label: 'Delete Tag',
+				variant: 'danger',
+				onClick: async () => {
+					try {
+						await deleteTag.mutateAsync({ tag_id: tag.id });
+						if (isActive) {
+							navigate('/');
+						}
+					} catch (err) {
+						console.error('Failed to delete tag:', err);
+					}
+				},
+			},
+		],
+	});
 
 	return (
 		<div>
 			<button
 				onClick={handleClick}
-				onContextMenu={handleContextMenu}
+				onContextMenu={contextMenu.show}
 				className={clsx(
 					'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors cursor-pointer',
 					isActive
@@ -114,7 +119,10 @@ export function TagsGroup({
 	const [isCreating, setIsCreating] = useState(false);
 	const [newTagName, setNewTagName] = useState('');
 
-	const createTag = useLibraryMutation('tags.create');
+	const refetchTagQueries = useRefetchTagQueries();
+	const createTag = useLibraryMutation('tags.create', {
+		onSuccess: refetchTagQueries,
+	});
 
 	const { data: tags = [], isLoading } = useNormalizedQuery({
 		query: 'tags.search',

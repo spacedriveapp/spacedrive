@@ -103,6 +103,9 @@ impl ApplyTagsInput {
 				if ids.is_empty() {
 					return Err("entry UUIDs cannot be empty".to_string());
 				}
+				if ids.iter().any(Uuid::is_nil) {
+					return Err("entry UUIDs cannot contain nil values".to_string());
+				}
 				ids.len()
 			}
 		};

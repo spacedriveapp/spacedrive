@@ -24,6 +24,7 @@ import {
 } from '@phosphor-icons/react';
 import type {File} from '@sd/ts-client';
 import {getContentKind, isVirtualFile} from '@sd/ts-client';
+import { toast } from '@spacedrive/primitives';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
@@ -176,7 +177,7 @@ export function useFileContextMenu({
 								await platform.revealFile(physicalPath);
 							} catch (err) {
 								console.error('Failed to reveal file:', err);
-								alert(`Failed to reveal file: ${err}`);
+								toast.error(`Failed to reveal file: ${err}`);
 							}
 						} else {
 							console.log(
@@ -210,7 +211,7 @@ export function useFileContextMenu({
 							await platform.shareFiles(paths);
 						} catch (err) {
 							console.error('Failed to share files:', err);
-							alert(`Failed to share: ${err}`);
+							toast.error(`Failed to share: ${err}`);
 						}
 					}
 				},
@@ -246,7 +247,7 @@ export function useFileContextMenu({
 						console.log('Created folder:', result);
 					} catch (err) {
 						console.error('Failed to create folder:', err);
-						alert(`Failed to create folder: ${err}`);
+						toast.error(`Failed to create folder: ${err}`);
 					}
 				},
 				condition: () => !!currentPath
@@ -271,7 +272,7 @@ export function useFileContextMenu({
 							'Failed to create folder with items:',
 							err
 						);
-						alert(`Failed to create folder: ${err}`);
+						toast.error(`Failed to create folder: ${err}`);
 					}
 				},
 				condition: () =>
@@ -618,7 +619,7 @@ export function useFileContextMenu({
 						});
 					} catch (err) {
 						console.error('Failed to remove tag:', err);
-						alert(`Failed to remove tag: ${err}`);
+						toast.error(`Failed to remove tag: ${err}`);
 					}
 				},
 				condition: () => mode.type === 'tag' && !hasVirtualFiles

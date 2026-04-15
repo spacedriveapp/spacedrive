@@ -179,7 +179,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	const files = useMemo(() => {
 		if (isTagMode) {
-			return (tagQuery.data as any)?.files || [];
+			return (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
 		}
 		if (isRecentsMode) {
 			return (recentsQuery.data as FileSearchOutput | undefined)?.files || [];
@@ -190,7 +190,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		if (isVirtualView) {
 			return virtualFiles || [];
 		}
-		return (directoryQuery.data as any)?.files || [];
+		return (directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
 	}, [isTagMode, isRecentsMode, isSearchMode, isVirtualView, tagQuery.data, recentsQuery.data, searchQuery.data, virtualFiles, directoryQuery.data]);
 
 	const isLoading = isTagMode

@@ -14,8 +14,8 @@ use anyhow::Result;
 use chrono::Utc;
 use sea_orm::DatabaseConnection;
 use sea_orm::{
-	ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, NotSet, QueryFilter, Set,
 	sea_query::{Expr, OnConflict},
+	ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, NotSet, QueryFilter, Set, TransactionTrait,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -250,12 +250,21 @@ impl UserMetadataManager {
 			tag_models.into_iter().map(|m| (m.uuid, m.id)).collect();
 
 		// Atomic upsert: INSERT ... ON CONFLICT(user_metadata_id, tag_id) DO UPDATE
+		let txn = db
+			.begin()
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
 		for app in tag_applications {
 			if let Some(&tag_db_id) = uuid_to_db_id.get(&app.tag_id) {
 				let instance_attributes_value = if app.instance_attributes.is_empty() {
 					None
 				} else {
-					Some(serde_json::to_value(&app.instance_attributes).unwrap().into())
+					Some(
+						serde_json::to_value(&app.instance_attributes)
+							.unwrap()
+							.into(),
+					)
 				};
 
 				let now = Utc::now();
@@ -296,22 +305,31 @@ impl UserMetadataManager {
 
 				user_metadata_tag::Entity::insert(new_model)
 					.on_conflict(on_conflict)
-					.exec(&*db)
+					.exec(&txn)
 					.await
-					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+					.map_err(|e| {
+						// Transaction will rollback on drop
+						TagError::DatabaseError(e.to_string())
+					})?;
 
 				// Re-query to get the final model (handles both insert and update cases)
 				let model = user_metadata_tag::Entity::find()
 					.filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_db_id))
 					.filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
-					.one(&*db)
+					.one(&txn)
 					.await
 					.map_err(|e| TagError::DatabaseError(e.to_string()))?
-					.ok_or_else(|| TagError::DatabaseError("Upsert succeeded but row not found".to_string()))?;
+					.ok_or_else(|| {
+						TagError::DatabaseError("Upsert succeeded but row not found".to_string())
+					})?;
 
 				created_models.push(model);
 			}
 		}
+
+		txn.commit()
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
 		// Record usage patterns for AI learning
 		self.semantic_tag_service

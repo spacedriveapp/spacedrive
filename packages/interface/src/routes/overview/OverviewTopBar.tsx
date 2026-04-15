@@ -104,9 +104,9 @@ export function OverviewTopBar({libraryName}: OverviewTopBarProps) {
 	const handleRefresh = async () => {
 		setIsRefreshing(true);
 		try {
-			const result = (await volumeRefreshMutation.mutateAsync({
+			const result = await volumeRefreshMutation.mutateAsync({
 				force: false
-			} as any)) as any;
+			});
 			console.log(
 				`Volume refresh complete: ${result.volumes_refreshed} refreshed, ${result.volumes_failed} failed`
 			);

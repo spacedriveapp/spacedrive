@@ -82,7 +82,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20260105_000001_add_volume_id_to_locations::Migration),
 			Box::new(m20260114_000001_fix_search_index_include_directories::Migration),
 			Box::new(m20260123_000001_remove_legacy_sync_columns::Migration),
-		Box::new(m20260125_000001_unique_user_metadata_tag::Migration),
+			Box::new(m20260125_000001_unique_user_metadata_tag::Migration),
 		]
 	}
 }
