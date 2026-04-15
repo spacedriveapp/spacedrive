@@ -135,7 +135,9 @@ impl LibraryAction for ApplyTagsAction {
 					.filter(crate::infra::db::entities::entry::Column::Id.is_in(entry_ids.clone()))
 					.all(db.conn())
 					.await
-					.map_err(|e| ActionError::Internal(format!("Failed to batch lookup entries: {}", e)))?;
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to batch lookup entries: {}", e))
+					})?;
 				let entry_id_to_uuid: HashMap<i32, Uuid> = entries
 					.into_iter()
 					.filter_map(|e| e.uuid.map(|uuid| (e.id, uuid)))
@@ -178,7 +180,10 @@ impl LibraryAction for ApplyTagsAction {
 				// Batch-validate all entry UUIDs exist in one query
 				let existing_entries: std::collections::HashSet<Uuid> =
 					crate::infra::db::entities::entry::Entity::find()
-						.filter(crate::infra::db::entities::entry::Column::Uuid.is_in(entry_uuids.clone()))
+						.filter(
+							crate::infra::db::entities::entry::Column::Uuid
+								.is_in(entry_uuids.clone()),
+						)
 						.all(db.conn())
 						.await
 						.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?
@@ -219,6 +224,13 @@ impl LibraryAction for ApplyTagsAction {
 					}
 				}
 			}
+		}
+
+		// Fail-fast: if NO entries were successfully tagged, return error
+		if successfully_tagged_count == 0 && !warnings.is_empty() {
+			return Err(ActionError::InvalidInput(
+				"These files need to be indexed before they can be tagged".to_string(),
+			));
 		}
 
 		// Emit resource events for affected files (frontend reactivity)
