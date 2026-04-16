@@ -371,7 +371,7 @@ struct TestHarness {
 
 impl TestHarness {
 	/// Setup the test environment with core and ephemeral watching
-	async fn setup() -> Result<Self, Box<dyn std::error::Error>> {
+	async fn setup() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
 		// Setup logging
 		let _ = tracing_subscriber::fmt()
 			.with_env_filter("sd_core=debug,ephemeral_watcher_test=debug")
@@ -487,7 +487,7 @@ impl TestHarness {
 		&self,
 		name: &str,
 		content: &str,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		tokio::fs::write(&path, content).await?;
 		println!("Created file: {}", name);
@@ -499,7 +499,7 @@ impl TestHarness {
 		&self,
 		name: &str,
 		new_content: &str,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		tokio::fs::write(&path, new_content).await?;
 		println!("Modified file: {}", name);
@@ -507,7 +507,10 @@ impl TestHarness {
 	}
 
 	/// Delete a file
-	async fn delete_file(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn delete_file(
+		&self,
+		name: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		tokio::fs::remove_file(&path).await?;
 		println!("Deleted file: {}", name);
@@ -515,7 +518,11 @@ impl TestHarness {
 	}
 
 	/// Rename/move a file
-	async fn rename_file(&self, from: &str, to: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn rename_file(
+		&self,
+		from: &str,
+		to: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let from_path = self.path(from);
 		let to_path = self.path(to);
 		tokio::fs::rename(&from_path, &to_path).await?;
@@ -524,7 +531,7 @@ impl TestHarness {
 	}
 
 	/// Create a directory
-	async fn create_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn create_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		tokio::fs::create_dir_all(&path).await?;
 		println!("Created directory: {}", name);
@@ -532,7 +539,7 @@ impl TestHarness {
 	}
 
 	/// Delete a directory recursively
-	async fn delete_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn delete_dir(&self, name: &str) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		tokio::fs::remove_dir_all(&path).await?;
 		println!("Deleted directory recursively: {}", name);
@@ -540,7 +547,10 @@ impl TestHarness {
 	}
 
 	/// Create multiple files at the top level (batch creation test)
-	async fn create_batch_files(&self, files: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+	async fn create_batch_files(
+		&self,
+		files: &[&str],
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		for file in files {
 			let full_path = self.path(file);
 			tokio::fs::write(&full_path, format!("Content of {}", file)).await?;
@@ -554,7 +564,7 @@ impl TestHarness {
 		&self,
 		name: &str,
 		trash_dir: &std::path::Path,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let from_path = self.path(name);
 		let to_path = trash_dir.join(name);
 		tokio::fs::rename(&from_path, &to_path).await?;
@@ -567,7 +577,7 @@ impl TestHarness {
 		&self,
 		name: &str,
 		trash_dir: &std::path::Path,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let from_path = trash_dir.join(name);
 		let to_path = self.path(name);
 		tokio::fs::rename(&from_path, &to_path).await?;
@@ -576,7 +586,10 @@ impl TestHarness {
 	}
 
 	/// Create multiple directories at the top level
-	async fn create_batch_dirs(&self, dirs: &[&str]) -> Result<(), Box<dyn std::error::Error>> {
+	async fn create_batch_dirs(
+		&self,
+		dirs: &[&str],
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		for dir in dirs {
 			self.create_dir(dir).await?;
 		}
@@ -584,7 +597,10 @@ impl TestHarness {
 	}
 
 	/// Verify entry exists in ephemeral index
-	async fn verify_entry_exists(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_entry_exists(
+		&self,
+		name: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 
 		// Poll for the entry to appear (with timeout)
@@ -610,7 +626,10 @@ impl TestHarness {
 	}
 
 	/// Verify entry does NOT exist in ephemeral index
-	async fn verify_entry_not_exists(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_entry_not_exists(
+		&self,
+		name: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 
 		// Poll for the entry to be removed (with timeout)
@@ -636,7 +655,10 @@ impl TestHarness {
 	}
 
 	/// Verify entry is a directory
-	async fn verify_is_directory(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_is_directory(
+		&self,
+		name: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		let index = self.context.ephemeral_cache().get_global_index();
 		let mut index_lock = index.write().await;
@@ -657,7 +679,10 @@ impl TestHarness {
 	}
 
 	/// Verify entry is a file (not directory)
-	async fn verify_is_file(&self, name: &str) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_is_file(
+		&self,
+		name: &str,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
 		let index = self.context.ephemeral_cache().get_global_index();
 		let mut index_lock = index.write().await;
@@ -703,7 +728,7 @@ impl TestHarness {
 	async fn verify_children_count(
 		&self,
 		expected: usize,
-	) -> Result<(), Box<dyn std::error::Error>> {
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let count = self.get_children_count().await;
 		if count == expected {
 			println!("✓ Children count (list_directory) matches: {}", expected);
@@ -718,7 +743,10 @@ impl TestHarness {
 	}
 
 	/// Verify expected entry count
-	async fn verify_entry_count(&self, expected: usize) -> Result<(), Box<dyn std::error::Error>> {
+	async fn verify_entry_count(
+		&self,
+		expected: usize,
+	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let count = self.get_entry_count().await;
 		if count == expected {
 			println!("✓ Entry count matches: {}", expected);
@@ -804,7 +832,7 @@ impl TestHarness {
 	}
 
 	/// Clean up test resources
-	async fn cleanup(self) -> Result<(), Box<dyn std::error::Error>> {
+	async fn cleanup(self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		// Dump events before cleanup
 		self.dump_events().await;
 
@@ -830,7 +858,9 @@ impl TestHarness {
 }
 
 /// Inner test logic that can fail
-async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::error::Error>> {
+async fn run_test_scenarios(
+	harness: &TestHarness,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Note: Entry counts include +1 for the root directory itself which is indexed
 
 	// ========================================================================
@@ -1206,7 +1236,7 @@ async fn run_test_scenarios(harness: &TestHarness) -> Result<(), Box<dyn std::er
 
 /// Comprehensive "story" test demonstrating ephemeral watcher functionality
 #[tokio::test]
-async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	println!("\n=== Ephemeral Watcher Full Story Test ===\n");
 
 	let harness = TestHarness::setup().await?;
