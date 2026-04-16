@@ -1,4 +1,4 @@
-import { open, save } from "@tauri-apps/plugin-dialog";
+import { open, save, ask } from "@tauri-apps/plugin-dialog";
 import { open as shellOpen } from "@tauri-apps/plugin-shell";
 import { convertFileSrc as tauriConvertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -48,8 +48,16 @@ export const platform: Platform = {
 	},
 
 	confirm(message: string, callback: (result: boolean) => void) {
-		// Use browser confirm for now - could be replaced with custom dialog
-		callback(window.confirm(message));
+		// window.confirm() is broken on WebView2 (Windows): returns true without showing a dialog.
+		// Use Tauri's native dialog plugin on Windows. macOS/Linux webviews handle it fine.
+		// TODO: Consider using ask() on all platforms for consistent native UX.
+		if (navigator.platform.startsWith("Win")) {
+			ask(message, { title: "Spacedrive", kind: "warning" })
+				.then((result) => callback(result))
+				.catch(() => callback(false));
+		} else {
+			callback(window.confirm(message));
+		}
 	},
 
 	convertFileSrc(filePath: string) {
