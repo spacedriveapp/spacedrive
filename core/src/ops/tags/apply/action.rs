@@ -49,6 +49,7 @@ impl LibraryAction for ApplyTagsAction {
 
 		let mut warnings = Vec::new();
 		let mut successfully_tagged_count = 0;
+		let mut missing_target_count = 0;
 
 		// Create tag applications from input
 		let tag_applications: Vec<TagApplication> = self
@@ -138,14 +139,23 @@ impl LibraryAction for ApplyTagsAction {
 					.map_err(|e| {
 						ActionError::Internal(format!("Failed to batch lookup entries: {}", e))
 					})?;
-				let entry_id_to_uuid: HashMap<i32, Uuid> = entries
-					.into_iter()
-					.filter_map(|e| e.uuid.map(|uuid| (e.id, uuid)))
-					.collect();
+				let entry_id_to_model: HashMap<i32, Option<Uuid>> =
+					entries.into_iter().map(|e| (e.id, e.uuid)).collect();
 				for &entry_id in entry_ids {
-					let Some(&entry_uuid) = entry_id_to_uuid.get(&entry_id) else {
-						warnings.push(format!("Entry {} has no UUID, skipping", entry_id));
-						continue;
+					let entry_uuid = match entry_id_to_model.get(&entry_id) {
+						None => {
+							missing_target_count += 1;
+							warnings.push(format!("Entry {} not found in database", entry_id));
+							continue;
+						}
+						Some(None) => {
+							warnings.push(format!(
+								"Entry {} exists but has no UUID (possible integrity issue)",
+								entry_id
+							));
+							continue;
+						}
+						Some(Some(uuid)) => *uuid,
 					};
 					match metadata_manager
 						.apply_semantic_tags_to_entry(
@@ -192,6 +202,7 @@ impl LibraryAction for ApplyTagsAction {
 						.collect();
 				for &entry_uuid in entry_uuids {
 					if !existing_entries.contains(&entry_uuid) {
+						missing_target_count += 1;
 						warnings.push(format!("Entry {} not found, skipping", entry_uuid));
 						continue;
 					}
@@ -227,18 +238,18 @@ impl LibraryAction for ApplyTagsAction {
 		}
 
 		// Fail-fast: if NO entries were successfully tagged, return appropriate error.
-		// Distinguish "all targets missing" (ephemeral/unindexed files) from real execution failures.
 		if successfully_tagged_count == 0 && !warnings.is_empty() {
-			let has_real_errors = warnings.iter().any(|w| w.starts_with("Failed to tag"));
-			if has_real_errors {
-				return Err(ActionError::Internal(format!(
-					"All tag operations failed: {}",
-					warnings.join("; ")
-				)));
+			// All failures were missing/unindexed targets (ephemeral files).
+			if missing_target_count == warnings.len() {
+				return Err(ActionError::InvalidInput(
+					"These files need to be indexed before they can be tagged".to_string(),
+				));
 			}
-			return Err(ActionError::InvalidInput(
-				"These files need to be indexed before they can be tagged".to_string(),
-			));
+			// Some or all failures were real execution errors (DB, integrity, etc.).
+			return Err(ActionError::Internal(format!(
+				"All tag operations failed: {}",
+				warnings.join("; ")
+			)));
 		}
 
 		// Emit resource events for affected files (frontend reactivity)
