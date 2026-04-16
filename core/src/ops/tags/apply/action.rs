@@ -226,8 +226,16 @@ impl LibraryAction for ApplyTagsAction {
 			}
 		}
 
-		// Fail-fast: if NO entries were successfully tagged, return error
+		// Fail-fast: if NO entries were successfully tagged, return appropriate error.
+		// Distinguish "all targets missing" (ephemeral/unindexed files) from real execution failures.
 		if successfully_tagged_count == 0 && !warnings.is_empty() {
+			let has_real_errors = warnings.iter().any(|w| w.starts_with("Failed to tag"));
+			if has_real_errors {
+				return Err(ActionError::Internal(format!(
+					"All tag operations failed: {}",
+					warnings.join("; ")
+				)));
+			}
 			return Err(ActionError::InvalidInput(
 				"These files need to be indexed before they can be tagged".to_string(),
 			));
