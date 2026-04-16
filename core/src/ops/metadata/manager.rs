@@ -262,7 +262,12 @@ impl UserMetadataManager {
 				} else {
 					Some(
 						serde_json::to_value(&app.instance_attributes)
-							.unwrap()
+							.map_err(|e| {
+								TagError::DatabaseError(format!(
+									"Failed to serialize instance_attributes: {}",
+									e
+								))
+							})?
 							.into(),
 					)
 				};

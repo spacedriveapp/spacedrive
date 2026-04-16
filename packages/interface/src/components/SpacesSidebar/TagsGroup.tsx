@@ -1,13 +1,17 @@
-import { Tag as TagIcon, Plus, CaretRight, Trash } from '@phosphor-icons/react';
-import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import {CaretRight, Plus, Tag as TagIcon, Trash} from '@phosphor-icons/react';
+import type {Tag} from '@sd/ts-client';
 import clsx from 'clsx';
-import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
-import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
-import { useContextMenu } from '../../hooks/useContextMenu';
-import type { Tag } from '@sd/ts-client';
-import { GroupHeader } from './GroupHeader';
-import { useExplorer } from '../../routes/explorer/context';
+import {useState} from 'react';
+import {useLocation, useNavigate} from 'react-router-dom';
+import {usePlatform} from '../../contexts/PlatformContext';
+import {
+	useLibraryMutation,
+	useNormalizedQuery
+} from '../../contexts/SpacedriveContext';
+import {useContextMenu} from '../../hooks/useContextMenu';
+import {useRefetchTagQueries} from '../../hooks/useRefetchTagQueries';
+import {useExplorer} from '../../routes/explorer/context';
+import {GroupHeader} from './GroupHeader';
 
 interface TagsGroupProps {
 	isCollapsed: boolean;
@@ -21,14 +25,15 @@ interface TagItemProps {
 	depth?: number;
 }
 
-function TagItem({ tag, depth = 0 }: TagItemProps) {
+function TagItem({tag, depth = 0}: TagItemProps) {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { loadPreferencesForSpaceItem } = useExplorer();
+	const platform = usePlatform();
+	const {loadPreferencesForSpaceItem} = useExplorer();
 	const [isExpanded, setIsExpanded] = useState(false);
 	const refetchTagQueries = useRefetchTagQueries();
 	const deleteTag = useLibraryMutation('tags.delete', {
-		onSuccess: refetchTagQueries,
+		onSuccess: refetchTagQueries
 	});
 
 	const children: Tag[] = [];
@@ -46,21 +51,24 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 				icon: Trash,
 				label: 'Delete Tag',
 				variant: 'danger',
-			onClick: async () => {
-				if (!confirm(`Delete tag "${tag.canonical_name || tag.display_name || 'this tag'}"? This will remove it from all files.`)) {
-					return;
+				onClick: () => {
+					platform.confirm(
+						`Delete tag "${tag.canonical_name || tag.display_name || 'this tag'}"? This will remove it from all files.`,
+						async (confirmed) => {
+							if (!confirmed) return;
+							try {
+								await deleteTag.mutateAsync({tag_id: tag.id});
+								if (isActive) {
+									navigate('/');
+								}
+							} catch (err) {
+								console.error('Failed to delete tag:', err);
+							}
+						}
+					);
 				}
-				try {
-					await deleteTag.mutateAsync({ tag_id: tag.id });
-					if (isActive) {
-						navigate('/');
-					}
-				} catch (err) {
-					console.error('Failed to delete tag:', err);
-				}
-			},
-			},
-		],
+			}
+		]
 	});
 
 	return (
@@ -69,21 +77,21 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 				onClick={handleClick}
 				onContextMenu={contextMenu.show}
 				className={clsx(
-					'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors cursor-pointer',
+					'flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium transition-colors',
 					isActive
 						? 'bg-sidebar-selected/30 text-sidebar-ink'
 						: 'text-sidebar-ink-dull hover:bg-sidebar-box hover:text-sidebar-ink',
 					tag.privacy_level === 'Archive' && 'opacity-50',
 					tag.privacy_level === 'Hidden' && 'opacity-25'
 				)}
-				style={{ paddingLeft: `${8 + depth * 12}px` }}
+				style={{paddingLeft: `${8 + depth * 12}px`}}
 			>
 				{hasChildren && (
 					<CaretRight
 						size={10}
 						weight="bold"
 						className={clsx(
-							'transition-transform flex-shrink-0',
+							'flex-shrink-0 transition-transform',
 							isExpanded && 'rotate-90'
 						)}
 						onClick={(e) => {
@@ -94,19 +102,27 @@ function TagItem({ tag, depth = 0 }: TagItemProps) {
 				)}
 
 				{tag.icon ? (
-					<TagIcon size={16} weight="bold" style={{ color: tag.color || '#3B82F6' }} />
+					<TagIcon
+						size={16}
+						weight="bold"
+						style={{color: tag.color || '#3B82F6'}}
+					/>
 				) : (
 					<span
-						className="size-2 rounded-full flex-shrink-0"
-						style={{ backgroundColor: tag.color || '#3B82F6' }}
+						className="size-2 flex-shrink-0 rounded-full"
+						style={{backgroundColor: tag.color || '#3B82F6'}}
 					/>
 				)}
 
-				<span className="flex-1 truncate text-left">{tag.canonical_name}</span>
+				<span className="flex-1 truncate text-left">
+					{tag.canonical_name}
+				</span>
 			</button>
 
 			{isExpanded &&
-				children.map((child) => <TagItem key={child.id} tag={child} depth={depth + 1} />)}
+				children.map((child) => (
+					<TagItem key={child.id} tag={child} depth={depth + 1} />
+				))}
 		</div>
 	);
 }
@@ -115,24 +131,27 @@ export function TagsGroup({
 	isCollapsed,
 	onToggle,
 	sortableAttributes,
-	sortableListeners,
+	sortableListeners
 }: TagsGroupProps) {
 	const navigate = useNavigate();
-	const { loadPreferencesForSpaceItem } = useExplorer();
+	const {loadPreferencesForSpaceItem} = useExplorer();
 	const [isCreating, setIsCreating] = useState(false);
 	const [newTagName, setNewTagName] = useState('');
 
 	const refetchTagQueries = useRefetchTagQueries();
 	const createTag = useLibraryMutation('tags.create', {
-		onSuccess: refetchTagQueries,
+		onSuccess: refetchTagQueries
 	});
 
-	const { data: tags = [], isLoading } = useNormalizedQuery({
+	const {data: tags = [], isLoading} = useNormalizedQuery({
 		query: 'tags.search',
-		input: { query: '' },
+		input: {query: ''},
 		resourceType: 'tag',
 		// TODO: replace `any` with proper generated types when available
-		select: (data: any) => data?.tags?.map((result: any) => result.tag || result).filter(Boolean) ?? []
+		select: (data: any) =>
+			data?.tags
+				?.map((result: any) => result.tag || result)
+				.filter(Boolean) ?? []
 	});
 
 	const handleCreateTag = async () => {
@@ -147,7 +166,9 @@ export function TagsGroup({
 				aliases: [],
 				namespace: null,
 				tag_type: null,
-				color: `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0')}`,
+				color: `#${Math.floor(Math.random() * 16777215)
+					.toString(16)
+					.padStart(6, '0')}`,
 				icon: null,
 				description: null,
 				is_organizational_anchor: null,
@@ -179,7 +200,9 @@ export function TagsGroup({
 				sortableListeners={sortableListeners}
 				rightComponent={
 					tags.length > 0 && (
-						<span className="ml-auto text-sidebar-ink-faint">{tags.length}</span>
+						<span className="text-sidebar-ink-faint ml-auto">
+							{tags.length}
+						</span>
 					)
 				}
 			/>
@@ -187,11 +210,17 @@ export function TagsGroup({
 			{!isCollapsed && (
 				<div className="space-y-0.5">
 					{isLoading ? (
-						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">Loading...</div>
+						<div className="text-sidebar-ink-faint px-2 py-1 text-xs">
+							Loading...
+						</div>
 					) : tags.length === 0 ? (
-						<div className="px-2 py-1 text-xs text-sidebar-ink-faint">No tags yet</div>
+						<div className="text-sidebar-ink-faint px-2 py-1 text-xs">
+							No tags yet
+						</div>
 					) : (
-						tags.map((tag: Tag) => <TagItem key={tag.id} tag={tag} />)
+						tags.map((tag: Tag) => (
+							<TagItem key={tag.id} tag={tag} />
+						))
 					)}
 
 					{isCreating ? (
@@ -215,13 +244,13 @@ export function TagsGroup({
 								}}
 								placeholder="Tag name..."
 								autoFocus
-								className="w-full px-2 py-1 text-xs rounded-md bg-sidebar-box border border-sidebar-line text-sidebar-ink placeholder:text-sidebar-ink-faint outline-none focus:border-accent"
+								className="bg-sidebar-box border-sidebar-line text-sidebar-ink placeholder:text-sidebar-ink-faint focus:border-accent w-full rounded-md border px-2 py-1 text-xs outline-none"
 							/>
 						</div>
 					) : (
 						<button
 							onClick={() => setIsCreating(true)}
-							className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-sidebar-ink-dull hover:bg-sidebar-box hover:text-sidebar-ink transition-colors cursor-pointer"
+							className="text-sidebar-ink-dull hover:bg-sidebar-box hover:text-sidebar-ink flex w-full cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors"
 						>
 							<Plus size={12} weight="bold" />
 							<span>New Tag</span>

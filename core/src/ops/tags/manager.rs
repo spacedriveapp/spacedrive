@@ -722,12 +722,10 @@ impl TagManager {
 			// Try FTS5 search first, fall back to LIKE patterns if FTS5 is not available
 			// Attempt FTS5 search (skip if FTS5 table doesn't exist)
 			if let Ok(fts_results) = db.query_all(
-	            sea_orm::Statement::from_string(
+	            sea_orm::Statement::from_sql_and_values(
 	                sea_orm::DatabaseBackend::Sqlite,
-	                format!(
-	                    "SELECT rowid FROM tag_search_fts WHERE tag_search_fts MATCH '{}' ORDER BY bm25(tag_search_fts)",
-	                    escape_fts5_query(&query)
-	                )
+	                "SELECT rowid FROM tag_search_fts WHERE tag_search_fts MATCH ? ORDER BY bm25(tag_search_fts)",
+	                [escape_fts5_query(&query).into()]
 	            )
 	        ).await {
 	            for row in fts_results {
@@ -737,24 +735,42 @@ impl TagManager {
 	            }
 	        }
 
-			// If FTS5 didn't return results, fall back to LIKE patterns
+			// If FTS5 didn't return results, fall back to LIKE patterns with ESCAPE clause
 			if tag_db_ids.is_empty() {
-				let escaped_query = query.replace('%', r"\%").replace('_', r"\_");
+				let escaped_query = query
+					.replace('\\', r"\\")
+					.replace('%', r"\%")
+					.replace('_', r"\_");
 				let search_pattern = format!("%{}%", escaped_query);
-				let like_models = tag::Entity::find()
-					.filter(
-						tag::Column::CanonicalName
-							.like(&search_pattern)
-							.or(tag::Column::DisplayName.like(&search_pattern))
-							.or(tag::Column::FormalName.like(&search_pattern))
-							.or(tag::Column::Abbreviation.like(&search_pattern))
-							.or(tag::Column::Description.like(&search_pattern)),
-					)
-					.all(&*db)
+
+				// SeaORM's .like() doesn't emit an ESCAPE clause, so SQLite ignores backslash escaping.
+				// Use raw SQL with parameterized values and explicit ESCAPE '\\'.
+				let like_sql = "SELECT id FROM tag WHERE \
+					canonical_name LIKE ? ESCAPE '\\' \
+					OR display_name LIKE ? ESCAPE '\\' \
+					OR formal_name LIKE ? ESCAPE '\\' \
+					OR abbreviation LIKE ? ESCAPE '\\' \
+					OR description LIKE ? ESCAPE '\\'";
+				let like_results = db
+					.query_all(sea_orm::Statement::from_sql_and_values(
+						sea_orm::DatabaseBackend::Sqlite,
+						like_sql,
+						[
+							search_pattern.clone().into(),
+							search_pattern.clone().into(),
+							search_pattern.clone().into(),
+							search_pattern.clone().into(),
+							search_pattern.into(),
+						],
+					))
 					.await
 					.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
-				tag_db_ids = like_models.into_iter().map(|m| m.id).collect();
+				for row in like_results {
+					if let Ok(tag_id) = row.try_get::<i32>("", "id") {
+						tag_db_ids.push(tag_id);
+					}
+				}
 			}
 		}
 

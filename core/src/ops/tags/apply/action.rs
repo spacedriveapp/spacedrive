@@ -12,7 +12,7 @@ use crate::{
 	ops::metadata::manager::UserMetadataManager,
 };
 use chrono::Utc;
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -268,18 +268,3 @@ impl LibraryAction for ApplyTagsAction {
 
 // Register library action
 crate::register_library_action!(ApplyTagsAction, "tags.apply");
-
-/// Look up entry UUID from entry database ID
-async fn lookup_entry_uuid(db: &DatabaseConnection, entry_id: i32) -> Result<Uuid, String> {
-	use crate::infra::db::entities::entry;
-
-	let entry_model = entry::Entity::find_by_id(entry_id)
-		.one(db)
-		.await
-		.map_err(|e| format!("Database error: {}", e))?
-		.ok_or_else(|| format!("Entry with ID {} not found", entry_id))?;
-
-	entry_model
-		.uuid
-		.ok_or_else(|| format!("Entry {} has no UUID assigned", entry_id))
-}
