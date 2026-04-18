@@ -292,16 +292,16 @@ impl crate::infra::sync::Syncable for Model {
 				std::collections::HashMap::new()
 			};
 
-		// Convert to sync format with FK mapping
-		let mut sync_results = Vec::new();
+		// Serialize each row to JSON with its UUID and timestamp.
+		let mut staged: Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)> =
+			Vec::with_capacity(results.len());
 
 		for entry in results {
 			let uuid = match entry.uuid {
 				Some(u) => u,
-				None => continue, // Skip entries without UUIDs
+				None => continue,
 			};
 
-			// Serialize to JSON
 			let mut json = match entry.to_sync_json() {
 				Ok(j) => j,
 				Err(e) => {
@@ -311,9 +311,8 @@ impl crate::infra::sync::Syncable for Model {
 			};
 
 			// For directories, include the absolute path from directory_paths
-			// This ensures receiving devices get identical paths for universal addressing
+			// so receiving devices get identical paths for universal addressing.
 			if entry.kind == 1 {
-				// Directory
 				if let Some(path) = directory_paths_map.get(&entry.id) {
 					if let Some(obj) = json.as_object_mut() {
 						obj.insert(
@@ -324,27 +323,43 @@ impl crate::infra::sync::Syncable for Model {
 				}
 			}
 
-			// Convert FK integer IDs to UUIDs
-			for fk in <Model as Syncable>::foreign_key_mappings() {
-				if let Err(e) =
-					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+			let timestamp = entry.indexed_at.unwrap_or(entry.modified_at);
+			staged.push((uuid, json, timestamp));
+		}
+
+		// Batch-convert FK integer IDs to UUIDs one FK type at a time across
+		// the whole batch — single DB round trip per FK, not per record × FK.
+		let fk_mappings = <Model as Syncable>::foreign_key_mappings();
+		if !fk_mappings.is_empty() && !staged.is_empty() {
+			let mut payloads: Vec<serde_json::Value> =
+				staged.iter().map(|(_, json, _)| json.clone()).collect();
+
+			for fk in &fk_mappings {
+				if let Err(e) = crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
+					&mut payloads,
+					fk,
+					db,
+				)
+				.await
 				{
 					tracing::warn!(
 						error = %e,
-						uuid = %uuid,
 						fk_field = fk.local_field,
-						"Failed to convert FK to UUID, skipping entry"
+						"Batch FK conversion failed for entries"
 					);
-					continue;
+					return Err(sea_orm::DbErr::Custom(format!(
+						"Entry FK batch conversion failed: {}",
+						e
+					)));
 				}
 			}
 
-			// Use indexed_at for checkpoint/watermark tracking, fallback to modified_at if NULL
-			let timestamp = entry.indexed_at.unwrap_or(entry.modified_at);
-			sync_results.push((uuid, json, timestamp));
+			for ((_, json, _), resolved) in staged.iter_mut().zip(payloads.into_iter()) {
+				*json = resolved;
+			}
 		}
 
-		Ok(sync_results)
+		Ok(staged)
 	}
 
 	/// Apply state change - already implemented in Model impl block below
@@ -564,10 +579,12 @@ impl Model {
 			inserted.id
 		};
 
-		// Rebuild entry_closure for this synced entry
-		// Without this, the entry only has a self-reference and cannot be queried
-		// for descendants, breaking subtree operations, location scoping, etc.
-		Self::rebuild_entry_closure(entry_id, parent_id, db).await?;
+		// Rebuild entry_closure for this synced entry, unless we're inside a
+		// backfill apply loop — in that case the post_backfill_rebuild hook
+		// does a single bulk rebuild at the end, so per-entry work is wasted.
+		if !crate::infra::sync::is_in_backfill() {
+			Self::rebuild_entry_closure(entry_id, parent_id, db).await?;
+		}
 
 		// If this is a directory, create or update its entry in the directory_paths table
 		if EntryKind::from(kind) == EntryKind::Directory {

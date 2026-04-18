@@ -211,21 +211,33 @@ impl PeerLog {
 		Ok(())
 	}
 
-	/// Get all changes since a given HLC
+	/// Get changes since a given HLC, up to an optional limit
+	///
+	/// Passing `limit = Some(N)` pushes `LIMIT N` into SQL so the sender never
+	/// materializes the whole log when only a batch is needed. `None` returns
+	/// every row (used by tests and bulk maintenance paths only).
 	pub async fn get_since(
 		&self,
 		since: Option<HLC>,
+		limit: Option<usize>,
 	) -> Result<Vec<SharedChangeEntry>, PeerLogError> {
-		let query = match since {
-			Some(hlc) => {
-				let hlc_str = hlc.to_string();
-				Statement::from_sql_and_values(
-					DbBackend::Sqlite,
-					"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes WHERE hlc > ? ORDER BY hlc ASC",
-					vec![hlc_str.into()],
-				)
-			}
-			None => Statement::from_string(
+		let query = match (since, limit) {
+			(Some(hlc), Some(lim)) => Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes WHERE hlc > ? ORDER BY hlc ASC LIMIT ?",
+				vec![hlc.to_string().into(), (lim as i64).into()],
+			),
+			(Some(hlc), None) => Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes WHERE hlc > ? ORDER BY hlc ASC",
+				vec![hlc.to_string().into()],
+			),
+			(None, Some(lim)) => Statement::from_sql_and_values(
+				DbBackend::Sqlite,
+				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes ORDER BY hlc ASC LIMIT ?",
+				vec![(lim as i64).into()],
+			),
+			(None, None) => Statement::from_string(
 				DbBackend::Sqlite,
 				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes ORDER BY hlc ASC".to_string(),
 			),
@@ -533,7 +545,7 @@ mod tests {
 
 		peer_log.append(entry.clone()).await.unwrap();
 
-		let entries = peer_log.get_since(None).await.unwrap();
+		let entries = peer_log.get_since(None, None).await.unwrap();
 		assert_eq!(entries.len(), 1);
 		assert_eq!(entries[0].model_type, "tag");
 	}
@@ -556,7 +568,7 @@ mod tests {
 			tokio::time::sleep(tokio::time::Duration::from_millis(10)).await;
 		}
 
-		let entries = peer_log.get_since(None).await.unwrap();
+		let entries = peer_log.get_since(None, None).await.unwrap();
 		assert_eq!(entries.len(), 3);
 
 		// Peer A acks first 2
@@ -571,7 +583,7 @@ mod tests {
 		let pruned = peer_log.prune_acked().await.unwrap();
 		assert_eq!(pruned, 2);
 
-		let remaining = peer_log.get_since(None).await.unwrap();
+		let remaining = peer_log.get_since(None, None).await.unwrap();
 		assert_eq!(remaining.len(), 1);
 	}
 }

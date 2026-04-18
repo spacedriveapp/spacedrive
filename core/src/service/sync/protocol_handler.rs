@@ -114,11 +114,18 @@ impl LogSyncHandler {
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
-		// Get changes from our peer log
-		let entries = self.peer_sync.peer_log.get_since(since_hlc).await?;
+		// Get changes from our peer log, fetching one extra row so we can derive has_more
+		// without reloading the entire log on every batch request.
+		let fetch_limit = limit.saturating_add(1);
+		let mut entries = self
+			.peer_sync
+			.peer_log
+			.get_since(since_hlc, Some(fetch_limit))
+			.await?;
 
-		let has_more = entries.len() >= limit;
-		let limited: Vec<_> = entries.into_iter().take(limit).collect();
+		let has_more = entries.len() > limit;
+		entries.truncate(limit);
+		let limited = entries;
 
 		// For initial sync (no watermark), always include current state
 		// This ensures shared resources like content_identities are available

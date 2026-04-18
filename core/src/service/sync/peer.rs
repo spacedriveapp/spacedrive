@@ -2715,14 +2715,15 @@ impl PeerSync {
 			"Querying shared changes from peer log"
 		);
 
-		// Query peer log (get all since HLC, then limit in memory)
+		// Query peer log with SQL-side LIMIT, fetching one extra row to detect has_more
+		let fetch_limit = limit.saturating_add(1);
 		let mut entries = self
 			.peer_log
-			.get_since(since_hlc)
+			.get_since(since_hlc, Some(fetch_limit))
 			.await
 			.map_err(|e| anyhow::anyhow!("Failed to query peer log: {}", e))?;
 
-		// Check if there are more entries beyond the limit
+		// If we got the extra row, there are more entries beyond this batch
 		let has_more = entries.len() > limit;
 
 		// Truncate to limit

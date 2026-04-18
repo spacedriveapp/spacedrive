@@ -10,6 +10,7 @@
 //! - Checkpoint persistence for resumable backfill
 //!
 
+pub mod backfill_context;
 pub mod checkpoints;
 pub mod config;
 pub mod dependency_graph;
@@ -27,6 +28,7 @@ pub mod transaction;
 pub mod transport;
 pub mod watermarks;
 
+pub use backfill_context::{in_backfill, is_in_backfill};
 pub use checkpoints::{BackfillCheckpoint, BackfillCheckpointStore, CheckpointError};
 pub use config::{
 	BatchingConfig, MonitoringConfig, NetworkConfig, PruningStrategy, RetentionConfig, SyncConfig,
@@ -42,8 +44,8 @@ pub use event_log::{
 	SyncEventLogger, SyncEventQuery, SyncEventType,
 };
 pub use fk_mapper::{
-	batch_map_sync_json_to_local, convert_fk_to_uuid, map_sync_json_to_local, BatchFkMapResult,
-	FKMapping,
+	batch_map_sync_json_to_local, convert_fk_to_uuid, convert_fks_to_uuids_batch,
+	map_sync_json_to_local, BatchFkMapResult, FKMapping,
 };
 pub use hlc::{HLCGenerator, HLC};
 pub use peer_log::{ChangeType, PeerLog, PeerLogError, SharedChangeEntry};

@@ -102,6 +102,85 @@ pub async fn convert_fk_to_uuid(
 	Ok(())
 }
 
+/// Batch convert local integer FKs to UUIDs across multiple records.
+///
+/// Same contract as [`convert_fk_to_uuid`] but one DB round trip per FK type
+/// instead of one per (record × FK). Records that reference a missing target
+/// are left with their original local-id field intact; callers log/skip as
+/// needed. Called from `query_for_sync` implementations on the sync sender.
+pub async fn convert_fks_to_uuids_batch(
+	records: &mut [Value],
+	fk: &FKMapping,
+	db: &DatabaseConnection,
+) -> Result<()> {
+	if records.is_empty() {
+		return Ok(());
+	}
+
+	let uuid_field = fk.uuid_field_name();
+
+	// Collect all local IDs we need to resolve.
+	let mut ids_to_lookup: HashSet<i32> = HashSet::new();
+	for json in records.iter() {
+		match json.get(fk.local_field) {
+			Some(v) if v.is_null() => { /* null FK, handled below */ }
+			Some(v) => {
+				if let Some(id) = v.as_i64() {
+					ids_to_lookup.insert(id as i32);
+				}
+			}
+			None => { /* field absent, handled below */ }
+		}
+	}
+
+	let id_to_uuid = if ids_to_lookup.is_empty() {
+		HashMap::new()
+	} else {
+		batch_lookup_uuids_for_local_ids(fk.target_table, ids_to_lookup, db).await?
+	};
+
+	for json in records.iter_mut() {
+		let local_field_value = json.get(fk.local_field).cloned();
+
+		match local_field_value {
+			Some(v) if v.is_null() => {
+				json[&uuid_field] = Value::Null;
+				if let Some(obj) = json.as_object_mut() {
+					obj.remove(fk.local_field);
+				}
+			}
+			Some(v) => {
+				if let Some(id) = v.as_i64() {
+					match id_to_uuid.get(&(id as i32)) {
+						Some(uuid) => {
+							json[&uuid_field] = json!(uuid.to_string());
+							if let Some(obj) = json.as_object_mut() {
+								obj.remove(fk.local_field);
+							}
+						}
+						None => {
+							// Target record missing locally — leave FK field intact
+							// so the caller can decide whether to skip or warn.
+							tracing::warn!(
+								fk_field = fk.local_field,
+								target_table = fk.target_table,
+								id = id,
+								"FK target not found during batch conversion; skipping record"
+							);
+						}
+					}
+				}
+			}
+			None => {
+				// Field absent — treat as null for sync payloads.
+				json[&uuid_field] = Value::Null;
+			}
+		}
+	}
+
+	Ok(())
+}
+
 /// Look up UUID for a local integer ID via the registry
 async fn lookup_uuid_for_local_id(
 	table: &str,
