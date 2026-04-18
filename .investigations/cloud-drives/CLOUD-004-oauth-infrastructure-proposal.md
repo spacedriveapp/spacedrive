@@ -1,83 +1,73 @@
 ---
 id: CLOUD-004
-title: Cloud OAuth Infrastructure (BYO)
-status: In Progress
+title: Cloud OAuth Infrastructure (BYO) and OneDrive Vertical Slice
+status: Done
 assignee: jamiepine
 parent: CLOUD-003
 priority: High
-tags: [cloud, oauth, security]
+tags: [cloud, oauth, security, onedrive]
 whitepaper: Section 5.2
-related_tasks: [CLOUD-003]
+related_tasks: [CLOUD-003, FILE-003]
 last_updated: 2026-04-18
 ---
 
 ## Description
 
-Build the provider-agnostic OAuth 2.0 infrastructure that lets users connect cloud accounts (OneDrive, Google Drive, Dropbox) through a browser sign-in flow rather than pasting access/refresh tokens by hand.
+Provider-agnostic OAuth 2.0 infrastructure and a complete OneDrive vertical slice: browser sign-in, volume registration, change detection, and cleanup. Architecture is strictly Bring-Your-Own — the user supplies `client_id` and `client_secret` from an Azure AD app they register themselves. Spacedrive ships no hardcoded OAuth clients.
 
-Architecture is strictly Bring Your Own: the user supplies `client_id` and `client_secret` from an app they registered themselves in the provider's developer console. Spacedrive never ships hardcoded OAuth clients. `CloudStorageConfig::OneDrive` stays unchanged — OAuth is a companion subsystem that hands finished tokens back to `volumes.add_cloud`.
+This proposal is ready for the founder to copy into `.tasks/core/CLOUD-004-oauth-infrastructure.md` when reviewing the MVP PR.
 
-See `.investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#set-3` for the full plan. This task delivers the infrastructure; Set 4 (CLOUD-005, not yet filed) registers the first concrete provider (OneDrive).
+## Delivered (Set 3 → Set 8b)
 
-## Implementation Steps
-
-- [x] Add deps: `oauth2 = "5"`, `webbrowser = "1"`, `dashmap = "6"`, `subtle = "2"`, `base64 = "0.22"`.
-- [x] Module tree under `core/src/ops/cloud/oauth/`: `error`, `provider`, `flow`, `loopback`, `refresh`, `actions/{start,poll,cancel,complete}`.
-- [x] `OauthProvider` trait + `OauthProviderRegistry` (starts empty until Set 4 registers OneDrive).
-- [x] `OauthFlow` state machine with `Pending/Completed/Failed/Cancelled` statuses, `OauthFlowStore` backed by `DashMap` + per-flow `watch::Sender<bool>` for cancellation.
-- [x] Janitor (`run_janitor`) evicting pending flows after 10 minutes and terminal flows after a 30-second grace period; spawned from `lib.rs` at startup.
-- [x] One-shot loopback HTTP server with CSRF state validation via `subtle::ConstantTimeEq`, UTF-8 query parsing, minimal success HTML response, 5-minute timeout, cancellation-aware.
-- [x] Library action `cloud.oauth.start` — validates BYO inputs, binds loopback listener (exact-match registered ports or OS-assigned ephemeral), generates PKCE S256 + CSRF state, spawns the completion task, opens the system browser best-effort.
-- [x] Library query `cloud.oauth.poll` returning the flow's current status.
-- [x] Library action `cloud.oauth.cancel` signalling the loopback task and transitioning the flow to `Cancelled`.
-- [x] Internal `complete_flow` that drives the loopback → `exchange_code` → `display_name` → store pipeline. Deliberately unregistered from the wire surface.
-- [x] `CloudTokenRefreshTask`: rotates OAuth tokens 5 minutes before expiry across every library and credential, tolerates unknown providers, persists rotated refresh tokens when the provider rotates. Spawned from `lib.rs` at startup.
-- [x] Attach `oauth_flows: OauthFlowStore` and `oauth_providers: OauthProviderRegistry` to `CoreContext`.
-- [x] Unit tests: PKCE S256 vector, flow TTL janitor, loopback happy path + state mismatch + user-denied + timeout + cancel, input validation, registry insert/overwrite, refresh heuristics.
+- [x] OAuth subsystem at `core/src/ops/cloud/oauth/` — `error`, `provider`, `flow`, `loopback`, `refresh`, `actions/{start,poll,cancel,complete}`.
+- [x] `OauthProvider` trait + `OauthProviderRegistry`.
+- [x] `OauthFlow` state machine (`Pending` → `Completed` / `Failed` / `Cancelled`), `OauthFlowStore` backed by `DashMap` with per-flow `watch::Sender<bool>` cancellation channels.
+- [x] Janitor (`run_janitor`) evicting pending flows after 10 minutes and terminal flows after a 30-second grace window.
+- [x] One-shot loopback HTTP server with constant-time CSRF state validation, 5-minute timeout, cancellation-aware.
+- [x] Library action `cloud.oauth.start` — validates inputs, binds loopback (exact-match registered ports or ephemeral), generates PKCE S256 + CSRF state, launches browser best-effort, spawns completion task.
+- [x] Library query `cloud.oauth.poll` returning current flow status.
+- [x] Library action `cloud.oauth.cancel` — signals loopback task and transitions flow to `Cancelled`.
+- [x] Internal `complete_flow` driving loopback → `exchange_code` → `display_name` → store. Deliberately off the wire surface.
+- [x] `CloudTokenRefreshTask` — rotates tokens 5 minutes before expiry across every library, tolerates unknown providers, persists rotated refresh tokens.
+- [x] `CoreContext` carries shared `OauthFlowStore` and `OauthProviderRegistry`; both spawned at startup from `lib.rs`.
+- [x] `OneDriveProvider` concrete implementation (`tenant=common`, scopes `Files.ReadWrite.All offline_access User.Read`, loopback ports `53682..=53686`, Graph `/me` display-name hydration, `select_account` prompt).
+- [x] Frontend wiring in `AddStorageModal` → new `OneDriveConnectForm` with BYO tutorial (7 steps), `openExternal(auth_url)`, `refetchInterval: 1000` poll until `Completed` / `Failed` / `Cancelled`, backup "copy link" affordance for OS-default-browser failure.
+- [x] `OneDriveChangeDetector` over Microsoft Graph `/me/drive/root/delta` with typed error mapping (`Invalidated` / `RateLimited` / `Auth`) and persisted `cloud_sync_state.change_token` advancement per page.
+- [x] Sidebar context-menu "Disconnect" item wired to `volumes.remove_cloud`, unified `getVolumeIcon` between sidebar and device panel, `GroupType::Cloud` hidden from AddGroup / SpaceCustomization dropdowns with TODO comment pointing at the missing renderer.
+- [x] `CloudCopyStrategy` covering same-backend server-side copy with streaming fallback, local↔cloud streaming, cross-backend streaming, and a typed error for the no-cloud-endpoint routing bug.
+- [x] Integration test `core/tests/onedrive_end_to_end_test.rs` — three `#[tokio::test]` cases against wiremock: connect-and-disconnect journey, cancel path, token-exchange failure surfacing provider error.
+- [x] Unit tests across every component: PKCE S256 vector, flow TTL janitor, loopback happy/state-mismatch/user-denied/timeout/cancel, input validation, registry insert/overwrite, refresh heuristics, detector 410/429/401 error classification, path normalization, provider URL construction.
 
 ## Acceptance Criteria
 
 - [x] `cloud.oauth.start`, `cloud.oauth.poll`, `cloud.oauth.cancel` reach the RPC registry.
 - [x] `CoreContext` carries a shared `OauthFlowStore` and `OauthProviderRegistry`.
-- [x] CSRF state is compared in constant time; PKCE S256 digest matches RFC 7636 Appendix B vector.
-- [x] Loopback server returns a minimal success HTML on capture and a 400 on malformed callbacks.
-- [x] Pending flows older than 10 minutes are evicted by the janitor; terminal flows survive a 30-second grace window.
-- [x] Refresh task tolerates unknown providers (no errors until Set 4 registers OneDrive) and persists rotated refresh tokens.
-- [x] `cargo build -p sd-core`, `cargo clippy -p sd-core --lib`, and `cargo test -p sd-core --lib` pass without new warnings in cloud oauth code.
+- [x] CSRF state compared in constant time; PKCE S256 matches RFC 7636 Appendix B.
+- [x] Loopback returns minimal success HTML on capture, 400 on malformed callbacks.
+- [x] Pending flows older than 10 minutes evicted; terminal flows survive a 30-second grace.
+- [x] `OneDriveProvider` handles token exchange, refresh, and display-name hydration end to end against wiremock.
+- [x] `OneDriveChangeDetector` advances `change_token` per page and classifies 410/429/401 into `Invalidated`/`RateLimited`/`Auth`.
+- [x] UI connect flow works end to end in the Tauri dev build.
+- [x] `cargo build -p sd-core`, `cargo clippy -p sd-core --lib --no-deps`, `cargo test -p sd-core --lib`, and `cargo test -p sd-core --test onedrive_end_to_end_test` all pass.
 
-## Implementation Files
+## Carried-Over Tech Debt
 
-**Subsystem:**
+Items delivered elsewhere in the MVP but not yet closed. Each has a `TODO(cloud-mvp)` in the code pointing at this proposal.
 
-- `core/src/ops/cloud/mod.rs`
-- `core/src/ops/cloud/oauth/mod.rs`
-- `core/src/ops/cloud/oauth/error.rs`
-- `core/src/ops/cloud/oauth/provider.rs`
-- `core/src/ops/cloud/oauth/flow.rs`
-- `core/src/ops/cloud/oauth/loopback.rs`
-- `core/src/ops/cloud/oauth/refresh.rs`
-- `core/src/ops/cloud/oauth/actions/mod.rs`
-- `core/src/ops/cloud/oauth/actions/start.rs`
-- `core/src/ops/cloud/oauth/actions/poll.rs`
-- `core/src/ops/cloud/oauth/actions/cancel.rs`
-- `core/src/ops/cloud/oauth/actions/complete.rs`
+1. **Hot-swap `CloudBackend` on token refresh.** `CloudTokenRefreshTask` rewrites the credential row in SQLite, but the active `CloudBackend` instance in `VolumeManager` keeps the stale access token until the volume is reloaded. A follow-up adds `VolumeManager::reload_credentials(volume_id)` to rebuild and atomically swap the backend. Tracked at `core/src/ops/cloud/change_detection/onedrive.rs` and `core/src/ops/cloud/oauth/refresh.rs`.
+2. **Delta stream not consumed to skip re-hashing.** `OneDriveChangeDetector` advances the token, but the indexer still treats every cloud entry as new on each full pass. Wiring the detector output into `phases::processing` is the next change-detection PR.
+3. **Backblaze B2, Wasabi, DigitalOcean Spaces rehydration gap.** `VolumeManager::restore_cloud_volumes` still has a catch-all `warn!` for those three variants. Pre-existing before the MVP; carried over because it blocks no OneDrive user but needs closure for a complete cloud story.
 
-**Wiring:**
+## Next Steps (outside CLOUD-004)
 
-- `core/Cargo.toml` — new OAuth deps.
-- `core/src/context.rs` — `oauth_flows` and `oauth_providers` fields on `CoreContext`.
-- `core/src/lib.rs` — `tokio::spawn` for `run_janitor` and `run_refresh_task` at startup.
-- `core/src/ops/mod.rs` — `pub mod cloud;`.
-
-## Next Steps
-
-1. **Set 4 — Register OneDrive provider** (new task, CLOUD-005). Implement `OneDriveProvider` with `tenant=common`, scopes `Files.ReadWrite.All offline_access User.Read`, loopback ports `53682..=53686` (Microsoft exact-match), Graph `/me` display name.
-2. **Set 5 — Frontend UI** wiring the three actions into `AddStorageModal` + BYO tutorial.
-3. **TODO(cloud-mvp): hot-swap CloudBackend on token refresh — see `.investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#set-3`.** The refresh task rewrites the credential row, but the active `CloudBackend` in `VolumeManager` still holds the stale access token until the volume is reloaded. A follow-up adds `VolumeManager::reload_credentials(volume_id)` to rebuild and atomically swap the backend.
+- **`GoogleDriveProvider`** — reuse the `OauthProvider` trait; scopes `drive.file` to avoid Google OAuth verification; ephemeral loopback port; paste-tokens flow in the UI swaps for a Connect button mirroring OneDrive.
+- **`DropboxProvider`** — reuse the trait; Dropbox requires exact-match redirects like Microsoft, so register the same 5 loopback ports.
+- **Reconnect / edit-credentials UX** for the refresh-task give-up case (currently: delete + re-add).
+- **OneDrive Business / SharePoint tenants** — requires tenant-specific issuer; an extension of `OneDriveProvider` with an optional tenant parameter.
 
 ## Out of Scope
 
-- Concrete providers (OneDrive in Set 4, Google Drive / Dropbox later).
-- UI changes (Set 5).
-- Delta change detection (Set 6).
-- Device-code flow for CLI-over-SSH — future enhancement.
+- Spacedrive-owned public OAuth apps (BYO is the MVP choice; phase 2 decision).
+- Device-code flow for CLI-over-SSH.
+- LIST-diff change detection for S3 / GCS / Azure Blob.
+- Cross-backend server-side copy.
