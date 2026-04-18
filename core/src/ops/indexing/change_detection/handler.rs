@@ -141,6 +141,10 @@ pub async fn should_filter_path(
 			accessed: fs_meta.accessed().ok(),
 			inode: None,
 			permissions: None,
+			etag: None,
+			version: None,
+			content_md5: None,
+			provider_file_id: None,
 		}
 	};
 

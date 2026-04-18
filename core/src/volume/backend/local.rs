@@ -8,7 +8,9 @@ use tokio::fs;
 use tokio::io::{AsyncReadExt, AsyncSeekExt};
 use tracing::debug;
 
-use super::{BackendType, RawDirEntry, RawMetadata, VolumeBackend};
+use super::{
+	BackendFeatures, BackendType, ChangeNotificationKind, RawDirEntry, RawMetadata, VolumeBackend,
+};
 use crate::ops::indexing::state::EntryKind;
 use crate::volume::error::VolumeError;
 
@@ -241,6 +243,12 @@ impl VolumeBackend for LocalBackend {
 			accessed: metadata.accessed().ok(),
 			inode: Self::get_inode(&full_path, &metadata),
 			permissions,
+			// Local filesystems expose none of these out of the box; Spacedrive
+			// hashes content out-of-band via the indexer.
+			etag: None,
+			version: None,
+			content_md5: None,
+			provider_file_id: None,
 		})
 	}
 
@@ -295,6 +303,28 @@ impl VolumeBackend for LocalBackend {
 
 	fn backend_type(&self) -> BackendType {
 		BackendType::Local
+	}
+
+	fn features(&self) -> BackendFeatures {
+		BackendFeatures {
+			// TODO(cloud-mvp): detect btrfs/apfs copy-on-write and advertise
+			// server-side copy where available — see
+			// .investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#pr-2.
+			server_side_copy: false,
+			server_side_rename: true,
+			// Unix inodes are stable across rename; Windows file indices
+			// are not. Match `get_inode`'s platform behaviour.
+			stable_file_id: cfg!(unix),
+			change_notifications: ChangeNotificationKind::None,
+			content_hash: None,
+			// TODO(cloud-mvp): read mount filesystem type to set this per
+			// volume (NTFS/APFS case-insensitive by default, ext4 sensitive)
+			// — see .investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#pr-1.
+			case_insensitive: false,
+			supports_duplicates: true,
+			max_file_size: None,
+			multipart_threshold: None,
+		}
 	}
 }
 

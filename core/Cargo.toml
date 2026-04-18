@@ -85,13 +85,15 @@ notify = "6.1"  # File system watching
 sha2   = "0.10" # SHA-256 hashing for CAS IDs
 
 # Cloud storage integration
-opendal = { version = "0.54", features = [
+opendal = { version = "0.55", features = [
 	"services-s3",
 	"services-gdrive",
 	"services-onedrive",
 	"services-dropbox",
 	"services-azblob",
 	"services-gcs",
+	"services-memory",
+	"layers-tracing",
 ] }
 
 # Logging

@@ -7,7 +7,7 @@ parent: CLOUD-000
 priority: High
 tags: [cloud, storage, volume, s3]
 whitepaper: Section 5.2
-last_updated: 2025-10-14
+last_updated: 2026-04-18
 ---
 
 ## Description
@@ -39,6 +39,7 @@ Implement support for a cloud storage provider (e.g., S3-compatible service) as 
     - Discovery phase uses backend.read_dir()
     - Processing phase handles cloud backends (skips change detection for cloud)
     - Content phase uses backend for content hashing
+- [x] Upgrade to OpenDAL 0.55 with retry/timeout/concurrent-limit/tracing layers (Set 1 foundation)
 
 ## Acceptance Criteria
 
