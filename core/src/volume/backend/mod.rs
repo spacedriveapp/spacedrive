@@ -67,6 +67,15 @@ pub trait VolumeBackend: Send + Sync + Debug {
 	/// copy, and the struct is cheap enough (a handful of booleans and small
 	/// enums) that the copy is free at call sites.
 	fn features(&self) -> BackendFeatures;
+
+	/// Downcast helper to a cloud backend when the implementation is
+	/// [`CloudBackend`], returning `None` for local backends. This lets
+	/// `FileCopyJob` reach the underlying OpenDAL operator for streaming
+	/// transfers without exposing a full `Any`-based downcast on every
+	/// backend.
+	fn as_cloud(&self) -> Option<&cloud::CloudBackend> {
+		None
+	}
 }
 
 /// Describes how a backend signals changes to the indexer.

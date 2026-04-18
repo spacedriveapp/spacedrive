@@ -6,8 +6,8 @@
 use super::{
 	input::CopyMethod,
 	strategy::{
-		CopyStrategy, FastCopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy,
-		RemoteTransferStrategy,
+		CloudCopyStrategy, CopyStrategy, FastCopyStrategy, LocalMoveStrategy,
+		LocalStreamCopyStrategy, RemoteTransferStrategy,
 	},
 };
 use crate::{domain::addressing::SdPath, volume::VolumeManager};
@@ -35,6 +35,15 @@ pub struct CopyStrategyMetadata {
 
 pub struct CopyStrategyRouter;
 
+/// True when the path points at a cloud volume regardless of provider.
+///
+/// Pulled into a helper so `select_strategy` and `select_strategy_with_metadata`
+/// stay symmetric: a drift here is how cloud requests silently fell through to
+/// the local-streaming strategy before Set 8a.
+fn is_cloud(path: &SdPath) -> bool {
+	matches!(path, SdPath::Cloud { .. })
+}
+
 impl CopyStrategyRouter {
 	/// Selects the optimal copy strategy based on source, destination, and volume info
 	pub async fn select_strategy(
@@ -49,6 +58,14 @@ impl CopyStrategyRouter {
 			source.device_slug(),
 			destination.device_slug()
 		);
+
+		// Cloud endpoints must win over the device-slug branch because cloud
+		// paths have no slug and would otherwise be misclassified as
+		// same-device local streams.
+		if is_cloud(source) || is_cloud(destination) {
+			info!("[ROUTING] Cloud endpoint detected - selecting CloudCopyStrategy");
+			return Box::new(CloudCopyStrategy);
+		}
 
 		// Cross-device transfer - always use network strategy
 		// Compare device slugs to detect if paths are on different devices
@@ -141,6 +158,19 @@ impl CopyStrategyRouter {
 		copy_method: &CopyMethod,
 		volume_manager: Option<&VolumeManager>,
 	) -> (Box<dyn CopyStrategy>, CopyStrategyMetadata) {
+		if is_cloud(source) || is_cloud(destination) {
+			let description = describe_cloud_shape(source, destination, is_move);
+			let metadata = CopyStrategyMetadata {
+				strategy_name: "CloudCopy".to_string(),
+				strategy_description: description,
+				is_cross_device: false,
+				is_cross_volume: true,
+				is_fast_operation: false,
+				copy_method: copy_method.clone(),
+			};
+			return (Box::new(CloudCopyStrategy), metadata);
+		}
+
 		let is_cross_device = match (source.device_slug(), destination.device_slug()) {
 			(Some(src_slug), Some(dst_slug)) => src_slug != dst_slug,
 			_ => false,
@@ -533,6 +563,38 @@ pub struct PerformanceEstimate {
 	pub is_atomic: bool,
 }
 
+/// Human-readable label for a cloud copy operation, parameterised by shape.
+///
+/// Kept outside `CopyStrategyRouter::select_strategy_with_metadata` so the
+/// UI label stays in lockstep with the routing decision and future shapes
+/// (e.g. cross-tenant moves) can extend this matrix in one place.
+fn describe_cloud_shape(source: &SdPath, destination: &SdPath, is_move: bool) -> String {
+	let verb = if is_move { "move" } else { "copy" };
+	match (source, destination) {
+		(
+			SdPath::Cloud {
+				service: s1,
+				identifier: i1,
+				..
+			},
+			SdPath::Cloud {
+				service: s2,
+				identifier: i2,
+				..
+			},
+		) => {
+			if s1 == s2 && i1 == i2 {
+				format!("Cloud {} (same account)", verb)
+			} else {
+				format!("Cloud {} (cross-account)", verb)
+			}
+		}
+		(SdPath::Cloud { .. }, _) => format!("Cloud download ({})", verb),
+		(_, SdPath::Cloud { .. }) => format!("Cloud upload ({})", verb),
+		_ => format!("Cloud {}", verb),
+	}
+}
+
 /// Categories of copy operation speed
 #[derive(Debug, Clone, PartialEq)]
 pub enum SpeedCategory {
@@ -544,4 +606,86 @@ pub enum SpeedCategory {
 	LocalDisk,
 	/// Network transfers
 	Network,
+}
+
+#[cfg(test)]
+mod cloud_routing_tests {
+	use super::*;
+	use crate::volume::backend::CloudServiceType;
+
+	fn cloud_path(service: CloudServiceType, id: &str, path: &str) -> SdPath {
+		SdPath::cloud(service, id.to_string(), path.to_string())
+	}
+
+	fn local_path() -> SdPath {
+		SdPath::local("/tmp/anywhere.bin")
+	}
+
+	#[tokio::test]
+	async fn router_picks_cloud_strategy_for_cloud_source() {
+		let src = cloud_path(CloudServiceType::OneDrive, "drive", "file.bin");
+		let dst = local_path();
+		let strategy =
+			CopyStrategyRouter::select_strategy(&src, &dst, false, &CopyMethod::Auto, None).await;
+		// The returned strategy is `Box<dyn CopyStrategy>`; we can't match
+		// on its concrete type directly, so the metadata variant is the
+		// observable we assert on.
+		let (_strategy, metadata) = CopyStrategyRouter::select_strategy_with_metadata(
+			&src,
+			&dst,
+			false,
+			&CopyMethod::Auto,
+			None,
+		)
+		.await;
+		assert_eq!(metadata.strategy_name, "CloudCopy");
+		assert_eq!(metadata.strategy_description, "Cloud download (copy)");
+		drop(strategy);
+	}
+
+	#[tokio::test]
+	async fn router_picks_cloud_strategy_for_cloud_destination() {
+		let src = local_path();
+		let dst = cloud_path(CloudServiceType::OneDrive, "drive", "remote.bin");
+		let (_strategy, metadata) = CopyStrategyRouter::select_strategy_with_metadata(
+			&src,
+			&dst,
+			false,
+			&CopyMethod::Auto,
+			None,
+		)
+		.await;
+		assert_eq!(metadata.strategy_name, "CloudCopy");
+		assert_eq!(metadata.strategy_description, "Cloud upload (copy)");
+	}
+
+	#[tokio::test]
+	async fn router_picks_cloud_strategy_for_same_account_cloud_to_cloud() {
+		let src = cloud_path(CloudServiceType::OneDrive, "drive-a", "a.bin");
+		let dst = cloud_path(CloudServiceType::OneDrive, "drive-a", "b.bin");
+		let (_strategy, metadata) = CopyStrategyRouter::select_strategy_with_metadata(
+			&src,
+			&dst,
+			false,
+			&CopyMethod::Auto,
+			None,
+		)
+		.await;
+		assert_eq!(metadata.strategy_description, "Cloud copy (same account)");
+	}
+
+	#[tokio::test]
+	async fn router_picks_cloud_strategy_for_cross_account_cloud_to_cloud() {
+		let src = cloud_path(CloudServiceType::OneDrive, "drive-a", "a.bin");
+		let dst = cloud_path(CloudServiceType::S3, "bucket-b", "b.bin");
+		let (_strategy, metadata) = CopyStrategyRouter::select_strategy_with_metadata(
+			&src,
+			&dst,
+			true,
+			&CopyMethod::Auto,
+			None,
+		)
+		.await;
+		assert_eq!(metadata.strategy_description, "Cloud move (cross-account)");
+	}
 }

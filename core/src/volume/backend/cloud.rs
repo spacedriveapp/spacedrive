@@ -326,6 +326,25 @@ impl CloudBackend {
 			root: PathBuf::from("/"),
 		}
 	}
+
+	/// Borrow the underlying OpenDAL operator.
+	///
+	/// Exposed to sibling modules (file copy strategies, change detection)
+	/// that need streaming reader/writer handles beyond what the
+	/// [`VolumeBackend`] trait surfaces. Kept `pub(crate)` so extension code
+	/// cannot bypass the capability checks baked into [`features`].
+	pub(crate) fn operator(&self) -> &Operator {
+		&self.operator
+	}
+
+	/// Translate an [`SdPath::Cloud`] string into the provider-native key.
+	///
+	/// Shared by the file copy strategies that already have a cloud path
+	/// string in hand and would otherwise duplicate the `trim_start_matches`
+	/// dance inline.
+	pub(crate) fn cloud_key(&self, path: &str) -> String {
+		path.trim_start_matches('/').to_string()
+	}
 }
 
 impl CloudBackend {
@@ -554,6 +573,10 @@ impl VolumeBackend for CloudBackend {
 			features.server_side_rename = false;
 		}
 		features
+	}
+
+	fn as_cloud(&self) -> Option<&CloudBackend> {
+		Some(self)
 	}
 }
 

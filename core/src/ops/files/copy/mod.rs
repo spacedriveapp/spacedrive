@@ -14,7 +14,8 @@ pub use metadata::{CopyFileEntry, CopyFileStatus, CopyJobMetadata};
 pub use output::FileCopyActionOutput;
 pub use routing::{CopyStrategyMetadata, CopyStrategyRouter};
 pub use strategy::{
-	CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy, RemoteTransferStrategy,
+	CloudCopyStrategy, CopyStrategy, LocalMoveStrategy, LocalStreamCopyStrategy,
+	RemoteTransferStrategy,
 };
 
 // Re-export for backward compatibility
