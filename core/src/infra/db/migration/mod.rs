@@ -38,6 +38,8 @@ mod m20260104_000001_replace_device_id_with_volume_id;
 mod m20260105_000001_add_volume_id_to_locations;
 mod m20260114_000001_fix_search_index_include_directories;
 mod m20260123_000001_remove_legacy_sync_columns;
+mod m20260418_000001_create_cloud_sync_state_table;
+mod m20260418_000002_add_provider_file_id_to_entries;
 
 pub struct Migrator;
 
@@ -81,6 +83,8 @@ impl MigratorTrait for Migrator {
 			Box::new(m20260105_000001_add_volume_id_to_locations::Migration),
 			Box::new(m20260114_000001_fix_search_index_include_directories::Migration),
 			Box::new(m20260123_000001_remove_legacy_sync_columns::Migration),
+			Box::new(m20260418_000001_create_cloud_sync_state_table::Migration),
+			Box::new(m20260418_000002_add_provider_file_id_to_entries::Migration),
 		]
 	}
 }

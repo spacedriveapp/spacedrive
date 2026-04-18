@@ -9,6 +9,7 @@ use crate::{
 	infra::event::EventBus,
 	infra::sync::TransactionManager,
 	library::LibraryManager,
+	ops::cloud::change_detection::CloudSyncStateRepository,
 	ops::cloud::oauth::{OauthFlowStore, OauthProviderRegistry},
 	ops::indexing::ephemeral::EphemeralIndexCache,
 	service::network::{NetworkingService, RemoteJobCache},
@@ -49,6 +50,11 @@ pub struct CoreContext {
 	pub oauth_flows: OauthFlowStore,
 	/// Registry of known OAuth providers (populated at startup; empty pre-Set 4).
 	pub oauth_providers: OauthProviderRegistry,
+	/// Repository that backs the indexer's delta-token bookkeeping for cloud
+	/// volumes. Wrapped in an `RwLock<Option<..>>` so the core can install a
+	/// library-scoped implementation lazily once a library has loaded; pre-
+	/// library startup this is `None` and the indexer skips the delta path.
+	pub cloud_sync_state: Arc<RwLock<Option<Arc<dyn CloudSyncStateRepository>>>>,
 }
 
 impl CoreContext {
@@ -83,7 +89,22 @@ impl CoreContext {
 			data_dir,
 			oauth_flows: OauthFlowStore::new(),
 			oauth_providers: OauthProviderRegistry::new(),
+			cloud_sync_state: Arc::new(RwLock::new(None)),
 		}
+	}
+
+	/// Install or replace the cloud sync state repository. Called once per
+	/// library load so the indexer can route delta bookkeeping through the
+	/// library's own SQLite file.
+	pub async fn set_cloud_sync_state(&self, repo: Arc<dyn CloudSyncStateRepository>) {
+		*self.cloud_sync_state.write().await = Some(repo);
+	}
+
+	/// Borrow the installed repository, if any. Returns `None` before a
+	/// library is loaded or when the installation failed silently; callers
+	/// should treat that as "skip delta pass".
+	pub async fn get_cloud_sync_state(&self) -> Option<Arc<dyn CloudSyncStateRepository>> {
+		self.cloud_sync_state.read().await.clone()
 	}
 
 	/// Get the ephemeral index cache

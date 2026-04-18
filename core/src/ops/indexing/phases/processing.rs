@@ -23,6 +23,168 @@ use std::{path::Path, sync::Arc};
 use tracing::warn;
 use uuid::Uuid;
 
+/// Drive the cloud delta pass for volumes whose backend reports
+/// [`ChangeNotificationKind::DeltaToken`](crate::volume::backend::ChangeNotificationKind::DeltaToken).
+///
+/// Runs opportunistically before the main processing loop: on success it
+/// advances the per-volume `cloud_sync_state` so subsequent passes can do
+/// real delta work. On failure it logs, bumps the failure counter, and lets
+/// the loop proceed with the existing always-re-hash behavior — the MVP
+/// trades some wasted work for robustness under transient provider
+/// unavailability.
+///
+/// When the context hasn't installed a repository yet (pre-library startup,
+/// tests), or when the backend isn't delta-capable, this is a no-op.
+async fn maybe_run_cloud_delta_pass(
+	ctx: &JobContext<'_>,
+	volume_id: i32,
+	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
+) {
+	use crate::ops::cloud::change_detection::{
+		run_cloud_delta_pass, DeltaOutcome, OneDriveChangeDetector,
+	};
+	use crate::volume::backend::{BackendType, ChangeNotificationKind, CloudServiceType};
+
+	let Some(backend) = volume_backend else {
+		return;
+	};
+	if backend.features().change_notifications != ChangeNotificationKind::DeltaToken {
+		return;
+	}
+
+	// Today only OneDrive has a concrete detector; the other DeltaToken
+	// providers (Google Drive) need their own implementation. Skipping
+	// silently keeps this forward-compatible once those land.
+	let service = match backend.backend_type() {
+		BackendType::Cloud(CloudServiceType::OneDrive) => CloudServiceType::OneDrive,
+		BackendType::Cloud(other) => {
+			tracing::debug!(
+				volume_id,
+				?other,
+				"cloud delta pass skipped — no detector implementation yet",
+			);
+			return;
+		}
+		BackendType::Local => return,
+	};
+
+	let Some(repo) = ctx.library().core_context().get_cloud_sync_state().await else {
+		tracing::debug!(
+			volume_id,
+			"cloud_sync_state repository not installed on core context; skipping delta pass",
+		);
+		return;
+	};
+
+	// Bootstrap the shared token cell from what the credential manager has
+	// right now. Hot-swap with the refresh task lands later — today the
+	// detector sees whatever token is current at pass start, which matches
+	// how the rest of the cloud code behaves.
+	// TODO(cloud-mvp): wire Arc<RwLock<String>> to the OAuth refresh task so
+	// tokens rotate during a long-running pass — see
+	// `.investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#pr-6`.
+	let access_token = match fetch_current_access_token(ctx, volume_id, service).await {
+		Ok(Some(t)) => t,
+		Ok(None) => {
+			tracing::debug!(
+				volume_id,
+				"no cloud credential bound to this volume; skipping delta pass",
+			);
+			return;
+		}
+		Err(e) => {
+			tracing::warn!(volume_id, error = %e, "failed to load access token for delta pass");
+			return;
+		}
+	};
+
+	let token_cell = std::sync::Arc::new(tokio::sync::RwLock::new(access_token));
+	let detector: Arc<dyn crate::ops::cloud::change_detection::ChangeDetector> =
+		Arc::new(OneDriveChangeDetector::new(token_cell));
+
+	let outcome = run_cloud_delta_pass(volume_id, detector, repo).await;
+	match outcome {
+		DeltaOutcome::SeededBaseline => {
+			tracing::info!(volume_id, "cloud delta: baseline token seeded");
+		}
+		DeltaOutcome::Incremental { entries } => {
+			tracing::info!(
+				volume_id,
+				changes = entries.len(),
+				"cloud delta: incremental pass complete",
+			);
+		}
+		DeltaOutcome::FullResyncNeeded => {
+			tracing::warn!(
+				volume_id,
+				"cloud delta: token invalidated, full resync pending"
+			);
+		}
+		DeltaOutcome::RateLimited { retry_after_secs } => {
+			tracing::warn!(
+				volume_id,
+				retry_after_secs,
+				"cloud delta: provider rate-limited",
+			);
+		}
+		DeltaOutcome::AuthError => {
+			tracing::warn!(
+				volume_id,
+				"cloud delta: auth failure, credential may need refresh"
+			);
+		}
+		DeltaOutcome::TransientError { reason } => {
+			tracing::debug!(volume_id, reason, "cloud delta: transient error");
+		}
+	}
+}
+
+/// Look up the current OAuth access token for a cloud volume.
+///
+/// Returns `Ok(None)` when the volume is not tied to a credential we can
+/// decrypt — valid for non-OAuth cloud volumes (e.g. S3 access keys) that
+/// never need a bearer token.
+async fn fetch_current_access_token(
+	ctx: &JobContext<'_>,
+	volume_id: i32,
+	_service: crate::volume::backend::CloudServiceType,
+) -> Result<Option<String>, String> {
+	use crate::crypto::cloud_credentials::{CloudCredentialManager, CredentialData};
+
+	let volume_row = entities::volume::Entity::find_by_id(volume_id)
+		.one(ctx.library_db())
+		.await
+		.map_err(|e| format!("volume lookup: {e}"))?;
+	let Some(volume_row) = volume_row else {
+		return Ok(None);
+	};
+
+	let library = ctx.library();
+	let cred_manager = CloudCredentialManager::new(
+		library.core_context().key_manager.clone(),
+		library.db().clone(),
+		library.id(),
+	);
+
+	let credential = match cred_manager
+		.get_credential(library.id(), &volume_row.fingerprint)
+		.await
+	{
+		Ok(c) => c,
+		Err(e) => {
+			// Missing credential is expected for volumes without OAuth (e.g.
+			// tests, S3 access-key volumes). Log at debug and skip.
+			tracing::debug!(volume_id, error = %e, "no credential for cloud volume");
+			return Ok(None);
+		}
+	};
+
+	match credential.data {
+		CredentialData::OAuth { access_token, .. } => Ok(Some(access_token)),
+		_ => Ok(None),
+	}
+}
+
 /// Detects SQLite unique constraint violations from concurrent watcher and indexer writes.
 ///
 /// When the file watcher creates an entry while the indexer is processing the same file,
@@ -96,6 +258,11 @@ pub async fn run_processing_phase(
 		"Found location record: volume_id={}, location_id={}, entry_id={}",
 		volume_id, location_id_i32, location_entry_id
 	));
+
+	// Cloud delta pre-pass. Opportunistic: on success it advances the
+	// per-volume cloud_sync_state; on failure it logs and the normal
+	// processing loop takes over. Local volumes short-circuit immediately.
+	maybe_run_cloud_delta_pass(ctx, volume_id, volume_backend).await;
 
 	// SAFETY: Validate indexing path is within location boundaries to prevent catastrophic
 	// cross-location deletion if watcher routing bugs send events for /home/user/photos to a

@@ -525,6 +525,7 @@ impl DirectoryListingQuery {
 				inode: None,
 				parent_id: None,
 				volume_id: None,
+				provider_file_id: None,
 			};
 
 			// Convert to File using from_entity_model

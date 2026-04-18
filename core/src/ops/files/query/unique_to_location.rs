@@ -248,6 +248,7 @@ impl UniqueToLocationQuery {
 				inode: None,
 				parent_id: None,
 				volume_id: None,
+				provider_file_id: None,
 			};
 
 			// Create placeholder SdPath

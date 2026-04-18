@@ -223,9 +223,14 @@ impl PathResolver {
 			SdPath::Physical { device_slug, path } => {
 				Self::resolve_physical_to_entry(db, device_slug, path).await
 			}
-			SdPath::Cloud { .. } => {
-				// TODO: Implement cloud path resolution
-				Ok(None)
+			SdPath::Cloud { service, path, .. } => {
+				// Cloud paths have no device, so the usual Physical lookup
+				// doesn't apply. A provider-native id resolution path lives
+				// in `resolve_cloud_to_entry_by_id`; when the caller has one
+				// it should go through there instead. Without an id we can
+				// only fall back to a name-based scan inside the matching
+				// volume — best effort so tags on cloud paths stop vanishing.
+				Self::resolve_cloud_to_entry_by_path(db, service, path).await
 			}
 			SdPath::Content { content_id } => {
 				// Query by content_id
@@ -239,6 +244,80 @@ impl PathResolver {
 				Ok(None)
 			}
 		}
+	}
+
+	/// Resolve a cloud entry by its provider-native stable id.
+	///
+	/// OneDrive / Google Drive / Dropbox renames keep `provider_file_id`
+	/// stable; looking entries up by id preserves tags and notes across
+	/// moves. Falls back to `None` when no entry matches, letting the caller
+	/// decide whether to then try a path-based lookup.
+	pub async fn resolve_cloud_to_entry_by_id<C: ConnectionTrait>(
+		db: &C,
+		volume_id: i32,
+		provider_file_id: &str,
+	) -> Result<Option<entry::Model>, DbErr> {
+		entry::Entity::find()
+			.filter(entry::Column::VolumeId.eq(volume_id))
+			.filter(entry::Column::ProviderFileId.eq(provider_file_id))
+			.one(db)
+			.await
+	}
+
+	/// Fallback cloud lookup that only has a path and a service to work
+	/// with. Iterates volumes registered for the service, narrows to the
+	/// first one whose `cloud_identifier` matches the path's root, then
+	/// walks the directory tree like the physical resolver.
+	///
+	/// This is necessarily a best-effort match because cloud paths do not
+	/// carry a device slug; concurrent accounts on the same provider would
+	/// have ambiguous paths. `resolve_cloud_to_entry_by_id` is preferred
+	/// when the caller has a provider id to hand.
+	async fn resolve_cloud_to_entry_by_path<C: ConnectionTrait>(
+		db: &C,
+		service: &crate::volume::backend::CloudServiceType,
+		path: &str,
+	) -> Result<Option<entry::Model>, DbErr> {
+		let scheme = service.scheme();
+		let mount_prefix = format!("{scheme}://");
+
+		// Gather cloud volumes matching the service scheme via their
+		// `mount_point` column, which is populated by `VolumeAddCloudAction`
+		// with `{scheme}://{identifier}`.
+		let candidates = volume::Entity::find()
+			.filter(volume::Column::MountPoint.like(format!("{mount_prefix}%")))
+			.all(db)
+			.await?;
+
+		for volume in candidates {
+			// Strip any leading "/" so `{scheme}://foo/bar.txt` and
+			// `{scheme}://foo//bar.txt` resolve identically — OneDrive uses
+			// leading slashes, S3 does not.
+			let normalized_path = path.trim_start_matches('/');
+			let root_path = PathBuf::from(format!("/{normalized_path}"));
+
+			// Look up the location rooted at this volume; if the volume has
+			// no location, nothing can resolve.
+			let locations = location::Entity::find()
+				.filter(location::Column::VolumeId.eq(volume.id))
+				.all(db)
+				.await?;
+
+			for location in locations {
+				let Some(entry_id) = location.entry_id else {
+					continue;
+				};
+				let location_path = Self::get_full_path(db, entry_id).await?;
+				if root_path == location_path {
+					return entry::Entity::find_by_id(entry_id).one(db).await;
+				}
+				if root_path.starts_with(&location_path) {
+					return Self::find_entry_by_path(db, entry_id, &root_path, &location_path)
+						.await;
+				}
+			}
+		}
+		Ok(None)
 	}
 
 	/// Resolve a Physical path to its entry

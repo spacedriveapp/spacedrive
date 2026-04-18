@@ -28,6 +28,11 @@ pub struct Model {
 	pub inode: Option<i64>,              // Platform-specific file identifier for change detection
 	pub parent_id: Option<i32>,          // Reference to parent entry for hierarchical relationships
 	pub volume_id: Option<i32>, // Volume this entry is on (ownership inherited from volume's device)
+	/// Provider-native stable identifier (OneDrive `driveItem.id`, Google Drive
+	/// `fileId`, Dropbox `FileMetadata.id`). `None` for local entries and
+	/// object-storage providers where path is the identity. Lets the indexer
+	/// track renames across delta pages without losing user annotations.
+	pub provider_file_id: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
@@ -492,6 +497,14 @@ impl Model {
 		let inode: Option<i64> = serde_json::from_value(get_field("inode")?).unwrap();
 		let parent_id: Option<i32> = serde_json::from_value(get_field("parent_id")?).unwrap();
 		let volume_id: Option<i32> = serde_json::from_value(get_field("volume_id")?).unwrap();
+		// `provider_file_id` arrived with the entry column added in
+		// m20260418_000002; older serialized payloads may not include it, so
+		// default to `None` instead of erroring on missing field.
+		let provider_file_id: Option<String> = obj
+			.get("provider_file_id")
+			.cloned()
+			.and_then(|v| serde_json::from_value(v).ok())
+			.flatten();
 
 		// Check if parent is tombstoned (prevents orphaned children)
 		if let Some(parent) = parent_id {
@@ -534,6 +547,7 @@ impl Model {
 				inode: Set(inode),
 				parent_id: Set(parent_id),
 				volume_id: Set(volume_id),
+				provider_file_id: Set(provider_file_id.clone()),
 			};
 			active.update(db).await?;
 			existing_entry.id
@@ -559,6 +573,7 @@ impl Model {
 				inode: Set(inode),
 				parent_id: Set(parent_id),
 				volume_id: Set(volume_id),
+				provider_file_id: Set(provider_file_id.clone()),
 			};
 			let inserted = active.insert(db).await?;
 			inserted.id

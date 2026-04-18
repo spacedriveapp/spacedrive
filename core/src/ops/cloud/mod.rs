@@ -5,4 +5,5 @@
 //! features (device-code flow, change-detection schedulers, account-level
 //! metadata) can share the same home without bloating `ops::volumes`.
 
+pub mod change_detection;
 pub mod oauth;
