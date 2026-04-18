@@ -114,6 +114,13 @@ impl LogSyncHandler {
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
+		// Reject limit == 0 up front: with our `has_more = entries.len() > limit`
+		// rule it would return 0 rows with has_more = true and the caller would
+		// spin forever reissuing the same request.
+		if limit == 0 {
+			anyhow::bail!("SharedChangeRequest limit must be > 0");
+		}
+
 		// Get changes from our peer log, fetching one extra row so we can derive has_more
 		// without reloading the entire log on every batch request.
 		let fetch_limit = limit.saturating_add(1);

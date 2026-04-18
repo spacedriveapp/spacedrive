@@ -266,35 +266,55 @@ impl Syncable for Model {
 		}
 
 		// Batch FK → UUID conversion across the whole batch: one DB round trip
-		// per FK type instead of one per (record × FK).
+		// per FK type instead of one per (record × FK). Records that fail
+		// resolution are dropped so peers never see a sender-local int in the
+		// payload.
 		let fk_mappings = Self::foreign_key_mappings();
 		if !fk_mappings.is_empty() && !sync_results.is_empty() {
 			let mut payloads: Vec<serde_json::Value> =
 				sync_results.iter().map(|(_, json, _)| json.clone()).collect();
+			let mut failed_indices: std::collections::HashSet<usize> =
+				std::collections::HashSet::new();
 
 			for fk in &fk_mappings {
-				if let Err(e) = crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
+				match crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
 					&mut payloads,
 					fk,
 					db,
 				)
 				.await
 				{
-					tracing::warn!(
-						error = %e,
-						fk_field = fk.local_field,
-						"Batch FK conversion failed for content_identity"
-					);
-					return Err(sea_orm::DbErr::Custom(format!(
-						"ContentIdentity FK batch conversion failed: {}",
-						e
-					)));
+					Ok(failed) => failed_indices.extend(failed),
+					Err(e) => {
+						tracing::warn!(
+							error = %e,
+							fk_field = fk.local_field,
+							"Batch FK conversion failed for content_identity"
+						);
+						return Err(sea_orm::DbErr::Custom(format!(
+							"ContentIdentity FK batch conversion failed: {}",
+							e
+						)));
+					}
 				}
 			}
 
-			for ((_, json, _), resolved) in sync_results.iter_mut().zip(payloads.into_iter()) {
-				*json = resolved;
-			}
+			sync_results = sync_results
+				.into_iter()
+				.zip(payloads.into_iter())
+				.enumerate()
+				.filter_map(|(idx, ((uuid, _, ts), resolved))| {
+					if failed_indices.contains(&idx) {
+						tracing::warn!(
+							uuid = %uuid,
+							"Dropping content_identity with unresolved FK from sync batch"
+						);
+						None
+					} else {
+						Some((uuid, resolved, ts))
+					}
+				})
+				.collect();
 		}
 
 		Ok(sync_results)

@@ -329,34 +329,54 @@ impl crate::infra::sync::Syncable for Model {
 
 		// Batch-convert FK integer IDs to UUIDs one FK type at a time across
 		// the whole batch — single DB round trip per FK, not per record × FK.
+		// Any record that fails resolution (missing target, bad value) is
+		// dropped before we return so peers never see a sender-local int.
 		let fk_mappings = <Model as Syncable>::foreign_key_mappings();
 		if !fk_mappings.is_empty() && !staged.is_empty() {
 			let mut payloads: Vec<serde_json::Value> =
 				staged.iter().map(|(_, json, _)| json.clone()).collect();
+			let mut failed_indices: std::collections::HashSet<usize> =
+				std::collections::HashSet::new();
 
 			for fk in &fk_mappings {
-				if let Err(e) = crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
+				match crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
 					&mut payloads,
 					fk,
 					db,
 				)
 				.await
 				{
-					tracing::warn!(
-						error = %e,
-						fk_field = fk.local_field,
-						"Batch FK conversion failed for entries"
-					);
-					return Err(sea_orm::DbErr::Custom(format!(
-						"Entry FK batch conversion failed: {}",
-						e
-					)));
+					Ok(failed) => failed_indices.extend(failed),
+					Err(e) => {
+						tracing::warn!(
+							error = %e,
+							fk_field = fk.local_field,
+							"Batch FK conversion failed for entries"
+						);
+						return Err(sea_orm::DbErr::Custom(format!(
+							"Entry FK batch conversion failed: {}",
+							e
+						)));
+					}
 				}
 			}
 
-			for ((_, json, _), resolved) in staged.iter_mut().zip(payloads.into_iter()) {
-				*json = resolved;
-			}
+			staged = staged
+				.into_iter()
+				.zip(payloads.into_iter())
+				.enumerate()
+				.filter_map(|(idx, ((uuid, _, ts), resolved))| {
+					if failed_indices.contains(&idx) {
+						tracing::warn!(
+							uuid = %uuid,
+							"Dropping entry with unresolved FK from sync batch"
+						);
+						None
+					} else {
+						Some((uuid, resolved, ts))
+					}
+				})
+				.collect();
 		}
 
 		Ok(staged)

@@ -221,11 +221,14 @@ impl PeerLog {
 		since: Option<HLC>,
 		limit: Option<usize>,
 	) -> Result<Vec<SharedChangeEntry>, PeerLogError> {
-		let query = match (since, limit) {
+		// Clamp to i64::MAX so a ludicrously large usize never wraps into a
+		// negative value when SQLite binds the parameter.
+		let sql_limit = limit.map(|lim| i64::try_from(lim).unwrap_or(i64::MAX));
+		let query = match (since, sql_limit) {
 			(Some(hlc), Some(lim)) => Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes WHERE hlc > ? ORDER BY hlc ASC LIMIT ?",
-				vec![hlc.to_string().into(), (lim as i64).into()],
+				vec![hlc.to_string().into(), lim.into()],
 			),
 			(Some(hlc), None) => Statement::from_sql_and_values(
 				DbBackend::Sqlite,
@@ -235,7 +238,7 @@ impl PeerLog {
 			(None, Some(lim)) => Statement::from_sql_and_values(
 				DbBackend::Sqlite,
 				"SELECT hlc, model_type, record_uuid, change_type, data FROM shared_changes ORDER BY hlc ASC LIMIT ?",
-				vec![(lim as i64).into()],
+				vec![lim.into()],
 			),
 			(None, None) => Statement::from_string(
 				DbBackend::Sqlite,

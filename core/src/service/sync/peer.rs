@@ -2715,6 +2715,12 @@ impl PeerSync {
 			"Querying shared changes from peer log"
 		);
 
+		// limit == 0 with our `len > limit` rule would return 0 rows plus
+		// has_more = true, so a naive caller would spin forever.
+		if limit == 0 {
+			return Err(anyhow::anyhow!("shared changes limit must be > 0"));
+		}
+
 		// Query peer log with SQL-side LIMIT, fetching one extra row to detect has_more
 		let fetch_limit = limit.saturating_add(1);
 		let mut entries = self
