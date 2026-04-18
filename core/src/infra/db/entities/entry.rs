@@ -302,6 +302,21 @@ impl crate::infra::sync::Syncable for Model {
 				None => continue,
 			};
 
+			// The sync cursor filters/orders on `indexed_at`, so a row with a
+			// NULL `indexed_at` would emit a cursor the next query predicate
+			// doesn't represent. Skip them — the indexed_at backfill migration
+			// populated every existing row, so this should be unreachable.
+			let indexed_at = match entry.indexed_at {
+				Some(ts) => ts,
+				None => {
+					tracing::warn!(
+						uuid = %uuid,
+						"Entry has NULL indexed_at; skipping sync until it's populated"
+					);
+					continue;
+				}
+			};
+
 			let mut json = match entry.to_sync_json() {
 				Ok(j) => j,
 				Err(e) => {
@@ -323,8 +338,7 @@ impl crate::infra::sync::Syncable for Model {
 				}
 			}
 
-			let timestamp = entry.indexed_at.unwrap_or(entry.modified_at);
-			staged.push((uuid, json, timestamp));
+			staged.push((uuid, json, indexed_at));
 		}
 
 		// Batch-convert FK integer IDs to UUIDs one FK type at a time across

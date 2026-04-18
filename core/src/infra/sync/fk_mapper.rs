@@ -127,13 +127,20 @@ pub async fn convert_fks_to_uuids_batch(
 
 	let uuid_field = fk.uuid_field_name();
 
-	// First pass: collect IDs and flag records whose local_field isn't a valid
-	// integer so they can be dropped by the caller.
+	// First pass: collect IDs and flag records that can't be resolved. An
+	// absent `local_field` is treated as failed (matches `convert_fk_to_uuid`
+	// semantics — only an explicit JSON `null` is a legitimate null FK).
 	let mut ids_to_lookup: HashSet<i32> = HashSet::new();
 	for (idx, json) in records.iter().enumerate() {
 		match json.get(fk.local_field) {
-			None => { /* absent — treated as null below */ }
-			Some(v) if v.is_null() => { /* null — treated as null below */ }
+			None => {
+				tracing::warn!(
+					fk_field = fk.local_field,
+					"FK field missing in sync payload; dropping record"
+				);
+				failed.insert(idx);
+			}
+			Some(v) if v.is_null() => { /* explicit null — treated as null below */ }
 			Some(v) => match v.as_i64() {
 				Some(id) => {
 					ids_to_lookup.insert(id as i32);
@@ -165,7 +172,8 @@ pub async fn convert_fks_to_uuids_batch(
 
 		match local_field_value {
 			None => {
-				json[&uuid_field] = Value::Null;
+				// First pass already flagged this as failed; nothing to do.
+				continue;
 			}
 			Some(v) if v.is_null() => {
 				json[&uuid_field] = Value::Null;
