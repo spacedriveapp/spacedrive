@@ -234,7 +234,13 @@ pub enum GroupType {
 	/// Archive data sources (email, notes, bookmarks, etc.)
 	Sources,
 
-	/// Cloud storage providers
+	/// Cloud storage providers.
+	///
+	/// TODO(cloud-mvp): implement CloudGroup renderer analogous to
+	/// VolumesGroup/DevicesGroup in packages/interface/src/components/SpacesSidebar/SpaceGroup.tsx.
+	/// Temporarily hidden from AddGroupModal / SpaceCustomizationPanel dropdowns until implemented.
+	/// Removing the variant would break deserialization of existing library JSON rows.
+	/// See .investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#pr-7.
 	Cloud,
 
 	/// User-defined custom group

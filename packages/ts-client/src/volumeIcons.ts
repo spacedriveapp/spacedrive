@@ -12,7 +12,6 @@ import DriveIcon from "@sd/assets/icons/Drive.png";
 
 export type VolumeIcon = string;
 
-// Map cloud service types to icons
 const cloudProviderIcons: Record<CloudServiceType, string> = {
 	s3: DriveAmazonS3,
 	gdrive: DriveGoogleDrive,
@@ -26,63 +25,36 @@ const cloudProviderIcons: Record<CloudServiceType, string> = {
 	cloud: DrivePCloud,
 };
 
-/**
- * Parse cloud service type from volume mount point.
- * Cloud volumes typically have mount points like "s3://bucket-name"
- */
-function parseCloudService(mountPoint: string | null): CloudServiceType | null {
-	if (!mountPoint) return null;
+const CLOUD_SCHEMES: readonly CloudServiceType[] = [
+	"s3",
+	"gdrive",
+	"dropbox",
+	"onedrive",
+	"gcs",
+	"azblob",
+	"b2",
+	"wasabi",
+	"spaces",
+	"cloud",
+];
 
-	// Parse mount_point for cloud service (format: "s3://bucket-name")
+/** Extracts a cloud service scheme from a mount point like `onedrive://drive-id`. */
+export function parseCloudService(mountPoint: string | null): CloudServiceType | null {
+	if (!mountPoint) return null;
 	const match = mountPoint.match(/^(\w+):\/\//);
 	if (!match) return null;
-
 	const scheme = match[1];
-
-	// Verify it's a cloud scheme (not file:// or other local schemes)
-	const cloudSchemes: CloudServiceType[] = [
-		"s3",
-		"gdrive",
-		"dropbox",
-		"onedrive",
-		"gcs",
-		"azblob",
-		"b2",
-		"wasabi",
-		"spaces",
-		"cloud",
-	];
-
-	if (cloudSchemes.includes(scheme as CloudServiceType)) {
-		return scheme as CloudServiceType;
-	}
-
-	return null;
+	return CLOUD_SCHEMES.includes(scheme as CloudServiceType) ? (scheme as CloudServiceType) : null;
 }
 
-/**
- * Determines the appropriate volume icon based on volume information.
- *
- * Priority order:
- * 1. Cloud service type (parsed from mount point)
- * 2. Volume type (External vs Internal)
- * 3. Default to generic drive icon
- */
+/** Returns the icon for a volume from its mount_point scheme, not its display
+ *  name, so renamed volumes keep their correct icon. */
 export function getVolumeIcon(volume: {
 	mount_point: string | null;
-	volume_type?: "Internal" | "External" | "Removable";
+	volume_type?: unknown;
 }): VolumeIcon {
-	// Check if it's a cloud volume
 	const cloudService = parseCloudService(volume.mount_point);
-	if (cloudService) {
-		return cloudProviderIcons[cloudService] || DriveIcon;
-	}
-
-	// For external/removable drives, use HDD icon
-	if (volume.volume_type === "External" || volume.volume_type === "Removable") {
-		return HDDIcon;
-	}
-
-	// Default to generic drive icon
+	if (cloudService) return cloudProviderIcons[cloudService] ?? DriveIcon;
+	if (volume.volume_type === "External" || volume.volume_type === "Removable") return HDDIcon;
 	return DriveIcon;
 }

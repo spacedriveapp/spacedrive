@@ -5,10 +5,11 @@ import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
 import {
+	getVolumeIcon,
 	useSpacedriveClient
 } from '../../contexts/SpacedriveContext';
 import {useVolumeIndexingStore} from '../../stores/volumeIndexingStore';
-import {formatBytes, getVolumeIcon} from './DevicePanel';
+import {formatBytes} from './DevicePanel';
 
 function getDiskTypeLabel(diskType: string): string {
 	return diskType === 'SSD' ? 'SSD' : diskType === 'HDD' ? 'HDD' : diskType;
@@ -161,7 +162,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 			: null
 	);
 
-	const iconSrc = getVolumeIcon(volume.volume_type, volume.name);
+	const iconSrc = getVolumeIcon(volume);
 	const volumeTypeStr = filterUnknown(
 		typeof volume.volume_type === 'string'
 			? volume.volume_type

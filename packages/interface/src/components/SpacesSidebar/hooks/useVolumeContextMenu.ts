@@ -3,7 +3,8 @@ import {
 	EyeSlash,
 	Eye,
 	Gauge,
-	EjectSimple
+	EjectSimple,
+	PlugsConnected
 } from '@phosphor-icons/react';
 import type { Volume } from '@sd/ts-client';
 import {
@@ -12,21 +13,16 @@ import {
 	type ContextMenuResult
 } from '../../../hooks/useContextMenu';
 import { useLibraryMutation } from '../../../contexts/SpacedriveContext';
+import { useDisconnectCloudVolumeDialog } from '../DisconnectCloudVolumeDialog';
 
 interface UseVolumeContextMenuOptions {
 	volume: Volume;
 }
 
-/**
- * Provides context menu functionality for volume items.
- *
- * Menu items include:
- * - Track Volume: Add volume to library tracking
- * - Untrack Volume: Remove volume from library tracking
- * - Speed Test: Test read/write performance
- * - Index Volume: Trigger full volume indexing
- * - Eject Volume: Safely eject removable media
- */
+/** Context menu for a volume row. Cloud volumes hide Speed Test and Eject
+ *  (no meaningful semantics), and expose Disconnect which purges credentials
+ *  via `volumes.remove_cloud` — distinct from the generic Untrack which only
+ *  removes the volume from the library. */
 export function useVolumeContextMenu({
 	volume
 }: UseVolumeContextMenuOptions): ContextMenuResult {
@@ -35,8 +31,10 @@ export function useVolumeContextMenu({
 	const speedTestVolume = useLibraryMutation('volumes.speed_test');
 	const indexVolume = useLibraryMutation('volumes.index');
 	const ejectVolume = useLibraryMutation('volumes.eject');
+	const openDisconnectDialog = useDisconnectCloudVolumeDialog();
 
 	const isRemovable = volume.mount_type === 'External';
+	const isCloud = volume.volume_type === 'Cloud';
 
 	const items: ContextMenuItem[] = [
 		{
@@ -68,6 +66,15 @@ export function useVolumeContextMenu({
 			},
 			variant: 'danger' as const,
 			condition: () => volume.is_tracked
+		},
+		{
+			icon: PlugsConnected,
+			label: 'Disconnect',
+			onClick: () => {
+				openDisconnectDialog(volume.fingerprint, volume.name);
+			},
+			variant: 'danger' as const,
+			condition: () => isCloud
 		},
 		{ type: 'separator' },
 		{
@@ -105,7 +112,7 @@ export function useVolumeContextMenu({
 					console.error('Failed to run speed test:', err);
 				}
 			},
-			condition: () => volume.is_mounted
+			condition: () => !isCloud && volume.is_mounted
 		},
 		{
 			icon: EjectSimple,
@@ -125,7 +132,7 @@ export function useVolumeContextMenu({
 				}
 			},
 			keybind: '⌘E',
-			condition: () => isRemovable && volume.is_mounted
+			condition: () => !isCloud && isRemovable && volume.is_mounted
 		}
 	];
 

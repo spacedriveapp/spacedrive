@@ -7,14 +7,7 @@ import {
 	WifiHigh,
 	WifiSlash
 } from '@phosphor-icons/react';
-import DatabaseIcon from '@sd/assets/icons/Database.png';
-import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
-import DriveDropboxIcon from '@sd/assets/icons/Drive-Dropbox.png';
-import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.png';
-import DriveIcon from '@sd/assets/icons/Drive.png';
-import HDDIcon from '@sd/assets/icons/HDD.png';
 import LocationIcon from '@sd/assets/icons/Location.png';
-import ServerIcon from '@sd/assets/icons/Server.png';
 import type {
 	Device,
 	JobListItem,
@@ -50,25 +43,6 @@ export function formatBytes(bytes: number): string {
 	const sizes = ['B', 'KB', 'MB', 'GB', 'TB', 'PB'];
 	const i = Math.floor(Math.log(bytes) / Math.log(k));
 	return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
-}
-
-export function getVolumeIcon(volumeType: any, name?: string): string {
-	// Convert volume type to string if it's an enum variant object
-	const volumeTypeStr =
-		typeof volumeType === 'string'
-			? volumeType
-			: volumeType?.Other || JSON.stringify(volumeType);
-
-	// Check for cloud providers by name
-	if (name?.includes('S3')) return DriveAmazonS3Icon;
-	if (name?.includes('Google')) return DriveGoogleDriveIcon;
-	if (name?.includes('Dropbox')) return DriveDropboxIcon;
-
-	// By type
-	if (volumeTypeStr === 'Cloud') return DriveIcon;
-	if (volumeTypeStr === 'Network') return ServerIcon;
-	if (volumeTypeStr === 'Virtual') return DatabaseIcon;
-	return HDDIcon;
 }
 
 interface DevicePanelProps {

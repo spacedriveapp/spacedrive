@@ -237,11 +237,9 @@ export function SpaceCustomizationPanel({
 												<option value="Locations">
 													All Locations
 												</option>
-												<option value="Tags">Tags</option>
-												<option value="Cloud">
-													Cloud Storage
-												</option>
-												<option value="Custom">Custom</option>
+											<option value="Tags">Tags</option>
+											{/* Cloud option is hidden until CloudGroup renderer is implemented — see core/src/domain/space.rs (GroupType::Cloud variant) and .investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#pr-7 */}
+											<option value="Custom">Custom</option>
 											</select>
 
 											{groupType === "Custom" && (
