@@ -33,6 +33,7 @@ import type {
 import { useLibraryMutation, useLibraryQuery, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import { usePlatform } from "../../../contexts/PlatformContext";
 import clsx from "clsx";
+import { OneDriveConnectForm } from "./OneDriveConnectForm";
 
 // Import icons
 import FolderIcon from "@sd/assets/icons/Folder.png";
@@ -1247,12 +1248,35 @@ function AddStorageDialog(props: {
 			provider.cloudServiceType === "b2" ||
 			provider.cloudServiceType === "wasabi" ||
 			provider.cloudServiceType === "spaces";
-		const isOAuthType =
+		const isOneDrive = provider.cloudServiceType === "onedrive";
+		const isLegacyOAuthType =
 			provider.cloudServiceType === "gdrive" ||
-			provider.cloudServiceType === "dropbox" ||
-			provider.cloudServiceType === "onedrive";
+			provider.cloudServiceType === "dropbox";
 		const isAzureType = provider.cloudServiceType === "azblob";
 		const isGCSType = provider.cloudServiceType === "gcs";
+
+		if (isOneDrive) {
+			return (
+				<StorageDialog
+					dialog={dialog}
+					form={cloudForm}
+					title={`Add ${provider.name}`}
+					icon={<img src={provider.icon} className="size-5" alt="" />}
+					description="Sign in with your Microsoft account via your own Azure AD app"
+					hideButtons={true}
+					showBackButton={true}
+					onBack={handleBack}
+				>
+					<div className="h-full overflow-y-auto pr-1">
+						<OneDriveConnectForm
+							cloudForm={cloudForm}
+							onSubmitCloud={onSubmitCloud}
+							isAddingVolume={addCloudVolume.isPending}
+						/>
+					</div>
+				</StorageDialog>
+			);
+		}
 
 		return (
 			<StorageDialog
@@ -1346,8 +1370,23 @@ function AddStorageDialog(props: {
 						</>
 					)}
 
-					{isOAuthType && (
+					{isLegacyOAuthType && (
 						<>
+							{/* TODO(cloud-mvp): Replace this paste-tokens UI with the */}
+							{/* browser-based OAuth flow used for OneDrive once the Google */}
+							{/* Drive and Dropbox providers are wired up. See */}
+							{/* .investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md#9 */}
+							<div className="rounded-lg border border-app-line bg-app-box p-3">
+								<p className="text-xs font-medium text-ink">
+									Browser sign-in coming soon
+								</p>
+								<p className="mt-1 text-xs text-ink-dull">
+									Paste your tokens for now. We will add a
+									one-click sign-in flow for{" "}
+									{provider.name} in a future update, like we
+									just shipped for OneDrive.
+								</p>
+							</div>
 							<div className="space-y-2">
 								<Label>Client ID</Label>
 								<Input
