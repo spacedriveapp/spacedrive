@@ -120,16 +120,21 @@ impl CloudBackend {
 		})
 	}
 
-	/// Create a new cloud backend for Google Drive
+	/// Create a new cloud backend for Google Drive.
+	///
+	/// Like OneDrive, OpenDAL's Gdrive builder requires either `access_token`
+	/// alone or `refresh_token + client_id + client_secret`. The two paths
+	/// are mutually exclusive. We take the long-lived path so refreshes
+	/// happen transparently; the short-lived `access_token` argument stays
+	/// in the signature for caller stability.
 	pub async fn new_google_drive(
-		access_token: impl AsRef<str>,
+		_access_token: impl AsRef<str>,
 		refresh_token: impl AsRef<str>,
 		client_id: impl AsRef<str>,
 		client_secret: impl AsRef<str>,
 		root: Option<String>,
 	) -> Result<Self, VolumeError> {
 		let mut builder = opendal::services::Gdrive::default()
-			.access_token(access_token.as_ref())
 			.refresh_token(refresh_token.as_ref())
 			.client_id(client_id.as_ref())
 			.client_secret(client_secret.as_ref());
@@ -151,16 +156,25 @@ impl CloudBackend {
 		})
 	}
 
-	/// Create a new cloud backend for OneDrive
+	/// Create a new cloud backend for OneDrive.
+	///
+	/// OpenDAL's Onedrive builder accepts either `access_token` alone for
+	/// short-lived access, or `refresh_token + client_id [+ client_secret]`
+	/// for long-lived access that auto-refreshes. The two paths are mutually
+	/// exclusive and passing both fails the builder. We take the long-lived
+	/// path because the OAuth flow always requests the `offline_access` scope,
+	/// so every registered volume has a refresh token. The `access_token`
+	/// parameter is preserved in the signature so the caller in `VolumeManager`
+	/// stays unchanged; OpenDAL obtains its own short-lived token from the
+	/// refresh token on first use.
 	pub async fn new_onedrive(
-		access_token: impl AsRef<str>,
+		_access_token: impl AsRef<str>,
 		refresh_token: impl AsRef<str>,
 		client_id: impl AsRef<str>,
 		client_secret: impl AsRef<str>,
 		root: Option<String>,
 	) -> Result<Self, VolumeError> {
 		let mut builder = opendal::services::Onedrive::default()
-			.access_token(access_token.as_ref())
 			.refresh_token(refresh_token.as_ref())
 			.client_id(client_id.as_ref())
 			.client_secret(client_secret.as_ref());
