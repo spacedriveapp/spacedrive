@@ -38,8 +38,10 @@ pub enum OauthFlowStatus {
 	/// Waiting for the user to complete the browser redirect.
 	Pending,
 	/// Authorization succeeded; `TokenSet` and optional display name are available.
+	///
+	/// `tokens` is kept nested (not flattened) so the wire JSON matches the
+	/// TypeScript type emitted by specta, which does not honour `#[serde(flatten)]`.
 	Completed {
-		#[serde(flatten)]
 		tokens: TokenSet,
 		#[serde(skip_serializing_if = "Option::is_none")]
 		display_name: Option<String>,
@@ -254,6 +256,37 @@ mod tests {
 		let flow = sample_flow(Uuid::new_v4(), chrono::Duration::seconds(0));
 		assert!(matches!(flow.status, OauthFlowStatus::Pending));
 		assert!(flow.terminal_at.is_none());
+	}
+
+	#[test]
+	fn test_completed_status_wire_shape_matches_ts_type() {
+		// Regression: specta does not honour #[serde(flatten)] on enum variants.
+		// The TS type must see `tokens` nested, so the wire JSON must too.
+		let status = OauthFlowStatus::Completed {
+			tokens: crate::ops::cloud::oauth::provider::TokenSet {
+				access_token: "atok".to_string(),
+				refresh_token: Some("rtok".to_string()),
+				expires_at: chrono::Utc::now(),
+				scope: Some("Files.ReadWrite.All".to_string()),
+			},
+			display_name: Some("Alice".to_string()),
+		};
+
+		let json = serde_json::to_value(&status).expect("serialize");
+		assert_eq!(json["type"], "completed");
+		assert!(
+			json.get("tokens").is_some(),
+			"tokens must be a nested object, not flattened"
+		);
+		assert_eq!(json["tokens"]["access_token"], "atok");
+		assert_eq!(json["tokens"]["refresh_token"], "rtok");
+		assert_eq!(json["display_name"], "Alice");
+		// Must NOT appear at top level (that would be the flattened shape).
+		assert!(json.get("access_token").is_none());
+
+		let round_trip: OauthFlowStatus =
+			serde_json::from_value(json).expect("deserialize round-trip");
+		assert!(matches!(round_trip, OauthFlowStatus::Completed { .. }));
 	}
 
 	#[test]

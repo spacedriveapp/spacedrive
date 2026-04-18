@@ -3107,6 +3107,9 @@ export type OauthFlowStatus =
 { type: "pending" } | 
 /**
  * Authorization succeeded; `TokenSet` and optional display name are available.
+ * 
+ * `tokens` is kept nested (not flattened) so the wire JSON matches the
+ * TypeScript type emitted by specta, which does not honour `#[serde(flatten)]`.
  */
 { type: "completed"; tokens: TokenSet; display_name?: string | null } | 
 /**
