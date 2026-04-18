@@ -96,6 +96,13 @@ opendal = { version = "0.55", features = [
 	"layers-tracing",
 ] }
 
+# OAuth 2.0 (BYO browser sign-in for cloud providers; RFC 8252 native app flow)
+oauth2     = "5"
+webbrowser = "1"
+dashmap    = "6"
+subtle     = "2"     # Constant-time comparison for CSRF state token
+base64     = "0.22"  # Base64url encoding for PKCE verifier/challenge and state token
+
 # Logging
 tracing            = "0.1"
 tracing-appender   = "0.2"

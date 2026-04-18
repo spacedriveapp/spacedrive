@@ -10,6 +10,7 @@
 
 pub mod adapters;
 pub mod addressing;
+pub mod cloud;
 pub mod config;
 // pub mod content;
 pub mod core;

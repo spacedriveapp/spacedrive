@@ -436,6 +436,19 @@ impl Core {
 		));
 		context.set_action_manager(action_manager).await;
 
+		// Spawn cloud OAuth supervisors: the flow-store janitor and the token
+		// refresh loop. Both run forever; errors are logged inside the tasks.
+		// The provider registry starts empty — Set 4 will populate it with
+		// OneDrive, so the refresh task is a no-op until then.
+		tokio::spawn(crate::ops::cloud::oauth::flow::run_janitor(
+			context.oauth_flows.clone(),
+		));
+		tokio::spawn(crate::ops::cloud::oauth::refresh::run_refresh_task(
+			context.library_manager.clone(),
+			context.key_manager.clone(),
+			context.oauth_providers.clone(),
+		));
+
 		// Set up log event emitter (no-op, actual setup happens in daemon bootstrap)
 		// The LogEventLayer is added as a tracing subscriber layer in bootstrap.rs
 

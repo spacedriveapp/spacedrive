@@ -9,6 +9,7 @@ use crate::{
 	infra::event::EventBus,
 	infra::sync::TransactionManager,
 	library::LibraryManager,
+	ops::cloud::oauth::{OauthFlowStore, OauthProviderRegistry},
 	ops::indexing::ephemeral::EphemeralIndexCache,
 	service::network::{NetworkingService, RemoteJobCache},
 	service::session::SessionStateService,
@@ -44,6 +45,10 @@ pub struct CoreContext {
 	pub job_logs_dir: Option<PathBuf>,
 	// Data directory path (for reset and cleanup operations)
 	pub data_dir: PathBuf,
+	/// In-memory store of in-progress cloud OAuth flows (BYO browser sign-in).
+	pub oauth_flows: OauthFlowStore,
+	/// Registry of known OAuth providers (populated at startup; empty pre-Set 4).
+	pub oauth_providers: OauthProviderRegistry,
 }
 
 impl CoreContext {
@@ -76,6 +81,8 @@ impl CoreContext {
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
+			oauth_flows: OauthFlowStore::new(),
+			oauth_providers: OauthProviderRegistry::new(),
 		}
 	}
 

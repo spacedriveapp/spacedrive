@@ -5067,7 +5067,7 @@ dependencies = [
  "cesu8",
  "cfg-if",
  "combine",
- "jni-sys",
+ "jni-sys 0.3.0",
  "log 0.4.28",
  "thiserror 1.0.69",
  "walkdir",
@@ -5075,10 +5075,59 @@ dependencies = [
 ]
 
 [[package]]
+name = "jni"
+version = "0.22.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5efd9a482cf3a427f00d6b35f14332adc7902ce91efb778580e180ff90fa3498"
+dependencies = [
+ "cfg-if",
+ "combine",
+ "jni-macros",
+ "jni-sys 0.4.1",
+ "log 0.4.28",
+ "simd_cesu8",
+ "thiserror 2.0.16",
+ "walkdir",
+ "windows-link 0.2.1",
+]
+
+[[package]]
+name = "jni-macros"
+version = "0.22.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a00109accc170f0bdb141fed3e393c565b6f5e072365c3bd58f5b062591560a3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rustc_version",
+ "simd_cesu8",
+ "syn 2.0.106",
+]
+
+[[package]]
 name = "jni-sys"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8eaf4bc02d17cbdd7ff4c7438cafcdf7fb9a4613313ad11b4f8fefe7d3fa0130"
+
+[[package]]
+name = "jni-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6377a88cb3910bee9b0fa88d4f42e1d2da8e79915598f65fb0c7ee14c878af2"
+dependencies = [
+ "jni-sys-macros",
+]
+
+[[package]]
+name = "jni-sys-macros"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38c0b942f458fe50cdac086d2f946512305e5631e720728f2a61aabcd47a6264"
+dependencies = [
+ "quote",
+ "syn 2.0.106",
+]
 
 [[package]]
 name = "job-derive"
@@ -5898,7 +5947,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3f42e7bbe13d351b6bead8286a43aac9534b82bd3cc43e47037f012ebfd62d4"
 dependencies = [
  "bitflags 2.9.4",
- "jni-sys",
+ "jni-sys 0.3.0",
  "log 0.4.28",
  "ndk-sys",
  "num_enum",
@@ -5918,7 +5967,7 @@ version = "0.6.0+11769913"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ee6cda3051665f1fb8d9e08fc35c96d5a244fb1be711a03b71118828afc9a873"
 dependencies = [
- "jni-sys",
+ "jni-sys 0.3.0",
 ]
 
 [[package]]
@@ -6402,6 +6451,26 @@ name = "number_prefix"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830b246a0e5f20af87141b25c173cd1b609bd7779a4617d6ec582abaf90870f3"
+
+[[package]]
+name = "oauth2"
+version = "5.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51e219e79014df21a225b1860a479e2dcd7cbd9130f4defd4bd0e191ea31d67d"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "getrandom 0.2.16",
+ "http 1.3.1",
+ "rand 0.8.5",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "sha2 0.10.9",
+ "thiserror 1.0.69",
+ "url",
+]
 
 [[package]]
 name = "objc"
@@ -8754,7 +8823,7 @@ checksum = "19787cda76408ec5404443dc8b31795c87cd8fec49762dc75fa727740d34acc1"
 dependencies = [
  "core-foundation 0.10.0",
  "core-foundation-sys",
- "jni",
+ "jni 0.21.1",
  "log 0.4.28",
  "once_cell",
  "rustls",
@@ -9033,6 +9102,7 @@ dependencies = [
  "async-stream",
  "async-trait",
  "backoff",
+ "base64 0.22.1",
  "bincode",
  "bip39",
  "blake3",
@@ -9045,6 +9115,7 @@ dependencies = [
  "comfy-table",
  "console",
  "crossterm 0.28.1",
+ "dashmap",
  "dialoguer",
  "dirs 5.0.1",
  "ed25519-dalek 2.2.0",
@@ -9070,6 +9141,7 @@ dependencies = [
  "memmap2 0.9.8",
  "notify 6.1.1",
  "num_cpus",
+ "oauth2",
  "objc2 0.6.3",
  "objc2-foundation 0.3.2",
  "objc2-ui-kit",
@@ -9107,6 +9179,7 @@ dependencies = [
  "specta-typescript",
  "sqlx",
  "strum 0.26.3",
+ "subtle",
  "supports-color",
  "sysinfo 0.31.4",
  "tempfile",
@@ -9123,6 +9196,7 @@ dependencies = [
  "vergen",
  "wasmer",
  "wasmer-middlewares",
+ "webbrowser",
  "webp",
  "whisper-rs",
  "whoami",
@@ -9244,7 +9318,7 @@ name = "sd-mobile-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "jni",
+ "jni 0.21.1",
  "libc",
  "once_cell",
  "openssl-sys",
@@ -9983,6 +10057,16 @@ name = "simd-adler32"
 version = "0.3.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
+
+[[package]]
+name = "simd_cesu8"
+version = "1.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94f90157bb87cddf702797c5dadfa0be7d266cdf49e22da2fcaa32eff75b2c33"
+dependencies = [
+ "rustc_version",
+ "simdutf8",
+]
 
 [[package]]
 name = "simd_helpers"
@@ -10847,7 +10931,7 @@ dependencies = [
  "gdkwayland-sys",
  "gdkx11-sys",
  "gtk",
- "jni",
+ "jni 0.21.1",
  "lazy_static",
  "libc",
  "log 0.4.28",
@@ -10936,7 +11020,7 @@ dependencies = [
  "heck 0.5.0",
  "http 1.3.1",
  "http-range",
- "jni",
+ "jni 0.21.1",
  "libc",
  "log 0.4.28",
  "mime",
@@ -11201,7 +11285,7 @@ dependencies = [
  "dpi",
  "gtk",
  "http 1.3.1",
- "jni",
+ "jni 0.21.1",
  "objc2 0.6.3",
  "objc2-ui-kit",
  "objc2-web-kit",
@@ -11224,7 +11308,7 @@ checksum = "929f5df216f5c02a9e894554401bcdab6eec3e39ec6a4a7731c7067fc8688a93"
 dependencies = [
  "gtk",
  "http 1.3.1",
- "jni",
+ "jni 0.21.1",
  "log 0.4.28",
  "objc2 0.6.3",
  "objc2-app-kit",
@@ -12733,6 +12817,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "webbrowser"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0fc95580916af1e68ff6a7be07446fc5db73ebf71cf092de939bbf5f7e189f72"
+dependencies = [
+ "core-foundation 0.10.0",
+ "jni 0.22.4",
+ "log 0.4.28",
+ "ndk-context",
+ "objc2 0.6.3",
+ "objc2-foundation 0.3.2",
+ "url",
+ "web-sys",
+]
+
+[[package]]
 name = "webkit2gtk"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13792,7 +13892,7 @@ dependencies = [
  "html5ever",
  "http 1.3.1",
  "javascriptcore-rs",
- "jni",
+ "jni 0.21.1",
  "kuchikiki",
  "libc",
  "ndk",

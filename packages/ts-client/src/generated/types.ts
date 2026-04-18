@@ -179,6 +179,20 @@ export type ApplyToTargets =
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
 
 /**
+ * Input for `cloud.oauth.cancel`.
+ */
+export type CancelInput = { flow_id: string };
+
+/**
+ * Output for `cloud.oauth.cancel`.
+ * 
+ * Returns a boolean so the UI can tell whether the flow was still alive —
+ * `false` means it had already completed or was already evicted, which is
+ * not an error but useful telemetry.
+ */
+export type CancelOutput = { cancelled: boolean };
+
+/**
  * Cloud service type identifier
  */
 export type CloudServiceType = "s3" | "gdrive" | "dropbox" | "onedrive" | "gcs" | "azblob" | "b2" | "wasabi" | "spaces" | "cloud";
@@ -3081,6 +3095,30 @@ export type NetworkStopInput = Record<string, never>;
 export type NetworkStopOutput = { stopped: boolean };
 
 /**
+ * Status of a flow as observed by the UI via the poll query.
+ * 
+ * Serialized as a `serde` externally-tagged enum so TypeScript can
+ * discriminate by `type` on the wire.
+ */
+export type OauthFlowStatus = 
+/**
+ * Waiting for the user to complete the browser redirect.
+ */
+{ type: "pending" } | 
+/**
+ * Authorization succeeded; `TokenSet` and optional display name are available.
+ */
+{ type: "completed"; tokens: TokenSet; display_name?: string | null } | 
+/**
+ * Authorization failed; `error` is a human-readable message.
+ */
+{ type: "failed"; error: string } | 
+/**
+ * The user (or the UI) cancelled the flow via `cloud.oauth.cancel`.
+ */
+{ type: "cancelled" };
+
+/**
  * Object detection policy (for future AI features)
  */
 export type ObjectDetectionPolicy = { 
@@ -3256,6 +3294,18 @@ export type PerformanceSnapshot = { broadcast_latency: LatencySnapshot; apply_la
 export type PingInput = { message: string; count?: number | null };
 
 export type PingOutput = { echo: string; count: number; extension_works: boolean };
+
+/**
+ * Input for `cloud.oauth.poll`: the flow id issued by `cloud.oauth.start`.
+ */
+export type PollInput = { flow_id: string };
+
+/**
+ * Output for `cloud.oauth.poll` — the flow's current status.
+ * 
+ * A thin wrapper around [`OauthFlowStatus`] so TypeScript gets a named type.
+ */
+export type PollOutput = { status: OauthFlowStatus };
 
 /**
  * User preferences output
@@ -3924,6 +3974,50 @@ model: string;
 reprocess: boolean };
 
 /**
+ * Input for `cloud.oauth.start`.
+ * 
+ * `client_id` and `client_secret` are BYO — Spacedrive never ships hardcoded
+ * public clients. The UI guides the user through creating their own app in
+ * the provider's developer console.
+ */
+export type StartInput = { 
+/**
+ * Provider id matching [`crate::ops::cloud::oauth::OauthProvider::id`]
+ * (e.g. `"onedrive"`, `"gdrive"`).
+ */
+provider: string; 
+/**
+ * User's OAuth client id.
+ */
+client_id: string; 
+/**
+ * User's OAuth client secret.
+ */
+client_secret: string };
+
+/**
+ * Output for `cloud.oauth.start`.
+ * 
+ * `auth_url` is opened in the system browser by the core (best-effort) and
+ * also returned so the UI can expose a "copy link" fallback when the
+ * automatic launch fails.
+ */
+export type StartOutput = { 
+/**
+ * Identifier the UI passes to `cloud.oauth.poll` / `cloud.oauth.cancel`.
+ */
+flow_id: string; 
+/**
+ * URL the user must visit to consent.
+ */
+auth_url: string; 
+/**
+ * Loopback redirect URI used by this flow; surfaced for debugging and
+ * for the "copy redirect URI" button in the tutorial UI.
+ */
+redirect_uri: string };
+
+/**
  * State transition event
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
@@ -4210,6 +4304,31 @@ enabled: boolean;
  * Whether to regenerate existing thumbstrips
  */
 regenerate: boolean };
+
+/**
+ * Access / refresh token pair returned by the provider after code exchange or refresh.
+ * 
+ * The `expires_at` field is computed from the provider's `expires_in` at response
+ * time so callers do not have to re-translate relative expiry into an absolute one.
+ */
+export type TokenSet = { 
+/**
+ * Short-lived bearer token used to call the provider's API.
+ */
+access_token: string; 
+/**
+ * Long-lived refresh token. Optional because some providers rotate on every
+ * refresh and may return `None` if the user revokes offline access mid-flow.
+ */
+refresh_token?: string | null; 
+/**
+ * Absolute expiry of `access_token` in UTC.
+ */
+expires_at: string; 
+/**
+ * Space-separated list of scopes actually granted (may differ from requested).
+ */
+scope?: string | null };
 
 export type TranscribeAudioInput = { entry_uuid: string; model: string | null; language: string | null };
 
@@ -4907,6 +5026,8 @@ export type CoreAction =
 
 export type LibraryAction =
      { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
+  |  { type: 'cloud.oauth.cancel'; input: CancelInput; output: CancelOutput }
+  |  { type: 'cloud.oauth.start'; input: StartInput; output: StartOutput }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
@@ -4978,6 +5099,7 @@ export type CoreQuery =
 export type LibraryQuery =
      { type: 'adapters.config'; input: GetAdapterConfigInput; output: [AdapterConfigField] }
   |  { type: 'adapters.list'; input: ListAdaptersInput; output: [AdapterInfo] }
+  |  { type: 'cloud.oauth.poll'; input: PollInput; output: PollOutput }
   |  { type: 'config.library.get'; input: GetLibraryConfigQueryInput; output: LibrarySettingsOutput }
   |  { type: 'devices.list'; input: ListLibraryDevicesInput; output: [Device] }
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
@@ -5038,6 +5160,8 @@ export const WIRE_METHODS = {
 
   libraryActions: {
     'adapters.update': 'action:adapters.update.input',
+    'cloud.oauth.cancel': 'action:cloud.oauth.cancel.input',
+    'cloud.oauth.start': 'action:cloud.oauth.start.input',
     'config.library.update': 'action:config.library.update.input',
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
@@ -5109,6 +5233,7 @@ export const WIRE_METHODS = {
   libraryQueries: {
     'adapters.config': 'query:adapters.config',
     'adapters.list': 'query:adapters.list',
+    'cloud.oauth.poll': 'query:cloud.oauth.poll',
     'config.library.get': 'query:config.library.get',
     'devices.list': 'query:devices.list',
     'files.alternate_instances': 'query:files.alternate_instances',
