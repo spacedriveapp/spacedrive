@@ -46,12 +46,18 @@ Extend the file copy job system to support cloud volumes, enabling users to copy
 
 ## Acceptance Criteria
 
-- [x] User can copy a local file to a cloud volume (Set 2 — `CloudBackend::copy` + rename-destination fix, strategy wiring tracked for Set 8)
+- [ ] User can copy a local file to a cloud volume
 - [ ] User can copy a file from a cloud volume to local storage
 - [ ] User can copy files between two different cloud volumes
 - [ ] Progress is accurately reported for cloud transfers
 - [ ] Transfers can be cancelled mid-operation
 - [ ] Checksum verification works for cloud transfers
+
+## Partial Progress (Set 2 — 2026-04-18)
+
+- `CloudBackend::copy(from, to)` primitive added, guarded by `BackendFeatures::server_side_copy`. Not yet wired into a `CloudCopyStrategy` or the router, so end-to-end copy involving cloud paths still fails with a typed error rather than succeeding.
+- `FileCopyJob::new_rename` and `MoveJob::rename` no longer panic on `SdPath::Cloud`; they now compute a correct destination path for all variants. The execute path still routes to `LocalStreamCopyStrategy` and returns `Err("Source path is not local")` for cloud paths, so acceptance criteria remain unmet.
+- `CreateFolderAction` is wired end-to-end for cloud paths via `CloudBackend::create_directory` (outside this task's scope but noted for cross-reference with CLOUD-003).
 
 ## Implementation Files
 
