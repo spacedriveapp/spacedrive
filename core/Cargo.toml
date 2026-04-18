@@ -263,3 +263,4 @@ path = "src/bin/daemon.rs"
 [dev-dependencies]
 pretty_assertions = "1.4"
 tempfile          = "3.14"
+wiremock          = "0.6"

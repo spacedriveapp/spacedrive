@@ -436,10 +436,16 @@ impl Core {
 		));
 		context.set_action_manager(action_manager).await;
 
+		// Register concrete OAuth providers. Must happen before the refresh
+		// task starts so credentials created in the same tick can be
+		// rotated on the very first tick.
+		context
+			.oauth_providers
+			.register(Arc::new(crate::ops::cloud::oauth::OneDriveProvider::new()))
+			.await;
+
 		// Spawn cloud OAuth supervisors: the flow-store janitor and the token
 		// refresh loop. Both run forever; errors are logged inside the tasks.
-		// The provider registry starts empty — Set 4 will populate it with
-		// OneDrive, so the refresh task is a no-op until then.
 		tokio::spawn(crate::ops::cloud::oauth::flow::run_janitor(
 			context.oauth_flows.clone(),
 		));

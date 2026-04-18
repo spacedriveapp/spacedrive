@@ -27,8 +27,10 @@ pub mod error;
 pub mod flow;
 pub mod loopback;
 pub mod provider;
+pub mod providers;
 pub mod refresh;
 
 pub use error::OauthError;
 pub use flow::{OauthFlow, OauthFlowStatus, OauthFlowStore};
 pub use provider::{OauthProvider, OauthProviderRegistry, TokenSet};
+pub use providers::OneDriveProvider;
