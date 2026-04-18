@@ -1,14 +1,14 @@
 ---
 id: FILE-003
 title: Cloud Volume File Operations
-status: In Progress
+status: To Do
 assignee: jamiepine
 parent: FILE-000
 priority: High
 tags: [core, file-ops, cloud, jobs]
 whitepaper: Section 4.4.6
 related_tasks: [FILE-001, CLOUD-003, VOL-004]
-last_updated: 2026-04-18
+last_updated: 2025-10-14
 ---
 
 ## Description
@@ -52,12 +52,6 @@ Extend the file copy job system to support cloud volumes, enabling users to copy
 - [ ] Progress is accurately reported for cloud transfers
 - [ ] Transfers can be cancelled mid-operation
 - [ ] Checksum verification works for cloud transfers
-
-## Partial Progress (Set 2 — 2026-04-18)
-
-- `CloudBackend::copy(from, to)` primitive added, guarded by `BackendFeatures::server_side_copy`. Not yet wired into a `CloudCopyStrategy` or the router, so end-to-end copy involving cloud paths still fails with a typed error rather than succeeding.
-- `FileCopyJob::new_rename` and `MoveJob::rename` no longer panic on `SdPath::Cloud`; they now compute a correct destination path for all variants. The execute path still routes to `LocalStreamCopyStrategy` and returns `Err("Source path is not local")` for cloud paths, so acceptance criteria remain unmet.
-- `CreateFolderAction` is wired end-to-end for cloud paths via `CloudBackend::create_directory` (outside this task's scope but noted for cross-reference with CLOUD-003).
 
 ## Implementation Files
 

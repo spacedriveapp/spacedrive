@@ -7,7 +7,7 @@ parent: CLOUD-000
 priority: High
 tags: [cloud, storage, volume, s3]
 whitepaper: Section 5.2
-last_updated: 2026-04-18
+last_updated: 2025-10-14
 ---
 
 ## Description
@@ -39,13 +39,11 @@ Implement support for a cloud storage provider (e.g., S3-compatible service) as 
     - Discovery phase uses backend.read_dir()
     - Processing phase handles cloud backends (skips change detection for cloud)
     - Content phase uses backend for content hashing
-- [x] Upgrade to OpenDAL 0.55 with retry/timeout/concurrent-limit/tracing layers (Set 1 foundation)
-- [x] CloudBackend::copy primitive + CreateFolderAction wired + rename constructors no longer panic on cloud paths (Set 2 partial — strategy-layer wiring deferred to Set 8 or a dedicated follow-up)
 
 ## Acceptance Criteria
 
 - [x] A user can add an S3 bucket as a new location in their library.
-- [ ] Files can be copied to and from the cloud volume. (`CloudBackend::copy` primitive exists as of Set 2, but the `FileCopyJob` strategy/router still routes cloud paths to `LocalStreamCopyStrategy`, which errors. Full end-to-end copy tracked in FILE-003 and Set 8.)
+- [ ] Files can be copied to and from the cloud volume.
 - [x] The cloud volume can be indexed like any other location.
 
 ## Implementation Files
