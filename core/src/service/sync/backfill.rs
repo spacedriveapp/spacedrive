@@ -559,8 +559,7 @@ impl BackfillManager {
 					// those across the whole batch first — one DB round trip per FK
 					// type instead of per (record × FK).
 					let processed_data = if model_type == "entry" && !fk_mappings.is_empty() {
-						let table_name =
-							crate::infra::sync::get_table_name(&model_type).await;
+						let table_name = crate::infra::sync::get_table_name(&model_type).await;
 						let (self_ref_mappings, non_self_mappings): (Vec<_>, Vec<_>) = fk_mappings
 							.iter()
 							.cloned()
@@ -611,9 +610,7 @@ impl BackfillManager {
 										.dependency_tracker()
 										.add_dependency(
 											missing_uuid,
-											super::state::BufferedUpdate::StateChange(
-												state_change,
-											),
+											super::state::BufferedUpdate::StateChange(state_change),
 										)
 										.await;
 								}

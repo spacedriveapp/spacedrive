@@ -271,8 +271,10 @@ impl Syncable for Model {
 		// payload.
 		let fk_mappings = Self::foreign_key_mappings();
 		if !fk_mappings.is_empty() && !sync_results.is_empty() {
-			let mut payloads: Vec<serde_json::Value> =
-				sync_results.iter().map(|(_, json, _)| json.clone()).collect();
+			let mut payloads: Vec<serde_json::Value> = sync_results
+				.iter()
+				.map(|(_, json, _)| json.clone())
+				.collect();
 			let mut failed_indices: std::collections::HashSet<usize> =
 				std::collections::HashSet::new();
 
