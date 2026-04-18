@@ -274,6 +274,43 @@ impl CloudBackend {
 		})
 	}
 
+	/// Server-side copy within the same cloud backend.
+	///
+	/// Uses the provider's native copy primitive (S3 `CopyObject`, OneDrive
+	/// `/copy`, Dropbox `/files/copy_v2`) instead of streaming bytes through
+	/// the client. Callers must verify `features().server_side_copy` first;
+	/// this method short-circuits with [`VolumeError::UnsupportedOperation`]
+	/// when the capability is absent, so a misconfigured fallback surfaces as
+	/// a typed error rather than panicking or dragging the failure into the
+	/// retry/timeout layers where diagnostics are noisier.
+	pub async fn copy(&self, from: &Path, to: &Path) -> Result<(), VolumeError> {
+		if !self.features().server_side_copy {
+			return Err(VolumeError::UnsupportedOperation {
+				operation: "server-side copy",
+				backend: self.service_type.scheme(),
+			});
+		}
+
+		let from_path = self.to_cloud_path(from);
+		let to_path = self.to_cloud_path(to);
+		debug!("CloudBackend::copy: {} -> {}", from_path, to_path);
+
+		self.operator
+			.copy(&from_path, &to_path)
+			.await
+			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))
+	}
+
+	/// Service-type scheme exposed for diagnostics and error reporting.
+	///
+	/// Callers outside this module occasionally need to know which provider
+	/// they are talking to (for structured log fields, error messages, or
+	/// capability gates) without pulling in the full [`BackendFeatures`]
+	/// table.
+	pub fn service_scheme(&self) -> &'static str {
+		self.service_type.scheme()
+	}
+
 	/// Create a cloud backend from a pre-configured OpenDAL operator.
 	///
 	/// The caller's operator is wrapped with Spacedrive's default resilience
@@ -744,6 +781,55 @@ mod tests {
 			.expect("write through layered operator");
 		let read = layered.read("layer-probe.bin").await.expect("read back");
 		assert_eq!(read.to_bytes(), Bytes::from("ok"));
+	}
+
+	#[tokio::test]
+	async fn test_copy_errors_when_features_disabled() {
+		// `services::Memory` advertises `cap.copy == false`, which the
+		// runtime cross-check in `features()` maps to `server_side_copy ==
+		// false`. The guard in `CloudBackend::copy` must then surface
+		// `UnsupportedOperation` instead of letting the OpenDAL operator
+		// produce a generic `Unsupported` error deep inside the retry stack.
+		let backend = memory_backend();
+		assert!(!backend.features().server_side_copy);
+
+		backend
+			.write(Path::new("src.bin"), Bytes::from("payload"))
+			.await
+			.expect("write source");
+
+		let result = backend
+			.copy(Path::new("src.bin"), Path::new("dst.bin"))
+			.await;
+
+		match result {
+			Err(VolumeError::UnsupportedOperation { operation, backend }) => {
+				assert_eq!(operation, "server-side copy");
+				assert_eq!(backend, "cloud");
+			}
+			other => panic!("expected UnsupportedOperation, got {:?}", other),
+		}
+	}
+
+	#[tokio::test]
+	async fn test_create_folder_cloud_backend_idempotent() {
+		// OpenDAL's `create_dir` on a trailing-slash path is a no-op when the
+		// directory already exists for every service in our matrix. Guarding
+		// at the backend level ensures a re-run of `CreateFolderAction`
+		// (e.g. after a flaky network retry) never surfaces as an error to
+		// the caller.
+		let backend = memory_backend();
+		let folder = Path::new("photos/2024");
+
+		backend
+			.create_directory(folder, false)
+			.await
+			.expect("first create_directory should succeed");
+
+		backend
+			.create_directory(folder, false)
+			.await
+			.expect("second create_directory should be idempotent");
 	}
 
 	#[tokio::test]

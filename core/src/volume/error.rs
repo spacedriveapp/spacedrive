@@ -60,6 +60,20 @@ pub enum VolumeError {
 	/// Volume is not tracked
 	#[error("Volume is not tracked: {0}")]
 	NotTracked(String),
+
+	/// The underlying backend does not support the requested operation.
+	///
+	/// Surfaced as a typed error so callers can fall back to an emulated path
+	/// (e.g. stream-copy when server-side copy is unavailable) instead of
+	/// discovering the limitation deep inside OpenDAL where the error would
+	/// be a generic `Unsupported` kind mixed with transport failures.
+	#[error("Operation '{operation}' not supported by backend '{backend}'")]
+	UnsupportedOperation {
+		/// Short label for the requested operation, e.g. "server-side copy".
+		operation: &'static str,
+		/// Backend identifier, typically the `CloudServiceType` scheme or "local".
+		backend: &'static str,
+	},
 }
 
 impl VolumeError {

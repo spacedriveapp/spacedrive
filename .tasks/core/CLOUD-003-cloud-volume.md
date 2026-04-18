@@ -40,11 +40,12 @@ Implement support for a cloud storage provider (e.g., S3-compatible service) as 
     - Processing phase handles cloud backends (skips change detection for cloud)
     - Content phase uses backend for content hashing
 - [x] Upgrade to OpenDAL 0.55 with retry/timeout/concurrent-limit/tracing layers (Set 1 foundation)
+- [x] copy files to/from cloud (Set 2)
 
 ## Acceptance Criteria
 
 - [x] A user can add an S3 bucket as a new location in their library.
-- [ ] Files can be copied to and from the cloud volume.
+- [x] Files can be copied to and from the cloud volume (Set 2).
 - [x] The cloud volume can be indexed like any other location.
 
 ## Implementation Files

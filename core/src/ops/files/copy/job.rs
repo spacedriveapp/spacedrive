@@ -1032,17 +1032,17 @@ impl FileCopyJob {
 		}
 	}
 
-	/// Create a rename operation
+	/// Create a rename operation.
+	///
+	/// Rename is expressed as a move to the source's sibling with `new_name`.
+	/// For cloud sources we compute the renamed path entirely client-side; no
+	/// network call happens here because the actual rename (or copy+delete
+	/// fallback for providers without server-side rename) is executed later
+	/// by the move job's strategy layer. Content and sidecar paths have no
+	/// meaningful filename to rewrite, so they fall back to the source path
+	/// unchanged and validation upstream is expected to reject them.
 	pub fn new_rename(source: SdPath, new_name: String) -> Self {
-		let destination = match &source {
-			SdPath::Physical { device_slug, path } => SdPath::Physical {
-				device_slug: device_slug.clone(),
-				path: path.with_file_name(&new_name),
-			},
-			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
-			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
-			SdPath::Sidecar { .. } => panic!("Cannot rename a sidecar path"),
-		};
+		let destination = rename_destination(&source, &new_name);
 
 		Self::new_move(
 			SdPathBatch::new(vec![source]),
@@ -1475,23 +1475,54 @@ impl MoveJob {
 		}
 	}
 
-	/// Create a rename operation
+	/// Create a rename operation. See [`FileCopyJob::new_rename`] for the
+	/// full rationale; this version returns a [`MoveJob`] for the older
+	/// move-job entry point while sharing the same destination computation.
 	pub fn rename(source: SdPath, new_name: String) -> Self {
-		let destination = match &source {
-			SdPath::Physical { device_slug, path } => SdPath::Physical {
-				device_slug: device_slug.clone(),
-				path: path.with_file_name(&new_name),
-			},
-			SdPath::Cloud { .. } => panic!("Cloud storage operations are not yet implemented"),
-			SdPath::Content { .. } => panic!("Cannot rename a content-addressed path"),
-			SdPath::Sidecar { .. } => panic!("Cannot rename a sidecar path"),
-		};
+		let destination = rename_destination(&source, &new_name);
 
 		Self::new(
 			SdPathBatch::new(vec![source]),
 			destination,
 			MoveMode::Rename,
 		)
+	}
+}
+
+/// Compute the destination `SdPath` for a rename operation.
+///
+/// This is a pure path rewrite, not an I/O call. For Cloud sources we splice
+/// `new_name` into the last segment of the cloud-native path so the rest of
+/// the job pipeline can treat the result like any other Cloud destination.
+/// Content and Sidecar paths cannot be renamed at the file-system level, so
+/// we return the source unchanged and rely on upstream validation
+/// (`FileRenameAction::validate`) to reject those variants before they reach
+/// here — keeping this function total and panic-free.
+fn rename_destination(source: &SdPath, new_name: &str) -> SdPath {
+	match source {
+		SdPath::Physical { device_slug, path } => SdPath::Physical {
+			device_slug: device_slug.clone(),
+			path: path.with_file_name(new_name),
+		},
+		SdPath::Cloud {
+			service,
+			identifier,
+			path,
+		} => {
+			// Strip any trailing slash so splitting doesn't yield an empty tail
+			// for directory-style paths ("photos/2024/" -> "photos/2024/").
+			let trimmed = path.trim_end_matches('/');
+			let new_path = match trimmed.rfind('/') {
+				Some(idx) => format!("{}/{}", &trimmed[..idx], new_name),
+				None => new_name.to_string(),
+			};
+			SdPath::Cloud {
+				service: *service,
+				identifier: identifier.clone(),
+				path: new_path,
+			}
+		}
+		SdPath::Content { .. } | SdPath::Sidecar { .. } => source.clone(),
 	}
 }
 
@@ -1715,5 +1746,72 @@ mod tests {
 		assert_eq!(meta.strategy_name, "FastCopy");
 		assert!(meta.is_fast_operation);
 		assert!(!meta.is_cross_device);
+	}
+
+	/// Regression: the rename constructors used to panic for any non-Physical
+	/// source variant. The rewrite in Set 2 replaces those panics with a
+	/// total function that produces a plain path rewrite for Cloud sources
+	/// and a source-echo for unsupported variants (rejected earlier in
+	/// validation). Here we pin that behaviour to prevent regressions.
+	#[test]
+	fn test_rename_destination_cloud_replaces_last_segment() {
+		use crate::volume::backend::CloudServiceType;
+
+		let source = SdPath::Cloud {
+			service: CloudServiceType::OneDrive,
+			identifier: "personal".to_string(),
+			path: "photos/2024/trip.jpg".to_string(),
+		};
+
+		let destination = rename_destination(&source, "vacation.jpg");
+
+		match destination {
+			SdPath::Cloud {
+				service,
+				identifier,
+				path,
+			} => {
+				assert_eq!(service, CloudServiceType::OneDrive);
+				assert_eq!(identifier, "personal");
+				assert_eq!(path, "photos/2024/vacation.jpg");
+			}
+			other => panic!("expected Cloud variant, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn test_rename_destination_cloud_root_level_file() {
+		use crate::volume::backend::CloudServiceType;
+
+		let source = SdPath::Cloud {
+			service: CloudServiceType::S3,
+			identifier: "my-bucket".to_string(),
+			path: "solo.bin".to_string(),
+		};
+
+		let destination = rename_destination(&source, "renamed.bin");
+
+		match destination {
+			SdPath::Cloud { path, .. } => assert_eq!(path, "renamed.bin"),
+			other => panic!("expected Cloud variant, got {:?}", other),
+		}
+	}
+
+	#[test]
+	fn test_rename_destination_physical_preserves_device() {
+		let source = SdPath::Physical {
+			device_slug: "my-mac".to_string(),
+			path: PathBuf::from("/Users/me/doc.txt"),
+		};
+
+		let destination = rename_destination(&source, "renamed.txt");
+
+		match destination {
+			SdPath::Physical { device_slug, path } => {
+				assert_eq!(device_slug, "my-mac");
+				assert_eq!(path, PathBuf::from("/Users/me/renamed.txt"));
+			}
+			other => panic!("expected Physical variant, got {:?}", other),
+		}
 	}
 }

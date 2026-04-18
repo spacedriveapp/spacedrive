@@ -13,8 +13,8 @@ use crate::{
 	volume::{LocalBackend, VolumeBackend},
 };
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tracing::debug;
+use std::{path::PathBuf, sync::Arc};
+use tracing::{debug, info};
 
 /// Action for creating a new folder
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,7 +93,7 @@ impl LibraryAction for CreateFolderAction {
 	async fn execute(
 		self,
 		library: Arc<crate::library::Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		// Construct the destination folder path
 		let folder_path = self.parent.join(&self.name);
@@ -113,12 +113,52 @@ impl LibraryAction for CreateFolderAction {
 					ActionError::Internal(format!("Failed to create directory: {}", e))
 				})?;
 			}
-			SdPath::Cloud { .. } => {
-				// Cloud folder creation would use CloudBackend
-				// For now, return an error as cloud support needs more infrastructure
-				return Err(ActionError::Internal(
-					"Cloud folder creation not yet implemented".to_string(),
-				));
+			SdPath::Cloud {
+				service,
+				identifier,
+				path,
+			} => {
+				// Resolve the CloudBackend via the tracked volume that owns this
+				// (service, identifier) pair. The backend was wired up when the
+				// volume was added or rehydrated from the database, so there is
+				// no need to re-authenticate or rebuild the operator here.
+				let volume = context
+					.volume_manager
+					.find_cloud_volume(*service, identifier)
+					.await
+					.ok_or_else(|| {
+						ActionError::Internal(format!(
+							"No cloud volume found for {}://{}",
+							service.scheme(),
+							identifier
+						))
+					})?;
+
+				let backend = volume.backend.as_ref().ok_or_else(|| {
+					ActionError::Internal(format!(
+						"Cloud volume {}://{} has no backend attached",
+						service.scheme(),
+						identifier
+					))
+				})?;
+
+				// OpenDAL's `create_dir` is idempotent on trailing-slash paths
+				// for every provider in our matrix (S3 no-op, OneDrive/Gdrive
+				// return 200 on existing folder), so double-create does not
+				// need a pre-existence check at this layer.
+				backend
+					.create_directory(&PathBuf::from(path), false)
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to create cloud folder: {}", e))
+					})?;
+
+				info!(
+					volume_id = %volume.id,
+					path = %path,
+					service = %service.scheme(),
+					"created cloud folder",
+				);
 			}
 			_ => {
 				return Err(ActionError::Internal(
@@ -187,5 +227,36 @@ mod tests {
 		let action = CreateFolderAction::with_items(parent, "new_folder", items);
 		assert_eq!(action.name, "new_folder");
 		assert_eq!(action.items.len(), 2);
+	}
+
+	/// Regression: the Physical branch of `execute` must keep using
+	/// [`LocalBackend::create_directory`] after the Cloud branch was
+	/// reworked in Set 2. Building a full `CoreContext` is heavier than
+	/// this test needs, so we exercise `LocalBackend::create_directory`
+	/// directly, mirroring the exact call the Physical branch makes after
+	/// resolving the parent as the backend root.
+	#[tokio::test]
+	async fn test_create_folder_local_still_works() {
+		let parent = std::env::temp_dir().join(format!(
+			"sd-create-folder-regression-{}",
+			uuid::Uuid::new_v4()
+		));
+		tokio::fs::create_dir_all(&parent)
+			.await
+			.expect("set up parent directory");
+		let target = parent.join("new_folder");
+
+		let backend = LocalBackend::new(&parent);
+		backend
+			.create_directory(&target, false)
+			.await
+			.expect("local create_directory should succeed");
+
+		let meta = tokio::fs::metadata(&target)
+			.await
+			.expect("created directory must exist");
+		assert!(meta.is_dir());
+
+		tokio::fs::remove_dir_all(&parent).await.ok();
 	}
 }

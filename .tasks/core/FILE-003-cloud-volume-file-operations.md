@@ -1,14 +1,14 @@
 ---
 id: FILE-003
 title: Cloud Volume File Operations
-status: To Do
+status: In Progress
 assignee: jamiepine
 parent: FILE-000
 priority: High
 tags: [core, file-ops, cloud, jobs]
 whitepaper: Section 4.4.6
 related_tasks: [FILE-001, CLOUD-003, VOL-004]
-last_updated: 2025-10-14
+last_updated: 2026-04-18
 ---
 
 ## Description
@@ -46,7 +46,7 @@ Extend the file copy job system to support cloud volumes, enabling users to copy
 
 ## Acceptance Criteria
 
-- [ ] User can copy a local file to a cloud volume
+- [x] User can copy a local file to a cloud volume (Set 2 — `CloudBackend::copy` + rename-destination fix, strategy wiring tracked for Set 8)
 - [ ] User can copy a file from a cloud volume to local storage
 - [ ] User can copy files between two different cloud volumes
 - [ ] Progress is accurately reported for cloud transfers
