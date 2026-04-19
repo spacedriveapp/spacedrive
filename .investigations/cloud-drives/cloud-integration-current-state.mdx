@@ -1,0 +1,184 @@
+---
+title: Cloud Integration — Current State (Investigation)
+sidebarTitle: Cloud Integration (Current State)
+---
+
+> **Note.** This document is a snapshot of cloud-integration as it actually ships on the
+> `feature/cloud-drives-investigation` branch (OneDrive MVP). The canonical target-state
+> documentation lives at `docs/core/cloud-integration.mdx` and describes the vision.
+> This file is kept here for PR review to make the gap between vision and reality
+> explicit.
+
+Spacedrive mounts cloud storage services as volumes through the OpenDAL abstraction. Each connected cloud account becomes a regular volume that browses, indexes, and exchanges files through the same `SdPath` surface as a local drive.
+
+This page describes what actually ships on this branch. Anything marked "coming later" is not yet implemented.
+
+## What Works Today
+
+- **Nine cloud service types** are wired end to end: S3 (plus S3-compatible: Wasabi, Backblaze B2, DigitalOcean Spaces), Google Drive, Dropbox, OneDrive, Azure Blob Storage, and Google Cloud Storage. An `Other` variant exists as an escape hatch for generic WebDAV-style endpoints.
+- **OneDrive OAuth browser sign-in** with a Bring-Your-Own Azure AD app. The user clicks "Connect with Microsoft" in the UI and completes a standard OAuth 2.0 authorization code flow with PKCE. See [BYO Azure AD setup](#byo-azure-ad-setup) for the exact steps.
+- **Google Drive and Dropbox paste-tokens flow.** The UI still asks for pre-obtained access / refresh tokens with a banner that reads "Browser sign-in coming soon". Browser flows for those providers are the next milestone (see [Known limitations](#known-limitations)).
+- **S3-family and object stores** authenticate with traditional access-key pairs. Azure Blob uses a storage account + access key. Google Cloud Storage uses a service account JSON.
+- **File operations** — read, write, list, stat, delete, and create folder — work transparently across every wired service.
+- **Copy and move** are routed through `CloudCopyStrategy` with three shapes: same-backend server-side copy (streaming fallback if the provider does not implement it), local↔cloud streaming, and cross-backend streaming. The router selects the right shape based on the source and destination `SdPath` endpoints.
+- **OneDrive change detection** walks Microsoft Graph's `/me/drive/root/delta` endpoint and advances a `change_token` in `cloud_sync_state` after each successful pass. This token persists across daemon restarts.
+- **Credential rehydration on restart** works for S3, Google Drive, OneDrive, Dropbox, Azure Blob, and Google Cloud Storage. Backblaze B2, Wasabi, and DigitalOcean Spaces currently fall into a catch-all and are silently dropped until their rehydration path is filled in (see [Known limitations](#known-limitations)).
+- **Daemon-side token refresh** for OAuth providers runs as a background task (`CloudTokenRefreshTask`). Tokens are rotated five minutes before expiry; rotated refresh tokens are persisted so the next refresh uses the latest credential.
+
+## Supported Services Matrix
+
+| Service | Auth method | Browse / read / write | Copy / move | Rehydrate on restart | Change detection |
+| --- | --- | --- | --- | --- | --- |
+| S3 (plus R2, MinIO, any S3-compatible) | Access key + secret | Yes | Yes (streaming) | Yes | No (use full rescan) |
+| Azure Blob | Account + key | Yes | Yes (streaming) | Yes | No |
+| Google Cloud Storage | Service account JSON | Yes | Yes (streaming) | Yes | No |
+| Backblaze B2 | Access key + secret | Yes | Yes (streaming) | **No** (dropped at restart, tech debt) | No |
+| Wasabi | Access key + secret | Yes | Yes (streaming) | **No** (same) | No |
+| DigitalOcean Spaces | Access key + secret | Yes | Yes (streaming) | **No** (same) | No |
+| Google Drive | OAuth (paste tokens today) | Yes | Yes (streaming) | Yes | No |
+| Dropbox | OAuth refresh token (paste today) | Yes | Yes (streaming) | Yes | No |
+| OneDrive (personal) | OAuth browser flow (PKCE + loopback) | Yes | Yes (streaming) | Yes | Yes (Delta API) |
+
+"Paste tokens today" means the UI collects an access / refresh token the user obtained elsewhere (curl, Postman, another tool). The OneDrive browser flow is the reference for what the paste flows will be replaced with in the Google Drive and Dropbox follow-ups.
+
+## OpenDAL Layer Stack
+
+Every cloud `Operator` is wrapped in a consistent resilience layer stack:
+
+```rust
+operator
+    .layer(TracingLayer)
+    .layer(ConcurrentLimitLayer::new(16))
+    .layer(
+        TimeoutLayer::new()
+            .with_timeout(Duration::from_secs(30))
+            .with_io_timeout(Duration::from_secs(30)),
+    )
+    .layer(RetryLayer::default().with_max_times(3).with_jitter())
+```
+
+The order matters. `TracingLayer` sits innermost so it logs the raw provider calls without seeing retries. `RetryLayer` sits outermost so every caller benefits from transparent retry with jitter. `TimeoutLayer` sits between them so a stuck request aborts before it monopolises a concurrency slot.
+
+## Paths
+
+Cloud entries use the `SdPath::Cloud` variant, which carries the service type, the identifier (bucket, drive root, folder root), and the path inside that service:
+
+```rust
+pub enum SdPath {
+    Physical { device_slug: String, path: PathBuf },
+    Cloud { service: CloudServiceType, identifier: String, path: String },
+    Content { content_id: Uuid },
+}
+```
+
+URI form is `scheme://identifier/path`, for example `s3://my-bucket/photos/vacation.jpg` or `onedrive://root/Documents/report.pdf`. The `VolumeManager` maintains an in-memory mount-point cache so cloud volumes resolve in O(1) for routing.
+
+## Connecting a Cloud Volume
+
+The action dispatcher call is the same across services; only the config variant differs:
+
+```rust
+let input = VolumeAddCloudInput {
+    service: CloudServiceType::S3,
+    display_name: "Primary bucket".to_string(),
+    config: CloudStorageConfig::S3 {
+        bucket: "my-bucket".to_string(),
+        region: "us-west-2".to_string(),
+        access_key_id: "...".to_string(),
+        secret_access_key: "...".to_string(),
+        endpoint: None,
+    },
+};
+
+dispatcher.execute_library_action::<VolumeAddCloudAction>(input, ctx).await?;
+```
+
+The other config variants (`GoogleDrive`, `Dropbox`, `OneDrive`, `AzureBlob`, `GoogleCloudStorage`) follow the same shape with their own required fields.
+
+## BYO Azure AD Setup
+
+OneDrive connection is Bring-Your-Own today: the user registers their own Azure AD application and pastes the `client_id` + `client_secret` once. Spacedrive never ships hardcoded OAuth clients. The in-app tutorial walks through the seven steps below.
+
+1. Open the [Azure portal app registrations page](https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade) and click **New registration**.
+2. Set the name (any string), choose **Personal Microsoft accounts only** as the supported account type.
+3. Under **Redirect URI**, add a **Public client / native** URI. Register all five loopback URIs:
+   - `http://127.0.0.1:53682/oauth/callback`
+   - `http://127.0.0.1:53683/oauth/callback`
+   - `http://127.0.0.1:53684/oauth/callback`
+   - `http://127.0.0.1:53685/oauth/callback`
+   - `http://127.0.0.1:53686/oauth/callback`
+   Microsoft requires exact-match redirect URIs on desktop, so every port Spacedrive may bind to must be pre-registered. The first free port wins at sign-in time.
+4. Under **Authentication → Advanced settings**, set **Allow public client flows** to **Yes**.
+5. Under **API permissions**, add the following delegated Microsoft Graph scopes: `Files.ReadWrite.All`, `offline_access`, `User.Read`. `offline_access` is required for the refresh token; `User.Read` powers the display-name label the UI shows next to the volume.
+6. Under **Overview**, copy **Application (client) ID**.
+7. Under **Certificates & secrets → New client secret**, create a secret and copy the value immediately (Azure only shows it once).
+
+Paste the client id and client secret into the Spacedrive "Add OneDrive" modal, then click **Connect with Microsoft**. The browser opens, you log in and consent, Spacedrive captures the redirect on a loopback port, and the volume appears in the sidebar.
+
+## Security Model
+
+- **No Spacedrive-owned OAuth apps.** Every OAuth connection is BYO. `client_id` and `client_secret` are stored per volume and never transmitted to any Spacedrive-controlled endpoint.
+- **Encrypted credentials at rest.** Every cloud credential (access keys, OAuth tokens, service account JSON) is encrypted with XChaCha20-Poly1305 using the library's master key, persisted in the `cloud_credentials` table of the library's SQLite file. An earlier revision of this documentation described storage in the OS keyring; that was never implemented and has been corrected.
+- **Credentials stay local.** Removing a cloud volume deletes the encrypted row. The raw tokens never leave the daemon process memory once decrypted for use.
+- **CSRF protection.** The OAuth loopback handshake compares the returned `state` parameter against the issued value in constant time (`subtle::ConstantTimeEq`).
+- **PKCE S256.** OAuth flows always use PKCE with an S256 challenge, per RFC 7636.
+
+## Change Detection
+
+`OneDriveChangeDetector` consumes `/me/drive/root/delta` incrementally. A `cloud_sync_state` row per volume stores the latest `change_token`; the scheduler advances it after each successful page and bumps a `consecutive_failures` counter on errors to drive exponential backoff.
+
+The detector surfaces three classified error modes:
+
+- `Invalidated` (HTTP 410 with `resyncRequired`): the token has expired; the indexer drops it and triggers a full rescan.
+- `RateLimited { retry_after_secs }` (HTTP 429 / 503): the scheduler parks the volume for the returned interval.
+- `Auth` (HTTP 401 / 403): no retry — the OAuth refresh task is responsible for token rotation.
+
+Today the indexer uses the delta stream to keep the `change_token` fresh but does not yet *consume* it to skip re-hashing on unchanged files. That optimisation is listed under [Known limitations](#known-limitations).
+
+## File Operations
+
+`CloudCopyStrategy` handles every copy or move involving at least one cloud endpoint. The router chooses the shape automatically:
+
+- **Same-backend server-side copy.** Both endpoints live on the same cloud volume and the provider advertises `Capability::write_can_copy`. Falls back to a streaming copy when the provider does not.
+- **Local → cloud streaming.** Source is on this device, destination is a cloud `SdPath`. Bytes are streamed through an OpenDAL writer with bounded chunking so multi-gigabyte transfers never hold the full file in memory.
+- **Cloud → local streaming.** Mirror image of the above.
+- **Cross-backend cloud → cloud.** Streams through the daemon — not ideal bandwidth-wise, but works for any pair of providers.
+
+Checksum verification is deferred for cloud paths until the ETag / `content_md5` plumbing lands; `verify_checksum: true` emits a `warn!` today and proceeds.
+
+## Indexing
+
+Cloud content flows through the same indexer phases as local content (discovery, processing, content, aggregation). For OneDrive, the delta detector keeps the change token fresh even though the ingest pipeline still treats every entry as new on each full pass. The `cloud_sync_state` row persists the token, so an interrupted sync resumes from the last good page after a daemon restart.
+
+## Removing a Cloud Volume
+
+The UI's right-click menu on a cloud volume exposes **Disconnect**, which triggers `volumes.remove_cloud`. The action:
+
+1. Untracks the volume from the library.
+2. Deletes the encrypted credential row from `cloud_credentials`.
+3. Returns the fingerprint of the removed volume.
+
+Un-tracked cloud volumes are never re-mounted on the next daemon startup because credential rehydration keys off the same fingerprint.
+
+## Known Limitations
+
+- **Token hot-swap is not yet wired.** When `CloudTokenRefreshTask` rotates an access token, the active `CloudBackend` held by `VolumeManager` still carries the stale token until the volume is reloaded. Tracked in `.investigations/cloud-drives/CLOUD-004-oauth-infrastructure-proposal.md` under "Next Steps".
+- **Delta stream is not yet consumed to skip re-hashing.** `OneDriveChangeDetector` advances the token but the indexer still treats cloud entries as new on each full pass.
+- **Rename detection on OneDrive emits `Modified`.** The detector has no cache of prior paths, so renames surface as a modification at the new path. The indexer's `provider_file_id` matching prevents duplicate row creation.
+- **Backblaze B2, Wasabi, DigitalOcean Spaces do not rehydrate on daemon restart.** They hit a catch-all in `VolumeManager::restore_cloud_volumes` that logs a warning and skips the volume. Users must re-add the volume until the rehydration path is filled in.
+- **No UI to re-authenticate on refresh failure.** If the refresh task gives up on a credential (revoked, expired beyond recovery), the user today must delete and re-add the volume. A reconnect action is planned.
+- **OneDrive only — Google Drive and Dropbox still paste-tokens.** The OAuth infrastructure (flow state machine, loopback server, refresh task) is provider-agnostic; `GoogleDriveProvider` and `DropboxProvider` just have not been implemented yet. Adding them is ~1 week each.
+- **Cross-backend server-side copy is not supported.** S3 bucket A → S3 bucket B cross-account streams through the daemon today.
+- **OneDrive Business / SharePoint tenants are not supported.** The MVP is scoped to the `tenant=common` consumer endpoint. Business support requires a tenant-specific issuer.
+- **No thumbnail caching, no cost tracking.** Earlier documentation advertised these; neither is implemented.
+
+## Related Documentation
+
+- [Volumes](/docs/core/volumes) — the volume lifecycle these cloud mounts plug into.
+- [Indexing](/docs/core/indexing) — how indexing phases consume cloud backends.
+- [File Copy Operations](/docs/core/file-copy-operations) — the routing that picks `CloudCopyStrategy`.
+- [Addressing](/docs/core/addressing) — the `SdPath` format.
+- `.tasks/core/CLOUD-003-cloud-volume.md` — epic task for the cloud-as-a-volume feature.
+- `.tasks/core/FILE-003-cloud-volume-file-operations.md` — cloud file-operation coverage.
+- `.investigations/cloud-drives/06-mvp-onedrive-vertical-slice.md` — the plan this MVP executed against.
+- `.investigations/cloud-drives/CLOUD-004-oauth-infrastructure-proposal.md` — proposed follow-up task covering OAuth infra and the items carried over to the next milestone.
