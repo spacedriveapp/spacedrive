@@ -100,7 +100,7 @@ impl EventCollector {
 /// Wait for indexing job to complete
 async fn wait_for_indexing_completion(
 	library: &Arc<Library>,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let mut job_seen = false;
 	let timeout = Duration::from_secs(30);
 	let start = tokio::time::Instant::now();
@@ -151,7 +151,8 @@ async fn wait_for_indexing_completion(
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn capture_event_fixtures_for_typescript() -> Result<(), Box<dyn std::error::Error>> {
+async fn capture_event_fixtures_for_typescript(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Initialize tracing
 	let _ = tracing_subscriber::fmt()
 		.with_env_filter(

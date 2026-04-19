@@ -54,27 +54,31 @@ jobs:
           bun install
           cd apps/web && bun run build
 
-      - name: Build server binary
+      - name: Build server and CLI binaries
         run: |
-          cargo build --release --bin sd-server --features sd-core/heif,sd-core/ffmpeg,sd-core/ai --target ${{ matrix.settings.target }}
+          cargo build --release --bin sd-server --bin sd-cli --features sd-core/heif,sd-core/ffmpeg,sd-core/ai --target ${{ matrix.settings.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
 
-      - name: Prepare server binary
+      - name: Prepare binaries
         run: |
           mkdir -p dist
           cp target/${{ matrix.settings.target }}/release/sd-server dist/sd-server-${{ matrix.settings.platform }}
-          chmod +x dist/sd-server-${{ matrix.settings.platform }}
+          cp target/${{ matrix.settings.target }}/release/sd-cli dist/sd-cli-${{ matrix.settings.platform }}
+          chmod +x dist/sd-server-${{ matrix.settings.platform }} dist/sd-cli-${{ matrix.settings.platform }}
 
-      - name: Generate checksum
+      - name: Generate checksums
         run: |
           cd dist
           sha256sum sd-server-${{ matrix.settings.platform }} > sd-server-${{ matrix.settings.platform }}.sha256
+          sha256sum sd-cli-${{ matrix.settings.platform }} > sd-cli-${{ matrix.settings.platform }}.sha256
 
       - name: Create archive
         run: |
           cd dist
-          tar -czf sd-server-${{ matrix.settings.platform }}.tar.gz sd-server-${{ matrix.settings.platform }} sd-server-${{ matrix.settings.platform }}.sha256
+          tar -czf sd-server-${{ matrix.settings.platform }}.tar.gz \
+            sd-server-${{ matrix.settings.platform }} sd-server-${{ matrix.settings.platform }}.sha256 \
+            sd-cli-${{ matrix.settings.platform }} sd-cli-${{ matrix.settings.platform }}.sha256
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -265,7 +269,6 @@ jobs:
         with:
           draft: true
           files: |
-            cli-*/*
             server-*/*
             */*.dmg
             */*.exe

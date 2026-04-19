@@ -233,6 +233,13 @@ export class TcpSocketTransport implements Transport {
  */
 export class HttpTransport implements Transport {
 	private baseUrl: string;
+	// Single shared EventSource for all subscribers. Browsers cap HTTP/1.1
+	// connections at 6 per origin; opening one EventSource per subscription
+	// exhausts the pool and stalls RPC POSTs. The daemon's `/events` stream
+	// is already a broadcast of every event, so we multiplex here and let
+	// subscribers filter client-side.
+	private sharedSource: EventSource | null = null;
+	private sharedCallbacks = new Set<(event: any) => void>();
 
 	constructor(baseUrl: string = "") {
 		// Strip trailing slash so `${baseUrl}/rpc` is well-formed.
@@ -260,12 +267,22 @@ export class HttpTransport implements Transport {
 		callback: (event: any) => void,
 		_options?: SubscriptionOptions,
 	): Promise<() => void> {
-		// sd-server's /events endpoint forwards every Event/LogMessage line
-		// from the daemon as an SSE message. We don't pass per-subscription
-		// filter options yet — the daemon's broadcast covers everything and
-		// the client can filter on its end if needed.
-		const url = `${this.baseUrl}/events`;
-		const source = new EventSource(url);
+		this.sharedCallbacks.add(callback);
+		this.ensureSharedSource();
+
+		return () => {
+			this.sharedCallbacks.delete(callback);
+			if (this.sharedCallbacks.size === 0 && this.sharedSource) {
+				this.sharedSource.close();
+				this.sharedSource = null;
+			}
+		};
+	}
+
+	private ensureSharedSource() {
+		if (this.sharedSource) return;
+
+		const source = new EventSource(`${this.baseUrl}/events`);
 
 		source.onmessage = (e) => {
 			let parsed: any;
@@ -276,14 +293,25 @@ export class HttpTransport implements Transport {
 				return;
 			}
 
+			if (!parsed || typeof parsed !== "object") return;
+
 			// Match the shape the existing transports forward: callback gets
 			// the inner Event payload (or LogMessage payload), not the
 			// DaemonResponse envelope.
-			if (parsed && typeof parsed === "object") {
-				if (parsed.Event !== undefined) {
-					callback(parsed.Event);
-				} else if (parsed.LogMessage !== undefined) {
-					callback(parsed.LogMessage);
+			let payload: any | undefined;
+			if (parsed.Event !== undefined) {
+				payload = parsed.Event;
+			} else if (parsed.LogMessage !== undefined) {
+				payload = parsed.LogMessage;
+			} else {
+				return;
+			}
+
+			for (const cb of this.sharedCallbacks) {
+				try {
+					cb(payload);
+				} catch (err) {
+					console.error("[HttpTransport] Subscriber callback threw:", err);
 				}
 			}
 		};
@@ -295,7 +323,7 @@ export class HttpTransport implements Transport {
 			console.warn("[HttpTransport] SSE connection error", e);
 		};
 
-		return () => source.close();
+		this.sharedSource = source;
 	}
 }
 

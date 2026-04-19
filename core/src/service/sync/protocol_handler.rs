@@ -114,11 +114,25 @@ impl LogSyncHandler {
 		since_hlc: Option<HLC>,
 		limit: usize,
 	) -> Result<SyncMessage> {
-		// Get changes from our peer log
-		let entries = self.peer_sync.peer_log.get_since(since_hlc).await?;
+		// Reject limit == 0 up front: with our `has_more = entries.len() > limit`
+		// rule it would return 0 rows with has_more = true and the caller would
+		// spin forever reissuing the same request.
+		if limit == 0 {
+			anyhow::bail!("SharedChangeRequest limit must be > 0");
+		}
 
-		let has_more = entries.len() >= limit;
-		let limited: Vec<_> = entries.into_iter().take(limit).collect();
+		// Get changes from our peer log, fetching one extra row so we can derive has_more
+		// without reloading the entire log on every batch request.
+		let fetch_limit = limit.saturating_add(1);
+		let mut entries = self
+			.peer_sync
+			.peer_log
+			.get_since(since_hlc, Some(fetch_limit))
+			.await?;
+
+		let has_more = entries.len() > limit;
+		entries.truncate(limit);
+		let limited = entries;
 
 		// For initial sync (no watermark), always include current state
 		// This ensures shared resources like content_identities are available

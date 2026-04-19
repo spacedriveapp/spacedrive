@@ -7,7 +7,7 @@ use sd_core::domain::memory::{DocumentType, FactType, MemoryFile, MemoryScope};
 use std::path::PathBuf;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Initialize logging
 	tracing_subscriber::fmt().with_env_filter("info").init();
 

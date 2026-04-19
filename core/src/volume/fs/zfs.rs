@@ -371,6 +371,93 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 	Some((number * multiplier as f64) as u64)
 }
 
+/// Fetch `zfs list` output once for reuse across multiple volumes
+pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
+	task::spawn_blocking(|| {
+		let output = Command::new("zfs")
+			.args([
+				"list",
+				"-H",
+				"-o",
+				"name,mountpoint,used,available,type",
+				"-t",
+				"filesystem",
+			])
+			.output()
+			.map_err(|e| {
+				crate::volume::error::VolumeError::platform(format!(
+					"Failed to run zfs list: {}",
+					e
+				))
+			})?;
+
+		if !output.status.success() {
+			return Err(crate::volume::error::VolumeError::platform(
+				"zfs list command failed".to_string(),
+			));
+		}
+
+		Ok(String::from_utf8_lossy(&output.stdout).to_string())
+	})
+	.await
+	.map_err(|e| {
+		crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
+	})?
+}
+
+/// Enhance a volume using pre-fetched `zfs list` output (no subprocess call)
+///
+/// Also applies ZFS-aware user-visibility rules:
+/// - Datasets on known system pools (e.g. `boot-pool` on TrueNAS Scale)
+///   are marked as system-level and hidden.
+/// - Datasets under known app/container parent paths (e.g. `ix-applications`)
+///   are hidden.
+pub fn enhance_volume_with_cached_output(volume: &mut Volume, zfs_list_output: &str) {
+	if let Some(mount_point) = volume.mount_point.to_str() {
+		if let Ok(dataset_info) = find_dataset_for_path(zfs_list_output, Path::new(mount_point)) {
+			debug!("Enhanced ZFS volume with dataset info: {:?}", dataset_info);
+
+			if is_system_zfs_pool(&dataset_info.pool_name) {
+				debug!(
+					"VISIBILITY: Hiding ZFS volume on system pool '{}': {}",
+					dataset_info.pool_name, mount_point
+				);
+				volume.is_user_visible = false;
+				volume.auto_track_eligible = false;
+				volume.volume_type = crate::volume::types::VolumeType::System;
+			} else if is_app_managed_dataset(&dataset_info.name) {
+				debug!(
+					"VISIBILITY: Hiding app-managed ZFS dataset '{}': {}",
+					dataset_info.name, mount_point
+				);
+				volume.is_user_visible = false;
+				volume.auto_track_eligible = false;
+			}
+		}
+	}
+}
+
+/// Known ZFS pool names that contain the operating system rather than user
+/// data. Datasets on these pools are never user-visible.
+///
+/// TrueNAS Scale uses `boot-pool` for its OS. Other appliances may add more
+/// entries here as we encounter them.
+fn is_system_zfs_pool(pool_name: &str) -> bool {
+	matches!(pool_name, "boot-pool" | "rpool" | "zroot")
+}
+
+/// Heuristic: a ZFS dataset is "app-managed" if its hierarchical name
+/// contains a segment that identifies it as belonging to a container/app
+/// management layer rather than user-visible storage.
+///
+/// e.g. `pool/ix-applications/releases/plex/volumes/ix_volumes/ix-plex_data`
+fn is_app_managed_dataset(dataset_name: &str) -> bool {
+	dataset_name.contains("/ix-applications/")
+		|| dataset_name.contains("/.ix-apps/")
+		|| dataset_name.contains("/docker/")
+		|| dataset_name.contains("/containerd/")
+}
+
 /// Enhance volume with ZFS-specific information from mount point
 pub async fn enhance_volume_from_mount(volume: &mut Volume) -> VolumeResult<()> {
 	use super::FilesystemHandler;

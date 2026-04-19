@@ -67,8 +67,8 @@ async fn enhance_volumes_with_fs_capabilities(volumes: &mut Vec<Volume>) -> Volu
 			}
 			#[cfg(target_os = "linux")]
 			crate::volume::types::FileSystem::ZFS => {
-				// Add ZFS pool and clone capability detection
-				fs::zfs::enhance_volume_from_mount(volume).await?;
+				// ZFS enhancement is handled in detect_linux_volumes with cached output
+				// to avoid running `zfs list` once per volume
 			}
 			#[cfg(target_os = "windows")]
 			crate::volume::types::FileSystem::ReFS => {
@@ -146,15 +146,25 @@ async fn detect_linux_volumes(
 	let mut volumes = linux::detect_volumes(device_id, config).await?;
 
 	// Enhance with filesystem-specific capabilities
+	// For ZFS, fetch dataset info once and apply to all ZFS volumes
+	let zfs_volumes_exist = volumes
+		.iter()
+		.any(|v| matches!(v.file_system, crate::volume::types::FileSystem::ZFS));
+
+	if zfs_volumes_exist {
+		let zfs_output = fs::zfs::fetch_zfs_list_output().await.ok();
+		for volume in &mut volumes {
+			if matches!(volume.file_system, crate::volume::types::FileSystem::ZFS) {
+				if let Some(ref output) = zfs_output {
+					fs::zfs::enhance_volume_with_cached_output(volume, output);
+				}
+			}
+		}
+	}
+
 	for volume in &mut volumes {
-		match &volume.file_system {
-			crate::volume::types::FileSystem::Btrfs => {
-				fs::btrfs::enhance_volume_from_mount(volume).await?;
-			}
-			crate::volume::types::FileSystem::ZFS => {
-				fs::zfs::enhance_volume_from_mount(volume).await?;
-			}
-			_ => {}
+		if matches!(volume.file_system, crate::volume::types::FileSystem::Btrfs) {
+			fs::btrfs::enhance_volume_from_mount(volume).await?;
 		}
 	}
 

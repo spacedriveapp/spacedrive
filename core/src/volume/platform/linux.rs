@@ -104,6 +104,17 @@ fn parse_df_line(
 	let file_system = utils::parse_filesystem_type(filesystem_type);
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 
+	// Determine if volume should be user-visible
+	let is_user_visible = should_be_user_visible_linux(&mount_path, filesystem_type);
+
+	// Auto-track eligibility: only user-visible primary/user-data volumes
+	let auto_track_eligible = is_user_visible
+		&& matches!(
+			volume_type,
+			crate::volume::types::VolumeType::Primary
+				| crate::volume::types::VolumeType::UserData
+		);
+
 	// Generate stable fingerprint based on volume type
 	let fingerprint = match volume_type {
 		crate::volume::types::VolumeType::External => {
@@ -138,8 +149,41 @@ fn parse_df_line(
 	volume.available_space = available_bytes;
 	volume.is_read_only = false;
 	volume.hardware_id = Some(filesystem_device.to_string());
+	volume.is_user_visible = is_user_visible;
+	volume.auto_track_eligible = auto_track_eligible;
 
 	Ok(Some(volume))
+}
+
+/// Determine whether a Linux volume should be visible to the user in
+/// the default UI view.
+///
+/// We still track hidden volumes internally (fingerprints remain stable,
+/// locations can be added via path), but by default the user should only
+/// see their own data drives — not OS/system mounts, nested app volumes,
+/// or virtual filesystems.
+fn should_be_user_visible_linux(mount_point: &std::path::Path, filesystem_type: &str) -> bool {
+	if utils::is_virtual_filesystem(filesystem_type) {
+		return false;
+	}
+
+	if utils::is_system_mount_point(mount_point) {
+		debug!(
+			"VISIBILITY: Hiding system mount: {}",
+			mount_point.display()
+		);
+		return false;
+	}
+
+	if utils::is_nested_app_mount(mount_point) {
+		debug!(
+			"VISIBILITY: Hiding nested app mount: {}",
+			mount_point.display()
+		);
+		return false;
+	}
+
+	true
 }
 
 /// Classify a volume using the platform-specific classifier
@@ -271,6 +315,14 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	let disk_type = detect_disk_type_linux(&mount.device)?;
 	let volume_type = classify_volume(&mount_path, &file_system, &name);
 
+	let is_user_visible = should_be_user_visible_linux(&mount_path, &mount.filesystem_type);
+	let auto_track_eligible = is_user_visible
+		&& matches!(
+			volume_type,
+			crate::volume::types::VolumeType::Primary
+				| crate::volume::types::VolumeType::UserData
+		);
+
 	// Generate stable fingerprint based on volume type
 	let fingerprint = match volume_type {
 		crate::volume::types::VolumeType::External => {
@@ -305,6 +357,8 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	volume.available_space = mount.available_bytes;
 	volume.is_read_only = false;
 	volume.hardware_id = Some(mount.device);
+	volume.is_user_visible = is_user_visible;
+	volume.auto_track_eligible = auto_track_eligible;
 
 	Ok(volume)
 }

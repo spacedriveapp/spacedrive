@@ -39,6 +39,7 @@ mod m20260105_000001_add_volume_id_to_locations;
 mod m20260114_000001_fix_search_index_include_directories;
 mod m20260123_000001_remove_legacy_sync_columns;
 mod m20260125_000001_unique_user_metadata_tag;
+mod m20260417_000001_add_entries_sync_cursor_index;
 
 pub struct Migrator;
 
@@ -83,6 +84,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20260114_000001_fix_search_index_include_directories::Migration),
 			Box::new(m20260123_000001_remove_legacy_sync_columns::Migration),
 			Box::new(m20260125_000001_unique_user_metadata_tag::Migration),
+			Box::new(m20260417_000001_add_entries_sync_cursor_index::Migration),
 		]
 	}
 }

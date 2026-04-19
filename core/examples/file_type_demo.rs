@@ -3,7 +3,7 @@
 use sd_core::filetype::FileTypeRegistry;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Create registry with built-in types
 	let registry = FileTypeRegistry::new();
 

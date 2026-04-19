@@ -398,14 +398,11 @@ impl SyncService {
 								peer_sync.db(),
 							).await {
 								Ok(partners) if !partners.is_empty() => {
-									// Check if real-time sync is active (lock mechanism)
-									// If real-time broadcasts are happening, skip catch-up to prevent duplication
-									let realtime_active = peer_sync.is_realtime_active().await;
-									if realtime_active {
+									// If real-time broadcasts are happening, skip catch-up to prevent duplication.
+									// Falls through to sleep rather than `continue` to avoid busy-looping.
+									if peer_sync.is_realtime_active().await {
 										debug!("Skipping catch-up - real-time sync is active (lock mechanism)");
-										continue;
-									}
-
+									} else {
 									// Iterate each partner individually (FIX: was only checking partners[0])
 									for partner_id in partners {
 										// Query per-peer watermarks from sync.db
@@ -554,6 +551,7 @@ impl SyncService {
 										// Other peers will be caught up in subsequent loop iterations
 										break;
 									}
+									} // else !realtime_active
 								}
 								Ok(_) => {}
 								Err(e) => {

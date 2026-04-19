@@ -247,8 +247,13 @@ async fn alice_transitive_sync_scenario() {
 
 	// Initialize and start sync service with real networking
 	println!("Alice: Starting sync service...");
+	let networking = core
+		.services
+		.networking
+		.clone()
+		.expect("networking service required for sync");
 	library
-		.init_sync_service(device_id, core.services.networking.clone())
+		.init_sync_service(device_id, networking)
 		.await
 		.unwrap();
 	library.sync_service().unwrap().start().await.unwrap();
@@ -410,8 +415,13 @@ async fn bob_transitive_sync_scenario() {
 	}
 
 	println!("Bob: Starting sync service...");
+	let networking = core
+		.services
+		.networking
+		.clone()
+		.expect("networking service required for sync");
 	library
-		.init_sync_service(device_id, core.services.networking.clone())
+		.init_sync_service(device_id, networking)
 		.await
 		.unwrap();
 	library.sync_service().unwrap().start().await.unwrap();
@@ -645,8 +655,13 @@ async fn carol_transitive_sync_scenario() {
 	println!("Carol: Bob registered in library");
 
 	println!("Carol: Starting sync service...");
+	let networking = core
+		.services
+		.networking
+		.clone()
+		.expect("networking service required for sync");
 	library
-		.init_sync_service(device_id, core.services.networking.clone())
+		.init_sync_service(device_id, networking)
 		.await
 		.unwrap();
 	library.sync_service().unwrap().start().await.unwrap();

@@ -62,9 +62,108 @@ pub fn is_virtual_filesystem(filesystem: &str) -> bool {
 	let fs_lower = filesystem.to_lowercase();
 	matches!(
 		fs_lower.as_str(),
-		"devfs" | "sysfs" | "proc" | "tmpfs" | "ramfs" | "devtmpfs" | "overlay" | "fuse"
+		"devfs"
+			| "sysfs"
+			| "proc"
+			| "tmpfs"
+			| "ramfs"
+			| "devtmpfs"
+			| "overlay"
+			| "overlayfs"
+			| "fuse"
+			| "fusectl"
+			| "cgroup"
+			| "cgroup2"
+			| "squashfs"
+			| "efivarfs"
+			| "pstore"
+			| "bpf"
+			| "debugfs"
+			| "tracefs"
+			| "configfs"
+			| "securityfs"
+			| "autofs"
+			| "binfmt_misc"
+			| "mqueue"
+			| "hugetlbfs"
+			| "rpc_pipefs"
+			| "nsfs"
+			| "selinuxfs"
+			| "pipefs"
+			| "sockfs"
 	) || fs_lower.starts_with("map ")
 		|| fs_lower.contains("auto_")
+}
+
+/// Check if a Linux mount point is a known OS/system path that should be
+/// hidden from the user-visible volume list.
+///
+/// Covers the standard Linux filesystem hierarchy plus TrueNAS Scale's
+/// additional split-root datasets (it uses separate ZFS datasets for
+/// `/usr`, `/var`, `/etc`, etc. to support atomic updates).
+#[cfg(target_os = "linux")]
+pub fn is_system_mount_point(mount_point: &Path) -> bool {
+	let path_str = mount_point.to_string_lossy();
+
+	// Exact matches for system paths
+	matches!(
+		path_str.as_ref(),
+		"/" | "/usr"
+			| "/var"
+			| "/etc"
+			| "/opt"
+			| "/srv"
+			| "/root"
+			| "/boot"
+			| "/home"
+			| "/run"
+			| "/dev"
+			| "/proc"
+			| "/sys"
+			| "/tmp"
+			| "/audit"
+			| "/data"
+			| "/conf"
+			| "/mnt"
+			| "/lost+found"
+	) ||
+	// System subpaths
+	path_str.starts_with("/boot/")
+		|| path_str.starts_with("/sys/")
+		|| path_str.starts_with("/proc/")
+		|| path_str.starts_with("/dev/")
+		|| path_str.starts_with("/run/")
+		|| path_str.starts_with("/var/log")
+		|| path_str.starts_with("/var/db/")
+		|| path_str.starts_with("/var/lib/systemd")
+		|| path_str.starts_with("/var/local/")
+		|| path_str.starts_with("/var/cache/")
+}
+
+/// Check if a mount point looks like a nested app/container volume that
+/// shouldn't be exposed as a user-facing volume.
+///
+/// Catches Docker/Kubernetes layer mounts, snap packages, ZFS snapshot
+/// directories, and TrueNAS Scale's iX Apps (each app creates many
+/// nested ZFS datasets under `ix-applications/` — and the root of that
+/// hierarchy itself should also be hidden).
+#[cfg(target_os = "linux")]
+pub fn is_nested_app_mount(mount_point: &Path) -> bool {
+	let path_str = mount_point.to_string_lossy();
+
+	// Match root directories as well as anything under them
+	let is_under = |needle: &str| -> bool {
+		path_str.contains(&format!("/{needle}/")) || path_str.ends_with(&format!("/{needle}"))
+	};
+
+	is_under(".ix-apps")
+		|| is_under("ix-applications")
+		|| path_str.contains("/docker/overlay2/")
+		|| path_str.contains("/containerd/")
+		|| path_str.contains("/kubelet/")
+		|| path_str.contains("/snap/")
+		|| path_str.contains("/.snapshots/")
+		|| path_str.contains("/.zfs/snapshot/")
 }
 
 /// Parse filesystem type from string to FileSystem enum

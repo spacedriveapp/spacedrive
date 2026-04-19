@@ -102,6 +102,112 @@ pub async fn convert_fk_to_uuid(
 	Ok(())
 }
 
+/// Batch convert local integer FKs to UUIDs across multiple records.
+///
+/// Same per-record semantics as [`convert_fk_to_uuid`] but one DB round trip
+/// per FK type instead of one per (record × FK). Records whose target could
+/// not be resolved (missing target row, non-integer value) are reported by
+/// index — callers MUST drop those records rather than ship them. Silently
+/// leaving `local_field` in place would let the receiver's
+/// `map_sync_json_to_local` interpret the sender-local integer as
+/// already-resolved and write it straight into the receiver's DB, corrupting
+/// FKs across devices.
+///
+/// Successful records are mutated in place (`local_field` removed,
+/// `uuid_field` added). The indices of failed records are returned.
+pub async fn convert_fks_to_uuids_batch(
+	records: &mut [Value],
+	fk: &FKMapping,
+	db: &DatabaseConnection,
+) -> Result<HashSet<usize>> {
+	let mut failed: HashSet<usize> = HashSet::new();
+	if records.is_empty() {
+		return Ok(failed);
+	}
+
+	let uuid_field = fk.uuid_field_name();
+
+	// First pass: collect IDs and flag records that can't be resolved. An
+	// absent `local_field` is treated as failed (matches `convert_fk_to_uuid`
+	// semantics — only an explicit JSON `null` is a legitimate null FK).
+	let mut ids_to_lookup: HashSet<i32> = HashSet::new();
+	for (idx, json) in records.iter().enumerate() {
+		match json.get(fk.local_field) {
+			None => {
+				tracing::warn!(
+					fk_field = fk.local_field,
+					"FK field missing in sync payload; dropping record"
+				);
+				failed.insert(idx);
+			}
+			Some(v) if v.is_null() => { /* explicit null — treated as null below */ }
+			Some(v) => match v.as_i64() {
+				Some(id) => {
+					ids_to_lookup.insert(id as i32);
+				}
+				None => {
+					tracing::warn!(
+						fk_field = fk.local_field,
+						value = %v,
+						"FK field has non-integer value in sync payload; dropping record"
+					);
+					failed.insert(idx);
+				}
+			},
+		}
+	}
+
+	let id_to_uuid = if ids_to_lookup.is_empty() {
+		HashMap::new()
+	} else {
+		batch_lookup_uuids_for_local_ids(fk.target_table, ids_to_lookup, db).await?
+	};
+
+	for (idx, json) in records.iter_mut().enumerate() {
+		if failed.contains(&idx) {
+			continue;
+		}
+
+		let local_field_value = json.get(fk.local_field).cloned();
+
+		match local_field_value {
+			None => {
+				// First pass already flagged this as failed; nothing to do.
+				continue;
+			}
+			Some(v) if v.is_null() => {
+				json[&uuid_field] = Value::Null;
+				if let Some(obj) = json.as_object_mut() {
+					obj.remove(fk.local_field);
+				}
+			}
+			Some(v) => {
+				// Unwrap is safe: first pass validated i64 or flagged as failed.
+				let id = v.as_i64().expect("validated in first pass") as i32;
+				match id_to_uuid.get(&id) {
+					Some(uuid) => {
+						json[&uuid_field] = json!(uuid.to_string());
+						if let Some(obj) = json.as_object_mut() {
+							obj.remove(fk.local_field);
+						}
+					}
+					None => {
+						tracing::warn!(
+							fk_field = fk.local_field,
+							target_table = fk.target_table,
+							id = id,
+							"FK target not found during batch conversion; dropping record"
+						);
+						failed.insert(idx);
+					}
+				}
+			}
+		}
+	}
+
+	Ok(failed)
+}
+
 /// Look up UUID for a local integer ID via the registry
 async fn lookup_uuid_for_local_id(
 	table: &str,
