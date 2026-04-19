@@ -260,13 +260,11 @@ mod tests {
 
 	#[test]
 	fn test_should_refresh_when_near_expiry() {
-		// Expires in 60s — well inside the 5 minute refresh window.
 		assert!(should_refresh(&sample_oauth(60)));
 	}
 
 	#[test]
 	fn test_should_not_refresh_when_fresh() {
-		// Expires in an hour — outside the window.
 		assert!(!should_refresh(&sample_oauth(3600)));
 	}
 

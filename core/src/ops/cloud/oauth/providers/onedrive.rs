@@ -124,15 +124,13 @@ impl OauthProvider for OneDriveProvider {
 		state: &str,
 		pkce_challenge: &str,
 	) -> String {
-		// `Url::parse_with_params` handles percent-encoding for every value —
-		// critical for `redirect_uri`, `scope`, and `state`.
+		// `query_pairs_mut` percent-encodes every value, which matters for
+		// `redirect_uri`, `scope`, and `state`.
 		let mut url = match Url::parse(&self.auth_url) {
 			Ok(u) => u,
 			Err(e) => {
-				// `auth_url` is a hard-coded constant in production; a parse
-				// error indicates a test misconfiguration. Return the raw
-				// string so the caller surfaces a meaningful error instead of
-				// panicking on a URL that simply will not resolve.
+				// `auth_url` is a compile-time constant in production, so a
+				// parse error here only happens under test misconfiguration.
 				tracing::error!(error = %e, auth_url = %self.auth_url, "onedrive auth_url invalid");
 				return self.auth_url.clone();
 			}

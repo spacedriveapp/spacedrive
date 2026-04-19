@@ -93,9 +93,8 @@ pub async fn run_cloud_delta_pass(
 		}
 	};
 
-	// First-ever sync for this volume — seed a baseline token and let the
-	// caller run its normal full scan. Any state row that might pre-exist
-	// from a prior failed pass will be overwritten by `upsert` below.
+	// No prior token: seed a baseline and let the caller run its normal
+	// full scan. `upsert` below tolerates a stale row from a prior failed pass.
 	let existing_token = state.as_ref().and_then(|s| s.change_token.clone());
 	if existing_token.is_none() {
 		tracing::info!(
@@ -108,8 +107,7 @@ pub async fn run_cloud_delta_pass(
 			Err(e) => return classify_error(volume_id, provider_id, &repo, e).await,
 		};
 
-		// Use `upsert` to avoid a race when two concurrent passes both see
-		// `None` — the second one overwrites safely.
+		// `upsert` makes concurrent passes that both see `None` converge safely.
 		let mut row = super::repository::CloudSyncState::new(volume_id, provider_id.to_string());
 		row.change_token = Some(baseline.0.clone());
 		if let Err(e) = repo.upsert(row).await {
@@ -257,13 +255,8 @@ async fn classify_error(
 				provider = provider_id,
 				"cloud delta token invalidated — clearing for next pass",
 			);
-			// Clearing the token is what triggers a reseed on the next pass.
-			// Using `upsert` with a `None` change_token would drop unrelated
-			// fields, so read-modify-write via the repo's token setter is
-			// safer — but the repository exposes only a non-null setter.
-			// Instead, reseed with a fresh baseline by deleting the token
-			// column: we emulate that by upserting a new row that preserves
-			// provider but clears the token and timestamps.
+			// Read-modify-write keeps unrelated fields; the setter only accepts
+			// non-null tokens. Cleared token + last_full_sync_at triggers a reseed.
 			if let Ok(Some(mut existing)) = repo.get(volume_id).await {
 				existing.change_token = None;
 				existing.last_full_sync_at = None;
@@ -337,14 +330,12 @@ async fn classify_error(
 /// 3600s cap. Returning `u64` lets callers hand the value directly to
 /// `tokio::time::sleep`.
 pub fn compute_backoff_secs(retry_after_secs: Option<u64>, consecutive_failures: i32) -> u64 {
-	// Exponential base-2 backoff capped at 2^12 = 4096s, which already
-	// exceeds the 3600s ceiling applied below. Using plain `<<` with the
-	// clamp keeps the math intentional and avoids an unstable API.
+	// Clamp the exponent to 12 so the shift stays in range; the 3600s cap
+	// below bounds the result regardless.
 	let exp = consecutive_failures.clamp(0, 12) as u32;
 	let exponential: u64 = 1u64 << exp;
-	// When the provider gave us a specific retry delay, the plan asks us to
-	// take the minimum with the exponential backoff so we never keep hammering
-	// a quota that is actively denying us.
+	// Take min with Retry-After so we honour the provider's quota signal
+	// instead of hammering past it with exponential.
 	let combined = match retry_after_secs {
 		Some(r) => r.min(exponential),
 		None => exponential,

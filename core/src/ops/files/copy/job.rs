@@ -1032,15 +1032,12 @@ impl FileCopyJob {
 		}
 	}
 
-	/// Create a rename operation.
+	/// Create a rename operation: a move to the source's sibling with `new_name`.
 	///
-	/// Rename is expressed as a move to the source's sibling with `new_name`.
-	/// For cloud sources we compute the renamed path entirely client-side; no
-	/// network call happens here because the actual rename (or copy+delete
-	/// fallback for providers without server-side rename) is executed later
-	/// by the move job's strategy layer. Content and sidecar paths have no
-	/// meaningful filename to rewrite, so they fall back to the source path
-	/// unchanged and validation upstream is expected to reject them.
+	/// Destination is computed client-side only; the real rename (or copy+delete
+	/// fallback for providers without server-side rename) runs later in the
+	/// move job's strategy layer. Content/sidecar paths have no filename to
+	/// rewrite, so they echo the source and rely on upstream validation to reject.
 	pub fn new_rename(source: SdPath, new_name: String) -> Self {
 		let destination = rename_destination(&source, &new_name);
 
@@ -1475,9 +1472,8 @@ impl MoveJob {
 		}
 	}
 
-	/// Create a rename operation. See [`FileCopyJob::new_rename`] for the
-	/// full rationale; this version returns a [`MoveJob`] for the older
-	/// move-job entry point while sharing the same destination computation.
+	/// `MoveJob` variant of rename. Shares [`rename_destination`] with
+	/// [`FileCopyJob::new_rename`]; kept for the older move-job entry point.
 	pub fn rename(source: SdPath, new_name: String) -> Self {
 		let destination = rename_destination(&source, &new_name);
 
@@ -1489,15 +1485,12 @@ impl MoveJob {
 	}
 }
 
-/// Compute the destination `SdPath` for a rename operation.
+/// Compute the destination `SdPath` for a rename. Pure path rewrite, no I/O.
 ///
-/// This is a pure path rewrite, not an I/O call. For Cloud sources we splice
-/// `new_name` into the last segment of the cloud-native path so the rest of
-/// the job pipeline can treat the result like any other Cloud destination.
-/// Content and Sidecar paths cannot be renamed at the file-system level, so
-/// we return the source unchanged and rely on upstream validation
-/// (`FileRenameAction::validate`) to reject those variants before they reach
-/// here — keeping this function total and panic-free.
+/// Cloud sources splice `new_name` into the last path segment. Content and
+/// Sidecar variants have no filename to rewrite, so they echo the source and
+/// rely on `FileRenameAction::validate` to reject them — keeping this
+/// function total and panic-free.
 fn rename_destination(source: &SdPath, new_name: &str) -> SdPath {
 	match source {
 		SdPath::Physical { device_slug, path } => SdPath::Physical {
@@ -1509,8 +1502,8 @@ fn rename_destination(source: &SdPath, new_name: &str) -> SdPath {
 			identifier,
 			path,
 		} => {
-			// Strip any trailing slash so splitting doesn't yield an empty tail
-			// for directory-style paths ("photos/2024/" -> "photos/2024/").
+			// Trim trailing slash so `rfind('/')` sees a real last segment on
+			// directory-style paths like "photos/2024/".
 			let trimmed = path.trim_end_matches('/');
 			let new_path = match trimmed.rfind('/') {
 				Some(idx) => format!("{}/{}", &trimmed[..idx], new_name),
@@ -1748,11 +1741,8 @@ mod tests {
 		assert!(!meta.is_cross_device);
 	}
 
-	/// Regression: the rename constructors used to panic for any non-Physical
-	/// source variant. The rewrite in Set 2 replaces those panics with a
-	/// total function that produces a plain path rewrite for Cloud sources
-	/// and a source-echo for unsupported variants (rejected earlier in
-	/// validation). Here we pin that behaviour to prevent regressions.
+	/// Regression: rename must produce a plain path rewrite for Cloud sources
+	/// (earlier implementations panicked on any non-Physical variant).
 	#[test]
 	fn test_rename_destination_cloud_replaces_last_segment() {
 		use crate::volume::backend::CloudServiceType;

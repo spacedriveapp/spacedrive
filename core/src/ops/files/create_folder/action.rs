@@ -118,10 +118,8 @@ impl LibraryAction for CreateFolderAction {
 				identifier,
 				path,
 			} => {
-				// Resolve the CloudBackend via the tracked volume that owns this
-				// (service, identifier) pair. The backend was wired up when the
-				// volume was added or rehydrated from the database, so there is
-				// no need to re-authenticate or rebuild the operator here.
+				// Reuse the already-authenticated CloudBackend from the tracked
+				// volume; no need to rebuild the operator or re-authenticate.
 				let volume = context
 					.volume_manager
 					.find_cloud_volume(*service, identifier)
@@ -229,12 +227,9 @@ mod tests {
 		assert_eq!(action.items.len(), 2);
 	}
 
-	/// Regression: the Physical branch of `execute` must keep using
-	/// [`LocalBackend::create_directory`] after the Cloud branch was
-	/// reworked in Set 2. Building a full `CoreContext` is heavier than
-	/// this test needs, so we exercise `LocalBackend::create_directory`
-	/// directly, mirroring the exact call the Physical branch makes after
-	/// resolving the parent as the backend root.
+	/// Regression: the Physical branch must keep using
+	/// [`LocalBackend::create_directory`] after the Cloud branch rework.
+	/// Exercises the backend directly to avoid the `CoreContext` setup cost.
 	#[tokio::test]
 	async fn test_create_folder_local_still_works() {
 		let parent = std::env::temp_dir().join(format!(

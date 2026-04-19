@@ -43,11 +43,8 @@ const DEFAULT_RETRY_AFTER_SECS: u64 = 60;
 pub struct OneDriveChangeDetector {
 	graph_base_url: String,
 	http: reqwest::Client,
-	/// Shared access-token cell. Read through `access_token.read().await` on
-	/// every request so that the OAuth refresh task can rotate the underlying
-	/// token without recreating the detector. In the MVP the indexer seeds it
-	/// from `cloud_credentials` immediately before each pass; hot-swap
-	/// integration with the refresh task tracks as
+	/// Shared access-token cell so the OAuth refresh task can rotate the
+	/// token without recreating the detector. See
 	/// `TODO(cloud-mvp): hot-swap CloudBackend on token refresh` in
 	/// `crate::ops::cloud::oauth::refresh`.
 	access_token: Arc<RwLock<String>>,
@@ -252,11 +249,9 @@ struct ParentReference {
 	path: Option<String>,
 }
 
+/// Presence of this facet in the JSON is enough; we do not consume its fields.
 #[derive(Debug, Deserialize)]
-struct FolderFacet {
-	// `folder` facet presence is sufficient; the `childCount` field is not
-	// consumed here.
-}
+struct FolderFacet {}
 
 #[derive(Debug, Deserialize)]
 struct FileFacet {}
@@ -310,13 +305,11 @@ fn map_drive_item(item: DriveItem) -> Option<ChangeEntry> {
 	// folders.
 	let size = if is_folder { None } else { item.size };
 
+	// Rename / Added vs Modified is resolved by the indexer via
+	// `provider_file_id` lookup, so non-deleted items collapse to Modified.
 	let kind = if is_deleted {
 		ChangeKind::Deleted
 	} else if item.file.is_some() {
-		// Rename detection requires knowing the previous path. The MVP does
-		// not yet carry that info from the entry cache into the detector, so
-		// non-deleted updates collapse to `Modified`. Added-vs-modified is
-		// the indexer's job (it looks up by `provider_file_id`).
 		ChangeKind::Modified
 	} else if is_folder {
 		ChangeKind::Modified
@@ -342,9 +335,8 @@ fn map_drive_item(item: DriveItem) -> Option<ChangeEntry> {
 /// `"/Documents/Reports"` so the indexer can join with a name to produce a
 /// consistent full path.
 fn normalize_parent_path(path: &str) -> String {
-	// The prefix always ends at `:` whether it is `/drive/root:` or a
-	// drive-specific variant — splitting at the first colon isolates the
-	// trailing path.
+	// The prefix always ends at `:`, whether it's `/drive/root:` or a
+	// drive-specific variant; splitting at the first colon isolates the tail.
 	if let Some(idx) = path.find(':') {
 		let tail = &path[idx + 1..];
 		if tail.is_empty() {

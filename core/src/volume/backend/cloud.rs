@@ -26,14 +26,10 @@ use crate::volume::error::VolumeError;
 
 /// Convert OpenDAL's `last_modified` value into a `SystemTime`.
 ///
-/// OpenDAL 0.55 switched its metadata timestamps from `chrono::DateTime<Utc>`
-/// to an `opendal::raw::Timestamp` newtype wrapping `jiff::Timestamp`. Going
-/// through the inner jiff value's absolute millisecond offset keeps the
-/// arithmetic platform-agnostic and contains the timestamp type to this
-/// single helper so the rest of Spacedrive continues to traffic in
-/// `SystemTime` without importing jiff at every call site. Negative
-/// timestamps (pre-1970) are coerced to the epoch, matching how Spacedrive
-/// already treats "unknown modified time" for legacy filesystems.
+/// OpenDAL 0.55 uses `opendal::raw::Timestamp` (a `jiff::Timestamp` newtype).
+/// Isolating the conversion here keeps jiff out of every call site, and
+/// coercing pre-1970 values to the epoch matches Spacedrive's existing
+/// "unknown modified time" convention.
 fn jiff_to_system_time(ts: opendal::raw::Timestamp) -> SystemTime {
 	let millis = ts.into_inner().as_millisecond();
 	if millis >= 0 {
@@ -63,35 +59,21 @@ fn apply_default_layers(op: Operator) -> Operator {
 		.layer(RetryLayer::default().with_max_times(3).with_jitter())
 }
 
-/// Cloud storage backend powered by OpenDAL
+/// Cloud storage backend powered by OpenDAL.
 ///
-/// Provides unified access to S3, Google Drive, Dropbox, OneDrive, and 40+ other
-/// cloud services. Uses OpenDAL's Operator abstraction for consistent I/O operations.
+/// Unifies access to S3, Google Drive, Dropbox, OneDrive, and the other
+/// services OpenDAL supports so the rest of Spacedrive can treat every
+/// provider through the same [`VolumeBackend`] trait.
 #[derive(Debug, Clone)]
 pub struct CloudBackend {
-	/// OpenDAL operator for cloud I/O
 	operator: opendal::Operator,
-
-	/// Cloud service type for metadata
 	service_type: CloudServiceType,
-
-	/// Root path within the cloud storage (e.g., bucket prefix)
+	/// Root prefix within the provider (e.g. bucket prefix, OneDrive folder).
 	root: PathBuf,
 }
 
 impl CloudBackend {
-	/// Create a new cloud backend for S3
-	///
-	/// # Example
-	/// ```ignore
-	/// let backend = CloudBackend::new_s3(
-	///     "my-bucket",
-	///     "us-west-2",
-	///     "access_key_id",
-	///     "secret_access_key",
-	///     None, // Custom endpoint (None for AWS)
-	/// ).await?;
-	/// ```
+	/// Create an S3-compatible backend (AWS, Wasabi, DigitalOcean Spaces, custom endpoint).
 	pub async fn new_s3(
 		bucket: impl AsRef<str>,
 		region: impl AsRef<str>,
@@ -196,11 +178,7 @@ impl CloudBackend {
 		})
 	}
 
-	/// Create a new cloud backend for Dropbox
-	///
-	/// Uses OAuth 2.0 refresh token for long-term access. OpenDAL automatically
-	/// refreshes the access token when it expires, ensuring continuous operation
-	/// without manual intervention.
+	/// Create a Dropbox backend. OpenDAL auto-refreshes the access token from the refresh token.
 	pub async fn new_dropbox(
 		refresh_token: impl AsRef<str>,
 		client_id: impl AsRef<str>,
@@ -229,7 +207,7 @@ impl CloudBackend {
 		})
 	}
 
-	/// Create a new cloud backend for Azure Blob Storage
+	/// Create an Azure Blob Storage backend.
 	pub async fn new_azure_blob(
 		container: impl AsRef<str>,
 		account_name: impl AsRef<str>,
@@ -258,7 +236,7 @@ impl CloudBackend {
 		})
 	}
 
-	/// Create a new cloud backend for Google Cloud Storage
+	/// Create a Google Cloud Storage backend.
 	pub async fn new_google_cloud_storage(
 		bucket: impl AsRef<str>,
 		credential: impl AsRef<str>,
@@ -315,24 +293,15 @@ impl CloudBackend {
 			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))
 	}
 
-	/// Service-type scheme exposed for diagnostics and error reporting.
-	///
-	/// Callers outside this module occasionally need to know which provider
-	/// they are talking to (for structured log fields, error messages, or
-	/// capability gates) without pulling in the full [`BackendFeatures`]
-	/// table.
+	/// Provider scheme string for log fields and error messages.
 	pub fn service_scheme(&self) -> &'static str {
 		self.service_type.scheme()
 	}
 
-	/// Create a cloud backend from a pre-configured OpenDAL operator.
+	/// Wrap a pre-built operator with Spacedrive's default resilience layers.
 	///
-	/// The caller's operator is wrapped with Spacedrive's default resilience
-	/// layer stack so every code path that constructs a [`CloudBackend`]
-	/// benefits from the same retry, timeout, and tracing behaviour. If a
-	/// caller intentionally wants raw access (e.g. to stack extra layers of
-	/// its own), it should prepend those layers to its builder before
-	/// calling this and accept that the stock stack is still applied on top.
+	/// Every construction path flows through here so retry, timeout, and
+	/// tracing behaviour stay consistent across providers.
 	pub fn from_operator(operator: Operator, service_type: CloudServiceType) -> Self {
 		Self {
 			operator: apply_default_layers(operator),
@@ -362,9 +331,8 @@ impl CloudBackend {
 }
 
 impl CloudBackend {
-	/// Convert path to cloud storage path (removes leading /)
+	/// Strip the leading `/` so the result is a provider-native key.
 	fn to_cloud_path(&self, path: &Path) -> String {
-		// Cloud storage paths should not have leading /
 		path.to_str()
 			.unwrap_or("")
 			.trim_start_matches('/')
@@ -421,15 +389,12 @@ impl VolumeBackend for CloudBackend {
 		debug!("CloudBackend::read_dir: {}", cloud_path);
 
 		let mut entries = Vec::new();
-		let lister = self
+		let mut lister = self
 			.operator
 			.lister(&cloud_path)
 			.await
 			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
-		// Collect entries from async iterator
-
-		let mut lister = lister;
 		while let Some(entry_result) = lister.try_next().await.transpose() {
 			let entry = entry_result
 				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
@@ -517,7 +482,6 @@ impl VolumeBackend for CloudBackend {
 		let cloud_path = self.to_cloud_path(path);
 		debug!("CloudBackend::delete: {}", cloud_path);
 
-		// Check if it's a directory
 		let metadata = self
 			.operator
 			.stat(&cloud_path)
@@ -525,13 +489,11 @@ impl VolumeBackend for CloudBackend {
 			.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 
 		if metadata.is_dir() {
-			// Delete directory recursively
 			self.operator
 				.remove_all(&cloud_path)
 				.await
 				.map_err(|e| VolumeError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?;
 		} else {
-			// Delete file
 			self.operator
 				.delete(&cloud_path)
 				.await
@@ -548,13 +510,12 @@ impl VolumeBackend for CloudBackend {
 			cloud_path, recursive
 		);
 
-		// Cloud storage directories are implicit, created by writing a marker object
-		// Ensure path ends with / to indicate directory
+		// OpenDAL treats a trailing `/` as a directory marker; without it, some
+		// backends (S3, GCS) would create a zero-byte file at `cloud_path` instead.
 		if !cloud_path.ends_with('/') {
 			cloud_path.push('/');
 		}
 
-		// OpenDAL's create_dir creates the directory (some backends need explicit creation)
 		self.operator
 			.create_dir(&cloud_path)
 			.await
@@ -888,16 +849,12 @@ mod tests {
 		}
 	}
 
-	// Note: These tests require actual cloud credentials and are disabled by default
-	// They serve as examples of how to use the CloudBackend
-
+	/// Live S3 smoke test. `#[ignore]` by default; run with
+	/// `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET`, and
+	/// `AWS_REGION` set to exercise the real provider path.
 	#[tokio::test]
 	#[ignore]
 	async fn test_cloud_backend_s3() {
-		// This test requires actual S3 credentials
-		// Set these environment variables to run:
-		// AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_BUCKET, AWS_REGION
-
 		let bucket = std::env::var("AWS_BUCKET").unwrap();
 		let region = std::env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".to_string());
 		let access_key = std::env::var("AWS_ACCESS_KEY_ID").unwrap();
@@ -907,23 +864,19 @@ mod tests {
 			.await
 			.unwrap();
 
-		// Test write
 		let test_data = Bytes::from("Hello, cloud!");
 		backend
 			.write(Path::new("test.txt"), test_data.clone())
 			.await
 			.unwrap();
 
-		// Test read
 		let read_data = backend.read(Path::new("test.txt")).await.unwrap();
 		assert_eq!(test_data, read_data);
 
-		// Test metadata
 		let metadata = backend.metadata(Path::new("test.txt")).await.unwrap();
 		assert_eq!(metadata.size, test_data.len() as u64);
 		assert_eq!(metadata.kind, EntryKind::File);
 
-		// Test exists
 		assert!(backend.exists(Path::new("test.txt")).await.unwrap());
 	}
 }

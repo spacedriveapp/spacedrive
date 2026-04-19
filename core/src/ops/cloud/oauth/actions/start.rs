@@ -34,9 +34,7 @@ pub struct StartInput {
 	/// Provider id matching [`crate::ops::cloud::oauth::OauthProvider::id`]
 	/// (e.g. `"onedrive"`, `"gdrive"`).
 	pub provider: String,
-	/// User's OAuth client id.
 	pub client_id: String,
-	/// User's OAuth client secret.
 	pub client_secret: String,
 }
 

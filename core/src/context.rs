@@ -48,12 +48,10 @@ pub struct CoreContext {
 	pub data_dir: PathBuf,
 	/// In-memory store of in-progress cloud OAuth flows (BYO browser sign-in).
 	pub oauth_flows: OauthFlowStore,
-	/// Registry of known OAuth providers (populated at startup; empty pre-Set 4).
+	/// Registered OAuth providers; populated at core startup.
 	pub oauth_providers: OauthProviderRegistry,
-	/// Repository that backs the indexer's delta-token bookkeeping for cloud
-	/// volumes. Wrapped in an `RwLock<Option<..>>` so the core can install a
-	/// library-scoped implementation lazily once a library has loaded; pre-
-	/// library startup this is `None` and the indexer skips the delta path.
+	/// Delta-token bookkeeping for cloud volumes. `None` until a library loads;
+	/// the indexer skips the delta path while it is absent.
 	pub cloud_sync_state: Arc<RwLock<Option<Arc<dyn CloudSyncStateRepository>>>>,
 }
 
@@ -93,16 +91,12 @@ impl CoreContext {
 		}
 	}
 
-	/// Install or replace the cloud sync state repository. Called once per
-	/// library load so the indexer can route delta bookkeeping through the
-	/// library's own SQLite file.
+	/// Install the library-scoped cloud sync state repository.
 	pub async fn set_cloud_sync_state(&self, repo: Arc<dyn CloudSyncStateRepository>) {
 		*self.cloud_sync_state.write().await = Some(repo);
 	}
 
-	/// Borrow the installed repository, if any. Returns `None` before a
-	/// library is loaded or when the installation failed silently; callers
-	/// should treat that as "skip delta pass".
+	/// `None` when no library is loaded; callers should skip the delta pass.
 	pub async fn get_cloud_sync_state(&self) -> Option<Arc<dyn CloudSyncStateRepository>> {
 		self.cloud_sync_state.read().await.clone()
 	}

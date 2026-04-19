@@ -35,13 +35,10 @@ impl ChangeToken {
 /// pagination).
 #[derive(Debug, Clone)]
 pub struct ChangesPage {
-	/// Change records described by the provider on this page.
 	pub entries: Vec<ChangeEntry>,
-	/// Present when more pages remain in this scan. Drive the next fetch with
-	/// this token and keep looping until it is `None`.
+	/// Intra-scan continuation; keep fetching until it is `None`.
 	pub next_token: Option<ChangeToken>,
-	/// Present when the provider reports "no more changes right now". Persist
-	/// as the baseline for the next incremental pass.
+	/// End-of-scan baseline; persist as the starting point for the next pass.
 	pub end_token: Option<ChangeToken>,
 }
 
@@ -52,23 +49,17 @@ pub struct ChangesPage {
 /// consistent slash-rooted path across vendors.
 #[derive(Debug, Clone)]
 pub struct ChangeEntry {
-	/// Provider-native stable id for the item. Persisted to
-	/// `entries.provider_file_id`, which is what makes rename/move tracking
-	/// loss-free.
+	/// Provider-native stable id. Persisted to `entries.provider_file_id`
+	/// so rename/move tracking survives path changes.
 	pub provider_file_id: String,
 	/// Full cloud path from the drive root, slash-separated.
 	pub path: String,
-	/// Classification — `Added`, `Modified`, `Deleted`, or `Renamed`.
 	pub kind: ChangeKind,
-	/// Provider-supplied etag. Opaque; the indexer treats it as a validator
-	/// only, never as a content hash.
+	/// Opaque validator; never treated as a content hash.
 	pub etag: Option<String>,
-	/// Last modification timestamp from the provider.
 	pub last_modified: Option<DateTime<Utc>>,
-	/// File size in bytes. Absent for folders.
+	/// Absent for folders.
 	pub size: Option<u64>,
-	/// True for folder-typed items; used by the indexer to decide whether to
-	/// recurse into the entry on initial sync.
 	pub is_folder: bool,
 }
 
@@ -79,16 +70,14 @@ pub struct ChangeEntry {
 /// indexer can treat renames specially once that history is available.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ChangeKind {
-	/// Entry appeared since the prior token.
 	Added,
-	/// Entry existed before and its content or metadata changed.
 	Modified,
-	/// Entry removed from the drive.
 	Deleted,
-	/// Entry moved or renamed. `from_path` carries the previous path when the
-	/// provider surfaces it; otherwise the indexer must rely on
-	/// `provider_file_id` matching to reconcile.
-	Renamed { from_path: Option<String> },
+	/// `from_path` is `None` when the provider omits the previous path;
+	/// the indexer then reconciles via `provider_file_id` instead.
+	Renamed {
+		from_path: Option<String>,
+	},
 }
 
 /// Errors surfaced by a [`ChangeDetector`].
@@ -99,37 +88,26 @@ pub enum ChangeKind {
 /// detector has inspected a response.
 #[derive(thiserror::Error, Debug)]
 pub enum ChangeDetectionError {
-	/// The provider told us the stored token is too old (HTTP 410
-	/// `resyncRequired` on OneDrive). The caller must drop the token and run
-	/// a full rescan.
+	/// Stored token is too old (OneDrive HTTP 410 `resyncRequired`).
+	/// Caller must drop the token and run a full rescan.
 	#[error("delta token invalidated (410 resyncRequired) — full resync required")]
 	Invalidated,
 
-	/// Provider rate-limited us. `retry_after_secs` comes from the
-	/// `Retry-After` header when present; otherwise the detector picks a
-	/// conservative default.
+	/// `retry_after_secs` comes from `Retry-After` when present; detectors
+	/// fall back to a conservative default otherwise.
 	#[error("rate limited (retry after {retry_after_secs}s)")]
-	RateLimited {
-		/// Seconds to wait before the next attempt.
-		retry_after_secs: u64,
-	},
+	RateLimited { retry_after_secs: u64 },
 
-	/// Bearer token rejected. The caller should not retry with the same
-	/// credentials; the scheduler surfaces this to the refresh task or to the
-	/// UI for manual re-auth.
+	/// Bearer token rejected; do not retry with the same credentials.
 	#[error("authentication failed: {0}")]
 	Auth(String),
 
-	/// Network-level failure.
 	#[error("transport: {0}")]
 	Transport(#[from] reqwest::Error),
 
-	/// Response body did not match the expected schema.
 	#[error("deserialization: {0}")]
 	Parse(#[from] serde_json::Error),
 
-	/// Any other unexpected state — malformed URLs, missing fields, logic
-	/// errors. Carries a description so logs can pinpoint the call site.
 	#[error("{0}")]
 	Other(String),
 }
@@ -142,26 +120,17 @@ pub enum ChangeDetectionError {
 /// pages) so it is safe to drop and recreate on every pass.
 #[async_trait]
 pub trait ChangeDetector: Send + Sync {
-	/// Stable provider id (matches `OauthProvider::id` where applicable).
-	///
-	/// Used by the indexer to label log lines and to match the detector
-	/// against the `cloud_sync_state.provider` column.
+	/// Stable provider id, matches `OauthProvider::id` and the
+	/// `cloud_sync_state.provider` column.
 	fn provider_id(&self) -> &'static str;
 
-	/// Request a fresh baseline token, typically by draining the provider's
-	/// delta endpoint with `token=latest` until a `@odata.deltaLink` appears.
-	///
-	/// Returned token must be safe to hand directly to
-	/// [`ChangeDetector::changes_since`] on the next call.
+	/// Fetch a fresh baseline token (typically by draining the provider's
+	/// delta endpoint with `token=latest` until `@odata.deltaLink` appears).
 	async fn initial_token(&self) -> Result<ChangeToken, ChangeDetectionError>;
 
-	/// Fetch one page of changes since the given token.
-	///
-	/// The caller loops on this method: it drives `next_token` until the
-	/// detector returns `end_token` instead. Persisting after each page is
-	/// what makes an interrupted scan resumable — see
-	/// `.investigations/cloud-drives/research/03-change-detection-and-sync.md`
-	/// §6.
+	/// Fetch one page of changes since `token`. Callers loop on
+	/// `next_token` and stop when `end_token` is returned; persisting after
+	/// each page is what makes the scan resumable.
 	async fn changes_since(&self, token: &ChangeToken)
 		-> Result<ChangesPage, ChangeDetectionError>;
 }

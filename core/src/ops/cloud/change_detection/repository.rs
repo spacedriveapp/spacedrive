@@ -21,24 +21,18 @@ use thiserror::Error;
 /// type alias so callers outside the repository do not depend on SeaORM.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloudSyncState {
-	/// Volume that owns this sync cursor.
 	pub volume_id: i32,
-	/// Provider id (matches `ChangeDetector::provider_id`, e.g. `"onedrive"`).
+	/// Provider id, matches `ChangeDetector::provider_id` (e.g. `"onedrive"`).
 	pub provider: String,
 	/// Latest baseline token. `None` until the first successful pass.
 	pub change_token: Option<String>,
-	/// When the last full re-listing completed. Populated when we adopt a
-	/// fresh token; flips back to `None` is not meaningful because the row is
-	/// deleted with the volume.
+	/// When the last full re-listing completed.
 	pub last_full_sync_at: Option<DateTime<Utc>>,
-	/// When the last incremental delta pass completed.
 	pub last_incremental_at: Option<DateTime<Utc>>,
-	/// Back-to-back failure count; reset on first success. The scheduler uses
-	/// this to decide the next retry delay.
+	/// Back-to-back failure count; reset on first success. Drives the
+	/// scheduler's retry delay.
 	pub consecutive_failures: i32,
-	/// Row creation time; set once by SQLite's `CURRENT_TIMESTAMP` default.
 	pub created_at: DateTime<Utc>,
-	/// Last time the row was written. Updated on every repository mutation.
 	pub updated_at: DateTime<Utc>,
 }
 
@@ -85,7 +79,6 @@ impl From<cloud_sync_state::Model> for CloudSyncState {
 /// [`super::types::ChangeDetectionError`] and should not bubble up here.
 #[derive(Error, Debug)]
 pub enum CloudSyncStateError {
-	/// Underlying SeaORM / SQLite failure.
 	#[error("database: {0}")]
 	Database(#[from] sea_orm::DbErr),
 }

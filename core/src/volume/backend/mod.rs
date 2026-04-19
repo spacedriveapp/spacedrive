@@ -23,56 +23,44 @@ pub mod local;
 pub use cloud::CloudBackend;
 pub use local::LocalBackend;
 
-/// Minimal I/O backend trait for volume operations
+/// Minimal I/O backend trait shared by local and cloud volumes.
 ///
-/// This trait provides only low-level filesystem operations. All domain logic
-/// (Entry creation, content identification, etc.) is handled by existing
-/// Spacedrive infrastructure that consumes these raw operations.
+/// Only low-level filesystem operations live here; domain logic (Entry
+/// creation, content identification, indexing) runs on top of these raw
+/// calls and is not part of this trait.
 #[async_trait]
 pub trait VolumeBackend: Send + Sync + Debug {
-	/// Read entire file content
 	async fn read(&self, path: &Path) -> Result<Bytes, VolumeError>;
 
-	/// Read specific byte range from file (critical for cloud efficiency)
+	/// Read a byte range. Cloud backends rely on this to avoid downloading
+	/// full objects for previews, thumbnails, and resumable transfers.
 	async fn read_range(&self, path: &Path, range: Range<u64>) -> Result<Bytes, VolumeError>;
 
-	/// Write file content
 	async fn write(&self, path: &Path, data: Bytes) -> Result<(), VolumeError>;
 
-	/// List directory entries (returns minimal metadata)
 	async fn read_dir(&self, path: &Path) -> Result<Vec<RawDirEntry>, VolumeError>;
 
-	/// Get file/directory metadata
 	async fn metadata(&self, path: &Path) -> Result<RawMetadata, VolumeError>;
 
-	/// Check if path exists (optimized when possible)
 	async fn exists(&self, path: &Path) -> Result<bool, VolumeError>;
 
-	/// Delete file or directory
 	async fn delete(&self, path: &Path) -> Result<(), VolumeError>;
 
-	/// Create a directory at the specified path
 	async fn create_directory(&self, path: &Path, recursive: bool) -> Result<(), VolumeError>;
 
-	/// Backend identification (used to optimize operations)
+	/// Fast-path flag for callers that want to skip cloud-specific plumbing.
 	fn is_local(&self) -> bool;
 
-	/// Get backend type identifier
 	fn backend_type(&self) -> BackendType;
 
 	/// Capability descriptor used by higher-level jobs to pick optimal paths.
 	///
-	/// Returning a `BackendFeatures` by value (rather than a reference) keeps
-	/// the trait object-safe without forcing every backend to store a static
-	/// copy, and the struct is cheap enough (a handful of booleans and small
-	/// enums) that the copy is free at call sites.
+	/// Returned by value to keep the trait object-safe; the struct is small
+	/// enough (a handful of booleans and enums) that the copy is free.
 	fn features(&self) -> BackendFeatures;
 
-	/// Downcast helper to a cloud backend when the implementation is
-	/// [`CloudBackend`], returning `None` for local backends. This lets
-	/// `FileCopyJob` reach the underlying OpenDAL operator for streaming
-	/// transfers without exposing a full `Any`-based downcast on every
-	/// backend.
+	/// Downcast to [`CloudBackend`] so `FileCopyJob` can reach the underlying
+	/// OpenDAL operator without an `Any`-based downcast on every backend.
 	fn as_cloud(&self) -> Option<&cloud::CloudBackend> {
 		None
 	}
@@ -167,14 +155,12 @@ pub struct BackendFeatures {
 	pub multipart_threshold: Option<u64>,
 }
 
-/// Backend type identifier
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BackendType {
 	Local,
 	Cloud(CloudServiceType),
 }
 
-/// Cloud service type identifier
 #[derive(
 	Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, specta::Type,
 )]
@@ -202,8 +188,7 @@ pub enum CloudServiceType {
 }
 
 impl CloudServiceType {
-	/// Get the URI scheme for this cloud service
-	/// Used for service-native addressing (e.g., "s3://bucket/path")
+	/// URI scheme for service-native addressing (e.g. `s3://bucket/path`).
 	pub fn scheme(&self) -> &'static str {
 		match self {
 			Self::S3 => "s3",
@@ -219,8 +204,7 @@ impl CloudServiceType {
 		}
 	}
 
-	/// Parse cloud service type from URI scheme
-	/// Returns None if the scheme doesn't match any known service
+	/// Inverse of [`Self::scheme`]; returns `None` for unknown schemes.
 	pub fn from_scheme(scheme: &str) -> Option<Self> {
 		match scheme {
 			"s3" => Some(Self::S3),
@@ -237,7 +221,7 @@ impl CloudServiceType {
 	}
 }
 
-/// Raw directory entry returned by volume backends
+/// Raw directory entry returned by a volume backend.
 #[derive(Debug, Clone)]
 pub struct RawDirEntry {
 	pub name: String,
