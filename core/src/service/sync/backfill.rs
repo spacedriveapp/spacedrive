@@ -209,14 +209,22 @@ impl BackfillManager {
 			);
 		}
 
-		// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
-		let max_shared_hlc = self.backfill_shared_resources(selected_peer).await?;
+		// Phases 2 + 3 run inside the in_backfill scope so per-record hooks
+		// (entry_closure rebuild, resource event emission) can short-circuit
+		// — the post_backfill_rebuild pass below handles the bulk work.
+		let (max_shared_hlc, final_state_checkpoint) = crate::infra::sync::in_backfill(async {
+			// Phase 2: Backfill shared resources FIRST (entries depend on content_identities)
+			let max_shared_hlc = self.backfill_shared_resources(selected_peer).await?;
 
-		// Phase 3: Backfill device-owned state (after shared dependencies exist)
-		// For initial backfill, don't use watermark (get everything)
-		let final_state_checkpoint = self
-			.backfill_device_owned_state(selected_peer, None)
-			.await?;
+			// Phase 3: Backfill device-owned state (after shared dependencies exist)
+			// For initial backfill, don't use watermark (get everything)
+			let final_state_checkpoint = self
+				.backfill_device_owned_state(selected_peer, None)
+				.await?;
+
+			Ok::<_, anyhow::Error>((max_shared_hlc, final_state_checkpoint))
+		})
+		.await?;
 
 		// Phase 3.5: Run post-backfill rebuilds via registry (polymorphic)
 		// Models that registered post_backfill_rebuild will have their derived tables rebuilt
@@ -229,6 +237,13 @@ impl BackfillManager {
 			tracing::warn!("Post-backfill rebuild had errors: {}", e);
 			// Don't fail backfill, just warn
 		}
+
+		// Coarse UI invalidation: per-record resource events were suppressed
+		// during backfill to avoid O(N) fan-out queries. One Refresh tells the
+		// frontend to drop any cached views that may now be stale.
+		self.peer_sync
+			.event_bus()
+			.emit(crate::infra::event::Event::Refresh);
 
 		// Phase 4: Transition to ready (processes buffer)
 		self.peer_sync.transition_to_ready().await?;
@@ -537,65 +552,135 @@ impl BackfillManager {
 					let fk_mappings =
 						crate::infra::sync::get_fk_mappings(&model_type).unwrap_or_default();
 
-					// For hierarchical models (entries), process one at a time to handle parent→child ordering
-					// Batch FK resolution fails because children can't find parents that haven't been inserted yet
+					// For hierarchical models (entries), self-referential FKs (parent_id)
+					// must be resolved per-entry so each child sees its just-inserted
+					// parent. Everything else (content_id, metadata_id, volume_id,
+					// device_id, ...) is independent of insertion order, so we batch
+					// those across the whole batch first — one DB round trip per FK
+					// type instead of per (record × FK).
 					let processed_data = if model_type == "entry" && !fk_mappings.is_empty() {
-						// Process entries individually: resolve FK → insert → resolve deps → next
-						let mut succeeded = Vec::with_capacity(record_data.len());
+						let table_name = crate::infra::sync::get_table_name(&model_type).await;
+						let (self_ref_mappings, non_self_mappings): (Vec<_>, Vec<_>) = fk_mappings
+							.iter()
+							.cloned()
+							.partition(|fk| Some(fk.target_table) == table_name);
 
-						for data in record_data {
-							// Try to resolve FKs for this single record
+						// Batch-resolve non-self FKs across the whole batch.
+						let pre_resolved = if !non_self_mappings.is_empty() {
 							let result = crate::infra::sync::batch_map_sync_json_to_local(
-								vec![data.clone()],
-								fk_mappings.clone(),
+								record_data,
+								non_self_mappings,
 								&db,
 							)
 							.await
-							.map_err(|e| anyhow::anyhow!("FK mapping failed: {}", e))?;
+							.map_err(|e| {
+								anyhow::anyhow!("Batch FK mapping failed for entries: {}", e)
+							})?;
 
-							if !result.succeeded.is_empty() {
-								// FK resolution succeeded - add to processing list
-								succeeded.extend(result.succeeded);
-							} else if !result.failed.is_empty() {
-								// FK resolution failed - add to dependency tracker
-								for (failed_data, fk_field, missing_uuid) in result.failed {
-									let record_uuid = failed_data
-										.get("uuid")
-										.and_then(|v| v.as_str())
-										.and_then(|s| Uuid::parse_str(s).ok());
+							for (failed_data, fk_field, missing_uuid) in result.failed {
+								let record_uuid = failed_data
+									.get("uuid")
+									.and_then(|v| v.as_str())
+									.and_then(|s| Uuid::parse_str(s).ok());
 
-									let record_timestamp = records
-										.iter()
-										.find(|r| Some(r.uuid) == record_uuid)
-										.map(|r| r.timestamp)
-										.unwrap_or_else(chrono::Utc::now);
+								let record_timestamp = records
+									.iter()
+									.find(|r| Some(r.uuid) == record_uuid)
+									.map(|r| r.timestamp)
+									.unwrap_or_else(chrono::Utc::now);
 
-									if let Some(uuid) = record_uuid {
-										tracing::debug!(
-											model_type = %model_type,
-											record_uuid = %uuid,
-											fk_field = %fk_field,
-											missing_uuid = %missing_uuid,
-											"Entry has missing parent - adding to dependency tracker"
-										);
+								if let Some(uuid) = record_uuid {
+									tracing::debug!(
+										model_type = %model_type,
+										record_uuid = %uuid,
+										fk_field = %fk_field,
+										missing_uuid = %missing_uuid,
+										"Entry has missing non-self FK - adding to dependency tracker"
+									);
 
-										let state_change = super::state::StateChangeMessage {
-											model_type: model_type.clone(),
-											record_uuid: uuid,
-											device_id: source_device_id,
-											data: failed_data,
-											timestamp: record_timestamp,
-										};
+									let state_change = super::state::StateChangeMessage {
+										model_type: model_type.clone(),
+										record_uuid: uuid,
+										device_id: source_device_id,
+										data: failed_data,
+										timestamp: record_timestamp,
+									};
 
-										self.peer_sync
-											.dependency_tracker()
-											.add_dependency(
-												missing_uuid,
-												super::state::BufferedUpdate::StateChange(
-													state_change,
-												),
-											)
-											.await;
+									self.peer_sync
+										.dependency_tracker()
+										.add_dependency(
+											missing_uuid,
+											super::state::BufferedUpdate::StateChange(state_change),
+										)
+										.await;
+								}
+							}
+
+							result.succeeded
+						} else {
+							record_data
+						};
+
+						// Resolve self-referential FKs (parent_id) per-entry so children
+						// can find their just-inserted parents.
+						let mut succeeded = Vec::with_capacity(pre_resolved.len());
+
+						if self_ref_mappings.is_empty() {
+							succeeded.extend(pre_resolved);
+						} else {
+							for data in pre_resolved {
+								let result = crate::infra::sync::batch_map_sync_json_to_local(
+									vec![data.clone()],
+									self_ref_mappings.clone(),
+									&db,
+								)
+								.await
+								.map_err(|e| {
+									anyhow::anyhow!("Self-referential FK mapping failed: {}", e)
+								})?;
+
+								if !result.succeeded.is_empty() {
+									succeeded.extend(result.succeeded);
+								} else if !result.failed.is_empty() {
+									for (failed_data, fk_field, missing_uuid) in result.failed {
+										let record_uuid = failed_data
+											.get("uuid")
+											.and_then(|v| v.as_str())
+											.and_then(|s| Uuid::parse_str(s).ok());
+
+										let record_timestamp = records
+											.iter()
+											.find(|r| Some(r.uuid) == record_uuid)
+											.map(|r| r.timestamp)
+											.unwrap_or_else(chrono::Utc::now);
+
+										if let Some(uuid) = record_uuid {
+											tracing::debug!(
+												model_type = %model_type,
+												record_uuid = %uuid,
+												fk_field = %fk_field,
+												missing_uuid = %missing_uuid,
+												"Entry has missing parent - adding to dependency tracker"
+											);
+
+											let state_change = super::state::StateChangeMessage {
+												model_type: model_type.clone(),
+												record_uuid: uuid,
+												device_id: source_device_id,
+												data: failed_data,
+												timestamp: record_timestamp,
+											};
+
+											self.peer_sync
+												.dependency_tracker()
+												.add_dependency(
+													missing_uuid,
+													super::state::BufferedUpdate::StateChange(
+														state_change,
+													),
+												)
+												.await;
+										}
 									}
 								}
 							}

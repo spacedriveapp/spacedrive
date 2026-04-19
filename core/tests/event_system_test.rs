@@ -25,7 +25,7 @@ use tokio::sync::Mutex;
 use tokio::time::{timeout, Duration};
 
 #[tokio::test]
-async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp_dir = TempDir::new()?;
 
 	// Set up event collection
@@ -122,7 +122,7 @@ async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[tokio::test]
-async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
@@ -241,7 +241,7 @@ async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[tokio::test]
-async fn test_event_filtering() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_event_filtering() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
@@ -308,7 +308,8 @@ async fn test_event_filtering() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio::test]
-async fn test_concurrent_event_subscribers() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_concurrent_event_subscribers() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
@@ -391,7 +392,7 @@ async fn test_concurrent_event_subscribers() -> Result<(), Box<dyn std::error::E
 }
 
 #[tokio::test]
-async fn test_custom_events() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_custom_events() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 

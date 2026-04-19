@@ -12,7 +12,7 @@ use crate::{
 	ops::metadata::manager::UserMetadataManager,
 };
 use chrono::Utc;
-use sea_orm::{DatabaseConnection, EntityTrait};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -49,6 +49,7 @@ impl LibraryAction for ApplyTagsAction {
 
 		let mut warnings = Vec::new();
 		let mut successfully_tagged_count = 0;
+		let mut missing_target_count = 0;
 
 		// Create tag applications from input
 		let tag_applications: Vec<TagApplication> = self
@@ -107,7 +108,6 @@ impl LibraryAction for ApplyTagsAction {
 
 							// Find all entries with this content_id to emit resource events
 							use crate::infra::db::entities::{content_identity, entry};
-							use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 							if let Ok(Some(ci)) = content_identity::Entity::find()
 								.filter(content_identity::Column::Uuid.eq(content_id))
@@ -131,13 +131,32 @@ impl LibraryAction for ApplyTagsAction {
 				}
 			}
 			TagTargets::Entry(entry_ids) => {
-				// Entry-based tagging: apply to specific entry instance
+				// Batch-lookup all entry UUIDs in one query instead of per-entry round trips
+				let entries = crate::infra::db::entities::entry::Entity::find()
+					.filter(crate::infra::db::entities::entry::Column::Id.is_in(entry_ids.clone()))
+					.all(db.conn())
+					.await
+					.map_err(|e| {
+						ActionError::Internal(format!("Failed to batch lookup entries: {}", e))
+					})?;
+				let entry_id_to_model: HashMap<i32, Option<Uuid>> =
+					entries.into_iter().map(|e| (e.id, e.uuid)).collect();
 				for &entry_id in entry_ids {
-					// Look up actual entry UUID from entry ID
-					let entry_uuid =
-						lookup_entry_uuid(&db.conn(), entry_id).await.map_err(|e| {
-							ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
-						})?;
+					let entry_uuid = match entry_id_to_model.get(&entry_id) {
+						None => {
+							missing_target_count += 1;
+							warnings.push(format!("Entry {} not found in database", entry_id));
+							continue;
+						}
+						Some(None) => {
+							warnings.push(format!(
+								"Entry {} exists but has no UUID (possible integrity issue)",
+								entry_id
+							));
+							continue;
+						}
+						Some(Some(uuid)) => *uuid,
+					};
 					match metadata_manager
 						.apply_semantic_tags_to_entry(
 							entry_uuid,
@@ -148,7 +167,6 @@ impl LibraryAction for ApplyTagsAction {
 					{
 						Ok(models) => {
 							successfully_tagged_count += 1;
-							// Sync each user_metadata_tag model (for cross-device sync)
 							for model in models {
 								library
 									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
@@ -160,8 +178,6 @@ impl LibraryAction for ApplyTagsAction {
 										))
 									})?;
 							}
-
-							// Track this entry for resource events
 							affected_entry_uuids.push(entry_uuid);
 						}
 						Err(e) => {
@@ -170,6 +186,70 @@ impl LibraryAction for ApplyTagsAction {
 					}
 				}
 			}
+			TagTargets::EntryUuid(entry_uuids) => {
+				// Batch-validate all entry UUIDs exist in one query
+				let existing_entries: std::collections::HashSet<Uuid> =
+					crate::infra::db::entities::entry::Entity::find()
+						.filter(
+							crate::infra::db::entities::entry::Column::Uuid
+								.is_in(entry_uuids.clone()),
+						)
+						.all(db.conn())
+						.await
+						.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?
+						.into_iter()
+						.filter_map(|e| e.uuid)
+						.collect();
+				for &entry_uuid in entry_uuids {
+					if !existing_entries.contains(&entry_uuid) {
+						missing_target_count += 1;
+						warnings.push(format!("Entry {} not found, skipping", entry_uuid));
+						continue;
+					}
+					match metadata_manager
+						.apply_semantic_tags_to_entry(
+							entry_uuid,
+							tag_applications.clone(),
+							device_id,
+						)
+						.await
+					{
+						Ok(models) => {
+							successfully_tagged_count += 1;
+							for model in models {
+								library
+									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
+									.await
+									.map_err(|e| {
+										ActionError::Internal(format!(
+											"Failed to sync tag association: {}",
+											e
+										))
+									})?;
+							}
+							affected_entry_uuids.push(entry_uuid);
+						}
+						Err(e) => {
+							warnings.push(format!("Failed to tag entry {}: {}", entry_uuid, e));
+						}
+					}
+				}
+			}
+		}
+
+		// Fail-fast: if NO entries were successfully tagged, return appropriate error.
+		if successfully_tagged_count == 0 && !warnings.is_empty() {
+			// All failures were missing/unindexed targets (ephemeral files).
+			if missing_target_count == warnings.len() {
+				return Err(ActionError::InvalidInput(
+					"These files need to be indexed before they can be tagged".to_string(),
+				));
+			}
+			// Some or all failures were real execution errors (DB, integrity, etc.).
+			return Err(ActionError::Internal(format!(
+				"All tag operations failed: {}",
+				warnings.join("; ")
+			)));
 		}
 
 		// Emit resource events for affected files (frontend reactivity)
@@ -207,18 +287,3 @@ impl LibraryAction for ApplyTagsAction {
 
 // Register library action
 crate::register_library_action!(ApplyTagsAction, "tags.apply");
-
-/// Look up entry UUID from entry database ID
-async fn lookup_entry_uuid(db: &DatabaseConnection, entry_id: i32) -> Result<Uuid, String> {
-	use crate::infra::db::entities::entry;
-
-	let entry_model = entry::Entity::find_by_id(entry_id)
-		.one(db)
-		.await
-		.map_err(|e| format!("Database error: {}", e))?
-		.ok_or_else(|| format!("Entry with ID {} not found", entry_id))?;
-
-	entry_model
-		.uuid
-		.ok_or_else(|| format!("Entry {} has no UUID assigned", entry_id))
-}

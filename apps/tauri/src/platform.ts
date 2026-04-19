@@ -1,10 +1,20 @@
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { open as shellOpen } from "@tauri-apps/plugin-shell";
-import { convertFileSrc as tauriConvertFileSrc, invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
-import { getCurrentWebviewWindow } from "@tauri-apps/api/webviewWindow";
-import type { Platform } from "@sd/interface";
-import { beginDrag, onDragBegan, onDragMoved, onDragEntered, onDragLeft, onDragEnded } from "./lib/drag";
+import type {Platform} from '@sd/interface';
+import {
+	invoke,
+	convertFileSrc as tauriConvertFileSrc
+} from '@tauri-apps/api/core';
+import {listen} from '@tauri-apps/api/event';
+import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
+import {ask, open, save} from '@tauri-apps/plugin-dialog';
+import {open as shellOpen} from '@tauri-apps/plugin-shell';
+import {
+	beginDrag,
+	onDragBegan,
+	onDragEnded,
+	onDragEntered,
+	onDragLeft,
+	onDragMoved
+} from './lib/drag';
 
 let _isDragging = false;
 
@@ -12,13 +22,13 @@ let _isDragging = false;
  * Tauri platform implementation
  */
 export const platform: Platform = {
-	platform: "tauri",
+	platform: 'tauri',
 
 	async openDirectoryPickerDialog(opts) {
 		const result = await open({
 			directory: true,
 			multiple: opts?.multiple ?? false,
-			title: opts?.title ?? "Choose a folder",
+			title: opts?.title ?? 'Choose a folder'
 		});
 
 		return result;
@@ -28,7 +38,7 @@ export const platform: Platform = {
 		const result = await open({
 			directory: false,
 			multiple: opts?.multiple ?? false,
-			title: opts?.title ?? "Choose a file",
+			title: opts?.title ?? 'Choose a file'
 		});
 
 		return result;
@@ -36,8 +46,8 @@ export const platform: Platform = {
 
 	async saveFilePickerDialog(opts) {
 		const result = await save({
-			title: opts?.title ?? "Save file",
-			defaultPath: opts?.defaultPath,
+			title: opts?.title ?? 'Save file',
+			defaultPath: opts?.defaultPath
 		});
 
 		return result;
@@ -48,8 +58,21 @@ export const platform: Platform = {
 	},
 
 	confirm(message: string, callback: (result: boolean) => void) {
-		// Use browser confirm for now - could be replaced with custom dialog
-		callback(window.confirm(message));
+		// window.confirm() is broken on WebView2 (Windows): returns true without showing a dialog.
+		// Use Tauri's native dialog plugin on Windows. macOS/Linux webviews handle it fine.
+		// TODO: Consider using ask() on all platforms for consistent native UX.
+		if (navigator.platform.startsWith('Win')) {
+			void ask(message, {title: 'Spacedrive', kind: 'warning'}).then(
+				(result) => {
+					callback(result);
+				},
+				() => {
+					callback(false);
+				}
+			);
+		} else {
+			callback(window.confirm(message));
+		}
 	},
 
 	convertFileSrc(filePath: string) {
@@ -57,50 +80,50 @@ export const platform: Platform = {
 	},
 
 	async revealFile(filePath: string) {
-		await invoke("reveal_file", { path: filePath });
+		await invoke('reveal_file', {path: filePath});
 	},
 
 	async shareFiles(filePaths: string[]) {
-		await invoke("share_files", { paths: filePaths });
+		await invoke('share_files', {paths: filePaths});
 	},
 
 	async getAppsForPaths(paths: string[]) {
-		return await invoke<Array<{ id: string; name: string; icon?: string }>>(
-			"get_apps_for_paths",
-			{ paths }
+		return await invoke<Array<{id: string; name: string; icon?: string}>>(
+			'get_apps_for_paths',
+			{paths}
 		);
 	},
 
 	async openPathDefault(path: string) {
 		return await invoke<
-			| { status: "success" }
-			| { status: "file_not_found"; path: string }
-			| { status: "app_not_found"; app_id: string }
-			| { status: "permission_denied"; path: string }
-			| { status: "platform_error"; message: string }
-		>("open_path_default", { path });
+			| {status: 'success'}
+			| {status: 'file_not_found'; path: string}
+			| {status: 'app_not_found'; app_id: string}
+			| {status: 'permission_denied'; path: string}
+			| {status: 'platform_error'; message: string}
+		>('open_path_default', {path});
 	},
 
 	async openPathWithApp(path: string, appId: string) {
 		return await invoke<
-			| { status: "success" }
-			| { status: "file_not_found"; path: string }
-			| { status: "app_not_found"; app_id: string }
-			| { status: "permission_denied"; path: string }
-			| { status: "platform_error"; message: string }
-		>("open_path_with_app", { path, appId });
+			| {status: 'success'}
+			| {status: 'file_not_found'; path: string}
+			| {status: 'app_not_found'; app_id: string}
+			| {status: 'permission_denied'; path: string}
+			| {status: 'platform_error'; message: string}
+		>('open_path_with_app', {path, appId});
 	},
 
 	async openPathsWithApp(paths: string[], appId: string) {
 		return await invoke<
 			Array<
-				| { status: "success" }
-				| { status: "file_not_found"; path: string }
-				| { status: "app_not_found"; app_id: string }
-				| { status: "permission_denied"; path: string }
-				| { status: "platform_error"; message: string }
+				| {status: 'success'}
+				| {status: 'file_not_found'; path: string}
+				| {status: 'app_not_found'; app_id: string}
+				| {status: 'permission_denied'; path: string}
+				| {status: 'platform_error'; message: string}
 			>
-		>("open_paths_with_app", { paths, appId });
+		>('open_paths_with_app', {paths, appId});
 	},
 
 	async getSidecarPath(
@@ -110,48 +133,48 @@ export const platform: Platform = {
 		variant: string,
 		format: string
 	) {
-		return await invoke<string>("get_sidecar_path", {
+		return await invoke<string>('get_sidecar_path', {
 			libraryId,
 			contentUuid,
 			kind,
 			variant,
-			format,
+			format
 		});
 	},
 
 	async updateMenuItems(items) {
-		await invoke("update_menu_items", { items });
+		await invoke('update_menu_items', {items});
 	},
 
 	async getCurrentLibraryId() {
 		try {
-			return await invoke<string>("get_current_library_id");
+			return await invoke<string>('get_current_library_id');
 		} catch {
 			return null;
 		}
 	},
 
 	async setCurrentLibraryId(libraryId: string) {
-		await invoke("set_current_library_id", { libraryId });
+		await invoke('set_current_library_id', {libraryId});
 	},
 
 	async onLibraryIdChanged(callback: (libraryId: string) => void) {
-		const unlisten = await listen<string>("library-changed", (event) => {
+		const unlisten = await listen<string>('library-changed', (event) => {
 			callback(event.payload);
 		});
 		return unlisten;
 	},
 
 	async showWindow(window: any) {
-		await invoke("show_window", { window });
+		await invoke('show_window', {window});
 	},
 
 	async closeWindow(label: string) {
-		await invoke("close_window", { label });
+		await invoke('close_window', {label});
 	},
 
 	async toggleVoiceOverlay() {
-		await invoke("toggle_voice_overlay");
+		await invoke('toggle_voice_overlay');
 	},
 
 	async onWindowEvent(event: string, callback: () => void) {
@@ -172,22 +195,25 @@ export const platform: Platform = {
 	},
 
 	async getSelectedFileIds() {
-		return await invoke<string[]>("get_selected_file_ids");
+		return await invoke<string[]>('get_selected_file_ids');
 	},
 
 	async setSelectedFileIds(fileIds: string[]) {
-		await invoke("set_selected_file_ids", { fileIds });
+		await invoke('set_selected_file_ids', {fileIds});
 	},
 
 	async onSelectedFilesChanged(callback: (fileIds: string[]) => void) {
-		const unlisten = await listen<string[]>("selected-files-changed", (event) => {
-			callback(event.payload);
-		});
+		const unlisten = await listen<string[]>(
+			'selected-files-changed',
+			(event) => {
+				callback(event.payload);
+			}
+		);
 		return unlisten;
 	},
 
 	async getAppVersion() {
-		const { getVersion } = await import("@tauri-apps/api/app");
+		const {getVersion} = await import('@tauri-apps/api/app');
 		return await getVersion();
 	},
 
@@ -197,73 +223,73 @@ export const platform: Platform = {
 			socket_path: string;
 			server_url: string | null;
 			started_by_us: boolean;
-		}>("get_daemon_status");
+		}>('get_daemon_status');
 	},
 
 	async startDaemonProcess() {
-		await invoke("start_daemon_process");
+		await invoke('start_daemon_process');
 	},
 
 	async stopDaemonProcess() {
-		await invoke("stop_daemon_process");
+		await invoke('stop_daemon_process');
 	},
 
 	async onDaemonConnected(callback: () => void) {
-		const unlisten = await listen("daemon-connected", () => {
+		const unlisten = await listen('daemon-connected', () => {
 			callback();
 		});
 		return unlisten;
 	},
 
 	async onDaemonDisconnected(callback: () => void) {
-		const unlisten = await listen("daemon-disconnected", () => {
+		const unlisten = await listen('daemon-disconnected', () => {
 			callback();
 		});
 		return unlisten;
 	},
 
 	async onDaemonStarting(callback: () => void) {
-		const unlisten = await listen("daemon-starting", () => {
+		const unlisten = await listen('daemon-starting', () => {
 			callback();
 		});
 		return unlisten;
 	},
 
 	async checkDaemonInstalled() {
-		return await invoke<boolean>("check_daemon_installed");
+		return await invoke<boolean>('check_daemon_installed');
 	},
 
 	async installDaemonService() {
-		await invoke("install_daemon_service");
+		await invoke('install_daemon_service');
 	},
 
 	async uninstallDaemonService() {
-		await invoke("uninstall_daemon_service");
+		await invoke('uninstall_daemon_service');
 	},
 
 	async openMacOSSettings() {
-		await invoke("open_macos_settings");
+		await invoke('open_macos_settings');
 	},
 
 	async applyMacOSStyling() {
-		await invoke("apply_macos_styling");
+		await invoke('apply_macos_styling');
 	},
 
 	async resizeWindow(label: string, width: number, height: number) {
-		await invoke("resize_overlay_window", { label, width, height });
+		await invoke('resize_overlay_window', {label, width, height});
 	},
 
 	async startDrag(config) {
 		const currentWindow = getCurrentWebviewWindow();
 		const sessionId = await beginDrag(
 			{
-				items: config.items.map(item => ({
+				items: config.items.map((item) => ({
 					id: item.id,
-					kind: item.kind,
+					kind: item.kind
 				})),
-				overlayUrl: "/drag-overlay",
+				overlayUrl: '/drag-overlay',
 				overlaySize: [200, 150],
-				allowedOperations: config.allowedOperations,
+				allowedOperations: config.allowedOperations
 			},
 			currentWindow.label
 		);
@@ -272,19 +298,22 @@ export const platform: Platform = {
 	},
 
 	async onDragEvent(event, callback) {
-		const handlers: Record<string, (handler: (payload: any) => void) => Promise<() => void>> = {
+		const handlers: Record<
+			string,
+			(handler: (payload: any) => void) => Promise<() => void>
+		> = {
 			began: onDragBegan,
 			moved: onDragMoved,
 			entered: onDragEntered,
 			left: onDragLeft,
-			ended: onDragEnded,
+			ended: onDragEnded
 		};
 		const handler = handlers[event];
 		if (!handler) {
 			throw new Error(`Unknown drag event: ${event}`);
 		}
 		const unlisten = await handler((payload: any) => {
-			if (event === "ended") {
+			if (event === 'ended') {
 				_isDragging = false;
 			}
 			callback(payload);
@@ -299,7 +328,11 @@ export const platform: Platform = {
 	async registerKeybind(id, accelerator, handler) {
 		// Use the global handler if available (initialized in keybinds.ts)
 		if (window.__SPACEDRIVE__?.registerKeybind) {
-			await window.__SPACEDRIVE__.registerKeybind(id, accelerator, handler);
+			await window.__SPACEDRIVE__.registerKeybind(
+				id,
+				accelerator,
+				handler
+			);
 		}
 	},
 
@@ -308,5 +341,5 @@ export const platform: Platform = {
 		if (window.__SPACEDRIVE__?.unregisterKeybind) {
 			await window.__SPACEDRIVE__.unregisterKeybind(id);
 		}
-	},
+	}
 };

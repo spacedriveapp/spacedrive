@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tag as TagIcon } from '@phosphor-icons/react';
 import clsx from 'clsx';
-import { Button } from '@spacedrive/primitives';
+import { Button, toast } from '@spacedrive/primitives';
 import { useNormalizedQuery, useLibraryMutation } from '../../contexts/SpacedriveContext';
 import { useSelection } from './SelectionContext';
 import { useKeybind } from '../../hooks/useKeybind';
@@ -66,7 +66,10 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 			.map(f => f.content_identity?.uuid)
 			.filter((id): id is string => id != null);
 
-		if (contentIds.length === 0) return;
+		if (contentIds.length === 0) {
+			toast.error('These files need to be indexed before they can be tagged');
+			return;
+		}
 
 		try {
 			await applyTag.mutateAsync({
@@ -79,6 +82,7 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 			});
 		} catch (err) {
 			console.error('Failed to apply tag:', err);
+			toast.error(`Failed to apply tag: ${err}`);
 		}
 	};
 

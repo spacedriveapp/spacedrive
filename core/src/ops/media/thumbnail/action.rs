@@ -10,12 +10,13 @@ use crate::{
 	ops::indexing::{path_resolver::PathResolver, processor::ProcessorEntry},
 };
 use specta::Type;
+use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct ThumbnailInput {
-	pub paths: Vec<std::path::PathBuf>,
+	pub paths: Vec<PathBuf>,
 	pub size: u32,
 	pub quality: u8,
 }
@@ -25,13 +26,11 @@ pub struct ThumbnailAction {
 }
 
 impl ThumbnailAction {
-	/// Create a new thumbnail generation action
 	pub fn new(input: ThumbnailInput) -> Self {
 		Self { input }
 	}
 }
 
-// Implement the unified LibraryAction (replaces ActionHandler)
 impl LibraryAction for ThumbnailAction {
 	type Input = ThumbnailInput;
 	type Output = crate::infra::job::handle::JobReceipt;
@@ -45,19 +44,13 @@ impl LibraryAction for ThumbnailAction {
 		library: std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Create thumbnail job config from size
 		let config = ThumbnailJobConfig::from_sizes(vec![self.input.size]);
-
-		// Create job instance directly
 		let job = ThumbnailJob::new(config);
-
-		// Dispatch job and return handle directly
 		let job_handle = library
 			.jobs()
 			.dispatch(job)
 			.await
 			.map_err(ActionError::Job)?;
-
 		Ok(job_handle.into())
 	}
 
@@ -66,7 +59,6 @@ impl LibraryAction for ThumbnailAction {
 	}
 }
 
-// Register action
 crate::register_library_action!(ThumbnailAction, "media.thumbnail");
 
 // ============================================================================
@@ -85,9 +77,7 @@ pub struct RegenerateThumbnailInput {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Type)]
 pub struct RegenerateThumbnailOutput {
-	/// Number of thumbnails generated
 	pub generated_count: usize,
-	/// Variant names that were generated
 	pub variants: Vec<String>,
 }
 
@@ -133,31 +123,39 @@ impl LibraryAction for RegenerateThumbnailAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to resolve path: {}", e)))?;
 
-		// Get MIME type
+		// Get MIME type: try content_identity first, fall back to extension
 		let mime_type = if let Some(content_id) = entry.content_id {
-			if let Ok(Some(ci)) = entities::content_identity::Entity::find_by_id(content_id)
+			match entities::content_identity::Entity::find_by_id(content_id)
 				.one(db)
 				.await
 			{
-				if let Some(mime_id) = ci.mime_type_id {
-					if let Ok(Some(mime)) = entities::mime_type::Entity::find_by_id(mime_id)
-						.one(db)
-						.await
-					{
-						Some(mime.mime_type)
+				Ok(Some(ci)) => {
+					if let Some(mime_id) = ci.mime_type_id {
+						match entities::mime_type::Entity::find_by_id(mime_id)
+							.one(db)
+							.await
+						{
+							Ok(Some(m)) => Some(m.mime_type),
+							Ok(None) => mime_from_extension(&path),
+							Err(e) => {
+								return Err(ActionError::Internal(format!(
+									"Failed to load MIME type {mime_id}: {e}"
+								)))
+							}
+						}
 					} else {
-						None
+						mime_from_extension(&path)
 					}
-				} else {
-					None
 				}
-			} else {
-				None
+				Ok(None) => mime_from_extension(&path),
+				Err(e) => {
+					return Err(ActionError::Internal(format!(
+						"Failed to load content identity {content_id}: {e}"
+					)))
+				}
 			}
 		} else {
-			return Err(ActionError::Internal(
-				"Entry has no content identity".to_string(),
-			));
+			mime_from_extension(&path)
 		};
 
 		// Build processor entry
@@ -178,28 +176,23 @@ impl LibraryAction for RegenerateThumbnailAction {
 			mime_type: mime_type.clone(),
 		};
 
-		// Create thumbnail processor with custom settings
+		// Create thumbnail processor
 		let mut processor =
 			ThumbnailProcessor::new(library.clone()).with_regenerate(self.input.force);
 
-		// Apply custom variants if provided
 		if let Some(variant_names) = &self.input.variants {
-			let settings = serde_json::json!({
-				"variants": variant_names,
-			});
+			let settings = serde_json::json!({ "variants": variant_names });
 			processor = processor
 				.with_settings(&settings)
 				.map_err(|e| ActionError::Internal(format!("Invalid settings: {}", e)))?;
 		}
 
-		// Check if processor should run
 		if !processor.should_process(&proc_entry) {
 			return Err(ActionError::Internal(
 				"File type does not support thumbnails".to_string(),
 			));
 		}
 
-		// Process the file - will fail with proper error if video without ffmpeg
 		let result = processor
 			.process(db, &proc_entry)
 			.await
@@ -211,7 +204,6 @@ impl LibraryAction for RegenerateThumbnailAction {
 			));
 		}
 
-		// Get variant names
 		let variant_names: Vec<String> = processor
 			.variants
 			.iter()
@@ -230,3 +222,28 @@ impl LibraryAction for RegenerateThumbnailAction {
 }
 
 crate::register_library_action!(RegenerateThumbnailAction, "media.thumbnail.regenerate");
+
+/// Infer MIME type from file extension
+fn mime_from_extension(path: &std::path::Path) -> Option<String> {
+	path.extension()
+		.and_then(|ext| ext.to_str())
+		.and_then(|ext| match ext.to_lowercase().as_str() {
+			"jpg" | "jpeg" => Some("image/jpeg"),
+			"png" => Some("image/png"),
+			"gif" => Some("image/gif"),
+			"webp" => Some("image/webp"),
+			"bmp" => Some("image/bmp"),
+			"svg" => Some("image/svg+xml"),
+			"tiff" | "tif" => Some("image/tiff"),
+			"avif" => Some("image/avif"),
+			"heic" | "heif" => Some("image/heif"),
+			"mp4" => Some("video/mp4"),
+			"mkv" => Some("video/x-matroska"),
+			"avi" => Some("video/x-msvideo"),
+			"mov" => Some("video/quicktime"),
+			"webm" => Some("video/webm"),
+			"pdf" => Some("application/pdf"),
+			_ => None,
+		})
+		.map(|s| s.to_string())
+}

@@ -14,9 +14,11 @@ pub enum TagTargets {
 	/// This is the preferred/default approach
 	Content(Vec<Uuid>),
 
-	/// Tag by entry ID (applies to ONLY this specific file instance)
-	/// Use when you want instance-specific tags
+	/// Tag by entry database ID (internal use only)
 	Entry(Vec<i32>),
+
+	/// Tag by entry UUID (use from frontend — File.id is a UUID)
+	EntryUuid(Vec<Uuid>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -94,6 +96,15 @@ impl ApplyTagsInput {
 			TagTargets::Entry(ids) => {
 				if ids.is_empty() {
 					return Err("entry IDs cannot be empty".to_string());
+				}
+				ids.len()
+			}
+			TagTargets::EntryUuid(ids) => {
+				if ids.is_empty() {
+					return Err("entry UUIDs cannot be empty".to_string());
+				}
+				if ids.iter().any(Uuid::is_nil) {
+					return Err("entry UUIDs cannot contain nil values".to_string());
 				}
 				ids.len()
 			}

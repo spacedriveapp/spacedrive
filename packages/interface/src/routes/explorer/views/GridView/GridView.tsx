@@ -26,7 +26,7 @@ export function GridView() {
 	const emptySpaceContextMenu = useEmptySpaceContextMenu();
 
 	// Get files from centralized hook (handles search, virtual, and directory)
-	const { files } = useExplorerFiles();
+	const { files, isLoading, source } = useExplorerFiles();
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -55,6 +55,20 @@ export function GridView() {
 	// Conditional virtualization - use simple grid for small directories
 	const shouldVirtualize = files.length > VIRTUALIZATION_THRESHOLD;
 	const gridContainerRef = useRef<HTMLDivElement>(null);
+
+	// Empty state for tag view with no tagged files
+	if (source === "tag" && files.length === 0 && !isLoading) {
+		return (
+			<div className="flex items-center justify-center h-full">
+				<div className="text-center">
+					<div className="text-ink-dull text-lg font-medium mb-1">No tagged files</div>
+					<div className="text-ink-dull text-sm">
+						Files tagged with this tag will appear here
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	if (!shouldVirtualize) {
 		return (

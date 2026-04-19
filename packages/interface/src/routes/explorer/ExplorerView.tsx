@@ -148,9 +148,9 @@ export function ExplorerView() {
 		[sortBy, setSortBy, viewMode]
 	);
 
-	// Allow rendering if we have a currentPath, a virtual view,
-	// or we're in filtered mode (e.g. redundancy views).
-	if (!currentPath && !isVirtualView && mode.type !== 'filtered') {
+	// Allow rendering if we have a currentPath, a virtual view, or a special mode
+	// (tag/recents/filtered). Only the plain "browse" mode without a path is empty.
+	if (!currentPath && !isVirtualView && mode.type === 'browse') {
 		return <EmptyView />;
 	}
 

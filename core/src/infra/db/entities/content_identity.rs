@@ -246,13 +246,15 @@ impl Syncable for Model {
 
 		let results = query.all(db).await?;
 
-		let mut sync_results = Vec::new();
+		let mut sync_results: Vec<(Uuid, serde_json::Value, chrono::DateTime<chrono::Utc>)> =
+			Vec::with_capacity(results.len());
 		for content in results {
-			if content.uuid.is_none() {
-				continue;
-			}
+			let uuid = match content.uuid {
+				Some(u) => u,
+				None => continue,
+			};
 
-			let mut json = match content.to_sync_json() {
+			let json = match content.to_sync_json() {
 				Ok(j) => j,
 				Err(e) => {
 					tracing::warn!(error = %e, content_hash = %content.content_hash, "Failed to serialize content_identity for sync");
@@ -260,22 +262,61 @@ impl Syncable for Model {
 				}
 			};
 
-			// Convert FK to UUID for cross-device compatibility
-			for fk in Self::foreign_key_mappings() {
-				if let Err(e) =
-					crate::infra::sync::fk_mapper::convert_fk_to_uuid(&mut json, &fk, db).await
+			sync_results.push((uuid, json, content.last_verified_at));
+		}
+
+		// Batch FK → UUID conversion across the whole batch: one DB round trip
+		// per FK type instead of one per (record × FK). Records that fail
+		// resolution are dropped so peers never see a sender-local int in the
+		// payload.
+		let fk_mappings = Self::foreign_key_mappings();
+		if !fk_mappings.is_empty() && !sync_results.is_empty() {
+			let mut payloads: Vec<serde_json::Value> = sync_results
+				.iter()
+				.map(|(_, json, _)| json.clone())
+				.collect();
+			let mut failed_indices: std::collections::HashSet<usize> =
+				std::collections::HashSet::new();
+
+			for fk in &fk_mappings {
+				match crate::infra::sync::fk_mapper::convert_fks_to_uuids_batch(
+					&mut payloads,
+					fk,
+					db,
+				)
+				.await
 				{
-					tracing::warn!(
-						error = %e,
-						uuid = %content.uuid.unwrap(),
-						fk_field = fk.local_field,
-						"Failed to convert FK to UUID, skipping content_identity"
-					);
-					continue;
+					Ok(failed) => failed_indices.extend(failed),
+					Err(e) => {
+						tracing::warn!(
+							error = %e,
+							fk_field = fk.local_field,
+							"Batch FK conversion failed for content_identity"
+						);
+						return Err(sea_orm::DbErr::Custom(format!(
+							"ContentIdentity FK batch conversion failed: {}",
+							e
+						)));
+					}
 				}
 			}
 
-			sync_results.push((content.uuid.unwrap(), json, content.last_verified_at));
+			sync_results = sync_results
+				.into_iter()
+				.zip(payloads.into_iter())
+				.enumerate()
+				.filter_map(|(idx, ((uuid, _, ts), resolved))| {
+					if failed_indices.contains(&idx) {
+						tracing::warn!(
+							uuid = %uuid,
+							"Dropping content_identity with unresolved FK from sync batch"
+						);
+						None
+					} else {
+						Some((uuid, resolved, ts))
+					}
+				})
+				.collect();
 		}
 
 		Ok(sync_results)

@@ -9,7 +9,8 @@ export type FileSource =
 	| "virtual"
 	| "directory"
 	| "recents"
-	| "filtered";
+	| "filtered"
+	| "tag";
 
 export interface ExplorerFilesResult {
 	files: File[];
@@ -20,10 +21,13 @@ export interface ExplorerFilesResult {
 /**
  * Centralized hook for fetching files in the explorer.
  *
- * Handles three file sources with priority:
- * 1. Search results (when in search mode)
- * 2. Virtual listings (devices/volumes/locations)
- * 3. Directory listings (normal file browsing)
+ * Handles file sources with priority:
+ * 1. Filtered mode (e.g. redundancy views with pre-applied SearchFilters)
+ * 2. Tag mode (when viewing files by tag)
+ * 3. Search results (when in search mode)
+ * 4. Recents (when in recents mode)
+ * 5. Virtual listings (devices/volumes/locations)
+ * 6. Directory listings (normal file browsing)
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
@@ -32,10 +36,11 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
-	// Check for search mode
+	// Check mode types
 	const isSearchMode = mode.type === "search";
 	const isRecentsMode = mode.type === "recents";
 	const isFilteredMode = mode.type === "filtered";
+	const isTagMode = mode.type === "tag";
 
 	// Build search query input
 	const searchQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -187,6 +192,23 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isFilteredMode && !!filteredQueryInput,
 	});
 
+	// Tag query — fetches files tagged with a specific tag
+	const tagQueryInput = useMemo(() => {
+		if (!isTagMode || mode.type !== "tag") return null;
+		return {
+			tag_id: mode.tagId,
+			include_children: false,
+			min_confidence: 0.0,
+		};
+	}, [isTagMode, mode]);
+
+	const tagQuery = useNormalizedQuery({
+		query: "files.by_tag",
+		input: tagQueryInput!,
+		resourceType: "file",
+		enabled: isTagMode && !!tagQueryInput,
+	});
+
 	// Directory query
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
@@ -205,26 +227,32 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			!isVirtualView &&
 			!isSearchMode &&
 			!isRecentsMode &&
-			!isFilteredMode,
+			!isFilteredMode &&
+			!isTagMode,
 		pathScope: currentPath ?? undefined,
 	});
 
-	// Priority: filtered > recents > search > virtual > directory
+	// Priority: filtered > tag > recents > search > virtual > directory
 	const source: FileSource = isFilteredMode
 		? "filtered"
-		: isRecentsMode
-			? "recents"
-			: isSearchMode
-				? "search"
-				: isVirtualView
-					? "virtual"
-					: "directory";
+		: isTagMode
+			? "tag"
+			: isRecentsMode
+				? "recents"
+				: isSearchMode
+					? "search"
+					: isVirtualView
+						? "virtual"
+						: "directory";
 
 	const files = useMemo(() => {
 		if (isFilteredMode) {
 			return (
 				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
 			);
+		}
+		if (isTagMode) {
+			return (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
 		}
 		if (isRecentsMode) {
 			return (recentsQuery.data as FileSearchOutput | undefined)?.files || [];
@@ -235,13 +263,15 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		if (isVirtualView) {
 			return virtualFiles || [];
 		}
-		return (directoryQuery.data as any)?.files || [];
+		return (directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
 	}, [
 		isFilteredMode,
+		isTagMode,
 		isRecentsMode,
 		isSearchMode,
 		isVirtualView,
 		filteredQuery.data,
+		tagQuery.data,
 		recentsQuery.data,
 		searchQuery.data,
 		virtualFiles,
@@ -250,13 +280,15 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	const isLoading = isFilteredMode
 		? filteredQuery.isLoading
-		: isRecentsMode
-			? recentsQuery.isLoading
-			: isSearchMode
-				? searchQuery.isLoading
-				: isVirtualView
-					? false
-					: directoryQuery.isLoading;
+		: isTagMode
+			? tagQuery.isLoading
+			: isRecentsMode
+				? recentsQuery.isLoading
+				: isSearchMode
+					? searchQuery.isLoading
+					: isVirtualView
+						? false
+						: directoryQuery.isLoading;
 
 	return { files, isLoading, source };
 }

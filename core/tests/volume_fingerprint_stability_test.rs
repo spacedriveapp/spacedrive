@@ -1,30 +1,32 @@
 //! Tests for volume fingerprint stability
 //!
 //! These tests verify that volume fingerprints remain stable across different scenarios:
-//! - Reboots (disk IDs may change: disk3 → disk4)
-//! - File operations (consumed space changes)
-//! - Mount/unmount cycles
+//! - Reboots (disk IDs may change but mount points stay the same)
+//! - Different volume types produce different fingerprints
+//! - Same inputs always produce identical fingerprints (determinism)
 //!
 //! Run with: cargo test --test volume_fingerprint_stability_test -- --nocapture
 
+use sd_core::domain::volume::VolumeFingerprint;
+use uuid::Uuid;
+
+#[cfg(target_os = "macos")]
 use sd_core::{
-	domain::volume::VolumeFingerprint,
 	infra::event::EventBus,
 	volume::{types::VolumeDetectionConfig, VolumeManager},
 };
+#[cfg(target_os = "macos")]
 use std::{collections::HashMap, sync::Arc, thread, time::Duration};
-use uuid::Uuid;
 
 /// Test that identical volume properties produce identical fingerprints
 #[test]
 fn test_fingerprint_deterministic() {
-	let uuid_str = "12345678-1234-5678-1234-567812345678";
-	let capacity = 1_000_000_000_000u64; // 1TB
+	let mount_point = std::path::Path::new("/Volumes/Macintosh HD");
+	let device_id = Uuid::parse_str("12345678-1234-5678-1234-567812345678").unwrap();
 
-	// Generate fingerprint multiple times with same inputs
-	let fp1 = VolumeFingerprint::new(uuid_str, capacity, "APFS");
-	let fp2 = VolumeFingerprint::new(uuid_str, capacity, "APFS");
-	let fp3 = VolumeFingerprint::new(uuid_str, capacity, "APFS");
+	let fp1 = VolumeFingerprint::from_primary_volume(mount_point, device_id);
+	let fp2 = VolumeFingerprint::from_primary_volume(mount_point, device_id);
+	let fp3 = VolumeFingerprint::from_primary_volume(mount_point, device_id);
 
 	assert_eq!(fp1, fp2, "Fingerprints should be identical for same inputs");
 	assert_eq!(fp2, fp3, "Fingerprints should be deterministic");
@@ -32,92 +34,102 @@ fn test_fingerprint_deterministic() {
 	println!("Fingerprint is deterministic: {}", fp1.short_id());
 }
 
-/// Test that capacity changes produce different fingerprints (expected)
+/// Test that different inputs produce different fingerprints
 #[test]
-fn test_fingerprint_changes_with_capacity() {
-	let uuid_str = "12345678-1234-5678-1234-567812345678";
+fn test_fingerprint_differs_with_different_inputs() {
+	let device_id = Uuid::parse_str("12345678-1234-5678-1234-567812345678").unwrap();
 
-	let fp_1tb = VolumeFingerprint::new(uuid_str, 1_000_000_000_000, "APFS");
-	let fp_2tb = VolumeFingerprint::new(uuid_str, 2_000_000_000_000, "APFS");
+	let fp_vol1 =
+		VolumeFingerprint::from_primary_volume(std::path::Path::new("/Volumes/HD1"), device_id);
+	let fp_vol2 =
+		VolumeFingerprint::from_primary_volume(std::path::Path::new("/Volumes/HD2"), device_id);
 
 	assert_ne!(
-		fp_1tb, fp_2tb,
-		"Different capacities should produce different fingerprints"
+		fp_vol1, fp_vol2,
+		"Different mount points should produce different fingerprints"
 	);
 
-	println!("1TB fingerprint: {}", fp_1tb.short_id());
-	println!("2TB fingerprint: {}", fp_2tb.short_id());
+	let device_id2 = Uuid::parse_str("abcdefab-cdef-abcd-efab-cdefabcdefab").unwrap();
+	let fp_dev2 =
+		VolumeFingerprint::from_primary_volume(std::path::Path::new("/Volumes/HD1"), device_id2);
+
+	assert_ne!(
+		fp_vol1, fp_dev2,
+		"Different device IDs should produce different fingerprints"
+	);
+
+	println!("HD1 fingerprint: {}", fp_vol1.short_id());
+	println!("HD2 fingerprint: {}", fp_vol2.short_id());
 }
 
-/// Test that consumed space changes DON'T affect fingerprint (if we use total capacity)
+/// Test that fingerprints are stable because they use mount point (not consumed space or disk IDs)
 #[test]
-fn test_fingerprint_stable_despite_consumed_changes() {
-	// Simulate same volume with different consumed space
-	let container_uuid = "ABCD1234-5678-90AB-CDEF-1234567890AB";
-	let volume_uuid = "VOLUME12-3456-7890-ABCD-EF1234567890";
-	let container_total = 1_000_000_000_000u64; // 1TB total (stable)
+fn test_fingerprint_stable_across_volume_types() {
+	let device_id = Uuid::parse_str("12345678-1234-5678-1234-567812345678").unwrap();
+	let spacedrive_id = Uuid::parse_str("abcd1234-5678-90ab-cdef-1234567890ab").unwrap();
 
-	let identifier = format!("{}:{}", container_uuid, volume_uuid);
+	// Primary volume fingerprint uses mount point + device (both stable across reboots)
+	let fp_primary = VolumeFingerprint::from_primary_volume(std::path::Path::new("/"), device_id);
 
-	// Fingerprint should use TOTAL capacity (stable)
-	let fp1 = VolumeFingerprint::new(&identifier, container_total, "APFS");
-	let fp2 = VolumeFingerprint::new(&identifier, container_total, "APFS");
+	// External volume fingerprint uses dotfile UUID + device (both stable)
+	let fp_external = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
 
+	// Network volume fingerprint uses backend ID + URI (both stable)
+	let fp_network = VolumeFingerprint::from_network_volume("smb", "//nas.local/share");
+
+	// All volume types should produce different fingerprints
+	assert_ne!(
+		fp_primary, fp_external,
+		"Primary and external should differ"
+	);
+	assert_ne!(fp_primary, fp_network, "Primary and network should differ");
+	assert_ne!(
+		fp_external, fp_network,
+		"External and network should differ"
+	);
+
+	// Same inputs should always produce same fingerprints (stability)
+	let fp_primary2 = VolumeFingerprint::from_primary_volume(std::path::Path::new("/"), device_id);
 	assert_eq!(
-		fp1, fp2,
-		"Fingerprints should be identical when using stable total capacity"
+		fp_primary, fp_primary2,
+		"Primary volume fingerprint should be stable"
 	);
 
-	println!("Fingerprint stable with total capacity: {}", fp1.short_id());
-
-	// But if someone mistakenly uses consumed capacity, it would change
-	let consumed_50gb = 50_000_000_000u64;
-	let consumed_100gb = 100_000_000_000u64;
-
-	let fp_consumed_50 = VolumeFingerprint::new(&identifier, consumed_50gb, "APFS");
-	let fp_consumed_100 = VolumeFingerprint::new(&identifier, consumed_100gb, "APFS");
-
-	assert_ne!(
-		fp_consumed_50, fp_consumed_100,
-		"Using consumed capacity WOULD create different fingerprints (BAD!)"
-	);
-
-	println!(
-		"️  WARNING: If consumed capacity used, fingerprint would change: {} vs {}",
-		fp_consumed_50.short_id(),
-		fp_consumed_100.short_id()
-	);
+	println!("Primary: {}", fp_primary.short_id());
+	println!("External: {}", fp_external.short_id());
+	println!("Network: {}", fp_network.short_id());
 }
 
-/// Test that UUID-based identifiers are stable even if disk IDs change
+/// Test that mount-point-based fingerprints are reboot-safe
+/// (disk IDs like disk3/disk4 change on reboot, but mount points don't)
 #[test]
 fn test_fingerprint_stable_despite_disk_id_changes() {
-	let container_uuid = "ABCD1234-5678-90AB-CDEF-1234567890AB";
-	let volume_uuid = "VOLUME12-3456-7890-ABCD-EF1234567890";
-	let capacity = 1_000_000_000_000u64;
+	let device_id = Uuid::parse_str("12345678-1234-5678-1234-567812345678").unwrap();
 
-	// UUID-based identifier (stable across reboots)
-	let uuid_identifier = format!("{}:{}", container_uuid, volume_uuid);
-	let fp_uuid = VolumeFingerprint::new(&uuid_identifier, capacity, "APFS");
+	// Mount point is stable across reboots even if underlying disk IDs change
+	let mount_point = std::path::Path::new("/Volumes/Macintosh HD");
+	let fp_before = VolumeFingerprint::from_primary_volume(mount_point, device_id);
+	let fp_after = VolumeFingerprint::from_primary_volume(mount_point, device_id);
 
-	// Disk ID-based identifier (changes on reboot)
-	let disk_id_before_reboot = "disk3:disk3s5";
-	let disk_id_after_reboot = "disk4:disk4s5"; // Same volume, different disk number
-
-	let fp_disk3 = VolumeFingerprint::new(disk_id_before_reboot, capacity, "APFS");
-	let fp_disk4 = VolumeFingerprint::new(disk_id_after_reboot, capacity, "APFS");
-
-	// Disk ID-based fingerprints would be different (BAD)
-	assert_ne!(
-		fp_disk3, fp_disk4,
-		"Disk ID-based fingerprints change on reboot (demonstrating the bug)"
+	assert_eq!(
+		fp_before, fp_after,
+		"Fingerprint should be stable across reboots (mount point doesn't change)"
 	);
 
-	println!("UUID-based fingerprint (stable): {}", fp_uuid.short_id());
+	// External volume with dotfile UUID is also stable across reboots
+	let spacedrive_id = Uuid::parse_str("aabbccdd-1234-5678-9012-aabbccddeeff").unwrap();
+	let fp_ext_before = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+	let fp_ext_after = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+
+	assert_eq!(
+		fp_ext_before, fp_ext_after,
+		"External volume fingerprint stable when dotfile UUID is preserved"
+	);
+
+	println!("Primary fingerprint (stable): {}", fp_before.short_id());
 	println!(
-		"️  disk3-based fingerprint: {} (would change to {} on reboot)",
-		fp_disk3.short_id(),
-		fp_disk4.short_id()
+		"External fingerprint (stable): {}",
+		fp_ext_before.short_id()
 	);
 }
 
@@ -208,7 +220,7 @@ async fn test_real_volume_fingerprints_remain_stable() {
 				changed_count += 1;
 			}
 		} else {
-			println!("    ️  New volume (not in first detection)");
+			println!("    New volume (not in first detection)");
 		}
 	}
 
@@ -258,7 +270,7 @@ async fn test_what_properties_change_on_real_volumes() {
 		if let Some(container) = &volume.apfs_container {
 			println!("\n  APFS Container:");
 			println!(
-				"    container_id: {} (CHANGES: disk3 → disk4 on reboot)",
+				"    container_id: {} (CHANGES: disk3 -> disk4 on reboot)",
 				container.container_id
 			);
 			println!("    uuid: {} (STABLE: always same)", container.uuid);
@@ -271,7 +283,7 @@ async fn test_what_properties_change_on_real_volumes() {
 			for vol in &container.volumes {
 				println!("\n    Volume {} in container:", vol.name);
 				println!(
-					"      disk_id: {} (CHANGES: disk3s5 → disk4s5 on reboot)",
+					"      disk_id: {} (CHANGES: disk3s5 -> disk4s5 on reboot)",
 					vol.disk_id
 				);
 				println!("      uuid: {} (STABLE)", vol.uuid);

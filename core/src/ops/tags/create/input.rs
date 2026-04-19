@@ -46,8 +46,10 @@ pub struct CreateTagInput {
 pub enum ApplyToTargets {
 	/// Apply to content identities (all instances)
 	Content(Vec<Uuid>),
-	/// Apply to specific entries (single instance)
+	/// Apply to specific entries by database ID (internal use)
 	Entry(Vec<i32>),
+	/// Apply to specific entries by UUID (from frontend File.id)
+	EntryUuid(Vec<Uuid>),
 }
 
 impl CreateTagInput {
@@ -112,6 +114,39 @@ impl CreateTagInput {
 		if let Some(color) = &self.color {
 			if !color.starts_with('#') || color.len() != 7 {
 				return Err("color must be in hex format (#RRGGBB)".to_string());
+			}
+		}
+
+		// Validate apply_to targets if provided
+		if let Some(targets) = &self.apply_to {
+			match targets {
+				ApplyToTargets::Content(ids) => {
+					if ids.is_empty() {
+						return Err("apply_to content IDs cannot be empty".to_string());
+					}
+					if ids.len() > 1000 {
+						return Err("Cannot apply to more than 1000 targets at once".to_string());
+					}
+				}
+				ApplyToTargets::Entry(ids) => {
+					if ids.is_empty() {
+						return Err("apply_to entry IDs cannot be empty".to_string());
+					}
+					if ids.len() > 1000 {
+						return Err("Cannot apply to more than 1000 targets at once".to_string());
+					}
+				}
+				ApplyToTargets::EntryUuid(ids) => {
+					if ids.is_empty() {
+						return Err("apply_to entry UUIDs cannot be empty".to_string());
+					}
+					if ids.iter().any(Uuid::is_nil) {
+						return Err("apply_to entry UUIDs cannot contain nil values".to_string());
+					}
+					if ids.len() > 1000 {
+						return Err("Cannot apply to more than 1000 targets at once".to_string());
+					}
+				}
 			}
 		}
 

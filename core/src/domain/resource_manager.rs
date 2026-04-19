@@ -269,6 +269,19 @@ impl ResourceManager {
 		resource_type: &str,
 		resource_ids: Vec<Uuid>,
 	) -> Result<()> {
+		// During backfill we skip per-record fan-out. For models like
+		// content_identity each UUID triggers 2 DB queries via dependency
+		// routing, which dominates apply time on large libraries. The backfill
+		// coordinator emits a single coarse invalidation after the scope ends.
+		if crate::infra::sync::is_in_backfill() {
+			tracing::trace!(
+				resource_type = %resource_type,
+				count = resource_ids.len(),
+				"Skipping per-record resource event emission during backfill"
+			);
+			return Ok(());
+		}
+
 		// For now, delegate to single-resource handler
 		// In future, could optimize by batching virtual resource construction
 		self.emit_resource_events(resource_type, resource_ids).await

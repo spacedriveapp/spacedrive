@@ -12,7 +12,7 @@ use tempfile::TempDir;
 use tokio::time::sleep;
 
 #[tokio::test]
-async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Setup test environment
 	let temp_dir = TempDir::new()?;
 	let core_dir = temp_dir.path().join("core");
@@ -103,7 +103,8 @@ async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error>
 }
 
 #[tokio::test]
-async fn test_shutdown_with_no_running_jobs() -> Result<(), Box<dyn std::error::Error>> {
+async fn test_shutdown_with_no_running_jobs() -> Result<(), Box<dyn std::error::Error + Send + Sync>>
+{
 	// This test ensures shutdown works correctly when no jobs are running
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;

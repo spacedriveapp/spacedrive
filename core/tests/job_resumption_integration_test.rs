@@ -121,7 +121,7 @@ async fn test_job_resumption_at_various_points() {
 }
 
 /// Generate test data using Spacedrive source code for deterministic testing
-async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error>> {
+async fn generate_test_data() -> Result<PathBuf, Box<dyn std::error::Error + Send + Sync>> {
 	// Use Spacedrive core/src directory for deterministic cross-platform testing
 	let indexing_data_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 		.parent()
@@ -252,7 +252,7 @@ async fn start_and_interrupt_job(
 	test_setup: &IntegrationTestSetup,
 	indexing_data_path: &PathBuf,
 	interruption_point: &InterruptionPoint,
-) -> Result<(Uuid, Uuid), Box<dyn std::error::Error>> {
+) -> Result<(Uuid, Uuid), Box<dyn std::error::Error + Send + Sync>> {
 	info!(
 		"Starting job and waiting for interruption point: {:?}",
 		interruption_point
@@ -486,7 +486,7 @@ async fn resume_and_complete_job(
 	_indexing_data_path: &PathBuf,
 	job_id: Uuid,
 	library_id: Uuid,
-) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error>> {
+) -> Result<(PathBuf, PathBuf), Box<dyn std::error::Error + Send + Sync>> {
 	info!("Resuming job {} and waiting for completion", job_id);
 
 	// Create core again (simulating daemon restart)

@@ -31,7 +31,7 @@ async fn main() -> anyhow::Result<()> {
 		.media_listing(
 			SdPath::Physical {
 				device_slug: "james-s-macbook-pro".to_string(),
-				path: "/Users/jamespine/Desktop".to_string(),
+				path: "/Users/jamespine/Desktop".into(),
 			},
 			Some(100),
 		)
@@ -55,7 +55,11 @@ async fn main() -> anyhow::Result<()> {
 			if !thumbnails.is_empty() {
 				println!("  Thumbnails:");
 				for thumb in thumbnails {
-					let url = client.thumbnail_url(&content_id.uuid, &thumb.variant, &thumb.format);
+					let url = client.thumbnail_url(
+						&content_id.uuid.to_string(),
+						&thumb.variant,
+						&thumb.format,
+					);
 					println!("    - {} ({})", thumb.variant, thumb.status);
 					println!("      {}", url);
 				}

@@ -506,7 +506,9 @@ export function updateSingleResource<O>(
 
 	queryClient.setQueryData<O>(queryKey, (oldData: any) => {
 		if (!oldData) {
-			return { files: resourcesToUpdate, total_count: resourcesToUpdate.length, has_more: false } as O;
+			// queryFn will deliver correct data. The { files: [...] } fallback assumes
+			// list shape, which crashes single-resource queries like libraries.info.
+			return undefined;
 		}
 
 		// Handle array responses

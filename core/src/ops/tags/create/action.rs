@@ -194,7 +194,61 @@ impl LibraryAction for CreateTagAction {
 								})?;
 						}
 
-						// Track this entry for resource events
+						affected_entry_uuids.push(entry_uuid);
+					}
+				}
+				ApplyToTargets::EntryUuid(entry_uuids) => {
+					// Batch-validate all entry UUIDs exist before applying
+					use crate::infra::db::entities::entry;
+					use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+					let existing_entries: std::collections::HashSet<Uuid> = entry::Entity::find()
+						.filter(entry::Column::Uuid.is_in(entry_uuids.clone()))
+						.all(library.db().conn())
+						.await
+						.map_err(|e| {
+							ActionError::Internal(format!("Failed to validate entry UUIDs: {}", e))
+						})?
+						.into_iter()
+						.filter_map(|e| e.uuid)
+						.collect();
+
+					let missing: Vec<&Uuid> = entry_uuids
+						.iter()
+						.filter(|uuid| !existing_entries.contains(uuid))
+						.collect();
+					if !missing.is_empty() {
+						return Err(ActionError::InvalidInput(format!(
+							"Entries not found: {:?}",
+							missing
+						)));
+					}
+
+					for &entry_uuid in entry_uuids {
+						let models = metadata_manager
+							.apply_semantic_tags_to_entry(
+								entry_uuid,
+								vec![tag_application.clone()],
+								device_id,
+							)
+							.await
+							.map_err(|e| {
+								ActionError::Internal(format!(
+									"Failed to apply tag to entry: {}",
+									e
+								))
+							})?;
+						for model in models {
+							library
+								.sync_model(&model, ChangeType::Insert)
+								.await
+								.map_err(|e| {
+									ActionError::Internal(format!(
+										"Failed to sync tag association: {}",
+										e
+									))
+								})?;
+						}
 						affected_entry_uuids.push(entry_uuid);
 					}
 				}

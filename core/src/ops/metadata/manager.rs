@@ -13,7 +13,10 @@ use crate::ops::tags::manager::TagManager;
 use anyhow::Result;
 use chrono::Utc;
 use sea_orm::DatabaseConnection;
-use sea_orm::{ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, NotSet, QueryFilter, Set};
+use sea_orm::{
+	sea_query::{Expr, OnConflict},
+	ActiveModelTrait, ColumnTrait, DbConn, EntityTrait, NotSet, QueryFilter, Set, TransactionTrait,
+};
 use std::collections::HashMap;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -246,10 +249,31 @@ impl UserMetadataManager {
 		let uuid_to_db_id: HashMap<Uuid, i32> =
 			tag_models.into_iter().map(|m| (m.uuid, m.id)).collect();
 
-		// Insert tag applications
+		// Atomic upsert: INSERT ... ON CONFLICT(user_metadata_id, tag_id) DO UPDATE
+		let txn = db
+			.begin()
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+
 		for app in tag_applications {
 			if let Some(&tag_db_id) = uuid_to_db_id.get(&app.tag_id) {
-				let tag_application = user_metadata_tag::ActiveModel {
+				let instance_attributes_value = if app.instance_attributes.is_empty() {
+					None
+				} else {
+					Some(
+						serde_json::to_value(&app.instance_attributes)
+							.map_err(|e| {
+								TagError::DatabaseError(format!(
+									"Failed to serialize instance_attributes: {}",
+									e
+								))
+							})?
+							.into(),
+					)
+				};
+
+				let now = Utc::now();
+				let new_model = user_metadata_tag::ActiveModel {
 					id: NotSet,
 					user_metadata_id: Set(metadata_db_id),
 					tag_id: Set(tag_db_id),
@@ -257,68 +281,60 @@ impl UserMetadataManager {
 					applied_variant: Set(app.applied_variant.clone()),
 					confidence: Set(app.confidence),
 					source: Set(app.source.as_str().to_string()),
-					instance_attributes: Set(if app.instance_attributes.is_empty() {
-						None
-					} else {
-						Some(
-							serde_json::to_value(&app.instance_attributes)
-								.unwrap()
-								.into(),
-						)
-					}),
+					instance_attributes: Set(instance_attributes_value),
 					created_at: Set(app.created_at),
-					updated_at: Set(Utc::now()),
+					updated_at: Set(now),
 					device_uuid: Set(device_uuid),
 					uuid: Set(Uuid::new_v4()),
 					version: Set(1),
 				};
 
-				// Insert or update if exists
-				let model = match tag_application.clone().insert(&*db).await {
-					Ok(model) => model,
-					Err(_) => {
-						// If insert fails due to unique constraint, update existing
-						let existing = user_metadata_tag::Entity::find()
-							.filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_db_id))
-							.filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
-							.one(&*db)
-							.await
-							.map_err(|e| TagError::DatabaseError(e.to_string()))?;
+				let on_conflict = OnConflict::columns([
+					user_metadata_tag::Column::UserMetadataId,
+					user_metadata_tag::Column::TagId,
+				])
+				.update_columns([
+					user_metadata_tag::Column::AppliedContext,
+					user_metadata_tag::Column::AppliedVariant,
+					user_metadata_tag::Column::Confidence,
+					user_metadata_tag::Column::Source,
+					user_metadata_tag::Column::InstanceAttributes,
+					user_metadata_tag::Column::UpdatedAt,
+					user_metadata_tag::Column::DeviceUuid,
+				])
+				.value(
+					user_metadata_tag::Column::Version,
+					Expr::col(user_metadata_tag::Column::Version).add(1),
+				)
+				.to_owned();
 
-						if let Some(existing_model) = existing {
-							let mut update_model: user_metadata_tag::ActiveModel =
-								existing_model.into();
-							update_model.applied_context = Set(app.applied_context.clone());
-							update_model.applied_variant = Set(app.applied_variant.clone());
-							update_model.confidence = Set(app.confidence);
-							update_model.source = Set(app.source.as_str().to_string());
-							update_model.instance_attributes =
-								Set(if app.instance_attributes.is_empty() {
-									None
-								} else {
-									Some(
-										serde_json::to_value(&app.instance_attributes)
-											.unwrap()
-											.into(),
-									)
-								});
-							update_model.updated_at = Set(Utc::now());
-							update_model.device_uuid = Set(device_uuid);
-							update_model.version = Set(update_model.version.unwrap() + 1);
+				user_metadata_tag::Entity::insert(new_model)
+					.on_conflict(on_conflict)
+					.exec(&txn)
+					.await
+					.map_err(|e| {
+						// Transaction will rollback on drop
+						TagError::DatabaseError(e.to_string())
+					})?;
 
-							update_model
-								.update(&*db)
-								.await
-								.map_err(|e| TagError::DatabaseError(e.to_string()))?
-						} else {
-							continue;
-						}
-					}
-				};
+				// Re-query to get the final model (handles both insert and update cases)
+				let model = user_metadata_tag::Entity::find()
+					.filter(user_metadata_tag::Column::UserMetadataId.eq(metadata_db_id))
+					.filter(user_metadata_tag::Column::TagId.eq(tag_db_id))
+					.one(&txn)
+					.await
+					.map_err(|e| TagError::DatabaseError(e.to_string()))?
+					.ok_or_else(|| {
+						TagError::DatabaseError("Upsert succeeded but row not found".to_string())
+					})?;
 
 				created_models.push(model);
 			}
 		}
+
+		txn.commit()
+			.await
+			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
 
 		// Record usage patterns for AI learning
 		self.semantic_tag_service

@@ -176,11 +176,12 @@ fn test_vouch_payload_structure() {
 		device_id: vouchee_device_id,
 		device_name: "Test Device".to_string(),
 		device_slug: "test-device".to_string(),
+		device_type: sd_core::service::network::device::DeviceType::Desktop,
 		os_version: "Test OS 1.0".to_string(),
 		app_version: "1.0.0".to_string(),
 		network_fingerprint: sd_core::service::network::utils::identity::NetworkFingerprint {
 			node_id: "test_node_id".to_string(),
-			public_key: vouchee_public_key.clone(),
+			public_key_hash: "abcdef1234567890".to_string(),
 		},
 		last_seen: Utc::now(),
 	};
