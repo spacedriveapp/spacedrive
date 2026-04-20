@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 /// Unique identifier for a job
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Type)]
+#[serde(transparent)]
 pub struct JobId(pub Uuid);
 
 impl JobId {
