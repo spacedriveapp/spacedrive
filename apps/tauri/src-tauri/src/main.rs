@@ -16,7 +16,6 @@ use std::sync::Arc;
 use tauri::menu::MenuItem;
 use tauri::Emitter;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_global_shortcut::ShortcutState;
 use tokio::sync::oneshot;
 use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -1928,10 +1927,10 @@ fn main() {
 		.plugin(tauri_plugin_updater::Builder::new().build())
 		.plugin(
 			tauri_plugin_global_shortcut::Builder::new()
-				.with_shortcut("Alt+Space")
-				.expect("failed to register Alt+Space global shortcut")
-				.with_handler(|app, _shortcut, event| {
-					if event.state() == ShortcutState::Pressed {
+				.with_handler(|app, shortcut, event| {
+					if event.state() == tauri_plugin_global_shortcut::ShortcutState::Pressed
+						&& shortcut.to_string() == "Alt+Space"
+					{
 						if let Err(error) = windows::toggle_voice_overlay_internal(app.clone()) {
 							tracing::warn!(
 								?error,
@@ -2003,6 +2002,18 @@ fn main() {
 			}
 
 			tracing::info!("Spacedrive Tauri app starting...");
+
+			// Register Alt+Space global shortcut for the voice overlay.
+			// Done at runtime (not at builder time) so a conflict with another
+			// app (e.g. PowerToys Run) is handled gracefully instead of panicking.
+			#[cfg(not(target_os = "linux"))]
+			{
+				use tauri_plugin_global_shortcut::GlobalShortcutExt;
+				match app.handle().global_shortcut().register("Alt+Space") {
+					Ok(_) => tracing::info!("Registered Alt+Space global shortcut"),
+					Err(error) => tracing::warn!(?error, "Failed to register Alt+Space global shortcut, voice overlay disabled"),
+				}
+			}
 
 			// Apply Windows-specific window customizations (dark titlebar)
 			#[cfg(target_os = "windows")]
