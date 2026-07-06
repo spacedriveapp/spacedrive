@@ -2,6 +2,7 @@ import { memo, useCallback } from "react";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
+import { isHiddenFile } from "../../context";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 
 interface ColumnItemProps {
@@ -42,7 +43,16 @@ export const ColumnItem = memo(
 		});
 
 		return (
-			<div ref={setNodeRef} {...listeners} {...attributes} tabIndex={-1} className="outline-none focus:outline-none">
+			<div
+				ref={setNodeRef}
+				{...listeners}
+				{...attributes}
+				tabIndex={-1}
+				className={clsx(
+					"outline-none focus:outline-none",
+					isHiddenFile(file) && "opacity-50",
+				)}
+			>
 				<FileComponent
 					file={file}
 					selected={selected && !isDragging}

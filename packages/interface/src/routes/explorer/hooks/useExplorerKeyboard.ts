@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useExplorer } from "../context";
 import { useSelection } from "../SelectionContext";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
+import { applyHiddenPreferences } from "../hiddenFiles";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { useTypeaheadSearch } from "./useTypeaheadSearch";
 import { useKeybind } from "../../../hooks/useKeybind";
@@ -23,7 +24,10 @@ export function useExplorerKeyboard() {
 		openQuickPreview,
 		tagModeActive,
 		setTagModeActive,
+		hiddenFilter,
+		setHiddenFilter,
 	} = useExplorer();
+	const includeHidden = hiddenFilter !== "regular";
 	const {
 		selectedFiles,
 		selectAll,
@@ -48,7 +52,7 @@ export function useExplorerKeyboard() {
 			? {
 					path: currentPath,
 					limit: null,
-					include_hidden: false,
+					include_hidden: includeHidden,
 					sort_by: sortBy as DirectorySortBy,
 				}
 			: null!,
@@ -57,7 +61,16 @@ export function useExplorerKeyboard() {
 		pathScope: currentPath ?? undefined,
 	});
 
-	const files = (directoryQuery.data as any)?.files || [];
+	const files = useMemo(
+		() =>
+			applyHiddenPreferences((directoryQuery.data as any)?.files || [], {
+				hiddenFilter,
+				sortBy: sortBy as string,
+				foldersFirst: viewSettings.foldersFirst,
+				enabled: true,
+			}),
+		[directoryQuery.data, hiddenFilter, sortBy, viewSettings.foldersFirst],
+	);
 
 	// Typeahead search (disabled for column view - it handles its own)
 	const typeahead = useTypeaheadSearch({
@@ -186,6 +199,20 @@ export function useExplorerKeyboard() {
 			// Skip all keyboard shortcuts if renaming or typing in an input
 			if (isRenaming || isInputFocused()) return;
 
+			// Cmd/Ctrl+Shift+. : Toggle hidden files (matches macOS Finder).
+			// Toggles between Regular and All; the "Hidden only" mode is reachable
+			// via the top-bar control. Match on e.code so the shifted symbol (">")
+			// doesn't break detection.
+			if (
+				(e.metaKey || e.ctrlKey) &&
+				e.shiftKey &&
+				e.code === "Period"
+			) {
+				e.preventDefault();
+				setHiddenFilter(hiddenFilter === "regular" ? "all" : "regular");
+				return;
+			}
+
 			// Arrow keys: Navigation
 			if (
 				["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
@@ -259,5 +286,7 @@ export function useExplorerKeyboard() {
 		openQuickPreview,
 		isRenaming,
 		typeahead,
+		hiddenFilter,
+		setHiddenFilter,
 	]);
 }

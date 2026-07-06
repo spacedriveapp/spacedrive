@@ -1,4 +1,4 @@
-import { useNormalizedQuery } from "@sd/ts-client";
+import { useLibraryQuery } from "../../contexts/SpacedriveContext";
 import { SpaceItem } from "./SpaceItem";
 import { GroupHeader } from "./GroupHeader";
 
@@ -15,10 +15,9 @@ export function LocationsGroup({
   sortableAttributes,
   sortableListeners,
 }: LocationsGroupProps) {
-  const { data: locationsData } = useNormalizedQuery({
-    query: "locations.list",
-    input: null, // Unit struct serializes as null, not {}
-    resourceType: "location",
+  const { data: locationsData } = useLibraryQuery({
+    type: "locations.list",
+    input: null,
   });
 
   const locations = locationsData?.locations ?? [];

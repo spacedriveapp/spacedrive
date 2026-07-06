@@ -93,7 +93,15 @@ export default defineConfig(() => ({
 							replacement: `${spacebot}/api-client/src`,
 						},
 					]
-				: []),
+				: [
+						{
+							find: /^@spacebot\/api-client$/,
+							replacement: path.resolve(
+								__dirname,
+								'./stubs/spacebot-api-client.ts'
+							),
+						},
+					]),
 			{
 				find: '@sd/interface',
 				replacement: path.resolve(

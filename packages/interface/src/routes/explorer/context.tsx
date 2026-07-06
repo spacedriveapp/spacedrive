@@ -178,10 +178,50 @@ interface UIState {
 	viewSettings: ViewSettings;
 	sidebarVisible: boolean;
 	inspectorVisible: boolean;
+	hiddenFilter: HiddenFilter;
 	quickPreviewFileId: string | null;
 	tagModeActive: boolean;
 	mode: ExplorerMode;
 	searchFilters: SearchFilters;
+}
+
+// How hidden (dot-prefixed) files are shown while browsing:
+//   "regular" — only non-hidden files (default)
+//   "all"     — everything, hidden dimmed like Finder
+//   "hidden"  — only hidden files/folders
+export type HiddenFilter = "regular" | "all" | "hidden";
+
+const HIDDEN_FILTER_VALUES: readonly HiddenFilter[] = ["regular", "all", "hidden"];
+
+// The File type has no explicit hidden flag, so match the Unix/macOS convention
+// of a leading dot. This mirrors what the indexer treats as hidden.
+export function isHiddenFile(file: { name: string }): boolean {
+	return file.name.startsWith(".");
+}
+
+// Persisted to localStorage so the choice survives across sessions (like Finder).
+const HIDDEN_FILTER_STORAGE_KEY = "sd-hidden-filter";
+
+function getStoredHiddenFilter(): HiddenFilter {
+	if (typeof window === "undefined") return "regular";
+	try {
+		const stored = window.localStorage.getItem(HIDDEN_FILTER_STORAGE_KEY);
+		if (stored && (HIDDEN_FILTER_VALUES as string[]).includes(stored)) {
+			return stored as HiddenFilter;
+		}
+	} catch {
+		/* ignore */
+	}
+	return "regular";
+}
+
+function persistHiddenFilter(value: HiddenFilter): void {
+	if (typeof window === "undefined") return;
+	try {
+		window.localStorage.setItem(HIDDEN_FILTER_STORAGE_KEY, value);
+	} catch {
+		/* ignore */
+	}
 }
 
 type UIAction =
@@ -190,6 +230,7 @@ type UIAction =
 	| { type: "SET_VIEW_SETTINGS"; settings: Partial<ViewSettings> }
 	| { type: "SET_SIDEBAR_VISIBLE"; visible: boolean }
 	| { type: "SET_INSPECTOR_VISIBLE"; visible: boolean }
+	| { type: "SET_HIDDEN_FILTER"; hiddenFilter: HiddenFilter }
 	| { type: "SET_QUICK_PREVIEW"; fileId: string | null }
 	| { type: "SET_TAG_MODE"; active: boolean }
 	| { type: "ENTER_SEARCH_MODE"; query: string; scope: SearchScope }
@@ -235,6 +276,9 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 
 		case "SET_INSPECTOR_VISIBLE":
 			return { ...state, inspectorVisible: action.visible };
+
+		case "SET_HIDDEN_FILTER":
+			return { ...state, hiddenFilter: action.hiddenFilter };
 
 		case "SET_QUICK_PREVIEW":
 			return { ...state, quickPreviewFileId: action.fileId };
@@ -321,6 +365,7 @@ const initialUIState: UIState = {
 	viewSettings: defaultViewSettings,
 	sidebarVisible: true,
 	inspectorVisible: true,
+	hiddenFilter: getStoredHiddenFilter(),
 	quickPreviewFileId: null,
 	tagModeActive: false,
 	mode: { type: "browse" },
@@ -431,6 +476,9 @@ interface ExplorerContextValue {
 	setSidebarVisible: (visible: boolean) => void;
 	inspectorVisible: boolean;
 	setInspectorVisible: (visible: boolean) => void;
+
+	hiddenFilter: HiddenFilter;
+	setHiddenFilter: (hiddenFilter: HiddenFilter) => void;
 
 	quickPreviewFileId: string | null;
 	openQuickPreview: (fileId: string) => void;
@@ -749,6 +797,11 @@ export function ExplorerProvider({
 		uiDispatch({ type: "SET_INSPECTOR_VISIBLE", visible });
 	}, []);
 
+	const setHiddenFilter = useCallback((hiddenFilter: HiddenFilter) => {
+		persistHiddenFilter(hiddenFilter);
+		uiDispatch({ type: "SET_HIDDEN_FILTER", hiddenFilter });
+	}, []);
+
 	const openQuickPreview = useCallback((fileId: string) => {
 		uiDispatch({ type: "SET_QUICK_PREVIEW", fileId });
 	}, []);
@@ -844,6 +897,8 @@ export function ExplorerProvider({
 			setSidebarVisible,
 			inspectorVisible: uiState.inspectorVisible,
 			setInspectorVisible,
+			hiddenFilter: uiState.hiddenFilter,
+			setHiddenFilter,
 			quickPreviewFileId: uiState.quickPreviewFileId,
 			openQuickPreview,
 			closeQuickPreview,
@@ -892,6 +947,8 @@ export function ExplorerProvider({
 			setSidebarVisible,
 			uiState.inspectorVisible,
 			setInspectorVisible,
+			uiState.hiddenFilter,
+			setHiddenFilter,
 			uiState.quickPreviewFileId,
 			openQuickPreview,
 			closeQuickPreview,

@@ -2,7 +2,7 @@ import { memo } from "react";
 import clsx from "clsx";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
-import { useExplorer } from "../../context";
+import { useExplorer, isHiddenFile } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { formatBytes } from "../../utils";
 import { TagDot } from "../../../../components/Tags";
@@ -149,7 +149,10 @@ export const FileCard = memo(
 				data-index={fileIndex}
 				data-selectable="true"
 				tabIndex={-1}
-				className="relative outline-none focus:outline-none"
+				className={clsx(
+					"relative outline-none focus:outline-none",
+					isHiddenFile(file) && "opacity-50",
+				)}
 			>
 				{/* Drop indicator for folders */}
 				{isFolder && isDropOver && (

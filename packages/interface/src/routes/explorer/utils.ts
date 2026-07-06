@@ -68,3 +68,30 @@ export function sdPathToUri(sdPath: SdPath): string {
 
 	return "";
 }
+
+/** macOS browse paths often use /System/Volumes/Data/Users/... — normalize to /Users/... */
+export function normalizePhysicalPath(path: string): string {
+	const prefix = "/System/Volumes/Data";
+	if (path.startsWith(prefix)) {
+		const rest = path.slice(prefix.length);
+		return rest.length > 0 ? rest : "/";
+	}
+	return path;
+}
+
+/** True if `path` is under `locationRoot` (handles macOS path aliases). */
+export function physicalPathUnderLocation(
+	path: string,
+	locationRoot: string,
+): boolean {
+	const normalizedPath = normalizePhysicalPath(path);
+	const normalizedRoot = normalizePhysicalPath(locationRoot);
+	return (
+		normalizedPath === normalizedRoot ||
+		normalizedPath.startsWith(
+			normalizedRoot.endsWith("/")
+				? normalizedRoot
+				: `${normalizedRoot}/`,
+		)
+	);
+}

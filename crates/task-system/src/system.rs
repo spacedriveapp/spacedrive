@@ -632,7 +632,7 @@ impl<E: RunError> Dispatcher<E> for BaseDispatcher<E> {
 
 		let worker_id = self
 				.last_worker_id
-				.fetch_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
+				.try_update(Ordering::Release, Ordering::Acquire, |last_worker_id| {
 					Some((last_worker_id + 1) % self.workers.len())
 				})
 				.expect("we hardcoded the update function to always return Some(next_worker_id) through dispatcher");

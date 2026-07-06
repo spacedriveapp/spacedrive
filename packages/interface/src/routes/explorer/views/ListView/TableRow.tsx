@@ -5,7 +5,7 @@ import clsx from "clsx";
 import type { File } from "@sd/ts-client";
 
 import { File as FileComponent } from "../../File";
-import { useExplorer } from "../../context";
+import { useExplorer, isHiddenFile } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { TagPill } from "../../../../components/Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
@@ -113,7 +113,10 @@ export const TableRow = memo(
 				data-file-id={file.id}
 				data-selectable="true"
 				tabIndex={-1}
-				className="relative outline-none focus:outline-none"
+				className={clsx(
+					"relative outline-none focus:outline-none",
+					isHiddenFile(file) && "opacity-50",
+				)}
 				style={{ height: ROW_HEIGHT }}
 				onClick={handleClick}
 				onDoubleClick={handleDoubleClick}

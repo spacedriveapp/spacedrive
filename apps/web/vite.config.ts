@@ -4,6 +4,50 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import fs from "fs";
 
+const repoRoot = path.resolve(__dirname, "../..");
+
+function bunPackageSrc(pkg: string): string | null {
+	const bunDir = path.join(repoRoot, "node_modules/.bun");
+	if (!fs.existsSync(bunDir)) return null;
+	for (const entry of fs.readdirSync(bunDir)) {
+		if (entry.startsWith(`${pkg}@`)) {
+			const src = path.join(bunDir, entry, "node_modules", pkg, "src/index.ts");
+			if (fs.existsSync(src)) return src;
+		}
+	}
+	return null;
+}
+
+const styleToJs = bunPackageSrc("style-to-js");
+const styleToObject = bunPackageSrc("style-to-object");
+
+// Pre-bundle common CJS deps from the markdown/unified stack (Bun hoists to .bun/).
+function bunPackageMain(pkg: string, file = "index.js"): string | null {
+	const bunDir = path.join(repoRoot, "node_modules/.bun");
+	if (!fs.existsSync(bunDir)) return null;
+	for (const entry of fs.readdirSync(bunDir)) {
+		if (entry.startsWith(`${pkg}@`)) {
+			const main = path.join(bunDir, entry, "node_modules", pkg, file);
+			if (fs.existsSync(main)) return main;
+		}
+	}
+	return null;
+}
+
+const cjsInteropPackages = [
+	"extend",
+	"debug",
+	"style-to-js",
+	"style-to-object",
+	"ms",
+	"devlop",
+	"unist-util-visit",
+	"unist-util-is",
+];
+const cjsInteropIncludes = cjsInteropPackages
+	.map((pkg) => bunPackageMain(pkg))
+	.filter((p): p is string => p !== null);
+
 const spaceui = path.resolve(__dirname, "../../../spaceui/packages");
 const hasSpaceui = fs.existsSync(spaceui);
 const spacebot = path.resolve(__dirname, "../../../spacebot/packages");
@@ -66,11 +110,19 @@ export default defineConfig({
 			...(hasSpacebot
 				? [
 						{
-							find: "@spacebot/api-client",
+							find: /^@spacebot\/api-client$/,
 							replacement: `${spacebot}/api-client/src`,
 						},
 					]
-				: []),
+				: [
+						{
+							find: /^@spacebot\/api-client$/,
+							replacement: path.resolve(
+								__dirname,
+								"./stubs/spacebot-api-client.ts",
+							),
+						},
+					]),
 			{
 				find: "@sd/interface",
 				replacement: path.resolve(__dirname, "../../packages/interface/src"),
@@ -86,6 +138,20 @@ export default defineConfig({
 					"../../packages/interface/node_modules/openapi-fetch/dist/index.mjs",
 				),
 			},
+			...(styleToJs
+				? [{ find: /^style-to-js$/, replacement: styleToJs }]
+				: []),
+			...(styleToObject
+				? [{ find: /^style-to-object$/, replacement: styleToObject }]
+				: []),
+			{
+				find: /^debug$/,
+				replacement: path.resolve(__dirname, "./stubs/debug.ts"),
+			},
+			{
+				find: /^extend$/,
+				replacement: path.resolve(__dirname, "./stubs/extend.ts"),
+			},
 		],
 	},
 	server: {
@@ -97,14 +163,19 @@ export default defineConfig({
 			],
 		},
 		proxy: {
-			// Proxy RPC requests to server
 			"/rpc": {
+				target: "http://localhost:8080",
+				changeOrigin: true,
+			},
+			"/events": {
 				target: "http://localhost:8080",
 				changeOrigin: true,
 			},
 		},
 	},
 	optimizeDeps: {
+		include: cjsInteropIncludes,
+		needsInterop: cjsInteropPackages,
 		exclude: ["@spacedrive/ai", "@spacedrive/primitives", "@spacedrive/tokens"],
 	},
 	build: {

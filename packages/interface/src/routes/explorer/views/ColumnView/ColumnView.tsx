@@ -5,6 +5,7 @@ import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import type { DirectorySortBy } from "@sd/ts-client";
 import { Column } from "./Column";
+import { applyHiddenPreferences } from "../../hiddenFiles";
 import { useTypeaheadSearch } from "../../hooks/useTypeaheadSearch";
 import { useVirtualListing } from "../../hooks/useVirtualListing";
 import { isVirtualFile } from '@sd/ts-client';
@@ -28,7 +29,9 @@ export function ColumnView() {
 		activeTabId,
 		setCurrentFiles,
 		mode,
+		hiddenFilter,
 	} = useExplorer();
+	const includeHidden = hiddenFilter !== "regular";
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
 
 	// Get files from centralized hook (handles search mode automatically)
@@ -189,7 +192,7 @@ export function ColumnView() {
 			? {
 					path: activeColumnPath,
 					limit: null,
-					include_hidden: false,
+					include_hidden: includeHidden,
 					sort_by: sortBy as DirectorySortBy,
 					folders_first: viewSettings.foldersFirst,
 				}
@@ -203,7 +206,15 @@ export function ColumnView() {
 	const activeColumnFiles =
 		isVirtualView && activeColumnIndex === -1
 			? virtualFiles || []
-			: ((activeColumnQuery.data as any)?.files || []);
+			: applyHiddenPreferences(
+					(activeColumnQuery.data as any)?.files || [],
+					{
+						hiddenFilter,
+						sortBy: sortBy as string,
+						foldersFirst: viewSettings.foldersFirst,
+						enabled: true,
+					},
+				);
 
 	// Update currentFiles when active column changes (required for QuickPreview)
 	useEffect(() => {
@@ -239,7 +250,7 @@ export function ColumnView() {
 			? {
 					path: nextColumnPath,
 					limit: null,
-					include_hidden: false,
+					include_hidden: includeHidden,
 					sort_by: sortBy as DirectorySortBy,
 					folders_first: viewSettings.foldersFirst,
 				}
@@ -249,7 +260,15 @@ export function ColumnView() {
 		pathScope: nextColumnPath,
 	});
 
-	const nextColumnFiles = (nextColumnQuery.data as any)?.files || [];
+	const nextColumnFiles = applyHiddenPreferences(
+		(nextColumnQuery.data as any)?.files || [],
+		{
+			hiddenFilter,
+			sortBy: sortBy as string,
+			foldersFirst: viewSettings.foldersFirst,
+			enabled: true,
+		},
+	);
 
 	// Keyboard navigation
 	useEffect(() => {

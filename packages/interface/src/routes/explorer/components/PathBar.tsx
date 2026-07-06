@@ -19,7 +19,8 @@ import {useEffect, useState} from 'react';
 import {useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
 import {sdPathToUri} from '../utils';
-import {useAddStorageDialog} from './AddStorageModal';
+import {useAddLocationDialog} from './AddLocationModal';
+import {normalizePhysicalPath} from '../utils';
 
 interface PathBarProps {
 	path: SdPath;
@@ -133,7 +134,12 @@ function IndexIndicator({path}: {path: SdPath}) {
 					if (!loc.sd_path || !('Physical' in loc.sd_path))
 						return false;
 					const locPath = loc.sd_path.Physical.path;
-					return pathStr.startsWith(locPath);
+					return (
+						pathStr.startsWith(locPath) ||
+						normalizePhysicalPath(pathStr).startsWith(
+							normalizePhysicalPath(locPath)
+						)
+					);
 				})
 				.sort((a: any, b: any) => {
 					const aPath =
@@ -224,9 +230,11 @@ function IndexIndicator({path}: {path: SdPath}) {
 									onClick={() => {
 										const initialPath =
 											'Physical' in path
-												? path.Physical.path
+												? normalizePhysicalPath(
+														path.Physical.path
+													)
 												: undefined;
-										useAddStorageDialog(
+										useAddLocationDialog(
 											undefined,
 											initialPath
 										);

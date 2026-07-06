@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { applyHiddenPreferences } from "../hiddenFiles";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -31,7 +32,8 @@ export interface ExplorerFilesResult {
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings } = explorer;
+	const { mode, currentPath, sortBy, viewSettings, hiddenFilter } = explorer;
+	const includeHidden = hiddenFilter !== "regular";
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -76,7 +78,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				size_range: null,
 				locations: null,
 				content_types: null,
-				include_hidden: null,
+				include_hidden: includeHidden ? true : null,
 				include_archived: null,
 				at_risk: null,
 				on_volumes: null,
@@ -94,7 +96,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				offset: 0,
 			},
 		};
-	}, [isSearchMode, mode, currentPath, sortBy]);
+	}, [isSearchMode, mode, currentPath, sortBy, includeHidden]);
 
 	// Build filtered query input (pre-applied SearchFilters, e.g. redundancy views)
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -212,11 +214,11 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	// Directory query
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
-		input: currentPath
+			input: currentPath
 			? {
 					path: currentPath,
 					limit: null,
-					include_hidden: false,
+					include_hidden: includeHidden,
 					sort_by: sortBy as DirectorySortBy,
 					folders_first: viewSettings.foldersFirst,
 				}
@@ -245,7 +247,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? "virtual"
 						: "directory";
 
-	const files = useMemo(() => {
+	const rawFiles = useMemo(() => {
 		if (isFilteredMode) {
 			return (
 				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
@@ -277,6 +279,18 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		virtualFiles,
 		directoryQuery.data,
 	]);
+
+	// Apply hidden-files preference + Finder ordering to real directory listings.
+	const files = useMemo(
+		() =>
+			applyHiddenPreferences(rawFiles, {
+				hiddenFilter,
+				sortBy: sortBy as string,
+				foldersFirst: viewSettings.foldersFirst,
+				enabled: source === "directory",
+			}),
+		[rawFiles, hiddenFilter, sortBy, viewSettings.foldersFirst, source],
+	);
 
 	const isLoading = isFilteredMode
 		? filteredQuery.isLoading

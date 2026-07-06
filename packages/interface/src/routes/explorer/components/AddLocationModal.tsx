@@ -22,6 +22,7 @@ import type {
 import { useLibraryMutation, useLibraryQuery } from "../../../contexts/SpacedriveContext";
 import { usePlatform } from "../../../contexts/PlatformContext";
 import { NewLocation } from "@sd/assets/icons";
+import { normalizePhysicalPath } from "../utils";
 
 interface AddLocationFormData {
   path: string;
@@ -102,19 +103,32 @@ const jobOptions: JobOption[] = [
 
 export function useAddLocationDialog(
   onLocationAdded?: (locationId: string) => void,
+  initialPath?: string,
 ) {
   return dialogManager.create((props) => (
-    <AddLocationDialog {...props} onLocationAdded={onLocationAdded} />
+    <AddLocationDialog
+      {...props}
+      onLocationAdded={onLocationAdded}
+      initialPath={initialPath}
+    />
   ));
 }
 
 function AddLocationDialog(props: {
   id: number;
   onLocationAdded?: (locationId: string) => void;
+  initialPath?: string;
 }) {
   const dialog = useDialog(props);
   const platform = usePlatform();
-  const [step, setStep] = useState<ModalStep>("picker");
+  const normalizedInitial = props.initialPath
+    ? normalizePhysicalPath(props.initialPath)
+    : "";
+  const initialFolderName =
+    normalizedInitial.split("/").filter(Boolean).pop() || "";
+  const [step, setStep] = useState<ModalStep>(
+    normalizedInitial ? "settings" : "picker",
+  );
   const [tab, setTab] = useState<SettingsTab>("preset");
 
   const addLocation = useLibraryMutation("locations.add");
@@ -125,9 +139,9 @@ function AddLocationDialog(props: {
 
   const form = useForm<AddLocationFormData>({
     defaultValues: {
-      path: "",
-      name: "",
-      mode: "Deep",
+      path: normalizedInitial,
+      name: initialFolderName,
+      mode: "Shallow",
     },
   });
 
@@ -135,7 +149,7 @@ function AddLocationDialog(props: {
   const currentMode = form.watch("mode");
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(
     new Set(
-      jobOptions.filter((j) => j.presets.includes("Deep")).map((j) => j.id),
+      jobOptions.filter((j) => j.presets.includes("Shallow")).map((j) => j.id),
     ),
   );
 
@@ -214,7 +228,7 @@ function AddLocationDialog(props: {
       path: {
         Physical: {
           device_slug: "local", // Backend determines actual device from context
-          path: data.path,
+          path: normalizePhysicalPath(data.path),
         },
       },
       name: data.name || null,

@@ -2,6 +2,7 @@ import clsx from "clsx";
 import { memo } from "react";
 import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
+import { isHiddenFile } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 
@@ -66,6 +67,7 @@ export const MediaViewItem = memo(function MediaViewItem({
 				"relative overflow-hidden cursor-pointer transition-all w-full h-full group outline-none focus:outline-none",
 				selected && "ring-2 ring-accent ring-inset",
 				focused && !selected && "ring-2 ring-accent/50 ring-inset",
+				isHiddenFile(file) && "opacity-50",
 			)}
 			onClick={handleClick}
 			onContextMenu={handleContextMenu}

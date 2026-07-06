@@ -10,6 +10,7 @@ import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
+import {HiddenFilterToggle} from './components/HiddenFilterToggle';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
 import {useExplorer, type ViewMode} from './context';
@@ -285,6 +286,13 @@ export function ExplorerView() {
 									onSortChange={setSortBy}
 									viewMode={viewMode as any}
 								/>
+							</TopBarItem>
+							<TopBarItem
+								id="hidden-files-filter"
+								label="Hidden Files"
+								priority="high"
+							>
+								<HiddenFilterToggle />
 							</TopBarItem>
 							<TopBarItem
 								id="inspector-toggle"

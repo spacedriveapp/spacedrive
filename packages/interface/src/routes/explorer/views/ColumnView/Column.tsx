@@ -5,6 +5,7 @@ import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
+import { applyHiddenPreferences } from "../../hiddenFiles";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useSelection } from "../../SelectionContext";
 
@@ -126,7 +127,7 @@ export const Column = memo(function Column({
 	virtualFiles,
 }: ColumnProps) {
 	const parentRef = useRef<HTMLDivElement>(null);
-	const { viewSettings, sortBy } = useExplorer();
+	const { viewSettings, sortBy, hiddenFilter } = useExplorer();
 	const { selectedFiles } = useSelection();
 
 	const directoryQuery = useNormalizedQuery({
@@ -134,7 +135,7 @@ export const Column = memo(function Column({
 		input: {
 			path: path!,
 			limit: null,
-			include_hidden: false,
+			include_hidden: hiddenFilter !== "regular",
 			sort_by: sortBy as any,
 			folders_first: viewSettings.foldersFirst,
 		},
@@ -144,7 +145,14 @@ export const Column = memo(function Column({
 		// includeDescendants defaults to false for exact directory matching
 	});
 
-	const files = virtualFiles || (directoryQuery.data as any)?.files || [];
+	const files =
+		virtualFiles ||
+		applyHiddenPreferences((directoryQuery.data as any)?.files || [], {
+			hiddenFilter,
+			sortBy: sortBy as string,
+			foldersFirst: viewSettings.foldersFirst,
+			enabled: true,
+		});
 
 	const rowVirtualizer = useVirtualizer({
 		count: files.length,

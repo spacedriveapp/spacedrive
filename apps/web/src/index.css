@@ -76,3 +76,40 @@ body {
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
 }
+
+/*
+ * Browser dev: @spacedrive/primitives Dialog (Add Location, etc.)
+ *
+ * Root causes of the “ghost” modal:
+ * 1. Radix UI v1.x uses data-state, NOT data-radix-dialog-* (removed in v1).
+ * 2. Overlay class bg-app/50 is ~white/50 on light theme → invisible backdrop.
+ * 3. react-spring sets inline opacity on overlay/content wrappers.
+ */
+html[data-sd-platform="web"] [data-state="open"].bg-app\/50,
+html[data-sd-platform="web"] .fixed.inset-0.z-\[102\][data-state="open"]:not([role="dialog"]) {
+	background-color: rgb(0 0 0 / 0.6) !important;
+	opacity: 1 !important;
+	z-index: 200 !important;
+}
+
+html[data-sd-platform="web"] [role="dialog"][data-state="open"],
+html[data-sd-platform="web"] .fixed.inset-0.z-\[103\][data-state="open"] {
+	opacity: 1 !important;
+	z-index: 201 !important;
+}
+
+html[data-sd-platform="web"] [role="dialog"] form.bg-app-box {
+	background-color: var(--color-app-box) !important;
+	box-shadow:
+		0 0 0 1px var(--color-app-line),
+		0 25px 50px -12px rgb(0 0 0 / 0.35) !important;
+}
+
+/* Light theme: extra panel contrast against pale page chrome */
+html[data-sd-platform="web"].vanilla-theme [role="dialog"] form.bg-app-box,
+html[data-sd-platform="web"].light [role="dialog"] form.bg-app-box {
+	background-color: hsl(0 0% 100%) !important;
+	box-shadow:
+		0 0 0 1px hsl(235 5% 72%),
+		0 25px 50px -12px rgb(0 0 0 / 0.45) !important;
+}
