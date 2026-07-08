@@ -83,7 +83,8 @@ body {
 /*
  * Tauri uses a transparent native window. Dialog overlay uses bg-app/50 with a
  * react-spring opacity animation on the whole element, so the app bleeds through.
- * Force a full-window opaque backdrop above the shell (sidebar is z-[65]).
+ * Without opaque backdrop + panel styles, modals (Add Group, Add Storage, etc.)
+ * appear invisible while still blocking all pointer events.
  */
 .fixed.inset-0.z-\[102\] {
 	z-index: 102 !important;
@@ -98,10 +99,6 @@ body {
 	z-index: 103 !important;
 }
 
-/*
- * Dialog panels also need a solid background on the transparent Tauri window,
- * otherwise Add Storage category tiles (including Cloud Storage) are unreadable.
- */
 .z-\[103\] .border-app-line.bg-app-box,
 .z-\[103\] form.border-app-line.bg-app-box {
 	background-color: var(--color-app-box) !important;
@@ -111,12 +108,19 @@ body {
 	background-color: var(--color-app-input) !important;
 }
 
-/*
- * Primitives menus use bg-menu/95 + backdrop-blur. On the transparent Tauri
- * window, sidebar and explorer content bleeds through and menu text is unreadable.
- */
 .border-menu-line.bg-menu\/95 {
 	background-color: var(--color-menu) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
+}
+
+/*
+ * Space switcher and other sidebar dropdowns use bg-sidebar-box. Primitives still
+ * applies bg-menu/95 + backdrop-blur underneath, which bleeds through on Tauri.
+ */
+.border-sidebar-line.bg-sidebar-box,
+.border-sidebar-line.\!bg-sidebar-box {
+	background-color: var(--color-sidebar-box) !important;
 	backdrop-filter: none !important;
 	-webkit-backdrop-filter: none !important;
 }
