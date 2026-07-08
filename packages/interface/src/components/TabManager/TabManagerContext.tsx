@@ -163,6 +163,40 @@ function savePersistedState(state: PersistedState): void {
 	}
 }
 
+/**
+ * Collapse duplicate tabs from older builds that opened the adapters picker
+ * as a separate tab instead of navigating within Sources.
+ */
+function normalizeTabs(tabs: Tab[]): Tab[] {
+	const bestByPath = new Map<string, Tab>();
+	for (const tab of tabs) {
+		const existing = bestByPath.get(tab.savedPath);
+		if (!existing || tab.lastActive > existing.lastActive) {
+			bestByPath.set(tab.savedPath, tab);
+		}
+	}
+
+	let kept = tabs.filter(
+		(tab) => bestByPath.get(tab.savedPath)?.id === tab.id,
+	);
+
+	const sourcesTab = kept.find((tab) => tab.savedPath === "/sources");
+	const adaptersTab = kept.find((tab) => tab.savedPath === "/sources/adapters");
+	if (sourcesTab && adaptersTab) {
+		const dropId =
+			sourcesTab.lastActive >= adaptersTab.lastActive
+				? adaptersTab.id
+				: sourcesTab.id;
+		kept = kept.filter((tab) => tab.id !== dropId);
+	}
+
+	return kept.map((tab) =>
+		tab.savedPath === "/sources/adapters"
+			? { ...tab, title: "Sources" }
+			: tab,
+	);
+}
+
 // ============================================================================
 // Context
 // ============================================================================
@@ -216,7 +250,10 @@ export function TabManagerProvider({
 	const [tabs, setTabs] = useState<Tab[]>(() => {
 		const persisted = loadPersistedState();
 		if (persisted && persisted.tabs.length > 0) {
-			return persisted.tabs;
+			const normalized = normalizeTabs(persisted.tabs);
+			if (normalized.length > 0) {
+				return normalized;
+			}
 		}
 
 		const initialTabId = crypto.randomUUID();
@@ -235,11 +272,12 @@ export function TabManagerProvider({
 	const [activeTabId, setActiveTabId] = useState<string>(() => {
 		const persisted = loadPersistedState();
 		if (persisted && persisted.activeTabId) {
-			// Verify the activeTabId exists in tabs
-			const tabExists = persisted.tabs.some(
+			const normalized = normalizeTabs(persisted.tabs);
+			const tabExists = normalized.some(
 				(t) => t.id === persisted.activeTabId,
 			);
 			if (tabExists) return persisted.activeTabId;
+			if (normalized[0]) return normalized[0].id;
 		}
 		return tabs[0].id;
 	});
@@ -307,30 +345,41 @@ export function TabManagerProvider({
 	const createTab = useCallback(
 		(title?: string, path?: string) => {
 			const tabPath = path ?? defaultNewTabPath;
-			const [pathname, search = ""] = tabPath.split("?");
-			const derivedTitle =
-				title ||
-				deriveTitleFromPath(pathname, search ? `?${search}` : "");
 
-			const newTab: Tab = {
-				id: crypto.randomUUID(),
-				title: derivedTitle,
-				icon: null,
-				isPinned: false,
-				lastActive: Date.now(),
-				savedPath: tabPath,
-			};
+			setTabs((prev) => {
+				const existing = prev.find((tab) => tab.savedPath === tabPath);
+				if (existing) {
+					setActiveTabId(existing.id);
+					return prev;
+				}
 
-			// Initialize explorer state for the new tab
-			setExplorerStates((prev) =>
-				new Map(prev).set(newTab.id, { ...DEFAULT_EXPLORER_STATE }),
-			);
+				const [pathname, search = ""] = tabPath.split("?");
+				const derivedTitle =
+					title ||
+					deriveTitleFromPath(pathname, search ? `?${search}` : "");
 
-			// Initialize empty selection state for the new tab
-			setSelectionStates((prev) => new Map(prev).set(newTab.id, []));
+				const newTab: Tab = {
+					id: crypto.randomUUID(),
+					title: derivedTitle,
+					icon: null,
+					isPinned: false,
+					lastActive: Date.now(),
+					savedPath: tabPath,
+				};
 
-			setTabs((prev) => [...prev, newTab]);
-			setActiveTabId(newTab.id);
+				setExplorerStates((explorerPrev) =>
+					new Map(explorerPrev).set(newTab.id, {
+						...DEFAULT_EXPLORER_STATE,
+					}),
+				);
+
+				setSelectionStates((selectionPrev) =>
+					new Map(selectionPrev).set(newTab.id, []),
+				);
+
+				setActiveTabId(newTab.id);
+				return [...prev, newTab];
+			});
 		},
 		[defaultNewTabPath],
 	);
