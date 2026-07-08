@@ -260,7 +260,12 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		} else if (isSearchMode) {
 			result = (searchQuery.data as FileSearchOutput | undefined)?.files || [];
 		} else if (isVirtualView) {
-			result = virtualFiles || [];
+			result = sortFiles(
+				virtualFiles || [],
+				sortBy,
+				sortOrder,
+				viewSettings.foldersFirst,
+			);
 		} else {
 			result =
 				(directoryQuery.data as { files: File[] } | undefined)?.files ?? [];

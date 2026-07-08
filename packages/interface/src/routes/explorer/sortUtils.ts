@@ -14,6 +14,22 @@ export function toSortDirection(order: SortOrder): SortDirection {
 	return order === "asc" ? "Asc" : "Desc";
 }
 
+export function sortDirectionLabel(sortBy: SortBy, sortOrder: SortOrder): string {
+	switch (sortBy) {
+		case "name":
+		case "type":
+			return sortOrder === "asc" ? "A–Z" : "Z–A";
+		case "modified":
+		case "created":
+		case "datetaken":
+			return sortOrder === "asc" ? "Oldest first" : "Newest first";
+		case "size":
+			return sortOrder === "asc" ? "Smallest first" : "Largest first";
+		default:
+			return sortOrder === "asc" ? "Ascending" : "Descending";
+	}
+}
+
 /** Client-side fallback when daemon hasn't been rebuilt yet. */
 export function sortFiles(
 	files: File[],

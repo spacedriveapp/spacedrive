@@ -39,6 +39,7 @@ export function ExplorerView() {
 		viewMode,
 		setViewMode,
 		sortBy,
+		sortOrder,
 		handleSortChange,
 		viewSettings,
 		setViewSettings,
@@ -141,11 +142,12 @@ export function ExplorerView() {
 		() => (
 			<SortMenuPanel
 				sortBy={sortBy}
+				sortOrder={sortOrder}
 				onSortChange={handleSortChange}
 				viewMode={viewMode as any}
 			/>
 		),
-		[sortBy, handleSortChange, viewMode]
+		[sortBy, sortOrder, handleSortChange, viewMode]
 	);
 
 	// Allow rendering if we have a currentPath, a virtual view, or a special mode
@@ -282,6 +284,7 @@ export function ExplorerView() {
 							>
 								<SortMenu
 									sortBy={sortBy}
+									sortOrder={sortOrder}
 									onSortChange={handleSortChange}
 									viewMode={viewMode as any}
 								/>

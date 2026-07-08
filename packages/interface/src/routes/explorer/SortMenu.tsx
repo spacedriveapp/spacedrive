@@ -13,14 +13,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import { CircleButton } from "@spacedrive/primitives";
 import type { DirectorySortBy, MediaSortBy } from "@sd/ts-client";
+import { sortDirectionLabel, type SortOrder } from "./sortUtils";
 
 interface SortMenuPanelProps {
   sortBy: DirectorySortBy | MediaSortBy;
+  sortOrder: SortOrder;
   onSortChange: (sort: DirectorySortBy | MediaSortBy) => void;
   viewMode: "grid" | "list" | "media" | "column";
 }
 
-export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelProps) {
+export function SortMenuPanel({ sortBy, sortOrder, onSortChange, viewMode }: SortMenuPanelProps) {
   const sortOptions = viewMode === "media"
     ? [
         { value: "datetaken", label: "Date Taken", icon: Camera },
@@ -60,6 +62,11 @@ export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelP
             >
               <Icon className="size-4" weight="bold" />
               <span className="flex-1 text-left">{option.label}</span>
+              {isActive && (
+                <span className="text-xs text-ink-dull">
+                  {sortDirectionLabel(option.value as DirectorySortBy | MediaSortBy, sortOrder)}
+                </span>
+              )}
               {isActive && <Check className="size-4" weight="bold" />}
             </button>
           );
@@ -71,12 +78,13 @@ export function SortMenuPanel({ sortBy, onSortChange, viewMode }: SortMenuPanelP
 
 interface SortMenuProps {
   sortBy: DirectorySortBy | MediaSortBy;
+  sortOrder: SortOrder;
   onSortChange: (sort: DirectorySortBy | MediaSortBy) => void;
   viewMode: "grid" | "list" | "media" | "column";
   className?: string;
 }
 
-export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenuProps) {
+export function SortMenu({ sortBy, sortOrder, onSortChange, viewMode, className }: SortMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -142,6 +150,7 @@ export function SortMenu({ sortBy, onSortChange, viewMode, className }: SortMenu
             >
               <SortMenuPanel
                 sortBy={sortBy}
+                sortOrder={sortOrder}
                 onSortChange={onSortChange}
                 viewMode={viewMode}
               />

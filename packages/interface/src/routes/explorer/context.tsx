@@ -486,14 +486,12 @@ export function ExplorerProvider({
 	const sortPrefs = useSortPreferencesStore();
 
 	// Get per-tab state from TabManager
-	const { activeTabId, getExplorerState, updateExplorerState } =
+	const { activeTabId, getExplorerState, updateExplorerState, explorerStateVersion } =
 		useTabManager();
 
-	// Memoize tabState to ensure it updates when activeTabId or explorerStates change
-	const tabState = useMemo(
-		() => getExplorerState(activeTabId),
-		[activeTabId, getExplorerState],
-	);
+	// Read fresh tab state each render; explorerStateVersion forces updates after writes.
+	void explorerStateVersion;
+	const tabState = getExplorerState(activeTabId);
 
 	const [navState, navDispatch] = useReducer(
 		navigationReducer,
@@ -604,23 +602,12 @@ export function ExplorerProvider({
 	useEffect(() => {
 		const savedSort = sortPrefs.getPreferences(pathKey);
 		if (savedSort) {
-			uiDispatch({ type: "SET_SORT_BY", sort: savedSort as SortBy });
+			updateExplorerState(activeTabId, {
+				sortBy: savedSort as TabSortBy,
+				sortOrder: defaultSortOrder(savedSort as SortBy),
+			});
 		}
-	}, [pathKey, sortPrefs]);
-
-	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
-	useEffect(() => {
-		if (uiState.viewMode === "media" && uiState.sortBy === "type") {
-			uiDispatch({ type: "SET_SORT_BY", sort: "datetaken" });
-			sortPrefs.setPreferences(pathKey, "datetaken");
-		} else if (
-			uiState.viewMode !== "media" &&
-			uiState.sortBy === "datetaken"
-		) {
-			uiDispatch({ type: "SET_SORT_BY", sort: "modified" });
-			sortPrefs.setPreferences(pathKey, "modified");
-		}
-	}, [uiState.viewMode, uiState.sortBy, pathKey, sortPrefs]);
+	}, [pathKey, sortPrefs, activeTabId, updateExplorerState]);
 
 	const navigateToPath = useCallback(
 		(path: SdPath) => {
@@ -749,6 +736,15 @@ export function ExplorerProvider({
 		},
 		[handleSortChange],
 	);
+
+	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
+	useEffect(() => {
+		if (viewMode === "media" && sortByValue === "type") {
+			setSortBy("datetaken");
+		} else if (viewMode !== "media" && sortByValue === "datetaken") {
+			setSortBy("modified");
+		}
+	}, [viewMode, sortByValue, setSortBy]);
 
 	const setViewSettings = useCallback(
 		(settings: Partial<ViewSettings>) => {

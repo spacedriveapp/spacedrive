@@ -184,6 +184,7 @@ interface TabManagerContextValue {
 	setDefaultNewTabPath: (path: string) => void;
 
 	// Explorer state (per-tab)
+	explorerStateVersion: number;
 	getExplorerState: (tabId: string) => TabExplorerState;
 	updateExplorerState: (
 		tabId: string,
@@ -248,13 +249,20 @@ export function TabManagerProvider({
 	>(() => {
 		const persisted = loadPersistedState();
 		if (persisted && persisted.explorerStates) {
-			return new Map(Object.entries(persisted.explorerStates));
+			return new Map(
+				Object.entries(persisted.explorerStates).map(([tabId, state]) => [
+					tabId,
+					{ ...DEFAULT_EXPLORER_STATE, ...state },
+				]),
+			);
 		}
 
 		const initialMap = new Map<string, TabExplorerState>();
 		initialMap.set(tabs[0].id, { ...DEFAULT_EXPLORER_STATE });
 		return initialMap;
 	});
+
+	const [explorerStateVersion, setExplorerStateVersion] = useState(0);
 
 	// Per-tab selection state (ephemeral, not persisted to localStorage)
 	const [selectionStates, setSelectionStates] = useState<
@@ -455,6 +463,7 @@ export function TabManagerProvider({
 				};
 				return new Map(prev).set(tabId, { ...current, ...updates });
 			});
+			setExplorerStateVersion((version) => version + 1);
 		},
 		[],
 	);
@@ -493,6 +502,7 @@ export function TabManagerProvider({
 			previousTab,
 			selectTabAtIndex,
 			setDefaultNewTabPath,
+			explorerStateVersion,
 			getExplorerState,
 			updateExplorerState,
 			getSelectionIds,
@@ -512,6 +522,7 @@ export function TabManagerProvider({
 			previousTab,
 			selectTabAtIndex,
 			setDefaultNewTabPath,
+			explorerStateVersion,
 			getExplorerState,
 			updateExplorerState,
 			getSelectionIds,
