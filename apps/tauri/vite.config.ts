@@ -4,97 +4,70 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react-swc';
 import {defineConfig} from 'vite';
 
+/** Resolve a Bun-hoisted transitive dependency to its CJS entry. */
+function resolveBunPackageDir(packageName: string): string {
+	const bunDir = path.resolve(__dirname, '../../node_modules/.bun');
+	const match = fs
+		.readdirSync(bunDir)
+		.find((entry) => entry.startsWith(`${packageName}@`));
+	if (!match) {
+		throw new Error(`Could not find bun package: ${packageName}`);
+	}
+	return path.resolve(bunDir, match, 'node_modules', packageName);
+}
+
+function resolveBunEntry(packageName: string): string {
+	const pkgDir = resolveBunPackageDir(packageName);
+	const pkgJson = JSON.parse(
+		fs.readFileSync(path.join(pkgDir, 'package.json'), 'utf8')
+	) as {main?: string; browser?: string};
+	const entry = pkgJson.browser ?? pkgJson.main ?? 'index.js';
+	const candidates = [
+		path.resolve(pkgDir, entry),
+		path.resolve(pkgDir, `${entry}.js`),
+		path.resolve(pkgDir, entry, 'index.js'),
+	];
+	for (const candidate of candidates) {
+		if (fs.existsSync(candidate)) {
+			return candidate;
+		}
+	}
+	throw new Error(`Could not resolve entry for ${packageName}`);
+}
+
+// CJS packages loaded via Bun's .bun store need pre-bundling for ESM default imports.
+const CJS_INTEROP_PACKAGES = [
+	'style-to-js',
+	'style-to-object',
+	'inline-style-parser',
+	'extend',
+	'is-plain-obj',
+	'bail',
+	'trough',
+	'ms',
+] as const;
+
+const cjsInteropEntries = CJS_INTEROP_PACKAGES.flatMap((packageName) => {
+	try {
+		return [{packageName, entry: resolveBunEntry(packageName)}];
+	} catch {
+		return [];
+	}
+});
+
+const debugStub = path.resolve(__dirname, './src/stubs/debug.ts');
+
 const spaceui = path.resolve(__dirname, '../../../spaceui/packages');
 const hasSpaceui = fs.existsSync(spaceui);
 const spacebot = path.resolve(__dirname, '../../../spacebot/packages');
 const hasSpacebot = fs.existsSync(spacebot);
+const spacebotStub = path.resolve(
+	__dirname,
+	'./src/stubs/spacebot-api-client.ts'
+);
 
 export default defineConfig(() => ({
-	plugins: [
-		react(),
-		tailwindcss(),
-		// Provide a stub for @spacebot/api-client when the spacebot sibling repo is not present.
-		// This prevents Vite dev from failing with "Failed to resolve import" which leads to
-		// grey/blank screen in the Tauri webview (the module graph breaks for Spacebot code
-		// pulled in via the router).
-		{
-			name: 'spacebot-stub',
-			resolveId(id: string) {
-				if (id === '@spacebot/api-client' && !hasSpacebot) {
-					return '\0virtual:spacebot-stub';
-				}
-			},
-			load(id: string) {
-				if (id === '\0virtual:spacebot-stub') {
-					// Return pure JS (no TS syntax like `?:` or `export type`).
-					// Vite serves this virtual as JS; browser would choke on TS syntax
-					// causing "Unexpected token '?'" and empty #root (grey screen).
-					return `
-export const apiClient = {};
-export function getEventsUrl() { return ''; }
-export function setServerUrl(_url) {}
-export default apiClient;
-`;
-				}
-			},
-		},
-		// Stub hast-util-to-jsx-runtime (pulls in style-to-js which has CJS interop problems under Vite).
-		// This prevents the "no default export" / require errors that keep #root empty (grey screen).
-		{
-			name: 'hast-util-to-jsx-runtime-stub',
-			resolveId(id) {
-				if (id === 'hast-util-to-jsx-runtime') return '\0virtual:hast-to-jsx-stub';
-			},
-			load(id) {
-				if (id === '\0virtual:hast-to-jsx-stub') {
-					return `
-export function toJsxRuntime(tree, options) {
-  // Minimal stub: avoid pulling style-to-js and heavy hast transform in dev.
-  // Return a harmless empty span if createElement is provided by React JSX runtime.
-  try {
-    const create = (options && options.createElement) || ((t, p, ...c) => ({type:t, props:p, children:c}));
-    return create('span', { style: { display: 'none' } }, '');
-  } catch {
-    return null;
-  }
-}
-export default toJsxRuntime;
-`;
-				}
-			},
-		},
-		// Also provide style-to-js directly as pure JS (belt and suspenders).
-		{
-			name: 'style-to-js-stub',
-			resolveId(id) {
-				if (id === 'style-to-js' || id.includes('style-to-js')) {
-					return '\0virtual:style-to-js-stub';
-				}
-			},
-			load(id) {
-				if (id === '\0virtual:style-to-js-stub') {
-					return `
-function camelCase(str) {
-  return String(str || '').trim().replace(/-+([a-z0-9])/gi, (_, c) => c.toUpperCase());
-}
-export default function styleToJS(style) {
-  const out = {};
-  if (!style || typeof style !== 'string') return out;
-  String(style).split(';').forEach((d) => {
-    const i = d.indexOf(':');
-    if (i > -1) {
-      const k = d.slice(0, i).trim();
-      const v = d.slice(i + 1).trim();
-      if (k && v) out[camelCase(k)] = v;
-    }
-  });
-  return out;
-}
-`;
-				}
-			},
-		},
-	],
+	plugins: [react(), tailwindcss()],
 
 	resolve: {
 		dedupe: ['react', 'react-dom'],
@@ -170,14 +143,12 @@ export default function styleToJS(style) {
 						},
 					]
 				: []),
-			...(hasSpacebot
-				? [
-						{
-							find: /^@spacebot\/api-client$/,
-							replacement: `${spacebot}/api-client/src`,
-						},
-					]
-				: []),
+			{
+				find: /^@spacebot\/api-client$/,
+				replacement: hasSpacebot
+					? `${spacebot}/api-client/src`
+					: spacebotStub,
+			},
 			{
 				find: '@sd/interface',
 				replacement: path.resolve(
@@ -191,20 +162,19 @@ export default function styleToJS(style) {
 					__dirname,
 					'../../packages/ts-client/src'
 				)
-			}
+			},
+			// react-markdown/unified CJS deps imported as ESM defaults
+			...cjsInteropEntries.map(({packageName, entry}) => ({
+				find: packageName,
+				replacement: entry,
+			})),
+			{find: 'debug', replacement: debugStub},
 		]
 	},
 
 	optimizeDeps: {
-		exclude: [
-			'@spacedrive/ai',
-			'@spacedrive/primitives',
-			'@spacedrive/tokens',
-			// Transitives that pull in awkward CJS style-to-js and cause default export / require errors in dev.
-			'style-to-js',
-			'style-to-object',
-			'hast-util-to-jsx-runtime',
-		]
+		exclude: ['@spacedrive/ai', '@spacedrive/primitives', '@spacedrive/tokens'],
+		include: cjsInteropEntries.map(({entry}) => entry),
 	},
 
 	clearScreen: false,
@@ -226,10 +196,6 @@ export default function styleToJS(style) {
 		target: ['es2021', 'chrome100', 'safari13'],
 		minify: !process.env.TAURI_ENV_DEBUG ? ('esbuild' as const) : false,
 		sourcemap: !!process.env.TAURI_ENV_DEBUG,
-		rollupOptions: {
-			external: [
-				...(!hasSpacebot ? ['@spacebot/api-client'] : []),
-			],
-		}
+		rollupOptions: {}
 	}
 }));
