@@ -263,8 +263,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		} else if (isSearchMode) {
 			result = (searchQuery.data as FileSearchOutput | undefined)?.files || [];
 		} else if (isVirtualView) {
-			// Virtual listings (devices/volumes) are not server-sorted in the same way;
-			// apply client-side sort (also used as fallback for older daemons).
+			// Virtual listings (devices/volumes) are not server-sorted in the same way.
 			result = sortFiles(
 				virtualFiles || [],
 				sortBy,
@@ -272,11 +271,17 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				viewSettings.foldersFirst,
 			);
 		} else {
-			// Directory listings come pre-sorted from the backend (SQL ORDER BY + folders_first).
-			// Trust the server result for correctness and performance (avoids double-sort
-			// of potentially large arrays on every update, which can cause UI jank/hangs).
-			result =
-				(directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
+			// Always sort client-side for directory listings. The backend may return
+			// SQL-ordered rows, but ResourceChanged / ephemeral index events append
+			// into the normalized cache in discovery order and destroy that order.
+			// Results are capped (10k), so this is cheap relative to broken A–Z UX.
+			result = sortFiles(
+				(directoryQuery.data as { files: File[] } | undefined)?.files ??
+					[],
+				sortBy,
+				sortOrder,
+				viewSettings.foldersFirst,
+			);
 		}
 		return result;
 	}, [

@@ -30,7 +30,7 @@ export function sortDirectionLabel(sortBy: SortBy, sortOrder: SortOrder): string
 	}
 }
 
-/** Client-side fallback when daemon hasn't been rebuilt yet. */
+/** Locale-aware sort. Used for virtual lists and to re-apply order after cache updates. */
 export function sortFiles(
 	files: File[],
 	sortBy: SortBy,
@@ -39,6 +39,10 @@ export function sortFiles(
 ): File[] {
 	const direction = sortOrder === "asc" ? 1 : -1;
 	const sorted = [...files];
+
+	// natural + case-insensitive: "App" and "app" group together; file2 before file10
+	const byName = (a: string, b: string) =>
+		a.localeCompare(b, undefined, { sensitivity: "base", numeric: true });
 
 	sorted.sort((a, b) => {
 		if (foldersFirst && a.kind !== b.kind) {
@@ -52,7 +56,7 @@ export function sortFiles(
 		let cmp = 0;
 		switch (sortBy) {
 			case "name":
-				cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+				cmp = byName(a.name, b.name);
 				break;
 			case "modified":
 				cmp = a.modified_at.localeCompare(b.modified_at);
@@ -66,7 +70,7 @@ export function sortFiles(
 				if (!foldersFirst && aIsDir !== bIsDir) {
 					return aIsDir ? -1 : 1;
 				}
-				cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+				cmp = byName(a.name, b.name);
 				break;
 			}
 			default:

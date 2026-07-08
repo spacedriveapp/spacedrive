@@ -238,8 +238,12 @@ impl DirectoryListingQuery {
 			SortDirection::Desc => "DESC",
 		};
 
+		// COLLATE NOCASE so name sorts match user expectation (A–Z, case-insensitive).
+		// SQLite's default binary collation puts uppercase before lowercase.
 		match self.input.sort_by {
-			DirectorySortBy::Name => sql_query.push_str(&format!("e.name {dir_sql}")),
+			DirectorySortBy::Name => {
+				sql_query.push_str(&format!("e.name COLLATE NOCASE {dir_sql}"))
+			}
 			DirectorySortBy::Modified => sql_query.push_str(&format!("e.modified_at {dir_sql}")),
 			DirectorySortBy::Size => sql_query.push_str(&format!("e.size {dir_sql}")),
 			DirectorySortBy::Type => {
@@ -247,7 +251,7 @@ impl DirectoryListingQuery {
 					// Only add kind sorting if folders_first isn't already set
 					sql_query.push_str("e.kind DESC, ");
 				}
-				sql_query.push_str(&format!("e.name {dir_sql}"));
+				sql_query.push_str(&format!("e.name COLLATE NOCASE {dir_sql}"));
 			}
 		}
 
