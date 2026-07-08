@@ -282,6 +282,7 @@ async fn list_directory(
 		limit,
 		include_hidden: Some(include_hidden),
 		sort_by,
+		sort_direction: None,
 		folders_first: None,
 	};
 

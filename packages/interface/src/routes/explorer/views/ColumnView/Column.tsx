@@ -5,6 +5,7 @@ import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
+import { toSortDirection } from "../../sortUtils";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useSelection } from "../../SelectionContext";
 
@@ -126,7 +127,7 @@ export const Column = memo(function Column({
 	virtualFiles,
 }: ColumnProps) {
 	const parentRef = useRef<HTMLDivElement>(null);
-	const { viewSettings, sortBy } = useExplorer();
+	const { viewSettings, sortBy, sortOrder } = useExplorer();
 	const { selectedFiles } = useSelection();
 
 	const directoryQuery = useNormalizedQuery({
@@ -136,6 +137,7 @@ export const Column = memo(function Column({
 			limit: null,
 			include_hidden: false,
 			sort_by: sortBy as any,
+			sort_direction: toSortDirection(sortOrder),
 			folders_first: viewSettings.foldersFirst,
 		},
 		resourceType: "file",

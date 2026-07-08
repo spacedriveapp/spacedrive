@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import type { SdPath, File } from "@sd/ts-client";
 import { useExplorer } from "../../context";
+import { toSortDirection } from "../../sortUtils";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import type { DirectorySortBy } from "@sd/ts-client";
@@ -22,6 +23,7 @@ export function ColumnView() {
 		currentPath,
 		navigateToPath,
 		sortBy,
+		sortOrder,
 		viewSettings,
 		columnStack,
 		setColumnStack,
@@ -191,6 +193,7 @@ export function ColumnView() {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst,
 				}
 			: null!,
@@ -241,6 +244,7 @@ export function ColumnView() {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst,
 				}
 			: null!,

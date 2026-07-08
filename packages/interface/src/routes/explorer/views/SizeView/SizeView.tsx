@@ -11,6 +11,7 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
 import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
 import {useExplorer} from '../../context';
+import {toSortDirection} from '../../sortUtils';
 import {Thumb} from '../../File/Thumb';
 import {useFileContextMenu} from '../../hooks/useFileContextMenu';
 import {useDraggableFile} from '../../hooks/useDraggableFile';
@@ -310,6 +311,7 @@ export function SizeView() {
 	const {
 		currentPath,
 		sortBy,
+		sortOrder,
 		navigateToPath,
 		viewSettings,
 		sidebarVisible,
@@ -351,6 +353,7 @@ export function SizeView() {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst
 				}
 			: null!,

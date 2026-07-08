@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { sortFiles, toSortDirection } from "../sortUtils";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -31,7 +32,7 @@ export interface ExplorerFilesResult {
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings } = explorer;
+	const { mode, currentPath, sortBy, sortOrder, viewSettings } = explorer;
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -218,6 +219,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst,
 				}
 			: null!,
@@ -246,24 +248,30 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						: "directory";
 
 	const files = useMemo(() => {
+		let result: File[] = [];
 		if (isFilteredMode) {
-			return (
-				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
+			result =
+				(filteredQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isTagMode) {
+			result = (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
+		} else if (isRecentsMode) {
+			result =
+				(recentsQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isSearchMode) {
+			result = (searchQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isVirtualView) {
+			result = virtualFiles || [];
+		} else {
+			result =
+				(directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
+			result = sortFiles(
+				result,
+				sortBy,
+				sortOrder,
+				viewSettings.foldersFirst,
 			);
 		}
-		if (isTagMode) {
-			return (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
-		}
-		if (isRecentsMode) {
-			return (recentsQuery.data as FileSearchOutput | undefined)?.files || [];
-		}
-		if (isSearchMode) {
-			return (searchQuery.data as FileSearchOutput | undefined)?.files || [];
-		}
-		if (isVirtualView) {
-			return virtualFiles || [];
-		}
-		return (directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
+		return result;
 	}, [
 		isFilteredMode,
 		isTagMode,
@@ -276,6 +284,9 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		searchQuery.data,
 		virtualFiles,
 		directoryQuery.data,
+		sortBy,
+		sortOrder,
+		viewSettings.foldersFirst,
 	]);
 
 	const isLoading = isFilteredMode

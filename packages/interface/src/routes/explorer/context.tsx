@@ -28,8 +28,10 @@ import {
 	useViewPreferencesStore,
 	useSortPreferencesStore,
 } from "@sd/ts-client";
+import { defaultSortOrder, type SortOrder } from "./sortUtils";
 
 export type SortBy = DirectorySortBy | MediaSortBy;
+export type { SortOrder };
 export type ViewMode =
 	| "grid"
 	| "list"
@@ -412,6 +414,10 @@ interface ExplorerContextValue {
 	setViewMode: (mode: ViewMode) => void;
 	sortBy: SortBy;
 	setSortBy: (sort: SortBy) => void;
+	sortOrder: SortOrder;
+	setSortOrder: (order: SortOrder) => void;
+	handleSortChange: (sort: SortBy) => void;
+	toggleColumnSort: (columnId: string) => void;
 	viewSettings: ViewSettings;
 	setViewSettings: (settings: Partial<ViewSettings>) => void;
 
@@ -669,6 +675,7 @@ export function ExplorerProvider({
 	// View settings from TabManager (per-tab)
 	const viewMode = tabState.viewMode as ViewMode;
 	const sortByValue = tabState.sortBy as SortBy;
+	const sortOrderValue = tabState.sortOrder ?? defaultSortOrder(sortByValue);
 	const viewSettings: ViewSettings = useMemo(
 		() => ({
 			gridSize: tabState.gridSize,
@@ -703,10 +710,44 @@ export function ExplorerProvider({
 		(sort: SortBy) => {
 			updateExplorerState(activeTabId, {
 				sortBy: sort as TabSortBy,
+				sortOrder: defaultSortOrder(sort),
 			});
 			sortPrefs.setPreferences(pathKey, sort);
 		},
 		[activeTabId, updateExplorerState, pathKey, sortPrefs],
+	);
+
+	const setSortOrder = useCallback(
+		(order: SortOrder) => {
+			updateExplorerState(activeTabId, { sortOrder: order });
+		},
+		[activeTabId, updateExplorerState],
+	);
+
+	const handleSortChange = useCallback(
+		(sort: SortBy) => {
+			if (sortByValue === sort) {
+				setSortOrder(sortOrderValue === "asc" ? "desc" : "asc");
+				return;
+			}
+			setSortBy(sort);
+		},
+		[sortByValue, sortOrderValue, setSortBy, setSortOrder],
+	);
+
+	const toggleColumnSort = useCallback(
+		(columnId: string) => {
+			const sortMap: Record<string, SortBy> = {
+				name: "name",
+				size: "size",
+				modified: "modified",
+				type: "type",
+			};
+			const newSort = sortMap[columnId];
+			if (!newSort) return;
+			handleSortChange(newSort);
+		},
+		[handleSortChange],
 	);
 
 	const setViewSettings = useCallback(
@@ -832,6 +873,10 @@ export function ExplorerProvider({
 			setViewMode,
 			sortBy: sortByValue,
 			setSortBy,
+			sortOrder: sortOrderValue,
+			setSortOrder,
+			handleSortChange,
+			toggleColumnSort,
 			viewSettings,
 			setViewSettings,
 			columnStack,
@@ -880,6 +925,10 @@ export function ExplorerProvider({
 			setViewMode,
 			sortByValue,
 			setSortBy,
+			sortOrderValue,
+			setSortOrder,
+			handleSortChange,
+			toggleColumnSort,
 			viewSettings,
 			setViewSettings,
 			columnStack,

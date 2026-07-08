@@ -14,13 +14,12 @@ import {
 	TABLE_PADDING_Y,
 	TABLE_HEADER_HEIGHT,
 } from "./useTable";
-import type { DirectorySortBy } from "@sd/ts-client";
 import { useExplorerFiles } from "../../hooks/useExplorerFiles";
 import { DragSelect } from "./DragSelect";
 import { useEmptySpaceContextMenu } from "../../hooks/useEmptySpaceContextMenu";
 
 export const ListView = memo(function ListView() {
-	const { sortBy, setSortBy, setCurrentFiles } = useExplorer();
+	const { sortBy, sortOrder, toggleColumnSort, setCurrentFiles } = useExplorer();
 	const {
 		focusedIndex,
 		setFocusedIndex,
@@ -127,23 +126,6 @@ export const ListView = memo(function ListView() {
 		return () => window.removeEventListener("keydown", handleKeyDown);
 	}, [focusedIndex, selectFile, setFocusedIndex, moveFocus]);
 
-	// Column sorting handler
-	const handleHeaderClick = useCallback(
-		(columnId: string) => {
-			const sortMap: Record<string, DirectorySortBy> = {
-				name: "name",
-				size: "size",
-				modified: "modified",
-				type: "type",
-			};
-			const newSort = sortMap[columnId];
-			if (newSort) {
-				setSortBy(newSort);
-			}
-		},
-		[setSortBy],
-	);
-
 	// Calculate total width for table
 	const headerGroups = table.getHeaderGroups();
 	const totalWidth = table.getTotalSize() + TABLE_PADDING_X * 2;
@@ -182,7 +164,7 @@ export const ListView = memo(function ListView() {
 										)}
 										style={{ width: header.getSize() }}
 										onClick={() =>
-											handleHeaderClick(header.id)
+											toggleColumnSort(header.id)
 										}
 									>
 										<span className="truncate">
@@ -193,7 +175,12 @@ export const ListView = memo(function ListView() {
 										</span>
 
 										{isSorted && (
-											<CaretDown className="size-3 flex-shrink-0 text-ink-faint" />
+											<CaretDown
+												className={clsx(
+													"size-3 flex-shrink-0 text-ink-faint transition-transform",
+													sortOrder === "asc" && "rotate-180",
+												)}
+											/>
 										)}
 
 										{/* Resize handle */}

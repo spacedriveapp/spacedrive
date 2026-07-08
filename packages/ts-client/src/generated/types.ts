@@ -163,15 +163,15 @@ message: string };
 /**
  * Targets for immediately applying a newly created tag
  */
-export type ApplyToTargets =
+export type ApplyToTargets = 
 /**
  * Apply to content identities (all instances)
  */
-{ type: "Content"; ids: string[] } |
+{ type: "Content"; ids: string[] } | 
 /**
  * Apply to specific entries by database ID (internal use)
  */
-{ type: "Entry"; ids: number[] } |
+{ type: "Entry"; ids: number[] } | 
 /**
  * Apply to specific entries by UUID (from frontend File.id)
  */
@@ -574,14 +574,6 @@ namespace: string | null;
  */
 message: string };
 
-export type DeleteTagInput = { tag_id: string };
-
-export type DeleteTagOutput = { deleted: boolean };
-
-export type UnapplyTagsInput = { entry_ids: string[]; tag_ids: string[] };
-
-export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
-
 /**
  * Data volume metrics snapshot
  */
@@ -608,6 +600,10 @@ export type DeleteItemOutput = { success: boolean };
 export type DeleteSourceInput = { source_id: string };
 
 export type DeleteSourceOutput = { deleted: boolean };
+
+export type DeleteTagInput = { tag_id: string };
+
+export type DeleteTagOutput = { deleted: boolean };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -806,9 +802,13 @@ limit: number | null;
  */
 include_hidden: boolean | null; 
 /**
- * Sort order for results
+ * Sort field for results
  */
 sort_by: DirectorySortBy; 
+/**
+ * Sort direction. When omitted, uses field-specific defaults (name/type: asc, modified/size: desc).
+ */
+sort_direction: SortDirection | null; 
 /**
  * Whether to show folders before files (default: false)
  */
@@ -1593,6 +1593,10 @@ export type GetAdapterConfigInput = { adapter_id: string };
  */
 export type GetAppConfigQueryInput = null;
 
+export type GetFilesByTagInput = { tag_id: string; include_children: boolean; min_confidence: number };
+
+export type GetFilesByTagOutput = { files: File[] };
+
 /**
  * Input for getting library configuration
  */
@@ -1693,6 +1697,18 @@ metrics: SyncMetricsSnapshot };
 export type GetSyncPartnersInput = Record<string, never>;
 
 export type GetSyncPartnersOutput = { partners: SyncPartnerInfo[]; debug_info: SyncPartnersDebugInfo };
+
+export type GetTagAncestorsInput = { tag_id: string };
+
+export type GetTagAncestorsOutput = { ancestors: Tag[] };
+
+export type GetTagByIdInput = { tag_id: string };
+
+export type GetTagByIdOutput = { tag: Tag | null };
+
+export type GetTagChildrenInput = { tag_id: string };
+
+export type GetTagChildrenOutput = { children: Tag[] };
 
 /**
  * Types of groups that can appear in a space
@@ -3358,7 +3374,7 @@ regenerate: boolean };
 /**
  * Input for the redundancy summary query
  */
-export type RedundancySummaryInput = {
+export type RedundancySummaryInput = { 
 /**
  * Optional: restrict summary to specific volumes. None = all volumes.
  */
@@ -3367,39 +3383,31 @@ volume_uuids?: string[] | null };
 /**
  * Complete redundancy summary for the library
  */
-export type RedundancySummaryOutput = {
+export type RedundancySummaryOutput = { 
 /**
  * Per-volume redundancy breakdown
  */
-volumes: VolumeRedundancySummary[];
+volumes: VolumeRedundancySummary[]; 
 /**
  * Library-wide totals
  */
 library_totals: LibraryRedundancyTotals };
 
-export type RegenerateThumbnailInput = {
+export type RegenerateThumbnailInput = { 
 /**
  * UUID of the entry to regenerate thumbnails for
  */
-entry_uuid: string;
+entry_uuid: string; 
 /**
  * Optional variant names (defaults to grid@1x, grid@2x, detail@1x)
  */
-variants: string[] | null;
+variants: string[] | null; 
 /**
  * Force regeneration even if thumbnails exist
  */
 force: boolean };
 
-export type RegenerateThumbnailOutput = { 
-/**
- * Number of thumbnails generated
- */
-generated_count: number; 
-/**
- * Variant names that were generated
- */
-variants: string[] };
+export type RegenerateThumbnailOutput = { generated_count: number; variants: string[] };
 
 /**
  * State of a job running on a remote device
@@ -4222,13 +4230,13 @@ export type TagTargets =
  * Tag by content identity (applies to ALL instances of this content across devices)
  * This is the preferred/default approach
  */
-{ type: "Content"; ids: string[] } |
+{ type: "Content"; ids: string[] } | 
 /**
- * Tag by entry database ID (internal use)
+ * Tag by entry database ID (internal use only)
  */
-{ type: "Entry"; ids: number[] } |
+{ type: "Entry"; ids: number[] } | 
 /**
- * Tag by entry UUID (from frontend File.id)
+ * Tag by entry UUID (use from frontend — File.id is a UUID)
  */
 { type: "EntryUuid"; ids: string[] };
 
@@ -4301,6 +4309,21 @@ export type TranscribeAudioOutput = {
  * Job ID for tracking transcription progress
  */
 job_id: string };
+
+/**
+ * What to untag — uses entry UUIDs (matching the File.id exposed to frontend)
+ */
+export type UnapplyTagsInput = { 
+/**
+ * Entry UUIDs (File.id) to remove tags from
+ */
+entry_ids: string[]; 
+/**
+ * Tag UUIDs to remove
+ */
+tag_ids: string[] };
+
+export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
 
 /**
  * Statistics for the unified ephemeral index
@@ -5105,6 +5128,7 @@ export type LibraryQuery =
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
+  |  { type: 'files.by_tag'; input: GetFilesByTagInput; output: GetFilesByTagOutput }
   |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
@@ -5129,6 +5153,9 @@ export type LibraryQuery =
   |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
   |  { type: 'sync.partners'; input: GetSyncPartnersInput; output: GetSyncPartnersOutput }
+  |  { type: 'tags.ancestors'; input: GetTagAncestorsInput; output: GetTagAncestorsOutput }
+  |  { type: 'tags.by_id'; input: GetTagByIdInput; output: GetTagByIdOutput }
+  |  { type: 'tags.children'; input: GetTagChildrenInput; output: GetTagChildrenOutput }
   |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
   |  { type: 'test.ping'; input: PingInput; output: PingOutput }
   |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
@@ -5239,6 +5266,7 @@ export const WIRE_METHODS = {
     'files.alternate_instances': 'query:files.alternate_instances',
     'files.by_id': 'query:files.by_id',
     'files.by_path': 'query:files.by_path',
+    'files.by_tag': 'query:files.by_tag',
     'files.content_kind_stats': 'query:files.content_kind_stats',
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
@@ -5263,6 +5291,9 @@ export const WIRE_METHODS = {
     'sync.eventLog': 'query:sync.eventLog',
     'sync.metrics': 'query:sync.metrics',
     'sync.partners': 'query:sync.partners',
+    'tags.ancestors': 'query:tags.ancestors',
+    'tags.by_id': 'query:tags.by_id',
+    'tags.children': 'query:tags.children',
     'tags.search': 'query:tags.search',
     'test.ping': 'query:test.ping',
     'volumes.list': 'query:volumes.list',

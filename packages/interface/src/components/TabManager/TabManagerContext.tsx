@@ -84,10 +84,13 @@ export interface Tab {
  * All explorer-related state for a single tab.
  * This is the single source of truth - no sync effects needed.
  */
+export type SortOrder = "asc" | "desc";
+
 export interface TabExplorerState {
 	// View settings
 	viewMode: ViewMode;
 	sortBy: SortBy;
+	sortOrder: SortOrder;
 	gridSize: number;
 	gapSize: number;
 	foldersFirst: boolean;
@@ -107,6 +110,7 @@ export interface TabExplorerState {
 const DEFAULT_EXPLORER_STATE: TabExplorerState = {
 	viewMode: "grid",
 	sortBy: "name",
+	sortOrder: "asc",
 	gridSize: 120,
 	gapSize: 16,
 	foldersFirst: true,
