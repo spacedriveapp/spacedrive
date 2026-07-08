@@ -4,6 +4,34 @@
 		<meta charset="UTF-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 		<title>Spacedrive</title>
+		<style>
+			/* Immediate dark background so the transparent Tauri window
+			   (visible:false + transparent:true) does not flash native grey
+			   while Vite + React + CSS load. Matches the app theme. */
+			html, body {
+				background-color: #111113;
+				color: #e5e5e5;
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+			}
+			#root {
+				height: 100%;
+				min-height: 100vh;
+			}
+			/* Tiny inline loading hint (will be replaced by React quickly) */
+			#root:empty::before {
+				content: "Spacedrive";
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-family: system-ui, -apple-system, sans-serif;
+				font-size: 13px;
+				opacity: 0.6;
+				letter-spacing: 0.5px;
+			}
+		</style>
 	</head>
 	<body>
 		<div id="root"></div>
