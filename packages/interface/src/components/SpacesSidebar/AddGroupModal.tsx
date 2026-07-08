@@ -1,5 +1,11 @@
 import { useState } from 'react';
-import { Input, Label, dialogManager, useDialog, Dialog } from '@spacedrive/primitives';
+import {
+	Input,
+	Label,
+	Dialog,
+	dialogManager,
+	useDialog,
+} from '@spacedrive/primitives';
 import { useLibraryMutation } from '@sd/ts-client';
 import { useForm } from 'react-hook-form';
 import type { GroupType } from '@sd/ts-client';
@@ -30,11 +36,18 @@ function AddGroupDialog(props: { id: number; spaceId: string }) {
 		});
 		form.reset();
 		setGroupType('Custom');
-		dialog.state.open = false;
+		dialogManager.setState(dialog.id, { open: false });
 	});
 
 	return (
-		<Dialog form={form} dialog={dialog} title="Add Group" onSubmit={onSubmit} ctaLabel="Create">
+		<Dialog
+			form={form}
+			dialog={dialog}
+			title="Add Group"
+			onSubmit={onSubmit}
+			ctaLabel="Create"
+			onCancelled={true}
+		>
 			<div className="space-y-4">
 				<div>
 					<Label>Group Type</Label>
