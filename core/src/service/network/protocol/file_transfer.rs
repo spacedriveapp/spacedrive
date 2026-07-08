@@ -402,18 +402,31 @@ impl FileTransferProtocolHandler {
 	/// Check if a path is within one of the allowed paths.
 	/// Uses canonicalization to prevent traversal attacks.
 	async fn is_path_allowed(&self, path: &std::path::Path) -> bool {
-		// Canonicalize the target path to resolve symlinks and `..`
-		let canonical_path = match path.canonicalize() {
-			Ok(p) => p,
-			Err(_) => {
+		// Canonicalize off-runtime (stability). Fall back to parent on failure for writes.
+		let canonical_path = match tokio::task::spawn_blocking({
+			let p = path.to_path_buf();
+			move || p.canonicalize()
+		})
+		.await
+		.ok()
+		.and_then(|r| r.ok())
+		{
+			Some(p) => p,
+			None => {
 				// If the path doesn't exist yet (for writes), check the parent
 				if let Some(parent) = path.parent() {
-					match parent.canonicalize() {
-						Ok(p) => p,
-						Err(e) => {
+					match tokio::task::spawn_blocking({
+						let pp = parent.to_path_buf();
+						move || pp.canonicalize()
+					})
+					.await
+					.ok()
+					.and_then(|r| r.ok())
+					{
+						Some(p) => p,
+						None => {
 							tracing::warn!(
 								path = ?path,
-								error = %e,
 								"File transfer path validation failed: parent directory doesn't exist"
 							);
 							return false; // Parent doesn't exist
@@ -439,10 +452,17 @@ impl FileTransferProtocolHandler {
 		}
 
 		for allowed_root in allowed_paths.iter() {
-			// Canonicalize the allowed root for comparison
-			let canonical_root = match allowed_root.canonicalize() {
-				Ok(p) => p,
-				Err(_) => continue, // Skip non-existent allowed paths
+			// Canonicalize the allowed root for comparison (off runtime)
+			let canonical_root = match tokio::task::spawn_blocking({
+				let r = allowed_root.clone();
+				move || r.canonicalize()
+			})
+			.await
+			.ok()
+			.and_then(|r| r.ok())
+			{
+				Some(p) => p,
+				None => continue, // Skip non-existent allowed paths
 			};
 
 			// Check if the target path starts with the allowed root

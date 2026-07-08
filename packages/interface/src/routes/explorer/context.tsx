@@ -5,6 +5,7 @@ import {
 	useMemo,
 	useEffect,
 	useCallback,
+	useRef,
 	type ReactNode,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -738,11 +739,26 @@ export function ExplorerProvider({
 	);
 
 	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
+	// Guard with ref to avoid repeated setSortBy calls during identity churn or rapid view switches,
+	// which could trigger extra queries and re-renders (stability).
+	const didAdjustMediaSortRef = useRef(false);
 	useEffect(() => {
-		if (viewMode === "media" && sortByValue === "type") {
-			setSortBy("datetaken");
-		} else if (viewMode !== "media" && sortByValue === "datetaken") {
-			setSortBy("modified");
+		const shouldBeDatetaken = viewMode === "media" && sortByValue === "type";
+		const shouldBeModified = viewMode !== "media" && sortByValue === "datetaken";
+
+		if (shouldBeDatetaken) {
+			if (!didAdjustMediaSortRef.current) {
+				didAdjustMediaSortRef.current = true;
+				setSortBy("datetaken");
+			}
+		} else if (shouldBeModified) {
+			if (!didAdjustMediaSortRef.current) {
+				didAdjustMediaSortRef.current = true;
+				setSortBy("modified");
+			}
+		} else {
+			// Reset guard when neither correction is needed (e.g. user chose a sort)
+			didAdjustMediaSortRef.current = false;
 		}
 	}, [viewMode, sortByValue, setSortBy]);
 

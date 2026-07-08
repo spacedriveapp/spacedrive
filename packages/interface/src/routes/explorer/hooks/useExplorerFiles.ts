@@ -211,12 +211,15 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	});
 
 	// Directory query
+	// Use a high but bounded limit for stability: prevents hangs/high memory when
+	// browsing directories with tens or hundreds of thousands of files.
+	// The UI uses virtualized rendering so users can still scroll large (but capped) results.
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
 		input: currentPath
 			? {
 					path: currentPath,
-					limit: null,
+					limit: 10000,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
 					sort_direction: toSortDirection(sortOrder),
@@ -260,6 +263,8 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		} else if (isSearchMode) {
 			result = (searchQuery.data as FileSearchOutput | undefined)?.files || [];
 		} else if (isVirtualView) {
+			// Virtual listings (devices/volumes) are not server-sorted in the same way;
+			// apply client-side sort (also used as fallback for older daemons).
 			result = sortFiles(
 				virtualFiles || [],
 				sortBy,
@@ -267,14 +272,11 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				viewSettings.foldersFirst,
 			);
 		} else {
+			// Directory listings come pre-sorted from the backend (SQL ORDER BY + folders_first).
+			// Trust the server result for correctness and performance (avoids double-sort
+			// of potentially large arrays on every update, which can cause UI jank/hangs).
 			result =
 				(directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
-			result = sortFiles(
-				result,
-				sortBy,
-				sortOrder,
-				viewSettings.foldersFirst,
-			);
 		}
 		return result;
 	}, [

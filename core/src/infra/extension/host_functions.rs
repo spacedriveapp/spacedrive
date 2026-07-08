@@ -90,8 +90,12 @@ pub fn host_spacedrive_call(
 	};
 
 	// 4. Permission check
-	let auth_result = tokio::runtime::Handle::current()
-		.block_on(async { plugin_env.permissions.authorize(&method, library_id).await });
+	// Use block_in_place so we don't violate tokio rules when the WASM host function
+	// is invoked from a runtime thread. This is a stability fix to prevent hangs/deadlocks.
+	let auth_result = tokio::task::block_in_place(|| {
+		tokio::runtime::Handle::current()
+			.block_on(async { plugin_env.permissions.authorize(&method, library_id).await })
+	});
 
 	if let Err(e) = auth_result {
 		tracing::warn!(
@@ -111,38 +115,45 @@ pub fn host_spacedrive_call(
 	);
 
 	// 5. Call operation handlers directly (same as execute_json_operation does)
-	let result = tokio::runtime::Handle::current().block_on(async {
-		// Create base session
-		let base_session = match plugin_env.api_dispatcher.create_base_session() {
-			Ok(s) => s,
-			Err(e) => return Err(e),
-		};
+	// block_in_place for stability (WASM host fn may be on a runtime thread).
+	let result = tokio::task::block_in_place(|| {
+		tokio::runtime::Handle::current().block_on(async {
+			// Create base session
+			let base_session = match plugin_env.api_dispatcher.create_base_session() {
+				Ok(s) => s,
+				Err(e) => return Err(e),
+			};
 
-		// Try library queries
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method.as_str()) {
-			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
-			let session = base_session.with_library(lib_id);
-			return handler(plugin_env.core_context.clone(), session, payload_json).await;
-		}
+			// Try library queries
+			if let Some(handler) =
+				crate::infra::wire::registry::LIBRARY_QUERIES.get(method.as_str())
+			{
+				let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
+				let session = base_session.with_library(lib_id);
+				return handler(plugin_env.core_context.clone(), session, payload_json).await;
+			}
 
-		// Try core queries
-		if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method.as_str()) {
-			return handler(plugin_env.core_context.clone(), base_session, payload_json).await;
-		}
+			// Try core queries
+			if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method.as_str()) {
+				return handler(plugin_env.core_context.clone(), base_session, payload_json).await;
+			}
 
-		// Try library actions
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method.as_str()) {
-			let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
-			let session = base_session.with_library(lib_id);
-			return handler(plugin_env.core_context.clone(), session, payload_json).await;
-		}
+			// Try library actions
+			if let Some(handler) =
+				crate::infra::wire::registry::LIBRARY_ACTIONS.get(method.as_str())
+			{
+				let lib_id = library_id.ok_or_else(|| "Library ID required".to_string())?;
+				let session = base_session.with_library(lib_id);
+				return handler(plugin_env.core_context.clone(), session, payload_json).await;
+			}
 
-		// Try core actions
-		if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method.as_str()) {
-			return handler(plugin_env.core_context.clone(), payload_json).await;
-		}
+			// Try core actions
+			if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method.as_str()) {
+				return handler(plugin_env.core_context.clone(), payload_json).await;
+			}
 
-		Err(format!("Unknown method: {}", method))
+			Err(format!("Unknown method: {}", method))
+		})
 	});
 
 	// 6. Write result to WASM memory
