@@ -33,8 +33,8 @@ export function AdvancedSettings() {
         </p>
       </div>
 
-      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-        <p className="text-sm text-amber-400">
+      <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-lg">
+        <p className="text-sm text-status-warning">
           These settings are for expert users. Incorrect configuration may affect performance.
         </p>
       </div>
