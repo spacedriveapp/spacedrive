@@ -46,7 +46,7 @@ function SettingsSidebar({ currentPage, onPageChange }: SettingsSidebarProps) {
                 : "bg-sidebar-selected text-sidebar-ink"
               : isAboutPage
               ? "text-white/60 hover:text-white hover:bg-white/10"
-              : "text-sidebar-inkDull hover:text-sidebar-ink hover:bg-sidebar-box"
+              : "text-sidebar-ink-dull hover:text-sidebar-ink hover:bg-sidebar-box"
           )}
         >
           {section.label}
