@@ -1601,19 +1601,21 @@ async fn start_daemon(
 		.spawn()
 		.map_err(|e| format!("Failed to start daemon: {}", e))?;
 
-	// Wait for daemon to be ready
-	for i in 0..30 {
+	// Wait for daemon to be ready. Cold start often exceeds a few seconds
+	// (volume discovery + networking/iroh init before the RPC bind).
+	const MAX_ATTEMPTS: u32 = 200; // 200 * 100ms = 20s
+	for i in 0..MAX_ATTEMPTS {
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 		if is_daemon_running(socket_addr).await {
 			tracing::info!("Daemon ready at {}", socket_addr);
 			return Ok(child);
 		}
-		if i == 10 {
+		if i == 30 {
 			tracing::warn!("Daemon taking longer than expected to start...");
 		}
 	}
 
-	Err("Daemon failed to start (connection not available after 3 seconds)".to_string())
+	Err("Daemon failed to start (connection not available after 20 seconds)".to_string())
 }
 
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
