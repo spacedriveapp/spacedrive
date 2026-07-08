@@ -2202,13 +2202,35 @@ fn main() {
 				});
 			});
 
-			// In dev mode, show window immediately
+			// In dev mode, show window immediately so a broken module graph is visible.
 			#[cfg(debug_assertions)]
 			{
 				if let Some(window) = app.get_webview_window("main") {
 					window.show().ok();
 					window.set_focus().ok();
 				}
+			}
+
+			// Release builds start with visible:false and rely on the frontend
+			// invoking app_ready. If the webview never boots (e.g. unresolved
+			// import), force-show after a short delay so the process is not
+			// stuck docked with zero windows.
+			#[cfg(not(debug_assertions))]
+			{
+				let app_handle = app.handle().clone();
+				tauri::async_runtime::spawn(async move {
+					tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+					if let Some(window) = app_handle.get_webview_window("main") {
+						let visible = window.is_visible().unwrap_or(false);
+						if !visible {
+							tracing::warn!(
+								"Main window still hidden after 3s (app_ready never called); forcing show"
+							);
+							window.show().ok();
+							window.set_focus().ok();
+						}
+					}
+				});
 			}
 
 			Ok(())
