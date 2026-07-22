@@ -67,6 +67,7 @@ const LANGUAGE_OPTIONS = [
 	{ value: 'zh_TW', label: '中文（繁體）' },
 	{ value: 'it', label: 'Italiano' },
 	{ value: 'ja', label: '日本語' },
+	{ value: 'id', label: 'Bahasa Indonesia' },
 	{ value: 'uk', label: 'Українська' }
 ];
 
