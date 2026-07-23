@@ -50,6 +50,7 @@ const dayjsLocales: Record<string, any> = {
 	zh_TW: () => import('dayjs/locale/zh-tw.js'),
 	it: () => import('dayjs/locale/it.js'),
 	ja: () => import('dayjs/locale/ja.js'),
+	id: () => import('dayjs/locale/id.js'),
 	uk: () => import('dayjs/locale/uk.js')
 };
 
