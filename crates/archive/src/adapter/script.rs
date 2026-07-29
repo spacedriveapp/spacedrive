@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -481,6 +480,13 @@ impl Adapter for ScriptAdapter {
 				.stderr
 				.take()
 				.ok_or_else(|| Error::AdapterSync("failed to open stderr".into()))?;
+			// Best-effort: drain stderr so the child can't block on a full pipe.
+			tokio::spawn(async move {
+				let mut err_reader = BufReader::new(stderr).lines();
+				while let Ok(Some(line)) = err_reader.next_line().await {
+					tracing::warn!(line = %line, "adapter stderr");
+				}
+			});
 
 			let config_json = serde_json::to_string(config)
 				.map_err(|e| Error::AdapterSync(format!("failed to serialize config: {e}")))?;

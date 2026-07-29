@@ -1,9 +1,6 @@
 //! Schema migration: detect changes, apply safe migrations, refuse destructive ones.
 
-use std::collections::HashMap;
-
-use crate::error::{Error, Result};
-use crate::schema::{DataTypeSchema, FieldType, ModelDef};
+use crate::schema::DataTypeSchema;
 
 /// Result of a schema migration attempt.
 #[derive(Debug, Clone)]

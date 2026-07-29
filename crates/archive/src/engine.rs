@@ -6,8 +6,8 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::adapter::script::{ConfigField, ScriptAdapter};
-use crate::adapter::{Adapter, AdapterRegistry, AdapterUpdateResult, SyncReport};
+use crate::adapter::script::ScriptAdapter;
+use crate::adapter::{Adapter, AdapterRegistry, SyncReport};
 use crate::embed::EmbeddingModel;
 use crate::error::{Error, Result};
 use crate::registry::{NewSource, Registry, SourceInfo};

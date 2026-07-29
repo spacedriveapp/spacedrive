@@ -3,7 +3,7 @@
 use std::fmt::Write;
 
 use crate::error::{Error, Result};
-use crate::schema::{DataTypeSchema, RelationsDef};
+use crate::schema::DataTypeSchema;
 
 fn pluralize(name: &str) -> String {
 	format!("{name}s")
@@ -572,10 +572,10 @@ impl SourceDb {
 
 		if let Some(ref temp) = temporal {
 			if let Some(date_field) = &self.schema.search.date_field {
-				if let Some(after) = temp.date_after {
+				if let Some(_after) = temp.date_after {
 					sql.push_str(&format!(" AND t.\"{}\" >= ?", date_field));
 				}
-				if let Some(before) = temp.date_before {
+				if let Some(_before) = temp.date_before {
 					sql.push_str(&format!(" AND t.\"{}\" <= ?", date_field));
 				}
 			}
@@ -586,12 +586,12 @@ impl SourceDb {
 		let mut q = sqlx::query_as::<_, FtsHitRow>(&sql).bind(query);
 
 		if let Some(ref temp) = temporal {
-			if let Some(date_field) = &self.schema.search.date_field {
-				if temp.date_after.is_some() {
-					q = q.bind(temp.date_after.unwrap());
+			if self.schema.search.date_field.is_some() {
+				if let Some(after) = temp.date_after {
+					q = q.bind(after);
 				}
-				if temp.date_before.is_some() {
-					q = q.bind(temp.date_before.unwrap());
+				if let Some(before) = temp.date_before {
+					q = q.bind(before);
 				}
 			}
 		}

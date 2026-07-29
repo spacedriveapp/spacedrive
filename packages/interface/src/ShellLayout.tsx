@@ -91,6 +91,17 @@ function ShellLayoutContent() {
 	}, [params.locationId, locationsQuery.data, currentPath]);
 
 	useEffect(() => {
+		if (platform.platform !== 'tauri' || !navigator.userAgent.includes('Windows')) return;
+		// Prevent WebView2 (Windows) from entering autoscroll mode on middle-click,
+		// which causes forward-navigation after browser history traversal (#3008).
+		const preventMiddleClickScroll = (e: MouseEvent) => {
+			if (e.button === 1) e.preventDefault();
+		};
+		document.addEventListener('mousedown', preventMiddleClickScroll, {passive: false});
+		return () => document.removeEventListener('mousedown', preventMiddleClickScroll);
+	}, [platform.platform]);
+
+	useEffect(() => {
 		// Listen for inspector window close events
 		if (!platform.onWindowEvent) return;
 

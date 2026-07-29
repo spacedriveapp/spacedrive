@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use crate::db::{FtsHit, TemporalFilter};
+use crate::db::TemporalFilter;
 use crate::embed::EmbeddingModel;
 use crate::error::Result;
 use crate::registry::Registry;

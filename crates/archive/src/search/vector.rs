@@ -5,7 +5,6 @@
 
 use std::path::Path;
 
-use crate::embed::EMBEDDING_DIM;
 use crate::error::Result;
 
 /// Stub vector store (does nothing).

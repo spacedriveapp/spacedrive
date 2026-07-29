@@ -1,6 +1,6 @@
 //! SourceManager: manages source folders and their databases.
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
@@ -106,7 +106,7 @@ impl SourceManager {
 		// Apply safe migrations
 		for action in &migration_result.applied {
 			match action {
-				crate::schema::migration::MigrationAction::AddTable { name } => {
+				crate::schema::migration::MigrationAction::AddTable { name: _ } => {
 					// Regenerate full DDL — SQLite doesn't support CREATE TABLE IF NOT EXISTS
 					// for adding new tables, so we run the full DDL and let it no-op for existing tables
 					let ddl = generate_ddl(current_schema);
