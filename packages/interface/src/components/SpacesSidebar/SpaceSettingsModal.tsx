@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import clsx from 'clsx';
+import type { Space } from '@sd/ts-client';
 import { Input, Label, dialogManager, useDialog, Dialog } from '@spacedrive/primitives';
 import { useLibraryMutation } from '@sd/ts-client';
 import { useForm } from 'react-hook-form';
@@ -9,32 +10,32 @@ interface FormData {
 	name: string;
 }
 
-export function useCreateSpaceDialog() {
-	return dialogManager.create((props) => <CreateSpaceDialog {...props} />);
+export function useSpaceSettingsDialog(space: Space) {
+	return dialogManager.create((props) => (
+		<SpaceSettingsDialog {...props} space={space} />
+	));
 }
 
-function CreateSpaceDialog(props: { id: number }) {
+function SpaceSettingsDialog(props: { id: number; space: Space }) {
 	const dialog = useDialog(props);
-	const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
-	const [selectedIcon, setSelectedIcon] = useState(PRESET_ICONS[0]);
+	const [selectedColor, setSelectedColor] = useState(props.space.color);
+	const [selectedIcon, setSelectedIcon] = useState(props.space.icon);
 
 	const form = useForm<FormData>({
-		defaultValues: { name: '' },
+		defaultValues: { name: props.space.name },
 	});
 
-	const createSpace = useLibraryMutation('spaces.create');
+	const updateSpace = useLibraryMutation('spaces.update');
 
 	const onSubmit = form.handleSubmit(async (data) => {
 		if (!data.name?.trim()) return;
 
-		await createSpace.mutateAsync({
-			name: data.name,
+		await updateSpace.mutateAsync({
+			space_id: props.space.id,
+			name: data.name.trim(),
 			icon: selectedIcon,
 			color: selectedColor,
 		});
-		form.reset();
-		setSelectedColor(PRESET_COLORS[0]);
-		setSelectedIcon(PRESET_ICONS[0]);
 		dialog.state.open = false;
 	});
 
@@ -42,16 +43,16 @@ function CreateSpaceDialog(props: { id: number }) {
 		<Dialog
 			form={form}
 			dialog={dialog}
-			title="Create Space"
+			title="Space Settings"
 			onSubmit={onSubmit}
-			ctaLabel="Create"
+			ctaLabel="Save"
 		>
 			<div className="space-y-4">
 				<div>
 					<Label>Space Name</Label>
 					<Input
 						{...form.register('name', { required: true })}
-						placeholder="e.g., Work Files, Personal Photos"
+						placeholder="e.g., All Devices, Work Files"
 						autoFocus
 					/>
 				</div>
@@ -68,7 +69,7 @@ function CreateSpaceDialog(props: { id: number }) {
 									'h-8 w-8 rounded-full border-2 transition-all',
 									selectedColor === color
 										? 'scale-110 border-white'
-										: 'border-transparent'
+										: 'border-transparent',
 								)}
 								style={{ backgroundColor: color }}
 							/>
@@ -88,7 +89,7 @@ function CreateSpaceDialog(props: { id: number }) {
 									'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
 									selectedIcon === icon
 										? 'bg-sidebar-selected text-sidebar-ink'
-										: 'bg-app-input text-sidebar-ink-dull hover:bg-app-hover'
+										: 'bg-app-input text-sidebar-ink-dull hover:bg-app-hover',
 								)}
 							>
 								{icon}
