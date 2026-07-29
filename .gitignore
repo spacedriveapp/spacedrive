@@ -483,3 +483,4 @@ whitepaper/*.log
 
 test_data
 :memory:
+setup_log.txt

@@ -3,9 +3,12 @@
 PROTOC = { force = true, value = "{{{protoc}}}" }
 FFMPEG_DIR = { force = true, value = "{{{nativeDeps}}}" }
 CPATH = { force = true, value = "{{{nativeDeps}}}/include" }
-{{#isMacOS}}
-BINDGEN_EXTRA_CLANG_ARGS = { force = true, value = "-isysroot {{{sdkPath}}}" }
-{{/isMacOS}}
+{{#bindgenExtraClangArgs}}
+BINDGEN_EXTRA_CLANG_ARGS = { force = true, value = "{{{bindgenExtraClangArgs}}}" }
+{{/bindgenExtraClangArgs}}
+{{#libclangPath}}
+LIBCLANG_PATH = { force = true, value = "{{{libclangPath}}}" }
+{{/libclangPath}}
 {{#isLinux}}
 ORT_LIB_LOCATION = { force = true, value = "{{{nativeDeps}}}/lib" }
 {{/isLinux}}
