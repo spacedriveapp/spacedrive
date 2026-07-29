@@ -11,6 +11,8 @@
 /* Tell Tailwind v4 where to scan for utility classes */
 @source "../../../packages/ui/src";
 @source "../../../packages/interface/src";
+@source "../node_modules/@spacedrive/primitives/dist";
+@source "../node_modules/@spacedrive/ai/dist";
 @source "../../../../spaceui/packages/primitives/src";
 @source "../../../../spaceui/packages/ai/src";
 @source "../../../../spaceui/packages/explorer/src";
@@ -76,4 +78,45 @@ body {
 		"Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
 	-webkit-font-smoothing: antialiased;
 	-moz-osx-font-smoothing: grayscale;
+}
+
+/*
+ * Tauri uses a transparent native window. Dialog overlay uses bg-app/50 with a
+ * react-spring opacity animation on the whole element, so the app bleeds through.
+ * Force a full-window opaque backdrop above the shell (sidebar is z-[65]).
+ */
+.fixed.inset-0.z-\[102\] {
+	z-index: 102 !important;
+	background-color: color-mix(in srgb, var(--color-app) 92%, transparent) !important;
+	margin: 0 !important;
+	border-radius: 0 !important;
+	backdrop-filter: blur(16px) saturate(120%);
+	-webkit-backdrop-filter: blur(16px) saturate(120%);
+}
+
+.fixed.inset-0.z-\[103\] {
+	z-index: 103 !important;
+}
+
+/*
+ * Dialog panels also need a solid background on the transparent Tauri window,
+ * otherwise Add Storage category tiles (including Cloud Storage) are unreadable.
+ */
+.z-\[103\] .border-app-line.bg-app-box,
+.z-\[103\] form.border-app-line.bg-app-box {
+	background-color: var(--color-app-box) !important;
+}
+
+.z-\[103\] .bg-app-input\/60 {
+	background-color: var(--color-app-input) !important;
+}
+
+/*
+ * Primitives menus use bg-menu/95 + backdrop-blur. On the transparent Tauri
+ * window, sidebar and explorer content bleeds through and menu text is unreadable.
+ */
+.border-menu-line.bg-menu\/95 {
+	background-color: var(--color-menu) !important;
+	backdrop-filter: none !important;
+	-webkit-backdrop-filter: none !important;
 }
