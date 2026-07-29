@@ -3,11 +3,11 @@ pub mod args;
 use anyhow::Result;
 use clap::Subcommand;
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
+use sd_core::{infra::job::handle::JobReceipt, ops::libraries::list::query::ListLibrariesQuery};
 
 use crate::util::prelude::*;
 
 use crate::{context::Context, util::error::CliError};
-use sd_core::{infra::job::types::JobId, ops::libraries::list::query::ListLibrariesQuery};
 
 use self::args::*;
 
@@ -51,9 +51,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				anyhow::bail!(errors.join("; "));
 			}
 
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Indexing request submitted");
+			let out: JobReceipt = execute_action!(ctx, input);
+			print_output!(ctx, &out, |r: &JobReceipt| {
+				println!("Indexing job submitted: {} (job: {})", r.id, r.job_name);
 			});
 		}
 		IndexCmd::QuickScan(args) => {
@@ -71,9 +71,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Quick scan request submitted");
+			let out: JobReceipt = execute_action!(ctx, input);
+			print_output!(ctx, &out, |r: &JobReceipt| {
+				println!("Quick scan job submitted: {} (job: {})", r.id, r.job_name);
 			});
 		}
 		IndexCmd::Browse(args) => {
@@ -89,9 +89,9 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 			};
 
 			let input = args.to_input(library_id)?;
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Browse request submitted");
+			let out: JobReceipt = execute_action!(ctx, input);
+			print_output!(ctx, &out, |r: &JobReceipt| {
+				println!("Browse job submitted: {} (job: {})", r.id, r.job_name);
 			});
 		}
 		IndexCmd::Verify(args) => {

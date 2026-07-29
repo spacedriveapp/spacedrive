@@ -3,13 +3,13 @@ mod args;
 use anyhow::Result;
 use clap::Subcommand;
 use comfy_table::presets::UTF8_BORDERS_ONLY;
+use sd_core::infra::job::handle::JobReceipt;
+use sd_core::infra::query::LibraryQuery;
 
 use crate::format_bytes;
 use crate::util::prelude::*;
 
 use crate::context::Context;
-use sd_core::infra::job::types::JobId;
-use sd_core::infra::query::LibraryQuery;
 
 use self::args::*;
 
@@ -32,9 +32,9 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			}
 
 			// Handle confirmation for file copy operations
-			let job_id: JobId = run_copy_with_confirmation(ctx, input).await?;
-			print_output!(ctx, &job_id, |id: &JobId| {
-				println!("Dispatched copy job {}", id);
+			let receipt: JobReceipt = run_copy_with_confirmation(ctx, input).await?;
+			print_output!(ctx, &receipt, |r: &JobReceipt| {
+				println!("Dispatched copy job {} ({})", r.id, r.job_name);
 			});
 		}
 		FileCmd::Info(args) => {
@@ -110,7 +110,7 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 async fn run_copy_with_confirmation(
 	ctx: &Context,
 	mut input: sd_core::ops::files::copy::input::FileCopyInput,
-) -> Result<JobId> {
+) -> Result<JobReceipt> {
 	use crate::util::confirm::prompt_for_choice;
 	use sd_core::infra::action::LibraryAction;
 	use sd_core::ops::files::copy::action::FileCopyAction;
@@ -166,8 +166,8 @@ async fn run_copy_with_confirmation(
 	}
 
 	// Execute the action using the input
-	let job_id: JobId = execute_action!(ctx, input);
-	Ok(job_id)
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	Ok(receipt)
 }
 
 /// Simple conflict detection for CLI
