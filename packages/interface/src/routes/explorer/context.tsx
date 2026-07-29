@@ -5,6 +5,7 @@ import {
 	useMemo,
 	useEffect,
 	useCallback,
+	useRef,
 	type ReactNode,
 } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -28,8 +29,10 @@ import {
 	useViewPreferencesStore,
 	useSortPreferencesStore,
 } from "@sd/ts-client";
+import { defaultSortOrder, type SortOrder } from "./sortUtils";
 
 export type SortBy = DirectorySortBy | MediaSortBy;
+export type { SortOrder };
 export type ViewMode =
 	| "grid"
 	| "list"
@@ -412,6 +415,10 @@ interface ExplorerContextValue {
 	setViewMode: (mode: ViewMode) => void;
 	sortBy: SortBy;
 	setSortBy: (sort: SortBy) => void;
+	sortOrder: SortOrder;
+	setSortOrder: (order: SortOrder) => void;
+	handleSortChange: (sort: SortBy) => void;
+	toggleColumnSort: (columnId: string) => void;
 	viewSettings: ViewSettings;
 	setViewSettings: (settings: Partial<ViewSettings>) => void;
 
@@ -480,14 +487,12 @@ export function ExplorerProvider({
 	const sortPrefs = useSortPreferencesStore();
 
 	// Get per-tab state from TabManager
-	const { activeTabId, getExplorerState, updateExplorerState } =
+	const { activeTabId, getExplorerState, updateExplorerState, explorerStateVersion } =
 		useTabManager();
 
-	// Memoize tabState to ensure it updates when activeTabId or explorerStates change
-	const tabState = useMemo(
-		() => getExplorerState(activeTabId),
-		[activeTabId, getExplorerState],
-	);
+	// Read fresh tab state each render; explorerStateVersion forces updates after writes.
+	void explorerStateVersion;
+	const tabState = getExplorerState(activeTabId);
 
 	const [navState, navDispatch] = useReducer(
 		navigationReducer,
@@ -598,23 +603,12 @@ export function ExplorerProvider({
 	useEffect(() => {
 		const savedSort = sortPrefs.getPreferences(pathKey);
 		if (savedSort) {
-			uiDispatch({ type: "SET_SORT_BY", sort: savedSort as SortBy });
+			updateExplorerState(activeTabId, {
+				sortBy: savedSort as TabSortBy,
+				sortOrder: defaultSortOrder(savedSort as SortBy),
+			});
 		}
-	}, [pathKey, sortPrefs]);
-
-	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
-	useEffect(() => {
-		if (uiState.viewMode === "media" && uiState.sortBy === "type") {
-			uiDispatch({ type: "SET_SORT_BY", sort: "datetaken" });
-			sortPrefs.setPreferences(pathKey, "datetaken");
-		} else if (
-			uiState.viewMode !== "media" &&
-			uiState.sortBy === "datetaken"
-		) {
-			uiDispatch({ type: "SET_SORT_BY", sort: "modified" });
-			sortPrefs.setPreferences(pathKey, "modified");
-		}
-	}, [uiState.viewMode, uiState.sortBy, pathKey, sortPrefs]);
+	}, [pathKey, sortPrefs, activeTabId, updateExplorerState]);
 
 	const navigateToPath = useCallback(
 		(path: SdPath) => {
@@ -669,6 +663,7 @@ export function ExplorerProvider({
 	// View settings from TabManager (per-tab)
 	const viewMode = tabState.viewMode as ViewMode;
 	const sortByValue = tabState.sortBy as SortBy;
+	const sortOrderValue = tabState.sortOrder ?? defaultSortOrder(sortByValue);
 	const viewSettings: ViewSettings = useMemo(
 		() => ({
 			gridSize: tabState.gridSize,
@@ -703,11 +698,69 @@ export function ExplorerProvider({
 		(sort: SortBy) => {
 			updateExplorerState(activeTabId, {
 				sortBy: sort as TabSortBy,
+				sortOrder: defaultSortOrder(sort),
 			});
 			sortPrefs.setPreferences(pathKey, sort);
 		},
 		[activeTabId, updateExplorerState, pathKey, sortPrefs],
 	);
+
+	const setSortOrder = useCallback(
+		(order: SortOrder) => {
+			updateExplorerState(activeTabId, { sortOrder: order });
+		},
+		[activeTabId, updateExplorerState],
+	);
+
+	const handleSortChange = useCallback(
+		(sort: SortBy) => {
+			if (sortByValue === sort) {
+				setSortOrder(sortOrderValue === "asc" ? "desc" : "asc");
+				return;
+			}
+			setSortBy(sort);
+		},
+		[sortByValue, sortOrderValue, setSortBy, setSortOrder],
+	);
+
+	const toggleColumnSort = useCallback(
+		(columnId: string) => {
+			const sortMap: Record<string, SortBy> = {
+				name: "name",
+				size: "size",
+				modified: "modified",
+				type: "type",
+			};
+			const newSort = sortMap[columnId];
+			if (!newSort) return;
+			handleSortChange(newSort);
+		},
+		[handleSortChange],
+	);
+
+	// "datetaken" only applies to media view; fall back to "modified" elsewhere.
+	// Guard with ref to avoid repeated setSortBy calls during identity churn or rapid view switches,
+	// which could trigger extra queries and re-renders (stability).
+	const didAdjustMediaSortRef = useRef(false);
+	useEffect(() => {
+		const shouldBeDatetaken = viewMode === "media" && sortByValue === "type";
+		const shouldBeModified = viewMode !== "media" && sortByValue === "datetaken";
+
+		if (shouldBeDatetaken) {
+			if (!didAdjustMediaSortRef.current) {
+				didAdjustMediaSortRef.current = true;
+				setSortBy("datetaken");
+			}
+		} else if (shouldBeModified) {
+			if (!didAdjustMediaSortRef.current) {
+				didAdjustMediaSortRef.current = true;
+				setSortBy("modified");
+			}
+		} else {
+			// Reset guard when neither correction is needed (e.g. user chose a sort)
+			didAdjustMediaSortRef.current = false;
+		}
+	}, [viewMode, sortByValue, setSortBy]);
 
 	const setViewSettings = useCallback(
 		(settings: Partial<ViewSettings>) => {
@@ -832,6 +885,10 @@ export function ExplorerProvider({
 			setViewMode,
 			sortBy: sortByValue,
 			setSortBy,
+			sortOrder: sortOrderValue,
+			setSortOrder,
+			handleSortChange,
+			toggleColumnSort,
 			viewSettings,
 			setViewSettings,
 			columnStack,
@@ -880,6 +937,10 @@ export function ExplorerProvider({
 			setViewMode,
 			sortByValue,
 			setSortBy,
+			sortOrderValue,
+			setSortOrder,
+			handleSortChange,
+			toggleColumnSort,
 			viewSettings,
 			setViewSettings,
 			columnStack,

@@ -246,7 +246,8 @@ impl VolumeBackend for LocalBackend {
 
 	async fn exists(&self, path: &Path) -> Result<bool, VolumeError> {
 		let full_path = self.resolve_path(path);
-		Ok(full_path.exists())
+		// Async to prevent blocking runtime (stability)
+		Ok(tokio::fs::try_exists(&full_path).await.unwrap_or(false))
 	}
 
 	async fn delete(&self, path: &Path) -> Result<(), VolumeError> {

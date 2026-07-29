@@ -49,7 +49,7 @@ export function AdaptersScreen() {
 						>
 							<CircleButton
 								icon={ArrowLeft}
-								onClick={() => navigate(-1)}
+								onClick={() => navigate("/sources")}
 							/>
 						</TopBarItem>
 						<TopBarItem

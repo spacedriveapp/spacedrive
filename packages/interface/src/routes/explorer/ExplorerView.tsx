@@ -2,6 +2,7 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	Info,
+	Plus,
 	SidebarSimple,
 	Tag as TagIcon
 } from '@phosphor-icons/react';
@@ -9,6 +10,7 @@ import {CircleButton, CircleButtonGroup} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
+import {useAddStorageDialog} from './components/AddStorageModal';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
@@ -39,7 +41,8 @@ export function ExplorerView() {
 		viewMode,
 		setViewMode,
 		sortBy,
-		setSortBy,
+		sortOrder,
+		handleSortChange,
 		viewSettings,
 		setViewSettings,
 		goBack,
@@ -92,6 +95,12 @@ export function ExplorerView() {
 		exitSearchMode();
 	}, [exitSearchMode]);
 
+	const handleAddStorage = useCallback(() => {
+		useAddStorageDialog((sdPath) => {
+			navigateToPath(sdPath);
+		});
+	}, [navigateToPath]);
+
 	useEffect(() => {
 		if (mode.type !== 'search') {
 			setSearchValue('');
@@ -141,11 +150,12 @@ export function ExplorerView() {
 		() => (
 			<SortMenuPanel
 				sortBy={sortBy}
-				onSortChange={setSortBy}
+				sortOrder={sortOrder}
+				onSortChange={handleSortChange}
 				viewMode={viewMode as any}
 			/>
 		),
-		[sortBy, setSortBy, viewMode]
+		[sortBy, sortOrder, handleSortChange, viewMode]
 	);
 
 	// Allow rendering if we have a currentPath, a virtual view, or a special mode
@@ -282,8 +292,22 @@ export function ExplorerView() {
 							>
 								<SortMenu
 									sortBy={sortBy}
-									onSortChange={setSortBy}
+									sortOrder={sortOrder}
+									onSortChange={handleSortChange}
 									viewMode={viewMode as any}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="add-storage"
+								label="Add Storage"
+								priority="high"
+								onClick={handleAddStorage}
+							>
+								<CircleButton
+									icon={Plus}
+									className="!bg-accent hover:!bg-accent-deep !text-white"
+									onClick={handleAddStorage}
+									title="Add Storage"
 								/>
 							</TopBarItem>
 							<TopBarItem

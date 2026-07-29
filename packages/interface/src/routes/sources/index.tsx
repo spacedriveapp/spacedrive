@@ -1,15 +1,15 @@
 import { Plus, ArrowLeft } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
 import { useLibraryQuery } from "../../contexts/SpacedriveContext";
-import { useTabManager } from "../../components/TabManager/useTabManager";
 import { SourceCard } from "../../components/Sources/SourceCard";
+import { useOpenAdaptersPicker } from "./useOpenAdaptersPicker";
 import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { CircleButton } from "@spacedrive/primitives";
 import { SearchBar } from "@spacedrive/primitives";
 
 export function SourcesHome() {
 	const navigate = useNavigate();
-	const { createTab } = useTabManager();
+	const openAdaptersPicker = useOpenAdaptersPicker();
 	const { data: sourcesRaw, isLoading, error } = useLibraryQuery({
 		type: "sources.list",
 		input: { data_type: null },
@@ -48,7 +48,7 @@ export function SourcesHome() {
 						<TopBarItem id="add-source" label="Add Source" priority="high">
 							<CircleButton
 								icon={Plus}
-								onClick={() => createTab("Adapters", "/sources/adapters")}
+								onClick={openAdaptersPicker}
 								title="Add Source"
 							/>
 						</TopBarItem>
@@ -78,7 +78,7 @@ export function SourcesHome() {
 						Add a data source to get started
 					</p>
 					<button
-						onClick={() => createTab("Adapters", "/sources/adapters")}
+						onClick={openAdaptersPicker}
 						className="bg-accent hover:bg-accent-deep mt-4 rounded-lg px-3.5 py-1.5 text-sm font-medium text-white transition-colors"
 					>
 						Add Source

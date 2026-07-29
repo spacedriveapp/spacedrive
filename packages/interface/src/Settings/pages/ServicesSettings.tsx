@@ -39,8 +39,8 @@ export function ServicesSettings() {
         </p>
       </div>
 
-      <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-        <p className="text-sm text-amber-400">
+      <div className="p-3 bg-status-warning/10 border border-status-warning/20 rounded-lg">
+        <p className="text-sm text-status-warning">
           Changes to service settings may require a daemon restart to take effect.
         </p>
       </div>

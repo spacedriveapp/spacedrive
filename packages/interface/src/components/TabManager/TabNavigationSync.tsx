@@ -13,11 +13,15 @@ function deriveTitleFromPath(pathname: string, search: string): string | null {
 		"/recents": "Recents",
 		"/file-kinds": "File Kinds",
 		"/sources": "Sources",
-		"/sources/adapters": "Adapters",
 		"/search": "Search",
 		"/jobs": "Jobs",
 		"/daemon": "Daemon",
 	};
+
+	// Adapters picker is a sub-page of Sources, not a separate tab.
+	if (pathname === "/sources/adapters") {
+		return "Sources";
+	}
 
 	// Check static routes first
 	if (routeTitles[pathname]) {

@@ -948,8 +948,9 @@ impl VolumeManager {
 	/// Get volume information for a specific path
 	#[instrument(skip(self))]
 	pub async fn volume_for_path(&self, path: &Path) -> Option<Volume> {
-		// Canonicalize the path to handle relative paths properly
-		let canonical_path = match path.canonicalize() {
+		// Canonicalize the path to handle relative paths properly.
+		// Use async version to avoid blocking the runtime on slow filesystems.
+		let canonical_path = match tokio::fs::canonicalize(path).await {
 			Ok(p) => {
 				// On Windows, canonicalize() returns UNC extended paths (\\?\D:\)
 				// which breaks starts_with() matching against normal mount points (D:\).

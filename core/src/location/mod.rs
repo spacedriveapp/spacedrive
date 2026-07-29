@@ -146,8 +146,8 @@ pub async fn create_location(
 		.to_str()
 		.ok_or_else(|| LocationError::InvalidPath("Non-UTF8 path".to_string()))?;
 
-	// Validate path exists
-	if !args.path.exists() {
+	// Validate path exists (use async FS to avoid blocking the runtime)
+	if !tokio::fs::try_exists(&args.path).await.unwrap_or(false) {
 		return Err(LocationError::PathNotFound { path: args.path });
 	}
 

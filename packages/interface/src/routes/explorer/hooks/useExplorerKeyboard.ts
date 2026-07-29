@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { useExplorer } from "../context";
+import { toSortDirection } from "../sortUtils";
 import { useSelection } from "../SelectionContext";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import type { DirectorySortBy } from "@sd/ts-client";
@@ -15,6 +16,7 @@ export function useExplorerKeyboard() {
 	const {
 		currentPath,
 		sortBy,
+		sortOrder,
 		navigateToPath,
 		viewMode,
 		viewSettings,
@@ -50,6 +52,7 @@ export function useExplorerKeyboard() {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 				}
 			: null!,
 		resourceType: "file",

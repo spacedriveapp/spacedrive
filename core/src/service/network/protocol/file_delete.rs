@@ -118,7 +118,7 @@ impl FileDeleteProtocolHandler {
 				.ok_or_else(|| anyhow::anyhow!("Path is not local"))?;
 
 			// Validate path is within allowed locations
-			if !self.is_path_allowed(local_path) {
+			if !self.is_path_allowed(local_path).await {
 				tracing::warn!(
 					path = %local_path.display(),
 					"Delete request rejected: path outside allowed locations"
@@ -164,15 +164,24 @@ impl FileDeleteProtocolHandler {
 
 	/// Check if a path is within allowed locations (registered Locations from all libraries).
 	/// Uses canonicalization to prevent traversal attacks.
-	fn is_path_allowed(&self, path: &std::path::Path) -> bool {
-		// Canonicalize the target path to resolve symlinks and `..`
-		let canonical_path = match path.canonicalize() {
-			Ok(p) => p,
-			Err(_) => return false, // Path doesn't exist - can't delete anyway
+	///
+	/// Async to avoid blocking the tokio runtime (stability fix).
+	async fn is_path_allowed(&self, path: &std::path::Path) -> bool {
+		// Canonicalize off the async worker to avoid blocking on slow FS or weird mounts.
+		let canonical_path = match tokio::task::spawn_blocking({
+			let p = path.to_path_buf();
+			move || p.canonicalize()
+		})
+		.await
+		.ok()
+		.and_then(|r| r.ok())
+		{
+			Some(p) => p,
+			None => return false, // Path doesn't exist or failed - can't safely delete
 		};
 
 		// Get allowed paths from all libraries via CoreContext
-		let allowed_paths = self.get_all_allowed_paths();
+		let allowed_paths = self.get_all_allowed_paths().await;
 
 		if allowed_paths.is_empty() {
 			tracing::warn!("No allowed paths configured for file delete - denying access");
@@ -181,7 +190,14 @@ impl FileDeleteProtocolHandler {
 
 		// Check if canonicalized path starts with any allowed path
 		for allowed in allowed_paths {
-			if let Ok(canonical_allowed) = allowed.canonicalize() {
+			if let Some(canonical_allowed) = tokio::task::spawn_blocking({
+				let a = allowed.clone();
+				move || a.canonicalize()
+			})
+			.await
+			.ok()
+			.and_then(|r| r.ok())
+			{
 				if canonical_path.starts_with(&canonical_allowed) {
 					return true;
 				}
@@ -192,27 +208,27 @@ impl FileDeleteProtocolHandler {
 	}
 
 	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
-	fn get_all_allowed_paths(&self) -> Vec<std::path::PathBuf> {
+	///
+	/// Async version matching FileTransferProtocolHandler (stability: no block_on).
+	async fn get_all_allowed_paths(&self) -> Vec<std::path::PathBuf> {
 		let mut paths = Vec::new();
 
-		// Add statically configured allowed paths
-		{
+		// Add statically configured allowed paths (clone without holding lock across await)
+		let static_paths = {
 			let allowed = self.allowed_paths.read().unwrap();
-			paths.extend(allowed.clone());
-		}
+			allowed.clone()
+		};
+		paths.extend(static_paths);
 
 		// Add dynamic location paths from all libraries via CoreContext
 		if let Some(ctx) = &self.context {
-			let library_manager_guard = ctx.library_manager.blocking_read();
+			let library_manager_guard = ctx.library_manager.read().await;
 			if let Some(library_manager) = library_manager_guard.as_ref() {
-				let library_list: Vec<std::sync::Arc<crate::library::Library>> =
-					tokio::runtime::Handle::current().block_on(library_manager.list());
+				let library_list = library_manager.list().await;
 				for library in library_list {
 					let location_manager =
 						crate::location::LocationManager::new((*ctx.events).clone());
-					if let Ok(locations) = tokio::runtime::Handle::current()
-						.block_on(location_manager.list_locations(&library))
-					{
+					if let Ok(locations) = location_manager.list_locations(&library).await {
 						for loc in locations {
 							paths.push(loc.path.clone());
 						}
@@ -339,14 +355,14 @@ mod tests {
 	use super::*;
 	use std::path::PathBuf;
 
-	#[test]
-	fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+	#[tokio::test]
+	async fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
 		let handler = FileDeleteProtocolHandler::new();
 
 		// Without context, no paths are allowed (fail-safe)
 		let outside_path = std::path::Path::new("/etc/passwd");
 		assert!(
-			!handler.is_path_allowed(outside_path),
+			!handler.is_path_allowed(outside_path).await,
 			"Paths outside allowed locations must be rejected"
 		);
 
@@ -354,36 +370,36 @@ mod tests {
 		{
 			let system_path = std::path::Path::new("C:\\Windows\\System32\\config\\SAM");
 			assert!(
-				!handler.is_path_allowed(system_path),
+				!handler.is_path_allowed(system_path).await,
 				"System paths must be rejected"
 			);
 		}
 	}
 
-	#[test]
-	fn test_is_path_allowed_denies_all_when_no_context() {
+	#[tokio::test]
+	async fn test_is_path_allowed_denies_all_when_no_context() {
 		let handler = FileDeleteProtocolHandler::new();
 
 		// Without context, all paths should be denied (fail-safe)
 		let any_path = std::env::temp_dir().join("some_file.txt");
 		assert!(
-			!handler.is_path_allowed(&any_path),
+			!handler.is_path_allowed(&any_path).await,
 			"When no context is configured, all access should be denied"
 		);
 	}
 
-	#[test]
-	fn test_get_all_allowed_paths_returns_empty_without_context() {
+	#[tokio::test]
+	async fn test_get_all_allowed_paths_returns_empty_without_context() {
 		let handler = FileDeleteProtocolHandler::new();
-		let paths = handler.get_all_allowed_paths();
+		let paths = handler.get_all_allowed_paths().await;
 		assert!(
 			paths.is_empty(),
 			"Without context, allowed paths should be empty"
 		);
 	}
 
-	#[test]
-	fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+	#[tokio::test]
+	async fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
 		let handler = FileDeleteProtocolHandler::new();
 
 		// Create a temp directory as the allowed location
@@ -396,7 +412,7 @@ mod tests {
 
 		// Test: Path inside allowed location should be ACCEPTED
 		assert!(
-			handler.is_path_allowed(&inner_path),
+			handler.is_path_allowed(&inner_path).await,
 			"Paths inside allowed locations should be accepted"
 		);
 

@@ -110,33 +110,47 @@ impl LocationManager {
 					.to_string();
 				let path_str = path.to_string_lossy().to_string();
 
-				// Get inode for the directory
-				let inode = if path.exists() {
-					match std::fs::metadata(path) {
-						Ok(metadata) => {
-							#[cfg(unix)]
-							{
-								use std::os::unix::fs::MetadataExt;
-								Some(metadata.ino())
+				// Get inode for the directory.
+				// Run the (potentially slow) metadata call off the async runtime for stability.
+				let inode = {
+					let path = path.clone();
+					match tokio::task::spawn_blocking(move || {
+						if path.exists() {
+							match std::fs::metadata(&path) {
+								Ok(metadata) => {
+									#[cfg(unix)]
+									{
+										use std::os::unix::fs::MetadataExt;
+										Some(metadata.ino())
+									}
+									#[cfg(windows)]
+									{
+										// Windows has file IDs but they're more complex to extract
+										// For now, leave as None for Windows
+										None::<u64>
+									}
+								}
+								Err(e) => {
+									warn!(
+										"Failed to get metadata for location root {}: {}",
+										path.display(),
+										e
+									);
+									None
+								}
 							}
-							#[cfg(windows)]
-							{
-								// Windows has file IDs but they're more complex to extract
-								// For now, leave as None for Windows
-								None::<u64>
-							}
+						} else {
+							None
 						}
+					})
+					.await
+					{
+						Ok(v) => v,
 						Err(e) => {
-							warn!(
-								"Failed to get metadata for location root {}: {}",
-								path.display(),
-								e
-							);
+							warn!("spawn_blocking for inode metadata failed: {}", e);
 							None
 						}
 					}
-				} else {
-					None
 				};
 
 				(name, path_str, inode)
@@ -521,8 +535,8 @@ impl LocationManager {
 
 	/// Validate a physical filesystem path before creating a location
 	async fn validate_physical_path(&self, path: &PathBuf) -> LocationResult<()> {
-		// Check if path exists
-		if !path.exists() {
+		// Check if path exists (async to avoid blocking runtime on slow FS)
+		if !tokio::fs::try_exists(path).await.unwrap_or(false) {
 			return Err(LocationError::PathNotFound { path: path.clone() });
 		}
 

@@ -1601,19 +1601,21 @@ async fn start_daemon(
 		.spawn()
 		.map_err(|e| format!("Failed to start daemon: {}", e))?;
 
-	// Wait for daemon to be ready
-	for i in 0..30 {
+	// Wait for daemon to be ready. Cold start often exceeds a few seconds
+	// (volume discovery + networking/iroh init before the RPC bind).
+	const MAX_ATTEMPTS: u32 = 200; // 200 * 100ms = 20s
+	for i in 0..MAX_ATTEMPTS {
 		tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 		if is_daemon_running(socket_addr).await {
 			tracing::info!("Daemon ready at {}", socket_addr);
 			return Ok(child);
 		}
-		if i == 10 {
+		if i == 30 {
 			tracing::warn!("Daemon taking longer than expected to start...");
 		}
 	}
 
-	Err("Daemon failed to start (connection not available after 3 seconds)".to_string())
+	Err("Daemon failed to start (connection not available after 20 seconds)".to_string())
 }
 
 fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
@@ -2202,13 +2204,35 @@ fn main() {
 				});
 			});
 
-			// In dev mode, show window immediately
+			// In dev mode, show window immediately so a broken module graph is visible.
 			#[cfg(debug_assertions)]
 			{
 				if let Some(window) = app.get_webview_window("main") {
 					window.show().ok();
 					window.set_focus().ok();
 				}
+			}
+
+			// Release builds start with visible:false and rely on the frontend
+			// invoking app_ready. If the webview never boots (e.g. unresolved
+			// import), force-show after a short delay so the process is not
+			// stuck docked with zero windows.
+			#[cfg(not(debug_assertions))]
+			{
+				let app_handle = app.handle().clone();
+				tauri::async_runtime::spawn(async move {
+					tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+					if let Some(window) = app_handle.get_webview_window("main") {
+						let visible = window.is_visible().unwrap_or(false);
+						if !visible {
+							tracing::warn!(
+								"Main window still hidden after 3s (app_ready never called); forcing show"
+							);
+							window.show().ok();
+							window.set_focus().ok();
+						}
+					}
+				});
 			}
 
 			Ok(())

@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { KnowledgeInspector } from "../../../components/Inspector/variants/KnowledgeInspector";
 import { useExplorer } from "../context";
+import { toSortDirection } from "../sortUtils";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import type { File, ContentKind } from "@sd/ts-client";
 import { getContentKind } from "@sd/ts-client";
@@ -81,7 +82,7 @@ const CONTENT_KIND_LABELS: Record<ContentKind, string> = {
 };
 
 export function KnowledgeView() {
-	const { inspectorVisible, currentPath, sortBy, viewSettings } =
+	const { inspectorVisible, currentPath, sortBy, sortOrder, viewSettings } =
 		useExplorer();
 
 	const directoryQuery = useNormalizedQuery({
@@ -92,6 +93,7 @@ export function KnowledgeView() {
 					limit: null,
 					include_hidden: false,
 					sort_by: sortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst,
 				}
 			: null,

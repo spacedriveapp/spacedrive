@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { sortFiles, toSortDirection } from "../sortUtils";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -31,7 +32,7 @@ export interface ExplorerFilesResult {
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings } = explorer;
+	const { mode, currentPath, sortBy, sortOrder, viewSettings } = explorer;
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -210,14 +211,18 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	});
 
 	// Directory query
+	// Use a high but bounded limit for stability: prevents hangs/high memory when
+	// browsing directories with tens or hundreds of thousands of files.
+	// The UI uses virtualized rendering so users can still scroll large (but capped) results.
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
 		input: currentPath
 			? {
 					path: currentPath,
-					limit: null,
+					limit: 10000,
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
+					sort_direction: toSortDirection(sortOrder),
 					folders_first: viewSettings.foldersFirst,
 				}
 			: null!,
@@ -246,24 +251,39 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						: "directory";
 
 	const files = useMemo(() => {
+		let result: File[] = [];
 		if (isFilteredMode) {
-			return (
-				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
+			result =
+				(filteredQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isTagMode) {
+			result = (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
+		} else if (isRecentsMode) {
+			result =
+				(recentsQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isSearchMode) {
+			result = (searchQuery.data as FileSearchOutput | undefined)?.files || [];
+		} else if (isVirtualView) {
+			// Virtual listings (devices/volumes) are not server-sorted in the same way.
+			result = sortFiles(
+				virtualFiles || [],
+				sortBy,
+				sortOrder,
+				viewSettings.foldersFirst,
+			);
+		} else {
+			// Always sort client-side for directory listings. The backend may return
+			// SQL-ordered rows, but ResourceChanged / ephemeral index events append
+			// into the normalized cache in discovery order and destroy that order.
+			// Results are capped (10k), so this is cheap relative to broken A–Z UX.
+			result = sortFiles(
+				(directoryQuery.data as { files: File[] } | undefined)?.files ??
+					[],
+				sortBy,
+				sortOrder,
+				viewSettings.foldersFirst,
 			);
 		}
-		if (isTagMode) {
-			return (tagQuery.data as { files: File[] } | undefined)?.files ?? [];
-		}
-		if (isRecentsMode) {
-			return (recentsQuery.data as FileSearchOutput | undefined)?.files || [];
-		}
-		if (isSearchMode) {
-			return (searchQuery.data as FileSearchOutput | undefined)?.files || [];
-		}
-		if (isVirtualView) {
-			return virtualFiles || [];
-		}
-		return (directoryQuery.data as { files: File[] } | undefined)?.files ?? [];
+		return result;
 	}, [
 		isFilteredMode,
 		isTagMode,
@@ -276,6 +296,9 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		searchQuery.data,
 		virtualFiles,
 		directoryQuery.data,
+		sortBy,
+		sortOrder,
+		viewSettings.foldersFirst,
 	]);
 
 	const isLoading = isFilteredMode
