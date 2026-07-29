@@ -2,6 +2,7 @@ import {
 	ArrowLeft,
 	ArrowRight,
 	Info,
+	Plus,
 	SidebarSimple,
 	Tag as TagIcon
 } from '@phosphor-icons/react';
@@ -9,6 +10,7 @@ import {CircleButton, CircleButtonGroup} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
+import {useAddStorageDialog} from './components/AddStorageModal';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
@@ -91,6 +93,12 @@ export function ExplorerView() {
 		setSearchValue('');
 		exitSearchMode();
 	}, [exitSearchMode]);
+
+	const handleAddStorage = useCallback(() => {
+		useAddStorageDialog((sdPath) => {
+			navigateToPath(sdPath);
+		});
+	}, [navigateToPath]);
 
 	useEffect(() => {
 		if (mode.type !== 'search') {
@@ -284,6 +292,19 @@ export function ExplorerView() {
 									sortBy={sortBy}
 									onSortChange={setSortBy}
 									viewMode={viewMode as any}
+								/>
+							</TopBarItem>
+							<TopBarItem
+								id="add-storage"
+								label="Add Storage"
+								priority="high"
+								onClick={handleAddStorage}
+							>
+								<CircleButton
+									icon={Plus}
+									className="!bg-accent hover:!bg-accent-deep !text-white"
+									onClick={handleAddStorage}
+									title="Add Storage"
 								/>
 							</TopBarItem>
 							<TopBarItem
