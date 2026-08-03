@@ -75,7 +75,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 				volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 				job_logging_config: Option<crate::config::JobLoggingConfig>,
 				job_logs_dir: Option<std::path::PathBuf>,
-				persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
+				persistence_complete_tx: Option<tokio::sync::watch::Sender<u64>>,
 				should_persist: bool,
 			) -> Box<dyn sd_task_system::Task<crate::infra::job::error::JobError>> {
 				Box::new(crate::infra::job::executor::JobExecutor::new(
