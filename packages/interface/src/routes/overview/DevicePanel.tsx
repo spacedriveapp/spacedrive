@@ -3,9 +3,7 @@ import {
 	CaretRight,
 	Cpu,
 	HardDrive,
-	Memory,
-	WifiHigh,
-	WifiSlash
+	Memory
 } from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.png';
 import DriveAmazonS3Icon from '@sd/assets/icons/Drive-AmazonS3.png';
@@ -26,7 +24,7 @@ import type {
 	VolumeListOutput,
 	VolumeListQueryInput
 } from '@sd/ts-client';
-import {Tooltip, CircleButton} from '@spacedrive/primitives';
+import {CircleButton} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {useEffect, useRef, useState} from 'react';
 import Masonry from 'react-masonry-css';
@@ -37,11 +35,13 @@ import {
 	useCoreQuery,
 	useNormalizedQuery
 } from '../../contexts/SpacedriveContext';
+import {ConnectionBadge} from './ConnectionBadge';
+import type {ConnectionMethod} from './connectionBadgeState';
 import {VolumeBar} from './VolumeBar';
 
 // Temporary type extension until types are regenerated
 type DeviceWithConnection = Device & {
-	connection_method?: 'LocalNetwork' | 'DirectInternet' | 'RelayProxy' | null;
+	connection_method?: ConnectionMethod | null;
 };
 
 export function formatBytes(bytes: number): string {
@@ -260,72 +260,6 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 	);
 }
 
-interface ConnectionBadgeConfig {
-	label: string;
-	description: string;
-	icon?: React.ComponentType<{className?: string}>;
-	color?: string;
-}
-
-interface ConnectionBadgeProps {
-	method: 'LocalNetwork' | 'DirectInternet' | 'RelayProxy';
-	online: boolean;
-	current: boolean;
-	icon?: React.ComponentType<{className?: string}>;
-	color?: string;
-}
-
-function ConnectionBadge({method, online, current, icon: customIcon, color: customColor}: ConnectionBadgeProps) {
-	const configs: Record<string, ConnectionBadgeConfig> = {
-		LocalNetwork: {
-			label: 'Local',
-			description: 'Connected via local network',
-			icon: WifiHigh,
-			color: 'bg-green-500'
-		},
-		DirectInternet: {
-			label: 'Direct',
-			description: 'Connected directly via internet',
-			color: 'bg-blue-500'
-		},
-		RelayProxy: {
-			label: 'Relay',
-			description: 'Connected via relay proxy',
-			color: 'bg-yellow-500'
-		},
-		Offline: {
-			label: 'Offline',
-			description: 'Device is currently offline',
-			icon: WifiSlash,
-			color: 'bg-ink-dull'
-		},
-		Current: {
-			label: 'This device',
-			description: 'This is your current device',
-		}
-	};
-
-	const state = current ? 'Current' : online ? method : 'Offline';
-	const config = configs[state];
-	const Icon = customIcon || config?.icon || null;
-	const dotColor = customColor || config?.color || 'bg-ink-dull';
-
-	return (
-		<Tooltip label={config.description}>
-			<div className="flex items-center gap-1.5">
-				{Icon ? (
-					<Icon className="size-3" />
-				) : !current && (
-					<div className={clsx('size-2 rounded-full', dotColor)} />
-				)}
-				<span className="text-ink-dull text-xs font-medium">
-					{config.label}
-				</span>
-			</div>
-		</Tooltip>
-	);
-}
-
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
 	volumes: Volume[];
@@ -399,10 +333,10 @@ function DeviceCard({
 									{deviceName}
 								</h3>
 								<ConnectionBadge
-										method={device?.connection_method ?? "LocalNetwork"}
-										online={device?.is_online ?? false}
-										current={device?.is_current ?? false}
-									/>
+									method={device?.connection_method}
+									online={device?.is_online ?? false}
+									current={device?.is_current ?? false}
+								/>
 							</div>
 							<p className="text-ink-dull text-sm">
 								{volumesLoading
