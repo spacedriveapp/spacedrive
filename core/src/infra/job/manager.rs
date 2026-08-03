@@ -1986,7 +1986,13 @@ impl JobManager {
 				paused_at: Set(None),
 				..Default::default()
 			};
-			job_model.update(self.db.conn()).await?;
+			if let Err(e) = job_model.update(self.db.conn()).await {
+				warn!(
+					job_id = %job_id,
+					error = %e,
+					"Failed to persist Running status after in-memory resume"
+				);
+			}
 
 			// Create channels
 			let (status_tx, status_rx) = watch::channel(JobStatus::Running);
@@ -2414,6 +2420,8 @@ impl JobManager {
 
 		// Wait for all persistence operations to complete
 		for (job_id, mut rx) in persistence_receivers {
+			// Paused status is published before the executor finishes persistence, so a receiver
+			// with no pending generation can still be waiting for an in-flight save.
 			tokio::select! {
 				result = rx.changed() => {
 					match result {
@@ -2428,7 +2436,7 @@ impl JobManager {
 				_ = tokio::time::sleep(persistence_timeout) => {
 					warn!("Timeout waiting for job {} state persistence after {}s",
 						job_id, persistence_timeout.as_secs());
-					break;
+					continue;
 				}
 			}
 		}

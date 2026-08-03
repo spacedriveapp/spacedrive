@@ -123,6 +123,17 @@ pub struct JobRegistration {
 
 /// Type-erased job for dynamic dispatch
 pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
+	/// Creates a task-system executor for this erased job.
+	///
+	/// When present, `persistence_complete_tx` is a monotonically increasing generation counter.
+	/// The executor must increment it exactly once after persistence settles for each execution
+	/// outcome, and must not increment it twice for a single pause or terminal outcome.
+	///
+	/// ```ignore
+	/// persistence_complete_tx.send_modify(|generation| {
+	///     *generation = generation.wrapping_add(1);
+	/// });
+	/// ```
 	fn create_executor(
 		self: Box<Self>,
 		job_id: JobId,

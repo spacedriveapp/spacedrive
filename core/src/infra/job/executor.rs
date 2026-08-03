@@ -218,15 +218,15 @@ impl<J: JobHandler> JobExecutor<J> {
 		// In-memory resume publishes Running from JobManager after it validates that the
 		// same tracked task accepted the resume request.
 		if *self.state.status_tx.borrow() != JobStatus::Paused {
-			warn!(
-				"DEBUG: JobExecutor setting status to Running for job {}",
-				self.state.job_id
+			debug!(
+				job_id = %self.state.job_id,
+				"Publishing Running status from executor"
 			);
 			let _ = self.state.status_tx.send(super::types::JobStatus::Running);
 
-			warn!(
-				"DEBUG: JobExecutor updating database status to Running for job {}",
-				self.state.job_id
+			debug!(
+				job_id = %self.state.job_id,
+				"Persisting Running status from executor"
 			);
 			if let Err(e) = self
 				.update_job_status_in_db(super::types::JobStatus::Running)
@@ -234,9 +234,9 @@ impl<J: JobHandler> JobExecutor<J> {
 			{
 				error!("Failed to update job status in database: {}", e);
 			} else {
-				warn!(
-					"DEBUG: JobExecutor successfully updated database status to Running for job {}",
-					self.state.job_id
+				debug!(
+					job_id = %self.state.job_id,
+					"Persisted Running status from executor"
 				);
 			}
 		}
