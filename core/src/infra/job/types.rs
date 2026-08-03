@@ -123,6 +123,17 @@ pub struct JobRegistration {
 
 /// Type-erased job for dynamic dispatch
 pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
+	/// Creates a task-system executor for this erased job.
+	///
+	/// When present, `persistence_complete_tx` is a monotonically increasing generation counter.
+	/// The executor must increment it exactly once after persistence settles for each execution
+	/// outcome, and must not increment it twice for a single pause or terminal outcome.
+	///
+	/// ```ignore
+	/// persistence_complete_tx.send_modify(|generation| {
+	///     *generation = generation.wrapping_add(1);
+	/// });
+	/// ```
 	fn create_executor(
 		self: Box<Self>,
 		job_id: JobId,
@@ -147,7 +158,7 @@ pub trait ErasedJob: Send + Sync + std::fmt::Debug + 'static {
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,
 		job_logs_dir: Option<std::path::PathBuf>,
-		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
+		persistence_complete_tx: Option<tokio::sync::watch::Sender<u64>>,
 		should_persist: bool,
 	) -> Box<dyn sd_task_system::Task<crate::infra::job::error::JobError>>;
 

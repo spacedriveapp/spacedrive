@@ -21,7 +21,9 @@ use crate::{
 };
 use async_trait::async_trait;
 use chrono::Utc;
-use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
+use sd_task_system::{
+	TaskDispatcher, TaskHandle, TaskRemoteController, TaskSystem, TaskSystemError,
+};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex, RwLock};
@@ -42,10 +44,67 @@ struct RunningJob {
 	task_handle: TaskHandle<JobError>,
 	status_tx: watch::Sender<JobStatus>,
 	latest_progress: Arc<Mutex<Option<Progress>>>,
-	persistence_complete_rx: Option<tokio::sync::oneshot::Receiver<()>>,
+	persistence_complete_rx: Option<watch::Receiver<u64>>,
+	is_resuming: bool,
 	job_name: String,
 	action_context: Option<crate::infra::action::context::ActionContext>,
 	should_emit_events: bool,
+}
+
+const RESUME_PERSISTENCE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(10);
+
+/// Resumes an in-memory task after its latest paused state has been persisted.
+///
+/// The receiver advances once per pause, preventing resumed execution from racing serialized
+/// state. `TaskNotFound` is retried because worker registration can lag the persistence signal.
+async fn resume_in_memory_task(
+	job_id: JobId,
+	task_controller: &TaskRemoteController,
+	persistence_complete_rx: &mut watch::Receiver<u64>,
+) -> JobResult<()> {
+	tokio::time::timeout(
+		RESUME_PERSISTENCE_TIMEOUT,
+		persistence_complete_rx.changed(),
+	)
+	.await
+	.map_err(|_| {
+		JobError::Other(
+			format!(
+				"Timed out waiting for job {}'s paused state to be persisted",
+				job_id
+			)
+			.into(),
+		)
+	})?
+	.map_err(|_| {
+		JobError::Other(
+			format!(
+				"Job {} stopped before its paused state was persisted",
+				job_id
+			)
+			.into(),
+		)
+	})?;
+
+	const RESUME_RETRY_LIMIT: usize = 200;
+	const RESUME_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(5);
+
+	for attempt in 0..=RESUME_RETRY_LIMIT {
+		match task_controller.resume().await {
+			Ok(()) => return Ok(()),
+			Err(TaskSystemError::TaskNotFound(_)) if attempt < RESUME_RETRY_LIMIT => {
+				tokio::time::sleep(RESUME_RETRY_DELAY).await;
+			}
+			Err(e) => {
+				return Err(JobError::task_system(format!(
+					"Failed to resume job {}: {}",
+					job_id, e
+				)));
+			}
+		}
+	}
+
+	unreachable!("resume retry loop always returns")
 }
 
 impl JobManager {
@@ -309,7 +368,7 @@ impl JobManager {
 		};
 
 		// Create persistence completion channel
-		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+		let (persistence_complete_tx, persistence_complete_rx) = watch::channel(0);
 
 		// Only enable job file logging for persistent jobs (or if explicitly configured)
 		let job_logging_config = if should_persist
@@ -367,6 +426,7 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress,
 						persistence_complete_rx: Some(persistence_complete_rx),
+						is_resuming: false,
 						job_name: job_name.to_string(),
 						action_context: action_context.clone(),
 						should_emit_events,
@@ -747,7 +807,7 @@ impl JobManager {
 		};
 
 		// Create persistence completion channel
-		let (persistence_complete_tx, persistence_complete_rx) = tokio::sync::oneshot::channel();
+		let (persistence_complete_tx, persistence_complete_rx) = watch::channel(0);
 
 		// Only enable job file logging for persistent jobs (or if explicitly configured)
 		let job_logging_config = if should_persist
@@ -802,6 +862,7 @@ impl JobManager {
 						status_tx: status_tx.clone(),
 						latest_progress: latest_progress.clone(),
 						persistence_complete_rx: Some(persistence_complete_rx),
+						is_resuming: false,
 						job_name: J::NAME.to_string(),
 						action_context: action_context.clone(),
 						should_emit_events,
@@ -1492,8 +1553,7 @@ impl JobManager {
 						};
 
 						// Create persistence completion channel
-						let (persistence_complete_tx, persistence_complete_rx) =
-							tokio::sync::oneshot::channel();
+						let (persistence_complete_tx, persistence_complete_rx) = watch::channel(0);
 
 						// Create executor using the erased job
 						// Resumed jobs are always persistent (loaded from database)
@@ -1548,6 +1608,7 @@ impl JobManager {
 										status_tx: status_tx.clone(),
 										latest_progress,
 										persistence_complete_rx: Some(persistence_complete_rx),
+										is_resuming: false,
 										job_name: job_record.name.clone(),
 										action_context,
 										should_emit_events: true, // Resumed jobs were persisted, so they should emit events
@@ -1925,7 +1986,13 @@ impl JobManager {
 				paused_at: Set(None),
 				..Default::default()
 			};
-			job_model.update(self.db.conn()).await?;
+			if let Err(e) = job_model.update(self.db.conn()).await {
+				warn!(
+					job_id = %job_id,
+					error = %e,
+					"Failed to persist Running status after in-memory resume"
+				);
+			}
 
 			// Create channels
 			let (status_tx, status_rx) = watch::channel(JobStatus::Running);
@@ -1999,8 +2066,7 @@ impl JobManager {
 			};
 
 			// Create persistence completion channel
-			let (persistence_complete_tx, persistence_complete_rx) =
-				tokio::sync::oneshot::channel();
+			let (persistence_complete_tx, persistence_complete_rx) = watch::channel(0);
 
 			// Create executor
 			// Resumed jobs are always persistent (loaded from database)
@@ -2041,6 +2107,7 @@ impl JobManager {
 					status_tx: status_tx.clone(),
 					latest_progress,
 					persistence_complete_rx: Some(persistence_complete_rx),
+					is_resuming: false,
 					job_name: job_name.clone(),
 					action_context,
 					should_emit_events: true, // Manually resumed jobs were persisted, so they should emit events
@@ -2155,40 +2222,92 @@ impl JobManager {
 
 			info!("Job {} resumed from database", job_id);
 		} else {
-			// Job is already in memory, just update status
+			// Job is already in memory, resume its task before exposing it as running.
 			let device_id = self
 				.context
 				.device_manager
 				.device_id()
 				.unwrap_or_else(|_| uuid::Uuid::nil());
-			let mut running_jobs = self.running_jobs.write().await;
-			if let Some(running_job) = running_jobs.get_mut(&job_id) {
-				// Update status to Running
+			let (task_controller, task_id, persistence_complete_rx) = {
+				let mut running_jobs = self.running_jobs.write().await;
+				let running_job = running_jobs
+					.get_mut(&job_id)
+					.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
+
+				if running_job.handle.status() != JobStatus::Paused || running_job.is_resuming {
+					return Err(JobError::invalid_state(&format!(
+						"Cannot resume job in {:?} state",
+						running_job.handle.status()
+					)));
+				}
+
+				let persistence_complete_rx = running_job
+					.persistence_complete_rx
+					.take()
+					.ok_or_else(|| JobError::invalid_state("Job is already resuming"))?;
+				running_job.is_resuming = true;
+
+				(
+					running_job.task_handle.remote_controller(),
+					running_job.task_handle.task_id(),
+					persistence_complete_rx,
+				)
+			};
+
+			let mut resumed_persistence_rx = persistence_complete_rx.clone();
+			let resume_result =
+				resume_in_memory_task(job_id, &task_controller, &mut resumed_persistence_rx).await;
+
+			{
+				let mut running_jobs = self.running_jobs.write().await;
+				let running_job = running_jobs
+					.get_mut(&job_id)
+					.ok_or_else(|| JobError::NotFound(format!("Job {} not found", job_id)))?;
+
+				if running_job.task_handle.task_id() != task_id || !running_job.is_resuming {
+					return Err(JobError::invalid_state(
+						"Tracked job changed while its task was resuming",
+					));
+				}
+
+				running_job.persistence_complete_rx = Some(if resume_result.is_ok() {
+					resumed_persistence_rx
+				} else {
+					persistence_complete_rx
+				});
+				running_job.is_resuming = false;
+
+				resume_result?;
+				if running_job.handle.status() != JobStatus::Paused {
+					return Err(JobError::invalid_state(&format!(
+						"Job changed to {:?} while resuming",
+						running_job.handle.status()
+					)));
+				}
+
 				running_job
 					.status_tx
 					.send(JobStatus::Running)
 					.map_err(|e| {
 						JobError::Other(format!("Failed to update status: {}", e).into())
 					})?;
-
-				// Update database
-				use sea_orm::{ActiveModelTrait, ActiveValue::Set};
-				let mut job_model = database::jobs::ActiveModel {
-					id: Set(job_id.to_string()),
-					status: Set(JobStatus::Running.to_string()),
-					paused_at: Set(None),
-					..Default::default()
-				};
-				job_model.update(self.db.conn()).await?;
-
-				// Emit resume event
-				self.context.events.emit(Event::JobResumed {
-					job_id: job_id.to_string(),
-					device_id,
-				});
-
-				info!("Job {} resumed", job_id);
 			}
+
+			use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+			let mut job_model = database::jobs::ActiveModel {
+				id: Set(job_id.to_string()),
+				status: Set(JobStatus::Running.to_string()),
+				paused_at: Set(None),
+				..Default::default()
+			};
+			job_model.update(self.db.conn()).await?;
+
+			self.context.events.emit(Event::JobResumed {
+				job_id: job_id.to_string(),
+				device_id,
+			});
+
+			info!("Job {} resumed", job_id);
 		}
 
 		Ok(())
@@ -2300,9 +2419,11 @@ impl JobManager {
 		);
 
 		// Wait for all persistence operations to complete
-		for (job_id, rx) in persistence_receivers {
+		for (job_id, mut rx) in persistence_receivers {
+			// Paused status is published before the executor finishes persistence, so a receiver
+			// with no pending generation can still be waiting for an in-flight save.
 			tokio::select! {
-				result = rx => {
+				result = rx.changed() => {
 					match result {
 						Ok(()) => {
 							info!("Job {} completed state persistence", job_id);
@@ -2315,7 +2436,7 @@ impl JobManager {
 				_ = tokio::time::sleep(persistence_timeout) => {
 					warn!("Timeout waiting for job {} state persistence after {}s",
 						job_id, persistence_timeout.as_secs());
-					break;
+					continue;
 				}
 			}
 		}
@@ -2402,3 +2523,206 @@ impl CheckpointHandler for DbCheckpointHandler {
 }
 
 use uuid::Uuid;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sd_task_system::{
+		ExecStatus, Interrupter, InterruptionKind, Task, TaskId, TaskOutput, TaskStatus, TaskSystem,
+	};
+	use std::{collections::VecDeque, time::Duration};
+	use tokio::{
+		sync::{mpsc, oneshot, watch},
+		time::timeout,
+	};
+
+	#[derive(Debug)]
+	struct PausableTask {
+		id: TaskId,
+		began_tx: mpsc::UnboundedSender<usize>,
+		persistence_complete_tx: watch::Sender<u64>,
+		pause_gates: VecDeque<(oneshot::Receiver<()>, oneshot::Receiver<()>)>,
+		run_count: usize,
+	}
+
+	impl PausableTask {
+		fn new(
+			pause_cycles: usize,
+		) -> (
+			Self,
+			mpsc::UnboundedReceiver<usize>,
+			watch::Receiver<u64>,
+			Vec<oneshot::Sender<()>>,
+			Vec<oneshot::Sender<()>>,
+		) {
+			let (began_tx, began_rx) = mpsc::unbounded_channel();
+			let (persistence_complete_tx, persistence_complete_rx) = watch::channel(0);
+			let mut pause_gates = VecDeque::new();
+			let mut release_persistence_txs = Vec::new();
+			let mut release_pause_completion_txs = Vec::new();
+
+			for _ in 0..pause_cycles {
+				let (release_persistence_tx, release_persistence_rx) = oneshot::channel();
+				let (release_pause_completion_tx, release_pause_completion_rx) = oneshot::channel();
+				pause_gates.push_back((release_persistence_rx, release_pause_completion_rx));
+				release_persistence_txs.push(release_persistence_tx);
+				release_pause_completion_txs.push(release_pause_completion_tx);
+			}
+
+			(
+				Self {
+					id: TaskId::new_v4(),
+					began_tx,
+					persistence_complete_tx,
+					pause_gates,
+					run_count: 0,
+				},
+				began_rx,
+				persistence_complete_rx,
+				release_persistence_txs,
+				release_pause_completion_txs,
+			)
+		}
+	}
+
+	#[async_trait::async_trait]
+	impl Task<JobError> for PausableTask {
+		fn id(&self) -> TaskId {
+			self.id
+		}
+
+		async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
+			let run_count = self.run_count;
+			self.run_count += 1;
+			let _ = self.began_tx.send(run_count);
+
+			let Some((release_persistence_rx, release_pause_completion_rx)) =
+				self.pause_gates.pop_front()
+			else {
+				return Ok(ExecStatus::Done(TaskOutput::Empty));
+			};
+
+			match interrupter.await {
+				InterruptionKind::Pause => {
+					release_persistence_rx.await.expect("release persistence");
+					self.persistence_complete_tx
+						.send_modify(|generation| *generation += 1);
+					release_pause_completion_rx
+						.await
+						.expect("release pause completion");
+					Ok(ExecStatus::Paused)
+				}
+				InterruptionKind::Cancel => Ok(ExecStatus::Canceled),
+			}
+		}
+	}
+
+	#[tokio::test]
+	async fn in_memory_resume_waits_for_persistence_and_resumes_task() {
+		let task_system = TaskSystem::<JobError>::new();
+		let (
+			task,
+			mut began_rx,
+			mut persistence_complete_rx,
+			mut release_persistence_txs,
+			mut release_pause_completion_txs,
+		) = PausableTask::new(2);
+		let task_id = task.id();
+		let task_handle = task_system.dispatch(task).await.expect("dispatch task");
+		let task_controller = task_handle.remote_controller();
+
+		for cycle in 0..2 {
+			assert_eq!(began_rx.recv().await, Some(cycle));
+			task_controller.pause().await.expect("pause task");
+
+			{
+				let resume = resume_in_memory_task(
+					JobId(task_id),
+					&task_controller,
+					&mut persistence_complete_rx,
+				);
+				tokio::pin!(resume);
+
+				assert!(
+					timeout(Duration::from_millis(25), &mut resume)
+						.await
+						.is_err(),
+					"resume must wait for paused state persistence on cycle {cycle}"
+				);
+				release_persistence_txs
+					.remove(0)
+					.send(())
+					.expect("release persistence");
+				assert!(
+					timeout(Duration::from_millis(25), &mut resume)
+						.await
+						.is_err(),
+					"resume must retry until pause registration on cycle {cycle}"
+				);
+				release_pause_completion_txs
+					.remove(0)
+					.send(())
+					.expect("release pause completion");
+				resume.await.expect("resume task");
+			}
+		}
+
+		assert_eq!(began_rx.recv().await, Some(2));
+
+		assert!(matches!(
+			task_handle.await,
+			Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
+		));
+		task_system.shutdown().await;
+	}
+
+	#[tokio::test]
+	async fn in_memory_resume_reports_closed_persistence_channel() {
+		let task_system = TaskSystem::<JobError>::new();
+		let (task, mut began_rx, _, _, _) = PausableTask::new(1);
+		let task_id = task.id();
+		let task_handle = task_system.dispatch(task).await.expect("dispatch task");
+		assert_eq!(began_rx.recv().await, Some(0));
+
+		let (persistence_complete_tx, mut persistence_complete_rx) = watch::channel(0);
+		drop(persistence_complete_tx);
+		let error = resume_in_memory_task(
+			JobId(task_id),
+			&task_handle.remote_controller(),
+			&mut persistence_complete_rx,
+		)
+		.await
+		.expect_err("closed persistence channel must fail");
+		assert!(error
+			.to_string()
+			.contains("before its paused state was persisted"));
+
+		task_handle.cancel().await.expect("cancel task");
+		assert!(matches!(task_handle.await, Ok(TaskStatus::Canceled)));
+		task_system.shutdown().await;
+	}
+
+	#[tokio::test]
+	async fn in_memory_resume_propagates_task_system_error() {
+		let task_system = TaskSystem::<JobError>::new();
+		let (task, mut began_rx, _, _, _) = PausableTask::new(1);
+		let task_id = task.id();
+		let task_handle = task_system.dispatch(task).await.expect("dispatch task");
+		assert_eq!(began_rx.recv().await, Some(0));
+
+		let (persistence_complete_tx, mut persistence_complete_rx) = watch::channel(0);
+		persistence_complete_tx.send_modify(|generation| *generation += 1);
+		let error = resume_in_memory_task(
+			JobId(task_id),
+			&task_handle.remote_controller(),
+			&mut persistence_complete_rx,
+		)
+		.await
+		.expect_err("resuming a running task must fail");
+		assert!(matches!(error, JobError::TaskSystem(_)));
+
+		task_handle.cancel().await.expect("cancel task");
+		assert!(matches!(task_handle.await, Ok(TaskStatus::Canceled)));
+		task_system.shutdown().await;
+	}
+}

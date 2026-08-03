@@ -41,7 +41,7 @@ pub struct JobExecutorState {
 	pub job_logging_config: Option<JobLoggingConfig>,
 	pub job_logs_dir: Option<PathBuf>,
 	pub file_logger: Option<Arc<super::logger::FileJobLogger>>,
-	pub persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
+	pub persistence_complete_tx: Option<watch::Sender<u64>>,
 	pub should_persist: bool,
 }
 
@@ -61,7 +61,7 @@ impl<J: JobHandler> JobExecutor<J> {
 		volume_manager: Option<Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<JobLoggingConfig>,
 		job_logs_dir: Option<PathBuf>,
-		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
+		persistence_complete_tx: Option<watch::Sender<u64>>,
 		should_persist: bool,
 	) -> Self {
 		// Create file logger if job logging is enabled
@@ -149,6 +149,12 @@ impl<J: JobHandler> JobExecutor<J> {
 		job.update(self.state.job_db.conn()).await?;
 		Ok(())
 	}
+
+	fn signal_persistence_complete(&self) {
+		if let Some(tx) = &self.state.persistence_complete_tx {
+			tx.send_modify(|generation| *generation = generation.wrapping_add(1));
+		}
+	}
 }
 
 #[async_trait]
@@ -209,28 +215,30 @@ impl<J: JobHandler> JobExecutor<J> {
 			self.state.job_id, self.state.job_name
 		);
 
-		// Update status to running
-		warn!(
-			"DEBUG: JobExecutor setting status to Running for job {}",
-			self.state.job_id
-		);
-		let _ = self.state.status_tx.send(super::types::JobStatus::Running);
-
-		// Also persist status to database
-		warn!(
-			"DEBUG: JobExecutor updating database status to Running for job {}",
-			self.state.job_id
-		);
-		if let Err(e) = self
-			.update_job_status_in_db(super::types::JobStatus::Running)
-			.await
-		{
-			error!("Failed to update job status in database: {}", e);
-		} else {
-			warn!(
-				"DEBUG: JobExecutor successfully updated database status to Running for job {}",
-				self.state.job_id
+		// In-memory resume publishes Running from JobManager after it validates that the
+		// same tracked task accepted the resume request.
+		if *self.state.status_tx.borrow() != JobStatus::Paused {
+			debug!(
+				job_id = %self.state.job_id,
+				"Publishing Running status from executor"
 			);
+			let _ = self.state.status_tx.send(super::types::JobStatus::Running);
+
+			debug!(
+				job_id = %self.state.job_id,
+				"Persisting Running status from executor"
+			);
+			if let Err(e) = self
+				.update_job_status_in_db(super::types::JobStatus::Running)
+				.await
+			{
+				error!("Failed to update job status in database: {}", e);
+			} else {
+				debug!(
+					job_id = %self.state.job_id,
+					"Persisted Running status from executor"
+				);
+			}
 		}
 
 		// Create job context
@@ -276,7 +284,7 @@ impl<J: JobHandler> JobExecutor<J> {
 		// Store the final result in the handle for the manager to retrieve
 		*self.state.output.lock().await = Some(result.clone());
 
-		match result {
+		let exec_result = match result {
 			Ok(ref output) => {
 				// Update metrics
 				self.state.metrics = metrics_ref.lock().await.clone();
@@ -325,7 +333,7 @@ impl<J: JobHandler> JobExecutor<J> {
 				);
 				Ok(ExecStatus::Done(sd_task_system::TaskOutput::Empty))
 			}
-			Err(ref e) => {
+			Err(e) => {
 				if e.is_interrupted() {
 					debug!("Job {} interrupted", self.state.job_id);
 
@@ -369,8 +377,8 @@ impl<J: JobHandler> JobExecutor<J> {
 						}
 
 						// Signal that persistence is complete
-						if let Some(tx) = self.state.persistence_complete_tx.take() {
-							let _ = tx.send(());
+						if self.state.persistence_complete_tx.is_some() {
+							self.signal_persistence_complete();
 							info!(
 								"PAUSE_STATE_SAVE: Job {} signaled persistence completion",
 								self.state.job_id
@@ -435,30 +443,23 @@ impl<J: JobHandler> JobExecutor<J> {
 		};
 
 		// Clean up checkpoint if job completed
-		match &result {
-			Ok(_) => {
+		match &exec_result {
+			Ok(ExecStatus::Done(_)) => {
 				let _ = self
 					.state
 					.checkpoint_handler
 					.delete_checkpoint(self.state.job_id)
 					.await;
 
-				// Consume persistence channel if it wasn't used (job completed normally)
-				if let Some(tx) = self.state.persistence_complete_tx.take() {
-					let _ = tx.send(());
-				}
-
-				Ok(ExecStatus::Done(().into()))
+				self.signal_persistence_complete();
 			}
-			Err(e) => {
-				// Consume persistence channel if it wasn't used (job failed)
-				if let Some(tx) = self.state.persistence_complete_tx.take() {
-					let _ = tx.send(());
-				}
-
-				Err(e.clone())
+			Ok(ExecStatus::Paused) => {}
+			Ok(ExecStatus::Canceled) | Err(_) => {
+				self.signal_persistence_complete();
 			}
 		}
+
+		exec_result
 	}
 }
 
@@ -487,7 +488,7 @@ impl<J: JobHandler + std::fmt::Debug> ErasedJob for JobExecutor<J> {
 		volume_manager: Option<std::sync::Arc<crate::volume::VolumeManager>>,
 		job_logging_config: Option<crate::config::JobLoggingConfig>,
 		job_logs_dir: Option<std::path::PathBuf>,
-		persistence_complete_tx: Option<tokio::sync::oneshot::Sender<()>>,
+		persistence_complete_tx: Option<watch::Sender<u64>>,
 		should_persist: bool,
 	) -> Box<dyn sd_task_system::Task<JobError>> {
 		// Update the executor's state with the new parameters
