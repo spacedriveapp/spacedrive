@@ -24,6 +24,20 @@ let _isDragging = false;
 export const platform: Platform = {
 	platform: 'tauri',
 
+	getMiddleClickNavigationGuardEnvironment() {
+		return {
+			userAgent: navigator.userAgent,
+			eventTarget: {
+				addEventListener(type, listener, options) {
+					document.addEventListener(type, listener, options);
+				},
+				removeEventListener(type, listener) {
+					document.removeEventListener(type, listener);
+				}
+			}
+		};
+	},
+
 	async openDirectoryPickerDialog(opts) {
 		const result = await open({
 			directory: true,

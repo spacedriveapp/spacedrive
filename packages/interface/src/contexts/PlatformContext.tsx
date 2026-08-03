@@ -1,5 +1,7 @@
 import { createContext, useContext, PropsWithChildren } from "react";
 
+import type { MiddleClickNavigationGuardTarget } from "../util/middleClickNavigation";
+
 /**
  * Platform abstraction layer
  *
@@ -9,6 +11,12 @@ import { createContext, useContext, PropsWithChildren } from "react";
 export type Platform = {
 	/** Platform discriminator */
 	platform: "web" | "tauri";
+
+	/** Provide browser event access for the Windows Tauri middle-click guard. */
+	getMiddleClickNavigationGuardEnvironment?(): {
+		userAgent: string;
+		eventTarget: MiddleClickNavigationGuardTarget;
+	};
 
 	/** Open native directory picker dialog (Tauri only) */
 	openDirectoryPickerDialog?(opts?: {

@@ -1,6 +1,7 @@
 import { SpacedriveProvider, type SpacedriveClient } from "./contexts/SpacedriveContext";
 import { ServerProvider } from "./contexts/ServerContext";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useEffect } from "react";
 import { RouterProvider } from "react-router-dom";
 import { Dialogs, Toaster, TooltipProvider } from "@spacedrive/primitives";
 
@@ -16,6 +17,7 @@ import {
 } from "./components/TabManager";
 import { usePlatform } from "./contexts/PlatformContext";
 import { useTheme } from "./hooks/useTheme";
+import { installMiddleClickNavigationGuardForPlatform } from "./util/middleClickNavigation";
 
 interface ShellProps {
 	client: SpacedriveClient;
@@ -79,6 +81,15 @@ function ShellWithDaemonCheck() {
 export function Shell({ client }: ShellProps) {
 	const platform = usePlatform();
 	const isTauri = platform.platform === "tauri";
+
+	useEffect(
+		() =>
+			installMiddleClickNavigationGuardForPlatform(
+				platform.platform,
+				platform.getMiddleClickNavigationGuardEnvironment?.(),
+			),
+		[platform],
+	);
 
 	return (
 		<SpacedriveProvider client={client}>
