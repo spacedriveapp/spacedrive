@@ -83,6 +83,22 @@ pub async fn run_speed_test_with_config(
 	))
 }
 
+async fn remove_file_best_effort(path: &std::path::Path, artifact: &'static str) -> bool {
+	match tokio::fs::remove_file(path).await {
+		Ok(()) => true,
+		Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
+		Err(error) => {
+			warn!(
+				error = %error,
+				path = %path.display(),
+				artifact = artifact,
+				"Failed to remove speed test artifact"
+			);
+			false
+		}
+	}
+}
+
 /// Helper for managing test files
 struct TestLocation {
 	test_file: std::path::PathBuf,
@@ -107,22 +123,10 @@ impl TestLocation {
 	/// Clean up the test file
 	async fn cleanup(&mut self) {
 		// Never remove a file unless this speed test successfully created it.
-		if self.test_file_created {
-			match tokio::fs::remove_file(&self.test_file).await {
-				Ok(()) => {
-					self.test_file_created = false;
-				}
-				Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-					self.test_file_created = false;
-				}
-				Err(e) => {
-					warn!(
-						error = %e,
-						path = %self.test_file.display(),
-						"Failed to remove speed test file"
-					);
-				}
-			}
+		if self.test_file_created
+			&& remove_file_best_effort(&self.test_file, "speed test file").await
+		{
+			self.test_file_created = false;
 		}
 	}
 }
@@ -272,19 +276,11 @@ async fn get_writable_directory(
 					Ok(mut file) => {
 						let write_result = file.write_all(b"test").await;
 						drop(file);
-						let cleanup_succeeded = match tokio::fs::remove_file(&permission_file).await
-						{
-							Ok(()) => true,
-							Err(error) if error.kind() == std::io::ErrorKind::NotFound => true,
-							Err(error) => {
-								warn!(
-									error = %error,
-									path = %permission_file.display(),
-									"Failed to remove speed test permission probe"
-								);
-								false
-							}
-						};
+						let cleanup_succeeded = remove_file_best_effort(
+							&permission_file,
+							"speed test permission probe",
+						)
+						.await;
 						write_result.is_ok() && cleanup_succeeded
 					}
 					Err(_) => false,
