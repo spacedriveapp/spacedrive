@@ -66,11 +66,11 @@ pub async fn run_speed_test_with_config(
 
 	debug!("Starting speed test with config: {:?}", config);
 
-	let test_location = TestLocation::new(&volume.mount_point, &volume.mount_type).await?;
-	let result = perform_speed_test(&test_location, &config).await?;
+	let mut test_location = TestLocation::new(&volume.mount_point, &volume.mount_type).await?;
+	let result = perform_speed_test(&mut test_location, &config).await;
 
-	// Cleanup
 	test_location.cleanup().await?;
+	let result = result?;
 
 	debug!(
 		"Speed test completed: {:.2} MB/s write, {:.2} MB/s read",
@@ -86,6 +86,7 @@ pub async fn run_speed_test_with_config(
 /// Helper for managing test files and directories
 struct TestLocation {
 	test_file: std::path::PathBuf,
+	test_file_created: bool,
 	created_dir: Option<std::path::PathBuf>,
 }
 
@@ -93,27 +94,46 @@ impl TestLocation {
 	/// Create a new test location
 	async fn new(volume_path: &std::path::Path, mount_type: &MountType) -> VolumeResult<Self> {
 		let (dir, created_dir) = get_writable_directory(volume_path, mount_type).await?;
-		let test_file = dir.join("spacedrive_speed_test.tmp");
+		let test_file = dir.join(format!(
+			".spacedrive_speed_test-{}.tmp",
+			uuid::Uuid::new_v4()
+		));
 
 		Ok(Self {
 			test_file,
+			test_file_created: false,
 			created_dir,
 		})
 	}
 
 	/// Clean up test files and directories
-	async fn cleanup(&self) -> VolumeResult<()> {
-		// Remove test file
-		if self.test_file.exists() {
-			if let Err(e) = tokio::fs::remove_file(&self.test_file).await {
-				warn!("Failed to remove test file: {}", e);
+	async fn cleanup(&mut self) -> VolumeResult<()> {
+		let mut can_remove_created_dir = false;
+
+		// Never remove a file unless this speed test successfully created it.
+		if self.test_file_created {
+			match tokio::fs::remove_file(&self.test_file).await {
+				Ok(()) => {
+					self.test_file_created = false;
+					can_remove_created_dir = true;
+				}
+				Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+					self.test_file_created = false;
+				}
+				Err(e) => {
+					warn!("Failed to remove test file: {}", e);
+				}
 			}
 		}
 
-		// Remove created directory if we created it
-		if let Some(ref dir) = self.created_dir {
-			if let Err(e) = tokio::fs::remove_dir_all(dir).await {
-				warn!("Failed to remove test directory: {}", e);
+		// The owned test file also acts as proof that the directory was not
+		// removed and replaced while the test was running. Even then, only
+		// remove an empty directory so concurrently added files are preserved.
+		if can_remove_created_dir {
+			if let Some(ref dir) = self.created_dir {
+				if let Err(e) = tokio::fs::remove_dir(dir).await {
+					warn!("Failed to remove test directory: {}", e);
+				}
 			}
 		}
 
@@ -123,7 +143,7 @@ impl TestLocation {
 
 /// Perform the actual speed test
 async fn perform_speed_test(
-	location: &TestLocation,
+	location: &mut TestLocation,
 	config: &SpeedTestConfig,
 ) -> VolumeResult<SpeedTestResult> {
 	let test_data = generate_test_data(config.file_size_mb);
@@ -141,12 +161,9 @@ async fn perform_speed_test(
 		);
 
 		// Write test
-		let write_speed = timeout(
-			timeout_duration,
-			perform_write_test(&location.test_file, &test_data),
-		)
-		.await
-		.map_err(|_| VolumeError::Timeout)??;
+		let write_speed = timeout(timeout_duration, perform_write_test(location, &test_data))
+			.await
+			.map_err(|_| VolumeError::Timeout)??;
 
 		write_speeds.push(write_speed);
 
@@ -162,7 +179,13 @@ async fn perform_speed_test(
 
 		// Clean up test file between iterations
 		if iteration < config.iterations - 1 {
-			let _ = tokio::fs::remove_file(&location.test_file).await;
+			match tokio::fs::remove_file(&location.test_file).await {
+				Ok(()) => location.test_file_created = false,
+				Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+					location.test_file_created = false;
+				}
+				Err(error) => return Err(error.into()),
+			}
 		}
 	}
 
@@ -192,15 +215,15 @@ fn generate_test_data(size_mb: usize) -> Vec<u8> {
 }
 
 /// Perform write speed test
-async fn perform_write_test(file_path: &std::path::Path, data: &[u8]) -> VolumeResult<f64> {
+async fn perform_write_test(location: &mut TestLocation, data: &[u8]) -> VolumeResult<f64> {
 	let start = Instant::now();
 
 	let mut file = OpenOptions::new()
 		.write(true)
-		.create(true)
-		.truncate(true)
-		.open(file_path)
+		.create_new(true)
+		.open(&location.test_file)
 		.await?;
+	location.test_file_created = true;
 
 	file.write_all(data).await?;
 	file.sync_all().await?; // Ensure data is written to disk
@@ -245,25 +268,37 @@ async fn get_writable_directory(
 			];
 
 			for candidate in &candidates {
-				// Try to create the directory
-				if let Ok(()) = tokio::fs::create_dir_all(candidate).await {
-					// Test if we can write to it
-					let test_file = candidate.join("test_write_permissions");
-					if tokio::fs::write(&test_file, b"test").await.is_ok() {
-						let _ = tokio::fs::remove_file(&test_file).await;
+				let created_dir = match tokio::fs::create_dir(candidate).await {
+					Ok(()) => Some(candidate.clone()),
+					Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => None,
+					Err(_) => continue,
+				};
 
-						// If we created a directory specifically for this test, mark it for cleanup
-						let created_dir = if candidate
-							.file_name()
-							.map_or(false, |name| name == "tmp" || name == ".spacedrive_temp")
-						{
-							Some(candidate.clone())
-						} else {
-							None
-						};
-
-						return Ok((candidate.clone(), created_dir));
+				let permission_file = candidate.join(format!(
+					".spacedrive_write_test-{}.tmp",
+					uuid::Uuid::new_v4()
+				));
+				let is_writable = match OpenOptions::new()
+					.write(true)
+					.create_new(true)
+					.open(&permission_file)
+					.await
+				{
+					Ok(mut file) => {
+						let result = file.write_all(b"test").await;
+						drop(file);
+						let _ = tokio::fs::remove_file(&permission_file).await;
+						result.is_ok()
 					}
+					Err(_) => false,
+				};
+
+				if is_writable {
+					return Ok((candidate.clone(), created_dir));
+				}
+
+				if let Some(dir) = created_dir {
+					let _ = tokio::fs::remove_dir(dir).await;
 				}
 			}
 
@@ -314,8 +349,134 @@ mod tests {
 
 		// Cleanup if we created a directory
 		if let Some(dir) = created_dir {
-			let _ = tokio::fs::remove_dir_all(dir).await;
+			let _ = tokio::fs::remove_dir(dir).await;
 		}
+	}
+
+	#[tokio::test]
+	async fn test_cleanup_preserves_existing_tmp_directory() {
+		let volume = TempDir::new().unwrap();
+		let existing_tmp = volume.path().join("tmp");
+		tokio::fs::create_dir(&existing_tmp).await.unwrap();
+
+		let sentinel = existing_tmp.join("user-data.txt");
+		tokio::fs::write(&sentinel, b"keep me").await.unwrap();
+
+		let mut location = TestLocation::new(volume.path(), &MountType::External)
+			.await
+			.unwrap();
+		assert!(location.created_dir.is_none());
+
+		perform_write_test(&mut location, b"speed test")
+			.await
+			.unwrap();
+		location.cleanup().await.unwrap();
+
+		assert_eq!(tokio::fs::read(&sentinel).await.unwrap(), b"keep me");
+		assert!(!location.test_file.exists());
+	}
+
+	#[tokio::test]
+	async fn test_cleanup_preserves_existing_empty_tmp_directory() {
+		let volume = TempDir::new().unwrap();
+		let existing_tmp = volume.path().join("tmp");
+		tokio::fs::create_dir(&existing_tmp).await.unwrap();
+
+		let mut location = TestLocation::new(volume.path(), &MountType::External)
+			.await
+			.unwrap();
+		assert!(location.created_dir.is_none());
+
+		perform_write_test(&mut location, b"speed test")
+			.await
+			.unwrap();
+		location.cleanup().await.unwrap();
+
+		assert!(existing_tmp.is_dir());
+	}
+
+	#[tokio::test]
+	async fn test_cleanup_preserves_files_added_to_created_directory() {
+		let volume = TempDir::new().unwrap();
+		let mut location = TestLocation::new(volume.path(), &MountType::External)
+			.await
+			.unwrap();
+		let created_dir = location.created_dir.clone().unwrap();
+
+		perform_write_test(&mut location, b"speed test")
+			.await
+			.unwrap();
+		let sentinel = created_dir.join("created-during-test.txt");
+		tokio::fs::write(&sentinel, b"keep me").await.unwrap();
+
+		location.cleanup().await.unwrap();
+
+		assert_eq!(tokio::fs::read(&sentinel).await.unwrap(), b"keep me");
+		assert!(!location.test_file.exists());
+	}
+
+	#[tokio::test]
+	async fn test_cleanup_preserves_replaced_directory() {
+		let volume = TempDir::new().unwrap();
+		let mut location = TestLocation::new(volume.path(), &MountType::External)
+			.await
+			.unwrap();
+		let created_dir = location.created_dir.clone().unwrap();
+
+		perform_write_test(&mut location, b"speed test")
+			.await
+			.unwrap();
+		tokio::fs::remove_dir_all(&created_dir).await.unwrap();
+		tokio::fs::create_dir(&created_dir).await.unwrap();
+
+		location.cleanup().await.unwrap();
+
+		assert!(created_dir.is_dir());
+	}
+
+	#[tokio::test]
+	async fn test_write_does_not_overwrite_or_delete_existing_file() {
+		let volume = TempDir::new().unwrap();
+		let existing_file = volume.path().join("existing.tmp");
+		tokio::fs::write(&existing_file, b"user data")
+			.await
+			.unwrap();
+
+		let mut location = TestLocation {
+			test_file: existing_file.clone(),
+			test_file_created: false,
+			created_dir: None,
+		};
+
+		assert!(perform_write_test(&mut location, b"speed test")
+			.await
+			.is_err());
+		location.cleanup().await.unwrap();
+
+		assert_eq!(tokio::fs::read(existing_file).await.unwrap(), b"user data");
+	}
+
+	#[tokio::test]
+	async fn test_concurrent_locations_use_different_files() {
+		let volume = TempDir::new().unwrap();
+		let (first, second) = tokio::join!(
+			TestLocation::new(volume.path(), &MountType::External),
+			TestLocation::new(volume.path(), &MountType::External)
+		);
+		let mut first = first.unwrap();
+		let mut second = second.unwrap();
+
+		assert_ne!(first.test_file, second.test_file);
+		let (first_write, second_write) = tokio::join!(
+			perform_write_test(&mut first, b"first"),
+			perform_write_test(&mut second, b"second")
+		);
+		assert!(first_write.is_ok());
+		assert!(second_write.is_ok());
+
+		let (first_cleanup, second_cleanup) = tokio::join!(first.cleanup(), second.cleanup());
+		first_cleanup.unwrap();
+		second_cleanup.unwrap();
 	}
 
 	#[tokio::test]
@@ -348,7 +509,7 @@ mod tests {
 			library_id: None,
 			is_tracked: false,
 			mount_point: mount_path.clone(),
-			mount_points: vec![mount_path],
+			mount_points: vec![mount_path.clone()],
 			volume_type: VolumeType::External,
 			mount_type: MountType::External,
 			disk_type: DiskType::Unknown,
@@ -392,5 +553,6 @@ mod tests {
 		let (read_speed, write_speed) = result.unwrap();
 		assert!(read_speed > 0);
 		assert!(write_speed > 0);
+		assert!(!mount_path.join("tmp").exists());
 	}
 }
