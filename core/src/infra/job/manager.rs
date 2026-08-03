@@ -21,7 +21,7 @@ use crate::{
 };
 use async_trait::async_trait;
 use chrono::Utc;
-use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem};
+use sd_task_system::{TaskDispatcher, TaskHandle, TaskSystem, TaskSystemError};
 use sea_orm::{ActiveModelTrait, ActiveValue::Set, DatabaseConnection, EntityTrait};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::sync::{broadcast, mpsc, watch, Mutex, RwLock};
@@ -67,10 +67,25 @@ async fn resume_in_memory_task(
 		})?;
 	}
 
-	task_handle
-		.resume()
-		.await
-		.map_err(|e| JobError::task_system(format!("Failed to resume job {}: {}", job_id, e)))
+	const RESUME_RETRY_LIMIT: usize = 200;
+	const RESUME_RETRY_DELAY: std::time::Duration = std::time::Duration::from_millis(5);
+
+	for attempt in 0..=RESUME_RETRY_LIMIT {
+		match task_handle.resume().await {
+			Ok(()) => return Ok(()),
+			Err(TaskSystemError::TaskNotFound(_)) if attempt < RESUME_RETRY_LIMIT => {
+				tokio::time::sleep(RESUME_RETRY_DELAY).await;
+			}
+			Err(e) => {
+				return Err(JobError::task_system(format!(
+					"Failed to resume job {}: {}",
+					job_id, e
+				)));
+			}
+		}
+	}
+
+	unreachable!("resume retry loop always returns")
 }
 
 impl JobManager {
@@ -2450,6 +2465,7 @@ mod tests {
 		began_tx: Option<oneshot::Sender<()>>,
 		persistence_complete_tx: Option<oneshot::Sender<()>>,
 		release_persistence_rx: Option<oneshot::Receiver<()>>,
+		release_pause_completion_rx: Option<oneshot::Receiver<()>>,
 		has_paused: bool,
 	}
 
@@ -2459,21 +2475,25 @@ mod tests {
 			oneshot::Receiver<()>,
 			oneshot::Receiver<()>,
 			oneshot::Sender<()>,
+			oneshot::Sender<()>,
 		) {
 			let (began_tx, began_rx) = oneshot::channel();
 			let (persistence_complete_tx, persistence_complete_rx) = oneshot::channel();
 			let (release_persistence_tx, release_persistence_rx) = oneshot::channel();
+			let (release_pause_completion_tx, release_pause_completion_rx) = oneshot::channel();
 			(
 				Self {
 					id: TaskId::new_v4(),
 					began_tx: Some(began_tx),
 					persistence_complete_tx: Some(persistence_complete_tx),
 					release_persistence_rx: Some(release_persistence_rx),
+					release_pause_completion_rx: Some(release_pause_completion_rx),
 					has_paused: false,
 				},
 				began_rx,
 				persistence_complete_rx,
 				release_persistence_tx,
+				release_pause_completion_tx,
 			)
 		}
 	}
@@ -2506,6 +2526,11 @@ mod tests {
 						.expect("persistence completion sender")
 						.send(())
 						.expect("signal persistence completion");
+					self.release_pause_completion_rx
+						.take()
+						.expect("pause completion release receiver")
+						.await
+						.expect("release pause completion");
 					Ok(ExecStatus::Paused)
 				}
 				InterruptionKind::Cancel => Ok(ExecStatus::Canceled),
@@ -2516,7 +2541,13 @@ mod tests {
 	#[tokio::test]
 	async fn in_memory_resume_waits_for_persistence_and_resumes_task() {
 		let task_system = TaskSystem::<JobError>::new();
-		let (task, began_rx, persistence_complete_rx, release_persistence_tx) = PausableTask::new();
+		let (
+			task,
+			began_rx,
+			persistence_complete_rx,
+			release_persistence_tx,
+			release_pause_completion_tx,
+		) = PausableTask::new();
 		let task_id = task.id();
 		let task_handle = task_system.dispatch(task).await.expect("dispatch task");
 		began_rx.await.expect("task did not start");
@@ -2537,6 +2568,15 @@ mod tests {
 			release_persistence_tx
 				.send(())
 				.expect("release persistence");
+			assert!(
+				timeout(Duration::from_millis(25), &mut resume)
+					.await
+					.is_err(),
+				"resume must retry until the task is registered as paused"
+			);
+			release_pause_completion_tx
+				.send(())
+				.expect("release pause completion");
 			resume.await.expect("resume task");
 		}
 
