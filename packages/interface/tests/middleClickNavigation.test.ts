@@ -2,6 +2,7 @@ import {describe, expect, it} from 'bun:test';
 import {
 	installMiddleClickNavigationGuard,
 	installMiddleClickNavigationGuardForPlatform,
+	type MiddleClickNavigationGuardTarget,
 	shouldInstallMiddleClickNavigationGuard
 } from '../src/util/middleClickNavigation';
 
@@ -9,6 +10,17 @@ function mouseEvent(type: string, button: number) {
 	const event = new Event(type, {cancelable: true});
 	Object.defineProperty(event, 'button', {value: button});
 	return event;
+}
+
+function guardTarget(target: EventTarget): MiddleClickNavigationGuardTarget {
+	return {
+		addEventListener(type, listener, options) {
+			target.addEventListener(type, listener as EventListener, options);
+		},
+		removeEventListener(type, listener) {
+			target.removeEventListener(type, listener as EventListener);
+		}
+	};
 }
 
 describe('middle-click navigation guard', () => {
@@ -26,7 +38,7 @@ describe('middle-click navigation guard', () => {
 
 	it('prevents middle-button auxiliary clicks', () => {
 		const target = new EventTarget();
-		installMiddleClickNavigationGuard(target);
+		installMiddleClickNavigationGuard(guardTarget(target));
 		const event = mouseEvent('auxclick', 1);
 
 		target.dispatchEvent(event);
@@ -36,7 +48,7 @@ describe('middle-click navigation guard', () => {
 
 	it.each([0, 2])('does not prevent mouse button %i', (button) => {
 		const target = new EventTarget();
-		installMiddleClickNavigationGuard(target);
+		installMiddleClickNavigationGuard(guardTarget(target));
 		const event = mouseEvent('auxclick', button);
 
 		target.dispatchEvent(event);
@@ -46,7 +58,7 @@ describe('middle-click navigation guard', () => {
 
 	it('does not prevent the middle-button press that starts autoscroll', () => {
 		const target = new EventTarget();
-		installMiddleClickNavigationGuard(target);
+		installMiddleClickNavigationGuard(guardTarget(target));
 		const event = mouseEvent('mousedown', 1);
 
 		target.dispatchEvent(event);
@@ -56,7 +68,7 @@ describe('middle-click navigation guard', () => {
 
 	it('removes the guard during cleanup', () => {
 		const target = new EventTarget();
-		const cleanup = installMiddleClickNavigationGuard(target);
+		const cleanup = installMiddleClickNavigationGuard(guardTarget(target));
 		cleanup();
 		const event = mouseEvent('auxclick', 1);
 
@@ -74,7 +86,7 @@ describe('middle-click navigation guard', () => {
 		const eventTarget = new EventTarget();
 		const cleanup = installMiddleClickNavigationGuardForPlatform('tauri', {
 			userAgent: 'Windows NT 10.0',
-			eventTarget
+			eventTarget: guardTarget(eventTarget)
 		});
 		const guardedEvent = mouseEvent('auxclick', 1);
 

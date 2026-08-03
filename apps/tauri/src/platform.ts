@@ -25,7 +25,17 @@ export const platform: Platform = {
 	platform: 'tauri',
 
 	getMiddleClickNavigationGuardEnvironment() {
-		return {userAgent: navigator.userAgent, eventTarget: document};
+		return {
+			userAgent: navigator.userAgent,
+			eventTarget: {
+				addEventListener(type, listener, options) {
+					document.addEventListener(type, listener, options);
+				},
+				removeEventListener(type, listener) {
+					document.removeEventListener(type, listener);
+				}
+			}
+		};
 	},
 
 	async openDirectoryPickerDialog(opts) {
