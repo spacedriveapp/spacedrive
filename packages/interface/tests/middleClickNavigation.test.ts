@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'bun:test';
 import {
 	installMiddleClickNavigationGuard,
+	installMiddleClickNavigationGuardForPlatform,
 	shouldInstallMiddleClickNavigationGuard
 } from '../src/util/middleClickNavigation';
 
@@ -62,5 +63,27 @@ describe('middle-click navigation guard', () => {
 		target.dispatchEvent(event);
 
 		expect(event.defaultPrevented).toBe(false);
+	});
+
+	it('does not require browser globals when the platform provides no environment', () => {
+		expect(installMiddleClickNavigationGuardForPlatform('web')).toBeUndefined();
+		expect(installMiddleClickNavigationGuardForPlatform('tauri')).toBeUndefined();
+	});
+
+	it('installs and cleans up through the Tauri-provided environment', () => {
+		const eventTarget = new EventTarget();
+		const cleanup = installMiddleClickNavigationGuardForPlatform('tauri', {
+			userAgent: 'Windows NT 10.0',
+			eventTarget
+		});
+		const guardedEvent = mouseEvent('auxclick', 1);
+
+		eventTarget.dispatchEvent(guardedEvent);
+		expect(guardedEvent.defaultPrevented).toBe(true);
+
+		cleanup?.();
+		const eventAfterCleanup = mouseEvent('auxclick', 1);
+		eventTarget.dispatchEvent(eventAfterCleanup);
+		expect(eventAfterCleanup.defaultPrevented).toBe(false);
 	});
 });

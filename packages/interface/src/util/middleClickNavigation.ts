@@ -21,3 +21,20 @@ export function installMiddleClickNavigationGuard(
 	return () =>
 		target.removeEventListener('auxclick', preventMiddleClickNavigation);
 }
+
+export function installMiddleClickNavigationGuardForPlatform(
+	platform: 'web' | 'tauri',
+	environment?: {userAgent: string; eventTarget: EventTarget}
+): (() => void) | undefined {
+	if (
+		!environment ||
+		!shouldInstallMiddleClickNavigationGuard(
+			platform,
+			environment.userAgent
+		)
+	) {
+		return;
+	}
+
+	return installMiddleClickNavigationGuard(environment.eventTarget);
+}

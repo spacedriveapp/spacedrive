@@ -10,6 +10,12 @@ export type Platform = {
 	/** Platform discriminator */
 	platform: "web" | "tauri";
 
+	/** Provide browser event access for the Windows Tauri middle-click guard. */
+	getMiddleClickNavigationGuardEnvironment?(): {
+		userAgent: string;
+		eventTarget: EventTarget;
+	};
+
 	/** Open native directory picker dialog (Tauri only) */
 	openDirectoryPickerDialog?(opts?: {
 		title?: string;

@@ -17,10 +17,7 @@ import {
 } from "./components/TabManager";
 import { usePlatform } from "./contexts/PlatformContext";
 import { useTheme } from "./hooks/useTheme";
-import {
-	installMiddleClickNavigationGuard,
-	shouldInstallMiddleClickNavigationGuard,
-} from "./util/middleClickNavigation";
+import { installMiddleClickNavigationGuardForPlatform } from "./util/middleClickNavigation";
 
 interface ShellProps {
 	client: SpacedriveClient;
@@ -85,18 +82,14 @@ export function Shell({ client }: ShellProps) {
 	const platform = usePlatform();
 	const isTauri = platform.platform === "tauri";
 
-	useEffect(() => {
-		if (
-			!shouldInstallMiddleClickNavigationGuard(
+	useEffect(
+		() =>
+			installMiddleClickNavigationGuardForPlatform(
 				platform.platform,
-				navigator.userAgent,
-			)
-		) {
-			return;
-		}
-
-		return installMiddleClickNavigationGuard(document);
-	}, [platform.platform]);
+				platform.getMiddleClickNavigationGuardEnvironment?.(),
+			),
+		[platform],
+	);
 
 	return (
 		<SpacedriveProvider client={client}>
