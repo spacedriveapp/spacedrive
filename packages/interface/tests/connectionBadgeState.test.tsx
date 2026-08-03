@@ -25,6 +25,16 @@ describe('getConnectionBadgeState', () => {
 		).toBe('Offline');
 	});
 
+	test('identifies an offline device before checking its connection method', () => {
+		expect(
+			getConnectionBadgeState({
+				method: 'LocalNetwork',
+				online: false,
+				current: false
+			})
+		).toBe('Offline');
+	});
+
 	test.each(['LocalNetwork', 'DirectInternet', 'RelayProxy'] as const)(
 		'uses the known %s connection method',
 		(method) => {

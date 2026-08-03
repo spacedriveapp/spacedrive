@@ -28,17 +28,17 @@ const configs: Record<ConnectionBadgeState, ConnectionBadgeConfig> = {
 		label: 'Local',
 		description: 'Connected via local network',
 		icon: WifiHigh,
-		color: 'bg-green-500'
+		color: 'bg-status-success'
 	},
 	DirectInternet: {
 		label: 'Direct',
 		description: 'Connected directly via internet',
-		color: 'bg-blue-500'
+		color: 'bg-status-info'
 	},
 	RelayProxy: {
 		label: 'Relay',
 		description: 'Connected via relay proxy',
-		color: 'bg-yellow-500'
+		color: 'bg-status-warning'
 	},
 	Offline: {
 		label: 'Offline',
