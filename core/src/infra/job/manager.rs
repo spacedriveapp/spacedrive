@@ -48,6 +48,31 @@ struct RunningJob {
 	should_emit_events: bool,
 }
 
+async fn resume_in_memory_task(
+	job_id: JobId,
+	task_handle: &TaskHandle<JobError>,
+	persistence_complete_rx: &mut Option<tokio::sync::oneshot::Receiver<()>>,
+) -> JobResult<()> {
+	// pause() returns after the task acknowledges the interruption, while the executor can still
+	// be serializing its state. Do not race that work with the next run of the same executor.
+	if let Some(persistence_complete_rx) = persistence_complete_rx.take() {
+		persistence_complete_rx.await.map_err(|_| {
+			JobError::Other(
+				format!(
+					"Job {} stopped before its paused state was persisted",
+					job_id
+				)
+				.into(),
+			)
+		})?;
+	}
+
+	task_handle
+		.resume()
+		.await
+		.map_err(|e| JobError::task_system(format!("Failed to resume job {}: {}", job_id, e)))
+}
+
 impl JobManager {
 	/// Create a new job manager
 	pub async fn new(
@@ -2155,7 +2180,7 @@ impl JobManager {
 
 			info!("Job {} resumed from database", job_id);
 		} else {
-			// Job is already in memory, just update status
+			// Job is already in memory, resume its task before exposing it as running.
 			let device_id = self
 				.context
 				.device_manager
@@ -2163,6 +2188,13 @@ impl JobManager {
 				.unwrap_or_else(|_| uuid::Uuid::nil());
 			let mut running_jobs = self.running_jobs.write().await;
 			if let Some(running_job) = running_jobs.get_mut(&job_id) {
+				resume_in_memory_task(
+					job_id,
+					&running_job.task_handle,
+					&mut running_job.persistence_complete_rx,
+				)
+				.await?;
+
 				// Update status to Running
 				running_job
 					.status_tx
@@ -2402,3 +2434,116 @@ impl CheckpointHandler for DbCheckpointHandler {
 }
 
 use uuid::Uuid;
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use sd_task_system::{
+		ExecStatus, Interrupter, InterruptionKind, Task, TaskId, TaskOutput, TaskStatus, TaskSystem,
+	};
+	use std::time::Duration;
+	use tokio::{sync::oneshot, time::timeout};
+
+	#[derive(Debug)]
+	struct PausableTask {
+		id: TaskId,
+		began_tx: Option<oneshot::Sender<()>>,
+		persistence_complete_tx: Option<oneshot::Sender<()>>,
+		release_persistence_rx: Option<oneshot::Receiver<()>>,
+		has_paused: bool,
+	}
+
+	impl PausableTask {
+		fn new() -> (
+			Self,
+			oneshot::Receiver<()>,
+			oneshot::Receiver<()>,
+			oneshot::Sender<()>,
+		) {
+			let (began_tx, began_rx) = oneshot::channel();
+			let (persistence_complete_tx, persistence_complete_rx) = oneshot::channel();
+			let (release_persistence_tx, release_persistence_rx) = oneshot::channel();
+			(
+				Self {
+					id: TaskId::new_v4(),
+					began_tx: Some(began_tx),
+					persistence_complete_tx: Some(persistence_complete_tx),
+					release_persistence_rx: Some(release_persistence_rx),
+					has_paused: false,
+				},
+				began_rx,
+				persistence_complete_rx,
+				release_persistence_tx,
+			)
+		}
+	}
+
+	#[async_trait::async_trait]
+	impl Task<JobError> for PausableTask {
+		fn id(&self) -> TaskId {
+			self.id
+		}
+
+		async fn run(&mut self, interrupter: &Interrupter) -> Result<ExecStatus, JobError> {
+			if let Some(began_tx) = self.began_tx.take() {
+				let _ = began_tx.send(());
+			}
+
+			if self.has_paused {
+				return Ok(ExecStatus::Done(TaskOutput::Empty));
+			}
+
+			self.has_paused = true;
+			match interrupter.await {
+				InterruptionKind::Pause => {
+					self.release_persistence_rx
+						.take()
+						.expect("persistence release receiver")
+						.await
+						.expect("release persistence");
+					self.persistence_complete_tx
+						.take()
+						.expect("persistence completion sender")
+						.send(())
+						.expect("signal persistence completion");
+					Ok(ExecStatus::Paused)
+				}
+				InterruptionKind::Cancel => Ok(ExecStatus::Canceled),
+			}
+		}
+	}
+
+	#[tokio::test]
+	async fn in_memory_resume_waits_for_persistence_and_resumes_task() {
+		let task_system = TaskSystem::<JobError>::new();
+		let (task, began_rx, persistence_complete_rx, release_persistence_tx) = PausableTask::new();
+		let task_id = task.id();
+		let task_handle = task_system.dispatch(task).await.expect("dispatch task");
+		began_rx.await.expect("task did not start");
+		task_handle.pause().await.expect("pause task");
+
+		let mut persistence_complete_rx = Some(persistence_complete_rx);
+		{
+			let resume =
+				resume_in_memory_task(JobId(task_id), &task_handle, &mut persistence_complete_rx);
+			tokio::pin!(resume);
+
+			assert!(
+				timeout(Duration::from_millis(25), &mut resume)
+					.await
+					.is_err(),
+				"resume must wait for paused state persistence"
+			);
+			release_persistence_tx
+				.send(())
+				.expect("release persistence");
+			resume.await.expect("resume task");
+		}
+
+		assert!(matches!(
+			task_handle.await,
+			Ok(TaskStatus::Done((_task_id, TaskOutput::Empty)))
+		));
+		task_system.shutdown().await;
+	}
+}
