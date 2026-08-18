@@ -22,6 +22,7 @@ pub fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
 		return Ok(0);
 	}
 
+	// Normalize decimal and grouping commas for human-readable producers on other platforms.
 	let size_str = if size_str.matches(',').count() == 1 && !size_str.contains('.') {
 		let parts: Vec<&str> = size_str.split(',').collect();
 		let after_comma = parts[1].trim_end_matches(char::is_alphabetic);
@@ -38,6 +39,14 @@ pub fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
 	} else {
 		(size_str.as_str(), "")
 	};
+
+	// Linux `df -B1` emits integer byte counts. Parse those directly so values above
+	// f64's exact-integer range retain all bits of precision.
+	if unit.is_empty() && !number_part.contains('.') {
+		return number_part
+			.parse::<u64>()
+			.map_err(|_| VolumeError::InvalidData(format!("Invalid size: {}", size_str)));
+	}
 
 	let number: f64 = number_part
 		.parse()
@@ -347,6 +356,15 @@ mod tests {
 			(1.5 * 1024.0 * 1024.0 * 1024.0) as u64
 		);
 		assert_eq!(parse_size_string("1610612736").unwrap(), 1_610_612_736);
+		assert_eq!(
+			parse_size_string("9007199254740993").unwrap(),
+			9_007_199_254_740_993
+		);
+		assert_eq!(
+			parse_size_string("1,5G").unwrap(),
+			(1.5 * 1024.0 * 1024.0 * 1024.0) as u64
+		);
+		assert_eq!(parse_size_string("1,024K").unwrap(), 1024 * 1024);
 		assert_eq!(parse_size_string("-").unwrap(), 0);
 	}
 
