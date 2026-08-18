@@ -22,7 +22,11 @@ pub fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
 		return Ok(0);
 	}
 
-	let size_str = size_str.replace(",", ""); // Remove commas
+	let size_str = if size_str.contains(',') && !size_str.contains('.') {
+		size_str.replace(',', ".")
+	} else {
+		size_str.replace(',', "")
+	};
 	let (number_part, unit) = if let Some(pos) = size_str.find(char::is_alphabetic) {
 		(&size_str[..pos], &size_str[pos..])
 	} else {
@@ -334,6 +338,10 @@ mod tests {
 		assert_eq!(parse_size_string("1G").unwrap(), 1024 * 1024 * 1024);
 		assert_eq!(
 			parse_size_string("1.5G").unwrap(),
+			(1.5 * 1024.0 * 1024.0 * 1024.0) as u64
+		);
+		assert_eq!(
+			parse_size_string("1,5G").unwrap(),
 			(1.5 * 1024.0 * 1024.0 * 1024.0) as u64
 		);
 		assert_eq!(parse_size_string("-").unwrap(), 0);

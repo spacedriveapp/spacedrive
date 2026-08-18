@@ -33,6 +33,7 @@ pub async fn detect_volumes(
 
 		// Use df to get mounted filesystems
 		let output = Command::new("df")
+			.env("LC_ALL", "C")
 			.args(["-h", "-T"]) // -T shows filesystem type
 			.output()
 			.map_err(|e| VolumeError::platform(format!("Failed to run df: {}", e)))?;
