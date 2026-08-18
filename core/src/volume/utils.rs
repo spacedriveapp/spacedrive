@@ -22,7 +22,17 @@ pub fn parse_size_string(size_str: &str) -> VolumeResult<u64> {
 		return Ok(0);
 	}
 
-	let size_str = size_str.replace(',', ""); // Remove grouping separators
+	let size_str = if size_str.matches(',').count() == 1 && !size_str.contains('.') {
+		let parts: Vec<&str> = size_str.split(',').collect();
+		let after_comma = parts[1].trim_end_matches(char::is_alphabetic);
+		if after_comma.len() <= 2 {
+			size_str.replace(',', ".")
+		} else {
+			size_str.replace(',', "")
+		}
+	} else {
+		size_str.replace(',', "")
+	};
 	let (number_part, unit) = if let Some(pos) = size_str.find(char::is_alphabetic) {
 		(&size_str[..pos], &size_str[pos..])
 	} else {
