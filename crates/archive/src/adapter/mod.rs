@@ -1,5 +1,6 @@
 //! Adapter system: trait definition, registry, sync reporting.
 
+pub mod apple_photos;
 pub mod script;
 
 use std::collections::HashMap;
@@ -12,6 +13,8 @@ use serde::{Deserialize, Serialize};
 use crate::db::SourceDb;
 use crate::error::Result;
 use crate::safety::TrustTier;
+use crate::schema::DataTypeSchema;
+use script::ConfigField;
 
 /// Report returned after an adapter sync completes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -51,7 +54,18 @@ pub enum AdapterKind {
 pub trait Adapter: Send + Sync + 'static {
 	fn id(&self) -> &str;
 	fn name(&self) -> &str;
-	fn data_type(&self) -> &str;
+	/// Whether the adapter is compiled-in or script-based.
+	fn kind(&self) -> AdapterKind;
+	/// The data type schema this adapter's records conform to. Drives index
+	/// creation and schema migration for both native and script adapters.
+	fn schema(&self) -> &DataTypeSchema;
+	fn data_type(&self) -> &str {
+		&self.schema().data_type.id
+	}
+	/// Config fields the adapter accepts, for UI form generation.
+	fn config_fields(&self) -> Vec<ConfigField> {
+		Vec::new()
+	}
 	fn description(&self) -> &str {
 		""
 	}
@@ -113,7 +127,7 @@ impl AdapterRegistry {
 				version: a.version().to_string(),
 				author: a.author().to_string(),
 				data_type: a.data_type().to_string(),
-				kind: AdapterKind::Native,
+				kind: a.kind(),
 				trust_tier: a.trust_tier(),
 				icon_svg: a.icon_svg().map(|s| s.to_string()),
 				update_available: false,

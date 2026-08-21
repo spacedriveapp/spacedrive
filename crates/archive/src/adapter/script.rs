@@ -356,16 +356,6 @@ impl ScriptAdapter {
 		&self.manifest
 	}
 
-	/// Get the extracted data type schema.
-	pub fn schema(&self) -> &DataTypeSchema {
-		&self.schema
-	}
-
-	/// Get the adapter kind.
-	pub fn kind(&self) -> AdapterKind {
-		AdapterKind::Script
-	}
-
 	/// Build the sanitized environment for the subprocess.
 	fn build_env(&self, config: &serde_json::Value) -> HashMap<String, String> {
 		let mut env = HashMap::new();
@@ -410,8 +400,16 @@ impl Adapter for ScriptAdapter {
 		&self.manifest.adapter.name
 	}
 
-	fn data_type(&self) -> &str {
-		&self.schema.data_type.id
+	fn kind(&self) -> AdapterKind {
+		AdapterKind::Script
+	}
+
+	fn schema(&self) -> &DataTypeSchema {
+		&self.schema
+	}
+
+	fn config_fields(&self) -> Vec<ConfigField> {
+		self.manifest.adapter.config.clone()
 	}
 
 	fn description(&self) -> &str {

@@ -285,7 +285,7 @@ The prototype's API should be translated into V2 ops.
 - `sources.quarantine.list`
 - `sources.status`
 
-These should register through the existing macros in `core/src/ops/registry.rs` and flow through the current daemon transport.
+These should register through the existing macros in `core/src/infra/wire/registry.rs` and flow through the current daemon transport.
 
 ## Job System Mapping
 

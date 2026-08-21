@@ -1,13 +1,16 @@
 //! Query router: fan-out search across sources.
 //!
-//! This is a simplified version that only uses FTS5 search.
-//! Hybrid search with vector embeddings will be added when LanceDB is integrated.
+//! Every source is searched through its spine, so results from different data
+//! types come back in one shape. Durable overlays are composed onto the hits
+//! before they are returned — callers never join the layers themselves.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::db::{FtsHit, TemporalFilter};
+use crate::db::TemporalFilter;
 use crate::embed::EmbeddingModel;
 use crate::error::Result;
+use crate::library::Library;
 use crate::registry::Registry;
 use crate::search::{SearchFilter, SearchResult};
 use crate::source::SourceManager;
@@ -17,6 +20,7 @@ const DEFAULT_LIMIT: usize = 20;
 /// Routes search queries across all sources.
 pub struct SearchRouter {
 	pub(crate) registry: Arc<Registry>,
+	pub(crate) library: Arc<Library>,
 	pub(crate) sources: Arc<SourceManager>,
 	pub(crate) _embedding: Arc<EmbeddingModel>,
 }
@@ -24,17 +28,19 @@ pub struct SearchRouter {
 impl SearchRouter {
 	pub fn new(
 		registry: Arc<Registry>,
+		library: Arc<Library>,
 		sources: Arc<SourceManager>,
 		embedding: Arc<EmbeddingModel>,
 	) -> Self {
 		Self {
 			registry,
+			library,
 			sources,
 			_embedding: embedding,
 		}
 	}
 
-	/// Search across all (or filtered) sources using FTS5.
+	/// Search across all (or filtered) sources.
 	pub async fn search(
 		&self,
 		query: &str,
@@ -89,9 +95,28 @@ impl SearchRouter {
 				}
 			};
 
+			if fts_hits.is_empty() {
+				continue;
+			}
+
+			let record_type = db.schema().search.primary_model.clone();
+			let external_ids: Vec<String> =
+				fts_hits.iter().map(|h| h.external_id.clone()).collect();
+			let overlays = self
+				.library
+				.overlays_for(&source_info.id, &record_type, &external_ids)
+				.await
+				.unwrap_or_else(|e| {
+					tracing::warn!(source_id = %source_info.id, error = %e, "failed to load overlays");
+					HashMap::new()
+				});
+
 			for hit in fts_hits {
+				let overlay = overlays.get(&hit.external_id).cloned();
 				all_results.push(SearchResult {
 					id: hit.id,
+					external_id: hit.external_id,
+					record_type: record_type.clone(),
 					title: hit.title,
 					preview: hit.preview.unwrap_or_default(),
 					subtitle: hit.subtitle,
@@ -105,6 +130,7 @@ impl SearchRouter {
 					trust_tier: source_info.trust_tier,
 					safety_verdict: hit.safety_verdict,
 					safety_score: hit.safety_score,
+					overlay,
 				});
 			}
 		}
@@ -116,7 +142,8 @@ impl SearchRouter {
 				db.cmp(da)
 			});
 		} else {
-			all_results.sort_by(|a, b| b.rank.total_cmp(&a.rank));
+			// FTS5 ranks ascending: a more negative score is a better match.
+			all_results.sort_by(|a, b| a.rank.total_cmp(&b.rank));
 		}
 		all_results.truncate(limit);
 

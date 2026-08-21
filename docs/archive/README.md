@@ -400,4 +400,4 @@ For adapter contributions, see [ADAPTERS.md](../ADAPTERS.md).
 
 ## License
 
-FSL-1.1-ALv2 - See [LICENSE](../../LICENSE) for details.
+Apache-2.0 - See [LICENSE](../../LICENSE) for details.

@@ -8,6 +8,9 @@ pub enum Error {
 	#[error("database error: {0}")]
 	Database(#[from] sqlx::Error),
 
+	#[error("sqlite error: {0}")]
+	Sqlite(#[from] rusqlite::Error),
+
 	#[error("schema parse error: {0}")]
 	SchemaParse(String),
 

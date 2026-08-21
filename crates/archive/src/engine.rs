@@ -6,10 +6,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use crate::adapter::apple_photos::ApplePhotosAdapter;
 use crate::adapter::script::{ConfigField, ScriptAdapter};
 use crate::adapter::{Adapter, AdapterRegistry, AdapterUpdateResult, SyncReport};
 use crate::embed::EmbeddingModel;
 use crate::error::{Error, Result};
+use crate::library::{Grouping, LibEdge, Library, RecordKey};
 use crate::registry::{NewSource, Registry, SourceInfo};
 use crate::safety::{SafetyModel, SafetyPolicy, TrustTier, SAFETY_MODEL_VERSION};
 use crate::search::router::SearchRouter;
@@ -26,6 +28,7 @@ pub struct EngineConfig {
 pub struct Engine {
 	config: EngineConfig,
 	registry: Arc<Registry>,
+	library: Arc<Library>,
 	sources: Arc<SourceManager>,
 	adapters: AdapterRegistry,
 	search: SearchRouter,
@@ -41,11 +44,12 @@ impl Engine {
 		// Ensure data directory exists
 		std::fs::create_dir_all(data_dir)?;
 
-		// Initialize registry (registry.db)
+		// Initialize the durable layer (registry.db): source registry + knowledge
 		let registry_path = data_dir.join("registry.db");
 		let registry_url = format!("sqlite:{}?mode=rwc", registry_path.display());
 		let pool = sqlx::SqlitePool::connect(&registry_url).await?;
-		let registry = Arc::new(Registry::new(pool).await?);
+		let registry = Arc::new(Registry::new(pool.clone()).await?);
+		let library = Arc::new(Library::new(pool).await?);
 
 		// Initialize source manager
 		let sources_dir = data_dir.join("sources");
@@ -72,10 +76,17 @@ impl Engine {
 		};
 
 		// Initialize search router
-		let search = SearchRouter::new(registry.clone(), sources.clone(), embedding.clone());
+		let search = SearchRouter::new(
+			registry.clone(),
+			library.clone(),
+			sources.clone(),
+			embedding.clone(),
+		);
 
-		// Load adapters from adapters directory
+		// Register compiled-in adapters, then load script adapters from the
+		// adapters directory
 		let adapters = AdapterRegistry::new();
+		Self::register_native_adapters(&adapters);
 		let adapters_dir = data_dir.join("adapters");
 		std::fs::create_dir_all(&adapters_dir)?;
 		Self::load_script_adapters(&adapters_dir, &adapters)?;
@@ -83,12 +94,18 @@ impl Engine {
 		Ok(Self {
 			config,
 			registry,
+			library,
 			sources,
 			adapters,
 			search,
 			embedding,
 			safety,
 		})
+	}
+
+	/// Register the compiled-in adapters.
+	fn register_native_adapters(registry: &AdapterRegistry) {
+		registry.register(Arc::new(ApplePhotosAdapter::new()));
 	}
 
 	/// Load all script adapters from the adapters directory.
@@ -127,6 +144,11 @@ impl Engine {
 	/// Access the registry (list sources, data types).
 	pub fn registry(&self) -> &Registry {
 		&self.registry
+	}
+
+	/// Access the durable knowledge layer (overlays, groupings, cross-source edges).
+	pub fn library(&self) -> &Library {
+		&self.library
 	}
 
 	/// Access the source manager.
@@ -176,19 +198,10 @@ impl Engine {
 			.get(adapter_id)
 			.ok_or_else(|| Error::AdapterNotFound(adapter_id.to_string()))?;
 
-		// Get the adapter's data type
+		// The adapter carries its data type schema, compiled in or parsed from
+		// its manifest
 		let data_type = adapter.data_type().to_string();
-
-		// Extract schema from the adapter
-		let adapters_dir = self.config.data_dir.join("adapters").join(adapter_id);
-		let schema = if adapters_dir.join("adapter.toml").exists() {
-			let sa = ScriptAdapter::from_dir(&adapters_dir)?;
-			sa.schema().clone()
-		} else {
-			return Err(Error::Other(format!(
-				"cannot resolve schema for adapter '{adapter_id}' (not a script adapter with adapter.toml)"
-			)));
-		};
+		let schema = adapter.schema().clone();
 
 		// Create registry entry — trust tier comes from the adapter
 		let trust_tier = adapter.trust_tier();
@@ -209,15 +222,60 @@ impl Engine {
 		Ok(source_info)
 	}
 
-	/// Delete a source (removes folder + registry entry).
+	/// Delete a source: its index on disk and its registry entry.
+	///
+	/// Durable assertions are deliberately left in place. They key on
+	/// `(source_id, type, external_id)`, so re-adding the same source rebinds
+	/// them instead of orphaning them. Use
+	/// [`Library::clear_source_overlays`] to discard them on purpose.
 	pub async fn delete_source(&self, source_id: &str) -> Result<()> {
-		// Delete from disk
 		self.sources.delete(source_id).await?;
-
-		// Delete from registry
 		self.registry.delete_source(source_id).await?;
 
 		Ok(())
+	}
+
+	/// Merge durable assertions onto a record.
+	pub async fn set_overlay(
+		&self,
+		source_id: &str,
+		type_: &str,
+		external_id: &str,
+		fields: &serde_json::Value,
+	) -> Result<serde_json::Value> {
+		self.library
+			.set_overlay(&RecordKey::new(source_id, type_, external_id), fields)
+			.await
+	}
+
+	/// Create a durable cross-record edge.
+	pub async fn link(&self, src: &RecordKey, dst: &RecordKey, edge_type: &str) -> Result<()> {
+		self.library.link(src, dst, edge_type).await
+	}
+
+	/// Remove a durable cross-record edge.
+	pub async fn unlink(&self, src: &RecordKey, dst: &RecordKey, edge_type: &str) -> Result<()> {
+		self.library.unlink(src, dst, edge_type).await
+	}
+
+	/// Durable edges touching a record. The bool is `true` when the record is the
+	/// edge's source.
+	pub async fn neighbors(
+		&self,
+		key: &RecordKey,
+		edge_type: Option<&str>,
+	) -> Result<Vec<(LibEdge, bool)>> {
+		self.library.neighbors(key, edge_type).await
+	}
+
+	/// Create or replace a curated grouping.
+	pub async fn upsert_grouping(&self, grouping: &Grouping) -> Result<()> {
+		self.library.upsert_grouping(grouping).await
+	}
+
+	/// List curated groupings, optionally of one type.
+	pub async fn list_groupings(&self, type_: Option<&str>) -> Result<Vec<Grouping>> {
+		self.library.list_groupings(type_).await
 	}
 
 	/// Trigger a sync for a source.
@@ -231,38 +289,25 @@ impl Engine {
 			.get(&source_info.adapter_id)
 			.ok_or_else(|| Error::AdapterNotFound(source_info.adapter_id.clone()))?;
 
-		// Open database with migration check
-		let adapters_dir = self
-			.config
-			.data_dir
-			.join("adapters")
-			.join(&source_info.adapter_id);
-		let db = if adapters_dir.join("adapter.toml").exists() {
-			let sa = ScriptAdapter::from_dir(&adapters_dir)?;
-			let current_schema = sa.schema().clone();
+		// Open the index against the adapter's current schema, applying any
+		// safe migrations the diff allows
+		let (db, migration_result) = self
+			.sources
+			.open_with_migration(source_id, adapter.schema())
+			.await?;
 
-			let (db, migration_result) = self
-				.sources
-				.open_with_migration(source_id, &current_schema)
-				.await?;
-
-			if !migration_result.applied.is_empty() {
-				tracing::info!(
-					source_id,
-					actions = ?migration_result.applied,
-					"schema migration applied during sync"
-				);
-			}
-
-			db
-		} else {
-			self.sources.open(source_id).await?
-		};
+		if !migration_result.applied.is_empty() {
+			tracing::info!(
+				source_id,
+				actions = ?migration_result.applied,
+				"schema migration applied during sync"
+			);
+		}
 
 		// Build config with secrets resolved at the library level
 		let config = source_info.config.clone();
 
-		// Inject _data_dir for script adapters
+		// Expose the source's data directory to the adapter
 		let mut config = config;
 		let data_dir = self.sources.source_dir(source_id);
 		if let Some(obj) = config.as_object_mut() {
@@ -276,6 +321,10 @@ impl Engine {
 		self.registry
 			.update_source_status(source_id, "syncing", None, None)
 			.await?;
+
+		// Stamp everything this run writes with a fresh epoch.
+		let epoch = db.begin_sync().await?;
+		tracing::debug!(source_id, epoch, "sync run started");
 
 		// Run sync
 		let report = adapter.sync(&db, &config).await?;
@@ -339,12 +388,7 @@ impl Engine {
 				)
 				.await?;
 		} else {
-			// Count total records
-			let schema = db.schema();
-			let mut total_count = 0i64;
-			for model_name in schema.models.keys() {
-				total_count += db.count(model_name).await.unwrap_or(0);
-			}
+			let total_count = db.count_all().await.unwrap_or(0);
 
 			self.registry
 				.update_source_status(source_id, "idle", Some(total_count), Some(&now))
@@ -509,24 +553,31 @@ impl Engine {
 		db.list_items(limit, offset).await
 	}
 
-	/// Get config fields for an adapter (from its manifest).
-	pub fn adapter_config_fields(
+	pub async fn list_records_full(
 		&self,
-		adapter_id: &str,
-	) -> Result<Vec<crate::adapter::script::ConfigField>> {
-		let manifest_path = self
-			.config
-			.data_dir
-			.join("adapters")
-			.join(adapter_id)
-			.join("adapter.toml");
+		source_id: &str,
+		limit: usize,
+		offset: usize,
+	) -> Result<Vec<serde_json::Value>> {
+		let db = self.sources.open(source_id).await?;
+		db.list_records_full(limit, offset).await
+	}
 
-		if !manifest_path.exists() {
-			return Err(Error::AdapterNotFound(adapter_id.to_string()));
-		}
+	/// The on-disk root a file-backed source's locator paths resolve
+	/// against. `None` for foreign sources, whose records are primary.
+	pub async fn file_root(&self, source_id: &str) -> Result<Option<String>> {
+		let db = self.sources.open(source_id).await?;
+		db.get_cursor(crate::db::FILE_ROOT_CURSOR).await
+	}
 
-		let manifest = crate::adapter::script::AdapterManifest::from_file(&manifest_path)?;
-		Ok(manifest.adapter.config)
+	/// Get config fields for an adapter.
+	pub fn adapter_config_fields(&self, adapter_id: &str) -> Result<Vec<ConfigField>> {
+		let adapter = self
+			.adapters
+			.get(adapter_id)
+			.ok_or_else(|| Error::AdapterNotFound(adapter_id.to_string()))?;
+
+		Ok(adapter.config_fields())
 	}
 
 	/// Check whether a source adapter directory has changed compared to the installed version.

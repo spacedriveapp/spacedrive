@@ -98,6 +98,12 @@ impl Registry {
 		.execute(&pool)
 		.await?;
 
+		// The durable knowledge tables share this database: one durable file,
+		// one backup unit.
+		sqlx::raw_sql(crate::library::LIBRARY_SCHEMA)
+			.execute(&pool)
+			.await?;
+
 		Ok(Self { pool })
 	}
 
