@@ -3,7 +3,7 @@ name = "log-analyzer"
 version = "0.1.0"
 edition = "2021"
 authors = ["Spacedrive Technology Inc."]
-license = "FSL-1.1-ALv2"
+license.workspace = true
 
 [dependencies]
 # Core functionality

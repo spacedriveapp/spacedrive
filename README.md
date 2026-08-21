@@ -5,16 +5,16 @@
 <h1 align="center">Spacedrive</h1>
 
 <p align="center">
-  <strong>One file manager for all your devices and clouds.</strong><br/>
-	<span>Powered by a Virtual Distributed File System, complete with apps for macOS, Windows, Linux, iOS and Android</span>
+  <strong>One computer, made of all your machines.</strong><br/>
+  <span>Your files, your software, your agents — owned, portable, and coherent across every device.</span>
 </p>
 
 <p align="center">
-  <a href="https://fsl.software/">
-    <img src="https://img.shields.io/static/v1?label=License&message=FSL-1.1-ALv2&color=000" />
+  <a href="https://www.apache.org/licenses/LICENSE-2.0">
+    <img src="https://img.shields.io/static/v1?label=License&message=Apache-2.0&color=000" />
   </a>
   <a href="https://github.com/spacedriveapp/spacedrive">
-    <img src="https://img.shields.io/static/v1?label=Core&message=Rust&color=DEA584" />
+    <img src="https://img.shields.io/static/v1?label=Core&message=Rust%20%2B%20TypeScript&color=DEA584" />
   </a>
   <a href="https://discord.gg/gTaF2Z44f5">
     <img src="https://img.shields.io/discord/949090953497567312?label=Discord&color=5865F2" />
@@ -22,155 +22,250 @@
 </p>
 
 <p align="center">
-  <a href="https://v2.spacedrive.com"><strong>v2.spacedrive.com</strong></a> &bull;
+  <a href="https://docs.spacedrive.com"><strong>docs.spacedrive.com</strong></a> &bull;
   <a href="https://discord.gg/gTaF2Z44f5">Discord</a> &bull;
-  <a href="#getting-started">Getting Started</a>
+  <a href="#files">Files</a> &bull;
+  <a href="#getting-started">Getting Started</a> &bull;
+  <a href="#status">Status</a>
 </p>
 
 ---
 
-## What is Spacedrive?
+Your computer used to be one box, and you owned all of it. It held your files,
+ran your software, and answered only to you. That computer dissolved into
+devices, clouds and subscriptions, and you own almost none of the result.
 
-Spacedrive is a cross-device data platform. Index files, emails, notes, and external sources. Search everything. Sync via P2P. Keep AI agents safe with built-in screening.
+Spacedrive puts it back together. All your machines, storage, software and
+agents behave as one computer that is yours: everything visible in one place,
+everything portable between machines, and everything still working the day you
+stop paying anyone — including us.
 
-- **Content identity** — every file gets a BLAKE3 content hash. Same file on two devices produces the same hash. Spacedrive tracks redundancy and deduplication across all your machines.
-- **Cross-device** — see all your files across all your devices in one place. Files on disconnected devices stay in the index and appear as offline.
-- **P2P sync** — devices connect directly via Iroh/QUIC. No servers, no cloud, no single point of failure. Metadata syncs between devices. Files stay where they are.
-- **Cloud volumes** — index S3, Google Drive, Dropbox, OneDrive, Azure, and GCS as first-class volumes alongside local storage.
-- **Nine views** — grid, list, columns, media, size, recents, search, knowledge, and splat. QuickPreview for video, audio, code, documents, 3D, and images.
-- **Local-first** — everything runs on your machine. No data leaves your device unless you choose to sync between your own devices.
+**Files** is that computer's file manager, built on a filesystem index that
+spans every device you own. It runs standalone: that is all most people come
+for, and it is enough on its own.
 
-### Is this a replacement for Finder or Explorer?
+---
 
-No. Spacedrive sits above your OS file manager and adds capabilities Finder/Explorer lack:
+## Files
 
-- **Portal across everything** — search and browse files across local disks, external drives, NAS, cloud storage, and archived data sources from one interface.
-- **Operating surface for files** — content identity, sidecars, derivative artifacts, rich metadata, sync, and cross-device awareness built into the core model.
-- **Embeddable and shareable** — run it as a desktop app, headless server, hosted file service, or embed the interface and APIs into other products.
-- **AI-ready by design** — indexing and analysis pipelines prepare data ahead of time instead of giving agents raw shell access.
-- **Safer access model** — route AI and automation through structured APIs, permissions, and processing layers instead of direct file operations.
+The file manager of that computer, built on an index that Spacedrive maintains
+continuously. The watcher feeds it as files change, so it is already current
+when you look — nothing is built on demand while you wait.
 
-You still use your OS for low-level file interactions. Spacedrive adds the cross-platform, cross-device, cloud-aware, and automation-friendly layer on top.
+Every surface is a view over that one index: grid, list, columns, media, size,
+recents, search, knowledge. A size analysis of a folder and a photo grid of the
+same folder are the same data through a different lens, and each view opens
+current because the index already is.
 
-### Data Archival
+- **One address for everything.** Every file has an `SdPath`, whether it lives on
+  this machine, another of your devices, or a cloud volume. Operations work the
+  same across all of them.
+- **Content identity.** BLAKE3 hashing gives the same file on two machines the
+  same fingerprint — the basis for deduplication and redundancy tracking across
+  your machines.
+- **Cloud volumes as first-class storage.** S3, Google Drive, Dropbox, OneDrive,
+  Azure Blob and GCS get indexed alongside local disks.
+- **P2P sync.** Devices connect directly over Iroh and QUIC with no server in the
+  middle. Metadata syncs, files stay where they are, and devices that are offline
+  remain in the index.
+- **Search that works.** SQLite FTS5 over files and archived records, roughly 55ms
+  on a million entries, with indexing at around 8,500 files per second.
+- **Preview before commit.** Copies, moves and deletes are simulated first, so you
+  see conflicts and space changes before anything runs, and the operation becomes
+  a durable job that survives restarts.
 
-Spacedrive indexes external data sources via script-based adapters: Gmail, Apple Notes, Chrome bookmarks, Obsidian, Slack, GitHub, calendar events, contacts. Each source becomes a searchable repository alongside your files.
+Files runs standalone: a desktop app on macOS, Windows and Linux, iOS and Android
+clients, a browser client, a headless server and a CLI. The macOS install is
+44.4 MB with no bundled codecs and nothing to download. V2 is in alpha; the last
+stable download is v1.
 
-Adapters are a folder with an `adapter.toml` manifest and a sync script in any language. If it reads stdin and prints lines, it works.
+It is machine-scoped by design. A host has one filesystem, so it gets one index,
+and everything else on the machine declares against that index as a capability
+instead of running an indexer of its own.
 
-**Shipped adapters:** Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari History, Obsidian, OpenCode, Slack, macOS Contacts, macOS Calendar, GitHub.
+### Search everything, not just files
 
-### Spacebot
+Archive indexes external sources through script adapters, which puts email,
+notes, bookmarks and chat history in the same index as your files. Shipped
+adapters: Gmail, Apple Notes, Chrome Bookmarks, Chrome History, Safari History,
+Obsidian, OpenCode, Slack, macOS Contacts, macOS Calendar and GitHub.
 
-Spacedrive integrates with [Spacebot](https://github.com/spacedriveapp/spacebot), an open source AI agent runtime. Spacebot runs as an optional separate process. Spacedrive provides the data, permission, and execution layer. Spacebot provides the intelligence.
+Writing one means a directory with an `adapter.toml` and a script in any language
+that reads stdin and prints lines. See
+[`docs/archive/README.md`](docs/archive/README.md).
 
-Each Spacebot instance pairs with one Spacedrive node as its home device. That node authenticates the agent, maintains the device graph, resolves permissions, and forwards operations to peer devices. Every device in your library can reach Spacebot through the paired node over P2P (Iroh/QUIC) without direct network access. One agent runtime serves your entire device fleet.
+### Screening
 
-When Spacebot spawns a worker, that worker can target any device in the library. File reads, shell commands, and operations proxy through Spacedrive to the target device. Talk to the agent from your phone while work executes on a server. Read files from a NAS, run commands on a workstation, report to a laptop — all in one task.
+When enabled, every record passes through a safety pipeline before becoming
+searchable: a local classifier (Prompt Guard 2) checks external content for
+prompt injection, trust tiers apply stricter screening to content you did not
+author, flagged records are quarantined out of agent queries, and search results
+carry trust metadata so an agent knows what is untrusted.
 
-Every operation passes through Spacedrive's permission system: which devices the agent can access, which paths are readable or writable, which operations are allowed, and which require human confirmation. The paired node resolves effective policy before forwarding. One security model, one audit surface across all devices and clouds.
+---
 
-### File System Intelligence
+## Where V2 came from
 
-Spacedrive adds intelligence to your filesystem by combining three layers:
+**2021.** A personal project: one interface over files scattered across devices
+and cloud accounts, with content-addressed identity so the same file on two
+machines is the same file.
 
-- **File intelligence** — derivative data like OCR, transcripts, extracted metadata, thumbnails, previews, classifications, and sidecars.
-- **Directory intelligence** — contextual knowledge attached to folders and subtrees ("active projects", "dormant archives", etc).
-- **Access intelligence** — permissions and policy that apply across devices and clouds, routing agents through structured access instead of raw shell commands.
+**May 2022.** Open sourced. Number one on GitHub Trending for three days, 10,000
+stars in the first week, a $2M seed round, a team of around twelve.
 
-When an agent navigates through Spacedrive, it receives the file listing, subtree context, effective permissions, and summaries. Users can explain how they organize their system. Agents can add attributed notes. Jobs generate summaries from structure and activity. The intelligence stays attached to the filesystem, not buried in temporary session memory.
+**Early 2025.** 35,000 stars, 600,000 installs, and a codebase that could no
+longer ship. The Rust Prisma client was deprecated with no migration path, libp2p
+transfers hung in ways nobody could debug, and two incompatible file models meant
+every operation needed writing twice.
+[`docs/overview/history.mdx`](docs/overview/history.mdx) is the full post-mortem.
 
-### Safety Screening
+**2025.** V2, rebuilt solo against that list. SeaORM for Prisma, Iroh for libp2p,
+one `SdPath` for every file, jobs down to about 50 lines each, and search that
+actually searches.
 
-When enabled, every record passes through a safety pipeline before becoming searchable:
+**2026.** The subtraction. V2 fixed V1's engineering and kept its appetite:
+every install compiled in a WASM extension runtime and shipped a bundled media
+stack, on the theory that a file manager should carry its whole environment. It
+should not, and both became opt-in:
 
-- **Prompt Guard 2** — local classifier detects prompt injection in emails, messages, and documents before they enter the index.
-- **Trust tiers** — authored content (your notes) gets balanced screening, external content (email inbox) gets strict screening.
-- **Quarantine system** — flagged records excluded from AI agent queries, reviewable in desktop app.
-- **Content fencing** — search results include trust metadata so agents know what's safe vs untrusted.
+| | |
+|---|---|
+| macOS payload before | ~156 MB (73.2 MB binary plus an 83 MB framework) |
+| Default install now | **44.4 MB, one file, nothing to download** |
 
-No other local data tool screens indexed content before exposing it to AI.
+Nothing was removed from the product. The heavy subsystems became opt-in
+features, macOS thumbnails route through ImageIO and QuickLook instead of bundled
+FFmpeg and libheif, and half the old binary turned out to be data rather than
+code. Every number is measured; the method is in
+[`docs/plans/2026-07-29-install-size.md`](docs/plans/2026-07-29-install-size.md).
+
+---
+
+## Status
+
+Under active development, and in alpha. V2 is a rebuild rather than a patch, so
+treat everything below as moving.
+
+| | |
+|---|---|
+| Files: indexing, sync, cloud volumes, desktop, mobile and web clients | working |
+| Archive: record spine, durable overlay, FTS5 search, 11 adapters | working |
+| Machine-scoped daemon: supervision, health, lifecycle, port leases | working |
+| Mounts: read-only share on loopback, byte-range peer protocol | in progress |
+| Per-source stores and the in-memory read tier | in progress |
 
 ---
 
 ## Architecture
 
-The core is built on four principles:
+```
+spacedrive/
+├── core/                  # Rust engine (CQRS/DDD): indexing, sync, jobs, volumes
+├── crates/                # archive, supervisor, task-system, crypto, imageio, images
+├── apps/
+│   ├── tauri/  mobile/    # Desktop (macOS, Windows, Linux), React Native
+│   ├── cli/  server/      # CLI, daemon, headless server
+│   ├── native/            # GPUI client prototype
+│   └── web/               # Browser client
+├── packages/
+│   ├── interface/         # Files' React UI
+│   └── ts-client/  swift-client/  assets/
+└── adapters/              # Script-based data source adapters
+```
 
-1. **Virtual Distributed Filesystem (VDFS)** — files and folders become first-class objects with rich metadata, independent of physical location. Every file gets a universal address (`SdPath`) that works across devices.
-
-2. **Content Identity System** — adaptive hashing (BLAKE3 with strategic sampling for large files) creates a unique fingerprint for every piece of content. Enables deduplication, redundancy tracking, and content-based operations.
-
-3. **Transactional Actions** — every file operation can be previewed before execution. See space savings, conflicts, and estimated time, then approve or cancel. Operations become durable jobs that survive network interruptions and device restarts.
-
-4. **Leaderless Sync** — peer-to-peer synchronization without central coordinators. Device-specific data uses state replication. Shared metadata uses an HLC-ordered log with deterministic conflict resolution.
-
-The implementation is a single Rust crate with CQRS/DDD architecture. Every operation (file copy, tag create, search query) is a registered action or query with type-safe input/output that auto-generates TypeScript types for the frontend.
+Every core operation — a file copy, a tag create, a search query — is a
+registered action or query with type-safe input and output, and Specta generates
+the TypeScript and Swift clients from those definitions.
 
 | Component       | Technology                                   |
 | --------------- | -------------------------------------------- |
-| Language        | Rust                                         |
-| Async runtime   | Tokio                                        |
+| Engine          | Rust, Tokio                                  |
 | Database        | SQLite (SeaORM + sqlx)                       |
-| P2P             | Iroh (QUIC, hole-punching, local discovery)  |
+| Search          | SQLite FTS5                                  |
 | Content hashing | BLAKE3                                       |
-| Vector search   | LanceDB + FastEmbed                          |
-| Cloud storage   | OpenDAL                                      |
+| P2P             | Iroh (QUIC, hole-punching, local discovery)  |
+| Cloud storage   | OpenDAL (S3, Google Drive, Dropbox, OneDrive, Azure Blob, GCS) |
 | Cryptography    | Ed25519, X25519, ChaCha20-Poly1305, AES-GCM  |
-| Media           | FFmpeg, libheif, Pdfium, Whisper             |
+| Media           | ImageIO and QuickLook on macOS, FFmpeg/libheif/Pdfium elsewhere |
 | Desktop         | Tauri 2                                      |
 | Mobile          | React Native + Expo                          |
 | Frontend        | React 19, Vite, TanStack Query, Tailwind CSS v4 |
-| Design system   | [SpaceUI](https://github.com/spacedriveapp/spaceui) (shared component library) |
-| Type generation | Specta                                       |
-
-```
-spacedrive/
-├── core/                  # Rust engine (CQRS/DDD)
-├── apps/
-│   ├── tauri/             # Desktop app (macOS, Windows, Linux)
-│   ├── mobile/            # React Native (iOS, Android)
-│   ├── cli/               # CLI and daemon
-│   ├── server/            # Headless server
-│   └── web/               # Browser client
-├── packages/
-│   ├── interface/         # Shared React UI
-│   ├── ts-client/         # Auto-generated TypeScript client
-│   ├── ui/                # Component library
-│   └── assets/            # Icons, images, SVGs
-├── crates/                # Standalone Rust crates (ffmpeg, crypto, etc.)
-├── adapters/              # Script-based data source adapters
-└── schemas/               # TOML data type schemas
-```
+| Design system   | [SpaceUI](https://github.com/spacedriveapp/spaceui) |
+| Type generation | Specta (TypeScript + Swift)                  |
 
 ---
 
 ## Getting Started
 
-Requires [Rust](https://rustup.rs/) 1.81+, [Bun](https://bun.sh) 1.3+, [just](https://github.com/casey/just), and Python 3.9+ (for adapters).
+Requires [Rust](https://rustup.rs/) (stable, MSRV 1.81), [Bun](https://bun.sh) 1.3+,
+Node 20.x, and [just](https://github.com/casey/just).
 
 ```bash
 git clone https://github.com/spacedriveapp/spacedrive
 cd spacedrive
 
-just setup        # bun install + native deps + cargo config
-just dev-desktop  # launch the desktop app (auto-starts daemon)
-just test         # run all workspace tests
+# System dependencies: cmake on macOS, GTK/WebKit/gstreamer on Linux.
+# Pass `mobile` to also add the iOS/Android Rust targets.
+./scripts/setup.sh              # .\scripts\setup.ps1 on Windows
+
+bun install
+cargo run -p xtask -- setup
 ```
+
+`xtask setup` writes `.cargo/config.toml`, builds the release daemon, and registers
+the `cargo xtask`, `cargo daemon` and `cargo cli` aliases, so after the first run
+`just setup` does the same thing in one command. It downloads nothing.
+
+On macOS that is everything you need. Thumbnails for video, HEIC, RAW and PDF come
+from ImageIO and QuickLook, the same system codecs Finder uses. Elsewhere those
+formats need the prebuilt codec bundle (FFmpeg, libheif, Pdfium), which is a 91 MB
+download and enables the `ffmpeg` and `heif` features:
+
+```bash
+cargo run -p xtask -- setup --native-deps
+```
+
+### Run Files
+
+```bash
+just dev-desktop  # desktop app (builds and starts the daemon for you)
+just dev-server   # headless server + web UI
+just dev-mobile   # Expo dev server
+```
+
+### Test and check
+
+```bash
+just test         # cargo test --workspace
+just check        # cargo fmt --check + clippy
+```
+
+Python 3.9+ is needed at runtime by the bundled adapters, not to build Spacedrive.
 
 ---
 
-## Privacy & Security
+## Your data, your machines
 
-Spacedrive is local-first. Your data stays on your devices.
+Self-hosting is first-class rather than a begrudged escape hatch. Spacedrive runs
+on your own hardware, and your devices federate directly with each other.
 
-- **End-to-End Encryption** — all P2P traffic encrypted via QUIC/TLS
-- **At-Rest Encryption** — libraries can be encrypted on disk (SQLCipher)
-- **No Telemetry** — zero tracking or analytics
-- **Self-Hostable** — run your own relay servers
-- **Data Sovereignty** — you control where your data lives
+- **Local-first.** Nothing leaves your device unless you choose to sync between
+  your own machines.
+- **No telemetry.** No usage signal is collected without saying so, and none is
+  required for the software to work.
+- **End-to-end encrypted.** All P2P traffic runs over QUIC/TLS.
+- **Yours to leave.** The index is rebuildable from your filesystem, and nothing
+  you typed lives anywhere you cannot read it.
 
-Optional cloud integration is available for backup and remote access, but it's never required. The cloud service runs unmodified Spacedrive core as a standard P2P device—no special privileges.
+### The mission
+
+The open source software the world runs on is maintained on donation economics.
+The better it gets, the wider the gap between the value it creates and the money
+reaching the people who made it. This project has tens of thousands of stars and
+has returned a fraction of a salary.
+
+Fixing that is a design constraint here rather than a substitute for building
+something people want.
 
 ---
 
@@ -178,11 +273,14 @@ Optional cloud integration is available for backup and remote access, but it's n
 
 - **Join [Discord](https://discord.gg/gTaF2Z44f5)** to chat with developers and community
 - **[Contributing Guide](CONTRIBUTING.md)**
-- **[Adapter Guide](docs/ADAPTERS.md)** — write a data source adapter
-- **[SpaceUI](https://github.com/spacedriveapp/spaceui)** — shared design system (clone alongside Spacedrive to work on UI)
+- **[Archive & Adapters](docs/archive/README.md)**, how data source adapters work
+- **[SpaceUI](https://github.com/spacedriveapp/spaceui)**, shared design system
 
 ---
 
 ## License
 
-FSL-1.1-ALv2 — [Functional Source License](https://fsl.software/), converting to Apache 2.0 after two years.
+[Apache-2.0](LICENSE).
+
+Releases before 2026-03-24 were published under AGPL-3.0 and remain available
+under that license.

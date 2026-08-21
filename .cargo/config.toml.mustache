@@ -1,5 +1,5 @@
-{{#nativeDeps}}
 [env]
+{{#nativeDeps}}
 PROTOC = { force = true, value = "{{{protoc}}}" }
 FFMPEG_DIR = { force = true, value = "{{{nativeDeps}}}" }
 CPATH = { force = true, value = "{{{nativeDeps}}}/include" }
@@ -9,25 +9,39 @@ BINDGEN_EXTRA_CLANG_ARGS = { force = true, value = "-isysroot {{{sdkPath}}}" }
 {{#isLinux}}
 ORT_LIB_LOCATION = { force = true, value = "{{{nativeDeps}}}/lib" }
 {{/isLinux}}
+{{/nativeDeps}}
+# openssl-sys reaches Linux builds through reqwest's default TLS, independently of
+# the codec bundle, so these stay set either way.
 OPENSSL_STATIC = { force = true, value = "1" }
 OPENSSL_NO_VENDOR = { force = true, value = "0" }
 OPENSSL_RUST_USE_NASM = { force = true, value = "1" }
-{{/nativeDeps}}
 
 {{#isMacOS}}
 [target.x86_64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}/lib", "-Csplit-debuginfo=unpacked"]
+rustflags = [
+	{{#nativeDeps}}
+	"-L", "{{{nativeDeps}}}/lib",
+	{{/nativeDeps}}
+	"-Csplit-debuginfo=unpacked",
+]
 
+[target.aarch64-apple-darwin]
+rustflags = [
+	{{#nativeDeps}}
+	"-L", "{{{nativeDeps}}}/lib",
+	{{/nativeDeps}}
+	"-Csplit-debuginfo=unpacked",
+]
+
+{{#nativeDeps}}
 [target.x86_64-apple-darwin.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
 
-[target.aarch64-apple-darwin]
-rustflags = ["-L", "{{{nativeDeps}}}/lib", "-Csplit-debuginfo=unpacked"]
-
 [target.aarch64-apple-darwin.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
+{{/nativeDeps}}
 
 {{#hasiOS}}
 [target.aarch64-apple-ios]
@@ -58,11 +72,13 @@ rustc-link-lib = ["static:+bundle=heif"]
 {{#hasLLD}}
 linker = "lld-link.exe"
 {{/hasLLD}}
+{{#nativeDeps}}
 rustflags = ["-L", "{{{nativeDeps}}}\\lib"]
 
 [target.x86_64-pc-windows-msvc.heif]
 rustc-link-search = ["{{{nativeDeps}}}\\lib"]
 rustc-link-lib = ["heif"]
+{{/nativeDeps}}
 {{/isWin}}
 
 {{#isLinux}}
@@ -71,30 +87,36 @@ rustc-link-lib = ["heif"]
 linker = "clang"
 {{/hasLLD}}
 rustflags = [
+	{{#nativeDeps}}
 	"-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive",
+	{{/nativeDeps}}
 	{{#hasLLD}}
 	"-C", "link-arg=-fuse-ld={{{linker}}}",
 	{{/hasLLD}}
 ]
-
-[target.x86_64-unknown-linux-gnu.heif]
-rustc-link-search = ["{{{nativeDeps}}}/lib"]
-rustc-link-lib = ["heif"]
 
 [target.aarch64-unknown-linux-gnu]
 {{#hasLLD}}
 linker = "clang"
 {{/hasLLD}}
 rustflags = [
+	{{#nativeDeps}}
 	"-L", "{{{nativeDeps}}}/lib", "-C", "link-arg=-Wl,-rpath=${ORIGIN}/../lib/spacedrive",
+	{{/nativeDeps}}
 	{{#hasLLD}}
 	"-C", "link-arg=-fuse-ld={{{linker}}}",
 	{{/hasLLD}}
 ]
 
+{{#nativeDeps}}
+[target.x86_64-unknown-linux-gnu.heif]
+rustc-link-search = ["{{{nativeDeps}}}/lib"]
+rustc-link-lib = ["heif"]
+
 [target.aarch64-unknown-linux-gnu.heif]
 rustc-link-search = ["{{{nativeDeps}}}/lib"]
 rustc-link-lib = ["heif"]
+{{/nativeDeps}}
 {{/isLinux}}
 
 {{#hasAndroid}}
@@ -111,5 +133,5 @@ rustflags = ["-L", "{{{mobileNativeDeps}}}/x86_64-linux-android/lib"]
 [alias]
 xtask = "run --package xtask --"
 ios = "run --package xtask -- build-ios"
-daemon = "run --package sd-core --bin sd-daemon --features sd-core/ffmpeg,sd-core/heif"
-cli = "run --package sd-core --bin spacedrive --features sd-core/ffmpeg,sd-core/heif"
+daemon = "run --package sd-core --bin sd-daemon{{#nativeDeps}} --features sd-core/ffmpeg,sd-core/heif{{/nativeDeps}}"
+cli = "run --package sd-core --bin spacedrive{{#nativeDeps}} --features sd-core/ffmpeg,sd-core/heif{{/nativeDeps}}"
