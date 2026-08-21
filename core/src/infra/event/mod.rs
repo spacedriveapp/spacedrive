@@ -498,7 +498,7 @@ impl Event {
 					},
 				) = (scope, affected_path)
 				{
-					if scope_device != file_device {
+					if !SdPath::same_device(scope_device, file_device) {
 						return false;
 					}
 
@@ -526,7 +526,7 @@ impl Event {
 						path: file_path,
 					},
 				) => {
-					if scope_device != file_device {
+					if !SdPath::same_device(scope_device, file_device) {
 						return false;
 					}
 
@@ -598,7 +598,7 @@ impl Event {
 							},
 						) = (scope, &alt_path)
 						{
-							if scope_device != alt_device {
+							if !SdPath::same_device(scope_device, alt_device) {
 								continue;
 							}
 
@@ -993,5 +993,70 @@ impl EventFilter for Event {
 			} => *lid == library_id,
 			_ => false,
 		}
+	}
+}
+
+#[cfg(test)]
+mod affects_path_tests {
+	use super::*;
+	use std::path::PathBuf;
+
+	fn batch_for(paths: Vec<SdPath>) -> Event {
+		Event::ResourceChangedBatch {
+			resource_type: "file".to_string(),
+			resources: serde_json::Value::Null,
+			metadata: Some(ResourceMetadata {
+				no_merge_fields: vec![],
+				alternate_ids: vec![],
+				affected_paths: paths,
+			}),
+		}
+	}
+
+	/// A subscription scoped with the "local" placeholder must receive events
+	/// whose paths carry the canonical device slug, and vice versa — the UI
+	/// uses both spellings depending on how a directory was reached.
+	#[test]
+	fn local_placeholder_scope_matches_canonical_slug_events() {
+		crate::device::set_current_device_slug("test-device".to_string());
+
+		let event = batch_for(vec![SdPath::Physical {
+			device_slug: "test-device".to_string(),
+			path: PathBuf::from("/tmp/browse/file.txt"),
+		}]);
+
+		let local_scope = SdPath::Physical {
+			device_slug: "local".to_string(),
+			path: PathBuf::from("/tmp/browse"),
+		};
+		assert!(event.affects_path(&local_scope, false));
+		assert!(event.affects_path(&local_scope, true));
+
+		// The reverse spelling combination matches too.
+		let event = batch_for(vec![SdPath::Physical {
+			device_slug: "local".to_string(),
+			path: PathBuf::from("/tmp/browse/file.txt"),
+		}]);
+		let slug_scope = SdPath::Physical {
+			device_slug: "test-device".to_string(),
+			path: PathBuf::from("/tmp/browse"),
+		};
+		assert!(event.affects_path(&slug_scope, false));
+	}
+
+	#[test]
+	fn foreign_device_events_stay_filtered() {
+		crate::device::set_current_device_slug("test-device".to_string());
+
+		let event = batch_for(vec![SdPath::Physical {
+			device_slug: "some-other-machine".to_string(),
+			path: PathBuf::from("/tmp/browse/file.txt"),
+		}]);
+		let scope = SdPath::Physical {
+			device_slug: "local".to_string(),
+			path: PathBuf::from("/tmp/browse"),
+		};
+		assert!(!event.affects_path(&scope, false));
+		assert!(!event.affects_path(&scope, true));
 	}
 }

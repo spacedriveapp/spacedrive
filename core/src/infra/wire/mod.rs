@@ -36,3 +36,10 @@ pub use type_extraction::{
 	create_spacedrive_api_structure, generate_spacedrive_api, OperationScope, OperationTypeInfo,
 	QueryScope, QueryTypeInfo,
 };
+
+/// Links an operation's input type to the daemon method name it is
+/// dispatched under. Implemented by the `register_*` macros; clients use
+/// the associated constant to address queries and actions over the wire.
+pub trait Wire {
+	const METHOD: &'static str;
+}

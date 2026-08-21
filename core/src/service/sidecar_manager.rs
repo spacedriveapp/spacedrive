@@ -292,14 +292,13 @@ impl SidecarManager {
 
 		// Dispatch to job system based on sidecar kind
 		match kind {
-			#[cfg(feature = "ffmpeg")]
+			// Image and document thumbnails are generated on every build; the
+			// job itself skips video sources when ffmpeg support is absent.
 			SidecarKind::Thumb => {
 				// For thumbnails, we need to find the entry and dispatch a thumbnail job
 				// We'll dispatch a job for this specific content_uuid
 				use crate::infra::db::entities::{content_identity, entry};
-				use crate::ops::media::thumbnail::{
-					ThumbnailJob, ThumbnailJobConfig, ThumbnailVariants,
-				};
+				use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 				use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 				// Find an entry with this content_uuid
@@ -550,11 +549,15 @@ impl SidecarManager {
 			.await?;
 
 		if let Some(existing) = result {
+			// Rewriting the file invalidates every cached copy of the old
+			// pixels; the version travels in sidecar URLs as the cache buster.
+			let next_version = existing.version + 1;
 			let mut active: sidecar::ActiveModel = existing.into();
 			active.rel_path = ActiveValue::Set(path.relative_path.to_string_lossy().to_string());
 			active.size = ActiveValue::Set(size as i64);
 			active.checksum = ActiveValue::Set(checksum);
 			active.status = ActiveValue::Set("ready".to_string());
+			active.version = ActiveValue::Set(next_version);
 			active.updated_at = ActiveValue::Set(Utc::now());
 			active.update(db.conn()).await?;
 		} else {

@@ -399,6 +399,12 @@ fn to_pascal_case(s: &str) -> String {
 
 /// Extract just the type name from a full Rust type path
 fn extract_type_name(full_type_name: &str) -> String {
+	// serde_json::Value is exported by specta as JsonValue; the raw type name
+	// would reference an undefined `Value` in the generated bindings.
+	if full_type_name == "serde_json::value::Value" || full_type_name == "serde_json::Value" {
+		return "JsonValue".to_string();
+	}
+
 	// Handle unit type () - use Empty struct for Swift
 	if full_type_name == "()" {
 		let result = "Empty".to_string();

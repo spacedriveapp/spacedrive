@@ -1,155 +1,220 @@
-use crate::transport::TcpTransport;
-use crate::types::*;
 use anyhow::Result;
-use serde::Serialize;
+use serde::{de::DeserializeOwned, Serialize};
+use tokio::sync::mpsc;
 
-pub struct SpacedriveClient {
-	transport: TcpTransport,
-	library_id: Option<String>,
-	http_base_url: String,
+use sd_core::infra::daemon::client::DaemonClient;
+use sd_core::infra::daemon::types::{DaemonRequest, DaemonResponse, EventFilter, LogFilter};
+use sd_core::infra::event::log_emitter::LogMessage;
+use sd_core::infra::event::Event;
+use sd_core::infra::wire::Wire;
+
+#[derive(Clone)]
+pub struct CoreClient {
+	daemon: DaemonClient,
 }
 
-impl SpacedriveClient {
-	pub fn new(socket_addr: String, http_base_url: String) -> Self {
+impl CoreClient {
+	pub fn new(socket_addr: String) -> Self {
 		Self {
-			transport: TcpTransport::new(socket_addr),
-			library_id: None,
-			http_base_url,
+			daemon: DaemonClient::new(socket_addr),
 		}
 	}
 
-	pub fn set_library(&mut self, library_id: String) {
-		self.library_id = Some(library_id);
-	}
-
-	pub fn get_library_id(&self) -> Option<&str> {
-		self.library_id.as_deref()
-	}
-
-	pub async fn get_http_url(&self) -> Result<String> {
-		// Try to get from daemon state or Tauri IPC
-		// For now, return error - will need to be implemented in daemon
-		Err(anyhow::anyhow!(
-			"HTTP URL query not implemented in daemon yet"
-		))
-	}
-
-	pub async fn execute<I, O>(&self, wire_method: &str, input: I) -> Result<O>
-	where
-		I: Serialize,
-		O: serde::de::DeserializeOwned,
-	{
-		let is_query = wire_method.starts_with("query:");
-
-		let request = QueryRequest {
-			method: wire_method.to_string(),
-			library_id: self.library_id.clone(),
-			payload: serde_json::to_value(input)?,
-		};
-
-		let request_json = if is_query {
-			serde_json::json!({ "Query": request })
-		} else {
-			serde_json::json!({ "Action": request })
-		};
-
-		self.transport.send_request(request_json).await
-	}
-
-	pub async fn media_listing(&self, path: SdPath, limit: Option<usize>) -> Result<Vec<File>> {
-		#[derive(Serialize)]
-		struct MediaListingInput {
-			path: SdPath,
-			include_descendants: bool,
-			media_types: Option<Vec<String>>,
-			limit: Option<usize>,
-			sort_by: String,
-		}
-
-		#[derive(serde::Deserialize)]
-		struct MediaListingResponse {
-			files: Vec<File>,
-			#[allow(dead_code)]
-			has_more: bool,
-			#[allow(dead_code)]
-			total_count: usize,
-		}
-
-		let input = MediaListingInput {
-			path,
-			include_descendants: true,
-			media_types: None, // Defaults to Image + Video
-			limit,
-			sort_by: "datetaken".to_string(),
-		};
-
-		let response: MediaListingResponse = self
-			.execute("query:files.media_listing", input)
-			.await
-			.map_err(|e| {
-				eprintln!("Failed to deserialize media_listing response: {}", e);
-				e
-			})?;
-		Ok(response.files)
-	}
-
-	pub fn thumbnail_url(&self, content_uuid: &str, variant: &str, format: &str) -> String {
-		format!(
-			"{}/sidecar/{}/{}/thumb/{}.{}",
-			self.http_base_url,
-			self.library_id.as_deref().unwrap_or("None"),
-			content_uuid,
-			variant,
-			format
-		)
-	}
-
-	pub fn select_best_thumbnail<'a>(
+	pub async fn action<A>(
 		&self,
-		sidecars: &'a [Sidecar],
-		target_size: f32,
-	) -> Option<&'a Sidecar> {
-		sidecars
-			.iter()
-			.filter(|s| s.kind == "thumb" && s.status == "ready")
-			.min_by_key(|s| {
-				let size = self.parse_variant_size(&s.variant).unwrap_or(0);
-				let scale = self.parse_variant_scale(&s.variant).unwrap_or(1);
-
-				// Prefer 1x scale unless rendering very large (> 400px)
-				let preferred_size = if target_size <= 400.0 {
-					(target_size * 0.6) as i32
-				} else {
-					target_size as i32
-				};
-
-				// Heavily penalize higher scales for performance
-				let penalty = (scale as i32 - 1) * 100;
-
-				(size as i32 - preferred_size).abs() + penalty
+		action: &A,
+		library_id: Option<uuid::Uuid>,
+	) -> Result<serde_json::Value>
+	where
+		A: Wire + Serialize,
+	{
+		let payload = serde_json::to_value(action)?;
+		let resp = self
+			.daemon
+			.send(&DaemonRequest::Action {
+				method: A::METHOD.into(),
+				library_id,
+				payload,
 			})
+			.await;
+		match resp {
+			Ok(r) => match r {
+				DaemonResponse::JsonOk(json) => Ok(json),
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e.to_string())),
+				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+			},
+			Err(e) => Err(anyhow::anyhow!(e.to_string())),
+		}
 	}
 
-	fn parse_variant_size(&self, variant: &str) -> Option<u32> {
-		// Parse "grid@1x" -> 256 (or similar mapping)
-		// For now, return hardcoded sizes
-		if variant.starts_with("icon") {
-			Some(128)
-		} else if variant.starts_with("grid") {
-			Some(256)
-		} else if variant.starts_with("detail") {
-			Some(1024)
+	pub async fn query<Q, O>(&self, query: &Q, library_id: Option<uuid::Uuid>) -> Result<O>
+	where
+		Q: Wire + Serialize,
+		O: DeserializeOwned,
+	{
+		let payload = serde_json::to_value(query)?;
+		let resp = self
+			.daemon
+			.send(&DaemonRequest::Query {
+				method: Q::METHOD.into(),
+				library_id,
+				payload,
+			})
+			.await;
+		match resp {
+			Ok(r) => match r {
+				DaemonResponse::JsonOk(json) => {
+					let result = serde_json::from_value(json)?;
+					Ok(result)
+				}
+				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e.to_string())),
+				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
+			},
+			Err(e) => Err(anyhow::anyhow!(e.to_string())),
+		}
+	}
+
+	pub async fn send_raw_request(&self, req: &DaemonRequest) -> Result<DaemonResponse> {
+		self.daemon
+			.send(req)
+			.await
+			.map_err(|e| anyhow::anyhow!(e.to_string()))
+	}
+
+	/// Subscribe to real-time events from the core
+	pub async fn subscribe_events(
+		&self,
+		event_types: Vec<String>,
+		filter: Option<EventFilter>,
+	) -> Result<EventStream> {
+		EventStream::new(self.daemon.clone(), event_types, filter).await
+	}
+
+	/// Subscribe to real-time log messages from the core
+	pub async fn subscribe_logs(
+		&self,
+		job_id: Option<String>,
+		level: Option<String>,
+		target: Option<String>,
+	) -> Result<LogStream> {
+		let filter = if job_id.is_some() || level.is_some() || target.is_some() {
+			Some(LogFilter {
+				library_id: None,
+				job_id,
+				level,
+				target,
+			})
 		} else {
 			None
-		}
+		};
+		LogStream::new(self.daemon.clone(), filter).await
+	}
+}
+
+/// Stream of events from the core
+pub struct EventStream {
+	event_rx: mpsc::UnboundedReceiver<Event>,
+	_handle: tokio::task::JoinHandle<()>,
+}
+
+impl EventStream {
+	async fn new(
+		daemon: DaemonClient,
+		event_types: Vec<String>,
+		filter: Option<EventFilter>,
+	) -> Result<Self> {
+		let (event_tx, event_rx) = mpsc::unbounded_channel();
+
+		// Start streaming connection
+		let handle = tokio::spawn(async move {
+			if let Err(e) = Self::stream_events(daemon, event_types, filter, event_tx).await {
+				eprintln!("Event streaming error: {}", e);
+			}
+		});
+
+		Ok(Self {
+			event_rx,
+			_handle: handle,
+		})
 	}
 
-	fn parse_variant_scale(&self, variant: &str) -> Option<u32> {
-		// Parse "grid@2x" -> 2
-		variant
-			.split('@')
-			.nth(1)
-			.and_then(|s| s.chars().next())
-			.and_then(|c| c.to_digit(10))
+	async fn stream_events(
+		daemon: DaemonClient,
+		event_types: Vec<String>,
+		filter: Option<EventFilter>,
+		event_tx: mpsc::UnboundedSender<Event>,
+	) -> Result<()> {
+		let request = DaemonRequest::Subscribe {
+			event_types,
+			filter,
+		};
+
+		// Stream events
+		daemon
+			.stream(&request, event_tx)
+			.await
+			.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+		Ok(())
+	}
+
+	/// Receive the next event
+	pub async fn recv(&mut self) -> Option<Event> {
+		self.event_rx.recv().await
+	}
+
+	/// Try to receive an event without blocking
+	pub fn try_recv(&mut self) -> Result<Event, mpsc::error::TryRecvError> {
+		self.event_rx.try_recv()
+	}
+}
+
+/// Stream of log messages from the core
+pub struct LogStream {
+	log_rx: mpsc::UnboundedReceiver<LogMessage>,
+	_handle: tokio::task::JoinHandle<()>,
+}
+
+impl LogStream {
+	async fn new(daemon: DaemonClient, filter: Option<LogFilter>) -> Result<Self> {
+		let (log_tx, log_rx) = mpsc::unbounded_channel();
+
+		// Start streaming connection
+		let handle = tokio::spawn(async move {
+			if let Err(e) = Self::stream_logs(daemon, filter, log_tx).await {
+				eprintln!("Log streaming error: {}", e);
+			}
+		});
+
+		Ok(Self {
+			log_rx,
+			_handle: handle,
+		})
+	}
+
+	async fn stream_logs(
+		daemon: DaemonClient,
+		filter: Option<LogFilter>,
+		log_tx: mpsc::UnboundedSender<LogMessage>,
+	) -> Result<()> {
+		let request = DaemonRequest::SubscribeLogs { filter };
+
+		// Use the same stream infrastructure but for log messages
+		daemon
+			.stream_logs(&request, log_tx)
+			.await
+			.map_err(|e| anyhow::anyhow!(e.to_string()))?;
+
+		Ok(())
+	}
+
+	/// Receive the next log message
+	pub async fn recv(&mut self) -> Option<LogMessage> {
+		self.log_rx.recv().await
+	}
+
+	/// Try to receive a log message without blocking
+	pub fn try_recv(&mut self) -> Result<LogMessage, mpsc::error::TryRecvError> {
+		self.log_rx.try_recv()
 	}
 }

@@ -321,12 +321,12 @@ macro_rules! query_method {
 #[macro_export]
 macro_rules! register_library_query {
 	($query:ty, $name:literal) => {
-		impl $crate::client::Wire for <$query as $crate::infra::query::LibraryQuery>::Input {
+		impl $crate::infra::wire::Wire for <$query as $crate::infra::query::LibraryQuery>::Input {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
 			$crate::infra::wire::registry::LibraryQueryEntry {
-				method: <<$query as $crate::infra::query::LibraryQuery>::Input as $crate::client::Wire>::METHOD,
+				method: <<$query as $crate::infra::query::LibraryQuery>::Input as $crate::infra::wire::Wire>::METHOD,
 				handler: $crate::infra::wire::registry::handle_library_query::<$query>,
 			}
 		}
@@ -364,12 +364,12 @@ macro_rules! register_library_query {
 #[macro_export]
 macro_rules! register_core_query {
 	($query:ty, $name:literal) => {
-		impl $crate::client::Wire for <$query as $crate::infra::query::CoreQuery>::Input {
+		impl $crate::infra::wire::Wire for <$query as $crate::infra::query::CoreQuery>::Input {
 			const METHOD: &'static str = $crate::query_method!($name);
 		}
 		inventory::submit! {
 			$crate::infra::wire::registry::CoreQueryEntry {
-				method: <<$query as $crate::infra::query::CoreQuery>::Input as $crate::client::Wire>::METHOD,
+				method: <<$query as $crate::infra::query::CoreQuery>::Input as $crate::infra::wire::Wire>::METHOD,
 				handler: $crate::infra::wire::registry::handle_core_query::<$query>,
 			}
 		}
@@ -407,12 +407,12 @@ macro_rules! register_core_query {
 #[macro_export]
 macro_rules! register_library_action {
 	($action:ty, $name:literal) => {
-		impl $crate::client::Wire for <$action as $crate::infra::action::LibraryAction>::Input {
+		impl $crate::infra::wire::Wire for <$action as $crate::infra::action::LibraryAction>::Input {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
 			$crate::infra::wire::registry::LibraryActionEntry {
-				method: <<$action as $crate::infra::action::LibraryAction>::Input as $crate::client::Wire>::METHOD,
+				method: <<$action as $crate::infra::action::LibraryAction>::Input as $crate::infra::wire::Wire>::METHOD,
 				handler: $crate::infra::wire::registry::handle_library_action::<$action>,
 			}
 		}
@@ -450,12 +450,12 @@ macro_rules! register_library_action {
 #[macro_export]
 macro_rules! register_core_action {
 	($action:ty, $name:literal) => {
-		impl $crate::client::Wire for <$action as $crate::infra::action::CoreAction>::Input {
+		impl $crate::infra::wire::Wire for <$action as $crate::infra::action::CoreAction>::Input {
 			const METHOD: &'static str = $crate::action_method!($name);
 		}
 		inventory::submit! {
 			$crate::infra::wire::registry::CoreActionEntry {
-				method: <<$action as $crate::infra::action::CoreAction>::Input as $crate::client::Wire>::METHOD,
+				method: <<$action as $crate::infra::action::CoreAction>::Input as $crate::infra::wire::Wire>::METHOD,
 				handler: $crate::infra::wire::registry::handle_core_action::<$action>,
 			}
 		}

@@ -205,16 +205,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	// The TypeCollection naturally deduplicates based on type ID, but Specta checks
 	// for duplicate names. In our case, we have two types named "LibraryStatistics"
 	// from different modules, which is a Rust codebase issue to fix later.
+	// A failed export must abort before the file is written: continuing with
+	// an empty type section produces a types.ts stripped of every definition,
+	// which breaks the frontend far more subtly than a loud failure here.
 	let individual_types = match typescript.export(&types) {
 		Ok(code) => code,
 		Err(e) => {
-			eprintln!("️  WARNING: Duplicate type names detected: {}", e);
-			eprintln!("This is expected - fixing later by renaming types in Rust");
-			eprintln!("Generating types anyway (will use latest definition)...\n");
-
-			// For now, continue - the generated types will still be useful
-			// even if some duplicates exist (TypeScript will use the last definition)
-			String::new()
+			eprintln!("ERROR: type export failed: {}", e);
+			eprintln!("Most likely two Rust types share a name; rename one and rerun.");
+			eprintln!("The existing types.ts was left untouched.");
+			std::process::exit(1);
 		}
 	};
 

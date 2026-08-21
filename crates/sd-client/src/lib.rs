@@ -1,24 +1,28 @@
+//! Client library for the Spacedrive daemon.
+//!
+//! Wraps the daemon's JSON-over-TCP protocol in a typed API: [`CoreClient`]
+//! sends `Wire`-registered queries and actions, while [`EventStream`] and
+//! [`LogStream`] deliver real-time subscriptions. Rust applications (the CLI,
+//! native apps) talk to the daemon through this crate rather than opening
+//! sockets themselves.
+//!
+//! Windowed clients build on two more pieces: [`SubscriptionBroker`] pools
+//! event subscriptions so many in-app receivers share one daemon connection
+//! per distinct filter, and [`LibraryContext`] carries the current library
+//! selection (persisted, watchable) and injects it into calls.
+
+mod broker;
 mod client;
-mod transport;
-mod types;
+mod daemon;
+mod library;
 
-pub use client::SpacedriveClient;
-pub use types::*;
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_thumbnail_url_construction() {
-		let client =
-			SpacedriveClient::new("/tmp/test.sock".into(), "http://localhost:54321".into());
-
-		let url = client.thumbnail_url("0cc0b48f-a475-53ec-a580-bc7d47b486a9", "grid@1x", "webp");
-
-		assert_eq!(
-            url,
-            "http://localhost:54321/sidecar/None/0cc0b48f-a475-53ec-a580-bc7d47b486a9/thumb/grid@1x.webp"
-        );
-	}
-}
+pub use broker::{BrokerOptions, BrokerSubscription, SubscriptionBroker};
+pub use client::{CoreClient, EventStream, LogStream};
+pub use daemon::{ensure_daemon, is_daemon_running, DaemonLaunchConfig, EnsureDaemonOutcome};
+pub use library::LibraryContext;
+pub use sd_core::infra::daemon::addr::daemon_socket_addr;
+pub use sd_core::infra::daemon::types::{
+	DaemonError, DaemonRequest, DaemonResponse, EventFilter, LogFilter,
+};
+pub use sd_core::infra::event::{log_emitter::LogMessage, Event};
+pub use sd_core::infra::wire::Wire;

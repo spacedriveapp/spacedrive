@@ -1,5 +1,6 @@
 //! Client-agnostic daemon infrastructure
 
+pub mod addr;
 pub mod bootstrap;
 pub mod client;
 pub mod dispatch;

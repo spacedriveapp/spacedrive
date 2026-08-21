@@ -1,4 +1,5 @@
 use clap::Parser;
+use sd_core::infra::daemon::addr::daemon_socket_addr;
 use std::path::PathBuf;
 use tokio::signal;
 
@@ -40,24 +41,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		.data_dir
 		.unwrap_or(sd_core::config::default_data_dir()?);
 
-	// Calculate instance-specific data directory and socket address
-	let (data_dir, socket_addr) = if let Some(instance) = args.instance {
-		// Validate instance name for security
-		validate_instance_name(&instance).map_err(|e| format!("Invalid instance name: {}", e))?;
+	// Validate instance name for security
+	if let Some(instance) = &args.instance {
+		validate_instance_name(instance).map_err(|e| format!("Invalid instance name: {}", e))?;
+	}
 
-		// Each instance gets its own data directory
-		let instance_data_dir = base_data_dir.join("instances").join(&instance);
-
-		// Use a simple hash of the instance name to derive a port
-		let port = 6970 + (instance.bytes().map(|b| b as u16).sum::<u16>() % 1000);
-		let socket_addr = format!("127.0.0.1:{}", port);
-
-		(instance_data_dir, socket_addr)
-	} else {
-		// Default instance uses the base data directory and port 6969
-		let socket_addr = "127.0.0.1:6969".to_string();
-		(base_data_dir.clone(), socket_addr)
-	};
+	// Calculate instance-specific data directory and socket address;
+	// each named instance gets its own data directory and derived port
+	let socket_addr = daemon_socket_addr(args.instance.as_deref()).to_string();
+	let data_dir = sd_core::infra::daemon::addr::instance_data_dir(
+		base_data_dir,
+		args.instance.as_deref(),
+	);
 
 	// Set up signal handling for graceful shutdown
 	let ctrl_c = async {
