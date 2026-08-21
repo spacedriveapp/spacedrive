@@ -343,6 +343,10 @@ pub struct FileNode {
 	pub children: SmallVec<[EntryId; 0]>,
 	/// Packed metadata
 	pub meta: PackedMetadata,
+	/// Sum of file sizes in this subtree (a file's own size for file nodes).
+	/// Maintained incrementally along the ancestor chain on add/remove, so
+	/// directory sizes are answerable without a walk.
+	pub subtree_bytes: u64,
 }
 
 impl FileNode {
@@ -352,6 +356,22 @@ impl FileNode {
 			name_ref,
 			children: SmallVec::new(),
 			meta,
+			subtree_bytes: 0,
+		}
+	}
+
+	/// An empty node for a slot whose entry has been removed.
+	///
+	/// Marked `Inaccessible` so anything still holding the id reads it as a node
+	/// with nothing behind it rather than as an empty file. The name is a
+	/// `'static` empty string, which satisfies `NameRef`'s lifetime requirement
+	/// without touching the interner.
+	pub fn vacant() -> Self {
+		Self {
+			name_ref: NameRef::new("", MaybeEntryId::NONE),
+			children: SmallVec::new(),
+			meta: PackedMetadata::new(NodeState::Inaccessible, FileType::File, 0),
+			subtree_bytes: 0,
 		}
 	}
 

@@ -441,7 +441,7 @@ impl TestHarness {
 		let mut indexer_job = IndexerJob::new(config);
 
 		// Get the global ephemeral index to share with the job
-		let ephemeral_index = core.context.ephemeral_cache().get_global_index();
+		let ephemeral_index = core.context.ephemeral_cache().resolve_index(&test_dir);
 		indexer_job.set_ephemeral_index(ephemeral_index);
 
 		// Dispatch job
@@ -608,7 +608,7 @@ impl TestHarness {
 		let timeout_duration = Duration::from_secs(10);
 
 		while start.elapsed() < timeout_duration {
-			let index = self.context.ephemeral_cache().get_global_index();
+			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 			let mut index_lock = index.write().await;
 			if index_lock.get_entry(&path).is_some() {
 				println!("✓ Entry exists in ephemeral index: {}", name);
@@ -637,7 +637,7 @@ impl TestHarness {
 		let timeout_duration = Duration::from_secs(5);
 
 		while start.elapsed() < timeout_duration {
-			let index = self.context.ephemeral_cache().get_global_index();
+			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 			let mut index_lock = index.write().await;
 			if index_lock.get_entry(&path).is_none() {
 				println!("✓ Entry does not exist in ephemeral index: {}", name);
@@ -660,7 +660,7 @@ impl TestHarness {
 		name: &str,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
-		let index = self.context.ephemeral_cache().get_global_index();
+		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 		let mut index_lock = index.write().await;
 
 		if let Some(entry) = index_lock.get_entry(&path) {
@@ -684,7 +684,7 @@ impl TestHarness {
 		name: &str,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
-		let index = self.context.ephemeral_cache().get_global_index();
+		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 		let mut index_lock = index.write().await;
 
 		if let Some(entry) = index_lock.get_entry(&path) {
@@ -704,7 +704,7 @@ impl TestHarness {
 
 	/// Get current entry count in index for this test directory
 	async fn get_entry_count(&self) -> usize {
-		let index = self.context.ephemeral_cache().get_global_index();
+		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 		index_lock
 			.entries()
@@ -716,7 +716,7 @@ impl TestHarness {
 	/// Get children count using list_directory (like the UI does)
 	/// This is the critical check - it uses the arena's children list
 	async fn get_children_count(&self) -> usize {
-		let index = self.context.ephemeral_cache().get_global_index();
+		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 		index_lock
 			.list_directory(&self.test_dir)
@@ -753,7 +753,7 @@ impl TestHarness {
 			Ok(())
 		} else {
 			// List actual entries for debugging
-			let index = self.context.ephemeral_cache().get_global_index();
+			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 			let index_lock = index.read().await;
 			let entries: Vec<_> = index_lock
 				.entries()
@@ -785,7 +785,7 @@ impl TestHarness {
 
 	/// Print current index state (for debugging)
 	async fn dump_index_state(&self) {
-		let index = self.context.ephemeral_cache().get_global_index();
+		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 
 		println!("\n=== Ephemeral Index State ===");

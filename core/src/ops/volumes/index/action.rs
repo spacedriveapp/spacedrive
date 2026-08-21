@@ -89,11 +89,28 @@ impl LibraryAction for IndexVolumeAction {
 
 		// 4. Create ephemeral indexing job
 		// Volume indexing always indexes from the mount point root, so is_volume = true
-		let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, true);
+		let mut indexer_config =
+			IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, true);
+		if volume.mount_type == crate::domain::volume::MountType::External {
+			// An archived drive's index must reflect the whole drive: rules are
+			// view-time lenses, not walk-time exclusions, for removable media.
+			indexer_config.rule_toggles = crate::ops::indexing::rules::RuleToggles::none();
+		}
 		let mut indexer_job = IndexerJob::new(indexer_config);
 
 		// 5. Get ephemeral cache and create/reuse index for this volume
+		//
+		// Registering the volume as a source gives it a stable identity, its own
+		// index partition, and a source-keyed snapshot that survives remounts —
+		// including detached browsing after the drive is unplugged.
 		let ephemeral_cache = context.ephemeral_cache();
+		ephemeral_cache
+			.register_source(&volume.mount_point, Some(fingerprint.to_string()))
+			.map_err(|e| ActionError::Internal(format!("Failed to register volume source: {e}")))?;
+		// Seed the partition from its snapshot before reindexing over it:
+		// duplicate paths keep their identities, and a partition that skipped
+		// restore would be barred from saving over the existing snapshot.
+		ephemeral_cache.ensure_restored(&volume.mount_point).await;
 		let index = ephemeral_cache.create_for_indexing(volume.mount_point.clone());
 		indexer_job.set_ephemeral_index(index.clone());
 

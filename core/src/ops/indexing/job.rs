@@ -477,7 +477,6 @@ impl IndexerJob {
 
 		ctx.log(&metrics.format_summary());
 
-		#[cfg(feature = "ffmpeg")]
 		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
 			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
@@ -673,15 +672,16 @@ impl JobHandler for IndexerJob {
 
 		let result = self.run_job_phases(&ctx).await;
 
-		// Mark ephemeral indexing complete even on failure to prevent the indexing
-		// flag from being stuck forever. Without this, a failed ephemeral job would
-		// block all future indexing attempts for that path until app restart.
+		// Settle the ephemeral flags either way: leaving a path in progress
+		// blocks every future attempt at it, and recording a failed run as
+		// indexed serves a partial arena as if it were complete.
 		if self.config.is_ephemeral() {
 			if let Some(local_path) = self.config.path.as_local_path() {
-				ctx.library()
-					.core_context()
-					.ephemeral_cache()
-					.mark_indexing_complete(local_path);
+				let cache = ctx.library().core_context().ephemeral_cache();
+				match &result {
+					Ok(_) => cache.mark_indexing_complete(local_path),
+					Err(_) => cache.mark_indexing_failed(local_path),
+				}
 				match &result {
 					Ok(_) => {
 						ctx.log(format!(
@@ -725,7 +725,8 @@ impl JobHandler for IndexerJob {
 						}
 					}
 					Err(e) => ctx.log(format!(
-						"Marked ephemeral indexing complete (job failed: {}) for: {}",
+						"Ephemeral indexing failed ({}) for {}; cleared so the next \
+						 browse re-dispatches",
 						e,
 						local_path.display()
 					)),
@@ -1035,6 +1036,7 @@ impl IndexerJob {
 							content_kind,
 							is_local: true,
 							duration_seconds: None,
+							thumbnail_path: None,
 						})
 					})
 					.collect();

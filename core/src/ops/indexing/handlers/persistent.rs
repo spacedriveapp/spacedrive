@@ -464,6 +464,29 @@ impl PersistentEventHandler {
 				continue;
 			}
 
+			// A vanished location root means the volume unmounted; the flood of
+			// Remove events (and watch errors) that follows must not delete
+			// records. One metadata probe per batch keeps the check cheap.
+			// Creates and modifies for a missing root are dropped as well.
+			if !super::root_is_present(&meta.root_path) {
+				let suppressed = batch
+					.iter()
+					.filter(|e| {
+						matches!(e.kind, FsEventKind::Remove | FsEventKind::Rename { .. })
+					})
+					.count() + pending_removes.len();
+				if suppressed > 0 {
+					warn!(
+						"Location root {} missing, suppressing {} removals for location {} — volume likely unmounted",
+						meta.root_path.display(),
+						suppressed,
+						meta.id
+					);
+				}
+				pending_removes.clear();
+				continue;
+			}
+
 			// Evict expired pending removes
 			let now = Instant::now();
 			let expired: Vec<u64> = pending_removes

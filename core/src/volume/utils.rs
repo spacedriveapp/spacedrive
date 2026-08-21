@@ -4,7 +4,7 @@ use crate::{
 	domain::volume::{SpacedriveVolumeId, SPACEDRIVE_VOLUME_ID_FILE},
 	volume::{
 		error::{VolumeError, VolumeResult},
-		types::FileSystem,
+		types::{FileSystem, VolumeFingerprint},
 	},
 };
 use std::path::Path;
@@ -248,8 +248,8 @@ pub async fn read_or_create_dotfile(
 				return Some(spacedrive_id.id);
 			}
 			Err(e) => {
-				debug!(
-					"Could not write dotfile to {}: {}",
+				warn!(
+					"Could not write volume identity dotfile to {}: {} — caller must fall back to filesystem-derived identity",
 					id_file_path.display(),
 					e
 				);
@@ -310,8 +310,8 @@ pub fn read_or_create_dotfile_sync(
 				return Some(spacedrive_id.id);
 			}
 			Err(e) => {
-				debug!(
-					"Could not write dotfile to {}: {}",
+				warn!(
+					"Could not write volume identity dotfile to {}: {} — caller must fall back to filesystem-derived identity",
 					id_file_path.display(),
 					e
 				);
@@ -319,6 +319,87 @@ pub fn read_or_create_dotfile_sync(
 		}
 	}
 
+	None
+}
+
+/// Derive a fingerprint for an external volume that has no readable or
+/// writable identity dotfile (read-only media, full disk). Prefers the
+/// filesystem's own UUID when the platform exposes one; otherwise falls
+/// back to coarse volume metadata, which has weaker uniqueness (see
+/// `VolumeFingerprint::from_external_metadata`). Both derivations depend
+/// only on the volume itself, so the fingerprint stays stable across
+/// machines and remounts.
+pub fn external_volume_fallback_fingerprint(
+	mount_point: &Path,
+	block_device: Option<&str>,
+	file_system: &FileSystem,
+	total_capacity: u64,
+) -> VolumeFingerprint {
+	if let Some(fs_uuid) = filesystem_uuid(mount_point, block_device) {
+		info!(
+			"Using filesystem UUID {} as fallback identity for volume at {}",
+			fs_uuid,
+			mount_point.display()
+		);
+		return VolumeFingerprint::from_external_fs_uuid(&fs_uuid);
+	}
+
+	let root_created_unix_secs = std::fs::metadata(mount_point)
+		.ok()
+		.and_then(|meta| meta.created().ok())
+		.and_then(|created| created.duration_since(std::time::UNIX_EPOCH).ok())
+		.map(|duration| duration.as_secs() as i64);
+
+	warn!(
+		"No filesystem UUID available for volume at {}; using metadata-based fallback fingerprint (weaker uniqueness)",
+		mount_point.display()
+	);
+	VolumeFingerprint::from_external_metadata(
+		file_system.as_str(),
+		total_capacity,
+		root_created_unix_secs,
+	)
+}
+
+/// Look up the filesystem UUID for a mounted volume via `diskutil info`.
+#[cfg(target_os = "macos")]
+fn filesystem_uuid(mount_point: &Path, _block_device: Option<&str>) -> Option<String> {
+	let output = std::process::Command::new("diskutil")
+		.args(["info", "-plist"])
+		.arg(mount_point)
+		.output()
+		.ok()?;
+	if !output.status.success() {
+		return None;
+	}
+
+	let plist = String::from_utf8_lossy(&output.stdout);
+	let key_pos = plist.find("<key>VolumeUUID</key>")?;
+	let rest = &plist[key_pos..];
+	let value_start = rest.find("<string>")? + "<string>".len();
+	let value_end = rest[value_start..].find("</string>")? + value_start;
+	let uuid = rest[value_start..value_end].trim();
+	(!uuid.is_empty()).then(|| uuid.to_string())
+}
+
+/// Look up the filesystem UUID by matching the volume's block device
+/// against the `/dev/disk/by-uuid` symlinks.
+#[cfg(target_os = "linux")]
+fn filesystem_uuid(_mount_point: &Path, block_device: Option<&str>) -> Option<String> {
+	let canonical_device = std::fs::canonicalize(block_device?).ok()?;
+	for entry in std::fs::read_dir("/dev/disk/by-uuid").ok()?.flatten() {
+		if let Ok(target) = std::fs::canonicalize(entry.path()) {
+			if target == canonical_device {
+				return entry.file_name().to_str().map(str::to_string);
+			}
+		}
+	}
+	None
+}
+
+/// Platforms without a filesystem UUID lookup use the metadata fallback.
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn filesystem_uuid(_mount_point: &Path, _block_device: Option<&str>) -> Option<String> {
 	None
 }
 

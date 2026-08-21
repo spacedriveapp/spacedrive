@@ -678,6 +678,22 @@ pub struct RuleToggles {
 	pub no_dev_dirs: bool,
 }
 
+impl RuleToggles {
+	/// Every rule off: the walk records everything it can read. Used for
+	/// archival indexing of removable media, where completeness is the point
+	/// and rules apply later as view-time lenses.
+	pub fn none() -> Self {
+		Self {
+			no_system_files: false,
+			no_hidden: false,
+			no_git: false,
+			gitignore: false,
+			only_images: false,
+			no_dev_dirs: false,
+		}
+	}
+}
+
 impl Default for RuleToggles {
 	fn default() -> Self {
 		Self {

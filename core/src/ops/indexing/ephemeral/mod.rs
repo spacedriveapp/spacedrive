@@ -34,11 +34,13 @@
 
 pub mod arena;
 pub mod cache;
+pub mod collections;
 pub mod index;
 pub mod name;
 pub mod registry;
 pub mod responder;
 pub mod snapshot;
+pub mod sources;
 pub mod types;
 pub mod writer;
 
@@ -48,6 +50,6 @@ pub use cache::EphemeralIndexCache;
 pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
-pub use snapshot::{get_snapshot_cache_dir, snapshot_path_for};
+pub use sources::{SourceRecord, SourceRegistry};
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
 pub use writer::MemoryAdapter;

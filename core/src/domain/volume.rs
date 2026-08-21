@@ -22,6 +22,12 @@ pub struct VolumeFingerprint(pub String);
 impl VolumeFingerprint {
 	/// Create fingerprint for primary/system volume using stable mount point + device
 	/// This is used for system volumes where the mount point is stable and never changes
+	///
+	/// Mount-point hashing is acceptable here because a boot/system volume is
+	/// permanently attached to one machine and always mounts at the same path
+	/// (`/`, `C:\`, ...) — it never shows up on another device or at a
+	/// renamed mount point the way removable media can. External volumes must
+	/// not use this derivation; they carry their own identity instead.
 	pub fn from_primary_volume(mount_point: &std::path::Path, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"stable_primary_v1:");
@@ -50,11 +56,59 @@ impl VolumeFingerprint {
 
 	/// Create fingerprint for external volume using dotfile UUID
 	/// This is used for removable drives with a .spacedrive-volume-id file
-	pub fn from_external_volume(spacedrive_id: Uuid, device_id: Uuid) -> Self {
+	///
+	/// The hash covers only the volume's own identity — no device id, no mount
+	/// point — so the same physical drive produces the same fingerprint on
+	/// every machine it is plugged into.
+	pub fn from_external_volume(spacedrive_id: Uuid) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"stable_external_v2:");
+		hasher.update(spacedrive_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Legacy external-volume derivation that mixed the detecting device's id
+	/// into the hash, binding the fingerprint to one machine. Kept only so
+	/// rows tracked under the old format can be matched and rewritten to the
+	/// portable derivation on their next mount.
+	pub fn from_external_volume_legacy(spacedrive_id: Uuid, device_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"stable_external_v1:");
 		hasher.update(spacedrive_id.as_bytes());
 		hasher.update(device_id.as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for an external volume from its filesystem UUID.
+	/// Used when the identity dotfile cannot be written (read-only media)
+	/// but the platform exposes a stable per-volume UUID.
+	pub fn from_external_fs_uuid(fs_uuid: &str) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"external_fs_uuid_v1:");
+		hasher.update(fs_uuid.trim().to_ascii_lowercase().as_bytes());
+		Self(hasher.finalize().to_hex().to_string())
+	}
+
+	/// Create fingerprint for an external volume from coarse volume metadata.
+	/// Last-resort derivation for volumes where neither the identity dotfile
+	/// nor a filesystem UUID is available.
+	///
+	/// This has weaker uniqueness than the other derivations: two volumes with
+	/// the same filesystem type, identical total capacity, and no readable
+	/// root creation time will collide. It is still portable across machines,
+	/// which is preferable to a device-bound or mount-point-bound hash.
+	pub fn from_external_metadata(
+		file_system: &str,
+		total_capacity: u64,
+		root_created_unix_secs: Option<i64>,
+	) -> Self {
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(b"external_metadata_v1:");
+		hasher.update(file_system.as_bytes());
+		hasher.update(&total_capacity.to_le_bytes());
+		if let Some(created) = root_created_unix_secs {
+			hasher.update(&created.to_le_bytes());
+		}
 		Self(hasher.finalize().to_hex().to_string())
 	}
 
@@ -69,7 +123,7 @@ impl VolumeFingerprint {
 	}
 
 	/// Create a fingerprint from a Spacedrive identifier UUID
-	/// Deprecated: Use from_external_volume instead for proper device binding
+	/// Deprecated: Use from_external_volume instead
 	pub fn from_spacedrive_id(spacedrive_id: Uuid) -> Self {
 		let mut hasher = blake3::Hasher::new();
 		hasher.update(b"spacedrive_id:");

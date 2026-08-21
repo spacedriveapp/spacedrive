@@ -68,6 +68,25 @@ impl NameRegistry {
 		self.map.entry(key).or_default().push(id);
 	}
 
+	/// Drop a name-to-entry mapping, and the name itself once nothing holds it.
+	///
+	/// Matching is by string content rather than by interned pointer: a removal
+	/// can arrive with a name reconstructed from a path, which is equal to the
+	/// interned copy without being the same allocation. Without this the trie
+	/// keeps ids for deleted entries, and since the registry is serialized into
+	/// the source snapshot, those ids outlive the session that removed them.
+	pub fn remove(&mut self, name: &str, id: EntryId) {
+		let Some(key) = self.map.keys().find(|key| key.as_str() == name).copied() else {
+			return;
+		};
+		if let Some(ids) = self.map.get_mut(&key) {
+			ids.retain(|existing| *existing != id);
+			if ids.is_empty() {
+				self.map.remove(&key);
+			}
+		}
+	}
+
 	/// Get all entries with the exact name
 	pub fn get(&self, name: &str) -> Option<&[EntryId]> {
 		// We need to find by string content, not pointer

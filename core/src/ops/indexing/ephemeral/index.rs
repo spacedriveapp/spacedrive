@@ -38,8 +38,16 @@ pub struct EphemeralIndex {
 	id_to_path: HashMap<EntryId, PathBuf>,
 	entry_uuids: HashMap<EntryId, Uuid>,
 	content_kinds: HashMap<EntryId, ContentKind>,
+	/// Collection membership flags (see `collections`), derived from name +
+	/// kind at add time and recomputed on restore. Only flagged entries
+	/// carry a row.
+	collection_flags: HashMap<EntryId, u32>,
 	created_at: Instant,
 	last_accessed: Instant,
+	/// Set by every mutation, cleared when the partition is snapshotted.
+	/// Entry count cannot stand in for this: a rename, or a delete balanced by
+	/// an add, leaves the count identical while changing what must persist.
+	dirty: bool,
 	pub stats: IndexerStats,
 }
 
@@ -117,10 +125,69 @@ impl EphemeralIndex {
 			id_to_path: HashMap::new(),
 			entry_uuids: HashMap::new(),
 			content_kinds: HashMap::new(),
+			collection_flags: HashMap::new(),
 			created_at: now,
 			last_accessed: now,
+			dirty: false,
 			stats: IndexerStats::default(),
 		})
+	}
+
+	fn mark_dirty(&mut self) {
+		self.dirty = true;
+	}
+
+	/// Whether anything has changed since the last snapshot.
+	pub fn is_dirty(&self) -> bool {
+		self.dirty
+	}
+
+	/// Called after a successful snapshot write.
+	pub fn clear_dirty(&mut self) {
+		self.dirty = false;
+	}
+
+	/// Drop every trace of one entry: its lookups, its name in the search
+	/// registry, and the heap its arena node holds.
+	///
+	/// Returns the node's rollup contribution so the caller can decide how to
+	/// settle ancestors — a caller removing a whole subtree adjusts once at the
+	/// top rather than once per descendant.
+	fn detach(&mut self, path: &Path, id: EntryId) -> u64 {
+		let bytes = self
+			.arena
+			.get(id)
+			.map(|node| node.subtree_bytes)
+			.unwrap_or(0);
+
+		self.path_index.remove(path);
+		self.id_to_path.remove(&id);
+		self.entry_uuids.remove(&id);
+		self.content_kinds.remove(&id);
+		self.collection_flags.remove(&id);
+		if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
+			self.registry.remove(name, id);
+		}
+		self.arena.vacate(id);
+
+		bytes
+	}
+
+	/// Every path at or below `root`, deepest first.
+	///
+	/// Driven from `path_index` rather than by walking children, so an entry
+	/// whose parent link was already severed is still collected — otherwise a
+	/// second pass over the same subtree would find it resident and treat it as
+	/// a live duplicate.
+	fn descendant_paths(&self, root: &Path) -> Vec<PathBuf> {
+		let mut paths: Vec<PathBuf> = self
+			.path_index
+			.keys()
+			.filter(|candidate| candidate.starts_with(root))
+			.cloned()
+			.collect();
+		paths.sort_by_key(|path| std::cmp::Reverse(path.components().count()));
+		paths
 	}
 
 	/// Ensures a directory exists, creating all missing ancestors recursively.
@@ -170,6 +237,7 @@ impl EphemeralIndex {
 		self.id_to_path.insert(id, path.to_path_buf());
 		self.registry.insert(name, id);
 
+		self.mark_dirty();
 		Ok(id)
 	}
 
@@ -179,12 +247,16 @@ impl EphemeralIndex {
 	/// sufficient for ephemeral browsing where speed is critical. Returns Ok(None)
 	/// if the entry already exists (prevents duplicate entries when re-indexing
 	/// a directory).
+	/// Returns the content kind for newly inserted entries (None for a
+	/// duplicate) together with the uuid that identifies the entry — the
+	/// existing one when the path was already indexed, so identity is stable
+	/// across rescans regardless of what the caller minted.
 	pub fn add_entry(
 		&mut self,
 		path: PathBuf,
 		uuid: Uuid,
 		metadata: EntryMetadata,
-	) -> std::io::Result<Option<ContentKind>> {
+	) -> std::io::Result<(Option<ContentKind>, Uuid)> {
 		let registry = FileTypeRegistry::default();
 		self.add_entry_with_registry(path, Some(uuid), metadata, &registry)
 	}
@@ -195,10 +267,52 @@ impl EphemeralIndex {
 		uuid: Option<Uuid>,
 		metadata: EntryMetadata,
 		registry: &FileTypeRegistry,
-	) -> std::io::Result<Option<ContentKind>> {
-		if self.path_index.contains_key(&path) {
-			tracing::trace!("Skipping duplicate entry: {}", path.display());
-			return Ok(None);
+	) -> std::io::Result<(Option<ContentKind>, Uuid)> {
+		if let Some(&existing_id) = self.path_index.get(&path) {
+			// A repeat sighting of a known path is how a modification arrives:
+			// the watcher's update handler routes through here. Adopt the new
+			// size and timestamps and carry the difference up the ancestor
+			// chain, so rollups stay true and the size/mtime validator that
+			// keys the thumbnail and block caches actually changes when the
+			// file does.
+			let previous_bytes = self
+				.arena
+				.get(existing_id)
+				.map(|node| node.subtree_bytes)
+				.unwrap_or(0);
+			let is_directory = metadata.kind == EntryKind::Directory;
+			let new_bytes = if is_directory {
+				previous_bytes
+			} else {
+				metadata.size
+			};
+
+			if let Some(node) = self.arena.get_mut(existing_id) {
+				node.meta = PackedMetadata::new(
+					NodeState::Accessible,
+					FileType::from(metadata.kind),
+					metadata.size,
+				)
+				.with_times(metadata.modified, metadata.created);
+				node.subtree_bytes = new_bytes;
+			}
+
+			let delta = new_bytes as i64 - previous_bytes as i64;
+			if delta != 0 {
+				let parent = self.arena.get(existing_id).and_then(|node| node.parent());
+				self.bump_ancestor_bytes(parent, delta);
+			}
+
+			self.mark_dirty();
+			self.last_accessed = Instant::now();
+
+			// Re-use the entry's identity; assign one now if it never had one
+			// (volume indexing passes None to defer uuid creation).
+			let existing_uuid = *self
+				.entry_uuids
+				.entry(existing_id)
+				.or_insert_with(Uuid::now_v7);
+			return Ok((None, existing_uuid));
 		}
 
 		// Ensure parent directories exist before adding this entry, building the ancestor
@@ -254,15 +368,33 @@ impl EphemeralIndex {
 		self.id_to_path.insert(id, path.clone());
 		self.registry.insert(name, id);
 
-		// Only store UUID if provided (volume indexing passes None to skip UUID generation)
-		if let Some(uuid) = uuid {
-			self.entry_uuids.insert(id, uuid);
+		// Non-directories contribute their size to every ancestor's rollup.
+		if metadata.kind != EntryKind::Directory && metadata.size > 0 {
+			if let Some(node) = self.arena.get_mut(id) {
+				node.subtree_bytes = metadata.size;
+			}
+			self.bump_ancestor_bytes(parent_id, metadata.size as i64);
+		}
+
+		// Volume indexing passes None to defer uuid creation until something
+		// actually references the entry; get_or_assign_uuid covers that later.
+		let entry_uuid = uuid.unwrap_or_else(Uuid::now_v7);
+		if uuid.is_some() {
+			self.entry_uuids.insert(id, entry_uuid);
 		}
 
 		self.content_kinds.insert(id, content_kind);
 
+		if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
+			let flags = super::collections::classify(file_name, content_kind);
+			if flags != 0 {
+				self.collection_flags.insert(id, flags);
+			}
+		}
+
+		self.mark_dirty();
 		self.last_accessed = Instant::now();
-		Ok(Some(content_kind))
+		Ok((Some(content_kind), entry_uuid))
 	}
 
 	/// Add multiple entries in a batch (faster than individual add_entry calls)
@@ -278,8 +410,9 @@ impl EphemeralIndex {
 		let registry = FileTypeRegistry::default();
 
 		for (path, uuid, metadata) in entries {
-			let result = self.add_entry_with_registry(path, uuid, metadata, &registry)?;
-			results.push(result);
+			let (content_kind, _uuid) =
+				self.add_entry_with_registry(path, uuid, metadata, &registry)?;
+			results.push(content_kind);
 		}
 
 		Ok(results)
@@ -329,15 +462,15 @@ impl EphemeralIndex {
 
 	/// Get or assign a UUID for the given path (lazy generation).
 	///
-	/// Returns cached UUID if exists, otherwise generates a new random UUID
-	/// and caches it. UUIDs are random (v4) for global uniqueness across devices,
-	/// avoiding collisions when syncing ephemeral indexes that are later upgraded
-	/// to persistent indexes.
+	/// Returns the cached UUID if one exists, otherwise assigns and caches a
+	/// v7 — the same identity later persisted when the entry is promoted to a
+	/// durable record. An unknown path yields a transient uuid the index never
+	/// records; callers must not persist it.
 	pub fn get_or_assign_uuid(&mut self, path: &PathBuf) -> Uuid {
 		// Look up EntryId for this path
 		let entry_id = match self.path_index.get(path) {
 			Some(&id) => id,
-			None => return Uuid::new_v4(), // Path not found, return random UUID
+			None => return Uuid::now_v7(),
 		};
 
 		// Check if UUID already exists for this EntryId
@@ -346,7 +479,7 @@ impl EphemeralIndex {
 		}
 
 		// Generate and cache new UUID
-		let uuid = Uuid::new_v4();
+		let uuid = Uuid::now_v7();
 		self.entry_uuids.insert(entry_id, uuid);
 		uuid
 	}
@@ -445,12 +578,29 @@ impl EphemeralIndex {
 
 		let cleared = children_to_remove.len();
 
-		// Remove from indexes
+		let removed_bytes: u64 = children_to_remove
+			.iter()
+			.filter_map(|(_, id)| self.arena.get(*id).map(|n| n.subtree_bytes))
+			.sum();
+		if removed_bytes > 0 {
+			self.bump_ancestor_bytes(Some(dir_id), -(removed_bytes as i64));
+		}
+
+		// Detach each child with everything beneath it. Removing only the child
+		// would leave its descendants resident in `path_index` with a severed
+		// parent chain, where the next add for one of those paths finds a live
+		// entry and takes the duplicate branch — inheriting stale metadata that
+		// no longer describes anything.
 		for (child_path, child_id) in &children_to_remove {
-			self.path_index.remove(child_path);
-			self.id_to_path.remove(child_id);
-			self.entry_uuids.remove(child_id);
-			self.content_kinds.remove(child_id);
+			for descendant in self.descendant_paths(child_path) {
+				if descendant == *child_path {
+					continue;
+				}
+				if let Some(&descendant_id) = self.path_index.get(&descendant) {
+					self.detach(&descendant, descendant_id);
+				}
+			}
+			self.detach(child_path, *child_id);
 		}
 
 		// Update parent's children list
@@ -464,6 +614,7 @@ impl EphemeralIndex {
 		}
 
 		if cleared > 0 {
+			self.mark_dirty();
 			tracing::debug!(
 				"Cleared {} entries from {} (preserved browsed subdirs)",
 				cleared,
@@ -571,13 +722,136 @@ impl EphemeralIndex {
 		total_len / sample_size
 	}
 
+	/// Adjust every ancestor's subtree rollup by `delta`, starting at
+	/// `start` and following parent links to the root.
+	fn bump_ancestor_bytes(&mut self, start: Option<EntryId>, delta: i64) {
+		let mut cur = start;
+		while let Some(id) = cur {
+			let Some(node) = self.arena.get_mut(id) else {
+				break;
+			};
+			node.subtree_bytes = if delta >= 0 {
+				node.subtree_bytes.saturating_add(delta as u64)
+			} else {
+				node.subtree_bytes.saturating_sub(delta.unsigned_abs())
+			};
+			cur = node.parent();
+		}
+	}
+
+	/// Sum of file sizes under `path` (a file's own size for files).
+	pub fn subtree_size(&self, path: &Path) -> Option<u64> {
+		let id = *self.path_index.get(path)?;
+		self.arena.get(id).map(|n| n.subtree_bytes)
+	}
+
+	/// Total file bytes across the index: the sum of root-level rollups,
+	/// counted over live entries only (arena slots persist after removal).
+	pub fn total_file_bytes(&self) -> u64 {
+		self.path_index
+			.values()
+			.filter_map(|&id| {
+				let node = self.arena.get(id)?;
+				node.parent().is_none().then_some(node.subtree_bytes)
+			})
+			.sum()
+	}
+
+	/// Rebuild every subtree rollup from live entries. Used after bulk loads
+	/// (snapshot restore), where incremental maintenance did not run.
+	pub fn recompute_rollups(&mut self) {
+		for i in 0..self.arena.len() {
+			if let Some(node) = self.arena.get_mut(EntryId::from_usize(i)) {
+				node.subtree_bytes = 0;
+			}
+		}
+		let live: Vec<EntryId> = self.path_index.values().copied().collect();
+		for id in live {
+			let Some(node) = self.arena.get(id) else {
+				continue;
+			};
+			if node.is_directory() {
+				continue;
+			}
+			let size = node.meta.size();
+			if size == 0 {
+				continue;
+			}
+			let parent = node.parent();
+			if let Some(node) = self.arena.get_mut(id) {
+				node.subtree_bytes = size;
+			}
+			self.bump_ancestor_bytes(parent, size as i64);
+		}
+	}
+
+	/// Rebuild collection flags from names and kinds already in the index.
+	/// Runs on snapshot restore (flags are derived data and never persist),
+	/// and is safe to re-run when classification heuristics change.
+	pub fn recompute_collections(&mut self) {
+		self.collection_flags.clear();
+		for (path, &id) in &self.path_index {
+			let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+				continue;
+			};
+			let kind = self
+				.content_kinds
+				.get(&id)
+				.copied()
+				.unwrap_or(ContentKind::Unknown);
+			let flags = super::collections::classify(file_name, kind);
+			if flags != 0 {
+				self.collection_flags.insert(id, flags);
+			}
+		}
+	}
+
+	/// Most recently modified files, newest first, capped at `limit`.
+	/// Directories and entries without a stored mtime are skipped.
+	pub fn recent_files(&self, limit: usize) -> Vec<(PathBuf, EntryMetadata)> {
+		let mut candidates: Vec<(std::time::SystemTime, &PathBuf)> = self
+			.path_index
+			.iter()
+			.filter_map(|(path, &id)| {
+				let node = self.arena.get(id)?;
+				if node.is_directory() {
+					return None;
+				}
+				let mtime = node.meta.mtime_as_system_time()?;
+				Some((mtime, path))
+			})
+			.collect();
+		candidates.sort_by(|a, b| b.0.cmp(&a.0));
+		candidates.truncate(limit);
+		candidates
+			.into_iter()
+			.filter_map(|(_, path)| Some((path.clone(), self.get_entry_ref(path)?)))
+			.collect()
+	}
+
+	/// Paths of every entry whose flags intersect the mask.
+	pub fn collection_paths(&self, mask: u32) -> Vec<PathBuf> {
+		self.collection_flags
+			.iter()
+			.filter(|(_, flags)| *flags & mask != 0)
+			.filter_map(|(id, _)| self.id_to_path.get(id).cloned())
+			.collect()
+	}
+
+	pub fn collection_count(&self, mask: u32) -> usize {
+		self.collection_flags
+			.values()
+			.filter(|flags| **flags & mask != 0)
+			.count()
+	}
+
 	pub fn get_stats(&self) -> EphemeralIndexStats {
 		EphemeralIndexStats {
 			total_entries: self.arena.len(),
 			unique_names: self.registry.unique_names(),
 			interned_strings: self.cache.len(),
 			memory_bytes: self.memory_usage(),
-			total_file_bytes: self.stats.bytes,
+			total_file_bytes: self.total_file_bytes(),
 			uuid_count: self.entry_uuids.len(),
 		}
 	}
@@ -617,27 +891,27 @@ impl EphemeralIndex {
 	/// For directories, this only removes the directory entry itself, not its children.
 	/// Use `remove_directory_tree` to remove a directory and all its descendants.
 	pub fn remove_entry(&mut self, path: &Path) -> bool {
-		// Get the entry ID before removing from path_index
-		let entry_id = self.path_index.remove(path);
+		let Some(id) = self.path_index.get(path).copied() else {
+			return false;
+		};
 
-		// Remove from other HashMaps using EntryId
-		if let Some(id) = entry_id {
-			self.id_to_path.remove(&id);
-			self.entry_uuids.remove(&id);
-			self.content_kinds.remove(&id);
+		let parent = self.arena.get(id).and_then(|node| node.parent());
 
-			// Also remove from parent's children list in arena
-			// Get the parent's entry ID
-			if let Some(parent_path) = path.parent() {
-				if let Some(&parent_id) = self.path_index.get(parent_path) {
-					if let Some(parent_node) = self.arena.get_mut(parent_id) {
-						parent_node.children.retain(|child_id| *child_id != id);
-					}
-				}
+		// Drop the parent's link before the node goes, so no child list keeps an
+		// id whose slot has been vacated.
+		if let Some(parent_id) = parent {
+			if let Some(parent_node) = self.arena.get_mut(parent_id) {
+				parent_node.children.retain(|child_id| *child_id != id);
 			}
 		}
 
-		entry_id.is_some()
+		let bytes = self.detach(path, id);
+		if bytes > 0 {
+			self.bump_ancestor_bytes(parent, -(bytes as i64));
+		}
+
+		self.mark_dirty();
+		true
 	}
 
 	/// Remove a directory and all its descendants.
@@ -647,27 +921,23 @@ impl EphemeralIndex {
 		// First, get the entry ID for the root directory to remove from parent
 		let root_id = self.path_index.get(path).copied();
 
-		let prefix = path.to_string_lossy().to_string();
-		let keys_to_remove: Vec<_> = self
-			.path_index
-			.keys()
-			.filter(|k| {
-				let k_str = k.to_string_lossy();
-				k_str == prefix
-					|| k_str.starts_with(&format!("{}/", prefix))
-					|| k_str.starts_with(&format!("{}\\", prefix))
-			})
-			.cloned()
-			.collect();
+		if let Some(node) = root_id.and_then(|id| self.arena.get(id)) {
+			let (bytes, parent) = (node.subtree_bytes, node.parent());
+			if bytes > 0 {
+				self.bump_ancestor_bytes(parent, -(bytes as i64));
+			}
+		}
+
+		let keys_to_remove = self.descendant_paths(path);
 
 		let count = keys_to_remove.len();
 		for key in keys_to_remove {
-			// Get EntryId before removing from path_index
-			if let Some(entry_id) = self.path_index.remove(&key) {
-				self.id_to_path.remove(&entry_id);
-				self.entry_uuids.remove(&entry_id);
-				self.content_kinds.remove(&entry_id);
+			if let Some(entry_id) = self.path_index.get(&key).copied() {
+				self.detach(&key, entry_id);
 			}
+		}
+		if count > 0 {
+			self.mark_dirty();
 		}
 
 		// Remove root directory from parent's children list
@@ -712,30 +982,26 @@ impl EphemeralIndex {
 		result
 	}
 
-	/// Save this index to a snapshot file for fast restoration
+	/// Save this index to a snapshot file for fast restoration.
 	///
-	/// Snapshots are compressed with zstd and written atomically.
-	#[deprecated(note = "Use save_snapshot_with_root to include root path in snapshot")]
-	pub fn save_snapshot(&self, snapshot_path: &Path) -> anyhow::Result<()> {
-		super::snapshot::save_snapshot_impl(self, snapshot_path)
-	}
-
-	/// Save this index to a snapshot file with the root path
-	///
-	/// The root path is stored in the snapshot so it can be restored to
-	/// indexed_paths when loaded, making the cached data queryable.
-	pub fn save_snapshot_with_root(
+	/// Snapshots are compressed with zstd, written atomically, and carry the
+	/// owning source id and root path so a restore can verify what it holds.
+	pub fn save_snapshot(
 		&self,
 		snapshot_path: &Path,
-		_root_path: &Path,
+		source_id: Uuid,
+		root_path: &Path,
 	) -> anyhow::Result<()> {
-		super::snapshot::save_snapshot_impl(self, snapshot_path)
+		super::snapshot::save_snapshot_impl(self, snapshot_path, source_id, root_path)
 	}
 
-	/// Load an index from a snapshot file
+	/// Load an index from a snapshot file.
 	///
-	/// Returns None if the snapshot doesn't exist or is incompatible.
-	pub fn load_snapshot(snapshot_path: &Path) -> anyhow::Result<Option<Self>> {
+	/// Returns None if the snapshot doesn't exist or is incompatible; an
+	/// incompatible file is removed so the source reindexes cleanly.
+	pub fn load_snapshot(
+		snapshot_path: &Path,
+	) -> anyhow::Result<Option<(Self, super::snapshot::SnapshotMeta)>> {
 		super::snapshot::load_snapshot_impl(snapshot_path)
 	}
 
@@ -778,7 +1044,7 @@ impl EphemeralIndex {
 			.iter()
 			.map(|(path, &id)| (id, path.clone()))
 			.collect();
-		Self {
+		let mut index = Self {
 			arena,
 			cache,
 			registry,
@@ -786,10 +1052,15 @@ impl EphemeralIndex {
 			id_to_path,
 			entry_uuids,
 			content_kinds,
+			collection_flags: HashMap::new(),
 			created_at: now,
 			last_accessed: now,
+			dirty: false,
 			stats,
-		}
+		};
+		index.recompute_rollups();
+		index.recompute_collections();
+		index
 	}
 }
 
@@ -808,4 +1079,211 @@ pub struct EphemeralIndexStats {
 	pub memory_bytes: usize,
 	pub total_file_bytes: u64,
 	pub uuid_count: usize,
+}
+
+#[cfg(test)]
+mod rollup_tests {
+	use super::*;
+
+	fn meta(path: &Path, kind: EntryKind, size: u64) -> EntryMetadata {
+		EntryMetadata {
+			kind,
+			path: path.to_path_buf(),
+			size,
+			modified: None,
+			accessed: None,
+			created: None,
+			inode: None,
+			permissions: None,
+			is_hidden: false,
+		}
+	}
+
+	#[test]
+	fn rollups_track_adds_and_removes_up_the_chain() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let a = root.join("a");
+		let f1 = a.join("one.bin");
+		let f2 = a.join("two.bin");
+		let f3 = root.join("top.bin");
+
+		index
+			.add_entry(f1.clone(), Uuid::now_v7(), meta(&f1, EntryKind::File, 100))
+			.unwrap();
+		index
+			.add_entry(f2.clone(), Uuid::now_v7(), meta(&f2, EntryKind::File, 50))
+			.unwrap();
+		index
+			.add_entry(f3.clone(), Uuid::now_v7(), meta(&f3, EntryKind::File, 7))
+			.unwrap();
+
+		assert_eq!(index.subtree_size(&a), Some(150));
+		assert_eq!(index.subtree_size(&root), Some(157));
+		assert_eq!(index.subtree_size(&f1), Some(100));
+		assert_eq!(index.total_file_bytes(), 157);
+
+		// Duplicate adds do not double-count.
+		index
+			.add_entry(f1.clone(), Uuid::now_v7(), meta(&f1, EntryKind::File, 100))
+			.unwrap();
+		assert_eq!(index.subtree_size(&root), Some(157));
+
+		index.remove_entry(&f2);
+		assert_eq!(index.subtree_size(&a), Some(100));
+		assert_eq!(index.subtree_size(&root), Some(107));
+
+		index.remove_directory_tree(&a);
+		assert_eq!(index.subtree_size(&root), Some(7));
+		assert_eq!(index.total_file_bytes(), 7);
+	}
+
+	#[test]
+	fn repeat_add_adopts_new_size_and_times() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let file = root.join("clip.mov");
+
+		let uuid = Uuid::now_v7();
+		index
+			.add_entry(file.clone(), uuid, meta(&file, EntryKind::File, 100))
+			.unwrap();
+
+		let grown = EntryMetadata {
+			modified: Some(std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000)),
+			..meta(&file, EntryKind::File, 400)
+		};
+		let (kind, same_uuid) = index
+			.add_entry(file.clone(), Uuid::now_v7(), grown)
+			.unwrap();
+
+		// The second sighting is not a new entry, and identity is preserved.
+		assert!(kind.is_none());
+		assert_eq!(same_uuid, uuid);
+
+		// The size the caches key on has to move with the file.
+		let seen = index.get_entry(&file).expect("entry present");
+		assert_eq!(seen.size, 400);
+		assert!(seen.modified.is_some());
+
+		// Ancestors carry the difference, not the original.
+		assert_eq!(index.subtree_size(&file), Some(400));
+		assert_eq!(index.subtree_size(&root), Some(400));
+		assert_eq!(index.total_file_bytes(), 400);
+	}
+
+	#[test]
+	fn clearing_a_directory_takes_its_whole_subtree() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let branch = root.join("branch");
+		let deep = branch.join("inner").join("leaf.bin");
+		let kept = root.join("kept.bin");
+
+		index
+			.add_entry(
+				deep.clone(),
+				Uuid::now_v7(),
+				meta(&deep, EntryKind::File, 64),
+			)
+			.unwrap();
+		index
+			.add_entry(
+				kept.clone(),
+				Uuid::now_v7(),
+				meta(&kept, EntryKind::File, 8),
+			)
+			.unwrap();
+
+		let before = index.arena.len();
+		index.clear_directory_children(&root, &std::collections::HashSet::new());
+
+		// Nothing under the cleared branch may still resolve: a descendant left
+		// behind would be found by the next add and treated as a live duplicate.
+		assert!(index.get_entry(&deep).is_none());
+		assert!(index.get_entry(&branch.join("inner")).is_none());
+		assert!(index.find_by_name("leaf.bin").is_empty());
+		assert_eq!(index.subtree_size(&root), Some(0));
+
+		// Slots are released rather than accumulated, and ids are never reused.
+		let reused = index
+			.add_entry(
+				deep.clone(),
+				Uuid::now_v7(),
+				meta(&deep, EntryKind::File, 64),
+			)
+			.unwrap();
+		assert!(
+			reused.0.is_some(),
+			"re-adding a cleared path is a fresh entry"
+		);
+		assert_eq!(index.subtree_size(&root), Some(64));
+		assert!(index.arena.len() >= before);
+	}
+
+	#[test]
+	fn removal_clears_the_name_registry() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let file = root.join("only.bin");
+
+		index
+			.add_entry(
+				file.clone(),
+				Uuid::now_v7(),
+				meta(&file, EntryKind::File, 1),
+			)
+			.unwrap();
+		assert_eq!(index.find_by_name("only.bin").len(), 1);
+
+		index.remove_entry(&file);
+		assert!(
+			index.find_by_name("only.bin").is_empty(),
+			"a deleted name must not survive in the search registry, which is serialized into the snapshot"
+		);
+	}
+
+	#[test]
+	fn mutations_mark_the_index_dirty() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let before = root.join("before.bin");
+		let after = root.join("after.bin");
+
+		index
+			.add_entry(
+				before.clone(),
+				Uuid::now_v7(),
+				meta(&before, EntryKind::File, 10),
+			)
+			.unwrap();
+		index.clear_dirty();
+		assert!(!index.is_dirty());
+
+		// A rename leaves the entry count identical, which is why count cannot
+		// stand in for "something changed".
+		let uuid = index.get_entry_uuid(&before).unwrap();
+		index.remove_entry(&before);
+		index
+			.add_entry(after.clone(), uuid, meta(&after, EntryKind::File, 10))
+			.unwrap();
+
+		assert!(index.is_dirty(), "a rename has to reach the snapshot");
+	}
+
+	#[test]
+	fn recompute_matches_incremental() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		for i in 0..20u64 {
+			let p = root.join(format!("d{}", i % 4)).join(format!("f{i}.bin"));
+			index
+				.add_entry(p.clone(), Uuid::now_v7(), meta(&p, EntryKind::File, i + 1))
+				.unwrap();
+		}
+		let incremental = index.subtree_size(&root);
+		index.recompute_rollups();
+		assert_eq!(index.subtree_size(&root), incremental);
+		assert_eq!(index.total_file_bytes(), (1..=20).sum::<u64>());
+	}
 }

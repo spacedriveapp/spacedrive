@@ -74,7 +74,7 @@ pub async fn apply_batch(
 		root_path.display()
 	);
 
-	let index = context.ephemeral_cache().get_global_index();
+	let index = context.ephemeral_cache().resolve_index(root_path);
 	let event_bus = context.events.clone();
 
 	let mut writer = MemoryAdapter::new(index, event_bus, root_path.to_path_buf());

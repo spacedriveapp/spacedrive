@@ -54,7 +54,7 @@ async fn index_ephemeral(
 	scope: IndexScope,
 ) -> anyhow::Result<()> {
 	let sd_path = SdPath::local(path.clone());
-	let global_index = harness.core.context.ephemeral_cache().get_global_index();
+	let global_index = harness.core.context.ephemeral_cache().resolve_index(&path);
 
 	let indexer_config = IndexerJobConfig::ephemeral_browse(sd_path, scope, false);
 	let mut indexer_job = IndexerJob::new(indexer_config);

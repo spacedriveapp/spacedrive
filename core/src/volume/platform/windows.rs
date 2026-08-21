@@ -70,9 +70,18 @@ pub async fn detect_volumes(
 					if let Some(spacedrive_id) =
 						utils::read_or_create_dotfile_sync(&mount_point, device_id, None)
 					{
-						VolumeFingerprint::from_external_volume(spacedrive_id, device_id)
+						VolumeFingerprint::from_external_volume(spacedrive_id)
 					} else {
-						VolumeFingerprint::from_primary_volume(&mount_point, device_id)
+						// Dotfile unavailable (read-only or full volume):
+						// derive identity from the filesystem itself so the
+						// fingerprint survives drive-letter changes and other
+						// machines
+						utils::external_volume_fallback_fingerprint(
+							&mount_point,
+							None,
+							&file_system,
+							total_space,
+						)
 					}
 				}
 				crate::volume::types::VolumeType::Network => {

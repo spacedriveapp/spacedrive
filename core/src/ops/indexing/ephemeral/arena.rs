@@ -126,6 +126,20 @@ impl NodeArena {
 		Ok(id)
 	}
 
+	/// Release a slot's heap allocation, leaving an empty node in its place.
+	///
+	/// The slot keeps its index: `EntryId`s are handed out monotonically and are
+	/// referenced from the name registry and from parents' child lists, so
+	/// reusing one would silently rebind a stale reference to a different file.
+	/// Replacing the node instead drops its children `SmallVec` — the only heap
+	/// the node owns — while the slot itself stays initialized and pages out
+	/// under memory pressure like any other cold entry.
+	pub fn vacate(&mut self, id: EntryId) {
+		if let Some(node) = self.get_mut(id) {
+			*node = FileNode::vacant();
+		}
+	}
+
 	pub fn get(&self, id: EntryId) -> Option<&FileNode> {
 		if id.as_usize() < self.len {
 			Some(unsafe {

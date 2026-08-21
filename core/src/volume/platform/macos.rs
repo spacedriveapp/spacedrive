@@ -95,10 +95,17 @@ pub async fn detect_non_apfs_volumes(
 						if let Some(spacedrive_id) =
 							utils::read_or_create_dotfile_sync(&mount_path, device_id, None)
 						{
-							VolumeFingerprint::from_external_volume(spacedrive_id, device_id)
+							VolumeFingerprint::from_external_volume(spacedrive_id)
 						} else {
-							// Fallback to mount_point + device_id for read-only external volumes
-							VolumeFingerprint::from_primary_volume(&mount_path, device_id)
+							// Dotfile unavailable (read-only or full volume):
+							// derive identity from the filesystem itself so the
+							// fingerprint survives remounts and other machines
+							utils::external_volume_fallback_fingerprint(
+								&mount_path,
+								Some(filesystem),
+								&file_system,
+								total_bytes,
+							)
 						}
 					}
 					crate::volume::types::VolumeType::Network => {

@@ -28,6 +28,7 @@ pub mod handlers;
 pub mod hierarchy;
 pub mod input;
 pub mod job;
+pub mod lens;
 pub mod metrics;
 pub mod path_resolver;
 pub mod persistence;

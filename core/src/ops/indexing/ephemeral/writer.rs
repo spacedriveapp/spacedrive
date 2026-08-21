@@ -64,7 +64,7 @@ impl MemoryAdapter {
 		uuid: Uuid,
 		metadata: EntryMetadata,
 	) -> Result<(i32, Option<crate::domain::ContentKind>)> {
-		let content_kind = {
+		let (content_kind, _entry_uuid) = {
 			let mut index = self.index.write().await;
 			index
 				.add_entry(path.to_path_buf(), uuid, metadata.clone())
@@ -308,8 +308,7 @@ impl ChangeHandler for MemoryAdapter {
 					is_hidden: is_hidden_path(&entry_path),
 				};
 
-				let uuid = Uuid::new_v4();
-				let _ = index.add_entry(entry_path, uuid, entry_metadata);
+				let _ = index.add_entry(entry_path, Uuid::now_v7(), entry_metadata);
 			}
 		}
 
@@ -331,12 +330,12 @@ impl IndexPersistence for MemoryAdapter {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 
-		let entry_uuid = Uuid::new_v4();
-
-		let (entry_id, content_kind) = {
+		let (entry_id, content_kind, entry_uuid) = {
 			let mut index = self.index.write().await;
-			let content_kind = index
-				.add_entry(entry.path.clone(), entry_uuid, metadata.clone())
+			// The index keeps an existing entry's uuid on duplicate paths, so
+			// events always carry the identity queries will resolve.
+			let (content_kind, entry_uuid) = index
+				.add_entry(entry.path.clone(), Uuid::now_v7(), metadata.clone())
 				.map_err(|e| {
 					tracing::error!("Failed to add entry to ephemeral index: {}", e);
 					JobError::execution(format!("Failed to add entry: {}", e))
@@ -351,7 +350,7 @@ impl IndexPersistence for MemoryAdapter {
 				index.stats.bytes += entry.size;
 			}
 
-			(self.next_id(), content_kind)
+			(self.next_id(), content_kind, entry_uuid)
 		};
 
 		if let Some(content_kind) = content_kind {

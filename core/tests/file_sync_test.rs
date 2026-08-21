@@ -66,6 +66,7 @@ impl FileSyncTestSetup {
 			logging: sd_core::config::LoggingConfig::default(),
 			proxy_pairing: sd_core::config::ProxyPairingConfig::default(),
 			spacebot: sd_core::config::SpacebotConfig::default(),
+			mounts: sd_core::config::app_config::MountsConfig::default(),
 		};
 		config.save()?;
 

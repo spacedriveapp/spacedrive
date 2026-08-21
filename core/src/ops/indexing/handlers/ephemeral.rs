@@ -162,6 +162,18 @@ impl EphemeralEventHandler {
 			root_path.display()
 		);
 
+		// A vanished watched root means the volume unmounted; events from the
+		// flood that follows must not mutate the in-memory index.
+		if !super::root_is_present(root_path) {
+			warn!(
+				"Watched root {} missing, dropping {:?} event for {} — volume likely unmounted",
+				root_path.display(),
+				event.kind,
+				event.path.display()
+			);
+			return Ok(());
+		}
+
 		// Pass FsEvent directly to responder
 		responder::apply(context, root_path, event.clone(), rule_toggles).await
 	}

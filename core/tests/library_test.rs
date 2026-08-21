@@ -61,7 +61,6 @@ async fn test_library_lifecycle() {
 	assert_eq!(reopened.name().await, "Test Library");
 
 	// Verify data persisted
-	// assert!(reopened.has_thumbnail(cas_id).await);
 	let config = reopened.config().await;
 	assert_eq!(config.description, Some("Test description".to_string()));
 }

@@ -31,14 +31,27 @@ use std::{
 };
 use uuid::Uuid;
 
-/// Current snapshot format version
-const SNAPSHOT_VERSION: u32 = 1;
+/// Current snapshot format version. Version 2 keys snapshots by source id,
+/// carries a real root path, and holds one source's partition rather than a
+/// dump of a shared global index.
+const SNAPSHOT_VERSION: u32 = 2;
+
+/// Metadata read back alongside a restored index, used for staleness checks
+/// and for reattaching the snapshot to its source.
+#[derive(Debug, Clone)]
+pub struct SnapshotMeta {
+	pub source_id: Uuid,
+	pub root_path: PathBuf,
+	pub created_at_secs: u64,
+}
 
 /// Serializable snapshot of an ephemeral index
 #[derive(Serialize, Deserialize)]
 pub struct IndexSnapshot {
 	/// Format version for compatibility checking
 	pub version: u32,
+	/// The source this partition belongs to
+	pub source_id: Uuid,
 	/// Root path that was indexed
 	pub root_path: PathBuf,
 	/// When the snapshot was created
@@ -76,6 +89,8 @@ struct SerializableFileNode {
 pub(super) fn save_snapshot_impl(
 	index: &super::EphemeralIndex,
 	snapshot_path: &Path,
+	source_id: Uuid,
+	root_path: &Path,
 ) -> Result<()> {
 	let start = Instant::now();
 
@@ -112,7 +127,8 @@ pub(super) fn save_snapshot_impl(
 
 	let snapshot = IndexSnapshot {
 		version: SNAPSHOT_VERSION,
-		root_path: PathBuf::new(), // Populated by caller
+		source_id,
+		root_path: root_path.to_path_buf(),
 		created_at_secs: std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)
 			.unwrap()
@@ -126,8 +142,10 @@ pub(super) fn save_snapshot_impl(
 		arena_entries,
 	};
 
-	// Write to temporary file first
-	let tmp_path = snapshot_path.with_extension("tmp");
+	// Write to a uniquely named temporary file first. The name must be unique
+	// per writer: concurrent saves sharing one tmp path interleave their
+	// writes, and the atomic rename then publishes a corrupt snapshot.
+	let tmp_path = snapshot_path.with_extension(format!("tmp.{}", Uuid::now_v7().simple()));
 	{
 		let file = File::create(&tmp_path).context("Failed to create temporary snapshot file")?;
 
@@ -137,14 +155,29 @@ pub(super) fn save_snapshot_impl(
 			.multithread(available_parallelism().map(|x| x.get() as u32).unwrap_or(4))
 			.context("Failed to enable zstd multithreading")?;
 
-		let writer = BufWriter::new(encoder.auto_finish());
+		{
+			let mut writer = BufWriter::new(&mut encoder);
+			postcard::to_io(&snapshot, &mut writer).context("Failed to serialize snapshot")?;
+			use std::io::Write;
+			writer.flush().context("Failed to flush snapshot")?;
+		}
 
-		// Serialize with postcard
-		postcard::to_io(&snapshot, writer).context("Failed to serialize snapshot")?;
+		// The rename below only orders metadata; without syncing the data a
+		// reboot can persist the rename while the file's blocks are still in
+		// the page cache, leaving a truncated snapshot at the final name.
+		let file = encoder.finish().context("Failed to finish zstd stream")?;
+		file.sync_all().context("Failed to sync snapshot data")?;
 	}
 
 	// Atomically rename temporary file
 	fs::rename(&tmp_path, snapshot_path).context("Failed to rename snapshot file")?;
+
+	// Sync the directory so the rename itself survives a crash.
+	if let Some(parent) = snapshot_path.parent() {
+		if let Ok(dir) = File::open(parent) {
+			let _ = dir.sync_all();
+		}
+	}
 
 	let file_size = fs::metadata(snapshot_path)
 		.context("Failed to read snapshot file size")?
@@ -161,7 +194,9 @@ pub(super) fn save_snapshot_impl(
 }
 
 /// Internal implementation for loading snapshots (called from index.rs)
-pub(super) fn load_snapshot_impl(snapshot_path: &Path) -> Result<Option<super::EphemeralIndex>> {
+pub(super) fn load_snapshot_impl(
+	snapshot_path: &Path,
+) -> Result<Option<(super::EphemeralIndex, SnapshotMeta)>> {
 	if !snapshot_path.exists() {
 		return Ok(None);
 	}
@@ -173,21 +208,39 @@ pub(super) fn load_snapshot_impl(snapshot_path: &Path) -> Result<Option<super::E
 	let decoder = zstd::Decoder::new(file).context("Failed to create zstd decoder")?;
 	let reader = BufReader::new(decoder);
 
-	// Deserialize with postcard
+	// Deserialize with postcard. A snapshot from an older format version fails
+	// either here (layout changed) or at the version check below; both cases
+	// remove the file so the source reindexes cleanly instead of retrying a
+	// dead artifact on every launch.
 	let mut buffer = vec![0u8; 4 * 1024];
-	let snapshot: IndexSnapshot = postcard::from_io((reader, &mut buffer))
-		.context("Failed to deserialize snapshot")?
-		.0;
+	let snapshot: IndexSnapshot = match postcard::from_io((reader, &mut buffer)) {
+		Ok((snapshot, _)) => snapshot,
+		Err(err) => {
+			tracing::warn!(
+				"Unreadable snapshot {} ({err}); removing",
+				snapshot_path.display()
+			);
+			let _ = fs::remove_file(snapshot_path);
+			return Ok(None);
+		}
+	};
 
-	// Version check
 	if snapshot.version != SNAPSHOT_VERSION {
 		tracing::warn!(
-			"Snapshot version mismatch: expected {}, got {}",
+			"Snapshot version mismatch: expected {}, got {}; removing {}",
 			SNAPSHOT_VERSION,
-			snapshot.version
+			snapshot.version,
+			snapshot_path.display()
 		);
+		let _ = fs::remove_file(snapshot_path);
 		return Ok(None);
 	}
+
+	let meta = SnapshotMeta {
+		source_id: snapshot.source_id,
+		root_path: snapshot.root_path.clone(),
+		created_at_secs: snapshot.created_at_secs,
+	};
 
 	// Reconstruct index
 	let cache = Arc::new(NameCache::new());
@@ -244,57 +297,6 @@ pub(super) fn load_snapshot_impl(snapshot_path: &Path) -> Result<Option<super::E
 		start.elapsed()
 	);
 
-	Ok(Some(index))
+	Ok(Some((index, meta)))
 }
 
-/// Get the snapshot file path for a given root path
-///
-/// Uses a hash of the canonical path to avoid filesystem-unsafe characters.
-pub fn snapshot_path_for(root: &Path, cache_dir: &Path) -> Result<PathBuf> {
-	use std::collections::hash_map::DefaultHasher;
-	use std::hash::{Hash, Hasher};
-
-	// Canonicalize to handle symlinks
-	let canonical = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-
-	// Hash the path
-	let mut hasher = DefaultHasher::new();
-	canonical.hash(&mut hasher);
-	let hash = hasher.finish();
-
-	// Create filename
-	let filename = format!("{:016x}.snapshot", hash);
-	Ok(cache_dir.join(filename))
-}
-
-/// Get the ephemeral snapshot cache directory
-///
-/// Returns `~/Library/Application Support/spacedrive/cache/volume-index/` on macOS,
-/// similar paths on other platforms.
-pub fn get_snapshot_cache_dir() -> Result<PathBuf> {
-	let data_dir = crate::config::default_data_dir().context("Failed to get data directory")?;
-	let cache_dir = data_dir.join("cache").join("volume-index");
-	fs::create_dir_all(&cache_dir).context("Failed to create snapshot cache directory")?;
-	Ok(cache_dir)
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_snapshot_path_hash() {
-		let cache_dir = PathBuf::from("/tmp/cache");
-
-		// Same path should give same hash
-		let path1 = PathBuf::from("/Users/test");
-		let snapshot1 = snapshot_path_for(&path1, &cache_dir).unwrap();
-		let snapshot2 = snapshot_path_for(&path1, &cache_dir).unwrap();
-		assert_eq!(snapshot1, snapshot2);
-
-		// Different paths should give different hashes
-		let path2 = PathBuf::from("/Users/other");
-		let snapshot3 = snapshot_path_for(&path2, &cache_dir).unwrap();
-		assert_ne!(snapshot1, snapshot3);
-	}
-}

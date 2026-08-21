@@ -71,8 +71,9 @@ fn test_fingerprint_stable_across_volume_types() {
 	// Primary volume fingerprint uses mount point + device (both stable across reboots)
 	let fp_primary = VolumeFingerprint::from_primary_volume(std::path::Path::new("/"), device_id);
 
-	// External volume fingerprint uses dotfile UUID + device (both stable)
-	let fp_external = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+	// External volume fingerprint uses the dotfile UUID alone: the same drive
+	// must fingerprint identically on every machine
+	let fp_external = VolumeFingerprint::from_external_volume(spacedrive_id);
 
 	// Network volume fingerprint uses backend ID + URI (both stable)
 	let fp_network = VolumeFingerprint::from_network_volume("smb", "//nas.local/share");
@@ -118,8 +119,8 @@ fn test_fingerprint_stable_despite_disk_id_changes() {
 
 	// External volume with dotfile UUID is also stable across reboots
 	let spacedrive_id = Uuid::parse_str("aabbccdd-1234-5678-9012-aabbccddeeff").unwrap();
-	let fp_ext_before = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
-	let fp_ext_after = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+	let fp_ext_before = VolumeFingerprint::from_external_volume(spacedrive_id);
+	let fp_ext_after = VolumeFingerprint::from_external_volume(spacedrive_id);
 
 	assert_eq!(
 		fp_ext_before, fp_ext_after,
@@ -301,4 +302,25 @@ async fn test_what_properties_change_on_real_volumes() {
 		println!("     NOT capacity_consumed (changes with files)");
 		println!();
 	}
+}
+
+/// The portability guarantee: an external drive's fingerprint is derived from
+/// the drive's own identity only, so two machines compute the same value.
+#[test]
+fn test_external_fingerprint_is_machine_independent() {
+	let spacedrive_id = Uuid::parse_str("aabbccdd-1234-5678-9012-aabbccddeeff").unwrap();
+
+	// Compute "on two different machines" - no device input exists to differ.
+	let on_machine_a = VolumeFingerprint::from_external_volume(spacedrive_id);
+	let on_machine_b = VolumeFingerprint::from_external_volume(spacedrive_id);
+	assert_eq!(on_machine_a, on_machine_b);
+
+	// The legacy derivation differed per device; the migration path depends on
+	// being able to recompute it for any given device.
+	let device_a = Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap();
+	let device_b = Uuid::parse_str("22222222-2222-2222-2222-222222222222").unwrap();
+	let legacy_a = VolumeFingerprint::from_external_volume_legacy(spacedrive_id, device_a);
+	let legacy_b = VolumeFingerprint::from_external_volume_legacy(spacedrive_id, device_b);
+	assert_ne!(legacy_a, legacy_b);
+	assert_ne!(legacy_a, on_machine_a);
 }

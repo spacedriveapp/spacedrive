@@ -73,6 +73,7 @@ impl TestConfigBuilder {
 			},
 			proxy_pairing: sd_core::config::app_config::ProxyPairingConfig::default(),
 			spacebot: sd_core::config::app_config::SpacebotConfig::default(),
+			mounts: sd_core::config::app_config::MountsConfig::default(),
 		};
 
 		config.save()?;

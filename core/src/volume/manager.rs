@@ -641,6 +641,30 @@ impl VolumeManager {
 			);
 		}
 
+		// External volumes tracked before the portable fingerprint derivation
+		// are stored under a hash that mixed in this device's id. Map that
+		// legacy value to the current derivation for each detected external
+		// volume so those rows can be matched and rewritten in place below.
+		let mut legacy_external_fingerprints: HashMap<VolumeFingerprint, VolumeFingerprint> =
+			HashMap::new();
+		for detected in &detected_volumes {
+			if !matches!(
+				detected.volume_type,
+				crate::volume::types::VolumeType::External
+			) {
+				continue;
+			}
+			let id_file_path = detected.mount_point.join(SPACEDRIVE_VOLUME_ID_FILE);
+			if let Ok(content) = fs::read_to_string(&id_file_path).await {
+				if let Ok(dotfile) = serde_json::from_str::<SpacedriveVolumeId>(&content) {
+					legacy_external_fingerprints.insert(
+						VolumeFingerprint::from_external_volume_legacy(dotfile.id, device_id),
+						VolumeFingerprint::from_external_volume(dotfile.id),
+					);
+				}
+			}
+		}
+
 		// Query database for tracked volumes to merge metadata
 		let mut tracked_volumes_map: HashMap<
 			VolumeFingerprint,
@@ -666,8 +690,37 @@ impl VolumeManager {
 							tracked_vols.len(),
 							library.id()
 						);
+						let existing_fingerprints: std::collections::HashSet<String> =
+							tracked_vols.iter().map(|v| v.fingerprint.clone()).collect();
 						for db_vol in tracked_vols {
-							let fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
+							let mut fingerprint = VolumeFingerprint(db_vol.fingerprint.clone());
+							// One-time migration: rows stored under the legacy
+							// device-bound derivation are rewritten to the
+							// portable fingerprint of the matching detected
+							// volume, unless a row already exists under it.
+							if let Some(new_fp) = legacy_external_fingerprints.get(&fingerprint) {
+								if !existing_fingerprints.contains(&new_fp.0) {
+									let mut active: entities::volume::ActiveModel =
+										db_vol.clone().into();
+									active.fingerprint = Set(new_fp.0.clone());
+									match active.update(library.db().conn()).await {
+										Ok(_) => {
+											info!(
+												"Migrated volume fingerprint {} -> {} to portable derivation in library {}",
+												fingerprint.short_id(),
+												new_fp.short_id(),
+												library.id()
+											);
+											fingerprint = new_fp.clone();
+										}
+										Err(e) => warn!(
+											"Failed to migrate legacy volume fingerprint {}: {}",
+											fingerprint.short_id(),
+											e
+										),
+									}
+								}
+							}
 							debug!("DB_MERGE: Found tracked volume - fingerprint: {}, display_name: {:?}, read_speed: {:?}, write_speed: {:?}",
 								fingerprint.short_id(), db_vol.display_name, db_vol.read_speed_mbps, db_vol.write_speed_mbps);
 							tracked_volumes_map.insert(
@@ -2137,8 +2190,8 @@ impl VolumeManager {
 						return Some(spacedrive_id.id);
 					}
 					Err(e) => {
-						debug!(
-							"Failed to write Spacedrive ID file to {}: {}",
+						warn!(
+							"Failed to write Spacedrive ID file to {}: {} — volume identity falls back to filesystem-derived fingerprint",
 							id_file_path.display(),
 							e
 						);
