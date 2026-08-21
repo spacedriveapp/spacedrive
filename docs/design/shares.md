@@ -4,7 +4,7 @@ Status: draft for review. Source-of-truth contract between core (this repo) and 
 
 ## What this is
 
-A user picks a Space, file, folder, or multi-selection in their local Spacedrive and creates a public share. They get a link of the form `https://sd.app/s/{token}`. Anyone with the link can open it in a browser, browse the listing, and stream/download files. Bytes are served directly from the user's core through an Iroh QUIC connection over an sd.app-operated relay — sd.app never proxies file content.
+A user picks a Space, file, folder, or multi-selection in their local Spacedrive and creates a public share. They get a link of the form `https://sd.app/s/{token}`. Anyone with the link can open it in a browser, browse the listing, and stream/download files. Bytes are served directly from the user's core through an Iroh QUIC connection over an sd.app-operated relay, sd.app never proxies file content.
 
 This document specifies the wire contracts and lifecycle. UX (`SHARE-009` / `SHARE-010`), schema (`SHARE-002`), ops (`SHARE-003`), and protocol handler (`SHARE-005`) tasks build against this spec.
 
@@ -13,7 +13,7 @@ This document specifies the wire contracts and lifecycle. UX (`SHARE-009` / `SHA
 - **Bytes path**: direct dial. Browser viewer dials the owner's `iroh::Endpoint` over QUIC, transiting an sd.app relay only when hole-punching fails. Bytes do not flow through sd.app application servers.
 - **sd.app responsibilities** (separate repo):
   1. Iroh relay infrastructure (replaces the n0 default relay for hosted clients)
-  2. Share registry — maps `token → {node_id, relay_url, public_metadata}`
+  2. Share registry, maps `token → {node_id, relay_url, public_metadata}`
   3. Viewer SPA served at `sd.app/s/{token}`
   4. User accounts that bind one or more device keys to an `account_id`
 - **Core responsibilities** (this repo):
@@ -203,7 +203,7 @@ Returns the viewer SPA HTML with a bootstrap JSON blob inlined:
 </script>
 ```
 
-If `password_required`, the viewer prompts for the password, dials the core, and walks the challenge–response handshake described below — the registry has no part in password verification.
+If `password_required`, the viewer prompts for the password, dials the core, and walks the challenge–response handshake described below, the registry has no part in password verification.
 
 ### `GET /api/shares` (owner)
 
@@ -244,7 +244,7 @@ If the share requires a password, core responds with a challenge:
 { "type": "challenge", "nonce": "base64(48 bytes)" }
 ```
 
-The nonce is self-validating: `nonce = random16 || unix_ts_be8 || hmac_sha256(server_secret, random16 || unix_ts_be8)[:24]`. The core doesn't need to track issued nonces — it re-verifies the inner HMAC and rejects nonces older than 5 minutes. This survives core restart without losing in-flight handshakes.
+The nonce is self-validating: `nonce = random16 || unix_ts_be8 || hmac_sha256(server_secret, random16 || unix_ts_be8)[:24]`. The core doesn't need to track issued nonces. It re-verifies the inner HMAC and rejects nonces older than 5 minutes. This survives core restart without losing in-flight handshakes.
 
 The visitor replies:
 
@@ -254,7 +254,7 @@ The visitor replies:
 
 where `K = argon2id(password, salt = sha256(token)[:16], params = OWASP-2024)` derived locally in the browser. The password itself never leaves the visitor.
 
-The core's stored value for the share **is** `K` — `password_hash` is the raw argon2id output bytes, not a self-contained PHC string with random salt. Using a token-derived salt lets the visitor compute the same `K` without an extra round-trip for salt fetch. The core verifies by recomputing `hmac_sha256(stored_K, nonce)` and comparing in constant time.
+The core's stored value for the share **is** `K`, `password_hash` is the raw argon2id output bytes, not a self-contained PHC string with random salt. Using a token-derived salt lets the visitor compute the same `K` without an extra round-trip for salt fetch. The core verifies by recomputing `hmac_sha256(stored_K, nonce)` and comparing in constant time.
 
 Core responds:
 
@@ -320,15 +320,15 @@ Any `scope_violation` immediately terminates the session.
 - 128 bits of entropy from a CSPRNG (`getrandom`).
 - Encoded base32 using Crockford alphabet (no padding, excludes `I`, `L`, `O`, `U`).
 - Yields a 26-character string. URL shape: `https://sd.app/s/{token}`.
-- Optional fragment `#k={base64url(key)}` reserved for future client-side end-to-end encryption (`SEC-007`). Fragments are not sent to sd.app by browsers — preserves zero-knowledge property when used.
+- Optional fragment `#k={base64url(key)}` reserved for future client-side end-to-end encryption (`SEC-007`). Fragments are not sent to sd.app by browsers, preserves zero-knowledge property when used.
 
 ## Password handling
 
 - **Storage on core**: `K = argon2id(password, salt = sha256(token)[:16], params)` with `params` per OWASP 2024 (`m=19456 KiB, t=2, p=1`). The token-derived salt is what lets the visitor compute the same `K` without a salt-fetch round-trip; per-share entropy comes from the token itself. `params` are stored in `password_kdf_params` so defaults can be rotated without breaking existing shares.
-- **Guest handshake** (see Handshake section above): challenge–response with `hmac_sha256(K, nonce)`. The stored `K` is both the verifier and the MAC key — anyone who reads the DB row can authenticate to that share, but the password is not recoverable from `K` (argon2id one-way). The HMAC nonce gives single-use proofs, so a proof leaked in transit (compromised browser extension etc.) can't be replayed.
+- **Guest handshake** (see Handshake section above): challenge–response with `hmac_sha256(K, nonce)`. The stored `K` is both the verifier and the MAC key, anyone who reads the DB row can authenticate to that share, but the password is not recoverable from `K` (argon2id one-way). The HMAC nonce gives single-use proofs, so a proof leaked in transit (compromised browser extension etc.) can't be replayed.
 - **Owner-side preview** (the owner verifies their own password before showing it back, etc.): identical computation on a hello-world plaintext.
 - **Brute-force resistance**: argon2id memory cost + per-share salt + per-handshake nonce. Core additionally rate-limits handshake failures at 5/minute/token; further failures get `session_denied { reason: "rate_limited" }`.
-- **Why not store a separate verifier from the MAC key**: would require a salt-fetch round trip (token → salt) or threading the salt through the sd.app registry bootstrap. The token already carries 128 bits of entropy; using a token-derived salt achieves the same uniqueness without that round trip. The stored `K` being a bearer secret is no worse than any password-verifier scheme — DB exfiltration is a "game over" event regardless of construction.
+- **Why not store a separate verifier from the MAC key**: would require a salt-fetch round trip (token → salt) or threading the salt through the sd.app registry bootstrap. The token already carries 128 bits of entropy; using a token-derived salt achieves the same uniqueness without that round trip. The stored `K` being a bearer secret is no worse than any password-verifier scheme, DB exfiltration is a "game over" event regardless of construction.
 
 ## Public metadata
 

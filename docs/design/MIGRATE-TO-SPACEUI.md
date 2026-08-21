@@ -1,12 +1,12 @@
 # Migrate @sd/ui → @spacedrive/primitives
 
-Replace all imports from `@sd/ui` with `@spacedrive/primitives` across the spacedrive codebase. The components are identical — same names, same props, same behavior. This is a pure import path swap.
+Replace all imports from `@sd/ui` with `@spacedrive/primitives` across the spacedrive codebase. The components are identical, same names, same props, same behavior. This is a pure import path swap.
 
 ## Rules
 
 1. **Do NOT modify any component logic, props, or JSX.** Only change import paths.
 2. **Do NOT delete `@sd/ui` yet.** Just change the imports. Deletion is a separate step.
-3. **Do NOT touch `apps/mobile/`** — it stays on the old system for now.
+3. **Do NOT touch `apps/mobile/`.** It stays on the old system for now.
 4. `cva` and `cx` from `class-variance-authority` should be imported directly from `class-variance-authority`, not from `@sd/ui`.
 
 ## Import Mapping
@@ -138,4 +138,4 @@ After all imports are changed, the app should compile and run with zero behavior
 cd apps/tauri && bun run dev
 ```
 
-Every component should look and behave identically — we copied the source code exactly.
+Every component should look and behave identically. We copied the source code exactly.

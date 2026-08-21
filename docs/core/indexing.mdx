@@ -13,7 +13,7 @@ Most file management software forces a choice: fast, dumb directory listing (Exp
 
 ### The Ephemeral Layer ("File Manager" Mode)
 
-When you open a location that hasn't been added to your library—an external drive, network share, or local directory—Spacedrive runs only Phase 1 (Discovery) of the indexing pipeline:
+When you open a location that hasn't been added to your library (an external drive, network share, or local directory) Spacedrive runs only Phase 1 (Discovery) of the indexing pipeline:
 
 - **Memory-Resident**: The index lives entirely in RAM
 - **Highly Optimized**: Custom slab allocators (NodeArena) and string interning (NameCache) compress file entries down to ~50 bytes
@@ -261,7 +261,7 @@ Ephemeral indexing keeps data in memory only, perfect for browsing external driv
 - **NameCache**: Global string interning pool where one copy of "index.js" serves thousands of node_modules files
 - **NameRegistry**: BTreeMap for fast name-based lookups without full-text indexing overhead
 
-Memory usage is around 50 bytes per entry vs 200+ bytes with naive approaches—a 4-6x reduction that enables browsing hundreds of thousands of files without database overhead.
+Memory usage is around 50 bytes per entry vs 200+ bytes with naive approaches, a 4-6x reduction that enables browsing hundreds of thousands of files without database overhead.
 
 The `EphemeralIndexCache` tracks which paths have been indexed, are currently being indexed, or are registered for filesystem watching. When a watched path receives filesystem events, the system updates the in-memory index in real-time through the unified `ChangeHandler` trait (shared with persistent storage).
 
@@ -276,7 +276,7 @@ Specific low-level optimizations make the hybrid architecture viable:
 
 ### NodeArena (Ephemeral)
 
-The ephemeral index doesn't use standard HashMaps. Instead, it uses a memory-mapped **NodeArena**—a contiguous slab of memory that stores file nodes using 32-bit integers as pointers rather than 64-bit pointers. This reduces memory overhead by 4-6x compared to naive `HashMap<PathBuf, Entry>` implementations, enabling browsing of hundreds of thousands of files without database overhead.
+The ephemeral index doesn't use standard HashMaps. Instead, it uses a memory-mapped **NodeArena**, a contiguous slab of memory that stores file nodes using 32-bit integers as pointers rather than 64-bit pointers. This reduces memory overhead by 4-6x compared to naive `HashMap<PathBuf, Entry>` implementations, enabling browsing of hundreds of thousands of files without database overhead.
 
 ### Name Pooling (Ephemeral)
 

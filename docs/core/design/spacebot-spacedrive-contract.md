@@ -15,7 +15,7 @@ Both sides need a flag. Spacebot needs to know whether Spacedrive is present. Sp
 3. **Spacedrive is the device graph.** Spacebot never owns device identity, library membership, or multi-device topology. It receives that information from Spacedrive.
 4. **Spacebot is the agent runtime.** Spacedrive never runs LLM processes, manages agent memory, or orchestrates workers. It delegates that to Spacebot.
 5. **The library is the boundary.** A Spacebot instance is paired to a library, through a specific device. Every device in that library can access Spacebot through the paired device.
-6. **No leader device.** Spacedrive's P2P system is leaderless. There is no master device. But there is exactly one device that hosts Spacebot — that device has the `spacebot_host` capability, and all other devices route through it.
+6. **No leader device.** Spacedrive's P2P system is leaderless. There is no master device. But there is exactly one device that hosts Spacebot. That device has the `spacebot_host` capability, and all other devices route through it.
 
 ---
 
@@ -34,10 +34,10 @@ That is the minimum. When `enabled = false` (the default), Spacebot operates exa
 
 When `enabled = true`, Spacebot expects a Spacedrive node to be reachable. This unlocks:
 
-- **Device graph awareness** — Spacebot can see all devices in the paired library.
-- **Remote execution** — workers can target specific devices for shell/file operations.
-- **File System Intelligence** — agents receive context and policy when navigating paths through Spacedrive.
-- **Proxy chat** — Spacedrive devices in the library can reach Spacebot through the P2P layer without a direct HTTP connection.
+- **Device graph awareness.** Spacebot can see all devices in the paired library.
+- **Remote execution.** Workers can target specific devices for shell/file operations.
+- **File System Intelligence.** Agents receive context and policy when navigating paths through Spacedrive.
+- **Proxy chat.** Spacedrive devices in the library can reach Spacebot through the P2P layer without a direct HTTP connection.
 
 ### Config Shape
 
@@ -181,7 +181,7 @@ Add `spacebot_host`:
 {"indexing": true, "p2p": true, "volume_detection": true, "spacebot_host": true}
 ```
 
-This is a boolean flag on the device record. It is set on exactly one device in the library — the device that runs Spacebot. It syncs automatically to all other devices via the existing shared-resource sync protocol (HLC-ordered, last-write-wins on the device record).
+This is a boolean flag on the device record. It is set on exactly one device in the library, the device that runs Spacebot. It syncs automatically to all other devices via the existing shared-resource sync protocol (HLC-ordered, last-write-wins on the device record).
 
 **Rules:**
 
@@ -194,7 +194,7 @@ This is a boolean flag on the device record. It is set on exactly one device in 
 
 - It syncs automatically. Every device in the library sees it without any new sync protocol work.
 - It is queryable alongside other device metadata.
-- It does not require a migration to add a new column — `capabilities` is already a JSON blob.
+- It does not require a migration to add a new column, `capabilities` is already a JSON blob.
 - It follows the existing pattern for device feature flags.
 
 ### What the `spacebot_host` Flag Enables
@@ -223,17 +223,17 @@ This means:
 
 - No typed message definitions to maintain on the Spacedrive side.
 - No translation layer between Spacedrive's internal types and Spacebot's API.
-- Spacebot's API evolves freely — new endpoints, new fields, new event types — and the proxy carries them without changes.
+- Spacebot's API evolves freely (new endpoints, new fields, new event types) and the proxy carries them without changes.
 - The desktop interface can use the `@spacebot/api-client` package directly against the proxy URL the same way it uses it against a local Spacebot instance.
 - Mobile uses the same proxy through Spacedrive core operations that tunnel HTTP over P2P.
 
-The proxy is transparent. From the client's perspective, it is hitting a Spacebot HTTP API. The only difference is the transport — P2P instead of TCP.
+The proxy is transparent. From the client's perspective, it is hitting a Spacebot HTTP API. The only difference is the transport, P2P instead of TCP.
 
 ### SSE Relay
 
 SSE is the one part that is not a simple request-response proxy. The host device maintains a single SSE subscription to Spacebot's `/api/events` endpoint and relays events to connected peers over the P2P connection as they arrive.
 
-This is still untyped relay — the host device does not parse or filter the SSE events. It forwards the raw event stream. The receiving device's client code parses and handles events the same way it would with a direct SSE connection.
+This is still untyped relay, the host device does not parse or filter the SSE events. It forwards the raw event stream. The receiving device's client code parses and handles events the same way it would with a direct SSE connection.
 
 If multiple devices are connected, the host fans out the same event stream to each. If no devices are connected, it can drop the SSE subscription and re-establish it when a device connects.
 
@@ -257,7 +257,7 @@ When Spacebot has `[spacedrive] enabled = true`, workers gain the ability to tar
 
 ### How It Works
 
-1. The agent (channel or branch) decides which device should perform a task. It has access to the device graph — a list of all library devices with their names, slugs, online status, and capabilities.
+1. The agent (channel or branch) decides which device should perform a task. It has access to the device graph, a list of all library devices with their names, slugs, online status, and capabilities.
 
 2. The agent spawns a worker with an `execution_target`:
    ```
@@ -282,10 +282,10 @@ When Spacebot has `[spacedrive] enabled = true`, workers gain the ability to tar
 
 Every remote operation passes through Spacedrive's permission system:
 
-- **Device access policy** — which devices can Spacebot target?
-- **Subtree policy** — which paths are readable/writable on those devices?
-- **Operation policy** — which operations are allowed (list, read, write, shell, delete)?
-- **Confirmation policy** — which operations require live user approval?
+- **Device access policy.** Which devices can Spacebot target?
+- **Subtree policy.** Which paths are readable/writable on those devices?
+- **Operation policy.** Which operations are allowed (list, read, write, shell, delete)?
+- **Confirmation policy.** Which operations require live user approval?
 
 Policy is resolved on the paired Spacedrive node before forwarding. The target device may enforce a second check.
 
@@ -336,7 +336,7 @@ The mobile app (`apps/mobile/`) reaches Spacebot through the same P2P proxy that
 
 ### Mobile Chat Surface
 
-The mobile app sends HTTP requests to Spacebot through Spacedrive core, which tunnels them over P2P to the host device. From the mobile code's perspective, it is calling a Spacebot API — it does not need to know whether the request traveled over localhost or across the planet.
+The mobile app sends HTTP requests to Spacebot through Spacedrive core, which tunnels them over P2P to the host device. From the mobile code's perspective, it is calling a Spacebot API. It does not need to know whether the request traveled over localhost or across the planet.
 
 Spacedrive core handles the routing internally:
 - If the local device is the Spacebot host → direct HTTP call to `localhost:19898`
@@ -365,21 +365,21 @@ Not needed on mobile initially:
 
 When Spacebot queries the Spacedrive API:
 
-- **Device graph** — all devices in the library, with name, slug, form factor, OS, online status, capabilities.
-- **Location list** — indexed locations per device, with paths and metadata.
-- **File System Intelligence** — context nodes, policies, and summaries for paths the agent navigates.
-- **Remote execution** — typed shell/file operations forwarded to target devices with policy enforcement.
-- **Audit trail** — every remote operation is logged with agent principal, target device, path, operation, and result.
+- **Device graph.** All devices in the library, with name, slug, form factor, OS, online status, capabilities.
+- **Location list.** Indexed locations per device, with paths and metadata.
+- **File System Intelligence.** Context nodes, policies, and summaries for paths the agent navigates.
+- **Remote execution.** Typed shell/file operations forwarded to target devices with policy enforcement.
+- **Audit trail.** Every remote operation is logged with agent principal, target device, path, operation, and result.
 
 ### Spacebot Exposes to Spacedrive
 
 When Spacedrive queries the Spacebot API (directly or through the proxy):
 
-- **Agent list** — available agents with id, name, role, warmup status.
-- **Webchat** — send messages, fetch history, create conversations.
-- **SSE events** — streaming deltas, typing state, worker events.
-- **Task list** — active and recent tasks with status, assignees, linked conversations.
-- **Status** — version, uptime, health, warmup readiness.
+- **Agent list.** Available agents with id, name, role, warmup status.
+- **Webchat.** Send messages, fetch history, create conversations.
+- **SSE events.** Streaming deltas, typing state, worker events.
+- **Task list.** Active and recent tasks with status, assignees, linked conversations.
+- **Status.** Version, uptime, health, warmup readiness.
 
 ---
 
@@ -449,7 +449,7 @@ Desktop Spacedrive connects to a local Spacebot instance. No P2P proxy yet.
 Non-host devices reach Spacebot through the host device.
 
 **Spacedrive:**
-- `SpacebotProxy` on host device — raw HTTP proxy + SSE relay over P2P
+- `SpacebotProxy` on host device, raw HTTP proxy + SSE relay over P2P
 - Core operations that route HTTP to Spacebot transparently (local or via proxy)
 - The host device sets `spacebot_host: true` on its device record
 

@@ -29,17 +29,17 @@ Volume detection runs at startup and on mount/unmount events. Each platform uses
 
 ### macOS (`core/src/volume/platform/macos.rs`)
 
-Primary: `diskutil apfs list` — gives APFS container topology, volume roles (`Data`, `System`, `VM`, `Preboot`, `Recovery`, `Update`), and mount points. Containers group volumes that share physical storage and space (`ApfsContainer`).
+Primary: `diskutil apfs list`, gives APFS container topology, volume roles (`Data`, `System`, `VM`, `Preboot`, `Recovery`, `Update`), and mount points. Containers group volumes that share physical storage and space (`ApfsContainer`).
 
 Fallback: `df -h -T` for non-APFS volumes (HFS+, external FAT32, etc.).
 
 Classification:
-- `/`, `/System/Volumes/Data`, `/System/Volumes/Preboot` etc. are system roles — hidden from user-visible view but still fingerprinted.
+- `/`, `/System/Volumes/Data`, `/System/Volumes/Preboot` etc. are system roles, hidden from user-visible view but still fingerprinted.
 - `/Volumes/*` that aren't system roles are External.
 
 ### Linux (`core/src/volume/platform/linux.rs`)
 
-Primary: `df -h -T` — one line per mounted filesystem with device, type, size, available, mount point.
+Primary: `df -h -T`, one line per mounted filesystem with device, type, size, available, mount point.
 
 Secondary: `/sys/block/<device>/queue/rotational` to distinguish SSD from HDD. `/proc/mounts` is also parseable via `parse_proc_mounts()` as an alternative source.
 
@@ -51,7 +51,7 @@ Uses Win32 APIs via `windows-sys`:
 - `GetLogicalDrives` to enumerate drive letters.
 - `GetVolumeInformationW` for filesystem type and volume label.
 - `GetDiskFreeSpaceExW` for capacity.
-- `GetVolumeNameForVolumeMountPointW` for the stable `\\?\Volume{GUID}\` path — used as a hardware identifier that survives drive letter changes.
+- `GetVolumeNameForVolumeMountPointW` for the stable `\\?\Volume{GUID}\` path, used as a hardware identifier that survives drive letter changes.
 
 ### iOS (`core/src/volume/platform/ios.rs`)
 
@@ -84,7 +84,7 @@ pub trait FilesystemHandler: Send + Sync {
 
 ### APFS (`core/src/volume/fs/apfs.rs`)
 
-- **Containers**: APFS groups volumes into containers that share physical space. `ApfsContainer` is populated from `diskutil apfs list` and attached to each volume. `same_physical_storage` returns true when two paths are on volumes in the same container — that's when `clonefile(2)` produces instant clones.
+- **Containers**: APFS groups volumes into containers that share physical space. `ApfsContainer` is populated from `diskutil apfs list` and attached to each volume. `same_physical_storage` returns true when two paths are on volumes in the same container. That's when `clonefile(2)` produces instant clones.
 - **Firmlinks**: macOS silently maps paths like `/Users` onto `/System/Volumes/Data/Users`. `generate_macos_path_mappings()` materializes these mappings so `contains_path` resolves correctly.
 - **Role-based visibility**: volumes with roles `System`, `VM`, `Preboot`, `Recovery`, `Update` are marked `is_user_visible = false`. Only `Data` and unroled external volumes appear in the default UI.
 
@@ -97,10 +97,10 @@ pub trait FilesystemHandler: Send + Sync {
 
 ZFS is the most-developed filesystem integration because TrueNAS Scale is a common Spacedrive server target.
 
-- **Datasets and pools**: `zfs list` output is parsed once per detection pass via `fetch_zfs_list_output()` (not per-volume — important for servers with many datasets). Each volume gets matched to its dataset via `find_dataset_for_path`, and the dataset's pool is extracted from the name (`pool/a/b` → pool `pool`).
+- **Datasets and pools**: `zfs list` output is parsed once per detection pass via `fetch_zfs_list_output()` (not per-volume, important for servers with many datasets). Each volume gets matched to its dataset via `find_dataset_for_path`, and the dataset's pool is extracted from the name (`pool/a/b` → pool `pool`).
 - **Pool root capacity correction**: see [Capacity Reporting](#capacity-reporting).
 - **System pool filter**: `is_system_zfs_pool` matches `boot-pool`, `rpool`, `zroot`. Datasets on these pools are marked `VolumeType::System`, `is_user_visible = false`, and never auto-tracked.
-- **App-managed dataset filter**: `is_app_managed_dataset` matches names containing `/ix-applications/`, `/.ix-apps/`, `/docker/`, or `/containerd/`. These are hidden from user view. TrueNAS Scale apps create dozens of nested datasets per app — without this filter the volume list becomes unusable.
+- **App-managed dataset filter**: `is_app_managed_dataset` matches names containing `/ix-applications/`, `/.ix-apps/`, `/docker/`, or `/containerd/`. These are hidden from user view. TrueNAS Scale apps create dozens of nested datasets per app, without this filter the volume list becomes unusable.
 - **Clone support**: `supports_clones` returns true for any read-write dataset. ZoL 2.2+ supports reflinks; older versions fall back to streaming copy.
 
 ### ReFS (`core/src/volume/fs/refs.rs`)
@@ -121,8 +121,8 @@ Fallback for ext2/3/4, XFS, FAT32, exFAT, HFS+, and anything unrecognized. `same
 Spacedrive tracks far more volumes than it shows. Hidden volumes still get stable fingerprints so locations on them survive remounts, but they don't clutter the default UI and aren't eligible for auto-tracking.
 
 Two flags drive this:
-- `is_user_visible: bool` — shown in the default volume list.
-- `auto_track_eligible: bool` — picked up by `volumes.scan`. Always implies `is_user_visible`.
+- `is_user_visible: bool`, shown in the default volume list.
+- `auto_track_eligible: bool`, picked up by `volumes.scan`. Always implies `is_user_visible`.
 
 ### Linux rules (`core/src/volume/utils.rs`)
 
@@ -135,14 +135,14 @@ Two flags drive this:
 The exact-match list includes TrueNAS Scale's split-root datasets (it mounts `/usr`, `/var`, `/etc` as separate ZFS datasets for atomic OS updates).
 
 `is_nested_app_mount(path)` matches container/app mounts:
-- Anything under `ix-applications/` or `.ix-apps/` (TrueNAS apps — one app creates dozens of datasets).
+- Anything under `ix-applications/` or `.ix-apps/` (TrueNAS apps, one app creates dozens of datasets).
 - `docker/overlay2/`, `containerd/`, `kubelet/`, `snap/`.
 - `.snapshots/`, `.zfs/snapshot/` (ZFS snapshot browsing mounts).
 
 `should_hide_by_mount_path(path)` is the combined check. It's applied at:
-1. **Detection** — so newly-discovered volumes get `is_user_visible = false` persistently.
-2. **Volume list query** (`core/src/ops/volumes/list/query.rs`) — retroactively for tracked volumes whose DB rows predate these filters.
-3. **Stats calculation** (`core/src/library/mod.rs`) — so `total_capacity` and `available_capacity` exclude hidden volumes even if the DB flag is stale.
+1. **Detection.** So newly-discovered volumes get `is_user_visible = false` persistently.
+2. **Volume list query** (`core/src/ops/volumes/list/query.rs`), retroactively for tracked volumes whose DB rows predate these filters.
+3. **Stats calculation** (`core/src/library/mod.rs`), so `total_capacity` and `available_capacity` exclude hidden volumes even if the DB flag is stale.
 
 ### ZFS-specific rules
 
@@ -166,7 +166,7 @@ Filesystem  Type  Size   Used  Available  Mount
 pool        zfs   15.0T  199M  14.9T      /mnt/pool
 ```
 
-The pool root's own `used` is tiny (199 MB) because all the real data lives in descendant datasets. `df` doesn't know that. On a 60 TB pool that's 75% full, `df` says the pool root is "15 TB" — essentially just the free space.
+The pool root's own `used` is tiny (199 MB) because all the real data lives in descendant datasets. `df` doesn't know that. On a 60 TB pool that's 75% full, `df` says the pool root is "15 TB", essentially just the free space.
 
 ZFS's native `used` property on the pool root *does* include descendants:
 
@@ -180,7 +180,7 @@ pool  available  14.9T
 
 ### Correction
 
-`enhance_volume_with_cached_output` in `zfs.rs` detects pool-root volumes (`dataset.name == dataset.pool_name`) and overwrites `total_capacity` with `used + available` from `zfs list`. Leaf datasets keep their df-derived values — they're accurate for single-dataset views.
+`enhance_volume_with_cached_output` in `zfs.rs` detects pool-root volumes (`dataset.name == dataset.pool_name`) and overwrites `total_capacity` with `used + available` from `zfs list`. Leaf datasets keep their df-derived values. They're accurate for single-dataset views.
 
 ### Library statistics
 
@@ -196,7 +196,7 @@ Subpath dedup handles the common ZFS case: when `/mnt/pool` is tracked along wit
 
 ### Pool-aware dedup limitation
 
-Subpath dedup breaks if the user tracks only leaf datasets without the pool root. Each leaf reports the full `available` as its own — summing them over-counts by the pool's free space per extra leaf.
+Subpath dedup breaks if the user tracks only leaf datasets without the pool root. Each leaf reports the full `available` as its own, summing them over-counts by the pool's free space per extra leaf.
 
 On TrueNAS this doesn't bite because `df` always detects the pool root. For other setups, proper fix requires either persisting `pool_name` on the volume record or a second dedup pass keyed on `(device_id, file_system=ZFS, available_capacity)`. Neither is implemented yet.
 
@@ -204,20 +204,20 @@ On TrueNAS this doesn't bite because `df` always detects the pool root. For othe
 
 `core/src/ops/files/copy/strategy.rs` defines three strategies:
 
-- **`LocalMoveStrategy`** — `fs::rename()` for same-volume moves. Metadata-only.
-- **`FastCopyStrategy`** — `std::fs::copy()` which invokes platform CoW primitives (`clonefile` on APFS, `ficlone`/`FICLONERANGE` on Btrfs/ZFS, block cloning on ReFS) when source and destination are on the same filesystem. Falls back to streaming if CoW fails.
-- **`LocalStreamCopyStrategy`** — chunked buffered copy with progress events. Used for cross-volume copies and for filesystems without CoW.
+- **`LocalMoveStrategy`**, `fs::rename()` for same-volume moves. Metadata-only.
+- **`FastCopyStrategy`**, `std::fs::copy()` which invokes platform CoW primitives (`clonefile` on APFS, `ficlone`/`FICLONERANGE` on Btrfs/ZFS, block cloning on ReFS) when source and destination are on the same filesystem. Falls back to streaming if CoW fails.
+- **`LocalStreamCopyStrategy`.** Chunked buffered copy with progress events. Used for cross-volume copies and for filesystems without CoW.
 
 `FilesystemHandler::get_copy_strategy` picks `FastCopyStrategy` for APFS, Btrfs, ZFS, ReFS. Everything else gets `LocalStreamCopyStrategy`.
 
-Note that `std::fs::copy` itself picks the right syscall — the `FastCopyStrategy`/`LocalStreamCopyStrategy` split is about *whether to try fast copy at all* and how to report progress, not about which syscall to call.
+Note that `std::fs::copy` itself picks the right syscall, the `FastCopyStrategy`/`LocalStreamCopyStrategy` split is about *whether to try fast copy at all* and how to report progress, not about which syscall to call.
 
 See [File Copy Operations](/docs/core/file-copy-operations) for the higher-level copy/move API.
 
 ## Known limitations
 
-- **Leaf-only ZFS dataset tracking** — see [Pool-aware dedup limitation](#pool-aware-dedup-limitation).
-- **Windows detection is shallow** — we get capacity and FS type, but not the storage-pool topology that Storage Spaces / ReFS mirroring exposes. Same-pool detection across ReFS volumes isn't implemented.
-- **Btrfs subvolume visibility** — we detect subvolumes but don't hide nested subvolumes created by Docker or snapper. Equivalent to ZFS `is_app_managed_dataset` would need a similar name-based filter.
-- **Network filesystems (NFS, SMB)** — treated as `MountType::Network` but no protocol-aware capacity or CoW handling. `Available` comes from whatever the server reports via statvfs.
-- **Encrypted volumes (LUKS, FileVault, BitLocker)** — opaque to us once mounted; they appear as whatever filesystem is layered on top.
+- **Leaf-only ZFS dataset tracking.** See [Pool-aware dedup limitation](#pool-aware-dedup-limitation).
+- **Windows detection is shallow.** We get capacity and FS type, but not the storage-pool topology that Storage Spaces / ReFS mirroring exposes. Same-pool detection across ReFS volumes isn't implemented.
+- **Btrfs subvolume visibility.** We detect subvolumes but don't hide nested subvolumes created by Docker or snapper. Equivalent to ZFS `is_app_managed_dataset` would need a similar name-based filter.
+- **Network filesystems (NFS, SMB).** Treated as `MountType::Network` but no protocol-aware capacity or CoW handling. `Available` comes from whatever the server reports via statvfs.
+- **Encrypted volumes (LUKS, FileVault, BitLocker).** Opaque to us once mounted; they appear as whatever filesystem is layered on top.

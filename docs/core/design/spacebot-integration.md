@@ -20,9 +20,9 @@ The integration boundary is HTTP plus SSE, using Spacebot's existing API.
 
 Spacedrive will support three connection modes:
 
-1. **Managed Local** — Spacedrive launches and supervises a foreground Spacebot child process.
-2. **External Local** — Spacedrive connects to an existing localhost Spacebot instance.
-3. **Remote** — Spacedrive connects to a Spacebot instance over HTTPS with bearer auth.
+1. **Managed Local.** Spacedrive launches and supervises a foreground Spacebot child process.
+2. **External Local.** Spacedrive connects to an existing localhost Spacebot instance.
+3. **Remote.** Spacedrive connects to a Spacebot instance over HTTPS with bearer auth.
 
 ## Why This Shape
 
@@ -72,13 +72,13 @@ Relevant files:
 
 ### Minimal endpoints Spacedrive can rely on
 
-- `GET /api/health` — liveness
-- `GET /api/status` — version, pid, uptime
-- `GET /api/idle` — worker and branch activity
-- `GET /api/agents/warmup` — work readiness
-- `POST /api/webchat/send` — inject a message
-- `GET /api/webchat/history` — fetch conversation history
-- `GET /api/events` — global SSE event stream
+- `GET /api/health`, liveness
+- `GET /api/status`, version, pid, uptime
+- `GET /api/idle`, worker and branch activity
+- `GET /api/agents/warmup`, work readiness
+- `POST /api/webchat/send`, inject a message
+- `GET /api/webchat/history`, fetch conversation history
+- `GET /api/events`, global SSE event stream
 
 ## Integration Modes
 

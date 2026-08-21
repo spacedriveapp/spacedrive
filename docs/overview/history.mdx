@@ -73,13 +73,13 @@ By early 2025: 35,000 GitHub stars, 600,000+ installations.
 
 ## Why V1 Failed
 
-By early 2025, V1 became unmaintainable. The decision to rewrite wasn't driven by perfectionism—the codebase had reached a state where shipping features or fixing bugs was no longer viable.
+By early 2025, V1 became unmaintainable. The decision to rewrite wasn't driven by perfectionism, the codebase had reached a state where shipping features or fixing bugs was no longer viable.
 
 ### Infrastructure Collapse
 
 **Prisma deprecation**: The Rust client engine was deprecated, leaving the project on an unmaintained fork with no migration path. Every database interaction depended on infrastructure we could no longer update or fix.
 
-**libp2p reliability**: P2P networking was fundamentally broken. File transfers would hang, connections would drop, and debugging was nearly impossible. The networking layer—core to the product vision—couldn't be trusted.
+**libp2p reliability**: P2P networking was fundamentally broken. File transfers would hang, connections would drop, and debugging was nearly impossible. The networking layer (core to the product vision) couldn't be trusted.
 
 **Dependency maintenance**: The team built `prisma-client-rust` and `rspc` out of necessity, then couldn't maintain them. These weren't side projects, they were critical infrastructure that became technical debt.
 
@@ -87,7 +87,7 @@ By early 2025, V1 became unmaintainable. The decision to rewrite wasn't driven b
 
 **No SDK**: The community couldn't extend functionality. In a file manager where everyone has unique workflows, this was fatal. Users wanted custom integrations but had no way to build them.
 
-**No CLI**: Automated workflows and scripting were impossible. Power users—the core audience—couldn't integrate Spacedrive into their existing tooling.
+**No CLI**: Automated workflows and scripting were impossible. Power users (the core audience) couldn't integrate Spacedrive into their existing tooling.
 
 **Incomplete search**: Despite positioning as a search-focused tool, only basic SQL `LIKE` queries worked. No full-text indexing, no content search, no semantic search. The core value proposition was half-built.
 
@@ -123,9 +123,9 @@ By early 2025, V1 became unmaintainable. The decision to rewrite wasn't driven b
 
 ### V1 as Necessary R&D
 
-V1's apparent failure was actually essential research. The team pioneered a cross-platform file manager with P2P networking and content-addressable storage—problems with no existing solutions. Every architectural mistake taught us what not to do. Every incomplete migration revealed where boundaries should exist. Every performance bottleneck showed us where to optimize.
+V1's apparent failure was actually essential research. The team pioneered a cross-platform file manager with P2P networking and content-addressable storage, problems with no existing solutions. Every architectural mistake taught us what not to do. Every incomplete migration revealed where boundaries should exist. Every performance bottleneck showed us where to optimize.
 
-Without V1, we'd have no idea how to build V2. The technical achievements—SQLite-backed indexing, cross-platform support, content-addressable storage—proved the core concepts worked. The failures showed us how to structure them properly.
+Without V1, we'd have no idea how to build V2. The technical achievements (SQLite-backed indexing, cross-platform support, content-addressable storage) proved the core concepts worked. The failures showed us how to structure them properly.
 
 The rewrite wasn't a failure of the team. It was the natural outcome of exploring genuinely hard problems without a map.
 
@@ -182,7 +182,7 @@ pub enum SdPath {
 }
 ```
 
-Every file in Spacedrive—indexed or not, local, cloud, or remote—has a single address. Operations work uniformly across all storage. Device and cloud boundaries disappeared.
+Every file in Spacedrive (indexed or not, local, cloud, or remote) has a single address. Operations work uniformly across all storage. Device and cloud boundaries disappeared.
 
 ### Sync: Domain Separation That Works
 
@@ -237,7 +237,7 @@ Conflicts are caught before execution. Users always know what will happen.
 
 ### Performance: Production-Ready Metrics
 
-V2 isn't just architecturally sound—it's fast:
+V2 isn't just architecturally sound, it's fast:
 
 - **8,500 files/second** indexing (multi-phase resumable pipeline)
 - **~55ms search** on 1M entries (FTS5 with semantic re-ranking)
@@ -252,7 +252,7 @@ Spacedrive’s rewrite from scratch, despite limited resources, was made feasibl
 
 **Why this worked:**
 
-The codebase prioritizes simplicity and structure over complexity. Domains—library, location, volume, sync, and networking are organized into isolated modules with well-defined boundaries. Documentation supports every layer, inline comments detail execution, and integration tests validate behavior.
+The codebase prioritizes simplicity and structure over complexity. Domains, library, location, volume, sync, and networking are organized into isolated modules with well-defined boundaries. Documentation supports every layer, inline comments detail execution, and integration tests validate behavior.
 
 The original team established core concepts: file system abstractions, job system architecture, and sync protocol design. This rewrite leveraged these foundations but swapped much of the custom infrastructure for reliable, community-maintained tools.
 

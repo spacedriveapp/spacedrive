@@ -53,7 +53,7 @@ const popover = usePopover();
 2. `trigger={<Component />}` → wrap in `<Popover.Trigger asChild><Component /></Popover.Trigger>`
 3. `side`, `align`, `sideOffset`, `alignOffset`, `className` move to `<Popover.Content>`
 4. Children of the old `<Popover>` become children of `<Popover.Content>`
-5. Keep `usePopover()` — it still works
+5. Keep `usePopover()`. It still works
 
 ## Files to Refactor
 
