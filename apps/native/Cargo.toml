@@ -1,0 +1,29 @@
+[package]
+name    = "sd-native"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "spacedrive-native"
+path = "src/main.rs"
+
+[dependencies]
+anyhow         = { workspace = true }
+chrono         = { workspace = true }
+gpui           = { workspace = true }
+gpui-component = { workspace = true }
+gpui_platform  = { workspace = true }
+# Match gpui's own versions: RenderImage is built from image::Frame, via smallvec.
+image          = { workspace = true }
+sd-bake        = { path = "../../crates/bake" }
+sd-client      = { path = "../../crates/sd-client" }
+# Op input/output types (the same structs the daemon registers on the wire).
+sd-core        = { path = "../../core" }
+sd-pvcache     = { path = "../../crates/pvcache" }
+smallvec       = "1"
+tokio          = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "time", "macros", "net"] }
+# v5: demo record uuids are derived deterministically from file paths.
+uuid           = { workspace = true, features = ["v5"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

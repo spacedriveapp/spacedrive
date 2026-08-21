@@ -1,0 +1,12 @@
+[package]
+name = "sd-pvcache"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+memmap2 = "0.9"
+thiserror = { workspace = true }
+uuid = { workspace = true, features = ["v7"] }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -1,0 +1,7 @@
+[package]
+name    = "rc4"
+version = "0.2.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+description = "Local stand-in for the rc4 crate, used only to keep one transitive dependency off the crypto-common 0.2.1 line."
+publish = false
