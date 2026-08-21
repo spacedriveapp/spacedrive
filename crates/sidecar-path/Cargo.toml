@@ -1,0 +1,8 @@
+[package]
+name = "sd-sidecar-path"
+version = "0.1.0"
+edition = "2021"
+description = "Canonical on-disk layout for sidecar files, shared by every process that reads the sidecar tree"
+
+[dependencies]
+uuid = { workspace = true }

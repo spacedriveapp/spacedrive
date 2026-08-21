@@ -31,14 +31,7 @@ impl SidecarPathBuilder {
 	/// Returns (h0, h1) where h0 and h1 are the first two byte-pairs
 	/// of the canonical, lowercase hex UUID with hyphens removed
 	pub fn compute_shards(content_uuid: &Uuid) -> (String, String) {
-		// Convert UUID to lowercase hex string without hyphens
-		let hex = content_uuid.simple().to_string().to_lowercase();
-
-		// Extract first two byte-pairs
-		let h0 = hex[0..2].to_string();
-		let h1 = hex[2..4].to_string();
-
-		(h0, h1)
+		sd_sidecar_path::compute_shards(content_uuid)
 	}
 
 	/// Build a sidecar path
@@ -51,18 +44,13 @@ impl SidecarPathBuilder {
 	) -> SidecarPath {
 		let (h0, h1) = Self::compute_shards(content_uuid);
 
-		// Build relative path: content/{h0}/{h1}/{content_uuid}/{kind_dir}/{variant}.{ext}
-		let mut relative_path = PathBuf::from("content");
-		relative_path.push(&h0);
-		relative_path.push(&h1);
-		relative_path.push(content_uuid.to_string());
-		relative_path.push(kind.directory());
+		let relative_path = sd_sidecar_path::relative_path(
+			content_uuid,
+			kind.directory(),
+			variant.as_str(),
+			format.extension(),
+		);
 
-		// Filename is variant.extension
-		let filename = format!("{}.{}", variant.as_str(), format.extension());
-		relative_path.push(filename);
-
-		// Build absolute path
 		let mut absolute_path = self.library_path.clone();
 		absolute_path.push("sidecars");
 		absolute_path.push(&relative_path);

@@ -28,15 +28,10 @@ impl SidecarKind {
 	}
 
 	pub fn directory(&self) -> &'static str {
-		match self {
-			Self::Thumb => "thumbs",
-			Self::Thumbstrip => "thumbstrips",
-			Self::Proxy => "proxies",
-			Self::Embeddings => "embeddings",
-			Self::Ocr => "ocr",
-			Self::Transcript => "transcript",
-			Self::GaussianSplat => "gaussian_splats",
-		}
+		// The layout crate owns the mapping so out-of-process readers resolve
+		// the same directories; every enum variant is a known kind string.
+		sd_sidecar_path::kind_directory(self.as_str())
+			.expect("every SidecarKind maps to a directory")
 	}
 }
 
