@@ -443,60 +443,9 @@ impl Library {
 		candidate
 	}
 
-	/// Get the thumbnail directory for this library
-	pub fn thumbnails_dir(&self) -> PathBuf {
-		self.path.join("thumbnails")
-	}
-
 	/// Get the job logs directory for this library
 	pub fn job_logs_dir(&self) -> PathBuf {
 		self.path.join("logs")
-	}
-
-	/// Get the path for a specific thumbnail with size
-	pub fn thumbnail_path(&self, cas_id: &str, size: u32) -> PathBuf {
-		if cas_id.len() < 4 {
-			// Fallback for short IDs
-			return self
-				.thumbnails_dir()
-				.join(format!("{}_{}.webp", cas_id, size));
-		}
-
-		// Two-level sharding based on first four characters
-		let shard1 = &cas_id[0..2];
-		let shard2 = &cas_id[2..4];
-
-		self.thumbnails_dir()
-			.join(shard1)
-			.join(shard2)
-			.join(format!("{}_{}.webp", cas_id, size))
-	}
-
-	/// Get the path for any thumbnail size (legacy compatibility)
-	pub fn thumbnail_path_legacy(&self, cas_id: &str) -> PathBuf {
-		self.thumbnail_path(cas_id, 256) // Default to 256px
-	}
-
-	/// Save a thumbnail with specific size
-	pub async fn save_thumbnail(&self, cas_id: &str, size: u32, data: &[u8]) -> Result<()> {
-		let path = self.thumbnail_path(cas_id, size);
-
-		// Ensure parent directory exists
-		if let Some(parent) = path.parent() {
-			tokio::fs::create_dir_all(parent).await?;
-		}
-
-		// Write thumbnail
-		tokio::fs::write(path, data).await?;
-
-		Ok(())
-	}
-
-	/// Check if a thumbnail exists for a specific size
-	pub async fn has_thumbnail(&self, cas_id: &str, size: u32) -> bool {
-		tokio::fs::metadata(self.thumbnail_path(cas_id, size))
-			.await
-			.is_ok()
 	}
 
 	/// Shutdown the library, gracefully stopping all jobs
@@ -575,52 +524,14 @@ impl Library {
 		Ok(true)
 	}
 
-	/// Check if thumbnails exist for all specified sizes
-	pub async fn has_all_thumbnails(&self, cas_id: &str, sizes: &[u32]) -> bool {
-		for &size in sizes {
-			if !self.has_thumbnail(cas_id, size).await {
-				return false;
-			}
-		}
-		true
-	}
-
-	/// Get thumbnail data for specific size
-	pub async fn get_thumbnail(&self, cas_id: &str, size: u32) -> Result<Vec<u8>> {
-		let path = self.thumbnail_path(cas_id, size);
-		Ok(tokio::fs::read(path).await?)
-	}
-
-	/// Get the best available thumbnail (largest size available)
-	pub async fn get_best_thumbnail(
-		&self,
-		cas_id: &str,
-		preferred_sizes: &[u32],
-	) -> Result<Option<(u32, Vec<u8>)>> {
-		// Try sizes in descending order
-		let mut sizes = preferred_sizes.to_vec();
-		sizes.sort_by(|a, b| b.cmp(a));
-
-		for &size in &sizes {
-			if self.has_thumbnail(cas_id, size).await {
-				let data = self.get_thumbnail(cas_id, size).await?;
-				return Ok(Some((size, data)));
-			}
-		}
-
-		Ok(None)
-	}
-
 	/// Start thumbnail generation job
-	#[cfg(feature = "ffmpeg")]
 	pub async fn generate_thumbnails(
 		&self,
 		entry_ids: Option<Vec<Uuid>>,
 	) -> Result<crate::infra::job::handle::JobHandle> {
 		use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
 
-		let config =
-			ThumbnailJobConfig::from_sizes(self.config().await.settings.thumbnail_sizes.clone());
+		let config = ThumbnailJobConfig::default();
 
 		let job = if let Some(ids) = entry_ids {
 			ThumbnailJob::for_entries(ids, config)
@@ -802,7 +713,6 @@ impl Library {
 			device_count = stats.device_count,
 			total_capacity = stats.total_capacity,
 			available_capacity = stats.available_capacity,
-			thumbnail_count = stats.thumbnail_count,
 			database_size = stats.database_size,
 			sidecar_count = stats.sidecar_count,
 			sidecar_size = stats.sidecar_size,
@@ -886,7 +796,6 @@ impl Library {
 			device_count = stats.device_count,
 			total_capacity = stats.total_capacity,
 			available_capacity = stats.available_capacity,
-			thumbnail_count = stats.thumbnail_count,
 			database_size = stats.database_size,
 			sidecar_count = stats.sidecar_count,
 			sidecar_size = stats.sidecar_size,
@@ -1001,14 +910,6 @@ impl Library {
 			"Completed volume capacity calculation"
 		);
 
-		debug!("Starting thumbnail count calculation");
-		// Calculate thumbnail count
-		let thumbnail_count = Self::calculate_thumbnail_count_static(path).await?;
-		debug!(
-			thumbnail_count = thumbnail_count,
-			"Completed thumbnail count calculation"
-		);
-
 		debug!("Starting database size calculation");
 		// Calculate database size
 		let database_size = Self::calculate_database_size_static(path).await?;
@@ -1035,7 +936,6 @@ impl Library {
 			unique_content_count,
 			total_capacity,
 			available_capacity,
-			thumbnail_count,
 			database_size,
 			sidecar_count,
 			sidecar_size,
@@ -1066,9 +966,6 @@ impl Library {
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) = self.calculate_volume_capacity(db).await?;
 
-		// Calculate thumbnail count
-		let thumbnail_count = self.calculate_thumbnail_count().await?;
-
 		// Calculate database size
 		let database_size = self.calculate_database_size().await?;
 
@@ -1084,7 +981,6 @@ impl Library {
 			unique_content_count,
 			total_capacity,
 			available_capacity,
-			thumbnail_count,
 			database_size,
 			sidecar_count,
 			sidecar_size,
@@ -1344,61 +1240,6 @@ impl Library {
 		Ok((total_capacity, available_capacity))
 	}
 
-	/// Calculate thumbnail count by scanning thumbnail directory
-	async fn calculate_thumbnail_count(&self) -> Result<u64> {
-		let thumbnails_dir = self.thumbnails_dir();
-
-		debug!(
-			thumbnails_dir = %thumbnails_dir.display(),
-			"Starting thumbnail count calculation"
-		);
-
-		if !thumbnails_dir.exists() {
-			debug!("Thumbnails directory does not exist, returning zero count");
-			return Ok(0);
-		}
-
-		let mut count = 0u64;
-		let mut entries = tokio::fs::read_dir(&thumbnails_dir).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			if entry.file_type().await?.is_dir() {
-				// Recursively count files in subdirectories
-				count += self.count_files_recursive(entry.path()).await?;
-			} else if entry.file_name().to_string_lossy().ends_with(".webp") {
-				count += 1;
-			}
-		}
-
-		debug!(
-			thumbnail_count = count,
-			thumbnails_dir = %thumbnails_dir.display(),
-			"Completed thumbnail count calculation"
-		);
-
-		Ok(count)
-	}
-
-	/// Count files recursively in a directory
-	async fn count_files_recursive(&self, path: std::path::PathBuf) -> Result<u64> {
-		Box::pin(self.count_files_recursive_impl(path)).await
-	}
-
-	async fn count_files_recursive_impl(&self, path: std::path::PathBuf) -> Result<u64> {
-		let mut count = 0u64;
-		let mut entries = tokio::fs::read_dir(&path).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			if entry.file_type().await?.is_dir() {
-				count += Box::pin(self.count_files_recursive_impl(entry.path())).await?;
-			} else if entry.file_name().to_string_lossy().ends_with(".webp") {
-				count += 1;
-			}
-		}
-
-		Ok(count)
-	}
-
 	/// Calculate database file size
 	async fn calculate_database_size(&self) -> Result<u64> {
 		let db_path = self.path().join(LIBRARY_DB_FILENAME);
@@ -1431,41 +1272,19 @@ impl Library {
 	/// Calculate sidecar statistics (count and total size) by scanning sidecars directory
 	async fn calculate_sidecar_statistics(&self) -> Result<(u64, u64)> {
 		let sidecars_dir = self.path().join("sidecars");
-		let thumbnails_dir = self.path().join("thumbnails");
 
 		debug!(
 			sidecars_dir = %sidecars_dir.display(),
-			thumbnails_dir = %thumbnails_dir.display(),
 			"Starting sidecar statistics calculation"
 		);
 
 		let mut total_count = 0u64;
 		let mut total_size = 0u64;
 
-		// Count and size files in sidecars directory (new structure)
 		if sidecars_dir.exists() {
 			let (count, size) = self.count_and_size_recursive(sidecars_dir.clone()).await?;
 			total_count += count;
 			total_size += size;
-			debug!(
-				sidecars_count = count,
-				sidecars_size = size,
-				"Counted sidecars directory"
-			);
-		}
-
-		// Count and size files in thumbnails directory (legacy structure)
-		if thumbnails_dir.exists() {
-			let (count, size) = self
-				.count_and_size_recursive(thumbnails_dir.clone())
-				.await?;
-			total_count += count;
-			total_size += size;
-			debug!(
-				thumbnails_count = count,
-				thumbnails_size = size,
-				"Counted thumbnails directory"
-			);
 		}
 
 		debug!(
@@ -1771,48 +1590,6 @@ impl Library {
 		Ok((total_capacity, available_capacity))
 	}
 
-	/// Calculate thumbnail count by scanning thumbnail directory (static version)
-	async fn calculate_thumbnail_count_static(path: &PathBuf) -> Result<u64> {
-		let thumbnails_dir = path.join("thumbnails");
-		if !thumbnails_dir.exists() {
-			return Ok(0);
-		}
-
-		let mut count = 0u64;
-		let mut entries = tokio::fs::read_dir(&thumbnails_dir).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			if entry.file_type().await?.is_dir() {
-				// Recursively count files in subdirectories
-				count += Self::count_files_recursive_static(entry.path()).await?;
-			} else if entry.file_name().to_string_lossy().ends_with(".webp") {
-				count += 1;
-			}
-		}
-
-		Ok(count)
-	}
-
-	/// Count files recursively in a directory (static version)
-	async fn count_files_recursive_static(path: std::path::PathBuf) -> Result<u64> {
-		Box::pin(Self::count_files_recursive_static_impl(path)).await
-	}
-
-	async fn count_files_recursive_static_impl(path: std::path::PathBuf) -> Result<u64> {
-		let mut count = 0u64;
-		let mut entries = tokio::fs::read_dir(&path).await?;
-
-		while let Some(entry) = entries.next_entry().await? {
-			if entry.file_type().await?.is_dir() {
-				count += Box::pin(Self::count_files_recursive_static_impl(entry.path())).await?;
-			} else if entry.file_name().to_string_lossy().ends_with(".webp") {
-				count += 1;
-			}
-		}
-
-		Ok(count)
-	}
-
 	/// Calculate database file size (static version)
 	async fn calculate_database_size_static(path: &PathBuf) -> Result<u64> {
 		let db_path = path.join(LIBRARY_DB_FILENAME);
@@ -1827,21 +1604,12 @@ impl Library {
 	/// Calculate sidecar statistics (static version)
 	async fn calculate_sidecar_statistics_static(path: &PathBuf) -> Result<(u64, u64)> {
 		let sidecars_dir = path.join("sidecars");
-		let thumbnails_dir = path.join("thumbnails");
 
 		let mut total_count = 0u64;
 		let mut total_size = 0u64;
 
-		// Count and size files in sidecars directory (new structure)
 		if sidecars_dir.exists() {
 			let (count, size) = Self::count_and_size_recursive_static(sidecars_dir).await?;
-			total_count += count;
-			total_size += size;
-		}
-
-		// Count and size files in thumbnails directory (legacy structure)
-		if thumbnails_dir.exists() {
-			let (count, size) = Self::count_and_size_recursive_static(thumbnails_dir).await?;
 			total_count += count;
 			total_size += size;
 		}

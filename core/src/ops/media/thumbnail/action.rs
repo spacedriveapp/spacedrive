@@ -44,7 +44,10 @@ impl LibraryAction for ThumbnailAction {
 		library: std::sync::Arc<crate::library::Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let config = ThumbnailJobConfig::from_sizes(vec![self.input.size]);
+		let variants = super::ThumbnailVariants::from_size(self.input.size)
+			.map(|v| vec![v])
+			.unwrap_or_else(super::ThumbnailVariants::defaults);
+		let config = ThumbnailJobConfig::with_variants(variants);
 		let job = ThumbnailJob::new(config);
 		let job_handle = library
 			.jobs()

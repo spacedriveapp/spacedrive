@@ -3,7 +3,6 @@
 //!
 //! A Virtual Distributed File System (VDFS) implementation in Rust.
 
-pub mod client;
 pub mod common;
 pub mod config;
 pub mod context;
@@ -191,6 +190,12 @@ impl Core {
 		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
 		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
+		// The host's process manager: one supervisor per machine, driven
+		// through the processes.* ops
+		let process_manager =
+			crate::ops::processes::ProcessManager::new(&data_dir, events.clone()).await;
+		context.set_process_manager(process_manager).await;
+
 		// Scan for .sdlibrary directories before attempting to load
 		info!("Scanning for library directories...");
 		let library_dir_count = libraries.count_library_directories().await;
@@ -297,6 +302,12 @@ impl Core {
 			.await
 		{
 			error!("Failed to load cloud volumes from database: {}", e);
+		}
+
+		// Serve indexed sources as mountable shares.
+		let cache_max_bytes = config.read().await.mounts.cache_max_bytes;
+		if let Err(e) = crate::service::mounts::start(context.clone(), cache_max_bytes).await {
+			error!("Failed to start mounts share: {}", e);
 		}
 
 		// Initialize networking if enabled in config
@@ -744,6 +755,12 @@ async fn register_default_protocol_handlers(
 		None, // No library filter for now
 	);
 
+	// Byte-range reads and snapshot fetch for peer mounts
+	let byterange_handler = service::network::protocol::ByteRangeProtocolHandler::new(
+		context.clone(),
+		networking.device_registry(),
+	);
+
 	let protocol_registry = networking.protocol_registry();
 	{
 		let mut registry = protocol_registry.write().await;
@@ -751,6 +768,7 @@ async fn register_default_protocol_handlers(
 		registry.register_handler(Arc::new(messaging_handler))?;
 		registry.register_handler(Arc::new(file_transfer_handler))?;
 		registry.register_handler(Arc::new(job_activity_handler))?;
+		registry.register_handler(Arc::new(byterange_handler))?;
 		registry.register_handler(networking.sync_multiplexer().clone())?;
 		logger
 			.info("All protocol handlers registered successfully")

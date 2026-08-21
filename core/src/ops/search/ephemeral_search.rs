@@ -31,6 +31,11 @@ pub async fn search_ephemeral_index(
 		}
 	};
 
+	// A registered source that hasn't been touched this session restores from
+	// its snapshot here — including detached drives, whose indexes serve
+	// read-only.
+	cache.ensure_restored(&local_path).await;
+
 	// Get ephemeral index (use get_for_search to check parent paths)
 	let index_arc = cache
 		.get_for_search(&local_path)
@@ -93,6 +98,12 @@ pub async fn search_ephemeral_index(
 
 	for path in matching_paths {
 		if let Some(metadata) = index.get_entry_ref(&path) {
+			// Bundle internals are lensed out of search; their contents
+			// surface through the source that describes them.
+			if crate::ops::indexing::lens::is_bundle_internal(&path) {
+				continue;
+			}
+
 			// Apply filters
 			if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
 				continue;

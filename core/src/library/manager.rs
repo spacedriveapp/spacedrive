@@ -1,7 +1,7 @@
 //! Library manager - handles creation, opening, and discovery of libraries
 
 use super::{
-	config::{LibraryConfig, LibrarySettings, LibraryStatistics, ThumbnailMetadata},
+	config::{LibraryConfig, LibrarySettings, LibraryStatistics},
 	error::{LibraryError, Result},
 	lock::LibraryLock,
 	Library, LIBRARY_CONFIG_VERSION, LIBRARY_EXTENSION,
@@ -1239,15 +1239,22 @@ impl LibraryManager {
 
 		info!("Created default space for library {}", library.id());
 
-		// Create space-level items (Overview, Recents, Favorites, File Kinds,
-		// Sources, Redundancy) - these appear outside groups
+		// Create space-level items (Overview, Recents, Favorites,
+		// Screenshots, Sources, Redundancy) - these appear outside groups
 		let space_items = vec![
 			(ItemType::Overview, "Overview", 0),
 			(ItemType::Recents, "Recents", 1),
 			(ItemType::Favorites, "Favorites", 2),
-			(ItemType::FileKinds, "File Kinds", 3),
-			(ItemType::Sources, "Sources", 4),
-			(ItemType::Redundancy, "Redundancy", 5),
+			(
+				ItemType::Collection {
+					slug: "screenshots".to_string(),
+				},
+				"Screenshots",
+				3,
+			),
+			(ItemType::Analyzer, "Analyzer", 4),
+			(ItemType::Sources, "Sources", 5),
+			(ItemType::Redundancy, "Redundancy", 6),
 		];
 
 		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};
@@ -1285,6 +1292,16 @@ impl LibraryManager {
 				.await
 				.map_err(LibraryError::DatabaseError)?;
 		}
+
+		// Retired defaults are removed so existing libraries converge on the
+		// current seed set; deterministic uuids make the deletion precise.
+		let retired_uuid =
+			deterministic_library_default_uuid(library_id, "space_item", "File Kinds");
+		ItemEntity::delete_many()
+			.filter(ItemColumn::Uuid.eq(retired_uuid))
+			.exec(db)
+			.await
+			.map_err(LibraryError::DatabaseError)?;
 
 		info!(
 			"Created default space-level items for library {}",
@@ -1331,44 +1348,28 @@ impl LibraryManager {
 
 		info!("Created default Devices group for library {}", library.id());
 
-		// Create Locations group
-		let locations_group_id =
+		// The Locations group is retired: sources own subtree policy, so
+		// existing libraries converge by deleting the seeded group and any
+		// items that lived inside it.
+		let retired_locations_group =
 			deterministic_library_default_uuid(library_id, "space_group", "Locations");
-		let locations_type_json = serde_json::to_string(&GroupType::Locations)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let locations_group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(locations_group_id),
-			space_id: Set(space_result.id),
-			name: Set("Locations".to_string()),
-			group_type: Set(locations_type_json),
-			is_collapsed: Set(false),
-			order: Set(1),
-			created_at: Set(now.into()),
-		};
-
-		// Use atomic upsert to handle race conditions with sync
-		GroupEntity::insert(locations_group_model)
-			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
-					.update_columns([
-						GroupColumn::SpaceId,
-						GroupColumn::Name,
-						GroupColumn::GroupType,
-						GroupColumn::IsCollapsed,
-						GroupColumn::Order,
-					])
-					.to_owned(),
-			)
-			.exec(db)
+		if let Some(group) = GroupEntity::find()
+			.filter(GroupColumn::Uuid.eq(retired_locations_group))
+			.one(db)
 			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		info!(
-			"Created default Locations group for library {}",
-			library.id()
-		);
+			.map_err(LibraryError::DatabaseError)?
+		{
+			ItemEntity::delete_many()
+				.filter(ItemColumn::GroupId.eq(group.id))
+				.exec(db)
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+			GroupEntity::delete_many()
+				.filter(GroupColumn::Uuid.eq(retired_locations_group))
+				.exec(db)
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+		}
 
 		// Create Volumes group
 		let volumes_group_id =

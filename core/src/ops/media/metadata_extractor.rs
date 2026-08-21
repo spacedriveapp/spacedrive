@@ -6,6 +6,145 @@ use sea_orm::ActiveValue::Set;
 use std::path::Path;
 use uuid::Uuid;
 
+/// Content kind ids as stored on `content_identity` rows.
+pub const KIND_IMAGE: i32 = 1;
+pub const KIND_VIDEO: i32 = 2;
+pub const KIND_AUDIO: i32 = 3;
+
+/// Whether the content's media-data row for this kind still needs work:
+/// the row is absent, or (for image/video) present without a blurhash. Lets
+/// callers skip the extraction and blurhash cost on already-complete files.
+pub async fn media_metadata_missing(
+	db: &sea_orm::DatabaseConnection,
+	content_uuid: &Uuid,
+	content_kind_id: i32,
+) -> bool {
+	use crate::infra::db::entities::content_identity;
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	let Ok(Some(content)) = content_identity::Entity::find()
+		.filter(content_identity::Column::Uuid.eq(*content_uuid))
+		.one(db)
+		.await
+	else {
+		return false;
+	};
+
+	match content_kind_id {
+		KIND_IMAGE => match content.image_media_data_id {
+			None => true,
+			Some(id) => matches!(
+				image_media_data::Entity::find_by_id(id).one(db).await,
+				Ok(Some(row)) if row.blurhash.is_none()
+			),
+		},
+		KIND_VIDEO => match content.video_media_data_id {
+			None => true,
+			Some(id) => matches!(
+				video_media_data::Entity::find_by_id(id).one(db).await,
+				Ok(Some(row)) if row.blurhash.is_none()
+			),
+		},
+		KIND_AUDIO => content.audio_media_data_id.is_none(),
+		_ => false,
+	}
+}
+
+/// Extract and store the media-data row for a content identity, linking it
+/// via the kind's FK. A row that already exists only receives the blurhash
+/// when it lacks one; nothing is re-extracted.
+pub async fn backfill_media_metadata(
+	db: &sea_orm::DatabaseConnection,
+	content_uuid: &Uuid,
+	source_path: &Path,
+	content_kind_id: i32,
+	blurhash: Option<String>,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	use crate::infra::db::entities::content_identity;
+	use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
+
+	let Some(content) = content_identity::Entity::find()
+		.filter(content_identity::Column::Uuid.eq(*content_uuid))
+		.one(db)
+		.await?
+	else {
+		return Ok(());
+	};
+
+	match content_kind_id {
+		KIND_IMAGE => {
+			if let Some(id) = content.image_media_data_id {
+				if let (Some(hash), Ok(Some(row))) = (
+					blurhash,
+					image_media_data::Entity::find_by_id(id).one(db).await,
+				) {
+					if row.blurhash.is_none() {
+						let mut active: image_media_data::ActiveModel = row.into();
+						active.blurhash = Set(Some(hash));
+						active.updated_at = Set(Utc::now().into());
+						active.update(db).await?;
+					}
+				}
+				return Ok(());
+			}
+
+			let uuid = Uuid::new_v5(content_uuid, b"image");
+			let model = extract_image_metadata_with_blurhash(source_path, uuid, blurhash).await?;
+			let inserted = model.insert(db).await?;
+			let mut active: content_identity::ActiveModel = content.into();
+			active.image_media_data_id = Set(Some(inserted.id));
+			active.update(db).await?;
+		}
+		KIND_VIDEO => {
+			if let Some(id) = content.video_media_data_id {
+				if let (Some(hash), Ok(Some(row))) = (
+					blurhash,
+					video_media_data::Entity::find_by_id(id).one(db).await,
+				) {
+					if row.blurhash.is_none() {
+						let mut active: video_media_data::ActiveModel = row.into();
+						active.blurhash = Set(Some(hash));
+						active.updated_at = Set(Utc::now().into());
+						active.update(db).await?;
+					}
+				}
+				return Ok(());
+			}
+
+			// Probing a fresh video row needs FFmpeg; without it the row waits
+			// for a build that has the feature.
+			#[cfg(feature = "ffmpeg")]
+			{
+				let uuid = Uuid::new_v5(content_uuid, b"video");
+				let model =
+					extract_video_metadata_with_blurhash(source_path, uuid, blurhash).await?;
+				let inserted = model.insert(db).await?;
+				let mut active: content_identity::ActiveModel = content.into();
+				active.video_media_data_id = Set(Some(inserted.id));
+				active.update(db).await?;
+			}
+		}
+		KIND_AUDIO => {
+			if content.audio_media_data_id.is_some() {
+				return Ok(());
+			}
+
+			#[cfg(feature = "ffmpeg")]
+			{
+				let uuid = Uuid::new_v5(content_uuid, b"audio");
+				let model = extract_audio_metadata(source_path, uuid).await?;
+				let inserted = model.insert(db).await?;
+				let mut active: content_identity::ActiveModel = content.into();
+				active.audio_media_data_id = Set(Some(inserted.id));
+				active.update(db).await?;
+			}
+		}
+		_ => {}
+	}
+
+	Ok(())
+}
+
 /// Extract image metadata from EXIF
 ///
 /// Optionally pass a blurhash if it has already been generated elsewhere

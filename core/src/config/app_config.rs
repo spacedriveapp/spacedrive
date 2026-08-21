@@ -45,6 +45,31 @@ pub struct AppConfig {
 	/// Spacebot companion runtime configuration
 	#[serde(default)]
 	pub spacebot: SpacebotConfig,
+
+	/// Mounted-source behaviour
+	#[serde(default)]
+	pub mounts: MountsConfig,
+}
+
+/// Settings for sources served as a mounted drive.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MountsConfig {
+	/// Ceiling on the on-disk block cache. The cache is rebuildable, so
+	/// lowering this only costs refetching; it never loses anything.
+	#[serde(default = "default_cache_max_bytes")]
+	pub cache_max_bytes: u64,
+}
+
+fn default_cache_max_bytes() -> u64 {
+	8 * 1024 * 1024 * 1024
+}
+
+impl Default for MountsConfig {
+	fn default() -> Self {
+		Self {
+			cache_max_bytes: default_cache_max_bytes(),
+		}
+	}
 }
 
 /// Spacebot integration configuration.
@@ -278,6 +303,7 @@ impl AppConfig {
 			logging: LoggingConfig::default(),
 			proxy_pairing: ProxyPairingConfig::default(),
 			spacebot: SpacebotConfig::default(),
+			mounts: MountsConfig::default(),
 		}
 	}
 

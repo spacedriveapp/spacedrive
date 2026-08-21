@@ -156,6 +156,96 @@ impl SourceManager {
 			.map_err(|e| format!("Failed to list items: {e}"))
 	}
 
+	/// List full records (all facet fields) from a source.
+	pub async fn list_records_full(
+		&self,
+		source_id: &str,
+		limit: usize,
+		offset: usize,
+	) -> Result<Vec<serde_json::Value>, String> {
+		self.engine
+			.list_records_full(source_id, limit, offset)
+			.await
+			.map_err(|e| format!("Failed to list records: {e}"))
+	}
+
+	/// The on-disk root a file-backed source's records are relative to.
+	/// `None` for foreign sources (Gmail, Slack), whose records are primary
+	/// rather than assertions about indexed files.
+	pub async fn file_root(&self, source_id: &str) -> Result<Option<std::path::PathBuf>, String> {
+		self.engine
+			.file_root(source_id)
+			.await
+			.map(|root| root.map(std::path::PathBuf::from))
+			.map_err(|e| format!("Failed to read file root: {e}"))
+	}
+
+	/// Search across this library's sources.
+	pub async fn search(
+		&self,
+		query: &str,
+		filter: Option<sd_archive::SearchFilter>,
+	) -> Result<Vec<sd_archive::SearchResult>, String> {
+		self.engine
+			.search(query, filter)
+			.await
+			.map_err(|e| format!("Failed to search sources: {e}"))
+	}
+
+	/// Merge durable assertions onto a record. Survives the source being deleted
+	/// and re-added.
+	pub async fn set_overlay(
+		&self,
+		source_id: &str,
+		record_type: &str,
+		external_id: &str,
+		fields: serde_json::Value,
+	) -> Result<serde_json::Value, String> {
+		self.engine
+			.set_overlay(source_id, record_type, external_id, &fields)
+			.await
+			.map_err(|e| format!("Failed to set overlay: {e}"))
+	}
+
+	/// Create a durable edge between two records, possibly in different sources.
+	pub async fn link(
+		&self,
+		src: &sd_archive::RecordKey,
+		dst: &sd_archive::RecordKey,
+		edge_type: &str,
+	) -> Result<(), String> {
+		self.engine
+			.link(src, dst, edge_type)
+			.await
+			.map_err(|e| format!("Failed to link records: {e}"))
+	}
+
+	/// Remove a durable edge.
+	pub async fn unlink(
+		&self,
+		src: &sd_archive::RecordKey,
+		dst: &sd_archive::RecordKey,
+		edge_type: &str,
+	) -> Result<(), String> {
+		self.engine
+			.unlink(src, dst, edge_type)
+			.await
+			.map_err(|e| format!("Failed to unlink records: {e}"))
+	}
+
+	/// Durable edges touching a record. The bool is `true` when the record is the
+	/// edge's source.
+	pub async fn neighbors(
+		&self,
+		key: &sd_archive::RecordKey,
+		edge_type: Option<&str>,
+	) -> Result<Vec<(sd_archive::LibEdge, bool)>, String> {
+		self.engine
+			.neighbors(key, edge_type)
+			.await
+			.map_err(|e| format!("Failed to list neighbors: {e}"))
+	}
+
 	/// List available adapters with update status.
 	pub fn list_adapters(&self) -> Vec<sd_archive::AdapterInfo> {
 		let source_dir = self.engine.source_adapters_dir();

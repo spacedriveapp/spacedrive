@@ -32,7 +32,6 @@ pub use splat::{GaussianSplatJob, GaussianSplatProcessor};
 
 #[cfg(feature = "speech-to-text")]
 pub use speech::{SpeechToTextJob, SpeechToTextProcessor};
-#[cfg(feature = "ffmpeg")]
 pub use thumbnail::ThumbnailJob;
 #[cfg(feature = "ffmpeg")]
 pub use thumbstrip::{ThumbstripJob, ThumbstripProcessor};

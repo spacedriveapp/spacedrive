@@ -136,6 +136,7 @@ impl LibraryQuery for FileByPathQuery {
 									format: s.format,
 									status: s.status,
 									size: s.size,
+									version: s.version,
 									created_at: s.created_at,
 									updated_at: s.updated_at,
 								})
@@ -200,7 +201,8 @@ impl LibraryQuery for FileByPathQuery {
 
 		// Fall back to ephemeral index if not found in database
 		let ephemeral_cache = context.ephemeral_cache();
-		let index = ephemeral_cache.get_global_index();
+		ephemeral_cache.ensure_restored(&self.path).await;
+		let index = ephemeral_cache.resolve_index(&self.path);
 		let index_read = index.read().await;
 
 		if let Some(entry_uuid) = index_read.get_entry_uuid(&self.path) {

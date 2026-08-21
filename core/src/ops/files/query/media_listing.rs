@@ -304,6 +304,7 @@ impl LibraryQuery for MediaListingQuery {
 					format: s.format,
 					status: s.status,
 					size: s.size,
+					version: s.version,
 					created_at: s.created_at,
 					updated_at: s.updated_at,
 				});

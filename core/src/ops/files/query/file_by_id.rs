@@ -131,6 +131,7 @@ impl LibraryQuery for FileByIdQuery {
 								format: s.format,
 								status: s.status,
 								size: s.size,
+								version: s.version,
 								created_at: s.created_at,
 								updated_at: s.updated_at,
 							})
@@ -240,20 +241,22 @@ impl LibraryQuery for FileByIdQuery {
 			return Ok(Some(file));
 		}
 
-		// Fall back to ephemeral index if not found in database
+		// Fall back to the ephemeral partitions if not found in the database;
+		// a uuid gives no path to route by, so every partition is checked.
 		let ephemeral_cache = context.ephemeral_cache();
-		let index = ephemeral_cache.get_global_index();
-		let index_read = index.read().await;
+		for index in ephemeral_cache.all_indexes() {
+			let index_read = index.read().await;
 
-		if let Some(path) = index_read.get_path_by_uuid(self.file_id) {
-			if let Some(metadata) = index_read.get_entry_ref(&path) {
-				let content_kind = index_read.get_content_kind(&path);
-				let sd_path = SdPath::local(path.clone());
+			if let Some(path) = index_read.get_path_by_uuid(self.file_id) {
+				if let Some(metadata) = index_read.get_entry_ref(&path) {
+					let content_kind = index_read.get_content_kind(&path);
+					let sd_path = SdPath::local(path.clone());
 
-				let mut file = File::from_ephemeral(self.file_id, &metadata, sd_path);
-				file.content_kind = content_kind;
+					let mut file = File::from_ephemeral(self.file_id, &metadata, sd_path);
+					file.content_kind = content_kind;
 
-				return Ok(Some(file));
+					return Ok(Some(file));
+				}
 			}
 		}
 

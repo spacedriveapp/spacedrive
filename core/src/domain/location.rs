@@ -395,7 +395,6 @@ impl Default for ThumbnailPolicy {
 
 impl ThumbnailPolicy {
 	/// Convert this policy to a ThumbnailJobConfig for job dispatch
-	#[cfg(feature = "ffmpeg")]
 	pub fn to_job_config(&self) -> crate::ops::media::thumbnail::ThumbnailJobConfig {
 		use crate::ops::media::thumbnail::{ThumbnailJobConfig, ThumbnailVariants};
 

@@ -4,6 +4,27 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
 
+/// A registered ephemeral source and its live state
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct EphemeralSourceInfo {
+	pub id: uuid::Uuid,
+	pub root: PathBuf,
+	pub fingerprint: Option<String>,
+	/// The root exists on disk right now
+	pub attached: bool,
+	/// A snapshot restore has populated this source's index this session
+	pub restored: bool,
+	pub last_seen_secs: u64,
+	/// Entry count at last snapshot — present without restoring the source
+	pub entry_count: Option<u64>,
+	/// Total file bytes at last snapshot
+	pub total_bytes: Option<u64>,
+	/// The source's directory in the daemon's per-source layout
+	pub directory: Option<PathBuf>,
+	/// The source's thumbnail cache file within that directory
+	pub thumbs_path: Option<PathBuf>,
+}
+
 /// Status of the unified ephemeral index cache
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct EphemeralCacheStatus {
@@ -17,6 +38,10 @@ pub struct EphemeralCacheStatus {
 	pub indexed_paths: Vec<IndexedPathInfo>,
 	/// List of paths currently being indexed
 	pub paths_in_progress: Vec<PathBuf>,
+	/// Registered sources (volumes, drives, explicit roots) with their
+	/// attachment state — detached sources remain browsable from snapshots
+	#[serde(default)]
+	pub sources: Vec<EphemeralSourceInfo>,
 
 	// Legacy fields for backward compatibility
 	#[serde(skip_serializing_if = "Option::is_none")]

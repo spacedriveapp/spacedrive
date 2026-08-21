@@ -25,8 +25,8 @@ fn main() {
 	// Test 2: External volume with dotfile UUID
 	println!("Test 2: External volume - Dotfile UUID provides stability");
 	let spacedrive_id = Uuid::new_v4();
-	let fp_ext1 = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
-	let fp_ext2 = VolumeFingerprint::from_external_volume(spacedrive_id, device_id);
+	let fp_ext1 = VolumeFingerprint::from_external_volume(spacedrive_id);
+	let fp_ext2 = VolumeFingerprint::from_external_volume(spacedrive_id);
 
 	println!(
 		"  With same dotfile UUID: {} == {}",
@@ -65,8 +65,8 @@ fn main() {
 	// Test 5: External volume - Same dotfile UUID, different mount points
 	println!("Test 5: External volume - Dotfile UUID stable across remounts");
 	let ext_uuid = Uuid::new_v4();
-	let fp_at_mount1 = VolumeFingerprint::from_external_volume(ext_uuid, device_id);
-	let fp_at_mount2 = VolumeFingerprint::from_external_volume(ext_uuid, device_id);
+	let fp_at_mount1 = VolumeFingerprint::from_external_volume(ext_uuid);
+	let fp_at_mount2 = VolumeFingerprint::from_external_volume(ext_uuid);
 
 	println!("  Mounted at /Volumes/USB:  {}", fp_at_mount1.short_id());
 	println!("  Mounted at /Volumes/USB1: {}", fp_at_mount2.short_id());

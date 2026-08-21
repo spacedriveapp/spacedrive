@@ -51,9 +51,6 @@ pub struct LibrarySettings {
 	/// Whether the library is encrypted at rest
 	pub encryption_enabled: bool,
 
-	/// Custom thumbnail sizes to generate
-	pub thumbnail_sizes: Vec<u32>,
-
 	/// File extensions to ignore during indexing
 	pub ignored_extensions: Vec<String>,
 
@@ -91,7 +88,6 @@ impl Default for LibrarySettings {
 			enable_ai_tagging: false,
 			sync_enabled: false,
 			encryption_enabled: false,
-			thumbnail_sizes: vec![128, 256, 512],
 			ignored_extensions: vec![
 				".tmp".to_string(),
 				".temp".to_string(),
@@ -173,9 +169,6 @@ pub struct LibraryStatistics {
 	#[serde(default)]
 	pub available_capacity: u64,
 
-	/// Number of thumbnails generated
-	pub thumbnail_count: u64,
-
 	/// Database file size in bytes
 	pub database_size: u64,
 
@@ -205,7 +198,6 @@ impl Default for LibraryStatistics {
 			unique_content_count: 0,
 			total_capacity: 0,
 			available_capacity: 0,
-			thumbnail_count: 0,
 			database_size: 0,
 			sidecar_count: 0,
 			sidecar_size: 0,
@@ -215,29 +207,3 @@ impl Default for LibraryStatistics {
 	}
 }
 
-/// Thumbnail generation metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ThumbnailMetadata {
-	/// Version of the thumbnail format
-	pub version: u32,
-
-	/// Quality setting used for generation
-	pub quality: u8,
-
-	/// Sizes that were generated
-	pub sizes: Vec<u32>,
-
-	/// When this metadata was created
-	pub created_at: DateTime<Utc>,
-}
-
-impl Default for ThumbnailMetadata {
-	fn default() -> Self {
-		Self {
-			version: 1,
-			quality: 85,
-			sizes: vec![128, 256, 512],
-			created_at: Utc::now(),
-		}
-	}
-}

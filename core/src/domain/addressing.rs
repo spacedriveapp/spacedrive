@@ -207,6 +207,15 @@ impl SdPath {
 			|| device_slug == get_current_device_id().to_string()
 	}
 
+	/// Whether two device slugs refer to the same device, honoring the
+	/// alternate spellings ("local", the canonical slug, the device uuid)
+	/// that all name the current device. Comparisons between physical paths
+	/// must use this rather than string equality: a subscription scoped with
+	/// one spelling would otherwise silently drop events carrying another.
+	pub fn same_device(a: &str, b: &str) -> bool {
+		a == b || (Self::is_current_device(a) && Self::is_current_device(b))
+	}
+
 	/// Check if this path is on the current device
 	pub fn is_local(&self) -> bool {
 		match self {

@@ -32,6 +32,12 @@ pub struct UpdateAppConfigInput {
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub language: Option<String>,
 
+	/// Ceiling on the mount block cache, in bytes. Applies immediately —
+	/// the cache evicts down to a lowered limit rather than waiting for a
+	/// restart, because nothing in it is authoritative.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub mounts_cache_max_bytes: Option<u64>,
+
 	/// Whether networking is enabled
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub networking_enabled: Option<bool>,
@@ -258,6 +264,16 @@ impl CoreAction for UpdateAppConfigAction {
 			if config.preferences.language != *language {
 				config.preferences.language = language.clone();
 				changes.push("language");
+			}
+		}
+
+		if let Some(cache_max_bytes) = self.input.mounts_cache_max_bytes {
+			if config.mounts.cache_max_bytes != cache_max_bytes {
+				config.mounts.cache_max_bytes = cache_max_bytes;
+				changes.push("mounts_cache_max_bytes");
+				if let Some(cache) = crate::service::mounts::cache::cache() {
+					cache.set_max_bytes(cache_max_bytes).await;
+				}
 			}
 		}
 

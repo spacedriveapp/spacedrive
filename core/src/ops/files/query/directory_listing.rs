@@ -299,6 +299,7 @@ impl DirectoryListingQuery {
 					format: s.format,
 					status: s.status,
 					size: s.size,
+					version: s.version,
 					created_at: s.created_at,
 					updated_at: s.updated_at,
 				});
@@ -643,6 +644,11 @@ impl DirectoryListingQuery {
 
 		let cache = context.ephemeral_cache();
 
+		// A registered source that hasn't been touched this session restores
+		// from its snapshot here — including detached drives, whose indexes
+		// serve read-only.
+		cache.ensure_restored(&local_path).await;
+
 		// Check if we have a cached index that covers this path (or a parent path)
 		if let Some(index) = cache.get_for_search(&local_path) {
 			tracing::debug!(
@@ -680,7 +686,12 @@ impl DirectoryListingQuery {
 
 					for child_path in children {
 						if let Some(metadata) = index_write.get_entry_ref(&child_path) {
-							if !self.input.include_hidden.unwrap_or(false) && metadata.is_hidden {
+							// Bundle internals are lensed out with hidden files:
+							// the package browses as one opaque item.
+							if !self.input.include_hidden.unwrap_or(false)
+								&& (metadata.is_hidden
+									|| crate::ops::indexing::lens::is_bundle_internal(&child_path))
+							{
 								continue;
 							}
 
@@ -699,6 +710,15 @@ impl DirectoryListingQuery {
 							let mut file =
 								File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
 							file.content_kind = content_kind;
+							// Directories report their subtree rollup rather
+							// than the directory entry's own on-disk size.
+							if metadata.kind
+								== crate::ops::indexing::state::EntryKind::Directory
+							{
+								if let Some(bytes) = index_write.subtree_size(&child_path) {
+									file.size = bytes;
+								}
+							}
 							files.push(file);
 						}
 					}
@@ -731,6 +751,21 @@ impl DirectoryListingQuery {
 					local_path.display()
 				);
 			}
+		}
+
+		// A detached source has no filesystem underneath it; what the restored
+		// snapshot holds is all there is. Dispatching an indexer at a missing
+		// mount would only produce errors or, worse, an empty rescan.
+		if cache.is_detached(&local_path) {
+			tracing::debug!(
+				"Source for {} is detached; serving snapshot contents only",
+				local_path.display()
+			);
+			return Ok(DirectoryListingOutput {
+				files: Vec::new(),
+				total_count: 0,
+				has_more: false,
+			});
 		}
 
 		// No cached index or index doesn't cover this path
@@ -788,7 +823,9 @@ impl DirectoryListingQuery {
 						self.input.path,
 						e
 					);
-					cache.mark_indexing_complete(&local_path);
+					// Dispatch failed, so nothing was indexed — clear the flag
+					// without claiming a result.
+					cache.mark_indexing_failed(&local_path);
 				}
 			}
 		}

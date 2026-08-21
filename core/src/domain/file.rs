@@ -83,6 +83,12 @@ pub struct File {
 
 	/// Video duration (for grid display optimization)
 	pub duration_seconds: Option<f64>,
+
+	/// A locally resolvable preview image for files that have no sidecar
+	/// thumbnails yet — e.g. a photo library's own derivative, or the file
+	/// itself when it is a small local image. UI-facing only.
+	#[serde(default)]
+	pub thumbnail_path: Option<std::path::PathBuf>,
 }
 
 /// Domain representation of a sidecar
@@ -95,6 +101,9 @@ pub struct Sidecar {
 	pub format: String,
 	pub status: String,
 	pub size: i64,
+	/// Bumped on every regeneration; sidecar URLs carry it as the cache
+	/// buster, since the served files are otherwise immutable to browsers.
+	pub version: i32,
 	pub created_at: DateTime<Utc>,
 	pub updated_at: DateTime<Utc>,
 }
@@ -424,6 +433,7 @@ impl File {
 					format: s.format,
 					status: s.status,
 					size: s.size,
+					version: s.version,
 					created_at: s.created_at,
 					updated_at: s.updated_at,
 				})
@@ -491,6 +501,7 @@ impl File {
 			kind,
 			is_local,
 			duration_seconds: None,
+			thumbnail_path: None,
 		}
 	}
 
@@ -585,6 +596,7 @@ impl File {
 			kind,
 			is_local,
 			duration_seconds: None,
+			thumbnail_path: None,
 		}
 	}
 
@@ -769,6 +781,7 @@ impl File {
 					format: s.format,
 					status: s.status,
 					size: s.size,
+					version: s.version,
 					created_at: s.created_at,
 					updated_at: s.updated_at,
 				});
@@ -1008,59 +1021,6 @@ impl File {
 		}
 
 		Ok(files)
-	}
-}
-
-impl Sidecar {
-	/// Create a new Sidecar from database entity data
-	pub fn from_entity(
-		id: i32,
-		content_uuid: Uuid,
-		kind: SidecarKind,
-		variant: SidecarVariant,
-		format: SidecarFormat,
-		status: SidecarStatus,
-		size: i64,
-		created_at: DateTime<Utc>,
-		updated_at: DateTime<Utc>,
-	) -> Self {
-		Self {
-			id,
-			content_uuid,
-			kind: kind.to_string(),
-			variant: variant.to_string(),
-			format: format.to_string(),
-			status: status.to_string(),
-			size,
-			created_at,
-			updated_at,
-		}
-	}
-
-	/// Check if this sidecar is ready for use
-	pub fn is_ready(&self) -> bool {
-		self.status == "Ready"
-	}
-
-	/// Check if this sidecar failed to generate
-	pub fn is_failed(&self) -> bool {
-		self.status == "Failed"
-	}
-
-	/// Check if this sidecar is still being generated
-	pub fn is_pending(&self) -> bool {
-		self.status == "Pending"
-	}
-
-	/// Get the file extension for this sidecar
-	pub fn file_extension(&self) -> &str {
-		// TODO: Implement proper extension mapping
-		match self.format.as_str() {
-			"Webp" => "webp",
-			"Jpeg" => "jpg",
-			"Png" => "png",
-			_ => "bin",
-		}
 	}
 }
 

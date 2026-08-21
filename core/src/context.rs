@@ -10,6 +10,7 @@ use crate::{
 	infra::sync::TransactionManager,
 	library::LibraryManager,
 	ops::indexing::ephemeral::EphemeralIndexCache,
+	ops::processes::ProcessManager,
 	service::network::{NetworkingService, RemoteJobCache},
 	service::session::SessionStateService,
 	service::sidecar_manager::SidecarManager,
@@ -33,6 +34,7 @@ pub struct CoreContext {
 	#[cfg(feature = "wasm")]
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
 	pub fs_watcher: Arc<RwLock<Option<Arc<FsWatcherService>>>>,
+	pub process_manager: Arc<RwLock<Option<Arc<ProcessManager>>>>,
 	// Ephemeral index cache for unmanaged paths
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Remote job cache for cross-device job visibility
@@ -68,8 +70,13 @@ impl CoreContext {
 			#[cfg(feature = "wasm")]
 			plugin_manager: Arc::new(RwLock::new(None)),
 			fs_watcher: Arc::new(RwLock::new(None)),
+			process_manager: Arc::new(RwLock::new(None)),
+			// The cache's persistence must follow this context's data dir, so
+			// --data-dir/--instance daemons never read or write the default
+			// installation's source registry and snapshots.
 			ephemeral_index_cache: Arc::new(
-				EphemeralIndexCache::new().expect("Failed to create ephemeral index cache"),
+				EphemeralIndexCache::with_sources_dir(Some(data_dir.join("sources")))
+					.expect("Failed to create ephemeral index cache"),
 			),
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			file_type_registry: Arc::new(FileTypeRegistry::new()),
@@ -135,6 +142,15 @@ impl CoreContext {
 	/// Method for Core to set filesystem watcher after it's initialized
 	pub async fn set_fs_watcher(&self, watcher: Arc<FsWatcherService>) {
 		*self.fs_watcher.write().await = Some(watcher);
+	}
+
+	pub async fn set_process_manager(&self, manager: Arc<ProcessManager>) {
+		*self.process_manager.write().await = Some(manager);
+	}
+
+	/// Helper method to get the process manager
+	pub async fn processes(&self) -> Option<Arc<ProcessManager>> {
+		self.process_manager.read().await.clone()
 	}
 
 	/// Helper method to get the action manager

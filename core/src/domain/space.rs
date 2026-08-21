@@ -448,6 +448,15 @@ pub enum ItemType {
 
 	/// Redundancy awareness dashboard
 	Redundancy,
+
+	/// A predefined search pinned to the sidebar, identified ahead of time
+	/// by indexing (never pattern-matched at query time). The slug names a
+	/// built-in collection definition, e.g. "screenshots".
+	Collection { slug: String },
+
+	/// The storage analyzer: every volume rendered as a size breakdown,
+	/// each drilling into a full-fidelity view over the index rollups.
+	Analyzer,
 }
 /// Complete sidebar layout for a space
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
