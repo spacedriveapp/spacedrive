@@ -483,3 +483,7 @@ whitepaper/*.log
 
 test_data
 :memory:
+
+# The macOS `Icon` rule above matches case-insensitively on APFS, which would
+# swallow every catalog icon composition directory.
+!catalog/*/icon/

@@ -63,9 +63,11 @@ fn main() -> Result<()> {
 		eprintln!("Usage: cargo xtask <command>");
 		eprintln!();
 		eprintln!("Commands:");
+		eprintln!("  setup        Setup development environment (generates cargo config)");
 		eprintln!(
-			"  setup        Setup development environment (downloads deps, generates config)"
+			"               --native-deps  also download FFmpeg, libheif and Pdfium, and build"
 		);
+		eprintln!("                              the daemon with the ffmpeg and heif features");
 		eprintln!("  build-ios    Build sd-ios-core XCFramework for iOS devices and simulator");
 		eprintln!("  build-mobile Build sd-mobile-core for React Native iOS/Android");
 		eprintln!("  test-core    Run all core integration tests with progress tracking");
@@ -76,6 +78,7 @@ fn main() -> Result<()> {
 		eprintln!();
 		eprintln!("Examples:");
 		eprintln!("  cargo xtask setup          # First time setup");
+		eprintln!("  cargo xtask setup --native-deps  # ...with the bundled codecs");
 		eprintln!("  cargo xtask build-ios      # Build iOS framework");
 		eprintln!("  cargo xtask build-mobile   # Build mobile core for React Native");
 		eprintln!("  cargo xtask test-core      # Run all core tests");
@@ -84,7 +87,7 @@ fn main() -> Result<()> {
 	}
 
 	match args[1].as_str() {
-		"setup" => setup()?,
+		"setup" => setup(args.iter().any(|arg| arg == "--native-deps"))?,
 		"build-ios" => build_ios()?,
 		"build-mobile" => build_mobile()?,
 		"test-core" => {
@@ -120,8 +123,9 @@ fn main() -> Result<()> {
 /// Setup development environment
 ///
 /// This replaces the old `pnpm prep` workflow with a pure Rust implementation.
-/// It downloads native dependencies and generates the cargo config.
-fn setup() -> Result<()> {
+/// It generates the cargo config and, with `--native-deps`, downloads the
+/// prebuilt codec bundle.
+fn setup(with_native_deps: bool) -> Result<()> {
 	println!("Setting up Spacedrive development environment...");
 	println!();
 
@@ -147,35 +151,49 @@ fn setup() -> Result<()> {
 	}
 	println!("   ✓ Rust toolchain found");
 
-	// Setup native dependencies directory
+	// The bundle carries FFmpeg, libheif and Pdfium, which only the `ffmpeg` and
+	// `heif` features link against. Neither is on by default, and macOS reaches
+	// the same formats through ImageIO and QuickLook, so the download is opt-in.
+	// An existing bundle is kept and used, so a rerun does not undo `--native-deps`.
 	let native_deps_dir = project_root.join("apps").join(".deps");
 	println!();
-	println!("Setting up native dependencies...");
 
-	// Clean and create deps directory
-	if native_deps_dir.exists() {
-		fs::remove_dir_all(&native_deps_dir).context("Failed to clean native deps directory")?;
+	if with_native_deps {
+		println!("Setting up native dependencies...");
+
+		if native_deps_dir.exists() {
+			fs::remove_dir_all(&native_deps_dir)
+				.context("Failed to clean native deps directory")?;
+		}
+		fs::create_dir_all(&native_deps_dir).context("Failed to create native deps directory")?;
+
+		let filename = system.native_deps_filename();
+		native_deps::download_native_deps(&filename, &native_deps_dir)?;
+	} else if native_deps_dir.exists() {
+		println!("Using the native dependencies already in apps/.deps");
+	} else {
+		println!("Skipping native dependencies.");
+		println!("   Video, HEIC and PDF thumbnails come from the system codecs on macOS.");
+		println!("   Run with --native-deps for FFmpeg, libheif and Pdfium.");
 	}
-	fs::create_dir_all(&native_deps_dir).context("Failed to create native deps directory")?;
 
-	// Download desktop native dependencies
-	let filename = system.native_deps_filename();
-	native_deps::download_native_deps(&filename, &native_deps_dir)?;
+	let has_native_deps = native_deps_dir.exists();
 
-	// Create symlinks for shared libraries
-	#[cfg(target_os = "macos")]
-	{
-		println!();
-		println!("Creating symlinks for shared libraries...");
-		native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
-	}
+	if has_native_deps {
+		#[cfg(target_os = "macos")]
+		{
+			println!();
+			println!("Creating symlinks for shared libraries...");
+			native_deps::symlink_libs_macos(&project_root, &native_deps_dir)?;
+		}
 
-	#[cfg(target_os = "linux")]
-	{
-		println!();
-		println!("Creating symlinks for shared libraries...");
-		native_deps::symlink_libs_linux(&project_root, &native_deps_dir)?;
-		println!("   ✓ Symlinks created");
+		#[cfg(target_os = "linux")]
+		{
+			println!();
+			println!("Creating symlinks for shared libraries...");
+			native_deps::symlink_libs_linux(&project_root, &native_deps_dir)?;
+			println!("   ✓ Symlinks created");
+		}
 	}
 
 	// Download iOS dependencies if on macOS and iOS targets are installed
@@ -248,25 +266,27 @@ fn setup() -> Result<()> {
 		None
 	};
 
-	config::generate_cargo_config(&project_root, Some(&native_deps_dir), mobile_deps)?;
+	config::generate_cargo_config(
+		&project_root,
+		has_native_deps.then_some(native_deps_dir.as_path()),
+		mobile_deps,
+	)?;
 
 	// Build release daemon for Tauri bundler validation
 	// The Tauri config references the release daemon in externalBin, so we need to build it
 	// once even for dev mode to satisfy Tauri's path validation
 	println!();
-	println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
-
 	let target_triple = system.target_triple();
-	let args = vec![
-		"build",
-		"--release",
-		"--features",
-		"sd-core/ffmpeg,sd-core/heif",
-		"--bin",
-		"sd-daemon",
-		"--target",
-		&target_triple,
-	];
+	let mut args = vec!["build", "--release", "--bin", "sd-daemon"];
+
+	if has_native_deps {
+		println!("Building release daemon for Tauri (with ffmpeg,heif features)...");
+		args.extend_from_slice(&["--features", "sd-core/ffmpeg,sd-core/heif"]);
+	} else {
+		println!("Building release daemon for Tauri...");
+	}
+
+	args.extend_from_slice(&["--target", &target_triple]);
 
 	let status = Command::new("cargo")
 		.args(&args)

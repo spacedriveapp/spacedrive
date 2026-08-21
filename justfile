@@ -1,13 +1,18 @@
 # Spacedrive development commands
 
-# Install JS dependencies and set up native deps + cargo config
+# Install JS dependencies and generate the cargo config
 setup:
     bun install
     cargo xtask setup
 
+# Same, plus the prebuilt codec bundle (FFmpeg, libheif, Pdfium)
+setup-native-deps:
+    bun install
+    cargo xtask setup --native-deps
+
 # Run the daemon (default dev workflow: just dev-daemon + just dev-desktop)
 dev-daemon *ARGS:
-	cargo run --features ffmpeg,heif --bin sd-daemon {{ARGS}}
+	cargo run --bin sd-daemon {{ARGS}}
 
 # Run the desktop app in dev mode
 dev-desktop:

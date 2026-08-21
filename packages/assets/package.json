@@ -1,7 +1,7 @@
 {
 	"name": "@sd/assets",
 	"version": "1.0.0",
-	"license": "GPL-3.0-only",
+	"license": "Apache-2.0",
 	"publishConfig": {
 		"name": "@spacedriveapp/assets"
 	},

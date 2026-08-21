@@ -10,7 +10,7 @@ members = [
 	"apps/mobile/modules/sd-mobile-core/core",
 	"apps/server",
 	"apps/cli",
-	# "apps/gpui-photo-grid",
+	"apps/native",
 	"apps/tauri/sd-tauri-core",
 	"apps/tauri/src-tauri",
 	"core",
@@ -20,6 +20,8 @@ members = [
 ]
 # Exclude Tauri from default builds - it requires frontend to be built first
 # Use `cd apps/tauri && bun run tauri:dev` to run the Tauri app
+# apps/native is also excluded so default checks don't build the gpui tree;
+# run it with `cargo run --release -p sd-native`
 default-members = [
 	"apps/server",
 	"apps/cli",
@@ -32,13 +34,24 @@ resolver = "2"
 
 [workspace.package]
 edition      = "2021"
-license      = "FSL-1.1-ALv2"
+license      = "Apache-2.0"
 repository   = "https://github.com/spacedriveapp/spacedrive"
 rust-version = "1.81"
 
 [workspace.dependencies]
 # First party dependencies
 # sd-cloud-schema = { git = "https://github.com/spacedriveapp/cloud-services-schema", rev = "515ba740ea" }
+
+# GPUI, pinned to our fork of zed (branch `spacedrive`). The rev is the one
+# gpui-component's lockfile resolves, so both trees agree on the API surface.
+# Upgrades are a deliberate ritual: bump gpui-component, move this rev to its
+# lock, rebase any fork patches. Fork patches are changelogged here as they land.
+# gpui carries an explicit version because the zed tree also contains a 0.0.0
+# `gpui` lint-test fixture that would otherwise make resolution ambiguous.
+gpui           = { version = "0.2.2", git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5" }
+gpui_platform  = { git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5", features = ["font-kit"] }
+gpui_macros    = { git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5" }
+gpui-component = { git = "https://github.com/longbridge/gpui-component", rev = "7acfc184382d30864a688fdaa6c9ff719efc53ae" }
 
 # Third party dependencies used by one or more of our crates
 anyhow              = "1.0.94"
@@ -106,7 +119,14 @@ ort                 = { version = "2.0.0-rc.9", default-features = false, featur
 # git = "https://github.com/spacedriveapp/if-watch.git"
 # rev = "a92c17d3f8"
 
-# Patches removed - project migrated from libp2p to iroh
+# gpui-component depends on zed-industries/zed with no rev pin; reroute every
+# zed-tree crate it pulls onto our fork at the pinned rev so exactly one gpui
+# exists in the graph. `[patch]` matches by version, so the fork must not bump
+# the zed crates' version numbers.
+[patch."https://github.com/zed-industries/zed"]
+gpui          = { version = "=0.2.2", git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5" }
+gpui_platform = { git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5" }
+gpui_macros   = { git = "https://github.com/spacedriveapp/zed", rev = "e0931d5a9dbf4f781b336fdf448739e74a2ac0b5" }
 
 [profile.dev]
 # Make compilation faster on macOS
@@ -162,3 +182,11 @@ codegen-units = 16       # Allow parallel compilation (vs 1 in release)
 lto           = false    # Disable link-time optimization (saves 15-20 min per arch)
 opt-level     = 2        # Good optimization without extreme size focus
 strip         = true     # Still remove debug symbols
+
+# `smb-server` needs RC4 to unwrap NTLM session keys, and the published
+# `rc4 0.2` pulls `crypto-common 0.2.2` — which cargo cannot reconcile with
+# the `0.2.0-rc.4` that iroh pins through its exact `aead = "=0.6.0-rc.2"`.
+# The shim has the same surface and no dependencies. Delete it, and this
+# patch, once iroh moves off the aead pre-release.
+[patch.crates-io]
+rc4 = { path = "crates/rc4-shim" }

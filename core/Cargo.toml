@@ -5,7 +5,8 @@ version = "2.0.0-alpha.2"
 autobins = true
 
 [features]
-default = ["wasm"]
+# Every heavy subsystem is opt-in, so the default build carries only the engine.
+default = []
 # FFmpeg support for video thumbnails and audio extraction
 ffmpeg = ["dep:sd-ffmpeg"]
 # Whisper speech recognition engine (internal dependency)
@@ -20,7 +21,7 @@ heif = ["sd-images/heif"]
 mobile = []
 # CLI support (clap is now always available)
 cli = []
-# WASM plugin system (disabled on mobile)
+# WASM plugin system. Pulls in the wasmer runtime, and is unavailable on mobile.
 wasm = ["dep:wasmer", "dep:wasmer-middlewares"]
 
 
@@ -44,7 +45,7 @@ sea-orm-migration = { version = "1.1", features = ["runtime-tokio-rustls", "sqlx
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "sqlite"] }
 
 # API (temporarily disabled)
-# axum = "0.7"
+axum = { workspace = true }
 
 # Serialization
 int-enum = "1.1"
@@ -79,6 +80,9 @@ regex = "1.11"
 
 # File operations
 blake3 = "1.5"  # Content addressing
+# Loopback SMB2 mount frontend. The `ixr-` fork is upstream plus the
+# re-exports a backend needs to be implementable from outside the crate.
+smb-server = { package = "ixr-smb-server", version = "0.5", default-features = false }
 bytes  = "1.7"  # Efficient byte buffers for I/O operations
 hex    = "0.4"  # Hex encoding for volume fingerprints
 notify = "6.1"  # File system watching
@@ -118,6 +122,9 @@ sd-task-system = { path = "../crates/task-system" }
 # Archive system - indexes external data sources (emails, notes, etc.)
 sd-archive = { path = "../crates/archive" }
 
+# Machine-scoped process supervision
+sd-supervisor = { path = "../crates/supervisor" }
+
 # Vector database for memory files (optional for now)
 # lancedb = "0.15"  # Embedded vector database (conflicts with gpui)
 
@@ -127,6 +134,7 @@ image            = "0.25"
 sd-ffmpeg        = { path = "../crates/ffmpeg", optional = true }
 sd-fs-watcher    = { path = "../crates/fs-watcher" }
 sd-images        = { path = "../crates/images" }
+sd-sidecar-path  = { path = "../crates/sidecar-path" }
 sd-media-metadata = { path = "../crates/media-metadata" }
 tokio-rustls     = "0.26"
 webp             = "0.3"
@@ -224,6 +232,11 @@ trash = "3.3" # Native trash/recycle bin support on desktop platforms
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.52", features = ["Win32_Storage_FileSystem", "Win32_Foundation", "Win32_Security", "Win32_System_Ioctl", "Win32_System_IO", "Win32_System_Registry", "Win32_System_Power"] }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+# System codecs via ImageIO and QuickLook, so the default macOS build needs no
+# bundled FFmpeg, libheif or pdfium.
+sd-imageio = { path = "../crates/imageio" }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.15.1", features = ["metal"], optional = true }

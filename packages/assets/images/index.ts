@@ -3,20 +3,20 @@
  * To regenerate this file, run: pnpm assets gen
  */
 
-import AlphaBg_Light from './AlphaBg_Light.png';
-import AlphaBg from './AlphaBg.png';
-import AppLogo from './AppLogo.png';
-import AppLogoV2 from './AppLogoV2.png';
-import Ball from './Ball.png';
-import BallBlue from './BallBlue.png';
-import BloomOne from './BloomOne.png';
-import BloomThree from './BloomThree.png';
-import BloomTwo from './BloomTwo.png';
-import Dropbox from './Dropbox.png';
-import GoogleDrive from './GoogleDrive.png';
-import iCloud from './iCloud.png';
-import Mega from './Mega.png';
-import Transparent from './Transparent.png';
+import AlphaBg_Light from './AlphaBg_Light.webp';
+import AlphaBg from './AlphaBg.webp';
+import AppLogo from './AppLogo.webp';
+import AppLogoV2 from './AppLogoV2.webp';
+import Ball from './Ball.webp';
+import BallBlue from './BallBlue.webp';
+import BloomOne from './BloomOne.webp';
+import BloomThree from './BloomThree.webp';
+import BloomTwo from './BloomTwo.webp';
+import Dropbox from './Dropbox.webp';
+import GoogleDrive from './GoogleDrive.webp';
+import iCloud from './iCloud.webp';
+import Mega from './Mega.webp';
+import Transparent from './Transparent.webp';
 
 export {
 	AlphaBg,

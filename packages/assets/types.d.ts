@@ -1,6 +1,6 @@
 // Type declarations for @sd/assets
 
-declare module "@sd/assets/icons/*.png" {
+declare module "@sd/assets/icons/*.webp" {
 	const value: number; // React Native uses numeric IDs for local images
 	export default value;
 }
@@ -10,7 +10,7 @@ declare module "@sd/assets/icons/*.jpg" {
 	export default value;
 }
 
-declare module "@sd/assets/images/*.png" {
+declare module "@sd/assets/images/*.webp" {
 	const value: number;
 	export default value;
 }
