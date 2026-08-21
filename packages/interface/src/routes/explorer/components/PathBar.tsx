@@ -5,7 +5,7 @@ import {
 	Eye,
 	Folder
 } from '@phosphor-icons/react';
-import LaptopIcon from '@sd/assets/icons/Laptop.png';
+import LaptopIcon from '@sd/assets/icons/Laptop.webp';
 import type {Device, SdPath} from '@sd/ts-client';
 import {
 	getDeviceIcon,

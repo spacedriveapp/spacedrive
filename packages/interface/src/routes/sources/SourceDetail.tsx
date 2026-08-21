@@ -1,4 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
+import { SourceMediaView } from "./SourceMediaView";
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -188,6 +189,10 @@ export function SourceDetail() {
 		);
 	}
 
+	if (source.data_type === "photo") {
+		return <SourceMediaView sourceId={sourceId ?? ""} />;
+	}
+
 	return (
 		<div className="flex h-full flex-col">
 			<TopBarPortal
@@ -302,7 +307,6 @@ export function SourceDetail() {
 				</div>
 			)}
 
-			{/* Virtualized items list */}
 			<div ref={scrollRef} className="flex-1 overflow-y-auto">
 				{itemsLoading && (
 					<div className="text-ink-faint py-12 text-center text-sm">

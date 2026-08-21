@@ -382,6 +382,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: false
 								})
 							);
@@ -397,6 +398,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: true
 								})
 							);
@@ -410,6 +412,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								extractText.mutateAsync({
 									entry_uuid: f.id,
+									languages: null,
 									force: false
 								})
 							);
@@ -432,6 +435,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								generateThumbstrip.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: false
 								})
 							);
@@ -448,6 +452,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: false
 								})
 							);
@@ -463,6 +468,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: true
 								})
 							);
@@ -475,7 +481,9 @@ export function useFileContextMenu({
 							const targets = getTargetFiles();
 							await forEachTarget(targets, (f) =>
 								transcribeAudio.mutateAsync({
-									entry_uuid: f.id
+									entry_uuid: f.id,
+									model: null,
+									language: null
 								})
 							);
 						}
@@ -488,6 +496,8 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								generateProxy.mutateAsync({
 									entry_uuid: f.id,
+									resolution: null,
+									use_hardware_accel: null,
 									force: false
 								})
 							);
@@ -510,7 +520,8 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								transcribeAudio.mutateAsync({
 									entry_uuid: f.id,
-									model: 'whisper-base'
+									model: 'whisper-base',
+									language: null
 								})
 							);
 						},
@@ -535,6 +546,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								extractText.mutateAsync({
 									entry_uuid: f.id,
+									languages: null,
 									force: false
 								})
 							);
@@ -549,6 +561,7 @@ export function useFileContextMenu({
 							await forEachTarget(targets, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: true
 								})
 							);
@@ -570,6 +583,7 @@ export function useFileContextMenu({
 							await forEachTarget(selectedFiles, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: true
 								})
 							);
@@ -582,6 +596,7 @@ export function useFileContextMenu({
 							await forEachTarget(selectedFiles, (f) =>
 								regenerateThumbnail.mutateAsync({
 									entry_uuid: f.id,
+									variants: null,
 									force: false
 								})
 							);
@@ -595,6 +610,7 @@ export function useFileContextMenu({
 							await forEachTarget(selectedFiles, (f) =>
 								extractText.mutateAsync({
 									entry_uuid: f.id,
+									languages: null,
 									force: false
 								})
 							);

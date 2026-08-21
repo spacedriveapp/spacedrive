@@ -163,15 +163,15 @@ message: string };
 /**
  * Targets for immediately applying a newly created tag
  */
-export type ApplyToTargets =
+export type ApplyToTargets = 
 /**
  * Apply to content identities (all instances)
  */
-{ type: "Content"; ids: string[] } |
+{ type: "Content"; ids: string[] } | 
 /**
  * Apply to specific entries by database ID (internal use)
  */
-{ type: "Entry"; ids: number[] } |
+{ type: "Entry"; ids: number[] } | 
 /**
  * Apply to specific entries by UUID (from frontend File.id)
  */
@@ -204,6 +204,18 @@ export type CloudStorageConfig = { type: "S3"; bucket: string; region: string; a
  * Only refresh_token is required (not access_token).
  */
 { type: "Dropbox"; root: string | null; refresh_token: string; client_id: string; client_secret: string } | { type: "AzureBlob"; container: string; endpoint: string | null; account_name: string; account_key: string } | { type: "GoogleCloudStorage"; bucket: string; root: string | null; endpoint: string | null; credential: string };
+
+export type CollectionListingInput = { 
+/**
+ * Built-in collection slug, e.g. "screenshots".
+ */
+slug: string; 
+/**
+ * Maximum entries returned, newest first. Defaults to 2000.
+ */
+limit?: number | null };
+
+export type CollectionListingOutput = { display_name: string; files: File[]; total_count: number };
 
 /**
  * Operators for combining tag attributes
@@ -574,14 +586,6 @@ namespace: string | null;
  */
 message: string };
 
-export type DeleteTagInput = { tag_id: string };
-
-export type DeleteTagOutput = { deleted: boolean };
-
-export type UnapplyTagsInput = { entry_ids: string[]; tag_ids: string[] };
-
-export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
-
 /**
  * Data volume metrics snapshot
  */
@@ -608,6 +612,10 @@ export type DeleteItemOutput = { success: boolean };
 export type DeleteSourceInput = { source_id: string };
 
 export type DeleteSourceOutput = { deleted: boolean };
+
+export type DeleteTagInput = { tag_id: string };
+
+export type DeleteTagOutput = { deleted: boolean };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -998,7 +1006,12 @@ indexed_paths: IndexedPathInfo[];
 /**
  * List of paths currently being indexed
  */
-paths_in_progress: string[]; total_indexes?: number | null; indexing_in_progress?: number | null; indexes?: EphemeralIndexInfo[] };
+paths_in_progress: string[]; 
+/**
+ * Registered sources (volumes, drives, explicit roots) with their
+ * attachment state — detached sources remain browsable from snapshots
+ */
+sources?: EphemeralSourceInfo[]; total_indexes?: number | null; indexing_in_progress?: number | null; indexes?: EphemeralIndexInfo[] };
 
 /**
  * Input for the ephemeral cache status query
@@ -1061,6 +1074,35 @@ idle_seconds: number;
  * Indexer job statistics (files/dirs/bytes counted)
  */
 job_stats: JobStats };
+
+/**
+ * A registered ephemeral source and its live state
+ */
+export type EphemeralSourceInfo = { id: string; root: string; fingerprint: string | null; 
+/**
+ * The root exists on disk right now
+ */
+attached: boolean; 
+/**
+ * A snapshot restore has populated this source's index this session
+ */
+restored: boolean; last_seen_secs: number; 
+/**
+ * Entry count at last snapshot — present without restoring the source
+ */
+entry_count: number | null; 
+/**
+ * Total file bytes at last snapshot
+ */
+total_bytes: number | null; 
+/**
+ * The source's directory in the daemon's per-source layout
+ */
+directory: string | null; 
+/**
+ * The source's thumbnail cache file within that directory
+ */
+thumbs_path: string | null };
 
 /**
  * Error event for tracking recent errors
@@ -1279,7 +1321,13 @@ content_kind: ContentKind; is_local: boolean;
 /**
  * Video duration (for grid display optimization)
  */
-duration_seconds: number | null };
+duration_seconds: number | null; 
+/**
+ * A locally resolvable preview image for files that have no sidecar
+ * thumbnails yet — e.g. a photo library's own derivative, or the file
+ * itself when it is a small local image. UI-facing only.
+ */
+thumbnail_path?: string | null };
 
 /**
  * Query to get a file by its ID with all related data
@@ -1593,6 +1641,10 @@ export type GetAdapterConfigInput = { adapter_id: string };
  */
 export type GetAppConfigQueryInput = null;
 
+export type GetFilesByTagInput = { tag_id: string; include_children: boolean; min_confidence: number };
+
+export type GetFilesByTagOutput = { files: File[] };
+
 /**
  * Input for getting library configuration
  */
@@ -1694,6 +1746,18 @@ export type GetSyncPartnersInput = Record<string, never>;
 
 export type GetSyncPartnersOutput = { partners: SyncPartnerInfo[]; debug_info: SyncPartnersDebugInfo };
 
+export type GetTagAncestorsInput = { tag_id: string };
+
+export type GetTagAncestorsOutput = { ancestors: Tag[] };
+
+export type GetTagByIdInput = { tag_id: string };
+
+export type GetTagByIdOutput = { tag: Tag | null };
+
+export type GetTagChildrenInput = { tag_id: string };
+
+export type GetTagChildrenOutput = { children: Tag[] };
+
 /**
  * Types of groups that can appear in a space
  */
@@ -1734,6 +1798,8 @@ export type GroupType =
  * User-defined custom group
  */
 "Custom";
+
+export type HealthState = "ok" | "failing" | "unknown";
 
 /**
  * Image metadata extracted from EXIF
@@ -2107,7 +2173,18 @@ export type ItemType =
 /**
  * Redundancy awareness dashboard
  */
-"Redundancy";
+"Redundancy" | 
+/**
+ * A predefined search pinned to the sidebar, identified ahead of time
+ * by indexing (never pattern-matched at query time). The slug names a
+ * built-in collection definition, e.g. "screenshots".
+ */
+{ Collection: { slug: string } } | 
+/**
+ * The storage analyzer: every volume rendered as a size breakdown,
+ * each drilling into a full-fidelity view over the index rollups.
+ */
+"Analyzer";
 
 export type JobCancelInput = { job_id: string };
 
@@ -2289,6 +2366,20 @@ export type JsonValue = null | boolean | number | string | JsonValue[] | { [key 
  * Latency metrics snapshot
  */
 export type LatencySnapshot = { count: number; avg_ms: number; min_ms: number; max_ms: number };
+
+export type LeaseSource = 
+/**
+ * This allocator issued it.
+ */
+"allocated" | 
+/**
+ * Adopted from an app's own declaration.
+ */
+"declared" | 
+/**
+ * A live listener adopted as occupancy.
+ */
+"observed";
 
 /**
  * A Spacedrive library - the canonical domain model
@@ -2486,10 +2577,6 @@ sync_enabled: boolean;
  */
 encryption_enabled: boolean; 
 /**
- * Custom thumbnail sizes to generate
- */
-thumbnail_sizes: number[]; 
-/**
  * File extensions to ignore during indexing
  */
 ignored_extensions: string[]; 
@@ -2583,10 +2670,6 @@ total_capacity?: number;
  * Available storage across all volumes in bytes (v2 field, defaults to 0 for old configs)
  */
 available_capacity?: number; 
-/**
- * Number of thumbnails generated
- */
-thumbnail_count: number; 
 /**
  * Database file size in bytes
  */
@@ -2747,6 +2830,8 @@ total: number;
 connected: number };
 
 export type ListSourceItemsInput = { source_id: string; limit: number; offset: number };
+
+export type ListSourceRecordsInput = { source_id: string; limit: number; offset: number };
 
 export type ListSourcesInput = { 
 /**
@@ -3084,6 +3169,12 @@ export type ModelType =
  */
 "Tesseract";
 
+export type MountShare = { name: string; source_id: string; root: string; attached: boolean; url: string; 
+/**
+ * Owning device label for replicated peer sources; None for local.
+ */
+device: string | null };
+
 /**
  * Mount type classification
  */
@@ -3104,6 +3195,14 @@ export type MountType =
  * User mount
  */
 "User";
+
+export type MountsStatus = { running: boolean; base_url: string | null; shares: MountShare[] };
+
+export type MountsStatusInput = Record<string, never>;
+
+export type MountsSyncPeersInput = Record<string, never>;
+
+export type MountsSyncPeersOutput = { devices: number; sources: number; message: string };
 
 export type NetworkStartInput = Record<string, never>;
 
@@ -3168,6 +3267,25 @@ export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" 
  * Operation metrics snapshot
  */
 export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadcast: number; shared_changes_broadcast: number; broadcast_batches_sent: number; failed_broadcasts: number; changes_received: number; changes_applied: number; changes_rejected: number; buffer_queue_depth: number; active_backfill_sessions: number; backfill_sessions_completed: number; backfill_pagination_rounds: number; retry_queue_depth: number; retry_attempts: number; retry_successes: number };
+
+export type Ownership = 
+/**
+ * Spawned by this supervisor; exits are crashes to converge on.
+ */
+"owned" | 
+/**
+ * Found already running and left exactly as it was; death is only
+ * visible through failed probes.
+ */
+"adopted" | 
+/**
+ * Lifecycle delegated to the compose CLI.
+ */
+"compose" | 
+/**
+ * Observed on another controller's authority; never spawned or stopped.
+ */
+"external";
 
 /**
  * Pagination information
@@ -3294,6 +3412,37 @@ export type PingInput = { message: string; count?: number | null };
 
 export type PingOutput = { echo: string; count: number; extension_works: boolean };
 
+export type PortLease = { port: number; holder: PortLeaseHolder; policy: PortPolicy; source: LeaseSource };
+
+export type PortLeaseHolder = { installationId: string; endpointId: string };
+
+export type PortLedger = { schemaVersion: string; 
+/**
+ * Monotonic; every successful allocation is a new generation.
+ */
+generation: number; 
+/**
+ * Explicit ranges remappable requests may draw from.
+ */
+allocatable: PortRange[]; 
+/**
+ * Never assigned, whatever asks.
+ */
+excluded: PortRange[]; leases: PortLease[] };
+
+export type PortPolicy = 
+/**
+ * Exactly the preferred port or refusal: protocol-pinned services and
+ * explicit operator overrides.
+ */
+"fixed" | 
+/**
+ * Preferred first, then the lowest free allocatable port.
+ */
+"remappable";
+
+export type PortRange = { from: number; to: number };
+
 /**
  * User preferences output
  */
@@ -3315,6 +3464,48 @@ export type PrivacyLevel =
  * Completely hidden from standard UI
  */
 "Hidden";
+
+export type Process = (ProcessStatus) & { id: string };
+
+export type ProcessLeasesInput = Record<string, never>;
+
+export type ProcessLeasesOutput = { ledger: PortLedger };
+
+export type ProcessListInput = Record<string, never>;
+
+export type ProcessListOutput = { processes: Process[] };
+
+export type ProcessLogsInput = { name: string; 
+/**
+ * How many lines from the end of the log; defaults to 200.
+ */
+lines?: number | null };
+
+export type ProcessLogsOutput = { lines: string[] };
+
+export type ProcessRegisterInput = (ServiceDefinition);
+
+export type ProcessRegisterOutput = { name: string };
+
+export type ProcessStartInput = { name: string };
+
+export type ProcessStartOutput = { process: Process };
+
+export type ProcessState = "starting" | "running" | "stopped" | "failed";
+
+/**
+ * The observable state of one supervised service.
+ */
+export type ProcessStatus = { name: string; state: ProcessState; ownership: Ownership | null; health: HealthState; pid: number | null; 
+/**
+ * ISO 8601 timestamp of the service's last transition into a running
+ * or starting state.
+ */
+since: string | null; restarts: number; detail: string; dev: boolean };
+
+export type ProcessStopInput = { name: string };
+
+export type ProcessStopOutput = { process: Process };
 
 /**
  * Progress completion information
@@ -3358,7 +3549,7 @@ regenerate: boolean };
 /**
  * Input for the redundancy summary query
  */
-export type RedundancySummaryInput = {
+export type RedundancySummaryInput = { 
 /**
  * Optional: restrict summary to specific volumes. None = all volumes.
  */
@@ -3367,39 +3558,31 @@ volume_uuids?: string[] | null };
 /**
  * Complete redundancy summary for the library
  */
-export type RedundancySummaryOutput = {
+export type RedundancySummaryOutput = { 
 /**
  * Per-volume redundancy breakdown
  */
-volumes: VolumeRedundancySummary[];
+volumes: VolumeRedundancySummary[]; 
 /**
  * Library-wide totals
  */
 library_totals: LibraryRedundancyTotals };
 
-export type RegenerateThumbnailInput = {
+export type RegenerateThumbnailInput = { 
 /**
  * UUID of the entry to regenerate thumbnails for
  */
-entry_uuid: string;
+entry_uuid: string; 
 /**
  * Optional variant names (defaults to grid@1x, grid@2x, detail@1x)
  */
-variants: string[] | null;
+variants: string[] | null; 
 /**
  * Force regeneration even if thumbnails exist
  */
 force: boolean };
 
-export type RegenerateThumbnailOutput = { 
-/**
- * Number of thumbnails generated
- */
-generated_count: number; 
-/**
- * Variant names that were generated
- */
-variants: string[] };
+export type RegenerateThumbnailOutput = { generated_count: number; variants: string[] };
 
 /**
  * State of a job running on a remote device
@@ -3735,6 +3918,31 @@ export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting
  */
 export type ServiceConfigOutput = { networking_enabled: boolean; volume_monitoring_enabled: boolean; fs_watcher_enabled: boolean; statistics_listener_enabled: boolean };
 
+/**
+ * A named service under supervision.
+ */
+export type ServiceDefinition = (ServiceKind) & { name: string };
+
+/**
+ * How a service runs and how its liveness is judged.
+ */
+export type ServiceKind = 
+/**
+ * A long-running child process with an HTTP health endpoint. An
+ * already-healthy endpoint is adopted rather than respawned.
+ */
+{ type: "daemon"; command: string[]; cwd: string; env?: { [key in string]: string }; health: string; dev?: boolean } | 
+/**
+ * A docker compose stack addressed by its project directory. Never
+ * spawned as a child; lifecycle goes through the compose CLI.
+ */
+{ type: "compose"; dir: string; health: string; env?: { [key in string]: string } } | 
+/**
+ * Observed, not owned: probed and displayed, never spawned. The health
+ * URL may live on another machine.
+ */
+{ type: "external"; health?: string | null };
+
 export type ServiceState = { running: boolean; details: string | null };
 
 export type ServiceStatus = { location_watcher: ServiceState; networking: ServiceState; volume_monitor: ServiceState; file_sharing: ServiceState };
@@ -3742,7 +3950,12 @@ export type ServiceStatus = { location_watcher: ServiceState; networking: Servic
 /**
  * Domain representation of a sidecar
  */
-export type Sidecar = { id: number; content_uuid: string; kind: string; variant: string; format: string; status: string; size: number; created_at: string; updated_at: string };
+export type Sidecar = { id: number; content_uuid: string; kind: string; variant: string; format: string; status: string; size: number; 
+/**
+ * Bumped on every regeneration; sidecar URLs carry it as the cache
+ * buster, since the served files are otherwise immutable to browsers.
+ */
+version: number; created_at: string; updated_at: string };
 
 /**
  * Format for storing sidecar files
@@ -3767,10 +3980,40 @@ export type SidecarKind = "thumb" | "thumbstrip" | "proxy" | "embeddings" | "ocr
 
 export type SidecarVariant = string;
 
+export type SizeNode = { name: string; path: string; size: number; is_dir: boolean; 
+/**
+ * Populated for directories within the requested depth.
+ */
+children: SizeNode[]; 
+/**
+ * Direct children this directory actually has.
+ */
+child_count: number; 
+/**
+ * Bytes in children beyond the returned top-N.
+ */
+other_size: number };
+
 /**
  * Filter for file size in bytes
  */
 export type SizeRangeFilter = { min: number | null; max: number | null };
+
+export type SizeTreeInput = { 
+/**
+ * Root of the tree; must live under a registered source.
+ */
+path: string; 
+/**
+ * Levels below the root to expand (clamped to 5). Defaults to 2.
+ */
+depth?: number | null; 
+/**
+ * Largest children kept per directory (clamped to 64). Defaults to 12.
+ */
+top?: number | null };
+
+export type SizeTreeOutput = { root: SizeNode; attached: boolean };
 
 /**
  * Sort direction
@@ -3821,6 +4064,22 @@ last_synced: string | null;
 status: string };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
+
+export type SourceMediaListingInput = { source_id: string; limit: number; offset: number };
+
+export type SourceMediaListingOutput = { files: File[]; has_more: boolean };
+
+export type SourceSearchInput = { query: string; 
+/**
+ * Restrict to one source.
+ */
+source_id?: string | null; 
+/**
+ * Restrict to one data type ("note", "email", …).
+ */
+data_type?: string | null; limit?: number | null };
+
+export type SourceSearchResult = { id: string; external_id: string; record_type: string; title: string; preview: string; subtitle: string | null; snippet: string | null; rank: number; source_id: string; source_name: string; data_type: string };
 
 /**
  * A Space defines a sidebar layout and filtering context
@@ -4222,13 +4481,13 @@ export type TagTargets =
  * Tag by content identity (applies to ALL instances of this content across devices)
  * This is the preferred/default approach
  */
-{ type: "Content"; ids: string[] } |
+{ type: "Content"; ids: string[] } | 
 /**
- * Tag by entry database ID (internal use)
+ * Tag by entry database ID (internal use only)
  */
-{ type: "Entry"; ids: number[] } |
+{ type: "Entry"; ids: number[] } | 
 /**
- * Tag by entry UUID (from frontend File.id)
+ * Tag by entry UUID (use from frontend — File.id is a UUID)
  */
 { type: "EntryUuid"; ids: string[] };
 
@@ -4301,6 +4560,21 @@ export type TranscribeAudioOutput = {
  * Job ID for tracking transcription progress
  */
 job_id: string };
+
+/**
+ * What to untag — uses entry UUIDs (matching the File.id exposed to frontend)
+ */
+export type UnapplyTagsInput = { 
+/**
+ * Entry UUIDs (File.id) to remove tags from
+ */
+entry_ids: string[]; 
+/**
+ * Tag UUIDs to remove
+ */
+tag_ids: string[] };
+
+export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
 
 /**
  * Statistics for the unified ephemeral index
@@ -5013,6 +5287,7 @@ export type CoreAction =
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
+  |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
   |  { type: 'network.device.revoke'; input: DeviceRevokeInput; output: DeviceRevokeOutput }
   |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
   |  { type: 'network.pair.confirmProxy'; input: PairConfirmProxyInput; output: PairConfirmProxyOutput }
@@ -5023,6 +5298,9 @@ export type CoreAction =
   |  { type: 'network.start'; input: NetworkStartInput; output: NetworkStartOutput }
   |  { type: 'network.stop'; input: NetworkStopInput; output: NetworkStopOutput }
   |  { type: 'network.sync_setup'; input: LibrarySyncSetupInput; output: LibrarySyncSetupOutput }
+  |  { type: 'processes.register'; input: ProcessRegisterInput; output: ProcessRegisterOutput }
+  |  { type: 'processes.start'; input: ProcessStartInput; output: ProcessStartOutput }
+  |  { type: 'processes.stop'; input: ProcessStopInput; output: ProcessStopOutput }
 ;
 
 export type LibraryAction =
@@ -5086,15 +5364,21 @@ export type CoreQuery =
   |  { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
+  |  { type: 'files.collection_listing'; input: CollectionListingInput; output: CollectionListingOutput }
+  |  { type: 'files.size_tree'; input: SizeTreeInput; output: SizeTreeOutput }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
+  |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
   |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
   |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
   |  { type: 'network.pair.vouching_session'; input: VouchingSessionInput; output: VouchingSessionOutput }
   |  { type: 'network.status'; input: NetworkStatusQueryInput; output: NetworkStatus }
   |  { type: 'network.sync_setup.discover'; input: DiscoverRemoteLibrariesInput; output: DiscoverRemoteLibrariesOutput }
+  |  { type: 'processes.leases'; input: ProcessLeasesInput; output: ProcessLeasesOutput }
+  |  { type: 'processes.list'; input: ProcessListInput; output: ProcessListOutput }
+  |  { type: 'processes.logs'; input: ProcessLogsInput; output: ProcessLogsOutput }
 ;
 
 export type LibraryQuery =
@@ -5105,6 +5389,7 @@ export type LibraryQuery =
   |  { type: 'files.alternate_instances'; input: AlternateInstancesInput; output: AlternateInstancesOutput }
   |  { type: 'files.by_id'; input: FileByIdQuery; output: File }
   |  { type: 'files.by_path'; input: FileByPathQuery; output: File }
+  |  { type: 'files.by_tag'; input: GetFilesByTagInput; output: GetFilesByTagOutput }
   |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
@@ -5122,6 +5407,9 @@ export type LibraryQuery =
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
+  |  { type: 'sources.list_records'; input: ListSourceRecordsInput; output: [JsonValue] }
+  |  { type: 'sources.media_listing'; input: SourceMediaListingInput; output: SourceMediaListingOutput }
+  |  { type: 'sources.search'; input: SourceSearchInput; output: [SourceSearchResult] }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
   |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayout }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
@@ -5129,6 +5417,9 @@ export type LibraryQuery =
   |  { type: 'sync.eventLog'; input: GetSyncEventLogInput; output: GetSyncEventLogOutput }
   |  { type: 'sync.metrics'; input: GetSyncMetricsInput; output: GetSyncMetricsOutput }
   |  { type: 'sync.partners'; input: GetSyncPartnersInput; output: GetSyncPartnersOutput }
+  |  { type: 'tags.ancestors'; input: GetTagAncestorsInput; output: GetTagAncestorsOutput }
+  |  { type: 'tags.by_id'; input: GetTagByIdInput; output: GetTagByIdOutput }
+  |  { type: 'tags.children'; input: GetTagChildrenInput; output: GetTagChildrenOutput }
   |  { type: 'tags.search'; input: SearchTagsInput; output: SearchTagsOutput }
   |  { type: 'test.ping'; input: PingInput; output: PingOutput }
   |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
@@ -5147,6 +5438,7 @@ export const WIRE_METHODS = {
     'libraries.open': 'action:libraries.open.input',
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
+    'mounts.sync_peers': 'action:mounts.sync_peers.input',
     'network.device.revoke': 'action:network.device.revoke.input',
     'network.pair.cancel': 'action:network.pair.cancel.input',
     'network.pair.confirmProxy': 'action:network.pair.confirmProxy.input',
@@ -5157,6 +5449,9 @@ export const WIRE_METHODS = {
     'network.start': 'action:network.start.input',
     'network.stop': 'action:network.stop.input',
     'network.sync_setup': 'action:network.sync_setup.input',
+    'processes.register': 'action:processes.register.input',
+    'processes.start': 'action:processes.start.input',
+    'processes.stop': 'action:processes.stop.input',
   },
 
   libraryActions: {
@@ -5220,15 +5515,21 @@ export const WIRE_METHODS = {
     'core.ephemeral_status': 'query:core.ephemeral_status',
     'core.events.list': 'query:core.events.list',
     'core.status': 'query:core.status',
+    'files.collection_listing': 'query:files.collection_listing',
+    'files.size_tree': 'query:files.size_tree',
     'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
+    'mounts.status': 'query:mounts.status',
     'network.devices.list': 'query:network.devices.list',
     'network.pair.status': 'query:network.pair.status',
     'network.pair.vouching_session': 'query:network.pair.vouching_session',
     'network.status': 'query:network.status',
     'network.sync_setup.discover': 'query:network.sync_setup.discover',
+    'processes.leases': 'query:processes.leases',
+    'processes.list': 'query:processes.list',
+    'processes.logs': 'query:processes.logs',
   },
 
   libraryQueries: {
@@ -5239,6 +5540,7 @@ export const WIRE_METHODS = {
     'files.alternate_instances': 'query:files.alternate_instances',
     'files.by_id': 'query:files.by_id',
     'files.by_path': 'query:files.by_path',
+    'files.by_tag': 'query:files.by_tag',
     'files.content_kind_stats': 'query:files.content_kind_stats',
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
@@ -5256,6 +5558,9 @@ export const WIRE_METHODS = {
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',
+    'sources.list_records': 'query:sources.list_records',
+    'sources.media_listing': 'query:sources.media_listing',
+    'sources.search': 'query:sources.search',
     'spaces.get': 'query:spaces.get',
     'spaces.get_layout': 'query:spaces.get_layout',
     'spaces.list': 'query:spaces.list',
@@ -5263,6 +5568,9 @@ export const WIRE_METHODS = {
     'sync.eventLog': 'query:sync.eventLog',
     'sync.metrics': 'query:sync.metrics',
     'sync.partners': 'query:sync.partners',
+    'tags.ancestors': 'query:tags.ancestors',
+    'tags.by_id': 'query:tags.by_id',
+    'tags.children': 'query:tags.children',
     'tags.search': 'query:tags.search',
     'test.ping': 'query:test.ping',
     'volumes.list': 'query:volumes.list',

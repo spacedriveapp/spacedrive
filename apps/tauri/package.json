@@ -15,9 +15,10 @@
 		"preview": "vite preview",
 		"typecheck": "tsc -b",
 		"tauri": "tauri",
-		"tauri:dev": "tauri dev",
-		"tauri:dev:no-watch": "tauri dev --no-watch",
-		"tauri:build": "tauri build && ./scripts/fix-daemon-entitlements.sh ../../target/release/bundle/macos/Spacedrive.app || true"
+		"daemon:sidecar": "./scripts/ensure-daemon-sidecar.sh",
+		"tauri:dev": "bun run daemon:sidecar && tauri dev",
+		"tauri:dev:no-watch": "bun run daemon:sidecar && tauri dev --no-watch",
+		"tauri:build": "bun run daemon:sidecar && tauri build && ./scripts/fix-daemon-entitlements.sh ../../target/release/bundle/macos/Spacedrive.app || true"
 	},
 	"dependencies": {
 		"@phosphor-icons/react": "^2.1.0",

@@ -1,7 +1,7 @@
-import LaptopIcon from "@sd/assets/icons/Laptop.png";
-import MobileIcon from "@sd/assets/icons/Mobile.png";
-import ServerIcon from "@sd/assets/icons/Server.png";
-import PCIcon from "@sd/assets/icons/PC.png";
+import LaptopIcon from "@sd/assets/icons/Laptop.webp";
+import MobileIcon from "@sd/assets/icons/Mobile.webp";
+import ServerIcon from "@sd/assets/icons/Server.webp";
+import PCIcon from "@sd/assets/icons/PC.webp";
 import type { SdPath } from "@sd/ts-client";
 
 export function formatBytes(bytes: number | bigint | null): string {

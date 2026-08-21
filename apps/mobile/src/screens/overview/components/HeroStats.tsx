@@ -8,14 +8,14 @@ import {
 	NativeScrollEvent,
 	NativeSyntheticEvent,
 } from "react-native";
-import DevicesIcon from "@sd/assets/icons/Devices.png";
-import IndexedIcon from "@sd/assets/icons/Indexed.png";
-import LocationIcon from "@sd/assets/icons/Location.png";
-import MobileIcon from "@sd/assets/icons/Mobile.png";
-import ComputeIcon from "@sd/assets/icons/Compute.png";
-import TagsIcon from "@sd/assets/icons/Tags.png";
-import DatabaseIcon from "@sd/assets/icons/Database.png";
-import StorageIcon from "@sd/assets/icons/Storage.png";
+import DevicesIcon from "@sd/assets/icons/Devices.webp";
+import IndexedIcon from "@sd/assets/icons/Indexed.webp";
+import LocationIcon from "@sd/assets/icons/Location.webp";
+import MobileIcon from "@sd/assets/icons/Mobile.webp";
+import ComputeIcon from "@sd/assets/icons/Compute.webp";
+import TagsIcon from "@sd/assets/icons/Tags.webp";
+import DatabaseIcon from "@sd/assets/icons/Database.webp";
+import StorageIcon from "@sd/assets/icons/Storage.webp";
 import { PageIndicator } from "../../../components/PageIndicator";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;

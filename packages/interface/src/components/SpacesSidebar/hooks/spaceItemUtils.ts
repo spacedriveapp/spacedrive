@@ -1,6 +1,8 @@
 import {
 	House,
 	Clock,
+	Camera as CameraIcon,
+	ChartPieSlice,
 	Heart,
 	HardDrive,
 	Tag as TagIcon,
@@ -74,6 +76,16 @@ export function isRedundancyItem(t: ItemType): t is "Redundancy" {
 	return t === "Redundancy";
 }
 
+export function isAnalyzerItem(t: ItemType): t is "Analyzer" {
+	return t === "Analyzer";
+}
+
+export function isCollectionItem(
+	t: ItemType,
+): t is { Collection: { slug: string } } {
+	return typeof t === "object" && "Collection" in t;
+}
+
 export function isSourceItem(
 	t: ItemType,
 ): t is { Source: { source_id: string } } {
@@ -95,6 +107,8 @@ function getItemIcon(itemType: ItemType): IconData {
 	if (isFileKindsItem(itemType)) return { type: "component", icon: Folders };
 	if (isSourcesItem(itemType)) return { type: "component", icon: Database };
 	if (isRedundancyItem(itemType)) return { type: "component", icon: ShieldCheck };
+	if (isCollectionItem(itemType)) return { type: "component", icon: CameraIcon };
+	if (isAnalyzerItem(itemType)) return { type: "component", icon: ChartPieSlice };
 	if (isLocationItem(itemType)) return { type: "image", icon: Location };
 	if (isVolumeItem(itemType)) return { type: "component", icon: HardDrive };
 	if (isTagItem(itemType)) return { type: "component", icon: TagIcon };
@@ -111,6 +125,14 @@ function getItemLabel(itemType: ItemType, resolvedFile?: File | null): string {
 	if (isFileKindsItem(itemType)) return "File Kinds";
 	if (isSourcesItem(itemType)) return "Sources";
 	if (isRedundancyItem(itemType)) return "Redundancy";
+	if (isAnalyzerItem(itemType)) return "Analyzer";
+	if (isCollectionItem(itemType)) {
+		const slug = itemType.Collection.slug;
+		return slug
+			.split("-")
+			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+			.join(" ");
+	}
 	if (isLocationItem(itemType)) return resolvedFile?.name || "Unnamed Location";
 	if (isVolumeItem(itemType)) return resolvedFile?.name || (itemType as { Volume: { volume_id: string; name?: string } }).Volume.name || "Unnamed Volume";
 	if (isTagItem(itemType)) return resolvedFile?.name || "Unnamed Tag";
@@ -137,11 +159,14 @@ function getItemPath(
 	itemSdPath?: SdPath,
 ): string | null {
 	if (isOverviewItem(itemType)) return "/";
-	if (isRecentsItem(itemType)) return "/recents";
+	if (isRecentsItem(itemType)) return "/collection/recent";
 	if (isFavoritesItem(itemType)) return "/favorites";
 	if (isFileKindsItem(itemType)) return "/file-kinds";
 	if (isSourcesItem(itemType)) return "/sources";
 	if (isRedundancyItem(itemType)) return "/redundancy";
+	if (isCollectionItem(itemType))
+		return `/collection/${itemType.Collection.slug}`;
+	if (isAnalyzerItem(itemType)) return "/analyzer";
 
 	if (isLocationItem(itemType)) {
 		// Use explorer route with location's SD path (passed from item.sd_path)

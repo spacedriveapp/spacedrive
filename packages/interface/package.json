@@ -2,7 +2,7 @@
 	"name": "@sd/interface",
 	"version": "0.0.0",
 	"private": true,
-	"license": "GPL-3.0-only",
+	"license": "Apache-2.0",
 	"main": "src/index.tsx",
 	"types": "src/index.tsx",
 	"sideEffects": false,

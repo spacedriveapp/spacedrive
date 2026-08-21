@@ -126,6 +126,10 @@ export function MediaView() {
 	// Get files from centralized hook (handles search mode automatically)
 	const { files: explorerFiles } = useExplorerFiles();
 	const isSearchMode = mode.type === "search";
+	// Modes whose file set comes from the centralized hook rather than a
+	// path-scoped media_listing (collections have no path to scope by).
+	const usesExplorerFiles =
+		isSearchMode || mode.type === "collection" || mode.type === "source";
 
 	// Query for all media files from current path with descendants (only when NOT in search mode)
 	const mediaQuery = useNormalizedQuery({
@@ -142,19 +146,20 @@ export function MediaView() {
 		resourceType: "file",
 		pathScope: currentPath ?? undefined,
 		includeDescendants: true, // Recursive - show all media in subdirectories
-		enabled: !!currentPath && !isSearchMode,
+		enabled: !!currentPath && !usesExplorerFiles,
 		// No resourceFilter needed - the backend query already filters for media
 	});
 
 	// Access files from the query response (reversed for inverted scroll)
 	const files = useMemo(() => {
-		if (isSearchMode) {
-			// In search mode, filter explorerFiles to only show media
+		if (usesExplorerFiles) {
+			// Hook-driven modes: filter to media (collections are already
+			// media-only; search results may not be)
 			return [...explorerFiles.filter(isMediaFile)].reverse();
 		}
 		// Normal mode: use media_listing query
 		return [...(mediaQuery.data?.files || [])].reverse();
-	}, [isSearchMode, explorerFiles, mediaQuery.data?.files]);
+	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files]);
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -361,8 +366,8 @@ export function MediaView() {
 	}, [files, virtualRows, columns, scrollOffset, parentRef]);
 
 	// NOW we can do conditional returns after all hooks are called
-	// Show loading state (only for non-search mode, search uses explorerFiles)
-	if (!isSearchMode && mediaQuery.isLoading) {
+	// Show loading state (hook-driven modes never touch mediaQuery)
+	if (!usesExplorerFiles && mediaQuery.isLoading) {
 		return (
 			<div className="flex items-center justify-center h-full text-ink-dull">
 				Loading media...
@@ -370,8 +375,9 @@ export function MediaView() {
 		);
 	}
 
-	// Show empty state
-	if (!currentPath) {
+	// Show empty state — hook-driven modes (search/collection/source) have
+	// no path to select; their file set defines emptiness below.
+	if (!currentPath && !usesExplorerFiles) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-ink-dull gap-2">
 				<div className="text-lg">No location selected</div>

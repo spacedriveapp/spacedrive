@@ -8,7 +8,7 @@ import { useState, useMemo } from "react";
 import { HeroStats } from "./HeroStats";
 import { DevicePanel } from "./DevicePanel";
 import { OverviewTopBar } from "./OverviewTopBar";
-import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
+import { useCoreQuery, useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import type {
 	Library,
 	LocationsListOutput,
@@ -52,6 +52,19 @@ export function Overview() {
 		);
 	}, [selectedLocationId, locationsData]);
 
+	// During the entries-to-spine transition, indexed data lives in two
+	// worlds: library statistics cover locations (entries), and registered
+	// ephemeral sources carry their own counts. The hero composes both so
+	// the overview agrees with the volume cards below it.
+	const { data: ephemeralStatus } = useCoreQuery({
+		type: "core.ephemeral_status",
+		input: {},
+	});
+	const sourceFiles = (ephemeralStatus?.sources ?? []).reduce(
+		(sum, source) => sum + (source.entry_count ?? 0),
+		0,
+	);
+
 	if (isLoading || !libraryInfo) {
 		return (
 			<>
@@ -83,7 +96,7 @@ export function Overview() {
 							usedStorage={
 								(stats.total_capacity ?? 0) - (stats.available_capacity ?? 0)
 							}
-							totalFiles={Number(stats.total_files)}
+							totalFiles={Number(stats.total_files) + sourceFiles}
 							locationCount={stats.location_count}
 							tagCount={stats.tag_count}
 							deviceCount={stats.device_count ?? 0}

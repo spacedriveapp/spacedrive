@@ -2,7 +2,10 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
-use sd_core::client::CoreClient;
+use sd_client::{
+	daemon_socket_addr, ensure_daemon, is_daemon_running, CoreClient, DaemonLaunchConfig,
+	EnsureDaemonOutcome,
+};
 use std::path::Path;
 
 fn format_bytes(bytes: u64) -> String {
@@ -226,6 +229,17 @@ enum Commands {
 	/// Volume operations
 	#[command(subcommand)]
 	Volume(VolumeCmd),
+	/// Invoke any registered op by name (generic passthrough)
+	Op {
+		/// Op name as registered, e.g. "mounts.status" or "tags.create"
+		name: String,
+		/// JSON payload for the op's input
+		#[arg(long, default_value = "{}")]
+		json: String,
+		/// Library id for library-scoped ops
+		#[arg(long)]
+		library: Option<uuid::Uuid>,
+	},
 	/// Interactive cloud storage setup
 	Cloud,
 	/// Update CLI and daemon to latest version
@@ -239,7 +253,7 @@ enum Commands {
 #[tokio::main]
 async fn main() -> Result<()> {
 	let cli = Cli::parse();
-	let data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
+	let base_data_dir = cli.data_dir.unwrap_or(sd_core::config::default_data_dir()?);
 	let instance = cli.instance;
 
 	// Validate instance name for security
@@ -248,54 +262,39 @@ async fn main() -> Result<()> {
 			.map_err(|e| anyhow::anyhow!("Invalid instance name: {}", e))?;
 	}
 
-	let socket_addr = if let Some(inst) = &instance {
-		let port = 6970 + (inst.bytes().map(|b| b as u16).sum::<u16>() % 1000);
-		format!("127.0.0.1:{}", port)
-	} else {
-		"127.0.0.1:6969".to_string()
-	};
+	// Same rule the daemon applies, so a client addressing an instance reads
+	// the state that instance actually owns.
+	let data_dir = sd_core::infra::daemon::addr::instance_data_dir(
+		base_data_dir,
+		instance.as_deref(),
+	);
+	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
 
 	match cli.command {
 		Commands::Start { foreground } => {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
-			// Check if daemon is already running
 			let client = CoreClient::new(socket_addr.clone());
-			match client
-				.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
-				.await
-			{
-				Ok(sd_core::infra::daemon::types::DaemonResponse::Pong) => {
+			let current_exe = std::env::current_exe()?;
+			let launch = DaemonLaunchConfig {
+				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
+				data_dir: data_dir.clone(),
+				instance: instance.clone(),
+			};
+
+			if foreground {
+				if is_daemon_running(&client).await {
 					println!("Daemon is already running");
 					return Ok(());
 				}
-				_ => {} // Daemon not running, continue
-			}
 
-			// Start daemon using std::process::Command
-			let current_exe = std::env::current_exe()?;
-			let daemon_path = current_exe.parent().unwrap().join("sd-daemon");
-			let mut command = std::process::Command::new(daemon_path);
-
-			// Pass data directory
-			command.arg("--data-dir").arg(&data_dir);
-
-			// Pass instance name if specified
-			if let Some(ref inst) = instance {
-				command.arg("--instance").arg(inst);
-			}
-
-			// Set working directory to current directory
-			command.current_dir(std::env::current_dir()?);
-
-			if foreground {
 				// Foreground mode: inherit stdout/stderr so logs are visible
 				println!("Starting daemon in foreground mode...");
 				println!("Press Ctrl+C to stop the daemon");
 				println!("═══════════════════════════════════════════════════════");
 
-				match command.status() {
+				match launch.command()?.status() {
 					Ok(status) => {
 						if status.success() {
 							println!("Daemon exited successfully");
@@ -308,30 +307,20 @@ async fn main() -> Result<()> {
 					}
 				}
 			} else {
-				// Background mode: redirect stdout/stderr to null
-				command.stdout(std::process::Stdio::null());
-				command.stderr(std::process::Stdio::null());
-
-				match command.spawn() {
-					Ok(child) => {
-						println!("Daemon started (PID: {})", child.id());
-
-						// Wait a moment for daemon to start up
-						tokio::time::sleep(tokio::time::Duration::from_millis(500)).await;
-
-						// Verify daemon is responding
-						match client
-							.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
-							.await
-						{
-							Ok(sd_core::infra::daemon::types::DaemonResponse::Pong) => {
-								println!("Daemon is ready and responding");
-								println!("Use 'sd logs follow' to view daemon logs");
-							}
-							_ => {
-								println!("Warning: Daemon may not be fully initialized yet");
-								println!("Use 'sd logs follow' to check daemon status");
-							}
+				// Background mode: ping first, spawn only if not running
+				match ensure_daemon(&client, &launch).await {
+					Ok(EnsureDaemonOutcome::AlreadyRunning) => {
+						println!("Daemon is already running");
+						return Ok(());
+					}
+					Ok(EnsureDaemonOutcome::Started { pid, responsive }) => {
+						println!("Daemon started (PID: {})", pid);
+						if responsive {
+							println!("Daemon is ready and responding");
+							println!("Use 'sd logs follow' to view daemon logs");
+						} else {
+							println!("Warning: Daemon may not be fully initialized yet");
+							println!("Use 'sd logs follow' to check daemon status");
 						}
 					}
 					Err(e) => {
@@ -413,19 +402,12 @@ async fn main() -> Result<()> {
 			// Start the daemon again
 			println!("Starting daemon...");
 			let current_exe = std::env::current_exe()?;
-			let daemon_path = current_exe.parent().unwrap().join("sd-daemon");
-			let mut cmd = std::process::Command::new(daemon_path);
-
-			// Pass data directory
-			cmd.arg("--data-dir").arg(&data_dir);
-
-			// Pass instance name if specified
-			if let Some(ref inst) = instance {
-				cmd.arg("--instance").arg(inst);
-			}
-
-			// Set working directory to current directory
-			cmd.current_dir(std::env::current_dir()?);
+			let launch = DaemonLaunchConfig {
+				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
+				data_dir: data_dir.clone(),
+				instance: instance.clone(),
+			};
+			let mut cmd = launch.command()?;
 
 			if foreground {
 				// Foreground mode: inherit stdout/stderr so logs are visible
@@ -516,6 +498,54 @@ async fn run_client_command(
 	ctx.validate_and_fix_library().await?;
 
 	match command {
+		Commands::Op {
+			name,
+			json,
+			library,
+		} => {
+			use sd_core::infra::daemon::types::{DaemonRequest, DaemonResponse};
+
+			let payload: serde_json::Value = serde_json::from_str(&json)
+				.map_err(|e| anyhow::anyhow!("--json is not valid JSON: {e}"))?;
+
+			// The registry keys queries and actions differently; try the
+			// query namespace first, then fall through to actions.
+			let query = DaemonRequest::Query {
+				method: format!("query:{name}"),
+				library_id: library,
+				payload: payload.clone(),
+			};
+			let mut response = ctx
+				.core
+				.send_raw_request(&query)
+				.await
+				.map_err(|e| anyhow::anyhow!("{e}"))?;
+
+			let is_unknown = matches!(
+				&response,
+				DaemonResponse::Error(err) if format!("{err:?}").contains("Unknown method")
+			);
+			if is_unknown {
+				let action = DaemonRequest::Action {
+					method: format!("action:{name}.input"),
+					library_id: library,
+					payload,
+				};
+				response = ctx
+					.core
+					.send_raw_request(&action)
+					.await
+					.map_err(|e| anyhow::anyhow!("{e}"))?;
+			}
+
+			match response {
+				DaemonResponse::JsonOk(value) => {
+					println!("{}", serde_json::to_string_pretty(&value)?)
+				}
+				DaemonResponse::Error(err) => anyhow::bail!("op '{name}' failed: {err:?}"),
+				other => anyhow::bail!("unexpected daemon response: {other:?}"),
+			}
+		}
 		Commands::Status => {
 			let status: sd_core::ops::core::status::output::CoreStatus =
 				execute_core_query!(ctx, ());

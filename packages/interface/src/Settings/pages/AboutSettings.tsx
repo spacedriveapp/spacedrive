@@ -136,7 +136,7 @@ export function AboutSettings() {
           rel="noopener noreferrer"
           className="text-sm text-white/40 hover:text-white/60 transition-colors"
         >
-          FSL-1.1-ALv2
+          Apache-2.0
         </a>
       </motion.div>
     </div>

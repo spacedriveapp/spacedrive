@@ -94,6 +94,7 @@ export function AudioPlayer({ src, file }: AudioPlayerProps) {
 			srtSidecar.kind,
 			srtSidecar.variant,
 			extension,
+			srtSidecar.version,
 		);
 
 		if (!srtUrl) return;

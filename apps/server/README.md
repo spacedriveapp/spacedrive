@@ -281,4 +281,4 @@ apps/server/
 
 ## License
 
-FSL-1.1-ALv2 - See LICENSE file in repository root.
+Apache-2.0 - See LICENSE file in repository root.

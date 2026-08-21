@@ -66,26 +66,20 @@ pub async fn get_sidecar_path(
 		.await
 		.map_err(|e| format!("Failed to find library folder: {:?}", e))?;
 
-	// Actual path structure: sidecars/content/{first2}/{next2}/{uuid}/{kind}s/{variant}.{format}
-	// Example: sidecars/content/35/3c/353c7043-8d28-56ec-a424-7ab8932b1ffe/thumbs/detail@1x.webp
-	let first_two = &content_uuid[0..2];
-	let next_two = &content_uuid[2..4];
-
-	// Special case: "transcript" stays singular (not "transcripts")
-	let kind_dir = if kind == "transcript" {
-		kind
-	} else {
-		format!("{}s", kind) // "thumb" -> "thumbs"
-	};
+	let content_uuid = content_uuid
+		.parse::<uuid::Uuid>()
+		.map_err(|e| format!("Invalid content UUID: {}", e))?;
+	let kind_dir = sd_sidecar_path::kind_directory(&kind)
+		.ok_or_else(|| format!("Unknown sidecar kind: {}", kind))?;
 
 	let sidecar_path = library_folder
 		.join("sidecars")
-		.join("content")
-		.join(first_two)
-		.join(next_two)
-		.join(&content_uuid)
-		.join(&kind_dir)
-		.join(format!("{}.{}", variant, format));
+		.join(sd_sidecar_path::relative_path(
+			&content_uuid,
+			kind_dir,
+			&variant,
+			&format,
+		));
 
 	Ok(sidecar_path.to_string_lossy().to_string())
 }

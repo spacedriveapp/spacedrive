@@ -3,6 +3,7 @@ import { Database } from "@phosphor-icons/react";
 import { useLibraryQuery } from "../../contexts/SpacedriveContext";
 import { useAdapterIcons } from "../../hooks/useAdapterIcons";
 import { GroupHeader } from "./GroupHeader";
+import { EphemeralSourceRows } from "./EphemeralSourcesGroup";
 
 interface SourcesGroupProps {
 	isCollapsed: boolean;
@@ -40,6 +41,7 @@ export function SourcesGroup({
 
 			{!isCollapsed && (
 				<div className="space-y-0.5">
+					<EphemeralSourceRows />
 					{sourcesList.map((source) => {
 						const isActive = location.pathname === `/sources/${source.id}`;
 						return (

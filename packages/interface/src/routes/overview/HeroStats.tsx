@@ -1,12 +1,12 @@
 import {CaretLeft, CaretRight, Lightning} from '@phosphor-icons/react';
-import ComputeIcon from '@sd/assets/icons/Compute.png';
-import DatabaseIcon from '@sd/assets/icons/Database.png';
-import DevicesIcon from '@sd/assets/icons/Devices.png';
-import IndexedIcon from '@sd/assets/icons/Indexed.png';
-import LocationIcon from '@sd/assets/icons/Location.png';
-import MobileIcon from '@sd/assets/icons/Mobile.png';
-import StorageIcon from '@sd/assets/icons/Storage.png';
-import TagsIcon from '@sd/assets/icons/Tags.png';
+import ComputeIcon from '@sd/assets/icons/Compute.webp';
+import DatabaseIcon from '@sd/assets/icons/Database.webp';
+import DevicesIcon from '@sd/assets/icons/Devices.webp';
+import IndexedIcon from '@sd/assets/icons/Indexed.webp';
+import LocationIcon from '@sd/assets/icons/Location.webp';
+import MobileIcon from '@sd/assets/icons/Mobile.webp';
+import StorageIcon from '@sd/assets/icons/Storage.webp';
+import TagsIcon from '@sd/assets/icons/Tags.webp';
 import {CircleButton} from '@spacedrive/primitives';
 import {motion} from 'framer-motion';
 import {useEffect, useRef, useState} from 'react';
@@ -163,7 +163,11 @@ export function HeroStats({
 					}
 					label="Files Indexed"
 					value={totalFiles.toLocaleString()}
-					subtitle={`${uniqueContentCount.toLocaleString()} unique files`}
+					subtitle={
+						uniqueContentCount > 0
+							? `${uniqueContentCount.toLocaleString()} unique files`
+							: "content hashing pending"
+					}
 					color="from-purple-500 to-pink-500"
 				/>
 

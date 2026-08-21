@@ -7,6 +7,7 @@ import type { File } from "@sd/ts-client";
 import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getFileKindForIcon, getVirtualMetadata, getContentKind } from "@sd/ts-client";
 import { useServer } from "../../../contexts/ServerContext";
+import { usePlatform } from "../../../contexts/PlatformContext";
 
 interface ThumbProps {
   file: File;
@@ -108,10 +109,29 @@ export const Thumb = memo(function Thumb({
       thumbnail.kind,
       thumbnail.variant,
       thumbnail.format,
+      thumbnail.version,
     );
   };
 
-  const thumbnailSrc = getThumbnailUrl(size);
+  const sidecarSrc = getThumbnailUrl(size);
+  const platform = usePlatform();
+  const thumbnailSrc = (() => {
+    if (sidecarSrc) return sidecarSrc;
+    const convert = platform.convertFileSrc;
+    if (!convert || !file.is_local) return null;
+    if (file.thumbnail_path) return convert(file.thumbnail_path);
+    // Small local images render from the file itself until a real
+    // thumbnail exists; anything larger waits for the pipeline.
+    const isImage = getContentKind(file) === "image";
+    const physicalPath =
+      typeof file.sd_path === "object" && "Physical" in file.sd_path
+        ? file.sd_path.Physical.path
+        : null;
+    if (isImage && physicalPath && file.size > 0 && file.size < 15_000_000) {
+      return convert(physicalPath);
+    }
+    return null;
+  })();
 
   // Get content kind for icon resolution
   const contentKind = getContentKind(file);

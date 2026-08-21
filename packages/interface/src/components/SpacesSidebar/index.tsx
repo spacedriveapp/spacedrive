@@ -36,6 +36,7 @@ import {PeerList} from '../SyncMonitor/components/PeerList';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
 import {useSyncMonitor} from '../SyncMonitor/hooks/useSyncMonitor';
 import {AddGroupButton} from './AddGroupButton';
+import {ImportGroup} from './ImportGroup';
 import {useSpaceLayout, useSpaces} from './hooks/useSpaces';
 import {SpaceCustomizationPanel} from './SpaceCustomizationPanel';
 import {SpaceGroup} from './SpaceGroup';
@@ -535,6 +536,9 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 								))}
 							</SortableContext>
 						)}
+
+						{/* macOS import affordances, visible before any data exists */}
+						<ImportGroup />
 
 						{/* Add Group Button */}
 						{currentSpace && (

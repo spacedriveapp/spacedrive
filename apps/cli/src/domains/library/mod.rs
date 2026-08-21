@@ -135,7 +135,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 					"Available capacity: {} bytes",
 					info.statistics.available_capacity
 				);
-				println!("Thumbnails: {}", info.statistics.thumbnail_count);
+				println!("Sidecars: {}", info.statistics.sidecar_count);
 				println!("Database size: {} bytes", info.statistics.database_size);
 				if let Some(last_indexed) = info.statistics.last_indexed {
 					println!(
@@ -214,7 +214,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 							println!("  Created: {}", lib.created_at.format("%Y-%m-%d %H:%M:%S"));
 							println!("  Files: {}", lib.statistics.total_files);
 							println!("  Locations: {}", lib.statistics.location_count);
-							println!("  Thumbnails: {}", lib.statistics.thumbnail_count);
+							println!("  Sidecars: {}", lib.statistics.sidecar_count);
 							if lib.statistics.total_size > 0 {
 								println!("  Size: {} bytes", lib.statistics.total_size);
 							}

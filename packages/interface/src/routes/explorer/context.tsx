@@ -64,6 +64,8 @@ export type ExplorerMode =
 	| { type: "search"; query: string; scope: SearchScope }
 	| { type: "recents" }
 	| { type: "tag"; tagId: string }
+	| { type: "collection"; slug: string }
+	| { type: "source"; sourceId: string }
 	| { type: "filtered"; filters: ApiSearchFilters; label: string };
 
 export type NavigationTarget =
@@ -199,6 +201,10 @@ type UIAction =
 	| { type: "ENTER_FILTERED_MODE"; filters: ApiSearchFilters; label: string }
 	| { type: "EXIT_FILTERED_MODE" }
 	| { type: "ENTER_TAG_MODE"; tagId: string }
+	| { type: "ENTER_COLLECTION_MODE"; slug: string }
+	| { type: "EXIT_COLLECTION_MODE" }
+	| { type: "ENTER_SOURCE_MODE"; sourceId: string }
+	| { type: "EXIT_SOURCE_MODE" }
 	| { type: "EXIT_TAG_MODE" }
 	| { type: "SET_SEARCH_FILTERS"; filters: SearchFilters }
 	| {
@@ -278,6 +284,30 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 			};
 
 		case "EXIT_FILTERED_MODE":
+			return {
+				...state,
+				mode: { type: "browse" },
+			};
+
+		case "ENTER_SOURCE_MODE":
+			return {
+				...state,
+				mode: { type: "source", sourceId: action.sourceId },
+			};
+
+		case "EXIT_SOURCE_MODE":
+			return {
+				...state,
+				mode: { type: "browse" },
+			};
+
+		case "ENTER_COLLECTION_MODE":
+			return {
+				...state,
+				mode: { type: "collection", slug: action.slug },
+			};
+
+		case "EXIT_COLLECTION_MODE":
 			return {
 				...state,
 				mode: { type: "browse" },
@@ -450,6 +480,10 @@ interface ExplorerContextValue {
 	enterFilteredMode: (filters: ApiSearchFilters, label: string) => void;
 	exitFilteredMode: () => void;
 	enterTagMode: (tagId: string) => void;
+	enterCollectionMode: (slug: string) => void;
+	exitCollectionMode: () => void;
+	enterSourceMode: (sourceId: string) => void;
+	exitSourceMode: () => void;
 	exitTagMode: () => void;
 	searchFilters: SearchFilters;
 	setSearchFilters: (filters: SearchFilters) => void;
@@ -791,6 +825,22 @@ export function ExplorerProvider({
 		uiDispatch({ type: "EXIT_FILTERED_MODE" });
 	}, []);
 
+	const enterSourceMode = useCallback((sourceId: string) => {
+		uiDispatch({ type: "ENTER_SOURCE_MODE", sourceId });
+	}, []);
+
+	const exitSourceMode = useCallback(() => {
+		uiDispatch({ type: "EXIT_SOURCE_MODE" });
+	}, []);
+
+	const enterCollectionMode = useCallback((slug: string) => {
+		uiDispatch({ type: "ENTER_COLLECTION_MODE", slug });
+	}, []);
+
+	const exitCollectionMode = useCallback(() => {
+		uiDispatch({ type: "EXIT_COLLECTION_MODE" });
+	}, []);
+
 	const enterTagMode = useCallback((tagId: string) => {
 		uiDispatch({ type: "ENTER_TAG_MODE", tagId });
 	}, []);
@@ -859,6 +909,10 @@ export function ExplorerProvider({
 			enterFilteredMode,
 			exitFilteredMode,
 			enterTagMode,
+			enterCollectionMode,
+			exitCollectionMode,
+			enterSourceMode,
+			exitSourceMode,
 			exitTagMode,
 			searchFilters: uiState.searchFilters,
 			setSearchFilters,
@@ -906,6 +960,10 @@ export function ExplorerProvider({
 			enterFilteredMode,
 			exitFilteredMode,
 			enterTagMode,
+			enterCollectionMode,
+			exitCollectionMode,
+			enterSourceMode,
+			exitSourceMode,
 			exitTagMode,
 			uiState.searchFilters,
 			setSearchFilters,

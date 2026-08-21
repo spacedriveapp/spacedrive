@@ -91,6 +91,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 					splatSidecar!.kind,
 					splatSidecar!.variant,
 					splatSidecar!.format,
+					splatSidecar!.version,
 				)
 			: null;
 
@@ -164,6 +165,7 @@ function ImageRenderer({ file, onZoomChange }: ContentRendererProps) {
 			highest.kind,
 			highest.variant,
 			highest.format,
+			highest.version,
 		);
 	};
 

@@ -28,7 +28,7 @@ tower-http = { version = "0.5", features = ["fs", "cors"] }
 futures    = "0.3"
 
 # Embedded web UI
-rust-embed = "8"
+rust-embed = { version = "8", features = ["include-exclude"] }
 mime_guess = "2"
 
 # Auth

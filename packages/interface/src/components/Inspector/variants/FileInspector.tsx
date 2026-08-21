@@ -1387,7 +1387,8 @@ function SidecarsTab({file}: {file: File}) {
 			file.content_identity.uuid,
 			sidecar.kind,
 			sidecar.variant,
-			sidecar.format
+			sidecar.format,
+			sidecar.version
 		);
 	};
 

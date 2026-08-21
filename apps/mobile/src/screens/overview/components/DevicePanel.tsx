@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Image, ScrollView, Pressable, Modal } from "react-native";
-import DatabaseIcon from "@sd/assets/icons/Database.png";
-import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.png";
-import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.png";
-import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.png";
-import DriveIcon from "@sd/assets/icons/Drive.png";
-import HDDIcon from "@sd/assets/icons/HDD.png";
-import LocationIcon from "@sd/assets/icons/Location.png";
-import ServerIcon from "@sd/assets/icons/Server.png";
+import DatabaseIcon from "@sd/assets/icons/Database.webp";
+import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.webp";
+import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.webp";
+import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.webp";
+import DriveIcon from "@sd/assets/icons/Drive.webp";
+import HDDIcon from "@sd/assets/icons/HDD.webp";
+import LocationIcon from "@sd/assets/icons/Location.webp";
+import ServerIcon from "@sd/assets/icons/Server.webp";
 import type {
 	Device,
 	JobListItem,

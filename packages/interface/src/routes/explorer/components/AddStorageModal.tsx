@@ -35,18 +35,18 @@ import { usePlatform } from "../../../contexts/PlatformContext";
 import clsx from "clsx";
 
 // Import icons
-import FolderIcon from "@sd/assets/icons/Folder.png";
-import DriveIcon from "@sd/assets/icons/Drive.png";
-import HDDIcon from "@sd/assets/icons/HDD.png";
-import ServerIcon from "@sd/assets/icons/Server.png";
-import DriveAmazonS3 from "@sd/assets/icons/Drive-AmazonS3.png";
-import DriveGoogleDrive from "@sd/assets/icons/Drive-GoogleDrive.png";
-import DriveDropbox from "@sd/assets/icons/Drive-Dropbox.png";
-import DriveOneDrive from "@sd/assets/icons/Drive-OneDrive.png";
-import DriveBackBlaze from "@sd/assets/icons/Drive-BackBlaze.png";
-import DrivePCloud from "@sd/assets/icons/Drive-PCloud.png";
-import DriveDAV from "@sd/assets/icons/Drive-DAV.png";
-import DriveBox from "@sd/assets/icons/Drive-Box.png";
+import FolderIcon from "@sd/assets/icons/Folder.webp";
+import DriveIcon from "@sd/assets/icons/Drive.webp";
+import HDDIcon from "@sd/assets/icons/HDD.webp";
+import ServerIcon from "@sd/assets/icons/Server.webp";
+import DriveAmazonS3 from "@sd/assets/icons/Drive-AmazonS3.webp";
+import DriveGoogleDrive from "@sd/assets/icons/Drive-GoogleDrive.webp";
+import DriveDropbox from "@sd/assets/icons/Drive-Dropbox.webp";
+import DriveOneDrive from "@sd/assets/icons/Drive-OneDrive.webp";
+import DriveBackBlaze from "@sd/assets/icons/Drive-BackBlaze.webp";
+import DrivePCloud from "@sd/assets/icons/Drive-PCloud.webp";
+import DriveDAV from "@sd/assets/icons/Drive-DAV.webp";
+import DriveBox from "@sd/assets/icons/Drive-Box.webp";
 
 type StorageCategory = "local" | "cloud" | "network" | "external";
 type ModalStep = "category" | "provider" | "local-config" | "cloud-config";

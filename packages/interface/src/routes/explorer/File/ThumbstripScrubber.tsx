@@ -107,6 +107,7 @@ export const ThumbstripScrubber = memo(function ThumbstripScrubber({
 		thumbstripSidecar.kind,
 		thumbstripSidecar.variant,
 		thumbstripSidecar.format,
+		thumbstripSidecar.version,
 	);
 
 	if (!thumbstripUrl) {

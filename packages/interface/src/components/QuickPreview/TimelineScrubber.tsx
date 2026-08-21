@@ -56,6 +56,7 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 		thumbstripSidecar.kind,
 		thumbstripSidecar.variant,
 		thumbstripSidecar.format,
+		thumbstripSidecar.version,
 	);
 
 	if (!thumbstripUrl) {

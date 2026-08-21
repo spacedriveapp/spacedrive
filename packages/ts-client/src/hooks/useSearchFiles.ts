@@ -122,6 +122,11 @@ export function useSearchFiles(
 				content_types: filters?.content_types ?? null,
 				include_hidden: filters?.include_hidden ?? null,
 				include_archived: filters?.include_archived ?? null,
+				at_risk: null,
+				on_volumes: null,
+				not_on_volumes: null,
+				min_volume_count: null,
+				max_volume_count: null,
 			},
 			sort: {
 				field: sortBy,

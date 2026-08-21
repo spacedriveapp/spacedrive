@@ -10,7 +10,7 @@ import {
 	type Device,
 	type Volume,
 } from "@sd/ts-client";
-import FolderIcon from "@sd/assets/icons/Folder.png";
+import FolderIcon from "@sd/assets/icons/Folder.webp";
 
 export type VirtualViewType = "device" | "devices" | null;
 

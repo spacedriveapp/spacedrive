@@ -5,6 +5,7 @@ import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
 import {
+	useCoreQuery,
 	useSpacedriveClient
 } from '../../contexts/SpacedriveContext';
 import {useVolumeIndexingStore} from '../../stores/volumeIndexingStore';
@@ -32,6 +33,17 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	const client = useSpacedriveClient();
 
 	const contextMenu = useVolumeContextMenu({volume: volume as any});
+
+	// The count recorded at last snapshot, matched by fingerprint — this is
+	// what keeps the files badge after the indexing job's live progress ends.
+	const {data: ephemeralStatus} = useCoreQuery({
+		type: 'core.ephemeral_status',
+		input: {}
+	});
+	const indexedCount =
+		ephemeralStatus?.sources?.find(
+			(source) => source.fingerprint === volume.fingerprint
+		)?.entry_count ?? null;
 
 	// Subscribe to job events for this volume
 	useEffect(() => {
@@ -229,9 +241,11 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 								)}
 							</span>
 						) : (
-							volume.total_files != null && (
+							(volume.total_files ?? indexedCount) != null && (
 								<span className="bg-accent/10 border-accent/20 text-accent rounded border px-1.5 py-0.5">
-									{volume.total_files.toLocaleString()}{' '}
+									{(
+										volume.total_files ?? indexedCount ?? 0
+									).toLocaleString()}{' '}
 									files
 								</span>
 							)

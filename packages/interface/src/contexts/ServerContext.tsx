@@ -26,12 +26,17 @@ export interface ServerContextValue {
 	/**
 	 * Build a sidecar URL for fetching thumbnails, thumbstrips, transcripts, etc.
 	 * Returns null if serverUrl or libraryId is not available.
+	 *
+	 * Pass the sidecar's version whenever the row is at hand: the server sends
+	 * immutable cache headers, so the version query param is what lets a
+	 * regenerated sidecar bust the browser cache.
 	 */
 	buildSidecarUrl: (
 		contentUuid: string,
 		kind: string,
 		variant: string,
 		format: string,
+		version?: number,
 	) => string | null;
 }
 
@@ -142,11 +147,13 @@ export function ServerProvider({ children }: ServerProviderProps) {
 		kind: string,
 		variant: string,
 		format: string,
+		version?: number,
 	): string | null => {
 		if (!serverUrl || !libraryId) {
 			return null;
 		}
-		return `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${kind}/${variant}.${format}`;
+		const base = `${serverUrl}/sidecar/${libraryId}/${contentUuid}/${kind}/${variant}.${format}`;
+		return version !== undefined ? `${base}?v=${version}` : base;
 	};
 
 	const value: ServerContextValue = {

@@ -10,7 +10,9 @@ export type FileSource =
 	| "directory"
 	| "recents"
 	| "filtered"
-	| "tag";
+	| "tag"
+	| "collection"
+	| "sourceMedia";
 
 export interface ExplorerFilesResult {
 	files: File[];
@@ -41,6 +43,8 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	const isRecentsMode = mode.type === "recents";
 	const isFilteredMode = mode.type === "filtered";
 	const isTagMode = mode.type === "tag";
+	const isCollectionMode = mode.type === "collection";
+	const isSourceMode = mode.type === "source";
 
 	// Build search query input
 	const searchQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -209,6 +213,32 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isTagMode && !!tagQueryInput,
 	});
 
+	// Collection query — entries identified at index time (screenshots, ...)
+	const collectionQueryInput = useMemo(() => {
+		if (!isCollectionMode || mode.type !== "collection") return null;
+		return { slug: mode.slug, limit: null };
+	}, [isCollectionMode, mode]);
+
+	const collectionQuery = useNormalizedQuery({
+		query: "files.collection_listing",
+		input: collectionQueryInput!,
+		resourceType: "file",
+		enabled: isCollectionMode && !!collectionQueryInput,
+	});
+
+	// Source media query — archive records projected as Files
+	const sourceQueryInput = useMemo(() => {
+		if (!isSourceMode || mode.type !== "source") return null;
+		return { source_id: mode.sourceId, limit: 2000, offset: 0 };
+	}, [isSourceMode, mode]);
+
+	const sourceQuery = useNormalizedQuery({
+		query: "sources.media_listing",
+		input: sourceQueryInput!,
+		resourceType: "file",
+		enabled: isSourceMode && !!sourceQueryInput,
+	});
+
 	// Directory query
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
@@ -228,13 +258,19 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			!isSearchMode &&
 			!isRecentsMode &&
 			!isFilteredMode &&
-			!isTagMode,
+			!isTagMode &&
+			!isCollectionMode &&
+			!isSourceMode,
 		pathScope: currentPath ?? undefined,
 	});
 
 	// Priority: filtered > tag > recents > search > virtual > directory
 	const source: FileSource = isFilteredMode
 		? "filtered"
+		: isSourceMode
+			? "sourceMedia"
+		: isCollectionMode
+			? "collection"
 		: isTagMode
 			? "tag"
 			: isRecentsMode
@@ -249,6 +285,16 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		if (isFilteredMode) {
 			return (
 				(filteredQuery.data as FileSearchOutput | undefined)?.files || []
+			);
+		}
+		if (isSourceMode) {
+			return (
+				(sourceQuery.data as { files: File[] } | undefined)?.files ?? []
+			);
+		}
+		if (isCollectionMode) {
+			return (
+				(collectionQuery.data as { files: File[] } | undefined)?.files ?? []
 			);
 		}
 		if (isTagMode) {
@@ -267,10 +313,14 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	}, [
 		isFilteredMode,
 		isTagMode,
+		isCollectionMode,
+		isSourceMode,
 		isRecentsMode,
 		isSearchMode,
 		isVirtualView,
 		filteredQuery.data,
+		collectionQuery.data,
+		sourceQuery.data,
 		tagQuery.data,
 		recentsQuery.data,
 		searchQuery.data,
@@ -280,6 +330,10 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	const isLoading = isFilteredMode
 		? filteredQuery.isLoading
+		: isSourceMode
+			? sourceQuery.isLoading
+		: isCollectionMode
+			? collectionQuery.isLoading
 		: isTagMode
 			? tagQuery.isLoading
 			: isRecentsMode

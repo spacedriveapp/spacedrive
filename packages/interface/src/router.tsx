@@ -9,6 +9,8 @@ import { JobsScreen } from "./components/JobManager";
 import { DaemonManager } from "./routes/daemon";
 import { TagView } from "./routes/tag";
 import { FileKindsView } from "./routes/file-kinds";
+import { CollectionView } from "./routes/collection";
+import { AnalyzerView } from "./routes/analyzer";
 import { RecentsView } from "./routes/explorer/views/RecentsView";
 import { SourcesHome } from "./routes/sources";
 import { SourceDetail } from "./routes/sources/SourceDetail";
@@ -64,6 +66,14 @@ export const explorerRoutes = [
 			{
 				path: "file-kinds",
 				element: <FileKindsView />,
+			},
+			{
+				path: "collection/:slug",
+				element: <CollectionView />,
+			},
+			{
+				path: "analyzer",
+				element: <AnalyzerView />,
 			},
 			{
 				path: "tag/:tagId",

@@ -32,8 +32,11 @@ use tracing::{info, warn};
 /// In debug builds, files are read from disk at request time, so editing
 /// `apps/web/dist/` after a rebuild of the frontend is picked up live.
 /// In release builds, contents are baked into the binary.
+/// Source maps stay on disk for debugging and are excluded from the embed, since
+/// they are several times the size of the bundles they describe.
 #[derive(Embed)]
 #[folder = "../web/dist/"]
+#[exclude = "*.map"]
 struct WebAssets;
 
 #[derive(Clone)]
@@ -426,9 +429,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Calculate instance-specific paths
 	let (data_dir, socket_addr) = if let Some(instance) = &args.instance {
-		let instance_data_dir = base_data_dir.join("instances").join(instance);
-		let port = 6970 + (instance.bytes().map(|b| b as u16).sum::<u16>() % 1000);
-		let socket_addr = format!("127.0.0.1:{}", port);
+		let instance_data_dir = sd_core::infra::daemon::addr::instance_data_dir(
+			base_data_dir.clone(),
+			Some(instance),
+		);
+		let socket_addr =
+			sd_core::infra::daemon::addr::daemon_socket_addr(Some(instance)).to_string();
 		(instance_data_dir, socket_addr)
 	} else {
 		let socket_addr = "127.0.0.1:6969".to_string();

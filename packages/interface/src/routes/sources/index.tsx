@@ -1,8 +1,13 @@
 import { Plus, ArrowLeft } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
-import { useLibraryQuery } from "../../contexts/SpacedriveContext";
+import {
+	useCoreQuery,
+	useLibraryQuery,
+	useNormalizedQuery,
+} from "../../contexts/SpacedriveContext";
 import { useTabManager } from "../../components/TabManager/useTabManager";
 import { SourceCard } from "../../components/Sources/SourceCard";
+import { DriveSourceCard } from "../../components/Sources/DriveSourceCard";
 import { TopBarPortal, TopBarItem } from "../../TopBar";
 import { CircleButton } from "@spacedrive/primitives";
 import { SearchBar } from "@spacedrive/primitives";
@@ -15,6 +20,23 @@ export function SourcesHome() {
 		input: { data_type: null },
 	});
 	const sources = sourcesRaw as any[] | undefined;
+
+	// Filesystem sources — drives are sources too; the registries converge
+	// storage-side, the surface converges here.
+	const { data: ephemeralStatus } = useCoreQuery({
+		type: "core.ephemeral_status",
+		input: {},
+	});
+	const driveSources = ephemeralStatus?.sources ?? [];
+	const { data: devicesData } = useNormalizedQuery({
+		query: "devices.list",
+		input: { include_offline: true, include_details: false },
+		resourceType: "device",
+	});
+	const deviceSlug = ((devicesData as any[]) ?? []).find(
+		(d) => d.is_current,
+	)?.slug;
+	const totalCount = (sources?.length ?? 0) + driveSources.length;
 
 	return (
 		<>
@@ -71,7 +93,7 @@ export function SourcesHome() {
 				</div>
 			)}
 
-			{sources && sources.length === 0 && (
+			{sources && totalCount === 0 && (
 				<div className="flex flex-col items-center justify-center py-20">
 					<p className="text-ink-dull text-sm">No sources yet</p>
 					<p className="text-ink-faint mt-1 text-xs">
@@ -86,9 +108,16 @@ export function SourcesHome() {
 				</div>
 			)}
 
-			{sources && sources.length > 0 && (
+			{totalCount > 0 && (
 				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-					{sources.map((source) => (
+					{driveSources.map((source) => (
+						<DriveSourceCard
+							key={source.id}
+							source={source}
+							deviceSlug={deviceSlug}
+						/>
+					))}
+					{(sources ?? []).map((source) => (
 						<SourceCard key={source.id} source={source} />
 					))}
 				</div>

@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 import clsx from "clsx";
-import ImageIcon from "@sd/assets/icons/Image.png";
-import VideoIcon from "@sd/assets/icons/Video.png";
-import DocumentIcon from "@sd/assets/icons/Document.png";
-import CodeIcon from "@sd/assets/icons/Code-20.png";
-import AudioIcon from "@sd/assets/icons/Audio.png";
-import FolderIcon from "@sd/assets/icons/Folder.png";
+import ImageIcon from "@sd/assets/icons/Image.webp";
+import VideoIcon from "@sd/assets/icons/Video.webp";
+import DocumentIcon from "@sd/assets/icons/Document.webp";
+import CodeIcon from "@sd/assets/icons/Code-20.webp";
+import AudioIcon from "@sd/assets/icons/Audio.webp";
+import FolderIcon from "@sd/assets/icons/Folder.webp";
 
 interface ContentBreakdownProps {
 	totalFiles: number;

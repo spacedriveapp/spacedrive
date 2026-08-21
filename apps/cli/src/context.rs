@@ -1,7 +1,7 @@
 use crate::config::CliConfig;
 use crate::util::prelude::*;
 use anyhow::Result;
-use sd_core::client::CoreClient;
+use sd_client::CoreClient;
 use std::path::PathBuf;
 use uuid::Uuid;
 

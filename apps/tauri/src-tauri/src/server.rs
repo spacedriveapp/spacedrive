@@ -63,39 +63,35 @@ async fn serve_sidecar(
 	State(state): State<ServerState>,
 	Path((library_id, content_uuid, kind, variant_and_ext)): Path<(String, String, String, String)>,
 ) -> Result<Response<Body>, StatusCode> {
+	let content_uuid = content_uuid
+		.parse::<uuid::Uuid>()
+		.map_err(|_| StatusCode::BAD_REQUEST)?;
+
+	let kind_dir = sd_sidecar_path::kind_directory(&kind).ok_or(StatusCode::BAD_REQUEST)?;
+
+	// The variant filename is the only free-form path segment; keep it a
+	// single segment to prevent directory traversal.
+	if variant_and_ext.contains(['/', '\\']) || variant_and_ext.contains("..") {
+		error!("Invalid sidecar variant segment: {:?}", variant_and_ext);
+		return Err(StatusCode::FORBIDDEN);
+	}
+
 	// Find the actual library folder (might be named differently than the ID)
 	let library_folder = find_library_folder(&state.data_dir, &library_id).await?;
 
-	// Actual path structure: sidecars/content/{first2}/{next2}/{uuid}/{kind}s/{variant}.{ext}
-	// Example: sidecars/content/0c/c0/0cc0b48f-a475-53ec-a580-bc7d47b486a9/thumbs/detail@1x.webp
-	let first_two = &content_uuid[0..2];
-	let next_two = &content_uuid[2..4];
-
-	// Special case: "transcript" stays singular (not "transcripts")
-	let kind_dir = if kind == "transcript" {
-		kind.to_string()
-	} else {
-		format!("{}s", kind) // "thumb" -> "thumbs"
-	};
-
+	// The layout crate joins variant and extension itself, so split the
+	// combined segment at the final dot.
+	let (variant, ext) = variant_and_ext
+		.rsplit_once('.')
+		.ok_or(StatusCode::BAD_REQUEST)?;
 	let sidecar_path = library_folder
 		.join("sidecars")
-		.join("content")
-		.join(first_two)
-		.join(next_two)
-		.join(&content_uuid)
-		.join(&kind_dir)
-		.join(&variant_and_ext);
-
-	// Security: prevent directory traversal
-	let sidecars_root = state.data_dir.join("libraries");
-	if !sidecar_path.starts_with(&sidecars_root) {
-		error!(
-			"Directory traversal attempt: {:?} not under {:?}",
-			sidecar_path, sidecars_root
-		);
-		return Err(StatusCode::FORBIDDEN);
-	}
+		.join(sd_sidecar_path::relative_path(
+			&content_uuid,
+			kind_dir,
+			variant,
+			ext,
+		));
 
 	// Open the file
 	let file = File::open(&sidecar_path).await.map_err(|e| {

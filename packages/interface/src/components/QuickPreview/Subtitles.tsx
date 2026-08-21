@@ -100,6 +100,7 @@ export function Subtitles({
 			srtSidecar.kind,
 			srtSidecar.variant,
 			extension,
+			srtSidecar.version,
 		);
 
 		if (!srtUrl) {

@@ -24,6 +24,9 @@ tauri-plugin-updater = "2.0"
 # Core bridge
 sd-tauri-core = { path = "../sd-tauri-core" }
 
+# Sidecar tree layout (shared with the daemon)
+sd-sidecar-path = { path = "../../../crates/sidecar-path" }
+
 # File opening
 file-opening = { path = "../crates/file-opening" }
 

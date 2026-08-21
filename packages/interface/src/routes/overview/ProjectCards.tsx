@@ -1,9 +1,9 @@
 import { motion } from "framer-motion";
 import { GitBranch, Clock, Folder } from "@phosphor-icons/react";
-import FolderIcon from "@sd/assets/icons/Folder.png";
-import CodeIcon from "@sd/assets/icons/Code-20.png";
-import DocumentIcon from "@sd/assets/icons/Document.png";
-import ImageIcon from "@sd/assets/icons/Image.png";
+import FolderIcon from "@sd/assets/icons/Folder.webp";
+import CodeIcon from "@sd/assets/icons/Code-20.webp";
+import DocumentIcon from "@sd/assets/icons/Document.webp";
+import ImageIcon from "@sd/assets/icons/Image.webp";
 
 interface ProjectCardsProps {
 	locations: any[];

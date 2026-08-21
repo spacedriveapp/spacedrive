@@ -228,20 +228,15 @@ fn get_platform_string() -> String {
 }
 
 async fn check_daemon_running(data_dir: &PathBuf) -> bool {
-	let socket_addr = "127.0.0.1:6969".to_string();
-	let client = sd_core::client::CoreClient::new(socket_addr);
+	let socket_addr = sd_client::daemon_socket_addr(None).to_string();
+	let client = sd_client::CoreClient::new(socket_addr);
 
-	matches!(
-		client
-			.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Ping)
-			.await,
-		Ok(sd_core::infra::daemon::types::DaemonResponse::Pong)
-	)
+	sd_client::is_daemon_running(&client).await
 }
 
 async fn stop_daemon(data_dir: &PathBuf) -> Result<()> {
-	let socket_addr = "127.0.0.1:6969".to_string();
-	let client = sd_core::client::CoreClient::new(socket_addr);
+	let socket_addr = sd_client::daemon_socket_addr(None).to_string();
+	let client = sd_client::CoreClient::new(socket_addr);
 
 	client
 		.send_raw_request(&sd_core::infra::daemon::types::DaemonRequest::Shutdown)
