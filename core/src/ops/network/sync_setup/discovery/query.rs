@@ -120,7 +120,6 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 							unique_content_count: 0,        // Not available from network protocol
 							total_capacity: 0,              // Not available from network protocol
 							available_capacity: 0,          // Not available from network protocol
-							thumbnail_count: 0,             // Not available from network protocol
 							database_size: 0,               // Not available from network protocol
 							sidecar_count: 0,               // Not available from network protocol
 							sidecar_size: 0,                // Not available from network protocol

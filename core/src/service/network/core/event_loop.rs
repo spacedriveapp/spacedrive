@@ -2,7 +2,8 @@
 
 use crate::service::network::{
 	core::{
-		NetworkEvent, FILE_TRANSFER_ALPN, JOB_ACTIVITY_ALPN, MESSAGING_ALPN, PAIRING_ALPN,
+		NetworkEvent, BYTERANGE_ALPN, FILE_TRANSFER_ALPN, JOB_ACTIVITY_ALPN, MESSAGING_ALPN,
+		PAIRING_ALPN,
 		SYNC_ALPN,
 	},
 	device::DeviceRegistry,
@@ -391,6 +392,14 @@ impl NetworkingEventLoop {
 						let registry = protocol_registry.read().await;
 						if let Some(handler) = registry.get_handler("job_activity") {
 							logger.info("Routing to job_activity handler (ALPN match)").await;
+							handler
+								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
+								.await;
+						}
+						continue;
+					} else if alpn_bytes == BYTERANGE_ALPN {
+						let registry = protocol_registry.read().await;
+						if let Some(handler) = registry.get_handler("byterange") {
 							handler
 								.handle_stream(Box::new(send), Box::new(recv), remote_node_id)
 								.await;

@@ -1,5 +1,6 @@
 //! Protocol handling system for different message types
 
+pub mod byterange;
 pub mod file_delete;
 pub mod file_transfer;
 pub mod job_activity;
@@ -15,6 +16,9 @@ use iroh::EndpointId;
 use std::collections::HashMap;
 use uuid::Uuid;
 
+pub use byterange::{
+	ByteRangeProtocolHandler, ByteRangeRequest, ByteRangeResponse, RemoteSourceInfo,
+};
 pub use file_delete::FileDeleteProtocolHandler;
 pub use file_transfer::{
 	FileMetadata, FileTransferMessage, FileTransferProtocolHandler, TransferDirection,
