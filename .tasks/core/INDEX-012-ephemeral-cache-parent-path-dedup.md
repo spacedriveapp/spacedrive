@@ -21,22 +21,22 @@ $ sd index ephemeral-cache
 
 INDEXED PATHS            Children
 ○ /System/Volumes/Data   11
-○ /Users/jamespine       111
+○ /Users/alice       111
 ```
 
-User indexed their system volume (registered as `/System/Volumes/Data`), then browsed `/Users/jamespine` in the Explorer. The cache created a second entry with 111 children from a redundant shallow scan, despite the volume index already containing all 1.8M entries recursively.
+User indexed their system volume (registered as `/System/Volumes/Data`), then browsed `/Users/alice` in the Explorer. The cache created a second entry with 111 children from a redundant shallow scan, despite the volume index already containing all 1.8M entries recursively.
 
 ## Root Cause: macOS Symlink + Exact Path Lookup
 
-On macOS with APFS, `/Users` is a symlink to `/System/Volumes/Data/Users`. The volume indexer walks from the real mount point `/System/Volumes/Data`, so the arena stores all paths under `/System/Volumes/Data/Users/jamespine/...`.
+On macOS with APFS, `/Users` is a symlink to `/System/Volumes/Data/Users`. The volume indexer walks from the real mount point `/System/Volumes/Data`, so the arena stores all paths under `/System/Volumes/Data/Users/alice/...`.
 
-When the Explorer browses `/Users/jamespine`, the chain of events:
+When the Explorer browses `/Users/alice`, the chain of events:
 
-1. **`get_for_search("/Users/jamespine")`** (directory_listing.rs:649) — canonicalizes the path to `/System/Volumes/Data/Users/jamespine`, finds it starts with the indexed root `/System/Volumes/Data` → returns the index ✅
+1. **`get_for_search("/Users/alice")`** (directory_listing.rs:649) — canonicalizes the path to `/System/Volumes/Data/Users/alice`, finds it starts with the indexed root `/System/Volumes/Data` → returns the index ✅
 
-2. **`list_directory("/Users/jamespine")`** (directory_listing.rs:659) — does a raw `path_index.get(path)` lookup. The arena has `/System/Volumes/Data/Users/jamespine` as the key, not `/Users/jamespine` → returns `None` ❌
+2. **`list_directory("/Users/alice")`** (directory_listing.rs:659) — does a raw `path_index.get(path)` lookup. The arena has `/System/Volumes/Data/Users/alice` as the key, not `/Users/alice` → returns `None` ❌
 
-3. **Fallthrough** (directory_listing.rs:736+) — concludes the path isn't indexed, calls `create_for_indexing("/Users/jamespine")`, triggers a redundant shallow scan, registers `/Users/jamespine` as a second entry in `indexed_paths`
+3. **Fallthrough** (directory_listing.rs:736+) — concludes the path isn't indexed, calls `create_for_indexing("/Users/alice")`, triggers a redundant shallow scan, registers `/Users/alice` as a second entry in `indexed_paths`
 
 The fix requires addressing both the symlink resolution and the parent-path awareness.
 
@@ -255,7 +255,7 @@ pub fn mark_indexing_complete(&self, path: &Path, scope: IndexScope) {
 
 ## Acceptance Criteria
 
-- [ ] `list_directory("/Users/jamespine")` returns children when arena has `/System/Volumes/Data/Users/jamespine`
+- [ ] `list_directory("/Users/alice")` returns children when arena has `/System/Volumes/Data/Users/alice`
 - [ ] `is_indexed()` returns true for symlink paths under a recursively-indexed volume
 - [ ] `get_for_path()` returns the index for symlink paths under a recursively-indexed volume
 - [ ] `create_for_indexing()` is a no-op when the path is covered by a recursive parent (including symlinks)
@@ -280,8 +280,8 @@ fn test_symlink_path_resolution() {
 
     // Symlink path should be considered indexed (on macOS /Users -> /System/Volumes/Data/Users)
     // This test verifies the canonicalization logic
-    let symlink_path = PathBuf::from("/Users/jamespine");
-    assert!(cache.is_indexed(&symlink_path)); // canonicalizes to /System/Volumes/Data/Users/jamespine
+    let symlink_path = PathBuf::from("/Users/alice");
+    assert!(cache.is_indexed(&symlink_path)); // canonicalizes to /System/Volumes/Data/Users/alice
 }
 
 #[test]

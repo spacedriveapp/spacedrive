@@ -648,7 +648,7 @@ impl Model {
 
 			// Don't rebuild as fallback during sync - this can overwrite correct paths
 			// rebuild_directory_path() sets root paths to just the name ("Downloads")
-			// which would overwrite the correct absolute path ("/Users/jamespine/Downloads")
+			// which would overwrite the correct absolute path ("/Users/alice/Downloads")
 			// Path should either:
 			// 1. Be included in sync data (location roots, new code)
 			// 2. Be created during local indexing (has full filesystem path)

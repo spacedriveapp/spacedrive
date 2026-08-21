@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
 	// Output path
 	let output_path = PathBuf::from(
-		"/Users/jamespine/Projects/spacedrive/workbench/test-memories/memory-file-system.memory",
+		concat!(env!("CARGO_MANIFEST_DIR"), "/../workbench/test-memories/memory-file-system.memory"),
 	);
 
 	// Ensure directory exists
@@ -27,7 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let mut memory = MemoryFile::create(
 		"memory-file-system".to_string(),
 		MemoryScope::Directory {
-			path: "/Users/jamespine/Projects/spacedrive/core/src/domain/memory".to_string(),
+			path: concat!(env!("CARGO_MANIFEST_DIR"), "/src/domain/memory").to_string(),
 		},
 		&output_path,
 	)

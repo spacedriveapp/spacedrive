@@ -933,8 +933,8 @@ pub struct EphemeralThumbnailConfig {
 
 ## Related Documentation
 
-- [CORE-008: Virtual Sidecar System](/Users/jamespine/Projects/spacedrive/.tasks/core/CORE-008-virtual-sidecar-system.md)
-- [INDEX-000: Indexing & File Management](/Users/jamespine/Projects/spacedrive/.tasks/core/INDEX-000-indexing-file-management.md)
+- [CORE-008: Virtual Sidecar System](CORE-008-virtual-sidecar-system.md)
+- [INDEX-000: Indexing & File Management](INDEX-000-indexing-file-management.md)
 - Whitepaper: Section 4.1.5 (Virtual Sidecars)
 - Workbench: `workbench/core/storage/VIRTUAL_SIDECAR_SYSTEM_V2.md`
 

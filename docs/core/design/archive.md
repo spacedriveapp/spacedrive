@@ -1031,7 +1031,7 @@ pub mod sources;
 
 ### Spacedrive-Data Source Files
 
-**All source files relative to:** `/Users/jamespine/Projects/spacedriveapp/spacedrive-archive-prototype/core/src/`
+**All source files relative to:** `../spacedrive-archive-prototype/core/src/`
 
 **Core modules:**
 
@@ -1055,7 +1055,7 @@ pub mod sources;
 
 ### Target Paths in V2
 
-**Standalone crate:** `/Users/jamespine/Projects/spacedriveapp/spacedrive/crates/archive/`
+**Standalone crate:** `crates/archive/`
 
 ```
 crates/archive/
@@ -1086,7 +1086,7 @@ crates/archive/
     └── embedding.rs
 ```
 
-**Core integration wrapper:** `/Users/jamespine/Projects/spacedriveapp/spacedrive/core/src/data/`
+**Core integration wrapper:** `core/src/data/`
 
 ```
 core/src/data/
@@ -1095,7 +1095,7 @@ core/src/data/
 └── integration.rs          (KeyManager, EventBus bridges)
 ```
 
-**Operations and jobs:** `/Users/jamespine/Projects/spacedriveapp/spacedrive/core/src/ops/sources/`
+**Operations and jobs:** `core/src/ops/sources/`
 
 ```
 core/src/ops/sources/
@@ -1111,4 +1111,4 @@ core/src/ops/sources/
 └── settings.rs
 ```
 
-**Adapters (copy as-is):** `/Users/jamespine/Projects/spacedriveapp/spacedrive/adapters/`
+**Adapters (copy as-is):** `adapters/`

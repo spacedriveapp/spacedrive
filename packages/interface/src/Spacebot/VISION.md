@@ -2,7 +2,7 @@
 
 This document describes the target experience for the Spacebot surface inside Spacedrive. It is written for developers building this interface. It covers what exists today, what the interface should become, and how to get there without rewriting everything at once.
 
-For architectural context on how Spacebot integrates with Spacedrive at the system level, see `spacedrive/docs/core/design/spacebot-integration.md`. For the broader product direction, see `company/new-direction/2026-03-20-SPACEDRIVE-DIRECTION.md`.
+For architectural context on how Spacebot integrates with Spacedrive at the system level, see `spacedrive/docs/core/design/spacebot-integration.md`.
 
 ---
 

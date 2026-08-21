@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # --- Configuration ---
-PROJECT_ROOT="/Users/jamespine/Projects/spacedrive/core"
+PROJECT_ROOT="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 INSTALL_DIR="/usr/local/bin"
 BINARY_NAME="spacedrive"
 

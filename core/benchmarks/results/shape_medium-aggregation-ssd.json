@@ -21,7 +21,7 @@
         },
         "id": "7cb7172d-a51a-4783-a3c8-ff5c82024ba3",
         "location_paths": [
-          "/Users/jamespine/Projects/spacedrive/core/benchdata/shape_medium"
+          "~/benchdata/shape_medium"
         ],
         "recipe_name": "shape_medium",
         "timestamp_utc": "2025-08-10T09:12:12.291950+00:00"

@@ -1053,7 +1053,6 @@ Before writing code:
 - **Type Generation:** `cargo run --bin generate_typescript_types`
 - **Color System:** `/docs/react/ui/colors.mdx`
 - **Workbench Docs:** `/workbench/interface/`
-- **V1 Reference:** `/Users/jamespine/Projects/spacedrive_v1`
 
 ---
 
