@@ -23,6 +23,30 @@ To familiarize yourself with the project, please read the [README](README.md). H
 - [Spacedrive Architecture Documentation](docs/core/architecture.mdx)
 - [V1 to V2 Migration Guide](#migrating-from-v1) (for returning contributors)
 
+## Licensing and Sign-Off
+
+Spacedrive is licensed under [Apache-2.0](LICENSE). Contributions are accepted
+under the same license, per Apache-2.0 section 5: anything you submit for
+inclusion is licensed under those terms, including the patent grant in section
+3. You keep the copyright to your work.
+
+We use the [Developer Certificate of Origin](https://developercertificate.org)
+(DCO) to record that you have the right to submit what you send. Sign off every
+commit:
+
+```sh
+git commit -s -m "your message"
+```
+
+That appends a line to the commit message:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+The name and email must be real and match your git config. To sign off commits
+you already wrote, use `git rebase --signoff <base>` and force-push the branch.
+
 ## Getting Started
 
 ### Issues
@@ -107,30 +131,41 @@ After system dependencies are installed, set up the project:
 # Install JavaScript dependencies (required for Tauri app)
 bun install
 
-# Download native dependencies and generate cargo config
+# Generate cargo config and build the release daemon
 cargo run -p xtask -- setup
 
 # Build core Rust binaries (CLI, daemon, and core library)
-# Note: Basic build without media features
 cargo build
-
-# OR build with media processing features (recommended for development)
-cargo build --features sd-core/ffmpeg,sd-core/heif
 ```
 
 The `xtask setup` command:
 
-- Downloads prebuilt native dependencies (FFmpeg, etc.)
-- Creates symlinks for shared libraries
-- Builds the release daemon for Tauri bundler validation
 - Generates `.cargo/config.toml` with cargo aliases (including `cargo daemon` and `cargo cli`)
+- Builds the release daemon for Tauri bundler validation
 - Downloads iOS dependencies if iOS targets are installed
+
+**Media formats.** Video, HEIC, RAW and PDF thumbnails come from ImageIO and
+QuickLook on macOS, so nothing extra is needed there. On Linux and Windows they
+need the prebuilt codec bundle, a 91 MB download into `apps/.deps/`:
+
+```bash
+cargo run -p xtask -- setup --native-deps
+```
+
+That enables the `ffmpeg` and `heif` features, which will not compile without it,
+and the generated aliases pick them up:
+
+```bash
+cargo build --features sd-core/ffmpeg,sd-core/heif
+```
 
 **Important:** After running `xtask setup`, you can use convenient aliases:
 ```bash
-cargo daemon  # Runs sd-daemon with ffmpeg,heif features enabled
-cargo cli     # Runs sd-cli with ffmpeg,heif features enabled
+cargo daemon  # Runs sd-daemon
+cargo cli     # Runs the CLI
 ```
+
+With `--native-deps` both aliases also enable the `ffmpeg` and `heif` features.
 
 **Note:** The release daemon build is required because Tauri's `externalBin` config validates binary paths even in dev mode. The daemon is built once during setup and rebuilt when needed during release builds.
 
@@ -184,6 +219,8 @@ cargo cli     # Automatically includes sd-core/ffmpeg,sd-core/heif features
 
 The Tauri desktop app **always** includes these features by default, so end users get full functionality. This design keeps the test suite fast while giving developers easy access to full features when needed.
 
+**Licensing note:** Spacedrive is Apache-2.0 and the default build carries no FFmpeg. The `ffmpeg` feature links FFmpeg itself, which ships under LGPL-2.1+, or GPL-2.0+ when built with `--enable-gpl`. Anyone redistributing a binary built with that feature is responsible for meeting the terms of whichever FFmpeg build they linked.
+
 **Note:** The Tauri desktop app is excluded from `cargo build` because it requires the frontend to be built first. See [Desktop Development](#desktop-development-tauri) for Tauri-specific setup.
 
 ## Core Development
@@ -195,16 +232,17 @@ The heart of Spacedrive is the Rust core (`core/`). Most contributions will invo
 The fastest way to start developing is with the CLI:
 
 ```bash
-# Using the cargo alias (recommended - includes media features)
+# Using the cargo alias
 cargo cli library create "Dev Library"
 cargo cli location add ~/Documents
 cargo cli search .
 
-# Or use the long form with features
-cargo run --features sd-core/ffmpeg,sd-core/heif --bin sd-cli -- library create "Dev Library"
+# Or use the long form
+cargo run --bin spacedrive -- library create "Dev Library"
 ```
 
-**Tip:** The `cargo cli` alias is created by `xtask setup` and automatically includes `ffmpeg,heif` features.
+**Tip:** The `cargo cli` alias is created by `xtask setup`, and picks up the
+`ffmpeg,heif` features when you set up with `--native-deps`.
 
 #### Setting Up a Shell Alias
 
