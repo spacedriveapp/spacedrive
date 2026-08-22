@@ -124,6 +124,8 @@ sd-archive = { path = "../crates/archive" }
 
 # Machine-scoped process supervision
 sd-supervisor = { path = "../crates/supervisor" }
+sd-bake = { path = "../crates/bake" }
+sd-pvcache = { path = "../crates/pvcache" }
 
 # Vector database for memory files (optional for now)
 # lancedb = "0.15"  # Embedded vector database (conflicts with gpui)

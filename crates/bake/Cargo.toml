@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 image = { workspace = true }
 sd-images = { path = "../images" }
+sd-media-metadata = { path = "../media-metadata" }
 thiserror = { workspace = true }
 
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -3,7 +3,7 @@
 //!
 //! Source indexes are disposable — deleting and re-adding a source rebuilds one
 //! from scratch. Everything in this module survives that, and rebinds by
-//! `(source_id, type, external_id)` rather than by the spine uuid, because a
+//! `(source_id, type, external_id)` rather than by the record table uuid, because a
 //! rebuilt index mints fresh uuids.
 //!
 //! These tables live in `registry.db` alongside the source registry: one durable
@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_lib_edge_dst
     ON lib_edge(dst_source, dst_type, dst_external, type);
 "#;
 
-/// Addresses a record durably, independent of the spine uuid a given index
+/// Addresses a record durably, independent of the record table uuid a given index
 /// happens to have minted for it.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RecordKey {

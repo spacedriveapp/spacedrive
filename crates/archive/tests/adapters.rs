@@ -1,12 +1,12 @@
 //! Every bundled adapter's manifest must still produce a working index under
-//! the spine. The JSONL protocol and `adapter.toml` format are unchanged, so
+//! the record table. The JSONL protocol and `adapter.toml` format are unchanged, so
 //! these read the real manifests rather than fixtures.
 
 use sd_archive::adapter::apple_photos::ApplePhotosAdapter;
 use sd_archive::adapter::script::ScriptAdapter;
 use sd_archive::adapter::{Adapter, AdapterKind, AdapterRegistry};
 use sd_archive::source::SourceManager;
-use sd_archive::spine::facet_table;
+use sd_archive::record::facet_table;
 
 fn adapters_dir() -> std::path::PathBuf {
 	std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -67,7 +67,7 @@ async fn every_bundled_adapter_builds_a_usable_index() {
 			.await
 			.unwrap_or_else(|e| panic!("{name}: index failed to open: {e}"));
 
-		// The spine and one facet table per declared model.
+		// The record table and one facet table per declared model.
 		for model in schema.models.keys() {
 			let table = facet_table(model);
 			let exists: Option<String> = sqlx::query_scalar(

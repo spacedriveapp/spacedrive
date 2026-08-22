@@ -1,31 +1,24 @@
-//! Spacedrive's native GPUI app.
+//! Photos: Spacedrive's native GPUI app.
 //!
-//! The shell: a hidden-titlebar macOS window with the SpaceUI dark palette —
-//! left sidebar, a main pane switching between the tile grid and the explorer
-//! list, and a status row reporting daemon liveness. All daemon traffic runs
-//! through the async data plane in [`data`]; the frame loop only ever reads
-//! snapshots.
+//! One window, one grid. Photos does not browse on its own — it follows a
+//! Spacedrive file explorer window through the daemon's navigation focus, so
+//! navigating in the explorer re-renders this window as the media view of that
+//! folder. All daemon traffic runs through the async data plane in [`data`];
+//! the frame loop only ever reads snapshots.
 //!
-//! With a daemon running (`SD_NATIVE_INSTANCE` selects a named instance) the
-//! sidebar shows the daemon's libraries and volumes, and clicking a volume or
-//! location lists the real directory over `files.directory_listing`, kept
-//! fresh by path-scoped event subscriptions. `SD_NATIVE_OPEN=<dir>` opens a
-//! directory in the list pane at launch. Without a daemon the app still runs:
-//! the sidebar keeps its static rows, the status dot reads offline, and the
-//! grid works in its synthetic and folder-demo modes.
+//! Following is a toggle. Off, the window holds whatever folder it is showing.
+//! `SD_NATIVE_FOCUS_GROUP` picks which group to follow (windows launched from
+//! one explorer share its group); `SD_NATIVE_INSTANCE` selects a named daemon
+//! instance.
 //!
-//! With a folder argument (`spacedrive-native ~/Pictures`, or
-//! `SD_NATIVE_FOLDER`) the grid shows real thumbnails: an in-process demo
-//! bake fills `thumbs.pvcache` while the grid reads the same file through
-//! the cross-process reader contract. Without one, the grid runs on
-//! synthetic tiles. `SD_GRID_BENCH=1` runs the scripted flywheel benchmark
-//! over either source (stats to stderr, quits when done); `SD_GRID_CELLS`
+//! Tiles come from the daemon's thumbnail hot tier: this process maps the
+//! source's cache file read-only and uploads slots straight to the atlas, and
+//! never writes to it. `SD_GRID_BENCH=1` runs the scripted flywheel benchmark
+//! over synthetic tiles (stats to stderr, quits when done); `SD_GRID_CELLS`
 //! overrides the synthetic cell count.
 
 mod data;
-mod demo;
 mod grid;
-mod list;
 mod source;
 mod theme;
 mod ui;
@@ -42,21 +35,21 @@ use gpui::{
 use gpui_component::Root;
 use gpui_platform::application;
 
-use crate::data::{DataHandle, SidebarSnapshot};
+use crate::data::{DataHandle, FocusSnapshot, FolderState};
 use crate::grid::GridView;
-use crate::list::ListView;
-use crate::source::{PvcacheSource, SyntheticSource, TileSource, VisibleRange};
+use crate::source::{EmptySource, PvcacheSource, SyntheticSource, TileSource};
 use crate::theme::{ActiveTheme as _, Theme};
-use crate::ui::{Button, ButtonVariant, CircleButton, SidebarItem, SidebarSectionLabel};
+use crate::ui::{Button, ButtonVariant};
 
-const SIDEBAR_WIDTH: f32 = 220.0;
 const TOOLBAR_HEIGHT: f32 = 44.0;
 const STATUS_BAR_HEIGHT: f32 = 26.0;
 
 fn main() {
 	let (cells, bench) = grid::config_from_env();
-	let source = build_source(cells);
-	let data = data::spawn(std::env::var("SD_NATIVE_INSTANCE").ok());
+	let data = data::spawn(
+		std::env::var("SD_NATIVE_INSTANCE").ok(),
+		data::focus_group_from_env(),
+	);
 
 	application().run(move |cx: &mut App| {
 		gpui_component::init(cx);
@@ -66,7 +59,7 @@ fn main() {
 		let options = WindowOptions {
 			window_bounds: Some(WindowBounds::Windowed(bounds)),
 			titlebar: Some(TitlebarOptions {
-				title: Some("Spacedrive".into()),
+				title: Some("Photos".into()),
 				appears_transparent: true,
 				traffic_light_position: Some(point(px(12.0), px(12.0))),
 			}),
@@ -74,76 +67,49 @@ fn main() {
 		};
 
 		cx.open_window(options, |window, cx| {
+			let source: Box<dyn TileSource> = match cells {
+				Some(cells) => Box::new(SyntheticSource::new(cells)),
+				None => Box::new(EmptySource),
+			};
 			let grid = cx.new(|cx| GridView::new(source, bench, cx));
-			let list = cx.new(|cx| ListView::new(data.clone(), cx));
-			let workspace = cx.new(|cx| Workspace::new(grid, list, data.clone(), cx));
-			cx.new(|cx| Root::new(workspace, window, cx))
+			let photos = cx.new(|cx| Photos::new(grid, data.clone(), bench, cx));
+			cx.new(|cx| Root::new(photos, window, cx))
 		})
 		.expect("failed to open window");
 		cx.activate(true);
 	});
 }
 
-/// Choose the grid's tile source: real thumbnails over pvcache when a folder
-/// is given, synthetic tiles otherwise.
-fn build_source(synthetic_cells: u32) -> Box<dyn TileSource> {
-	let Some(folder) = demo::folder_from_env() else {
-		return Box::new(SyntheticSource::new(synthetic_cells));
-	};
-	if !folder.is_dir() {
-		eprintln!("spacedrive-native: {} is not a directory", folder.display());
-		std::process::exit(1);
-	}
-	let cache_path = demo::cache_path();
-	// Seeded with a first-screenful estimate so the fill favors the top of
-	// the grid before the first paint publishes the real range.
-	let visible = VisibleRange::new(0, 512);
-	let fill = demo::spawn(
-		folder,
-		cache_path.clone(),
-		visible.clone(),
-		demo::max_files_from_env(),
-	);
-	Box::new(PvcacheSource::new(
-		cache_path,
-		fill.entries_rx,
-		fill.completions_rx,
-		visible,
-	))
-}
-
-/// Which view fills the main pane.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Pane {
-	Grid,
-	List,
-}
-
-struct Workspace {
+struct Photos {
 	grid: Entity<GridView>,
-	list: Entity<ListView>,
 	data: DataHandle,
-	pane: Pane,
-	sidebar: Arc<SidebarSnapshot>,
-	/// The listing target, mirrored here so the sidebar can highlight the
-	/// active volume or folder.
-	active_target: Option<PathBuf>,
+	focus: Arc<FocusSnapshot>,
+	/// The folder the grid is showing, which lags the focus by one retarget.
+	folder: Option<PathBuf>,
+	/// The benchmark owns the grid's source; adopting a folder would pull it
+	/// away mid-run, so the window ignores focus for the duration.
+	bench: bool,
 }
 
-impl Workspace {
-	fn new(
-		grid: Entity<GridView>,
-		list: Entity<ListView>,
-		data: DataHandle,
-		cx: &mut Context<Self>,
-	) -> Self {
-		// Wake on data-plane snapshot changes; the channels are tokio watches,
-		// which await fine on gpui's executor.
-		let mut sidebar = data.watch_sidebar();
+impl Photos {
+	fn new(grid: Entity<GridView>, data: DataHandle, bench: bool, cx: &mut Context<Self>) -> Self {
+		let photos = Photos {
+			grid,
+			focus: data.focus(),
+			data,
+			folder: None,
+			bench,
+		};
+
+		// Wake on data-plane snapshot changes; the channel is a tokio watch,
+		// which awaits fine on gpui's executor. A snapshot change is also the
+		// signal that a folder may be waiting to be picked up.
+		let mut focus = photos.data.watch_focus();
 		cx.spawn(async move |this, cx| {
-			while sidebar.changed().await.is_ok() {
-				let alive = this.update(cx, |workspace, cx| {
-					workspace.sidebar = workspace.data.sidebar();
+			while focus.changed().await.is_ok() {
+				let alive = this.update(cx, |photos, cx| {
+					photos.focus = photos.data.focus();
+					photos.adopt_folders(cx);
 					cx.notify();
 				});
 				if alive.is_err() {
@@ -152,175 +118,46 @@ impl Workspace {
 			}
 		})
 		.detach();
-		let mut listing = data.watch_listing();
-		cx.spawn(async move |this, cx| {
-			while listing.changed().await.is_ok() {
-				let alive = this.update(cx, |workspace, cx| {
-					let target = workspace.data.listing().target.clone();
-					if workspace.active_target != target {
-						workspace.active_target = target;
-						cx.notify();
-					}
-				});
-				if alive.is_err() {
-					break;
-				}
-			}
-		})
-		.detach();
 
-		// A startup directory opens straight into the list pane.
-		let initial_target = std::env::var_os("SD_NATIVE_OPEN").map(PathBuf::from);
-		let pane = match &initial_target {
-			Some(path) => {
-				data.open_directory(path.clone());
-				Pane::List
-			}
-			None => Pane::Grid,
-		};
+		photos
+	}
 
-		Workspace {
-			grid,
-			list,
-			sidebar: data.sidebar(),
-			active_target: data.listing().target.clone(),
-			data,
-			pane,
+	/// Take whatever folders the plane has opened. The last one wins: a fast
+	/// walk through several directories leaves only the one now in focus.
+	fn adopt_folders(&mut self, cx: &mut Context<Self>) {
+		if self.bench {
+			return;
+		}
+		while let Some(open) = self.data.take_folder() {
+			let source = PvcacheSource::new(
+				open.cache_path,
+				open.len,
+				open.entries_rx,
+				open.completions_rx,
+				open.visible,
+			);
+			self.grid.update(cx, |grid, cx| {
+				grid.set_source(Box::new(source) as Box<dyn TileSource>, cx);
+			});
+			self.folder = Some(open.path);
 		}
 	}
 
-	/// Load a directory into the list pane and bring it to the front.
-	fn open_target(&mut self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-		self.data.open_directory(path);
-		self.show_pane(Pane::List, window, cx);
-	}
-
-	fn show_pane(&mut self, pane: Pane, window: &mut Window, cx: &mut Context<Self>) {
-		self.pane = pane;
-		if pane == Pane::List {
-			let focus = self.list.read(cx).focus_handle();
-			window.focus(&focus, cx);
-		}
+	fn toggle_following(&mut self, cx: &mut Context<Self>) {
+		self.data.set_following(!self.focus.following);
 		cx.notify();
-	}
-
-	/// A sidebar row that opens `path` in the list pane.
-	fn location_item(
-		&self,
-		id: (&'static str, usize),
-		label: String,
-		path: PathBuf,
-		cx: &mut Context<Self>,
-	) -> SidebarItem {
-		let workspace = cx.entity();
-		let selected = self.active_target.as_deref() == Some(&path);
-		SidebarItem::new(id, label)
-			.selected(selected)
-			.on_click(move |_, window, cx| {
-				let path = path.clone();
-				workspace.update(cx, |workspace, cx| {
-					workspace.open_target(path, window, cx);
-				});
-			})
-	}
-
-	fn render_sidebar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-		let snapshot = self.sidebar.clone();
-		let mut nav = div()
-			.flex_1()
-			.px(px(8.0))
-			.flex()
-			.flex_col()
-			.gap(px(2.0))
-			.overflow_hidden();
-
-		if snapshot.online {
-			if !snapshot.libraries.is_empty() {
-				nav = nav.child(SidebarSectionLabel::new("Libraries"));
-				for (index, library) in snapshot.libraries.iter().enumerate() {
-					let data = self.data.clone();
-					let id = library.id;
-					nav = nav.child(
-						SidebarItem::new(("library", index), library.name.clone())
-							.selected(snapshot.current_library == Some(id))
-							.on_click(move |_, _, _| data.select_library(id)),
-					);
-				}
-			}
-			nav = nav.child(SidebarSectionLabel::new("Volumes"));
-			if snapshot.volumes.is_empty() {
-				nav = nav.child(
-					SidebarItem::new(
-						"volumes-empty",
-						if snapshot.current_library.is_some() {
-							"No volumes"
-						} else {
-							"No library yet"
-						},
-					),
-				);
-			}
-			for (index, volume) in snapshot.volumes.iter().enumerate() {
-				nav = nav.child(
-					self.location_item(
-						("volume", index),
-						volume.name.clone(),
-						volume.mount_point.clone(),
-						cx,
-					)
-					.detail(volume.capacity_label.clone()),
-				);
-			}
-			nav = nav.child(SidebarSectionLabel::new("Locations"));
-			if let Some(home) = std::env::home_dir() {
-				nav = nav
-					.child(self.location_item(("location", 0), "Home".into(), home.clone(), cx))
-					.child(self.location_item(
-						("location", 1),
-						"Downloads".into(),
-						home.join("Downloads"),
-						cx,
-					));
-			}
-		} else {
-			// Offline placeholder: the scaffold's static rows.
-			nav = nav
-				.child(SidebarSectionLabel::new("Library"))
-				.child(SidebarItem::new("nav-overview", "Overview").selected(true))
-				.child(SidebarItem::new("nav-recents", "Recents"))
-				.child(SidebarItem::new("nav-photos", "Photos"))
-				.child(SidebarSectionLabel::new("Locations"))
-				.child(SidebarItem::new("nav-home", "Home"))
-				.child(SidebarItem::new("nav-downloads", "Downloads"));
-		}
-
-		let theme = cx.theme();
-		div()
-			.w(px(SIDEBAR_WIDTH))
-			.flex_shrink_0()
-			.flex()
-			.flex_col()
-			.bg(theme.sidebar)
-			.border_r_1()
-			.border_color(theme.sidebar_divider)
-			// Traffic-light strip: empty chrome that drags the window.
-			.child(
-				div()
-					.h(px(TOOLBAR_HEIGHT))
-					.flex_shrink_0()
-					.window_control_area(WindowControlArea::Drag),
-			)
-			.child(nav)
 	}
 
 	fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
-		let grid_workspace = cx.entity();
-		let list_workspace = cx.entity();
-		let target_label = self
-			.active_target
+		let photos = cx.entity();
+		let following = self.focus.following;
+		let title = self
+			.folder
 			.as_ref()
-			.map(|path| path.display().to_string());
+			.and_then(|folder| folder.file_name())
+			.map(|name| name.to_string_lossy().into_owned())
+			.or_else(|| self.folder.as_ref().map(|f| f.display().to_string()));
 		div()
 			.h(px(TOOLBAR_HEIGHT))
 			.flex_shrink_0()
@@ -331,55 +168,70 @@ impl Workspace {
 			.border_b_1()
 			.border_color(theme.app_line)
 			.window_control_area(WindowControlArea::Drag)
-			.child(CircleButton::new("nav-back", "‹"))
-			.child(CircleButton::new("nav-forward", "›"))
+			// Room for the traffic lights, which float over a transparent
+			// titlebar rather than reserving space of their own.
+			.child(div().w(px(64.0)).flex_shrink_0())
 			.child(
 				div()
 					.flex_1()
 					.min_w(px(0.0))
 					.flex()
 					.justify_center()
-					.text_size(theme.text_xs)
-					.text_color(theme.ink_faint)
-					.when_some(target_label, |element, label| {
-						element.child(div().truncate().child(label))
+					.text_size(theme.text_sm)
+					.text_color(theme.ink)
+					.when_some(title, |element, title| {
+						element.child(div().truncate().child(title))
 					}),
 			)
 			.child(
-				Button::new("pane-grid", "Grid")
-					.variant(if self.pane == Pane::Grid {
-						ButtonVariant::Gray
+				Button::new("follow", if following { "Following" } else { "Follow" })
+					.variant(if following {
+						ButtonVariant::Accent
 					} else {
 						ButtonVariant::Default
 					})
-					.on_click(move |_, window, cx| {
-						grid_workspace.update(cx, |workspace, cx| {
-							workspace.show_pane(Pane::Grid, window, cx);
-						});
+					.on_click(move |_, _, cx| {
+						photos.update(cx, |photos, cx| photos.toggle_following(cx));
 					}),
 			)
-			.child(
-				Button::new("pane-list", "List")
-					.variant(if self.pane == Pane::List {
-						ButtonVariant::Gray
-					} else {
-						ButtonVariant::Default
-					})
-					.on_click(move |_, window, cx| {
-						list_workspace.update(cx, |workspace, cx| {
-							workspace.show_pane(Pane::List, window, cx);
-						});
-					}),
-			)
-			.child(CircleButton::new("new-item", "+").accent(true))
+	}
+
+	/// Shown until a folder arrives. Following is the normal way one does, so
+	/// the copy says where to go rather than offering a picker this window
+	/// does not have.
+	fn render_empty_state(&self, cx: &mut Context<Self>) -> impl IntoElement {
+		let theme = cx.theme();
+		let message = match &self.focus.folder {
+			FolderState::Loading => "Loading".to_string(),
+			FolderState::Empty => "No photos in this folder".to_string(),
+			FolderState::NoSource => "This folder is not on an indexed drive".to_string(),
+			FolderState::NoLibrary => "No library open in Spacedrive".to_string(),
+			FolderState::Error(error) => error.clone(),
+			FolderState::Idle | FolderState::Ready(_) if !self.focus.following => {
+				"Following is off".to_string()
+			}
+			FolderState::Idle | FolderState::Ready(_) => "Open a folder in Spacedrive".to_string(),
+		};
+		div()
+			.size_full()
+			.flex()
+			.items_center()
+			.justify_center()
+			.text_size(theme.text_sm)
+			.text_color(theme.ink_faint)
+			.child(message)
 	}
 
 	fn render_status_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
-		let (dot, label) = if self.sidebar.online {
-			(theme.status_success, "Daemon connected")
+		let (dot, label) = if self.focus.online {
+			(theme.status_success, "Daemon connected".to_string())
 		} else {
-			(theme.ink_faint, "Daemon offline")
+			(theme.ink_faint, "Daemon offline".to_string())
+		};
+		let count = match self.focus.folder {
+			FolderState::Ready(count) => count,
+			_ => 0,
 		};
 		div()
 			.h(px(STATUS_BAR_HEIGHT))
@@ -395,18 +247,18 @@ impl Workspace {
 			.text_color(theme.ink_faint)
 			.child(div().size(px(7.0)).rounded_full().bg(dot))
 			.child(label)
+			.child(match count {
+				1 => "1 photo".to_string(),
+				count => format!("{count} photos"),
+			})
 			.child(div().flex_1())
 			.child(self.data.socket_addr().to_string())
 	}
 }
 
-impl Render for Workspace {
+impl Render for Photos {
 	fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
-		let main: gpui::AnyElement = match self.pane {
-			Pane::Grid => self.grid.clone().into_any_element(),
-			Pane::List => self.list.clone().into_any_element(),
-		};
 		div()
 			.size_full()
 			.flex()
@@ -414,21 +266,16 @@ impl Render for Workspace {
 			.bg(theme.app)
 			.text_color(theme.ink)
 			.text_size(theme.text_sm)
+			.child(self.render_toolbar(cx))
 			.child(
 				div()
 					.flex_1()
 					.min_h(px(0.0))
-					.flex()
-					.child(self.render_sidebar(cx))
-					.child(
-						div()
-							.flex_1()
-							.min_w(px(0.0))
-							.flex()
-							.flex_col()
-							.child(self.render_toolbar(cx))
-							.child(div().flex_1().min_h(px(0.0)).child(main)),
-					),
+					.child(if self.folder.is_some() || self.bench {
+						self.grid.clone().into_any_element()
+					} else {
+						self.render_empty_state(cx).into_any_element()
+					}),
 			)
 			.child(self.render_status_bar(cx))
 	}

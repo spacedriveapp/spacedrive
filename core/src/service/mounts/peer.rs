@@ -30,6 +30,10 @@ pub struct RemoteShare {
 	pub info: RemoteSourceInfo,
 	pub index: Arc<TokioRwLock<EphemeralIndex>>,
 	pub synced_at_secs: u64,
+	/// Snapshot generation this replica was built from. Compared against
+	/// the owner's on every listing so an unchanged source is not
+	/// re-downloaded.
+	pub generation: u64,
 }
 
 static REMOTE_SHARES: OnceLock<TokioRwLock<HashMap<Uuid, Arc<RemoteShare>>>> = OnceLock::new();
@@ -146,6 +150,14 @@ static RECENT_SYNCS: OnceLock<std::sync::Mutex<HashMap<Uuid, std::time::Instant>
 	OnceLock::new();
 const SYNC_DEBOUNCE: std::time::Duration = std::time::Duration::from_secs(30);
 
+/// Clear the debounce for a device so a paced refresh is not swallowed by
+/// it. The debounce exists to collapse reconnect storms, not to rate-limit
+/// the refresh loop, which has its own interval.
+pub(super) fn allow_next_sync(device_id: Uuid) {
+	let map = RECENT_SYNCS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+	map.lock().unwrap().remove(&device_id);
+}
+
 pub(super) fn should_sync(device_id: Uuid) -> bool {
 	let map = RECENT_SYNCS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
 	let mut map = map.lock().unwrap();
@@ -180,6 +192,18 @@ pub async fn sync_device(
 
 	let mut synced = 0usize;
 	for info in sources {
+		// A replica built from the same snapshot the owner still holds is
+		// current. Only a moved generation, or unsaved changes on the
+		// owner's side, are worth a transfer.
+		if let Some(existing) = remote_share(info.id).await {
+			let unchanged =
+				!info.dirty && info.generation != 0 && existing.generation == info.generation;
+			if unchanged {
+				synced += 1;
+				continue;
+			}
+		}
+
 		let (response, mut body) = match request(
 			context,
 			device_id,
@@ -234,6 +258,7 @@ pub async fn sync_device(
 		let share = Arc::new(RemoteShare {
 			device_id,
 			device_label: device_label.clone(),
+			generation: info.generation,
 			info: info.clone(),
 			index: Arc::new(TokioRwLock::new(index)),
 			synced_at_secs: std::time::SystemTime::now()

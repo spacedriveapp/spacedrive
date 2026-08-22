@@ -17,8 +17,16 @@ pub enum Error {
 	#[error("tile dimensions out of range: {width}x{height}")]
 	InvalidTileDimensions { width: u32, height: u32 },
 
-	#[error("pixel buffer length {got} does not match tile length {expected}")]
+	#[error("pixel buffer length {got} does not match frame length {expected}")]
 	TileLengthMismatch { expected: usize, got: usize },
+
+	#[error("frame {width}x{height} exceeds the {envelope_width}x{envelope_height} envelope")]
+	FrameOutOfEnvelope {
+		width: u32,
+		height: u32,
+		envelope_width: u32,
+		envelope_height: u32,
+	},
 
 	#[error("slot capacity would overflow")]
 	CapacityOverflow,

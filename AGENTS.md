@@ -34,7 +34,22 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 - On frontend apps, such as the interface in React, you must ALWAYS ensure type-safety based on the auto generated TypeScript types from `ts-client`. Never cast to as any or redefine backend types. our hooks are typesafe with correct input/output types, but sometimes you might need to access types directly from the `ts-client`.
 - If you have changed types on the backend that are public to the frontend (have `Type` derive), then you must regenerate the types using `cargo run --bin generate_typescript_types`
 - Read the `.mdx` files in /docs for context on any part of the app, they are kept up to date.
--
+
+### Current direction
+
+The durable entries schema (`entry`, `location`, and everything hanging off
+them) is being replaced by the record spine in `crates/archive`, tracked by
+`docs/plans/2026-08-20-entries-teardown-execution.md`. Until that lands:
+
+- Do not deepen the entries world. New durable state belongs on the spine.
+  Do not add columns to `entry` or `location`, and do not grow the persistent
+  indexing path.
+- The `ephemeral` qualifier is load-bearing while both substrates exist. It
+  is what tells a reader which world a call site belongs to, so leave the
+  naming alone until T6.7 retires it.
+- The `.tasks/` tree predates this work and is not its register. The status
+  table at the top of the execution plan is the only record, and it gets
+  updated in the same commit as the work.
 
 ## Architecture Overview
 
@@ -121,9 +136,9 @@ crate::register_core_action!(LibraryCreateAction, "libraries.create");
 
 **Registry System:**
 
-The `inventory` crate collects operations at compile time. When you use `register_query!` or `register_library_action!`, the operation automatically appears in global `QUERIES` and `ACTIONS` hashmaps at startup. You never manually register operations.
+The `inventory` crate collects operations at compile time. When you use `register_core_query!`, `register_library_query!`, `register_core_action!` or `register_library_action!`, the operation automatically appears in the global `CORE_QUERIES`, `LIBRARY_QUERIES`, `CORE_ACTIONS` and `LIBRARY_ACTIONS` maps at startup. You never manually register operations.
 
-Location: `core/src/ops/registry.rs`
+Location: `core/src/infra/wire/registry.rs`
 
 ### Tauri Desktop Development
 
@@ -152,7 +167,7 @@ The TypeScript client (`packages/ts-client/`) is auto-generated from Rust types 
 cargo run --bin generate_typescript_types
 ```
 
-**Output:** `packages/ts-client/src/generated.ts`
+**Output:** `packages/ts-client/src/generated/types.ts`
 
 **Architecture:**
 
@@ -309,7 +324,7 @@ Extensions can define:
 
 **Documentation:**
 
-- `/docs/sdk/sdk.md` - Complete SDK specification and API reference
+- `crates/sdk/API_REFERENCE.md` - SDK specification and API reference
 - `extensions/test-extension/` - Working example extension
 - `crates/sdk/` - SDK implementation
 - `crates/sdk-macros/` - SDK procedural macros
@@ -721,7 +736,7 @@ cargo run -p task-validator -- validate
 3. Complete implementation and tests
 4. Update status to `"Done"` and commit
 
-Full documentation: `/docs/core/task-tracking.md`
+Full documentation: `/docs/core/task-tracking.mdx`
 
 ## Debugging
 
@@ -750,5 +765,4 @@ RUST_LOG=sd_core::jobs=trace cargo run
 - Core architecture: `/docs/core/`
 - Design docs and RFCs: `/docs/core/design/`
 - Application docs: `/docs/`
-- Daemon details: `/docs/core/daemon.md`
-- Task tracking: `/docs/core/task-tracking.md`
+- Task tracking: `/docs/core/task-tracking.mdx`

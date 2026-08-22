@@ -75,8 +75,48 @@ pub async fn start(context: Arc<CoreContext>, cache_max_bytes: u64) -> anyhow::R
 		tracing::error!("Failed to start mounts SMB server: {err}");
 	}
 
-	tokio::spawn(watch_peers(context));
+	tokio::spawn(watch_peers(context.clone()));
+	tokio::spawn(refresh_peers(context));
 	Ok(addr)
+}
+
+/// How often to ask connected peers whether their indexes moved. The check
+/// itself is one small request and transfers nothing unless a generation
+/// changed, so this is paced for freshness rather than for cost.
+const REFRESH_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// Keep replicated peer indexes current while both machines stay connected.
+///
+/// Without this a peer's index is whatever it was at connect time: a file
+/// added on the other machine never appears until a reconnect. The listing
+/// carries a snapshot generation, so an unchanged source costs one request
+/// and no transfer — which is why polling is adequate here and a push
+/// protocol would only add a delivery guarantee we would still have to
+/// back with this comparison.
+async fn refresh_peers(context: Arc<CoreContext>) {
+	loop {
+		tokio::time::sleep(REFRESH_INTERVAL).await;
+
+		let Some(networking) = context.networking.read().await.clone() else {
+			continue;
+		};
+		for (device_id, label) in connected_devices(&networking).await {
+			// Nothing replicated from this device yet: leave it to the
+			// connect path rather than racing it.
+			if !peer::remote_shares()
+				.await
+				.iter()
+				.any(|share| share.device_id == device_id)
+			{
+				continue;
+			}
+			peer::allow_next_sync(device_id);
+			match peer::sync_device(&context, device_id, label.clone()).await {
+				Ok(_) => {}
+				Err(err) => tracing::debug!("peer refresh with {label} failed: {err}"),
+			}
+		}
+	}
 }
 
 /// Replicate sources from every paired device as it connects, so peer

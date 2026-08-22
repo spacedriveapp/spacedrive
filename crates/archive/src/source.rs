@@ -11,7 +11,7 @@ use crate::error::{Error, Result};
 use crate::schema::codegen::generate_ddl;
 use crate::schema::migration::{diff_schemas, MigrationResult};
 use crate::schema::DataTypeSchema;
-use crate::spine::SPINE_SCHEMA;
+use crate::record::RECORD_SCHEMA;
 
 /// Manages source folders on disk.
 pub struct SourceManager {
@@ -21,7 +21,7 @@ pub struct SourceManager {
 /// Open a source index pool.
 ///
 /// Foreign keys are enabled per connection — SQLite defaults them off, and the
-/// spine relies on `ON DELETE CASCADE` to take facet rows and edges with a
+/// record table relies on `ON DELETE CASCADE` to take facet rows and edges with a
 /// deleted record.
 async fn open_pool(db_path: &Path, create: bool) -> Result<SqlitePool> {
 	let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
@@ -40,9 +40,9 @@ impl SourceManager {
 		Self { sources_dir }
 	}
 
-	/// Apply the spine and the data type's facet DDL. Idempotent.
+	/// Apply the record table and the data type's facet DDL. Idempotent.
 	async fn apply_schema(pool: &SqlitePool, schema: &DataTypeSchema) -> Result<()> {
-		sqlx::raw_sql(SPINE_SCHEMA).execute(pool).await?;
+		sqlx::raw_sql(RECORD_SCHEMA).execute(pool).await?;
 		for sql in &generate_ddl(schema) {
 			sqlx::query(sql).execute(pool).await?;
 		}
@@ -108,10 +108,10 @@ impl SourceManager {
 		let pool = open_pool(&source_dir.join("data.db"), false).await?;
 		let schema = Self::load_schema(&pool).await?;
 
-		// An index created before a spine table was introduced still needs it.
+		// An index created before a record table was introduced still needs it.
 		Self::apply_schema(&pool, &schema).await?;
 
-		let epoch = crate::spine::next_scan_epoch(&pool).await? - 1;
+		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
 		let db = SourceDb::new(pool, schema, epoch.max(0));
 		db.ensure_facet_columns().await?;
 
@@ -140,7 +140,7 @@ impl SourceManager {
 			Self::store_schema(&pool, current_schema, true).await?;
 		}
 
-		let epoch = crate::spine::next_scan_epoch(&pool).await? - 1;
+		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
 		let db = SourceDb::new(pool, current_schema.clone(), epoch.max(0));
 		db.ensure_facet_columns().await?;
 

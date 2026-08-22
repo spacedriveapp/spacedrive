@@ -23,6 +23,11 @@ pub struct MountShare {
 	pub url: String,
 	/// Owning device label for replicated peer sources; None for local.
 	pub device: Option<String>,
+	/// For a replicated peer source, the snapshot generation this replica
+	/// was built from and when it arrived — the two numbers that say how
+	/// current a peer mount actually is.
+	pub generation: Option<u64>,
+	pub synced_at_secs: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -78,6 +83,8 @@ impl CoreQuery for MountsStatusQuery {
 							attached: s.attached,
 							url,
 							device: None,
+							generation: None,
+							synced_at_secs: None,
 						}
 					})
 					.collect();
@@ -91,6 +98,8 @@ impl CoreQuery for MountsStatusQuery {
 						attached: remote.info.attached,
 						url,
 						device: Some(remote.device_label.clone()),
+						generation: Some(remote.generation),
+						synced_at_secs: Some(remote.synced_at_secs),
 					});
 				}
 				shares

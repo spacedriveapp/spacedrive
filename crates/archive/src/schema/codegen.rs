@@ -1,17 +1,17 @@
 //! Schema-to-SQL DDL generator.
 //!
-//! Emits the facet tables and search index that hang off the universal spine
-//! ([`crate::spine`]). One facet table per declared model, holding only that
-//! model's own fields — identity, hierarchy and relationships live on the spine,
+//! Emits the facet tables and search index that hang off the record table
+//! ([`crate::record`]). One facet table per declared model, holding only that
+//! model's own fields — identity, hierarchy and relationships live in the record table,
 //! so nothing here duplicates them.
 
 use std::fmt::Write;
 
 use crate::schema::DataTypeSchema;
-use crate::spine::facet_table;
+use crate::record::facet_table;
 
 /// Generate the facet and search DDL for a data type. Applied on top of
-/// [`crate::spine::SPINE_SCHEMA`], never instead of it.
+/// [`crate::record::RECORD_SCHEMA`], never instead of it.
 pub fn generate_ddl(schema: &DataTypeSchema) -> Vec<String> {
 	let mut statements = Vec::new();
 
@@ -120,7 +120,7 @@ search_fields = ["title", "description", "url"]
 	}
 
 	#[test]
-	fn facets_key_on_the_spine_and_carry_no_relation_columns() {
+	fn facets_key_on_the_record_table_and_carry_no_relation_columns() {
 		let ddl = generate_ddl(&fixture());
 		let bookmark = ddl
 			.iter()
@@ -129,7 +129,7 @@ search_fields = ["title", "description", "url"]
 
 		assert!(bookmark.contains("record_uuid TEXT PRIMARY KEY REFERENCES record(uuid)"));
 		assert!(bookmark.contains("ON DELETE CASCADE"));
-		// Hierarchy is spine state, not a facet column.
+		// Hierarchy is record state, not a facet column.
 		assert!(!bookmark.contains("folder_id"));
 	}
 

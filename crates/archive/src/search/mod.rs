@@ -11,7 +11,7 @@ use crate::safety::TrustTier;
 /// A single search result from any source.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
-	/// Spine uuid, stable across re-index within one index generation.
+	/// Record uuid, stable across re-index within one index generation.
 	pub id: String,
 	/// The source's own key — what durable assertions are addressed by.
 	pub external_id: String,

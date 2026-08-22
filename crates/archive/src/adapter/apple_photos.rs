@@ -2,7 +2,7 @@
 //!
 //! Harvests a `.photoslibrary` bundle by snapshotting its `Photos.sqlite`
 //! (Core Data) store and projecting assets, user albums, and named people onto
-//! the record spine. All Apple-specific knowledge lives here: the Core Data
+//! the record table. All Apple-specific knowledge lives here: the Core Data
 //! projection, the derivative fallback chain, and the album/person join
 //! resolution.
 //!
@@ -172,7 +172,7 @@ impl Adapter for ApplePhotosAdapter {
 
 			// The library is read synchronously (rusqlite + directory walks) off
 			// the async executor; only finished, owned data crosses back for the
-			// spine writes.
+			// record writes.
 			let harvest_library = library.clone();
 			let (assets, groups) =
 				tokio::task::spawn_blocking(move || harvest(&harvest_library, &snapshot))
@@ -197,7 +197,7 @@ impl Adapter for ApplePhotosAdapter {
 
 			// Map Apple's per-asset primary key to our external id, so album and
 			// person membership (expressed in Z_PK terms by Core Data) can be
-			// turned into edges between spine records.
+			// turned into edges between records.
 			let mut zpk_to_ext: HashMap<i64, &str> = HashMap::with_capacity(assets.len());
 			for asset in &assets {
 				db.upsert(PHOTO, &asset.zuuid, &photo_fields(asset)).await?;
@@ -943,7 +943,7 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn sync_lands_photos_albums_and_people_on_the_spine() {
+	async fn sync_lands_photos_albums_and_people_in_the_record_table() {
 		let dir = tempfile::tempdir().unwrap();
 		let library = synthetic_library(dir.path());
 

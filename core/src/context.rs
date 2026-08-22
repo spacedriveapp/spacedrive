@@ -7,13 +7,16 @@ use crate::{
 	filetype::FileTypeRegistry,
 	infra::action::manager::ActionManager,
 	infra::event::EventBus,
+	infra::source_dirs::SourceDirs,
 	infra::sync::TransactionManager,
 	library::LibraryManager,
 	ops::indexing::ephemeral::EphemeralIndexCache,
+	ops::navigation::FocusRegistry,
 	ops::processes::ProcessManager,
 	service::network::{NetworkingService, RemoteJobCache},
 	service::session::SessionStateService,
 	service::sidecar_manager::SidecarManager,
+	service::thumbs::ThumbService,
 	service::watcher::FsWatcherService,
 	volume::VolumeManager,
 };
@@ -37,6 +40,10 @@ pub struct CoreContext {
 	pub process_manager: Arc<RwLock<Option<Arc<ProcessManager>>>>,
 	// Ephemeral index cache for unmanaged paths
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
+	// Where each client window is looking; in-memory, never persisted
+	pub navigation_focus: Arc<FocusRegistry>,
+	// The thumbnail hot tier; owns every tile cache writer on this machine
+	pub thumbs: Arc<ThumbService>,
 	// Remote job cache for cross-device job visibility
 	pub remote_job_cache: Arc<RemoteJobCache>,
 	// File type registry (loaded once at startup, never changes)
@@ -58,6 +65,22 @@ impl CoreContext {
 		key_manager: Arc<KeyManager>,
 		data_dir: PathBuf,
 	) -> Self {
+		// The cache's persistence must follow this context's data dir, so
+		// --data-dir/--instance daemons never read or write the default
+		// installation's source registry and snapshots.
+		let sources_dir = data_dir.join("sources");
+		let ephemeral_index_cache = Arc::new(
+			EphemeralIndexCache::with_sources_dir(Some(sources_dir.clone()))
+				.expect("Failed to create ephemeral index cache"),
+		);
+		// The hot tier reads the same per-source layout the index writes into,
+		// so a source's tiles sit beside its snapshot and its store.
+		let thumbs = ThumbService::new(
+			SourceDirs::new(sources_dir).ok(),
+			ephemeral_index_cache.clone(),
+			events.clone(),
+		);
+
 		Self {
 			events,
 			device_manager,
@@ -71,13 +94,9 @@ impl CoreContext {
 			plugin_manager: Arc::new(RwLock::new(None)),
 			fs_watcher: Arc::new(RwLock::new(None)),
 			process_manager: Arc::new(RwLock::new(None)),
-			// The cache's persistence must follow this context's data dir, so
-			// --data-dir/--instance daemons never read or write the default
-			// installation's source registry and snapshots.
-			ephemeral_index_cache: Arc::new(
-				EphemeralIndexCache::with_sources_dir(Some(data_dir.join("sources")))
-					.expect("Failed to create ephemeral index cache"),
-			),
+			ephemeral_index_cache,
+			navigation_focus: Arc::new(FocusRegistry::new()),
+			thumbs,
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			file_type_registry: Arc::new(FileTypeRegistry::new()),
 			job_logging_config: None,

@@ -1,9 +1,9 @@
-//! The universal record spine shared by every source index.
+//! The universal record table shared by every source index.
 //!
 //! Every indexed thing — a note, an email, a channel, a repository — is a
 //! `record` row. Type-specific columns live in facet tables keyed by
 //! `record.uuid`, generated from the data type's TOML models
-//! ([`crate::schema::codegen`]). The spine is what makes cross-source search and
+//! ([`crate::schema::codegen`]). The record table is what makes cross-source search and
 //! cross-source edges possible: they join on one shape, not per-data-type ones.
 //!
 //! A source index is disposable. Everything durable — user assertions, curated
@@ -14,7 +14,7 @@ use crate::error::Result;
 
 /// Applied to every per-source index on open. All statements are
 /// `IF NOT EXISTS`, so re-applying to a populated index is a no-op.
-pub const SPINE_SCHEMA: &str = r#"
+pub const RECORD_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS record (
     uuid TEXT PRIMARY KEY,
     external_id TEXT NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS _schema (
 );
 "#;
 
-/// A spine row as written by the ingest path.
+/// A record row as written by the ingest path.
 #[derive(Debug, Clone)]
 pub struct Record {
 	pub uuid: String,
@@ -99,7 +99,7 @@ pub struct ContentIdentity {
 }
 
 /// Facet table name for a model. Namespaced so a model can never collide with a
-/// spine table.
+/// record table.
 pub fn facet_table(model: &str) -> String {
 	format!("facet_{model}")
 }

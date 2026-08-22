@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 
 use crate::schema::DataTypeSchema;
-use crate::spine::facet_table;
+use crate::record::facet_table;
 
 /// Result of comparing a stored schema against the current one.
 #[derive(Debug, Clone)]

@@ -10,6 +10,12 @@ shell retires with it. Companions:
 hot-tier design this plan executes), `docs/plans/2026-08-18-storage-consolidation.md`
 (the per-source store layout the hot tier lives inside).
 
+> **Revised 2026-08-21.** `apps/native` is Photos, an app launched from
+> Spacedrive rather than a second Spacedrive. It follows a file explorer
+> window through `navigation.focus` and renders that folder as a media grid.
+> B5 and B6 below are superseded by B5' and B6'; a full native explorer stays
+> the eventual destination and nothing here forecloses it.
+
 ## The decision
 
 The native app is GPUI + gpui-component, pinned to a fork we control. Not iced,
@@ -227,21 +233,27 @@ storage-consolidation plan, at least far enough that a source has a directory
 the cache file can live in. This is the storage-consolidation lane's work; the
 thumbnail port waits for it rather than inventing an interim layout.
 
-**A2 — `crates/pvcache`.** Ported from `native/` per the thumbnail-storage
-design: uuid-keyed slots, per-slot `(size, mtime)` version, capacity doubling,
-write-through. Daemon-owned writes; file format treats read-only external
-mappers as first-class.
+**A2 — `crates/pvcache`.** *(landed 2026-08-21)* Ported from `native/` per the
+thumbnail-storage design: uuid-keyed slots, per-slot `(size, mtime)` version,
+capacity doubling, write-through. Core owns every writer handle on the machine
+(`core/src/service/thumbs/`), which is what makes the format's single-writer
+contract true rather than hoped for; the file treats read-only external mappers
+as first-class.
 
-**A3 — the producer chain fills it.** `bake`'s cell renderers ported as the
-producer stages (sidecar decode → platform decode → FFmpeg → icon tile); the
-ephemeral writer's `run_processors` stub becomes the fill trigger; viewport
-priority arrives over ops; fill/invalidation events go out on the bus as a
-`thumbnail` resource.
+**A3 — the producer chain fills it.** *(landed 2026-08-21, on demand)* Nothing
+is baked speculatively. `thumbs.request` names the paths a client is about to
+draw, in draw order; the daemon resolves each to its record uuid and `(size,
+mtime)` version, and queues a bake for anything not already fresh. Completions
+go out on the bus as batched `thumbnail` resource events. The producer chain is
+raster decode then the platform icon tile; FFmpeg and sidecar-decode stages are
+still to come, as is `run_processors` as a second, index-driven fill trigger.
 
-**A4 — serving and parity.** The `/hot-thumb/` route for DOM clients, sidecar
-tier untouched as the durable fallback, and the inherited fixes above cleared
-where the work touches them. *Thumbnail storage is ported at the end of A4 —
-the gate James named for starting the client.*
+**A4 — serving and parity.** *(route landed 2026-08-21)*
+`/hot-thumb/:source_id/:record_uuid/:version` serves DOM clients out of the same
+cache file, opened read-only and encoded to PNG on the way out; the explorer's
+`Thumb` prefers it over loading a full-resolution original, which is what
+browsing an unindexed folder did before. Sidecars stay the durable tier. The
+inherited fixes listed above are not cleared yet.
 
 **B1 — `sd-client` promotion.** `CoreClient` moves in, prototype contents
 replaced; socket resolution, ping-and-spawn, subscription broker,
@@ -261,11 +273,22 @@ wgpu blit if elements can't carry it), fed by read-only mmap of
 `thumbs.pvcache`, selection animation included. Acceptance: six-figure cell
 count at frame rate. This is go/no-go for everything visual that follows.
 
-**B5 — the explorer shell.** Sidebar, list view, inspector skeleton, wired to
-daemon ops and the subscription broker; native menus and QuickLook.
+**B5' — Photos follows a window.** *(landed 2026-08-21)* Navigation focus in
+core (`core/src/ops/navigation/`): an in-memory, group-keyed row holding an
+`SdPath`, published by `navigation.set_focus` and read by `navigation.focus`,
+emitted as a `navigation_focus` resource so followers read the new position
+straight off the event. The explorer publishes from `ExplorerProvider`; the
+grid retargets and the previous fill is cancelled. `apps/native` lost its
+sidebar and list pane and is one grid with a Follow toggle; the Apps menu in
+Tauri launches it.
 
-**B6 — parity pass.** Side-by-side against the web app; glass toolbar,
-gestures, keyboard nav; the component audit that keeps "1:1" honest.
+**B6' — Photos becomes an app.** Pinch zoom (`MIN_CELL`/`MAX_CELL`, an
+NSEvent magnify monitor as in the reference app), the photo view adapter,
+selection, glass toolbar, QuickLook and native menus. The bar is the reference
+app side by side on the same folder.
+
+**Deferred with the native explorer:** the sidebar, list view, and inspector
+(B5 as written), and the parity audit against the web app (B6 as written).
 
 ## Out of scope
 

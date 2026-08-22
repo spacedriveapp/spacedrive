@@ -1,6 +1,7 @@
 // Prevents additional console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod apps;
 mod drag;
 mod file_opening;
 mod files;
@@ -1557,31 +1558,9 @@ async fn is_daemon_running(socket_addr: &str) -> bool {
 	}
 }
 
-/// Find the daemon binary, checking for Tauri's target-triple-suffixed name first
+/// Find the daemon binary shipped beside this executable.
 fn find_daemon_binary() -> Result<std::path::PathBuf, String> {
-	let exe_path =
-		std::env::current_exe().map_err(|e| format!("Failed to get current exe: {}", e))?;
-	let bin_dir = exe_path.parent().ok_or("No parent directory for exe")?;
-
-	// Tauri's externalBin bundles with a target triple suffix (e.g. sd-daemon-x86_64-pc-windows-msvc.exe)
-	// Try that first, then fall back to the plain name for dev builds
-	let daemon_with_triple = format!(
-		"sd-daemon-{}{}",
-		env!("SD_TARGET_TRIPLE"),
-		std::env::consts::EXE_SUFFIX
-	);
-	let daemon_plain = format!("sd-daemon{}", std::env::consts::EXE_SUFFIX);
-
-	[&daemon_with_triple, &daemon_plain]
-		.iter()
-		.map(|name| bin_dir.join(name))
-		.find(|p| p.exists())
-		.ok_or_else(|| {
-			format!(
-				"Daemon binary not found. Checked {} and {} in {:?}",
-				daemon_with_triple, daemon_plain, bin_dir
-			)
-		})
+	apps::bundled_binary("sd-daemon")
 }
 
 /// Start the daemon as a background process
@@ -1706,11 +1685,20 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		)
 		.build()?;
 
+	// Apps: Spacedrive's own apps, each in a window of its own. This is the
+	// Applications tab's first surface, before the tab itself exists.
+	let mut apps_menu = SubmenuBuilder::new(app, "Apps");
+	for entry in apps::APPS {
+		apps_menu = apps_menu.item(&MenuItemBuilder::with_id(entry.id, entry.title).build(app)?);
+	}
+	let apps_menu = apps_menu.build()?;
+
 	let menu = MenuBuilder::new(app)
 		.item(&app_menu)
 		.item(&file_menu)
 		.item(&edit_menu)
 		.item(&view_menu)
+		.item(&apps_menu)
 		.build()?;
 
 	app.set_menu(menu)?;
@@ -1720,6 +1708,7 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 		items: Arc::new(RwLock::new(menu_items_map)),
 	};
 	app.manage(menu_state);
+	app.manage(apps::RunningApps::default());
 
 	// Handle menu events
 	let app_handle = app.clone();
@@ -1902,7 +1891,17 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 					);
 				}
 			}
-			_ => {}
+			id => {
+				let Some(app) = apps::find(id) else {
+					return;
+				};
+				let running: tauri::State<apps::RunningApps> = app_handle.state();
+				match running.launch(app) {
+					Ok(true) => tracing::info!("[Apps] Launched {}", app.title),
+					Ok(false) => tracing::info!("[Apps] {} is already running", app.title),
+					Err(e) => tracing::error!("[Apps] {}", e),
+				}
+			}
 		}
 	});
 

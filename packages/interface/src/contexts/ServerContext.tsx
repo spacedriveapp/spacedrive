@@ -38,6 +38,19 @@ export interface ServerContextValue {
 		format: string,
 		version?: number,
 	) => string | null;
+	/**
+	 * Build a URL for a tile in the daemon's thumbnail hot tier, which covers
+	 * files that have no sidecar yet (anything browsed but not indexed).
+	 * Returns null if serverUrl is not available.
+	 *
+	 * The identity comes from `thumbs.request`, which is also what tells the
+	 * daemon to bake the tile if it is missing.
+	 */
+	buildHotThumbUrl: (
+		sourceId: string,
+		recordUuid: string,
+		version: number | string,
+	) => string | null;
 }
 
 export const ServerContext = createContext<ServerContextValue | null>(null);
@@ -156,11 +169,25 @@ export function ServerProvider({ children }: ServerProviderProps) {
 		return version !== undefined ? `${base}?v=${version}` : base;
 	};
 
+	/** A tile in the daemon's thumbnail hot tier. The version is part of the
+	 * path, so a URL's bytes never change and the response is immutable. */
+	const buildHotThumbUrl = (
+		sourceId: string,
+		recordUuid: string,
+		version: number | string,
+	): string | null => {
+		if (!serverUrl) {
+			return null;
+		}
+		return `${serverUrl}/hot-thumb/${sourceId}/${recordUuid}/${version}`;
+	};
+
 	const value: ServerContextValue = {
 		serverUrl,
 		libraryId,
 		isReady: serverUrl !== null && libraryId !== null,
 		buildSidecarUrl,
+		buildHotThumbUrl,
 	};
 
 	return (

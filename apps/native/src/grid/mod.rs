@@ -31,6 +31,28 @@ use crate::source::TileSource;
 use crate::theme::ActiveTheme as _;
 use stats::{resident_mb, FrameStats};
 
+/// The largest rectangle of `aspect` (width / height) that fits inside `cell`,
+/// centered. A tile is stored at the image's own proportions, so the cell holds
+/// it rather than the other way round: the grid shows whole thumbnails and the
+/// leftover space on the short axis stays background.
+fn fit_within(cell: Bounds<Pixels>, aspect: f32) -> Bounds<Pixels> {
+	let width = f32::from(cell.size.width);
+	let height = f32::from(cell.size.height);
+	let (w, h) = if aspect >= 1.0 {
+		(width, width / aspect)
+	} else {
+		(height * aspect, height)
+	};
+	let (w, h) = (w.min(width).max(1.0), h.min(height).max(1.0));
+	Bounds::new(
+		point(
+			cell.origin.x + px((width - w) / 2.0),
+			cell.origin.y + px((height - h) / 2.0),
+		),
+		size(px(w), px(h)),
+	)
+}
+
 /// Logical-point tile size and gap, matching the reference grid.
 const TARGET_CELL: f32 = 128.0;
 const GAP: f32 = 2.0;
@@ -44,15 +66,18 @@ const DRAIN_PER_FRAME: usize = 1024;
 /// Default synthetic cell count, matching the reference renderer's proven scale.
 const DEFAULT_CELLS: u32 = 129_000;
 
-/// Grid configuration from the environment: `SD_GRID_CELLS` overrides the
-/// synthetic cell count, `SD_GRID_BENCH=1` enables the scripted benchmark.
-pub fn config_from_env() -> (u32, bool) {
-	let cells = std::env::var("SD_GRID_CELLS")
+/// Benchmark configuration from the environment: the synthetic cell count
+/// when one is asked for, and whether the scripted benchmark runs.
+/// `SD_GRID_BENCH=1` enables the benchmark, `SD_GRID_CELLS` sets the count.
+///
+/// Synthetic tiles are for measurement, never for a window with no folder:
+/// with neither variable set there is no count, and the grid starts empty.
+pub fn config_from_env() -> (Option<u32>, bool) {
+	let explicit = std::env::var("SD_GRID_CELLS")
 		.ok()
-		.and_then(|v| v.parse().ok())
-		.unwrap_or(DEFAULT_CELLS);
+		.and_then(|v| v.parse().ok());
 	let bench = std::env::var("SD_GRID_BENCH").map_or(false, |v| v == "1");
-	(cells, bench)
+	(explicit.or(bench.then_some(DEFAULT_CELLS)), bench)
 }
 
 /// The scripted-benchmark auto-scroll: a flywheel pass over the whole range so
@@ -99,8 +124,14 @@ impl AutoScroll {
 
 pub struct GridView {
 	source: Box<dyn TileSource>,
+	/// A source handed over between frames. The swap happens inside paint,
+	/// where the window handle needed to release the old atlas tiles exists.
+	next_source: Option<Box<dyn TileSource>>,
 	scroll_y: f32,
-	cache: HashMap<u32, (Arc<RenderImage>, u64)>,
+	/// Resident tiles: the uploaded image, its aspect (width / height, so the
+	/// cell can hold the shape without re-reading the buffer), and the tick it
+	/// was last painted on for LRU eviction.
+	cache: HashMap<u32, (Arc<RenderImage>, f32, u64)>,
 	tick: u64,
 	stats: FrameStats,
 	auto: Option<AutoScroll>,
@@ -133,6 +164,7 @@ impl GridView {
 
 		GridView {
 			source,
+			next_source: None,
 			scroll_y: 0.0,
 			cache: HashMap::new(),
 			tick: 0,
@@ -141,6 +173,18 @@ impl GridView {
 			finished: false,
 			frame_index: 0,
 		}
+	}
+
+	/// Point the grid at a different set of cells. The swap lands on the next
+	/// frame, which is where the old tiles can be released.
+	pub fn set_source(&mut self, source: Box<dyn TileSource>, cx: &mut Context<Self>) {
+		self.next_source = Some(source);
+		cx.notify();
+	}
+
+	/// How many cells the current source is offering.
+	pub fn len(&self) -> u32 {
+		self.source.len()
 	}
 
 	fn cols(&self, width: f32) -> u32 {
@@ -215,6 +259,17 @@ impl GridView {
 		let width = f32::from(bounds.size.width);
 		let height = f32::from(bounds.size.height);
 
+		// A retarget queued since the last frame: the old cells are gone, so
+		// their CPU copies and atlas tiles go with them and the view returns
+		// to the top of the new set.
+		if let Some(source) = self.next_source.take() {
+			self.source = source;
+			self.scroll_y = 0.0;
+			for (_, (img, ..)) in self.cache.drain() {
+				let _ = window.drop_image(img);
+			}
+		}
+
 		// Absorb background progress (a folder walk landing, bake
 		// completions) before anything reads the cell count.
 		self.source.poll();
@@ -235,12 +290,12 @@ impl GridView {
 		// gpui uploads it into the sprite atlas lazily on its first paint. A
 		// redelivery (stale pixels refreshed by a rebake) replaces the cached
 		// image, so the old one's atlas tile is released explicitly.
-		let tile = self.source.tile();
-		for (idx, bgra) in self.source.drain(DRAIN_PER_FRAME) {
-			let buffer = image::RgbaImage::from_raw(tile, tile, bgra)
+		for (idx, bitmap) in self.source.drain(DRAIN_PER_FRAME) {
+			let aspect = bitmap.width as f32 / bitmap.height.max(1) as f32;
+			let buffer = image::RgbaImage::from_raw(bitmap.width, bitmap.height, bitmap.bgra)
 				.expect("tile buffer has exact dimensions");
 			let img = Arc::new(RenderImage::new(smallvec![Frame::new(buffer)]));
-			if let Some((old, _)) = self.cache.insert(idx, (img, self.tick)) {
+			if let Some((old, ..)) = self.cache.insert(idx, (img, aspect, self.tick)) {
 				let _ = window.drop_image(old);
 			}
 		}
@@ -267,16 +322,11 @@ impl GridView {
 			let y = f32::from(bounds.origin.y) + row as f32 * pitch - self.scroll_y;
 			let cell_bounds = Bounds::new(point(px(x), px(y)), size(px(cell), px(cell)));
 			match self.cache.get_mut(&idx) {
-				Some((img, used)) => {
+				Some((img, aspect, used)) => {
 					*used = self.tick;
-					let _ = window.paint_image(
-						cell_bounds,
-						cell_bounds,
-						Corners::default(),
-						img.clone(),
-						0,
-						false,
-					);
+					let frame = fit_within(cell_bounds, *aspect);
+					let _ =
+						window.paint_image(frame, frame, Corners::default(), img.clone(), 0, false);
 					painted += 1;
 				}
 				None => {
@@ -294,10 +344,10 @@ impl GridView {
 			let oldest = self
 				.cache
 				.iter()
-				.min_by_key(|(_, (_, used))| *used)
+				.min_by_key(|(_, (_, _, used))| *used)
 				.map(|(idx, _)| *idx)
 				.expect("cache is non-empty");
-			if let Some((img, _)) = self.cache.remove(&oldest) {
+			if let Some((img, ..)) = self.cache.remove(&oldest) {
 				let _ = window.drop_image(img);
 			}
 		}

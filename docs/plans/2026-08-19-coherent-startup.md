@@ -83,10 +83,11 @@ snapshot restore.
 beats persistence while classification is a pure function of indexed data);
 pinned searches are `ItemType::Collection` — a Space item, as directed.
 
-**Found en route:** subdirectory browse jobs don't trigger snapshot saves —
-after restart only the first browse's entries survived. Same family as the
-known shutdown-save gap; the fix belongs with the snapshot save policy, not
-collections.
+**Found en route:** subdirectory browse jobs didn't trigger snapshot saves,
+so after restart only the first browse's entries survived. Same family as the
+shutdown-save gap, and both were closed by T1.3 of the entries teardown: the
+save gate is now a dirty flag on the index rather than a comparison of entry
+counts, so any mutation reaches disk.
 
 **Slice 3 landed.** `files.size_tree` serves depth/top-capped hierarchical
 sizes straight from arena rollups (a whole-volume tree ships in kilobytes;

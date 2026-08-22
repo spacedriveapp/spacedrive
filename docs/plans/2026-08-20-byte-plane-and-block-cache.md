@@ -1,6 +1,6 @@
 # Byte plane and block cache
 
-> **Status:** Plan — ready to execute
+> **Status:** Implemented (see "Implementation status")
 > **Captured:** 2026-08-20
 > **Companions:** `docs/core/design/mounts.md` (the design this executes a
 > phase of), `docs/plans/2026-08-18-storage-consolidation.md` (artifact
@@ -276,13 +276,6 @@ Two register items were cleared alongside it:
   the arena.
 - **No new frontend.** This phase ships through the WebDAV mount that
   already exists.
-
-## Also fix, while in here
-
-The failed-indexer bug on the register: a failed indexing job leaves the
-slot's `indexing_in_progress` set, so subsequent browses of that path never
-re-dispatch until the daemon restarts. It is small, it is unrelated to this
-work, and it will interrupt every measurement session until it is fixed.
 
 ## Open questions
 

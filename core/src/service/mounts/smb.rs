@@ -471,3 +471,163 @@ pub async fn start(context: Arc<CoreContext>) -> anyhow::Result<SocketAddr> {
 	tracing::info!("Mounts SMB share at {}", mount_url().unwrap_or_default());
 	Ok(addr)
 }
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::service::mounts::provider::{ByteError, ByteStat, ProviderClass};
+	use std::ops::Range;
+	use std::time::Duration;
+
+	struct StaticProvider {
+		data: bytes::Bytes,
+	}
+
+	#[async_trait]
+	impl ByteProvider for StaticProvider {
+		async fn stat(&self, _t: &ByteTarget) -> Result<ByteStat, ByteError> {
+			Ok(ByteStat {
+				size: self.data.len() as u64,
+				modified: None,
+			})
+		}
+
+		async fn read_range(
+			&self,
+			_t: &ByteTarget,
+			range: Range<u64>,
+		) -> Result<bytes::Bytes, ByteError> {
+			let start = (range.start as usize).min(self.data.len());
+			let end = (range.end as usize).min(self.data.len());
+			Ok(self.data.slice(start..end))
+		}
+
+		fn class(&self) -> ProviderClass {
+			ProviderClass::Peer
+		}
+
+		fn max_read(&self) -> u64 {
+			4 * 1024 * 1024
+		}
+	}
+
+	fn file_handle(data: &[u8]) -> FileHandle {
+		let data = bytes::Bytes::copy_from_slice(data);
+		let size = data.len() as u64;
+		FileHandle {
+			trace_id: 0,
+			provider: Arc::new(StaticProvider { data }),
+			target: ByteTarget {
+				source_id: uuid::Uuid::nil(),
+				path: PathBuf::from("/src/a001.braw"),
+			},
+			info: file_info("a001.braw".into(), size, None),
+		}
+	}
+
+	#[tokio::test]
+	async fn reads_are_byte_exact_and_clamped() {
+		let data: Vec<u8> = (0..2048u32).map(|i| (i % 251) as u8).collect();
+		let handle = file_handle(&data);
+
+		let head = handle.read(0, 512).await.unwrap();
+		assert_eq!(&head[..], &data[0..512]);
+
+		let middle = handle.read(1000, 24).await.unwrap();
+		assert_eq!(&middle[..], &data[1000..1024]);
+
+		// A client asking past the end gets what exists, not an error — SMB
+		// clients routinely request a full buffer at the tail of a file.
+		let tail = handle.read(2000, 4096).await.unwrap();
+		assert_eq!(&tail[..], &data[2000..]);
+
+		// Entirely past the end is empty, which is how the client learns EOF.
+		assert!(handle.read(4096, 512).await.unwrap().is_empty());
+	}
+
+	#[tokio::test]
+	async fn the_share_refuses_every_write() {
+		let handle = file_handle(b"read only");
+		assert!(matches!(
+			handle.write(0, b"nope").await,
+			Err(SmbError::AccessDenied)
+		));
+		assert!(matches!(
+			handle.truncate(0).await,
+			Err(SmbError::AccessDenied)
+		));
+		assert!(matches!(
+			handle.set_times(FileTimes::default()).await,
+			Err(SmbError::AccessDenied)
+		));
+		// A file is not a directory, and saying so is what stops a client
+		// walking into it.
+		assert!(matches!(
+			handle.list_dir(None).await,
+			Err(SmbError::NotADirectory)
+		));
+	}
+
+	#[test]
+	fn filetime_uses_the_windows_epoch() {
+		// The Unix epoch is 11644473600 seconds after 1601-01-01, in 100ns
+		// ticks. Getting this wrong dates every file in Finder to 1601.
+		assert_eq!(
+			to_filetime(Some(SystemTime::UNIX_EPOCH)),
+			11_644_473_600 * 10_000_000
+		);
+		let later = SystemTime::UNIX_EPOCH + Duration::from_secs(1_000_000_000);
+		assert_eq!(
+			to_filetime(Some(later)),
+			(11_644_473_600 + 1_000_000_000) * 10_000_000
+		);
+		// Sub-second precision survives at 100ns granularity.
+		let precise = SystemTime::UNIX_EPOCH + Duration::from_nanos(1_500_000_000);
+		assert_eq!(
+			to_filetime(Some(precise)),
+			(11_644_473_600 + 1) * 10_000_000 + 5_000_000
+		);
+		// No timestamp is zero, which clients render as "unknown" rather
+		// than as the Windows epoch.
+		assert_eq!(to_filetime(None), 0);
+	}
+
+	#[test]
+	fn directories_and_files_carry_the_right_attributes() {
+		let dir = dir_info("Footage".into(), None);
+		assert!(dir.is_directory);
+		assert_eq!(dir.end_of_file, 0);
+		assert_eq!(dir.attributes(), 0x10);
+
+		let file = file_info("a001.braw".into(), 24_300_000_000, None);
+		assert!(!file.is_directory);
+		assert_eq!(file.end_of_file, 24_300_000_000);
+		// Allocation size matching end-of-file is what makes a streamed file
+		// report its real size rather than its resident size.
+		assert_eq!(file.allocation_size, file.end_of_file);
+		assert_eq!(file.attributes(), 0x80);
+	}
+
+	#[test]
+	fn detached_and_unreachable_map_to_retryable_errors() {
+		// A drive in a drawer is not "not found" — telling a client the file
+		// is gone invites it to forget the file.
+		assert!(matches!(
+			byte_error(ByteError::Detached {
+				source: PathBuf::from("/Volumes/Archive")
+			}),
+			SmbError::Io(_)
+		));
+		assert!(matches!(
+			byte_error(ByteError::PeerUnavailable {
+				device: "studio".into(),
+				reason: "offline".into()
+			}),
+			SmbError::Io(_)
+		));
+		assert!(matches!(
+			byte_error(ByteError::NotFound(String::new())),
+			SmbError::NotFound
+		));
+	}
+}

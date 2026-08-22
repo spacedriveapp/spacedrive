@@ -96,6 +96,10 @@ job_logging: JobLoggingConfigOutput;
  */
 services: ServiceConfigOutput; 
 /**
+ * Mounted-source behaviour
+ */
+mounts: MountsConfigOutput; 
+/**
  * Daemon logging configuration
  */
 logging: LoggingConfigOutput; 
@@ -1529,6 +1533,8 @@ export type FileSystem =
  * Indicates which filters are available for a given search type
  */
 export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Locations" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
+
+export type FrontendReads = { frontend: string; reads: number };
 
 /**
  * Raw filesystem event kinds emitted by the watcher without DB resolution
@@ -3196,13 +3202,121 @@ export type MountType =
  */
 "User";
 
-export type MountsStatus = { running: boolean; base_url: string | null; shares: MountShare[] };
+export type MountsCacheClearInput = { 
+/**
+ * Clear the on-disk tier as well. Off by default, so the common case
+ * (free memory, keep the expensive-to-refetch tier) is the safe one.
+ */
+include_disk?: boolean };
+
+export type MountsCacheClearOutput = { freed_l1_bytes: number; freed_l2_bytes: number; message: string };
+
+export type MountsCacheStatus = { running: boolean; 
+/**
+ * Bytes and blocks resident in memory.
+ */
+l1_bytes: number; l1_blocks: number; 
+/**
+ * Bytes and blocks on disk.
+ */
+l2_bytes: number; l2_blocks: number; max_bytes: number; block_bytes: number; l1_hits: number; l2_hits: number; 
+/**
+ * Blocks that had to be fetched from the provider.
+ */
+misses: number; 
+/**
+ * Bytes pulled from providers, against bytes handed to readers — the
+ * ratio is what the cache is worth on this workload.
+ */
+fetched_bytes: number; served_bytes: number; evicted_blocks: number };
+
+export type MountsCacheStatusInput = Record<string, never>;
+
+/**
+ * Mounts configuration output
+ */
+export type MountsConfigOutput = { cache_max_bytes: number };
+
+export type MountsReadTrace = { 
+/**
+ * Whether the recorder is on. Off means these numbers are from an
+ * earlier session, or empty.
+ */
+recording: boolean; reads: number; bytes: number; files: number; span_ms: number; 
+/**
+ * The read size the client asks for most often. The number the native
+ * mount decision turns on: a client issuing small reads leaves
+ * throughput on the table that a module choosing its own size keeps.
+ */
+common_read_bytes: number; min_read_bytes: number; max_read_bytes: number; mean_read_bytes: number; 
+/**
+ * Reads continuing exactly where the last one for that file ended.
+ */
+sequential: number; 
+/**
+ * Reads jumping elsewhere in the file.
+ */
+seeks: number; 
+/**
+ * Reads overlapping bytes the client already had — waste a native
+ * module would not produce.
+ */
+rereads: number; p50_micros: number; p95_micros: number; max_micros: number; size_buckets: ReadSizeBucket[]; by_frontend: FrontendReads[] };
+
+export type MountsReadTraceInput = Record<string, never>;
+
+export type MountsStatus = { running: boolean; 
+/**
+ * WebDAV base, kept as plain interop and as a measurement baseline.
+ */
+base_url: string | null; 
+/**
+ * The URL a host SMB client mounts — the one to actually use.
+ * Credentials are included: the server is loopback-only and the
+ * password is regenerated every start unless pinned by environment.
+ */
+smb_url: string | null; 
+/**
+ * Ready-to-paste mount command for this platform.
+ */
+smb_mount_hint: string | null; shares: MountShare[] };
 
 export type MountsStatusInput = Record<string, never>;
 
 export type MountsSyncPeersInput = Record<string, never>;
 
 export type MountsSyncPeersOutput = { devices: number; sources: number; message: string };
+
+export type MountsTraceSetInput = { 
+/**
+ * Turn recording on or off. Turning it on clears what came before.
+ */
+enabled: boolean };
+
+export type MountsTraceSetOutput = { recording: boolean; message: string };
+
+/**
+ * Where one focus group is currently looking.
+ */
+export type NavigationFocus = { id: string; group: string; 
+/**
+ * The directory in view, or `None` when the publisher is showing
+ * something that has no path (a search, a tag, an empty window).
+ */
+path: SdPath | null; library_id: string | null; 
+/**
+ * Free-form label naming the window that published this, so a client can
+ * recognize and ignore its own echo.
+ */
+origin: string | null; updated_at: string };
+
+export type NavigationFocusInput = { 
+/**
+ * The focus group to read; the default group when omitted.
+ */
+group?: string | null };
+
+export type NavigationFocusOutput = { focus: NavigationFocus };
 
 export type NetworkStartInput = Record<string, never>;
 
@@ -3545,6 +3659,8 @@ enabled: boolean;
  * Whether to regenerate existing proxies
  */
 regenerate: boolean };
+
+export type ReadSizeBucket = { range: string; reads: number };
 
 /**
  * Input for the redundancy summary query
@@ -3946,6 +4062,27 @@ export type ServiceKind =
 export type ServiceState = { running: boolean; details: string | null };
 
 export type ServiceStatus = { location_watcher: ServiceState; networking: ServiceState; volume_monitor: ServiceState; file_sharing: ServiceState };
+
+export type SetNavigationFocusInput = { 
+/**
+ * The focus group to publish into; the default group when omitted.
+ */
+group?: string | null; 
+/**
+ * Where the window is looking, or `None` when it is showing something
+ * without a path.
+ */
+path: SdPath | null; library_id?: string | null; 
+/**
+ * Label naming the publishing window, echoed back to followers.
+ */
+origin?: string | null };
+
+export type SetNavigationFocusOutput = { focus: NavigationFocus; 
+/**
+ * False when the group was already at this position and no event went out.
+ */
+moved: boolean };
 
 /**
  * Domain representation of a sidecar
@@ -4517,6 +4654,33 @@ export type TagType =
  */
 export type TextHighlight = { field: string; text: string; start: number; end: number };
 
+/**
+ * Paths in draw order. The first is the most urgent, so a client sends its
+ * viewport before its prefetch margin.
+ */
+export type ThumbRequestInput = { paths: SdPath[] };
+
+export type ThumbRequestOutput = { 
+/**
+ * The distinct sources these tiles live in. A client maps each file
+ * read-only and copies tiles straight out of it.
+ */
+sources: ThumbSource[]; 
+/**
+ * One per input path, in order. `None` where the path has no tile: it is
+ * under no registered source, or the file is gone.
+ */
+tiles: (TileIdentity | null)[] };
+
+/**
+ * Where one source's tiles are stored, and at what geometry.
+ */
+export type ThumbSource = { id: string; cache_path: string; 
+/**
+ * Tile edge in physical pixels; every slot in the file is square.
+ */
+tile_size: number };
+
 export type ThumbnailInput = { paths: string[]; size: number; quality: number };
 
 /**
@@ -4552,6 +4716,17 @@ enabled: boolean;
  * Whether to regenerate existing thumbstrips
  */
 regenerate: boolean };
+
+/**
+ * What a path resolves to in the cache: which file holds its tile, under
+ * which key, at which version.
+ */
+export type TileIdentity = { source_id: string; uuid: string; 
+/**
+ * A string on the wire: the value exceeds what a JSON number survives in
+ * a browser, and a rounded version matches no tile.
+ */
+version: string };
 
 export type TranscribeAudioInput = { entry_uuid: string; model: string | null; language: string | null };
 
@@ -4680,6 +4855,12 @@ theme?: string | null;
  * Language preference (ISO 639-1 code)
  */
 language?: string | null; 
+/**
+ * Ceiling on the mount block cache, in bytes. Applies immediately —
+ * the cache evicts down to a lowered limit rather than waiting for a
+ * restart, because nothing in it is authoritative.
+ */
+mounts_cache_max_bytes?: number | null; 
 /**
  * Whether networking is enabled
  */
@@ -5287,7 +5468,10 @@ export type CoreAction =
   |  { type: 'libraries.open'; input: LibraryOpenInput; output: LibraryOpenOutput }
   |  { type: 'models.whisper.delete'; input: DeleteWhisperModelInput; output: DeleteWhisperModelOutput }
   |  { type: 'models.whisper.download'; input: DownloadWhisperModelInput; output: DownloadWhisperModelOutput }
+  |  { type: 'mounts.cache_clear'; input: MountsCacheClearInput; output: MountsCacheClearOutput }
   |  { type: 'mounts.sync_peers'; input: MountsSyncPeersInput; output: MountsSyncPeersOutput }
+  |  { type: 'mounts.trace_set'; input: MountsTraceSetInput; output: MountsTraceSetOutput }
+  |  { type: 'navigation.set_focus'; input: SetNavigationFocusInput; output: SetNavigationFocusOutput }
   |  { type: 'network.device.revoke'; input: DeviceRevokeInput; output: DeviceRevokeOutput }
   |  { type: 'network.pair.cancel'; input: PairCancelInput; output: PairCancelOutput }
   |  { type: 'network.pair.confirmProxy'; input: PairConfirmProxyInput; output: PairConfirmProxyOutput }
@@ -5301,6 +5485,7 @@ export type CoreAction =
   |  { type: 'processes.register'; input: ProcessRegisterInput; output: ProcessRegisterOutput }
   |  { type: 'processes.start'; input: ProcessStartInput; output: ProcessStartOutput }
   |  { type: 'processes.stop'; input: ProcessStopInput; output: ProcessStopOutput }
+  |  { type: 'thumbs.request'; input: ThumbRequestInput; output: ThumbRequestOutput }
 ;
 
 export type LibraryAction =
@@ -5370,7 +5555,10 @@ export type CoreQuery =
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
   |  { type: 'libraries.list'; input: ListLibrariesInput; output: [LibraryInfo] }
   |  { type: 'models.whisper.list'; input: ListWhisperModelsInput; output: ListWhisperModelsOutput }
+  |  { type: 'mounts.cache_status'; input: MountsCacheStatusInput; output: MountsCacheStatus }
+  |  { type: 'mounts.read_trace'; input: MountsReadTraceInput; output: MountsReadTrace }
   |  { type: 'mounts.status'; input: MountsStatusInput; output: MountsStatus }
+  |  { type: 'navigation.focus'; input: NavigationFocusInput; output: NavigationFocusOutput }
   |  { type: 'network.devices.list'; input: ListPairedDevicesInput; output: ListPairedDevicesOutput }
   |  { type: 'network.pair.status'; input: PairStatusQueryInput; output: PairStatusOutput }
   |  { type: 'network.pair.vouching_session'; input: VouchingSessionInput; output: VouchingSessionOutput }
@@ -5438,7 +5626,10 @@ export const WIRE_METHODS = {
     'libraries.open': 'action:libraries.open.input',
     'models.whisper.delete': 'action:models.whisper.delete.input',
     'models.whisper.download': 'action:models.whisper.download.input',
+    'mounts.cache_clear': 'action:mounts.cache_clear.input',
     'mounts.sync_peers': 'action:mounts.sync_peers.input',
+    'mounts.trace_set': 'action:mounts.trace_set.input',
+    'navigation.set_focus': 'action:navigation.set_focus.input',
     'network.device.revoke': 'action:network.device.revoke.input',
     'network.pair.cancel': 'action:network.pair.cancel.input',
     'network.pair.confirmProxy': 'action:network.pair.confirmProxy.input',
@@ -5452,6 +5643,7 @@ export const WIRE_METHODS = {
     'processes.register': 'action:processes.register.input',
     'processes.start': 'action:processes.start.input',
     'processes.stop': 'action:processes.stop.input',
+    'thumbs.request': 'action:thumbs.request.input',
   },
 
   libraryActions: {
@@ -5521,7 +5713,10 @@ export const WIRE_METHODS = {
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
     'libraries.list': 'query:libraries.list',
     'models.whisper.list': 'query:models.whisper.list',
+    'mounts.cache_status': 'query:mounts.cache_status',
+    'mounts.read_trace': 'query:mounts.read_trace',
     'mounts.status': 'query:mounts.status',
+    'navigation.focus': 'query:navigation.focus',
     'network.devices.list': 'query:network.devices.list',
     'network.pair.status': 'query:network.pair.status',
     'network.pair.vouching_session': 'query:network.pair.vouching_session',

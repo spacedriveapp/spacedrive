@@ -1,6 +1,10 @@
-//! Cell renderers: bake a work item into a fixed-size square BGRA8 tile — the
-//! byte layout the thumbnail hot tier stores and a GPU atlas uploads without
-//! decoding on the render path.
+//! Cell renderers: bake a work item into a BGRA8 tile — the byte layout the
+//! thumbnail hot tier stores and a GPU atlas uploads without decoding on the
+//! render path.
+//!
+//! `cell` is an envelope, not a shape: an aspect-fit tile comes back at its own
+//! proportions with its long edge no larger than the cell, so the tile carries
+//! the dimensions a caller needs to store and draw it.
 //!
 //! A [`Producer`] is one stage of a fall-through chain ordered by cost: each
 //! stage either yields a [`Tile`] or returns a typed [`Decline`], and the
@@ -31,16 +35,21 @@ pub use mac_icons::{
 	NAME_BAND_Y1,
 };
 
-/// A finished cell: a tight BGRA8 pixel buffer plus its dimensions.
+/// A finished cell: a tight BGRA8 pixel buffer, its dimensions, and the
+/// dimensions of the source it depicts.
 #[derive(Clone)]
 pub struct Tile {
 	width: u32,
 	height: u32,
+	source_width: u32,
+	source_height: u32,
 	bgra: Vec<u8>,
 }
 
 impl Tile {
 	/// Wrap a tight BGRA8 buffer. `bgra.len()` must be `width * height * 4`.
+	/// The source dimensions default to the tile's own; a producer that scaled
+	/// something down reports the original through [`Self::with_source`].
 	pub fn new(width: u32, height: u32, bgra: Vec<u8>) -> Self {
 		assert_eq!(
 			bgra.len(),
@@ -50,8 +59,18 @@ impl Tile {
 		Self {
 			width,
 			height,
+			source_width: width,
+			source_height: height,
 			bgra,
 		}
+	}
+
+	/// Record the dimensions of what this tile was baked from, so a view can
+	/// size a cell from the original's aspect rather than the tile's.
+	pub fn with_source(mut self, width: u32, height: u32) -> Self {
+		self.source_width = width;
+		self.source_height = height;
+		self
 	}
 
 	/// A square tile filled with one BGRA color.
@@ -71,6 +90,14 @@ impl Tile {
 		self.height
 	}
 
+	pub fn source_width(&self) -> u32 {
+		self.source_width
+	}
+
+	pub fn source_height(&self) -> u32 {
+		self.source_height
+	}
+
 	pub fn bgra(&self) -> &[u8] {
 		&self.bgra
 	}
@@ -85,6 +112,8 @@ impl std::fmt::Debug for Tile {
 		f.debug_struct("Tile")
 			.field("width", &self.width)
 			.field("height", &self.height)
+			.field("source_width", &self.source_width)
+			.field("source_height", &self.source_height)
 			.field("bytes", &self.bgra.len())
 			.finish()
 	}
@@ -155,8 +184,10 @@ pub enum Decline {
 
 /// One stage of the bake chain.
 pub trait Producer: Send + Sync {
-	/// Bake `item` into a square `tile_size` × `tile_size` BGRA8 tile, or
-	/// decline so the caller can fall through to the next producer.
+	/// Bake `item` into a BGRA8 tile that fits a `tile_size` × `tile_size`
+	/// envelope, or decline so the caller can fall through to the next
+	/// producer. A producer is free to return less than the full envelope;
+	/// what it returns is described by the tile's own dimensions.
 	fn produce(&self, item: &WorkItem, tile_size: u32) -> Result<Tile, Decline>;
 }
 
@@ -231,6 +262,18 @@ mod tests {
 	fn empty_chain_declines_with_nothing() {
 		let declines = bake(&[], &WorkItem::file("/nowhere"), 4).unwrap_err();
 		assert!(declines.is_empty());
+	}
+
+	#[test]
+	fn source_dimensions_default_to_the_tile_and_can_be_overridden() {
+		let tile = Tile::solid(4, [0, 0, 0, 255]);
+		assert_eq!((tile.source_width(), tile.source_height()), (4, 4));
+		let scaled = tile.with_source(4032, 3024);
+		assert_eq!(
+			(scaled.source_width(), scaled.source_height()),
+			(4032, 3024)
+		);
+		assert_eq!((scaled.width(), scaled.height()), (4, 4));
 	}
 
 	#[test]

@@ -20,6 +20,7 @@ sd-client      = { path = "../../crates/sd-client" }
 # Op input/output types (the same structs the daemon registers on the wire).
 sd-core        = { path = "../../core" }
 sd-pvcache     = { path = "../../crates/pvcache" }
+serde_json     = { workspace = true }
 smallvec       = "1"
 tokio          = { workspace = true, features = ["rt", "rt-multi-thread", "sync", "time", "macros", "net"] }
 # v5: demo record uuids are derived deterministically from file paths.

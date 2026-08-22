@@ -6,8 +6,6 @@ import {defineConfig} from 'vite';
 
 const spaceui = path.resolve(__dirname, '../../../spaceui/packages');
 const hasSpaceui = fs.existsSync(spaceui);
-const spacebot = path.resolve(__dirname, '../../../spacebot/packages');
-const hasSpacebot = fs.existsSync(spacebot);
 
 export default defineConfig(() => ({
 	plugins: [react(), tailwindcss()],
@@ -86,14 +84,13 @@ export default defineConfig(() => ({
 						},
 					]
 				: []),
-			...(hasSpacebot
-				? [
-						{
-							find: /^@spacebot\/api-client$/,
-							replacement: `${spacebot}/api-client/src`,
-						},
-					]
-				: []),
+			{
+				find: /^@spacebot\/api-client$/,
+				replacement: path.resolve(
+					__dirname,
+					'../../packages/interface/src/Spacebot/api-client.ts'
+				)
+			},
 			{
 				find: '@sd/interface',
 				replacement: path.resolve(
@@ -133,11 +130,6 @@ export default defineConfig(() => ({
 	build: {
 		target: ['es2021', 'chrome100', 'safari13'],
 		minify: !process.env.TAURI_ENV_DEBUG ? ('esbuild' as const) : false,
-		sourcemap: !!process.env.TAURI_ENV_DEBUG,
-		rollupOptions: {
-			external: [
-				...(!hasSpacebot ? ['@spacebot/api-client'] : []),
-			],
-		}
+		sourcemap: !!process.env.TAURI_ENV_DEBUG
 	}
 }));

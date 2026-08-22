@@ -6,8 +6,6 @@ import fs from "fs";
 
 const spaceui = path.resolve(__dirname, "../../../spaceui/packages");
 const hasSpaceui = fs.existsSync(spaceui);
-const spacebot = path.resolve(__dirname, "../../../spacebot/packages");
-const hasSpacebot = fs.existsSync(spacebot);
 
 export default defineConfig({
 	plugins: [react(), tailwindcss()],
@@ -63,14 +61,13 @@ export default defineConfig({
 						},
 					]
 				: []),
-			...(hasSpacebot
-				? [
-						{
-							find: "@spacebot/api-client",
-							replacement: `${spacebot}/api-client/src`,
-						},
-					]
-				: []),
+			{
+				find: "@spacebot/api-client",
+				replacement: path.resolve(
+					__dirname,
+					"../../packages/interface/src/Spacebot/api-client.ts",
+				),
+			},
 			{
 				find: "@sd/interface",
 				replacement: path.resolve(__dirname, "../../packages/interface/src"),
@@ -111,10 +108,5 @@ export default defineConfig({
 		outDir: "dist",
 		emptyOutDir: true,
 		sourcemap: true,
-		rollupOptions: {
-			external: [
-				...(!hasSpacebot ? ["@spacebot/api-client"] : []),
-			],
-		},
 	},
 });

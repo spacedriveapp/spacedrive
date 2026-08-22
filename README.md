@@ -5,8 +5,7 @@
 <h1 align="center">Spacedrive</h1>
 
 <p align="center">
-  <strong>One computer, made of all your machines.</strong><br/>
-  <span>Your files, your software, your agents — owned, portable, and coherent across every device.</span>
+  <strong>More space, from the drives you already have.</strong><br/>
 </p>
 
 <p align="center">
@@ -31,20 +30,21 @@
 
 ---
 
-Your computer used to be one box, and you owned all of it. It held your files,
-ran your software, and answered only to you. That computer dissolved into
-devices, clouds and subscriptions, and you own almost none of the result.
+> [!NOTE]
+> August 2026: Version v2.0.0-alpha.4 is out now!
 
-Spacedrive puts it back together. All your machines, storage, software and
-agents behave as one computer that is yours: everything visible in one place,
-everything portable between machines, and everything still working the day you
-stop paying anyone — including us.
+Spacedrive is a lightweight, Rust native, file manager that connects your devices,
+drives and clouds into one virtual file system. Pool your storage capacity together and browse and search drives that aren't even plugged in.
 
-**Files** is that computer's file manager, built on a filesystem index that
-spans every device you own. It runs standalone: that is all most people come
-for, and it is enough on its own.
+Backed by a continiously updating, modular index. Spacedrive can walk all major file systems, extracting metadata and snapshotting drive state without touching the files.
 
----
+Mount anything to your Mac or PC. Like screenshots shared between several computers, or a project with 10TB of raw footage shared with a team. File content streams from one device to another on-demand.
+
+## The mission
+
+The file system has been the single most important part of computing from the start, but software has become increasingly dependent on cloud services at the cost of data ownership.
+
+This is a software problem, Spacedrive is here to solve it.
 
 ## Files
 
@@ -128,10 +128,10 @@ every install compiled in a WASM extension runtime and shipped a bundled media
 stack, on the theory that a file manager should carry its whole environment. It
 should not, and both became opt-in:
 
-| | |
-|---|---|
+|                      |                                                  |
+| -------------------- | ------------------------------------------------ |
 | macOS payload before | ~156 MB (73.2 MB binary plus an 83 MB framework) |
-| Default install now | **44.4 MB, one file, nothing to download** |
+| Default install now  | **44.4 MB, one file, nothing to download**       |
 
 Nothing was removed from the product. The heavy subsystems became opt-in
 features, macOS thumbnails route through ImageIO and QuickLook instead of bundled
@@ -146,13 +146,13 @@ code. Every number is measured; the method is in
 Under active development, and in alpha. V2 is a rebuild rather than a patch, so
 treat everything below as moving.
 
-| | |
-|---|---|
-| Files: indexing, sync, cloud volumes, desktop, mobile and web clients | working |
-| Archive: record spine, durable overlay, FTS5 search, 11 adapters | working |
-| Machine-scoped daemon: supervision, health, lifecycle, port leases | working |
-| Mounts: read-only share on loopback, byte-range peer protocol | in progress |
-| Per-source stores and the in-memory read tier | in progress |
+|                                                                       |             |
+| --------------------------------------------------------------------- | ----------- |
+| Files: indexing, sync, cloud volumes, desktop, mobile and web clients | working     |
+| Archive: record spine, durable overlay, FTS5 search, 11 adapters      | working     |
+| Machine-scoped daemon: supervision, health, lifecycle, port leases    | working     |
+| Mounts: read-only share on loopback, byte-range peer protocol         | in progress |
+| Per-source stores and the in-memory read tier                         | in progress |
 
 ---
 
@@ -177,21 +177,21 @@ Every core operation — a file copy, a tag create, a search query — is a
 registered action or query with type-safe input and output, and Specta generates
 the TypeScript and Swift clients from those definitions.
 
-| Component       | Technology                                   |
-| --------------- | -------------------------------------------- |
-| Engine          | Rust, Tokio                                  |
-| Database        | SQLite (SeaORM + sqlx)                       |
-| Search          | SQLite FTS5                                  |
-| Content hashing | BLAKE3                                       |
-| P2P             | Iroh (QUIC, hole-punching, local discovery)  |
-| Cloud storage   | OpenDAL (S3, Google Drive, Dropbox, OneDrive, Azure Blob, GCS) |
-| Cryptography    | Ed25519, X25519, ChaCha20-Poly1305, AES-GCM  |
+| Component       | Technology                                                      |
+| --------------- | --------------------------------------------------------------- |
+| Engine          | Rust, Tokio                                                     |
+| Database        | SQLite (SeaORM + sqlx)                                          |
+| Search          | SQLite FTS5                                                     |
+| Content hashing | BLAKE3                                                          |
+| P2P             | Iroh (QUIC, hole-punching, local discovery)                     |
+| Cloud storage   | OpenDAL (S3, Google Drive, Dropbox, OneDrive, Azure Blob, GCS)  |
+| Cryptography    | Ed25519, X25519, ChaCha20-Poly1305, AES-GCM                     |
 | Media           | ImageIO and QuickLook on macOS, FFmpeg/libheif/Pdfium elsewhere |
-| Desktop         | Tauri 2                                      |
-| Mobile          | React Native + Expo                          |
-| Frontend        | React 19, Vite, TanStack Query, Tailwind CSS v4 |
-| Design system   | [SpaceUI](https://github.com/spacedriveapp/spaceui) |
-| Type generation | Specta (TypeScript + Swift)                  |
+| Desktop         | Tauri 2                                                         |
+| Mobile          | React Native + Expo                                             |
+| Frontend        | React 19, Vite, TanStack Query, Tailwind CSS v4                 |
+| Design system   | [SpaceUI](https://github.com/spacedriveapp/spaceui)             |
+| Type generation | Specta (TypeScript + Swift)                                     |
 
 ---
 
@@ -241,33 +241,6 @@ just check        # cargo fmt --check + clippy
 ```
 
 Python 3.9+ is needed at runtime by the bundled adapters, not to build Spacedrive.
-
----
-
-## Your data, your machines
-
-Self-hosting is first-class rather than a begrudged escape hatch. Spacedrive runs
-on your own hardware, and your devices federate directly with each other.
-
-- **Local-first.** Nothing leaves your device unless you choose to sync between
-  your own machines.
-- **No telemetry.** No usage signal is collected without saying so, and none is
-  required for the software to work.
-- **End-to-end encrypted.** All P2P traffic runs over QUIC/TLS.
-- **Yours to leave.** The index is rebuildable from your filesystem, and nothing
-  you typed lives anywhere you cannot read it.
-
-### The mission
-
-The open source software the world runs on is maintained on donation economics.
-The better it gets, the wider the gap between the value it creates and the money
-reaching the people who made it. This project has tens of thousands of stars and
-has returned a fraction of a salary.
-
-Fixing that is a design constraint here rather than a substitute for building
-something people want.
-
----
 
 ## Contributing
 

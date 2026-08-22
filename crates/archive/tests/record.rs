@@ -1,10 +1,10 @@
 //! End-to-end checks against real SQLite indexes: ingest through the adapter
-//! protocol's shape, then read back through the spine.
+//! protocol's shape, then read back through the record table.
 
 use sd_archive::library::{Library, RecordKey};
 use sd_archive::schema::parser;
 use sd_archive::source::SourceManager;
-use sd_archive::spine::facet_table;
+use sd_archive::record::facet_table;
 use serde_json::json;
 
 const SCHEMA: &str = r#"
@@ -88,7 +88,7 @@ async fn clear_for_indexing(db: &sd_archive::db::SourceDb) {
 }
 
 #[tokio::test]
-async fn upsert_writes_spine_and_facet() {
+async fn upsert_writes_record_and_facet() {
 	let fixture = Fixture::new().await;
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");
@@ -111,7 +111,7 @@ async fn upsert_writes_spine_and_facet() {
 			.bind(&uuid)
 			.fetch_one(db.pool())
 			.await
-			.expect("spine row");
+			.expect("record row");
 
 	assert_eq!(external_id, "note-1");
 	assert_eq!(type_, "note");
@@ -187,7 +187,7 @@ async fn same_external_id_across_types_stays_distinct() {
 }
 
 #[tokio::test]
-async fn belongs_to_becomes_the_spine_parent() {
+async fn belongs_to_becomes_the_record_parent() {
 	let fixture = Fixture::new().await;
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");

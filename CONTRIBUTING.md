@@ -1127,7 +1127,7 @@ packages/
 
 - **V1:** Dual system (indexed `FilePath` vs ephemeral)
 - **V2:** Unified `Entry` model with `SdPath` addressing
-- **Learn:** Read `core/src/domain/entry.rs` and SdPath in docs
+- **Learn:** Read `core/src/domain/addressing.rs` for SdPath and `docs/core/addressing.mdx`
 
 ### Where Should V1 Contributors Focus?
 
@@ -1148,7 +1148,7 @@ packages/
 
 - iOS/macOS are now native Swift apps
 - Learn SwiftUI or contribute to core Rust (embedded in apps)
-- Check `apps/ios/README.md` for architecture
+- Check `apps/mobile/modules/sd-mobile-core/` for the FFI and bridge layout
 
 **Database/Migrations:**
 

@@ -8,7 +8,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use super::{num_workers, TileSource, TILE};
+use super::{num_workers, Bitmap, TileSource, TILE};
 
 /// A 3x5 blocky digit font for stamping the cell index into the tile — enough
 /// to visually confirm every cell is unique without a text raster dependency.
@@ -59,7 +59,7 @@ impl TileSource for SyntheticSource {
 		self.pool.has_pending()
 	}
 
-	fn drain(&mut self, max: usize) -> Vec<(u32, Vec<u8>)> {
+	fn drain(&mut self, max: usize) -> Vec<(u32, Bitmap)> {
 		self.pool.drain(max)
 	}
 
@@ -235,13 +235,13 @@ impl TilePool {
 	}
 
 	/// Drain up to `max` finished tiles.
-	fn drain(&mut self, max: usize) -> Vec<(u32, Vec<u8>)> {
+	fn drain(&mut self, max: usize) -> Vec<(u32, Bitmap)> {
 		let mut out = Vec::new();
 		while out.len() < max {
 			match self.done_rx.try_recv() {
 				Ok((i, buf)) => {
 					self.pending.remove(&i);
-					out.push((i, buf));
+					out.push((i, Bitmap::square(TILE, buf)));
 				}
 				Err(_) => break,
 			}
@@ -273,9 +273,10 @@ mod tests {
 			thread::sleep(Duration::from_millis(5));
 		}
 		assert_eq!(tiles.len(), 1, "one request in flight yields one tile");
-		let (idx, bgra) = &tiles[0];
+		let (idx, bitmap) = &tiles[0];
 		assert_eq!(*idx, 3);
-		assert_eq!(bgra.len(), (TILE * TILE * 4) as usize);
+		assert_eq!((bitmap.width, bitmap.height), (TILE, TILE));
+		assert_eq!(bitmap.bgra.len(), (TILE * TILE * 4) as usize);
 		assert!(!source.has_pending());
 	}
 }

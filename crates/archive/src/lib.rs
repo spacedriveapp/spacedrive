@@ -21,12 +21,12 @@
 //!
 //! A source **index** is disposable: one SQLite file per source, rebuilt from
 //! scratch whenever the source is re-added. Every row in it sits on the
-//! universal record spine ([`spine`]), with type-specific columns in facet
+//! universal record table ([`record`]), with type-specific columns in facet
 //! tables generated from the data type's TOML models.
 //!
 //! The **library** ([`library`]) is durable: overlays, curated groupings and
 //! cross-source edges. It keys on `(source_id, type, external_id)` rather than
-//! the spine uuid, so assertions survive a source being deleted and re-added.
+//! the record table uuid, so assertions survive a source being deleted and re-added.
 //!
 //! ## Architecture
 //!
@@ -40,7 +40,7 @@
 //!       -> Engine
 //!         -> AdapterRegistry
 //!         -> Registry + Library   (durable)
-//!         -> SourceDb             (disposable, spine + facets)
+//!         -> SourceDb             (disposable, records + facets)
 //!         -> SearchRouter
 //!         -> EmbeddingModel
 //! ```
@@ -56,7 +56,7 @@ pub mod safety;
 pub mod schema;
 pub mod search;
 pub mod source;
-pub mod spine;
+pub mod record;
 
 // Re-export primary types at crate root
 pub use adapter::script::ConfigField;
@@ -68,4 +68,4 @@ pub use registry::{DataTypeInfo, NewSource, Registry, SourceInfo};
 pub use safety::{SafetyMode, SafetyPolicy, SafetyVerdict, TrustTier};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use search::{SearchFilter, SearchResult};
-pub use spine::{ContentIdentity, Record};
+pub use record::{ContentIdentity, Record};

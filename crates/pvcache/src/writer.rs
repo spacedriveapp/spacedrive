@@ -14,7 +14,7 @@ use crate::{
 		self, Geometry, SlotRead, FLAG_OCCUPIED, OFF_CAPACITY, OFF_GENERATION, OFF_SLOT_COUNT,
 		SLOT_OFF_FLAGS, SLOT_OFF_SEQ, SLOT_OFF_UUID,
 	},
-	TileState,
+	Frame, TileState,
 };
 
 /// Slot capacity a fresh cache file is created with.
@@ -39,8 +39,8 @@ impl Pvcache {
 	/// Open the cache at `path`, creating it when missing.
 	///
 	/// An existing file is adopted only when its header validates and
-	/// describes the same tile geometry; anything else — empty, truncated,
-	/// foreign contents, an older format version, or different tile
+	/// describes the same envelope geometry; anything else — empty, truncated,
+	/// foreign contents, an older format version, or different envelope
 	/// dimensions — is reinitialized empty. The cache holds nothing that
 	/// cannot be rebaked, so recovery is never attempted.
 	///
@@ -111,12 +111,21 @@ impl Pvcache {
 		}
 	}
 
-	/// Store `pixels` (tight BGRA8, exactly [`Self::tile_len`] bytes) for
-	/// `uuid`, stamped with `version`. An entry already in the cache is
-	/// rewritten in place under its seqlock; a new entry claims the next free
-	/// slot, growing the file when full.
-	pub fn write(&mut self, uuid: Uuid, version: u64, pixels: &[u8]) -> Result<()> {
-		let expected = self.geometry.tile_len();
+	/// Store `pixels` for `uuid`, stamped with `version`. The buffer is tight
+	/// BGRA8 for `frame`, which must fit the file's envelope; only those bytes
+	/// are written, so the rest of the slot stays sparse. An entry already in
+	/// the cache is rewritten in place under its seqlock; a new entry claims
+	/// the next free slot, growing the file when full.
+	pub fn write(&mut self, uuid: Uuid, version: u64, frame: Frame, pixels: &[u8]) -> Result<()> {
+		if !self.geometry.holds(&frame) {
+			return Err(Error::FrameOutOfEnvelope {
+				width: frame.content_width,
+				height: frame.content_height,
+				envelope_width: self.geometry.tile_width,
+				envelope_height: self.geometry.tile_height,
+			});
+		}
+		let expected = frame.len();
 		if pixels.len() != expected {
 			return Err(Error::TileLengthMismatch {
 				expected,
@@ -131,6 +140,7 @@ impl Pvcache {
 				slot,
 				uuid,
 				version,
+				&frame,
 				pixels,
 			);
 			return Ok(());
@@ -146,6 +156,7 @@ impl Pvcache {
 			slot,
 			uuid,
 			version,
+			&frame,
 			pixels,
 		);
 
@@ -159,10 +170,11 @@ impl Pvcache {
 		Ok(())
 	}
 
-	/// Copy the tile for `uuid` into `buf` (exactly [`Self::tile_len`] bytes)
-	/// and compare its stored version against `expected_version`. Both fresh
-	/// and stale hits fill the buffer, so a caller can show the stale tile
-	/// while rebaking.
+	/// Copy the tile for `uuid` into `buf` (sized for the envelope, exactly
+	/// [`Self::tile_len`] bytes) and compare its stored version against
+	/// `expected_version`. Both fresh and stale hits fill the buffer, so a
+	/// caller can show the stale tile while rebaking; the returned state
+	/// carries the frame describing how much of `buf` is valid.
 	pub fn get(&self, uuid: Uuid, expected_version: u64, buf: &mut [u8]) -> Result<TileState> {
 		let expected = self.geometry.tile_len();
 		if buf.len() != expected {
@@ -209,15 +221,18 @@ impl Pvcache {
 		self.capacity
 	}
 
+	/// Envelope width: the widest frame a slot in this file can hold.
 	pub fn tile_width(&self) -> u32 {
 		self.geometry.tile_width
 	}
 
+	/// Envelope height: the tallest frame a slot in this file can hold.
 	pub fn tile_height(&self) -> u32 {
 		self.geometry.tile_height
 	}
 
-	/// Bytes per tile: `tile_width * tile_height * 4`.
+	/// Bytes a full-envelope tile occupies, and the buffer size [`Self::get`]
+	/// expects: `tile_width * tile_height * 4`.
 	pub fn tile_len(&self) -> usize {
 		self.geometry.tile_len()
 	}
@@ -285,8 +300,10 @@ impl Drop for Pvcache {
 
 pub(crate) fn resolve(read: SlotRead, expected_version: u64) -> TileState {
 	match read {
-		SlotRead::Tile { version } if version == expected_version => TileState::Fresh,
-		SlotRead::Tile { version } => TileState::Stale { version },
+		SlotRead::Tile { version, frame } if version == expected_version => {
+			TileState::Fresh { frame }
+		}
+		SlotRead::Tile { version, frame } => TileState::Stale { version, frame },
 		SlotRead::Empty | SlotRead::Busy => TileState::Absent,
 	}
 }

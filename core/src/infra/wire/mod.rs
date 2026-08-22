@@ -24,6 +24,7 @@ pub mod registry;
 #[cfg(test)]
 pub mod test_type_extraction;
 pub mod type_extraction;
+pub mod u64_string;
 
 // Re-export commonly used items
 pub use api_types::{ApiJobHandle, ToApiType};

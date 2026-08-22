@@ -2,22 +2,48 @@
 //!
 //! The grid is a pure consumer — it culls, paints, and evicts; a [`TileSource`]
 //! decides what a cell index means and produces its pixels off the UI thread.
-//! Two sources exist: [`SyntheticSource`] generates procedural tiles for
-//! benchmarking, and [`PvcacheSource`] reads real thumbnails out of a
-//! `thumbs.pvcache` file through the cross-process reader contract.
+//! Three sources exist: [`PvcacheSource`] reads real thumbnails out of a
+//! `thumbs.pvcache` file through the cross-process reader contract,
+//! [`EmptySource`] stands in for a window with no folder, and
+//! [`SyntheticSource`] generates procedural tiles for the benchmark only.
 
+mod empty;
 mod pvcache;
 mod synthetic;
 
+pub use empty::EmptySource;
 pub use pvcache::{Completion, Entry, PvcacheSource};
 pub use synthetic::SyntheticSource;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
-/// Tile edge for every source, in physical pixels. Also the geometry of the
-/// demo pvcache file; the reader rejects a file with any other geometry.
-pub const TILE: u32 = 256;
+/// Envelope edge for every source, in physical pixels: the largest frame a
+/// tile can occupy on either axis. The daemon bakes into this geometry and the
+/// reader rejects a cache file with any other, so the constant is taken from
+/// the writer rather than restated here.
+pub use sd_core::service::thumbs::TILE;
+
+/// A finished tile: tight BGRA8 at the image's own proportions, which is what
+/// the grid draws. Dimensions are the frame's, never the envelope's — a
+/// landscape photo arrives wider than it is tall.
+pub struct Bitmap {
+	pub width: u32,
+	pub height: u32,
+	pub bgra: Vec<u8>,
+}
+
+impl Bitmap {
+	/// A square bitmap filling the envelope, which is what the synthetic and
+	/// icon sources produce.
+	pub fn square(edge: u32, bgra: Vec<u8>) -> Self {
+		Self {
+			width: edge,
+			height: edge,
+			bgra,
+		}
+	}
+}
 
 /// Feeds the grid: cell count, pixels, and priority hints. Methods are called
 /// on the UI thread from the grid's paint pass; implementations do their real
@@ -31,7 +57,8 @@ pub trait TileSource {
 	/// Total cell count. May grow after construction (a folder walk landing).
 	fn len(&self) -> u32;
 
-	/// Tile edge in physical pixels.
+	/// Envelope edge in physical pixels: the buffer size a reader allocates,
+	/// and the ceiling on any delivered [`Bitmap`].
 	fn tile(&self) -> u32;
 
 	/// Ask for the tile at `idx`. Idempotent while a request is outstanding,
@@ -43,10 +70,10 @@ pub trait TileSource {
 	/// that is what keeps the app at 0% CPU when idle.
 	fn has_pending(&self) -> bool;
 
-	/// Up to `max` finished tiles as tight BGRA8 buffers. A tile may arrive
-	/// more than once for the same index (stale pixels first, the rebake
-	/// after); the latest delivery wins.
-	fn drain(&mut self, max: usize) -> Vec<(u32, Vec<u8>)>;
+	/// Up to `max` finished tiles. A tile may arrive more than once for the
+	/// same index (stale pixels first, the rebake after); the latest delivery
+	/// wins.
+	fn drain(&mut self, max: usize) -> Vec<(u32, Bitmap)>;
 
 	/// The cell range currently on screen (`last` exclusive), for bake
 	/// prioritization.

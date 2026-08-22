@@ -52,7 +52,7 @@ export function Overview() {
 		);
 	}, [selectedLocationId, locationsData]);
 
-	// During the entries-to-spine transition, indexed data lives in two
+	// During the entries-to-records transition, indexed data lives in two
 	// worlds: library statistics cover locations (entries), and registered
 	// ephemeral sources carry their own counts. The hero composes both so
 	// the overview agrees with the volume cards below it.

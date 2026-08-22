@@ -10,6 +10,7 @@ import {
 import { useNavigate, useLocation } from "react-router-dom";
 import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
 import { useTabManager } from "../../components/TabManager/useTabManager";
+import { usePublishNavigationFocus } from "./hooks/useNavigationFocus";
 import type {
 	ViewMode as TabViewMode,
 	SortBy as TabSortBy,
@@ -595,6 +596,10 @@ export function ExplorerProvider({
 		if (currentTarget?.type === "path") return currentTarget.path;
 		return null;
 	}, [currentTarget]);
+
+	// Other windows follow this one through the daemon; the Photos app renders
+	// the media in whichever folder the explorer is showing.
+	usePublishNavigationFocus(currentPath);
 
 	const currentView = useMemo(() => {
 		if (currentTarget?.type === "view") {

@@ -2,23 +2,26 @@
 //! back BGRA8. Decoding goes through `sd-images` first (which routes SVG, PDF,
 //! and — when enabled — HEIF to their handlers), then falls back to a
 //! content-sniffing decode so misnamed rasters (a JPEG behind a `.thm`
-//! extension) still bake.
+//! extension) still bake. EXIF orientation is resolved here, so a tile's
+//! dimensions are the ones the image is displayed at.
 
 use std::path::Path;
 
 use image::{imageops, DynamicImage, RgbaImage};
+use sd_media_metadata::exif::Orientation;
 
 use crate::{Decline, Producer, Tile, WorkItem};
 
-/// How a non-square source maps onto the square cell.
+/// How a source maps onto the cell.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ScaleMode {
 	/// Aspect-fill: center-crop the source to a square, then resize. The cell
 	/// is all image; edges of the long axis are lost.
 	Cover,
-	/// Aspect-fit: resize the whole source to fit, letterboxed over
-	/// `background` (BGRA). Nothing is cropped.
-	Contain { background: [u8; 4] },
+	/// Aspect-fit: scale the whole source so its long edge meets the cell and
+	/// return it at its own proportions. Nothing is cropped and no padding is
+	/// stored, so the tile is the image and not the cell it fits inside.
+	Fit,
 }
 
 /// Decodes image files into cells. Declines directories and anything no
@@ -39,23 +42,33 @@ impl Producer for ImageProducer {
 			return Err(Decline::Unsupported);
 		}
 		let rgba = decode(&item.path)?.to_rgba8();
-		let bgra = match self.mode {
-			ScaleMode::Cover => cover(&rgba, tile_size),
-			ScaleMode::Contain { background } => contain(&rgba, tile_size, background),
+		let (source_width, source_height) = rgba.dimensions();
+		let tile = match self.mode {
+			ScaleMode::Cover => Tile::new(tile_size, tile_size, cover(&rgba, tile_size)),
+			ScaleMode::Fit => {
+				let (width, height, bgra) = fit(&rgba, tile_size);
+				Tile::new(width, height, bgra)
+			}
 		};
-		Ok(Tile::new(tile_size, tile_size, bgra))
+		Ok(tile.with_source(source_width, source_height))
 	}
 }
 
 fn decode(path: &Path) -> Result<DynamicImage, Decline> {
-	if let Ok(img) = sd_images::format_image(path) {
-		return Ok(img);
-	}
-	image::ImageReader::open(path)
-		.and_then(|reader| reader.with_guessed_format())
-		.map_err(|e| Decline::Failed(format!("read {}: {e}", path.display())))?
-		.decode()
-		.map_err(|e| Decline::Failed(format!("decode {}: {e}", path.display())))
+	let decoded = match sd_images::format_image(path) {
+		Ok(image) => image,
+		Err(_) => image::ImageReader::open(path)
+			.and_then(|reader| reader.with_guessed_format())
+			.map_err(|e| Decline::Failed(format!("read {}: {e}", path.display())))?
+			.decode()
+			.map_err(|e| Decline::Failed(format!("decode {}: {e}", path.display())))?,
+	};
+	// A rotated camera frame decodes to its stored orientation, so without this
+	// a portrait photo bakes landscape and reports the wrong aspect.
+	Ok(match Orientation::from_path(path) {
+		Some(orientation) => orientation.correct_thumbnail(decoded),
+		None => decoded,
+	})
 }
 
 /// Aspect-fill center-crop to square, resize to `tile`, RGBA→BGRA.
@@ -69,25 +82,20 @@ fn cover(img: &RgbaImage, tile: u32) -> Vec<u8> {
 	rgba_into_bgra(square.into_raw())
 }
 
-/// Aspect-fit resize onto a `background`-filled square, RGBA→BGRA. The source
-/// is alpha-composited over the background, centered, so the letterbox bars
-/// and any transparency read as the cell background.
-fn contain(img: &RgbaImage, tile: u32, background: [u8; 4]) -> Vec<u8> {
+/// Aspect-fit resize to the cell's long edge, RGBA→BGRA, returning the fitted
+/// extent along with the pixels. A source already smaller than the cell keeps
+/// its own size rather than being scaled up, since upscaling here only spends
+/// bytes on resolution the file never had.
+fn fit(img: &RgbaImage, cell: u32) -> (u32, u32, Vec<u8>) {
 	let (w, h) = img.dimensions();
-	let scale = f64::from(tile) / f64::from(w.max(h));
-	let dw = ((f64::from(w) * scale).round() as u32).clamp(1, tile);
-	let dh = ((f64::from(h) * scale).round() as u32).clamp(1, tile);
+	let scale = (f64::from(cell) / f64::from(w.max(h))).min(1.0);
+	let dw = ((f64::from(w) * scale).round() as u32).clamp(1, cell);
+	let dh = ((f64::from(h) * scale).round() as u32).clamp(1, cell);
+	if (dw, dh) == (w, h) {
+		return (dw, dh, rgba_into_bgra(img.clone().into_raw()));
+	}
 	let resized = imageops::resize(img, dw, dh, imageops::FilterType::Triangle);
-
-	let bg_rgba = image::Rgba([background[2], background[1], background[0], background[3]]);
-	let mut canvas = RgbaImage::from_pixel(tile, tile, bg_rgba);
-	imageops::overlay(
-		&mut canvas,
-		&resized,
-		i64::from((tile - dw) / 2),
-		i64::from((tile - dh) / 2),
-	);
-	rgba_into_bgra(canvas.into_raw())
+	(dw, dh, rgba_into_bgra(resized.into_raw()))
 }
 
 fn rgba_into_bgra(mut buf: Vec<u8>) -> Vec<u8> {
@@ -125,6 +133,33 @@ mod tests {
 		path
 	}
 
+	/// Splice a minimal APP1/EXIF segment carrying just an orientation tag in
+	/// after a baseline JPEG's SOI, which is all `Orientation::from_path` reads.
+	fn write_exif_orientation(path: &Path, orientation: u16) {
+		let jpeg = std::fs::read(path).expect("read jpeg");
+		assert_eq!(&jpeg[..2], &[0xFF, 0xD8], "expected a baseline JPEG");
+
+		let mut tiff = Vec::new();
+		tiff.extend_from_slice(b"MM\x00\x2a"); // big-endian TIFF header
+		tiff.extend_from_slice(&8u32.to_be_bytes()); // offset of IFD0
+		tiff.extend_from_slice(&1u16.to_be_bytes()); // one entry
+		tiff.extend_from_slice(&0x0112u16.to_be_bytes()); // Orientation
+		tiff.extend_from_slice(&3u16.to_be_bytes()); // SHORT
+		tiff.extend_from_slice(&1u32.to_be_bytes()); // count
+		tiff.extend_from_slice(&orientation.to_be_bytes());
+		tiff.extend_from_slice(&[0, 0]); // value padded to four bytes
+		tiff.extend_from_slice(&0u32.to_be_bytes()); // no next IFD
+
+		let mut payload = b"Exif\x00\x00".to_vec();
+		payload.extend_from_slice(&tiff);
+
+		let mut out = vec![0xFF, 0xD8, 0xFF, 0xE1];
+		out.extend_from_slice(&((payload.len() + 2) as u16).to_be_bytes());
+		out.extend_from_slice(&payload);
+		out.extend_from_slice(&jpeg[2..]);
+		std::fs::write(path, out).expect("write jpeg with exif");
+	}
+
 	fn pixel(bgra: &[u8], tile: u32, x: u32, y: u32) -> [u8; 4] {
 		let i = ((y * tile + x) * 4) as usize;
 		[bgra[i], bgra[i + 1], bgra[i + 2], bgra[i + 3]]
@@ -147,22 +182,64 @@ mod tests {
 	}
 
 	#[test]
-	fn contain_letterboxes_over_the_background() {
+	fn fit_keeps_the_source_aspect_and_stores_no_padding() {
 		let dir = tempfile::tempdir().expect("tempdir");
 		let path = save_png(&banded_strip(), dir.path(), "strip.png");
-		let background = [10, 20, 30, 255];
 
-		let tile = ImageProducer::new(ScaleMode::Contain { background })
+		let tile = ImageProducer::new(ScaleMode::Fit)
 			.produce(&WorkItem::file(path), TILE)
 			.expect("png decodes");
 
-		// A 200×100 source fits as 32×16, vertically centered: rows 0..8 and
-		// 24..32 are letterbox bars, the middle rows are image.
-		assert_eq!(pixel(tile.bgra(), TILE, 16, 2), background);
-		assert_eq!(pixel(tile.bgra(), TILE, 16, 30), background);
-		assert_eq!(pixel(tile.bgra(), TILE, 16, 16), [0, 255, 0, 255]);
-		assert_eq!(pixel(tile.bgra(), TILE, 2, 16), [0, 0, 255, 255]); // red band → B,G,R
-		assert_eq!(pixel(tile.bgra(), TILE, 30, 16), [255, 0, 0, 255]); // blue band
+		// A 200×100 source fits as 32×16: the long edge meets the cell, the
+		// short edge follows the ratio, and the buffer holds nothing else.
+		assert_eq!((tile.width(), tile.height()), (TILE, TILE / 2));
+		assert_eq!(tile.bgra().len(), (TILE * (TILE / 2) * 4) as usize);
+		assert_eq!((tile.source_width(), tile.source_height()), (200, 100));
+
+		// All three bands survive, which a center crop would not have kept.
+		assert_eq!(pixel(tile.bgra(), TILE, 2, 8), [0, 0, 255, 255]); // red band → B,G,R
+		assert_eq!(pixel(tile.bgra(), TILE, 16, 8), [0, 255, 0, 255]);
+		assert_eq!(pixel(tile.bgra(), TILE, 30, 8), [255, 0, 0, 255]); // blue band
+	}
+
+	#[test]
+	fn fit_never_scales_a_small_source_up() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let path = save_png(
+			&RgbaImage::from_pixel(12, 9, Rgba([0, 255, 0, 255])),
+			dir.path(),
+			"small.png",
+		);
+
+		let tile = ImageProducer::new(ScaleMode::Fit)
+			.produce(&WorkItem::file(path), TILE)
+			.expect("png decodes");
+
+		assert_eq!((tile.width(), tile.height()), (12, 9));
+	}
+
+	#[test]
+	fn a_portrait_frame_tagged_rotated_bakes_upright() {
+		// EXIF orientation 6 means the stored pixels are rotated 90° CW from
+		// how the image is displayed, so a tile that ignores it reports the
+		// wrong aspect for the file.
+		let dir = tempfile::tempdir().expect("tempdir");
+		let path = dir.path().join("rotated.jpg");
+		image::RgbImage::from_pixel(200, 100, image::Rgb([0, 255, 0]))
+			.save(&path)
+			.expect("write jpeg");
+		write_exif_orientation(&path, 6);
+
+		let tile = ImageProducer::new(ScaleMode::Fit)
+			.produce(&WorkItem::file(&path), TILE)
+			.expect("jpeg decodes");
+
+		assert_eq!(
+			(tile.width(), tile.height()),
+			(TILE / 2, TILE),
+			"a frame tagged 90° CW is stored upright, so it bakes portrait"
+		);
+		assert_eq!((tile.source_width(), tile.source_height()), (100, 200));
 	}
 
 	#[test]

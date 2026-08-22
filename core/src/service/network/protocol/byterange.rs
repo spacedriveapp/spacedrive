@@ -36,7 +36,11 @@ pub enum ByteRangeRequest {
 	Stat { path: PathBuf },
 	/// Up to `len` bytes at `offset`; the response header carries the actual
 	/// count (short at EOF or the `MAX_READ_LEN` cap).
-	Read { path: PathBuf, offset: u64, len: u64 },
+	Read {
+		path: PathBuf,
+		offset: u64,
+		len: u64,
+	},
 	/// The serving device's registered sources.
 	ListSources,
 	/// The serving device's current snapshot for one source, saved fresh
@@ -52,6 +56,17 @@ pub struct RemoteSourceInfo {
 	pub attached: bool,
 	pub entry_count: Option<u64>,
 	pub total_bytes: Option<u64>,
+	/// Version of the snapshot a peer would receive, from its size and
+	/// mtime. A replica holding the same generation is already current, so
+	/// this is what lets a reconnect skip re-downloading an unchanged index.
+	/// Zero means the owner has no snapshot on disk yet.
+	#[serde(default)]
+	pub generation: u64,
+	/// The owner's arena has moved since its last save, so the snapshot on
+	/// disk is behind the truth. A fetch persists it first, which is why
+	/// this is reported rather than saving on every listing.
+	#[serde(default)]
+	pub dirty: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,10 +76,14 @@ pub enum ByteRangeResponse {
 		modified_secs: Option<u64>,
 	},
 	/// Followed by exactly `len` raw bytes on the stream.
-	ReadHeader { len: u64 },
+	ReadHeader {
+		len: u64,
+	},
 	Sources(Vec<RemoteSourceInfo>),
 	/// Followed by exactly `len` raw bytes on the stream.
-	SnapshotHeader { len: u64 },
+	SnapshotHeader {
+		len: u64,
+	},
 	Error(String),
 }
 
@@ -99,10 +118,7 @@ pub struct ByteRangeProtocolHandler {
 }
 
 impl ByteRangeProtocolHandler {
-	pub fn new(
-		context: Arc<CoreContext>,
-		device_registry: Arc<RwLock<DeviceRegistry>>,
-	) -> Self {
+	pub fn new(context: Arc<CoreContext>, device_registry: Arc<RwLock<DeviceRegistry>>) -> Self {
 		Self {
 			context,
 			device_registry,
@@ -113,10 +129,7 @@ impl ByteRangeProtocolHandler {
 	/// source and contain no traversal components — the same trust boundary
 	/// the index itself observes.
 	fn authorize_path(&self, path: &Path) -> Result<(), String> {
-		if path
-			.components()
-			.any(|c| matches!(c, Component::ParentDir))
-		{
+		if path.components().any(|c| matches!(c, Component::ParentDir)) {
 			return Err("path traversal refused".into());
 		}
 		let allowed = self
@@ -158,9 +171,7 @@ impl ByteRangeProtocolHandler {
 						)
 						.await
 					}
-					Err(err) => {
-						write_frame(send, &ByteRangeResponse::Error(err.to_string())).await
-					}
+					Err(err) => write_frame(send, &ByteRangeResponse::Error(err.to_string())).await,
 				}
 			}
 			ByteRangeRequest::Read { path, offset, len } => {
@@ -170,8 +181,7 @@ impl ByteRangeProtocolHandler {
 				let mut file = match tokio::fs::File::open(&path).await {
 					Ok(f) => f,
 					Err(err) => {
-						return write_frame(send, &ByteRangeResponse::Error(err.to_string()))
-							.await;
+						return write_frame(send, &ByteRangeResponse::Error(err.to_string())).await;
 					}
 				};
 				let size = file.metadata().await.map(|m| m.len()).unwrap_or(0);
@@ -200,31 +210,47 @@ impl ByteRangeProtocolHandler {
 				Ok(())
 			}
 			ByteRangeRequest::ListSources => {
-				let sources = self
-					.context
-					.ephemeral_cache()
-					.sources()
-					.into_iter()
-					.map(|s| RemoteSourceInfo {
+				let cache = self.context.ephemeral_cache();
+				let dirs =
+					crate::infra::source_dirs::SourceDirs::under_data_dir(&self.context.data_dir)
+						.ok();
+				let mut sources = Vec::new();
+				for s in cache.sources() {
+					let generation = dirs
+						.as_ref()
+						.and_then(|dirs| std::fs::metadata(dirs.snapshot_file(s.id)).ok())
+						.and_then(|meta| {
+							Some(crate::infra::source_version::source_version(
+								meta.len(),
+								meta.modified().ok()?,
+							))
+						})
+						.unwrap_or(0);
+					// Only an attached source can have live changes; a
+					// detached one is already only its snapshot.
+					let dirty = if s.attached {
+						cache.resolve_index(&s.root).read().await.is_dirty()
+					} else {
+						false
+					};
+					sources.push(RemoteSourceInfo {
 						id: s.id,
 						root: s.root,
 						fingerprint: s.fingerprint,
 						attached: s.attached,
 						entry_count: s.entry_count,
 						total_bytes: s.total_bytes,
-					})
-					.collect();
+						generation,
+						dirty,
+					});
+				}
 				write_frame(send, &ByteRangeResponse::Sources(sources)).await
 			}
 			ByteRangeRequest::FetchSnapshot { source_id } => {
 				let cache = self.context.ephemeral_cache();
-				let Some(source) = cache.sources().into_iter().find(|s| s.id == source_id)
-				else {
-					return write_frame(
-						send,
-						&ByteRangeResponse::Error("unknown source".into()),
-					)
-					.await;
+				let Some(source) = cache.sources().into_iter().find(|s| s.id == source_id) else {
+					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
+						.await;
 				};
 				// Persist live arena state first so the replica isn't stale
 				// by a whole session; failure falls back to the on-disk file.
@@ -233,8 +259,7 @@ impl ByteRangeProtocolHandler {
 						tracing::debug!("pre-fetch snapshot save failed: {err}");
 					}
 				}
-				let Some(snapshot_path) =
-					source.directory.map(|d| d.join("ephemeral.snapshot"))
+				let Some(snapshot_path) = source.directory.map(|d| d.join("ephemeral.snapshot"))
 				else {
 					return write_frame(
 						send,

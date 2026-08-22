@@ -1,16 +1,16 @@
 //! SourceDb: handle for reading/writing records in a source index.
 //!
-//! Every write lands on the universal spine ([`crate::spine`]) first: one
+//! Every write lands on the record table ([`crate::record`]) first: one
 //! `record` row carrying identity, hierarchy, timestamps and screening state.
 //! The model's own declared fields go to its facet table, and relationships
-//! become spine `edge` rows. Nothing is stored twice.
+//! become `edge` rows. Nothing is stored twice.
 
 use std::fmt::Write;
 
 use crate::error::{Error, Result};
 use crate::schema::codegen::indexed_search_fields;
 use crate::schema::DataTypeSchema;
-use crate::spine::{facet_table, ContentIdentity, Record};
+use crate::record::{facet_table, ContentIdentity, Record};
 
 /// `_sync_state` key holding the on-disk root a file-backed source's
 /// locator paths are relative to. File-backed adapters set it every sync;
@@ -64,7 +64,7 @@ pub struct FtsHit {
 	pub safety_score: Option<u8>,
 }
 
-/// A spine edge with the neighbouring record resolved.
+/// A record edge with the neighbouring record resolved.
 #[derive(Debug, Clone)]
 pub struct Neighbor {
 	pub uuid: String,
@@ -106,7 +106,7 @@ impl SourceDb {
 
 	/// Open a new sync run: advance the scan epoch that subsequent writes carry.
 	pub async fn begin_sync(&self) -> Result<i64> {
-		let epoch = crate::spine::next_scan_epoch(&self.pool).await?;
+		let epoch = crate::record::next_scan_epoch(&self.pool).await?;
 		self.scan_epoch
 			.store(epoch, std::sync::atomic::Ordering::Relaxed);
 		Ok(epoch)
@@ -149,7 +149,7 @@ impl SourceDb {
 		Ok(())
 	}
 
-	/// Resolve a record's spine uuid from its type and source-side key.
+	/// Resolve a record's record uuid from its type and source-side key.
 	async fn resolve_uuid(&self, type_: &str, external_id: &str) -> Result<String> {
 		let row: Option<(String,)> =
 			sqlx::query_as("SELECT uuid FROM record WHERE type = ? AND external_id = ?")
@@ -169,7 +169,7 @@ impl SourceDb {
 	///
 	/// `model` becomes the record's open `type`. A `belongs_to` target resolves
 	/// to `parent_uuid`; a `self_referential` column and any further
-	/// `belongs_to` targets become spine edges.
+	/// `belongs_to` targets become record edges.
 	pub async fn upsert(
 		&self,
 		model: &str,
@@ -227,9 +227,9 @@ impl SourceDb {
 			uuid: uuid.clone(),
 			external_id: external_id.to_string(),
 			type_: model.to_string(),
-			title: self.spine_title(model, model_def, fields_map),
-			created_at: self.spine_created_at(model_def, fields_map),
-			modified_at: self.spine_modified_at(model, model_def, fields_map),
+			title: self.record_title(model, model_def, fields_map),
+			created_at: self.record_created_at(model_def, fields_map),
+			modified_at: self.record_modified_at(model, model_def, fields_map),
 			parent_uuid,
 			content_id: None,
 		};
@@ -251,7 +251,7 @@ impl SourceDb {
 		Ok(uuid)
 	}
 
-	/// Write the spine row, preserving the assigned uuid on conflict.
+	/// Write the record table row, preserving the assigned uuid on conflict.
 	async fn put_record(&self, record: &Record, epoch: i64) -> Result<()> {
 		sqlx::query(
 			"INSERT INTO record
@@ -329,7 +329,7 @@ impl SourceDb {
 		Ok(())
 	}
 
-	/// Insert a spine edge, idempotent on `(src, dst, type)`.
+	/// Insert a record edge, idempotent on `(src, dst, type)`.
 	async fn put_edge(
 		&self,
 		src_uuid: &str,
@@ -351,9 +351,9 @@ impl SourceDb {
 		Ok(())
 	}
 
-	/// Display name for the spine row. The primary type takes it from the search
+	/// Display name for the record table row. The primary type takes it from the search
 	/// contract; other types fall back to a conventional field name.
-	fn spine_title(
+	fn record_title(
 		&self,
 		model: &str,
 		model_def: &crate::schema::ModelDef,
@@ -373,7 +373,7 @@ impl SourceDb {
 			.map(str::to_string)
 	}
 
-	fn spine_created_at(
+	fn record_created_at(
 		&self,
 		model_def: &crate::schema::ModelDef,
 		fields_map: &serde_json::Map<String, serde_json::Value>,
@@ -385,7 +385,7 @@ impl SourceDb {
 		)
 	}
 
-	fn spine_modified_at(
+	fn record_modified_at(
 		&self,
 		model: &str,
 		model_def: &crate::schema::ModelDef,
@@ -406,7 +406,7 @@ impl SourceDb {
 			model_def,
 			fields_map,
 		)
-		.or_else(|| self.spine_created_at(model_def, fields_map))
+		.or_else(|| self.record_created_at(model_def, fields_map))
 	}
 
 	/// Delete a record. Facet rows and edges cascade.
@@ -793,7 +793,7 @@ impl SourceDb {
 		Ok(result.rows_affected())
 	}
 
-	/// The SELECT prefix shared by listing and search: spine identity plus the
+	/// The SELECT prefix shared by listing and search: record identity plus the
 	/// presentation columns named by the search contract.
 	fn presentation_select(&self) -> String {
 		let mut sql = String::from("SELECT r.uuid AS id, r.external_id AS external_id, ");

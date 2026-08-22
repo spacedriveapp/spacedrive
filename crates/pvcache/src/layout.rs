@@ -6,9 +6,10 @@ use std::sync::atomic::{fence, AtomicU32, AtomicU64, Ordering};
 use uuid::Uuid;
 
 use crate::error::{Error, Result};
+use crate::Frame;
 
 pub(crate) const MAGIC: [u8; 8] = *b"SDPVCACH";
-pub(crate) const FORMAT_VERSION: u32 = 1;
+pub(crate) const FORMAT_VERSION: u32 = 2;
 pub(crate) const PIXEL_FORMAT_BGRA8: u32 = 0;
 
 /// Bytes reserved at the start of the file for the header. Slot records begin
@@ -44,6 +45,10 @@ pub(crate) const SLOT_OFF_SEQ: usize = 0;
 pub(crate) const SLOT_OFF_FLAGS: usize = 4;
 pub(crate) const SLOT_OFF_VERSION: usize = 8;
 pub(crate) const SLOT_OFF_UUID: usize = 16;
+pub(crate) const SLOT_OFF_CONTENT_W: usize = 32;
+pub(crate) const SLOT_OFF_CONTENT_H: usize = 34;
+pub(crate) const SLOT_OFF_SOURCE_W: usize = 36;
+pub(crate) const SLOT_OFF_SOURCE_H: usize = 40;
 
 pub(crate) const FLAG_OCCUPIED: u32 = 1;
 
@@ -90,6 +95,14 @@ impl Geometry {
 
 	pub fn file_len(&self, capacity: u64) -> u64 {
 		self.slot_offset(capacity)
+	}
+
+	/// Whether a frame's extent fits this file's envelope.
+	pub fn holds(&self, frame: &Frame) -> bool {
+		frame.content_width > 0
+			&& frame.content_height > 0
+			&& frame.content_width <= self.tile_width
+			&& frame.content_height <= self.tile_height
 	}
 }
 
@@ -171,9 +184,9 @@ pub(crate) unsafe fn atomic_u64<'a>(base: *const u8, offset: usize) -> &'a Atomi
 /// Outcome of a seqlock-guarded slot read.
 pub(crate) enum SlotRead {
 	/// The record holds the requested uuid; `version` is its stored content
-	/// version and, when a buffer was supplied, the pixels were copied into it
-	/// as a consistent snapshot.
-	Tile { version: u64 },
+	/// version, `frame` the extent of its pixels, and, when a buffer was
+	/// supplied, those pixels were copied into it as a consistent snapshot.
+	Tile { version: u64, frame: Frame },
 	/// The record is unoccupied or holds a different uuid.
 	Empty,
 	/// The record's sequence word never settled — a write is in flight (or a
@@ -186,7 +199,9 @@ pub(crate) enum SlotRead {
 /// The sequence word is sampled (acquire) before the fields are read and
 /// re-checked after; a change or an odd value means the read raced a rewrite
 /// and is retried. Pixels are copied with `copy_nonoverlapping` and validated
-/// by the same re-check before the copy is trusted.
+/// by the same re-check before the copy is trusted. Only the stored frame's
+/// bytes are copied, so `pixels_out` beyond `frame.len()` is left as the
+/// caller supplied it.
 pub(crate) fn read_slot(
 	base: *const u8,
 	geometry: &Geometry,
@@ -202,11 +217,15 @@ pub(crate) fn read_slot(
 			std::hint::spin_loop();
 			continue;
 		}
-		let (flags, version, key) = unsafe {
+		let (flags, version, key, content_w, content_h, source_w, source_h) = unsafe {
 			(
 				(base.add(record + SLOT_OFF_FLAGS) as *const u32).read_volatile(),
 				(base.add(record + SLOT_OFF_VERSION) as *const u64).read_volatile(),
 				(base.add(record + SLOT_OFF_UUID) as *const [u8; 16]).read_volatile(),
+				(base.add(record + SLOT_OFF_CONTENT_W) as *const u16).read_volatile(),
+				(base.add(record + SLOT_OFF_CONTENT_H) as *const u16).read_volatile(),
+				(base.add(record + SLOT_OFF_SOURCE_W) as *const u32).read_volatile(),
+				(base.add(record + SLOT_OFF_SOURCE_H) as *const u32).read_volatile(),
 			)
 		};
 		fence(Ordering::Acquire);
@@ -216,12 +235,28 @@ pub(crate) fn read_slot(
 		if flags & FLAG_OCCUPIED == 0 || key != *uuid.as_bytes() {
 			return SlotRead::Empty;
 		}
+		let frame = Frame {
+			content_width: u32::from(content_w),
+			content_height: u32::from(content_h),
+			source_width: source_w,
+			source_height: source_h,
+		};
+		// An extent outside the envelope belongs to a record caught mid-write;
+		// the re-check below would reject it anyway, but the copy length is
+		// derived from it, so it is validated before it is used.
+		if !geometry.holds(&frame) {
+			continue;
+		}
 		if let Some(buf) = pixels_out.as_deref_mut() {
+			let len = frame.len();
+			if len > buf.len() {
+				continue;
+			}
 			unsafe {
 				std::ptr::copy_nonoverlapping(
 					base.add(record + SLOT_HEADER_LEN as usize),
 					buf.as_mut_ptr(),
-					buf.len(),
+					len,
 				);
 			}
 			fence(Ordering::Acquire);
@@ -229,7 +264,7 @@ pub(crate) fn read_slot(
 				continue;
 			}
 		}
-		return SlotRead::Tile { version };
+		return SlotRead::Tile { version, frame };
 	}
 	SlotRead::Busy
 }
@@ -246,6 +281,7 @@ pub(crate) fn write_slot(
 	slot: u64,
 	uuid: Uuid,
 	version: u64,
+	frame: &Frame,
 	pixels: &[u8],
 ) {
 	let record = geometry.slot_offset(slot) as usize;
@@ -256,6 +292,12 @@ pub(crate) fn write_slot(
 		(base.add(record + SLOT_OFF_FLAGS) as *mut u32).write_volatile(FLAG_OCCUPIED);
 		(base.add(record + SLOT_OFF_VERSION) as *mut u64).write_volatile(version);
 		(base.add(record + SLOT_OFF_UUID) as *mut [u8; 16]).write_volatile(*uuid.as_bytes());
+		(base.add(record + SLOT_OFF_CONTENT_W) as *mut u16)
+			.write_volatile(frame.content_width as u16);
+		(base.add(record + SLOT_OFF_CONTENT_H) as *mut u16)
+			.write_volatile(frame.content_height as u16);
+		(base.add(record + SLOT_OFF_SOURCE_W) as *mut u32).write_volatile(frame.source_width);
+		(base.add(record + SLOT_OFF_SOURCE_H) as *mut u32).write_volatile(frame.source_height);
 		std::ptr::copy_nonoverlapping(
 			pixels.as_ptr(),
 			base.add(record + SLOT_HEADER_LEN as usize),

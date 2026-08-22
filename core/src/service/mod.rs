@@ -18,6 +18,7 @@ pub mod session;
 pub mod sidecar_manager;
 pub mod statistics_listener;
 pub mod sync;
+pub mod thumbs;
 pub mod volume_monitor;
 pub mod watcher;
 // NOTE: watcher_old/ is kept as reference during migration but not compiled

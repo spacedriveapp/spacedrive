@@ -8,6 +8,7 @@ import { ThumbstripScrubber } from "./ThumbstripScrubber";
 import { getFileKindForIcon, getVirtualMetadata, getContentKind } from "@sd/ts-client";
 import { useServer } from "../../../contexts/ServerContext";
 import { usePlatform } from "../../../contexts/PlatformContext";
+import { useHotThumb } from "../hooks/useHotThumb";
 
 interface ThumbProps {
   file: File;
@@ -20,7 +21,11 @@ interface ThumbProps {
 
 // Global cache for thumbnail loaded states (survives component unmount/remount)
 const thumbLoadedCache = new Map<string, boolean>();
-const thumbErrorCache = new Map<string, boolean>();
+/** The source that failed for a cell, not merely that one did: a cell whose
+ * URL changes (a regenerated sidecar, a tile that has since baked) has to get
+ * another chance, and remembering only a boolean denied it one for the rest of
+ * the session. */
+const thumbErrorCache = new Map<string, string>();
 
 export const Thumb = memo(function Thumb({
   file,
@@ -36,8 +41,8 @@ export const Thumb = memo(function Thumb({
   const [thumbLoaded, setThumbLoaded] = useState(
     () => thumbLoadedCache.get(cacheKey) || false,
   );
-  const [thumbError, setThumbError] = useState(
-    () => thumbErrorCache.get(cacheKey) || false,
+  const [failedSrc, setFailedSrc] = useState<string | null>(
+    () => thumbErrorCache.get(cacheKey) ?? null,
   );
 
   // Update cache when state changes
@@ -46,8 +51,8 @@ export const Thumb = memo(function Thumb({
   }, [thumbLoaded, cacheKey]);
 
   useEffect(() => {
-    if (thumbError) thumbErrorCache.set(cacheKey, true);
-  }, [thumbError, cacheKey]);
+    if (failedSrc) thumbErrorCache.set(cacheKey, failedSrc);
+  }, [failedSrc, cacheKey]);
 
   const iconSize = size * iconScale;
 
@@ -115,8 +120,23 @@ export const Thumb = memo(function Thumb({
 
   const sidecarSrc = getThumbnailUrl(size);
   const platform = usePlatform();
+
+  // The hot tier covers what sidecars cannot: sidecars are keyed by content
+  // hash, and browsing an unindexed folder never hashes anything. Only files
+  // with no sidecar ask, so an indexed library costs nothing here.
+  const wantsHotTile =
+    !sidecarSrc &&
+    file.kind !== "Directory" &&
+    (getContentKind(file) === "image" || getContentKind(file) === "video");
+  const hot = useHotThumb(wantsHotTile ? file.sd_path : null, wantsHotTile);
+
   const thumbnailSrc = (() => {
     if (sidecarSrc) return sidecarSrc;
+    if (hot.url) return hot.url;
+    // A tile is on its way. Reaching for the original here would load
+    // megabytes for one frame, and outside the asset protocol's scope it
+    // fails outright, which is what the hot tier is here to replace.
+    if (hot.pending) return null;
     const convert = platform.convertFileSrc;
     if (!convert || !file.is_local) return null;
     if (file.thumbnail_path) return convert(file.thumbnail_path);
@@ -132,6 +152,10 @@ export const Thumb = memo(function Thumb({
     }
     return null;
   })();
+
+  // The error is against one source, so a later URL for the same cell is
+  // rendered rather than suppressed.
+  const thumbError = !!thumbnailSrc && thumbnailSrc === failedSrc;
 
   // Get content kind for icon resolution
   const contentKind = getContentKind(file);
@@ -222,7 +246,7 @@ export const Thumb = memo(function Thumb({
           )}
           style={frameClassName ? undefined : { borderRadius: `${borderRadius}px` }}
           onLoad={() => setThumbLoaded(true)}
-          onError={() => setThumbError(true)}
+          onError={() => setFailedSrc(thumbnailSrc)}
         />
       )}
 

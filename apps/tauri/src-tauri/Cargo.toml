@@ -26,6 +26,8 @@ sd-tauri-core = { path = "../sd-tauri-core" }
 
 # Sidecar tree layout (shared with the daemon)
 sd-sidecar-path = { path = "../../../crates/sidecar-path" }
+sd-pvcache = { path = "../../../crates/pvcache" }
+image = { workspace = true }
 
 # File opening
 file-opening = { path = "../crates/file-opening" }
@@ -62,3 +64,6 @@ file-opening-linux = { path = "../crates/file-opening-linux" }
 [features]
 default = ["custom-protocol"]
 custom-protocol = ["tauri/custom-protocol"]
+
+[dev-dependencies]
+tempfile = { workspace = true }

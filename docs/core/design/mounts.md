@@ -400,17 +400,54 @@ the serving surface, and peer mounts landed immediately behind it.
   registry); share-name suffixes use the uuid tail (v7 leading characters
   are the mint timestamp and collide within an instant).
 
-**Findings for the register** (unfixed, discovered by the two-daemon test):
-a failed indexer job leaves the slot's `indexing_in_progress` set, so
-subsequent browses of that path never re-dispatch until restart; and the
-CLI does not append `instances/<name>` to `--data-dir` the way the daemon
-does, so instance-scoped CLI calls build paths under the wrong device
+**Findings for the register**, discovered by the two-daemon test and since
+cleared: a failed indexer job left the slot's `indexing_in_progress` set, so
+subsequent browses of that path never re-dispatched until restart; and the
+CLI did not append `instances/<name>` to `--data-dir` the way the daemon
+does, so instance-scoped CLI calls built paths under the wrong device
 identity ("Location root path is not local").
 
-**Not built yet**: the block cache and pinning (phase 5 — peer and cloud
-reads currently re-fetch), snapshot refresh by generation (replicas are
-point-in-time until the next sync), the native FSKit module (phase 3), and
-writes (phase 6).
+## Implementation status (2026-08-21)
+
+Phases 1 and 2 landed. `core/src/service/mounts/` is now `provider.rs` (the
+`ByteProvider` trait plus local, cloud and peer implementations), `cache.rs`
+(L1/L2 block cache, read-ahead, eviction), `smb.rs`, `trace.rs`, and a
+`webdav.rs` reduced to its HTTP half.
+
+- **Byte plane and block cache**, detailed in
+  `docs/plans/2026-08-20-byte-plane-and-block-cache.md`. Repeat reads and
+  backward scrubs over peer and cloud sources no longer cross the network.
+  Read-ahead is constructed per response and aborts when the reader goes
+  away. `mounts.cache_status` reports hit rate and bytes by tier. The size
+  cap is `AppConfig.mounts.cache_max_bytes` and applies without a restart.
+- **SMB loopback frontend** (`smb.rs`): an SMB2 server bound to 127.0.0.1
+  over the same resolver and arenas the WebDAV share reads, held read-only
+  by `BackendCapabilities::is_read_only`. `mounts.status` carries the mount
+  URL and hint.
+
+The measurement phase 1 exists to enable has not been run. Experiments 2 and
+5 are still the thing that decides whether SMB is sufficient or FSKit is
+required.
+
+**Snapshot refresh by generation** landed 2026-08-22. `RemoteSourceInfo`
+carries the snapshot's `source_version(size, mtime)` plus a `dirty` flag
+for arena changes the owner has not saved. A replica records the
+generation it was built from, so a listing where nothing moved costs one
+request and no transfer, and a paced refresh keeps a peer mount current
+while both machines stay connected rather than only at reconnect. Polling
+is adequate precisely because the comparison is cheap; a push protocol
+would still need this comparison underneath it to survive a missed
+message.
+
+Its limit: the arena goes fresh, but Finder may not repaint until its own
+directory cache expires. SMB2 CHANGE_NOTIFY is the standard way to tell a
+client to re-enumerate, and the server crate answers NOT_SUPPORTED —
+implementing it needs async-command support (held-open requests,
+out-of-band responses, CANCEL) that the crate's sequential dispatcher does
+not have. Worth measuring the staleness before forking a crate over it.
+
+**Not built yet**: drop takeover (phase 3), the native FSKit module
+(phase 4), pinning (phase 5), renditions (phase 6), writes (phase 7).
 
 ## Open questions
 

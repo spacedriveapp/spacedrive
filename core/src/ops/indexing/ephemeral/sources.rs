@@ -7,7 +7,7 @@
 //! and across remounts at different mount points.
 //!
 //! This registry is deliberately lightweight; it converges with the archive
-//! sources registry when filesystem sources gain durable spine stores.
+//! sources registry when filesystem sources gain durable record stores.
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};

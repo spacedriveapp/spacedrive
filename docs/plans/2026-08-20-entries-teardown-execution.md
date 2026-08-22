@@ -38,17 +38,24 @@ rather than inferring it from a diff.
 | T2.0b Volume/source boundary | **open — blocks T6.1** | — | recommendation written, not ruled on |
 | — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the spine |
 | T2.1–T2.7 | not started | — | T2.5 gates T4.9; T2.7 also fixes dedup inside a single source |
-| T3.1a–T3.1f | not started | — | spec complete, incl. pvcache format v2 |
+| T3.1a Format v2 | done | — | `pvcache/layout.rs:12` `FORMAT_VERSION = 2`, four header fields on the frame |
+| T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
+| T3.1c Producers return true extent | done | — | `ScaleMode::Fit` in `bake/src/raster.rs:48` |
+| T3.1d Producer in the daemon | landed | — | `core/src/service/thumbs/service.rs` — `BakePool` + `dirs.thumbs_file(source_id)`; not exercised end to end here |
+| T3.1e `/hot-thumb` route | **not started** | — | no route registered in Rust; `mounts/webdav.rs` has only `/dav*` |
+| T3.1f `Thumb.tsx` prefers hot tier | **partial — client ahead of server** | — | `ServerContext.tsx:182` builds `/hot-thumb/:source/:uuid/:version`, which 404s until T3.1e |
 | T4.1–T4.9 | not started | — | |
 | T4.10 Global search router | not started | — | gates the drop; decided it must exist first |
 | T5.1–T5.3 | not started | — | |
 | T6.1–T6.7 | not started | — | T6.1 blocked on T2.0b |
 | P7 Catalog | blocked | — | unblocked by P6 |
 
-**Not in this register, in flight elsewhere:** the byte plane, block cache and
-mount frontends, tracked by `2026-08-20-byte-plane-and-block-cache.md`. That work
-is on the sources path already and appears nowhere in the teardown's move or
-delete lists.
+**Not in this register, tracked elsewhere:** the byte plane, block cache and
+mount frontends, in `2026-08-20-byte-plane-and-block-cache.md` and the
+implementation status in `docs/core/design/mounts.md`. All four byte-plane
+phases and the SMB frontend have landed (`core/src/service/mounts/` now
+carries `provider.rs`, `cache.rs` and `smb.rs`). It sits on the sources path
+and appears nowhere in the teardown's move or delete lists.
 
 **Known failing before you start:** `ephemeral_watcher_test` fails on a clean
 tree — a rename leaves the index and does not return. Pre-existing, diagnosed in
@@ -813,8 +820,9 @@ One commit series. Sized from the actual tree.
   `Inspector/LocationInspector`, `AddLocationModal`, `AddStorageModal`) and
   mobile (`screens/explorer/useVirtualListing`, `screens/browse/LocationsGroup`,
   `screens/overview/OverviewScreen`, `screens/overview/DevicePanel`).
-- **T6.6 Flip the spine rule** in AGENTS.md from "do not deepen the entries
-  world" to "the entries world does not exist."
+- **T6.6 Flip the spine rule** in AGENTS.md ("Current direction") from "do not
+  deepen the entries world" to "the entries world does not exist," and drop
+  the `ephemeral` note once T6.7 has run.
 - **T6.7 Drop the `ephemeral` qualifier.** Its own commit, no behaviour riding
   along. See below.
 

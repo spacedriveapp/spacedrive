@@ -59,10 +59,12 @@ impl PvcacheReader {
 		Ok(reader)
 	}
 
-	/// Copy the tile for `uuid` into `buf` (exactly [`Self::tile_len`] bytes)
-	/// and compare its stored version against `expected_version`. Both fresh
-	/// and stale hits fill the buffer. Takes `&mut self` because the handle
-	/// may remap the grown file and extend its slot index.
+	/// Copy the tile for `uuid` into `buf` (sized for the envelope, exactly
+	/// [`Self::tile_len`] bytes) and compare its stored version against
+	/// `expected_version`. Both fresh and stale hits fill the buffer, and the
+	/// returned state carries the frame describing how much of it is valid.
+	/// Takes `&mut self` because the handle may remap the grown file and
+	/// extend its slot index.
 	pub fn get(&mut self, uuid: Uuid, expected_version: u64, buf: &mut [u8]) -> Result<TileState> {
 		let expected = self.geometry.tile_len();
 		if buf.len() != expected {
@@ -100,15 +102,18 @@ impl PvcacheReader {
 		))
 	}
 
+	/// Envelope width: the widest frame a slot in this file can hold.
 	pub fn tile_width(&self) -> u32 {
 		self.geometry.tile_width
 	}
 
+	/// Envelope height: the tallest frame a slot in this file can hold.
 	pub fn tile_height(&self) -> u32 {
 		self.geometry.tile_height
 	}
 
-	/// Bytes per tile: `tile_width * tile_height * 4`.
+	/// Bytes a full-envelope tile occupies, and the buffer size [`Self::get`]
+	/// expects: `tile_width * tile_height * 4`.
 	pub fn tile_len(&self) -> usize {
 		self.geometry.tile_len()
 	}

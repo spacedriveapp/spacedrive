@@ -1,6 +1,6 @@
 //! Query router: fan-out search across sources.
 //!
-//! Every source is searched through its spine, so results from different data
+//! Every source is searched through its record table, so results from different data
 //! types come back in one shape. Durable overlays are composed onto the hits
 //! before they are returned — callers never join the layers themselves.
 
