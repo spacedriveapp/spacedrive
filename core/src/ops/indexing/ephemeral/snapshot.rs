@@ -299,4 +299,3 @@ pub(super) fn load_snapshot_impl(
 
 	Ok(Some((index, meta)))
 }
-

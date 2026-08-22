@@ -14,9 +14,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	println!("\nCreating Spacedrive Memory File\n");
 
 	// Output path
-	let output_path = PathBuf::from(
-		concat!(env!("CARGO_MANIFEST_DIR"), "/../workbench/test-memories/memory-file-system.memory"),
-	);
+	let output_path = PathBuf::from(concat!(
+		env!("CARGO_MANIFEST_DIR"),
+		"/../workbench/test-memories/memory-file-system.memory"
+	));
 
 	// Ensure directory exists
 	if let Some(parent) = output_path.parent() {

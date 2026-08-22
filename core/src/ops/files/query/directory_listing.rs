@@ -712,9 +712,7 @@ impl DirectoryListingQuery {
 							file.content_kind = content_kind;
 							// Directories report their subtree rollup rather
 							// than the directory entry's own on-disk size.
-							if metadata.kind
-								== crate::ops::indexing::state::EntryKind::Directory
-							{
+							if metadata.kind == crate::ops::indexing::state::EntryKind::Directory {
 								if let Some(bytes) = index_write.subtree_size(&child_path) {
 									file.size = bytes;
 								}

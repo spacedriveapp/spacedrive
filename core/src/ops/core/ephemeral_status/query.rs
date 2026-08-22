@@ -68,19 +68,20 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			idle_seconds: f64::MAX,
 			memory_breakdown: None,
 		};
-		let mut breakdown_totals = self.input.detailed.then(|| {
-			super::output::MemoryBreakdownStats {
-				arena: 0,
-				cache: 0,
-				registry: 0,
-				path_index_overhead: 0,
-				path_index_entries: 0,
-				entry_uuids_overhead: 0,
-				entry_uuids_entries: 0,
-				content_kinds_overhead: 0,
-				content_kinds_entries: 0,
-			}
-		});
+		let mut breakdown_totals =
+			self.input
+				.detailed
+				.then(|| super::output::MemoryBreakdownStats {
+					arena: 0,
+					cache: 0,
+					registry: 0,
+					path_index_overhead: 0,
+					path_index_entries: 0,
+					entry_uuids_overhead: 0,
+					entry_uuids_entries: 0,
+					content_kinds_overhead: 0,
+					content_kinds_entries: 0,
+				});
 
 		for index in cache.all_indexes() {
 			let index = index.read().await;

@@ -17,7 +17,7 @@
 //! - **Schema-driven sources** — Each data source has its own SQLite index and
 //!   TOML schema. Sources are portable.
 //!
-//! ## Two files
+//! ## The store
 //!
 //! A source **store** is one SQLite file per source. Every row in it sits in
 //! the universal record table ([`record`]), with type-specific columns in facet
@@ -26,14 +26,12 @@
 //! fall back on. Plenty of origins cannot be re-scanned on demand — a detached
 //! drive, a revoked token, a closed account.
 //!
-//! The **library** ([`library`]) holds what no ingest produced: overlays,
-//! curated groupings and cross-source edges. It keys on
-//! `(source_id, type, external_id)` rather than the record uuid, so assertions
-//! rebind when a source is removed and added back.
+//! `record_overlay` sits in the same file, holding what no ingest
+//! produced: the scalar assertions a person makes about a record. It keys on
+//! `(type, external_id)` so it survives a re-index minting fresh uuids.
 //!
-//! Splitting them across two files is the shape this crate has today, not the
-//! one it is heading for. `docs/plans/2026-08-22-source-convergence.md` P1
-//! settles where the durable tables live.
+//! Cross-source assertions have no home yet and no caller. They arrive with
+//! `catalog.db`; see `docs/plans/2026-08-22-source-convergence.md`.
 //!
 //! ## Architecture
 //!
@@ -46,8 +44,8 @@
 //!     -> SourceManager (wraps sd-archive Engine)
 //!       -> Engine
 //!         -> AdapterRegistry
-//!         -> Registry + Library   (registry.db)
-//!         -> SourceDb             (per source: records + facets)
+//!         -> Registry             (registry.db)
+//!         -> SourceDb             (per source: records, facets, overlays)
 //!         -> SearchRouter
 //! ```
 
@@ -55,7 +53,6 @@ pub mod adapter;
 pub mod db;
 pub mod engine;
 pub mod error;
-pub mod library;
 pub mod record;
 pub mod registry;
 pub mod schema;
@@ -67,7 +64,6 @@ pub use adapter::script::ConfigField;
 pub use adapter::{AdapterInfo, AdapterUpdateResult, SyncReport};
 pub use engine::{Engine, EngineConfig};
 pub use error::{Error, Result};
-pub use library::{Grouping, LibEdge, Library, RecordKey};
 pub use record::{ContentIdentity, Record};
 pub use registry::{DataTypeInfo, NewSource, Registry, SourceInfo, TrustTier};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};

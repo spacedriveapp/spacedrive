@@ -400,9 +400,7 @@ pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
 		Ok(String::from_utf8_lossy(&output.stdout).to_string())
 	})
 	.await
-	.map_err(|e| {
-		crate::volume::error::VolumeError::platform(format!("Task join error: {}", e))
-	})?
+	.map_err(|e| crate::volume::error::VolumeError::platform(format!("Task join error: {}", e)))?
 }
 
 /// Enhance a volume using pre-fetched `zfs list` output (no subprocess call)

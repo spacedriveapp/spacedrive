@@ -99,7 +99,10 @@ impl LibraryAction for UnapplyTagsAction {
 
 		// Delete user_metadata_tag records
 		let result = user_metadata_tag::Entity::delete_many()
-			.filter(user_metadata_tag::Column::UserMetadataId.is_in(um_ids.into_iter().collect::<Vec<_>>()))
+			.filter(
+				user_metadata_tag::Column::UserMetadataId
+					.is_in(um_ids.into_iter().collect::<Vec<_>>()),
+			)
 			.filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids))
 			.exec(conn)
 			.await

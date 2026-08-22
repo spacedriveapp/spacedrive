@@ -292,14 +292,13 @@ impl VideoGenerator {
 			// The written WebP carries the frame's real aspect ratio; reading
 			// its header is the authority on the output dimensions.
 			let output_path = output_path.to_path_buf();
-			let dimensions = tokio::task::spawn_blocking(move || {
-				image::image_dimensions(&output_path)
-			})
-			.await
-			.map_err(|e| ThumbnailError::other(format!("Task join error: {}", e)))?
-			.map_err(|e| {
-				ThumbnailError::other(format!("Failed to read thumbnail dimensions: {}", e))
-			})?;
+			let dimensions =
+				tokio::task::spawn_blocking(move || image::image_dimensions(&output_path))
+					.await
+					.map_err(|e| ThumbnailError::other(format!("Task join error: {}", e)))?
+					.map_err(|e| {
+						ThumbnailError::other(format!("Failed to read thumbnail dimensions: {}", e))
+					})?;
 
 			Ok(ThumbnailInfo {
 				size_bytes: file_size,

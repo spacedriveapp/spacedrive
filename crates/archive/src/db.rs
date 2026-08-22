@@ -5,6 +5,7 @@
 //! The model's own declared fields go to its facet table, and relationships
 //! become `edge` rows. Nothing is stored twice.
 
+use std::collections::HashMap;
 use std::fmt::Write;
 
 use crate::error::{Error, Result};
@@ -614,6 +615,91 @@ impl SourceDb {
 		Ok(())
 	}
 
+	/// Merge fields onto a record's overlay. A field set to JSON `null` is
+	/// removed; the rest are shallow-merged over what is already stored.
+	pub async fn set_overlay(
+		&self,
+		type_: &str,
+		external_id: &str,
+		fields: &serde_json::Value,
+	) -> Result<serde_json::Value> {
+		let incoming = fields
+			.as_object()
+			.ok_or_else(|| Error::Other("overlay fields must be a JSON object".to_string()))?;
+
+		let mut merged = match self.get_overlay(type_, external_id).await? {
+			serde_json::Value::Object(map) => map,
+			_ => serde_json::Map::new(),
+		};
+
+		for (k, v) in incoming {
+			if v.is_null() {
+				merged.remove(k);
+			} else {
+				merged.insert(k.clone(), v.clone());
+			}
+		}
+
+		let encoded = serde_json::to_string(&merged)?;
+		sqlx::query(
+			"INSERT INTO record_overlay (type, external_id, fields, updated_at)
+			 VALUES (?, ?, ?, datetime('now'))
+			 ON CONFLICT (type, external_id) DO UPDATE SET
+				fields = excluded.fields, updated_at = excluded.updated_at",
+		)
+		.bind(type_)
+		.bind(external_id)
+		.bind(&encoded)
+		.execute(&self.pool)
+		.await?;
+
+		Ok(serde_json::Value::Object(merged))
+	}
+
+	/// Read one record's overlay. Returns an empty object when none is stored.
+	pub async fn get_overlay(&self, type_: &str, external_id: &str) -> Result<serde_json::Value> {
+		let row: Option<(String,)> =
+			sqlx::query_as("SELECT fields FROM record_overlay WHERE type = ? AND external_id = ?")
+				.bind(type_)
+				.bind(external_id)
+				.fetch_optional(&self.pool)
+				.await?;
+
+		Ok(row
+			.map(|(fields,)| decode_overlay(&fields))
+			.unwrap_or_else(empty_object))
+	}
+
+	/// Read overlays for many records of one type in a single query. Records
+	/// without an overlay are absent from the map.
+	pub async fn overlays_for(
+		&self,
+		type_: &str,
+		external_ids: &[String],
+	) -> Result<HashMap<String, serde_json::Value>> {
+		if external_ids.is_empty() {
+			return Ok(HashMap::new());
+		}
+
+		let placeholders = vec!["?"; external_ids.len()].join(", ");
+		let sql = format!(
+			"SELECT external_id, fields FROM record_overlay
+			 WHERE type = ? AND external_id IN ({placeholders})"
+		);
+
+		let mut query = sqlx::query_as::<_, (String, String)>(&sql).bind(type_);
+		for id in external_ids {
+			query = query.bind(id);
+		}
+
+		Ok(query
+			.fetch_all(&self.pool)
+			.await?
+			.into_iter()
+			.map(|(external_id, fields)| (external_id, decode_overlay(&fields)))
+			.collect())
+	}
+
 	/// Rebuild the whole search index from the primary type's records.
 	pub async fn rebuild_search_index(&self) -> Result<u64> {
 		let fields = indexed_search_fields(&self.schema);
@@ -866,6 +952,16 @@ fn normalize_epoch(value: i64) -> i64 {
 	} else {
 		value
 	}
+}
+
+fn empty_object() -> serde_json::Value {
+	serde_json::Value::Object(serde_json::Map::new())
+}
+
+/// A stored overlay that no longer parses is treated as absent rather than
+/// failing the read it was attached to.
+fn decode_overlay(fields: &str) -> serde_json::Value {
+	serde_json::from_str(fields).unwrap_or_else(|_| empty_object())
 }
 
 #[derive(sqlx::FromRow)]

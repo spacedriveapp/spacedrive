@@ -199,17 +199,29 @@ writing adapter — it is now drained into tracing.
    already this document's vocabulary; a *source* is origin plus ingest plus
    store, and the crate is only the last of the three.
 2. **Give `edge` a payload** (see Open). P2 writes against it, so it lands here.
-3. **Delete `grouping` and `lib_edge`** per decision 6. Move `record_overlay`
-   into `source.db`, dropping `source_id` from its key.
-4. **Retire the Apple Photos adapter, keep the Photos reader.** It is the only
-   native adapter, so it is single-handedly why `AdapterKind::Native`,
-   `register_native_adapters`, and the `rusqlite`/`libc`/`dirs` dependencies
-   exist; all of that goes with it. What survives is the reader — the `ZASSET`
-   queries, the album and people joins, the thumbnail fallback chain. Under
-   decision 5 that is the harvest path for file-backed enrichment, not a
-   parked adapter: it reads Apple's structure so P2 can project places, faces
-   and albums onto filesystem records. Drop the `Import → Photos` entry in
-   `ImportGroup.tsx` in the same change, or it points at nothing.
+3. **Done.** Deleted `grouping` and `lib_edge` per decision 6, and with them
+   the whole `library` module, `RecordKey`, and the `Engine`/`SourceManager`
+   pass-throughs nothing called. `record_overlay` moved into `source.db` as
+   `SourceDb::{set_overlay, get_overlay, overlays_for}`, keyed
+   `(type, external_id)`. `registry.db` is now `sources` and `data_types`
+   only — no durable layer, so there is no shared file left to argue about.
+
+   **Semantic change.** Deleting a source now discards its assertions, because
+   they live in the file being deleted. The old shape kept them in
+   `registry.db` so re-adding a source rebound them. Re-index is the operation
+   that preserves them — replace what an ingest produced, leave
+   `record_overlay` alone — and it does not exist yet. Nothing calls
+   `delete_source` on a source with assertions today, so this is a design
+   change rather than a regression, but re-index has to land before either is
+   reachable from an op.
+4. **Done.** Retired the Apple Photos adapter; the reader is now
+   `crates/photos` (`sd-photos`), standalone and read-only. Its API speaks
+   ordinary units — unix milliseconds rather than Core Data seconds, a
+   `MediaKind` rather than `ZKIND` — so every Apple-specific decode stays
+   behind the boundary. It is the harvest path for decision 5's enrichment
+   when P2 lands. `AdapterKind`, `register_native_adapters`, the
+   `rusqlite`/`libc`/`dirs` dependencies and the `Import → Photos` entry all
+   went with the adapter.
 5. **Done.** Reconciled the crate docs with decision 2. `lib.rs`, `library.rs`,
    `source.rs` and `record.rs` all opened by calling the source store
    disposable; they now say it is user data and point at P1 for where the

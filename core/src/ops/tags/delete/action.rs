@@ -79,7 +79,9 @@ impl LibraryAction for DeleteTagAction {
 						let ci_ids: Vec<i32> = cis.iter().map(|ci| ci.id).collect();
 						if !ci_ids.is_empty() {
 							let entries = entry::Entity::find()
-								.filter(entry::Column::ContentId.is_in(ci_ids.into_iter().map(Some)))
+								.filter(
+									entry::Column::ContentId.is_in(ci_ids.into_iter().map(Some)),
+								)
 								.all(conn)
 								.await
 								.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
@@ -104,10 +106,8 @@ impl LibraryAction for DeleteTagAction {
 		// tags will reappear on other devices after sync. Tracked for a dedicated
 		// sync-deletion PR.
 
-		let resource_manager = crate::domain::ResourceManager::new(
-			Arc::new(conn.clone()),
-			_context.events.clone(),
-		);
+		let resource_manager =
+			crate::domain::ResourceManager::new(Arc::new(conn.clone()), _context.events.clone());
 
 		// Emit "tag" event so sidebar refreshes
 		if let Err(e) = resource_manager
@@ -123,7 +123,10 @@ impl LibraryAction for DeleteTagAction {
 				.emit_resource_events("file", affected_entry_uuids)
 				.await
 			{
-				tracing::warn!("Failed to emit file resource events after tag deletion: {}", e);
+				tracing::warn!(
+					"Failed to emit file resource events after tag deletion: {}",
+					e
+				);
 			}
 		}
 

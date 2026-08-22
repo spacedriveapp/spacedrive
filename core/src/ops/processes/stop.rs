@@ -32,9 +32,10 @@ impl CoreAction for ProcessStopAction {
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		let manager = context.processes().await.ok_or_else(|| {
-			ActionError::Internal("process manager not initialized".to_string())
-		})?;
+		let manager = context
+			.processes()
+			.await
+			.ok_or_else(|| ActionError::Internal("process manager not initialized".to_string()))?;
 		let status = manager
 			.supervisor()
 			.stop(&self.name)

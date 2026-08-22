@@ -9,7 +9,6 @@ use std::sync::Arc;
 
 use crate::db::TemporalFilter;
 use crate::error::Result;
-use crate::library::Library;
 use crate::registry::Registry;
 use crate::search::{SearchFilter, SearchResult};
 use crate::source::SourceManager;
@@ -19,21 +18,12 @@ const DEFAULT_LIMIT: usize = 20;
 /// Routes search queries across all sources.
 pub struct SearchRouter {
 	pub(crate) registry: Arc<Registry>,
-	pub(crate) library: Arc<Library>,
 	pub(crate) sources: Arc<SourceManager>,
 }
 
 impl SearchRouter {
-	pub fn new(
-		registry: Arc<Registry>,
-		library: Arc<Library>,
-		sources: Arc<SourceManager>,
-	) -> Self {
-		Self {
-			registry,
-			library,
-			sources,
-		}
+	pub fn new(registry: Arc<Registry>, sources: Arc<SourceManager>) -> Self {
+		Self { registry, sources }
 	}
 
 	/// Search across all (or filtered) sources.
@@ -98,9 +88,8 @@ impl SearchRouter {
 			let record_type = db.schema().search.primary_model.clone();
 			let external_ids: Vec<String> =
 				fts_hits.iter().map(|h| h.external_id.clone()).collect();
-			let overlays = self
-				.library
-				.overlays_for(&source_info.id, &record_type, &external_ids)
+			let overlays = db
+				.overlays_for(&record_type, &external_ids)
 				.await
 				.unwrap_or_else(|e| {
 					tracing::warn!(source_id = %source_info.id, error = %e, "failed to load overlays");

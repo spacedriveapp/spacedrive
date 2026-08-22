@@ -216,12 +216,10 @@ impl FileSearchQuery {
 		// Apply tag filter on FTS results
 		if let Some(tag_filter) = &self.input.filters.tags {
 			let (include_ids, exclude_ids) = self.resolve_tag_filter(db, tag_filter).await?;
-			let include_set: Option<HashSet<i32>> =
-				include_ids.map(|v| v.into_iter().collect());
+			let include_set: Option<HashSet<i32>> = include_ids.map(|v| v.into_iter().collect());
 			let exclude_set: HashSet<i32> = exclude_ids.into_iter().collect();
 			fts_results.retain(|(id, _)| {
-				include_set.as_ref().map_or(true, |s| s.contains(id))
-					&& !exclude_set.contains(id)
+				include_set.as_ref().map_or(true, |s| s.contains(id)) && !exclude_set.contains(id)
 			});
 			if fts_results.is_empty() {
 				return Ok(Vec::new());
@@ -1025,10 +1023,7 @@ impl FileSearchQuery {
 		};
 
 		// Batch sidecars by content UUID
-		let content_uuids: Vec<Uuid> = content_identities
-			.iter()
-			.filter_map(|ci| ci.uuid)
-			.collect();
+		let content_uuids: Vec<Uuid> = content_identities.iter().filter_map(|ci| ci.uuid).collect();
 
 		let all_sidecars = if !content_uuids.is_empty() {
 			sidecar::Entity::find()
@@ -1062,18 +1057,14 @@ impl FileSearchQuery {
 		}
 
 		// Index content identities by entry content_id for per-entry lookup
-		let identities_by_content_id: std::collections::HashMap<
-			i32,
-			&content_identity::Model,
-		> = content_identities.iter().map(|ci| (ci.id, ci)).collect();
+		let identities_by_content_id: std::collections::HashMap<i32, &content_identity::Model> =
+			content_identities.iter().map(|ci| (ci.id, ci)).collect();
 
 		// Convert entries to FileSearchResult, hydrating each with content_identity
 		let mut results = Vec::new();
 		for entry_model in entries {
 			let content_id = entry_model.content_id;
-			if let Some(mut result) =
-				self.entry_to_search_result(entry_model, db, 1.0).await?
-			{
+			if let Some(mut result) = self.entry_to_search_result(entry_model, db, 1.0).await? {
 				if let Some(cid) = content_id {
 					if let Some(ci) = identities_by_content_id.get(&cid) {
 						let kind = kinds_by_id
@@ -1619,10 +1610,11 @@ impl FileSearchQuery {
 			.all(db)
 			.await?;
 
-		let entry_uuids: Vec<Uuid> =
-			um_records.iter().filter_map(|um| um.entry_uuid).collect();
-		let ci_uuids: Vec<Uuid> =
-			um_records.iter().filter_map(|um| um.content_identity_uuid).collect();
+		let entry_uuids: Vec<Uuid> = um_records.iter().filter_map(|um| um.entry_uuid).collect();
+		let ci_uuids: Vec<Uuid> = um_records
+			.iter()
+			.filter_map(|um| um.content_identity_uuid)
+			.collect();
 
 		let mut entry_ids: HashSet<i32> = HashSet::new();
 
@@ -1666,8 +1658,11 @@ impl FileSearchQuery {
 		let include_ids = if !tag_filter.include.is_empty() {
 			let mut result_set: Option<HashSet<i32>> = None;
 			for tag_uuid in &tag_filter.include {
-				let ids: HashSet<i32> =
-					self.find_entry_ids_for_tag(db, *tag_uuid).await?.into_iter().collect();
+				let ids: HashSet<i32> = self
+					.find_entry_ids_for_tag(db, *tag_uuid)
+					.await?
+					.into_iter()
+					.collect();
 				result_set = Some(match result_set {
 					None => ids,
 					Some(existing) => existing.intersection(&ids).copied().collect(),

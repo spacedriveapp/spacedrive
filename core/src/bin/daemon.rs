@@ -49,10 +49,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Calculate instance-specific data directory and socket address;
 	// each named instance gets its own data directory and derived port
 	let socket_addr = daemon_socket_addr(args.instance.as_deref()).to_string();
-	let data_dir = sd_core::infra::daemon::addr::instance_data_dir(
-		base_data_dir,
-		args.instance.as_deref(),
-	);
+	let data_dir =
+		sd_core::infra::daemon::addr::instance_data_dir(base_data_dir, args.instance.as_deref());
 
 	// Set up signal handling for graceful shutdown
 	let ctrl_c = async {

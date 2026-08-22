@@ -111,8 +111,7 @@ fn parse_df_line(
 	let auto_track_eligible = is_user_visible
 		&& matches!(
 			volume_type,
-			crate::volume::types::VolumeType::Primary
-				| crate::volume::types::VolumeType::UserData
+			crate::volume::types::VolumeType::Primary | crate::volume::types::VolumeType::UserData
 		);
 
 	// Generate stable fingerprint based on volume type
@@ -175,10 +174,7 @@ fn should_be_user_visible_linux(mount_point: &std::path::Path, filesystem_type: 
 	}
 
 	if utils::is_system_mount_point(mount_point) {
-		debug!(
-			"VISIBILITY: Hiding system mount: {}",
-			mount_point.display()
-		);
+		debug!("VISIBILITY: Hiding system mount: {}", mount_point.display());
 		return false;
 	}
 
@@ -326,8 +322,7 @@ pub fn create_volume_from_mount(mount: MountInfo, device_id: Uuid) -> VolumeResu
 	let auto_track_eligible = is_user_visible
 		&& matches!(
 			volume_type,
-			crate::volume::types::VolumeType::Primary
-				| crate::volume::types::VolumeType::UserData
+			crate::volume::types::VolumeType::Primary | crate::volume::types::VolumeType::UserData
 		);
 
 	// Generate stable fingerprint based on volume type

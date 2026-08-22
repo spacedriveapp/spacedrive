@@ -1,7 +1,6 @@
 //! End-to-end checks against real SQLite indexes: ingest through the adapter
 //! protocol's shape, then read back through the record table.
 
-use sd_archive::library::{Library, RecordKey};
 use sd_archive::record::facet_table;
 use sd_archive::schema::parser;
 use sd_archive::source::SourceManager;
@@ -384,27 +383,28 @@ async fn scan_epoch_advances_per_sync_run() {
 }
 
 #[tokio::test]
-async fn overlays_survive_source_deletion() {
-	let dir = tempfile::tempdir().expect("tempdir");
-	let pool = sqlx::SqlitePool::connect(&format!(
-		"sqlite:{}?mode=rwc",
-		dir.path().join("registry.db").display()
-	))
+async fn overlays_merge_and_rebind_by_external_id() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	db.upsert(
+		"note",
+		"note-1",
+		&json!({ "title": "Quarterly report", "body": "revenue is up" }),
+	)
 	.await
-	.expect("pool");
+	.expect("upsert");
 
-	let library = Library::new(pool).await.expect("library");
-	let key = RecordKey::new("src-1", "note", "note-1");
-
-	library
-		.set_overlay(&key, &json!({ "starred": true, "tag": "work" }))
+	db.set_overlay("note", "note-1", &json!({ "starred": true, "tag": "work" }))
 		.await
 		.expect("set");
 
 	// Merge semantics: absent keys are preserved, explicit null clears.
-	let merged = library
+	let merged = db
 		.set_overlay(
-			&key,
+			"note",
+			"note-1",
 			&json!({ "tag": serde_json::Value::Null, "note": "hi" }),
 		)
 		.await
@@ -414,39 +414,47 @@ async fn overlays_survive_source_deletion() {
 	assert_eq!(merged["note"], json!("hi"));
 	assert!(merged.get("tag").is_none(), "null clears the field");
 
-	// A source's index being destroyed does not touch the durable layer.
-	let after = library.get_overlay(&key).await.expect("get");
+	// The overlay keys on (type, external_id), so re-ingesting the record with
+	// a fresh uuid rebinds to the same assertions.
+	db.delete("note", "note-1").await.expect("delete");
+	db.upsert("note", "note-1", &json!({ "title": "Q3", "body": "again" }))
+		.await
+		.expect("re-upsert");
+
+	let after = db.get_overlay("note", "note-1").await.expect("get");
 	assert_eq!(after["starred"], json!(true));
+	assert_eq!(after["note"], json!("hi"));
 }
 
 #[tokio::test]
-async fn durable_edges_span_sources() {
-	let dir = tempfile::tempdir().expect("tempdir");
-	let pool = sqlx::SqlitePool::connect(&format!(
-		"sqlite:{}?mode=rwc",
-		dir.path().join("registry.db").display()
-	))
+async fn search_hits_carry_their_overlay() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	db.upsert(
+		"note",
+		"note-1",
+		&json!({ "title": "Quarterly report", "body": "revenue is up" }),
+	)
 	.await
-	.expect("pool");
+	.expect("upsert");
+	db.upsert(
+		"note",
+		"note-2",
+		&json!({ "title": "Quarterly plan", "body": "revenue targets" }),
+	)
+	.await
+	.expect("upsert");
 
-	let library = Library::new(pool).await.expect("library");
-	let email = RecordKey::new("gmail", "message", "msg-1");
-	let note = RecordKey::new("obsidian", "note", "note-1");
-
-	library.link(&email, &note, "mentions").await.expect("link");
-
-	let neighbors = library.neighbors(&email, None).await.expect("neighbors");
-	assert_eq!(neighbors.len(), 1);
-	assert!(neighbors[0].1, "email is the edge source");
-	assert_eq!(neighbors[0].0.dst, note);
-
-	let inbound = library.neighbors(&note, None).await.expect("inbound");
-	assert_eq!(inbound.len(), 1);
-	assert!(!inbound[0].1, "note is the edge target");
-
-	library
-		.unlink(&email, &note, "mentions")
+	db.set_overlay("note", "note-1", &json!({ "starred": true }))
 		.await
-		.expect("unlink");
-	assert!(library.neighbors(&email, None).await.unwrap().is_empty());
+		.expect("set");
+
+	let hits = db.fts_search("quarterly", 10, None).await.expect("search");
+	let ids: Vec<String> = hits.iter().map(|h| h.external_id.clone()).collect();
+	let overlays = db.overlays_for("note", &ids).await.expect("overlays");
+
+	assert_eq!(overlays.len(), 1, "only the annotated record has one");
+	assert_eq!(overlays["note-1"]["starred"], json!(true));
 }

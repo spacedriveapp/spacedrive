@@ -97,8 +97,10 @@ impl LibraryQuery for RedundancySummaryQuery {
 
 		let volume_id_to_uuid: HashMap<i32, Uuid> =
 			all_volumes.iter().map(|v| (v.id, v.uuid)).collect();
-		let volume_id_to_name: HashMap<i32, Option<String>> =
-			all_volumes.iter().map(|v| (v.id, v.display_name.clone())).collect();
+		let volume_id_to_name: HashMap<i32, Option<String>> = all_volumes
+			.iter()
+			.map(|v| (v.id, v.display_name.clone()))
+			.collect();
 
 		// Helper to build volume ID WHERE clause
 		let volume_where = match &volume_id_filter {
@@ -136,9 +138,10 @@ impl LibraryQuery for RedundancySummaryQuery {
 			volume_where
 		);
 
-		let at_risk_rows = VolumeRedundancyRow::find_by_statement(
-			Statement::from_string(DbBackend::Sqlite, at_risk_sql),
-		)
+		let at_risk_rows = VolumeRedundancyRow::find_by_statement(Statement::from_string(
+			DbBackend::Sqlite,
+			at_risk_sql,
+		))
 		.all(db)
 		.await?;
 
@@ -165,9 +168,10 @@ impl LibraryQuery for RedundancySummaryQuery {
 			volume_where
 		);
 
-		let redundant_rows = VolumeRedundancyRow::find_by_statement(
-			Statement::from_string(DbBackend::Sqlite, redundant_sql),
-		)
+		let redundant_rows = VolumeRedundancyRow::find_by_statement(Statement::from_string(
+			DbBackend::Sqlite,
+			redundant_sql,
+		))
 		.all(db)
 		.await?;
 

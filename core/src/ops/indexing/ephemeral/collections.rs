@@ -34,13 +34,13 @@ pub fn display_name(slug: &str) -> Option<&'static str> {
 /// case-insensitive and prefix-anchored; loose substring matching is
 /// deliberately avoided (a file merely *about* screenshots is not one).
 const SCREENSHOT_PREFIXES: &[&str] = &[
-	"screenshot",     // macOS Ventura+, Android, Windows 11
-	"screen shot",    // older macOS
-	"cleanshot",      // CleanShot X
-	"scr-",           // various Android vendors
-	"screencapture",  // macOS `screencapture` CLI default
-	"greenshot",      // Greenshot (Windows)
-	"monosnap",       // Monosnap
+	"screenshot",    // macOS Ventura+, Android, Windows 11
+	"screen shot",   // older macOS
+	"cleanshot",     // CleanShot X
+	"scr-",          // various Android vendors
+	"screencapture", // macOS `screencapture` CLI default
+	"greenshot",     // Greenshot (Windows)
+	"monosnap",      // Monosnap
 ];
 
 const SCREEN_RECORDING_PREFIXES: &[&str] = &[
@@ -55,9 +55,7 @@ pub fn classify(file_name: &str, kind: ContentKind) -> u32 {
 	// Prefix checks run on a lowercased copy once; names are short.
 	let lower = file_name.to_lowercase();
 
-	if kind == ContentKind::Image
-		&& SCREENSHOT_PREFIXES.iter().any(|p| lower.starts_with(p))
-	{
+	if kind == ContentKind::Image && SCREENSHOT_PREFIXES.iter().any(|p| lower.starts_with(p)) {
 		flags |= SCREENSHOTS;
 	}
 	if kind == ContentKind::Video

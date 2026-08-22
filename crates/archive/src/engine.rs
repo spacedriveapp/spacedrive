@@ -9,7 +9,6 @@ use std::sync::Arc;
 use crate::adapter::script::{ConfigField, ScriptAdapter};
 use crate::adapter::{Adapter, AdapterRegistry, SyncReport};
 use crate::error::{Error, Result};
-use crate::library::{Grouping, LibEdge, Library, RecordKey};
 use crate::registry::{NewSource, Registry, SourceInfo};
 use crate::search::router::SearchRouter;
 use crate::search::{SearchFilter, SearchResult};
@@ -25,7 +24,6 @@ pub struct EngineConfig {
 pub struct Engine {
 	config: EngineConfig,
 	registry: Arc<Registry>,
-	library: Arc<Library>,
 	sources: Arc<SourceManager>,
 	adapters: AdapterRegistry,
 	search: SearchRouter,
@@ -39,12 +37,11 @@ impl Engine {
 		// Ensure data directory exists
 		std::fs::create_dir_all(data_dir)?;
 
-		// Initialize the durable layer (registry.db): source registry + knowledge
+		// Initialize the source registry (registry.db)
 		let registry_path = data_dir.join("registry.db");
 		let registry_url = format!("sqlite:{}?mode=rwc", registry_path.display());
 		let pool = sqlx::SqlitePool::connect(&registry_url).await?;
-		let registry = Arc::new(Registry::new(pool.clone()).await?);
-		let library = Arc::new(Library::new(pool).await?);
+		let registry = Arc::new(Registry::new(pool).await?);
 
 		// Initialize source manager
 		let sources_dir = data_dir.join("sources");
@@ -52,7 +49,7 @@ impl Engine {
 		let sources = Arc::new(SourceManager::new(sources_dir));
 
 		// Initialize search router
-		let search = SearchRouter::new(registry.clone(), library.clone(), sources.clone());
+		let search = SearchRouter::new(registry.clone(), sources.clone());
 
 		let adapters = AdapterRegistry::new();
 		let adapters_dir = data_dir.join("adapters");
@@ -62,7 +59,6 @@ impl Engine {
 		Ok(Self {
 			config,
 			registry,
-			library,
 			sources,
 			adapters,
 			search,
@@ -105,11 +101,6 @@ impl Engine {
 	/// Access the registry (list sources, data types).
 	pub fn registry(&self) -> &Registry {
 		&self.registry
-	}
-
-	/// Access the durable knowledge layer (overlays, groupings, cross-source edges).
-	pub fn library(&self) -> &Library {
-		&self.library
 	}
 
 	/// Access the source manager.
@@ -178,60 +169,17 @@ impl Engine {
 		Ok(source_info)
 	}
 
-	/// Delete a source: its index on disk and its registry entry.
+	/// Delete a source: its store on disk and its registry entry.
 	///
-	/// Durable assertions are deliberately left in place. They key on
-	/// `(source_id, type, external_id)`, so re-adding the same source rebinds
-	/// them instead of orphaning them. Use
-	/// [`Library::clear_source_overlays`] to discard them on purpose.
+	/// The store holds the source's assertions, so this discards them too.
+	/// Re-indexing a source is a different operation — it replaces the rows an
+	/// ingest produced and leaves `record_overlay` alone, which is what the
+	/// `(type, external_id)` key is for.
 	pub async fn delete_source(&self, source_id: &str) -> Result<()> {
 		self.sources.delete(source_id).await?;
 		self.registry.delete_source(source_id).await?;
 
 		Ok(())
-	}
-
-	/// Merge durable assertions onto a record.
-	pub async fn set_overlay(
-		&self,
-		source_id: &str,
-		type_: &str,
-		external_id: &str,
-		fields: &serde_json::Value,
-	) -> Result<serde_json::Value> {
-		self.library
-			.set_overlay(&RecordKey::new(source_id, type_, external_id), fields)
-			.await
-	}
-
-	/// Create a durable cross-record edge.
-	pub async fn link(&self, src: &RecordKey, dst: &RecordKey, edge_type: &str) -> Result<()> {
-		self.library.link(src, dst, edge_type).await
-	}
-
-	/// Remove a durable cross-record edge.
-	pub async fn unlink(&self, src: &RecordKey, dst: &RecordKey, edge_type: &str) -> Result<()> {
-		self.library.unlink(src, dst, edge_type).await
-	}
-
-	/// Durable edges touching a record. The bool is `true` when the record is the
-	/// edge's source.
-	pub async fn neighbors(
-		&self,
-		key: &RecordKey,
-		edge_type: Option<&str>,
-	) -> Result<Vec<(LibEdge, bool)>> {
-		self.library.neighbors(key, edge_type).await
-	}
-
-	/// Create or replace a curated grouping.
-	pub async fn upsert_grouping(&self, grouping: &Grouping) -> Result<()> {
-		self.library.upsert_grouping(grouping).await
-	}
-
-	/// List curated groupings, optionally of one type.
-	pub async fn list_groupings(&self, type_: Option<&str>) -> Result<Vec<Grouping>> {
-		self.library.list_groupings(type_).await
 	}
 
 	/// Trigger a sync for a source.

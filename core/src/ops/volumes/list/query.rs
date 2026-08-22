@@ -221,14 +221,12 @@ impl LibraryQuery for VolumeListQuery {
 						if tracked_vol.device_id == current_device_id && !tracked_vol.is_online {
 							continue;
 						}
-						let mut offline_vol =
-							tracked_vol.to_tracked_volume().to_offline_volume();
+						let mut offline_vol = tracked_vol.to_tracked_volume().to_offline_volume();
 						// Re-apply current platform visibility rules so stale DB
 						// entries from earlier versions (which tracked everything)
 						// inherit newly-added filters without a data migration.
-						if crate::volume::utils::should_hide_by_mount_path(
-							&offline_vol.mount_point,
-						) {
+						if crate::volume::utils::should_hide_by_mount_path(&offline_vol.mount_point)
+						{
 							offline_vol.is_user_visible = false;
 							offline_vol.auto_track_eligible = false;
 						}

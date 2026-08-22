@@ -6,9 +6,10 @@
 //! ([`crate::schema::codegen`]). The record table is what makes cross-source search and
 //! cross-source edges possible: they join on one shape, not per-data-type ones.
 //!
-//! What no ingest produced — user assertions, curated groupings, cross-source
-//! edges — lives in the library ([`crate::library`]) and rebinds by
-//! `(type, external_id)` when a source is removed and added back.
+//! `record_overlay` sits beside them, holding what no ingest produced: the
+//! scalar assertions a person makes about a record. It keys on
+//! `(type, external_id)` rather than the record uuid, so it rebinds when a
+//! source is re-indexed and fresh uuids are minted.
 
 use crate::error::Result;
 
@@ -56,6 +57,14 @@ CREATE TABLE IF NOT EXISTS _sync_state (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS record_overlay (
+    type TEXT NOT NULL,
+    external_id TEXT NOT NULL,
+    fields TEXT NOT NULL DEFAULT '{}',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (type, external_id)
 );
 
 CREATE TABLE IF NOT EXISTS _schema (

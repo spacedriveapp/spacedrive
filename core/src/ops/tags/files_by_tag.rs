@@ -4,14 +4,14 @@ use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, File},
 	infra::{
-		db::entities::{
-			content_identity, entry, tag, user_metadata, user_metadata_tag,
-		},
+		db::entities::{content_identity, entry, tag, user_metadata, user_metadata_tag},
 		query::{LibraryQuery, QueryError, QueryResult},
 	},
 	ops::tags::manager::TagManager,
 };
-use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement};
+use sea_orm::{
+	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, QueryFilter, Statement,
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::{HashMap, HashSet};
@@ -73,7 +73,8 @@ impl LibraryQuery for GetFilesByTagQuery {
 			tag_uuids.extend(descendants.iter().map(|t| t.id));
 		}
 
-		let entry_ids = find_entry_ids_for_tags(conn, &tag_uuids, self.input.min_confidence).await?;
+		let entry_ids =
+			find_entry_ids_for_tags(conn, &tag_uuids, self.input.min_confidence).await?;
 
 		if entry_ids.is_empty() {
 			return Ok(GetFilesByTagOutput { files: vec![] });
@@ -132,11 +133,16 @@ impl LibraryQuery for GetFilesByTagQuery {
 			.collect();
 		let content_uuids: Vec<Uuid> = rows
 			.iter()
-			.filter_map(|row| row.try_get::<Option<Uuid>>("", "content_identity_uuid").ok().flatten())
+			.filter_map(|row| {
+				row.try_get::<Option<Uuid>>("", "content_identity_uuid")
+					.ok()
+					.flatten()
+			})
 			.collect();
 
 		// Batch load tags (same logic as directory_listing)
-		let tags_by_entry = load_tags_for_entries(conn, &entry_uuids, &content_uuids, &rows).await?;
+		let tags_by_entry =
+			load_tags_for_entries(conn, &entry_uuids, &content_uuids, &rows).await?;
 
 		// Build File objects — skip rows where required fields can't be decoded
 		let mut files = Vec::new();
@@ -152,13 +158,19 @@ impl LibraryQuery for GetFilesByTagQuery {
 			let Ok(entry_created_at) =
 				row.try_get::<chrono::DateTime<chrono::Utc>>("", "entry_created_at")
 			else {
-				tracing::warn!("Skipping row {}: failed to decode entry_created_at", entry_id);
+				tracing::warn!(
+					"Skipping row {}: failed to decode entry_created_at",
+					entry_id
+				);
 				continue;
 			};
 			let Ok(entry_modified_at) =
 				row.try_get::<chrono::DateTime<chrono::Utc>>("", "entry_modified_at")
 			else {
-				tracing::warn!("Skipping row {}: failed to decode entry_modified_at", entry_id);
+				tracing::warn!(
+					"Skipping row {}: failed to decode entry_modified_at",
+					entry_id
+				);
 				continue;
 			};
 
@@ -326,11 +338,7 @@ async fn load_tags_for_entries(
 			.ok()
 			.flatten()
 		{
-			if let Some(eu) = row
-				.try_get::<Option<Uuid>>("", "entry_uuid")
-				.ok()
-				.flatten()
-			{
+			if let Some(eu) = row.try_get::<Option<Uuid>>("", "entry_uuid").ok().flatten() {
 				entries_by_content.entry(ci_uuid).or_default().push(eu);
 			}
 		}
@@ -392,10 +400,7 @@ async fn find_entry_ids_for_tags(
 		umt_query = umt_query.filter(user_metadata_tag::Column::Confidence.gte(min_confidence));
 	}
 
-	let umt_records = umt_query
-		.all(db)
-		.await
-		.map_err(QueryError::SeaOrm)?;
+	let umt_records = umt_query.all(db).await.map_err(QueryError::SeaOrm)?;
 
 	if umt_records.is_empty() {
 		return Ok(vec![]);
@@ -410,8 +415,10 @@ async fn find_entry_ids_for_tags(
 		.map_err(QueryError::SeaOrm)?;
 
 	let entry_uuids: Vec<Uuid> = um_records.iter().filter_map(|um| um.entry_uuid).collect();
-	let ci_uuids: Vec<Uuid> =
-		um_records.iter().filter_map(|um| um.content_identity_uuid).collect();
+	let ci_uuids: Vec<Uuid> = um_records
+		.iter()
+		.filter_map(|um| um.content_identity_uuid)
+		.collect();
 
 	let mut entry_ids: HashSet<i32> = HashSet::new();
 

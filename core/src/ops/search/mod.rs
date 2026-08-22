@@ -39,8 +39,8 @@ pub enum FilterKind {
 	DateRange,
 	SizeRange,
 	ContentTypes,
-	Tags,      // Persistent only
-	Locations, // Persistent only
+	Tags,         // Persistent only
+	Locations,    // Persistent only
 	Hidden,       // Not implemented yet
 	Archived,     // Not implemented yet
 	AtRisk,       // Redundancy: content on exactly one volume

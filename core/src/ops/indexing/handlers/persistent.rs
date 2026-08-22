@@ -471,9 +471,7 @@ impl PersistentEventHandler {
 			if !super::root_is_present(&meta.root_path) {
 				let suppressed = batch
 					.iter()
-					.filter(|e| {
-						matches!(e.kind, FsEventKind::Remove | FsEventKind::Rename { .. })
-					})
+					.filter(|e| matches!(e.kind, FsEventKind::Remove | FsEventKind::Rename { .. }))
 					.count() + pending_removes.len();
 				if suppressed > 0 {
 					warn!(

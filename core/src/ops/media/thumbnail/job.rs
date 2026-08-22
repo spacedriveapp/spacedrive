@@ -64,7 +64,6 @@ impl ThumbnailJobConfig {
 			..Default::default()
 		}
 	}
-
 }
 
 /// Progress information for thumbnail generation
@@ -776,9 +775,10 @@ impl ThumbnailJob {
 				)
 				.await
 				{
-					Ok(()) => {
-						ctx.log(format!("Extracted media metadata for {}", entry.relative_path))
-					}
+					Ok(()) => ctx.log(format!(
+						"Extracted media metadata for {}",
+						entry.relative_path
+					)),
 					Err(e) => ctx.log(format!("Failed to extract media metadata: {}", e)),
 				}
 			}

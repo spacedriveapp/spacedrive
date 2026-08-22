@@ -3,8 +3,7 @@
 use crate::service::network::{
 	core::{
 		NetworkEvent, BYTERANGE_ALPN, FILE_TRANSFER_ALPN, JOB_ACTIVITY_ALPN, MESSAGING_ALPN,
-		PAIRING_ALPN,
-		SYNC_ALPN,
+		PAIRING_ALPN, SYNC_ALPN,
 	},
 	device::DeviceRegistry,
 	protocol::ProtocolRegistry,

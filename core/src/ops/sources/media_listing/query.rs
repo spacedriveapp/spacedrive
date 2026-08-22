@@ -247,7 +247,10 @@ mod tests {
 		assert_eq!(file.extension.as_deref(), Some("heic"));
 		assert_eq!(
 			file.thumbnail_path.as_deref(),
-			Some(root.join("resources/derivatives/0/0A1B2C3D_1_105_c.jpeg").as_path())
+			Some(
+				root.join("resources/derivatives/0/0A1B2C3D_1_105_c.jpeg")
+					.as_path()
+			)
 		);
 		assert_eq!(file.content_kind, ContentKind::Image);
 	}

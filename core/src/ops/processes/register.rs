@@ -38,14 +38,18 @@ impl CoreAction for ProcessRegisterAction {
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		let manager = context.processes().await.ok_or_else(|| {
-			ActionError::Internal("process manager not initialized".to_string())
-		})?;
+		let manager = context
+			.processes()
+			.await
+			.ok_or_else(|| ActionError::Internal("process manager not initialized".to_string()))?;
 		let name = self.definition.name.clone();
-		manager.register(self.definition).await.map_err(|err| match err {
-			SupervisorError::DuplicateService(_) => ActionError::InvalidInput(err.to_string()),
-			other => ActionError::Internal(other.to_string()),
-		})?;
+		manager
+			.register(self.definition)
+			.await
+			.map_err(|err| match err {
+				SupervisorError::DuplicateService(_) => ActionError::InvalidInput(err.to_string()),
+				other => ActionError::Internal(other.to_string()),
+			})?;
 		Ok(ProcessRegisterOutput { name })
 	}
 
