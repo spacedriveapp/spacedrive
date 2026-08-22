@@ -1,7 +1,10 @@
-//! # sd-archive — Spacedrive's Data Archival System
+//! # sd-archive — adapter-backed sources
 //!
-//! A standalone crate for indexing external data sources beyond the filesystem.
-//! Handles emails, notes, messages, bookmarks, calendar events, contacts, and more.
+//! Spacedrive is a set of sources. A source has an origin, an ingest and a
+//! store; a filesystem source and an adapter source differ only in ingest.
+//! This crate carries the store, and one ingest path: adapters, for origins
+//! that are not a filesystem — mail, notes, messages, bookmarks, calendars,
+//! contacts.
 //!
 //! ## Core capabilities:
 //!
@@ -14,16 +17,23 @@
 //! - **Schema-driven sources** — Each data source has its own SQLite index and
 //!   TOML schema. Sources are portable.
 //!
-//! ## Two layers
+//! ## Two files
 //!
-//! A source **index** is disposable: one SQLite file per source, rebuilt from
-//! scratch whenever the source is re-added. Every row in it sits on the
-//! universal record table ([`record`]), with type-specific columns in facet
-//! tables generated from the data type's TOML models.
+//! A source **store** is one SQLite file per source. Every row in it sits in
+//! the universal record table ([`record`]), with type-specific columns in facet
+//! tables generated from the data type's TOML models. It is user data, not a
+//! cache: a re-scan is a recovery path, not something the design assumes it can
+//! fall back on. Plenty of origins cannot be re-scanned on demand — a detached
+//! drive, a revoked token, a closed account.
 //!
-//! The **library** ([`library`]) is durable: overlays, curated groupings and
-//! cross-source edges. It keys on `(source_id, type, external_id)` rather than
-//! the record table uuid, so assertions survive a source being deleted and re-added.
+//! The **library** ([`library`]) holds what no ingest produced: overlays,
+//! curated groupings and cross-source edges. It keys on
+//! `(source_id, type, external_id)` rather than the record uuid, so assertions
+//! rebind when a source is removed and added back.
+//!
+//! Splitting them across two files is the shape this crate has today, not the
+//! one it is heading for. `docs/plans/2026-08-22-source-convergence.md` P1
+//! settles where the durable tables live.
 //!
 //! ## Architecture
 //!
@@ -36,8 +46,8 @@
 //!     -> SourceManager (wraps sd-archive Engine)
 //!       -> Engine
 //!         -> AdapterRegistry
-//!         -> Registry + Library   (durable)
-//!         -> SourceDb             (disposable, records + facets)
+//!         -> Registry + Library   (registry.db)
+//!         -> SourceDb             (per source: records + facets)
 //!         -> SearchRouter
 //! ```
 

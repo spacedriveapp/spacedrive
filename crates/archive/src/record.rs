@@ -6,9 +6,9 @@
 //! ([`crate::schema::codegen`]). The record table is what makes cross-source search and
 //! cross-source edges possible: they join on one shape, not per-data-type ones.
 //!
-//! A source index is disposable. Everything durable — user assertions, curated
-//! groupings, cross-source edges — lives in the library ([`crate::library`]) and
-//! rebinds by `(type, external_id)` when a source is re-added.
+//! What no ingest produced — user assertions, curated groupings, cross-source
+//! edges — lives in the library ([`crate::library`]) and rebinds by
+//! `(type, external_id)` when a source is removed and added back.
 
 use crate::error::Result;
 

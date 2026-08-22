@@ -1,4 +1,4 @@
-//! SourceManager: manages source folders and their disposable indexes.
+//! SourceManager: opens and creates the per-source store files.
 
 use std::path::{Path, PathBuf};
 use std::str::FromStr;

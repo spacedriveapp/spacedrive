@@ -1,13 +1,14 @@
-//! The durable knowledge layer: user and agent assertions that outlive any
-//! source index.
+//! What no ingest produced: user and agent assertions, addressed so they
+//! outlive the source store they describe.
 //!
-//! Source indexes are disposable — deleting and re-adding a source rebuilds one
-//! from scratch. Everything in this module survives that, and rebinds by
-//! `(source_id, type, external_id)` rather than by the record table uuid, because a
-//! rebuilt index mints fresh uuids.
+//! Removing a source and adding it back mints fresh record uuids, so nothing
+//! here keys on one. `(source_id, type, external_id)` is the address instead,
+//! and the assertions rebind on the way back in.
 //!
-//! These tables live in `registry.db` alongside the source registry: one durable
-//! file, one backup unit.
+//! These tables live in `registry.db` alongside the source registry. Moving
+//! them into each source's own file is P1 of
+//! `docs/plans/2026-08-22-source-convergence.md`; `lib_edge` is the open
+//! question there, being cross-source by definition.
 
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;

@@ -163,8 +163,10 @@ writing adapter — it is now drained into tracing.
 
 1. Store in, adapter runtime out, `apple_photos` out.
 2. Settle `lib_edge` (see Open).
-3. Reconcile the crate docs with decision 2 — `library.rs`'s opening paragraph
-   is the specific thing that is wrong.
+3. **Done.** Reconciled the crate docs with decision 2. `lib.rs`, `library.rs`,
+   `source.rs` and `record.rs` all opened by calling the source store
+   disposable; they now say it is user data and point at P1 for where the
+   durable tables end up.
 
 ### P2 — The filesystem writes the store
 
