@@ -111,14 +111,43 @@ Not style, mechanics:
    with different ingest. This is `T6.1` pulled forward, because leaving two
    registries alive through the filesystem-store work is what makes that work
    ambiguous.
+5. **Enrichment is records and edges, not a blob.** Tags, albums, faces and
+   places are one primitive: a definition with a stable identity, replicated
+   into every source that uses it, plus membership edges local to the source
+   holding the member. This is the previs's tag rule
+   (*"tag definitions replicated into every source that uses them"*) applied to
+   everything shaped like it. `record.type` is an open string, so `person`,
+   `album` and `place` are records the way `file` and `note` are.
+
+   `record_overlay` is for scalar assertions a person makes about one record —
+   rating, favourite, a corrected title. Structured enrichment does not go in
+   it; a face inside a JSON column cannot answer "which photos have this face."
+
+6. **No shared cross-source assertion file.** `grouping` and `lib_edge` are
+   deleted. Neither has a writer, a reader, or an op — `SourceManager` exposes
+   `link`/`unlink`/`neighbors`/`upsert_grouping` as pass-throughs that nothing
+   calls. Under decision 5 they are also the wrong shape: a person who appears
+   in photos on three drives is a definition replicated three times, not a row
+   in a library-level table that outlives all three. Detaching a drive should
+   lose that drive's photos of them, which is the truth.
+
+   `record_overlay` stays. The search router genuinely reads it, and it moves
+   into `source.db` by dropping `source_id` from its key. Cross-source answers
+   arrive with `catalog.db` in P5, designed against a real requirement.
 
 ## Open
 
-- **`lib_edge` has no home.** Previs decision 1 moves durable tables into each
-  `source.db`, but cross-source edges are cross-source by definition and
-  `catalog.db` is phase 5. Either edges live in a shared file — partially
-  conceding decision 1 — or cross-source assertions cannot be written until the
-  catalog lands. Rule on this before P2 rather than discovering it inside P2.
+- **`edge` cannot carry enrichment.** It is
+  `(src_uuid, dst_uuid, type, ord REAL)` with `PRIMARY KEY (src_uuid, dst_uuid,
+  type)`. A face is *person X at this rectangle in this photo* — the rectangle
+  has nowhere to go, and the primary key allows one edge per pair per type, so
+  the same person twice in one group shot is unrepresentable. Edges need a
+  payload and an identity that is not the endpoint tuple. Settle this in P1;
+  P2 writes the first filesystem records against it.
+- **Definition identity across sources.** Decision 5 replicates a definition
+  into every source that uses it, which only works if two copies are
+  recognisably the same thing. Same question for tags and for faces; answer it
+  once.
 - **Bundled adapter installation.** `core/src/data/manager.rs` resolves bundled
   adapters through `env!("CARGO_MANIFEST_DIR")` at compile time. That works from
   a cargo tree and nowhere else. Needs to read from app resources before
@@ -161,9 +190,27 @@ writing adapter — it is now drained into tracing.
 
 ### P1 — Re-charter the crate
 
-1. Store in, adapter runtime out, `apple_photos` out.
-2. Settle `lib_edge` (see Open).
-3. **Done.** Reconciled the crate docs with decision 2. `lib.rs`, `library.rs`,
+1. **Split the crate.** `crates/store` (`sd-store`) holds the store and nothing
+   else: record, facets, content, edges, assertions, schema codegen, per-source
+   FTS. `crates/adapter` (`sd-adapter`) holds the subprocess runtime and depends
+   on it. `Engine`, `Registry` and `SearchRouter` move into core at P3 — after
+   the registry lives in `library.db` they own nothing that is not core's, and
+   both fan out over it. The name is `store` because "the source store" is
+   already this document's vocabulary; a *source* is origin plus ingest plus
+   store, and the crate is only the last of the three.
+2. **Give `edge` a payload** (see Open). P2 writes against it, so it lands here.
+3. **Delete `grouping` and `lib_edge`** per decision 6. Move `record_overlay`
+   into `source.db`, dropping `source_id` from its key.
+4. **Retire the Apple Photos adapter, keep the Photos reader.** It is the only
+   native adapter, so it is single-handedly why `AdapterKind::Native`,
+   `register_native_adapters`, and the `rusqlite`/`libc`/`dirs` dependencies
+   exist; all of that goes with it. What survives is the reader — the `ZASSET`
+   queries, the album and people joins, the thumbnail fallback chain. Under
+   decision 5 that is the harvest path for file-backed enrichment, not a
+   parked adapter: it reads Apple's structure so P2 can project places, faces
+   and albums onto filesystem records. Drop the `Import → Photos` entry in
+   `ImportGroup.tsx` in the same change, or it points at nothing.
+5. **Done.** Reconciled the crate docs with decision 2. `lib.rs`, `library.rs`,
    `source.rs` and `record.rs` all opened by calling the source store
    disposable; they now say it is user data and point at P1 for where the
    durable tables end up.
