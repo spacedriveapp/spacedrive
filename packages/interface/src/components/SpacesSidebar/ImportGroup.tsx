@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-	Camera,
 	EnvelopeSimple,
 	Note,
 	SpinnerGap,
@@ -29,7 +28,6 @@ type ImportTarget = {
 };
 
 const TARGETS: ImportTarget[] = [
-	{ label: "Photos", icon: Camera, adapterId: "apple-photos" },
 	{ label: "Notes", icon: Note, adapterId: "apple-notes" },
 	{ label: "Mail", icon: EnvelopeSimple, soon: true },
 ];

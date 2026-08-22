@@ -2,9 +2,8 @@
 //! the record table. The JSONL protocol and `adapter.toml` format are unchanged, so
 //! these read the real manifests rather than fixtures.
 
-use sd_archive::adapter::apple_photos::ApplePhotosAdapter;
 use sd_archive::adapter::script::ScriptAdapter;
-use sd_archive::adapter::{Adapter, AdapterKind, AdapterRegistry};
+use sd_archive::adapter::{Adapter, AdapterRegistry};
 use sd_archive::record::facet_table;
 use sd_archive::source::SourceManager;
 
@@ -106,12 +105,10 @@ async fn every_bundled_adapter_builds_a_usable_index() {
 	}
 }
 
-/// The registry reports each adapter's real kind: script adapters as Script,
-/// compiled-in ones as Native.
+/// A registered adapter is listed with what its manifest declares.
 #[test]
-fn registry_reports_adapter_kinds() {
+fn registry_lists_registered_adapters() {
 	let registry = AdapterRegistry::new();
-	registry.register(std::sync::Arc::new(ApplePhotosAdapter::new()));
 
 	let (name, path) = bundled_adapters()
 		.into_iter()
@@ -119,20 +116,17 @@ fn registry_reports_adapter_kinds() {
 		.expect("a bundled adapter");
 	let script = ScriptAdapter::from_dir(&path)
 		.unwrap_or_else(|e| panic!("{name}: manifest failed to load: {e}"));
-	let script_id = script.id().to_string();
+	let id = script.id().to_string();
+	let declared_tier = script.trust_tier();
 	registry.register(std::sync::Arc::new(script));
 
-	let infos = registry.list();
-	let kind_of = |id: &str| {
-		infos
-			.iter()
-			.find(|i| i.id == id)
-			.unwrap_or_else(|| panic!("adapter {id} not listed"))
-			.kind
-			.clone()
-	};
-	assert_eq!(kind_of("apple-photos"), AdapterKind::Native);
-	assert_eq!(kind_of(&script_id), AdapterKind::Script);
+	let info = registry
+		.list()
+		.into_iter()
+		.find(|i| i.id == id)
+		.unwrap_or_else(|| panic!("adapter {id} not listed"));
+	assert_eq!(info.trust_tier, declared_tier);
+	assert!(!info.data_type.is_empty());
 }
 
 /// Fill every declared field on the primary model with a distinctive token so

@@ -11348,11 +11348,8 @@ dependencies = [
  "blake3",
  "chrono",
  "dashmap",
- "dirs 5.0.1",
  "futures",
  "indexmap 2.11.4",
- "libc",
- "rusqlite",
  "serde",
  "serde_json",
  "sqlx",
@@ -11713,6 +11710,18 @@ dependencies = [
  "tempfile",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "sd-photos"
+version = "0.1.0"
+dependencies = [
+ "dirs 5.0.1",
+ "libc",
+ "rusqlite",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tracing",
 ]
 
 [[package]]

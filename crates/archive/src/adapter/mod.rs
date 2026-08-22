@@ -1,6 +1,5 @@
 //! Adapter system: trait definition, registry, sync reporting.
 
-pub mod apple_photos;
 pub mod script;
 
 use std::collections::HashMap;
@@ -36,26 +35,15 @@ pub struct AdapterInfo {
 	pub version: String,
 	pub author: String,
 	pub data_type: String,
-	pub kind: AdapterKind,
 	pub trust_tier: TrustTier,
 	pub icon_svg: Option<String>,
 	pub update_available: bool,
-}
-
-/// Whether an adapter is compiled-in or script-based.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum AdapterKind {
-	Native,
-	Script,
 }
 
 /// Trait that all adapters implement.
 pub trait Adapter: Send + Sync + 'static {
 	fn id(&self) -> &str;
 	fn name(&self) -> &str;
-	/// Whether the adapter is compiled-in or script-based.
-	fn kind(&self) -> AdapterKind;
 	/// The data type schema this adapter's records conform to. Drives index
 	/// creation and schema migration for both native and script adapters.
 	fn schema(&self) -> &DataTypeSchema;
@@ -127,7 +115,6 @@ impl AdapterRegistry {
 				version: a.version().to_string(),
 				author: a.author().to_string(),
 				data_type: a.data_type().to_string(),
-				kind: a.kind(),
 				trust_tier: a.trust_tier(),
 				icon_svg: a.icon_svg().map(|s| s.to_string()),
 				update_available: false,

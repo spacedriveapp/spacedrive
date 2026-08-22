@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
-use crate::adapter::{Adapter, AdapterKind, SyncReport};
+use crate::adapter::{Adapter, SyncReport};
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
 use crate::registry::TrustTier;
@@ -397,10 +397,6 @@ impl Adapter for ScriptAdapter {
 
 	fn name(&self) -> &str {
 		&self.manifest.adapter.name
-	}
-
-	fn kind(&self) -> AdapterKind {
-		AdapterKind::Script
 	}
 
 	fn schema(&self) -> &DataTypeSchema {

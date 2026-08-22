@@ -22,11 +22,6 @@ futures     = { workspace = true }
 indexmap = { workspace = true, features = ["serde"] }
 dashmap  = { workspace = true }
 
-# Native adapters read third-party SQLite stores synchronously (snapshot-then-query)
-libc     = { workspace = true }
-rusqlite = { version = "0.32", features = ["bundled"] }
-dirs     = "5.0"
-
 [dev-dependencies]
 tempfile = { workspace = true }
 tokio    = { workspace = true, features = ["macros", "rt-multi-thread"] }

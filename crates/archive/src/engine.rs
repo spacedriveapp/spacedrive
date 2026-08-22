@@ -6,7 +6,6 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::adapter::apple_photos::ApplePhotosAdapter;
 use crate::adapter::script::{ConfigField, ScriptAdapter};
 use crate::adapter::{Adapter, AdapterRegistry, SyncReport};
 use crate::error::{Error, Result};
@@ -55,10 +54,7 @@ impl Engine {
 		// Initialize search router
 		let search = SearchRouter::new(registry.clone(), library.clone(), sources.clone());
 
-		// Register compiled-in adapters, then load script adapters from the
-		// adapters directory
 		let adapters = AdapterRegistry::new();
-		Self::register_native_adapters(&adapters);
 		let adapters_dir = data_dir.join("adapters");
 		std::fs::create_dir_all(&adapters_dir)?;
 		Self::load_script_adapters(&adapters_dir, &adapters)?;
@@ -71,11 +67,6 @@ impl Engine {
 			adapters,
 			search,
 		})
-	}
-
-	/// Register the compiled-in adapters.
-	fn register_native_adapters(registry: &AdapterRegistry) {
-		registry.register(Arc::new(ApplePhotosAdapter::new()));
 	}
 
 	/// Load all script adapters from the adapters directory.
@@ -414,13 +405,10 @@ impl Engine {
 			Some(self.config.data_dir.join("bundled_adapters")),
 		];
 
-		for candidate in candidates.into_iter().flatten() {
-			if candidate.is_dir() {
-				return Some(candidate);
-			}
-		}
-
-		None
+		candidates
+			.into_iter()
+			.flatten()
+			.find(|candidate| candidate.is_dir())
 	}
 
 	/// Update an installed adapter from a source directory.

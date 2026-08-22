@@ -1,0 +1,16 @@
+[package]
+name    = "sd-photos"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# The Photos catalog is Core Data over SQLite, read synchronously from a
+# snapshot. rusqlite rather than sqlx: no async, no pool, one blocking pass.
+rusqlite  = { version = "0.32", features = ["bundled"] }
+libc      = { workspace = true }
+dirs      = "5.0"
+thiserror = { workspace = true }
+tracing   = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
