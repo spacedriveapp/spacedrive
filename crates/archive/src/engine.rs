@@ -8,12 +8,10 @@ use std::sync::Arc;
 
 use crate::adapter::apple_photos::ApplePhotosAdapter;
 use crate::adapter::script::{ConfigField, ScriptAdapter};
-use crate::adapter::{Adapter, AdapterRegistry, AdapterUpdateResult, SyncReport};
-use crate::embed::EmbeddingModel;
+use crate::adapter::{Adapter, AdapterRegistry, SyncReport};
 use crate::error::{Error, Result};
 use crate::library::{Grouping, LibEdge, Library, RecordKey};
 use crate::registry::{NewSource, Registry, SourceInfo};
-use crate::safety::{SafetyModel, SafetyPolicy, TrustTier, SAFETY_MODEL_VERSION};
 use crate::search::router::SearchRouter;
 use crate::search::{SearchFilter, SearchResult};
 use crate::source::SourceManager;
@@ -32,8 +30,6 @@ pub struct Engine {
 	sources: Arc<SourceManager>,
 	adapters: AdapterRegistry,
 	search: SearchRouter,
-	embedding: Arc<EmbeddingModel>,
-	safety: Option<Arc<SafetyModel>>,
 }
 
 impl Engine {
@@ -56,32 +52,8 @@ impl Engine {
 		std::fs::create_dir_all(&sources_dir)?;
 		let sources = Arc::new(SourceManager::new(sources_dir));
 
-		// Initialize embedding model
-		let cache_dir = data_dir.join("models");
-		std::fs::create_dir_all(&cache_dir)?;
-		let embedding = Arc::new(EmbeddingModel::with_cache_dir(&cache_dir)?);
-
-		// Initialize safety screening model (optional — non-fatal if it fails)
-		let models_dir = data_dir.join("models");
-		std::fs::create_dir_all(&models_dir)?;
-		let safety = match SafetyModel::new(&models_dir) {
-			Ok(model) => {
-				tracing::info!("safety screening model loaded (Prompt Guard 2 22M)");
-				Some(Arc::new(model))
-			}
-			Err(e) => {
-				tracing::warn!(error = %e, "safety screening model failed to load — records will be marked as 'unscreened'");
-				None
-			}
-		};
-
 		// Initialize search router
-		let search = SearchRouter::new(
-			registry.clone(),
-			library.clone(),
-			sources.clone(),
-			embedding.clone(),
-		);
+		let search = SearchRouter::new(registry.clone(), library.clone(), sources.clone());
 
 		// Register compiled-in adapters, then load script adapters from the
 		// adapters directory
@@ -98,8 +70,6 @@ impl Engine {
 			sources,
 			adapters,
 			search,
-			embedding,
-			safety,
 		})
 	}
 
@@ -159,11 +129,6 @@ impl Engine {
 	/// Access the search router.
 	pub fn search_router(&self) -> &SearchRouter {
 		&self.search
-	}
-
-	/// Access the embedding model.
-	pub fn embedding(&self) -> &EmbeddingModel {
-		&self.embedding
 	}
 
 	/// Access the adapter registry.
@@ -329,53 +294,6 @@ impl Engine {
 		// Run sync
 		let report = adapter.sync(&db, &config).await?;
 
-		// Post-sync: screen new records for prompt injection
-		let safety_policy = SafetyPolicy {
-			mode: source_info.safety_mode,
-			quarantine_threshold: source_info.quarantine_threshold,
-			flag_threshold: source_info.flag_threshold,
-			skip_screening: source_info.trust_tier == TrustTier::Authored
-				&& source_info.safety_mode != crate::safety::SafetyMode::Strict,
-		};
-
-		if report.error.is_none() {
-			match self
-				.screen_new_records(source_id, &db, &safety_policy)
-				.await
-			{
-				Ok(count) if count > 0 => {
-					tracing::info!(
-						source_id,
-						screened = count,
-						trust_tier = %source_info.trust_tier,
-						mode = %safety_policy.mode,
-						"safety screening after sync"
-					);
-				}
-				Ok(_) => {}
-				Err(e) => {
-					tracing::warn!(source_id, error = %e, "post-sync safety screening failed (non-fatal)");
-				}
-			}
-		}
-
-		// Post-sync: embed new/updated records
-		if report.error.is_none() {
-			match self.embed_new_records(source_id, &db).await {
-				Ok(count) if count > 0 => {
-					tracing::info!(
-						source_id,
-						embedded = count,
-						"generated embeddings after sync"
-					);
-				}
-				Ok(_) => {}
-				Err(e) => {
-					tracing::warn!(source_id, error = %e, "post-sync embedding failed (non-fatal)");
-				}
-			}
-		}
-
 		// Update status based on result
 		let now = chrono::Utc::now().to_rfc3339();
 		if report.error.is_some() {
@@ -396,145 +314,6 @@ impl Engine {
 		}
 
 		Ok(report)
-	}
-
-	/// Screen records that haven't been through safety screening yet.
-	async fn screen_new_records(
-		&self,
-		source_id: &str,
-		db: &crate::db::SourceDb,
-		policy: &SafetyPolicy,
-	) -> Result<usize> {
-		// Fast path: skip screening entirely for authored sources
-		if policy.skip_screening {
-			return self
-				.mark_all_unscreened_safe(source_id, db, "skipped")
-				.await;
-		}
-
-		let safety = match &self.safety {
-			Some(s) => s.clone(),
-			None => return self.mark_all_unscreened_safe(source_id, db, "none").await,
-		};
-
-		const BATCH_SIZE: usize = 64;
-		let mut total_screened = 0;
-
-		loop {
-			let records = db.records_needing_screening(BATCH_SIZE).await?;
-			if records.is_empty() {
-				break;
-			}
-
-			let count = records.len();
-			let texts: Vec<String> = records.iter().map(|r| r.content.clone()).collect();
-			let verdicts = safety.screen_batch(texts).await?;
-
-			for (record, verdict) in records.iter().zip(verdicts.iter()) {
-				let verdict_str =
-					verdict.verdict_string(policy.quarantine_threshold, policy.flag_threshold);
-
-				db.mark_screened(&record.id, verdict.score, verdict_str, SAFETY_MODEL_VERSION)
-					.await?;
-
-				if verdict_str == "quarantined" {
-					tracing::warn!(
-						source_id,
-						record_id = %record.id,
-						score = verdict.score,
-						trust_tier = %policy.mode,
-						"record quarantined — suspected prompt injection"
-					);
-				}
-			}
-
-			total_screened += count;
-
-			if count < BATCH_SIZE {
-				break;
-			}
-		}
-
-		Ok(total_screened)
-	}
-
-	/// Mark all unscreened records as 'safe' without running the model.
-	async fn mark_all_unscreened_safe(
-		&self,
-		source_id: &str,
-		db: &crate::db::SourceDb,
-		version: &str,
-	) -> Result<usize> {
-		let mut total = 0;
-		loop {
-			let records = db.records_needing_screening(64).await?;
-			if records.is_empty() {
-				break;
-			}
-			let count = records.len();
-			for record in &records {
-				db.mark_screened(&record.id, 0, "safe", version).await?;
-			}
-			total += count;
-			if count < 64 {
-				break;
-			}
-		}
-		if total > 0 {
-			tracing::debug!(
-				source_id,
-				total,
-				version,
-				"marked records as safe (screening skipped)"
-			);
-		}
-		Ok(total)
-	}
-
-	/// Embed records that are new or updated since their last embedding.
-	async fn embed_new_records(&self, source_id: &str, db: &crate::db::SourceDb) -> Result<usize> {
-		const BATCH_SIZE: usize = 64;
-		let mut total_embedded = 0;
-
-		let lance_dir = self.sources.source_dir(source_id).join("embeddings.lance");
-		let vector_store = crate::search::vector::VectorStore::open_or_create(&lance_dir).await?;
-
-		loop {
-			let records = db.records_needing_embedding(BATCH_SIZE).await?;
-			if records.is_empty() {
-				break;
-			}
-
-			let count = records.len();
-			let texts: Vec<String> = records.iter().map(|r| r.content.clone()).collect();
-
-			let embeddings = self.embedding.embed_batch(texts).await?;
-
-			for (record, embedding) in records.iter().zip(embeddings.iter()) {
-				if let Err(e) = vector_store
-					.upsert(&record.id, &record.content, embedding)
-					.await
-				{
-					tracing::warn!(
-						source_id,
-						record_id = %record.id,
-						error = %e,
-						"failed to upsert embedding"
-					);
-				}
-			}
-
-			let ids: Vec<String> = records.iter().map(|r| r.id.clone()).collect();
-			db.mark_embedded(&ids).await?;
-
-			total_embedded += count;
-
-			if count < BATCH_SIZE {
-				break;
-			}
-		}
-
-		Ok(total_embedded)
 	}
 
 	/// List all sources.

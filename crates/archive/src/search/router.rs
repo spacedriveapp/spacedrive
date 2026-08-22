@@ -8,7 +8,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::db::TemporalFilter;
-use crate::embed::EmbeddingModel;
 use crate::error::Result;
 use crate::library::Library;
 use crate::registry::Registry;
@@ -22,7 +21,6 @@ pub struct SearchRouter {
 	pub(crate) registry: Arc<Registry>,
 	pub(crate) library: Arc<Library>,
 	pub(crate) sources: Arc<SourceManager>,
-	pub(crate) _embedding: Arc<EmbeddingModel>,
 }
 
 impl SearchRouter {
@@ -30,13 +28,11 @@ impl SearchRouter {
 		registry: Arc<Registry>,
 		library: Arc<Library>,
 		sources: Arc<SourceManager>,
-		embedding: Arc<EmbeddingModel>,
 	) -> Self {
 		Self {
 			registry,
 			library,
 			sources,
-			_embedding: embedding,
 		}
 	}
 
@@ -128,8 +124,6 @@ impl SearchRouter {
 					data_type_icon: None,
 					date: hit.date,
 					trust_tier: source_info.trust_tier,
-					safety_verdict: hit.safety_verdict,
-					safety_score: hit.safety_score,
 					overlay,
 				});
 			}

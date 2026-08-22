@@ -35,12 +35,6 @@ pub enum Error {
 	#[error("toml parse error: {0}")]
 	Toml(#[from] toml::de::Error),
 
-	#[error("embedding error: {0}")]
-	Embedding(String),
-
-	#[error("safety screening error: {0}")]
-	Safety(String),
-
 	#[error("search error: {0}")]
 	Search(String),
 

@@ -8,14 +8,11 @@
 //! - **Universal indexing** — Adapters ingest data from external sources via a
 //!   script-based protocol (stdin/stdout JSONL).
 //!
-//! - **Hybrid search** — Combines full-text search (SQLite FTS5) with semantic
-//!   vector search (LanceDB + FastEmbed) merged via Reciprocal Rank Fusion.
+//! - **Full-text search** — SQLite FTS5 per source, routed across sources so
+//!   results from different data types come back in one shape.
 //!
-//! - **Safety screening** — Prompt Guard 2 classifies indexed text for injection
-//!   attacks before it enters the search index.
-//!
-//! - **Schema-driven sources** — Each data source has its own SQLite index,
-//!   vector index, and TOML schema. Sources are portable.
+//! - **Schema-driven sources** — Each data source has its own SQLite index and
+//!   TOML schema. Sources are portable.
 //!
 //! ## Two layers
 //!
@@ -42,21 +39,18 @@
 //!         -> Registry + Library   (durable)
 //!         -> SourceDb             (disposable, records + facets)
 //!         -> SearchRouter
-//!         -> EmbeddingModel
 //! ```
 
 pub mod adapter;
 pub mod db;
-pub mod embed;
 pub mod engine;
 pub mod error;
 pub mod library;
+pub mod record;
 pub mod registry;
-pub mod safety;
 pub mod schema;
 pub mod search;
 pub mod source;
-pub mod record;
 
 // Re-export primary types at crate root
 pub use adapter::script::ConfigField;
@@ -64,8 +58,7 @@ pub use adapter::{AdapterInfo, AdapterUpdateResult, SyncReport};
 pub use engine::{Engine, EngineConfig};
 pub use error::{Error, Result};
 pub use library::{Grouping, LibEdge, Library, RecordKey};
-pub use registry::{DataTypeInfo, NewSource, Registry, SourceInfo};
-pub use safety::{SafetyMode, SafetyPolicy, SafetyVerdict, TrustTier};
+pub use record::{ContentIdentity, Record};
+pub use registry::{DataTypeInfo, NewSource, Registry, SourceInfo, TrustTier};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use search::{SearchFilter, SearchResult};
-pub use record::{ContentIdentity, Record};

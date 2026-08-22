@@ -27,15 +27,10 @@ CREATE TABLE IF NOT EXISTS record (
     version TEXT,
     scan_epoch INTEGER,
     indexed_at TEXT NOT NULL DEFAULT (datetime('now')),
-    _embedded_at TEXT,
-    _safety_score INTEGER,
-    _safety_verdict TEXT NOT NULL DEFAULT 'unscreened',
-    _safety_version TEXT,
     UNIQUE (type, external_id)
 );
 CREATE INDEX IF NOT EXISTS idx_record_type ON record(type);
 CREATE INDEX IF NOT EXISTS idx_record_parent ON record(parent_uuid);
-CREATE INDEX IF NOT EXISTS idx_record_verdict ON record(_safety_verdict);
 
 CREATE TABLE IF NOT EXISTS content (
     id INTEGER PRIMARY KEY,

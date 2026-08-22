@@ -2,11 +2,10 @@
 
 pub mod fts;
 pub mod router;
-pub mod vector;
 
 use serde::{Deserialize, Serialize};
 
-use crate::safety::TrustTier;
+use crate::registry::TrustTier;
 
 /// A single search result from any source.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,10 +27,6 @@ pub struct SearchResult {
 	pub data_type_icon: Option<String>,
 	pub date: Option<String>,
 	pub trust_tier: TrustTier,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub safety_verdict: Option<String>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub safety_score: Option<u8>,
 	/// Durable assertions, absent when the record has none.
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub overlay: Option<serde_json::Value>,

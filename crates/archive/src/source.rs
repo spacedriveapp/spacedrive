@@ -8,10 +8,10 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePo
 
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
+use crate::record::RECORD_SCHEMA;
 use crate::schema::codegen::generate_ddl;
 use crate::schema::migration::{diff_schemas, MigrationResult};
 use crate::schema::DataTypeSchema;
-use crate::record::RECORD_SCHEMA;
 
 /// Manages source folders on disk.
 pub struct SourceManager {

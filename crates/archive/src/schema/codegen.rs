@@ -7,8 +7,8 @@
 
 use std::fmt::Write;
 
-use crate::schema::DataTypeSchema;
 use crate::record::facet_table;
+use crate::schema::DataTypeSchema;
 
 /// Generate the facet and search DDL for a data type. Applied on top of
 /// [`crate::record::RECORD_SCHEMA`], never instead of it.

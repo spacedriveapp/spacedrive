@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::db::SourceDb;
 use crate::error::Result;
-use crate::safety::TrustTier;
+use crate::registry::TrustTier;
 use crate::schema::DataTypeSchema;
 use script::ConfigField;
 

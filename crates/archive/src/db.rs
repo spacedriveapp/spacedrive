@@ -8,9 +8,9 @@
 use std::fmt::Write;
 
 use crate::error::{Error, Result};
+use crate::record::{facet_table, ContentIdentity, Record};
 use crate::schema::codegen::indexed_search_fields;
 use crate::schema::DataTypeSchema;
-use crate::record::{facet_table, ContentIdentity, Record};
 
 /// `_sync_state` key holding the on-disk root a file-backed source's
 /// locator paths are relative to. File-backed adapters set it every sync;
@@ -24,20 +24,6 @@ pub struct SourceDb {
 	/// Stamped onto every record written through this handle, recording which
 	/// sync run last saw it. Bumped once per run by [`SourceDb::begin_sync`].
 	scan_epoch: std::sync::atomic::AtomicI64,
-}
-
-/// A record that needs embedding.
-#[derive(Debug, Clone)]
-pub struct EmbeddingRecord {
-	pub id: String,
-	pub content: String,
-}
-
-/// A record that needs safety screening.
-#[derive(Debug, Clone)]
-pub struct ScreeningRecord {
-	pub id: String,
-	pub content: String,
 }
 
 /// An item row from the primary record type.
@@ -60,8 +46,6 @@ pub struct FtsHit {
 	pub subtitle: Option<String>,
 	pub rank: f64,
 	pub date: Option<String>,
-	pub safety_verdict: Option<String>,
-	pub safety_score: Option<u8>,
 }
 
 /// A record edge with the neighbouring record resolved.
@@ -80,9 +64,6 @@ pub struct TemporalFilter<'a> {
 	pub date_after: Option<&'a str>,
 	pub date_before: Option<&'a str>,
 }
-
-/// Verdicts whose records are allowed into the search index.
-const INDEXABLE_VERDICTS: [&str; 2] = ["safe", "flagged"];
 
 impl SourceDb {
 	/// Create a new SourceDb handle.
@@ -193,7 +174,6 @@ impl SourceDb {
 				.bind(external_id)
 				.fetch_optional(&self.pool)
 				.await?;
-		let is_new = existing.is_none();
 		let uuid = match existing {
 			Some((u,)) => u,
 			None => uuid::Uuid::now_v7().to_string(),
@@ -241,12 +221,9 @@ impl SourceDb {
 			self.put_edge(&uuid, &dst_uuid, &edge_type, None).await?;
 		}
 
-		// A record already cleared for indexing keeps the index in step with its
-		// new content. A newly discovered one starts out unscreened and enters
-		// the index when screening clears it.
-		if !is_new {
-			self.refresh_search_index(&uuid).await?;
-		}
+		// The facet row is written by this point, so the index row can be built
+		// from it.
+		self.refresh_search_index(&uuid).await?;
 
 		Ok(uuid)
 	}
@@ -591,126 +568,8 @@ impl SourceDb {
 		Ok(row.0)
 	}
 
-	/// The concatenated search text for a record, as one SQL expression.
-	fn search_text_expr(&self, alias: &str) -> Option<String> {
-		let fields = indexed_search_fields(&self.schema);
-		if fields.is_empty() {
-			return None;
-		}
-		Some(
-			fields
-				.iter()
-				.map(|f| format!("COALESCE({alias}.\"{f}\", '')"))
-				.collect::<Vec<_>>()
-				.join(" || ' ' || "),
-		)
-	}
-
-	/// Fetch records needing embedding.
-	pub async fn records_needing_embedding(
-		&self,
-		batch_size: usize,
-	) -> Result<Vec<EmbeddingRecord>> {
-		let Some(concat_expr) = self.search_text_expr("f") else {
-			return Ok(Vec::new());
-		};
-
-		let table = facet_table(self.primary_type());
-		let sql = format!(
-			"SELECT r.uuid, ({concat_expr}) AS content
-			 FROM record r JOIN \"{table}\" f ON f.record_uuid = r.uuid
-			 WHERE r.type = ?
-			   AND (r._embedded_at IS NULL OR r._embedded_at < r.indexed_at)
-			   AND r._safety_verdict IN ('safe', 'flagged')
-			 LIMIT ?"
-		);
-
-		let rows = sqlx::query_as::<_, (String, String)>(&sql)
-			.bind(self.primary_type())
-			.bind(batch_size as i64)
-			.fetch_all(&self.pool)
-			.await?;
-
-		Ok(rows
-			.into_iter()
-			.map(|(id, content)| EmbeddingRecord { id, content })
-			.collect())
-	}
-
-	/// Mark records as embedded.
-	pub async fn mark_embedded(&self, ids: &[String]) -> Result<()> {
-		if ids.is_empty() {
-			return Ok(());
-		}
-
-		let placeholders = vec!["?"; ids.len()].join(", ");
-		let sql = format!(
-			"UPDATE record SET _embedded_at = datetime('now') WHERE uuid IN ({placeholders})"
-		);
-
-		let mut query = sqlx::query(&sql);
-		for id in ids {
-			query = query.bind(id);
-		}
-		query.execute(&self.pool).await?;
-
-		Ok(())
-	}
-
-	/// Fetch records needing safety screening.
-	pub async fn records_needing_screening(
-		&self,
-		batch_size: usize,
-	) -> Result<Vec<ScreeningRecord>> {
-		let Some(concat_expr) = self.search_text_expr("f") else {
-			return Ok(Vec::new());
-		};
-
-		let table = facet_table(self.primary_type());
-		let sql = format!(
-			"SELECT r.uuid, ({concat_expr}) AS content
-			 FROM record r JOIN \"{table}\" f ON f.record_uuid = r.uuid
-			 WHERE r.type = ? AND r._safety_verdict = 'unscreened'
-			 LIMIT ?"
-		);
-
-		let rows = sqlx::query_as::<_, (String, String)>(&sql)
-			.bind(self.primary_type())
-			.bind(batch_size as i64)
-			.fetch_all(&self.pool)
-			.await?;
-
-		Ok(rows
-			.into_iter()
-			.map(|(id, content)| ScreeningRecord { id, content })
-			.collect())
-	}
-
-	/// Record a screening verdict and bring the search index into line with it.
-	pub async fn mark_screened(
-		&self,
-		id: &str,
-		score: u8,
-		verdict: &str,
-		version: &str,
-	) -> Result<()> {
-		sqlx::query(
-			"UPDATE record
-			 SET _safety_score = ?, _safety_verdict = ?, _safety_version = ?
-			 WHERE uuid = ?",
-		)
-		.bind(score as i32)
-		.bind(verdict)
-		.bind(version)
-		.bind(id)
-		.execute(&self.pool)
-		.await?;
-
-		self.refresh_search_index(id).await
-	}
-
-	/// Bring a record's search-index row into line with its current verdict:
-	/// present and current when cleared, absent otherwise.
+	/// Bring a record's search-index row into line with its facet row.
+	/// Only the primary type is searchable.
 	async fn refresh_search_index(&self, uuid: &str) -> Result<()> {
 		let fields = indexed_search_fields(&self.schema);
 		if fields.is_empty() {
@@ -722,16 +581,15 @@ impl SourceDb {
 			.execute(&self.pool)
 			.await?;
 
-		let verdict: Option<(String, String)> =
-			sqlx::query_as("SELECT type, _safety_verdict FROM record WHERE uuid = ?")
-				.bind(uuid)
-				.fetch_optional(&self.pool)
-				.await?;
+		let type_: Option<(String,)> = sqlx::query_as("SELECT type FROM record WHERE uuid = ?")
+			.bind(uuid)
+			.fetch_optional(&self.pool)
+			.await?;
 
-		let Some((type_, verdict)) = verdict else {
+		let Some((type_,)) = type_ else {
 			return Ok(());
 		};
-		if type_ != self.primary_type() || !INDEXABLE_VERDICTS.contains(&verdict.as_str()) {
+		if type_ != self.primary_type() {
 			return Ok(());
 		}
 
@@ -756,7 +614,7 @@ impl SourceDb {
 		Ok(())
 	}
 
-	/// Rebuild the whole search index from records currently cleared for it.
+	/// Rebuild the whole search index from the primary type's records.
 	pub async fn rebuild_search_index(&self) -> Result<u64> {
 		let fields = indexed_search_fields(&self.schema);
 		if fields.is_empty() {
@@ -783,7 +641,7 @@ impl SourceDb {
 			"INSERT INTO search_index ({columns}, uuid)
 			 SELECT {selected}, r.uuid
 			 FROM record r JOIN \"{table}\" f ON f.record_uuid = r.uuid
-			 WHERE r.type = ? AND r._safety_verdict IN ('safe', 'flagged')"
+			 WHERE r.type = ?"
 		);
 
 		let result = sqlx::query(&sql)
@@ -898,12 +756,10 @@ impl SourceDb {
 
 		match &self.schema.search.date_field {
 			Some(date_field) => {
-				let _ = write!(sql, "f.\"{date_field}\" AS date, ");
+				let _ = write!(sql, "f.\"{date_field}\" AS date ");
 			}
-			None => sql.push_str("NULL AS date, "),
+			None => sql.push_str("NULL AS date "),
 		}
-
-		sql.push_str("r._safety_verdict, r._safety_score ");
 
 		let _ = write!(
 			sql,
@@ -1021,8 +877,6 @@ struct FtsHitRow {
 	subtitle: Option<String>,
 	rank: f64,
 	date: Option<String>,
-	_safety_verdict: Option<String>,
-	_safety_score: Option<i32>,
 }
 
 impl From<FtsHitRow> for FtsHit {
@@ -1035,8 +889,6 @@ impl From<FtsHitRow> for FtsHit {
 			subtitle: row.subtitle,
 			rank: row.rank,
 			date: row.date,
-			safety_verdict: row._safety_verdict,
-			safety_score: row._safety_score.map(|s| s as u8),
 		}
 	}
 }

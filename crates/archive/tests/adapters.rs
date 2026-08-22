@@ -5,8 +5,8 @@
 use sd_archive::adapter::apple_photos::ApplePhotosAdapter;
 use sd_archive::adapter::script::ScriptAdapter;
 use sd_archive::adapter::{Adapter, AdapterKind, AdapterRegistry};
-use sd_archive::source::SourceManager;
 use sd_archive::record::facet_table;
+use sd_archive::source::SourceManager;
 
 fn adapters_dir() -> std::path::PathBuf {
 	std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -83,18 +83,13 @@ async fn every_bundled_adapter_builds_a_usable_index() {
 
 		// The primary type round-trips through ingest and search.
 		db.begin_sync().await.expect("epoch");
-		let uuid = db
-			.upsert(
-				&schema.search.primary_model,
-				"probe-1",
-				&probe_fields(&schema),
-			)
-			.await
-			.unwrap_or_else(|e| panic!("{name}: upsert failed: {e}"));
-
-		db.mark_screened(&uuid, 0, "safe", "test")
-			.await
-			.unwrap_or_else(|e| panic!("{name}: screening failed: {e}"));
+		db.upsert(
+			&schema.search.primary_model,
+			"probe-1",
+			&probe_fields(&schema),
+		)
+		.await
+		.unwrap_or_else(|e| panic!("{name}: upsert failed: {e}"));
 
 		let items = db
 			.list_items(10, 0)

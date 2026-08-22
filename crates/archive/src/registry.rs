@@ -4,8 +4,51 @@ use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
 use crate::error::{Error, Result};
-use crate::safety::{SafetyMode, SafetyPolicy, TrustTier};
 use crate::schema::DataTypeSchema;
+
+/// How much a source's content is trusted, declared by its adapter manifest.
+/// Screening policy keys on this once screening exists.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrustTier {
+	/// User-created content (Obsidian notes, local files, personal calendar).
+	Authored,
+	/// Shared / multi-author spaces (Slack, Discord, GitHub).
+	Collaborative,
+	/// Third-party content (email inbox, RSS, web bookmarks, browser history).
+	#[default]
+	External,
+}
+
+impl TrustTier {
+	/// Parse from a string, defaulting to `External` for unknown values.
+	pub fn from_str_or_default(s: &str) -> Self {
+		match s {
+			"authored" => Self::Authored,
+			"collaborative" => Self::Collaborative,
+			"external" => Self::External,
+			_ => {
+				tracing::warn!(value = s, "unknown trust_tier, defaulting to 'external'");
+				Self::External
+			}
+		}
+	}
+
+	/// Canonical string representation.
+	pub fn as_str(&self) -> &'static str {
+		match self {
+			Self::Authored => "authored",
+			Self::Collaborative => "collaborative",
+			Self::External => "external",
+		}
+	}
+}
+
+impl std::fmt::Display for TrustTier {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str(self.as_str())
+	}
+}
 
 /// Central registry backed by `registry.db`.
 pub struct Registry {
@@ -25,9 +68,6 @@ pub struct SourceInfo {
 	pub status: String,
 	pub created_at: String,
 	pub trust_tier: TrustTier,
-	pub safety_mode: SafetyMode,
-	pub quarantine_threshold: u8,
-	pub flag_threshold: u8,
 }
 
 /// Info about a registered data type.
@@ -66,24 +106,17 @@ impl Registry {
 				last_synced TEXT,
 				status TEXT NOT NULL DEFAULT 'idle',
 				trust_tier TEXT NOT NULL DEFAULT 'external',
-				safety_mode TEXT NOT NULL DEFAULT 'strict',
-				quarantine_threshold INTEGER NOT NULL DEFAULT 70,
-				flag_threshold INTEGER NOT NULL DEFAULT 40,
 				created_at TEXT NOT NULL DEFAULT (datetime('now'))
 			)",
 		)
 		.execute(&pool)
 		.await?;
 
-		// Migrate existing databases
-		for alter in [
+		let _ = sqlx::query(
 			"ALTER TABLE sources ADD COLUMN trust_tier TEXT NOT NULL DEFAULT 'external'",
-			"ALTER TABLE sources ADD COLUMN safety_mode TEXT NOT NULL DEFAULT 'strict'",
-			"ALTER TABLE sources ADD COLUMN quarantine_threshold INTEGER NOT NULL DEFAULT 70",
-			"ALTER TABLE sources ADD COLUMN flag_threshold INTEGER NOT NULL DEFAULT 40",
-		] {
-			let _ = sqlx::query(alter).execute(&pool).await;
-		}
+		)
+		.execute(&pool)
+		.await;
 
 		sqlx::query(
 			"CREATE TABLE IF NOT EXISTS data_types (
@@ -111,7 +144,7 @@ impl Registry {
 	pub async fn list_sources(&self) -> Result<Vec<SourceInfo>> {
 		let rows = sqlx::query_as::<_, SourceRow>(
 			"SELECT id, name, data_type, adapter_id, config, item_count, last_synced, status,
-					trust_tier, safety_mode, quarantine_threshold, flag_threshold, created_at
+					trust_tier, created_at
 			 FROM sources ORDER BY created_at DESC",
 		)
 		.fetch_all(&self.pool)
@@ -124,7 +157,7 @@ impl Registry {
 	pub async fn get_source(&self, id: &str) -> Result<SourceInfo> {
 		let row = sqlx::query_as::<_, SourceRow>(
 			"SELECT id, name, data_type, adapter_id, config, item_count, last_synced, status,
-					trust_tier, safety_mode, quarantine_threshold, flag_threshold, created_at
+					trust_tier, created_at
 			 FROM sources WHERE id = ?",
 		)
 		.bind(id)
@@ -139,12 +172,10 @@ impl Registry {
 	pub async fn create_source(&self, new: &NewSource) -> Result<SourceInfo> {
 		let id = uuid::Uuid::new_v4().to_string();
 		let config_str = serde_json::to_string(&new.config)?;
-		let policy = SafetyPolicy::default_for_tier(new.trust_tier);
 
 		sqlx::query(
-			"INSERT INTO sources (id, name, data_type, adapter_id, config,
-								trust_tier, safety_mode, quarantine_threshold, flag_threshold)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+			"INSERT INTO sources (id, name, data_type, adapter_id, config, trust_tier)
+			 VALUES (?, ?, ?, ?, ?, ?)",
 		)
 		.bind(&id)
 		.bind(&new.name)
@@ -152,9 +183,6 @@ impl Registry {
 		.bind(&new.adapter_id)
 		.bind(&config_str)
 		.bind(new.trust_tier.as_str())
-		.bind(policy.mode.to_string())
-		.bind(policy.quarantine_threshold as i32)
-		.bind(policy.flag_threshold as i32)
 		.execute(&self.pool)
 		.await?;
 
@@ -269,9 +297,6 @@ struct SourceRow {
 	last_synced: Option<String>,
 	status: String,
 	trust_tier: String,
-	safety_mode: String,
-	quarantine_threshold: i32,
-	flag_threshold: i32,
 	created_at: String,
 }
 
@@ -287,9 +312,6 @@ impl SourceRow {
 			last_synced: self.last_synced,
 			status: self.status,
 			trust_tier: TrustTier::from_str_or_default(&self.trust_tier),
-			safety_mode: SafetyMode::from_str_or_default(&self.safety_mode),
-			quarantine_threshold: self.quarantine_threshold as u8,
-			flag_threshold: self.flag_threshold as u8,
 			created_at: self.created_at,
 		}
 	}

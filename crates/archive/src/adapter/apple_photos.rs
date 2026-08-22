@@ -25,7 +25,7 @@ use crate::adapter::script::ConfigField;
 use crate::adapter::{Adapter, AdapterKind, SyncReport};
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
-use crate::safety::TrustTier;
+use crate::registry::TrustTier;
 use crate::schema::DataTypeSchema;
 
 /// Model names, shared between the schema declaration and the ingest path.

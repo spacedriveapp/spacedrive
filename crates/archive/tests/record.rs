@@ -2,9 +2,9 @@
 //! protocol's shape, then read back through the record table.
 
 use sd_archive::library::{Library, RecordKey};
+use sd_archive::record::facet_table;
 use sd_archive::schema::parser;
 use sd_archive::source::SourceManager;
-use sd_archive::record::facet_table;
 use serde_json::json;
 
 const SCHEMA: &str = r#"
@@ -66,24 +66,6 @@ impl Fixture {
 			.open(&self.source_id)
 			.await
 			.expect("open index")
-	}
-}
-
-/// Screening runs after ingest; mirror that so records reach the search index.
-async fn clear_for_indexing(db: &sd_archive::db::SourceDb) {
-	loop {
-		let batch = db
-			.records_needing_screening(64)
-			.await
-			.expect("screening batch");
-		if batch.is_empty() {
-			break;
-		}
-		for record in &batch {
-			db.mark_screened(&record.id, 0, "safe", "test")
-				.await
-				.expect("mark screened");
-		}
 	}
 }
 
@@ -283,7 +265,7 @@ async fn deleting_a_record_cascades_its_facet_and_edges() {
 }
 
 #[tokio::test]
-async fn search_index_follows_the_screening_verdict() {
+async fn upsert_makes_a_record_searchable() {
 	let fixture = Fixture::new().await;
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");
@@ -296,25 +278,14 @@ async fn search_index_follows_the_screening_verdict() {
 	.await
 	.expect("upsert");
 
-	// Unscreened content stays out of the index.
-	assert!(db
-		.fts_search("quarterly", 10, None)
-		.await
-		.expect("search")
-		.is_empty());
-
-	clear_for_indexing(&db).await;
-
 	let hits = db.fts_search("quarterly", 10, None).await.expect("search");
 	assert_eq!(hits.len(), 1);
 	assert_eq!(hits[0].external_id, "note-1");
 	assert_eq!(hits[0].title, "Quarterly report");
 	assert_eq!(hits[0].preview.as_deref(), Some("revenue is up"));
 
-	// Quarantining pulls it back out.
-	db.mark_screened(&hits[0].id, 95, "quarantined", "test")
-		.await
-		.expect("quarantine");
+	// Deleting the record takes its index row with it.
+	db.delete("note", "note-1").await.expect("delete");
 	assert!(db
 		.fts_search("quarterly", 10, None)
 		.await
@@ -335,7 +306,6 @@ async fn reindexing_updated_content_keeps_the_index_current() {
 	)
 	.await
 	.expect("upsert");
-	clear_for_indexing(&db).await;
 	assert_eq!(db.fts_search("original", 10, None).await.unwrap().len(), 1);
 
 	db.begin_sync().await.expect("epoch");

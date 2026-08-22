@@ -3,7 +3,6 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
-use std::pin::Pin;
 use std::time::Instant;
 
 use serde::{Deserialize, Serialize};
@@ -13,7 +12,7 @@ use tokio::process::Command;
 use crate::adapter::{Adapter, AdapterKind, SyncReport};
 use crate::db::SourceDb;
 use crate::error::{Error, Result};
-use crate::safety::TrustTier;
+use crate::registry::TrustTier;
 use crate::schema::{DataTypeMeta, DataTypeSchema, SearchContract};
 
 /// A parsed `adapter.toml` manifest.
@@ -479,6 +478,14 @@ impl Adapter for ScriptAdapter {
 				.stderr
 				.take()
 				.ok_or_else(|| Error::AdapterSync("failed to open stderr".into()))?;
+
+			let adapter_id = self.manifest.adapter.id.clone();
+			tokio::spawn(async move {
+				let mut lines = BufReader::new(stderr).lines();
+				while let Ok(Some(line)) = lines.next_line().await {
+					tracing::debug!(adapter = %adapter_id, "{line}");
+				}
+			});
 
 			let config_json = serde_json::to_string(config)
 				.map_err(|e| Error::AdapterSync(format!("failed to serialize config: {e}")))?;
