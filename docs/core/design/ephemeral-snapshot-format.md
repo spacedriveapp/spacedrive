@@ -34,7 +34,7 @@ Postcard: varint (LEB128) integers, length-prefixed strings and collections, **n
 | 3 | `root_path` | `PathBuf` | The indexed root. On restore with the drive present, a mismatch against the record's current root (remount at a new path) discards the snapshot for reindex — absolute paths inside would be stale. |
 | 4 | `created_at_secs` | `u64` | Staleness metadata, surfaced via `SnapshotMeta`. |
 | 5 | `path_index` | `HashMap<PathBuf, EntryId>` | Full absolute path per entry — the bulk of the bytes. |
-| 6 | `entry_uuids` | `HashMap<EntryId, Uuid>` | v7 uuids, only for entries ever assigned one. These are the identities the frontend sees and the spine will persist. |
+| 6 | `entry_uuids` | `HashMap<EntryId, Uuid>` | v7 uuids, only for entries ever assigned one. These are the identities the frontend sees and the record table will persist. |
 | 7 | `content_kinds` | `HashMap<EntryId, ContentKind>` | Detected kinds. |
 | 8 | `stats` | `IndexerStats` | files/dirs/symlinks/bytes counters. |
 | 9 | `name_cache_strings` | `Vec<String>` | The interning pool, by value. |

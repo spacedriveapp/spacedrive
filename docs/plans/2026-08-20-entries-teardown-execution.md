@@ -5,7 +5,10 @@
 > built from what's actually there. The plan stays the statement of intent;
 > this is the thing you hand to agents.
 >
-> **Related docs.** `2026-08-20-architecture-previs.md` is the destination
+> **Related docs.** `2026-08-22-source-convergence.md` runs ahead of this
+> register: it inserts a truth pass and a re-charter of `crates/archive` before
+> P2 here, and pulls T6.1 forward. Read it first — it changes the ordering
+> below, not the content. `2026-08-20-architecture-previs.md` is the destination
 > written as though finished, and carries the decisions and open questions.
 > `2026-08-20-pre-teardown-brief.md` is the one-pager for work landing next to
 > the teardown before it starts. `2026-08-21-filesystem-source-store.md` designs
@@ -36,7 +39,7 @@ rather than inferring it from a diff.
 | T2.0 Store shape | **decided** | — | one file per source, evidence-tuple rebind. WAL settles it |
 | — index to keep | **decided** | — | a source store is never rebuilt; it is user data, not a cache |
 | T2.0b Volume/source boundary | **open — blocks T6.1** | — | recommendation written, not ruled on |
-| — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the spine |
+| — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the record table |
 | T2.1–T2.7 | not started | — | T2.5 gates T4.9; T2.7 also fixes dedup inside a single source |
 | T3.1a Format v2 | done | — | `pvcache/layout.rs:12` `FORMAT_VERSION = 2`, four header fields on the frame |
 | T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
@@ -170,7 +173,7 @@ describes, and the difference is a decision, not a gap.
   `(source_id, type, external_id)`. For a filesystem source `external_id` is the
   path, so a move or rename loses the assertion — exactly what contract 2's
   evidence-tuple two-factor ledger exists to prevent. There is no ledger table
-  in `spine.rs:17-73` and no assertion table anywhere. Contract 2 is fully
+  in `record.rs:17-73` and no assertion table anywhere. Contract 2 is fully
   greenfield.
 - **`apply_mutations` does not exist.** The write path is `SourceDb::upsert`
   (`db.rs:173`), one statement per record, with `set_cursor` (`db.rs:565`)
@@ -190,9 +193,9 @@ same id for the same bytes, offline and retroactively, with no coordination.
 `SdPath::Content { content_id }` is a real address because of this property, not
 a local handle.
 
-Neither half of it survives the move as the spine is written today.
+Neither half of it survives the move as the record table is written today.
 
-**The convergent uuid is not carried over.** `spine.rs:40` gives `content` an
+**The convergent uuid is not carried over.** `record.rs:40` gives `content` an
 integer local primary key and no uuid column. Ship that and content identity
 becomes a per-source rowid: every cross-source or cross-device claim has to be
 reconstructed by comparing hash strings rather than by two parties independently
@@ -202,7 +205,7 @@ this is a column, not a feature.
 
 **Dedup does not work inside a single source.** `db.rs:495 set_content_identity`
 does an unconditional `INSERT … RETURNING id`, and `idx_content_sampled`
-(`spine.rs:47`) is a plain index, not UNIQUE. Two identical files in the same
+(`record.rs:47`) is a plain index, not UNIQUE. Two identical files in the same
 source get two content rows with two ids, and the local join finds neither from
 the other. The substrate is double-counting before the catalog is built on top
 of it.
@@ -257,7 +260,7 @@ is a migration against real libraries.
 written only from `ops/volumes/index/action.rs:107`) and `archive::registry`
 (`registry.db`, adapter/data-type keyed, driving `sources.*` ops). The ephemeral
 module's own header (`sources.rs:9-10`) says it "converges with the archive
-sources registry when filesystem sources gain durable spine stores." That
+sources registry when filesystem sources gain durable record stores." That
 convergence is phase 1's actual first task and no phase names it.
 
 ## Phase 2: register corrections
@@ -507,7 +510,7 @@ Three consequences to carry:
   source is simply the shape.
 - A source store is user data. It needs backing up, and `delete_source` is a
   destructive operation rather than a cache clear.
-- `_sync_state` holds the adapter cursor, and `spine.rs` notes the JSONL protocol
+- `_sync_state` holds the adapter cursor, and `record.rs` notes the JSONL protocol
   is a delta stream resumed from it. Losing that file was already worse than it
   looked; now it is not something the system does at all.
 
@@ -561,7 +564,7 @@ the property the snapshot cannot provide and the ledger exists for.
 first sight, arena and the source store both consumers, checkpoint in the batch
 transaction from T2.2.
 
-**T2.7 Content identity in the spine.** `crates/archive/src/spine.rs`,
+**T2.7 Content identity in the record table.** `crates/archive/src/record.rs`,
 `crates/archive/src/db.rs`. Three parts, all small, all cheap now and expensive
 after there is data:
 
@@ -766,7 +769,7 @@ row written to `content_identity`. Switching theme does not change a tile.
 a file, spaces — with entries branches compiled out behind a temporary flag,
 before anything is dropped.
 
-## P5 — Media on the spine
+## P5 — Media in the record table
 
 - **T5.1 Content hashing** as the tiered ladder writing to source-store records
   instead of `content_identity`.
@@ -820,7 +823,7 @@ One commit series. Sized from the actual tree.
   `Inspector/LocationInspector`, `AddLocationModal`, `AddStorageModal`) and
   mobile (`screens/explorer/useVirtualListing`, `screens/browse/LocationsGroup`,
   `screens/overview/OverviewScreen`, `screens/overview/DevicePanel`).
-- **T6.6 Flip the spine rule** in AGENTS.md ("Current direction") from "do not
+- **T6.6 Flip the record table rule** in AGENTS.md ("Current direction") from "do not
   deepen the entries world" to "the entries world does not exist," and drop
   the `ephemeral` note once T6.7 has run.
 - **T6.7 Drop the `ephemeral` qualifier.** Its own commit, no behaviour riding

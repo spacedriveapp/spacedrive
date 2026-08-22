@@ -1,14 +1,14 @@
-# Per-source databases and the record spine
+# Per-source databases and the record table
 
 Captured 2026-07-29. The question is what it would take to bring the Spacedrive
-Native data shape into V2: one database per location, a universal record spine,
+Native data shape into V2: one database per location, a universal record table,
 and type structure in facets rather than core columns. Reference implementation
 is `~/Projects/spacedriveapp/native` (`crates/model`, `crates/facets`,
 `crates/harness`, `crates/sources/*`, about 3,600 lines total), and its own
 design notes in `native/docs/architecture.md`.
 
 The short version: half the port already landed. `crates/archive` carries the
-spine as of 2026-07-28. What remains is that files and photos still live in a
+record table as of 2026-07-28. What remains is that files and photos still live in a
 different world, and closing that gap is a different project from adopting the
 schema.
 
@@ -16,10 +16,10 @@ schema.
 
 ## Already done
 
-`crates/archive/src/spine.rs` (commit `da1b28e8f`) is native's
+`crates/archive/src/record.rs` (commit `da1b28e8f`) is native's
 `crates/model/src/schema.rs` with different types on two columns. Both define:
 
-- `record(uuid, external_id, type, title, created_at, modified_at, parent_uuid, content_id, version, scan_epoch)` as the universal spine, identity assigned at
+- `record(uuid, external_id, type, title, created_at, modified_at, parent_uuid, content_id, version, scan_epoch)` as the record table, identity assigned at
   discovery rather than derived from content.
 - `content(id, sampled_hash, integrity_hash, size, kind)` as the tiered async
   hash, never the primary key.
@@ -107,7 +107,7 @@ lines of `Connector`, `Sink` and epoch handling, and `sources/filesystem` is 434
 
 ## Recommended path
 
-Add filesystem as a data type on the existing spine and run it beside `entries`.
+Add filesystem as a data type in the existing record table and run it beside `entries`.
 Do not migrate `entries`.
 
 This keeps sync, the FTS triggers and all 122 registered ops untouched, including
@@ -115,7 +115,7 @@ the 54 in files, locations, indexing, spaces, tags, search and media that read t
 entry world. It also turns the question of retiring `entries` into a measurement
 against a working alternative instead of a bet taken up front.
 
-**Phase 1. Fix the spine types.** Move `record.uuid` to BLOB, settle the
+**Phase 1. Fix the record table types.** Move `record.uuid` to BLOB, settle the
 uniqueness key, and add the sweep policy column to the registry. Reindex the 11
 adapters, which is what they are for.
 
@@ -182,11 +182,11 @@ migrating `entries` is the wrong place to start"). That premise was retired by
 decision on 2026-08-17: all sync work is stopped, and local-only is the product.
 
 The strategy is now **replacement under contract**: ops keep their signatures,
-locations migrate one at a time onto per-location spine stores, and the
+locations migrate one at a time onto per-location record stores, and the
 `entries` schema is deleted when the last location leaves. The divergences and
 costs cataloged above remain accurate and are absorbed as prerequisites — the
 global content map (phase 4 here) is designed in
 `docs/core/design/cross-location-content.md` and moves first, seeded from
 `content_identity` so cross-location queries never go dark; the overlay-layer
 merge and the sorted-enumeration bill land as prerequisites P2 and P3.
-Execution: `docs/plans/2026-08-17-record-spine-transplant.md`.
+Execution: `docs/plans/2026-08-17-record-table-transplant.md`.

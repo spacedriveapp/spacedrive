@@ -149,15 +149,15 @@ independently.
 
 `sd-archive` generates a bespoke schema per data type: `DataTypeSchema` → models
 → typed fields → generated DDL (`crates/archive/src/schema/`). The other two use
-a universal record spine with optional facet tables hanging off it.
+a universal record table with optional facet tables hanging off it.
 
-Cross-source search and cross-source edges require the spine. You cannot join
-across bespoke per-datatype schemas. That makes the spine a requirement, not a
+Cross-source search and cross-source edges require the record table. You cannot join
+across bespoke per-datatype schemas. That makes the record table a requirement, not a
 preference.
 
-Both mechanisms survive the merge: the spine becomes mandatory in every source
+Both mechanisms survive the merge: the record table becomes mandatory in every source
 database, and the existing TOML→DDL codegen keeps its job but emits **facet**
-tables keyed to the spine instead of standalone models.
+tables keyed to the record table instead of standalone models.
 
 ### Target shape
 
@@ -182,9 +182,9 @@ One durable `library.db`:
 
 1. Add `library.db` with overlay, grouping and cross-source edges. No change to
    source behaviour; the durable layer exists and is empty.
-2. Add spine tables to source databases, populated from the adapter stream
+2. Add record tables to source databases, populated from the adapter stream
    alongside the existing model tables. Both paths live.
-3. Route `search` and `list_items` through the spine. FTS and vector index
+3. Route `search` and `list_items` through the record table. FTS and vector index
    against it.
 4. Wire `content` to the existing content-identity path.
 5. Drop standalone model tables. TOML models compile to facets only.

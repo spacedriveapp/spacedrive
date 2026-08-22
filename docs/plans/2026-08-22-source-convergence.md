@@ -133,16 +133,31 @@ Not style, mechanics:
 No behaviour changes. Everything here is deleting or correcting claims, so the
 later phases are not read against fiction.
 
-1. Delete `embed.rs`, `search/vector.rs` and the `safety.rs` classifier stub.
-2. Delete the post-sync embedding and screening passes in `engine.rs`, and the
-   log lines reporting their counts.
-3. Drop `_embedded_at`, `_safety_score`, `_safety_verdict`, `_safety_version`
-   from the record schema and every read path that projects them.
-4. Rewrite `docs/core/design/archive.md` and `docs/archive/README.md` to
-   describe sources rather than a second data plane beside the VDFS.
-5. Rename `spine` → `record`. Source tree done 2026-08-22, `cargo check -p
-   sd-archive --all-targets` clean. Sixteen docs still carry the old word,
-   including the filename `2026-08-17-record-spine-transplant.md`.
+1. **Done.** Deleted `embed.rs`, `search/vector.rs` and `safety.rs`.
+   `TrustTier` survives in `registry.rs` — it is declared by all eleven adapter
+   manifests and is the input screening policy will key on.
+2. **Done.** Removed the post-sync embedding and screening passes from
+   `engine.rs` and the log lines reporting their counts.
+3. **Done.** Dropped `_embedded_at`, `_safety_score`, `_safety_verdict`,
+   `_safety_version` and `idx_record_verdict` from the record schema and every
+   path that read them.
+4. **Done.** Rewrote `docs/core/design/archive.md` and `docs/archive/README.md`
+   against the code. The old versions documented a manifest format, a JSONL
+   protocol and a sandbox that do not exist.
+5. **Done.** Renamed `spine` → `record` across the source tree and sixteen
+   docs, including the filename `2026-08-17-record-table-transplant.md`.
+
+**Found while doing it.** The verdict gate was load-bearing in a way nothing
+documented: `upsert` only refreshed the search index for records it had seen
+before, because a new record was expected to enter the index later, when
+screening cleared it. Screening ran off a stub, and if the model failed to load
+the pass marked everything safe by a separate path — so the index was populated
+by a fallback nobody had read. Removing the gate meant `upsert` had to index
+unconditionally. `tests/record.rs` had a `clear_for_indexing` helper that
+existed only to walk records past this, and `tests/adapters.rs` called
+`mark_screened` on its probe for the same reason; both are gone. Also fixed
+alongside: adapter stderr was piped and then dropped, closing the pipe under a
+writing adapter — it is now drained into tracing.
 
 ### P1 — Re-charter the crate
 

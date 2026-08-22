@@ -108,7 +108,7 @@ flight.
 
 **Slice 4, part two landed.** Apple Photos ships as the archive system's
 first native Rust adapter (`crates/archive/src/adapter/apple_photos.rs`):
-read-only harvest of assets, albums, and people onto the spine with the
+read-only harvest of assets, albums, and people onto the record table with the
 full EXIF facet, preserving the donor's hard-won pieces verbatim
 (snapshot-before-query, the shape-resolved Core Data album join, thumbnail
 fallback chain, EXIF sentinel cleaning). Smoke-tested against a copy of a

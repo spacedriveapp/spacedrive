@@ -9,7 +9,7 @@
 > for the read-ahead and seek reasons argued under "Mount frontends". The
 > cache also moved ahead of the SMB frontend — a mount baseline measured
 > without a cache measures re-fetching, not architecture.
-> **Companions:** `docs/plans/2026-08-18-storage-consolidation.md` (the four stores and contracts this reads from), `docs/plans/2026-08-17-record-spine-transplant.md` (execution context), `docs/core/design/cross-location-content.md` (content identity), `docs/core/design/ephemeral-snapshot-format.md` (the metadata replica format)
+> **Companions:** `docs/plans/2026-08-18-storage-consolidation.md` (the four stores and contracts this reads from), `docs/plans/2026-08-17-record-table-transplant.md` (execution context), `docs/core/design/cross-location-content.md` (content identity), `docs/core/design/ephemeral-snapshot-format.md` (the metadata replica format)
 
 ## The feature
 

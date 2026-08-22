@@ -292,7 +292,7 @@ app side by side on the same folder.
 
 ## Out of scope
 
-- The record spine transplant and the storage-consolidation internals (their
+- The record table transplant and the storage-consolidation internals (their
   own plans; A1 is a dependency on that lane, not a duplication of it).
 - The spaceui merge — extraction of `theme.rs`/`ui/` into
   `spaceui/crates/{tokens,ui}` and the token compiler. Settled destination,

@@ -9,7 +9,7 @@ accreted one store per document until the steady state became a small
 distributed system running on one machine. This doc collapses the storage
 model and writes down the four contracts slice 2 must build against.
 
-Amends: `2026-08-17-record-spine-transplant.md` (P2, P3, workstream B),
+Amends: `2026-08-17-record-table-transplant.md` (P2, P3, workstream B),
 `docs/core/design/cross-location-content.md`, `docs/core/design/zero-onboarding-startup.md`,
 `docs/core/design/ephemeral-snapshot-format.md`. Each carries a pointer here.
 
@@ -32,7 +32,7 @@ Four storage concepts. Nothing else holds truth.
    definitions, genuinely cross-source assertions. Tag definitions moved out to
    the sources that use them; see `docs/core/design/tags-and-assertions.md`,
    which amends this entry and contract 2's treatment of tags.
-2. **One `source.db` per physical filesystem** — the record spine, the identity
+2. **One `source.db` per physical filesystem** — the record table, the identity
    ledger (contract 2), durable knowledge (tags, corrections, notes), facets,
    and per-source FTS, in **one transaction boundary**. The former
    `index.db`/`meta.db` split becomes a *logical* split inside this file:
@@ -110,7 +110,7 @@ Three concepts, never conflated:
   accepts any rung, upgrading to the strongest — a drive first seen read-only
   (no dotfile) must not become a second source when the dotfile lands.
 - **`record_uuid`** — v7, minted at first observation, the permanent domain
-  identity. The UI shows it, edges reference it, the spine persists it.
+  identity. The UI shows it, edges reference it, the record table persists it.
 - **External evidence** — not one magic string: a versioned tuple
   (schema v1: relative path, inode, size, mtime) recorded per observation.
   Rebinding is evidence matching in the ledger, not key equality.
@@ -141,7 +141,7 @@ from the arena" phrasing, and they are the point:
    consumer of the same observations the hot layer consumes.
 2. **Identity is minted at first sight, before fan-out.** The producer assigns
    (or ledger-resolves) the record uuid; both consumers receive it. The uuid
-   in the UI and the uuid in the spine are the same because they were never
+   in the UI and the uuid in the record table are the same because they were never
    two.
 
 Delivery is at-least-once with: a per-source **generation** (bumped on
@@ -160,12 +160,12 @@ never re-hash, never full rescan).
 
 Per location/source, a durable state machine:
 
-`legacy → building → catching_up → validating → cutover_pending → spine → retired`
+`legacy → building → catching_up → validating → cutover_pending → records → retired`
 
-Each state defines write routing (legacy store, spine store, or both),
+Each state defines write routing (legacy store, record store, or both),
 restart behavior (every transition idempotent, crash resumes the state),
 projection publication (a source appears in `catalog.db` no earlier than
-`validating`), and rollback (possible until `cutover_pending`; after `spine`,
+`validating`), and rollback (possible until `cutover_pending`; after `record`,
 forward-only). The golden parity suite gates `validating → cutover_pending`.
 Legacy rows are retained until `retired`. The suite proves a *completed*
 migration; this machine is what makes a mid-cutover crash recoverable —

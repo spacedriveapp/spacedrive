@@ -1,18 +1,18 @@
-# Record Spine Transplant — Phase 1
+# Record Table Transplant — Phase 1
 
-**Strategy revision (2026-08-17, superseding the earlier draft of this plan):** the earlier draft followed `docs/plans/2026-07-29-per-source-databases.md` — run the spine beside `entries`, migrate nothing, measure, then decide. That doc's recommendation rested on sync as the immovable blocker, and the sync freeze retired the premise. The strategy is now **replacement under contract**: Spacedrive works the same, on per-location databases. Ops keep their signatures; locations migrate one at a time onto the spine schema; the `entries` schema is deleted when the last location leaves. See the addendum on the July doc.
+**Strategy revision (2026-08-17, superseding the earlier draft of this plan):** the earlier draft followed `docs/plans/2026-07-29-per-source-databases.md` — run the record table beside `entries`, migrate nothing, measure, then decide. That doc's recommendation rested on sync as the immovable blocker, and the sync freeze retired the premise. The strategy is now **replacement under contract**: Spacedrive works the same, on per-location databases. Ops keep their signatures; locations migrate one at a time onto the record schema; the `entries` schema is deleted when the last location leaves. See the addendum on the July doc.
 
 **Amendment (2026-08-18):** `docs/plans/2026-08-18-storage-consolidation.md` collapses this plan's storage model (per-source `index.db`+`meta.db` → one `source.db` with a durable/rebuildable logical split; `content-map.db`+`global-index.db` → one derived `catalog.db`), restructures the drain (the connector fans out to arena and store — the arena is a cache, not the event source), and states the four contracts (source ownership, identity/rebinding, drain sequencing, cutover state machine) that gate slice 2 wiring. Inline notes below mark the superseded passages; the workstream structure and everything else stands.
 
 Three commitments define the strategy:
 
 1. **Parity is defined at the ops boundary, not the SQL boundary.** All registered ops keep their input/output contracts — every client (UI, CLI, API, agents) speaks ops, so that is where "works the same today" is measured. Golden tests capture op outputs on a seeded library before migration and replay them after.
-2. **Locations migrate to the spine schema directly** — per-location `index.db` with records + file facet — not to per-location copies of the entries schema. The expensive work is the write-path re-plumbing and the cross-location merge layer; paying it twice to preserve a schema scheduled for deletion would be waste.
+2. **Locations migrate to the record schema directly** — per-location `index.db` with records + file facet — not to per-location copies of the entries schema. The expensive work is the write-path re-plumbing and the cross-location merge layer; paying it twice to preserve a schema scheduled for deletion would be waste.
 3. **Granularity is per-location, and that is the entire risk story.** A location lives either in `library.db` or in its own store; reads dispatch by residence. Migrate one location, run the parity suite, migrate the next. Nothing big-bang.
 
 ## Where things stand
 
-- **The spine schema landed 2026-07-28** (`da1b28e8f`): `crates/archive/src/spine.rs` — records with assigned uuid identity, tiered async content hashing, typed edges, cascade-owned facets, disposable per-source index + durable rebinding layer.
+- **The record schema landed 2026-07-28** (`da1b28e8f`): `crates/archive/src/record.rs` — records with assigned uuid identity, tiered async content hashing, typed edges, cascade-owned facets, disposable per-source index + durable rebinding layer.
 - **Cross-source *ranked* search is paid for**: `search/router.rs` fans out per-source FTS5 + LanceDB, merges via RRF. Sorted/paginated enumeration across stores is not built — it is prerequisite P3 below.
 - **imageio ported 2026-07-30** (`9a95fbfda`) as `sd-imageio`, macOS-gated, alongside the platform-derivatives rework of `core/src/ops/media/thumbnail/generator.rs`.
 - Still only in native: `pvcache`, `bake` tiers, `harness` (Connector/Sink seam), `facets/file`, `sources/filesystem`.
@@ -96,26 +96,26 @@ Acceptance: global name search answers from the projection with detached sources
 
 *Amended 2026-08-18: `global-index.db` and P1's `content-map.db` merge into one derived `catalog.db` (enumeration, detached display, global FTS, placement rows as tables). Splitting for write contention is deferred until measured. A detached source's catalog rows are availability-bearing: the previous-good generation is retained until a replacement publishes, and destructive decisions never rest on projection rows (consolidation doc, artifact classes).*
 
-**P4. Spine type fixes.** `record.uuid` TEXT → BLOB, uniqueness key settled against the durable rebind key, per-source sweep-policy column on the registry. Done now while the spine holds 11 adapters' worth of rows; reindex them. Acceptance: BLOB uuids throughout, adapters reindex clean.
+**P4. Record type fixes.** `record.uuid` TEXT → BLOB, uniqueness key settled against the durable rebind key, per-source sweep-policy column on the registry. Done now while the record table holds 11 adapters' worth of rows; reindex them. Acceptance: BLOB uuids throughout, adapters reindex clean.
 
 ## Workstream B — Indexer restructure: from mode flag to per-source sinks
 
 The bridge between the walk and the stores. The seam exists — `IndexPersistence` (`core/src/ops/indexing/persistence.rs`) with `DatabaseAdapter` (entries) and `MemoryAdapter` (arena) — but it is a binary mode (`Persistent | Ephemeral`, branched ~10 times in `job.rs`), speaks entries vocabulary (`i32` ids, `location_id`), and carries no source identity. Five moves, in order:
 
 1. **Source identity first-class.** Registering a root creates a source row (reusing the archive sources registry) with `source_id`, root path, placement, sweep policy. `IndexerJob` carries `source_id`.
-2. **Sink composition replaces the mode enum — as a pipeline, not a fan-out.** The ephemeral sink (the source's arena partition) is mandatory and first: the walk and watcher write only to it. The `Spine` sink (the source's `index.db`, through the Connector/Sink seam lifted from native's `harness`) *drains from the arena* — bulk behind the walk front, then incrementally from absorbed watcher deltas — for subtrees marked durable. Double indexing is structurally impossible, and the arena entry's uuid v7 is the record uuid the spine persists (identity continuous from first sight to durable record; see `docs/core/design/zero-onboarding-startup.md`). `Entries` (legacy) remains the read/write path for not-yet-migrated locations only. Branches collapse into sink capabilities; the trait generalizes to `(source_id, external_id)` keys.
+2. **Sink composition replaces the mode enum — as a pipeline, not a fan-out.** The ephemeral sink (the source's arena partition) is mandatory and first: the walk and watcher write only to it. The record-store sink (the source's `index.db`, through the Connector/Sink seam lifted from native's `harness`) *drains from the arena* — bulk behind the walk front, then incrementally from absorbed watcher deltas — for subtrees marked durable. Double indexing is structurally impossible, and the arena entry's uuid v7 is the record uuid the record table persists (identity continuous from first sight to durable record; see `docs/core/design/zero-onboarding-startup.md`). `Entries` (legacy) remains the read/write path for not-yet-migrated locations only. Branches collapse into sink capabilities; the trait generalizes to `(source_id, external_id)` keys.
 
    *Amended 2026-08-18: the durable sink does not read the arena's memory. The connector produces one observation stream and fans out to both consumers — arena for display, `source.db` via transactional `apply_mutations` batches with generation/watermark checkpointing (consolidation doc, contract 3). The two invariants this move existed for are unchanged and now explicit: one walk ever, and the record uuid minted at first sight before fan-out. "Drains from the arena" describes the *bulk* case only, where the arena replays its contents as the initial batch set.*
 3. **Partition the ephemeral cache per source.** `EphemeralIndexCache` becomes `source_id → EphemeralIndex`; snapshots become genuinely per-source dumps. Fixes three of the four audit landmines; prerequisite for the analyzer and for on-drive placement.
 4. **Watcher routing by source.** Events resolve to `source_id` by root prefix, dispatch to that source's sinks; overflow recovery becomes a bounded bankruptcy-recrawl of one source.
-5. **File facet + filesystem connector.** The walk writes through the spine sink into the source's `index.db` at existing-indexer throughput.
+5. **File facet + filesystem connector.** The walk writes through the record table sink into the source's `index.db` at existing-indexer throughput.
 
 Caution preserved from the earlier draft: do not sweep every `is_ephemeral` branch in one pass — several are progress/reporting concerns, not sink concerns. Land moves 1 and 3 early (the analyzer needs exactly those), and let the enum die when its last branch loses its reason.
 
 ### What a Location becomes
 
 **A Location = a subtree + a durability flag + an enrichment policy.** The drain
-pipeline gives each part a home: durability marks the subtree for the spine
+pipeline gives each part a home: durability marks the subtree for the record table
 sink; the policy decides which enrichment tiers follow the drain (hash tiers,
 thumbnails/sidecars, media metadata, OCR, embeddings). Policy rows live in the
 source's `meta.db` — assertions about a subtree that travel with the drive —
@@ -159,7 +159,7 @@ both-direction arbitrary-depth joins.
 The migration itself, once A and B are in place:
 
 1. **Golden parity suite first.** Seed a test library; record outputs of the file/location/search/tag/space ops that read the entry world (the July doc counts 54). These recordings are the contract.
-2. **Residence dispatch.** A location is marked `entries` or `spine`; directory listing, search enumeration, and file ops dispatch by residence. The merge layer (P3) composes mixed-residence results during the transition.
+2. **Residence dispatch.** A location is marked `entries` or `record`; directory listing, search enumeration, and file ops dispatch by residence. The merge layer (P3) composes mixed-residence results during the transition.
 3. **Migrate location-by-location.** Cut a location over (re-index into its `index.db`, durable layer rebinds by `(source_id, external_id)`, map rows update), run the parity suite scoped to it, proceed. Old locations remain untouched in `library.db` until their turn.
 4. **Retire.** When the last location leaves: FTS5 triggers and the entries tables drop, `content_identity` drops (the map long since took over), `DatabaseAdapter` deletes, and the entries branch of residence dispatch goes with it.
 
@@ -171,7 +171,7 @@ Design: `docs/core/design/thumbnail-storage.md`, which supersedes the earlier "t
 
 ## Workstream E — Ops surface and CLI
 
-**Spine ops** surface through the existing `ops/sources` machinery where it fits; minimum new surface: register a filesystem source, run its connector, query records with facets. Do not invent a parallel namespace where `sources.*` already carries it.
+**Record ops** surface through the existing `ops/sources` machinery where it fits; minimum new surface: register a filesystem source, run its connector, query records with facets. Do not invent a parallel namespace where `sources.*` already carries it.
 
 **The `sd op` passthrough.** Transport is already generic (`DaemonRequest::Action { method, library_id, payload }` / `::Query`, `crates/sd-client`, dispatched by name over the four inventory maps in `core/src/infra/wire/registry.rs`):
 
@@ -192,11 +192,11 @@ cat batch.json | sd op files.move --stdin
 
 Incremental directory-size rollups in the ephemeral index: per-file size exists in `PackedMetadata`; nothing sums it. Rollups recompute along the ancestor chain on watcher events — never by re-walking — and track logical and allocated size separately with the hardlink/clone attribution policy anchored in the content map (see `cross-location-content.md` § Attribution). Acceptance: subtree sizes queryable for any node; a file change updates ancestor totals without a re-walk; totals match a fresh scan on a test tree.
 
-## Workstream G — The spine rule
+## Workstream G — The record table rule
 
 Add to the repo root CLAUDE.md, verbatim:
 
-> **Record spine rule.** New surfaces, ops, and features build on the record spine (`crates/archive` — records, facets, edges, per-source stores). The `entries` world is being replaced under contract: ops keep their signatures while locations migrate to per-location stores, and the entries schema is deleted when the last location leaves. Do not add features, ops, or schema to the entries world; do not deepen the single-database assumption anywhere. If a task appears to require either, it is actually a spine migration task — stop and flag it.
+> **Record table rule.** New surfaces, ops, and features build on the record table (`crates/archive` — records, facets, edges, per-source stores). The `entries` world is being replaced under contract: ops keep their signatures while locations migrate to per-location stores, and the entries schema is deleted when the last location leaves. Do not add features, ops, or schema to the entries world; do not deepen the single-database assumption anywhere. If a task appears to require either, it is actually a record-table migration task — stop and flag it.
 
 ## Execution slicing: archive-a-drive first
 
@@ -208,7 +208,7 @@ The first deliverable is the drive-archiving workflow (index an external drive �
 
 *Status 2026-08-18, after a night of real archival use: live event streaming fixed (`7c9d1b7db` — the subscription filter compared device slugs by string equality, dropping every event for "local"-scoped subscriptions); persistent counts on overview volume cards (`13dd6ec39`, `ed90a9e3e`); **snapshot durability hardened against three corruption classes found in use** — concurrent-tmp interleaving and unrestored-partition clobbering (`3aa4867d4`: unique temp names, per-source save lock, restore gate, save invariant) and reboot truncation from missing fsync (`f85d2582a`); **workstream F's rollups landed** (`25e781c29`: incremental `subtree_bytes`, recomputed on restore, surfaced as directory sizes and per-source totals — logical size only; allocated/clone attribution stays with the content map). Known follow-ups: wire `VolumeMountChanged` to `set_detached`; shutdown save hook for post-index watcher deltas; multi-partition search fan-out; duplicate browse-job dispatch race (harmless to data, wasteful); task 0's remaining items (honor `sync_enabled`, delete the i32 tag-op variants); `sd-cli` looks for logs in the wrong directory and prints directories as `Type: File`.*
 
-**Slice 2 — durable + searchable.** Archive-stack blockers (adapter.toml removal, batched transactional ingest, minimal pool cache); the drain into per-source spine `index.db`; per-source FTS (detached drives become full-text searchable); content map seeded (redundancy: "is this drive backed up anywhere" starts answering).
+**Slice 2 — durable + searchable.** Archive-stack blockers (adapter.toml removal, batched transactional ingest, minimal pool cache); the drain into each source's `index.db`; per-source FTS (detached drives become full-text searchable); content map seeded (redundancy: "is this drive backed up anywhere" starts answering).
 
 **Slice 3 — travels with the drive.** On-drive `.spacedrive/` placement with per-path journal policy; `meta.db`; pvcache for detached thumbnails.
 
@@ -218,7 +218,7 @@ The remaining workstreams (merge layer, golden suite, per-location cutover) proc
 
 0. Data-safety fixes from the pre-flight register: unmount deletion guard, ops-contract i32 deletions, honor `sync_enabled`. *(immediate, independent of everything)*
 1. Commit the untracked docs. *(immediate)*
-2. P4 spine type fixes → P1 content map (seeded) → P2 durable re-keying → P3 merge layer. *(ordered; P1 may start alongside P4)*
+2. P4 record type fixes → P1 content map (seeded) → P2 durable re-keying → P3 merge layer. *(ordered; P1 may start alongside P4)*
 3. Workstream B moves 1–3 (source identity, sink composition, per-source arena). *(parallel with 2 after P4; move 3 should not trail — the analyzer needs it)*
 4. B moves 4–5 (watcher routing, filesystem connector). *(after 2 and 3)*
 5. C golden suite → residence dispatch → first location cutover. *(after 2–4)*

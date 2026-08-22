@@ -149,7 +149,7 @@ treat everything below as moving.
 |                                                                       |             |
 | --------------------------------------------------------------------- | ----------- |
 | Files: indexing, sync, cloud volumes, desktop, mobile and web clients | working     |
-| Archive: record spine, durable overlay, FTS5 search, 11 adapters      | working     |
+| Archive: record table, durable overlay, FTS5 search, 11 adapters      | working     |
 | Machine-scoped daemon: supervision, health, lifecycle, port leases    | working     |
 | Mounts: read-only share on loopback, byte-range peer protocol         | in progress |
 | Per-source stores and the in-memory read tier                         | in progress |

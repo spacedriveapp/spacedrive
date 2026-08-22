@@ -12,7 +12,7 @@ callers**. Nothing creates it, nothing opens it, nothing writes it.
 So the filesystem lineage today is: walker → `MemoryAdapter` → arena → snapshot.
 Every record uuid is minted `Uuid::now_v7()` at first sight and lives only in
 `ephemeral.snapshot`, a file governed by cache rules with five discard paths. The
-archive lineage has the store (`data.db` per source, spine + facets) but its
+archive lineage has the store (`data.db` per source, records + facets) but its
 writer is one record at a time with no transaction.
 
 Neither half works alone. This closes the gap by giving the filesystem the
@@ -21,7 +21,7 @@ archive's store and giving the store a writer that can take a walk.
 ## The decision: shared store, separate ingest
 
 A filesystem source gets a `source.db` with the **same** schema shape as every
-other source — `SPINE_SCHEMA` plus one facet table. What it does *not* get is the
+other source — `RECORD_SCHEMA` plus one facet table. What it does *not* get is the
 archive's ingest path.
 
 The reasons ingest has to fork:
@@ -50,7 +50,7 @@ every file. Convergence is worth having, and it comes later at the registry laye
 
 ## The schema
 
-The spine is unchanged. One facet table is added, and it is the only new DDL:
+The record table is unchanged. One facet table is added, and it is the only new DDL:
 
 ```sql
 CREATE TABLE IF NOT EXISTS facet_file (
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS facet_file (
 CREATE INDEX IF NOT EXISTS idx_facet_file_inode ON facet_file(inode);
 ```
 
-The spine row for a file:
+The record table row for a file:
 
 - `external_id` — path relative to the source root. Relative, so a drive that
   remounts elsewhere does not invalidate every row.
@@ -85,7 +85,7 @@ search contract stays empty, which `diff_schemas` already tolerates.
 
 The plan called for one. Writing it out, it turned out to be `record.external_id`
 plus three columns of `facet_file` — the same rows, duplicated. So the ledger is a
-**resolution procedure over the spine**, not a table:
+**resolution procedure over the record table**, not a table:
 
 | evidence | outcome |
 |---|---|
@@ -136,7 +136,7 @@ land first.
 A drive is plugged in, the daemon starts, or a folder is added.
 
 1. `register_source(root, fingerprint)` → source id. *(exists)*
-2. `create_source_dir(id)`, open `source.db`, apply spine + `facet_file` DDL.
+2. `create_source_dir(id)`, open `source.db`, apply `RECORD_SCHEMA` + `facet_file` DDL.
    Idempotent — `IF NOT EXISTS` throughout, same as `SourceManager::open`. **new**
 3. Load the ledger into the slot. **new**
 4. `ensure_restored` deserializes the snapshot into the arena. *(exists)*
@@ -167,7 +167,7 @@ carrying a stale `scan_epoch` is genuinely gone. The sweep is scoped to the
 walked subtree and runs at walk completion.
 
 This is a real semantic difference from the archive, whose adapters send deltas
-and where `spine.rs` deliberately declines to sweep. Both behaviours are correct
+and where `record.rs` deliberately declines to sweep. Both behaviours are correct
 for their ingest; the sweep belongs to the filesystem writer, not to `SourceDb`.
 
 ### Read

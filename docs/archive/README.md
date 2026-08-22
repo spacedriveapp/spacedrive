@@ -1,403 +1,213 @@
-# Archive System
+# Adapter Sources
 
-Archive is Spacedrive's data archival system for indexing external data sources beyond the filesystem. While the VDFS manages files, Archive handles everything else: emails, notes, messages, bookmarks, calendar events, contacts, and more.
+Spacedrive is a set of sources. Some are filesystems. Some are adapters — a
+Gmail account, an Obsidian vault, a Slack workspace, browser history. Both kinds
+are sources: an origin, an ingest, and a store. This page covers the adapter
+ingest.
 
-## Features
+Design: `docs/core/design/archive.md`.
+Direction: `docs/plans/2026-08-22-source-convergence.md`.
 
-- **Universal Indexing** - Adapters ingest data from Gmail, Slack, Obsidian, Chrome, Safari, GitHub, Apple Notes, Calendar, Contacts, and more via a script-based protocol
-- **Hybrid Search** - Combines full-text search (SQLite FTS5) with semantic vector search (LanceDB + FastEmbed) merged via Reciprocal Rank Fusion
-- **Safety Screening** - Prompt Guard 2 classifies indexed text for injection attacks before it enters the search index
-- **Schema-Driven Sources** - Each data source is self-contained with its own SQLite database, vector index, and TOML schema
-- **AI-Ready** - Spacebot queries archived data through structured search APIs with built-in safety metadata
-- **P2P Sync** - Source metadata syncs across devices via library sync
+## Storage layout
 
-## Quick Start
-
-### 1. Create a Source
-
-```typescript
-// Create a Gmail source
-const source = await core.sources.create({
-  name: "Work Gmail",
-  adapter_id: "gmail",
-  trust_tier: "external",
-  config: {
-    email: "work@example.com",
-    // OAuth flow happens automatically
-  }
-});
+```text
+<library>/archive/
+  registry.db              # which sources exist, plus durable assertions
+  adapters/                # installed adapter directories
+  models/
+  sources/
+    <source_id>/
+      data.db              # record + facet_* + content + edge + search_index
 ```
 
-### 2. Sync Data
+`registry.db` and the `<library>/archive/` root are both scheduled to go: the
+convergence plan folds the registry into `library.db` and moves source stores
+under `SourceDirs` as `sources/<id>/source.db`.
 
-```typescript
-// Trigger sync job
-const jobId = await core.sources.sync({
-  source_id: source.id
-});
+## Bundled adapters
 
-// Monitor progress
-core.jobs.subscribe(jobId, (progress) => {
-  console.log(`Synced ${progress.current}/${progress.total} items`);
-});
-```
+Eleven ship in `adapters/`, each a directory with `adapter.toml`, `icon.svg`
+and `sync.py`:
 
-### 3. Search
+`apple-notes` · `chrome-bookmarks` · `chrome-history` · `github` · `gmail` ·
+`macos-calendar` · `macos-contacts` · `obsidian` · `opencode` ·
+`safari-history` · `slack`
 
-```typescript
-// Hybrid search across all sources
-const results = await core.sources.search({
-  query: "budget proposal Q4",
-  source_ids: [source.id],
-  limit: 20
-});
+They are Python because Python is already on macOS. The protocol is not
+language-specific — anything that reads stdin and writes JSONL works.
 
-// Results include both FTS and vector matches
-results.forEach(result => {
-  console.log(`${result.title} (score: ${result.score})`);
-  console.log(`Trust: ${result.trust_tier}, Safe: ${result.safety_verdict}`);
-});
-```
+Adapters are discovered from the adapters directory at startup. In a dev tree
+they are copied out of the workspace `adapters/` folder at engine init
+(`core/src/data/manager.rs`), which resolves the workspace through
+`CARGO_MANIFEST_DIR` at compile time and therefore only works from a cargo
+build. Shipping needs this to read from app resources instead.
 
-## Architecture
+## Writing an adapter
 
-### Components
+### 1. The manifest
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Spacedrive Library                    │
-├─────────────────────────────────────────────────────────┤
-│  VDFS (Files)              Archive (Everything Else)    │
-│  ├─ Locations              ├─ Sources                   │
-│  ├─ Entries                │  ├─ Gmail                  │
-│  ├─ Content IDs            │  ├─ Slack                  │
-│  └─ Sidecars               │  ├─ Obsidian               │
-│                            │  └─ Chrome History         │
-│                            │                             │
-│                            ├─ Hybrid Search              │
-│                            │  ├─ FTS5 (keywords)         │
-│                            │  └─ LanceDB (semantic)      │
-│                            │                             │
-│                            └─ Safety Pipeline            │
-│                               ├─ Prompt Guard 2          │
-│                               ├─ Trust Tiers             │
-│                               └─ Quarantine              │
-└─────────────────────────────────────────────────────────┘
-```
-
-### Storage Layout
-
-Each library contains a `sources/` directory alongside the VDFS:
-
-```
-.sdlibrary/
-├─ library.db              # VDFS + source metadata
-├─ sidecars/               # VDFS sidecars
-└─ sources/                # Archive sources
-   ├─ registry.db          # Optional separate registry
-   └─ {source-uuid}/
-      ├─ data.db           # Generated from TOML schema
-      ├─ embeddings.lance/ # Vector index
-      ├─ schema.toml       # Data type definition
-      ├─ state/            # Adapter cursor state
-      └─ cache/            # Adapter-specific caches
-```
-
-## Adapters
-
-Adapters are script-based data source connectors that communicate via stdin/stdout JSONL protocol.
-
-### Built-in Adapters
-
-- **Gmail** - Emails, threads, labels
-- **Obsidian** - Notes, links, tags
-- **Slack** - Messages, threads, channels
-- **Chrome Bookmarks** - Bookmarks, folders
-- **Chrome History** - Browsing history
-- **Safari History** - Browsing history
-- **Apple Notes** - Notes, attachments
-- **Apple Calendar** - Events, reminders
-- **Apple Contacts** - Contacts, groups
-- **GitHub** - Issues, PRs, commits
-- **OpenCode** - Code snippets, projects
-
-### Creating an Adapter
-
-**1. Create adapter manifest (`adapters/my-adapter/adapter.toml`):**
+`adapters/my-adapter/adapter.toml` declares how to run it, what it needs
+configured, and the shape of what it produces.
 
 ```toml
 [adapter]
 id = "my-adapter"
 name = "My Adapter"
-version = "1.0.0"
-trust_tier = "external"
+description = "What it indexes"
+version = "0.1.0"
+author = "you"
+license = "MIT"
+icon = "note"
+trust_tier = "external"          # authored | collaborative | external
 
-[sync]
-command = "python3"
-args = ["sync.py"]
+[adapter.runtime]
+command = "python3 sync.py"
+timeout = 300
+schedule = "*/10 * * * *"        # optional
+requires = ["python3 >= 3.9"]
+env = []                         # host env vars to pass through
 
-[schema]
-inline = """
-[type]
-name = "MyRecord"
-fields = [
-  { name = "title", type = "String", indexed = true },
-  { name = "content", type = "Text", indexed = true, embedded = true },
-  { name = "created_at", type = "DateTime" }
-]
-"""
+[[adapter.config]]
+key = "api_token"
+name = "API Token"
+description = "Shown in the source setup form"
+type = "string"
+required = true
+
+[data_type]
+id = "my-records"
+name = "My Record"
+icon = "note"
+
+[models.item]
+fields.title = "string"
+fields.body = "text"
+fields.created = "datetime"
+
+[search]
+primary_model = "item"
+title = "title"
+preview = "body"
+subtitle = "path"
+search_fields = ["title", "body"]
+date_field = "created"
 ```
 
-**2. Create sync script (`adapters/my-adapter/sync.py`):**
+`[models.*]` generates one facet table per model. `[search]` names the primary
+model and which of its fields reach the FTS index. Editing either is a schema
+migration and is applied on the next sync.
+
+Models may declare relations:
+
+```toml
+[models.item.relations]
+belongs_to = ["folder"]      # first entry becomes parent_uuid, rest become edges
+self_referential = "reply_to"
+many_to_many = ["item"]
+```
+
+### 2. The sync script
+
+Config arrives as one JSON object on stdin. Operations go to stdout, one JSON
+object per line. Config values are also exported as
+`SPACEDRIVE_CONFIG_<KEY_UPPERCASED>`, alongside `SPACEDRIVE_ADAPTER_ID` and
+`SPACEDRIVE_ADAPTER_VERSION`.
 
 ```python
 #!/usr/bin/env python3
-import json
-import sys
+import json, sys
 
-def sync():
-    # Read config from stdin
-    config = json.loads(sys.stdin.readline())
+def main():
+    config = json.load(sys.stdin)
 
-    # Fetch data from source
-    records = fetch_from_api(config)
-
-    # Emit records as JSONL
-    for record in records:
+    for item in fetch(config):
         print(json.dumps({
-            "op": "upsert",
-            "id": record["id"],
-            "data": {
-                "title": record["title"],
-                "content": record["content"],
-                "created_at": record["timestamp"]
-            }
-        }))
-        sys.stdout.flush()
+            "upsert": "item",                 # the model name
+            "external_id": item["id"],        # stable at the source
+            "fields": {
+                "title": item["title"],
+                "body": item["body"],
+                "created": item["created_at"],
+            },
+        }), flush=True)
 
-if __name__ == "__main__":
-    sync()
+    print(json.dumps({"cursor": last_seen_timestamp}), flush=True)
+
+main()
 ```
 
-**3. Install adapter:**
+The operations:
 
-```bash
-# Adapters are auto-discovered from adapters/ directory
-# Just place your adapter folder in adapters/ and restart
-```
+| Operation | Shape |
+|---|---|
+| upsert | `{"upsert": model, "external_id": id, "fields": {...}}` |
+| delete | `{"delete": model, "external_id": id}` |
+| link | `{"link": model, "id": a, "to": model, "to_id": b}` |
+| unlink | `{"unlink": model, "id": a, "to": model, "to_id": b}` |
+| cursor | `{"cursor": "opaque resume token"}` |
+| log | `{"log": "info", "message": "..."}` |
+
+`external_id` is the source's own key and must be stable — durable assertions
+address records by it, so a changing external id loses everything a person
+attached to that record.
+
+stderr is drained into tracing at debug level. Print freely.
+
+### 3. Install
+
+Place the directory in `adapters/` and restart the daemon. There is no build
+step and no registration list.
 
 ## Operations
 
-### Sources
+| Op | Kind |
+|---|---|
+| `sources.list`, `sources.get` | query |
+| `sources.list_items`, `sources.list_records` | query |
+| `sources.search` | query |
+| `sources.media_listing` | query |
+| `sources.create`, `sources.sync`, `sources.delete` | action |
 
-```typescript
-// Create
-core.sources.create(input: CreateSourceInput): SourceInfo
+`sources.delete` removes the index and the registry row. Durable assertions are
+deliberately left behind — they key on `(source_id, type, external_id)`, so
+re-adding the same source rebinds them.
 
-// List
-core.sources.list(): SourceInfo[]
+## Trust tier
 
-// Get
-core.sources.get(id: Uuid): SourceInfo
+Every manifest declares one: `authored` (the user wrote it), `collaborative`
+(a shared space), `external` (arrived from elsewhere). It is stored on the
+source row and returned with search results.
 
-// Update
-core.sources.update(id: Uuid, updates: SourceUpdates): SourceInfo
-
-// Delete
-core.sources.delete(id: Uuid): void
-
-// Sync
-core.sources.sync(id: Uuid): JobId
-
-// Sync all
-core.sources.sync_all(): JobId[]
-
-// Search
-core.sources.search(query: SearchInput): SearchResult[]
-```
-
-### Records
-
-```typescript
-// List records in a source
-core.sources.records.list(source_id: Uuid, limit?: number): Record[]
-
-// Get specific record
-core.sources.records.get(source_id: Uuid, record_id: string): Record
-
-// Delete record
-core.sources.delete_record(source_id: Uuid, record_id: string): void
-```
-
-### Quarantine
-
-```typescript
-// List quarantined records
-core.sources.quarantine.list(source_id: Uuid): QuarantinedRecord[]
-
-// Release from quarantine
-core.sources.release_quarantined(source_id: Uuid, record_id: string): void
-```
-
-### Adapters
-
-```typescript
-// List available adapters
-core.sources.adapters.list(): AdapterInfo[]
-
-// Get adapter details
-core.sources.adapters.get(id: string): AdapterInfo
-
-// List schemas
-core.sources.schemas.list(): SchemaInfo[]
-```
-
-## Safety & Trust
-
-### Trust Tiers
-
-Sources are assigned trust tiers that determine screening strictness:
-
-- **authored** - Content you created (Obsidian notes, drafts)
-- **collaborative** - Shared workspaces (Slack channels, shared docs)
-- **external** - Public or untrusted sources (Gmail, GitHub issues)
-
-### Safety Pipeline
-
-```
-Adapter Sync
-    ↓
-Screening (Prompt Guard 2)
-    ├─ Safe → Continue
-    └─ Flagged → Quarantine
-         ↓
-Classification (optional)
-    ↓
-Embedding (FastEmbed)
-    ↓
-Searchable
-```
-
-### Quarantine
-
-Flagged records are:
-- Excluded from search results by default
-- Visible in quarantine UI for review
-- Can be manually released or deleted
-- Never exposed to AI agents
+It has no consumer today. Screening indexed text before an agent can read it is
+a position this codebase intends to hold, and trust tier is what that policy
+will key on. A stub classifier that marked everything safe was removed on
+2026-08-22 along with its verdict columns; they return with a real
+implementation.
 
 ## Development
 
-### Running Tests
-
 ```bash
-# Test the archive crate
 cargo test -p sd-archive
-
-# Test core integration
-cargo test -p spacedrive-core -- sources::
-
-# Test specific adapter
-python3 adapters/gmail/test.py
+RUST_LOG=sd_archive=debug cargo run --bin sd-daemon
 ```
 
-### Adding a Job
-
-Jobs live in `core/src/ops/sources/` alongside their operations:
-
-```rust
-// core/src/ops/sources/my_job.rs
-use crate::infra::job::prelude::*;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MyJob {
-    pub source_id: Uuid,
-}
-
-impl Job for MyJob {
-    const NAME: &'static str = "my_job";
-    const RESUMABLE: bool = true;
-}
-
-#[async_trait]
-impl JobHandler for MyJob {
-    type Output = MyJobOutput;
-
-    async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-        // Get source manager
-        let mgr = ctx.library.source_manager()
-            .ok_or_else(|| JobError::Internal("Source manager not initialized".into()))?;
-
-        // Do work with progress reporting
-        ctx.report_progress(MyProgress { current: 10, total: 100 }).await?;
-
-        // Return output
-        Ok(MyJobOutput { ... })
-    }
-}
-```
-
-### Debugging
-
-Enable verbose logging:
+Inspect a source store directly:
 
 ```bash
-RUST_LOG=sd_archive=debug,spacedrive_core::data=debug cargo run
-```
-
-View source database:
-
-```bash
-sqlite3 ~/.sdlibrary/MyLibrary/sources/{source-uuid}/data.db
+sqlite3 "<library>/archive/sources/<source_id>/data.db"
 .schema
-SELECT * FROM records LIMIT 10;
+SELECT uuid, type, external_id, title FROM record LIMIT 10;
 ```
 
-Inspect vector index:
+`tests/adapters.rs` builds an index from every bundled manifest and round-trips
+a probe record through ingest, listing and search. A manifest that does not
+produce a usable index fails there.
 
-```python
-import lancedb
-db = lancedb.connect("~/.sdlibrary/MyLibrary/sources/{source-uuid}/embeddings.lance")
-table = db.open_table("embeddings")
-print(table.schema)
-```
+## Known gaps
 
-## FAQ
-
-**Q: How is this different from the VDFS?**
-
-A: VDFS manages files on disk with content identity and cross-device awareness. Archive manages structured data from external sources (emails, notes, etc.) that aren't files.
-
-**Q: Do adapters run in a sandbox?**
-
-A: Adapters run as subprocess with limited privileges. They receive config via stdin and emit records via stdout. No filesystem or network access unless explicitly granted.
-
-**Q: Can I sync the same source to multiple devices?**
-
-A: Yes. Source metadata syncs via library sync. Each device can independently sync data from the source, or you can configure one device to sync and distribute snapshots.
-
-**Q: What happens if an adapter crashes?**
-
-A: The sync job tracks progress via cursor state. Resume from the last successful checkpoint. Partial syncs don't corrupt the database.
-
-**Q: Can I search across both files and sources?**
-
-A: Not yet. Currently file search and source search are separate. Unified federated search is planned for a future release.
-
-**Q: How do I handle OAuth secrets?**
-
-A: Secrets are stored encrypted in Spacedrive's KeyManager (OS keychain + redb). Adapters receive decrypted secrets as environment variables during sync.
-
-**Q: What's the performance impact?**
-
-A: Archive runs as background jobs. Embeddings are generated incrementally. Search is fast (FTS5 + LanceDB are both optimized for low-latency queries). Typical overhead: <5% CPU during sync, <100MB RAM per source.
-
-## Contributing
-
-See [CONTRIBUTING.md](../../CONTRIBUTING.md) for general guidelines.
-
-For adapter contributions, see [ADAPTERS.md](../ADAPTERS.md).
-
-## License
-
-Apache-2.0 - See [LICENSE](../../LICENSE) for details.
+- Adapters run through `sh -c` with the daemon's privileges. There is no
+  sandbox, and `[adapter.runtime] requires` is not enforced.
+- Search is FTS5 per source, fanned out and merged by rank. There is no
+  semantic search and no cross-source ranking model.
+- Filesystem sources do not yet write a source store; that is P2 of the
+  convergence plan.

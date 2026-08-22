@@ -2,7 +2,7 @@
 
 > **Status:** Design for porting native's pvcache as Spacedrive's GPU-resident thumbnail tier
 > **Captured:** 2026-08-17
-> **Companions:** `docs/plans/2026-08-17-record-spine-transplant.md` (workstream D)
+> **Companions:** `docs/plans/2026-08-17-record-table-transplant.md` (workstream D)
 
 ## The finding that reframes the port
 
@@ -32,7 +32,7 @@ Concurrency and durability carry over as-is: the lock-free EMPTY→WRITING→REA
 ## Placement and keying
 
 - **One pvcache per source**, living in the source's store: `sources/<source_id>/thumbs.pvcache` — beside `index.db`, covered by the same disposability rule, and **traveling with on-drive indexes**. Unplug-and-browse gets thumbnails for free: the drive in a drawer shows its photo grid from its own carried cache. (The catalog apps charge $40–80 and don't do this.)
-- **Keyed by record uuid** (uuid v7, 16 bytes — `SlotRec.uuid` fits unchanged). Works for spine records and for ephemeral records (`entry_uuids` already exist in the ephemeral index), which is what turns thumbnails on for un-indexed browsing: no DB row required, the hot tier is self-sufficient.
+- **Keyed by record uuid** (uuid v7, 16 bytes — `SlotRec.uuid` fits unchanged). Works for durable records and for ephemeral records (`entry_uuids` already exist in the ephemeral index), which is what turns thumbnails on for un-indexed browsing: no DB row required, the hot tier is self-sufficient.
 - **Content thumbnails only.** Generic file-type icons never occupy cells — they render from a shared pre-rasterized tile set (native's `producer_icon_tiles` approach). Capacity is sized to thumbnail-able records (media, documents), not the whole source. Sizing reality: 128px BGRA = 64KB/cell; native's 118,910 photos → ~7.6GB file, sparse until browsed. A per-source cache plus view-driven fill keeps the resident set proportional to what's actually looked at — which also retires native's honest "resident-everything banks on 192GB" risk: unloading a source unloads its cache and its atlas layers, aligned with the living index's load/unload lifecycle.
 
 ## The producer chain

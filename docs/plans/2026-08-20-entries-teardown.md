@@ -7,7 +7,7 @@
 >
 > Written 2026-08-20. Supersedes workstream C (per-location cutover) and
 > contract 4 (migration state machine) of
-> `2026-08-17-record-spine-transplant.md` / `2026-08-18-storage-consolidation.md`.
+> `2026-08-17-record-table-transplant.md` / `2026-08-18-storage-consolidation.md`.
 > Contracts 1–3, the collapsed storage model, and the bug-register gate stand
 > unchanged. Everything else in those docs remains the reference for *what to
 > build*; this doc replaces *how the old world dies*.
@@ -145,7 +145,7 @@ Acceptance: full UI pass (browse, search, collections, media view, tag a
 file, spaces) with the entries branches compiled out behind a temporary flag,
 before anything is dropped.
 
-## Phase 3 — Media on the spine
+## Phase 3 — Media in the record table
 
 The pieces that today justify `content_identity`, `sidecar`, and the media
 tables:
@@ -194,7 +194,7 @@ One commit series, after phases 1–3 hold:
   DB flows; the golden-parity scaffolding that never got built stays unbuilt.
 - **Surface**: dead ops unregistered, TS types regenerated, Locations settings
   UI removed, CLI location commands removed.
-- The spine rule in CLAUDE.md (workstream G) flips from "do not deepen the
+- The record table rule in CLAUDE.md (workstream G) flips from "do not deepen the
   entries world" to "the entries world does not exist."
 
 Acceptance: clean build with no reference to dropped entities; fresh-start

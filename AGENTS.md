@@ -38,15 +38,23 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 ### Current direction
 
 The durable entries schema (`entry`, `location`, and everything hanging off
-them) is being replaced by the record spine in `crates/archive`, tracked by
-`docs/plans/2026-08-20-entries-teardown-execution.md`. Until that lands:
+them) is being replaced by the record table in `crates/archive`, tracked by
+`docs/plans/2026-08-20-entries-teardown-execution.md`.
+`docs/plans/2026-08-22-source-convergence.md` runs ahead of it and is the
+register for making the new world one thing: one store shape, one registry,
+one set of claims that match the code. Until both land:
 
-- Do not deepen the entries world. New durable state belongs on the spine.
+- Spacedrive is a set of sources. A source has an origin, an ingest, and a
+  store; filesystem and adapter sources differ only in ingest. Anything that
+  makes those two diverge further is wrong.
+- Do not deepen the entries world. New durable state belongs in the record table.
   Do not add columns to `entry` or `location`, and do not grow the persistent
   indexing path.
+- A source store is durable. It is user data, not a cache — do not add code
+  that assumes it can be thrown away and rebuilt.
 - The `ephemeral` qualifier is load-bearing while both substrates exist. It
   is what tells a reader which world a call site belongs to, so leave the
-  naming alone until T6.7 retires it.
+  naming alone until the convergence plan's P3 retires it.
 - The `.tasks/` tree predates this work and is not its register. The status
   table at the top of the execution plan is the only record, and it gets
   updated in the same commit as the work.

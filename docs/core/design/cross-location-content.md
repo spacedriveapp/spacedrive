@@ -2,7 +2,7 @@
 
 > **Status:** Design for the global content map — a prerequisite of the per-location migration
 > **Captured:** 2026-08-17
-> **Companions:** `docs/plans/2026-08-17-record-spine-transplant.md` (execution), `docs/plans/2026-07-29-per-source-databases.md` (analysis this builds on)
+> **Companions:** `docs/plans/2026-08-17-record-table-transplant.md` (execution), `docs/plans/2026-07-29-per-source-databases.md` (analysis this builds on)
 
 ## The problem
 

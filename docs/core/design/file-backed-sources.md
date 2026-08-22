@@ -1,7 +1,7 @@
 # File-Backed Sources
 
 > **Status:** First slice implemented 2026-08-19 (see "Implementation status" below) — design captured from James, 2026-08-19
-> **Companions:** `docs/plans/2026-08-18-storage-consolidation.md` (contracts 1–2), `docs/plans/2026-08-17-record-spine-transplant.md`, `docs/core/design/zero-onboarding-startup.md` (rules as lenses)
+> **Companions:** `docs/plans/2026-08-18-storage-consolidation.md` (contracts 1–2), `docs/plans/2026-08-17-record-table-transplant.md`, `docs/core/design/zero-onboarding-startup.md` (rules as lenses)
 
 ## The rule
 
@@ -68,7 +68,7 @@ only its cost went away.
 ## Implementation status (2026-08-19)
 
 The first slice is built as read-time binding — full assertion storage on a
-durable filesystem spine waits on the storage consolidation (contracts 1–3).
+durable filesystem record store waits on the storage consolidation (contracts 1–3).
 
 - **The walk already sees the bundle.** The indexer rules exclude only the
   catalog's internal dirs (`database`, `resources`, …); `originals/**` was
@@ -107,7 +107,7 @@ Decided along the way:
 
 ## Still open
 
-- Assertions as durable rows on the filesystem source's own spine (with
+- Assertions as durable rows in the filesystem source's own record table (with
   bound record uuids cached, not recomputed per read) once filesystem
   sources gain durable stores — the storage-consolidation ladder then
   upgrades path evidence to content-hash rebind.
