@@ -14,10 +14,12 @@
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
-//! One shape is the point. Cross-source search, cross-source edges and the
-//! catalog all join on it; two shapes would mean two of everything downstream.
-//! [`TrustTier`] travels with a source rather than with its ingest for the same
-//! reason.
+//! One shape is the point. Cross-source search and the catalog both join on
+//! it; two shapes would mean two of everything downstream. [`TrustTier`]
+//! travels with a source rather than with its ingest for the same reason.
+//!
+//! `edge` relates records within one source. Nothing here spans sources —
+//! that arrives with the catalog.
 //!
 //! A store is **user data, not a cache.** Re-scanning is a recovery path, not
 //! something the design leans on — plenty of origins cannot be re-scanned on

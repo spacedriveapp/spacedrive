@@ -8,16 +8,20 @@ ingest.
 Design: `docs/core/design/archive.md`.
 Direction: `docs/plans/2026-08-22-source-convergence.md`.
 
+The store itself is `sd-store` (`crates/store`) — one file per source, the same
+shape whatever wrote it. This crate, `sd-archive`, is the adapter ingest over
+it, plus the registry and the cross-source search router.
+
 ## Storage layout
 
 ```text
 <library>/archive/
-  registry.db              # which sources exist, plus durable assertions
+  registry.db              # sources, data_types
   adapters/                # installed adapter directories
-  models/
   sources/
     <source_id>/
-      data.db              # record + facet_* + content + edge + search_index
+      data.db              # record, facet_*, content, edge,
+                           # record_overlay, search_index
 ```
 
 `registry.db` and the `<library>/archive/` root are both scheduled to go: the
@@ -147,9 +151,9 @@ The operations:
 | cursor | `{"cursor": "opaque resume token"}` |
 | log | `{"log": "info", "message": "..."}` |
 
-`external_id` is the source's own key and must be stable — durable assertions
-address records by it, so a changing external id loses everything a person
-attached to that record.
+`external_id` is the source's own key and must be stable. `record_overlay`
+addresses records by `(type, external_id)`, so an external id that changes
+loses everything a person attached to that record.
 
 stderr is drained into tracing at debug level. Print freely.
 
@@ -168,9 +172,10 @@ step and no registration list.
 | `sources.media_listing` | query |
 | `sources.create`, `sources.sync`, `sources.delete` | action |
 
-`sources.delete` removes the index and the registry row. Durable assertions are
-deliberately left behind — they key on `(source_id, type, external_id)`, so
-re-adding the same source rebinds them.
+`sources.delete` removes the source's store and its registry row. The store
+holds the source's assertions, so this discards them too. Re-indexing is the
+operation that keeps them — replace what an ingest produced, leave
+`record_overlay` alone — and it does not exist yet.
 
 ## Trust tier
 
@@ -187,8 +192,8 @@ implementation.
 ## Development
 
 ```bash
-cargo test -p sd-archive
-RUST_LOG=sd_archive=debug cargo run --bin sd-daemon
+cargo test -p sd-store -p sd-archive
+RUST_LOG=sd_store=debug,sd_archive=debug cargo run --bin sd-daemon
 ```
 
 Inspect a source store directly:
@@ -199,9 +204,10 @@ sqlite3 "<library>/archive/sources/<source_id>/data.db"
 SELECT uuid, type, external_id, title FROM record LIMIT 10;
 ```
 
-`tests/adapters.rs` builds an index from every bundled manifest and round-trips
+`tests/adapters.rs` builds a store from every bundled manifest and round-trips
 a probe record through ingest, listing and search. A manifest that does not
-produce a usable index fails there.
+produce a usable store fails there. The store's own behaviour — identity,
+facets, edges, overlays, search — is covered by `crates/store/tests/record.rs`.
 
 ## Known gaps
 

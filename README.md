@@ -94,14 +94,6 @@ Writing one means a directory with an `adapter.toml` and a script in any languag
 that reads stdin and prints lines. See
 [`docs/archive/README.md`](docs/archive/README.md).
 
-### Screening
-
-When enabled, every record passes through a safety pipeline before becoming
-searchable: a local classifier (Prompt Guard 2) checks external content for
-prompt injection, trust tiers apply stricter screening to content you did not
-author, flagged records are quarantined out of agent queries, and search results
-carry trust metadata so an agent knows what is untrusted.
-
 ---
 
 ## Where V2 came from

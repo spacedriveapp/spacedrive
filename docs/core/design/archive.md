@@ -4,6 +4,12 @@
 > **Direction:** `docs/plans/2026-08-22-source-convergence.md`. This document
 > describes one ingest path; the convergence plan describes the store all
 > ingest paths are converging on.
+>
+> **Crates.** `sd-store` (`crates/store`) is the store — one file per source,
+> the same shape whatever wrote it. `sd-archive` (`crates/archive`) is the
+> adapter ingest plus what needs more than one source: the registry of which
+> sources exist and the router that searches across them. `sd-photos`
+> (`crates/photos`) reads an Apple Photos library and is not an adapter.
 
 ## What this is
 
@@ -19,7 +25,8 @@ written.
 
 ## The store
 
-Every source owns a database with the same shape, whatever wrote it:
+Every source owns a database with the same shape, whatever wrote it. The
+schema and the handle both live in `sd-store`:
 
 - **`record`** — one row per indexed thing. `uuid`, `external_id`, `type`,
   `title`, timestamps, `parent_uuid`, `content_id`. `(type, external_id)` is
@@ -28,17 +35,19 @@ Every source owns a database with the same shape, whatever wrote it:
   generated from the model's TOML declaration.
 - **`content`** — the identity of bytes a record points at.
 - **`edge`** — relationships between records in this source.
+- **`record_overlay`** — what no ingest produced: the scalar assertions a
+  person makes about a record. Keys on `(type, external_id)` rather than the
+  record uuid, so a re-index can mint fresh uuids without losing them.
 - **`search_index`** — an FTS5 virtual table over the fields the search
   contract names.
 
-`record` and its facets is the shape cross-source search and cross-source edges
-join on. Two shapes would mean two of everything downstream.
+`record` and its facets is the shape cross-source search joins on. Two shapes
+would mean two of everything downstream.
 
-Durable assertions — overlays, curated groupings, cross-source edges — live in
-`registry.db` today and key on `(source_id, type, external_id)` so they survive
-a source being deleted and re-added. Moving them into each source's own file is
-decision 1 of the architecture previs; see the convergence plan for the open
-question that decision leaves.
+There is no shared durable file. `registry.db` holds `sources` and
+`data_types` and nothing else; everything about a source, including what a
+person said about it, is in that source's own file. Cross-source assertions
+arrive with `catalog.db` — see the convergence plan.
 
 ## The adapter protocol
 

@@ -38,7 +38,7 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 ### Current direction
 
 The durable entries schema (`entry`, `location`, and everything hanging off
-them) is being replaced by the record table in `crates/archive`, tracked by
+them) is being replaced by the record table in `crates/store`, tracked by
 `docs/plans/2026-08-20-entries-teardown-execution.md`.
 `docs/plans/2026-08-22-source-convergence.md` runs ahead of it and is the
 register for making the new world one thing: one store shape, one registry,

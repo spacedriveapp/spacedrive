@@ -3,8 +3,9 @@
 //! Every indexed thing — a note, an email, a channel, a repository — is a
 //! `record` row. Type-specific columns live in facet tables keyed by
 //! `record.uuid`, generated from the data type's TOML models
-//! ([`crate::schema::codegen`]). The record table is what makes cross-source search and
-//! cross-source edges possible: they join on one shape, not per-data-type ones.
+//! ([`crate::schema::codegen`]). The record table is what makes cross-source
+//! search possible: every source is queried through one shape, not a
+//! per-data-type one. `edge` relates records inside a single source.
 //!
 //! `record_overlay` sits beside them, holding what no ingest produced: the
 //! scalar assertions a person makes about a record. It keys on
