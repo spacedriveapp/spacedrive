@@ -12,7 +12,7 @@ use crate::error::{Error, Result};
 use crate::registry::{NewSource, Registry, SourceInfo};
 use crate::search::router::SearchRouter;
 use crate::search::{SearchFilter, SearchResult};
-use crate::source::SourceManager;
+use sd_store::source::SourceManager;
 
 /// Configuration for initializing the engine.
 pub struct EngineConfig {
@@ -266,9 +266,9 @@ impl Engine {
 		source_id: &str,
 		limit: usize,
 		offset: usize,
-	) -> Result<Vec<crate::db::ItemRow>> {
+	) -> Result<Vec<sd_store::db::ItemRow>> {
 		let db = self.sources.open(source_id).await?;
-		db.list_items(limit, offset).await
+		Ok(db.list_items(limit, offset).await?)
 	}
 
 	pub async fn list_records_full(
@@ -278,14 +278,14 @@ impl Engine {
 		offset: usize,
 	) -> Result<Vec<serde_json::Value>> {
 		let db = self.sources.open(source_id).await?;
-		db.list_records_full(limit, offset).await
+		Ok(db.list_records_full(limit, offset).await?)
 	}
 
 	/// The on-disk root a file-backed source's locator paths resolve
 	/// against. `None` for foreign sources, whose records are primary.
 	pub async fn file_root(&self, source_id: &str) -> Result<Option<String>> {
 		let db = self.sources.open(source_id).await?;
-		db.get_cursor(crate::db::FILE_ROOT_CURSOR).await
+		Ok(db.get_cursor(sd_store::db::FILE_ROOT_CURSOR).await?)
 	}
 
 	/// Get config fields for an adapter.
@@ -392,8 +392,8 @@ impl Engine {
 		// Schema diff
 		let old_schema = ScriptAdapter::from_dir(&installed_dir)?.schema().clone();
 		let new_schema = new_adapter.schema().clone();
-		let schema_changed = crate::schema::migration::schema_hash(&old_schema)
-			!= crate::schema::migration::schema_hash(&new_schema);
+		let schema_changed = sd_store::schema::migration::schema_hash(&old_schema)
+			!= sd_store::schema::migration::schema_hash(&new_schema);
 
 		// Backup
 		let backup_name = format!(

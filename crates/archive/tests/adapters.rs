@@ -4,8 +4,8 @@
 
 use sd_archive::adapter::script::ScriptAdapter;
 use sd_archive::adapter::{Adapter, AdapterRegistry};
-use sd_archive::record::facet_table;
-use sd_archive::source::SourceManager;
+use sd_store::record::facet_table;
+use sd_store::SourceManager;
 
 fn adapters_dir() -> std::path::PathBuf {
 	std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -131,8 +131,8 @@ fn registry_lists_registered_adapters() {
 
 /// Fill every declared field on the primary model with a distinctive token so
 /// the record is findable whichever field the search contract indexes.
-fn probe_fields(schema: &sd_archive::DataTypeSchema) -> serde_json::Value {
-	use sd_archive::FieldType;
+fn probe_fields(schema: &sd_store::DataTypeSchema) -> serde_json::Value {
+	use sd_store::FieldType;
 
 	let model = &schema.models[&schema.search.primary_model];
 	let mut fields = serde_json::Map::new();

@@ -4,23 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Core dependencies - workspace versions
-sqlx    = { workspace = true, features = ["sqlite", "runtime-tokio", "derive"] }
-tokio   = { workspace = true, features = ["process"] }
-serde   = { workspace = true }
-uuid    = { workspace = true, features = ["v4", "v7"] }
-blake3  = { workspace = true }
-toml    = { workspace = true }
-thiserror = { workspace = true }
-tracing = { workspace = true }
-chrono  = { workspace = true }
-serde_json = { workspace = true }
-async-trait = { workspace = true }
-futures     = { workspace = true }
+sd-store = { path = "../store" }
 
-# Archive-specific dependencies - workspace versions
-indexmap = { workspace = true, features = ["serde"] }
-dashmap  = { workspace = true }
+sqlx       = { workspace = true, features = ["sqlite", "runtime-tokio", "derive"] }
+# "process": adapters are subprocesses speaking JSONL over stdio.
+tokio      = { workspace = true, features = ["process"] }
+serde      = { workspace = true }
+serde_json = { workspace = true }
+uuid       = { workspace = true, features = ["v4", "v7"] }
+blake3     = { workspace = true }
+toml       = { workspace = true }
+chrono     = { workspace = true }
+thiserror  = { workspace = true }
+tracing    = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

@@ -3,52 +3,10 @@
 use serde::{Deserialize, Serialize};
 use sqlx::SqlitePool;
 
+use sd_store::TrustTier;
+
 use crate::error::{Error, Result};
-use crate::schema::DataTypeSchema;
-
-/// How much a source's content is trusted, declared by its adapter manifest.
-/// Screening policy keys on this once screening exists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TrustTier {
-	/// User-created content (Obsidian notes, local files, personal calendar).
-	Authored,
-	/// Shared / multi-author spaces (Slack, Discord, GitHub).
-	Collaborative,
-	/// Third-party content (email inbox, RSS, web bookmarks, browser history).
-	#[default]
-	External,
-}
-
-impl TrustTier {
-	/// Parse from a string, defaulting to `External` for unknown values.
-	pub fn from_str_or_default(s: &str) -> Self {
-		match s {
-			"authored" => Self::Authored,
-			"collaborative" => Self::Collaborative,
-			"external" => Self::External,
-			_ => {
-				tracing::warn!(value = s, "unknown trust_tier, defaulting to 'external'");
-				Self::External
-			}
-		}
-	}
-
-	/// Canonical string representation.
-	pub fn as_str(&self) -> &'static str {
-		match self {
-			Self::Authored => "authored",
-			Self::Collaborative => "collaborative",
-			Self::External => "external",
-		}
-	}
-}
-
-impl std::fmt::Display for TrustTier {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.write_str(self.as_str())
-	}
-}
+use sd_store::schema::DataTypeSchema;
 
 /// Central registry backed by `registry.db`.
 pub struct Registry {

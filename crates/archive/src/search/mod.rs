@@ -1,11 +1,10 @@
 //! Unified search types and query routing.
 
-pub mod fts;
 pub mod router;
 
 use serde::{Deserialize, Serialize};
 
-use crate::registry::TrustTier;
+use sd_store::TrustTier;
 
 /// A single search result from any source.
 #[derive(Debug, Clone, Serialize, Deserialize)]

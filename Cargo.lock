@@ -11344,12 +11344,9 @@ dependencies = [
 name = "sd-archive"
 version = "0.1.0"
 dependencies = [
- "async-trait",
  "blake3",
  "chrono",
- "dashmap",
- "futures",
- "indexmap 2.11.4",
+ "sd-store",
  "serde",
  "serde_json",
  "sqlx",
@@ -11767,6 +11764,24 @@ dependencies = [
 name = "sd-sidecar-path"
 version = "0.1.0"
 dependencies = [
+ "uuid",
+]
+
+[[package]]
+name = "sd-store"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "chrono",
+ "indexmap 2.11.4",
+ "serde",
+ "serde_json",
+ "sqlx",
+ "tempfile",
+ "thiserror 2.0.16",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
  "uuid",
 ]
 

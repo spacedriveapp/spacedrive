@@ -190,14 +190,25 @@ writing adapter — it is now drained into tracing.
 
 ### P1 — Re-charter the crate
 
-1. **Split the crate.** `crates/store` (`sd-store`) holds the store and nothing
-   else: record, facets, content, edges, assertions, schema codegen, per-source
-   FTS. `crates/adapter` (`sd-adapter`) holds the subprocess runtime and depends
-   on it. `Engine`, `Registry` and `SearchRouter` move into core at P3 — after
-   the registry lives in `library.db` they own nothing that is not core's, and
-   both fan out over it. The name is `store` because "the source store" is
-   already this document's vocabulary; a *source* is origin plus ingest plus
-   store, and the crate is only the last of the three.
+1. **Done — the store is extracted.** `crates/store` (`sd-store`) holds the
+   store and nothing else: `record`, facets, `content`, `edge`,
+   `record_overlay`, schema parse/codegen/migration, `SourceDb`,
+   `SourceManager`, per-source FTS, and `TrustTier` (source metadata, not
+   adapter metadata). It depends on no other first-party crate. The name is
+   `store` because "the source store" is already this document's vocabulary; a
+   *source* is origin plus ingest plus store, and the crate is only the last of
+   the three.
+
+   `sd-archive` keeps what needs more than one source — `Engine`, `Registry`,
+   `SearchRouter` — plus the adapter runtime, and sits on `sd-store`. It sheds
+   `async-trait`, `futures`, `indexmap` and `dashmap` in the process.
+
+   The rest of the split waits for P3 rather than being done speculatively.
+   Once `library.db` owns the source list, `Engine`/`Registry`/`SearchRouter`
+   have nothing left that is not core's and move there; what remains of
+   `sd-archive` is the adapter runtime and gets renamed to match. Extracting
+   the store is the part that unblocks P2, because the filesystem walker needs
+   to write records without depending on an adapter engine.
 2. **Give `edge` a payload** (see Open). P2 writes against it, so it lands here.
 3. **Done.** Deleted `grouping` and `lib_edge` per decision 6, and with them
    the whole `library` module, `RecordKey`, and the `Engine`/`SourceManager`

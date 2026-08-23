@@ -10,10 +10,10 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 
 use crate::adapter::{Adapter, SyncReport};
-use crate::db::SourceDb;
 use crate::error::{Error, Result};
-use crate::registry::TrustTier;
-use crate::schema::{DataTypeMeta, DataTypeSchema, SearchContract};
+use sd_store::db::SourceDb;
+use sd_store::schema::{DataTypeMeta, DataTypeSchema, SearchContract};
+use sd_store::TrustTier;
 
 /// A parsed `adapter.toml` manifest.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -155,7 +155,7 @@ impl AdapterManifest {
 		let schema_toml = toml::to_string_pretty(&schema_table)
 			.map_err(|e| Error::SchemaParse(format!("schema rebuild: {e}")))?;
 
-		crate::schema::parser::parse(&schema_toml)
+		Ok(sd_store::schema::parser::parse(&schema_toml)?)
 	}
 
 	/// List config fields marked as secret.

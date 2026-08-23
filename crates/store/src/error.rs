@@ -1,12 +1,8 @@
-//! Error types for adapter-backed sources.
+//! Error types for the source store.
 
-/// Everything that can go wrong registering, syncing or searching a source.
-/// Store failures pass through from [`sd_store::Error`].
+/// Everything that can go wrong opening or writing a source store.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-	#[error(transparent)]
-	Store(#[from] sd_store::Error),
-
 	#[error("database error: {0}")]
 	Database(#[from] sqlx::Error),
 
@@ -15,15 +11,6 @@ pub enum Error {
 
 	#[error("source not found: {0}")]
 	SourceNotFound(String),
-
-	#[error("adapter not found: {0}")]
-	AdapterNotFound(String),
-
-	#[error("adapter sync error: {0}")]
-	AdapterSync(String),
-
-	#[error("already exists: {0}")]
-	AlreadyExists(String),
 
 	#[error("io error: {0}")]
 	Io(#[from] std::io::Error),

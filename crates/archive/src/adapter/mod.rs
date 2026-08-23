@@ -9,11 +9,11 @@ use std::sync::{Arc, RwLock};
 
 use serde::{Deserialize, Serialize};
 
-use crate::db::SourceDb;
 use crate::error::Result;
-use crate::registry::TrustTier;
-use crate::schema::DataTypeSchema;
 use script::ConfigField;
+use sd_store::db::SourceDb;
+use sd_store::schema::DataTypeSchema;
+use sd_store::TrustTier;
 
 /// Report returned after an adapter sync completes.
 #[derive(Debug, Clone, Serialize, Deserialize)]

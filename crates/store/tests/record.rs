@@ -1,9 +1,9 @@
-//! End-to-end checks against real SQLite indexes: ingest through the adapter
-//! protocol's shape, then read back through the record table.
+//! End-to-end checks against real SQLite stores: write records and facets,
+//! then read them back through the record table.
 
-use sd_archive::record::facet_table;
-use sd_archive::schema::parser;
-use sd_archive::source::SourceManager;
+use sd_store::record::facet_table;
+use sd_store::schema::parser;
+use sd_store::source::SourceManager;
 use serde_json::json;
 
 const SCHEMA: &str = r#"
@@ -60,7 +60,7 @@ impl Fixture {
 		}
 	}
 
-	async fn open(&self) -> sd_archive::db::SourceDb {
+	async fn open(&self) -> sd_store::db::SourceDb {
 		self.manager
 			.open(&self.source_id)
 			.await
