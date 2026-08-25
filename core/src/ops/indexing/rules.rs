@@ -668,7 +668,7 @@ pub static ONLY_IMAGES: Lazy<SystemIndexerRule> = Lazy::new(|| SystemIndexerRule
 	.expect("valid")],
 });
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct RuleToggles {
 	pub no_system_files: bool,
 	pub no_hidden: bool,

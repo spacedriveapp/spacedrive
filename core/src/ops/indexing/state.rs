@@ -130,6 +130,13 @@ pub struct IndexerState {
 		HashMap<PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>)>,
 	pub(crate) stats: IndexerStats,
 	pub(crate) errors: Vec<IndexError>,
+	/// A sweep is open on the durable store, so this walk's absences become
+	/// deletions when it closes. Serialized with the rest of the state: a walk
+	/// resumed in this process must not open a second sweep over its own first
+	/// half, and one resumed in a new process finds a ledger with no sweep
+	/// running and closes nothing.
+	#[serde(default)]
+	pub(crate) sweep_open: bool,
 	#[serde(skip, default = "Instant::now")]
 	pub(crate) last_progress_time: Instant,
 	pub(crate) items_since_last_update: u64,
@@ -166,6 +173,7 @@ impl IndexerState {
 			existing_entries: HashMap::new(),
 			stats: Default::default(),
 			errors: Vec::new(),
+			sweep_open: false,
 			last_progress_time: Instant::now(),
 			items_since_last_update: 0,
 			batch_size: 1000,
@@ -230,6 +238,20 @@ impl IndexerState {
 
 	pub fn estimate_remaining(&self) -> Option<Duration> {
 		None
+	}
+
+	/// Paths the walk failed to read. Absence under one of these means the walk
+	/// did not look, which is not evidence that anything was deleted.
+	pub(crate) fn unreachable_paths(&self) -> Vec<PathBuf> {
+		self.errors
+			.iter()
+			.filter_map(|error| match error {
+				IndexError::ReadDir { path, .. } | IndexError::FilterCheck { path, .. } => {
+					Some(PathBuf::from(path))
+				}
+				_ => None,
+			})
+			.collect()
 	}
 
 	pub fn add_error(&mut self, error: IndexError) {

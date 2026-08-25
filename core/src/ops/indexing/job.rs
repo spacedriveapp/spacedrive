@@ -169,6 +169,22 @@ impl IndexerJobConfig {
 		self.persistence == IndexPersistence::Ephemeral
 	}
 
+	/// Whether this walk enumerates the whole source with nothing filtered out.
+	///
+	/// Only such a walk may open a sweep on the durable store. A sweep reads
+	/// absence as deletion, which is sound only when the walk would have seen
+	/// the file had it been there — so it rules out a browse, which stops at
+	/// one directory, and every walk that applies rules, which hide files on
+	/// purpose. In practice this is archiving a removable drive, and that is
+	/// also the one case where the origin goes in a drawer and absence is the
+	/// only signal there will ever be.
+	pub fn enumerates_whole_source(&self) -> bool {
+		self.is_volume_indexing
+			&& self.scope == IndexScope::Recursive
+			&& self.max_depth.is_none()
+			&& self.rule_toggles == super::rules::RuleToggles::none()
+	}
+
 	/// Check if this is a current scope (single level) job
 	pub fn is_current_scope(&self) -> bool {
 		self.scope == IndexScope::Current
@@ -380,6 +396,16 @@ impl IndexerJob {
 						let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
 							JobError::execution("Ephemeral index not initialized".to_string())
 						})?;
+
+						// Discovery has finished by now, so the walk's full
+						// reach — and everything it failed to read — is known.
+						if let Some(store) = &self.source_store {
+							if self.config.enumerates_whole_source() && !state.sweep_open {
+								store.begin_sweep().await;
+								state.sweep_open = true;
+							}
+						}
+
 						Self::run_ephemeral_processing_static(
 							state,
 							&ctx,
@@ -390,6 +416,16 @@ impl IndexerJob {
 							self.config.is_volume_indexing,
 						)
 						.await?;
+
+						// Only reached when every batch landed. An interrupt
+						// returns above, leaving the sweep open for the resume
+						// rather than closing it over half a walk.
+						if let Some(store) = &self.source_store {
+							if state.sweep_open {
+								store.finish_sweep(&state.unreachable_paths()).await;
+								state.sweep_open = false;
+							}
+						}
 					} else {
 						phases::run_processing_phase(
 							self.config
@@ -1106,5 +1142,58 @@ impl From<IndexerOutput> for JobOutput {
 			stats: output.stats,
 			metrics: output.metrics.unwrap_or_default(),
 		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::ops::indexing::rules::RuleToggles;
+
+	fn archival_walk() -> IndexerJobConfig {
+		let mut config = IndexerJobConfig::ephemeral_browse(
+			SdPath::local(std::path::PathBuf::from("/Volumes/Archive")),
+			IndexScope::Recursive,
+			true,
+		);
+		config.rule_toggles = RuleToggles::none();
+		config
+	}
+
+	#[test]
+	fn only_a_whole_unfiltered_walk_may_sweep() {
+		assert!(archival_walk().enumerates_whole_source());
+	}
+
+	#[test]
+	fn a_browse_may_not_sweep() {
+		// Every directory listing dispatches one of these. A sweep after one
+		// would read the rest of the source as deleted.
+		let config = IndexerJobConfig::ephemeral_browse(
+			SdPath::local(std::path::PathBuf::from("/Volumes/Archive/photos")),
+			IndexScope::Current,
+			false,
+		);
+		assert!(!config.enumerates_whole_source());
+	}
+
+	#[test]
+	fn rules_bar_a_sweep() {
+		// Rules hide files on purpose, so what the walk did not see is not
+		// what is not there.
+		let mut config = archival_walk();
+		config.rule_toggles = RuleToggles::default();
+		assert!(!config.enumerates_whole_source());
+
+		config.rule_toggles = RuleToggles::none();
+		config.rule_toggles.no_git = true;
+		assert!(!config.enumerates_whole_source());
+	}
+
+	#[test]
+	fn a_depth_limit_bars_a_sweep() {
+		let mut config = archival_walk();
+		config.max_depth = Some(3);
+		assert!(!config.enumerates_whole_source());
 	}
 }

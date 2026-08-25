@@ -105,6 +105,15 @@ impl Resolution {
 	}
 }
 
+/// Whether `external_id` is `root` or sits under it. External ids are
+/// `/`-separated whatever wrote them, so this holds on every platform.
+fn under(external_id: &str, root: &str) -> bool {
+	external_id == root
+		|| (external_id.len() > root.len()
+			&& external_id.starts_with(root)
+			&& external_id.as_bytes()[root.len()] == b'/')
+}
+
 #[derive(Debug, Clone)]
 struct Binding {
 	external_id: Arc<str>,
@@ -279,13 +288,33 @@ impl Ledger {
 	/// End a sweep and forget everything it did not see, returning those
 	/// records so the caller can remove them in the same batch.
 	///
+	/// `unreachable` names subtrees the walk could not enumerate — a folder it
+	/// lacked permission to open, a mount that went away mid-walk. Absence
+	/// under one of those is not evidence of deletion, only of a walk that did
+	/// not look, so those bindings survive the sweep intact. One locked folder
+	/// should cost its own subtree, not the walk.
+	///
 	/// Returns empty when no sweep is running, so a caller that never opened
-	/// one cannot delete a source by accident.
-	pub fn finish_sweep(&mut self) -> Vec<Uuid> {
+	/// one cannot delete a source by accident. That also covers a walk resumed
+	/// in a new process: the ledger reloaded without a sweep, and the resumed
+	/// half of the enumeration is not grounds for condemning the first half.
+	pub fn finish_sweep(&mut self, unreachable: &[String]) -> Vec<Uuid> {
 		let Some(unseen) = self.unseen.take() else {
 			return Vec::new();
 		};
-		let gone: Vec<Uuid> = unseen.into_iter().collect();
+
+		let gone: Vec<Uuid> = unseen
+			.into_iter()
+			.filter(|uuid| {
+				let Some(binding) = self.bindings.get(uuid) else {
+					return false;
+				};
+				!unreachable
+					.iter()
+					.any(|prefix| under(&binding.external_id, prefix))
+			})
+			.collect();
+
 		for uuid in &gone {
 			if let Some(binding) = self.bindings.remove(uuid) {
 				self.by_path.remove(&binding.external_id);
@@ -309,11 +338,10 @@ impl Ledger {
 	/// holds on every platform. It is a scan of the path index, which a walk
 	/// would not tolerate and a delete does not care about.
 	pub fn forget_tree(&mut self, external_id: &str) -> Vec<Uuid> {
-		let prefix = format!("{external_id}/");
 		let gone: Vec<Uuid> = self
 			.by_path
 			.iter()
-			.filter(|(path, _)| path.as_ref() == external_id || path.starts_with(prefix.as_str()))
+			.filter(|(path, _)| under(path, external_id))
 			.map(|(_, uuid)| *uuid)
 			.collect();
 

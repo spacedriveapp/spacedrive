@@ -381,13 +381,33 @@ schema gets an authoritative home for the first time.
    has no ordering guarantee to hang that on yet. The batch is still the unit
    of durability; what is missing is the ability to skip work already done.
 
-   **The sweep is written but unwired.** `Ledger::begin_sweep` and
-   `finish_sweep` turn absence into removals, which is the only way a deletion
-   the daemon was not running for reaches the store. Wiring them needs the
-   walk's completeness semantics settled: a browse of one directory must never
-   open a sweep, and a resumed job must not close one it did not open. Until
-   then a re-walk leaves ghost records for files deleted while the daemon was
-   down.
+   **The sweep opens only for a walk that could see everything.**
+   `IndexerJobConfig::enumerates_whole_source` is the gate: volume indexing,
+   recursive, no depth limit, no rules. A sweep reads absence as deletion,
+   which is sound only when the walk would have seen the file had it been
+   there — so it rules out a browse, which stops at one directory, and every
+   walk that applies rules, which hide files on purpose. Today that leaves one
+   path: archiving a removable drive, which is also the one case where the
+   origin goes in a drawer and absence is the only signal there will ever be.
+
+   Deletions on internal volumes and browsed directories reach the store only
+   through the watcher. A file removed while the daemon was down leaves a ghost
+   there until something re-archives the source. Accepted: those origins are
+   present and re-walkable on demand, so absence is never the only evidence
+   available.
+
+   **A locked folder costs its subtree, not the walk.** `discovery.rs` treats
+   an unreadable directory as a non-critical error, so a walk finishes
+   successfully with that subtree missing entirely. `Ledger::finish_sweep`
+   takes the paths the walk failed to open and spares everything under them,
+   keeping their bindings intact so the next walk that can read them resolves
+   them as unchanged.
+
+   Interrupt is safe without special handling: `check_interrupt` returns before
+   the sweep closes, so a killed walk leaves it open for the resume rather than
+   closing it over half an enumeration. `IndexerState.sweep_open` carries that
+   across serialization, and a walk resumed in a *new* process finds a ledger
+   with no sweep running and closes nothing.
 
 3. **Next.** `entry_uuids` leaves `ephemeral.snapshot`, which is what makes the
    snapshot purely rebuildable and all five of its discard paths harmless.

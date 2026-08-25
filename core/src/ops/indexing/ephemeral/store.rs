@@ -53,6 +53,12 @@ enum Ingest {
 	},
 	/// A delete the watcher watched happen.
 	Lost { external_id: String, subtree: bool },
+	/// A complete walk of the whole source is starting; everything the store
+	/// holds is presumed gone until this walk sees it.
+	BeginSweep,
+	/// That walk finished. What it never saw is deleted, except under the
+	/// subtrees it could not read.
+	FinishSweep { unreachable: Vec<String> },
 	/// Commit what is pending and answer.
 	Flush(oneshot::Sender<()>),
 }
@@ -136,6 +142,31 @@ impl SourceStore {
 			subtree: is_directory,
 		})
 		.await;
+	}
+
+	/// Open a sweep, so that what this walk does not see is deleted when it
+	/// closes.
+	///
+	/// Only a complete, unfiltered enumeration of the whole source may open
+	/// one. A walk that applied rules, stopped at a depth, or covered a single
+	/// directory sees less than the source holds, and absence under it says
+	/// nothing about what is on disk. `IndexerJobConfig::enumerates_whole_source`
+	/// is that test.
+	pub async fn begin_sweep(&self) {
+		self.send(Ingest::BeginSweep).await;
+	}
+
+	/// Close a sweep, deleting what the walk never saw outside `unreachable`.
+	///
+	/// `unreachable` carries the directories the walk failed to open. A locked
+	/// folder is a walk that did not look, so it costs its own subtree rather
+	/// than the walk.
+	pub async fn finish_sweep(&self, unreachable: &[PathBuf]) {
+		let unreachable = unreachable
+			.iter()
+			.filter_map(|path| self.external_id(path))
+			.collect();
+		self.send(Ingest::FinishSweep { unreachable }).await;
 	}
 
 	/// Commit everything queued so far and wait for it to land.
@@ -266,6 +297,16 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				} else if let Some(uuid) = ledger.forget(&external_id) {
 					removals.push(uuid);
 				}
+			}
+			Ingest::BeginSweep => {
+				// A sweep's verdict is "everything this walk did not see", so
+				// anything still pending has to count as seen before it opens.
+				commit(&db, &mut writes, &mut removals).await;
+				ledger.begin_sweep();
+			}
+			Ingest::FinishSweep { unreachable } => {
+				removals.extend(ledger.finish_sweep(&unreachable));
+				commit(&db, &mut writes, &mut removals).await;
 			}
 			Ingest::Flush(done) => {
 				commit(&db, &mut writes, &mut removals).await;
@@ -480,6 +521,46 @@ mod tests {
 		fixture.adapter.delete(&entry).await.expect("delete");
 
 		assert_eq!(fixture.external_ids().await, vec!["keep.txt"]);
+	}
+
+	#[tokio::test]
+	async fn a_sweep_deletes_what_the_walk_did_not_see() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("keep.txt", b"keep").await;
+		let gone = fixture.create("gone.txt", b"gone").await;
+		assert_eq!(fixture.external_ids().await.len(), 2);
+
+		// The file leaves while nothing is watching, so the next walk learns
+		// of it only by not finding it.
+		std::fs::remove_file(&gone).expect("remove");
+		fixture.store.begin_sweep().await;
+		fixture.create("keep.txt", b"keep").await;
+		fixture.store.finish_sweep(&[]).await;
+
+		assert_eq!(fixture.external_ids().await, vec!["keep.txt"]);
+	}
+
+	#[tokio::test]
+	async fn a_locked_folder_costs_its_subtree_not_the_walk() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("open/a.txt", b"a").await;
+		fixture.create("locked/b.txt", b"b").await;
+		let gone = fixture.create("open/gone.txt", b"gone").await;
+		assert_eq!(fixture.external_ids().await.len(), 3);
+
+		// The walk cannot open `locked`, and reports nothing under it. That is
+		// a walk that did not look, so its records stand; `open` was read, so
+		// what is missing there really is gone.
+		std::fs::remove_file(&gone).expect("remove");
+		let locked = fixture.root.path().join("locked");
+		fixture.store.begin_sweep().await;
+		fixture.create("open/a.txt", b"a").await;
+		fixture.store.finish_sweep(&[locked]).await;
+
+		assert_eq!(
+			fixture.external_ids().await,
+			vec!["locked/b.txt", "open/a.txt"]
+		);
 	}
 
 	#[tokio::test]

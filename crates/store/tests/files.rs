@@ -395,7 +395,7 @@ async fn a_sweep_turns_absence_into_removals() {
 			write(ledger.resolve(&observation), observation)
 		})
 		.collect();
-	let removals = ledger.finish_sweep();
+	let removals = ledger.finish_sweep(&[]);
 	db.apply_files(&writes, &removals, None)
 		.await
 		.expect("second walk");
@@ -432,7 +432,7 @@ async fn an_interrupted_sweep_does_not_delete_the_source() {
 	let observation = observe("b.txt", 10, 1_000, None);
 	ledger.resolve(&observation);
 
-	assert!(ledger.finish_sweep().is_empty());
+	assert!(ledger.finish_sweep(&[]).is_empty());
 	assert_eq!(ledger.len(), 2);
 }
 
@@ -442,7 +442,7 @@ async fn finishing_without_a_sweep_removes_nothing() {
 	let observation = observe("a.txt", 10, 1_000, None);
 	ledger.resolve(&observation);
 
-	assert!(ledger.finish_sweep().is_empty());
+	assert!(ledger.finish_sweep(&[]).is_empty());
 	assert_eq!(ledger.len(), 1);
 }
 
@@ -475,4 +475,71 @@ async fn a_child_ahead_of_its_parent_still_commits() {
 		.await
 		.expect("child");
 	assert_eq!(parent, Some(dir_write.uuid()));
+}
+
+#[tokio::test]
+async fn a_subtree_the_walk_could_not_read_survives_the_sweep() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	let mut ledger = Ledger::default();
+
+	let paths = [
+		"open/a.txt",
+		"locked/b.txt",
+		"locked/deep/c.txt",
+		"gone.txt",
+	];
+	let writes: Vec<FileWrite> = paths
+		.iter()
+		.map(|path| {
+			let observation = observe(path, 10, 1_000, None);
+			write(ledger.resolve(&observation), observation)
+		})
+		.collect();
+	db.apply_files(&writes, &[], None)
+		.await
+		.expect("first walk");
+
+	// The next walk cannot open `locked`, so it reports nothing under it. That
+	// is a walk that did not look, not a subtree that went away.
+	ledger.begin_sweep();
+	let observation = observe("open/a.txt", 10, 1_000, None);
+	let write = write(ledger.resolve(&observation), observation);
+	let removals = ledger.finish_sweep(&["locked".to_string()]);
+	db.apply_files(&[write], &removals, None)
+		.await
+		.expect("second walk");
+
+	let remaining: Vec<String> =
+		sqlx::query_scalar("SELECT external_id FROM record ORDER BY external_id")
+			.fetch_all(db.pool())
+			.await
+			.expect("records");
+	assert_eq!(
+		remaining,
+		vec!["locked/b.txt", "locked/deep/c.txt", "open/a.txt"]
+	);
+
+	// The exempted bindings are still bound, so the next walk that can read
+	// them resolves them as unchanged rather than rediscovering them.
+	assert_eq!(ledger.len(), 3);
+	assert!(ledger.uuid_of("locked/deep/c.txt").is_some());
+}
+
+#[tokio::test]
+async fn an_exemption_matches_on_path_segments() {
+	let mut ledger = Ledger::default();
+	for path in ["locked/a.txt", "locked-elsewhere/b.txt"] {
+		let observation = observe(path, 10, 1_000, None);
+		ledger.resolve(&observation);
+	}
+
+	ledger.begin_sweep();
+	let removals = ledger.finish_sweep(&["locked".to_string()]);
+
+	// A shared prefix is not containment: `locked-elsewhere` was reachable and
+	// the walk found nothing in it.
+	assert_eq!(removals.len(), 1);
+	assert!(ledger.uuid_of("locked/a.txt").is_some());
+	assert!(ledger.uuid_of("locked-elsewhere/b.txt").is_none());
 }
