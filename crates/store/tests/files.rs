@@ -1,0 +1,368 @@
+//! The filesystem ingest against a real store: resolution, the batch, and what
+//! survives a file moving.
+
+use sd_store::db::{OverlayEvidence, Stamp};
+use sd_store::file::{FileKind, FileWrite, Ledger, Observation, Resolution, Watermark};
+use sd_store::record::ContentIdentity;
+use sd_store::{filesystem_schema, SourceDb, SourceManager};
+use serde_json::json;
+use uuid::Uuid;
+
+struct Fixture {
+	_dir: tempfile::TempDir,
+	manager: SourceManager,
+}
+
+impl Fixture {
+	async fn new() -> Self {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let manager = SourceManager::new(dir.path().join("sources"));
+		manager
+			.create("drive-1", &filesystem_schema())
+			.await
+			.expect("source created");
+		Self { _dir: dir, manager }
+	}
+
+	async fn open(&self) -> SourceDb {
+		self.manager.open("drive-1").await.expect("open")
+	}
+}
+
+fn observe(path: &str, size: i64, mtime: i64, inode: Option<i64>) -> Observation {
+	Observation {
+		external_id: path.to_string(),
+		kind: FileKind::File,
+		name: path.rsplit('/').next().unwrap_or(path).to_string(),
+		size,
+		mtime,
+		created: None,
+		inode,
+		mode: Some(0o644),
+		extension: path.rsplit_once('.').map(|(_, e)| e.to_string()),
+		is_hidden: false,
+	}
+}
+
+fn write(resolution: Resolution, observation: Observation) -> FileWrite {
+	FileWrite {
+		resolution,
+		parent_uuid: None,
+		observation,
+	}
+}
+
+async fn external_id_of(db: &SourceDb, uuid: Uuid) -> String {
+	sqlx::query_scalar("SELECT external_id FROM record WHERE uuid = ?")
+		.bind(uuid)
+		.fetch_one(db.pool())
+		.await
+		.expect("record")
+}
+
+#[tokio::test]
+async fn a_walk_writes_records_and_facets() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	assert!(ledger.is_empty());
+
+	let batch: Vec<FileWrite> = ["notes/a.txt", "notes/b.txt"]
+		.iter()
+		.enumerate()
+		.map(|(i, path)| {
+			let observation = observe(path, 100 + i as i64, 1_700_000_000_000, Some(10 + i as i64));
+			write(ledger.resolve(&observation), observation)
+		})
+		.collect();
+
+	assert_eq!(db.apply_files(&batch, &[], None).await.expect("apply"), 2);
+
+	let (title, size, mode): (String, i64, i64) = sqlx::query_as(
+		"SELECT r.title, f.size, f.mode FROM record r
+		 JOIN facet_file f ON f.record_uuid = r.uuid
+		 WHERE r.external_id = 'notes/a.txt'",
+	)
+	.fetch_one(db.pool())
+	.await
+	.expect("row");
+
+	assert_eq!(title, "a.txt");
+	assert_eq!(size, 100);
+	assert_eq!(mode, 0o644);
+}
+
+#[tokio::test]
+async fn an_unchanged_file_is_not_rewritten() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let first = ledger.resolve(&observation);
+	assert!(matches!(first, Resolution::Fresh(_)));
+	db.apply_files(&[write(first, observation.clone())], &[], None)
+		.await
+		.expect("apply");
+
+	let second = ledger.resolve(&observation);
+	assert_eq!(second, Resolution::Unchanged(first.uuid()));
+	assert_eq!(
+		db.apply_files(&[write(second, observation)], &[], None)
+			.await
+			.expect("apply"),
+		0,
+		"a second walk over an untouched tree writes nothing"
+	);
+}
+
+#[tokio::test]
+async fn changed_bytes_keep_the_record_and_drop_the_content_identity() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let fresh = ledger.resolve(&observation);
+	db.apply_files(&[write(fresh, observation)], &[], None)
+		.await
+		.expect("apply");
+
+	db.set_content_identity(
+		fresh.uuid(),
+		&ContentIdentity {
+			sampled_hash: Some("sampled-1".to_string()),
+			..Default::default()
+		},
+	)
+	.await
+	.expect("hash");
+
+	let edited = observe("a.txt", 240, 1_700_000_999_000, Some(10));
+	let resolution = ledger.resolve(&edited);
+	assert_eq!(resolution, Resolution::Changed(fresh.uuid()));
+	db.apply_files(&[write(resolution, edited)], &[], None)
+		.await
+		.expect("apply");
+
+	let content_id: Option<i64> =
+		sqlx::query_scalar("SELECT content_id FROM record WHERE uuid = ?")
+			.bind(fresh.uuid())
+			.fetch_one(db.pool())
+			.await
+			.expect("record");
+	assert!(
+		content_id.is_none(),
+		"a hash that names the old bytes is worse than no hash"
+	);
+}
+
+#[tokio::test]
+async fn a_moved_file_carries_its_assertions_with_it() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("inbox/a.txt", 100, 1_700_000_000_000, Some(10));
+	let fresh = ledger.resolve(&observation);
+	db.apply_files(&[write(fresh, observation)], &[], None)
+		.await
+		.expect("apply");
+
+	db.set_overlay(
+		fresh.uuid(),
+		&OverlayEvidence {
+			type_: "file".to_string(),
+			external_id: "inbox/a.txt".to_string(),
+			content_uuid: None,
+		},
+		&Stamp {
+			hlc: "1".to_string(),
+			device_uuid: Uuid::nil(),
+		},
+		&json!({ "rating": 5 }),
+	)
+	.await
+	.expect("rate it");
+
+	// Same inode, same size, new path: the walk is seeing a file that moved
+	// while nothing was watching.
+	let moved = observe("archive/2026/a.txt", 100, 1_700_000_000_000, Some(10));
+	let resolution = ledger.resolve(&moved);
+	assert_eq!(resolution, Resolution::Moved(fresh.uuid()));
+	db.apply_files(&[write(resolution, moved)], &[], None)
+		.await
+		.expect("apply");
+
+	assert_eq!(
+		external_id_of(&db, fresh.uuid()).await,
+		"archive/2026/a.txt"
+	);
+	assert_eq!(
+		db.get_overlay(fresh.uuid()).await.expect("overlay")["rating"],
+		json!(5),
+		"the rating was never keyed to the path"
+	);
+
+	let records: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(records, 1, "a move is one row updated, not two rows");
+
+	// The old path is gone from the ledger, so something new arriving there
+	// does not inherit the moved file's identity.
+	let replacement = observe("inbox/a.txt", 100, 1_700_000_000_000, None);
+	assert!(matches!(ledger.resolve(&replacement), Resolution::Fresh(_)));
+}
+
+#[tokio::test]
+async fn inode_reuse_alone_does_not_rebind() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let fresh = ledger.resolve(&observation);
+	db.apply_files(&[write(fresh, observation)], &[], None)
+		.await
+		.expect("apply");
+
+	// The inode came back on an unrelated file. Neither size nor mtime agrees,
+	// so the second factor is missing and the ledger declines.
+	let stranger = observe("b.txt", 4096, 1_800_000_000_000, Some(10));
+	let resolution = ledger.resolve(&stranger);
+	assert!(matches!(resolution, Resolution::Fresh(_)));
+	assert_ne!(resolution.uuid(), fresh.uuid());
+}
+
+#[tokio::test]
+async fn a_batch_and_its_watermark_commit_together() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	db.set_cursor("walk", "start").await.expect("cursor");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let good = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let orphan = observe("b.txt", 100, 1_700_000_000_000, Some(11));
+
+	let batch = vec![
+		write(ledger.resolve(&good), good),
+		FileWrite {
+			resolution: ledger.resolve(&orphan),
+			// A parent no record answers to. Stands in for any failure partway
+			// through a batch.
+			parent_uuid: Some(Uuid::now_v7()),
+			observation: orphan,
+		},
+	];
+
+	let result = db
+		.apply_files(
+			&batch,
+			&[],
+			Some(Watermark {
+				key: "walk",
+				value: "finished",
+			}),
+		)
+		.await;
+	let err = result.expect_err("the batch fails as a unit").to_string();
+	assert!(
+		err.contains("FOREIGN KEY"),
+		"expected the orphan parent to be rejected, got: {err}"
+	);
+
+	let records: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(records, 0, "no half-written batch");
+	assert_eq!(
+		db.get_cursor("walk").await.expect("cursor").as_deref(),
+		Some("start"),
+		"and no watermark claiming work that did not land"
+	);
+}
+
+#[tokio::test]
+async fn the_ledger_reloads_from_the_store() {
+	let fixture = Fixture::new().await;
+	let uuid = {
+		let db = fixture.open().await;
+		db.begin_sync().await.expect("epoch");
+		let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+		let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+		let fresh = ledger.resolve(&observation);
+		db.apply_files(&[write(fresh, observation)], &[], None)
+			.await
+			.expect("apply");
+		fresh.uuid()
+	};
+
+	// A new attach, with nothing carried over in memory.
+	let db = fixture.open().await;
+	let mut ledger = Ledger::load(db.pool()).await.expect("reload");
+	assert_eq!(ledger.len(), 1);
+	assert_eq!(ledger.uuid_of("a.txt"), Some(uuid));
+
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	assert_eq!(ledger.resolve(&observation), Resolution::Unchanged(uuid));
+}
+
+#[tokio::test]
+async fn a_removal_takes_the_facet_and_leaves_the_assertion() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+	let observation = observe("a.txt", 100, 1_700_000_000_000, Some(10));
+	let fresh = ledger.resolve(&observation);
+	db.apply_files(&[write(fresh, observation)], &[], None)
+		.await
+		.expect("apply");
+
+	db.set_overlay(
+		fresh.uuid(),
+		&OverlayEvidence {
+			type_: "file".to_string(),
+			external_id: "a.txt".to_string(),
+			content_uuid: None,
+		},
+		&Stamp {
+			hlc: "1".to_string(),
+			device_uuid: Uuid::nil(),
+		},
+		&json!({ "rating": 5 }),
+	)
+	.await
+	.expect("rate it");
+
+	let removed = ledger.forget("a.txt").expect("bound");
+	assert_eq!(removed, fresh.uuid());
+	db.apply_files(&[], &[removed], None).await.expect("remove");
+
+	let facets: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM facet_file")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(facets, 0, "the facet cascades with its record");
+
+	let assertions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record_overlay")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(
+		assertions, 1,
+		"the assertion outlives the generation and waits for a rebind"
+	);
+}

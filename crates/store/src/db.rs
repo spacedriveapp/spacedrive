@@ -256,30 +256,9 @@ impl SourceDb {
 
 	/// Write the record table row, preserving the assigned uuid on conflict.
 	async fn put_record(&self, record: &Record, epoch: i64) -> Result<()> {
-		sqlx::query(
-			"INSERT INTO record
-				(uuid, external_id, type, title, created_at, modified_at,
-				 parent_uuid, content_id, scan_epoch, indexed_at)
-			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-			 ON CONFLICT (type, external_id) DO UPDATE SET
-				title = excluded.title,
-				created_at = excluded.created_at,
-				modified_at = excluded.modified_at,
-				parent_uuid = excluded.parent_uuid,
-				scan_epoch = excluded.scan_epoch,
-				indexed_at = excluded.indexed_at",
-		)
-		.bind(record.uuid)
-		.bind(&record.external_id)
-		.bind(&record.type_)
-		.bind(&record.title)
-		.bind(record.created_at)
-		.bind(record.modified_at)
-		.bind(record.parent_uuid)
-		.bind(record.content_id)
-		.bind(epoch)
-		.execute(&self.pool)
-		.await?;
+		crate::record::insert_record_query(record, epoch)
+			.execute(&self.pool)
+			.await?;
 		Ok(())
 	}
 

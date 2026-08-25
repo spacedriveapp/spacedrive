@@ -319,17 +319,49 @@ writing adapter — it is now drained into tracing.
    BLOBs, so `list_records_full` selects the uuid beside the JSON and merges it
    in rather than inside it.
 
-9. **The filesystem facet exists.** `FILE_SCHEMA` in `crates/store/src/record.rs`
-   carries `facet_file`, declared in Rust rather than as a TOML data type per
-   `2026-08-21-filesystem-source-store.md`. Nothing applies it yet; the batched
-   writer is P2.
+9. **The filesystem is a data type.** `filesystem_schema()` in
+   `crates/store/src/file.rs` declares one model, `file`, in Rust rather than
+   TOML. The facet DDL, the `_schema` row and the migration diff then come from
+   the machinery every adapter already uses, so `facet_file` needs no
+   declaration of its own. The search contract is empty, which `diff_schemas`
+   tolerates.
 
 ### P2 — The filesystem writes the store
 
-Teardown `T2.1`, `T2.2`, `T2.5`, unchanged in substance: `facet_file`, a batched
-writer, `upsert` reimplemented as a batch of one, and the arena demoted to a
-read cache over a durable store. This is where the filesystem schema gets an
-authoritative home for the first time.
+Teardown `T2.2` and `T2.5`: `facet_file`, a batched writer, and the arena
+demoted to a read cache over a durable store. This is where the filesystem
+schema gets an authoritative home for the first time.
+
+1. **Done.** The store side. `crates/store/src/file.rs` carries the ingest:
+   `Observation` (what the walk saw), `Ledger` (every binding, in memory),
+   `Resolution` (what the ledger made of it), and `SourceDb::apply_files`, which
+   writes a batch, its removals and its watermark in one transaction. Killing
+   the process partway through leaves neither a half-written batch nor a
+   watermark claiming work that did not land.
+
+   The two writers share one statement rather than one code path, which is what
+   "one file format, two writers" turns out to mean in practice.
+   `INSERT_RECORD` conflicts on the uuid rather than on `(type, external_id)`,
+   because the walker resolves identity before it writes and a moved file is the
+   same record at a new key. `UNIQUE (type, external_id)` still stands, so two
+   records claiming one path fails loudly. `upsert` is not "a batch of one": the
+   adapter path resolves relations and writes arbitrary facet columns out of
+   JSON, the walker writes six typed columns, and the record table is the part
+   they genuinely have in common.
+
+   **No index on `facet_file.inode`,** against what
+   `2026-08-21-filesystem-source-store.md` specifies. Resolution runs in memory
+   off `Ledger::load`, whose access pattern is one sequential scan at attach, so
+   the index would cost a write on every file in the source to serve a query
+   nobody makes. It comes back the day something queries inodes directly.
+
+2. **Next.** The core side: `MemoryAdapter` fans each observation to the arena
+   and to a batch channel, the source id reaches the writer, and the ledger
+   loads at attach. `MemoryAdapter` is already where the walk and the watcher
+   converge, so it is the fan-out point `T2.6` describes.
+
+3. **Then.** `entry_uuids` leaves `ephemeral.snapshot`, which is what makes the
+   snapshot purely rebuildable and all five of its discard paths harmless.
 
 ### P3 — One registry
 

@@ -8,7 +8,7 @@
 //! ```text
 //! record          one row per indexed thing, (type, external_id) unique
 //! facet_<model>   the type's own columns, keyed by record_uuid
-//! facet_file      the filesystem facet, written by the walker
+//! facet_file      the filesystem facet, one model like any other
 //! content         the identity of the bytes a record points at
 //! edge            relationships between records in this source
 //! record_overlay  what no ingest produced: a person's assertions
@@ -40,6 +40,7 @@
 pub mod content;
 pub mod db;
 pub mod error;
+pub mod file;
 pub mod fts;
 pub mod record;
 pub mod schema;
@@ -50,7 +51,10 @@ use serde::{Deserialize, Serialize};
 pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
-pub use record::{ContentIdentity, Record, FILE_SCHEMA, RECORD_SCHEMA};
+pub use file::{
+	filesystem_schema, FileKind, FileWrite, Ledger, Observation, Resolution, Watermark,
+};
+pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 

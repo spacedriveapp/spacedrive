@@ -62,8 +62,14 @@ CREATE TABLE IF NOT EXISTS facet_file (
     extension  TEXT,
     is_hidden  INTEGER NOT NULL DEFAULT 0
 );
-CREATE INDEX IF NOT EXISTS idx_facet_file_inode ON facet_file(inode);
 ```
+
+**Implemented 2026-08-25 without the inode index, and as a declared data type
+rather than hand-written DDL.** `filesystem_schema()` declares one model in
+Rust, so the facet DDL comes from the same codegen every adapter uses. The index
+this section originally called for is absent: resolution runs in memory off
+`Ledger::load`, which reads the table once at attach, so an index on `inode`
+would cost a write per file to serve nothing.
 
 The record table row for a file:
 

@@ -91,6 +91,47 @@ CREATE TABLE IF NOT EXISTS _schema (
 );
 "#;
 
+/// The record-table write, shared by both ingests: the adapter path writes one
+/// at a time through [`crate::db::SourceDb::upsert`], the walker writes
+/// thousands inside one transaction. Two writers, one statement.
+///
+/// The conflict target is the uuid rather than `(type, external_id)`, because
+/// the walker resolves identity before it writes and a moved file is the same
+/// record at a new key. `UNIQUE (type, external_id)` still stands, so two
+/// records claiming one path fails loudly instead of quietly.
+pub(crate) const INSERT_RECORD: &str = "\
+INSERT INTO record
+	(uuid, external_id, type, title, created_at, modified_at,
+	 parent_uuid, content_id, scan_epoch, indexed_at)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+ ON CONFLICT (uuid) DO UPDATE SET
+	external_id = excluded.external_id,
+	type = excluded.type,
+	title = excluded.title,
+	created_at = excluded.created_at,
+	modified_at = excluded.modified_at,
+	parent_uuid = excluded.parent_uuid,
+	scan_epoch = excluded.scan_epoch,
+	indexed_at = excluded.indexed_at";
+
+/// [`INSERT_RECORD`] with a record bound to it, ready for a pool or a
+/// transaction.
+pub(crate) fn insert_record_query<'q>(
+	record: &'q Record,
+	epoch: i64,
+) -> sqlx::query::Query<'q, sqlx::Sqlite, sqlx::sqlite::SqliteArguments<'q>> {
+	sqlx::query(INSERT_RECORD)
+		.bind(record.uuid)
+		.bind(&record.external_id)
+		.bind(&record.type_)
+		.bind(&record.title)
+		.bind(record.created_at)
+		.bind(record.modified_at)
+		.bind(record.parent_uuid)
+		.bind(record.content_id)
+		.bind(epoch)
+}
+
 /// A record row as written by the ingest path.
 #[derive(Debug, Clone)]
 pub struct Record {
@@ -142,28 +183,3 @@ pub async fn next_scan_epoch(pool: &sqlx::SqlitePool) -> Result<i64> {
 		.await?;
 	Ok(max.unwrap_or(0) + 1)
 }
-
-/// The filesystem facet, applied to a source whose ingest is the walker.
-///
-/// Declared here in Rust rather than as a TOML data type: the walker writes
-/// `EntryMetadata` it already has, and round-tripping every file through
-/// `serde_json::Value` to satisfy the codegen path would cost more than the
-/// table is worth. The record table it hangs off is the same one every adapter
-/// writes, which is the part that has to stay shared.
-///
-/// `external_id` on the record row is the path relative to the source root, so
-/// a drive that remounts elsewhere does not invalidate every row. `inode` is
-/// indexed because it is the second factor the rebind procedure needs when a
-/// file has moved and the path no longer resolves.
-pub const FILE_SCHEMA: &str = r#"
-CREATE TABLE IF NOT EXISTS facet_file (
-    record_uuid BLOB PRIMARY KEY REFERENCES record(uuid) ON DELETE CASCADE,
-    size        INTEGER NOT NULL,
-    mtime       INTEGER NOT NULL,
-    inode       INTEGER,
-    mode        INTEGER,
-    extension   TEXT,
-    is_hidden   INTEGER NOT NULL DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_facet_file_inode ON facet_file(inode);
-"#;

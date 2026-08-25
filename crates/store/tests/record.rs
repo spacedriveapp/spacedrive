@@ -659,29 +659,3 @@ async fn the_integrity_tier_renames_the_content_without_moving_the_row() {
 		.expect("uuid");
 	assert_eq!(after, uuid_for("integrity-1"));
 }
-
-#[tokio::test]
-async fn the_file_facet_hangs_off_the_same_record_table() {
-	let fixture = Fixture::new().await;
-	let db = fixture.open().await;
-	sqlx::raw_sql(sd_store::FILE_SCHEMA)
-		.execute(db.pool())
-		.await
-		.expect("file schema applies");
-
-	let key: String =
-		sqlx::query_scalar("SELECT type FROM pragma_table_info('facet_file') WHERE name = ?")
-			.bind("record_uuid")
-			.fetch_one(db.pool())
-			.await
-			.expect("record_uuid column");
-	assert_eq!(key, "BLOB");
-
-	let indexed: i64 = sqlx::query_scalar(
-		"SELECT COUNT(*) FROM pragma_index_list('facet_file') WHERE name = 'idx_facet_file_inode'",
-	)
-	.fetch_one(db.pool())
-	.await
-	.expect("inode index");
-	assert_eq!(indexed, 1, "the rebind procedure looks files up by inode");
-}
