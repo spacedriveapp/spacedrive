@@ -131,6 +131,27 @@ record-keyed and acquires its content key later. That late binding is already
 required by the drain pipeline and is exactly the mechanism `file-backed-sources`
 uses when adapter assertions arrive before the records they describe.
 
+## Scalar assertions take the same shape
+
+A tag application is one kind of assertion. A rating, a favorite, a corrected
+title are another: scalar claims about one record, where the last writer wins
+outright and there is nothing to enumerate across sources. Those stay in
+`record_overlay` rather than folding into `tag_assertion`, because a JSON blob
+of scalars cannot answer "which photos have this tag" and a tag table has no
+use for a column per scalar somebody invents.
+
+Two tables, one row shape. Both key on the record uuid, both carry
+`(external_id, content_id)` as rebind evidence, and both carry `hlc` and
+`device_uuid`. That is what makes "the assertion layer" a thing the store can
+name: the half of a `source.db` that no ingest can rebuild, that reindex leaves
+alone, and that sync merges rather than replicates.
+`docs/core/design/source-durability.md` carries the split and what it buys.
+
+`record_overlay` today has neither the key nor the columns. It is
+`(type, external_id)` with an `updated_at` wall clock and no device, which is
+the shape the previs's decision 2 rules against and a merge cannot use.
+`2026-08-22-source-convergence.md` P1.6 is the fix.
+
 ## Removal is an assertion, never a delete
 
 Unapplying a tag appends a row with `asserted = 0`. The state of a tag on a
@@ -209,11 +230,13 @@ assertion if it earns its way back.
 ## Consequences for the plan
 
 **Phase 1** owns this. The durable substrate is where these two tables get their
-shape, and `crates/archive`'s `record_overlay` folds into `tag_assertion` on the
-way in — it is the same idea in the two-file layout consolidation rejected, keyed
-by `(source_id, type, external_id)` where the external id is a path, which is the
-failure previs decision 2 exists to prevent. Settling this now is a paragraph.
-Settling it after phase 1 is a migration.
+shape, and `record_overlay` is re-keyed to match `tag_assertion` on the way in
+rather than folding into it (see "Scalar assertions take the same shape"). Its
+key was `(source_id, type, external_id)` in the two-file layout and is
+`(type, external_id)` now that the durable layer moved into `source.db`, and in
+both the external id is a path, which is the failure previs decision 2 exists to
+prevent. Settling this now is a paragraph. Settling it after phase 1 is a
+migration.
 
 **Phase 2** re-anchors tags as a rewrite, not a re-key, and no longer keeps
 definitions in `library.db`.

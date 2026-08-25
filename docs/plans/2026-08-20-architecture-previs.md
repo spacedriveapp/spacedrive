@@ -65,8 +65,13 @@ The differences that matter:
   Location existing to hang it from.
 
 `library.db` holds the registry: which sources exist, their roots, their record
-counts, and a nullable `volume_uuid` pointing at the medium underneath. It holds
-no rows about files.
+counts, a nullable `volume_uuid` pointing at the medium underneath, and the
+origin's availability (`live`, `degraded`, `lost`). It holds no rows about
+files.
+
+Availability is what reclaim, delete, backup and sync all read, because it is
+the only place that knows whether a store is the last copy of what it holds.
+`docs/core/design/source-durability.md` carries it.
 
 **A source is not a volume.** A volume is a device fact — capacity, filesystem,
 speed, removable, online, which machine — true whether or not anything is
@@ -293,7 +298,16 @@ Each of these could go the other way. They are the things to push on.
 5. **Cross-source answers are absent until the catalog exists,** rather than
    keeping `content_identity` alive to serve them during the transition.
 
-6. **Volumes and sources stay separate tables, with the fields redistributed and
+6. **A store's rebuildability is a property of its origin, tracked per source
+   and over time.** The alternative is the flat rule this document originally
+   carried, in either direction: all stores are caches, or all stores are user
+   data. Both are true of one half of a store on one kind of day. The generation
+   is rebuildable while its origin answers, the assertion layer never is, and
+   the origin stops answering without an event, so code assumes the store is the
+   only copy while the registry row tracks what is actually known.
+   `docs/core/design/source-durability.md`.
+
+7. **Volumes and sources stay separate tables, with the fields redistributed and
    an explicit foreign key.** Today they duplicate seven fields — fingerprint,
    mount point, last seen, tracked at, file count, byte total, and online state
    against attachment derived from `root.exists()` — written by the same action

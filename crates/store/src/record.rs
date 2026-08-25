@@ -9,8 +9,11 @@
 //!
 //! `record_overlay` sits beside them, holding what no ingest produced: the
 //! scalar assertions a person makes about a record. It keys on
-//! `(type, external_id)` rather than the record uuid, so it rebinds when a
-//! source is re-indexed and fresh uuids are minted.
+//! `(type, external_id)`, which is portable across devices and does not survive
+//! a rename, since the rebind procedure rewrites `external_id` when a file
+//! moves. The target shape keys on the record uuid and carries
+//! `(external_id, content_id)` as rebind evidence, alongside the `hlc` and
+//! `device_uuid` a merge needs. See `docs/core/design/source-durability.md`.
 
 use crate::error::Result;
 

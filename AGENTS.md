@@ -50,8 +50,11 @@ one set of claims that match the code. Until both land:
 - Do not deepen the entries world. New durable state belongs in the record table.
   Do not add columns to `entry` or `location`, and do not grow the persistent
   indexing path.
-- A source store is durable. It is user data, not a cache — do not add code
-  that assumes it can be thrown away and rebuilt.
+- A source store has two halves. The generation is rebuildable for as long as
+  its origin answers; the assertion layer never is. Since the origin can stop
+  answering silently, no code path may assume a store can be thrown away and
+  rebuilt. `docs/core/design/source-durability.md` has the rest, including what
+  the assertion tables have to reserve for sync.
 - The `ephemeral` qualifier is load-bearing while both substrates exist. It
   is what tells a reader which world a call site belongs to, so leave the
   naming alone until the convergence plan's P3 retires it.

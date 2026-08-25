@@ -21,11 +21,17 @@
 //! `edge` relates records within one source. Nothing here spans sources —
 //! that arrives with the catalog.
 //!
-//! A store is **user data, not a cache.** Re-scanning is a recovery path, not
-//! something the design leans on — plenty of origins cannot be re-scanned on
-//! demand: a detached drive, a revoked token, a closed account. `record_overlay`
-//! keys on `(type, external_id)` rather than the record uuid precisely so a
-//! re-index can mint fresh uuids without losing what a person said.
+//! **A store has two halves, and only one of them can ever be rebuilt.** The
+//! generation (`record`, `facet_*`, `content`, `edge`, `search_index`) can be
+//! rebuilt for as long as its origin still answers. `record_overlay` holds what
+//! no ingest produced, so nothing rebuilds it on any day, for any source.
+//!
+//! Whether the origin still answers varies per source, varies over time, and
+//! changes without an event: a detached drive, a revoked token, a closed
+//! account. So no path here may assume a store can be rebuilt. Rebuild is an
+//! operation a person asks for when the origin is known to be answering.
+//! `docs/core/design/source-durability.md` carries the reasoning and what sync
+//! needs the assertion tables to reserve.
 //!
 //! What is *not* here: no adapter runtime, no source registry, no cross-source
 //! router, no job system. Those belong to whoever owns more than one source.

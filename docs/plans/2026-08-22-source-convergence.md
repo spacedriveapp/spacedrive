@@ -9,6 +9,9 @@
 > `2026-08-21-filesystem-source-store.md` designs the filesystem writer.
 > `docs/core/design/file-backed-sources.md` sets the rule that adapters enrich
 > filesystem records rather than shadowing them.
+> `docs/core/design/source-durability.md` settles what a store owes when its
+> origin stops answering, and what the assertion tables have to reserve so sync
+> is a transport problem later instead of a schema migration.
 
 ## The rule
 
@@ -44,17 +47,27 @@ and `ops/volumes` instead.
 
 ## Disposability was an inversion
 
-`crates/archive/src/library.rs` opens by stating that source indexes are
+`crates/archive/src/library.rs` opened by stating that source indexes are
 disposable and only the shared `registry.db` is durable. The teardown register
-already ruled the other way — *"a source store is never rebuilt; it is user data,
-not a cache"* — so the crate is arguing a case that has been decided against it.
+had already ruled the other way (*"a source store is never rebuilt; it is user
+data, not a cache"*), so the crate was arguing a case that had been decided
+against it.
 
-The reasoning, written down so it stops getting lost: **rebuildable is a
-property of one source on a good day, not a property of a store.** A detached
-drive, a revoked token, a closed account, a renamed file — in each of those the
-store is the only copy that exists. And separately, nothing a person or an agent
-added ever came from the source at all. "You can rescan it" described the happy
-path of one ingest and got promoted to an architectural invariant.
+Both claims were half right, which is why the argument kept coming back. **A
+store has two halves.** The generation is rebuildable for exactly as long as its
+origin still answers. The assertion layer never is, on any day, for any source,
+because nothing a person or an agent added ever came from the origin at all.
+
+And whether the origin answers varies per source, varies over time, and changes
+without an event. An archived email account is rebuildable right up until the
+day it closes, and that day is not on the calendar. Since the code cannot tell
+which regime it is in, it has to behave as though the store is the only copy.
+"You can rescan it" described the happy path of one ingest and got promoted to
+an architectural invariant.
+
+`docs/core/design/source-durability.md` carries this out to origin availability
+as a registry column, the reindex and evict operations the generation and
+assertion split makes expressible, and what sync needs reserved now.
 
 ## What the crate accumulated
 
@@ -101,8 +114,12 @@ Not style, mechanics:
    `RECORD_SCHEMA`, and the prose says "the record table" and "records and
    facets." Applied to the source tree on 2026-08-22; the docs still carry the
    old word.
-2. **A source store is durable.** Restated here because the crate's own docs
-   still contradict it. Rebuild is a recovery path, not a design assumption.
+2. **No code path may assume a store can be rebuilt.** The invariant is a rule
+   about code, not a claim about stores: the generation is rebuildable while its
+   origin answers, the assertion layer never is, and the transition between
+   those is silent. Rebuild is an operation a person asks for when the origin is
+   known to be answering. `docs/core/design/source-durability.md` has the rest,
+   including the three things the schema has to reserve for sync.
 3. **One store shape, two writers.** Carried forward from
    `2026-08-21-filesystem-source-store.md`. Cross-source search, cross-source
    edges and `catalog.db` all join on one shape; two shapes means two of
@@ -154,6 +171,22 @@ Not style, mechanics:
   anything ships.
 - **T2.0b, volume/source boundary**, unchanged from the teardown register and
   still blocking T6.1 — which P3 now depends on.
+- **Can sources nest.** Two live documents answer this in opposite directions.
+  `2026-08-18-storage-consolidation.md` contract 1: one physical filesystem owns
+  one source id and one record namespace, and *"the source registry rejects a
+  root nested under an existing source's root."*
+  `2026-08-20-architecture-previs.md:74`: *"One volume hosts any number of
+  sources (nested roots are ordinary)."* If nesting is allowed, one file gets
+  two records with two uuids in two stores, and a tag applied through one root
+  is invisible through the other, which is the second-namespace problem contract
+  1 exists to forbid, reappearing between two filesystem sources. Settle before
+  P3, since the registry is where the rejection rule would live.
+- **Two devices indexing one origin.** A NAS mounted on a laptop and a desktop
+  is ordinary, and each machine mints its own record uuids for the same files.
+  The rebind procedure resolves on path, inode, size and mtime, of which only
+  path crosses a machine boundary. P1.7 gives hashed files an answer through the
+  convergent content id. Unhashed files have none, and this is the first thing
+  sync will hit.
 
 ## Phases
 
@@ -235,8 +268,36 @@ writing adapter — it is now drained into tracing.
    went with the adapter.
 5. **Done.** Reconciled the crate docs with decision 2. `lib.rs`, `library.rs`,
    `source.rs` and `record.rs` all opened by calling the source store
-   disposable; they now say it is user data and point at P1 for where the
-   durable tables end up.
+   disposable. They now carry the two-halves framing and point at
+   `docs/core/design/source-durability.md`.
+6. **Re-key the assertion layer.** `record_overlay` keys on
+   `(type, external_id)`, which is portable across devices and does not survive
+   a rename, since the filesystem rebind procedure rewrites `external_id` when a
+   file moves. Moving a file therefore drops its rating and its corrected title
+   today. Neither key works alone, so the row carries both: the record uuid as
+   its key, `(external_id, content_id)` as rebind evidence, plus `hlc` and
+   `device_uuid` for the merge sync will do. `tag_assertion` in
+   `docs/core/design/tags-and-assertions.md` is already specified this way and
+   is the shape to match. Touches `set_overlay`, `get_overlay`, `overlays_for`
+   and the one join in `search/router.rs`.
+
+   This lands in P1 because it is two columns and a key change while the only
+   rows are eleven adapters' worth of email. After P2 it is a migration over
+   user data that has no second copy.
+7. **Convergent content ids.** `content.id` is an `INTEGER` rowid, which is
+   source-local and the one form that cannot cross a machine boundary. The
+   previs commits to `uuid_for(hash) = v5(CONTENT_NAMESPACE, hash)`, and
+   `SdPath::Content`, `content-map.db` and `tag_assertion` are all already
+   written against the convergent form. It also settles the cross-device rebind
+   question for any hashed file, since path is the only other evidence that
+   crosses and inode does not. Currently T2.7; it moves here because
+   `record.content_id` is a foreign key on the largest table in the system and
+   P2 is what fills it.
+8. **`record.uuid` to BLOB.** 36 bytes against 16 on the primary key, in
+   `idx_record_parent`, and on both sides of every edge.
+   `2026-07-29-per-source-databases.md` called this one and named the window:
+   cheap while the only rows are adapter records, expensive once a filesystem
+   source has put millions on it. P2 is that moment.
 
 ### P2 — The filesystem writes the store
 
