@@ -119,6 +119,9 @@ rmp            = "0.8"                              # MessagePack core types
 rmp-serde      = "1.3"                              # MessagePack serialization for job state
 sd-task-system = { path = "../crates/task-system" }
 
+# The per-source store, one SQLite file per source
+sd-store = { path = "../crates/store" }
+
 # Archive system - indexes external data sources (emails, notes, etc.)
 sd-archive = { path = "../crates/archive" }
 

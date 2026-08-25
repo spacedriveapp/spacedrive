@@ -355,12 +355,41 @@ schema gets an authoritative home for the first time.
    the index would cost a write on every file in the source to serve a query
    nobody makes. It comes back the day something queries inodes directly.
 
-2. **Next.** The core side: `MemoryAdapter` fans each observation to the arena
-   and to a batch channel, the source id reaches the writer, and the ledger
-   loads at attach. `MemoryAdapter` is already where the walk and the watcher
-   converge, so it is the fan-out point `T2.6` describes.
+2. **Done.** The core side. `core/src/ops/indexing/ephemeral/store.rs` is the
+   seam: one writer task per source owns the `Ledger` and the `SourceDb`, and
+   `SourceSlot` opens it on first write against `SourceDirs`, so a source's
+   store sits in the same directory as its snapshot and its thumbnails. The
+   queue applies backpressure rather than dropping — a store that quietly
+   skipped observations would claim a completeness it does not have.
 
-3. **Then.** `entry_uuids` leaves `ephemeral.snapshot`, which is what makes the
+   **`MemoryAdapter` was not the fan-out point.** The plan said the walk and
+   the watcher converge there; only the watcher does. The ephemeral walk
+   batches straight into the arena from
+   `IndexerJob::run_ephemeral_processing_static`, and `MemoryAdapter`'s
+   `IndexPersistence` half has no caller at all. So there are two fan-out
+   sites, not one: the watcher through `MemoryAdapter`'s `ChangeHandler`
+   methods, and the walk through the job's batch loop. Collapsing them is `P4`
+   work, not a precondition for this.
+
+   External ids are `/`-separated on every platform, so a drive indexed on one
+   reads on another. `apply_files` orders each batch parents-first, because
+   `record.parent_uuid` is a foreign key and the watcher reports what the
+   kernel coalesced in whatever order it coalesced it.
+
+   **No watermark from this path.** `apply_files` takes one and the filesystem
+   passes `None`. A resume point means "the walk got this far", and the walk
+   has no ordering guarantee to hang that on yet. The batch is still the unit
+   of durability; what is missing is the ability to skip work already done.
+
+   **The sweep is written but unwired.** `Ledger::begin_sweep` and
+   `finish_sweep` turn absence into removals, which is the only way a deletion
+   the daemon was not running for reaches the store. Wiring them needs the
+   walk's completeness semantics settled: a browse of one directory must never
+   open a sweep, and a resumed job must not close one it did not open. Until
+   then a re-walk leaves ghost records for files deleted while the daemon was
+   down.
+
+3. **Next.** `entry_uuids` leaves `ephemeral.snapshot`, which is what makes the
    snapshot purely rebuildable and all five of its discard paths harmless.
 
 ### P3 — One registry

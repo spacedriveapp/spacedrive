@@ -11516,6 +11516,7 @@ dependencies = [
  "sd-media-metadata",
  "sd-pvcache",
  "sd-sidecar-path",
+ "sd-store",
  "sd-supervisor",
  "sd-task-system",
  "sea-orm",

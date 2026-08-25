@@ -75,9 +75,10 @@ pub async fn apply_batch(
 	);
 
 	let index = context.ephemeral_cache().resolve_index(root_path);
+	let store = context.ephemeral_cache().store_for(root_path).await;
 	let event_bus = context.events.clone();
 
-	let mut writer = MemoryAdapter::new(index, event_bus, root_path.to_path_buf());
+	let mut writer = MemoryAdapter::new(index, event_bus, root_path.to_path_buf(), store);
 
 	let config = ChangeConfig {
 		rule_toggles,

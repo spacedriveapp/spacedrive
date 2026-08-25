@@ -808,6 +808,9 @@ impl DirectoryListingQuery {
 
 			// Share the cached index with the job
 			indexer_job.set_ephemeral_index(ephemeral_index);
+			if let Some(store) = cache.store_for(&local_path).await {
+				indexer_job.set_source_store(store);
+			}
 
 			// Dispatch job asynchronously
 			// The job will emit ResourceChanged events as files are discovered

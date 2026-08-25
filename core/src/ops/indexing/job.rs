@@ -189,6 +189,8 @@ pub struct IndexerJob {
 	#[serde(skip)]
 	ephemeral_index: Option<Arc<RwLock<EphemeralIndex>>>,
 	#[serde(skip)]
+	source_store: Option<Arc<crate::ops::indexing::ephemeral::SourceStore>>,
+	#[serde(skip)]
 	timer: Option<PhaseTimer>,
 	#[serde(skip)]
 	db_operations: (u64, u64),
@@ -382,6 +384,7 @@ impl IndexerJob {
 							state,
 							&ctx,
 							ephemeral_index,
+							self.source_store.clone(),
 							root_path,
 							volume_backend.as_ref(),
 							self.config.is_volume_indexing,
@@ -779,6 +782,7 @@ impl IndexerJob {
 			config,
 			state: None,
 			ephemeral_index: None,
+			source_store: None,
 			timer: None,
 			db_operations: (0, 0),
 			batch_info: (0, 0),
@@ -813,6 +817,14 @@ impl IndexerJob {
 	/// communication overhead.
 	pub fn set_ephemeral_index(&mut self, index: Arc<RwLock<EphemeralIndex>>) {
 		self.ephemeral_index = Some(index);
+	}
+
+	/// Sets the durable store the walk writes alongside the arena.
+	///
+	/// Absent for a partition with no identity to key a store on, in which
+	/// case the walk fills the arena and nothing outlives the session.
+	pub fn set_source_store(&mut self, store: Arc<crate::ops::indexing::ephemeral::SourceStore>) {
+		self.source_store = Some(store);
 	}
 
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
@@ -887,6 +899,7 @@ impl IndexerJob {
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
 		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
+		source_store: Option<Arc<crate::ops::indexing::ephemeral::SourceStore>>,
 		root_path: &Path,
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 		is_volume_indexing: bool,
@@ -963,6 +976,15 @@ impl IndexerJob {
 			})
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
+
+			// The same batch to the durable store. The arena has already
+			// answered whoever was waiting, so this is the only place in the
+			// walk that waits on anything.
+			if let Some(store) = &source_store {
+				for (_, _, metadata) in &entries_with_metadata {
+					store.saw(metadata).await;
+				}
+			}
 
 			// Build UUID lookup map for directory browsing (only contains Some values)
 			// Volume indexing has None values so map will be empty (no events emitted anyway)

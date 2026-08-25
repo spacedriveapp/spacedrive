@@ -50,23 +50,23 @@ impl SourceManager {
 	}
 
 	/// Record which schema an index was built against.
-	async fn store_schema(pool: &SqlitePool, schema: &DataTypeSchema, update: bool) -> Result<()> {
+	async fn store_schema(pool: &SqlitePool, schema: &DataTypeSchema) -> Result<()> {
 		let schema_toml =
 			toml::to_string_pretty(schema).map_err(|e| Error::SchemaParse(e.to_string()))?;
 		let schema_hash = blake3::hash(schema_toml.as_bytes()).to_hex().to_string();
 
-		let sql = if update {
-			"UPDATE _schema SET data_type_id = ?, schema_hash = ?, schema_toml = ? WHERE id = 1"
-		} else {
-			"INSERT INTO _schema (data_type_id, schema_hash, schema_toml, id) VALUES (?, ?, ?, 1)"
-		};
-
-		sqlx::query(sql)
-			.bind(&schema.data_type.id)
-			.bind(&schema_hash[..16])
-			.bind(&schema_toml)
-			.execute(pool)
-			.await?;
+		sqlx::query(
+			"INSERT INTO _schema (data_type_id, schema_hash, schema_toml, id) VALUES (?, ?, ?, 1)
+			 ON CONFLICT (id) DO UPDATE SET
+				data_type_id = excluded.data_type_id,
+				schema_hash = excluded.schema_hash,
+				schema_toml = excluded.schema_toml",
+		)
+		.bind(&schema.data_type.id)
+		.bind(&schema_hash[..16])
+		.bind(&schema_toml)
+		.execute(pool)
+		.await?;
 
 		Ok(())
 	}
@@ -83,7 +83,9 @@ impl SourceManager {
 		}
 	}
 
-	/// Create a new source folder with its index.
+	/// Create a source folder with its index, or leave an existing one as it
+	/// is. Idempotent: the DDL is `IF NOT EXISTS` throughout and the schema row
+	/// upserts.
 	pub async fn create(&self, source_id: &str, schema: &DataTypeSchema) -> Result<()> {
 		let source_dir = self.sources_dir.join(source_id);
 		std::fs::create_dir_all(&source_dir)?;
@@ -91,7 +93,7 @@ impl SourceManager {
 		let pool = open_pool(&source_dir.join("data.db"), true).await?;
 
 		Self::apply_schema(&pool, schema).await?;
-		Self::store_schema(&pool, schema, false).await?;
+		Self::store_schema(&pool, schema).await?;
 
 		pool.close().await;
 
@@ -137,7 +139,7 @@ impl SourceManager {
 		Self::apply_schema(&pool, current_schema).await?;
 
 		if !migration_result.applied.is_empty() {
-			Self::store_schema(&pool, current_schema, true).await?;
+			Self::store_schema(&pool, current_schema).await?;
 		}
 
 		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
@@ -155,6 +157,15 @@ impl SourceManager {
 		}
 
 		Ok((db, migration_result))
+	}
+
+	/// Open a source, creating it first if this machine has not seen it.
+	///
+	/// A filesystem source appears when a drive is attached rather than when a
+	/// person adds one, so nothing separate ever runs [`Self::create`] for it.
+	pub async fn ensure(&self, source_id: &str, schema: &DataTypeSchema) -> Result<SourceDb> {
+		self.create(source_id, schema).await?;
+		self.open(source_id).await
 	}
 
 	/// Delete a source folder and its index.

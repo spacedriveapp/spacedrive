@@ -41,6 +41,7 @@ pub mod registry;
 pub mod responder;
 pub mod snapshot;
 pub mod sources;
+pub mod store;
 pub mod types;
 pub mod writer;
 
@@ -51,5 +52,6 @@ pub use index::{EphemeralIndex, EphemeralIndexStats};
 pub use name::NameCache;
 pub use registry::NameRegistry;
 pub use sources::{SourceRecord, SourceRegistry};
+pub use store::SourceStore;
 pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
 pub use writer::MemoryAdapter;

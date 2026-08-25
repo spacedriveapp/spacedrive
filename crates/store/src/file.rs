@@ -26,7 +26,7 @@
 //! `ephemeral.snapshot`. The snapshot goes back to being a cache with nothing
 //! durable in it, and all of its discard paths become harmless.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use indexmap::IndexMap;
@@ -120,6 +120,10 @@ pub struct Ledger {
 	bindings: HashMap<Uuid, Binding>,
 	by_path: HashMap<Arc<str>, Uuid>,
 	by_inode: HashMap<i64, Uuid>,
+	/// Bindings a sweep has not seen yet, or `None` when no sweep is running.
+	/// Held only for the duration of a walk, so the resting cost of a ledger
+	/// is the bindings and the two indexes.
+	unseen: Option<HashSet<Uuid>>,
 }
 
 impl Ledger {
@@ -149,6 +153,9 @@ impl Ledger {
 	}
 
 	fn bind(&mut self, uuid: Uuid, binding: Binding) {
+		if let Some(unseen) = &mut self.unseen {
+			unseen.remove(&uuid);
+		}
 		if let Some(previous) = self.bindings.get(&uuid) {
 			self.by_path.remove(&previous.external_id);
 			if let Some(inode) = previous.inode {
@@ -232,6 +239,95 @@ impl Ledger {
 		Resolution::Fresh(Uuid::now_v7())
 	}
 
+	/// Rebind a record whose move the watcher actually saw.
+	///
+	/// A rename event carries both ends, so it needs none of [`Self::resolve`]'s
+	/// evidence weighing: the kernel already said these are the same file.
+	/// Returns `None` when the old path was never bound, leaving the caller to
+	/// resolve the new path on its own evidence.
+	pub fn rebind(
+		&mut self,
+		old_external_id: &str,
+		observation: &Observation,
+	) -> Option<Resolution> {
+		let uuid = self.by_path.get(old_external_id).copied()?;
+		self.bind(
+			uuid,
+			Binding {
+				external_id: observation.external_id.as_str().into(),
+				size: observation.size,
+				mtime: observation.mtime,
+				inode: observation.inode,
+			},
+		);
+		Some(Resolution::Moved(uuid))
+	}
+
+	/// Start a sweep: every binding is presumed gone until an observation
+	/// resolves against it.
+	///
+	/// A walk sees what is there and never sees what is not, so a deletion the
+	/// daemon was not running for reaches the store only as an absence. The
+	/// sweep is how absence becomes a removal. Starting a second sweep
+	/// discards the first, which is what an interrupted walk should do: a
+	/// partial enumeration is not evidence that the rest of the source is
+	/// gone.
+	pub fn begin_sweep(&mut self) {
+		self.unseen = Some(self.bindings.keys().copied().collect());
+	}
+
+	/// End a sweep and forget everything it did not see, returning those
+	/// records so the caller can remove them in the same batch.
+	///
+	/// Returns empty when no sweep is running, so a caller that never opened
+	/// one cannot delete a source by accident.
+	pub fn finish_sweep(&mut self) -> Vec<Uuid> {
+		let Some(unseen) = self.unseen.take() else {
+			return Vec::new();
+		};
+		let gone: Vec<Uuid> = unseen.into_iter().collect();
+		for uuid in &gone {
+			if let Some(binding) = self.bindings.remove(uuid) {
+				self.by_path.remove(&binding.external_id);
+				if let Some(inode) = binding.inode {
+					self.by_inode.remove(&inode);
+				}
+			}
+		}
+		gone
+	}
+
+	/// Whether a sweep is running.
+	pub fn is_sweeping(&self) -> bool {
+		self.unseen.is_some()
+	}
+
+	/// Forget a path and everything under it, which is what a directory delete
+	/// comes to: one event in, a subtree out.
+	///
+	/// External ids are `/`-separated whatever wrote them, so the prefix test
+	/// holds on every platform. It is a scan of the path index, which a walk
+	/// would not tolerate and a delete does not care about.
+	pub fn forget_tree(&mut self, external_id: &str) -> Vec<Uuid> {
+		let prefix = format!("{external_id}/");
+		let gone: Vec<Uuid> = self
+			.by_path
+			.iter()
+			.filter(|(path, _)| path.as_ref() == external_id || path.starts_with(prefix.as_str()))
+			.map(|(_, uuid)| *uuid)
+			.collect();
+
+		for uuid in &gone {
+			if let Some(binding) = self.bindings.remove(uuid) {
+				self.by_path.remove(&binding.external_id);
+				if let Some(inode) = binding.inode {
+					self.by_inode.remove(&inode);
+				}
+			}
+		}
+		gone
+	}
+
 	/// Forget a path. The watcher calls this on a delete it saw.
 	pub fn forget(&mut self, external_id: &str) -> Option<Uuid> {
 		let uuid = self.by_path.remove(external_id)?;
@@ -277,6 +373,48 @@ INSERT INTO facet_file (record_uuid, size, mtime, inode, mode, extension, is_hid
 	extension = excluded.extension,
 	is_hidden = excluded.is_hidden";
 
+/// The order a batch has to be written in, as indexes into it.
+///
+/// `record.parent_uuid` is a foreign key, so a child written ahead of a parent
+/// arriving in the same transaction aborts the batch. Callers usually hand over
+/// parents first and depending on that is a trap: the watcher reports what the
+/// kernel coalesced, in the order it coalesced it.
+fn parents_first(writes: &[FileWrite]) -> Vec<usize> {
+	let position: HashMap<Uuid, usize> = writes
+		.iter()
+		.enumerate()
+		.map(|(index, write)| (write.uuid(), index))
+		.collect();
+
+	let mut order = Vec::with_capacity(writes.len());
+	let mut placed = vec![false; writes.len()];
+
+	for start in 0..writes.len() {
+		// Climb to the highest ancestor still inside this batch, then lay the
+		// chain down from the top. `contains` closes the loop a parent cycle
+		// would otherwise open; the filesystem cannot produce one, but a batch
+		// is not the filesystem.
+		let mut chain: Vec<usize> = Vec::new();
+		let mut cursor = Some(start);
+		while let Some(index) = cursor {
+			if placed[index] || chain.contains(&index) {
+				break;
+			}
+			chain.push(index);
+			cursor = writes[index]
+				.parent_uuid
+				.and_then(|parent| position.get(&parent))
+				.copied();
+		}
+		for index in chain.into_iter().rev() {
+			placed[index] = true;
+			order.push(index);
+		}
+	}
+
+	order
+}
+
 impl SourceDb {
 	/// Apply a batch of resolved observations, the removals the walk or the
 	/// watcher observed, and the batch's watermark, in one transaction.
@@ -299,7 +437,8 @@ impl SourceDb {
 		let epoch = self.scan_epoch();
 		let mut applied = 0;
 
-		for write in writes {
+		for index in parents_first(writes) {
+			let write = &writes[index];
 			if !write.resolution.is_dirty() {
 				continue;
 			}

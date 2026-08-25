@@ -13,6 +13,7 @@
 //! Path → partition resolution is longest-root-prefix over registered sources.
 
 use super::sources::{SourceRecord, SourceRegistry};
+use super::store::SourceStore;
 use super::EphemeralIndex;
 use crate::infra::source_dirs::SourceDirs;
 use parking_lot::{Mutex, RwLock};
@@ -52,6 +53,10 @@ pub struct SourceSlot {
 	/// Entry count at the last completed save; identical partitions skip the
 	/// rewrite (a burst of browse jobs otherwise re-saves 100 MB per job).
 	last_saved_entries: std::sync::atomic::AtomicU64,
+	/// The source's durable store, opened once per session on first write.
+	/// `None` once opening has failed or the partition has nowhere to write:
+	/// scratch has no identity, and a cache with no directory has no disk.
+	store: tokio::sync::OnceCell<Option<Arc<SourceStore>>>,
 }
 
 impl SourceSlot {
@@ -68,6 +73,7 @@ impl SourceSlot {
 			restore_once: tokio::sync::OnceCell::new(),
 			save_lock: tokio::sync::Mutex::new(()),
 			last_saved_entries: std::sync::atomic::AtomicU64::new(u64::MAX),
+			store: tokio::sync::OnceCell::new(),
 		}))
 	}
 
@@ -240,6 +246,32 @@ impl EphemeralIndexCache {
 	pub fn is_detached(&self, path: &Path) -> bool {
 		let slot = self.resolve(path);
 		slot.is_detached()
+	}
+
+	/// The durable store owning `path`, opened on first use.
+	///
+	/// `None` for the scratch partition and for a cache with no sources
+	/// directory: neither has an identity to key a store on. Browsing keeps
+	/// working in both cases, which is what makes the arena the read path and
+	/// the store an addition to it.
+	pub async fn store_for(&self, path: &Path) -> Option<Arc<SourceStore>> {
+		let slot = self.resolve(path);
+		let (Some(id), Some(dirs), Some(root)) = (slot.id, self.dirs.as_ref(), slot.root()) else {
+			return None;
+		};
+
+		slot.store
+			.get_or_init(|| async {
+				match SourceStore::open(dirs, id, root).await {
+					Ok(store) => Some(store),
+					Err(error) => {
+						tracing::error!(source = %id, %error, "source store unavailable");
+						None
+					}
+				}
+			})
+			.await
+			.clone()
 	}
 
 	/// The index owning `path`, unconditionally (scratch fallback).

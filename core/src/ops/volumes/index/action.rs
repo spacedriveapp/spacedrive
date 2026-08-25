@@ -113,6 +113,9 @@ impl LibraryAction for IndexVolumeAction {
 		ephemeral_cache.ensure_restored(&volume.mount_point).await;
 		let index = ephemeral_cache.create_for_indexing(volume.mount_point.clone());
 		indexer_job.set_ephemeral_index(index.clone());
+		if let Some(store) = ephemeral_cache.store_for(&volume.mount_point).await {
+			indexer_job.set_source_store(store);
+		}
 
 		// 6. Clear stale entries if this volume was previously indexed
 		let cleared = ephemeral_cache.clear_for_reindex(&volume.mount_point).await;

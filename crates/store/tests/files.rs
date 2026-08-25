@@ -366,3 +366,113 @@ async fn a_removal_takes_the_facet_and_leaves_the_assertion() {
 		"the assertion outlives the generation and waits for a rebind"
 	);
 }
+
+#[tokio::test]
+async fn a_sweep_turns_absence_into_removals() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	let mut ledger = Ledger::default();
+
+	let writes: Vec<FileWrite> = ["a.txt", "b.txt", "c.txt"]
+		.iter()
+		.map(|path| {
+			let observation = observe(path, 10, 1_000, None);
+			write(ledger.resolve(&observation), observation)
+		})
+		.collect();
+	db.apply_files(&writes, &[], None)
+		.await
+		.expect("first walk");
+
+	// The second walk finds b.txt gone. Nothing tells the ledger so; only the
+	// absence does.
+	ledger.begin_sweep();
+	assert!(ledger.is_sweeping());
+	let writes: Vec<FileWrite> = ["a.txt", "c.txt"]
+		.iter()
+		.map(|path| {
+			let observation = observe(path, 10, 1_000, None);
+			write(ledger.resolve(&observation), observation)
+		})
+		.collect();
+	let removals = ledger.finish_sweep();
+	db.apply_files(&writes, &removals, None)
+		.await
+		.expect("second walk");
+
+	assert_eq!(removals.len(), 1);
+	assert_eq!(ledger.len(), 2);
+	assert!(ledger.uuid_of("b.txt").is_none());
+
+	let remaining: Vec<String> =
+		sqlx::query_scalar("SELECT external_id FROM record ORDER BY external_id")
+			.fetch_all(db.pool())
+			.await
+			.expect("records");
+	assert_eq!(remaining, vec!["a.txt", "c.txt"]);
+}
+
+#[tokio::test]
+async fn an_interrupted_sweep_does_not_delete_the_source() {
+	let mut ledger = Ledger::default();
+	for path in ["a.txt", "b.txt"] {
+		let observation = observe(path, 10, 1_000, None);
+		ledger.resolve(&observation);
+	}
+
+	// A walk starts, sees one file, and dies. The next walk starts its own
+	// sweep, which discards the first rather than inheriting its verdict.
+	ledger.begin_sweep();
+	let observation = observe("a.txt", 10, 1_000, None);
+	ledger.resolve(&observation);
+	ledger.begin_sweep();
+
+	let observation = observe("a.txt", 10, 1_000, None);
+	ledger.resolve(&observation);
+	let observation = observe("b.txt", 10, 1_000, None);
+	ledger.resolve(&observation);
+
+	assert!(ledger.finish_sweep().is_empty());
+	assert_eq!(ledger.len(), 2);
+}
+
+#[tokio::test]
+async fn finishing_without_a_sweep_removes_nothing() {
+	let mut ledger = Ledger::default();
+	let observation = observe("a.txt", 10, 1_000, None);
+	ledger.resolve(&observation);
+
+	assert!(ledger.finish_sweep().is_empty());
+	assert_eq!(ledger.len(), 1);
+}
+
+#[tokio::test]
+async fn a_child_ahead_of_its_parent_still_commits() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	let mut ledger = Ledger::default();
+
+	let mut dir = observe("docs", 0, 1_000, None);
+	dir.kind = FileKind::Directory;
+	let dir_write = write(ledger.resolve(&dir), dir);
+
+	let child = observe("docs/a.txt", 10, 1_000, None);
+	let child_write = FileWrite {
+		resolution: ledger.resolve(&child),
+		parent_uuid: Some(dir_write.uuid()),
+		observation: child,
+	};
+
+	// The batch arrives child first, which is what a coalesced watcher burst
+	// looks like.
+	db.apply_files(&[child_write.clone(), dir_write.clone()], &[], None)
+		.await
+		.expect("batch commits regardless of arrival order");
+
+	let parent: Option<Uuid> = sqlx::query_scalar("SELECT parent_uuid FROM record WHERE uuid = ?")
+		.bind(child_write.uuid())
+		.fetch_one(db.pool())
+		.await
+		.expect("child");
+	assert_eq!(parent, Some(dir_write.uuid()));
+}

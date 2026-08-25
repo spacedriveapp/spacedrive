@@ -101,13 +101,14 @@ impl PersistenceFactory {
 		index: std::sync::Arc<tokio::sync::RwLock<EphemeralIndex>>,
 		event_bus: Option<std::sync::Arc<crate::infra::event::EventBus>>,
 		root_path: PathBuf,
+		store: Option<std::sync::Arc<super::ephemeral::SourceStore>>,
 	) -> Box<dyn IndexPersistence + Send + Sync> {
 		use super::ephemeral::MemoryAdapter;
 
 		let event_bus = event_bus
 			.unwrap_or_else(|| std::sync::Arc::new(crate::infra::event::EventBus::new(1024)));
 
-		Box::new(MemoryAdapter::new(index, event_bus, root_path))
+		Box::new(MemoryAdapter::new(index, event_bus, root_path, store))
 	}
 }
 
@@ -138,6 +139,7 @@ mod tests {
 			index.clone(),
 			Some(event_bus),
 			temp_dir.path().to_path_buf(),
+			None,
 		);
 
 		let dir_entry = DirEntry {
@@ -177,7 +179,12 @@ mod tests {
 		));
 		let event_bus = Arc::new(crate::infra::event::EventBus::new(1024));
 
-		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(
+			index.clone(),
+			event_bus,
+			temp_dir.path().to_path_buf(),
+			None,
+		);
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),

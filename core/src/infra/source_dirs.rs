@@ -2,7 +2,8 @@
 //!
 //! Everything a source owns on this machine lives in one directory:
 //! `sources/<id>/` under the daemon data dir holds its session-restore
-//! snapshot, its thumbnail cache, and its durable store, with the source
+//! snapshot, its thumbnail cache, and its durable store (whose file name
+//! belongs to `sd_store::SourceManager`), with the source
 //! registry file beside the directories at `sources/sources.json`. Clients
 //! never assume this layout — per-source paths surface through the
 //! `core.ephemeral_status` query.
@@ -18,7 +19,6 @@ const SOURCES_DIR: &str = "sources";
 const REGISTRY_FILE: &str = "sources.json";
 const SNAPSHOT_FILE: &str = "ephemeral.snapshot";
 const THUMBS_FILE: &str = "thumbs.pvcache";
-const SOURCE_DB_FILE: &str = "source.db";
 const BLOCKS_DIR: &str = "blocks";
 
 /// Resolves the on-disk layout for per-source storage.
@@ -78,11 +78,6 @@ impl SourceDirs {
 	/// A source's thumbnail hot-tier cache.
 	pub fn thumbs_file(&self, id: Uuid) -> PathBuf {
 		self.source_dir(id).join(THUMBS_FILE)
-	}
-
-	/// A source's durable store.
-	pub fn source_db_file(&self, id: Uuid) -> PathBuf {
-		self.source_dir(id).join(SOURCE_DB_FILE)
 	}
 
 	/// A source's streamed block cache. Inside the source's directory so
@@ -181,7 +176,6 @@ mod tests {
 			source_dir.join("ephemeral.snapshot")
 		);
 		assert_eq!(dirs.thumbs_file(id), source_dir.join("thumbs.pvcache"));
-		assert_eq!(dirs.source_db_file(id), source_dir.join("source.db"));
 
 		// Resolution creates nothing; creation is explicit.
 		assert!(!source_dir.exists());

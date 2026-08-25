@@ -13,6 +13,7 @@ use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::persistence::IndexPersistence;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 
+use super::store::SourceStore;
 use super::EphemeralIndex;
 
 use anyhow::Result;
@@ -27,15 +28,23 @@ use uuid::Uuid;
 /// Unified writer for ephemeral (in-memory) index storage.
 ///
 /// Implements both `ChangeHandler` (for the watcher pipeline) and `IndexPersistence`
-/// (for the indexer job pipeline). Both pipelines share:
+/// (for the indexer job pipeline), which makes it the one place a walk and a
+/// watcher converge — and therefore the place a filesystem source fans out to
+/// its two destinations. Both pipelines share:
 /// - The same `EphemeralIndex` storage
 /// - UUID generation and tracking
 /// - Event emission for UI updates
 /// - Entry ID generation
+///
+/// The arena is written inline because a browse is waiting on it. The store is
+/// handed the same observation through a queue, so nothing on the read path
+/// ever waits on SQLite. A partition with no store (scratch, or a cache with
+/// no directory to write to) simply skips the second write.
 pub struct MemoryAdapter {
 	index: Arc<RwLock<EphemeralIndex>>,
 	event_bus: Arc<EventBus>,
 	root_path: PathBuf,
+	store: Option<Arc<SourceStore>>,
 	next_id: AtomicI32,
 }
 
@@ -44,12 +53,21 @@ impl MemoryAdapter {
 		index: Arc<RwLock<EphemeralIndex>>,
 		event_bus: Arc<EventBus>,
 		root_path: PathBuf,
+		store: Option<Arc<SourceStore>>,
 	) -> Self {
 		Self {
 			index,
 			event_bus,
 			root_path,
+			store,
 			next_id: AtomicI32::new(1),
+		}
+	}
+
+	/// Hand an observation to the durable store, if this partition has one.
+	async fn record(&self, metadata: &EntryMetadata) {
+		if let Some(store) = &self.store {
+			store.saw(metadata).await;
 		}
 	}
 
@@ -155,6 +173,8 @@ impl ChangeHandler for MemoryAdapter {
 			.add_entry_internal(&metadata.path, entry_uuid, entry_metadata.clone())
 			.await?;
 
+		self.record(&entry_metadata).await;
+
 		if let Some(content_kind) = content_kind {
 			tracing::debug!(
 				"Emitting ResourceChanged for ephemeral create: {} (content_kind: {:?})",
@@ -184,8 +204,10 @@ impl ChangeHandler for MemoryAdapter {
 
 		{
 			let mut index = self.index.write().await;
-			let _ = index.add_entry(metadata.path.clone(), uuid, entry_metadata);
+			let _ = index.add_entry(metadata.path.clone(), uuid, entry_metadata.clone());
 		}
+
+		self.record(&entry_metadata).await;
 
 		Ok(())
 	}
@@ -198,14 +220,20 @@ impl ChangeHandler for MemoryAdapter {
 		_new_parent_path: &Path,
 	) -> Result<()> {
 		let metadata = build_dir_entry(new_path, None).await?;
+		let entry_metadata = EntryMetadata::from(metadata.clone());
 
 		{
 			let mut index = self.index.write().await;
 			index.remove_entry(old_path);
 
 			let uuid = entry.uuid.unwrap_or_else(Uuid::new_v4);
-			let entry_metadata = EntryMetadata::from(metadata.clone());
-			let _ = index.add_entry(new_path.to_path_buf(), uuid, entry_metadata);
+			let _ = index.add_entry(new_path.to_path_buf(), uuid, entry_metadata.clone());
+		}
+
+		// A rename carries both ends, so the store rebinds rather than
+		// re-deriving identity from an inode it would have to trust.
+		if let Some(store) = &self.store {
+			store.renamed(old_path, &entry_metadata).await;
 		}
 
 		Ok(())
@@ -223,6 +251,10 @@ impl ChangeHandler for MemoryAdapter {
 			} else {
 				index.remove_entry(&entry.path);
 			}
+		}
+
+		if let Some(store) = &self.store {
+			store.lost(&entry.path, entry.is_directory()).await;
 		}
 
 		// Emit ResourceDeleted event so frontend can remove from cache
@@ -282,12 +314,17 @@ impl ChangeHandler for MemoryAdapter {
 			}
 		};
 
-		let mut index = self.index.write().await;
+		let mut observed = Vec::new();
 
-		while let Ok(Some(entry)) = entries.next_entry().await {
-			let entry_path = entry.path();
+		{
+			let mut index = self.index.write().await;
 
-			if let Ok(metadata) = entry.metadata().await {
+			while let Ok(Some(entry)) = entries.next_entry().await {
+				let entry_path = entry.path();
+
+				let Ok(metadata) = entry.metadata().await else {
+					continue;
+				};
 				let kind = if metadata.is_dir() {
 					EntryKind::Directory
 				} else if metadata.is_symlink() {
@@ -308,8 +345,15 @@ impl ChangeHandler for MemoryAdapter {
 					is_hidden: is_hidden_path(&entry_path),
 				};
 
-				let _ = index.add_entry(entry_path, Uuid::now_v7(), entry_metadata);
+				let _ = index.add_entry(entry_path, Uuid::now_v7(), entry_metadata.clone());
+				observed.push(entry_metadata);
 			}
+		}
+
+		// Outside the arena lock: the store queue applies backpressure, and
+		// holding a write lock while waiting on it would stall every reader.
+		for metadata in &observed {
+			self.record(metadata).await;
 		}
 
 		Ok(())
@@ -352,6 +396,8 @@ impl IndexPersistence for MemoryAdapter {
 
 			(self.next_id(), content_kind, entry_uuid)
 		};
+
+		self.record(&metadata).await;
 
 		if let Some(content_kind) = content_kind {
 			// Skip event emission for hidden files (dotfiles) to match query filtering behavior.
@@ -411,8 +457,12 @@ mod tests {
 		));
 		let event_bus = Arc::new(EventBus::new(1024));
 
-		let mut writer =
-			MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let mut writer = MemoryAdapter::new(
+			index.clone(),
+			event_bus,
+			temp_dir.path().to_path_buf(),
+			None,
+		);
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
@@ -449,7 +499,12 @@ mod tests {
 		));
 		let event_bus = Arc::new(EventBus::new(1024));
 
-		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(
+			index.clone(),
+			event_bus,
+			temp_dir.path().to_path_buf(),
+			None,
+		);
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
@@ -484,7 +539,12 @@ mod tests {
 		let event_bus = Arc::new(EventBus::new(1024));
 		let mut subscriber = event_bus.subscribe();
 
-		let writer = MemoryAdapter::new(index.clone(), event_bus, temp_dir.path().to_path_buf());
+		let writer = MemoryAdapter::new(
+			index.clone(),
+			event_bus,
+			temp_dir.path().to_path_buf(),
+			None,
+		);
 
 		let dir_entry = DirEntry {
 			path: test_file.clone(),
