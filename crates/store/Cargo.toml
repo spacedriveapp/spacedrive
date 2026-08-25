@@ -4,10 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-sqlx        = { workspace = true, features = ["sqlite", "runtime-tokio", "derive"] }
+sqlx        = { workspace = true, features = ["sqlite", "runtime-tokio", "derive", "uuid"] }
 serde       = { workspace = true }
 serde_json  = { workspace = true }
-uuid        = { workspace = true, features = ["v4", "v7"] }
+uuid        = { workspace = true, features = ["v4", "v5", "v7"] }
 blake3      = { workspace = true }
 chrono      = { workspace = true }
 tokio       = { workspace = true, features = ["fs"] }

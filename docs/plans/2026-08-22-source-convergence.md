@@ -270,34 +270,59 @@ writing adapter — it is now drained into tracing.
    `source.rs` and `record.rs` all opened by calling the source store
    disposable. They now carry the two-halves framing and point at
    `docs/core/design/source-durability.md`.
-6. **Re-key the assertion layer.** `record_overlay` keys on
+6. **Done.** Re-keyed the assertion layer. `record_overlay` keyed on
    `(type, external_id)`, which is portable across devices and does not survive
    a rename, since the filesystem rebind procedure rewrites `external_id` when a
-   file moves. Moving a file therefore drops its rating and its corrected title
-   today. Neither key works alone, so the row carries both: the record uuid as
-   its key, `(external_id, content_id)` as rebind evidence, plus `hlc` and
-   `device_uuid` for the merge sync will do. `tag_assertion` in
-   `docs/core/design/tags-and-assertions.md` is already specified this way and
-   is the shape to match. Touches `set_overlay`, `get_overlay`, `overlays_for`
-   and the one join in `search/router.rs`.
+   file moves. It now keys on `record_uuid` and carries
+   `(type, external_id, content_uuid)` as rebind evidence plus `hlc` and
+   `device_uuid`, matching `tag_assertion` in
+   `docs/core/design/tags-and-assertions.md`. It has no foreign key to `record`
+   on purpose: a cascade would delete the one half of a store nothing can
+   rebuild.
 
-   This lands in P1 because it is two columns and a key change while the only
-   rows are eleven adapters' worth of email. After P2 it is a migration over
-   user data that has no second copy.
-7. **Convergent content ids.** `content.id` is an `INTEGER` rowid, which is
-   source-local and the one form that cannot cross a machine boundary. The
-   previs commits to `uuid_for(hash) = v5(CONTENT_NAMESPACE, hash)`, and
-   `SdPath::Content`, `content-map.db` and `tag_assertion` are all already
-   written against the convergent form. It also settles the cross-device rebind
-   question for any hashed file, since path is the only other evidence that
-   crosses and inode does not. Currently T2.7; it moves here because
-   `record.content_id` is a foreign key on the largest table in the system and
-   P2 is what fills it.
-8. **`record.uuid` to BLOB.** 36 bytes against 16 on the primary key, in
-   `idx_record_parent`, and on both sides of every edge.
-   `2026-07-29-per-source-databases.md` called this one and named the window:
-   cheap while the only rows are adapter records, expensive once a filesystem
-   source has put millions on it. P2 is that moment.
+   **Found while doing it.** The old key was doing real work that the new key
+   has to replace explicitly. Deleting a record and re-ingesting it mints a
+   fresh uuid, and under the path key the assertions rebound for free. So the
+   evidence columns needed a reader: `SourceDb::rebind_overlays` walks rows
+   whose record uuid no longer resolves and rehomes them, content uuid first
+   and the source key second, declining a target that already carries
+   assertions of its own. That is the procedure a rebuilt generation and a
+   store copied from another device both need, and without it the evidence
+   would have been three columns nothing consulted.
+7. **Done.** Convergent content ids, absorbing teardown T2.7. `content` gained
+   a `uuid` column derived as `uuid_for(hash) = v5(CONTENT_NAMESPACE, hash)`
+   (`crates/store/src/content.rs`), `sampled_hash` is `UNIQUE`, and
+   `set_content_identity` is an upsert, so two copies of one file inside a
+   source share a content row instead of minting one each.
+
+   Two things the design settled themselves once written down. The uuid is
+   derived from the strongest hash present, so it changes when the integrity
+   tier lands, which is why `record.content_id` stays the local rowid: it has to
+   be stable across the ladder while the name of the bytes is not. And a later
+   write carrying only the cheap hash must not walk a confirmed id back down to
+   a guess, so the upsert keeps the existing uuid unless the incoming row brings
+   an integrity hash. `ContentId::{Candidate, Confirmed}` carries the tier in
+   the type, per the previs.
+
+   The namespace is `v5(DNS, "content.spacedrive.app")` rather than the RFC 4122
+   DNS namespace the entries world reused, and it is pinned by a test, since
+   changing it is the same as declaring that no two installs have ever seen the
+   same file.
+8. **Done.** `record.uuid` is a BLOB: 16 bytes against 36, on the primary key,
+   in `idx_record_parent`, on both sides of every edge, and on every facet
+   row's `record_uuid`. `2026-07-29-per-source-databases.md` called this one and
+   named the window. The crate's public surface speaks `Uuid` rather than
+   `String` throughout; `SearchResult.id` stays a string because it is a wire
+   type.
+
+   One thing to know before writing SQL against this: `json_object` refuses
+   BLOBs, so `list_records_full` selects the uuid beside the JSON and merges it
+   in rather than inside it.
+
+9. **The filesystem facet exists.** `FILE_SCHEMA` in `crates/store/src/record.rs`
+   carries `facet_file`, declared in Rust rather than as a TOML data type per
+   `2026-08-21-filesystem-source-store.md`. Nothing applies it yet; the batched
+   writer is P2.
 
 ### P2 — The filesystem writes the store
 

@@ -1,10 +1,31 @@
 //! End-to-end checks against real SQLite stores: write records and facets,
 //! then read them back through the record table.
 
+use sd_store::db::{OverlayEvidence, Stamp};
 use sd_store::record::facet_table;
+use sd_store::record::ContentIdentity;
 use sd_store::schema::parser;
 use sd_store::source::SourceManager;
+use sd_store::uuid_for;
 use serde_json::json;
+use uuid::Uuid;
+
+/// Rebind evidence for an adapter record, whose external id is stable at
+/// the source and which has no content hash.
+fn evidence(external_id: &str) -> OverlayEvidence {
+	OverlayEvidence {
+		type_: "note".to_string(),
+		external_id: external_id.to_string(),
+		content_uuid: None,
+	}
+}
+
+fn stamp(hlc: &str) -> Stamp {
+	Stamp {
+		hlc: hlc.to_string(),
+		device_uuid: Uuid::nil(),
+	}
+}
 
 const SCHEMA: &str = r#"
 [data_type]
@@ -89,7 +110,7 @@ async fn upsert_writes_record_and_facet() {
 
 	let (external_id, type_, title, modified_at): (String, String, Option<String>, Option<i64>) =
 		sqlx::query_as("SELECT external_id, type, title, modified_at FROM record WHERE uuid = ?")
-			.bind(&uuid)
+			.bind(uuid)
 			.fetch_one(db.pool())
 			.await
 			.expect("record row");
@@ -103,7 +124,7 @@ async fn upsert_writes_record_and_facet() {
 		"SELECT body FROM \"{}\" WHERE record_uuid = ?",
 		facet_table("note")
 	))
-	.bind(&uuid)
+	.bind(uuid)
 	.fetch_one(db.pool())
 	.await
 	.expect("facet row");
@@ -137,7 +158,7 @@ async fn identity_is_assigned_once_and_kept_across_reingest() {
 	assert_eq!(count, 1);
 
 	let title: Option<String> = sqlx::query_scalar("SELECT title FROM record WHERE uuid = ?")
-		.bind(&first)
+		.bind(first)
 		.fetch_one(db.pool())
 		.await
 		.expect("title");
@@ -186,14 +207,13 @@ async fn belongs_to_becomes_the_record_parent() {
 		.await
 		.expect("note");
 
-	let parent: Option<String> =
-		sqlx::query_scalar("SELECT parent_uuid FROM record WHERE uuid = ?")
-			.bind(&note)
-			.fetch_one(db.pool())
-			.await
-			.expect("parent");
+	let parent: Option<Uuid> = sqlx::query_scalar("SELECT parent_uuid FROM record WHERE uuid = ?")
+		.bind(note)
+		.fetch_one(db.pool())
+		.await
+		.expect("parent");
 
-	assert_eq!(parent.as_deref(), Some(folder.as_str()));
+	assert_eq!(parent, Some(folder));
 }
 
 #[tokio::test]
@@ -213,14 +233,14 @@ async fn link_creates_a_traversable_edge() {
 		.await
 		.expect("link");
 
-	let uuid_a: String = sqlx::query_scalar(
+	let uuid_a: Uuid = sqlx::query_scalar(
 		"SELECT uuid FROM record WHERE type = 'note' AND external_id = 'note-1'",
 	)
 	.fetch_one(db.pool())
 	.await
 	.expect("uuid");
 
-	let neighbors = db.neighbors(&uuid_a, None).await.expect("neighbors");
+	let neighbors = db.neighbors(uuid_a, None).await.expect("neighbors");
 	assert_eq!(neighbors.len(), 1);
 	assert_eq!(neighbors[0].external_id, "note-2");
 	assert!(neighbors[0].outgoing);
@@ -228,7 +248,7 @@ async fn link_creates_a_traversable_edge() {
 	db.unlink("note", "note-1", "note", "note-2")
 		.await
 		.expect("unlink");
-	assert!(db.neighbors(&uuid_a, None).await.expect("after").is_empty());
+	assert!(db.neighbors(uuid_a, None).await.expect("after").is_empty());
 }
 
 #[tokio::test]
@@ -383,7 +403,7 @@ async fn scan_epoch_advances_per_sync_run() {
 }
 
 #[tokio::test]
-async fn overlays_merge_and_rebind_by_external_id() {
+async fn overlays_merge_and_key_on_the_record() {
 	let fixture = Fixture::new().await;
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");
@@ -396,15 +416,30 @@ async fn overlays_merge_and_rebind_by_external_id() {
 	.await
 	.expect("upsert");
 
-	db.set_overlay("note", "note-1", &json!({ "starred": true, "tag": "work" }))
+	let note = db
+		.upsert(
+			"note",
+			"note-1",
+			&json!({ "title": "Q2", "body": "revenue" }),
+		)
 		.await
-		.expect("set");
+		.expect("upsert");
+
+	db.set_overlay(
+		note,
+		&evidence("note-1"),
+		&stamp("1"),
+		&json!({ "starred": true, "tag": "work" }),
+	)
+	.await
+	.expect("set");
 
 	// Merge semantics: absent keys are preserved, explicit null clears.
 	let merged = db
 		.set_overlay(
-			"note",
-			"note-1",
+			note,
+			&evidence("note-1"),
+			&stamp("2"),
 			&json!({ "tag": serde_json::Value::Null, "note": "hi" }),
 		)
 		.await
@@ -414,16 +449,61 @@ async fn overlays_merge_and_rebind_by_external_id() {
 	assert_eq!(merged["note"], json!("hi"));
 	assert!(merged.get("tag").is_none(), "null clears the field");
 
-	// The overlay keys on (type, external_id), so re-ingesting the record with
-	// a fresh uuid rebinds to the same assertions.
-	db.delete("note", "note-1").await.expect("delete");
+	// The record uuid is the key, so a re-ingest that keeps the uuid keeps the
+	// assertions with no rebind needed.
 	db.upsert("note", "note-1", &json!({ "title": "Q3", "body": "again" }))
 		.await
 		.expect("re-upsert");
+	assert_eq!(
+		db.get_overlay(note).await.expect("get")["starred"],
+		json!(true)
+	);
+}
 
-	let after = db.get_overlay("note", "note-1").await.expect("get");
-	assert_eq!(after["starred"], json!(true));
-	assert_eq!(after["note"], json!("hi"));
+#[tokio::test]
+async fn assertions_survive_a_record_re_minting_its_uuid() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let note = db
+		.upsert(
+			"note",
+			"note-1",
+			&json!({ "title": "Q2", "body": "revenue" }),
+		)
+		.await
+		.expect("upsert");
+	db.set_overlay(
+		note,
+		&evidence("note-1"),
+		&stamp("1"),
+		&json!({ "starred": true }),
+	)
+	.await
+	.expect("set");
+
+	// Dropping the record and re-ingesting mints a fresh uuid. The assertion
+	// is left holding a uuid nothing answers to, which is what the evidence
+	// columns are for.
+	db.delete("note", "note-1").await.expect("delete");
+	let reborn = db
+		.upsert("note", "note-1", &json!({ "title": "Q3", "body": "again" }))
+		.await
+		.expect("re-upsert");
+	assert_ne!(reborn, note, "a deleted record does not keep its uuid");
+	assert!(db
+		.get_overlay(reborn)
+		.await
+		.expect("get")
+		.get("starred")
+		.is_none());
+
+	assert_eq!(db.rebind_overlays().await.expect("rebind"), 1);
+	assert_eq!(
+		db.get_overlay(reborn).await.expect("get")["starred"],
+		json!(true)
+	);
 }
 
 #[tokio::test]
@@ -432,13 +512,14 @@ async fn search_hits_carry_their_overlay() {
 	let db = fixture.open().await;
 	db.begin_sync().await.expect("epoch");
 
-	db.upsert(
-		"note",
-		"note-1",
-		&json!({ "title": "Quarterly report", "body": "revenue is up" }),
-	)
-	.await
-	.expect("upsert");
+	let note = db
+		.upsert(
+			"note",
+			"note-1",
+			&json!({ "title": "Quarterly report", "body": "revenue is up" }),
+		)
+		.await
+		.expect("upsert");
 	db.upsert(
 		"note",
 		"note-2",
@@ -447,14 +528,160 @@ async fn search_hits_carry_their_overlay() {
 	.await
 	.expect("upsert");
 
-	db.set_overlay("note", "note-1", &json!({ "starred": true }))
-		.await
-		.expect("set");
+	db.set_overlay(
+		note,
+		&evidence("note-1"),
+		&stamp("1"),
+		&json!({ "starred": true }),
+	)
+	.await
+	.expect("set");
 
 	let hits = db.fts_search("quarterly", 10, None).await.expect("search");
-	let ids: Vec<String> = hits.iter().map(|h| h.external_id.clone()).collect();
-	let overlays = db.overlays_for("note", &ids).await.expect("overlays");
+	let ids: Vec<Uuid> = hits.iter().map(|h| h.id).collect();
+	let overlays = db.overlays_for(&ids).await.expect("overlays");
 
 	assert_eq!(overlays.len(), 1, "only the annotated record has one");
-	assert_eq!(overlays["note-1"]["starred"], json!(true));
+	assert_eq!(overlays[&note]["starred"], json!(true));
+}
+
+#[tokio::test]
+async fn one_set_of_bytes_is_one_content_row() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let a = db
+		.upsert("note", "note-1", &json!({ "title": "A" }))
+		.await
+		.expect("a");
+	let b = db
+		.upsert("note", "note-2", &json!({ "title": "B" }))
+		.await
+		.expect("b");
+
+	let identity = ContentIdentity {
+		sampled_hash: Some("sampled-1".to_string()),
+		size: Some(1024),
+		..Default::default()
+	};
+	let first = db
+		.set_content_identity(a, &identity)
+		.await
+		.expect("first identity");
+	let second = db
+		.set_content_identity(b, &identity)
+		.await
+		.expect("second identity");
+
+	assert_eq!(first, second, "two copies of one file share a content row");
+
+	let rows: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM content")
+		.fetch_one(db.pool())
+		.await
+		.expect("count");
+	assert_eq!(rows, 1);
+
+	let stored: Uuid = sqlx::query_scalar("SELECT uuid FROM content WHERE id = ?")
+		.bind(first)
+		.fetch_one(db.pool())
+		.await
+		.expect("uuid");
+	assert_eq!(
+		stored,
+		uuid_for("sampled-1"),
+		"the id derives from the hash, so another machine computes the same one"
+	);
+}
+
+#[tokio::test]
+async fn the_integrity_tier_renames_the_content_without_moving_the_row() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let note = db
+		.upsert("note", "note-1", &json!({ "title": "A" }))
+		.await
+		.expect("note");
+
+	let candidate = db
+		.set_content_identity(
+			note,
+			&ContentIdentity {
+				sampled_hash: Some("sampled-1".to_string()),
+				..Default::default()
+			},
+		)
+		.await
+		.expect("candidate");
+
+	let confirmed = db
+		.set_content_identity(
+			note,
+			&ContentIdentity {
+				sampled_hash: Some("sampled-1".to_string()),
+				integrity_hash: Some("integrity-1".to_string()),
+				..Default::default()
+			},
+		)
+		.await
+		.expect("confirmed");
+
+	assert_eq!(
+		candidate, confirmed,
+		"the row the record points at is stable"
+	);
+
+	let stored: Uuid = sqlx::query_scalar("SELECT uuid FROM content WHERE id = ?")
+		.bind(confirmed)
+		.fetch_one(db.pool())
+		.await
+		.expect("uuid");
+	assert_eq!(stored, uuid_for("integrity-1"));
+
+	// A later write carrying only the cheap hash must not walk the identity
+	// back down to a guess.
+	db.set_content_identity(
+		note,
+		&ContentIdentity {
+			sampled_hash: Some("sampled-1".to_string()),
+			..Default::default()
+		},
+	)
+	.await
+	.expect("re-sampled");
+
+	let after: Uuid = sqlx::query_scalar("SELECT uuid FROM content WHERE id = ?")
+		.bind(confirmed)
+		.fetch_one(db.pool())
+		.await
+		.expect("uuid");
+	assert_eq!(after, uuid_for("integrity-1"));
+}
+
+#[tokio::test]
+async fn the_file_facet_hangs_off_the_same_record_table() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	sqlx::raw_sql(sd_store::FILE_SCHEMA)
+		.execute(db.pool())
+		.await
+		.expect("file schema applies");
+
+	let key: String =
+		sqlx::query_scalar("SELECT type FROM pragma_table_info('facet_file') WHERE name = ?")
+			.bind("record_uuid")
+			.fetch_one(db.pool())
+			.await
+			.expect("record_uuid column");
+	assert_eq!(key, "BLOB");
+
+	let indexed: i64 = sqlx::query_scalar(
+		"SELECT COUNT(*) FROM pragma_index_list('facet_file') WHERE name = 'idx_facet_file_inode'",
+	)
+	.fetch_one(db.pool())
+	.await
+	.expect("inode index");
+	assert_eq!(indexed, 1, "the rebind procedure looks files up by inode");
 }

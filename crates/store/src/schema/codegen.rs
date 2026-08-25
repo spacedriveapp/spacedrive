@@ -19,7 +19,7 @@ pub fn generate_ddl(schema: &DataTypeSchema) -> Vec<String> {
 		let table = facet_table(model_name);
 
 		let mut sql = format!("CREATE TABLE IF NOT EXISTS \"{table}\" (\n");
-		sql.push_str("    record_uuid TEXT PRIMARY KEY REFERENCES record(uuid) ON DELETE CASCADE");
+		sql.push_str("    record_uuid BLOB PRIMARY KEY REFERENCES record(uuid) ON DELETE CASCADE");
 
 		for (field_name, field_type) in &model.fields {
 			let _ = write!(sql, ",\n    \"{field_name}\" {}", field_type.sql_type());
@@ -40,8 +40,7 @@ pub fn generate_ddl(schema: &DataTypeSchema) -> Vec<String> {
 ///
 /// Standalone rather than external-content: search fields live in whichever
 /// facet table owns them, and an external-content index can only follow one
-/// table. Rows are written explicitly from the ingest path, gated on the
-/// record's safety verdict.
+/// table. Rows are written explicitly from the ingest path.
 pub fn search_index_ddl(schema: &DataTypeSchema) -> Option<String> {
 	let fields = indexed_search_fields(schema);
 	if fields.is_empty() {
@@ -127,7 +126,7 @@ search_fields = ["title", "description", "url"]
 			.find(|s| s.contains(r#""facet_bookmark""#))
 			.expect("facet table");
 
-		assert!(bookmark.contains("record_uuid TEXT PRIMARY KEY REFERENCES record(uuid)"));
+		assert!(bookmark.contains("record_uuid BLOB PRIMARY KEY REFERENCES record(uuid)"));
 		assert!(bookmark.contains("ON DELETE CASCADE"));
 		// Hierarchy is record state, not a facet column.
 		assert!(!bookmark.contains("folder_id"));

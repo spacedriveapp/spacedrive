@@ -8,6 +8,7 @@
 //! ```text
 //! record          one row per indexed thing, (type, external_id) unique
 //! facet_<model>   the type's own columns, keyed by record_uuid
+//! facet_file      the filesystem facet, written by the walker
 //! content         the identity of the bytes a record points at
 //! edge            relationships between records in this source
 //! record_overlay  what no ingest produced: a person's assertions
@@ -36,6 +37,7 @@
 //! What is *not* here: no adapter runtime, no source registry, no cross-source
 //! router, no job system. Those belong to whoever owns more than one source.
 
+pub mod content;
 pub mod db;
 pub mod error;
 pub mod fts;
@@ -45,9 +47,10 @@ pub mod source;
 
 use serde::{Deserialize, Serialize};
 
-pub use db::{ItemRow, SourceDb};
+pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
+pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
-pub use record::{ContentIdentity, Record};
+pub use record::{ContentIdentity, Record, FILE_SCHEMA, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 

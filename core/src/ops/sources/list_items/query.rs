@@ -81,7 +81,7 @@ impl LibraryQuery for ListSourceItemsQuery {
 		Ok(items
 			.into_iter()
 			.map(|item| SourceItem {
-				id: item.id,
+				id: item.id.to_string(),
 				external_id: item.external_id,
 				title: item.title,
 				preview: item.preview,

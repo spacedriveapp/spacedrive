@@ -86,20 +86,16 @@ impl SearchRouter {
 			}
 
 			let record_type = db.schema().search.primary_model.clone();
-			let external_ids: Vec<String> =
-				fts_hits.iter().map(|h| h.external_id.clone()).collect();
-			let overlays = db
-				.overlays_for(&record_type, &external_ids)
-				.await
-				.unwrap_or_else(|e| {
-					tracing::warn!(source_id = %source_info.id, error = %e, "failed to load overlays");
-					HashMap::new()
-				});
+			let record_uuids: Vec<uuid::Uuid> = fts_hits.iter().map(|h| h.id).collect();
+			let overlays = db.overlays_for(&record_uuids).await.unwrap_or_else(|e| {
+				tracing::warn!(source_id = %source_info.id, error = %e, "failed to load overlays");
+				HashMap::new()
+			});
 
 			for hit in fts_hits {
-				let overlay = overlays.get(&hit.external_id).cloned();
+				let overlay = overlays.get(&hit.id).cloned();
 				all_results.push(SearchResult {
-					id: hit.id,
+					id: hit.id.to_string(),
 					external_id: hit.external_id,
 					record_type: record_type.clone(),
 					title: hit.title,

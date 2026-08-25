@@ -8,26 +8,31 @@
 //! per-data-type one. `edge` relates records inside a single source.
 //!
 //! `record_overlay` sits beside them, holding what no ingest produced: the
-//! scalar assertions a person makes about a record. It keys on
-//! `(type, external_id)`, which is portable across devices and does not survive
-//! a rename, since the rebind procedure rewrites `external_id` when a file
-//! moves. The target shape keys on the record uuid and carries
-//! `(external_id, content_id)` as rebind evidence, alongside the `hlc` and
-//! `device_uuid` a merge needs. See `docs/core/design/source-durability.md`.
+//! scalar assertions a person makes about a record. It keys on the record uuid,
+//! which survives a rename, and carries `(type, external_id, content_uuid)` as
+//! rebind evidence, which is what a copy of this store arriving on another device has
+//! to work from. `hlc` and `device_uuid` order the merge when two devices have
+//! both written. `docs/core/design/source-durability.md` carries the reasoning.
+//!
+//! `record_overlay` deliberately has no foreign key to `record`. Assertions
+//! outlive the generation: dropping every record row to re-index must leave
+//! them standing, and a cascade would delete exactly the rows nothing can
+//! rebuild.
 
 use crate::error::Result;
+use uuid::Uuid;
 
 /// Applied to every per-source index on open. All statements are
 /// `IF NOT EXISTS`, so re-applying to a populated index is a no-op.
 pub const RECORD_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS record (
-    uuid TEXT PRIMARY KEY,
+    uuid BLOB PRIMARY KEY,
     external_id TEXT NOT NULL,
     type TEXT NOT NULL,
     title TEXT,
     created_at INTEGER,
     modified_at INTEGER,
-    parent_uuid TEXT REFERENCES record(uuid) ON DELETE SET NULL,
+    parent_uuid BLOB REFERENCES record(uuid) ON DELETE SET NULL,
     content_id INTEGER REFERENCES content(id),
     version TEXT,
     scan_epoch INTEGER,
@@ -39,17 +44,18 @@ CREATE INDEX IF NOT EXISTS idx_record_parent ON record(parent_uuid);
 
 CREATE TABLE IF NOT EXISTS content (
     id INTEGER PRIMARY KEY,
-    sampled_hash TEXT,
+    uuid BLOB NOT NULL,
+    sampled_hash TEXT UNIQUE,
     integrity_hash TEXT,
     size INTEGER,
     kind INTEGER
 );
-CREATE INDEX IF NOT EXISTS idx_content_sampled ON content(sampled_hash);
+CREATE INDEX IF NOT EXISTS idx_content_uuid ON content(uuid);
 CREATE INDEX IF NOT EXISTS idx_content_integrity ON content(integrity_hash);
 
 CREATE TABLE IF NOT EXISTS edge (
-    src_uuid TEXT NOT NULL REFERENCES record(uuid) ON DELETE CASCADE,
-    dst_uuid TEXT NOT NULL REFERENCES record(uuid) ON DELETE CASCADE,
+    src_uuid BLOB NOT NULL REFERENCES record(uuid) ON DELETE CASCADE,
+    dst_uuid BLOB NOT NULL REFERENCES record(uuid) ON DELETE CASCADE,
     type TEXT NOT NULL,
     ord REAL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -64,12 +70,17 @@ CREATE TABLE IF NOT EXISTS _sync_state (
 );
 
 CREATE TABLE IF NOT EXISTS record_overlay (
+    record_uuid BLOB PRIMARY KEY,
     type TEXT NOT NULL,
     external_id TEXT NOT NULL,
+    content_uuid BLOB,
     fields TEXT NOT NULL DEFAULT '{}',
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    PRIMARY KEY (type, external_id)
+    hlc TEXT NOT NULL,
+    device_uuid BLOB NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS idx_overlay_external ON record_overlay(type, external_id);
+CREATE INDEX IF NOT EXISTS idx_overlay_content ON record_overlay(content_uuid);
 
 CREATE TABLE IF NOT EXISTS _schema (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -83,19 +94,24 @@ CREATE TABLE IF NOT EXISTS _schema (
 /// A record row as written by the ingest path.
 #[derive(Debug, Clone)]
 pub struct Record {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub external_id: String,
-	/// Open type key — the adapter's model name.
+	/// Open type key: the adapter's model name.
 	pub type_: String,
 	pub title: Option<String>,
 	/// Unix milliseconds, parsed from the source's own timestamp fields.
 	pub created_at: Option<i64>,
 	pub modified_at: Option<i64>,
-	pub parent_uuid: Option<String>,
+	pub parent_uuid: Option<Uuid>,
+	/// The local `content` row. Stable across the hash ladder, unlike
+	/// `content.uuid`, which is re-derived when the integrity hash lands.
 	pub content_id: Option<i64>,
 }
 
 /// A row in the `content` table: the identity of the bytes a record points at.
+/// The stored `uuid` is derived from whichever hash is present
+/// ([`crate::content`]), so it is the same on every machine that sees the same
+/// bytes.
 #[derive(Debug, Clone, Default)]
 pub struct ContentIdentity {
 	/// Cheap tier — hash over sampled regions.
@@ -126,3 +142,28 @@ pub async fn next_scan_epoch(pool: &sqlx::SqlitePool) -> Result<i64> {
 		.await?;
 	Ok(max.unwrap_or(0) + 1)
 }
+
+/// The filesystem facet, applied to a source whose ingest is the walker.
+///
+/// Declared here in Rust rather than as a TOML data type: the walker writes
+/// `EntryMetadata` it already has, and round-tripping every file through
+/// `serde_json::Value` to satisfy the codegen path would cost more than the
+/// table is worth. The record table it hangs off is the same one every adapter
+/// writes, which is the part that has to stay shared.
+///
+/// `external_id` on the record row is the path relative to the source root, so
+/// a drive that remounts elsewhere does not invalidate every row. `inode` is
+/// indexed because it is the second factor the rebind procedure needs when a
+/// file has moved and the path no longer resolves.
+pub const FILE_SCHEMA: &str = r#"
+CREATE TABLE IF NOT EXISTS facet_file (
+    record_uuid BLOB PRIMARY KEY REFERENCES record(uuid) ON DELETE CASCADE,
+    size        INTEGER NOT NULL,
+    mtime       INTEGER NOT NULL,
+    inode       INTEGER,
+    mode        INTEGER,
+    extension   TEXT,
+    is_hidden   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_facet_file_inode ON facet_file(inode);
+"#;

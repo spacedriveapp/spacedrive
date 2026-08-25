@@ -40,7 +40,8 @@ rather than inferring it from a diff.
 | — index to keep | **decided** | — | a source store is never rebuilt; it is user data, not a cache |
 | T2.0b Volume/source boundary | **open — blocks T6.1** | — | recommendation written, not ruled on |
 | — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the record table |
-| T2.1–T2.7 | not started | — | T2.5 gates T4.9; T2.7 also fixes dedup inside a single source |
+| T2.1–T2.6 | not started | — | T2.5 gates T4.9 |
+| T2.7 Content identity | done | — | absorbed by convergence P1.7: `content.uuid`, `sampled_hash` UNIQUE, upsert |
 | T3.1a Format v2 | done | — | `pvcache/layout.rs:12` `FORMAT_VERSION = 2`, four header fields on the frame |
 | T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
 | T3.1c Producers return true extent | done | — | `ScaleMode::Fit` in `bake/src/raster.rs:48` |

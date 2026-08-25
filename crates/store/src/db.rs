@@ -8,6 +8,9 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use uuid::Uuid;
+
+use crate::content::ContentId;
 use crate::error::{Error, Result};
 use crate::record::{facet_table, ContentIdentity, Record};
 use crate::schema::codegen::indexed_search_fields;
@@ -30,7 +33,7 @@ pub struct SourceDb {
 /// An item row from the primary record type.
 #[derive(Debug, Clone)]
 pub struct ItemRow {
-	pub id: String,
+	pub id: Uuid,
 	pub external_id: String,
 	pub title: String,
 	pub preview: Option<String>,
@@ -40,7 +43,7 @@ pub struct ItemRow {
 /// An FTS search hit.
 #[derive(Debug, Clone)]
 pub struct FtsHit {
-	pub id: String,
+	pub id: Uuid,
 	pub external_id: String,
 	pub title: String,
 	pub preview: Option<String>,
@@ -52,12 +55,34 @@ pub struct FtsHit {
 /// A record edge with the neighbouring record resolved.
 #[derive(Debug, Clone)]
 pub struct Neighbor {
-	pub uuid: String,
+	pub uuid: Uuid,
 	pub external_id: String,
 	pub type_: String,
 	pub title: Option<String>,
 	pub edge_type: String,
 	pub outgoing: bool,
+}
+
+/// What an assertion row rebinds from when this store is read somewhere the
+/// record uuid means nothing: on another device, or after an index rebuild
+/// minted fresh uuids. Neither key works alone, so the row carries both.
+#[derive(Debug, Clone)]
+pub struct OverlayEvidence {
+	/// The record's open type key, half of the source's own key.
+	pub type_: String,
+	/// The other half. Portable, and rewritten when a file moves.
+	pub external_id: String,
+	/// The convergent content uuid, once hashing has reached the bytes.
+	/// Computable offline by any machine that holds the same bytes.
+	pub content_uuid: Option<Uuid>,
+}
+
+/// Ordering for a merge. Wall clocks disagree across devices, so an
+/// assertion carries the HLC that ordered it and the device that wrote it.
+#[derive(Debug, Clone)]
+pub struct Stamp {
+	pub hlc: String,
+	pub device_uuid: Uuid,
 }
 
 /// Temporal filter for date range queries.
@@ -132,8 +157,8 @@ impl SourceDb {
 	}
 
 	/// Resolve a record's record uuid from its type and source-side key.
-	async fn resolve_uuid(&self, type_: &str, external_id: &str) -> Result<String> {
-		let row: Option<(String,)> =
+	async fn resolve_uuid(&self, type_: &str, external_id: &str) -> Result<Uuid> {
+		let row: Option<(Uuid,)> =
 			sqlx::query_as("SELECT uuid FROM record WHERE type = ? AND external_id = ?")
 				.bind(type_)
 				.bind(external_id)
@@ -157,7 +182,7 @@ impl SourceDb {
 		model: &str,
 		external_id: &str,
 		fields: &serde_json::Value,
-	) -> Result<String> {
+	) -> Result<Uuid> {
 		let model_def = self
 			.schema
 			.models
@@ -169,7 +194,7 @@ impl SourceDb {
 			.ok_or_else(|| Error::Other("fields must be a JSON object".to_string()))?;
 
 		// Identity is assigned once and preserved across re-index.
-		let existing: Option<(String,)> =
+		let existing: Option<(Uuid,)> =
 			sqlx::query_as("SELECT uuid FROM record WHERE type = ? AND external_id = ?")
 				.bind(model)
 				.bind(external_id)
@@ -177,11 +202,11 @@ impl SourceDb {
 				.await?;
 		let uuid = match existing {
 			Some((u,)) => u,
-			None => uuid::Uuid::now_v7().to_string(),
+			None => Uuid::now_v7(),
 		};
 
 		let mut parent_uuid = None;
-		let mut edges: Vec<(String, String)> = Vec::new();
+		let mut edges: Vec<(Uuid, String)> = Vec::new();
 
 		for (position, target) in model_def.relations.belongs_to.iter().enumerate() {
 			let fk_col = format!("{target}_id");
@@ -205,7 +230,7 @@ impl SourceDb {
 		}
 
 		let record = Record {
-			uuid: uuid.clone(),
+			uuid,
 			external_id: external_id.to_string(),
 			type_: model.to_string(),
 			title: self.record_title(model, model_def, fields_map),
@@ -216,15 +241,15 @@ impl SourceDb {
 		};
 
 		self.put_record(&record, self.scan_epoch()).await?;
-		self.put_facet(model, model_def, &uuid, fields_map).await?;
+		self.put_facet(model, model_def, uuid, fields_map).await?;
 
 		for (dst_uuid, edge_type) in edges {
-			self.put_edge(&uuid, &dst_uuid, &edge_type, None).await?;
+			self.put_edge(uuid, dst_uuid, &edge_type, None).await?;
 		}
 
 		// The facet row is written by this point, so the index row can be built
 		// from it.
-		self.refresh_search_index(&uuid).await?;
+		self.refresh_search_index(uuid).await?;
 
 		Ok(uuid)
 	}
@@ -244,13 +269,13 @@ impl SourceDb {
 				scan_epoch = excluded.scan_epoch,
 				indexed_at = excluded.indexed_at",
 		)
-		.bind(&record.uuid)
+		.bind(record.uuid)
 		.bind(&record.external_id)
 		.bind(&record.type_)
 		.bind(&record.title)
 		.bind(record.created_at)
 		.bind(record.modified_at)
-		.bind(&record.parent_uuid)
+		.bind(record.parent_uuid)
 		.bind(record.content_id)
 		.bind(epoch)
 		.execute(&self.pool)
@@ -263,13 +288,13 @@ impl SourceDb {
 		&self,
 		model: &str,
 		model_def: &crate::schema::ModelDef,
-		uuid: &str,
+		uuid: Uuid,
 		fields_map: &serde_json::Map<String, serde_json::Value>,
 	) -> Result<()> {
 		let table = facet_table(model);
 
 		let mut columns = vec!["record_uuid".to_string()];
-		let mut values: Vec<Option<String>> = vec![Some(uuid.to_string())];
+		let mut values: Vec<Option<String>> = Vec::new();
 
 		for field_name in model_def.fields.keys() {
 			if let Some(value) = fields_map.get(field_name) {
@@ -298,7 +323,7 @@ impl SourceDb {
 			)
 		};
 
-		let mut query = sqlx::query(&sql);
+		let mut query = sqlx::query(&sql).bind(uuid);
 		for value in &values {
 			query = query.bind(value);
 		}
@@ -310,8 +335,8 @@ impl SourceDb {
 	/// Insert a record edge, idempotent on `(src, dst, type)`.
 	async fn put_edge(
 		&self,
-		src_uuid: &str,
-		dst_uuid: &str,
+		src_uuid: Uuid,
+		dst_uuid: Uuid,
 		edge_type: &str,
 		ord: Option<f64>,
 	) -> Result<()> {
@@ -398,13 +423,13 @@ impl SourceDb {
 		// The search index only exists when the data type declares search fields.
 		if !indexed_search_fields(&self.schema).is_empty() {
 			sqlx::query("DELETE FROM search_index WHERE uuid = ?")
-				.bind(&uuid)
+				.bind(uuid)
 				.execute(&self.pool)
 				.await?;
 		}
 
 		sqlx::query("DELETE FROM record WHERE uuid = ?")
-			.bind(&uuid)
+			.bind(uuid)
 			.execute(&self.pool)
 			.await?;
 
@@ -421,7 +446,7 @@ impl SourceDb {
 	) -> Result<()> {
 		let uuid_a = self.resolve_uuid(model_a, ext_id_a).await?;
 		let uuid_b = self.resolve_uuid(model_b, ext_id_b).await?;
-		self.put_edge(&uuid_a, &uuid_b, model_b, None).await
+		self.put_edge(uuid_a, uuid_b, model_b, None).await
 	}
 
 	/// Remove a relationship edge.
@@ -436,8 +461,8 @@ impl SourceDb {
 		let uuid_b = self.resolve_uuid(model_b, ext_id_b).await?;
 
 		sqlx::query("DELETE FROM edge WHERE src_uuid = ? AND dst_uuid = ? AND type = ?")
-			.bind(&uuid_a)
-			.bind(&uuid_b)
+			.bind(uuid_a)
+			.bind(uuid_b)
 			.bind(model_b)
 			.execute(&self.pool)
 			.await?;
@@ -445,7 +470,7 @@ impl SourceDb {
 	}
 
 	/// Edges touching a record, with the neighbouring record resolved.
-	pub async fn neighbors(&self, uuid: &str, edge_type: Option<&str>) -> Result<Vec<Neighbor>> {
+	pub async fn neighbors(&self, uuid: Uuid, edge_type: Option<&str>) -> Result<Vec<Neighbor>> {
 		let mut sql = String::from(
 			"SELECT r.uuid, r.external_id, r.type, r.title, e.type AS edge_type, e.outgoing
 			 FROM (
@@ -470,21 +495,58 @@ impl SourceDb {
 	}
 
 	/// Record the identity of a record's underlying bytes.
+	///
+	/// One set of bytes is one row: the sampled hash is the key, so two copies
+	/// of a file inside one source share a content row rather than each minting
+	/// their own. The stored uuid is derived from the strongest hash present, so
+	/// it is re-derived when the integrity tier lands while the record's
+	/// `content_id` stays put.
 	pub async fn set_content_identity(
 		&self,
-		uuid: &str,
+		uuid: Uuid,
 		identity: &ContentIdentity,
 	) -> Result<i64> {
-		let content_id: i64 = sqlx::query_scalar(
-			"INSERT INTO content (sampled_hash, integrity_hash, size, kind)
-			 VALUES (?, ?, ?, ?) RETURNING id",
+		let content_uuid = ContentId::from_hashes(
+			identity.sampled_hash.as_deref(),
+			identity.integrity_hash.as_deref(),
 		)
-		.bind(&identity.sampled_hash)
-		.bind(&identity.integrity_hash)
-		.bind(identity.size)
-		.bind(identity.kind)
-		.fetch_one(&self.pool)
-		.await?;
+		.map(|id| id.uuid())
+		.ok_or_else(|| Error::Other("content identity carries no hash".to_string()))?;
+
+		let content_id: i64 = match identity.sampled_hash.as_deref() {
+			Some(sampled) => {
+				sqlx::query_scalar(
+					"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
+						 VALUES (?, ?, ?, ?, ?)
+						 ON CONFLICT (sampled_hash) DO UPDATE SET
+							uuid = CASE WHEN excluded.integrity_hash IS NOT NULL
+								THEN excluded.uuid ELSE content.uuid END,
+							integrity_hash = COALESCE(excluded.integrity_hash, content.integrity_hash),
+							size = COALESCE(excluded.size, content.size),
+							kind = COALESCE(excluded.kind, content.kind)
+						 RETURNING id",
+				)
+				.bind(content_uuid)
+				.bind(sampled)
+				.bind(&identity.integrity_hash)
+				.bind(identity.size)
+				.bind(identity.kind)
+				.fetch_one(&self.pool)
+				.await?
+			}
+			None => {
+				sqlx::query_scalar(
+					"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
+						 VALUES (?, NULL, ?, ?, ?) RETURNING id",
+				)
+				.bind(content_uuid)
+				.bind(&identity.integrity_hash)
+				.bind(identity.size)
+				.bind(identity.kind)
+				.fetch_one(&self.pool)
+				.await?
+			}
+		};
 
 		sqlx::query("UPDATE record SET content_id = ? WHERE uuid = ?")
 			.bind(content_id)
@@ -499,7 +561,7 @@ impl SourceDb {
 	pub async fn records_needing_content_identity(
 		&self,
 		batch_size: usize,
-	) -> Result<Vec<(String, String)>> {
+	) -> Result<Vec<(Uuid, String)>> {
 		let Some((model, field)) = self.path_field() else {
 			return Ok(Vec::new());
 		};
@@ -512,7 +574,7 @@ impl SourceDb {
 			 LIMIT ?"
 		);
 
-		Ok(sqlx::query_as::<_, (String, String)>(&sql)
+		Ok(sqlx::query_as::<_, (Uuid, String)>(&sql)
 			.bind(batch_size as i64)
 			.fetch_all(&self.pool)
 			.await?)
@@ -571,7 +633,7 @@ impl SourceDb {
 
 	/// Bring a record's search-index row into line with its facet row.
 	/// Only the primary type is searchable.
-	async fn refresh_search_index(&self, uuid: &str) -> Result<()> {
+	async fn refresh_search_index(&self, uuid: Uuid) -> Result<()> {
 		let fields = indexed_search_fields(&self.schema);
 		if fields.is_empty() {
 			return Ok(());
@@ -615,19 +677,25 @@ impl SourceDb {
 		Ok(())
 	}
 
-	/// Merge fields onto a record's overlay. A field set to JSON `null` is
+	/// Merge fields onto a record's assertions. A field set to JSON `null` is
 	/// removed; the rest are shallow-merged over what is already stored.
+	///
+	/// `evidence` is what a copy of this store rebinds from on another device,
+	/// where this record uuid means nothing: the source-relative key always, and
+	/// the content uuid once hashing has reached the bytes. `stamp` is what
+	/// decides the winner when two devices have both written.
 	pub async fn set_overlay(
 		&self,
-		type_: &str,
-		external_id: &str,
+		record_uuid: Uuid,
+		evidence: &OverlayEvidence,
+		stamp: &Stamp,
 		fields: &serde_json::Value,
 	) -> Result<serde_json::Value> {
 		let incoming = fields
 			.as_object()
 			.ok_or_else(|| Error::Other("overlay fields must be a JSON object".to_string()))?;
 
-		let mut merged = match self.get_overlay(type_, external_id).await? {
+		let mut merged = match self.get_overlay(record_uuid).await? {
 			serde_json::Value::Object(map) => map,
 			_ => serde_json::Map::new(),
 		};
@@ -642,26 +710,37 @@ impl SourceDb {
 
 		let encoded = serde_json::to_string(&merged)?;
 		sqlx::query(
-			"INSERT INTO record_overlay (type, external_id, fields, updated_at)
-			 VALUES (?, ?, ?, datetime('now'))
-			 ON CONFLICT (type, external_id) DO UPDATE SET
-				fields = excluded.fields, updated_at = excluded.updated_at",
+			"INSERT INTO record_overlay
+				 (record_uuid, type, external_id, content_uuid, fields, hlc, device_uuid, updated_at)
+				 VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+				 ON CONFLICT (record_uuid) DO UPDATE SET
+					type = excluded.type,
+					external_id = excluded.external_id,
+					content_uuid = COALESCE(excluded.content_uuid, record_overlay.content_uuid),
+					fields = excluded.fields,
+					hlc = excluded.hlc,
+					device_uuid = excluded.device_uuid,
+					updated_at = excluded.updated_at",
 		)
-		.bind(type_)
-		.bind(external_id)
+		.bind(record_uuid)
+		.bind(&evidence.type_)
+		.bind(&evidence.external_id)
+		.bind(evidence.content_uuid)
 		.bind(&encoded)
+		.bind(&stamp.hlc)
+		.bind(stamp.device_uuid)
 		.execute(&self.pool)
 		.await?;
 
 		Ok(serde_json::Value::Object(merged))
 	}
 
-	/// Read one record's overlay. Returns an empty object when none is stored.
-	pub async fn get_overlay(&self, type_: &str, external_id: &str) -> Result<serde_json::Value> {
+	/// Read one record's assertions. Returns an empty object when none are
+	/// stored.
+	pub async fn get_overlay(&self, record_uuid: Uuid) -> Result<serde_json::Value> {
 		let row: Option<(String,)> =
-			sqlx::query_as("SELECT fields FROM record_overlay WHERE type = ? AND external_id = ?")
-				.bind(type_)
-				.bind(external_id)
+			sqlx::query_as("SELECT fields FROM record_overlay WHERE record_uuid = ?")
+				.bind(record_uuid)
 				.fetch_optional(&self.pool)
 				.await?;
 
@@ -670,34 +749,98 @@ impl SourceDb {
 			.unwrap_or_else(empty_object))
 	}
 
-	/// Read overlays for many records of one type in a single query. Records
-	/// without an overlay are absent from the map.
+	/// Read assertions for many records in one query. Records without any are
+	/// absent from the map.
 	pub async fn overlays_for(
 		&self,
-		type_: &str,
-		external_ids: &[String],
-	) -> Result<HashMap<String, serde_json::Value>> {
-		if external_ids.is_empty() {
+		record_uuids: &[Uuid],
+	) -> Result<HashMap<Uuid, serde_json::Value>> {
+		if record_uuids.is_empty() {
 			return Ok(HashMap::new());
 		}
 
-		let placeholders = vec!["?"; external_ids.len()].join(", ");
+		let placeholders = vec!["?"; record_uuids.len()].join(", ");
 		let sql = format!(
-			"SELECT external_id, fields FROM record_overlay
-			 WHERE type = ? AND external_id IN ({placeholders})"
+			"SELECT record_uuid, fields FROM record_overlay
+				 WHERE record_uuid IN ({placeholders})"
 		);
 
-		let mut query = sqlx::query_as::<_, (String, String)>(&sql).bind(type_);
-		for id in external_ids {
-			query = query.bind(id);
+		let mut query = sqlx::query_as::<_, (Uuid, String)>(&sql);
+		for id in record_uuids {
+			query = query.bind(*id);
 		}
 
 		Ok(query
 			.fetch_all(&self.pool)
 			.await?
 			.into_iter()
-			.map(|(external_id, fields)| (external_id, decode_overlay(&fields)))
+			.map(|(record_uuid, fields)| (record_uuid, decode_overlay(&fields)))
 			.collect())
+	}
+
+	/// Bind orphaned assertions back onto records, matching on the evidence each
+	/// row carries. Content uuid first, since it is derived from the bytes and so
+	/// holds across a rename and across a machine; the source's own key second.
+	///
+	/// Wanted whenever record uuids have been re-minted under standing
+	/// assertions: after the generation is dropped and rebuilt, and when a store
+	/// copied from another device is opened here. Returns the number of rows
+	/// that found a home.
+	pub async fn rebind_overlays(&self) -> Result<u64> {
+		let orphans: Vec<(Uuid, String, String, Option<Uuid>)> = sqlx::query_as(
+			"SELECT o.record_uuid, o.type, o.external_id, o.content_uuid
+				 FROM record_overlay o
+				 WHERE NOT EXISTS (SELECT 1 FROM record r WHERE r.uuid = o.record_uuid)",
+		)
+		.fetch_all(&self.pool)
+		.await?;
+
+		let mut rebound = 0;
+		for (stale, type_, external_id, content_uuid) in orphans {
+			let mut target: Option<(Uuid,)> = match content_uuid {
+				Some(content) => {
+					sqlx::query_as(
+						"SELECT r.uuid FROM record r JOIN content c ON c.id = r.content_id
+							 WHERE c.uuid = ? LIMIT 1",
+					)
+					.bind(content)
+					.fetch_optional(&self.pool)
+					.await?
+				}
+				None => None,
+			};
+
+			if target.is_none() {
+				target =
+					sqlx::query_as("SELECT uuid FROM record WHERE type = ? AND external_id = ?")
+						.bind(&type_)
+						.bind(&external_id)
+						.fetch_optional(&self.pool)
+						.await?;
+			}
+
+			let Some((target,)) = target else { continue };
+
+			// An assertion already sitting on the target keeps it. That one was
+			// written against a record that exists; the orphan was not.
+			let taken: Option<(Uuid,)> =
+				sqlx::query_as("SELECT record_uuid FROM record_overlay WHERE record_uuid = ?")
+					.bind(target)
+					.fetch_optional(&self.pool)
+					.await?;
+			if taken.is_some() {
+				continue;
+			}
+
+			sqlx::query("UPDATE record_overlay SET record_uuid = ? WHERE record_uuid = ?")
+				.bind(target)
+				.bind(stale)
+				.execute(&self.pool)
+				.await?;
+			rebound += 1;
+		}
+
+		Ok(rebound)
 	}
 
 	/// Rebuild the whole search index from the primary type's records.
@@ -771,7 +914,7 @@ impl SourceDb {
 	) -> Result<Vec<serde_json::Value>> {
 		let table = facet_table(self.primary_type());
 		let mut pairs = String::from(
-			"'id', r.uuid, 'external_id', r.external_id, 'title', r.title, \
+			"'external_id', r.external_id, 'title', r.title, \
 			 'created_at', r.created_at, 'modified_at', r.modified_at",
 		);
 		if let Some(model) = self.schema.models.get(self.primary_type()) {
@@ -780,21 +923,27 @@ impl SourceDb {
 			}
 		}
 		let sql = format!(
-			"SELECT json_object({pairs}) FROM record r \
+			"SELECT r.uuid, json_object({pairs}) FROM record r \
 			 LEFT JOIN \"{table}\" f ON f.record_uuid = r.uuid \
 			 WHERE r.type = ? \
 			 ORDER BY COALESCE(r.modified_at, r.created_at) DESC, r.rowid DESC \
 			 LIMIT ? OFFSET ?"
 		);
-		let rows = sqlx::query_scalar::<_, String>(&sql)
+		let rows = sqlx::query_as::<_, (Uuid, String)>(&sql)
 			.bind(self.primary_type())
 			.bind(limit as i64)
 			.bind(offset as i64)
 			.fetch_all(&self.pool)
 			.await?;
+
 		Ok(rows
 			.into_iter()
-			.filter_map(|s| serde_json::from_str(&s).ok())
+			.filter_map(|(uuid, json)| {
+				let mut value: serde_json::Value = serde_json::from_str(&json).ok()?;
+				let object = value.as_object_mut()?;
+				object.insert("id".to_string(), uuid.to_string().into());
+				Some(value)
+			})
 			.collect())
 	}
 
@@ -809,7 +958,7 @@ impl SourceDb {
 		);
 
 		let rows =
-			sqlx::query_as::<_, (String, String, String, Option<String>, Option<String>)>(&sql)
+			sqlx::query_as::<_, (Uuid, String, String, Option<String>, Option<String>)>(&sql)
 				.bind(self.primary_type())
 				.bind(limit as i64)
 				.bind(offset as i64)
@@ -966,7 +1115,7 @@ fn decode_overlay(fields: &str) -> serde_json::Value {
 
 #[derive(sqlx::FromRow)]
 struct FtsHitRow {
-	id: String,
+	id: Uuid,
 	external_id: String,
 	title: String,
 	preview: Option<String>,
@@ -991,7 +1140,7 @@ impl From<FtsHitRow> for FtsHit {
 
 #[derive(sqlx::FromRow)]
 struct NeighborRow {
-	uuid: String,
+	uuid: Uuid,
 	external_id: String,
 	r#type: String,
 	title: Option<String>,
