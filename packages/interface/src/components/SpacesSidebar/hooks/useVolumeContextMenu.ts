@@ -21,7 +21,7 @@ interface UseVolumeContextMenuOptions {
  * Provides context menu functionality for volume items.
  *
  * Menu items include:
- * - Track Volume: Add volume to library tracking
+ * - Track Volume: Add the volume to the library and index it
  * - Untrack Volume: Remove volume from library tracking
  * - Speed Test: Test read/write performance
  * - Index Volume: Trigger full volume indexing
@@ -72,7 +72,7 @@ export function useVolumeContextMenu({
 		{ type: 'separator' },
 		{
 			icon: Database,
-			label: 'Index Volume',
+			label: 'Re-index Volume',
 			onClick: async () => {
 				try {
 					const result = await indexVolume.mutateAsync({
@@ -84,7 +84,9 @@ export function useVolumeContextMenu({
 					console.error('Failed to index volume:', err);
 				}
 			},
-			condition: () => volume.is_mounted
+			// Tracking already indexes; this is for walking a drive again after
+			// it changed while nothing was watching.
+			condition: () => volume.is_mounted && volume.is_tracked
 		},
 		{
 			icon: Gauge,

@@ -84,84 +84,7 @@ impl LibraryAction for TrackSourceAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let root = self.input.path;
-		if !root.is_dir() {
-			return Err(ActionError::Internal(format!(
-				"{} is not a directory",
-				root.display()
-			)));
-		}
-
-		// Anchoring to the volume is what lets the source follow a remount, so
-		// it is worth resolving even though a source without one still works.
-		let volume = context.volume_manager.volume_for_path(&root).await;
-		let whole_volume = volume
-			.as_ref()
-			.is_some_and(|volume| volume.mount_point == root);
-		let anchor = volume.as_ref().map(|volume| VolumeAnchor {
-			uuid: volume.id,
-			mount_point: volume.mount_point.clone(),
-		});
-
-		let id = context
-			.ephemeral_cache()
-			.register_source(&root, anchor)
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
-
-		// Seed the partition from its snapshot before walking over it. A
-		// partition that skipped restore is barred from saving over an existing
-		// snapshot, so tracking a root that already has one would index and then
-		// fail to persist.
-		context.ephemeral_cache().ensure_restored(&root).await;
-
-		let index = context.ephemeral_cache().create_for_indexing(root.clone());
-
-		// Entries from a previous pass that this one will not revisit would
-		// otherwise linger in the arena as files that no longer exist.
-		let cleared = context.ephemeral_cache().clear_for_reindex(&root).await;
-		if cleared > 0 {
-			tracing::debug!(source = %id, cleared, "cleared stale entries before re-indexing");
-		}
-
-		let device_slug = crate::device::get_current_device_slug();
-		let sd_path = SdPath::Physical {
-			device_slug,
-			path: root.clone(),
-		};
-
-		let mut config = crate::ops::indexing::job::IndexerJobConfig::ephemeral_browse(
-			sd_path,
-			IndexScope::Recursive,
-			whole_volume,
-		);
-		if self.input.unfiltered {
-			config.rule_toggles = RuleToggles::none();
-		}
-
-		let mut job = IndexerJob::new(config);
-		job.set_ephemeral_index(index);
-		if let Some(store) = context.ephemeral_cache().store_for(&root).await {
-			job.set_source_store(store);
-		}
-
-		// The walk is the long pole and the row already exists, so the action
-		// answers now and the job reports against the source it just made.
-		let job_id = match library.jobs().dispatch(job).await {
-			Ok(handle) => Some(handle.id().0),
-			Err(e) => {
-				tracing::error!(source = %id, %e, "tracked the source but could not start indexing");
-				None
-			}
-		};
-
-		Ok(TrackSourceOutput {
-			id,
-			root,
-			volume_uuid: volume.map(|volume| volume.id),
-			whole_volume,
-			job_id,
-		})
+		track_and_index(&library, &context, self.input.path, self.input.unfiltered).await
 	}
 
 	fn action_kind(&self) -> &'static str {
@@ -170,6 +93,96 @@ impl LibraryAction for TrackSourceAction {
 }
 
 crate::register_library_action!(TrackSourceAction, "sources.track");
+
+/// Register a root as a source and start walking it.
+///
+/// Shared by `sources.track` and `volumes.track`, because tracking a drive and
+/// tracking a folder on one differ only in how the caller arrived at the path.
+/// Keeping one body is what stops the two from drifting on the steps that are
+/// easy to forget: seeding from the snapshot, and clearing what the new pass
+/// will not revisit.
+pub async fn track_and_index(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	root: PathBuf,
+	unfiltered: bool,
+) -> Result<TrackSourceOutput, ActionError> {
+	if !root.is_dir() {
+		return Err(ActionError::Internal(format!(
+			"{} is not a directory",
+			root.display()
+		)));
+	}
+
+	// Anchoring to the volume is what lets the source follow a remount, so it
+	// is worth resolving even though a source without one still works.
+	let volume = context.volume_manager.volume_for_path(&root).await;
+	let whole_volume = volume
+		.as_ref()
+		.is_some_and(|volume| volume.mount_point == root);
+	let anchor = volume.as_ref().map(|volume| VolumeAnchor {
+		uuid: volume.id,
+		mount_point: volume.mount_point.clone(),
+	});
+
+	let id = context
+		.ephemeral_cache()
+		.register_source(&root, anchor)
+		.await
+		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
+
+	// Seed the partition from its snapshot before walking over it. A partition
+	// that skipped restore is barred from saving over an existing snapshot, so
+	// tracking a root that already has one would index and then fail to persist.
+	context.ephemeral_cache().ensure_restored(&root).await;
+
+	let index = context.ephemeral_cache().create_for_indexing(root.clone());
+
+	// Entries from a previous pass that this one will not revisit would
+	// otherwise linger in the arena as files that no longer exist.
+	let cleared = context.ephemeral_cache().clear_for_reindex(&root).await;
+	if cleared > 0 {
+		tracing::debug!(source = %id, cleared, "cleared stale entries before re-indexing");
+	}
+
+	let sd_path = SdPath::Physical {
+		device_slug: crate::device::get_current_device_slug(),
+		path: root.clone(),
+	};
+
+	let mut config = crate::ops::indexing::job::IndexerJobConfig::ephemeral_browse(
+		sd_path,
+		IndexScope::Recursive,
+		whole_volume,
+	);
+	if unfiltered {
+		config.rule_toggles = RuleToggles::none();
+	}
+
+	let mut job = IndexerJob::new(config);
+	job.set_ephemeral_index(index);
+	if let Some(store) = context.ephemeral_cache().store_for(&root).await {
+		job.set_source_store(store);
+	}
+
+	// The walk is the long pole and the row already exists, so this answers now
+	// and the job reports against the source it just made.
+	let job_id = match library.jobs().dispatch(job).await {
+		Ok(handle) => Some(handle.id().0),
+		Err(e) => {
+			tracing::error!(source = %id, %e, "tracked the source but could not start indexing");
+			None
+		}
+	};
+
+	Ok(TrackSourceOutput {
+		id,
+		root,
+		volume_uuid: volume.map(|volume| volume.id),
+		whole_volume,
+		job_id,
+	})
+}
 
 #[cfg(test)]
 mod tests {

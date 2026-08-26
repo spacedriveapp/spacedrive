@@ -1,4 +1,12 @@
 //! Volume track action
+//!
+//! Tracking a drive indexes it. A tracked volume with no map is a row saying
+//! Spacedrive knows about a drive without knowing anything on it, which is not
+//! a state anyone asks for, so the two are one gesture.
+//!
+//! The medium and the index stay separate underneath: this flips `is_tracked`
+//! on the volume row and then calls the same `track_and_index` that
+//! `sources.track` does. What converges is the click, not the model.
 
 use super::{VolumeTrackInput, VolumeTrackOutput};
 use crate::{
@@ -58,6 +66,29 @@ impl crate::infra::action::LibraryAction for VolumeTrackAction {
 			.track_volume(&library, &fingerprint, self.input.display_name.clone())
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
+
+		// Indexing is what makes a tracked drive useful, so it starts here
+		// rather than waiting for a second gesture. An unmounted drive has
+		// nothing to walk; its map arrives when it returns.
+		if tracked_volume.is_online {
+			if let Some(mount_point) = tracked_volume.mount_point.clone() {
+				// An external drive is usually being archived, where
+				// completeness is the point, so it records everything readable
+				// rather than applying rules that hide files by default.
+				let unfiltered =
+					volume_to_track.mount_type == crate::domain::volume::MountType::External;
+				if let Err(e) = crate::ops::sources::track::track_and_index(
+					&library,
+					&context,
+					std::path::PathBuf::from(mount_point),
+					unfiltered,
+				)
+				.await
+				{
+					tracing::error!(%e, "tracked the volume but could not start indexing it");
+				}
+			}
+		}
 
 		// Emit ResourceChanged event for the tracked volume using EventEmitter
 		let mut vol = volume_to_track.clone();

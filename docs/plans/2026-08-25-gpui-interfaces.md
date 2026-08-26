@@ -92,7 +92,8 @@ component-named `ThemeColor`. Ours maps to it almost directly.
 
 ## The fork question
 
-Three GPUI trees exist now and we should know where we stand against each.
+Four GPUI trees matter to us and we should know where we stand against each.
+There are more than four in the wild; `company/gpui-research/` counts them.
 
 **Upstream Zed** is what we pin. Zed's workspace marks gpui `publish = true` and
 crates.io carries 0.2.2, but the published 0.2.2 and the git tree that also calls
@@ -107,8 +108,16 @@ iOS. Letter spacing, which is on the known-holes list, went there after upstream
 did not take it. Do not depend on it. Do build `sd-ui` against it periodically,
 because that is a cheap escape hatch and it stays cheap only if it is exercised.
 
+**crabtalk/zed** publishes as `bezel-gpui` 0.3.3 and carries bezel, a component
+library worth reading. It is unreachable from here: `[patch]` matches on package
+name and version, so a fork that renames and bumps cannot be collapsed onto
+ours. `company/gpui-research/bezel.md` has the detail.
+
 **Our fork** stays patch-free for as long as possible. When something is needed,
-try upstream first, GPUI-CE second, a Spacedrive patch third.
+try upstream first, GPUI-CE second, a Spacedrive patch third. The rule is worth
+more than it looks: a library's components can depend on its fork's private
+additions, so adopting a component library increasingly means adopting its gpui,
+and a patch-free tree is what keeps us able to move between them at all.
 
 ## The shared tech
 
@@ -235,6 +244,7 @@ and `~/Projects/comet` (Zeron), which were already local.
 | `CapSoftware/Cap` | 113k lines in `apps/desktop-gpui` | The Tauri conversion. `platform.rs` and `target_thumbnails.rs` are the two files to read. |
 | `vicanso/zedis` | 95k lines | Ships on three desktops with Homebrew, Scoop and AUR packaging. Virtualizes with gpui's own `uniform_list` rather than gpui-component's, which is a live question for our list view. `zedis-ui` is 2.6k lines over gpui-component. |
 | `egoist/waku` | | A smaller, more recent app structure. Signed and notarized. |
+| `crabtalk/bezel` | 37.6k lines | A component library layered theme / motion / ui, which is the sd-ui split reached independently. Take `Brand` and the glass recipes as source; the crates themselves sit on their own gpui fork. `company/gpui-research/bezel.md`. |
 | `MatinAniss/gpui-book` | | Teaching material for the concepts, useful for onboarding. |
 | `gpui-ce/gpui-ce` | 19 MB | The community fork, for periodic compatibility checks. Crate split mirrors upstream and adds `gpui_media`, `gpui_wgpu`, `gpui_web`, `gpui_scheduler`. |
 

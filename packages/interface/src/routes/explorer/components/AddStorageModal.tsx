@@ -529,33 +529,19 @@ function AddStorageDialog(props: {
 
 	const handleVolumeSelect = async (volume: any) => {
 		try {
-			// Step 1: Track the volume
-			await trackVolume.mutateAsync({
+			// Tracking a volume indexes it, so there is no second step.
+			const result = await trackVolume.mutateAsync({
 				fingerprint: volume.fingerprint,
 				display_name: volume.display_name || volume.name,
 			});
-
-			// Step 2: Create a location for the volume's mount point
-			const locationInput: LocationAddInput = {
-				path: {
-					Physical: {
-						device_slug: "local",
-						path: volume.mount_point || "/",
-					},
-				},
-				name: volume.display_name || volume.name,
-				mode: "Deep",
-				job_policies: {},
-			};
-
-			const locationResult = await addLocation.mutateAsync(locationInput);
 			dialog.state.open = false;
 
-			if (locationResult?.path && props.onStorageAdded) {
-				props.onStorageAdded(locationResult.path);
+			if (volume.mount_point && props.onStorageAdded) {
+				props.onStorageAdded(volume.mount_point);
 			}
+			return result;
 		} catch (error) {
-			console.error("Failed to track volume and add location:", error);
+			console.error("Failed to track volume:", error);
 		}
 	};
 
