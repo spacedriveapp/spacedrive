@@ -334,6 +334,11 @@ first.
 placement, capacity and time projection from volume speed, per-step reasoning,
 and an executor with resume. Redundancy expressed as a placement constraint.
 
+The workflow row is the same shape as a job preset
+(`2026-08-25-extensibility.md`): durable, parameterized, executable, logged,
+carrying the reasoning that produced it. Worth building it as one table with two
+consumers rather than discovering the duplication later.
+
 **P5. Filesystem intelligence.** The native agent loop: a local model driving
 the P3 tools, headless, budgeted in output tokens and resumable, writing
 annotations to `record_overlay` at branch granularity. Qwen3.8-27B as the
