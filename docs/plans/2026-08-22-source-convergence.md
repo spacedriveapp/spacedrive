@@ -181,16 +181,9 @@ Not style, mechanics:
   is invisible through the other, which is the second-namespace problem contract
   1 exists to forbid, reappearing between two filesystem sources. Settle before
   P3, since the registry is where the rejection rule would live.
-- **Every path is stored twice.** `dbstat` on the 2.1M-record store: `record`
-  403 MB, `sqlite_autoindex_record_2` (the `UNIQUE (type, external_id)` index)
-  301 MB, `facet_file` 90 MB, `idx_record_parent` 21 MB and 99% empty.
-  `external_id` is the full relative path on every record, averaging 108 bytes,
-  and the unique index holds a second copy, so 518 MB of a 1.01 GB database is
-  paths. The old design stored a path once per directory (2,980 rows in
-  `directory_paths`) and derived the rest from `parent_id` and `name`. The
-  store currently pays for the path-keyed design and for a tree index, and gets
-  a working tree from neither; P2.5 (2) fixes the tree, after which whether
-  `external_id` stays full-path is a live question rather than a given.
+- **How a filesystem record is addressed.** Settled in P2.6: full paths on
+  directories, sibling keys on files. Left here as the question that produced
+  it, since the same trade recurs for any source with a tree.
 - **Two devices indexing one origin.** A NAS mounted on a laptop and a desktop
   is ordinary, and each machine mints its own record uuids for the same files.
   The rebind procedure resolves on path, inode, size and mtime, of which only
@@ -543,9 +536,84 @@ Everything above them is a real loss.
    tier, so this is the durable half catching up to where the cache went.
 
 **Order.** (1) and (2) are bugs against data the walk already holds and should
-land first; every walk before then produces records that need re-walking. (3)
-is a schema declaration. (4) is behind the content identity job, since a
-sidecar has nothing to key to while `content` has 0 rows.
+land first; every walk before then produces records that need re-walking. (2)
+also has to land with P2.6, which makes the tree load-bearing rather than merely
+missing. (3) is a schema declaration. (4) is behind the content identity job,
+since a sidecar has nothing to key to while `content` has 0 rows.
+
+### P2.6 — Address a file by its parent, not by its path
+
+`external_id` is the full relative path on every record, averaging 108 bytes,
+and `UNIQUE (type, external_id)` holds a second copy. On the 2.1M-record store
+that is most of the file. The old library did not work this way: it stored a
+path once per directory in `directory_paths` (2,980 rows for 23,157 entries)
+and derived everything else from `parent_id` and `name`. That was the right
+call and dropping it was a mistake.
+
+Measured, not projected. Both databases vacuumed, the same 2,123,008 records,
+the alternative built by replaying the live store through the proposed schema:
+
+| | today | full paths on directories only |
+|---|---|---|
+| `record` | 401 MB | 201 MB |
+| path uniqueness index | 255 MB `(type, external_id)` | 92 MB `(parent_uuid, name)` |
+| primary key | 50 MB | 50 MB |
+| `idx_record_type` | 27 MB | 27 MB |
+| `idx_record_parent` | 18 MB | folded into the sibling index |
+| `directory_path` + its indexes | — | 53 MB |
+| **record side** | **751 MB** | **423 MB** |
+| whole database, `facet_file` included | 896 MB | 568 MB |
+
+443 bytes per record becomes 281. The saving is not the headline, though: the
+255 MB index it removes mostly serves path lookup, while the 92 MB index that
+replaces it answers *list this directory's children*, which is the query the UI
+actually makes.
+
+**Lookup stays two probes, and that is the whole point of keeping paths on
+directories.** Resolving `a/b/c/d.png` is one probe into `directory_path` for
+`a/b/c`, then one into `(parent_uuid, name)`. Producing a file's full path is
+the same in reverse: its `parent_uuid` gives a `directory_path` row, join on the
+name. No recursive walk in either direction, which is what a tree without
+`directory_paths` would have cost.
+
+**Renames get cheaper by an order of magnitude.** Renaming a directory today
+rewrites `external_id` on every descendant record. Afterwards it rewrites
+`directory_path` for descendant *directories* only, which is 240,129 rows
+against 2,123,008 in this store, and far fewer in the ordinary case. The
+watcher is the main caller and it does this on a drag in Finder.
+
+**The tree stops being optional.** P2.5 (2) is currently a fidelity bug. Here it
+becomes load-bearing, since `parent_uuid` is how a file is addressed at all. The
+two land together or neither does.
+
+Worth knowing before that lands: replaying the live store found **0 unresolved
+parents**. Every file's parent directory already exists as a record, so the
+existing 2.1M-record store can be backfilled in place from what is on disk. No
+re-walk, which matters because a re-walk is where the surviving `created_at`
+values would go.
+
+**Shape.**
+
+- `external_id` becomes nullable. A filesystem directory keeps its path, a
+  filesystem file gets `NULL`, an adapter record is untouched, and SQLite
+  permits many NULLs under a unique index so `UNIQUE (type, external_id)`
+  stands as-is. Adapters address by opaque id because a Notion page has no
+  tree; this is a filesystem optimisation and should read as one.
+- `UNIQUE (parent_uuid, name)` is added, which is the constraint that was always
+  true and never stated: two files cannot share a name in a directory.
+- `directory_path (record_uuid, path)` returns, one row per directory.
+- `record_overlay` keeps addressing by full path. It is the one table where a
+  durable human-meaningful key earns its bytes, since an assertion has to
+  survive the record it describes, and it is sparse enough that the cost does
+  not signify.
+- `Ledger::load` builds its in-memory path index from a directory pass followed
+  by a file pass rather than from one column. Same sequential scan, same
+  result.
+
+**The cost, stated plainly.** Two addressing modes in one table, chosen by data
+type. That is the price of a store that serves both a filesystem and an API with
+one schema, and it is worth paying here because the filesystem is the one that
+has to hold a hundred million rows.
 
 ### P3 — One registry
 
