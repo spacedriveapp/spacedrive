@@ -9,6 +9,26 @@ use crate::error::{Result, WatcherError};
 use crate::event::{FsEvent, RawNotifyEvent};
 use crate::platform::PlatformHandler;
 use notify::{RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
+/// The mode to hand notify for a watch.
+///
+/// macOS is the exception and it fails silently. FSEvents has no non-recursive
+/// subscription, and notify's backend does not emulate one: a watch registered
+/// `NonRecursive` there is accepted, reports no error, and then delivers
+/// nothing at all. Measured, not inferred — the same directory watched
+/// `Recursive` delivers immediately.
+///
+/// So macOS always subscribes recursively and the shallow contract is kept
+/// above, by callers that already compare an event's parent against the root
+/// they asked for. Watching wider than asked costs events that get filtered;
+/// watching non-recursively costs every event.
+fn notify_mode(recursive: bool) -> RecursiveMode {
+	if recursive || cfg!(target_os = "macos") {
+		RecursiveMode::Recursive
+	} else {
+		RecursiveMode::NonRecursive
+	}
+}
+
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -96,11 +116,7 @@ impl FsWatcherInner {
 		// Register with notify if we're running
 		if self.is_running.load(Ordering::SeqCst) {
 			if let Some(watcher) = self.notify_watcher.write().await.as_mut() {
-				let mode = if config.recursive {
-					RecursiveMode::Recursive
-				} else {
-					RecursiveMode::NonRecursive
-				};
+				let mode = notify_mode(config.recursive);
 
 				watcher
 					.watch(&path, mode)
@@ -331,11 +347,7 @@ impl FsWatcher {
 
 		if let Some(watcher) = watcher_guard.as_mut() {
 			for (path, state) in watched.iter() {
-				let mode = if state.config.recursive {
-					RecursiveMode::Recursive
-				} else {
-					RecursiveMode::NonRecursive
-				};
+				let mode = notify_mode(state.config.recursive);
 
 				if let Err(e) = watcher.watch(path, mode) {
 					warn!("Failed to register watch for {}: {}", path.display(), e);
@@ -471,6 +483,55 @@ mod tests {
 		let paths = watcher.watched_paths().await;
 		assert_eq!(paths.len(), 1);
 		assert_eq!(paths[0], temp_dir.path());
+
+		watcher.stop().await.unwrap();
+	}
+
+	/// A shallow watch has to actually deliver.
+	///
+	/// This is the regression that mattered: on macOS a `NonRecursive`
+	/// subscription is accepted, reports no error, and silently delivers
+	/// nothing, so every ephemeral browse watch was registered and dead. The
+	/// assertion is deliberately about arrival rather than about the mode we
+	/// hand notify, since the mode is the workaround and arrival is the
+	/// contract.
+	#[tokio::test]
+	async fn a_shallow_watch_delivers_events_for_immediate_children() {
+		let watcher = FsWatcher::new(WatcherConfig::default());
+		watcher.start().await.unwrap();
+
+		let temp_dir = TempDir::new().unwrap();
+		let mut events = watcher.subscribe();
+
+		let _handle = watcher
+			.watch(temp_dir.path(), WatchConfig::shallow())
+			.await
+			.unwrap();
+
+		// The backend needs a moment before it is actually subscribed.
+		tokio::time::sleep(Duration::from_millis(300)).await;
+		let target = temp_dir.path().join("appeared.txt");
+		std::fs::write(&target, b"hello").unwrap();
+		// The reported path is canonical, and a macOS temp dir reaches its
+		// contents through a symlink, so the two forms have to be reconciled
+		// before they can be compared.
+		let target = target.canonicalize().unwrap();
+
+		let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+		loop {
+			let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+			assert!(
+				!remaining.is_zero(),
+				"a shallow watch delivered no event for a file created directly under it"
+			);
+			match tokio::time::timeout(remaining, events.recv()).await {
+				Ok(Ok(event)) if event.path == target => break,
+				Ok(Ok(_)) => continue,
+				Ok(Err(_)) | Err(_) => panic!(
+					"a shallow watch delivered no event for a file created directly under it"
+				),
+			}
+		}
 
 		watcher.stop().await.unwrap();
 	}
