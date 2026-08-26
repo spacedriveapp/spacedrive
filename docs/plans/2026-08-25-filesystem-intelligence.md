@@ -184,41 +184,81 @@ rather than as an internal shortcut nobody notices.
 
 Ordering consequence: MCP is a dependency of the annotation loop, not a sibling.
 
-### Why a loop rather than a pass
+### The reference model
 
-I argued for a stateless batch pass and the arithmetic says that was wrong.
+**Qwen3.8-27B.** Apache 2.0, dense 27B, native multimodal, 262k native context,
+controllable reasoning effort. Quantised to 4-bit it is roughly 16 to 17GB, so
+it runs on a high-end laptop with enough unified memory or a 24GB GPU, and it is
+already in Ollama and LM Studio.
 
-A local 7-8B model on Apple Silicon generates on the order of tens of tokens a
-second. A short annotation with a modest prompt lands somewhere around a few
-seconds per directory end to end. At a few hundred thousand directories, uniform
-coverage is on the order of days of continuous inference, on top of the days of
-walking the drives.
+Reference rather than requirement. The loop targets an OpenAI-compatible
+endpoint and a tool schema, so the model is configuration. Its published agentic
+numbers are mostly vendor-reported and independent confirmation is still
+settling, so nothing here should depend on a specific benchmark holding. What
+matters is the class: open-weights models at this size now do multi-step tool
+use well enough to drive a loop, which was not true a year ago.
 
-So uniform coverage is not affordable, which means **choosing where to spend
-attention is the feature, not an optimisation.** That is a loop by definition.
-`node_modules` gets one glance and a skip. A folder of thirty thousand
-identically named clips gets one annotation and a roll-up. An ambiguous
-directory gets a drill into a handful of names, or a peek at a README, and then
-a real answer.
+Three properties change the design.
 
-Hierarchy pushes the same way. A parent's annotation is better written after its
-children's, which is state carried across steps rather than a pure function of
-one directory's metadata.
+**Apache 2.0 means it can be recommended and shipped with.** No licensing
+asterisk on the one component that would otherwise carry one.
+
+**262k context flips the unit of work from a directory to a branch.** An entire
+subtree's structure fits in a single prompt, so the loop's step is "look at this
+branch and tell me what matters in it" rather than "describe this one folder".
+Fewer round trips, and the model can see siblings and depth when deciding where
+to spend.
+
+**Reasoning effort is a dial, and annotation wants it low.** Thinking is on by
+default and `xhigh` is verbose. Annotation is a judgement over structure that is
+already laid out, not a proof, and intermediate tokens are the scarce resource
+here for the reason below.
+
+### Why a loop, and why long context does not rescue it
+
+Output tokens bind, not input. Long context makes it cheap to *look* at a
+hundred thousand directories and no cheaper to *write* a hundred thousand
+annotations.
+
+Rough shape of it: a short annotation is on the order of tens of tokens, local
+generation on this hardware is tens of tokens a second, and a large tree has a
+few hundred thousand directories. That multiplies out to days of continuous
+generation for uniform coverage, on top of the days of walking drives. Long
+context does not touch that number.
+
+What it does change is that **fewer annotations become sufficient.** Seeing a
+whole branch at once is what lets the model say "this entire subtree is 2019
+Twitch VODs, one annotation covers it" with justified confidence, instead of
+descending and writing three thousand nearly identical ones. Coverage per output
+token goes up because the unit of assertion gets bigger, not because generation
+got faster.
+
+So selective attention is still the feature, and it is still a loop. `node_modules`
+gets a glance and a skip. An ambiguous directory gets a drill and a real answer.
+The difference long context makes is that the decision is now well informed at
+the point it is taken.
+
+Hierarchy pushes the same way: a parent's annotation is better written after its
+children's, which is state carried across steps.
 
 ### What the loop needs to survive contact
 
-- **Providers.** LM Studio and Ollama first. Both expose OpenAI-compatible chat
-  completions, so the abstraction is a base URL, a model name, and a tool
-  schema, with room for a hosted endpoint later.
-- **Weak tool callers.** Small local models call tools badly. Few tools, flat
-  arguments, and a structured-output fallback for models whose tool calling is
-  not trustworthy.
-- **Small context.** The store pages; the loop must never dump a directory
-  listing into a prompt. Summaries and counts go in, names go in by sample.
-- **Budget and resume.** A per-source token or wall-clock budget, checkpointed,
-  so unplugging a drive mid-annotation costs the current step and not the run.
+- **Providers.** LM Studio and Ollama first, both over OpenAI-compatible chat
+  completions, so the abstraction is a base URL, a model name, a reasoning
+  effort and a tool schema. A hosted endpoint is the same client.
+- **Budget and resume.** A per-source budget in output tokens, since that is the
+  binding constraint, checkpointed so unplugging a drive mid-run costs the
+  current step rather than the run.
 - **Cheap skips.** Deciding not to look must cost far less than looking, or the
-  selectivity that justifies the loop is spent on deciding.
+  selectivity that justifies the loop is spent on deciding it.
+- **A weaker-provider fallback.** Tool calling is no longer the risk it was for
+  this model class, but the loop should not assume it. A constrained
+  structured-output path keeps smaller or older local models usable, at worse
+  coverage per token.
+- **Graceful absence.** The hardware floor is real: a 32GB machine or a 24GB
+  GPU. Below it the loop simply does not run, and the map is still complete and
+  still queryable by whatever agent the person already pays for. The feature
+  degrades to the thing the design already supports for free.
 
 ### Granularity and what it reads
 
@@ -235,6 +275,18 @@ budget rather than by policy.
 Annotations land in `record_overlay` against the directory record, so they
 survive re-indexing and travel with the source. Each row carries which model
 wrote it, because a swappable producer means rows from several will coexist.
+
+**The thumbnail tier is a latent second input.** `thumbs.pvcache` already holds
+BGRA8 tiles keyed by record uuid, one cache per source, mmap-readable from
+another process (`crates/pvcache`). A native multimodal model plus a contact
+sheet assembled from tiles the loop is already holding uuids for is the
+difference between "4,812 files named DSC_*.jpg" and knowing what the shoot
+was. It costs no new extraction, since baking thumbnails is already on the path.
+
+Deliberately not P5 day one. Images cost far more input tokens than a directory
+listing, and the value has to be proven on structure-only annotation before
+spending a budget that is already tight. Worth designing the annotation row so
+that a later visual pass refines it rather than replacing it.
 
 ## What is deliberately not Spacedrive's job
 
@@ -276,11 +328,13 @@ placement, capacity and time projection from volume speed, per-step reasoning,
 and an executor with resume. Redundancy expressed as a placement constraint.
 
 **P5. Filesystem intelligence.** The native agent loop: a local model driving
-the P3 tools, headless, budgeted and resumable, writing annotations to
-`record_overlay` at directory granularity. LM Studio and Ollama as the first two
-providers over their OpenAI-compatible endpoints. Needs an author field on
-overlays first, so a model's claim never silently reads as a person's and rows
-from a replaced model stay distinguishable from its successor's.
+the P3 tools, headless, budgeted in output tokens and resumable, writing
+annotations to `record_overlay` at branch granularity. Qwen3.8-27B as the
+reference model, LM Studio and Ollama as the first two providers over their
+OpenAI-compatible endpoints. Needs an author field on overlays first, so a
+model's claim never silently reads as a person's and rows from a replaced model
+stay distinguishable from its successor's. Structure only; the visual pass over
+`thumbs.pvcache` is a later refinement on the same rows.
 
 **P6. Planning UI.** Configuration comparison, the "what if I delete this and
 split across those" view, workflow progress with per-step reasoning.
@@ -325,16 +379,19 @@ should, because that clock runs whether or not the rest is written.
   than fact, and the same rule that stops a candidate hash from authorising a
   delete should stop an annotation from authorising a move. `TrustTier` already
   exists for source content; annotations may want the same treatment.
-- **Can small local models drive these tools at all?** The loop's whole premise
-  is selective attention, which is a judgement call made through tool use, and
-  that is exactly what 7-8B models are worst at. Worth proving against LM Studio
-  on real directories before committing to the loop's shape. If tool calling
-  will not hold, the fallback is a constrained structured-output step per
-  directory, which is weaker and slower per unit of coverage.
+- **How big can one branch prompt usefully get?** 262k tokens of context is not
+  262k tokens of attention that stays sharp. The question is not whether a whole
+  subtree fits but at what size the model stops noticing the thing three
+  thousand lines up. That sets the loop's real step size and it has to be
+  measured rather than assumed from the context number.
 - **What is the budget policy?** Per source, per session, per drive-attachment
   window? The drive is the scarce resource, since it may be unplugged at any
-  moment, which argues for spending eagerly while it is attached rather than
-  pacing evenly.
+  moment, which argues for spending eagerly while attached rather than pacing
+  evenly. Denominated in output tokens, since that is what binds.
+- **Does an annotation ever expire?** A directory annotated a year ago and
+  written to since has a stale claim attached to it. `record_overlay` has no
+  notion of the record version its claim was made against, and adding one is far
+  cheaper before the rows exist than after.
 - **Does the loop earn its place against a frontier agent?** Because it runs on
   the same MCP tools, an outside model can do the same work whenever someone
   wants to pay for it. The local loop justifies itself on scale and privacy: a
