@@ -283,6 +283,13 @@ sheet assembled from tiles the loop is already holding uuids for is the
 difference between "4,812 files named DSC_*.jpg" and knowing what the shoot
 was. It costs no new extraction, since baking thumbnails is already on the path.
 
+**Settled: annotations do not expire.** An annotation is an assertion, and
+assertions in `record_overlay` outlive the generation by design; a model's claim
+is treated exactly like a person's. This costs no schema, and it forecloses
+nothing: `record_overlay.updated_at` and `record.modified_at` already sit beside
+each other, so anything that later wants to surface an aged claim can derive it
+without a new column.
+
 Deliberately not P5 day one. Images cost far more input tokens than a directory
 listing, and the value has to be proven on structure-only annotation before
 spending a budget that is already tight. Worth designing the annotation row so
@@ -388,10 +395,6 @@ should, because that clock runs whether or not the rest is written.
   window? The drive is the scarce resource, since it may be unplugged at any
   moment, which argues for spending eagerly while attached rather than pacing
   evenly. Denominated in output tokens, since that is what binds.
-- **Does an annotation ever expire?** A directory annotated a year ago and
-  written to since has a stale claim attached to it. `record_overlay` has no
-  notion of the record version its claim was made against, and adding one is far
-  cheaper before the rows exist than after.
 - **Does the loop earn its place against a frontier agent?** Because it runs on
   the same MCP tools, an outside model can do the same work whenever someone
   wants to pay for it. The local loop justifies itself on scale and privacy: a
