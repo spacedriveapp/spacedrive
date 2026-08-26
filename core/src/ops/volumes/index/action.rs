@@ -105,7 +105,14 @@ impl LibraryAction for IndexVolumeAction {
 		// including detached browsing after the drive is unplugged.
 		let ephemeral_cache = context.ephemeral_cache();
 		ephemeral_cache
-			.register_source(&volume.mount_point, Some(fingerprint.to_string()))
+			.register_source(
+				&volume.mount_point,
+				Some(crate::ops::indexing::ephemeral::VolumeAnchor {
+					uuid: volume.id,
+					mount_point: volume.mount_point.clone(),
+				}),
+			)
+			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to register volume source: {e}")))?;
 		// Seed the partition from its snapshot before reindexing over it:
 		// duplicate paths keep their identities, and a partition that skipped

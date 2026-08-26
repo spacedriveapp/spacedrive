@@ -12,11 +12,14 @@
 //!
 //! Path → partition resolution is longest-root-prefix over registered sources.
 
-use super::sources::{SourceRecord, SourceRegistry};
+use super::sources::{SourceRecord, SourceRegistry, VolumeAnchor};
 use super::store::SourceStore;
 use super::EphemeralIndex;
+use crate::infra::db::entities::source;
+use crate::infra::db::Database;
 use crate::infra::source_dirs::SourceDirs;
 use parking_lot::{Mutex, RwLock};
+use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
 	collections::{HashMap, HashSet},
 	path::{Path, PathBuf},
@@ -115,7 +118,8 @@ impl SourceSlot {
 pub struct SourceStatus {
 	pub id: Uuid,
 	pub root: PathBuf,
-	pub fingerprint: Option<String>,
+	/// The medium under this source, when it sits on one Spacedrive tracks.
+	pub volume_uuid: Option<Uuid>,
 	pub attached: bool,
 	pub restored: bool,
 	pub last_seen_secs: u64,
@@ -128,8 +132,18 @@ pub struct SourceStatus {
 }
 
 pub struct EphemeralIndexCache {
-	/// Persistent source registrations.
+	/// Registered sources, in memory. The durable copy is the `sources` table
+	/// in the open library.
 	registry: Mutex<SourceRegistry>,
+	/// Where registrations are written. Set when a library opens, cleared when
+	/// it closes.
+	///
+	/// This cache is machine-scoped and a source registration is library
+	/// metadata, so the two do not have the same lifetime. Until the registry
+	/// is reachable from wherever a source is mutated, the cache follows the
+	/// open library: with none open it serves paths from memory and persists
+	/// nothing.
+	db: RwLock<Option<Arc<Database>>>,
 	/// Per-source directory layout; `None` means no persistence.
 	dirs: Option<SourceDirs>,
 	/// Live partitions by source id.
@@ -157,12 +171,9 @@ impl EphemeralIndexCache {
 			Some(root) => Some(SourceDirs::new(root).map_err(std::io::Error::other)?),
 			None => None,
 		};
-		let registry = match &dirs {
-			Some(dirs) => SourceRegistry::load(dirs.root()),
-			None => SourceRegistry::in_memory(),
-		};
 		Ok(Self {
-			registry: Mutex::new(registry),
+			registry: Mutex::new(SourceRegistry::default()),
+			db: RwLock::new(None),
 			dirs,
 			slots: RwLock::new(HashMap::new()),
 			scratch: SourceSlot::new(None, None)?,
@@ -170,22 +181,122 @@ impl EphemeralIndexCache {
 		})
 	}
 
-	/// Register a root as a source (idempotent; fingerprint match rebinds a
-	/// returning drive to its existing identity). Returns the source id.
+	/// Adopt the source rows of a library that just opened, and write
+	/// registrations there from now on.
 	///
-	/// Fails when the registration cannot be written: a source that is not on
-	/// disk is one that will not be recognised at next launch, and the snapshot
-	/// it goes on to write would then belong to nothing.
-	pub fn register_source(
+	/// Absolute roots resolve against wherever each anchoring volume is mounted
+	/// right now, so a drive that came back somewhere else needs no repair. A
+	/// row whose volume is absent keeps its record and its counts; only its
+	/// path is unavailable, which is what is true of a drive in a drawer.
+	pub async fn attach_library(&self, db: Arc<Database>) -> anyhow::Result<usize> {
+		let rows = source::Entity::find()
+			.filter(source::Column::DataType.eq(source::FILESYSTEM_DATA_TYPE))
+			.all(db.conn())
+			.await?;
+
+		let mounts: HashMap<Uuid, PathBuf> = crate::infra::db::entities::volume::Entity::find()
+			.all(db.conn())
+			.await?
+			.into_iter()
+			.filter(|volume| volume.is_online)
+			.filter_map(|volume| Some((volume.uuid, PathBuf::from(volume.mount_point.as_ref()?))))
+			.collect();
+
+		let registry = SourceRegistry::from_rows(rows, |uuid| mounts.get(&uuid).cloned());
+		let adopted = registry.all().len();
+
+		for record in registry.all() {
+			let slot = self.slot_for_record(record);
+			*slot.root.write() = Some(record.root.clone());
+			slot.set_detached(!record.root.exists());
+		}
+
+		*self.registry.lock() = registry;
+		*self.db.write() = Some(db);
+		Ok(adopted)
+	}
+
+	/// Stop persisting; the library that owned these registrations is closing.
+	pub fn detach_library(&self) {
+		*self.db.write() = None;
+		*self.registry.lock() = SourceRegistry::default();
+		self.slots.write().clear();
+	}
+
+	/// Register a root as a source, or refresh an existing registration.
+	///
+	/// `volume` anchors the source to the medium under it, which is what lets a
+	/// remount cost nothing. Pass `None` for a root on media Spacedrive does not
+	/// track; the source then stands on its absolute path.
+	///
+	/// Fails when the registration cannot be written: a source that is not
+	/// durable is one that will not be recognised at next launch, and the
+	/// snapshot it goes on to write would then belong to nothing.
+	pub async fn register_source(
 		&self,
 		root: &Path,
-		fingerprint: Option<String>,
+		volume: Option<VolumeAnchor>,
 	) -> anyhow::Result<Uuid> {
-		let record = self.registry.lock().register(root, fingerprint)?;
+		let record = self.registry.lock().register(root, volume.as_ref());
+		self.persist(&record).await?;
+
 		let slot = self.slot_for_record(&record);
 		*slot.root.write() = Some(record.root.clone());
 		slot.set_detached(!record.root.exists());
 		Ok(record.id)
+	}
+
+	/// Write a record to the open library, if one is open.
+	async fn persist(&self, record: &SourceRecord) -> anyhow::Result<()> {
+		let Some(db) = self.db.read().clone() else {
+			return Ok(());
+		};
+
+		let existing = source::Entity::find()
+			.filter(source::Column::Uuid.eq(record.id))
+			.one(db.conn())
+			.await?;
+
+		let mut row = match existing {
+			Some(row) => source::ActiveModel::from(row),
+			None => source::ActiveModel {
+				uuid: Set(record.id),
+				data_type: Set(source::FILESYSTEM_DATA_TYPE.to_string()),
+				adapter_id: Set(None),
+				config: Set("{}".to_string()),
+				status: Set("idle".to_string()),
+				// A person's own drive is the authored tier by definition; an
+				// adapter's manifest declares its own.
+				trust_tier: Set(sd_store::TrustTier::Authored.to_string()),
+				created_at: Set(record.created_at),
+				..Default::default()
+			},
+		};
+
+		row.name = Set(record.name.clone());
+		row.root = Set(Some(record.relative_root.clone()));
+		row.volume_uuid = Set(record.volume_uuid);
+		row.record_count = Set(record.record_count.map(|c| c as i64));
+		row.total_bytes = Set(record.total_bytes.map(|b| b as i64));
+		row.last_seen_at = Set(record.last_seen_at);
+
+		source::Entity::insert(row)
+			.on_conflict(
+				sea_orm::sea_query::OnConflict::column(source::Column::Uuid)
+					.update_columns([
+						source::Column::Name,
+						source::Column::Root,
+						source::Column::VolumeUuid,
+						source::Column::RecordCount,
+						source::Column::TotalBytes,
+						source::Column::LastSeenAt,
+					])
+					.to_owned(),
+			)
+			.exec(db.conn())
+			.await?;
+
+		Ok(())
 	}
 
 	/// All registered sources with their live state.
@@ -205,9 +316,9 @@ impl EphemeralIndexCache {
 					thumbs_path: self.dirs.as_ref().map(|d| d.thumbs_file(record.id)),
 					id: record.id,
 					root: record.root,
-					fingerprint: record.fingerprint,
-					last_seen_secs: record.last_seen_secs,
-					entry_count: record.entry_count,
+					volume_uuid: record.volume_uuid,
+					last_seen_secs: record.last_seen_at.timestamp().max(0) as u64,
+					entry_count: record.record_count,
 					total_bytes: record.total_bytes,
 				}
 			})
@@ -554,15 +665,17 @@ impl EphemeralIndexCache {
 		// size without loading its snapshot. The snapshot itself is already on
 		// disk, so a failure here costs a stale count in listings rather than
 		// the index: report it and keep the save successful.
-		if let Err(err) = self
+		let updated = self
 			.registry
 			.lock()
-			.update_stats(record.id, entry_count, total_bytes)
-		{
-			tracing::error!(
-				"Saved snapshot for source {} but could not persist its counts: {err}",
-				record.id
-			);
+			.update_stats(record.id, entry_count, total_bytes);
+		if let Some(updated) = updated {
+			if let Err(err) = self.persist(&updated).await {
+				tracing::error!(
+					"Saved snapshot for source {} but could not persist its counts: {err}",
+					record.id
+				);
+			}
 		}
 		tracing::info!(
 			"Saved snapshot for source {} ({})",
@@ -824,15 +937,36 @@ mod tests {
 		assert!(!cache.is_indexed(&path));
 	}
 
-	#[test]
-	fn test_partition_isolation() {
+	/// A library database for tests that rebuild the cache: registrations live
+	/// in `library.db`, so a session boundary needs one to cross.
+	async fn test_library(dir: &Path) -> Arc<Database> {
+		let db = Database::create(&dir.join("library.db"))
+			.await
+			.expect("create library");
+		db.migrate().await.expect("migrate");
+		Arc::new(db)
+	}
+
+	/// A whole-drive anchor: the source is the volume, so its path within the
+	/// volume is empty and a remount moves it wholesale.
+	fn anchor(root: &Path) -> VolumeAnchor {
+		VolumeAnchor {
+			uuid: Uuid::now_v7(),
+			mount_point: root.to_path_buf(),
+		}
+	}
+
+	#[tokio::test]
+	async fn test_partition_isolation() {
 		let cache = isolated_cache();
 
 		let a = cache
 			.register_source(Path::new("/test/vol-a"), None)
+			.await
 			.unwrap();
 		let b = cache
 			.register_source(Path::new("/test/vol-b"), None)
+			.await
 			.unwrap();
 		assert_ne!(a, b);
 
@@ -849,13 +983,17 @@ mod tests {
 		assert!(Arc::ptr_eq(&index_a, &index_a2));
 	}
 
-	#[test]
-	fn test_longest_prefix_resolution() {
+	#[tokio::test]
+	async fn test_longest_prefix_resolution() {
 		let cache = isolated_cache();
 
-		cache.register_source(Path::new("/mnt"), None).unwrap();
+		cache
+			.register_source(Path::new("/mnt"), None)
+			.await
+			.unwrap();
 		let nested = cache
 			.register_source(Path::new("/mnt/drive"), None)
+			.await
 			.unwrap();
 
 		let slot = cache.resolve(Path::new("/mnt/drive/file.txt"));
@@ -882,12 +1020,13 @@ mod tests {
 		assert!(!cache.is_watched(&root));
 	}
 
-	#[test]
-	fn test_stats_aggregate_across_partitions() {
+	#[tokio::test]
+	async fn test_stats_aggregate_across_partitions() {
 		let cache = isolated_cache();
 
 		cache
 			.register_source(Path::new("/test/vol-a"), None)
+			.await
 			.unwrap();
 
 		let ready = PathBuf::from("/test/vol-a/ready");
@@ -908,6 +1047,7 @@ mod tests {
 		use crate::ops::indexing::EntryMetadata;
 
 		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
 		let drive_dir = tempfile::tempdir().unwrap();
 		let root = drive_dir.path().to_path_buf();
 
@@ -928,8 +1068,10 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some("fp-roundtrip".into()))
+				.register_source(&root, Some(anchor(&root)))
+				.await
 				.unwrap();
 
 			let index = cache.create_for_indexing(root.clone());
@@ -958,6 +1100,7 @@ mod tests {
 		// restores from its snapshot, and serves read-only as detached.
 		let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 			.expect("cache");
+		cache.attach_library(library.clone()).await.expect("attach");
 		assert_eq!(cache.sources().len(), 1);
 
 		let child = unplugged_root.join("photo.jpg");
@@ -977,6 +1120,7 @@ mod tests {
 		use crate::ops::indexing::EntryMetadata;
 
 		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
 		let drive_dir = tempfile::tempdir().unwrap();
 		let root = drive_dir.path().to_path_buf();
 
@@ -999,8 +1143,10 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some("fp-self-overwrite".into()))
+				.register_source(&root, Some(anchor(&root)))
+				.await
 				.unwrap();
 
 			let index = cache.create_for_indexing(root.clone());
@@ -1030,6 +1176,7 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
 			let index = index.read().await;
@@ -1048,6 +1195,7 @@ mod tests {
 		use crate::ops::indexing::EntryMetadata;
 
 		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
 		let drive_dir = tempfile::tempdir().unwrap();
 		let root = drive_dir.path().to_path_buf();
 
@@ -1067,8 +1215,10 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some("fp-clobber".into()))
+				.register_source(&root, Some(anchor(&root)))
+				.await
 				.unwrap();
 			let index = cache.create_for_indexing(root.clone());
 			{
@@ -1090,6 +1240,7 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			let index = cache.create_for_indexing(root.clone());
 			{
 				let mut index = index.write().await;
@@ -1106,6 +1257,7 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
 			let index = index.read().await;
@@ -1126,6 +1278,7 @@ mod tests {
 		use crate::ops::indexing::EntryMetadata;
 
 		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
 		let drive_dir = tempfile::tempdir().unwrap();
 		let root = drive_dir.path().to_path_buf();
 
@@ -1150,8 +1303,10 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			source_id = cache
-				.register_source(&root, Some("fp-rename".into()))
+				.register_source(&root, Some(anchor(&root)))
+				.await
 				.unwrap();
 			let index = cache.create_for_indexing(root.clone());
 			{
@@ -1169,6 +1324,7 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			cache.ensure_restored(&root).await;
 			let index = cache.resolve_index(&root);
 			{
@@ -1186,6 +1342,7 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&after).await);
 			let index = cache.resolve_index(&root);
 			let mut index = index.write().await;
@@ -1198,16 +1355,18 @@ mod tests {
 		{
 			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
 				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
 			let other = cache
-				.register_source(&root, Some("fp-other".into()))
+				.register_source(&root, Some(anchor(&root)))
+				.await
 				.unwrap();
 			assert_ne!(other, source_id);
 
 			let statuses = cache.sources();
 			let original = statuses.iter().find(|s| s.id == source_id).unwrap();
-			assert_eq!(
-				original.fingerprint.as_deref(),
-				Some("fp-rename"),
+			let replacement = statuses.iter().find(|s| s.id == other).unwrap();
+			assert_ne!(
+				original.volume_uuid, replacement.volume_uuid,
 				"the displaced drive kept its own identity"
 			);
 		}

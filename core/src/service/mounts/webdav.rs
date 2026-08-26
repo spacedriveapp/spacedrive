@@ -551,7 +551,7 @@ mod tests {
 		let sources = vec![SourceStatus {
 			id: Uuid::now_v7(),
 			root: PathBuf::from("/tmp/demo"),
-			fingerprint: None,
+			volume_uuid: None,
 			attached: true,
 			restored: false,
 			last_seen_secs: 0,

@@ -42,7 +42,7 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	});
 	const indexedCount =
 		ephemeralStatus?.sources?.find(
-			(source) => source.fingerprint === volume.fingerprint
+			(source) => source.volume_uuid === volume.id
 		)?.entry_count ?? null;
 
 	// Subscribe to job events for this volume

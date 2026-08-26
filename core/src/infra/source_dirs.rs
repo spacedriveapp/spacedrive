@@ -3,10 +3,10 @@
 //! Everything a source owns on this machine lives in one directory:
 //! `sources/<id>/` under the daemon data dir holds its session-restore
 //! snapshot, its thumbnail cache, and its durable store (whose file name
-//! belongs to `sd_store::SourceManager`), with the source
-//! registry file beside the directories at `sources/sources.json`. Clients
-//! never assume this layout — per-source paths surface through the
-//! `core.ephemeral_status` query.
+//! belongs to `sd_store::SourceManager`). These are machine-local artifacts;
+//! the registration itself is library metadata and lives in the `sources`
+//! table. Clients never assume this layout — per-source paths surface through
+//! the `core.ephemeral_status` query.
 
 use anyhow::{Context, Result};
 use std::{
@@ -16,7 +16,6 @@ use std::{
 use uuid::Uuid;
 
 const SOURCES_DIR: &str = "sources";
-const REGISTRY_FILE: &str = "sources.json";
 const SNAPSHOT_FILE: &str = "ephemeral.snapshot";
 const THUMBS_FILE: &str = "thumbs.pvcache";
 const BLOCKS_DIR: &str = "blocks";
@@ -50,11 +49,6 @@ impl SourceDirs {
 
 	pub fn root(&self) -> &Path {
 		&self.root
-	}
-
-	/// The source registry file.
-	pub fn registry_file(&self) -> PathBuf {
-		self.root.join(REGISTRY_FILE)
 	}
 
 	/// A source's directory. Resolution only; see [`Self::create_source_dir`].
@@ -120,9 +114,7 @@ impl SourceDirs {
 				let _ = fs::remove_file(&path);
 				continue;
 			}
-			let dest = if name == REGISTRY_FILE {
-				self.registry_file()
-			} else if let Some(stem) = name.strip_suffix(".snapshot") {
+			let dest = if let Some(stem) = name.strip_suffix(".snapshot") {
 				let Ok(id) = Uuid::try_parse(stem) else {
 					continue;
 				};
@@ -168,7 +160,6 @@ mod tests {
 		let id = Uuid::now_v7();
 
 		assert_eq!(dirs.root(), data.path().join("sources"));
-		assert_eq!(dirs.registry_file(), dirs.root().join("sources.json"));
 		let source_dir = dirs.source_dir(id);
 		assert_eq!(source_dir, dirs.root().join(id.simple().to_string()));
 		assert_eq!(
@@ -190,27 +181,25 @@ mod tests {
 		fs::create_dir_all(&legacy).unwrap();
 
 		let id = Uuid::now_v7();
-		fs::write(legacy.join("sources.json"), b"{}").unwrap();
 		fs::write(legacy.join(format!("{}.snapshot", id.simple())), b"snap").unwrap();
 		fs::write(legacy.join("junk.tmp.abc"), b"partial").unwrap();
 		fs::write(legacy.join("unrelated.txt"), b"keep").unwrap();
 
 		let dirs = SourceDirs::under_data_dir(data.path()).unwrap();
 
-		assert_eq!(fs::read(dirs.registry_file()).unwrap(), b"{}");
 		assert_eq!(fs::read(dirs.snapshot_file(id)).unwrap(), b"snap");
 		assert!(!legacy.join("junk.tmp.abc").exists());
 		// Unrecognized files hold the directory open rather than being lost.
 		assert!(legacy.join("unrelated.txt").exists());
 
 		// A second pass moves nothing and changes nothing.
-		fs::write(legacy.join("sources.json"), b"stale").unwrap();
+		fs::write(legacy.join(format!("{}.snapshot", id.simple())), b"stale").unwrap();
 		let dirs = SourceDirs::under_data_dir(data.path()).unwrap();
-		assert_eq!(fs::read(dirs.registry_file()).unwrap(), b"{}");
+		assert_eq!(fs::read(dirs.snapshot_file(id)).unwrap(), b"snap");
 
 		// With only adoptable files left, the directory itself goes.
 		fs::remove_file(legacy.join("unrelated.txt")).unwrap();
-		fs::remove_file(legacy.join("sources.json")).unwrap();
+		fs::remove_file(legacy.join(format!("{}.snapshot", id.simple()))).unwrap();
 		SourceDirs::under_data_dir(data.path()).unwrap();
 		assert!(!legacy.exists());
 	}

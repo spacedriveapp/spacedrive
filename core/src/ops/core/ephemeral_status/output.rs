@@ -9,7 +9,8 @@ use std::path::PathBuf;
 pub struct EphemeralSourceInfo {
 	pub id: uuid::Uuid,
 	pub root: PathBuf,
-	pub fingerprint: Option<String>,
+	/// The volume this source sits on, when it sits on one Spacedrive tracks.
+	pub volume_uuid: Option<uuid::Uuid>,
 	/// The root exists on disk right now
 	pub attached: bool,
 	/// A snapshot restore has populated this source's index this session

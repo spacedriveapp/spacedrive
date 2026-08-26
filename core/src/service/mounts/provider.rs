@@ -455,11 +455,16 @@ async fn cloud_provider(
 	source: &SourceStatus,
 	abs: &Path,
 ) -> Result<Arc<dyn ByteProvider>, ByteError> {
-	let Some(fingerprint) = source.fingerprint.clone() else {
+	let Some(volume_uuid) = source.volume_uuid else {
 		return Err(ByteError::Unsupported("source has no volume".into()));
 	};
-	let fingerprint = VolumeFingerprint::from_hex(fingerprint);
-	let Some(mut volume) = context.volume_manager.get_volume(&fingerprint).await else {
+	let Some(mut volume) = context
+		.volume_manager
+		.get_all_volumes()
+		.await
+		.into_iter()
+		.find(|volume| volume.id == volume_uuid)
+	else {
 		return Err(ByteError::NoBackend("cloud volume not registered".into()));
 	};
 	if volume.backend.is_none() {

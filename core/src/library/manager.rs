@@ -556,6 +556,18 @@ impl LibraryManager {
 			}
 		}
 
+		// Adopt this library's source registrations. Absolute roots resolve
+		// against wherever each anchoring volume is mounted now, so a drive
+		// that came back at a different mount point needs no repair.
+		match context
+			.ephemeral_cache()
+			.attach_library(library.db().clone())
+			.await
+		{
+			Ok(adopted) => debug!("Adopted {adopted} sources for library {}", config.id),
+			Err(e) => error!("Failed to adopt sources for library {}: {e}", config.id),
+		}
+
 		// Register library
 		{
 			let mut libraries = self.libraries.write().await;

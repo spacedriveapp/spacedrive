@@ -52,7 +52,7 @@ pub enum ByteRangeRequest {
 pub struct RemoteSourceInfo {
 	pub id: Uuid,
 	pub root: PathBuf,
-	pub fingerprint: Option<String>,
+	pub volume_uuid: Option<uuid::Uuid>,
 	pub attached: bool,
 	pub entry_count: Option<u64>,
 	pub total_bytes: Option<u64>,
@@ -236,7 +236,7 @@ impl ByteRangeProtocolHandler {
 					sources.push(RemoteSourceInfo {
 						id: s.id,
 						root: s.root,
-						fingerprint: s.fingerprint,
+						volume_uuid: s.volume_uuid,
 						attached: s.attached,
 						entry_count: s.entry_count,
 						total_bytes: s.total_bytes,

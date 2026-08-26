@@ -1,176 +1,188 @@
-//! Ephemeral source registry
+//! The source registry: which roots this library indexes, and what medium each
+//! one sits on.
 //!
-//! A source is a registered root that owns its own ephemeral index partition
-//! and snapshot: a volume, an external drive, or an explicitly indexed tree.
-//! Registrations persist in a JSON file in the snapshot cache directory so a
-//! source keeps its identity — and can restore its snapshot — across launches
-//! and across remounts at different mount points.
+//! Registrations live in `library.db` (`entities::source`). This module holds
+//! the in-memory half: the matching rules, longest-prefix path resolution, and
+//! the record shape the cache keys its partitions on. It performs no I/O, so
+//! the arena's read path never waits on a database to answer "which source owns
+//! this path".
 //!
-//! This registry is deliberately lightweight; it converges with the archive
-//! sources registry when filesystem sources gain durable record stores.
+//! ## Volume-anchored roots
+//!
+//! A source that sits on a tracked volume stores its root *relative to that
+//! volume*, and its absolute root is that path joined onto wherever the volume
+//! is mounted right now. A whole-drive source has an empty relative root.
+//!
+//! This is what replaced fingerprint matching. The registry used to carry a
+//! volume fingerprint so a returning drive could be recognised at a new mount
+//! point, which duplicated an identity the volume manager already maintains.
+//! Anchoring to `volume_uuid` instead makes a remount cost nothing: the volume
+//! keeps its identity, the source keeps its relative root, and the absolute
+//! path re-derives. A drive that comes back somewhere else is no longer a case
+//! anything has to handle.
+//!
+//! Sources with no volume, which is ordinary for network shares and for roots
+//! on media Spacedrive does not track, keep an absolute root and match on it.
 
-use anyhow::{Context, Result};
-use serde::{Deserialize, Serialize};
-use std::{
-	fs,
-	path::{Path, PathBuf},
-};
+use chrono::{DateTime, Utc};
+use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
-/// Registry file format version.
-const REGISTRY_VERSION: u32 = 1;
+use crate::infra::db::entities::source;
 
-/// A registered ephemeral source.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// The medium a source is being registered against.
+#[derive(Debug, Clone)]
+pub struct VolumeAnchor {
+	pub uuid: Uuid,
+	/// Where the volume is mounted right now.
+	pub mount_point: PathBuf,
+}
+
+/// A registered source, as the cache and the UI see it.
+#[derive(Debug, Clone)]
 pub struct SourceRecord {
-	/// Stable identity for the source; keys the snapshot file.
+	/// Stable identity. Keys the source's directory under `SourceDirs`.
 	pub id: Uuid,
-	/// Root path at last attach. Remounts may change this; the fingerprint is
-	/// the durable identity for removable volumes.
+	pub name: String,
+	/// Absolute root as currently mounted. Derived from the anchor, so it
+	/// changes across remounts while the record does not.
 	pub root: PathBuf,
-	/// Volume fingerprint for removable sources, when known. Lets a drive be
-	/// recognized as the same source when it returns at a different mount point.
-	pub fingerprint: Option<String>,
-	/// Unix seconds at registration.
-	pub created_at_secs: u64,
-	/// Unix seconds at last successful attach or index.
-	pub last_seen_secs: u64,
-	/// Entry count at last snapshot, so the UI can show it without restoring.
-	#[serde(default)]
-	pub entry_count: Option<u64>,
-	/// Total file bytes at last snapshot.
-	#[serde(default)]
+	/// The durable half of the root: a path within the volume, or the absolute
+	/// path when there is no volume. Empty for a whole-drive source.
+	pub relative_root: String,
+	pub volume_uuid: Option<Uuid>,
+	pub created_at: DateTime<Utc>,
+	pub last_seen_at: DateTime<Utc>,
+	/// Records at last snapshot, so a listing can show a count without
+	/// restoring anything.
+	pub record_count: Option<u64>,
 	pub total_bytes: Option<u64>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-struct RegistryFile {
-	version: u32,
-	sources: Vec<SourceRecord>,
+impl SourceRecord {
+	/// Rebuild from a stored row, resolving the absolute root against wherever
+	/// the anchoring volume is mounted now.
+	///
+	/// A row whose volume is absent resolves to its relative root on its own,
+	/// which is the drive-in-a-drawer case: the record stands, its snapshot
+	/// still restores, and nothing on disk answers.
+	pub fn from_row(row: source::Model, mount_point: Option<&Path>) -> Self {
+		let relative_root = row.root.unwrap_or_default();
+		let root = match (row.volume_uuid, mount_point) {
+			(Some(_), Some(mount)) => join_relative(mount, &relative_root),
+			_ => PathBuf::from(&relative_root),
+		};
+
+		Self {
+			id: row.uuid,
+			name: row.name,
+			root,
+			relative_root,
+			volume_uuid: row.volume_uuid,
+			created_at: row.created_at,
+			last_seen_at: row.last_seen_at,
+			record_count: row.record_count.map(|c| c.max(0) as u64),
+			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
+		}
+	}
 }
 
-/// Persistent set of source registrations.
-#[derive(Debug)]
+fn join_relative(mount_point: &Path, relative: &str) -> PathBuf {
+	if relative.is_empty() {
+		mount_point.to_path_buf()
+	} else {
+		mount_point.join(relative)
+	}
+}
+
+/// The relative root a path implies within a volume, or `None` when the path
+/// is not under that mount point at all.
+fn relative_to(mount_point: &Path, root: &Path) -> Option<String> {
+	let relative = root.strip_prefix(mount_point).ok()?;
+	Some(
+		relative
+			.to_string_lossy()
+			.replace(std::path::MAIN_SEPARATOR, "/"),
+	)
+}
+
+fn display_name(root: &Path) -> String {
+	root.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_else(|| root.to_string_lossy().into_owned())
+}
+
+/// The set of registered sources, in memory.
+///
+/// Pure: every mutator returns the record that changed, and the caller writes
+/// it. Persistence belongs to whoever holds the library, which this does not.
+#[derive(Debug, Default)]
 pub struct SourceRegistry {
-	/// Where registrations are written, or `None` for a session-only registry.
-	/// Sources still work in that mode; nothing about them outlives the process.
-	path: Option<PathBuf>,
 	sources: Vec<SourceRecord>,
-}
-
-fn now_secs() -> u64 {
-	std::time::SystemTime::now()
-		.duration_since(std::time::UNIX_EPOCH)
-		.map(|d| d.as_secs())
-		.unwrap_or(0)
 }
 
 impl SourceRegistry {
-	/// Load the registry from `dir/sources.json`, or start empty.
-	pub fn load(dir: &Path) -> Self {
-		let path = dir.join("sources.json");
-		let sources = fs::read(&path)
-			.ok()
-			.and_then(|bytes| serde_json::from_slice::<RegistryFile>(&bytes).ok())
-			.filter(|file| file.version == REGISTRY_VERSION)
-			.map(|file| file.sources)
-			.unwrap_or_default();
-		Self {
-			path: Some(path),
-			sources,
-		}
+	/// Seed from stored rows. `mount_point_of` resolves a volume uuid to where
+	/// that volume is mounted now, and returns `None` for a volume that is not
+	/// attached.
+	pub fn from_rows(
+		rows: Vec<source::Model>,
+		mount_point_of: impl Fn(Uuid) -> Option<PathBuf>,
+	) -> Self {
+		let sources = rows
+			.into_iter()
+			.map(|row| {
+				let mount = row.volume_uuid.and_then(&mount_point_of);
+				SourceRecord::from_row(row, mount.as_deref())
+			})
+			.collect();
+		Self { sources }
 	}
 
-	/// A registry that lives only as long as the process.
+	/// Register a root, or refresh an existing registration.
 	///
-	/// Used when the cache is built without a sources directory. Writes are not
-	/// attempted rather than attempted and ignored, so a failure from `save` in
-	/// the persistent case always means something is actually wrong.
-	pub fn in_memory() -> Self {
-		Self {
-			path: None,
-			sources: Vec::new(),
-		}
-	}
+	/// Matching is by anchor: a volume-backed source is the same source when it
+	/// is the same volume and the same path within it, whatever the mount point
+	/// happens to be today. An unanchored source matches on its absolute root.
+	pub fn register(&mut self, root: &Path, volume: Option<&VolumeAnchor>) -> SourceRecord {
+		let now = Utc::now();
 
-	fn save(&self) -> Result<()> {
-		let Some(path) = &self.path else {
-			return Ok(());
+		let relative_root = match volume {
+			// A root that is not under the mount point it claims to be on is a
+			// caller error, and anchoring it anyway would bind the source to a
+			// volume that cannot produce its path. Fall back to unanchored.
+			Some(anchor) => relative_to(&anchor.mount_point, root),
+			None => None,
 		};
-		let file = RegistryFile {
-			version: REGISTRY_VERSION,
-			sources: self.sources.clone(),
-		};
-		let bytes = serde_json::to_vec_pretty(&file).context("serialize source registry")?;
-		let tmp = path.with_extension("json.tmp");
-		fs::write(&tmp, bytes).context("write source registry")?;
-		fs::rename(&tmp, path).context("rename source registry")?;
-		Ok(())
-	}
 
-	/// Register a root as a source, or refresh an existing registration.
-	///
-	/// Matching order: fingerprint (a returning drive, possibly at a new mount
-	/// point) first, then exact root, and the root arm is only reachable when
-	/// the caller has no fingerprint to offer or the stored record has none
-	/// either. A mount point is where a drive happens to be, not what it is, so
-	/// a fingerprint that matches nothing registers a new source rather than
-	/// adopting whatever last occupied that path — otherwise a different drive
-	/// inherits the previous one's id, its snapshot, and anything keyed to it.
-	pub fn register(&mut self, root: &Path, fingerprint: Option<String>) -> Result<SourceRecord> {
-		let now = now_secs();
+		let anchor = relative_root.as_ref().and(volume);
+		let key = relative_root
+			.clone()
+			.unwrap_or_else(|| root.to_string_lossy().into_owned());
 
-		if let Some(fp) = fingerprint.as_deref() {
-			if let Some(record) = self
-				.sources
-				.iter_mut()
-				.find(|s| s.fingerprint.as_deref() == Some(fp))
-			{
-				record.root = root.to_path_buf();
-				record.last_seen_secs = now;
-				let record = record.clone();
-				self.save()?;
-				return Ok(record);
-			}
-		}
-
-		let root_match = self.sources.iter_mut().find(|s| {
-			s.root == root
-				&& match (s.fingerprint.as_deref(), fingerprint.as_deref()) {
-					// Both identified and not equal: the fingerprint arm above
-					// already declined, so this is a different drive.
-					(Some(stored), Some(incoming)) => stored == incoming,
-					// Adopting a record that was registered before fingerprints
-					// were available is the one case worth naming the drive for.
-					(None, _) => true,
-					// The caller cannot identify what it mounted; the stored
-					// record can. Do not let an unidentified mount claim it.
-					(Some(_), None) => false,
-				}
+		let existing = self.sources.iter_mut().find(|source| {
+			source.volume_uuid == anchor.map(|a| a.uuid) && source.relative_root == key
 		});
 
-		if let Some(record) = root_match {
-			if record.fingerprint.is_none() {
-				record.fingerprint = fingerprint;
-			}
-			record.last_seen_secs = now;
-			let record = record.clone();
-			self.save()?;
-			return Ok(record);
+		if let Some(record) = existing {
+			record.root = root.to_path_buf();
+			record.last_seen_at = now;
+			return record.clone();
 		}
 
 		let record = SourceRecord {
 			id: Uuid::now_v7(),
+			name: display_name(root),
 			root: root.to_path_buf(),
-			fingerprint,
-			created_at_secs: now,
-			last_seen_secs: now,
-			entry_count: None,
+			relative_root: key,
+			volume_uuid: anchor.map(|a| a.uuid),
+			created_at: now,
+			last_seen_at: now,
+			record_count: None,
 			total_bytes: None,
 		};
 		self.sources.push(record.clone());
-		self.save()?;
-		Ok(record)
+		record
 	}
 
 	/// All registered sources.
@@ -180,41 +192,59 @@ impl SourceRegistry {
 
 	/// The registered source whose root is the longest prefix of `path`.
 	///
-	/// Two records can share a root: a drive that fails fingerprint matching
-	/// registers a new source at the mount point the previous one used. The most
-	/// recently seen of those is the one currently mounted there, so it wins.
+	/// Two records can share a root when a volume is replaced by another at the
+	/// same mount point, so the most recently seen of those wins.
 	pub fn resolve(&self, path: &Path) -> Option<&SourceRecord> {
 		self.sources
 			.iter()
-			.filter(|s| path.starts_with(&s.root))
-			.max_by_key(|s| (s.root.as_os_str().len(), s.last_seen_secs))
+			.filter(|source| path.starts_with(&source.root))
+			.max_by_key(|source| (source.root.as_os_str().len(), source.last_seen_at))
 	}
 
 	/// Look up a source by id.
 	pub fn by_id(&self, id: Uuid) -> Option<&SourceRecord> {
-		self.sources.iter().find(|s| s.id == id)
+		self.sources.iter().find(|source| source.id == id)
 	}
 
-	/// Record the entry count and byte total for a source (written alongside
-	/// snapshots, so listings show sizes without loading anything).
-	pub fn update_stats(&mut self, id: Uuid, entry_count: u64, total_bytes: u64) -> Result<()> {
-		if let Some(record) = self.sources.iter_mut().find(|s| s.id == id) {
-			record.entry_count = Some(entry_count);
-			record.total_bytes = Some(total_bytes);
-			record.last_seen_secs = now_secs();
-			self.save()?;
-		}
-		Ok(())
+	/// Point every source anchored to a volume at that volume's new mount
+	/// point, returning what changed so the caller can persist it.
+	///
+	/// Roots also resolve at library attach, which covers a drive that moved
+	/// while the daemon was down. This covers one that moves while it is up,
+	/// and it wants a `VolumeEvent::VolumeMountChanged` subscriber, which
+	/// nothing has yet.
+	pub fn remount(&mut self, volume_uuid: Uuid, mount_point: &Path) -> Vec<SourceRecord> {
+		let now = Utc::now();
+		self.sources
+			.iter_mut()
+			.filter(|source| source.volume_uuid == Some(volume_uuid))
+			.map(|source| {
+				source.root = join_relative(mount_point, &source.relative_root);
+				source.last_seen_at = now;
+				source.clone()
+			})
+			.collect()
 	}
 
-	/// Remove a source registration. The caller owns deleting the snapshot.
-	pub fn remove(&mut self, id: Uuid) -> Result<Option<SourceRecord>> {
-		let Some(idx) = self.sources.iter().position(|s| s.id == id) else {
-			return Ok(None);
-		};
-		let record = self.sources.remove(idx);
-		self.save()?;
-		Ok(Some(record))
+	/// Record what the last snapshot held, so listings can show a size without
+	/// loading one.
+	pub fn update_stats(
+		&mut self,
+		id: Uuid,
+		record_count: u64,
+		total_bytes: u64,
+	) -> Option<SourceRecord> {
+		let record = self.sources.iter_mut().find(|source| source.id == id)?;
+		record.record_count = Some(record_count);
+		record.total_bytes = Some(total_bytes);
+		record.last_seen_at = Utc::now();
+		Some(record.clone())
+	}
+
+	/// Drop a registration. The caller owns deleting the source's directory.
+	pub fn remove(&mut self, id: Uuid) -> Option<SourceRecord> {
+		let index = self.sources.iter().position(|source| source.id == id)?;
+		Some(self.sources.remove(index))
 	}
 }
 
@@ -222,63 +252,139 @@ impl SourceRegistry {
 mod tests {
 	use super::*;
 
+	fn anchor(mount: &str) -> VolumeAnchor {
+		VolumeAnchor {
+			uuid: Uuid::from_u128(1),
+			mount_point: PathBuf::from(mount),
+		}
+	}
+
 	#[test]
-	fn register_resolve_and_fingerprint_rebind() {
-		let dir = tempfile::tempdir().unwrap();
-		let mut reg = SourceRegistry::load(dir.path());
-
-		let a = reg
-			.register(Path::new("/Volumes/Archive"), Some("fp-1".into()))
-			.unwrap();
-		let b = reg.register(Path::new("/Users/me"), None).unwrap();
-		assert_ne!(a.id, b.id);
-
-		// Longest prefix wins.
-		let hit = reg
-			.resolve(Path::new("/Volumes/Archive/photos/x.jpg"))
-			.unwrap();
-		assert_eq!(hit.id, a.id);
-		assert!(reg.resolve(Path::new("/tmp/elsewhere")).is_none());
-
-		// Same drive back at a different mount point keeps its identity.
-		let again = reg
-			.register(Path::new("/Volumes/Archive 1"), Some("fp-1".into()))
-			.unwrap();
-		assert_eq!(again.id, a.id);
-		assert_eq!(again.root, PathBuf::from("/Volumes/Archive 1"));
-
-		// A different drive at a mount point the first one used is a different
-		// source: it must not inherit an id, and must not overwrite the stored
-		// fingerprint of the drive that is merely absent.
-		let other = reg
-			.register(Path::new("/Volumes/Archive 1"), Some("fp-2".into()))
-			.unwrap();
-		assert_ne!(other.id, a.id);
+	fn a_remount_keeps_the_source() {
+		let mut registry = SourceRegistry::default();
+		let drive = anchor("/Volumes/Archive");
+		let first = registry.register(Path::new("/Volumes/Archive"), Some(&drive));
 		assert_eq!(
-			reg.by_id(a.id).unwrap().fingerprint.as_deref(),
-			Some("fp-1"),
-			"the absent drive kept its own fingerprint"
+			first.relative_root, "",
+			"a whole drive has no path within itself"
 		);
 
-		// Two records now share a root; the most recently seen wins resolution.
+		// The same drive comes back one mount point over. The volume manager
+		// kept its uuid, so the source needs no evidence of its own.
+		let moved = anchor("/Volumes/Archive 1");
+		let again = registry.register(Path::new("/Volumes/Archive 1"), Some(&moved));
+		assert_eq!(again.id, first.id);
+		assert_eq!(again.root, PathBuf::from("/Volumes/Archive 1"));
+		assert_eq!(registry.all().len(), 1);
+	}
+
+	#[test]
+	fn a_different_drive_at_the_same_mount_point_is_a_different_source() {
+		let mut registry = SourceRegistry::default();
+		let first = registry.register(
+			Path::new("/Volumes/Archive"),
+			Some(&anchor("/Volumes/Archive")),
+		);
+
+		let other = VolumeAnchor {
+			uuid: Uuid::from_u128(2),
+			mount_point: PathBuf::from("/Volumes/Archive"),
+		};
+		let second = registry.register(Path::new("/Volumes/Archive"), Some(&other));
+
+		assert_ne!(
+			second.id, first.id,
+			"a mount point is where a drive is, not what it is"
+		);
+		assert_eq!(registry.all().len(), 2);
+	}
+
+	#[test]
+	fn folders_on_one_drive_are_distinct_sources() {
+		let mut registry = SourceRegistry::default();
+		let drive = anchor("/Volumes/Archive");
+		let photos = registry.register(Path::new("/Volumes/Archive/Photos"), Some(&drive));
+		let video = registry.register(Path::new("/Volumes/Archive/Video"), Some(&drive));
+
+		assert_ne!(photos.id, video.id);
+		assert_eq!(photos.relative_root, "Photos");
+		assert_eq!(video.relative_root, "Video");
+
+		// Both follow the drive without being re-registered.
+		let moved = registry.remount(drive.uuid, Path::new("/Volumes/Archive 1"));
+		assert_eq!(moved.len(), 2);
 		assert_eq!(
-			reg.resolve(Path::new("/Volumes/Archive 1/x.jpg"))
+			registry.by_id(photos.id).unwrap().root,
+			PathBuf::from("/Volumes/Archive 1/Photos")
+		);
+	}
+
+	#[test]
+	fn longest_prefix_wins_resolution() {
+		let mut registry = SourceRegistry::default();
+		let drive = anchor("/Volumes/Archive");
+		let whole = registry.register(Path::new("/Volumes/Archive"), Some(&drive));
+		let photos = registry.register(Path::new("/Volumes/Archive/Photos"), Some(&drive));
+
+		assert_eq!(
+			registry
+				.resolve(Path::new("/Volumes/Archive/Photos/x.jpg"))
 				.unwrap()
 				.id,
-			other.id
+			photos.id
 		);
-
-		// An unidentified mount must not claim a record that is identified.
-		let anonymous = reg.register(Path::new("/Volumes/Archive 1"), None).unwrap();
-		assert_ne!(anonymous.id, other.id);
-
-		// Registrations survive reload: the two originals plus the two drives
-		// that declined to adopt an existing record.
-		let reloaded = SourceRegistry::load(dir.path());
-		assert_eq!(reloaded.all().len(), 4);
 		assert_eq!(
-			reloaded.by_id(a.id).unwrap().root,
-			PathBuf::from("/Volumes/Archive 1")
+			registry
+				.resolve(Path::new("/Volumes/Archive/Video/x.mov"))
+				.unwrap()
+				.id,
+			whole.id
 		);
+		assert!(registry.resolve(Path::new("/elsewhere")).is_none());
+	}
+
+	#[test]
+	fn a_root_outside_its_claimed_volume_is_not_anchored() {
+		let mut registry = SourceRegistry::default();
+		// Anchoring this would bind the source to a volume that cannot produce
+		// its path, so the record stands on its absolute root instead.
+		let record = registry.register(
+			Path::new("/Users/me/Notes"),
+			Some(&anchor("/Volumes/Archive")),
+		);
+
+		assert!(record.volume_uuid.is_none());
+		assert_eq!(record.relative_root, "/Users/me/Notes");
+	}
+
+	#[test]
+	fn an_unattached_volume_leaves_the_record_standing() {
+		let row = source::Model {
+			id: 1,
+			uuid: Uuid::from_u128(9),
+			name: "Archive".to_string(),
+			data_type: source::FILESYSTEM_DATA_TYPE.to_string(),
+			adapter_id: None,
+			config: "{}".to_string(),
+			root: Some("Photos".to_string()),
+			volume_uuid: Some(Uuid::from_u128(1)),
+			record_count: Some(12),
+			directory_count: None,
+			total_bytes: Some(4096),
+			unique_bytes: None,
+			last_indexed_at: None,
+			status: "idle".to_string(),
+			trust_tier: "authored".to_string(),
+			created_at: Utc::now(),
+			last_seen_at: Utc::now(),
+		};
+
+		let registry = SourceRegistry::from_rows(vec![row], |_| None);
+		let record = &registry.all()[0];
+
+		// The drive is in a drawer. The record and its counts survive; only the
+		// absolute path is unavailable, which is exactly what is true.
+		assert_eq!(record.record_count, Some(12));
+		assert_eq!(record.relative_root, "Photos");
 	}
 }

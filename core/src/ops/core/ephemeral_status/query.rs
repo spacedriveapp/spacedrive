@@ -154,7 +154,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			.map(|s| super::output::EphemeralSourceInfo {
 				id: s.id,
 				root: s.root,
-				fingerprint: s.fingerprint,
+				volume_uuid: s.volume_uuid,
 				attached: s.attached,
 				restored: s.restored,
 				last_seen_secs: s.last_seen_secs,
