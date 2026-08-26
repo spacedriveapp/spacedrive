@@ -20,9 +20,10 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::{
-	fill, point, px, relative, size, App, Bounds, Context, Corners, DispatchPhase, Element,
-	ElementId, Entity, GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId, IntoElement,
-	LayoutId, Pixels, Render, RenderImage, ScrollDelta, ScrollWheelEvent, Style, Window,
+	fill, point, px, relative, size, App, Bounds, ContentMask, Context, Corners, DispatchPhase,
+	Element, ElementId, Entity, GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId,
+	IntoElement, LayoutId, PinchEvent, Pixels, Point, Render, RenderImage, ScrollDelta,
+	ScrollWheelEvent, Style, TouchPhase, Window,
 };
 use image::Frame;
 use smallvec::smallvec;
@@ -53,8 +54,14 @@ fn fit_within(cell: Bounds<Pixels>, aspect: f32) -> Bounds<Pixels> {
 	)
 }
 
-/// Logical-point tile size and gap, matching the reference grid.
+/// Logical-point tile size and gap, matching the reference grid. `TARGET_CELL`
+/// is the density the grid opens at; pinch zoom moves it within the bounds
+/// below, from many small tiles up to a few large ones.
 const TARGET_CELL: f32 = 128.0;
+const MIN_CELL: f32 = 64.0;
+/// The baked tile is `TILE` physical pixels on its long edge, so a cell drawn
+/// larger than that upscales. At 2x this ceiling reaches it.
+const MAX_CELL: f32 = 384.0;
 const GAP: f32 = 2.0;
 /// Baked tiles held resident (CPU bytes + sprite-atlas space). Visible set is
 /// ~100 cells, so this gives a healthy scroll-back margin while bounding
@@ -122,12 +129,43 @@ impl AutoScroll {
 	}
 }
 
+/// A live pinch. Captured at `Started` and held until the gesture settles: the
+/// grid keeps `cols0` columns and scales `pitch0` by `g`, anchored so the
+/// content point under the fingers stays under them.
+struct PinchState {
+	/// Accumulated scale, 1.0 at gesture start.
+	g: f32,
+	/// Columns held for the duration of the gesture.
+	cols0: u32,
+	/// Tile pitch (cell + gap) at gesture start.
+	pitch0: f32,
+	/// Focal point in grid-local points.
+	fx: f32,
+	fy: f32,
+	/// Focal point in pitch units, which is scale-independent, so the anchor
+	/// solves to a scroll offset at any scale.
+	ux: f32,
+	uy: f32,
+	/// The cell under the focal point and its sub-cell vertical fraction, so
+	/// the settle keeps that item fixed across the column-count reflow.
+	focal_item: u32,
+	frac_y: f32,
+}
+
 pub struct GridView {
 	source: Box<dyn TileSource>,
 	/// A source handed over between frames. The swap happens inside paint,
 	/// where the window handle needed to release the old atlas tiles exists.
 	next_source: Option<Box<dyn TileSource>>,
 	scroll_y: f32,
+	/// Horizontal offset, nonzero only mid-pinch: the column count is held for
+	/// the gesture, so the grid overflows sideways as its tiles grow.
+	scroll_x: f32,
+	/// Live tile size in logical points, driven by pinch zoom. The steady-state
+	/// layout fills the row width at this density.
+	target_cell: f32,
+	/// The in-flight pinch, if one is live.
+	pinch: Option<PinchState>,
 	/// Resident tiles: the uploaded image, its aspect (width / height, so the
 	/// cell can hold the shape without re-reading the buffer), and the tick it
 	/// was last painted on for LRU eviction.
@@ -166,6 +204,9 @@ impl GridView {
 			source,
 			next_source: None,
 			scroll_y: 0.0,
+			scroll_x: 0.0,
+			target_cell: TARGET_CELL,
+			pinch: None,
 			cache: HashMap::new(),
 			tick: 0,
 			stats: FrameStats::new(),
@@ -187,26 +228,104 @@ impl GridView {
 		self.source.len()
 	}
 
-	fn cols(&self, width: f32) -> u32 {
-		(((width + GAP) / (TARGET_CELL + GAP)).floor() as u32).max(1)
-	}
-
-	/// Displayed cell size: the row width shared across columns so tiles fill
-	/// the viewport edge to edge (same policy as the reference grid).
-	fn cell(&self, width: f32) -> f32 {
-		let cols = self.cols(width);
-		((width - (cols - 1) as f32 * GAP) / cols as f32).max(1.0)
+	/// Columns and displayed cell size for the current width. While a pinch is
+	/// live the column count is held and the tile scales continuously, so the
+	/// grid overflows sideways; otherwise the row width is shared across
+	/// columns and tiles fill the viewport edge to edge (same policy as the
+	/// reference grid).
+	fn layout(&self, width: f32) -> (u32, f32) {
+		match &self.pinch {
+			Some(pinch) => (pinch.cols0, (pinch.pitch0 * pinch.g - GAP).max(1.0)),
+			None => {
+				let cols = (((width + GAP) / (self.target_cell + GAP)).floor() as u32).max(1);
+				(
+					cols,
+					((width - (cols - 1) as f32 * GAP) / cols as f32).max(1.0),
+				)
+			}
+		}
 	}
 
 	fn max_scroll(&self, width: f32, height: f32) -> f32 {
-		let cols = self.cols(width);
+		let (cols, cell) = self.layout(width);
 		let rows = (self.source.len() + cols - 1) / cols;
-		let pitch = self.cell(width) + GAP;
-		(rows as f32 * pitch - height).max(0.0)
+		(rows as f32 * (cell + GAP) - height).max(0.0)
 	}
 
 	pub fn scroll_by(&mut self, dy: f32, width: f32, height: f32) {
 		self.scroll_y = (self.scroll_y - dy).clamp(0.0, self.max_scroll(width, height));
+	}
+
+	/// Drive pinch zoom from a trackpad magnify event. The gesture holds its
+	/// column count and scales the tile continuously, anchored so the content
+	/// under the fingers stays put; on release it settles onto the nearest
+	/// fill-width layout at the new density, keeping that same item fixed
+	/// across the reflow.
+	///
+	/// `focal` is the gesture centroid in window coordinates.
+	fn on_pinch(
+		&mut self,
+		phase: TouchPhase,
+		delta: f32,
+		focal: Point<Pixels>,
+		bounds: Bounds<Pixels>,
+	) {
+		let width = f32::from(bounds.size.width);
+		let height = f32::from(bounds.size.height);
+		match phase {
+			// macOS reports `NSEventPhaseMayBegin` as `Started`, so a gesture
+			// can open without ever moving. Harmless: the scale starts at 1.0,
+			// which reproduces the layout the capture was taken from.
+			TouchPhase::Started => {
+				let (cols0, cell0) = self.layout(width);
+				let pitch0 = cell0 + GAP;
+				let fx = (f32::from(focal.x) - f32::from(bounds.origin.x)).max(0.0);
+				let fy = (f32::from(focal.y) - f32::from(bounds.origin.y)).max(0.0);
+				let ux = (fx + self.scroll_x) / pitch0;
+				let uy = (fy + self.scroll_y) / pitch0;
+				let col = (ux.floor() as i64).clamp(0, cols0 as i64 - 1) as u32;
+				let row = uy.floor().max(0.0) as u32;
+				let focal_item = (row * cols0 + col).min(self.source.len().saturating_sub(1));
+				self.pinch = Some(PinchState {
+					g: 1.0,
+					cols0,
+					pitch0,
+					fx,
+					fy,
+					ux,
+					uy,
+					focal_item,
+					frac_y: uy - uy.floor(),
+				});
+			}
+			TouchPhase::Moved => {
+				if let Some(pinch) = self.pinch.as_mut() {
+					pinch.g = (pinch.g * (1.0 + delta)).clamp(
+						(MIN_CELL + GAP) / pinch.pitch0,
+						(MAX_CELL + GAP) / pinch.pitch0,
+					);
+					// Re-anchor the focal content point under the fingers,
+					// which do not move during a magnify. Left unclamped so
+					// the anchor holds at the ends of the range; the settle
+					// below is what brings the offsets back in bounds.
+					let pitch = pinch.pitch0 * pinch.g;
+					self.scroll_x = pinch.ux * pitch - pinch.fx;
+					self.scroll_y = pinch.uy * pitch - pinch.fy;
+				}
+			}
+			TouchPhase::Ended | TouchPhase::Cancelled => {
+				if let Some(pinch) = self.pinch.take() {
+					self.target_cell = (pinch.pitch0 * pinch.g - GAP).clamp(MIN_CELL, MAX_CELL);
+					// The column count changes here. Keep the focal item under
+					// the same screen point through the reflow.
+					let (cols_new, cell_new) = self.layout(width);
+					let anchor = (pinch.focal_item / cols_new) as f32 + pinch.frac_y;
+					let max = self.max_scroll(width, height);
+					self.scroll_y = (anchor * (cell_new + GAP) - pinch.fy).clamp(0.0, max);
+					self.scroll_x = 0.0;
+				}
+			}
+		}
 	}
 
 	/// Advance the scripted scroll. Returns false once the script is done.
@@ -265,6 +384,8 @@ impl GridView {
 		if let Some(source) = self.next_source.take() {
 			self.source = source;
 			self.scroll_y = 0.0;
+			self.scroll_x = 0.0;
+			self.pinch = None;
 			for (_, (img, ..)) in self.cache.drain() {
 				let _ = window.drop_image(img);
 			}
@@ -302,8 +423,7 @@ impl GridView {
 
 		// Layout + cull: identical derivation to the reference renderer.
 		let count = self.source.len();
-		let cols = self.cols(width);
-		let cell = self.cell(width);
+		let (cols, cell) = self.layout(width);
 		let pitch = cell + GAP;
 		let first_row = (self.scroll_y / pitch).floor() as u32;
 		let visible_rows = (height / pitch).ceil() as u32 + 1;
@@ -318,7 +438,7 @@ impl GridView {
 		for idx in first..last {
 			let row = idx / cols;
 			let col = idx % cols;
-			let x = f32::from(bounds.origin.x) + col as f32 * pitch;
+			let x = f32::from(bounds.origin.x) + col as f32 * pitch - self.scroll_x;
 			let y = f32::from(bounds.origin.y) + row as f32 * pitch - self.scroll_y;
 			let cell_bounds = Bounds::new(point(px(x), px(y)), size(px(cell), px(cell)));
 			match self.cache.get_mut(&idx) {
@@ -354,17 +474,35 @@ impl GridView {
 
 		// Manual scrolling (trackpad / wheel) over the grid's hitbox.
 		let entity = cx.entity();
-		let hitbox = hitbox.clone();
+		let wheel_hitbox = hitbox.clone();
 		window.on_mouse_event(move |event: &ScrollWheelEvent, phase, window, cx| {
-			if phase != DispatchPhase::Bubble || !hitbox.is_hovered(window) {
+			if phase != DispatchPhase::Bubble || !wheel_hitbox.is_hovered(window) {
 				return;
 			}
 			let dy = match event.delta {
 				ScrollDelta::Pixels(p) => f32::from(p.y),
-				ScrollDelta::Lines(l) => l.y * (TARGET_CELL + GAP),
+				ScrollDelta::Lines(l) => l.y * pitch,
 			};
 			entity.update(cx, |view, cx| {
 				view.scroll_by(dy, width, height);
+				cx.notify();
+			});
+		});
+
+		// Pinch zoom. gpui carries the trackpad magnify gesture itself, so
+		// this is the same subscription shape as the wheel above.
+		let entity = cx.entity();
+		let pinch_hitbox = hitbox.clone();
+		window.on_mouse_event(move |event: &PinchEvent, phase, window, cx| {
+			// A gesture that opens over the grid keeps it until it settles,
+			// so a pinch that drifts off the hitbox mid-zoom is not dropped
+			// half-applied.
+			let live = entity.read(cx).pinch.is_some();
+			if phase != DispatchPhase::Bubble || !(live || pinch_hitbox.is_hovered(window)) {
+				return;
+			}
+			entity.update(cx, |view, cx| {
+				view.on_pinch(event.phase, event.delta, event.position, bounds);
 				cx.notify();
 			});
 		});
@@ -468,7 +606,12 @@ impl Element for GridElement {
 		cx: &mut App,
 	) {
 		let view = self.view.clone();
-		view.update(cx, |grid, cx| grid.paint_grid(bounds, hitbox, window, cx));
+		// A partially scrolled row runs past the element on every axis, and a
+		// live pinch overflows sideways as well, so the paint is masked to the
+		// element rather than trusting the cull to stay inside it.
+		window.with_content_mask(Some(ContentMask { bounds }), |window| {
+			view.update(cx, |grid, cx| grid.paint_grid(bounds, hitbox, window, cx));
+		});
 	}
 }
 

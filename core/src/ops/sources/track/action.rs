@@ -8,6 +8,18 @@
 //! Indexing starts here rather than waiting to be asked. Registration is
 //! instant and the walk is not, so the action returns as soon as the row
 //! exists and the job reports progress against it.
+//!
+//! ## Against `volumes.track`
+//!
+//! Different axes, and the names collide on the word rather than the meaning.
+//! `volumes.track` marks a *medium* as belonging to a library: it flips
+//! `is_tracked` on the volume row and indexes nothing. This makes an *index* of
+//! what is on one. A drive can be tracked with nothing indexed, and a root can
+//! be indexed on a volume nobody tracked, which is the unanchored case.
+//!
+//! `volumes.index` is the older overlap: it takes a fingerprint rather than a
+//! path and can only ever mean the whole drive. It retires once callers move to
+//! this, since a mount point is just a path.
 
 use crate::{
 	context::CoreContext,
@@ -97,7 +109,20 @@ impl LibraryAction for TrackSourceAction {
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
+		// Seed the partition from its snapshot before walking over it. A
+		// partition that skipped restore is barred from saving over an existing
+		// snapshot, so tracking a root that already has one would index and then
+		// fail to persist.
+		context.ephemeral_cache().ensure_restored(&root).await;
+
 		let index = context.ephemeral_cache().create_for_indexing(root.clone());
+
+		// Entries from a previous pass that this one will not revisit would
+		// otherwise linger in the arena as files that no longer exist.
+		let cleared = context.ephemeral_cache().clear_for_reindex(&root).await;
+		if cleared > 0 {
+			tracing::debug!(source = %id, cleared, "cleared stale entries before re-indexing");
+		}
 
 		let device_slug = crate::device::get_current_device_slug();
 		let sd_path = SdPath::Physical {
