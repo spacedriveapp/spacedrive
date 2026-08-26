@@ -63,7 +63,7 @@ pub use config::{EventFilters, WatchConfig, WatcherConfig};
 pub use error::{Result, WatcherError};
 pub use event::{FsEvent, FsEventKind, RawEventKind, RawNotifyEvent};
 pub use platform::{EventHandler, PlatformHandler};
-pub use watcher::{FsWatcher, WatchHandle};
+pub use watcher::{watchable_spelling, FsWatcher, WatchHandle};
 
 // Re-export notify types that users might need
 pub use notify::RecursiveMode;

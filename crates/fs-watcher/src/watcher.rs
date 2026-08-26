@@ -21,6 +21,46 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
 /// above, by callers that already compare an event's parent against the root
 /// they asked for. Watching wider than asked costs events that get filtered;
 /// watching non-recursively costs every event.
+
+/// The spelling of `path` that the platform's watcher will actually accept.
+///
+/// macOS reaches the writable half of the disk twice: `/Users/me` and
+/// `/System/Volumes/Data/Users/me` are the same directory, same device, same
+/// inode, joined by a firmlink. `realpath` does not resolve firmlinks, so both
+/// spellings survive canonicalization, and FSEvents subscribes to exactly one
+/// of them. Registered under the `/System/Volumes/Data` spelling it accepts the
+/// watch, reports no error, and delivers nothing — the same silent failure as a
+/// non-recursive subscription, from a different cause.
+///
+/// The stripped path is only used when it is demonstrably the same directory,
+/// so a path that merely starts with those bytes is left alone rather than
+/// rewritten into something else.
+#[cfg(target_os = "macos")]
+pub fn watchable_spelling(path: &Path) -> PathBuf {
+	const DATA_VOLUME: &str = "/System/Volumes/Data";
+
+	let Ok(rest) = path.strip_prefix(DATA_VOLUME) else {
+		return path.to_path_buf();
+	};
+	let stripped = Path::new("/").join(rest);
+
+	match (std::fs::metadata(path), std::fs::metadata(&stripped)) {
+		(Ok(a), Ok(b)) if same_file(&a, &b) => stripped,
+		_ => path.to_path_buf(),
+	}
+}
+
+#[cfg(target_os = "macos")]
+fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+	use std::os::unix::fs::MetadataExt;
+	a.dev() == b.dev() && a.ino() == b.ino()
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn watchable_spelling(path: &Path) -> PathBuf {
+	path.to_path_buf()
+}
+
 fn notify_mode(recursive: bool) -> RecursiveMode {
 	if recursive || cfg!(target_os = "macos") {
 		RecursiveMode::Recursive
@@ -119,7 +159,7 @@ impl FsWatcherInner {
 				let mode = notify_mode(config.recursive);
 
 				watcher
-					.watch(&path, mode)
+					.watch(&watchable_spelling(&path), mode)
 					.map_err(|e| WatcherError::WatchFailed {
 						path: path.clone(),
 						reason: e.to_string(),
@@ -349,7 +389,7 @@ impl FsWatcher {
 			for (path, state) in watched.iter() {
 				let mode = notify_mode(state.config.recursive);
 
-				if let Err(e) = watcher.watch(path, mode) {
+				if let Err(e) = watcher.watch(&watchable_spelling(path), mode) {
 					warn!("Failed to register watch for {}: {}", path.display(), e);
 				} else {
 					debug!("Registered watch for: {}", path.display());
@@ -485,6 +525,32 @@ mod tests {
 		assert_eq!(paths[0], temp_dir.path());
 
 		watcher.stop().await.unwrap();
+	}
+
+	/// The same directory reached the long way round has to be watchable.
+	///
+	/// `/System/Volumes/Data/Users/me` and `/Users/me` are one directory joined
+	/// by a firmlink, and FSEvents only subscribes to the second. Spacedrive
+	/// resolves paths through the Data volume's mount point, so the spelling it
+	/// asks for is the one that does not work.
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn the_data_volume_spelling_is_rewritten() {
+		let long = Path::new("/System/Volumes/Data/Users");
+		if !long.exists() {
+			return;
+		}
+		assert_eq!(watchable_spelling(long), Path::new("/Users"));
+	}
+
+	/// Only when it really is the same directory. A path that merely starts
+	/// with those bytes must survive untouched rather than being rewritten into
+	/// something else entirely.
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn a_path_that_only_looks_like_it_is_left_alone() {
+		let impostor = Path::new("/System/Volumes/Data-not-really/x");
+		assert_eq!(watchable_spelling(impostor), impostor);
 	}
 
 	/// A shallow watch has to actually deliver.
