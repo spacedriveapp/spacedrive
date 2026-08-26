@@ -127,13 +127,22 @@ impl CloudServiceType {
 }
 
 /// Raw directory entry returned by volume backends
+///
+/// Carries the same timestamps as [`RawMetadata`] because a backend that lists
+/// a directory has already stat'd every entry in it. Reading them here costs
+/// nothing and is the only chance: birth time cannot be recovered once a file
+/// has been copied.
 #[derive(Debug, Clone)]
 pub struct RawDirEntry {
 	pub name: String,
 	pub kind: EntryKind,
 	pub size: u64,
 	pub modified: Option<SystemTime>,
+	pub created: Option<SystemTime>,
+	pub accessed: Option<SystemTime>,
 	pub inode: Option<u64>,
+	/// Unix permission bits (mode), None for cloud backends or Windows
+	pub permissions: Option<u32>,
 }
 
 /// Raw metadata returned by volume backends

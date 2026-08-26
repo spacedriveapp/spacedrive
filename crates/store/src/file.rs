@@ -71,6 +71,7 @@ pub struct Observation {
 	/// Unix milliseconds.
 	pub mtime: i64,
 	pub created: Option<i64>,
+	pub accessed: Option<i64>,
 	pub inode: Option<i64>,
 	pub mode: Option<i64>,
 	pub extension: Option<String>,
@@ -391,11 +392,12 @@ pub struct Watermark<'a> {
 }
 
 const INSERT_FACET_FILE: &str = "\
-INSERT INTO facet_file (record_uuid, size, mtime, inode, mode, extension, is_hidden)
- VALUES (?, ?, ?, ?, ?, ?, ?)
+INSERT INTO facet_file (record_uuid, size, mtime, atime, inode, mode, extension, is_hidden)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?)
  ON CONFLICT (record_uuid) DO UPDATE SET
 	size = excluded.size,
 	mtime = excluded.mtime,
+	atime = excluded.atime,
 	inode = excluded.inode,
 	mode = excluded.mode,
 	extension = excluded.extension,
@@ -491,6 +493,7 @@ impl SourceDb {
 				.bind(record.uuid)
 				.bind(observation.size)
 				.bind(observation.mtime)
+				.bind(observation.accessed)
 				.bind(observation.inode)
 				.bind(observation.mode)
 				.bind(&observation.extension)
@@ -553,6 +556,7 @@ pub fn filesystem_schema() -> DataTypeSchema {
 	let mut fields = IndexMap::new();
 	fields.insert("size".to_string(), FieldType::Integer);
 	fields.insert("mtime".to_string(), FieldType::Integer);
+	fields.insert("atime".to_string(), FieldType::Integer);
 	fields.insert("inode".to_string(), FieldType::Integer);
 	fields.insert("mode".to_string(), FieldType::Integer);
 	fields.insert("extension".to_string(), FieldType::String);

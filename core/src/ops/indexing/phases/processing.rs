@@ -165,7 +165,7 @@ pub async fn run_processing_phase(
 	// Without this, creating /a/b/c.txt before /a would fail the parent_id constraint.
 	ctx.log("Flattening and sorting all entries by depth...");
 	let mut all_entries: Vec<DirEntry> = Vec::new();
-	while let Some(batch) = state.entry_batches.pop() {
+	while let Some(batch) = state.entry_batches.pop_front() {
 		all_entries.extend(batch);
 	}
 
@@ -197,31 +197,31 @@ pub async fn run_processing_phase(
 	));
 
 	let batch_size = 1000;
-	let mut sorted_batches: Vec<Vec<DirEntry>> = Vec::new();
+	let mut sorted_batches: std::collections::VecDeque<Vec<DirEntry>> =
+		std::collections::VecDeque::new();
 	let mut current_batch = Vec::with_capacity(batch_size);
 
 	for entry in all_entries {
 		current_batch.push(entry);
 		if current_batch.len() >= batch_size {
-			sorted_batches.push(std::mem::replace(
+			sorted_batches.push_back(std::mem::replace(
 				&mut current_batch,
 				Vec::with_capacity(batch_size),
 			));
 		}
 	}
 	if !current_batch.is_empty() {
-		sorted_batches.push(current_batch);
+		sorted_batches.push_back(current_batch);
 	}
 
 	state.entry_batches = sorted_batches;
-	state.entry_batches.reverse();
 	let total_batches = state.entry_batches.len();
 	ctx.log(format!("Re-batched into {} sorted batches", total_batches));
 
 	let mut total_processed = 0;
 	let mut batch_number = 0;
 
-	while let Some(batch) = state.entry_batches.pop() {
+	while let Some(batch) = state.entry_batches.pop_front() {
 		ctx.check_interrupt().await?;
 
 		batch_number += 1;
@@ -587,12 +587,23 @@ pub async fn run_processing_phase(
 					crate::ops::indexing::state::EntryKind::File
 				};
 
+				#[cfg(unix)]
+				let permissions = {
+					use std::os::unix::fs::MetadataExt;
+					Some(metadata.mode())
+				};
+				#[cfg(not(unix))]
+				let permissions = None;
+
 				let root_dir_entry = crate::ops::indexing::state::DirEntry {
 					path: location_root_path.to_path_buf(),
 					kind,
 					size: metadata.len(),
 					modified: metadata.modified().ok(),
+					created: metadata.created().ok(),
+					accessed: metadata.accessed().ok(),
 					inode,
+					permissions,
 				};
 
 				let txn = ctx.library_db().begin().await.map_err(|e| {

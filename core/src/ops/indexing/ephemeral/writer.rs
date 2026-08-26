@@ -532,7 +532,10 @@ mod tests {
 			kind: EntryKind::File,
 			size: 12,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(12345),
+			permissions: None,
 		};
 
 		let entry_ref = writer
@@ -574,7 +577,10 @@ mod tests {
 			kind: EntryKind::File,
 			size: 12,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(12345),
+			permissions: None,
 		};
 
 		let entry_id = writer
@@ -614,7 +620,10 @@ mod tests {
 			kind: EntryKind::File,
 			size: 12,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(12345),
+			permissions: None,
 		};
 
 		writer
@@ -663,7 +672,10 @@ mod move_tests {
 			kind: EntryKind::File,
 			size: 5,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(7),
+			permissions: None,
 		};
 		let created = adapter.create(&entry, root.path()).await.expect("create");
 		// Drain the create event.
@@ -731,7 +743,10 @@ mod move_tests {
 			kind: EntryKind::File,
 			size: 5,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(7),
+			permissions: None,
 		};
 		let created = adapter.create(&entry, root.path()).await.expect("create");
 		let _ =

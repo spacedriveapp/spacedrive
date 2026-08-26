@@ -177,7 +177,7 @@ async fn run_parallel_discovery(
 
 				if state.should_create_batch() {
 					let batch = state.create_batch();
-					state.entry_batches.push(batch);
+					state.entry_batches.push_back(batch);
 				}
 			}
 			DiscoveryResult::Stats {
@@ -235,7 +235,7 @@ async fn run_parallel_discovery(
 			final_batch_size
 		));
 		let batch = state.create_batch();
-		state.entry_batches.push(batch);
+		state.entry_batches.push_back(batch);
 	}
 
 	let skipped = skipped_count.load(Ordering::SeqCst);
@@ -519,7 +519,7 @@ async fn run_discovery_phase_sequential(
 
 				if state.should_create_batch() {
 					let batch = state.create_batch();
-					state.entry_batches.push(batch);
+					state.entry_batches.push_back(batch);
 				}
 			}
 			Err(e) => {
@@ -542,7 +542,7 @@ async fn run_discovery_phase_sequential(
 			final_batch_size
 		));
 		let batch = state.create_batch();
-		state.entry_batches.push(batch);
+		state.entry_batches.push_back(batch);
 	}
 
 	ctx.log(format!(
@@ -616,7 +616,10 @@ async fn read_directory_with_backend(
 				kind: raw.kind,
 				size: raw.size,
 				modified: raw.modified,
+				created: raw.created,
+				accessed: raw.accessed,
 				inode: raw.inode,
+				permissions: raw.permissions,
 			}
 		})
 		.collect();

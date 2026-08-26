@@ -37,6 +37,7 @@ fn observe(path: &str, size: i64, mtime: i64, inode: Option<i64>) -> Observation
 		size,
 		mtime,
 		created: None,
+		accessed: None,
 		inode,
 		mode: Some(0o644),
 		extension: path.rsplit_once('.').map(|(_, e)| e.to_string()),

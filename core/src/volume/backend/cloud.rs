@@ -333,7 +333,12 @@ impl VolumeBackend for CloudBackend {
 					// Convert chrono::DateTime to SystemTime
 					SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(t.timestamp() as u64)
 				}),
-				inode: None, // Cloud storage doesn't have inodes
+				// Object storage exposes neither birth time, access time nor
+				// unix permissions.
+				created: None,
+				accessed: None,
+				inode: None,
+				permissions: None,
 			});
 		}
 

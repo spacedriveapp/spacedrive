@@ -81,7 +81,14 @@ pub struct DirEntry {
 	pub kind: EntryKind,
 	pub size: u64,
 	pub modified: Option<std::time::SystemTime>,
+	/// Birth time. Unrecoverable once a file has been copied, so it is read
+	/// during the walk that already stat'd the entry rather than by a later
+	/// pass that would find it gone.
+	pub created: Option<std::time::SystemTime>,
+	pub accessed: Option<std::time::SystemTime>,
 	pub inode: Option<u64>,
+	/// Unix permission bits.
+	pub permissions: Option<u32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -117,7 +124,12 @@ pub struct IndexerState {
 	pub(crate) dirs_to_walk: VecDeque<PathBuf>,
 	pub(crate) pending_entries: Vec<DirEntry>,
 	pub(crate) seen_paths: HashSet<PathBuf>,
-	pub(crate) entry_batches: Vec<Vec<DirEntry>>,
+	/// Discovery order, consumed from the front.
+	///
+	/// A directory is always discovered before its contents, and the store
+	/// binds a parent before it can link a child, so consuming these back to
+	/// front leaves almost every record unparented.
+	pub(crate) entry_batches: VecDeque<Vec<DirEntry>>,
 	pub(crate) entries_for_content: Vec<(i32, PathBuf)>,
 	pub(crate) entry_id_cache: HashMap<PathBuf, i32>,
 	// UUIDs from ephemeral indexing preserved when creating persistent entries.
@@ -166,7 +178,7 @@ impl IndexerState {
 			dirs_to_walk,
 			pending_entries: Vec::new(),
 			seen_paths: HashSet::new(),
-			entry_batches: Vec::new(),
+			entry_batches: VecDeque::new(),
 			entries_for_content: Vec::new(),
 			entry_id_cache: HashMap::new(),
 			ephemeral_uuids: HashMap::new(),

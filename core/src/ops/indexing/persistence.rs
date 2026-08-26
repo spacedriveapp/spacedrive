@@ -147,7 +147,10 @@ mod tests {
 			kind: EntryKind::File,
 			size: 12,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(12345),
+			permissions: None,
 		};
 
 		let entry_id = writer
@@ -191,7 +194,10 @@ mod tests {
 			kind: EntryKind::File,
 			size: 12,
 			modified: Some(std::time::SystemTime::now()),
+			created: None,
+			accessed: None,
 			inode: Some(12345),
+			permissions: None,
 		};
 
 		let entry_id = writer

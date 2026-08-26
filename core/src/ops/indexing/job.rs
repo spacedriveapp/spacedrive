@@ -899,12 +899,23 @@ impl IndexerJob {
 				EntryKind::File
 			};
 
+			#[cfg(unix)]
+			let permissions = {
+				use std::os::unix::fs::MetadataExt;
+				Some(metadata.mode())
+			};
+			#[cfg(not(unix))]
+			let permissions = None;
+
 			let dir_entry = DirEntry {
 				path: path.clone(),
 				kind: entry_kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
+				created: metadata.created().ok(),
+				accessed: metadata.accessed().ok(),
 				inode: DatabaseStorage::get_inode(&path, &metadata),
+				permissions,
 			};
 
 			state.pending_entries.push(dir_entry);
@@ -919,7 +930,7 @@ impl IndexerJob {
 
 		if !state.pending_entries.is_empty() {
 			let batch = state.create_batch();
-			state.entry_batches.push(batch);
+			state.entry_batches.push_back(batch);
 		}
 
 		state.phase = Phase::Processing;
@@ -950,7 +961,7 @@ impl IndexerJob {
 		let total_batches = state.entry_batches.len();
 		let mut batch_number = 0;
 
-		while let Some(batch) = state.entry_batches.pop() {
+		while let Some(batch) = state.entry_batches.pop_front() {
 			ctx.check_interrupt().await?;
 
 			batch_number += 1;
@@ -973,20 +984,8 @@ impl IndexerJob {
 			};
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-			let metadata: Vec<EntryMetadata> = batch
-				.iter()
-				.map(|entry| EntryMetadata {
-					path: entry.path.clone(),
-					kind: entry.kind,
-					size: entry.size,
-					modified: entry.modified,
-					accessed: None,
-					created: None,
-					inode: entry.inode,
-					permissions: None,
-					is_hidden: is_hidden_path(&entry.path),
-				})
-				.collect();
+			let metadata: Vec<EntryMetadata> =
+				batch.iter().cloned().map(EntryMetadata::from).collect();
 
 			// Identity comes from the store's ledger, which is also where this
 			// batch gets taken in. One round trip for the batch: resolution is

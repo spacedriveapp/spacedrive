@@ -272,6 +272,7 @@ impl SourceStore {
 			size: metadata.size as i64,
 			mtime: metadata.modified.map(unix_millis).unwrap_or(0),
 			created: metadata.created.map(unix_millis),
+			accessed: metadata.accessed.map(unix_millis),
 			inode: metadata.inode.map(|i| i as i64),
 			mode: metadata.permissions.map(|p| p as i64),
 			extension: metadata
@@ -281,6 +282,26 @@ impl SourceStore {
 			is_hidden: metadata.is_hidden,
 		})
 	}
+}
+
+/// The order to resolve a batch in: shallower paths first.
+///
+/// A record's parent is looked up through the ledger, so a directory has to be
+/// bound before anything under it or the child is written with no parent and
+/// the tree never forms. Discovery reads a directory before it reads what is
+/// inside, but it reads many directories at once and a batch is filled from all
+/// of them, so arrival order guarantees nothing. Depth does: a child is always
+/// deeper than its parent, whatever order they were seen in.
+fn shallowest_first(observations: &[Observation]) -> Vec<usize> {
+	let mut order: Vec<usize> = (0..observations.len()).collect();
+	order.sort_by_key(|&index| {
+		observations[index]
+			.external_id
+			.bytes()
+			.filter(|b| *b == b'/')
+			.count()
+	});
+	order
 }
 
 fn unix_millis(time: std::time::SystemTime) -> i64 {
@@ -324,22 +345,23 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				observations,
 				identities,
 			} => {
-				let resolved = observations
-					.into_iter()
-					.map(|observation| {
-						let resolution = ledger.resolve(&observation);
-						let uuid = resolution.uuid();
-						if resolution.is_dirty() {
-							writes.push(FileWrite {
-								resolution,
-								parent_uuid: parent_of(&observation.external_id)
-									.and_then(|parent| ledger.uuid_of(parent)),
-								observation,
-							});
-						}
-						uuid
-					})
-					.collect();
+				let mut resolved: Vec<Option<Uuid>> = vec![None; observations.len()];
+
+				for index in shallowest_first(&observations) {
+					let observation = observations[index].clone();
+					let resolution = ledger.resolve(&observation);
+					resolved[index] = Some(resolution.uuid());
+					if resolution.is_dirty() {
+						writes.push(FileWrite {
+							resolution,
+							parent_uuid: parent_of(&observation.external_id)
+								.and_then(|parent| ledger.uuid_of(parent)),
+							observation,
+						});
+					}
+				}
+
+				let resolved: Vec<Uuid> = resolved.into_iter().flatten().collect();
 
 				// A caller that stopped waiting is not an error: it already has
 				// the arena's answer and the batch is staged either way.
@@ -494,6 +516,14 @@ mod tests {
 		metadata.len().hash(&mut hasher);
 		path.file_name().hash(&mut hasher);
 
+		#[cfg(unix)]
+		let permissions = {
+			use std::os::unix::fs::MetadataExt;
+			Some(metadata.mode())
+		};
+		#[cfg(not(unix))]
+		let permissions = None;
+
 		DirEntry {
 			path: path.to_path_buf(),
 			kind: if metadata.is_dir() {
@@ -503,8 +533,74 @@ mod tests {
 			},
 			size: metadata.len(),
 			modified: metadata.modified().ok(),
+			created: metadata.created().ok(),
+			accessed: metadata.accessed().ok(),
 			inode: Some(hasher.finish()),
+			permissions,
 		}
+	}
+
+	/// A walk hands a batch over in whatever order discovery produced it, and
+	/// the tree has to form anyway.
+	///
+	/// This is what a live index got wrong. 2,123,008 records walked and 1,349
+	/// of them parented, because a child resolved before its own directory
+	/// found nothing to link to and nothing ever looked again. The batch here
+	/// is deliberately deepest-first, which is what consuming discovery's
+	/// batches back to front produced.
+	#[tokio::test]
+	async fn a_batch_builds_the_tree_whatever_order_it_arrives_in() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+
+		std::fs::create_dir_all(root.join("a/b/c")).expect("dirs");
+		std::fs::write(root.join("a/b/c/deep.txt"), b"deep").expect("file");
+		std::fs::write(root.join("a/b/sibling.txt"), b"sibling").expect("file");
+
+		let relative = ["a/b/c/deep.txt", "a/b/sibling.txt", "a/b/c", "a/b", "a"];
+		let metadata: Vec<EntryMetadata> = relative
+			.iter()
+			.map(|r| EntryMetadata::from(dir_entry(&root.join(r))))
+			.collect();
+
+		let identities = fixture.store.identify(&metadata).await;
+		assert!(
+			identities.iter().all(Option::is_some),
+			"every observation resolves to a record"
+		);
+		fixture.store.flush().await;
+
+		let pool = fixture.store.db().pool();
+		let parent_of = |child: &'static str, parent: &'static str| async move {
+			let found: Option<Uuid> = sqlx::query_scalar(
+				"SELECT p.uuid FROM record c JOIN record p ON p.uuid = c.parent_uuid
+				 WHERE c.external_id = ?",
+			)
+			.bind(child)
+			.fetch_optional(pool)
+			.await
+			.expect("query");
+			let expected: Uuid =
+				sqlx::query_scalar("SELECT uuid FROM record WHERE external_id = ?")
+					.bind(parent)
+					.fetch_one(pool)
+					.await
+					.expect("parent record");
+			assert_eq!(found, Some(expected), "{child} should sit under {parent}");
+		};
+
+		parent_of("a/b", "a").await;
+		parent_of("a/b/c", "a/b").await;
+		parent_of("a/b/c/deep.txt", "a/b/c").await;
+		parent_of("a/b/sibling.txt", "a/b").await;
+
+		let unparented: i64 = sqlx::query_scalar(
+			"SELECT COUNT(*) FROM record WHERE parent_uuid IS NULL AND external_id <> 'a'",
+		)
+		.fetch_one(pool)
+		.await
+		.expect("count");
+		assert_eq!(unparented, 0, "only the top level has no parent");
 	}
 
 	#[tokio::test]

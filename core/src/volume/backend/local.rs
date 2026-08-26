@@ -196,12 +196,24 @@ impl VolumeBackend for LocalBackend {
 
 			let entry_path = entry.path();
 
+			#[cfg(unix)]
+			let permissions = {
+				use std::os::unix::fs::MetadataExt;
+				Some(metadata.mode())
+			};
+
+			#[cfg(not(unix))]
+			let permissions = None;
+
 			entries.push(RawDirEntry {
 				name: entry.file_name().to_string_lossy().to_string(),
 				kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
+				created: metadata.created().ok(),
+				accessed: metadata.accessed().ok(),
 				inode: Self::get_inode(&entry_path, &metadata),
+				permissions,
 			});
 		}
 

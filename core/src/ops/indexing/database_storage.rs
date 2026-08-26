@@ -130,10 +130,10 @@ impl From<DirEntry> for EntryMetadata {
 			kind: entry.kind,
 			size: entry.size,
 			modified: entry.modified,
-			accessed: None,
-			created: None,
+			accessed: entry.accessed,
+			created: entry.created,
 			inode: entry.inode,
-			permissions: None,
+			permissions: entry.permissions,
 			is_hidden: is_hidden_path(&entry.path),
 		}
 	}
