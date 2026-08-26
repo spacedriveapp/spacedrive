@@ -93,12 +93,19 @@ impl MemoryAdapter {
 		Ok((entry_id, content_kind))
 	}
 
+	/// Tell clients about an entry at `path`.
+	///
+	/// `vacated` is the directory the entry just left, when it left one. A
+	/// client renders a directory listing, so a move invalidates two of them
+	/// and an event naming only the destination leaves the file showing in its
+	/// old home until something else refreshes it.
 	async fn emit_resource_changed(
 		&self,
 		uuid: Uuid,
 		path: &Path,
 		metadata: &EntryMetadata,
 		content_kind: crate::domain::ContentKind,
+		vacated: Option<&Path>,
 	) {
 		use crate::device::get_current_device_slug;
 		use crate::domain::addressing::SdPath;
@@ -115,12 +122,16 @@ impl MemoryAdapter {
 		let mut file = File::from_ephemeral(uuid, metadata, sd_path);
 		file.content_kind = content_kind;
 
-		let parent_path = path.parent().map(|p| SdPath::Physical {
-			device_slug: file.sd_path.device_slug().unwrap_or("local").to_string(),
-			path: p.to_path_buf(),
-		});
-
-		let affected_paths = parent_path.into_iter().collect();
+		let device = file.sd_path.device_slug().unwrap_or("local").to_string();
+		let affected_paths = path
+			.parent()
+			.into_iter()
+			.chain(vacated)
+			.map(|p| SdPath::Physical {
+				device_slug: device.clone(),
+				path: p.to_path_buf(),
+			})
+			.collect();
 
 		if let Ok(resource_json) = serde_json::to_value(&file) {
 			self.event_bus.emit(Event::ResourceChanged {
@@ -181,8 +192,14 @@ impl ChangeHandler for MemoryAdapter {
 				metadata.path.display(),
 				content_kind
 			);
-			self.emit_resource_changed(entry_uuid, &metadata.path, &entry_metadata, content_kind)
-				.await;
+			self.emit_resource_changed(
+				entry_uuid,
+				&metadata.path,
+				&entry_metadata,
+				content_kind,
+				None,
+			)
+			.await;
 		} else {
 			tracing::warn!(
 				"No content_kind for ephemeral entry, skipping ResourceChanged: {}",
@@ -222,11 +239,12 @@ impl ChangeHandler for MemoryAdapter {
 		let metadata = build_dir_entry(new_path, None).await?;
 		let entry_metadata = EntryMetadata::from(metadata.clone());
 
+		// The record keeps its identity across the move, which is what every
+		// assertion attached to it depends on.
+		let uuid = entry.uuid.unwrap_or_else(Uuid::new_v4);
 		{
 			let mut index = self.index.write().await;
 			index.remove_entry(old_path);
-
-			let uuid = entry.uuid.unwrap_or_else(Uuid::new_v4);
 			let _ = index.add_entry(new_path.to_path_buf(), uuid, entry_metadata.clone());
 		}
 
@@ -235,6 +253,23 @@ impl ChangeHandler for MemoryAdapter {
 		if let Some(store) = &self.store {
 			store.renamed(old_path, &entry_metadata).await;
 		}
+
+		// The event is emitted here rather than from `emit_change_event`
+		// because this is the only place that holds both paths. The generic
+		// hook is handed the entry as it was *before* the move, and a lookup
+		// of a path the file has already left cannot describe where it went.
+		let content_kind = {
+			let index = self.index.read().await;
+			index.get_content_kind(&new_path.to_path_buf())
+		};
+		self.emit_resource_changed(
+			uuid,
+			new_path,
+			&entry_metadata,
+			content_kind,
+			old_path.parent(),
+		)
+		.await;
 
 		Ok(())
 	}
@@ -278,7 +313,14 @@ impl ChangeHandler for MemoryAdapter {
 		Ok(())
 	}
 
-	async fn emit_change_event(&self, entry: &EntryRef, _change_type: ChangeType) -> Result<()> {
+	async fn emit_change_event(&self, entry: &EntryRef, change_type: ChangeType) -> Result<()> {
+		// `move_entry` already emitted, with the destination and both affected
+		// listings. `entry` here still points at the vacated path, so there is
+		// nothing left to learn from it.
+		if matches!(change_type, ChangeType::Moved) {
+			return Ok(());
+		}
+
 		let Some(uuid) = entry.uuid else {
 			return Ok(());
 		};
@@ -292,7 +334,7 @@ impl ChangeHandler for MemoryAdapter {
 
 		if let Some(meta) = metadata {
 			let entry_metadata = EntryMetadata::from(meta);
-			self.emit_resource_changed(uuid, &entry.path, &entry_metadata, content_kind)
+			self.emit_resource_changed(uuid, &entry.path, &entry_metadata, content_kind, None)
 				.await;
 		}
 
@@ -407,7 +449,7 @@ impl IndexPersistence for MemoryAdapter {
 			let is_hidden = is_hidden_path(&entry.path);
 
 			if !is_hidden {
-				self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind)
+				self.emit_resource_changed(entry_uuid, &entry.path, &metadata, content_kind, None)
 					.await;
 			}
 		}
@@ -567,5 +609,142 @@ mod tests {
 			let uuid = resource["id"].as_str();
 			assert!(uuid.is_some(), "Event should have UUID");
 		}
+	}
+}
+
+#[cfg(test)]
+mod move_tests {
+	use super::*;
+	use crate::ops::indexing::change_detection::types::ChangeType;
+	use tempfile::TempDir;
+
+	/// The watcher's move path, wired exactly as `change_detection::handler`
+	/// wires it: `move_entry`, then `emit_change_event` with the entry as it
+	/// was *before* the move.
+	async fn rearrange(from: &str, to: &str) -> Option<serde_json::Value> {
+		let root = TempDir::new().expect("root");
+		let old = root.path().join(from);
+		let new = root.path().join(to);
+		for path in [&old, &new] {
+			if let Some(parent) = path.parent() {
+				std::fs::create_dir_all(parent).expect("parent");
+			}
+		}
+		std::fs::write(&old, b"hello").expect("write");
+
+		let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
+		let event_bus = Arc::new(EventBus::new(1024));
+		let mut subscriber = event_bus.subscribe();
+		let mut adapter = MemoryAdapter::new(index, event_bus, root.path().to_path_buf(), None);
+
+		let entry = DirEntry {
+			path: old.clone(),
+			kind: EntryKind::File,
+			size: 5,
+			modified: Some(std::time::SystemTime::now()),
+			inode: Some(7),
+		};
+		let created = adapter.create(&entry, root.path()).await.expect("create");
+		// Drain the create event.
+		let _ =
+			tokio::time::timeout(tokio::time::Duration::from_millis(50), subscriber.recv()).await;
+
+		std::fs::rename(&old, &new).expect("rename");
+		adapter
+			.move_entry(&created, &old, &new, new.parent().unwrap())
+			.await
+			.expect("move");
+		adapter
+			.emit_change_event(&created, ChangeType::Moved)
+			.await
+			.expect("emit");
+
+		match tokio::time::timeout(tokio::time::Duration::from_millis(100), subscriber.recv()).await
+		{
+			Ok(Ok(Event::ResourceChanged { resource, .. })) => Some(resource),
+			_ => None,
+		}
+	}
+
+	#[tokio::test]
+	async fn a_rename_reaches_the_ui() {
+		let resource = rearrange("draft.txt", "final.txt")
+			.await
+			.expect("a rename the watcher saw must reach the client");
+
+		assert!(
+			resource["sd_path"].to_string().contains("final.txt"),
+			"the event has to carry where the file is now, not where it was"
+		);
+	}
+
+	#[tokio::test]
+	async fn a_move_between_directories_reaches_the_ui() {
+		let resource = rearrange("inbox/draft.txt", "archive/draft.txt")
+			.await
+			.expect("a move the watcher saw must reach the client");
+
+		assert!(resource["sd_path"].to_string().contains("archive"));
+	}
+
+	/// A client renders directory listings, so a move invalidates two of them.
+	/// An event naming only the destination leaves the file showing in the
+	/// folder it left.
+	#[tokio::test]
+	async fn a_move_invalidates_both_listings() {
+		let root = TempDir::new().expect("root");
+		let old = root.path().join("inbox/draft.txt");
+		let new = root.path().join("archive/draft.txt");
+		for path in [&old, &new] {
+			std::fs::create_dir_all(path.parent().unwrap()).expect("parent");
+		}
+		std::fs::write(&old, b"hello").expect("write");
+
+		let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
+		let event_bus = Arc::new(EventBus::new(1024));
+		let mut subscriber = event_bus.subscribe();
+		let mut adapter = MemoryAdapter::new(index, event_bus, root.path().to_path_buf(), None);
+
+		let entry = DirEntry {
+			path: old.clone(),
+			kind: EntryKind::File,
+			size: 5,
+			modified: Some(std::time::SystemTime::now()),
+			inode: Some(7),
+		};
+		let created = adapter.create(&entry, root.path()).await.expect("create");
+		let _ =
+			tokio::time::timeout(tokio::time::Duration::from_millis(50), subscriber.recv()).await;
+
+		std::fs::rename(&old, &new).expect("rename");
+		adapter
+			.move_entry(&created, &old, &new, new.parent().unwrap())
+			.await
+			.expect("move");
+
+		let event =
+			tokio::time::timeout(tokio::time::Duration::from_millis(100), subscriber.recv()).await;
+
+		let Ok(Ok(Event::ResourceChanged {
+			metadata: Some(metadata),
+			..
+		})) = event
+		else {
+			panic!("expected a ResourceChanged carrying affected listings");
+		};
+
+		let affected: Vec<String> = metadata
+			.affected_paths
+			.iter()
+			.map(|p| p.to_string())
+			.collect();
+		assert!(
+			affected.iter().any(|p| p.contains("archive")),
+			"the destination listing gains the file: {affected:?}"
+		);
+		assert!(
+			affected.iter().any(|p| p.contains("inbox")),
+			"the vacated listing loses it: {affected:?}"
+		);
 	}
 }

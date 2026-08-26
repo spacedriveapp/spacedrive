@@ -292,10 +292,20 @@ impl FsWatcherService {
 		let path = path.into();
 		debug!("Watching ephemeral path: {}", path.display());
 
-		// Register with ephemeral cache so handler knows to process events
-		self.context
+		// Register with ephemeral cache so handler knows to process events.
+		// Without this the OS watch still fires and `EphemeralEventHandler`
+		// drops every event as unmatched, which looks exactly like a watcher
+		// that is running and a UI that never updates.
+		if !self
+			.context
 			.ephemeral_cache()
-			.register_for_watching(path.clone());
+			.register_for_watching(path.clone())
+		{
+			return Err(anyhow::anyhow!(
+				"cannot watch {}: not indexed, or its source is detached",
+				path.display()
+			));
+		}
 
 		// Start OS-level watching (shallow = immediate children only)
 		self.watcher
