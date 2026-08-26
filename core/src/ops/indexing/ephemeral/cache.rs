@@ -988,12 +988,55 @@ mod tests {
 		Arc::new(db)
 	}
 
-	/// A whole-drive anchor: the source is the volume, so its path within the
-	/// volume is empty and a remount moves it wholesale.
-	fn anchor(root: &Path) -> VolumeAnchor {
+	/// A source anchors to a volume, and its absolute root is rebuilt from
+	/// that volume's mount point on every attach. A test that skips this
+	/// gets a source with no root after a restart, which is a different
+	/// bug than the one being measured.
+	async fn tracked_volume(db: &Arc<Database>, mount_point: &Path) -> VolumeAnchor {
+		use crate::infra::db::entities::volume;
+		use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+
+		use crate::infra::db::entities::device;
+
+		// `volume.device_id` is a foreign key, so the machine has to exist
+		// before a drive can be attached to it.
+		let device_id = Uuid::now_v7();
+		device::ActiveModel {
+			uuid: Set(device_id),
+			name: Set("test".to_string()),
+			slug: Set(format!("test-{}", device_id.simple())),
+			os: Set("macos".to_string()),
+			network_addresses: Set(serde_json::json!([])),
+			capabilities: Set(serde_json::json!({})),
+			is_online: Set(true),
+			sync_enabled: Set(false),
+			last_seen_at: Set(chrono::Utc::now()),
+			created_at: Set(chrono::Utc::now()),
+			updated_at: Set(chrono::Utc::now()),
+			..Default::default()
+		}
+		.insert(db.conn())
+		.await
+		.expect("insert device");
+
+		let uuid = Uuid::now_v7();
+		volume::ActiveModel {
+			uuid: Set(uuid),
+			device_id: Set(device_id),
+			fingerprint: Set(uuid.to_string()),
+			tracked_at: Set(chrono::Utc::now()),
+			last_seen_at: Set(chrono::Utc::now()),
+			is_online: Set(true),
+			mount_point: Set(Some(mount_point.to_string_lossy().into_owned())),
+			..Default::default()
+		}
+		.insert(db.conn())
+		.await
+		.expect("insert volume");
+
 		VolumeAnchor {
-			uuid: Uuid::now_v7(),
-			mount_point: root.to_path_buf(),
+			uuid,
+			mount_point: mount_point.to_path_buf(),
 		}
 	}
 
@@ -1082,6 +1125,227 @@ mod tests {
 		assert_eq!(stats.indexing_in_progress, 1);
 	}
 
+	/// The real lifecycle, driven the way the app drives it.
+	///
+	/// These exist because every bug in this file was found by hand, in a
+	/// running daemon, after the index was already gone. The sequences below are
+	/// the ones that actually happened.
+	mod lifecycle {
+		use super::*;
+		use crate::ops::indexing::database_storage::EntryMetadata;
+		use crate::ops::indexing::state::EntryKind;
+
+		fn entry(path: &Path) -> EntryMetadata {
+			EntryMetadata {
+				kind: EntryKind::File,
+				path: path.to_path_buf(),
+				size: 1,
+				modified: None,
+				accessed: None,
+				created: None,
+				inode: None,
+				permissions: None,
+				is_hidden: false,
+			}
+		}
+
+		/// A source whose partition holds `count` files, indexed and saved the
+		/// way a completed walk leaves it.
+		async fn indexed_source(
+			cache: &EphemeralIndexCache,
+			root: &Path,
+			anchor: VolumeAnchor,
+			count: u64,
+		) -> Uuid {
+			let id = cache
+				.register_source(root, Some(anchor))
+				.await
+				.expect("register");
+			let index = cache.create_for_indexing(root.to_path_buf());
+			{
+				let mut index = index.write().await;
+				for i in 0..count {
+					let path = root.join(format!("file-{i}"));
+					index
+						.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+						.expect("add");
+				}
+			}
+			cache.mark_indexing_complete(root);
+			cache.save_snapshot(root).await.expect("save");
+			id
+		}
+
+		/// What `directory_listing` does when someone opens a folder: take the
+		/// partition, clear the folder's stale children, index what is there
+		/// now, and save.
+		async fn browse(cache: &EphemeralIndexCache, dir: &Path, names: &[&str]) {
+			let index = cache.create_for_indexing(dir.to_path_buf());
+			cache.clear_for_reindex(dir).await;
+			{
+				let mut index = index.write().await;
+				for name in names {
+					let path = dir.join(name);
+					index
+						.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+						.expect("add");
+				}
+			}
+			cache.mark_indexing_complete(dir);
+			cache.save_snapshot(dir).await.expect("save");
+		}
+
+		fn counted(cache: &EphemeralIndexCache, id: Uuid) -> u64 {
+			cache
+				.sources()
+				.into_iter()
+				.find(|s| s.id == id)
+				.and_then(|s| s.entry_count)
+				.expect("source has a count")
+		}
+
+		/// A snapshot has to survive its own round trip at real sizes. If it
+		/// does not, a restart restores nothing and the first browse afterwards
+		/// writes its handful of entries over a whole drive's index.
+		#[tokio::test]
+		async fn a_snapshot_round_trips_at_size() {
+			for count in [8_u64, 2_000] {
+				let dir = tempfile::tempdir().unwrap();
+				let root = dir.path().to_path_buf();
+				let file = root.join("snap.bin");
+				let source_id = Uuid::now_v7();
+
+				let mut index = EphemeralIndex::new().unwrap();
+				for i in 0..count {
+					let path = root.join(format!("file-{i}"));
+					index
+						.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+						.unwrap();
+				}
+				let saved = index.get_stats().total_entries;
+				index.save_snapshot(&file, source_id, &root).unwrap();
+
+				let loaded = EphemeralIndex::load_snapshot(&file)
+					.unwrap_or_else(|e| panic!("{count} entries: load errored: {e}"));
+				let (loaded, meta) =
+					loaded.unwrap_or_else(|| panic!("{count} entries: snapshot did not read back"));
+
+				assert_eq!(loaded.get_stats().total_entries, saved, "{count} entries");
+				assert_eq!(meta.source_id, source_id);
+			}
+		}
+
+		/// Observed in a running daemon: a full drive index of 2.1 million
+		/// entries was replaced by the 29 entries of a folder opened four
+		/// minutes later, because opening a folder saves the whole partition.
+		#[tokio::test]
+		async fn opening_a_folder_does_not_shrink_the_drive_index() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+
+			let anchor = tracked_volume(&library, &root).await;
+			let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 3).await;
+			let full = counted(&cache, id);
+
+			let folder = root.join("Desktop");
+			std::fs::create_dir_all(&folder).unwrap();
+			browse(&cache, &folder, &["a.png", "b.png"]).await;
+
+			// Growing is fine: the folder's own entries join the partition.
+			// Shrinking is the bug.
+			assert!(
+				counted(&cache, id) >= full,
+				"opening a folder replaced the drive's index with its contents: {} then {}",
+				full,
+				counted(&cache, id)
+			);
+		}
+
+		/// The index has to still be there tomorrow. A snapshot that saves but
+		/// does not restore is the same as no snapshot, and the arena is the
+		/// only thing the client reads.
+		#[tokio::test]
+		async fn a_full_index_survives_a_restart() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let (id, before) = {
+				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+					.expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 2).await;
+				let before = counted(&cache, id);
+				(id, before)
+			};
+
+			// A new session, as a restarted daemon sees it.
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			assert!(
+				cache.ensure_restored(&root).await,
+				"snapshot did not restore"
+			);
+
+			let restored = cache
+				.resolve_index(&root)
+				.read()
+				.await
+				.get_stats()
+				.total_entries as u64;
+			assert_eq!(
+				restored, before,
+				"the arena came back smaller than it was saved"
+			);
+			assert_eq!(counted(&cache, id), before);
+		}
+
+		/// A restart followed by opening one folder is the ordinary way a day
+		/// starts, and it must not cost the drive's index. This is the pair of
+		/// the two sequences above, which is how it actually happened.
+		#[tokio::test]
+		async fn a_restart_then_a_browse_keeps_the_index() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			let folder = root.join("Desktop");
+			std::fs::create_dir_all(&folder).unwrap();
+
+			let (id, full) = {
+				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+					.expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 3).await;
+				let full = counted(&cache, id);
+				(id, full)
+			};
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			cache.ensure_restored(&root).await;
+			browse(&cache, &folder, &["one.txt"]).await;
+
+			assert!(
+				counted(&cache, id) >= full,
+				"a browse after a restart shrank the drive's index: {} then {}",
+				full,
+				counted(&cache, id)
+			);
+		}
+	}
+
 	/// A whole drive's index must survive whatever the app does next.
 	///
 	/// The failure this pins is real and was observed: a full volume index of
@@ -1099,7 +1363,7 @@ mod tests {
 			.expect("cache");
 		cache.attach_library(library.clone()).await.expect("attach");
 		let source_id = cache
-			.register_source(&root, Some(anchor(&root)))
+			.register_source(&root, Some(tracked_volume(&library, &root).await))
 			.await
 			.unwrap();
 
@@ -1191,7 +1455,7 @@ mod tests {
 				.expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some(anchor(&root)))
+				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
 				.unwrap();
 
@@ -1266,7 +1530,7 @@ mod tests {
 				.expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some(anchor(&root)))
+				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
 				.unwrap();
 
@@ -1338,7 +1602,7 @@ mod tests {
 				.expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
-				.register_source(&root, Some(anchor(&root)))
+				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
 				.unwrap();
 			let index = cache.create_for_indexing(root.clone());
@@ -1426,7 +1690,7 @@ mod tests {
 				.expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			source_id = cache
-				.register_source(&root, Some(anchor(&root)))
+				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
 				.unwrap();
 			let index = cache.create_for_indexing(root.clone());
@@ -1478,7 +1742,7 @@ mod tests {
 				.expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			let other = cache
-				.register_source(&root, Some(anchor(&root)))
+				.register_source(&root, Some(tracked_volume(&library, &root).await))
 				.await
 				.unwrap();
 			assert_ne!(other, source_id);

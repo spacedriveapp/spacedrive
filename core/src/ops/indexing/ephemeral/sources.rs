@@ -44,8 +44,10 @@ pub struct SourceRecord {
 	/// Stable identity. Keys the source's directory under `SourceDirs`.
 	pub id: Uuid,
 	pub name: String,
-	/// Absolute root as currently mounted. Derived from the anchor, so it
-	/// changes across remounts while the record does not.
+	/// Absolute root as currently mounted, or empty when the anchoring volume
+	/// is not attached and the source therefore has no location on this machine
+	/// right now. Derived, so it changes across remounts while the record does
+	/// not. See [`SourceRecord::is_locatable`].
 	pub root: PathBuf,
 	/// The durable half of the root: a path within the volume, or the absolute
 	/// path when there is no volume. Empty for a whole-drive source.
@@ -84,6 +86,20 @@ impl SourceRecord {
 			record_count: row.record_count.map(|c| c.max(0) as u64),
 			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
 		}
+	}
+}
+
+impl SourceRecord {
+	/// Whether this source has an absolute path on this machine right now.
+	///
+	/// A volume-anchored source whose volume is absent has no root to give, and
+	/// an empty path is not a location: `Path::starts_with` accepts it for
+	/// every path on the system, so a record left in that state would capture
+	/// every lookup that nothing else claimed. That is how a drive in a drawer
+	/// came to own the browse of an unrelated folder, and then had its index
+	/// replaced by that folder's contents.
+	pub fn is_locatable(&self) -> bool {
+		!self.root.as_os_str().is_empty()
 	}
 }
 
@@ -197,7 +213,7 @@ impl SourceRegistry {
 	pub fn resolve(&self, path: &Path) -> Option<&SourceRecord> {
 		self.sources
 			.iter()
-			.filter(|source| path.starts_with(&source.root))
+			.filter(|source| source.is_locatable() && path.starts_with(&source.root))
 			.max_by_key(|source| (source.root.as_os_str().len(), source.last_seen_at))
 	}
 
@@ -317,6 +333,49 @@ mod tests {
 			registry.by_id(photos.id).unwrap().root,
 			PathBuf::from("/Volumes/Archive 1/Photos")
 		);
+	}
+
+	/// A drive in a drawer owns nothing on this machine.
+	///
+	/// Its record resolves to an empty root, and an empty path is a prefix of
+	/// every path, so without this it claims every lookup nothing else does.
+	/// Downstream that means an unrelated browse lands in the detached
+	/// source's partition and its snapshot is saved from those contents.
+	#[test]
+	fn a_source_whose_volume_is_absent_claims_nothing() {
+		let row = source::Model {
+			id: 1,
+			uuid: Uuid::from_u128(9),
+			name: "Archive".to_string(),
+			data_type: source::FILESYSTEM_DATA_TYPE.to_string(),
+			adapter_id: None,
+			config: "{}".to_string(),
+			// A whole-drive source: its path within the volume is empty, so
+			// with no mount point there is nothing to join it onto.
+			root: Some(String::new()),
+			volume_uuid: Some(Uuid::from_u128(1)),
+			record_count: Some(2_000_000),
+			directory_count: None,
+			total_bytes: None,
+			unique_bytes: None,
+			last_indexed_at: None,
+			status: "idle".to_string(),
+			trust_tier: "authored".to_string(),
+			created_at: Utc::now(),
+			last_seen_at: Utc::now(),
+		};
+
+		let registry = SourceRegistry::from_rows(vec![row], |_| None);
+		let record = &registry.all()[0];
+		assert!(!record.is_locatable());
+		assert_eq!(
+			record.record_count,
+			Some(2_000_000),
+			"the record still stands"
+		);
+
+		assert!(registry.resolve(Path::new("/Users/me/Desktop")).is_none());
+		assert!(registry.resolve(Path::new("/anything/at/all")).is_none());
 	}
 
 	#[test]

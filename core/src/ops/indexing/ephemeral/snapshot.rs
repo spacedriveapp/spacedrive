@@ -203,18 +203,38 @@ pub(super) fn load_snapshot_impl(
 
 	let start = Instant::now();
 
-	// Open and decompress
+	// Open and decompress into memory.
+	//
+	// `postcard::from_io` needs its scratch buffer to hold whatever element it
+	// is currently decoding, and this read used a fixed 4 KiB. That is enough
+	// for a handful of entries and not for a real index, so every snapshot past
+	// a few hundred entries failed to deserialize, was deleted as unreadable,
+	// and left the source with nothing to restore. The next browse then wrote
+	// its own handful of entries in its place.
+	//
+	// Reading the whole stream first removes the size limit entirely. The cost
+	// is the decompressed snapshot held once, which is the same order as the
+	// arena it is about to become.
 	let file = File::open(snapshot_path).context("Failed to open snapshot file")?;
 	let decoder = zstd::Decoder::new(file).context("Failed to create zstd decoder")?;
-	let reader = BufReader::new(decoder);
+	let mut reader = BufReader::new(decoder);
+	let mut bytes = Vec::new();
+	use std::io::Read;
+	if let Err(err) = reader.read_to_end(&mut bytes) {
+		tracing::warn!(
+			"Unreadable snapshot {} ({err}); removing",
+			snapshot_path.display()
+		);
+		let _ = fs::remove_file(snapshot_path);
+		return Ok(None);
+	}
 
-	// Deserialize with postcard. A snapshot from an older format version fails
-	// either here (layout changed) or at the version check below; both cases
-	// remove the file so the source reindexes cleanly instead of retrying a
-	// dead artifact on every launch.
-	let mut buffer = vec![0u8; 4 * 1024];
-	let snapshot: IndexSnapshot = match postcard::from_io((reader, &mut buffer)) {
-		Ok((snapshot, _)) => snapshot,
+	// A snapshot from an older format version fails either here (layout
+	// changed) or at the version check below; both cases remove the file so the
+	// source reindexes cleanly instead of retrying a dead artifact on every
+	// launch.
+	let snapshot: IndexSnapshot = match postcard::from_bytes(&bytes) {
+		Ok(snapshot) => snapshot,
 		Err(err) => {
 			tracing::warn!(
 				"Unreadable snapshot {} ({err}); removing",
