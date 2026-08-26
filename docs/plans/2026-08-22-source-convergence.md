@@ -371,6 +371,13 @@ schema gets an authoritative home for the first time.
    methods, and the walk through the job's batch loop. Collapsing them is `P4`
    work, not a precondition for this.
 
+   That split has already cost one bug. A move updated the arena and the store
+   correctly and emitted nothing to clients, because `emit_change_event` is
+   handed the entry as it was *before* the move and looked up a path the file
+   had left. Fixed by emitting from `move_entry`, which is the only place
+   holding both ends. `P4` carries the structural answer: one fan-out, with the
+   store write and the client event both derived from the arena mutation.
+
    External ids are `/`-separated on every platform, so a drive indexed on one
    reads on another. `apply_files` orders each batch parents-first, because
    `record.parent_uuid` is a foreign key and the watcher reports what the
@@ -419,9 +426,56 @@ and `<library>/archive/` are removed; `ops/sources/*` serves both kinds. The
 `ephemeral` qualifier retires here rather than at `T6.7`, because after this
 phase there is nothing for it to distinguish.
 
+**Partly done.** `sources` is a table (`entities::source`,
+`m20260825_000001_create_sources`), one row per source whatever its ingest,
+forked by `data_type` to match `_schema.data_type_id` in the source's own store.
+`sources.json` is deleted rather than migrated. `T2.0b` is ruled: a source
+carries a nullable `volume_uuid` and stores its root *relative to that volume*,
+so a remount re-derives the absolute path instead of being a case anything
+handles. Fingerprint matching is gone from the registry, since it duplicated an
+identity the volume manager already maintains.
+
+Still open here: folding `registry.db` in so adapter sources use the same table,
+and a deliberate "track this drive" flow so a source stops appearing only as a
+side effect of a browse.
+
+Two seams this left visible on purpose. `EphemeralIndexCache` is machine-scoped
+and a registration is library metadata, so the cache follows the open library
+(`attach_library` / `detach_library`); that is where sources becoming reachable
+from wherever they are mutated resolves it. And a volume that remounts *while
+the daemon runs* does not yet move its sources: roots resolve at attach, which
+covers the restart case, and `SourceRegistry::remount` is written and tested
+waiting on a `VolumeEvent::VolumeMountChanged` subscriber, which nothing in the
+tree has.
+
 ### P4 — Delete entries
 
 The remaining `T6.x`, now with one target instead of two.
+
+**Collapse `MemoryAdapter`'s two halves, and give the arena a change stream.**
+`IndexPersistence` has no production caller: the ephemeral walk batches straight
+into the arena from `IndexerJob::run_ephemeral_processing_static`, and only the
+watcher goes through `ChangeHandler`. So the trait dies with the entries world
+that needed it, and the walk and the watcher can finally share one path rather
+than two that happen to call the same methods.
+
+The shape to land while doing it: **an arena mutation produces a change record,
+and the store write and the client event are both derived from it.** Today each
+`ChangeHandler` method updates three destinations by hand — arena, store,
+event bus — with nothing forcing them to agree, and they have already drifted
+once. A move updated the arena and the store correctly and emitted nothing,
+because creates emit inline while moves delegated to a generic hook that was
+handed the path the file had just left. Fixed in place, but the next such bug is
+a matter of time while three writes are maintained by hand at every call site.
+
+One fan-out makes the failure unrepresentable: the store cannot know about a
+move the client does not, because neither is written independently. It also
+answers what a change record has to carry, which the move bug already showed —
+both the destination and the vacated directory, since a client renders directory
+listings and a move invalidates two of them.
+
+Worth doing here rather than sooner. `MemoryAdapter` is being rewritten in this
+phase anyway, and doing it earlier means building the seam twice.
 
 ### P5 — Catalog
 
