@@ -148,6 +148,12 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			paths_in_progress
 		};
 
+		let mut watched_paths = cache.watched_paths();
+		if let Some(ref filter) = self.input.path_filter {
+			watched_paths.retain(|p| p.to_string_lossy().contains(filter));
+		}
+		watched_paths.sort();
+
 		let sources = cache
 			.sources()
 			.into_iter()
@@ -171,6 +177,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			index_stats,
 			indexed_paths,
 			paths_in_progress: filtered_in_progress,
+			watched_paths,
 			sources,
 			// Legacy fields
 			total_indexes: None,

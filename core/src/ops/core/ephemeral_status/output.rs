@@ -39,6 +39,14 @@ pub struct EphemeralCacheStatus {
 	pub indexed_paths: Vec<IndexedPathInfo>,
 	/// List of paths currently being indexed
 	pub paths_in_progress: Vec<PathBuf>,
+	/// Roots armed for filesystem watching.
+	///
+	/// Separate from `indexed_paths` because the two come apart: an index
+	/// restored from a snapshot is browsable without anything watching it, and
+	/// that reads from the outside exactly like a watcher that is running and a
+	/// UI that never updates.
+	#[serde(default)]
+	pub watched_paths: Vec<PathBuf>,
 	/// Registered sources (volumes, drives, explicit roots) with their
 	/// attachment state — detached sources remain browsable from snapshots
 	#[serde(default)]

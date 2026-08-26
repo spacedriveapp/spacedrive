@@ -110,6 +110,26 @@ impl FsWatcherService {
 	pub async fn init_handlers(self: &Arc<Self>) {
 		self.persistent_handler.connect(self.clone()).await;
 		self.ephemeral_handler.connect(self.clone()).await;
+		self.clone().arm_restored_sources();
+	}
+
+	/// Watch every source whose index arrives from a snapshot.
+	///
+	/// An index becomes browsable two ways and only one of them armed a watch.
+	/// A walk finishes and the indexing job watches what it walked; a restart
+	/// rebuilds the same index from a snapshot and watched nothing, so a drive
+	/// that browsed perfectly reported no changes until it was indexed again.
+	fn arm_restored_sources(self: Arc<Self>) {
+		let mut restored = self.context.ephemeral_cache().subscribe_restored_roots();
+
+		tokio::spawn(async move {
+			while let Some(root) = restored.recv().await {
+				match self.watch_ephemeral(root.clone()).await {
+					Ok(()) => info!("Watching restored source: {}", root.display()),
+					Err(e) => warn!("Failed to watch restored source {}: {}", root.display(), e),
+				}
+			}
+		});
 	}
 
 	/// Subscribe to filesystem events
@@ -291,6 +311,10 @@ impl FsWatcherService {
 	pub async fn watch_ephemeral(&self, path: impl Into<PathBuf>) -> Result<()> {
 		let path = path.into();
 		debug!("Watching ephemeral path: {}", path.display());
+
+		if self.context.ephemeral_cache().is_watched(&path) {
+			return Ok(());
+		}
 
 		// Register with ephemeral cache so handler knows to process events.
 		// Without this the OS watch still fires and `EphemeralEventHandler`

@@ -29,6 +29,7 @@ use std::{
 	},
 	time::Instant,
 };
+use tokio::sync::mpsc;
 use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 
@@ -158,6 +159,16 @@ pub struct EphemeralIndexCache {
 	slots: RwLock<HashMap<Uuid, Arc<SourceSlot>>>,
 	/// Fallback partition for paths under no registered source.
 	scratch: Arc<SourceSlot>,
+	/// Roots that have just become browsable, announced so whoever owns
+	/// filesystem watching can arm them.
+	///
+	/// An index arrives two ways and only one of them used to arm a watch. A
+	/// walk finishes and the indexing job watches what it walked; a restore
+	/// rebuilds the same index from a snapshot and armed nothing, so every
+	/// restart left a fully browsable drive that reported no changes. A channel
+	/// rather than a handle because the watcher service holds this cache, and
+	/// holding it back would be a cycle.
+	restored_roots: RwLock<Option<mpsc::UnboundedSender<PathBuf>>>,
 	created_at: Instant,
 }
 
@@ -185,6 +196,7 @@ impl EphemeralIndexCache {
 			dirs,
 			slots: RwLock::new(HashMap::new()),
 			scratch: SourceSlot::new(None, None)?,
+			restored_roots: RwLock::new(None),
 			created_at: Instant::now(),
 		})
 	}
@@ -530,12 +542,33 @@ impl EphemeralIndexCache {
 		// Exactly one restore attempt per session, shared by all callers.
 		// Data written by jobs before/while the attempt runs is merged over
 		// afterwards by those jobs' own writes, never silently replaced.
+		let already_restored = slot.restored.load(Ordering::Acquire);
+		let root = record.root.clone();
 		let restored = *slot
 			.restore_once
 			.get_or_init(|| Self::attempt_restore(self.dirs.clone(), record, slot.clone()))
 			.await;
 
+		if restored && !already_restored {
+			self.announce_restored(&root);
+		}
+
 		restored || !slot.indexed_paths.read().is_empty()
+	}
+
+	/// Receive the root of every source whose index becomes browsable from a
+	/// snapshot. One subscriber; a second call replaces the first.
+	pub fn subscribe_restored_roots(&self) -> mpsc::UnboundedReceiver<PathBuf> {
+		let (tx, rx) = mpsc::unbounded_channel();
+		*self.restored_roots.write() = Some(tx);
+		rx
+	}
+
+	fn announce_restored(&self, root: &Path) {
+		let sender = self.restored_roots.read().clone();
+		if let Some(sender) = sender {
+			let _ = sender.send(root.to_path_buf());
+		}
 	}
 
 	/// The single restore attempt for a slot. Returns whether the snapshot
@@ -1266,6 +1299,55 @@ mod tests {
 				assert_eq!(loaded.get_stats().total_entries, saved, "{count} entries");
 				assert_eq!(meta.source_id, source_id);
 			}
+		}
+
+		/// A restored index has to announce itself so something can watch it.
+		///
+		/// An index arrives two ways and only one of them used to arm a watch.
+		/// A walk finishes and the indexing job watches what it walked; a
+		/// restart rebuilds the same index from a snapshot and armed nothing,
+		/// so a drive that browsed perfectly reported no changes at all until
+		/// it was indexed again. Measured on a live daemon: 2.1 million entries
+		/// restored, zero watched roots, a new file on the desktop producing no
+		/// event.
+		#[tokio::test]
+		async fn a_restored_source_announces_itself_for_watching() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			{
+				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+					.expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, &root).await;
+				indexed_source(&cache, &root, anchor, 8).await;
+			}
+
+			// A new session, as a restarted daemon sees it.
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			let mut restored_roots = cache.subscribe_restored_roots();
+
+			assert!(
+				cache.ensure_restored(&root).await,
+				"snapshot did not restore"
+			);
+			assert_eq!(
+				restored_roots.try_recv().ok(),
+				Some(root.clone()),
+				"a restored source was never offered for watching"
+			);
+
+			// Already restored, so nothing further to announce; arming twice
+			// would leave the watch with a reference count it never sheds.
+			assert!(cache.ensure_restored(&root).await);
+			assert!(
+				restored_roots.try_recv().is_err(),
+				"a second look at the same source announced it again"
+			);
 		}
 
 		/// A change deep inside a watched source has to route to that source.

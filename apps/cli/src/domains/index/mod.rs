@@ -413,6 +413,24 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 							println!("{}", paths_table);
 						}
 					}
+
+					// Watched roots. Printed even when empty, because empty is the
+					// interesting answer: a restored index that nothing is watching
+					// looks identical from the outside to a broken watcher.
+					println!();
+					let mut watched_table = Table::new();
+					watched_table.load_preset(UTF8_BORDERS_ONLY);
+					watched_table.set_header(vec![
+						Cell::new("WATCHED ROOTS").add_attribute(Attribute::Bold)
+					]);
+					if status.watched_paths.is_empty() {
+						watched_table.add_row(vec!["none — nothing is armed for events"]);
+					} else {
+						for path in &status.watched_paths {
+							watched_table.add_row(vec![format!("● {}", path.display())]);
+						}
+					}
+					println!("{}", watched_table);
 					println!();
 				}
 			);

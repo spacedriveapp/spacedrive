@@ -1012,6 +1012,15 @@ indexed_paths: IndexedPathInfo[];
  */
 paths_in_progress: string[]; 
 /**
+ * Roots armed for filesystem watching.
+ * 
+ * Separate from `indexed_paths` because the two come apart: an index
+ * restored from a snapshot is browsable without anything watching it, and
+ * that reads from the outside exactly like a watcher that is running and a
+ * UI that never updates.
+ */
+watched_paths?: string[]; 
+/**
  * Registered sources (volumes, drives, explicit roots) with their
  * attachment state — detached sources remain browsable from snapshots
  */
