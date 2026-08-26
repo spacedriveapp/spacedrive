@@ -131,6 +131,14 @@ pub struct SourceStatus {
 	pub thumbs_path: Option<PathBuf>,
 }
 
+/// Below this many entries a partition is small enough that losing it costs
+/// nothing worth a refusal, and shrinking is ordinary.
+const COLLAPSE_FLOOR: u64 = 1_000;
+
+/// How much smaller a save has to be than what it replaces before it is treated
+/// as a collapse rather than a deletion someone actually performed.
+const COLLAPSE_FACTOR: u64 = 10;
+
 pub struct EphemeralIndexCache {
 	/// Registered sources, in memory. The durable copy is the `sources` table
 	/// in the open library.
@@ -644,6 +652,39 @@ impl EphemeralIndexCache {
 			let mut index = slot.index.write().await;
 			let stats = index.get_stats();
 			let entry_count = stats.total_entries as u64;
+
+			// The snapshot is the arena's only copy, and more than one path can
+			// leave a partition holding a single browsed directory: a whole
+			// drive's index has been replaced by the twenty entries of the
+			// folder someone happened to open. A collapse of this size is that
+			// bug rather than a drive that actually emptied, so refuse it and
+			// name both counts. The records themselves are in the source store,
+			// so what this costs is a re-index; what it prevents is a silent
+			// overwrite that a re-index cannot undo.
+			//
+			// The guard above this one only stops a session that never restored
+			// from clobbering. It exempts any partition that has already saved
+			// once, which is exactly when a full index is present to lose.
+			let previous = match slot.last_saved_entries.load(Ordering::Acquire) {
+				u64::MAX => record.record_count,
+				saved => Some(saved),
+			};
+			if let Some(previous) = previous {
+				if previous >= COLLAPSE_FLOOR
+					&& entry_count.saturating_mul(COLLAPSE_FACTOR) < previous
+				{
+					tracing::error!(
+						"Refusing to save snapshot for {}: {} entries would replace {}. \
+						 The partition lost its contents without the drive emptying; \
+						 re-index to rebuild it.",
+						record.root.display(),
+						entry_count,
+						previous
+					);
+					return Ok(());
+				}
+			}
+
 			// Entry count cannot answer "did anything change": a rename, or a
 			// delete balanced by an add, leaves it identical while changing what
 			// has to persist. The index tracks its own mutations instead.
@@ -1039,6 +1080,86 @@ mod tests {
 		let stats = cache.stats();
 		assert_eq!(stats.indexed_paths, 1);
 		assert_eq!(stats.indexing_in_progress, 1);
+	}
+
+	/// A whole drive's index must survive whatever the app does next.
+	///
+	/// The failure this pins is real and was observed: a full volume index of
+	/// 2.1 million entries was replaced by the 29 entries of a directory
+	/// someone browsed four minutes later, because a save only has to clear the
+	/// "did this session restore" gate, and by then it had.
+	#[tokio::test]
+	async fn a_collapsed_partition_does_not_replace_a_full_index() {
+		let cache_dir = tempfile::tempdir().unwrap();
+		let library = test_library(cache_dir.path()).await;
+		let root = tempfile::tempdir().unwrap();
+		let root = root.path().to_path_buf();
+
+		let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
+			.expect("cache");
+		cache.attach_library(library.clone()).await.expect("attach");
+		let source_id = cache
+			.register_source(&root, Some(anchor(&root)))
+			.await
+			.unwrap();
+
+		use crate::ops::indexing::database_storage::EntryMetadata;
+		use crate::ops::indexing::state::EntryKind;
+		let meta = |path: &Path| EntryMetadata {
+			kind: EntryKind::File,
+			path: path.to_path_buf(),
+			size: 1,
+			modified: None,
+			accessed: None,
+			created: None,
+			inode: None,
+			permissions: None,
+			is_hidden: false,
+		};
+
+		// A full index lands and persists.
+		let index = cache.create_for_indexing(root.clone());
+		{
+			let mut index = index.write().await;
+			for i in 0..(COLLAPSE_FLOOR * 3) {
+				let path = root.join(format!("file-{i}"));
+				index
+					.add_entry(path.clone(), Uuid::now_v7(), meta(&path))
+					.unwrap();
+			}
+		}
+		cache.mark_indexing_complete(&root);
+		cache.save_snapshot(&root).await.unwrap();
+
+		let full = cache
+			.sources()
+			.into_iter()
+			.find(|s| s.id == source_id)
+			.and_then(|s| s.entry_count)
+			.expect("counted");
+		assert!(full >= COLLAPSE_FLOOR * 3);
+
+		// Something empties the partition and asks to save the remains.
+		{
+			let mut index = index.write().await;
+			*index = EphemeralIndex::new().unwrap();
+			let path = root.join("only-this");
+			index
+				.add_entry(path.clone(), Uuid::now_v7(), meta(&path))
+				.unwrap();
+		}
+		cache.save_snapshot(&root).await.unwrap();
+
+		let after = cache
+			.sources()
+			.into_iter()
+			.find(|s| s.id == source_id)
+			.and_then(|s| s.entry_count)
+			.expect("counted");
+		assert_eq!(
+			after, full,
+			"a collapsed partition overwrote a full index instead of being refused"
+		);
 	}
 
 	#[tokio::test]
