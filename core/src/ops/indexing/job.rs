@@ -973,32 +973,39 @@ impl IndexerJob {
 			};
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-			// Convert DirEntry to (PathBuf, Option<Uuid>, EntryMetadata) tuples
-			// For volume indexing, pass None to skip UUID generation (lazy generation on access)
-			// For directory browsing, generate UUIDs upfront (needed for events)
-			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = batch
+			let metadata: Vec<EntryMetadata> = batch
 				.iter()
-				.map(|entry| {
-					// Only generate UUID for directory browsing (needs events)
-					let uuid = if !is_volume_indexing {
-						Some(Uuid::new_v4())
-					} else {
-						None
-					};
-
-					let metadata = EntryMetadata {
-						path: entry.path.clone(),
-						kind: entry.kind,
-						size: entry.size,
-						modified: entry.modified,
-						accessed: None,
-						created: None,
-						inode: entry.inode,
-						permissions: None,
-						is_hidden: is_hidden_path(&entry.path),
-					};
-					(entry.path.clone(), uuid, metadata)
+				.map(|entry| EntryMetadata {
+					path: entry.path.clone(),
+					kind: entry.kind,
+					size: entry.size,
+					modified: entry.modified,
+					accessed: None,
+					created: None,
+					inode: entry.inode,
+					permissions: None,
+					is_hidden: is_hidden_path(&entry.path),
 				})
+				.collect();
+
+			// Identity comes from the store's ledger, which is also where this
+			// batch gets taken in. One round trip for the batch: resolution is
+			// a hash lookup, so the wait is the queue rather than SQLite.
+			//
+			// Without a store there is nothing durable to agree with, so the
+			// arena mints for the session. Volume indexing used to defer uuids
+			// entirely; it no longer needs to, because the ledger has one
+			// whether or not anything asks.
+			let identities: Vec<Option<Uuid>> = match &source_store {
+				Some(store) => store.identify(&metadata).await,
+				None if is_volume_indexing => vec![None; metadata.len()],
+				None => metadata.iter().map(|_| Some(Uuid::now_v7())).collect(),
+			};
+
+			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = metadata
+				.into_iter()
+				.zip(identities)
+				.map(|(metadata, uuid)| (metadata.path.clone(), uuid, metadata))
 				.collect();
 
 			// Batch add to index - use spawn_blocking for CPU-intensive work
@@ -1012,15 +1019,6 @@ impl IndexerJob {
 			})
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
-
-			// The same batch to the durable store. The arena has already
-			// answered whoever was waiting, so this is the only place in the
-			// walk that waits on anything.
-			if let Some(store) = &source_store {
-				for (_, _, metadata) in &entries_with_metadata {
-					store.saw(metadata).await;
-				}
-			}
 
 			// Build UUID lookup map for directory browsing (only contains Some values)
 			// Volume indexing has None values so map will be empty (no events emitted anyway)

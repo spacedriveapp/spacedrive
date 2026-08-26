@@ -44,8 +44,12 @@ const QUEUE_DEPTH: usize = 8192;
 
 /// What the arena tells the store it saw.
 enum Ingest {
-	/// A path, with whatever the arena knew about it.
-	Saw(Observation),
+	/// Paths the walk or the watcher found. The reply carries the record uuid
+	/// each one resolved to, which is the identity the arena then writes.
+	Observe {
+		observations: Vec<Observation>,
+		identities: oneshot::Sender<Vec<Uuid>>,
+	},
 	/// A rename the watcher watched happen, so identity needs no guessing.
 	Rename {
 		from: String,
@@ -113,12 +117,64 @@ impl SourceStore {
 		&self.db
 	}
 
-	/// Record what the arena just took in. Awaits when the queue is full.
-	pub async fn saw(&self, metadata: &EntryMetadata) {
-		let Some(observation) = self.observe(metadata) else {
-			return;
+	/// Resolve what was seen to record identities, and take it in.
+	///
+	/// The ledger assigns identity, so this is where a file's uuid comes from:
+	/// the arena writes what the store resolved rather than minting its own.
+	/// Anything else gives one file two identities, and the tags on one of them
+	/// never meet the assertions on the other.
+	///
+	/// Answers in input order. `None` for a path outside the source root, which
+	/// the store has no key for.
+	///
+	/// Batched because a walk is: one round trip per batch rather than per
+	/// file. Resolution itself is a hash lookup and the reply is sent before
+	/// anything is committed, so the cost is the queue rather than a
+	/// transaction. A commit already in flight does delay the next batch, which
+	/// is the backpressure working rather than a stall.
+	pub async fn identify(&self, metadata: &[EntryMetadata]) -> Vec<Option<Uuid>> {
+		let mut slots: Vec<Option<usize>> = Vec::with_capacity(metadata.len());
+		let mut observations = Vec::with_capacity(metadata.len());
+
+		for entry in metadata {
+			match self.observe(entry) {
+				Some(observation) => {
+					slots.push(Some(observations.len()));
+					observations.push(observation);
+				}
+				None => slots.push(None),
+			}
+		}
+
+		if observations.is_empty() {
+			return vec![None; metadata.len()];
+		}
+
+		let (identities, resolved) = oneshot::channel();
+		self.send(Ingest::Observe {
+			observations,
+			identities,
+		})
+		.await;
+
+		let Ok(resolved) = resolved.await else {
+			tracing::warn!(source = %self.id, "source store writer is gone; identities unresolved");
+			return vec![None; metadata.len()];
 		};
-		self.send(Ingest::Saw(observation)).await;
+
+		slots
+			.into_iter()
+			.map(|slot| slot.and_then(|index| resolved.get(index).copied()))
+			.collect()
+	}
+
+	/// Resolve one path's identity. The watcher's shape.
+	pub async fn identify_one(&self, metadata: &EntryMetadata) -> Option<Uuid> {
+		self.identify(std::slice::from_ref(metadata))
+			.await
+			.into_iter()
+			.next()
+			.flatten()
 	}
 
 	/// Record a rename the watcher saw both ends of.
@@ -264,16 +320,30 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 		};
 
 		match ingest {
-			Ingest::Saw(observation) => {
-				let resolution = ledger.resolve(&observation);
-				if resolution.is_dirty() {
-					writes.push(FileWrite {
-						resolution,
-						parent_uuid: parent_of(&observation.external_id)
-							.and_then(|parent| ledger.uuid_of(parent)),
-						observation,
-					});
-				}
+			Ingest::Observe {
+				observations,
+				identities,
+			} => {
+				let resolved = observations
+					.into_iter()
+					.map(|observation| {
+						let resolution = ledger.resolve(&observation);
+						let uuid = resolution.uuid();
+						if resolution.is_dirty() {
+							writes.push(FileWrite {
+								resolution,
+								parent_uuid: parent_of(&observation.external_id)
+									.and_then(|parent| ledger.uuid_of(parent)),
+								observation,
+							});
+						}
+						uuid
+					})
+					.collect();
+
+				// A caller that stopped waiting is not an error: it already has
+				// the arena's answer and the batch is staged either way.
+				let _ = identities.send(resolved);
 			}
 			Ingest::Rename { from, observation } => {
 				let resolution = ledger
@@ -356,6 +426,7 @@ mod tests {
 		_data: TempDir,
 		root: TempDir,
 		store: Arc<SourceStore>,
+		index: Arc<RwLock<EphemeralIndex>>,
 		adapter: MemoryAdapter,
 	}
 
@@ -369,8 +440,9 @@ mod tests {
 				.await
 				.expect("store opens");
 
+			let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
 			let adapter = MemoryAdapter::new(
-				Arc::new(RwLock::new(EphemeralIndex::new().expect("arena"))),
+				index.clone(),
 				Arc::new(EventBus::new(1024)),
 				root.path().to_path_buf(),
 				Some(store.clone()),
@@ -380,8 +452,13 @@ mod tests {
 				_data: data,
 				root,
 				store,
+				index,
 				adapter,
 			}
+		}
+
+		fn adapter_index(&self) -> &Arc<RwLock<EphemeralIndex>> {
+			&self.index
 		}
 
 		/// Create a real file and hand it to the adapter as the watcher would.
@@ -521,6 +598,59 @@ mod tests {
 		fixture.adapter.delete(&entry).await.expect("delete");
 
 		assert_eq!(fixture.external_ids().await, vec!["keep.txt"]);
+	}
+
+	/// The whole point of the exercise. Tags hang off the arena's uuid and
+	/// assertions hang off the record's; if those differ, nothing a person said
+	/// about a file can ever be found from the file.
+	#[tokio::test]
+	async fn the_arena_and_the_record_name_a_file_the_same_way() {
+		let mut fixture = Fixture::new().await;
+		let path = fixture.create("notes.txt", b"hello").await;
+
+		let in_arena = {
+			let index = fixture.adapter_index().read().await;
+			index
+				.get_entry_uuid(&path)
+				.expect("the arena identified it")
+		};
+
+		fixture.store.flush().await;
+		let in_store: Uuid = sqlx::query_scalar("SELECT uuid FROM record WHERE external_id = ?")
+			.bind("notes.txt")
+			.fetch_one(fixture.store.db().pool())
+			.await
+			.expect("the store identified it");
+
+		assert_eq!(in_arena, in_store);
+	}
+
+	/// A second sighting resolves to the record that already exists rather than
+	/// minting beside it, which is what makes a re-walk free.
+	#[tokio::test]
+	async fn re_identifying_a_known_path_returns_the_same_record() {
+		let fixture = Fixture::new().await;
+		let path = fixture.root.path().join("notes.txt");
+		std::fs::write(&path, b"hello").expect("write");
+		let metadata = EntryMetadata::from(dir_entry(&path));
+
+		let first = fixture.store.identify_one(&metadata).await.expect("first");
+		let again = fixture.store.identify_one(&metadata).await.expect("again");
+
+		assert_eq!(first, again);
+	}
+
+	/// A path outside the source has no key in this store, and answering with
+	/// an invented uuid would bind it to a record that cannot exist.
+	#[tokio::test]
+	async fn a_path_outside_the_source_gets_no_identity() {
+		let fixture = Fixture::new().await;
+		let outside = TempDir::new().expect("elsewhere");
+		let path = outside.path().join("stray.txt");
+		std::fs::write(&path, b"hello").expect("write");
+
+		let metadata = EntryMetadata::from(dir_entry(&path));
+		assert!(fixture.store.identify_one(&metadata).await.is_none());
 	}
 
 	#[tokio::test]

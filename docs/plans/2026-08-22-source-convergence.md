@@ -416,8 +416,26 @@ schema gets an authoritative home for the first time.
    across serialization, and a walk resumed in a *new* process finds a ledger
    with no sweep running and closes nothing.
 
-3. **Next.** `entry_uuids` leaves `ephemeral.snapshot`, which is what makes the
-   snapshot purely rebuildable and all five of its discard paths harmless.
+3. **Done, and it was worse than this line said.** The arena and the store were
+   minting *separate* uuids for the same file: `MemoryAdapter` generated one
+   inline for the arena while `Ledger::resolve` minted its own for the record.
+   Tags hang off the first and `record_overlay` assertions off the second, and
+   nothing joined them. Indexing anything at scale before fixing that would
+   have baked the split into every row.
+
+   The ledger now assigns identity and the arena writes what it is told:
+   `SourceStore::identify` resolves a batch and answers with record uuids,
+   which is also where the batch gets taken in, so there is no second call that
+   could disagree. Resolution is a hash lookup and the reply lands before
+   anything commits, so a walk pays one queue round trip per batch rather than
+   a transaction. Volume indexing no longer defers uuids, because the ledger
+   has one whether or not anything asks.
+
+   `entry_uuids` is still in `ephemeral.snapshot` and it no longer matters: it
+   now holds the same uuid the ledger does, so it is a cache rather than the
+   only copy, and discarding it costs a re-identify rather than an identity.
+   Dropping the field is cleanup that can follow the arena growing a read path
+   to the ledger.
 
 ### P3 — One registry
 

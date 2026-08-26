@@ -64,10 +64,18 @@ impl MemoryAdapter {
 		}
 	}
 
-	/// Hand an observation to the durable store, if this partition has one.
-	async fn record(&self, metadata: &EntryMetadata) {
-		if let Some(store) = &self.store {
-			store.saw(metadata).await;
+	/// The identity to write into the arena for `metadata`.
+	///
+	/// The store's ledger assigns it, so the arena and the record table name a
+	/// file the same way. A partition with no store has no ledger to ask, and
+	/// mints one that lives as long as the session does.
+	async fn identify(&self, metadata: &EntryMetadata) -> Uuid {
+		match &self.store {
+			Some(store) => store
+				.identify_one(metadata)
+				.await
+				.unwrap_or_else(Uuid::now_v7),
+			None => Uuid::now_v7(),
 		}
 	}
 
@@ -172,8 +180,8 @@ impl ChangeHandler for MemoryAdapter {
 	}
 
 	async fn create(&mut self, metadata: &DirEntry, _parent_path: &Path) -> Result<EntryRef> {
-		let entry_uuid = Uuid::new_v4();
 		let entry_metadata = EntryMetadata::from(metadata.clone());
+		let entry_uuid = self.identify(&entry_metadata).await;
 
 		tracing::debug!(
 			"MemoryAdapter::create() called for path: {}",
@@ -183,8 +191,6 @@ impl ChangeHandler for MemoryAdapter {
 		let (entry_id, content_kind) = self
 			.add_entry_internal(&metadata.path, entry_uuid, entry_metadata.clone())
 			.await?;
-
-		self.record(&entry_metadata).await;
 
 		if let Some(content_kind) = content_kind {
 			tracing::debug!(
@@ -216,15 +222,23 @@ impl ChangeHandler for MemoryAdapter {
 	}
 
 	async fn update(&mut self, entry: &EntryRef, metadata: &DirEntry) -> Result<()> {
-		let uuid = entry.uuid.unwrap_or_else(Uuid::new_v4);
 		let entry_metadata = EntryMetadata::from(metadata.clone());
+		let uuid = match entry.uuid {
+			Some(uuid) => {
+				// Already identified; the store still has to hear that the
+				// bytes changed.
+				if let Some(store) = &self.store {
+					store.identify_one(&entry_metadata).await;
+				}
+				uuid
+			}
+			None => self.identify(&entry_metadata).await,
+		};
 
 		{
 			let mut index = self.index.write().await;
-			let _ = index.add_entry(metadata.path.clone(), uuid, entry_metadata.clone());
+			let _ = index.add_entry(metadata.path.clone(), uuid, entry_metadata);
 		}
-
-		self.record(&entry_metadata).await;
 
 		Ok(())
 	}
@@ -387,15 +401,22 @@ impl ChangeHandler for MemoryAdapter {
 					is_hidden: is_hidden_path(&entry_path),
 				};
 
-				let _ = index.add_entry(entry_path, Uuid::now_v7(), entry_metadata.clone());
-				observed.push(entry_metadata);
+				observed.push((entry_path, entry_metadata));
 			}
 		}
 
-		// Outside the arena lock: the store queue applies backpressure, and
-		// holding a write lock while waiting on it would stall every reader.
-		for metadata in &observed {
-			self.record(metadata).await;
+		// Identity comes from the store, so the listing is resolved in one round
+		// trip outside the arena lock: holding a write lock while waiting on the
+		// queue would stall every reader.
+		let metadata: Vec<EntryMetadata> = observed.iter().map(|(_, meta)| meta.clone()).collect();
+		let identities = match &self.store {
+			Some(store) => store.identify(&metadata).await,
+			None => vec![None; metadata.len()],
+		};
+
+		let mut index = self.index.write().await;
+		for ((path, meta), identity) in observed.into_iter().zip(identities) {
+			let _ = index.add_entry(path, identity.unwrap_or_else(Uuid::now_v7), meta);
 		}
 
 		Ok(())
@@ -416,12 +437,14 @@ impl IndexPersistence for MemoryAdapter {
 			.await
 			.map_err(|e| JobError::execution(format!("Failed to extract metadata: {}", e)))?;
 
+		let identity = self.identify(&metadata).await;
+
 		let (entry_id, content_kind, entry_uuid) = {
 			let mut index = self.index.write().await;
 			// The index keeps an existing entry's uuid on duplicate paths, so
 			// events always carry the identity queries will resolve.
 			let (content_kind, entry_uuid) = index
-				.add_entry(entry.path.clone(), Uuid::now_v7(), metadata.clone())
+				.add_entry(entry.path.clone(), identity, metadata.clone())
 				.map_err(|e| {
 					tracing::error!("Failed to add entry to ephemeral index: {}", e);
 					JobError::execution(format!("Failed to add entry: {}", e))
@@ -438,8 +461,6 @@ impl IndexPersistence for MemoryAdapter {
 
 			(self.next_id(), content_kind, entry_uuid)
 		};
-
-		self.record(&metadata).await;
 
 		if let Some(content_kind) = content_kind {
 			// Skip event emission for hidden files (dotfiles) to match query filtering behavior.
