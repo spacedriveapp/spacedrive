@@ -24,10 +24,36 @@ use uuid::Uuid;
 
 /// Applied to every per-source index on open. All statements are
 /// `IF NOT EXISTS`, so re-applying to a populated index is a no-op.
+///
+/// ## How a record is addressed
+///
+/// `external_id` is the source's own key and is nullable, because not every
+/// source has one for every record. An adapter record has an opaque id from
+/// the API it came from. A filesystem *directory* carries its path. A
+/// filesystem *file* carries nothing: it is addressed by
+/// `(parent_uuid, title)`, and its path is produced by joining its parent's
+/// `directory_path` row to its name.
+///
+/// Storing the full path on every record cost more than half the database on a
+/// two million record source, once in the table and again in the unique index,
+/// and bought a path lookup that `directory_path` answers in the same two
+/// probes. Resolving `a/b/c/d.png` is one probe into `directory_path` for
+/// `a/b/c` and one into `(parent_uuid, title)`; producing a file's path is the
+/// same in reverse. Neither walks the tree.
+///
+/// It also makes a rename proportional to the directories under it rather than
+/// to every record under it, which is the difference between rewriting a few
+/// hundred rows and a few hundred thousand when someone drags a folder.
+///
+/// `UNIQUE (parent_uuid, title)` is the constraint that was always true and
+/// never stated: two entries cannot share a name in one directory. NULLs are
+/// distinct in SQLite, so an adapter record with no parent is unconstrained by
+/// it, and `UNIQUE (type, external_id)` still catches two records claiming one
+/// key.
 pub const RECORD_SCHEMA: &str = r#"
 CREATE TABLE IF NOT EXISTS record (
     uuid BLOB PRIMARY KEY,
-    external_id TEXT NOT NULL,
+    external_id TEXT,
     type TEXT NOT NULL,
     title TEXT,
     created_at INTEGER,
@@ -40,7 +66,12 @@ CREATE TABLE IF NOT EXISTS record (
     UNIQUE (type, external_id)
 );
 CREATE INDEX IF NOT EXISTS idx_record_type ON record(type);
-CREATE INDEX IF NOT EXISTS idx_record_parent ON record(parent_uuid);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_record_sibling ON record(parent_uuid, title);
+
+CREATE TABLE IF NOT EXISTS directory_path (
+    record_uuid BLOB PRIMARY KEY REFERENCES record(uuid) ON DELETE CASCADE,
+    path TEXT NOT NULL UNIQUE
+);
 
 CREATE TABLE IF NOT EXISTS content (
     id INTEGER PRIMARY KEY,
@@ -136,7 +167,9 @@ pub(crate) fn insert_record_query<'q>(
 #[derive(Debug, Clone)]
 pub struct Record {
 	pub uuid: Uuid,
-	pub external_id: String,
+	/// The source's own key, where it has one. `None` for a filesystem file,
+	/// which is addressed by its parent and its name.
+	pub external_id: Option<String>,
 	/// Open type key: the adapter's model name.
 	pub type_: String,
 	pub title: Option<String>,

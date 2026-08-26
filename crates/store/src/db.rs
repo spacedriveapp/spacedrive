@@ -231,7 +231,7 @@ impl SourceDb {
 
 		let record = Record {
 			uuid,
-			external_id: external_id.to_string(),
+			external_id: Some(external_id.to_string()),
 			type_: model.to_string(),
 			title: self.record_title(model, model_def, fields_map),
 			created_at: self.record_created_at(model_def, fields_map),
@@ -757,6 +757,46 @@ impl SourceDb {
 			.collect())
 	}
 
+	/// The record at a source-relative path.
+	///
+	/// Two probes and no tree walk, which is what keeping paths on directories
+	/// buys. A directory answers from its own row. A file is its parent's
+	/// directory row plus its name, so `a/b/c/d.png` is one lookup for `a/b/c`
+	/// and one for `d.png` beneath it.
+	pub async fn resolve_path(&self, path: &str) -> Result<Option<Uuid>> {
+		let directory: Option<(Uuid,)> =
+			sqlx::query_as("SELECT record_uuid FROM directory_path WHERE path = ?")
+				.bind(path)
+				.fetch_optional(&self.pool)
+				.await?;
+		if let Some((uuid,)) = directory {
+			return Ok(Some(uuid));
+		}
+
+		let found: Option<(Uuid,)> = match path.rsplit_once('/') {
+			Some((parent, name)) => {
+				sqlx::query_as(
+					"SELECT r.uuid FROM record r
+					   JOIN directory_path d ON d.record_uuid = r.parent_uuid
+					  WHERE d.path = ? AND r.title = ?",
+				)
+				.bind(parent)
+				.bind(name)
+				.fetch_optional(&self.pool)
+				.await?
+			}
+			// Directly under the source root, which has no directory row.
+			None => {
+				sqlx::query_as("SELECT uuid FROM record WHERE parent_uuid IS NULL AND title = ?")
+					.bind(path)
+					.fetch_optional(&self.pool)
+					.await?
+			}
+		};
+
+		Ok(found.map(|(uuid,)| uuid))
+	}
+
 	/// Bind orphaned assertions back onto records, matching on the evidence each
 	/// row carries. Content uuid first, since it is derived from the bytes and so
 	/// holds across a rename and across a machine; the source's own key second.
@@ -796,6 +836,12 @@ impl SourceDb {
 						.bind(&external_id)
 						.fetch_optional(&self.pool)
 						.await?;
+			}
+
+			// A filesystem file stores no key of its own, so the same evidence
+			// has to be spent walking a path to it instead.
+			if target.is_none() {
+				target = self.resolve_path(&external_id).await?.map(|uuid| (uuid,));
 			}
 
 			let Some((target,)) = target else { continue };
@@ -862,7 +908,10 @@ impl SourceDb {
 	/// The SELECT prefix shared by listing and search: record identity plus the
 	/// presentation columns named by the search contract.
 	fn presentation_select(&self) -> String {
-		let mut sql = String::from("SELECT r.uuid AS id, r.external_id AS external_id, ");
+		// A filesystem file has no external id; it is addressed by its parent
+		// and its name, and search over such a source goes through the arena.
+		let mut sql =
+			String::from("SELECT r.uuid AS id, COALESCE(r.external_id, '') AS external_id, ");
 		let _ = write!(sql, "COALESCE(r.title, '') AS title, ");
 
 		let preview = &self.schema.search.preview;
@@ -893,7 +942,7 @@ impl SourceDb {
 	) -> Result<Vec<serde_json::Value>> {
 		let table = facet_table(self.primary_type());
 		let mut pairs = String::from(
-			"'external_id', r.external_id, 'title', r.title, \
+			"'external_id', COALESCE(r.external_id, ''), 'title', r.title, \
 			 'created_at', r.created_at, 'modified_at', r.modified_at",
 		);
 		if let Some(model) = self.schema.models.get(self.primary_type()) {

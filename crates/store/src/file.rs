@@ -115,6 +115,29 @@ fn under(external_id: &str, root: &str) -> bool {
 			&& external_id.as_bytes()[root.len()] == b'/')
 }
 
+/// A record's path: its own if it is a directory, otherwise its parent's plus
+/// its name.
+fn external_id_of(
+	directories: &HashMap<Uuid, Arc<str>>,
+	uuid: Uuid,
+	parent_uuid: Option<Uuid>,
+	title: Option<&str>,
+) -> Option<Arc<str>> {
+	if let Some(path) = directories.get(&uuid) {
+		return Some(path.clone());
+	}
+
+	let title = title?;
+	match parent_uuid {
+		Some(parent) => {
+			let parent_path = directories.get(&parent)?;
+			Some(Arc::from(format!("{parent_path}/{title}").as_str()))
+		}
+		// Directly under the source root, which stores no path of its own.
+		None => Some(Arc::from(title)),
+	}
+}
+
 #[derive(Debug, Clone)]
 struct Binding {
 	external_id: Arc<str>,
@@ -139,20 +162,43 @@ pub struct Ledger {
 impl Ledger {
 	/// Read every binding out of the store. One sequential scan, roughly sixty
 	/// bytes a record held afterwards.
+	///
+	/// Only directories store a path, so a file's is rebuilt here from its
+	/// parent's. The ledger holds full paths in memory either way: resolution
+	/// asks *what is bound at this path* on every observation, and a join per
+	/// question is not a trade worth making for a table that is read once.
 	pub async fn load(pool: &sqlx::SqlitePool) -> Result<Self> {
-		let rows: Vec<(Uuid, String, i64, i64, Option<i64>)> = sqlx::query_as(
-			"SELECT r.uuid, r.external_id, f.size, f.mtime, f.inode
+		let directories: HashMap<Uuid, Arc<str>> =
+			sqlx::query_as::<_, (Uuid, String)>("SELECT record_uuid, path FROM directory_path")
+				.fetch_all(pool)
+				.await?
+				.into_iter()
+				.map(|(uuid, path)| (uuid, Arc::from(path.as_str())))
+				.collect();
+
+		let rows: Vec<(Uuid, Option<Uuid>, Option<String>, i64, i64, Option<i64>)> =
+			sqlx::query_as(
+				"SELECT r.uuid, r.parent_uuid, r.title, f.size, f.mtime, f.inode
 			 FROM record r JOIN facet_file f ON f.record_uuid = r.uuid",
-		)
-		.fetch_all(pool)
-		.await?;
+			)
+			.fetch_all(pool)
+			.await?;
 
 		let mut ledger = Self::default();
-		for (uuid, external_id, size, mtime, inode) in rows {
+		for (uuid, parent_uuid, title, size, mtime, inode) in rows {
+			let Some(external_id) =
+				external_id_of(&directories, uuid, parent_uuid, title.as_deref())
+			else {
+				// A record whose parent has no path is unaddressable, which is
+				// the shape a half-written generation leaves behind. Leaving it
+				// unbound means the next walk resolves it fresh rather than
+				// binding an identity to a path that cannot be produced.
+				continue;
+			};
 			ledger.bind(
 				uuid,
 				Binding {
-					external_id: external_id.into(),
+					external_id,
 					size,
 					mtime,
 					inode,
@@ -357,6 +403,31 @@ impl Ledger {
 		gone
 	}
 
+	/// Re-key a path and everything under it, which is what a directory rename
+	/// comes to: one event in, a subtree re-addressed.
+	///
+	/// The records under a renamed directory do not change. Their paths are
+	/// their parent's plus their name, and the parent is the only thing that
+	/// moved. What has to change is this index, which holds full paths so that
+	/// resolution can ask about one without a join.
+	pub fn rename_tree(&mut self, from: &str, to: &str) {
+		let moving: Vec<(Arc<str>, Uuid)> = self
+			.by_path
+			.iter()
+			.filter(|(path, _)| under(path, from))
+			.map(|(path, uuid)| (path.clone(), *uuid))
+			.collect();
+
+		for (path, uuid) in moving {
+			let rekeyed: Arc<str> = Arc::from(format!("{to}{}", &path[from.len()..]).as_str());
+			self.by_path.remove(&path);
+			if let Some(binding) = self.bindings.get_mut(&uuid) {
+				binding.external_id = rekeyed.clone();
+			}
+			self.by_path.insert(rekeyed, uuid);
+		}
+	}
+
 	/// Forget a path. The watcher calls this on a delete it saw.
 	pub fn forget(&mut self, external_id: &str) -> Option<Uuid> {
 		let uuid = self.by_path.remove(external_id)?;
@@ -385,6 +456,16 @@ impl FileWrite {
 	}
 }
 
+/// A directory that moved, and where it moved to. Both are source-relative.
+///
+/// Only directories store a path, so re-addressing a subtree is an update to
+/// the directories inside it rather than to every record inside it.
+#[derive(Debug, Clone)]
+pub struct SubtreeRename {
+	pub from: String,
+	pub to: String,
+}
+
 /// A batch's high-water mark, written in the same transaction as the batch.
 pub struct Watermark<'a> {
 	pub key: &'a str,
@@ -402,6 +483,10 @@ INSERT INTO facet_file (record_uuid, size, mtime, atime, inode, mode, extension,
 	mode = excluded.mode,
 	extension = excluded.extension,
 	is_hidden = excluded.is_hidden";
+
+const INSERT_DIRECTORY_PATH: &str = "\
+INSERT INTO directory_path (record_uuid, path) VALUES (?, ?)
+ ON CONFLICT (record_uuid) DO UPDATE SET path = excluded.path";
 
 /// The order a batch has to be written in, as indexes into it.
 ///
@@ -461,11 +546,29 @@ impl SourceDb {
 		&self,
 		writes: &[FileWrite],
 		removals: &[Uuid],
+		renames: &[SubtreeRename],
 		watermark: Option<Watermark<'_>>,
 	) -> Result<u64> {
 		let mut tx = self.pool().begin().await?;
 		let epoch = self.scan_epoch();
 		let mut applied = 0;
+
+		// Before the batch, so a directory written into the subtree by the same
+		// batch lands at its new address rather than being moved twice.
+		for rename in renames {
+			sqlx::query(
+				"UPDATE directory_path
+				    SET path = ? || substr(path, ?)
+				  WHERE path = ? OR (path >= ? AND path < ?)",
+			)
+			.bind(&rename.to)
+			.bind(rename.from.len() as i64 + 1)
+			.bind(&rename.from)
+			.bind(format!("{}/", rename.from))
+			.bind(format!("{}0", rename.from))
+			.execute(&mut *tx)
+			.await?;
+		}
 
 		for index in parents_first(writes) {
 			let write = &writes[index];
@@ -474,9 +577,12 @@ impl SourceDb {
 			}
 
 			let observation = &write.observation;
+			// A directory carries its path; a file is found through its parent
+			// and its name. See [`crate::record::RECORD_SCHEMA`].
+			let is_directory = matches!(observation.kind, FileKind::Directory);
 			let record = Record {
 				uuid: write.uuid(),
-				external_id: observation.external_id.clone(),
+				external_id: is_directory.then(|| observation.external_id.clone()),
 				type_: observation.kind.as_str().to_string(),
 				title: Some(observation.name.clone()),
 				created_at: observation.created,
@@ -488,6 +594,14 @@ impl SourceDb {
 			insert_record_query(&record, epoch)
 				.execute(&mut *tx)
 				.await?;
+
+			if is_directory {
+				sqlx::query(INSERT_DIRECTORY_PATH)
+					.bind(record.uuid)
+					.bind(&observation.external_id)
+					.execute(&mut *tx)
+					.await?;
+			}
 
 			sqlx::query(INSERT_FACET_FILE)
 				.bind(record.uuid)

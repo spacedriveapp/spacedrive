@@ -52,7 +52,8 @@ pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
 pub use file::{
-	filesystem_schema, FileKind, FileWrite, Ledger, Observation, Resolution, Watermark,
+	filesystem_schema, FileKind, FileWrite, Ledger, Observation, Resolution, SubtreeRename,
+	Watermark,
 };
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};

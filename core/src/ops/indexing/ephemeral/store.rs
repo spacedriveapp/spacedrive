@@ -22,6 +22,7 @@ use std::time::{Duration, UNIX_EPOCH};
 use anyhow::{Context, Result};
 use sd_store::{
 	filesystem_schema, FileKind, FileWrite, Ledger, Observation, SourceDb, SourceManager,
+	SubtreeRename,
 };
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -319,24 +320,25 @@ fn parent_of(external_id: &str) -> Option<&str> {
 async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receiver<Ingest>) {
 	let mut writes: Vec<FileWrite> = Vec::with_capacity(BATCH_SIZE);
 	let mut removals: Vec<Uuid> = Vec::new();
+	let mut renames: Vec<SubtreeRename> = Vec::new();
 
 	loop {
 		// A partial batch waits out the linger; an empty one waits forever, so
 		// an idle source costs nothing.
-		let next = if writes.is_empty() && removals.is_empty() {
+		let next = if writes.is_empty() && removals.is_empty() && renames.is_empty() {
 			rx.recv().await
 		} else {
 			match tokio::time::timeout(BATCH_LINGER, rx.recv()).await {
 				Ok(next) => next,
 				Err(_) => {
-					commit(&db, &mut writes, &mut removals).await;
+					commit(&db, &mut writes, &mut removals, &mut renames).await;
 					continue;
 				}
 			}
 		};
 
 		let Some(ingest) = next else {
-			commit(&db, &mut writes, &mut removals).await;
+			commit(&db, &mut writes, &mut removals, &mut renames).await;
 			return;
 		};
 
@@ -368,6 +370,19 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				let _ = identities.send(resolved);
 			}
 			Ingest::Rename { from, observation } => {
+				// A directory takes its subtree's addresses with it. Its own
+				// record moves; everything under it keeps its parent and its
+				// name and is simply reached a different way.
+				if matches!(observation.kind, FileKind::Directory)
+					&& from != observation.external_id
+				{
+					ledger.rename_tree(&from, &observation.external_id);
+					renames.push(SubtreeRename {
+						from: from.clone(),
+						to: observation.external_id.clone(),
+					});
+				}
+
 				let resolution = ledger
 					.rebind(&from, &observation)
 					.unwrap_or_else(|| ledger.resolve(&observation));
@@ -393,21 +408,21 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			Ingest::BeginSweep => {
 				// A sweep's verdict is "everything this walk did not see", so
 				// anything still pending has to count as seen before it opens.
-				commit(&db, &mut writes, &mut removals).await;
+				commit(&db, &mut writes, &mut removals, &mut renames).await;
 				ledger.begin_sweep();
 			}
 			Ingest::FinishSweep { unreachable } => {
 				removals.extend(ledger.finish_sweep(&unreachable));
-				commit(&db, &mut writes, &mut removals).await;
+				commit(&db, &mut writes, &mut removals, &mut renames).await;
 			}
 			Ingest::Flush(done) => {
-				commit(&db, &mut writes, &mut removals).await;
+				commit(&db, &mut writes, &mut removals, &mut renames).await;
 				let _ = done.send(());
 			}
 		}
 
 		if writes.len() >= BATCH_SIZE {
-			commit(&db, &mut writes, &mut removals).await;
+			commit(&db, &mut writes, &mut removals, &mut renames).await;
 		}
 	}
 }
@@ -418,18 +433,24 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 /// what it held, so replaying it would write rows the next walk resolves as
 /// unchanged and never repairs. Losing it instead leaves the store behind the
 /// filesystem, which is the state every walk is built to correct.
-async fn commit(db: &SourceDb, writes: &mut Vec<FileWrite>, removals: &mut Vec<Uuid>) {
-	if writes.is_empty() && removals.is_empty() {
+async fn commit(
+	db: &SourceDb,
+	writes: &mut Vec<FileWrite>,
+	removals: &mut Vec<Uuid>,
+	renames: &mut Vec<SubtreeRename>,
+) {
+	if writes.is_empty() && removals.is_empty() && renames.is_empty() {
 		return;
 	}
 
-	match db.apply_files(writes, removals, None).await {
+	match db.apply_files(writes, removals, renames, None).await {
 		Ok(applied) => tracing::trace!(applied, removed = removals.len(), "source store batch"),
 		Err(error) => tracing::error!(%error, "source store batch failed"),
 	}
 
 	writes.clear();
 	removals.clear();
+	renames.clear();
 }
 
 #[cfg(test)]
@@ -483,12 +504,33 @@ mod tests {
 			&self.index
 		}
 
-		/// Create a real file and hand it to the adapter as the watcher would.
+		/// Create a real file and hand it to the adapter as the watcher would,
+		/// along with any directory above it that a walk would already have
+		/// indexed. A file is addressed through its parent, so a parent that
+		/// was never recorded leaves it reachable only by its bare name.
 		async fn create(&mut self, relative: &str, contents: &[u8]) -> PathBuf {
 			let path = self.root.path().join(relative);
 			if let Some(parent) = path.parent() {
 				std::fs::create_dir_all(parent).expect("parent");
 			}
+
+			let mut ancestors: Vec<PathBuf> = path
+				.ancestors()
+				.skip(1)
+				.take_while(|a| *a != self.root.path())
+				.map(|a| a.to_path_buf())
+				.collect();
+			ancestors.reverse();
+			// Re-observed every time, as a walk does. A directory that is
+			// already known resolves unchanged and writes nothing, and during a
+			// sweep being observed is what keeps it from being condemned.
+			for directory in ancestors {
+				self.adapter
+					.create(&dir_entry(&directory), self.root.path())
+					.await
+					.expect("create directory");
+			}
+
 			std::fs::write(&path, contents).expect("write");
 			self.adapter
 				.create(&dir_entry(&path), self.root.path())
@@ -497,14 +539,27 @@ mod tests {
 			path
 		}
 
-		async fn external_ids(&self) -> Vec<String> {
+		/// Every record's path. Only directories store one, so a file's is
+		/// rebuilt from its parent's the way anything reading this store has to.
+		async fn paths(&self) -> Vec<String> {
 			self.store.flush().await;
-			sqlx::query_scalar("SELECT external_id FROM record ORDER BY external_id")
+			sqlx::query_scalar(&format!("SELECT {PATH_OF_RECORD} ORDER BY 1"))
 				.fetch_all(self.store.db().pool())
 				.await
 				.expect("records")
 		}
+
+		async fn uuid_at(&self, path: &str) -> Option<Uuid> {
+			self.store.flush().await;
+			self.store.db().resolve_path(path).await.expect("query")
+		}
 	}
+
+	const PATH_OF_RECORD: &str = "\
+COALESCE(own.path, parent.path || '/' || r.title, r.title)
+   FROM record r
+   LEFT JOIN directory_path own ON own.record_uuid = r.uuid
+   LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid";
 
 	fn dir_entry(path: &Path) -> DirEntry {
 		use std::hash::{Hash, Hasher};
@@ -570,33 +625,30 @@ mod tests {
 		);
 		fixture.store.flush().await;
 
-		let pool = fixture.store.db().pool();
-		let parent_of = |child: &'static str, parent: &'static str| async move {
-			let found: Option<Uuid> = sqlx::query_scalar(
-				"SELECT p.uuid FROM record c JOIN record p ON p.uuid = c.parent_uuid
-				 WHERE c.external_id = ?",
-			)
-			.bind(child)
-			.fetch_optional(pool)
-			.await
-			.expect("query");
-			let expected: Uuid =
-				sqlx::query_scalar("SELECT uuid FROM record WHERE external_id = ?")
-					.bind(parent)
+		let db = fixture.store.db();
+		let pool = db.pool();
+		for (child, parent) in [
+			("a/b", "a"),
+			("a/b/c", "a/b"),
+			("a/b/c/deep.txt", "a/b/c"),
+			("a/b/sibling.txt", "a/b"),
+		] {
+			let child_uuid = db.resolve_path(child).await.expect("query").expect(child);
+			let found: Option<Uuid> =
+				sqlx::query_scalar("SELECT parent_uuid FROM record WHERE uuid = ?")
+					.bind(child_uuid)
 					.fetch_one(pool)
 					.await
-					.expect("parent record");
+					.expect("query");
+			let expected = db.resolve_path(parent).await.expect("query").expect(parent);
 			assert_eq!(found, Some(expected), "{child} should sit under {parent}");
-		};
+		}
 
-		parent_of("a/b", "a").await;
-		parent_of("a/b/c", "a/b").await;
-		parent_of("a/b/c/deep.txt", "a/b/c").await;
-		parent_of("a/b/sibling.txt", "a/b").await;
-
+		let top = db.resolve_path("a").await.expect("query").expect("a");
 		let unparented: i64 = sqlx::query_scalar(
-			"SELECT COUNT(*) FROM record WHERE parent_uuid IS NULL AND external_id <> 'a'",
+			"SELECT COUNT(*) FROM record WHERE parent_uuid IS NULL AND uuid <> ?",
 		)
+		.bind(top)
 		.fetch_one(pool)
 		.await
 		.expect("count");
@@ -609,7 +661,7 @@ mod tests {
 		fixture.create("notes.txt", b"hello").await;
 		fixture.create("photo.jpg", b"jpeg").await;
 
-		assert_eq!(fixture.external_ids().await, vec!["notes.txt", "photo.jpg"]);
+		assert_eq!(fixture.paths().await, vec!["notes.txt", "photo.jpg"]);
 	}
 
 	#[tokio::test]
@@ -619,7 +671,10 @@ mod tests {
 
 		// Absolute paths would tie every row to where the drive happened to
 		// mount, which is the thing a source id exists to avoid.
-		assert_eq!(fixture.external_ids().await, vec!["docs/deep/notes.txt"]);
+		assert_eq!(
+			fixture.paths().await,
+			vec!["docs", "docs/deep", "docs/deep/notes.txt"]
+		);
 	}
 
 	#[tokio::test]
@@ -649,7 +704,7 @@ mod tests {
 			.await
 			.expect("move");
 
-		assert_eq!(fixture.external_ids().await, vec!["final.txt"]);
+		assert_eq!(fixture.paths().await, vec!["final.txt"]);
 
 		let after: Uuid = sqlx::query_scalar("SELECT uuid FROM record")
 			.fetch_one(fixture.store.db().pool())
@@ -671,18 +726,17 @@ mod tests {
 		fixture.create("docs/a.txt", b"a").await;
 		fixture.create("docs/b.txt", b"b").await;
 		fixture.create("keep.txt", b"keep").await;
-		assert_eq!(fixture.external_ids().await.len(), 4);
+		assert_eq!(fixture.paths().await.len(), 4);
 
-		let parents: Vec<Option<Uuid>> =
-			sqlx::query_scalar("SELECT parent_uuid FROM record WHERE external_id LIKE 'docs/%'")
-				.fetch_all(fixture.store.db().pool())
-				.await
-				.expect("children");
-		let directory: Uuid = sqlx::query_scalar("SELECT uuid FROM record WHERE external_id = ?")
-			.bind("docs")
-			.fetch_one(fixture.store.db().pool())
-			.await
-			.expect("directory");
+		let parents: Vec<Option<Uuid>> = sqlx::query_scalar(&format!(
+			"SELECT r.parent_uuid FROM record r
+				   JOIN directory_path parent ON parent.record_uuid = r.parent_uuid
+				  WHERE parent.path = 'docs'"
+		))
+		.fetch_all(fixture.store.db().pool())
+		.await
+		.expect("children");
+		let directory = fixture.uuid_at("docs").await.expect("directory");
 		assert!(parents.iter().all(|parent| *parent == Some(directory)));
 
 		let entry = fixture
@@ -693,7 +747,7 @@ mod tests {
 			.expect("known");
 		fixture.adapter.delete(&entry).await.expect("delete");
 
-		assert_eq!(fixture.external_ids().await, vec!["keep.txt"]);
+		assert_eq!(fixture.paths().await, vec!["keep.txt"]);
 	}
 
 	/// The whole point of the exercise. Tags hang off the arena's uuid and
@@ -712,11 +766,15 @@ mod tests {
 		};
 
 		fixture.store.flush().await;
-		let in_store: Uuid = sqlx::query_scalar("SELECT uuid FROM record WHERE external_id = ?")
-			.bind("notes.txt")
-			.fetch_one(fixture.store.db().pool())
-			.await
-			.expect("the store identified it");
+		let in_store: Uuid = sqlx::query_scalar(&format!(
+			"SELECT r.uuid FROM record r
+			   LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid
+			  WHERE COALESCE(parent.path || '/' || r.title, r.title) = ?"
+		))
+		.bind("notes.txt")
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("the store identified it");
 
 		assert_eq!(in_arena, in_store);
 	}
@@ -754,7 +812,7 @@ mod tests {
 		let mut fixture = Fixture::new().await;
 		fixture.create("keep.txt", b"keep").await;
 		let gone = fixture.create("gone.txt", b"gone").await;
-		assert_eq!(fixture.external_ids().await.len(), 2);
+		assert_eq!(fixture.paths().await.len(), 2);
 
 		// The file leaves while nothing is watching, so the next walk learns
 		// of it only by not finding it.
@@ -763,7 +821,7 @@ mod tests {
 		fixture.create("keep.txt", b"keep").await;
 		fixture.store.finish_sweep(&[]).await;
 
-		assert_eq!(fixture.external_ids().await, vec!["keep.txt"]);
+		assert_eq!(fixture.paths().await, vec!["keep.txt"]);
 	}
 
 	#[tokio::test]
@@ -772,7 +830,8 @@ mod tests {
 		fixture.create("open/a.txt", b"a").await;
 		fixture.create("locked/b.txt", b"b").await;
 		let gone = fixture.create("open/gone.txt", b"gone").await;
-		assert_eq!(fixture.external_ids().await.len(), 3);
+		// Three files and the two directories they are addressed through.
+		assert_eq!(fixture.paths().await.len(), 5);
 
 		// The walk cannot open `locked`, and reports nothing under it. That is
 		// a walk that did not look, so its records stand; `open` was read, so
@@ -784,8 +843,8 @@ mod tests {
 		fixture.store.finish_sweep(&[locked]).await;
 
 		assert_eq!(
-			fixture.external_ids().await,
-			vec!["locked/b.txt", "open/a.txt"]
+			fixture.paths().await,
+			vec!["locked", "locked/b.txt", "open", "open/a.txt"]
 		);
 	}
 
