@@ -1082,7 +1082,11 @@ job_stats: JobStats };
 /**
  * A registered ephemeral source and its live state
  */
-export type EphemeralSourceInfo = { id: string; root: string; fingerprint: string | null; 
+export type EphemeralSourceInfo = { id: string; root: string; 
+/**
+ * The volume this source sits on, when it sits on one Spacedrive tracks.
+ */
+volume_uuid: string | null; 
 /**
  * The root exists on disk right now
  */
@@ -3179,7 +3183,13 @@ export type MountShare = { name: string; source_id: string; root: string; attach
 /**
  * Owning device label for replicated peer sources; None for local.
  */
-device: string | null };
+device: string | null; 
+/**
+ * For a replicated peer source, the snapshot generation this replica
+ * was built from and when it arrived — the two numbers that say how
+ * current a peer mount actually is.
+ */
+generation: number | null; synced_at_secs: number | null };
 
 /**
  * Mount type classification
@@ -4168,37 +4178,44 @@ export type SortField = "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedA
 export type SortOptions = { field: SortField; direction: SortDirection };
 
 /**
- * Information about a source
+ * A registered source of either kind.
+ * 
+ * `data_type` is what forks them: `filesystem` for a walked root, the
+ * adapter's data type otherwise. The fields an adapter has no answer for are
+ * optional rather than defaulted, so a client can tell "no root" from "root
+ * unknown".
  */
-export type SourceInfo = { 
+export type SourceInfo = { id: string; name: string; 
 /**
- * Source ID
- */
-id: string; 
-/**
- * Display name
- */
-name: string; 
-/**
- * Data type (e.g., "email", "bookmark", "note")
+ * `filesystem`, or the adapter's data type.
  */
 data_type: string; 
 /**
- * Adapter ID
+ * Absent for a filesystem source: a walk has no adapter.
  */
-adapter_id: string; 
+adapter_id: string | null; 
 /**
- * Number of items
+ * Records the source holds, from its last completed pass.
  */
-item_count: number; 
+item_count: number; last_synced: string | null; status: string; 
 /**
- * Last sync timestamp
+ * Absolute root as currently mounted. Filesystem sources only.
  */
-last_synced: string | null; 
+root: string | null; 
 /**
- * Current status
+ * The medium underneath, when Spacedrive tracks one.
  */
-status: string };
+volume_uuid: string | null; 
+/**
+ * Whether the origin answers right now. Always true for an adapter, whose
+ * origin is a network service rather than a drive in a drawer.
+ */
+attached: boolean; total_bytes: number | null; 
+/**
+ * Last time the origin answered. Absent for an adapter, whose registry
+ * tracks a sync cursor rather than an attachment.
+ */
+last_seen_at: string | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -4677,7 +4694,8 @@ tiles: (TileIdentity | null)[] };
  */
 export type ThumbSource = { id: string; cache_path: string; 
 /**
- * Tile edge in physical pixels; every slot in the file is square.
+ * Envelope edge in physical pixels: slots are square, but the frame inside
+ * one is the tile's own aspect and comes back with every read.
  */
 tile_size: number };
 
@@ -4727,6 +4745,34 @@ export type TileIdentity = { source_id: string; uuid: string;
  * a browser, and a rounded version matches no tile.
  */
 version: string };
+
+export type TrackSourceInput = { 
+/**
+ * The root to track. A volume's mount point tracks the whole drive; any
+ * path under one tracks that subtree.
+ */
+path: string; 
+/**
+ * Display name, or the directory's own name.
+ */
+name: string | null; 
+/**
+ * Record everything readable, rather than applying the default rules that
+ * hide system files, `.git` and dev directories. Archival drives want
+ * this; a working directory usually does not.
+ */
+unfiltered?: boolean };
+
+export type TrackSourceOutput = { id: string; root: string; 
+/**
+ * The medium underneath, when Spacedrive tracks one. A source with no
+ * volume still works; it just cannot follow a remount.
+ */
+volume_uuid: string | null; 
+/**
+ * Whether this root is the whole volume rather than a subtree of one.
+ */
+whole_volume: boolean; job_id: string | null };
 
 export type TranscribeAudioInput = { entry_uuid: string; model: string | null; language: string | null };
 
@@ -5520,6 +5566,7 @@ export type LibraryAction =
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
+  |  { type: 'sources.track'; input: TrackSourceInput; output: TrackSourceOutput }
   |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
   |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
@@ -5678,6 +5725,7 @@ export const WIRE_METHODS = {
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
     'sources.sync': 'action:sources.sync.input',
+    'sources.track': 'action:sources.track.input',
     'spaces.add_group': 'action:spaces.add_group.input',
     'spaces.add_item': 'action:spaces.add_item.input',
     'spaces.create': 'action:spaces.create.input',

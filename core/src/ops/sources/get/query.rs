@@ -75,7 +75,7 @@ impl LibraryQuery for GetSourceQuery {
 		let id = Uuid::parse_str(&source.id)
 			.map_err(|e| QueryError::Internal(format!("Invalid source ID: {e}")))?;
 
-		Ok(SourceInfo::new(
+		Ok(SourceInfo::adapter(
 			id,
 			source.name,
 			source.data_type,

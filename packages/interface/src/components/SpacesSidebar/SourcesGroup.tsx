@@ -1,5 +1,6 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Database } from "@phosphor-icons/react";
+import type { SourceInfo } from "@sd/ts-client";
 import { useLibraryQuery } from "../../contexts/SpacedriveContext";
 import { useAdapterIcons } from "../../hooks/useAdapterIcons";
 import { GroupHeader } from "./GroupHeader";
@@ -27,7 +28,11 @@ export function SourcesGroup({
 		input: { data_type: null },
 	});
 
-	const sourcesList = sources ?? [];
+	// Filesystem sources render as EphemeralSourceRows, which knows how to
+	// navigate to a root and show an offline drive. This half is adapters.
+	const sourcesList = ((sources ?? []) as SourceInfo[]).filter(
+		(source) => source.data_type !== "filesystem",
+	);
 
 	return (
 		<div>
@@ -54,7 +59,7 @@ export function SourcesGroup({
 										: "text-sidebar-inkDull hover:text-sidebar-ink"
 								}`}
 							>
-								{getIcon(source.adapter_id) ? (
+								{getIcon(source.adapter_id ?? "") ? (
 									<div
 										className={`size-4 shrink-0 [&>svg]:h-full [&>svg]:w-full ${
 											isActive
@@ -62,7 +67,7 @@ export function SourcesGroup({
 												: "opacity-60 grayscale"
 										}`}
 										dangerouslySetInnerHTML={{
-											__html: getIcon(source.adapter_id)!,
+											__html: getIcon(source.adapter_id ?? "")!,
 										}}
 									/>
 								) : (

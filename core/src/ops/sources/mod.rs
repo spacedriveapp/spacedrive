@@ -12,6 +12,7 @@ pub mod list_records;
 pub mod media_listing;
 pub mod search;
 pub mod sync;
+pub mod track;
 
 pub use create::*;
 pub use delete::*;
@@ -19,3 +20,4 @@ pub use get::*;
 pub use list::*;
 pub use list_items::*;
 pub use sync::*;
+pub use track::*;

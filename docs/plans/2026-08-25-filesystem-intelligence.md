@@ -114,9 +114,6 @@ distinction is load-bearing for this feature and is examined below.
   sources. That arrives with the catalog." Duplicates across drives, at-risk
   filters, and global search are all catalog work, and the catalog is currently
   scheduled last.
-- **A way to make a source deliberately.** Today a filesystem source appears as
-  a side effect of indexing a volume. There is no flow for "track this drive",
-  and no flow for a folder that is not a whole volume.
 - **MCP.** Nothing in the tree.
 - **Any model runtime.** `crates/sdk/src/ai.rs` is extension stubs with no
   inference behind them, so the local provider client, the agent loop, and its
@@ -144,6 +141,14 @@ sampled tier. Deleting one copy of two needs the confirmed tier, and only for
 the specific pairs a person is about to act on. `ContentId::confirmed()`
 already encodes that gate; the planner has to respect it rather than treat a
 candidate as an answer.
+
+**Nothing climbs the ladder yet.** `SourceDb::set_content_identity` and
+`records_needing_content_identity` are written and tested with no production
+caller, and the walk skips content identification outright
+(`job.rs`, `Phase::ContentIdentification`). So there are no content ids in the
+sources path at all, which means no duplicate detection, which is the headline
+question. A sampled-hash job over `records_needing_content_identity` is the
+missing piece and it is bounded by file count rather than bytes.
 
 **The planner's objective is bytes not moved.** Moving data is bounded by the
 same physics as reading it, so a good plan is mostly a plan to leave things
@@ -312,11 +317,23 @@ conversational surface tomorrow costs nothing but convenience.
 
 ## Phases
 
-**P1. Deliberate sources.** A flow for "track this drive" and "track this
-folder" that creates a source with a stable identity, independent of a browse.
-Volume indexing already produces the walk; what is missing is the intent.
-Prerequisite for everything, because the map is only as good as the set of
-things registered in it.
+**P1. Deliberate sources. Done.** `sources.track` registers a root and starts
+indexing it, returning as soon as the row exists so the UI has something to show
+against a walk that will take hours. Whole drive and folder-within-a-drive are
+the same call with a different path; the volume is resolved from the path and
+the source anchors to it. `unfiltered` selects archival behaviour, recording
+everything readable rather than applying the rules that hide system files and
+dev directories.
+
+`sources.list` now serves both kinds, so the sidebar stopped needing a separate
+group per registry. The union is transitional: filesystem rows come from the
+`sources` table and adapter rows still come from `registry.db`, and folding the
+second into the first is the rest of convergence P3.
+
+**Content ids stay out of the walk.** They are their own job, deliberately: the
+walk is fast and worth keeping fast, and `records_needing_content_identity` is
+already the query a separate pass would drive. Nothing generates them yet, which
+is the gap noted below.
 
 **P2. Catalog.** Pull `catalog.db` forward from teardown phase 5. Global
 enumeration plus placement rows swept from source stores. This is the keystone:
