@@ -307,9 +307,14 @@ impl FsWatcherService {
 			));
 		}
 
-		// Start OS-level watching (shallow = immediate children only)
+		// Recursive, because the index under this root is. A source is walked
+		// all the way down and the watch has to cover what the walk covered;
+		// depth is then decided per event by whether the index holds the
+		// parent. macOS has no non-recursive subscription anyway, so a shallow
+		// config here was only ever honoured on other platforms, where it made
+		// every change below the first level invisible.
 		self.watcher
-			.watch_path(&path, WatchConfig::shallow())
+			.watch_path(&path, WatchConfig::recursive())
 			.await?;
 
 		Ok(())

@@ -127,34 +127,20 @@ impl EphemeralEventHandler {
 	}
 
 	/// Handle a single filesystem event
-	///
-	/// Checks if the event's path is under an ephemeral watched directory.
-	/// For shallow watches, only processes events for immediate children.
 	async fn handle_event(
 		context: &Arc<CoreContext>,
 		event: &FsEvent,
 		rule_toggles: RuleToggles,
 	) -> Result<()> {
-		// Get the parent directory of the event path
-		let Some(parent) = event.path.parent() else {
-			trace!("Event path has no parent: {}", event.path.display());
-			return Ok(());
-		};
-
-		// Check if the parent is being watched (shallow watch = immediate children only)
-		let watched_paths = context.ephemeral_cache().watched_paths();
-
-		// Events arrive in the spelling the watch is stored under, translated at
-		// the watcher edge, so a shallow watch is plain equality on the parent.
-		let matching_root = watched_paths
-			.iter()
-			.find(|watched| parent == watched.as_path());
-
-		let Some(root_path) = matching_root else {
-			// Not under any ephemeral watch
+		let Some(root_path) = context
+			.ephemeral_cache()
+			.watched_root_for_change(&event.path)
+			.await
+		else {
 			trace!("Event not under ephemeral watch: {}", event.path.display());
 			return Ok(());
 		};
+		let root_path = &root_path;
 
 		debug!(
 			"Ephemeral event matched: {} (root: {})",

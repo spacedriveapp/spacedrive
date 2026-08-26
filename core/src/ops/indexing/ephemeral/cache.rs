@@ -398,6 +398,32 @@ impl EphemeralIndexCache {
 		self.resolve(path).index()
 	}
 
+	/// The watched root that should receive a change at `path`, if any.
+	///
+	/// Two questions, and the second is the one that was missing. Territory:
+	/// which watched root contains this path, longest match winning. Then
+	/// depth: does the index hold the directory the change landed in.
+	///
+	/// Depth belongs to the index rather than to the watch. A source is walked
+	/// to whatever depth it was walked to, so requiring a change to sit
+	/// directly under a watched root only ever worked for a browse of a single
+	/// directory. A source rooted at the whole drive registers one watched path
+	/// and every change arrives from somewhere below it. Asking whether the
+	/// parent is indexed admits those, and still refuses a change under a
+	/// directory nothing walked, which would otherwise graft a second tree
+	/// beside the real one.
+	pub async fn watched_root_for_change(&self, path: &Path) -> Option<PathBuf> {
+		let parent = path.parent()?;
+		let root = self.find_watched_root(path)?;
+
+		let index = self.resolve_index(parent);
+		let index = index.read().await;
+		index
+			.get_entry_ref(&parent.to_path_buf())
+			.is_some()
+			.then_some(root)
+	}
+
 	/// Every live index, scratch included. For global lookups (uuid → entry)
 	/// and aggregate stats.
 	pub fn all_indexes(&self) -> Vec<Arc<TokioRwLock<EphemeralIndex>>> {
@@ -1135,6 +1161,13 @@ mod tests {
 		use crate::ops::indexing::database_storage::EntryMetadata;
 		use crate::ops::indexing::state::EntryKind;
 
+		fn directory(path: &Path) -> EntryMetadata {
+			EntryMetadata {
+				kind: EntryKind::Directory,
+				..entry(path)
+			}
+		}
+
 		fn entry(path: &Path) -> EntryMetadata {
 			EntryMetadata {
 				kind: EntryKind::File,
@@ -1233,6 +1266,111 @@ mod tests {
 				assert_eq!(loaded.get_stats().total_entries, saved, "{count} entries");
 				assert_eq!(meta.source_id, source_id);
 			}
+		}
+
+		/// A change deep inside a watched source has to route to that source.
+		///
+		/// A source rooted at the whole drive registers exactly one watched
+		/// path, and every event it receives arrives from somewhere below it.
+		/// Matching an event's parent against the watched root admitted only
+		/// the root's own children, so a screenshot landing on the desktop of a
+		/// fully indexed drive was dropped as unmatched and the UI never moved.
+		/// These are the two questions the handler asks of a routed event.
+		#[tokio::test]
+		async fn a_change_deep_in_a_source_routes_to_it() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+
+			let anchor = tracked_volume(&library, &root).await;
+			cache
+				.register_source(&root, Some(anchor))
+				.await
+				.expect("register");
+
+			// A walk that went all the way down, as a source walk does.
+			let desktop = root.join("Users").join("me").join("Desktop");
+			let index = cache.create_for_indexing(root.clone());
+			{
+				let mut index = index.write().await;
+				for dir in [
+					root.join("Users"),
+					root.join("Users").join("me"),
+					desktop.clone(),
+				] {
+					index
+						.add_entry(dir.clone(), Uuid::now_v7(), directory(&dir))
+						.expect("add");
+				}
+				let existing = desktop.join("already-here.png");
+				index
+					.add_entry(existing.clone(), Uuid::now_v7(), entry(&existing))
+					.expect("add");
+			}
+			cache.mark_indexing_complete(&root);
+
+			// The index job watches the root it just walked, and only that.
+			assert!(
+				cache.register_for_watching(root.clone()),
+				"a completed walk registers its root for watching"
+			);
+
+			let screenshot = desktop.join("Screenshot.png");
+			assert_eq!(
+				cache.watched_root_for_change(&screenshot).await,
+				Some(root.clone()),
+				"a file several levels down belongs to the source that indexed it"
+			);
+		}
+
+		/// The other half: a directory nothing walked has nowhere to put a
+		/// change, and grafting one on would build a tree beside the real one.
+		#[tokio::test]
+		async fn a_change_under_an_unwalked_directory_is_not_grafted_on() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+
+			let anchor = tracked_volume(&library, &root).await;
+			cache
+				.register_source(&root, Some(anchor))
+				.await
+				.expect("register");
+
+			let index = cache.create_for_indexing(root.clone());
+			{
+				let mut index = index.write().await;
+				let shallow = root.join("visible.txt");
+				index
+					.add_entry(shallow.clone(), Uuid::now_v7(), entry(&shallow))
+					.expect("add");
+			}
+			cache.mark_indexing_complete(&root);
+			assert!(cache.register_for_watching(root.clone()));
+
+			let unwalked = root.join("Deep").join("Nested");
+			assert_eq!(
+				cache.find_watched_root(&unwalked.join("file.txt")),
+				Some(root.clone()),
+				"it is still this source's territory"
+			);
+			assert_eq!(
+				cache
+					.watched_root_for_change(&unwalked.join("file.txt"))
+					.await,
+				None,
+				"but nothing walked it, so the change has nowhere to land"
+			);
 		}
 
 		/// Observed in a running daemon: a full drive index of 2.1 million
