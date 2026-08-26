@@ -393,32 +393,41 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Running => {
-								// Emit event for all jobs
-								event_bus.emit(Event::JobStarted {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.to_string(),
-									device_id,
-								});
-								info!("Emitted JobStarted event for job {}", job_id_clone);
+								// Gated like every terminal event below. A job
+								// that announces a start it will never announce
+								// an end for leaves a row in the client that
+								// nothing can clear.
+								if should_emit_events {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
 							}
 							JobStatus::Completed => {
-								// Emit completion event for all jobs
-								if should_emit_events {
-									// Get the final output from the handle before removing the job
-									let output = {
-										let jobs = running_jobs.read().await;
-										if let Some(job) = jobs.get(&job_id_clone) {
-											job.handle
-												.output
-												.lock()
-												.await
-												.clone()
-												.unwrap_or(Ok(JobOutput::Success))
-										} else {
-											Ok(JobOutput::Success)
-										}
-									};
+								// Read the output, then stop being a running job,
+								// *then* announce it. Clients refetch the job list
+								// when they see the completion, so a job still in
+								// the map at that moment comes back in the answer
+								// and nothing further arrives to clear it.
+								let output = {
+									let jobs = running_jobs.read().await;
+									if let Some(job) = jobs.get(&job_id_clone) {
+										job.handle
+											.output
+											.lock()
+											.await
+											.clone()
+											.unwrap_or(Ok(JobOutput::Success))
+									} else {
+										Ok(JobOutput::Success)
+									}
+								};
+								running_jobs.write().await.remove(&job_id_clone);
 
+								if should_emit_events {
 									// Emit final progress event if one exists (may have been throttled)
 									if let Some(final_progress) =
 										latest_progress_for_monitor.lock().await.as_ref()
@@ -492,8 +501,6 @@ impl JobManager {
 									}
 								}
 
-								// Remove from running jobs
-								running_jobs.write().await.remove(&job_id_clone);
 								info!(
 									"Job {} completed and removed from running jobs",
 									job_id_clone
@@ -829,32 +836,41 @@ impl JobManager {
 						info!("Job {} status changed to: {:?}", job_id_clone, status);
 						match status {
 							JobStatus::Running => {
-								// Emit event for all jobs
-								event_bus.emit(Event::JobStarted {
-									job_id: job_id_clone.to_string(),
-									job_type: job_type_str.to_string(),
-									device_id,
-								});
-								info!("Emitted JobStarted event for job {}", job_id_clone);
+								// Gated like every terminal event below. A job
+								// that announces a start it will never announce
+								// an end for leaves a row in the client that
+								// nothing can clear.
+								if should_emit_events {
+									event_bus.emit(Event::JobStarted {
+										job_id: job_id_clone.to_string(),
+										job_type: job_type_str.to_string(),
+										device_id,
+									});
+									info!("Emitted JobStarted event for job {}", job_id_clone);
+								}
 							}
 							JobStatus::Completed => {
-								// Emit completion event for all jobs
-								if should_emit_events {
-									// Get the final output from the handle before removing the job
-									let output = {
-										let jobs = running_jobs.read().await;
-										if let Some(job) = jobs.get(&job_id_clone) {
-											job.handle
-												.output
-												.lock()
-												.await
-												.clone()
-												.unwrap_or(Ok(JobOutput::Success))
-										} else {
-											Ok(JobOutput::Success)
-										}
-									};
+								// Read the output, then stop being a running job,
+								// *then* announce it. Clients refetch the job list
+								// when they see the completion, so a job still in
+								// the map at that moment comes back in the answer
+								// and nothing further arrives to clear it.
+								let output = {
+									let jobs = running_jobs.read().await;
+									if let Some(job) = jobs.get(&job_id_clone) {
+										job.handle
+											.output
+											.lock()
+											.await
+											.clone()
+											.unwrap_or(Ok(JobOutput::Success))
+									} else {
+										Ok(JobOutput::Success)
+									}
+								};
+								running_jobs.write().await.remove(&job_id_clone);
 
+								if should_emit_events {
 									// Emit final progress event if one exists (may have been throttled)
 									if let Some(final_progress) =
 										latest_progress_for_monitor.lock().await.as_ref()
@@ -927,8 +943,6 @@ impl JobManager {
 									}
 								}
 
-								// Remove from running jobs
-								running_jobs.write().await.remove(&job_id_clone);
 								info!(
 									"Job {} completed and removed from running jobs",
 									job_id_clone
