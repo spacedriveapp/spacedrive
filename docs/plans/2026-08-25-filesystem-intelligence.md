@@ -117,8 +117,10 @@ distinction is load-bearing for this feature and is examined below.
 - **A way to make a source deliberately.** Today a filesystem source appears as
   a side effect of indexing a volume. There is no flow for "track this drive",
   and no flow for a folder that is not a whole volume.
-- **MCP.** Nothing in the tree. `crates/sdk/src/ai.rs` is extension stubs with
-  no inference behind them.
+- **MCP.** Nothing in the tree.
+- **Any model runtime.** `crates/sdk/src/ai.rs` is extension stubs with no
+  inference behind them, so the local provider client, the agent loop, and its
+  budget accounting are all greenfield.
 - **The plan and workflow tables**, and any executor for them.
 
 ## The physics, which decides the design
@@ -148,57 +150,106 @@ same physics as reading it, so a good plan is mostly a plan to leave things
 where they are. Any placement solver that optimises for tidiness over movement
 is solving the wrong problem.
 
-## The local model produces, it does not interface
+## Two agents, and only one of them is the interface
 
-The local model has exactly one job: walk the map and annotate it, so that by
-the time anyone's agent connects, the map already carries meaning. It is a
-producer of rows. It is never a consumer of the map and never an interface to
-it.
+**The interface is a person and their agent in a harness, over MCP.** Claude
+Code, or whatever replaces it. Spacedrive does not ship a harness and does not
+compete with one.
 
-That distinction is the whole reason it survives. **Harnesses are commoditising
-at speed and Spacedrive should not be loyal to one, including its own.**
-Spacebot is a variable: it may exist, it may not, and nothing in this design may
-assume it. The map is the asset because nobody else is building it. A harness is
-a depreciating one because everybody is.
+**Filesystem intelligence is a Spacedrive-native agent loop over a local
+model.** Headless, unattended, and its output is rows rather than messages. It
+runs while drives are attached and walking, and by the time anyone connects a
+harness the map already carries meaning.
 
-Two consequences with teeth:
+Those are different things and conflating them is the trap. The native loop is
+not a chat surface, not a product feature a person talks to, and not a fallback
+for people without an agent. It is a producer.
 
-**MCP is the primary interface, not an export of it.** No capability may exist
-only inside Spacedrive's own UI or chat. If a thing can be done in the app and
-not over MCP, that is a bug in the surface. The test is that deleting every
-first-party conversational surface tomorrow costs nothing but convenience.
+**Harnesses are commoditising at speed and Spacedrive should not be loyal to
+one, including its own.** Spacebot is a variable: it may exist, it may not, and
+nothing here may assume it. The map is the asset because nobody else is building
+it. A harness is a depreciating one because everybody is.
 
-**The annotation pass is a batch job, not an agent.** A prompt over directory
-metadata, run over a queue, results written as data. No tool loop, no planning,
-no memory. If it starts needing an agent loop, that is the signal it has drifted
-into work that belongs to whatever harness the person already trusts. This also
-means the model is swappable by design, so the schema for what gets written
-matters far more than the thing writing it.
+### The native loop consumes the same MCP tools
 
-The scoping decision that makes it tractable: **annotate directories, not
-files.** A tree with tens of millions of files has a few hundred thousand
-directories, three orders of magnitude fewer. Directory names, their child name
-distribution, extensions, size and date ranges are enough for a local model to
-say what a folder is, and that is the granularity a migration plan operates at
-anyway. Nobody places 40 million files individually; they place `Twitch/2019`.
+The tools the native loop calls are the tools shipped over MCP. One definition,
+two consumers.
 
-The model reads structure, not content. No bytes leave the drive and none are
-read beyond metadata already in the store, which keeps the annotation pass
-bounded by the map rather than by the data.
+This is what keeps the loop from becoming lock-in. It is a client of the public
+surface with no privileged access, so pointing a frontier model at the same
+tools is a configuration change rather than a rewrite. It also makes the loop a
+completeness test with teeth: if the native agent needs something the MCP
+surface does not expose, the surface is wrong, and that shows up as a failure
+rather than as an internal shortcut nobody notices.
+
+Ordering consequence: MCP is a dependency of the annotation loop, not a sibling.
+
+### Why a loop rather than a pass
+
+I argued for a stateless batch pass and the arithmetic says that was wrong.
+
+A local 7-8B model on Apple Silicon generates on the order of tens of tokens a
+second. A short annotation with a modest prompt lands somewhere around a few
+seconds per directory end to end. At a few hundred thousand directories, uniform
+coverage is on the order of days of continuous inference, on top of the days of
+walking the drives.
+
+So uniform coverage is not affordable, which means **choosing where to spend
+attention is the feature, not an optimisation.** That is a loop by definition.
+`node_modules` gets one glance and a skip. A folder of thirty thousand
+identically named clips gets one annotation and a roll-up. An ambiguous
+directory gets a drill into a handful of names, or a peek at a README, and then
+a real answer.
+
+Hierarchy pushes the same way. A parent's annotation is better written after its
+children's, which is state carried across steps rather than a pure function of
+one directory's metadata.
+
+### What the loop needs to survive contact
+
+- **Providers.** LM Studio and Ollama first. Both expose OpenAI-compatible chat
+  completions, so the abstraction is a base URL, a model name, and a tool
+  schema, with room for a hosted endpoint later.
+- **Weak tool callers.** Small local models call tools badly. Few tools, flat
+  arguments, and a structured-output fallback for models whose tool calling is
+  not trustworthy.
+- **Small context.** The store pages; the loop must never dump a directory
+  listing into a prompt. Summaries and counts go in, names go in by sample.
+- **Budget and resume.** A per-source token or wall-clock budget, checkpointed,
+  so unplugging a drive mid-annotation costs the current step and not the run.
+- **Cheap skips.** Deciding not to look must cost far less than looking, or the
+  selectivity that justifies the loop is spent on deciding.
+
+### Granularity and what it reads
+
+**Directories, not files.** A tree with tens of millions of files has a few
+hundred thousand directories, three orders of magnitude fewer, and that is the
+granularity a migration plan operates at anyway. Nobody places 40 million files
+individually; they place `Twitch/2019`.
+
+The loop reads structure by default: names, child distribution, extensions, size
+and date ranges, all already in the store. Reading actual bytes is a tool call
+it can choose to make for a README or a manifest, and that choice is bounded by
+budget rather than by policy.
 
 Annotations land in `record_overlay` against the directory record, so they
-survive re-indexing and travel with the source. They carry which model wrote
-them, because a swappable producer means rows from several will coexist.
+survive re-indexing and travel with the source. Each row carries which model
+wrote it, because a swappable producer means rows from several will coexist.
 
 ## What is deliberately not Spacedrive's job
 
-Building a harness. Everything interactive belongs to whatever agent the person
-already uses.
+Building a harness, or a chat surface. Everything a person interacts with
+belongs to whatever agent they already use.
 
-The tools shipped are the map's query surface, plus the guidance for using it:
+The tools shipped are the map's query surface plus the guidance for using it:
 volume inventory, cross-source lookup, duplicate and at-risk queries, plan
 read/write, and workflow control. A person plans their migration by talking to
-their own agent, and watches it happen in the Spacedrive UI.
+their own agent and watches it happen in the Spacedrive UI. The native loop
+calls that same surface with nobody watching.
+
+**MCP is the primary interface, not an export of one.** No capability may exist
+only inside the Spacedrive app. The test is that deleting every first-party
+conversational surface tomorrow costs nothing but convenience.
 
 ## Phases
 
@@ -217,16 +268,19 @@ depend on the entries teardown finishing.
 **P3. MCP.** Expose inventory, map queries, and catalog answers as tools. Small
 surface, and the point at which the use case becomes real for an outside agent
 even with no planning primitive at all. Complete by rule: anything the app can
-do, an outside agent can do.
+do, an outside agent can do. Also the tool surface P5 runs on, so it lands
+first.
 
 **P4. Plan and workflow.** Desired placement rows, the diff against catalog
 placement, capacity and time projection from volume speed, per-step reasoning,
 and an executor with resume. Redundancy expressed as a placement constraint.
 
-**P5. Annotation.** A batch pass over the map at directory granularity, writing
-to `record_overlay`. Needs an author field on overlays first, so a model's claim
-never silently reads as a person's, and so rows from a replaced model stay
-distinguishable from rows from its successor.
+**P5. Filesystem intelligence.** The native agent loop: a local model driving
+the P3 tools, headless, budgeted and resumable, writing annotations to
+`record_overlay` at directory granularity. LM Studio and Ollama as the first two
+providers over their OpenAI-compatible endpoints. Needs an author field on
+overlays first, so a model's claim never silently reads as a person's and rows
+from a replaced model stay distinguishable from its successor's.
 
 **P6. Planning UI.** Configuration comparison, the "what if I delete this and
 split across those" view, workflow progress with per-step reasoning.
@@ -271,10 +325,19 @@ should, because that clock runs whether or not the rest is written.
   than fact, and the same rule that stops a candidate hash from authorising a
   delete should stop an annotation from authorising a move. `TrustTier` already
   exists for source content; annotations may want the same treatment.
-- **Does the annotation pass earn its place at all?** It is the one piece here
-  that a rapidly improving outside harness could do better, given the map and
-  enough tool calls. It is worth building only if pre-computing beats asking on
-  demand, which is a bet on scale: a hundred thousand directories is a lot of
-  round trips for someone else's agent, and a cheap batch pass for a local one.
-  If that stops being true, this phase deletes cleanly, because the map does not
-  depend on it.
+- **Can small local models drive these tools at all?** The loop's whole premise
+  is selective attention, which is a judgement call made through tool use, and
+  that is exactly what 7-8B models are worst at. Worth proving against LM Studio
+  on real directories before committing to the loop's shape. If tool calling
+  will not hold, the fallback is a constrained structured-output step per
+  directory, which is weaker and slower per unit of coverage.
+- **What is the budget policy?** Per source, per session, per drive-attachment
+  window? The drive is the scarce resource, since it may be unplugged at any
+  moment, which argues for spending eagerly while it is attached rather than
+  pacing evenly.
+- **Does the loop earn its place against a frontier agent?** Because it runs on
+  the same MCP tools, an outside model can do the same work whenever someone
+  wants to pay for it. The local loop justifies itself on scale and privacy: a
+  few hundred thousand directories is a lot of round trips to a paid endpoint,
+  and nothing leaves the machine. If that stops being true it is a provider
+  swap, not a rewrite, which is the point of building it on the public surface.
