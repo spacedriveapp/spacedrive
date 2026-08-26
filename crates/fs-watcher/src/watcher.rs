@@ -8,6 +8,7 @@ use crate::config::{WatchConfig, WatcherConfig};
 use crate::error::{Result, WatcherError};
 use crate::event::{FsEvent, RawNotifyEvent};
 use crate::platform::PlatformHandler;
+use crate::spelling::{self, Subscription};
 use notify::{RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
 /// The mode to hand notify for a watch.
 ///
@@ -21,46 +22,6 @@ use notify::{RecommendedWatcher, RecursiveMode, Watcher as NotifyWatcher};
 /// above, by callers that already compare an event's parent against the root
 /// they asked for. Watching wider than asked costs events that get filtered;
 /// watching non-recursively costs every event.
-
-/// The spelling of `path` that the platform's watcher will actually accept.
-///
-/// macOS reaches the writable half of the disk twice: `/Users/me` and
-/// `/System/Volumes/Data/Users/me` are the same directory, same device, same
-/// inode, joined by a firmlink. `realpath` does not resolve firmlinks, so both
-/// spellings survive canonicalization, and FSEvents subscribes to exactly one
-/// of them. Registered under the `/System/Volumes/Data` spelling it accepts the
-/// watch, reports no error, and delivers nothing — the same silent failure as a
-/// non-recursive subscription, from a different cause.
-///
-/// The stripped path is only used when it is demonstrably the same directory,
-/// so a path that merely starts with those bytes is left alone rather than
-/// rewritten into something else.
-#[cfg(target_os = "macos")]
-pub fn watchable_spelling(path: &Path) -> PathBuf {
-	const DATA_VOLUME: &str = "/System/Volumes/Data";
-
-	let Ok(rest) = path.strip_prefix(DATA_VOLUME) else {
-		return path.to_path_buf();
-	};
-	let stripped = Path::new("/").join(rest);
-
-	match (std::fs::metadata(path), std::fs::metadata(&stripped)) {
-		(Ok(a), Ok(b)) if same_file(&a, &b) => stripped,
-		_ => path.to_path_buf(),
-	}
-}
-
-#[cfg(target_os = "macos")]
-fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
-	use std::os::unix::fs::MetadataExt;
-	a.dev() == b.dev() && a.ino() == b.ino()
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn watchable_spelling(path: &Path) -> PathBuf {
-	path.to_path_buf()
-}
-
 fn notify_mode(recursive: bool) -> RecursiveMode {
 	if recursive || cfg!(target_os = "macos") {
 		RecursiveMode::Recursive
@@ -111,6 +72,9 @@ impl Drop for WatchHandle {
 struct WatchState {
 	config: WatchConfig,
 	ref_count: usize,
+	/// The platform subscriptions backing this watch. More than one when the
+	/// root spans several firmlinks; see [`crate::spelling`].
+	subscriptions: Vec<Subscription>,
 }
 
 /// Internal watcher state
@@ -153,17 +117,21 @@ impl FsWatcherInner {
 			return Err(WatcherError::PathNotFound(path));
 		}
 
+		let subscriptions = spelling::subscriptions(&path);
+
 		// Register with notify if we're running
 		if self.is_running.load(Ordering::SeqCst) {
 			if let Some(watcher) = self.notify_watcher.write().await.as_mut() {
 				let mode = notify_mode(config.recursive);
 
-				watcher
-					.watch(&watchable_spelling(&path), mode)
-					.map_err(|e| WatcherError::WatchFailed {
-						path: path.clone(),
-						reason: e.to_string(),
+				for subscription in &subscriptions {
+					watcher.watch(&subscription.subscribe, mode).map_err(|e| {
+						WatcherError::WatchFailed {
+							path: path.clone(),
+							reason: e.to_string(),
+						}
 					})?;
+				}
 			}
 		}
 
@@ -172,6 +140,7 @@ impl FsWatcherInner {
 			WatchState {
 				config,
 				ref_count: 1,
+				subscriptions,
 			},
 		);
 
@@ -179,12 +148,45 @@ impl FsWatcherInner {
 		Ok(())
 	}
 
+	/// Rewrite an event's paths from the spelling the platform delivered into
+	/// the spelling its watch is stored under.
+	///
+	/// Subscriptions and events are two halves of one translation: a watch
+	/// registered under a firmlink's short spelling reports events under it
+	/// too, and everything above the watcher works in the long one. Without
+	/// this the paths never match a watched root, and an index keyed one way
+	/// grows a second tree keyed the other.
+	async fn restore_spelling(&self, event: &mut RawNotifyEvent) {
+		let watched = self.watched_paths.read().await;
+
+		let translations: Vec<&Subscription> = watched
+			.values()
+			.flat_map(|state| state.subscriptions.iter())
+			.filter(|subscription| subscription.subscribe != subscription.restore_to)
+			.collect();
+
+		if translations.is_empty() {
+			return;
+		}
+
+		for path in &mut event.paths {
+			if let Some(restored) = translations
+				.iter()
+				.find_map(|subscription| spelling::restore(subscription, path))
+			{
+				*path = restored;
+			}
+		}
+	}
+
 	/// Release a watch (decrement ref count, unwatch if zero)
 	async fn release_watch(&self, path: &Path) -> Result<()> {
 		let mut watched = self.watched_paths.write().await;
 
+		let subscriptions;
 		let should_unwatch = if let Some(state) = watched.get_mut(path) {
 			state.ref_count -= 1;
+			subscriptions = state.subscriptions.clone();
 			debug!(
 				"Decremented ref count for {}: {}",
 				path.display(),
@@ -201,8 +203,14 @@ impl FsWatcherInner {
 			// Unregister from notify if we're running
 			if self.is_running.load(Ordering::SeqCst) {
 				if let Some(watcher) = self.notify_watcher.write().await.as_mut() {
-					if let Err(e) = watcher.unwatch(path) {
-						warn!("Failed to unwatch {}: {}", path.display(), e);
+					for subscription in &subscriptions {
+						if let Err(e) = watcher.unwatch(&subscription.subscribe) {
+							warn!(
+								"Failed to unwatch {}: {}",
+								subscription.subscribe.display(),
+								e
+							);
+						}
 					}
 				}
 			}
@@ -389,10 +397,21 @@ impl FsWatcher {
 			for (path, state) in watched.iter() {
 				let mode = notify_mode(state.config.recursive);
 
-				if let Err(e) = watcher.watch(&watchable_spelling(path), mode) {
-					warn!("Failed to register watch for {}: {}", path.display(), e);
-				} else {
-					debug!("Registered watch for: {}", path.display());
+				for subscription in &state.subscriptions {
+					if let Err(e) = watcher.watch(&subscription.subscribe, mode) {
+						warn!(
+							"Failed to register watch for {} as {}: {}",
+							path.display(),
+							subscription.subscribe.display(),
+							e
+						);
+					} else {
+						debug!(
+							"Registered watch for {} as {}",
+							path.display(),
+							subscription.subscribe.display()
+						);
+					}
 				}
 			}
 		}
@@ -419,7 +438,9 @@ impl FsWatcher {
 
 				tokio::select! {
 					// Process incoming raw events
-					Some(raw_event) = raw_rx.recv() => {
+					Some(mut raw_event) = raw_rx.recv() => {
+						inner.restore_spelling(&mut raw_event).await;
+
 						// Check if path should be filtered
 						let should_process = if let Some(path) = raw_event.primary_path() {
 							let watched = inner.watched_paths.read().await;
@@ -527,32 +548,6 @@ mod tests {
 		watcher.stop().await.unwrap();
 	}
 
-	/// The same directory reached the long way round has to be watchable.
-	///
-	/// `/System/Volumes/Data/Users/me` and `/Users/me` are one directory joined
-	/// by a firmlink, and FSEvents only subscribes to the second. Spacedrive
-	/// resolves paths through the Data volume's mount point, so the spelling it
-	/// asks for is the one that does not work.
-	#[cfg(target_os = "macos")]
-	#[test]
-	fn the_data_volume_spelling_is_rewritten() {
-		let long = Path::new("/System/Volumes/Data/Users");
-		if !long.exists() {
-			return;
-		}
-		assert_eq!(watchable_spelling(long), Path::new("/Users"));
-	}
-
-	/// Only when it really is the same directory. A path that merely starts
-	/// with those bytes must survive untouched rather than being rewritten into
-	/// something else entirely.
-	#[cfg(target_os = "macos")]
-	#[test]
-	fn a_path_that_only_looks_like_it_is_left_alone() {
-		let impostor = Path::new("/System/Volumes/Data-not-really/x");
-		assert_eq!(watchable_spelling(impostor), impostor);
-	}
-
 	/// A shallow watch has to actually deliver.
 	///
 	/// This is the regression that mattered: on macOS a `NonRecursive`
@@ -596,6 +591,77 @@ mod tests {
 				Ok(Err(_)) | Err(_) => panic!(
 					"a shallow watch delivered no event for a file created directly under it"
 				),
+			}
+		}
+
+		watcher.stop().await.unwrap();
+	}
+
+	/// A watch on the long spelling has to deliver under the long spelling.
+	///
+	/// This is what `spelling` is for. FSEvents subscribes to the short side of
+	/// a firmlink and reports events there, while Spacedrive resolves roots
+	/// through the Data volume's mount point and keys its index on the long
+	/// side. Registered without translation the watch delivers nothing;
+	/// translated only outbound it delivers paths that match no watched root,
+	/// and the index grows a second tree beside the one it already has.
+	///
+	/// The subject has to be a real firmlinked directory, and the home
+	/// directory is the one every install has. A temp directory will not do:
+	/// `/var/folders` is reached through a symlink rather than a firmlink and
+	/// FSEvents refuses its resolved spelling outright, which is a separate
+	/// quirk this translation does not claim to cover.
+	#[cfg(target_os = "macos")]
+	#[tokio::test]
+	async fn a_watch_on_the_long_spelling_delivers_under_it() {
+		let Ok(home) = std::env::var("HOME") else {
+			return;
+		};
+		// A hidden directory is filtered out before it ever reaches a
+		// subscriber, and a temp directory is hidden by default.
+		let dir = tempfile::Builder::new()
+			.prefix("sd-spelling-")
+			.tempdir_in(&home)
+			.unwrap();
+		let short = dir.path().to_path_buf();
+		let long = Path::new("/System/Volumes/Data").join(short.strip_prefix("/").unwrap());
+		assert!(
+			long.exists(),
+			"{} should be reachable the long way round",
+			short.display()
+		);
+
+		let watcher = FsWatcher::new(WatcherConfig::default());
+		watcher.start().await.unwrap();
+		let mut events = watcher.subscribe();
+
+		let _handle = watcher.watch(&long, WatchConfig::shallow()).await.unwrap();
+
+		// The backend needs a moment before it is actually subscribed.
+		tokio::time::sleep(Duration::from_millis(500)).await;
+		std::fs::write(short.join("appeared.txt"), b"hello").unwrap();
+		let expected = long.join("appeared.txt");
+
+		let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+		loop {
+			let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
+			assert!(
+				!remaining.is_zero(),
+				"no event arrived as {}",
+				expected.display()
+			);
+			match tokio::time::timeout(remaining, events.recv()).await {
+				Ok(Ok(event)) if event.path == expected => break,
+				Ok(Ok(event)) => {
+					assert!(
+						!event.path.starts_with(&short),
+						"event arrived as {} but the watch is stored as {}",
+						event.path.display(),
+						long.display()
+					);
+					continue;
+				}
+				Ok(Err(_)) | Err(_) => panic!("no event arrived as {}", expected.display()),
 			}
 		}
 

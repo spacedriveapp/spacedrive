@@ -57,13 +57,15 @@ mod config;
 mod error;
 mod event;
 mod platform;
+mod spelling;
 mod watcher;
 
 pub use config::{EventFilters, WatchConfig, WatcherConfig};
 pub use error::{Result, WatcherError};
 pub use event::{FsEvent, FsEventKind, RawEventKind, RawNotifyEvent};
 pub use platform::{EventHandler, PlatformHandler};
-pub use watcher::{watchable_spelling, FsWatcher, WatchHandle};
+pub use spelling::{restore, subscriptions, Subscription};
+pub use watcher::{FsWatcher, WatchHandle};
 
 // Re-export notify types that users might need
 pub use notify::RecursiveMode;

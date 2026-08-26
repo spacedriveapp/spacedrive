@@ -144,15 +144,11 @@ impl EphemeralEventHandler {
 		// Check if the parent is being watched (shallow watch = immediate children only)
 		let watched_paths = context.ephemeral_cache().watched_paths();
 
-		// Compare the spelling the platform will actually report. On macOS the
-		// writable disk is reachable twice, and a watch registered under one
-		// spelling delivers events under the other, so exact equality here
-		// silently drops every event for a root stored the long way round.
-		let parent = sd_fs_watcher::watchable_spelling(parent);
-		let matching_root = watched_paths.iter().find(|watched| {
-			// For shallow watches, parent must match the watched path
-			parent == sd_fs_watcher::watchable_spelling(watched)
-		});
+		// Events arrive in the spelling the watch is stored under, translated at
+		// the watcher edge, so a shallow watch is plain equality on the parent.
+		let matching_root = watched_paths
+			.iter()
+			.find(|watched| parent == watched.as_path());
 
 		let Some(root_path) = matching_root else {
 			// Not under any ephemeral watch
