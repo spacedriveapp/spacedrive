@@ -181,6 +181,16 @@ Not style, mechanics:
   is invisible through the other, which is the second-namespace problem contract
   1 exists to forbid, reappearing between two filesystem sources. Settle before
   P3, since the registry is where the rejection rule would live.
+- **Every path is stored twice.** `dbstat` on the 2.1M-record store: `record`
+  403 MB, `sqlite_autoindex_record_2` (the `UNIQUE (type, external_id)` index)
+  301 MB, `facet_file` 90 MB, `idx_record_parent` 21 MB and 99% empty.
+  `external_id` is the full relative path on every record, averaging 108 bytes,
+  and the unique index holds a second copy, so 518 MB of a 1.01 GB database is
+  paths. The old design stored a path once per directory (2,980 rows in
+  `directory_paths`) and derived the rest from `parent_id` and `name`. The
+  store currently pays for the path-keyed design and for a tree index, and gets
+  a working tree from neither; P2.5 (2) fixes the tree, after which whether
+  `external_id` stays full-path is a live question rather than a given.
 - **Two devices indexing one origin.** A NAS mounted on a laptop and a desktop
   is ordinary, and each machine mints its own record uuids for the same files.
   The rebind procedure resolves on path, inode, size and mtime, of which only
@@ -436,6 +446,106 @@ schema gets an authoritative home for the first time.
    only copy, and discarding it costs a re-identify rather than an identity.
    Dropping the field is cleanup that can follow the arena growing a read path
    to the ledger.
+
+### P2.5 — What a record carries
+
+Measured against the last pre-sources library, on the same machine: 2,123,029
+records in
+`~/.spacedrive/sources/01a03cc9649e77428b43199715ecdef6/data.db` against
+23,157 entries in the backed-up `library.db`. The new store holds a hundred
+times the files and less about each of them, and three separate causes are
+tangled together in that sentence.
+
+| | old, 23,157 entries | new, 2,123,029 records |
+|---|---|---|
+| `created_at` | 100% | 8 rows |
+| parent link | 99.96% | 1.0% |
+| content identity | 87% | 0 rows |
+| transitive ancestry | 84,106 closure rows | no table |
+| image / video metadata | 1,949 rows | no facet |
+| sidecars | 7,358 rows | not in the store |
+| `permissions` / `mode` | 0% | 0% |
+| `accessed_at` | 0% | no column |
+
+The last two rows are worth stating plainly: atime and permissions were empty
+in the old library too, so those are an equal gap rather than a regression.
+Everything above them is a real loss.
+
+1. **The walk discards metadata it already has.** `DirEntry`
+   (`ops/indexing/state.rs:79`) carries path, kind, size, mtime and inode, and
+   `run_ephemeral_processing_static` fills the rest with `accessed: None,
+   created: None, permissions: None`. The `fs::Metadata` behind each entry has
+   `created()`, `accessed()` and `mode()` on it already, so the stat is paid
+   for and the fields are dropped on the floor. Birth time is the expensive one:
+   it is the timestamp a photo library sorts by, it is unrecoverable once the
+   file is copied, and every day of indexing without it loses more of them.
+   `EntryMetadata` and `facet_file.mode` both have the columns waiting.
+
+2. **The bulk walk does not build the tree.** Parent linkage is
+   `parent_of(external_id).and_then(|p| ledger.uuid_of(p))`, so a child is
+   linked only if the ledger has already resolved its directory. The incremental
+   path satisfies that and the walk does not:
+
+   ```
+   06:37-06:39   2,102,811 records from the bulk walk       1,349 parented
+   10:48-10:49      19,856 records from browse and watcher  19,769 parented
+   ```
+
+   240,122 directories exist as records and 949 of them know their parent. The
+   fix is ordering rather than schema: resolve a directory before the batch
+   carrying its children, or resolve parents within a batch first, which
+   `parents_first` already does one layer down in `apply_files` for exactly this
+   reason.
+
+3. **No media facets.** `filesystem_schema()` declares one model with six
+   fields. The old library had `image_media_data` (EXIF, GPS, camera, lens,
+   orientation, blurhash) and `video_media_data` (codec, fps, colour primaries,
+   duration, audio stream). The facet mechanism is schema-driven and already
+   generates `facet_file` from a declaration, so `facet_image` and `facet_video`
+   are a schema entry rather than new machinery. Their writer is enrichment,
+   which is parked, but declaring them costs nothing and stops the shape being
+   invented twice.
+
+4. **Sidecars belong in the source store.** A sidecar is keyed by content uuid
+   and `content` now lives in the source store, so leaving the row in
+   `library.db` makes it a foreign key into a different database file with
+   nothing enforcing it. That is the fingerprint join this plan removed,
+   reappearing between content and its artifacts: re-index a source, mint new
+   content rows, and the sidecar rows point at nothing with no way to notice.
+   The old schema could cascade because both tables shared a file.
+
+   The archival case agrees. Previews for a drive in a drawer should travel with
+   the drive rather than living in a library on a machine that may not be the
+   one that plugs it in next, which is only possible if the row and the file are
+   both source-scoped.
+
+   The old design's two tables split cleanly on the new boundary, and they are
+   different kinds of fact:
+
+   - `sidecar` is *this artifact was derived from these bytes*. Content-scoped,
+     device-independent, true wherever the drive is plugged in. It becomes
+     `content_sidecar` in the source store, keyed
+     `(content_uuid, kind, variant)`, sitting beside `content` rather than
+     hanging off a record. Not a facet: facets are one row per record, and one
+     content has many artifacts across kinds and variants.
+   - `sidecar_availability` is *device D holds kind K variant V for content C*.
+     That is a claim about a device and a source store has no device table, so
+     it stays in the library, and it is the half that syncs.
+
+   `sidecar.source_entry_id` does not come across. It records which copy
+   happened to get rendered first, and it stops being true the moment that copy
+   is deleted while three others remain.
+
+   Layout follows the same move: `sources/<id>/sidecars/{h0}/{h1}/{content_uuid}/`,
+   with `SidecarPathBuilder` taking a source directory where it takes a library
+   path today. `sd_sidecar_path` already owns the sharding, so the change is the
+   root it is given. `thumbs.pvcache` is already per-source and already the hot
+   tier, so this is the durable half catching up to where the cache went.
+
+**Order.** (1) and (2) are bugs against data the walk already holds and should
+land first; every walk before then produces records that need re-walking. (3)
+is a schema declaration. (4) is behind the content identity job, since a
+sidecar has nothing to key to while `content` has 0 rows.
 
 ### P3 — One registry
 

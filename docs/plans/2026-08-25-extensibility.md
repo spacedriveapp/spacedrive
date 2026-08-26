@@ -128,16 +128,23 @@ The hot tier is a display cache and says so. The sidecar is the durable
 artifact. The instinct in the dump is right and the design already agrees with
 it; what is parked is generation, not the concept.
 
-**The open question is where the sidecar tree lives.** Today it is
-library-scoped. For an archived external drive that is wrong: the previews
-should travel with the drive, so that plugging it into another machine does not
-re-bake 27 TB of video. That argues for the sidecar root following the *source*,
-with the option to place it on the medium itself, which is the same "the store
-might live on the drive" idea from the filesystem intelligence dump applied to
-derived data.
+**Where the sidecar tree lives is settled: the source.** It was
+library-scoped, which is wrong for an archived external drive, since the
+previews should travel with the drive rather than making another machine re-bake
+27 TB of video. The stronger argument arrived from the other direction once
+`content` moved into the per-source store: a sidecar is keyed by content uuid,
+so a row in `library.db` is a foreign key into a different database file with
+nothing enforcing it. Re-index a source and the artifacts point at nothing.
 
-That should be a per-source setting, since a fast internal volume and an
-archival drive in a drawer want opposite answers.
+`2026-08-22-source-convergence.md` P2.5 (4) carries the detail: `content_sidecar`
+in the source store keyed `(content_uuid, kind, variant)`, `sidecar_availability`
+staying in the library because it is a claim about a device, and the tree at
+`sources/<id>/sidecars/{h0}/{h1}/{content_uuid}/`.
+
+Placing the tree on the medium itself remains a per-source setting, since a fast
+internal volume and an archival drive in a drawer want opposite answers. That is
+the same "the store might live on the drive" idea from the filesystem
+intelligence dump applied to derived data.
 
 **And the line is the source.** The dump asks where location versus source is
 drawn now. Locations are being deleted (`2026-08-22-source-convergence.md`, P4);
