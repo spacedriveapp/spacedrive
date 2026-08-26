@@ -25,9 +25,10 @@ lab. Their data is spread over drives, devices and clouds that are almost never
 all connected at the same time. There is no map. An agent pointed at that
 situation can only see the fraction currently mounted.
 
-**Spacedrive's claim: the map is the product, and agents are the interface to
+**Spacedrive's claim: the map is the product, and any agent is the interface to
 it.** Index everything once, keep the map when the drive goes in a drawer, and
-answer questions about data that is not currently plugged in.
+answer questions about data that is not currently plugged in. Which harness asks
+the questions is the person's choice and none of Spacedrive's business.
 
 ## The use case that proves it
 
@@ -147,13 +148,34 @@ same physics as reading it, so a good plan is mostly a plan to leave things
 where they are. Any placement solver that optimises for tidiness over movement
 is solving the wrong problem.
 
-## Where the local model goes
+## The local model produces, it does not interface
 
-The differentiator is that Spacedrive uses a local model to pre-walk and
-annotate, so that by the time anyone's agent connects, the map already carries
-meaning. Everything else AI is MCP, driving Spacedrive from outside.
+The local model has exactly one job: walk the map and annotate it, so that by
+the time anyone's agent connects, the map already carries meaning. It is a
+producer of rows. It is never a consumer of the map and never an interface to
+it.
 
-The scoping decision that makes this tractable: **annotate directories, not
+That distinction is the whole reason it survives. **Harnesses are commoditising
+at speed and Spacedrive should not be loyal to one, including its own.**
+Spacebot is a variable: it may exist, it may not, and nothing in this design may
+assume it. The map is the asset because nobody else is building it. A harness is
+a depreciating one because everybody is.
+
+Two consequences with teeth:
+
+**MCP is the primary interface, not an export of it.** No capability may exist
+only inside Spacedrive's own UI or chat. If a thing can be done in the app and
+not over MCP, that is a bug in the surface. The test is that deleting every
+first-party conversational surface tomorrow costs nothing but convenience.
+
+**The annotation pass is a batch job, not an agent.** A prompt over directory
+metadata, run over a queue, results written as data. No tool loop, no planning,
+no memory. If it starts needing an agent loop, that is the signal it has drifted
+into work that belongs to whatever harness the person already trusts. This also
+means the model is swappable by design, so the schema for what gets written
+matters far more than the thing writing it.
+
+The scoping decision that makes it tractable: **annotate directories, not
 files.** A tree with tens of millions of files has a few hundred thousand
 directories, three orders of magnitude fewer. Directory names, their child name
 distribution, extensions, size and date ranges are enough for a local model to
@@ -165,13 +187,13 @@ read beyond metadata already in the store, which keeps the annotation pass
 bounded by the map rather than by the data.
 
 Annotations land in `record_overlay` against the directory record, so they
-survive re-indexing and travel with the source.
+survive re-indexing and travel with the source. They carry which model wrote
+them, because a swappable producer means rows from several will coexist.
 
 ## What is deliberately not Spacedrive's job
 
-Spacedrive does not need a chat interface. The local model has one narrow job,
-annotation, and it runs unattended. Everything interactive belongs to whatever
-agent the person already uses, over MCP.
+Building a harness. Everything interactive belongs to whatever agent the person
+already uses.
 
 The tools shipped are the map's query surface, plus the guidance for using it:
 volume inventory, cross-source lookup, duplicate and at-risk queries, plan
@@ -194,15 +216,17 @@ depend on the entries teardown finishing.
 
 **P3. MCP.** Expose inventory, map queries, and catalog answers as tools. Small
 surface, and the point at which the use case becomes real for an outside agent
-even with no planning primitive at all.
+even with no planning primitive at all. Complete by rule: anything the app can
+do, an outside agent can do.
 
 **P4. Plan and workflow.** Desired placement rows, the diff against catalog
 placement, capacity and time projection from volume speed, per-step reasoning,
 and an executor with resume. Redundancy expressed as a placement constraint.
 
-**P5. Annotation.** The local model walks the map at directory granularity and
-writes to `record_overlay`. Needs an author field on overlays first, so a
-model's claim never silently reads as a person's.
+**P5. Annotation.** A batch pass over the map at directory granularity, writing
+to `record_overlay`. Needs an author field on overlays first, so a model's claim
+never silently reads as a person's, and so rows from a replaced model stay
+distinguishable from rows from its successor.
 
 **P6. Planning UI.** Configuration comparison, the "what if I delete this and
 split across those" view, workflow progress with per-step reasoning.
@@ -243,7 +267,14 @@ should, because that clock runs whether or not the rest is written.
 - **Sampled hash cost on a NAS.** The sampled tier is IOPS-bound, and a spinning
   array over a network is exactly where IOPS is scarce. Worth measuring on real
   hardware before promising that the candidate map is cheap.
-- **Annotation trust.** A model's claim about a directory is evidence, not
-  fact, and the same rule that stops a candidate hash from authorising a delete
-  should stop an annotation from authorising a move. `TrustTier` already exists
-  for source content; annotations may want the same treatment.
+- **Annotation trust.** A model's claim about a directory is evidence rather
+  than fact, and the same rule that stops a candidate hash from authorising a
+  delete should stop an annotation from authorising a move. `TrustTier` already
+  exists for source content; annotations may want the same treatment.
+- **Does the annotation pass earn its place at all?** It is the one piece here
+  that a rapidly improving outside harness could do better, given the map and
+  enough tool calls. It is worth building only if pre-computing beats asking on
+  demand, which is a bet on scale: a hundred thousand directories is a lot of
+  round trips for someone else's agent, and a cheap batch pass for a local one.
+  If that stops being true, this phase deletes cleanly, because the map does not
+  depend on it.
