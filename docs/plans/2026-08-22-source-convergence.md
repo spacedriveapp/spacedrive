@@ -171,16 +171,14 @@ Not style, mechanics:
   anything ships.
 - **T2.0b, volume/source boundary**, unchanged from the teardown register and
   still blocking T6.1 — which P3 now depends on.
-- **Can sources nest.** Two live documents answer this in opposite directions.
-  `2026-08-18-storage-consolidation.md` contract 1: one physical filesystem owns
-  one source id and one record namespace, and *"the source registry rejects a
-  root nested under an existing source's root."*
-  `2026-08-20-architecture-previs.md:74`: *"One volume hosts any number of
-  sources (nested roots are ordinary)."* If nesting is allowed, one file gets
-  two records with two uuids in two stores, and a tag applied through one root
-  is invisible through the other, which is the second-namespace problem contract
-  1 exists to forbid, reappearing between two filesystem sources. Settle before
-  P3, since the registry is where the rejection rule would live.
+- **Can sources nest.** Settled in P2.7: yes, once a partition is keyed by the
+  medium rather than by a registration. Both live documents were right about
+  their own half. `2026-08-18-storage-consolidation.md` contract 1 is right that
+  one filesystem owns one record namespace, and that namespace is the arena.
+  `2026-08-20-architecture-previs.md:74` is right that nested roots are
+  ordinary, because a source is a scope over that namespace rather than a second
+  copy of it. The rejection rule the registry would have needed is what P2.7
+  removes the need for.
 - **How a filesystem record is addressed.** Settled in P2.6: full paths on
   directories, sibling keys on files. Left here as the question that produced
   it, since the same trade recurs for any source with a tree.
@@ -614,6 +612,97 @@ values would go.
 type. That is the price of a store that serves both a filesystem and an API with
 one schema, and it is worth paying here because the filesystem is the one that
 has to hold a hundred million rows.
+
+### P2.7 — The arena is a map of the medium, a source is a scope over it
+
+The requirement did not change when the library broke up. A machine needs full
+local search over every file on it and a size figure the analyser can trust,
+and neither of those is the same question as *what did someone choose to keep*.
+The v2 design had two answers for that, volume indexing and locations. The
+sources migration collapsed them into one and lost the distinction.
+
+**What is true today.** `EphemeralIndexCache` keys an arena partition by source
+id, and `SourceRegistry::resolve` routes a path to the source whose root is the
+longest prefix. So a source nested inside another does not narrow anything, it
+*forks*:
+
+- paths under the inner root resolve to the inner partition
+- the outer partition keeps its now-unreachable copy of them
+- two snapshots, two `data.db` files, two ledgers
+- **two uuids for one file**, because each ledger mints its own
+
+A tag applied through one root is invisible through the other. That is the
+second-namespace problem contract 1 of `2026-08-18-storage-consolidation.md`
+exists to forbid, arriving between two filesystem sources instead of between
+two data types. It is also why the Open register asks whether sources can nest
+and finds two live documents answering in opposite directions.
+
+**The line.** A partition is a property of the *medium*, not of a
+registration. One drive, one arena, one snapshot, whatever is persisted from
+it. A source says *persist records for paths under this root* and owns a
+`data.db`. Nesting is then ordinary, because the two things being nested are no
+longer the same thing.
+
+Concretely:
+
+| | keyed by | holds | rebuilt from |
+|---|---|---|---|
+| arena partition | medium | every file the walk could see | a walk |
+| snapshot | medium | the arena's durable copy | the arena |
+| `thumbs.pvcache` | medium | decoded tiles | the sidecar or the original |
+| `data.db` | source | records for one subtree | a walk, plus assertions that outlive it |
+
+Medium means the volume uuid where there is one, and the root itself where
+there is not: a network share with no fingerprint is its own medium.
+
+**Identity is the part that has to be right first.** Today the ledger mints
+uuids and the arena is told what they are, which is what forks identity when
+two ledgers cover one file. Afterwards the arena mints, once, per medium, and a
+source *adopts* the identity already sitting there rather than resolving its
+own. A file gets one uuid whether it is persisted by no source, one source, or
+a source inside a source. Creating a source over already-mapped files becomes a
+write of rows that already have their identities, which is also what makes it
+fast.
+
+A path under no source still has a uuid and still cannot carry an assertion,
+because assertions live in `record_overlay` inside a source store. That falls
+out correctly rather than needing a rule: choosing to keep something is what
+gives it somewhere to keep things.
+
+**What moves.**
+
+1. `SourceSlot` keys on medium. `resolve` answers *which drive*, and the
+   longest-prefix walk over roots serves `store_for` instead, which is where it
+   was always the right question.
+2. `SourceDirs` grows a medium directory. `ephemeral.snapshot` and
+   `thumbs.pvcache` move into it; `data.db` and `blocks/` stay with the source.
+3. Per-source counts come from the store (`SELECT COUNT(*) FROM record`) rather
+   than from an arena partition, since a partition no longer belongs to one
+   source. `sources.record_count` keeps its meaning and changes its writer.
+4. Whole-drive figures for the analyser come from the arena, which is the only
+   thing that has them.
+5. A volume stops being a source. Tracking a drive maps it and snapshots it;
+   it does not create a registration. The sources list becomes what a person
+   chose to keep, which is what it reads as.
+
+**Completeness, and what it costs.** Full search and honest size reporting both
+need the walk to see everything, and today an internal volume walks with
+`RuleToggles::default()`: `/Library`, `/Applications`, `~/Library`,
+`node_modules`, `target`, caches, and anything `.gitignore`d never enter the
+map. Measured on a 1 TB drive with 89 GB free, that is 262 GB indexed against
+roughly 900 GB used.
+
+Rules become what the external-drive path already calls them, view-time lenses,
+and the walk records what it can read. The cost is real and worth stating: 2.1M
+entries is 1.0 GB resident, so a complete map of that machine is plausibly 5 to
+8M entries and 2.5 to 4 GB. `EphemeralIndex` already carries `collection_flags`,
+a per-entry bitfield, so a filtered bit lets listings hide what the rules
+exclude while sizes and search stay complete. That is the shape; the memory is
+the decision.
+
+**These are two changes and they land in that order.** Nesting is a correctness
+bug about identity and blocks anything that persists a subtree. Rules as lenses
+is a memory tradeoff and can wait for a number someone is happy with.
 
 ### P3 — One registry
 
