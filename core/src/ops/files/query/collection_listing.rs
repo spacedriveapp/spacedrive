@@ -68,12 +68,11 @@ impl CoreQuery for CollectionListingQuery {
 
 		let cache = context.ephemeral_cache();
 
-		// Registered sources that haven't been touched this session restore
-		// from their snapshots here — collections answer for every source,
-		// including detached drives, not just partitions already loaded.
-		for source in cache.sources() {
-			cache.ensure_restored(&source.root).await;
-		}
+		// Partitions that haven't been touched this session restore from their
+		// snapshots here. Every mapped drive, not only what is registered over
+		// one: a machine can map several drives and keep nothing, and the
+		// collections a person sees are on the drives either way.
+		cache.restore_everything().await;
 
 		let mut files: Vec<File> = Vec::new();
 		let mut total = 0usize;
@@ -124,9 +123,7 @@ async fn recent_listing(
 ) -> QueryResult<CollectionListingOutput> {
 	let device_slug = crate::device::get_current_device_slug();
 	let cache = context.ephemeral_cache();
-	for source in cache.sources() {
-		cache.ensure_restored(&source.root).await;
-	}
+	cache.restore_everything().await;
 
 	let mut files: Vec<File> = Vec::new();
 	for index in cache.all_indexes() {

@@ -677,6 +677,34 @@ impl EphemeralIndexCache {
 		restored || !slot.indexed_paths.read().is_empty()
 	}
 
+	/// Restore every drive this machine maps, and every source registered over
+	/// one, so a query that fans out across partitions sees all of them.
+	///
+	/// A query that wants the whole picture cannot ask the sources list for it
+	/// any more. A machine can map several drives and keep nothing, which is the
+	/// default now, and the collections a person sees are on the drives rather
+	/// than in the registrations.
+	pub async fn restore_everything(&self) {
+		let mut roots: Vec<PathBuf> = self
+			.volumes
+			.lock()
+			.iter()
+			.map(|tracked| tracked.mount_point.clone())
+			.collect();
+		roots.extend(
+			self.registry
+				.lock()
+				.all()
+				.iter()
+				.filter(|source| source.is_locatable())
+				.map(|source| source.root.clone()),
+		);
+
+		for root in roots {
+			self.ensure_restored(&root).await;
+		}
+	}
+
 	/// Receive the root of every source whose index becomes browsable from a
 	/// snapshot. One subscriber; a second call replaces the first.
 	pub fn subscribe_restored_roots(&self) -> mpsc::UnboundedReceiver<PathBuf> {
