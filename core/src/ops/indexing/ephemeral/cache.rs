@@ -120,6 +120,21 @@ impl MediumSlot {
 	}
 }
 
+/// A drive this machine maps.
+#[derive(Debug, Clone)]
+struct TrackedMedium {
+	uuid: Uuid,
+	mount_point: PathBuf,
+}
+
+/// Where a path belongs: the drive that maps it, and the source that keeps it.
+#[derive(Debug, Clone)]
+struct Resolved {
+	medium: MediumKey,
+	medium_root: PathBuf,
+	source: Option<SourceRecord>,
+}
+
 /// Summary of one source for status surfaces.
 #[derive(Debug, Clone)]
 pub struct SourceStatus {
@@ -168,8 +183,14 @@ pub struct EphemeralIndexCache {
 	/// Durable stores by source id. A medium can host several, since a source
 	/// nested inside another persists its own subtree.
 	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
-	/// Fallback partition for paths under no registered source.
+	/// Fallback partition for paths on no tracked medium.
 	scratch: Arc<MediumSlot>,
+	/// Drives this machine maps, whether or not anything is kept off them.
+	///
+	/// A drive is mapped by tracking it and persisted by registering a source
+	/// over it, and those are different acts. Holding them apart is what lets
+	/// the whole machine be searchable while only a home folder is kept.
+	mediums: Mutex<Vec<TrackedMedium>>,
 	/// Roots that have just become browsable, announced so whoever owns
 	/// filesystem watching can arm them.
 	///
@@ -207,6 +228,7 @@ impl EphemeralIndexCache {
 			dirs,
 			slots: RwLock::new(HashMap::new()),
 			scratch: MediumSlot::new(MediumKey::Scratch, None)?,
+			mediums: Mutex::new(Vec::new()),
 			stores: RwLock::new(HashMap::new()),
 			restored_roots: RwLock::new(None),
 			created_at: Instant::now(),
@@ -234,13 +256,25 @@ impl EphemeralIndexCache {
 			.filter_map(|volume| Some((volume.uuid, PathBuf::from(volume.mount_point.as_ref()?))))
 			.collect();
 
+		// Every online drive is mapped, whether or not anything is kept off it.
+		// A source is a scope over one of these, not a replacement for it.
+		for (uuid, mount_point) in &mounts {
+			self.track_medium(*uuid, mount_point.clone());
+		}
+
 		let registry = SourceRegistry::from_rows(rows, |uuid| mounts.get(&uuid).cloned());
 		let adopted = registry.all().len();
 
 		for record in registry.all() {
-			let slot = self.slot_for_record(record);
-			*slot.root.write() = Some(record.root.clone());
-			slot.set_detached(!record.root.exists());
+			let (medium, medium_root) = registry.medium_of(record);
+			let resolved = Resolved {
+				medium,
+				medium_root: medium_root.clone(),
+				source: Some(record.clone()),
+			};
+			let slot = self.slot_for(&resolved);
+			*slot.root.write() = Some(medium_root.clone());
+			slot.set_detached(!medium_root.exists());
 		}
 
 		*self.registry.lock() = registry;
@@ -252,6 +286,7 @@ impl EphemeralIndexCache {
 	pub fn detach_library(&self) {
 		*self.db.write() = None;
 		*self.registry.lock() = SourceRegistry::default();
+		self.mediums.lock().clear();
 		self.slots.write().clear();
 	}
 
@@ -272,9 +307,16 @@ impl EphemeralIndexCache {
 		let record = self.registry.lock().register(root, volume.as_ref());
 		self.persist(&record).await?;
 
-		let slot = self.slot_for_record(&record);
-		*slot.root.write() = Some(record.root.clone());
-		slot.set_detached(!record.root.exists());
+		// The partition belongs to the drive, so registering a source over an
+		// already-mapped one joins it rather than starting a second.
+		let (medium, medium_root) = self.registry.lock().medium_of(&record);
+		let slot = self.slot_for(&Resolved {
+			medium,
+			medium_root: medium_root.clone(),
+			source: Some(record.clone()),
+		});
+		*slot.root.write() = Some(medium_root.clone());
+		slot.set_detached(!medium_root.exists());
 		Ok(record.id)
 	}
 
@@ -367,31 +409,78 @@ impl EphemeralIndexCache {
 			.collect()
 	}
 
-	/// Get (or lazily create) the live partition for the medium a record sits
-	/// on. Two sources on one drive get the same one.
-	fn slot_for_record(&self, record: &SourceRecord) -> Arc<MediumSlot> {
-		let (key, root) = self.registry.lock().medium_of(record);
-		if let Some(slot) = self.slots.read().get(&key) {
+	/// Start mapping a drive. Idempotent; a remount moves its mount point.
+	///
+	/// Tracking is not registration: nothing appears in the sources list and
+	/// nothing is persisted to a store. What it buys is a partition, a
+	/// snapshot, and a place for every file on the drive to be found.
+	pub fn track_medium(&self, uuid: Uuid, mount_point: PathBuf) {
+		let mut mediums = self.mediums.lock();
+		match mediums.iter_mut().find(|medium| medium.uuid == uuid) {
+			Some(medium) => medium.mount_point = mount_point,
+			None => mediums.push(TrackedMedium { uuid, mount_point }),
+		}
+	}
+
+	/// Which drive a path sits on, and which source keeps it, if any.
+	///
+	/// A registered source answers both, since it knows its own medium. A path
+	/// on a tracked drive with nothing registered over it still has a map to
+	/// belong to, which is the case that used to have no answer at all.
+	fn locate(&self, path: &Path) -> Option<Resolved> {
+		// One acquisition, because a guard held in an `if let` scrutinee lives
+		// to the end of the block and taking the lock again inside it is a
+		// deadlock rather than a re-entry.
+		let located = {
+			let registry = self.registry.lock();
+			registry.resolve(path).cloned().map(|record| {
+				let (medium, medium_root) = registry.medium_of(&record);
+				Resolved {
+					medium,
+					medium_root,
+					source: Some(record),
+				}
+			})
+		};
+		if located.is_some() {
+			return located;
+		}
+
+		self.mediums
+			.lock()
+			.iter()
+			.filter(|medium| path.starts_with(&medium.mount_point))
+			.max_by_key(|medium| medium.mount_point.as_os_str().len())
+			.map(|medium| Resolved {
+				medium: MediumKey::Volume(medium.uuid),
+				medium_root: medium.mount_point.clone(),
+				source: None,
+			})
+	}
+
+	/// Get (or lazily create) the live partition for a medium. Two sources on
+	/// one drive get the same one, and so does a path with no source at all.
+	fn slot_for(&self, resolved: &Resolved) -> Arc<MediumSlot> {
+		if let Some(slot) = self.slots.read().get(&resolved.medium) {
 			return slot.clone();
 		}
 		let mut slots = self.slots.write();
 		slots
-			.entry(key.clone())
+			.entry(resolved.medium.clone())
 			.or_insert_with(|| {
-				let slot = MediumSlot::new(key, Some(root.clone()))
-					.expect("create ephemeral index for medium");
-				slot.set_detached(!root.exists());
+				let slot =
+					MediumSlot::new(resolved.medium.clone(), Some(resolved.medium_root.clone()))
+						.expect("create ephemeral index for medium");
+				slot.set_detached(!resolved.medium_root.exists());
 				slot
 			})
 			.clone()
 	}
 
-	/// Resolve the partition owning `path`: the medium under the registered
-	/// source whose root is the longest prefix, else scratch.
+	/// Resolve the partition owning `path`: the drive it sits on, else scratch.
 	pub fn resolve(&self, path: &Path) -> Arc<MediumSlot> {
-		let record = self.registry.lock().resolve(path).cloned();
-		match record {
-			Some(record) => self.slot_for_record(&record),
+		match self.locate(path) {
+			Some(resolved) => self.slot_for(&resolved),
 			None => self.scratch.clone(),
 		}
 	}
@@ -566,20 +655,19 @@ impl EphemeralIndexCache {
 	/// Detached sources restore read-only: their entries become queryable but
 	/// `is_detached` stays true so nothing dispatches indexing at them.
 	pub async fn ensure_restored(&self, path: &Path) -> bool {
-		let record = match self.registry.lock().resolve(path).cloned() {
-			Some(record) => record,
-			None => return false,
+		let Some(resolved) = self.locate(path) else {
+			return false;
 		};
-		let slot = self.slot_for_record(&record);
+		let slot = self.slot_for(&resolved);
 
 		// Exactly one restore attempt per session, shared by all callers.
 		// Data written by jobs before/while the attempt runs is merged over
 		// afterwards by those jobs' own writes, never silently replaced.
 		let already_restored = slot.restored.load(Ordering::Acquire);
-		let root = record.root.clone();
+		let root = resolved.medium_root.clone();
 		let restored = *slot
 			.restore_once
-			.get_or_init(|| Self::attempt_restore(self.dirs.clone(), record, slot.clone()))
+			.get_or_init(|| Self::attempt_restore(self.dirs.clone(), slot.clone()))
 			.await;
 
 		if restored && !already_restored {
@@ -606,18 +694,16 @@ impl EphemeralIndexCache {
 
 	/// The single restore attempt for a slot. Returns whether the snapshot
 	/// was loaded; the result is cached by `restore_once` for the session.
-	async fn attempt_restore(
-		dirs: Option<SourceDirs>,
-		record: SourceRecord,
-		slot: Arc<MediumSlot>,
-	) -> bool {
+	async fn attempt_restore(dirs: Option<SourceDirs>, slot: Arc<MediumSlot>) -> bool {
 		let Some(dirs) = dirs else {
 			return false;
 		};
 		// The snapshot is the arena's durable copy, so it belongs to the medium
 		// rather than to whatever is registered over it.
 		let medium_id = slot.medium.id();
-		let medium_root = slot.root().unwrap_or_else(|| record.root.clone());
+		let Some(medium_root) = slot.root() else {
+			return false;
+		};
 		let snapshot_path = dirs.snapshot_file(medium_id);
 		let loaded = match EphemeralIndex::load_snapshot(&snapshot_path) {
 			Ok(Some((index, meta))) => Some((index, meta)),
@@ -625,7 +711,7 @@ impl EphemeralIndexCache {
 			Err(err) => {
 				tracing::warn!(
 					"Snapshot restore failed for {}: {err}",
-					record.root.display()
+					medium_root.display()
 				);
 				None
 			}
@@ -703,25 +789,22 @@ impl EphemeralIndexCache {
 		Ok(self.ensure_restored(path).await)
 	}
 
-	/// Save the owning partition to its source-keyed snapshot file. Scratch
-	/// partitions have no snapshot and skip silently.
+	/// Save the owning partition to its medium's snapshot file. A path on no
+	/// tracked drive has no snapshot and skips silently.
 	pub async fn save_snapshot(&self, path: &Path) -> anyhow::Result<()> {
-		let record = match self.registry.lock().resolve(path).cloned() {
-			Some(record) => record,
-			None => {
-				tracing::debug!(
-					"No registered source for {}; skipping snapshot",
-					path.display()
-				);
-				return Ok(());
-			}
+		let Some(resolved) = self.locate(path) else {
+			tracing::debug!(
+				"No tracked medium for {}; skipping snapshot",
+				path.display()
+			);
+			return Ok(());
 		};
 		let Some(dirs) = &self.dirs else {
 			return Ok(());
 		};
-		let slot = self.slot_for_record(&record);
+		let slot = self.slot_for(&resolved);
 		let medium_id = slot.medium.id();
-		let medium_root = slot.root().unwrap_or_else(|| record.root.clone());
+		let medium_root = resolved.medium_root.clone();
 		let snapshot_path = dirs.snapshot_file(medium_id);
 
 		// Funnel through the restore gate so a save can never precede the
@@ -740,7 +823,7 @@ impl EphemeralIndexCache {
 		if snapshot_path.exists() && !slot.restored.load(Ordering::Acquire) && !wrote_this_session {
 			tracing::warn!(
 				"Skipping snapshot save for {}: existing snapshot was not restored this session",
-				record.root.display()
+				medium_root.display()
 			);
 			return Ok(());
 		}
@@ -764,7 +847,7 @@ impl EphemeralIndexCache {
 			// from clobbering. It exempts any partition that has already saved
 			// once, which is exactly when a full index is present to lose.
 			let previous = match slot.last_saved_entries.load(Ordering::Acquire) {
-				u64::MAX => record.record_count,
+				u64::MAX => resolved.source.as_ref().and_then(|s| s.record_count),
 				saved => Some(saved),
 			};
 			if let Some(previous) = previous {
@@ -775,7 +858,7 @@ impl EphemeralIndexCache {
 						"Refusing to save snapshot for {}: {} entries would replace {}. \
 						 The partition lost its contents without the drive emptying; \
 						 re-index to rebuild it.",
-						record.root.display(),
+						medium_root.display(),
 						entry_count,
 						previous
 					);
@@ -789,7 +872,7 @@ impl EphemeralIndexCache {
 			if snapshot_path.exists() && !index.is_dirty() {
 				tracing::debug!(
 					"Snapshot for {} unchanged ({} entries); skipping rewrite",
-					record.root.display(),
+					medium_root.display(),
 					entry_count
 				);
 				return Ok(());
@@ -812,6 +895,18 @@ impl EphemeralIndexCache {
 		// runs. Reporting zero there would empty a listing that has a full drive
 		// behind it, so the partition's figure stands until the store has one of
 		// its own.
+		//
+		// A drive with nothing registered over it has no row to write to, which
+		// is the ordinary case for a machine that is mapped but keeps nothing.
+		let Some(record) = resolved.source else {
+			tracing::info!(
+				"Saved snapshot for medium {} ({})",
+				medium_id,
+				medium_root.display()
+			);
+			return Ok(());
+		};
+
 		let (entry_count, total_bytes) = match self.store_for(&record.root).await {
 			Some(store) => match store.counts().await {
 				Some((records, bytes)) if records > 0 => (records, bytes),
@@ -1420,6 +1515,74 @@ mod tests {
 				restored_roots.try_recv().is_err(),
 				"a second look at the same source announced it again"
 			);
+		}
+
+		/// A drive is mapped by tracking it and kept by registering a source
+		/// over it, and those are different acts.
+		///
+		/// Indexing a whole machine and choosing what to keep off it were one
+		/// operation, so every drive that got walked appeared in the sources
+		/// list as a side effect. A tracked drive now gets a partition and a
+		/// snapshot and stays out of that list, which is what lets the whole
+		/// machine be searchable while only a home folder is persisted.
+		#[tokio::test]
+		async fn a_tracked_drive_maps_without_appearing_as_a_source() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			let volume = Uuid::now_v7();
+
+			let count = {
+				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+					.expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				cache.track_medium(volume, root.clone());
+
+				// It has a map of its own rather than falling into scratch.
+				let slot = cache.resolve(&root.join("a.txt"));
+				assert_eq!(slot.medium, MediumKey::Volume(volume));
+
+				let index = cache.create_for_indexing(root.clone());
+				{
+					let mut index = index.write().await;
+					for i in 0..COLLAPSE_FLOOR * 2 {
+						let path = root.join(format!("file-{i}"));
+						index
+							.add_entry(path.clone(), Uuid::now_v7(), entry(&path))
+							.expect("add");
+					}
+				}
+				cache.mark_indexing_complete(&root);
+				cache.save_snapshot(&root).await.expect("save");
+
+				assert!(
+					cache.sources().is_empty(),
+					"mapping a drive is not choosing to keep it"
+				);
+				let count = index.read().await.get_stats().total_entries;
+				count
+			};
+
+			// And it comes back, because the snapshot belongs to the drive.
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library).await.expect("attach");
+			cache.track_medium(volume, root.clone());
+			assert!(
+				cache.ensure_restored(&root).await,
+				"snapshot did not restore"
+			);
+			assert_eq!(
+				cache
+					.resolve_index(&root)
+					.read()
+					.await
+					.get_stats()
+					.total_entries,
+				count
+			);
+			assert!(cache.sources().is_empty());
 		}
 
 		/// A source inside another narrows what is kept, not which map a file

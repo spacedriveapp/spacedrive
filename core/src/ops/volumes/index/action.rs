@@ -98,22 +98,16 @@ impl LibraryAction for IndexVolumeAction {
 		}
 		let mut indexer_job = IndexerJob::new(indexer_config);
 
-		// 5. Get ephemeral cache and create/reuse index for this volume
+		// 5. Map the drive.
 		//
-		// Registering the volume as a source gives it a stable identity, its own
-		// index partition, and a source-keyed snapshot that survives remounts —
-		// including detached browsing after the drive is unplugged.
+		// Tracking it, not registering it. A drive is a medium: mapping it gives
+		// it a partition and a snapshot that survives remounts, including
+		// detached browsing after it is unplugged, and none of that requires a
+		// row in the sources list. What appears there is what someone chose to
+		// keep, and indexing a drive is not that choice.
 		let ephemeral_cache = context.ephemeral_cache();
-		ephemeral_cache
-			.register_source(
-				&volume.mount_point,
-				Some(crate::ops::indexing::ephemeral::VolumeAnchor {
-					uuid: volume.id,
-					mount_point: volume.mount_point.clone(),
-				}),
-			)
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to register volume source: {e}")))?;
+		ephemeral_cache.track_medium(volume.id, volume.mount_point.clone());
+
 		// Seed the partition from its snapshot before reindexing over it:
 		// duplicate paths keep their identities, and a partition that skipped
 		// restore would be barred from saving over the existing snapshot.
