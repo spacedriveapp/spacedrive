@@ -1,8 +1,8 @@
 //! Canonical on-disk layout for what a machine keeps about its drives.
 //!
-//! Two directories, because two different things are being stored. A *medium*
-//! is a drive: `mediums/<id>/` holds the arena's session-restore snapshot and
-//! its thumbnail cache, both of which describe the whole drive whatever is
+//! Two directories, because two different things are being stored. A *volume
+//! index* is a drive's map: `volumes/<id>/` holds its session-restore snapshot
+//! and its thumbnail cache, both of which describe the whole drive whatever is
 //! registered over it. A *source* is a scope over one: `sources/<id>/` holds
 //! its durable store (whose file name belongs to `sd_store::SourceManager`)
 //! and its streamed block cache.
@@ -24,7 +24,7 @@ use std::{
 use uuid::Uuid;
 
 const SOURCES_DIR: &str = "sources";
-const MEDIUMS_DIR: &str = "mediums";
+const VOLUMES_DIR: &str = "volumes";
 const SNAPSHOT_FILE: &str = "ephemeral.snapshot";
 const THUMBS_FILE: &str = "thumbs.pvcache";
 const BLOCKS_DIR: &str = "blocks";
@@ -73,33 +73,34 @@ impl SourceDirs {
 		Ok(dir)
 	}
 
-	/// A medium's directory, created on demand.
-	pub fn create_medium_dir(&self, id: Uuid) -> Result<PathBuf> {
-		let dir = self.medium_dir(id);
+	/// A volume index's directory, created on demand.
+	pub fn create_volume_dir(&self, id: Uuid) -> Result<PathBuf> {
+		let dir = self.volume_dir(id);
 		fs::create_dir_all(&dir)
-			.with_context(|| format!("create medium directory {}", dir.display()))?;
+			.with_context(|| format!("create volume index directory {}", dir.display()))?;
 		Ok(dir)
 	}
 
-	/// A medium's directory: the drive's map and everything derived from it.
-	pub fn medium_dir(&self, id: Uuid) -> PathBuf {
+	/// A volume index's directory: the drive's map and everything derived
+	/// from it.
+	pub fn volume_dir(&self, id: Uuid) -> PathBuf {
 		self.root
 			.parent()
-			.map(|parent| parent.join(MEDIUMS_DIR))
-			.unwrap_or_else(|| self.root.join(MEDIUMS_DIR))
+			.map(|parent| parent.join(VOLUMES_DIR))
+			.unwrap_or_else(|| self.root.join(VOLUMES_DIR))
 			.join(id.simple().to_string())
 	}
 
-	/// A medium's session-restore snapshot: the arena's durable copy.
+	/// A volume index's session-restore snapshot: the arena's durable copy.
 	pub fn snapshot_file(&self, id: Uuid) -> PathBuf {
-		self.medium_dir(id).join(SNAPSHOT_FILE)
+		self.volume_dir(id).join(SNAPSHOT_FILE)
 	}
 
-	/// A medium's thumbnail hot-tier cache. Keyed here rather than per source
+	/// A volume index's thumbnail hot-tier cache. Keyed here rather than per source
 	/// because a tile is a rendering of the drive's contents, and two sources
 	/// over one drive should not each decode it.
 	pub fn thumbs_file(&self, id: Uuid) -> PathBuf {
-		self.medium_dir(id).join(THUMBS_FILE)
+		self.volume_dir(id).join(THUMBS_FILE)
 	}
 
 	/// A source's streamed block cache. Inside the source's directory so
@@ -146,8 +147,8 @@ impl SourceDirs {
 				let Ok(id) = Uuid::try_parse(stem) else {
 					continue;
 				};
-				if let Err(err) = self.create_medium_dir(id) {
-					tracing::warn!("Could not prepare directory for medium {id}: {err:#}");
+				if let Err(err) = self.create_volume_dir(id) {
+					tracing::warn!("Could not prepare directory for volume index {id}: {err:#}");
 					continue;
 				}
 				self.snapshot_file(id)
@@ -193,24 +194,24 @@ mod tests {
 
 		// The map of a drive and what is kept off it are different directories,
 		// so a source nested in another does not want the same one.
-		let medium_dir = dirs.medium_dir(id);
+		let volume_dir = dirs.volume_dir(id);
 		assert_eq!(
-			medium_dir,
-			data.path().join("mediums").join(id.simple().to_string())
+			volume_dir,
+			data.path().join("volumes").join(id.simple().to_string())
 		);
 		assert_eq!(
 			dirs.snapshot_file(id),
-			medium_dir.join("ephemeral.snapshot")
+			volume_dir.join("ephemeral.snapshot")
 		);
-		assert_eq!(dirs.thumbs_file(id), medium_dir.join("thumbs.pvcache"));
+		assert_eq!(dirs.thumbs_file(id), volume_dir.join("thumbs.pvcache"));
 
 		// Resolution creates nothing; creation is explicit.
 		assert!(!source_dir.exists());
-		assert!(!medium_dir.exists());
+		assert!(!volume_dir.exists());
 		dirs.create_source_dir(id).unwrap();
-		dirs.create_medium_dir(id).unwrap();
+		dirs.create_volume_dir(id).unwrap();
 		assert!(source_dir.exists());
-		assert!(medium_dir.exists());
+		assert!(volume_dir.exists());
 	}
 
 	#[test]

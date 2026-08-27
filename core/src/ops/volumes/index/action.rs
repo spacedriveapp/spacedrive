@@ -100,13 +100,13 @@ impl LibraryAction for IndexVolumeAction {
 
 		// 5. Map the drive.
 		//
-		// Tracking it, not registering it. A drive is a medium: mapping it gives
+		// Tracking it, not registering it. Mapping a drive gives
 		// it a partition and a snapshot that survives remounts, including
 		// detached browsing after it is unplugged, and none of that requires a
 		// row in the sources list. What appears there is what someone chose to
 		// keep, and indexing a drive is not that choice.
 		let ephemeral_cache = context.ephemeral_cache();
-		ephemeral_cache.track_medium(volume.id, volume.mount_point.clone());
+		ephemeral_cache.track_volume(volume.id, volume.mount_point.clone());
 
 		// Seed the partition from its snapshot before reindexing over it:
 		// duplicate paths keep their identities, and a partition that skipped

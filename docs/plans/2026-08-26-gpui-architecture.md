@@ -288,25 +288,134 @@ one is a field write and a repaint.
 | Search | `input`, `searchable_list` |
 | Spacebot | `text` markdown with selection, `input` |
 
-## The data the explorer needs
+## The listing op
 
-`files.directory_listing` returns whole `File` objects with a default limit of
-1000 and no cursor, and it reads `entry` and `directory_paths`, which is the world
-`docs/plans/2026-08-20-entries-teardown-execution.md` is removing. Photos avoids
-the problem by listing a folder into a `Vec<PathBuf>` once and windowing
-identities through `thumbs.request`. An explorer over half a million records
-cannot.
+Entries are gone as of 2026-08-27. Both GPUI apps read the record table and
+nothing else, and there is no compatibility path because there is nothing left to
+be compatible with.
 
-What is needed is a windowed listing over the record table returning exactly the
-columns a cell draws and nothing more: identity, name, kind, size, modified. That
-is the backing store for `CellModel`, and it is built against the record table so
-the explorer is born in the new world rather than migrated into it.
+Nothing breaks on the way there. `files.directory_listing` branches on
+`find_parent_directory` against the `entry` table and falls through to
+`query_ephemeral_directory_impl` when it fails, so with entries empty
+`apps/native/src/data.rs:list_media` has been on the ephemeral path all along.
+The teardown removes a branch Photos does not execute.
 
-Two questions that this makes concrete rather than settles. Whether the explorer
-reads the record table only, and is therefore empty for anything not yet migrated,
-or carries the entries path alongside and builds the seam twice. And whether the
-daemon's one-round-trip-per-op protocol survives an explorer issuing many small
-ops per navigation, which is a profile to take once it navigates for real.
+What the ephemeral path hands back is whole `File` objects, a default limit of
+1000, and no cursor. That is sized for a folder of photos. The op below is sized
+for a source, and Photos moves onto it so there is one listing path rather than
+two.
+
+### Shape
+
+```
+records.list_children
+  in   { source, parent: Option<Uuid>, sort, direction,
+         after: Option<Cursor>, limit, kind_filter: Option<KindSet> }
+  out  { rows: Vec<CellRow>, next: Option<Cursor>, total: u32 }
+
+CellRow { uuid, title, kind, content_uuid, size, modified_at }
+```
+
+`CellRow` is the columns a cell draws and nothing else. It is the backing store
+for `CellModel`, and `uuid` is what goes into `thumbs.request`, so a row arrives
+ready to both paint and request.
+
+`kind_filter` is how Photos asks for images and video and gets the same op
+everyone else uses. Its current client-side filter over whole `File` objects
+disappears.
+
+### What already exists, checked on 2026-08-26
+
+Three listing ops are registered and none of them is close enough to wrap.
+`sources.list_items` returns `SourceItem { id, external_id, title, preview,
+subtitle }`, which is presentation strings for a generic source browser.
+`sources.list_records` returns `Vec<serde_json::Value>` of every facet field,
+capped at 2000. `sources.media_listing` projects into whole `File` objects for
+file-backed media sources. All three are flat over the source, offset-paged, and
+none takes a parent.
+
+Nothing in the tree queries `WHERE parent_uuid = ?`. The only reference outside
+the schema is a test in `core/src/ops/indexing/ephemeral/store.rs`.
+
+The data is there and correct, which is the part that matters. The filesystem
+indexer already writes `parent_uuid` on every record, resolving it through
+`parent_of(external_id)` against the ledger, and `parents_first` orders the batch
+so the self-referencing foreign key resolves. `idx_record_parent` is on
+`parent_uuid` today.
+
+So this is one new query against populated columns, not new plumbing.
+
+### The join, corrected
+
+`size` is not only on `content`. `facet_file` carries `record_uuid, size, mtime,
+inode, mode, extension, is_hidden` and is written by `apply_files` in the same
+transaction as the record. It is a 1:1 join on the primary key, so sorting by
+size costs a keyed lookup and nothing is denormalised.
+
+`is_hidden` lives there too, which is where the explorer's show-hidden toggle
+resolves. `content.kind` behind `record.content_id` is what Photos filters on.
+
+```sql
+SELECT r.uuid, r.title, r.modified_at, f.size, f.extension, c.uuid, c.kind
+  FROM record r
+  JOIN facet_file f ON f.record_uuid = r.uuid
+  LEFT JOIN content c ON c.id = r.content_id
+ WHERE r.parent_uuid = ?
+   AND (? OR f.is_hidden = 0)
+   AND (r.title, r.uuid) > (?, ?)
+ ORDER BY r.title, r.uuid
+ LIMIT ?
+```
+
+The `content` join is LEFT because a record indexed before identification has no
+`content_id`, and a cell with no thumbnail still draws.
+
+### Keyset, not offset
+
+The cursor is `(sort_key, uuid)` and paging is `WHERE (sort_key, uuid) > cursor`.
+Offset paging re-scans from the top of the folder on every page, which is
+invisible at Photos' scale and quadratic at the explorer's.
+
+Composite indexes that do not exist yet: `(parent_uuid, title)` and
+`(parent_uuid, modified_at)`. The unsorted listing and the `total` count are
+covered by `idx_record_parent` today.
+
+### The facet problem
+
+`record` is universal and facets are per data type, generated from each
+adapter's TOML model. `facet_file` exists for filesystem sources and not for a
+mail or message source, so an op that joins it unconditionally is a filesystem op
+wearing a universal name.
+
+Two ways out, and the choice is worth making deliberately rather than by
+accident. Either `list_children` returns record and content columns only, with
+the facet fetched as a second projection by whoever needs it, or the op names the
+facet it wants and returns null columns when the source has none. The explorer
+draws size and extension in every view, so the second is likely right, and the
+first is what keeps the op honestly universal.
+
+### Navigation is by uuid
+
+`record.parent_uuid` is a self-reference with an index on it, so a directory
+listing is a keyed lookup rather than a path prefix scan. The consequence worth
+taking deliberately: **the explorer navigates by record uuid, not by path.**
+
+Identity survives a rename, which is what `record.uuid` is for and what the
+"Give a file one identity" work established. A path becomes a rendering of a
+record, used for the breadcrumb and for handing to the OS.
+
+`apps/native/src/data.rs` currently derives v5 uuids from file paths as a
+placeholder. That goes away. Identities come from the listing, which is where
+they actually live.
+
+`navigation.set_focus` carries a record uuid alongside the path it publishes
+today, so Photos follows a folder that has been renamed under it.
+
+### Still open
+
+Whether the daemon's one-round-trip-per-op protocol survives an explorer issuing
+many small ops per navigation. That is a profile to take once it navigates for
+real, and keep-alive with request ids is the answer if it does not.
 
 ## Where the reference codebases are actually used
 

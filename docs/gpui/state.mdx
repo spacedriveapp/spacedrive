@@ -1,0 +1,162 @@
+---
+title: State in GPUI
+sidebarTitle: State
+---
+
+Written for someone arriving from React. Every example is from `apps/native`,
+the Photos app, so the file references are checkable rather than illustrative.
+
+There are four real shifts. Everything else follows from them.
+
+## 1. Rendering is not reactive. You announce it.
+
+React re-renders when `setState` runs. GPUI has no such link. You mutate a plain
+struct field, then call `cx.notify()`, which marks that entity dirty so its
+`render` runs on the next frame.
+
+```rust apps/native/src/main.rs
+fn toggle_following(&mut self, cx: &mut Context<Self>) {
+    self.data.set_following(!self.focus.following);
+    cx.notify();
+}
+```
+
+Forget the `notify` and the state changes while the screen does not. It is the
+most common beginner bug, and it is the price of the app sitting at 0% CPU when
+nothing has changed. Nothing repaints unless something says it should.
+
+## 2. State is struct fields. There are no hooks.
+
+A stateful component is a struct plus `impl Render`. `GridView`
+(`apps/native/src/grid/mod.rs`) is the honest example:
+
+```rust apps/native/src/grid/mod.rs
+pub struct GridView {
+    source: Box<dyn TileSource>,
+    scroll_y: f32,
+    target_cell: f32,
+    pinch: Option<PinchState>,
+    cache: HashMap<u32, (Arc<RenderImage>, f32, u64)>,
+    tick: u64,
+    ...
+}
+```
+
+Those are its `useState`s, except they are fields. No rules of hooks, no call
+ordering, no stale closures.
+
+```rust
+impl Render for Photos {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        div().size_full().flex().flex_col()
+            .child(self.render_toolbar(cx))
+    }
+}
+```
+
+Note the `&mut self`. Mutating during render is allowed here, and forbidden in
+React.
+
+## 3. `Entity<T>` is the handle, and it is how you share
+
+`cx.new(|cx| GridView::new(source, bench, cx))` returns an `Entity<GridView>`.
+Treat it as a store handle the framework tracks, closer to a Zustand store than
+to a `useRef`.
+
+You mutate through it:
+
+```rust apps/native/src/main.rs
+self.grid.update(cx, |grid, cx| {
+    grid.set_source(Box::new(source), cx);
+});
+```
+
+The React instinct is to pass values down as props. The GPUI instinct is to pass
+the `Entity` handle down, so two windows can hold the same handle and both see
+the same state. `Photos` holds `grid: Entity<GridView>` rather than holding the
+grid's data.
+
+This is why selection lives in an entity above the explorer's four views in
+`docs/plans/2026-08-26-gpui-architecture.md`. One handle, four readers, and no
+lifting-state-up refactor later.
+
+## 4. Two kinds of component, and the second one is your function component
+
+`Photos` and `GridView` are stateful: an `Entity` with `impl Render`.
+
+`Button` is not. It is `#[derive(IntoElement)]` plus `impl RenderOnce`, built
+with a builder chain and consumed by value:
+
+```rust apps/native/src/main.rs
+Button::new("follow", if following { "Following" } else { "Follow" })
+    .variant(ButtonVariant::Accent)
+    .on_click(move |_, _, cx| { ... })
+```
+
+That is a function component with props. It holds nothing between frames, is
+rebuilt on every render, and is cheap. Reach for `RenderOnce` by default and
+promote to an `Entity` only when something has to persist.
+
+## Effects
+
+`cx.spawn` is the closest thing to `useEffect`. The whole focus subscription in
+Photos is this:
+
+```rust apps/native/src/main.rs
+let mut focus = photos.data.watch_focus();
+cx.spawn(async move |this, cx| {
+    while focus.changed().await.is_ok() {
+        let alive = this.update(cx, |photos, cx| {
+            photos.focus = photos.data.focus();
+            cx.notify();
+        });
+        if alive.is_err() { break; }
+    }
+})
+.detach();
+```
+
+Two things with no React analogue.
+
+`this` is a weak handle, so `update` returns `Err` once the entity is gone. That
+is the unmount signal, and breaking on it is the cleanup.
+
+`.detach()` matters. `cx.spawn` returns a `Task` that **cancels when dropped**,
+so forgetting the detach means the effect silently never runs. The drop-cancels
+behaviour is also the good part: it is structured cancellation tied to entity
+lifetime, and `gpui_tokio::Tokio::spawn` extends the same guarantee to tokio
+work.
+
+`cx.observe(&other, ...)` is the other half: your callback fires when another
+entity notifies. It returns a `Subscription` that has to be kept alive, the same
+trap as the `Task`.
+
+## Per-element state
+
+`div().id("follow")` makes an element stateful across frames, which is how hover,
+active and scroll position persist. `Button::new("follow", ...)` takes that id as
+its first argument for exactly this reason.
+
+This is the nearest thing to `useState` living inside a component rather than in
+your struct, and it is the only place GPUI keeps state you did not declare.
+
+## Globals
+
+`cx.set_global(T)` and `cx.global::<T>()`. The theme is one: `Theme::init(cx)` at
+startup (`apps/native/src/theme.rs`), then `cx.theme()` anywhere through an
+extension trait. Context without a provider tree.
+
+## What does not exist
+
+No virtual DOM and no diffing. `render` rebuilds the element tree and GPUI paints
+it. Elements are cheap descriptions rather than retained objects, so there are no
+keys, no reconciliation, no `React.memo` and no `useMemo`.
+
+If a render is expensive, cache the result in a struct field yourself. That is
+what `GridView.cache` does for uploaded tiles, with an explicit LRU and an atlas
+budget, because image lifecycle is the one thing GPUI will not manage for you.
+
+## The trade
+
+You spend no time reasoning about when things re-render, and some time
+remembering to say so.

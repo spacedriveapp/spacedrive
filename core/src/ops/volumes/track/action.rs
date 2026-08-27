@@ -4,7 +4,7 @@
 //! Spacedrive knows about a drive without knowing anything on it, which is not
 //! a state anyone asks for, so the two are one gesture.
 //!
-//! The medium and the index stay separate underneath: this flips `is_tracked`
+//! The drive and its index stay separate underneath: this flips `is_tracked`
 //! on the volume row and then calls the same `track_and_index` that
 //! `sources.track` does. What converges is the click, not the model.
 

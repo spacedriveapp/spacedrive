@@ -86,9 +86,15 @@ system. The things worth taking from below are the ones nobody wants to
 rediscover: focus restoration, keyboard wraparound, IME, popup collision,
 selection geometry, scroll positioning.
 
-This also changes what the theme bridge targets. `SemanticThemeTokens` is the
-correct destination for the SpaceUI token set, not gpui-component's much larger
-component-named `ThemeColor`. Ours maps to it almost directly.
+This also changes what the theme bridge targets, though not as far as first
+written. `SemanticThemeTokens` was read on 2026-08-26: 165 lines, seventeen
+colours in shadcn's vocabulary (`background`, `foreground`, `primary`,
+`secondary`, `muted`, `accent`, `destructive`, `border`, `input`, `ring`) plus
+radius, spacing, typography and shadow scales. SpaceUI does not map onto it, it
+collapses into it. `app_box`, `sidebar`, `ink_dull` and the `status_*` set have
+no destination there. So it is the right thing to fill in for any gpui-base
+component that paints, and it is not where the SpaceUI token set lives.
+`docs/plans/2026-08-26-gpui-architecture.md` puts that in `sd-tokens`.
 
 ## The fork question
 
@@ -295,16 +301,20 @@ paying for the first, because staying on gpui's sprite pipeline is what made the
 B4 gate pass in the first place.
 
 **There is no listing op an explorer can scroll.** `files.directory_listing`
-returns whole `File` objects with a default limit of 1000 and no cursor, and it
-reads `entry` and `directory_paths`, which is the world
-`docs/plans/2026-08-20-entries-teardown-execution.md` is removing. Photos gets
-away with it by listing a folder into a `Vec<PathBuf>` once and then windowing
-identities through `thumbs.request`. An explorer over a source with half a
-million records cannot. What is needed is a windowed listing over the record
-table returning the columns a cell draws, nothing more. `sources.list_items` has
-the offset shape but is flat and untyped for this. Build the op against the
-record table so the explorer is born in the new world rather than migrated into
-it.
+branches: `find_parent_directory` against the `entry` table, falling through to
+`query_ephemeral_directory_impl` over the ephemeral cache when that lookup
+fails. With entries empty the indexed branch never runs, so Photos already lists
+through the ephemeral path and the teardown takes a branch it does not use.
+
+What the ephemeral path gives it is whole `File` objects, a default limit of
+1000, and no cursor. That is enough for a folder of photos and useless for a
+source with half a million records. `sources.list_items` has the offset shape and
+is flat and untyped for this, and offset is the wrong shape regardless: paging by
+offset re-scans from the top of the folder on every page.
+
+The op is designed in `docs/plans/2026-08-26-gpui-architecture.md` under "The
+listing op". Photos moves onto it because one listing path is better than two,
+not because anything forces it.
 
 **One TCP round trip per op.** The daemon closes the connection after every
 non-subscribe response. The 2026-08-18 plan accepted this for Photos on the
@@ -388,10 +398,10 @@ follows the GPUI explorer with no code that knows which shell it is following.
 measured against the same flywheel. Gate: 129k cells still at frame rate with
 labels on. This is go/no-go for the explorer grid the way B4 was for the grid.
 
-**P4 — A listing that scales.** The windowed record-table listing op, and
-`sd-grid` reading it. Gate: a source with six figures of records scrolls without
-the listing showing up in a profile. Take the round-trip measurement here and
-decide keep-alive.
+**P4 — A listing that scales.** The windowed record-table listing op, Photos
+ported onto it, and `sd-grid` reading it. Gate: a source with six figures
+of records scrolls without the listing showing up in a profile. Take the
+round-trip measurement here and decide keep-alive.
 
 **P5 — Views.** List over gpui-component's table, column, media. The inspector.
 
@@ -428,10 +438,6 @@ Standing tasks, not phases: install sccache, keep the fork patch-free, and build
 
 ## Open
 
-- Does the GPUI explorer read the record table only, or does it carry the
-  entries path until the teardown completes? Reading only the record table means
-  the explorer is empty for anything not yet migrated. Reading both means
-  building the seam twice.
 - One window with tabs, or a window per space? gpui-component's `dock` supports
   either and the React app answered tabs, but that answer was constrained by the
   browser.

@@ -147,6 +147,13 @@
               "react/ui/platform",
               "react/ui/explorer"
             ]
+          },
+          {
+            "group": "GPUI",
+            "icon": "palette",
+            "pages": [
+              "gpui/state"
+            ]
           }
         ]
       }

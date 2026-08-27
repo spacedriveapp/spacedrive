@@ -172,7 +172,7 @@ Not style, mechanics:
 - **T2.0b, volume/source boundary**, unchanged from the teardown register and
   still blocking T6.1 — which P3 now depends on.
 - **Can sources nest.** Settled in P2.7: yes, once a partition is keyed by the
-  medium rather than by a registration. Both live documents were right about
+  drive rather than by a registration. Both live documents were right about
   their own half. `2026-08-18-storage-consolidation.md` contract 1 is right that
   one filesystem owns one record namespace, and that namespace is the arena.
   `2026-08-20-architecture-previs.md:74` is right that nested roots are
@@ -613,7 +613,7 @@ type. That is the price of a store that serves both a filesystem and an API with
 one schema, and it is worth paying here because the filesystem is the one that
 has to hold a hundred million rows.
 
-### P2.7 — The arena is a map of the medium, a source is a scope over it
+### P2.7 — The arena is a volume index, a source is a scope over it
 
 The requirement did not change when the library broke up. A machine needs full
 local search over every file on it and a size figure the analyser can trust,
@@ -637,7 +637,7 @@ exists to forbid, arriving between two filesystem sources instead of between
 two data types. It is also why the Open register asks whether sources can nest
 and finds two live documents answering in opposite directions.
 
-**The line.** A partition is a property of the *medium*, not of a
+**The line.** A partition is a property of the *drive*, not of a
 registration. One drive, one arena, one snapshot, whatever is persisted from
 it. A source says *persist records for paths under this root* and owns a
 `data.db`. Nesting is then ordinary, because the two things being nested are no
@@ -647,17 +647,23 @@ Concretely:
 
 | | keyed by | holds | rebuilt from |
 |---|---|---|---|
-| arena partition | medium | every file the walk could see | a walk |
-| snapshot | medium | the arena's durable copy | the arena |
-| `thumbs.pvcache` | medium | decoded tiles | the sidecar or the original |
+| volume index | drive | every file the walk could see | a walk |
+| snapshot | drive | the arena's durable copy | the arena |
+| `thumbs.pvcache` | drive | decoded tiles | the sidecar or the original |
 | `data.db` | source | records for one subtree | a walk, plus assertions that outlive it |
 
-Medium means the volume uuid where there is one, and the root itself where
-there is not: a network share with no fingerprint is its own medium.
+`VolumeKey` is the volume uuid where there is one, and the root itself where
+there is not. Every mount the volume manager can see gets a record, network
+shares included, so the second case is a fallback rather than a second way of
+doing this.
+
+**On the name.** This was called a *medium* for one afternoon, which named the
+abstraction after its own exception. It is a volume index: the index of a
+volume. `volumes/<id>/` on disk, beside `sources/<id>/`.
 
 **Identity is the part that has to be right first.** Today the ledger mints
 uuids and the arena is told what they are, which is what forks identity when
-two ledgers cover one file. Afterwards the arena mints, once, per medium, and a
+two ledgers cover one file. Afterwards the arena mints, once, per drive, and a
 source *adopts* the identity already sitting there rather than resolving its
 own. A file gets one uuid whether it is persisted by no source, one source, or
 a source inside a source. Creating a source over already-mapped files becomes a
@@ -671,13 +677,13 @@ gives it somewhere to keep things.
 
 **What moves.**
 
-1. `SourceSlot` keys on medium. `resolve` answers *which drive*, and the
+1. `VolumeIndex` keys on `VolumeKey`. `resolve` answers *which drive*, and the
    longest-prefix walk over roots serves `store_for` instead, which is where it
    was always the right question.
-2. `SourceDirs` grows a medium directory. `ephemeral.snapshot` and
+2. `SourceDirs` grows a `volumes/` directory. `ephemeral.snapshot` and
    `thumbs.pvcache` move into it; `data.db` and `blocks/` stay with the source.
 3. Per-source counts come from the store (`SELECT COUNT(*) FROM record`) rather
-   than from an arena partition, since a partition no longer belongs to one
+   than from an arena partition, since an index no longer belongs to one
    source. `sources.record_count` keeps its meaning and changes its writer.
 4. Whole-drive figures for the analyser come from the arena, which is the only
    thing that has them.
