@@ -76,6 +76,12 @@ pub struct Observation {
 	pub mode: Option<i64>,
 	pub extension: Option<String>,
 	pub is_hidden: bool,
+	/// The identity this path already carries, where something already knows
+	/// it. A ledger with no binding for a path adopts this rather than minting,
+	/// which is what lets a source created over an already-mapped drive keep
+	/// the uuids the map handed out. Minting there would give one file two
+	/// identities and split everything hanging off them.
+	pub identity: Option<Uuid>,
 }
 
 /// What [`Ledger::resolve`] made of an observation.
@@ -292,7 +298,7 @@ impl Ledger {
 			}
 		}
 
-		Resolution::Fresh(Uuid::now_v7())
+		Resolution::Fresh(observation.identity.unwrap_or_else(Uuid::now_v7))
 	}
 
 	/// Rebind a record whose move the watcher actually saw.

@@ -987,18 +987,34 @@ impl IndexerJob {
 			let metadata: Vec<EntryMetadata> =
 				batch.iter().cloned().map(EntryMetadata::from).collect();
 
+			// What the arena already holds for these paths. A walk over a drive
+			// that has been mapped before finds every file with an identity
+			// already, and offering it to the ledger is what lets a source
+			// created over that drive adopt them instead of minting a second
+			// set. Read under one lock and released before the queue is asked.
+			let known: Vec<Option<Uuid>> = {
+				let index = ephemeral_index.read().await;
+				metadata
+					.iter()
+					.map(|entry| index.get_entry_uuid(&entry.path))
+					.collect()
+			};
+
 			// Identity comes from the store's ledger, which is also where this
 			// batch gets taken in. One round trip for the batch: resolution is
 			// a hash lookup, so the wait is the queue rather than SQLite.
 			//
 			// Without a store there is nothing durable to agree with, so the
-			// arena mints for the session. Volume indexing used to defer uuids
-			// entirely; it no longer needs to, because the ledger has one
-			// whether or not anything asks.
+			// arena keeps what it has or mints for the session. Volume indexing
+			// used to defer uuids entirely; it no longer needs to, because the
+			// ledger has one whether or not anything asks.
 			let identities: Vec<Option<Uuid>> = match &source_store {
-				Some(store) => store.identify(&metadata).await,
-				None if is_volume_indexing => vec![None; metadata.len()],
-				None => metadata.iter().map(|_| Some(Uuid::now_v7())).collect(),
+				Some(store) => store.identify(&metadata, &known).await,
+				None if is_volume_indexing => known.clone(),
+				None => known
+					.iter()
+					.map(|known| Some(known.unwrap_or_else(Uuid::now_v7)))
+					.collect(),
 			};
 
 			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = metadata

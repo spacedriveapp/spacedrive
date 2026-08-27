@@ -67,16 +67,31 @@ impl MemoryAdapter {
 	/// The identity to write into the arena for `metadata`.
 	///
 	/// The store's ledger assigns it, so the arena and the record table name a
-	/// file the same way. A partition with no store has no ledger to ask, and
-	/// mints one that lives as long as the session does.
+	/// file the same way. Where the arena already holds one the ledger is
+	/// offered it and adopts it, which is what keeps a source created over an
+	/// already-mapped drive from minting a second identity for every file on
+	/// it. A partition with no store has no ledger to ask, and mints one that
+	/// lives as long as the session does.
 	async fn identify(&self, metadata: &EntryMetadata) -> Uuid {
+		let known = self
+			.known_identities(std::slice::from_ref(&metadata.path))
+			.await;
 		match &self.store {
 			Some(store) => store
-				.identify_one(metadata)
+				.identify_one(metadata, known[0])
 				.await
 				.unwrap_or_else(Uuid::now_v7),
-			None => Uuid::now_v7(),
+			None => known[0].unwrap_or_else(Uuid::now_v7),
 		}
+	}
+
+	/// The identities the arena already holds for these paths.
+	///
+	/// Read under one lock and released before the store is asked: the queue
+	/// round trip must not be taken while readers are waiting on the arena.
+	async fn known_identities(&self, paths: &[PathBuf]) -> Vec<Option<Uuid>> {
+		let index = self.index.read().await;
+		paths.iter().map(|p| index.get_entry_uuid(p)).collect()
 	}
 
 	fn next_id(&self) -> i32 {
@@ -228,7 +243,7 @@ impl ChangeHandler for MemoryAdapter {
 				// Already identified; the store still has to hear that the
 				// bytes changed.
 				if let Some(store) = &self.store {
-					store.identify_one(&entry_metadata).await;
+					store.identify_one(&entry_metadata, Some(uuid)).await;
 				}
 				uuid
 			}
@@ -409,14 +424,17 @@ impl ChangeHandler for MemoryAdapter {
 		// trip outside the arena lock: holding a write lock while waiting on the
 		// queue would stall every reader.
 		let metadata: Vec<EntryMetadata> = observed.iter().map(|(_, meta)| meta.clone()).collect();
+		let paths: Vec<PathBuf> = observed.iter().map(|(path, _)| path.clone()).collect();
+		let known = self.known_identities(&paths).await;
 		let identities = match &self.store {
-			Some(store) => store.identify(&metadata).await,
-			None => vec![None; metadata.len()],
+			Some(store) => store.identify(&metadata, &known).await,
+			None => known.clone(),
 		};
 
 		let mut index = self.index.write().await;
-		for ((path, meta), identity) in observed.into_iter().zip(identities) {
-			let _ = index.add_entry(path, identity.unwrap_or_else(Uuid::now_v7), meta);
+		for (((path, meta), identity), known) in observed.into_iter().zip(identities).zip(known) {
+			let uuid = identity.or(known).unwrap_or_else(Uuid::now_v7);
+			let _ = index.add_entry(path, uuid, meta);
 		}
 
 		Ok(())

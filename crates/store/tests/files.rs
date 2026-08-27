@@ -44,6 +44,7 @@ fn observe(path: &str, size: i64, mtime: i64, inode: Option<i64>) -> Observation
 		mode: Some(0o644),
 		extension: path.rsplit_once('.').map(|(_, e)| e.to_string()),
 		is_hidden: false,
+		identity: None,
 	}
 }
 
@@ -828,4 +829,38 @@ async fn an_index_that_predates_parent_addressing_is_rebuilt() {
 	assert_eq!(paths(&db).await, vec!["notes", "notes/a.txt"]);
 
 	assert_eq!(db.rebind_overlays().await.expect("rebind"), 1);
+}
+
+/// A ledger with no binding for a path adopts the identity the path already
+/// carries rather than minting a second one.
+///
+/// This is what a source created over an already-mapped drive depends on. The
+/// arena hands out a uuid when it maps a file; the source's store starts empty
+/// and would otherwise resolve every one of those files as new, leaving one
+/// file with two identities and everything hanging off them split between them.
+#[tokio::test]
+async fn a_fresh_resolution_adopts_an_identity_the_path_already_has() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+
+	let mapped = Uuid::now_v7();
+	let observation = Observation {
+		identity: Some(mapped),
+		..observe("notes/a.txt", 10, 1_000, Some(1))
+	};
+	assert_eq!(ledger.resolve(&observation), Resolution::Fresh(mapped));
+
+	// And nothing else changes: a path the ledger already knows keeps the
+	// binding it has, whatever an observation claims.
+	let contradicting = Observation {
+		identity: Some(Uuid::now_v7()),
+		..observe("notes/a.txt", 10, 1_000, Some(1))
+	};
+	assert_eq!(
+		ledger.resolve(&contradicting),
+		Resolution::Unchanged(mapped),
+		"an observation cannot rename a record the ledger already holds"
+	);
 }

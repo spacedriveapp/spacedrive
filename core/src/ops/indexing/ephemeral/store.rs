@@ -133,12 +133,16 @@ impl SourceStore {
 	/// anything is committed, so the cost is the queue rather than a
 	/// transaction. A commit already in flight does delay the next batch, which
 	/// is the backpressure working rather than a stall.
-	pub async fn identify(&self, metadata: &[EntryMetadata]) -> Vec<Option<Uuid>> {
+	pub async fn identify(
+		&self,
+		metadata: &[EntryMetadata],
+		known: &[Option<Uuid>],
+	) -> Vec<Option<Uuid>> {
 		let mut slots: Vec<Option<usize>> = Vec::with_capacity(metadata.len());
 		let mut observations = Vec::with_capacity(metadata.len());
 
-		for entry in metadata {
-			match self.observe(entry) {
+		for (index, entry) in metadata.iter().enumerate() {
+			match self.observe(entry, known.get(index).copied().flatten()) {
 				Some(observation) => {
 					slots.push(Some(observations.len()));
 					observations.push(observation);
@@ -170,8 +174,12 @@ impl SourceStore {
 	}
 
 	/// Resolve one path's identity. The watcher's shape.
-	pub async fn identify_one(&self, metadata: &EntryMetadata) -> Option<Uuid> {
-		self.identify(std::slice::from_ref(metadata))
+	pub async fn identify_one(
+		&self,
+		metadata: &EntryMetadata,
+		known: Option<Uuid>,
+	) -> Option<Uuid> {
+		self.identify(std::slice::from_ref(metadata), &[known])
 			.await
 			.into_iter()
 			.next()
@@ -180,7 +188,8 @@ impl SourceStore {
 
 	/// Record a rename the watcher saw both ends of.
 	pub async fn renamed(&self, from: &Path, metadata: &EntryMetadata) {
-		let (Some(from), Some(observation)) = (self.external_id(from), self.observe(metadata))
+		let (Some(from), Some(observation)) =
+			(self.external_id(from), self.observe(metadata, None))
 		else {
 			return;
 		};
@@ -270,7 +279,7 @@ impl SourceStore {
 		})
 	}
 
-	fn observe(&self, metadata: &EntryMetadata) -> Option<Observation> {
+	fn observe(&self, metadata: &EntryMetadata, known: Option<Uuid>) -> Option<Observation> {
 		let external_id = self.external_id(&metadata.path)?;
 		let name = metadata
 			.path
@@ -297,6 +306,7 @@ impl SourceStore {
 				.extension()
 				.map(|e| e.to_string_lossy().into_owned()),
 			is_hidden: metadata.is_hidden,
+			identity: known,
 		})
 	}
 }
@@ -611,6 +621,49 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		}
 	}
 
+	/// A source created over an already-mapped drive keeps the identities the
+	/// map handed out.
+	///
+	/// The arena maps a whole drive whether or not anything is persisted off
+	/// it, so by the time someone registers a source the files under it already
+	/// have uuids. A store starting empty resolves every one of them as new,
+	/// and minting there would leave one file with two identities: the one the
+	/// UI has been using and the one the record table now claims.
+	#[tokio::test]
+	async fn a_source_over_a_mapped_drive_adopts_its_identities() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+		std::fs::write(root.join("mapped.txt"), b"hello").expect("file");
+
+		// The map got there first, as it does for any drive that was browsed
+		// or indexed before anything was kept off it.
+		let metadata = EntryMetadata::from(dir_entry(&root.join("mapped.txt")));
+		let mapped = Uuid::now_v7();
+		{
+			let mut index = fixture.index.write().await;
+			index
+				.add_entry(root.join("mapped.txt"), mapped, metadata.clone())
+				.expect("map it");
+		}
+
+		let identified = fixture
+			.store
+			.identify_one(&metadata, Some(mapped))
+			.await
+			.expect("identified");
+		assert_eq!(identified, mapped, "the store minted a second identity");
+
+		fixture.store.flush().await;
+		let stored = fixture
+			.store
+			.db()
+			.resolve_path("mapped.txt")
+			.await
+			.expect("query")
+			.expect("record");
+		assert_eq!(stored, mapped, "the record and the map name it differently");
+	}
+
 	/// A walk hands a batch over in whatever order discovery produced it, and
 	/// the tree has to form anyway.
 	///
@@ -634,7 +687,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.map(|r| EntryMetadata::from(dir_entry(&root.join(r))))
 			.collect();
 
-		let identities = fixture.store.identify(&metadata).await;
+		let identities = fixture.store.identify(&metadata, &[]).await;
 		assert!(
 			identities.iter().all(Option::is_some),
 			"every observation resolves to a record"
@@ -804,8 +857,16 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		std::fs::write(&path, b"hello").expect("write");
 		let metadata = EntryMetadata::from(dir_entry(&path));
 
-		let first = fixture.store.identify_one(&metadata).await.expect("first");
-		let again = fixture.store.identify_one(&metadata).await.expect("again");
+		let first = fixture
+			.store
+			.identify_one(&metadata, None)
+			.await
+			.expect("first");
+		let again = fixture
+			.store
+			.identify_one(&metadata, None)
+			.await
+			.expect("again");
 
 		assert_eq!(first, again);
 	}
@@ -820,7 +881,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		std::fs::write(&path, b"hello").expect("write");
 
 		let metadata = EntryMetadata::from(dir_entry(&path));
-		assert!(fixture.store.identify_one(&metadata).await.is_none());
+		assert!(fixture.store.identify_one(&metadata, None).await.is_none());
 	}
 
 	#[tokio::test]
