@@ -12,7 +12,7 @@
 //!
 //! Path → partition resolution is longest-root-prefix over registered sources.
 
-use super::sources::{SourceRecord, SourceRegistry, VolumeAnchor};
+use super::sources::{MediumKey, SourceRecord, SourceRegistry, VolumeAnchor};
 use super::store::SourceStore;
 use super::EphemeralIndex;
 use crate::infra::db::entities::source;
@@ -33,12 +33,15 @@ use tokio::sync::mpsc;
 use tokio::sync::RwLock as TokioRwLock;
 use uuid::Uuid;
 
-/// One source's partition: its index plus the per-source path state the old
-/// global cache used to track globally.
-pub struct SourceSlot {
-	/// Source identity; `None` for the scratch partition.
-	pub id: Option<Uuid>,
-	/// Root at last attach. Scratch has no root.
+/// One medium's partition: the arena for a drive, plus the path state that
+/// belongs to the map rather than to any registration.
+///
+/// Keyed by medium and not by source, so a source nested inside another shares
+/// this rather than forking it. See [`MediumKey`].
+pub struct MediumSlot {
+	/// Which drive this maps. `Scratch` for paths under no registered source.
+	pub medium: MediumKey,
+	/// Where the medium begins. Scratch has no root.
 	root: RwLock<Option<PathBuf>>,
 	index: Arc<TokioRwLock<EphemeralIndex>>,
 	indexed_paths: RwLock<HashSet<PathBuf>>,
@@ -52,21 +55,17 @@ pub struct SourceSlot {
 	/// Single restore attempt per session: concurrent callers await the same
 	/// load instead of racing three copies of a 100 MB deserialization.
 	restore_once: tokio::sync::OnceCell<bool>,
-	/// Serializes snapshot saves for this source.
+	/// Serializes snapshot saves for this medium.
 	save_lock: tokio::sync::Mutex<()>,
 	/// Entry count at the last completed save; identical partitions skip the
 	/// rewrite (a burst of browse jobs otherwise re-saves 100 MB per job).
 	last_saved_entries: std::sync::atomic::AtomicU64,
-	/// The source's durable store, opened once per session on first write.
-	/// `None` once opening has failed or the partition has nowhere to write:
-	/// scratch has no identity, and a cache with no directory has no disk.
-	store: tokio::sync::OnceCell<Option<Arc<SourceStore>>>,
 }
 
-impl SourceSlot {
-	fn new(id: Option<Uuid>, root: Option<PathBuf>) -> std::io::Result<Arc<Self>> {
+impl MediumSlot {
+	fn new(medium: MediumKey, root: Option<PathBuf>) -> std::io::Result<Arc<Self>> {
 		Ok(Arc::new(Self {
-			id,
+			medium,
 			root: RwLock::new(root),
 			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
 			indexed_paths: RwLock::new(HashSet::new()),
@@ -77,8 +76,15 @@ impl SourceSlot {
 			restore_once: tokio::sync::OnceCell::new(),
 			save_lock: tokio::sync::Mutex::new(()),
 			last_saved_entries: std::sync::atomic::AtomicU64::new(u64::MAX),
-			store: tokio::sync::OnceCell::new(),
 		}))
+	}
+
+	/// The medium's stable id, which keys its directory on disk.
+	pub fn id(&self) -> Option<Uuid> {
+		match self.medium {
+			MediumKey::Scratch => None,
+			_ => Some(self.medium.id()),
+		}
 	}
 
 	pub fn root(&self) -> Option<PathBuf> {
@@ -156,9 +162,14 @@ pub struct EphemeralIndexCache {
 	/// Per-source directory layout; `None` means no persistence.
 	dirs: Option<SourceDirs>,
 	/// Live partitions by source id.
-	slots: RwLock<HashMap<Uuid, Arc<SourceSlot>>>,
+	/// Live partitions by medium. One drive, one arena, however many sources
+	/// are registered over it.
+	slots: RwLock<HashMap<MediumKey, Arc<MediumSlot>>>,
+	/// Durable stores by source id. A medium can host several, since a source
+	/// nested inside another persists its own subtree.
+	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
 	/// Fallback partition for paths under no registered source.
-	scratch: Arc<SourceSlot>,
+	scratch: Arc<MediumSlot>,
 	/// Roots that have just become browsable, announced so whoever owns
 	/// filesystem watching can arm them.
 	///
@@ -195,7 +206,8 @@ impl EphemeralIndexCache {
 			db: RwLock::new(None),
 			dirs,
 			slots: RwLock::new(HashMap::new()),
-			scratch: SourceSlot::new(None, None)?,
+			scratch: MediumSlot::new(MediumKey::Scratch, None)?,
+			stores: RwLock::new(HashMap::new()),
 			restored_roots: RwLock::new(None),
 			created_at: Instant::now(),
 		})
@@ -321,19 +333,29 @@ impl EphemeralIndexCache {
 
 	/// All registered sources with their live state.
 	pub fn sources(&self) -> Vec<SourceStatus> {
-		let records: Vec<SourceRecord> = self.registry.lock().all().to_vec();
+		let (records, mediums): (Vec<SourceRecord>, Vec<MediumKey>) = {
+			let registry = self.registry.lock();
+			let records = registry.all().to_vec();
+			let mediums = records
+				.iter()
+				.map(|record| registry.medium_of(record).0)
+				.collect();
+			(records, mediums)
+		};
 		let slots = self.slots.read();
 		records
 			.into_iter()
-			.map(|record| {
-				let slot = slots.get(&record.id);
+			.zip(mediums)
+			.map(|(record, medium)| {
+				let slot = slots.get(&medium);
 				SourceStatus {
 					attached: record.root.exists(),
 					restored: slot
 						.map(|s| s.restored.load(Ordering::Acquire))
 						.unwrap_or(false),
 					directory: self.dirs.as_ref().map(|d| d.source_dir(record.id)),
-					thumbs_path: self.dirs.as_ref().map(|d| d.thumbs_file(record.id)),
+					// The hot tier belongs to the map, so it is the medium's.
+					thumbs_path: self.dirs.as_ref().map(|d| d.thumbs_file(medium.id())),
 					id: record.id,
 					root: record.root,
 					volume_uuid: record.volume_uuid,
@@ -345,26 +367,28 @@ impl EphemeralIndexCache {
 			.collect()
 	}
 
-	/// Get (or lazily create) the live slot for a registry record.
-	fn slot_for_record(&self, record: &SourceRecord) -> Arc<SourceSlot> {
-		if let Some(slot) = self.slots.read().get(&record.id) {
+	/// Get (or lazily create) the live partition for the medium a record sits
+	/// on. Two sources on one drive get the same one.
+	fn slot_for_record(&self, record: &SourceRecord) -> Arc<MediumSlot> {
+		let (key, root) = self.registry.lock().medium_of(record);
+		if let Some(slot) = self.slots.read().get(&key) {
 			return slot.clone();
 		}
 		let mut slots = self.slots.write();
 		slots
-			.entry(record.id)
+			.entry(key.clone())
 			.or_insert_with(|| {
-				let slot = SourceSlot::new(Some(record.id), Some(record.root.clone()))
-					.expect("create ephemeral index for source");
-				slot.set_detached(!record.root.exists());
+				let slot = MediumSlot::new(key, Some(root.clone()))
+					.expect("create ephemeral index for medium");
+				slot.set_detached(!root.exists());
 				slot
 			})
 			.clone()
 	}
 
-	/// Resolve the partition owning `path`: the registered source whose root
-	/// is the longest prefix, else scratch.
-	pub fn resolve(&self, path: &Path) -> Arc<SourceSlot> {
+	/// Resolve the partition owning `path`: the medium under the registered
+	/// source whose root is the longest prefix, else scratch.
+	pub fn resolve(&self, path: &Path) -> Arc<MediumSlot> {
 		let record = self.registry.lock().resolve(path).cloned();
 		match record {
 			Some(record) => self.slot_for_record(&record),
@@ -379,30 +403,39 @@ impl EphemeralIndexCache {
 		slot.is_detached()
 	}
 
-	/// The durable store owning `path`, opened on first use.
+	/// The durable store that should hold `path`, opened on first use.
 	///
-	/// `None` for the scratch partition and for a cache with no sources
-	/// directory: neither has an identity to key a store on. Browsing keeps
-	/// working in both cases, which is what makes the arena the read path and
-	/// the store an addition to it.
+	/// The innermost registered source wins, which is what makes a source
+	/// inside another persist its own subtree without the outer one writing it
+	/// twice. Keyed by source rather than by medium for the same reason: one
+	/// drive, one map, any number of things kept off it.
+	///
+	/// `None` for a path under no source and for a cache with no sources
+	/// directory. Browsing keeps working in both cases, which is what makes the
+	/// arena the read path and the store an addition to it.
 	pub async fn store_for(&self, path: &Path) -> Option<Arc<SourceStore>> {
-		let slot = self.resolve(path);
-		let (Some(id), Some(dirs), Some(root)) = (slot.id, self.dirs.as_ref(), slot.root()) else {
-			return None;
+		let record = self.registry.lock().resolve(path).cloned()?;
+		let dirs = self.dirs.as_ref()?;
+
+		if let Some(store) = self.stores.read().get(&record.id) {
+			return Some(store.clone());
+		}
+
+		let store = match SourceStore::open(dirs, record.id, record.root.clone()).await {
+			Ok(store) => store,
+			Err(error) => {
+				tracing::error!(source = %record.id, %error, "source store unavailable");
+				return None;
+			}
 		};
 
-		slot.store
-			.get_or_init(|| async {
-				match SourceStore::open(dirs, id, root).await {
-					Ok(store) => Some(store),
-					Err(error) => {
-						tracing::error!(source = %id, %error, "source store unavailable");
-						None
-					}
-				}
-			})
-			.await
-			.clone()
+		Some(
+			self.stores
+				.write()
+				.entry(record.id)
+				.or_insert(store)
+				.clone(),
+		)
 	}
 
 	/// The index owning `path`, unconditionally (scratch fallback).
@@ -576,12 +609,16 @@ impl EphemeralIndexCache {
 	async fn attempt_restore(
 		dirs: Option<SourceDirs>,
 		record: SourceRecord,
-		slot: Arc<SourceSlot>,
+		slot: Arc<MediumSlot>,
 	) -> bool {
 		let Some(dirs) = dirs else {
 			return false;
 		};
-		let snapshot_path = dirs.snapshot_file(record.id);
+		// The snapshot is the arena's durable copy, so it belongs to the medium
+		// rather than to whatever is registered over it.
+		let medium_id = slot.medium.id();
+		let medium_root = slot.root().unwrap_or_else(|| record.root.clone());
+		let snapshot_path = dirs.snapshot_file(medium_id);
 		let loaded = match EphemeralIndex::load_snapshot(&snapshot_path) {
 			Ok(Some((index, meta))) => Some((index, meta)),
 			Ok(None) => None,
@@ -597,16 +634,16 @@ impl EphemeralIndexCache {
 			return false;
 		};
 
-		// The snapshot names the source it was taken for. The file is keyed by
-		// source id in its path, so a mismatch means the cache directory was
+		// The snapshot names the medium it was taken for. The file is keyed by
+		// medium id in its path, so a mismatch means the cache directory was
 		// copied or edited from outside; adopting it would bind one drive's
 		// contents to another's identity.
-		if meta.source_id != record.id {
+		if meta.source_id != medium_id {
 			tracing::warn!(
-				"Snapshot at {} belongs to source {}, not {}; ignoring",
+				"Snapshot at {} belongs to medium {}, not {}; ignoring",
 				snapshot_path.display(),
 				meta.source_id,
-				record.id
+				medium_id
 			);
 			return false;
 		}
@@ -615,10 +652,10 @@ impl EphemeralIndexCache {
 		// paths from the old mount baked into the snapshot. Reindexing the
 		// present drive is cheaper than being subtly wrong; the stale
 		// snapshot goes so the next save is clean.
-		if record.root.exists() && meta.root_path != record.root {
+		if medium_root.exists() && meta.root_path != medium_root {
 			tracing::info!(
 				"Snapshot for {} was taken at {}; discarding for reindex",
-				record.root.display(),
+				medium_root.display(),
 				meta.root_path.display()
 			);
 			let _ = std::fs::remove_file(&snapshot_path);
@@ -645,8 +682,8 @@ impl EphemeralIndexCache {
 		slot.set_detached(!meta.root_path.exists());
 
 		tracing::info!(
-			"Restored source {} from snapshot ({}, {})",
-			record.id,
+			"Restored medium {} from snapshot ({}, {})",
+			medium_id,
 			meta.root_path.display(),
 			if slot.is_detached() {
 				"detached"
@@ -683,7 +720,9 @@ impl EphemeralIndexCache {
 			return Ok(());
 		};
 		let slot = self.slot_for_record(&record);
-		let snapshot_path = dirs.snapshot_file(record.id);
+		let medium_id = slot.medium.id();
+		let medium_root = slot.root().unwrap_or_else(|| record.root.clone());
+		let snapshot_path = dirs.snapshot_file(medium_id);
 
 		// Funnel through the restore gate so a save can never precede the
 		// session's restore attempt.
@@ -755,16 +794,35 @@ impl EphemeralIndexCache {
 				);
 				return Ok(());
 			}
-			index.save_snapshot(&snapshot_path, record.id, &record.root)?;
+			index.save_snapshot(&snapshot_path, medium_id, &medium_root)?;
 			index.clear_dirty();
 			slot.last_saved_entries
 				.store(entry_count, Ordering::Release);
 			(entry_count, stats.total_file_bytes)
 		};
-		// Persist counts on the registry row so listings can show a drive's
-		// size without loading its snapshot. The snapshot itself is already on
-		// disk, so a failure here costs a stale count in listings rather than
-		// the index: report it and keep the save successful.
+		// Persist counts on the registry row so listings can show a size without
+		// loading a snapshot. What a source reports is what its store holds,
+		// not what the partition around it does: the arena maps the whole
+		// drive, and a source is a scope over part of it. The arena's figures
+		// stand in only when a source spans its whole medium, which is the case
+		// that has no store to ask yet.
+		//
+		// A store holding nothing has not been written yet, and a source over an
+		// already-mapped medium is in exactly that state until its adoption walk
+		// runs. Reporting zero there would empty a listing that has a full drive
+		// behind it, so the partition's figure stands until the store has one of
+		// its own.
+		let (entry_count, total_bytes) = match self.store_for(&record.root).await {
+			Some(store) => match store.counts().await {
+				Some((records, bytes)) if records > 0 => (records, bytes),
+				_ => (entry_count, total_bytes),
+			},
+			None => (entry_count, total_bytes),
+		};
+
+		// The snapshot itself is already on disk, so a failure here costs a
+		// stale count in listings rather than the index: report it and keep the
+		// save successful.
 		let updated = self
 			.registry
 			.lock()
@@ -833,7 +891,7 @@ impl EphemeralIndexCache {
 		self.resolve(path).indexed_paths.write().remove(path);
 	}
 
-	fn fold_slots<T>(&self, mut f: impl FnMut(&SourceSlot) -> T) -> Vec<T> {
+	fn fold_slots<T>(&self, mut f: impl FnMut(&MediumSlot) -> T) -> Vec<T> {
 		let mut out: Vec<T> = self.slots.read().values().map(|s| f(s)).collect();
 		out.push(f(&self.scratch));
 		out
@@ -930,7 +988,7 @@ impl EphemeralIndexCache {
 	/// restore gate: the next touch re-restores from its snapshot instead of
 	/// carrying a spent gate over an empty arena.
 	pub async fn clear_all(&self) -> usize {
-		let old_slots: Vec<Arc<SourceSlot>> = {
+		let old_slots: Vec<Arc<MediumSlot>> = {
 			let mut slots = self.slots.write();
 			let old: Vec<_> = slots.values().cloned().collect();
 			slots.clear();
@@ -1139,8 +1197,22 @@ mod tests {
 			.await
 			.unwrap();
 
-		let slot = cache.resolve(Path::new("/mnt/drive/file.txt"));
-		assert_eq!(slot.id, Some(nested));
+		// Both sources sit on one medium, because nesting narrows what is
+		// persisted rather than which map a file belongs to.
+		let outer = cache.resolve(Path::new("/mnt/other.txt"));
+		let inner = cache.resolve(Path::new("/mnt/drive/file.txt"));
+		assert!(Arc::ptr_eq(&outer, &inner));
+		assert_eq!(inner.medium, MediumKey::Root(PathBuf::from("/mnt")));
+
+		// The innermost source is still the one that persists it.
+		assert_eq!(
+			cache
+				.registry
+				.lock()
+				.resolve(Path::new("/mnt/drive/file.txt"))
+				.map(|s| s.id),
+			Some(nested)
+		);
 	}
 
 	#[test]
@@ -1347,6 +1419,64 @@ mod tests {
 			assert!(
 				restored_roots.try_recv().is_err(),
 				"a second look at the same source announced it again"
+			);
+		}
+
+		/// A source inside another narrows what is kept, not which map a file
+		/// belongs to.
+		///
+		/// Keyed by source id, a nested registration forked the index: paths
+		/// under the inner root resolved to a second partition, the outer one
+		/// kept an unreachable copy of them, and each ledger minted its own
+		/// uuid for the same file, so a tag applied through one root was
+		/// invisible through the other.
+		#[tokio::test]
+		async fn a_nested_source_shares_the_drive_it_sits_on() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+			let inner = root.join("Photos");
+			std::fs::create_dir_all(&inner).unwrap();
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+
+			let anchor = tracked_volume(&library, &root).await;
+			let drive = cache
+				.register_source(&root, Some(anchor.clone()))
+				.await
+				.expect("drive");
+			let photos = cache
+				.register_source(&inner, Some(anchor))
+				.await
+				.expect("photos");
+			assert_ne!(drive, photos, "two registrations, two sources");
+
+			// One drive, one arena.
+			let outside = cache.resolve(&root.join("notes.txt"));
+			let inside = cache.resolve(&inner.join("a.jpg"));
+			assert!(
+				Arc::ptr_eq(&outside, &inside),
+				"a nested source forked the map of its own drive"
+			);
+
+			// And one snapshot, so a browse of either cannot overwrite the
+			// other's copy of the same drive.
+			let dirs = SourceDirs::new(data.path().join("sources")).expect("layout");
+			assert_eq!(
+				dirs.snapshot_file(inside.medium.id()),
+				dirs.snapshot_file(outside.medium.id())
+			);
+
+			// What differs is what each one keeps.
+			let outer_store = cache.store_for(&root.join("notes.txt")).await;
+			let inner_store = cache.store_for(&inner.join("a.jpg")).await;
+			assert!(outer_store.is_some() && inner_store.is_some());
+			assert!(
+				!Arc::ptr_eq(outer_store.as_ref().unwrap(), inner_store.as_ref().unwrap()),
+				"the innermost source persists its own subtree"
 			);
 		}
 

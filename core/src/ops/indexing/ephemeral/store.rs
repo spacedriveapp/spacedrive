@@ -226,6 +226,22 @@ impl SourceStore {
 		self.send(Ingest::FinishSweep { unreachable }).await;
 	}
 
+	/// What this source actually persists: records, and the bytes behind them.
+	///
+	/// Read from the store rather than counted off the arena, because the arena
+	/// maps the whole drive and a source is a scope over part of it. Asking the
+	/// partition would report a nested source as owning everything around it.
+	pub async fn counts(&self) -> Option<(u64, u64)> {
+		self.flush().await;
+		let row: (i64, Option<i64>) = sqlx::query_as(
+			"SELECT (SELECT COUNT(*) FROM record), (SELECT SUM(size) FROM facet_file)",
+		)
+		.fetch_one(self.db.pool())
+		.await
+		.ok()?;
+		Some((row.0.max(0) as u64, row.1.unwrap_or(0).max(0) as u64))
+	}
+
 	/// Commit everything queued so far and wait for it to land.
 	pub async fn flush(&self) {
 		let (done, wait) = oneshot::channel();

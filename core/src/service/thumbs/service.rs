@@ -152,7 +152,9 @@ impl ThumbService {
 
 	async fn request_one(&self, path: &PathBuf, priority: u32) -> Option<TileIdentity> {
 		let slot = self.ephemeral.resolve(path);
-		let source_id = slot.id?;
+		// The hot tier follows the arena, so it is keyed by the medium rather
+		// than by whatever is persisted off it.
+		let source_id = slot.id()?;
 		let dirs = self.dirs.as_ref()?;
 
 		// The uuid has to come from the index rather than be derived here, so

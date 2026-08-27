@@ -61,6 +61,40 @@ pub struct SourceRecord {
 	pub total_bytes: Option<u64>,
 }
 
+/// What an arena partition belongs to.
+///
+/// A partition is a property of the medium rather than of a registration: one
+/// drive, one map, whatever is persisted off it. Keying it by source id instead
+/// is what made a source nested inside another fork the index rather than
+/// narrow it, down to minting a second uuid for the same file.
+///
+/// A root with no tracked volume under it is its own medium, which is the
+/// network share and the fingerprint-less mount.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum MediumKey {
+	Volume(Uuid),
+	Root(PathBuf),
+	/// Paths under no registered source at all.
+	Scratch,
+}
+
+/// Namespace for medium ids. Changing it renames every medium's directory, so
+/// it is pinned by a test.
+const MEDIUM_NAMESPACE: Uuid = Uuid::from_u128(0x9f2c_4e77_1b3a_4d58_9c21_6f0e_7a84_bd39);
+
+impl MediumKey {
+	/// A stable id, so a medium can own a directory without a registry row of
+	/// its own. Derived rather than minted: the same drive is the same medium
+	/// on every run.
+	pub fn id(&self) -> Uuid {
+		match self {
+			Self::Volume(uuid) => Uuid::new_v5(&MEDIUM_NAMESPACE, uuid.as_bytes()),
+			Self::Root(path) => Uuid::new_v5(&MEDIUM_NAMESPACE, path.to_string_lossy().as_bytes()),
+			Self::Scratch => Uuid::nil(),
+		}
+	}
+}
+
 impl SourceRecord {
 	/// Rebuild from a stored row, resolving the absolute root against wherever
 	/// the anchoring volume is mounted now.
@@ -74,7 +108,6 @@ impl SourceRecord {
 			(Some(_), Some(mount)) => join_relative(mount, &relative_root),
 			_ => PathBuf::from(&relative_root),
 		};
-
 		Self {
 			id: row.uuid,
 			name: row.name,
@@ -199,6 +232,41 @@ impl SourceRegistry {
 		};
 		self.sources.push(record.clone());
 		record
+	}
+
+	/// The medium a source sits on, and where that medium begins.
+	///
+	/// A tracked volume is the medium wherever one is anchored. Without one the
+	/// outermost registered root standing over this source is, which is what
+	/// makes a source inside a network share share the share's map rather than
+	/// starting a second one. Registration order does not matter: adding an
+	/// outer source later moves the inner one onto its medium, because this is
+	/// asked of the registry rather than remembered on the record.
+	pub fn medium_of(&self, record: &SourceRecord) -> (MediumKey, PathBuf) {
+		if let Some(uuid) = record.volume_uuid {
+			let mount = self
+				.sources
+				.iter()
+				.filter(|source| source.volume_uuid == Some(uuid) && source.is_locatable())
+				.map(|source| source.root.clone())
+				.min_by_key(|root| root.as_os_str().len())
+				.unwrap_or_else(|| record.root.clone());
+			return (MediumKey::Volume(uuid), mount);
+		}
+
+		let outermost = self
+			.sources
+			.iter()
+			.filter(|source| {
+				source.volume_uuid.is_none()
+					&& source.is_locatable()
+					&& record.root.starts_with(&source.root)
+			})
+			.map(|source| source.root.clone())
+			.min_by_key(|root| root.as_os_str().len())
+			.unwrap_or_else(|| record.root.clone());
+
+		(MediumKey::Root(outermost.clone()), outermost)
 	}
 
 	/// All registered sources.

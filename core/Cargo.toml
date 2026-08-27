@@ -130,9 +130,6 @@ sd-supervisor = { path = "../crates/supervisor" }
 sd-bake = { path = "../crates/bake" }
 sd-pvcache = { path = "../crates/pvcache" }
 
-# Vector database for memory files (optional for now)
-# lancedb = "0.15"  # Embedded vector database (conflicts with gpui)
-
 # Media processing dependencies
 blurhash         = "0.2"
 image            = "0.25"
