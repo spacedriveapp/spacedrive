@@ -710,6 +710,11 @@ the decision.
 bug about identity and blocks anything that persists a subtree. Rules as lenses
 is a memory tradeoff and can wait for a number someone is happy with.
 
+The second one moved to `2026-08-27-storage-map.md`, which measured it rather
+than estimating: 11.1M entries and 5.0 GB for a complete map against 54 MB for a
+seven-ring structure, so the answer is level of detail rather than a choice
+between all and nothing.
+
 ### P3 — One registry
 
 Teardown `T6.1`, pulled ahead of `T4`. `library.db` owns sources; `registry.db`
