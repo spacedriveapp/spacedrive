@@ -21,9 +21,23 @@ pub struct NameRegistry {
 	map: BTreeMap<NameKey, Vec<EntryId>>,
 }
 
-/// Key type for the registry that wraps an interned string pointer
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// Key type for the registry that wraps an interned string pointer.
+///
+/// Ordered and compared by what the pointer spells, never by the pointer.
+/// Deriving equality on the pointer while ordering by content leaves a
+/// `BTreeMap` with two disagreeing notions of the same key, which is undefined
+/// behaviour by the container's own contract and in practice meant every
+/// lookup by name fell back to a scan.
+#[derive(Clone, Copy)]
 struct NameKey(*const str);
+
+impl PartialEq for NameKey {
+	fn eq(&self, other: &Self) -> bool {
+		self.as_str() == other.as_str()
+	}
+}
+
+impl Eq for NameKey {}
 
 impl NameKey {
 	fn as_str(&self) -> &str {
@@ -76,27 +90,19 @@ impl NameRegistry {
 	/// keeps ids for deleted entries, and since the registry is serialized into
 	/// the source snapshot, those ids outlive the session that removed them.
 	pub fn remove(&mut self, name: &str, id: EntryId) {
-		let Some(key) = self.map.keys().find(|key| key.as_str() == name).copied() else {
+		let key = NameKey(name as *const str);
+		let Some(ids) = self.map.get_mut(&key) else {
 			return;
 		};
-		if let Some(ids) = self.map.get_mut(&key) {
-			ids.retain(|existing| *existing != id);
-			if ids.is_empty() {
-				self.map.remove(&key);
-			}
+		ids.retain(|existing| *existing != id);
+		if ids.is_empty() {
+			self.map.remove(&key);
 		}
 	}
 
 	/// Get all entries with the exact name
 	pub fn get(&self, name: &str) -> Option<&[EntryId]> {
-		// We need to find by string content, not pointer
-		// This is less efficient but works with non-interned queries
-		for (key, ids) in &self.map {
-			if key.as_str() == name {
-				return Some(ids.as_slice());
-			}
-		}
-		None
+		self.get_interned(name)
 	}
 
 	/// Get all entries with the exact name (using interned pointer)
@@ -111,9 +117,13 @@ impl NameRegistry {
 	///
 	/// Useful for autocomplete and directory listings
 	pub fn find_prefix(&self, prefix: &str) -> Vec<EntryId> {
+		// Keys are ordered by content, so every name with this prefix is
+		// contiguous from the first one at or after it. Scanning the whole map
+		// to answer an autocomplete keystroke costs a pass over every unique
+		// name on the drive.
 		self.map
-			.iter()
-			.filter(|(k, _)| k.as_str().starts_with(prefix))
+			.range(NameKey(prefix as *const str)..)
+			.take_while(|(k, _)| k.as_str().starts_with(prefix))
 			.flat_map(|(_, ids)| ids.iter().copied())
 			.collect()
 	}
@@ -246,5 +256,78 @@ mod tests {
 
 		assert_eq!(registry.unique_names(), 3);
 		assert_eq!(registry.total_entries(), 6);
+	}
+}
+
+#[cfg(test)]
+mod scale {
+	use super::*;
+	use std::time::Instant;
+
+	/// Removing entries has to stay logarithmic in the number of unique names.
+	///
+	/// `remove` scanned every key looking for one whose content matched, which
+	/// is what a re-index of a mapped drive does once per entry. At 2.1 million
+	/// entries over 712,000 names that is not slow, it is unfinishable: a
+	/// reindex of Macintosh HD sat in `clear_for_reindex` until it was killed,
+	/// and the operation looked to the UI like a button that did nothing.
+	#[test]
+	fn removing_every_name_does_not_scan_the_registry_each_time() {
+		let names: Vec<String> = (0..20_000).map(|i| format!("file-{i}.txt")).collect();
+
+		let mut registry = NameRegistry::new();
+		for (i, name) in names.iter().enumerate() {
+			registry.insert(name, EntryId::from_usize(i));
+		}
+
+		let started = Instant::now();
+		for (i, name) in names.iter().enumerate() {
+			registry.remove(name, EntryId::from_usize(i));
+		}
+		let elapsed = started.elapsed();
+
+		assert_eq!(registry.unique_names(), 0, "every name was removed");
+		// Quadratic here is 400 million comparisons and takes tens of seconds;
+		// logarithmic is milliseconds. The threshold is loose on purpose, since
+		// what it has to catch is a change of complexity rather than a
+		// regression in constant factors.
+		assert!(
+			elapsed.as_secs() < 2,
+			"removing {} names took {elapsed:?}, which is the scan coming back",
+			names.len()
+		);
+	}
+
+	/// A prefix query answers from the range that shares it rather than from
+	/// every name on the drive.
+	#[test]
+	fn a_prefix_query_reads_only_its_own_range() {
+		let mut registry = NameRegistry::new();
+		let names: Vec<String> = (0..5_000).map(|i| format!("name-{i:05}")).collect();
+		for (i, name) in names.iter().enumerate() {
+			registry.insert(name, EntryId::from_usize(i));
+		}
+
+		let hits = registry.find_prefix("name-0001");
+		assert_eq!(hits.len(), 10, "name-00010 through name-00019");
+		assert!(registry.find_prefix("absent").is_empty());
+		assert_eq!(registry.find_prefix("name-").len(), names.len());
+	}
+
+	/// A name looked up through a fresh allocation finds the interned one.
+	#[test]
+	fn a_reconstructed_name_matches_the_interned_copy() {
+		let mut registry = NameRegistry::new();
+		let interned = String::from("notes.txt");
+		registry.insert(&interned, EntryId::from_usize(7));
+
+		let reconstructed = format!("notes{}", ".txt");
+		assert_eq!(
+			registry.get(&reconstructed),
+			Some([EntryId::from_usize(7)].as_slice())
+		);
+
+		registry.remove(&reconstructed, EntryId::from_usize(7));
+		assert_eq!(registry.unique_names(), 0);
 	}
 }
