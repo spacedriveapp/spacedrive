@@ -645,9 +645,7 @@ impl LibraryManager {
 			warn!("Failed to auto-track user-relevant volumes: {}", e);
 		}
 
-		if let Some(context) = self.context.read().await.clone() {
-			add_home_to_library(&library, &context).await;
-		}
+		add_home_to_library(&library, &context).await;
 
 		// Backfill NULL volume_id values for existing locations
 		// This handles legacy locations created before volume tracking was implemented

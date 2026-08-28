@@ -296,9 +296,11 @@ impl EphemeralIndexCache {
 	/// remount cost nothing. Pass `None` for a root on media Spacedrive does not
 	/// track; the source then stands on its absolute path.
 	///
-	/// Fails when the registration cannot be written: a source that is not
-	/// durable is one that will not be recognised at next launch, and the
-	/// snapshot it goes on to write would then belong to nothing.
+	/// Fails when the registration cannot be written to an open library: a
+	/// source that is not durable is one that will not be recognised at next
+	/// launch, and the snapshot it goes on to write would then belong to
+	/// nothing. With no library open at all there is nothing to write to and
+	/// the registration is in-memory by definition, which `persist` reports.
 	pub async fn register_source(
 		&self,
 		root: &Path,
@@ -321,8 +323,18 @@ impl EphemeralIndexCache {
 	}
 
 	/// Write a record to the open library, if one is open.
+	///
+	/// With no library open there is nowhere durable to put it, and the
+	/// registration lives only as long as the process. That is legitimate for a
+	/// cache serving paths before a library exists, and a silent loss anywhere
+	/// else, so it says so.
 	async fn persist(&self, record: &SourceRecord) -> anyhow::Result<()> {
 		let Some(db) = self.db.read().clone() else {
+			tracing::warn!(
+				source = %record.id,
+				root = %record.root.display(),
+				"no library open; this registration will not survive the session"
+			);
 			return Ok(());
 		};
 
