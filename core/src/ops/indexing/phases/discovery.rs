@@ -12,6 +12,7 @@ use crate::{
 		database_storage::DatabaseStorage,
 		rules::{build_default_ruler, RuleToggles, RulerDecision},
 		state::{DirEntry, EntryKind, IndexError, IndexPhase, IndexerProgress, IndexerState},
+		summary::{count_subtree, Descent, Retention},
 	},
 };
 use async_channel as chan;
@@ -39,6 +40,7 @@ pub async fn run_discovery_phase(
 	ctx: &JobContext<'_>,
 	root_path: &Path,
 	rule_toggles: RuleToggles,
+	retention: Retention,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
 ) -> Result<(), JobError> {
@@ -50,6 +52,7 @@ pub async fn run_discovery_phase(
 			ctx,
 			root_path,
 			rule_toggles,
+			retention,
 			volume_backend,
 			cloud_url_base,
 		)
@@ -71,6 +74,7 @@ pub async fn run_discovery_phase(
 		ctx,
 		root_path,
 		rule_toggles,
+		retention,
 		volume_backend,
 		cloud_url_base,
 	)
@@ -88,6 +92,7 @@ async fn run_parallel_discovery(
 	ctx: &JobContext<'_>,
 	root_path: &Path,
 	rule_toggles: RuleToggles,
+	retention: Retention,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
 ) -> Result<(), JobError> {
@@ -125,6 +130,7 @@ async fn run_parallel_discovery(
 		let shutdown = Arc::clone(&shutdown);
 		let seen_paths = Arc::clone(&seen_paths);
 		let root_path = root_path.to_path_buf();
+		let retention = retention.clone();
 		let volume_backend = volume_backend.cloned();
 		let cloud_url_base = cloud_url_base.clone();
 
@@ -140,6 +146,7 @@ async fn run_parallel_discovery(
 				seen_paths,
 				root_path,
 				rule_toggles,
+				retention,
 				volume_backend,
 				cloud_url_base,
 			)
@@ -210,6 +217,9 @@ async fn run_parallel_discovery(
 				ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 				state.items_since_last_update += 1;
 			}
+			DiscoveryResult::Summarised { path, bytes, files } => {
+				state.summaries.push((path, bytes, files));
+			}
 			DiscoveryResult::QueueDirectories(_) => {
 				unreachable!("Workers should not send QueueDirectories in Rayon-style mode");
 			}
@@ -272,6 +282,11 @@ enum DiscoveryResult {
 	Progress {
 		dirs_queued: usize,
 	},
+	Summarised {
+		path: PathBuf,
+		bytes: u64,
+		files: u32,
+	},
 }
 
 /// Worker task that pulls directories, reads contents, filters entries, and enqueues subdirectories.
@@ -291,6 +306,7 @@ async fn discovery_worker_rayon(
 	seen_paths: Arc<parking_lot::RwLock<std::collections::HashSet<PathBuf>>>,
 	root_path: PathBuf,
 	rule_toggles: RuleToggles,
+	retention: Retention,
 	volume_backend: Option<Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
 ) {
@@ -342,6 +358,26 @@ async fn discovery_worker_rayon(
 
 					if matches!(decision, Ok(RulerDecision::Reject)) {
 						skipped_count.fetch_add(1, Ordering::Relaxed);
+
+						// A rejected file is simply not kept. A rejected
+						// directory still has to be accounted for, or the map
+						// shows a drive with hundreds of gigabytes missing and
+						// no indication of where they went. Count it, keep the
+						// one entry, and leave its contents where they are.
+						if retention.summarise_rejected
+							&& matches!(entry.kind, EntryKind::Directory)
+						{
+							let totals = count_subtree(entry.path.clone()).await;
+							local_stats.dirs += 1;
+							let _ = result_tx
+								.send(DiscoveryResult::Summarised {
+									path: entry.path.clone(),
+									bytes: totals.bytes,
+									files: totals.files,
+								})
+								.await;
+							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
+						}
 						continue;
 					}
 
@@ -356,6 +392,31 @@ async fn discovery_worker_rayon(
 					}
 
 					match entry.kind {
+						// Past the depth a summarised walk keeps, a directory
+						// is worth its totals rather than its contents.
+						EntryKind::Directory
+							if retention.at(&entry.path, &root_path) == Descent::Summarise =>
+						{
+							local_stats.dirs += 1;
+							let totals = count_subtree(entry.path.clone()).await;
+							let _ = result_tx
+								.send(DiscoveryResult::Summarised {
+									path: entry.path.clone(),
+									bytes: totals.bytes,
+									files: totals.files,
+								})
+								.await;
+							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
+						}
+						// Another walk owns this subtree and shares this arena,
+						// so its entries and every rollup above them arrive
+						// without this walk reading a single directory.
+						EntryKind::Directory
+							if retention.at(&entry.path, &root_path) == Descent::Skip =>
+						{
+							local_stats.dirs += 1;
+							let _ = result_tx.send(DiscoveryResult::Entry(entry)).await;
+						}
 						EntryKind::Directory => {
 							local_stats.dirs += 1;
 							// Increment BEFORE enqueuing so the monitor never sees pending_work=0 while
@@ -424,6 +485,7 @@ async fn run_discovery_phase_sequential(
 	ctx: &JobContext<'_>,
 	root_path: &Path,
 	rule_toggles: RuleToggles,
+	retention: Retention,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 	cloud_url_base: Option<String>,
 ) -> Result<(), JobError> {
@@ -478,6 +540,17 @@ async fn run_discovery_phase_sequential(
 					if matches!(decision, Ok(RulerDecision::Reject)) {
 						state.stats.skipped += 1;
 						skipped_count += 1;
+						if retention.summarise_rejected
+							&& matches!(entry.kind, EntryKind::Directory)
+						{
+							let totals = count_subtree(entry.path.clone()).await;
+							state
+								.summaries
+								.push((entry.path.clone(), totals.bytes, totals.files));
+							state.stats.dirs += 1;
+							state.pending_entries.push(entry);
+							added_count += 1;
+						}
 						continue;
 					}
 					if let Err(err) = decision {
@@ -488,6 +561,24 @@ async fn run_discovery_phase_sequential(
 					}
 
 					match entry.kind {
+						EntryKind::Directory
+							if retention.at(&entry.path, root_path) == Descent::Summarise =>
+						{
+							let totals = count_subtree(entry.path.clone()).await;
+							state
+								.summaries
+								.push((entry.path.clone(), totals.bytes, totals.files));
+							state.stats.dirs += 1;
+							state.pending_entries.push(entry);
+							added_count += 1;
+						}
+						EntryKind::Directory
+							if retention.at(&entry.path, root_path) == Descent::Skip =>
+						{
+							state.stats.dirs += 1;
+							state.pending_entries.push(entry);
+							added_count += 1;
+						}
 						EntryKind::Directory => {
 							state.dirs_to_walk.push_back(entry.path.clone());
 							state.stats.dirs += 1;

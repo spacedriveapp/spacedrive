@@ -21,6 +21,10 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
 use tracing::{debug, error, trace, warn};
 
+/// How long changes under summarised directories collect before those
+/// directories are recounted.
+const RECOUNT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// Handler for ephemeral (in-memory) filesystem events
 ///
 /// Subscribes to `FsWatcher` events and routes matching events to the
@@ -87,6 +91,24 @@ impl EphemeralEventHandler {
 		let context = self.context.clone();
 		let rule_toggles = self.rule_toggles;
 		let is_running = self.is_running.clone();
+
+		// Summarised directories keep no tree to update, so a change under one
+		// marks it for recounting instead. Doing that on a timer is what keeps
+		// a file being written in a loop from recounting its whole subtree once
+		// per write.
+		{
+			let context = context.clone();
+			let is_running = is_running.clone();
+			tokio::spawn(async move {
+				while is_running.load(Ordering::SeqCst) {
+					tokio::time::sleep(RECOUNT_INTERVAL).await;
+					let recounted = context.ephemeral_cache().recount_dirty_stubs().await;
+					if recounted > 0 {
+						debug!("Recounted {recounted} summarised directories");
+					}
+				}
+			});
+		}
 
 		tokio::spawn(async move {
 			debug!("EphemeralEventHandler task started");

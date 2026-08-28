@@ -159,6 +159,11 @@ pub struct IndexerState {
 	/// Total volume capacity for progress percentage calculation (volume indexing only)
 	#[serde(skip)]
 	pub(crate) volume_total_capacity: Option<u64>,
+	/// Directories the rules turned back at, and what counting found beneath
+	/// them. The entry is kept and its contents are not, so these totals are
+	/// the only record that the subtree is there at all.
+	#[serde(default)]
+	pub(crate) summaries: Vec<(PathBuf, u64, u32)>,
 }
 
 impl IndexerState {
@@ -193,6 +198,7 @@ impl IndexerState {
 			dirs_channel_capacity: 4096,
 			entries_channel_capacity: 16384,
 			volume_total_capacity: None,
+			summaries: Vec::new(),
 		}
 	}
 

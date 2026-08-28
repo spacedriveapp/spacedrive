@@ -43,6 +43,11 @@ pub struct SizeNode {
 	pub child_count: u32,
 	/// Bytes in children beyond the returned top-N.
 	pub other_size: u64,
+	/// Files anywhere beneath this node (1 for a file).
+	pub file_count: u32,
+	/// This directory stands for a subtree that was counted and not kept, so
+	/// its size is real while its children are absent until someone opens it.
+	pub summarised: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -108,6 +113,8 @@ impl CoreQuery for SizeTreeQuery {
 					children: Vec::new(),
 					child_count: 0,
 					other_size: 0,
+					file_count: 1,
+					summarised: false,
 				};
 			}
 
@@ -152,6 +159,8 @@ impl CoreQuery for SizeTreeQuery {
 								children: Vec::new(),
 								child_count: 0,
 								other_size: 0,
+								file_count: 1,
+								summarised: false,
 							});
 						}
 					} else {
@@ -161,6 +170,8 @@ impl CoreQuery for SizeTreeQuery {
 			}
 
 			SizeNode {
+				file_count: index.subtree_file_count(&path).unwrap_or(0),
+				summarised: index.is_summarised(&path),
 				name,
 				path,
 				size,

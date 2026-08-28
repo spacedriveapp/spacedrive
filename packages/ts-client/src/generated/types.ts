@@ -4148,7 +4148,16 @@ child_count: number;
 /**
  * Bytes in children beyond the returned top-N.
  */
-other_size: number };
+other_size: number; 
+/**
+ * Files anywhere beneath this node (1 for a file).
+ */
+file_count: number; 
+/**
+ * This directory stands for a subtree that was counted and not kept, so
+ * its size is real while its children are absent until someone opens it.
+ */
+summarised: boolean };
 
 /**
  * Filter for file size in bytes

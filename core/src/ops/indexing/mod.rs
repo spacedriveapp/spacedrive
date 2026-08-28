@@ -38,6 +38,7 @@ pub mod progress;
 pub mod responder;
 pub mod rules;
 pub mod state;
+pub mod summary;
 pub mod verify;
 
 pub use action::IndexingAction;

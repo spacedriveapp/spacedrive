@@ -31,10 +31,12 @@ use std::{
 };
 use uuid::Uuid;
 
-/// Current snapshot format version. Version 2 keys snapshots by source id,
+/// Current snapshot format version. Version 3 carries summarised directories,
+/// whose rollups cannot be rebuilt from a tree they have no children in.
+/// Version 2 keys snapshots by source id,
 /// carries a real root path, and holds one source's partition rather than a
 /// dump of a shared global index.
-const SNAPSHOT_VERSION: u32 = 2;
+const SNAPSHOT_VERSION: u32 = 3;
 
 /// Metadata read back alongside a restored index, used for staleness checks
 /// and for reattaching the snapshot to its source.
@@ -70,6 +72,10 @@ pub struct IndexSnapshot {
 	pub name_registry_map: Vec<(String, Vec<EntryId>)>,
 	/// Arena entries (serialized without pointers)
 	pub arena_entries: Vec<(usize, SerializableFileNode)>,
+	/// Directories counted but not kept, and the totals standing in for them.
+	/// Every other rollup is recomputed from the tree on load; these have no
+	/// tree beneath them to recompute from.
+	pub stubs: Vec<(EntryId, u64, u32)>,
 }
 
 /// Serializable version of FileNode without raw pointers
@@ -100,7 +106,7 @@ pub(super) fn save_snapshot_impl(
 	}
 
 	// Get snapshot data from index
-	let (arena, cache, registry, path_index, entry_uuids, content_kinds, stats) =
+	let (arena, cache, registry, path_index, entry_uuids, content_kinds, stats, stubs) =
 		index.snapshot_data();
 
 	// Serialize name cache
@@ -140,6 +146,10 @@ pub(super) fn save_snapshot_impl(
 		name_cache_strings,
 		name_registry_map,
 		arena_entries,
+		stubs: stubs
+			.iter()
+			.map(|(&id, rollup)| (id, rollup.bytes, rollup.files))
+			.collect(),
 	};
 
 	// Write to a uniquely named temporary file first. The name must be unique
@@ -309,6 +319,11 @@ pub(super) fn load_snapshot_impl(
 		snapshot.entry_uuids,
 		snapshot.content_kinds,
 		snapshot.stats,
+		snapshot
+			.stubs
+			.into_iter()
+			.map(|(id, bytes, files)| (id, super::types::Rollup { bytes, files }))
+			.collect(),
 	);
 
 	tracing::info!(

@@ -1,6 +1,7 @@
 //! Volume indexing operation module
 
 pub mod action;
+pub mod map;
 pub mod output;
 
 use crate::ops::indexing::job::IndexScope;
@@ -8,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 pub use action::IndexVolumeAction;
+pub use map::{map_attached_volumes, map_volume, MapOptions};
 pub use output::IndexVolumeOutput;
 
 /// Input for volume indexing action

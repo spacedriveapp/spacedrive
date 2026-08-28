@@ -1,18 +1,16 @@
 //! Volume indexing action - ephemeral index entire volumes
 
-use super::{IndexVolumeInput, IndexVolumeOutput};
+use super::{map::MapOptions, map_volume, IndexVolumeInput, IndexVolumeOutput};
+use crate::ops::indexing::summary::Retention;
 use crate::{
 	context::CoreContext,
-	domain::addressing::SdPath,
 	infra::{
 		action::{context::ActionContext, error::ActionError, LibraryAction},
 		job::types::JobPriority,
 	},
 	library::Library,
-	ops::indexing::job::{IndexerJob, IndexerJobConfig},
 	volume::VolumeFingerprint,
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Arc;
@@ -56,78 +54,10 @@ impl LibraryAction for IndexVolumeAction {
 			volume.name, fingerprint.0
 		);
 
-		// 2. Get device info for SdPath construction
-		let device_uuid = context
-			.device_manager
-			.device_id()
-			.map_err(|e| ActionError::Internal(format!("Failed to get device ID: {}", e)))?;
-
-		// Get device slug from database
-		let db = library.db().conn();
-		let device_record = crate::infra::db::entities::device::Entity::find()
-			.filter(crate::infra::db::entities::device::Column::Uuid.eq(device_uuid))
-			.one(db)
-			.await
-			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::Internal(format!("Device not found: {}", device_uuid)))?;
-
-		// 3. Construct SdPath for the volume's mount point
-		let sd_path = if let Some((service, identifier)) = volume.parse_cloud_identity() {
-			// Cloud volume
-			SdPath::Cloud {
-				service,
-				identifier,
-				path: String::new(), // Root of cloud volume
-			}
-		} else {
-			// Local volume - use mount point
-			SdPath::Physical {
-				device_slug: device_record.slug,
-				path: volume.mount_point.clone(),
-			}
-		};
-
-		// 4. Create ephemeral indexing job
-		// Volume indexing always indexes from the mount point root, so is_volume = true
-		let mut indexer_config =
-			IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, true);
-		if volume.mount_type == crate::domain::volume::MountType::External {
-			// An archived drive's index must reflect the whole drive: rules are
-			// view-time lenses, not walk-time exclusions, for removable media.
-			indexer_config.rule_toggles = crate::ops::indexing::rules::RuleToggles::none();
-		}
-		let mut indexer_job = IndexerJob::new(indexer_config);
-
-		// 5. Map the drive.
-		//
-		// Tracking it, not registering it. Mapping a drive gives
-		// it a partition and a snapshot that survives remounts, including
-		// detached browsing after it is unplugged, and none of that requires a
-		// row in the sources list. What appears there is what someone chose to
-		// keep, and indexing a drive is not that choice.
-		let ephemeral_cache = context.ephemeral_cache();
-		ephemeral_cache.track_volume(volume.id, volume.mount_point.clone());
-
-		// Seed the partition from its snapshot before reindexing over it:
-		// duplicate paths keep their identities, and a partition that skipped
-		// restore would be barred from saving over the existing snapshot.
-		ephemeral_cache.ensure_restored(&volume.mount_point).await;
-		let index = ephemeral_cache.create_for_indexing(volume.mount_point.clone());
-		indexer_job.set_ephemeral_index(index.clone());
-		if let Some(store) = ephemeral_cache.store_for(&volume.mount_point).await {
-			indexer_job.set_source_store(store);
-		}
-
-		// 6. Clear stale entries if this volume was previously indexed
-		let cleared = ephemeral_cache.clear_for_reindex(&volume.mount_point).await;
-		if cleared > 0 {
-			info!(
-				"Cleared {} stale entries before re-indexing volume",
-				cleared
-			);
-		}
-
-		// 7. Dispatch job with volume fingerprint in action context
+		// 2. Dispatch the walk. Doing it here rather than by hand keeps this on
+		// the same path as the background map, which is the only way the two
+		// stay in step on what is easy to forget: seeding from the snapshot,
+		// and clearing what the new pass will not revisit.
 		let action_context = ActionContext::new(
 			"volumes.index",
 			json!({
@@ -140,19 +70,29 @@ impl LibraryAction for IndexVolumeAction {
 			}),
 		);
 
-		let job_handle = library
-			.jobs()
-			.dispatch_with_priority(indexer_job, JobPriority::NORMAL, Some(action_context))
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to dispatch job: {}", e)))?;
+		let job_id = map_volume(
+			&library,
+			&context,
+			&volume,
+			MapOptions {
+				scope: self.input.scope,
+				priority: JobPriority::NORMAL,
+				reindex: true,
+				// Asking for a drive to be indexed is asking for all of it,
+				// including an accounting for what the rules hold back. The
+				// background map is the one that trades detail for memory.
+				retention: Retention::source(),
+			},
+			Some(action_context),
+		)
+		.await?;
 
-		let job_id = job_handle.id();
 		info!(
 			"Dispatched ephemeral indexing job {} for volume {}",
 			job_id, volume.name
 		);
 
-		// 8. Spawn background task to save stats on completion
+		// 3. Save the drive's totals once the walk reports them.
 		let library_clone = library.clone();
 		let context_clone = context.clone();
 		let fingerprint_clone = fingerprint.clone();

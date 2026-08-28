@@ -13,6 +13,12 @@ use crate::domain::ContentKind;
 pub const SCREENSHOTS: u32 = 1 << 0;
 pub const SCREEN_RECORDINGS: u32 = 1 << 1;
 
+/// Not a collection: the marker for a directory the walk counted and did not
+/// keep. It rides the same flags because every listing already reads them, and
+/// it is what tells a summarised directory apart from an empty one. Taken from
+/// the top of the word so the collection bits keep growing from the bottom.
+pub const SUMMARISED: u32 = 1 << 31;
+
 /// The sidebar addresses collections by slug.
 pub fn mask_for_slug(slug: &str) -> Option<u32> {
 	match slug {

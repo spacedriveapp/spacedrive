@@ -53,5 +53,7 @@ pub use name::NameCache;
 pub use registry::NameRegistry;
 pub use sources::{SourceRecord, SourceRegistry, VolumeAnchor};
 pub use store::SourceStore;
-pub use types::{EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
+pub use types::{
+	EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata, Rollup,
+};
 pub use writer::MemoryAdapter;

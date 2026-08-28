@@ -328,6 +328,85 @@ impl std::fmt::Debug for NameRef {
 	}
 }
 
+/// What a node contributes to the rollups of everything above it.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Rollup {
+	pub bytes: u64,
+	pub files: u32,
+}
+
+impl Rollup {
+	/// A file's own contribution: its size, and itself.
+	pub fn file(size: u64) -> Self {
+		Self {
+			bytes: size,
+			files: 1,
+		}
+	}
+
+	pub fn of(node: &FileNode) -> Self {
+		Self {
+			bytes: node.subtree_bytes,
+			files: node.file_count,
+		}
+	}
+
+	pub fn added(self) -> RollupDelta {
+		RollupDelta {
+			bytes: self.bytes as i64,
+			files: i64::from(self.files),
+		}
+	}
+
+	pub fn removed(self) -> RollupDelta {
+		RollupDelta {
+			bytes: -(self.bytes as i64),
+			files: -i64::from(self.files),
+		}
+	}
+}
+
+impl std::ops::AddAssign for Rollup {
+	fn add_assign(&mut self, other: Self) {
+		self.bytes = self.bytes.saturating_add(other.bytes);
+		self.files = self.files.saturating_add(other.files);
+	}
+}
+
+/// A change to apply along an ancestor chain.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RollupDelta {
+	pub bytes: i64,
+	pub files: i64,
+}
+
+impl RollupDelta {
+	/// What it takes to turn `before` into `after`.
+	pub fn between(before: Rollup, after: Rollup) -> Self {
+		Self {
+			bytes: after.bytes as i64 - before.bytes as i64,
+			files: i64::from(after.files) - i64::from(before.files),
+		}
+	}
+
+	pub fn is_zero(&self) -> bool {
+		self.bytes == 0 && self.files == 0
+	}
+
+	pub fn apply_bytes(&self, current: u64) -> u64 {
+		if self.bytes >= 0 {
+			current.saturating_add(self.bytes as u64)
+		} else {
+			current.saturating_sub(self.bytes.unsigned_abs())
+		}
+	}
+
+	pub fn apply_files(&self, current: u32) -> u32 {
+		let applied = i64::from(current).saturating_add(self.files);
+		applied.clamp(0, i64::from(u32::MAX)) as u32
+	}
+}
+
 /// Single node in the file tree
 ///
 /// Memory: ~48 bytes total
@@ -347,6 +426,10 @@ pub struct FileNode {
 	/// Maintained incrementally along the ancestor chain on add/remove, so
 	/// directory sizes are answerable without a walk.
 	pub subtree_bytes: u64,
+	/// Number of files in this subtree (1 for a file node). Maintained the same
+	/// way as `subtree_bytes`, and the second half of what a directory has to
+	/// report without being walked.
+	pub file_count: u32,
 }
 
 impl FileNode {
@@ -357,6 +440,7 @@ impl FileNode {
 			children: SmallVec::new(),
 			meta,
 			subtree_bytes: 0,
+			file_count: 0,
 		}
 	}
 
@@ -372,6 +456,7 @@ impl FileNode {
 			children: SmallVec::new(),
 			meta: PackedMetadata::new(NodeState::Inaccessible, FileType::File, 0),
 			subtree_bytes: 0,
+			file_count: 0,
 		}
 	}
 

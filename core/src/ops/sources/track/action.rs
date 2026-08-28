@@ -169,6 +169,9 @@ pub async fn track_and_index(
 	if unfiltered {
 		config.rule_toggles = RuleToggles::none();
 	}
+	// What the rules hold back is still on the drive, and a source that reports
+	// a size missing its excluded directories is reporting the wrong size.
+	config.retention = crate::ops::indexing::summary::Retention::source();
 
 	let mut job = IndexerJob::new(config);
 	job.set_ephemeral_index(index);

@@ -20,7 +20,9 @@ use crate::filetype::FileTypeRegistry;
 use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
-use super::types::{FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
+use super::types::{
+	FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata, Rollup, RollupDelta,
+};
 use super::{EntryId, NameCache, NameRegistry, NodeArena};
 
 use std::collections::HashMap;
@@ -42,6 +44,10 @@ pub struct EphemeralIndex {
 	/// kind at add time and recomputed on restore. Only flagged entries
 	/// carry a row.
 	collection_flags: HashMap<EntryId, u32>,
+	/// Directories the walk counted but did not keep. The entry stands for its
+	/// whole subtree and has no children, so its rollups cannot be rebuilt from
+	/// the tree and are held here instead.
+	stubs: HashMap<EntryId, Rollup>,
 	created_at: Instant,
 	last_accessed: Instant,
 	/// Set by every mutation, cleared when the partition is snapshotted.
@@ -126,6 +132,7 @@ impl EphemeralIndex {
 			entry_uuids: HashMap::new(),
 			content_kinds: HashMap::new(),
 			collection_flags: HashMap::new(),
+			stubs: HashMap::new(),
 			created_at: now,
 			last_accessed: now,
 			dirty: false,
@@ -153,12 +160,8 @@ impl EphemeralIndex {
 	/// Returns the node's rollup contribution so the caller can decide how to
 	/// settle ancestors — a caller removing a whole subtree adjusts once at the
 	/// top rather than once per descendant.
-	fn detach(&mut self, path: &Path, id: EntryId) -> u64 {
-		let bytes = self
-			.arena
-			.get(id)
-			.map(|node| node.subtree_bytes)
-			.unwrap_or(0);
+	fn detach(&mut self, path: &Path, id: EntryId) -> Rollup {
+		let rollup = self.arena.get(id).map(Rollup::of).unwrap_or_default();
 
 		self.path_index.remove(path);
 		self.id_to_path.remove(&id);
@@ -169,8 +172,9 @@ impl EphemeralIndex {
 			self.registry.remove(name, id);
 		}
 		self.arena.vacate(id);
+		self.stubs.remove(&id);
 
-		bytes
+		rollup
 	}
 
 	/// Every path at or below `root`, deepest first.
@@ -210,6 +214,12 @@ impl EphemeralIndex {
 		} else {
 			None
 		};
+
+		// The parent is being enumerated for real, so whatever count stood in
+		// for its contents is superseded by the entries now arriving.
+		if let Some(parent_id) = parent_id {
+			self.unsummarise(parent_id);
+		}
 
 		let name = self.cache.intern(
 			path.file_name()
@@ -275,16 +285,17 @@ impl EphemeralIndex {
 			// chain, so rollups stay true and the size/mtime validator that
 			// keys the thumbnail and block caches actually changes when the
 			// file does.
-			let previous_bytes = self
+			let previous = self
 				.arena
 				.get(existing_id)
-				.map(|node| node.subtree_bytes)
-				.unwrap_or(0);
-			let is_directory = metadata.kind == EntryKind::Directory;
-			let new_bytes = if is_directory {
-				previous_bytes
+				.map(Rollup::of)
+				.unwrap_or_default();
+			// A directory keeps whatever its children have already rolled up;
+			// only a file carries its own figures.
+			let current = if metadata.kind == EntryKind::Directory {
+				previous
 			} else {
-				metadata.size
+				Rollup::file(metadata.size)
 			};
 
 			if let Some(node) = self.arena.get_mut(existing_id) {
@@ -294,14 +305,12 @@ impl EphemeralIndex {
 					metadata.size,
 				)
 				.with_times(metadata.modified, metadata.created);
-				node.subtree_bytes = new_bytes;
+				node.subtree_bytes = current.bytes;
+				node.file_count = current.files;
 			}
 
-			let delta = new_bytes as i64 - previous_bytes as i64;
-			if delta != 0 {
-				let parent = self.arena.get(existing_id).and_then(|node| node.parent());
-				self.bump_ancestor_bytes(parent, delta);
-			}
+			let parent = self.arena.get(existing_id).and_then(|node| node.parent());
+			self.bump_ancestors(parent, RollupDelta::between(previous, current));
 
 			self.mark_dirty();
 			self.last_accessed = Instant::now();
@@ -329,6 +338,12 @@ impl EphemeralIndex {
 		} else {
 			None
 		};
+
+		// The parent is being enumerated for real, so whatever count stood in
+		// for its contents is superseded by the entries now arriving.
+		if let Some(parent_id) = parent_id {
+			self.unsummarise(parent_id);
+		}
 
 		let name = self.cache.intern(
 			path.file_name()
@@ -368,12 +383,15 @@ impl EphemeralIndex {
 		self.id_to_path.insert(id, path.clone());
 		self.registry.insert(name, id);
 
-		// Non-directories contribute their size to every ancestor's rollup.
-		if metadata.kind != EntryKind::Directory && metadata.size > 0 {
+		// Non-directories contribute their size, and themselves, to every
+		// ancestor's rollups.
+		if metadata.kind != EntryKind::Directory {
+			let rollup = Rollup::file(metadata.size);
 			if let Some(node) = self.arena.get_mut(id) {
-				node.subtree_bytes = metadata.size;
+				node.subtree_bytes = rollup.bytes;
+				node.file_count = rollup.files;
 			}
-			self.bump_ancestor_bytes(parent_id, metadata.size as i64);
+			self.bump_ancestors(parent_id, rollup.added());
 		}
 
 		// Volume indexing passes None to defer uuid creation until something
@@ -578,13 +596,13 @@ impl EphemeralIndex {
 
 		let cleared = children_to_remove.len();
 
-		let removed_bytes: u64 = children_to_remove
-			.iter()
-			.filter_map(|(_, id)| self.arena.get(*id).map(|n| n.subtree_bytes))
-			.sum();
-		if removed_bytes > 0 {
-			self.bump_ancestor_bytes(Some(dir_id), -(removed_bytes as i64));
+		let mut removed = Rollup::default();
+		for (_, id) in &children_to_remove {
+			if let Some(node) = self.arena.get(*id) {
+				removed += Rollup::of(node);
+			}
 		}
+		self.bump_ancestors(Some(dir_id), removed.removed());
 
 		// Detach each child with everything beneath it. Removing only the child
 		// would leave its descendants resident in `path_index` with a severed
@@ -722,19 +740,19 @@ impl EphemeralIndex {
 		total_len / sample_size
 	}
 
-	/// Adjust every ancestor's subtree rollup by `delta`, starting at
-	/// `start` and following parent links to the root.
-	fn bump_ancestor_bytes(&mut self, start: Option<EntryId>, delta: i64) {
+	/// Adjust every ancestor's subtree rollups by `delta`, starting at `start`
+	/// and following parent links to the root.
+	fn bump_ancestors(&mut self, start: Option<EntryId>, delta: RollupDelta) {
+		if delta.is_zero() {
+			return;
+		}
 		let mut cur = start;
 		while let Some(id) = cur {
 			let Some(node) = self.arena.get_mut(id) else {
 				break;
 			};
-			node.subtree_bytes = if delta >= 0 {
-				node.subtree_bytes.saturating_add(delta as u64)
-			} else {
-				node.subtree_bytes.saturating_sub(delta.unsigned_abs())
-			};
+			node.subtree_bytes = delta.apply_bytes(node.subtree_bytes);
+			node.file_count = delta.apply_files(node.file_count);
 			cur = node.parent();
 		}
 	}
@@ -763,6 +781,7 @@ impl EphemeralIndex {
 		for i in 0..self.arena.len() {
 			if let Some(node) = self.arena.get_mut(EntryId::from_usize(i)) {
 				node.subtree_bytes = 0;
+				node.file_count = 0;
 			}
 		}
 		let live: Vec<EntryId> = self.path_index.values().copied().collect();
@@ -770,19 +789,96 @@ impl EphemeralIndex {
 			let Some(node) = self.arena.get(id) else {
 				continue;
 			};
-			if node.is_directory() {
+			// A summarised directory was never walked, so its figures cannot be
+			// rebuilt from children it does not have. They come from the count
+			// taken when the walk turned back.
+			let rollup = if let Some(&stub) = self.stubs.get(&id) {
+				stub
+			} else if node.is_directory() {
 				continue;
-			}
-			let size = node.meta.size();
-			if size == 0 {
-				continue;
-			}
+			} else {
+				Rollup::file(node.meta.size())
+			};
 			let parent = node.parent();
 			if let Some(node) = self.arena.get_mut(id) {
-				node.subtree_bytes = size;
+				node.subtree_bytes = rollup.bytes;
+				node.file_count = rollup.files;
 			}
-			self.bump_ancestor_bytes(parent, size as i64);
+			self.bump_ancestors(parent, rollup.added());
 		}
+	}
+
+	/// Record a directory the walk counted but did not keep.
+	///
+	/// The entry stays, its children do not, and `totals` is what its subtree
+	/// held when the walk turned back. Ancestors are adjusted by the difference,
+	/// so a directory that was partly walked before being summarised does not
+	/// count twice.
+	pub fn summarise(&mut self, path: &Path, totals: Rollup) {
+		let Some(&id) = self.path_index.get(path) else {
+			return;
+		};
+		let Some(node) = self.arena.get(id) else {
+			return;
+		};
+		if !node.is_directory() {
+			return;
+		}
+
+		let (previous, parent) = (Rollup::of(node), node.parent());
+		if let Some(node) = self.arena.get_mut(id) {
+			node.subtree_bytes = totals.bytes;
+			node.file_count = totals.files;
+		}
+		self.bump_ancestors(parent, RollupDelta::between(previous, totals));
+
+		self.stubs.insert(id, totals);
+		*self.collection_flags.entry(id).or_default() |= super::collections::SUMMARISED;
+		self.mark_dirty();
+	}
+
+	/// Drop a directory's summary because it is being enumerated for real.
+	///
+	/// Its totals go with it: what it holds is about to come from its children,
+	/// and leaving the count in place would add the subtree to every ancestor
+	/// twice.
+	fn unsummarise(&mut self, id: EntryId) {
+		let Some(totals) = self.stubs.remove(&id) else {
+			return;
+		};
+		if let Some(flags) = self.collection_flags.get_mut(&id) {
+			*flags &= !super::collections::SUMMARISED;
+			if *flags == 0 {
+				self.collection_flags.remove(&id);
+			}
+		}
+		let parent = self.arena.get(id).and_then(|node| node.parent());
+		if let Some(node) = self.arena.get_mut(id) {
+			node.subtree_bytes = 0;
+			node.file_count = 0;
+		}
+		self.bump_ancestors(parent, totals.removed());
+	}
+
+	/// Whether this directory stands for a subtree that was never kept.
+	pub fn is_summarised(&self, path: &Path) -> bool {
+		self.path_index
+			.get(path)
+			.is_some_and(|id| self.stubs.contains_key(id))
+	}
+
+	/// Number of files under `path` (1 for a file).
+	pub fn subtree_file_count(&self, path: &Path) -> Option<u32> {
+		let id = *self.path_index.get(path)?;
+		self.arena.get(id).map(|node| node.file_count)
+	}
+
+	/// Every directory standing in for a subtree nobody kept.
+	pub fn summarised_paths(&self) -> Vec<PathBuf> {
+		self.stubs
+			.keys()
+			.filter_map(|id| self.id_to_path.get(id).cloned())
+			.collect()
 	}
 
 	/// Rebuild collection flags from names and kinds already in the index.
@@ -790,6 +886,13 @@ impl EphemeralIndex {
 	/// and is safe to re-run when classification heuristics change.
 	pub fn recompute_collections(&mut self) {
 		self.collection_flags.clear();
+		// Flags are derived from name and kind, neither of which says anything
+		// about a summarised directory, so its marker is restored from the
+		// stub table instead.
+		for &id in self.stubs.keys() {
+			self.collection_flags
+				.insert(id, super::collections::SUMMARISED);
+		}
 		for (path, &id) in &self.path_index {
 			let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
 				continue;
@@ -905,10 +1008,8 @@ impl EphemeralIndex {
 			}
 		}
 
-		let bytes = self.detach(path, id);
-		if bytes > 0 {
-			self.bump_ancestor_bytes(parent, -(bytes as i64));
-		}
+		let removed = self.detach(path, id);
+		self.bump_ancestors(parent, removed.removed());
 
 		self.mark_dirty();
 		true
@@ -922,10 +1023,8 @@ impl EphemeralIndex {
 		let root_id = self.path_index.get(path).copied();
 
 		if let Some(node) = root_id.and_then(|id| self.arena.get(id)) {
-			let (bytes, parent) = (node.subtree_bytes, node.parent());
-			if bytes > 0 {
-				self.bump_ancestor_bytes(parent, -(bytes as i64));
-			}
+			let (removed, parent) = (Rollup::of(node), node.parent());
+			self.bump_ancestors(parent, removed.removed());
 		}
 
 		let keys_to_remove = self.descendant_paths(path);
@@ -1016,6 +1115,7 @@ impl EphemeralIndex {
 		&HashMap<EntryId, Uuid>,
 		&HashMap<EntryId, ContentKind>,
 		&IndexerStats,
+		&HashMap<EntryId, Rollup>,
 	) {
 		(
 			&self.arena,
@@ -1025,6 +1125,7 @@ impl EphemeralIndex {
 			&self.entry_uuids,
 			&self.content_kinds,
 			&self.stats,
+			&self.stubs,
 		)
 	}
 
@@ -1037,6 +1138,7 @@ impl EphemeralIndex {
 		entry_uuids: HashMap<EntryId, Uuid>,
 		content_kinds: HashMap<EntryId, ContentKind>,
 		stats: IndexerStats,
+		stubs: HashMap<EntryId, Rollup>,
 	) -> Self {
 		let now = Instant::now();
 		// Rebuild reverse index from path_index
@@ -1053,6 +1155,7 @@ impl EphemeralIndex {
 			entry_uuids,
 			content_kinds,
 			collection_flags: HashMap::new(),
+			stubs,
 			created_at: now,
 			last_accessed: now,
 			dirty: false,
@@ -1136,6 +1239,148 @@ mod rollup_tests {
 		index.remove_directory_tree(&a);
 		assert_eq!(index.subtree_size(&root), Some(7));
 		assert_eq!(index.total_file_bytes(), 7);
+	}
+
+	#[test]
+	fn file_counts_ride_alongside_bytes() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let a = root.join("a");
+		let f1 = a.join("one.bin");
+		let f2 = a.join("two.bin");
+		let empty = a.join("empty.bin");
+
+		for (path, size) in [(&f1, 100), (&f2, 50), (&empty, 0)] {
+			index
+				.add_entry(
+					path.clone(),
+					Uuid::now_v7(),
+					meta(path, EntryKind::File, size),
+				)
+				.unwrap();
+		}
+
+		// A zero-byte file still counts as a file.
+		assert_eq!(index.subtree_file_count(&a), Some(3));
+		assert_eq!(index.subtree_file_count(&root), Some(3));
+		assert_eq!(index.subtree_file_count(&f1), Some(1));
+
+		index.remove_entry(&f2);
+		assert_eq!(index.subtree_file_count(&a), Some(2));
+
+		index.remove_directory_tree(&a);
+		assert_eq!(index.subtree_file_count(&root), Some(0));
+	}
+
+	#[test]
+	fn a_summarised_directory_reports_a_subtree_it_does_not_hold() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let library = root.join("Library");
+		let kept = root.join("keep.bin");
+
+		index
+			.add_entry(
+				kept.clone(),
+				Uuid::now_v7(),
+				meta(&kept, EntryKind::File, 10),
+			)
+			.unwrap();
+		index
+			.add_entry(
+				library.clone(),
+				Uuid::now_v7(),
+				meta(&library, EntryKind::Directory, 0),
+			)
+			.unwrap();
+
+		index.summarise(
+			&library,
+			Rollup {
+				bytes: 1_000,
+				files: 40,
+			},
+		);
+
+		assert!(index.is_summarised(&library));
+		assert_eq!(index.subtree_size(&library), Some(1_000));
+		assert_eq!(index.subtree_file_count(&library), Some(40));
+		assert_eq!(index.subtree_size(&root), Some(1_010));
+		assert_eq!(index.subtree_file_count(&root), Some(41));
+		assert!(index
+			.list_directory(&library)
+			.unwrap_or_default()
+			.is_empty());
+	}
+
+	#[test]
+	fn enumerating_a_summarised_directory_replaces_its_count() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let dir = root.join("Applications");
+		let app = dir.join("Thing.app");
+
+		index
+			.add_entry(
+				dir.clone(),
+				Uuid::now_v7(),
+				meta(&dir, EntryKind::Directory, 0),
+			)
+			.unwrap();
+		index.summarise(
+			&dir,
+			Rollup {
+				bytes: 500,
+				files: 5,
+			},
+		);
+
+		// Drilling in lists the directory for real, and what it holds is now
+		// what its children say rather than what the count said.
+		index
+			.add_entry(
+				app.clone(),
+				Uuid::now_v7(),
+				meta(&app, EntryKind::File, 300),
+			)
+			.unwrap();
+
+		assert!(!index.is_summarised(&dir));
+		assert_eq!(index.subtree_size(&dir), Some(300));
+		assert_eq!(index.subtree_size(&root), Some(300));
+		assert_eq!(index.subtree_file_count(&root), Some(1));
+	}
+
+	#[test]
+	fn recounting_a_summary_settles_ancestors_once() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let dir = root.join("Library");
+
+		index
+			.add_entry(
+				dir.clone(),
+				Uuid::now_v7(),
+				meta(&dir, EntryKind::Directory, 0),
+			)
+			.unwrap();
+		index.summarise(
+			&dir,
+			Rollup {
+				bytes: 900,
+				files: 9,
+			},
+		);
+		index.summarise(
+			&dir,
+			Rollup {
+				bytes: 100,
+				files: 1,
+			},
+		);
+
+		assert_eq!(index.subtree_size(&root), Some(100));
+		assert_eq!(index.subtree_file_count(&root), Some(1));
 	}
 
 	#[test]

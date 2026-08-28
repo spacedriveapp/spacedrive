@@ -119,6 +119,9 @@ impl IndexVerifyAction {
 			rule_toggles: Default::default(),
 			run_in_background: false,
 			is_volume_indexing: false, // Verification, not volume indexing
+			// Verification compares the index against the filesystem, so it
+			// has to see every entry it is checking.
+			retention: Default::default(),
 		};
 
 		// Create the job and set our ephemeral index storage BEFORE dispatching

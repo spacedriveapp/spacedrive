@@ -647,6 +647,19 @@ impl LibraryManager {
 
 		add_home_to_library(&library, &context).await;
 
+		// Then the rest of the machine, behind it. The library's own walk is
+		// what someone chose to keep, so it goes first and its file count is
+		// the one that climbs while they watch. Everything else on the drive
+		// still has to be walked for search and for the analyser's totals, and
+		// nothing else asks for it.
+		{
+			let library = library.clone();
+			let context = context.clone();
+			tokio::spawn(async move {
+				crate::ops::volumes::index::map_attached_volumes(&library, &context).await;
+			});
+		}
+
 		// Backfill NULL volume_id values for existing locations
 		// This handles legacy locations created before volume tracking was implemented
 		let backfill_result =

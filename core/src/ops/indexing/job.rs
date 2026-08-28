@@ -26,10 +26,11 @@ use tracing::info;
 use uuid::Uuid;
 
 use super::{
-	ephemeral::EphemeralIndex,
+	ephemeral::{EphemeralIndex, Rollup},
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
+	summary::Retention,
 	PathResolver,
 };
 
@@ -115,6 +116,10 @@ pub struct IndexerJobConfig {
 	/// Whether this is indexing a full volume (for progress tracking)
 	#[serde(default)]
 	pub is_volume_indexing: bool,
+	/// What the walk keeps of what it visits. Everything by default; the
+	/// background map of a drive keeps structure and counts the rest.
+	#[serde(default)]
+	pub retention: super::summary::Retention,
 }
 
 impl IndexerJobConfig {
@@ -129,6 +134,7 @@ impl IndexerJobConfig {
 			rule_toggles: Default::default(),
 			run_in_background: false,
 			is_volume_indexing: false,
+			retention: Retention::everything(),
 		}
 	}
 
@@ -143,6 +149,7 @@ impl IndexerJobConfig {
 			rule_toggles: Default::default(),
 			run_in_background: false,
 			is_volume_indexing: false,
+			retention: Retention::everything(),
 		}
 	}
 
@@ -161,6 +168,7 @@ impl IndexerJobConfig {
 			rule_toggles: Default::default(),
 			run_in_background: false,
 			is_volume_indexing: is_volume,
+			retention: Retention::everything(),
 		}
 	}
 
@@ -377,6 +385,7 @@ impl IndexerJob {
 							&ctx,
 							root_path,
 							self.config.rule_toggles.clone(),
+							self.config.retention.clone(),
 							volume_backend.as_ref(),
 							cloud_url_base,
 						)
@@ -1128,6 +1137,27 @@ impl IndexerJob {
 					});
 				}
 			}
+		}
+
+		// The directories the walk turned back at are in the arena by now, so
+		// the counts taken at the time can be attached to them. Applied after
+		// every batch: a summary written before its own entry arrived would
+		// have nothing to attach to, and one written before a child arrived
+		// would be undone by it.
+		if !state.summaries.is_empty() {
+			let summaries = std::mem::take(&mut state.summaries);
+			let summarised = summaries.len();
+			let index = ephemeral_index.clone();
+			tokio::task::spawn_blocking(move || {
+				let rt = tokio::runtime::Handle::current();
+				let mut index = rt.block_on(index.write());
+				for (path, bytes, files) in summaries {
+					index.summarise(&path, Rollup { bytes, files });
+				}
+			})
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to record summaries: {e}")))?;
+			ctx.log(format!("Summarised {summarised} directories"));
 		}
 
 		state.phase = Phase::Complete;
