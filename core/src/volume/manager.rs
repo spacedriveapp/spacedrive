@@ -1085,6 +1085,46 @@ impl VolumeManager {
 		None
 	}
 
+	/// The volume holding `path`, and the path as that volume spells it.
+	///
+	/// A prefix test is not enough. macOS firmlinks put one directory at two
+	/// addresses: `/Users/me` and `/System/Volumes/Data/Users/me` are the same
+	/// inode on the same device, `canonicalize` resolves neither into the
+	/// other, and only the second is under the volume's mount point. Anything
+	/// anchoring a source to a volume has to agree with the volume on how the
+	/// path is written, or the anchor is dropped and the root becomes a second
+	/// map of files the drive already holds.
+	///
+	/// Comparing inodes settles it without a platform-specific table.
+	pub async fn locate_path(&self, path: &Path) -> Option<(Volume, PathBuf)> {
+		let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+
+		if let Some(volume) = self.volume_for_path(&canonical).await {
+			return Some((volume, canonical));
+		}
+
+		let Ok(relative) = canonical.strip_prefix("/") else {
+			return None;
+		};
+		let target = std::fs::metadata(&canonical).ok()?;
+
+		let mut candidates: Vec<Volume> = self.volumes.read().await.values().cloned().collect();
+		// Longest mount point first, so the most specific volume answers.
+		candidates.sort_by_key(|volume| std::cmp::Reverse(volume.mount_point.as_os_str().len()));
+
+		for volume in candidates {
+			let candidate = volume.mount_point.join(relative);
+			let Ok(found) = std::fs::metadata(&candidate) else {
+				continue;
+			};
+			if same_file(&target, &found) {
+				return Some((volume, candidate));
+			}
+		}
+
+		None
+	}
+
 	/// Get all currently known volumes
 	pub async fn get_all_volumes(&self) -> Vec<Volume> {
 		self.volumes.read().await.values().cloned().collect()
@@ -2320,5 +2360,19 @@ mod tests {
 			.same_volume(&PathBuf::from("/path1"), &PathBuf::from("/path2"))
 			.await;
 		assert!(!same);
+	}
+}
+
+/// Whether two stat results describe the same directory.
+fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::MetadataExt;
+		a.dev() == b.dev() && a.ino() == b.ino()
+	}
+	#[cfg(not(unix))]
+	{
+		let _ = (a, b);
+		false
 	}
 }

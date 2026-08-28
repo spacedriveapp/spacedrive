@@ -116,7 +116,18 @@ pub async fn track_and_index(
 
 	// Anchoring to the volume is what lets the source follow a remount, so it
 	// is worth resolving even though a source without one still works.
-	let volume = context.volume_manager.volume_for_path(&root).await;
+	//
+	// The volume decides how the path is written. On macOS a home directory
+	// reached as `/Users/me` is the same directory as
+	// `/System/Volumes/Data/Users/me`, and only the second is under the mount
+	// point, so taking the caller's spelling would drop the anchor and start a
+	// second map of files the drive already holds.
+	let located = context.volume_manager.locate_path(&root).await;
+	let root = located
+		.as_ref()
+		.map(|(_, path)| path.clone())
+		.unwrap_or(root);
+	let volume = located.map(|(volume, _)| volume);
 	let whole_volume = volume
 		.as_ref()
 		.is_some_and(|volume| volume.mount_point == root);

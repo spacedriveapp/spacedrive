@@ -645,6 +645,10 @@ impl LibraryManager {
 			warn!("Failed to auto-track user-relevant volumes: {}", e);
 		}
 
+		if let Some(context) = self.context.read().await.clone() {
+			add_home_to_library(&library, &context).await;
+		}
+
 		// Backfill NULL volume_id values for existing locations
 		// This handles legacy locations created before volume tracking was implemented
 		let backfill_result =
@@ -1988,5 +1992,41 @@ mod tests {
 		)));
 		assert!(!is_library_directory(Path::new("/path/to/My Library")));
 		assert!(!is_library_directory(Path::new("/path/to/My Library.txt")));
+	}
+}
+
+/// Put the person's home directory in the library the first time one opens.
+///
+/// Every drive on the machine is mapped, so everything is already searchable
+/// before anyone chooses anything. What being in the library adds is the part a
+/// walk cannot rebuild: tags and notes that stay put, files that are still
+/// listed when the drive is unplugged, and sync to another device. Home is the
+/// answer almost everyone would give if asked which folder that should be, so
+/// asking is a worse experience than doing it.
+///
+/// Once only. A source removed on purpose must not come back on the next
+/// launch, so the presence of any registered source is taken as the person
+/// having made their own arrangements.
+async fn add_home_to_library(library: &Arc<Library>, context: &Arc<CoreContext>) {
+	if !context.ephemeral_cache().sources().is_empty() {
+		return;
+	}
+
+	let Some(home) = dirs::home_dir() else {
+		debug!("No home directory on this platform; nothing added to the library");
+		return;
+	};
+	if !home.is_dir() {
+		return;
+	}
+
+	match crate::ops::sources::track::track_and_index(library, context, home.clone(), false).await {
+		Ok(output) => info!(
+			"Added {} to library {} as source {}",
+			output.root.display(),
+			library.id(),
+			output.id
+		),
+		Err(e) => warn!("Could not add {} to the library: {e}", home.display()),
 	}
 }

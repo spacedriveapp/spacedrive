@@ -1,5 +1,6 @@
 import {
 	ArrowSquareOut,
+	Books,
 	Copy,
 	Crop,
 	Eye,
@@ -56,6 +57,7 @@ export function useFileContextMenu({
 		onSuccess: refetchTagQueries
 	});
 	const createFolder = useLibraryMutation('files.createFolder');
+	const addToLibrary = useLibraryMutation('sources.track');
 	const regenerateThumbnail = useLibraryMutation(
 		'media.thumbnail.regenerate'
 	);
@@ -217,6 +219,35 @@ export function useFileContextMenu({
 				},
 				condition: () =>
 					physicalPaths.length > 0 && !!platform.shareFiles
+			},
+			{
+				icon: Books,
+				label: 'Add to Library',
+				// Everything on the drive is already searchable. What this adds
+				// is what a walk cannot rebuild: tags and notes that stay put,
+				// files still listed when the drive is unplugged, and sync to
+				// another device.
+				onClick: async () => {
+					if (!file || !('Physical' in file.sd_path)) return;
+					const path = file.sd_path.Physical.path;
+					try {
+						await addToLibrary.mutateAsync({
+							path,
+							name: null,
+							unfiltered: false
+						});
+						toast.success(`Added ${file.name} to your library`);
+					} catch (err) {
+						console.error('Failed to add to library:', err);
+						toast.error(`Could not add ${file.name}: ${err}`);
+					}
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					selectedFiles.length === 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
 			},
 			{type: 'separator'},
 			{
