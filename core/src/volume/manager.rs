@@ -1099,26 +1099,26 @@ impl VolumeManager {
 	pub async fn locate_path(&self, path: &Path) -> Option<(Volume, PathBuf)> {
 		let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
 
+		// Finding the volume is not the same as being able to strip its mount
+		// point off. `contains_path` knows about firmlinks and answers yes for
+		// `/Users/me` on the Data volume, which is correct and still leaves a
+		// path no caller can make relative to `/System/Volumes/Data`.
 		if let Some(volume) = self.volume_for_path(&canonical).await {
-			return Some((volume, canonical));
+			if canonical.starts_with(&volume.mount_point) {
+				return Some((volume, canonical));
+			}
+			if let Some(under) = spelled_under(&volume.mount_point, &canonical) {
+				return Some((volume, under));
+			}
 		}
-
-		let Ok(relative) = canonical.strip_prefix("/") else {
-			return None;
-		};
-		let target = std::fs::metadata(&canonical).ok()?;
 
 		let mut candidates: Vec<Volume> = self.volumes.read().await.values().cloned().collect();
 		// Longest mount point first, so the most specific volume answers.
 		candidates.sort_by_key(|volume| std::cmp::Reverse(volume.mount_point.as_os_str().len()));
 
 		for volume in candidates {
-			let candidate = volume.mount_point.join(relative);
-			let Ok(found) = std::fs::metadata(&candidate) else {
-				continue;
-			};
-			if same_file(&target, &found) {
-				return Some((volume, candidate));
+			if let Some(under) = spelled_under(&volume.mount_point, &canonical) {
+				return Some((volume, under));
 			}
 		}
 
@@ -2363,6 +2363,19 @@ mod tests {
 	}
 }
 
+/// The same directory as `path`, written under `mount_point`, when one exists.
+///
+/// Settled by inode rather than by a platform table: if `mount_point` joined to
+/// the path's own components names the same device and inode, that is the same
+/// directory reached the way the volume spells it.
+fn spelled_under(mount_point: &Path, path: &Path) -> Option<PathBuf> {
+	let relative = path.strip_prefix("/").ok()?;
+	let candidate = mount_point.join(relative);
+	let target = std::fs::metadata(path).ok()?;
+	let found = std::fs::metadata(&candidate).ok()?;
+	same_file(&target, &found).then_some(candidate)
+}
+
 /// Whether two stat results describe the same directory.
 fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
 	#[cfg(unix)]
@@ -2374,5 +2387,56 @@ fn same_file(a: &std::fs::Metadata, b: &std::fs::Metadata) -> bool {
 	{
 		let _ = (a, b);
 		false
+	}
+}
+
+#[cfg(test)]
+mod spelling {
+	use super::*;
+
+	/// A directory reached through a firmlink is on the volume, and cannot be
+	/// made relative to its mount point without being rewritten first.
+	///
+	/// `contains_path` answers yes for `/Users/me` on the Data volume, which is
+	/// correct. Returning that spelling to a caller that then calls
+	/// `strip_prefix("/System/Volumes/Data")` on it gives no relative root, the
+	/// anchor is dropped, and the source becomes its own map of files the drive
+	/// already holds. Observed: the home folder registered with a null
+	/// volume_uuid and 1.6 million records beside Macintosh HD's own index.
+	#[cfg(target_os = "macos")]
+	#[test]
+	fn a_firmlinked_path_is_rewritten_under_the_mount_point() {
+		let data = Path::new("/System/Volumes/Data");
+		let home = Path::new("/Users");
+		if !data.join("Users").exists() {
+			return;
+		}
+
+		let under = spelled_under(data, home).expect("/Users is on the Data volume");
+		assert_eq!(under, Path::new("/System/Volumes/Data/Users"));
+		assert!(
+			under.strip_prefix(data).is_ok(),
+			"the whole point is being able to take the mount point off"
+		);
+	}
+
+	/// A path already under the mount point needs no rewriting, and one on a
+	/// different device is refused rather than guessed at.
+	#[test]
+	fn only_the_same_directory_is_accepted() {
+		let dir = tempfile::tempdir().unwrap();
+		let inner = dir.path().join("inner");
+		std::fs::create_dir_all(&inner).unwrap();
+
+		// Same directory reached the long way round: mount_point + the path's
+		// own components has to name the same inode.
+		assert_eq!(
+			spelled_under(dir.path(), &inner).map(|p| p.exists()),
+			None,
+			"a path that does not exist under the mount point is not it"
+		);
+
+		let elsewhere = tempfile::tempdir().unwrap();
+		assert_eq!(spelled_under(elsewhere.path(), &inner), None);
 	}
 }
