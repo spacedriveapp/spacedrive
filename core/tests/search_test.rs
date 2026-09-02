@@ -224,6 +224,13 @@ async fn test_persistent_search_with_filters() -> anyhow::Result<()> {
 		.filter(|r| r.file.extension.as_deref() == Some("txt"))
 		.count();
 	assert!(txt_count >= 2, "Should find at least 2 .txt files");
+	assert!(
+		text_results
+			.results
+			.iter()
+			.all(|r| r.file.extension.as_deref() == Some("txt")),
+		"File type filtering must exclude non-txt FTS candidates"
+	);
 
 	// Test 2: Filter by size range (files > 5000 bytes)
 	let size_search = FileSearchInput {

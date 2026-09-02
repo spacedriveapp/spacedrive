@@ -7,7 +7,7 @@ use super::{
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
-	domain::{addressing::SdPath, File},
+	domain::{File, addressing::SdPath},
 	filetype::FileTypeRegistry,
 	infra::db::entities::{
 		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
@@ -99,16 +99,28 @@ impl LibraryQuery for FileSearchQuery {
 				// Perform the search based on mode
 				let results = match self.input.mode {
 					crate::ops::search::input::SearchMode::Fast => {
-						self.execute_fast_search(db.conn(), &device_slug_map)
-							.await?
+						self.execute_fast_search_with_registry(
+							db.conn(),
+							&device_slug_map,
+							context.file_type_registry(),
+						)
+						.await?
 					}
 					crate::ops::search::input::SearchMode::Normal => {
-						self.execute_normal_search(db.conn(), &device_slug_map)
-							.await?
+						self.execute_normal_search(
+							db.conn(),
+							&device_slug_map,
+							context.file_type_registry(),
+						)
+						.await?
 					}
 					crate::ops::search::input::SearchMode::Full => {
-						self.execute_full_search(db.conn(), &device_slug_map)
-							.await?
+						self.execute_full_search(
+							db.conn(),
+							&device_slug_map,
+							context.file_type_registry(),
+						)
+						.await?
 					}
 				};
 
@@ -189,7 +201,17 @@ impl FileSearchQuery {
 	pub async fn execute_fast_search(
 		&self,
 		db: &DatabaseConnection,
+		device_slug_map: &std::collections::HashMap<Uuid, String>,
+	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
+		self.execute_fast_search_with_registry(db, device_slug_map, &FileTypeRegistry::new())
+			.await
+	}
+
+	async fn execute_fast_search_with_registry(
+		&self,
+		db: &DatabaseConnection,
 		_device_slug_map: &std::collections::HashMap<Uuid, String>,
+		registry: &FileTypeRegistry,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		use sea_orm::Statement;
 
@@ -200,7 +222,7 @@ impl FileSearchQuery {
 
 		// Use FTS5 for high-performance text search
 		let fts_query = self.build_fts5_query();
-		let mut fts_results = self.execute_fts5_search(db, &fts_query).await?;
+		let fts_results = self.execute_fts5_search(db, &fts_query).await?;
 
 		let fts_count = fts_results.len();
 		tracing::info!(
@@ -213,19 +235,20 @@ impl FileSearchQuery {
 			return Ok(Vec::new());
 		}
 
-		// Apply tag filter on FTS results
-		if let Some(tag_filter) = &self.input.filters.tags {
-			let (include_ids, exclude_ids) = self.resolve_tag_filter(db, tag_filter).await?;
-			let include_set: Option<HashSet<i32>> =
-				include_ids.map(|v| v.into_iter().collect());
-			let exclude_set: HashSet<i32> = exclude_ids.into_iter().collect();
-			fts_results.retain(|(id, _)| {
-				include_set.as_ref().map_or(true, |s| s.contains(id))
-					&& !exclude_set.contains(id)
-			});
-			if fts_results.is_empty() {
-				return Ok(Vec::new());
-			}
+		// Apply every structured filter before pagination. FTS is only the
+		// candidate/ranking stage; filtering a paginated FTS page loses matches.
+		let fts_results = self.filter_fts_results(db, fts_results, registry).await?;
+		if fts_results.is_empty() {
+			return Ok(Vec::new());
+		}
+
+		let page_start = self.input.pagination.offset.min(fts_results.len() as u32) as usize;
+		let page_end = page_start
+			.saturating_add(self.input.pagination.limit as usize)
+			.min(fts_results.len());
+		let fts_results = fts_results[page_start..page_end].to_vec();
+		if fts_results.is_empty() {
+			return Ok(Vec::new());
 		}
 
 		// Build a map of entry_id -> bm25_score for later lookup
@@ -502,9 +525,12 @@ impl FileSearchQuery {
 		&self,
 		db: &DatabaseConnection,
 		device_slug_map: &std::collections::HashMap<Uuid, String>,
+		registry: &FileTypeRegistry,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Use FTS5 as base, then enhance with additional ranking factors
-		let mut results = self.execute_fast_search(db, device_slug_map).await?;
+		let mut results = self
+			.execute_fast_search_with_registry(db, device_slug_map, registry)
+			.await?;
 
 		// Enhanced ranking for normal search
 		for result in &mut results {
@@ -550,9 +576,12 @@ impl FileSearchQuery {
 		&self,
 		db: &DatabaseConnection,
 		device_slug_map: &std::collections::HashMap<Uuid, String>,
+		registry: &FileTypeRegistry,
 	) -> QueryResult<Vec<crate::ops::search::output::FileSearchResult>> {
 		// Start with normal search results
-		let mut results = self.execute_normal_search(db, device_slug_map).await?;
+		let mut results = self
+			.execute_normal_search(db, device_slug_map, registry)
+			.await?;
 
 		// For full search, we would add content analysis here
 		// This is a placeholder for future implementation
@@ -683,7 +712,7 @@ impl FileSearchQuery {
 		entry_model: &entry::Model,
 		db: &DatabaseConnection,
 	) -> Option<Uuid> {
-		use sea_orm::{sea_query::Expr, Statement};
+		use sea_orm::{Statement, sea_query::Expr};
 
 		// Traverse parent chain to find the location root using recursive CTE
 		let query = format!(
@@ -825,6 +854,14 @@ impl FileSearchQuery {
 		db: &DatabaseConnection,
 		registry: &FileTypeRegistry,
 	) -> QueryResult<u64> {
+		if !self.input.query.trim().is_empty() {
+			let candidates = self
+				.execute_fts5_search(db, &self.build_fts5_query())
+				.await?;
+			let filtered = self.filter_fts_results(db, candidates, registry).await?;
+			return Ok(filtered.len() as u64);
+		}
+
 		let mut condition = Condition::any()
 			.add(entry::Column::Name.contains(&self.input.query))
 			.add(entry::Column::Extension.contains(&self.input.query));
@@ -1024,10 +1061,7 @@ impl FileSearchQuery {
 		};
 
 		// Batch sidecars by content UUID
-		let content_uuids: Vec<Uuid> = content_identities
-			.iter()
-			.filter_map(|ci| ci.uuid)
-			.collect();
+		let content_uuids: Vec<Uuid> = content_identities.iter().filter_map(|ci| ci.uuid).collect();
 
 		let all_sidecars = if !content_uuids.is_empty() {
 			sidecar::Entity::find()
@@ -1060,18 +1094,14 @@ impl FileSearchQuery {
 		}
 
 		// Index content identities by entry content_id for per-entry lookup
-		let identities_by_content_id: std::collections::HashMap<
-			i32,
-			&content_identity::Model,
-		> = content_identities.iter().map(|ci| (ci.id, ci)).collect();
+		let identities_by_content_id: std::collections::HashMap<i32, &content_identity::Model> =
+			content_identities.iter().map(|ci| (ci.id, ci)).collect();
 
 		// Convert entries to FileSearchResult, hydrating each with content_identity
 		let mut results = Vec::new();
 		for entry_model in entries {
 			let content_id = entry_model.content_id;
-			if let Some(mut result) =
-				self.entry_to_search_result(entry_model, db, 1.0).await?
-			{
+			if let Some(mut result) = self.entry_to_search_result(entry_model, db, 1.0).await? {
 				if let Some(cid) = content_id {
 					if let Some(ci) = identities_by_content_id.get(&cid) {
 						let kind = kinds_by_id
@@ -1142,7 +1172,6 @@ impl FileSearchQuery {
 							FROM search_index
 							WHERE search_index MATCH ?
 							ORDER BY rank
-							LIMIT 5000
 						)
 						SELECT e.id, fts.rank
 						FROM fts
@@ -1150,7 +1179,6 @@ impl FileSearchQuery {
 						JOIN directory_paths dp ON dp.entry_id = e.parent_id
 						WHERE dp.path LIKE ?
 						ORDER BY fts.rank
-						LIMIT ? OFFSET ?
 					"#
 				} else {
 					// Basic FTS5 search
@@ -1160,7 +1188,6 @@ impl FileSearchQuery {
 						JOIN entries e ON e.id = search_index.rowid
 						WHERE search_index MATCH ?
 						ORDER BY rank
-						LIMIT ? OFFSET ?
 					"#
 				}
 			}
@@ -1172,7 +1199,6 @@ impl FileSearchQuery {
 					JOIN entries e ON e.id = search_index.rowid
 					WHERE search_index MATCH ?
 					ORDER BY rank
-					LIMIT ? OFFSET ?
 				"#
 			}
 		};
@@ -1188,19 +1214,10 @@ impl FileSearchQuery {
 					query,
 					like_pattern
 				);
-				vec![
-					query.into(),
-					like_pattern.into(),
-					self.input.pagination.limit.to_string().into(),
-					self.input.pagination.offset.to_string().into(),
-				]
+				vec![query.into(), like_pattern.into()]
 			}
 			_ => {
-				vec![
-					query.into(),
-					self.input.pagination.limit.to_string().into(),
-					self.input.pagination.offset.to_string().into(),
-				]
+				vec![query.into()]
 			}
 		};
 
@@ -1220,6 +1237,58 @@ impl FileSearchQuery {
 		}
 
 		Ok(fts_results)
+	}
+
+	/// Apply structured and tag filters to the complete FTS candidate set.
+	/// Pagination must happen after this step so filtered-out candidates do not
+	/// consume slots on a result page.
+	async fn filter_fts_results(
+		&self,
+		db: &DatabaseConnection,
+		fts_results: Vec<(i32, f64)>,
+		registry: &FileTypeRegistry,
+	) -> QueryResult<Vec<(i32, f64)>> {
+		if fts_results.is_empty() {
+			return Ok(Vec::new());
+		}
+
+		let (include_ids, exclude_ids) = if let Some(tag_filter) = &self.input.filters.tags {
+			self.resolve_tag_filter(db, tag_filter).await?
+		} else {
+			(None, Vec::new())
+		};
+		let include_set: Option<HashSet<i32>> = include_ids.map(|ids| ids.into_iter().collect());
+		let exclude_set: HashSet<i32> = exclude_ids.into_iter().collect();
+
+		let candidate_ids: Vec<i32> = fts_results.iter().map(|(id, _)| *id).collect();
+		let entries = entry::Entity::find()
+			.filter(entry::Column::Id.is_in(candidate_ids))
+			.all(db)
+			.await?;
+		let entries_by_id: std::collections::HashMap<i32, entry::Model> =
+			entries.into_iter().map(|entry| (entry.id, entry)).collect();
+
+		let mut filtered = Vec::with_capacity(fts_results.len());
+		for (id, rank) in fts_results {
+			if include_set.as_ref().map_or(false, |ids| !ids.contains(&id))
+				|| exclude_set.contains(&id)
+			{
+				continue;
+			}
+			let Some(entry_model) = entries_by_id.get(&id) else {
+				continue;
+			};
+			if entry_model.kind != 0
+				|| !self
+					.passes_additional_filters(entry_model, db, registry)
+					.await?
+			{
+				continue;
+			}
+			filtered.push((id, rank));
+		}
+
+		Ok(filtered)
 	}
 
 	/// Check if an entry passes additional (non-text) filters
@@ -1303,18 +1372,24 @@ impl FileSearchQuery {
 		// Location filter
 		if let Some(locations) = &self.input.filters.locations {
 			if !locations.is_empty() {
-				// Check if entry belongs to one of the specified locations
-				if let Ok(Some(location)) = crate::infra::db::entities::location::Entity::find()
-					.filter(
-						crate::infra::db::entities::location::Column::EntryId.eq(entry_model.id),
-					)
-					.one(db)
+				// A file belongs to the location rooted at any ancestor entry.
+				let query = format!(
+					"WITH RECURSIVE ancestors(id) AS (\
+						SELECT id FROM entries WHERE id = {} \
+						UNION ALL SELECT e.parent_id FROM entries e \
+						INNER JOIN ancestors a ON e.id = a.id WHERE e.parent_id IS NOT NULL\
+					) SELECT l.uuid FROM locations l INNER JOIN ancestors a ON l.entry_id = a.id LIMIT 1",
+					entry_model.id
+				);
+				let location_uuid = db
+					.query_one(Statement::from_string(
+						sea_orm::DatabaseBackend::Sqlite,
+						query,
+					))
 					.await
-				{
-					if !locations.contains(&location.uuid) {
-						return Ok(false);
-					}
-				} else {
+					.ok()
+					.and_then(|row| row.try_get::<Uuid>("", "uuid").ok());
+				if location_uuid.map_or(true, |uuid| !locations.contains(&uuid)) {
 					return Ok(false);
 				}
 			}
@@ -1384,10 +1459,12 @@ impl FileSearchQuery {
 				self.execute_fast_search(db, &device_slug_map).await?
 			}
 			crate::ops::search::input::SearchMode::Normal => {
-				self.execute_normal_search(db, &device_slug_map).await?
+				self.execute_normal_search(db, &device_slug_map, &FileTypeRegistry::new())
+					.await?
 			}
 			crate::ops::search::input::SearchMode::Full => {
-				self.execute_full_search(db, &device_slug_map).await?
+				self.execute_full_search(db, &device_slug_map, &FileTypeRegistry::new())
+					.await?
 			}
 		};
 
@@ -1552,7 +1629,7 @@ impl FileSearchQuery {
 			_ => {
 				return Err(QueryError::Internal(
 					"Ephemeral search requires Path scope".to_string(),
-				))
+				));
 			}
 		};
 
@@ -1617,10 +1694,11 @@ impl FileSearchQuery {
 			.all(db)
 			.await?;
 
-		let entry_uuids: Vec<Uuid> =
-			um_records.iter().filter_map(|um| um.entry_uuid).collect();
-		let ci_uuids: Vec<Uuid> =
-			um_records.iter().filter_map(|um| um.content_identity_uuid).collect();
+		let entry_uuids: Vec<Uuid> = um_records.iter().filter_map(|um| um.entry_uuid).collect();
+		let ci_uuids: Vec<Uuid> = um_records
+			.iter()
+			.filter_map(|um| um.content_identity_uuid)
+			.collect();
 
 		let mut entry_ids: HashSet<i32> = HashSet::new();
 
@@ -1664,8 +1742,11 @@ impl FileSearchQuery {
 		let include_ids = if !tag_filter.include.is_empty() {
 			let mut result_set: Option<HashSet<i32>> = None;
 			for tag_uuid in &tag_filter.include {
-				let ids: HashSet<i32> =
-					self.find_entry_ids_for_tag(db, *tag_uuid).await?.into_iter().collect();
+				let ids: HashSet<i32> = self
+					.find_entry_ids_for_tag(db, *tag_uuid)
+					.await?
+					.into_iter()
+					.collect();
 				result_set = Some(match result_set {
 					None => ids,
 					Some(existing) => existing.intersection(&ids).copied().collect(),
