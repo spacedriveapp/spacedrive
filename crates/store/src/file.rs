@@ -727,24 +727,103 @@ pub async fn files_needing_content(
 	Ok(rows
 		.into_iter()
 		.filter_map(|(uuid, parent_uuid, parent_path, title, size)| {
-			let title = title?;
-			let external_id = match (parent_uuid, parent_path) {
-				(Some(_), Some(parent)) => format!("{parent}/{title}"),
-				// A record whose parent has no path is unaddressable, which is
-				// the shape a half-written generation leaves behind. The next
-				// walk re-parents it; until then there is nothing to open.
-				(Some(_), None) => return None,
-				// Directly under the source root, which stores no path of its
-				// own.
-				(None, _) => title,
-			};
 			Some(PendingContent {
 				uuid,
-				external_id,
+				external_id: address(parent_uuid, parent_path, title)?,
 				size,
 			})
 		})
 		.collect())
+}
+
+/// One copy of some bytes: a record, and where it is.
+#[derive(Debug, Clone)]
+pub struct ContentCopy {
+	/// The identity of the bytes, derived from their hash, so two sources
+	/// holding the same file report the same uuid without ever comparing notes.
+	pub content_uuid: Uuid,
+	pub size: Option<i64>,
+	pub record_uuid: Uuid,
+	/// Path relative to the source root.
+	pub external_id: String,
+}
+
+/// Files this source holds more than one copy of, largest first.
+///
+/// Grouped by content rather than by name or size, so a file renamed on the way
+/// to its second home is still the same bytes. What this cannot see is the copy
+/// that exists once here and once on another drive: each store only knows its
+/// own, and finding those means an index of content uuids across all of them.
+pub async fn duplicate_copies(
+	pool: &sqlx::SqlitePool,
+	min_size: i64,
+	group_limit: usize,
+) -> Result<Vec<ContentCopy>> {
+	let rows: Vec<(
+		Uuid,
+		Option<i64>,
+		Uuid,
+		Option<Uuid>,
+		Option<String>,
+		Option<String>,
+	)> = sqlx::query_as(
+		"WITH duplicated AS (
+				SELECT r.content_id AS content_id, c.size AS size
+				FROM record r
+				JOIN content c ON c.id = r.content_id
+				WHERE COALESCE(c.size, 0) >= ?
+				GROUP BY r.content_id
+				HAVING COUNT(*) > 1
+				ORDER BY size DESC
+				LIMIT ?
+			)
+			SELECT c.uuid, c.size, r.uuid, r.parent_uuid, d.path, r.title
+			FROM duplicated
+			JOIN content c ON c.id = duplicated.content_id
+			JOIN record r ON r.content_id = duplicated.content_id
+			LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid
+			ORDER BY c.size DESC",
+	)
+	.bind(min_size)
+	.bind(group_limit as i64)
+	.fetch_all(pool)
+	.await?;
+
+	Ok(rows
+		.into_iter()
+		.filter_map(
+			|(content_uuid, size, record_uuid, parent_uuid, parent_path, title)| {
+				Some(ContentCopy {
+					content_uuid,
+					size,
+					record_uuid,
+					external_id: address(parent_uuid, parent_path, title)?,
+				})
+			},
+		)
+		.collect())
+}
+
+/// A record's path, rebuilt from its parent and its name.
+///
+/// Only directories store a path. A file is addressed through the one above it,
+/// so this join is how any query that needs a path gets one, and why there is no
+/// column to read.
+fn address(
+	parent_uuid: Option<Uuid>,
+	parent_path: Option<String>,
+	title: Option<String>,
+) -> Option<String> {
+	let title = title?;
+	match (parent_uuid, parent_path) {
+		(Some(_), Some(parent)) => Some(format!("{parent}/{title}")),
+		// A record whose parent has no path is unaddressable, which is the
+		// shape a half-written generation leaves behind. The next walk
+		// re-parents it; until then there is nothing to open.
+		(Some(_), None) => None,
+		// Directly under the source root, which stores no path of its own.
+		(None, _) => Some(title),
+	}
 }
 
 pub fn filesystem_schema() -> DataTypeSchema {

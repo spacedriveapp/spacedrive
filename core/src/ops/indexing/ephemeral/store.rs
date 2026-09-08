@@ -70,6 +70,15 @@ enum Ingest {
 	Flush(oneshot::Sender<()>),
 }
 
+/// One copy of some bytes inside a source.
+#[derive(Debug, Clone)]
+pub struct DuplicateCopy {
+	pub content_uuid: Uuid,
+	pub size: u64,
+	pub record_uuid: Uuid,
+	pub path: PathBuf,
+}
+
 /// A filesystem source's durable store, and the task that writes it.
 pub struct SourceStore {
 	id: Uuid,
@@ -256,6 +265,28 @@ impl SourceStore {
 				.collect(),
 			Err(error) => {
 				tracing::warn!(source = %self.id, %error, "could not list files needing content");
+				Vec::new()
+			}
+		}
+	}
+
+	/// Files this source holds more than one copy of, largest first.
+	///
+	/// Absolute paths, since a caller is going to show them to someone or open
+	/// them.
+	pub async fn duplicates(&self, min_size: u64, group_limit: usize) -> Vec<DuplicateCopy> {
+		match sd_store::duplicate_copies(self.db.pool(), min_size as i64, group_limit).await {
+			Ok(copies) => copies
+				.into_iter()
+				.map(|copy| DuplicateCopy {
+					content_uuid: copy.content_uuid,
+					size: copy.size.unwrap_or(0).max(0) as u64,
+					record_uuid: copy.record_uuid,
+					path: self.root.join(&copy.external_id),
+				})
+				.collect(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, "could not list duplicates");
 				Vec::new()
 			}
 		}
@@ -833,6 +864,48 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 
 		assert!(fixture.store.files_needing_content(10).await.is_empty());
 		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+	}
+
+	/// Two copies of the same bytes are one row in `content`, pointed at by
+	/// both records, and the duplicate query is what reads that back.
+	#[tokio::test]
+	async fn duplicates_are_grouped_by_bytes_not_by_name() {
+		let mut fixture = Fixture::new().await;
+		let one = fixture.create("photos/holiday.jpg", b"same").await;
+		let two = fixture.create("backup/renamed.jpg", b"same").await;
+		fixture.create("notes.txt", b"different").await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		let identity = |hash: &str, size| ContentIdentity {
+			sampled_hash: Some(hash.to_string()),
+			integrity_hash: None,
+			size: Some(size),
+			kind: None,
+		};
+		let identified = pending
+			.iter()
+			.map(|(uuid, path, size)| {
+				let hash = if path == &one || path == &two {
+					"aaaaaaaaaaaaaaaa"
+				} else {
+					"bbbbbbbbbbbbbbbb"
+				};
+				(*uuid, identity(hash, *size as i64))
+			})
+			.collect();
+		fixture.store.identified(identified).await;
+		fixture.store.flush().await;
+
+		let duplicates = fixture.store.duplicates(0, 10).await;
+		let mut paths: Vec<_> = duplicates.iter().map(|copy| copy.path.clone()).collect();
+		paths.sort();
+
+		assert_eq!(paths, vec![two, one], "renaming a copy does not hide it");
+		assert_eq!(
+			duplicates[0].content_uuid, duplicates[1].content_uuid,
+			"one identity for one set of bytes"
+		);
 	}
 
 	/// Two copies of the same bytes are one row in `content`, pointed at by

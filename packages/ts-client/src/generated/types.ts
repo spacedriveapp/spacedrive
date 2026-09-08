@@ -928,6 +928,52 @@ export type DownloadWhisperModelOutput = {
  */
 job_id: string };
 
+/**
+ * One copy of some bytes.
+ */
+export type DuplicateCopyInfo = { source: string; record: string; path: string };
+
+/**
+ * Bytes that exist in more than one place.
+ */
+export type DuplicateGroup = { 
+/**
+ * Derived from the bytes, so it is the same id on every machine that has
+ * seen this file.
+ */
+content: string; size: number; copies: DuplicateCopyInfo[]; 
+/**
+ * What keeping one copy instead of all of them would give back.
+ */
+reclaimable: number };
+
+export type DuplicatesInput = { 
+/**
+ * Only consider files at least this large. Small files collide in ways
+ * nobody wants to act on: every empty config file in a project is a
+ * duplicate and none of them is worth deleting.
+ */
+min_size?: number | null; 
+/**
+ * Groups to return, largest first. Clamped to 500.
+ */
+limit?: number | null; 
+/**
+ * Restrict to one source, rather than everything this machine keeps.
+ */
+source?: string | null };
+
+export type DuplicatesOutput = { groups: DuplicateGroup[]; 
+/**
+ * Total across the returned groups.
+ */
+reclaimable: number; 
+/**
+ * Sources that answered. A detached drive is not one of them, so a small
+ * answer may mean a drive is unplugged rather than a tidy machine.
+ */
+sources_queried: number };
+
 export type EnableIndexingInput = { 
 /**
  * UUID of the location to enable indexing for
@@ -5615,6 +5661,7 @@ export type CoreQuery =
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
   |  { type: 'files.collection_listing'; input: CollectionListingInput; output: CollectionListingOutput }
+  |  { type: 'files.duplicates'; input: DuplicatesInput; output: DuplicatesOutput }
   |  { type: 'files.size_tree'; input: SizeTreeInput; output: SizeTreeOutput }
   |  { type: 'jobs.remote.all_devices'; input: RemoteJobsAllDevicesInput; output: RemoteJobsAllDevicesOutput }
   |  { type: 'jobs.remote.for_device'; input: RemoteJobsForDeviceInput; output: RemoteJobsForDeviceOutput }
@@ -5774,6 +5821,7 @@ export const WIRE_METHODS = {
     'core.events.list': 'query:core.events.list',
     'core.status': 'query:core.status',
     'files.collection_listing': 'query:files.collection_listing',
+    'files.duplicates': 'query:files.duplicates',
     'files.size_tree': 'query:files.size_tree',
     'jobs.remote.all_devices': 'query:jobs.remote.all_devices',
     'jobs.remote.for_device': 'query:jobs.remote.for_device',
