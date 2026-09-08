@@ -827,6 +827,14 @@ remove/rename, and the database adapter still needs it. What it lost is
 `emit_change_event`, which for the arena is a hook that can no longer be reached
 — announcing is not separable from writing here.
 
+**The rest of the phase is `2026-09-08-locations-demoted.md`.** Deleting entries
+means deciding what happens to locations, and the answer is neither "they go"
+nor "they stay". They stop owning records and become a policy over a path: the
+subtree kept at full fidelity and watched, which is the `Retention.covered`
+parameter the storage map is currently filling by guesswork. That doc carries
+the row shape, the sweep across the ~64 files that reference `entities::entry`,
+and the three ops that do not survive it mechanically.
+
 ### P5 — Catalog
 
 Teardown `P7`, unchanged.
