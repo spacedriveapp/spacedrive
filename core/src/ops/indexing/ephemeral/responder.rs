@@ -23,7 +23,7 @@ use sd_fs_watcher::{FsEvent, FsEventKind};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::MemoryAdapter;
+use super::{ArenaWriter, Seen};
 
 /// Check if a path falls under an ephemeral watched directory.
 ///
@@ -54,9 +54,9 @@ pub fn find_ephemeral_root_for_events(
 
 /// Process a batch of filesystem events against the ephemeral index.
 ///
-/// Creates an `MemoryAdapter` and processes the events using shared
-/// handler logic. The ephemeral index is updated in-place and ResourceChanged
-/// events are emitted for UI updates.
+/// Creates an `ArenaWriter` and processes the events using shared handler
+/// logic. The arena is updated in place, the source store hears the same
+/// change, and clients are told.
 pub async fn apply_batch(
 	context: &Arc<CoreContext>,
 	root_path: &Path,
@@ -78,7 +78,7 @@ pub async fn apply_batch(
 	let store = context.ephemeral_cache().store_for(root_path).await;
 	let event_bus = context.events.clone();
 
-	let mut writer = MemoryAdapter::new(index, event_bus, root_path.to_path_buf(), store);
+	let mut writer = ArenaWriter::new(index, event_bus, store);
 
 	let config = ChangeConfig {
 		rule_toggles,
@@ -102,6 +102,52 @@ pub async fn apply(
 		event
 	);
 	apply_batch(context, root_path, vec![event], rule_toggles).await
+}
+
+/// Recount every summarised directory something has changed under.
+///
+/// A summary keeps no children, so a change beneath one has nothing to update
+/// and the event carries no size to adjust the total by. What it does say is
+/// that the count is wrong, and that is enough: the directory is marked, and
+/// this is where it gets counted again. Debounced by its caller, so a file
+/// being written in a loop costs one count rather than one per write.
+///
+/// Returns how many were recounted.
+pub async fn recount_summaries(context: &Arc<CoreContext>) -> usize {
+	use crate::ops::indexing::summary::count_subtree;
+
+	let cache = context.ephemeral_cache();
+	let mut recounted = 0;
+
+	for path in cache.take_dirty_stubs() {
+		let index = cache.resolve_index(&path);
+
+		// A directory that has since been walked is no longer one a count can
+		// speak for: it has children now, and they answer for themselves.
+		if !index.read().await.is_summarised(&path) {
+			continue;
+		}
+
+		let writer = ArenaWriter::new(index, context.events.clone(), cache.store_for(&path).await);
+
+		// The change that marked it may have been the directory itself going
+		// away, which is a deletion like any other.
+		if !path.is_dir() {
+			writer
+				.apply(Seen::Lost {
+					path,
+					is_directory: true,
+				})
+				.await;
+			continue;
+		}
+
+		let totals = count_subtree(path.clone()).await;
+		writer.apply(Seen::Counted { path, totals }).await;
+		recounted += 1;
+	}
+
+	recounted
 }
 
 /// Register an ephemeral path for filesystem watching.

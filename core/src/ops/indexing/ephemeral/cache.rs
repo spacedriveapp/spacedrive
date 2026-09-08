@@ -18,7 +18,6 @@ use super::EphemeralIndex;
 use crate::infra::db::entities::source;
 use crate::infra::db::Database;
 use crate::infra::source_dirs::SourceDirs;
-use crate::ops::indexing::summary::count_subtree;
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
@@ -592,40 +591,15 @@ impl EphemeralIndexCache {
 		None
 	}
 
-	/// Recount every summarised directory something has changed under, and
-	/// replace its totals with what is there now.
+	/// The summarised directories something has changed under since this was
+	/// last asked, emptied as it answers.
 	///
-	/// Returns how many were recounted. Called on a timer rather than per
-	/// event, so a file being written in a loop costs one count rather than one
-	/// per write.
-	pub async fn recount_dirty_stubs(&self) -> usize {
-		let dirty: Vec<PathBuf> = std::mem::take(&mut *self.dirty_stubs.lock())
+	/// Recounting them is somebody else's job: a change to the arena has to
+	/// reach the clients drawing it, and this cache has no way to tell them.
+	pub fn take_dirty_stubs(&self) -> Vec<PathBuf> {
+		std::mem::take(&mut *self.dirty_stubs.lock())
 			.into_iter()
-			.collect();
-		let mut recounted = 0;
-
-		for path in dirty {
-			// A summarised directory that has since been walked, or removed,
-			// is no longer one this can speak for.
-			{
-				let index = self.resolve_index(&path);
-				if !index.read().await.is_summarised(&path) {
-					continue;
-				}
-			}
-			if !path.is_dir() {
-				let index = self.resolve_index(&path);
-				index.write().await.remove_directory_tree(&path);
-				continue;
-			}
-
-			let totals = count_subtree(path.clone()).await;
-			let index = self.resolve_index(&path);
-			index.write().await.summarise(&path, totals);
-			recounted += 1;
-		}
-
-		recounted
+			.collect()
 	}
 
 	/// Every live index, scratch included. For global lookups (uuid → entry)
@@ -1800,9 +1774,9 @@ mod tests {
 
 		/// A change under a summarised directory has no tree to land in
 		/// either, but it does say the count standing in for that subtree is
-		/// now wrong, so the directory is marked and recounted.
+		/// now wrong, so the directory is marked for recounting.
 		#[tokio::test]
-		async fn a_change_under_a_summary_recounts_it() {
+		async fn a_change_under_a_summary_marks_it_for_recounting() {
 			let data = tempfile::tempdir().unwrap();
 			let library = test_library(data.path()).await;
 			let root_dir = tempfile::tempdir().unwrap();
@@ -1818,11 +1792,10 @@ mod tests {
 				.await
 				.expect("register");
 
-			// One real directory holding one real file, summarised as if the
-			// walk had turned back at it with a count of something else.
+			// A directory the walk turned back at, standing in for whatever is
+			// under it.
 			let summarised = root.join("Library");
 			std::fs::create_dir_all(&summarised).expect("mkdir");
-			std::fs::write(summarised.join("cache.bin"), vec![0u8; 64]).expect("write");
 
 			let index = cache.create_for_indexing(root.clone());
 			{
@@ -1849,11 +1822,15 @@ mod tests {
 				"there is no tree under a summary for the change to land in"
 			);
 
-			assert_eq!(cache.recount_dirty_stubs().await, 1);
-			let index = index.read().await;
-			assert!(index.is_summarised(&summarised));
-			assert_eq!(index.subtree_size(&summarised), Some(64));
-			assert_eq!(index.subtree_file_count(&summarised), Some(1));
+			assert_eq!(
+				cache.take_dirty_stubs(),
+				vec![summarised],
+				"the summary standing in for it is what needs counting again"
+			);
+			assert!(
+				cache.take_dirty_stubs().is_empty(),
+				"and it is handed over once, not on every pass"
+			);
 		}
 
 		/// The other half: a directory nothing walked has nowhere to put a

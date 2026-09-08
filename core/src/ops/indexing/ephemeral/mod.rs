@@ -56,4 +56,4 @@ pub use store::SourceStore;
 pub use types::{
 	EntryId, FileNode, FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata, Rollup,
 };
-pub use writer::MemoryAdapter;
+pub use writer::{ArenaChange, ArenaWriter, Mutation, Notify, Seen};

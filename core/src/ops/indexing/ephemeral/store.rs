@@ -484,19 +484,19 @@ mod tests {
 	use super::*;
 	use crate::infra::event::EventBus;
 	use crate::ops::indexing::change_detection::handler::ChangeHandler;
-	use crate::ops::indexing::ephemeral::{EphemeralIndex, MemoryAdapter};
+	use crate::ops::indexing::ephemeral::{ArenaWriter, EphemeralIndex};
 	use crate::ops::indexing::state::DirEntry;
 	use tempfile::TempDir;
 	use tokio::sync::RwLock;
 
 	/// A source rooted in a temp directory, with the arena and the store both
-	/// wired to a `MemoryAdapter` exactly as the watcher wires them.
+	/// wired to an `ArenaWriter` exactly as the watcher wires them.
 	struct Fixture {
 		_data: TempDir,
 		root: TempDir,
 		store: Arc<SourceStore>,
 		index: Arc<RwLock<EphemeralIndex>>,
-		adapter: MemoryAdapter,
+		adapter: ArenaWriter,
 	}
 
 	impl Fixture {
@@ -510,10 +510,9 @@ mod tests {
 				.expect("store opens");
 
 			let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
-			let adapter = MemoryAdapter::new(
+			let adapter = ArenaWriter::new(
 				index.clone(),
 				Arc::new(EventBus::new(1024)),
-				root.path().to_path_buf(),
 				Some(store.clone()),
 			);
 
@@ -931,10 +930,9 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let path = root.path().join("notes.txt");
 		std::fs::write(&path, b"hello").expect("write");
 
-		let mut adapter = MemoryAdapter::new(
+		let mut adapter = ArenaWriter::new(
 			Arc::new(RwLock::new(EphemeralIndex::new().expect("arena"))),
 			Arc::new(EventBus::new(1024)),
-			root.path().to_path_buf(),
 			None,
 		);
 

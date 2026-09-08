@@ -418,19 +418,21 @@ impl EphemeralIndex {
 	/// Add multiple entries in a batch (faster than individual add_entry calls)
 	///
 	/// Acquires write lock once for the entire batch instead of per-entry.
+	/// Answers with the identity each entry ended up with, which is the one the
+	/// arena holds rather than the one the caller offered: a path already
+	/// present keeps the uuid it had, and anything announcing the change has to
+	/// name the identity a query will resolve.
 	pub fn add_entries_batch(
 		&mut self,
 		entries: Vec<(PathBuf, Option<Uuid>, EntryMetadata)>,
-	) -> std::io::Result<Vec<Option<ContentKind>>> {
+	) -> std::io::Result<Vec<(Option<ContentKind>, Uuid)>> {
 		let mut results = Vec::with_capacity(entries.len());
 
 		// Create registry once for entire batch instead of per-file
 		let registry = FileTypeRegistry::default();
 
 		for (path, uuid, metadata) in entries {
-			let (content_kind, _uuid) =
-				self.add_entry_with_registry(path, uuid, metadata, &registry)?;
-			results.push(content_kind);
+			results.push(self.add_entry_with_registry(path, uuid, metadata, &registry)?);
 		}
 
 		Ok(results)

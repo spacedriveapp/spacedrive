@@ -8,7 +8,8 @@
 //! - Deleted entries (in database but not on disk)
 
 use super::types::Change;
-use crate::infra::job::prelude::JobContext;
+use crate::infra::db::entities;
+use crate::infra::job::prelude::{JobContext, JobError, JobResult};
 use crate::ops::indexing::state::EntryKind;
 use std::{
 	collections::HashMap,
@@ -69,9 +70,7 @@ impl ChangeDetector {
 	) -> Result<(), crate::infra::job::prelude::JobError> {
 		use crate::infra::db::entities;
 		use crate::infra::job::prelude::JobError;
-		use crate::ops::indexing::change_detection::DatabaseAdapterForJob;
-		use crate::ops::indexing::persistence::IndexPersistence;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		use sea_orm::EntityTrait;
 
 		let location_record = entities::location::Entity::find_by_id(location_id)
 			.one(ctx.library_db())
@@ -79,21 +78,14 @@ impl ChangeDetector {
 			.map_err(|e| JobError::execution(format!("Failed to find location: {}", e)))?
 			.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
 
-		// Create a persistent writer adapter to leverage the unified query logic
-		let volume_id = location_record.volume_id.ok_or_else(|| {
-			JobError::execution(
+		if location_record.volume_id.is_none() {
+			return Err(JobError::execution(
 				"Location has no volume_id - volume must be detected before change detection",
-			)
-		})?;
-		let persistence = DatabaseAdapterForJob::new(
-			ctx,
-			location_record.uuid,
-			location_record.entry_id,
-			volume_id,
-		);
+			));
+		}
 
-		// Use the scoped query method
-		let existing_entries = persistence.get_existing_entries(indexing_path).await?;
+		let existing_entries =
+			existing_entries(ctx, location_record.entry_id, indexing_path).await?;
 
 		// Process the results into our internal data structures
 		for (full_path, (id, inode, modified_time, size)) in existing_entries {
@@ -309,4 +301,106 @@ mod tests {
 		let detector = ChangeDetector::new();
 		assert_eq!(detector.entry_count(), 0);
 	}
+}
+
+/// Every entry the database already holds under `indexing_path`, keyed by path.
+///
+/// What change detection compares the filesystem against: an entry that is here
+/// and not on disk was deleted, and one whose inode turns up elsewhere moved.
+async fn existing_entries(
+	ctx: &JobContext<'_>,
+	location_root_entry_id: Option<i32>,
+	indexing_path: &Path,
+) -> JobResult<HashMap<PathBuf, (i32, Option<u64>, Option<SystemTime>, u64)>> {
+	use crate::infra::db::entities::{directory_paths, entry_closure};
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	// A location whose root has no entry row has nothing indexed to compare
+	// against, so everything the walk finds is new.
+	if location_root_entry_id.is_none() {
+		return Ok(HashMap::new());
+	}
+
+	let indexing_path_str = indexing_path.to_string_lossy().to_string();
+	let indexing_path_entry_id = match directory_paths::Entity::find()
+		.filter(directory_paths::Column::Path.eq(&indexing_path_str))
+		.one(ctx.library_db())
+		.await
+	{
+		Ok(Some(dir_record)) => dir_record.entry_id,
+		Ok(None) => {
+			// Path not found in database - this is either a new directory or a moved one.
+			// Return empty to let inode-based move detection handle it, rather than
+			// incorrectly loading entries from the entire location root.
+			ctx.log(format!(
+				"Indexing path not found in database: {}, treating as new (move detection via inode)",
+				indexing_path_str
+			));
+			return Ok(HashMap::new());
+		}
+		Err(e) => {
+			return Err(JobError::execution(format!(
+				"Failed to query directory_paths: {}",
+				e
+			)));
+		}
+	};
+
+	let descendant_ids = entry_closure::Entity::find()
+		.filter(entry_closure::Column::AncestorId.eq(indexing_path_entry_id))
+		.all(ctx.library_db())
+		.await
+		.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
+		.into_iter()
+		.map(|ec| ec.descendant_id)
+		.collect::<Vec<i32>>();
+
+	let mut all_entry_ids = vec![indexing_path_entry_id];
+	all_entry_ids.extend(descendant_ids);
+
+	let mut existing_entries: Vec<entities::entry::Model> = Vec::new();
+	let chunk_size: usize = 900;
+	for chunk in all_entry_ids.chunks(chunk_size) {
+		let mut batch = entities::entry::Entity::find()
+			.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
+			.all(ctx.library_db())
+			.await
+			.map_err(|e| JobError::execution(format!("Failed to query existing entries: {}", e)))?;
+		existing_entries.append(&mut batch);
+	}
+
+	let mut result = HashMap::new();
+
+	ctx.log(format!(
+		"Loading {} existing entries",
+		existing_entries.len()
+	));
+
+	for entry in existing_entries {
+		let full_path =
+			crate::ops::indexing::PathResolver::get_full_path(ctx.library_db(), entry.id)
+				.await
+				.unwrap_or_else(|_| PathBuf::from(&entry.name));
+
+		let modified_time = entry
+			.modified_at
+			.timestamp()
+			.try_into()
+			.ok()
+			.and_then(|secs: u64| {
+				std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(secs))
+			});
+
+		result.insert(
+			full_path,
+			(
+				entry.id,
+				entry.inode.map(|i| i as u64),
+				modified_time,
+				entry.size as u64,
+			),
+		);
+	}
+
+	Ok(result)
 }

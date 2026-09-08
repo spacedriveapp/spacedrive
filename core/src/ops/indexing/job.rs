@@ -26,7 +26,7 @@ use tracing::info;
 use uuid::Uuid;
 
 use super::{
-	ephemeral::{EphemeralIndex, Rollup},
+	ephemeral::{ArenaWriter, EphemeralIndex, Notify, Rollup, Seen},
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
@@ -960,13 +960,24 @@ impl IndexerJob {
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 		is_volume_indexing: bool,
 	) -> JobResult<()> {
-		use super::database_storage::{is_hidden_path, EntryMetadata};
-		use super::state::EntryKind as StateEntryKind;
-		use crate::domain::{file::EntryKind as DomainEntryKind, File};
+		use super::database_storage::EntryMetadata;
 
 		ctx.log("Starting ephemeral processing");
 
-		let event_bus = ctx.library().event_bus().clone();
+		// Mapping a drive is not something anyone asked to watch happen, and
+		// eleven million notices would be its own denial of service. A walk of
+		// a folder someone opened answers with one event per batch.
+		let writer = ArenaWriter::new(
+			ephemeral_index.clone(),
+			ctx.library().event_bus().clone(),
+			source_store.clone(),
+		)
+		.notifying(if is_volume_indexing {
+			Notify::Silent
+		} else {
+			Notify::Batched
+		});
+
 		let total_batches = state.entry_batches.len();
 		let mut batch_number = 0;
 
@@ -993,170 +1004,34 @@ impl IndexerJob {
 			};
 			ctx.progress(Progress::generic(indexer_progress.to_generic_progress()));
 
-			let metadata: Vec<EntryMetadata> =
-				batch.iter().cloned().map(EntryMetadata::from).collect();
-
-			// What the arena already holds for these paths. A walk over a drive
-			// that has been mapped before finds every file with an identity
-			// already, and offering it to the ledger is what lets a source
-			// created over that drive adopt them instead of minting a second
-			// set. Read under one lock and released before the queue is asked.
-			let known: Vec<Option<Uuid>> = {
-				let index = ephemeral_index.read().await;
-				metadata
-					.iter()
-					.map(|entry| index.get_entry_uuid(&entry.path))
-					.collect()
-			};
-
-			// Identity comes from the store's ledger, which is also where this
-			// batch gets taken in. One round trip for the batch: resolution is
-			// a hash lookup, so the wait is the queue rather than SQLite.
-			//
-			// Without a store there is nothing durable to agree with, so the
-			// arena keeps what it has or mints for the session. Volume indexing
-			// used to defer uuids entirely; it no longer needs to, because the
-			// ledger has one whether or not anything asks.
-			let identities: Vec<Option<Uuid>> = match &source_store {
-				Some(store) => store.identify(&metadata, &known).await,
-				None if is_volume_indexing => known.clone(),
-				None => known
-					.iter()
-					.map(|known| Some(known.unwrap_or_else(Uuid::now_v7)))
-					.collect(),
-			};
-
-			let entries_with_metadata: Vec<(PathBuf, Option<Uuid>, EntryMetadata)> = metadata
-				.into_iter()
-				.zip(identities)
-				.map(|(metadata, uuid)| (metadata.path.clone(), uuid, metadata))
-				.collect();
-
-			// Batch add to index - use spawn_blocking for CPU-intensive work
-			// This allows the task to be interrupted even during blocking operations
-			let index_clone = ephemeral_index.clone();
-			let entries_clone = entries_with_metadata.clone();
-			let content_kinds = tokio::task::spawn_blocking(move || {
-				let rt = tokio::runtime::Handle::current();
-				let mut index = rt.block_on(index_clone.write());
-				index.add_entries_batch(entries_clone)
-			})
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to add entries to index: {}", e)))??;
-
-			// Build UUID lookup map for directory browsing (only contains Some values)
-			// Volume indexing has None values so map will be empty (no events emitted anyway)
-			let uuid_map: std::collections::HashMap<PathBuf, Uuid> = entries_with_metadata
-				.iter()
-				.filter_map(|(path, uuid, _)| uuid.map(|u| (path.clone(), u)))
-				.collect();
-
-			// Only emit file events for directory browsing, not volume indexing
-			// Volume indexing only needs job progress events (emitted above)
-			// Directory browsing needs ResourceChangedBatch events to populate UI
-			if !is_volume_indexing {
-				// Build event files using the UUID map (no lock acquisitions)
-				let files_for_event: Vec<File> = batch
-					.iter()
-					.zip(content_kinds.iter())
-					.filter_map(|(entry, content_kind_opt)| {
-						let content_kind = (*content_kind_opt)?;
-
-						// Skip hidden files from events
-						let is_hidden = is_hidden_path(&entry.path);
-
-						if is_hidden {
-							return None;
-						}
-
-						// Get UUID from our map (no lock acquisition needed!)
-						let uuid = *uuid_map.get(&entry.path)?;
-
-						use chrono::{DateTime, Utc};
-
-						Some(File {
-							id: uuid,
-							sd_path: crate::domain::addressing::SdPath::local(entry.path.clone()),
-							kind: match entry.kind {
-								StateEntryKind::File => DomainEntryKind::File,
-								StateEntryKind::Directory => DomainEntryKind::Directory,
-								StateEntryKind::Symlink => DomainEntryKind::Symlink,
-							},
-							name: entry
-								.path
-								.file_name()
-								.unwrap_or_default()
-								.to_string_lossy()
-								.to_string(),
-							extension: entry
-								.path
-								.extension()
-								.and_then(|e| e.to_str())
-								.map(String::from),
-							size: entry.size,
-							content_identity: None,
-							alternate_paths: vec![],
-							tags: vec![],
-							sidecars: vec![],
-							image_media_data: None,
-							video_media_data: None,
-							audio_media_data: None,
-							created_at: Utc::now(),
-							modified_at: entry
-								.modified
-								.and_then(|t| {
-									DateTime::from_timestamp(
-										t.duration_since(std::time::UNIX_EPOCH).ok()?.as_secs()
-											as i64,
-										0,
-									)
-								})
-								.unwrap_or_else(Utc::now),
-							accessed_at: None,
-							content_kind,
-							is_local: true,
-							duration_seconds: None,
-							thumbnail_path: None,
-						})
-					})
-					.collect();
-
-				// Emit single ResourceChangedBatch event for entire batch
-				if !files_for_event.is_empty() {
-					event_bus.emit(crate::infra::event::Event::ResourceChangedBatch {
-						resource_type: "file".to_string(),
-						resources: serde_json::to_value(&files_for_event).unwrap_or_default(),
-						metadata: Some(crate::infra::event::ResourceMetadata {
-							no_merge_fields: vec![],
-							alternate_ids: vec![],
-							affected_paths: files_for_event
-								.iter()
-								.map(|f| f.sd_path.clone())
-								.collect(),
-						}),
-					});
-				}
-			}
+			// One call, and everything that has to know does. Identity comes
+			// from the store's ledger, which is where the batch is taken in;
+			// the arena is written; clients hear one event for the batch, or
+			// nothing at all when the walk is mapping a drive nobody asked to
+			// see.
+			writer
+				.apply(Seen::Entries(
+					batch.into_iter().map(EntryMetadata::from).collect(),
+				))
+				.await;
 		}
 
 		// The directories the walk turned back at are in the arena by now, so
-		// the counts taken at the time can be attached to them. Applied after
-		// every batch: a summary written before its own entry arrived would
-		// have nothing to attach to, and one written before a child arrived
-		// would be undone by it.
+		// the counts taken at the time can be attached to them. Last, because a
+		// summary written before its own entry arrived would have nothing to
+		// attach to, and one written before a child arrived would be undone by
+		// it.
 		if !state.summaries.is_empty() {
 			let summaries = std::mem::take(&mut state.summaries);
 			let summarised = summaries.len();
-			let index = ephemeral_index.clone();
-			tokio::task::spawn_blocking(move || {
-				let rt = tokio::runtime::Handle::current();
-				let mut index = rt.block_on(index.write());
-				for (path, bytes, files) in summaries {
-					index.summarise(&path, Rollup { bytes, files });
-				}
-			})
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to record summaries: {e}")))?;
+			for (path, bytes, files) in summaries {
+				writer
+					.apply(Seen::Counted {
+						path,
+						totals: Rollup { bytes, files },
+					})
+					.await;
+			}
 			ctx.log(format!("Summarised {summarised} directories"));
 		}
 

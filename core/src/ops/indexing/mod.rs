@@ -31,7 +31,6 @@ pub mod job;
 pub mod lens;
 pub mod metrics;
 pub mod path_resolver;
-pub mod persistence;
 pub mod phases;
 pub mod processor;
 pub mod progress;
@@ -44,10 +43,10 @@ pub mod verify;
 pub use action::IndexingAction;
 pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, DatabaseAdapter, DatabaseAdapterForJob, EntryRef,
+	ChangeType, DatabaseAdapter, EntryRef,
 };
 pub use database_storage::{DatabaseStorage, EntryMetadata};
-pub use ephemeral::{EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats, MemoryAdapter};
+pub use ephemeral::{ArenaWriter, EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats};
 pub use handlers::{EphemeralEventHandler, LocationMeta, PersistentEventHandler};
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
@@ -57,7 +56,6 @@ pub use metrics::IndexerMetrics;
 // Re-export IndexMode from domain (canonical location)
 pub use crate::domain::location::IndexMode;
 pub use path_resolver::PathResolver;
-pub use persistence::{IndexPersistence as PersistenceTrait, PersistenceFactory};
 pub use rules::{
 	build_default_ruler, IndexerRule, IndexerRuler, RuleKind, RulePerKind, RuleToggles,
 	RulerDecision,

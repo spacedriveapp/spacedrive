@@ -102,7 +102,7 @@ impl EphemeralEventHandler {
 			tokio::spawn(async move {
 				while is_running.load(Ordering::SeqCst) {
 					tokio::time::sleep(RECOUNT_INTERVAL).await;
-					let recounted = context.ephemeral_cache().recount_dirty_stubs().await;
+					let recounted = responder::recount_summaries(&context).await;
 					if recounted > 0 {
 						debug!("Recounted {recounted} summarised directories");
 					}

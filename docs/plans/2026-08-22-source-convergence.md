@@ -773,6 +773,29 @@ listings and a move invalidates two of them.
 Worth doing here rather than sooner. `MemoryAdapter` is being rewritten in this
 phase anyway, and doing it earlier means building the seam twice.
 
+**Landed.** `IndexPersistence` is gone, with `PersistenceFactory` and
+`DatabaseAdapterForJob`; the one query the latter still served
+(`get_existing_entries`) moved to `change_detection::detector`, its only caller.
+`MemoryAdapter` is `ArenaWriter`, and it has one entry point: `apply(Seen)`
+resolves identity, mutates the arena, and answers with the `ArenaChange` that
+both the store write and the client event come out of. The walk and the watcher
+now differ only in `Notify` — every change for the watcher, one event per batch
+for a walk someone is watching, silence for a drive being mapped in the
+background. `run_ephemeral_processing_static` lost its hand-written copy of all
+three writes and is a third of its former size.
+
+Two things fell out of doing it. A re-walk used to announce every entry it
+re-observed; `Mutation::Unchanged` means a walk that finds nothing new says
+nothing, while the store still hears about every entry, which is what keeps a
+sweep from condemning them. And a recount now reaches clients, because it is a
+change like any other rather than an arena write with no way to tell anyone —
+which was the gap `2026-08-27-storage-map.md` left open.
+
+`ChangeHandler` stays: it is the shared orchestration for create/modify/
+remove/rename, and the database adapter still needs it. What it lost is
+`emit_change_event`, which for the arena is a hook that can no longer be reached
+— announcing is not separable from writing here.
+
 ### P5 — Catalog
 
 Teardown `P7`, unchanged.

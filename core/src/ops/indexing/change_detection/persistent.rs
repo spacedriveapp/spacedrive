@@ -1,16 +1,14 @@
-//! Unified database adapter for both watcher and indexer pipelines.
+//! The database adapter for the watcher pipeline.
 //!
-//! This module provides `DatabaseAdapter`, which implements both `ChangeHandler`
-//! (for the watcher pipeline) and `IndexPersistence` (for the indexer job).
-//! Both pipelines share the same database write logic through `DatabaseStorage`,
-//! eliminating code duplication.
+//! `DatabaseAdapter` handles filesystem changes for a managed location, writing
+//! through `DatabaseStorage` so the watcher and the indexer job agree about what
+//! a row looks like.
 
 use super::handler::ChangeHandler;
 use super::types::{ChangeType, EntryRef};
 use crate::context::CoreContext;
 use crate::infra::db::entities;
 use crate::infra::job::prelude::{JobContext, JobError, JobResult};
-use crate::ops::indexing::persistence::IndexPersistence;
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 use anyhow::Result;
 use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, TransactionTrait};
@@ -19,10 +17,10 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Unified writer for persistent (database-backed) index storage.
+/// Writer for persistent (database-backed) index storage.
 ///
-/// Implements both `ChangeHandler` (for the watcher pipeline) and `IndexPersistence`
-/// (for the indexer job pipeline). Both pipelines share:
+/// Implements `ChangeHandler` for the watcher pipeline. Shared with the indexer
+/// job through `DatabaseStorage`:
 /// - The same `DBWriter` for CRUD operations
 /// - Closure table management
 /// - Directory path tracking
@@ -709,210 +707,5 @@ impl ChangeHandler for DatabaseAdapter {
 		}
 
 		Ok(())
-	}
-}
-
-// ============================================================================
-// IndexPersistence Implementation (Job Pipeline)
-// ============================================================================
-
-/// Adapter for using PersistentWriter in the job pipeline.
-///
-/// The job system expects an `IndexPersistence` trait, but works with `JobContext`
-/// instead of `CoreContext`. This adapter wraps `PersistentWriter` and delegates
-/// storage operations to `DBWriter`, ensuring both pipelines use identical logic.
-pub struct DatabaseAdapterForJob<'a> {
-	ctx: &'a JobContext<'a>,
-	library_id: Uuid,
-	location_root_entry_id: Option<i32>,
-	volume_id: i32,
-}
-
-impl<'a> DatabaseAdapterForJob<'a> {
-	pub fn new(
-		ctx: &'a JobContext<'a>,
-		library_id: Uuid,
-		location_root_entry_id: Option<i32>,
-		volume_id: i32,
-	) -> Self {
-		Self {
-			ctx,
-			library_id,
-			location_root_entry_id,
-			volume_id,
-		}
-	}
-}
-
-#[async_trait::async_trait]
-impl<'a> IndexPersistence for DatabaseAdapterForJob<'a> {
-	async fn store_entry(
-		&self,
-		entry: &DirEntry,
-		_location_id: Option<i32>,
-		location_root_path: &Path,
-	) -> JobResult<i32> {
-		use crate::domain::addressing::SdPath;
-		use crate::ops::indexing::database_storage::DatabaseStorage;
-		use crate::ops::indexing::state::IndexerState;
-
-		let mut state = IndexerState::new(&SdPath::local(&entry.path));
-
-		// Cache Management: Resolve parent ID if needed (for job pipeline)
-		// The job processes entries in hierarchy order, but we still need to ensure
-		// the parent ID is cached before creating this entry
-		if let Some(parent_path) = entry.path.parent() {
-			if !state.entry_id_cache.contains_key(parent_path) {
-				if let Ok(Some(parent_id)) =
-					DatabaseStorage::resolve_parent_id(self.ctx.library_db(), parent_path).await
-				{
-					state
-						.entry_id_cache
-						.insert(parent_path.to_path_buf(), parent_id);
-				}
-			}
-		}
-
-		let entry_id = DatabaseStorage::create_entry(
-			&mut state,
-			self.ctx.library_db(),
-			Some(self.ctx.library()),
-			entry,
-			self.volume_id,
-			location_root_path,
-		)
-		.await?;
-
-		Ok(entry_id)
-	}
-
-	async fn store_content_identity(
-		&self,
-		entry_id: i32,
-		path: &Path,
-		cas_id: String,
-	) -> JobResult<()> {
-		use crate::ops::indexing::database_storage::DatabaseStorage;
-
-		DatabaseStorage::link_to_content_identity(
-			self.ctx.library_db(),
-			entry_id,
-			path,
-			cas_id,
-			self.ctx.library().core_context().file_type_registry(),
-		)
-		.await
-		.map(|_| ())
-	}
-
-	async fn get_existing_entries(
-		&self,
-		indexing_path: &Path,
-	) -> JobResult<
-		HashMap<std::path::PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>, u64)>,
-	> {
-		use crate::infra::db::entities::{directory_paths, entry_closure};
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-		let location_root_entry_id = match self.location_root_entry_id {
-			Some(id) => id,
-			None => return Ok(HashMap::new()),
-		};
-
-		let indexing_path_str = indexing_path.to_string_lossy().to_string();
-		let indexing_path_entry_id = match directory_paths::Entity::find()
-			.filter(directory_paths::Column::Path.eq(&indexing_path_str))
-			.one(self.ctx.library_db())
-			.await
-		{
-			Ok(Some(dir_record)) => dir_record.entry_id,
-			Ok(None) => {
-				// Path not found in database - this is either a new directory or a moved one.
-				// Return empty to let inode-based move detection handle it, rather than
-				// incorrectly loading entries from the entire location root.
-				self.ctx.log(format!(
-					"Indexing path not found in database: {}, treating as new (move detection via inode)",
-					indexing_path_str
-				));
-				return Ok(HashMap::new());
-			}
-			Err(e) => {
-				return Err(JobError::execution(format!(
-					"Failed to query directory_paths: {}",
-					e
-				)));
-			}
-		};
-
-		let descendant_ids = entry_closure::Entity::find()
-			.filter(entry_closure::Column::AncestorId.eq(indexing_path_entry_id))
-			.all(self.ctx.library_db())
-			.await
-			.map_err(|e| JobError::execution(format!("Failed to query closure table: {}", e)))?
-			.into_iter()
-			.map(|ec| ec.descendant_id)
-			.collect::<Vec<i32>>();
-
-		let mut all_entry_ids = vec![indexing_path_entry_id];
-		all_entry_ids.extend(descendant_ids);
-
-		let mut existing_entries: Vec<entities::entry::Model> = Vec::new();
-		let chunk_size: usize = 900;
-		for chunk in all_entry_ids.chunks(chunk_size) {
-			let mut batch = entities::entry::Entity::find()
-				.filter(entities::entry::Column::Id.is_in(chunk.to_vec()))
-				.all(self.ctx.library_db())
-				.await
-				.map_err(|e| {
-					JobError::execution(format!("Failed to query existing entries: {}", e))
-				})?;
-			existing_entries.append(&mut batch);
-		}
-
-		let mut result = HashMap::new();
-
-		self.ctx.log(format!(
-			"Loading {} existing entries",
-			existing_entries.len()
-		));
-
-		for entry in existing_entries {
-			let full_path =
-				crate::ops::indexing::PathResolver::get_full_path(self.ctx.library_db(), entry.id)
-					.await
-					.unwrap_or_else(|_| PathBuf::from(&entry.name));
-
-			let modified_time =
-				entry
-					.modified_at
-					.timestamp()
-					.try_into()
-					.ok()
-					.and_then(|secs: u64| {
-						std::time::UNIX_EPOCH.checked_add(std::time::Duration::from_secs(secs))
-					});
-
-			result.insert(
-				full_path,
-				(
-					entry.id,
-					entry.inode.map(|i| i as u64),
-					modified_time,
-					entry.size as u64,
-				),
-			);
-		}
-
-		Ok(result)
-	}
-
-	async fn update_entry(&self, entry_id: i32, entry: &DirEntry) -> JobResult<()> {
-		use crate::ops::indexing::database_storage::DatabaseStorage;
-
-		DatabaseStorage::update_entry(self.ctx.library_db(), entry_id, entry).await
-	}
-
-	fn is_persistent(&self) -> bool {
-		true
 	}
 }
