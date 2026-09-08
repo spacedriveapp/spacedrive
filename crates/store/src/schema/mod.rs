@@ -31,7 +31,7 @@ pub struct ModelDef {
 }
 
 /// Supported field types that map to SQLite column types.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
 pub enum FieldType {
 	/// TEXT — short string

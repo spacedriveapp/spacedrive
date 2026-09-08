@@ -462,40 +462,45 @@ The last two rows are worth stating plainly: atime and permissions were empty
 in the old library too, so those are an equal gap rather than a regression.
 Everything above them is a real loss.
 
-1. **The walk discards metadata it already has.** `DirEntry`
-   (`ops/indexing/state.rs:79`) carries path, kind, size, mtime and inode, and
-   `run_ephemeral_processing_static` fills the rest with `accessed: None,
-   created: None, permissions: None`. The `fs::Metadata` behind each entry has
-   `created()`, `accessed()` and `mode()` on it already, so the stat is paid
-   for and the fields are dropped on the floor. Birth time is the expensive one:
-   it is the timestamp a photo library sorts by, it is unrecoverable once the
-   file is copied, and every day of indexing without it loses more of them.
-   `EntryMetadata` and `facet_file.mode` both have the columns waiting.
+1. **Done.** The walk keeps what it already stat'd. `DirEntry`
+   carried path, kind, size, mtime and inode while
+   `run_ephemeral_processing_static` filled the rest with `accessed: None,
+   created: None, permissions: None`, even though the `fs::Metadata` behind
+   each entry has `created()`, `accessed()` and `mode()` on it. Birth time was
+   the expensive one: it is the timestamp a photo library sorts by, it is
+   unrecoverable once the file is copied, and every day of indexing without it
+   lost more of them. `DirEntry` now carries all three and `facet_file.mode`
+   has a writer.
 
-2. **The bulk walk does not build the tree.** Parent linkage is
-   `parent_of(external_id).and_then(|p| ledger.uuid_of(p))`, so a child is
-   linked only if the ledger has already resolved its directory. The incremental
-   path satisfies that and the walk does not:
+2. **Done.** The bulk walk builds the tree. Parent linkage was
+   `parent_of(external_id).and_then(|p| ledger.uuid_of(p))`, which links a
+   child only if the ledger has already resolved its directory. The incremental
+   path satisfied that and the walk did not:
 
    ```
    06:37-06:39   2,102,811 records from the bulk walk       1,349 parented
    10:48-10:49      19,856 records from browse and watcher  19,769 parented
    ```
 
-   240,122 directories exist as records and 949 of them know their parent. The
-   fix is ordering rather than schema: resolve a directory before the batch
-   carrying its children, or resolve parents within a batch first, which
-   `parents_first` already does one layer down in `apply_files` for exactly this
-   reason.
+   240,122 directories existed as records and 949 of them knew their parent.
+   The fix was ordering rather than schema: `shallowest_first` resolves a
+   directory before the children in the same batch, one layer above where
+   `parents_first` already did it in `apply_files` for the same reason.
 
-3. **No media facets.** `filesystem_schema()` declares one model with six
-   fields. The old library had `image_media_data` (EXIF, GPS, camera, lens,
-   orientation, blurhash) and `video_media_data` (codec, fps, colour primaries,
-   duration, audio stream). The facet mechanism is schema-driven and already
-   generates `facet_file` from a declaration, so `facet_image` and `facet_video`
-   are a schema entry rather than new machinery. Their writer is enrichment,
-   which is parked, but declaring them costs nothing and stops the shape being
-   invented twice.
+3. **Done.** `filesystem_schema()` declared one model with six fields against
+   the old library's `image_media_data` (EXIF, GPS, camera, lens, orientation,
+   blurhash) and `video_media_data` (codec, fps, colour primaries, duration,
+   audio stream). The facet mechanism is schema-driven, so `image`, `video` and
+   `audio` are declarations rather than machinery: `generate_ddl` emits their
+   tables on create and `diff_schemas` adds them to a store that predates them.
+   `audio_media_data` came across with the other two, being the same kind of
+   fact and already shaped. Their writer is enrichment, which is parked, but
+   the shape can no longer be invented twice.
+
+   The search contract came with them. It named `title = "name"` on a model
+   with no `name` field; a filesystem record's display name is its filename,
+   written to `record.title` by the walk rather than to any facet column, so
+   the contract now says `_derived.title` and falls through to the record.
 
 4. **Sidecars belong in the source store.** A sidecar is keyed by content uuid
    and `content` now lives in the source store, so leaving the row in
@@ -533,11 +538,7 @@ Everything above them is a real loss.
    root it is given. `thumbs.pvcache` is already per-source and already the hot
    tier, so this is the durable half catching up to where the cache went.
 
-**Order.** (1) and (2) are bugs against data the walk already holds and should
-land first; every walk before then produces records that need re-walking. (2)
-also has to land with P2.6, which makes the tree load-bearing rather than merely
-missing. (3) is a schema declaration. (4) is behind the content identity job,
-since a sidecar has nothing to key to while `content` has 0 rows.
+**Order.** (1), (2) and (3) have landed. (4) is what remains.
 
 **The content identity job landed.** `ContentIdentityJob` hashes what a source
 holds and has not identified, dispatched at `LOW` behind the walk that produced

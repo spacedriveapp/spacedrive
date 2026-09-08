@@ -864,3 +864,26 @@ async fn a_fresh_resolution_adopts_an_identity_the_path_already_has() {
 		"an observation cannot rename a record the ledger already holds"
 	);
 }
+
+/// The media facets are declared alongside the file facet, so a source gets
+/// their tables the moment it is created and an existing one gets them on the
+/// next open rather than needing a hand-written migration.
+#[tokio::test]
+async fn a_source_carries_a_table_for_every_declared_facet() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+
+	let tables: Vec<String> = sqlx::query_scalar(
+		"SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'facet_%'",
+	)
+	.fetch_all(db.pool())
+	.await
+	.expect("read table list");
+
+	for expected in ["facet_file", "facet_image", "facet_video", "facet_audio"] {
+		assert!(
+			tables.iter().any(|t| t == expected),
+			"{expected} missing from {tables:?}"
+		);
+	}
+}

@@ -826,24 +826,115 @@ fn address(
 	}
 }
 
-pub fn filesystem_schema() -> DataTypeSchema {
-	let mut fields = IndexMap::new();
-	fields.insert("size".to_string(), FieldType::Integer);
-	fields.insert("mtime".to_string(), FieldType::Integer);
-	fields.insert("atime".to_string(), FieldType::Integer);
-	fields.insert("inode".to_string(), FieldType::Integer);
-	fields.insert("mode".to_string(), FieldType::Integer);
-	fields.insert("extension".to_string(), FieldType::String);
-	fields.insert("is_hidden".to_string(), FieldType::Boolean);
+/// One facet model from a flat field list, so a declaration reads as the
+/// columns it produces rather than as builder calls.
+fn model(fields: &[(&str, FieldType)]) -> ModelDef {
+	ModelDef {
+		fields: fields
+			.iter()
+			.map(|(name, ty)| ((*name).to_string(), *ty))
+			.collect::<IndexMap<_, _>>(),
+		relations: RelationsDef::default(),
+	}
+}
 
+/// The image facet. Shape follows what an EXIF read yields: geometry, capture
+/// time and place, the camera and lens that took it, and the rendering hints a
+/// viewer needs before it has decoded anything.
+fn image_model() -> ModelDef {
+	model(&[
+		("width", FieldType::Integer),
+		("height", FieldType::Integer),
+		("blurhash", FieldType::String),
+		("date_taken", FieldType::Datetime),
+		("latitude", FieldType::Float),
+		("longitude", FieldType::Float),
+		("camera_make", FieldType::String),
+		("camera_model", FieldType::String),
+		("lens_model", FieldType::String),
+		("focal_length", FieldType::String),
+		("aperture", FieldType::String),
+		("shutter_speed", FieldType::String),
+		("iso", FieldType::Integer),
+		("orientation", FieldType::Integer),
+		("color_space", FieldType::String),
+		("color_profile", FieldType::String),
+		("bit_depth", FieldType::String),
+		("artist", FieldType::String),
+		("copyright", FieldType::String),
+		("description", FieldType::Text),
+	])
+}
+
+/// The video facet. Frame rate is kept as a numerator and denominator because
+/// 24000/1001 is not 23.976 and the difference accumulates over a timeline.
+fn video_model() -> ModelDef {
+	model(&[
+		("width", FieldType::Integer),
+		("height", FieldType::Integer),
+		("blurhash", FieldType::String),
+		("duration_seconds", FieldType::Float),
+		("bit_rate", FieldType::Integer),
+		("codec", FieldType::String),
+		("pixel_format", FieldType::String),
+		("color_space", FieldType::String),
+		("color_range", FieldType::String),
+		("color_primaries", FieldType::String),
+		("color_transfer", FieldType::String),
+		("fps_num", FieldType::Integer),
+		("fps_den", FieldType::Integer),
+		("audio_codec", FieldType::String),
+		("audio_channels", FieldType::String),
+		("audio_sample_rate", FieldType::Integer),
+		("audio_bit_rate", FieldType::Integer),
+		("title", FieldType::String),
+		("artist", FieldType::String),
+		("album", FieldType::String),
+		("creation_time", FieldType::Datetime),
+		("date_captured", FieldType::Datetime),
+	])
+}
+
+/// The audio facet, carrying the tags a library sorts and groups by alongside
+/// the stream properties.
+fn audio_model() -> ModelDef {
+	model(&[
+		("duration_seconds", FieldType::Float),
+		("bit_rate", FieldType::Integer),
+		("sample_rate", FieldType::Integer),
+		("channels", FieldType::String),
+		("codec", FieldType::String),
+		("title", FieldType::String),
+		("artist", FieldType::String),
+		("album", FieldType::String),
+		("album_artist", FieldType::String),
+		("genre", FieldType::String),
+		("year", FieldType::Integer),
+		("track_number", FieldType::Integer),
+		("disc_number", FieldType::Integer),
+		("composer", FieldType::String),
+		("publisher", FieldType::String),
+		("copyright", FieldType::String),
+	])
+}
+
+pub fn filesystem_schema() -> DataTypeSchema {
 	let mut models = IndexMap::new();
 	models.insert(
 		"file".to_string(),
-		ModelDef {
-			fields,
-			relations: RelationsDef::default(),
-		},
+		model(&[
+			("size", FieldType::Integer),
+			("mtime", FieldType::Integer),
+			("atime", FieldType::Integer),
+			("inode", FieldType::Integer),
+			("mode", FieldType::Integer),
+			("extension", FieldType::String),
+			("is_hidden", FieldType::Boolean),
+		]),
 	);
+	models.insert("image".to_string(), image_model());
+	models.insert("video".to_string(), video_model());
+	models.insert("audio".to_string(), audio_model());
 
 	DataTypeSchema {
 		data_type: DataTypeMeta {
@@ -854,7 +945,9 @@ pub fn filesystem_schema() -> DataTypeSchema {
 		models,
 		search: SearchContract {
 			primary_model: "file".to_string(),
-			title: "name".to_string(),
+			// The display name is the filename, which the walk writes to
+			// `record.title` rather than to any facet column.
+			title: "_derived.title".to_string(),
 			preview: "_derived.none".to_string(),
 			subtitle: None,
 			search_fields: Vec::new(),
