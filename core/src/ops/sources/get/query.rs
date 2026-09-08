@@ -4,6 +4,7 @@ use crate::ops::sources::list::SourceInfo;
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -49,41 +50,14 @@ impl LibraryQuery for GetSourceQuery {
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
-		if library.source_manager().is_none() {
-			library
-				.init_source_manager()
-				.await
-				.map_err(|e| QueryError::Internal(format!("Failed to init source manager: {e}")))?;
-		}
-
-		let source_manager = library
-			.source_manager()
-			.ok_or_else(|| QueryError::Internal("Source manager not available".to_string()))?;
-
-		let sources = source_manager
-			.list_sources()
-			.await
-			.map_err(|e| QueryError::Internal(e))?;
-
-		let source = sources
-			.into_iter()
-			.find(|s| s.id == self.input.source_id)
-			.ok_or_else(|| {
-				QueryError::Internal(format!("Source not found: {}", self.input.source_id))
-			})?;
-
-		let id = Uuid::parse_str(&source.id)
+		let source_id = Uuid::parse_str(&self.input.source_id)
 			.map_err(|e| QueryError::Internal(format!("Invalid source ID: {e}")))?;
 
-		Ok(SourceInfo::adapter(
-			id,
-			source.name,
-			source.data_type,
-			source.adapter_id,
-			source.item_count,
-			source.last_synced,
-			source.status,
-		))
+		let row = registry::get(library.db().conn(), source_id)
+			.await
+			.map_err(|e| QueryError::Internal(format!("{e}")))?;
+
+		Ok(SourceInfo::from_row(row, None))
 	}
 }
 

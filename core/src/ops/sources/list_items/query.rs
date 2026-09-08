@@ -3,6 +3,7 @@
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -69,9 +70,12 @@ impl LibraryQuery for ListSourceItemsQuery {
 			.source_manager()
 			.ok_or_else(|| QueryError::Internal("Source manager not available".to_string()))?;
 
+		let store_id = registry::parse_store_id(&self.input.source_id)
+			.map_err(|e| QueryError::Internal(format!("{e}")))?;
+
 		let items = source_manager
 			.list_items(
-				&self.input.source_id,
+				&store_id,
 				self.input.limit as usize,
 				self.input.offset as usize,
 			)

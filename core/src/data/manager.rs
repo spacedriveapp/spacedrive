@@ -1,22 +1,30 @@
-//! SourceManager: library-scoped wrapper around sd-archive Engine.
+//! SourceManager: wrapper around the sd-archive engine.
+//!
+//! The engine holds source stores and adapters, both of which are machine
+//! artifacts: a store is rebuilt wherever it is needed and an adapter is
+//! installed once for every library on the machine. What is library metadata is
+//! the registration, and that lives in the `sources` table.
+//!
+//! Stores land in the same directory as every other source's, so an adapter's
+//! records sit beside a walk's rather than in a directory of their own.
 
 use std::path::PathBuf;
 
-use sd_archive::{Engine, EngineConfig};
+use sd_archive::{Engine, EngineConfig, SourceRef};
 use tracing::info;
 
-/// Manages archive data sources for a single library.
+/// Manages archive data sources.
 pub struct SourceManager {
 	engine: Engine,
 }
 
 impl SourceManager {
-	/// Create a new source manager rooted at the library's archive directory.
-	pub async fn new(library_path: PathBuf) -> Result<Self, String> {
-		let data_dir = library_path.join("archive");
-
+	/// Create a source manager over this machine's source and adapter
+	/// directories.
+	pub async fn new(sources_dir: PathBuf, adapters_dir: PathBuf) -> Result<Self, String> {
 		let config = EngineConfig {
-			data_dir: data_dir.clone(),
+			sources_dir,
+			adapters_dir: adapters_dir.clone(),
 		};
 		let engine = Engine::new(config)
 			.await
@@ -25,14 +33,13 @@ impl SourceManager {
 		// Sync bundled adapters from the source tree into the installed adapters
 		// directory. Uses CARGO_MANIFEST_DIR at compile time to find the workspace
 		// root, matching the pattern from the spacedrive-data prototype.
-		let installed_dir = data_dir.join("adapters");
-		Self::sync_bundled_adapters(&installed_dir);
+		Self::sync_bundled_adapters(&adapters_dir);
 
 		// Reload adapters after sync (picks up any newly copied adapters)
-		Engine::load_script_adapters(&installed_dir, engine.adapters())
+		Engine::load_script_adapters(&adapters_dir, engine.adapters())
 			.map_err(|e| format!("Failed to reload adapters: {e}"))?;
 
-		info!("Source manager initialized at {}", library_path.display());
+		info!("Source manager initialized at {}", adapters_dir.display());
 
 		Ok(Self { engine })
 	}
@@ -106,41 +113,41 @@ impl SourceManager {
 		}
 	}
 
-	/// List all sources.
-	pub async fn list_sources(&self) -> Result<Vec<sd_archive::SourceInfo>, String> {
-		self.engine
-			.list_sources()
-			.await
-			.map_err(|e| format!("Failed to list sources: {e}"))
-	}
-
-	/// Create a new source.
+	/// Create a source's store, answering with what its adapter says it is.
+	/// The registration is the caller's to write.
 	pub async fn create_source(
 		&self,
-		name: &str,
+		store_id: &str,
 		adapter_id: &str,
-		config: serde_json::Value,
-	) -> Result<sd_archive::SourceInfo, String> {
+	) -> Result<sd_archive::AdapterFacts, String> {
 		self.engine
-			.create_source(name, adapter_id, config)
+			.create_source(store_id, adapter_id)
 			.await
 			.map_err(|e| format!("Failed to create source: {e}"))
 	}
 
-	/// Delete a source.
-	pub async fn delete_source(&self, source_id: &str) -> Result<(), String> {
+	/// Delete a source's store.
+	pub async fn delete_source(&self, store_id: &str) -> Result<(), String> {
 		self.engine
-			.delete_source(source_id)
+			.delete_source(store_id)
 			.await
 			.map_err(|e| format!("Failed to delete source: {e}"))
 	}
 
-	/// Sync a source.
-	pub async fn sync_source(&self, source_id: &str) -> Result<sd_archive::SyncReport, String> {
+	/// Sync a source. What the run did comes back for the caller to record.
+	pub async fn sync_source(&self, source: &SourceRef) -> Result<sd_archive::SyncReport, String> {
 		self.engine
-			.sync(source_id)
+			.sync(source)
 			.await
 			.map_err(|e| format!("Failed to sync source: {e}"))
+	}
+
+	/// How many records a source's store holds.
+	pub async fn record_count(&self, store_id: &str) -> Result<i64, String> {
+		self.engine
+			.record_count(store_id)
+			.await
+			.map_err(|e| format!("Failed to count records: {e}"))
 	}
 
 	/// List items from a source.
@@ -180,14 +187,15 @@ impl SourceManager {
 			.map_err(|e| format!("Failed to read file root: {e}"))
 	}
 
-	/// Search across this library's sources.
+	/// Search across the given sources.
 	pub async fn search(
 		&self,
 		query: &str,
 		filter: Option<sd_archive::SearchFilter>,
+		sources: &[SourceRef],
 	) -> Result<Vec<sd_archive::SearchResult>, String> {
 		self.engine
-			.search(query, filter)
+			.search(query, filter, sources)
 			.await
 			.map_err(|e| format!("Failed to search sources: {e}"))
 	}

@@ -22,31 +22,27 @@
 //!
 //! ```text
 //! Core
-//!   -> Library
-//!     -> SourceManager (wraps Engine)
-//!       -> Engine
-//!         -> AdapterRegistry
-//!         -> Registry             (registry.db: which sources exist)
-//!         -> sd_store::SourceDb   (per source: records, facets, overlays)
-//!         -> SearchRouter
+//!   -> library.db `sources`       (which sources exist, whatever fills them)
+//!   -> SourceManager (wraps Engine)
+//!     -> Engine
+//!       -> AdapterRegistry
+//!       -> sd_store::SourceDb     (per source: records, facets, overlays)
+//!       -> SearchRouter
 //! ```
 //!
-//! The registry and the router both fan out over "which sources exist", which
-//! becomes core's once `library.db` owns that list. At that point they move,
-//! and what is left here is the adapter runtime. See
-//! `docs/plans/2026-08-22-source-convergence.md` P3.
+//! What is left here is the adapter runtime and the stores it writes. Which
+//! sources exist is a question for the library, so the engine is handed a
+//! [`SourceRef`] rather than looking one up.
 
 pub mod adapter;
 pub mod engine;
 pub mod error;
-pub mod registry;
 pub mod search;
 
 pub use adapter::script::ConfigField;
 pub use adapter::{AdapterInfo, AdapterUpdateResult, SyncReport};
-pub use engine::{Engine, EngineConfig};
+pub use engine::{AdapterFacts, Engine, EngineConfig, SourceRef};
 pub use error::{Error, Result};
-pub use registry::{DataTypeInfo, NewSource, Registry, SourceInfo};
 pub use search::{SearchFilter, SearchResult};
 
 // The store types callers need in the same breath as the engine.

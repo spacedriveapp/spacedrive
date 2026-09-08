@@ -1,7 +1,10 @@
 //! Engine: top-level orchestrator that wires together all subsystems.
 //!
-//! This is what consumers instantiate. The Engine manages sources (archived data),
-//! adapters, search, and the processing pipeline.
+//! This is what consumers instantiate. The engine holds stores, adapters and
+//! search. It does not hold the list of sources: that is library metadata, it
+//! lives in the library database beside every other kind of source, and the
+//! engine is told which source it is working on. Two lists of sources is how
+//! they drift, and there used to be two.
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -9,21 +12,49 @@ use std::sync::Arc;
 use crate::adapter::script::{ConfigField, ScriptAdapter};
 use crate::adapter::{Adapter, AdapterRegistry, SyncReport};
 use crate::error::{Error, Result};
-use crate::registry::{NewSource, Registry, SourceInfo};
 use crate::search::router::SearchRouter;
 use crate::search::{SearchFilter, SearchResult};
 use sd_store::source::SourceManager;
+use sd_store::TrustTier;
 
 /// Configuration for initializing the engine.
 pub struct EngineConfig {
-	/// Path to the data directory where sources are stored.
-	pub data_dir: PathBuf,
+	/// Where source stores live. Shared with every other kind of source, so an
+	/// adapter's records sit beside a walk's rather than in a directory of
+	/// their own.
+	pub sources_dir: PathBuf,
+	/// Where installed adapters live. A property of the machine rather than of
+	/// a library, since the same adapter serves all of them.
+	pub adapters_dir: PathBuf,
+}
+
+/// A source as the engine needs to see it: an identity, the adapter that fills
+/// it, and the configuration that adapter reads.
+#[derive(Debug, Clone)]
+pub struct SourceRef {
+	pub id: String,
+	pub name: String,
+	pub data_type: String,
+	pub adapter_id: String,
+	pub config: serde_json::Value,
+	/// How much a result from this source is worth, which travels with the
+	/// source rather than with the query.
+	pub trust_tier: TrustTier,
+}
+
+/// What an adapter says a source made from it is.
+///
+/// Read off the adapter at creation time and written to the registration, so
+/// nothing has to hold an adapter open to answer what data type a source has.
+#[derive(Debug, Clone)]
+pub struct AdapterFacts {
+	pub data_type: String,
+	pub trust_tier: TrustTier,
 }
 
 /// The top-level archive engine. Holds all subsystems.
 pub struct Engine {
 	config: EngineConfig,
-	registry: Arc<Registry>,
 	sources: Arc<SourceManager>,
 	adapters: AdapterRegistry,
 	search: SearchRouter,
@@ -32,33 +63,17 @@ pub struct Engine {
 impl Engine {
 	/// Create a new engine rooted at the given data directory.
 	pub async fn new(config: EngineConfig) -> Result<Self> {
-		let data_dir = &config.data_dir;
+		std::fs::create_dir_all(&config.sources_dir)?;
+		std::fs::create_dir_all(&config.adapters_dir)?;
 
-		// Ensure data directory exists
-		std::fs::create_dir_all(data_dir)?;
-
-		// Initialize the source registry (registry.db)
-		let registry_path = data_dir.join("registry.db");
-		let registry_url = format!("sqlite:{}?mode=rwc", registry_path.display());
-		let pool = sqlx::SqlitePool::connect(&registry_url).await?;
-		let registry = Arc::new(Registry::new(pool).await?);
-
-		// Initialize source manager
-		let sources_dir = data_dir.join("sources");
-		std::fs::create_dir_all(&sources_dir)?;
-		let sources = Arc::new(SourceManager::new(sources_dir));
-
-		// Initialize search router
-		let search = SearchRouter::new(registry.clone(), sources.clone());
+		let sources = Arc::new(SourceManager::new(config.sources_dir.clone()));
+		let search = SearchRouter::new(sources.clone());
 
 		let adapters = AdapterRegistry::new();
-		let adapters_dir = data_dir.join("adapters");
-		std::fs::create_dir_all(&adapters_dir)?;
-		Self::load_script_adapters(&adapters_dir, &adapters)?;
+		Self::load_script_adapters(&config.adapters_dir, &adapters)?;
 
 		Ok(Self {
 			config,
-			registry,
 			sources,
 			adapters,
 			search,
@@ -98,11 +113,6 @@ impl Engine {
 
 	// ── Public API ──────────────────────────────────────────────────────
 
-	/// Access the registry (list sources, data types).
-	pub fn registry(&self) -> &Registry {
-		&self.registry
-	}
-
 	/// Access the source manager.
 	pub fn sources(&self) -> &SourceManager {
 		&self.sources
@@ -118,58 +128,51 @@ impl Engine {
 		&self.adapters
 	}
 
-	/// The data directory path.
-	pub fn data_dir(&self) -> &std::path::Path {
-		&self.config.data_dir
+	/// Where installed adapters live.
+	pub fn adapters_dir(&self) -> &std::path::Path {
+		&self.config.adapters_dir
+	}
+
+	/// Where source stores live.
+	pub fn sources_dir(&self) -> &std::path::Path {
+		&self.config.sources_dir
 	}
 
 	/// Cross-source search.
+	///
+	/// The sources to search are handed in, because which sources exist is a
+	/// question for the library rather than for the engine.
 	pub async fn search(
 		&self,
 		query: &str,
 		filter: Option<SearchFilter>,
+		sources: &[SourceRef],
 	) -> Result<Vec<SearchResult>> {
-		self.search.search(query, filter).await
+		self.search.search(query, filter, sources).await
 	}
 
 	/// Create a new source from an adapter and config.
-	pub async fn create_source(
-		&self,
-		name: &str,
-		adapter_id: &str,
-		config: serde_json::Value,
-	) -> Result<SourceInfo> {
-		// Find adapter
+	/// Create a source's store, and answer with what its adapter says it is.
+	///
+	/// The caller owns the identity and writes the registration; this owns the
+	/// store on disk and the schema inside it.
+	pub async fn create_source(&self, id: &str, adapter_id: &str) -> Result<AdapterFacts> {
 		let adapter = self
 			.adapters
 			.get(adapter_id)
 			.ok_or_else(|| Error::AdapterNotFound(adapter_id.to_string()))?;
 
 		// The adapter carries its data type schema, compiled in or parsed from
-		// its manifest
-		let data_type = adapter.data_type().to_string();
-		let schema = adapter.schema().clone();
+		// its manifest.
+		self.sources.create(id, adapter.schema()).await?;
 
-		// Create registry entry — trust tier comes from the adapter
-		let trust_tier = adapter.trust_tier();
-		let source_info = self
-			.registry
-			.create_source(&NewSource {
-				name: name.to_string(),
-				data_type,
-				adapter_id: adapter_id.to_string(),
-				config,
-				trust_tier,
-			})
-			.await?;
-
-		// Create source folder + database
-		self.sources.create(&source_info.id, &schema).await?;
-
-		Ok(source_info)
+		Ok(AdapterFacts {
+			data_type: adapter.data_type().to_string(),
+			trust_tier: adapter.trust_tier(),
+		})
 	}
 
-	/// Delete a source: its store on disk and its registry entry.
+	/// Delete a source's store.
 	///
 	/// The store holds the source's assertions, so this discards them too.
 	/// Re-indexing a source is a different operation — it replaces the rows an
@@ -177,43 +180,38 @@ impl Engine {
 	/// `(type, external_id)` key is for.
 	pub async fn delete_source(&self, source_id: &str) -> Result<()> {
 		self.sources.delete(source_id).await?;
-		self.registry.delete_source(source_id).await?;
 
 		Ok(())
 	}
 
 	/// Trigger a sync for a source.
-	pub async fn sync(&self, source_id: &str) -> Result<SyncReport> {
-		// Get source info
-		let source_info = self.registry.get_source(source_id).await?;
-
-		// Find adapter
+	///
+	/// Answers with what the run did. Recording that against the registration
+	/// is the caller's, because the caller is where the registration lives.
+	pub async fn sync(&self, source: &SourceRef) -> Result<SyncReport> {
 		let adapter = self
 			.adapters
-			.get(&source_info.adapter_id)
-			.ok_or_else(|| Error::AdapterNotFound(source_info.adapter_id.clone()))?;
+			.get(&source.adapter_id)
+			.ok_or_else(|| Error::AdapterNotFound(source.adapter_id.clone()))?;
 
 		// Open the index against the adapter's current schema, applying any
 		// safe migrations the diff allows
 		let (db, migration_result) = self
 			.sources
-			.open_with_migration(source_id, adapter.schema())
+			.open_with_migration(&source.id, adapter.schema())
 			.await?;
 
 		if !migration_result.applied.is_empty() {
 			tracing::info!(
-				source_id,
+				source_id = source.id,
 				actions = ?migration_result.applied,
 				"schema migration applied during sync"
 			);
 		}
 
-		// Build config with secrets resolved at the library level
-		let config = source_info.config.clone();
-
 		// Expose the source's data directory to the adapter
-		let mut config = config;
-		let data_dir = self.sources.source_dir(source_id);
+		let mut config = source.config.clone();
+		let data_dir = self.sources.source_dir(&source.id);
 		if let Some(obj) = config.as_object_mut() {
 			obj.insert(
 				"_data_dir".to_string(),
@@ -221,43 +219,17 @@ impl Engine {
 			);
 		}
 
-		// Update status to syncing
-		self.registry
-			.update_source_status(source_id, "syncing", None, None)
-			.await?;
-
 		// Stamp everything this run writes with a fresh epoch.
 		let epoch = db.begin_sync().await?;
-		tracing::debug!(source_id, epoch, "sync run started");
+		tracing::debug!(source_id = source.id, epoch, "sync run started");
 
-		// Run sync
-		let report = adapter.sync(&db, &config).await?;
-
-		// Update status based on result
-		let now = chrono::Utc::now().to_rfc3339();
-		if report.error.is_some() {
-			self.registry
-				.update_source_status(
-					source_id,
-					"error",
-					Some(report.records_upserted as i64),
-					Some(&now),
-				)
-				.await?;
-		} else {
-			let total_count = db.count_all().await.unwrap_or(0);
-
-			self.registry
-				.update_source_status(source_id, "idle", Some(total_count), Some(&now))
-				.await?;
-		}
-
-		Ok(report)
+		adapter.sync(&db, &config).await
 	}
 
-	/// List all sources.
-	pub async fn list_sources(&self) -> Result<Vec<SourceInfo>> {
-		self.registry.list_sources().await
+	/// How many records a source's store holds.
+	pub async fn record_count(&self, source_id: &str) -> Result<i64> {
+		let db = self.sources.open(source_id).await?;
+		Ok(db.count_all().await?)
 	}
 
 	/// List items from a source's primary model table.
@@ -306,8 +278,7 @@ impl Engine {
 	) -> Option<bool> {
 		let installed_toml = self
 			.config
-			.data_dir
-			.join("adapters")
+			.adapters_dir
 			.join(adapter_id)
 			.join("adapter.toml");
 		let source_toml = source_dir.join("adapter.toml");
@@ -350,7 +321,7 @@ impl Engine {
 			std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 				.parent()
 				.map(|p| p.join("adapters")),
-			Some(self.config.data_dir.join("bundled_adapters")),
+			Some(self.config.adapters_dir.join("bundled_adapters")),
 		];
 
 		candidates
@@ -377,7 +348,7 @@ impl Engine {
 			)));
 		}
 
-		let installed_dir = self.config.data_dir.join("adapters").join(adapter_id);
+		let installed_dir = self.config.adapters_dir.join(adapter_id);
 		if !installed_dir.exists() {
 			return Err(Error::AdapterNotFound(adapter_id.to_string()));
 		}
@@ -401,7 +372,7 @@ impl Engine {
 			adapter_id,
 			chrono::Utc::now().format("%Y%m%d_%H%M%S")
 		);
-		let backup_dir = self.config.data_dir.join("adapters").join(&backup_name);
+		let backup_dir = self.config.adapters_dir.join(&backup_name);
 		std::fs::rename(&installed_dir, &backup_dir)?;
 
 		tracing::info!(adapter_id, backup = %backup_dir.display(), "backed up adapter before update");
@@ -436,7 +407,7 @@ impl Engine {
 		let adapter = ScriptAdapter::from_dir(source_dir)?;
 		let adapter_id = adapter.id().to_string();
 
-		let dest = self.config.data_dir.join("adapters").join(&adapter_id);
+		let dest = self.config.adapters_dir.join(&adapter_id);
 		if dest.exists() {
 			return Err(Error::AlreadyExists(format!("adapter: {adapter_id}")));
 		}

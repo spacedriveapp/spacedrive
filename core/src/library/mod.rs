@@ -146,9 +146,22 @@ impl Library {
 			return Ok(());
 		}
 
-		let source_manager = crate::data::manager::SourceManager::new(self.path.clone())
-			.await
-			.map_err(|e| LibraryError::Other(format!("Failed to create source manager: {e}")))?;
+		// Stores and adapters are machine artifacts, not library ones: a store
+		// is rebuilt wherever it is needed and an adapter is installed once for
+		// every library on the machine. The registration is what belongs to the
+		// library, and that is a row in `sources`.
+		let dirs = crate::infra::source_dirs::SourceDirs::from_default_data_dir()
+			.map_err(|e| LibraryError::Other(format!("Failed to resolve source layout: {e}")))?;
+		let adapters_dir = crate::config::default_data_dir()
+			.map_err(|e| LibraryError::Other(format!("Failed to resolve data directory: {e}")))?
+			.join("adapters");
+
+		let source_manager =
+			crate::data::manager::SourceManager::new(dirs.root().to_path_buf(), adapters_dir)
+				.await
+				.map_err(|e| {
+					LibraryError::Other(format!("Failed to create source manager: {e}"))
+				})?;
 
 		self.source_manager
 			.set(Arc::new(source_manager))

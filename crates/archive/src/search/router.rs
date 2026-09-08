@@ -7,8 +7,8 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use crate::engine::SourceRef;
 use crate::error::Result;
-use crate::registry::Registry;
 use crate::search::{SearchFilter, SearchResult};
 use sd_store::db::TemporalFilter;
 use sd_store::source::SourceManager;
@@ -17,27 +17,27 @@ const DEFAULT_LIMIT: usize = 20;
 
 /// Routes search queries across all sources.
 pub struct SearchRouter {
-	pub(crate) registry: Arc<Registry>,
 	pub(crate) sources: Arc<SourceManager>,
 }
 
 impl SearchRouter {
-	pub fn new(registry: Arc<Registry>, sources: Arc<SourceManager>) -> Self {
-		Self { registry, sources }
+	pub fn new(sources: Arc<SourceManager>) -> Self {
+		Self { sources }
 	}
 
-	/// Search across all (or filtered) sources.
+	/// Search across the given sources, filtered further by the query's own
+	/// terms.
 	pub async fn search(
 		&self,
 		query: &str,
 		filter: Option<SearchFilter>,
+		sources: &[SourceRef],
 	) -> Result<Vec<SearchResult>> {
 		let filter = filter.unwrap_or_default();
 		let limit = filter.limit.unwrap_or(DEFAULT_LIMIT);
 
-		let all_sources = self.registry.list_sources().await?;
-		let sources_to_search: Vec<_> = all_sources
-			.into_iter()
+		let sources_to_search: Vec<_> = sources
+			.iter()
 			.filter(|s| {
 				if let Some(ref source_id) = filter.source_id {
 					return &s.id == source_id;

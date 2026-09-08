@@ -4,6 +4,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
+	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -50,10 +51,17 @@ impl LibraryAction for DeleteSourceAction {
 			.source_manager()
 			.ok_or_else(|| ActionError::Internal("Source manager not available".to_string()))?;
 
+		let source_id = uuid::Uuid::parse_str(&self.input.source_id)
+			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
+
 		source_manager
-			.delete_source(&self.input.source_id)
+			.delete_source(&registry::store_id(source_id))
 			.await
-			.map_err(|e| ActionError::Internal(e))?;
+			.map_err(ActionError::Internal)?;
+
+		registry::unregister(library.db().conn(), source_id)
+			.await
+			.map_err(|e| ActionError::Internal(format!("Failed to unregister source: {e}")))?;
 
 		Ok(DeleteSourceOutput { deleted: true })
 	}

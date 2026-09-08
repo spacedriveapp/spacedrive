@@ -735,7 +735,7 @@ and `<library>/archive/` are removed; `ops/sources/*` serves both kinds. The
 `ephemeral` qualifier retires here rather than at `T6.7`, because after this
 phase there is nothing for it to distinguish.
 
-**Partly done.** `sources` is a table (`entities::source`,
+**Done.** `sources` is a table (`entities::source`,
 `m20260825_000001_create_sources`), one row per source whatever its ingest,
 forked by `data_type` to match `_schema.data_type_id` in the source's own store.
 `sources.json` is deleted rather than migrated. `T2.0b` is ruled: a source
@@ -744,9 +744,26 @@ so a remount re-derives the absolute path instead of being a case anything
 handles. Fingerprint matching is gone from the registry, since it duplicated an
 identity the volume manager already maintains.
 
-Still open here: folding `registry.db` in so adapter sources use the same table,
-and a deliberate "track this drive" flow so a source stops appearing only as a
-side effect of a browse.
+`registry.db` is gone with it. The archive engine kept its own list of sources,
+which meant two lists that could not see each other and drifted whenever one was
+written without the other; `sources.list` used to union them and say so. Now the
+engine holds stores and adapters and is handed a `SourceRef`, so which sources
+exist is one question with one answer. `ops/sources/registry` is that answer read
+back: `all`, `source_refs`, `register`, `record_run`, `unregister`.
+
+Two things moved on disk with it. Adapter stores now live under `SourceDirs`
+beside every other source's, rather than in `<library>/archive/sources/`, and
+they are named the way filesystem stores are, by uuid without its dashes.
+Installed adapters moved to `<data>/adapters`, because an adapter is installed
+once for a machine rather than once per library. `<library>/archive/` is no
+longer written at all.
+
+Existing adapter sources do not carry over: their rows were in `registry.db` and
+their stores are under the old path, so they need creating again. Nothing reads
+either any more.
+
+Still open here: a deliberate "track this drive" flow so a source stops appearing
+only as a side effect of a browse.
 
 Two seams this left visible on purpose. `EphemeralIndexCache` is machine-scoped
 and a registration is library metadata, so the cache follows the open library

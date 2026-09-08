@@ -5,6 +5,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
+	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -36,28 +37,15 @@ impl LibraryAction for SyncSourceAction {
 		library: Arc<Library>,
 		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Get source name for job display
-		if library.source_manager().is_none() {
-			library.init_source_manager().await.map_err(|e| {
-				ActionError::Internal(format!("Failed to init source manager: {e}"))
-			})?;
-		}
-
-		let source_manager = library
-			.source_manager()
-			.ok_or_else(|| ActionError::Internal("Source manager not available".to_string()))?;
-
-		// Look up source name
-		let sources = source_manager
-			.list_sources()
-			.await
-			.map_err(|e| ActionError::Internal(e))?;
-
-		let source_name = sources
-			.iter()
-			.find(|s| s.id == self.input.source_id)
-			.map(|s| s.name.clone())
-			.unwrap_or_else(|| self.input.source_id.clone());
+		// The name is for the job's own display; the job re-reads the row it
+		// needs when it runs.
+		let source_name = match uuid::Uuid::parse_str(&self.input.source_id) {
+			Ok(id) => registry::get(library.db().conn(), id)
+				.await
+				.map(|row| row.name)
+				.unwrap_or_else(|_| self.input.source_id.clone()),
+			Err(_) => self.input.source_id.clone(),
+		};
 
 		let job = SourceSyncJob::new(self.input.source_id, source_name);
 

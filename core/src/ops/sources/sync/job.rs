@@ -1,6 +1,7 @@
 //! Source sync job implementation
 
 use crate::infra::job::prelude::*;
+use crate::ops::sources::registry;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -75,11 +76,35 @@ impl JobHandler for SourceSyncJob {
 			.source_manager()
 			.ok_or_else(|| JobError::ExecutionFailed("Source manager not available".to_string()))?;
 
-		// Run the sync
+		let source_id = uuid::Uuid::parse_str(&self.source_id)
+			.map_err(|e| JobError::ExecutionFailed(format!("Invalid source ID: {e}")))?;
+		let row = registry::get(library.db().conn(), source_id)
+			.await
+			.map_err(|e| JobError::ExecutionFailed(format!("{e}")))?;
+		let source = registry::source_ref(&row).ok_or_else(|| {
+			JobError::ExecutionFailed(format!("Source {source_id} has no adapter to sync"))
+		})?;
+
+		// A listing during the run says so, rather than reporting the state the
+		// last run left behind.
+		let _ = registry::mark_status(library.db().conn(), source_id, "syncing").await;
+
 		let report = source_manager
-			.sync_source(&self.source_id)
+			.sync_source(&source)
 			.await
 			.map_err(|e| JobError::ExecutionFailed(format!("Sync failed: {e}")))?;
+
+		// What the run did is recorded here, because the registration is here.
+		let counted = source_manager.record_count(&source.id).await.ok();
+		let status = if report.error.is_some() {
+			"error"
+		} else {
+			"idle"
+		};
+		if let Err(e) = registry::record_run(library.db().conn(), source_id, status, counted).await
+		{
+			ctx.add_warning(format!("Could not record the sync run: {e}"));
+		}
 
 		let duration_ms = self.started_at.elapsed().as_millis() as u64;
 

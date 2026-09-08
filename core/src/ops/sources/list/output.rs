@@ -1,7 +1,9 @@
 //! Source listing output
 
+use crate::ops::indexing::ephemeral::SourceRecord;
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::path::Path;
 use uuid::Uuid;
 
 /// A registered source of either kind.
@@ -37,29 +39,47 @@ pub struct SourceInfo {
 }
 
 impl SourceInfo {
-	/// A source backed by an adapter, from the archive registry.
-	pub fn adapter(
-		id: Uuid,
-		name: String,
-		data_type: String,
-		adapter_id: String,
-		item_count: i64,
-		last_synced: Option<String>,
-		status: String,
+	/// One registration, whatever fills it.
+	///
+	/// `mount_point` is where the source's volume is mounted right now, for the
+	/// kind that has one. A filesystem source stores its root relative to its
+	/// volume, so without the mount there is no absolute path to report and the
+	/// source reads as detached, which is what a drive in a drawer is.
+	pub fn from_row(
+		row: crate::infra::db::entities::source::Model,
+		mount_point: Option<&Path>,
 	) -> Self {
+		let adapter_id = row.adapter_id.clone();
+		let data_type = row.data_type.clone();
+		let status = row.status.clone();
+		let last_seen_at = Some(row.last_seen_at.to_rfc3339());
+		let last_synced = row.last_indexed_at.map(|at| at.to_rfc3339());
+		let item_count = row.record_count.unwrap_or(0);
+		let total_bytes = row.total_bytes;
+		let record = SourceRecord::from_row(row, mount_point);
+
+		// An adapter's origin is a network service rather than a drive, so it
+		// is attached in the only sense the word has here.
+		let attached = if adapter_id.is_some() {
+			true
+		} else {
+			record.root.exists()
+		};
+
 		Self {
-			id,
-			name,
+			id: record.id,
+			name: record.name,
 			data_type,
-			adapter_id: Some(adapter_id),
+			adapter_id,
 			item_count,
 			last_synced,
 			status,
-			root: None,
-			volume_uuid: None,
-			attached: true,
-			total_bytes: None,
-			last_seen_at: None,
+			root: (!record.root.as_os_str().is_empty())
+				.then(|| record.root.to_string_lossy().into_owned()),
+			volume_uuid: record.volume_uuid,
+			attached,
+			total_bytes,
+			last_seen_at,
 		}
 	}
 }

@@ -7,6 +7,7 @@
 use crate::{
 	context::CoreContext,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -84,8 +85,17 @@ impl LibraryQuery for SourceSearchQuery {
 			.source_manager()
 			.ok_or_else(|| QueryError::Internal("Source manager not available".to_string()))?;
 
+		// A store is named by the source's uuid without its dashes, which is
+		// what the engine matches on.
+		let source_id = match &self.input.source_id {
+			Some(id) => Some(
+				registry::parse_store_id(id).map_err(|e| QueryError::Internal(format!("{e}")))?,
+			),
+			None => None,
+		};
+
 		let filter = sd_archive::SearchFilter {
-			source_id: self.input.source_id,
+			source_id,
 			data_type: self.input.data_type,
 			limit: self.input.limit.map(|l| l as usize),
 			date_after: None,
@@ -93,8 +103,12 @@ impl LibraryQuery for SourceSearchQuery {
 			sort_by_date: false,
 		};
 
+		let sources = registry::source_refs(library.db().conn())
+			.await
+			.map_err(|e| QueryError::Internal(format!("Failed to list sources: {e}")))?;
+
 		let results = source_manager
-			.search(&self.input.query, Some(filter))
+			.search(&self.input.query, Some(filter), &sources)
 			.await
 			.map_err(QueryError::Internal)?;
 
@@ -109,7 +123,10 @@ impl LibraryQuery for SourceSearchQuery {
 				subtitle: r.subtitle,
 				snippet: r.snippet,
 				rank: r.rank,
-				source_id: r.source_id,
+				// Back to the id the rest of the API speaks.
+				source_id: uuid::Uuid::parse_str(&r.source_id)
+					.map(|id| id.to_string())
+					.unwrap_or(r.source_id),
 				source_name: r.source_name,
 				data_type: r.data_type,
 			})

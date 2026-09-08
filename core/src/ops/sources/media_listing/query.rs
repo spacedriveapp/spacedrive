@@ -16,6 +16,7 @@ use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, file::EntryKind, file::File, ContentKind},
 	infra::query::{LibraryQuery, QueryError, QueryResult},
+	ops::sources::registry,
 };
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -81,9 +82,12 @@ impl LibraryQuery for SourceMediaListingQuery {
 			.source_manager()
 			.ok_or_else(|| QueryError::Internal("Source manager not available".to_string()))?;
 
+		let store_id = registry::parse_store_id(&self.input.source_id)
+			.map_err(|e| QueryError::Internal(format!("{e}")))?;
+
 		let limit = (self.input.limit as usize).min(2000);
 		let records = source_manager
-			.list_records_full(&self.input.source_id, limit, self.input.offset as usize)
+			.list_records_full(&store_id, limit, self.input.offset as usize)
 			.await
 			.map_err(QueryError::Internal)?;
 
@@ -91,7 +95,7 @@ impl LibraryQuery for SourceMediaListingQuery {
 		let device_slug = crate::device::get_current_device_slug();
 
 		let file_root = source_manager
-			.file_root(&self.input.source_id)
+			.file_root(&store_id)
 			.await
 			.map_err(QueryError::Internal)?;
 

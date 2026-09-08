@@ -5,6 +5,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
+	ops::sources::registry,
 };
 use std::sync::Arc;
 use uuid::Uuid;
@@ -50,20 +51,30 @@ impl LibraryAction for CreateSourceAction {
 			.source_manager()
 			.ok_or_else(|| ActionError::Internal("Source manager not available".to_string()))?;
 
-		// Create the source via sd-archive
-		let source_info = source_manager
-			.create_source(&self.input.name, &self.input.adapter_id, self.input.config)
+		// The identity is minted here, because the registration is written
+		// here. The engine is told what to call the store.
+		let source_id = Uuid::now_v7();
+		let facts = source_manager
+			.create_source(&registry::store_id(source_id), &self.input.adapter_id)
 			.await
 			.map_err(|e| ActionError::Internal(format!("Failed to create source: {e}")))?;
 
-		let source_id = Uuid::parse_str(&source_info.id)
-			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
+		let row = registry::register(
+			library.db().conn(),
+			source_id,
+			&self.input.name,
+			&self.input.adapter_id,
+			&self.input.config,
+			&facts,
+		)
+		.await
+		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
 		Ok(CreateSourceOutput::new(
 			source_id,
-			source_info.name,
-			source_info.adapter_id,
-			source_info.status,
+			row.name,
+			self.input.adapter_id,
+			row.status,
 		))
 	}
 
