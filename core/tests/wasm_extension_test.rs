@@ -1,6 +1,10 @@
 //! WASM Extension System Integration Test
 //!
 //! Tests that we can actually load and run WASM extensions.
+//!
+//! The plugin manager only exists in a build with the `wasm` feature, so this
+//! whole file goes with it.
+#![cfg(feature = "wasm")]
 
 use sd_core::Core;
 use std::path::PathBuf;
