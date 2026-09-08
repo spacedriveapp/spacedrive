@@ -189,6 +189,21 @@ pub async fn track_and_index(
 		}
 	};
 
+	// Behind the walk, because it has nothing to hash until the walk has
+	// written the records. Dispatched rather than chained: the job queue runs
+	// it when the walk is out of the way, which is what LOW means.
+	if let Err(e) = library
+		.jobs()
+		.dispatch_with_priority(
+			crate::ops::indexing::content_identity::ContentIdentityJob::new(root.clone()),
+			crate::infra::job::types::JobPriority::LOW,
+			None,
+		)
+		.await
+	{
+		tracing::warn!(source = %id, %e, "could not start content identification");
+	}
+
 	Ok(TrackSourceOutput {
 		id,
 		root,

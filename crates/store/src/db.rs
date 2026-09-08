@@ -485,55 +485,37 @@ impl SourceDb {
 		uuid: Uuid,
 		identity: &ContentIdentity,
 	) -> Result<i64> {
-		let content_uuid = ContentId::from_hashes(
-			identity.sampled_hash.as_deref(),
-			identity.integrity_hash.as_deref(),
-		)
-		.map(|id| id.uuid())
-		.ok_or_else(|| Error::Other("content identity carries no hash".to_string()))?;
+		let mut conn = self.pool.acquire().await?;
+		bind_content(&mut conn, uuid, identity).await
+	}
 
-		let content_id: i64 = match identity.sampled_hash.as_deref() {
-			Some(sampled) => {
-				sqlx::query_scalar(
-					"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
-						 VALUES (?, ?, ?, ?, ?)
-						 ON CONFLICT (sampled_hash) DO UPDATE SET
-							uuid = CASE WHEN excluded.integrity_hash IS NOT NULL
-								THEN excluded.uuid ELSE content.uuid END,
-							integrity_hash = COALESCE(excluded.integrity_hash, content.integrity_hash),
-							size = COALESCE(excluded.size, content.size),
-							kind = COALESCE(excluded.kind, content.kind)
-						 RETURNING id",
-				)
-				.bind(content_uuid)
-				.bind(sampled)
-				.bind(&identity.integrity_hash)
-				.bind(identity.size)
-				.bind(identity.kind)
-				.fetch_one(&self.pool)
-				.await?
+	/// The same write for a batch, in one transaction.
+	///
+	/// What the hashing job produces: a few hundred files at a time, each one
+	/// an insert and an update. Committing per file would spend the whole
+	/// budget on fsync.
+	///
+	/// A single file that cannot be written does not take the batch with it.
+	/// The record simply keeps its empty `content_id` and the next pass picks
+	/// it up again, which is the same state it was already in.
+	pub async fn set_content_identities(&self, batch: &[(Uuid, ContentIdentity)]) -> Result<usize> {
+		if batch.is_empty() {
+			return Ok(0);
+		}
+
+		let mut tx = self.pool.begin().await?;
+		let mut written = 0;
+		for (uuid, identity) in batch {
+			match bind_content(&mut tx, *uuid, identity).await {
+				Ok(_) => written += 1,
+				Err(error) => {
+					tracing::warn!(%uuid, %error, "could not record content identity")
+				}
 			}
-			None => {
-				sqlx::query_scalar(
-					"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
-						 VALUES (?, NULL, ?, ?, ?) RETURNING id",
-				)
-				.bind(content_uuid)
-				.bind(&identity.integrity_hash)
-				.bind(identity.size)
-				.bind(identity.kind)
-				.fetch_one(&self.pool)
-				.await?
-			}
-		};
+		}
+		tx.commit().await?;
 
-		sqlx::query("UPDATE record SET content_id = ? WHERE uuid = ?")
-			.bind(content_id)
-			.bind(uuid)
-			.execute(&self.pool)
-			.await?;
-
-		Ok(content_id)
+		Ok(written)
 	}
 
 	/// Records that carry a path-typed facet field but no content identity yet.
@@ -1187,6 +1169,64 @@ impl NeighborRow {
 			outgoing: self.outgoing != 0,
 		}
 	}
+}
+
+/// The content write itself, against whatever connection the caller holds: a
+/// pooled one for a single file, a transaction for a batch.
+async fn bind_content(
+	conn: &mut sqlx::SqliteConnection,
+	uuid: Uuid,
+	identity: &ContentIdentity,
+) -> Result<i64> {
+	let content_uuid = ContentId::from_hashes(
+		identity.sampled_hash.as_deref(),
+		identity.integrity_hash.as_deref(),
+	)
+	.map(|id| id.uuid())
+	.ok_or_else(|| Error::Other("content identity carries no hash".to_string()))?;
+
+	let content_id: i64 = match identity.sampled_hash.as_deref() {
+		Some(sampled) => {
+			sqlx::query_scalar(
+				"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
+					 VALUES (?, ?, ?, ?, ?)
+					 ON CONFLICT (sampled_hash) DO UPDATE SET
+						uuid = CASE WHEN excluded.integrity_hash IS NOT NULL
+							THEN excluded.uuid ELSE content.uuid END,
+						integrity_hash = COALESCE(excluded.integrity_hash, content.integrity_hash),
+						size = COALESCE(excluded.size, content.size),
+						kind = COALESCE(excluded.kind, content.kind)
+					 RETURNING id",
+			)
+			.bind(content_uuid)
+			.bind(sampled)
+			.bind(&identity.integrity_hash)
+			.bind(identity.size)
+			.bind(identity.kind)
+			.fetch_one(&mut *conn)
+			.await?
+		}
+		None => {
+			sqlx::query_scalar(
+				"INSERT INTO content (uuid, sampled_hash, integrity_hash, size, kind)
+					 VALUES (?, NULL, ?, ?, ?) RETURNING id",
+			)
+			.bind(content_uuid)
+			.bind(&identity.integrity_hash)
+			.bind(identity.size)
+			.bind(identity.kind)
+			.fetch_one(&mut *conn)
+			.await?
+		}
+	};
+
+	sqlx::query("UPDATE record SET content_id = ? WHERE uuid = ?")
+		.bind(content_id)
+		.bind(uuid)
+		.execute(&mut *conn)
+		.await?;
+
+	Ok(content_id)
 }
 
 #[cfg(test)]

@@ -539,6 +539,19 @@ also has to land with P2.6, which makes the tree load-bearing rather than merely
 missing. (3) is a schema declaration. (4) is behind the content identity job,
 since a sidecar has nothing to key to while `content` has 0 rows.
 
+**The content identity job landed.** `ContentIdentityJob` hashes what a source
+holds and has not identified, dispatched at `LOW` behind the walk that produced
+the records and behind the drive map. `files_needing_content` rebuilds each
+path from its parent and its name, the same join `Ledger::load` uses, because
+P2.6 means the path is not a column to read. Only the sampled tier runs: an
+integrity hash is a full read of every byte on the drive and belongs behind a
+decision that needs one.
+
+What it does not do is surface anything. `content` fills, two copies of the same
+bytes share a row, and nothing yet queries it — duplicate detection still reads
+`content_identity` in `library.db`. That query, and (4) behind it, are what the
+rows are for.
+
 ### P2.6 — Address a file by its parent, not by its path
 
 `external_id` is the full relative path on every record, averaging 108 bytes,

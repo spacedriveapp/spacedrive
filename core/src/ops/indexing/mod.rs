@@ -22,6 +22,7 @@
 
 pub mod action;
 pub mod change_detection;
+pub mod content_identity;
 pub mod database_storage;
 pub mod ephemeral;
 pub mod handlers;

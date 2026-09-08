@@ -672,6 +672,81 @@ impl SourceDb {
 /// answers the prefix queries the UI issues and is faster at them than FTS5,
 /// so an index here would cost a write per file to serve nothing. It earns its
 /// place when full-text search over file *contents* arrives.
+/// The files a source is still waiting to identify: everything with bytes and
+/// no content row yet.
+///
+/// One clause, so the count and the batch can never disagree about what is
+/// outstanding.
+const PENDING_CONTENT: &str = "\
+	FROM record r \
+	JOIN facet_file f ON f.record_uuid = r.uuid \
+	LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid \
+	WHERE r.content_id IS NULL AND r.type = 'file' AND f.size > 0";
+
+/// How many files are still waiting. What a progress bar needs, once.
+pub async fn count_files_needing_content(pool: &sqlx::SqlitePool) -> Result<i64> {
+	Ok(
+		sqlx::query_scalar(&format!("SELECT COUNT(*) {PENDING_CONTENT}"))
+			.fetch_one(pool)
+			.await?,
+	)
+}
+
+/// A file whose bytes have not been identified yet.
+///
+/// The path is relative to the source root, the way every address in the store
+/// is: a drive that remounts somewhere else must not invalidate the work queue.
+#[derive(Debug, Clone)]
+pub struct PendingContent {
+	pub uuid: Uuid,
+	pub external_id: String,
+	pub size: i64,
+}
+
+/// Files with no content identity, oldest record first.
+///
+/// A file is addressed through its parent and its name, so the path is rebuilt
+/// by the same join [`Ledger::load`] uses rather than read from a column. That
+/// is the point of storing it once.
+///
+/// Directories and symlinks have no bytes to identify. Neither does an empty
+/// file: hashing nothing produces a hash every empty file on the machine would
+/// share, which is a duplicate group nobody wants.
+pub async fn files_needing_content(
+	pool: &sqlx::SqlitePool,
+	batch_size: usize,
+) -> Result<Vec<PendingContent>> {
+	let rows: Vec<(Uuid, Option<Uuid>, Option<String>, Option<String>, i64)> =
+		sqlx::query_as(&format!(
+		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size {PENDING_CONTENT} ORDER BY r.rowid LIMIT ?"
+	))
+		.bind(batch_size as i64)
+		.fetch_all(pool)
+		.await?;
+
+	Ok(rows
+		.into_iter()
+		.filter_map(|(uuid, parent_uuid, parent_path, title, size)| {
+			let title = title?;
+			let external_id = match (parent_uuid, parent_path) {
+				(Some(_), Some(parent)) => format!("{parent}/{title}"),
+				// A record whose parent has no path is unaddressable, which is
+				// the shape a half-written generation leaves behind. The next
+				// walk re-parents it; until then there is nothing to open.
+				(Some(_), None) => return None,
+				// Directly under the source root, which stores no path of its
+				// own.
+				(None, _) => title,
+			};
+			Some(PendingContent {
+				uuid,
+				external_id,
+				size,
+			})
+		})
+		.collect())
+}
+
 pub fn filesystem_schema() -> DataTypeSchema {
 	let mut fields = IndexMap::new();
 	fields.insert("size".to_string(), FieldType::Integer);

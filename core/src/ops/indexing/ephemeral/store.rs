@@ -21,8 +21,8 @@ use std::time::{Duration, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use sd_store::{
-	filesystem_schema, FileKind, FileWrite, Ledger, Observation, SourceDb, SourceManager,
-	SubtreeRename,
+	filesystem_schema, ContentIdentity, FileKind, FileWrite, Ledger, Observation, SourceDb,
+	SourceManager, SubtreeRename,
 };
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -64,6 +64,8 @@ enum Ingest {
 	/// That walk finished. What it never saw is deleted, except under the
 	/// subtrees it could not read.
 	FinishSweep { unreachable: Vec<String> },
+	/// The bytes behind some records have been identified.
+	Identified(Vec<(Uuid, ContentIdentity)>),
 	/// Commit what is pending and answer.
 	Flush(oneshot::Sender<()>),
 }
@@ -233,6 +235,46 @@ impl SourceStore {
 			.filter_map(|path| self.external_id(path))
 			.collect();
 		self.send(Ingest::FinishSweep { unreachable }).await;
+	}
+
+	/// Files this source holds whose bytes have not been identified yet.
+	///
+	/// Absolute paths, because the caller is going to open them. The store
+	/// addresses everything relative to the root so that a drive remounting
+	/// somewhere else does not invalidate the queue.
+	pub async fn files_needing_content(&self, batch_size: usize) -> Vec<(Uuid, PathBuf, u64)> {
+		match sd_store::files_needing_content(self.db.pool(), batch_size).await {
+			Ok(pending) => pending
+				.into_iter()
+				.map(|file| {
+					(
+						file.uuid,
+						self.root.join(&file.external_id),
+						file.size.max(0) as u64,
+					)
+				})
+				.collect(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, "could not list files needing content");
+				Vec::new()
+			}
+		}
+	}
+
+	/// How many files are still waiting to be identified.
+	pub async fn files_needing_content_count(&self) -> u64 {
+		sd_store::count_files_needing_content(self.db.pool())
+			.await
+			.unwrap_or(0)
+			.max(0) as u64
+	}
+
+	/// Record what the bytes behind these records turned out to be.
+	pub async fn identified(&self, identities: Vec<(Uuid, ContentIdentity)>) {
+		if identities.is_empty() {
+			return;
+		}
+		self.send(Ingest::Identified(identities)).await;
 	}
 
 	/// What this source actually persists: records, and the bytes behind them.
@@ -440,6 +482,15 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			Ingest::FinishSweep { unreachable } => {
 				removals.extend(ledger.finish_sweep(&unreachable));
 				commit(&db, &mut writes, &mut removals, &mut renames).await;
+			}
+			Ingest::Identified(identities) => {
+				// Ordered behind whatever is staged: a record has to exist
+				// before its content can point at it, and the batch that
+				// created it may still be sitting here.
+				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				if let Err(error) = db.set_content_identities(&identities).await {
+					tracing::error!(%error, "content identities failed to land");
+				}
 			}
 			Ingest::Flush(done) => {
 				commit(&db, &mut writes, &mut removals, &mut renames).await;
@@ -730,6 +781,98 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		fixture.create("photo.jpg", b"jpeg").await;
 
 		assert_eq!(fixture.paths().await, vec!["notes.txt", "photo.jpg"]);
+	}
+
+	/// A file is addressed by its parent and its name, so the queue of things
+	/// left to hash has to rebuild the path from the join rather than read it
+	/// out of a column. Storing it twice is what P2.6 removed.
+	#[tokio::test]
+	async fn the_hashing_queue_rebuilds_paths_from_parents() {
+		let mut fixture = Fixture::new().await;
+		let deep = fixture.create("photos/holiday/one.jpg", b"jpeg").await;
+		let shallow = fixture.create("notes.txt", b"hello").await;
+		fixture.store.flush().await;
+
+		let mut pending = fixture.store.files_needing_content(10).await;
+		pending.sort_by(|a, b| a.1.cmp(&b.1));
+
+		// Directories have no bytes to identify, so only the two files are
+		// waiting.
+		assert_eq!(
+			pending
+				.iter()
+				.map(|file| file.1.clone())
+				.collect::<Vec<_>>(),
+			vec![shallow, deep]
+		);
+		assert_eq!(fixture.store.files_needing_content_count().await, 2);
+	}
+
+	#[tokio::test]
+	async fn an_identified_file_leaves_the_queue() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("notes.txt", b"hello").await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		assert_eq!(pending.len(), 1);
+
+		fixture
+			.store
+			.identified(vec![(
+				pending[0].0,
+				ContentIdentity {
+					sampled_hash: Some("0123456789abcdef".to_string()),
+					integrity_hash: None,
+					size: Some(5),
+					kind: None,
+				},
+			)])
+			.await;
+		fixture.store.flush().await;
+
+		assert!(fixture.store.files_needing_content(10).await.is_empty());
+		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+	}
+
+	/// Two copies of the same bytes are one row in `content`, pointed at by
+	/// both records. That is the whole point of identifying them.
+	#[tokio::test]
+	async fn identical_bytes_share_one_content_row() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("one.bin", b"same").await;
+		fixture.create("two.bin", b"same").await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		assert_eq!(pending.len(), 2);
+
+		let identity = |uuid| {
+			(
+				uuid,
+				ContentIdentity {
+					sampled_hash: Some("deadbeefdeadbeef".to_string()),
+					integrity_hash: None,
+					size: Some(4),
+					kind: None,
+				},
+			)
+		};
+		fixture
+			.store
+			.identified(vec![identity(pending[0].0), identity(pending[1].0)])
+			.await;
+		fixture.store.flush().await;
+
+		let rows: (i64, i64) = sqlx::query_as(
+			"SELECT (SELECT COUNT(*) FROM content),
+					(SELECT COUNT(DISTINCT content_id) FROM record WHERE content_id IS NOT NULL)",
+		)
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("counts");
+
+		assert_eq!(rows, (1, 1));
 	}
 
 	#[tokio::test]

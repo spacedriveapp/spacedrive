@@ -1,0 +1,264 @@
+//! Identifying the bytes behind a source's records.
+//!
+//! A record's identity is assigned when it is discovered and follows the file
+//! through renames. Its *content's* identity is derived from the bytes, so two
+//! machines that have never spoken compute the same id for the same file. That
+//! is what turns "these are two files" into "this is one file in two places",
+//! and it is the only evidence that survives crossing to another device: a path
+//! is weak and an inode does not travel at all.
+//!
+//! Only the cheap tier runs here. A sampled hash over a few regions is enough to
+//! group candidates, and the integrity hash that turns a candidate into a
+//! certainty costs a full read of every byte on the drive. It belongs behind a
+//! decision that needs it, which is the same rule the ladder in
+//! `sd_store::content` exists to keep: never delete one copy of two on the
+//! strength of a guess.
+
+use crate::{
+	domain::content_identity::ContentHashGenerator,
+	infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority},
+	ops::indexing::ephemeral::SourceStore,
+};
+use futures::StreamExt;
+use sd_store::ContentIdentity;
+use serde::{Deserialize, Serialize};
+use std::{path::PathBuf, sync::Arc};
+use uuid::Uuid;
+
+/// Files claimed from the store per pass. Large enough that the queue round
+/// trip disappears against the reads, small enough that an interrupt lands
+/// promptly.
+const BATCH_SIZE: usize = 256;
+
+/// Files hashed at once. A sampled hash is four short reads and a seek, so the
+/// limit is the drive's appetite for concurrent seeks rather than the CPU.
+const CONCURRENCY: usize = 8;
+
+/// Hashes the files a source holds that have no content identity yet.
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ContentIdentityJob {
+	/// The source's root, which is how its store is found.
+	root: PathBuf,
+}
+
+impl ContentIdentityJob {
+	pub fn new(root: PathBuf) -> Self {
+		Self { root }
+	}
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContentIdentityOutput {
+	pub identified: u64,
+	pub unreadable: u64,
+}
+
+impl From<ContentIdentityOutput> for JobOutput {
+	fn from(output: ContentIdentityOutput) -> Self {
+		JobOutput::custom(output)
+	}
+}
+
+impl Job for ContentIdentityJob {
+	const NAME: &'static str = "content_identity";
+	const RESUMABLE: bool = true;
+	const DESCRIPTION: Option<&'static str> = Some("Identify file contents");
+}
+
+impl crate::infra::job::traits::DynJob for ContentIdentityJob {
+	fn job_name(&self) -> &'static str {
+		Self::NAME
+	}
+}
+
+#[async_trait::async_trait]
+impl JobHandler for ContentIdentityJob {
+	type Output = ContentIdentityOutput;
+
+	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
+		let Some(store) = ctx
+			.library()
+			.core_context()
+			.ephemeral_cache()
+			.store_for(&self.root)
+			.await
+		else {
+			// Nothing is kept from this root, so there are no records to hang
+			// a content identity on. Not a failure: it is what a drive that is
+			// mapped and not in the library looks like.
+			ctx.log(format!(
+				"No source store at {}; nothing to identify",
+				self.root.display()
+			));
+			return Ok(ContentIdentityOutput {
+				identified: 0,
+				unreadable: 0,
+			});
+		};
+
+		// The walk that found these files may still be committing them.
+		store.flush().await;
+
+		let outstanding = store.files_needing_content_count().await;
+		ctx.log(format!("{outstanding} files to identify"));
+
+		let mut identified = 0u64;
+		let mut unreadable = 0u64;
+
+		loop {
+			ctx.check_interrupt().await?;
+
+			let batch = store.files_needing_content(BATCH_SIZE).await;
+			if batch.is_empty() {
+				break;
+			}
+
+			let claimed = batch.len();
+			let identities = hash_batch(batch).await;
+
+			// A pass that identified nothing has found the tail of the queue:
+			// files the store still lists and this process cannot read, which
+			// the next query would hand back forever.
+			if identities.is_empty() {
+				unreadable += claimed as u64;
+				ctx.log(format!("{claimed} files could not be read; stopping"));
+				break;
+			}
+
+			unreadable += (claimed - identities.len()) as u64;
+			identified += identities.len() as u64;
+			store.identified(identities).await;
+
+			ctx.progress(Progress::generic(GenericProgress::new(
+				if outstanding > 0 {
+					(identified as f32 / outstanding as f32).min(1.0)
+				} else {
+					1.0
+				},
+				"Identifying",
+				format!("{identified} of {outstanding} files"),
+			)));
+		}
+
+		// Content identities are queued behind the same writer as everything
+		// else, so the job is not done until they have landed.
+		store.flush().await;
+
+		ctx.log(format!(
+			"Identified {identified} files, {unreadable} unreadable"
+		));
+
+		Ok(ContentIdentityOutput {
+			identified,
+			unreadable,
+		})
+	}
+}
+
+/// Hash a batch, several files at a time, dropping the ones that cannot be read.
+///
+/// A file that vanished between being listed and being opened is the ordinary
+/// case, not an error: the walk that recorded it ran earlier, and the next one
+/// will remove it.
+async fn hash_batch(batch: Vec<(Uuid, PathBuf, u64)>) -> Vec<(Uuid, ContentIdentity)> {
+	futures::stream::iter(batch)
+		.map(|(uuid, path, size)| async move {
+			let hash = ContentHashGenerator::generate_content_hash(&path)
+				.await
+				.map_err(|error| {
+					tracing::debug!(path = %path.display(), %error, "could not hash");
+				})
+				.ok()?;
+
+			Some((
+				uuid,
+				ContentIdentity {
+					sampled_hash: Some(hash),
+					integrity_hash: None,
+					size: Some(size as i64),
+					kind: None,
+				},
+			))
+		})
+		.buffer_unordered(CONCURRENCY)
+		.filter_map(|identity| async move { identity })
+		.collect()
+		.await
+}
+
+/// Queue the hashing of every source on this machine, behind whatever else is
+/// running.
+///
+/// Last of the three passes a launch dispatches. The library's own walk goes
+/// first because it is what someone chose to keep, the drive map second because
+/// the analyser needs the whole picture, and this last because nothing on screen
+/// is waiting for it.
+pub async fn identify_every_source(
+	library: &Arc<crate::library::Library>,
+	context: &Arc<crate::context::CoreContext>,
+) {
+	for source in context.ephemeral_cache().sources() {
+		if !source.attached {
+			continue;
+		}
+
+		let job = ContentIdentityJob::new(source.root.clone());
+		match library
+			.jobs()
+			.dispatch_with_priority(job, JobPriority::LOW, None)
+			.await
+		{
+			Ok(handle) => tracing::info!(
+				"Identifying contents of {} in the background as job {}",
+				source.root.display(),
+				handle.id()
+			),
+			Err(error) => tracing::warn!(
+				"Could not start content identification for {}: {error}",
+				source.root.display()
+			),
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	async fn an_unreadable_file_does_not_stop_the_batch() {
+		let dir = tempfile::tempdir().unwrap();
+		let real = dir.path().join("real.bin");
+		std::fs::write(&real, vec![7u8; 4096]).unwrap();
+
+		let identities = hash_batch(vec![
+			(Uuid::now_v7(), dir.path().join("gone.bin"), 10),
+			(Uuid::now_v7(), real, 4096),
+		])
+		.await;
+
+		assert_eq!(identities.len(), 1);
+		assert!(identities[0].1.sampled_hash.is_some());
+	}
+
+	#[tokio::test]
+	async fn identical_bytes_hash_identically() {
+		let dir = tempfile::tempdir().unwrap();
+		let one = dir.path().join("one.bin");
+		let two = dir.path().join("two.bin");
+		std::fs::write(&one, vec![3u8; 8192]).unwrap();
+		std::fs::write(&two, vec![3u8; 8192]).unwrap();
+
+		let identities = hash_batch(vec![
+			(Uuid::now_v7(), one, 8192),
+			(Uuid::now_v7(), two, 8192),
+		])
+		.await;
+
+		assert_eq!(identities.len(), 2);
+		assert_eq!(
+			identities[0].1.sampled_hash, identities[1].1.sampled_hash,
+			"two copies of the same bytes are one content row"
+		);
+	}
+}
