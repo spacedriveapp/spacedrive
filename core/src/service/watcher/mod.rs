@@ -7,7 +7,6 @@
 //! - **FsWatcherService**: Detects filesystem changes, emits events via broadcast channel
 //! - **Handlers** (in `ops/indexing/handlers/`): Subscribe to events and route them
 //!
-//! The old monolithic `LocationWatcher` is preserved in `watcher_old/` for reference.
 
 mod service;
 
