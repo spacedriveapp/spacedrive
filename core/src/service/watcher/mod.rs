@@ -10,5 +10,4 @@
 
 mod service;
 
-pub use crate::ops::indexing::handlers::LocationMeta;
 pub use service::{FsWatcherService, FsWatcherServiceConfig};

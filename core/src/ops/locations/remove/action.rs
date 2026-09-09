@@ -50,17 +50,6 @@ impl LibraryAction for LocationRemoveAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-		// Unwatch the location from the filesystem watcher
-		if let Some(watcher) = context.get_fs_watcher().await {
-			if let Err(e) = watcher.unwatch_location(self.input.location_id).await {
-				tracing::warn!(
-					"Failed to unwatch location {}: {}",
-					self.input.location_id,
-					e
-				);
-			}
-		}
-
 		Ok(LocationRemoveOutput::new(self.input.location_id, None))
 	}
 

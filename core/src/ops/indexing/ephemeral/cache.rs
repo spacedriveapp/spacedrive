@@ -1427,7 +1427,7 @@ mod tests {
 	/// the ones that actually happened.
 	mod lifecycle {
 		use super::*;
-		use crate::ops::indexing::database_storage::EntryMetadata;
+		use crate::ops::indexing::metadata::EntryMetadata;
 		use crate::ops::indexing::state::EntryKind;
 
 		fn directory(path: &Path) -> EntryMetadata {
@@ -2010,7 +2010,7 @@ mod tests {
 			.await
 			.unwrap();
 
-		use crate::ops::indexing::database_storage::EntryMetadata;
+		use crate::ops::indexing::metadata::EntryMetadata;
 		use crate::ops::indexing::state::EntryKind;
 		let meta = |path: &Path| EntryMetadata {
 			kind: EntryKind::File,

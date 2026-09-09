@@ -12,7 +12,6 @@ use sd_core::ops::locations::{
 	import::LocationImportOutput,
 	list::{output::LocationsListOutput, query::LocationsListQueryInput},
 	remove::output::LocationRemoveOutput,
-	rescan::output::LocationRescanOutput,
 };
 
 use self::args::*;
@@ -25,8 +24,6 @@ pub enum LocationCmd {
 	List,
 	/// Remove a location from the library
 	Remove(LocationRemoveArgs),
-	/// Rescan a location
-	Rescan(LocationRescanArgs),
 	/// Export a location to a SQL dump file
 	Export(LocationExportArgs),
 	/// Import a location from a SQL dump file
@@ -85,13 +82,6 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			let out: LocationRemoveOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationRemoveOutput| {
 				println!("Removed location {}", o.location_id);
-			});
-		}
-		LocationCmd::Rescan(args) => {
-			let input: sd_core::ops::locations::rescan::action::LocationRescanInput = args.into();
-			let out: LocationRescanOutput = execute_action!(ctx, input);
-			print_output!(ctx, &out, |o: &LocationRescanOutput| {
-				println!("Rescan requested for {}", o.location_id);
 			});
 		}
 		LocationCmd::Export(args) => {

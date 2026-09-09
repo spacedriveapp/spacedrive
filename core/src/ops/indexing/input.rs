@@ -5,7 +5,7 @@
 //! and converted into IndexerJobConfig for internal execution. Separating input from config
 //! keeps the public API stable while internal job parameters evolve.
 
-use super::job::{IndexMode, IndexPersistence, IndexScope};
+use super::job::{IndexMode, IndexScope};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
@@ -27,9 +27,6 @@ pub struct IndexInput {
 
 	/// Whether to include hidden files/directories
 	pub include_hidden: bool,
-
-	/// Where results are stored (ephemeral vs persistent)
-	pub persistence: IndexPersistence,
 }
 
 impl IndexInput {
@@ -41,7 +38,6 @@ impl IndexInput {
 			scope: IndexScope::Recursive,
 			mode: IndexMode::Deep,
 			include_hidden: false,
-			persistence: IndexPersistence::Ephemeral,
 		}
 	}
 
@@ -62,11 +58,6 @@ impl IndexInput {
 
 	pub fn with_include_hidden(mut self, include_hidden: bool) -> Self {
 		self.include_hidden = include_hidden;
-		self
-	}
-
-	pub fn with_persistence(mut self, persistence: IndexPersistence) -> Self {
-		self.persistence = persistence;
 		self
 	}
 

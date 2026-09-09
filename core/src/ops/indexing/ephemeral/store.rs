@@ -28,7 +28,7 @@ use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
 use crate::infra::source_dirs::SourceDirs;
-use crate::ops::indexing::database_storage::EntryMetadata;
+use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
 
 /// Resolved observations held before a batch commits. Large enough that a walk

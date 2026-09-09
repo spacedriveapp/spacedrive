@@ -414,10 +414,70 @@ impl crate::infra::sync::Syncable for Model {
 
 		// Use delete_subtree_internal to cascade delete entire subtree
 		// This avoids creating tombstones (we're applying a tombstone)
-		crate::ops::indexing::DatabaseStorage::delete_subtree(entry.id, db).await?;
+		delete_subtree(entry.id, db).await?;
 
 		Ok(())
 	}
+}
+
+/// Delete an entry and everything beneath it.
+///
+/// Descendants come from `entry_closure`, so the traversal is one query
+/// regardless of depth. Closure links go first, then the paths, then the
+/// entries, which is the order the foreign keys allow.
+pub async fn delete_subtree(
+	entry_id: i32,
+	db: &sea_orm::DatabaseConnection,
+) -> Result<(), sea_orm::DbErr> {
+	use sea_orm::TransactionTrait;
+
+	let txn = db.begin().await?;
+	delete_subtree_in_txn(entry_id, &txn).await?;
+	txn.commit().await?;
+	Ok(())
+}
+
+/// [`delete_subtree`] within a transaction the caller already owns.
+pub async fn delete_subtree_in_txn<C>(entry_id: i32, db: &C) -> Result<(), sea_orm::DbErr>
+where
+	C: sea_orm::ConnectionTrait,
+{
+	use crate::infra::db::entities::{directory_paths, entry_closure};
+	use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+	let mut to_delete: Vec<i32> = vec![entry_id];
+	if let Ok(rows) = entry_closure::Entity::find()
+		.filter(entry_closure::Column::AncestorId.eq(entry_id))
+		.all(db)
+		.await
+	{
+		to_delete.extend(rows.into_iter().map(|r| r.descendant_id));
+	}
+	to_delete.sort_unstable();
+	to_delete.dedup();
+
+	if to_delete.is_empty() {
+		return Ok(());
+	}
+
+	entry_closure::Entity::delete_many()
+		.filter(entry_closure::Column::DescendantId.is_in(to_delete.clone()))
+		.exec(db)
+		.await?;
+	entry_closure::Entity::delete_many()
+		.filter(entry_closure::Column::AncestorId.is_in(to_delete.clone()))
+		.exec(db)
+		.await?;
+	directory_paths::Entity::delete_many()
+		.filter(directory_paths::Column::EntryId.is_in(to_delete.clone()))
+		.exec(db)
+		.await?;
+	Entity::delete_many()
+		.filter(Column::Id.is_in(to_delete))
+		.exec(db)
+		.await?;
+
+	Ok(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

@@ -974,26 +974,6 @@ reclaimable: number;
  */
 sources_queried: number };
 
-export type EnableIndexingInput = { 
-/**
- * UUID of the location to enable indexing for
- */
-id: string; 
-/**
- * Index mode to use (defaults to Deep if not specified)
- */
-index_mode?: string };
-
-export type EnableIndexingOutput = { 
-/**
- * UUID of the location that had indexing enabled
- */
-location_id: string; 
-/**
- * Job ID of the indexing job that was started
- */
-job_id: string };
-
 /**
  * Type of filesystem entry
  */
@@ -1899,11 +1879,7 @@ mode: IndexMode;
 /**
  * Whether to include hidden files/directories
  */
-include_hidden: boolean; 
-/**
- * Where results are stored (ephemeral vs persistent)
- */
-persistence: IndexPersistence };
+include_hidden: boolean };
 
 /**
  * How deeply to index files in this location
@@ -1925,26 +1901,6 @@ export type IndexMode =
  * Full indexing - content IDs, text extraction, thumbnails
  */
 "Deep";
-
-/**
- * Whether to write indexing results to the database or keep them in memory.
- * 
- * Ephemeral persistence allows users to browse external drives and network shares
- * without adding them as managed locations. The in-memory index survives for the
- * session duration and provides the same API surface as persistent entries, enabling
- * features like search and navigation to work identically for both modes. If an
- * ephemeral path is later promoted to a managed location, UUIDs are preserved to
- * maintain continuity for user metadata.
- */
-export type IndexPersistence = 
-/**
- * Write all results to database (normal operation)
- */
-"Persistent" | 
-/**
- * Keep results in memory only (for unmanaged paths)
- */
-"Ephemeral";
 
 /**
  * Whether to index just one directory level or recurse through subdirectories.
@@ -1980,45 +1936,6 @@ export type IndexType =
  * Mix of both (future: hybrid searches)
  */
 "Hybrid";
-
-export type IndexVerifyInput = { 
-/**
- * Path to verify (can be a location root or subdirectory)
- */
-path: string; 
-/**
- * Whether to check content hashes (slower but more thorough)
- */
-verify_content?: boolean; 
-/**
- * Whether to include detailed file-by-file comparison
- */
-detailed_report?: boolean; 
-/**
- * Whether to fix issues automatically (future feature)
- */
-auto_fix?: boolean };
-
-/**
- * Result of index integrity verification
- */
-export type IndexVerifyOutput = { 
-/**
- * Overall integrity status
- */
-is_valid: boolean; 
-/**
- * Integrity report with detailed findings
- */
-report: IntegrityReport; 
-/**
- * Path that was verified
- */
-path: string; 
-/**
- * Time taken to verify (seconds)
- */
-duration_secs: number };
 
 /**
  * Input for volume indexing action
@@ -2114,82 +2031,6 @@ only_images: boolean };
  * Cumulative statistics tracked throughout the indexing process.
  */
 export type IndexerStats = { files: number; dirs: number; bytes: number; symlinks: number; skipped: number; errors: number };
-
-/**
- * Represents a single integrity difference
- */
-export type IntegrityDifference = { 
-/**
- * Path relative to verification root
- */
-path: string; 
-/**
- * Type of issue
- */
-issue_type: IssueType; 
-/**
- * Expected value (from filesystem or correct state)
- */
-expected: string | null; 
-/**
- * Actual value (from database)
- */
-actual: string | null; 
-/**
- * Human-readable description
- */
-description: string; 
-/**
- * Debug: database entry ID for investigation
- */
-db_entry_id?: number | null; 
-/**
- * Debug: database entry name
- */
-db_entry_name?: string | null };
-
-/**
- * Detailed integrity report
- */
-export type IntegrityReport = { 
-/**
- * Total files found on filesystem
- */
-filesystem_file_count: number; 
-/**
- * Total files in database index
- */
-database_file_count: number; 
-/**
- * Total directories found on filesystem
- */
-filesystem_dir_count: number; 
-/**
- * Total directories in database index
- */
-database_dir_count: number; 
-/**
- * Files missing from index (on filesystem but not in DB)
- */
-missing_from_index: IntegrityDifference[]; 
-/**
- * Stale entries in index (in DB but not on filesystem)
- */
-stale_in_index: IntegrityDifference[]; 
-/**
- * Entries with incorrect metadata
- */
-metadata_mismatches: IntegrityDifference[]; 
-/**
- * Entries with incorrect parent relationships
- */
-hierarchy_errors: IntegrityDifference[]; 
-/**
- * Summary statistics
- */
-summary: string };
-
-export type IssueType = { type: "MissingFromIndex" } | { type: "StaleInIndex" } | { type: "SizeMismatch" } | { type: "ModifiedTimeMismatch" } | { type: "InodeMismatch" } | { type: "ExtensionMismatch" } | { type: "ParentMismatch" } | { type: "KindMismatch" };
 
 /**
  * Types of items that can appear in a group
@@ -2419,11 +2260,6 @@ export type JobStatus =
  * Job was cancelled
  */
 "cancelled";
-
-/**
- * Type of job to trigger for a location
- */
-export type JobType = "thumbnail" | "thumbstrip" | "ocr" | "speech_to_text" | "object_detection";
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue };
 
@@ -3030,38 +2866,6 @@ export type LocationRemoveInput = { location_id: string };
  * Output from location remove action dispatch
  */
 export type LocationRemoveOutput = { location_id: string; path: string | null };
-
-export type LocationRescanInput = { location_id: string; full_rescan: boolean };
-
-export type LocationRescanOutput = { location_id: string; location_path: string; job_id: string; full_rescan: boolean };
-
-export type LocationTriggerJobInput = { 
-/**
- * UUID of the location to run the job on
- */
-location_id: string; 
-/**
- * Type of job to trigger
- */
-job_type: JobType; 
-/**
- * Force the job to run even if disabled in the location's policy
- */
-force?: boolean };
-
-export type LocationTriggerJobOutput = { 
-/**
- * UUID of the dispatched job
- */
-job_id: string; 
-/**
- * Type of job that was triggered
- */
-job_type: JobType; 
-/**
- * UUID of the location the job is running on
- */
-location_id: string };
 
 export type LocationUpdateInput = { 
 /**
@@ -5606,19 +5410,15 @@ export type LibraryAction =
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
   |  { type: 'files.rename'; input: FileRenameInput; output: JobReceipt }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
-  |  { type: 'indexing.verify'; input: IndexVerifyInput; output: IndexVerifyOutput }
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
-  |  { type: 'locations.enable_indexing'; input: EnableIndexingInput; output: EnableIndexingOutput }
   |  { type: 'locations.export'; input: LocationExportInput; output: LocationExportOutput }
   |  { type: 'locations.import'; input: LocationImportInput; output: LocationImportOutput }
   |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
-  |  { type: 'locations.rescan'; input: LocationRescanInput; output: LocationRescanOutput }
-  |  { type: 'locations.triggerJob'; input: LocationTriggerJobInput; output: LocationTriggerJobOutput }
   |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
   |  { type: 'media.ocr.extract'; input: ExtractTextInput; output: ExtractTextOutput }
   |  { type: 'media.proxy.generate'; input: GenerateProxyInput; output: GenerateProxyOutput }
@@ -5766,19 +5566,15 @@ export const WIRE_METHODS = {
     'files.delete': 'action:files.delete.input',
     'files.rename': 'action:files.rename.input',
     'indexing.start': 'action:indexing.start.input',
-    'indexing.verify': 'action:indexing.verify.input',
     'jobs.cancel': 'action:jobs.cancel.input',
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
     'locations.add': 'action:locations.add.input',
-    'locations.enable_indexing': 'action:locations.enable_indexing.input',
     'locations.export': 'action:locations.export.input',
     'locations.import': 'action:locations.import.input',
     'locations.remove': 'action:locations.remove.input',
-    'locations.rescan': 'action:locations.rescan.input',
-    'locations.triggerJob': 'action:locations.triggerJob.input',
     'locations.update': 'action:locations.update.input',
     'media.ocr.extract': 'action:media.ocr.extract.input',
     'media.proxy.generate': 'action:media.proxy.generate.input',

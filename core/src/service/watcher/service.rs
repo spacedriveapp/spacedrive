@@ -2,11 +2,11 @@
 //!
 //! This service manages the lifecycle of the filesystem watcher and provides
 //! the event stream that handlers subscribe to. It owns and starts the
-//! `EphemeralEventHandler` and `PersistentEventHandler`.
+//! `EphemeralEventHandler`.
 
 use crate::context::CoreContext;
 use crate::library::Library;
-use crate::ops::indexing::handlers::{EphemeralEventHandler, LocationMeta, PersistentEventHandler};
+use crate::ops::indexing::handlers::EphemeralEventHandler;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::Service;
 use anyhow::Result;
@@ -52,7 +52,7 @@ impl From<FsWatcherServiceConfig> for WatcherConfig {
 ///
 /// This service:
 /// - Manages the lifecycle of the underlying FsWatcher
-/// - Owns and starts the event handlers (PersistentEventHandler, EphemeralEventHandler)
+/// - Owns and starts the event handler (EphemeralEventHandler)
 /// - Handles watch registration for paths
 ///
 /// ## Usage
@@ -65,7 +65,6 @@ impl From<FsWatcherServiceConfig> for WatcherConfig {
 /// service.start().await?;
 ///
 /// // Watch a location (persistent, recursive)
-/// service.watch_location(LocationMeta { ... }).await?;
 ///
 /// // Watch an ephemeral path (shallow, in-memory)
 /// service.watch_ephemeral("/path/to/browse").await?;
@@ -76,7 +75,6 @@ pub struct FsWatcherService {
 	/// The underlying filesystem watcher
 	watcher: FsWatcher,
 	/// Handler for persistent (database) events
-	persistent_handler: PersistentEventHandler,
 	/// Handler for ephemeral (in-memory) events
 	ephemeral_handler: EphemeralEventHandler,
 	/// Whether the service is running
@@ -97,7 +95,6 @@ impl FsWatcherService {
 		Self {
 			context: context.clone(),
 			watcher,
-			persistent_handler: PersistentEventHandler::new_unconnected(context.clone()),
 			ephemeral_handler: EphemeralEventHandler::new_unconnected(context),
 			is_running: AtomicBool::new(false),
 			config,
@@ -108,7 +105,6 @@ impl FsWatcherService {
 	///
 	/// Must be called after the service is wrapped in Arc.
 	pub async fn init_handlers(self: &Arc<Self>) {
-		self.persistent_handler.connect(self.clone()).await;
 		self.ephemeral_handler.connect(self.clone()).await;
 		self.clone().arm_restored_sources();
 	}
@@ -182,128 +178,6 @@ impl FsWatcherService {
 		&self.watcher
 	}
 
-	/// Watch a location (persistent, recursive)
-	///
-	/// The location will be watched recursively and events will be
-	/// batched and persisted to the database.
-	pub async fn watch_location(&self, meta: LocationMeta) -> Result<()> {
-		info!(
-			"Watching location {} at {}",
-			meta.id,
-			meta.root_path.display()
-		);
-		self.persistent_handler.add_location(meta).await
-	}
-
-	/// Stop watching a location
-	pub async fn unwatch_location(&self, location_id: uuid::Uuid) -> Result<()> {
-		info!("Unwatching location {}", location_id);
-		self.persistent_handler.remove_location(location_id).await
-	}
-
-	/// Get all watched locations
-	pub async fn watched_locations(&self) -> Vec<LocationMeta> {
-		self.persistent_handler.locations().await
-	}
-
-	/// Load and watch all eligible locations from a library
-	///
-	/// Only watches locations that:
-	/// - Are on this device
-	/// - Have IndexMode != None
-	pub async fn load_library_locations(&self, library: &Library) -> Result<usize> {
-		use crate::infra::db::entities::{device, location};
-		use crate::ops::indexing::path_resolver::PathResolver;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-		let db = library.db().conn();
-		let mut count = 0;
-
-		// Get current device UUID and find in this library's database
-		let current_device_uuid = crate::device::get_current_device_id();
-		let current_device = device::Entity::find()
-			.filter(device::Column::Uuid.eq(current_device_uuid))
-			.one(db)
-			.await?;
-
-		let Some(current_device) = current_device else {
-			warn!(
-				"Current device {} not found in library {} database",
-				current_device_uuid,
-				library.id()
-			);
-			return Ok(0);
-		};
-
-		// Query locations owned by this device
-		let locations = location::Entity::find()
-			.filter(location::Column::DeviceId.eq(current_device.id))
-			.all(db)
-			.await?;
-
-		debug!(
-			"Found {} locations in library {} for this device",
-			locations.len(),
-			library.id()
-		);
-
-		for loc in locations {
-			// Skip locations without entry_id (not yet indexed)
-			let Some(entry_id) = loc.entry_id else {
-				debug!("Skipping location {} - no entry_id", loc.uuid);
-				continue;
-			};
-
-			// Skip IndexMode::None
-			if loc.index_mode == "none" {
-				debug!("Skipping location {} - IndexMode::None", loc.uuid);
-				continue;
-			}
-
-			// Get the full filesystem path
-			let path = match PathResolver::get_full_path(db, entry_id).await {
-				Ok(path) => path,
-				Err(e) => {
-					warn!("Failed to resolve path for location {}: {}", loc.uuid, e);
-					continue;
-				}
-			};
-
-			// Skip cloud locations
-			let path_str = path.to_string_lossy();
-			if path_str.contains("://") && !path_str.starts_with("local://") {
-				debug!("Skipping cloud location {}: {}", loc.uuid, path_str);
-				continue;
-			}
-
-			// Check if path exists
-			if !path.exists() {
-				warn!(
-					"Location {} path does not exist: {}",
-					loc.uuid,
-					path.display()
-				);
-				continue;
-			}
-
-			let meta = LocationMeta {
-				id: loc.uuid,
-				library_id: library.id(),
-				root_path: path,
-				rule_toggles: RuleToggles::default(),
-			};
-
-			if let Err(e) = self.watch_location(meta).await {
-				warn!("Failed to watch location {}: {}", loc.uuid, e);
-			} else {
-				count += 1;
-			}
-		}
-
-		info!("Loaded {} locations from library {}", count, library.id());
-		Ok(count)
-	}
-
 	/// Watch an ephemeral path (shallow, in-memory only)
 	///
 	/// Used for browsing external drives, network shares, etc.
@@ -361,11 +235,6 @@ impl FsWatcherService {
 
 	// ==================== Handler Access ====================
 
-	/// Get reference to persistent handler
-	pub fn persistent_handler(&self) -> &PersistentEventHandler {
-		&self.persistent_handler
-	}
-
 	/// Get reference to ephemeral handler
 	pub fn ephemeral_handler(&self) -> &EphemeralEventHandler {
 		&self.ephemeral_handler
@@ -385,11 +254,9 @@ impl Service for FsWatcherService {
 		// Start the underlying watcher first
 		self.watcher.start().await?;
 
-		// Start the event handlers
-		self.persistent_handler.start().await?;
 		self.ephemeral_handler.start().await?;
 
-		info!("FsWatcher service started (with handlers)");
+		info!("FsWatcher service started");
 
 		Ok(())
 	}
@@ -401,8 +268,6 @@ impl Service for FsWatcherService {
 
 		info!("Stopping FsWatcher service");
 
-		// Stop handlers first
-		self.persistent_handler.stop().await;
 		self.ephemeral_handler.stop();
 
 		// Then stop the watcher

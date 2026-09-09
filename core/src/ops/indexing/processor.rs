@@ -1,17 +1,12 @@
-//! # Content Hash Processor
+//! # Processor Inputs and Results
 //!
-//! Generates BLAKE3 content hashes for files and links them to content_identity records. Each
-//! processor execution is atomic: hash generation, identity creation/lookup, and entry linking
-//! happen in a single transaction. This ensures entries either have valid content_id references
-//! or remain unlinked if processing fails.
+//! The shape a media processor is handed and the shape it answers with. Every
+//! processor in `ops::media` speaks these types, so a caller can drive
+//! thumbnails, proxies, OCR and transcripts without knowing which is which.
 
-use super::{database_storage::DatabaseStorage, state::EntryKind};
-use crate::domain::content_identity::ContentHashGenerator;
-use anyhow::Result;
-use sea_orm::DatabaseConnection;
+use super::state::EntryKind;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tracing::debug;
 use uuid::Uuid;
 
 /// Minimal entry snapshot required for content processing without full database models.
@@ -124,54 +119,4 @@ impl Default for LocationProcessorConfig {
 			],
 		}
 	}
-}
-
-/// Generates BLAKE3 hashes and creates content_identity records for files.
-pub struct ContentHashProcessor {
-	library_id: Uuid,
-}
-
-impl ContentHashProcessor {
-	pub fn new(library_id: Uuid) -> Self {
-		Self { library_id }
-	}
-
-	pub async fn process(
-		&self,
-		db: &DatabaseConnection,
-		entry: &ProcessorEntry,
-		registry: &crate::filetype::FileTypeRegistry,
-	) -> Result<ProcessorResult> {
-		if !matches!(entry.kind, EntryKind::File) || entry.content_id.is_some() {
-			return Ok(ProcessorResult::success(0, 0));
-		}
-
-		debug!("→ Generating content hash for: {}", entry.path.display());
-
-		let content_hash = ContentHashGenerator::generate_content_hash(&entry.path).await?;
-		debug!("✓ Generated content hash: {}", content_hash);
-
-		DatabaseStorage::link_to_content_identity(
-			db,
-			entry.id,
-			&entry.path,
-			content_hash,
-			registry,
-		)
-		.await?;
-
-		debug!("✓ Linked content identity for entry {}", entry.id);
-
-		Ok(ProcessorResult::success(1, entry.size))
-	}
-}
-
-/// Loads processor config from the location's database record, falling back to defaults.
-pub async fn load_location_processor_config(
-	_location_id: Uuid,
-	_db: &sea_orm::DatabaseConnection,
-) -> Result<LocationProcessorConfig> {
-	// TODO: Load from database location.processor_config JSON field
-	// For now, return defaults
-	Ok(LocationProcessorConfig::default())
 }

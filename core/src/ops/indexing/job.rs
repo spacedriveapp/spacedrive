@@ -73,40 +73,16 @@ impl std::fmt::Display for IndexScope {
 	}
 }
 
-/// Whether to write indexing results to the database or keep them in memory.
+/// Configuration for an indexer job.
 ///
-/// Ephemeral persistence allows users to browse external drives and network shares
-/// without adding them as managed locations. The in-memory index survives for the
-/// session duration and provides the same API surface as persistent entries, enabling
-/// features like search and navigation to work identically for both modes. If an
-/// ephemeral path is later promoted to a managed location, UUIDs are preserved to
-/// maintain continuity for user metadata.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
-pub enum IndexPersistence {
-	/// Write all results to database (normal operation)
-	Persistent,
-	/// Keep results in memory only (for unmanaged paths)
-	Ephemeral,
-}
-
-impl Default for IndexPersistence {
-	fn default() -> Self {
-		IndexPersistence::Persistent
-	}
-}
-
-/// Configuration for an indexer job, supporting both persistent and ephemeral indexing.
-///
-/// Persistent jobs require a location_id to identify which managed location they're
-/// indexing. Ephemeral jobs (browsing unmanaged paths) use location_id = None and
-/// store results in memory instead of the database.
+/// Every walk fills the volume index for the drive it is on. What varies is
+/// how much of the drive it reaches, what it keeps of what it sees, and
+/// whether anyone is watching it happen.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerJobConfig {
-	pub location_id: Option<Uuid>,
 	pub path: SdPath,
 	pub mode: IndexMode,
 	pub scope: IndexScope,
-	pub persistence: IndexPersistence,
 	pub max_depth: Option<u32>,
 	#[serde(default)]
 	pub rule_toggles: super::rules::RuleToggles,
@@ -123,43 +99,11 @@ pub struct IndexerJobConfig {
 }
 
 impl IndexerJobConfig {
-	pub fn new(location_id: Uuid, path: SdPath, mode: IndexMode) -> Self {
-		Self {
-			location_id: Some(location_id),
-			path,
-			mode,
-			scope: IndexScope::Recursive,
-			persistence: IndexPersistence::Persistent,
-			max_depth: None,
-			rule_toggles: Default::default(),
-			run_in_background: false,
-			is_volume_indexing: false,
-			retention: Retention::everything(),
-		}
-	}
-
-	pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
-		Self {
-			location_id: Some(location_id),
-			path,
-			mode: IndexMode::Shallow,
-			scope: IndexScope::Current,
-			persistence: IndexPersistence::Persistent,
-			max_depth: Some(1),
-			rule_toggles: Default::default(),
-			run_in_background: false,
-			is_volume_indexing: false,
-			retention: Retention::everything(),
-		}
-	}
-
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
 		Self {
-			location_id: None,
 			path,
 			mode: IndexMode::Shallow,
 			scope,
-			persistence: IndexPersistence::Ephemeral,
 			max_depth: if scope == IndexScope::Current {
 				Some(1)
 			} else {
@@ -170,11 +114,6 @@ impl IndexerJobConfig {
 			is_volume_indexing: is_volume,
 			retention: Retention::everything(),
 		}
-	}
-
-	/// Check if this is an ephemeral (non-persistent) job
-	pub fn is_ephemeral(&self) -> bool {
-		self.persistence == IndexPersistence::Ephemeral
 	}
 
 	/// Whether this walk enumerates the whole source with nothing filtered out.
@@ -199,13 +138,12 @@ impl IndexerJobConfig {
 	}
 }
 
-/// Orchestrates multi-phase file indexing for both persistent and ephemeral modes.
+/// Walks a path and fills the volume index for the drive it is on.
 ///
-/// The job executes as a state machine progressing through Discovery, Processing,
-/// Aggregation, and ContentIdentification phases. State is automatically serialized
-/// between phases, allowing the job to survive app restarts and resume from the last
-/// completed phase. Ephemeral jobs (browsing unmanaged paths) skip aggregation and
-/// content identification, storing results in memory via `EphemeralIndex`.
+/// The job is a state machine over Discovery and Processing: discovery reads
+/// the filesystem in batches, processing applies each batch to the arena
+/// through `ArenaWriter`. State is serialized between phases, so a job that is
+/// interrupted resumes where it stopped rather than re-reading the tree.
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct IndexerJob {
 	pub config: IndexerJobConfig,
@@ -234,16 +172,11 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_persist(&self) -> bool {
-		// Database persistence only for truly persistent jobs
-		!self.config.is_ephemeral() && !self.config.run_in_background
+		!self.config.run_in_background
 	}
 
 	fn should_emit_events(&self) -> bool {
-		// Emit events for persistent jobs AND volume indexing jobs
-		if self.config.is_volume_indexing {
-			return true;
-		}
-		self.should_persist()
+		self.config.is_volume_indexing || self.should_persist()
 	}
 }
 
@@ -253,8 +186,8 @@ impl IndexerJob {
 	async fn run_job_phases(&mut self, ctx: &JobContext<'_>) -> JobResult<IndexerOutput> {
 		if self.state.is_none() {
 			ctx.log(format!(
-				"Starting new indexer job (scope: {}, persistence: {:?})",
-				self.config.scope, self.config.persistence
+				"Starting new indexer job (scope: {})",
+				self.config.scope
 			));
 			ctx.log_debug("Job starting with no saved state - creating new state");
 			self.state = Some(IndexerState::new(&self.config.path));
@@ -275,28 +208,9 @@ impl IndexerJob {
 			p.to_path_buf()
 		} else if let Some(cloud_path) = self.config.path.cloud_path() {
 			PathBuf::from(cloud_path)
-		} else if !self.config.is_ephemeral() {
-			let loc_uuid = self
-				.config
-				.location_id
-				.ok_or_else(|| JobError::execution("Missing location id".to_string()))?;
-			let db = ctx.library().db();
-			let location = entities::location::Entity::find()
-				.filter(entities::location::Column::Uuid.eq(loc_uuid))
-				.one(db.conn())
-				.await
-				.map_err(|e| JobError::execution(e.to_string()))?
-				.ok_or_else(|| JobError::execution("Location not found".to_string()))?;
-			let entry_id = location
-				.entry_id
-				.ok_or_else(|| JobError::execution("Location has no entry_id".to_string()))?;
-			let path_str = PathResolver::get_directory_path(db.conn(), entry_id)
-				.await
-				.map_err(|e| JobError::execution(e.to_string()))?;
-			std::path::PathBuf::from(path_str)
 		} else {
 			return Err(JobError::execution(
-				"Location root path is not local".to_string(),
+				"Index root path is not local".to_string(),
 			));
 		};
 		let root_path = root_path_buf.as_path();
@@ -401,99 +315,41 @@ impl IndexerJob {
 				}
 
 				Phase::Processing => {
-					if self.config.is_ephemeral() {
-						let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
-							JobError::execution("Ephemeral index not initialized".to_string())
-						})?;
+					let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
+						JobError::execution("Volume index not initialized".to_string())
+					})?;
 
-						// Discovery has finished by now, so the walk's full
-						// reach — and everything it failed to read — is known.
-						if let Some(store) = &self.source_store {
-							if self.config.enumerates_whole_source() && !state.sweep_open {
-								store.begin_sweep().await;
-								state.sweep_open = true;
-							}
+					// Discovery has finished by now, so the walk's full reach,
+					// and everything it failed to read, is known.
+					if let Some(store) = &self.source_store {
+						if self.config.enumerates_whole_source() && !state.sweep_open {
+							store.begin_sweep().await;
+							state.sweep_open = true;
 						}
+					}
 
-						Self::run_ephemeral_processing_static(
-							state,
-							&ctx,
-							ephemeral_index,
-							self.source_store.clone(),
-							root_path,
-							volume_backend.as_ref(),
-							self.config.is_volume_indexing,
-						)
-						.await?;
+					Self::run_ephemeral_processing_static(
+						state,
+						&ctx,
+						ephemeral_index,
+						self.source_store.clone(),
+						root_path,
+						volume_backend.as_ref(),
+						self.config.is_volume_indexing,
+					)
+					.await?;
 
-						// Only reached when every batch landed. An interrupt
-						// returns above, leaving the sweep open for the resume
-						// rather than closing it over half a walk.
-						if let Some(store) = &self.source_store {
-							if state.sweep_open {
-								store.finish_sweep(&state.unreachable_paths()).await;
-								state.sweep_open = false;
-							}
+					// Only reached when every batch landed. An interrupt
+					// returns above, leaving the sweep open for the resume
+					// rather than closing it over half a walk.
+					if let Some(store) = &self.source_store {
+						if state.sweep_open {
+							store.finish_sweep(&state.unreachable_paths()).await;
+							state.sweep_open = false;
 						}
-					} else {
-						phases::run_processing_phase(
-							self.config
-								.location_id
-								.expect("Location ID required for persistent jobs"),
-							state,
-							&ctx,
-							self.config.mode,
-							root_path,
-							volume_backend.as_ref(),
-						)
-						.await?;
-
-						self.db_operations.1 += state.entry_batches.len() as u64 * 100;
-					}
-				}
-
-				Phase::Aggregation => {
-					if !self.config.is_ephemeral() {
-						phases::run_aggregation_phase(
-							self.config
-								.location_id
-								.expect("Location ID required for persistent jobs"),
-							state,
-							&ctx,
-						)
-						.await?;
-					} else {
-						ctx.log("Skipping aggregation and content phases for ephemeral job (content kind identified by extension)");
-						state.phase = Phase::Complete;
-						continue;
 					}
 
-					if let Some(timer) = &mut self.timer {
-						timer.start_content();
-					}
-				}
-
-				Phase::ContentIdentification => {
-					if self.config.mode >= IndexMode::Content {
-						if self.config.is_ephemeral() {
-							ctx.log("Skipping content identification for ephemeral job");
-							state.phase = Phase::Complete;
-							continue;
-						} else {
-							let library_id = ctx.library().id();
-							phases::run_content_phase(
-								state,
-								&ctx,
-								library_id,
-								volume_backend.as_ref(),
-							)
-							.await?;
-							self.db_operations.1 += state.entries_for_content.len() as u64;
-						}
-					} else {
-						ctx.log("Skipping content identification phase (mode=Shallow)");
-						state.phase = Phase::Complete;
-					}
+					state.phase = Phase::Complete;
 				}
 
 				Phase::Complete => break,
@@ -510,7 +366,6 @@ impl IndexerJob {
 			processing_rate: 0.0,
 			estimated_remaining: None,
 			scope: None,
-			persistence: None,
 			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity,
@@ -525,147 +380,12 @@ impl IndexerJob {
 
 		ctx.log(&metrics.format_summary());
 
-		if self.config.mode == IndexMode::Deep && !self.config.is_ephemeral() {
-			use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
-
-			ctx.log("Deep mode enabled - dispatching thumbnail generation job");
-
-			// Query entry UUIDs for this location to avoid processing all database entries
-			let entry_uuids = if let Some(location_id) = self.config.location_id {
-				use crate::infra::db::entities::{entry, location};
-
-				// Find the location's entry_id (root entry)
-				let db = ctx.library_db();
-				let location_record = location::Entity::find()
-					.filter(location::Column::Uuid.eq(location_id))
-					.one(db)
-					.await;
-
-				match location_record {
-					Ok(Some(loc)) => {
-						if let Some(root_entry_id) = loc.entry_id {
-							// Query all entry IDs that are descendants of this location's root entry
-							// using the entry_closure table
-							let entry_ids_result: Result<Vec<i32>, _> = db
-								.query_all(Statement::from_sql_and_values(
-									sea_orm::DbBackend::Sqlite,
-									"SELECT descendant_id FROM entry_closure WHERE ancestor_id = ?",
-									vec![root_entry_id.into()],
-								))
-								.await
-								.map(|rows| {
-									rows.iter()
-										.filter_map(|row| row.try_get_by_index::<i32>(0).ok())
-										.collect()
-								});
-
-							match entry_ids_result {
-								Ok(entry_ids) => {
-									if entry_ids.is_empty() {
-										ctx.log(
-											"No entries found in location for thumbnail generation",
-										);
-										None
-									} else {
-										// Now get the UUIDs for these entry IDs
-										let entries_result = entry::Entity::find()
-											.filter(entry::Column::Id.is_in(entry_ids))
-											.all(db)
-											.await;
-
-										match entries_result {
-											Ok(entry_models) => {
-												let uuids: Vec<Uuid> = entry_models
-													.into_iter()
-													.filter_map(|e| e.uuid)
-													.collect();
-
-												if !uuids.is_empty() {
-													ctx.log(format!(
-														"Found {} entries in location {} for thumbnail generation",
-														uuids.len(),
-														location_id
-													));
-													Some(uuids)
-												} else {
-													ctx.log("No entry UUIDs found in location for thumbnail generation");
-													None
-												}
-											}
-											Err(e) => {
-												ctx.add_warning(format!(
-													"Failed to query entry UUIDs for location: {}",
-													e
-												));
-												None
-											}
-										}
-									}
-								}
-								Err(e) => {
-									ctx.log(format!(
-										"Warning: Failed to query entry closure for location: {}",
-										e
-									));
-									None
-								}
-							}
-						} else {
-							ctx.log("Location has no root entry, skipping thumbnail generation");
-							None
-						}
-					}
-					Ok(None) => {
-						ctx.add_warning(format!(
-							"Location {} not found, dispatching thumbnail job for all entries",
-							location_id
-						));
-						None
-					}
-					Err(e) => {
-						ctx.log(format!(
-							"Warning: Failed to query location: {}, dispatching thumbnail job for all entries",
-							e
-						));
-						None
-					}
-				}
-			} else {
-				ctx.log("No location_id in config, dispatching thumbnail job for all entries");
-				None
-			};
-
-			let mut thumbnail_config = ThumbnailJobConfig::default();
-			// Inherit background flag from the indexer job
-			thumbnail_config.run_in_background = self.config.run_in_background;
-
-			let thumbnail_job = if let Some(uuids) = entry_uuids {
-				ThumbnailJob::for_entries(uuids, thumbnail_config)
-			} else {
-				ThumbnailJob::new(thumbnail_config)
-			};
-
-			match ctx.library().jobs().dispatch(thumbnail_job).await {
-				Ok(_handle) => {
-					ctx.log("Successfully dispatched thumbnail generation job");
-				}
-				Err(e) => {
-					ctx.add_warning(format!("Failed to dispatch thumbnail job: {}", e));
-				}
-			}
-		}
-
 		Ok(IndexerOutput {
-			location_id: self.config.location_id,
 			stats: state.stats,
 			duration: state.started_at.elapsed(),
 			errors: state.errors.clone(),
 			metrics: Some(metrics),
-			ephemeral_results: if self.config.is_ephemeral() {
-				self.ephemeral_index.clone()
-			} else {
-				None
-			},
+			ephemeral_results: self.ephemeral_index.clone(),
 		})
 	}
 }
@@ -680,7 +400,7 @@ impl JobHandler for IndexerJob {
 			self.timer = Some(PhaseTimer::new());
 		}
 
-		if self.config.is_ephemeral() && self.ephemeral_index.is_none() {
+		if self.ephemeral_index.is_none() {
 			// Try to load from snapshot first
 			let cache = ctx.library().core_context().ephemeral_cache();
 			let snapshot_loaded = if let Some(local_path) = self.config.path.as_local_path() {
@@ -723,7 +443,7 @@ impl JobHandler for IndexerJob {
 		// Settle the ephemeral flags either way: leaving a path in progress
 		// blocks every future attempt at it, and recording a failed run as
 		// indexed serves a partial arena as if it were complete.
-		if self.config.is_ephemeral() {
+		{
 			if let Some(local_path) = self.config.path.as_local_path() {
 				let cache = ctx.library().core_context().ephemeral_cache();
 				match &result {
@@ -834,26 +554,6 @@ impl IndexerJob {
 		}
 	}
 
-	pub fn from_location(location_id: Uuid, root_path: SdPath, mode: IndexMode) -> Self {
-		Self::new(IndexerJobConfig::new(location_id, root_path, mode))
-	}
-
-	pub fn shallow(location_id: Uuid, root_path: SdPath) -> Self {
-		Self::from_location(location_id, root_path, IndexMode::Shallow)
-	}
-
-	pub fn with_content(location_id: Uuid, root_path: SdPath) -> Self {
-		Self::from_location(location_id, root_path, IndexMode::Content)
-	}
-
-	pub fn deep(location_id: Uuid, root_path: SdPath) -> Self {
-		Self::from_location(location_id, root_path, IndexMode::Deep)
-	}
-
-	pub fn ui_navigation(location_id: Uuid, path: SdPath) -> Self {
-		Self::new(IndexerJobConfig::ui_navigation(location_id, path))
-	}
-
 	/// Sets the ephemeral index storage that the job will use.
 	///
 	/// This must be called before dispatching ephemeral jobs. It allows external code
@@ -881,7 +581,7 @@ impl IndexerJob {
 		ctx: &JobContext<'_>,
 		root_path: &std::path::Path,
 	) -> JobResult<()> {
-		use super::database_storage::DatabaseStorage;
+		use super::metadata;
 		use super::state::{DirEntry, EntryKind};
 		use tokio::fs;
 
@@ -923,7 +623,7 @@ impl IndexerJob {
 				modified: metadata.modified().ok(),
 				created: metadata.created().ok(),
 				accessed: metadata.accessed().ok(),
-				inode: DatabaseStorage::get_inode(&path, &metadata),
+				inode: crate::ops::indexing::metadata::get_inode(&path, &metadata),
 				permissions,
 			};
 
@@ -960,7 +660,7 @@ impl IndexerJob {
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 		is_volume_indexing: bool,
 	) -> JobResult<()> {
-		use super::database_storage::EntryMetadata;
+		use super::metadata::EntryMetadata;
 
 		ctx.log("Starting ephemeral processing");
 
@@ -997,7 +697,6 @@ impl IndexerJob {
 				processing_rate: state.calculate_rate(),
 				estimated_remaining: state.estimate_remaining(),
 				scope: None,
-				persistence: None,
 				is_ephemeral: false,
 				action_context: None,
 				volume_total_capacity: state.volume_total_capacity,
@@ -1045,7 +744,6 @@ impl IndexerJob {
 /// Job output with comprehensive results
 #[derive(Debug, Serialize, Deserialize)]
 pub struct IndexerOutput {
-	pub location_id: Option<Uuid>,
 	pub stats: IndexerStats,
 	pub duration: Duration,
 	pub errors: Vec<IndexError>,

@@ -88,7 +88,7 @@ impl LibraryAction for LocationAddAction {
 			.as_ref()
 			.and_then(|jp| serde_json::to_string(jp).ok());
 
-		let (location_id, job_id_string) = location_manager
+		let location_id = location_manager
 			.add_location(
 				library.clone(),
 				self.input.path.clone(),
@@ -102,48 +102,11 @@ impl LibraryAction for LocationAddAction {
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
-		// Register the new location with the filesystem watcher so changes
-		// (creates, deletes, renames) are detected in real-time.
-		// Without this, the watcher only learns about locations at startup.
-		if let Some(local_path) = self.input.path.as_local_path() {
-			if let Some(fs_watcher) = context.get_fs_watcher().await {
-				use crate::ops::indexing::handlers::LocationMeta;
-				use crate::ops::indexing::RuleToggles;
-
-				let root_path = tokio::fs::canonicalize(local_path)
-					.await
-					.unwrap_or_else(|_| local_path.to_path_buf());
-				let root_path = crate::common::utils::strip_windows_extended_prefix(root_path);
-
-				let meta = LocationMeta {
-					id: location_id,
-					library_id: library.id(),
-					root_path,
-					rule_toggles: RuleToggles::default(),
-				};
-				if let Err(e) = fs_watcher.watch_location(meta).await {
-					tracing::warn!("Failed to register location with watcher: {}", e);
-				}
-			}
-		}
-
-		// Parse the job ID from the string returned by add_location
-		let job_id = if !job_id_string.is_empty() {
-			Some(
-				Uuid::parse_str(&job_id_string)
-					.map_err(|e| ActionError::Internal(format!("Failed to parse job ID: {}", e)))?,
-			)
-		} else {
-			None
-		};
-
-		let mut output = LocationAddOutput::new(location_id, self.input.path, self.input.name);
-
-		if let Some(job_id) = job_id {
-			output = output.with_job_id(job_id);
-		}
-
-		Ok(output)
+		Ok(LocationAddOutput::new(
+			location_id,
+			self.input.path,
+			self.input.name,
+		))
 	}
 
 	fn action_kind(&self) -> &'static str {

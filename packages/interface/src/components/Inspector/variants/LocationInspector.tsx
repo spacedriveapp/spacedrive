@@ -7,17 +7,14 @@ import {
 	DotsThree,
 	Sparkle,
 	Image,
-	MagnifyingGlass,
 	Trash,
 	FunnelX,
 	ToggleLeft,
 	ToggleRight,
 	X,
-	Play,
 	FilmStrip,
 	VideoCamera,
 	FolderOpen,
-	ArrowsClockwise,
 } from "@phosphor-icons/react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -34,7 +31,6 @@ import clsx from "clsx";
 import type { Location } from "@sd/ts-client";
 import { Button, Dialog, dialogManager, useDialog, CircleButton, type UseDialogProps } from "@spacedrive/primitives";
 import { useLibraryMutation } from "../../../contexts/SpacedriveContext";
-import { useContextMenu } from "../../../hooks/useContextMenu";
 import LocationIcon from "@sd/assets/icons/Location.webp";
 
 interface LocationInspectorProps {
@@ -89,35 +85,9 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 }
 
 function OverviewTab({ location }: { location: Location }) {
-	const rescanLocation = useLibraryMutation("locations.rescan");
 	const routeLocation = useLocation();
 	const navigate = useNavigate();
 	const isOverview = routeLocation.pathname === '/';
-
-	const reindexMenu = useContextMenu({
-		items: [
-			{
-				icon: MagnifyingGlass,
-				label: "Quick Reindex",
-				onClick: () => {
-					rescanLocation.mutate({
-						location_id: location.id,
-						full_rescan: false,
-					});
-				},
-			},
-			{
-				icon: Sparkle,
-				label: "Full Reindex",
-				onClick: () => {
-					rescanLocation.mutate({
-						location_id: location.id,
-						full_rescan: true,
-					});
-				},
-			},
-		],
-	});
 
 	const formatBytes = (bytes: number | null | undefined) => {
 		if (!bytes || bytes === 0) return "0 B";
@@ -180,12 +150,6 @@ function OverviewTab({ location }: { location: Location }) {
 						Open Location
 					</CircleButton>
 				)}
-
-				<CircleButton
-					icon={ArrowsClockwise}
-					onClick={reindexMenu.show}
-					title="Reindex location"
-				/>
 			</div>
 
 			{/* Details */}
@@ -296,7 +260,6 @@ function IndexingTab({ location }: { location: Location }) {
 
 function JobsTab({ location }: { location: Location }) {
 	const updateLocation = useLibraryMutation("locations.update");
-	const triggerJob = useLibraryMutation("locations.triggerJob");
 
 	const updatePolicy = async (
 		updates: Partial<typeof location.job_policies>,
@@ -341,14 +304,6 @@ function JobsTab({ location }: { location: Location }) {
 								},
 							})
 						}
-						onTrigger={() =>
-							triggerJob.mutate({
-								location_id: location.id,
-								job_type: "thumbnail",
-								force: false,
-							})
-						}
-						isTriggering={triggerJob.isPending}
 					/>
 					<JobConfigRow
 						label="Generate Thumbstrips"
@@ -363,14 +318,6 @@ function JobsTab({ location }: { location: Location }) {
 								},
 							})
 						}
-						onTrigger={() =>
-							triggerJob.mutate({
-								location_id: location.id,
-								job_type: "thumbstrip",
-								force: false,
-							})
-						}
-						isTriggering={triggerJob.isPending}
 						icon={FilmStrip}
 					/>
 					<JobConfigRow
@@ -386,14 +333,6 @@ function JobsTab({ location }: { location: Location }) {
 								},
 							})
 						}
-						onTrigger={() =>
-							triggerJob.mutate({
-								location_id: location.id,
-								job_type: "thumbnail" as const,
-								force: false,
-							})
-						}
-						isTriggering={triggerJob.isPending}
 						icon={VideoCamera}
 					/>
 				</div>
@@ -416,14 +355,6 @@ function JobsTab({ location }: { location: Location }) {
 								},
 							})
 						}
-						onTrigger={() =>
-							triggerJob.mutate({
-								location_id: location.id,
-								job_type: "ocr",
-								force: false,
-							})
-						}
-						isTriggering={triggerJob.isPending}
 					/>
 					<JobConfigRow
 						label="Speech to Text"
@@ -440,14 +371,6 @@ function JobsTab({ location }: { location: Location }) {
 								},
 							})
 						}
-						onTrigger={() =>
-							triggerJob.mutate({
-								location_id: location.id,
-								job_type: "speech_to_text",
-								force: false,
-							})
-						}
-						isTriggering={triggerJob.isPending}
 					/>
 				</div>
 			</Section>
@@ -753,8 +676,6 @@ interface JobConfigRowProps {
 	description: string;
 	enabled: boolean;
 	onToggle: (enabled: boolean) => void;
-	onTrigger: () => void;
-	isTriggering: boolean;
 	icon?: React.ComponentType<any>;
 }
 
@@ -763,8 +684,6 @@ function JobConfigRow({
 	description,
 	enabled,
 	onToggle,
-	onTrigger,
-	isTriggering,
 	icon: Icon,
 }: JobConfigRowProps) {
 	return (
@@ -807,18 +726,6 @@ function JobConfigRow({
 				</p>
 			</div>
 
-			{/* Run button */}
-			<Button
-				onClick={onTrigger}
-				disabled={!enabled || isTriggering}
-				variant="gray"
-				size="sm"
-				className="w-full flex items-center justify-center gap-1.5 mt-2.5"
-				title={enabled ? "Run job now" : "Enable job first"}
-			>
-				<Play className="size-3" weight="fill" />
-				{isTriggering ? "Running..." : "Run Now"}
-			</Button>
 		</div>
 	);
 }

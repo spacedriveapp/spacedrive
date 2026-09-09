@@ -5,7 +5,7 @@
 //! and track execution context for observability. Each action can spawn multiple jobs (one per
 //! path), but returns only the last handle for API simplicity.
 
-use super::job::{IndexMode, IndexPersistence, IndexScope, IndexerJob, IndexerJobConfig};
+use super::job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig};
 use super::IndexInput;
 use crate::{
 	context::CoreContext,
@@ -88,19 +88,7 @@ impl LibraryAction for IndexingAction {
 		for path in &self.input.paths {
 			let sd_path = crate::domain::addressing::SdPath::local(path.clone());
 
-			let mut config = match self.input.persistence {
-				IndexPersistence::Ephemeral => {
-					// Directory browsing, not volume indexing
-					IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false)
-				}
-				IndexPersistence::Persistent => {
-					// Persistent mode stores entries in the database but doesn't require a location binding yet.
-					let mut c =
-						IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false);
-					c.persistence = IndexPersistence::Persistent;
-					c
-				}
-			};
+			let mut config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false);
 
 			config.mode = self.input.mode;
 
@@ -140,8 +128,7 @@ impl ActionContextProvider for IndexingAction {
 				"trigger": "user_action",
 				"paths_count": self.input.paths.len(),
 				"mode": self.input.mode,
-				"scope": self.input.scope,
-				"persistence": self.input.persistence
+				"scope": self.input.scope
 			}),
 		)
 	}

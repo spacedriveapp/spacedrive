@@ -45,7 +45,7 @@ impl LocationManager {
 		action_context: Option<crate::infra::action::context::ActionContext>,
 		job_policies: Option<String>,
 		volume_manager: &crate::volume::VolumeManager,
-	) -> LocationResult<(Uuid, String)> {
+	) -> LocationResult<Uuid> {
 		// Canonicalize local physical paths to absolute form before storing.
 		// Relative paths break the watcher, volume resolution, and indexer.
 		// Only for local device — remote paths can't be resolved locally.
@@ -320,143 +320,10 @@ impl LocationManager {
 			warn!("Failed to emit location resource events: {}", e);
 		}
 
-		// Start indexing job with action context if index mode is not None
-		let job_id = if index_mode != IndexMode::None {
-			// Emit indexing started event
-			self.events.emit(Event::IndexingStarted { location_id });
-
-			// Get device_id before moving library
-			let device_id = library
-				.core_context()
-				.device_manager
-				.device_id()
-				.unwrap_or_else(|_| uuid::Uuid::nil());
-
-			match self
-				.start_indexing_with_context_and_path(
-					library,
-					&managed_location,
-					sd_path.clone(),
-					action_context,
-				)
-				.await
-			{
-				Ok(job_id) => {
-					info!(
-						"Started indexing job {} for location '{}'",
-						job_id, display_name
-					);
-
-					// Emit job started event
-					self.events.emit(Event::JobStarted {
-						job_id: job_id.clone(),
-						job_type: "Indexing".to_string(),
-						device_id,
-					});
-
-					job_id
-				}
-				Err(e) => {
-					error!(
-						"Failed to start indexing for location '{}': {}",
-						display_name, e
-					);
-					// Return empty job ID if indexing fails
-					String::new()
-				}
-			}
-		} else {
-			info!(
-				"Location '{}' created with IndexMode::None, skipping indexing",
-				display_name
-			);
-			String::new()
-		};
-
 		info!("Successfully added location '{}'", display_name);
-		Ok((location_id, job_id))
+		Ok(location_id)
 	}
 
-	/// Start indexing for a location
-	pub async fn start_indexing(
-		&self,
-		library: Arc<Library>,
-		location: &ManagedLocation,
-	) -> LocationResult<String> {
-		self.start_indexing_with_context(library, location, None)
-			.await
-	}
-
-	/// Start indexing for a location with action context
-	pub async fn start_indexing_with_context(
-		&self,
-		library: Arc<Library>,
-		location: &ManagedLocation,
-		action_context: Option<crate::infra::action::context::ActionContext>,
-	) -> LocationResult<String> {
-		// Construct SdPath from location
-		let device_slug = self.get_device_slug(&library, location.device_id).await?;
-		let location_sd_path = SdPath::new(device_slug, location.path.clone());
-
-		self.start_indexing_with_context_and_path(
-			library,
-			location,
-			location_sd_path,
-			action_context,
-		)
-		.await
-	}
-
-	/// Start indexing for a location with action context and explicit SdPath
-	pub async fn start_indexing_with_context_and_path(
-		&self,
-		library: Arc<Library>,
-		location: &ManagedLocation,
-		location_sd_path: SdPath,
-		action_context: Option<crate::infra::action::context::ActionContext>,
-	) -> LocationResult<String> {
-		info!(
-			"Starting indexing for location '{}' at {} in mode {:?}",
-			location.name, location_sd_path, location.index_mode
-		);
-
-		// Update scan state to "scanning"
-		self.update_scan_state(&library, location.id, "scanning", None)
-			.await?;
-
-		// Create indexer job using new configuration pattern
-		let config = IndexerJobConfig::new(
-			location.id,
-			location_sd_path.clone(),
-			location.index_mode.into(),
-		);
-		let indexer_job = IndexerJob::new(config);
-
-		// Submit to job manager with action context
-		let job_manager = library.jobs();
-		let job_handle = job_manager
-			.dispatch_with_priority(
-				indexer_job,
-				crate::infra::job::types::JobPriority::NORMAL,
-				action_context,
-			)
-			.await?;
-		let job_id = job_handle.id();
-
-		info!(
-			"Started indexing job {} for location '{}' at {}",
-			job_id, location.name, location_sd_path
-		);
-
-		// The job system will handle:
-		// - Progress updates via the event bus
-		// - Updating scan state when complete/failed
-		// - Emitting appropriate events
-
-		Ok(job_id.to_string())
-	}
-
-	/// Update scan state for a location
 	async fn update_scan_state(
 		&self,
 		library: &Library,
@@ -595,7 +462,7 @@ impl LocationManager {
 
 		// Delete the root entry tree first if it exists (within the same transaction to avoid lock contention)
 		if let Some(entry_id) = location.entry_id {
-			crate::ops::indexing::DatabaseStorage::delete_subtree_in_txn(entry_id, &txn)
+			crate::infra::db::entities::entry::delete_subtree_in_txn(entry_id, &txn)
 				.await
 				.map_err(|e| LocationError::Other(format!("Failed to delete entry tree: {}", e)))?;
 		}
@@ -671,44 +538,6 @@ impl LocationManager {
 		}
 
 		Ok(managed_locations)
-	}
-
-	/// Rescan a location
-	pub async fn rescan_location(
-		&self,
-		library: Arc<Library>,
-		location_id: Uuid,
-		force: bool,
-	) -> LocationResult<String> {
-		info!("Rescanning location {} (force: {})", location_id, force);
-
-		// Get the location
-		let location = entities::location::Entity::find()
-			.filter(entities::location::Column::Uuid.eq(location_id))
-			.one(library.db().conn())
-			.await?
-			.ok_or_else(|| LocationError::LocationNotFound { id: location_id })?;
-
-		// Skip if location doesn't have entry_id yet (not synced)
-		let entry_id = location
-			.entry_id
-			.ok_or_else(|| LocationError::Other("Location entry not yet synced".to_string()))?;
-
-		let path = PathResolver::get_full_path(library.db().conn(), entry_id).await?;
-
-		let managed_location = ManagedLocation {
-			id: location.uuid,
-			name: location.name.unwrap_or_else(|| "Unknown".to_string()),
-			path,
-			device_id: location.device_id,
-			library_id: library.id(),
-			indexing_enabled: true,
-			index_mode: location.index_mode.parse().unwrap_or(IndexMode::Deep),
-			watch_enabled: true,
-		};
-
-		// Start indexing (the indexer will handle incremental updates unless force is true)
-		self.start_indexing(library, &managed_location).await
 	}
 }
 

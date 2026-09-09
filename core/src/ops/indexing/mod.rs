@@ -23,46 +23,43 @@
 pub mod action;
 pub mod change_detection;
 pub mod content_identity;
-pub mod database_storage;
 pub mod ephemeral;
 pub mod handlers;
 pub mod hierarchy;
 pub mod input;
 pub mod job;
 pub mod lens;
+pub mod metadata;
 pub mod metrics;
 pub mod path_resolver;
 pub mod phases;
 pub mod processor;
 pub mod progress;
-pub mod responder;
 pub mod rules;
 pub mod state;
 pub mod summary;
-pub mod verify;
 
 pub use action::IndexingAction;
 pub use change_detection::{
 	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, DatabaseAdapter, EntryRef,
+	ChangeType, EntryRef,
 };
-pub use database_storage::{DatabaseStorage, EntryMetadata};
 pub use ephemeral::{ArenaWriter, EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats};
-pub use handlers::{EphemeralEventHandler, LocationMeta, PersistentEventHandler};
+pub use handlers::EphemeralEventHandler;
 pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
+pub use metadata::{extract_metadata, get_inode, is_hidden_path, EntryMetadata};
 pub use metrics::IndexerMetrics;
+pub use path_resolver::PathResolver;
 
 // Re-export IndexMode from domain (canonical location)
 pub use crate::domain::location::IndexMode;
-pub use path_resolver::PathResolver;
 pub use rules::{
 	build_default_ruler, IndexerRule, IndexerRuler, RuleKind, RulePerKind, RuleToggles,
 	RulerDecision,
 };
 pub use state::{IndexPhase, IndexerProgress, IndexerState, IndexerStats};
-pub use verify::{IndexVerifyAction, IndexVerifyInput, IndexVerifyOutput, IntegrityReport};
 
 #[cfg(test)]
 mod tests;

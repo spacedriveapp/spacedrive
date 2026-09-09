@@ -247,23 +247,6 @@ impl Core {
 			info!("Library filesystem watcher started");
 		}
 
-		// Load locations from all libraries into the filesystem watcher
-		for library in &loaded_libraries {
-			info!("Loading locations for library {}", library.id());
-			match services.fs_watcher.load_library_locations(library).await {
-				Ok(count) => {
-					info!("Loaded {} locations from library {}", count, library.id());
-				}
-				Err(e) => {
-					error!(
-						"Failed to load locations for library {}: {}",
-						library.id(),
-						e
-					);
-				}
-			}
-		}
-
 		// Initialize sidecar manager for each loaded library
 		for library in &loaded_libraries {
 			info!("Initializing sidecar manager for library {}", library.id());

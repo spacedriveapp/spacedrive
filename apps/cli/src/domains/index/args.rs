@@ -7,8 +7,7 @@ use sd_core::{
 	ops::core::ephemeral_status::EphemeralCacheStatusInput,
 	ops::indexing::{
 		input::IndexInput,
-		job::{IndexMode, IndexPersistence, IndexScope},
-		verify::input::IndexVerifyInput,
+		job::{IndexMode, IndexScope},
 	},
 };
 
@@ -82,17 +81,11 @@ impl IndexStartArgs {
 			}
 		}
 
-		let persistence = if self.persistent {
-			IndexPersistence::Persistent
-		} else {
-			IndexPersistence::Ephemeral
-		};
 
 		Ok(IndexInput::new(library_id, local_paths)
 			.with_mode(IndexMode::from(self.mode.clone()))
 			.with_scope(IndexScope::from(self.scope.clone()))
-			.with_include_hidden(self.include_hidden)
-			.with_persistence(persistence))
+			.with_include_hidden(self.include_hidden))
 	}
 }
 
@@ -111,8 +104,7 @@ impl QuickScanArgs {
 			.ok_or_else(|| anyhow::anyhow!("Non-local path not supported yet"))?;
 		Ok(IndexInput::new(library_id, vec![p.to_path_buf()])
 			.with_mode(IndexMode::Shallow)
-			.with_scope(IndexScope::from(self.scope.clone()))
-			.with_persistence(IndexPersistence::Ephemeral))
+			.with_scope(IndexScope::from(self.scope.clone())))
 	}
 }
 
@@ -137,37 +129,7 @@ impl BrowseArgs {
 			} else {
 				IndexMode::Shallow
 			})
-			.with_scope(IndexScope::from(self.scope.clone()))
-			.with_persistence(IndexPersistence::Ephemeral))
-	}
-}
-
-#[derive(Args, Debug, Clone)]
-pub struct IndexVerifyArgs {
-	/// Path to verify (can be location root or subdirectory)
-	pub path: PathBuf,
-
-	/// Verify content hashes (slower but more thorough)
-	#[arg(long, default_value_t = false)]
-	pub verify_content: bool,
-
-	/// Show detailed file-by-file comparison
-	#[arg(long, default_value_t = true)]
-	pub detailed: bool,
-
-	/// Automatically fix issues (not yet implemented)
-	#[arg(long, default_value_t = false)]
-	pub auto_fix: bool,
-}
-
-impl IndexVerifyArgs {
-	pub fn to_input(&self) -> IndexVerifyInput {
-		IndexVerifyInput {
-			path: self.path.clone(),
-			verify_content: self.verify_content,
-			detailed_report: self.detailed,
-			auto_fix: self.auto_fix,
-		}
+			.with_scope(IndexScope::from(self.scope.clone())))
 	}
 }
 

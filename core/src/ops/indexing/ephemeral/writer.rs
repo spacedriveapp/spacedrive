@@ -22,7 +22,7 @@ use crate::domain::ContentKind;
 use crate::infra::event::{Event, EventBus};
 use crate::ops::indexing::change_detection::handler::{build_dir_entry, ChangeHandler};
 use crate::ops::indexing::change_detection::types::{ChangeType, EntryRef};
-use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
+use crate::ops::indexing::metadata::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::state::{DirEntry, EntryKind};
 
 use super::store::SourceStore;
@@ -564,7 +564,7 @@ impl ChangeHandler for ArenaWriter {
 	}
 
 	async fn handle_new_directory(&self, path: &Path) -> Result<()> {
-		use crate::ops::indexing::database_storage::DatabaseStorage;
+		use crate::ops::indexing::metadata;
 
 		let mut entries = match tokio::fs::read_dir(path).await {
 			Ok(entries) => entries,
@@ -599,7 +599,7 @@ impl ChangeHandler for ArenaWriter {
 				modified: metadata.modified().ok(),
 				accessed: metadata.accessed().ok(),
 				created: metadata.created().ok(),
-				inode: DatabaseStorage::get_inode(&entry_path, &metadata),
+				inode: crate::ops::indexing::metadata::get_inode(&entry_path, &metadata),
 				permissions: None,
 				is_hidden: is_hidden_path(&entry_path),
 			});

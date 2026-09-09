@@ -9,7 +9,6 @@ use sd_core::{
 		locations::{
 			add::action::LocationAddInput, export::LocationExportInput,
 			import::LocationImportInput, remove::action::LocationRemoveInput,
-			rescan::action::LocationRescanInput,
 		},
 	},
 };
@@ -68,21 +67,6 @@ impl From<LocationRemoveArgs> for LocationRemoveInput {
 	}
 }
 
-#[derive(Args, Debug)]
-pub struct LocationRescanArgs {
-	pub location_id: Uuid,
-	#[arg(long, default_value_t = false)]
-	pub force: bool,
-}
-
-impl From<LocationRescanArgs> for LocationRescanInput {
-	fn from(args: LocationRescanArgs) -> Self {
-		Self {
-			location_id: args.location_id,
-			full_rescan: args.force,
-		}
-	}
-}
 
 #[derive(Args, Debug)]
 pub struct LocationExportArgs {

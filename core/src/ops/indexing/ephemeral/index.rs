@@ -17,7 +17,7 @@
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
-use crate::ops::indexing::database_storage::{is_hidden_path, EntryMetadata};
+use crate::ops::indexing::metadata::{is_hidden_path, EntryMetadata};
 use crate::ops::indexing::state::{EntryKind, IndexerStats};
 
 use super::types::{

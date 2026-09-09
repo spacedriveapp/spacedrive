@@ -26,8 +26,6 @@ pub struct IndexerProgress {
 	pub estimated_remaining: Option<Duration>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub scope: Option<super::job::IndexScope>,
-	#[serde(skip_serializing_if = "Option::is_none")]
-	pub persistence: Option<super::job::IndexPersistence>,
 	pub is_ephemeral: bool,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub action_context: Option<crate::infra::action::context::ActionContext>,
@@ -65,8 +63,6 @@ pub enum IndexPhase {
 pub(crate) enum Phase {
 	Discovery,
 	Processing,
-	Aggregation,
-	ContentIdentification,
 	Complete,
 }
 

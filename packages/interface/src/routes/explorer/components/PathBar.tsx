@@ -110,7 +110,6 @@ function parsePathSegments(sdPath: SdPath): PathSegment[] {
 
 function IndexIndicator({path}: {path: SdPath}) {
 	const popover = usePopover();
-	const enableIndexing = useLibraryMutation('locations.enable_indexing');
 	const {clearSelection} = useSelection();
 	const {setInspectorVisible} = useExplorer();
 
@@ -184,21 +183,6 @@ function IndexIndicator({path}: {path: SdPath}) {
 							<div className="border-app-line my-2 border-t" />
 
 							<div>
-								{!isIndexed && (
-									<button
-										onClick={async () => {
-											await enableIndexing.mutateAsync({
-												id: matchingLocation.id,
-												index_mode: 'deep'
-											});
-											popover.setOpen(false);
-										}}
-										className="text-ink hover:bg-app-hover flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
-									>
-										<Eye size={16} />
-										Enable Indexing
-									</button>
-								)}
 								<button
 									onClick={() => {
 										clearSelection();

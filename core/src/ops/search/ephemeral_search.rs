@@ -6,8 +6,8 @@
 use crate::domain::{File, SdPath};
 use crate::filetype::FileTypeRegistry;
 use crate::infra::query::QueryError;
-use crate::ops::indexing::database_storage::EntryMetadata;
 use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
 use crate::ops::search::input::{DateField, SearchFilters};
 use crate::ops::search::output::{FileSearchResult, ScoreBreakdown};
