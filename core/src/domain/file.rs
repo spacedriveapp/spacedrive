@@ -367,147 +367,76 @@ impl crate::domain::resource::Identifiable for File {
 			_ => Ok(vec![]),
 		}
 	}
-
-	async fn from_ids(
-		db: &sea_orm::DatabaseConnection,
-		ids: &[Uuid],
-	) -> crate::common::errors::Result<Vec<Self>> {
-		File::from_entry_uuids(db, ids).await
-	}
 }
 
 impl File {
-	/// Build a File from an entry model and item type (for space item resolution)
+	/// The file at this path, as the volume index has it.
 	///
-	/// This is used by SpaceItem resolution where we know the ItemType
-	/// and need to construct a File with the appropriate SdPath.
-	pub async fn from_entry_model_with_item_type(
-		entry_model: crate::infra::db::entities::entry::Model,
-		item_type: &crate::domain::ItemType,
-		db: &sea_orm::DatabaseConnection,
+	/// The one place a `File` comes from now: resolve the partition, read the
+	/// entry, take the content kind. Everything that used to build one from an
+	/// entry row goes through here.
+	pub async fn at_path(
+		cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
+		path: &std::path::Path,
+		uuid: Uuid,
 	) -> Option<Self> {
-		use crate::domain::{ContentIdentity, ContentKind, ItemType, SdPath, Sidecar};
-		use crate::infra::db::entities::{content_identity, sidecar};
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+		let owned = path.to_path_buf();
+		let index = cache.resolve_index(path);
+		let mut index = index.write().await;
+		let metadata = index.get_entry_ref(&owned)?;
+		let content_kind = index.get_content_kind(&owned);
+		drop(index);
 
-		let sd_path = match item_type {
-			ItemType::Path { sd_path } => sd_path.clone(),
-			_ => return None,
-		};
-
-		let content_identity = if let Some(content_id) = entry_model.content_id {
-			content_identity::Entity::find_by_id(content_id)
-				.one(db)
-				.await
-				.ok()
-				.flatten()
-				.map(|ci| ContentIdentity {
-					uuid: ci.uuid.unwrap_or_else(Uuid::new_v4),
-					kind: ContentKind::from_id(ci.kind_id),
-					content_hash: ci.content_hash,
-					integrity_hash: ci.integrity_hash,
-					mime_type_id: ci.mime_type_id,
-					text_content: ci.text_content,
-					total_size: ci.total_size,
-					entry_count: ci.entry_count,
-					first_seen_at: ci.first_seen_at,
-					last_verified_at: ci.last_verified_at,
-				})
-		} else {
-			None
-		};
-
-		let sidecars = if let Some(ref ci) = content_identity {
-			sidecar::Entity::find()
-				.filter(sidecar::Column::ContentUuid.eq(ci.uuid))
-				.all(db)
-				.await
-				.ok()
-				.unwrap_or_default()
-				.into_iter()
-				.map(|s| Sidecar {
-					id: s.id,
-					content_uuid: s.content_uuid,
-					kind: s.kind,
-					variant: s.variant,
-					format: s.format,
-					status: s.status,
-					size: s.size,
-					version: s.version,
-					created_at: s.created_at,
-					updated_at: s.updated_at,
-				})
-				.collect()
-		} else {
-			Vec::new()
-		};
-
-		let mut file = File::from_entity_model(entry_model, sd_path);
-		file.content_identity = content_identity;
-		file.sidecars = sidecars;
-		if let Some(ref ci) = file.content_identity {
-			file.content_kind = ci.kind;
-		}
-
+		let mut file = Self::from_ephemeral(uuid, &metadata, SdPath::local(path.to_path_buf()));
+		file.content_kind = content_kind;
 		Some(file)
 	}
 
-	/// Construct a File directly from entity model and SdPath
+	/// The file a record uuid names, wherever it lives.
+	pub async fn for_record(
+		cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
+		uuid: Uuid,
+	) -> Option<Self> {
+		let path = cache.path_of_record(uuid).await?;
+		Self::at_path(cache, &path, uuid).await
+	}
+
+	/// Tell clients these files changed.
 	///
-	/// This is the preferred method for converting database entities to File objects,
-	/// bypassing the Entry domain model entirely.
-	pub fn from_entity_model(
-		model: crate::infra::db::entities::entry::Model,
-		sd_path: SdPath,
-	) -> Self {
-		let is_local = sd_path.is_local();
+	/// Content-scoped changes reach every copy of the bytes, so this takes a
+	/// list rather than one uuid and the caller does not have to know how many
+	/// copies there were.
+	pub async fn announce(
+		context: &std::sync::Arc<crate::context::CoreContext>,
+		records: Vec<Uuid>,
+	) {
+		use crate::infra::event::{Event, ResourceMetadata};
 
-		// Convert entity kind to domain EntryKind
-		let kind = match model.kind {
-			0 => EntryKind::File,
-			1 => EntryKind::Directory,
-			2 => EntryKind::Symlink,
-			_ => EntryKind::File,
-		};
+		let cache = context.ephemeral_cache();
+		for record in records {
+			let Some(file) = Self::for_record(cache, record).await else {
+				continue;
+			};
+			let Ok(resource) = serde_json::to_value(&file) else {
+				continue;
+			};
 
-		let extension = model.extension.clone();
-
-		// Generate UUID from id if uuid is None
-		let id = model.uuid.unwrap_or_else(|| {
-			Uuid::parse_str(&format!(
-				"{:08x}-0000-0000-0000-{:012x}",
-				model.id, model.id
-			))
-			.unwrap_or_else(|_| Uuid::new_v4())
-		});
-
-		Self {
-			id,
-			sd_path,
-			name: model.name,
-			size: model.aggregate_size.max(model.size) as u64,
-			content_identity: None,
-			alternate_paths: Vec::new(),
-			tags: Vec::new(),
-			sidecars: Vec::new(),
-			image_media_data: None,
-			video_media_data: None,
-			audio_media_data: None,
-			created_at: model.created_at,
-			modified_at: model.modified_at,
-			accessed_at: model.accessed_at,
-			content_kind: ContentKind::Unknown,
-			extension,
-			kind,
-			is_local,
-			duration_seconds: None,
-			thumbnail_path: None,
+			context.events.emit(Event::ResourceChanged {
+				resource_type: "file".to_string(),
+				resource,
+				metadata: Some(ResourceMetadata {
+					no_merge_fields:
+						<Self as crate::domain::resource::Identifiable>::no_merge_fields()
+							.iter()
+							.map(|s| s.to_string())
+							.collect(),
+					alternate_ids: vec![],
+					affected_paths: vec![file.sd_path.clone()],
+				}),
+			});
 		}
 	}
 
-	/// Construct a File from ephemeral indexing data (no database)
-	///
-	/// This is used for ephemeral indexing where files are discovered but not persisted to the database.
 	pub fn from_ephemeral(
 		id: Uuid,
 		metadata: &crate::ops::indexing::metadata::EntryMetadata,
@@ -665,362 +594,6 @@ impl File {
 	/// Check if this is an archive
 	pub fn is_archive(&self) -> bool {
 		self.content_kind == ContentKind::Archive
-	}
-
-	/// Batch construct File instances from entry UUIDs
-	///
-	/// This is used by the ResourceManager to emit File events when
-	/// dependencies (Entry, ContentIdentity, Sidecar) change.
-	///
-	/// Efficiently loads all necessary data in batch queries and constructs
-	/// fully-populated File instances.
-	pub async fn from_entry_uuids(
-		db: &sea_orm::DatabaseConnection,
-		entry_uuids: &[Uuid],
-	) -> crate::common::errors::Result<Vec<File>> {
-		use crate::infra::db::entities::{content_identity, entry, location, sidecar};
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-		use std::collections::HashMap;
-
-		if entry_uuids.is_empty() {
-			return Ok(Vec::new());
-		}
-
-		// Batch load all entries
-		let entries = entry::Entity::find()
-			.filter(entry::Column::Uuid.is_in(entry_uuids.iter().copied()))
-			.all(db)
-			.await?;
-
-		if entries.is_empty() {
-			return Ok(Vec::new());
-		}
-
-		// Collect content_ids and location_ids for batch loading
-		let content_ids: Vec<i32> = entries.iter().filter_map(|e| e.content_id).collect();
-
-		// Load locations to build SdPaths
-		// For now, we need to build a path from the entry. The challenge is that entries
-		// don't store full paths - we need to traverse up to the location root.
-		// This is a simplified version that creates Content-based paths when content_id exists
-
-		// Batch load content identities
-		let content_identities = if !content_ids.is_empty() {
-			content_identity::Entity::find()
-				.filter(content_identity::Column::Id.is_in(content_ids.clone()))
-				.all(db)
-				.await?
-		} else {
-			Vec::new()
-		};
-
-		let content_by_id: HashMap<i32, content_identity::Model> = content_identities
-			.into_iter()
-			.map(|ci| (ci.id, ci))
-			.collect();
-
-		// Batch load alternate paths (all entries with same content_id)
-		// This populates the alternate_paths field so frontend filters can check physical locations
-		let all_entries_with_content = if !content_ids.is_empty() {
-			entry::Entity::find()
-				.filter(entry::Column::ContentId.is_in(content_ids.clone()))
-				.all(db)
-				.await?
-		} else {
-			Vec::new()
-		};
-
-		// Group entries by content_id for alternate paths lookup
-		let mut entries_by_content_id: HashMap<i32, Vec<entry::Model>> = HashMap::new();
-		for e in all_entries_with_content {
-			if let Some(cid) = e.content_id {
-				entries_by_content_id.entry(cid).or_default().push(e);
-			}
-		}
-
-		// Batch load content kinds for proper icon display
-		use crate::infra::db::entities::content_kind;
-		let kind_ids: Vec<i32> = content_by_id.values().map(|ci| ci.kind_id).collect();
-
-		let content_kinds = if !kind_ids.is_empty() {
-			content_kind::Entity::find()
-				.filter(content_kind::Column::Id.is_in(kind_ids))
-				.all(db)
-				.await?
-		} else {
-			Vec::new()
-		};
-
-		let kind_by_id: HashMap<i32, ContentKind> = content_kinds
-			.into_iter()
-			.map(|ck| (ck.id, ContentKind::from_id(ck.id)))
-			.collect();
-
-		// Batch load sidecars
-		let content_uuids: Vec<Uuid> = content_by_id.values().filter_map(|ci| ci.uuid).collect();
-
-		let sidecars = if !content_uuids.is_empty() {
-			sidecar::Entity::find()
-				.filter(sidecar::Column::ContentUuid.is_in(content_uuids.clone()))
-				.all(db)
-				.await?
-		} else {
-			Vec::new()
-		};
-
-		let mut sidecars_by_content_uuid: HashMap<Uuid, Vec<Sidecar>> = HashMap::new();
-		for s in sidecars {
-			sidecars_by_content_uuid
-				.entry(s.content_uuid)
-				.or_default()
-				.push(Sidecar {
-					id: s.id,
-					content_uuid: s.content_uuid,
-					kind: s.kind,
-					variant: s.variant,
-					format: s.format,
-					status: s.status,
-					size: s.size,
-					version: s.version,
-					created_at: s.created_at,
-					updated_at: s.updated_at,
-				});
-		}
-
-		// Batch load tags (both entry-scoped and content-scoped)
-		use crate::infra::db::entities::{tag, user_metadata, user_metadata_tag};
-		let mut tags_by_entry: HashMap<Uuid, Vec<Tag>> = HashMap::new();
-
-		// Load user_metadata for entries and content
-		let metadata_records = user_metadata::Entity::find()
-			.filter(
-				user_metadata::Column::EntryUuid
-					.is_in(entry_uuids.iter().copied())
-					.or(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone())),
-			)
-			.all(db)
-			.await?;
-
-		if !metadata_records.is_empty() {
-			let metadata_ids: Vec<i32> = metadata_records.iter().map(|m| m.id).collect();
-
-			// Load user_metadata_tag records
-			let metadata_tags = user_metadata_tag::Entity::find()
-				.filter(user_metadata_tag::Column::UserMetadataId.is_in(metadata_ids))
-				.all(db)
-				.await?;
-
-			if !metadata_tags.is_empty() {
-				let tag_ids: Vec<i32> = metadata_tags.iter().map(|mt| mt.tag_id).collect();
-
-				// Load tag entities
-				let tag_models = tag::Entity::find()
-					.filter(tag::Column::Id.is_in(tag_ids))
-					.all(db)
-					.await?;
-
-				// Build tag_id -> Tag mapping using the tags manager converter
-				let tag_map: HashMap<i32, Tag> = tag_models
-					.into_iter()
-					.filter_map(|t| {
-						let db_id = t.id;
-						crate::ops::tags::manager::model_to_domain(t)
-							.ok()
-							.map(|tag| (db_id, tag))
-					})
-					.collect();
-
-				// Build metadata_id -> Vec<Tag> mapping
-				let mut tags_by_metadata: HashMap<i32, Vec<Tag>> = HashMap::new();
-				for mt in metadata_tags {
-					if let Some(tag) = tag_map.get(&mt.tag_id) {
-						tags_by_metadata
-							.entry(mt.user_metadata_id)
-							.or_default()
-							.push(tag.clone());
-					}
-				}
-
-				// Map tags to entries (handle both entry-scoped and content-scoped)
-				for metadata in &metadata_records {
-					if let Some(tags) = tags_by_metadata.get(&metadata.id) {
-						// Entry-scoped metadata
-						if let Some(entry_uuid) = metadata.entry_uuid {
-							tags_by_entry
-								.entry(entry_uuid)
-								.or_default()
-								.extend(tags.clone());
-						}
-						// Content-scoped metadata: apply to all entries with this content
-						else if let Some(content_uuid) = metadata.content_identity_uuid {
-							// Find all entries with this content_id
-							if let Some(ci) = content_by_id
-								.values()
-								.find(|ci| ci.uuid == Some(content_uuid))
-							{
-								if let Some(alt_entries) = entries_by_content_id.get(&ci.id) {
-									for alt_entry in alt_entries {
-										if let Some(entry_uuid) = alt_entry.uuid {
-											tags_by_entry
-												.entry(entry_uuid)
-												.or_default()
-												.extend(tags.clone());
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
-		}
-
-		// Build File instances
-		let mut files = Vec::new();
-		for entry_model in entries {
-			let entry_uuid = entry_model.uuid.ok_or_else(|| {
-				crate::common::errors::CoreError::InvalidOperation(format!(
-					"Entry {} missing UUID",
-					entry_model.id
-				))
-			})?;
-
-			// Build SdPath - use Content path if content_id exists, otherwise use Physical path
-			// Physical paths are needed for newly created files that don't have content_id yet
-			let sd_path = if let Some(content_id) = entry_model.content_id {
-				if let Some(ci) = content_by_id.get(&content_id) {
-					if let Some(ci_uuid) = ci.uuid {
-						SdPath::Content {
-							content_id: ci_uuid,
-						}
-					} else {
-						tracing::warn!("Entry {} has ContentIdentity without UUID", entry_model.id);
-						continue;
-					}
-				} else {
-					// Fallback: use entry UUID as synthetic path
-					// This shouldn't normally happen but provides a fallback
-					tracing::warn!(
-						"Entry {} has content_id but ContentIdentity not found",
-						entry_model.id
-					);
-					continue;
-				}
-			} else {
-				// No content identity yet - build Physical path from filesystem
-				// This is common for newly created files before content hash runs
-				match crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await {
-					Ok(physical_path) => {
-						let device_slug = crate::device::get_current_device_slug();
-						tracing::debug!(
-							"Using Physical path for entry {} without content_id: {}",
-							entry_model.id,
-							physical_path.display()
-						);
-						SdPath::Physical {
-							device_slug,
-							path: physical_path,
-						}
-					}
-					Err(e) => {
-						tracing::warn!(
-							"Failed to resolve physical path for entry {}: {}",
-							entry_model.id,
-							e
-						);
-						continue;
-					}
-				}
-			};
-
-			// Start with basic File from entity
-			let mut file = File::from_entity_model(entry_model.clone(), sd_path.clone());
-
-			// ALWAYS populate alternate_paths with at least the current file's physical path
-			// This ensures server-side filtering works even for files without content_id
-			if let SdPath::Physical { device_slug, path } = &sd_path {
-				file.alternate_paths.push(SdPath::Physical {
-					device_slug: device_slug.clone(),
-					path: path.clone(),
-				});
-			} else if let SdPath::Content { .. } = &sd_path {
-				// For Content paths, we'll populate from entries_by_content_id below
-				// But we should still try to add the current entry's physical path
-				if let Ok(physical_path) =
-					crate::ops::indexing::PathResolver::get_full_path(db, entry_model.id).await
-				{
-					let device_slug = crate::device::get_current_device_slug();
-					file.alternate_paths.push(SdPath::Physical {
-						device_slug,
-						path: physical_path,
-					});
-				}
-			}
-
-			// Enrich with content identity and alternate paths from duplicates
-			if let Some(content_id) = entry_model.content_id {
-				if let Some(ci) = content_by_id.get(&content_id) {
-					if let Some(ci_uuid) = ci.uuid {
-						file.content_identity = Some(ContentIdentity {
-							uuid: ci_uuid,
-							content_hash: ci.content_hash.clone(),
-							integrity_hash: ci.integrity_hash.clone(),
-							mime_type_id: ci.mime_type_id,
-							kind: kind_by_id
-								.get(&ci.kind_id)
-								.copied()
-								.unwrap_or(ContentKind::Unknown),
-							total_size: ci.total_size,
-							entry_count: ci.entry_count,
-							first_seen_at: ci.first_seen_at,
-							last_verified_at: ci.last_verified_at,
-							text_content: ci.text_content.clone(),
-						});
-
-						// Add sidecars
-						if let Some(sidecars) = sidecars_by_content_uuid.get(&ci_uuid) {
-							file.sidecars = sidecars.clone();
-						}
-
-						// Add physical paths from OTHER entries with same content (duplicates)
-						// Current entry's path was already added above
-						if let Some(alt_entries) = entries_by_content_id.get(&content_id) {
-							for alt_entry in alt_entries {
-								// Skip current entry to avoid duplicate
-								if alt_entry.id == entry_model.id {
-									continue;
-								}
-
-								// Build physical path for each OTHER entry with this content
-								if let Ok(physical_path) =
-									crate::ops::indexing::PathResolver::get_full_path(
-										db,
-										alt_entry.id,
-									)
-									.await
-								{
-									let device_slug = crate::device::get_current_device_slug();
-
-									file.alternate_paths.push(SdPath::Physical {
-										device_slug,
-										path: physical_path,
-									});
-								}
-							}
-						}
-					}
-				}
-			}
-
-			// Add tags from batch lookup
-			if let Some(tags) = tags_by_entry.get(&entry_uuid) {
-				file.tags = tags.clone();
-			}
-
-			files.push(file);
-		}
-
-		Ok(files)
 	}
 }
 

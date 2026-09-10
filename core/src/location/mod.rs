@@ -1,355 +1,251 @@
-//! Location management - simplified implementation matching core patterns
+//! Pinning a place inside a source.
+//!
+//! A location is a name, a path relative to its source root, and whether
+//! someone put it there. It owns no records: the volume index holds those, and
+//! deleting a location leaves them alone. What it decides is retention, since a
+//! covered subtree is kept whole rather than summarised, and watching.
+//!
+//! There is no "add a location" gesture any more. The five folders a person
+//! recognises are written when the library is created, and beyond that pinning
+//! a folder is what makes it a location.
 
-pub mod manager;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-use crate::{
-	domain::addressing::SdPath,
-	infra::{
-		db::entities::{self, entry::EntryKind},
-		event::{Event, EventBus},
-		job::{handle::JobHandle, output::IndexedOutput, types::JobStatus},
-	},
-	library::Library,
-	ops::indexing::{
-		rules::RuleToggles, IndexMode as JobIndexMode, IndexerJob, IndexerJobConfig, PathResolver,
-	},
-};
-
-use sea_orm::{
-	ActiveModelTrait,
-	ActiveValue::{NotSet, Set},
-	ColumnTrait, EntityTrait, QueryFilter, TransactionTrait,
-};
-use serde::{Deserialize, Serialize};
-use std::{path::PathBuf, sync::Arc};
-use tokio::fs;
-use tracing::{error, info, warn};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
+use thiserror::Error;
 use uuid::Uuid;
 
-pub use manager::LocationManager;
+use crate::context::CoreContext;
+use crate::domain::Location;
+use crate::infra::db::entities::{location, source};
+use crate::library::Library;
 
-/// Location creation arguments (simplified from production version)
-#[derive(Debug, Serialize, Deserialize)]
-pub struct LocationCreateArgs {
-	pub path: PathBuf,
-	pub name: Option<String>,
-	pub index_mode: IndexMode,
-}
-
-/// Location indexing mode
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
-pub enum IndexMode {
-	/// Location exists but is not indexed
-	None,
-	/// Only scan file/directory structure
-	Shallow,
-	/// Quick scan (metadata only)
-	Quick,
-	/// Include content hashing for deduplication
-	Content,
-	/// Full indexing with content analysis and metadata
-	Deep,
-	/// Full indexing with all features
-	Full,
-}
-
-impl From<IndexMode> for JobIndexMode {
-	fn from(mode: IndexMode) -> Self {
-		match mode {
-			IndexMode::None => JobIndexMode::None,
-			IndexMode::Shallow => JobIndexMode::Shallow,
-			IndexMode::Quick => JobIndexMode::Content,
-			IndexMode::Content => JobIndexMode::Content,
-			IndexMode::Deep => JobIndexMode::Deep,
-			IndexMode::Full => JobIndexMode::Deep,
-		}
-	}
-}
-
-impl From<&str> for IndexMode {
-	fn from(s: &str) -> Self {
-		match s.to_lowercase().as_str() {
-			"none" => IndexMode::None,
-			"shallow" => IndexMode::Shallow,
-			"quick" => IndexMode::Quick,
-			"content" => IndexMode::Content,
-			"deep" => IndexMode::Deep,
-			"full" => IndexMode::Full,
-			_ => IndexMode::Full,
-		}
-	}
-}
-
-impl std::fmt::Display for IndexMode {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		match self {
-			IndexMode::None => write!(f, "none"),
-			IndexMode::Shallow => write!(f, "shallow"),
-			IndexMode::Quick => write!(f, "quick"),
-			IndexMode::Content => write!(f, "content"),
-			IndexMode::Deep => write!(f, "deep"),
-			IndexMode::Full => write!(f, "full"),
-		}
-	}
-}
-
-/// Managed location representation
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ManagedLocation {
-	pub id: Uuid,
-	pub name: String,
-	pub path: PathBuf,
-	pub device_id: i32,
-	pub library_id: Uuid,
-	pub indexing_enabled: bool,
-	pub index_mode: IndexMode,
-	pub watch_enabled: bool,
-}
-
-/// Location management errors
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, Error)]
 pub enum LocationError {
 	#[error("Database error: {0}")]
 	Database(#[from] sea_orm::DbErr),
-	#[error("Database error: {0}")]
-	DatabaseError(String),
-	#[error("Path does not exist: {path}")]
-	PathNotFound { path: PathBuf },
-	#[error("Path not accessible: {path}")]
-	PathNotAccessible { path: PathBuf },
-	#[error("Location already exists: {path}")]
-	LocationExists { path: PathBuf },
-	#[error("Location not found: {id}")]
-	LocationNotFound { id: Uuid },
-	#[error("IO error: {0}")]
-	Io(#[from] std::io::Error),
-	#[error("Invalid path: {0}")]
-	InvalidPath(String),
-	#[error("Job error: {0}")]
-	Job(#[from] crate::infra::job::error::JobError),
-	#[error("Other error: {0}")]
-	Other(String),
+	#[error("Path does not exist: {}", .0.display())]
+	PathNotFound(PathBuf),
+	#[error("{} is not inside any source", .0.display())]
+	NoSource(PathBuf),
+	#[error("Already pinned: {}", .0.display())]
+	AlreadyPinned(PathBuf),
+	#[error("Location not found: {0}")]
+	NotFound(Uuid),
 }
 
 pub type LocationResult<T> = Result<T, LocationError>;
 
-/// Create a new location and start indexing (simplified for tests - use LocationManager in production)
-pub async fn create_location(
-	library: Arc<Library>,
-	events: &EventBus,
-	args: LocationCreateArgs,
-	device_id: i32,
-) -> LocationResult<i32> {
-	let path_str = args
-		.path
-		.to_str()
-		.ok_or_else(|| LocationError::InvalidPath("Non-UTF8 path".to_string()))?;
+/// The default set, written once when a library is created.
+///
+/// These are the folders a person opening a file manager expects to already be
+/// there. A path that does not exist on this machine is not written, so a Linux
+/// box without `~/Pictures` gets four rows rather than a broken fifth.
+pub fn default_paths() -> Vec<(String, PathBuf)> {
+	let Some(home) = dirs::home_dir() else {
+		return Vec::new();
+	};
 
-	// Validate path exists
-	if !args.path.exists() {
-		return Err(LocationError::PathNotFound { path: args.path });
+	let mut defaults = vec![("Home".to_string(), home.clone())];
+	for name in ["Desktop", "Documents", "Downloads", "Pictures"] {
+		defaults.push((name.to_string(), home.join(name)));
 	}
-
-	if !args.path.is_dir() {
-		return Err(LocationError::InvalidPath(
-			"Path must be a directory".to_string(),
-		));
-	}
-
-	// Begin transaction to ensure atomicity
-	let txn = library
-		.db()
-		.conn()
-		.begin()
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-
-	// First, check if an entry already exists for this path
-	// We need to create a root entry for the location directory
-	let directory_name = args
-		.path
-		.file_name()
-		.and_then(|n| n.to_str())
-		.unwrap_or("Unknown")
-		.to_string();
-
-	// Create entry for the location directory
-	let now = chrono::Utc::now();
-	let entry_model = entities::entry::ActiveModel {
-		uuid: Set(Some(Uuid::new_v4())),
-		name: Set(directory_name.clone()),
-		kind: Set(EntryKind::Directory as i32),
-		extension: Set(None),
-		metadata_id: Set(None),
-		content_id: Set(None),
-		size: Set(0),
-		aggregate_size: Set(0),
-		child_count: Set(0),
-		file_count: Set(0),
-		created_at: Set(now),
-		modified_at: Set(now),
-		accessed_at: Set(None),
-		indexed_at: Set(Some(now)), // CRITICAL: Must be set for sync to work (enables StateChange emission)
-		permissions: Set(None),
-		inode: Set(None),
-		parent_id: Set(None), // Location root has no parent
-		volume_id: Set(None), // Use LocationManager::add_location for volume detection
-		..Default::default()
-	};
-
-	let entry_record = entry_model
-		.insert(&txn)
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-	let entry_id = entry_record.id;
-
-	// Add self-reference to closure table
-	let self_closure = entities::entry_closure::ActiveModel {
-		ancestor_id: Set(entry_id),
-		descendant_id: Set(entry_id),
-		depth: Set(0),
-		..Default::default()
-	};
-	self_closure
-		.insert(&txn)
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-
-	// Add to directory_paths table
-	let dir_path_entry = entities::directory_paths::ActiveModel {
-		entry_id: Set(entry_id),
-		path: Set(path_str.to_string()),
-		..Default::default()
-	};
-	dir_path_entry
-		.insert(&txn)
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-
-	// Check if a location already exists for this entry
-	let existing = entities::location::Entity::find()
-		.filter(entities::location::Column::EntryId.eq(entry_id))
-		.one(&txn)
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-
-	if existing.is_some() {
-		// Rollback transaction
-		txn.rollback()
-			.await
-			.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-		return Err(LocationError::LocationExists { path: args.path });
-	}
-
-	// Create location record
-	let location_id = Uuid::new_v4();
-	let name = args.name.unwrap_or_else(|| {
-		args.path
-			.file_name()
-			.and_then(|n| n.to_str())
-			.unwrap_or("Unknown")
-			.to_string()
-	});
-
-	let location_model = entities::location::ActiveModel {
-		id: NotSet, // Auto-increment handled by database
-		uuid: Set(location_id),
-		device_id: Set(device_id),
-		volume_id: Set(None), // Resolved lazily on first index
-		entry_id: Set(Some(entry_id)),
-		name: Set(Some(name.clone())),
-		index_mode: Set(args.index_mode.to_string()),
-		scan_state: Set("pending".to_string()),
-		last_scan_at: Set(None),
-		error_message: Set(None),
-		total_file_count: Set(0),
-		total_byte_size: Set(0),
-		job_policies: Set(None), // Use defaults
-		created_at: Set(chrono::Utc::now()),
-		updated_at: Set(chrono::Utc::now()),
-	};
-
-	let location_record = location_model
-		.insert(&txn)
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-	let location_db_id = location_record.id;
-
-	// Commit transaction
-	txn.commit()
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?;
-
-	info!("Created location '{}' with ID: {}", name, location_db_id);
-
-	// Emit StateChange event for root entry
-	// The raw transaction above doesn't use TransactionManager, so we must manually emit
-	// This ensures the root directory syncs to other devices BEFORE its children
-
-	// Get device UUID from device_id (internal ID)
-	let device_record = entities::device::Entity::find_by_id(device_id)
-		.one(library.db().conn())
-		.await
-		.map_err(|e| LocationError::DatabaseError(e.to_string()))?
-		.ok_or_else(|| LocationError::DatabaseError("Device not found".to_string()))?;
-
-	let root_entry_uuid = entry_record.uuid.expect("Root entry should have UUID");
-	let root_entry_data = serde_json::to_value(&entry_record).map_err(|e| {
-		LocationError::DatabaseError(format!("Failed to serialize root entry: {}", e))
-	})?;
-
-	library
-		.transaction_manager()
-		.commit_device_owned(
-			library.id(),
-			"entry",
-			root_entry_uuid,
-			device_record.uuid,
-			root_entry_data,
-		)
-		.await
-		.map_err(|e| {
-			LocationError::DatabaseError(format!(
-				"Failed to emit StateChange for root entry: {}",
-				e
-			))
-		})?;
-
-	// Emit StateChange event for location
-	// This ensures the location syncs to other devices with proper entry_id
-	let location_data = serde_json::to_value(&location_record).map_err(|e| {
-		LocationError::DatabaseError(format!("Failed to serialize location: {}", e))
-	})?;
-
-	library
-		.transaction_manager()
-		.commit_device_owned(
-			library.id(),
-			"location",
-			location_id,
-			device_record.uuid,
-			location_data,
-		)
-		.await
-		.map_err(|e| {
-			LocationError::DatabaseError(format!("Failed to emit StateChange for location: {}", e))
-		})?;
-
-	// Emit location added event (for UI)
-	events.emit(Event::LocationAdded {
-		library_id: library.id(),
-		location_id,
-		path: args.path.clone(),
-	});
-
-	Ok(location_db_id)
+	defaults.into_iter().filter(|(_, p)| p.exists()).collect()
 }
 
-/// Every location in the library.
-pub async fn list_locations(
-	library: Arc<Library>,
-) -> LocationResult<Vec<entities::location::Model>> {
-	Ok(entities::location::Entity::find()
+/// Write the defaults for a new library, skipping any path already pinned.
+///
+/// Failures are reported rather than fatal: a library that opens without
+/// Downloads in the sidebar is a worse library, and a library that refuses to
+/// open is no library at all.
+pub async fn write_defaults(library: &Arc<Library>, context: &Arc<CoreContext>) {
+	for (name, path) in default_paths() {
+		match pin(
+			library,
+			context,
+			&path,
+			name.clone(),
+			location::Origin::Default,
+		)
+		.await
+		{
+			Ok(_) => tracing::debug!("Pinned {name} at {}", path.display()),
+			Err(LocationError::AlreadyPinned(_)) => {}
+			Err(error) => tracing::warn!("Could not pin {name}: {error}"),
+		}
+	}
+}
+
+/// Pin a path, making it a location.
+///
+/// The source is the innermost one containing the path, so a folder inside a
+/// nested source belongs to that source rather than to the drive above it.
+pub async fn pin(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	path: &Path,
+	name: String,
+	origin: location::Origin,
+) -> LocationResult<Location> {
+	if !path.exists() {
+		return Err(LocationError::PathNotFound(path.to_path_buf()));
+	}
+
+	let (source_id, source_root) = innermost_source(context, path)
+		.ok_or_else(|| LocationError::NoSource(path.to_path_buf()))?;
+
+	let relative = relative_to(&source_root, path);
+	let db = library.db().conn();
+
+	let existing = location::Entity::find()
+		.filter(location::Column::SourceUuid.eq(source_id))
+		.filter(location::Column::RelativePath.eq(relative.clone()))
+		.one(db)
+		.await?;
+	if existing.is_some() {
+		return Err(LocationError::AlreadyPinned(path.to_path_buf()));
+	}
+
+	let model = location::ActiveModel {
+		uuid: Set(Uuid::now_v7()),
+		source_uuid: Set(source_id),
+		relative_path: Set(relative),
+		name: Set(name),
+		origin: Set(origin.as_str().to_string()),
+		created_at: Set(chrono::Utc::now()),
+		..Default::default()
+	}
+	.insert(db)
+	.await?;
+
+	let root = source_root.to_string_lossy().to_string();
+	Location::from_row(model, root, true, None)
+		.ok_or_else(|| LocationError::NoSource(path.to_path_buf()))
+}
+
+/// Unpin, which deletes the row and nothing else.
+pub async fn unpin(library: &Arc<Library>, id: Uuid) -> LocationResult<()> {
+	let deleted = location::Entity::delete_many()
+		.filter(location::Column::Uuid.eq(id))
+		.exec(library.db().conn())
+		.await?;
+
+	if deleted.rows_affected == 0 {
+		return Err(LocationError::NotFound(id));
+	}
+	Ok(())
+}
+
+/// Rename a location. The path is not editable: a pin somewhere else is a
+/// different pin.
+pub async fn rename(library: &Arc<Library>, id: Uuid, name: String) -> LocationResult<()> {
+	let updated = location::Entity::update_many()
+		.filter(location::Column::Uuid.eq(id))
+		.set(location::ActiveModel {
+			name: Set(name),
+			..Default::default()
+		})
+		.exec(library.db().conn())
+		.await?;
+
+	if updated.rows_affected == 0 {
+		return Err(LocationError::NotFound(id));
+	}
+	Ok(())
+}
+
+/// Every location in the library, with its size and file count read off the
+/// volume index rather than off a stored total.
+pub async fn list(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+) -> LocationResult<Vec<Location>> {
+	let rows = location::Entity::find()
+		.find_also_related(source::Entity)
 		.all(library.db().conn())
-		.await?)
+		.await?;
+
+	let cache = context.ephemeral_cache();
+	let attached: std::collections::HashMap<Uuid, bool> = cache
+		.sources()
+		.into_iter()
+		.map(|status| (status.id, status.attached))
+		.collect();
+
+	let mut locations = Vec::with_capacity(rows.len());
+	for (model, source) in rows {
+		let Some(root) = source.and_then(|source| source.root) else {
+			tracing::warn!(location = %model.uuid, "location has no source root, skipping");
+			continue;
+		};
+
+		let is_available = attached.get(&model.source_uuid).copied().unwrap_or(false);
+		let Some(mut location) = Location::from_row(model, root, is_available, None) else {
+			continue;
+		};
+
+		if let Some(path) = location.path().map(Path::to_path_buf) {
+			if let Some(index) = cache.get_for_search(&path) {
+				let index = index.read().await;
+				location.total_size = index.subtree_size(&path);
+				location.file_count = index.subtree_file_count(&path);
+			}
+		}
+
+		locations.push(location);
+	}
+
+	Ok(locations)
+}
+
+/// The paths on a volume that are kept at full fidelity.
+///
+/// This is what `Retention.covered` wants: everything else on the drive is
+/// mapped for structure and counted below [`SUMMARY_DEPTH`]. Overlapping pins
+/// are a union rather than a contest, so a location inside a location costs
+/// nothing.
+///
+/// [`SUMMARY_DEPTH`]: crate::ops::indexing::summary::SUMMARY_DEPTH
+pub async fn covered_paths(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	mount_point: &Path,
+) -> Vec<PathBuf> {
+	match list(library, context).await {
+		Ok(locations) => locations
+			.into_iter()
+			.filter_map(|location| location.path().map(Path::to_path_buf))
+			.filter(|path| path.starts_with(mount_point))
+			.collect(),
+		Err(error) => {
+			tracing::warn!(
+				"Could not read locations for {}: {error}",
+				mount_point.display()
+			);
+			Vec::new()
+		}
+	}
+}
+
+/// The source containing this path, innermost first.
+///
+/// Sources nest, so the longest matching root wins: a path under both
+/// `/Volumes/Work` and `/Volumes/Work/Media` belongs to the latter, and its
+/// records are in that store.
+fn innermost_source(context: &Arc<CoreContext>, path: &Path) -> Option<(Uuid, PathBuf)> {
+	context
+		.ephemeral_cache()
+		.sources()
+		.into_iter()
+		.filter(|status| path.starts_with(&status.root))
+		.max_by_key(|status| status.root.as_os_str().len())
+		.map(|status| (status.id, status.root))
+}
+
+/// A path relative to its source root. Empty for the root itself.
+fn relative_to(root: &Path, path: &Path) -> String {
+	path.strip_prefix(root)
+		.map(|rest| rest.to_string_lossy().to_string())
+		.unwrap_or_default()
 }

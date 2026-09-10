@@ -184,22 +184,7 @@ impl LibraryAction for CreateTagAction {
 				}
 			}
 
-			// Emit resource events for affected files (frontend reactivity)
-			if !affected_entry_uuids.is_empty() {
-				let resource_manager = crate::domain::ResourceManager::new(
-					Arc::new(library.db().conn().clone()),
-					_context.events.clone(),
-				);
-				if let Err(e) = resource_manager
-					.emit_resource_events("file", affected_entry_uuids)
-					.await
-				{
-					tracing::warn!(
-						"Failed to emit file resource events after tag creation: {}",
-						e
-					);
-				}
-			}
+			crate::domain::File::announce(&_context, affected_entry_uuids).await;
 		}
 
 		Ok(CreateTagOutput::from_entity(&tag_entity))

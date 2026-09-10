@@ -377,23 +377,16 @@ impl FileTransferProtocolHandler {
 
 		paths.extend(static_paths);
 
-		// Add dynamic location paths from all libraries via CoreContext
+		// Every source root on this machine. A location is a subtree of one, so
+		// listing sources reaches at least as far and costs no database round
+		// trip.
 		if let Some(ctx) = &self.core_context {
-			let library_manager_guard = ctx.library_manager.read().await;
-			if let Some(library_manager) = library_manager_guard.as_ref() {
-				// Get all active libraries
-				let library_list = library_manager.list().await;
-				for library in library_list {
-					// Get locations for this library using LocationManager
-					let location_manager =
-						crate::location::LocationManager::new((*ctx.events).clone());
-					if let Ok(locations) = location_manager.list_locations(&library).await {
-						for loc in locations {
-							paths.push(loc.path.clone());
-						}
-					}
-				}
-			}
+			paths.extend(
+				ctx.ephemeral_cache()
+					.sources()
+					.into_iter()
+					.map(|source| source.root),
+			);
 		}
 
 		paths

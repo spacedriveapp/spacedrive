@@ -179,16 +179,7 @@ impl LibraryAction for ApplyTagsAction {
 
 		// Emit resource events for affected files (frontend reactivity)
 		if !affected_entry_uuids.is_empty() {
-			let resource_manager = crate::domain::ResourceManager::new(
-				Arc::new(db.conn().clone()),
-				_context.events.clone(),
-			);
-			if let Err(e) = resource_manager
-				.emit_resource_events("file", affected_entry_uuids)
-				.await
-			{
-				tracing::warn!("Failed to emit file resource events after tagging: {}", e);
-			}
+			crate::domain::File::announce(&_context, affected_entry_uuids).await;
 		}
 
 		let output = ApplyTagsOutput::success(

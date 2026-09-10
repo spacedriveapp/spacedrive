@@ -39,8 +39,7 @@ pub mod summary;
 
 pub use action::IndexingAction;
 pub use change_detection::{
-	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeDetector, ChangeHandler,
-	ChangeType, EntryRef,
+	apply_batch as apply_change_batch, Change, ChangeConfig, ChangeHandler, ChangeType, EntryRef,
 };
 pub use ephemeral::{ArenaWriter, EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats};
 pub use handlers::EphemeralEventHandler;
@@ -50,8 +49,6 @@ pub use metadata::{extract_metadata, get_inode, is_hidden_path, EntryMetadata};
 pub use metrics::IndexerMetrics;
 pub use path_resolver::PathResolver;
 
-// Re-export IndexMode from domain (canonical location)
-pub use crate::domain::location::IndexMode;
 pub use rules::{
 	build_default_ruler, IndexerRule, IndexerRuler, RuleKind, RulePerKind, RuleToggles,
 	RulerDecision,

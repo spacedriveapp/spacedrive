@@ -7,31 +7,14 @@ use sd_core::{
 	ops::core::ephemeral_status::EphemeralCacheStatusInput,
 	ops::indexing::{
 		input::IndexInput,
-		job::{IndexMode, IndexScope},
+		job::IndexScope,
 	},
 };
-
-#[derive(Debug, Clone, ValueEnum)]
-pub enum IndexModeArg {
-	Shallow,
-	Content,
-	Deep,
-}
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum IndexScopeArg {
 	Current,
 	Recursive,
-}
-
-impl From<IndexModeArg> for IndexMode {
-	fn from(m: IndexModeArg) -> Self {
-		match m {
-			IndexModeArg::Shallow => Self::Shallow,
-			IndexModeArg::Content => Self::Content,
-			IndexModeArg::Deep => Self::Deep,
-		}
-	}
 }
 
 impl From<IndexScopeArg> for IndexScope {
@@ -52,9 +35,6 @@ pub struct IndexStartArgs {
 	#[arg(long)]
 	pub library: Option<Uuid>,
 
-	/// Indexing mode
-	#[arg(long, value_enum, default_value = "deep")]
-	pub mode: IndexModeArg,
 
 	/// Indexing scope
 	#[arg(long, value_enum, default_value = "recursive")]
@@ -83,7 +63,6 @@ impl IndexStartArgs {
 
 
 		Ok(IndexInput::new(library_id, local_paths)
-			.with_mode(IndexMode::from(self.mode.clone()))
 			.with_scope(IndexScope::from(self.scope.clone()))
 			.with_include_hidden(self.include_hidden))
 	}
@@ -103,7 +82,6 @@ impl QuickScanArgs {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Non-local path not supported yet"))?;
 		Ok(IndexInput::new(library_id, vec![p.to_path_buf()])
-			.with_mode(IndexMode::Shallow)
 			.with_scope(IndexScope::from(self.scope.clone())))
 	}
 }
@@ -124,11 +102,6 @@ impl BrowseArgs {
 			.as_local_path()
 			.ok_or_else(|| anyhow::anyhow!("Non-local path not supported yet"))?;
 		Ok(IndexInput::new(library_id, vec![p.to_path_buf()])
-			.with_mode(if self.content {
-				IndexMode::Content
-			} else {
-				IndexMode::Shallow
-			})
 			.with_scope(IndexScope::from(self.scope.clone())))
 	}
 }

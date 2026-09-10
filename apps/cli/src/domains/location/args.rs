@@ -5,14 +5,12 @@ use uuid::Uuid;
 use sd_core::{
 	domain::addressing::SdPath,
 	ops::{
-		indexing::job::IndexMode,
 		locations::{
 			add::action::LocationAddInput, remove::action::LocationRemoveInput,
 		},
 	},
 };
 
-use crate::domains::index::args::IndexModeArg;
 
 #[derive(Args, Debug)]
 pub struct LocationAddArgs {
@@ -28,9 +26,6 @@ pub struct LocationAddArgs {
 	#[arg(long)]
 	pub name: Option<String>,
 
-	/// Indexing mode
-	#[arg(long, value_enum)]
-	pub mode: Option<IndexModeArg>,
 }
 
 impl LocationAddArgs {

@@ -380,23 +380,10 @@ impl Identifiable for SpaceItem {
 				None
 			};
 
-			// Build resolved_file if entry_uuid exists
-			let resolved_file = if let Some(entry_uuid) = item_model.entry_uuid {
-				let entry_model = entry::Entity::find()
-					.filter(entry::Column::Uuid.eq(entry_uuid))
-					.one(db)
-					.await?;
-
-				if let Some(entry_model) = entry_model {
-					super::file::File::from_entry_model_with_item_type(entry_model, &item_type, db)
-						.await
-						.map(Box::new)
-				} else {
-					None
-				}
-			} else {
-				None
-			};
+			// Resolving a pinned file needs the volume index, which an event
+			// emission does not have. `spaces.get_layout` is where the file
+			// comes from; this carries the pin.
+			let resolved_file = None;
 
 			results.push(SpaceItem {
 				id: item_model.uuid,

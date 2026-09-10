@@ -4,7 +4,6 @@ use super::output::LocationRemoveOutput;
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
-	location::manager::LocationManager,
 };
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
@@ -41,12 +40,10 @@ impl LibraryAction for LocationRemoveAction {
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
-		context: Arc<CoreContext>,
+		_context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		// Remove the location from DB
-		let location_manager = LocationManager::new(context.events.as_ref().clone());
-		location_manager
-			.remove_location(&library, self.input.location_id)
+		// The records stay: a location never owned them.
+		crate::location::unpin(&library, self.input.location_id)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 

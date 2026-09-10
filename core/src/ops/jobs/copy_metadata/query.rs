@@ -88,18 +88,12 @@ impl LibraryQuery for CopyMetadataQuery {
 			.filter_map(|entry| entry.entry_id)
 			.collect();
 
-		// Batch load File objects
-		if !entry_uuids.is_empty() {
-			match crate::domain::file::File::from_entry_uuids(library.db().conn(), &entry_uuids)
-				.await
-			{
-				Ok(files) => {
-					metadata.file_objects = files;
-				}
-				Err(e) => {
-					// Log error but don't fail the query
-					tracing::warn!("Failed to load File objects: {}", e);
-				}
+		// A file the volume index no longer knows is one the copy job outlived,
+		// so it is left out rather than failing the query.
+		let cache = context.ephemeral_cache();
+		for uuid in entry_uuids {
+			if let Some(file) = crate::domain::File::for_record(cache, uuid).await {
+				metadata.file_objects.push(file);
 			}
 		}
 

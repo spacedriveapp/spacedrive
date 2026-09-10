@@ -103,18 +103,8 @@ impl LibraryAction for DeleteTagAction {
 			tracing::warn!("Failed to emit tag resource event after deletion: {}", e);
 		}
 
-		// Emit "file" events so explorer grid updates (removes tag dots)
-		if !affected_entry_uuids.is_empty() {
-			if let Err(e) = resource_manager
-				.emit_resource_events("file", affected_entry_uuids)
-				.await
-			{
-				tracing::warn!(
-					"Failed to emit file resource events after tag deletion: {}",
-					e
-				);
-			}
-		}
+		// The explorer draws a dot per tag, so every copy has to redraw.
+		crate::domain::File::announce(&_context, affected_entry_uuids).await;
 
 		Ok(DeleteTagOutput { deleted: true })
 	}

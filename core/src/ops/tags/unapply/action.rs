@@ -128,21 +128,12 @@ impl LibraryAction for UnapplyTagsAction {
 				);
 			}
 
-			// Emit resource events for all affected files
-			let resource_manager = crate::domain::ResourceManager::new(
-				Arc::new(conn.clone()),
-				_context.events.clone(),
-			);
-			let affected_vec: Vec<uuid::Uuid> = all_affected_uuids.iter().cloned().collect();
-			if let Err(e) = resource_manager
-				.emit_resource_events("file", affected_vec)
-				.await
-			{
-				tracing::warn!("Failed to emit file resource events after untagging: {}", e);
-			}
+			let affected: Vec<uuid::Uuid> = all_affected_uuids.iter().copied().collect();
+			let affected_count = affected.len();
+			crate::domain::File::announce(&_context, affected).await;
 
 			Ok(UnapplyTagsOutput {
-				entries_affected: all_affected_uuids.len(),
+				entries_affected: affected_count,
 				tags_removed: total_removed,
 				warnings: Vec::new(),
 			})

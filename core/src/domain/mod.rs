@@ -27,7 +27,7 @@ pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdenti
 pub use device::{ConnectionMethod, Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
 pub use library::Library;
-pub use location::{IndexMode, Location, ScanState};
+pub use location::Location;
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;

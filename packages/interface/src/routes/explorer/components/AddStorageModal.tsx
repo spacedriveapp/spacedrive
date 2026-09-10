@@ -20,7 +20,6 @@ import {
 	TabsContent,
 } from "@spacedrive/primitives";
 import type {
-	IndexMode,
 	LocationAddInput,
 	VolumeAddCloudInput,
 	CloudServiceType,
@@ -50,7 +49,6 @@ import DriveBox from "@sd/assets/icons/Drive-Box.webp";
 
 type StorageCategory = "local" | "cloud" | "network" | "external";
 type ModalStep = "category" | "provider" | "local-config" | "cloud-config";
-type SettingsTab = "preset" | "jobs";
 
 interface CategoryOption {
 	id: StorageCategory;
@@ -77,14 +75,12 @@ interface JobOption {
 	id: string;
 	label: string;
 	description: string;
-	presets: IndexMode[];
 	order: number;
 }
 
 interface LocalFolderFormData {
 	path: string;
 	name: string;
-	mode: IndexMode;
 }
 
 interface CloudFormData {
@@ -238,28 +234,6 @@ const networkProtocols: NetworkProtocol[] = [
 	},
 ];
 
-const indexModes: Array<{
-	value: IndexMode;
-	label: string;
-	description: string;
-}> = [
-	{
-		value: "Shallow",
-		label: "Shallow",
-		description: "Just filesystem metadata",
-	},
-	{
-		value: "Content",
-		label: "Content",
-		description: "Generate content identities",
-	},
-	{
-		value: "Deep",
-		label: "Deep",
-		description: "Full indexing + thumbnails",
-	},
-];
-
 interface StorageDialogProps {
 	dialog: ReturnType<typeof useDialog>;
 	form: any;
@@ -326,35 +300,30 @@ const jobOptions: JobOption[] = [
 		id: "thumbnail",
 		label: "Generate Thumbnails",
 		description: "Create preview thumbnails for images and videos",
-		presets: ["Content", "Deep"],
 		order: 1,
 	},
 	{
 		id: "thumbstrip",
 		label: "Generate Thumbstrips",
 		description: "Create video storyboard grids (5×5 grid of frames)",
-		presets: ["Deep"],
 		order: 2,
 	},
 	{
 		id: "proxy",
 		label: "Generate Proxies",
 		description: "Create scrubbing proxies for videos (~8s per video)",
-		presets: [],
 		order: 3,
 	},
 	{
 		id: "ocr",
 		label: "Extract Text (OCR)",
 		description: "OCR and text extraction from images/PDFs",
-		presets: [],
 		order: 4,
 	},
 	{
 		id: "speech_to_text",
 		label: "Speech to Text",
 		description: "Transcribe audio and video files",
-		presets: [],
 		order: 5,
 	},
 ];
@@ -391,7 +360,6 @@ function AddStorageDialog(props: {
 		useState<StorageCategory | null>(props.initialPath ? "local" : null);
 	const [selectedProvider, setSelectedProvider] =
 		useState<CloudProvider | null>(null);
-	const [tab, setTab] = useState<SettingsTab>("preset");
 	const [validationResult, setValidationResult] = useState<{
 		riskLevel: RiskLevel;
 		warnings: PathValidationWarning[];
@@ -420,7 +388,6 @@ function AddStorageDialog(props: {
 		defaultValues: {
 			path: props.initialPath || "",
 			name: initialFolderName,
-			mode: "Deep",
 		},
 	});
 
@@ -437,35 +404,6 @@ function AddStorageDialog(props: {
 	// Continue button reacts as the user types into the input.
 	const localPathTyped =
 		useWatch({ control: localForm.control, name: "path" }) || "";
-
-	// Update selected jobs when preset mode changes
-	const currentMode = localForm.watch("mode");
-	const [selectedJobs, setSelectedJobs] = useState<Set<string>>(
-		new Set(
-			jobOptions
-				.filter((j) => j.presets.includes("Deep"))
-				.map((j) => j.id),
-		),
-	);
-
-	// Sync selected jobs with preset when mode changes
-	const handleModeChange = (mode: IndexMode) => {
-		localForm.setValue("mode", mode);
-		const presetJobs = jobOptions.filter((j) => j.presets.includes(mode));
-		setSelectedJobs(new Set(presetJobs.map((j) => j.id)));
-	};
-
-	const toggleJob = (jobId: string) => {
-		setSelectedJobs((prev) => {
-			const next = new Set(prev);
-			if (next.has(jobId)) {
-				next.delete(jobId);
-			} else {
-				next.add(jobId);
-			}
-			return next;
-		});
-	};
 
 	const handleCategorySelect = (category: StorageCategory) => {
 		setSelectedCategory(category);
@@ -581,10 +519,6 @@ function AddStorageDialog(props: {
 		if (validationResult) {
 			setValidationResult(null);
 		}
-		const job_policies: any = {};
-		selectedJobs.forEach((jobId) => {
-			job_policies[jobId] = { enabled: true };
-		});
 
 		const input: LocationAddInput = {
 			path: {
@@ -594,8 +528,6 @@ function AddStorageDialog(props: {
 				},
 			},
 			name: data.name || null,
-			mode: data.mode,
-			job_policies,
 		};
 
 		try {
@@ -720,8 +652,6 @@ function AddStorageDialog(props: {
 					},
 				},
 				name: data.display_name,
-				mode: "Deep",
-				job_policies: {},
 			};
 
 			const locationResult = await addLocation.mutateAsync(locationInput);
@@ -1127,93 +1057,6 @@ function AddStorageDialog(props: {
 						/>
 					</div>
 
-					<TabsRoot
-						value={tab}
-						onValueChange={(v) => setTab(v as SettingsTab)}
-					>
-						<TabsList>
-							<TabsTrigger value="preset">Preset</TabsTrigger>
-							<TabsTrigger value="jobs">
-								Jobs{" "}
-								{selectedJobs.size > 0 &&
-									`(${selectedJobs.size})`}
-							</TabsTrigger>
-						</TabsList>
-
-						<TabsContent value="preset" className="pt-3">
-							<div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-								<Label>Indexing Mode</Label>
-								<div className="grid grid-cols-3 gap-2">
-									{indexModes.map((mode) => {
-										const isSelected =
-											currentMode === mode.value;
-										return (
-											<button
-												key={mode.value}
-												type="button"
-												onClick={() =>
-													handleModeChange(mode.value)
-												}
-												className={clsx(
-													"rounded-lg border p-3 text-left transition-all",
-													isSelected
-														? "border-accent bg-accent/5 ring-1 ring-accent"
-														: "border-app-line bg-app-box hover:bg-app-hover",
-												)}
-											>
-												<div className="text-xs font-medium text-ink">
-													{mode.label}
-												</div>
-												<div className="mt-1 text-[11px] leading-tight text-ink-faint">
-													{mode.description}
-												</div>
-											</button>
-										);
-									})}
-								</div>
-							</div>
-						</TabsContent>
-
-						<TabsContent value="jobs" className="pt-3">
-							<div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-								<p className="text-xs text-ink-faint">
-									Select which jobs to run after indexing.
-									Extensions can add more jobs.
-								</p>
-								<div className="grid grid-cols-2 gap-2">
-									{jobOptions.map((job) => {
-										const isSelected = selectedJobs.has(
-											job.id,
-										);
-										return (
-											<button
-												key={job.id}
-												type="button"
-												onClick={() =>
-													toggleJob(job.id)
-												}
-												className={clsx(
-													"flex items-start gap-2 rounded-lg border p-3 text-left transition-all",
-													isSelected
-														? "border-accent bg-accent/5 ring-1 ring-accent"
-														: "border-app-line bg-app-box hover:bg-app-hover",
-												)}
-											>
-												<div className="flex-1 min-w-0">
-													<div className="text-xs font-medium text-ink">
-														{job.label}
-													</div>
-													<div className="text-[11px] text-ink-faint mt-1 leading-tight">
-														{job.description}
-													</div>
-												</div>
-											</button>
-										);
-									})}
-								</div>
-							</div>
-						</TabsContent>
-					</TabsRoot>
 
 					{localForm.formState.errors.root && (
 						<p className="text-xs text-red-500">

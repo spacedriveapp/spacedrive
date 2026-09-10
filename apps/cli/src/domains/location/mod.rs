@@ -32,17 +32,9 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 				run_interactive_add(ctx).await?
 			} else {
 				// Non-interactive mode
-				let sd_path = args.build_sd_path()?;
-				let mode = args
-					.mode
-					.map(|m| m.into())
-					.unwrap_or(sd_core::ops::indexing::IndexMode::Content);
-
 				LocationAddInput {
-					path: sd_path,
+					path: args.build_sd_path()?,
 					name: args.name,
-					mode,
-					job_policies: None,
 				}
 			};
 
@@ -85,7 +77,6 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 	use crate::util::confirm::{select, text};
 	use sd_core::domain::addressing::SdPath;
-	use sd_core::ops::indexing::IndexMode;
 
 	println!("\n=== Add New Location ===\n");
 
@@ -175,29 +166,10 @@ async fn run_interactive_add(ctx: &Context) -> Result<LocationAddInput> {
 	// 2. Name (optional)
 	let name = text("Location name", true)?;
 
-	// 3. Index mode
-	let mode_idx = select(
-		"Select indexing mode",
-		&[
-			"Content (recommended - indexes file metadata and content hashes)".to_string(),
-			"Shallow (metadata only - faster)".to_string(),
-			"Deep (full analysis - slowest)".to_string(),
-		],
-	)?;
-
-	let mode = match mode_idx {
-		0 => IndexMode::Content,
-		1 => IndexMode::Shallow,
-		2 => IndexMode::Deep,
-		_ => IndexMode::Content,
-	};
-
 	println!();
 
 	Ok(LocationAddInput {
 		path: sd_path,
 		name,
-		mode,
-		job_policies: None,
 	})
 }

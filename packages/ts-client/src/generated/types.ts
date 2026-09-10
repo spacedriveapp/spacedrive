@@ -1756,34 +1756,9 @@ paths: string[];
  */
 scope: IndexScope; 
 /**
- * Indexing mode (shallow/content/deep)
- */
-mode: IndexMode; 
-/**
  * Whether to include hidden files/directories
  */
 include_hidden: boolean };
-
-/**
- * How deeply to index files in this location
- */
-export type IndexMode = 
-/**
- * Location exists but is not indexed
- */
-"None" | 
-/**
- * Just filesystem metadata (name, size, dates)
- */
-"Shallow" | 
-/**
- * Generate content IDs for deduplication
- */
-"Content" | 
-/**
- * Full indexing - content IDs, text extraction, thumbnails
- */
-"Deep";
 
 /**
  * Whether to index just one directory level or recurse through subdirectories.
@@ -2055,38 +2030,6 @@ export type JobOutput =
 export type JobPauseInput = { job_id: string };
 
 export type JobPauseOutput = { job_id: string; success: boolean };
-
-/**
- * Job execution policies for a location
- * 
- * Controls which automated jobs run on this location and their configuration.
- * This allows per-location customization of thumbnail generation, OCR, speech-to-text, etc.
- */
-export type JobPolicies = { 
-/**
- * Thumbnail generation policy
- */
-thumbnail?: ThumbnailPolicy; 
-/**
- * Thumbstrip generation policy
- */
-thumbstrip?: ThumbstripPolicy; 
-/**
- * Proxy/sidecar generation policy (video scrubbing)
- */
-proxy?: ProxyPolicy; 
-/**
- * OCR (text extraction) policy
- */
-ocr?: OcrPolicy; 
-/**
- * Speech-to-text transcription policy
- */
-speech_to_text?: SpeechPolicy; 
-/**
- * Object detection policy (future)
- */
-object_detection?: ObjectDetectionPolicy };
 
 export type JobReceipt = { id: JobId; job_name: string };
 
@@ -2628,64 +2571,39 @@ export type ListWhisperModelsInput = Record<string, never>;
 export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_size: number };
 
 /**
- * An indexed directory that Spacedrive monitors
+ * A pinned subtree of a source.
  */
-export type Location = { 
+export type Location = { id: string; 
 /**
- * Unique identifier
+ * The source holding this subtree's records.
  */
-id: string; 
+source_id: string; 
 /**
- * Library this location belongs to
+ * Absolute, rebuilt from the source root and the stored relative path, so
+ * it follows a drive that mounts somewhere else.
  */
-library_id: string; 
+sd_path: SdPath; name: string; 
 /**
- * Root path of this location (includes device!)
+ * Whether someone pinned this or it came with the library.
  */
-sd_path: SdPath; 
+origin: Origin; 
 /**
- * Human-friendly name
+ * Rolled up by the volume index rather than stored, so they are current
+ * rather than as of the last scan. `None` while the drive is detached and
+ * the index has not been restored.
  */
-name: string; 
+total_size: number | null; file_count: number | null; 
 /**
- * Indexing configuration
+ * Whether the drive holding it is here right now.
  */
-index_mode: IndexMode; 
-/**
- * How often to rescan (None = manual only)
- */
-scan_interval: { secs: number; nanos: number } | null; 
-/**
- * Statistics
- */
-total_size: number; file_count: number; directory_count: number; 
-/**
- * Current state
- */
-scan_state: ScanState; 
-/**
- * Timestamps
- */
-created_at: string; updated_at: string; last_scan_at: string | null; 
-/**
- * Whether this location is currently available
- */
-is_available: boolean; 
-/**
- * Hidden glob patterns (e.g., [".*", "node_modules"])
- */
-ignore_patterns: string[]; 
-/**
- * Job execution policies for this location
- */
-job_policies?: JobPolicies };
+is_available: boolean; created_at: string };
 
-export type LocationAddInput = { path: SdPath; name: string | null; mode: IndexMode; job_policies: JsonValue | null };
+export type LocationAddInput = { path: SdPath; name: string | null };
 
 /**
  * Output from location add action dispatch
  */
-export type LocationAddOutput = { location_id: string; path: SdPath; name: string | null; job_id: string | null };
+export type LocationAddOutput = { location_id: string; path: SdPath; name: string | null };
 
 export type LocationRemoveInput = { location_id: string };
 
@@ -2700,13 +2618,10 @@ export type LocationUpdateInput = {
  */
 id: string; 
 /**
- * Optional new name for the location
+ * A new name. The path is not editable: a pin somewhere else is a
+ * different pin.
  */
-name: string | null; 
-/**
- * Optional job policies to update
- */
-job_policies: JobPolicies | null };
+name: string | null };
 
 export type LocationUpdateOutput = { 
 /**
@@ -3027,48 +2942,6 @@ export type NetworkStopInput = Record<string, never>;
 export type NetworkStopOutput = { stopped: boolean };
 
 /**
- * Object detection policy (for future AI features)
- */
-export type ObjectDetectionPolicy = { 
-/**
- * Whether to run object detection on this location
- */
-enabled: boolean; 
-/**
- * Minimum confidence threshold (0.0 - 1.0)
- */
-min_confidence: number; 
-/**
- * Categories to detect (empty = all)
- */
-categories: string[]; 
-/**
- * Whether to reprocess files that already have object data
- */
-reprocess: boolean };
-
-/**
- * OCR (text extraction) policy
- */
-export type OcrPolicy = { 
-/**
- * Whether to run OCR on this location
- */
-enabled: boolean; 
-/**
- * Languages to use for OCR (e.g., ["eng", "spa"])
- */
-languages: string[]; 
-/**
- * Minimum confidence threshold (0.0 - 1.0)
- */
-min_confidence: number; 
-/**
- * Whether to reprocess files that already have text
- */
-reprocess: boolean };
-
-/**
  * Operating system types
  */
 export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" | "Other";
@@ -3077,6 +2950,19 @@ export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" 
  * Operation metrics snapshot
  */
 export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadcast: number; shared_changes_broadcast: number; broadcast_batches_sent: number; failed_broadcasts: number; changes_received: number; changes_applied: number; changes_rejected: number; buffer_queue_depth: number; active_backfill_sessions: number; backfill_sessions_completed: number; backfill_pagination_rounds: number; retry_queue_depth: number; retry_attempts: number; retry_successes: number };
+
+/**
+ * Where a location row came from.
+ */
+export type Origin = 
+/**
+ * Written at library creation from the platform's known folders.
+ */
+"default" | 
+/**
+ * Pinned by someone.
+ */
+"user";
 
 export type Ownership = 
 /**
@@ -3343,19 +3229,6 @@ total_bytes: number | null };
  */
 export type ProxyPairingConfigOutput = { auto_accept_vouched: boolean; auto_vouch_to_all: boolean; vouch_signature_max_age: number; vouch_response_timeout: number; vouch_queue_retry_limit: number };
 
-/**
- * Proxy/sidecar generation policy (video scrubbing)
- */
-export type ProxyPolicy = { 
-/**
- * Whether to generate proxy files for this location
- */
-enabled: boolean; 
-/**
- * Whether to regenerate existing proxies
- */
-regenerate: boolean };
-
 export type ReadSizeBucket = { range: string; reads: number };
 
 /**
@@ -3479,35 +3352,6 @@ export type RiskLevel =
  * Warning - system directory or root-level path (e.g., /, /System)
  */
 "high";
-
-/**
- * Current scanning state of a location
- */
-export type ScanState = 
-/**
- * Not currently being scanned
- */
-"Idle" | 
-/**
- * Currently scanning
- */
-{ Scanning: { 
-/**
- * Progress percentage (0-100)
- */
-progress: number } } | 
-/**
- * Scan completed successfully
- */
-"Completed" | 
-/**
- * Scan failed with error
- */
-"Failed" | 
-/**
- * Scan was paused
- */
-"Paused";
 
 /**
  * Detailed breakdown of how the score was calculated
@@ -4071,27 +3915,6 @@ export type SpacesListOutput = { spaces: Space[] };
 export type SpacesListQueryInput = null;
 
 /**
- * Speech-to-text transcription policy
- */
-export type SpeechPolicy = { 
-/**
- * Whether to run speech-to-text on this location
- */
-enabled: boolean; 
-/**
- * Language for transcription
- */
-language: string | null; 
-/**
- * Model to use (e.g., "base", "small", "medium", "large")
- */
-model: string; 
-/**
- * Whether to reprocess files that already have transcriptions
- */
-reprocess: boolean };
-
-/**
  * State transition event
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
@@ -4372,40 +4195,6 @@ export type ThumbSource = { id: string; cache_path: string;
  * one is the tile's own aspect and comes back with every read.
  */
 tile_size: number };
-
-/**
- * Thumbnail generation policy
- */
-export type ThumbnailPolicy = { 
-/**
- * Whether to generate thumbnails for this location
- */
-enabled: boolean; 
-/**
- * Specific thumbnail sizes to generate (empty = use defaults)
- */
-sizes: number[]; 
-/**
- * JPEG quality (0-100)
- */
-quality: number; 
-/**
- * Whether to regenerate existing thumbnails
- */
-regenerate: boolean };
-
-/**
- * Thumbstrip generation policy
- */
-export type ThumbstripPolicy = { 
-/**
- * Whether to generate thumbstrips for this location
- */
-enabled: boolean; 
-/**
- * Whether to regenerate existing thumbstrips
- */
-regenerate: boolean };
 
 /**
  * What a path resolves to in the cache: which file holds its tile, under

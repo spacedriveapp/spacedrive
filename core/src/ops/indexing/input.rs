@@ -5,7 +5,7 @@
 //! and converted into IndexerJobConfig for internal execution. Separating input from config
 //! keeps the public API stable while internal job parameters evolve.
 
-use super::job::{IndexMode, IndexScope};
+use super::job::IndexScope;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::PathBuf;
@@ -22,9 +22,6 @@ pub struct IndexInput {
 	/// Indexing scope (current directory only vs recursive)
 	pub scope: IndexScope,
 
-	/// Indexing mode (shallow/content/deep)
-	pub mode: IndexMode,
-
 	/// Whether to include hidden files/directories
 	pub include_hidden: bool,
 }
@@ -36,7 +33,6 @@ impl IndexInput {
 			library_id,
 			paths: paths.into_iter().collect(),
 			scope: IndexScope::Recursive,
-			mode: IndexMode::Deep,
 			include_hidden: false,
 		}
 	}
@@ -48,11 +44,6 @@ impl IndexInput {
 
 	pub fn with_scope(mut self, scope: IndexScope) -> Self {
 		self.scope = scope;
-		self
-	}
-
-	pub fn with_mode(mut self, mode: IndexMode) -> Self {
-		self.mode = mode;
 		self
 	}
 

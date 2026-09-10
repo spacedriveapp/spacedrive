@@ -1,4 +1,4 @@
-//! Location add action handler
+//! Pin a folder, which is what makes it a location.
 
 use super::output::LocationAddOutput;
 use crate::{
@@ -8,24 +8,18 @@ use crate::{
 		error::{ActionError, ActionResult},
 		LibraryAction,
 	},
-	infra::db::entities,
-	location::manager::LocationManager,
-	ops::indexing::IndexMode,
+	infra::db::entities::location::Origin,
 };
 use async_trait::async_trait;
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
-use std::{path::PathBuf, sync::Arc};
-use uuid::Uuid;
+use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct LocationAddInput {
 	pub path: crate::domain::addressing::SdPath,
 	pub name: Option<String>,
-	pub mode: IndexMode,
-	pub job_policies: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +33,6 @@ impl LocationAddAction {
 	}
 }
 
-// Implement the new modular ActionType trait
 impl LibraryAction for LocationAddAction {
 	type Input = LocationAddInput;
 	type Output = LocationAddOutput;
@@ -50,136 +43,36 @@ impl LibraryAction for LocationAddAction {
 
 	async fn execute(
 		self,
-		library: std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
-	) -> Result<Self::Output, ActionError> {
-		// Get the device UUID from the device manager
-		let device_uuid = context
-			.device_manager
-			.device_id()
-			.map_err(ActionError::device_manager_error)?;
-
-		// Get device record from database to get the integer ID
-		let db = library.db().conn();
-		let device_record = entities::device::Entity::find()
-			.filter(entities::device::Column::Uuid.eq(device_uuid))
-			.one(db)
-			.await
-			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::DeviceNotFound(device_uuid))?;
-
-		// Add the location using LocationManager
-		let location_manager = LocationManager::new(context.events.as_ref().clone());
-
-		let location_mode = match self.input.mode {
-			IndexMode::None => crate::location::IndexMode::None,
-			IndexMode::Shallow => crate::location::IndexMode::Shallow,
-			IndexMode::Content => crate::location::IndexMode::Content,
-			IndexMode::Deep => crate::location::IndexMode::Deep,
-		};
-
-		// Create action context for job tracking
-		let action_context = self.create_action_context();
-
-		// Serialize job_policies to JSON string if provided
-		let job_policies_json = self
+		library: Arc<crate::library::Library>,
+		context: Arc<CoreContext>,
+	) -> ActionResult<Self::Output> {
+		let path = self
 			.input
-			.job_policies
-			.as_ref()
-			.and_then(|jp| serde_json::to_string(jp).ok());
+			.path
+			.as_local_path()
+			.ok_or_else(|| ActionError::InvalidInput("Only local paths can be pinned".into()))?
+			.to_path_buf();
 
-		let location_id = location_manager
-			.add_location(
-				library.clone(),
-				self.input.path.clone(),
-				self.input.name.clone(),
-				device_record.id,
-				location_mode,
-				Some(action_context),
-				job_policies_json,
-				&context.volume_manager,
-			)
+		// The folder's own name is what a person would have typed anyway.
+		let name = self.input.name.clone().unwrap_or_else(|| {
+			path.file_name()
+				.map(|name| name.to_string_lossy().to_string())
+				.unwrap_or_else(|| path.to_string_lossy().to_string())
+		});
+
+		let location = crate::location::pin(&library, &context, &path, name, Origin::User)
 			.await
 			.map_err(|e| ActionError::Internal(e.to_string()))?;
 
 		Ok(LocationAddOutput::new(
-			location_id,
-			self.input.path,
-			self.input.name,
+			location.id,
+			location.sd_path,
+			Some(location.name),
 		))
 	}
 
 	fn action_kind(&self) -> &'static str {
 		"locations.add"
-	}
-
-	async fn validate(
-		&self,
-		library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		use crate::domain::addressing::SdPath;
-
-		match &self.input.path {
-			SdPath::Physical {
-				device_slug: _,
-				path,
-			} => {
-				// Validate local filesystem path
-				if !path.exists() {
-					return Err(ActionError::Validation {
-						field: "path".to_string(),
-						message: "Path does not exist".to_string(),
-					});
-				}
-				if !path.is_dir() {
-					return Err(ActionError::Validation {
-						field: "path".to_string(),
-						message: "Path must be a directory".to_string(),
-					});
-				}
-			}
-			SdPath::Cloud {
-				service,
-				identifier,
-				path: cloud_path,
-			} => {
-				// Validate cloud path by looking up the volume using VolumeManager
-				let _volume = context
-					.volume_manager
-					.find_cloud_volume(*service, identifier)
-					.await
-					.ok_or_else(|| ActionError::Validation {
-						field: "cloud_volume".to_string(),
-						message: format!(
-							"Cloud volume not found: {}://{}",
-							service.scheme(),
-							identifier
-						),
-					})?;
-
-				// TODO: Validate that the path exists on the cloud volume
-				// This would require accessing the VolumeBackend, which isn't available in validation
-				// For now, we trust the user's input
-			}
-			SdPath::Content { .. } => {
-				return Err(ActionError::Validation {
-					field: "path".to_string(),
-					message: "Content paths cannot be used as locations".to_string(),
-				});
-			}
-			SdPath::Sidecar { .. } => {
-				return Err(ActionError::Validation {
-					field: "path".to_string(),
-					message: "Sidecar paths cannot be used as locations".to_string(),
-				});
-			}
-		}
-
-		// Check for duplicate locations
-		// TODO: Implement proper duplicate detection for both Physical and Cloud paths
-
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 
@@ -191,11 +84,10 @@ impl ActionContextProvider for LocationAddAction {
 			Self::action_type_name(),
 			sanitize_action_input(&self.input),
 			json!({
-				"operation": "add_location",
+				"operation": "pin_location",
 				"trigger": "user_action",
 				"path": self.input.path.to_string(),
 				"name": self.input.name,
-				"mode": self.input.mode
 			}),
 		)
 	}
@@ -208,5 +100,4 @@ impl ActionContextProvider for LocationAddAction {
 	}
 }
 
-// Register action
 crate::register_library_action!(LocationAddAction, "locations.add");

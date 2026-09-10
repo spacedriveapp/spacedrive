@@ -5,7 +5,7 @@
 //! and track execution context for observability. Each action can spawn multiple jobs (one per
 //! path), but returns only the last handle for API simplicity.
 
-use super::job::{IndexMode, IndexScope, IndexerJob, IndexerJobConfig};
+use super::job::{IndexScope, IndexerJob, IndexerJobConfig};
 use super::IndexInput;
 use crate::{
 	context::CoreContext,
@@ -90,8 +90,6 @@ impl LibraryAction for IndexingAction {
 
 			let mut config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false);
 
-			config.mode = self.input.mode;
-
 			// TODO: Apply include_hidden via rule_toggles when available
 
 			let job = IndexerJob::new(config);
@@ -127,7 +125,6 @@ impl ActionContextProvider for IndexingAction {
 				"operation": "manual_scan",
 				"trigger": "user_action",
 				"paths_count": self.input.paths.len(),
-				"mode": self.input.mode,
 				"scope": self.input.scope
 			}),
 		)

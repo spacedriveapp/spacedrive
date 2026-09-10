@@ -1053,45 +1053,21 @@ impl FileCopyJob {
 
 	/// Calculate total size for progress reporting
 	async fn calculate_total_size(&self, ctx: &JobContext<'_>) -> JobResult<u64> {
-		use crate::ops::indexing::PathResolver;
-
 		let mut total = 0u64;
 
 		for source in &self.sources.paths {
-			if let Some(local_path) = source.as_local_path() {
-				// Local path - calculate directly from filesystem
-				total += self.get_path_size(local_path).await.unwrap_or(0);
-			} else {
-				// Non-local path - query database for synced metadata
-				match PathResolver::resolve_to_entry(ctx.library_db(), source).await {
-					Ok(Some(entry)) => {
-						let size = match entry.kind {
-							0 => entry.size as u64,           // File
-							1 => entry.aggregate_size as u64, // Directory
-							_ => 0,
-						};
-						total += size;
-						ctx.log(format!(
-							"Remote source '{}': found in database ({} bytes)",
-							source.display(),
-							size
-						));
-					}
-					Ok(None) => {
-						ctx.log(format!(
-							"Remote source '{}': not indexed, size unknown",
-							source.display()
-						));
-					}
-					Err(e) => {
-						ctx.log(format!(
-							"Remote source '{}': database error: {}",
-							source.display(),
-							e
-						));
-					}
-				}
-			}
+			// A path this machine cannot open has no size to report. It used to
+			// be answered from synced entry rows; when sync returns on top of
+			// sources the remote's store is what answers.
+			let Some(local_path) = source.as_local_path() else {
+				ctx.log(format!(
+					"Remote source '{}': size unknown",
+					source.display()
+				));
+				continue;
+			};
+
+			total += self.get_path_size(local_path).await.unwrap_or(0);
 		}
 
 		Ok(total)
@@ -1131,7 +1107,6 @@ impl FileCopyJob {
 	/// Directories are represented as a single entry (not flattened).
 	async fn collect_file_metadata(&mut self, ctx: &JobContext<'_>) -> JobResult<()> {
 		use super::metadata::{CopyFileEntry, CopyFileStatus};
-		use crate::ops::indexing::PathResolver;
 
 		self.job_metadata = super::metadata::CopyJobMetadata::new(self.options.delete_after_copy);
 
@@ -1140,49 +1115,32 @@ impl FileCopyJob {
 				JobError::execution(format!("Failed to resolve source path: {}", e))
 			})?;
 
-			let (size_bytes, is_directory, entry_id) = if let Some(local_path) =
-				resolved_source.as_local_path()
-			{
-				// Local path - get from filesystem
-				let metadata = tokio::fs::metadata(local_path)
-					.await
-					.map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
+			// A path this machine cannot open cannot be measured or copied from
+			// here; it is skipped rather than guessed at.
+			let Some(local_path) = resolved_source.as_local_path() else {
+				ctx.log(format!(
+					"Warning: source is not on this machine: {}",
+					resolved_source.display()
+				));
+				continue;
+			};
 
-				let size = if metadata.is_file() {
-					metadata.len()
-				} else {
-					self.get_path_size(local_path).await.unwrap_or(0)
-				};
+			let metadata = tokio::fs::metadata(local_path)
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to read metadata: {}", e)))?;
 
-				// Try to find entry UUID for local paths too
-				let entry_id = PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source)
-					.await
-					.ok()
-					.flatten()
-					.and_then(|e| e.uuid);
-
-				(size, metadata.is_dir(), entry_id)
+			let is_directory = metadata.is_dir();
+			let size_bytes = if is_directory {
+				self.get_path_size(local_path).await.unwrap_or(0)
 			} else {
-				// Remote path - query database for synced metadata
-				match PathResolver::resolve_to_entry(ctx.library_db(), &resolved_source).await {
-					Ok(Some(entry)) => {
-						let size = match entry.kind {
-							0 => entry.size as u64,
-							1 => entry.aggregate_size as u64,
-							_ => 0,
-						};
-						let is_dir = entry.kind == 1;
-						(size, is_dir, entry.uuid)
-					}
-					Ok(None) | Err(_) => {
-						// Entry not found - skip this file
-						ctx.log(format!(
-							"Warning: Could not find metadata for remote source: {}",
-							resolved_source.display()
-						));
-						continue;
-					}
-				}
+				metadata.len()
+			};
+
+			let owned = local_path.to_path_buf();
+			let cache = ctx.library.core_context().ephemeral_cache();
+			let entry_id = match cache.get_for_search(&owned) {
+				Some(index) => index.read().await.get_entry_uuid(&owned),
+				None => None,
 			};
 
 			// Calculate destination path

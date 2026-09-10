@@ -3,16 +3,13 @@
 use super::output::LocationUpdateOutput;
 use crate::{
 	context::CoreContext,
-	domain::location::JobPolicies,
 	infra::action::{
 		context::ActionContextProvider,
 		error::{ActionError, ActionResult},
 		LibraryAction,
 	},
-	infra::db::entities,
 };
 use async_trait::async_trait;
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use specta::Type;
@@ -24,11 +21,9 @@ pub struct LocationUpdateInput {
 	/// UUID of the location to update
 	pub id: Uuid,
 
-	/// Optional new name for the location
+	/// A new name. The path is not editable: a pin somewhere else is a
+	/// different pin.
 	pub name: Option<String>,
-
-	/// Optional job policies to update
-	pub job_policies: Option<JobPolicies>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -52,43 +47,14 @@ impl LibraryAction for LocationUpdateAction {
 
 	async fn execute(
 		self,
-		library: std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
-	) -> Result<Self::Output, ActionError> {
-		let db = library.db().conn();
-
-		// Find the location by UUID
-		let location = entities::location::Entity::find()
-			.filter(entities::location::Column::Uuid.eq(self.input.id))
-			.one(db)
-			.await
-			.map_err(ActionError::SeaOrm)?
-			.ok_or_else(|| ActionError::LocationNotFound(self.input.id))?;
-
-		// Build the update
-		let mut active: entities::location::ActiveModel = location.clone().into();
-
-		if let Some(name) = &self.input.name {
-			active.name = Set(Some(name.clone()));
+		library: Arc<crate::library::Library>,
+		_context: Arc<CoreContext>,
+	) -> ActionResult<Self::Output> {
+		if let Some(name) = self.input.name.clone() {
+			crate::location::rename(&library, self.input.id, name)
+				.await
+				.map_err(|e| ActionError::Internal(e.to_string()))?;
 		}
-
-		if let Some(ref job_policies) = self.input.job_policies {
-			let json_str = serde_json::to_string(job_policies).map_err(|e| {
-				ActionError::Internal(format!("Failed to serialize job policies: {}", e))
-			})?;
-			active.job_policies = Set(Some(json_str));
-		}
-
-		active.updated_at = Set(chrono::Utc::now());
-
-		// Execute update
-		let updated_location = active.update(db).await.map_err(ActionError::SeaOrm)?;
-
-		// Emit ResourceChanged event for UI reactivity using EventEmitter trait
-		use crate::domain::resource::EventEmitter;
-		crate::domain::Location::emit_changed_batch(db, &context.events, &[updated_location.uuid])
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to emit location event: {}", e)))?;
 
 		Ok(LocationUpdateOutput { id: self.input.id })
 	}
@@ -104,8 +70,11 @@ impl LibraryAction for LocationUpdateAction {
 	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		// Validate that the location exists
 		let db = library.db().conn();
-		let exists = entities::location::Entity::find()
-			.filter(entities::location::Column::Uuid.eq(self.input.id))
+		use crate::infra::db::entities::location;
+		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+
+		let exists = location::Entity::find()
+			.filter(location::Column::Uuid.eq(self.input.id))
 			.one(db)
 			.await
 			.map_err(ActionError::SeaOrm)?

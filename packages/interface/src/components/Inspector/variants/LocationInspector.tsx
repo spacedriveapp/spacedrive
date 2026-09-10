@@ -42,8 +42,6 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 
 	const tabs = [
 		{ id: "overview", label: "Overview", icon: Info },
-		{ id: "indexing", label: "Indexing", icon: Gear },
-		{ id: "jobs", label: "Jobs", icon: Briefcase },
 		{ id: "activity", label: "Activity", icon: ClockCounterClockwise },
 		{ id: "devices", label: "Devices", icon: HardDrive },
 		{ id: "more", label: "More", icon: DotsThree },
@@ -58,14 +56,6 @@ export function LocationInspector({ location }: LocationInspectorProps) {
 			<div className="flex-1 overflow-hidden flex flex-col mt-2.5">
 				<TabContent id="overview" activeTab={activeTab}>
 					<OverviewTab location={location} />
-				</TabContent>
-
-				<TabContent id="indexing" activeTab={activeTab}>
-					<IndexingTab location={location} />
-				</TabContent>
-
-				<TabContent id="jobs" activeTab={activeTab}>
-					<JobsTab location={location} />
 				</TabContent>
 
 				<TabContent id="activity" activeTab={activeTab}>
@@ -163,216 +153,12 @@ function OverviewTab({ location }: { location: Location }) {
 			)}
 				<InfoRow
 					label="Total Size"
-					value={formatBytes(location.total_size)}
+					value={formatBytes(location.total_size ?? 0)}
 				/>
-				<InfoRow label="Scan State" value={formatScanState(location.scan_state)} />
-				{location.last_scan_at && (
-					<InfoRow
-						label="Last Scan"
-						value={formatDate(location.last_scan_at)}
-					/>
-				)}
-			</Section>
-
-			{/* Index Mode */}
-			<Section title="Index Mode" icon={Gear}>
 				<InfoRow
-					label="Mode"
-					value={
-						location.index_mode.charAt(0).toUpperCase() +
-						location.index_mode.slice(1)
-					}
+					label="Drive"
+					value={location.is_available ? "Connected" : "Disconnected"}
 				/>
-			</Section>
-		</div>
-	);
-}
-
-function IndexingTab({ location }: { location: Location }) {
-	const [indexMode, setIndexMode] = useState<"shallow" | "content" | "deep">(
-		location.index_mode as "shallow" | "content" | "deep",
-	);
-	const [ignoreRules, setIgnoreRules] = useState([
-		".git",
-		"node_modules",
-		"*.tmp",
-		".DS_Store",
-	]);
-
-	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<Section title="Index Mode" icon={Gear}>
-				<p className="text-xs text-sidebar-inkDull mb-3">
-					Controls how deeply this location is indexed
-				</p>
-
-				<div className="space-y-2">
-					<RadioOption
-						value="shallow"
-						label="Shallow"
-						description="Just filesystem metadata (fastest)"
-						checked={indexMode === "shallow"}
-						onChange={() => setIndexMode("shallow")}
-					/>
-					<RadioOption
-						value="content"
-						label="Content"
-						description="Generate content identities"
-						checked={indexMode === "content"}
-						onChange={() => setIndexMode("content")}
-					/>
-					<RadioOption
-						value="deep"
-						label="Deep"
-						description="Full indexing with thumbnails and text extraction"
-						checked={indexMode === "deep"}
-						onChange={() => setIndexMode("deep")}
-					/>
-				</div>
-			</Section>
-
-			<Section title="Ignore Rules" icon={FunnelX}>
-				<p className="text-xs text-sidebar-inkDull mb-3">
-					Files and folders matching these patterns will be ignored
-				</p>
-
-				<div className="space-y-1">
-					{ignoreRules.map((pattern, i) => (
-						<IgnoreRule
-							key={i}
-							pattern={pattern}
-							onRemove={() => {
-								setIgnoreRules(
-									ignoreRules.filter((_, idx) => idx !== i),
-								);
-							}}
-						/>
-					))}
-				</div>
-
-				<button className="mt-2 text-xs text-accent hover:text-accent/80 transition-colors">
-					+ Add Rule
-				</button>
-			</Section>
-		</div>
-	);
-}
-
-function JobsTab({ location }: { location: Location }) {
-	const updateLocation = useLibraryMutation("locations.update");
-
-	const updatePolicy = async (
-		updates: Partial<typeof location.job_policies>,
-	) => {
-		await updateLocation.mutateAsync({
-			id: location.id,
-			name: null,
-			job_policies: {
-				...location.job_policies,
-				...updates,
-			},
-		});
-	};
-
-	const thumbnails = location.job_policies?.thumbnail?.enabled ?? true;
-	const thumbstrips = location.job_policies?.thumbstrip?.enabled ?? true;
-	const proxies = location.job_policies?.proxy?.enabled ?? false;
-	const ocr = location.job_policies?.ocr?.enabled ?? false;
-	const speech = location.job_policies?.speech_to_text?.enabled ?? false;
-
-	return (
-		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10 px-2 pt-2">
-			<p className="text-xs text-sidebar-inkDull">
-				Configure which processing jobs run automatically for this
-				location
-			</p>
-
-			<Section title="Media Processing" icon={Image}>
-				<div className="space-y-2.5">
-					<JobConfigRow
-						label="Generate Thumbnails"
-						description="Create preview thumbnails for images and videos"
-						enabled={thumbnails}
-						onToggle={(enabled) =>
-							updatePolicy({
-								thumbnail: {
-									sizes: [],
-									quality: 80,
-									regenerate: false,
-									...location.job_policies?.thumbnail,
-									enabled,
-								},
-							})
-						}
-					/>
-					<JobConfigRow
-						label="Generate Thumbstrips"
-						description="Create video storyboard grids (5×5 grid of frames)"
-						enabled={thumbstrips}
-						onToggle={(enabled) =>
-							updatePolicy({
-								thumbstrip: {
-									regenerate: false,
-									...location.job_policies?.thumbstrip,
-									enabled,
-								},
-							})
-						}
-						icon={FilmStrip}
-					/>
-					<JobConfigRow
-						label="Generate Proxies"
-						description="Create scrubbing proxies for videos (180p @ 15fps)"
-						enabled={proxies}
-						onToggle={(enabled) =>
-							updatePolicy({
-								proxy: {
-									regenerate: false,
-									...location.job_policies?.proxy,
-									enabled,
-								},
-							})
-						}
-						icon={VideoCamera}
-					/>
-				</div>
-			</Section>
-
-			<Section title="AI Processing" icon={Sparkle}>
-				<div className="space-y-2.5">
-					<JobConfigRow
-						label="Extract Text (OCR)"
-						description="Scan images for text content"
-						enabled={ocr}
-						onToggle={(enabled) =>
-							updatePolicy({
-								ocr: {
-									languages: ['eng'],
-									min_confidence: 0.5,
-									reprocess: false,
-									...location.job_policies?.ocr,
-									enabled,
-								},
-							})
-						}
-					/>
-					<JobConfigRow
-						label="Speech to Text"
-						description="Transcribe audio and video files"
-						enabled={speech}
-						onToggle={(enabled) =>
-							updatePolicy({
-								speech_to_text: {
-									language: null,
-									model: 'base',
-									reprocess: false,
-									...location.job_policies?.speech_to_text,
-									enabled,
-								},
-							})
-						}
-					/>
-				</div>
 			</Section>
 		</div>
 	);
@@ -570,12 +356,6 @@ function MoreTab({ location }: { location: Location }) {
 					<InfoRow
 						label="Created"
 						value={formatDate(location.created_at)}
-					/>
-				)}
-				{location.last_scan_at && (
-					<InfoRow
-						label="Last Scan"
-						value={formatDate(location.last_scan_at)}
 					/>
 				)}
 			</Section>

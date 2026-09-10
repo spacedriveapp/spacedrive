@@ -43,16 +43,7 @@ pub struct Model {
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {
-	#[sea_orm(has_many = "super::location::Entity")]
-	Locations,
-}
-
-impl Related<super::location::Entity> for Entity {
-	fn to() -> RelationDef {
-		Relation::Locations.def()
-	}
-}
+pub enum Relation {}
 
 impl ActiveModelBehavior for ActiveModel {}
 
@@ -77,7 +68,7 @@ impl crate::infra::sync::Syncable for Model {
 		&[] // Device has no dependencies (root of dependency graph)
 	}
 
-	// FK Lookup Methods (device is FK target for locations, volumes)
+	// FK Lookup Methods (device is FK target for volumes)
 	async fn lookup_id_by_uuid(
 		uuid: Uuid,
 		db: &DatabaseConnection,

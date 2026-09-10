@@ -292,45 +292,11 @@ impl Syncable for Model {
 						))
 					})?;
 
-				// If entry-scoped, verify the change came from the entry's owning device
-				if let Some(entry_uuid) = parent_metadata.entry_uuid {
-					// Entry ownership is tracked through locations
-					// First find the entry
-					let entry = super::entry::Entity::find()
-						.filter(super::entry::Column::Uuid.eq(entry_uuid))
-						.one(db)
-						.await?;
-
-					if let Some(entry_model) = entry {
-						// Find the location that contains this entry
-						let location = super::location::Entity::find()
-							.filter(super::location::Column::EntryId.eq(entry_model.id))
-							.one(db)
-							.await?;
-
-						if let Some(location_model) = location {
-							// Get the device from the location
-							let device = super::device::Entity::find()
-								.filter(super::device::Column::Id.eq(location_model.device_id))
-								.one(db)
-								.await?;
-
-							if let Some(device_model) = device {
-								// Check if the change came from the owning device
-								if device_model.uuid != device_uuid {
-									tracing::warn!(
-										entry_uuid = %entry_uuid,
-										owning_device = %device_model.uuid,
-										sync_device = %device_uuid,
-										"Rejecting user_metadata_tag sync - entry-scoped metadata can only be modified by owning device"
-									);
-									return Ok(()); // Silently ignore changes from non-owning devices
-								}
-							}
-						}
-					}
-				}
-				// If content-scoped, no ownership enforcement needed
+				// File-scoped metadata used to be pinned to the device owning the
+				// entry, checked through the location that contained it. A record
+				// belongs to whichever machine walked it and carries no device
+				// column, so that check needs re-deriving when sync returns on
+				// top of sources rather than being written to always pass.
 
 				let applied_context: Option<String> = serde_json::from_value(
 					data.get("applied_context")

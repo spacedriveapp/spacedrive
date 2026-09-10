@@ -11,8 +11,6 @@ use crate::{
 	infra::job::{prelude::*, traits::DynJob},
 };
 
-// Re-export IndexMode from domain for backwards compatibility
-pub use crate::domain::location::IndexMode;
 use sea_orm::{ColumnTrait, ConnectionTrait, EntityTrait, QueryFilter, Statement};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -81,7 +79,6 @@ impl std::fmt::Display for IndexScope {
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct IndexerJobConfig {
 	pub path: SdPath,
-	pub mode: IndexMode,
 	pub scope: IndexScope,
 	pub max_depth: Option<u32>,
 	#[serde(default)]
@@ -102,7 +99,6 @@ impl IndexerJobConfig {
 	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
 		Self {
 			path,
-			mode: IndexMode::Shallow,
 			scope,
 			max_depth: if scope == IndexScope::Current {
 				Some(1)
