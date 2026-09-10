@@ -15,6 +15,7 @@ pub mod media_data;
 pub mod resource;
 pub mod resource_manager;
 pub mod resource_registry;
+pub mod sidecar;
 pub mod space;
 pub mod tag;
 pub mod user_metadata;
@@ -30,6 +31,7 @@ pub use location::{IndexMode, Location, ScanState};
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;
+pub use sidecar::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
 pub use space::{
 	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
 };

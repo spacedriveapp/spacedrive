@@ -182,11 +182,6 @@ impl Core {
 		// Initialize services first, passing them the context
 		let mut services = Services::new(context.clone());
 
-		// Set sidecar manager in context so it can be accessed by jobs
-		context
-			.set_sidecar_manager(services.sidecar_manager.clone())
-			.await;
-
 		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
 		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
@@ -245,31 +240,6 @@ impl Core {
 			warn!("Failed to start library filesystem watcher: {}", e);
 		} else {
 			info!("Library filesystem watcher started");
-		}
-
-		// Initialize sidecar manager for each loaded library
-		for library in &loaded_libraries {
-			info!("Initializing sidecar manager for library {}", library.id());
-			if let Err(e) = services.sidecar_manager.init_library(library).await {
-				error!(
-					"Failed to initialize sidecar manager for library {}: {}",
-					library.id(),
-					e
-				);
-			} else {
-				// // Run bootstrap scan in background to avoid blocking startup
-				// let sidecar_manager = services.sidecar_manager.clone();
-				// let library = Arc::clone(library);
-				// tokio::spawn(async move {
-				// 	if let Err(e) = sidecar_manager.bootstrap_scan(&library).await {
-				// 		error!(
-				// 			"Failed to run sidecar bootstrap scan for library {}: {}",
-				// 			library.id(),
-				// 			e
-				// 		);
-				// 	}
-				// });
-			}
 		}
 
 		// Set library manager reference in volume manager so it can query tracked volumes

@@ -71,10 +71,6 @@ export function getJobDisplayName(job: JobListItem): string {
         }
         break;
       }
-      case "media.thumbnail":
-        return "Generating Thumbnails";
-      case "media.extract":
-        return "Extracting Media";
       case "indexing.start":
         return "Indexing Location";
       case "volumes.index": {

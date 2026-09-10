@@ -203,9 +203,9 @@ impl PathResolver {
 		&self,
 		_context: &CoreContext,
 		content_id: Uuid,
-		kind: &crate::ops::sidecar::types::SidecarKind,
-		variant: &crate::ops::sidecar::types::SidecarVariant,
-		_format: &crate::ops::sidecar::types::SidecarFormat,
+		kind: &crate::domain::sidecar::SidecarKind,
+		variant: &crate::domain::sidecar::SidecarVariant,
+		_format: &crate::domain::sidecar::SidecarFormat,
 	) -> Result<SdPath, PathResolutionError> {
 		// TODO: Implement full sidecar resolution
 		// For now, return not found to avoid breaking existing code

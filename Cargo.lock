@@ -11746,6 +11746,7 @@ dependencies = [
  "mime_guess",
  "rust-embed",
  "sd-core",
+ "sd-sidecar-path",
  "secstr",
  "serde",
  "serde_json",

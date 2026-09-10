@@ -50,21 +50,6 @@ impl CoreAction for LibraryOpenAction {
 				other => ActionError::Internal(other.to_string()),
 			})?;
 
-		// Initialize sidecar manager for the opened library
-		if let Err(e) = context
-			.get_sidecar_manager()
-			.await
-			.ok_or_else(|| ActionError::Internal("Sidecar manager not available".to_string()))?
-			.init_library(&library)
-			.await
-		{
-			tracing::error!(
-				"Failed to initialize sidecar manager for library {}: {}",
-				library.id(),
-				e
-			);
-		}
-
 		info!("Opened library {} from {:?}", library.id(), self.input.path);
 
 		// Get the library details

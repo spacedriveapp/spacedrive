@@ -1281,26 +1281,6 @@ export type EventSeverity =
  */
 export type ExportStats = { entries: number; content_identities: number; user_metadata: number; tags: number; media_data: number };
 
-export type ExtractTextInput = { 
-/**
- * UUID of the entry to extract text from
- */
-entry_uuid: string; 
-/**
- * Languages to use for OCR (e.g., ["eng", "spa"])
- */
-languages: string[] | null; 
-/**
- * Force re-extraction even if text exists
- */
-force: boolean };
-
-export type ExtractTextOutput = { 
-/**
- * Job ID for tracking OCR progress
- */
-job_id: string };
-
 /**
  * Represents a file within the Spacedrive VDFS.
  * 
@@ -1579,76 +1559,6 @@ export type FrontendReads = { frontend: string; reads: number };
  * Raw filesystem event kinds emitted by the watcher without DB resolution
  */
 export type FsRawEventKind = { Create: { path: string } } | { Modify: { path: string } } | { Remove: { path: string } } | { Rename: { from: string; to: string } };
-
-/**
- * Generate proxy for a single video file
- */
-export type GenerateProxyInput = { 
-/**
- * UUID of the entry to generate proxy for
- */
-entry_uuid: string; 
-/**
- * Proxy resolution (scrubbing, ultra_low, quick, editing)
- */
-resolution: string | null; 
-/**
- * Force regeneration even if proxy exists
- */
-force: boolean; 
-/**
- * Use hardware acceleration if available
- */
-use_hardware_accel: boolean | null };
-
-export type GenerateProxyOutput = { 
-/**
- * Number of proxies generated
- */
-generated_count: number; 
-/**
- * Variant names that were generated
- */
-variants: string[]; 
-/**
- * Total encoding time in seconds
- */
-encoding_time_secs: number };
-
-export type GenerateSplatInput = { entry_uuid: string; model_path: string | null };
-
-export type GenerateSplatOutput = { 
-/**
- * Job ID for tracking splat generation progress
- */
-job_id: string };
-
-/**
- * Generate thumbstrip for a single video file
- */
-export type GenerateThumbstripInput = { 
-/**
- * UUID of the entry to generate thumbstrip for
- */
-entry_uuid: string; 
-/**
- * Optional variant names (defaults to thumbstrip_preview)
- */
-variants: string[] | null; 
-/**
- * Force regeneration even if thumbstrip exists
- */
-force: boolean };
-
-export type GenerateThumbstripOutput = { 
-/**
- * Number of thumbstrips generated
- */
-generated_count: number; 
-/**
- * Variant names that were generated
- */
-variants: string[] };
 
 /**
  * Generic progress information that all job types can convert into
@@ -3553,22 +3463,6 @@ volumes: VolumeRedundancySummary[];
  */
 library_totals: LibraryRedundancyTotals };
 
-export type RegenerateThumbnailInput = { 
-/**
- * UUID of the entry to regenerate thumbnails for
- */
-entry_uuid: string; 
-/**
- * Optional variant names (defaults to grid@1x, grid@2x, detail@1x)
- */
-variants: string[] | null; 
-/**
- * Force regeneration even if thumbnails exist
- */
-force: boolean };
-
-export type RegenerateThumbnailOutput = { generated_count: number; variants: string[] };
-
 /**
  * State of a job running on a remote device
  */
@@ -4563,8 +4457,6 @@ export type ThumbSource = { id: string; cache_path: string;
  */
 tile_size: number };
 
-export type ThumbnailInput = { paths: string[]; size: number; quality: number };
-
 /**
  * Thumbnail generation policy
  */
@@ -4637,14 +4529,6 @@ volume_uuid: string | null;
  * Whether this root is the whole volume rather than a subtree of one.
  */
 whole_volume: boolean; job_id: string | null };
-
-export type TranscribeAudioInput = { entry_uuid: string; model: string | null; language: string | null };
-
-export type TranscribeAudioOutput = { 
-/**
- * Job ID for tracking transcription progress
- */
-job_id: string };
 
 /**
  * What to untag — uses entry UUIDs (matching the File.id exposed to frontend)
@@ -5386,13 +5270,6 @@ export type LibraryAction =
   |  { type: 'locations.import'; input: LocationImportInput; output: LocationImportOutput }
   |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
   |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
-  |  { type: 'media.ocr.extract'; input: ExtractTextInput; output: ExtractTextOutput }
-  |  { type: 'media.proxy.generate'; input: GenerateProxyInput; output: GenerateProxyOutput }
-  |  { type: 'media.speech.transcribe'; input: TranscribeAudioInput; output: TranscribeAudioOutput }
-  |  { type: 'media.splat.generate'; input: GenerateSplatInput; output: GenerateSplatOutput }
-  |  { type: 'media.thumbnail'; input: ThumbnailInput; output: JobReceipt }
-  |  { type: 'media.thumbnail.regenerate'; input: RegenerateThumbnailInput; output: RegenerateThumbnailOutput }
-  |  { type: 'media.thumbstrip.generate'; input: GenerateThumbstripInput; output: GenerateThumbstripOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
@@ -5541,13 +5418,6 @@ export const WIRE_METHODS = {
     'locations.import': 'action:locations.import.input',
     'locations.remove': 'action:locations.remove.input',
     'locations.update': 'action:locations.update.input',
-    'media.ocr.extract': 'action:media.ocr.extract.input',
-    'media.proxy.generate': 'action:media.proxy.generate.input',
-    'media.speech.transcribe': 'action:media.speech.transcribe.input',
-    'media.splat.generate': 'action:media.splat.generate.input',
-    'media.thumbnail': 'action:media.thumbnail.input',
-    'media.thumbnail.regenerate': 'action:media.thumbnail.regenerate.input',
-    'media.thumbstrip.generate': 'action:media.thumbstrip.generate.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
     'sources.sync': 'action:sources.sync.input',

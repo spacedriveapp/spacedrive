@@ -1,3 +1,10 @@
+//! What a derived artifact is, and how it is named.
+//!
+//! Kind, variant and format are the vocabulary a sidecar is addressed by, and
+//! they are what `SdPath::Sidecar` parses. They sit in the domain because they
+//! outlive whatever writes them: the same three name a thumbnail in the hot
+//! tier and a transcript in the durable one.
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;

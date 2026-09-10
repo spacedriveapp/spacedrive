@@ -537,27 +537,6 @@ impl Library {
 		Ok(true)
 	}
 
-	/// Start thumbnail generation job
-	pub async fn generate_thumbnails(
-		&self,
-		entry_ids: Option<Vec<Uuid>>,
-	) -> Result<crate::infra::job::handle::JobHandle> {
-		use crate::ops::media::thumbnail::{ThumbnailJob, ThumbnailJobConfig};
-
-		let config = ThumbnailJobConfig::default();
-
-		let job = if let Some(ids) = entry_ids {
-			ThumbnailJob::for_entries(ids, config)
-		} else {
-			ThumbnailJob::new(config)
-		};
-
-		self.jobs()
-			.dispatch(job)
-			.await
-			.map_err(|e| LibraryError::JobError(e))
-	}
-
 	/// Update library statistics
 	pub async fn update_statistics<F>(&self, f: F) -> Result<()>
 	where

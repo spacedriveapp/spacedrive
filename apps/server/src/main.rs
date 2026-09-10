@@ -163,12 +163,10 @@ async fn serve_sidecar(
 		String,
 	)>,
 ) -> Response {
-	use sd_core::ops::sidecar::{SidecarFormat, SidecarKind, SidecarPathBuilder, SidecarVariant};
-
 	let Ok(content_uuid) = content_uuid.parse::<uuid::Uuid>() else {
 		return plain_status(StatusCode::BAD_REQUEST, "invalid content uuid");
 	};
-	let Ok(kind) = SidecarKind::try_from(kind.as_str()) else {
+	let Some(kind_dir) = sd_sidecar_path::kind_directory(&kind) else {
 		return plain_status(StatusCode::BAD_REQUEST, "invalid sidecar kind");
 	};
 	let Some((variant, ext)) = variant_and_ext.rsplit_once('.') else {
@@ -178,28 +176,27 @@ async fn serve_sidecar(
 	if variant.contains(['/', '\\']) || variant.contains("..") {
 		return plain_status(StatusCode::BAD_REQUEST, "invalid variant");
 	}
-	let Ok(format) = SidecarFormat::try_from(ext) else {
-		return plain_status(StatusCode::BAD_REQUEST, "invalid sidecar format");
-	};
 	let Some(library_folder) = find_library_folder(&state.data_dir, &library_id).await else {
 		return plain_status(StatusCode::NOT_FOUND, "unknown library");
 	};
 
-	let path = SidecarPathBuilder::new(&library_folder)
-		.build(&content_uuid, &kind, &SidecarVariant::from(variant), &format)
-		.absolute_path;
+	let path = library_folder.join("sidecars").join(
+		sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext),
+	);
 
 	let Ok(file) = tokio::fs::File::open(&path).await else {
 		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
 	};
 	let content_length = file.metadata().await.ok().map(|m| m.len());
 
-	let content_type = match format {
-		SidecarFormat::Webp => "image/webp",
-		SidecarFormat::Mp4 => "video/mp4",
-		SidecarFormat::Json => "application/json",
-		SidecarFormat::Text => "text/plain; charset=utf-8",
-		SidecarFormat::MessagePack | SidecarFormat::Ply => "application/octet-stream",
+	let content_type = match ext {
+		"webp" => "image/webp",
+		"jpg" | "jpeg" => "image/jpeg",
+		"png" => "image/png",
+		"mp4" => "video/mp4",
+		"json" => "application/json",
+		"txt" => "text/plain; charset=utf-8",
+		_ => "application/octet-stream",
 	};
 
 	// Sidecar paths are content-addressed (uuid + variant), so clients may

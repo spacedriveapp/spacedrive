@@ -574,19 +574,7 @@ impl LibraryManager {
 			libraries.insert(config.id, library.clone());
 		}
 
-		// Initialize sidecar manager before resuming jobs
-		if let Some(sidecar_manager) = context.get_sidecar_manager().await {
-			if let Err(e) = sidecar_manager.init_library(&library).await {
-				error!(
-					"Failed to initialize sidecar manager for library {}: {}",
-					config.id, e
-				);
-			}
-		} else {
-			warn!("Sidecar manager not available during library open");
-		}
-
-		// Now that the library is registered and sidecar manager is initialized, resume interrupted jobs
+		// Now that the library is registered, resume interrupted jobs
 		// DISABLED: Jobs will remain paused on startup instead of auto-resuming
 		// if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
 		// 	warn!(
@@ -878,7 +866,6 @@ impl LibraryManager {
 		tokio::fs::create_dir_all(path.join("previews")).await?;
 		tokio::fs::create_dir_all(path.join("exports")).await?;
 		// Virtual Sidecar root (for derivative data linked by Entry/Content IDs)
-		tokio::fs::create_dir_all(path.join("sidecars")).await?;
 
 		// Create configuration
 		let config = LibraryConfig {
@@ -935,7 +922,6 @@ impl LibraryManager {
 		// Create subdirectories
 		tokio::fs::create_dir_all(path.join("previews")).await?;
 		tokio::fs::create_dir_all(path.join("exports")).await?;
-		tokio::fs::create_dir_all(path.join("sidecars")).await?;
 
 		// Create configuration with provided UUID
 		let config = LibraryConfig {

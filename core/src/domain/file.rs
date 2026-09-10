@@ -5,13 +5,13 @@
 //! The File struct is computed from pre-fetched data rather than fetching
 //! individual pieces on demand.
 
+use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
 use crate::domain::{
 	addressing::SdPath,
 	content_identity::{ContentIdentity, ContentKind},
 	media_data::{AudioMediaData, ImageMediaData, VideoMediaData},
 	tag::Tag,
 };
-use crate::ops::sidecar::types::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;

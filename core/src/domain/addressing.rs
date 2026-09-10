@@ -5,7 +5,7 @@
 //! file system.
 
 use crate::device::{get_current_device_id, get_current_device_slug};
-use crate::ops::sidecar::types::{SidecarFormat, SidecarKind, SidecarVariant};
+use crate::domain::sidecar::{SidecarFormat, SidecarKind, SidecarVariant};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::fmt;

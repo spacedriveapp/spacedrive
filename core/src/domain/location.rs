@@ -393,32 +393,6 @@ impl Default for ThumbnailPolicy {
 	}
 }
 
-impl ThumbnailPolicy {
-	/// Convert this policy to a ThumbnailJobConfig for job dispatch
-	pub fn to_job_config(&self) -> crate::ops::media::thumbnail::ThumbnailJobConfig {
-		use crate::ops::media::thumbnail::{ThumbnailJobConfig, ThumbnailVariants};
-
-		let variants = if self.sizes.is_empty() {
-			// Use defaults if no specific sizes configured
-			ThumbnailVariants::defaults()
-		} else {
-			// Map configured sizes to variants
-			self.sizes
-				.iter()
-				.filter_map(|&size| ThumbnailVariants::from_size(size))
-				.collect()
-		};
-
-		ThumbnailJobConfig {
-			variants,
-			regenerate: self.regenerate,
-			batch_size: 50,
-			max_concurrent: 4,
-			run_in_background: false,
-		}
-	}
-}
-
 /// Thumbstrip generation policy
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ThumbstripPolicy {
@@ -434,18 +408,6 @@ impl Default for ThumbstripPolicy {
 		Self {
 			enabled: false, // Disabled by default (expensive operation)
 			regenerate: false,
-		}
-	}
-}
-
-impl ThumbstripPolicy {
-	/// Convert this policy to a ThumbstripJobConfig for job dispatch
-	#[cfg(feature = "ffmpeg")]
-	pub fn to_job_config(&self) -> crate::ops::media::thumbstrip::ThumbstripJobConfig {
-		crate::ops::media::thumbstrip::ThumbstripJobConfig {
-			variants: crate::ops::media::thumbstrip::ThumbstripVariants::defaults(),
-			regenerate: self.regenerate,
-			batch_size: 10,
 		}
 	}
 }
@@ -496,19 +458,6 @@ impl Default for OcrPolicy {
 	}
 }
 
-impl OcrPolicy {
-	/// Convert this policy to an OcrJobConfig for job dispatch
-	pub fn to_job_config(&self, location_id: Option<Uuid>) -> crate::ops::media::ocr::OcrJobConfig {
-		crate::ops::media::ocr::OcrJobConfig {
-			location_id,
-			entry_uuid: None,
-			languages: self.languages.clone(),
-			min_confidence: self.min_confidence,
-			reprocess: self.reprocess,
-		}
-	}
-}
-
 /// Speech-to-text transcription policy
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SpeechPolicy {
@@ -532,23 +481,6 @@ impl Default for SpeechPolicy {
 			language: None, // Auto-detect
 			model: "base".to_string(),
 			reprocess: false,
-		}
-	}
-}
-
-impl SpeechPolicy {
-	/// Convert this policy to a SpeechToTextJobConfig for job dispatch
-	#[cfg(feature = "speech-to-text")]
-	pub fn to_job_config(
-		&self,
-		location_id: Option<Uuid>,
-	) -> crate::ops::media::speech::SpeechToTextJobConfig {
-		crate::ops::media::speech::SpeechToTextJobConfig {
-			location_id,
-			entry_uuid: None,
-			language: self.language.clone(),
-			model: self.model.clone(),
-			reprocess: self.reprocess,
 		}
 	}
 }

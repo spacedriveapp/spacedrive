@@ -33,7 +33,6 @@ pub mod metadata;
 pub mod metrics;
 pub mod path_resolver;
 pub mod phases;
-pub mod processor;
 pub mod progress;
 pub mod rules;
 pub mod state;

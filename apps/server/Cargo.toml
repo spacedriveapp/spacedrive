@@ -13,6 +13,7 @@ ai = ["sd-core/ai"]
 
 [dependencies]
 # Spacedrive core
+sd-sidecar-path = { path = "../../crates/sidecar-path" }
 sd-core = { path = "../../core" }
 
 # HTTP server
