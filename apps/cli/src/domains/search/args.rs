@@ -33,10 +33,6 @@ pub struct FileSearchArgs {
 	#[arg(long)]
 	pub exclude_tags: Option<Vec<Uuid>>,
 
-	/// Location filter
-	#[arg(long)]
-	pub location: Option<Uuid>,
-
 	/// Date field for filtering
 	#[arg(long, value_enum, default_value = "modified")]
 	pub date_field: DateFieldArg,
@@ -156,8 +152,6 @@ impl From<FileSearchArgs> for FileSearchInput {
 					SearchScope::Library
 				}
 			}
-		} else if let Some(location_id) = args.location {
-			SearchScope::Location { location_id }
 		} else {
 			SearchScope::Library
 		};

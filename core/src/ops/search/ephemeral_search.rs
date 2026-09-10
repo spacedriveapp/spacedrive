@@ -1,7 +1,10 @@
-//! Ephemeral index search implementation
+//! Search over the volume index.
 //!
-//! This module provides search functionality for the in-memory ephemeral index,
-//! enabling search in unindexed locations and external drives.
+//! Every drive this machine knows about has a partition in the arena, so a
+//! library-wide search is a fan-out over all of them and a scoped one resolves
+//! the partition that covers the path. Nothing here reads the durable store:
+//! names live in memory, which is what makes a search answer while someone is
+//! still typing.
 
 use crate::domain::{File, SdPath};
 use crate::filetype::FileTypeRegistry;
@@ -15,7 +18,7 @@ use std::cmp::Ordering;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-/// Search the ephemeral index for files matching the query
+/// Search one partition of the volume index, scoped to a path within it.
 pub async fn search_ephemeral_index(
 	query: &str,
 	path_scope: &SdPath,
@@ -23,76 +26,118 @@ pub async fn search_ephemeral_index(
 	cache: &EphemeralIndexCache,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<Vec<FileSearchResult>, QueryError> {
-	// Get local path from SdPath
-	let local_path = match path_scope {
-		SdPath::Physical { path, .. } => path.clone(),
-		_ => {
-			return Ok(Vec::new()); // Only physical paths supported for ephemeral
-		}
+	let SdPath::Physical {
+		path: local_path,
+		device_slug,
+	} = path_scope
+	else {
+		return Ok(Vec::new());
 	};
 
-	// A registered source that hasn't been touched this session restores from
-	// its snapshot here — including detached drives, whose indexes serve
+	// A registered source that has not been touched this session restores from
+	// its snapshot here, including detached drives, whose indexes serve
 	// read-only.
-	cache.ensure_restored(&local_path).await;
+	cache.ensure_restored(local_path).await;
 
-	// Get ephemeral index (use get_for_search to check parent paths)
-	let index_arc = cache
-		.get_for_search(&local_path)
-		.ok_or_else(|| QueryError::Internal("Ephemeral index not found".to_string()))?;
+	let Some(index_arc) = cache.get_for_search(local_path) else {
+		return Ok(Vec::new());
+	};
 
-	// Perform name-based search with read lock
 	let matching_paths = {
 		let index = index_arc.read().await;
-
-		if query.is_empty() {
-			// Empty query: return all files in scope
-			index.list_directory(&local_path).unwrap_or_default()
-		} else {
-			// Use registry for substring search
-			let query_lower = query.to_lowercase();
-
-			// Try exact name match first
-			let mut paths = index.find_by_name(&query_lower);
-			tracing::debug!("Exact match for '{}': {} paths", query_lower, paths.len());
-
-			// If no exact matches, try prefix search
-			if paths.is_empty() {
-				paths = index.find_by_prefix(&query_lower);
-				tracing::debug!("Prefix match for '{}': {} paths", query_lower, paths.len());
-			}
-
-			// If still no matches, try substring search
-			if paths.is_empty() {
-				paths = index.find_containing(&query_lower);
-				tracing::debug!(
-					"Substring match for '{}': {} paths",
-					query_lower,
-					paths.len()
-				);
-			}
-
-			tracing::debug!("Total paths before scope filter: {}", paths.len());
-			tracing::debug!("Scope path: {:?}", local_path);
-
-			// Filter to only paths within scope
-			let filtered: Vec<PathBuf> = paths
-				.into_iter()
-				.filter(|path| path.starts_with(&local_path))
-				.collect();
-
-			tracing::debug!("Paths after scope filter: {}", filtered.len());
-			filtered
-		}
+		matches_in(&index, query, Some(local_path))
 	};
 
-	tracing::debug!(
-		"Converting {} matching paths to results",
-		matching_paths.len()
-	);
+	collect_results(
+		&index_arc,
+		matching_paths,
+		query,
+		device_slug,
+		filters,
+		file_type_registry,
+	)
+	.await
+}
 
-	// Convert to FileSearchResult with lazy UUID assignment
-	// Acquire write lock once for the entire batch instead of per-entry
+/// Search every partition, which is what a library-wide search is now that
+/// every attached drive is mapped.
+pub async fn search_every_index(
+	query: &str,
+	filters: &SearchFilters,
+	cache: &EphemeralIndexCache,
+	file_type_registry: &FileTypeRegistry,
+) -> Result<Vec<FileSearchResult>, QueryError> {
+	let mut results = Vec::new();
+
+	for index_arc in cache.all_indexes() {
+		let matching_paths = {
+			let index = index_arc.read().await;
+			matches_in(&index, query, None)
+		};
+
+		results.extend(
+			collect_results(
+				&index_arc,
+				matching_paths,
+				query,
+				"",
+				filters,
+				file_type_registry,
+			)
+			.await?,
+		);
+	}
+
+	rank(&mut results);
+	Ok(results)
+}
+
+/// Paths in one partition whose name matches, narrowed to a scope if given.
+///
+/// Exact, then prefix, then substring: the first tier that answers wins, so a
+/// query that names a file exactly is not buried under everything containing it.
+fn matches_in(
+	index: &crate::ops::indexing::ephemeral::EphemeralIndex,
+	query: &str,
+	scope: Option<&PathBuf>,
+) -> Vec<PathBuf> {
+	if query.is_empty() {
+		return match scope {
+			Some(path) => index.list_directory(path).unwrap_or_default(),
+			None => Vec::new(),
+		};
+	}
+
+	let query = query.to_lowercase();
+	let mut paths = index.find_by_name(&query);
+	if paths.is_empty() {
+		paths = index.find_by_prefix(&query);
+	}
+	if paths.is_empty() {
+		paths = index.find_containing(&query);
+	}
+
+	match scope {
+		Some(root) => paths
+			.into_iter()
+			.filter(|path| path.starts_with(root))
+			.collect(),
+		None => paths,
+	}
+}
+
+async fn collect_results(
+	index_arc: &std::sync::Arc<
+		tokio::sync::RwLock<crate::ops::indexing::ephemeral::EphemeralIndex>,
+	>,
+	matching_paths: Vec<PathBuf>,
+	query: &str,
+	device_slug: &str,
+	filters: &SearchFilters,
+	file_type_registry: &FileTypeRegistry,
+) -> Result<Vec<FileSearchResult>, QueryError> {
+	// One write lock for the batch rather than one per entry: the lazy uuid
+	// assignment needs it and the lock is the expensive part.
 	let mut index = index_arc.write().await;
 	let mut results = Vec::new();
 
@@ -112,16 +157,11 @@ pub async fn search_ephemeral_index(
 			// Get or assign UUID (lazy generation)
 			let uuid = index.get_or_assign_uuid(&path);
 
-			// Build SdPath
-			let sd_path = match path_scope {
-				SdPath::Physical { device_slug, .. } => SdPath::Physical {
-					device_slug: device_slug.clone(),
-					path: path.clone(),
-				},
-				_ => continue,
+			let sd_path = SdPath::Physical {
+				device_slug: device_slug.to_string(),
+				path: path.clone(),
 			};
 
-			// Get content kind
 			let content_kind = index.get_content_kind(&path);
 
 			// Convert to File
@@ -141,11 +181,14 @@ pub async fn search_ephemeral_index(
 		}
 	}
 
-	// Sort by score and limit
+	rank(&mut results);
+	Ok(results)
+}
+
+/// Best match first, capped at what a person will scroll through.
+fn rank(results: &mut Vec<FileSearchResult>) {
 	results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(Ordering::Equal));
 	results.truncate(200);
-
-	Ok(results)
 }
 
 /// Check if metadata passes ephemeral filters
@@ -219,8 +262,8 @@ fn passes_ephemeral_filters(
 		}
 	}
 
-	// Tags and locations are not available in ephemeral
-	// These filters are simply ignored for ephemeral searches
+	// Tags have no arena representation, so a tag filter is ignored rather
+	// than silently excluding everything.
 
 	true
 }

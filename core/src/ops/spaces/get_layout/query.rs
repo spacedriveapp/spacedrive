@@ -1,12 +1,12 @@
 use super::output::SpaceLayoutOutput;
 use crate::domain::{
-	addressing::SdPath, ContentKind, File, GroupType, ItemType, Space, SpaceGroup,
-	SpaceGroupWithItems, SpaceItem, SpaceLayout,
+	addressing::SdPath, File, GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems,
+	SpaceItem, SpaceLayout,
 };
-use crate::infra::db::entities::{content_identity, entry, sidecar, space_item};
+use crate::infra::db::entities::space_item;
 use crate::infra::query::{QueryError, QueryResult};
 use crate::{context::CoreContext, infra::query::LibraryQuery};
-use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QueryOrder};
+use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QueryOrder};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
@@ -89,19 +89,9 @@ impl LibraryQuery for SpaceLayoutQuery {
 					item_model.uuid,
 					entry_uuid
 				);
-				if let Ok(Some(entry_model)) = entry::Entity::find()
-					.filter(entry::Column::Uuid.eq(entry_uuid))
-					.one(db)
+				pinned_file(entry_uuid, &item_type, &context)
 					.await
-				{
-					let file = build_file_from_entry(entry_model, &item_type, db)
-						.await
-						.map(Box::new);
-					file
-				} else {
-					tracing::warn!("Entry {} not found for space item", entry_uuid);
-					None
-				}
+					.map(Box::new)
 			} else {
 				tracing::debug!("Space item {} has no entry_uuid", item_model.uuid);
 				None
@@ -168,24 +158,9 @@ impl LibraryQuery for SpaceLayoutQuery {
 						item_model.uuid,
 						entry_uuid
 					);
-					if let Ok(Some(entry_model)) = entry::Entity::find()
-						.filter(entry::Column::Uuid.eq(entry_uuid))
-						.one(db)
+					pinned_file(entry_uuid, &item_type, &context)
 						.await
-					{
-						tracing::debug!("Found entry: name={}", entry_model.name);
-						let file = build_file_from_entry(entry_model, &item_type, db)
-							.await
-							.map(Box::new);
-						tracing::info!(
-							"Built file for group item: {:?}",
-							file.as_ref().map(|f| &f.name)
-						);
-						file
-					} else {
-						tracing::warn!("Entry {} not found for group item", entry_uuid);
-						None
-					}
+						.map(Box::new)
 				} else {
 					None
 				};
@@ -217,77 +192,34 @@ impl LibraryQuery for SpaceLayoutQuery {
 
 crate::register_library_query!(SpaceLayoutQuery, "spaces.get_layout");
 
-/// Build a minimal File object from an entry model (for sidebar display)
-async fn build_file_from_entry(
-	entry_model: entry::Model,
+/// The file a space item points at, for the sidebar.
+///
+/// A space item stores the path it was pinned at and the uuid the entry had at
+/// the time. The path is what makes it findable: the arena is keyed by path, so
+/// a pinned file that has since been renamed resolves to nothing rather than to
+/// whatever now sits at that path.
+async fn pinned_file(
+	entry_uuid: Uuid,
 	item_type: &ItemType,
-	db: &DatabaseConnection,
+	context: &Arc<CoreContext>,
 ) -> Option<File> {
-	// Get the SdPath from item_type
-	let sd_path = match item_type {
-		ItemType::Path { sd_path } => sd_path.clone(),
-		_ => return None,
+	let ItemType::Path { sd_path } = item_type else {
+		return None;
+	};
+	let SdPath::Physical { path, .. } = sd_path else {
+		return None;
 	};
 
-	// Get content identity if available
-	let content_identity = if let Some(content_id) = entry_model.content_id {
-		content_identity::Entity::find_by_id(content_id)
-			.one(db)
-			.await
-			.ok()
-			.flatten()
-			.map(|ci| crate::domain::ContentIdentity {
-				uuid: ci.uuid.unwrap_or_else(Uuid::new_v4),
-				kind: ContentKind::from_id(ci.kind_id),
-				content_hash: ci.content_hash,
-				integrity_hash: ci.integrity_hash,
-				mime_type_id: ci.mime_type_id,
-				text_content: ci.text_content,
-				total_size: ci.total_size,
-				entry_count: ci.entry_count,
-				first_seen_at: ci.first_seen_at,
-				last_verified_at: ci.last_verified_at,
-			})
-	} else {
-		None
-	};
+	let cache = context.ephemeral_cache();
+	cache.ensure_restored(path).await;
 
-	// Get sidecars for thumbnails
-	let sidecars = if let Some(ref ci) = content_identity {
-		if let Some(uuid) = Some(ci.uuid) {
-			sidecar::Entity::find()
-				.filter(sidecar::Column::ContentUuid.eq(uuid))
-				.all(db)
-				.await
-				.ok()
-				.unwrap_or_default()
-				.into_iter()
-				.map(|s| crate::domain::Sidecar {
-					id: s.id,
-					content_uuid: s.content_uuid,
-					kind: s.kind,
-					variant: s.variant,
-					format: s.format,
-					status: s.status,
-					size: s.size,
-					version: s.version,
-					created_at: s.created_at,
-					updated_at: s.updated_at,
-				})
-				.collect()
-		} else {
-			Vec::new()
-		}
-	} else {
-		Vec::new()
-	};
+	let index = cache.resolve_index(path);
+	let mut index = index.write().await;
+	let metadata = index.get_entry_ref(path)?;
+	let kind = index.get_content_kind(path);
+	drop(index);
 
-	let mut file = File::from_entity_model(entry_model, sd_path);
-	file.content_identity = content_identity;
-	file.sidecars = sidecars;
-	if let Some(ref ci) = file.content_identity {
-		file.content_kind = ci.kind;
-	}
-
+	let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path.clone());
+	file.content_kind = kind;
 	Some(file)
 }

@@ -3836,10 +3836,6 @@ export type SearchScope =
  */
 "Library" | 
 /**
- * Restrict search to a specific location by its ID
- */
-{ Location: { location_id: string } } | 
-/**
  * Restrict search to a specific directory path and all its descendants
  */
 { Path: { path: SdPath } };
@@ -4714,36 +4710,6 @@ idle_seconds: number;
  */
 memory_breakdown?: MemoryBreakdownStats | null };
 
-/**
- * Input for finding files unique to a location
- */
-export type UniqueToLocationInput = { 
-/**
- * The location ID to find unique files for
- */
-location_id: string; 
-/**
- * Optional limit on number of results
- */
-limit: number | null };
-
-/**
- * Output containing files that are unique to the specified location
- */
-export type UniqueToLocationOutput = { 
-/**
- * Files that exist only in the specified location
- */
-unique_files: File[]; 
-/**
- * Total count of unique files
- */
-total_count: number; 
-/**
- * Total size of unique files in bytes
- */
-total_size: number };
-
 export type UpdateAdapterInput = { adapter_id: string };
 
 export type UpdateAdapterOutput = { adapter_id: string; old_version: string; new_version: string; schema_changed: boolean };
@@ -5493,7 +5459,6 @@ export type LibraryQuery =
   |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
-  |  { type: 'files.unique_to_location'; input: UniqueToLocationInput; output: UniqueToLocationOutput }
   |  { type: 'jobs.active'; input: ActiveJobsInput; output: ActiveJobsOutput }
   |  { type: 'jobs.get_copy_metadata'; input: CopyMetadataQueryInput; output: CopyMetadataOutput }
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
@@ -5649,7 +5614,6 @@ export const WIRE_METHODS = {
     'files.content_kind_stats': 'query:files.content_kind_stats',
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
-    'files.unique_to_location': 'query:files.unique_to_location',
     'jobs.active': 'query:jobs.active',
     'jobs.get_copy_metadata': 'query:jobs.get_copy_metadata',
     'jobs.info': 'query:jobs.info',

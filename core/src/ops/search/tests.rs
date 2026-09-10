@@ -89,42 +89,4 @@ mod tests {
 		assert!(image_exts.len() > 5); // Should have more than basic hardcoded list
 		assert!(code_exts.len() > 10); // Should have comprehensive code extensions
 	}
-
-	#[test]
-	fn test_fts5_query_building() {
-		use crate::ops::search::query::FileSearchQuery;
-
-		let search_input = FileSearchInput::simple("test query".to_string());
-		let query = FileSearchQuery::new(search_input);
-
-		let fts_query = query.build_fts5_query();
-		assert!(fts_query.contains("test"));
-		assert!(fts_query.contains("query"));
-
-		// Test escaping
-		let search_input_special = FileSearchInput::simple("test*query".to_string());
-		let query_special = FileSearchQuery::new(search_input_special);
-		let fts_query_special = query_special.build_fts5_query();
-		assert!(fts_query_special.contains("test\\*query"));
-	}
-
-	#[test]
-	fn test_highlight_extraction() {
-		use crate::ops::search::query::FileSearchQuery;
-
-		let search_input = FileSearchInput::simple("test".to_string());
-		let query = FileSearchQuery::new(search_input);
-
-		let highlights =
-			query.extract_highlights("test", "test_file.txt", &Some("test".to_string()));
-
-		assert_eq!(highlights.len(), 2); // Should match in both name and extension
-		assert_eq!(highlights[0].field, "name");
-		assert_eq!(highlights[0].start, 0);
-		assert_eq!(highlights[0].end, 4);
-
-		assert_eq!(highlights[1].field, "extension");
-		assert_eq!(highlights[1].start, 0);
-		assert_eq!(highlights[1].end, 4); // "test" extension
-	}
 }

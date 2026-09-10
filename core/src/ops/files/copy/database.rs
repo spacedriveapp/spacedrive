@@ -1,405 +1,70 @@
-//! Database query support for copy operations
+//! Instant size and file-count estimates for a copy.
 //!
-//! Provides instant size and file count estimates by querying
-//! Spacedrive's indexed data, enabling immediate progress feedback.
+//! The arena maintains `subtree_bytes` and `file_count` along the ancestor
+//! chain as it is written, so the numbers a copy needs for its progress bar are
+//! already computed. Reading them costs a lookup rather than the walk the
+//! filesystem would charge for the same answer.
 
-use crate::{
-	domain::addressing::SdPath,
-	infra::db::entities::{entry, location, Entry},
-	ops::indexing::PathResolver,
-};
+use crate::{context::CoreContext, domain::addressing::SdPath};
 use anyhow::Result;
-use sea_orm::{prelude::*, Condition, DatabaseConnection, QuerySelect};
-use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
-/// Database query engine for copy preparation
+/// Estimate engine over the volume index.
 pub struct CopyDatabaseQuery {
-	db: DatabaseConnection,
+	context: Arc<CoreContext>,
 }
 
 impl CopyDatabaseQuery {
-	pub fn new(db: DatabaseConnection) -> Self {
-		Self { db }
+	pub fn new(context: Arc<CoreContext>) -> Self {
+		Self { context }
 	}
 
-	/// Get instant estimates for multiple source paths
+	/// Estimates for several source paths at once.
+	///
+	/// A path the arena does not cover contributes nothing and is counted as
+	/// unindexed, which is what `confidence` reports: the caller falls back to
+	/// walking the filesystem when the answer is partial.
 	pub async fn get_estimates_for_paths(&self, sources: &[SdPath]) -> Result<PathEstimates> {
-		use crate::ops::indexing::PathResolver;
-
-		let mut total_files = 0u64;
-		let mut total_bytes = 0u64;
-		let mut indexed_paths = 0u64;
-
-		for source in sources {
-			// Use canonical PathResolver for all path types
-			match PathResolver::resolve_to_entry(&self.db, source).await {
-				Ok(Some(entry)) => {
-					let (file_count, total_size) = match entry.kind {
-						0 => (1u64, entry.size as u64),                              // File
-						1 => (entry.file_count as u64, entry.aggregate_size as u64), // Directory
-						_ => (0, 0),
-					};
-					total_files += file_count;
-					total_bytes += total_size;
-					indexed_paths += 1;
-				}
-				Ok(None) | Err(_) => {
-					// Entry not found or query failed - will calculate from filesystem later
-					continue;
-				}
-			}
-		}
-
-		Ok(PathEstimates {
-			file_count: total_files,
-			total_size: total_bytes,
-			indexed_paths,
+		let cache = self.context.ephemeral_cache();
+		let mut estimates = PathEstimates {
+			file_count: 0,
+			total_size: 0,
+			indexed_paths: 0,
 			total_paths: sources.len() as u64,
-		})
-	}
-
-	/// Get estimates for a single path
-	async fn get_path_estimates(&self, path: &Path) -> Result<Option<SinglePathEstimate>> {
-		let path_str = path.to_string_lossy().to_string();
-
-		// Get all locations to find which one contains this path
-		let locations = location::Entity::find().all(&self.db).await?;
-
-		// Check each location to see if it contains this path
-		for location in locations {
-			// Skip locations without entry_id (not yet synced)
-			let Some(entry_id) = location.entry_id else {
-				continue;
-			};
-			// Get the full path of the location's root entry
-			let location_path = match PathResolver::get_full_path(&self.db, entry_id).await {
-				Ok(path) => path,
-				Err(_) => continue, // Skip if we can't get the path
-			};
-
-			let location_path_str = location_path.to_string_lossy().to_string();
-
-			// Check if the target path is within this location
-			if path_str.starts_with(&location_path_str) {
-				// If querying the entire location root, use cached stats
-				if path == location_path {
-					return Ok(Some(SinglePathEstimate {
-						file_count: location.total_file_count as u64,
-						total_size: location.total_byte_size as u64,
-					}));
-				}
-
-				// For paths within the location, we need to find the specific entry
-				// by traversing the hierarchy
-				let relative_path = match path.strip_prefix(&location_path) {
-					Ok(rel) => rel,
-					Err(_) => continue,
-				};
-
-				// Get path components
-				let components: Vec<&str> = relative_path
-					.components()
-					.filter_map(|c| c.as_os_str().to_str())
-					.collect();
-
-				if components.is_empty() {
-					continue;
-				}
-
-				// Start from the location's root entry and traverse down
-				let mut current_parent_id = location.entry_id;
-				let mut target_entry = None;
-
-				for component in components {
-					if let Some(parent_id) = current_parent_id {
-						// Find child with matching name
-						let child = entry::Entity::find()
-							.filter(entry::Column::ParentId.eq(parent_id))
-							.filter(entry::Column::Name.eq(component))
-							.one(&self.db)
-							.await?;
-
-						match child {
-							Some(c) => {
-								current_parent_id = Some(c.id);
-								target_entry = Some(c);
-							}
-							None => return Ok(None), // Path not indexed
-						}
-					} else {
-						return Ok(None);
-					}
-				}
-
-				// Found the target entry
-				if let Some(entry) = target_entry {
-					let (file_count, total_size) = match entry.kind {
-						0 => (1u64, entry.size as u64), // File
-						1 => {
-							// Directory - use pre-calculated aggregate values
-							(entry.file_count as u64, entry.aggregate_size as u64)
-						}
-						_ => (0, 0), // Symlink or other
-					};
-
-					return Ok(Some(SinglePathEstimate {
-						file_count,
-						total_size,
-					}));
-				}
-			}
-		}
-
-		Ok(None) // Path not in any indexed location
-	}
-
-	/// Get estimates for a path on a specific device (for cross-device copies)
-	/// This queries the synced metadata for files on remote devices
-	async fn get_path_estimates_by_device(
-		&self,
-		device_slug: &str,
-		path: &PathBuf,
-	) -> Result<Option<SinglePathEstimate>> {
-		use crate::infra::db::entities::{device, volume};
-
-		tracing::debug!(
-			target: "sd_core::copy_size_query",
-			"[SIZE QUERY] Starting query for device '{}' path '{}'",
-			device_slug,
-			path.display()
-		);
-
-		// Find the device by slug
-		let device = device::Entity::find()
-			.filter(device::Column::Slug.eq(device_slug))
-			.one(&self.db)
-			.await?;
-
-		let Some(device) = device else {
-			tracing::warn!(
-				target: "sd_core::copy_size_query",
-				"[SIZE QUERY] Device not found: '{}'",
-				device_slug
-			);
-			return Ok(None);
 		};
 
-		tracing::debug!(
-			target: "sd_core::copy_size_query",
-			"[SIZE QUERY] Found device: id={} name={} uuid={}",
-			device.id,
-			device.name,
-			device.uuid
-		);
+		for source in sources {
+			let SdPath::Physical { path, .. } = source else {
+				continue;
+			};
 
-		// Find all volumes for this device (device_id references device.uuid, not device.id)
-		let volumes = volume::Entity::find()
-			.filter(volume::Column::DeviceId.eq(device.uuid))
-			.all(&self.db)
-			.await?;
+			cache.ensure_restored(path).await;
+			let Some(index) = cache.get_for_search(path) else {
+				continue;
+			};
 
-		tracing::debug!(
-			target: "sd_core::copy_size_query",
-			"[SIZE QUERY] Found {} volumes for device",
-			volumes.len()
-		);
+			let index = index.read().await;
+			let Some(metadata) = index.get_entry_ref(path) else {
+				continue;
+			};
 
-		let path_str = path.to_string_lossy().to_string();
-
-		// Check each volume's locations
-		for volume in volumes {
-			let locations = location::Entity::find()
-				.filter(location::Column::VolumeId.eq(volume.id))
-				.all(&self.db)
-				.await?;
-
-			tracing::debug!(
-				target: "sd_core::copy_size_query",
-				"[SIZE QUERY] Volume {} has {} locations",
-				volume.id,
-				locations.len()
-			);
-
-			for location in locations {
-				let Some(entry_id) = location.entry_id else {
-					tracing::debug!(
-						target: "sd_core::copy_size_query",
-						"[SIZE QUERY] Location id={} has no entry_id, skipping",
-						location.id
-					);
+			// A file is one file of its own size; a directory answers with the
+			// rollup the arena keeps for it.
+			if metadata.kind == crate::ops::indexing::state::EntryKind::Directory {
+				let Some(bytes) = index.subtree_size(path) else {
 					continue;
 				};
-
-				// Get the full path of the location's root entry
-				let location_path = match PathResolver::get_full_path(&self.db, entry_id).await {
-					Ok(path) => path,
-					Err(e) => {
-						tracing::warn!(
-							target: "sd_core::copy_size_query",
-							"[SIZE QUERY] Failed to get path for location id={}: {}",
-							location.id,
-							e
-						);
-						continue;
-					}
-				};
-
-				let location_path_str = location_path.to_string_lossy().to_string();
-
-				tracing::debug!(
-					target: "sd_core::copy_size_query",
-					"[SIZE QUERY] Checking location id={} with path '{}'",
-					location.id,
-					location_path_str
-				);
-
-				// Check if the target path is within this location
-				if path_str.starts_with(&location_path_str) {
-					tracing::debug!(
-						target: "sd_core::copy_size_query",
-						"[SIZE QUERY] Path matches location! Target: '{}', Location: '{}'",
-						path_str,
-						location_path_str
-					);
-
-					// If querying the entire location root, use cached stats
-					if path == &location_path {
-						tracing::info!(
-							target: "sd_core::copy_size_query",
-							"[SIZE QUERY] ✓ Using location stats: {} files, {} bytes",
-							location.total_file_count,
-							location.total_byte_size
-						);
-						return Ok(Some(SinglePathEstimate {
-							file_count: location.total_file_count as u64,
-							total_size: location.total_byte_size as u64,
-						}));
-					}
-
-					// For paths within the location, find the specific entry
-					let relative_path = match path.strip_prefix(&location_path) {
-						Ok(rel) => rel,
-						Err(e) => {
-							tracing::warn!(
-								target: "sd_core::copy_size_query",
-								"[SIZE QUERY] Failed to strip prefix: {}",
-								e
-							);
-							continue;
-						}
-					};
-
-					let components: Vec<&str> = relative_path
-						.components()
-						.filter_map(|c| c.as_os_str().to_str())
-						.collect();
-
-					if components.is_empty() {
-						tracing::debug!(
-							target: "sd_core::copy_size_query",
-							"[SIZE QUERY] No relative components, skipping"
-						);
-						continue;
-					}
-
-					tracing::debug!(
-						target: "sd_core::copy_size_query",
-						"[SIZE QUERY] Traversing {} components: {:?}",
-						components.len(),
-						components
-					);
-
-					// Traverse hierarchy to find target entry
-					let mut current_parent_id = location.entry_id;
-					let mut target_entry = None;
-
-					for component in components {
-						if let Some(parent_id) = current_parent_id {
-							// Remove extension for entry lookup (extensions stored separately)
-							let component_without_ext = if let Some(dot_pos) = component.rfind('.')
-							{
-								&component[..dot_pos]
-							} else {
-								component
-							};
-
-							// Normalize Unicode spaces (macOS uses special space characters)
-							// Replace narrow no-break space (\u{202f}) and other space variants with regular space
-							let normalized_name = component_without_ext
-								.replace('\u{202f}', " ") // Narrow no-break space
-								.replace('\u{00a0}', " ") // Non-breaking space
-								.replace('\u{2009}', " "); // Thin space
-
-							let child = entry::Entity::find()
-								.filter(entry::Column::ParentId.eq(parent_id))
-								.filter(entry::Column::Name.eq(normalized_name))
-								.one(&self.db)
-								.await?;
-
-							match child {
-								Some(c) => {
-									tracing::debug!(
-										target: "sd_core::copy_size_query",
-										"[SIZE QUERY] Found component '{}' (id={})",
-										component,
-										c.id
-									);
-									current_parent_id = Some(c.id);
-									target_entry = Some(c);
-								}
-								None => {
-									tracing::warn!(
-										target: "sd_core::copy_size_query",
-										"[SIZE QUERY] Component '{}' not found under parent_id={}",
-										component,
-										parent_id
-									);
-									return Ok(None);
-								}
-							}
-						} else {
-							return Ok(None);
-						}
-					}
-
-					// Found the target entry
-					if let Some(entry) = target_entry {
-						let (file_count, total_size) = match entry.kind {
-							0 => (1u64, entry.size as u64),
-							1 => (entry.file_count as u64, entry.aggregate_size as u64),
-							_ => (0, 0),
-						};
-
-						tracing::info!(
-							target: "sd_core::copy_size_query",
-							"[SIZE QUERY] ✓ Found entry '{}': {} files, {} bytes",
-							entry.name,
-							file_count,
-							total_size
-						);
-
-						return Ok(Some(SinglePathEstimate {
-							file_count,
-							total_size,
-						}));
-					}
-				} else {
-					tracing::debug!(
-						target: "sd_core::copy_size_query",
-						"[SIZE QUERY] Path mismatch - Target: '{}', Location: '{}'",
-						path_str,
-						location_path_str
-					);
-				}
+				estimates.total_size += bytes;
+				estimates.file_count += index.subtree_file_count(path).unwrap_or(0) as u64;
+			} else {
+				estimates.total_size += metadata.size;
+				estimates.file_count += 1;
 			}
+
+			estimates.indexed_paths += 1;
 		}
 
-		tracing::warn!(
-			target: "sd_core::copy_size_query",
-			"[SIZE QUERY] ✗ No matching entry found for '{}'",
-			path_str
-		);
-		Ok(None)
+		Ok(estimates)
 	}
 }
 

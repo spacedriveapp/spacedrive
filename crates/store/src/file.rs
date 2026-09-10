@@ -804,6 +804,64 @@ pub async fn duplicate_copies(
 		.collect())
 }
 
+/// The identity of the bytes behind a record, if they have been identified.
+///
+/// None is ordinary rather than exceptional: a record exists from the moment
+/// the walk sees it, and its content row arrives later when the hash job gets
+/// to it.
+pub async fn content_of(pool: &sqlx::SqlitePool, record_uuid: Uuid) -> Result<Option<Uuid>> {
+	Ok(sqlx::query_scalar(
+		"SELECT c.uuid FROM record r JOIN content c ON c.id = r.content_id WHERE r.uuid = ?",
+	)
+	.bind(record_uuid)
+	.fetch_optional(pool)
+	.await?)
+}
+
+/// Every record in this source holding the given bytes.
+///
+/// Keyed by content rather than by record, so a caller can ask each source the
+/// same question and get every copy on the machine. A copy under a different
+/// name in a different directory is still found, because the identity is the
+/// bytes.
+pub async fn copies_of_content(
+	pool: &sqlx::SqlitePool,
+	content_uuid: Uuid,
+) -> Result<Vec<ContentCopy>> {
+	let rows: Vec<(
+		Uuid,
+		Option<i64>,
+		Uuid,
+		Option<Uuid>,
+		Option<String>,
+		Option<String>,
+	)> = sqlx::query_as(
+		"SELECT c.uuid, c.size, r.uuid, r.parent_uuid, d.path, r.title
+			 FROM content c
+			 JOIN record r ON r.content_id = c.id
+			 LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid
+			 WHERE c.uuid = ?
+			 ORDER BY r.title",
+	)
+	.bind(content_uuid)
+	.fetch_all(pool)
+	.await?;
+
+	Ok(rows
+		.into_iter()
+		.filter_map(
+			|(content_uuid, size, record_uuid, parent_uuid, parent_path, title)| {
+				Some(ContentCopy {
+					content_uuid,
+					size,
+					record_uuid,
+					external_id: address(parent_uuid, parent_path, title)?,
+				})
+			},
+		)
+		.collect())
+}
+
 /// A record's path, rebuilt from its parent and its name.
 ///
 /// Only directories store a path. A file is addressed through the one above it,

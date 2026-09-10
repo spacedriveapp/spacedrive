@@ -237,7 +237,7 @@ impl JobHandler for FileCopyJob {
 
 		// Try to get estimates from database
 		let db_estimates = {
-			let db_query = CopyDatabaseQuery::new(ctx.library_db().clone());
+			let db_query = CopyDatabaseQuery::new(ctx.library().core_context().clone());
 			match db_query.get_estimates_for_paths(&self.sources.paths).await {
 				Ok(estimates) => {
 					ctx.log(format!(

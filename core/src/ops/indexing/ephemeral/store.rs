@@ -292,6 +292,35 @@ impl SourceStore {
 		}
 	}
 
+	/// The identity of the bytes behind one of this source's records.
+	pub async fn content_of(&self, record_uuid: Uuid) -> Option<Uuid> {
+		sd_store::content_of(self.db.pool(), record_uuid)
+			.await
+			.unwrap_or_default()
+	}
+
+	/// Every copy of the given bytes that this source holds.
+	///
+	/// Absolute paths, for the same reason [`Self::duplicates`] gives them:
+	/// a caller is going to show them to someone or open them.
+	pub async fn copies_of_content(&self, content_uuid: Uuid) -> Vec<DuplicateCopy> {
+		match sd_store::copies_of_content(self.db.pool(), content_uuid).await {
+			Ok(copies) => copies
+				.into_iter()
+				.map(|copy| DuplicateCopy {
+					content_uuid: copy.content_uuid,
+					size: copy.size.unwrap_or(0).max(0) as u64,
+					record_uuid: copy.record_uuid,
+					path: self.root.join(&copy.external_id),
+				})
+				.collect(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, "could not list copies");
+				Vec::new()
+			}
+		}
+	}
+
 	/// How many files are still waiting to be identified.
 	pub async fn files_needing_content_count(&self) -> u64 {
 		sd_store::count_files_needing_content(self.db.pool())

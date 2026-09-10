@@ -34,8 +34,6 @@ pub struct FileSearchInput {
 pub enum SearchScope {
 	/// Search the entire library (default)
 	Library,
-	/// Restrict search to a specific location by its ID
-	Location { location_id: Uuid },
 	/// Restrict search to a specific directory path and all its descendants
 	Path { path: SdPath },
 }
