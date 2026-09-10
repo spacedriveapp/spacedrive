@@ -26,9 +26,9 @@ impl From<TagCreateArgs> for CreateTagInput {
 
 #[derive(Args, Debug)]
 pub struct TagApplyArgs {
-	/// Entry IDs to tag (space-separated)
+	/// File UUIDs to tag (space-separated)
 	#[arg(required = true)]
-	pub entries: Vec<i32>,
+	pub files: Vec<Uuid>,
 	/// Tag IDs to apply (space-separated UUIDs)
 	#[arg(long, required = true)]
 	pub tags: Vec<Uuid>,
@@ -36,7 +36,7 @@ pub struct TagApplyArgs {
 
 impl From<TagApplyArgs> for ApplyTagsInput {
 	fn from(args: TagApplyArgs) -> Self {
-		ApplyTagsInput::user_tags_entry(args.entries, args.tags)
+		ApplyTagsInput::user_tags_file(args.files, args.tags)
 	}
 }
 

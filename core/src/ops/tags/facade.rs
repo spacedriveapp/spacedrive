@@ -264,31 +264,6 @@ impl TaggingFacade {
 		Ok(suggestions)
 	}
 
-	/// Find files by semantic tags (supports hierarchy)
-	pub async fn find_files_by_tags(
-		&self,
-		tag_names: Vec<String>,
-		include_descendants: bool,
-	) -> Result<Vec<i32>, TagError> {
-		let mut tag_ids = Vec::new();
-
-		// Resolve tag names to IDs
-		for tag_name in tag_names {
-			let tags = self.tag_manager.find_tags_by_name(&tag_name).await?;
-			if let Some(tag) = tags.first() {
-				tag_ids.push(tag.id);
-			}
-		}
-
-		if tag_ids.is_empty() {
-			return Ok(Vec::new());
-		}
-
-		self.metadata_manager
-			.find_entries_by_semantic_tags(&tag_ids, include_descendants)
-			.await
-	}
-
 	/// Get tag hierarchy for display (organizational anchors first)
 	pub async fn get_tag_hierarchy(&self) -> Result<Vec<TagHierarchyNode>, TagError> {
 		let all_tags = self.tag_manager.search_tags("", None, None, true).await?;

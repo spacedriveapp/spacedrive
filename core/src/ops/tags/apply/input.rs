@@ -10,15 +10,15 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "type", content = "ids")]
 pub enum TagTargets {
-	/// Tag by content identity (applies to ALL instances of this content across devices)
-	/// This is the preferred/default approach
+	/// Tag the bytes, which reaches every copy of them on every drive. The
+	/// preferred form, and what a caller should use whenever the file has been
+	/// identified.
 	Content(Vec<Uuid>),
 
-	/// Tag by entry database ID (internal use only)
-	Entry(Vec<i32>),
-
-	/// Tag by entry UUID (use from frontend — File.id is a UUID)
-	EntryUuid(Vec<Uuid>),
+	/// Tag one file, by the uuid the volume index gave it. For a file whose
+	/// bytes have not been hashed yet, and for the case where someone means
+	/// this copy rather than all of them.
+	File(Vec<Uuid>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -42,6 +42,37 @@ pub struct ApplyTagsInput {
 	pub instance_attributes: Option<HashMap<String, serde_json::Value>>,
 }
 
+impl TagTargets {
+	/// How many things this application reaches directly. A content target
+	/// counts once however many copies of the bytes exist.
+	pub fn len(&self) -> usize {
+		match self {
+			Self::Content(ids) | Self::File(ids) => ids.len(),
+		}
+	}
+
+	pub fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
+	/// A target list that names nothing, or names a nil uuid, is a caller bug
+	/// rather than an empty result.
+	pub fn validate(&self) -> Result<(), String> {
+		let (ids, what) = match self {
+			Self::Content(ids) => (ids, "content"),
+			Self::File(ids) => (ids, "file"),
+		};
+
+		if ids.is_empty() {
+			return Err(format!("{what} UUIDs cannot be empty"));
+		}
+		if ids.iter().any(Uuid::is_nil) {
+			return Err(format!("{what} UUIDs cannot contain nil values"));
+		}
+		Ok(())
+	}
+}
+
 impl ApplyTagsInput {
 	/// Create a content-scoped user tag application (tags all instances)
 	pub fn user_tags_content(content_ids: Vec<Uuid>, tag_ids: Vec<Uuid>) -> Self {
@@ -55,10 +86,10 @@ impl ApplyTagsInput {
 		}
 	}
 
-	/// Create an entry-scoped user tag application (tags specific instance only)
-	pub fn user_tags_entry(entry_ids: Vec<i32>, tag_ids: Vec<Uuid>) -> Self {
+	/// Create a file-scoped user tag application (tags this copy only)
+	pub fn user_tags_file(record_uuids: Vec<Uuid>, tag_ids: Vec<Uuid>) -> Self {
 		Self {
-			targets: TagTargets::Entry(entry_ids),
+			targets: TagTargets::File(record_uuids),
 			tag_ids,
 			source: Some(TagSource::User),
 			confidence: Some(1.0),
@@ -86,29 +117,8 @@ impl ApplyTagsInput {
 
 	/// Validate the input
 	pub fn validate(&self) -> Result<(), String> {
-		let target_count = match &self.targets {
-			TagTargets::Content(ids) => {
-				if ids.is_empty() {
-					return Err("content identity IDs cannot be empty".to_string());
-				}
-				ids.len()
-			}
-			TagTargets::Entry(ids) => {
-				if ids.is_empty() {
-					return Err("entry IDs cannot be empty".to_string());
-				}
-				ids.len()
-			}
-			TagTargets::EntryUuid(ids) => {
-				if ids.is_empty() {
-					return Err("entry UUIDs cannot be empty".to_string());
-				}
-				if ids.iter().any(Uuid::is_nil) {
-					return Err("entry UUIDs cannot contain nil values".to_string());
-				}
-				ids.len()
-			}
-		};
+		self.targets.validate()?;
+		let target_count = self.targets.len();
 
 		if self.tag_ids.is_empty() {
 			return Err("tag_ids cannot be empty".to_string());

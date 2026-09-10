@@ -15,7 +15,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::HashSet, sync::Arc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Input for alternate instances query
@@ -63,25 +63,7 @@ impl LibraryQuery for AlternateInstancesQuery {
 	) -> QueryResult<Self::Output> {
 		let cache = context.ephemeral_cache();
 
-		// A drive in a drawer still holds records, and its copies are real
-		// even though they cannot be opened right now, so detached sources
-		// are asked too. What matters is that the record exists somewhere.
-		let mut stores = Vec::new();
-		for source in cache.sources() {
-			if let Some(store) = cache.store_for(&source.root).await {
-				stores.push(store);
-			}
-		}
-
-		let mut content = None;
-		for store in &stores {
-			if let Some(uuid) = store.content_of(self.input.entry_uuid).await {
-				content = Some(uuid);
-				break;
-			}
-		}
-
-		let Some(content) = content else {
+		let Some(content) = cache.content_of(self.input.entry_uuid).await else {
 			return Ok(AlternateInstancesOutput {
 				instances: Vec::new(),
 				total_count: 0,
@@ -89,30 +71,22 @@ impl LibraryQuery for AlternateInstancesQuery {
 		};
 
 		let mut instances = Vec::new();
-		let mut seen: HashSet<Uuid> = HashSet::new();
+		for copy in cache.copies_of_content(content).await {
+			let index = cache.resolve_index(&copy.path);
+			let mut index = index.write().await;
+			let Some(metadata) = index.get_entry_ref(&copy.path) else {
+				continue;
+			};
+			let kind = index.get_content_kind(&copy.path);
+			drop(index);
 
-		for store in &stores {
-			for copy in store.copies_of_content(content).await {
-				if !seen.insert(copy.record_uuid) {
-					continue;
-				}
-
-				let index = cache.resolve_index(&copy.path);
-				let mut index = index.write().await;
-				let Some(metadata) = index.get_entry_ref(&copy.path) else {
-					continue;
-				};
-				let kind = index.get_content_kind(&copy.path);
-				drop(index);
-
-				let mut file = File::from_ephemeral(
-					copy.record_uuid,
-					&metadata,
-					SdPath::local(copy.path.clone()),
-				);
-				file.content_kind = kind;
-				instances.push(file);
-			}
+			let mut file = File::from_ephemeral(
+				copy.record_uuid,
+				&metadata,
+				SdPath::local(copy.path.clone()),
+			);
+			file.content_kind = kind;
+			instances.push(file);
 		}
 
 		instances.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));

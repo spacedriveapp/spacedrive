@@ -13,7 +13,7 @@
 //! Path → partition resolution is longest-root-prefix over registered sources.
 
 use super::sources::{SourceRecord, SourceRegistry, VolumeAnchor, VolumeKey};
-use super::store::SourceStore;
+use super::store::{DuplicateCopy, SourceStore};
 use super::EphemeralIndex;
 use crate::infra::db::entities::source;
 use crate::infra::db::Database;
@@ -547,6 +547,77 @@ impl EphemeralIndexCache {
 				.or_insert(store)
 				.clone(),
 		)
+	}
+
+	/// Every open store on this machine, one per source.
+	///
+	/// A detached drive is included: its records are still true, and a question
+	/// about what exists is answerable while the drive is in a drawer even
+	/// though a question about opening a file is not.
+	pub async fn stores(&self) -> Vec<Arc<SourceStore>> {
+		let roots: Vec<PathBuf> = self
+			.registry
+			.lock()
+			.all()
+			.iter()
+			.map(|record| record.root.clone())
+			.collect();
+
+		let mut stores = Vec::with_capacity(roots.len());
+		for root in roots {
+			if let Some(store) = self.store_for(&root).await {
+				stores.push(store);
+			}
+		}
+		stores
+	}
+
+	/// Where a record uuid lives, asked of every partition.
+	///
+	/// A uuid carries no path to route by, so this is a scan. It is over
+	/// in-memory maps rather than the filesystem, which is what makes it
+	/// affordable.
+	pub async fn path_of_record(&self, record_uuid: Uuid) -> Option<PathBuf> {
+		for index in self.all_indexes() {
+			let index = index.read().await;
+			if let Some(path) = index.get_path_by_uuid(record_uuid) {
+				return Some(path);
+			}
+		}
+		None
+	}
+
+	/// The identity of the bytes behind a record, asked of whichever source
+	/// holds it.
+	///
+	/// `None` means either that no source has this record or that its bytes
+	/// have not been hashed yet, and the caller cannot tell those apart because
+	/// the answer is the same either way: there is nothing to key content by.
+	pub async fn content_of(&self, record_uuid: Uuid) -> Option<Uuid> {
+		for store in self.stores().await {
+			if let Some(content) = store.content_of(record_uuid).await {
+				return Some(content);
+			}
+		}
+		None
+	}
+
+	/// Every copy of the given bytes this machine holds, across all sources.
+	///
+	/// Deduplicated by record, since a caller wants each copy once and a source
+	/// nested inside another can report the same record twice.
+	pub async fn copies_of_content(&self, content_uuid: Uuid) -> Vec<DuplicateCopy> {
+		let mut seen = HashSet::new();
+		let mut copies = Vec::new();
+
+		for store in self.stores().await {
+			for copy in store.copies_of_content(content_uuid).await {
+				if seen.insert(copy.record_uuid) {
+					copies.push(copy);
+				}
+			}
+		}
+		copies
 	}
 
 	/// The index owning `path`, unconditionally (scratch fallback).

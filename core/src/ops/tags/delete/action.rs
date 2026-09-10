@@ -62,31 +62,17 @@ impl LibraryAction for DeleteTagAction {
 					// Entry-scoped metadata → direct entry UUIDs
 					uuids.extend(um_records.iter().filter_map(|um| um.entry_uuid));
 
-					// Content-scoped metadata → find all entries with that content
-					let ci_uuids: Vec<uuid::Uuid> = um_records
-						.iter()
-						.filter_map(|um| um.content_identity_uuid)
-						.collect();
-					if !ci_uuids.is_empty() {
-						let cis = crate::infra::db::entities::content_identity::Entity::find()
-							.filter(
-								crate::infra::db::entities::content_identity::Column::Uuid
-									.is_in(ci_uuids.into_iter().map(Some)),
-							)
-							.all(conn)
-							.await
-							.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-						let ci_ids: Vec<i32> = cis.iter().map(|ci| ci.id).collect();
-						if !ci_ids.is_empty() {
-							let entries = entry::Entity::find()
-								.filter(
-									entry::Column::ContentId.is_in(ci_ids.into_iter().map(Some)),
-								)
-								.all(conn)
+					// Content-scoped metadata reaches every copy of the bytes,
+					// so every copy has to be told the tag is gone.
+					let cache = _context.ephemeral_cache();
+					for content in um_records.iter().filter_map(|um| um.content_identity_uuid) {
+						uuids.extend(
+							cache
+								.copies_of_content(content)
 								.await
-								.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-							uuids.extend(entries.iter().filter_map(|e| e.uuid));
-						}
+								.into_iter()
+								.map(|copy| copy.record_uuid),
+						);
 					}
 				}
 			}

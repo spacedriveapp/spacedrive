@@ -830,7 +830,7 @@ function OverviewTab({file}: {file: File}) {
 												ids: [file.content_identity.uuid]
 											}
 										: {
-												type: 'EntryUuid',
+												type: 'File',
 												ids: [file.id]
 											},
 									tag_ids: [tag.id],

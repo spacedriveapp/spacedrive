@@ -63,30 +63,23 @@ impl LibraryAction for UnapplyTagsAction {
 			.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
 		um_ids.extend(um_by_entry.iter().map(|um| um.id));
 
-		// 2. Indirect match: entry → content_id → content_identity.uuid → user_metadata.content_identity_uuid
-		let entries = entry::Entity::find()
-			.filter(entry::Column::Uuid.is_in(self.input.entry_ids.clone()))
-			.all(conn)
-			.await
-			.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
+		// 2. Indirect match: the same tag may have been applied to the bytes
+		// rather than to this copy of them, so ask each file what its content is.
+		let cache = _context.ephemeral_cache();
+		let mut content_uuids = Vec::new();
+		for &record_uuid in &self.input.entry_ids {
+			if let Some(content) = cache.content_of(record_uuid).await {
+				content_uuids.push(content);
+			}
+		}
 
-		let content_ids: Vec<i32> = entries.iter().filter_map(|e| e.content_id).collect();
-		if !content_ids.is_empty() {
-			let cis = content_identity::Entity::find()
-				.filter(content_identity::Column::Id.is_in(content_ids.clone()))
+		if !content_uuids.is_empty() {
+			let um_by_content = user_metadata::Entity::find()
+				.filter(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone()))
 				.all(conn)
 				.await
 				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-
-			let ci_uuids: Vec<uuid::Uuid> = cis.iter().filter_map(|ci| ci.uuid).collect();
-			if !ci_uuids.is_empty() {
-				let um_by_content = user_metadata::Entity::find()
-					.filter(user_metadata::Column::ContentIdentityUuid.is_in(ci_uuids))
-					.all(conn)
-					.await
-					.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-				um_ids.extend(um_by_content.iter().map(|um| um.id));
-			}
+			um_ids.extend(um_by_content.iter().map(|um| um.id));
 		}
 
 		if um_ids.is_empty() {
@@ -123,14 +116,16 @@ impl LibraryAction for UnapplyTagsAction {
 			let mut all_affected_uuids: HashSet<uuid::Uuid> =
 				self.input.entry_ids.iter().cloned().collect();
 
-			// For content-scoped metadata removal, notify all entries sharing the same content
-			if !content_ids.is_empty() {
-				let ci_entries = entry::Entity::find()
-					.filter(entry::Column::ContentId.is_in(content_ids.into_iter().map(Some)))
-					.all(conn)
-					.await
-					.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-				all_affected_uuids.extend(ci_entries.iter().filter_map(|e| e.uuid));
+			// A content-scoped removal reaches every copy of the bytes, so every
+			// copy has to be told, not just the one that was named.
+			for content in content_uuids {
+				all_affected_uuids.extend(
+					cache
+						.copies_of_content(content)
+						.await
+						.into_iter()
+						.map(|copy| copy.record_uuid),
+				);
 			}
 
 			// Emit resource events for all affected files

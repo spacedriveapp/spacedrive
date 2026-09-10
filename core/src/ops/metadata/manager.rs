@@ -590,63 +590,6 @@ impl UserMetadataManager {
 			.await
 			.map(|_| ()) // TODO: Look up actual UUID and sync models
 	}
-
-	/// Find entries by semantic tags (supports hierarchy)
-	pub async fn find_entries_by_semantic_tags(
-		&self,
-		tag_ids: &[Uuid],
-		include_descendants: bool,
-	) -> Result<Vec<i32>, TagError> {
-		let db = &*self.db;
-
-		let mut search_tag_ids = tag_ids.to_vec();
-
-		// If including descendants, add all descendant tags
-		if include_descendants {
-			for &tag_id in tag_ids {
-				let descendants = self.semantic_tag_service.get_descendants(tag_id).await?;
-				search_tag_ids.extend(descendants.into_iter().map(|tag| tag.id));
-			}
-		}
-
-		// Get database IDs for all tags
-		let tag_models = crate::infra::db::entities::Tag::find()
-			.filter(crate::infra::db::entities::tag::Column::Uuid.is_in(search_tag_ids))
-			.all(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
-
-		let tag_db_ids: Vec<i32> = tag_models.into_iter().map(|m| m.id).collect();
-
-		if tag_db_ids.is_empty() {
-			return Ok(Vec::new());
-		}
-
-		// Find all metadata that has these tags applied
-		let tagged_metadata = user_metadata_tag::Entity::find()
-			.filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids))
-			.all(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
-
-		let metadata_ids: Vec<i32> = tagged_metadata
-			.into_iter()
-			.map(|m| m.user_metadata_id)
-			.collect();
-
-		if metadata_ids.is_empty() {
-			return Ok(Vec::new());
-		}
-
-		// Find entries that reference this metadata
-		let entries = Entry::find()
-			.filter(entry::Column::MetadataId.is_in(metadata_ids))
-			.all(&*db)
-			.await
-			.map_err(|e| TagError::DatabaseError(e.to_string()))?;
-
-		Ok(entries.into_iter().map(|e| e.id).collect())
-	}
 }
 
 impl TagSource {

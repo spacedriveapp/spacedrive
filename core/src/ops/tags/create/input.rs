@@ -1,6 +1,7 @@
 //! Input for create semantic tag action
 
 use crate::domain::tag::{PrivacyLevel, TagType};
+use crate::ops::tags::apply::input::TagTargets;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::HashMap;
@@ -37,19 +38,7 @@ pub struct CreateTagInput {
 	pub attributes: Option<HashMap<String, serde_json::Value>>,
 
 	/// Optional: Targets to immediately apply this tag to after creation
-	pub apply_to: Option<ApplyToTargets>,
-}
-
-/// Targets for immediately applying a newly created tag
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-#[serde(tag = "type", content = "ids")]
-pub enum ApplyToTargets {
-	/// Apply to content identities (all instances)
-	Content(Vec<Uuid>),
-	/// Apply to specific entries by database ID (internal use)
-	Entry(Vec<i32>),
-	/// Apply to specific entries by UUID (from frontend File.id)
-	EntryUuid(Vec<Uuid>),
+	pub apply_to: Option<TagTargets>,
 }
 
 impl CreateTagInput {
@@ -119,34 +108,9 @@ impl CreateTagInput {
 
 		// Validate apply_to targets if provided
 		if let Some(targets) = &self.apply_to {
-			match targets {
-				ApplyToTargets::Content(ids) => {
-					if ids.is_empty() {
-						return Err("apply_to content IDs cannot be empty".to_string());
-					}
-					if ids.len() > 1000 {
-						return Err("Cannot apply to more than 1000 targets at once".to_string());
-					}
-				}
-				ApplyToTargets::Entry(ids) => {
-					if ids.is_empty() {
-						return Err("apply_to entry IDs cannot be empty".to_string());
-					}
-					if ids.len() > 1000 {
-						return Err("Cannot apply to more than 1000 targets at once".to_string());
-					}
-				}
-				ApplyToTargets::EntryUuid(ids) => {
-					if ids.is_empty() {
-						return Err("apply_to entry UUIDs cannot be empty".to_string());
-					}
-					if ids.iter().any(Uuid::is_nil) {
-						return Err("apply_to entry UUIDs cannot contain nil values".to_string());
-					}
-					if ids.len() > 1000 {
-						return Err("Cannot apply to more than 1000 targets at once".to_string());
-					}
-				}
+			targets.validate()?;
+			if targets.len() > 1000 {
+				return Err("Cannot apply to more than 1000 targets at once".to_string());
 			}
 		}
 

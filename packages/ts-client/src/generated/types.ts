@@ -165,23 +165,6 @@ warnings: string[];
 message: string };
 
 /**
- * Targets for immediately applying a newly created tag
- */
-export type ApplyToTargets = 
-/**
- * Apply to content identities (all instances)
- */
-{ type: "Content"; ids: string[] } | 
-/**
- * Apply to specific entries by database ID (internal use)
- */
-{ type: "Entry"; ids: number[] } | 
-/**
- * Apply to specific entries by UUID (from frontend File.id)
- */
-{ type: "EntryUuid"; ids: string[] };
-
-/**
  * Audio metadata extracted from FFmpeg
  */
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
@@ -570,7 +553,7 @@ attributes: { [key in string]: JsonValue } | null;
 /**
  * Optional: Targets to immediately apply this tag to after creation
  */
-apply_to: ApplyToTargets | null };
+apply_to: TagTargets | null };
 
 export type CreateTagOutput = { 
 /**
@@ -4324,18 +4307,17 @@ export type TagSource =
  */
 export type TagTargets = 
 /**
- * Tag by content identity (applies to ALL instances of this content across devices)
- * This is the preferred/default approach
+ * Tag the bytes, which reaches every copy of them on every drive. The
+ * preferred form, and what a caller should use whenever the file has been
+ * identified.
  */
 { type: "Content"; ids: string[] } | 
 /**
- * Tag by entry database ID (internal use only)
+ * Tag one file, by the uuid the volume index gave it. For a file whose
+ * bytes have not been hashed yet, and for the case where someone means
+ * this copy rather than all of them.
  */
-{ type: "Entry"; ids: number[] } | 
-/**
- * Tag by entry UUID (use from frontend — File.id is a UUID)
- */
-{ type: "EntryUuid"; ids: string[] };
+{ type: "File"; ids: string[] };
 
 /**
  * Types of semantic tags with different behaviors

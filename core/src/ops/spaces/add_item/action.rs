@@ -28,7 +28,7 @@ impl LibraryAction for AddItemAction {
 	async fn execute(
 		self,
 		library: std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<CoreContext>,
+		context: std::sync::Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
 		let db = library.db().conn();
 
@@ -83,14 +83,11 @@ impl LibraryAction for AddItemAction {
 		let item_id = uuid::Uuid::new_v4();
 		let now = Utc::now();
 
-		// Resolve entry_uuid if this is a Path item
-		let entry_uuid = if let ItemType::Path { ref sd_path } = self.input.item_type {
-			tracing::info!("Resolving SdPath to entry_uuid: {:?}", sd_path);
-			let resolved = resolve_sd_path_to_entry_uuid(sd_path, db).await;
-			tracing::info!("Resolved entry_uuid: {:?}", resolved);
-			resolved
-		} else {
-			None
+		let entry_uuid = match &self.input.item_type {
+			ItemType::Path { sd_path } => {
+				resolve_sd_path_to_entry_uuid(sd_path, context.ephemeral_cache()).await
+			}
+			_ => None,
 		};
 
 		// Serialize item_type to JSON
@@ -146,7 +143,7 @@ impl LibraryAction for AddItemAction {
 	async fn validate(
 		&self,
 		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<CoreContext>,
+		context: std::sync::Arc<CoreContext>,
 	) -> Result<crate::infra::action::ValidationResult, ActionError> {
 		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
@@ -154,68 +151,24 @@ impl LibraryAction for AddItemAction {
 
 crate::register_library_action!(AddItemAction, "spaces.add_item");
 
-/// Resolve an SdPath to an entry UUID by looking up the entry in the database
+/// The uuid the volume index gave the file at this path.
+///
+/// A space item stores it so the pin survives the file being renamed within a
+/// directory. `None` for a path outside every source, which pins the path alone.
 async fn resolve_sd_path_to_entry_uuid(
 	sd_path: &SdPath,
-	db: &sea_orm::DatabaseConnection,
+	cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
 ) -> Option<uuid::Uuid> {
-	match sd_path {
-		SdPath::Physical { path, .. } => {
-			let path_str = path.to_string_lossy();
-			let path_buf = std::path::Path::new(path_str.as_ref());
+	let SdPath::Physical { path, .. } = sd_path else {
+		return None;
+	};
 
-			let file_name = path_buf.file_name()?.to_string_lossy().to_string();
-			let parent_path = path_buf.parent()?.to_string_lossy().to_string();
+	cache.ensure_restored(path).await;
+	let index = cache.get_for_search(path)?;
+	let uuid = index.read().await.get_entry_uuid(path);
 
-			tracing::debug!(
-				"Looking up entry: file_name={}, parent_path={}",
-				file_name,
-				parent_path
-			);
-
-			// Parse name and extension
-			let (name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
-				(
-					file_name[..dot_idx].to_string(),
-					Some(file_name[dot_idx + 1..].to_string()),
-				)
-			} else {
-				(file_name.clone(), None)
-			};
-
-			tracing::debug!("Parsed: name={}, extension={:?}", name, extension);
-
-			// Find entry by name/extension
-			let mut query = entry::Entity::find().filter(entry::Column::Name.eq(&name));
-
-			if let Some(ext) = &extension {
-				query = query.filter(entry::Column::Extension.eq(ext));
-			}
-
-			let entries = query.all(db).await.ok()?;
-			tracing::debug!("Found {} matching entries by name", entries.len());
-
-			// Find entry with matching parent path
-			for e in entries {
-				if let Some(parent_id) = e.parent_id {
-					if let Ok(Some(parent_path_model)) =
-						directory_paths::Entity::find_by_id(parent_id).one(db).await
-					{
-						tracing::debug!("Entry {} parent path: {}", e.id, parent_path_model.path);
-						if parent_path_model.path == parent_path {
-							tracing::info!("Matched entry_uuid: {:?}", e.uuid);
-							return e.uuid;
-						}
-					}
-				}
-			}
-
-			tracing::warn!("No matching entry found for path: {}", path_str);
-			None
-		}
-		_ => {
-			tracing::warn!("Non-Physical SdPath not supported for entry resolution");
-			None
-		}
+	if uuid.is_none() {
+		tracing::debug!("No indexed entry for {}", path.display());
 	}
+	uuid
 }

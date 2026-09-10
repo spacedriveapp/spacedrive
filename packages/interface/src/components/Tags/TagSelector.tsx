@@ -139,7 +139,7 @@ export function TagSelector({
 				apply_to: contentId
 					? {type: 'Content', ids: [contentId]}
 					: fileId
-						? {type: 'EntryUuid', ids: [fileId]}
+						? {type: 'File', ids: [fileId]}
 						: null
 			});
 

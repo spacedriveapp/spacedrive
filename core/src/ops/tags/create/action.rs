@@ -1,9 +1,6 @@
 //! Create semantic tag action
 
-use super::{
-	input::{ApplyToTargets, CreateTagInput},
-	output::CreateTagOutput,
-};
+use super::{input::CreateTagInput, output::CreateTagOutput};
 use crate::infra::sync::ChangeType;
 use crate::{
 	context::CoreContext,
@@ -11,6 +8,7 @@ use crate::{
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
 	ops::metadata::manager::UserMetadataManager,
+	ops::tags::apply::input::TagTargets,
 	ops::tags::manager::TagManager,
 };
 use chrono::Utc;
@@ -105,9 +103,10 @@ impl LibraryAction for CreateTagAction {
 
 			let mut affected_entry_uuids = Vec::new();
 
+			let cache = _context.ephemeral_cache();
+
 			match targets {
-				ApplyToTargets::Content(content_ids) => {
-					// Apply to content identities (all instances)
+				TagTargets::Content(content_ids) => {
 					for &content_id in content_ids {
 						let models = metadata_manager
 							.apply_semantic_tags_to_content(
@@ -123,7 +122,6 @@ impl LibraryAction for CreateTagAction {
 								))
 							})?;
 
-						// Sync each user_metadata_tag model (for cross-device sync)
 						for model in models {
 							library
 								.sync_model(&model, ChangeType::Insert)
@@ -136,108 +134,40 @@ impl LibraryAction for CreateTagAction {
 								})?;
 						}
 
-						// Find all entries with this content_id for resource events
-						use crate::infra::db::entities::{content_identity, entry};
-						use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-						if let Ok(Some(ci)) = content_identity::Entity::find()
-							.filter(content_identity::Column::Uuid.eq(content_id))
-							.one(library.db().conn())
-							.await
-						{
-							if let Ok(entries) = entry::Entity::find()
-								.filter(entry::Column::ContentId.eq(ci.id))
-								.all(library.db().conn())
+						affected_entry_uuids.extend(
+							cache
+								.copies_of_content(content_id)
 								.await
-							{
-								affected_entry_uuids
-									.extend(entries.into_iter().filter_map(|e| e.uuid));
-							}
-						}
+								.into_iter()
+								.map(|copy| copy.record_uuid),
+						);
 					}
 				}
-				ApplyToTargets::Entry(entry_ids) => {
-					// Apply to specific entries
-					for &entry_id in entry_ids {
-						// Look up entry UUID from database ID
-						let entry_uuid = lookup_entry_uuid(&library.db().conn(), entry_id)
-							.await
-							.map_err(|e| {
-								ActionError::Internal(format!("Failed to lookup entry UUID: {}", e))
-							})?;
-
-						// Apply the tag
-						let models = metadata_manager
-							.apply_semantic_tags_to_entry(
-								entry_uuid,
-								vec![tag_application.clone()],
-								device_id,
-							)
-							.await
-							.map_err(|e| {
-								ActionError::Internal(format!(
-									"Failed to apply tag to entry: {}",
-									e
-								))
-							})?;
-
-						// Sync each user_metadata_tag model (for cross-device sync)
-						for model in models {
-							library
-								.sync_model(&model, ChangeType::Insert)
-								.await
-								.map_err(|e| {
-									ActionError::Internal(format!(
-										"Failed to sync tag association: {}",
-										e
-									))
-								})?;
+				TagTargets::File(record_uuids) => {
+					let mut missing = Vec::new();
+					for &record_uuid in record_uuids {
+						if cache.path_of_record(record_uuid).await.is_none() {
+							missing.push(record_uuid);
 						}
-
-						affected_entry_uuids.push(entry_uuid);
 					}
-				}
-				ApplyToTargets::EntryUuid(entry_uuids) => {
-					// Batch-validate all entry UUIDs exist before applying
-					use crate::infra::db::entities::entry;
-					use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-					let existing_entries: std::collections::HashSet<Uuid> = entry::Entity::find()
-						.filter(entry::Column::Uuid.is_in(entry_uuids.clone()))
-						.all(library.db().conn())
-						.await
-						.map_err(|e| {
-							ActionError::Internal(format!("Failed to validate entry UUIDs: {}", e))
-						})?
-						.into_iter()
-						.filter_map(|e| e.uuid)
-						.collect();
-
-					let missing: Vec<&Uuid> = entry_uuids
-						.iter()
-						.filter(|uuid| !existing_entries.contains(uuid))
-						.collect();
 					if !missing.is_empty() {
 						return Err(ActionError::InvalidInput(format!(
-							"Entries not found: {:?}",
-							missing
+							"Files not indexed: {missing:?}"
 						)));
 					}
 
-					for &entry_uuid in entry_uuids {
+					for &record_uuid in record_uuids {
 						let models = metadata_manager
 							.apply_semantic_tags_to_entry(
-								entry_uuid,
+								record_uuid,
 								vec![tag_application.clone()],
 								device_id,
 							)
 							.await
 							.map_err(|e| {
-								ActionError::Internal(format!(
-									"Failed to apply tag to entry: {}",
-									e
-								))
+								ActionError::Internal(format!("Failed to apply tag to file: {}", e))
 							})?;
+
 						for model in models {
 							library
 								.sync_model(&model, ChangeType::Insert)
@@ -249,7 +179,7 @@ impl LibraryAction for CreateTagAction {
 									))
 								})?;
 						}
-						affected_entry_uuids.push(entry_uuid);
+						affected_entry_uuids.push(record_uuid);
 					}
 				}
 			}
@@ -282,22 +212,3 @@ impl LibraryAction for CreateTagAction {
 
 // Register library action
 crate::register_library_action!(CreateTagAction, "tags.create");
-
-/// Look up entry UUID from entry database ID
-async fn lookup_entry_uuid(
-	db: &sea_orm::DatabaseConnection,
-	entry_id: i32,
-) -> Result<Uuid, String> {
-	use crate::infra::db::entities::entry;
-	use sea_orm::EntityTrait;
-
-	let entry_model = entry::Entity::find_by_id(entry_id)
-		.one(db)
-		.await
-		.map_err(|e| format!("Database error: {}", e))?
-		.ok_or_else(|| format!("Entry with ID {} not found", entry_id))?;
-
-	entry_model
-		.uuid
-		.ok_or_else(|| format!("Entry {} has no UUID assigned", entry_id))
-}

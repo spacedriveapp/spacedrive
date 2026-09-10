@@ -46,25 +46,23 @@ impl LibraryQuery for FileByIdQuery {
 	) -> QueryResult<Self::Output> {
 		let _ = &session;
 
-		// A uuid gives no path to route by, so every partition is checked.
-		let ephemeral_cache = context.ephemeral_cache();
-		for index in ephemeral_cache.all_indexes() {
-			let index_read = index.read().await;
+		let cache = context.ephemeral_cache();
+		let Some(path) = cache.path_of_record(self.file_id).await else {
+			return Ok(None);
+		};
 
-			if let Some(path) = index_read.get_path_by_uuid(self.file_id) {
-				if let Some(metadata) = index_read.get_entry_ref(&path) {
-					let content_kind = index_read.get_content_kind(&path);
-					let sd_path = SdPath::local(path.clone());
+		let index = cache.resolve_index(&path);
+		let mut index = index.write().await;
+		let Some(metadata) = index.get_entry_ref(&path) else {
+			return Ok(None);
+		};
+		let content_kind = index.get_content_kind(&path);
+		drop(index);
 
-					let mut file = File::from_ephemeral(self.file_id, &metadata, sd_path);
-					file.content_kind = content_kind;
+		let mut file = File::from_ephemeral(self.file_id, &metadata, SdPath::local(path));
+		file.content_kind = content_kind;
 
-					return Ok(Some(file));
-				}
-			}
-		}
-
-		Ok(None)
+		Ok(Some(file))
 	}
 }
 
