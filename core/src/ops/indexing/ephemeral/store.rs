@@ -70,6 +70,19 @@ enum Ingest {
 	Flush(oneshot::Sender<()>),
 }
 
+/// What a source's store holds, as the store counts it.
+///
+/// Directories are records like any other, so a count of files is `records`
+/// less `directories`. `contents` is distinct sets of bytes, which is fewer
+/// than `records` wherever the source holds the same file twice.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SourceCounts {
+	pub records: u64,
+	pub directories: u64,
+	pub bytes: u64,
+	pub contents: u64,
+}
+
 /// One copy of some bytes inside a source.
 #[derive(Debug, Clone)]
 pub struct DuplicateCopy {
@@ -342,15 +355,23 @@ impl SourceStore {
 	/// Read from the store rather than counted off the arena, because the arena
 	/// maps the whole drive and a source is a scope over part of it. Asking the
 	/// partition would report a nested source as owning everything around it.
-	pub async fn counts(&self) -> Option<(u64, u64)> {
+	pub async fn counts(&self) -> Option<SourceCounts> {
 		self.flush().await;
-		let row: (i64, Option<i64>) = sqlx::query_as(
-			"SELECT (SELECT COUNT(*) FROM record), (SELECT SUM(size) FROM facet_file)",
+		let row: (i64, i64, Option<i64>, i64) = sqlx::query_as(
+			"SELECT (SELECT COUNT(*) FROM record),
+			        (SELECT COUNT(*) FROM record WHERE type = 'directory'),
+			        (SELECT SUM(size) FROM facet_file),
+			        (SELECT COUNT(*) FROM content)",
 		)
 		.fetch_one(self.db.pool())
 		.await
 		.ok()?;
-		Some((row.0.max(0) as u64, row.1.unwrap_or(0).max(0) as u64))
+		Some(SourceCounts {
+			records: row.0.max(0) as u64,
+			directories: row.1.max(0) as u64,
+			bytes: row.2.unwrap_or(0).max(0) as u64,
+			contents: row.3.max(0) as u64,
+		})
 	}
 
 	/// Commit everything queued so far and wait for it to land.

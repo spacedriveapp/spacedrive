@@ -58,7 +58,11 @@ pub struct SourceRecord {
 	/// Records at last snapshot, so a listing can show a count without
 	/// restoring anything.
 	pub record_count: Option<u64>,
+	pub directory_count: Option<u64>,
 	pub total_bytes: Option<u64>,
+	/// Distinct sets of bytes, which is fewer than `record_count` wherever the
+	/// source holds the same file twice.
+	pub content_count: Option<u64>,
 }
 
 /// Which volume index a path belongs to.
@@ -120,7 +124,9 @@ impl SourceRecord {
 			created_at: row.created_at,
 			last_seen_at: row.last_seen_at,
 			record_count: row.record_count.map(|c| c.max(0) as u64),
+			directory_count: row.directory_count.map(|c| c.max(0) as u64),
 			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
+			content_count: row.content_count.map(|c| c.max(0) as u64),
 		}
 	}
 }
@@ -231,7 +237,9 @@ impl SourceRegistry {
 			created_at: now,
 			last_seen_at: now,
 			record_count: None,
+			directory_count: None,
 			total_bytes: None,
+			content_count: None,
 		};
 		self.sources.push(record.clone());
 		record
@@ -318,12 +326,13 @@ impl SourceRegistry {
 	pub fn update_stats(
 		&mut self,
 		id: Uuid,
-		record_count: u64,
-		total_bytes: u64,
+		counts: crate::ops::indexing::ephemeral::SourceCounts,
 	) -> Option<SourceRecord> {
 		let record = self.sources.iter_mut().find(|source| source.id == id)?;
-		record.record_count = Some(record_count);
-		record.total_bytes = Some(total_bytes);
+		record.record_count = Some(counts.records);
+		record.directory_count = Some(counts.directories);
+		record.total_bytes = Some(counts.bytes);
+		record.content_count = Some(counts.contents);
 		record.last_seen_at = Utc::now();
 		Some(record.clone())
 	}
@@ -428,6 +437,7 @@ mod tests {
 			record_count: Some(2_000_000),
 			directory_count: None,
 			total_bytes: None,
+			content_count: None,
 			unique_bytes: None,
 			last_indexed_at: None,
 			status: "idle".to_string(),
@@ -501,6 +511,7 @@ mod tests {
 			record_count: Some(12),
 			directory_count: None,
 			total_bytes: Some(4096),
+			content_count: None,
 			unique_bytes: None,
 			last_indexed_at: None,
 			status: "idle".to_string(),

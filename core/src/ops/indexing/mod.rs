@@ -25,7 +25,6 @@ pub mod change_detection;
 pub mod content_identity;
 pub mod ephemeral;
 pub mod handlers;
-pub mod hierarchy;
 pub mod input;
 pub mod job;
 pub mod lens;
@@ -45,7 +44,6 @@ pub use change_detection::{
 };
 pub use ephemeral::{ArenaWriter, EphemeralIndex, EphemeralIndexCache, EphemeralIndexStats};
 pub use handlers::EphemeralEventHandler;
-pub use hierarchy::HierarchyQuery;
 pub use input::IndexInput;
 pub use job::{IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
 pub use metadata::{extract_metadata, get_inode, is_hidden_path, EntryMetadata};

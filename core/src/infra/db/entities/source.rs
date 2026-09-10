@@ -41,6 +41,9 @@ pub struct Model {
 	/// What the store holds, as opposed to what the medium can hold.
 	pub record_count: Option<i64>,
 	pub directory_count: Option<i64>,
+	/// Distinct sets of bytes, which is fewer than `record_count` wherever the
+	/// source holds the same file twice.
+	pub content_count: Option<i64>,
 	pub total_bytes: Option<i64>,
 	/// Deduplicated by content identity, so it is a claim about bytes rather
 	/// than about records.

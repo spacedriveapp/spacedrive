@@ -62,9 +62,6 @@ pub struct Library {
 	/// Sync service for real-time synchronization (initialized after library creation)
 	sync_service: OnceCell<Arc<crate::service::sync::SyncService>>,
 
-	/// File sync service for cross-location file synchronization (initialized after library creation)
-	file_sync_service: OnceCell<Arc<crate::service::file_sync::FileSyncService>>,
-
 	/// Source manager for archive data (emails, notes, etc.) - initialized lazily
 	source_manager: OnceCell<Arc<crate::data::manager::SourceManager>>,
 
@@ -126,11 +123,6 @@ impl Library {
 		self.sync_service.get()
 	}
 
-	/// Get the file sync service
-	pub fn file_sync_service(&self) -> Option<&Arc<crate::service::file_sync::FileSyncService>> {
-		self.file_sync_service.get()
-	}
-
 	/// Get the source manager (for archive data)
 	pub fn source_manager(&self) -> Option<&Arc<crate::data::manager::SourceManager>> {
 		self.source_manager.get()
@@ -168,29 +160,6 @@ impl Library {
 			.map_err(|_| LibraryError::Other("Source manager already initialized".to_string()))?;
 
 		debug!("Source manager initialized for library {}", self.id());
-
-		Ok(())
-	}
-
-	/// Initialize the file sync service (called during library setup)
-	pub fn init_file_sync_service(self: &Arc<Self>) -> Result<()> {
-		if self.file_sync_service.get().is_some() {
-			warn!(
-				"File sync service already initialized for library {}",
-				self.id()
-			);
-			return Ok(());
-		}
-
-		let file_sync_service = crate::service::file_sync::FileSyncService::new(self.clone());
-
-		self.file_sync_service
-			.set(Arc::new(file_sync_service))
-			.map_err(|_| {
-				LibraryError::Other("File sync service already initialized".to_string())
-			})?;
-
-		debug!("File sync service initialized for library {}", self.id());
 
 		Ok(())
 	}
@@ -982,78 +951,17 @@ impl Library {
 	}
 
 	/// Calculate file statistics from database
+	/// How many files this library keeps, and how many bytes they occupy.
+	///
+	/// Read off the source rows rather than counted, because each source
+	/// already maintains the totals for its own store as it is written.
+	/// Directories are records too, so they come off the count: someone asking
+	/// how many files they have does not mean folders.
 	async fn calculate_file_statistics(
 		&self,
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<(u64, u64)> {
-		use crate::infra::db::entities::{entry, entry_closure, location};
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
-
-		debug!("Starting file statistics calculation");
-
-		// Get all location root entry IDs for this library
-		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> =
-			locations.iter().filter_map(|l| l.entry_id).collect();
-
-		debug!(
-			location_count = locations.len(),
-			location_root_entry_ids_count = location_root_entry_ids.len(),
-			"Found locations for file statistics calculation"
-		);
-
-		if location_root_entry_ids.is_empty() {
-			debug!("No locations found, returning zero file statistics");
-			return Ok((0, 0));
-		}
-
-		// Get all descendant entry IDs using closure table
-		let mut all_entry_ids = location_root_entry_ids.clone();
-		for root_id in location_root_entry_ids {
-			let descendant_ids = entry_closure::Entity::find()
-				.filter(entry_closure::Column::AncestorId.eq(root_id))
-				.all(db)
-				.await?
-				.into_iter()
-				.map(|ec| ec.descendant_id)
-				.collect::<Vec<i32>>();
-			all_entry_ids.extend(descendant_ids);
-		}
-
-		debug!(
-			total_entry_ids = all_entry_ids.len(),
-			"Collected all entry IDs from closure table"
-		);
-
-		if all_entry_ids.is_empty() {
-			debug!("No entries found, returning zero file statistics");
-			return Ok((0, 0));
-		}
-
-		// Count files and sum their sizes
-		let file_stats = entry::Entity::find()
-			.filter(entry::Column::Id.is_in(all_entry_ids))
-			.filter(entry::Column::Kind.eq(0)) // Files only
-			.select_only()
-			.column_as(entry::Column::Id.count(), "file_count")
-			.column_as(entry::Column::Size.sum(), "total_size")
-			.into_tuple::<(Option<i64>, Option<i64>)>()
-			.one(db)
-			.await?;
-
-		let (file_count, total_size) = file_stats.unwrap_or((Some(0), Some(0)));
-		let result = (
-			file_count.unwrap_or(0) as u64,
-			total_size.unwrap_or(0) as u64,
-		);
-
-		debug!(
-			file_count = result.0,
-			total_size = result.1,
-			"Completed file statistics calculation"
-		);
-
-		Ok(result)
+		Self::calculate_file_statistics_static(db).await
 	}
 
 	/// Calculate location count
@@ -1102,22 +1010,17 @@ impl Library {
 	}
 
 	/// Calculate unique content count
+	/// Distinct sets of bytes this library knows about.
+	///
+	/// Each store counts its own `content` rows, which are one per identity, so
+	/// a file held twice inside a source counts once. Two *sources* holding the
+	/// same file still count twice, because no store can see another; folding
+	/// those together is what the catalog is for.
 	async fn calculate_unique_content_count(
 		&self,
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<u64> {
-		use crate::infra::db::entities::content_identity;
-		use sea_orm::{EntityTrait, PaginatorTrait};
-
-		debug!("Starting unique content count calculation");
-		let count = content_identity::Entity::find().count(db).await?;
-
-		debug!(
-			unique_content_count = count,
-			"Completed unique content count calculation"
-		);
-
-		Ok(count)
+		Self::calculate_unique_content_count_static(db).await
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes
@@ -1318,61 +1221,25 @@ impl Library {
 
 	// Static versions of calculation methods for background tasks
 
-	/// Calculate file statistics from database (static version)
 	async fn calculate_file_statistics_static(
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<(u64, u64)> {
-		use crate::infra::db::entities::{entry, entry_closure, location};
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter, QuerySelect};
+		use crate::infra::db::entities::source;
+		use sea_orm::EntityTrait;
 
-		debug!("Starting file statistics calculation");
+		let sources = source::Entity::find().all(db).await?;
 
-		// Get all location root entry IDs for this library
-		debug!("Fetching location root entry IDs");
-		let locations = location::Entity::find().all(db).await?;
-		let location_root_entry_ids: Vec<i32> =
-			locations.iter().filter_map(|l| l.entry_id).collect();
-		debug!(
-			location_count = locations.len(),
-			"Found {} locations",
-			locations.len()
-		);
-
-		if location_root_entry_ids.is_empty() {
-			debug!("No locations found, returning zero file statistics");
-			return Ok((0, 0));
+		let mut file_count = 0u64;
+		let mut total_size = 0u64;
+		for source in sources {
+			let records = source.record_count.unwrap_or(0).max(0) as u64;
+			let directories = source.directory_count.unwrap_or(0).max(0) as u64;
+			file_count += records.saturating_sub(directories);
+			total_size += source.total_bytes.unwrap_or(0).max(0) as u64;
 		}
 
-		// Calculate total size by summing aggregate_size of location root entries
-		debug!("Calculating total size from location root aggregate sizes");
-		let total_size_result = entry::Entity::find()
-			.filter(entry::Column::Id.is_in(location_root_entry_ids.clone()))
-			.select_only()
-			.column_as(entry::Column::AggregateSize.sum(), "total_size")
-			.into_tuple::<Option<i64>>()
-			.one(db)
-			.await?;
-
-		// Calculate file count by counting ALL files in the library
-		debug!("Calculating file count from all file entries");
-		let file_count_result = entry::Entity::find()
-			.filter(entry::Column::Kind.eq(0)) // Files only
-			.select_only()
-			.column_as(entry::Column::Id.count(), "file_count")
-			.into_tuple::<Option<i64>>()
-			.one(db)
-			.await?;
-
-		let total_size = total_size_result.unwrap_or(Some(0)).unwrap_or(0) as u64;
-		let file_count = file_count_result.unwrap_or(Some(0)).unwrap_or(0) as u64;
-		let result = (file_count, total_size);
-
-		debug!(
-			file_count = result.0,
-			total_size = result.1,
-			"Completed file statistics calculation"
-		);
-		Ok(result)
+		debug!(file_count, total_size, "Counted files across sources");
+		Ok((file_count, total_size))
 	}
 
 	/// Calculate location count (static version)
@@ -1414,19 +1281,20 @@ impl Library {
 		Ok(count as u32)
 	}
 
-	/// Calculate unique content count (static version)
 	async fn calculate_unique_content_count_static(
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<u64> {
-		use crate::infra::db::entities::content_identity;
-		use sea_orm::{EntityTrait, PaginatorTrait};
+		use crate::infra::db::entities::source;
+		use sea_orm::EntityTrait;
 
-		debug!("Executing unique content count query");
-		let count = content_identity::Entity::find().count(db).await?;
-		debug!(
-			unique_content_count = count,
-			"Unique content count query completed successfully"
-		);
+		let count = source::Entity::find()
+			.all(db)
+			.await?
+			.into_iter()
+			.map(|source| source.content_count.unwrap_or(0).max(0) as u64)
+			.sum();
+
+		debug!(unique_content_count = count, "Counted unique content");
 		Ok(count)
 	}
 

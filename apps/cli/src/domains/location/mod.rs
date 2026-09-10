@@ -8,8 +8,6 @@ use crate::util::prelude::*;
 use crate::context::Context;
 use sd_core::ops::locations::{
 	add::{action::LocationAddInput, output::LocationAddOutput},
-	export::LocationExportOutput,
-	import::LocationImportOutput,
 	list::{output::LocationsListOutput, query::LocationsListQueryInput},
 	remove::output::LocationRemoveOutput,
 };
@@ -24,10 +22,6 @@ pub enum LocationCmd {
 	List,
 	/// Remove a location from the library
 	Remove(LocationRemoveArgs),
-	/// Export a location to a SQL dump file
-	Export(LocationExportArgs),
-	/// Import a location from a SQL dump file
-	Import(LocationImportArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
@@ -82,40 +76,6 @@ pub async fn run(ctx: &Context, cmd: LocationCmd) -> Result<()> {
 			let out: LocationRemoveOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &LocationRemoveOutput| {
 				println!("Removed location {}", o.location_id);
-			});
-		}
-		LocationCmd::Export(args) => {
-			let output_path = args.output.clone();
-			let input: sd_core::ops::locations::export::LocationExportInput = args.into();
-			let out: LocationExportOutput = execute_action!(ctx, input);
-			print_output!(ctx, &out, |o: &LocationExportOutput| {
-				println!(
-					"Exported location {} to {}",
-					o.location_uuid,
-					output_path.display()
-				);
-				println!(
-					"  {} entries, {} content identities, {} bytes",
-					o.stats.entries, o.stats.content_identities, o.file_size_bytes
-				);
-			});
-		}
-		LocationCmd::Import(args) => {
-			let input: sd_core::ops::locations::import::LocationImportInput = args.into();
-			let out: LocationImportOutput = execute_action!(ctx, input);
-			print_output!(ctx, &out, |o: &LocationImportOutput| {
-				println!(
-					"Imported location {} ({})",
-					o.location_uuid,
-					o.location_name.as_deref().unwrap_or("unnamed")
-				);
-				println!(
-					"  {} entries imported, {} skipped",
-					o.stats.entries_imported, o.stats.entries_skipped
-				);
-				if o.stats.content_identities > 0 {
-					println!("  {} content identities", o.stats.content_identities);
-				}
 			});
 		}
 	}

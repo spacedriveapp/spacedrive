@@ -371,7 +371,9 @@ impl EphemeralIndexCache {
 		row.root = Set(Some(record.relative_root.clone()));
 		row.volume_uuid = Set(record.volume_uuid);
 		row.record_count = Set(record.record_count.map(|c| c as i64));
+		row.directory_count = Set(record.directory_count.map(|c| c as i64));
 		row.total_bytes = Set(record.total_bytes.map(|b| b as i64));
+		row.content_count = Set(record.content_count.map(|c| c as i64));
 		row.last_seen_at = Set(record.last_seen_at);
 
 		source::Entity::insert(row)
@@ -976,21 +978,23 @@ impl EphemeralIndexCache {
 			return Ok(());
 		};
 
-		let (entry_count, total_bytes) = match self.store_for(&record.root).await {
-			Some(store) => match store.counts().await {
-				Some((records, bytes)) if records > 0 => (records, bytes),
-				_ => (entry_count, total_bytes),
-			},
-			None => (entry_count, total_bytes),
-		};
+		// The store's own count is the durable one. The arena's is the fallback
+		// for a source whose store has not been written yet, and it can only
+		// answer two of the four.
+		let counts = match self.store_for(&record.root).await {
+			Some(store) => store.counts().await.filter(|counts| counts.records > 0),
+			None => None,
+		}
+		.unwrap_or(crate::ops::indexing::ephemeral::SourceCounts {
+			records: entry_count,
+			bytes: total_bytes,
+			..Default::default()
+		});
 
 		// The snapshot itself is already on disk, so a failure here costs a
 		// stale count in listings rather than the index: report it and keep the
 		// save successful.
-		let updated = self
-			.registry
-			.lock()
-			.update_stats(record.id, entry_count, total_bytes);
+		let updated = self.registry.lock().update_stats(record.id, counts);
 		if let Some(updated) = updated {
 			if let Err(err) = self.persist(&updated).await {
 				tracing::error!(

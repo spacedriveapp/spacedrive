@@ -1277,11 +1277,6 @@ export type EventSeverity =
 "error";
 
 /**
- * Statistics about what was exported
- */
-export type ExportStats = { entries: number; content_identities: number; user_metadata: number; tags: number; media_data: number };
-
-/**
  * Represents a file within the Spacedrive VDFS.
  * 
  * This is a computed domain model that aggregates data from Entry, ContentIdentity,
@@ -1760,11 +1755,6 @@ export type HealthState = "ok" | "failing" | "unknown";
  * Image metadata extracted from EXIF
  */
 export type ImageMediaData = { uuid: string; width: number; height: number; blurhash: string | null; date_taken: string | null; latitude: number | null; longitude: number | null; camera_make: string | null; camera_model: string | null; lens_model: string | null; focal_length: string | null; aperture: string | null; shutter_speed: string | null; iso: number | null; orientation: number | null; color_space: string | null; color_profile: string | null; bit_depth: string | null; artist: string | null; copyright: string | null; description: string | null };
-
-/**
- * Statistics about what was imported
- */
-export type ImportStats = { entries_imported: number; entries_skipped: number; content_identities: number; user_metadata: number; tags: number; media_data: number };
 
 /**
  * Canonical input for indexing requests from any interface (CLI, API, etc.)
@@ -2713,62 +2703,6 @@ export type LocationAddInput = { path: SdPath; name: string | null; mode: IndexM
  * Output from location add action dispatch
  */
 export type LocationAddOutput = { location_id: string; path: SdPath; name: string | null; job_id: string | null };
-
-/**
- * Input for exporting a location
- */
-export type LocationExportInput = { 
-/**
- * The UUID of the location to export
- */
-location_uuid: string; 
-/**
- * Path where the SQL dump file will be written
- */
-export_path: string; 
-/**
- * Include content identities (file hashes, dedup info)
- */
-include_content_identities?: boolean; 
-/**
- * Include media metadata (EXIF, video/audio info)
- */
-include_media_data?: boolean; 
-/**
- * Include user metadata (notes, favorites)
- */
-include_user_metadata?: boolean; 
-/**
- * Include tags and tag relationships
- */
-include_tags?: boolean };
-
-/**
- * Output from location export action
- */
-export type LocationExportOutput = { location_uuid: string; location_name: string | null; export_path: string; file_size_bytes: number; stats: ExportStats };
-
-/**
- * Input for importing a location from SQL dump
- */
-export type LocationImportInput = { 
-/**
- * Path to the SQL dump file to import
- */
-import_path: string; 
-/**
- * Optional new name for the imported location (overrides name in dump)
- */
-new_name: string | null; 
-/**
- * Whether to skip entries that already exist (by UUID)
- */
-skip_existing?: boolean };
-
-/**
- * Output from location import action
- */
-export type LocationImportOutput = { location_uuid: string; location_name: string | null; import_path: string; stats: ImportStats };
 
 export type LocationRemoveInput = { location_id: string };
 
@@ -5266,8 +5200,6 @@ export type LibraryAction =
   |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
   |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
-  |  { type: 'locations.export'; input: LocationExportInput; output: LocationExportOutput }
-  |  { type: 'locations.import'; input: LocationImportInput; output: LocationImportOutput }
   |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
   |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
@@ -5414,8 +5346,6 @@ export const WIRE_METHODS = {
     'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
     'locations.add': 'action:locations.add.input',
-    'locations.export': 'action:locations.export.input',
-    'locations.import': 'action:locations.import.input',
     'locations.remove': 'action:locations.remove.input',
     'locations.update': 'action:locations.update.input',
     'sources.create': 'action:sources.create.input',
