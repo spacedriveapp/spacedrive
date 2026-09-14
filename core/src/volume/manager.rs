@@ -1591,11 +1591,18 @@ impl VolumeManager {
 			.await
 			.map_err(|e| VolumeError::Database(e.to_string()))?
 		{
-			debug!(
-				"Volume '{}' already in database with id={}",
-				volume.name, existing.id
-			);
-			return Ok(existing.id);
+			// The row's whereabouts refresh on every sighting: a stale mount
+			// point would send the next boot's source roots somewhere the
+			// drive no longer is.
+			let id = existing.id;
+			let mut row: entities::volume::ActiveModel = existing.into();
+			row.mount_point = Set(Some(volume.mount_point.to_string_lossy().to_string()));
+			row.is_online = Set(volume.is_mounted);
+			row.last_seen_at = Set(chrono::Utc::now());
+			row.update(db)
+				.await
+				.map_err(|e| VolumeError::Database(e.to_string()))?;
+			return Ok(id);
 		}
 
 		// Volume not in database - insert it

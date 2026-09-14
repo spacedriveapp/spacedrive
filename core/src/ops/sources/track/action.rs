@@ -136,6 +136,16 @@ pub async fn track_and_index(
 		mount_point: volume.mount_point.clone(),
 	});
 
+	// The source's anchor is only as durable as the volume row it points at.
+	// Persisting the volume here is what lets the registry resolve this
+	// source's absolute root on every later boot; without the row, the next
+	// process knows the source only by its relative path.
+	if let Some(volume) = &volume {
+		if let Err(e) = context.volume_manager.ensure_volume_in_db(volume, library).await {
+			tracing::warn!(%e, volume = %volume.name, "could not persist the source's volume");
+		}
+	}
+
 	let id = context
 		.ephemeral_cache()
 		.register_source(&root, anchor)
