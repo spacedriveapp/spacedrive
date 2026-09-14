@@ -211,8 +211,13 @@ pub fn birth_time(path: &Path, _metadata: &std::fs::Metadata) -> Option<std::tim
 		stx_btime: StatxTimestamp,
 		stx_ctime: StatxTimestamp,
 		stx_mtime: StatxTimestamp,
-		__padding: [u64; 14],
+		// Device ids, mount id, dio alignment and spare space. The kernel
+		// writes the full 256 bytes whatever the mask asks for, so the
+		// struct must be the full 256 bytes.
+		__padding: [u64; 16],
 	}
+
+	const _: () = assert!(std::mem::size_of::<Statx>() == 256);
 
 	const STATX_BTIME: u32 = 0x800;
 
