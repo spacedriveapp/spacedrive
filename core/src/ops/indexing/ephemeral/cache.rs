@@ -519,6 +519,15 @@ impl EphemeralIndexCache {
 		self.dirs.as_ref()
 	}
 
+	/// A registered source's current absolute root, by id.
+	///
+	/// The registry is the authority: the library row stores the root
+	/// relative to its volume, so anything that turns a source id into a
+	/// path to open must ask here rather than read the row.
+	pub fn source_root(&self, id: Uuid) -> Option<PathBuf> {
+		self.registry.lock().by_id(id).map(|record| record.root.clone())
+	}
+
 	/// The durable store that should hold `path`, opened on first use.
 	///
 	/// The innermost registered source wins, which is what makes a source

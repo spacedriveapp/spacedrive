@@ -9,7 +9,6 @@ use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::sources::registry,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -53,18 +52,14 @@ impl LibraryAction for FreezeSourceAction {
 		let source_id = uuid::Uuid::parse_str(&self.input.source_id)
 			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
 
-		let source = registry::get(library.db().conn(), source_id)
-			.await
-			.map_err(|e| ActionError::Internal(e.to_string()))?;
-
-		let root = source.root.clone().map(PathBuf::from).ok_or_else(|| {
+		// The registry holds the source's absolute root; the library row only
+		// stores it relative to its volume.
+		let cache = context.ephemeral_cache();
+		let root = cache.source_root(source_id).ok_or_else(|| {
 			ActionError::Internal(format!(
-				"source {} has no filesystem root; only filesystem sources freeze",
-				source.name
+				"source {source_id} is not registered on this machine"
 			))
 		})?;
-
-		let cache = context.ephemeral_cache();
 		let store = cache.store_for(&root).await.ok_or_else(|| {
 			ActionError::Internal(format!("no store open for {}", root.display()))
 		})?;
