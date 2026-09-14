@@ -924,11 +924,25 @@ impl<E: RunError> Drop for PanicOnSenderDrop<E> {
 	#[track_caller]
 	fn drop(&mut self) {
 		trace!(task_id = %self.task_id, "Dropping TaskWorkState");
-		assert!(
-			self.maybe_done_tx.is_none(),
-			"TaskHandle done channel dropped before sending a result: {}",
-			std::panic::Location::caller()
-		);
+		if self.maybe_done_tx.is_some() {
+			// A task torn down without reporting is a bug in orderly
+			// operation and the ordinary shape of process shutdown. Panicking
+			// here during shutdown turned into a panic-in-destructor abort
+			// that took the whole process down, so the invariant stays loud
+			// in debug builds and becomes a log in release.
+			#[cfg(debug_assertions)]
+			if !std::thread::panicking() {
+				panic!(
+					"TaskHandle done channel dropped before sending a result: {}",
+					std::panic::Location::caller()
+				);
+			}
+			#[cfg(not(debug_assertions))]
+			tracing::warn!(
+				task_id = %self.task_id,
+				"task dropped before sending a result; expected only during shutdown"
+			);
+		}
 		trace!(task_id = %self.task_id,
 			"TaskWorkState successfully dropped"
 		);

@@ -36,7 +36,7 @@ enum DownloadPhase {
 	Complete,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ModelDownloadJob {
 	config: ModelDownloadConfig,
 	state: ModelDownloadState,

@@ -213,6 +213,19 @@ impl JobDb {
 		Ok(())
 	}
 
+	/// Close a row the process cannot continue: failed, with the reason.
+	pub async fn mark_failed(&self, id: JobId, reason: &str) -> JobResult<()> {
+		let job = jobs::ActiveModel {
+			id: Set(id.to_string()),
+			status: Set(JobStatus::Failed.to_string()),
+			error_message: Set(Some(reason.to_string())),
+			completed_at: Set(Some(Utc::now())),
+			..Default::default()
+		};
+		job.update(&self.conn).await?;
+		Ok(())
+	}
+
 	/// Update job progress in database
 	pub async fn update_progress(&self, job_id: JobId, progress: &Progress) -> JobResult<()> {
 		let progress_data = rmp_serde::to_vec(progress).map_err(|e| JobError::serialization(e))?;

@@ -139,6 +139,14 @@ pub trait DynJob: Send + Sync {
 		true
 	}
 
+	/// A stable key naming what this job operates on, when two dispatches
+	/// with the same name and key are the same work. Dispatching a job whose
+	/// (name, key) is already live returns the live job's handle instead of
+	/// stacking a duplicate. `None` opts out.
+	fn dedup_key(&self) -> Option<String> {
+		None
+	}
+
 	/// Whether this job should emit progress events (even if not persisted to database)
 	/// Volume indexing jobs are ephemeral but need events for UI progress tracking
 	fn should_emit_events(&self) -> bool {

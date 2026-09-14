@@ -41,7 +41,7 @@ impl Default for DeleteOptions {
 }
 
 /// Delete job for removing files and directories
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct DeleteJob {
 	pub targets: SdPathBatch,
 	pub mode: DeleteMode,

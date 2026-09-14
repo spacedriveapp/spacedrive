@@ -114,6 +114,10 @@ pub struct JobSchema {
 #[derive(Clone)]
 pub struct JobRegistration {
 	pub name: &'static str,
+	/// Whether an interrupted run of this job can pick up where it left off.
+	/// Startup reconciliation resumes these and marks the rest failed, so a
+	/// job the process cannot continue is never shown as running.
+	pub resumable: bool,
 	pub schema_fn: fn() -> JobSchema,
 	pub create_fn: fn(serde_json::Value) -> Result<Box<dyn ErasedJob>, serde_json::Error>,
 	pub deserialize_fn: fn(&[u8]) -> Result<Box<dyn ErasedJob>, rmp_serde::decode::Error>,

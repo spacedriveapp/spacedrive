@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
 /// Job that syncs an archive data source via its adapter script.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct SourceSyncJob {
 	pub source_id: String,
 	pub source_name: String,

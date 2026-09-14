@@ -42,6 +42,7 @@ pub fn derive_job(input: TokenStream) -> TokenStream {
 		inventory::submit! {
 			crate::infra::job::types::JobRegistration {
 				name: <#name as crate::infra::job::traits::Job>::NAME,
+				resumable: <#name as crate::infra::job::traits::Job>::RESUMABLE,
 				schema_fn: <#name as crate::infra::job::traits::Job>::schema,
 				create_fn: |data| {
 					let job: #name = serde_json::from_value(data)?;

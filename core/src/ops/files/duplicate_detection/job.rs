@@ -28,7 +28,7 @@ pub enum DetectionMode {
 }
 
 /// Duplicate detection job for finding duplicate files
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct DuplicateDetectionJob {
 	pub search_paths: SdPathBatch,
 	pub mode: DetectionMode,

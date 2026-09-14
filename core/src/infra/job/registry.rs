@@ -29,6 +29,7 @@ impl JobRegistry {
 				registration.name,
 				JobRegistration {
 					name: registration.name,
+					resumable: registration.resumable,
 					schema_fn: registration.schema_fn,
 					create_fn: registration.create_fn,
 					deserialize_fn: registration.deserialize_fn,
@@ -45,6 +46,12 @@ impl JobRegistry {
 	/// Get all registered job names
 	pub fn job_names(&self) -> Vec<&'static str> {
 		self.jobs.keys().copied().collect()
+	}
+
+	/// Whether a job type can pick up an interrupted run. `None` for a job
+	/// type this build does not know.
+	pub fn resumable(&self, name: &str) -> Option<bool> {
+		self.jobs.get(name).map(|reg| reg.resumable)
 	}
 
 	/// Get schema for a job
@@ -96,31 +103,3 @@ impl JobRegistry {
 
 /// Global registry instance
 pub static REGISTRY: Lazy<JobRegistry> = Lazy::new(JobRegistry::new);
-
-/// Helper macro for registering jobs
-/// This would be used by the derive macro
-#[macro_export]
-macro_rules! register_job {
-	($job_type:ty) => {
-		inventory::submit! {
-			$crate::infra::job::types::JobRegistration {
-				name: <$job_type as $crate::infra::job::traits::Job>::NAME,
-				schema_fn: <$job_type as $crate::infra::job::traits::Job>::schema,
-				create_fn: |data| {
-					// Note: This is a placeholder - actual executor creation happens
-					// in ErasedJob::create_executor which has all the parameters
-					let job: $job_type = serde_json::from_value(data)?;
-					Ok(Box::new(job) as Box<dyn ErasedJob>)
-				},
-				deserialize_fn: |data| {
-					let job: $job_type = rmp_serde::from_slice(data)?;
-					Ok(Box::new(job) as Box<dyn ErasedJob>)
-				},
-				deserialize_dyn_fn: |data| {
-					let job: $job_type = rmp_serde::from_slice(data)?;
-					Ok(Box::new(job))
-				},
-			}
-		}
-	};
-}

@@ -95,6 +95,20 @@ impl JobHandle {
 	}
 
 	/// Get the current status
+	/// A second handle to the same job, for a caller whose dispatch matched
+	/// work already live. Watches the same status and progress; the id is
+	/// the live job's id.
+	pub fn resubscribe(&self, status_tx: &tokio::sync::watch::Sender<JobStatus>) -> Self {
+		Self {
+			id: self.id,
+			job_name: self.job_name.clone(),
+			task_handle: self.task_handle.clone(),
+			status_rx: status_tx.subscribe(),
+			progress_rx: self.progress_rx.resubscribe(),
+			output: self.output.clone(),
+		}
+	}
+
 	pub fn status(&self) -> JobStatus {
 		*self.status_rx.borrow()
 	}

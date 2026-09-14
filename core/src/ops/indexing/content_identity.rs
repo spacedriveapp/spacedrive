@@ -35,7 +35,7 @@ const BATCH_SIZE: usize = 256;
 const CONCURRENCY: usize = 8;
 
 /// Hashes the files a source holds that have no content identity yet.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ContentIdentityJob {
 	/// The source's root, which is how its store is found.
 	root: PathBuf,
@@ -68,6 +68,12 @@ impl Job for ContentIdentityJob {
 impl crate::infra::job::traits::DynJob for ContentIdentityJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	/// One hashing pass per source at a time. The pass claims its work from
+	/// the store, so a second dispatch would only duplicate reads.
+	fn dedup_key(&self) -> Option<String> {
+		Some(self.root.display().to_string())
 	}
 }
 
@@ -134,7 +140,7 @@ impl JobHandler for ContentIdentityJob {
 					1.0
 				},
 				"Identifying",
-				format!("{identified} of {outstanding} files"),
+				format!("{} — {identified} of {outstanding} files", source_label(&self.root)),
 			)));
 		}
 
@@ -151,6 +157,14 @@ impl JobHandler for ContentIdentityJob {
 			unreadable,
 		})
 	}
+}
+
+/// The name a person knows the source by, for progress that says what it is
+/// working on rather than only how far along it is.
+pub(crate) fn source_label(root: &std::path::Path) -> String {
+	root.file_name()
+		.map(|n| n.to_string_lossy().into_owned())
+		.unwrap_or_else(|| root.display().to_string())
 }
 
 /// Hash a batch, several files at a time, dropping the ones that cannot be read.

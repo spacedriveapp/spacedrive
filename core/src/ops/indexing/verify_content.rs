@@ -30,7 +30,7 @@ const BATCH_SIZE: usize = 64;
 const CONCURRENCY: usize = 2;
 
 /// Reads every byte of a source's shared-content files.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct VerifyContentJob {
 	/// The source's root, which is how its store is found.
 	root: PathBuf,
@@ -64,6 +64,11 @@ impl Job for VerifyContentJob {
 impl crate::infra::job::traits::DynJob for VerifyContentJob {
 	fn job_name(&self) -> &'static str {
 		Self::NAME
+	}
+
+	/// One verification pass per source at a time; the work queue is shared.
+	fn dedup_key(&self) -> Option<String> {
+		Some(self.root.display().to_string())
 	}
 }
 
@@ -126,7 +131,10 @@ impl JobHandler for VerifyContentJob {
 					1.0
 				},
 				"Verifying",
-				format!("{verified} of {outstanding} files"),
+				format!(
+					"{} — {verified} of {outstanding} files",
+					crate::ops::indexing::content_identity::source_label(&self.root)
+				),
 			)));
 		}
 

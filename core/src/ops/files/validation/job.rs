@@ -47,7 +47,7 @@ pub struct ValidationIssue {
 }
 
 /// File validation job
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Job)]
 pub struct ValidationJob {
 	pub targets: SdPathBatch,
 	pub mode: ValidationMode,
