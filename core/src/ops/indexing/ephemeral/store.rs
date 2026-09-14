@@ -659,7 +659,32 @@ async fn commit(
 
 	match db.apply_files(writes, removals, renames, None).await {
 		Ok(applied) => tracing::trace!(applied, removed = removals.len(), "source store batch"),
-		Err(error) => tracing::error!(%error, "source store batch failed"),
+		Err(error) => {
+			// One bad row must not take the batch with it. The ledger has
+			// already bound everything here, so a row silently dropped now is
+			// a permanent hole: the walk resolves it as unchanged forever
+			// after. Salvage row by row, and name the row that actually
+			// failed, because a batch-sized error message hides the bug.
+			tracing::error!(%error, rows = writes.len(), "source store batch failed; salvaging row by row");
+			if let Err(error) = db.apply_files(&[], removals, renames, None).await {
+				tracing::error!(%error, "removals and renames failed to land");
+			}
+			for write in writes.iter() {
+				if let Err(error) = db
+					.apply_files(std::slice::from_ref(write), &[], &[], None)
+					.await
+				{
+					tracing::error!(
+						external_id = %write.observation.external_id,
+						kind = write.observation.kind.as_str(),
+						resolution = ?write.resolution,
+						parent = ?write.parent_uuid,
+						%error,
+						"row failed to land"
+					);
+				}
+			}
+		}
 	}
 
 	writes.clear();

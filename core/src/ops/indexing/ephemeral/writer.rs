@@ -186,6 +186,24 @@ impl ArenaWriter {
 	/// Apply what was seen: identity, then the arena, then everyone who has to
 	/// hear about it.
 	pub async fn apply(&self, seen: Seen) -> Vec<ArenaChange> {
+		// The daemon's own data dir stays out of the map. The walk already
+		// refuses it; this is the watcher's copy of the same refusal.
+		let seen = match seen {
+			Seen::Entries(entries) => Seen::Entries(
+				entries
+					.into_iter()
+					.filter(|entry| !crate::config::is_own_data(&entry.path))
+					.collect(),
+			),
+			Seen::Renamed { from, to } if crate::config::is_own_data(&to.path) => {
+				return Vec::new();
+			}
+			Seen::Lost { ref path, .. } if crate::config::is_own_data(path) => {
+				return Vec::new();
+			}
+			other => other,
+		};
+
 		let changes = match seen {
 			Seen::Entries(entries) => self.entries(entries).await,
 			Seen::Renamed { from, to } => self.renamed(from, to).await,

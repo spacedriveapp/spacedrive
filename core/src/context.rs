@@ -63,6 +63,8 @@ impl CoreContext {
 		key_manager: Arc<KeyManager>,
 		data_dir: PathBuf,
 	) -> Self {
+		crate::config::mark_own_data_dir(&data_dir);
+
 		// The cache's persistence must follow this context's data dir, so
 		// --data-dir/--instance daemons never read or write the default
 		// installation's source registry and snapshots.
