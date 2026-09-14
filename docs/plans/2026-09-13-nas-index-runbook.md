@@ -71,10 +71,22 @@ sd-cli sources freeze <id>    # after hashing lands
 ## Before the pool is exported
 
 - One last freeze of every source.
-- `zpool status -P` and `smartctl -i -A` per Red, saved as text files
-  beside the data dir. This is the manual observation log the drive
-  registry (`2026-09-13-physical-drives.md` D0) ingests later; the
-  serials are unreadable once the drives are crated.
+- Save the TrueNAS config backup (System, Save Config). Shares, users
+  and service config live on the boot disk, which stays behind; dataset
+  properties and ACL data are on the pool and travel with it.
+- Confirm no dataset uses ZFS native encryption (`zfs get encryption`).
+  If any does, the key or passphrase must travel separately from the
+  drives, or the imported pool is ciphertext.
+- `zpool status -P`, `zpool get guid`, and `sudo smartctl -i -A` per
+  Red, saved as text files beside the data dir. The drive registry
+  (`2026-09-13-physical-drives.md` D0/D1) captures what sysfs exposes
+  unprivileged; the SMART sweep is the one piece that needs root, and
+  the text files are ingestible later through the manual path. Serials
+  are unreadable once the drives are crated.
+- `zpool export pool`, cleanly. An exported pool imports on a future
+  machine without force flags, in any drive order, on any controller:
+  the vdev labels on the platters carry the assembly. Any six of the
+  eight Reds suffice, which is why all eight ship together.
 - Copy `~/spacedrive/data` off the NAS. It is the index; the crate
   should never hold the only copy of the map of the crate.
 

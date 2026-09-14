@@ -171,6 +171,11 @@ pub struct DriveGroup {
     pub kind: GroupKind,             // ZfsPool, Raid, ApfsContainer
     pub group_id: Option<String>,    // zpool GUID, container UUID
     pub label: Option<String>,
+    /// The vdev tree as reported (`zpool status -P`, verbatim), plus the
+    /// parsed redundancy: how many members can be absent and the group
+    /// still assemble. raidz2 answers "any 6 of these 8".
+    pub topology: Option<String>,
+    pub min_members: Option<u32>,
     // members via drive_group_member(drive_uuid, role), role = Data | Parity | Cache
 }
 ```
@@ -205,6 +210,26 @@ where the OS offers nothing. Absence is fine: an observation with `smart:
 None` still carries the static rungs. The reasoner works with whatever
 each platform yields.
 
+## Against the filesystem's own metadata
+
+ZFS already preserves everything needed to reassemble a pool: every member
+carries four copies of the vdev label, and `zpool import` on any machine
+rebuilds the pool from them, in any drive order, on any controller. The
+group row does not duplicate that and must not try; the platters are the
+authority on their own assembly.
+
+What the labels cannot answer is the question asked with the drives in
+boxes: *which* physical drives make the pool, where they are, and how many
+of them suffice. Reading a label requires plugging the drive in, which is
+exactly the step the question precedes. So the division of labor: the
+filesystem carries the machine-readable truth on the platters, the group
+row carries the human-facing map of where those platters physically are.
+
+The same boundary marks what travels outside Spacedrive entirely: a
+TrueNAS config backup (shares and users live on the boot disk, not the
+pool) and any dataset encryption keys, without which an imported pool is
+ciphertext. Those belong on the pre-export checklist, not in a table.
+
 ## What this is not
 
 - Not required. A person who never opens the drives view never meets it;
@@ -221,10 +246,19 @@ each platform yields.
 
 1. Platform detection of physical backing per mounted volume: parent
    disk, WWN, serial, GPT disk GUID, model, capacity, firmware,
-   transport. SMART snapshot where readable without elevation.
-2. The `drive_observation` table, appended on every mount and on a
+   transport. On Linux most of this is readable unprivileged from sysfs
+   (`/sys/block/*/device/`), which matters because the daemon runs as an
+   ordinary user on a NAS.
+2. SMART snapshot where readable without elevation. Where `smartctl`
+   needs root, absence is recorded rather than faked; a one-off elevated
+   sweep saved as text is ingestible later through D2's manual path.
+3. The `drive_observation` table, appended on every mount and on a
    periodic re-check while mounted. No clustering, no UI. Raw evidence,
    with transport recorded so serial tier is never lost.
+
+Linux lands first. The observation window closes when a drive is boxed,
+and the drives with a deadline are in a NAS; macOS detection waits for
+the drives that stay in reach.
 
 ### D1 — Conclude
 
@@ -234,6 +268,10 @@ each platform yields.
 2. `drives.list`, with each drive's volumes, last observation, and
    evidence summary.
 3. Monotonic checks on every new observation against the drive's last.
+4. ZFS pool membership, pulled forward from D3: `zpool status -P` parsed
+   into a group with its GUID, topology, member roles and `min_members`.
+   The rest of D3 stays put; this piece moves because a pool about to be
+   exported is the group whose membership is hardest to re-derive later.
 
 ### D2 — The person
 
@@ -245,8 +283,7 @@ each platform yields.
 
 ### D3 — Groups
 
-1. `drive_group` and membership from zpool status, mdraid, and APFS
-   containers.
+1. Membership from mdraid and APFS containers (zpool landed with D1).
 2. Redundancy honesty: copy counts and the duplicates view collapse
    volumes that share a group, so a pool never counts as two places.
 
