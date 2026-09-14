@@ -573,14 +573,17 @@ impl LibraryManager {
 			libraries.insert(config.id, library.clone());
 		}
 
-		// Now that the library is registered, resume interrupted jobs
-		// DISABLED: Jobs will remain paused on startup instead of auto-resuming
-		// if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
-		// 	warn!(
-		// 		"Failed to resume interrupted jobs for library {}: {}",
-		// 		config.id, e
-		// 	);
-		// }
+		// Now that the library is registered, reconcile the job rows the
+		// previous process left behind: resumable jobs resume, everything
+		// else is marked failed with its reason. Without this, interrupted
+		// rows sit at Running forever and nothing a job list says can be
+		// trusted.
+		if let Err(e) = library.jobs.resume_interrupted_jobs_after_load().await {
+			warn!(
+				"Failed to reconcile interrupted jobs for library {}: {}",
+				config.id, e
+			);
+		}
 
 		// Initialize sync service if networking is available
 		// If networking isn't ready, sync simply won't be initialized until caller does it explicitly
