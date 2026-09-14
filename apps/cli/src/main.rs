@@ -59,6 +59,7 @@ use crate::domains::{
 	job::{self, JobCmd},
 	library::{self, LibraryCmd},
 	location::{self, LocationCmd},
+	source::{self, SourceCmd},
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
 	redundancy::{self, RedundancyCmd},
@@ -199,6 +200,9 @@ enum Commands {
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
+	/// Source operations (track, list, freeze)
+	#[command(subcommand)]
+	Sources(SourceCmd),
 	/// Location operations
 	#[command(subcommand)]
 	Location(LocationCmd),
@@ -737,6 +741,7 @@ async fn run_client_command(
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Location(cmd) => location::run(&ctx, cmd).await?,
+		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,
 		Commands::Sync(cmd) => sync::run(&ctx, cmd).await?,

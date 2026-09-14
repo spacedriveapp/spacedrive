@@ -12,6 +12,7 @@ pub mod logs;
 pub mod network;
 pub mod redundancy;
 pub mod search;
+pub mod source;
 pub mod spaces;
 pub mod sync;
 pub mod tag;

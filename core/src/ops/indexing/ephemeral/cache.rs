@@ -514,6 +514,11 @@ impl EphemeralIndexCache {
 		slot.is_detached()
 	}
 
+	/// The on-disk layout for per-source storage, when this machine keeps one.
+	pub fn source_dirs(&self) -> Option<&SourceDirs> {
+		self.dirs.as_ref()
+	}
+
 	/// The durable store that should hold `path`, opened on first use.
 	///
 	/// The innermost registered source wins, which is what makes a source

@@ -1531,6 +1531,19 @@ export type FileSystem =
  */
 export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Locations" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
 
+export type FreezeSourceInput = { source_id: string };
+
+export type FreezeSourceOutput = { 
+/**
+ * Where the frozen copy landed.
+ */
+path: string; 
+/**
+ * Records the copy holds, read back from the copy itself rather than
+ * from the live store, so the number describes the artifact.
+ */
+records: number };
+
 export type FrontendReads = { frontend: string; reads: number };
 
 /**
@@ -4975,6 +4988,7 @@ export type LibraryAction =
   |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
+  |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
   |  { type: 'sources.track'; input: TrackSourceInput; output: TrackSourceOutput }
   |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
@@ -5121,6 +5135,7 @@ export const WIRE_METHODS = {
     'locations.update': 'action:locations.update.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
+    'sources.freeze': 'action:sources.freeze.input',
     'sources.sync': 'action:sources.sync.input',
     'sources.track': 'action:sources.track.input',
     'spaces.add_group': 'action:spaces.add_group.input',

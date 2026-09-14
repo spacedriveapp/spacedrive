@@ -5,6 +5,7 @@
 
 pub mod create;
 pub mod delete;
+pub mod freeze;
 pub mod get;
 pub mod list;
 pub mod list_items;
@@ -17,6 +18,7 @@ pub mod track;
 
 pub use create::*;
 pub use delete::*;
+pub use freeze::*;
 pub use get::*;
 pub use list::*;
 pub use list_items::*;

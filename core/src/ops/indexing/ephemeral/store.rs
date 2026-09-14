@@ -361,6 +361,40 @@ impl SourceStore {
 		self.send(Ingest::Unreadable(failures)).await;
 	}
 
+	/// Write a dated, self-contained copy of this source's store.
+	///
+	/// `VACUUM INTO` runs against the live database without stopping the
+	/// writer: the copy is a consistent snapshot as of its transaction, and
+	/// everything queued behind it lands in the live store as usual. The
+	/// flush first means the copy holds what the caller has already seen
+	/// committed, not a state from before their last write.
+	///
+	/// This is what preserves a filesystem's indexed state before it gets
+	/// reorganised: the live store follows the disk, and the next sweep
+	/// forgets whatever a cleanup deleted. The frozen copy does not.
+	pub async fn freeze_into(&self, dir: &Path) -> Result<PathBuf> {
+		self.flush().await;
+
+		std::fs::create_dir_all(dir)
+			.with_context(|| format!("create freeze directory {}", dir.display()))?;
+		let stamp = chrono::Utc::now().format("%Y-%m-%dT%H%M%SZ");
+		let path = dir.join(format!("{stamp}.db"));
+		if path.exists() {
+			anyhow::bail!("a freeze already exists at {}", path.display());
+		}
+
+		sqlx::query("VACUUM INTO ?")
+			.bind(path.to_str().with_context(|| {
+				format!("freeze path is not valid UTF-8: {}", path.display())
+			})?)
+			.execute(self.db.pool())
+			.await
+			.with_context(|| format!("vacuum into {}", path.display()))?;
+
+		tracing::info!(source = %self.id, path = %path.display(), "source frozen");
+		Ok(path)
+	}
+
 	/// What this source actually persists: records, and the bytes behind them.
 	///
 	/// Read from the store rather than counted off the arena, because the arena
@@ -1015,6 +1049,54 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			fixture.store.files_needing_content_count().await,
 			1,
 			"new bytes deserve a fresh attempt at reading them"
+		);
+	}
+
+	/// A freeze survives what happens to the live store afterwards. That is
+	/// its entire job: the live store mirrors the disk, and the frozen copy
+	/// is the record of what the disk was.
+	#[tokio::test]
+	async fn a_freeze_keeps_what_the_live_store_later_forgets() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("docs/before.txt", b"original state").await;
+		fixture.create("keep.txt", b"stays").await;
+
+		let freeze_dir = TempDir::new().expect("freeze dir");
+		let frozen = fixture
+			.store
+			.freeze_into(freeze_dir.path())
+			.await
+			.expect("freeze");
+
+		// The cleanup this feature exists to survive.
+		let entry = fixture
+			.adapter
+			.find_by_path(&fixture.root.path().join("docs/before.txt"))
+			.await
+			.expect("lookup")
+			.expect("known");
+		fixture.adapter.delete(&entry).await.expect("delete");
+		assert_eq!(fixture.paths().await, vec!["docs", "keep.txt"]);
+
+		let pool = sqlx::sqlite::SqlitePoolOptions::new()
+			.max_connections(1)
+			.connect_with(
+				sqlx::sqlite::SqliteConnectOptions::new()
+					.filename(&frozen)
+					.read_only(true)
+					.immutable(true),
+			)
+			.await
+			.expect("open frozen copy");
+		let titles: Vec<String> =
+			sqlx::query_scalar("SELECT title FROM record WHERE type = 'file' ORDER BY title")
+				.fetch_all(&pool)
+				.await
+				.expect("frozen records");
+		assert_eq!(
+			titles,
+			vec!["before.txt", "keep.txt"],
+			"the deleted file is still in the freeze"
 		);
 	}
 
