@@ -616,7 +616,7 @@ impl ChangeHandler for ArenaWriter {
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
 				accessed: metadata.accessed().ok(),
-				created: metadata.created().ok(),
+				created: crate::ops::indexing::metadata::birth_time(&entry_path, &metadata),
 				inode: crate::ops::indexing::metadata::get_inode(&entry_path, &metadata),
 				permissions: None,
 				uid: None,

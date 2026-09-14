@@ -630,7 +630,7 @@ impl IndexerJob {
 				kind: entry_kind,
 				size: metadata.len(),
 				modified: metadata.modified().ok(),
-				created: metadata.created().ok(),
+				created: crate::ops::indexing::metadata::birth_time(&path, &metadata),
 				accessed: metadata.accessed().ok(),
 				inode: crate::ops::indexing::metadata::get_inode(&path, &metadata),
 				permissions,

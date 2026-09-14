@@ -172,6 +172,76 @@ pub fn get_inode(_path: &Path, _metadata: &std::fs::Metadata) -> Option<u64> {
 	None
 }
 
+/// A file's birth time, asked of the kernel directly on Linux.
+///
+/// `std::fs::Metadata::created()` needs `statx`, which the standard library
+/// does not reach on every libc, and a walk that silently stores `None` for
+/// every file loses the one timestamp a copy cannot reproduce. `AT_SYMLINK_NOFOLLOW`
+/// so a symlink reports its own birth, matching how everything else here
+/// reads the link rather than the target.
+#[cfg(target_os = "linux")]
+pub fn birth_time(path: &Path, _metadata: &std::fs::Metadata) -> Option<std::time::SystemTime> {
+	use std::os::unix::ffi::OsStrExt;
+
+	// The kernel's struct statx, laid out by hand because the libc crate only
+	// exposes it for glibc targets and the walk also ships as musl. The
+	// kernel ABI is fixed at 256 bytes; only the fields up to the timestamps
+	// are named, the rest is padding.
+	#[repr(C)]
+	struct StatxTimestamp {
+		tv_sec: i64,
+		tv_nsec: u32,
+		__reserved: i32,
+	}
+	#[repr(C)]
+	struct Statx {
+		stx_mask: u32,
+		stx_blksize: u32,
+		stx_attributes: u64,
+		stx_nlink: u32,
+		stx_uid: u32,
+		stx_gid: u32,
+		stx_mode: u16,
+		__spare0: u16,
+		stx_ino: u64,
+		stx_size: u64,
+		stx_blocks: u64,
+		stx_attributes_mask: u64,
+		stx_atime: StatxTimestamp,
+		stx_btime: StatxTimestamp,
+		stx_ctime: StatxTimestamp,
+		stx_mtime: StatxTimestamp,
+		__padding: [u64; 14],
+	}
+
+	const STATX_BTIME: u32 = 0x800;
+
+	let c_path = std::ffi::CString::new(path.as_os_str().as_bytes()).ok()?;
+	let mut out: Statx = unsafe { std::mem::zeroed() };
+	let rc = unsafe {
+		libc::syscall(
+			libc::SYS_statx,
+			libc::AT_FDCWD,
+			c_path.as_ptr(),
+			libc::AT_SYMLINK_NOFOLLOW,
+			STATX_BTIME,
+			&mut out as *mut Statx,
+		)
+	};
+	if rc != 0 || out.stx_mask & STATX_BTIME == 0 || out.stx_btime.tv_sec <= 0 {
+		return None;
+	}
+	Some(
+		std::time::UNIX_EPOCH
+			+ std::time::Duration::new(out.stx_btime.tv_sec as u64, out.stx_btime.tv_nsec),
+	)
+}
+
+#[cfg(not(target_os = "linux"))]
+pub fn birth_time(_path: &Path, metadata: &std::fs::Metadata) -> Option<std::time::SystemTime> {
+	metadata.created().ok()
+}
+
 /// Extracts filesystem metadata through either a volume backend or direct I/O.
 ///
 /// Volume backends abstract cloud storage (S3, Dropbox) and local filesystems
@@ -247,7 +317,7 @@ pub async fn extract_metadata(
 			size: metadata.len(),
 			modified: metadata.modified().ok(),
 			accessed: metadata.accessed().ok(),
-			created: metadata.created().ok(),
+			created: birth_time(path, &metadata),
 			inode,
 			permissions,
 			uid,
