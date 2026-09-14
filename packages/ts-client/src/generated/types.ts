@@ -4565,6 +4565,15 @@ is_on_primary_volume: boolean };
  */
 export type ValidationWarning = { message: string; suggestion: string | null };
 
+export type VerifySourceInput = { source_id: string };
+
+export type VerifySourceOutput = { job_id: string; 
+/**
+ * Shared-content files awaiting verification when the job was queued.
+ * The job re-claims as it runs, so the final count can be higher.
+ */
+outstanding: number };
+
 /**
  * Video metadata extracted from FFmpeg
  */
@@ -4991,6 +5000,7 @@ export type LibraryAction =
   |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
   |  { type: 'sources.track'; input: TrackSourceInput; output: TrackSourceOutput }
+  |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
   |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
   |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
   |  { type: 'spaces.create'; input: SpaceCreateInput; output: SpaceCreateOutput }
@@ -5138,6 +5148,7 @@ export const WIRE_METHODS = {
     'sources.freeze': 'action:sources.freeze.input',
     'sources.sync': 'action:sources.sync.input',
     'sources.track': 'action:sources.track.input',
+    'sources.verify': 'action:sources.verify.input',
     'spaces.add_group': 'action:spaces.add_group.input',
     'spaces.add_item': 'action:spaces.add_item.input',
     'spaces.create': 'action:spaces.create.input',

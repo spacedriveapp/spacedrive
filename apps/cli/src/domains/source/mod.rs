@@ -10,6 +10,7 @@ use sd_core::ops::sources::{
 	freeze::action::{FreezeSourceInput, FreezeSourceOutput},
 	list::{output::SourceInfo, query::ListSourcesInput},
 	track::action::{TrackSourceInput, TrackSourceOutput},
+	verify::action::{VerifySourceInput, VerifySourceOutput},
 };
 
 #[derive(Subcommand, Debug)]
@@ -20,6 +21,9 @@ pub enum SourceCmd {
 	List,
 	/// Write a dated, self-contained copy of a source's store
 	Freeze(SourceFreezeArgs),
+	/// Read every byte of the source's duplicate files, upgrading their
+	/// content identity from candidate to confirmed
+	Verify(SourceVerifyArgs),
 }
 
 #[derive(Args, Debug)]
@@ -38,6 +42,12 @@ pub struct SourceTrackArgs {
 
 #[derive(Args, Debug)]
 pub struct SourceFreezeArgs {
+	/// The source's id, from `sources list`
+	pub source_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct SourceVerifyArgs {
 	/// The source's id, from `sources list`
 	pub source_id: String,
 }
@@ -89,6 +99,19 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 					]);
 				}
 				println!("{table}");
+			});
+		}
+		SourceCmd::Verify(args) => {
+			let input = VerifySourceInput {
+				source_id: args.source_id,
+			};
+
+			let out: VerifySourceOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &VerifySourceOutput| {
+				println!(
+					"Verifying {} shared-content files (job {})",
+					o.outstanding, o.job_id
+				);
 			});
 		}
 		SourceCmd::Freeze(args) => {

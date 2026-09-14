@@ -336,6 +336,39 @@ impl SourceStore {
 		}
 	}
 
+	/// Shared-content copies whose bytes have not been read in full, as
+	/// absolute paths, with the sampled hash the verdict must land against.
+	pub async fn files_needing_verification(
+		&self,
+		batch_size: usize,
+	) -> Vec<(Uuid, PathBuf, u64, Option<String>)> {
+		match sd_store::files_needing_verification(self.db.pool(), batch_size).await {
+			Ok(pending) => pending
+				.into_iter()
+				.map(|file| {
+					(
+						file.uuid,
+						self.root.join(&file.external_id),
+						file.size.max(0) as u64,
+						file.sampled_hash,
+					)
+				})
+				.collect(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, "could not list files needing verification");
+				Vec::new()
+			}
+		}
+	}
+
+	/// How many shared-content copies still carry only a sampled hash.
+	pub async fn files_needing_verification_count(&self) -> u64 {
+		sd_store::count_files_needing_verification(self.db.pool())
+			.await
+			.map(|count| count.max(0) as u64)
+			.unwrap_or(0)
+	}
+
 	/// How many files are still waiting to be identified.
 	pub async fn files_needing_content_count(&self) -> u64 {
 		sd_store::count_files_needing_content(self.db.pool())
@@ -1126,6 +1159,87 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 
 		assert!(passes <= 4, "700 files at 256 a batch is three claims");
 		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+	}
+
+	/// Verification claims exactly the shared-content files, and landing an
+	/// integrity hash upgrades the content row's uuid from the candidate id
+	/// to the confirmed one. Unique files are never claimed: a full read of
+	/// a file with no duplicate answers no question anyone asked.
+	#[tokio::test]
+	async fn verification_claims_shared_content_and_upgrades_its_identity() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("a/copy1.bin", b"same bytes").await;
+		fixture.create("b/copy2.bin", b"same bytes").await;
+		fixture.create("unique.bin", b"one of a kind").await;
+		fixture.store.flush().await;
+
+		// The sampled tier lands first, as indexing would leave it.
+		let pending = fixture.store.files_needing_content(10).await;
+		let identified = pending
+			.iter()
+			.map(|(uuid, path, size)| {
+				let hash = if path.ends_with("unique.bin") {
+					"unique-hash"
+				} else {
+					"shared-hash"
+				};
+				(
+					*uuid,
+					ContentIdentity {
+						sampled_hash: Some(hash.to_string()),
+						integrity_hash: None,
+						size: Some(*size as i64),
+						kind: None,
+					},
+				)
+			})
+			.collect();
+		fixture.store.identified(identified).await;
+		fixture.store.flush().await;
+
+		let candidate_uuid: Uuid =
+			sqlx::query_scalar("SELECT uuid FROM content WHERE sampled_hash = 'shared-hash'")
+				.fetch_one(fixture.store.db().pool())
+				.await
+				.expect("candidate row");
+		assert_eq!(candidate_uuid, sd_store::uuid_for("shared-hash"));
+
+		// Only the two copies are claimed; the unique file is not.
+		let claims = fixture.store.files_needing_verification(10).await;
+		assert_eq!(fixture.store.files_needing_verification_count().await, 2);
+		assert_eq!(claims.len(), 2);
+		assert!(claims.iter().all(|(_, path, _, sampled)| {
+			!path.ends_with("unique.bin") && sampled.as_deref() == Some("shared-hash")
+		}));
+
+		// The verdict lands on the same row and upgrades its identity.
+		let verdicts = claims
+			.iter()
+			.map(|(uuid, _, size, sampled)| {
+				(
+					*uuid,
+					ContentIdentity {
+						sampled_hash: sampled.clone(),
+						integrity_hash: Some("integrity-hash".to_string()),
+						size: Some(*size as i64),
+						kind: None,
+					},
+				)
+			})
+			.collect();
+		fixture.store.identified(verdicts).await;
+		fixture.store.flush().await;
+
+		assert_eq!(fixture.store.files_needing_verification_count().await, 0);
+		let (confirmed_uuid, rows): (Uuid, i64) = sqlx::query_as(
+			"SELECT uuid, (SELECT COUNT(*) FROM content) FROM content WHERE sampled_hash = 'shared-hash'",
+		)
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("confirmed row");
+		assert_eq!(rows, 2, "the verdict upgraded a row rather than minting one");
+		assert_eq!(confirmed_uuid, sd_store::uuid_for("integrity-hash"));
+		assert_ne!(confirmed_uuid, candidate_uuid);
 	}
 
 	/// A freeze survives what happens to the live store afterwards. That is

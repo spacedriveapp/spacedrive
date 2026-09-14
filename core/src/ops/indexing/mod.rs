@@ -23,6 +23,7 @@
 pub mod action;
 pub mod change_detection;
 pub mod content_identity;
+pub mod verify_content;
 pub mod ephemeral;
 pub mod handlers;
 pub mod input;

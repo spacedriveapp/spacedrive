@@ -151,6 +151,37 @@ impl ContentHashGenerator {
 		Self::generate_content_hash_with_backend(&backend, path, metadata.size).await
 	}
 
+	/// Hash every byte of a file, streaming, for the integrity tier.
+	///
+	/// The sampled tier groups candidates; this is what turns a candidate
+	/// into a certainty, and it costs a full read, which is why it runs
+	/// behind a decision that needs it rather than behind every walk.
+	pub async fn generate_integrity_hash(
+		path: &std::path::Path,
+	) -> Result<String, ContentHashError> {
+		let path = path.to_path_buf();
+		tokio::task::spawn_blocking(move || {
+			use std::io::Read;
+
+			let file = std::fs::File::open(&path).map_err(ContentHashError::Io)?;
+			let mut reader = std::io::BufReader::with_capacity(1024 * 1024, file);
+			let mut hasher = blake3::Hasher::new();
+			let mut buffer = vec![0u8; 1024 * 1024];
+			loop {
+				let read = reader.read(&mut buffer).map_err(ContentHashError::Io)?;
+				if read == 0 {
+					break;
+				}
+				hasher.update(&buffer[..read]);
+			}
+			Ok(hasher.finalize().to_hex().to_string())
+		})
+		.await
+		.map_err(|e| {
+			ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
+		})?
+	}
+
 	/// Generate content hash from raw content (for in-memory data)
 	pub fn generate_from_content(content: &[u8]) -> String {
 		use blake3::Hasher;
