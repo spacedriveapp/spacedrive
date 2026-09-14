@@ -42,6 +42,9 @@ fn observe(path: &str, size: i64, mtime: i64, inode: Option<i64>) -> Observation
 		accessed: None,
 		inode,
 		mode: Some(0o644),
+		uid: None,
+		gid: None,
+		link_target: None,
 		extension: path.rsplit_once('.').map(|(_, e)| e.to_string()),
 		is_hidden: false,
 		identity: None,
@@ -886,4 +889,43 @@ async fn a_source_carries_a_table_for_every_declared_facet() {
 			"{expected} missing from {tables:?}"
 		);
 	}
+}
+
+/// What the walk saw is what the row holds: ownership and a symlink's target
+/// are part of the state a source preserves, not something to re-stat later
+/// when the drive may be gone.
+#[tokio::test]
+async fn ownership_and_link_targets_land_in_the_facet() {
+	let fixture = Fixture::new().await;
+	let db = fixture.open().await;
+	db.begin_sync().await.expect("epoch");
+
+	let observation = Observation {
+		kind: FileKind::Symlink,
+		uid: Some(501),
+		gid: Some(20),
+		link_target: Some("../archive/original.mp4".to_string()),
+		..observe("footage/current.mp4", 0, 1_000, Some(9))
+	};
+	let uuid = uuid::Uuid::now_v7();
+	db.apply_files(
+		&[write(Resolution::Fresh(uuid), observation)],
+		&[],
+		&[],
+		None,
+	)
+	.await
+	.expect("apply");
+
+	let (uid, gid, target): (Option<i64>, Option<i64>, Option<String>) = sqlx::query_as(
+		"SELECT uid, gid, link_target FROM facet_file WHERE record_uuid = ?",
+	)
+	.bind(uuid)
+	.fetch_one(db.pool())
+	.await
+	.expect("facet row");
+
+	assert_eq!(uid, Some(501));
+	assert_eq!(gid, Some(20));
+	assert_eq!(target.as_deref(), Some("../archive/original.mp4"));
 }

@@ -601,6 +601,9 @@ impl ChangeHandler for ArenaWriter {
 				created: metadata.created().ok(),
 				inode: crate::ops::indexing::metadata::get_inode(&entry_path, &metadata),
 				permissions: None,
+				uid: None,
+				gid: None,
+				link_target: None,
 				is_hidden: is_hidden_path(&entry_path),
 			});
 		}
@@ -625,6 +628,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: is_hidden_path(path),
 		}
 	}
@@ -869,6 +875,9 @@ mod tests {
 			accessed: None,
 			inode: Some(12345),
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 		};
 
 		let created = writer
@@ -916,6 +925,9 @@ mod move_tests {
 			accessed: None,
 			inode: Some(7),
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 		};
 		let created = writer.create(&entry, root.path()).await.expect("create");
 		// Drain the create event.

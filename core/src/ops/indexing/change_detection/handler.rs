@@ -141,6 +141,9 @@ pub async fn should_filter_path(
 			accessed: fs_meta.accessed().ok(),
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 		}
 	};
 
@@ -187,6 +190,9 @@ pub async fn build_dir_entry(
 		accessed: meta.accessed,
 		inode: meta.inode,
 		permissions: meta.permissions,
+		uid: meta.uid,
+		gid: meta.gid,
+		link_target: meta.link_target,
 	})
 }
 

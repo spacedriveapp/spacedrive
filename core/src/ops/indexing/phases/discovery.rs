@@ -709,6 +709,9 @@ async fn read_directory_with_backend(
 				accessed: raw.accessed,
 				inode: raw.inode,
 				permissions: raw.permissions,
+				uid: raw.uid,
+				gid: raw.gid,
+				link_target: raw.link_target,
 			}
 		})
 		.collect();

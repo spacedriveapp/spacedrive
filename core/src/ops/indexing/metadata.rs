@@ -54,6 +54,10 @@ pub struct EntryMetadata {
 	pub created: Option<std::time::SystemTime>,
 	pub inode: Option<u64>,
 	pub permissions: Option<u32>,
+	pub uid: Option<u32>,
+	pub gid: Option<u32>,
+	/// Where a symlink points, verbatim from `readlink`.
+	pub link_target: Option<String>,
 	pub is_hidden: bool,
 }
 
@@ -68,6 +72,9 @@ impl From<DirEntry> for EntryMetadata {
 			created: entry.created,
 			inode: entry.inode,
 			permissions: entry.permissions,
+			uid: entry.uid,
+			gid: entry.gid,
+			link_target: entry.link_target,
 			is_hidden: is_hidden_path(&entry.path),
 		}
 	}
@@ -194,6 +201,9 @@ pub async fn extract_metadata(
 			created: raw.created,
 			inode: raw.inode,
 			permissions: raw.permissions,
+			uid: raw.uid,
+			gid: raw.gid,
+			link_target: raw.link_target,
 			is_hidden: is_hidden_path(path),
 		})
 	} else {
@@ -210,13 +220,26 @@ pub async fn extract_metadata(
 		let inode = get_inode(path, &metadata);
 
 		#[cfg(unix)]
-		let permissions = {
+		let (permissions, uid, gid) = {
 			use std::os::unix::fs::MetadataExt;
-			Some(metadata.mode())
+			(
+				Some(metadata.mode()),
+				Some(metadata.uid()),
+				Some(metadata.gid()),
+			)
 		};
 
 		#[cfg(not(unix))]
-		let permissions = None;
+		let (permissions, uid, gid) = (None, None, None);
+
+		let link_target = if matches!(kind, EntryKind::Symlink) {
+			tokio::fs::read_link(path)
+				.await
+				.ok()
+				.map(|t| t.to_string_lossy().into_owned())
+		} else {
+			None
+		};
 
 		Ok(EntryMetadata {
 			path: path.to_path_buf(),
@@ -227,6 +250,9 @@ pub async fn extract_metadata(
 			created: metadata.created().ok(),
 			inode,
 			permissions,
+			uid,
+			gid,
+			link_target,
 			is_hidden: is_hidden_path(path),
 		})
 	}

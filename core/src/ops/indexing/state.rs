@@ -85,6 +85,10 @@ pub struct DirEntry {
 	pub inode: Option<u64>,
 	/// Unix permission bits.
 	pub permissions: Option<u32>,
+	pub uid: Option<u32>,
+	pub gid: Option<u32>,
+	/// Where a symlink points, verbatim from `readlink`.
+	pub link_target: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

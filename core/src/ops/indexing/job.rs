@@ -605,12 +605,25 @@ impl IndexerJob {
 			};
 
 			#[cfg(unix)]
-			let permissions = {
+			let (permissions, uid, gid) = {
 				use std::os::unix::fs::MetadataExt;
-				Some(metadata.mode())
+				(
+					Some(metadata.mode()),
+					Some(metadata.uid()),
+					Some(metadata.gid()),
+				)
 			};
 			#[cfg(not(unix))]
-			let permissions = None;
+			let (permissions, uid, gid) = (None, None, None);
+
+			let link_target = if matches!(entry_kind, EntryKind::Symlink) {
+				tokio::fs::read_link(&path)
+					.await
+					.ok()
+					.map(|t| t.to_string_lossy().into_owned())
+			} else {
+				None
+			};
 
 			let dir_entry = DirEntry {
 				path: path.clone(),
@@ -621,6 +634,9 @@ impl IndexerJob {
 				accessed: metadata.accessed().ok(),
 				inode: crate::ops::indexing::metadata::get_inode(&path, &metadata),
 				permissions,
+				uid,
+				gid,
+				link_target,
 			};
 
 			state.pending_entries.push(dir_entry);

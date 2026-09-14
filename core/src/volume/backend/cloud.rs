@@ -339,6 +339,9 @@ impl VolumeBackend for CloudBackend {
 				accessed: None,
 				inode: None,
 				permissions: None,
+				uid: None,
+				gid: None,
+				link_target: None,
 			});
 		}
 
@@ -374,6 +377,9 @@ impl VolumeBackend for CloudBackend {
 			accessed: None,
 			inode: None,       // Cloud storage doesn't have inodes
 			permissions: None, // Cloud backends don't have Unix permissions
+			uid: None,
+			gid: None,
+			link_target: None,
 		})
 	}
 

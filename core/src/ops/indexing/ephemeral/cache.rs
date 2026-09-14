@@ -1522,6 +1522,9 @@ mod tests {
 				created: None,
 				inode: None,
 				permissions: None,
+				uid: None,
+				gid: None,
+				link_target: None,
 				is_hidden: false,
 			}
 		}
@@ -2096,6 +2099,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		};
 
@@ -2163,6 +2169,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		};
 
@@ -2236,6 +2245,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		};
 
@@ -2311,6 +2323,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		};
 
@@ -2394,6 +2409,9 @@ mod tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		};
 

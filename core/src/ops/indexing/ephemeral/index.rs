@@ -453,6 +453,9 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: is_hidden_path(path),
 		})
 	}
@@ -471,6 +474,9 @@ impl EphemeralIndex {
 			created: node.meta.ctime_as_system_time(),
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: is_hidden_path(path),
 		})
 	}
@@ -1074,6 +1080,9 @@ impl EphemeralIndex {
 					created: node.meta.ctime_as_system_time(),
 					inode: None,
 					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
 					is_hidden: is_hidden_path(path),
 				};
 				result.insert(path.clone(), metadata);
@@ -1200,6 +1209,9 @@ mod rollup_tests {
 			created: None,
 			inode: None,
 			permissions: None,
+			uid: None,
+			gid: None,
+			link_target: None,
 			is_hidden: false,
 		}
 	}

@@ -197,13 +197,36 @@ impl VolumeBackend for LocalBackend {
 			let entry_path = entry.path();
 
 			#[cfg(unix)]
-			let permissions = {
+			let (permissions, uid, gid) = {
 				use std::os::unix::fs::MetadataExt;
-				Some(metadata.mode())
+				(
+					Some(metadata.mode()),
+					Some(metadata.uid()),
+					Some(metadata.gid()),
+				)
 			};
 
 			#[cfg(not(unix))]
-			let permissions = None;
+			let (permissions, uid, gid) = (None, None, None);
+
+			let link_target = if matches!(kind, EntryKind::Symlink) {
+				fs::read_link(&entry_path)
+					.await
+					.ok()
+					.map(|t| t.to_string_lossy().into_owned())
+			} else {
+				None
+			};
+
+			// A name that is not UTF-8 is recorded lossily, which means the
+			// stored path cannot reopen the file. Loud, so a run over an old
+			// archive reports how much it could not capture faithfully.
+			if entry.file_name().to_str().is_none() {
+				tracing::warn!(
+					path = %entry_path.display(),
+					"file name is not valid UTF-8; recorded lossily"
+				);
+			}
 
 			entries.push(RawDirEntry {
 				name: entry.file_name().to_string_lossy().to_string(),
@@ -214,6 +237,9 @@ impl VolumeBackend for LocalBackend {
 				accessed: metadata.accessed().ok(),
 				inode: Self::get_inode(&entry_path, &metadata),
 				permissions,
+				uid,
+				gid,
+				link_target,
 			});
 		}
 
@@ -237,13 +263,26 @@ impl VolumeBackend for LocalBackend {
 		};
 
 		#[cfg(unix)]
-		let permissions = {
+		let (permissions, uid, gid) = {
 			use std::os::unix::fs::MetadataExt;
-			Some(metadata.mode())
+			(
+				Some(metadata.mode()),
+				Some(metadata.uid()),
+				Some(metadata.gid()),
+			)
 		};
 
 		#[cfg(not(unix))]
-		let permissions = None;
+		let (permissions, uid, gid) = (None, None, None);
+
+		let link_target = if matches!(kind, EntryKind::Symlink) {
+			fs::read_link(&full_path)
+				.await
+				.ok()
+				.map(|t| t.to_string_lossy().into_owned())
+		} else {
+			None
+		};
 
 		Ok(RawMetadata {
 			kind,
@@ -253,6 +292,9 @@ impl VolumeBackend for LocalBackend {
 			accessed: metadata.accessed().ok(),
 			inode: Self::get_inode(&full_path, &metadata),
 			permissions,
+			uid,
+			gid,
+			link_target,
 		})
 	}
 

@@ -113,21 +113,15 @@ impl JobHandler for ContentIdentityJob {
 				break;
 			}
 
-			let claimed = batch.len();
-			let identities = hash_batch(batch).await;
+			let (identities, failures) = hash_batch(batch).await;
 
-			// A pass that identified nothing has found the tail of the queue:
-			// files the store still lists and this process cannot read, which
-			// the next query would hand back forever.
-			if identities.is_empty() {
-				unreadable += claimed as u64;
-				ctx.log(format!("{claimed} files could not be read; stopping"));
-				break;
-			}
-
-			unreadable += (claimed - identities.len()) as u64;
+			// Failures leave the pending set with their reason recorded, so
+			// the loop always advances and the store can say afterwards which
+			// files have no identity and why.
+			unreadable += failures.len() as u64;
 			identified += identities.len() as u64;
 			store.identified(identities).await;
+			store.content_unreadable(failures).await;
 
 			ctx.progress(Progress::generic(GenericProgress::new(
 				if outstanding > 0 {
@@ -159,31 +153,43 @@ impl JobHandler for ContentIdentityJob {
 ///
 /// A file that vanished between being listed and being opened is the ordinary
 /// case, not an error: the walk that recorded it ran earlier, and the next one
-/// will remove it.
-async fn hash_batch(batch: Vec<(Uuid, PathBuf, u64)>) -> Vec<(Uuid, ContentIdentity)> {
-	futures::stream::iter(batch)
+/// will remove it. Either way the failure is returned with its reason, so the
+/// store can take the file out of the pending set instead of handing it back
+/// on every pass.
+async fn hash_batch(
+	batch: Vec<(Uuid, PathBuf, u64)>,
+) -> (Vec<(Uuid, ContentIdentity)>, Vec<(Uuid, String)>) {
+	let results: Vec<_> = futures::stream::iter(batch)
 		.map(|(uuid, path, size)| async move {
-			let hash = ContentHashGenerator::generate_content_hash(&path)
-				.await
-				.map_err(|error| {
+			match ContentHashGenerator::generate_content_hash(&path).await {
+				Ok(hash) => Ok((
+					uuid,
+					ContentIdentity {
+						sampled_hash: Some(hash),
+						integrity_hash: None,
+						size: Some(size as i64),
+						kind: None,
+					},
+				)),
+				Err(error) => {
 					tracing::debug!(path = %path.display(), %error, "could not hash");
-				})
-				.ok()?;
-
-			Some((
-				uuid,
-				ContentIdentity {
-					sampled_hash: Some(hash),
-					integrity_hash: None,
-					size: Some(size as i64),
-					kind: None,
-				},
-			))
+					Err((uuid, error.to_string()))
+				}
+			}
 		})
 		.buffer_unordered(CONCURRENCY)
-		.filter_map(|identity| async move { identity })
 		.collect()
-		.await
+		.await;
+
+	let mut identities = Vec::new();
+	let mut failures = Vec::new();
+	for result in results {
+		match result {
+			Ok(identity) => identities.push(identity),
+			Err(failure) => failures.push(failure),
+		}
+	}
+	(identities, failures)
 }
 
 /// Queue the hashing of every source on this machine, behind whatever else is
@@ -231,7 +237,7 @@ mod tests {
 		let real = dir.path().join("real.bin");
 		std::fs::write(&real, vec![7u8; 4096]).unwrap();
 
-		let identities = hash_batch(vec![
+		let (identities, failures) = hash_batch(vec![
 			(Uuid::now_v7(), dir.path().join("gone.bin"), 10),
 			(Uuid::now_v7(), real, 4096),
 		])
@@ -239,6 +245,7 @@ mod tests {
 
 		assert_eq!(identities.len(), 1);
 		assert!(identities[0].1.sampled_hash.is_some());
+		assert_eq!(failures.len(), 1, "the missing file failed with a reason");
 	}
 
 	#[tokio::test]
@@ -249,7 +256,7 @@ mod tests {
 		std::fs::write(&one, vec![3u8; 8192]).unwrap();
 		std::fs::write(&two, vec![3u8; 8192]).unwrap();
 
-		let identities = hash_batch(vec![
+		let (identities, _) = hash_batch(vec![
 			(Uuid::now_v7(), one, 8192),
 			(Uuid::now_v7(), two, 8192),
 		])

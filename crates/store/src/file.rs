@@ -74,6 +74,11 @@ pub struct Observation {
 	pub accessed: Option<i64>,
 	pub inode: Option<i64>,
 	pub mode: Option<i64>,
+	pub uid: Option<i64>,
+	pub gid: Option<i64>,
+	/// Where a symlink points, verbatim from `readlink`. The link itself is
+	/// the record; the target is the fact it carries.
+	pub link_target: Option<String>,
 	pub extension: Option<String>,
 	pub is_hidden: bool,
 	/// The identity this path already carries, where something already knows
@@ -478,17 +483,24 @@ pub struct Watermark<'a> {
 	pub value: &'a str,
 }
 
+/// `content_error` resets on every rewrite: a facet row only changes when the
+/// walk saw the file change, and new bytes deserve a fresh attempt at reading
+/// them.
 const INSERT_FACET_FILE: &str = "\
-INSERT INTO facet_file (record_uuid, size, mtime, atime, inode, mode, extension, is_hidden)
- VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO facet_file (record_uuid, size, mtime, atime, inode, mode, uid, gid, link_target, extension, is_hidden)
+ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
  ON CONFLICT (record_uuid) DO UPDATE SET
 	size = excluded.size,
 	mtime = excluded.mtime,
 	atime = excluded.atime,
 	inode = excluded.inode,
 	mode = excluded.mode,
+	uid = excluded.uid,
+	gid = excluded.gid,
+	link_target = excluded.link_target,
 	extension = excluded.extension,
-	is_hidden = excluded.is_hidden";
+	is_hidden = excluded.is_hidden,
+	content_error = NULL";
 
 const INSERT_DIRECTORY_PATH: &str = "\
 INSERT INTO directory_path (record_uuid, path) VALUES (?, ?)
@@ -616,6 +628,9 @@ impl SourceDb {
 				.bind(observation.accessed)
 				.bind(observation.inode)
 				.bind(observation.mode)
+				.bind(observation.uid)
+				.bind(observation.gid)
+				.bind(&observation.link_target)
 				.bind(&observation.extension)
 				.bind(observation.is_hidden)
 				.execute(&mut *tx)
@@ -681,7 +696,8 @@ const PENDING_CONTENT: &str = "\
 	FROM record r \
 	JOIN facet_file f ON f.record_uuid = r.uuid \
 	LEFT JOIN directory_path d ON d.record_uuid = r.parent_uuid \
-	WHERE r.content_id IS NULL AND r.type = 'file' AND f.size > 0";
+	WHERE r.content_id IS NULL AND r.type = 'file' AND f.size > 0 \
+	AND f.content_error IS NULL";
 
 /// How many files are still waiting. What a progress bar needs, once.
 pub async fn count_files_needing_content(pool: &sqlx::SqlitePool) -> Result<i64> {
@@ -734,6 +750,29 @@ pub async fn files_needing_content(
 			})
 		})
 		.collect())
+}
+
+/// Record why files could not be read, taking them out of the pending set.
+///
+/// Without this, an unreadable file stays `content_id IS NULL` forever and
+/// every batch hands it back, so one permission-denied directory eventually
+/// fills a whole batch and starves everything behind it. The error is kept
+/// rather than a flag because the store is the record of what was and was not
+/// captured, and "no identity" without a why is a gap that cannot be audited.
+pub async fn mark_content_unreadable(
+	pool: &sqlx::SqlitePool,
+	failures: &[(Uuid, String)],
+) -> Result<()> {
+	let mut tx = pool.begin().await?;
+	for (uuid, error) in failures {
+		sqlx::query("UPDATE facet_file SET content_error = ? WHERE record_uuid = ?")
+			.bind(error)
+			.bind(uuid)
+			.execute(&mut *tx)
+			.await?;
+	}
+	tx.commit().await?;
+	Ok(())
 }
 
 /// One copy of some bytes: a record, and where it is.
@@ -986,8 +1025,15 @@ pub fn filesystem_schema() -> DataTypeSchema {
 			("atime", FieldType::Integer),
 			("inode", FieldType::Integer),
 			("mode", FieldType::Integer),
+			("uid", FieldType::Integer),
+			("gid", FieldType::Integer),
+			("link_target", FieldType::String),
 			("extension", FieldType::String),
 			("is_hidden", FieldType::Boolean),
+			// Why the last attempt to read this file's bytes failed, cleared
+			// whenever the walk sees the file change. NULL means unattempted
+			// or identified; `record.content_id` says which.
+			("content_error", FieldType::String),
 		]),
 	);
 	models.insert("image".to_string(), image_model());

@@ -143,6 +143,11 @@ pub struct RawDirEntry {
 	pub inode: Option<u64>,
 	/// Unix permission bits (mode), None for cloud backends or Windows
 	pub permissions: Option<u32>,
+	/// Unix owner, None for cloud backends or Windows
+	pub uid: Option<u32>,
+	pub gid: Option<u32>,
+	/// Where a symlink points, verbatim from `readlink`
+	pub link_target: Option<String>,
 }
 
 /// Raw metadata returned by volume backends
@@ -156,4 +161,9 @@ pub struct RawMetadata {
 	pub inode: Option<u64>,
 	/// Unix permission bits (mode), None for cloud backends or Windows
 	pub permissions: Option<u32>,
+	/// Unix owner, None for cloud backends or Windows
+	pub uid: Option<u32>,
+	pub gid: Option<u32>,
+	/// Where a symlink points, verbatim from `readlink`
+	pub link_target: Option<String>,
 }

@@ -66,6 +66,8 @@ enum Ingest {
 	FinishSweep { unreachable: Vec<String> },
 	/// The bytes behind some records have been identified.
 	Identified(Vec<(Uuid, ContentIdentity)>),
+	/// The bytes behind some records could not be read, and why.
+	Unreadable(Vec<(Uuid, String)>),
 	/// Commit what is pending and answer.
 	Flush(oneshot::Sender<()>),
 }
@@ -350,6 +352,15 @@ impl SourceStore {
 		self.send(Ingest::Identified(identities)).await;
 	}
 
+	/// Record why these files' bytes could not be read, so the pending set
+	/// shrinks instead of handing them back on every pass.
+	pub async fn content_unreadable(&self, failures: Vec<(Uuid, String)>) {
+		if failures.is_empty() {
+			return;
+		}
+		self.send(Ingest::Unreadable(failures)).await;
+	}
+
 	/// What this source actually persists: records, and the bytes behind them.
 	///
 	/// Read from the store rather than counted off the arena, because the arena
@@ -424,6 +435,9 @@ impl SourceStore {
 			accessed: metadata.accessed.map(unix_millis),
 			inode: metadata.inode.map(|i| i as i64),
 			mode: metadata.permissions.map(|p| p as i64),
+			uid: metadata.uid.map(|u| u as i64),
+			gid: metadata.gid.map(|g| g as i64),
+			link_target: metadata.link_target.clone(),
 			extension: metadata
 				.path
 				.extension()
@@ -573,6 +587,14 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 					tracing::error!(%error, "content identities failed to land");
 				}
 			}
+			Ingest::Unreadable(failures) => {
+				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				if let Err(error) =
+					sd_store::mark_content_unreadable(db.pool(), &failures).await
+				{
+					tracing::error!(%error, "content errors failed to land");
+				}
+			}
 			Ingest::Flush(done) => {
 				commit(&db, &mut writes, &mut removals, &mut renames).await;
 				let _ = done.send(());
@@ -696,6 +718,17 @@ mod tests {
 			path
 		}
 
+		/// Rewrite a file the store already holds and re-observe it, the way
+		/// a later walk would.
+		async fn change(&mut self, relative: &str, contents: &[u8]) {
+			let path = self.root.path().join(relative);
+			std::fs::write(&path, contents).expect("rewrite");
+			self.adapter
+				.create(&dir_entry(&path), self.root.path())
+				.await
+				.expect("re-observe");
+		}
+
 		/// Every record's path. Only directories store one, so a file's is
 		/// rebuilt from its parent's the way anything reading this store has to.
 		async fn paths(&self) -> Vec<String> {
@@ -749,6 +782,9 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			accessed: metadata.accessed().ok(),
 			inode: Some(hasher.finish()),
 			permissions,
+			uid: None,
+			gid: None,
+			link_target: None,
 		}
 	}
 
@@ -914,6 +950,72 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 
 		assert!(fixture.store.files_needing_content(10).await.is_empty());
 		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+	}
+
+	/// An unreadable file leaves the queue with its reason recorded, so a
+	/// permission-denied directory cannot fill every batch and starve the
+	/// files behind it.
+	#[tokio::test]
+	async fn an_unreadable_file_leaves_the_queue_with_its_reason() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("locked.bin", b"secret").await;
+		fixture.create("open.bin", b"public").await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		assert_eq!(pending.len(), 2);
+		let locked = pending
+			.iter()
+			.find(|(_, path, _)| path.ends_with("locked.bin"))
+			.expect("locked pending")
+			.0;
+
+		fixture
+			.store
+			.content_unreadable(vec![(locked, "permission denied".to_string())])
+			.await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		assert_eq!(pending.len(), 1, "the readable file is still waiting");
+		assert!(pending[0].1.ends_with("open.bin"));
+		assert_eq!(fixture.store.files_needing_content_count().await, 1);
+
+		let error: Option<String> = sqlx::query_scalar(
+			"SELECT content_error FROM facet_file f
+			  JOIN record r ON r.uuid = f.record_uuid
+			 WHERE r.title = 'locked.bin'",
+		)
+		.fetch_one(fixture.store.db().pool())
+		.await
+		.expect("content_error");
+		assert_eq!(error.as_deref(), Some("permission denied"));
+	}
+
+	/// A changed file gets a fresh attempt: the facet rewrite clears the
+	/// error the way it clears the content link.
+	#[tokio::test]
+	async fn a_changed_file_returns_to_the_queue_after_being_unreadable() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("flaky.bin", b"v1").await;
+		fixture.store.flush().await;
+
+		let pending = fixture.store.files_needing_content(10).await;
+		fixture
+			.store
+			.content_unreadable(vec![(pending[0].0, "io error".to_string())])
+			.await;
+		fixture.store.flush().await;
+		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+
+		fixture.change("flaky.bin", b"v2 with more bytes").await;
+		fixture.store.flush().await;
+
+		assert_eq!(
+			fixture.store.files_needing_content_count().await,
+			1,
+			"new bytes deserve a fresh attempt at reading them"
+		);
 	}
 
 	/// Two copies of the same bytes are one row in `content`, pointed at by
