@@ -422,6 +422,7 @@ pub fn containers_to_volumes(
 				total_files: None,
 				total_directories: None,
 				unique_bytes: None,
+				indexed_bytes: None,
 				last_stats_update: None,
 				display_name: Some(display_name),
 				is_favorite: false,

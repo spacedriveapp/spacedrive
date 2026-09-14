@@ -214,23 +214,28 @@ impl LibraryQuery for VolumeListQuery {
 			.filter(entities::source::Column::VolumeUuid.is_not_null())
 			.all(db)
 			.await?;
-		let mut whole_volume: HashMap<Uuid, i64> = HashMap::new();
-		let mut subtree_sum: HashMap<Uuid, i64> = HashMap::new();
+		let mut whole_volume: HashMap<Uuid, (i64, i64)> = HashMap::new();
+		let mut subtree_sum: HashMap<Uuid, (i64, i64)> = HashMap::new();
 		for row in source_rows {
-			let (Some(volume_uuid), Some(unique)) = (row.volume_uuid, row.unique_bytes) else {
+			let (Some(volume_uuid), Some(unique), Some(total)) =
+				(row.volume_uuid, row.unique_bytes, row.total_bytes)
+			else {
 				continue;
 			};
 			if row.root.as_deref().unwrap_or("").is_empty() {
-				whole_volume.insert(volume_uuid, unique);
+				whole_volume.insert(volume_uuid, (unique, total));
 			} else {
-				*subtree_sum.entry(volume_uuid).or_insert(0) += unique;
+				let entry = subtree_sum.entry(volume_uuid).or_insert((0, 0));
+				entry.0 += unique;
+				entry.1 += total;
 			}
 		}
 		for volume in &mut volumes {
-			volume.unique_bytes = whole_volume
+			let figures = whole_volume
 				.get(&volume.id)
-				.or_else(|| subtree_sum.get(&volume.id))
-				.map(|bytes| (*bytes).max(0) as u64);
+				.or_else(|| subtree_sum.get(&volume.id));
+			volume.unique_bytes = figures.map(|(unique, _)| (*unique).max(0) as u64);
+			volume.indexed_bytes = figures.map(|(_, total)| (*total).max(0) as u64);
 		}
 
 		tracing::info!(

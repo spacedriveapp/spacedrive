@@ -372,6 +372,7 @@ mod tests {
 			total_files: None,
 			total_directories: None,
 			unique_bytes: None,
+			indexed_bytes: None,
 			last_stats_update: None,
 			display_name: Some("Test Volume".to_string()),
 			is_favorite: false,

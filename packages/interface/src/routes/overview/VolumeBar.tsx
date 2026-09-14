@@ -143,10 +143,18 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	const availableBytes = volume.available_space || 0;
 	const usedBytes = totalCapacity - availableBytes;
 
-	// Measured from the source store's distinct content sizes, or absent.
-	// A volume nothing has indexed shows plain usage rather than an estimate.
-	const uniqueBytes = volume.unique_bytes != null ? Math.min(volume.unique_bytes, usedBytes) : usedBytes;
-	const duplicateBytes = usedBytes - uniqueBytes;
+	// The duplicate fraction is computed entirely in the store's apparent
+	// bytes, then drawn as that share of the used bar. Filesystem compression
+	// makes apparent and allocated bytes disagree (a compressed dataset's
+	// files sum to more than the blocks they occupy), so comparing the two
+	// directly hides real duplication. A volume nothing has indexed shows
+	// plain usage rather than an estimate.
+	const duplicateFraction =
+		volume.unique_bytes != null && volume.indexed_bytes != null && volume.indexed_bytes > 0
+			? Math.max(0, (volume.indexed_bytes - volume.unique_bytes) / volume.indexed_bytes)
+			: 0;
+	const duplicateBytes = Math.floor(usedBytes * duplicateFraction);
+	const uniqueBytes = usedBytes - duplicateBytes;
 
 	const uniquePercent = (uniqueBytes / totalCapacity) * 100;
 	const duplicatePercent = (duplicateBytes / totalCapacity) * 100;

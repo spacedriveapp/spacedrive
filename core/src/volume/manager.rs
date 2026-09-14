@@ -385,6 +385,7 @@ impl VolumeManager {
 									total_files: None,
 									total_directories: None,
 									unique_bytes: None,
+									indexed_bytes: None,
 									last_stats_update: None,
 									display_name: db_volume.display_name.clone(),
 									is_favorite: false,

@@ -453,6 +453,11 @@ pub struct Volume {
 	/// copy, from the source store's distinct content sizes. Absent until a
 	/// source over this volume has been indexed and hashed; never estimated.
 	pub unique_bytes: Option<u64>,
+	/// What the source store indexed, as apparent file sizes. The pair this
+	/// makes with `unique_bytes` is the honest one: both sides of a
+	/// duplicate ratio come from the same ledger, so filesystem compression
+	/// cannot skew it the way comparing against allocated blocks does.
+	pub indexed_bytes: Option<u64>,
 	pub last_stats_update: Option<DateTime<Utc>>,
 
 	/// User preferences
@@ -765,6 +770,7 @@ impl Volume {
 			total_files: None,
 			total_directories: None,
 			unique_bytes: None,
+			indexed_bytes: None,
 			last_stats_update: None,
 			display_name: Some(name),
 			is_favorite: false,
@@ -1035,6 +1041,7 @@ impl TrackedVolume {
 			total_files: None,
 			total_directories: None,
 			unique_bytes: None,
+			indexed_bytes: None,
 			last_stats_update: None,
 			display_name: self.display_name.clone(),
 			is_favorite: false,

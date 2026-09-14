@@ -4699,7 +4699,14 @@ total_files: number | null; total_directories: number | null;
  * copy, from the source store's distinct content sizes. Absent until a
  * source over this volume has been indexed and hashed; never estimated.
  */
-unique_bytes: number | null; last_stats_update: string | null; 
+unique_bytes: number | null; 
+/**
+ * What the source store indexed, as apparent file sizes. The pair this
+ * makes with `unique_bytes` is the honest one: both sides of a
+ * duplicate ratio come from the same ledger, so filesystem compression
+ * cannot skew it the way comparing against allocated blocks does.
+ */
+indexed_bytes: number | null; last_stats_update: string | null; 
 /**
  * User preferences
  */
