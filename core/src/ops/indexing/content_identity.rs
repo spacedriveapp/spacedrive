@@ -122,6 +122,10 @@ impl JobHandler for ContentIdentityJob {
 			identified += identities.len() as u64;
 			store.identified(identities).await;
 			store.content_unreadable(failures).await;
+			// Wait for this batch to land before claiming the next. The
+			// pending query reads the database, and a query that outraces the
+			// writer hands back the same files forever.
+			store.flush().await;
 
 			ctx.progress(Progress::generic(GenericProgress::new(
 				if outstanding > 0 {

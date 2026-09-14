@@ -1052,6 +1052,57 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		);
 	}
 
+	/// The hashing job's loop against a real store: claim, identify, flush,
+	/// repeat. The flush is what makes each claim see the last batch landed;
+	/// without it the query outraces the writer and hands back the same
+	/// files forever, which is a loop this test caught running against a
+	/// real drive.
+	#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+	async fn the_hashing_loop_terminates_against_a_live_writer() {
+		let mut fixture = Fixture::new().await;
+		for i in 0..700 {
+			fixture
+				.create(&format!("files/f{i:04}.bin"), format!("{i}").as_bytes())
+				.await;
+		}
+		fixture.store.flush().await;
+
+		let outstanding = fixture.store.files_needing_content_count().await;
+		assert_eq!(outstanding, 700);
+
+		let mut passes = 0;
+		loop {
+			let batch = fixture.store.files_needing_content(256).await;
+			if batch.is_empty() {
+				break;
+			}
+			passes += 1;
+			assert!(
+				passes < 100,
+				"the loop is spinning: the pending set is not shrinking"
+			);
+			let identities = batch
+				.iter()
+				.map(|(uuid, _, size)| {
+					(
+						*uuid,
+						ContentIdentity {
+							sampled_hash: Some(format!("hash-{uuid}")),
+							integrity_hash: None,
+							size: Some(*size as i64),
+							kind: None,
+						},
+					)
+				})
+				.collect();
+			fixture.store.identified(identities).await;
+			fixture.store.flush().await;
+		}
+
+		assert!(passes <= 4, "700 files at 256 a batch is three claims");
+		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+	}
+
 	/// A freeze survives what happens to the live store afterwards. That is
 	/// its entire job: the live store mirrors the disk, and the frozen copy
 	/// is the record of what the disk was.
