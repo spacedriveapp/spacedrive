@@ -83,6 +83,10 @@ pub struct SourceCounts {
 	pub directories: u64,
 	pub bytes: u64,
 	pub contents: u64,
+	/// Bytes that remain if every within-source duplicate collapsed to one
+	/// copy: each distinct content counted once, plus every file that has no
+	/// content identity yet, which is unique until proven otherwise.
+	pub unique_bytes: u64,
 }
 
 /// One copy of some bytes inside a source.
@@ -435,11 +439,16 @@ impl SourceStore {
 	/// partition would report a nested source as owning everything around it.
 	pub async fn counts(&self) -> Option<SourceCounts> {
 		self.flush().await;
-		let row: (i64, i64, Option<i64>, i64) = sqlx::query_as(
+		let row: (i64, i64, Option<i64>, i64, Option<i64>, Option<i64>) = sqlx::query_as(
 			"SELECT (SELECT COUNT(*) FROM record),
 			        (SELECT COUNT(*) FROM record WHERE type = 'directory'),
 			        (SELECT SUM(size) FROM facet_file),
-			        (SELECT COUNT(*) FROM content)",
+			        (SELECT COUNT(*) FROM content),
+			        (SELECT SUM(c.size) FROM content c
+			          WHERE EXISTS (SELECT 1 FROM record r WHERE r.content_id = c.id)),
+			        (SELECT SUM(f.size) FROM facet_file f
+			          JOIN record r ON r.uuid = f.record_uuid
+			         WHERE r.type = 'file' AND r.content_id IS NULL)",
 		)
 		.fetch_one(self.db.pool())
 		.await
@@ -449,6 +458,7 @@ impl SourceStore {
 			directories: row.1.max(0) as u64,
 			bytes: row.2.unwrap_or(0).max(0) as u64,
 			contents: row.3.max(0) as u64,
+			unique_bytes: (row.4.unwrap_or(0).max(0) + row.5.unwrap_or(0).max(0)) as u64,
 		})
 	}
 

@@ -78,56 +78,6 @@ impl VolumeListQuery {
 		None
 	}
 
-	/// Calculate unique bytes for a volume by deduplicating content using content_identity
-	///
-	/// NOTE: This should NOT be called in the query path! This is expensive.
-	/// Instead, the VolumeManager should periodically calculate this for volumes
-	/// on the current device and update the database. The query just reads the cached value.
-	///
-	/// This function is kept here for reference and can be used by the volume manager.
-	#[allow(dead_code)]
-	async fn calculate_unique_bytes_for_volume(
-		db: &sea_orm::DatabaseConnection,
-		mount_point: &str,
-	) -> QueryResult<Option<u64>> {
-		use sea_orm::{DbBackend, FromQueryResult, Statement};
-
-		// Query to calculate unique bytes on this volume:
-		// 1. Join entries with directory_paths to get full paths
-		// 2. Filter entries whose paths start with this volume's mount point
-		// 3. Join with content_identity to get content hashes
-		// 4. Group by content_hash to deduplicate, then sum total_size
-		let query = r#"
-			SELECT COALESCE(SUM(unique_size), 0) as unique_bytes
-			FROM (
-				SELECT ci.content_hash, ci.total_size as unique_size
-				FROM entries e
-				INNER JOIN directory_paths dp ON e.id = dp.entry_id
-				INNER JOIN content_identities ci ON e.content_id = ci.id
-				WHERE dp.path LIKE ? || '%'
-				  AND e.kind = 0
-				GROUP BY ci.content_hash, ci.total_size
-			)
-		"#;
-
-		#[derive(FromQueryResult)]
-		struct UniqueResult {
-			unique_bytes: i64,
-		}
-
-		let result = UniqueResult::find_by_statement(Statement::from_sql_and_values(
-			DbBackend::Sqlite,
-			query,
-			vec![mount_point.to_string().into()],
-		))
-		.one(db)
-		.await?;
-
-		match result {
-			Some(r) if r.unique_bytes > 0 => Ok(Some(r.unique_bytes as u64)),
-			_ => Ok(None),
-		}
-	}
 }
 
 impl LibraryQuery for VolumeListQuery {
@@ -252,6 +202,35 @@ impl LibraryQuery for VolumeListQuery {
 					}
 				}
 			}
+		}
+
+		// Unique bytes come from the source stores' distinct content sizes,
+		// rolled up onto the source rows as hashing lands. A whole-volume
+		// source is the volume's own figure; without one, subtree sources sum,
+		// which can overlap when sources nest and is still measurement rather
+		// than guesswork. A volume nothing has indexed stays None, and the
+		// client shows nothing rather than an estimate.
+		let source_rows = entities::source::Entity::find()
+			.filter(entities::source::Column::VolumeUuid.is_not_null())
+			.all(db)
+			.await?;
+		let mut whole_volume: HashMap<Uuid, i64> = HashMap::new();
+		let mut subtree_sum: HashMap<Uuid, i64> = HashMap::new();
+		for row in source_rows {
+			let (Some(volume_uuid), Some(unique)) = (row.volume_uuid, row.unique_bytes) else {
+				continue;
+			};
+			if row.root.as_deref().unwrap_or("").is_empty() {
+				whole_volume.insert(volume_uuid, unique);
+			} else {
+				*subtree_sum.entry(volume_uuid).or_insert(0) += unique;
+			}
+		}
+		for volume in &mut volumes {
+			volume.unique_bytes = whole_volume
+				.get(&volume.id)
+				.or_else(|| subtree_sum.get(&volume.id))
+				.map(|bytes| (*bytes).max(0) as u64);
 		}
 
 		tracing::info!(

@@ -384,6 +384,7 @@ impl VolumeManager {
 									last_seen_at: db_volume.last_seen_at,
 									total_files: None,
 									total_directories: None,
+									unique_bytes: None,
 									last_stats_update: None,
 									display_name: db_volume.display_name.clone(),
 									is_favorite: false,
@@ -2038,52 +2039,43 @@ impl VolumeManager {
 					}
 				};
 
-				let mount_point = match &db_volume.mount_point {
-					Some(mp) => mp,
-					None => {
-						debug!(
-							"Volume {} has no mount point, cannot calculate unique_bytes",
-							fingerprint.0
-						);
-						continue;
-					}
-				};
-
-				info!(
-					"Calculating unique bytes for volume {} in library {}",
-					fingerprint.0,
-					library.name().await
-				);
-
-				// Calculate unique bytes using content_identity deduplication
+				// Unique bytes come from the source stores, rolled up onto the
+				// source rows as hashing lands. A whole-volume source is the
+				// volume's own figure; without one, subtree sources sum. No
+				// source row means no evidence, and no evidence writes NULL
+				// rather than zero: an unindexed volume is unknown, not empty.
 				let query = r#"
-					SELECT COALESCE(SUM(unique_size), 0) as unique_bytes
-					FROM (
-						SELECT ci.content_hash, ci.total_size as unique_size
-						FROM entries e
-						INNER JOIN directory_paths dp ON e.id = dp.entry_id
-						INNER JOIN content_identities ci ON e.content_id = ci.id
-						WHERE dp.path LIKE ? || '%'
-						  AND e.kind = 0
-						GROUP BY ci.content_hash, ci.total_size
-					)
+					SELECT COALESCE(
+						(SELECT unique_bytes FROM sources
+						  WHERE volume_uuid = ? AND (root IS NULL OR root = '')
+						    AND unique_bytes IS NOT NULL
+						  LIMIT 1),
+						(SELECT SUM(unique_bytes) FROM sources
+						  WHERE volume_uuid = ? AND unique_bytes IS NOT NULL)
+					) as unique_bytes
 				"#;
 
 				#[derive(FromQueryResult)]
 				struct UniqueResult {
-					unique_bytes: i64,
+					unique_bytes: Option<i64>,
 				}
 
 				let result = UniqueResult::find_by_statement(Statement::from_sql_and_values(
 					DbBackend::Sqlite,
 					query,
-					vec![mount_point.clone().into()],
+					vec![db_volume.uuid.into(), db_volume.uuid.into()],
 				))
 				.one(db)
 				.await
 				.map_err(|e| VolumeError::Database(e.to_string()))?;
 
-				let unique_bytes = result.map(|r| r.unique_bytes).unwrap_or(0);
+				let Some(unique_bytes) = result.and_then(|r| r.unique_bytes) else {
+					debug!(
+						"Volume {} has no indexed sources; unique_bytes unknown",
+						fingerprint.0
+					);
+					continue;
+				};
 
 				// Update the volume record with calculated unique_bytes
 				let update_result = entities::volume::Entity::update_many()

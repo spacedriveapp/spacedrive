@@ -4693,7 +4693,13 @@ created_at: string; updated_at: string; last_seen_at: string;
 /**
  * Statistics
  */
-total_files: number | null; total_directories: number | null; last_stats_update: string | null; 
+total_files: number | null; total_directories: number | null; 
+/**
+ * Bytes remaining if every within-volume duplicate collapsed to one
+ * copy, from the source store's distinct content sizes. Absent until a
+ * source over this volume has been indexed and hashed; never estimated.
+ */
+unique_bytes: number | null; last_stats_update: string | null; 
 /**
  * User preferences
  */

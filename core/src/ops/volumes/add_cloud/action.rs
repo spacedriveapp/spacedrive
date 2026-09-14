@@ -450,6 +450,7 @@ impl LibraryAction for VolumeAddCloudAction {
 			last_seen_at: now,
 			total_files: None,
 			total_directories: None,
+			unique_bytes: None,
 			last_stats_update: None,
 			display_name: Some(self.input.display_name.clone()),
 			is_favorite: false,

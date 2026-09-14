@@ -374,6 +374,7 @@ impl EphemeralIndexCache {
 		row.directory_count = Set(record.directory_count.map(|c| c as i64));
 		row.total_bytes = Set(record.total_bytes.map(|b| b as i64));
 		row.content_count = Set(record.content_count.map(|c| c as i64));
+		row.unique_bytes = Set(record.unique_bytes.map(|b| b as i64));
 		row.last_seen_at = Set(record.last_seen_at);
 
 		source::Entity::insert(row)
@@ -384,7 +385,10 @@ impl EphemeralIndexCache {
 						source::Column::Root,
 						source::Column::VolumeUuid,
 						source::Column::RecordCount,
+						source::Column::DirectoryCount,
 						source::Column::TotalBytes,
+						source::Column::ContentCount,
+						source::Column::UniqueBytes,
 						source::Column::LastSeenAt,
 					])
 					.to_owned(),

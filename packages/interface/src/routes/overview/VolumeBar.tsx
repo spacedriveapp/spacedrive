@@ -143,7 +143,9 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 	const availableBytes = volume.available_space || 0;
 	const usedBytes = totalCapacity - availableBytes;
 
-	const uniqueBytes = (volume as any).unique_bytes ?? Math.floor(usedBytes * 0.7);
+	// Measured from the source store's distinct content sizes, or absent.
+	// A volume nothing has indexed shows plain usage rather than an estimate.
+	const uniqueBytes = volume.unique_bytes != null ? Math.min(volume.unique_bytes, usedBytes) : usedBytes;
 	const duplicateBytes = usedBytes - uniqueBytes;
 
 	const uniquePercent = (uniqueBytes / totalCapacity) * 100;

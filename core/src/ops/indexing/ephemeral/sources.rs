@@ -63,6 +63,8 @@ pub struct SourceRecord {
 	/// Distinct sets of bytes, which is fewer than `record_count` wherever the
 	/// source holds the same file twice.
 	pub content_count: Option<u64>,
+	/// Bytes remaining if every within-source duplicate collapsed to one copy.
+	pub unique_bytes: Option<u64>,
 }
 
 /// Which volume index a path belongs to.
@@ -127,6 +129,7 @@ impl SourceRecord {
 			directory_count: row.directory_count.map(|c| c.max(0) as u64),
 			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
 			content_count: row.content_count.map(|c| c.max(0) as u64),
+			unique_bytes: row.unique_bytes.map(|b| b.max(0) as u64),
 		}
 	}
 }
@@ -240,6 +243,7 @@ impl SourceRegistry {
 			directory_count: None,
 			total_bytes: None,
 			content_count: None,
+			unique_bytes: None,
 		};
 		self.sources.push(record.clone());
 		record
@@ -333,6 +337,7 @@ impl SourceRegistry {
 		record.directory_count = Some(counts.directories);
 		record.total_bytes = Some(counts.bytes);
 		record.content_count = Some(counts.contents);
+		record.unique_bytes = Some(counts.unique_bytes);
 		record.last_seen_at = Utc::now();
 		Some(record.clone())
 	}

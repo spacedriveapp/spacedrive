@@ -167,6 +167,7 @@ pub async fn detect_non_apfs_volumes(
 					last_seen_at: now,
 					total_files: None,
 					total_directories: None,
+					unique_bytes: None,
 					last_stats_update: None,
 					display_name: Some(name),
 					is_favorite: false,

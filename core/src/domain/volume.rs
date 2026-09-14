@@ -449,6 +449,10 @@ pub struct Volume {
 	/// Statistics
 	pub total_files: Option<u64>,
 	pub total_directories: Option<u64>,
+	/// Bytes remaining if every within-volume duplicate collapsed to one
+	/// copy, from the source store's distinct content sizes. Absent until a
+	/// source over this volume has been indexed and hashed; never estimated.
+	pub unique_bytes: Option<u64>,
 	pub last_stats_update: Option<DateTime<Utc>>,
 
 	/// User preferences
@@ -760,6 +764,7 @@ impl Volume {
 			last_seen_at: now,
 			total_files: None,
 			total_directories: None,
+			unique_bytes: None,
 			last_stats_update: None,
 			display_name: Some(name),
 			is_favorite: false,
@@ -1029,6 +1034,7 @@ impl TrackedVolume {
 			last_seen_at: self.last_seen_at,
 			total_files: None,
 			total_directories: None,
+			unique_bytes: None,
 			last_stats_update: None,
 			display_name: self.display_name.clone(),
 			is_favorite: false,
