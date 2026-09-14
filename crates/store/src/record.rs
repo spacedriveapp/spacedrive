@@ -82,6 +82,7 @@ CREATE TABLE IF NOT EXISTS content (
     kind INTEGER
 );
 CREATE INDEX IF NOT EXISTS idx_content_uuid ON content(uuid);
+CREATE INDEX IF NOT EXISTS idx_record_content ON record(content_id);
 CREATE INDEX IF NOT EXISTS idx_content_integrity ON content(integrity_hash);
 
 CREATE TABLE IF NOT EXISTS edge (

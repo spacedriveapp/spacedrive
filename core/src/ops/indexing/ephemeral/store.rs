@@ -445,7 +445,8 @@ impl SourceStore {
 			        (SELECT SUM(size) FROM facet_file),
 			        (SELECT COUNT(*) FROM content),
 			        (SELECT SUM(c.size) FROM content c
-			          WHERE EXISTS (SELECT 1 FROM record r WHERE r.content_id = c.id)),
+			          JOIN (SELECT DISTINCT content_id FROM record
+			                 WHERE content_id IS NOT NULL) r ON r.content_id = c.id),
 			        (SELECT SUM(f.size) FROM facet_file f
 			          JOIN record r ON r.uuid = f.record_uuid
 			         WHERE r.type = 'file' AND r.content_id IS NULL)",
