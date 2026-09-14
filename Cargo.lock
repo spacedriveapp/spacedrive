@@ -11494,6 +11494,7 @@ dependencies = [
  "objc2-ui-kit",
  "once_cell",
  "opendal",
+ "openssl-sys",
  "owo-colors",
  "parking_lot",
  "postcard",

@@ -229,6 +229,12 @@ vergen         = { version = "8", features = ["cargo", "git", "gitcl"] }
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
+[target.'cfg(target_os = "linux")'.dependencies]
+# reqwest's default TLS is native-tls, which is openssl on Linux. Vendoring it
+# keeps cross-compiled and musl builds self-contained instead of hunting for
+# system openssl headers.
+openssl-sys = { version = "0.9", features = ["vendored"] }
+
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "3.3" # Native trash/recycle bin support on desktop platforms
 
