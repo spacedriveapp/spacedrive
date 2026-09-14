@@ -361,6 +361,23 @@ impl Ledger {
 			return Vec::new();
 		};
 
+		// A sweep that wants to erase most of the store is evidence about the
+		// walk, never about the files. A drive does not lose half its
+		// contents between two scans; a walk loses its footing (unmounted
+		// root, interrupted discovery, a resumed job with no memory of what
+		// it saw). Refusing leaves stale rows for an honest walk to clean up
+		// later, which is recoverable; obeying deleted 217k records once,
+		// which was not.
+		let total = self.bindings.len();
+		if total > 100 && unseen.len() * 2 > total {
+			tracing::error!(
+				unseen = unseen.len(),
+				total,
+				"sweep refused: it saw too little of what the store holds"
+			);
+			return Vec::new();
+		}
+
 		let gone: Vec<Uuid> = unseen
 			.into_iter()
 			.filter(|uuid| {

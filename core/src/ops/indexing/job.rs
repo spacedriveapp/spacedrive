@@ -158,7 +158,12 @@ pub struct IndexerJob {
 
 impl Job for IndexerJob {
 	const NAME: &'static str = "indexer";
-	const RESUMABLE: bool = true;
+	// A walk is a sweep, and a sweep's observation set lives in memory: what
+	// this run has seen so far dies with the process. A resumed walk that
+	// finished its sweep would delete everything the interrupted half
+	// observed, which is exactly what happened the one time it ran. A fresh
+	// walk is cheap and correct; there is nothing here worth resuming.
+	const RESUMABLE: bool = false;
 	const DESCRIPTION: Option<&'static str> = Some("Index files in a location");
 }
 

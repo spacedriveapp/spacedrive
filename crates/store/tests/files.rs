@@ -929,3 +929,35 @@ async fn ownership_and_link_targets_land_in_the_facet() {
 	assert_eq!(gid, Some(20));
 	assert_eq!(target.as_deref(), Some("../archive/original.mp4"));
 }
+
+
+/// A sweep that saw almost nothing must not be believed. The walk that
+/// opened it lost its footing (interrupted, resumed, root unmounted); the
+/// drive did not lose half its files between two scans. Stale rows are
+/// recoverable by an honest walk; obeying a blind sweep once deleted an
+/// entire store.
+#[tokio::test]
+async fn a_sweep_that_saw_almost_nothing_is_refused() {
+	let mut ledger = Ledger::default();
+	for i in 0..200 {
+		let observation = observe(&format!("f{i:03}.bin"), 10, 1_000, Some(i as i64));
+		ledger.resolve(&observation);
+	}
+	assert_eq!(ledger.len(), 200);
+
+	// A blind sweep: opened, saw two files, closed.
+	ledger.begin_sweep();
+	ledger.resolve(&observe("f000.bin", 10, 1_000, Some(0)));
+	ledger.resolve(&observe("f001.bin", 10, 1_000, Some(1)));
+	let gone = ledger.finish_sweep(&[]);
+	assert!(gone.is_empty(), "the blind sweep deleted {} rows", gone.len());
+	assert_eq!(ledger.len(), 200, "every binding survives the refusal");
+
+	// An honest sweep that saw most of the store still works.
+	ledger.begin_sweep();
+	for i in 0..150 {
+		ledger.resolve(&observe(&format!("f{i:03}.bin"), 10, 1_000, Some(i as i64)));
+	}
+	let gone = ledger.finish_sweep(&[]);
+	assert_eq!(gone.len(), 50, "the honest sweep removes what it did not see");
+}
