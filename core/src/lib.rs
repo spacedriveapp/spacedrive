@@ -743,6 +743,20 @@ async fn register_default_protocol_handlers(
 	));
 	let mut event_subscriber = networking.subscribe_events();
 	let job_activity_registry = networking.device_registry();
+
+	// The cache keeps terminal jobs so a just-finished run stays inspectable,
+	// but a busy peer completes thousands a day, so old ones are swept.
+	let remote_job_cache = context.remote_job_cache.clone();
+	tokio::spawn(async move {
+		let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(600));
+		loop {
+			interval.tick().await;
+			remote_job_cache
+				.cleanup_old_jobs(chrono::Duration::hours(1))
+				.await;
+		}
+	});
+
 	tokio::spawn(async move {
 		use service::network::core::NetworkEvent;
 		use service::network::device::DeviceState;
