@@ -50,6 +50,24 @@ pub async fn remote_share(source_id: Uuid) -> Option<Arc<RemoteShare>> {
 	shares_map().read().await.get(&source_id).cloned()
 }
 
+/// Each paired device's own library statistics, refreshed with every sync.
+/// This is what lets every device report the same fleet-wide totals: each
+/// machine computes its own numbers and the others add them verbatim.
+static DEVICE_SUMMARIES: OnceLock<
+	TokioRwLock<HashMap<Uuid, crate::service::network::protocol::byterange::RemoteDeviceSummary>>,
+> = OnceLock::new();
+
+fn summaries_map() -> &'static TokioRwLock<
+	HashMap<Uuid, crate::service::network::protocol::byterange::RemoteDeviceSummary>,
+> {
+	DEVICE_SUMMARIES.get_or_init(|| TokioRwLock::new(HashMap::new()))
+}
+
+pub async fn device_summaries(
+) -> HashMap<Uuid, crate::service::network::protocol::byterange::RemoteDeviceSummary> {
+	summaries_map().read().await.clone()
+}
+
 /// Open a fresh bi-stream to a paired device and send one request.
 async fn request(
 	context: &Arc<CoreContext>,
@@ -286,6 +304,21 @@ pub async fn sync_device(
 		});
 		shares_map().write().await.insert(info.id, share);
 		synced += 1;
+	}
+
+	// The owner's own accounting rides along with every sync, so fleet
+	// totals stay as fresh as the replicas. A peer running an older build
+	// answers with an error; totals then just omit that device.
+	match request(context, device_id, &ByteRangeRequest::DeviceSummary).await {
+		Ok((ByteRangeResponse::DeviceSummary(summary), _)) => {
+			summaries_map().write().await.insert(device_id, summary);
+		}
+		Ok((other, _)) => {
+			tracing::debug!("device summary from {device_label}: unexpected {other:?}");
+		}
+		Err(err) => {
+			tracing::debug!("device summary from {device_label} failed: {err}");
+		}
 	}
 
 	tracing::info!("peer mounts: {synced} source(s) replicated from {device_label} ({device_id})");

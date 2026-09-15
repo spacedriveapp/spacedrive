@@ -596,6 +596,26 @@ impl Library {
 	}
 
 	/// Trigger async statistics recalculation
+	/// Current capacity readings by fingerprint, from live detection.
+	/// Volume rows persist at track time and age, and only live detection
+	/// applies filesystem-specific corrections such as the ZFS pool-root
+	/// capacity fix.
+	pub(crate) async fn live_capacity_by_fingerprint(
+		volume_manager: &crate::volume::VolumeManager,
+	) -> std::collections::HashMap<String, (u64, u64)> {
+		volume_manager
+			.get_all_volumes()
+			.await
+			.into_iter()
+			.map(|volume| {
+				(
+					volume.fingerprint.0.clone(),
+					(volume.total_capacity, volume.available_space),
+				)
+			})
+			.collect()
+	}
+
 	pub async fn recalculate_statistics(&self) -> Result<()> {
 		let library_id = self.id();
 		let library_name = self.name().await;
@@ -604,6 +624,8 @@ impl Library {
 		let db = self.db().clone();
 		let config = self.config.read().await.clone();
 		let config_lock = Arc::clone(&self.config);
+		let live_capacity =
+			Self::live_capacity_by_fingerprint(&self.core_context.volume_manager).await;
 
 		debug!(
 			library_id = %library_id,
@@ -626,6 +648,7 @@ impl Library {
 				db,
 				config,
 				config_lock,
+				live_capacity,
 			)
 			.await
 			{
@@ -654,6 +677,7 @@ impl Library {
 		db: Arc<Database>,
 		mut config: LibraryConfig,
 		config_lock: Arc<RwLock<LibraryConfig>>,
+		live_capacity: std::collections::HashMap<String, (u64, u64)>,
 	) -> Result<()> {
 		debug!(
 			library_id = %library_id,
@@ -661,7 +685,7 @@ impl Library {
 			"Starting statistics calculation from database"
 		);
 
-		let mut stats = Self::calculate_all_statistics_static(&db, &path).await?;
+		let mut stats = Self::calculate_all_statistics_static(&db, &path, &live_capacity).await?;
 		stats.updated_at = chrono::Utc::now();
 
 		debug!(
@@ -809,6 +833,7 @@ impl Library {
 	async fn calculate_all_statistics_static(
 		db: &Arc<Database>,
 		path: &PathBuf,
+		live_capacity: &std::collections::HashMap<String, (u64, u64)>,
 	) -> Result<LibraryStatistics> {
 		let db_conn = db.conn();
 
@@ -864,7 +889,7 @@ impl Library {
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
 		let (total_capacity, available_capacity) =
-			Self::calculate_volume_capacity_static(&db_conn).await?;
+			Self::calculate_volume_capacity_static(&db_conn, live_capacity).await?;
 		debug!(
 			total_capacity = total_capacity,
 			available_capacity = available_capacity,
@@ -1031,108 +1056,9 @@ impl Library {
 		&self,
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<(u64, u64)> {
-		use crate::infra::db::entities::volume;
-		use sea_orm::{EntityTrait, QueryTrait};
-
-		debug!("Starting volume capacity calculation");
-		let volumes = volume::Entity::find().all(db).await?;
-
-		// First pass: filter to user-visible volumes
-		let mut user_volumes: Vec<_> = volumes
-			.into_iter()
-			.filter(|vol| {
-				let volume_type = vol.volume_type.as_deref().unwrap_or("Unknown");
-				matches!(
-					volume_type,
-					"Primary" | "UserData" | "External" | "Secondary"
-				)
-			})
-			// Drop volumes the user can't see. Honor the persisted flag *and*
-			// re-check the current platform visibility rules so stale DB rows
-			// (created before the filter logic existed) don't inflate the
-			// library's reported capacity. Without this, every ZFS dataset on
-			// a TrueNAS pool gets counted even though they share storage.
-			.filter(|vol| {
-				vol.is_user_visible.unwrap_or(true)
-					&& !vol
-						.mount_point
-						.as_deref()
-						.map(std::path::Path::new)
-						.map(crate::volume::utils::should_hide_by_mount_path)
-						.unwrap_or(false)
-			})
-			.collect();
-
-		// Deduplicate by fingerprint first (same physical volume tracked multiple times)
-		let mut seen_fingerprints = std::collections::HashSet::new();
-		user_volumes.retain(|v| seen_fingerprints.insert(v.fingerprint.clone()));
-
-		// Sort by mount point length (shorter first) to detect parent volumes first
-		user_volumes.sort_by_key(|v| v.mount_point.as_ref().map(|m| m.len()).unwrap_or(0));
-
-		let mut total_capacity = 0u64;
-		let mut available_capacity = 0u64;
-		let mut counted_volumes = 0;
-		let mut excluded_by_subpath = 0;
-
-		let mut counted_mount_points: Vec<(Uuid, String)> = Vec::new();
-
-		for vol in user_volumes {
-			let mount_point = match &vol.mount_point {
-				Some(mp) => mp,
-				None => continue,
-			};
-
-			// Check if this volume's mount point is a subpath of any already-counted volume on the SAME device
-			// Use path-aware comparison to avoid false positives like "/Volumes/Seagate" matching "/Volumes/Seagate 20TB"
-			let mount_path = std::path::Path::new(mount_point);
-			let is_subpath = counted_mount_points
-				.iter()
-				.any(|(parent_device, parent_mount)| {
-					vol.device_id == *parent_device
-						&& mount_path.starts_with(std::path::Path::new(parent_mount))
-						&& mount_point != parent_mount
-				});
-
-			if is_subpath {
-				debug!(
-					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
-					mount_point = ?mount_point,
-					device_id = ?vol.device_id,
-					"Excluding volume: subpath of already-counted volume on same device"
-				);
-				excluded_by_subpath += 1;
-				continue;
-			}
-
-			// Count this volume
-			if let Some(capacity) = vol.total_capacity {
-				total_capacity = total_capacity.saturating_add(capacity as u64);
-				counted_volumes += 1;
-				counted_mount_points.push((vol.device_id, mount_point.clone()));
-				debug!(
-					volume_type = vol.volume_type.as_deref().unwrap_or("Unknown"),
-					mount_point = ?mount_point,
-					capacity = capacity,
-					fingerprint = vol.fingerprint,
-					device_id = ?vol.device_id,
-					"Counted volume"
-				);
-			}
-			if let Some(available) = vol.available_capacity {
-				available_capacity = available_capacity.saturating_add(available as u64);
-			}
-		}
-
-		debug!(
-			total_capacity = total_capacity,
-			available_capacity = available_capacity,
-			counted_volumes = counted_volumes,
-			excluded_by_subpath = excluded_by_subpath,
-			"Completed volume capacity calculation"
-		);
-
-		Ok((total_capacity, available_capacity))
+		let live =
+			Self::live_capacity_by_fingerprint(&self.core_context.volume_manager).await;
+		Self::calculate_volume_capacity_static(db, &live).await
 	}
 
 	/// Calculate database file size
@@ -1221,7 +1147,7 @@ impl Library {
 
 	// Static versions of calculation methods for background tasks
 
-	async fn calculate_file_statistics_static(
+	pub(crate) async fn calculate_file_statistics_static(
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<(u64, u64)> {
 		use crate::infra::db::entities::source;
@@ -1281,7 +1207,7 @@ impl Library {
 		Ok(count as u32)
 	}
 
-	async fn calculate_unique_content_count_static(
+	pub(crate) async fn calculate_unique_content_count_static(
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<u64> {
 		use crate::infra::db::entities::source;
@@ -1343,8 +1269,9 @@ impl Library {
 	/// Only counts user-relevant volumes (Primary, UserData, External, Secondary)
 	/// Excludes system volumes (VM, Recovery, Preboot, etc.)
 	/// Excludes volumes that are subpaths of other volumes (e.g., /System/Volumes/Data/home inside /System/Volumes/Data)
-	async fn calculate_volume_capacity_static(
+	pub(crate) async fn calculate_volume_capacity_static(
 		db: &sea_orm::DatabaseConnection,
+		live_capacity: &std::collections::HashMap<String, (u64, u64)>,
 	) -> Result<(u64, u64)> {
 		use crate::infra::db::entities::volume;
 		use sea_orm::{EntityTrait, QueryTrait};
@@ -1381,6 +1308,15 @@ impl Library {
 		// Deduplicate by fingerprint first (same physical volume tracked multiple times)
 		let mut seen_fingerprints = std::collections::HashSet::new();
 		user_volumes.retain(|v| seen_fingerprints.insert(v.fingerprint.clone()));
+
+		// Prefer live readings where detection has one; see
+		// `live_capacity_by_fingerprint`.
+		for row in user_volumes.iter_mut() {
+			if let Some((total, available)) = live_capacity.get(&row.fingerprint) {
+				row.total_capacity = Some(*total as i64);
+				row.available_capacity = Some(*available as i64);
+			}
+		}
 
 		// Sort by mount point length (shorter first) to detect parent volumes first
 		user_volumes.sort_by_key(|v| v.mount_point.as_ref().map(|m| m.len()).unwrap_or(0));

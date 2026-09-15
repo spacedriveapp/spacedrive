@@ -10,6 +10,33 @@ use std::process::Command;
 use tokio::task;
 use tracing::{debug, warn};
 
+/// The zfs and zpool binaries live in /sbin or /usr/sbin, which a daemon
+/// launched outside a login shell (TrueNAS, systemd, ssh non-interactive)
+/// often does not have on PATH. Resolve an absolute path once so detection
+/// does not depend on the launching environment.
+fn resolve_bin(name: &'static str, candidates: &[&'static str]) -> &'static str {
+	candidates
+		.iter()
+		.find(|path| Path::new(path).exists())
+		.copied()
+		.unwrap_or(name)
+}
+
+fn zfs_bin() -> &'static str {
+	static BIN: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+	BIN.get_or_init(|| resolve_bin("zfs", &["/sbin/zfs", "/usr/sbin/zfs", "/usr/local/sbin/zfs"]))
+}
+
+fn zpool_bin() -> &'static str {
+	static BIN: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
+	BIN.get_or_init(|| {
+		resolve_bin(
+			"zpool",
+			&["/sbin/zpool", "/usr/sbin/zpool", "/usr/local/sbin/zpool"],
+		)
+	})
+}
+
 /// ZFS filesystem handler
 pub struct ZfsHandler;
 
@@ -38,7 +65,7 @@ impl ZfsHandler {
 
 		task::spawn_blocking(move || {
 			// Use zfs list to find the dataset containing this path
-			let output = Command::new("zfs")
+			let output = Command::new(zfs_bin())
 				.args([
 					"list",
 					"-H",
@@ -75,7 +102,7 @@ impl ZfsHandler {
 		let pool_name = pool_name.to_string();
 
 		task::spawn_blocking(move || {
-			let output = Command::new("zpool")
+			let output = Command::new(zpool_bin())
 				.args(["status", "-v", &pool_name])
 				.output()
 				.map_err(|e| {
@@ -115,7 +142,7 @@ impl ZfsHandler {
 		let pool_name = pool_name.to_string();
 
 		task::spawn_blocking(move || {
-			let output = Command::new("zfs")
+			let output = Command::new(zfs_bin())
 				.args([
 					"list",
 					"-H",
@@ -374,7 +401,7 @@ fn parse_zfs_size(size_str: &str) -> Option<u64> {
 /// Fetch `zfs list` output once for reuse across multiple volumes
 pub async fn fetch_zfs_list_output() -> VolumeResult<String> {
 	task::spawn_blocking(|| {
-		let output = Command::new("zfs")
+		let output = Command::new(zfs_bin())
 			.args([
 				"list",
 				"-H",

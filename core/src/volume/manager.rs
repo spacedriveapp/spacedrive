@@ -1601,6 +1601,10 @@ impl VolumeManager {
 			row.mount_point = Set(Some(volume.mount_point.to_string_lossy().to_string()));
 			row.is_online = Set(volume.is_mounted);
 			row.last_seen_at = Set(chrono::Utc::now());
+			// Capacity moves with every write to the drive; a sighting is
+			// also a fresh reading, so the row keeps pace with detection.
+			row.total_capacity = Set(Some(volume.total_capacity as i64));
+			row.available_capacity = Set(Some(volume.available_space as i64));
 			row.update(db)
 				.await
 				.map_err(|e| VolumeError::Database(e.to_string()))?;

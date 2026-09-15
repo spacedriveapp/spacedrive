@@ -108,6 +108,22 @@ impl LibraryQuery for LibraryInfoQuery {
 			cached_stats
 		};
 
+		// Fleet totals: each paired device reports its own statistics during
+		// peer sync, and they are added at read time rather than persisted,
+		// so every device shows the same numbers and a stale peer figure
+		// never outlives the next sync.
+		let mut statistics = statistics;
+		for summary in crate::service::mounts::peer::device_summaries()
+			.await
+			.values()
+		{
+			statistics.total_files += summary.file_count;
+			statistics.total_size += summary.total_size;
+			statistics.unique_content_count += summary.unique_content_count;
+			statistics.total_capacity += summary.total_capacity;
+			statistics.available_capacity += summary.available_capacity;
+		}
+
 		tracing::debug!(
 			library_id = %config.id,
 			library_name = %config.name,

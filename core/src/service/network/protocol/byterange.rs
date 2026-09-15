@@ -46,6 +46,22 @@ pub enum ByteRangeRequest {
 	/// The serving device's current snapshot for one source, saved fresh
 	/// before sending so the replica starts from live state.
 	FetchSnapshot { source_id: Uuid },
+	/// The serving device's own library statistics, so peers report the
+	/// same fleet-wide totals it does.
+	DeviceSummary,
+}
+
+/// One device's own accounting of what it holds, computed by the same
+/// statistics code its own UI reads. Peers cache this so every device
+/// reports fleet-wide totals without re-deriving another machine's numbers
+/// from replicas.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RemoteDeviceSummary {
+	pub file_count: u64,
+	pub total_size: u64,
+	pub unique_content_count: u64,
+	pub total_capacity: u64,
+	pub available_capacity: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,6 +96,7 @@ pub enum ByteRangeResponse {
 		len: u64,
 	},
 	Sources(Vec<RemoteSourceInfo>),
+	DeviceSummary(RemoteDeviceSummary),
 	/// Followed by exactly `len` raw bytes on the stream.
 	SnapshotHeader {
 		len: u64,
@@ -242,6 +259,41 @@ impl ByteRangeProtocolHandler {
 					});
 				}
 				write_frame(send, &ByteRangeResponse::Sources(sources)).await
+			}
+			ByteRangeRequest::DeviceSummary => {
+				let libraries = self.context.libraries().await.get_open_libraries().await;
+				let Some(library) = libraries.first() else {
+					return write_frame(send, &ByteRangeResponse::Error("no open library".into()))
+						.await;
+				};
+				let db = library.db().conn();
+				let (file_count, total_size) =
+					crate::library::Library::calculate_file_statistics_static(db)
+						.await
+						.unwrap_or((0, 0));
+				let unique_content_count =
+					crate::library::Library::calculate_unique_content_count_static(db)
+						.await
+						.unwrap_or(0);
+				let live = crate::library::Library::live_capacity_by_fingerprint(
+					&self.context.volume_manager,
+				)
+				.await;
+				let (total_capacity, available_capacity) =
+					crate::library::Library::calculate_volume_capacity_static(db, &live)
+						.await
+						.unwrap_or((0, 0));
+				write_frame(
+					send,
+					&ByteRangeResponse::DeviceSummary(RemoteDeviceSummary {
+						file_count,
+						total_size,
+						unique_content_count,
+						total_capacity,
+						available_capacity,
+					}),
+				)
+				.await
 			}
 			ByteRangeRequest::FetchSnapshot { source_id } => {
 				let cache = self.context.ephemeral_cache();
