@@ -36,6 +36,8 @@ pub enum JobCmd {
 	Resume(JobControlArgs),
 	/// Cancel a job
 	Cancel(JobControlArgs),
+	/// List jobs running on paired devices
+	Remote,
 }
 
 pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
@@ -125,6 +127,42 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
 					println!("Job {} cancelled successfully", o.job_id);
 				} else {
 					println!("Failed to cancel job {}", o.job_id);
+				}
+			});
+		}
+		JobCmd::Remote => {
+			use sd_core::ops::jobs::remote_list::{
+				output::RemoteJobsAllDevicesOutput, query::RemoteJobsAllDevicesInput,
+			};
+			let out: RemoteJobsAllDevicesOutput =
+				execute_core_query!(ctx, RemoteJobsAllDevicesInput {});
+			print_output!(ctx, &out, |o: &RemoteJobsAllDevicesOutput| {
+				if o.jobs_by_device.is_empty() {
+					println!("No remote job activity (paired devices report jobs as they run)");
+					return;
+				}
+				for jobs in o.jobs_by_device.values() {
+					let Some(device_name) = jobs.first().map(|j| j.device_name.as_str()) else {
+						continue;
+					};
+					println!("{device_name}:");
+					for j in jobs {
+						let progress = j
+							.progress
+							.map(|p| format!(" {}%", (p * 100.0) as u32))
+							.unwrap_or_default();
+						println!(
+							"- {} {} {:?}{}{}",
+							j.job_id,
+							j.job_type,
+							j.status,
+							progress,
+							j.message
+								.as_deref()
+								.map(|m| format!(" — {m}"))
+								.unwrap_or_default()
+						);
+					}
 				}
 			});
 		}

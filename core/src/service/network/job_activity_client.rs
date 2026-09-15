@@ -9,7 +9,7 @@ use crate::service::network::{
 	NetworkingError, Result,
 };
 use iroh::{endpoint::Connection, Endpoint, EndpointId};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::RwLock;
@@ -22,6 +22,11 @@ pub struct JobActivityClient {
 	connections: Arc<RwLock<HashMap<(EndpointId, Vec<u8>), Connection>>>,
 	remote_cache: Arc<RemoteJobCache>,
 	device_registry: Arc<RwLock<DeviceRegistry>>,
+	/// Devices with a live subscription stream. Guards against a second
+	/// subscription to the same device, which would double-deliver every
+	/// event; the receiver task removes its device when the stream closes,
+	/// so a reconnect subscribes cleanly.
+	subscribed: Arc<RwLock<HashSet<Uuid>>>,
 }
 
 impl JobActivityClient {
@@ -36,15 +41,30 @@ impl JobActivityClient {
 			connections,
 			remote_cache,
 			device_registry,
+			subscribed: Arc::new(RwLock::new(HashSet::new())),
 		}
 	}
 
-	/// Subscribe to job activity from a remote device
+	/// Subscribe to job activity from a remote device. A device that already
+	/// has a live subscription is left alone.
 	pub async fn subscribe_to_device(
 		&self,
 		device_id: Uuid,
 		library_id: Option<Uuid>,
 	) -> Result<()> {
+		if !self.subscribed.write().await.insert(device_id) {
+			return Ok(());
+		}
+		match self.open_subscription(device_id, library_id).await {
+			Ok(()) => Ok(()),
+			Err(err) => {
+				self.subscribed.write().await.remove(&device_id);
+				Err(err)
+			}
+		}
+	}
+
+	async fn open_subscription(&self, device_id: Uuid, library_id: Option<Uuid>) -> Result<()> {
 		// Get node_id from device registry
 		let node_id = {
 			let registry = self.device_registry.read().await;
@@ -91,9 +111,11 @@ impl JobActivityClient {
 		// Spawn receiver task
 		let remote_cache = self.remote_cache.clone();
 		let device_registry = self.device_registry.clone();
+		let subscribed = self.subscribed.clone();
 
 		tokio::spawn(async move {
 			Self::receive_events(device_id, recv, remote_cache, device_registry).await;
+			subscribed.write().await.remove(&device_id);
 		});
 
 		Ok(())

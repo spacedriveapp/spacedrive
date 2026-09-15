@@ -728,7 +728,66 @@ async fn register_default_protocol_handlers(
 			.await;
 	}
 
-	// Job activity auto-subscription disabled
+	// Relay remote job activity into the local cache: `jobs.remote.*` reads
+	// what this fills. Subscriptions follow connections — every paired device
+	// is subscribed as it connects, and the client's receiver drops its guard
+	// when a stream closes so a reconnect subscribes again.
+	let job_activity_client = Arc::new(service::network::JobActivityClient::new(
+		networking
+			.endpoint()
+			.cloned()
+			.ok_or("Endpoint not initialized")?,
+		networking.active_connections(),
+		context.remote_job_cache.clone(),
+		networking.device_registry(),
+	));
+	let mut event_subscriber = networking.subscribe_events();
+	let job_activity_registry = networking.device_registry();
+	tokio::spawn(async move {
+		use service::network::core::NetworkEvent;
+		use service::network::device::DeviceState;
+		use tokio::sync::broadcast::error::RecvError;
+
+		let subscribe = |device_id: uuid::Uuid| {
+			let client = job_activity_client.clone();
+			async move {
+				match client.subscribe_to_device(device_id, None).await {
+					Ok(()) => {}
+					Err(err) => tracing::warn!(
+						"Job activity subscription to device {device_id} failed: {err}"
+					),
+				}
+			}
+		};
+
+		// Devices that connected before this task existed (fast
+		// auto-reconnects race startup) are swept once here; the event
+		// loop below covers everything after.
+		let connected: Vec<uuid::Uuid> = {
+			let registry = job_activity_registry.read().await;
+			registry
+				.get_all_devices()
+				.into_iter()
+				.filter_map(|(id, state)| {
+					matches!(state, DeviceState::Connected { .. }).then_some(id)
+				})
+				.collect()
+		};
+		for device_id in connected {
+			subscribe(device_id).await;
+		}
+
+		loop {
+			match event_subscriber.recv().await {
+				Ok(NetworkEvent::ConnectionEstablished { device_id, .. }) => {
+					subscribe(device_id).await;
+				}
+				Ok(_) => {}
+				Err(RecvError::Lagged(_)) => continue,
+				Err(RecvError::Closed) => break,
+			}
+		}
+	});
 
 	// Brief delay to ensure protocol handlers are fully initialized and background
 	// tasks have started before accepting connections. This prevents race conditions

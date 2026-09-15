@@ -80,27 +80,61 @@ impl RemoteJobCache {
 				);
 			}
 
+			// Started and progress events build the row when it is missing:
+			// nothing emits a queued event today, and a subscription opened
+			// mid-run never saw one anyway.
 			RemoteJobEvent::JobStarted {
-				job_id, timestamp, ..
+				job_id,
+				job_type,
+				timestamp,
 			} => {
-				if let Some(job) = device_jobs.get_mut(&job_id) {
-					job.status = JobStatus::Running;
-					job.started_at = Some(timestamp);
-				}
+				let job = device_jobs
+					.entry(job_id.clone())
+					.or_insert_with(|| RemoteJobState {
+						job_id,
+						job_type,
+						library_id,
+						device_id,
+						device_name,
+						status: JobStatus::Running,
+						progress: None,
+						message: None,
+						generic_progress: None,
+						started_at: None,
+						completed_at: None,
+						error: None,
+					});
+				job.status = JobStatus::Running;
+				job.started_at = Some(timestamp);
 			}
 
 			RemoteJobEvent::JobProgress {
 				job_id,
+				job_type,
 				progress,
 				message,
 				generic_progress,
-				..
+				timestamp,
 			} => {
-				if let Some(job) = device_jobs.get_mut(&job_id) {
-					job.progress = Some(progress);
-					job.message = message;
-					job.generic_progress = generic_progress;
-				}
+				let job = device_jobs
+					.entry(job_id.clone())
+					.or_insert_with(|| RemoteJobState {
+						job_id,
+						job_type,
+						library_id,
+						device_id,
+						device_name,
+						status: JobStatus::Running,
+						progress: None,
+						message: None,
+						generic_progress: None,
+						started_at: Some(timestamp),
+						completed_at: None,
+						error: None,
+					});
+				job.progress = Some(progress);
+				job.message = message;
+				job.generic_progress = generic_progress;
 			}
 
 			RemoteJobEvent::JobCompleted {
