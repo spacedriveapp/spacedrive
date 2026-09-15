@@ -134,9 +134,10 @@ impl EphemeralEventHandler {
 						continue;
 					};
 					for root in roots {
-						let job = crate::ops::indexing::content_identity::ContentIdentityJob::new(
-							root.clone(),
-						);
+						let job =
+							crate::ops::indexing::content_identity::ContentIdentityJob::background(
+								root.clone(),
+							);
 						if let Err(e) = library
 							.jobs()
 							.dispatch_with_priority(

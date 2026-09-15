@@ -39,11 +39,26 @@ const CONCURRENCY: usize = 8;
 pub struct ContentIdentityJob {
 	/// The source's root, which is how its store is found.
 	root: PathBuf,
+	/// Dispatched by the watcher's hashing nudge or the launch pass rather
+	/// than a user action. The default keeps resumed pre-flag state valid.
+	#[serde(default)]
+	background: bool,
 }
 
 impl ContentIdentityJob {
 	pub fn new(root: PathBuf) -> Self {
-		Self { root }
+		Self {
+			root,
+			background: false,
+		}
+	}
+
+	/// A pass nobody asked for by hand: the launch sweep or a watcher nudge.
+	pub fn background(root: PathBuf) -> Self {
+		Self {
+			root,
+			background: true,
+		}
 	}
 }
 
@@ -74,6 +89,15 @@ impl crate::infra::job::traits::DynJob for ContentIdentityJob {
 	/// the store, so a second dispatch would only duplicate reads.
 	fn dedup_key(&self) -> Option<String> {
 		Some(self.root.display().to_string())
+	}
+
+	/// Background passes keep their job row for the record but stay off the
+	/// event bus: the watcher nudges one per dirty root every thirty seconds
+	/// on a busy drive, and a launch dispatches one per source, so announcing
+	/// each start and completion turns routine upkeep into a stream of
+	/// finished-job notifications.
+	fn should_emit_events(&self) -> bool {
+		!self.background
 	}
 }
 
@@ -229,7 +253,7 @@ pub async fn identify_every_source(
 			continue;
 		}
 
-		let job = ContentIdentityJob::new(source.root.clone());
+		let job = ContentIdentityJob::background(source.root.clone());
 		match library
 			.jobs()
 			.dispatch_with_priority(job, JobPriority::LOW, None)
