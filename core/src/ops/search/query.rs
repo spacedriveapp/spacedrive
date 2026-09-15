@@ -91,13 +91,21 @@ impl FileSearchQuery {
 					&self.input.query,
 					path,
 					&self.input.filters,
+					&context,
 					cache,
 					registry,
 				)
 				.await?
 			}
 			SearchScope::Library => {
-				search_every_index(&self.input.query, &self.input.filters, cache, registry).await?
+				search_every_index(
+					&self.input.query,
+					&self.input.filters,
+					&context,
+					cache,
+					registry,
+				)
+				.await?
 			}
 		};
 

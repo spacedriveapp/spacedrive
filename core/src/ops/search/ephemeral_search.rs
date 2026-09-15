@@ -19,10 +19,12 @@ use std::path::PathBuf;
 use uuid::Uuid;
 
 /// Search one partition of the volume index, scoped to a path within it.
+/// A scope on another device is served from that device's replica.
 pub async fn search_ephemeral_index(
 	query: &str,
 	path_scope: &SdPath,
 	filters: &SearchFilters,
+	context: &std::sync::Arc<crate::context::CoreContext>,
 	cache: &EphemeralIndexCache,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<Vec<FileSearchResult>, QueryError> {
@@ -33,6 +35,33 @@ pub async fn search_ephemeral_index(
 	else {
 		return Ok(Vec::new());
 	};
+
+	if *device_slug != crate::device::get_current_device_slug() {
+		let shares = crate::service::mounts::peer::remote_shares().await;
+		let Some(share) = shares.iter().find(|share| {
+			local_path.starts_with(&share.info.root)
+				&& context
+					.device_manager
+					.get_device_slug(share.device_id)
+					.is_some_and(|slug| slug == *device_slug)
+		}) else {
+			return Ok(Vec::new());
+		};
+
+		let matching_paths = {
+			let index = share.index.read().await;
+			matches_in(&index, query, Some(local_path))
+		};
+		return collect_results(
+			&share.index,
+			matching_paths,
+			query,
+			device_slug,
+			filters,
+			file_type_registry,
+		)
+		.await;
+	}
 
 	// A registered source that has not been touched this session restores from
 	// its snapshot here, including detached drives, whose indexes serve
@@ -60,14 +89,17 @@ pub async fn search_ephemeral_index(
 }
 
 /// Search every partition, which is what a library-wide search is now that
-/// every attached drive is mapped.
+/// every attached drive is mapped — including paired devices' sources,
+/// whose replicated indexes answer from memory just like the local ones.
 pub async fn search_every_index(
 	query: &str,
 	filters: &SearchFilters,
+	context: &std::sync::Arc<crate::context::CoreContext>,
 	cache: &EphemeralIndexCache,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<Vec<FileSearchResult>, QueryError> {
 	let mut results = Vec::new();
+	let local_slug = crate::device::get_current_device_slug();
 
 	for index_arc in cache.all_indexes() {
 		let matching_paths = {
@@ -80,7 +112,37 @@ pub async fn search_every_index(
 				&index_arc,
 				matching_paths,
 				query,
-				"",
+				&local_slug,
+				filters,
+				file_type_registry,
+			)
+			.await?,
+		);
+	}
+
+	for share in crate::service::mounts::peer::remote_shares().await {
+		// A hit is addressed by its owning device's slug, which is what
+		// routes a listing or preview of it back through the replica.
+		let Some(slug) = context.device_manager.get_device_slug(share.device_id) else {
+			tracing::debug!(
+				"replica of {} has no slug for device {}; skipping in search",
+				share.info.root.display(),
+				share.device_id
+			);
+			continue;
+		};
+
+		let matching_paths = {
+			let index = share.index.read().await;
+			matches_in(&index, query, None)
+		};
+
+		results.extend(
+			collect_results(
+				&share.index,
+				matching_paths,
+				query,
+				&slug,
 				filters,
 				file_type_registry,
 			)
