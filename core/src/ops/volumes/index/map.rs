@@ -45,6 +45,9 @@ pub struct MapOptions {
 	/// What the walk keeps. Summarising is the difference between a map that
 	/// fits in memory and one that does not.
 	pub retention: Retention,
+	/// Whether the walk reports on the event bus. A walk someone requested
+	/// does; the launch fill of every drive does not.
+	pub announce: bool,
 }
 
 impl MapOptions {
@@ -58,6 +61,7 @@ impl MapOptions {
 			priority: JobPriority::LOW,
 			reindex: false,
 			retention: Retention::map(covered),
+			announce: false,
 		}
 	}
 }
@@ -94,6 +98,7 @@ pub async fn map_volume(
 
 	let mut config = IndexerJobConfig::ephemeral_browse(sd_path, options.scope, true);
 	config.retention = options.retention;
+	config.announce = options.announce;
 	if volume.mount_type == MountType::External {
 		// An archived drive's index must reflect the whole drive: rules are
 		// view-time lenses, not walk-time exclusions, for removable media.

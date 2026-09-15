@@ -82,6 +82,7 @@ impl LibraryAction for IndexVolumeAction {
 				// including an accounting for what the rules hold back. The
 				// background map is the one that trades detail for memory.
 				retention: Retention::source(),
+				announce: true,
 			},
 			Some(action_context),
 		)

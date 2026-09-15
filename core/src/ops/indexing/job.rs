@@ -93,6 +93,12 @@ pub struct IndexerJobConfig {
 	/// background map of a drive keeps structure and counts the rest.
 	#[serde(default)]
 	pub retention: super::summary::Retention,
+	/// Someone asked for this walk by hand, so it reports its start and
+	/// completion on the event bus. Walks the system dispatches for itself —
+	/// browses, the launch map of each drive — run without announcements; the
+	/// job row and its logs are kept either way.
+	#[serde(default)]
+	pub announce: bool,
 }
 
 impl IndexerJobConfig {
@@ -109,6 +115,7 @@ impl IndexerJobConfig {
 			run_in_background: false,
 			is_volume_indexing: is_volume,
 			retention: Retention::everything(),
+			announce: false,
 		}
 	}
 
@@ -183,7 +190,7 @@ impl DynJob for IndexerJob {
 	}
 
 	fn should_emit_events(&self) -> bool {
-		self.config.is_volume_indexing || self.should_persist()
+		self.config.announce
 	}
 }
 

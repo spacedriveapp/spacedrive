@@ -198,6 +198,7 @@ pub async fn track_and_index(
 		IndexScope::Recursive,
 		whole_volume,
 	);
+	config.announce = true;
 	if unfiltered {
 		config.rule_toggles = RuleToggles::none();
 	}

@@ -92,7 +92,7 @@ impl JobActivityClient {
 
 		// Send subscribe message
 		let subscribe_msg = JobActivityMessage::Subscribe { library_id };
-		let msg_data = rmp_serde::to_vec(&subscribe_msg)
+		let msg_data = rmp_serde::to_vec_named(&subscribe_msg)
 			.map_err(|e| NetworkingError::Protocol(format!("Serialization error: {}", e)))?;
 
 		let len = (msg_data.len() as u32).to_be_bytes();

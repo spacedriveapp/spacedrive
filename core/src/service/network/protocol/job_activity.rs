@@ -470,8 +470,11 @@ impl ProtocolHandler for JobActivityProtocolHandler {
 
 		// Loop: receive events from channel and write to stream
 		while let Some(message) = event_rx.recv().await {
-			// Serialize
-			let data = match rmp_serde::to_vec(&message) {
+			// Named encoding: JobOutput is adjacently tagged, and serde's
+			// tagged enums only deserialize from self-describing maps. The
+			// compact array encoding sends completion events the receiver
+			// cannot read.
+			let data = match rmp_serde::to_vec_named(&message) {
 				Ok(d) => d,
 				Err(e) => {
 					error!("Failed to serialize: {}", e);
