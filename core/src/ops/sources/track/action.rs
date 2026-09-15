@@ -154,10 +154,20 @@ pub async fn track_and_index(
 
 	// The capture policy is the source's, not the caller's moment: the
 	// watcher reads it for every later event, so it has to survive with the
-	// registration.
+	// registration. Tracking may widen it and never narrows it, so a plain
+	// re-track cannot silently demote an archival source; narrowing is
+	// `sources.update`'s explicit job.
+	let unfiltered = unfiltered
+		|| context
+			.ephemeral_cache()
+			.source_config(id)
+			.is_some_and(|config| config.unfiltered);
 	context
 		.ephemeral_cache()
-		.set_source_unfiltered(id, unfiltered)
+		.set_source_config(
+			id,
+			crate::ops::indexing::ephemeral::sources::SourceConfig { unfiltered },
+		)
 		.await;
 
 	// Seed the partition from its snapshot before walking over it. A partition

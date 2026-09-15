@@ -126,6 +126,34 @@ watched and runs above that. The row is what decides whether a watcher is
 attached to a subtree, which is the job that earns it a table. A bookmark would
 not.
 
+## The policy taxonomy
+
+The old location row bundled every preference a scope could have. The
+demotion did not relocate that bundle; it dissolved it, because it was
+three different kinds of policy that want different owners:
+
+| policy | question it answers | owner | mechanism |
+|---|---|---|---|
+| capture | what gets recorded durably | the source | `SourceConfig` in the source row's config column; the walk and the watcher both read it |
+| attention | what is kept in full and watched live | the location | `Retention.covered` and `Notify::Each` (L1, L2) |
+| display | what a person sees | the lens | rules applied at view time over a store that captured everything |
+
+Two rules keep the boundaries honest. Nothing filters at write time
+except capture, and capture defaults to everything: any policy applied
+during a write silently loses data that a view-time policy would merely
+hide, which is how live changes under `temp/` once vanished from an
+archival source while its walks kept them. And capture only widens
+implicitly: tracking a root again may turn the rules off, never on, so
+a casual re-track cannot demote an archival source. Narrowing is
+`sources.update`'s explicit job, and it removes nothing, because the
+records stand and the lens decides what shows.
+
+The old `index_mode` does not reappear anywhere in this table. Shallow,
+content and deep were capture depths, and capture no longer has depths:
+structure is always recorded, identity is tiered automatically (sampled
+behind the walk, integrity behind a decision that needs it), and the
+LOD is the arena's memory policy rather than a per-scope choice.
+
 ## Two rules to fix now
 
 Both are cheap to decide and expensive to discover.

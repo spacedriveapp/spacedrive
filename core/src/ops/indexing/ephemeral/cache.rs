@@ -18,6 +18,7 @@ use super::EphemeralIndex;
 use crate::infra::db::entities::source;
 use crate::infra::db::Database;
 use crate::infra::source_dirs::SourceDirs;
+use crate::ops::indexing::ephemeral::sources::SourceConfig;
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
@@ -375,7 +376,7 @@ impl EphemeralIndexCache {
 		row.total_bytes = Set(record.total_bytes.map(|b| b as i64));
 		row.content_count = Set(record.content_count.map(|c| c as i64));
 		row.unique_bytes = Set(record.unique_bytes.map(|b| b as i64));
-		row.config = Set(serde_json::json!({ "unfiltered": record.unfiltered }).to_string());
+		row.config = Set(record.config.to_json());
 		row.last_seen_at = Set(record.last_seen_at);
 
 		source::Entity::insert(row)
@@ -533,7 +534,7 @@ impl EphemeralIndexCache {
 			.registry
 			.lock()
 			.resolve(path)
-			.map(|record| record.unfiltered)
+			.map(|record| record.config.unfiltered)
 			.unwrap_or(false);
 		if unfiltered {
 			crate::ops::indexing::rules::RuleToggles::none()
@@ -542,12 +543,32 @@ impl EphemeralIndexCache {
 		}
 	}
 
-	/// Record how a source captures, persisting the change.
-	pub async fn set_source_unfiltered(&self, id: Uuid, unfiltered: bool) {
-		let updated = self.registry.lock().set_unfiltered(id, unfiltered);
+	/// A registered source's display name, by id.
+	pub fn source_name(&self, id: Uuid) -> Option<String> {
+		self.registry.lock().by_id(id).map(|record| record.name.clone())
+	}
+
+	/// A registered source's capture policy, by id.
+	pub fn source_config(&self, id: Uuid) -> Option<SourceConfig> {
+		self.registry.lock().by_id(id).map(|record| record.config.clone())
+	}
+
+	/// Update a source's capture policy, persisting the change.
+	pub async fn set_source_config(&self, id: Uuid, config: SourceConfig) {
+		let updated = self.registry.lock().set_config(id, config);
 		if let Some(updated) = updated {
 			if let Err(err) = self.persist(&updated).await {
 				tracing::error!(source = %id, %err, "could not persist capture policy");
+			}
+		}
+	}
+
+	/// Rename a source, persisting the change.
+	pub async fn set_source_name(&self, id: Uuid, name: String) {
+		let updated = self.registry.lock().set_name(id, name);
+		if let Some(updated) = updated {
+			if let Err(err) = self.persist(&updated).await {
+				tracing::error!(source = %id, %err, "could not persist the rename");
 			}
 		}
 	}

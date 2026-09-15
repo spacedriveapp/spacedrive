@@ -15,6 +15,7 @@ pub mod registry;
 pub mod search;
 pub mod sync;
 pub mod track;
+pub mod update;
 pub mod verify;
 
 pub use create::*;
@@ -25,4 +26,5 @@ pub use list::*;
 pub use list_items::*;
 pub use sync::*;
 pub use track::*;
+pub use update::*;
 pub use verify::*;

@@ -30,6 +30,31 @@ use uuid::Uuid;
 
 use crate::infra::db::entities::source;
 
+/// A source's capture policy: what its walk and its watcher record.
+///
+/// This is the write-time policy and the only one: attention (retention,
+/// watching) belongs to locations, and display filtering belongs to lenses
+/// over a store that captured everything. Serde defaults keep every field
+/// optional in the stored JSON, so rows written before a field existed parse
+/// as the default.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct SourceConfig {
+	/// Record everything readable, skipping the default rules. The walk and
+	/// the watcher both follow this.
+	#[serde(default)]
+	pub unfiltered: bool,
+}
+
+impl SourceConfig {
+	pub fn from_json(json: &str) -> Self {
+		serde_json::from_str(json).unwrap_or_default()
+	}
+
+	pub fn to_json(&self) -> String {
+		serde_json::to_string(self).unwrap_or_else(|_| "{}".to_string())
+	}
+}
+
 /// The drive a source is being registered against.
 #[derive(Debug, Clone)]
 pub struct VolumeAnchor {
@@ -65,11 +90,11 @@ pub struct SourceRecord {
 	pub content_count: Option<u64>,
 	/// Bytes remaining if every within-source duplicate collapsed to one copy.
 	pub unique_bytes: Option<u64>,
-	/// Whether this source records everything readable, skipping the default
-	/// rules. The watcher follows this the same as the walk: a policy that
-	/// differed between the two made live changes silently vanish from
-	/// directories the rules dislike (temp, cache) on archival sources.
-	pub unfiltered: bool,
+	/// The capture policy, persisted in the row's config column. The watcher
+	/// follows it the same as the walk: a policy that differed between the
+	/// two made live changes silently vanish from directories the rules
+	/// dislike (temp, cache) on archival sources.
+	pub config: SourceConfig,
 }
 
 /// Which volume index a path belongs to.
@@ -135,10 +160,7 @@ impl SourceRecord {
 			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
 			content_count: row.content_count.map(|c| c.max(0) as u64),
 			unique_bytes: row.unique_bytes.map(|b| b.max(0) as u64),
-			unfiltered: serde_json::from_str::<serde_json::Value>(&row.config)
-				.ok()
-				.and_then(|config| config.get("unfiltered").and_then(|v| v.as_bool()))
-				.unwrap_or(false),
+			config: SourceConfig::from_json(&row.config),
 		}
 	}
 }
@@ -253,7 +275,7 @@ impl SourceRegistry {
 			total_bytes: None,
 			content_count: None,
 			unique_bytes: None,
-			unfiltered: false,
+			config: SourceConfig::default(),
 		};
 		self.sources.push(record.clone());
 		record
@@ -352,10 +374,18 @@ impl SourceRegistry {
 		Some(record.clone())
 	}
 
-	/// Record how a source captures, returning the changed record to persist.
-	pub fn set_unfiltered(&mut self, id: Uuid, unfiltered: bool) -> Option<SourceRecord> {
+	/// Update a source's capture policy, returning the changed record to
+	/// persist.
+	pub fn set_config(&mut self, id: Uuid, config: SourceConfig) -> Option<SourceRecord> {
 		let record = self.sources.iter_mut().find(|source| source.id == id)?;
-		record.unfiltered = unfiltered;
+		record.config = config;
+		Some(record.clone())
+	}
+
+	/// Rename a source, returning the changed record to persist.
+	pub fn set_name(&mut self, id: Uuid, name: String) -> Option<SourceRecord> {
+		let record = self.sources.iter_mut().find(|source| source.id == id)?;
+		record.name = name;
 		Some(record.clone())
 	}
 
@@ -375,6 +405,21 @@ mod tests {
 			uuid: Uuid::from_u128(1),
 			mount_point: PathBuf::from(mount),
 		}
+	}
+
+
+	/// The config column predates the struct, so rows holding `{}` or later
+	/// JSON with fields this build does not know must parse to defaults
+	/// rather than fail: a policy that cannot be read would silently become
+	/// a different policy.
+	#[test]
+	fn capture_policy_survives_the_json_round_trip() {
+		assert!(!SourceConfig::from_json("{}").unfiltered);
+		assert!(!SourceConfig::from_json("not json").unfiltered);
+		assert!(SourceConfig::from_json(r#"{"unfiltered":true,"later_field":1}"#).unfiltered);
+
+		let config = SourceConfig { unfiltered: true };
+		assert!(SourceConfig::from_json(&config.to_json()).unfiltered);
 	}
 
 	#[test]

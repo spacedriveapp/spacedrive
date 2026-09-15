@@ -10,6 +10,7 @@ use sd_core::ops::sources::{
 	freeze::action::{FreezeSourceInput, FreezeSourceOutput},
 	list::{output::SourceInfo, query::ListSourcesInput},
 	track::action::{TrackSourceInput, TrackSourceOutput},
+	update::action::{UpdateSourceInput, UpdateSourceOutput},
 	verify::action::{VerifySourceInput, VerifySourceOutput},
 };
 
@@ -24,6 +25,8 @@ pub enum SourceCmd {
 	/// Read every byte of the source's duplicate files, upgrading their
 	/// content identity from candidate to confirmed
 	Verify(SourceVerifyArgs),
+	/// Rename a source or change its capture policy
+	Update(SourceUpdateArgs),
 }
 
 #[derive(Args, Debug)]
@@ -50,6 +53,20 @@ pub struct SourceFreezeArgs {
 pub struct SourceVerifyArgs {
 	/// The source's id, from `sources list`
 	pub source_id: String,
+}
+
+#[derive(Args, Debug)]
+pub struct SourceUpdateArgs {
+	/// The source's id, from `sources list`
+	pub source_id: String,
+	/// New display name
+	#[arg(long)]
+	pub name: Option<String>,
+	/// Record everything readable (true), or apply the default rules to new
+	/// captures (false). Widening dispatches a walk for what was skipped;
+	/// narrowing removes nothing, since hiding is view-time.
+	#[arg(long)]
+	pub unfiltered: Option<bool>,
 }
 
 pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
@@ -99,6 +116,25 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 					]);
 				}
 				println!("{table}");
+			});
+		}
+		SourceCmd::Update(args) => {
+			let input = UpdateSourceInput {
+				source_id: args.source_id,
+				name: args.name,
+				unfiltered: args.unfiltered,
+			};
+
+			let out: UpdateSourceOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &UpdateSourceOutput| {
+				println!(
+					"{} — capture: {}",
+					o.name,
+					if o.unfiltered { "everything" } else { "default rules" }
+				);
+				if let Some(job) = o.rewalk_job {
+					println!("Walking for what the rules skipped (job {job})");
+				}
 			});
 		}
 		SourceCmd::Verify(args) => {

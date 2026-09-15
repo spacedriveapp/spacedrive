@@ -4526,6 +4526,15 @@ success: boolean;
  */
 message: string };
 
+export type UpdateSourceInput = { source_id: string; name?: string | null; unfiltered?: boolean | null };
+
+export type UpdateSourceOutput = { name: string; unfiltered: boolean; 
+/**
+ * The walk dispatched to capture what the rules previously skipped.
+ * Only set when the policy widened.
+ */
+rewalk_job: string | null };
+
 /**
  * Input for location path validation
  */
@@ -5013,6 +5022,7 @@ export type LibraryAction =
   |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
   |  { type: 'sources.sync'; input: SyncSourceInput; output: JobReceipt }
   |  { type: 'sources.track'; input: TrackSourceInput; output: TrackSourceOutput }
+  |  { type: 'sources.update'; input: UpdateSourceInput; output: UpdateSourceOutput }
   |  { type: 'sources.verify'; input: VerifySourceInput; output: VerifySourceOutput }
   |  { type: 'spaces.add_group'; input: AddGroupInput; output: AddGroupOutput }
   |  { type: 'spaces.add_item'; input: AddItemInput; output: AddItemOutput }
@@ -5161,6 +5171,7 @@ export const WIRE_METHODS = {
     'sources.freeze': 'action:sources.freeze.input',
     'sources.sync': 'action:sources.sync.input',
     'sources.track': 'action:sources.track.input',
+    'sources.update': 'action:sources.update.input',
     'sources.verify': 'action:sources.verify.input',
     'spaces.add_group': 'action:spaces.add_group.input',
     'spaces.add_item': 'action:spaces.add_item.input',
