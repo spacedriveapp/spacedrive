@@ -175,9 +175,12 @@ async fn serve_hot_thumb(
 	let record_uuid = Uuid::parse_str(&record_uuid).map_err(|_| StatusCode::BAD_REQUEST)?;
 	let version: u64 = version.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
 
+	// Tiles are keyed by the volume index, not the source: two sources over
+	// one drive share a cache. The id in the URL is the volume index id the
+	// thumbs.request output named.
 	let path = state
 		.data_dir
-		.join("sources")
+		.join("volumes")
 		.join(source_id.simple().to_string())
 		.join("thumbs.pvcache");
 

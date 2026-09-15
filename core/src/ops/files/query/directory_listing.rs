@@ -317,11 +317,16 @@ impl DirectoryListingQuery {
 			}
 
 			// Create ephemeral indexer job for this directory (shallow, current scope only)
-			let config = IndexerJobConfig::ephemeral_browse(
+			let mut config = IndexerJobConfig::ephemeral_browse(
 				self.input.path.clone(),
 				IndexScope::Current, // Only current directory, not recursive
 				false,               // Directory browsing, not volume indexing
 			);
+			// The listing reaches the UI through ResourceChanged events as
+			// files are discovered; the walk itself is background work. A
+			// persisted job row and a completion event per directory visited
+			// would announce every navigation as a finished job.
+			config.run_in_background = true;
 
 			let mut indexer_job = IndexerJob::new(config);
 
