@@ -438,6 +438,17 @@ impl EphemeralIndexCache {
 			.collect()
 	}
 
+	/// Where a source's index snapshot lives on disk. The snapshot belongs to
+	/// the drive's volume index rather than the source's own directory, so
+	/// resolving it goes through the registry's volume assignment.
+	pub fn source_snapshot_path(&self, source_id: Uuid) -> Option<PathBuf> {
+		let dirs = self.dirs.as_ref()?;
+		let registry = self.registry.lock();
+		let record = registry.all().iter().find(|r| r.id == source_id)?;
+		let (volume, _) = registry.volume_of(record);
+		Some(dirs.snapshot_file(volume.id()))
+	}
+
 	/// Start mapping a drive. Idempotent; a remount moves its mount point.
 	///
 	/// Tracking is not registration: nothing appears in the sources list and

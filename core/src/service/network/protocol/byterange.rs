@@ -211,14 +211,11 @@ impl ByteRangeProtocolHandler {
 			}
 			ByteRangeRequest::ListSources => {
 				let cache = self.context.ephemeral_cache();
-				let dirs =
-					crate::infra::source_dirs::SourceDirs::under_data_dir(&self.context.data_dir)
-						.ok();
 				let mut sources = Vec::new();
 				for s in cache.sources() {
-					let generation = dirs
-						.as_ref()
-						.and_then(|dirs| std::fs::metadata(dirs.snapshot_file(s.id)).ok())
+					let generation = cache
+						.source_snapshot_path(s.id)
+						.and_then(|path| std::fs::metadata(path).ok())
 						.and_then(|meta| {
 							Some(crate::infra::source_version::source_version(
 								meta.len(),
@@ -259,8 +256,7 @@ impl ByteRangeProtocolHandler {
 						tracing::debug!("pre-fetch snapshot save failed: {err}");
 					}
 				}
-				let Some(snapshot_path) = source.directory.map(|d| d.join("ephemeral.snapshot"))
-				else {
+				let Some(snapshot_path) = cache.source_snapshot_path(source_id) else {
 					return write_frame(
 						send,
 						&ByteRangeResponse::Error("source has no persistent snapshot".into()),
