@@ -110,6 +110,51 @@ impl EphemeralEventHandler {
 			});
 		}
 
+		// Roots the watcher has changed files under since the last hashing
+		// nudge. Drained on a timer: the content job claims its work from the
+		// store and dispatch dedupes on the root, so nudging is idempotent
+		// and the cost of a nudge with nothing to do is one empty query.
+		let dirty_roots: Arc<std::sync::Mutex<std::collections::HashSet<std::path::PathBuf>>> =
+			Arc::new(std::sync::Mutex::new(std::collections::HashSet::new()));
+		{
+			let dirty_roots = dirty_roots.clone();
+			let context = context.clone();
+			let is_running = is_running.clone();
+			tokio::spawn(async move {
+				const HASH_NUDGE_INTERVAL: std::time::Duration =
+					std::time::Duration::from_secs(30);
+				while is_running.load(Ordering::SeqCst) {
+					tokio::time::sleep(HASH_NUDGE_INTERVAL).await;
+					let roots: Vec<std::path::PathBuf> =
+						dirty_roots.lock().unwrap().drain().collect();
+					if roots.is_empty() {
+						continue;
+					}
+					let libraries = context.libraries().await.get_open_libraries().await;
+					let Some(library) = libraries.first() else {
+						continue;
+					};
+					for root in roots {
+						let job = crate::ops::indexing::content_identity::ContentIdentityJob::new(
+							root.clone(),
+						);
+						if let Err(e) = library
+							.jobs()
+							.dispatch_with_priority(
+								job,
+								crate::infra::job::types::JobPriority::LOW,
+								None,
+							)
+							.await
+						{
+							warn!(root = %root.display(), "could not nudge hashing: {e}");
+						}
+					}
+				}
+			});
+		}
+
+		let dirty_for_events = dirty_roots.clone();
 		tokio::spawn(async move {
 			debug!("EphemeralEventHandler task started");
 
@@ -118,6 +163,10 @@ impl EphemeralEventHandler {
 					Ok(event) => {
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {
 							error!("Error handling ephemeral event: {}", e);
+						} else if let Some(root) =
+							context.ephemeral_cache().source_root_for(&event.path)
+						{
+							dirty_for_events.lock().unwrap().insert(root);
 						}
 					}
 					Err(broadcast::error::RecvError::Lagged(n)) => {

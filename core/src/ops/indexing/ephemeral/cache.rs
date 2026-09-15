@@ -552,6 +552,11 @@ impl EphemeralIndexCache {
 		}
 	}
 
+	/// The root of the source owning `path`, when one does.
+	pub fn source_root_for(&self, path: &Path) -> Option<PathBuf> {
+		self.registry.lock().resolve(path).map(|record| record.root.clone())
+	}
+
 	/// A registered source's current absolute root, by id.
 	///
 	/// The registry is the authority: the library row stores the root
