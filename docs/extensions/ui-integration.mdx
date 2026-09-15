@@ -1,57 +1,102 @@
 ---
 title: UI Integration
+description: Add views, previews, inspector sections, and commands
 sidebarTitle: UI Integration
 ---
 
-## Extending the Spacedrive Interface
+Extensions contribute interface elements through a declarative manifest. The
+host renders canonical Spacedrive components and keeps navigation, permissions,
+loading, errors, and accessibility consistent.
 
-Extensions are not limited to background tasks and data processing; they can also add new elements to the Spacedrive user interface. This is done through a `ui_manifest.json` file that is packaged with your extension.
+## Contributions
 
-This declarative approach allows extensions to add UI components without needing to write any frontend code. The Spacedrive application interprets this manifest and renders the appropriate UI elements.
+An extension can add:
 
-### `ui_manifest.json`
+- a top-level or grouped view;
+- an inspector section;
+- a context-menu command;
+- file-kind badges and metadata rows;
+- preview renderers and controls;
+- settings for its own package.
 
-Here is an example of what a `ui_manifest.json` file might look like for a Photos extension:
+Use a location pin for a path. Use an extension view for a query or workflow.
 
-```json
+## Example manifest
+
+~~~json
 {
-	"sidebar_sections": [
-		{
-			"id": "people",
-			"label": "People",
-			"icon": "assets/people_icon.png",
-			"query": "tags LIKE '#person:%'",
-			"render_type": "list"
-		}
-	],
-	"views": [
-		{
-			"id": "places_map",
-			"label": "Places",
-			"component": "map_view",
-			"data_source": "query:exif_gps"
-		}
-	]
+  "views": [
+    {
+      "id": "people",
+      "label": "People",
+      "icon": "person",
+      "query": "photos.people.list",
+      "render": "collection"
+    }
+  ],
+  "inspectors": [
+    {
+      "id": "photo-details",
+      "when": { "file_kind": ["image/heic", "image/jpeg"] },
+      "query": "photos.asset.info"
+    }
+  ],
+  "commands": [
+    {
+      "id": "photos.find-similar",
+      "label": "Find Similar",
+      "action": "photos.find_similar"
+    }
+  ]
 }
-```
+~~~
 
-### Sidebar Sections
+Operation names refer to handlers registered by the extension. The manifest
+cannot embed arbitrary SQL or shell commands.
 
-You can add new sections to the main sidebar in Spacedrive. Each section is defined by:
+## Views
 
--   `id`: A unique identifier for the section.
--   `label`: The text that will be displayed in the sidebar.
--   `icon`: The path to an icon to be displayed next to the label.
--   `query`: A VDFS query that provides the data for this section.
--   `render_type`: The type of component to use for rendering the data (e.g., `list`, `grid`).
+A view receives typed query results and renders a supported layout. It reports:
 
-### Views
+- loading and empty state;
+- partial results from offline sources;
+- permission denial;
+- stale model generation;
+- the extension required to interpret its data.
 
-Views are custom UI components that can be displayed in the main content area. They are defined by:
+An extension can group its secondary views under one section. It should request
+a top-level home only for a distinct, repeated user activity.
 
--   `id`: A unique identifier for the view.
--   `label`: The title of the view.
--   `component`: The name of a core-provided component to use for rendering (e.g., `map_view`).
--   `data_source`: The source of the data for the view, which can be a VDFS query or another data source.
+## Previews
 
-By using these declarative UI components, extensions can provide a rich user experience that is consistent with the rest of the Spacedrive application.
+File-kind registration connects a record to a preview capability. The preview
+can request byte ranges or a declared sidecar variant.
+
+The host controls the frame, loading state, fallback, and dangerous actions.
+The extension controls the file-specific rendering and commands.
+
+## Inspector sections
+
+Inspector sections add typed facts without replacing core identity,
+availability, path, provenance, and protection fields.
+
+Every displayed value should identify whether it came from the source,
+Spacedrive core, a person, or the extension.
+
+## Commands
+
+Context commands receive the selected stable record or content IDs and call a
+registered action. The host can preview capability scope before execution.
+
+Commands declare whether they are read-only, mutating, destructive, or external
+data transfer. The interface presents the corresponding confirmation.
+
+## Design rules
+
+- Use canonical components.
+- Keep extension navigation removable.
+- Never hide source availability or partial results.
+- Do not copy file metadata into a private UI cache.
+- Preserve keyboard and screen-reader behavior.
+- Provide a useful fallback when the extension is disabled.
+- Keep mutations behind registered actions.

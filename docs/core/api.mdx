@@ -1,308 +1,175 @@
 ---
 title: API
+description: The typed operation surface shared by every Spacedrive client
 sidebarTitle: API
 ---
 
-<Note type="warning">
-  The API infrastructure is under active development. Some features described here are planned but not yet fully implemented. This document reflects both current implementation and planned architecture.
-</Note>
+Spacedrive exposes one registered operation surface. Desktop, web, CLI, MCP,
+extensions, and remote clients all use the same core actions and queries.
 
-The API infrastructure provides a secure, unified entry point for all Spacedrive operations. It handles authentication, authorization, session management, and request routing across CLI, Tauri desktop app, and native applications.
+The API is a capability boundary. A transport can carry a request, but only the
+operation registry, session scope, and library policy decide what it may do.
 
-## Architecture Overview
+## Operations
 
-All API requests flow through a common pipeline:
+Every operation is either a query or an action.
 
-```
-Application → SessionContext → ApiDispatcher → PermissionLayer → Operation
-```
+### Queries
 
-This design enforces security policies consistently while providing rich context to operations.
+Queries read state without changing it. They list sources, browse records,
+search content, inspect jobs, and report availability.
 
-## Session Management
+### Actions
 
-Sessions encapsulate all request context, replacing simple parameter passing with structured metadata:
+Actions request a state change. Small actions can commit immediately. File
+transfers, indexing, verification, and other long-running work dispatch durable
+jobs and return stable job IDs.
 
-```rust
-// Create a device session (current implementation)
-let session = SessionContext::device_session(device_uuid, device_name)
-    .with_library(library_uuid);
+Risky operations expose a preview before commit and a verification result after
+work completes.
 
-// Session includes pre-configured permissions and metadata
-```
+## Registration
 
-Sessions include:
+Operations register at compile time through macros:
 
-**Authentication Info**: Device or user credentials and authorization level.
+~~~rust
+pub struct SourceListQuery;
 
-**Library Context**: Currently selected library for scoped operations.
+crate::register_library_query!(SourceListQuery, "sources.list");
 
-**Permission Set**: Granular permissions for the session.
+pub struct FileCopyAction;
 
-**Request Metadata**: Tracking information for auditing and debugging.
+crate::register_library_action!(FileCopyAction, "files.copy");
+~~~
 
-## API Dispatcher
+Do not implement the wire contract manually. Registration places the handler in
+the correct core or library registry and makes its input and output available
+to client generation.
 
-The dispatcher provides a unified interface for all operations:
+Operation names are stable strings. Scope is explicit:
 
-```rust
-// Execute a library action
-let result = api.execute_library_action(
-    CreateLocationAction { path: "/Users/data" },
-    session
-).await?;
+- **Core** operations address daemon state, library discovery, and setup.
+- **Library** operations address sources, records, jobs, organization, and
+  policy inside one library.
 
-// Execute a core query
-let libraries = api.execute_core_query(
-    ListLibrariesQuery {},
-    session
-).await?;
-```
+## Request context
 
-The dispatcher automatically:
+The dispatcher evaluates each request with:
 
-- Validates session permissions
-- Ensures library context for library operations
-- Tracks request metadata
-- Converts errors to API errors
+- authenticated client or device identity;
+- selected library;
+- granted source and subtree scopes;
+- allowed operation classes;
+- request and trace identity;
+- transport metadata.
 
-## Permission System
+Read access does not imply mutation access. A peer allowed to browse one shared
+subtree cannot call a delete action on the rest of the source.
 
-Permissions control access to specific operations:
+The same rules apply to a human interface, script, extension, or agent.
 
-```rust
-#[derive(Debug, Clone)]
-pub struct PermissionSet {
-    pub core: CorePermissions,
-    pub library: LibraryPermissions,
-    pub network: NetworkPermissions,
-    pub jobs: JobPermissions,
-}
-```
+## Transports
 
-Each category has granular permissions:
+| Client | Transport |
+| --- | --- |
+| Local desktop and CLI | Platform IPC to the daemon |
+| Web interface | Authenticated web transport |
+| Paired Spacedrive node | Encrypted peer-to-peer protocol |
+| Rust application | sd-client |
+| TypeScript application | Generated ts-client |
+| Agent client | CLI skill or MCP |
+| WASM extension | Declared host functions |
 
-```rust
-pub struct LibraryPermissions {
-    pub read_entries: bool,
-    pub write_entries: bool,
-    pub manage_locations: bool,
-    pub manage_tags: bool,
-    pub execute_jobs: bool,
-}
-```
+Transport adapters decode a request and call the registry. They do not contain
+separate file-management logic.
 
-### Permission Enforcement
+## Structured errors
 
-Configure enforcement behavior:
+Operations return typed errors that distinguish:
 
-```rust
-// Development: Permissive mode (allows all operations)
-let api = ApiDispatcher::permissive(core_context);
+- invalid input;
+- missing library, source, or record;
+- unavailable origin;
+- denied capability;
+- stale generation or conflict;
+- job dispatch failure;
+- provider or filesystem error;
+- failed verification.
 
-// Production: Enforce permissions
-let api = ApiDispatcher::new(core_context);
-```
+Clients can present useful recovery without parsing log text. Detailed
+diagnostics remain available through request and job logs.
 
-### Authorization Levels
+## Durable jobs
 
-Four hierarchical levels provide increasing access:
+An action that dispatches a job returns enough information to inspect it later.
+Job queries expose status, progress, output, and failure reason.
 
-**None**: No authentication required (public operations only).
+~~~bash
+sd-cli job info <JOB_ID>
+sd-cli logs show --job-id <JOB_ID>
+~~~
 
-**Device**: Authenticated device with basic permissions.
+Resumability is declared per job kind. A job resumes only when its checkpoint
+proves that replay is safe.
 
-**User**: Authenticated user with full library access.
+## Generated clients
 
-**Admin**: System administrator with all permissions.
+Public Rust types derive the metadata used to generate client bindings. After
+changing a backend type exposed to TypeScript, regenerate the client:
 
-Higher levels inherit permissions from lower levels.
+~~~bash
+cargo run --bin generate_typescript_types
+~~~
 
-## Error Handling
+Frontend code imports generated types from **packages/ts-client**. It must not
+redefine a backend type or erase it with an unsafe cast.
 
-API errors provide structured information for clients:
+## Generic CLI access
 
-```rust
-pub enum ApiError {
-    // Authentication/authorization failures
-    Unauthorized { required_level: AuthLevel },
-    PermissionDenied { operation: String, permission: String },
+The CLI can call any registered operation by name:
 
-    // Validation errors
-    ValidationError { field: String, message: String },
-    InvalidInput { details: String },
+~~~bash
+sd-cli op sources.list --json '{}'
+sd-cli op files.duplicates --library <LIBRARY_ID> --json '{}'
+~~~
 
-    // Execution errors
-    OperationFailed { operation: String, error: String },
-    ResourceNotFound { resource: String, id: String },
+Use **--format json** for scripts. Stable IDs and structured results form the
+automation contract.
 
-    // System errors
-    DatabaseError(String),
-    InternalError(String),
-}
-```
+## Remote operations
 
-Errors automatically map to HTTP status codes for REST endpoints.
+A paired node exposes only operations granted to the requesting device. Remote
+queries identify the source generation that produced a result. Remote actions
+remain durable on the executing node, so another authorized client can inspect
+their progress and logs.
 
-## Middleware Pipeline
+Byte reads use a separate range protocol under the same authorization context.
+This keeps large content out of ordinary JSON responses.
 
-<Note type="warning">
-  Middleware pipeline is partially implemented. The infrastructure exists but middleware chaining is not yet active.
-</Note>
+## Extension host API
 
-Cross-cutting concerns are handled through composable middleware:
+Extensions do not receive a database connection or arbitrary daemon pointer.
+They call a narrow host API to:
 
-```rust
-let pipeline = MiddlewarePipeline::new()
-    .with_logging()
-    .with_metrics()
-    .with_rate_limiting();
-```
+- query permitted records and models;
+- read or write granted file scopes;
+- create extension-owned assertions;
+- dispatch declared jobs and actions;
+- report progress and logs;
+- register supported file kinds and interface contributions.
 
-### Logging Middleware
+The host validates capabilities before crossing the WASM boundary.
 
-Tracks all requests with timing information:
+## Design rules
 
-```
-[API] files.copy started (request_id: 7f3a2b1c)
-[API] files.copy completed in 145ms (request_id: 7f3a2b1c)
-```
+- Register an operation once and consume it everywhere.
+- Return structured data and stable identity.
+- Keep reads free of hidden mutations.
+- Make source availability and partial results explicit.
+- Use durable jobs for work that can outlive a request.
+- Require stronger evidence as an operation becomes more destructive.
+- Keep file bytes in the byte-provider path, not in control responses.
+- Never give an agent or extension a privileged path around authorization.
 
-### Metrics Middleware
-
-Records operation metrics for monitoring:
-
-- Request count by operation
-- Response times (p50, p90, p99)
-- Error rates by type
-- Active request count
-
-## Request Sources
-
-Track where API calls originate:
-
-```rust
-pub enum RequestSource {
-    Cli,          // Command-line interface
-    Swift,        // iOS/macOS native application
-    Internal,     // Internal system calls
-    Other(String), // Other sources (including Tauri desktop app)
-}
-```
-
-<Note>
-  Tauri desktop app currently uses `Other("tauri")` or `Internal`. A dedicated `Tauri` variant is planned.
-</Note>
-
-This enables source-specific behavior like CLI-friendly error messages.
-
-## API Discovery
-
-<Note type="warning">
-  API discovery is a planned feature, not yet implemented.
-</Note>
-
-Applications will be able to query available operations:
-
-```rust
-// Planned feature
-let surface = api.describe_api();
-
-for op in surface.operations {
-    println!("{} - {}", op.name, op.description);
-    println!("  Permissions: {:?}", op.required_permissions);
-    println!("  Auth Level: {:?}", op.required_auth_level);
-}
-```
-
-This will power dynamic UI generation and permission checking.
-
-## Integration Examples
-
-### CLI Integration
-
-```rust
-// Create session from CLI context
-let session = api.create_base_session()?
-    .with_library(current_library_id());
-
-// Execute operation
-match api.execute_library_action(action, session).await {
-    Ok(result) => println!("Success: {:?}", result),
-    Err(ApiError::InsufficientPermissions { reason }) => {
-        eprintln!("Permission denied: {}", reason);
-    }
-    Err(e) => eprintln!("Error: {}", e),
-}
-```
-
-### Tauri Integration
-
-The Tauri desktop app integrates with the core through Rust FFI:
-
-```rust
-// Tauri command handlers call the API dispatcher
-#[tauri::command]
-async fn create_location(
-    path: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<Location, String> {
-    let session = state.api.create_base_session()
-        .map_err(|e| e.to_string())?
-        .with_library(state.current_library_id);
-
-    state.api.execute_library_action(
-        CreateLocationAction { path },
-        session
-    ).await.map_err(|e| e.to_string())
-}
-```
-
-The Tauri app can run the daemon in two modes:
-- **In-Process**: Daemon runs within the Tauri app process
-- **Background Process**: Daemon runs as a separate system process (requires macOS entitlements)
-
-See [apps/tauri/DAEMON_SETUP.md](../../apps/tauri/DAEMON_SETUP.md) for configuration details.
-
-### Swift Integration
-
-```swift
-// Swift SDK uses generated types with session management
-let session = SessionContext(
-    auth: deviceAuth,
-    library: currentLibrary.id,
-    source: .swift
-)
-
-let location = try await api.libraries.createLocation(
-    CreateLocationInput(path: "/Users/data"),
-    session: session
-)
-```
-
-## Security Best Practices
-
-**Always use strict permissions in production**: Development warnings help identify missing permissions during development.
-
-**Validate library context**: Library operations must have `current_library_id` set in the session.
-
-**Track request metadata**: Use request IDs for debugging distributed operations.
-
-**Handle errors appropriately**: Convert internal errors to user-friendly messages at the boundary.
-
-## Future Enhancements
-
-Planned improvements include:
-
-**User Authentication**: OAuth and session token support.
-
-**Rate Limiting**: Per-user and per-operation limits.
-
-**Request Caching**: Smart caching for read operations.
-
-**WebSocket Support**: Real-time operation subscriptions.
-
-<Note>
-	The API infrastructure is designed to be transport-agnostic. While examples
-	show Rust usage, the same patterns apply to REST endpoints and FFI boundaries.
-</Note>
+See [Operations](/core/ops) for implementation structure and [Architecture](/core/architecture)
+for the runtime around the registry.

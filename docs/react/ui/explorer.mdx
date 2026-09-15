@@ -19,7 +19,7 @@ The Explorer uses URL query parameters instead of route paths to manage navigati
 
 When you navigate to a location from the sidebar, the URL updates with the new path. The Explorer reads this URL parameter and displays the corresponding directory. The sidebar highlights the active item by comparing its own path to the URL parameter.
 
-<Info>The URL is the single source of truth. All navigation actions update the URL first, then components react to URL changes.</Info>
+<Callout>The URL is the single source of truth. All navigation actions update the URL first, then components react to URL changes.</Callout>
 
 ### History Management
 
@@ -111,7 +111,7 @@ if (isVirtualView && virtualFiles) {
 
 The first column displays virtual files. When you select one, the second column queries the backend for real directory contents using the virtual file's `sd_path`.
 
-<Warning>Virtual files must never be passed to file operations like copy, move, or delete. Always check `isVirtualFile()` before backend mutations.</Warning>
+<Callout type="warn">Virtual files must never be passed to file operations like copy, move, or delete. Always check `isVirtualFile()` before backend mutations.</Callout>
 
 ## Safety Guards
 
@@ -156,7 +156,7 @@ const volumeTypeStr = typeof volume.volume_type === "string"
 
 This pattern extracts the `Other` variant value when present, falls back to JSON stringification, or uses the string directly if it's already a string.
 
-<Tip>Apply this pattern consistently to `file_system`, `disk_type`, `volume_type`, `form_factor`, and any other backend enum fields.</Tip>
+<Callout type="idea">Apply this pattern consistently to `file_system`, `disk_type`, `volume_type`, `form_factor`, and any other backend enum fields.</Callout>
 
 ## Component Communication
 

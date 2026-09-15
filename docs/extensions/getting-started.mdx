@@ -1,16 +1,88 @@
 ---
 title: Getting Started
+description: Build and load a sandboxed Spacedrive extension
 sidebarTitle: Getting Started
 ---
 
-## Setting Up Your Development Environment
+Spacedrive extensions are Rust crates compiled to WebAssembly. The SDK provides
+macros and host bindings for models, jobs, actions, file kinds, previews, and
+interface contributions.
 
-This guide will walk you through the process of setting up your development environment for building Spacedrive extensions.
+## Prerequisites
 
-*This section is a placeholder and will be expanded with detailed instructions on setting up the toolchain, building the SDK, and running your first extension.*
+- the Rust toolchain used by the repository;
+- the WebAssembly target;
+- a Spacedrive 2.0 development build.
 
-### Prerequisites
+~~~bash
+rustup target add wasm32-unknown-unknown
+~~~
 
-- Rust 1.81+
-- Spacedrive CLI
-- WASM toolchain (`wasm-pack`)
+## Start from the example
+
+The repository includes **extensions/test-extension** as a working package.
+Copy its crate structure and change the extension identity.
+
+A minimal definition looks like:
+
+~~~rust
+use spacedrive_sdk::prelude::*;
+
+#[extension(
+    id = "com.example.notes",
+    name = "Notes",
+    version = "0.1.0",
+    jobs = [index_notes],
+)]
+struct NotesExtension;
+~~~
+
+Extension IDs are durable identity. Use a reverse-domain name you control and
+do not reuse an ID for unrelated software.
+
+## Build
+
+From the extension directory:
+
+~~~bash
+cargo build --target wasm32-unknown-unknown --release
+~~~
+
+The compiled module appears under:
+
+~~~text
+target/wasm32-unknown-unknown/release/
+~~~
+
+Package the WASM module with its manifest, signature, assets, and declarative UI
+files.
+
+## Install locally
+
+Open **Settings > Extensions**, choose **Install from file**, and select the
+package. Review every requested capability before enabling it.
+
+During development, reinstall after changing the WASM module or manifest.
+Spacedrive preserves extension-owned durable data unless the uninstall preview
+explicitly includes it.
+
+## Add one capability at a time
+
+A good first extension:
+
+1. declares one file kind;
+2. reads one granted source scope;
+3. runs one deterministic job;
+4. writes one typed model or sidecar;
+5. contributes one preview or inspector section;
+6. reports progress and failure through the host API.
+
+This exercises identity, permissions, durability, and interface integration
+without hiding several failures in one workflow.
+
+## Continue
+
+- [Core Concepts](/extensions/core-concepts)
+- [Data Storage](/extensions/data-storage)
+- [Security and Sync](/extensions/security-and-sync)
+- [UI Integration](/extensions/ui-integration)

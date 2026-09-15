@@ -1,0 +1,13 @@
+{
+	"title": "React UI",
+	"defaultOpen": true,
+	"pages": [
+		"colors",
+		"primitives",
+		"hooks",
+		"normalized-cache",
+		"platform",
+		"explorer",
+		"popout-windows"
+	]
+}

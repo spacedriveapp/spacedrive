@@ -1,414 +1,112 @@
 ---
 title: Devices
+description: Runtime identity, pairing, availability, and grants
 sidebarTitle: Devices
 ---
 
-Devices are machines running Spacedrive. Each device has a unique identity, can pair with others, and participates in library synchronization.
+A device is one Spacedrive runtime identity. It represents a daemon that can
+open libraries, observe volumes, serve sources, execute jobs, and connect to
+peers.
 
-## Architecture
+A device does not own file identity merely because a drive is currently mounted
+there. Sources and volumes retain their own identity when they move.
 
-Devices operate across three layers:
+## Device identity
 
-### Identity Layer
+Each instance creates a cryptographic identity on first run. The public identity
+names the peer on the network. Private key material remains in the local key
+store.
 
-Manages device configuration and cryptographic keys.
+Renaming a device changes its display label, not its identity. Reinstalling
+without restoring keys creates a new device that must be paired again.
 
-```rust
-// Device initialization
-let device_manager = DeviceManager::init()?;
-let device_id = device_manager.device_id()?;
-```
+## Device state
 
-**Storage locations**:
+The library distinguishes membership from current network state:
 
-- macOS: `~/Library/Application Support/com.spacedrive/device.json`
-- Linux: `~/.config/spacedrive/device.json`
-- Windows: `%APPDATA%/Spacedrive/device.json`
+| State | Meaning |
+| --- | --- |
+| Discovered | Visible on the local network but not trusted |
+| Pairing | Completing a user-approved trust exchange |
+| Paired | Known and eligible for granted library access |
+| Connected | Reachable through an authenticated session |
+| Offline | Still paired but not currently reachable |
+| Revoked | No longer authorized for future sessions |
 
-### Domain Layer
+An offline device remains in the library so source provenance and job history
+do not disappear.
 
-Provides the rich device model used throughout the application.
+## Pairing
 
-```rust
-pub struct Device {
-    pub id: Uuid,
-    pub name: String,
-    pub slug: String,               // URL-safe identifier for addressing
-    pub os: OperatingSystem,
-    pub hardware_model: Option<String>,
-    pub network_addresses: Vec<String>,
-    pub is_online: bool,
-    pub last_seen_at: DateTime<Utc>,
-}
-```
+Pairing proves that two instances were approved by a person with the short code
+shown on one of them. The devices exchange identities and record the
+relationship.
 
-Devices are stored per library, not globally. Each library database contains device records for all participating devices.
+Pairing does not grant blanket filesystem access. The user selects library,
+source, subtree, and operation scopes afterward.
 
-<Info>
-	The `devices` table is the **source of truth** for sync state within a
-	library. It tracks which devices are online, when they were last seen, and
-	their sync watermarks.
-</Info>
+~~~bash
+sd-cli network pair generate
+sd-cli network pair join "<PAIRING_CODE>"
+sd-cli devices list
+~~~
 
-### Device Slugs for Unified Addressing
+See [Device Pairing](/core/pairing) for the protocol.
 
-Each device has a unique slug used in Spacedrive's unified addressing scheme. The slug is a URL-safe identifier generated from the device name:
+## What a device can serve
 
-```rust
-// Slug generation
-let name = "Jamie's MacBook Pro";
-let slug = name.to_lowercase()
-    .chars()
-    .map(|c| if c.is_alphanumeric() { c } else { '-' })
-    .collect::<String>()
-    .trim_matches('-');
-// Result: "jamies-macbook-pro"
-```
+An authorized device can expose:
 
-Slugs enable human-readable local file URIs:
+- source queries and search;
+- snapshots and catalog projections;
+- byte ranges and previews;
+- durable operation status;
+- job and daemon logs;
+- mounts and scoped shares.
 
-```
-local://jamies-macbook/Users/james/Documents/report.pdf
-local://home-server/mnt/storage/media/movies/Inception.mkv
-local://work-desktop/C:/Projects/spacedrive/README.md
-```
+Every request is checked against the authenticated device and current grant.
+The same checks apply when the caller is another UI, a script, or an agent.
 
-The database enforces slug uniqueness with a UNIQUE constraint. If two devices would have the same slug (e.g., both named "MacBook Pro"), one must be renamed before they can sync.
+## Volumes and source authority
 
-See [Unified Addressing](/docs/core/addressing) for complete details on URI formats and slug resolution.
+A device observes mounted volumes and hosts the volume arena. A filesystem
+source uses whichever authorized device currently has valid access to its
+origin.
 
-### Network Layer
+Source generation authority is explicit. Moving a drive to another device does
+not require rewriting every record. The new attachment is recorded, the source
+root resolves against it, and authority transfers through a visible handoff.
 
-Handles P2P connections and device pairing through Iroh.
+## Revocation
 
-<Note>
-	The network layer uses mDNS for local discovery and QUIC for encrypted
-	communication.
-</Note>
+Revoking a device prevents new authenticated sessions and removes its active
+grants. Other devices retain:
 
-## Device Pairing
+- the device identity and audit history;
+- references needed for provenance;
+- source stores or caches already copied under prior permission;
+- conflicts and unacknowledged operations.
 
-Pairing establishes trust between devices using a cryptographic handshake.
+Revocation cannot recall bytes that were previously shared. Use narrow scopes
+and retention policy when data should not persist on a client.
 
-### Pairing Flow
+## Lost devices
 
-<Steps>
-<Step title="Generate Code">
-Device A generates a pairing code valid for 5 minutes.
-```typescript
-const pairing = await client.action("network.pair.generate", {});
-console.log(`Pairing code: ${pairing.code}`); // "ABCD-1234-EFGH"
-```
-</Step>
+Marking a device lost records the event without erasing it. The library can
+then:
 
-<Step title="Enter Code">
-Device B joins using the pairing code.
-```typescript
-await client.action("network.pair.join", {
-  code: "ABCD-1234-EFGH"
-});
-```
-</Step>
+- revoke network access;
+- identify sources last served by that device;
+- report protection gaps;
+- rotate relevant share secrets;
+- guide recovery from another source store or file copy.
 
-<Step title="Establish Trust">
-Devices exchange cryptographic signatures and derive session keys for future communication.
-</Step>
-</Steps>
+Device loss and source loss are related but separate. A portable drive may
+survive its old host. A source store replicated elsewhere may preserve evidence
+even when both are gone.
 
-### Paired Device States
+## Related systems
 
-- **Discovered**: Found via mDNS but not paired
-- **Pairing**: Authentication in progress
-- **Paired**: Trusted and persisted
-- **Connected**: Active P2P connection
-- **Disconnected**: Paired but offline
-
-## Library Participation
-
-After pairing, devices must register with libraries to enable sync.
-
-### Registration Process
-
-1. Paired devices discover each other's libraries
-2. User selects which libraries to join
-3. Device records are created in each library's database
-4. Sync begins automatically
-
-### Device-Owned Data
-
-Ownership flows through volumes. Each device owns its volumes, and volumes own the locations and entries on them:
-
-- **Volumes**: Physical drives attached to the device
-- **Locations**: Filesystem paths on a volume
-- **Entries**: Files and folders within those locations
-
-This indirection enables portable storage: when an external drive moves between machines, updating the volume's device reference transfers ownership of all associated data instantly.
-
-<Info>
-See [Library Sync](/docs/core/library-sync) for details on the ownership chain and portable volume handling.
-</Info>
-
-## Sync Participation
-
-<Info>
-	Spacedrive uses a leaderless sync model. All devices are peers with no central
-	authority.
-</Info>
-
-The `devices` table tracks device state within a library:
-
-- **Connection State**: `is_online`, `last_seen_at` track real-time availability
-- **Sync Enablement**: `sync_enabled` controls whether a device participates
-- **Last Sync**: `last_sync_at` records when the device last synced
-
-Watermarks for incremental sync are stored separately in sync.db on a per-resource basis. See [Library Sync](/docs/core/library-sync) for details.
-
-### How Devices Participate in Sync
-
-Devices sync data using two protocols based on ownership:
-
-- **Device-owned data** (volumes, locations, entries): Owner broadcasts state, peers apply. Entries inherit ownership through their volume's device. Tracked via `last_state_watermark`.
-- **Shared resources** (tags, collections): Any device can modify. Changes ordered via HLC. Tracked via `last_shared_watermark`.
-
-For detailed protocol documentation, see [Library Sync](/docs/core/library-sync).
-
-### Sync State Management
-
-Query sync-enabled devices in a library:
-
-```rust
-// Get all devices that can sync
-let sync_devices = entities::device::Entity::find()
-    .filter(entities::device::Column::SyncEnabled.eq(true))
-    .all(db)
-    .await?;
-
-// Get only online devices ready for immediate sync
-let online_devices = entities::device::Entity::find()
-    .filter(entities::device::Column::SyncEnabled.eq(true))
-    .filter(entities::device::Column::IsOnline.eq(true))
-    .all(db)
-    .await?;
-```
-
-### Incremental Sync
-
-When devices reconnect after being offline, they use watermarks to determine what data needs synchronization, avoiding full re-sync. Watermarks are tracked per-resource in sync.db. See [Library Sync](/docs/core/library-sync) for implementation details.
-
-## API Reference
-
-### List Paired Devices
-
-```typescript
-const devices = await client.query("network.devices.list", {
-    connectedOnly: false
-});
-
-// Response
-{
-    devices: [
-        {
-            id: "device-uuid",
-            name: "Jamie's MacBook",
-            deviceType: "Laptop",
-            isConnected: true,
-            lastSeen: "2024-10-12T..."
-        }
-    ],
-    total: 3,
-    connected: 2
-}
-```
-
-### Device Events
-
-Devices emit events when their state changes:
-
-```typescript
-// Device comes online
-{
-    kind: "ResourceChanged",
-    resourceType: "device",
-    resource: { id: "...", isOnline: true }
-}
-
-// Device goes offline
-{
-    kind: "ResourceChanged",
-    resourceType: "device",
-    resource: { id: "...", isOnline: false }
-}
-```
-
-## Platform Considerations
-
-### Mobile Devices
-
-iOS and Android require special initialization:
-
-```swift
-// iOS: Pass UIDevice name to Rust
-let deviceName = UIDevice.current.name
-core.initializeDevice(withName: deviceName)
-```
-
-### Device Types
-
-- **Desktop**: Windows, Linux desktops
-- **Laptop**: MacBooks, portable computers
-- **Mobile**: iOS, Android devices
-- **Server**: Headless installations
-
-## Security
-
-Each device maintains:
-
-- **Ed25519 key pair**: Unique cryptographic identity
-- **Session keys**: Derived after pairing for encrypted communication
-- **Trust levels**: Verified (paired) or blocked
-
-<Warning>
-	Never share device keys or pairing codes over insecure channels.
-</Warning>
-
-## Troubleshooting
-
-### Pairing Issues
-
-If devices won't pair:
-
-- Verify both devices are on the same network
-- Check firewall settings for mDNS (port 5353)
-- Ensure pairing code hasn't expired (5 minute timeout)
-- Restart the application on both devices
-
-### Sync Not Working
-
-If changes aren't syncing between devices:
-
-- Confirm devices are paired (check paired device list)
-- Verify both devices have joined the library
-- Check `devices.is_online` status in the library database
-- Verify `devices.sync_enabled = 1` for both devices
-- Compare watermarks to check if sync is progressing
-- Check network connectivity between devices
-- Review sync status in the UI
-
-### Debug Commands
-
-```bash
-# Check device registration and sync state in library
-sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/database.db \
-  "SELECT uuid, name, is_online, sync_enabled, last_sync_at
-   FROM devices;"
-
-# Check which devices are online and sync-enabled
-sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/database.db \
-  "SELECT uuid, name, is_online, last_seen_at
-   FROM devices
-   WHERE sync_enabled = 1;"
-
-# View watermarks (stored in sync.db, not devices table)
-sqlite3 ~/Spacedrive/Libraries/My\ Library.sdlibrary/sync.db \
-  "SELECT * FROM device_resource_watermarks;"
-
-# Monitor sync activity
-RUST_LOG=sd_core::sync=debug,sd_core::service::sync=debug cargo run
-```
-
-## Implementation Details
-
-### Global Device ID Cache
-
-For performance, the current device ID is cached globally:
-
-```rust
-use sd_core::device::get_current_device_id;
-
-let device_id = get_current_device_id(); // Fast lookup
-```
-
-### Device Registration Query
-
-```sql
--- Each library database contains
-CREATE TABLE devices (
-    id INTEGER PRIMARY KEY,
-    uuid TEXT UNIQUE NOT NULL,
-    name TEXT NOT NULL,
-    slug TEXT UNIQUE NOT NULL,
-    os TEXT NOT NULL,
-    os_version TEXT,
-    hardware_model TEXT,
-
-    -- Hardware specifications
-    cpu_model TEXT,
-    cpu_architecture TEXT,
-    cpu_cores_physical INTEGER,
-    cpu_cores_logical INTEGER,
-    cpu_frequency_mhz INTEGER,
-    memory_total_bytes INTEGER,
-    form_factor TEXT,
-    manufacturer TEXT,
-    gpu_models TEXT,              -- JSON array
-    boot_disk_type TEXT,
-    boot_disk_capacity_bytes INTEGER,
-    swap_total_bytes INTEGER,
-
-    -- Network and status
-    network_addresses TEXT,       -- JSON array
-    is_online BOOLEAN DEFAULT 0,
-    last_seen_at TEXT NOT NULL,
-    capabilities TEXT,            -- JSON object
-
-    -- Sync coordination
-    sync_enabled BOOLEAN DEFAULT 1,
-    last_sync_at TEXT,
-
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-```
-
-<Note>
-Watermarks for incremental sync are stored in sync.db, not the devices table. See [Library Sync](/docs/core/library-sync) for watermark tracking details.
-</Note>
-
-### Connection State Management
-
-The sync system subscribes to network connection events and updates the `devices` table automatically:
-
-```rust
-// When a device connects (network event)
-entities::device::Entity::update_many()
-    .col_expr(entities::device::Column::IsOnline, Expr::value(true))
-    .col_expr(entities::device::Column::LastSeenAt, Expr::value(Utc::now()))
-    .filter(entities::device::Column::Uuid.eq(peer_id))
-    .exec(db)
-    .await?;
-
-// When a device disconnects (network event)
-entities::device::Entity::update_many()
-    .col_expr(entities::device::Column::IsOnline, Expr::value(false))
-    .col_expr(entities::device::Column::LastSeenAt, Expr::value(Utc::now()))
-    .filter(entities::device::Column::Uuid.eq(peer_id))
-    .exec(db)
-    .await?;
-```
-
-The `devices` table is the single source of truth - the network layer updates it, and the sync layer queries it to determine which peers to sync with.
-
-You can also check real-time connection status via the DeviceRegistry:
-
-```rust
-// Get current connection status (in-memory state)
-let networking = context.get_networking().await?;
-let registry = networking.device_registry();
-let is_connected = registry.is_device_connected(device_id);
-```
-
-## Related Documentation
-
-- [Sync System](/docs/core/sync) - How devices synchronize data
-- [Libraries](/docs/core/libraries) - Multi-device library management
-- [Networking](/docs/core/networking) - P2P connection details
+- [Networking](/core/networking) describes peer transport.
+- [Library Sync](/core/library-sync) describes state exchanged by devices.
+- [Volumes](/core/volumes) describes storage identity and attachment.

@@ -1,105 +1,102 @@
 ---
 title: Examples
+description: A small durable job and a file-kind integration
 sidebarTitle: Examples
 ---
 
-## Example: A Simple CRM Extension
+## Durable counter
 
-To see how the core concepts of the Spacedrive SDK come together, let's look at an example of a simple CRM (Customer Relationship Management) extension. This extension will allow us to manage contacts, companies, and deals.
+This extension registers one resumable job. Its serializable state is the
+checkpoint.
 
-### 1. Model Definitions
+~~~rust
+use spacedrive_sdk::prelude::*;
 
-First, we define our data models using the `#[model]` attribute.
+#[extension(
+    id = "com.example.counter",
+    name = "Counter",
+    version = "0.1.0",
+    jobs = [count],
+)]
+struct CounterExtension;
 
-```rust
-#[model(table_name = "contact")]
-#[index("email")]
-pub struct Contact {
-    #[primary_key]
-    pub id: Uuid,
-    pub name: String,
-    pub email: String,
-    #[foreign_key(Company)]
-    pub company_id: Option<Uuid>,
-    #[metadata]
-    pub metadata_id: i32,
+#[derive(Serialize, Deserialize, Default)]
+pub struct CounterState {
+    pub current: u32,
+    pub target: u32,
 }
 
-#[model(table_name = "company")]
-pub struct Company {
-    #[primary_key]
-    pub id: Uuid,
-    pub name: String,
-    pub website: Option<String>,
-    #[metadata]
-    pub metadata_id: i32,
-}
+#[job(name = "count")]
+fn count(ctx: &JobContext, state: &mut CounterState) -> Result<()> {
+    while state.current < state.target {
+        if ctx.check_interrupt() {
+            ctx.checkpoint(state)?;
+            return Err(Error::OperationFailed("Interrupted".into()));
+        }
 
-#[model(table_name = "deal")]
-pub struct Deal {
-    #[primary_key]
-    pub id: Uuid,
-    #[foreign_key(Contact)]
-    pub contact_id: Uuid,
-    pub title: String,
-    pub amount: f64,
-    pub stage: String, // e.g., "lead", "negotiation", "closed"
-    #[metadata]
-    pub metadata_id: i32,
-}
-```
+        state.current += 1;
+        ctx.report_progress(
+            state.current as f32 / state.target as f32,
+            &format!("Counted {}/{}", state.current, state.target),
+        );
 
-This will create three tables in the database: `ext_crm_contact`, `ext_crm_company`, and `ext_crm_deal`, with the appropriate columns, indexes, and foreign keys.
-
-### 2. A Job to Create a Contact
-
-Next, we can create a job that adds a new contact to our CRM.
-
-```rust
-#[job]
-async fn create_contact(ctx: &JobContext, data: CreateContactInput) -> Result<Contact> {
-    let contact = Contact {
-        id: Uuid::new_v4(),
-        name: data.name,
-        email: data.email,
-        company_id: data.company_id,
-        metadata_id: 0, // Will be auto-created by the core
-    };
-
-    // Create the model in the database
-    ctx.vdfs().create_model(contact).await?;
-
-    // Tag the new contact
-    ctx.vdfs().add_tag_to_model(contact.id, "#new-lead").await?;
-
-    Ok(contact)
-}
-```
-
-### 3. A Query to Find Contacts
-
-Finally, we can create a query to find contacts, potentially with joins to other tables.
-
-```rust
-#[query]
-async fn find_contacts(
-    ctx: &JobContext,
-    filters: ContactFilters
-) -> Result<Vec<ContactWithCompany>> {
-    let query = ctx.vdfs()
-        .query_models::<Contact>()
-        .join::<Company>("company_id", "id")
-        .select(&[
-            "Contact.*",
-            "Company.name as company_name",
-        ]);
-
-    if let Some(tag) = filters.tag {
-        query = query.with_tag(&tag);
+        if state.current % 10 == 0 {
+            ctx.checkpoint(state)?;
+        }
     }
 
-    query.collect().await
+    Ok(())
 }
-```
+~~~
 
-This simple example demonstrates how you can use the Spacedrive SDK to quickly build powerful, data-driven applications as extensions. With real database tables, automatic sync, and integration with core features like tagging, the possibilities are nearly limitless.
+The host persists progress, associates logs with the job ID, and resumes only
+from committed state.
+
+## Camera RAW support
+
+A file-kind extension for a camera format contributes a small set of connected
+capabilities:
+
+1. Recognize the format from extension, MIME type, and magic bytes.
+2. Extract camera, lens, exposure, dimensions, and embedded-preview metadata.
+3. Register a fast preview using the embedded image.
+4. Register a full renderer when the required codec is available.
+5. Generate deterministic thumbnails and an optional editing proxy.
+6. Add inspector rows and an “Open in registered editor” command.
+
+The source keeps the original file record. Extracted facts record the extension
+and input generation. Thumbnails remain reclaimable while the original and
+generator are available. An explicitly retained proxy follows source policy.
+
+If the extension is removed, Spacedrive still shows the file, path, content
+identity, source, and generic metadata. It explains that the specialized preview
+handler is missing.
+
+## Photos library adapter
+
+A Photos adapter reads an existing library as an origin:
+
+- assets become standard source records;
+- albums, edits, faces, and places become typed facets, models, and edges;
+- original bytes stay where the photo library manages them;
+- the user can choose a normal source as an export or backup destination.
+
+Import clearly states that it will not move original files. The adapter uses
+provider versions and identifiers to update the same records on later ingests.
+
+The extension contributes People, Places, and Albums views over the common
+operation API. An external agent can query those views through CLI or MCP
+without receiving access to the extension database.
+
+## Review checklist
+
+Before shipping an extension:
+
+- Build the WASM module reproducibly.
+- Verify the package signature and stable ID.
+- Review every requested capability.
+- Test interruption and migration rollback.
+- Confirm durable data survives reindex and uninstall.
+- Confirm partial results when a source is offline.
+- Confirm file mutation uses registered operations.
+- Confirm the interface has a safe missing-extension fallback.

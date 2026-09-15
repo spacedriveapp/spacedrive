@@ -1,0 +1,17 @@
+{
+	"title": "Overview",
+	"icon": "BookOpen",
+	"root": true,
+	"pages": [
+		"---Getting Started---",
+		"introduction",
+		"philosophy",
+		"history",
+		"---User Guides---",
+		"get-started",
+		"self-hosting",
+		"backup-photos-ios",
+		"manage-libraries",
+		"add-index-locations"
+	]
+}

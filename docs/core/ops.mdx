@@ -1,508 +1,151 @@
 ---
 title: Operations
+description: Define one typed action or query for every client
 sidebarTitle: Operations
 ---
 
-The operations system automatically generates type-safe Swift and TypeScript clients from Rust API definitions. Define your API once in Rust and get native clients for iOS, web, and desktop without manual synchronization.
+Operations are the public behavior of Spacedrive core. Define an operation once
+in Rust, register it, and consume the same input and output from local IPC, web,
+CLI, peer networking, generated clients, skills, and MCP.
 
-## How It Works
+## Queries and actions
 
-The system uses compile-time type extraction to discover all operations and generate client code during the build process. This eliminates the traditional API boundary.
+- A **query** reads state without hidden mutation.
+- An **action** requests a state change.
 
-### Define Operations
+Both can be core-scoped or library-scoped. Core operations handle daemon and
+library lifecycle. Library operations handle sources, records, organization,
+jobs, and policy.
 
-Operations are either Actions (write) or Queries (read):
+## Module shape
 
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct CreateLibraryInput {
-    pub name: String,
-    pub description: Option<String>,
-}
+Keep each feature under its domain:
 
-pub struct CreateLibraryAction {
-	input: CreateLibraryInput
-	// action state can be held here
-}
+~~~text
+core/src/ops/files/share/
+├── mod.rs
+├── input.rs
+├── output.rs
+├── action.rs
+└── job.rs
+~~~
 
-impl CoreAction for CreateLibraryAction {
-    type Input = CreateLibraryInput;
-    type Output = Library;
+Small features can use fewer files. The boundary matters more than the exact
+layout: inputs and outputs are public types, while filesystem and database
+details remain behind the handler.
 
-    async fn validate(&self, context: Arc<CoreContext>)
-        -> Result<ValidationResult, ActionError> {
-    	// Check if the library already exists and return validation result
-     	Ok(ValidationResult::Success)
-    }
+## Registration
 
-    async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-      	// Create library and return it
-    }
+Use registration macros. Never implement the wire trait manually.
 
-    fn action_kind(&self) -> &'static str {
-        "libraries.create"
-    }
-}
-```
+~~~rust
+pub struct FileShareAction;
 
-### Register and Generate
+crate::register_library_action!(FileShareAction, "files.share");
 
-Register the operation with a single macro:
+impl Action for FileShareAction {
+    type Input = ShareFileInput;
+    type Output = ShareFileOutput;
 
-```rust
-register_core_action!(CreateLibraryAction, "libraries.create");
-```
-
-The build process automatically:
-
-1. Extracts type information using Specta
-2. Generates Swift and TypeScript type definitions
-3. Creates native API methods for each client
-
-### Use Generated Clients
-
-Swift:
-
-```swift
-let library = try await spacedrive.libraries.create(
-    CreateLibraryInput(name: "My Library", description: nil)
-)
-```
-
-TypeScript:
-
-```typescript
-const library = await spacedrive.libraries.create({
-	name: "My Library",
-});
-```
-
-## Operation Types
-
-### Actions
-
-Actions modify state and typically return job receipts or updated entities:
-
-```rust
-pub trait LibraryAction {
-    type Input: Send + Sync + 'static;
-    type Output: Send + Sync + 'static;
-
-    fn from_input(input: Self::Input) -> Result<Self, String>;
-
-    async fn validate(&self, library: &Arc<Library>, context: Arc<CoreContext>)
-        -> Result<ValidationResult, ActionError>;
-
-    fn resolve_confirmation(&mut self, choice_index: usize)
-        -> Result<(), ActionError>;
-
-    async fn execute(self, library: Arc<Library>, context: Arc<CoreContext>)
-        -> impl Future<Output = Result<Self::Output, ActionError>>;
-
-    fn action_kind(&self) -> &'static str;
-}
-```
-
-### Validation and Confirmation
-
-Actions support a validation phase that can request user confirmation before execution. This enables safe, interactive operations with clear user feedback.
-
-#### ValidationResult
-
-The `validate()` method returns one of two results:
-
-```rust
-pub enum ValidationResult {
-    /// Action is valid and can proceed
-    Success,
-    /// Action requires user confirmation
-    RequiresConfirmation(ConfirmationRequest),
-}
-
-pub struct ConfirmationRequest {
-    /// Message to display to the user
-    pub message: String,
-    /// List of choices for the user
-    pub choices: Vec<String>,
-}
-```
-
-#### Example: File Copy with Conflict Resolution
-
-```rust
-impl LibraryAction for FileCopyAction {
-    type Input = FileCopyInput;
-    type Output = JobReceipt;
-
-    async fn validate(&self, library: &Arc<Library>, context: Arc<CoreContext>)
-        -> Result<ValidationResult, ActionError> {
-        // Check if destination file exists
-        if !self.options.overwrite && self.destination_exists().await? {
-            return Ok(ValidationResult::RequiresConfirmation(ConfirmationRequest {
-                message: format!(
-                    "Destination file already exists: {}",
-                    self.destination.display()
-                ),
-                choices: vec![
-                    "Overwrite the existing file".to_string(),
-                    "Rename the new file (e.g., file.txt -> file (1).txt)".to_string(),
-                    "Abort this copy operation".to_string(),
-                ],
-            }));
-        }
-
-        Ok(ValidationResult::Success)
-    }
-
-    fn resolve_confirmation(&mut self, choice_index: usize)
-        -> Result<(), ActionError> {
-        match choice_index {
-            0 => {
-                self.on_conflict = Some(FileConflictResolution::Overwrite);
-                Ok(())
-            }
-            1 => {
-                self.on_conflict = Some(FileConflictResolution::AutoModifyName);
-                Ok(())
-            }
-            2 => Err(ActionError::Cancelled),
-            _ => Err(ActionError::Validation {
-                field: "choice".to_string(),
-                message: "Invalid choice selected".to_string(),
-            })
-        }
-    }
-
-    async fn execute(mut self, library: Arc<Library>, context: Arc<CoreContext>)
-        -> Result<Self::Output, ActionError> {
-        // Apply the conflict resolution strategy if set
-        if let Some(resolution) = self.on_conflict {
-            match resolution {
-                FileConflictResolution::Overwrite => {
-                    self.options.overwrite = true;
-                }
-                FileConflictResolution::AutoModifyName => {
-                    self.destination = self.generate_unique_name().await?;
-                }
-                _ => {}
-            }
-        }
-
-        // Execute the copy operation
-        let job = FileCopyJob::new(self.sources, self.destination)
-            .with_options(self.options);
-        let receipt = library.jobs().dispatch(job).await?;
-        Ok(receipt)
-    }
-
-    fn action_kind(&self) -> &'static str {
-        "files.copy"
+    async fn run(
+        input: Self::Input,
+        ctx: &ActionContext,
+    ) -> Result<Self::Output, ActionError> {
+        // Validate scope, commit state, and return structured output.
     }
 }
-```
+~~~
 
-#### CLI Integration
+Available macros register core or library queries and actions into the compile
+time inventory.
 
-The CLI handles confirmations interactively:
-
-```rust
-// In CLI handler
-let mut action = FileCopyAction::from_input(input)?;
+## Input and output
 
-// Validate the action
-let validation_result = action.validate(&library, context).await?;
+Public types:
 
-match validation_result {
-    ValidationResult::Success => {
-        // Proceed with execution
-        let result = action.execute(library, context).await?;
-    }
-    ValidationResult::RequiresConfirmation(request) => {
-        // Prompt user for choice
-        let choice_index = prompt_for_choice(request)?;
+- derive serialization and Specta type metadata;
+- use stable IDs instead of database row numbers;
+- represent unavailable and partial state explicitly;
+- avoid leaking provider-specific secrets;
+- remain backward-compatible within a protocol version.
 
-        // Resolve the confirmation
-        action.resolve_confirmation(choice_index)?;
+After changing a public Rust type, regenerate TypeScript:
 
-        // Now execute with resolved choice
-        let result = action.execute(library, context).await?;
-    }
-}
-```
-
-<Note>
-The `validate()` method takes `&self` (a reference), while `execute()` takes `self` (consumes the action). This ensures validation doesn't modify state, while execution can take ownership to transform the action into its result.
-</Note>
-
-### Queries
-
-Queries retrieve data without side effects:
-
-```rust
-pub trait LibraryQuery {
-    type Input: Send + Sync + 'static;
-    type Output: Send + Sync + 'static;
-
-    fn from_input(input: Self::Input) -> QueryResult<Self>;
-    fn execute(self, context: Arc<CoreContext>, session: SessionContext)
-        -> impl Future<Output = QueryResult<Self::Output>>;
-}
-```
+~~~bash
+cargo run --bin generate_typescript_types
+~~~
 
-## Type System
+Frontend code imports those generated types. It does not redefine or cast them
+away.
 
-All standard Rust types are supported through Specta:
+## Action lifecycle
 
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct FileOperationResult {
-    pub succeeded: Vec<PathBuf>,
-    pub failed: HashMap<PathBuf, String>,
-    pub stats: OperationStats,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub enum OperationError {
-    NotFound(String),
-    PermissionDenied,
-    DiskFull { required: u64, available: u64 },
-}
-```
+An action performs only enough synchronous work to validate the request and
+commit a bounded state change. Long work dispatches a durable job.
 
-<Note>
-	The `Type` derive is required for all types used in operations. This enables
-	Specta to extract type information for client generation.
-</Note>
+Risky mutations follow:
 
-## Wire Protocol
+1. **Preview** exact targets, conflicts, cost, and protection consequences.
+2. **Commit** an immutable plan or bounded state change.
+3. **Execute** durable work with progress and cancellation.
+4. **Verify** effects against the origin and content evidence.
+5. **Report** structured output and durable logs.
 
-Operations use a consistent wire protocol:
+Not every action needs a preview. Creating a tag can commit directly. Deleting
+the last verified copy cannot.
 
-- Actions: `action:{category}.{operation}.input.v{version}`
-- Queries: `query:{scope}.{operation}.v{version}`
+## Context and authorization
 
-Examples:
+Handlers receive a context that identifies:
 
-- `action:files.copy.input`
-- `query:library.stats`
+- authenticated session or peer;
+- selected library;
+- granted sources and subtrees;
+- allowed query and mutation classes;
+- request and trace IDs;
+- access to approved services.
 
-## Adding Operations
+Operations check capabilities before resolving sensitive data. A handler must
+not infer permission from the fact that a path exists.
 
-### 1. Create Input/Output Types
+## Errors
 
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct SearchInput {
-    pub query: String,
-    pub filters: SearchFilters,
-    pub limit: u32,
-}
+Return typed errors for invalid input, missing identity, offline origins,
+permission denial, conflicts, provider failure, and verification failure.
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct SearchResult {
-    pub items: Vec<SearchItem>,
-    pub total_count: u64,
-}
-```
-
-### 2. Implement the Operation
-
-For a query:
-
-```rust
-pub struct SearchQuery {
-    query: String,
-    filters: SearchFilters,
-    limit: u32,
-}
+Logs explain diagnostics. They are not the API response.
 
-impl LibraryQuery for SearchQuery {
-    type Input = SearchInput;
-    type Output = SearchResult;
+## Events
 
-    fn from_input(input: Self::Input) -> QueryResult<Self> {
-        Ok(Self {
-            query: input.query,
-            filters: input.filters,
-            limit: input.limit,
-        })
-    }
+Publish change events after the durable transaction commits. Clients that react
+to an event must be able to query the new state immediately.
 
-    async fn execute(self, context: Arc<CoreContext>, session: SessionContext)
-        -> QueryResult<Self::Output> {
-        // Perform search and return results
-    }
-}
-```
+Large operations emit scoped invalidation or batch events instead of one event
+per record.
 
-### 3. Register It
+## Generic clients
 
-```rust
-register_library_query!(SearchQuery, "search");
-```
+The CLI can invoke a registered operation by name:
 
-### 4. Build and Use
+~~~bash
+sd-cli op sources.list --json '{}'
+~~~
 
-After building, the operation is available in all clients automatically.
+Skills and MCP use the same names and schemas. They do not translate arbitrary
+text into an unregistered shell command.
 
-## iOS Integration
+## Tests
 
-The iOS app embeds the Rust core and communicates through FFI:
+Operation tests cover:
 
-```rust
-#[no_mangle]
-pub extern "C" fn handle_core_msg(
-    query: *const c_char,
-    callback: extern "C" fn(*mut c_void, *const c_char),
-    callback_data: *mut c_void,
-) {
-    // Parse JSON-RPC request
-    // Execute operation using same registry
-    // Return JSON response
-}
-```
+- input validation;
+- authorization at every scope;
+- typed error shape;
+- idempotency or deduplication;
+- transaction rollback;
+- job dispatch and final output;
+- generated client compatibility;
+- event ordering.
 
-Swift calls through the FFI boundary using the generated types.
-
-## Code Generation Details
-
-### Build Process
-
-The build script runs during `cargo build`:
-
-```rust
-// build.rs
-fn main() {
-    generate_swift_api_code().expect("Failed to generate Swift code");
-}
-```
-
-### Type Extraction
-
-A binary extracts all registered operations:
-
-```rust
-// generate_swift_types binary
-fn main() {
-    let (operations, queries, types) = generate_spacedrive_api();
-
-    // Generate Swift code
-    let swift_types = specta_swift::Swift::new().export(&types)?;
-    let api_methods = generate_api_methods(&operations, &queries);
-
-    // Write to Swift package
-    fs::write("SpacedriveTypes.swift", swift_types)?;
-    fs::write("SpacedriveAPI.swift", api_methods)?;
-}
-```
-
-### Registration Internals
-
-The registration macros use inventory for compile-time collection:
-
-```rust
-inventory::submit! {
-    TypeExtractorEntry {
-        extractor: SearchQuery::extract_types,
-        identifier: "search",
-    }
-}
-```
-
-## Best Practices
-
-### Operation Design
-
-Keep operations focused with clear inputs and outputs. Use appropriate scopes (Library vs Core) based on whether the operation needs library context.
-
-### When to Use Validation Confirmations
-
-Use the confirmation pattern for operations that:
-
-1. **Have Destructive Side Effects**: Deleting files, overwriting data, or making irreversible changes
-2. **Encounter Conflicts**: File name collisions, duplicate entries, or conflicting states
-3. **Need User Decisions**: Multiple valid approaches where user preference matters
-4. **Risk Data Loss**: Operations that could result in unexpected data loss
-
-Examples of good confirmation use cases:
-- File copy/move when destination exists
-- Deleting non-empty directories
-- Overwriting modified files
-- Removing locations with indexed content
-- Irreversible format conversions
-
-Keep confirmations minimal - only ask when truly necessary. Don't confirm routine operations or when the intent is already clear from the input.
-
-### Type Design
-
-Flatten structures when possible and use Rust enums for variants. Document fields as comments flow through to generated code.
-
-### Error Handling
-
-Define specific error types for each operation:
-
-```rust
-#[derive(Debug, Serialize, Deserialize, Type)]
-pub enum SearchError {
-    InvalidQuery(String),
-    IndexNotReady,
-    TooManyResults { max: u32, requested: u32 },
-}
-```
-
-### Performance
-
-For large result sets, consider pagination or streaming:
-
-```rust
-#[derive(Type)]
-pub struct PaginatedSearch {
-    pub query: String,
-    pub cursor: Option<String>,
-    pub limit: u32,
-}
-```
-
-## Advanced Features
-
-### Batch Operations
-
-```rust
-#[derive(Type)]
-pub struct BatchDeleteInput {
-    pub items: Vec<ItemIdentifier>,
-    pub skip_trash: bool,
-}
-```
-
-### Operation Metadata
-
-Actions can define metadata for UI presentation:
-
-```rust
-impl ActionMetadata for DeleteAction {
-    fn display_name() -> &'static str {
-        "Delete Items"
-    }
-
-    fn description() -> &'static str {
-        "Permanently delete selected items"
-    }
-
-    fn is_dangerous() -> bool {
-        true
-    }
-}
-```
-
-<Note>
-Confirmation is handled dynamically through the `validate()` method, not as static metadata. This allows context-aware confirmations based on the actual operation state.
-</Note>
-
-<Tip>
-	Run `cargo run --bin generate_swift_types` to debug type extraction issues.
-	Check the generated files in
-	`packages/swift/Sources/SpacedriveClient/Generated/`.
-</Tip>
-
-The operations system eliminates manual API maintenance while providing type-safe, performant clients across all platforms.
+See [API](/core/api) for transports and [Jobs](/core/jobs) for durable
+execution.

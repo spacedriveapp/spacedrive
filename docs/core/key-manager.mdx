@@ -152,10 +152,10 @@ User's device
 
 ### Key Rotation
 
-<Warning>
+<Callout type="warn">
   Device key rotation is not currently supported. Rotating the device key would
   require re-encrypting all secrets in the database.
-</Warning>
+</Callout>
 
 Library keys are automatically generated and do not require manual rotation.
 
@@ -294,14 +294,14 @@ The database is compacted automatically by redb.
 
 ## Migration from Legacy Storage
 
-<Info>
+<Callout>
   Prior to the unified KeyManager, Spacedrive stored secrets in multiple locations:
   - Device key: `<data_dir>/master_key` file
   - Paired devices: `<data_dir>/networking/paired_devices.json` (AES-256-GCM encrypted)
   - Cloud credentials: OS keychain (unreliable)
 
   These systems have been consolidated into KeyManager for better security and reliability.
-</Info>
+</Callout>
 
 ## Troubleshooting
 
@@ -327,10 +327,10 @@ rm ~/.spacedrive/secrets.redb
 # Restart Spacedrive (new database will be created)
 ```
 
-<Warning>
+<Callout type="warn">
   Deleting `secrets.redb` will unpair all devices and remove cloud credentials.
   You'll need to re-pair devices and re-authenticate cloud services.
-</Warning>
+</Callout>
 
 ### Inspecting Secrets (Development)
 
@@ -388,7 +388,6 @@ cmdkey /list | findstr Spacedrive
 
 ## Related Documentation
 
-- [Devices](/docs/core/devices) - Device identity and pairing
-- [Networking](/docs/core/networking) - P2P communication using session keys
-- [Cloud Integration](/docs/core/cloud-integration) - Cloud credential storage
-- [Security](/docs/core/security) - Overall security architecture
+- [Devices](/core/devices) - Device identity and pairing
+- [Networking](/core/networking) - Peer communication using session keys
+- [Cloud Integration](/core/cloud-integration) - Provider credential storage

@@ -3,248 +3,145 @@ title: Code Comments
 sidebarTitle: Code Comments
 ---
 
-Spacedrive code comments explain why decisions were made, not what the code does. A single sentence capturing rationale beats a paragraph restating syntax. This guide shows you how to write comments that teach architecture and preserve design context without adding noise.
+Spacedrive comments explain why a decision exists and which correctness
+boundary it protects. Code already shows what happens.
 
-## Core Philosophy
+## Module documentation
 
-Explain why, not what. Keep it as short as possible.
+Start a public module with a title, a short purpose, the important lifetime or
+ownership rule, and a runnable example when one adds value.
 
-The code already shows what happens. Comments exist to explain the reasoning behind decisions, the consequences of trade-offs, and the context future maintainers need. If a comment restates obvious code, delete it.
-
-<Tip>
-	One powerful sentence explaining rationale is better than three paragraphs
-	describing syntax.
-</Tip>
-
-## Module Documentation
-
-Module-level docs (`//!`) introduce the file's purpose and explain architectural decisions. Start with a title using `#`, describe what the module does in prose, and include runnable examples.
-
-````rust
-//! # File Indexing System
+~~~rust
+//! # Source store
 //!
-//! `core::ops::indexing` provides a multi-phase indexing pipeline that turns
-//! raw filesystem paths into searchable database entries. The system handles
-//! both persistent locations and ephemeral browsing sessions, ensuring every
-//! file gets a stable UUID for sync and user data attachment.
-//!
-//! Files browsed before enabling indexing keep the same UUID when the directory
-//! is later added as a managed location. This prevents orphaning user metadata
-//! (tags, notes) attached during browsing. Parent-child relationships use a
-//! closure table instead of recursive queries, making tree traversal O(1)
-//! regardless of depth.
-//!
-//! ## Example
-//! ```rust,no_run
-//! use spacedrive_core::ops::indexing::{IndexerJob, IndexerJobConfig};
-//!
-//! let config = IndexerJobConfig::new(location_id, path, IndexMode::Content);
-//! let job = IndexerJob::new(config);
-//! library.jobs().dispatch(job).await?;
-//! ```
-````
+//! A source store preserves one origin's records and assertions. Generation
+//! rows may be replaced after a complete ingest, while assertions survive
+//! because the origin cannot reproduce them.
+~~~
 
-This replaces bullet-point feature lists with integrated prose that teaches how the system works and why it was designed this way.
+Do not describe a planned architecture as if the code implements it. Put design
+work in **docs/plans** and update the public page when behavior lands.
 
-## Function Documentation
+## Function documentation
 
-Function docs (`///`) explain what the function does, why it exists, and how error cases are handled. The first line provides a brief summary. Subsequent paragraphs explain design rationale, trade-offs, and non-obvious behavior.
+The first sentence says what the function guarantees. Later sentences explain
+why the guarantee matters, platform behavior, and failure semantics.
 
-```rust
-/// Links an entry to its content identity, deduplicating files with identical hashes.
+~~~rust
+/// Commits one hashing batch before claiming more records.
 ///
-/// Content identities are shared across all entries with the same content hash
-/// (computed via BLAKE3). When two files have identical content, they reference
-/// the same `content_identity` row, enabling "find all duplicates" queries and
-/// reducing thumbnail storage (one thumbnail per content, not per entry).
+/// The claim query selects rows without a committed integrity hash, so queued
+/// writes would let the same rows be claimed indefinitely.
+async fn flush_hash_batch(batch: HashBatch) -> Result<()> {
+    // ...
+}
+~~~
+
+Document errors when callers need them for recovery:
+
+~~~rust
+/// Resolves a source root through its current volume attachment.
 ///
-/// Each content identity gets a globally deterministic UUID (v5 hash of content_hash only)
-/// so any device can independently identify the same content and merge their
-/// metadata without coordination. This enables offline duplicate detection across
-/// all devices and libraries.
-///
-/// Returns both the content identity and the updated entry for batch sync operations.
-/// The caller must sync both models if running outside the job system.
-pub async fn link_to_content_identity(
-    ctx: &impl IndexingCtx,
-    entry_id: i32,
-    path: &Path,
-    content_hash: String,
-) -> Result<ContentLinkResult>
-```
+/// Returns `SourceUnavailable` when the retained store exists but the origin
+/// is not attached. Callers may still query stored records.
+async fn resolve_source_root(source: SourceId) -> Result<PathBuf, SourceError> {
+    // ...
+}
+~~~
 
-<Info>
-	Document the consequences of decisions, not implementation blockers. Explain
-	what the function enables, not just what it does.
-</Info>
+## Inline comments
 
-## Inline Comments
+Keep an inline comment when removing it would hide a non-obvious consequence.
 
-Inline comments explain decisions that aren't obvious from the code itself. Delete comments that restate what the code already shows.
+Good:
 
-**Good - explains rationale:**
+~~~rust
+// A partial visitor set cannot prove deletion, so restarted walks begin at zero.
+let resume = false;
+~~~
 
-```rust
-// Lowercase for case-insensitive search matching.
-let ext = path.extension().map(|e| e.to_lowercase());
-```
+Bad:
 
-**Bad - restates code:**
+~~~rust
+// Set resume to false.
+let resume = false;
+~~~
 
-```rust
-// Extract file extension and convert to lowercase
-let ext = path.extension().map(|e| e.to_lowercase());
-```
+Good:
 
-**Good - explains consequences:**
+~~~rust
+// Preserve valid rows from a failed batch so one bad name cannot create a ledger hole.
+salvage_rows_individually(batch).await?;
+~~~
 
-```rust
-// Preserve ephemeral UUIDs so tags attached during browsing survive promotion to managed location.
-let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
-```
+Bad:
 
-**Bad - describes obvious logic:**
+~~~rust
+// Try each row.
+salvage_rows_individually(batch).await?;
+~~~
 
-```rust
-// UUID assignment strategy:
-// 1. First check if there's an ephemeral UUID to preserve
-// 2. If not, generate a new UUID
-let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
-```
+## Platform differences
 
-## Algorithmic Explanations
+Explain the effect and fallback, not a generic difference:
 
-Complex algorithms deserve comments that explain precedence rules, ordering invariants, and design decisions that affect correctness.
-
-```rust
-// AND has the lowest precedence and is implicit between whitespace-delimited
-// terms. We accumulate a Vec instead of nesting binary nodes so callers get
-// a normalized structure regardless of how many terms are chained.
-fn parse_and(&mut self) -> Result<Expr, ParseError>
-```
-
-This comment teaches the parser's design: why AND is special, why we use Vec over binary trees, and what benefit that provides to callers.
-
-## Platform Differences
-
-Platform-specific code should explain why the behavior differs and what the consequences are, not just that the platform lacks a feature.
-
-**Good - explains consequences and fallback:**
-
-```rust
+~~~rust
 #[cfg(windows)]
-pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
-    // Windows file indices are unstable across reboots; fall back to path-only matching.
-    None
+fn birth_time(metadata: &Metadata) -> Option<SystemTime> {
+    // Return no birth time when the filesystem omits it; modification time is not equivalent.
+    metadata.created().ok()
 }
-```
+~~~
 
-**Bad - states the limitation without context:**
+Platform comments name the filesystem or API assumption when it affects stored
+evidence.
 
-```rust
-#[cfg(windows)]
-pub fn get_inode(_metadata: &std::fs::Metadata) -> Option<u64> {
-    // Windows doesn't have inodes.
-    None
+## Safety comments
+
+Destructive or security-sensitive code should explain the invariant:
+
+~~~rust
+// Candidate hashes can collide, so deletion requires a full-byte integrity hash.
+ensure_confirmed_content(record)?;
+~~~
+
+~~~rust
+// The data directory contains changing SQLite journals and can never be a source input.
+if path.starts_with(data_dir) {
+    return WalkDecision::Exclude;
 }
-```
+~~~
 
-## Error Handling
+Do not leave a comment that promises future validation. Implement the check or
+track the missing work.
 
-Error handling comments explain the recovery strategy and what happens next, not just that an error occurred.
+## What to remove
 
-**Good - explains strategy and recovery:**
+Delete comments that:
 
-```rust
-Err(e) => {
-    // Best-effort: continue with remaining moves, stale paths cleaned up on next reindex.
-    ctx.log(format!("Failed to move entry: {}", e));
-}
-```
+- repeat a function or variable name;
+- narrate control flow;
+- explain code that no longer exists;
+- contain stale phase plans;
+- use section-divider decoration;
+- say “temporary” without an owned plan;
+- restate a type signature.
 
-**Bad - states the obvious:**
+## Tracking future work
 
-```rust
-Err(e) => {
-    // Log error but continue
-    ctx.log(format!("Failed to move entry: {}", e));
-}
-```
+Code comments describe current behavior. Use:
 
-<Warning>
-	Never reference unstable API issue numbers in comments. Focus on the design
-	decision and its impact, not the implementation blocker.
-</Warning>
+- **PROJECT_STATUS.md** for immediate cross-session context;
+- **docs/plans** for phased design and acceptance criteria;
+- GitHub issues for the durable backlog.
 
-## Comments to Delete
+The **.tasks** tree is frozen and must not receive new work.
 
-Remove these patterns entirely:
+## Review checklist
 
-```rust
-// Create entry
-let entry = ActiveModel { ... };
-
-// For now, return defaults
-permissions: Set(None),
-
-// Re-exports for convenience
-pub use action::IndexingAction;
-
-// Main loop
-loop { ... }
-```
-
-These comments add no information. The code structure and function names already communicate what's happening.
-
-<Danger>
-	Never use markdown formatting (`**bold**`, `_italic_`) in code comments. It
-	doesn't render and creates noise.
-</Danger>
-
-## Refactoring Checklist
-
-When writing or refactoring a comment, ask:
-
-**Does this explain why or just what?** If it restates code, delete it. If it explains rationale, keep it brief.
-
-**Can this be said in one sentence?** Multi-paragraph comments are rarely justified. One powerful sentence usually suffices.
-
-**Does this assume the reader knows the context?** Explain what abstractions are (VolumeBackend, closure table) and why they exist.
-
-**Does this include concrete consequences?** Show what breaks if the code changes (orphaned tags, broken sync, stale paths).
-
-**Is this a placeholder?** Delete "for now", "could be improved", and "will be calculated later" comments. Track future work in GitHub issues.
-
-## Brevity and Depth
-
-Use one sentence when the decision is straightforward:
-
-```rust
-// Falls back to direct I/O when no volume backend is provided.
-```
-
-Use more context when the abstraction is complex or consequences are non-obvious:
-
-```rust
-// Volume backends abstract cloud storage and local filesystems behind a unified
-// interface. Cloud volumes MUST provide a backend since there's no local file to read.
-```
-
-Stop when the reader understands why. More words don't make better comments.
-
-## Finding Comments to Refactor
-
-These commands help identify patterns worth reviewing:
-
-```bash
-# Find "Create X" comments to evaluate
-rg "// Create " --type rust
-
-# Find functions without doc comments
-rg "^pub (async )?fn " --type rust -A 1 | rg -v "///"
-
-# Find platform-specific comments
-rg "#\[cfg\(.*\)\]" --type rust -A 5
-```
-
-The bulk of the work is manual: reading code, understanding intent, and rewriting comments to explain why rather than what.
+- Does the comment explain why?
+- Does it name the relevant ownership, lifetime, or safety rule?
+- Is it still true in the source-store architecture?
+- Could a test express the guarantee more reliably?
+- Is future work tracked outside the code?
+- Is the shortest useful wording used?

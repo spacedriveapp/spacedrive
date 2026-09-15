@@ -212,7 +212,7 @@ On TrueNAS this doesn't bite because `df` always detects the pool root. For othe
 
 Note that `std::fs::copy` itself picks the right syscall, the `FastCopyStrategy`/`LocalStreamCopyStrategy` split is about *whether to try fast copy at all* and how to report progress, not about which syscall to call.
 
-See [File Copy Operations](/docs/core/file-copy-operations) for the higher-level copy/move API.
+See [File Copy Operations](/core/file-copy-operations) for the higher-level copy/move API.
 
 ## Known limitations
 

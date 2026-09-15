@@ -23,8 +23,8 @@ This orders the whole inventory. **The data model is the first extension point, 
 | **Custom data sources** | `crates/archive` schema TOML plus script adapters | 2 | Real, hardening |
 | **Ops and events** | The ops registry, Specta-generated types, `registry.list` | 2 | Real, freeze scheduled |
 | **UI contributions** | SpaceUI plus a manifest; windows, routes, menus, settings | 2 | Manifest not built |
-| **Applications** | Catalog entry, supervisor, app window host | 1 and 2 | In design |
-| **Agent skills** | Harness-side skill format, agent package descriptor | 2 | Harness-owned |
+| **Focused product surfaces** | App-owned source plus declared views | 2 | In design |
+| **Agent skills** | CLI and future MCP operations described for an external agent | 2 | First skill planned |
 | **Storage backends** | `VolumeBackend` trait | 2 or 3 | Trait exists, not public |
 | **Byte providers** | `ByteProvider` in the mounts byte plane | 3 | Emerging |
 | **Network protocols** | Iroh ALPNs, one per protocol | 3 | Informal registry |
@@ -76,7 +76,11 @@ Per-file work, in-process, on the hot path. This is Tier 3 and lands last, becau
 
 ## Agent skills
 
-Skills are harness-side. Spacebot has a skill lifecycle with typed frontmatter, categories, usage tracking, and reflection, and that is the correct owner. Spacedrive's contribution is that a skill travels: it lives inside the agent package, moves with it, and restores with it. An app that wants to teach an agent something ships skills alongside its schema and its UI, and the agent gains them by having the app installed.
+Skills belong to the agent client. Spacedrive supplies structured operations,
+stable identifiers, capability requirements, and examples. The first package
+is a Spacedrive skill over `sd-cli`; an MCP transport follows after those tool
+schemas have been exercised. An extension may ship skill instructions beside
+its schema and views, but core does not own an agent runtime or skill lifecycle.
 
 ## Permissions
 

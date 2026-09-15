@@ -10,7 +10,7 @@ Two operations Spacedrive cannot express today.
 
 **Share a subtree with someone or something else.** Right-click a folder, choose who gets it, and they have it: another person, another device, or an agent running somewhere else. An agent that receives a share sees a new path it is allowed to read. A person who receives one sees a folder in their own library.
 
-**Visit a library that is not yours.** Connect to a Spacedrive running on another machine, with permission, and operate it. Open its Console, browse its files, watch its jobs, then switch back to your own library in the next breath.
+**Visit a library that is not yours.** Connect to a Spacedrive running on another machine, with permission, and operate it. Browse its files, inspect its jobs and logs, then switch back to your own library.
 
 Both exist to serve one workflow that is now common and badly served: an agent runs on a machine in the cloud with its own stack of applications, and its operator is somewhere else.
 
@@ -87,7 +87,7 @@ The honest tradeoff between them is reachability, and it should be stated rather
 
 Today a device joins a library and sees everything in it. That is the right model for machines you own and the wrong model for a machine you operate.
 
-A remote library connection is a session against another Spacedrive, authorized by that machine, that does not merge libraries. The visiting client gets a view scoped by what the host grants: its files, its jobs, its Console, its running processes. Nothing about the guest's own library changes, and no device pairing occurs.
+A remote library connection is a session against another Spacedrive, authorized by that machine, that does not merge libraries. The visiting client gets a view scoped by what the host grants: files, jobs, logs, and registered operations. Nothing about the guest's own library changes, and no device pairing occurs.
 
 Two consequences worth stating plainly. The host decides what a guest may do, because it is the host's machine. And the guest's own library remains the default context, so switching back is a switch rather than a disconnect.
 
@@ -146,5 +146,4 @@ Phases 1 through 4 require no relay, no account, and no new transport, and they 
 - How a person is identified across two libraries, and whether that needs an account or can be device-to-device.
 - Whether a share appears in the recipient's library as a location, a source, or a distinct shared-with-me class. The last is likely, since the recipient does not own it and must not treat it as durable.
 - What a share of an agent package means, given that a package holds secrets by declaration.
-- Whether remote library sessions and Console's existing remote host management converge, since both authorize an operator against a machine.
 - Group shares. The photo-album case wants a recipient set rather than repeated grants, and that is a small model change made early or a painful one made late.

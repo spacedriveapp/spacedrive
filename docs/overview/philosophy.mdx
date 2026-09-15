@@ -3,62 +3,78 @@ title: The Spacedrive Philosophy
 sidebarTitle: Philosophy
 ---
 
-Spacedrive is more than a file manager; it is a paradigm shift in how humans interact with their digital assets. It was born from the universal frustration of "data fragmentation hell", a state where our digital lives are scattered across countless devices and incompatible cloud services.
+Your data should not have to live on somebody else's computer to be useful.
+Spacedrive gives you one open filesystem interface across your drives, devices,
+private servers, and optional clouds. It adds identity, indexing, protection,
+and a file manager while you decide where your files and metadata live.
 
-Our mission is to create a unified, content-aware ecosystem that gives users complete control over their data. The V2 architecture is the realization of this vision, built on a set of core principles that guide every design decision, line of code, and future feature.
+## Ownership without retreat
 
----
+Cloud services made custody feel like the price of convenience. Personal files
+and behavioral data became concentrated on infrastructure whose security,
+policies, and future remain outside your control. Automated attacks increase
+the scale of that exposure. AI also increases the value of accumulated personal
+data as material for training, inference, and profiling.
 
-## The Core Tenets
+Putting files on a disconnected disk does not provide search, remote access,
+sharing, history, or reliable backup. Spacedrive exists to make self-controlled
+storage practical without giving up those capabilities. Privacy becomes a
+product property rather than a promise made by the current provider.
 
-### 1. The User is Sovereign
+## One filesystem surface
 
-This is our most fundamental principle. In the Spacedrive ecosystem, you are in complete control.
+Operating systems and cloud providers expose files differently. Search,
+permissions, version history, mounting, backup, and sharing vary again. Agents
+usually receive another isolated file API tied to the machine where they run.
 
-- **Local-First by Default**: Spacedrive is designed to work entirely offline. All indexing, analysis, and processing happen on your devices, ensuring your data and your privacy remain yours alone.
-- **You Own Your Data, Always**: We built Spacedrive as an intelligent layer that sits _on top_ of your existing storage. Your files stay where they are, in their original locations, with zero vendor lock-in. Backing up your entire organizational system is as simple as copying a single directory.
-- **Human in the Loop**: The user is the final authority. AI agents and automation systems are designed to _propose_ actions, which are then presented in a clear, previewable format for you to approve. You are always in command.
+Spacedrive makes those systems available through one typed operation surface.
+The desktop app, web app, CLI, generated clients, skills, and MCP tools all call
+the same core.
 
-### 2. From Chaos to Cohesion
+## You keep control
 
-We aim to solve the universal problem of file chaos by creating a single, unified view of your entire digital world.
+- Files remain in their existing locations until you approve an operation.
+- Local use requires no hosted account or telemetry.
+- The index stays useful when a drive is unplugged.
+- Assertions and metadata can travel with a source.
+- Permissions are explicit and revocable.
+- Risky changes can be previewed, committed as durable jobs, and verified.
 
-- **A Unified Virtual Layer**: The Virtual Distributed File System (VDFS) creates one interface to manage files across all devices and clouds. It makes scattered storage feel like a single, cohesive library.
-- **Content is King**: We move beyond rigid, location-based folder hierarchies to a content-aware model. Through Content-Addressed Storage (CAS), Spacedrive understands what a file _is_, not just where it is, enabling powerful features like global deduplication and data integrity verification.
-- **Location Transparency**: Our universal addressing system, `SdPath`, makes device boundaries disappear. A file on your offline laptop is as accessible as one on your local NAS, as the system can intelligently find and use any available copy.
+External AI is part of the threat environment Spacedrive helps you reduce by
+limiting unnecessary data custody. An agent you choose is a separate case. It
+receives the same scoped capabilities as a person and no hidden path around the
+operation and permission model.
 
-### 3. Intelligence as Augmentation
+## Small core, broad extensions
 
-AI is not a bolted-on feature; it is a foundational, **but optional** element of the architecture, designed to enhance your capabilities without compromising your control.
+The default install should be fast and lightweight. Specialized codecs,
+providers, models, and workflows belong in extensions.
 
-- **The AI Data Guardian**: With the official Guardian extension Spacedrive acts as a proactive protector of your data. By tracking file redundancy, it can identify irreplaceable memories that exist in only one location and suggest creating a backup before disaster strikes.
-- **Natural Language as a Command Line**: You can manage your files by simply stating your intent. The system translates commands like "find my design assets from last fall" into safe, verifiable, and previewable actions.
-- **Privacy-Preserving Intelligence**: We believe you shouldn't have to trade privacy for intelligence. Spacedrive is built to run powerful AI models locally on your hardware via tools like Ollama, ensuring your file contents are never sent to the cloud unless you explicitly choose to.
+Extensions can teach Spacedrive about a new source, file type, metadata shape,
+preview renderer, sidecar, operation, or focused view. A file format should
+become understandable without adding its entire software stack to every
+installation.
 
-### 4. Pragmatism in Engineering
+## Evidence before confidence
 
-The failure of Spacedrive V1 taught us a critical lesson: perfect is the enemy of good. The V2 architecture embodies a pragmatic approach focused on delivering value and reliability.
+Spacedrive distinguishes a possible duplicate from confirmed identical bytes.
+It distinguishes a catalog projection from the source that owns a file. It
+records unreadable content as an error instead of silently omitting it.
 
-- **Simplicity over Complexity**: We replace over-engineered solutions with simpler, more robust patterns. V2's domain-separated sync avoids the "analysis paralysis" of a custom CRDT implementation, allowing us to ship a reliable sync system.
-- **Developer Experience Matters**: We ruthlessly reduce boilerplate. The V2 job system, for example, cuts the code needed to add a new background operation by over 90%, enabling us to build and iterate faster.
-- **Power for Everyone**: We engineer enterprise-grade capabilities to run efficiently on consumer hardware. Sophisticated features like semantic search, cross-device deduplication, and transactional operations are made accessible to everyone, not just large organizations.
+This standard applies to automation, backup, deduplication, and history. The
+system should say what it knows, how it knows it, and what remains unavailable.
 
-### 5. Open by Default
+## Working software first
 
-Trust is earned through transparency. Our commitment to open source is a core part of our identity.
+Earlier versions carried too many systems that only worked in part. This
+version keeps the primitives that serve the filesystem and removes product
+surfaces that compete with them.
 
-- **Open Source for Control**: Spacedrive is open source to guarantee that you always retain absolute control over the software that manages your most important data.
-- **Community as a Partner**: The project's success is tied to our community. The V2 whitepaper and architecture are a definitive technical blueprint, inviting developers to review, contribute, and help build the future of file management with us.
-- **A Sustainable Vision**: We use a sustainable Open Core model. The core product is free for individuals, with paid features for teams and enterprises that ensure the project's long-term health and development.
+A stable release requires automated coverage of the core workflows, restart
+safety, cross-platform validation, and testing against real filesystems at real
+scale. A smaller reliable product is the foundation for every extension that
+follows.
 
-### 6. A New Way to Build
-
-The story of V2's creation is a meta-philosophy in itself. It demonstrates a revolutionary new paradigm for software development.
-
-- **The AI-Augmented Team**: Spacedrive V2 was rebuilt from the ground up by a single developer orchestrating a suite of specialized AI assistants. This approach proved to be 100x faster and more effective than a traditional team.
-- **Radical Capital Efficiency**: This new development model changes the economics of building software. It allows capital to be invested in growth, security, and infrastructure instead of being consumed by large team salaries.
-- **Elite, Focused Teams**: Our hiring philosophy is to automate first and hire only the best humans for roles that require strategic impact. We believe small, focused, high-impact teams build better products.
-
----
-
-These principles are woven into every aspect of Spacedrive. They are the reason we believe we can solve the fundamental problems of data fragmentation, privacy, and intelligent management for the AI era.
+Developers should read [Product Direction](/core/product-direction) for the
+full product boundary and the decisions it imposes on agents, extensions, sync,
+mounts, interface work, and retired product surfaces.

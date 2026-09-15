@@ -1,0 +1,273 @@
+---
+title: Product Direction
+description: The product boundary and decision rules for Spacedrive
+sidebarTitle: Direction
+---
+
+<Callout>
+  This document defines what belongs in Spacedrive 2.0. Design documents explain
+  how individual systems satisfy the boundary.
+</Callout>
+
+## The product
+
+Spacedrive is open personal data infrastructure. It makes owned storage as
+useful as cloud storage without requiring somebody else's server to become the
+permanent home of a person's data.
+
+Its foundation is a local-first, cross-platform filesystem runtime. It gives
+people one interface over files on drives, devices, private servers, and
+optional clouds. The file manager is its human interface. The CLI, generated
+clients, skills, and MCP server expose the same system to software.
+
+Spacedrive does for filesystems what FFmpeg does for media formats: it puts one
+open, scriptable interface over systems that otherwise require different tools,
+permission models, and platform knowledge. That interface remains useful
+without a hosted service, account, or telemetry.
+
+The October release lets a person bring data home without losing search,
+protection, intelligence, sharing, or access from anywhere.
+
+## Why now
+
+The last decade made cloud custody the price of convenience. Photos, documents,
+memories, work, and behavioral data accumulated on infrastructure controlled by
+a small number of companies. Provider terms decide how that data may be
+processed, combined, retained, or used to improve intelligent systems. A
+breach, account loss, policy change, or service shutdown can affect years of a
+person's life at once.
+
+AI changes the risk on both sides. Automated attackers can discover and exploit
+weaknesses at far greater speed and scale. The same concentration of personal
+data also gives intelligent systems enough material to infer intimate details
+about the people represented by it. Privacy is an operational safety and
+personal autonomy problem.
+
+Copying files onto a hard drive is an incomplete answer. A loose collection of
+disks is difficult to search, protect, share, reach remotely, and keep healthy.
+People accepted cloud custody because it solved those problems. Spacedrive
+provides the convenience and intelligence while letting the person choose where
+the bytes and metadata live.
+
+The main competitor is the assumption that useful data must live on somebody
+else's computer. Spacedrive provides a practical exit from that assumption.
+
+## The gap
+
+Files still cross boundaries poorly:
+
+- Local filesystems expose different metadata, permissions, watchers, and
+  versioning behavior on each operating system.
+- Cloud storage wraps the same operations in incompatible APIs and account
+  models.
+- Search, backup, duplicate detection, history, sharing, and access control are
+  usually separate products with separate indexes.
+- File managers see what is mounted now. They rarely remember an offline drive
+  or answer what changed ten days ago.
+- Agent environments invent another set of file tools and permission rules.
+  Their view usually stops at the machine running the agent.
+
+Spacedrive owns the uniform layer across those boundaries. Providers keep
+owning bytes. Spacedrive owns identity, indexing, operations, policy, and the
+evidence required to use those bytes safely.
+
+## Product primitives
+
+### Ownership and protection
+
+Local storage, private servers, removable media, and offline archives are
+first-class homes for data. Clouds remain optional sources and destinations. No
+hosted Spacedrive service becomes the required authority over a library.
+
+Indexing, metadata extraction, previews, search, and policy evaluation run on
+infrastructure the person controls by default. A feature that sends file
+content or derived metadata elsewhere identifies the recipient and requires an
+explicit choice.
+
+Ownership includes practical protection. Spacedrive tracks integrity,
+redundancy, physical placement, backup state, unexpected changes, and history.
+It keeps detached sources intelligible and makes migration away from a provider
+a normal operation.
+
+### One source model
+
+A source has an origin, an ingest, and a store. A local directory, NAS dataset,
+S3 bucket, photo library, and remote node differ in how observations arrive.
+They write one record shape and use one operation surface.
+
+The source store travels when the source travels. Its generated index can be
+refreshed while the origin answers. Human and software assertions cannot be
+reconstructed, so they remain durable.
+
+### A living and historical index
+
+The live index answers browsing, search, size, metadata, duplicate, and
+placement questions without walking the filesystem on demand. Watchers keep it
+current. Portable stores keep detached sources useful. Dated freezes preserve
+what a source looked like before later scans changed it.
+
+History connects file identity, placement, metadata, and the operations that
+changed them. An index snapshot does not replace a backup of file bytes.
+Provider versions connect to the same historical record through the source
+adapter.
+
+### Stable identity and honest evidence
+
+A record identifies an object through moves. A content ID identifies bytes.
+Sampled hashes produce candidates. Full integrity hashes confirm equality.
+Destructive operations require the evidence tier that justifies them.
+
+Catalogs and projections can suggest actions. The authoritative source confirms
+any action that can destroy data.
+
+### One operation surface
+
+Local, remote, and cloud files use the same typed operations. Core operations
+provide structured input and output, explicit capabilities, durable jobs,
+progress, cancellation, logs, and verification.
+
+Risky mutations use preview, commit, and verify. A copy, move, delete,
+reorganization, or deduplication plan is inspectable before bytes change and
+auditable afterward.
+
+### Mounts and byte streaming
+
+Anything Spacedrive can address is mountable when the provider permits it.
+Bytes may come from a local disk, cloud backend, another device, or cached
+replica. Range reads and streaming sit below previews, media playback, mounts,
+and file transfer so those surfaces share one transport boundary.
+
+### Data hygiene
+
+Duplicate detection, redundancy, backup policy, validation, capacity planning,
+and change history are filesystem primitives. They work across providers and
+offline records. Physical topology matters. Two paths on one pool are not two
+independent copies.
+
+## One API for people and agents
+
+AI has two distinct roles here. External AI makes automated attack and data
+exploitation more capable, which increases the value of privately controlled
+storage. An agent chosen by the user can also be a client of Spacedrive. The
+first role explains the urgency. The second is optional.
+
+The GUI, CLI, generated clients, skills, and MCP tools call the same registered
+operations. An agent does not receive a privileged database path or parallel
+file abstraction.
+
+The contract has five rules:
+
+1. Tools return structured data and stable identifiers.
+2. Authority is explicit, scoped, visible, and revocable.
+3. Read access does not imply mutation access.
+4. Risky work uses preview and verification instead of arbitrary shell text.
+5. Every durable action has status and logs available to an authorized client.
+
+The Spacedrive skill makes the CLI usable in existing agent environments. The
+MCP server is a thin transport over the same registered operations. Neither
+defines another permission model.
+
+Spacedrive does not ship a built-in agent product. People choose their agent,
+model, and execution environment. The filesystem runtime supplies safe
+capabilities and durable state.
+
+## Pairing, remote sources, and sync
+
+Pairing lets one Spacedrive instance query authorized sources, jobs, and logs on
+another through the same API.
+
+- Library state remembers that a source exists and which nodes can serve it.
+- A live node serves queries, snapshots, byte ranges, and operation status.
+- Other nodes cache projections and bytes without claiming authority.
+- Detached source stores remain browsable while their origin is offline.
+- Source replication preserves the generation and assertion boundary.
+
+Small library state and irreplaceable assertions synchronize between authorized
+peers. Source generations follow their ingest authority. File sync remains an
+explicit policy because moving bytes changes storage cost and protection.
+
+## Extensions carry the long tail
+
+The default install stays small. Codecs, extractors, provider SDKs, models, and
+specialized interfaces load only when someone needs them.
+
+An extension can contribute:
+
+- a source adapter or storage backend;
+- file-kind recognition from extensions, MIME or platform type data, magic
+  bytes, or provider metadata;
+- typed metadata facets and search fields;
+- preview renderers, thumbnails, proxies, thumbstrips, and persistent sidecars;
+- registered jobs and actions;
+- context-menu commands, views, or a focused product surface.
+
+A new file type is complete when Spacedrive can identify it, describe its
+capabilities, preview it, stream it when needed, and degrade safely when its
+handler is absent.
+
+Platform bridges discover handlers registered with macOS, Windows, and Linux.
+That evidence tells Spacedrive which installed application or extension
+understands a type. Invocation remains explicit and permissioned.
+
+Extensions run with narrow grants. Sandboxed, out-of-process code is the
+default. Native dependencies use pinned versions and verified hashes.
+
+## The human experience
+
+The interface makes a large system understandable:
+
+- The primary sidebar shows the places, sources, and actions a person uses
+  every day.
+- Duplicates, screenshots, photos, and extension workflows each have one clear
+  home.
+- The same canonical component renders the same kind of navigation item.
+- The inspector explains identity, location, availability, provenance, and
+  possible actions in plain language.
+- First run discovers useful folders and volumes before requiring internal
+  vocabulary.
+
+The web interface is a first-class product. The GPUI client provides a native
+interface with the performance expected of a filesystem tool. Both remain
+clients of the daemon and share product semantics.
+
+Performance is part of correctness. Opening a mapped source feels immediate.
+Scrolling, search, preview, and job updates remain responsive at millions of
+records. Idle clients and daemons stay quiet.
+
+## The release standard
+
+The stable release favors a smaller system that works over a wide system held
+together by hidden assumptions.
+
+- The default binary and application remain lightweight.
+- Core workflows have end-to-end automated coverage.
+- Destructive paths have failure injection, restart, and real-data tests.
+- Cross-platform behavior is tested on every filesystem and operating system
+  claimed as supported.
+- Generated clients and interfaces exercise the same typed API.
+- Missing identity, an offline source, or a failed preview remains visible.
+- Real datasets stay in validation because scale and filesystem behavior find
+  bugs fixtures miss.
+
+The first production NAS run set the standard: nine sources and almost 300,000
+records matched independent filesystem walks, metadata was checked against the
+operating system, unreadable content retained a reason, duplicate candidates
+received full-byte verification, and every store was frozen behind explicit
+gates.
+
+## What Spacedrive is not
+
+Spacedrive is not:
+
+- a required hosted account or cloud control plane;
+- a built-in chat, task, memory, schedule, or autonomous agent product;
+- a general application host or shell;
+- a managed extension storefront;
+- a replacement for the storage providers that hold file bytes.
+
+Reusable filesystem primitives remain in scope: typed operations, skills,
+permissions, remote sessions, durable jobs, extension packages, and the
+platform distribution machinery for first-party clients.
+
+This boundary keeps Spacedrive focused on one promise: give people and their
+software a powerful filesystem without taking ownership of their data.

@@ -1,5 +1,10 @@
 # Spacebot–Spacedrive Integration Contract
 
+> **Status:** Retired direction as of 2026-09-14. Agents now consume the same
+> registered filesystem operations as other clients, with a CLI skill first and
+> MCP later. This file remains only until its private company archive is
+> verified, then it should be deleted. See `docs/core/product-direction.mdx`.
+
 ## Purpose
 
 Define the exact boundary between Spacebot and Spacedrive so both products remain independently functional while gaining real capabilities when paired together.

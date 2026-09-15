@@ -1,5 +1,11 @@
 # Spacebot Integration Design
 
+> **Status:** Retired direction as of 2026-09-14. Spacedrive exposes filesystem
+> operations to external agents through its CLI and future MCP transport. This
+> file remains only until its private company archive is verified, then it
+> should be deleted with the Spacebot product surface. See
+> `docs/core/product-direction.mdx`.
+
 ## Purpose
 
 Add first-class Spacebot support to Spacedrive without collapsing the two products into one process model.

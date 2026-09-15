@@ -1,51 +1,90 @@
 ---
 title: Introduction to Extensions
+description: Add file kinds, previews, providers, operations, and views
 sidebarTitle: Introduction
 ---
 
-Extensions turn Spacedrive into a platform. Build custom tools for any workflow using Rust, compile to WASM, and integrate seamlessly with Spacedrive's sync, search, and storage infrastructure.
+Extensions adapt Spacedrive to new file types and workflows without growing the
+default runtime. They run as sandboxed WASM modules and use explicit host
+capabilities.
 
-Extensions are not plugins that bolt onto the side. They're first-class applications built on Spacedrive's primitives. They get their own database tables, declare their own file storage locations, create AI agents with persistent memory, and appear indistinguishable from core features.
+An extension can teach Spacedrive how to understand a specialized file while
+leaving filesystem identity, permissions, jobs, and storage safety in the core.
 
-The extension system runs in a secure WASM sandbox with fine-grained permissions. Extensions can read and write files, create custom data models, run background jobs, and propose actions, all while staying isolated and safe.
+## What extensions can add
 
-## What You Can Build
+- File-kind detection from names, MIME data, magic bytes, and provider metadata
+- Typed metadata facets and search fields
+- Preview renderers, thumbnails, proxies, transcripts, and thumbstrips
+- Durable jobs and user-invoked actions
+- Source adapters and byte providers
+- Content, record, or standalone models
+- Sidebar views, inspector sections, and context-menu commands
 
-Extensions can access Spacedrive's full capabilities. Define custom database tables that sync automatically. Create AI agents with unlimited memory. Run durable background jobs. Generate derivative sidecars. Propose file operations with user approval.
+File-kind support and preview support share one contract. A handler declares
+what it recognizes, which capabilities it provides, and how the interface
+degrades when the extension is absent.
 
-**Photos Extension:** Face recognition, place identification, automatic albums. Adds "People" to the sidebar, creates face cluster models, generates embedding sidecars.
+## Example uses
 
-**Email Archive:** IMAP sync to standard .eml files. The user picks where emails go. Spacedrive indexes them automatically. Extension queries via core search, enriches with analysis sidecars.
+### Photos
 
-**Ledger:** Receipt OCR, expense tracking, tax prep. Extension creates Transaction models in its database, stores receipt PDFs as files, extracts data to sidecars.
+A Photos extension imports an existing photo-library source without moving its
+files. It can retain faces, places, albums, edits, and asset relationships as
+typed metadata, then add People and Places views.
 
-The SDK handles sync, search, and indexing. You focus on your domain logic.
+### Studio media
 
-## Planned Extensions
+A media extension can recognize camera formats, extract technical metadata,
+generate persistent proxies and thumbstrips, and stream the correct byte ranges
+to a video preview.
 
-Spacedrive's WASM-based extension system enables both professional tools and data archival capabilities. Extensions can share models and build on each other's data.
+### Research archives
 
-### Professional Extensions
+An archive extension can ingest a provider into ordinary files, preserve
+provider metadata as facets, extract citations, and add a focused view over the
+same source records.
 
-Our lineup of industry extensions.
+## What remains in core
 
-| Extension     | Purpose                         | Key Features                                                                | Status      |
-| ------------- | ------------------------------- | --------------------------------------------------------------------------- | ----------- |
-| **Guardian**  | Backup & redundancy monitoring  | Content identity tracking, zero-redundancy alerts, smart backup suggestions | Planned     |
-| **Photos**    | AI-powered photo management     | Face recognition, place identification, moments, scene classification       | In Progress |
-| **Chronicle** | Research & knowledge management | Document analysis, knowledge graphs, AI summaries                           | In Progress |
-| **Ledger**    | Financial intelligence          | Receipt OCR, expense tracking, tax preparation                              | Planned     |
-| **Atlas**     | Dynamic CRM & team knowledge    | Runtime schemas, contact tracking, deal pipelines                           | In Progress |
-| **Cipher**    | Security & encryption           | Password manager, file encryption, breach alerts                            | Planned     |
-| **Studio**    | Digital asset management        | Scene detection, transcription, proxy generation                            | Planned     |
+Extensions do not replace:
 
-### Open Source Archive Extensions
+- source and record identity;
+- authorization;
+- content verification;
+- durable job lifecycle;
+- file mutation safety;
+- library and source sync;
+- audit and provenance.
 
-| Extension           | Purpose                 | Provides Data For        | Status  |
-| ------------------- | ----------------------- | ------------------------ | ------- |
-| **Email Archive**   | Gmail/Outlook backup    | Atlas, Ledger, Chronicle | Planned |
-| **Chrome History**  | Browsing history backup | Chronicle                | Planned |
-| **Spotify Archive** | Listening history       | Analytics                | Planned |
-| **GPS Tracker**     | Location timeline       | Photos, Analytics        | Planned |
-| **Tweet Archive**   | Twitter backup          | Chronicle, Analytics     | Planned |
-| **GitHub Tracker**  | Repository tracking     | Chronicle                | Planned |
+Those rules remain uniform across every extension.
+
+## Capability grants
+
+An extension declares the smallest access it needs. Grants can include:
+
+- read selected source scopes;
+- write an extension-owned storage scope;
+- attach a declared model to records or content;
+- request network access to named hosts;
+- dispatch registered jobs or actions;
+- contribute declared interface surfaces.
+
+Installation shows these grants before code runs. Removing an extension revokes
+its runtime access without deleting its durable data by surprise.
+
+## Distribution
+
+Extensions are ordinary signed packages. You can install one from a local file,
+source repository, or URL and verify its identity and requested capabilities.
+Spacedrive does not require a managed storefront.
+
+The same compiled WASM module runs on every supported host when it uses portable
+capabilities. Platform bridges expose registered macOS, Windows, and Linux file
+handlers as evidence without giving them ambient authority.
+
+## Start building
+
+Continue with [Getting Started](/extensions/getting-started), then read [Core
+Concepts](/extensions/core-concepts) and [Security and
+Sync](/extensions/security-and-sync).

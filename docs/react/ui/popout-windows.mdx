@@ -125,9 +125,9 @@ State synchronization uses Tauri's `emit` system. When state changes, the backen
 
 The Platform abstraction provides a consistent API regardless of platform. On Tauri, it routes to native commands. On web, these methods are undefined, allowing graceful degradation.
 
-<Note>
+<Callout>
 Popout windows only work on Tauri desktop builds. The web version shows components inline since browsers don't support multiple windows with shared state.
-</Note>
+</Callout>
 
 ## Adding New Popout Windows
 

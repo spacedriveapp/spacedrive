@@ -1,201 +1,136 @@
 ---
 title: Get Started with Spacedrive
+description: Create a library, track your storage, and connect your devices
 sidebarTitle: Get Started
 ---
 
-Spacedrive unifies your files across all devices into one seamless experience. This guide walks you through initial setup and core concepts to get you organizing files in minutes.
-
-You'll install Spacedrive, create your first library, and understand how the distributed filesystem works. By the end, you'll have a foundation for managing files across all your devices.
+This guide takes you from a fresh install to a searchable source. Spacedrive
+runs a Rust daemon in the background. The desktop app, web interface, and CLI
+are clients of that daemon, so closing a window does not stop indexing or other
+durable work.
 
 ## Install Spacedrive
 
-Spacedrive runs as a background service (daemon) with a separate user interface. This architecture enables features like offline sync and multi-device coordination.
-
 <Steps>
-<Step title="Download the App">
-Visit [spacedrive.com/download](https://github.com/spacedriveapp/spacedrive/releases/tag/v2.0.0-alpha.1) and get the installer for your platform. Spacedrive (v2.0.0-alpha.1) supports macOS and Linux. Windows, iOS, and Android coming in v2.0.0-alpha.2.
+<Step>
+### Download the release
+
+Get Spacedrive 2.0 for macOS, Windows, or Linux from the
+[release page](https://github.com/spacedriveapp/spacedrive/releases).
 </Step>
-<Step title="Run the Installer">
-Follow your platform's standard installation process. On macOS, drag Spacedrive to Applications. On Windows, run the installer. Linux users can use AppImage or package managers.
+<Step>
+### Launch the app
+
+Open Spacedrive. The app starts the local daemon and connects to it. You do not
+need to create an online account.
 </Step>
-<Step title="Launch Spacedrive">
-Open Spacedrive from your applications. The daemon starts automatically in the background. You'll see the setup wizard on first launch.
+<Step>
+### Create a library
+
+Give the library a name such as Personal or Studio. A library holds your source
+registry, organization, policies, device relationships, and small shared state.
+The source stores hold the large filesystem generations.
 </Step>
 </Steps>
 
-<Note>
-The daemon runs separately from the UI. Closing the app window doesn't stop file syncing or background operations. CLI users can set up auto-start with `sd daemon install` on macOS.
-</Note>
+New libraries include pins for Home, Desktop, Documents, Downloads, and
+Pictures. A pin is a convenient path into a source. It does not move files or
+start another index.
 
-## Create Your First Library
+## Track your first source
 
-Libraries organize your files and settings. Think of a library as a unified view of all your data across devices.
+A source is a retained view of an origin. For a local filesystem source,
+Spacedrive walks the chosen root, records its structure and metadata, and keeps
+the store current with filesystem events.
 
-<Steps>
-<Step title="Choose Library Name">
-Pick a descriptive name like "Personal" or "Work". You can create multiple libraries later for different purposes.
-</Step>
-<Step title="Select Storage Location">
-Spacedrive stores library data in a local database. Choose the default location or pick a custom path with sufficient space.
-</Step>
-<Step title="Complete Setup">
-Click "Create Library" to initialize your database. Spacedrive creates the necessary structures for organizing your files.
-</Step>
-</Steps>
+In the app, open **Sources**, choose **Track source**, and select a folder or
+mounted drive. The default capture policy skips common build artifacts and
+system noise. Use an unfiltered source for archival media where every readable
+name matters.
 
-Your library starts empty. Next, you'll add locations to begin organizing files.
+The equivalent CLI flow is:
 
-## Understand Key Concepts
+~~~bash
+sd-cli start
+sd-cli library create Personal
+sd-cli sources track ~/Documents
+sd-cli sources list
+sd-cli job list
+~~~
 
-Spacedrive introduces concepts that differ from traditional file managers:
+Tracking does not relocate or rewrite your files. The source store can remain
+searchable when the origin is disconnected.
 
-### Libraries
-A library is your personal database of file information. It stores:
-- File metadata and organization
-- Tags and custom attributes
-- Device relationships
-- Sync settings
+<Callout type="warn">
+  An index proves what Spacedrive observed. It is not a second copy of file
+  bytes. Configure redundancy before treating any source as protected.
+</Callout>
 
-<Info>
-Libraries remain local to each device but can sync organizational data between devices you own.
-</Info>
+## Verify important content
 
-### Locations
-Locations are folders on your device that Spacedrive monitors. Adding a location indexes its contents into your library without moving files.
+Spacedrive samples file content during normal identification to keep indexing
+fast. When duplicate content matters, verification reads every byte and
+promotes candidate identities to confirmed integrity hashes.
 
-### Virtual Filesystem (VDFS)
-Spacedrive creates a unified view of files across all devices. Files keep their physical location but appear in one searchable interface.
+~~~bash
+sd-cli sources verify <SOURCE_ID>
+sd-cli sources freeze <SOURCE_ID>
+~~~
 
-### SD Paths
-Universal file addresses that work across all storage types. Spacedrive uses three types of paths:
+**verify** confirms shared content. **freeze** writes a dated, self-contained
+copy of the source store. A freeze preserves what the index knew even if a
+later scan changes the live generation.
 
-- **Physical**: Traditional filesystem paths on local devices (`/Users/jane/Documents/report.pdf`)
-- **Cloud**: Cloud storage paths for services like S3, Google Drive, or Dropbox (`photos/vacation/beach.jpg`)
-- **Content**: Content-addressed paths that find files by their content, regardless of location
+## Connect another device
 
-This unified system means you can copy files between your laptop, external drive, and cloud storage using the same commands.
+Pairing establishes a direct trust relationship between two Spacedrive
+instances. One device generates a short code and the other joins with it:
 
-## Navigate the Interface
+~~~bash
+sd-cli network pair generate
+sd-cli network pair join "<PAIRING_CODE>"
+~~~
 
-The Spacedrive interface provides powerful tools for file management:
+The devices authenticate each other and connect over encrypted peer-to-peer
+transport. Local discovery finds nearby devices. Internet pairing uses a relay
+when a direct path is unavailable. No central Spacedrive account controls the
+relationship.
 
-**Sidebar** - Switch between libraries, access locations, and view system status. Collapsible for more workspace.
+After pairing, attach the remote library or its sources. You can query remote
+records, stream bytes, cache selected content, and inspect jobs and logs through
+the same clients you use locally.
 
-**Explorer** - Browse files with list or grid views. Supports columns, sorting, and filtering like traditional file managers.
+## The four concepts to remember
 
-**Inspector** - View and edit file metadata. Add tags, see technical details, and manage file relationships.
+| Concept | Owns |
+| --- | --- |
+| Library | Source registry, devices, policy, organization, and small shared state |
+| Source | One origin, ingest path, portable store, and availability state |
+| Location | A named pin and attention policy inside a source |
+| Content identity | Evidence that records contain the same bytes |
 
-**Search Bar** - Find files instantly across all indexed locations. Supports filters and advanced queries.
+The separation matters. A removable drive can go offline without disappearing
+from your library. Two pins can point into one source without duplicating
+records. Two records can share a content identity without losing their distinct
+paths and metadata.
 
-**Job Manager** - Monitor background operations like indexing and sync. Access via the status indicator.
+## Use the same operations everywhere
 
-<Tip>
-Use keyboard shortcuts for efficiency. Press `⌘/` (Mac) or `Ctrl+/` (Windows/Linux) to see all available shortcuts.
-</Tip>
+The interface and CLI call the same operation registry. You can inspect the
+available CLI surface with:
 
-## Add Your First Location
+~~~bash
+sd-cli --help
+sd-cli sources --help
+sd-cli op --help
+~~~
 
-Connect a folder to start organizing files:
+**sd-cli op** exposes any registered operation with typed JSON input, which
+makes the CLI a direct automation surface as well as a human tool.
 
-<Steps>
-<Step title="Open Location Settings">
-Click the + button next to "Locations" in the sidebar or go to Settings → Locations.
-</Step>
-<Step title="Select a Folder">
-Choose a folder to index. Start with something manageable like Documents or Pictures.
-</Step>
-<Step title="Configure Indexing">
-Select indexing depth:
-- **Shallow**: File names and basic metadata only (fastest)
-- **Deep**: Full content analysis including thumbnails (recommended)
-</Step>
-<Step title="Start Indexing">
-Click "Add Location" to begin. Monitor progress in the job manager (status bar).
-</Step>
-</Steps>
+## Next steps
 
-<Warning>
-Initial indexing time depends on folder size and depth selected. A folder with 10,000 files typically takes 2-5 minutes for deep indexing.
-</Warning>
-
-## Organize with Tags
-
-Tags provide flexible organization without moving files:
-
-<Steps>
-<Step title="Create a Tag">
-Right-click any file and select "Add Tag" or use Settings → Tags to create tags first.
-</Step>
-<Step title="Apply Tags">
-Select multiple files and apply tags in bulk. Tags sync across devices.
-</Step>
-<Step title="Filter by Tags">
-Click tags in the sidebar to filter your view instantly.
-</Step>
-</Steps>
-
-Tags support colors and hierarchies for advanced organization.
-
-## Search Across Everything
-
-Spacedrive's search works across all indexed locations simultaneously:
-
-```
-photo                    # Find all photos
-tag:vacation            # Files tagged "vacation"
-size:>10MB              # Large files
-modified:<7d            # Changed in last week
-```
-
-<Info>
-Search runs locally for privacy. No file data leaves your devices.
-</Info>
-
-## Connect Another Device
-
-Expand Spacedrive to multiple devices:
-
-<Steps>
-<Step title="Install on Second Device">
-Download and install Spacedrive on another computer or mobile device.
-</Step>
-<Step title="Sign In">
-Use the same account to link devices (coming soon) or set up peer-to-peer pairing.
-</Step>
-<Step title="Enable Sync">
-Choose which organizational data to sync. File content remains on original devices.
-</Step>
-</Steps>
-
-Connected devices share tags, comments, and organization while keeping files in place.
-
-## Next Steps
-
-You now have Spacedrive running with your first library and location. Explore these features:
-
-- **[Back Up Photos from iPhone](/guides/backup-photos-ios)** - Automatic photo backup
-- **[Manage Your Libraries](/guides/manage-libraries)** - Multiple library workflows
-- **[Add and Index Locations](/guides/add-index-locations)** - Advanced indexing options
-
-<Note>
-Join our [Discord community](https://discord.gg/spacedrive) for help, tips, and updates on new features.
-</Note>
-
-## Troubleshooting
-
-### Spacedrive won't start
-- Check if the daemon is running in your system processes
-- Restart your computer to clear any stuck processes
-- Reinstall if issues persist
-
-### Indexing seems slow
-- Start with shallow indexing for large folders
-- Ensure your disk isn't full
-- Check job manager for detailed progress
-
-### Can't see files
-- Verify the location was added successfully
-- Check if indexing completed in job manager
-- Ensure you're viewing the correct library
-
-Need more help? Visit our [troubleshooting guide](/troubleshooting) or ask in Discord.
+- Learn how [sources and indexing](/core/indexing) preserve filesystem truth.
+- Learn why [locations are pins](/core/locations).
+- Connect a server with the [self-hosting guide](/overview/self-hosting).
+- Read about [library sync](/core/library-sync) and [file sync](/core/file-sync).

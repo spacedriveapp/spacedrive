@@ -1,58 +1,104 @@
 ---
 title: Security and Sync
-sidebarTitle: Security & Sync
+description: Capability isolation, provenance, and extension data movement
+sidebarTitle: Security and Sync
 ---
 
-## A Secure and Synchronized Ecosystem
+Extensions run in a WASM sandbox and call a narrow host API. Installation grants
+capabilities to one signed package identity. The extension does not inherit the
+daemon's full filesystem or network authority.
 
-Spacedrive extensions are designed to be powerful, but also secure and well-behaved citizens of the user's digital ecosystem. This is achieved through a multi-layered security model and deep integration with Spacedrive's native sync capabilities.
+## Capability model
 
-### Migration Security
+Grants can restrict:
 
-When an extension needs to change its database schema, it does so through a migration system that is carefully controlled by the Spacedrive core.
+- library;
+- source and source-relative subtree;
+- metadata versus original-byte reads;
+- write operations;
+- model and sidecar kinds;
+- named network destinations;
+- jobs, actions, and interface surfaces.
 
-- **SQL Validation**: All migration SQL is parsed and validated before execution. An extension can only modify its own tables (i.e., those prefixed with `ext_{extension_id}_`).
-- **Restricted Operations**: Extensions are only allowed to perform a specific set of DDL operations (`CREATE TABLE`, `ALTER TABLE`, etc.). Any attempts to modify core tables or other extensions' tables are blocked.
-- **Sandboxed Execution**: Migrations are run in a restricted database connection that uses an authorizer to enforce these rules at a low level.
+A location pin is not a security boundary. Grants resolve to stable source
+scope.
 
-### Permission System
+## Host boundary
 
-Extensions must declare their required permissions in their manifest file. Users are prompted to grant these permissions upon installation and can scope them to specific locations in their library.
+The host validates every request before:
 
-```json
-{
-  "id": "photos",
-  "permissions": {
-    "tables": {
-      "own": ["ext_photos_*"]
-      "read": ["entries", "content_identities"],
-      "write": []
-    }
-  }
-}
-```
+- resolving a record;
+- opening a byte stream;
+- writing a source;
+- creating an assertion;
+- dispatching a job;
+- making an external network request.
 
-This ensures that users have full control over what data an extension can access.
+Extensions do not receive raw SQLite connections, secret keys, provider tokens,
+or arbitrary local paths.
 
-### SQL Injection Prevention
+## Provenance
 
-The SDK's query APIs use prepared statements to prevent SQL injection vulnerabilities. All user-provided input is treated as parameters, not as part of the SQL query itself.
+Every generated model and sidecar records the extension ID, version, input
+identity, and generation. A user can see which code produced a result and
+invalidate it after an update.
 
-## Extension Model Sync
+User assertions also record the actor and grant used to create them.
 
-Extension models are first-class participants in Spacedrive's leaderless, hybrid sync system. This means that data created by an extension on one device will automatically sync to all other devices.
+## Sync by storage class
 
-### Sync Strategies
+Extensions do not implement private sync protocols. The host routes data by
+ownership:
 
-Spacedrive uses two primary sync strategies, and extensions can choose the appropriate one for each of their models:
+| Data | Sync rule |
+| --- | --- |
+| Source-derived model | Follows source generation authority |
+| User or extension assertion | Merges between authorized library peers |
+| Original file | Moves through a file operation or file sync |
+| Rebuildable sidecar | Regenerates near the consumer or uses cache |
+| Persistent sidecar | Replicates under source policy |
+| Standalone model | Uses its declared assertion and conflict rule |
 
-1.  **State-Based Sync (`device_owned`)**: Used for data that is owned by a single device. Only the owning device can modify the data, and other devices receive read-only copies. This is useful for device-specific state, like the progress of a local analysis job.
+An extension declares conflict semantics for fields that several peers can
+edit. Filesystem timestamps do not order model changes.
 
-2.  **Log-Based Sync (`shared`)**: Used for resources that can be modified by any device, such as tags, albums, or a `Person` model. This system uses Hybrid Logical Clocks (HLCs) to order events and resolve conflicts, ensuring eventual consistency across all peers.
+## Network access
 
-### How It Works
+Network capability names allowed hosts, protocols, and purpose. The user sees
+when data will leave their infrastructure and which service receives it.
 
-- **`Syncable` Trait**: The `#[model]` macro automatically implements the `Syncable` trait for your models, which integrates them into the sync system.
-- **Shared Infrastructure**: Extension models use the same sync infrastructure (database tables and network protocol) as core Spacedrive models. The `model_type` field in the sync log distinguishes between core models and extension models.
-- **Dependency Resolution**: The sync system can handle dependencies between models. For example, if a `FaceDetection` model depends on a `Person` model, the `Person` model will be synced first.
-- **Conflict Resolution**: For shared models, conflicts are automatically resolved using HLCs to determine which change came last. Last-write-wins is the default strategy.
+Responses remain untrusted input. The host applies size, time, redirect, and
+rate limits.
+
+## Updates
+
+An update keeps the same signed extension identity and presents any new
+capabilities before activation. Model migrations can change only the
+extension-owned schema and run transactionally.
+
+If migration fails, the old package and data remain available for rollback.
+
+## Uninstall
+
+The uninstall preview separates:
+
+- code and active grants;
+- scheduled jobs;
+- reclaimable caches;
+- durable models and assertions;
+- persistent sidecars;
+- original files in user sources.
+
+Removing executable code is immediate. Deleting durable data is a separate
+explicit action.
+
+## Security rules
+
+- Deny undeclared host calls.
+- Scope grants by stable source identity.
+- Keep secrets outside extension memory unless a call requires a short-lived
+  credential.
+- Record provenance for every durable output.
+- Require confirmed content before content-scoped irreversible merges.
+- Treat external processors as named data recipients.
+- Apply the same operation authorization to extensions, humans, and agents.

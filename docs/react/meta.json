@@ -1,0 +1,7 @@
+{
+	"title": "Interface",
+	"icon": "Palette",
+	"root": true,
+	"pagesIndex": "index",
+	"pages": ["ui"]
+}

@@ -1,109 +1,121 @@
 ---
-title: Virtual Sidecar System (VSS)
+title: Virtual Sidecars
+description: Persistent derivatives for previews, search, and analysis
 sidebarTitle: Virtual Sidecars
 ---
 
-The Virtual Sidecar System (VSS) manages derivative data associated with your files - thumbnails, OCR text, video transcripts, embeddings, and other metadata-rich artifacts.
+Sidecars are data derived from a file or supplied beside it. They let Spacedrive
+add thumbnails, previews, transcripts, proxies, embeddings, and other useful
+representations without modifying the original bytes.
 
-## Key Principles
+## Sidecar classes
 
-**Content-Scoped**: Sidecars are linked to file content, not paths. Multiple copies of the same file share one set of sidecars.
+### Managed sidecars
 
-**Non-Destructive**: Spacedrive never modifies your original files during indexing.
+Spacedrive or an extension generates and stores these derivatives:
 
-**Portable**: All managed sidecars live in `.sdlibrary/sidecars`, making your entire setup portable.
+- image thumbnails and preview tiles;
+- video proxies and scrub thumbstrips;
+- OCR text and document structure;
+- audio or video transcripts;
+- embeddings and feature vectors;
+- extracted metadata too large for a record field.
 
-## Sidecar Types
+### Referenced sidecars
 
-The VSS handles two types of sidecars:
+These are existing source records related to another record, such as:
 
-**Managed Sidecars** - Spacedrive-generated derivatives stored in `.sdlibrary/sidecars/`:
-- Thumbnails (`.webp`)
-- Video proxies (`.mp4`)
-- OCR text (`.json`)
-- Subtitles and lyrics (`.srt`)
+- a Live Photo video beside its image;
+- a RAW file and rendered JPEG;
+- subtitles delivered with a video;
+- a project manifest and its media.
 
-**Reference Sidecars** - Pre-existing files treated as sidecars:
-- Live Photo video components
-- RAW + JPEG pairs
-- Tracked by `source_entry_id` in database
-- Files stay in original location until user converts them to managed sidecars
+Referenced sidecars remain ordinary source records. Typed edges describe their
+relationship.
 
-### Filesystem Layout
+## Identity
 
-All sidecars are stored in a `sidecars` directory within the `.sdlibrary`. The path to a sidecar is deterministic and is derived from the content UUID of the file it is associated with, the kind of sidecar, and a variant.
+A managed sidecar key includes:
 
-A typical path looks like this:
+- owning extension or core generator;
+- record or confirmed content identity;
+- kind;
+- variant;
+- format;
+- generator version.
 
-```
-.sdlibrary/
-  sidecars/
-    content/
-      {h0}/{h1}/{content_uuid}/
-        thumbs/{variant}.webp
-        proxies/{profile}.mp4
-        transcript/{variant}.srt
-        ocr/default.json
-```
+The key is deterministic. Two requests for the same valid derivative reuse one
+artifact. A generator version change creates a new key instead of silently
+relabeling old output.
 
-- `{h0}/{h1}`: These are the first two byte-pairs of the content UUID, used for sharding the directory structure to ensure good filesystem performance at scale.
-- `{content_uuid}`: The unique identifier of the content the sidecar is associated with.
-- `thumbs/{variant}.webp`: An example of a thumbnail sidecar.
+## Record or content scope
 
-### Database Schema
+Use content scope when the derivative follows identical confirmed bytes. A
+thumbnail or transcript can then serve several records.
 
-The VSS uses two tables in the Spacedrive database:
+Use record scope when source context matters, such as a provider edit, local
+color profile, orientation override, or access-controlled annotation.
 
-- `sidecars`: This table tracks all the sidecars that have been generated or are pending generation. It stores information like the content UUID, kind, variant, format, path, size, and status.
-- `sidecar_availability`: This table tracks which devices in your library have a copy of a particular sidecar. This is used to avoid regenerating sidecars that already exist on another device.
+Candidate sampled identity is not enough to merge irreversible or sensitive
+sidecars across records.
 
-### Sidecar Lifecycle
+## Storage and retention
 
-**1. Identification**
-- **Managed**: Indexer queues generation job, creates "pending" record in `sidecars` table
-- **Reference**: Indexer creates `sidecar` record with `source_entry_id` pointing to original file
+Sidecars declare a retention class:
 
-**2. Generation**
-- **Managed**: Background job generates derivative, stores in deterministic path
-- **Reference**: No generation - already exists
+| Class | Behavior |
+| --- | --- |
+| Cache | Reclaimable and reproducible from an available origin |
+| Persistent | Retained with the source or content policy |
+| Imported | Supplied by an origin and preserved as source evidence |
 
-**3. Recording**
-- **Managed**: Job marks sidecar "ready", records size and metadata
-- **Reference**: Created as "ready" immediately
-- Both update `sidecar_availability` table for current device
+Calling a sidecar “rebuildable” does not make it safe to delete when its origin
+or generator is unavailable. The policy engine checks both before reclaiming
+it.
 
-**4. Syncing**
-- Devices exchange availability information
-- Missing sidecars can be transferred from peers instead of regenerating
+## Generation jobs
 
-## Current Implementation Status
+Sidecar generation runs as a durable job:
 
-The VSS is partially implemented. Here is a summary of the current status:
+1. Resolve the permitted input record and current generation.
+2. Confirm required content evidence.
+3. Reserve the deterministic output key.
+4. Stream input through the byte-provider boundary.
+5. Write a temporary artifact.
+6. Validate output and checksum.
+7. Commit the artifact and publish its metadata.
 
-- **Implemented:**
-  - The core `SidecarManager` service.
-  - Filesystem layout and path generation.
-  - Database schema and queries for `sidecars` and `sidecar_availability`.
-  - Enqueueing of sidecar generation jobs.
-  - A `bootstrap_scan` function to synchronize the database with the filesystem.
-  - Reference sidecars, which allow tracking files as sidecars without moving them.
-- **To-Do:**
-  - **Job Dispatch and Execution:** The system for actually executing the generation jobs is not yet implemented. This is the most critical missing piece.
-  - **Filesystem Watcher:** A watcher for the `sidecars` directory is needed for real-time updates.
-  - **Checksumming:** Checksumming of sidecar files for integrity verification is not yet implemented.
+Retries reuse completed output when its checksum and generator version match.
+Partial files never appear as valid sidecars.
 
-## How to Use the VSS (API)
+## Remote use
 
-The `SidecarManager` provides a set of APIs for interacting with the VSS. These are primarily for internal use by other Spacedrive services, but they can also be used for development and debugging.
+A client can request a sidecar before requesting original bytes. The serving
+node checks the same subtree and content grants used for the source record.
 
-- `sidecars.presence(content_uuids, kind, variants)`: Checks for the presence of sidecars for a given set of content UUIDs.
-- `sidecars.path(content_uuid, kind, variant)`: Gets the local path to a sidecar, or enqueues it for generation if it doesn't exist.
-- `sidecars.reconcile()`: Triggers a bootstrap scan to reconcile the database with the filesystem.
+Persistent sidecars can replicate with source policy. Cache sidecars can be
+generated near the consumer. Range-capable proxies support remote media
+scrubbing without downloading an original file first.
 
-## Benefits
+## Extensions
 
-- **Non-Destructive**: Reference sidecars preserve original file locations
-- **Portable**: All managed sidecars in `.sdlibrary` can be moved/backed up as one unit
-- **Efficient**: One sidecar per content hash, shared across devices
-- **Extensible**: New sidecar kinds can be added without schema changes
-- **AI-Ready**: Provides structured data for semantic search and intelligent organization
+Extensions register sidecar kinds, generators, formats, and preview capabilities
+through the SDK. The UI asks the registry for a supported representation instead
+of hard-coding every media type.
+
+If an extension is absent, Spacedrive keeps the sidecar metadata and degrades to
+another preview or the original file. Uninstalling an extension does not delete
+persistent sidecars without an explicit cleanup preview.
+
+## Safety rules
+
+- Never modify an original file to create a derivative.
+- Verify output before publishing it.
+- Keep generator and provenance identity with every artifact.
+- Respect source, subtree, and content permissions for reads.
+- Do not merge record-scoped data through a candidate content hash.
+- Explain why a requested preview is missing or stale.
+- Reclaim only data whose policy and reproducibility permit it.
+
+See [Extension Data Storage](/extensions/data-storage) for model ownership and
+[Architecture](/core/architecture) for the common byte-provider path.

@@ -1,319 +1,163 @@
 ---
 title: File Sync
+description: Explicit, verified movement of file bytes between sources
 sidebarTitle: File Sync
 ---
 
-<Note>This is provisional documentation describing the planned File Sync implementation.</Note>
+File sync changes where file bytes live. It connects a source scope to a
+destination source through an explicit policy, then plans, transfers, verifies,
+and records each change.
 
-File Sync orchestrates content synchronization between locations by leveraging Spacedrive's Virtual Distributed File System (VDFS) index. Unlike traditional sync tools that scan filesystems, File Sync operates entirely through index queries. This makes sync state resolution a simple database operation and ensures perfect consistency with your indexing rules.
+File sync is separate from library sync and remote browsing:
 
-## Architecture
+| Operation | Result |
+| --- | --- |
+| Library sync | Devices share registry state and assertions |
+| Remote browse | A client reads an online source without creating a full copy |
+| Cache | A client retains replaceable local data for faster access |
+| File sync | A destination origin gains, updates, or removes durable bytes |
 
-File Sync builds on Spacedrive's core infrastructure. Each sync operation runs as a Job, providing state persistence and progress tracking. The system derives all sync decisions from the VDFS index, eliminating complex state management and ensuring files ignored during indexing remain excluded from sync.
+This distinction prevents browsing a remote folder from silently consuming
+storage or creating a backup promise.
 
-### Index-Based Design
+## Sync relationships
 
-The VDFS index serves as the single source of truth for File Sync. When you configure a sync relationship between two locations, the system:
+A sync relationship names:
 
-1. Queries the index for entries at both locations
-2. Calculates differences based on content hashes and timestamps  
-3. Dispatches existing file operations (copy, delete) to reconcile state
-4. Updates sync history for conflict detection
+- a source and source-relative scope;
+- a destination source and path;
+- direction;
+- inclusion policy;
+- deletion policy;
+- conflict behavior;
+- verification strength;
+- schedule or trigger.
 
-This approach transforms sync from a complex distributed systems problem into straightforward database queries.
+Relationships use source and record identity. Mount paths are resolved only when
+work runs, so a removable drive can reconnect at a different operating-system
+path.
 
-### Core Principles
+## Modes
 
-**Index as Truth**  
-If a file isn't indexed, it doesn't exist for sync purposes. This ensures consistency between what you see in Spacedrive and what gets synchronized.
+### Copy
 
-**Push-Based Transfer**
-The device that has files pushes them to devices that need them. This works naturally with iOS background processing and simplifies the protocol.
+Copy sends selected files to the destination and leaves existing destination
+data alone. It is useful for one-time migration and export.
 
-**Library Sync First**
-File Sync requires a complete, up-to-date index via Library Sync before operating. This ensures all devices have the same view of what exists where.
+### Mirror
 
-**Leverage Existing Jobs**
-File Sync orchestrates `FileCopyJob` and `DeleteJob` rather than implementing custom transfer logic. The existing job system already handles local vs remote routing, progress tracking, and error recovery.
+Mirror makes the destination represent the selected source scope. New and
+changed files flow in one direction. Deletion propagation is a separate,
+visible option because a mirror with deletion is not the same safety property
+as a backup.
 
-## Sync Modes
+### Two-way
 
-File Sync offers four distinct modes, each designed for specific workflows. Configure these per-location through the sync settings panel.
+Two-way sync accepts changes from either origin. Concurrent changes preserve
+both versions until policy or a person resolves them. A wall-clock timestamp
+alone never silently destroys one side.
 
-### Mirror Mode
-Creates an exact copy of your source at the destination. Changes flow one direction only. Perfect for backup scenarios where you want a read-only copy of important data.
+### Archive
 
-When you delete a file from the source, Mirror Mode removes it from the destination too. This keeps your backup lean and matches your working set exactly.
+Archive transfers content to long-term storage, verifies the destination, and
+then releases the source copy if policy allows. The removal step is its own
+auditable action.
 
-### Bidirectional Mode  
-Keeps two locations identical across different devices. Changes made anywhere propagate everywhere. Ideal for working on the same projects from multiple computers.
+### On-demand cache
 
-The system uses last-write-wins for conflicts. When the same file changes in multiple places, the most recent modification takes precedence. Previous versions remain in your Spacedrive history.
+An on-demand cache keeps selected remote bytes near a client. Cached data can be
+reclaimed because its authoritative source remains known. A pinned cache adds a
+retention requirement and is not evicted automatically.
 
-### Archive Mode
-Moves completed work to long-term storage. After verifying successful transfer, the source files are removed to free local space. The system performs cryptographic verification before any deletion.
+## Planning from source stores
 
-Use this mode when finishing projects. Your files move to cheaper storage while maintaining full Spacedrive search and preview capabilities.
+Source stores make planning efficient because they already contain names,
+hierarchy, sizes, content evidence, and errors. A planner compares source
+generations and produces a concrete change set.
 
-### Selective Mode
-Intelligently manages limited local storage. Frequently accessed files stay local while older content moves to secondary storage. Files remain visible in Spacedrive and download on-demand when needed.
+The index is evidence, not permission to assume the origin is unchanged. Before
+mutating data, the executor checks current source availability and validates
+the relevant record at the origin. Stale evidence causes a replan or a visible
+conflict.
 
-The algorithm considers access patterns, available space, and manual pins. You control which files always stay local by pinning them in the Spacedrive interface.
+## Transfer lifecycle
 
-## Implementation
+Each run follows the same lifecycle:
 
-File Sync uses index queries to determine what needs synchronization. This eliminates filesystem scanning and complex state tracking.
+1. **Plan** the required creates, updates, conflicts, and optional removals.
+2. **Authorize** the exact source and destination scopes.
+3. **Transfer** into temporary destination names where the provider permits it.
+4. **Verify** size and content to the configured evidence level.
+5. **Commit** destination names atomically where possible.
+6. **Record** provenance, results, and failures.
+7. **Remove** source bytes only for an approved archive or deletion policy.
 
-### Prerequisites
+The job system persists progress and deduplicates dispatch. A retry continues
+from verified work instead of assuming that an attempted transfer completed.
 
-Before File Sync can operate, Library Sync must complete:
+## Content evidence
 
-```rust
-impl FileSyncJob {
-    async fn can_start(&self) -> bool {
-        // Ensure Library Sync is complete
-        let library_sync_state = self.library.sync_state().await;
-        library_sync_state.is_fully_synced()
-    }
-}
-```
+Candidate sampled hashes can avoid unnecessary full reads during planning, but
+a destructive decision requires confirmed content.
 
-This guarantees all devices share the same index view, preventing inconsistent sync decisions.
+For a move or archive, Spacedrive verifies the destination against the source
+before deleting the source instance. For a duplicate cleanup, it also checks
+the required number of independent failure domains. Two paths on the same
+physical disk are not two protected copies.
 
-### Sync Resolution
+## Conflicts and versions
 
-The sync resolver calculates operations by comparing index entries:
+A conflict exists when both origins changed relative to the last acknowledged
+state or when the current origin no longer matches the planned record.
 
-```rust
-// Find files that need copying (exist in source but not target)
-let to_copy = source_entries
-    .filter(|e| !target_entries.contains(e.path))
-    .collect();
+Spacedrive preserves conflicting bytes under distinct version identity and
+records:
 
-// Find files that need deletion (exist in target but not source)  
-let to_delete = target_entries
-    .filter(|e| !source_entries.contains(e.path))
-    .collect();
-```
+- which origin produced each version;
+- the observed generation and timestamps;
+- content hashes and verification state;
+- the policy decision or person that resolved it.
 
-For bidirectional sync, the system uses timestamps to detect conflicts when both sides modified the same file.
+Views can present one preferred version without erasing the alternatives.
 
-### Index Consistency
+## Remote transfer
 
-<Info>
-Files excluded from indexing (like `node_modules`) are automatically excluded from sync. This matches user expectations - if you told Spacedrive to ignore it, it won't sync either.
-</Info>
+Paired nodes request authenticated byte ranges through the common byte-provider
+protocol. Transfers are encrypted end to end and scoped to the granted source
+or subtree.
 
-For cases requiring full directory sync including normally-ignored files, sync conduits support an index mode override:
-
-```rust
-pub enum IndexingMode {
-    Standard,         // Use normal exclusion rules
-    SyncComplete,     // Index everything for this sync
-}
-```
-
-### Network Protocol
-
-File transfers use Spacedrive's existing P2P infrastructure over QUIC. The protocol supports:
-
-- Resumable transfers for large files
-- Concurrent block transmission  
-- Compression for slow links
-- Encryption for all data
-
-Each sync session negotiates capabilities. Modern devices use parallel transfers while older systems fall back to sequential mode.
-
-### Transfer Coordination
-
-File Sync uses a push-based model where the device with files initiates transfers:
-
-```rust
-impl FileSyncJob {
-    async fn execute(&self, ctx: &JobContext) -> Result<()> {
-        let conduit = self.load_conduit().await?;
-        
-        match conduit.sync_mode {
-            SyncMode::Mirror => {
-                // Source pushes all changes to target
-                if self.am_source(&conduit) {
-                    let ops = self.calculate_mirror_push().await?;
-                    self.push_changes(ops, conduit.target).await?;
-                }
-            }
-            SyncMode::Bidirectional => {
-                // Each device pushes its own changes
-                let my_changes = self.calculate_my_changes().await?;
-                if !my_changes.is_empty() {
-                    self.push_changes(my_changes, other_device).await?;
-                }
-            }
-        }
-    }
-}
-```
-
-### Receiver Validation
-
-When receiving files, devices validate against their local index:
-
-```rust
-impl FileTransferProtocol {
-    async fn handle_incoming_file(&self, metadata: FileMetadata) -> Result<()> {
-        // Check if we already have this content
-        let existing = self.db.content_identity()
-            .find_by_hash(&metadata.content_hash)
-            .await?;
-            
-        if existing.is_some() {
-            return Ok(()); // Skip transfer, already have it
-        }
-        
-        // Proceed with transfer
-        self.receive_file(metadata).await
-    }
-}
-```
-
-This prevents duplicate transfers and ensures consistency.
-
-## Data Model
-
-File Sync introduces the `SyncConduit` entity to manage sync relationships between directories:
-
-```rust
-pub struct SyncConduit {
-    pub id: i32,
-    pub uuid: Uuid,
-    
-    // Sync endpoints - must be directories
-    pub source_entry_id: i32,         // FK to Entry
-    pub target_entry_id: i32,         // FK to Entry
-    
-    // Configuration
-    pub sync_mode: SyncMode,
-    pub enabled: bool,
-    pub schedule: SyncSchedule,
-    
-    // Index integration
-    pub use_index_rules: bool,        // Default: true
-    pub index_mode_override: Option<IndexingMode>,
-    
-    // Performance
-    pub parallel_transfers: i32,
-    pub bandwidth_limit_mbps: Option<i32>,
-    
-    // State tracking via index timestamps
-    pub last_sync_completed_at: Option<DateTime<Utc>>,
-    pub sync_generation: i64,         // Increments each sync
-    
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-```
-
-### Relationships
-
-SyncConduit creates a directed relationship between two Entry records. The source and target must be directories (kind=1). For bidirectional sync, the direction indicates the initial sync priority but changes flow both ways.
-
-### Sync History
-
-Track sync operations for conflict detection and debugging:
-
-```rust
-pub struct SyncGeneration {
-    pub id: i32,
-    pub conduit_id: i32,
-    pub generation: i64,
-    pub started_at: DateTime<Utc>,
-    pub completed_at: Option<DateTime<Utc>>,
-    
-    // Operation summary
-    pub files_copied: i32,
-    pub files_deleted: i32,
-    pub conflicts_resolved: i32,
-    pub bytes_transferred: i64,
-}
-```
-
-Each sync creates a new generation record. For bidirectional sync, this history helps detect when the same file changed on both sides since the last sync.
-
-## Configuration
-
-Create sync relationships through the Spacedrive interface by right-clicking any directory and selecting "Sync to...". The system creates a SyncConduit record linking your source and destination.
-
-### Essential Settings
-
-**Sync Schedule**: Controls when File Sync runs. Instant mode monitors filesystem events for immediate sync. Periodic modes batch changes for efficiency.
-
-**Bandwidth Limits**: Prevents sync from saturating your connection. Applies per-conduit, so multiple syncs share available bandwidth intelligently.
-
-**Conflict Resolution**: Determines automatic resolution strategy. The system maintains conflict history for manual review regardless of settings.
-
-## Monitoring
-
-The sync status panel shows all active sync relationships. Monitor transfer progress, view sync history, and troubleshoot issues from a unified interface.
-
-Key metrics displayed:
-- Current transfer speed and ETA
-- Queue depth and pending files
-- Recent conflicts and resolutions  
-- Storage space on each device
-
-## Limitations
-
-File Sync currently has these constraints:
-
-- Maximum file size: 1TB per file
-- Excluded files: System files, temporary files
-- Platform differences: Some attributes don't sync across OS types
-- Network requirements: Both devices must be online simultaneously
-
-Future updates will address these limitations based on user feedback and real-world usage patterns.
-
-## Benefits of Index-Based Sync
-
-The index-driven architecture provides several advantages over traditional filesystem scanning approaches:
-
-**Performance**  
-No directory traversal needed. Sync resolution becomes efficient database queries instead of recursive filesystem operations.
-
-**Consistency**  
-Files ignored by indexing rules automatically stay out of sync. No divergence between what Spacedrive shows and what gets synchronized.
-
-**Simplicity**  
-Push-based transfers eliminate complex negotiation protocols. The device with data initiates transfers, making the system predictable and debuggable.
-
-**Reliability**  
-Library Sync ensures all devices share the same worldview before File Sync operates. Combined with receiver validation, this prevents inconsistent states.
-
-## Future Enhancements
-
-### Delta Transfers
-While the current system transfers whole files, future versions will add block-level delta transfers for large file modifications:
-
-```rust
-// Future: Only transfer changed blocks
-pub struct DeltaTransfer {
-    pub file_id: i32,
-    pub changed_blocks: Vec<BlockRange>,
-    pub block_size: u32,
-}
-```
-
-### Remote Delete Support
-The current `DeleteJob` lacks cross-device support. Future updates will add remote deletion capability to complete the sync feature set.
-
-### Conflict Resolution
-Advanced conflict handling will maintain version history and offer multiple resolution strategies beyond last-write-wins.
-
-## Usage Scenarios
-
-File Sync excels at personal file management workflows:
-
-**Project Folders**: Keep active projects synchronized between laptop and desktop
-**Photo Libraries**: Mirror photos from phone to NAS for backup
-**Document Archive**: Move completed work to cloud storage automatically  
-**Selective Cache**: Keep recent files local while older content lives in cloud
-
-The index-based design ensures these workflows remain fast and reliable while respecting your organization preferences.
+Interrupted transfers resume from verified ranges when the source and
+destination support it. Provider adapters may choose multipart uploads,
+server-side copies, or local streaming, but they report the same operation
+state.
+
+## Deletion safety
+
+Deletion propagation is off unless the relationship explicitly enables it.
+Before removing an instance, Spacedrive checks:
+
+- the plan still matches the origin;
+- the destination copy committed;
+- required verification succeeded;
+- retention and legal-hold policy allow removal;
+- the remaining copies satisfy failure-domain policy.
+
+A failed check leaves the source bytes in place and records the reason.
+
+## Visibility
+
+Every sync run exposes planned work, bytes transferred, verification state,
+conflicts, retries, and errors through the same operation API. The desktop app,
+CLI, and agents receive the same facts.
+
+Source availability is always visible. A relationship waiting for an offline
+drive is paused, not reported as complete.
+
+## Related systems
+
+- [Library Sync](/core/library-sync) shares small state and assertions.
+- [Indexing](/core/indexing) creates the source evidence used for planning.
+- [Data Model](/core/data-model) defines content identity and failure-domain
+  reasoning.
+- [File Copy Operations](/core/file-copy-operations) describes individual
+  transfer primitives.

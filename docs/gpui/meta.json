@@ -1,0 +1,6 @@
+{
+	"title": "GPUI",
+	"icon": "AppWindow",
+	"root": true,
+	"pages": ["state"]
+}

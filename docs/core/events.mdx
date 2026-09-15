@@ -1,348 +1,86 @@
 ---
 title: Event System
+description: Typed change notifications for clients and services
 sidebarTitle: Events
 ---
 
-Spacedrive's event system broadcasts real-time updates to all connected clients using a **unified resource event architecture** that eliminates per-resource event variants in favor of generic, horizontally-scalable events.
-
-## Overview
-
-The event bus enables reactive UI updates by notifying clients when data changes. The system uses:
-
-- **Generic Resource Events**: A single event type (`ResourceChanged`) handles all database entities
-- **Path-Scoped Subscriptions**: Subscribe to events affecting specific directories or files
-- **Infrastructure Events**: Specialized events for jobs, sync, and system lifecycle
-- **Automatic Emission**: Events are emitted automatically by the TransactionManager - no manual calls needed
-
-## Event Types
-
-### Resource Events
-
-Generic events that work for ALL resources (files, tags, albums, locations, etc.):
+The event system tells connected clients what changed after durable state
+commits. Events keep interfaces responsive without making them another source
+of truth.
 
-```rust
-Event::ResourceChanged {
-    resource_type: String,     // e.g., "file", "tag", "album", "location"
-    resource: serde_json::Value, // Full resource data as JSON
-    metadata: Option<ResourceMetadata>, // Cache hints and path scopes
-}
-
-Event::ResourceChangedBatch {
-    resource_type: String,
-    resources: serde_json::Value,  // Array of resources
-    metadata: Option<ResourceMetadata>,
-}
+## Event classes
 
-Event::ResourceDeleted {
-    resource_type: String,
-    resource_id: Uuid,
-}
-```
+| Class | Examples |
+| --- | --- |
+| Resource | Source, location, tag, device, or record projection changed |
+| Job | Queued, progress, paused, completed, failed |
+| Availability | Device, volume, source, or provider state changed |
+| Sync | Peer connected, watermark advanced, conflict recorded |
+| Filesystem | Watched source became dirty or needs reconciliation |
 
-**Supported Resources**:
-- `file` - Files and directories (Entry entity)
-- `tag` - User tags
-- `collection` - File collections
-- `location` - Indexed locations
-- `device` - Devices in the network
-- `volume` - Storage volumes (replaces deprecated volume events)
-- `sidecar` - Generated thumbnails and metadata
-- `user_metadata` - User-added metadata (notes, favorites, etc.)
-- `content_identity` - Deduplicated content records
+Events carry stable IDs and enough scope for a client to invalidate or update
+the correct query.
 
-<Note>
-  Volume events (`VolumeAdded`, `VolumeUpdated`, etc.) and indexing events (`IndexingStarted`, `IndexingProgress`, etc.) are deprecated. Use `ResourceChanged` for volumes and job events for indexing progress.
-</Note>
+## Commit ordering
 
-### Infrastructure Events
+A durable event is published only after its database transaction commits. A
+client that receives the event can immediately query the new state.
 
-Specialized events for system operations:
-
-**Core Lifecycle**:
-- `CoreStarted`, `CoreShutdown` - Daemon lifecycle
-
-**Library Management**:
-- `LibraryCreated`, `LibraryOpened`, `LibraryClosed`, `LibraryDeleted`
-- `Refresh` - Invalidate all frontend caches
-
-**Jobs**:
-- `JobQueued`, `JobStarted`, `JobProgress`, `JobCompleted`, `JobFailed`, `JobCancelled`
+Progress events may be transient and coalesced. Completion and failure are
+durable job state, so losing an event does not lose the outcome.
 
-**Sync**:
-- `SyncStateChanged` - Sync state transitions
-- `SyncActivity` - Peer sync activity
-- `SyncConnectionChanged` - Peer connections
-- `SyncError` - Sync errors
+## Subscriptions
 
-**Volumes** (deprecated - use `ResourceChanged` with `resource_type: "volume"`):
-- ~~`VolumeAdded`, `VolumeRemoved`, `VolumeUpdated`~~
-- ~~`VolumeMountChanged`, `VolumeSpeedTested`~~
+Clients subscribe by event class and optional scope:
 
-**Indexing** (deprecated - use job events):
-- ~~`IndexingStarted`, `IndexingProgress`, `IndexingCompleted`, `IndexingFailed`~~
+- library;
+- source;
+- source-relative subtree;
+- job;
+- resource type.
 
-**Filesystem**:
-- `FsRawChange` - Raw filesystem watcher events (before database resolution)
+Authorization is evaluated when the subscription starts and when each event is
+delivered. Revoking a grant closes or narrows existing subscriptions.
 
-## Event Emission
+## Batching
 
-### Automatic Emission (Recommended)
+Large ingests do not publish one event for every record. They emit bounded batch
+or invalidation events after commits. Clients requery the affected window or
+source generation.
 
-Events are emitted automatically when using the TransactionManager:
+This prevents the notification channel from duplicating the source store and
+keeps UI work proportional to what is visible.
 
-```rust
-// NO manual event emission needed!
-pub async fn create_collection(
-    tm: &TransactionManager,
-    library: Arc<Library>,
-    name: String,
-) -> Result<Collection> {
-    let model = collection::ActiveModel {
-        id: NotSet,
-        uuid: Set(Uuid::new_v4()),
-        name: Set(name),
-        // ...
-    };
-
-    // TM handles: DB write + sync log + event emission
-    let collection = tm.commit::<collection::Model, Collection>(library, model).await?;
+## Reconnect
 
-    Ok(collection) // ResourceChanged event already emitted!
-}
-```
+The event stream is not a permanent sync log. After reconnecting, a client
+compares query versions or watermarks and refreshes missed state.
 
-The TransactionManager emits `ResourceChanged` after successful commits, ensuring:
-- ✅ Events always match database state
-- ✅ No forgotten emissions
-- ✅ Automatic sync log integration
-
-### Manual Emission (Infrastructure Only)
-
-Only use manual emission for infrastructure events:
+Library and source sync use their own durable protocols. Events tell an online
+client to react; they do not replace replication.
 
-```rust
-// Jobs, sync, and system events
-event_bus.emit(Event::JobStarted {
-    job_id: job.id.to_string(),
-    job_type: "IndexLocation".to_string(),
-});
-```
+## Frontend use
 
-## Path-Scoped Subscriptions
+The generated client maps events to typed cache invalidation. Components should
+subscribe through shared hooks instead of opening duplicate transports.
 
-Subscribe to events affecting specific directories or files:
+An event payload identifies the changed resource. The canonical query remains
+responsible for sorting, permissions, availability, and partial-result state.
 
-```rust
-use sd_core::infra::event::SubscriptionFilter;
+## Backpressure
 
-// Subscribe to changes in a specific directory
-let filter = SubscriptionFilter::PathScoped {
-    resource_type: "file".to_string(),
-    path_scope: SdPath::physical(device_slug, "/Users/james/Photos"),
-};
+Each subscriber has bounded buffering. Coalescible events collapse by resource
+or scope. If a client falls too far behind, the server closes the stream with a
+refresh-required reason.
 
-let mut subscriber = event_bus.subscribe_filtered(vec![filter]);
+Dropping UI progress updates is acceptable. Dropping a durable state change
+without forcing refresh is not.
 
-while let Ok(event) = subscriber.recv().await {
-    // Only receives events affecting /Users/james/Photos
-    println!("Event: {:?}", event);
-}
-```
-
-The `ResourceMetadata` field includes `affected_paths` that indicate which directories/files changed:
+## Observability
 
-```rust
-pub struct ResourceMetadata {
-    pub no_merge_fields: Vec<String>,  // Fields to replace, not merge
-    pub alternate_ids: Vec<Uuid>,       // Alternate IDs for matching
-    pub affected_paths: Vec<SdPath>,    // Paths affected by this event
-}
-```
+Metrics expose subscriber count, queue depth, coalesced events, slow consumers,
+and forced refreshes. Logs carry event class and resource scope without
+including private file content.
 
-Path matching supports:
-- **Physical paths**: Match by device slug + path prefix
-- **Content IDs**: Match by content identifier
-- **Cloud paths**: Match by service + bucket + path
-- **Sidecar paths**: Match by content ID
-
-## Client Integration
-
-### TypeScript (useNormalizedQuery)
-
-The `useNormalizedQuery` hook automatically subscribes to resource events and updates the cache:
-
-```typescript
-import { useNormalizedQuery } from '@sd/client';
-
-// Automatically subscribes to ResourceChanged events for "tag"
-const tags = useNormalizedQuery({
-  resource_type: 'tag',
-  query: api.tags.list(),
-});
-
-// UI automatically updates when tags change!
-```
-
-The normalized cache:
-1. Subscribes to `ResourceChanged` events matching the resource type
-2. Deserializes the JSON resource using generated TypeScript types
-3. Updates the local cache
-4. Triggers React re-renders
-
-### Swift
-
-```swift
-// Generic event handler works for ALL resources
-actor EventCacheUpdater {
-    let cache: NormalizedCache
-
-    func handleEvent(_ event: Event) async {
-        switch event.kind {
-        case .ResourceChanged(let resourceType, let resourceJSON):
-            // Generic decode via type registry
-            let resource = try ResourceTypeRegistry.decode(
-                resourceType: resourceType,
-                from: resourceJSON
-            )
-            await cache.updateEntity(resource)
-
-        case .ResourceDeleted(let resourceType, let resourceId):
-            await cache.deleteEntity(resourceType: resourceType, id: resourceId)
-
-        default:
-            break
-        }
-    }
-}
-```
-
-## CLI Event Monitoring
-
-Monitor events in real-time using the CLI:
-
-```bash
-# Monitor all events
-sd events monitor
-
-# Filter by event type
-sd events monitor --event-type JobProgress,JobCompleted
-
-# Filter by library
-sd events monitor --library-id <uuid>
-
-# Filter by job
-sd events monitor --job-id <id>
-
-# Show timestamps
-sd events monitor --timestamps
-
-# Verbose mode (full JSON)
-sd events monitor --verbose --pretty
-```
-
-**Available Filters**:
-- `-t, --event-type` - Comma-separated event types (e.g., `ResourceChanged,JobProgress`)
-- `-l, --library-id` - Filter by library UUID
-- `-j, --job-id` - Filter by job ID
-- `-d, --device-id` - Filter by device UUID
-- `--timestamps` - Show event timestamps
-- `-v, --verbose` - Show full event JSON
-- `-p, --pretty` - Pretty-print JSON output
-
-**Example Output**:
-
-```
-Monitoring events - Press Ctrl+C to exit
-═══════════════════════════════════════════════════════
-Connected to event stream
-
-JobStarted: Job started: IndexLocation (a1b2c3d4)
-JobProgress: Job progress: IndexLocation (a1b2c3d4) - 45.2% - Scanning directory
-ResourceChangedBatch: Resources changed: file (127 items)
-JobCompleted: Job completed: IndexLocation (a1b2c3d4)
-```
-
-## Implementation Reference
-
-**Event enum**: `core/src/infra/event/mod.rs`
-
-```rust
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub enum Event {
-    // Core lifecycle
-    CoreStarted,
-    CoreShutdown,
-
-    // Library events
-    LibraryOpened { id: Uuid, name: String, path: PathBuf },
-    LibraryClosed { id: Uuid, name: String },
-
-    // Generic resource events
-    ResourceChanged {
-        resource_type: String,
-        resource: serde_json::Value,
-        metadata: Option<ResourceMetadata>,
-    },
-    ResourceChangedBatch {
-        resource_type: String,
-        resources: serde_json::Value,
-        metadata: Option<ResourceMetadata>,
-    },
-    ResourceDeleted {
-        resource_type: String,
-        resource_id: Uuid,
-    },
-
-    // Jobs, sync, volumes, indexing...
-    // (See full enum in source)
-}
-```
-
-**Event bus**: `core/src/infra/event/mod.rs`
-
-```rust
-pub struct EventBus {
-    sender: broadcast::Sender<Event>,
-    subscribers: Arc<RwLock<Vec<FilteredSubscriber>>>,
-}
-
-impl EventBus {
-    // Subscribe to all events
-    pub fn subscribe(&self) -> EventSubscriber;
-
-    // Subscribe with path/resource filters
-    pub fn subscribe_filtered(&self, filters: Vec<SubscriptionFilter>) -> EventSubscriber;
-
-    // Emit an event
-    pub fn emit(&self, event: Event);
-}
-```
-
-## Benefits
-
-### Backend
-
-- **Zero Manual Emission**: TransactionManager handles all resource events
-- **Type Safety**: Events always match actual resources
-- **Centralized**: Single point of emission prevents drift
-- **Scalable**: Adding new resources requires no event code
-
-### Frontend
-
-- **Zero Boilerplate**: One event handler for all resource types
-- **Type Registry**: Automatic deserialization via generated types
-- **Path Scoping**: Subscribe only to relevant directory changes
-- **Cache Integration**: `useNormalizedQuery` handles subscriptions automatically
-
-### Developer Experience
-
-- **No Event Variants**: ~40 variants eliminated → 3 generic events
-- **No Manual Calls**: Never call `event_bus.emit()` for resources
-- **No Client Changes**: Adding a 100th resource type = zero event handling updates
-- **CLI Debugging**: Monitor events in real-time with filtering
-
-## Related Documentation
-
-- **Sync System**: See [sync.md](./sync.md) for event emission during sync
-- **Normalized Cache**: See [normalized_cache.md](./normalized_cache.md) for client-side event handling
-- **TransactionManager**: See [transactions.md](./transactions.md) for automatic event emission
+See [API](/core/api) for operation semantics and [Sync Event Log](/core/sync-event-log)
+for durable sync diagnostics.

@@ -1,156 +1,204 @@
 ---
 title: Architecture Overview
+description: How Spacedrive connects clients, sources, stores, and devices
 sidebarTitle: Overview
 ---
 
-Spacedrive operates as a distributed, local-first system. Your data stays on your devices. A Rust core manages everything through a Virtual Distributed File System (VDFS). No cloud servers control your files.
+Spacedrive is a local-first filesystem runtime. A daemon owns durable state and
+file operations. Thin clients connect to that daemon through one typed operation
+surface.
 
-## System Design
+The architecture keeps three concerns separate:
 
-The architecture follows a client-server pattern on your own hardware. A daemon process runs the core engine. Clients connect to access functionality. Every device functions as an equal peer in the network.
+1. The **origin** owns file bytes.
+2. The **source store** preserves what Spacedrive knows about those bytes.
+3. The **library** connects sources, devices, policy, and user organization.
 
-<Info>
-	The daemon runs continuously in the background, indexing files and syncing
-	data even when no UI is open.
-</Info>
+This separation lets a drive go offline without erasing its history. It also
+lets a remote or cloud source use the same query and operation model as a local
+folder.
 
-## Core Components
+## Runtime layers
 
-### The Spacedrive Daemon
+| Layer | Responsibility |
+| --- | --- |
+| Clients | Desktop, web, CLI, MCP, and generated applications |
+| Operations | Typed queries, actions, capabilities, and errors |
+| Daemon | Libraries, durable jobs, file operations, and peer connections |
+| Sources | Origin discovery, provider ingest, availability, and policy |
+| Stores | Common records, content evidence, search, and assertions |
+| Byte providers | Local files, remote ranges, cloud objects, and caches |
 
-The daemon is a headless process that runs the VDFS core. It manages the library database, executes background jobs, and exposes an RPC interface for clients.
+## The daemon
 
-The daemon handles three primary responsibilities:
+The daemon is the authority on one machine. It opens libraries, tracks mounted
+volumes, runs jobs, manages source stores, watches filesystems, and maintains
+peer connections. It continues working when no graphical client is open.
 
-1. Core engine lifecycle management
-2. Background task execution (indexing, sync, analysis)
-3. Client communication through RPC
+Local clients connect over platform IPC. Browser clients use the daemon's web
+transport. Paired devices use encrypted peer-to-peer connections. A relay helps
+establish reachability when a direct connection is unavailable, but it does not
+become the owner of library state or file content.
 
-### Client Applications
+## One operation surface
 
-Clients provide the user interface without containing business logic. The desktop app, mobile app, and CLI all connect to the daemon to execute operations. This separation keeps interfaces lightweight and ensures consistent behavior across platforms.
+Spacedrive exposes reads as queries and mutations as actions. Operations are
+registered once in the Rust core and consumed by every client.
 
-### Communication Protocol
+- The desktop and web interfaces call generated TypeScript bindings.
+- The CLI provides named commands and a generic operation passthrough.
+- The MCP server exposes the same bounded capabilities to agent clients.
+- Extensions call explicit host functions from a WASM sandbox.
 
-Spacedrive implements Command Query Responsibility Segregation (CQRS) over RPC. Every operation falls into one of two categories:
+Clients do not reimplement storage rules. A copy, tag, source query, or
+permission check has the same semantics no matter which interface requested it.
+Destructive workflows can preview intent, commit work as a durable job, and
+verify the result against the source store.
 
-**Commands** change system state. They follow a three-phase lifecycle:
+## Libraries are the control plane
 
-```
-Preview → Commit → Verify
-```
+A library is a small durable registry. It knows:
 
-This ensures mutations are safe and auditable. Moving a file first previews the change, commits the operation, then verifies completion.
+- which devices participate;
+- which sources are attached;
+- how those sources can be reached;
+- locations, tags, permissions, and other user assertions;
+- sync watermarks and policy.
 
-**Queries** read data without side effects. Listing files or searching tags executes instantly without modifying state.
+A library does not contain one giant replicated file tree. Large filesystem
+generations remain in their source stores. That keeps pairing and library sync
+bounded as sources grow.
 
-<Note>
-	The strict separation between commands and queries prevents accidental data
-	modification during read operations.
-</Note>
+## Sources are the data boundary
 
-## Code Organization
+A source is one retained scope over an origin:
 
-### Operations (`core/src/ops`)
+~~~text
+source = origin + ingest + store
+~~~
 
-Operations implement the CQRS handlers. Each domain has its own module:
+An origin may be a local subtree, an entire volume, a NAS dataset, a remote
+Spacedrive node, or a provider API. The ingest differs by provider. The stored
+record shape does not.
 
-- `ops/entry` - File and folder operations
-- `ops/tag` - Tag management
-- `ops/location` - Location indexing
-- `ops/collection` - Collection handling
+Each source has an availability state:
 
-This modular structure keeps related functionality together while maintaining clear boundaries between domains.
+- **Live** means the origin currently answers.
+- **Degraded** means the store is usable but the origin cannot answer every
+  request.
+- **Lost** means the origin no longer answers and the retained store is the
+  remaining evidence.
 
-### Services (`core/src/service`)
+No code path may assume that a source store can always be recreated.
 
-Services orchestrate complex processes using lower-level operations:
+## The volume arena
 
-**NetworkService** manages peer-to-peer connections between devices.
+Local filesystems first enter a machine-level volume arena. The arena is a fast
+read map over what is mounted now. It assigns stable filesystem identities and
+supports immediate browsing.
 
-**SyncService** coordinates metadata synchronization across the network.
+A filesystem source retains a selected scope from that arena. Nested sources
+reuse the same identity namespace. They do not create competing file IDs for
+the same mounted object.
 
-**JobManager** executes durable background tasks like file analysis and thumbnail generation.
+## Source stores
 
-Services run continuously, responding to events and coordinating between different parts of the system.
+Every source store is a self-contained database with two ownership classes.
 
-## Mobile Architecture
+### Generation
 
-iOS and Android apps embed the entire Rust core directly in the application binary. This embedded core enables mobile devices to function as complete Spacedrive nodes.
+Generation tables describe what the origin reported:
 
-Your phone can:
+- records and hierarchy;
+- filesystem or provider facets;
+- content identity;
+- relations between records;
+- search projection;
+- ingest schema and watermarks.
 
-- Index local photos and files
-- Manage its own SQLite database
-- Sync directly with other devices
-- Operate without a desktop connection
+One ingest authority writes a generation. A new scan may replace generation
+rows transactionally when the origin still answers.
 
-<Tip>
-	The embedded core enables camera roll backup directly from your phone to any
-	device on your network.
-</Tip>
+### Assertions
 
-## System Lifecycle
+Assertion tables preserve knowledge that a scan cannot recover:
 
-The typical execution flow follows these steps:
+- tags and notes;
+- decisions and review state;
+- provenance;
+- policy;
+- extension data attached by stable identity.
 
-### Startup Sequence
+Assertions survive a generation rebuild. When several devices can edit them,
+they merge through explicit logical ordering rather than filesystem timestamps.
 
-1. **Daemon Launch**: The daemon starts when you launch the GUI app or run `sd start`. CLI users can optionally configure auto-start on login using `sd daemon install` on macOS.
-2. **Library Load**: SQLite database opens and VDFS core initializes
-3. **Service Activation**: Background services start and announce on the network
-4. **Client Connection**: UI applications connect via RPC socket
+## Indexing and live changes
 
-### Runtime Operation
+A filesystem ingest follows one capture contract:
 
-During normal operation, clients send commands and queries to the daemon. The daemon processes requests, updates the database, and returns results. Background services continue indexing files and syncing with peers.
+1. Resolve the source root through the current volume attachment.
+2. Walk names and metadata into the volume arena.
+3. Persist source records in bounded batches.
+4. Identify content according to the source capture policy.
+5. Sweep stale generation rows only after a complete walk.
+6. Apply watcher changes through the same capture policy.
 
-### Shutdown Process
+Unreadable content remains represented with a reason. One malformed path cannot
+erase the rest of a batch. The daemon's own data directory is always excluded
+so a source cannot index its live SQLite journals or frozen copies.
 
-The daemon stops all services gracefully. Pending database transactions complete. Open connections close. The library saves its state for the next startup.
+See [Indexing](/core/indexing) for the safety rules.
 
-## Performance Characteristics
+## Remote serving, caching, and sync
 
-The architecture optimizes for local-first operation:
+Pairing does not copy every source generation into every library database.
+When a source-owning device is online, another device can query its store and
+request byte ranges. The client may retain a cache or a subscribed copy
+according to policy.
 
-**Zero network latency** for local operations. File browsing and searching execute against the local database.
+Source generations flow from their ingest authority. User assertions may merge
+in both directions. File sync is an explicit data movement relationship, not an
+automatic consequence of pairing or browsing.
 
-**Parallel processing** across multiple CPU cores. The Rust core uses async/await for concurrent operations.
+This boundary keeps three operations distinct:
 
-**Minimal memory footprint** through lazy loading. Only active data loads into memory.
+- **Remote browsing** reads an online peer.
+- **Caching** retains selected remote data locally.
+- **File sync** creates or updates file bytes at another origin.
 
-**Background indexing** without blocking the UI. File analysis happens in separate worker threads.
+## Mounts and byte providers
 
-## Security Model
+The explorer, preview system, remote protocol, file operations, and filesystem
+mounts all request bytes through a common provider boundary. A caller can read a
+local file, remote record, cloud object, or cache without replacing the product
+model.
 
-Every component enforces security at multiple levels:
+Mounts expose a scoped Spacedrive view to the host operating system. Permission
+checks and availability still apply at the daemon boundary.
 
-Database encryption protects data at rest. RPC authentication prevents unauthorized access. Peer verification ensures you only sync with trusted devices.
+## Extensions
 
-<Warning>
-	The daemon's RPC interface binds to localhost only. Remote access requires
-	explicit SSH tunneling or VPN configuration.
-</Warning>
+Extensions run as sandboxed WASM modules. They can register file kinds,
+metadata extraction, previews, jobs, actions, models, and views. Capabilities
+are explicit. An extension cannot gain arbitrary filesystem or network access
+through the runtime.
 
-## Extension System
+Provider adapters use the same source contract. Adding a provider changes how
+data is ingested and written, not how a record is represented.
 
-Spacedrive provides a comprehensive SDK for building extensions that integrate seamlessly with core functionality. Extensions run in sandboxed WASM environments while maintaining full access to Spacedrive's capabilities.
+## Code map
 
-The SDK enables developers to:
+| Area | Path |
+| --- | --- |
+| Domain and operations | core/src/domain, core/src/ops |
+| Runtime services | core/src/service |
+| Source-store schema and queries | crates/store |
+| Rust client | crates/sd-client |
+| Generated TypeScript client | packages/ts-client |
+| CLI | apps/cli |
+| Desktop client | apps/tauri |
+| Extension SDK | crates/sdk |
 
-- Define custom data models that sync across devices
-- Build specialized interfaces for specific workflows
-- Create AI-powered agents for data analysis
-- Connect external services and platforms
-
-Extensions can share models and build on each other's data. A photo management extension can provide face data to a contacts extension. An email archive can feed into knowledge management tools.
-
-Learn more about building extensions in the [Spacedrive Developer SDK](/docs/extensions/introduction) documentation.
-
-## Next Steps
-
-Understanding the architecture provides the foundation for working with Spacedrive. Explore these topics next:
-
-- [Libraries](/docs/core/libraries) - How Spacedrive organizes your data
-- [Networking](/docs/core/networking) - Peer-to-peer communication details
-- [Sync](/docs/core/sync) - Multi-device synchronization protocols
+The [Data Model](/core/data-model) describes the durable nouns. [Product
+Direction](/core/product-direction) defines which capabilities belong in the
+core.

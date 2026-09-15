@@ -1,189 +1,147 @@
 ---
 title: Releases
+description: Versioning, build artifacts, and the stable release gate
 sidebarTitle: Releases
 ---
 
-Spacedrive uses GitHub Actions workflows, git tags, and a custom xtask command to manage releases. This page covers the full release pipeline from version bump to published artifacts.
+<Callout>
+  **Spacedrive 2.0 releases October 1, 2026.**
 
-## Versioning
+  Release artifacts remain drafts until the cross-platform and destructive
+  operation gates on this page pass.
+</Callout>
 
-Spacedrive follows semver with pre-release suffixes for alpha/beta releases.
+Spacedrive uses semantic versions and signed GitHub release artifacts.
 
-```
-2.0.0-alpha.1   # Pre-release
-2.0.0-beta.1    # Pre-release
-2.0.0           # Stable release
-```
+~~~text
+2.0.0          stable
+2.1.0-beta.1   prerelease
+2.1.0          next stable minor
+~~~
 
-The version string lives in 7 files across the repo:
+## Release principle
 
-- `core/Cargo.toml`
-- `apps/server/Cargo.toml`
-- `apps/cli/Cargo.toml`
-- `apps/tauri/src-tauri/Cargo.toml`
-- `apps/tauri/sd-tauri-core/Cargo.toml`
-- `apps/tauri/src-tauri/tauri.conf.json`
-- `apps/tauri/package.json`
+A release tag is a claim about data safety. Builds are published only after the
+same source, operation, and recovery contracts pass on every advertised
+platform.
 
-These must stay in sync. The bump command handles this automatically.
+## Version bump
 
-## Bump Command
+The repository task updates package versions, creates the version commit, and
+tags it:
 
-`cargo xtask bump` updates all version files, commits the changes, and creates a git tag.
+~~~bash
+cargo xtask bump 2.0.0
+~~~
 
-```bash
-cargo xtask bump 2.0.0-alpha.2
-```
+Inspect the resulting diff and tag before pushing:
 
-This does three things:
+~~~bash
+git show --stat v2.0.0
+git push origin main
+git push origin v2.0.0
+~~~
 
-1. Updates the version string in all 7 files
-2. Commits with message `v2.0.0-alpha.2`
-3. Creates git tag `v2.0.0-alpha.2`
+Pushing the tag starts release builds. It does not by itself publish a stable
+release.
 
-It does not push. You push manually when ready:
+## Artifacts
 
-```bash
-git push --tags
-```
+The release pipeline builds:
 
-Pushing the tag triggers the release workflows.
+| Product | Platforms |
+| --- | --- |
+| Desktop | macOS ARM64 and x86-64, Windows x86-64, Linux x86-64 and ARM64 |
+| Headless server | Linux x86-64 and ARM64 |
+| CLI and daemon | Every supported desktop and server platform |
+| Mobile | iOS and Android |
+| Container | Linux amd64 and arm64 |
 
-## Workflows
+Each downloadable archive includes a checksum. Executable packages and update
+metadata are signed with the platform or Spacedrive release key.
 
-Five GitHub Actions workflows handle CI and releases.
+Stable container releases update the **latest** tag. Prereleases keep their
+explicit version tag.
 
-### CI (`ci.yml`)
+## Required gates
 
-Runs on every pull request and push to `main`. Handles formatting checks, linting, and build verification. This is the standard PR gate.
+### Repository
 
-### Core Tests (`core_tests.yml`)
+- Formatting, linting, and tests pass.
+- Generated TypeScript and platform schemas match Rust types.
+- Fumadocs type-checks and builds.
+- No retired product route or accidental secret ships.
+- License and third-party notices are current.
 
-Runs `sd-core` integration tests on push to `main` across macOS, Linux, and Windows. Tests run on real hardware including self-hosted macOS ARM64 and Windows runners.
+### Data safety
 
-### Release (`release.yml`)
+- Index interruption cannot perform an incomplete sweep.
+- Batch failure salvages valid records and names invalid ones.
+- Final job writes commit before completion.
+- Candidate content does not authorize deletion.
+- Copy, move, archive, and duplicate cleanup verify required outcomes.
+- Source reindex preserves assertions.
+- Database backup and restore pass from release candidates.
 
-Triggered by pushing a `v*` tag or manual dispatch. Builds all release artifacts and creates a draft GitHub release.
+### Cross-platform
 
-**Server binary builds:**
+- Filesystem metadata is checked on supported macOS, Windows, and Linux
+  filesystems.
+- Non-UTF-8 or otherwise unrepresentable names fail visibly.
+- Birth time and symlink behavior match platform claims.
+- Mount, watcher, permission, removable-drive, and network-loss tests pass.
+- Static server builds run on the supported deployment targets.
 
-| Platform | Architecture |
-|---|---|
-| Linux | x86_64 |
-| Linux | aarch64 |
+### Product
 
-Server binaries are compiled with `sd-core/heif`, `sd-core/ffmpeg`, and `sd-core/ai` features enabled. Each produces a tarball with the binary and a SHA256 checksum.
+- A new user can create a library and track a source.
+- Two devices can pair without a hosted account.
+- A client can query, stream, mount, and operate an authorized remote source.
+- Source and library state remain understandable while an origin is offline.
+- Extensions can add one real file kind and preview without core changes.
+- Desktop, web, CLI, and MCP exercise the same operation semantics.
 
-**Desktop builds (Tauri):**
+## Candidate validation
 
-| Platform | Architecture | Bundle |
-|---|---|---|
-| macOS | aarch64 | DMG, App |
-| macOS | x86_64 | DMG, App |
-| Windows | x86_64 | NSIS |
-| Linux | x86_64 | DEB |
-| Linux | aarch64 | DEB |
+Before publishing:
 
-Desktop builds go through `tauri-action` which handles code signing (macOS), Tauri signing keys (for the updater), and bundle creation. macOS builds run on self-hosted runners with Apple signing certificates.
+1. Install clean artifacts on every platform.
+2. Upgrade a copy of real prior-version state.
+3. Index and verify a real large source.
+4. Interrupt jobs and daemons during writes.
+5. Pair devices across local and relayed paths.
+6. Exercise remote queries, ranges, mounts, and mutations.
+7. Restore the library and source stores from backup.
+8. Verify update signatures and rollback.
+9. Review the generated release notes and checksums.
 
-The final `release` job waits for all builds to complete, downloads all artifacts, and creates a draft release on GitHub. The release is always created as a draft so you can review before publishing.
+Never run destructive release tests against the only copy of user data.
 
-<Note>The release is created as a **draft**. You must manually publish it on GitHub after verifying the artifacts.</Note>
+## Publishing
 
-### Server Docker (`server.yml`)
+The workflow creates a draft GitHub release. A maintainer verifies artifacts,
+checksums, signatures, and gate evidence before publishing it.
 
-Triggered by the same `v*` tag or manual dispatch. Builds a multi-arch Docker image (amd64 + arm64) and pushes it to GitHub Container Registry at `ghcr.io/spacedriveapp/spacedrive/server`.
+Release notes state:
 
-The Docker build uses `buildah` with QEMU emulation for cross-platform images. The Dockerfile is at `apps/server/Dockerfile`.
+- supported platforms and filesystems;
+- schema and migration changes;
+- known limits;
+- security changes;
+- behavior that can affect file bytes;
+- backup steps required before upgrade.
 
-**Tagging behavior:**
+## Hotfixes
 
-| Tag pushed | Docker tags applied | `latest` updated? |
-|---|---|---|
-| `v2.0.0-alpha.1` | `v2.0.0-alpha.1` | No |
-| `v2.0.0-beta.1` | `v2.0.0-beta.1` | No |
-| `v2.0.0` | `v2.0.0`, `latest` | Yes |
-| Manual dispatch | `{short-sha}`, `staging` | No |
+A hotfix branches from the affected stable tag, contains the smallest safe
+change, and passes the relevant full gate. Data-integrity fixes include a
+regression test and explain whether existing stores need verification or
+repair.
 
-The `latest` tag only moves for stable releases (tags matching `vX.Y.Z` with no suffix). Pre-release tags like `alpha` or `beta` are published under their specific version only. This protects users pulling `latest` from getting unstable builds.
+## Rollback
 
-### Mobile Release (`mobile.yml`)
+Binary rollback is allowed only when the older version understands the current
+schema. Otherwise restore the pre-upgrade library and source-store backup
+together.
 
-Manual dispatch only. Builds the React Native app for iOS and/or Android. A platform picker lets you build `ios`, `android`, or `all`.
-
-The mobile app bundles `sd-mobile-core`, a native Expo module that wraps the Spacedrive Rust core. This means mobile builds require the full Cargo workspace and Rust cross-compilation toolchain, not just JavaScript bundling.
-
-**iOS (TestFlight):**
-
-1. Compiles `sd-mobile-core` for `aarch64-apple-ios` via `cargo xtask build-mobile`
-2. Runs `expo prebuild` to generate the Xcode project
-3. Archives with `xcodebuild` using manual code signing
-4. Exports IPA with `app-store-connect` distribution method
-5. Uploads directly to TestFlight via `xcrun altool`
-
-Runs on a self-hosted macOS ARM64 runner (same as desktop macOS builds). TestFlight handles distribution to testers automatically after upload.
-
-**Android (Play Store Internal):**
-
-1. Compiles `sd-mobile-core` for `aarch64-linux-android` via `cargo xtask build-mobile`
-2. Runs `expo prebuild` to generate the Android project
-3. Builds a signed AAB with `./gradlew bundleRelease`
-4. Uploads to Play Store internal testing track
-
-Runs on a Linux runner with Java 17 and the Android SDK/NDK.
-
-<Note>The mobile workflow is manual dispatch only. It is not triggered by tags. Run it from the Actions tab when you want to push a mobile build to testers.</Note>
-
-**Required secrets (in addition to existing Apple secrets):**
-
-| Secret | Purpose |
-|---|---|
-| `MOBILE_PROVISIONING_PROFILE` | iOS App Store distribution profile for `com.spacedrive.app` (base64) |
-| `ANDROID_KEYSTORE` | Android release keystore file (base64) |
-| `ANDROID_KEYSTORE_PASSWORD` | Keystore password |
-| `ANDROID_KEY_ALIAS` | Signing key alias |
-| `ANDROID_KEY_PASSWORD` | Signing key password |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Google Play API service account JSON (for automated upload) |
-
-## Release Flow
-
-A full release looks like this:
-
-```bash
-# 1. Bump version, commit, and tag
-cargo xtask bump 2.0.0-alpha.2
-
-# 2. Push the tag (triggers release + server docker workflows)
-git push --tags
-
-# 3. Wait for workflows to complete on GitHub Actions
-
-# 4. Review the draft release on GitHub, then publish
-```
-
-Both `release.yml` and `server.yml` trigger in parallel from the same tag push. The GitHub release is created as a draft. The Docker image is pushed to ghcr.io immediately.
-
-Mobile releases are decoupled from this flow. Trigger the mobile workflow manually from the Actions tab when you want to push a build to TestFlight or Play Store internal testing.
-
-## Tauri Updater
-
-Desktop builds include `includeUpdaterJson: true` in the Tauri action config. This generates a JSON manifest that the Tauri updater checks against to notify users of new versions. The updater JSON files are included as release artifacts alongside the binaries.
-
-## Secrets
-
-The release workflow depends on several repository secrets:
-
-| Secret | Purpose |
-|---|---|
-| `APPLE_CERTIFICATE` | macOS code signing certificate (base64) |
-| `APPLE_CERTIFICATE_PASSWORD` | Certificate password |
-| `APPLE_SIGNING_IDENTITY` | Signing identity string |
-| `APPLE_API_KEY` | App Store Connect API key ID |
-| `APPLE_API_KEY_BASE64` | API key file (base64) |
-| `APPLE_API_ISSUER` | API key issuer ID |
-| `APPLE_PROVIDER_SHORT_NAME` | Team provider short name |
-| `TAURI_PRIVATE_KEY` | Tauri update signing key |
-| `TAURI_KEY_PASSWORD` | Tauri signing key password |
-| `SENTRY_AUTH_TOKEN` | Sentry error tracking |
-
-The Docker workflow uses only `GITHUB_TOKEN` which is provided automatically.
+The release notes identify the last rollback-compatible version.

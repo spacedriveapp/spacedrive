@@ -1,0 +1,12 @@
+{
+	"title": "CLI",
+	"icon": "Terminal",
+	"root": true,
+	"pages": [
+		"overview",
+		"linux-deployment",
+		"library-sync-setup",
+		"multi-instance",
+		"index-verify"
+	]
+}

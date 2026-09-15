@@ -1,567 +1,192 @@
 ---
 title: Data Model
+description: The durable objects behind libraries, sources, records, and content
 sidebarTitle: Data Model
 ---
 
-Spacedrive's data model powers a Virtual Distributed File System (VDFS) that unifies files across all your devices. It enables instant organization, content deduplication, and powerful semantic search while maintaining performance at scale.
+Spacedrive models files without pretending that one database owns every byte.
+Origins keep ownership of file content. Source stores preserve observations and
+assertions. Libraries connect those stores into one user experience.
 
-## Core Design
+## Ownership map
 
-The system separates concerns into distinct entities:
-
-- **SdPath** - Address any file; local, peer device, cloud, or by content ID
-- **Entry** - File and directory representation
-- **ContentIdentity** - Unique file content for deduplication
-- **UserMetadata** - Organization data (tags, notes, favorites)
-- **Location** - Monitored directories
-- **Device** - Individual machines in your network
-- **Volume** - Real storage volumes, local, external and cloud
-- **Sidecar** - Derivative and associated data
-
-## Domain vs. Database Entity Models
+| Object | Scope | Purpose |
+| --- | --- | --- |
+| Library | User-defined collection | Devices, source registry, policy, and organization |
+| Device | One Spacedrive instance | Runtime identity, capabilities, and availability |
+| Volume | One observed storage identity | Mount evidence and the machine-level read arena |
+| Source | One retained origin scope | Ingest authority, store location, and availability |
+| Record | One observed object in a source | Stable identity, name, parent, kind, and timestamps |
+| Facet | Provider-specific facts | Filesystem metadata or adapter fields |
+| Content | Evidence about bytes | Candidate or confirmed content identity |
+| Edge | Relationship between records | Hierarchy and other typed links |
+| Overlay | Durable assertion | Tags, notes, policy, review state, and provenance |
+| Location | Pin inside a source | Name, source-relative path, and attention policy |
 
-It is critical to understand the distinction between two data modeling layers in Spacedrive:
-
-- **Domain Models**: These are the rich objects used throughout the application's business logic. They contain computed fields and methods that provide a powerful, high-level interface to the underlying data. For example, the `domain::File` structure represents several database models such as `entities::entry`, `entities::content_identity`, and `entities::user_metadata`.
-- **Database Entity Models**: These are simpler structs that map directly to the database tables (e.g., `entities::entry`). They represent the raw, persisted state of the data and are optimized for storage and query performance.
+These objects have different lifetimes. Keeping those lifetimes explicit is the
+main defense against accidental data loss.
 
-The code examples in this document generally refer to the database entity models to accurately represent what is stored on disk. The domain models provide a convenient abstraction over this raw data.
+## Library
 
-## SdPath
+A library is the control plane for a set of sources and devices. It stores
+small durable state that users expect to follow them:
 
-The `SdPath` enum is the universal addressing system for files across all storage backends:
+- source registrations and attachment hints;
+- paired device membership;
+- locations and presentation policy;
+- tags, permissions, and other assertions;
+- sync and operation state.
 
-```rust
-pub enum SdPath {
-    /// A direct pointer to a file on a specific local device
-    Physical {
-        device_slug: String,  // The device slug (e.g., "jamies-macbook")
-        path: PathBuf,        // The local filesystem path
-    },
+The library database does not absorb every record from every source. Source
+generations can contain millions of rows and have different authorities.
 
-    /// A cloud storage path within a cloud volume
-    Cloud {
-        service: CloudServiceType,  // The cloud service type (S3, GoogleDrive, etc.)
-        identifier: String,         // The cloud identifier (bucket name, drive name, etc.)
-        path: String,              // The cloud-native path (e.g., "photos/vacation.jpg")
-    },
+## Device and volume
 
-    /// An abstract, location-independent handle via content ID
-    Content {
-        content_id: Uuid,   // The unique content identifier
-    },
+A device represents one Spacedrive runtime. Its identity is not a filesystem
+identity.
 
-    /// A derivative data file (thumbnail, OCR text, embedding, etc.)
-    Sidecar {
-        content_id: Uuid,         // The content this sidecar is derived from
-        kind: SidecarKind,        // The type of sidecar (thumb, ocr, embeddings, etc.)
-        variant: SidecarVariant,  // The specific variant (e.g., "grid@2x", "1080p")
-        format: SidecarFormat,    // The storage format (webp, json, msgpack, etc.)
-    },
-}
-```
+A volume represents storage observed by that runtime. Spacedrive identifies a
+physical drive through evidence such as worldwide names, disk GUIDs, serial
+quality, topology, and historical observations. A mount path is only a current
+attachment. It must never become the identity of the drive.
 
-This enum enables transparent operations across local filesystems, cloud storage, content-addressed files, and derivative data. The `Physical` variant handles traditional filesystem paths, `Cloud` manages cloud storage locations, `Content` enables deduplication-aware operations by referencing files by their content, and `Sidecar` addresses generated derivative data like thumbnails and embeddings.
+The volume arena is an in-memory read map for mounted filesystems. Filesystem
+sources adopt identities from this arena, including when source roots overlap.
 
-### Unified Addressing
+## Source
 
-Spacedrive displays paths using a unified addressing scheme that matches industry standards:
+A source is the primary durable boundary:
 
-```rust
-// Display user-friendly URIs
-let uri = sd_path.display_with_context(&context).await;
+~~~text
+source = origin + ingest + store
+~~~
 
-// Examples:
-// Physical: "local://jamies-macbook/Users/james/Documents/report.pdf"
-// Cloud:    "s3://my-bucket/photos/vacation.jpg"
-// Content:  "content://550e8400-e29b-41d4-a716-446655440000"
-```
+The source registry records how a library names and reaches the source. The
+source store contains the indexed generation and irreplaceable assertions.
 
-The addressing system uses:
+A source has one ingest authority for each generation. Local filesystem and
+adapter sources differ in the way they read an origin, but both produce the
+same records, content identities, and edges.
 
-- **Device slugs** for local paths (e.g., `local://jamies-macbook/path`)
-- **Service-native URIs** for cloud storage (e.g., `s3://`, `gdrive://`, `onedrive://`)
-- **Content UUIDs** for location-independent references
+Source availability is explicit. A detached drive or offline peer does not
+cause its source to disappear. Queries can continue against the retained store
+and report that byte access is unavailable.
 
-See [Unified Addressing](/docs/core/addressing) for complete details on URI formats and resolution.
+## Record
 
-## Entry
+A record is one observed object inside one source. Its stable identifier is
+separate from its path, because names and parents can change.
 
-The `Entry` is the core entity representing a file or directory. The database entity (`entities::entry::Model`) stores the fundamental hierarchy and metadata.
+Common record fields include:
 
-```rust Expandable theme={null}
-pub struct Entry {
-    pub id: i32,                      // Database primary key
-    pub uuid: Option<Uuid>,           // Global identifier (assigned immediately during indexing)
-    pub name: String,                 // File or directory name
-    pub kind: i32,                    // 0=File, 1=Directory, 2=Symlink
-    pub extension: Option<String>,    // File extension (without dot)
+- stable UUID;
+- name and kind;
+- parent relationship;
+- size and timestamps;
+- content reference when applicable;
+- ingest provenance and error state.
 
-    // Relationships
-    pub parent_id: Option<i32>,       // Parent directory (self-referential)
-    pub metadata_id: Option<i32>,     // User metadata (when present)
-    pub content_id: Option<i32>,      // Content identity (for deduplication)
-    pub volume_id: Option<i32>,       // Volume this entry resides on (determines sync ownership)
+Records do not contain all provider-specific data. Facets keep those facts
+separate while preserving one query shape.
 
-    // Size and hierarchy
-    pub size: i64,                    // File size in bytes
-    pub aggregate_size: i64,          // Total size including children
-    pub child_count: i32,             // Direct children count
-    pub file_count: i32,              // Total files in subtree
+### Filesystem facet
 
-    // Filesystem metadata
-    pub permissions: Option<String>,  // Unix-style permissions
-    pub inode: Option<i64>,           // Platform-specific identifier
+Filesystem records may include:
 
-    // Timestamps
-    pub created_at: DateTime<Utc>,
-    pub modified_at: DateTime<Utc>,
-    pub accessed_at: Option<DateTime<Utc>>,
-    pub indexed_at: Option<DateTime<Utc>>,  // When this entry was indexed, used for sync
+- inode or platform file identifier;
+- mode, uid, and gid;
+- creation, modification, and change times;
+- symlink target;
+- readability or content error;
+- volume identity evidence.
 
-}
-```
+Equivalent facets can represent object-store versions, photo-library assets, or
+other provider details without changing the record table.
 
-### Ownership via Volume
+## Hierarchy and edges
 
-Entries inherit sync ownership from their volume, not directly from a device. When you plug a portable drive into a different machine, updating the volume's device reference instantly transfers ownership of all entries on that volume. No bulk updates needed.
+Typed edges connect records. The parent edge forms the browsable hierarchy.
+Other edges can describe a derived asset, a membership, a reference, or an
+extension-defined relationship.
 
-This design enables portable storage to move seamlessly between devices while maintaining correct sync behavior.
+Paths are projections of identity and parent edges. A path is useful for display
+and byte access, but it is not a durable record ID.
 
-### UUID Assignment
+## Content identity
 
-All entries receive UUIDs immediately during indexing for UI caching compatibility. However, sync readiness is determined separately:
+Content identity connects records that appear to contain the same bytes.
+Spacedrive records the strength of that claim.
 
-- **Directories** - Sync ready immediately (no content to identify)
-- **Empty files** - Sync ready immediately (size = 0)
-- **Regular files** - Sync ready only after content identification (content_id present)
+| State | Evidence | Safe use |
+| --- | --- | --- |
+| Unknown | Metadata only | Browse and search metadata |
+| Candidate | Sampled content hash | Find likely duplicates and schedule verification |
+| Confirmed | Full-byte integrity hash | Deduplication and destructive decisions |
 
-This ensures files sync only after proper content identification, while allowing the UI to cache and track all entries from the moment they're discovered.
+Content IDs are derived from hash evidence so separate sources converge on the
+same identity without coordination. A sampled match remains a candidate. It
+does not authorize deletion.
 
-### Hierarchical Queries
+One content value can have several physical instances. Spacedrive keeps every
+record, path, source, and failure domain visible so “duplicate” does not become
+“safe to remove.”
 
-A closure table enables efficient ancestor/descendant queries:
+## Generation and assertions
 
-```rust
-pub struct EntryClosure {
-    pub ancestor_id: i32,
-    pub descendant_id: i32,
-    pub depth: i32,  // 0=self, 1=child, 2=grandchild
-}
-```
+A source store has two halves.
 
-This structure allows instant queries like "find all files under this directory" without recursion.
+### Generation data
 
-## ContentIdentity
+Generation data can be re-derived only while the origin answers. It includes
+records, facets, edges, content evidence, and search projection. A successful
+full ingest may replace it transactionally.
 
-ContentIdentity represents unique file content, enabling deduplication across your entire library:
+### Assertion data
 
-```rust Expandable theme={null}
-pub struct ContentIdentity {
-    pub id: i32,
-    pub uuid: Option<Uuid>,           // Globally deterministic from content_hash only
+Assertions cannot be reconstructed from a filesystem walk. They include user
+organization, decisions, policies, and extension knowledge. They survive
+reindexing and carry provenance.
 
-    // Hashing
-    pub content_hash: String,         // Fast sampled hash (for deduplication)
-    pub integrity_hash: Option<String>, // Full hash (for validation)
+This split means “rebuild the index” never means “discard everything in the
+store.”
 
-    // Classification
-    pub mime_type_id: Option<i32>,    // FK to MimeType
-    pub kind_id: i32,                 // FK to ContentKind (enum)
+## Locations
 
-    // Content metadata
-    pub text_content: Option<String>, // Extracted text
-    pub image_media_data_id: Option<i32>,  // FK to image-specific metadata
-    pub video_media_data_id: Option<i32>,  // FK to video-specific metadata
-    pub audio_media_data_id: Option<i32>,  // FK to audio-specific metadata
+A location is a named pin over a source-relative path. It answers where the user
+wants quick access or special attention. It does not own records, content
+identity, or another index.
 
-    // Statistics
-    pub total_size: i64,              // Size of one instance
-    pub entry_count: i32,             // Entries sharing this content (in library)
+Deleting a location removes the pin and its policy. It does not delete source
+records or file bytes. See [Locations](/core/locations).
 
-    pub first_seen_at: DateTime<Utc>,
-    pub last_verified_at: DateTime<Utc>,
+## Cross-source catalog
 
-}
+Each source store can answer questions about its own records. The library
+catalog projects content and availability across stores so it can answer
+questions such as:
 
-```
+- Which sources contain this confirmed content?
+- How many independent failure domains hold it?
+- Which copy is online now?
+- Is a required replica missing?
 
-### Two-Stage Hashing
+The catalog is a projection, not the owner of source truth. It can be rebuilt
+from attached source stores.
 
-**Content Hash** - Fast sampling for deduplication
-**Integrity Hash** - Full file hash for verification
+## Snapshots and history
 
-### Deduplication
+A freeze is a dated, self-contained copy of a source store. It preserves both
+the indexed generation and its assertions at that point in time. Live history
+can compare generations and explain changes. A snapshot does not copy the
+underlying file bytes unless a separate backup or sync policy does so.
 
-Multiple entries can point to the same ContentIdentity. When you have duplicate files, they all reference a single ContentIdentity record.
+## Core invariants
 
-## UserMetadata
-
-UserMetadata stores how you organize your files:
-
-```rust Expandable theme={null}
-pub struct UserMetadata {
-    pub id: i32,
-    pub uuid: Uuid,
-
-    // Scope - exactly one must be set
-    pub entry_uuid: Option<Uuid>,           // File-specific metadata
-    pub content_identity_uuid: Option<Uuid>, // Content-universal metadata
-
-    // Organization
-    pub notes: Option<String>,
-    pub favorite: bool,
-    pub hidden: bool,
-    pub custom_data: Json,            // Extensible JSON fields
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-
-}
-
-```
-
-### Metadata Scoping
-
-UserMetadata can be scoped two ways:
-
-**Entry-Scoped** - Applies to a specific file instance
-**Content-Scoped** - Applies to all instances of the same content
-
-## Semantic Tags
-
-Spacedrive uses a graph-based tagging system that understands context and relationships:
-
-```rust Expandable theme={null}
-pub struct Tag {
-    pub id: i32,
-    pub uuid: Uuid,
-
-    // Core identity
-    pub canonical_name: String,       // Primary name
-    pub display_name: Option<String>, // Display variant
-
-    // Semantic variants
-    pub formal_name: Option<String>,  // Formal variant
-    pub abbreviation: Option<String>, // Short form
-    pub aliases: Option<Json>,        // Vec<String> as JSON
-
-    // Context
-    pub namespace: Option<String>,    // Disambiguation namespace
-    pub tag_type: String,             // "standard" | "organizational" | "privacy" | "system"
-
-    // Visual properties
-    pub color: Option<String>,        // Hex color
-    pub icon: Option<String>,         // Icon identifier
-    pub description: Option<String>,
-
-    // Behavior
-    pub is_organizational_anchor: bool,
-    pub privacy_level: String,        // "normal" | "archive" | "hidden"
-    pub search_weight: i32,           // Search ranking
-
-    // Extensibility
-    pub attributes: Option<Json>,        // HashMap<String, Value> as JSON
-    pub composition_rules: Option<Json>, // Vec<CompositionRule> as JSON
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-    pub created_by_device: Option<Uuid>,
-
-}
-
-```
-
-### Polymorphic Naming
-
-The same name can mean different things in different contexts:
-
-```rust
-// Different tags with same name
-Tag { canonical_name: "vacation", namespace: "travel", uuid: uuid_1 }
-Tag { canonical_name: "vacation", namespace: "work",   uuid: uuid_2 }
-```
-
-### Tag Relationships
-
-Tags form hierarchies and semantic networks:
-
-```rust
-pub struct TagRelationship {
-    pub parent_tag_id: i32,
-    pub child_tag_id: i32,
-    pub relationship_type: String,  // "parent_child" | "synonym" | "related"
-    pub strength: f32,              // 0.0-1.0
-}
-```
-
-Examples:
-
-- Parent/Child: "Animals" → "Dogs" → "Puppies"
-- Synonyms: "Car" "Automobile"
-- Related: "Photography" "Camera"
-
-Tag hierarchies use closure tables for efficient ancestor/descendant queries, similar to entries.
-
-## Location
-
-Locations are directories that Spacedrive monitors:
-
-```rust Expandable theme={null}
-pub struct Location {
-    pub id: i32,
-    pub uuid: Uuid,
-    pub device_id: i32,               // Device that owns this location
-    pub entry_id: Option<i32>,        // Root entry for this location (nullable during sync)
-    pub name: Option<String>,         // User-friendly name
-
-    // Indexing configuration
-    pub index_mode: String,           // "shallow" | "content" | "deep"
-    pub scan_state: String,           // "pending" | "scanning" | "completed" | "error"
-
-    // Statistics
-    pub last_scan_at: Option<DateTime<Utc>>,
-    pub error_message: Option<String>,
-    pub total_file_count: i64,
-    pub total_byte_size: i64,
-    pub job_policies: Option<String>, // JSON-serialized JobPolicies (local config)
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-
-}
-```
-
-### Index Modes
-
-- **Shallow** - Metadata only (fast, no content hashing)
-- **Content** - Metadata + deduplication
-- **Deep** - Full analysis including media extraction
-
-## Device
-
-Devices represent machines in your Spacedrive network:
-
-```rust Expandable theme={null}
-pub struct Device {
-    pub id: i32,
-    pub uuid: Uuid,
-    pub name: String,
-    pub slug: String,                 // URL-safe unique identifier
-
-    // System information
-    pub os: String,
-    pub os_version: Option<String>,
-    pub hardware_model: Option<String>,
-
-    // Network
-    pub network_addresses: Json,      // Array of IP addresses
-    pub is_online: bool,
-    pub last_seen_at: DateTime<Utc>,
-
-    // Capabilities
-    pub capabilities: Json,           // Feature flags
-
-    // Sync
-    pub sync_enabled: bool,
-    pub last_sync_at: Option<DateTime<Utc>>,
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-
-}
-
-```
-
-## Volume
-
-Volumes track physical drives and partitions:
-
-```rust Expandable theme={null}
-pub struct Volume {
-    pub id: i32,
-    pub uuid: Uuid,
-    pub device_id: Uuid,              // FK to Device
-    pub fingerprint: String,          // Stable identifier across mounts
-
-    pub display_name: Option<String>,
-    pub mount_point: Option<String>,
-    pub file_system: Option<String>,
-
-    // Capacity
-    pub total_capacity: Option<i64>,
-    pub available_capacity: Option<i64>,
-    pub unique_bytes: Option<i64>,    // Deduplicated storage usage
-
-    // Performance
-    pub read_speed_mbps: Option<i32>,
-    pub write_speed_mbps: Option<i32>,
-    pub last_speed_test_at: Option<DateTime<Utc>>,
-
-    // Classification
-    pub is_removable: Option<bool>,
-    pub is_network_drive: Option<bool>,
-    pub device_model: Option<String>,
-    pub volume_type: Option<String>,
-    pub is_user_visible: Option<bool>,     // Visible in UI
-    pub auto_track_eligible: Option<bool>, // Eligible for auto-tracking
-    pub cloud_identifier: Option<String>,  // Cloud volume identifier
-
-    // Tracking
-    pub tracked_at: DateTime<Utc>,
-    pub last_seen_at: DateTime<Utc>,
-    pub is_online: bool,
-
-}
-```
-
-Volumes serve as the ownership anchor for entries. The `device_id` field determines which device owns all entries on this volume. When a portable drive moves between machines, updating this single field transfers ownership of the entire volume's contents. See [Library Sync](/docs/core/library-sync) for details on portable volume handling.
-
-## Sidecar
-
-Sidecars store generated content like thumbnails:
-
-```rust Expandable theme={null}
-pub struct Sidecar {
-    pub id: i32,
-    pub uuid: Uuid,
-    pub content_uuid: Uuid,           // FK to ContentIdentity
-
-    // Classification
-    pub kind: String,                 // "thumbnail" | "preview" | "metadata"
-    pub variant: String,              // Size/quality variant
-    pub format: String,               // File format
-
-    // Storage
-    pub rel_path: String,             // Relative path to sidecar
-    pub source_entry_id: Option<i32>, // Reference to existing file
-
-    // Metadata
-    pub size: i64,
-    pub checksum: Option<String>,
-    pub status: String,               // "pending" | "processing" | "ready" | "error"
-    pub source: Option<String>,       // Source of the sidecar
-    pub version: i32,
-
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-```
-
-<Note>
-  Sidecars link to ContentIdentity, not Entry. This means one thumbnail serves
-  all duplicate files.
-</Note>
-
-## Extension Models
-
-Extensions create custom tables at runtime to store domain-specific data. These integrate seamlessly with core tagging and organization.
-
-<Note type="warning">
-  The extension system is currently a work in progress. The API and
-  implementation details described here are subject to change.
-</Note>
-
-### Table Naming
-
-Extension tables use prefixed naming:
-
-```sql
--- Photos extension creates:
-CREATE TABLE ext_photos_person (
-    id BLOB PRIMARY KEY,
-    name TEXT NOT NULL,
-    birth_date TEXT,
-    metadata_id INTEGER NOT NULL,
-    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id)
-);
-
-CREATE TABLE ext_photos_album (
-    id BLOB PRIMARY KEY,
-    title TEXT NOT NULL,
-    description TEXT,
-    created_date TEXT,
-    metadata_id INTEGER NOT NULL,
-    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id)
-);
-```
-
-### Model Definition
-
-Extensions define models using SDK macros:
-
-```rust
-#[model(
-    table_name = "person",
-    version = "1.0.0",
-    scope = "content",
-    sync_strategy = "shared"
-)]
-struct Person {
-    #[primary_key]
-    id: Uuid,
-    name: String,
-    birth_date: Option<String>,
-    #[metadata]
-    metadata_id: i32,  // Links to UserMetadata
-}
-```
-
-### Integration Benefits
-
-1. **SQL Queries** - Direct database queries with JOINs and indexes
-2. **Foreign Keys** - Referential integrity enforced by database
-3. **Unified Organization** - Extension data can be tagged and searched
-4. **Type Safety** - Compile-time schema validation
-
-## Sync Architecture
-
-### Device-Owned Resources
-
-**Entities**: Device, Volume, Location, Entry
-
-Ownership flows through volumes. A device owns its volumes. Locations and entries reference a volume, inheriting ownership from the volume's device. This indirection enables portable storage: when a drive moves between machines, updating the volume's device reference transfers ownership of all associated entries instantly.
-
-Only the owning device can modify these resources. Last state wins.
-
-### Shared Resources
-
-**Entities**: Tag, UserMetadata, TagRelationship, ContentIdentity
-
-Any device can modify shared resources. Changes are ordered using Hybrid Logical Clocks for consistency across devices.
-
-### Foreign Key Mapping
-
-During sync, integer IDs map to UUIDs for wire format, then back to local IDs on receiving devices.
-
-## Query Patterns
-
-Find files with a specific tag:
-
-```rust
-Entry::find()
-    .inner_join(UserMetadata)
-    .inner_join(UserMetadataTag)
-    .inner_join(Tag)
-    .filter(tag::Column::CanonicalName.eq("vacation"))
-    .all(db).await?
-```
-
-Find duplicate files:
-
-```rust
-ContentIdentity::find()
-    .find_with_related(Entry)
-    .filter(content_identity::Column::EntryCount.gt(1))
-    .all(db).await?
-```
-
-## Performance Optimizations
-
-1. **Closure Tables** - O(1) hierarchical queries
-2. **Directory Path Table** - The full path for every directory is stored in a dedicated `directory_paths` table. This is the source of truth for directory paths and avoids storing redundant path information on every file entry, making path-based updates significantly more efficient.
-3. **Aggregate Columns** - Pre-computed size/count fields
-4. **Deterministic UUIDs** - Consistent references across devices
-5. **Integer PKs** - Fast local joins, UUIDs only for sync
-
-The data model provides a foundation for powerful file management that scales from single devices to complex multi-device networks.
+- A path, mount point, or provider account name is not durable identity.
+- A source store may be the last evidence of an unavailable origin.
+- Reindexing may replace generation rows but must preserve assertions.
+- Separate sources use the same record shape.
+- Candidate content identity never authorizes destructive cleanup.
+- Locations never create a second record namespace.
+- File bytes move only through an explicit file operation, cache, or sync
+  policy.

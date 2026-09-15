@@ -138,10 +138,10 @@ function App() {
 ```tsx
 import { usePlatform } from '@sd/interface';
 
-function AddLocationButton() {
+function TrackSourceButton() {
   const platform = usePlatform();
 
-  const handleAddLocation = async () => {
+  const handleTrackSource = async () => {
     // Check if native picker is available
     if (platform.openDirectoryPickerDialog) {
       const path = await platform.openDirectoryPickerDialog({
@@ -150,8 +150,8 @@ function AddLocationButton() {
       });
 
       if (path && typeof path === 'string') {
-        // Create location with selected path
-        await createLocation({ path });
+        // Register one capture boundary for the selected origin.
+        await trackSource({ path });
       }
     } else {
       // Web fallback: show manual path input
@@ -160,8 +160,8 @@ function AddLocationButton() {
   };
 
   return (
-    <button onClick={handleAddLocation}>
-      Add Location
+    <button onClick={handleTrackSource}>
+      Track Source
     </button>
   );
 }

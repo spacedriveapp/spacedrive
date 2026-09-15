@@ -1,111 +1,116 @@
 ---
 title: Data Storage
+description: Store extension data without creating a second filesystem model
 sidebarTitle: Data Storage
 ---
 
-Extensions get their own database tables and file storage locations. You define data models in Rust, and Spacedrive creates the tables automatically. You declare storage locations, and users choose where files go during installation.
+Extensions can persist typed models, original files, and derived sidecars. The
+correct storage class depends on who owns the data and whether it can be
+recreated.
 
-Extensions use three storage layers: database tables for domain models, files in user-controlled locations for original data, and sidecars for derivative intelligence. Spacedrive handles sync, indexing, and search automatically.
+## Storage classes
 
-#### Model Definition
+| Class | Example | Lifetime |
+| --- | --- | --- |
+| Source record or facet | Provider metadata observed during ingest | Part of the source generation |
+| Record overlay | A review state attached to one observed object | Survives reindexing |
+| Content model | Faces or transcript attached to verified bytes | Shared by records with that content |
+| Standalone model | Album, project, or person | Owned by the extension |
+| Original file | Imported email or exported report | Stored in a user-chosen source |
+| Sidecar | Thumbnail, proxy, embedding, or OCR output | Rebuildable or retained by declared policy |
 
-```rust
-#[model(
-    table_name = "person",
-    version = "1.0.0",
-    sync_strategy = "shared"
-)]
-pub struct Person {
-    #[primary_key]
-    pub id: Uuid,
-    pub name: String,
-    #[indexed]
-    pub email: Option<String>,
-    #[metadata]
-    pub metadata_id: i32,
-}
-```
+Do not copy core file metadata into an extension table. Query source records and
+attach only the facts your extension owns.
 
-#### Generated Schema
+## Generation or assertion
 
-This Rust struct will generate the following SQL table:
+Ask one question before storing a field: can the ingest reproduce it from the
+origin?
 
-```sql
-CREATE TABLE ext_photos_person (
-    id BLOB PRIMARY KEY,
-    name TEXT NOT NULL,
-    email TEXT,
-    metadata_id INTEGER NOT NULL,
-    FOREIGN KEY (metadata_id) REFERENCES user_metadata(id) ON DELETE CASCADE
-);
+- If yes, it belongs to the source generation or a derived sidecar.
+- If no, it belongs to the assertion layer with provenance.
 
-CREATE INDEX idx_ext_photos_person_email ON ext_photos_person(email);
-```
+A source reindex can replace generation data. It must preserve assertions.
+Removing a provider or losing an origin may make even generated data impossible
+to recreate, so source stores are still treated as durable evidence.
 
-### Linking to Core Systems
+## Model scopes
 
-Extension models are not isolated silos. They are deeply integrated with Spacedrive's core systems.
+### Record-scoped
 
-- **Tagging and Collections**: By adding the `#[metadata]` attribute to a field, your model is linked to the `user_metadata` table. This allows your custom data models to be tagged, added to collections, and searched just like any other file in Spacedrive.
+Use record scope for facts about one observed instance, such as an import
+decision, manual crop, or provider-specific review state.
 
-- **Core Entities**: You can define foreign key relationships to core Spacedrive tables like `entries` or `content_identities`. This allows you to, for example, create an `Album` model that has a many-to-many relationship with photos (entries).
+### Content-scoped
 
-### Migrations
+Use content scope when the fact follows confirmed bytes across copies, such as a
+video transcript or image embedding. Candidate content identity is not strong
+enough for irreversible merges.
 
-As you develop your extension, you will inevitably need to change your data models. The Spacedrive SDK includes a migration system to manage schema changes.
+### Standalone
 
-- **Migration Files**: You can provide SQL migration files with your extension (e.g., `v1.1.0_add_birthdate.sql`).
-- **Automatic Execution**: When a user updates your extension, Spacedrive will automatically run the necessary migrations to bring their database schema up to date.
+Use a standalone model for objects with their own identity, such as an album,
+customer, project, or saved workflow. Relate it to records or content through
+typed edges.
 
-### Extension Locations
+## Original files
 
-Extensions that create files must declare their storage locations. Users choose where the data goes during installation.
+When an extension creates or imports original data, the user chooses a
+destination source. The normal file operation writes the bytes, the source
+ingest records them, and the extension attaches its own metadata.
 
-```json
-{
-  "extension_id": "com.spacedrive.email",
-  "locations": [
-    {
-      "id": "email_archive",
-      "name": "Email Archive",
-      "purpose": "Store archived emails in .eml format",
-      "suggested_path": "~/Spacedrive/Email Archive",
-      "user_selects_path": true
-    }
-  ]
-}
-```
+This keeps files visible to every Spacedrive client and to other permitted
+extensions. An extension-private blob store is appropriate only for internal
+state that has no meaning as a user file.
 
-When you write files to this location, Spacedrive indexes them automatically. Query via the core entries table, not a custom cache.
+## Sidecars
 
-```rust
-// Write file to extension's location
-let entry = ctx.write_file_to_location(
-    "email_archive",
-    "inbox/email.eml",
-    email_data,
-).await?;
+Sidecars are files derived from records or content:
 
-// Core creates Entry automatically
-// Query later via core VDFS
-let emails = ctx.query_entries()
-    .in_location("email_archive")
-    .with_extension("eml")
-    .execute().await?;
-```
+- thumbnails and preview tiles;
+- media proxies and thumbstrips;
+- OCR text and transcripts;
+- embeddings and feature vectors;
+- extracted structured metadata.
 
-### What to Store Where
+A sidecar declaration identifies its owner, input identity, variant, format,
+generation version, and retention class. Deterministic addressing lets
+Spacedrive reuse existing output and invalidate it when the generator changes.
 
-**Database tables:** Domain models, configuration, relationships
-- EmailAccount, Transaction, Contact
-- NOT file metadata (use core entries table)
+Rebuildable sidecars can be evicted. Persistent sidecars travel with source or
+content policy.
 
-**Files:** Original user data in standard formats
-- .eml files, receipt PDFs, research papers
-- User chooses where these go
-- Spacedrive indexes automatically
+## Queries and search
 
-**Sidecars:** Derivative analysis and intelligence
-- OCR text, embeddings, extracted metadata
-- Stored in library's sidecar directory
-- Portable with your library
+Extensions query the common record API and their declared models. Search fields
+join the library projection through stable source, record, or content identity.
+
+An extension must report partial answers when relevant sources are offline or
+its model has not finished processing the current generation.
+
+## Sync
+
+Storage class determines sync behavior:
+
+- Source generation data follows the source ingest authority.
+- Assertions merge between authorized library peers.
+- Original files move through file sync or an explicit operation.
+- Rebuildable sidecars can be regenerated near the consumer.
+- Persistent sidecars replicate according to source policy.
+
+An extension does not implement a private sync protocol for each model.
+
+## Removal
+
+Uninstalling an extension removes its executable capabilities. The uninstall
+preview separately lists:
+
+- rebuildable caches that can be reclaimed;
+- durable models that will be retained;
+- original files that remain in user sources;
+- grants and scheduled jobs that will be revoked.
+
+Durable data is deleted only through an explicit follow-up action.
+
+See [Security and Sync](/extensions/security-and-sync) for capability rules and
+[Virtual Sidecars](/core/virtual-sidecars) for derivative storage.

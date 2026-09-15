@@ -1,5 +1,11 @@
 # Spacebot Remote Execution Over Spacedrive
 
+> **Status:** Retired direction as of 2026-09-14. Remote, permissioned
+> filesystem operations remain part of Spacedrive. The Spacebot-specific
+> runtime and routing model does not. This file remains only until its private
+> company archive is verified, then it should be deleted. See
+> `docs/core/product-direction.mdx`.
+
 ## Purpose
 
 Define how a single Spacebot instance can operate across many user devices by using Spacedrive as the permission, transport, and execution layer.

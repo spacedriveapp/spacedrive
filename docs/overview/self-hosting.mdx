@@ -1,317 +1,132 @@
 ---
 title: Self-Hosting Spacedrive
-description: Deploy Spacedrive server for remote access and headless operation
+description: Run a headless node on hardware you control
 sidebarTitle: Self-Hosting
 ---
 
-Self-hosting Spacedrive means running the server component on hardware you control. The server provides HTTP access to your libraries, enabling remote connections from desktop and mobile apps. Unlike the desktop app which requires a GUI, the server runs headless on Linux systems, NAS devices, or cloud instances.
+A self-hosted Spacedrive node keeps source indexing, search, remote access, and
+durable jobs running on a server or NAS you control. Other devices pair with
+the node and use the same libraries and operations as a local daemon.
 
-The server embeds the full Spacedrive daemon with media processing capabilities. It exposes RPC endpoints over HTTP with optional basic authentication. Your data stays on your infrastructure while remaining accessible from any device with network access.
+You do not need a Spacedrive account or hosted control plane.
 
-## Installation Methods
+## Choose the data directory
 
-### Static Binary
+The data directory holds library state, source stores, logs, and job state. Put
+it on storage that is backed up and restrict it to the daemon account.
 
-Download the latest release binary for your platform. This method works on any Linux system and requires no container runtime.
+Do not place it inside a source you plan to track. Spacedrive excludes its own
+data directory automatically, but keeping runtime state separate makes backup
+and recovery clearer.
 
-```bash
-# Download and extract
-wget https://github.com/spacedriveapp/spacedrive/releases/latest/download/sd-server-linux-x86_64.tar.gz
-tar -xzf sd-server-linux-x86_64.tar.gz
+## Run the server
 
-# Verify checksum
-sha256sum -c sd-server-linux-x86_64.sha256
+Release archives contain the headless server and CLI for Linux on x86-64 and
+ARM64. Verify the published checksum before installing them.
 
-# Install to system
-sudo mv sd-server-linux-x86_64 /usr/local/bin/sd-server
-sudo chmod +x /usr/local/bin/sd-server
-```
+Run the server as a dedicated operating-system user:
 
-For ARM systems like Raspberry Pi, use `sd-server-linux-aarch64.tar.gz` instead.
+~~~bash
+sd-server --data-dir /var/lib/spacedrive
+~~~
 
-### Docker Deployment
+For a source build:
 
-Docker images are available for both x86_64 and ARM64 architectures. The image includes all media processing dependencies and runs as a non-root user.
+~~~bash
+cargo build --release --bin sd-server --bin sd-cli
+./target/release/sd-server --data-dir /var/lib/spacedrive
+~~~
 
-```bash
-docker run -d \
-  --name spacedrive \
-  -p 8080:8080 \
-  -p 7373:7373 \
-  -v spacedrive-data:/data \
-  -e SD_AUTH=admin:your-secure-password \
-  ghcr.io/spacedriveapp/spacedrive/server:latest
-```
+Use your service manager to restart the process after failure and to provide the
+same data-directory argument on every start.
 
-The server listens on port 8080 for HTTP traffic and port 7373 for peer-to-peer connections. Mount additional volumes to index existing storage.
+## Filesystem permissions
 
-### Docker Compose
+Grant the daemon read access to every source it indexes and write access only
+where file operations require it. Read-only archive mounts remain useful for
+indexing and verification.
 
-For production deployments, use the provided compose file in the repository at `apps/server/docker-compose.yml`. This includes health checks and restart policies.
+Unreadable objects are retained as metadata with a failure reason. Review those
+errors before treating an archival index as complete.
 
-```yaml
-version: '3.8'
-services:
-  spacedrive:
-    image: ghcr.io/spacedriveapp/spacedrive/server:latest
-    ports:
-      - "8080:8080"
-      - "7373:7373"
-    volumes:
-      - spacedrive-data:/data
-      - /mnt/media:/media:ro
-    environment:
-      SD_AUTH: "admin:your-password"
-      TZ: "America/New_York"
-    restart: unless-stopped
+## Open the web interface
 
-volumes:
-  spacedrive-data:
-```
+The server hosts the web client on its configured HTTP address. Bind it to a
+private interface or place it behind a trusted reverse proxy. Use TLS for any
+browser connection that leaves the host.
 
-## System Service Setup
+Browser authentication protects the web session. Peer pairing protects
+device-to-device operations. Keep both enabled because they address different
+entry points.
 
-Running the server as a systemd service ensures it starts on boot and restarts on failure.
+## Pair a client
 
-Create a service file at `/etc/systemd/system/spacedrive.service`:
+On the server:
 
-```ini
-[Unit]
-Description=Spacedrive Server
-After=network.target
+~~~bash
+sd-cli network pair generate
+~~~
 
-[Service]
-Type=simple
-User=spacedrive
-Group=spacedrive
-Environment="DATA_DIR=/var/lib/spacedrive"
-Environment="SD_AUTH=admin:your-secure-password"
-ExecStart=/usr/local/bin/sd-server --data-dir /var/lib/spacedrive
-Restart=on-failure
-RestartSec=5s
+On the client:
 
-[Install]
-WantedBy=multi-user.target
-```
+~~~bash
+sd-cli network pair join "<PAIRING_CODE>"
+~~~
 
-Create the user and data directory, then enable the service:
+Grant only the libraries, sources, subtrees, and operations that client needs.
+The network attempts a direct encrypted connection and falls back to a relay
+when necessary.
 
-```bash
-sudo useradd -r -s /bin/false spacedrive
-sudo mkdir -p /var/lib/spacedrive
-sudo chown spacedrive:spacedrive /var/lib/spacedrive
-sudo systemctl enable --now spacedrive
-```
+## Track server storage
 
-Check status with `sudo systemctl status spacedrive`.
+Track each meaningful custody or policy boundary as a source:
 
-## Configuration
+~~~bash
+sd-cli sources track /srv/documents
+sd-cli sources track /mnt/archive --unfiltered
+sd-cli sources list
+~~~
 
-The server accepts configuration via environment variables or command-line flags.
+Separate datasets are usually clearer as separate sources. A pin inside a
+source is enough when you only need a convenient sidebar path.
 
-**Authentication** is controlled by `SD_AUTH`. The format supports multiple users separated by commas: `user1:pass1,user2:pass2`. Set to `disabled` to disable authentication, though this is not recommended for network-accessible deployments.
+## Back up the node
 
-**Data directory** defaults to `/data` in Docker or a temporary directory in development. In production, always set `DATA_DIR` to a persistent location. The server creates library databases, thumbnails, and logs in this directory.
+Protect two classes of data:
 
-**Port configuration** defaults to 8080. Change with `--port` flag or `PORT` environment variable. The P2P port (7373) is fixed and required for device sync.
+1. **Origins**, which hold file bytes.
+2. **Spacedrive state**, which holds indexes, assertions, policy, and history.
 
-<Warning>
-Production deployments must set `SD_AUTH`. The server refuses to start without authentication unless explicitly disabled. This prevents accidental exposure of your libraries.
-</Warning>
+Finish or pause mutations before copying the data directory. Freeze important
+source stores, copy the state to another failure domain, and verify the copy.
 
-## Network Access
+~~~bash
+sd-cli sources verify <SOURCE_ID>
+sd-cli sources freeze <SOURCE_ID>
+~~~
 
-The server binds to all interfaces by default, making it accessible on your local network. For internet access, place it behind a reverse proxy with TLS termination.
+A RAID pool or mirrored vdev improves availability. It is not an off-machine
+backup.
 
-### Nginx Example
+## Monitor it
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name spacedrive.example.com;
+The CLI can inspect the node without opening the web interface:
 
-    ssl_certificate /etc/letsencrypt/live/spacedrive.example.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/spacedrive.example.com/privkey.pem;
+~~~bash
+sd-cli status
+sd-cli sources list
+sd-cli job list
+sd-cli logs follow --timestamps --show-job-id
+~~~
 
-    location / {
-        proxy_pass http://localhost:8080;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### Caddy Example
-
-Caddy handles TLS automatically with Let's Encrypt:
-
-```
-spacedrive.example.com {
-    reverse_proxy localhost:8080
-}
-```
-
-## NAS Deployment
-
-Network-attached storage devices are ideal for Spacedrive server. The server indexes existing media while providing remote access.
-
-### TrueNAS SCALE
-
-Install via the Apps interface using Docker. Map your pools as read-only volumes to prevent accidental modification during indexing.
-
-```yaml
-volumes:
-  - /mnt/pool1/photos:/photos:ro
-  - /mnt/pool1/videos:/videos:ro
-  - /mnt/pool2/documents:/documents:ro
-```
-
-After deployment, create locations in Spacedrive pointing to these mount points. The server indexes files without moving them.
-
-### Synology NAS
-
-Use Container Manager to deploy the Docker image. Configure port forwarding and volume mounts through the UI. Ensure the container has read access to your shared folders.
-
-### Unraid
-
-Add a custom container template with the image `ghcr.io/spacedriveapp/spacedrive/server:latest`. Map your shares as additional paths in the container configuration.
-
-## Storage Considerations
-
-The server creates three types of data in the data directory:
-
-**Libraries** contain SQLite databases with file indexes, tags, and metadata. Each library is a separate `.sdlibrary` directory. These are small, typically under 100MB even for millions of files.
-
-**Sidecars** include thumbnails, previews, and extracted text. Size depends on media processing settings. Budget 1-5% of your total media size for thumbnails.
-
-**Logs** rotate automatically but can grow large during initial indexing. The server keeps the last 10 log files, typically under 100MB total.
-
-Plan for library growth over time. A library indexing 1 million files uses approximately 500MB for the database and 10-50GB for sidecars, depending on media density.
-
-<Info>
-The server never modifies your original files. Indexing is read-only. File operations like copy and move require explicit user action through connected clients.
-</Info>
-
-## Security Best Practices
-
-Self-hosted servers face different threats than desktop apps. Follow these guidelines for secure deployment.
-
-**Always use authentication** when the server is network-accessible. HTTP basic auth is sufficient for home networks but consider stronger methods for internet-facing deployments.
-
-**Enable TLS** for any internet access. Let's Encrypt provides free certificates through Caddy, Nginx, or Traefik. The server itself does not handle TLS, rely on reverse proxies.
-
-**Limit exposure** with firewall rules. Only open port 8080 to trusted networks or VPN connections. The P2P port (7373) requires UDP ingress for device sync but can be restricted to known peers.
-
-**Run as non-root** user. The Docker image and systemd example both use dedicated users with minimal permissions. Never run the server as root.
-
-**Regular backups** of the data directory protect against corruption. The SQLite databases can be backed up while running using the `.backup` command or by copying the entire data directory when the server is stopped.
-
-## Connecting Clients
-
-Desktop and mobile apps can connect to self-hosted servers by configuring the server URL in settings.
-
-The URL format is `http://your-server:8080` or `https://spacedrive.example.com` if using a reverse proxy. Clients authenticate using credentials set in `SD_AUTH`.
-
-P2P sync works between the server and other devices without additional configuration. The server appears as a device in your library and participates in sync like any other device.
-
-## Monitoring
-
-The server provides a health check endpoint at `/health` that returns HTTP 200 when operational. Use this for monitoring tools or container orchestration health probes.
-
-Logs are written to stdout and the data directory under `logs/`. Set `RUST_LOG` environment variable to `debug` for detailed output during troubleshooting.
-
-**Key metrics to monitor:**
-
-Disk usage in the data directory grows with library size. Alert when free space drops below 20% to prevent database corruption.
-
-Memory usage typically ranges from 100-500MB depending on active jobs. Spike during intensive operations like thumbnail generation.
-
-Network bandwidth peaks during initial sync with new devices. Ongoing sync uses minimal bandwidth after the first synchronization.
-
-## Troubleshooting
-
-**Server won't start:**
-
-Check that the data directory exists and is writable by the server user. Verify no other process is using port 8080 with `lsof -i :8080`. Review logs for specific errors.
-
-**Authentication failures:**
-
-Ensure `SD_AUTH` format is correct. Test credentials with curl: `curl -u admin:password http://localhost:8080/health`. Browser authentication dialogs require exact username and password.
-
-**Clients can't connect:**
-
-Verify the server is accessible from the client network. Test with `curl http://server-ip:8080/health`. Check firewall rules on both server and client networks. Ensure reverse proxy configuration preserves authentication headers.
-
-**Media processing fails:**
-
-The server requires FFmpeg and libheif for video thumbnails and HEIF images. Docker images include these by default. Binary installations on minimal systems may need manual installation of these libraries.
-
-**Sync not working:**
-
-UDP port 7373 must be accessible for P2P connections. Check NAT and firewall rules. The server attempts hole-punching for NAT traversal but may fall back to relay servers if direct connection fails.
-
-## Performance Tuning
-
-The server handles multiple concurrent operations through the job system. Performance depends on storage speed, available memory, and indexing load.
-
-**Indexing performance** is limited by storage I/O. SSDs provide 10-50x faster indexing than spinning disks. Network storage over gigabit ethernet typically indexes at 50-100MB/s for metadata reads.
-
-**Thumbnail generation** is CPU-bound. Disable thumbnail generation for video files if CPU usage is a concern. Image thumbnails are fast but video processing can use significant resources.
-
-**Database optimization** happens automatically through SQLite's auto-vacuum and WAL mode. Large libraries benefit from periodic `VACUUM` operations when the server is idle.
-
-**Memory allocation** can be limited using systemd or Docker resource constraints. The server operates efficiently with 512MB minimum, though 2GB provides better performance for large libraries.
-
-## Backup Strategy
-
-Back up the data directory regularly to prevent data loss. The recommended approach depends on your infrastructure.
-
-**Systemd deployments** can use rsync or similar tools while the server is running. SQLite WAL mode ensures consistent reads during backup.
-
-**Docker deployments** should back up named volumes. Stop the container, copy the volume contents, then restart. Alternatively, use volume backup tools that handle running containers.
-
-**Cloud backups** of library databases are small enough for frequent uploads. Sidecar data can be regenerated from source files if needed, reducing backup size.
-
-Test restore procedures periodically. A backup is only useful if you can restore it successfully.
-
-## Migration
-
-Moving an existing library to a new server requires copying the data directory and adjusting location paths.
-
-Copy the entire data directory to the new server. Start the server and verify the library loads. Update location paths if the mount points differ on the new system.
-
-File content identity ensures files are recognized even if paths change. The server re-indexes locations with new paths but preserves tags, collections, and metadata.
+Alerts should cover process health, failed jobs, unavailable sources, low
+capacity, content errors, and unmet redundancy policy.
 
 ## Updates
 
-The server receives updates through new Docker image tags or binary releases. Always review release notes before updating to understand breaking changes.
+Back up the data directory before changing versions. Install the server and CLI
+from the same release, restart the service, and confirm that libraries and
+sources reopen before resuming destructive work.
 
-**Docker updates:**
-
-Pull the new image and recreate the container. Data persists in volumes across container replacements.
-
-```bash
-docker pull ghcr.io/spacedriveapp/spacedrive/server:latest
-docker stop spacedrive
-docker rm spacedrive
-# Run docker run command with new image
-```
-
-**Binary updates:**
-
-Download the new release, verify checksums, and replace the binary. Restart the systemd service.
-
-```bash
-sudo systemctl stop spacedrive
-sudo mv sd-server-new /usr/local/bin/sd-server
-sudo systemctl start spacedrive
-```
-
-Database migrations run automatically on first start after update. Check logs to confirm successful migration.
-
-## Support
-
-Report issues on [GitHub](https://github.com/spacedriveapp/spacedrive/issues) with server logs and deployment details. Join [Discord](https://discord.gg/gTaF2Z44f5) for community support and deployment advice.
+See [Library Sync](/core/library-sync) for the remote data model and
+[Indexing](/core/indexing) for source integrity gates.

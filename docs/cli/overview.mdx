@@ -1,412 +1,172 @@
-# Spacedrive CLI
+---
+title: Spacedrive CLI
+description: Operate the Spacedrive daemon from a terminal or script
+sidebarTitle: Overview
+---
+
+The Spacedrive CLI is a typed client of the same daemon used by the desktop and
+web interfaces. It can manage libraries, sources, files, jobs, devices, logs,
+and remote operations without bypassing core permissions or durability rules.
+
+## Install from source
+
+~~~bash
+cargo build --release --bin sd-cli --bin sd-daemon
+~~~
 
-A comprehensive command-line interface for managing Spacedrive Core with full daemon architecture, real-time monitoring, and cross-device file management.
+The binaries are written to **target/release**. Keep **sd-cli** and
+**sd-daemon** together if you use daemon auto-start.
 
-## Features
+## Start the daemon
 
-- **️ Daemon Architecture**: Background daemon with client-server communication
-- **Library Management**: Create, open, switch, and manage multiple libraries
-- **Location Management**: Add, remove, and monitor indexed locations with real-time watching
-- **️ Job Management**: View, monitor, and control background jobs with live progress
-- **Real-time Monitoring**: Beautiful TUI for monitoring job progress and system events
-- **Indexing Control**: Start indexing jobs with different modes (shallow/content/deep)
-- **Networking Support**: Device pairing, file sharing via Spacedrop
-- **Multiple Instances**: Run isolated daemon instances for different use cases
-- **Comprehensive Logging**: Built-in logging with file output for debugging
-- **️ Cross-platform**: Works on macOS, Linux, and Windows
-- **Rich UI**: Colored output, progress bars, and formatted tables
+~~~bash
+sd-cli start
+sd-cli status
+sd-cli stop
+~~~
 
-### New Modular Architecture Benefits
+Run the daemon in the foreground while diagnosing startup:
 
-The refactored daemon architecture provides:
+~~~bash
+sd-cli start --foreground
+~~~
 
-- **Maintainability**: Each domain (library, location, job, etc.) is isolated in its own handler module
-- **Extensibility**: New commands can be added by simply creating a new handler
-- **Type Safety**: All commands and responses are strongly typed
-- **Code Organization**: Clear separation between command handling, business logic, and transport
-- **Testability**: Individual handlers can be unit tested in isolation
-- **Performance**: Efficient command routing through handler registry
+## Select a library
 
-## Installation
+~~~bash
+sd-cli library create Personal
+sd-cli library list
+sd-cli library switch --library-id <LIBRARY_ID>
+sd-cli library info
+~~~
 
-```bash
-# Build the CLI
-cargo build --release --package sd-cli --package sd-core
+The selected library is remembered for later commands. Use **--library** where
+a command supports an explicit library override.
 
-# Or build just the CLI for development
-cd apps/cli && cargo build
+## Track and preserve sources
 
-# Install globally (optional)
-cargo install --path apps/cli
-```
+~~~bash
+sd-cli sources track ~/Documents
+sd-cli sources track /Volumes/Archive --unfiltered
+sd-cli sources list
+sd-cli sources update <SOURCE_ID> --name "Archive 2026"
+sd-cli sources verify <SOURCE_ID>
+sd-cli sources freeze <SOURCE_ID>
+~~~
 
-Also you may create an alias to the cli as `sd` or `spacedrive`.
+A source owns capture and its portable store. Locations are named pins inside a
+source. There are no shallow, content, or deep location index modes.
 
-Example for `sd`:
-```bash
-# For release build
-echo 'alias sd="/path/to/spacedrive/target/release/sd-cli"' >> ~/.zshrc
+## Inspect durable work
 
-# For debug build (faster compilation)
-echo 'alias sd="/path/to/spacedrive/target/debug/sd-cli"' >> ~/.zshrc
+~~~bash
+sd-cli job list
+sd-cli job info <JOB_ID>
+sd-cli job monitor --job-id <JOB_ID>
+sd-cli job pause <JOB_ID>
+sd-cli job resume <JOB_ID>
+sd-cli job cancel <JOB_ID>
+~~~
 
-# Reload your shell configuration
-source ~/.zshrc
-```
+Not every job can resume safely. A filesystem walk starts fresh after process
+loss because its sweep evidence is process-local. Transfer and analysis jobs
+resume only when their implementation preserves enough state.
 
-## Quick Start
+## Read logs
 
-```bash
-# Start the Spacedrive daemon
-sd start
+~~~bash
+sd-cli logs show --timestamps
+sd-cli logs show --job-id <JOB_ID>
+sd-cli logs follow --timestamps --show-job-id
+~~~
 
-# Create a library and add a location
-sd library create "Personal"
-sd location add ~/Desktop --name "Desktop"
+Logs carry job and library context when the daemon has it. Machine-readable
+operation output is separate from diagnostic logging.
 
-# Monitor indexing progress
-sd job monitor
+## Pair devices
 
-# Check system status
-sd status
-```
+~~~bash
+sd-cli network pair generate
+sd-cli network pair join "<PAIRING_CODE>"
+sd-cli network pair status
+sd-cli devices list
+~~~
 
-**Note**: If you haven't set up the alias, use `./target/debug/sd-cli` or `./target/release/sd-cli` instead of `sd`.
+Pairing establishes device identity. Library, source, subtree, and operation
+grants still control what the peer can access.
 
-## Usage
+## File and search operations
 
-### Daemon Management
+Explore each domain from the installed binary:
 
-```bash
-# Start daemon in background
-sd start
+~~~bash
+sd-cli file --help
+sd-cli search --help
+sd-cli tag --help
+sd-cli redundancy --help
+sd-cli volume --help
+~~~
 
-# Start daemon with networking enabled
-sd start
+Use Spacedrive paths when a command needs an address. The same operation can
+route to local files, remote sources, provider objects, or content identity.
 
-# Start daemon in foreground (for debugging)
-sd start --foreground
+## Structured output
 
-# Stop the daemon
-sd stop
+Pass **--format json** before the command to receive structured output:
 
-# Check daemon status
-sd status
-```
+~~~bash
+sd-cli --format json sources list
+sd-cli --format json job list
+~~~
 
-### Daemon Auto-Start (macOS)
+Scripts should prefer JSON and stable IDs over parsing human tables.
 
-Set up the daemon to start automatically on login:
+## Call any registered operation
 
-```bash
-# Install auto-start service
-sd daemon install
+The generic passthrough exposes the operation registry:
 
-# Check installation status
-sd daemon status
+~~~bash
+sd-cli op sources.list --json '{}'
+sd-cli op tags.create --library <LIBRARY_ID> --json '{"name":"Keep"}'
+~~~
 
-# Remove auto-start service
-sd daemon uninstall
-```
+Operation names and schemas are the contract. The CLI does not translate an
+arbitrary model response into shell commands. Skills and MCP tools use this same
+bounded surface.
 
-The install command creates a LaunchAgent that starts the daemon on login and restarts it if it crashes. Logs write to your data directory at `~/Library/Application Support/spacedrive/logs/`. This works with multiple instances by passing `--instance` before the daemon command.
+## Multiple local instances
 
-<Note>
-Auto-start is currently macOS-only. Linux systemd support is planned.
-</Note>
+Use a named instance to run isolated daemon state on one machine:
 
-### Multiple Daemon Instances
+~~~bash
+sd-cli --instance lab start
+sd-cli --instance lab status
+~~~
 
-The CLI supports running multiple isolated daemon instances:
+An instance changes the data directory and socket identity. It does not create a
+new security boundary from the operating-system account that runs it.
 
-```bash
-# Run a separate daemon instance
-sd --instance test start
-sd --instance test library create "Test Library"
+## Data directory
 
-# Stop specific instance
-sd --instance test stop
+Override the default state directory explicitly:
 
-# Install auto-start for specific instance
-sd --instance test daemon install
-```
+~~~bash
+sd-cli --data-dir /srv/spacedrive-data start
+~~~
 
-### Basic Commands
+Use the same value for every command that addresses that daemon. Back up this
+directory because it contains library state, source stores, assertions, and job
+history that a filesystem scan may not recover.
 
-```bash
-# Show help
-sd --help
+## Discover commands
 
-# Enable verbose logging
-sd -v <command>
+~~~bash
+sd-cli --help
+sd-cli sources --help
+sd-cli network --help
+sd-cli op --help
+~~~
 
-# Use custom data directory
-sd --data-dir /path/to/data <command>
-```
-
-### Library Management
-
-```bash
-# Create a new library
-sd library create "My Library"
-sd library create "My Library" --path /custom/path
-
-# List all libraries
-sd library list
-
-# Open an existing library
-sd library open /path/to/library
-
-# Switch to a library by name or ID
-sd library switch "My Library"
-sd library switch 12345678-1234-1234-1234-123456789012
-
-# Show current library
-sd library current
-
-# Close current library
-sd library close
-```
-
-### Location Management
-
-```bash
-# Add a location to index (automatically starts watching)
-sd location add ~/Documents
-sd location add ~/Pictures --name "My Photos" --mode deep
-
-# List all locations with status
-sd location list
-
-# Remove a location (stops watching and indexing)
-sd location remove <location-id>
-
-# Rescan a location (triggers re-indexing)
-sd location rescan <location-id>
-sd location rescan <location-id> --force  # Full rescan, ignore change detection
-```
-
-**Note**: Location IDs are UUIDs displayed in the list command. All location operations work with the daemon automatically.
-
-### Enhanced Indexing
-
-The new indexing system supports different scopes and persistence modes:
-
-```bash
-# Quick scan of current directory only (no subdirectories)
-sd index quick-scan /path/to/directory --scope current
-
-# Quick scan with ephemeral mode (no database writes)
-sd index quick-scan /path/to/directory --scope current --ephemeral
-
-# Browse external paths without adding to managed locations
-sd index browse /media/external-drive --scope current
-sd index browse /network/drive --scope recursive --content
-
-# Index managed locations with specific scope
-sd index location /managed/location --scope current --mode shallow
-sd index location <location-uuid> --scope recursive --mode deep
-
-# Legacy full location indexing (backward compatibility)
-sd scan /path/to/directory --mode content --watch
-```
-
-**Index Scopes:**
-- `current`: Index only the specified directory (single level)
-- `recursive`: Index the directory and all subdirectories
-
-**Index Modes:**
-- `shallow`: Metadata only (fastest)
-- `content`: Metadata + content hashing (moderate)
-- `deep`: Full analysis including media metadata (slowest)
-
-**Use Cases:**
-- **UI Navigation**: `quick-scan --scope current` for instant directory viewing
-- **External Browsing**: `browse --ephemeral` for exploring non-managed paths
-- **Location Updates**: `location --scope current` to refresh specific directories
-
-### Job Management
-
-```bash
-# List all jobs with colored status and progress
-sd job list
-sd job list --status running      # Filter by status
-
-# Show detailed job information
-sd job info <job-id>
-
-# Monitor jobs in real-time with live progress bars
-sd job monitor
-sd job monitor --job-id <job-id>  # Monitor specific job
-
-# Control jobs (planned features)
-sd job pause <job-id>
-sd job resume <job-id>
-sd job cancel <job-id>
-```
-
-**Job Monitor Features:**
-- Live progress bars for running jobs
-- Color-coded status (running: yellow, completed: green, failed: red)
-- ️ Real-time updates every second
-- Automatic cleanup of completed jobs
-- ️ Ctrl+C to exit gracefully
-
-### File Operations
-
-```bash
-# Copy files with progress tracking
-sd file copy ~/source.txt ~/destination.txt
-sd file copy ~/Photos/*.jpg ~/Backup/ --verify
-
-# Move files
-sd file move ~/Downloads/*.pdf ~/Documents/ --preserve-timestamps
-
-# Advanced copy options
-sd file copy ~/Project/ ~/Backup/Project/ \
-  --overwrite \
-  --verify \
-  --preserve-timestamps
-```
-
-### System Commands
-
-```bash
-# Show system status
-sd status
-
-# Monitor all system activity (TUI)
-sd monitor
-
-# View daemon logs
-sd system logs
-sd system logs --tail 50
-```
-
-### Networking & Device Management
-
-```bash
-# Initialize networking (if daemon wasn't started with)
-sd network init
-
-# Start/stop networking
-sd network start
-sd network stop
-
-# List connected devices
-sd network devices
-
-# Device pairing
-sd network pair --initiate              # Generate pairing code
-sd network pair --join <code>           # Join using code
-sd network pair --status                # Check pairing status
-
-# Spacedrop (file sharing)
-sd network spacedrop <device-id> /path/to/file --sender "Your Name"
-
-# Remove paired device
-sd network revoke <device-id>
-```
-
-## Real-time Job Monitor
-
-The job monitor provides live progress tracking with beautiful visual indicators:
-
-```bash
-sd job monitor
-```
-
-### Monitor Features
-
-- **Multi-job tracking**: Monitor all running jobs simultaneously
-- **Progress bars**: Visual progress indicators with percentage
-- **Color coding**: Status-based colors (yellow=running, green=completed, red=failed)
-- **Real-time updates**: Updates every second with latest progress
-- **Smart cleanup**: Completed jobs automatically marked and removed
-- **Job filtering**: Option to monitor specific jobs
-
-### Sample Output
-
-```
-Spacedrive Job Monitor - Press Ctrl+C to exit
-═══════════════════════════════════════════
-
-⠚ Indexing Desktop [fdbe777d] [████████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 25% | Status: Running
-⠂ Indexing Photos [a1b2c3d4]  [██████████████████████████████████████████] 100% | Completed
-⠈ Content Analysis [e5f6g7h8] [██████░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 15% | Status: Running
-```
-
-## Indexing Modes
-
-- **Shallow**: Fast metadata-only indexing (file names, sizes, dates)
-- **Content**: Standard indexing with content hashing for deduplication
-- **Deep**: Comprehensive analysis including media metadata extraction
-
-## Examples
-
-### Complete Workflow
-
-```bash
-# 1. Start the daemon
-sd start
-
-# 2. Create a library
-sd library create "Personal"
-
-# 3. Add locations with different index modes
-sd location add ~/Desktop --name "Desktop" --mode content
-sd location add ~/Documents --name "Documents" --mode content
-sd location add ~/Pictures --name "Photos" --mode deep
-
-# 4. Add cloud storage
-sd volume add-cloud "S3 Backup" --service s3 --bucket my-backup --region us-west-2
-
-# 5. Monitor the indexing progress
-sd job monitor
-
-# 6. Copy files to cloud using unified URIs
-sd cp local://macbook/Desktop/important.pdf s3://my-backup/documents/
-
-# 7. Check the results
-sd location list
-sd job list
-```
-
-### Multiple Libraries
-
-```bash
-# Work with multiple libraries
-sd library create "Work"
-sd library create "Personal"
-sd library list
-sd library switch "Work"
-sd location add ~/Work/Projects
-```
-
-### Batch Indexing
-
-```bash
-# Index multiple locations
-sd location add ~/Documents --name "Docs"
-sd location add ~/Pictures --name "Photos" --mode deep
-sd location add ~/Downloads --name "Downloads" --mode shallow
-sd job list --status running
-```
-
-## Architecture
-
-The CLI follows a modular architecture with clear separation of concerns:
-
-- **Client**: Lightweight CLI that communicates with daemon
-- **Daemon**: Long-running background service managing Core
-- **Handlers**: Modular command processors for each domain
-- **Transport**: JSON-RPC communication over Unix socket
-- **Core**: Spacedrive Core library for all operations
-
-### Benefits
-
-1. **Performance**: Daemon keeps Core loaded in memory
-2. **Persistence**: Operations continue after CLI exits
-3. **Concurrency**: Multiple CLI clients can connect
-4. **Monitoring**: Real-time tracking of background tasks
-5. **Isolation**: Multiple instances for testing
+The installed help is authoritative for command spelling. See [Get
+Started](/overview/get-started) for the first library flow and [API](/core/api)
+for the operation contract behind the CLI.

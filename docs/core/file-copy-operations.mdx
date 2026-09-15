@@ -28,9 +28,9 @@ Moves files on the same volume using atomic filesystem renames. The operation co
 fs::rename(source_path, dest_path).await?;
 ```
 
-<Note>
+<Callout>
 This strategy only works when source and destination are on the same physical volume. Cross-volume moves automatically fall back to streaming copy with source deletion.
-</Note>
+</Callout>
 
 ### FastCopyStrategy
 
@@ -55,9 +55,9 @@ The implementation supports:
 - Permission and timestamp preservation
 - Directory recursion with per-file progress
 
-<Tip>
+<Callout type="idea">
 Buffer sizes automatically adjust based on source and destination volumes. SSDs typically use larger buffers than HDDs, and the strategy picks the minimum of both volumes for cross-device transfers.
-</Tip>
+</Callout>
 
 ### RemoteTransferStrategy
 
@@ -123,9 +123,9 @@ Copy operations collect errors in a `failed_copies` vector rather than stopping 
 
 For move operations, if the copy succeeds but source deletion fails, the operation logs the error but doesn't mark the file as failed. The file exists at the destination, which is the primary goal of the operation.
 
-<Warning>
+<Callout type="warn">
 When using checksum verification, corrupted copies are automatically deleted to prevent partial or incorrect files from persisting.
-</Warning>
+</Callout>
 
 ## Job Resumption
 

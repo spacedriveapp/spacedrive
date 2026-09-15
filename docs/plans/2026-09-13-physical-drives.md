@@ -2,6 +2,8 @@
 
 > **Related.** `2026-08-27-storage-map.md` maps what is on a volume.
 > `2026-09-08-locations-demoted.md` makes locations a policy over a path.
+> `2026-09-13-drive-catalog.md` describes product knowledge and hardware
+> representation without participating in physical identity.
 > This plan adds the layer below both: the hardware the volumes live on.
 > Optional for a person with one laptop. Foundational for a person with
 > twenty drives, and for every planning feature that needs to know what
@@ -58,15 +60,15 @@ the rules that matter depend on which rung produced the answer.
 
 Each rung, what it survives, and what breaks it:
 
-| evidence | read from | survives | breaks on |
-|---|---|---|---|
-| WWN | SATA/SAS/NVMe identify | everything | USB bridges hiding it |
-| disk serial + model | identify data | reformat, repartition | bridges substituting their own; recorded with the path it was read through |
-| GPT disk GUID | partition table header | shucking, enclosure swaps, any bridge (it is bytes on the platter) | repartitioning |
-| pool / container GUID | zfs, mdraid, APFS metadata | export, import on a new host, a dead member | recreating the pool |
-| filesystem UUID, `.spacedrive-volume-id` | the filesystem | enclosure and machine changes | reformat; a root-level copy carries the fingerprint file to a different drive, so it corroborates and never decides |
-| SMART trajectory | smartctl and platform equivalents | everything static evidence survives | nothing; see below |
-| the person | a question in the UI | everything | nothing |
+| evidence                                 | read from                         | survives                                                           | breaks on                                                                                                           |
+| ---------------------------------------- | --------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| WWN                                      | SATA/SAS/NVMe identify            | everything                                                         | USB bridges hiding it                                                                                               |
+| disk serial + model                      | identify data                     | reformat, repartition                                              | bridges substituting their own; recorded with the path it was read through                                          |
+| GPT disk GUID                            | partition table header            | shucking, enclosure swaps, any bridge (it is bytes on the platter) | repartitioning                                                                                                      |
+| pool / container GUID                    | zfs, mdraid, APFS metadata        | export, import on a new host, a dead member                        | recreating the pool                                                                                                 |
+| filesystem UUID, `.spacedrive-volume-id` | the filesystem                    | enclosure and machine changes                                      | reformat; a root-level copy carries the fingerprint file to a different drive, so it corroborates and never decides |
+| SMART trajectory                         | smartctl and platform equivalents | everything static evidence survives                                | nothing; see below                                                                                                  |
+| the person                               | a question in the UI              | everything                                                         | nothing                                                                                                             |
 
 The GPT disk GUID deserves its own sentence: it is readable through any
 enclosure, survives shucking by definition, and nobody uses it. It is the
@@ -142,7 +144,7 @@ pub struct Drive {
     pub serial: Option<String>,
     pub capacity: Option<u64>,
     pub bus: Option<Bus>,            // Nvme, Sata, Usb, Sd, Network
-    pub form_factor: Option<FormFactor>,
+    pub form_factor: Option<StorageFormFactor>,
     /// Where it physically is. Only the person knows.
     pub location: Option<String>,
     pub notes: Option<String>,
@@ -153,6 +155,7 @@ pub struct Drive {
 }
 
 pub struct DriveObservation {
+    pub uuid: Uuid,
     pub drive_uuid: Option<Uuid>,    // None until clustered
     pub observed_at: DateTime<Utc>,
     pub device_uuid: Uuid,           // which machine saw it
@@ -163,6 +166,9 @@ pub struct DriveObservation {
     pub model: Option<String>,
     pub capacity: Option<u64>,
     pub firmware: Option<String>,
+    pub storage_form_factor: Option<StorageFormFactor>,
+    /// Raw, component-scoped product evidence. The identity reasoner never reads it.
+    pub hardware_components: Vec<ObservedHardwareComponent>,
     pub smart: Option<SmartSnapshot>, // power-on hours, cycles, written, reallocated
 }
 
@@ -179,6 +185,14 @@ pub struct DriveGroup {
     // members via drive_group_member(drive_uuid, role), role = Data | Parity | Cache
 }
 ```
+
+The catalog companion makes one D0 requirement urgent: product evidence must be
+recorded while the hardware is present even though it does not participate in
+identity. `ObservedHardwareComponent` keeps vendor strings and typed USB, PCI,
+NVMe, ATA, and SCSI identifiers scoped to media, bridge, enclosure, or
+controller. Flattening those layers would make an enclosure look like the disk
+inside it. Serial numbers and other unit identifiers remain separate physical
+evidence and never enter the shared catalog projection.
 
 Volumes link to drives through observations (a volume observation records
 which drive backed it), giving the chain the feature exists for:
@@ -201,8 +215,8 @@ next to and never asks:
   gives model, serial, bus, and removability; APFS container membership is
   already parsed in `volume/fs/apfs.rs`.
 - **Linux**: `lsblk -O` gives parent device, WWN, serial, model,
-  rotational, and transport in one call. Pool membership is `zpool status
-  -P` mapped through `/dev/disk/by-id`.
+  rotational, and transport in one call. Pool membership is read from
+  `zpool status -P` and mapped through `/dev/disk/by-id`.
 - **Windows**: `Win32_DiskDrive` and storage device descriptors.
 
 SMART needs elevated access on some platforms and a helper (`smartctl`)
@@ -219,7 +233,7 @@ group row does not duplicate that and must not try; the platters are the
 authority on their own assembly.
 
 What the labels cannot answer is the question asked with the drives in
-boxes: *which* physical drives make the pool, where they are, and how many
+boxes: _which_ physical drives make the pool, where they are, and how many
 of them suffice. Reading a label requires plugging the drive in, which is
 exactly the step the question precedes. So the division of labor: the
 filesystem carries the machine-readable truth on the platters, the group
@@ -234,6 +248,8 @@ ciphertext. Those belong on the pre-export checklist, not in a table.
 
 - Not required. A person who never opens the drives view never meets it;
   detection appends observations silently and nothing else changes.
+- Not a product catalog. Catalog conclusions may describe a drive, but they
+  never merge observations or alter physical identity.
 - Not sync. Rows live in library.db and are device-owned like volumes
   until sync returns; the observation log is exactly the append-only
   shape sync ships well.
@@ -246,7 +262,8 @@ ciphertext. Those belong on the pre-export checklist, not in a table.
 
 1. Platform detection of physical backing per mounted volume: parent
    disk, WWN, serial, GPT disk GUID, model, capacity, firmware,
-   transport. On Linux most of this is readable unprivileged from sysfs
+   transport, storage form factor, and component-scoped product identifiers.
+   On Linux most of this is readable unprivileged from sysfs
    (`/sys/block/*/device/`), which matters because the daemon runs as an
    ordinary user on a NAS.
 2. SMART snapshot where readable without elevation. Where `smartctl`

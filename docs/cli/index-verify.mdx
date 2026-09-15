@@ -1,232 +1,105 @@
-# Index Integrity Verification Command
+---
+title: Verify and Freeze a Source
+description: Confirm duplicate content and preserve a dated source-store copy
+sidebarTitle: Verify a Source
+---
 
-## Overview
+Source verification reads every byte of files that share a candidate content
+identity. It upgrades matching candidates to confirmed integrity hashes and
+records read failures.
 
-The `index verify` command performs a comprehensive integrity check of the Spacedrive index for any given path. It compares the actual filesystem state with what's stored in the database and reports any discrepancies.
+This is different from comparing every path with a fresh filesystem walk.
+Retracking a source performs that reconciliation.
 
-## Usage
+## Find the source
 
-```bash
-# Basic usage - verify a location
-sd-cli index verify /path/to/check
+~~~bash
+sd-cli sources list
+~~~
 
-# Verify with content hash checking (slower but more thorough)
-sd-cli index verify /path/to/check --verify-content
+Wait for the current index and hashing jobs to finish before taking a final
+archival snapshot:
 
-# Verify without detailed output (just summary)
-sd-cli index verify /path/to/check --detailed=false
+~~~bash
+sd-cli job list
+~~~
 
-# Future: Auto-fix issues (not yet implemented)
-sd-cli index verify /path/to/check --auto-fix
-```
+## Verify shared content
 
-## How It Works
+~~~bash
+sd-cli sources verify <SOURCE_ID>
+~~~
 
-The command performs three main steps:
+The action dispatches a durable verification job. Monitor it with:
 
-### 1. Ephemeral Indexing
+~~~bash
+sd-cli job monitor --job-id <JOB_ID>
+sd-cli logs show --job-id <JOB_ID>
+~~~
 
-Runs a fresh, in-memory index scan of the filesystem path to capture the current state:
+Verification:
 
-- Discovers all files and directories
-- Extracts metadata (size, modified time, inode)
-- Optionally generates content hashes (with `--verify-content`)
+- claims records whose sampled content is shared and unconfirmed;
+- reads each file completely from its current origin;
+- computes an integrity hash;
+- promotes matching content to confirmed identity;
+- preserves metadata and an error reason when bytes cannot be read;
+- commits each batch before claiming more work.
 
-### 2. Database Query
+## Interpret the result
 
-Queries the Spacedrive database for all indexed entries under the given path:
+A completed job means every record claimed by that run committed a result. It
+does not mean every file in the source is readable or that the source has
+enough backup copies.
 
-- Uses closure table for efficient descendant lookup
-- Resolves full paths for all entries
-- Extracts stored metadata
+Review:
 
-### 3. Comparison & Reporting
+- remaining unconfirmed duplicate candidates;
+- content errors and permissions;
+- source availability;
+- failure-domain placement;
+- job retries and warnings.
 
-Compares the two datasets and categorizes differences:
+## Reconcile filesystem state
 
-| Issue Type             | Description                                            |
-| ---------------------- | ------------------------------------------------------ |
-| **Missing from Index** | Files exist on filesystem but not in database          |
-| **Stale in Index**     | Files exist in database but not on filesystem          |
-| **Metadata Mismatch**  | Files exist in both but with incorrect size/time/inode |
-| **Hierarchy Error**    | Files have incorrect parent relationships              |
+To compare the retained generation with the current origin, track the same root
+again:
 
-## Output Format
+~~~bash
+sd-cli sources track /path/to/source
+~~~
 
-```
-╔══════════════════════════════════════════════════════════════╗
-║          INDEX INTEGRITY VERIFICATION REPORT                ║
-╠══════════════════════════════════════════════════════════════╣
-║ Path: /Users/jamie/Documents                                ║
-║ Duration: 2.34s                                              ║
-╠══════════════════════════════════════════════════════════════╣
-║ Filesystem: 1247 files, 89 directories                       ║
-║ Database:   1245 files, 89 directories                       ║
-╠══════════════════════════════════════════════════════════════╣
-║ STATUS: DIVERGED - 4 issues found                        ║
-╠══════════════════════════════════════════════════════════════╣
-║ ️  Missing from index: 2                                    ║
-║   - /Users/jamie/Documents/new-file.txt                      ║
-║   - /Users/jamie/Documents/another-new.pdf                   ║
-║ ️  Stale in index: 2                                        ║
-║   - /Users/jamie/Documents/deleted-file.txt                  ║
-║   - /Users/jamie/Documents/old/removed.doc                   ║
-╠══════════════════════════════════════════════════════════════╣
-║ Index has diverged: 2 missing, 2 stale. Total: 4        ║
-╚══════════════════════════════════════════════════════════════╝
-```
+The new walk records current metadata and safely sweeps stale generation rows
+only after complete traversal evidence. A restarted walk begins from zero.
 
-## When to Use
+For archival acceptance, compare the resulting record count with an independent
+operating-system walk and sample stored metadata against the source.
 
-### Debugging Index Issues
+## Freeze the store
 
-If you suspect the index is out of sync with the filesystem:
+After verification and reconciliation gates pass:
 
-```bash
-sd-cli index verify ~/Documents
-```
+~~~bash
+sd-cli sources freeze <SOURCE_ID>
+~~~
 
-### After Manual File Operations
+The freeze is a dated, self-contained source-store copy. It preserves indexed
+records, content evidence, and assertions as they existed at that point.
 
-If you've manually modified files outside Spacedrive:
+<Callout type="warn">
+  A freeze contains index knowledge, not the original file bytes. Copy and
+  verify the origin separately.
+</Callout>
 
-```bash
-# You edited files manually
-sd-cli index verify /path/that/changed
-```
+## Suggested archival gate
 
-### Performance Testing
-
-To verify the watcher is working correctly:
-
-```bash
-# Make changes, then verify
-touch /test/newfile.txt
-sleep 1
-sd-cli index verify /test
-```
-
-### Pre-Sync Validation
-
-Before syncing a library to ensure data integrity:
-
-```bash
-sd-cli index verify /  # Verify entire library
-```
-
-## Exit Codes
-
-| Code | Meaning                              |
-| ---- | ------------------------------------ |
-| 0    | Index is valid (no issues found)     |
-| 1    | Index has diverged (issues found)    |
-| 2    | Verification failed (error occurred) |
-
-## Use in Scripts
-
-```bash
-#!/bin/bash
-# Automated integrity check
-
-if sd-cli index verify /data/important --detailed=false; then
-    echo "Index is valid"
-else
-    echo "Index has issues - running rescan"
-    sd-cli location rescan <location-id>
-fi
-```
-
-## Performance Characteristics
-
-| Path Size     | Typical Duration | Memory Usage |
-| ------------- | ---------------- | ------------ |
-| 100 files     | &lt;1 second     | ~10 MB       |
-| 1,000 files   | 1-3 seconds      | ~50 MB       |
-| 10,000 files  | 10-30 seconds    | ~200 MB      |
-| 100,000 files | 1-5 minutes      | ~1 GB        |
-
-With `--verify-content`:
-
-- Add 50-200% time overhead (depends on file sizes)
-- Requires reading file contents for hashing
-
-## Common Use Cases
-
-### 1. Verify Location After Import
-
-```bash
-sd-cli location add ~/Photos --name "Photos"
-# Wait for indexing to complete
-sd-cli index verify ~/Photos
-```
-
-### 2. Debug Watcher Issues
-
-```bash
-# Monitor filesystem
-watch -n 5 'sd-cli index verify /watched/path --detailed=false'
-```
-
-### 3. Find Orphaned Entries
-
-```bash
-# Check for stale entries
-sd-cli index verify / | grep "Stale in index"
-```
-
-### 4. Validate After Bulk Operations
-
-```bash
-# After moving many files
-mv ~/old-location/* ~/new-location/
-sd-cli index verify ~/new-location
-```
-
-## Troubleshooting
-
-### "Path does not exist"
-
-- Ensure the path is correct and accessible
-- Check permissions
-
-### "No entries found in database"
-
-- Path might not be part of a managed location
-- Run `sd-cli location list` to see indexed locations
-
-### High number of "Missing from Index"
-
-- Location watcher might be disabled
-- Files were added manually without indexing
-- Run `sd-cli location rescan <location-id>` to fix
-
-### High number of "Stale in Index"
-
-- Files were deleted manually
-- Database not updated
-- Consider running cleanup
-
-## API Access
-
-The verification can also be triggered programmatically:
-
-```rust
-use sd_core::ops::indexing::verify::{IndexVerifyAction, IndexVerifyInput};
-
-let input = IndexVerifyInput::new(PathBuf::from("/path/to/verify"));
-let result = IndexVerifyAction::from_input(input)?
-    .execute(library, context)
-    .await?;
-
-if !result.is_valid {
-    println!("Found {} issues", result.report.total_issues());
-}
-```
-
-## Future Enhancements
-
-- `--auto-fix`: Automatically repair issues (add missing, remove stale)
-- `--watch`: Continuously verify and report drift
-- `--json`: Machine-readable output for automation
-- `--compare-with <snapshot>`: Compare current state with previous snapshot
-- `--export-snapshot`: Save current state for future comparison
+1. The source root resolves to the expected volume.
+2. The latest walk completed from zero.
+3. Record counts match an independent walk.
+4. Metadata samples match the operating system.
+5. Every unreadable item has a reviewed reason.
+6. Shared content has confirmed integrity evidence.
+7. Protection policy shows independent copies where required.
+8. The source store is frozen and backed up off the origin.
+
+See [Indexing](/core/indexing) for the safety model.

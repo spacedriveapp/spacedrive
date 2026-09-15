@@ -1,123 +1,131 @@
 ---
 title: Core Concepts
+description: Extensions, capabilities, models, jobs, actions, and file kinds
 sidebarTitle: Core Concepts
 ---
 
-Extensions in Spacedrive are built with Rust macros that generate the integration code for you. Define your data models, jobs, and agents using attributes. The SDK handles sync, permissions, and sandboxing automatically.
+An extension is a signed WASM module plus a manifest. It adds behavior through
+declared capabilities and host calls. It does not receive direct access to
+Spacedrive databases or arbitrary host resources.
 
-This page covers the five building blocks: extensions, models, jobs, agents, and actions. Each concept maps to a macro that generates the boilerplate.
+## Extension definition
 
-### 1. Extension Definition (`#[extension]`)
+The extension macro declares stable identity and exported features:
 
-The `#[extension]` attribute is the entry point for your extension. It defines metadata, dependencies, and the permissions your extension requires.
+~~~rust
+use spacedrive_sdk::prelude::*;
 
-```rust
 #[extension(
-    id = "com.spacedrive.photos",  // Unique reverse-DNS ID
-    name = "Photos Manager",
+    id = "com.example.media",
+    name = "Media Tools",
     version = "1.0.0",
-    description = "Advanced photo organization with faces and places.",
-    min_core_version = "2.0.0",  // Minimum Spacedrive core version
-    permissions = [
-        Permission::ReadEntries(glob = "**/*.{jpg,png,heic}"),
-        Permission::WriteTags,
-    ]
+    jobs = [build_proxy],
 )]
-struct Photos {
-    config: PhotosConfig,  // User-configurable settings
-}
-```
+struct MediaTools;
+~~~
 
-- **Permissions**: Your extension requests permissions, and the user grants them, often scoped to specific parts of their library for privacy.
-- **Config**: You can define a configuration struct that allows users to customize your extension's behavior.
+Package identity, version, minimum host compatibility, signature, and
+capabilities are visible before installation.
 
-### 2. Models (`#[model]`)
+## Capabilities
 
-Models are the heart of your extension's data structure. The `#[model]` attribute allows you to define custom data models that are stored in **real database tables**, not as JSON blobs. This enables powerful querying, indexing, and relationships.
+Capabilities name what the extension may request:
 
-```rust
-#[model(
-    table_name = "person",
-    version = "1.0.0",
-    sync_strategy = "shared"
-)]
-#[index("email")]
-struct Person {
-    #[primary_key]
-    id: Uuid,
-    name: String,
-    #[indexed]
-    email: Option<String>,
-    #[metadata]
-    metadata_id: i32, // Enables tagging
-}
-```
+- source and subtree reads;
+- writes to a selected source scope;
+- extension model access;
+- sidecar creation;
+- named network destinations;
+- registered jobs and actions;
+- interface contributions.
 
-- **Real Tables**: Your models become actual SQL tables, prefixed with your extension's ID (e.g., `ext_photos_person`).
-- **Relationships**: You can define foreign key relationships to core Spacedrive objects or other models in your extension.
-- **Tagging**: By including a `#[metadata]` field, your models can be tagged and organized just like regular files.
+The user grants or denies them. Runtime checks apply on every host call.
 
-### 3. Jobs and Tasks (`#[job]`, `#[task]`)
+## Models
 
-Jobs and tasks are used to perform long-running or background operations, such as analyzing files or processing data. They are durable, resumable, and can be run in parallel.
+Typed models store facts the extension owns. A model chooses a scope:
 
-```rust
-#[task(retries = 3, timeout_ms = 30000)]
-async fn detect_faces(ctx: &TaskContext, entry: &Entry) -> TaskResult<Vec<FaceDetection>> {
-    // ... face detection logic ...
+- **record** for one observed source object;
+- **content** for confirmed identical bytes;
+- **standalone** for an object with its own identity.
+
+Models that cannot be reconstructed belong to the assertion layer and survive
+source reindexing. Generated facts record their generator and input generation.
+
+## Jobs
+
+Jobs perform long or interruptible work. Their serializable state supports
+checkpoints when the algorithm can resume safely.
+
+~~~rust
+#[derive(Serialize, Deserialize, Default)]
+pub struct ProxyState {
+    pub completed: Vec<Uuid>,
 }
 
-#[job(parallelism = 4, trigger = "user_initiated")]
-async fn analyze_photos(ctx: &JobContext, location: SdPath) -> JobResult<()> {
-    // ... logic to find photos and run detect_faces task ...
+#[job(name = "build-proxy")]
+fn build_proxy(ctx: &JobContext, state: &mut ProxyState) -> Result<()> {
+    // Read through granted byte providers, commit output, then checkpoint.
+    Ok(())
 }
-```
+~~~
 
-- **Durability**: Jobs are persisted and can survive application restarts.
-- **Triggers**: Jobs can be initiated by users, events, or other system triggers.
+The host owns scheduling, progress, logs, deduplication, cancellation, and
+recovery classification.
 
-### 4. AI Agents (`#[agent]`)
+## Actions
 
-Agents provide a way to create autonomous logic within your extension. They can observe events, reason about data, and act by dispatching jobs or modifying data.
+Actions are user-invoked operations. They return typed output and can dispatch a
+job.
 
-```rust
-#[agent]
-impl Photos {
-    async fn on_new_photo(&self, ctx: &AgentContext, photo: Photo) -> AgentResult<()> {
-        ctx.trace("New photo added - checking for faces");
-        // ... logic to analyze photo ...
-        Ok(())
-    }
-}
-```
+Risky actions separate preview from commit. The preview identifies exact
+records, destinations, permissions, conflicts, and protection consequences.
+Commit executes the accepted plan rather than recomputing hidden intent.
 
-- **Observe-Orient-Act**: Agents follow a classic AI loop to respond to changes in the system.
-- **Memory**: Agents can have their own memory to store knowledge and plans.
+## File kinds
 
-### 5. Actions (`#[action]`)
+A file-kind registration can use:
 
-Actions are user-invokable operations that can be previewed before execution. This ensures that users always know what changes an extension is about to make.
+- filename extension;
+- MIME or platform type;
+- magic bytes;
+- provider metadata;
+- structural probing.
 
-```rust
-#[action]
-async fn organize_photos(ctx: &ActionContext, location: SdPath) -> ActionResult<ActionPreview> {
-    // Works with any storage type
-    match location {
-        SdPath::Physical { .. } => organize_local_photos(ctx, location).await,
-        SdPath::Cloud { .. } => organize_cloud_photos(ctx, location).await,
-        SdPath::Content { .. } => {
-            // Resolve content path to physical location first
-            let resolved = location.resolve(ctx).await?;
-            organize_photos(ctx, resolved).await
-        }
-    }
-}
+The result names capabilities such as preview, metadata extraction, streaming,
+editing, or export. Installed operating-system handlers can contribute evidence
+without becoming trusted executors.
 
-#[action_execute]
-async fn organize_photos_execute(ctx: &ActionContext, preview: ActionPreview) -> ActionResult<()> {
-    // ... apply the changes ...
-}
-```
+## Previews and sidecars
 
-- **Safety**: The preview-commit-verify flow ensures that all operations are safe and predictable.
-- **Universal**: Actions work seamlessly across local, cloud, and content-addressed files.
+A preview declares the source kinds it accepts, range-read needs, output
+variants, and fallback behavior. It can render directly or request a
+deterministic sidecar.
+
+Persistent proxies and thumbstrips follow source policy. Rebuildable thumbnails
+can remain cache data while their input and generator are available.
+
+## Views
+
+Extensions contribute named views, inspector sections, and context-menu
+commands through a declarative UI manifest. Views query registered models and
+records. They do not ship an unrestricted frontend application inside the
+filesystem interface.
+
+## No built-in agent runtime
+
+Spacedrive extensions add deterministic tools and data capabilities. An
+external agent can call those registered operations through the same CLI or MCP
+surface as a person.
+
+The extension system does not provide a parallel autonomous agent, memory, or
+shell runtime.
+
+## Absence and removal
+
+Source records and durable models remain understandable when an extension is
+disabled. The interface reports the missing handler and offers safe fallback
+behavior.
+
+Uninstalling code does not silently delete original files, assertions, or
+persistent sidecars.

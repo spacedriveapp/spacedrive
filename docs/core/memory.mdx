@@ -3,6 +3,13 @@ title: Memory Files
 sidebarTitle: Memory Files
 ---
 
+<Callout type="warn">
+  This page records an earlier product experiment. Memory and autonomous agent
+  behavior are not part of Spacedrive core or the Spacedrive 2.0 release
+  contract. A portable knowledge format can return as an ordinary extension
+  without receiving privileged filesystem access.
+</Callout>
+
 Memory files are Spacedrive's knowledge management primitive. They make AI context portable, persistent, and owned by you. Create a memory file for any task, analyzing financial records, organizing research, refactoring code, understanding email archives, and the knowledge stays with your files forever.
 
 A memory file is a single-file archive containing document references, learned facts, and vector embeddings. Open it and your AI agent has perfect context instantly. Return to a project months later and continue exactly where you left off. Share a memory file and transfer weeks of accumulated knowledge in seconds.
@@ -34,9 +41,9 @@ my-task.memory (single file)
 
 Updates work by appending new versions of files. The index at the end points to the latest version of each file. Reading requires a single seek operation to the index, then another seek to the file data.
 
-<Info>
+<Callout>
 Memory files are recognized by magic bytes `SDMEMORY` and the `.memory` extension. They appear as document files in Spacedrive.
-</Info>
+</Callout>
 
 ## Structure
 
@@ -106,19 +113,27 @@ MemoryScope::Standalone
 Memory files integrate with AI agents through a loading mechanism. When an agent loads a memory, it receives curated context instead of discovering it through search.
 
 <Steps>
-<Step title="Create Memory">
+<Step>
+
+### Create Memory
 Create a memory file for your task or domain. This can happen automatically during agent conversations or manually through the UI.
 </Step>
 
-<Step title="Add Knowledge">
+<Step>
+
+### Add Knowledge
 Documents and facts accumulate as you work. High-quality conversations automatically generate facts. Manual curation refines the knowledge base.
 </Step>
 
-<Step title="Load in Agent">
+<Step>
+
+### Load in Agent
 Open the memory file or load it into a chat session. The agent receives instant context without searching your filesystem.
 </Step>
 
-<Step title="Continuous Improvement">
+<Step>
+
+### Continuous Improvement
 As you continue working, the memory grows. Facts get verified, new documents added, relevance scores adjusted.
 </Step>
 </Steps>
@@ -195,9 +210,9 @@ agent.load_memories(vec![
 
 The agent combines knowledge from all loaded memories. This enables reasoning across domains without maintaining a single monolithic knowledge base.
 
-<Tip>
+<Callout type="idea">
 Create focused memories for specific tasks. Compose them as needed rather than building one large memory for everything.
-</Tip>
+</Callout>
 
 ## Performance
 
@@ -221,9 +236,9 @@ Memory files are your data. They live in your filesystem, sync through Spacedriv
 
 You can copy memory files like any document. Share them with colleagues to transfer domain expertise. Back them up with your files. Version them in git. The knowledge is yours.
 
-<Note>
+<Callout>
 Memory files are regular Spacedrive content. They sync across devices, appear in search results, and can be tagged and organized like any other file.
-</Note>
+</Callout>
 
 ## Use Cases
 
@@ -247,6 +262,6 @@ This approach enables capabilities impossible with cloud services. Share a memor
 
 ## Related Documentation
 
-- [Virtual Sidecars](/docs/core/virtual-sidecars) - Pre-analyzed file data
-- [Extensions](/docs/extensions/introduction) - Building extensions with memory support
-- [Library Sync](/docs/core/library-sync) - How memories sync across devices
+- [Virtual Sidecars](/core/virtual-sidecars) - Derived file data
+- [Extensions](/extensions/introduction) - Building file-type extensions
+- [Library Sync](/core/library-sync) - How extension assertions synchronize

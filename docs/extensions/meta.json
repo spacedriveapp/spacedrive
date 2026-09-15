@@ -1,0 +1,14 @@
+{
+	"title": "SDK",
+	"icon": "Puzzle",
+	"root": true,
+	"pages": [
+		"introduction",
+		"getting-started",
+		"core-concepts",
+		"data-storage",
+		"security-and-sync",
+		"ui-integration",
+		"examples"
+	]
+}

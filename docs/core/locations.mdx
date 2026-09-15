@@ -1,589 +1,135 @@
 ---
 title: Locations
+description: Named pins and attention policies inside sources
 sidebarTitle: Locations
 ---
 
-Locations are directories that Spacedrive tracks and monitors. When you add a location, Spacedrive indexes its contents and watches for changes in real-time.
+A location is a named pin over a source-relative path. It helps a person return
+to an important part of a source and can request stronger attention for that
+subtree.
 
-## What is a Location?
+A location does not own records, trigger a separate index, or create another
+file identity namespace.
 
-A location is any folder on your device that you want Spacedrive to index. Once added:
+## The three boundaries
 
-- Files are indexed immediately
-- Changes are detected in real-time
-- Metadata syncs across your devices (if enabled)
-- Content gets unique identifiers for deduplication
+Spacedrive separates capture, attention, and display:
 
-## Location Architecture
+| Boundary | Object | Question |
+| --- | --- | --- |
+| Capture | Source | What data do we retain from this origin? |
+| Attention | Location | Which retained subtree needs a name or stronger policy? |
+| Display | Lens | Which records should this view show? |
 
-Locations have a sophisticated relationship with the file index:
+Combining these jobs causes duplicate indexes and confusing controls. A user
+should not have to “add a location” merely to make a folder searchable if its
+source already captures it.
 
-### Root Entry
+## Location shape
 
-When you add a location, Spacedrive creates a **root entry** in the entries table for the location directory itself. This root entry:
-
-- Has no parent (`parent_id = NULL`)
-- Gets a self-reference in the `entry_closure` table
-- Serves as the ancestor for all files/folders within the location
-- Is stored in the `directory_paths` table with its full filesystem path
+A location stores only the identity and presentation needed for a pin:
 
-```rust
-// Location points to root entry
-Location {
-    entry_id: Some(123),  // References entries table
-    // ... other fields
-}
-
-// Root entry for "/Users/alice/Documents"
-Entry {
-    id: 123,
-    name: "Documents",
-    kind: Directory,
-    parent_id: None,  // Root has no parent
-    // ... other fields
-}
-```
+- stable ID and UUID;
+- source UUID;
+- source-relative path;
+- display name;
+- origin label;
+- creation time.
 
-### Why Root Entries?
+The source owns records and content evidence. The lens owns sorting and
+filtering. File bytes remain at the origin.
 
-This design enables **nested locations without duplicating the file tree**. If you have:
+## Default locations
 
-1. Location A: `/Users/alice/Documents` (entry_id: 123)
-2. Location B: `/Users/alice/Documents/Work` (entry_id: 124)
-
-The entries table contains a single unified tree:
-
-```
-Entry(123): "Documents"           parent_id: NULL
-  ├─ Entry(124): "Work"            parent_id: 123  ← Location B points here
-  │   └─ Entry(125): "report.pdf"  parent_id: 124
-  └─ Entry(126): "Photos"          parent_id: 123
-      └─ Entry(127): "sunset.jpg"  parent_id: 126
-```
-
-**Benefits:**
-- **No duplication** - `Work/report.pdf` exists once in the database, accessible from both locations
-- **Consistent hierarchy** - Parent-child relationships are preserved regardless of location boundaries
-- **Efficient storage** - Adding nested locations doesn't create redundant entry records
-- **Flexible organization** - Users can create fine-grained locations within broader ones
-- **Different index modes** - Apply Deep indexing to `/Photos` but Shallow to `/Photos/RAW` without duplicating entries
-
-Without this design, overlapping locations would require duplicating all entries, leading to sync conflicts and wasted storage.
-
-### Entry Hierarchy
-
-All files and folders within a location form a tree structure:
-
-```
-Location (entry_id: 123)
-  └─ Entry(123): "Documents"           parent_id: NULL
-      ├─ Entry(124): "Work"            parent_id: 123
-      │   └─ Entry(125): "report.pdf"  parent_id: 124
-      └─ Entry(126): "Photos"          parent_id: 123
-          └─ Entry(127): "sunset.jpg"  parent_id: 126
-```
-
-The `entry_closure` table enables efficient queries:
-- "Find all files in this location" → Query where `ancestor_id = 123`
-- "Get file path" → Walk up closure table following parent relationships
-- "Calculate total size" → Aggregate from all descendants
-
-### Directory Paths Table
-
-Directory paths are stored separately for performance:
-
-```sql
--- directory_paths table
-entry_id | path
----------|---------------------------
-123      | /Users/alice/Documents
-124      | /Users/alice/Documents/Work
-126      | /Users/alice/Documents/Photos
-```
-
-This avoids storing redundant path information on every file entry and makes path-based lookups significantly faster. Only directories are stored in this table, not individual files.
-
-### Device Ownership & Sync
-
-Entries don't have a `device_id` field. Instead, **ownership is inherited from the location**:
-
-```rust
-// Location owns all its entries
-Location {
-    device_id: 42,    // Device that owns this location
-    entry_id: 123,    // Root of the entry tree
-}
-
-// Entries don't store device_id
-Entry {
-    id: 124,
-    parent_id: 123,   // Part of location's tree
-    // NO device_id field
-}
-```
-
-**Why this matters for sync:**
-
-1. **Efficient ownership queries** - Find all entries owned by a device via `entry_closure`:
-   ```sql
-   SELECT e.* FROM entries e
-   INNER JOIN entry_closure ec ON e.id = ec.descendant_id
-   WHERE ec.ancestor_id IN (
-       SELECT entry_id FROM locations WHERE device_id = ?
-   );
-   ```
-
-2. **No redundant storage** - Avoids storing device_id on millions of entry records
-
-3. **Instant ownership transfer** - When you move an external drive between devices, just update the location's `device_id`. All millions of files instantly change ownership without touching the entries table. See [Library Sync - Portable Volumes](/docs/core/library-sync#portable-volumes--ownership-changes) for details.
-
-**Sync implications:**
-- Only the owning device can modify entries in a location
-- Other devices have read-only views of remote locations
-- Location ownership change is a single-row update (not a bulk migration)
-
-### Core Properties
-
-```rust
-pub struct Location {
-    pub id: i32,                     // Database primary key
-    pub uuid: Uuid,                  // Unique identifier
-    pub device_id: i32,              // Device that owns this location
-    pub entry_id: Option<i32>,       // Root entry for this location's tree
-    pub name: Option<String>,        // Display name
-    pub index_mode: String,          // "shallow" | "content" | "deep"
-    pub scan_state: String,          // "pending" | "scanning" | "completed" | "error"
-    pub last_scan_at: Option<DateTime<Utc>>,
-    pub error_message: Option<String>,
-    pub total_file_count: i64,
-    pub total_byte_size: i64,
-    pub job_policies: Option<String>, // JSON-serialized policies
-    pub created_at: DateTime<Utc>,
-    pub updated_at: DateTime<Utc>,
-}
-```
-
-<Note>
-  See [Data Model - Location](/docs/core/data-model#location) for the complete database schema.
-</Note>
-
-### Index Modes
-
-Choose how deeply Spacedrive analyzes your files:
-
-- **Shallow**: Basic metadata only (name, size, dates)
-- **Content**: Includes content hashing for deduplication
-- **Deep**: Full media processing with thumbnails and metadata
-
-### Scan States
-
-Locations track their scanning status:
-
-```rust
-pub enum ScanState {
-    Idle,                    // Not scanning
-    Scanning { progress: u8 }, // Currently scanning (0-100%)
-    Completed,               // Scan finished successfully
-    Failed,                  // Scan encountered errors
-    Paused,                  // Scan was paused
-}
-```
-
-## Adding Locations
-
-### Using the CLI
-
-```bash
-# Add a location
-spacedrive location add ~/Documents --name "Documents"
-
-# Add with deep indexing
-spacedrive location add ~/Photos --name "Photos" --mode deep
-
-# List all locations
-spacedrive location list
-```
-
-### Using the API
-
-```rust
-let (location_id, job_id) = location_manager
-    .add_location(
-        library,
-        PathBuf::from("/Users/alice/Desktop"),
-        Some("Desktop".to_string()),
-        device_id,
-        IndexMode::Content,
-    )
-    .await?;
-```
-
-### What Happens When You Add a Location
-
-The location creation process is atomic (uses database transactions):
-
-1. **Path validation** - Ensures the directory exists and is accessible
-2. **Create root entry** - Creates an entry for the location directory
-   - Assigns a UUID for sync compatibility
-   - Sets `parent_id = NULL` (this is a root)
-   - Sets `indexed_at` to enable sync emission
-3. **Create closure record** - Adds self-reference to `entry_closure` table
-4. **Create directory path** - Adds full path to `directory_paths` table
-5. **Duplicate check** - Verifies no location already exists for this entry
-6. **Create location record** - Stores location metadata
-   - Links to root entry via `entry_id`
-   - Sets initial `scan_state = "pending"`
-7. **Commit transaction** - All or nothing (prevents partial state)
-8. **Emit sync event** - Broadcasts root entry StateChange for sync
-9. **Start indexing job** - Begins scanning child files/folders
-10. **Watcher setup** - Begins monitoring changes
-11. **Event broadcast** - Notifies other services
-
-If any step fails, the entire transaction rolls back.
-
-## File System Watching
-
-The watcher service provides real-time monitoring across all platforms.
-
-### Platform Support
-
-**macOS**: Uses FSEvents for efficient volume-level monitoring
-**Linux**: Uses inotify for precise file-level events
-**Windows**: Uses ReadDirectoryChangesW for real-time updates
-
-### Event Types
-
-The watcher detects these file system changes:
-
-```rust
-pub enum WatcherEvent {
-    Create,     // New file or directory
-    Modify,     // Content or metadata changed
-    Remove,     // File or directory deleted
-    Rename {    // Move or rename operation
-        from: PathBuf,
-        to: PathBuf,
-    },
-}
-```
-
-### Automatic Filtering
-
-The watcher respects the **indexer rules** configured for each location. These rules determine which files and directories are tracked:
-
-**Available Indexer Rules:**
-- `no_system_files` - Ignores `.DS_Store`, `Thumbs.db`, and other OS-generated files
-- `no_hidden` - Ignores hidden files (dotfiles) except important ones like `.gitignore`
-- `no_git` - Ignores `.git` directories
-- `gitignore` - Respects `.gitignore` patterns in the directory tree
-- `only_images` - Only processes image files
-- `no_dev_dirs` - Ignores `node_modules/`, `target/`, `.cache/`, and other build directories
-
-**Default Configuration:**
-```rust
-RuleToggles {
-    no_system_files: true,   // Skip OS junk
-    no_hidden: false,        // Include dotfiles
-    no_git: true,            // Skip .git
-    gitignore: true,         // Respect .gitignore
-    only_images: false,      // Index all file types
-    no_dev_dirs: true,       // Skip build artifacts
-}
-```
-
-<Note type="warning">
-  Currently, the watcher uses hardcoded filtering instead of per-location indexer rules. Integration with the indexer rules engine is planned, which will allow each location to have custom filtering rules configured through the UI.
-</Note>
-
-When indexer rules integration is complete, the watcher will automatically filter events based on each location's configured rules, ensuring consistency between initial indexing and real-time change detection.
-
-## Configuration
-
-### Watcher Settings
-
-Configure the watcher for your needs:
+A new library creates pins for common folders:
 
-```rust
-LocationWatcherConfig {
-    debounce_duration: Duration::from_millis(100),  // Event consolidation
-    event_buffer_size: 1000,                        // Queue size
-    debug_mode: false,                              // Detailed logging
-}
-```
-
-### Performance Tuning
-
-**For large directories** (>100k files):
-
-- Increase buffer size to prevent event loss
-- Use longer debounce periods
-- Consider excluding cache directories
+- Home
+- Desktop
+- Documents
+- Downloads
+- Pictures
 
-**For network drives**:
+These pins appear when their paths can resolve inside an attached source. They
+do not start five overlapping scans.
 
-- Enable polling fallback
-- Increase debounce duration
-- Monitor connection stability
+## Retention and attention
 
-**For SSDs vs HDDs**:
+Locations can ask a source to retain or process a subtree more strongly than
+the source baseline. Examples include:
 
-- SSDs: Shorter debounce, larger buffers
-- HDDs: Longer debounce for mechanical latency
+- keep this subtree available offline;
+- identify content promptly;
+- generate previews for supported file kinds;
+- protect a minimum number of verified copies;
+- watch this path while the rest of the source is scanned periodically.
 
-## Watching Events
+The effective policy is a union. If several locations overlap, the strongest
+requirement wins for the shared records. Removing one location removes only its
+contribution.
 
-Subscribe to location events in your code:
+For example, a Documents pin can request continuous watching while a Photos pin
+requests previews and two verified copies. Records covered by both receive the
+union of those requirements.
 
-```rust
-let mut events = event_bus.subscribe();
+Policy never creates a second record for the same source object.
 
-while let Ok(event) = events.recv().await {
-    match event {
-        Event::EntryCreated { path, .. } => {
-            println!("New file: {}", path);
-        }
-        Event::EntryModified { path, .. } => {
-            println!("File changed: {}", path);
-        }
-        _ => {}
-    }
-}
-```
+## Nested sources
 
-### Event Flow
+A path can sit inside more than one configured source. The most specific source
+owns capture for that path. Pins resolve against the selected source and its
+relative path.
 
-When a file changes:
+The underlying mounted filesystem still uses one arena identity namespace, so
+nested sources do not make ordinary browsing unstable.
 
-1. Operating system detects change
-2. Watcher receives raw event
-3. Event is filtered and debounced
-4. Structured event is created
-5. Event bus broadcasts to subscribers
-6. Services react (indexer, sync, UI)
+## Deleting a location
 
-## Managing Locations
+Deleting a location removes:
 
-### Pause Watching
+- the sidebar pin;
+- its display name;
+- its requested attention policy.
 
-Temporarily stop monitoring without removing:
+It does not remove source records, delete files, or erase content identities.
+If the location supplied the last retention requirement for cached bytes, the
+normal policy engine may later reclaim that cache. The origin remains
+untouched.
 
-```bash
-spacedrive location pause <location-id>
-```
+## Moving or renaming a pin
 
-### Update Settings
+Renaming changes only the label. Moving a location changes its source-relative
+target after the destination has been resolved. Neither operation moves the
+underlying directory.
 
-Change location configuration:
+Use a file move operation when you intend to change bytes or paths at the
+origin.
 
-```bash
-# Disable watching
-spacedrive location update <location-id> --watch false
+## Locations in the interface
 
-# Change index mode
-spacedrive location update <location-id> --mode shallow
-```
+Locations are shortcuts, not the top-level storage model. Sources show where
+data comes from and whether it is available. Locations surface the paths a
+person uses often. Lenses and extensions add higher-level views such as Photos,
+Duplicates, Screenshots, or project-specific dashboards.
 
-### Remove Location
+This keeps the main interface simple:
 
-Stop tracking a directory:
+- **Sources** explain custody and availability.
+- **Locations** provide familiar entry points.
+- **Views** explain what the user is trying to do.
 
-```bash
-spacedrive location remove <location-id>
-```
+## For extension authors
 
-<Warning>
-  Removing a location doesn't delete files. It only stops Spacedrive from
-  tracking them.
-</Warning>
+An extension may suggest or create a location when it needs a stable user-facing
+entry point into an existing source. It should create its own view when the
+concept is a query, workflow, or content type.
 
-## Troubleshooting
+An extension must not treat a location as a private database boundary. Durable
+extension assertions attach to stable source, record, or content identity.
 
-### High CPU Usage
+## Related concepts
 
-If watching causes high CPU:
-
-1. Check for directories with rapid changes
-2. Increase debounce duration
-3. Exclude problematic subdirectories
-4. Temporarily disable watching
-
-```bash
-# Find active locations
-spacedrive location list --verbose
-
-# Disable problematic location
-spacedrive location update <id> --watch false
-```
-
-### Missing Changes
-
-If file changes aren't detected:
-
-1. Verify location has watching enabled
-2. Check file system permissions
-3. Ensure platform limits aren't exceeded
-4. Try restarting the watcher
-
-### Duplicate Events
-
-If you see the same change multiple times:
-
-1. Increase debounce duration
-2. Check for symlink loops
-3. Verify you're not watching overlapping paths
-
-### Debug Mode
-
-Enable detailed logging:
-
-```bash
-# Set debug mode
-export SPACEDRIVE_WATCHER_DEBUG=1
-
-# Run with verbose logging
-spacedrive --log-level debug
-```
-
-## Platform Limits
-
-### macOS
-
-- FSEvents may coalesce rapid changes
-- Volume-level monitoring affects all locations on a drive
-
-### Linux
-
-- inotify has a watch descriptor limit (usually 8192)
-- Increase with: `echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches`
-
-### Windows
-
-- Long paths require special handling
-- Network drives may fall back to polling
-
-## Best Practices
-
-### Location Organization
-
-1. **Nested locations are supported** - You can add both `/Documents` and `/Documents/Work` as separate locations
-   - The file tree is shared, not duplicated
-   - Each location provides a different "view" into the same hierarchy
-   - Useful for applying different index modes or policies to subdirectories
-2. **Group related content** - One location per project or media type
-3. **Consider performance** - Separate frequently-changing directories
-
-### Exclusion Patterns
-
-Create `.spacedriveignore` files to exclude:
-
-```
-# Build artifacts
-node_modules/
-target/
-dist/
-
-# Cache directories
-.cache/
-*.tmp
-
-# Large generated files
-*.log
-*.dump
-```
-
-### Network Locations
-
-For network-attached storage:
-
-1. Use Content index mode (avoid Deep)
-2. Increase debounce to 500ms+
-3. Monitor connection stability
-4. Consider scheduled indexing instead
-
-## Integration
-
-### Services Using Location Events
-
-- **Indexer**: Re-analyzes modified files
-- **Search**: Updates search index
-- **Sync**: Propagates changes to other devices
-- **Thumbnails**: Regenerates previews
-- **Frontend**: Updates UI in real-time
-
-### Event Priority
-
-Critical events are processed first:
-
-1. User-initiated changes
-2. Create/delete operations
-3. Modifications
-4. Metadata updates
-
-## Implementation Details
-
-### Database Schema
-
-Locations utilize three main tables:
-
-**locations** - Location metadata
-```sql
-CREATE TABLE locations (
-    id INTEGER PRIMARY KEY,
-    uuid BLOB NOT NULL UNIQUE,
-    device_id INTEGER NOT NULL,
-    entry_id INTEGER,  -- References entries(id)
-    name TEXT,
-    index_mode TEXT NOT NULL,
-    scan_state TEXT NOT NULL,
-    -- ... other fields
-    FOREIGN KEY (device_id) REFERENCES devices(id),
-    FOREIGN KEY (entry_id) REFERENCES entries(id)
-);
-```
-
-**entries** - All files and directories (see [Data Model](/docs/core/data-model#entry))
-
-**entry_closure** - Transitive closure table for hierarchy (see [Data Model](/docs/core/data-model#hierarchical-queries))
-
-**directory_paths** - Directory path cache
-```sql
-CREATE TABLE directory_paths (
-    entry_id INTEGER PRIMARY KEY,  -- References entries(id)
-    path TEXT NOT NULL,
-    FOREIGN KEY (entry_id) REFERENCES entries(id)
-);
-```
-
-### Query Patterns
-
-**Find all entries in a location:**
-```sql
-SELECT e.* FROM entries e
-INNER JOIN entry_closure ec ON e.id = ec.descendant_id
-WHERE ec.ancestor_id = (
-    SELECT entry_id FROM locations WHERE uuid = ?
-);
-```
-
-**Get full path for a directory:**
-```sql
-SELECT path FROM directory_paths
-WHERE entry_id = ?;
-```
-
-**Get full path for a file:**
-```sql
--- Walk up parent chain and concatenate with directory path
-SELECT dp.path || '/' || e.name as full_path
-FROM entries e
-LEFT JOIN entries parent ON e.parent_id = parent.id
-LEFT JOIN directory_paths dp ON parent.id = dp.entry_id
-WHERE e.id = ?;
-```
-
-## Related Documentation
-
-- [Data Model](/docs/core/data-model) - Complete database schema
-- [Indexing](/docs/core/indexing) - How files are analyzed
-- [Sync](/docs/core/sync) - Cross-device synchronization
-- [Events](/docs/core/events) - Event system architecture
+- [Indexing](/core/indexing) explains how sources capture records.
+- [Data Model](/core/data-model) defines source, record, and assertion
+  ownership.
+- [Product Direction](/core/product-direction) explains why storage and
+  presentation stay separate.
