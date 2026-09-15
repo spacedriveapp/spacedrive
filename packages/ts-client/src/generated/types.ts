@@ -245,6 +245,11 @@ export type ConnectionMethod =
  */
 "DirectInternet" | 
 /**
+ * Direct connection across a Tailscale tailnet (CGNAT 100.64.0.0/10)
+ * Rides the user's WireGuard mesh rather than the open internet.
+ */
+"Tailscale" |
+/**
  * Connection proxied through relay server
  * Reliable fallback. Relay hosts the bandwidth.
  */
@@ -1258,6 +1263,16 @@ export type EventSeverity =
  * Error condition
  */
 "error";
+
+/**
+ * A dependency Spacedrive knows how to discover and use.
+ */
+export type ExternalToolId = "ffmpeg";
+
+/**
+ * Current machine-local state for an optional tool.
+ */
+export type ExternalToolStatus = { id: ExternalToolId; name: string; available: boolean; path: string | null; companion_paths: string[]; version: string | null; source: ToolSource | null; capabilities: ToolCapability[]; install_options: ToolInstallOption[] };
 
 /**
  * Represents a file within the Spacedrive VDFS.
@@ -4279,6 +4294,15 @@ export type ThumbSource = { id: string; cache_path: string;
 tile_size: number };
 
 /**
+ * Address and state for one volume-scoped video scrub sheet.
+ */
+export type ThumbstripIdentity = { source_id: string; uuid: string; version: string; columns: number; rows: number; ready: boolean; pending: boolean; available: boolean };
+
+export type ThumbstripRequestInput = { path: SdPath };
+
+export type ThumbstripRequestOutput = { thumbstrip: ThumbstripIdentity | null };
+
+/**
  * What a path resolves to in the cache: which file holds its tile, under
  * which key, at which version.
  */
@@ -4288,6 +4312,39 @@ export type TileIdentity = { source_id: string; uuid: string;
  * a browser, and a rounded version matches no tile.
  */
 version: string };
+
+/**
+ * A feature made runnable by an external tool.
+ */
+export type ToolCapability = "video_thumbnail" | "video_thumbstrip" | "media_metadata";
+
+export type ToolInstallInput = { tool: ExternalToolId; installer: ToolInstaller;
+/**
+ * Installing a host executable is never an implicit side effect. A caller
+ * sets this only after showing the selected package manager to the person.
+ */
+confirm: boolean };
+
+/**
+ * One way the current host can install a missing tool.
+ */
+export type ToolInstallOption = { installer: ToolInstaller; label: string; available: boolean };
+
+export type ToolInstallOutput = { tool: ExternalToolStatus };
+
+/**
+ * A package manager with a reviewed install recipe.
+ */
+export type ToolInstaller = "homebrew" | "winget";
+
+export type ToolListInput = Record<string, never>;
+
+export type ToolListOutput = { tools: ExternalToolStatus[] };
+
+/**
+ * How an executable was found on this machine.
+ */
+export type ToolSource = "environment" | "path" | "known_location";
 
 export type TrackSourceInput = { 
 /**
@@ -5068,6 +5125,8 @@ export type CoreAction =
   |  { type: 'processes.start'; input: ProcessStartInput; output: ProcessStartOutput }
   |  { type: 'processes.stop'; input: ProcessStopInput; output: ProcessStopOutput }
   |  { type: 'thumbs.request'; input: ThumbRequestInput; output: ThumbRequestOutput }
+  |  { type: 'thumbstrips.request'; input: ThumbstripRequestInput; output: ThumbstripRequestOutput }
+  |  { type: 'tools.install'; input: ToolInstallInput; output: ToolInstallOutput }
 ;
 
 export type LibraryAction =
@@ -5142,6 +5201,7 @@ export type CoreQuery =
   |  { type: 'processes.leases'; input: ProcessLeasesInput; output: ProcessLeasesOutput }
   |  { type: 'processes.list'; input: ProcessListInput; output: ProcessListOutput }
   |  { type: 'processes.logs'; input: ProcessLogsInput; output: ProcessLogsOutput }
+  |  { type: 'tools.list'; input: ToolListInput; output: ToolListOutput }
 ;
 
 export type LibraryQuery =
@@ -5219,6 +5279,8 @@ export const WIRE_METHODS = {
     'processes.start': 'action:processes.start.input',
     'processes.stop': 'action:processes.stop.input',
     'thumbs.request': 'action:thumbs.request.input',
+    'thumbstrips.request': 'action:thumbstrips.request.input',
+    'tools.install': 'action:tools.install.input',
   },
 
   libraryActions: {
@@ -5293,6 +5355,7 @@ export const WIRE_METHODS = {
     'processes.leases': 'query:processes.leases',
     'processes.list': 'query:processes.list',
     'processes.logs': 'query:processes.logs',
+    'tools.list': 'query:tools.list',
   },
 
   libraryQueries: {

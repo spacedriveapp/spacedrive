@@ -43,7 +43,12 @@ import {VolumeBar} from './VolumeBar';
 
 // Temporary type extension until types are regenerated
 type DeviceWithConnection = Device & {
-	connection_method?: 'LocalNetwork' | 'DirectInternet' | 'RelayProxy' | null;
+	connection_method?:
+		| 'LocalNetwork'
+		| 'DirectInternet'
+		| 'Tailscale'
+		| 'RelayProxy'
+		| null;
 };
 
 export function formatBytes(bytes: number): string {
@@ -293,7 +298,7 @@ interface ConnectionBadgeConfig {
 }
 
 interface ConnectionBadgeProps {
-	method: 'LocalNetwork' | 'DirectInternet' | 'RelayProxy';
+	method: 'LocalNetwork' | 'DirectInternet' | 'Tailscale' | 'RelayProxy';
 	online: boolean;
 	current: boolean;
 	icon?: React.ComponentType<{className?: string}>;
@@ -312,6 +317,11 @@ function ConnectionBadge({method, online, current, icon: customIcon, color: cust
 			label: 'Direct',
 			description: 'Connected directly via internet',
 			color: 'bg-blue-500'
+		},
+		Tailscale: {
+			label: 'Tailscale',
+			description: 'Connected directly over your Tailscale network',
+			color: 'bg-indigo-400'
 		},
 		RelayProxy: {
 			label: 'Relay',

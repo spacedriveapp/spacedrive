@@ -160,9 +160,13 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 						if let Some(mut conn_type_watcher) = ep.conn_type(node_id) {
 							// Get current connection type from watcher using the Watcher trait's get() method
 							let conn_type = conn_type_watcher.get();
-							// Check connection status first (before conn_type is moved)
+							// The watcher's path info can read None between
+							// requests even while the registry holds a live
+							// connection; either source saying connected is
+							// enough.
 							let is_connected =
-								!matches!(conn_type, iroh::endpoint::ConnectionType::None);
+								!matches!(conn_type, iroh::endpoint::ConnectionType::None)
+									|| matches!(state, DeviceState::Connected { .. });
 							let conn_method =
 								crate::domain::device::ConnectionMethod::from_iroh_connection_type(
 									conn_type,

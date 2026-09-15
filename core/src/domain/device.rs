@@ -119,6 +119,9 @@ pub enum ConnectionMethod {
 	/// Direct UDP connection over internet (NAT traversal)
 	/// Fast, but requires internet. Uses no relay bandwidth.
 	DirectInternet,
+	/// Direct connection across a Tailscale tailnet (CGNAT 100.64.0.0/10)
+	/// Rides the user's WireGuard mesh rather than the open internet.
+	Tailscale,
 	/// Connection proxied through relay server
 	/// Reliable fallback. Relay hosts the bandwidth.
 	RelayProxy,
@@ -132,24 +135,39 @@ impl ConnectionMethod {
 	pub fn from_iroh_connection_type(conn_type: iroh::endpoint::ConnectionType) -> Option<Self> {
 		use iroh::endpoint::ConnectionType;
 		match conn_type {
-			ConnectionType::Direct(addr) => {
-				if is_local_address(&addr) {
-					Some(Self::LocalNetwork)
-				} else {
-					Some(Self::DirectInternet)
-				}
-			}
+			ConnectionType::Direct(addr) => Some(Self::classify_direct(&addr)),
 			ConnectionType::Relay(_) => Some(Self::RelayProxy),
 			// Mixed means both UDP and relay are active, but UDP is preferred
 			// Report the UDP path since that's what Iroh will use when confirmed
-			ConnectionType::Mixed(addr, _relay) => {
-				if is_local_address(&addr) {
-					Some(Self::LocalNetwork)
-				} else {
-					Some(Self::DirectInternet)
-				}
-			}
+			ConnectionType::Mixed(addr, _relay) => Some(Self::classify_direct(&addr)),
 			ConnectionType::None => None,
+		}
+	}
+
+	fn classify_direct(addr: &std::net::SocketAddr) -> Self {
+		if is_tailscale_address(addr) {
+			Self::Tailscale
+		} else if is_local_address(addr) {
+			Self::LocalNetwork
+		} else {
+			Self::DirectInternet
+		}
+	}
+}
+
+/// Check if a socket address is in Tailscale's CGNAT range (100.64.0.0/10),
+/// which every tailnet assigns from. A direct path on such an address means
+/// the traffic rides the user's WireGuard mesh.
+fn is_tailscale_address(addr: &std::net::SocketAddr) -> bool {
+	match addr.ip() {
+		std::net::IpAddr::V4(ipv4) => {
+			let octets = ipv4.octets();
+			octets[0] == 100 && (octets[1] & 0xc0) == 64
+		}
+		// Tailscale's IPv6 range fd7a:115c:a1e0::/48 is unique-local space.
+		std::net::IpAddr::V6(ipv6) => {
+			let segments = ipv6.segments();
+			segments[0] == 0xfd7a && segments[1] == 0x115c && segments[2] == 0xa1e0
 		}
 	}
 }
