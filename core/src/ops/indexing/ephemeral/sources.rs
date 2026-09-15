@@ -407,7 +407,6 @@ mod tests {
 		}
 	}
 
-
 	/// The config column predates the struct, so rows holding `{}` or later
 	/// JSON with fields this build does not know must parse to defaults
 	/// rather than fail: a policy that cannot be read would silently become

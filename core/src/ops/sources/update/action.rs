@@ -50,7 +50,11 @@ impl LibraryAction for UpdateSourceAction {
 		if input.name.is_none() && input.unfiltered.is_none() {
 			return Err("Nothing to update".to_string());
 		}
-		if input.name.as_deref().is_some_and(|name| name.trim().is_empty()) {
+		if input
+			.name
+			.as_deref()
+			.is_some_and(|name| name.trim().is_empty())
+		{
 			return Err("Name cannot be empty".to_string());
 		}
 		Ok(Self { input })

@@ -140,7 +140,10 @@ impl JobHandler for ContentIdentityJob {
 					1.0
 				},
 				"Identifying",
-				format!("{} — {identified} of {outstanding} files", source_label(&self.root)),
+				format!(
+					"{} — {identified} of {outstanding} files",
+					source_label(&self.root)
+				),
 			)));
 		}
 

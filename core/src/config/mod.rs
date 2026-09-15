@@ -53,9 +53,7 @@ pub fn mark_own_data_dir(dir: &Path) {
 
 /// Whether a path is inside this process's own data directory.
 pub fn is_own_data(path: &Path) -> bool {
-	OWN_DATA_DIR
-		.get()
-		.is_some_and(|own| path.starts_with(own))
+	OWN_DATA_DIR.get().is_some_and(|own| path.starts_with(own))
 }
 
 /// User preferences

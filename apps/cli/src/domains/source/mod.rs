@@ -91,8 +91,7 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 			});
 		}
 		SourceCmd::List => {
-			let out: Vec<SourceInfo> =
-				execute_query!(ctx, ListSourcesInput { data_type: None });
+			let out: Vec<SourceInfo> = execute_query!(ctx, ListSourcesInput { data_type: None });
 			print_output!(ctx, &out, |sources: &Vec<SourceInfo>| {
 				if sources.is_empty() {
 					println!("No sources registered");
@@ -130,7 +129,11 @@ pub async fn run(ctx: &Context, cmd: SourceCmd) -> Result<()> {
 				println!(
 					"{} — capture: {}",
 					o.name,
-					if o.unfiltered { "everything" } else { "default rules" }
+					if o.unfiltered {
+						"everything"
+					} else {
+						"default rules"
+					}
 				);
 				if let Some(job) = o.rewalk_job {
 					println!("Walking for what the rules skipped (job {job})");

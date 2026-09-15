@@ -177,9 +177,7 @@ impl ContentHashGenerator {
 			Ok(hasher.finalize().to_hex().to_string())
 		})
 		.await
-		.map_err(|e| {
-			ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e))
-		})?
+		.map_err(|e| ContentHashError::Io(std::io::Error::new(std::io::ErrorKind::Other, e)))?
 	}
 
 	/// Generate content hash from raw content (for in-memory data)

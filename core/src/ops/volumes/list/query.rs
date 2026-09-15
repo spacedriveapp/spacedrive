@@ -77,7 +77,6 @@ impl VolumeListQuery {
 		// They'll be loaded when the user explicitly clicks "Index" on a volume.
 		None
 	}
-
 }
 
 impl LibraryQuery for VolumeListQuery {

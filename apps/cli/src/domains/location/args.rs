@@ -4,13 +4,8 @@ use uuid::Uuid;
 
 use sd_core::{
 	domain::addressing::SdPath,
-	ops::{
-		locations::{
-			add::action::LocationAddInput, remove::action::LocationRemoveInput,
-		},
-	},
+	ops::locations::{add::action::LocationAddInput, remove::action::LocationRemoveInput},
 };
-
 
 #[derive(Args, Debug)]
 pub struct LocationAddArgs {
@@ -25,7 +20,6 @@ pub struct LocationAddArgs {
 	/// Display name for the location
 	#[arg(long)]
 	pub name: Option<String>,
-
 }
 
 impl LocationAddArgs {
@@ -60,6 +54,3 @@ impl From<LocationRemoveArgs> for LocationRemoveInput {
 		}
 	}
 }
-
-
-

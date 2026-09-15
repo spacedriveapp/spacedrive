@@ -74,7 +74,11 @@ async fn run_at_risk(ctx: &Context, args: AtRiskArgs) -> Result<()> {
 	};
 
 	let out: FileSearchOutput = execute_query!(ctx, input);
-	let label = if args.redundant { "redundant" } else { "at-risk" };
+	let label = if args.redundant {
+		"redundant"
+	} else {
+		"at-risk"
+	};
 
 	print_output!(ctx, &out, |o: &FileSearchOutput| {
 		render_file_list(o, label);
@@ -153,7 +157,10 @@ fn render_summary(o: &RedundancySummaryOutput) {
 		Cell::new(format!(
 			"{} ({})",
 			format_bytes_i64(totals.total_at_risk_bytes),
-			percent_of(totals.total_at_risk_bytes, totals.total_unique_content_bytes),
+			percent_of(
+				totals.total_at_risk_bytes,
+				totals.total_unique_content_bytes
+			),
 		)),
 	]);
 	overview.add_row(vec![
@@ -161,7 +168,10 @@ fn render_summary(o: &RedundancySummaryOutput) {
 		Cell::new(format!(
 			"{} ({})",
 			format_bytes_i64(totals.total_redundant_bytes),
-			percent_of(totals.total_redundant_bytes, totals.total_unique_content_bytes),
+			percent_of(
+				totals.total_redundant_bytes,
+				totals.total_unique_content_bytes
+			),
 		)),
 	]);
 	overview.add_row(vec![

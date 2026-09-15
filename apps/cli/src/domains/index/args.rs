@@ -5,10 +5,7 @@ use uuid::Uuid;
 use sd_core::{
 	domain::addressing::SdPath,
 	ops::core::ephemeral_status::EphemeralCacheStatusInput,
-	ops::indexing::{
-		input::IndexInput,
-		job::IndexScope,
-	},
+	ops::indexing::{input::IndexInput, job::IndexScope},
 };
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -35,7 +32,6 @@ pub struct IndexStartArgs {
 	#[arg(long)]
 	pub library: Option<Uuid>,
 
-
 	/// Indexing scope
 	#[arg(long, value_enum, default_value = "recursive")]
 	pub scope: IndexScopeArg,
@@ -60,7 +56,6 @@ impl IndexStartArgs {
 				anyhow::bail!("Non-local address not supported for indexing yet: {}", s);
 			}
 		}
-
 
 		Ok(IndexInput::new(library_id, local_paths)
 			.with_scope(IndexScope::from(self.scope.clone()))

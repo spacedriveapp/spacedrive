@@ -121,8 +121,7 @@ impl EphemeralEventHandler {
 			let context = context.clone();
 			let is_running = is_running.clone();
 			tokio::spawn(async move {
-				const HASH_NUDGE_INTERVAL: std::time::Duration =
-					std::time::Duration::from_secs(30);
+				const HASH_NUDGE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 				while is_running.load(Ordering::SeqCst) {
 					tokio::time::sleep(HASH_NUDGE_INTERVAL).await;
 					let roots: Vec<std::path::PathBuf> =

@@ -421,9 +421,11 @@ impl SourceStore {
 		}
 
 		sqlx::query("VACUUM INTO ?")
-			.bind(path.to_str().with_context(|| {
-				format!("freeze path is not valid UTF-8: {}", path.display())
-			})?)
+			.bind(
+				path.to_str().with_context(|| {
+					format!("freeze path is not valid UTF-8: {}", path.display())
+				})?,
+			)
 			.execute(self.db.pool())
 			.await
 			.with_context(|| format!("vacuum into {}", path.display()))?;
@@ -667,9 +669,7 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			}
 			Ingest::Unreadable(failures) => {
 				commit(&db, &mut writes, &mut removals, &mut renames).await;
-				if let Err(error) =
-					sd_store::mark_content_unreadable(db.pool(), &failures).await
-				{
+				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &failures).await {
 					tracing::error!(%error, "content errors failed to land");
 				}
 			}
@@ -1248,7 +1248,10 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		.fetch_one(fixture.store.db().pool())
 		.await
 		.expect("confirmed row");
-		assert_eq!(rows, 2, "the verdict upgraded a row rather than minting one");
+		assert_eq!(
+			rows, 2,
+			"the verdict upgraded a row rather than minting one"
+		);
 		assert_eq!(confirmed_uuid, sd_store::uuid_for("integrity-hash"));
 		assert_ne!(confirmed_uuid, candidate_uuid);
 	}
