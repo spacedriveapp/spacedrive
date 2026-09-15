@@ -171,6 +171,22 @@ pub(super) fn should_sync(device_id: Uuid) -> bool {
 	}
 }
 
+/// One replication per device at a time. The refresh loop clears the
+/// debounce before it runs, so a reconnect landing in that window would
+/// otherwise fetch and load the same snapshots concurrently; serializing
+/// here lets the loser skip on the generation check instead.
+static SYNC_LOCKS: OnceLock<std::sync::Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>> =
+	OnceLock::new();
+
+fn sync_lock(device_id: Uuid) -> Arc<tokio::sync::Mutex<()>> {
+	let map = SYNC_LOCKS.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+	map.lock()
+		.unwrap()
+		.entry(device_id)
+		.or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+		.clone()
+}
+
 /// Pull a connected device's source list and replicate every snapshot it can
 /// provide. Returns how many sources are now served for that device.
 pub async fn sync_device(
@@ -178,6 +194,8 @@ pub async fn sync_device(
 	device_id: Uuid,
 	device_label: String,
 ) -> anyhow::Result<usize> {
+	let lock = sync_lock(device_id);
+	let _guard = lock.lock().await;
 	let (response, _) = request(context, device_id, &ByteRangeRequest::ListSources).await?;
 	let sources = match response {
 		ByteRangeResponse::Sources(s) => s,

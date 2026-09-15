@@ -89,7 +89,7 @@ impl LibraryQuery for ListSourcesQuery {
 			.await
 			.map_err(|e| QueryError::Internal(format!("Failed to list sources: {e}")))?;
 
-		Ok(rows
+		let mut sources: Vec<SourceInfo> = rows
 			.into_iter()
 			.filter(|row| {
 				self.input
@@ -103,7 +103,23 @@ impl LibraryQuery for ListSourcesQuery {
 					.and_then(|uuid| attached_mounts.get(&uuid).cloned());
 				SourceInfo::from_row(row, mount.as_deref())
 			})
-			.collect())
+			.collect();
+
+		// Paired devices' sources, already replicated by the peer-mount
+		// plane. They live in memory rather than the library database, so
+		// they are appended here instead of joined above.
+		if self
+			.input
+			.data_type
+			.as_ref()
+			.is_none_or(|filter| filter == "filesystem")
+		{
+			for share in crate::service::mounts::peer::remote_shares().await {
+				sources.push(SourceInfo::from_remote_share(&share));
+			}
+		}
+
+		Ok(sources)
 	}
 }
 

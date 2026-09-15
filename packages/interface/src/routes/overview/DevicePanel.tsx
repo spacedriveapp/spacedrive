@@ -22,6 +22,7 @@ import type {
 	Location,
 	LocationsListOutput,
 	LocationsListQueryInput,
+	SourceInfo,
 	Volume,
 	VolumeListOutput,
 	VolumeListQueryInput
@@ -35,6 +36,7 @@ import {useJobsContext} from '../../components/JobManager/hooks/JobsContext';
 import {
 	getDeviceIcon,
 	useCoreQuery,
+	useLibraryQuery,
 	useNormalizedQuery
 } from '../../contexts/SpacedriveContext';
 import {VolumeBar} from './VolumeBar';
@@ -118,6 +120,13 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		input: {}
 	});
 
+	// Sources, including paired devices' replicas. A replica carries its
+	// owning device's id, which is how it lands on that device's card.
+	const {data: sourcesData} = useLibraryQuery({
+		type: 'sources.list',
+		input: {data_type: null}
+	});
+
 	// Merge local and remote jobs
 	const allJobs = [
 		...localJobs,
@@ -190,6 +199,19 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		{} as Record<string, Location[]>
 	);
 
+	// Group replicated sources by their owning device
+	const remoteSourcesByDevice = ([...(sourcesData ?? [])] as SourceInfo[]).reduce(
+		(acc, source) => {
+			if (!source.device_id) return acc;
+			if (!acc[source.device_id]) {
+				acc[source.device_id] = [];
+			}
+			acc[source.device_id].push(source);
+			return acc;
+		},
+		{} as Record<string, SourceInfo[]>
+	);
+
 	// Group jobs by device_id
 	const jobsByDevice = allJobs.reduce(
 		(acc, job) => {
@@ -221,12 +243,15 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 					const deviceJobs = jobsByDevice[device.id] || [];
 					const deviceLocations =
 						locationsByDeviceSlug[device.slug] || [];
+					const deviceRemoteSources =
+						remoteSourcesByDevice[device.id] || [];
 
 					return (
 						<DeviceCard
 							key={device.id}
 							device={device}
 							volumes={deviceVolumes}
+							remoteSources={deviceRemoteSources}
 							jobs={deviceJobs}
 							locations={deviceLocations}
 							selectedLocationId={selectedLocationId}
@@ -329,6 +354,7 @@ function ConnectionBadge({method, online, current, icon: customIcon, color: cust
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
 	volumes: Volume[];
+	remoteSources: SourceInfo[];
 	jobs: JobListItem[];
 	locations: Location[];
 	selectedLocationId: string | null;
@@ -340,6 +366,7 @@ interface DeviceCardProps {
 function DeviceCard({
 	device,
 	volumes,
+	remoteSources,
 	jobs,
 	locations,
 	selectedLocationId,
@@ -509,12 +536,62 @@ function DeviceCard({
 								index={idx}
 							/>
 						))
-					) : (
+					) : remoteSources.length > 0 ? null : (
 						<div className="flex flex-col items-center justify-center py-8 text-center">
 							<div className="text-ink-faint">
 								<HardDrive className="mx-auto mb-2 size-8 opacity-20" />
 								<p className="text-xs">No volumes</p>
 							</div>
+						</div>
+					)}
+					{remoteSources.map((source) => (
+						<RemoteSourceRow key={source.id} source={source} />
+					))}
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// A paired device's source, replicated locally through the peer-mount
+// plane. There is no capacity bar because the replica knows the source's
+// contents, not the drive underneath it.
+function RemoteSourceRow({source}: {source: SourceInfo}) {
+	return (
+		<div className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border">
+			<div className="flex h-[64px] items-center gap-3 px-3">
+				<img
+					src={HDDIcon}
+					alt=""
+					className="size-10 flex-shrink-0 opacity-80"
+				/>
+				<div className="min-w-0 flex-1">
+					<div className="mb-1.5 flex items-center gap-2">
+						<span className="text-ink truncate text-sm font-semibold">
+							{source.name}
+						</span>
+					</div>
+					<div className="text-ink-dull flex h-[18px] items-center gap-1.5 text-[10px]">
+						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
+							Replica
+						</span>
+						{source.item_count > 0 && (
+							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
+								{source.item_count.toLocaleString()} files
+							</span>
+						)}
+					</div>
+				</div>
+				<div className="flex flex-shrink-0 flex-col justify-between text-right">
+					{source.total_bytes != null && source.total_bytes > 0 && (
+						<div className="text-ink text-sm font-medium">
+							{formatBytes(source.total_bytes)}
+						</div>
+					)}
+					{source.last_synced && (
+						<div className="text-ink-dull text-[10px]">
+							synced{' '}
+							{new Date(source.last_synced).toLocaleTimeString()}
 						</div>
 					)}
 				</div>

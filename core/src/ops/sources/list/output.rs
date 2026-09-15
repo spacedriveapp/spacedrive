@@ -36,6 +36,12 @@ pub struct SourceInfo {
 	/// Last time the origin answered. Absent for an adapter, whose registry
 	/// tracks a sync cursor rather than an attachment.
 	pub last_seen_at: Option<String>,
+	/// The paired device this source was replicated from. Absent for a
+	/// source this library registered itself; a replica is read-only here
+	/// and its registry ops run on the owning device.
+	pub device_id: Option<Uuid>,
+	/// The owning device's display name, for a replica.
+	pub device_label: Option<String>,
 }
 
 impl SourceInfo {
@@ -80,6 +86,39 @@ impl SourceInfo {
 			attached,
 			total_bytes,
 			last_seen_at,
+			device_id: None,
+			device_label: None,
+		}
+	}
+
+	/// A paired device's source, replicated through the peer-mount plane.
+	/// The metadata is the replica's own: counts and bytes from the owner's
+	/// listing, `last_synced` from when the snapshot arrived here.
+	pub fn from_remote_share(share: &crate::service::mounts::peer::RemoteShare) -> Self {
+		let root = &share.info.root;
+		let name = root
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_else(|| share.info.id.to_string());
+		let synced_at =
+			chrono::DateTime::<chrono::Utc>::from_timestamp(share.synced_at_secs as i64, 0)
+				.map(|at| at.to_rfc3339());
+
+		Self {
+			id: share.info.id,
+			name,
+			data_type: "filesystem".to_string(),
+			adapter_id: None,
+			item_count: share.info.entry_count.unwrap_or(0) as i64,
+			last_synced: synced_at.clone(),
+			status: "replica".to_string(),
+			root: Some(root.to_string_lossy().into_owned()),
+			volume_uuid: share.info.volume_uuid,
+			attached: share.info.attached,
+			total_bytes: share.info.total_bytes.map(|bytes| bytes as i64),
+			last_seen_at: synced_at,
+			device_id: Some(share.device_id),
+			device_label: Some(share.device_label.clone()),
 		}
 	}
 }

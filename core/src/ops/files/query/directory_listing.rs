@@ -145,6 +145,26 @@ impl DirectoryListingQuery {
 		use crate::domain::file::File;
 		use crate::ops::indexing::{IndexScope, IndexerJob, IndexerJobConfig};
 
+		// A path on another device is served from its replica, kept current
+		// by the peer-mount plane. Indexing happens on the owner, so there is
+		// no dispatch fall-through: what the replica holds is the answer.
+		if let SdPath::Physical { device_slug, path } = &self.input.path {
+			if *device_slug != crate::device::get_current_device_slug() {
+				if let Some(output) = self.list_remote_replica(&context, device_slug, path).await {
+					return Ok(output);
+				}
+				tracing::debug!(
+					"no replica covers {} on device '{device_slug}'",
+					path.display()
+				);
+				return Ok(DirectoryListingOutput {
+					files: Vec::new(),
+					total_count: 0,
+					has_more: false,
+				});
+			}
+		}
+
 		// Get the local path for cache lookup
 		let local_path = match &self.input.path {
 			SdPath::Physical { path, .. } => path.clone(),
@@ -199,67 +219,12 @@ impl DirectoryListingQuery {
 						local_path.display()
 					);
 
-					// Convert cached entries to File objects with lazy UUID assignment
-					let mut index_write = index.write().await;
-					let mut files = Vec::new();
-
-					for child_path in children {
-						if let Some(metadata) = index_write.get_entry_ref(&child_path) {
-							// Bundle internals are lensed out with hidden files:
-							// the package browses as one opaque item.
-							if !self.input.include_hidden.unwrap_or(false)
-								&& (metadata.is_hidden
-									|| crate::ops::indexing::lens::is_bundle_internal(&child_path))
-							{
-								continue;
-							}
-
-							let entry_uuid = index_write.get_or_assign_uuid(&child_path);
-
-							let entry_sd_path = SdPath::Physical {
-								device_slug: match &self.input.path {
-									SdPath::Physical { device_slug, .. } => device_slug.clone(),
-									_ => String::new(),
-								},
-								path: child_path.clone(),
-							};
-
-							let content_kind = index_write.get_content_kind(&child_path);
-
-							let mut file =
-								File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
-							file.content_kind = content_kind;
-							// Directories report their subtree rollup rather
-							// than the directory entry's own on-disk size.
-							if metadata.kind == crate::ops::indexing::state::EntryKind::Directory {
-								if let Some(bytes) = index_write.subtree_size(&child_path) {
-									file.size = bytes;
-								}
-							}
-							files.push(file);
-						}
-					}
-					drop(index_write);
-
-					self.sort_files(&mut files);
-
-					let total_count = files.len() as u32;
-					let has_more = if let Some(limit) = self.input.limit {
-						if files.len() > limit as usize {
-							files.truncate(limit as usize);
-							true
-						} else {
-							false
-						}
-					} else {
-						false
+					let device_slug = match &self.input.path {
+						SdPath::Physical { device_slug, .. } => device_slug.clone(),
+						_ => String::new(),
 					};
-
-					return Ok(DirectoryListingOutput {
-						files,
-						total_count,
-						has_more,
-					});
+					let files = self.files_from_index(&index, children, &device_slug).await;
+					return Ok(self.finalize_listing(files));
 				}
 			} else {
 				// Index exists but doesn't have this directory yet
@@ -365,6 +330,100 @@ impl DirectoryListingQuery {
 	}
 
 	/// Sort files according to the input options
+	/// Serve a listing from a paired device's replicated index. `None` when
+	/// no replica covers the path, which a caller reports as an empty
+	/// directory rather than an error: the owner may simply not share it.
+	async fn list_remote_replica(
+		&self,
+		context: &Arc<CoreContext>,
+		device_slug: &str,
+		path: &std::path::Path,
+	) -> Option<DirectoryListingOutput> {
+		let shares = crate::service::mounts::peer::remote_shares().await;
+		let share = shares.iter().find(|share| {
+			path.starts_with(&share.info.root)
+				&& context
+					.device_manager
+					.get_device_slug(share.device_id)
+					.is_some_and(|slug| slug == device_slug)
+		})?;
+
+		let children = { share.index.read().await.list_directory(path) }?;
+		let files = self
+			.files_from_index(&share.index, children, device_slug)
+			.await;
+		Some(self.finalize_listing(files))
+	}
+
+	/// Convert one directory's children in an in-memory index to `File`s,
+	/// applying the hidden/bundle lens. Shared by the local cache path and
+	/// peer replicas.
+	async fn files_from_index(
+		&self,
+		index: &Arc<tokio::sync::RwLock<crate::ops::indexing::ephemeral::EphemeralIndex>>,
+		children: Vec<std::path::PathBuf>,
+		device_slug: &str,
+	) -> Vec<File> {
+		let mut index_write = index.write().await;
+		let mut files = Vec::new();
+
+		for child_path in children {
+			if let Some(metadata) = index_write.get_entry_ref(&child_path) {
+				// Bundle internals are lensed out with hidden files:
+				// the package browses as one opaque item.
+				if !self.input.include_hidden.unwrap_or(false)
+					&& (metadata.is_hidden
+						|| crate::ops::indexing::lens::is_bundle_internal(&child_path))
+				{
+					continue;
+				}
+
+				let entry_uuid = index_write.get_or_assign_uuid(&child_path);
+				let entry_sd_path = SdPath::Physical {
+					device_slug: device_slug.to_string(),
+					path: child_path.clone(),
+				};
+				let content_kind = index_write.get_content_kind(&child_path);
+
+				let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
+				file.content_kind = content_kind;
+				// Directories report their subtree rollup rather
+				// than the directory entry's own on-disk size.
+				if metadata.kind == crate::ops::indexing::state::EntryKind::Directory {
+					if let Some(bytes) = index_write.subtree_size(&child_path) {
+						file.size = bytes;
+					}
+				}
+				files.push(file);
+			}
+		}
+
+		files
+	}
+
+	/// Sort and cap a listing the way the input asked for.
+	fn finalize_listing(&self, mut files: Vec<File>) -> DirectoryListingOutput {
+		self.sort_files(&mut files);
+
+		let total_count = files.len() as u32;
+		let has_more = if let Some(limit) = self.input.limit {
+			if files.len() > limit as usize {
+				files.truncate(limit as usize);
+				true
+			} else {
+				false
+			}
+		} else {
+			false
+		};
+
+		DirectoryListingOutput {
+			files,
+			total_count,
+			has_more,
+		}
+	}
+
 	fn sort_files(&self, files: &mut Vec<File>) {
 		use crate::domain::file::EntryKind;
 

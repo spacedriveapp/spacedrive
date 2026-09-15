@@ -2969,7 +2969,7 @@ export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadca
  */
 export type Origin = 
 /**
- * Written at library creation from the platform's known folders.
+ * Written by an older library initializer from the platform's known folders.
  */
 "default" | 
 /**
@@ -3077,10 +3077,53 @@ lastSeen: string };
 
 export type PairingSessionSummary = { id: string; state: SerializablePairingState; remote_device_id: string | null; expires_at: string | null };
 
+export type PathAvailability = "available" | "permission_denied" | "missing" | "unavailable" | "remote" | "unsupported";
+
+export type PathContextInput = { path: SdPath };
+
+export type PathContextOutput = {
+/**
+ * The path as the owning volume spells it. This removes APFS aliases from
+ * all containment checks while the explorer can keep displaying its input.
+ */
+canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState; indexing_root: string | null; watcher_state: PathWatcherState; watcher_root: string | null; volume: PathVolumeContext | null; source: PathSourceContext | null;
+/**
+ * The closest explicit pin containing this path, if one exists.
+ */
+location: PathLocationContext | null;
+/**
+ * A computed system Place at this exact path, such as Desktop.
+ */
+system_place: string | null; storage: PathStorageContext };
+
+export type PathLocationContext = { id: string; name: string; root: SdPath; origin: Origin; exact: boolean };
+
+export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
+
 /**
  * Path mapping for resolving virtual paths to actual storage locations
  */
 export type PathMapping = { virtual_path: string; actual_path: string };
+
+export type PathSourceContext = { id: string; name: string; root: string; attached: boolean };
+
+export type PathStorageContext = {
+/**
+ * The active volume arena can answer reads about this path.
+ */
+memory: boolean;
+/**
+ * The volume arena has a machine-local restart snapshot.
+ */
+restart_cache: boolean;
+/**
+ * The source has created its durable record store.
+ */
+source_store: boolean };
+
+export type PathVolumeContext = { id: string; name: string; mount_point: string; tracked: boolean };
+
+export type PathWatcherState = "active" | "inactive" | "unavailable";
 
 /**
  * Per-peer activity information
@@ -3753,7 +3796,17 @@ attached: boolean; total_bytes: number | null;
  * Last time the origin answered. Absent for an adapter, whose registry
  * tracks a sync cursor rather than an attachment.
  */
-last_seen_at: string | null };
+last_seen_at: string | null;
+/**
+ * The paired device this source was replicated from. Absent for a
+ * source this library registered itself; a replica is read-only here
+ * and its registry ops run on the owning device.
+ */
+device_id: string | null;
+/**
+ * The owning device's display name, for a replica.
+ */
+device_label: string | null };
 
 export type SourceItem = { id: string; external_id: string; title: string; preview: string | null; subtitle: string | null };
 
@@ -3782,7 +3835,7 @@ export type Space = {
  */
 id: string; 
 /**
- * Human-friendly name (e.g., "All Devices", "Work Files")
+ * Human-friendly name (e.g., "Default", "Work Files")
  */
 name: string; 
 /**
@@ -3932,6 +3985,16 @@ export type SpacedropSendOutput = { job_id: string | null; session_id: string | 
 export type SpacesListOutput = { spaces: Space[] };
 
 export type SpacesListQueryInput = null;
+
+export type StartupIndexingDisposition = "started" | "already_started" | "disabled";
+
+export type StartupIndexingInput = {
+/**
+ * Ignore the automatic-start preference for an explicit CLI request.
+ */
+force?: boolean };
+
+export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
 
 /**
  * State transition event
@@ -5015,6 +5078,7 @@ export type LibraryAction =
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
   |  { type: 'files.rename'; input: FileRenameInput; output: JobReceipt }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
+  |  { type: 'indexing.startup'; input: StartupIndexingInput; output: StartupIndexingOutput }
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
   |  { type: 'jobs.pause'; input: JobPauseInput; output: JobPauseOutput }
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
@@ -5100,6 +5164,7 @@ export type LibraryQuery =
   |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
   |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
   |  { type: 'locations.validate_path'; input: ValidateLocationPathInput; output: ValidateLocationPathOutput }
+  |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
@@ -5164,6 +5229,7 @@ export const WIRE_METHODS = {
     'files.delete': 'action:files.delete.input',
     'files.rename': 'action:files.rename.input',
     'indexing.start': 'action:indexing.start.input',
+    'indexing.startup': 'action:indexing.startup.input',
     'jobs.cancel': 'action:jobs.cancel.input',
     'jobs.pause': 'action:jobs.pause.input',
     'jobs.resume': 'action:jobs.resume.input',
@@ -5249,6 +5315,7 @@ export const WIRE_METHODS = {
     'locations.list': 'query:locations.list',
     'locations.suggested': 'query:locations.suggested',
     'locations.validate_path': 'query:locations.validate_path',
+    'paths.context': 'query:paths.context',
     'redundancy.summary': 'query:redundancy.summary',
     'search.files': 'query:search.files',
     'sources.get': 'query:sources.get',
