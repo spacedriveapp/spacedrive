@@ -487,3 +487,6 @@ test_data
 # The macOS `Icon` rule above matches case-insensitively on APFS, which would
 # swallow every catalog icon composition directory.
 !catalog/*/icon/
+
+# machine-local ops notes (credentials, hosts), never committed
+docs/local/
