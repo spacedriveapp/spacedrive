@@ -37,6 +37,9 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 
 ### Current direction
 
+`docs/core/product-direction.mdx` defines the product boundary. Use it to decide
+whether work belongs in Spacedrive before extending a subsystem.
+
 The durable entries schema (`entry`, `location`, and everything hanging off
 them) is being replaced by the record table in `crates/store`, tracked by
 `docs/plans/2026-08-20-entries-teardown-execution.md`.
@@ -59,8 +62,9 @@ one set of claims that match the code. Until both land:
   is what tells a reader which world a call site belongs to, so leave the
   naming alone until the convergence plan's P3 retires it.
 - The `.tasks/` tree predates this work and is not its register. The status
-  table at the top of the execution plan is the only record, and it gets
-  updated in the same commit as the work.
+  table at the top of the execution plan remains the entries-teardown register.
+  Use `PROJECT_STATUS.md` as the short-term project-wide working context and
+  update it in the same commit as active work.
 
 ## Architecture Overview
 
@@ -676,9 +680,16 @@ cargo test -- --nocapture     # Show output
 
 ## Task Tracking
 
-Active work is tracked in its design document, next to the specs it belongs to. For anything in the entries teardown, that is the status table at the top of `/docs/plans/2026-08-20-entries-teardown-execution.md`; update it in the same commit as the work, and put your session name in the owner column before you start, since more than one agent works this tree at a time.
+Read `/PROJECT_STATUS.md` at the start of a session and update its Immediate
+register when broad work starts, lands, becomes blocked, or changes owner. Keep
+design rationale and phase acceptance criteria in the associated plan. For
+anything still in the entries teardown, also update the status table at the top
+of `/docs/plans/2026-08-20-entries-teardown-execution.md` in the same commit.
 
-`/.tasks/` is frozen. It describes the entry-centric model that the teardown removes, and was last updated in May. Do not add to it and do not run the validator against new work; the sections below document how that system worked.
+`/.tasks/` is frozen. It describes the entry-centric model that the teardown
+removes, and was last updated in May. Do not add to it and do not run the
+validator against new work. The sections below document the retired system for
+historical reference only.
 
 Spacedrive uses a file-based task system in `/.tasks/` to track features, epics, and development work. All task files are version-controlled alongside the code.
 

@@ -16,7 +16,19 @@ dev-daemon *ARGS:
 
 # Run the desktop app in dev mode
 dev-desktop:
+    cd apps/tauri && bun run tauri:dev:no-watch
+
+# Run the desktop app in dev mode, rebuilding on Rust changes
+dev-desktop-watch:
     cd apps/tauri && bun run tauri:dev
+
+# Run the docs site in dev mode (Fumadocs, standalone install in docs/)
+dev-docs:
+    cd docs && bun install && bun run dev
+
+# Build the docs site
+build-docs:
+    cd docs && bun install && bun run build
 
 # Run the mobile app in dev mode
 dev-mobile:

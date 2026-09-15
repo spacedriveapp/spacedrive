@@ -1,5 +1,10 @@
 # Spacebot in Spacedrive — Interface Vision
 
+> **Status:** Retired direction as of 2026-09-14. Spacedrive no longer ships a
+> built-in agent interface. This file and the Spacebot UI remain only until the
+> private company archive is verified, then they should be deleted. The
+> replacement direction is `docs/core/product-direction.mdx`.
+
 This document describes the target experience for the Spacebot surface inside Spacedrive. It is written for developers building this interface. It covers what exists today, what the interface should become, and how to get there without rewriting everything at once.
 
 For architectural context on how Spacebot integrates with Spacedrive at the system level, see `spacedrive/docs/core/design/spacebot-integration.md`.
