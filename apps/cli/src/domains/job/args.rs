@@ -60,3 +60,10 @@ pub struct JobControlArgs {
 	/// Job ID to control
 	pub job_id: Uuid,
 }
+
+#[derive(clap::Args, Debug)]
+pub struct JobRemoteArgs {
+	/// Redraw every two seconds until interrupted
+	#[arg(long)]
+	pub watch: bool,
+}

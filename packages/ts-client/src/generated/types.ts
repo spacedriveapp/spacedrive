@@ -3269,7 +3269,13 @@ library_totals: LibraryRedundancyTotals };
 /**
  * State of a job running on a remote device
  */
-export type RemoteJobState = { job_id: string; job_type: string; library_id: string; device_id: string; device_name: string; status: JobStatus; progress: number | null; message: string | null; generic_progress: GenericProgress | null; started_at: string | null; completed_at: string | null; error: string | null };
+export type RemoteJobState = { job_id: string; job_type: string; library_id: string; device_id: string; device_name: string; status: JobStatus; progress: number | null; message: string | null; generic_progress: GenericProgress | null; started_at: string | null; completed_at: string | null; error: string | null; 
+/**
+ * When the last event for this job arrived. A running job that stops
+ * reporting — its completion event lost to a subscription gap — goes
+ * stale here and gets swept instead of showing as running forever.
+ */
+updated_at: string };
 
 /**
  * Query for all remote jobs across all devices

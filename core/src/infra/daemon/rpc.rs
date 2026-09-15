@@ -447,7 +447,44 @@ impl RpcServer {
 				DaemonResponse::Unsubscribed
 			}
 
-			DaemonRequest::SubscribeLogs { filter } => {
+			DaemonRequest::SubscribeLogs { filter, device } => {
+				// A device-targeted subscription streams the paired device's
+				// log bus through this connection instead of the local one.
+				if let Some(target) = device {
+					let device_id = match resolve_paired_device(&target, core).await {
+						Ok(Some(id)) => Some(id),
+						Ok(None) => None, // The target is this device.
+						Err(e) => {
+							return DaemonResponse::Error(DaemonError::OperationFailed(e));
+						}
+					};
+					if let Some(device_id) = device_id {
+						let context = core.context.clone();
+						let tx = response_tx.clone();
+						let mut stream =
+							match crate::service::network::protocol::remote_ops::subscribe_logs(
+								&context, device_id, filter,
+							)
+							.await
+							{
+								Ok(stream) => stream,
+								Err(e) => {
+									return DaemonResponse::Error(DaemonError::OperationFailed(
+										format!("remote log subscription failed: {e}"),
+									));
+								}
+							};
+						tokio::spawn(async move {
+							while let Some(log_msg) = stream.next().await {
+								if tx.send(DaemonResponse::LogMessage(log_msg)).is_err() {
+									break; // Connection closed
+								}
+							}
+						});
+						return DaemonResponse::LogsSubscribed;
+					}
+				}
+
 				// Start log streaming for this connection
 				let mut log_subscriber = core.logs.subscribe();
 				let tx = response_tx.clone();
@@ -456,35 +493,8 @@ impl RpcServer {
 				// Spawn task to forward log messages
 				tokio::spawn(async move {
 					while let Ok(log_msg) = log_subscriber.recv().await {
-						// Apply filter if specified
-						if let Some(ref f) = filter_clone {
-							// Filter by job_id
-							if let Some(ref filter_job_id) = f.job_id {
-								if log_msg.job_id.as_ref() != Some(filter_job_id) {
-									continue;
-								}
-							}
-
-							// Filter by library_id
-							if let Some(ref filter_library_id) = f.library_id {
-								if log_msg.library_id.as_ref() != Some(filter_library_id) {
-									continue;
-								}
-							}
-
-							// Filter by level
-							if let Some(ref filter_level) = f.level {
-								if !log_msg.level.eq_ignore_ascii_case(filter_level) {
-									continue;
-								}
-							}
-
-							// Filter by target
-							if let Some(ref filter_target) = f.target {
-								if !log_msg.target.contains(filter_target) {
-									continue;
-								}
-							}
+						if filter_clone.as_ref().is_some_and(|f| !f.matches(&log_msg)) {
+							continue;
 						}
 
 						// Send log message to client
@@ -583,46 +593,9 @@ async fn execute_targeted_operation(
 			.await;
 	};
 
-	let local_id = core
-		.context
-		.device_manager
-		.device_id()
-		.map_err(|e| e.to_string())?;
-	if Uuid::parse_str(&target).is_ok_and(|id| id == local_id) {
+	let Some(device_id) = resolve_paired_device(&target, core).await? else {
 		return execute_json_operation_with_context(method, library_id, payload, &core.context)
 			.await;
-	}
-
-	let networking = core
-		.context
-		.networking
-		.read()
-		.await
-		.clone()
-		.ok_or_else(|| "networking is not running, cannot target a device".to_string())?;
-
-	let device_id = {
-		let registry = networking.device_registry();
-		let registry = registry.read().await;
-		let wanted = target.to_lowercase();
-		registry
-			.get_all_devices()
-			.into_iter()
-			.find(|(id, state)| {
-				if id.to_string() == wanted {
-					return true;
-				}
-				let info = match state {
-					crate::service::network::device::DeviceState::Paired { info, .. }
-					| crate::service::network::device::DeviceState::Connected { info, .. }
-					| crate::service::network::device::DeviceState::Disconnected { info, .. } => info,
-					_ => return false,
-				};
-				info.device_name.to_lowercase() == wanted
-					|| info.device_slug.to_lowercase() == wanted
-			})
-			.map(|(id, _)| id)
-			.ok_or_else(|| format!("no paired device named '{target}'"))?
 	};
 
 	crate::service::network::protocol::remote_ops::call(
@@ -634,4 +607,49 @@ async fn execute_targeted_operation(
 	)
 	.await
 	.map_err(|e| format!("remote operation on '{target}' failed: {e}"))
+}
+
+/// Resolve a device target by name, slug, or id. `Ok(None)` means the target
+/// is this device and the operation belongs on the local path.
+async fn resolve_paired_device(
+	target: &str,
+	core: &Arc<crate::Core>,
+) -> Result<Option<Uuid>, String> {
+	let local_id = core
+		.context
+		.device_manager
+		.device_id()
+		.map_err(|e| e.to_string())?;
+	if Uuid::parse_str(target).is_ok_and(|id| id == local_id) {
+		return Ok(None);
+	}
+
+	let networking = core
+		.context
+		.networking
+		.read()
+		.await
+		.clone()
+		.ok_or_else(|| "networking is not running, cannot target a device".to_string())?;
+
+	let registry = networking.device_registry();
+	let registry = registry.read().await;
+	let wanted = target.to_lowercase();
+	registry
+		.get_all_devices()
+		.into_iter()
+		.find(|(id, state)| {
+			if id.to_string() == wanted {
+				return true;
+			}
+			let info = match state {
+				crate::service::network::device::DeviceState::Paired { info, .. }
+				| crate::service::network::device::DeviceState::Connected { info, .. }
+				| crate::service::network::device::DeviceState::Disconnected { info, .. } => info,
+				_ => return false,
+			};
+			info.device_name.to_lowercase() == wanted || info.device_slug.to_lowercase() == wanted
+		})
+		.map(|(id, _)| Some(id))
+		.ok_or_else(|| format!("no paired device named '{target}'"))
 }

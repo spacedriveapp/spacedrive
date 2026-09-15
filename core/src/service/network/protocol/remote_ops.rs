@@ -30,19 +30,29 @@ pub const REMOTE_OPS_PROTOCOL_NAME: &str = "remote_ops";
 const MAX_FRAME: u32 = 16 * 1024 * 1024;
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RemoteOpRequest {
-	pub method: String,
-	/// A library on the *serving* device. `None` lets the server resolve its
-	/// own open library, since a caller cannot know a peer's library ids
-	/// without asking first.
-	pub library_id: Option<Uuid>,
-	pub payload: serde_json::Value,
+pub enum RemoteOpRequest {
+	/// One Wire method call, answered by one `Ok` or `Err` frame.
+	Call {
+		method: String,
+		/// A library on the *serving* device. `None` lets the server resolve
+		/// its own open library, since a caller cannot know a peer's library
+		/// ids without asking first.
+		library_id: Option<Uuid>,
+		payload: serde_json::Value,
+	},
+	/// The serving device's log bus, streamed as `Log` frames until either
+	/// side drops the stream. The filter runs on the serving side so quiet
+	/// subscriptions cost no transfer.
+	SubscribeLogs {
+		filter: Option<crate::infra::daemon::types::LogFilter>,
+	},
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RemoteOpResponse {
 	Ok(serde_json::Value),
 	Err(String),
+	Log(crate::infra::event::log_emitter::LogMessage),
 }
 
 async fn write_frame<W, T>(stream: &mut W, msg: &T) -> anyhow::Result<()>
@@ -111,7 +121,7 @@ pub async fn call(
 
 	write_frame(
 		&mut send,
-		&RemoteOpRequest {
+		&RemoteOpRequest::Call {
 			method: method.to_string(),
 			library_id,
 			payload,
@@ -123,7 +133,77 @@ pub async fn call(
 	match read_frame(&mut recv).await? {
 		RemoteOpResponse::Ok(value) => Ok(value),
 		RemoteOpResponse::Err(err) => Err(anyhow::anyhow!("{err}")),
+		RemoteOpResponse::Log(_) => Err(anyhow::anyhow!("unexpected log frame for a call")),
 	}
+}
+
+/// A paired device's live log stream. Dropping it closes the stream and the
+/// serving side's forwarding task with it.
+pub struct RemoteLogStream {
+	recv: iroh::endpoint::RecvStream,
+	// Keeps the connection and our half-closed send side alive for the
+	// stream's lifetime.
+	_connection: iroh::endpoint::Connection,
+}
+
+impl RemoteLogStream {
+	/// The next log message, or `None` once the serving side closes.
+	pub async fn next(&mut self) -> Option<crate::infra::event::log_emitter::LogMessage> {
+		loop {
+			match read_frame(&mut self.recv).await {
+				Ok(RemoteOpResponse::Log(msg)) => return Some(msg),
+				Ok(RemoteOpResponse::Err(err)) => {
+					tracing::warn!("remote log stream refused: {err}");
+					return None;
+				}
+				Ok(RemoteOpResponse::Ok(_)) => continue,
+				Err(_) => return None,
+			}
+		}
+	}
+}
+
+/// Subscribe to a paired device's logs, filtered on the serving side.
+pub async fn subscribe_logs(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	filter: Option<crate::infra::daemon::types::LogFilter>,
+) -> anyhow::Result<RemoteLogStream> {
+	let networking = context
+		.networking
+		.read()
+		.await
+		.clone()
+		.ok_or_else(|| anyhow::anyhow!("networking service not available"))?;
+
+	let node_id = {
+		let registry = networking.device_registry();
+		let registry = registry.read().await;
+		registry
+			.get_node_by_device(device_id)
+			.ok_or_else(|| anyhow::anyhow!("device {device_id} is not connected"))?
+	};
+	let endpoint = networking
+		.endpoint()
+		.ok_or_else(|| anyhow::anyhow!("networking endpoint not available"))?
+		.clone();
+
+	let connection = endpoint
+		.connect(iroh::EndpointAddr::new(node_id), REMOTE_OPS_ALPN)
+		.await
+		.map_err(|e| anyhow::anyhow!("connect failed: {e}"))?;
+	let (mut send, recv) = connection
+		.open_bi()
+		.await
+		.map_err(|e| anyhow::anyhow!("open_bi failed: {e}"))?;
+
+	write_frame(&mut send, &RemoteOpRequest::SubscribeLogs { filter }).await?;
+	let _ = send.finish();
+
+	Ok(RemoteLogStream {
+		recv,
+		_connection: connection,
+	})
 }
 
 pub struct RemoteOpsProtocolHandler {
@@ -139,11 +219,16 @@ impl RemoteOpsProtocolHandler {
 		}
 	}
 
-	async fn respond(&self, request: RemoteOpRequest) -> RemoteOpResponse {
+	async fn respond_call(
+		&self,
+		method: String,
+		library_id: Option<Uuid>,
+		payload: serde_json::Value,
+	) -> RemoteOpResponse {
 		// A caller that names no library means "your library": resolve the
 		// first open one so library ops work without the caller learning the
 		// serving device's library ids first. Core ops ignore the value.
-		let library_id = match request.library_id {
+		let library_id = match library_id {
 			Some(id) => Some(id),
 			None => self
 				.context
@@ -156,15 +241,49 @@ impl RemoteOpsProtocolHandler {
 		};
 
 		match crate::infra::daemon::rpc::execute_json_operation_with_context(
-			&request.method,
+			&method,
 			library_id,
-			request.payload,
+			payload,
 			&self.context,
 		)
 		.await
 		{
 			Ok(value) => RemoteOpResponse::Ok(value),
 			Err(err) => RemoteOpResponse::Err(err),
+		}
+	}
+
+	/// Forward the log bus onto the stream until the subscriber goes away.
+	async fn stream_logs<W: AsyncWrite + Send + Unpin>(
+		&self,
+		send: &mut W,
+		filter: Option<crate::infra::daemon::types::LogFilter>,
+	) -> anyhow::Result<()> {
+		let Some(bus) = crate::infra::event::log_emitter::global_log_bus() else {
+			write_frame(send, &RemoteOpResponse::Err("log bus not available".into())).await?;
+			return Ok(());
+		};
+
+		let mut subscriber = bus.subscribe();
+		loop {
+			match subscriber.recv().await {
+				Ok(msg) => {
+					if filter.as_ref().is_some_and(|f| !f.matches(&msg)) {
+						continue;
+					}
+					// A write failure is the subscriber leaving; that ends
+					// the forwarding, not an error worth reporting.
+					if write_frame(send, &RemoteOpResponse::Log(msg))
+						.await
+						.is_err()
+					{
+						return Ok(());
+					}
+					let _ = send.flush().await;
+				}
+				Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => continue,
+				Err(tokio::sync::broadcast::error::RecvError::Closed) => return Ok(()),
+			}
 		}
 	}
 }
@@ -203,12 +322,26 @@ impl super::ProtocolHandler for RemoteOpsProtocolHandler {
 			}
 		};
 
-		tracing::info!("remote_ops: {} from device {device_id}", request.method);
-		let response = self.respond(request).await;
-		if let Err(err) = write_frame(&mut send, &response).await {
-			tracing::debug!("remote_ops: response failed: {err}");
+		match request {
+			RemoteOpRequest::Call {
+				method,
+				library_id,
+				payload,
+			} => {
+				tracing::info!("remote_ops: {method} from device {device_id}");
+				let response = self.respond_call(method, library_id, payload).await;
+				if let Err(err) = write_frame(&mut send, &response).await {
+					tracing::debug!("remote_ops: response failed: {err}");
+				}
+				let _ = send.flush().await;
+			}
+			RemoteOpRequest::SubscribeLogs { filter } => {
+				tracing::info!("remote_ops: log subscription from device {device_id}");
+				if let Err(err) = self.stream_logs(&mut send, filter).await {
+					tracing::debug!("remote_ops: log stream failed: {err}");
+				}
+			}
 		}
-		let _ = send.flush().await;
 	}
 
 	fn as_any(&self) -> &dyn std::any::Any {

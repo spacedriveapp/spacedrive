@@ -66,6 +66,12 @@ pub fn set_global_log_bus(log_bus: Arc<LogBus>) {
 	let _ = LOG_BUS.set(log_bus);
 }
 
+/// The daemon's LogBus, once the daemon has registered it. Services that
+/// stream logs — the local socket, the remote-ops protocol — read it here.
+pub fn global_log_bus() -> Option<Arc<LogBus>> {
+	LOG_BUS.get().cloned()
+}
+
 /// A tracing layer that emits log messages to the log bus (if available)
 pub struct LogEventLayer;
 

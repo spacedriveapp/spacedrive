@@ -296,6 +296,16 @@ impl PairingProtocolHandler {
 			}
 		}
 
+		// Broadcast the connection so services that follow connections —
+		// peer mounts, job activity — start syncing now rather than on
+		// the next reconnect.
+		let _ = self.command_sender.send(
+			crate::service::network::core::event_loop::EventLoopCommand::ConnectionEstablished {
+				device_id: actual_device_id,
+				node_id,
+			},
+		);
+
 		// Update session to Completed
 		{
 			let mut sessions = self.active_sessions.write().await;

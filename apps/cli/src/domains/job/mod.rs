@@ -37,7 +37,7 @@ pub enum JobCmd {
 	/// Cancel a job
 	Cancel(JobControlArgs),
 	/// List jobs running on paired devices
-	Remote,
+	Remote(JobRemoteArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
@@ -130,41 +130,51 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
 				}
 			});
 		}
-		JobCmd::Remote => {
+		JobCmd::Remote(args) => {
 			use sd_core::ops::jobs::remote_list::{
 				output::RemoteJobsAllDevicesOutput, query::RemoteJobsAllDevicesInput,
 			};
-			let out: RemoteJobsAllDevicesOutput =
-				execute_core_query!(ctx, RemoteJobsAllDevicesInput {});
-			print_output!(ctx, &out, |o: &RemoteJobsAllDevicesOutput| {
-				if o.jobs_by_device.is_empty() {
-					println!("No remote job activity (paired devices report jobs as they run)");
-					return;
+			loop {
+				let out: RemoteJobsAllDevicesOutput =
+					execute_core_query!(ctx, RemoteJobsAllDevicesInput {});
+				if args.watch {
+					// Clear the screen and home the cursor between frames.
+					print!("\x1b[2J\x1b[H");
 				}
-				for jobs in o.jobs_by_device.values() {
-					let Some(device_name) = jobs.first().map(|j| j.device_name.as_str()) else {
-						continue;
-					};
-					println!("{device_name}:");
-					for j in jobs {
-						let progress = j
-							.progress
-							.map(|p| format!(" {}%", (p * 100.0) as u32))
-							.unwrap_or_default();
-						println!(
-							"- {} {} {:?}{}{}",
-							j.job_id,
-							j.job_type,
-							j.status,
-							progress,
-							j.message
-								.as_deref()
-								.map(|m| format!(" — {m}"))
-								.unwrap_or_default()
-						);
+				print_output!(ctx, &out, |o: &RemoteJobsAllDevicesOutput| {
+					if o.jobs_by_device.is_empty() {
+						println!("No remote job activity (paired devices report jobs as they run)");
+						return;
 					}
+					for jobs in o.jobs_by_device.values() {
+						let Some(device_name) = jobs.first().map(|j| j.device_name.as_str()) else {
+							continue;
+						};
+						println!("{device_name}:");
+						for j in jobs {
+							let progress = j
+								.progress
+								.map(|p| format!(" {}%", (p * 100.0) as u32))
+								.unwrap_or_default();
+							println!(
+								"- {} {} {:?}{}{}",
+								j.job_id,
+								j.job_type,
+								j.status,
+								progress,
+								j.message
+									.as_deref()
+									.map(|m| format!(" — {m}"))
+									.unwrap_or_default()
+							);
+						}
+					}
+				});
+				if !args.watch {
+					break;
 				}
-			});
+				tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+			}
 		}
 	}
 	Ok(())

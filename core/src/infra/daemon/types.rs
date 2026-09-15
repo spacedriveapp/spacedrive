@@ -37,6 +37,10 @@ pub enum DaemonRequest {
 	SubscribeLogs {
 		/// Optional filter for specific job/library
 		filter: Option<LogFilter>,
+		/// A paired device whose logs to stream instead of this device's.
+		/// The filter is applied on the serving side.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		device: Option<String>,
 	},
 	/// Unsubscribe from logs
 	UnsubscribeLogs,
@@ -72,6 +76,33 @@ pub struct LogFilter {
 	pub level: Option<String>,
 	/// Filter by target/component (e.g., "sd_core::ops")
 	pub target: Option<String>,
+}
+
+impl LogFilter {
+	/// Whether a log message passes this filter. Every set field must match.
+	pub fn matches(&self, msg: &crate::infra::event::log_emitter::LogMessage) -> bool {
+		if let Some(ref job_id) = self.job_id {
+			if msg.job_id.as_ref() != Some(job_id) {
+				return false;
+			}
+		}
+		if let Some(ref library_id) = self.library_id {
+			if msg.library_id.as_ref() != Some(library_id) {
+				return false;
+			}
+		}
+		if let Some(ref level) = self.level {
+			if !msg.level.eq_ignore_ascii_case(level) {
+				return false;
+			}
+		}
+		if let Some(ref target) = self.target {
+			if !msg.target.contains(target) {
+				return false;
+			}
+		}
+		true
+	}
 }
 
 /// Comprehensive daemon error types

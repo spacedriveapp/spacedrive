@@ -122,7 +122,7 @@ impl CoreClient {
 		} else {
 			None
 		};
-		LogStream::new(self.daemon.clone(), filter).await
+		LogStream::new(self.daemon.clone(), filter, self.device.clone()).await
 	}
 }
 
@@ -191,12 +191,16 @@ pub struct LogStream {
 }
 
 impl LogStream {
-	async fn new(daemon: DaemonClient, filter: Option<LogFilter>) -> Result<Self> {
+	async fn new(
+		daemon: DaemonClient,
+		filter: Option<LogFilter>,
+		device: Option<String>,
+	) -> Result<Self> {
 		let (log_tx, log_rx) = mpsc::unbounded_channel();
 
 		// Start streaming connection
 		let handle = tokio::spawn(async move {
-			if let Err(e) = Self::stream_logs(daemon, filter, log_tx).await {
+			if let Err(e) = Self::stream_logs(daemon, filter, device, log_tx).await {
 				eprintln!("Log streaming error: {}", e);
 			}
 		});
@@ -210,9 +214,10 @@ impl LogStream {
 	async fn stream_logs(
 		daemon: DaemonClient,
 		filter: Option<LogFilter>,
+		device: Option<String>,
 		log_tx: mpsc::UnboundedSender<LogMessage>,
 	) -> Result<()> {
-		let request = DaemonRequest::SubscribeLogs { filter };
+		let request = DaemonRequest::SubscribeLogs { filter, device };
 
 		// Use the same stream infrastructure but for log messages
 		daemon

@@ -34,6 +34,10 @@ pub struct RemoteJobState {
 	pub started_at: Option<DateTime<Utc>>,
 	pub completed_at: Option<DateTime<Utc>>,
 	pub error: Option<String>,
+	/// When the last event for this job arrived. A running job that stops
+	/// reporting — its completion event lost to a subscription gap — goes
+	/// stale here and gets swept instead of showing as running forever.
+	pub updated_at: DateTime<Utc>,
 }
 
 impl RemoteJobCache {
@@ -52,6 +56,7 @@ impl RemoteJobCache {
 		library_id: Uuid,
 		event: RemoteJobEvent,
 	) {
+		let now = Utc::now();
 		let mut jobs = self.jobs.write().await;
 		let device_jobs = jobs.entry(device_id).or_insert_with(HashMap::new);
 
@@ -76,6 +81,7 @@ impl RemoteJobCache {
 						started_at: Some(timestamp),
 						completed_at: None,
 						error: None,
+						updated_at: now,
 					},
 				);
 			}
@@ -103,9 +109,11 @@ impl RemoteJobCache {
 						started_at: None,
 						completed_at: None,
 						error: None,
+						updated_at: now,
 					});
 				job.status = JobStatus::Running;
 				job.started_at = Some(timestamp);
+				job.updated_at = now;
 			}
 
 			RemoteJobEvent::JobProgress {
@@ -131,10 +139,12 @@ impl RemoteJobCache {
 						started_at: Some(timestamp),
 						completed_at: None,
 						error: None,
+						updated_at: now,
 					});
 				job.progress = Some(progress);
 				job.message = message;
 				job.generic_progress = generic_progress;
+				job.updated_at = now;
 			}
 
 			RemoteJobEvent::JobCompleted {
@@ -144,6 +154,7 @@ impl RemoteJobCache {
 					job.status = JobStatus::Completed;
 					job.completed_at = Some(timestamp);
 					job.progress = Some(100.0);
+					job.updated_at = now;
 				}
 			}
 
@@ -157,6 +168,7 @@ impl RemoteJobCache {
 					job.status = JobStatus::Failed;
 					job.error = Some(error);
 					job.completed_at = Some(timestamp);
+					job.updated_at = now;
 				}
 			}
 
@@ -166,18 +178,21 @@ impl RemoteJobCache {
 				if let Some(job) = device_jobs.get_mut(&job_id) {
 					job.status = JobStatus::Cancelled;
 					job.completed_at = Some(timestamp);
+					job.updated_at = now;
 				}
 			}
 
 			RemoteJobEvent::JobPaused { job_id, .. } => {
 				if let Some(job) = device_jobs.get_mut(&job_id) {
 					job.status = JobStatus::Paused;
+					job.updated_at = now;
 				}
 			}
 
 			RemoteJobEvent::JobResumed { job_id, .. } => {
 				if let Some(job) = device_jobs.get_mut(&job_id) {
 					job.status = JobStatus::Running;
+					job.updated_at = now;
 				}
 			}
 		}
@@ -215,20 +230,18 @@ impl RemoteJobCache {
 			.collect()
 	}
 
-	/// Clean up completed jobs older than threshold
+	/// Drop rows the cache no longer needs: terminal jobs past the age
+	/// threshold, and non-terminal jobs that stopped reporting — a running
+	/// job emits throttled progress, so one silent for the whole threshold
+	/// lost its completion event to a subscription gap.
 	pub async fn cleanup_old_jobs(&self, max_age: Duration) {
 		let now = Utc::now();
 		let mut jobs = self.jobs.write().await;
 
 		for device_jobs in jobs.values_mut() {
 			device_jobs.retain(|_, job| {
-				if job.status.is_terminal() {
-					if let Some(completed_at) = job.completed_at {
-						let age = now.signed_duration_since(completed_at);
-						return age.num_seconds() < max_age.num_seconds();
-					}
-				}
-				true
+				let age = now.signed_duration_since(job.updated_at);
+				age.num_seconds() < max_age.num_seconds()
 			});
 		}
 	}
