@@ -5,10 +5,15 @@
 macro_rules! execute_action {
 	($ctx:expr, $input:expr) => {{
 		let input = $input;
-		let library_id = get_current_library!($ctx);
+		// A device-targeted request names a library on the target, whose ids
+		// this client does not know; the target resolves its own.
+		let library_id = match $ctx.core.device() {
+			Some(_) => None,
+			None => Some(get_current_library!($ctx)),
+		};
 		let json_response = $ctx
 			.core
-			.action(&input, Some(library_id))
+			.action(&input, library_id)
 			.await
 			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
 
@@ -48,10 +53,15 @@ macro_rules! execute_core_action {
 macro_rules! execute_query {
 	($ctx:expr, $input:expr) => {{
 		let input = $input;
-		let library_id = get_current_library!($ctx);
+		// A device-targeted request names a library on the target, whose ids
+		// this client does not know; the target resolves its own.
+		let library_id = match $ctx.core.device() {
+			Some(_) => None,
+			None => Some(get_current_library!($ctx)),
+		};
 		let json_response = $ctx
 			.core
-			.query(&input, Some(library_id))
+			.query(&input, library_id)
 			.await
 			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?;
 

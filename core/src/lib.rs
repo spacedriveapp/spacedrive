@@ -714,6 +714,13 @@ async fn register_default_protocol_handlers(
 		networking.device_registry(),
 	);
 
+	// Wire method calls from paired devices, executed through the same
+	// registries the local socket uses
+	let remote_ops_handler = service::network::protocol::RemoteOpsProtocolHandler::new(
+		context.clone(),
+		networking.device_registry(),
+	);
+
 	let protocol_registry = networking.protocol_registry();
 	{
 		let mut registry = protocol_registry.write().await;
@@ -722,6 +729,7 @@ async fn register_default_protocol_handlers(
 		registry.register_handler(Arc::new(file_transfer_handler))?;
 		registry.register_handler(Arc::new(job_activity_handler))?;
 		registry.register_handler(Arc::new(byterange_handler))?;
+		registry.register_handler(Arc::new(remote_ops_handler))?;
 		registry.register_handler(networking.sync_multiplexer().clone())?;
 		logger
 			.info("All protocol handlers registered successfully")

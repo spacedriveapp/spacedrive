@@ -25,6 +25,7 @@ pub const MESSAGING_ALPN: &[u8] = b"spacedrive/messaging/1";
 pub const SYNC_ALPN: &[u8] = b"spacedrive/sync/1";
 pub const JOB_ACTIVITY_ALPN: &[u8] = b"spacedrive/jobactivity/1";
 pub const BYTERANGE_ALPN: &[u8] = b"spacedrive/byterange/1";
+pub const REMOTE_OPS_ALPN: &[u8] = b"spacedrive/remoteops/1";
 
 /// Central networking event types
 #[derive(Debug, Clone)]
@@ -230,6 +231,7 @@ impl NetworkingService {
 					SYNC_ALPN.to_vec(),
 					JOB_ACTIVITY_ALPN.to_vec(),
 					BYTERANGE_ALPN.to_vec(),
+					REMOTE_OPS_ALPN.to_vec(),
 				])
 				.relay_mode(iroh::RelayMode::Default)
 				.discovery(PkarrPublisher::n0_dns())

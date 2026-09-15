@@ -11,13 +11,26 @@ use sd_core::infra::wire::Wire;
 #[derive(Clone)]
 pub struct CoreClient {
 	daemon: DaemonClient,
+	/// A paired device every action and query is targeted at, by name,
+	/// slug, or id. The local daemon forwards the operation there.
+	device: Option<String>,
 }
 
 impl CoreClient {
 	pub fn new(socket_addr: String) -> Self {
 		Self {
 			daemon: DaemonClient::new(socket_addr),
+			device: None,
 		}
+	}
+
+	pub fn with_device(mut self, device: Option<String>) -> Self {
+		self.device = device;
+		self
+	}
+
+	pub fn device(&self) -> Option<&str> {
+		self.device.as_deref()
 	}
 
 	pub async fn action<A>(
@@ -35,6 +48,7 @@ impl CoreClient {
 				method: A::METHOD.into(),
 				library_id,
 				payload,
+				device: self.device.clone(),
 			})
 			.await;
 		match resp {
@@ -59,6 +73,7 @@ impl CoreClient {
 				method: Q::METHOD.into(),
 				library_id,
 				payload,
+				device: self.device.clone(),
 			})
 			.await;
 		match resp {

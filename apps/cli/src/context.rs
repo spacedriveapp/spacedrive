@@ -181,6 +181,11 @@ impl Context {
 	/// Validate and fix the current library selection
 	/// If the stored library ID is not found, select the first available library
 	pub async fn validate_and_fix_library(&mut self) -> Result<()> {
+		// A device-targeted client would be validating against the remote's
+		// libraries and rewriting the local selection with a foreign id.
+		if self.core.device().is_some() {
+			return Ok(());
+		}
 		if let Some(stored_library_id) = self.library_id {
 			let libraries = self.list_libraries().await?;
 

@@ -429,6 +429,7 @@ async fn process_daemon_request(request: DaemonRequest, core: &Arc<Core>) -> Dae
 			method,
 			library_id,
 			payload,
+			..
 		} => match RpcServer::execute_json_operation(&method, library_id, payload, core).await {
 			Ok(json_result) => DaemonResponse::JsonOk(json_result),
 			Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
@@ -437,6 +438,7 @@ async fn process_daemon_request(request: DaemonRequest, core: &Arc<Core>) -> Dae
 			method,
 			library_id,
 			payload,
+			..
 		} => match RpcServer::execute_json_operation(&method, library_id, payload, core).await {
 			Ok(json_result) => DaemonResponse::JsonOk(json_result),
 			Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),

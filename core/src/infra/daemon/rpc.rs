@@ -197,41 +197,7 @@ impl RpcServer {
 		json_payload: serde_json::Value,
 		core: &Arc<crate::Core>,
 	) -> Result<serde_json::Value, String> {
-		tracing::debug!(
-			"[RPC Operation]: method={}, library_id={:?}",
-			method,
-			library_id
-		);
-		// Create base session context
-		let base_session = core.api_dispatcher.create_base_session()?;
-
-		// Try library queries first
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method) {
-			let library_id =
-				library_id.ok_or_else(|| "Library ID required for library query".to_string())?;
-			let session = base_session.with_library(library_id);
-			return handler(core.context.clone(), session, json_payload).await;
-		}
-
-		// Try core queries
-		if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method) {
-			return handler(core.context.clone(), base_session, json_payload).await;
-		}
-
-		// Try library actions
-		if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method) {
-			let library_id =
-				library_id.ok_or_else(|| "Library ID required for library action".to_string())?;
-			let session = base_session.with_library(library_id);
-			return handler(core.context.clone(), session, json_payload).await;
-		}
-
-		// Try core actions
-		if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method) {
-			return handler(core.context.clone(), json_payload).await;
-		}
-
-		Err(format!("Unknown method: {}", method))
+		execute_json_operation_with_context(method, library_id, json_payload, &core.context).await
 	}
 
 	/// Check if an event should be forwarded to a connection based on filters
@@ -425,9 +391,9 @@ impl RpcServer {
 				method,
 				library_id,
 				payload,
+				device,
 			} => {
-				// Handle JSON actions with direct JSON-to-JSON processing
-				match Self::execute_json_operation(&method, library_id, payload, core).await {
+				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				}
@@ -437,9 +403,9 @@ impl RpcServer {
 				method,
 				library_id,
 				payload,
+				device,
 			} => {
-				// Handle JSON queries with direct JSON-to-JSON processing
-				match Self::execute_json_operation(&method, library_id, payload, core).await {
+				match execute_targeted_operation(device, &method, library_id, payload, core).await {
 					Ok(json_result) => DaemonResponse::JsonOk(json_result),
 					Err(e) => DaemonResponse::Error(DaemonError::OperationFailed(e)),
 				}
@@ -550,4 +516,122 @@ impl RpcServer {
 		let max = self.max_connections;
 		(current, max)
 	}
+}
+
+/// Execute a JSON operation against the registries with only a core context.
+/// The daemon socket, embedded hosts, and the remote-ops protocol all funnel
+/// through here, so an operation behaves identically however it arrived.
+pub async fn execute_json_operation_with_context(
+	method: &str,
+	library_id: Option<uuid::Uuid>,
+	json_payload: serde_json::Value,
+	context: &Arc<crate::context::CoreContext>,
+) -> Result<serde_json::Value, String> {
+	tracing::debug!(
+		"[RPC Operation]: method={}, library_id={:?}",
+		method,
+		library_id
+	);
+	let device_id = context
+		.device_manager
+		.device_id()
+		.map_err(|e| e.to_string())?;
+	let base_session =
+		crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
+
+	// Try library queries first
+	if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method) {
+		let library_id =
+			library_id.ok_or_else(|| "Library ID required for library query".to_string())?;
+		let session = base_session.with_library(library_id);
+		return handler(context.clone(), session, json_payload).await;
+	}
+
+	// Try core queries
+	if let Some(handler) = crate::infra::wire::registry::CORE_QUERIES.get(method) {
+		return handler(context.clone(), base_session, json_payload).await;
+	}
+
+	// Try library actions
+	if let Some(handler) = crate::infra::wire::registry::LIBRARY_ACTIONS.get(method) {
+		let library_id =
+			library_id.ok_or_else(|| "Library ID required for library action".to_string())?;
+		let session = base_session.with_library(library_id);
+		return handler(context.clone(), session, json_payload).await;
+	}
+
+	// Try core actions
+	if let Some(handler) = crate::infra::wire::registry::CORE_ACTIONS.get(method) {
+		return handler(context.clone(), json_payload).await;
+	}
+
+	Err(format!("Unknown method: {}", method))
+}
+
+/// Route one operation to the device named in the request envelope.
+/// Resolves the target among this device and its paired devices, then
+/// executes locally or forwards over the remote-ops protocol.
+async fn execute_targeted_operation(
+	device: Option<String>,
+	method: &str,
+	library_id: Option<uuid::Uuid>,
+	payload: serde_json::Value,
+	core: &Arc<crate::Core>,
+) -> Result<serde_json::Value, String> {
+	let Some(target) = device else {
+		return execute_json_operation_with_context(method, library_id, payload, &core.context)
+			.await;
+	};
+
+	let local_id = core
+		.context
+		.device_manager
+		.device_id()
+		.map_err(|e| e.to_string())?;
+	if Uuid::parse_str(&target).is_ok_and(|id| id == local_id) {
+		return execute_json_operation_with_context(method, library_id, payload, &core.context)
+			.await;
+	}
+
+	let networking = core
+		.context
+		.networking
+		.read()
+		.await
+		.clone()
+		.ok_or_else(|| "networking is not running, cannot target a device".to_string())?;
+
+	let device_id = {
+		let registry = networking.device_registry();
+		let registry = registry.read().await;
+		let wanted = target.to_lowercase();
+		registry
+			.get_all_devices()
+			.into_iter()
+			.find(|(id, state)| {
+				if id.to_string() == wanted {
+					return true;
+				}
+				let info = match state {
+					crate::service::network::device::DeviceState::Paired { info, .. }
+					| crate::service::network::device::DeviceState::Connected { info, .. }
+					| crate::service::network::device::DeviceState::Disconnected { info, .. } => info,
+					_ => return false,
+				};
+				info.device_name.to_lowercase() == wanted
+					|| info.device_slug.to_lowercase() == wanted
+			})
+			.map(|(id, _)| id)
+			.ok_or_else(|| format!("no paired device named '{target}'"))?
+	};
+
+	crate::service::network::protocol::remote_ops::call(
+		&core.context,
+		device_id,
+		method,
+		library_id,
+		payload,
+	)
+	.await
+	.map_err(|e| format!("remote operation on '{target}' failed: {e}"))
 }

@@ -8,11 +8,21 @@ pub enum DaemonRequest {
 		method: String,
 		library_id: Option<uuid::Uuid>,
 		payload: serde_json::Value,
+		/// A paired device to run this on, by name, slug, or id. Absent or
+		/// matching this device means local execution; anything else is
+		/// forwarded over the remote-ops protocol. A forwarded request's
+		/// `library_id` names a library on the target, so clients targeting
+		/// a device usually leave it `None` and let the target resolve its
+		/// own open library.
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		device: Option<String>,
 	},
 	Query {
 		method: String,
 		library_id: Option<uuid::Uuid>,
 		payload: serde_json::Value,
+		#[serde(default, skip_serializing_if = "Option::is_none")]
+		device: Option<String>,
 	},
 	/// Subscribe to real-time events
 	Subscribe {

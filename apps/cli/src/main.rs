@@ -59,11 +59,11 @@ use crate::domains::{
 	job::{self, JobCmd},
 	library::{self, LibraryCmd},
 	location::{self, LocationCmd},
-	source::{self, SourceCmd},
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
 	redundancy::{self, RedundancyCmd},
 	search::{self, SearchCmd},
+	source::{self, SourceCmd},
 	spaces::{self, SpacesCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
@@ -145,6 +145,11 @@ struct Cli {
 	/// Daemon instance name
 	#[arg(long)]
 	instance: Option<String>,
+
+	/// Run the command on a paired device, by name, slug, or id.
+	/// Library commands resolve against the target's own open library.
+	#[arg(long, global = true)]
+	device: Option<String>,
 
 	/// Output format
 	#[arg(long, value_enum, default_value = "human")]
@@ -268,10 +273,8 @@ async fn main() -> Result<()> {
 
 	// Same rule the daemon applies, so a client addressing an instance reads
 	// the state that instance actually owns.
-	let data_dir = sd_core::infra::daemon::addr::instance_data_dir(
-		base_data_dir,
-		instance.as_deref(),
-	);
+	let data_dir =
+		sd_core::infra::daemon::addr::instance_data_dir(base_data_dir, instance.as_deref());
 	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
 
 	match cli.command {
@@ -469,7 +472,7 @@ async fn main() -> Result<()> {
 			update::run(data_dir, force).await?;
 		}
 		_ => {
-			run_client_command(cli.command, cli.format, data_dir, socket_addr).await?;
+			run_client_command(cli.command, cli.format, data_dir, socket_addr, cli.device).await?;
 		}
 	}
 
@@ -481,6 +484,7 @@ async fn run_client_command(
 	format: OutputFormat,
 	data_dir: std::path::PathBuf,
 	socket_addr: String,
+	device: Option<String>,
 ) -> Result<()> {
 	// Initialize device ID and slug from device.json if it exists
 	if let Ok(device_config) = std::fs::read_to_string(data_dir.join("device.json")) {
@@ -496,7 +500,7 @@ async fn run_client_command(
 		}
 	}
 
-	let core = CoreClient::new(socket_addr.clone());
+	let core = CoreClient::new(socket_addr.clone()).with_device(device);
 	let mut ctx = Context::new(core, format, data_dir, socket_addr)?;
 
 	ctx.validate_and_fix_library().await?;
@@ -518,6 +522,7 @@ async fn run_client_command(
 				method: format!("query:{name}"),
 				library_id: library,
 				payload: payload.clone(),
+				device: ctx.core.device().map(String::from),
 			};
 			let mut response = ctx
 				.core
@@ -534,6 +539,7 @@ async fn run_client_command(
 					method: format!("action:{name}.input"),
 					library_id: library,
 					payload,
+					device: ctx.core.device().map(String::from),
 				};
 				response = ctx
 					.core

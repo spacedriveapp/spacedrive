@@ -8,6 +8,7 @@ pub mod library_messages;
 pub mod messaging;
 pub mod pairing;
 pub mod registry;
+pub mod remote_ops;
 pub mod sync;
 
 use crate::service::network::{NetworkingError, Result};
@@ -29,6 +30,7 @@ pub use library_messages::{LibraryDiscoveryInfo, LibraryMessage};
 pub use messaging::MessagingProtocolHandler;
 pub use pairing::{PairingMessage, PairingProtocolHandler, PairingSession, PairingState};
 pub use registry::ProtocolRegistry;
+pub use remote_ops::RemoteOpsProtocolHandler;
 pub use sync::{SyncMessage, SyncProtocolHandler};
 
 /// Trait for handling specific protocols over Iroh streams
