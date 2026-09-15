@@ -65,6 +65,11 @@ pub struct SourceRecord {
 	pub content_count: Option<u64>,
 	/// Bytes remaining if every within-source duplicate collapsed to one copy.
 	pub unique_bytes: Option<u64>,
+	/// Whether this source records everything readable, skipping the default
+	/// rules. The watcher follows this the same as the walk: a policy that
+	/// differed between the two made live changes silently vanish from
+	/// directories the rules dislike (temp, cache) on archival sources.
+	pub unfiltered: bool,
 }
 
 /// Which volume index a path belongs to.
@@ -130,6 +135,10 @@ impl SourceRecord {
 			total_bytes: row.total_bytes.map(|b| b.max(0) as u64),
 			content_count: row.content_count.map(|c| c.max(0) as u64),
 			unique_bytes: row.unique_bytes.map(|b| b.max(0) as u64),
+			unfiltered: serde_json::from_str::<serde_json::Value>(&row.config)
+				.ok()
+				.and_then(|config| config.get("unfiltered").and_then(|v| v.as_bool()))
+				.unwrap_or(false),
 		}
 	}
 }
@@ -244,6 +253,7 @@ impl SourceRegistry {
 			total_bytes: None,
 			content_count: None,
 			unique_bytes: None,
+			unfiltered: false,
 		};
 		self.sources.push(record.clone());
 		record
@@ -339,6 +349,13 @@ impl SourceRegistry {
 		record.content_count = Some(counts.contents);
 		record.unique_bytes = Some(counts.unique_bytes);
 		record.last_seen_at = Utc::now();
+		Some(record.clone())
+	}
+
+	/// Record how a source captures, returning the changed record to persist.
+	pub fn set_unfiltered(&mut self, id: Uuid, unfiltered: bool) -> Option<SourceRecord> {
+		let record = self.sources.iter_mut().find(|source| source.id == id)?;
+		record.unfiltered = unfiltered;
 		Some(record.clone())
 	}
 

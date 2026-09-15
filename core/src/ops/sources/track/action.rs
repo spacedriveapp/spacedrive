@@ -152,6 +152,14 @@ pub async fn track_and_index(
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
 
+	// The capture policy is the source's, not the caller's moment: the
+	// watcher reads it for every later event, so it has to survive with the
+	// registration.
+	context
+		.ephemeral_cache()
+		.set_source_unfiltered(id, unfiltered)
+		.await;
+
 	// Seed the partition from its snapshot before walking over it. A partition
 	// that skipped restore is barred from saving over an existing snapshot, so
 	// tracking a root that already has one would index and then fail to persist.

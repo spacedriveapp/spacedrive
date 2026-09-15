@@ -375,6 +375,7 @@ impl EphemeralIndexCache {
 		row.total_bytes = Set(record.total_bytes.map(|b| b as i64));
 		row.content_count = Set(record.content_count.map(|c| c as i64));
 		row.unique_bytes = Set(record.unique_bytes.map(|b| b as i64));
+		row.config = Set(serde_json::json!({ "unfiltered": record.unfiltered }).to_string());
 		row.last_seen_at = Set(record.last_seen_at);
 
 		source::Entity::insert(row)
@@ -389,6 +390,7 @@ impl EphemeralIndexCache {
 						source::Column::TotalBytes,
 						source::Column::ContentCount,
 						source::Column::UniqueBytes,
+						source::Column::Config,
 						source::Column::LastSeenAt,
 					])
 					.to_owned(),
@@ -521,6 +523,33 @@ impl EphemeralIndexCache {
 	/// The on-disk layout for per-source storage, when this machine keeps one.
 	pub fn source_dirs(&self) -> Option<&SourceDirs> {
 		self.dirs.as_ref()
+	}
+
+	/// How the source owning `path` captures: rules off for an archival
+	/// source, the defaults otherwise, including for paths no source owns,
+	/// where the background map's policy applies.
+	pub fn rule_toggles_for(&self, path: &Path) -> crate::ops::indexing::rules::RuleToggles {
+		let unfiltered = self
+			.registry
+			.lock()
+			.resolve(path)
+			.map(|record| record.unfiltered)
+			.unwrap_or(false);
+		if unfiltered {
+			crate::ops::indexing::rules::RuleToggles::none()
+		} else {
+			crate::ops::indexing::rules::RuleToggles::default()
+		}
+	}
+
+	/// Record how a source captures, persisting the change.
+	pub async fn set_source_unfiltered(&self, id: Uuid, unfiltered: bool) {
+		let updated = self.registry.lock().set_unfiltered(id, unfiltered);
+		if let Some(updated) = updated {
+			if let Err(err) = self.persist(&updated).await {
+				tracing::error!(source = %id, %err, "could not persist capture policy");
+			}
+		}
 	}
 
 	/// A registered source's current absolute root, by id.

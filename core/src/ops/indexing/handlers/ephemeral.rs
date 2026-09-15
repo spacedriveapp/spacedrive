@@ -182,7 +182,10 @@ impl EphemeralEventHandler {
 			return Ok(());
 		}
 
-		// Pass FsEvent directly to responder
+		// The source's own capture policy, not the handler's default: an
+		// archival source keeps everything its walk keeps, live changes
+		// included.
+		let rule_toggles = context.ephemeral_cache().rule_toggles_for(root_path);
 		responder::apply(context, root_path, event.clone(), rule_toggles).await
 	}
 }
