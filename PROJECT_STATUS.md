@@ -1,7 +1,7 @@
 # Project Status
 
 > Last updated: 2026-09-15
-> Code baseline: `7c2d27bed`
+> Code baseline: `2c7e058ce`
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
 
@@ -31,9 +31,10 @@ owned by James.
 Development focus moves to the product sequence below, starting with running
 Spacedrive on the Mac and operating titan's sources from it.
 
-In parallel, the worktree contains early drive-catalog and hardware-
-representation work. Preserve it. Physical-drive identity remains separate
-from product recognition and visuals.
+The drive-catalog and physical-drives plans are committed (`07fc633c2`), but
+the early `packages/drives` implementation described by previous handoffs is
+no longer in the checkout. See the register row before restarting that work.
+Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
@@ -47,16 +48,15 @@ Recent landed.
 | Preserve NAS and pool evidence                    | pending                                | James           | Save the TrueNAS config, encryption result, pool topology, GUID, and SMART output described by the runbook.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Track the Expansion drive                         | pending                                | James           | Run one `sources track` pass over the Expansion drive before its contents merge into `jamie-nas`, then freeze it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Back up and export                                | pending                                | James           | Copy and verify `~/spacedrive/data` off titan (it now contains the freezes), then cleanly export the pool before the drives move.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| Drive catalog H0                                  | in progress, uncommitted worktree      | unconfirmed     | Finish the package and archetype contract without crossing the physical-identity firewall.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| Sidebar simplification                            | first slice built, uncommitted         | current session | The active sidebar now has one library scope, flat daily destinations, Places, canonical rows, and an Activity/Settings footer. Places includes computed folders from the current device without persisting them as locations and renders them with Spacedrive's Folder and Home assets. Explorer view preferences are route-scoped again, so Photos and visual collections can default to Media without leaking that mode into folders or persisted tabs. The library menu now renders above sidebar rows while remaining below dialogs. The desktop production build passes. Next: inspect the live library, then refine Home and Storage ownership from real use. |
-| Explorer path status                              | built, uncommitted; live proof pending | current session | `paths.context` now resolves APFS aliases and reports source, volume map, watcher, memory, restart-cache, source-store, availability, system Place, and nearest pin state. The PathBar visualizes containment instead of a false processing pipeline: the current folder sits inside its source, watching and persistence appear as outcome labels, and the physical volume sits outside that boundary. Runtime map terminology is hidden in collapsed technical details. Pins now rebuild from the registry's mounted source root, so they follow remounts. Focused Rust tests, the desktop production build, and the Fumadocs type and production builds pass. Restart the daemon and inspect Home, `/Applications`, a pinned folder, and a denied path. |
-| Virtualized thumbnail remounts                    | fixed, uncommitted; live proof pending | current session | Hot-tier bake completion epochs now survive cell unmounts, and each thumbnail hides its fallback only after its current DOM image loads. Media rows now keep stable React identity as the virtual window advances, width is measured before paint, content is no longer deliberately invalidated for every render, and live row-count changes no longer snap the camera roll to the bottom. The desktop production build passes. Scroll and trigger selection or inspector rerenders in a large media view to confirm the grid remains stable.                                                                                                  |
-| Quick Preview originals                           | fixed, uncommitted; live proof pending | current session | The Tauri asset boundary now maps canonical macOS APFS data-volume paths back to the scoped `/Users` and `/Volumes` aliases. Image, video, audio, text, mesh, and local thumbnail-original renderers share the fix. Open a home-directory image and an external-volume file to confirm originals load without a 403.                                                                                                                                                                                                                                                                                                                                                 |
-| Permission-aware automatic startup                | in progress, uncommitted               | current session | Library loading no longer dispatches a new filesystem discovery pass. The desktop requests one idempotent pass after the connected shell renders; a bare daemon does not initiate discovery, and `sd index start --defaults` gives CLI and server operators the same explicit path. Restored volume snapshots now prevent repeat full walks. Next: model denied coverage and add the macOS permission explanation and Full Disk Access affordance.                                                                                                                                                                                                                   |
-| Host media tools                                  | built, uncommitted; live proof pending | current session | The machine-scoped registry discovers host FFmpeg outside GUI PATHs, reports its version and media capabilities, and exposes explicit Homebrew/WinGet installation. Services settings now shows the resolved version, path, capability coverage, missing FFprobe state, refresh, and a confirmed package-manager install action. Default builds use QuickLook or host FFmpeg for hot video thumbnails and generate immutable 5 by 5 thumbstrips on hover. Core, linked-feature, server, Tauri shell, generated-client, and desktop production builds pass; real FFmpeg output is 384×216 and 800×450 in the focused fixtures. Restart the daemon, inspect Services settings, then open a video with no old sidecars and confirm its poster and hover scrub sheet. |
-| Product documentation and Fumadocs conversion     | complete, uncommitted worktree         | James           | The README now states the finished product contract. The docs type check and production build pass. Review and commit the migration, product doctrine, README, and offline build fix without absorbing unrelated drive or generated-schema work.                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| Drive catalog H0                                  | plans committed, code missing          | unconfirmed     | The drive-catalog and physical-drives plans landed in `07fc633c2`, but the uncommitted `packages/drives` package earlier handoffs said to preserve is no longer in the checkout. Confirm whether that code survives elsewhere before restarting the package and archetype contract from the plan. The physical-identity firewall still applies.                                                                                                                                                                                                                                                                                                                       |
+| Final entries drop                                | handoff ready, not started             | unowned         | Execute `docs/plans/2026-09-15-entries-final-drop.md`. Start with FD0 and FD1. FD2 must move and verify legacy tag assertions before any schema or row-sync deletion. Preserve source stores, location pins, paired-source replication, remote byte reads, remote operations, jobs, and logs.                                                                                                                                                                                                                                                                                                                     |
+| Sidebar simplification                            | first slice committed (`321818b55`)    | unowned         | The sidebar has one library scope, flat daily destinations, Places computed from system folders without persisting them as locations, canonical rows, and an Activity/Settings footer. Topology groups retired; their pins survive seed convergence, and replica sources render under their owning device. Next: inspect the live library, then refine Home and Storage ownership from real use.                                                                                                                                                                                                                                                                    |
+| Explorer path status                              | committed (`dd5a0f1aa`); live proof pending | unowned    | `paths.context` now resolves APFS aliases and reports source, volume map, watcher, memory, restart-cache, source-store, availability, system Place, and nearest pin state. The PathBar visualizes containment instead of a false processing pipeline: the current folder sits inside its source, watching and persistence appear as outcome labels, and the physical volume sits outside that boundary. Runtime map terminology is hidden in collapsed technical details. Pins now rebuild from the registry's mounted source root, so they follow remounts. Focused Rust tests, the desktop production build, and the Fumadocs type and production builds pass. Restart the daemon and inspect Home, `/Applications`, a pinned folder, and a denied path. |
+| Virtualized thumbnail remounts                    | committed (`d806ba7f1`); live proof pending | unowned    | Hot-tier bake completion epochs now survive cell unmounts, and each thumbnail hides its fallback only after its current DOM image loads. Media rows now keep stable React identity as the virtual window advances, width is measured before paint, content is no longer deliberately invalidated for every render, and live row-count changes no longer snap the camera roll to the bottom. The desktop production build passes. Scroll and trigger selection or inspector rerenders in a large media view to confirm the grid remains stable.                                                                                                  |
+| Quick Preview originals                           | committed (`d806ba7f1`); live proof pending | unowned    | The Tauri asset boundary now maps canonical macOS APFS data-volume paths back to the scoped `/Users` and `/Volumes` aliases. Image, video, audio, text, mesh, and local thumbnail-original renderers share the fix. Open a home-directory image and an external-volume file to confirm originals load without a 403.                                                                                                                                                                                                                                                                                                                                                 |
+| Permission-aware automatic startup                | first slice committed (`4b84e2c05`)    | unowned         | Library loading no longer dispatches a new filesystem discovery pass. The desktop requests one idempotent pass after the connected shell renders; a bare daemon does not initiate discovery, and `sd index start --defaults` gives CLI and server operators the same explicit path. Restored volume snapshots now prevent repeat full walks. Next: model denied coverage and add the macOS permission explanation and Full Disk Access affordance.                                                                                                                                                                                                                   |
+| Host media tools                                  | committed (`bbc53866e`); live proof pending | unowned    | The machine-scoped registry discovers host FFmpeg outside GUI PATHs, reports its version and media capabilities, and exposes explicit Homebrew/WinGet installation. Services settings now shows the resolved version, path, capability coverage, missing FFprobe state, refresh, and a confirmed package-manager install action. Default builds use QuickLook or host FFmpeg for hot video thumbnails and generate immutable 5 by 5 thumbstrips on hover. Core, linked-feature, server, Tauri shell, generated-client, and desktop production builds pass; real FFmpeg output is 384×216 and 800×450 in the focused fixtures. Restart the daemon, inspect Services settings, then open a video with no old sidecars and confirm its poster and hover scrub sheet. |
 | Retire Spacebot, Console, and storefront surfaces | blocked on exact private backup        | unowned         | The company tree contains product and research documents, but no exact copy of the current Spacebot UI, configuration, and design files was found. Back those up, then remove product-specific routes, configuration, UI, build aliases, generated types, and docs. Preserve generic filesystem operations, permissions, remote access, jobs, and logs.                                                                                                                                                                                                                                                                                                              |
-| Reconcile published documentation                 | complete, uncommitted worktree         | current session | The overview, core architecture, storage, networking, sync, CLI, and extension pages now present the October release and source-store model. Fumadocs type-checks, all root-relative doc links resolve, and the production build generates 185 routes. Review and commit with the rest of the docs migration.                                                                                                                                                                                                                                                                                                                                                        |
 
 ## Product sequence after the NAS lock
 
@@ -110,8 +110,10 @@ replace the dated observations when its state changes.
   layer. No code path may assume the store can be discarded and rebuilt.
 - Content IDs are convergent. Sampled IDs are candidates. Destructive duplicate
   decisions require confirmed integrity hashes.
-- The persistent `entry` indexing and read paths have been removed. Do not
-  restore or deepen them.
+- The primary persistent `entry` indexing and file read paths have been
+  removed. The legacy schema, row-sync model, assertion migration, tests, and
+  compatibility names remain. Their final drop is registered in
+  `docs/plans/2026-09-15-entries-final-drop.md`. Do not restore or deepen them.
 - A location is a pin over a source-relative path. It does not own records,
   trigger indexing, or enable a watcher. A future policy may target its stable
   ID, but the existence of the pin must not imply that policy.
@@ -186,8 +188,38 @@ These are regression boundaries, not incidental fixes:
 
 ## Recent landed
 
+### Interface and desktop
+
+- `321818b55`, `dd5a0f1aa`, `d806ba7f1`, `bbc53866e`, `4b84e2c05`: the sidebar
+  simplification, `paths.context` and the locations demotion, the thumbnail
+  remount and Quick Preview fixes, host media tool discovery with on-demand
+  thumbstrips, and explicit permission-aware startup discovery. Register rows
+  above track their remaining live proofs and next steps.
+- `38ff5c059`, `912f01274`: fixed hot-thumb 404s, silenced browse indexer
+  jobs, and kept background hashing passes off the event bus.
+
+### Documentation
+
+- `07fc633c2`: moved docs to Fumadocs and rewrote the core pages around the
+  daemon/source-store/library split, added `product-direction.mdx` and the
+  drive-catalog plan, and retired the whitepaper page.
+- `2c7e058ce`: README and CONTRIBUTING updates, locations and data-model pages
+  reconciled, regenerated Tauri schemas, and the new icon asset.
+
 ### Multi-device
 
+- `1044e0977`, `38a78bafc`, `171a80ecf`: cross-device search over paired
+  devices, peer replicas surfaced in `sources.list` with remote listings
+  served, and remote job completions delivered.
+- `29703a5db`, `dedaba5c9`: stopped device presence flapping (a connection
+  loss only marks a device disconnected when no connections remain),
+  classified Tailscale CGNAT paths with their own badge, and made overview
+  and sidebar request paired devices explicitly so a fresh page sees them.
+  Verified live from titan: 20 consecutive samples online.
+- `f2dbbac0d`: fleet-wide statistics are computed once by the owning device
+  and reported identically everywhere; fixed the PATH-dependent ZFS capacity
+  correction, stale persisted volume capacity, and double-counted source
+  totals.
 - `1d4afd204`: fixed peer snapshot serving to read from the volume index
   directory, restoring source replication between paired devices. Titan runs
   this build; the launch command must pass `--data-dir ~/spacedrive/data` or
@@ -252,15 +284,14 @@ These are regression boundaries, not incidental fixes:
 
 ## Worktree handoff
 
-At this update, the checkout already contained user-owned uncommitted work in:
+At this update, the only uncommitted work in the checkout is documentation:
 
-- `docs/plans/2026-09-13-drive-catalog.md`
-- `docs/plans/2026-09-13-physical-drives.md`
-- `packages/drives/`
-- `CLAUDE.md`
-- `justfile`
-- generated Tauri capability schemas
-- the completed Fumadocs conversion under `docs/`
+- this file
+- `docs/plans/2026-09-15-entries-final-drop.md` (new, referenced by the Final
+  entries drop register row; commit it with this update)
+- plan updates in `docs/plans/2026-08-20-entries-teardown-execution.md`,
+  `docs/plans/2026-08-22-source-convergence.md`, and
+  `docs/plans/2026-09-08-locations-demoted.md`
 
 Run `git status --short` at the start of every session. Preserve unrelated
 changes and do not infer ownership from this list, which will age quickly.

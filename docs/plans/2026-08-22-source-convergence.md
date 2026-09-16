@@ -777,7 +777,9 @@ tree has.
 
 ### P4 — Delete entries
 
-The remaining `T6.x`, now with one target instead of two.
+The remaining `T6.x`, now with one target instead of two. The primary cutover
+described below landed. `2026-09-15-entries-final-drop.md` owns the remaining
+schema, assertion, row-sync, test, and naming work against the current tree.
 
 **Collapse `MemoryAdapter`'s two halves, and give the arena a change stream.**
 `IndexPersistence` has no production caller: the ephemeral walk batches straight

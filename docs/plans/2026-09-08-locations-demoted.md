@@ -6,6 +6,11 @@
 > roots and watch them after a successful walk. A location is navigation intent
 > and a stable target for future explicit policy, not an implicit retention or
 > watcher switch.
+>
+> **Current handoff:** L0 landed, L1 and L2 are cancelled, and the old L3/L4
+> cutover mostly landed. `2026-09-15-entries-final-drop.md` owns the remaining
+> schema, assertion, row-sync, test, and naming work. L5's source-scoped media
+> work follows the product sequence rather than blocking the entry drop.
 
 Amends `P4` of `2026-08-22-source-convergence.md`. That phase is titled "Delete
 entries" and its unwritten second half assumed locations went with them. They

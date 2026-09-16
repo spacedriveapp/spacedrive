@@ -15,11 +15,18 @@
 > T2.1/T2.2/T2.5 — how a filesystem source gets a `source.db` and what flows
 > through it. The mounts lineage is separate: `docs/core/design/mounts.md` and
 > `2026-08-20-byte-plane-and-block-cache.md`.
+>
+> **Current handoff.** `2026-09-15-entries-final-drop.md` owns the remaining
+> execution. This document keeps the original audit and task history. Do not
+> execute P6's path-based deletion list against the current tree: source and
+> peer replication landed after it was written, and locations now survive as
+> pins.
 
 ## Status
 
-Update this table in the same commit as the work. It is the only record — the
-`.tasks/` tree is stale (May, describing the entries world this document
+This table records the original sequence. Update it when old task status
+changes, and update `2026-09-15-entries-final-drop.md` for the remaining work.
+The `.tasks/` tree is stale (May, describing the entries world this document
 deletes) and is not being revived.
 
 More than one session works this tree at a time. Put your session's name in
@@ -32,15 +39,15 @@ rather than inferring it from a diff.
 | T1.1 Identity-correct removal | done | — | recursive `detach`, arena `vacate`, `NameRegistry::remove` |
 | T1.2 Duplicate adds update in place | done | — | the one that unblocked both caches |
 | T1.3 Snapshot writes on any change | done | — | dirty flag replaces the entry-count gate |
-| T1.4 Fingerprint-verified identity | **partial** | — | `register` no longer rebinds; attachment still `root.exists()`, finished by T2.0b |
+| T1.4 Fingerprint-verified identity | done | — | absorbed by the volume-keyed index and the source registry's nullable `volume_uuid` |
 | T1.5 Registry writes are fallible | done | — | plus explicit `SourceRegistry::in_memory` |
 | T1.6 Snapshot id guard | done | — | |
 | T1.A Acceptance | done | — | 5 new tests; 343 unit tests green |
 | T2.0 Store shape | **decided** | — | one file per source, evidence-tuple rebind. WAL settles it |
 | — index to keep | **decided** | — | a source store is never rebuilt; it is user data, not a cache |
-| T2.0b Volume/source boundary | **open — blocks T6.1** | — | recommendation written, not ruled on |
+| T2.0b Volume/source boundary | done | — | convergence P2.7/P3: a volume owns the index; a source is a retained scope with nullable `volume_uuid` |
 | — source store design | **decided** | — | `2026-08-21-filesystem-source-store.md`: shared store, forked ingest, ledger folds into the record table |
-| T2.1–T2.6 | not started | — | T2.5 gates T4.9 |
+| T2.1–T2.6 | core cutover landed; remainder split | — | `crates/store`, filesystem ingest, durable identity, record shape, and addressing are live; tag assertions moved to FD2 and source-scoped sidecars follow the product sequence |
 | T2.7 Content identity | done | — | absorbed by convergence P1.7: `content.uuid`, `sampled_hash` UNIQUE, upsert |
 | T3.1a Format v2 | done | — | `pvcache/layout.rs:12` `FORMAT_VERSION = 2`, four header fields on the frame |
 | T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
@@ -48,10 +55,10 @@ rather than inferring it from a diff.
 | T3.1d Producer in the daemon | landed | — | `core/src/service/thumbs/service.rs` — `BakePool` + `dirs.thumbs_file(source_id)`; not exercised end to end here |
 | T3.1e `/hot-thumb` route | done | — | `apps/tauri/src-tauri/src/server.rs` serves versioned pvcache tiles with immutable caching |
 | T3.1f `Thumb.tsx` prefers hot tier | **implemented, uncommitted; live recheck pending** | current session | hot-tier completion epochs survive virtualized cell unmounts; current-source load and error state cannot hide the fallback permanently |
-| T4.1–T4.9 | not started | — | |
-| T4.10 Global search router | not started | — | gates the drop; decided it must exist first |
-| T5.1–T5.3 | not started | — | |
-| T6.1–T6.7 | not started | — | T6.1 blocked on T2.0b |
+| T4.1–T4.9 | primary cutover landed | — | writes, file reads, locations, tags, and the unreachable media pipeline moved or were removed; runtime residue and final tag assertions are FD1/FD2 |
+| T4.10 Global search router | done | — | `1044e0977` searches every local and paired source |
+| T5.1–T5.3 | superseded | — | content hashing writes source stores; the old media pipeline was deleted; current source-scoped media work follows the product sequence |
+| T6.1–T6.7 | ready, not started | — | execute `2026-09-15-entries-final-drop.md`; FD2 is the durable-data gate |
 | P7 Catalog | blocked | — | unblocked by P6 |
 
 **Not in this register, tracked elsewhere:** the byte plane, block cache and
@@ -780,6 +787,12 @@ before anything is dropped.
   regeneration is the migration. Both shell sidecar servers die.
 
 ## P6 — The drop
+
+> **Historical inventory.** Use `2026-09-15-entries-final-drop.md` to execute
+> this phase. In particular, do not delete `infra/sync` or `service/sync` by
+> directory and do not delete locations. Preserve current source/peer
+> capabilities and the source-relative pin model while removing the legacy
+> entry-row protocol.
 
 One commit series. Sized from the actual tree.
 
