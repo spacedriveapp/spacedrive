@@ -11,7 +11,10 @@ use crate::context::CoreContext;
 use crate::ops::indexing::ephemeral::index::EphemeralIndex;
 use crate::service::network::core::BYTERANGE_ALPN;
 use crate::service::network::protocol::{
-	byterange::{read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, MAX_READ_LEN},
+	byterange::{
+		read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, MAX_READ_LEN,
+		MAX_SNAPSHOT_LEN,
+	},
 	RemoteSourceInfo,
 };
 use bytes::Bytes;
@@ -209,6 +212,49 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 	(loaded, known)
 }
 
+/// Forget a revoked device's replicas: unload its shares, drop its manifest
+/// from the known set, and move its artifacts out of the restore path.
+///
+/// Revocation removes the permission to serve and refresh this metadata, not
+/// the evidence that it existed: the bytes move to `mounts-revoked` rather
+/// than being deleted, and re-pairing rebuilds replicas through an ordinary
+/// sync. Returns how many loaded shares were dropped.
+pub async fn drop_device_replicas(context: &Arc<CoreContext>, device_id: Uuid) -> usize {
+	let dropped = {
+		let mut shares = shares_map().write().await;
+		let ids: Vec<Uuid> = shares
+			.iter()
+			.filter(|(_, share)| share.device_id == device_id)
+			.map(|(id, _)| *id)
+			.collect();
+		for id in &ids {
+			shares.remove(id);
+		}
+		ids.len()
+	};
+	known_map().write().await.remove(&device_id);
+	// Fleet totals must stop counting a device the library no longer trusts.
+	summaries_map().write().await.remove(&device_id);
+
+	let replica_dir = context
+		.data_dir
+		.join("mounts-remote")
+		.join(device_id.simple().to_string());
+	if tokio::fs::metadata(&replica_dir).await.is_ok() {
+		let holding = context.data_dir.join("mounts-revoked");
+		let _ = tokio::fs::create_dir_all(&holding).await;
+		let target = holding.join(format!("{}-{}", device_id.simple(), now_secs()));
+		if let Err(err) = tokio::fs::rename(&replica_dir, &target).await {
+			tracing::warn!(
+				device = %device_id,
+				%err,
+				"revoked replica artifacts could not be moved aside; they will restore next start"
+			);
+		}
+	}
+	dropped
+}
+
 /// Each paired device's own library statistics, refreshed with every sync.
 /// This is what lets every device report the same fleet-wide totals: each
 /// machine computes its own numbers and the others add them verbatim.
@@ -382,6 +428,215 @@ fn sync_lock(device_id: Uuid) -> Arc<tokio::sync::Mutex<()>> {
 		.clone()
 }
 
+fn now_secs() -> u64 {
+	SystemTime::now()
+		.duration_since(UNIX_EPOCH)
+		.map(|d| d.as_secs())
+		.unwrap_or(0)
+}
+
+/// Consecutive failed fetches per source. An artifact the owner cannot
+/// currently produce would otherwise be re-requested and re-warned on every
+/// refresh pass; the wait doubles per failure up to half an hour, and one
+/// success clears it. Listing and metadata refresh are not delayed by this,
+/// only the transfer itself.
+static FETCH_BACKOFF: OnceLock<std::sync::Mutex<HashMap<Uuid, (u32, std::time::Instant)>>> =
+	OnceLock::new();
+
+fn backoff_map() -> &'static std::sync::Mutex<HashMap<Uuid, (u32, std::time::Instant)>> {
+	FETCH_BACKOFF.get_or_init(|| std::sync::Mutex::new(HashMap::new()))
+}
+
+fn fetch_due(source_id: Uuid) -> bool {
+	match backoff_map().lock().unwrap().get(&source_id) {
+		Some((failures, last)) => {
+			let wait = SYNC_DEBOUNCE
+				.saturating_mul(1u32 << (*failures).min(6))
+				.min(std::time::Duration::from_secs(1800));
+			last.elapsed() >= wait
+		}
+		None => true,
+	}
+}
+
+fn note_fetch_outcome(source_id: Uuid, ok: bool) {
+	let mut map = backoff_map().lock().unwrap();
+	if ok {
+		map.remove(&source_id);
+	} else {
+		let entry = map
+			.entry(source_id)
+			.or_insert((0, std::time::Instant::now()));
+		entry.0 = entry.0.saturating_add(1);
+		entry.1 = std::time::Instant::now();
+	}
+}
+
+/// An unchanged artifact still rides with fresh facts: the owner's listing
+/// carries attachment, counts and its display name on every pass, and
+/// freezing them alongside the generation would leave a detached drive
+/// reading as attached until its next content change.
+fn refresh_share_facts(
+	existing: &Arc<RemoteShare>,
+	info: &RemoteSourceInfo,
+	device_label: &str,
+) -> Option<Arc<RemoteShare>> {
+	if existing.info == *info && existing.device_label == device_label {
+		return None;
+	}
+	Some(Arc::new(RemoteShare {
+		device_id: existing.device_id,
+		device_label: device_label.to_string(),
+		info: info.clone(),
+		index: existing.index.clone(),
+		synced_at_secs: existing.synced_at_secs,
+		generation: existing.generation,
+	}))
+}
+
+/// Stream a declared number of bytes into a temporary artifact, hashing as
+/// they land. A short stream or a checksum mismatch fails the transfer with
+/// the temporary file still in place for the caller to remove; nothing here
+/// touches the published artifact.
+async fn receive_artifact<R: tokio::io::AsyncRead + Unpin + ?Sized>(
+	body: &mut R,
+	tmp_path: &std::path::Path,
+	len: u64,
+	expected_checksum: [u8; 32],
+) -> anyhow::Result<()> {
+	use tokio::io::AsyncWriteExt;
+	let mut file = tokio::fs::File::create(tmp_path).await?;
+	let mut hasher = blake3::Hasher::new();
+	let mut remaining = len;
+	let mut buf = vec![0u8; 256 * 1024];
+	while remaining > 0 {
+		let want = remaining.min(buf.len() as u64) as usize;
+		let n = body.read(&mut buf[..want]).await?;
+		if n == 0 {
+			anyhow::bail!("stream ended {remaining} bytes short of the {len} the header declared");
+		}
+		hasher.update(&buf[..n]);
+		file.write_all(&buf[..n]).await?;
+		remaining -= n as u64;
+	}
+	file.sync_all().await?;
+
+	// A zeroed checksum is an owner that predates the field; the parse
+	// validation behind this still stands between the bytes and publication.
+	if expected_checksum != [0u8; 32] {
+		let received = *hasher.finalize().as_bytes();
+		if received != expected_checksum {
+			anyhow::bail!("delivered bytes do not match the checksum the header declared");
+		}
+	}
+	Ok(())
+}
+
+/// Validate a delivered artifact and publish it as the live share.
+///
+/// The parse is the gate: the temporary file must load as a snapshot before
+/// it may replace an artifact that already does, so a corrupt delivery costs
+/// only its transfer. `generation` names the bytes the owner actually
+/// served, from the response header; the listing that prompted the fetch is
+/// routinely older, because the owner saves live state before serving.
+async fn validate_and_publish(
+	replica_dir: &std::path::Path,
+	device_id: Uuid,
+	device_label: &str,
+	info: &RemoteSourceInfo,
+	generation: u64,
+	tmp_path: &std::path::Path,
+) -> anyhow::Result<()> {
+	let loaded = {
+		let path = tmp_path.to_path_buf();
+		tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await?
+	};
+	let index = match loaded {
+		Ok(Some((index, _meta))) => index,
+		Ok(None) | Err(_) => {
+			let _ = tokio::fs::remove_file(tmp_path).await;
+			anyhow::bail!(
+				"delivered artifact does not parse as a snapshot; keeping the previous one"
+			);
+		}
+	};
+
+	let snapshot_path = replica_dir.join(format!("{}.snapshot", info.id.simple()));
+	tokio::fs::rename(tmp_path, &snapshot_path).await?;
+
+	let share = Arc::new(RemoteShare {
+		device_id,
+		device_label: device_label.to_string(),
+		generation,
+		info: info.clone(),
+		index: Arc::new(TokioRwLock::new(index)),
+		synced_at_secs: now_secs(),
+	});
+	shares_map().write().await.insert(info.id, share);
+	Ok(())
+}
+
+/// Fetch one source's snapshot into the device's replica directory and
+/// publish it. Every failure path removes its temporary file and leaves the
+/// previously published artifact and share untouched.
+async fn fetch_and_publish(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	device_label: &str,
+	replica_dir: &std::path::Path,
+	info: &RemoteSourceInfo,
+) -> anyhow::Result<()> {
+	let started = std::time::Instant::now();
+	let (response, mut body) = request(
+		context,
+		device_id,
+		&ByteRangeRequest::FetchSnapshot { source_id: info.id },
+	)
+	.await?;
+	let (len, delivered, checksum) = match response {
+		ByteRangeResponse::SnapshotHeader {
+			len,
+			generation,
+			checksum,
+		} => (len, generation, checksum),
+		other => anyhow::bail!("unexpected response: {other:?}"),
+	};
+	if len > MAX_SNAPSHOT_LEN {
+		anyhow::bail!("declared artifact of {len} bytes exceeds the transfer bound");
+	}
+
+	let tmp_path = replica_dir.join(format!("{}.tmp", Uuid::now_v7().simple()));
+	if let Err(err) = receive_artifact(&mut body, &tmp_path, len, checksum).await {
+		let _ = tokio::fs::remove_file(&tmp_path).await;
+		return Err(err);
+	}
+
+	// An owner that predates header identity sends zero; the listing's
+	// generation is then the only name these bytes have.
+	let generation = if delivered != 0 {
+		delivered
+	} else {
+		info.generation
+	};
+	validate_and_publish(
+		replica_dir,
+		device_id,
+		device_label,
+		info,
+		generation,
+		&tmp_path,
+	)
+	.await?;
+	tracing::info!(
+		source = %info.id,
+		generation,
+		bytes = len,
+		elapsed_ms = started.elapsed().as_millis() as u64,
+		"replica artifact received and published"
+	);
+	Ok(())
+}
+
 /// Pull a connected device's source list and replicate every snapshot it can
 /// provide. Returns how many sources are now served for that device.
 pub async fn sync_device(
@@ -429,75 +684,32 @@ pub async fn sync_device(
 			let unchanged =
 				!info.dirty && info.generation != 0 && existing.generation == info.generation;
 			if unchanged {
+				if let Some(refreshed) = refresh_share_facts(&existing, info, &device_label) {
+					shares_map().write().await.insert(info.id, refreshed);
+				}
+				tracing::debug!(source = %info.id, generation = info.generation, "replica unchanged; no transfer");
 				synced += 1;
 				continue;
 			}
 		}
-
-		let (response, mut body) = match request(
-			context,
-			device_id,
-			&ByteRangeRequest::FetchSnapshot { source_id: info.id },
-		)
-		.await
-		{
-			Ok(r) => r,
-			Err(err) => {
-				tracing::warn!("snapshot fetch for {} failed: {err}", info.id);
-				continue;
-			}
-		};
-		let len = match response {
-			ByteRangeResponse::SnapshotHeader { len } => len,
-			other => {
-				tracing::warn!("snapshot fetch for {}: unexpected {other:?}", info.id);
-				continue;
-			}
-		};
-
-		let snapshot_path = replica_dir.join(format!("{}.snapshot", info.id.simple()));
-		let tmp_path = replica_dir.join(format!("{}.tmp", Uuid::now_v7().simple()));
-		{
-			let mut file = tokio::fs::File::create(&tmp_path).await?;
-			let mut remaining = len;
-			let mut buf = vec![0u8; 256 * 1024];
-			use tokio::io::AsyncWriteExt;
-			while remaining > 0 {
-				let want = remaining.min(buf.len() as u64) as usize;
-				let n = body.read(&mut buf[..want]).await?;
-				if n == 0 {
-					anyhow::bail!("snapshot stream ended early");
-				}
-				file.write_all(&buf[..n]).await?;
-				remaining -= n as u64;
-			}
-			file.sync_all().await?;
-		}
-		tokio::fs::rename(&tmp_path, &snapshot_path).await?;
-
-		// Loading is blocking (mmap arena rebuild); keep it off the runtime.
-		let loaded = {
-			let path = snapshot_path.clone();
-			tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await??
-		};
-		let Some((index, _meta)) = loaded else {
-			tracing::warn!("snapshot for {} was unreadable after fetch", info.id);
+		if !fetch_due(info.id) {
 			continue;
-		};
+		}
 
-		let share = Arc::new(RemoteShare {
-			device_id,
-			device_label: device_label.clone(),
-			generation: info.generation,
-			info: info.clone(),
-			index: Arc::new(TokioRwLock::new(index)),
-			synced_at_secs: std::time::SystemTime::now()
-				.duration_since(std::time::UNIX_EPOCH)
-				.map(|d| d.as_secs())
-				.unwrap_or(0),
-		});
-		shares_map().write().await.insert(info.id, share);
-		synced += 1;
+		match fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await {
+			Ok(()) => {
+				note_fetch_outcome(info.id, true);
+				synced += 1;
+			}
+			Err(err) => {
+				note_fetch_outcome(info.id, false);
+				tracing::warn!(
+					source = %info.id,
+					%err,
+					"snapshot fetch failed; the previous replica, if any, stays published"
+				);
+			}
+		}
 	}
 
 	// Persist the inventory beside its artifacts. A source whose fetch
@@ -645,6 +857,135 @@ mod tests {
 				*device == device_id && label == "away-drive" && entry.info.id == missing
 			}),
 			"the missing artifact's source stays known and unavailable"
+		);
+	}
+
+	fn snapshot_bytes_for(source_id: Uuid, root: &str, at: &std::path::Path) {
+		let mut index = EphemeralIndex::new().expect("index");
+		let file = PathBuf::from(root).join("file.txt");
+		index
+			.add_entry(
+				file.clone(),
+				Uuid::now_v7(),
+				EntryMetadata {
+					path: file,
+					kind: EntryKind::File,
+					size: 4,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				},
+			)
+			.expect("entry");
+		index
+			.save_snapshot(at, source_id, &PathBuf::from(root))
+			.expect("artifact");
+	}
+
+	/// The owner saves live state before serving, so the delivered artifact
+	/// is routinely newer than the listing that prompted the fetch. What gets
+	/// recorded is the header's generation for the bytes received, never the
+	/// listing's.
+	#[tokio::test]
+	async fn the_generation_recorded_names_the_delivered_bytes() {
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let tmp = base.path().join("incoming.tmp");
+		snapshot_bytes_for(source_id, "/mnt/pool/kept", &tmp);
+
+		let listing = info(source_id, "/mnt/pool/kept", 2);
+		assert_eq!(
+			listing.generation, 7,
+			"the listing advertises an older generation"
+		);
+		validate_and_publish(base.path(), Uuid::now_v7(), "owner", &listing, 42, &tmp)
+			.await
+			.expect("publish");
+
+		let share = remote_share(source_id).await.expect("share");
+		assert_eq!(
+			share.generation, 42,
+			"the delivered generation is recorded, not the listing's"
+		);
+		assert!(base
+			.path()
+			.join(format!("{}.snapshot", source_id.simple()))
+			.exists());
+	}
+
+	/// A delivery that does not parse as a snapshot is discarded with its
+	/// temporary file; the previously published artifact and share survive.
+	#[tokio::test]
+	async fn a_corrupt_delivery_never_replaces_a_good_artifact() {
+		let base = tempfile::tempdir().expect("dir");
+		let source_id = Uuid::now_v7();
+		let device_id = Uuid::now_v7();
+
+		let good_tmp = base.path().join("good.tmp");
+		snapshot_bytes_for(source_id, "/mnt/pool/kept", &good_tmp);
+		let listing = info(source_id, "/mnt/pool/kept", 2);
+		validate_and_publish(base.path(), device_id, "owner", &listing, 7, &good_tmp)
+			.await
+			.expect("publish the good artifact");
+
+		let bad_tmp = base.path().join("bad.tmp");
+		std::fs::write(&bad_tmp, b"not a snapshot").expect("junk");
+		let refused =
+			validate_and_publish(base.path(), device_id, "owner", &listing, 9, &bad_tmp).await;
+		assert!(refused.is_err(), "junk must not publish");
+		assert!(!bad_tmp.exists(), "the failed temporary is cleaned up");
+
+		let share = remote_share(source_id).await.expect("share survives");
+		assert_eq!(share.generation, 7, "the good generation stays published");
+		let artifact = base.path().join(format!("{}.snapshot", source_id.simple()));
+		let reloaded = EphemeralIndex::load_snapshot(&artifact).expect("readable");
+		assert!(reloaded.is_some(), "the good artifact is untouched");
+	}
+
+	/// An unchanged generation skips the transfer without freezing the
+	/// owner's facts: attachment, counts and the display name still refresh,
+	/// while the arena, generation and sync time stay what the artifact is.
+	#[tokio::test]
+	async fn an_unchanged_generation_still_refreshes_the_owner_facts() {
+		let source_id = Uuid::now_v7();
+		let existing = Arc::new(RemoteShare {
+			device_id: Uuid::now_v7(),
+			device_label: "old-name".to_string(),
+			info: info(source_id, "/mnt/pool/kept", 2),
+			index: Arc::new(TokioRwLock::new(EphemeralIndex::new().expect("index"))),
+			synced_at_secs: 5,
+			generation: 7,
+		});
+
+		let mut fresh = info(source_id, "/mnt/pool/kept", 3);
+		fresh.attached = false;
+
+		let refreshed = refresh_share_facts(&existing, &fresh, "new-name").expect("facts changed");
+		assert!(!refreshed.info.attached, "attachment observation refreshed");
+		assert_eq!(refreshed.info.entry_count, Some(3));
+		assert_eq!(refreshed.device_label, "new-name");
+		assert_eq!(
+			refreshed.generation, 7,
+			"the artifact's generation is untouched"
+		);
+		assert_eq!(
+			refreshed.synced_at_secs, 5,
+			"sync time still names the artifact"
+		);
+		assert!(
+			Arc::ptr_eq(&refreshed.index, &existing.index),
+			"the loaded arena is shared, not rebuilt"
+		);
+
+		assert!(
+			refresh_share_facts(&refreshed, &fresh, "new-name").is_none(),
+			"identical facts rebuild nothing"
 		);
 	}
 }

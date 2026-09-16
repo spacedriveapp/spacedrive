@@ -130,6 +130,18 @@ impl CoreAction for DeviceRevokeAction {
 			);
 		}
 
+		// A revoked device's replicas stop being served and refreshed; their
+		// artifacts move aside rather than being deleted.
+		let dropped =
+			crate::service::mounts::peer::drop_device_replicas(&context, self.device_id).await;
+		if dropped > 0 {
+			tracing::info!(
+				"Unloaded {} replica(s) belonging to revoked device {}",
+				dropped,
+				self.device_id
+			);
+		}
+
 		// Remove from DeviceManager cache
 		tracing::info!(
 			"Removing device {} from DeviceManager cache",

@@ -24,6 +24,10 @@ use uuid::Uuid;
 /// Longest read a single request may ask for; larger wants are pipelined by
 /// the client as consecutive requests.
 pub const MAX_READ_LEN: u64 = 8 * 1024 * 1024;
+/// Largest snapshot artifact either side will transfer. Real artifacts run
+/// tens of megabytes per million records; a length past this bound is a
+/// corrupt header or a hostile peer, not an index.
+pub const MAX_SNAPSHOT_LEN: u64 = 8 * 1024 * 1024 * 1024;
 /// Cap on the encoded request frame — requests are tiny; anything larger is
 /// malformed or hostile.
 const MAX_REQUEST_FRAME: u32 = 64 * 1024;
@@ -64,7 +68,7 @@ pub struct RemoteDeviceSummary {
 	pub available_capacity: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RemoteSourceInfo {
 	pub id: Uuid,
 	pub root: PathBuf,
@@ -97,9 +101,21 @@ pub enum ByteRangeResponse {
 	},
 	Sources(Vec<RemoteSourceInfo>),
 	DeviceSummary(RemoteDeviceSummary),
-	/// Followed by exactly `len` raw bytes on the stream.
+	/// Followed by exactly `len` raw bytes on the stream. The identity fields
+	/// describe the artifact this response opened, which is routinely newer
+	/// than the listing that prompted the fetch: the owner saves live state
+	/// before serving. The receiver records these, never the listing's.
 	SnapshotHeader {
 		len: u64,
+		/// Version of the bytes being delivered, from the open file's size
+		/// and mtime. Zero when the serving side predates this field.
+		#[serde(default)]
+		generation: u64,
+		/// blake3 of the bytes being delivered, so the receiver can validate
+		/// its temporary artifact before publishing it. All zero when the
+		/// serving side predates this field.
+		#[serde(default)]
+		checksum: [u8; 32],
 	},
 	Error(String),
 }
@@ -315,7 +331,7 @@ impl ByteRangeProtocolHandler {
 					)
 					.await;
 				};
-				let mut file = match tokio::fs::File::open(&snapshot_path).await {
+				let file = match tokio::fs::File::open(&snapshot_path).await {
 					Ok(f) => f,
 					Err(err) => {
 						return write_frame(
@@ -325,15 +341,73 @@ impl ByteRangeProtocolHandler {
 						.await;
 					}
 				};
-				let len = file.metadata().await?.len();
-				write_frame(send, &ByteRangeResponse::SnapshotHeader { len }).await?;
+
+				// Identity comes from the open handle, not the path: a save
+				// racing this response renames a new file into place, while
+				// the opened inode keeps serving exactly the bytes measured
+				// and hashed here. The header must name what the stream
+				// carries, and the listing that prompted this fetch is
+				// already behind it.
+				let meta = file.metadata().await?;
+				let len = meta.len();
+				if len > MAX_SNAPSHOT_LEN {
+					return write_frame(
+						send,
+						&ByteRangeResponse::Error(format!(
+							"snapshot of {len} bytes exceeds the transfer bound"
+						)),
+					)
+					.await;
+				}
+				let generation = meta
+					.modified()
+					.map(|mtime| crate::infra::source_version::source_version(len, mtime))
+					.unwrap_or(0);
+
+				let std_file = file.into_std().await;
+				let hashed = tokio::task::spawn_blocking(
+					move || -> std::io::Result<(std::fs::File, [u8; 32])> {
+						use std::io::{Seek, SeekFrom};
+						let mut hasher = blake3::Hasher::new();
+						std::io::copy(&mut &std_file, &mut hasher)?;
+						(&std_file).seek(SeekFrom::Start(0))?;
+						Ok((std_file, *hasher.finalize().as_bytes()))
+					},
+				)
+				.await?;
+				let (std_file, checksum) = match hashed {
+					Ok(pair) => pair,
+					Err(err) => {
+						return write_frame(
+							send,
+							&ByteRangeResponse::Error(format!("snapshot unreadable: {err}")),
+						)
+						.await;
+					}
+				};
+				let mut file = tokio::fs::File::from_std(std_file);
+
+				write_frame(
+					send,
+					&ByteRangeResponse::SnapshotHeader {
+						len,
+						generation,
+						checksum,
+					},
+				)
+				.await?;
 				let mut buf = vec![0u8; 256 * 1024];
-				loop {
-					let n = file.read(&mut buf).await?;
+				let mut sent = 0u64;
+				while sent < len {
+					let want = (len - sent).min(buf.len() as u64) as usize;
+					let n = file.read(&mut buf[..want]).await?;
 					if n == 0 {
+						// Short reads leave a short stream; the client's
+						// declared-length accounting fails the transfer.
 						break;
 					}
 					send.write_all(&buf[..n]).await?;
+					sent += n as u64;
 				}
 				Ok(())
 			}
@@ -409,5 +483,50 @@ impl super::ProtocolHandler for ByteRangeProtocolHandler {
 		_event: super::ProtocolEvent,
 	) -> crate::service::network::Result<()> {
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	/// A peer built before the header carried artifact identity sends only a
+	/// length. Its frames must keep decoding, with the identity fields
+	/// reading as absent rather than the frame failing.
+	#[test]
+	fn an_old_snapshot_header_still_decodes() {
+		#[allow(dead_code)]
+		#[derive(Serialize)]
+		enum LegacyResponse {
+			Stat {
+				size: u64,
+				modified_secs: Option<u64>,
+			},
+			ReadHeader {
+				len: u64,
+			},
+			Sources(Vec<RemoteSourceInfo>),
+			DeviceSummary(RemoteDeviceSummary),
+			SnapshotHeader {
+				len: u64,
+			},
+			Error(String),
+		}
+
+		let bytes =
+			rmp_serde::to_vec(&LegacyResponse::SnapshotHeader { len: 9 }).expect("serialize");
+		let decoded: ByteRangeResponse = rmp_serde::from_slice(&bytes).expect("deserialize");
+		match decoded {
+			ByteRangeResponse::SnapshotHeader {
+				len,
+				generation,
+				checksum,
+			} => {
+				assert_eq!(len, 9);
+				assert_eq!(generation, 0, "an absent generation reads as zero");
+				assert_eq!(checksum, [0u8; 32], "an absent checksum reads as zero");
+			}
+			other => panic!("decoded to the wrong variant: {other:?}"),
+		}
 	}
 }

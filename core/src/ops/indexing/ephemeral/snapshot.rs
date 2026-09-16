@@ -226,14 +226,35 @@ pub(super) fn load_snapshot_impl(
 	// is the decompressed snapshot held once, which is the same order as the
 	// arena it is about to become.
 	let file = File::open(snapshot_path).context("Failed to open snapshot file")?;
+	let compressed_len = file.metadata().map(|meta| meta.len()).unwrap_or(0);
 	let decoder = zstd::Decoder::new(file).context("Failed to create zstd decoder")?;
-	let mut reader = BufReader::new(decoder);
+
+	// Bound the decode. A snapshot's postcard payload sits within a couple
+	// orders of magnitude of its compressed file (measured ratios run 3-5x);
+	// a stream promising more is corrupt or hostile, and reading it to the
+	// end would grow this buffer until the allocator gives out. Peer-fetched
+	// artifacts pass through this same load before publication.
+	let bound = compressed_len
+		.saturating_mul(128)
+		.max(64 * 1024 * 1024)
+		.saturating_add(1);
+	let mut reader = BufReader::new(decoder).take(bound);
 	let mut bytes = Vec::new();
 	use std::io::Read;
 	if let Err(err) = reader.read_to_end(&mut bytes) {
 		tracing::warn!(
 			"Unreadable snapshot {} ({err}); removing",
 			snapshot_path.display()
+		);
+		let _ = fs::remove_file(snapshot_path);
+		return Ok(None);
+	}
+	if bytes.len() as u64 >= bound {
+		tracing::warn!(
+			"Snapshot {} decodes past {} bytes from a {} byte file; removing",
+			snapshot_path.display(),
+			bound - 1,
+			compressed_len
 		);
 		let _ = fs::remove_file(snapshot_path);
 		return Ok(None);
