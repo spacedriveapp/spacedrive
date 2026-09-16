@@ -24,14 +24,23 @@ works end to end.
 
 ## Preserve these boundaries
 
+This is a breaking release. Location data migration and backwards compatibility
+are not required. Remove its schema and API directly while updating current
+callers to the replacement contracts.
+
 - `crates/store` remains the durable record, content, edge, and assertion
   substrate. Never delete or recreate a source store as part of this work.
 - The volume index remains the machine-wide filesystem read map. A source
   remains a retained scope over it.
-- `sources`, volumes, devices, jobs, settings, and source-relative location pins
-  remain library state.
-- Locations remain navigation pins. They do not regain indexing, retention, or
-  watcher ownership.
+- `sources`, volumes, devices, jobs, settings, and Space items remain library
+  state. Remove location rows and location-specific Space item variants without
+  migration, ID preservation or compatibility readers.
+- The agreed follow-up accepts `SdPath` to configure processing policies and
+  stores a separate source-relative target. `SdPath` gains no source variant.
+  Locations are removed; they do not regain indexing, retention, or watcher
+  ownership. See
+  [Locations Research](2026-09-15-locations-research.md) for the addressing
+  decision and the processing proposal.
 - Preserve paired-device source discovery, snapshot replication, WebDAV byte
   reads, remote operations, remote jobs, and remote logs. Preserve the
   capabilities, even when their current implementation shares a module with
@@ -117,7 +126,7 @@ commit when ownership or status changes.
    - a content-scoped tag with two copies;
    - a tag definition applied nowhere;
    - an unapplied tag whose removal must not resurrect;
-   - a source-relative location pin;
+   - a Space item using the current navigation contract;
    - two paired devices with source replicas.
 4. Run the repository baseline before edits. Keep failures that predate the
    slice separate from regressions.
@@ -197,11 +206,13 @@ correct sync path survived.
 2. Provide an upgrade migration that runs FD2's assertion transfer before it
    drops any source data. Make the migration transactional where SQLite allows
    it and resumable where it crosses source-store files.
-3. Drop the entry hierarchy, old content/media/sidecar tables, entry-bound
-   collections and conduits, old tag applications, FTS tables, triggers, and
-   indexes after their production callers and sync registrations are gone.
-4. Keep the source registry, volume and device facts, jobs, settings,
-   source-relative location pins, and any current library-level UI objects.
+3. Drop the entry hierarchy, location tables, old content/media/sidecar tables,
+   entry-bound collections and conduits, old tag applications, FTS tables,
+   triggers, and indexes after their production callers and sync registrations
+   are gone. Locations need no migration or compatibility path.
+4. Keep the source registry, volume and device facts, jobs, settings, Space
+   items, and current library-level UI objects. New navigation uses Space items;
+   new processing intent uses policy-owned source-relative targets.
 5. Create a fresh library from the new baseline and upgrade the legacy fixture.
    Refuse an incompatible database with a precise recovery message. Never
    silently create a second library or discard source stores.
@@ -254,8 +265,10 @@ A fresh `library.db` has no retired tables, indexes, FTS tables, or triggers.
 
 - Browse, search, collections, media view, tags, spaces, copy, move, delete,
   restart, and watcher changes work on local sources.
-- A location pin survives a volume remount and adding or removing it neither
-  indexes nor deletes records.
+- Saved navigation survives a volume remount. Adding or removing a bookmark
+  neither indexes nor deletes records and does not change processing policies.
+  Verify this through Space items and the new target resolver. No location
+  compatibility fixture is required.
 - The Mac can list titan's sources, browse replicas, stream file bytes, dispatch
   remote operations, watch remote jobs, and follow remote logs.
 - A daemon with an old library either upgrades successfully or stops with the
@@ -271,8 +284,8 @@ cargo check -p sd-native
 cargo test -p sd-store
 ```
 
-Run focused migration, tag, source-store, peer-mount, remote-operation, and
-location-pin tests in addition to the repository baseline.
+Run focused assertion-transfer, tag, source-store, peer-mount, remote-operation,
+Space item and policy-target tests in addition to the repository baseline.
 
 ## Handoff
 

@@ -4,6 +4,13 @@ description: Stable named pins inside sources
 sidebarTitle: Locations
 ---
 
+Locations are scheduled for removal in this breaking release. Space items own
+navigation and policies own processing behavior. Policy APIs accept `SdPath`
+and persist a separate source-relative target. Location row migration and old
+API compatibility are not required. See the
+[agreed direction](../plans/2026-09-15-locations-research.md). The sections below
+describe the implementation being retired.
+
 A location is a named pin over a source-relative path. It helps a person return
 to an important part of a source and gives future policies a stable target.
 

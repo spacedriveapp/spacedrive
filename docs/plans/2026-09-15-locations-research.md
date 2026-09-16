@@ -1,17 +1,25 @@
 # Locations after the entries teardown
 
-Status: research and proposed follow-up for review. No runtime code, source,
-pin, library membership or daemon configuration changed during this audit.
+Status: separate durable policy target agreed with James; implementation details
+remain for review. No runtime code, source, pin, library membership or daemon
+configuration changed during this audit.
 
 Inspected September 15, 2026, against `92bb4412e` and the current worktree.
 Other development was active in the worktree. Live read-only queries used the
 running Mac and titan daemons, which can differ from this checkout.
 
-The pin-only and configured-location recommendations are superseded by the
-proposal below: policies target `SdPath` directly, Space items own navigation,
-and the location entity retires after preserving existing user intent. The user
+The agreed addressing boundary is option 1: the policy API accepts `SdPath`,
+but persists a separate source-relative target and resolves an execution address
+when work runs. `SdPath` gains no source variant. Space items own navigation,
+and the location entity is removed without compatibility support. The user
 needs selected jobs to keep processing a path's existing and future contents.
-Current code facts below remain valid; the proposed direction changes.
+Current code facts below remain valid; the direction below replaces the earlier
+pin-only, configured-location and source-variant proposals.
+
+James confirmed this version is not backwards compatible. Do not migrate
+location rows, preserve location IDs, recover old location job settings, or add
+compatibility wrappers for location APIs. Remove the location model and update
+current callers directly to Space items, sources and policies.
 
 ## Current code and documented direction
 
@@ -26,8 +34,9 @@ This is the current boundary in [Product Direction](../core/product-direction.md
 and [Locations](../core/locations.mdx). The
 [locations demotion plan](2026-09-08-locations-demoted.md) explicitly cancels its
 earlier proposals to make pins drive retention and watching. The
-[final entries drop](2026-09-15-entries-final-drop.md) requires preserving pins.
-Older instructions to delete locations along with entries are superseded.
+[final entries drop](2026-09-15-entries-final-drop.md) now removes locations
+without a migration. Earlier instructions to preserve the pin model are
+superseded by the breaking-release decision above.
 
 | Concept | Durable responsibility | Example |
 |---|---|---|
@@ -77,6 +86,9 @@ alone is not a complete count of durable pin claims. The preceding live library
 audit separately observed zero location counts.
 
 ## Remaining mismatches
+
+These findings identify callers and assumptions to remove or replace. They do
+not require repairing or maintaining the retiring location subsystem.
 
 ### Source setup still invokes the pin operation
 
@@ -141,8 +153,8 @@ The [source delete action](../../core/src/ops/sources/delete/action.rs) removes
 the store and unregisters the source without handling pins. The pin migration
 does not create a database foreign-key cascade. There is no declared pin
 lifecycle for that deletion, and an orphan can disappear from listing once its
-source is absent from the runtime registry. Preserve unresolved user intent
-until the user removes it explicitly.
+source is absent from the runtime registry. Location removal retires this
+path; the new policy resolver must retain its own unresolved targets.
 
 ### The sidebar has two kinds of persisted shortcuts
 
@@ -169,12 +181,10 @@ drops the old plural `locations` table and creates the singular pin table. It
 does not translate old rows. Its comment about recreating default locations is
 now stale because known folders are computed Places.
 
-This migration is already in the tree. Do not infer that it caused a particular
-missing pin on either running device without historical evidence. Do not
-rewrite or replay it as part of this research. Any supported upgrade from the
-old schema needs a deliberate preservation path while old labels and targets
-are still readable. Unresolvable user choices need retained evidence instead
-of silent deletion. Existing new-format pins must survive the final drop.
+This is historical evidence, not a migration requirement. Do not infer that it
+caused a particular missing pin on either running device without historical
+evidence. This release does not support migrating either old location rows or
+the current pin rows into the replacement model.
 
 ## The missing responsibility: continuous processing at a path
 
@@ -209,17 +219,19 @@ job deduplication. The current
 once. These are useful pieces, but not a general user-configurable processing
 policy or a durable subscription to future changes.
 
-## Revised proposal: policies on SdPath, retire locations
+## Agreed boundary: SdPath input, durable policy target
 
-Attach processing policies directly to `SdPath`. Space items bookmark paths;
-policies configure behavior at paths; sources supply ingest and stores. There
-is no remaining need for a separate location identity between a path and its
-policy. Processing must work without any sidebar item and continue after its
-bookmark is removed.
+Accept `SdPath` when configuring processing at a path. Persist the resolved
+source-relative target on the policy. Space items bookmark paths; policies
+configure behavior at paths; sources supply ingest and stores. There is no
+remaining need for a separate location identity between a path and its policy.
+Processing must work without any sidebar item and continue after its bookmark
+is removed.
 
-A policy has a stable UUID, an `SdPath` scope, recursion setting, enabled state
-and typed rules. Start with processing rules whose job kinds define their own
-settings and eligibility. For example:
+A policy has a stable UUID, a durable target, recursion setting, enabled state
+and typed rules. The target is a value containing source UUID and relative path,
+not another entity with its own lifecycle. Start with processing rules whose
+job kinds define their own settings and eligibility. For example:
 
 ```text
 Scope: titan / Media / Footage, including subfolders
@@ -235,13 +247,14 @@ Use the source's durable assertion layer for processing intent, following the
 original subtree-policy direction. Do not restore `location.job_policies` on
 the old table or introduce another entry hierarchy. Exact record/schema and
 wire names remain to be designed. The policy ID is sufficient for editing,
-sync, progress and removal. Move existing pin-only navigation into Space items,
-preserving labels, ordering and references before retiring the location table,
-operations and sync registration. Preserve recoverable historical processing
-settings as policy intent. Current plans that preserve the location entity
-need an explicit revised handoff before implementing its deletion.
+sync, progress and removal. Remove the location table, entity, operations,
+generated types and sync registration. Update navigation callers to Space items
+and source setup callers to source operations. Remove location-specific Space
+item variants and inspector code. Implement new processing configuration through
+policies. No conversion of location rows, IDs, bookmarks or historical job
+settings is required, and old wire methods need no forwarding aliases.
 
-### Make SdPath suitable for durable scopes
+### Keep saved targets separate from execution addresses
 
 The current [SdPath enum](../../core/src/domain/addressing.rs) has Physical,
 Cloud, Content and Sidecar variants. Physical stores a device slug and an
@@ -249,13 +262,28 @@ absolute path. There is no source-relative variant. Persisting only that
 physical spelling would bring remount and device-addressing problems into
 both policies and bookmarks.
 
-Propose a source-relative variant in the existing addressing type, conceptually
-`SdPath::Source { source_id, relative_path }`. This is a proposed extension, not
-an existing API. Resolve a selected physical or cloud path into this canonical
-form when its registered source is known. Resolve the canonical form back to a
-current local, remote or unavailable route within the selected library's
-authorization. This preserves one addressing API shared by policies, Space
-items and operations.
+James selected option 1: keep `SdPath` as the address and store a separate
+durable target in the policy/source layer. Do not add `SdPath::Source` or make
+the path primitive depend on library source registration.
+
+The conceptual flow is:
+
+```text
+Configure: selected SdPath + library context
+Persist:   policy.target = { source_id, relative_path }
+Execute:   resolve target to the current SdPath for the executing device
+```
+
+Recursion remains a policy scope setting. Type and wire names are not yet
+specified. This target needs no separate table, identity, registration or
+location row. A resolver in the source layer performs both conversions and
+checks the selected library's authorization. It must retain an unresolved or
+offline target when an execution address cannot currently be produced.
+
+Space items can reuse this target value for durable source bookmarks while
+retaining ordinary `SdPath` shortcuts where literal addressing is appropriate.
+Sharing a value type and resolver does not couple bookmark removal to policy
+removal. Runtime operations continue to receive the addresses they support.
 
 For the first processing implementation, require a registered source and a
 scope the job kind supports. A path outside one can lead through source setup
@@ -266,8 +294,8 @@ semantics; recursive processing must validate the target kind.
 Source-relative paths follow source remounts, but do not automatically follow
 a directory renamed within the source. Preserve explicit path-target semantics
 until evidence-backed rebinding is designed. Unknown or unavailable targets
-remain visible. Adding the variant requires updating the custom deserializer,
-URI handling, resolvers, generated clients and exhaustive consumers together.
+remain visible. Policy-specific public types must use generated clients; this
+decision does not require changing the `SdPath` enum or its serialized variants.
 
 ### Reuse the source stream and job executor
 
@@ -310,6 +338,9 @@ dispatch and retains completed output unless deletion is explicitly requested.
 
 ## Revised acceptance cases
 
+- A policy created from `SdPath` persists a separate source-relative target.
+  Execution resolves that target through the authorized library and source
+  layer without adding a source variant to the path primitive.
 - Selecting jobs for a subtree processes applicable existing files and newly
   created or changed files, with no navigation pin required.
 - Removing or reordering a Space item does not change processing policy.
@@ -324,5 +355,6 @@ dispatch and retains completed output unless deletion is explicitly requested.
   and runs only on the selected executor. Unknown job kinds stay unavailable.
 - Source setup creates sources; processing configuration and navigation are
   independent follow-up actions. No policy creates another watcher or index.
-- Upgrades preserve user shortcuts and recoverable processing settings. The
-  old migration that drops location rows is not a preserving policy migration.
+- The current clients work without location entities, operation registrations,
+  generated types or Space item variants. No location migration or compatibility
+  layer is introduced. New bookmarks and policies use their own contracts.

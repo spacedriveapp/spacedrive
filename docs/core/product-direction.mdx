@@ -241,14 +241,16 @@ The product separates where a person goes from how Spacedrive manages the data:
   identity, indexing state, availability, policy, and lifecycle. People manage
   them in Storage. The CLI and API expose them directly when that precision is
   useful.
-- A **location** is an internal pin over a source-relative path. It does not own
-  records, trigger indexing, enable a watcher, or appear as a primary product
-  concept. Future explicit policies may target its stable ID.
+- A **Space item** persists a navigation choice. Processing policies accept
+  `SdPath` and store a separate source-relative target, resolved through the
+  source layer when work runs. Locations are being removed in this breaking
+  release without data migration or API compatibility. A bookmark does not own
+  indexing or enable processing.
 - A **place** is a navigation destination presented by a client. Desktop,
   Downloads, a source root, a pinned folder, and an offline indexed drive can
   all appear under Places even though they do not share one storage type.
 
-Places are a projection of known system folders, sources, pins, and extension
+Places are a projection of known system folders, sources, Space items, and extension
 contributions. A place does not have its own database model, durable identity,
 or operation namespace. Persist the underlying user intent, such as a pin or
 its ordering, instead of persisting a second representation of the data.

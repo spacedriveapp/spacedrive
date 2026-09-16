@@ -181,7 +181,7 @@ share a machine-level volume arena or a physical cached artifact.
 | Device description | Hardware, label and connection fields share a library row | Device publishes its hardware facts; library label overrides are separate shared preferences; current connectivity is observed locally |
 | Source registration | `sources` table has no `Syncable` registration and no explicit ingest-authority field | Shared library descriptor with stable source UUID, origin, capture policy and explicit ingest authority; distinguish subscriber metadata from a local writer |
 | Volumes | Old device-owned sync model; one row mixes identity, device, mount path and statistics | Stable volume identity plus device-scoped attachment observations; remote paths remain qualified by their observing device |
-| Locations/pins | Source-relative rows; registered under old device-owned sync with a missing source dependency | Declare shared pin versus local navigation preference; replicate shared pins with source-relative addressing |
+| Locations/pins | Source-relative rows; registered under old device-owned sync with a missing source dependency | Remove without migration or compatibility support; new navigation uses Space items and processing intent uses policy-owned source-relative targets |
 | Spaces, groups and items | Old shared-row sync; items still contain `entry_uuid` | Keep current shared organization, migrate targets to record/source addressing, and preserve explicit local presentation preferences |
 | Tags and annotations | Legacy tag tables plus source-store overlays; FD2 migration pending | Definitions/applications live with sources as specified by FD2; assertion changes merge independently from generation transfer |
 | Library settings and policies | Settings mainly persisted in local config; sync flag not wired to lifecycle | Explicit shared-settings allowlist; local watcher permissions, performance settings and secrets retain local ownership |
@@ -205,11 +205,13 @@ devices.
 
 [Locations Research](2026-09-15-locations-research.md) audits duplicate Space
 shortcuts, local-only resolution, setup UI and the missing replacement for
-`location.job_policies`. Its revised proposal retires the location entity after
-migration: policies target `SdPath` directly and Space items own navigation.
-A proposed source-relative `SdPath` variant supplies durable addressing for
-both. Shared processing intent does not imply executing replicated jobs on
-every device.
+`location.job_policies`. The agreed addressing boundary accepts `SdPath` at
+policy creation, persists a separate source-relative target, and resolves an
+execution address through the source layer. `SdPath` gains no source variant.
+Space items own navigation and may reuse that target value. This is a breaking
+release: remove locations without migrating rows, preserving IDs or supporting
+old operations. Shared processing intent does not imply executing replicated
+jobs on every device.
 
 Source assertions remain durable in source stores. Library sync can establish
 permission and exchange assertion progress without moving their authoritative
