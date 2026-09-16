@@ -472,6 +472,22 @@ fn note_fetch_outcome(source_id: Uuid, ok: bool) {
 	}
 }
 
+/// How long a replica may lag behind an owner that keeps writing. A dirty
+/// listing over an unchanged artifact means the owner's arena moved past its
+/// last save; fetching on every such listing turns one busy machine into a
+/// full artifact transfer per refresh interval, which a development home
+/// directory sustains indefinitely. A moved generation still transfers
+/// immediately — this pace only bounds what dirtiness alone can cost.
+const DIRTY_REFRESH_SECS: u64 = 300;
+
+/// Whether a listing justifies transferring the artifact.
+fn transfer_due(existing: &RemoteShare, info: &RemoteSourceInfo, now_secs: u64) -> bool {
+	if info.generation == 0 || existing.generation != info.generation {
+		return true;
+	}
+	info.dirty && now_secs >= existing.synced_at_secs.saturating_add(DIRTY_REFRESH_SECS)
+}
+
 /// An unchanged artifact still rides with fresh facts: the owner's listing
 /// carries attachment, counts and its display name on every pass, and
 /// freezing them alongside the generation would leave a detached drive
@@ -678,16 +694,15 @@ pub async fn sync_device(
 	let mut synced = 0usize;
 	for info in &sources {
 		// A replica built from the same snapshot the owner still holds is
-		// current. Only a moved generation, or unsaved changes on the
-		// owner's side, are worth a transfer.
+		// current. A moved generation always transfers; dirtiness alone is
+		// paced, since a machine that keeps writing would otherwise cost a
+		// full artifact per refresh interval.
 		if let Some(existing) = remote_share(info.id).await {
-			let unchanged =
-				!info.dirty && info.generation != 0 && existing.generation == info.generation;
-			if unchanged {
+			if !transfer_due(&existing, info, now_secs()) {
 				if let Some(refreshed) = refresh_share_facts(&existing, info, &device_label) {
 					shares_map().write().await.insert(info.id, refreshed);
 				}
-				tracing::debug!(source = %info.id, generation = info.generation, "replica unchanged; no transfer");
+				tracing::debug!(source = %info.id, generation = info.generation, "replica current; no transfer");
 				synced += 1;
 				continue;
 			}
@@ -946,6 +961,51 @@ mod tests {
 		let artifact = base.path().join(format!("{}.snapshot", source_id.simple()));
 		let reloaded = EphemeralIndex::load_snapshot(&artifact).expect("readable");
 		assert!(reloaded.is_some(), "the good artifact is untouched");
+	}
+
+	/// A moved generation always transfers. Dirtiness over the same artifact
+	/// paces at the dirty-refresh interval instead of costing one full
+	/// transfer per refresh pass, and a clean matching listing costs nothing.
+	#[test]
+	fn dirtiness_alone_paces_while_a_moved_generation_transfers() {
+		let source_id = Uuid::now_v7();
+		let share = RemoteShare {
+			device_id: Uuid::now_v7(),
+			device_label: "owner".to_string(),
+			info: info(source_id, "/mnt/pool/kept", 2),
+			index: Arc::new(TokioRwLock::new(EphemeralIndex::new().expect("index"))),
+			synced_at_secs: 1_000,
+			generation: 7,
+		};
+
+		let mut listing = info(source_id, "/mnt/pool/kept", 2);
+		assert!(
+			!transfer_due(&share, &listing, 1_030),
+			"clean and matching transfers nothing"
+		);
+
+		listing.dirty = true;
+		assert!(
+			!transfer_due(&share, &listing, 1_030),
+			"dirtiness inside the pace waits"
+		);
+		assert!(
+			transfer_due(&share, &listing, 1_000 + DIRTY_REFRESH_SECS),
+			"dirtiness past the pace refreshes"
+		);
+
+		listing.dirty = false;
+		listing.generation = 8;
+		assert!(
+			transfer_due(&share, &listing, 1_030),
+			"a moved generation transfers immediately"
+		);
+
+		listing.generation = 0;
+		assert!(
+			transfer_due(&share, &listing, 1_030),
+			"an owner with no snapshot yet always transfers"
+		);
 	}
 
 	/// An unchanged generation skips the transfer without freezing the
