@@ -134,6 +134,19 @@ impl EphemeralEventHandler {
 						continue;
 					};
 					for root in roots {
+						// A dirty root with nothing pending gets no job: the
+						// count is one indexed query, while a job is a row, a
+						// dispatch, and a progress card that says "0%" and
+						// vanishes. A count that fails still dispatches, so
+						// the job surfaces the store error instead of the
+						// nudge swallowing it.
+						let pending = match context.ephemeral_cache().store_for(&root).await {
+							Some(store) => store.files_needing_content_count().await.unwrap_or(1),
+							None => 0,
+						};
+						if pending == 0 {
+							continue;
+						}
 						let job =
 							crate::ops::indexing::content_identity::ContentIdentityJob::background(
 								root.clone(),
@@ -161,6 +174,13 @@ impl EphemeralEventHandler {
 			while is_running.load(Ordering::SeqCst) {
 				match rx.recv().await {
 					Ok(event) => {
+						// The daemon's own writes are not changes to index or
+						// hash. Without this the store's SQLite journals dirty
+						// the source, the nudged hashing job writes the store,
+						// and the loop feeds itself every interval.
+						if crate::config::is_own_data(&event.path) {
+							continue;
+						}
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {
 							error!("Error handling ephemeral event: {}", e);
 						} else if let Some(root) =

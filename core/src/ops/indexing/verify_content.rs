@@ -104,6 +104,22 @@ impl JobHandler for VerifyContentJob {
 			.map_err(|e| e.to_string())?;
 		ctx.log(format!("{outstanding} shared-content files to verify"));
 
+		let label = crate::ops::indexing::content_identity::source_label(&self.root);
+
+		// Say what the job is doing before the first byte is read. A card
+		// that shows a type name and a bare percentage is not progress.
+		if outstanding > 0 {
+			ctx.progress(Progress::generic(GenericProgress::new(
+				0.0,
+				"Verifying",
+				format!("{label} — 0 of {outstanding} files"),
+			)));
+		}
+
+		// Verification reads every byte, so a claim of large files can run
+		// for minutes; progress advances within the claim, not only after it.
+		const PROGRESS_CHUNK: usize = 8;
+
 		let mut verified = 0u64;
 		let mut unreadable = 0u64;
 		let mut bytes_read = 0u64;
@@ -119,29 +135,31 @@ impl JobHandler for VerifyContentJob {
 				break;
 			}
 
-			let (identities, failures, batch_bytes) = verify_batch(batch).await;
+			for chunk in batch.chunks(PROGRESS_CHUNK) {
+				ctx.check_interrupt().await?;
+				let (identities, failures, chunk_bytes) = verify_batch(chunk.to_vec()).await;
 
-			unreadable += failures.len() as u64;
-			verified += identities.len() as u64;
-			bytes_read += batch_bytes;
-			store.identified(identities).await;
-			store.content_unreadable(failures).await;
-			// Wait for this batch to land before claiming the next, so the
+				unreadable += failures.len() as u64;
+				verified += identities.len() as u64;
+				bytes_read += chunk_bytes;
+				store.identified(identities).await;
+				store.content_unreadable(failures).await;
+
+				let done = verified + unreadable;
+				ctx.progress(Progress::generic(GenericProgress::new(
+					if outstanding > 0 {
+						(done as f32 / outstanding as f32).min(1.0)
+					} else {
+						1.0
+					},
+					"Verifying",
+					format!("{label} — {done} of {outstanding} files"),
+				)));
+			}
+
+			// Wait for this claim to land before taking the next, so the
 			// pending query sees it and the loop always advances.
 			store.flush().await.map_err(|e| e.to_string())?;
-
-			ctx.progress(Progress::generic(GenericProgress::new(
-				if outstanding > 0 {
-					(verified as f32 / outstanding as f32).min(1.0)
-				} else {
-					1.0
-				},
-				"Verifying",
-				format!(
-					"{} — {verified} of {outstanding} files",
-					crate::ops::indexing::content_identity::source_label(&self.root)
-				),
-			)));
 		}
 
 		// Verification results are queued behind the same writer as everything

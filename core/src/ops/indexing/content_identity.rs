@@ -135,6 +135,23 @@ impl JobHandler for ContentIdentityJob {
 			.map_err(|e| e.to_string())?;
 		ctx.log(format!("{outstanding} files to identify"));
 
+		let label = source_label(&self.root);
+
+		// Say what the job is doing before the first byte is read. A card
+		// that shows a type name and a bare percentage is not progress.
+		if outstanding > 0 {
+			ctx.progress(Progress::generic(GenericProgress::new(
+				0.0,
+				"Identifying",
+				format!("{label} — 0 of {outstanding} files"),
+			)));
+		}
+
+		// Progress moves within a claim, not only between claims: a claim of
+		// large files hashes for a while, and a bar that only advances per
+		// claim reads as stuck.
+		const PROGRESS_CHUNK: usize = 32;
+
 		let mut identified = 0u64;
 		let mut unreadable = 0u64;
 
@@ -149,32 +166,34 @@ impl JobHandler for ContentIdentityJob {
 				break;
 			}
 
-			let (identities, failures) = hash_batch(batch).await;
+			for chunk in batch.chunks(PROGRESS_CHUNK) {
+				ctx.check_interrupt().await?;
+				let (identities, failures) = hash_batch(chunk.to_vec()).await;
 
-			// Failures leave the pending set with their reason recorded, so
-			// the loop always advances and the store can say afterwards which
-			// files have no identity and why.
-			unreadable += failures.len() as u64;
-			identified += identities.len() as u64;
-			store.identified(identities).await;
-			store.content_unreadable(failures).await;
-			// Wait for this batch to land before claiming the next. The
-			// pending query reads the database, and a query that outraces the
-			// writer hands back the same files forever.
+				// Failures leave the pending set with their reason recorded,
+				// so the loop always advances and the store can say
+				// afterwards which files have no identity and why.
+				unreadable += failures.len() as u64;
+				identified += identities.len() as u64;
+				store.identified(identities).await;
+				store.content_unreadable(failures).await;
+
+				let done = identified + unreadable;
+				ctx.progress(Progress::generic(GenericProgress::new(
+					if outstanding > 0 {
+						(done as f32 / outstanding as f32).min(1.0)
+					} else {
+						1.0
+					},
+					"Identifying",
+					format!("{label} — {done} of {outstanding} files"),
+				)));
+			}
+
+			// Wait for this claim to land before taking the next. The pending
+			// query reads the database, and a query that outraces the writer
+			// hands back the same files forever.
 			store.flush().await.map_err(|e| e.to_string())?;
-
-			ctx.progress(Progress::generic(GenericProgress::new(
-				if outstanding > 0 {
-					(identified as f32 / outstanding as f32).min(1.0)
-				} else {
-					1.0
-				},
-				"Identifying",
-				format!(
-					"{} — {identified} of {outstanding} files",
-					source_label(&self.root)
-				),
-			)));
 		}
 
 		// Content identities are queued behind the same writer as everything
