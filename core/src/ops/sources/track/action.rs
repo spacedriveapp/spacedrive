@@ -174,6 +174,37 @@ pub async fn track_and_index(
 		)
 		.await;
 
+	let job_id =
+		dispatch_source_walk(&library, &context, id, root.clone(), whole_volume, true).await;
+
+	Ok(TrackSourceOutput {
+		id,
+		root,
+		volume_uuid: volume.map(|volume| volume.id),
+		whole_volume,
+		job_id,
+	})
+}
+
+/// Dispatch the walk and the follow-up hashing pass for a registered source.
+///
+/// Shared by explicit tracking and by the discovery pass's coverage heal, so
+/// both honor the persisted capture policy, source retention, and the store
+/// wiring the same way. `announce` distinguishes a person tracking a source
+/// from a background repair.
+pub(crate) async fn dispatch_source_walk(
+	library: &Arc<crate::library::Library>,
+	context: &Arc<CoreContext>,
+	id: Uuid,
+	root: PathBuf,
+	whole_volume: bool,
+	announce: bool,
+) -> Option<uuid::Uuid> {
+	let unfiltered = context
+		.ephemeral_cache()
+		.source_config(id)
+		.is_some_and(|config| config.unfiltered);
+
 	// Seed the partition from its snapshot before walking over it. A partition
 	// that skipped restore is barred from saving over an existing snapshot, so
 	// tracking a root that already has one would index and then fail to persist.
@@ -198,7 +229,7 @@ pub async fn track_and_index(
 		IndexScope::Recursive,
 		whole_volume,
 	);
-	config.announce = true;
+	config.announce = announce;
 	if unfiltered {
 		config.rule_toggles = RuleToggles::none();
 	}
@@ -237,13 +268,7 @@ pub async fn track_and_index(
 		tracing::warn!(source = %id, %e, "could not start content identification");
 	}
 
-	Ok(TrackSourceOutput {
-		id,
-		root,
-		volume_uuid: volume.map(|volume| volume.id),
-		whole_volume,
-		job_id,
-	})
+	job_id
 }
 
 #[cfg(test)]

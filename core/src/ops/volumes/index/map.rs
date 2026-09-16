@@ -130,6 +130,61 @@ pub async fn map_volume(
 	Ok(handle.id())
 }
 
+/// Re-walk registered sources on this volume whose map coverage is missing.
+///
+/// The volume map summarises registered source subtrees, and only the
+/// source's own walk fills them. An interrupted walk, a lost snapshot, or a
+/// nested source whose volume restored around it all leave the same shape: a
+/// store that holds records under a root whose node in the map has no
+/// children. Store evidence contradicting arena emptiness is the trigger, so
+/// a genuinely empty source is never rewalked.
+async fn heal_uncovered_sources(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	volume: &crate::domain::Volume,
+) {
+	let cache = context.ephemeral_cache();
+	for source in cache.sources() {
+		if !source.root.starts_with(&volume.mount_point)
+			|| !source.attached
+			|| cache.is_indexing(&source.root)
+		{
+			continue;
+		}
+		if source.entry_count.unwrap_or(0) == 0 {
+			continue;
+		}
+
+		let covered = match cache.get_for_search(&source.root) {
+			Some(index) => index
+				.read()
+				.await
+				.list_directory(&source.root)
+				.is_some_and(|children| !children.is_empty()),
+			None => false,
+		};
+		if covered {
+			continue;
+		}
+
+		tracing::warn!(
+			source = %source.id,
+			root = %source.root.display(),
+			records = source.entry_count.unwrap_or(0),
+			"source has records but no map coverage; dispatching its walk"
+		);
+		crate::ops::sources::track::action::dispatch_source_walk(
+			library,
+			context,
+			source.id,
+			source.root.clone(),
+			source.root == volume.mount_point,
+			false,
+		)
+		.await;
+	}
+}
+
 /// Map every drive attached to this machine.
 ///
 /// Called once the library is open and its sources have been walked. Search and
@@ -154,7 +209,14 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 
 		let cache = context.ephemeral_cache();
 		cache.track_volume(volume.id, volume.mount_point.clone());
-		if cache.ensure_restored(&volume.mount_point).await {
+		let restored = cache.ensure_restored(&volume.mount_point).await;
+
+		// Runs whether or not the volume restored: a restored snapshot can
+		// faithfully persist a coverage hole, which is exactly the state
+		// this repairs.
+		heal_uncovered_sources(library, context, &volume).await;
+
+		if restored {
 			debug!(
 				"{} restored from its snapshot; not walking it again",
 				volume.mount_point.display()
