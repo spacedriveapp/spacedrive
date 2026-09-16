@@ -56,6 +56,7 @@ rather than inferring it from a diff.
 | T3.1e `/hot-thumb` route | done | — | `apps/tauri/src-tauri/src/server.rs` serves versioned pvcache tiles with immutable caching |
 | T3.1f `Thumb.tsx` prefers hot tier | **implemented, uncommitted; live recheck pending** | current session | hot-tier completion epochs survive virtualized cell unmounts; current-source load and error state cannot hide the fallback permanently |
 | T4.1–T4.9 | primary cutover landed | — | writes, file reads, locations, tags, and the unreachable media pipeline moved or were removed; runtime residue and final tag assertions are FD1/FD2 |
+| T4.4 Enrichment policy follow-up | replacement missing; design under review | Codex research | September 15 user review reaffirmed continuous jobs on paths. Latest proposal: policies on `SdPath`, source-relative addressing, Space items for navigation, and retiring locations after preservation. See `2026-09-15-locations-research.md`. Revise the final-drop handoff before deleting the entity; reuse source change delivery and the job executor. |
 | T4.10 Global search router | done | — | `1044e0977` searches every local and paired source |
 | T5.1–T5.3 | superseded | — | content hashing writes source stores; the old media pipeline was deleted; current source-scoped media work follows the product sequence |
 | T6.1–T6.7 | ready, not started | — | execute `2026-09-15-entries-final-drop.md`; FD2 is the durable-data gate |

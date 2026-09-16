@@ -1,7 +1,7 @@
 # Project Status
 
 > Last updated: 2026-09-15
-> Code baseline: `2c7e058ce`
+> Code baseline: `6dfba77f8`
 > Purpose: short-term working context across development sessions while
 > `.tasks/` is frozen.
 
@@ -28,6 +28,12 @@ for roughly one more week, so re-freezing after late changes remains possible.
 The remaining NAS work is manual evidence capture and the off-NAS backup, both
 owned by James.
 
+The September 15 evening live audit reopened source-runtime acceptance: titan
+still registers all nine sources, but the Mac currently serves eight replicas,
+and the home store has malformed parent relationships. The repair plan is a
+draft for review in `docs/plans/2026-09-15-source-runtime-reliability.md`. This
+does not invalidate or replace the dated NAS freezes.
+
 Development focus moves to the product sequence below, starting with running
 Spacedrive on the Mac and operating titan's sources from it.
 
@@ -38,22 +44,80 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+Alternate shell composition is implemented (Codex, 2026-09-15, uncommitted).
+Inset content is the default; Settings > Appearance > Layout retains Floating
+panels. The sidebar footer restores circular Activity and Settings controls,
+including the activity count and busy indicator. Both modes share mounted
+content and stable preview hosts. The local
+preference updates other windows on the same origin. Preview and Size view
+follow the sheet bounds, and Size thumbnails use container coordinates. Desktop
+and web frontend builds pass. Typechecking reports no errors in the changed
+files, but the full check still fails on existing dependency and SVG
+declarations. Browser control was unavailable in this sandbox. Next proof:
+switch layouts from Settings while browsing and playing video, then check Size
+view, collapsed panels, inspector popout, light themes, and macOS window controls.
+
+Source read routing is agreed: keep a loaded arena as the fast path when its
+coverage and query support suffice; otherwise read SQLite. Select one primary
+backend per source request, preserve the same result contract, and never retry
+an empty result against the other backend. R6 in
+`docs/plans/2026-09-15-source-runtime-reliability.md` records the decision,
+including direct local reads before peer database delivery.
+
+Library sync and membership research is ready for review (Codex), recorded in
+`docs/plans/2026-09-15-library-sync-research.md`. The live Mac and titan are paired
+but hold different library UUIDs, each with one device row and zero eligible
+sync peers. Overview storage totals include peer summaries while device counts
+stay local. The sync service exists despite the false library setting; source
+registration sync, reliable bilateral membership and library-scoped serving
+remain gaps. Review the proposed small library-state contract and migration of
+the two existing libraries. Evolve the existing `Syncable`/inventory framework:
+retain domain-owned apply rules and shared transport, remove entry-specific
+coupling, and repair membership and write durability. This research changed
+no live membership or config.
+
+The UI setup audit confirmed `SyncSetupModal.tsx` survives without callers:
+`2c7e058ce` removed the overview's Setup Sync button. Pairing still closes
+without library setup, and Library Settings only exposes the sync toggle.
+The library-sync research now includes restoring setup entry points,
+continuing after pairing, and resuming setup for already paired devices.
+
+Locations research is ready for review (Codex), recorded in
+`docs/plans/2026-09-15-locations-research.md`. The small source-relative pin model
+has landed and survives the entries drop. Remaining gaps include Add Storage
+calling the pin operation, incomplete pin sync, local-only resolution, offline
+navigation, duplicate Space path shortcuts and upgrade preservation. Both live
+libraries returned no pins during read-only checks. This audit changed no
+runtime code or live state.
+
+The locations proposal was revised after user review: pins alone duplicate
+Space items, while the old requirement to keep selected jobs processing a path
+is still needed. T4.4's subtree enrichment-policy replacement has not landed.
+The latest proposal retires locations after migration: continuous-processing
+policies target `SdPath` directly, while Space items own navigation. A proposed
+source-relative `SdPath` variant preserves targets across remounts and remote
+resolution. Reuse the source change stream and job executor; exact storage,
+API and the revised final-drop handoff are still for review.
+
+Path-scoped thumbnail generation is implemented and verified (Codex, 2026-09-15, uncommitted). `thumbs.generate` accepts a file or indexed folder with missing/stale/force modes, uses resumable batches, and versions video tiles against host FFmpeg availability. File and folder context menus plus `sd thumbs generate` call the same operation. Ten focused tests, core/CLI/server/Tauri checks, generated types, CLI help, and the desktop frontend build pass. Changed hooks have no TypeScript errors; the full interface typecheck still fails in existing dependency and SVG declarations. Restart the daemon and reload the app, then regenerate a folder containing an old video icon to verify the live repaint. See `docs/core/thumbnail-generation.mdx` for coverage and resume semantics.
+
 Update this table whenever work starts, lands, becomes blocked, or changes
 owner. Keep only active and near-term work here. Move completed context to
 Recent landed.
 
 | Work                                              | Status                                 | Owner           | Next proof or action                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | ------------------------------------------------- | -------------------------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Mac client operating titan                        | complete, verified live                | done 2026-09-15 | Product-sequence step one is done: the Mac pairs with titan, replicates and streams all nine sources through the WebDAV peer mount (`1d4afd204`), operates it directly with `sd --device titan <any command>` (`996ec6422`), tails its logs with `sd --device titan logs follow`, and watches dispatched work with `sd job remote --watch` (`0f9307b62`). Pairing now triggers the initial peer sync immediately. Every leg verified live in both directions. Next per the sequence: package the proven CLI operations as a Spacedrive skill, then the MCP transport.                                                                                                |
+| Source runtime reliability | plan approved; first slices committed | in progress | Execute `docs/plans/2026-09-15-source-runtime-reliability.md`. Landed: `c63359a9e` removed the two destructive paths (old-generation stores refuse to open intact instead of dropping tables; root-mismatched snapshots move aside instead of deleting), and `adf729cd9` made flush a real durability barrier (commit failures surface at the next flush, pending-work queries return errors instead of empty queues, hashing and verification jobs fail with a reason, freeze refuses an unclean flush), and `92bb4412e` stopped the self-nudging hashing loop (the data-dir exclusion now covers both firmlink spellings, own-data events cannot dirty a source, a nudge with no pending work dispatches no job) and gave both hashing jobs labeled, within-claim progress. Next per the plan's decision 2: R1 parent-resolution and writer-init gating, then R2 volume-root resolution, then the `dev-tools` replica recovery. The live audit found eight of nine titan replicas, malformed home-store ancestry, and volume/source root confusion; the R7 repair of this instance waits until the mechanisms pass. |
+| Mac client operating titan | live acceptance reopened | unowned | Pairing, remote CLI operations, jobs and logs remain functional. The September 15 evening audit found only eight titan replicas active on the Mac: dev-tools remains registered on titan with 28,079 records, but its snapshot is unavailable and its arena/watcher are absent. Preserve the earlier NAS freezes. Recovery and renewed acceptance are specified in `docs/plans/2026-09-15-source-runtime-reliability.md`; the earlier nine-source proof is historical. |
 | Preserve NAS and pool evidence                    | pending                                | James           | Save the TrueNAS config, encryption result, pool topology, GUID, and SMART output described by the runbook.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | Track the Expansion drive                         | pending                                | James           | Run one `sources track` pass over the Expansion drive before its contents merge into `jamie-nas`, then freeze it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Back up and export                                | pending                                | James           | Copy and verify `~/spacedrive/data` off titan (it now contains the freezes), then cleanly export the pool before the drives move.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | Drive catalog H0                                  | plans committed, code missing          | unconfirmed     | The drive-catalog and physical-drives plans landed in `07fc633c2`, but the uncommitted `packages/drives` package earlier handoffs said to preserve is no longer in the checkout. Confirm whether that code survives elsewhere before restarting the package and archetype contract from the plan. The physical-identity firewall still applies.                                                                                                                                                                                                                                                                                                                       |
 | Final entries drop                                | handoff ready, not started             | unowned         | Execute `docs/plans/2026-09-15-entries-final-drop.md`. Start with FD0 and FD1. FD2 must move and verify legacy tag assertions before any schema or row-sync deletion. Preserve source stores, location pins, paired-source replication, remote byte reads, remote operations, jobs, and logs.                                                                                                                                                                                                                                                                                                                     |
+| Search refinement                                 | phases 1 and part of 2 committed       | in progress     | Execute `docs/plans/2026-09-15-search-refinement.md`. Landed: `fcf7f85d1` made sort, pagination, and filters honest (pipeline module with the R6 backend-neutral candidate stage, true `total_found` past the old 200 cap, case-folded extensions, hidden excluded by default, date filters fail closed; verified live with `--limit`, sorts, and offsets), and `fdf4902aa` fixed the debounce, preserved the picked scope across keystrokes, unified the length gate, and wired Cmd+F. Remaining in phase 2: per-tab search state and search as a navigation target, deferred until the shell-composition work commits because they share `ShellLayout`. Then phase 3, the refinement bar itself. |
 | Sidebar simplification                            | first slice committed (`321818b55`)    | unowned         | The sidebar has one library scope, flat daily destinations, Places computed from system folders without persisting them as locations, canonical rows, and an Activity/Settings footer. Topology groups retired; their pins survive seed convergence, and replica sources render under their owning device. Next: inspect the live library, then refine Home and Storage ownership from real use.                                                                                                                                                                                                                                                                    |
-| Explorer path status                              | committed (`dd5a0f1aa`); live proof pending | unowned    | `paths.context` now resolves APFS aliases and reports source, volume map, watcher, memory, restart-cache, source-store, availability, system Place, and nearest pin state. The PathBar visualizes containment instead of a false processing pipeline: the current folder sits inside its source, watching and persistence appear as outcome labels, and the physical volume sits outside that boundary. Runtime map terminology is hidden in collapsed technical details. Pins now rebuild from the registry's mounted source root, so they follow remounts. Focused Rust tests, the desktop production build, and the Fumadocs type and production builds pass. Restart the daemon and inspect Home, `/Applications`, a pinned folder, and a denied path. |
+| Explorer path status                              | visual polish built, uncommitted; live proof pending | unowned    | `paths.context` distinguishes source-database existence from a committed record for the exact path. The PathBar uses neutral surfaces, floating Spacedrive source and volume assets, unfilled status chips, and large 36px circle actions for pinning, full-source reindex, navigation, and technical details. All explicit small CircleButton usages in Spacedrive are removed; the shared variant definition lives in the separate SpaceUI package. Pins rebuild from the registry's mounted source root. Earlier generated-client, focused Rust, scoped PathBar, and Fumadocs checks passed. The desktop frontend production build and scoped diff check pass after the styling change. Inspect the panel live. |
 | Virtualized thumbnail remounts                    | committed (`d806ba7f1`); live proof pending | unowned    | Hot-tier bake completion epochs now survive cell unmounts, and each thumbnail hides its fallback only after its current DOM image loads. Media rows now keep stable React identity as the virtual window advances, width is measured before paint, content is no longer deliberately invalidated for every render, and live row-count changes no longer snap the camera roll to the bottom. The desktop production build passes. Scroll and trigger selection or inspector rerenders in a large media view to confirm the grid remains stable.                                                                                                  |
-| Search refinement                                 | planned                                | unowned         | Execute `docs/plans/2026-09-15-search-refinement.md`. Matching is correct as of `fe4a100b3`; the plan owns scopes (folder/source/library), honest sort and pagination, the filter panel, tag filtering via the library-db join, and the redundancy views' mechanism. Alongside it, uncommitted in this tree: fleet statistics survive the ResourceChanged path (peer summaries added at every emission), and the Storage page renders paired devices' replica sources with routing through the owning device's slug.                                                                                                                                                    |
 | Quick Preview originals                           | committed (`d806ba7f1`); live proof pending | unowned    | The Tauri asset boundary now maps canonical macOS APFS data-volume paths back to the scoped `/Users` and `/Volumes` aliases. Image, video, audio, text, mesh, and local thumbnail-original renderers share the fix. Open a home-directory image and an external-volume file to confirm originals load without a 403.                                                                                                                                                                                                                                                                                                                                                 |
 | Permission-aware automatic startup                | first slice committed (`4b84e2c05`)    | unowned         | Library loading no longer dispatches a new filesystem discovery pass. The desktop requests one idempotent pass after the connected shell renders; a bare daemon does not initiate discovery, and `sd index start --defaults` gives CLI and server operators the same explicit path. Restored volume snapshots now prevent repeat full walks. Next: model denied coverage and add the macOS permission explanation and Full Disk Access affordance.                                                                                                                                                                                                                   |
 | Host media tools                                  | committed (`bbc53866e`); live proof pending | unowned    | The machine-scoped registry discovers host FFmpeg outside GUI PATHs, reports its version and media capabilities, and exposes explicit Homebrew/WinGet installation. Services settings now shows the resolved version, path, capability coverage, missing FFprobe state, refresh, and a confirmed package-manager install action. Default builds use QuickLook or host FFmpeg for hot video thumbnails and generate immutable 5 by 5 thumbstrips on hover. Core, linked-feature, server, Tauri shell, generated-client, and desktop production builds pass; real FFmpeg output is 384×216 and 800×450 in the focused fixtures. Restart the daemon, inspect Services settings, then open a video with no old sidecars and confirm its poster and hover scrub sheet. |
@@ -191,9 +255,6 @@ These are regression boundaries, not incidental fixes:
 
 ### Interface and desktop
 
-- `321818b55`, `dd5a0f1aa`, `d806ba7f1`, `bbc53866e`, `4b84e2c05`: the sidebar
-  simplification, `paths.context` and the locations demotion, the thumbnail
-  remount and Quick Preview fixes, host media tool discovery with on-demand
 - `fe4a100b3`: made ephemeral search case-insensitive (lowercased registry
   keys, folded on snapshot restore too) and removed the exact/prefix/contains
   short-circuit so an exact name no longer hides its substring matches. Also
@@ -202,6 +263,9 @@ These are regression boundaries, not incidental fixes:
   second time), and directory browse and scoped search normalize their paths
   through `locate_path` like `sources.track` does. Verified live: duplicates
   gone, mixed-case names found, full result sets on exact queries.
+- `321818b55`, `dd5a0f1aa`, `d806ba7f1`, `bbc53866e`, `4b84e2c05`: the sidebar
+  simplification, `paths.context` and the locations demotion, the thumbnail
+  remount and Quick Preview fixes, host media tool discovery with on-demand
   thumbstrips, and explicit permission-aware startup discovery. Register rows
   above track their remaining live proofs and next steps.
 - `38ff5c059`, `912f01274`: fixed hot-thumb 404s, silenced browse indexer

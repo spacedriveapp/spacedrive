@@ -113,12 +113,14 @@ This keeps the main interface simple:
 ### Path status
 
 The control beside the Explorer path bar explains the current path instead of
-claiming that a location is indexed. It reports independent facts:
+claiming that a location is indexed. Its primary view shows containment: the
+current folder sits inside its owning source, while the physical volume remains
+outside that boundary. It reports independent facts:
 
 - the innermost source retaining the path;
 - the mounted volume containing it, when one is known;
-- whether metadata is only in memory, in a machine-local restart cache, or in
-  a source store;
+- the strongest retention state for the exact path: live memory, a
+  machine-local restart cache, or committed source records;
 - whether a watcher currently covers the path;
 - whether the volume map is unseen, indexing, detailed, or summarised;
 - whether the path is a computed Place, an exact pin, or inside a pin;
@@ -127,11 +129,22 @@ claiming that a location is indexed. It reports independent facts:
 The daemon resolves these facts through `paths.context`. Clients must not infer
 them from path string prefixes or from the existence of a location row. On
 macOS, the query resolves APFS data-volume aliases before matching sources and
-pins.
+pins. The existence of a source database does not prove that the current path
+has reached it. `source_record` only becomes true when that path resolves in
+the committed source store. The source root is the store boundary and is
+covered by definition.
 
 From this control, **Add to Places** creates a location only when the path is
 already inside a source. **Add to Spacedrive** opens source setup when no source
-owns the path. Removing a pin changes navigation only.
+owns the path. Removing a pin changes navigation only. **Reindex source**
+rewalks the complete owning source through `sources.track`; it is not a
+subdirectory-only operation. Technical details keep the arena and cache states
+available without making internal indexing terms part of the primary UI.
+
+Keep the panel and status chips on neutral surfaces. Color belongs to status
+icons and text, with no colored fills. Use the large 36px CircleButton variant
+for the action row, with tooltips above the popover. Do not use small circle
+buttons in Spacedrive.
 
 ## For extension authors
 
