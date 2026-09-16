@@ -149,6 +149,30 @@ impl SourceStore {
 		&self.db
 	}
 
+	/// Whether this source has committed records for a path it owns.
+	///
+	/// The source root is the boundary rather than a record, so it is covered
+	/// by definition. Descendants must resolve through the durable store. This
+	/// deliberately does not flush the writer: a status read must not turn UI
+	/// polling into write-path backpressure, and a queued record will appear on
+	/// the next read after its batch commits.
+	pub async fn contains_path(&self, path: &Path) -> bool {
+		if path == self.root {
+			return true;
+		}
+		let Some(external_id) = self.external_id(path) else {
+			return false;
+		};
+
+		match self.db.resolve_path(&external_id).await {
+			Ok(record) => record.is_some(),
+			Err(error) => {
+				tracing::warn!(source = %self.id, %error, path = %path.display(), "could not resolve path in source store");
+				false
+			}
+		}
+	}
+
 	/// Resolve what was seen to record identities, and take it in.
 	///
 	/// The ledger assigns identity, so this is where a file's uuid comes from:
@@ -1006,6 +1030,22 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		// And the pending queries refuse rather than answering with emptiness.
 		assert!(fixture.store.files_needing_content(10).await.is_err());
 		assert!(fixture.store.files_needing_content_count().await.is_err());
+	}
+
+	#[tokio::test]
+	async fn source_coverage_requires_a_committed_record() {
+		let mut fixture = Fixture::new().await;
+		let recorded = fixture.create("docs/recorded.txt", b"known").await;
+		fixture.store.flush().await.expect("flush");
+
+		assert!(fixture.store.contains_path(fixture.root.path()).await);
+		assert!(fixture.store.contains_path(&recorded).await);
+		assert!(
+			!fixture
+				.store
+				.contains_path(&fixture.root.path().join("missing.txt"))
+				.await
+		);
 	}
 
 	/// A walk hands a batch over in whatever order discovery produced it, and

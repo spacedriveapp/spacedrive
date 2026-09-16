@@ -56,9 +56,10 @@ impl CoreAction for ThumbRequestAction {
 		let paths = input
 			.paths
 			.into_iter()
-			.map(|path| match path {
-				SdPath::Physical { path, .. } => Ok(path),
-				other => Err(format!("{other:?} does not name a local file")),
+			.map(|path| {
+				path.as_local_path()
+					.map(PathBuf::from)
+					.ok_or_else(|| format!("{path:?} does not name a local file"))
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(Self { paths })

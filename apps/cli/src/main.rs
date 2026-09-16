@@ -67,6 +67,7 @@ use crate::domains::{
 	spaces::{self, SpacesCmd},
 	sync::{self, SyncCmd},
 	tag::{self, TagCmd},
+	thumbs::{self, ThumbsCmd},
 	update,
 	volume::{self, VolumeCmd},
 };
@@ -205,6 +206,9 @@ enum Commands {
 	/// Indexing operations
 	#[command(subcommand)]
 	Index(IndexCmd),
+	/// Thumbnail generation and regeneration
+	#[command(subcommand)]
+	Thumbs(ThumbsCmd),
 	/// Source operations (track, list, freeze)
 	#[command(subcommand)]
 	Sources(SourceCmd),
@@ -746,6 +750,7 @@ async fn run_client_command(
 		Commands::Library(cmd) => library::run(&ctx, cmd).await?,
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
+		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
 		Commands::Location(cmd) => location::run(&ctx, cmd).await?,
 		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,

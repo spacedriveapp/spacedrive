@@ -1064,8 +1064,7 @@ impl Library {
 		&self,
 		db: &sea_orm::DatabaseConnection,
 	) -> Result<(u64, u64)> {
-		let live =
-			Self::live_capacity_by_fingerprint(&self.core_context.volume_manager).await;
+		let live = Self::live_capacity_by_fingerprint(&self.core_context.volume_manager).await;
 		Self::calculate_volume_capacity_static(db, &live).await
 	}
 

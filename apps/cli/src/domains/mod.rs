@@ -16,5 +16,6 @@ pub mod source;
 pub mod spaces;
 pub mod sync;
 pub mod tag;
+pub mod thumbs;
 pub mod update;
 pub mod volume;

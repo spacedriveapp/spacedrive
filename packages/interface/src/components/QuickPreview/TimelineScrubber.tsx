@@ -6,10 +6,7 @@ import { useHotThumbstrip } from "../../routes/explorer/hooks/useHotThumbstrip";
 interface TimelineScrubberProps {
 	file: File;
 	hoverPercent: number;
-	mouseX: number;
 	duration: number;
-	sidebarWidth?: number;
-	inspectorWidth?: number;
 }
 
 /**
@@ -21,10 +18,7 @@ interface TimelineScrubberProps {
 export const TimelineScrubber = memo(function TimelineScrubber({
 	file,
 	hoverPercent,
-	mouseX,
 	duration,
-	sidebarWidth = 0,
-	inspectorWidth = 0,
 }: TimelineScrubberProps) {
 	const { buildSidecarUrl } = useServer();
 
@@ -80,17 +74,9 @@ export const TimelineScrubber = memo(function TimelineScrubber({
 	const previewWidth = 160;
 	const previewHeight = 90;
 
-	// Position horizontally following mouse, clamped to controls bounds
-	// Adjust for sidebar offset and clamp within the controls area
-	const controlsWidth = window.innerWidth - sidebarWidth - inspectorWidth;
-	const mouseXRelativeToControls = mouseX - sidebarWidth;
-	const leftPosition = Math.max(
-		10,
-		Math.min(
-			mouseXRelativeToControls - previewWidth / 2,
-			controlsWidth - previewWidth - 10,
-		),
-	);
+	// The timeline sits inside the controls' 1rem padding on either side.
+	const percent = Math.max(0, Math.min(1, hoverPercent));
+	const leftPosition = `clamp(10px, calc(${percent * 100}% + ${1 - 2 * percent}rem - ${previewWidth / 2}px), calc(100% - ${previewWidth + 10}px))`;
 
 	// Format timestamp
 	const timestamp = formatTime(hoverPercent * duration);

@@ -1,57 +1,84 @@
-import { FolderPlus, Copy } from "@phosphor-icons/react";
-import { useContextMenu } from "../../../hooks/useContextMenu";
-import { useLibraryMutation } from "../../../contexts/SpacedriveContext";
-import { useExplorer } from "../context";
-import { useClipboard } from "../../../hooks/useClipboard";
-import { useFileOperationDialog } from "../../../components/modals/FileOperationModal";
+import {ArrowClockwise, Copy, FolderPlus} from '@phosphor-icons/react';
+import {toast} from '@spacedrive/primitives';
+import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
+import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
+import {useClipboard} from '../../../hooks/useClipboard';
+import {useContextMenu} from '../../../hooks/useContextMenu';
+import {useExplorer} from '../context';
 
 export function useEmptySpaceContextMenu() {
-	const { currentPath } = useExplorer();
-	const createFolder = useLibraryMutation("files.createFolder");
+	const {currentPath} = useExplorer();
+	const createFolder = useLibraryMutation('files.createFolder');
+	const generateThumbnails = useLibraryMutation('thumbs.generate');
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 
 	return useContextMenu({
 		items: [
 			{
+				icon: ArrowClockwise,
+				label: 'Regenerate Thumbnails',
+				condition: () => !!currentPath && 'Physical' in currentPath,
+				onClick: async () => {
+					if (!currentPath) return;
+					try {
+						await generateThumbnails.mutateAsync({
+							scope: currentPath,
+							recursive: true,
+							mode: 'force'
+						});
+						toast.success('Thumbnail regeneration started');
+					} catch (error) {
+						toast.error(
+							`Could not regenerate thumbnails: ${error}`
+						);
+					}
+				}
+			},
+			{
 				icon: FolderPlus,
-				label: "New Folder",
+				label: 'New Folder',
 				onClick: async () => {
 					if (!currentPath) return;
 					try {
 						const result = await createFolder.mutateAsync({
 							parent: currentPath,
-							name: "Untitled Folder",
-							items: [],
+							name: 'Untitled Folder',
+							items: []
 						});
-						console.log("Created folder:", result);
+						console.log('Created folder:', result);
 					} catch (err) {
-						console.error("Failed to create folder:", err);
+						console.error('Failed to create folder:', err);
 						alert(`Failed to create folder: ${err}`);
 					}
 				},
-				condition: () => !!currentPath,
+				condition: () => !!currentPath
 			},
 			{
 				icon: Copy,
-				label: "Paste",
+				label: 'Paste',
 				onClick: () => {
 					if (!clipboard.hasClipboard() || !currentPath) {
-						console.log("[Clipboard] Nothing to paste or no destination");
+						console.log(
+							'[Clipboard] Nothing to paste or no destination'
+						);
 						return;
 					}
 
 					const operation =
-						clipboard.operation === "cut" ? "move" : "copy";
+						clipboard.operation === 'cut' ? 'move' : 'copy';
 
 					console.groupCollapsed(
-						`[Clipboard] Pasting ${clipboard.files.length} file${clipboard.files.length === 1 ? "" : "s"} (${operation})`,
+						`[Clipboard] Pasting ${clipboard.files.length} file${clipboard.files.length === 1 ? '' : 's'} (${operation})`
 					);
-					console.log("Operation:", operation);
-					console.log("Destination:", currentPath);
-					console.log("Source files (SdPath objects):");
+					console.log('Operation:', operation);
+					console.log('Destination:', currentPath);
+					console.log('Source files (SdPath objects):');
 					clipboard.files.forEach((file, index) => {
-						console.log(`  [${index}]:`, JSON.stringify(file, null, 2));
+						console.log(
+							`  [${index}]:`,
+							JSON.stringify(file, null, 2)
+						);
 					});
 					console.groupEnd();
 
@@ -60,20 +87,22 @@ export function useEmptySpaceContextMenu() {
 						sources: clipboard.files,
 						destination: currentPath,
 						onComplete: () => {
-							if (clipboard.operation === "cut") {
+							if (clipboard.operation === 'cut') {
 								console.log(
-									"[Clipboard] Operation completed, clearing clipboard",
+									'[Clipboard] Operation completed, clearing clipboard'
 								);
 								clipboard.clearClipboard();
 							} else {
-								console.log("[Clipboard] Copy operation completed");
+								console.log(
+									'[Clipboard] Copy operation completed'
+								);
 							}
-						},
+						}
 					});
 				},
-				keybindId: "explorer.paste",
-				condition: () => clipboard.hasClipboard(),
-			},
-		],
+				keybindId: 'explorer.paste',
+				condition: () => clipboard.hasClipboard()
+			}
+		]
 	});
 }

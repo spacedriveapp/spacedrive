@@ -220,7 +220,7 @@ async fn serve_sidecar(
 		.expect("sidecar response is well-formed")
 }
 
-/// Serve one immutable tile from the volume-scoped thumbnail cache.
+/// Serve a tile that explicit regeneration can replace in place.
 async fn serve_hot_thumb(
 	State(state): State<AppState>,
 	axum::extract::Path((source_id, record_uuid, version)): axum::extract::Path<(
@@ -253,7 +253,7 @@ async fn serve_hot_thumb(
 	Response::builder()
 		.status(StatusCode::OK)
 		.header(header::CONTENT_TYPE, "image/png")
-		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+		.header(header::CACHE_CONTROL, "no-cache")
 		.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
 		.body(Body::from(png))
 		.expect("hot thumbnail response is well-formed")

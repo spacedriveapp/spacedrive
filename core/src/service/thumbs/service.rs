@@ -7,6 +7,7 @@ use sd_bake::{BakePool, BakeRequest, ImageProducer, Producer, ScaleMode, Tile, W
 use sd_pvcache::{Frame, Pvcache, TileState, DEFAULT_INITIAL_CAPACITY};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tokio::sync::watch;
 use tracing::{debug, warn};
 use uuid::Uuid;
 
@@ -45,6 +46,48 @@ const COMPLETION_FLUSH: Duration = Duration::from_millis(100);
 /// Completions per event, so a large fill still lands in bounded batches.
 const COMPLETION_BATCH: usize = 256;
 
+/// Bump when the tile recipe changes, independently of the source file.
+const THUMBNAIL_RECIPE: u64 = 1;
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(rename_all = "snake_case")]
+pub enum ThumbnailGenerationMode {
+	/// Only fill empty slots, retaining even stale tiles.
+	Missing,
+	/// Fill empty slots and replace outdated tiles.
+	#[default]
+	Stale,
+	/// Bake again even when the tile is current.
+	Force,
+}
+
+impl ThumbnailGenerationMode {
+	fn should_bake(self, state: TileState) -> bool {
+		match self {
+			Self::Missing => matches!(state, TileState::Absent),
+			Self::Stale => !matches!(state, TileState::Fresh { .. }),
+			Self::Force => true,
+		}
+	}
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GenerationOutcome {
+	Generated,
+	Skipped,
+	Failed,
+}
+
+struct PendingBake {
+	key: TileKey,
+	completion: watch::Sender<Option<bool>>,
+}
+
+enum BakeSubmission {
+	Skipped,
+	Pending(watch::Receiver<Option<bool>>),
+}
+
 /// A baked tile, announced when it lands so clients re-read the slot.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct Thumbnail {
@@ -56,8 +99,7 @@ pub struct Thumbnail {
 	#[serde(with = "crate::infra::wire::u64_string")]
 	#[specta(type = String)]
 	pub version: u64,
-	/// False when no producer could turn the file into pixels. The slot stays
-	/// empty and no retry is coming for this version.
+	/// False when generation or publication failed. A previous tile is retained.
 	pub ok: bool,
 }
 
@@ -146,6 +188,7 @@ struct TileKey {
 	source_id: Uuid,
 	uuid: Uuid,
 	version: u64,
+	attempt: Uuid,
 }
 
 struct ThumbstripWork {
@@ -163,7 +206,7 @@ pub struct ThumbService {
 	writers: Mutex<HashMap<Uuid, Arc<Mutex<Pvcache>>>>,
 	/// Queued or in-flight bakes, so a viewport redrawing every frame does
 	/// not resubmit work already on the queue.
-	pending: Arc<Mutex<HashSet<(Uuid, Uuid)>>>,
+	pending: Arc<Mutex<HashMap<(Uuid, Uuid), PendingBake>>>,
 	pool: BakePool<TileKey>,
 	external_tools: Arc<ExternalTools>,
 	thumbstrip_pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
@@ -178,9 +221,19 @@ impl ThumbService {
 		events: Arc<EventBus>,
 		external_tools: Arc<ExternalTools>,
 	) -> Arc<Self> {
-		let (pool, baked) =
-			BakePool::<TileKey>::new(producer_chain(external_tools.clone()), TILE, bake_workers());
-		let pending: Arc<Mutex<HashSet<(Uuid, Uuid)>>> = Arc::new(Mutex::new(HashSet::new()));
+		let chain = producer_chain(external_tools.clone());
+		Self::with_producers(dirs, ephemeral, events, external_tools, chain)
+	}
+
+	fn with_producers(
+		dirs: Option<SourceDirs>,
+		ephemeral: Arc<EphemeralIndexCache>,
+		events: Arc<EventBus>,
+		external_tools: Arc<ExternalTools>,
+		chain: Vec<Box<dyn Producer>>,
+	) -> Arc<Self> {
+		let (pool, baked) = BakePool::<TileKey>::new(chain, TILE, bake_workers());
+		let pending = Arc::new(Mutex::new(HashMap::new()));
 		let thumbstrip_pending = Arc::new(Mutex::new(HashSet::new()));
 		let (thumbstrip_tx, thumbstrip_rx) = async_channel::bounded(128);
 
@@ -199,7 +252,7 @@ impl ThumbService {
 		let drain_events = events.clone();
 		std::thread::Builder::new()
 			.name("thumb-drain".into())
-			.spawn(move || drain.run_drain(baked, drain_events, pending))
+			.spawn(move || drain.run_drain(baked, drain_events))
 			.expect("failed to spawn thumbnail drain thread");
 
 		for worker in 0..thumbstrip_workers() {
@@ -220,9 +273,9 @@ impl ThumbService {
 	/// not already fresh. Earlier paths bake first, so a caller sends what it
 	/// is drawing in the order it draws it.
 	///
-	/// A path under no registered source, or one the index does not know, has
+	/// A path on no mapped volume, or one the index does not know, has
 	/// no identity and is reported as `None` in place.
-	pub async fn request(&self, paths: &[PathBuf]) -> Vec<Option<TileIdentity>> {
+	pub async fn request(self: &Arc<Self>, paths: &[PathBuf]) -> Vec<Option<TileIdentity>> {
 		let mut out = Vec::with_capacity(paths.len());
 		for (rank, path) in paths.iter().enumerate() {
 			out.push(
@@ -233,39 +286,130 @@ impl ThumbService {
 		out
 	}
 
-	async fn request_one(&self, path: &PathBuf, priority: u32) -> Option<TileIdentity> {
-		let identity = self.resolve_identity(path).await?;
-		let dirs = self.dirs.as_ref()?;
+	async fn request_one(self: &Arc<Self>, path: &PathBuf, priority: u32) -> Option<TileIdentity> {
+		let identity = self.thumbnail_identity(path).await?;
+		let service = self.clone();
+		let path = path.clone();
+		tokio::task::spawn_blocking(move || {
+			service.enqueue(path, identity, priority, ThumbnailGenerationMode::Stale)
+		})
+		.await
+		.ok()??;
+		Some(identity)
+	}
 
-		let writer = self.writer_for(identity.source_id, dirs)?;
-		let fresh = {
-			let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
-			matches!(
-				writer.lookup(identity.uuid, identity.version),
-				TileState::Fresh { .. }
-			)
+	/// Wait until pixels have reached the cache, rather than merely the queue.
+	pub async fn generate_one(
+		self: &Arc<Self>,
+		path: &PathBuf,
+		mode: ThumbnailGenerationMode,
+	) -> GenerationOutcome {
+		let Some(identity) = self.thumbnail_identity(path).await else {
+			return GenerationOutcome::Failed;
 		};
-		if fresh {
-			return Some(identity);
+		let service = self.clone();
+		let path = path.clone();
+		let submission =
+			tokio::task::spawn_blocking(move || service.enqueue(path, identity, 0, mode)).await;
+		let Ok(Some(submission)) = submission else {
+			return GenerationOutcome::Failed;
+		};
+		match submission {
+			BakeSubmission::Skipped => GenerationOutcome::Skipped,
+			BakeSubmission::Pending(mut completion) => loop {
+				if let Some(ok) = *completion.borrow_and_update() {
+					return if ok {
+						GenerationOutcome::Generated
+					} else {
+						GenerationOutcome::Failed
+					};
+				}
+				if completion.changed().await.is_err() {
+					return GenerationOutcome::Failed;
+				}
+			},
 		}
+	}
 
-		{
-			let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
-			if !pending.insert((identity.source_id, identity.uuid)) {
-				return Some(identity);
+	fn enqueue(
+		&self,
+		path: PathBuf,
+		identity: TileIdentity,
+		priority: u32,
+		mode: ThumbnailGenerationMode,
+	) -> Option<BakeSubmission> {
+		let dirs = self.dirs.as_ref()?;
+		// Publication and queue admission share this lock so an old completion
+		// cannot overwrite a newer request, or disappear before its write lands.
+		let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+		let address = (identity.source_id, identity.uuid);
+		let writer = self.writer_for(identity.source_id, dirs)?;
+		let state = {
+			let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
+			writer.lookup(identity.uuid, identity.version)
+		};
+		if !mode.should_bake(state) {
+			return Some(BakeSubmission::Skipped);
+		}
+		if let Some(work) = pending.get(&address) {
+			if work.key.version == identity.version {
+				return Some(BakeSubmission::Pending(work.completion.subscribe()));
 			}
 		}
-
+		let key = TileKey {
+			source_id: identity.source_id,
+			uuid: identity.uuid,
+			version: identity.version,
+			attempt: Uuid::new_v4(),
+		};
+		let (completion, receiver) = watch::channel(None);
+		if let Some(obsolete) = pending.insert(address, PendingBake { key, completion }) {
+			let _ = obsolete.completion.send(Some(false));
+		}
 		self.pool.submit(BakeRequest {
-			key: TileKey {
-				source_id: identity.source_id,
-				uuid: identity.uuid,
-				version: identity.version,
-			},
+			key,
 			item: WorkItem::file(path),
 			priority,
 		});
+		Some(BakeSubmission::Pending(receiver))
+	}
+
+	async fn thumbnail_identity(&self, path: &PathBuf) -> Option<TileIdentity> {
+		let mut identity = self.resolve_identity(path).await?;
+		let video = is_video(path);
+		let tools = self.external_tools.clone();
+		let ffmpeg = if video {
+			tokio::task::spawn_blocking(move || tools.ffmpeg_path().is_some())
+				.await
+				.ok()?
+		} else {
+			false
+		};
+		identity.version = thumbnail_version(identity.version, THUMBNAIL_RECIPE, ffmpeg);
 		Some(identity)
+	}
+
+	/// Flush completed tiles before a job advances its persisted cursor.
+	pub async fn flush_cache(self: &Arc<Self>, id: Uuid) -> Result<(), String> {
+		let service = self.clone();
+		tokio::task::spawn_blocking(move || {
+			let writer = service
+				.writers
+				.lock()
+				.unwrap_or_else(|e| e.into_inner())
+				.get(&id)
+				.cloned();
+			if let Some(writer) = writer {
+				writer
+					.lock()
+					.unwrap_or_else(|e| e.into_inner())
+					.flush()
+					.map_err(|error| error.to_string())?;
+			}
+			Ok(())
+		})
+		.await
+		.map_err(|error| error.to_string())?
 	}
 
 	/// Resolve and queue one video thumbstrip. Generation starts only after a
@@ -324,13 +468,21 @@ impl ThumbService {
 		let source_id = slot.id()?;
 		// Identity comes from the same index that produced the listing, while
 		// the version comes from full filesystem precision.
-		let (uuid, version) = {
+		if slot.is_detached() {
+			return None;
+		}
+		let metadata = tokio::fs::metadata(path).await.ok()?;
+		if !metadata.is_file() {
+			return None;
+		}
+		let version = source_version(metadata.len(), metadata.modified().ok()?);
+		let uuid = {
 			let index = slot.index();
 			let mut index = index.write().await;
-			let uuid = index.get_or_assign_uuid(path);
-			let metadata = std::fs::metadata(path).ok()?;
-			let mtime = metadata.modified().ok()?;
-			(uuid, source_version(metadata.len(), mtime))
+			if !index.has_entry(path) {
+				return None;
+			}
+			index.get_or_assign_uuid(path)
 		};
 		Some(TileIdentity {
 			source_id,
@@ -374,7 +526,6 @@ impl ThumbService {
 		&self,
 		baked: std::sync::mpsc::Receiver<sd_bake::Baked<TileKey>>,
 		events: Arc<EventBus>,
-		pending: Arc<Mutex<HashSet<(Uuid, Uuid)>>>,
 	) {
 		let mut batch: Vec<Thumbnail> = Vec::new();
 		let mut oldest: Option<Instant> = None;
@@ -386,11 +537,9 @@ impl ThumbService {
 			match baked.recv_timeout(timeout) {
 				Ok(done) => {
 					let key = done.key;
-					pending
-						.lock()
-						.unwrap_or_else(|e| e.into_inner())
-						.remove(&(key.source_id, key.uuid));
-					let ok = self.store(&key, done.result);
+					let Some(ok) = self.finish_bake(&key, done.result) else {
+						continue;
+					};
 					batch.push(Thumbnail {
 						id: key.uuid,
 						source_id: key.source_id,
@@ -418,6 +567,26 @@ impl ThumbService {
 				}
 			}
 		}
+	}
+
+	fn finish_bake(
+		&self,
+		key: &TileKey,
+		result: Result<Tile, Vec<sd_bake::Decline>>,
+	) -> Option<bool> {
+		let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+		let address = (key.source_id, key.uuid);
+		if !pending
+			.get(&address)
+			.is_some_and(|work| work.key.attempt == key.attempt)
+		{
+			return None;
+		}
+		let ok = self.store(key, result);
+		if let Some(work) = pending.remove(&address) {
+			let _ = work.completion.send(Some(ok));
+		}
+		Some(ok)
 	}
 
 	/// Put one finished bake in its slot. Returns whether pixels landed.
@@ -451,6 +620,15 @@ impl ThumbService {
 			}
 		}
 	}
+}
+
+fn thumbnail_version(source: u64, recipe: u64, ffmpeg: bool) -> u64 {
+	let mut hash = blake3::Hasher::new();
+	hash.update(b"spacedrive.thumbnail");
+	hash.update(&source.to_le_bytes());
+	hash.update(&recipe.to_le_bytes());
+	hash.update(&[u8::from(ffmpeg)]);
+	u64::from_le_bytes(hash.finalize().as_bytes()[..8].try_into().unwrap())
 }
 
 fn thumbstrip_identity(
@@ -571,6 +749,257 @@ fn thumbstrip_workers() -> usize {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::ops::indexing::{metadata::EntryMetadata, state::EntryKind};
+	use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+	struct TestProducer {
+		calls: Arc<AtomicUsize>,
+		fail: Arc<AtomicBool>,
+	}
+
+	impl Producer for TestProducer {
+		fn produce(&self, _: &WorkItem, _: u32) -> Result<Tile, sd_bake::Decline> {
+			let call = self.calls.fetch_add(1, Ordering::SeqCst) + 1;
+			if self.fail.load(Ordering::SeqCst) {
+				return Err(sd_bake::Decline::Unavailable);
+			}
+			Ok(Tile::solid(2, [call as u8, 0, 0, 255]))
+		}
+	}
+
+	async fn fixture() -> (
+		tempfile::TempDir,
+		Arc<ThumbService>,
+		PathBuf,
+		Arc<AtomicUsize>,
+		Arc<AtomicBool>,
+	) {
+		let temp = tempfile::tempdir().unwrap();
+		let path = temp.path().join("file.png");
+		tokio::fs::write(&path, b"test input").await.unwrap();
+		let cache = Arc::new(EphemeralIndexCache::with_sources_dir(None).unwrap());
+		cache.track_volume(Uuid::new_v4(), temp.path().to_path_buf());
+		cache
+			.resolve_index(&path)
+			.write()
+			.await
+			.add_entry(
+				path.clone(),
+				Uuid::new_v4(),
+				EntryMetadata {
+					path: path.clone(),
+					kind: EntryKind::File,
+					size: 10,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				},
+			)
+			.unwrap();
+		let calls = Arc::new(AtomicUsize::new(0));
+		let fail = Arc::new(AtomicBool::new(false));
+		let service = ThumbService::with_producers(
+			Some(SourceDirs::under_data_dir(temp.path()).unwrap()),
+			cache,
+			Arc::new(EventBus::new(64)),
+			Arc::new(ExternalTools::new()),
+			vec![Box::new(TestProducer {
+				calls: calls.clone(),
+				fail: fail.clone(),
+			})],
+		);
+		(temp, service, path, calls, fail)
+	}
+
+	async fn generate(
+		service: &Arc<ThumbService>,
+		path: &PathBuf,
+		mode: ThumbnailGenerationMode,
+	) -> GenerationOutcome {
+		tokio::time::timeout(Duration::from_secs(5), service.generate_one(path, mode))
+			.await
+			.unwrap()
+	}
+
+	#[tokio::test]
+	async fn thumbnail_modes_wait_for_publication_and_force_overwrites() {
+		let (_temp, service, path, calls, _) = fixture().await;
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Missing).await,
+			GenerationOutcome::Generated
+		);
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		assert!(matches!(
+			writer
+				.lock()
+				.unwrap()
+				.lookup(identity.uuid, identity.version),
+			TileState::Fresh { .. }
+		));
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Missing).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Stale).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 1);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Generated
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 2);
+		let mut pixels = vec![0; TILE as usize * TILE as usize * 4];
+		writer
+			.lock()
+			.unwrap()
+			.get(identity.uuid, identity.version, &mut pixels)
+			.unwrap();
+		assert_eq!(&pixels[..4], &[2, 0, 0, 255]);
+		service.flush_cache(identity.source_id).await.unwrap();
+		let mut reopened =
+			sd_pvcache::PvcacheReader::open(&service.cache_path(identity.source_id).unwrap())
+				.unwrap();
+		assert!(matches!(
+			reopened.lookup(identity.uuid, identity.version).unwrap(),
+			TileState::Fresh { .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn thumbnail_missing_retains_stale_but_stale_mode_replaces_it() {
+		let (_temp, service, path, calls, _) = fixture().await;
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		writer
+			.lock()
+			.unwrap()
+			.write(
+				identity.uuid,
+				identity.version.wrapping_sub(1),
+				Frame {
+					content_width: 1,
+					content_height: 1,
+					source_width: 1,
+					source_height: 1,
+				},
+				&[99, 0, 0, 255],
+			)
+			.unwrap();
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Missing).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Stale).await,
+			GenerationOutcome::Generated
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 1);
+	}
+
+	#[tokio::test]
+	async fn thumbnail_failed_force_keeps_previous_pixels() {
+		let (_temp, service, path, _, fail) = fixture().await;
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Stale).await,
+			GenerationOutcome::Generated
+		);
+		fail.store(true, Ordering::SeqCst);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Failed
+		);
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		assert!(matches!(
+			writer
+				.lock()
+				.unwrap()
+				.lookup(identity.uuid, identity.version),
+			TileState::Fresh { .. }
+		));
+	}
+
+	#[tokio::test]
+	async fn thumbnail_unknown_paths_do_not_get_transient_cache_keys() {
+		let (temp, service, _, _, _) = fixture().await;
+		let unknown = temp.path().join("unknown.png");
+		tokio::fs::write(&unknown, b"file").await.unwrap();
+		assert!(service.request(&[unknown]).await[0].is_none());
+	}
+
+	#[test]
+	fn thumbnail_recipe_and_ffmpeg_availability_invalidate_existing_tiles() {
+		let version = thumbnail_version(42, 1, false);
+		assert_eq!(version, thumbnail_version(42, 1, false));
+		assert_ne!(version, 42);
+		assert_ne!(version, thumbnail_version(42, 1, true));
+		assert_ne!(version, thumbnail_version(42, 2, false));
+		assert_ne!(version, thumbnail_version(43, 1, false));
+	}
+
+	#[tokio::test]
+	async fn thumbnail_obsolete_bake_cannot_overwrite_or_complete_newer_request() {
+		let (_temp, service, path, _, _) = fixture().await;
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let old = TileKey {
+			source_id: identity.source_id,
+			uuid: identity.uuid,
+			version: identity.version,
+			attempt: Uuid::new_v4(),
+		};
+		let new = TileKey {
+			attempt: Uuid::new_v4(),
+			..old
+		};
+		let (completion, receiver) = watch::channel(None);
+		service.pending.lock().unwrap().insert(
+			(new.source_id, new.uuid),
+			PendingBake {
+				key: new,
+				completion,
+			},
+		);
+		assert_eq!(
+			service.finish_bake(&old, Ok(Tile::solid(2, [1, 0, 0, 255]))),
+			None
+		);
+		assert_eq!(*receiver.borrow(), None);
+		assert_eq!(
+			service.finish_bake(&new, Ok(Tile::solid(2, [2, 0, 0, 255]))),
+			Some(true)
+		);
+		assert_eq!(*receiver.borrow(), Some(true));
+		assert_eq!(
+			service.finish_bake(&old, Ok(Tile::solid(2, [1, 0, 0, 255]))),
+			None
+		);
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		let mut pixels = vec![0; TILE as usize * TILE as usize * 4];
+		writer
+			.lock()
+			.unwrap()
+			.get(identity.uuid, identity.version, &mut pixels)
+			.unwrap();
+		assert_eq!(&pixels[..4], &[2, 0, 0, 255]);
+	}
 
 	#[test]
 	fn earlier_paths_outrank_later_ones() {

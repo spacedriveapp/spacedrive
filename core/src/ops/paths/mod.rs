@@ -90,6 +90,8 @@ pub struct PathStorageContext {
 	pub restart_cache: bool,
 	/// The source has created its durable record store.
 	pub source_store: bool,
+	/// The current path is covered by committed records in that source store.
+	pub source_record: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -209,6 +211,14 @@ impl LibraryQuery for PathContextQuery {
 				.unwrap_or(false),
 			None => false,
 		};
+		let source_record = if source_store {
+			match cache.store_for(&canonical).await {
+				Some(store) => store.contains_path(&canonical).await,
+				None => false,
+			}
+		} else {
+			false
+		};
 
 		let location = match source_status.as_ref() {
 			Some(status) => {
@@ -242,6 +252,7 @@ impl LibraryQuery for PathContextQuery {
 				memory: map_state != PathMapState::Unseen,
 				restart_cache,
 				source_store,
+				source_record,
 			},
 		})
 	}
@@ -274,6 +285,7 @@ fn empty_context(path: SdPath, availability: PathAvailability) -> PathContextOut
 			memory: false,
 			restart_cache: false,
 			source_store: false,
+			source_record: false,
 		},
 	}
 }

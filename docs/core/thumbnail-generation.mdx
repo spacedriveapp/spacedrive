@@ -1,0 +1,64 @@
+---
+title: Thumbnail Generation
+description: Generate or replace preview tiles for a file or indexed folder
+---
+
+Choose Regenerate Thumbnails from a file, folder, or explorer background menu.
+Folders include indexed subdirectories. The job appears in Activity and reports
+generated, skipped, and failed counts.
+
+The CLI uses the same operation:
+
+```sh
+cargo run --bin sd-cli -- thumbs generate /absolute/path/clip.mov --mode force
+cargo run --bin sd-cli -- thumbs generate /absolute/path/folder --recursive --mode force
+```
+
+Without `--recursive`, a directory selects its immediate files. The default
+mode is `stale`.
+
+| Mode | Work selected |
+| --- | --- |
+| `missing` | Files with no cached tile |
+| `stale` | Missing tiles and tiles with outdated file or recipe versions |
+| `force` | Every selected file, including tiles that are already current |
+
+## Scope and progress
+
+`action:thumbs.generate.input` accepts `scope: SdPath`, `recursive: boolean`,
+and `mode`, and returns a job receipt. The library owns the job history; the
+volume owns the cache. Physical paths must refer to the device executing the
+operation. Use the CLI's `--device` option to execute it on another device.
+
+Generation selects the regular files already present in the volume index. It
+does not enumerate the filesystem, follow symlinks, or discover missing files.
+Browse or index an unknown scope first. Summarised subdirectories have no file
+listing and are reported in the job log. Partial indexing means partial
+thumbnail coverage.
+
+The job submits up to 32 files at a time at lower priority than viewport
+requests. A batch is complete after its pixels are published and flushed.
+Only then does the job checkpoint its counts and last path. Paths are relative
+to the volume, so a changed mount point does not reset progress. Pause or
+cancellation stops new submissions; already submitted bakes may finish.
+An interrupted batch can be repeated after resumption.
+
+The selected paths are a snapshot of the index at each run. Resume skips paths
+through the saved cursor. A new request includes files added or renamed behind
+that cursor while the job was interrupted.
+
+## Cache validity
+
+Hot tiles live in `volumes/<volume-index-id>/thumbs.pvcache`. The existing file
+UUID identifies the slot. Its version combines size, modification time, the
+thumbnail recipe revision, and host FFmpeg availability for videos. When
+FFmpeg becomes available, the next request treats an older fallback tile as
+stale. Existing tiles are refreshed on demand, not by a whole-drive scan.
+
+Forced generation replaces a slot only after a successful bake. Failed
+generation keeps the prior tile. Completion events update mounted clients,
+and HTTP responses revalidate so browser caches cannot hide a replacement.
+
+This operation generates preview tiles. On-demand thumbstrips keep their own
+request path. Persistent source sidecars remain a separate retention feature
+described in [Virtual Sidecars](./virtual-sidecars.mdx).

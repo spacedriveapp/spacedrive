@@ -564,6 +564,32 @@ impl EphemeralIndex {
 		)
 	}
 
+	/// Snapshot the known files in a scope without reading the filesystem.
+	/// Summarised and unvisited directories contribute no invented descendants.
+	pub fn files_in_scope(&self, root: &Path, recursive: bool) -> Option<Vec<PathBuf>> {
+		let root_id = *self.path_index.get(root)?;
+		let mut pending = vec![root_id];
+		let mut files = Vec::new();
+		while let Some(id) = pending.pop() {
+			let Some(node) = self.arena.get(id) else {
+				continue;
+			};
+			match node.meta.file_type() {
+				FileType::File => {
+					if let Some(path) = self.reconstruct_path(id) {
+						files.push(path);
+					}
+				}
+				FileType::Directory if id == root_id || recursive => {
+					pending.extend(node.children.iter().copied());
+				}
+				_ => {}
+			}
+		}
+		files.sort_unstable();
+		Some(files)
+	}
+
 	/// Clears entries before re-indexing, preserving explicitly browsed subdirectories.
 	///
 	/// Since ephemeral indexing is shallow, subdirectories that were explicitly

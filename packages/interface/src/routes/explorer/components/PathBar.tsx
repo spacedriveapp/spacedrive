@@ -1,10 +1,12 @@
 import {
+	ArrowClockwise,
 	CaretRight,
 	CircleDashed,
 	Database,
 	Eye,
 	HardDrive,
 	House,
+	Info,
 	Plus,
 	PushPin,
 	SpinnerGap,
@@ -12,7 +14,9 @@ import {
 	WarningCircle
 } from '@phosphor-icons/react';
 import type {Icon as PhosphorIcon} from '@phosphor-icons/react';
+import DatabaseIcon from '@sd/assets/icons/Database.webp';
 import FolderIcon from '@sd/assets/icons/Folder.webp';
+import HDDIcon from '@sd/assets/icons/HDD.webp';
 import LaptopIcon from '@sd/assets/icons/Laptop.webp';
 import type {Device, SdPath} from '@sd/ts-client';
 import {
@@ -143,13 +147,11 @@ function StateChip({
 	const content = (
 		<div
 			className={clsx(
-				'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium',
-				tone === 'active' &&
-					'border-accent/20 bg-accent/10 text-accent',
-				tone === 'warning' &&
-					'border-amber-400/20 bg-amber-400/10 text-amber-400',
-				tone === 'muted' && 'border-app-line bg-app/40 text-ink-faint',
-				tone === 'neutral' && 'border-app-line bg-app/50 text-ink-dull'
+				'border-app-line flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium',
+				tone === 'active' && 'text-accent',
+				tone === 'warning' && 'text-amber-400',
+				tone === 'muted' && 'text-ink-faint',
+				tone === 'neutral' && 'text-ink-dull'
 			)}
 		>
 			<Icon size={12} weight={tone === 'active' ? 'fill' : 'regular'} />
@@ -163,7 +165,7 @@ function StateChip({
 function PathStatusSkeleton() {
 	return (
 		<div className="animate-pulse px-4 py-4">
-			<div className="border-app-line bg-app/30 rounded-xl border p-3">
+			<div className="p-3">
 				<div className="bg-app-line/60 h-3 w-24 rounded" />
 				<div className="bg-app-line/60 mt-3 h-12 rounded-lg" />
 				<div className="mt-3 flex gap-2">
@@ -177,6 +179,7 @@ function PathStatusSkeleton() {
 
 function PathStatusButton({path}: {path: SdPath}) {
 	const popover = usePopover();
+	const [showDetails, setShowDetails] = useState(false);
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const {
@@ -210,6 +213,9 @@ function PathStatusButton({path}: {path: SdPath}) {
 		onSuccess: refresh
 	});
 	const removeLocation = useLibraryMutation('locations.remove', {
+		onSuccess: refresh
+	});
+	const reindexSource = useLibraryMutation('sources.track', {
 		onSuccess: refresh
 	});
 
@@ -248,6 +254,12 @@ function PathStatusButton({path}: {path: SdPath}) {
 		navigate('/sources');
 		popover.setOpen(false);
 	};
+	const openSource = () => {
+		if (context?.source) {
+			navigate(`/sources/${context.source.id}`);
+			popover.setOpen(false);
+		}
+	};
 	const addSource = () => {
 		if ('Physical' in path) {
 			useAddStorageDialog(undefined, path.Physical.path);
@@ -272,25 +284,49 @@ function PathStatusButton({path}: {path: SdPath}) {
 			: context?.watcher_state === 'inactive'
 				? 'Changes under this path are not being watched.'
 				: 'Live updates are unavailable for this path.';
-	const storageLabel = context?.storage.source_store
-		? 'Index on disk'
-		: context?.storage.restart_cache
-			? 'Cached locally'
-			: context?.storage.memory
-				? 'Browsing only'
-				: 'Not indexed';
-	const storageTone = context?.storage.source_store
+	const storageLabel = context?.storage.source_record
+		? 'Source records'
+		: context?.storage.source_store && context.map_state === 'indexing'
+			? 'Recording'
+			: context?.storage.restart_cache && context.storage.memory
+				? 'Restart cache'
+				: context?.storage.memory
+					? 'Memory only'
+					: context?.storage.source_store
+						? 'Not recorded'
+						: 'Not indexed';
+	const storageTone = context?.storage.source_record
 		? 'active'
-		: context?.storage.restart_cache || context?.storage.memory
-			? 'neutral'
-			: 'muted';
-	const storageDetail = context?.storage.source_store
-		? `${context.source?.name ?? 'This source'} has a durable index on disk.`
-		: context?.storage.restart_cache
-			? 'A rebuildable cache is available on this device after restart.'
+		: storageLabel === 'Not recorded'
+			? 'warning'
 			: context?.storage.memory
-				? 'This browsing index lasts until the daemon stops.'
-				: 'Spacedrive has not indexed this path.';
+				? 'neutral'
+				: 'muted';
+	const storageDetail = context?.storage.source_record
+		? `This path has committed records in ${context.source?.name ?? 'the source'} database.`
+		: context?.storage.source_store && context.map_state === 'indexing'
+			? 'This source is being walked. Records appear here as its batches commit.'
+			: context?.storage.restart_cache && context.storage.memory
+				? 'A rebuildable cache is available on this device after restart.'
+				: context?.storage.memory
+					? 'This path exists only in the live arena until the daemon stops.'
+					: context?.storage.source_store
+						? 'The source database exists, but this path has no committed record.'
+						: 'Spacedrive has not indexed this path.';
+	const placeLabel = context?.system_place
+		? `${context.system_place} is a system Place`
+		: exactLocation
+			? `Remove ${exactLocation.name} from Places`
+			: canAddLocation
+				? 'Add this folder to Places'
+				: 'Add a source before pinning this folder';
+	const canChangePlace = Boolean(exactLocation || canAddLocation);
+	const sourceRoot = context?.source?.root;
+	const canReindex = Boolean(
+		sourceRoot &&
+		context?.source?.attached &&
+		context.availability === 'available'
+	);
 
 	return (
 		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
@@ -316,68 +352,53 @@ function PathStatusButton({path}: {path: SdPath}) {
 				sideOffset={8}
 				className="!bg-app-box z-50 w-[360px] !rounded-2xl !p-0"
 			>
-				<div className="flex items-center gap-3 px-4 pb-3 pt-4">
-					<img src={FolderIcon} className="size-10" alt="" />
-					<div className="min-w-0 flex-1">
-						<div className="text-ink truncate text-sm font-semibold">
-							{pathLabel}
-						</div>
-						<div
-							className="text-ink-faint mt-0.5 truncate text-[10px]"
-							title={pathDetail}
-						>
-							{pathDetail}
+				<div>
+					<div className="flex items-center gap-3 px-4 pb-3 pt-4">
+						<img src={FolderIcon} className="size-10" alt="" />
+						<div className="min-w-0 flex-1">
+							<div className="text-ink truncate text-sm font-semibold">
+								{pathLabel}
+							</div>
+							<div
+								className="text-ink-faint mt-0.5 truncate text-[10px]"
+								title={pathDetail}
+							>
+								{pathDetail}
+							</div>
 						</div>
 					</div>
-					<div className="flex shrink-0 items-center gap-1.5">
-						{exactLocation ? (
-							<Tooltip label="Remove from Places">
-								<button
-									type="button"
-									disabled={removeLocation.isPending}
-									onClick={() => {
-										removeLocation.mutate({
-											location_id: exactLocation.id
-										});
-										popover.setOpen(false);
-									}}
-									className="border-app-line bg-app/50 text-ink hover:border-accent/40 hover:text-accent flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors"
-								>
-									<PushPin size={12} weight="fill" />
-									{exactLocation.name}
-								</button>
-							</Tooltip>
-						) : context?.system_place ? (
-							<div className="bg-app/50 text-ink flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium">
-								<House size={12} weight="fill" />
-								{context.system_place}
-							</div>
-						) : context?.location ? (
-							<div className="bg-app/50 text-ink-dull flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium">
-								<PushPin size={12} />
-								{context.location.name}
-							</div>
-						) : null}
 
-						{context && canAddLocation && !exactLocation && (
-							<Tooltip label="Add to Places">
-								<button
-									type="button"
-									disabled={addLocation.isPending}
-									onClick={() => {
-										addLocation.mutate({
-											path: context.canonical_path,
-											name: null
-										});
-										popover.setOpen(false);
-									}}
-									className="border-app-line text-ink-faint hover:border-accent/40 hover:text-accent flex size-7 items-center justify-center rounded-full border border-dashed transition-colors"
-								>
-									<Plus size={13} />
-								</button>
-							</Tooltip>
-						)}
-					</div>
+					{context?.source && !isError && (
+						<div className="border-app-line flex items-center gap-3 border-t px-4 py-3">
+							<img
+								src={DatabaseIcon}
+								className="size-10 object-contain"
+								alt=""
+							/>
+							<div className="min-w-0 flex-1">
+								<div className="text-ink truncate text-xs font-semibold">
+									{context.source.name}
+								</div>
+								<div className="text-ink-faint text-[9px] font-semibold uppercase tracking-wider">
+									Source
+								</div>
+								<div className="mt-2 flex flex-wrap gap-2">
+									<StateChip
+										icon={Eye}
+										label={watcherLabel}
+										tone={watcherTone}
+										detail={watcherDetail}
+									/>
+									<StateChip
+										icon={Database}
+										label={storageLabel}
+										tone={storageTone}
+										detail={storageDetail}
+									/>
+								</div>
+							</div>
+						</div>
+					)}
 				</div>
 
 				<div className="border-app-line border-t">
@@ -397,128 +418,216 @@ function PathStatusButton({path}: {path: SdPath}) {
 					) : isLoading || !context ? (
 						<PathStatusSkeleton />
 					) : (
-						<div className="px-4 py-4">
-							{context.availability !== 'available' && (
-								<div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-400/10 px-2.5 py-2 text-[11px] font-medium text-amber-400">
-									<WarningCircle size={14} />
-									{statusLabel(context.availability)}
-								</div>
-							)}
+						<>
+							<div className="px-4 py-3">
+								{context.availability !== 'available' && (
+									<div className="mb-3 flex items-center gap-2 text-[11px] font-medium text-amber-400">
+										<WarningCircle size={14} />
+										{statusLabel(context.availability)}
+									</div>
+								)}
 
-							{context.source ? (
-								<div className="border-accent/25 bg-accent/[0.04] rounded-xl border p-3">
-									<button
-										type="button"
-										onClick={openStorage}
-										className="group flex w-full items-center gap-2 text-left"
-									>
-										<span className="bg-accent/10 text-accent flex size-7 items-center justify-center rounded-lg">
-											<Stack size={15} weight="fill" />
-										</span>
-										<span className="text-ink min-w-0 flex-1 truncate text-xs font-semibold">
-											{context.source.name}
-										</span>
-										<span className="text-ink-faint text-[9px] font-semibold uppercase tracking-wider">
-											Source
-										</span>
-										<CaretRight
-											size={12}
-											className="text-ink-faint group-hover:text-ink transition-colors"
+								{!context.source && (
+									<div className="flex items-center gap-3 py-1">
+										<Eye
+											size={22}
+											className="text-ink-dull shrink-0"
 										/>
-									</button>
+										<div>
+											<div className="text-ink text-xs font-medium">
+												{storageLabel}
+											</div>
+											<div className="text-ink-faint text-[10px]">
+												Not kept by a source
+											</div>
+										</div>
+									</div>
+								)}
 
-									<div className="border-app-line bg-app/50 mt-3 flex items-center gap-2.5 rounded-lg border px-2.5 py-2">
+								{context.volume && (
+									<div className="mt-2 flex items-center gap-3">
 										<img
-											src={FolderIcon}
-											className="size-7"
+											src={HDDIcon}
+											className="size-10 object-contain"
 											alt=""
 										/>
-										<div className="min-w-0">
-											<div className="text-ink truncate text-[11px] font-medium">
-												{pathLabel}
+										<div className="min-w-0 flex-1">
+											<div className="text-ink truncate text-xs font-medium">
+												{context.volume.name}
 											</div>
-											<div className="text-ink-faint text-[9px]">
-												Current folder
+											<div className="text-ink-faint text-[9px] font-semibold uppercase tracking-wider">
+												Volume
 											</div>
 										</div>
 									</div>
+								)}
+							</div>
 
-									<div className="mt-3 flex flex-wrap gap-2">
-										<StateChip
-											icon={Eye}
-											label={watcherLabel}
-											tone={watcherTone}
-											detail={watcherDetail}
-										/>
-										<StateChip
-											icon={Database}
-											label={storageLabel}
-											tone={storageTone}
-											detail={storageDetail}
-										/>
-									</div>
-								</div>
-							) : (
-								<div className="border-app-line bg-app/30 flex flex-col items-center rounded-xl border px-4 py-5 text-center">
-									<span className="bg-app/70 text-ink-dull flex size-10 items-center justify-center rounded-xl">
-										{context.storage.restart_cache ? (
-											<Database size={19} />
-										) : (
-											<Eye size={19} />
-										)}
-									</span>
-									<div className="text-ink mt-2.5 text-xs font-semibold">
-										{storageLabel}
-									</div>
-									<div className="text-ink-faint mt-0.5 text-[10px]">
-										Not kept by a source
-									</div>
-									{canAddSource && (
-										<button
-											type="button"
-											onClick={addSource}
-											className="bg-accent hover:bg-accent-deep mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-semibold text-white transition-colors"
-										>
-											<Plus size={12} />
-											Add as a source
-										</button>
-									)}
-								</div>
-							)}
-
-							{context.volume && (
-								<button
-									type="button"
-									onClick={openStorage}
-									className="border-app-line hover:bg-app/50 mt-3 flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors"
+							<div className="border-app-line flex items-center gap-2 border-t px-4 py-3">
+								<Tooltip
+									label={placeLabel}
+									asChild
+									tooltipClassName="!z-[1000]"
 								>
-									<span className="bg-app/60 text-ink-dull flex size-7 items-center justify-center rounded-lg">
-										<HardDrive size={15} />
-									</span>
-									<div className="min-w-0 flex-1">
-										<div className="text-ink truncate text-[11px] font-medium">
-											{context.volume.name}
-										</div>
-										<div className="text-ink-faint text-[9px]">
-											Volume
-										</div>
-									</div>
-									<CaretRight
-										size={12}
-										className="text-ink-faint"
+									<CircleButton
+										icon={
+											context.system_place
+												? House
+												: PushPin
+										}
+										size="lg"
+										active={Boolean(
+											context.system_place ||
+											exactLocation
+										)}
+										title={placeLabel}
+										aria-disabled={
+											!context.system_place &&
+											!canChangePlace
+										}
+										className={clsx(
+											!context.system_place &&
+												!canChangePlace &&
+												'cursor-default opacity-40'
+										)}
+										onClick={() => {
+											if (context.system_place) return;
+											if (exactLocation) {
+												removeLocation.mutate({
+													location_id:
+														exactLocation.id
+												});
+											} else if (canAddLocation) {
+												addLocation.mutate({
+													path: context.canonical_path,
+													name: null
+												});
+											}
+										}}
 									/>
-								</button>
-							)}
+								</Tooltip>
 
-							<details className="group mt-3">
-								<summary className="text-ink-faint hover:text-ink flex cursor-pointer list-none items-center gap-1 text-[10px] font-medium transition-colors [&::-webkit-details-marker]:hidden">
-									<CaretRight
-										size={10}
-										className="transition-transform group-open:rotate-90"
+								{context.source ? (
+									<>
+										<Tooltip
+											label={
+												canReindex
+													? `Reindex ${context.source.name}`
+													: 'Source is unavailable'
+											}
+											asChild
+											tooltipClassName="!z-[1000]"
+										>
+											<CircleButton
+												icon={ArrowClockwise}
+												size="lg"
+												active={
+													context.map_state ===
+													'indexing'
+												}
+												title={`Reindex ${context.source.name}`}
+												aria-disabled={
+													!canReindex ||
+													reindexSource.isPending ||
+													context.map_state ===
+														'indexing'
+												}
+												className={clsx(
+													(!canReindex ||
+														reindexSource.isPending ||
+														context.map_state ===
+															'indexing') &&
+														'cursor-default opacity-40'
+												)}
+												onClick={() => {
+													if (
+														!canReindex ||
+														!sourceRoot ||
+														reindexSource.isPending ||
+														context.map_state ===
+															'indexing'
+													)
+														return;
+													reindexSource.mutate({
+														path: sourceRoot,
+														name: null,
+														unfiltered: false
+													});
+												}}
+											/>
+										</Tooltip>
+										<Tooltip
+											label="Open source"
+											asChild
+											tooltipClassName="!z-[1000]"
+										>
+											<CircleButton
+												icon={Database}
+												size="lg"
+												title="Open source"
+												onClick={openSource}
+											/>
+										</Tooltip>
+									</>
+								) : canAddSource ? (
+									<Tooltip
+										label="Add as a source"
+										asChild
+										tooltipClassName="!z-[1000]"
+									>
+										<CircleButton
+											icon={Plus}
+											size="lg"
+											title="Add as a source"
+											onClick={addSource}
+										/>
+									</Tooltip>
+								) : null}
+
+								{context.volume && (
+									<Tooltip
+										label="Open volume in Storage"
+										asChild
+										tooltipClassName="!z-[1000]"
+									>
+										<CircleButton
+											icon={HardDrive}
+											size="lg"
+											title="Open volume in Storage"
+											onClick={openStorage}
+										/>
+									</Tooltip>
+								)}
+
+								<Tooltip
+									label={
+										showDetails
+											? 'Hide details'
+											: 'Show details'
+									}
+									asChild
+									tooltipClassName="!z-[1000]"
+								>
+									<CircleButton
+										icon={Info}
+										size="lg"
+										active={showDetails}
+										title={
+											showDetails
+												? 'Hide details'
+												: 'Show details'
+										}
+										onClick={() =>
+											setShowDetails(
+												(visible) => !visible
+											)
+										}
 									/>
-									Technical details
-								</summary>
-								<div className="border-app-line mt-2 grid grid-cols-[76px_1fr] gap-x-3 gap-y-1.5 border-t pt-2 text-[9px]">
+								</Tooltip>
+							</div>
+
+							{showDetails && (
+								<div className="border-app-line grid grid-cols-[88px_1fr] gap-x-3 gap-y-1.5 border-t px-4 py-3 text-[9px]">
 									<span className="text-ink-faint">
 										Source root
 									</span>
@@ -529,6 +638,14 @@ function PathStatusButton({path}: {path: SdPath}) {
 										}
 									>
 										{context.source?.root ?? 'None'}
+									</span>
+									<span className="text-ink-faint">
+										Source record
+									</span>
+									<span className="text-ink-dull text-right">
+										{context.storage.source_record
+											? 'Committed'
+											: 'None'}
 									</span>
 									<span className="text-ink-faint">
 										Watch root
@@ -554,7 +671,7 @@ function PathStatusButton({path}: {path: SdPath}) {
 										{context.volume?.mount_point ?? 'None'}
 									</span>
 									<span className="text-ink-faint">
-										Runtime map
+										Arena
 									</span>
 									<span className="text-ink-dull text-right">
 										{statusLabel(context.map_state)}
@@ -568,8 +685,8 @@ function PathStatusButton({path}: {path: SdPath}) {
 											: 'None'}
 									</span>
 								</div>
-							</details>
-						</div>
+							)}
+						</>
 					)}
 				</div>
 			</Popover.Content>

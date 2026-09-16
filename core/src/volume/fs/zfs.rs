@@ -24,7 +24,12 @@ fn resolve_bin(name: &'static str, candidates: &[&'static str]) -> &'static str 
 
 fn zfs_bin() -> &'static str {
 	static BIN: std::sync::OnceLock<&'static str> = std::sync::OnceLock::new();
-	BIN.get_or_init(|| resolve_bin("zfs", &["/sbin/zfs", "/usr/sbin/zfs", "/usr/local/sbin/zfs"]))
+	BIN.get_or_init(|| {
+		resolve_bin(
+			"zfs",
+			&["/sbin/zfs", "/usr/sbin/zfs", "/usr/local/sbin/zfs"],
+		)
+	})
 }
 
 fn zpool_bin() -> &'static str {

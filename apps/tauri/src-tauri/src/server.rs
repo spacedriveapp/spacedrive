@@ -194,8 +194,8 @@ async fn serve_hot_thumb(
 	Response::builder()
 		.status(StatusCode::OK)
 		.header(header::CONTENT_TYPE, "image/png")
-		// The version is in the URL, so a given URL's bytes never change.
-		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+		// Explicit regeneration can replace pixels without changing the file.
+		.header(header::CACHE_CONTROL, "no-cache")
 		.body(Body::from(png))
 		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }

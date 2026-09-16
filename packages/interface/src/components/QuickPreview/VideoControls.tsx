@@ -101,10 +101,7 @@ export function VideoControls({
 						<TimelineScrubber
 							file={file}
 							hoverPercent={state.timelineHover.percent}
-							mouseX={state.timelineHover.mouseX}
 							duration={state.duration}
-							sidebarWidth={sidebarWidth}
-							inspectorWidth={inspectorWidth}
 						/>
 					)}
 

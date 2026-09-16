@@ -248,7 +248,7 @@ export type ConnectionMethod =
  * Direct connection across a Tailscale tailnet (CGNAT 100.64.0.0/10)
  * Rides the user's WireGuard mesh rather than the open internet.
  */
-"Tailscale" |
+"Tailscale" | 
 /**
  * Connection proxied through relay server
  * Reliable fallback. Relay hosts the bandwidth.
@@ -3096,16 +3096,16 @@ export type PathAvailability = "available" | "permission_denied" | "missing" | "
 
 export type PathContextInput = { path: SdPath };
 
-export type PathContextOutput = {
+export type PathContextOutput = { 
 /**
  * The path as the owning volume spells it. This removes APFS aliases from
  * all containment checks while the explorer can keep displaying its input.
  */
-canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState; indexing_root: string | null; watcher_state: PathWatcherState; watcher_root: string | null; volume: PathVolumeContext | null; source: PathSourceContext | null;
+canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState; indexing_root: string | null; watcher_state: PathWatcherState; watcher_root: string | null; volume: PathVolumeContext | null; source: PathSourceContext | null; 
 /**
  * The closest explicit pin containing this path, if one exists.
  */
-location: PathLocationContext | null;
+location: PathLocationContext | null; 
 /**
  * A computed system Place at this exact path, such as Desktop.
  */
@@ -3122,19 +3122,23 @@ export type PathMapping = { virtual_path: string; actual_path: string };
 
 export type PathSourceContext = { id: string; name: string; root: string; attached: boolean };
 
-export type PathStorageContext = {
+export type PathStorageContext = { 
 /**
  * The active volume arena can answer reads about this path.
  */
-memory: boolean;
+memory: boolean; 
 /**
  * The volume arena has a machine-local restart snapshot.
  */
-restart_cache: boolean;
+restart_cache: boolean; 
 /**
  * The source has created its durable record store.
  */
-source_store: boolean };
+source_store: boolean; 
+/**
+ * The current path is covered by committed records in that source store.
+ */
+source_record: boolean };
 
 export type PathVolumeContext = { id: string; name: string; mount_point: string; tracked: boolean };
 
@@ -3811,13 +3815,13 @@ attached: boolean; total_bytes: number | null;
  * Last time the origin answered. Absent for an adapter, whose registry
  * tracks a sync cursor rather than an attachment.
  */
-last_seen_at: string | null;
+last_seen_at: string | null; 
 /**
  * The paired device this source was replicated from. Absent for a
  * source this library registered itself; a replica is read-only here
  * and its registry ops run on the owning device.
  */
-device_id: string | null;
+device_id: string | null; 
 /**
  * The owning device's display name, for a replica.
  */
@@ -4003,7 +4007,7 @@ export type SpacesListQueryInput = null;
 
 export type StartupIndexingDisposition = "started" | "already_started" | "disabled";
 
-export type StartupIndexingInput = {
+export type StartupIndexingInput = { 
 /**
  * Ignore the automatic-start preference for an explicit CLI request.
  */
@@ -4293,6 +4297,26 @@ export type ThumbSource = { id: string; cache_path: string;
  */
 tile_size: number };
 
+export type ThumbnailGenerateInput = { scope: SdPath; 
+/**
+ * Include indexed subdirectories. False selects only immediate files.
+ */
+recursive?: boolean; mode?: ThumbnailGenerationMode };
+
+export type ThumbnailGenerationMode = 
+/**
+ * Only fill empty slots, retaining even stale tiles.
+ */
+"missing" | 
+/**
+ * Fill empty slots and replace outdated tiles.
+ */
+"stale" | 
+/**
+ * Bake again even when the tile is current.
+ */
+"force";
+
 /**
  * Address and state for one volume-scoped video scrub sheet.
  */
@@ -4318,7 +4342,7 @@ version: string };
  */
 export type ToolCapability = "video_thumbnail" | "video_thumbstrip" | "media_metadata";
 
-export type ToolInstallInput = { tool: ExternalToolId; installer: ToolInstaller;
+export type ToolInstallInput = { tool: ExternalToolId; installer: ToolInstaller; 
 /**
  * Installing a host executable is never an implicit side effect. A caller
  * sets this only after showing the selected package manager to the person.
@@ -5167,6 +5191,7 @@ export type LibraryAction =
   |  { type: 'tags.create'; input: CreateTagInput; output: CreateTagOutput }
   |  { type: 'tags.delete'; input: DeleteTagInput; output: DeleteTagOutput }
   |  { type: 'tags.unapply'; input: UnapplyTagsInput; output: UnapplyTagsOutput }
+  |  { type: 'thumbs.generate'; input: ThumbnailGenerateInput; output: JobReceipt }
   |  { type: 'volumes.add_cloud'; input: VolumeAddCloudInput; output: VolumeAddCloudOutput }
   |  { type: 'volumes.eject'; input: VolumeEjectInput; output: VolumeEjectOutput }
   |  { type: 'volumes.index'; input: IndexVolumeInput; output: IndexVolumeOutput }
@@ -5321,6 +5346,7 @@ export const WIRE_METHODS = {
     'tags.create': 'action:tags.create.input',
     'tags.delete': 'action:tags.delete.input',
     'tags.unapply': 'action:tags.unapply.input',
+    'thumbs.generate': 'action:thumbs.generate.input',
     'volumes.add_cloud': 'action:volumes.add_cloud.input',
     'volumes.eject': 'action:volumes.eject.input',
     'volumes.index': 'action:volumes.index.input',

@@ -1,5 +1,6 @@
 import {
 	ArrowSquareOut,
+	ArrowClockwise,
 	Books,
 	Browsers,
 	Copy,
@@ -61,6 +62,7 @@ export function useFileContextMenu({
 	});
 	const createFolder = useLibraryMutation('files.createFolder');
 	const addToLibrary = useLibraryMutation('sources.track');
+	const generateThumbnails = useLibraryMutation('thumbs.generate');
 
 	// Helper to run a mutation on each target file
 	const forEachTarget = async (
@@ -110,6 +112,26 @@ export function useFileContextMenu({
 
 	return useContextMenu({
 		items: [
+			{
+				icon: ArrowClockwise,
+				label: 'Regenerate Thumbnails',
+				condition: () => getTargetFiles().some((target) => 'Physical' in target.sd_path),
+				onClick: async () => {
+					try {
+						for (const target of getTargetFiles()) {
+							if (!('Physical' in target.sd_path)) continue;
+							await generateThumbnails.mutateAsync({
+								scope: target.sd_path,
+								recursive: target.kind === 'Directory',
+								mode: 'force'
+							});
+						}
+						toast.success('Thumbnail regeneration started');
+					} catch (error) {
+						toast.error(`Could not regenerate thumbnails: ${error}`);
+					}
+				}
+			},
 			{
 				icon: Eye,
 				label: 'Quick Look',

@@ -536,6 +536,25 @@ impl EphemeralIndexCache {
 		}
 	}
 
+	/// Resolve a persisted work scope after its drive has moved to another mount.
+	pub fn volume_index_root(&self, id: Uuid) -> Option<PathBuf> {
+		if let Some(volume) = self
+			.volumes
+			.lock()
+			.iter()
+			.find(|volume| VolumeKey::Id(volume.uuid).id() == id)
+		{
+			return Some(volume.mount_point.clone());
+		}
+		for source in self.sources() {
+			let slot = self.resolve(&source.root);
+			if slot.id() == Some(id) && !slot.is_detached() {
+				return slot.root();
+			}
+		}
+		None
+	}
+
 	/// Whether `path` belongs to a detached source (data may be restorable,
 	/// but the filesystem underneath is gone — never dispatch indexing).
 	pub fn is_detached(&self, path: &Path) -> bool {

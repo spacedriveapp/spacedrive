@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
 import {
 	useSpacedriveClient,
 	type SdPath,
 	type SpacedriveClient,
-	type TileIdentity,
-} from "@sd/ts-client";
-import { useServer } from "../../../contexts/ServerContext";
+	type ThumbRequestInput,
+	type ThumbRequestOutput,
+	type TileIdentity
+} from '@sd/ts-client';
+import {useEffect, useRef, useState} from 'react';
+import {useServer} from '../../../contexts/ServerContext';
 
 /**
  * A tile from the daemon's thumbnail hot tier, for files that have no sidecar.
@@ -39,22 +41,25 @@ let scheduled = false;
 let listening = false;
 
 function pathKey(path: SdPath): string | null {
-	if (typeof path !== "object" || !("Physical" in path) || !path.Physical) {
+	if (typeof path !== 'object' || !('Physical' in path) || !path.Physical) {
 		return null;
 	}
-	return path.Physical.path;
+	return JSON.stringify(path.Physical);
 }
 
 /** Ask for every path queued this frame, in the order the cells mounted. */
 function flush(client: SpacedriveClient) {
-	const batch = [...waiting.keys()].filter((key) => !identities.has(key));
+	const batch = [...waiting.keys()];
 	if (batch.length === 0) return;
 
 	const paths = batch.map((key) => addresses.get(key)!);
 	client
-		.execute("action:thumbs.request.input", { paths })
+		.execute<ThumbRequestInput, ThumbRequestOutput>(
+			'action:thumbs.request.input',
+			{paths}
+		)
 		.then((output) => {
-			const tiles = (output as { tiles: Array<TileIdentity | null> }).tiles;
+			const tiles = output.tiles;
 			batch.forEach((key, index) => settle(key, tiles[index] ?? null));
 		})
 		.catch(() => {
@@ -76,12 +81,43 @@ function listen(client: SpacedriveClient) {
 	if (listening) return;
 	listening = true;
 	client
-		.subscribeFiltered({ resource_type: "thumbnail" }, (event: any) => {
-			const rows: Array<{ id?: string }> =
-				event?.ResourceChangedBatch?.resources ??
-				(event?.ResourceChanged?.resource ? [event.ResourceChanged.resource] : []);
+		.subscribeFiltered({resource_type: 'thumbnail'}, (event) => {
+			if (!event || typeof event !== 'object') return;
+			const resources: unknown =
+				'ResourceChangedBatch' in event
+					? event.ResourceChangedBatch.resources
+					: 'ResourceChanged' in event
+						? [event.ResourceChanged.resource]
+						: [];
+			const rows: unknown[] = Array.isArray(resources) ? resources : [];
 			for (const row of rows) {
-				if (!row?.id) continue;
+				if (
+					!row ||
+					typeof row !== 'object' ||
+					!('id' in row) ||
+					typeof row.id !== 'string'
+				)
+					continue;
+				if (
+					'ok' in row &&
+					row.ok === true &&
+					'source_id' in row &&
+					typeof row.source_id === 'string' &&
+					'version' in row &&
+					typeof row.version === 'string'
+				) {
+					for (const [key, tile] of identities) {
+						if (
+							tile?.uuid === row.id &&
+							tile.source_id === row.source_id
+						) {
+							identities.set(key, {
+								...tile,
+								version: row.version
+							});
+						}
+					}
+				}
 				const epoch = (bakeEpochs.get(row.id) ?? 0) + 1;
 				bakeEpochs.set(row.id, epoch);
 				baking.get(row.id)?.forEach((notify) => notify(epoch));
@@ -109,11 +145,13 @@ export interface HotThumb {
  */
 export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 	const client = useSpacedriveClient();
-	const { buildHotThumbUrl } = useServer();
+	const {buildHotThumbUrl} = useServer();
 	const key = path ? pathKey(path) : null;
+	const currentPath = useRef(path);
+	currentPath.current = path;
 
 	const [tile, setTile] = useState<TileIdentity | null>(() =>
-		key ? (identities.get(key) ?? null) : null,
+		key ? (identities.get(key) ?? null) : null
 	);
 	// Bumped when the daemon says this tile baked. The first load can land
 	// before the bake does, and a 404 does not retry itself.
@@ -126,11 +164,10 @@ export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 		if (!enabled || !key) return;
 		if (identities.has(key)) {
 			setTile(identities.get(key) ?? null);
-			return;
 		}
 
 		const notify = (resolved: TileIdentity | null) => setTile(resolved);
-		addresses.set(key, path!);
+		addresses.set(key, currentPath.current!);
 		const cell = waiting.get(key) ?? new Set();
 		cell.add(notify);
 		waiting.set(key, cell);
@@ -146,13 +183,16 @@ export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 		return () => {
 			waiting.get(key)?.delete(notify);
 		};
-	}, [client, enabled, key, path]);
+	}, [client, enabled, key]);
 
 	useEffect(() => {
 		if (!enabled || !tile) return;
 		listen(client);
 		setBaked(bakeEpochs.get(tile.uuid) ?? 0);
-		const notify = (epoch: number) => setBaked(epoch);
+		const notify = (epoch: number) => {
+			setBaked(epoch);
+			if (key) setTile(identities.get(key) ?? null);
+		};
 		const cell = baking.get(tile.uuid) ?? new Set();
 		cell.add(notify);
 		baking.set(tile.uuid, cell);
@@ -161,12 +201,12 @@ export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 			cell?.delete(notify);
 			if (cell && cell.size === 0) baking.delete(tile.uuid);
 		};
-	}, [client, enabled, tile]);
+	}, [client, enabled, tile, key]);
 
-	if (!enabled || !key) return { url: null, pending: false };
+	if (!enabled || !key) return {url: null, pending: false};
 	if (!tile) {
-		return { url: null, pending: !identities.has(key) };
+		return {url: null, pending: !identities.has(key)};
 	}
 	const url = buildHotThumbUrl(tile.source_id, tile.uuid, tile.version);
-	return { url: url && baked > 0 ? `${url}?b=${baked}` : url, pending: false };
+	return {url: url && baked > 0 ? `${url}?b=${baked}` : url, pending: false};
 }
