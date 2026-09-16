@@ -34,6 +34,22 @@ async fn open_pool(db_path: &Path, create: bool) -> Result<SqlitePool> {
 	Ok(SqlitePoolOptions::new().connect_with(options).await?)
 }
 
+/// A pool that can only read. No journal-mode pragma runs: the store's own
+/// files are already WAL, and a delivered artifact may legitimately carry a
+/// rollback journal that a read-only connection could not convert anyway.
+async fn open_pool_read_only(db_path: &Path) -> Result<SqlitePool> {
+	let options = SqliteConnectOptions::from_str(&format!("sqlite:{}", db_path.display()))
+		.map_err(|e| Error::Other(format!("invalid database path: {e}")))?
+		.create_if_missing(false)
+		.read_only(true)
+		.busy_timeout(Duration::from_secs(5));
+
+	Ok(SqlitePoolOptions::new()
+		.max_connections(4)
+		.connect_with(options)
+		.await?)
+}
+
 impl SourceManager {
 	/// Create a new SourceManager.
 	pub fn new(sources_dir: PathBuf) -> Self {
@@ -156,6 +172,27 @@ impl SourceManager {
 		db.ensure_facet_columns().await?;
 
 		Ok(db)
+	}
+
+	/// Open a source index for reads alone.
+	///
+	/// Nothing is created, no DDL runs, no facet columns are added, no ledger
+	/// is loaded, and the pool cannot write, so opening one of these has no
+	/// effect a walk or a watcher could observe. The generation check still
+	/// applies: an unaddressable store is refused intact rather than read
+	/// through a shape it does not have.
+	pub async fn open_read_only(&self, source_id: &str) -> Result<SourceDb> {
+		let db_path = self.sources_dir.join(source_id).join("data.db");
+		if !db_path.exists() {
+			return Err(Error::SourceNotFound(source_id.to_string()));
+		}
+
+		let pool = open_pool_read_only(&db_path).await?;
+		Self::refuse_unaddressable_generation(&pool).await?;
+		let schema = Self::load_schema(&pool).await?;
+
+		// The epoch only stamps writes, which this handle cannot make.
+		Ok(SourceDb::new(pool, schema, 0))
 	}
 
 	/// Open a source index, applying any safe schema migrations first.

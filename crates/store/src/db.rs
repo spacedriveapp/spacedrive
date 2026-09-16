@@ -739,44 +739,9 @@ impl SourceDb {
 			.collect())
 	}
 
-	/// The record at a source-relative path.
-	///
-	/// Two probes and no tree walk, which is what keeping paths on directories
-	/// buys. A directory answers from its own row. A file is its parent's
-	/// directory row plus its name, so `a/b/c/d.png` is one lookup for `a/b/c`
-	/// and one for `d.png` beneath it.
+	/// The record at a source-relative path. See [`crate::read::resolve_path`].
 	pub async fn resolve_path(&self, path: &str) -> Result<Option<Uuid>> {
-		let directory: Option<(Uuid,)> =
-			sqlx::query_as("SELECT record_uuid FROM directory_path WHERE path = ?")
-				.bind(path)
-				.fetch_optional(&self.pool)
-				.await?;
-		if let Some((uuid,)) = directory {
-			return Ok(Some(uuid));
-		}
-
-		let found: Option<(Uuid,)> = match path.rsplit_once('/') {
-			Some((parent, name)) => {
-				sqlx::query_as(
-					"SELECT r.uuid FROM record r
-					   JOIN directory_path d ON d.record_uuid = r.parent_uuid
-					  WHERE d.path = ? AND r.title = ?",
-				)
-				.bind(parent)
-				.bind(name)
-				.fetch_optional(&self.pool)
-				.await?
-			}
-			// Directly under the source root, which has no directory row.
-			None => {
-				sqlx::query_as("SELECT uuid FROM record WHERE parent_uuid IS NULL AND title = ?")
-					.bind(path)
-					.fetch_optional(&self.pool)
-					.await?
-			}
-		};
-
-		Ok(found.map(|(uuid,)| uuid))
+		crate::read::resolve_path(&self.pool, path).await
 	}
 
 	/// Bind orphaned assertions back onto records, matching on the evidence each

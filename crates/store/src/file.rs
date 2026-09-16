@@ -56,6 +56,16 @@ impl FileKind {
 			Self::Symlink => "symlink",
 		}
 	}
+
+	/// The inverse of [`Self::as_str`], for rows read back from `record.type`.
+	pub fn parse(value: &str) -> Option<Self> {
+		match value {
+			"file" => Some(Self::File),
+			"directory" => Some(Self::Directory),
+			"symlink" => Some(Self::Symlink),
+			_ => None,
+		}
+	}
 }
 
 /// One thing the walk or the watcher saw, before it has an identity.

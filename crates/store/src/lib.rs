@@ -42,6 +42,7 @@ pub mod db;
 pub mod error;
 pub mod file;
 pub mod fts;
+pub mod read;
 pub mod record;
 pub mod schema;
 pub mod source;
@@ -57,6 +58,7 @@ pub use file::{
 	mark_content_unreadable, ContentCopy, FileKind, FileWrite, Ledger, Observation, PendingContent,
 	PendingVerification, Resolution, SubtreeRename, Watermark,
 };
+pub use read::{FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
