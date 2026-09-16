@@ -216,8 +216,7 @@ default. Native dependencies use pinned versions and verified hashes.
 
 The interface makes a large system understandable:
 
-- The primary sidebar shows the places, sources, and actions a person uses
-  every day.
+- The primary sidebar shows the places and actions a person uses every day.
 - Duplicates, screenshots, photos, and extension workflows each have one clear
   home.
 - The same canonical component renders the same kind of navigation item.
@@ -233,6 +232,29 @@ clients of the daemon and share product semantics.
 Performance is part of correctness. Opening a mapped source feels immediate.
 Scrolling, search, preview, and job updates remain responsive at millions of
 records. Idle clients and daemons stay quiet.
+
+### Navigation vocabulary
+
+The product separates where a person goes from how Spacedrive manages the data:
+
+- A **source** is a data origin with an ingest and a store. Sources have
+  identity, indexing state, availability, policy, and lifecycle. People manage
+  them in Storage. The CLI and API expose them directly when that precision is
+  useful.
+- A **location** is an internal pin over a source-relative path. It does not own
+  records, trigger indexing, enable a watcher, or appear as a primary product
+  concept. Future explicit policies may target its stable ID.
+- A **place** is a navigation destination presented by a client. Desktop,
+  Downloads, a source root, a pinned folder, and an offline indexed drive can
+  all appear under Places even though they do not share one storage type.
+
+Places are a projection of known system folders, sources, pins, and extension
+contributions. A place does not have its own database model, durable identity,
+or operation namespace. Persist the underlying user intent, such as a pin or
+its ordering, instead of persisting a second representation of the data.
+
+This gives the interface one plain-language rule: **Places are where you go.
+Sources are how Spacedrive knows about the data.**
 
 ## The release standard
 

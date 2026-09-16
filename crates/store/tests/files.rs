@@ -917,19 +917,17 @@ async fn ownership_and_link_targets_land_in_the_facet() {
 	.await
 	.expect("apply");
 
-	let (uid, gid, target): (Option<i64>, Option<i64>, Option<String>) = sqlx::query_as(
-		"SELECT uid, gid, link_target FROM facet_file WHERE record_uuid = ?",
-	)
-	.bind(uuid)
-	.fetch_one(db.pool())
-	.await
-	.expect("facet row");
+	let (uid, gid, target): (Option<i64>, Option<i64>, Option<String>) =
+		sqlx::query_as("SELECT uid, gid, link_target FROM facet_file WHERE record_uuid = ?")
+			.bind(uuid)
+			.fetch_one(db.pool())
+			.await
+			.expect("facet row");
 
 	assert_eq!(uid, Some(501));
 	assert_eq!(gid, Some(20));
 	assert_eq!(target.as_deref(), Some("../archive/original.mp4"));
 }
-
 
 /// A sweep that saw almost nothing must not be believed. The walk that
 /// opened it lost its footing (interrupted, resumed, root unmounted); the
@@ -950,7 +948,11 @@ async fn a_sweep_that_saw_almost_nothing_is_refused() {
 	ledger.resolve(&observe("f000.bin", 10, 1_000, Some(0)));
 	ledger.resolve(&observe("f001.bin", 10, 1_000, Some(1)));
 	let gone = ledger.finish_sweep(&[]);
-	assert!(gone.is_empty(), "the blind sweep deleted {} rows", gone.len());
+	assert!(
+		gone.is_empty(),
+		"the blind sweep deleted {} rows",
+		gone.len()
+	);
 	assert_eq!(ledger.len(), 200, "every binding survives the refusal");
 
 	// An honest sweep that saw most of the store still works.
@@ -959,5 +961,9 @@ async fn a_sweep_that_saw_almost_nothing_is_refused() {
 		ledger.resolve(&observe(&format!("f{i:03}.bin"), 10, 1_000, Some(i as i64)));
 	}
 	let gone = ledger.finish_sweep(&[]);
-	assert_eq!(gone.len(), 50, "the honest sweep removes what it did not see");
+	assert_eq!(
+		gone.len(),
+		50,
+		"the honest sweep removes what it did not see"
+	);
 }

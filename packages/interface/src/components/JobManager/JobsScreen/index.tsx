@@ -1,42 +1,64 @@
-import { X, FunnelSimple } from "@phosphor-icons/react";
-import { CircleButton } from "@spacedrive/primitives";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useJobsContext } from "../hooks/JobsContext";
-import { JobRow } from "./JobRow";
+import {FunnelSimple, X} from '@phosphor-icons/react';
+import {CircleButton} from '@spacedrive/primitives';
+import {useState} from 'react';
+import {useNavigate} from 'react-router-dom';
+import {useSyncCount} from '../../SyncMonitor/hooks/useSyncCount';
+import {useJobsContext} from '../hooks/JobsContext';
+import {JobRow} from './JobRow';
 
 export function JobsScreen() {
 	const navigate = useNavigate();
-	const { jobs, pause, resume, cancel } = useJobsContext();
+	const {jobs, pause, resume, cancel} = useJobsContext();
+	const {onlinePeerCount, isSyncing} = useSyncCount();
 	const [showOnlyRunning, setShowOnlyRunning] = useState(false);
 
 	// Filter jobs based on toggle
 	const filteredJobs = showOnlyRunning
 		? jobs.filter(
-				(job) => job.status === "running" || job.status === "paused",
+				(job) => job.status === 'running' || job.status === 'paused'
 			)
 		: jobs;
 
 	// Group jobs by status
-	const runningJobs = filteredJobs.filter((j) => j.status === "running");
-	const pausedJobs = filteredJobs.filter((j) => j.status === "paused");
-	const queuedJobs = filteredJobs.filter((j) => j.status === "queued");
-	const completedJobs = filteredJobs.filter((j) => j.status === "completed");
-	const failedJobs = filteredJobs.filter((j) => j.status === "failed");
+	const runningJobs = filteredJobs.filter((j) => j.status === 'running');
+	const pausedJobs = filteredJobs.filter((j) => j.status === 'paused');
+	const queuedJobs = filteredJobs.filter((j) => j.status === 'queued');
+	const completedJobs = filteredJobs.filter((j) => j.status === 'completed');
+	const failedJobs = filteredJobs.filter((j) => j.status === 'failed');
 
 	return (
-		<div className="flex flex-col h-screen bg-app">
+		<div className="bg-app flex h-full flex-col">
 			{/* Header */}
-			<div className="sticky top-0 z-10 backdrop-blur-xl bg-app/80 border-b border-app-line">
+			<div className="bg-app/80 border-app-line sticky top-0 z-10 border-b backdrop-blur-xl">
 				<div className="flex items-center justify-between px-6 py-4">
 					<div className="flex items-center gap-4">
-						<h1 className="text-2xl font-bold text-ink">Jobs</h1>
-						<div className="flex items-center gap-2 text-sm text-ink-dull">
+						<h1 className="text-ink text-2xl font-bold">
+							Activity
+						</h1>
+						<div className="text-ink-dull flex items-center gap-2 text-sm">
 							<span>{jobs.length} total</span>
 							{runningJobs.length > 0 && (
 								<>
 									<span>•</span>
 									<span>{runningJobs.length} running</span>
+								</>
+							)}
+							{isSyncing && (
+								<>
+									<span>•</span>
+									<span>syncing</span>
+								</>
+							)}
+							{onlinePeerCount > 0 && (
+								<>
+									<span>•</span>
+									<span>
+										{onlinePeerCount}{' '}
+										{onlinePeerCount === 1
+											? 'peer'
+											: 'peers'}{' '}
+										online
+									</span>
 								</>
 							)}
 						</div>
@@ -50,8 +72,8 @@ export function JobsScreen() {
 							onClick={() => setShowOnlyRunning(!showOnlyRunning)}
 							title={
 								showOnlyRunning
-									? "Show all jobs"
-									: "Show only active jobs"
+									? 'Show all jobs'
+									: 'Show only active jobs'
 							}
 						/>
 
@@ -65,19 +87,19 @@ export function JobsScreen() {
 				</div>
 
 				{/* Column headers */}
-				<div className="flex items-center gap-4 px-4 py-2 text-xs font-medium text-ink-dull uppercase tracking-wide bg-app-box/30 border-t border-app-line/30">
-					<div className="flex-shrink-0 w-10" /> {/* Icon spacer */}
-					<div className="flex-1 min-w-0 flex items-center gap-6">
+				<div className="text-ink-dull bg-app-box/30 border-app-line/30 flex items-center gap-4 border-t px-4 py-2 text-xs font-medium uppercase tracking-wide">
+					<div className="w-10 flex-shrink-0" /> {/* Icon spacer */}
+					<div className="flex min-w-0 flex-1 items-center gap-6">
 						<div className="flex-1">Name</div>
-						<div className="flex-shrink-0 w-32">Duration</div>
-						<div className="flex-shrink-0 w-24 text-right">
+						<div className="w-32 flex-shrink-0">Duration</div>
+						<div className="w-24 flex-shrink-0 text-right">
 							Time
 						</div>
-						<div className="flex-shrink-0 w-20 text-right">
+						<div className="w-20 flex-shrink-0 text-right">
 							Status
 						</div>
 					</div>
-					<div className="flex-shrink-0 w-6" />{" "}
+					<div className="w-6 flex-shrink-0" />{' '}
 					{/* Action button spacer */}
 				</div>
 			</div>
@@ -85,9 +107,9 @@ export function JobsScreen() {
 			{/* Content */}
 			<div className="flex-1 overflow-y-auto">
 				{filteredJobs.length === 0 ? (
-					<div className="flex items-center justify-center h-full">
+					<div className="flex h-full items-center justify-center">
 						<div className="text-center">
-							<p className="text-sm text-ink-dull">
+							<p className="text-ink-dull text-sm">
 								No jobs found
 							</p>
 						</div>
@@ -196,14 +218,14 @@ interface JobSectionProps {
 	children: React.ReactNode;
 }
 
-function JobSection({ title, count, children }: JobSectionProps) {
+function JobSection({title, count, children}: JobSectionProps) {
 	return (
 		<div>
-			<div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-app-box/50 backdrop-blur-sm border-b border-app-line/50">
-				<h2 className="text-xs font-semibold text-ink uppercase tracking-wide">
+			<div className="bg-app-box/50 border-app-line/50 sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-2 backdrop-blur-sm">
+				<h2 className="text-ink text-xs font-semibold uppercase tracking-wide">
 					{title}
 				</h2>
-				<span className="text-xs text-ink-dull">({count})</span>
+				<span className="text-ink-dull text-xs">({count})</span>
 			</div>
 			<div>{children}</div>
 		</div>

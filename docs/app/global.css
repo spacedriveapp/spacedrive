@@ -1,13 +1,45 @@
 @import 'tailwindcss';
+@import '@spacedrive/tokens/theme';
+@import '@spacedrive/tokens/css/themes/light';
 @import 'fumadocs-ui/css/neutral.css';
 @import 'fumadocs-ui/css/preset.css';
 
-:root {
-	--color-fd-primary: #36a3ff;
+/* Fumadocs theme variables mapped onto Spacedrive design tokens
+   (@spacedrive/tokens). The token defaults are the dark theme and `.light`
+   swaps the token values, so one mapping covers both modes. */
+:root,
+.dark {
+	--color-fd-background: var(--color-app);
+	--color-fd-foreground: var(--color-ink);
+	--color-fd-muted: var(--color-app-box);
+	--color-fd-muted-foreground: var(--color-ink-dull);
+	--color-fd-popover: var(--color-menu);
+	--color-fd-popover-foreground: var(--color-menu-ink);
+	--color-fd-card: var(--color-app-box);
+	--color-fd-card-foreground: var(--color-ink);
+	--color-fd-border: var(--color-app-line);
+	--color-fd-primary: var(--color-accent);
+	--color-fd-primary-foreground: var(--color-white);
+	--color-fd-secondary: var(--color-app-button);
+	--color-fd-secondary-foreground: var(--color-ink);
+	--color-fd-accent: var(--color-app-selected);
+	--color-fd-accent-foreground: var(--color-ink);
+	--color-fd-ring: var(--color-accent);
+	--color-fd-info: var(--color-status-info);
+	--color-fd-warning: var(--color-status-warning);
+	--color-fd-error: var(--color-status-error);
+	--color-fd-success: var(--color-status-success);
 }
 
-.dark {
-	--color-fd-primary: #36a3ff;
+/* The sidebar sits on the darker sidebar surface, like the app */
+#nd-sidebar,
+.dark #nd-sidebar {
+	--color-fd-card: var(--color-sidebar);
+	--color-fd-muted: var(--color-sidebar-box);
+	--color-fd-muted-foreground: var(--color-sidebar-ink-dull);
+	--color-fd-secondary: var(--color-sidebar-button);
+	--color-fd-accent: var(--color-sidebar-selected);
+	--color-fd-border: var(--color-sidebar-line);
 }
 
 html {

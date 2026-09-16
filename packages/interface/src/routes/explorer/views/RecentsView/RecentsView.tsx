@@ -1,11 +1,11 @@
-import { useEffect } from 'react';
-import { useExplorer } from '../../context';
-import { GridView } from '../GridView';
-import { ListView } from '../ListView';
-import { MediaView } from '../MediaView';
-import { ColumnView } from '../ColumnView';
-import { SizeView } from '../SizeView';
-import { KnowledgeView } from '../KnowledgeView';
+import {useEffect, useLayoutEffect} from 'react';
+import {useExplorer} from '../../context';
+import {ColumnView} from '../ColumnView';
+import {GridView} from '../GridView';
+import {KnowledgeView} from '../KnowledgeView';
+import {ListView} from '../ListView';
+import {MediaView} from '../MediaView';
+import {SizeView} from '../SizeView';
 
 /**
  * RecentsView displays recently indexed files sorted by indexed_at timestamp.
@@ -16,7 +16,16 @@ import { KnowledgeView } from '../KnowledgeView';
  */
 export function RecentsView() {
 	const explorer = useExplorer();
-	const { viewMode, enterRecentsMode, exitRecentsMode } = explorer;
+	const {
+		viewMode,
+		enterRecentsMode,
+		exitRecentsMode,
+		loadPreferencesForSpaceItem
+	} = explorer;
+
+	useLayoutEffect(() => {
+		loadPreferencesForSpaceItem('recents');
+	}, [loadPreferencesForSpaceItem]);
 
 	// Enter recents mode on mount, exit on unmount
 	useEffect(() => {

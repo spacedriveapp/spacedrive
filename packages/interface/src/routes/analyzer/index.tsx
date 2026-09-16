@@ -1,10 +1,10 @@
-import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, HardDrive, Plugs } from "@phosphor-icons/react";
-import type { EphemeralSourceInfo, SizeTreeOutput } from "@sd/ts-client";
-import { useCoreQuery } from "../../contexts/SpacedriveContext";
-import { formatBytes } from "../overview/DevicePanel";
-import { Sunburst } from "./Sunburst";
+import {ArrowLeft, HardDrive, Plugs} from '@phosphor-icons/react';
+import type {EphemeralSourceInfo, SizeTreeOutput} from '@sd/ts-client';
+import {useState} from 'react';
+import {useNavigate, useSearchParams} from 'react-router-dom';
+import {useCoreQuery} from '../../contexts/SpacedriveContext';
+import {formatBytes} from '../overview/DevicePanel';
+import {Sunburst} from './Sunburst';
 
 /**
  * The storage analyzer. `/analyzer` renders every indexed source as a small
@@ -14,37 +14,48 @@ import { Sunburst } from "./Sunburst";
  */
 export function AnalyzerView() {
 	const [params, setParams] = useSearchParams();
-	const path = params.get("path");
+	const path = params.get('path');
 
 	if (path) {
 		return (
 			<AnalyzerDetail
 				path={path}
-				onNavigate={(p) => setParams(p ? { path: p } : {})}
+				onNavigate={(p) => setParams(p ? {path: p} : {})}
 			/>
 		);
 	}
-	return <AnalyzerGrid onOpen={(p) => setParams({ path: p })} />;
+	return <AnalyzerGrid onOpen={(p) => setParams({path: p})} />;
 }
 
-function AnalyzerGrid({ onOpen }: { onOpen: (path: string) => void }) {
-	const { data: status } = useCoreQuery({
-		type: "core.ephemeral_status",
-		input: {},
+function AnalyzerGrid({onOpen}: {onOpen: (path: string) => void}) {
+	const navigate = useNavigate();
+	const {data: status} = useCoreQuery({
+		type: 'core.ephemeral_status',
+		input: {}
 	});
 	const sources = (status?.sources ?? []) as EphemeralSourceInfo[];
 
 	return (
 		<div className="h-full overflow-y-auto p-8 pt-[52px]">
-			<h1 className="text-xl font-semibold text-ink">Analyzer</h1>
-			<p className="mt-1 text-sm text-ink-faint">
-				Every indexed drive as a size breakdown — including drives that
-				aren&apos;t plugged in.
+			<div className="flex items-center gap-3">
+				<button
+					type="button"
+					onClick={() => navigate('/sources')}
+					className="text-ink-dull hover:bg-app-hover hover:text-ink rounded-md px-2 py-1 text-sm"
+				>
+					Storage
+				</button>
+				<span className="text-ink-faint">/</span>
+				<h1 className="text-ink text-xl font-semibold">Usage</h1>
+			</div>
+			<p className="text-ink-faint mt-1 text-sm">
+				See what occupies each indexed source, including sources that
+				are offline.
 			</p>
 
 			{sources.length === 0 && (
-				<div className="mt-16 text-center text-sm text-ink-faint">
-					Nothing indexed yet — index a volume and it appears here.
+				<div className="text-ink-faint mt-16 text-center text-sm">
+					Nothing indexed yet. Track storage and it appears here.
 				</div>
 			)}
 
@@ -63,24 +74,23 @@ function AnalyzerGrid({ onOpen }: { onOpen: (path: string) => void }) {
 
 function SourceCard({
 	source,
-	onOpen,
+	onOpen
 }: {
 	source: EphemeralSourceInfo;
 	onOpen: () => void;
 }) {
-	const { data } = useCoreQuery({
-		type: "files.size_tree",
-		input: { path: source.root, depth: 2, top: 8 },
+	const {data} = useCoreQuery({
+		type: 'files.size_tree',
+		input: {path: source.root, depth: 2, top: 8}
 	});
 	const tree = data as SizeTreeOutput | undefined;
-	const name =
-		source.root.split("/").filter(Boolean).pop() ?? source.root;
+	const name = source.root.split('/').filter(Boolean).pop() ?? source.root;
 
 	return (
 		<button
 			onClick={onOpen}
-			className={`group flex flex-col items-center rounded-lg border border-app-line/60 bg-app-box/40 p-4 text-left transition-colors hover:border-app-line hover:bg-app-box ${
-				source.attached ? "" : "opacity-70"
+			className={`border-app-line/60 bg-app-box/40 hover:border-app-line hover:bg-app-box group flex flex-col items-center rounded-lg border p-4 text-left transition-colors ${
+				source.attached ? '' : 'opacity-70'
 			}`}
 		>
 			<div className="relative">
@@ -88,22 +98,24 @@ function SourceCard({
 					<Sunburst root={tree.root} size={170} />
 				) : (
 					<div className="flex size-[170px] items-center justify-center">
-						<HardDrive className="size-10 text-ink-faint/40" />
+						<HardDrive className="text-ink-faint/40 size-10" />
 					</div>
 				)}
 			</div>
 			<div className="mt-2 flex w-full items-center gap-1.5">
-				<span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+				<span className="text-ink min-w-0 flex-1 truncate text-sm font-medium">
 					{name}
 				</span>
 				{!source.attached && (
 					<span title="Not plugged in">
-						<Plugs className="size-3.5 shrink-0 text-ink-faint" />
+						<Plugs className="text-ink-faint size-3.5 shrink-0" />
 					</span>
 				)}
 			</div>
-			<div className="w-full text-xs text-ink-faint">
-				{source.total_bytes != null ? formatBytes(source.total_bytes) : "—"}
+			<div className="text-ink-faint w-full text-xs">
+				{source.total_bytes != null
+					? formatBytes(source.total_bytes)
+					: '—'}
 				{source.entry_count != null &&
 					` · ${source.entry_count.toLocaleString()} items`}
 			</div>
@@ -113,7 +125,7 @@ function SourceCard({
 
 function AnalyzerDetail({
 	path,
-	onNavigate,
+	onNavigate
 }: {
 	path: string;
 	onNavigate: (path: string | null) => void;
@@ -124,33 +136,33 @@ function AnalyzerDetail({
 		size: number;
 	} | null>(null);
 
-	const { data } = useCoreQuery({
-		type: "files.size_tree",
-		input: { path, depth: 3, top: 16 },
+	const {data} = useCoreQuery({
+		type: 'files.size_tree',
+		input: {path, depth: 3, top: 16}
 	});
 	const tree = data as SizeTreeOutput | undefined;
 	const root = tree?.root;
 
-	const parent = path.split("/").slice(0, -1).join("/");
+	const parent = path.split('/').slice(0, -1).join('/');
 
 	return (
 		<div className="flex h-full flex-col overflow-hidden p-8 pt-[52px]">
 			<div className="flex items-center gap-3">
 				<button
 					onClick={() => onNavigate(null)}
-					className="flex items-center gap-1 rounded-md px-2 py-1 text-sm text-ink-dull hover:bg-app-hover hover:text-ink"
+					className="text-ink-dull hover:bg-app-hover hover:text-ink flex items-center gap-1 rounded-md px-2 py-1 text-sm"
 				>
 					<ArrowLeft className="size-4" /> All drives
 				</button>
 				{parent && (
 					<button
 						onClick={() => onNavigate(parent)}
-						className="rounded-md px-2 py-1 text-sm text-ink-dull hover:bg-app-hover hover:text-ink"
+						className="text-ink-dull hover:bg-app-hover hover:text-ink rounded-md px-2 py-1 text-sm"
 					>
 						Up
 					</button>
 				)}
-				<span className="min-w-0 flex-1 truncate text-sm text-ink-faint">
+				<span className="text-ink-faint min-w-0 flex-1 truncate text-sm">
 					{path}
 				</span>
 			</div>
@@ -166,10 +178,10 @@ function AnalyzerDetail({
 						/>
 					)}
 					<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center text-center">
-						<span className="max-w-[120px] truncate text-sm font-semibold text-ink">
+						<span className="text-ink max-w-[120px] truncate text-sm font-semibold">
 							{hovered?.label ?? root?.name}
 						</span>
-						<span className="text-xs text-ink-faint">
+						<span className="text-ink-faint text-xs">
 							{formatBytes(hovered?.size ?? root?.size ?? 0)}
 						</span>
 					</div>
@@ -187,34 +199,42 @@ function AnalyzerDetail({
 												`/explorer?path=${encodeURIComponent(
 													JSON.stringify({
 														Physical: {
-															device_slug: "local",
+															device_slug:
+																'local',
 															path: parent
 																? child.path
-																		.split("/")
-																		.slice(0, -1)
-																		.join("/")
-																: child.path,
-														},
-													}),
-												)}`,
+																		.split(
+																			'/'
+																		)
+																		.slice(
+																			0,
+																			-1
+																		)
+																		.join(
+																			'/'
+																		)
+																: child.path
+														}
+													})
+												)}`
 											)
 								}
-								className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-app-hover"
+								className="hover:bg-app-hover flex w-full items-center gap-2 rounded-md px-2 py-1 text-left"
 							>
-								<span className="min-w-0 flex-1 truncate text-sm text-ink-dull">
+								<span className="text-ink-dull min-w-0 flex-1 truncate text-sm">
 									{child.name}
 								</span>
-								<span className="shrink-0 text-xs tabular-nums text-ink-faint">
+								<span className="text-ink-faint shrink-0 text-xs tabular-nums">
 									{formatBytes(child.size)}
 								</span>
 							</button>
 						))}
 						{root.other_size > 0 && (
 							<div className="flex w-full items-center gap-2 px-2 py-1">
-								<span className="min-w-0 flex-1 truncate text-sm text-ink-faint">
+								<span className="text-ink-faint min-w-0 flex-1 truncate text-sm">
 									everything else
 								</span>
-								<span className="shrink-0 text-xs tabular-nums text-ink-faint">
+								<span className="text-ink-faint shrink-0 text-xs tabular-nums">
 									{formatBytes(root.other_size)}
 								</span>
 							</div>

@@ -231,8 +231,9 @@ just dev-server     # Headless server and web interface
 just dev-mobile     # Mobile client
 ```
 
-Heavy media dependencies are optional outside macOS. Install the native codec
-bundle when you need FFmpeg, libheif, or Pdfium:
+The default build can use FFmpeg installed on the host for video thumbnails and
+thumbstrips. Install the native codec bundle only when developing code that
+links the optional FFmpeg, libheif, or Pdfium libraries:
 
 ```bash
 cargo run -p xtask -- setup --native-deps

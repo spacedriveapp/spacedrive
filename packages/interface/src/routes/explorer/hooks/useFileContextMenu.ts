@@ -1,6 +1,7 @@
 import {
 	ArrowSquareOut,
 	Books,
+	Browsers,
 	Copy,
 	Crop,
 	Eye,
@@ -33,7 +34,8 @@ import {useClipboard} from '../../../hooks/useClipboard';
 import {useContextMenu} from '../../../hooks/useContextMenu';
 import {useOpenWith} from '../../../hooks/useOpenWith';
 import {useRefetchTagQueries} from '../../../hooks/useRefetchTagQueries';
-import {useExplorer} from '../context';
+import {useTabManager} from '../../../components/TabManager';
+import {targetToUrl, useExplorer} from '../context';
 import {useSelection} from '../SelectionContext';
 import {useDeleteFiles} from './useDeleteFiles';
 
@@ -49,6 +51,7 @@ export function useFileContextMenu({
 	selected
 }: UseFileContextMenuProps) {
 	const {navigateToPath, currentPath, mode} = useExplorer();
+	const {createTab} = useTabManager();
 	const platform = usePlatform();
 	const refetchTagQueries = useRefetchTagQueries();
 
@@ -135,6 +138,18 @@ export function useFileContextMenu({
 				condition: () =>
 					!!file &&
 					(file.kind === 'Directory' || file.kind === 'File')
+			},
+			{
+				icon: Browsers,
+				label: 'Open in New Tab',
+				onClick: () => {
+					if (!file) return;
+					createTab(
+						file.name,
+						targetToUrl({type: 'path', path: file.sd_path})
+					);
+				},
+				condition: () => !!file && file.kind === 'Directory'
 			},
 			{
 				type: 'submenu',

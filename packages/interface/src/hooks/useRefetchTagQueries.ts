@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 /**
  * Shared hook to refetch all tag-related queries after mutations.
- * Used by FileInspector, useFileContextMenu, TagsGroup, TagSelector.
+ * Used by FileInspector, useFileContextMenu, and TagSelector.
  */
 export function useRefetchTagQueries() {
 	const queryClient = useQueryClient();

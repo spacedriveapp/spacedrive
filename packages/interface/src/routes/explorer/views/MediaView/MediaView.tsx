@@ -55,73 +55,9 @@ export function MediaView() {
 	// ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
 	const parentRef = useRef<HTMLDivElement>(null);
 	const [containerWidth, setContainerWidth] = useState(0);
-	const [scrollOffset, setScrollOffset] = useState(0);
+	const initializedListingRef = useRef<string | null>(null);
 
 	// TODO: Preserve scroll position per tab using scrollPosition from context
-
-	// Track when element is ready
-	const [elementReady, setElementReady] = useState(false);
-
-	// Track container width with ResizeObserver AND window resize
-	useEffect(() => {
-		if (!elementReady) return;
-
-		const element = parentRef.current;
-		if (!element) return;
-
-		let rafId: number | null = null;
-
-		const updateWidth = () => {
-			if (rafId) return; // Debounce with requestAnimationFrame
-
-			rafId = requestAnimationFrame(() => {
-				rafId = null;
-				const newWidth = element.offsetWidth;
-
-				if (newWidth > 0) {
-					setContainerWidth(newWidth);
-				}
-			});
-		};
-
-		// ResizeObserver for when the element itself resizes
-		const resizeObserver = new ResizeObserver(() => {
-			updateWidth();
-		});
-
-		// Window resize listener as fallback
-		const handleWindowResize = () => {
-			updateWidth();
-		};
-
-		resizeObserver.observe(element);
-		window.addEventListener("resize", handleWindowResize);
-
-		// Set initial width immediately
-		const initialWidth = element.offsetWidth;
-		setContainerWidth(initialWidth);
-
-		return () => {
-			if (rafId) cancelAnimationFrame(rafId);
-			resizeObserver.disconnect();
-			window.removeEventListener("resize", handleWindowResize);
-		};
-	}, [elementReady]);
-
-	// Track scroll position
-	useEffect(() => {
-		const element = parentRef.current;
-		if (!element) return;
-
-		const handleScroll = () => {
-			setScrollOffset(element.scrollTop);
-		};
-
-		element.addEventListener("scroll", handleScroll, { passive: true });
-		return () => {
-			element.removeEventListener("scroll", handleScroll);
-		};
-	}, []);
 
 	// Get files from centralized hook (handles search mode automatically)
 	const { files: explorerFiles } = useExplorerFiles();
@@ -160,6 +96,32 @@ export function MediaView() {
 		// Normal mode: use media_listing query
 		return [...(mediaQuery.data?.files || [])].reverse();
 	}, [usesExplorerFiles, explorerFiles, mediaQuery.data?.files]);
+	const hasFiles = files.length > 0;
+	const listingKey = `${sortBy}:${JSON.stringify(
+		mode.type === "browse" ? currentPath : mode,
+	)}`;
+
+	// Measure before paint. A delayed width update briefly lays out a different
+	// column count, which moves every tile when the real width arrives.
+	useLayoutEffect(() => {
+		const element = parentRef.current;
+		if (!element) return;
+
+		const updateWidth = () => {
+			const newWidth = element.offsetWidth;
+			if (newWidth > 0) {
+				setContainerWidth((width) =>
+					width === newWidth ? width : newWidth,
+				);
+			}
+		};
+
+		updateWidth();
+		const resizeObserver = new ResizeObserver(updateWidth);
+		resizeObserver.observe(element);
+
+		return () => resizeObserver.disconnect();
+	}, [hasFiles]);
 
 	// Update current files in explorer context for quick preview navigation
 	useEffect(() => {
@@ -170,13 +132,6 @@ export function MediaView() {
 	useEffect(() => {
 		restoreSelectionFromFiles(files);
 	}, [files, restoreSelectionFromFiles]);
-
-	// Check if element is ready when files load
-	useEffect(() => {
-		if (parentRef.current && !elementReady) {
-			setElementReady(true);
-		}
-	}, [files, elementReady]);
 
 	// Keyboard navigation for media view
 	useEffect(() => {
@@ -273,21 +228,31 @@ export function MediaView() {
 		overscan: overscanCount,
 	});
 
-	// Force remeasure synchronously when layout changes (before paint)
+	// Cached row measurements only become stale when the fixed row size changes.
+	// Data updates must not reset the virtualizer while the user is scrolling.
 	useLayoutEffect(() => {
 		rowVirtualizer.measure();
-	}, [columns, gridSize, rowCount, rowVirtualizer]);
+	}, [actualItemSize, rowVirtualizer]);
 
-	// Scroll to bottom on mount (inverted scroll - show most recent first)
-	useEffect(() => {
-		if (rowCount > 0 && parentRef.current) {
-			rowVirtualizer.scrollToIndex(rowCount - 1, {
-				align: "end",
-			});
+	// The list is oldest-first so the newest media sits at the bottom. Position
+	// a listing once, but never snap back when live data or a resize changes its
+	// row count.
+	useLayoutEffect(() => {
+		if (
+			containerWidth === 0 ||
+			rowCount === 0 ||
+			initializedListingRef.current === listingKey
+		) {
+			return;
 		}
-	}, [rowCount, rowVirtualizer]);
+
+		rowVirtualizer.scrollToIndex(rowCount - 1, { align: "end" });
+		initializedListingRef.current = listingKey;
+	}, [containerWidth, listingKey, rowCount, rowVirtualizer]);
 
 	const virtualRows = rowVirtualizer.getVirtualItems();
+	const scrollOffset =
+		rowVirtualizer.scrollOffset ?? parentRef.current?.scrollTop ?? 0;
 
 	// Calculate date range for visible items
 	const dateRange = useMemo(() => {
@@ -418,10 +383,9 @@ export function MediaView() {
 				className="relative w-full"
 				style={{
 					height: `${rowVirtualizer.getTotalSize()}px`,
-					willChange: "contents",
 				}}
 			>
-				{virtualRows.map((virtualRow) => {
+				{virtualRows.flatMap((virtualRow) => {
 					// Calculate items in this row
 					const startIndex = virtualRow.index * columns;
 					const endIndex = Math.min(
@@ -430,7 +394,8 @@ export function MediaView() {
 					);
 					const rowTop = virtualRow.start;
 
-					// Render items directly without intermediate array
+					// Keep every file at the same React child level. Nested unkeyed
+					// row arrays remount the whole viewport when the first row changes.
 					return Array.from(
 						{ length: endIndex - startIndex },
 						(_, idx) => {

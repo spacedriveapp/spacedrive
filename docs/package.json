@@ -9,6 +9,7 @@
     "types:check": "next typegen && tsc --noEmit"
   },
   "dependencies": {
+    "@spacedrive/tokens": "^0.2.3",
     "cn": "^0.2.6",
     "fumadocs-core": "16.15.10",
     "fumadocs-mdx": "15.4.0",

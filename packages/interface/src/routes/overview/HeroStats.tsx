@@ -1,5 +1,4 @@
-import {CaretLeft, CaretRight, Lightning} from '@phosphor-icons/react';
-import ComputeIcon from '@sd/assets/icons/Compute.webp';
+import {CaretLeft, CaretRight} from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.webp';
 import DevicesIcon from '@sd/assets/icons/Devices.webp';
 import IndexedIcon from '@sd/assets/icons/Indexed.webp';
@@ -35,14 +34,6 @@ function formatBytes(bytes: number): {value: string; unit: string} {
 	};
 }
 
-function getTOPSRank(tops: number): {label: string} {
-	if (tops >= 100) return {label: 'Extreme'};
-	if (tops >= 70) return {label: 'Very High'};
-	if (tops >= 40) return {label: 'High'};
-	if (tops >= 20) return {label: 'Moderate'};
-	return {label: 'Low'};
-}
-
 export function HeroStats({
 	totalStorage,
 	usedStorage,
@@ -66,8 +57,6 @@ export function HeroStats({
 	const usedFormatted = formatBytes(usedStorage);
 	const databaseFormatted = formatBytes(databaseSize);
 	const sidecarFormatted = formatBytes(sidecarSize);
-	const topsValue = 70;
-	const topsRank = getTOPSRank(topsValue);
 
 	const updateScrollState = () => {
 		if (!scrollRef.current) return;
@@ -184,35 +173,6 @@ export function HeroStats({
 					value={deviceCount}
 					subtitle={`registered in library`}
 					color="from-green-500 to-emerald-500"
-				/>
-
-				{/* AI Compute Power */}
-				<StatCard
-					icon={
-						<img
-							src={ComputeIcon}
-							alt="Compute"
-							className="size-10 opacity-80"
-						/>
-					}
-					label="AI Compute Power"
-					value={
-						<>
-							{topsValue}{' '}
-							<span className="text-ink-faint text-xl">TOPS</span>
-						</>
-					}
-					subtitle={
-						<span className="flex items-center gap-1">
-							<Lightning
-								size={12}
-								weight="bold"
-								className="text-ink-faint"
-							/>
-							{topsRank.label}
-						</span>
-					}
-					color="from-purple-500 to-pink-500"
 				/>
 
 				{/* Library Size (Database) */}

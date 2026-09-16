@@ -8,7 +8,7 @@ export function baseOptions(): BaseLayoutProps {
 			title: (
 				<>
 					<Image
-						src="/spacedrive-logo.png"
+						src="/spacedrive-icon.webp"
 						alt=""
 						width={24}
 						height={24}

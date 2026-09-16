@@ -7,13 +7,13 @@
  * context menus, drag-drop, sort, etc.).
  */
 
-import { useEffect, useMemo, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, ShieldWarning } from "@phosphor-icons/react";
-import { CircleButton } from "@spacedrive/primitives";
-import type { SearchFilters } from "@sd/ts-client";
-import { TopBarPortal, TopBarItem } from "../../TopBar";
-import { ExplorerView, useExplorer } from "../explorer";
+import {ArrowLeft, ShieldWarning} from '@phosphor-icons/react';
+import type {SearchFilters} from '@sd/ts-client';
+import {CircleButton} from '@spacedrive/primitives';
+import {useEffect, useMemo, useRef} from 'react';
+import {useNavigate, useSearchParams} from 'react-router-dom';
+import {TopBarItem, TopBarPortal} from '../../TopBar';
+import {ExplorerView, useExplorer} from '../explorer';
 
 const EMPTY_FILTERS: SearchFilters = {
 	file_types: null,
@@ -28,27 +28,27 @@ const EMPTY_FILTERS: SearchFilters = {
 	on_volumes: null,
 	not_on_volumes: null,
 	min_volume_count: null,
-	max_volume_count: null,
+	max_volume_count: null
 };
 
 export function AtRiskFiles() {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
-	const volumeFilter = searchParams.get("volume");
-	const atRiskParam = searchParams.get("at_risk");
-	const isAtRisk = atRiskParam !== "false"; // default true
+	const volumeFilter = searchParams.get('volume');
+	const atRiskParam = searchParams.get('at_risk');
+	const isAtRisk = atRiskParam !== 'false'; // default true
 
-	const { enterFilteredMode, exitFilteredMode, setSortBy } = useExplorer();
+	const {enterFilteredMode, exitFilteredMode, setSortBy} = useExplorer();
 
-	const label = isAtRisk ? "At-Risk Files" : "Redundant Files";
+	const label = isAtRisk ? 'At-Risk Files' : 'Redundant Files';
 
 	const filters = useMemo<SearchFilters>(
 		() => ({
 			...EMPTY_FILTERS,
 			at_risk: isAtRisk,
-			on_volumes: volumeFilter ? [volumeFilter] : null,
+			on_volumes: volumeFilter ? [volumeFilter] : null
 		}),
-		[isAtRisk, volumeFilter],
+		[isAtRisk, volumeFilter]
 	);
 
 	// Keep filtered mode in sync with current params
@@ -63,7 +63,7 @@ export function AtRiskFiles() {
 	useEffect(() => {
 		if (didSetSort.current) return;
 		didSetSort.current = true;
-		setSortBy("size");
+		setSortBy('size');
 	}, [setSortBy]);
 
 	// Exit filtered mode only when the route unmounts
@@ -76,18 +76,18 @@ export function AtRiskFiles() {
 			<div className="flex items-center gap-2">
 				<CircleButton
 					icon={ArrowLeft}
-					title="Back to Redundancy"
-					onClick={() => navigate("/redundancy")}
+					title="Back to Protection"
+					onClick={() => navigate('/redundancy')}
 				/>
 				<ShieldWarning
 					size={18}
 					weight="bold"
 					className="text-status-warning"
 				/>
-				<span className="text-sm font-semibold text-ink">{label}</span>
+				<span className="text-ink text-sm font-semibold">{label}</span>
 			</div>
 		),
-		[navigate, label],
+		[navigate, label]
 	);
 
 	return (

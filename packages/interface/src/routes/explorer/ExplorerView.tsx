@@ -7,12 +7,19 @@ import {
 } from '@phosphor-icons/react';
 import {CircleButton, CircleButtonGroup} from '@spacedrive/primitives';
 import clsx from 'clsx';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+	useState
+} from 'react';
+import {useLocation} from 'react-router-dom';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
-import {useExplorer, type ViewMode} from './context';
+import {getSpaceItemKeyFromRoute, useExplorer, type ViewMode} from './context';
 import {useVirtualListing} from './hooks/useVirtualListing';
 import {SearchToolbar} from './SearchToolbar';
 import {SortMenu, SortMenuPanel} from './SortMenu';
@@ -28,7 +35,12 @@ import {SearchView} from './views/SearchView';
 import {SizeView} from './views/SizeView';
 import {ViewSettings, ViewSettingsPanel} from './ViewSettings';
 
-export function ExplorerView() {
+export function ExplorerView({
+	defaultViewMode = 'grid'
+}: {
+	defaultViewMode?: ViewMode;
+}) {
+	const location = useLocation();
 	const {
 		sidebarVisible,
 		setSidebarVisible,
@@ -55,8 +67,21 @@ export function ExplorerView() {
 		enterSearchMode,
 		exitSearchMode,
 		currentFiles,
-		columnStack
+		columnStack,
+		loadPreferencesForSpaceItem
 	} = useExplorer();
+
+	useLayoutEffect(() => {
+		loadPreferencesForSpaceItem(
+			getSpaceItemKeyFromRoute(location.pathname, location.search),
+			defaultViewMode
+		);
+	}, [
+		defaultViewMode,
+		loadPreferencesForSpaceItem,
+		location.pathname,
+		location.search
+	]);
 
 	const {isVirtualView} = useVirtualListing();
 	const isPreviewActive = !!quickPreviewFileId;

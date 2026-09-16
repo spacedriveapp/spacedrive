@@ -144,9 +144,15 @@ The `xtask setup` command:
 - Builds the release daemon for Tauri bundler validation
 - Downloads iOS dependencies if iOS targets are installed
 
-**Media formats.** Video, HEIC, RAW and PDF thumbnails come from ImageIO and
-QuickLook on macOS, so nothing extra is needed there. On Linux and Windows they
-need the prebuilt codec bundle, a 91 MB download into `apps/.deps/`:
+**Media formats.** ImageIO and QuickLook provide HEIC, RAW, PDF, and video
+previews on macOS. Video thumbnails and thumbstrips also use an FFmpeg installed
+on the host. Spacedrive discovers normal package-manager locations even when a
+desktop launch has a restricted `PATH`.
+
+The default build does not link or bundle FFmpeg. Install it with Homebrew or
+WinGet through `tools.install`, or install it through your Linux package
+manager. Use the native dependency bundle only when developing an in-process
+consumer of the optional `ffmpeg` or `heif` Cargo features:
 
 ```bash
 cargo run -p xtask -- setup --native-deps
@@ -202,10 +208,13 @@ Running `cargo build` from the project root builds all core Rust components:
 
 **Important: Media Processing Features**
 
-By default, `cargo build` compiles without optional features to speed up builds and avoid native dependency issues during testing. However, this means media processing features are **disabled by default**:
+By default, `cargo build` compiles without optional linked features to keep the
+binary small and avoid native dependency issues during testing:
 
-- ❌ **Without features:** No video thumbnails, no audio transcription, no HEIF image support
-- ✅ **With `--features ffmpeg,heif`:** Full media processing capabilities
+- Video thumbnails and thumbstrips use host FFmpeg when it is installed.
+- macOS image previews use the system ImageIO and QuickLook frameworks.
+- Audio transcription and linked FFmpeg consumers still require their Cargo features.
+- Linux and Windows HEIF decoding still requires the `heif` feature.
 
 **For development, use:**
 ```bash
@@ -217,9 +226,14 @@ cargo daemon  # Automatically includes sd-core/ffmpeg,sd-core/heif features
 cargo cli     # Automatically includes sd-core/ffmpeg,sd-core/heif features
 ```
 
-The Tauri desktop app **always** includes these features by default, so end users get full functionality. This design keeps the test suite fast while giving developers easy access to full features when needed.
+The Tauri desktop app uses the same default feature set. Installing host FFmpeg
+adds its media capabilities without rebuilding Spacedrive.
 
-**Licensing note:** Spacedrive is Apache-2.0 and the default build carries no FFmpeg. The `ffmpeg` feature links FFmpeg itself, which ships under LGPL-2.1+, or GPL-2.0+ when built with `--enable-gpl`. Anyone redistributing a binary built with that feature is responsible for meeting the terms of whichever FFmpeg build they linked.
+**Licensing note:** Spacedrive is Apache-2.0 and the default build carries no
+FFmpeg. Host FFmpeg remains separately installed software. The `ffmpeg` feature
+links FFmpeg itself, which ships under LGPL-2.1+, or GPL-2.0+ when built with
+`--enable-gpl`. Anyone redistributing a binary built with that feature is
+responsible for meeting the terms of the FFmpeg build they linked.
 
 **Note:** The Tauri desktop app is excluded from `cargo build` because it requires the frontend to be built first. See [Desktop Development](#desktop-development-tauri) for Tauri-specific setup.
 

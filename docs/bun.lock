@@ -5,6 +5,7 @@
     "": {
       "name": "sd-docs",
       "dependencies": {
+        "@spacedrive/tokens": "^0.2.3",
         "cn": "^0.2.6",
         "fumadocs-core": "16.15.10",
         "fumadocs-mdx": "15.4.0",
@@ -203,6 +204,8 @@
     "@shikijs/types": ["@shikijs/types@4.4.3", "", { "dependencies": { "@shikijs/vscode-textmate": "^10.0.2", "@types/hast": "^3.0.5" } }, "sha512-UEJxmRR++MAGR6hugn0vgVS2W/6lWAts84FFSrnlH9sP0LNol7E5+NQ792pH8liWUhyMyjhTgSUH3k7iD7tc5g=="],
 
     "@shikijs/vscode-textmate": ["@shikijs/vscode-textmate@10.0.2", "", {}, "sha512-83yeghZ2xxin3Nj8z1NMd/NCuca+gsYXswywDy5bHvwlWL8tpTQmzGeUuHd9FC3E/SBEMvzJRwWEOz5gGes9Qg=="],
+
+    "@spacedrive/tokens": ["@spacedrive/tokens@0.2.3", "", {}, "sha512-AozHOoDjyx08R7hn6mvXAxGNMobro7XjsPML59fAP6e+E/ZRiOSuDCh9s6xgUgsH+iiOBkv52Em9QAR4LT47iQ=="],
 
     "@standard-schema/spec": ["@standard-schema/spec@1.1.0", "", {}, "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w=="],
 

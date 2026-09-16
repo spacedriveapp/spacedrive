@@ -52,10 +52,10 @@ pub use content::{uuid_for, ContentId, CONTENT_NAMESPACE};
 pub use db::{ItemRow, OverlayEvidence, SourceDb, Stamp};
 pub use error::{Error, Result};
 pub use file::{
-	content_of, copies_of_content, count_files_needing_content, duplicate_copies,
-	count_files_needing_verification, files_needing_content, files_needing_verification,
-	filesystem_schema, mark_content_unreadable, ContentCopy, FileKind, FileWrite, Ledger,
-	Observation, PendingContent, PendingVerification, Resolution, SubtreeRename, Watermark,
+	content_of, copies_of_content, count_files_needing_content, count_files_needing_verification,
+	duplicate_copies, files_needing_content, files_needing_verification, filesystem_schema,
+	mark_content_unreadable, ContentCopy, FileKind, FileWrite, Ledger, Observation, PendingContent,
+	PendingVerification, Resolution, SubtreeRename, Watermark,
 };
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};

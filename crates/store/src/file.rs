@@ -811,25 +811,33 @@ pub async fn files_needing_verification(
 	pool: &sqlx::SqlitePool,
 	batch_size: usize,
 ) -> Result<Vec<PendingVerification>> {
-	let rows: Vec<(Uuid, Option<Uuid>, Option<String>, Option<String>, i64, Option<String>)> =
-		sqlx::query_as(&format!(
-			"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size, c.sampled_hash \
+	let rows: Vec<(
+		Uuid,
+		Option<Uuid>,
+		Option<String>,
+		Option<String>,
+		i64,
+		Option<String>,
+	)> = sqlx::query_as(&format!(
+		"SELECT r.uuid, r.parent_uuid, d.path, r.title, f.size, c.sampled_hash \
 			 {PENDING_VERIFICATION} ORDER BY r.rowid LIMIT ?"
-		))
-		.bind(batch_size as i64)
-		.fetch_all(pool)
-		.await?;
+	))
+	.bind(batch_size as i64)
+	.fetch_all(pool)
+	.await?;
 
 	Ok(rows
 		.into_iter()
-		.filter_map(|(uuid, parent_uuid, parent_path, title, size, sampled_hash)| {
-			Some(PendingVerification {
-				uuid,
-				external_id: address(parent_uuid, parent_path, title)?,
-				size,
-				sampled_hash,
-			})
-		})
+		.filter_map(
+			|(uuid, parent_uuid, parent_path, title, size, sampled_hash)| {
+				Some(PendingVerification {
+					uuid,
+					external_id: address(parent_uuid, parent_path, title)?,
+					size,
+					sampled_hash,
+				})
+			},
+		)
 		.collect())
 }
 

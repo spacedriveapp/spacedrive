@@ -9,17 +9,15 @@ import type {
 } from "../generated/types";
 import { useNormalizedQuery } from "./useNormalizedQuery";
 
-export type SearchScopeUI = "folder" | "location" | "library";
+export type SearchScopeUI = "folder" | "library";
 
 export interface UseSearchFilesOptions {
 	/** Search query string (minimum 2 characters to search) */
 	query: string;
-	/** Search scope: "folder" (current path), "location", or "library" */
+	/** Search scope: "folder" (current path) or "library" */
 	scope: SearchScopeUI;
 	/** Current path (required for "folder" scope) */
 	currentPath?: SdPath | null;
-	/** Location ID (required for "location" scope) */
-	locationId?: string | null;
 	/** Sort field: "Relevance", "Name", "Size", "ModifiedAt", "CreatedAt" */
 	sortBy?: "Relevance" | "Name" | "Size" | "ModifiedAt" | "CreatedAt";
 	/** Sort direction */
@@ -76,7 +74,6 @@ export function useSearchFiles(
 		query,
 		scope,
 		currentPath,
-		locationId,
 		sortBy = "Relevance",
 		sortDirection = "Desc",
 		mode = "Normal",
@@ -90,11 +87,8 @@ export function useSearchFiles(
 		if (scope === "folder" && currentPath) {
 			return { Path: { path: currentPath } };
 		}
-		if (scope === "location" && locationId) {
-			return { Location: { location_id: locationId } };
-		}
 		return "Library";
-	}, [scope, currentPath, locationId]);
+	}, [scope, currentPath]);
 
 	// Build search input
 	const searchInput: FileSearchInput = useMemo(
