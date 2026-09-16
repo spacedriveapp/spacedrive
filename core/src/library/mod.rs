@@ -731,8 +731,12 @@ impl Library {
 			);
 		}
 
-		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
-		let library = crate::domain::Library::from_config(&config, path.clone());
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait.
+		// Clients receive fleet totals: the persisted config keeps local-only
+		// figures, but an event carrying those would overwrite the summed
+		// statistics `libraries.info` served into the normalized cache.
+		let mut library = crate::domain::Library::from_config(&config, path.clone());
+		crate::service::mounts::peer::add_device_summaries(&mut library.statistics).await;
 		use crate::domain::resource::EventEmitter;
 		if let Err(e) = library.emit_changed(&event_bus) {
 			warn!(
@@ -745,7 +749,7 @@ impl Library {
 		// Also emit the legacy event for backwards compatibility
 		event_bus.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
 			library_id,
-			statistics: stats,
+			statistics: library.statistics.clone(),
 		});
 
 		debug!(
@@ -799,10 +803,14 @@ impl Library {
 			"Updated and saved statistics via update_statistics method"
 		);
 
-		// Emit ResourceChanged event for normalizedCache using EventEmitter trait
+		// Emit ResourceChanged event for normalizedCache using EventEmitter trait.
+		// Clients receive fleet totals: the persisted config keeps local-only
+		// figures, but an event carrying those would overwrite the summed
+		// statistics `libraries.info` served into the normalized cache.
 		let config = self.config.read().await;
-		let library = crate::domain::Library::from_config(&config, self.path().to_path_buf());
+		let mut library = crate::domain::Library::from_config(&config, self.path().to_path_buf());
 		drop(config);
+		crate::service::mounts::peer::add_device_summaries(&mut library.statistics).await;
 
 		use crate::domain::resource::EventEmitter;
 		if let Err(e) = library.emit_changed(&self.event_bus) {
@@ -817,7 +825,7 @@ impl Library {
 		self.event_bus
 			.emit(crate::infra::event::Event::LibraryStatisticsUpdated {
 				library_id: self.id(),
-				statistics: stats,
+				statistics: library.statistics.clone(),
 			});
 
 		debug!(

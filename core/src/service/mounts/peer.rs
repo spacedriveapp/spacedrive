@@ -68,6 +68,24 @@ pub async fn device_summaries(
 	summaries_map().read().await.clone()
 }
 
+/// Add every cached peer summary to a set of library statistics.
+///
+/// Fleet totals are never persisted: the local figures live in the library
+/// config, and every surface that hands statistics to a client adds the peer
+/// summaries through this one path — the read in `libraries.info` and the
+/// `ResourceChanged` emission after a recalculation alike. A surface that
+/// skips it publishes local-only numbers that overwrite the fleet ones in the
+/// client's normalized cache.
+pub async fn add_device_summaries(statistics: &mut crate::library::LibraryStatistics) {
+	for summary in summaries_map().read().await.values() {
+		statistics.total_files += summary.file_count;
+		statistics.total_size += summary.total_size;
+		statistics.unique_content_count += summary.unique_content_count;
+		statistics.total_capacity += summary.total_capacity;
+		statistics.available_capacity += summary.available_capacity;
+	}
+}
+
 /// Open a fresh bi-stream to a paired device and send one request.
 async fn request(
 	context: &Arc<CoreContext>,
@@ -220,6 +238,23 @@ pub async fn sync_device(
 		other => anyhow::bail!("unexpected response: {other:?}"),
 	};
 
+	// The owner's own accounting rides along with every sync, so fleet
+	// totals stay as fresh as the replicas. Fetched before the snapshot
+	// loop because one failing source aborts it, and the device's totals
+	// are still true when a snapshot is not. A peer running an older build
+	// answers with an error; totals then just omit that device.
+	match request(context, device_id, &ByteRangeRequest::DeviceSummary).await {
+		Ok((ByteRangeResponse::DeviceSummary(summary), _)) => {
+			summaries_map().write().await.insert(device_id, summary);
+		}
+		Ok((other, _)) => {
+			tracing::debug!("device summary from {device_label}: unexpected {other:?}");
+		}
+		Err(err) => {
+			tracing::debug!("device summary from {device_label} failed: {err}");
+		}
+	}
+
 	let replica_dir = context
 		.data_dir
 		.join("mounts-remote")
@@ -304,21 +339,6 @@ pub async fn sync_device(
 		});
 		shares_map().write().await.insert(info.id, share);
 		synced += 1;
-	}
-
-	// The owner's own accounting rides along with every sync, so fleet
-	// totals stay as fresh as the replicas. A peer running an older build
-	// answers with an error; totals then just omit that device.
-	match request(context, device_id, &ByteRangeRequest::DeviceSummary).await {
-		Ok((ByteRangeResponse::DeviceSummary(summary), _)) => {
-			summaries_map().write().await.insert(device_id, summary);
-		}
-		Ok((other, _)) => {
-			tracing::debug!("device summary from {device_label}: unexpected {other:?}");
-		}
-		Err(err) => {
-			tracing::debug!("device summary from {device_label} failed: {err}");
-		}
 	}
 
 	tracing::info!("peer mounts: {synced} source(s) replicated from {device_label} ({device_id})");
