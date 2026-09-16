@@ -40,7 +40,6 @@ body.overlay-window,
 
 /* Animated gradient for audio player background */
 .audio-gradient {
-	position: relative;
 	background: #000;
 }
 

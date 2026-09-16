@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import {useLibraryMutation} from '@sd/ts-client';
+import {
+	Dialog,
+	dialogManager,
+	Input,
+	Label,
+	useDialog
+} from '@spacedrive/primitives';
 import clsx from 'clsx';
-import { Input, Label, dialogManager, useDialog, Dialog } from '@spacedrive/primitives';
-import { useLibraryMutation } from '@sd/ts-client';
-import { useForm } from 'react-hook-form';
+import {useState} from 'react';
+import {useForm} from 'react-hook-form';
 
 interface FormData {
 	name: string;
@@ -16,7 +22,7 @@ const PRESET_COLORS = [
 	'#F59E0B', // Amber
 	'#EF4444', // Red
 	'#06B6D4', // Cyan
-	'#6366F1', // Indigo
+	'#6366F1' // Indigo
 ];
 
 const PRESET_ICONS = [
@@ -27,20 +33,20 @@ const PRESET_ICONS = [
 	'Camera',
 	'MusicNotes',
 	'GameController',
-	'Code',
+	'Code'
 ];
 
 export function useCreateSpaceDialog() {
 	return dialogManager.create((props) => <CreateSpaceDialog {...props} />);
 }
 
-function CreateSpaceDialog(props: { id: number }) {
+function CreateSpaceDialog(props: {id: number}) {
 	const dialog = useDialog(props);
 	const [selectedColor, setSelectedColor] = useState(PRESET_COLORS[0]);
 	const [selectedIcon, setSelectedIcon] = useState(PRESET_ICONS[0]);
 
 	const form = useForm<FormData>({
-		defaultValues: { name: '' },
+		defaultValues: {name: ''}
 	});
 
 	const createSpace = useLibraryMutation('spaces.create');
@@ -51,7 +57,7 @@ function CreateSpaceDialog(props: { id: number }) {
 		await createSpace.mutateAsync({
 			name: data.name,
 			icon: selectedIcon,
-			color: selectedColor,
+			color: selectedColor
 		});
 		form.reset();
 		setSelectedColor(PRESET_COLORS[0]);
@@ -63,15 +69,15 @@ function CreateSpaceDialog(props: { id: number }) {
 		<Dialog
 			form={form}
 			dialog={dialog}
-			title="Create Space"
+			title="Create Workspace"
 			onSubmit={onSubmit}
 			ctaLabel="Create"
 		>
 			<div className="space-y-4">
 				<div>
-					<Label>Space Name</Label>
+					<Label>Workspace Name</Label>
 					<Input
-						{...form.register('name', { required: true })}
+						{...form.register('name', {required: true})}
 						placeholder="e.g., Work Files, Personal Photos"
 						autoFocus
 					/>
@@ -91,7 +97,7 @@ function CreateSpaceDialog(props: { id: number }) {
 										? 'scale-110 border-white'
 										: 'border-transparent'
 								)}
-								style={{ backgroundColor: color }}
+								style={{backgroundColor: color}}
 							/>
 						))}
 					</div>
