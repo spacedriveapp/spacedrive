@@ -1,23 +1,37 @@
 import {
 	CaretRight,
-	CircleDashedIcon,
-	CircleIcon,
+	CircleDashed,
+	Database,
 	Eye,
-	Folder
+	HardDrive,
+	House,
+	Plus,
+	PushPin,
+	SpinnerGap,
+	Stack,
+	WarningCircle
 } from '@phosphor-icons/react';
+import type {Icon as PhosphorIcon} from '@phosphor-icons/react';
+import FolderIcon from '@sd/assets/icons/Folder.webp';
 import LaptopIcon from '@sd/assets/icons/Laptop.webp';
 import type {Device, SdPath} from '@sd/ts-client';
 import {
 	getDeviceIcon,
 	useLibraryMutation,
-	useNormalizedQuery
+	useLibraryQuery
 } from '@sd/ts-client';
-import {Button, CircleButton, Popover, usePopover} from '@spacedrive/primitives';
+import {
+	CircleButton,
+	Popover,
+	Tooltip,
+	usePopover
+} from '@spacedrive/primitives';
+import {useQueryClient} from '@tanstack/react-query';
 import clsx from 'clsx';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
+import {useNavigate} from 'react-router-dom';
 import {useExplorer} from '../context';
-import {useSelection} from '../SelectionContext';
 import {sdPathToUri} from '../utils';
 import {useAddStorageDialog} from './AddStorageModal';
 
@@ -108,118 +122,453 @@ function parsePathSegments(sdPath: SdPath): PathSegment[] {
 	return [];
 }
 
-function IndexIndicator({path}: {path: SdPath}) {
-	const popover = usePopover();
-	const {clearSelection} = useSelection();
-	const {setInspectorVisible} = useExplorer();
+function statusLabel(value: string): string {
+	return value
+		.split('_')
+		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+		.join(' ');
+}
 
-	// Fetch all locations
-	const {data: locationsData} = useNormalizedQuery({
-		query: 'locations.list',
-		input: null,
-		resourceType: 'location'
+function StateChip({
+	icon: Icon,
+	detail,
+	label,
+	tone = 'neutral'
+}: {
+	icon: PhosphorIcon;
+	detail: string;
+	label: string;
+	tone?: 'neutral' | 'active' | 'warning' | 'muted';
+}) {
+	const content = (
+		<div
+			className={clsx(
+				'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium',
+				tone === 'active' &&
+					'border-accent/20 bg-accent/10 text-accent',
+				tone === 'warning' &&
+					'border-amber-400/20 bg-amber-400/10 text-amber-400',
+				tone === 'muted' && 'border-app-line bg-app/40 text-ink-faint',
+				tone === 'neutral' && 'border-app-line bg-app/50 text-ink-dull'
+			)}
+		>
+			<Icon size={12} weight={tone === 'active' ? 'fill' : 'regular'} />
+			{label}
+		</div>
+	);
+
+	return <Tooltip label={detail}>{content}</Tooltip>;
+}
+
+function PathStatusSkeleton() {
+	return (
+		<div className="animate-pulse px-4 py-4">
+			<div className="border-app-line bg-app/30 rounded-xl border p-3">
+				<div className="bg-app-line/60 h-3 w-24 rounded" />
+				<div className="bg-app-line/60 mt-3 h-12 rounded-lg" />
+				<div className="mt-3 flex gap-2">
+					<div className="bg-app-line/60 h-6 w-20 rounded-full" />
+					<div className="bg-app-line/60 h-6 w-24 rounded-full" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
+function PathStatusButton({path}: {path: SdPath}) {
+	const popover = usePopover();
+	const navigate = useNavigate();
+	const queryClient = useQueryClient();
+	const {
+		data: context,
+		isLoading,
+		isError,
+		refetch
+	} = useLibraryQuery(
+		{
+			type: 'paths.context',
+			input: {path}
+		},
+		{
+			// Index and watcher transitions are short-lived. Keep the explanation
+			// current while somebody is looking at it without polling every tab.
+			refetchInterval: popover.open ? 1000 : false
+		}
+	);
+	const refresh = () => {
+		void refetch();
+		void queryClient.invalidateQueries({
+			predicate: (query) => {
+				const key = query.queryKey[0];
+				return (
+					key === 'locations.list' || key === 'query:locations.list'
+				);
+			}
+		});
+	};
+	const addLocation = useLibraryMutation('locations.add', {
+		onSuccess: refresh
+	});
+	const removeLocation = useLibraryMutation('locations.remove', {
+		onSuccess: refresh
 	});
 
-	const locations = (locationsData as any)?.locations ?? [];
-
-	// Find location that contains this path
-	const matchingLocation = (() => {
+	const hasWarning =
+		context?.availability === 'permission_denied' ||
+		context?.availability === 'unavailable' ||
+		(context?.source?.attached &&
+			context.map_state !== 'indexing' &&
+			context.watcher_state !== 'active');
+	const isRemote =
+		context?.availability === 'remote' ||
+		context?.availability === 'missing';
+	const Icon = isLoading
+		? CircleDashed
+		: context?.map_state === 'indexing'
+			? SpinnerGap
+			: hasWarning
+				? WarningCircle
+				: Stack;
+	const exactLocation = context?.location?.exact ? context.location : null;
+	const pathLabel = getCurrentDirectoryName(path);
+	const pathDetail =
+		'Physical' in path ? path.Physical.path : sdPathToUri(path);
+	const canAddLocation = Boolean(
+		context?.source &&
+		!context.system_place &&
+		context.availability === 'available'
+	);
+	const canAddSource = Boolean(
+		context &&
+		!context.source &&
+		context.availability === 'available' &&
+		'Physical' in path
+	);
+	const openStorage = () => {
+		navigate('/sources');
+		popover.setOpen(false);
+	};
+	const addSource = () => {
 		if ('Physical' in path) {
-			const pathStr = path.Physical.path;
-			// Find location with longest matching prefix
-			return locations
-				.filter((loc: any) => {
-					if (!loc.sd_path || !('Physical' in loc.sd_path))
-						return false;
-					const locPath = loc.sd_path.Physical.path;
-					return pathStr.startsWith(locPath);
-				})
-				.sort((a: any, b: any) => {
-					const aPath =
-						'Physical' in a.sd_path!
-							? a.sd_path!.Physical.path
-							: '';
-					const bPath =
-						'Physical' in b.sd_path!
-							? b.sd_path!.Physical.path
-							: '';
-					return bPath.length - aPath.length;
-				})[0];
+			useAddStorageDialog(undefined, path.Physical.path);
+			popover.setOpen(false);
 		}
-		return undefined;
-	})();
-
-	const isIndexed =
-		matchingLocation?.index_mode !== undefined &&
-		matchingLocation.index_mode !== 'none';
+	};
+	const watcherLabel =
+		context?.watcher_state === 'active'
+			? 'Watching'
+			: context?.watcher_state === 'inactive'
+				? 'Not watching'
+				: 'Watch unavailable';
+	const watcherTone =
+		context?.watcher_state === 'active'
+			? 'active'
+			: context?.watcher_state === 'inactive'
+				? 'warning'
+				: 'muted';
+	const watcherDetail =
+		context?.watcher_state === 'active'
+			? `Watching changes from ${context.watcher_root ?? pathDetail}.`
+			: context?.watcher_state === 'inactive'
+				? 'Changes under this path are not being watched.'
+				: 'Live updates are unavailable for this path.';
+	const storageLabel = context?.storage.source_store
+		? 'Index on disk'
+		: context?.storage.restart_cache
+			? 'Cached locally'
+			: context?.storage.memory
+				? 'Browsing only'
+				: 'Not indexed';
+	const storageTone = context?.storage.source_store
+		? 'active'
+		: context?.storage.restart_cache || context?.storage.memory
+			? 'neutral'
+			: 'muted';
+	const storageDetail = context?.storage.source_store
+		? `${context.source?.name ?? 'This source'} has a durable index on disk.`
+		: context?.storage.restart_cache
+			? 'A rebuildable cache is available on this device after restart.'
+			: context?.storage.memory
+				? 'This browsing index lasts until the daemon stops.'
+				: 'Spacedrive has not indexed this path.';
 
 	return (
 		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
 			<Popover.Trigger asChild>
 				<CircleButton
-					icon={isIndexed ? CircleIcon : CircleDashedIcon}
-					active={!isIndexed}
-					className={isIndexed ? '!text-accent' : undefined}
-					title={isIndexed ? 'Location is indexed' : 'Not indexed'}
+					icon={Icon}
+					className={clsx(
+						context?.map_state === 'indexing' &&
+							'[&_svg]:animate-spin',
+						hasWarning && '!text-amber-400',
+						isRemote && '!text-ink-faint',
+						context?.source &&
+							context.storage.source_store &&
+							context.watcher_state === 'active' &&
+							'!text-accent'
+					)}
+					title="Path status"
 				/>
 			</Popover.Trigger>
-			<Popover.Content>
-				<div className="p-2">
-					{matchingLocation ? (
-						<>
-							<div className="mb-2">
-								<div className="px-2 py-1.5">
-									<div className="text-ink text-xs font-semibold">
-										{matchingLocation.name}
-									</div>
-									<div className="text-ink-dull mt-0.5 text-xs">
-										{isIndexed
-											? `Indexed (${matchingLocation.index_mode})`
-											: 'Not indexed'}
-									</div>
-								</div>
-							</div>
-
-							<div className="border-app-line my-2 border-t" />
-
-							<div>
+			<Popover.Content
+				side="bottom"
+				align="start"
+				sideOffset={8}
+				className="!bg-app-box z-50 w-[360px] !rounded-2xl !p-0"
+			>
+				<div className="flex items-center gap-3 px-4 pb-3 pt-4">
+					<img src={FolderIcon} className="size-10" alt="" />
+					<div className="min-w-0 flex-1">
+						<div className="text-ink truncate text-sm font-semibold">
+							{pathLabel}
+						</div>
+						<div
+							className="text-ink-faint mt-0.5 truncate text-[10px]"
+							title={pathDetail}
+						>
+							{pathDetail}
+						</div>
+					</div>
+					<div className="flex shrink-0 items-center gap-1.5">
+						{exactLocation ? (
+							<Tooltip label="Remove from Places">
 								<button
+									type="button"
+									disabled={removeLocation.isPending}
 									onClick={() => {
-										clearSelection();
-										setInspectorVisible(true);
+										removeLocation.mutate({
+											location_id: exactLocation.id
+										});
 										popover.setOpen(false);
 									}}
-									className="text-ink hover:bg-app-hover flex items-center gap-2 rounded-md px-2 py-1.5 text-xs font-medium transition-colors"
+									className="border-app-line bg-app/50 text-ink hover:border-accent/40 hover:text-accent flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-medium transition-colors"
 								>
-									<Folder size={16} />
-									Open Location Inspector
+									<PushPin size={12} weight="fill" />
+									{exactLocation.name}
 								</button>
+							</Tooltip>
+						) : context?.system_place ? (
+							<div className="bg-app/50 text-ink flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium">
+								<House size={12} weight="fill" />
+								{context.system_place}
 							</div>
-						</>
-					) : (
-						<div>
-							<div className="px-2 py-1.5">
-								<div className="text-ink-dull mb-2 text-xs">
-									Path is outside any location
-								</div>
-								<Button
-									size="sm"
-									variant="accent"
+						) : context?.location ? (
+							<div className="bg-app/50 text-ink-dull flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-medium">
+								<PushPin size={12} />
+								{context.location.name}
+							</div>
+						) : null}
+
+						{context && canAddLocation && !exactLocation && (
+							<Tooltip label="Add to Places">
+								<button
+									type="button"
+									disabled={addLocation.isPending}
 									onClick={() => {
-										const initialPath =
-											'Physical' in path
-												? path.Physical.path
-												: undefined;
-										useAddStorageDialog(
-											undefined,
-											initialPath
-										);
+										addLocation.mutate({
+											path: context.canonical_path,
+											name: null
+										});
 										popover.setOpen(false);
 									}}
+									className="border-app-line text-ink-faint hover:border-accent/40 hover:text-accent flex size-7 items-center justify-center rounded-full border border-dashed transition-colors"
 								>
-									Add Location
-								</Button>
+									<Plus size={13} />
+								</button>
+							</Tooltip>
+						)}
+					</div>
+				</div>
+
+				<div className="border-app-line border-t">
+					{isError ? (
+						<div className="px-4 py-4 text-xs">
+							<div className="flex items-center gap-2 text-amber-400">
+								<WarningCircle size={16} />
+								Path status is unavailable
 							</div>
+							<button
+								onClick={() => void refetch()}
+								className="text-accent mt-1 font-medium hover:underline"
+							>
+								Try again
+							</button>
+						</div>
+					) : isLoading || !context ? (
+						<PathStatusSkeleton />
+					) : (
+						<div className="px-4 py-4">
+							{context.availability !== 'available' && (
+								<div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-400/10 px-2.5 py-2 text-[11px] font-medium text-amber-400">
+									<WarningCircle size={14} />
+									{statusLabel(context.availability)}
+								</div>
+							)}
+
+							{context.source ? (
+								<div className="border-accent/25 bg-accent/[0.04] rounded-xl border p-3">
+									<button
+										type="button"
+										onClick={openStorage}
+										className="group flex w-full items-center gap-2 text-left"
+									>
+										<span className="bg-accent/10 text-accent flex size-7 items-center justify-center rounded-lg">
+											<Stack size={15} weight="fill" />
+										</span>
+										<span className="text-ink min-w-0 flex-1 truncate text-xs font-semibold">
+											{context.source.name}
+										</span>
+										<span className="text-ink-faint text-[9px] font-semibold uppercase tracking-wider">
+											Source
+										</span>
+										<CaretRight
+											size={12}
+											className="text-ink-faint group-hover:text-ink transition-colors"
+										/>
+									</button>
+
+									<div className="border-app-line bg-app/50 mt-3 flex items-center gap-2.5 rounded-lg border px-2.5 py-2">
+										<img
+											src={FolderIcon}
+											className="size-7"
+											alt=""
+										/>
+										<div className="min-w-0">
+											<div className="text-ink truncate text-[11px] font-medium">
+												{pathLabel}
+											</div>
+											<div className="text-ink-faint text-[9px]">
+												Current folder
+											</div>
+										</div>
+									</div>
+
+									<div className="mt-3 flex flex-wrap gap-2">
+										<StateChip
+											icon={Eye}
+											label={watcherLabel}
+											tone={watcherTone}
+											detail={watcherDetail}
+										/>
+										<StateChip
+											icon={Database}
+											label={storageLabel}
+											tone={storageTone}
+											detail={storageDetail}
+										/>
+									</div>
+								</div>
+							) : (
+								<div className="border-app-line bg-app/30 flex flex-col items-center rounded-xl border px-4 py-5 text-center">
+									<span className="bg-app/70 text-ink-dull flex size-10 items-center justify-center rounded-xl">
+										{context.storage.restart_cache ? (
+											<Database size={19} />
+										) : (
+											<Eye size={19} />
+										)}
+									</span>
+									<div className="text-ink mt-2.5 text-xs font-semibold">
+										{storageLabel}
+									</div>
+									<div className="text-ink-faint mt-0.5 text-[10px]">
+										Not kept by a source
+									</div>
+									{canAddSource && (
+										<button
+											type="button"
+											onClick={addSource}
+											className="bg-accent hover:bg-accent-deep mt-3 flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[10px] font-semibold text-white transition-colors"
+										>
+											<Plus size={12} />
+											Add as a source
+										</button>
+									)}
+								</div>
+							)}
+
+							{context.volume && (
+								<button
+									type="button"
+									onClick={openStorage}
+									className="border-app-line hover:bg-app/50 mt-3 flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left transition-colors"
+								>
+									<span className="bg-app/60 text-ink-dull flex size-7 items-center justify-center rounded-lg">
+										<HardDrive size={15} />
+									</span>
+									<div className="min-w-0 flex-1">
+										<div className="text-ink truncate text-[11px] font-medium">
+											{context.volume.name}
+										</div>
+										<div className="text-ink-faint text-[9px]">
+											Volume
+										</div>
+									</div>
+									<CaretRight
+										size={12}
+										className="text-ink-faint"
+									/>
+								</button>
+							)}
+
+							<details className="group mt-3">
+								<summary className="text-ink-faint hover:text-ink flex cursor-pointer list-none items-center gap-1 text-[10px] font-medium transition-colors [&::-webkit-details-marker]:hidden">
+									<CaretRight
+										size={10}
+										className="transition-transform group-open:rotate-90"
+									/>
+									Technical details
+								</summary>
+								<div className="border-app-line mt-2 grid grid-cols-[76px_1fr] gap-x-3 gap-y-1.5 border-t pt-2 text-[9px]">
+									<span className="text-ink-faint">
+										Source root
+									</span>
+									<span
+										className="text-ink-dull truncate text-right"
+										title={
+											context.source?.root ?? undefined
+										}
+									>
+										{context.source?.root ?? 'None'}
+									</span>
+									<span className="text-ink-faint">
+										Watch root
+									</span>
+									<span
+										className="text-ink-dull truncate text-right"
+										title={
+											context.watcher_root ?? undefined
+										}
+									>
+										{context.watcher_root ?? 'None'}
+									</span>
+									<span className="text-ink-faint">
+										Volume mount
+									</span>
+									<span
+										className="text-ink-dull truncate text-right"
+										title={
+											context.volume?.mount_point ??
+											undefined
+										}
+									>
+										{context.volume?.mount_point ?? 'None'}
+									</span>
+									<span className="text-ink-faint">
+										Runtime map
+									</span>
+									<span className="text-ink-dull text-right">
+										{statusLabel(context.map_state)}
+									</span>
+									<span className="text-ink-faint">
+										Restart cache
+									</span>
+									<span className="text-ink-dull text-right">
+										{context.storage.restart_cache
+											? 'Available'
+											: 'None'}
+									</span>
+								</div>
+							</details>
 						</div>
 					)}
 				</div>
@@ -509,7 +858,7 @@ export function PathBar({path, devices, onNavigate}: PathBarProps) {
 					/>
 				)}
 			</motion.div>
-			<IndexIndicator path={path} />
+			<PathStatusButton path={path} />
 		</div>
 	);
 }

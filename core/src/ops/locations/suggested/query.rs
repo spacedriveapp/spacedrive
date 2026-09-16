@@ -48,18 +48,30 @@ impl LibraryQuery for SuggestedLocationsQuery {
 
 		let device_slug = crate::device::get_current_device_slug();
 
-		let result = crate::location::default_paths()
-			.into_iter()
-			.filter(|(_, path)| !pinned.contains(path))
-			.map(|(name, path)| SuggestedLocation {
+		let mut result = Vec::new();
+		for (name, path) in crate::location::known_paths() {
+			// Sources use the volume manager's canonical spelling. Routing a
+			// known folder through the same path prevents Home from appearing
+			// twice on macOS through `/Users` and `/System/Volumes/Data`.
+			let routed_path = context
+				.volume_manager
+				.locate_path(&path)
+				.await
+				.map(|(_, path)| path)
+				.unwrap_or_else(|| path.clone());
+			if pinned.contains(&path) || pinned.contains(&routed_path) {
+				continue;
+			}
+
+			result.push(SuggestedLocation {
 				name,
 				sd_path: SdPath::Physical {
 					device_slug: device_slug.clone(),
-					path: path.clone(),
+					path: routed_path,
 				},
 				path,
-			})
-			.collect();
+			});
+		}
 
 		Ok(SuggestedLocationsOutput { locations: result })
 	}

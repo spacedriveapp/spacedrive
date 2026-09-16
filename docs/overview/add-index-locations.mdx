@@ -66,25 +66,19 @@ Opening or changing a file still requires a live origin or cached copy.
 
 ## Add a pin
 
-Open a folder inside a source and choose **Pin as location**. Give it a name
-that makes sense in the sidebar.
+Open a folder inside a source and choose **Add to Places**. Give it a name that
+makes sense in the sidebar. The API stores this source-relative pin as a
+location.
 
-A pin can also request stronger attention for its subtree, such as:
+A pin does not change what Spacedrive indexes or watches. The containing source
+already owns capture and freshness. Future protection or offline policies may
+target a pin, but enabling one will be a separate explicit action.
 
-- continuous watching;
-- prompt content identification;
-- persistent previews;
-- offline retention;
-- a minimum verified copy count.
+## Known Places
 
-Two overlapping pins still refer to one set of source records. Their attention
-policies combine without duplicating the index.
-
-## Default pins
-
-New libraries include Home, Desktop, Documents, Downloads, and Pictures pins.
-They resolve when a matching local source is attached. You can rename, move, or
-remove them without changing file bytes.
+Clients show Home, Desktop, Documents, Downloads, Pictures, Movies, and Music
+when those folders exist on the current device. These are computed Places, not
+location rows. They require no setup and do not start overlapping scans.
 
 ## Verify and freeze
 
@@ -102,7 +96,8 @@ backup copy of the original files.
 
 ## Remove a pin or source
 
-Removing a pin deletes only the shortcut and its attention policy.
+Removing a pin deletes only the shortcut. It does not stop source indexing or
+watching.
 
 Detaching a source removes it from the active library view but preserves its
 store unless you explicitly delete that evidence. Deleting file bytes is always
@@ -113,7 +108,7 @@ a separate operation with its own preview and verification.
 | Goal | Use |
 | --- | --- |
 | Retain a drive or folder in the library | Source |
-| Put a familiar folder in the sidebar | Location |
+| Put another folder in Places | Location pin |
 | Show all screenshots or duplicates | Lens or extension view |
 | Copy bytes to another storage system | File operation or file sync |
 | Preserve the index before a cleanup | Source freeze |

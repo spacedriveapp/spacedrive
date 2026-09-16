@@ -1,8 +1,8 @@
-//! Spaces - Arc-browser-inspired sidebar organization system
+//! Spaces - optional named sidebar workspaces
 //!
-//! Spaces allow users to create custom sidebar layouts with device-aware groups,
-//! sortable items, and context-based filtering. Each Space defines how the
-//! sidebar is organized and what items are visible.
+//! A library always has one compatible backing space. Additional spaces let a
+//! person save a distinct set of pins and custom sections without changing the
+//! library or turning storage topology into navigation.
 
 use crate::domain::addressing::SdPath;
 use crate::domain::resource::Identifiable;
@@ -17,7 +17,7 @@ pub struct Space {
 	/// Unique identifier
 	pub id: Uuid,
 
-	/// Human-friendly name (e.g., "All Devices", "Work Files")
+	/// Human-friendly name (e.g., "Default", "Work Files")
 	pub name: String,
 
 	/// Icon identifier (Phosphor icon name or emoji)
@@ -54,10 +54,10 @@ impl Space {
 		color.starts_with('#') && color.len() == 7
 	}
 
-	/// Create a default "All Devices" space
+	/// Create the compatible backing space for a library.
 	pub fn create_default() -> Self {
 		Self::new(
-			"All Devices".to_string(),
+			"Default".to_string(),
 			"Planet".to_string(),
 			"#3B82F6".to_string(),
 		)
@@ -704,7 +704,7 @@ mod tests {
 	fn test_default_space() {
 		let space = Space::create_default();
 
-		assert_eq!(space.name, "All Devices");
+		assert_eq!(space.name, "Default");
 		assert_eq!(space.icon, "Planet");
 		assert_eq!(space.color, "#3B82F6");
 	}

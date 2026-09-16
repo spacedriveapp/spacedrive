@@ -2,10 +2,8 @@
 //!
 //! Locations used to be how Spacedrive found out a file existed: nothing walked
 //! a drive, so a path nobody had named was a path nobody had seen. The storage
-//! map removed that premise. What a location decides now is retention and
-//! watching: the subtree it covers is kept at full fidelity in the volume index
-//! rather than summarised, and it gets a watcher rather than being mapped in
-//! silence.
+//! map removed that premise. A location now preserves a named, source-relative
+//! navigation target. It does not change capture, retention, or watcher state.
 //!
 //! It owns no records. Deleting one is a row going away, and the map does not
 //! notice, which is what keeps the concept from growing a second index behind it.
@@ -95,7 +93,11 @@ impl Location {
 		is_available: bool,
 		rollup: Option<(u64, u32)>,
 	) -> Option<Self> {
-		if model.relative_path.contains("..") {
+		if !model.relative_path.is_empty()
+			&& std::path::Path::new(&model.relative_path)
+				.components()
+				.any(|component| !matches!(component, std::path::Component::Normal(_)))
+		{
 			tracing::warn!(location = %model.uuid, "location path escapes its source, skipping");
 			return None;
 		}

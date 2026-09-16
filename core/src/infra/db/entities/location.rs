@@ -1,10 +1,8 @@
 //! A place someone cares about, inside a source.
 //!
 //! A location owns nothing. It is a name, a path relative to its source root,
-//! and whether the user put it there. What it decides is retention and
-//! watching: the subtree it covers is kept at full fidelity in the volume index
-//! rather than summarised, and it gets a watcher rather than being mapped in
-//! silence.
+//! and whether the user put it there. It preserves navigation intent without
+//! changing what the source captures or watches.
 //!
 //! The path is relative so the row survives the drive being mounted somewhere
 //! else, which is the whole reason a source has a root and a location does not.
@@ -34,9 +32,7 @@ pub struct Model {
 
 	pub name: String,
 
-	/// `default` for the folders written at library creation, `user` for the
-	/// ones someone pinned. A default that is removed stays removed, which is
-	/// why this is a column rather than a computation.
+	/// `default` for legacy seeded folders, `user` for an explicit pin.
 	pub origin: String,
 
 	pub created_at: DateTime<Utc>,
@@ -64,7 +60,7 @@ impl ActiveModelBehavior for ActiveModel {}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "lowercase")]
 pub enum Origin {
-	/// Written at library creation from the platform's known folders.
+	/// Written by an older library initializer from the platform's known folders.
 	Default,
 	/// Pinned by someone.
 	User,

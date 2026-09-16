@@ -1,24 +1,23 @@
 ---
 title: Locations
-description: Named pins and attention policies inside sources
+description: Stable named pins inside sources
 sidebarTitle: Locations
 ---
 
 A location is a named pin over a source-relative path. It helps a person return
-to an important part of a source and can request stronger attention for that
-subtree.
+to an important part of a source and gives future policies a stable target.
 
-A location does not own records, trigger a separate index, or create another
-file identity namespace.
+A location does not own records, trigger indexing, enable a watcher, or create
+another file identity namespace.
 
 ## The three boundaries
 
-Spacedrive separates capture, attention, and display:
+Spacedrive separates capture, navigation, and display:
 
 | Boundary | Object | Question |
 | --- | --- | --- |
 | Capture | Source | What data do we retain from this origin? |
-| Attention | Location | Which retained subtree needs a name or stronger policy? |
+| Navigation | Location | Which source-relative path did the user pin? |
 | Display | Lens | Which records should this view show? |
 
 Combining these jobs causes duplicate indexes and confusing controls. A user
@@ -36,12 +35,13 @@ A location stores only the identity and presentation needed for a pin:
 - origin label;
 - creation time.
 
-The source owns records and content evidence. The lens owns sorting and
-filtering. File bytes remain at the origin.
+The source owns records, content evidence, and live freshness. The lens owns
+sorting and filtering. File bytes remain at the origin.
 
-## Default locations
+## Places and known folders
 
-A new library creates pins for common folders:
+Clients compute common navigation destinations when those folders exist on the
+current device:
 
 - Home
 - Desktop
@@ -49,29 +49,23 @@ A new library creates pins for common folders:
 - Downloads
 - Pictures
 
-These pins appear when their paths can resolve inside an attached source. They
-do not start five overlapping scans.
+These destinations appear under Places without creating location rows. A user
+can remove or reorder them through presentation preferences without changing
+the source model. Explicitly pinning another folder creates a location.
 
-## Retention and attention
+## Policy attachment
 
-Locations can ask a source to retain or process a subtree more strongly than
-the source baseline. Examples include:
+The current location row carries no indexing or retention policy. A filesystem
+source captures its full configured root and watches that root after a
+successful walk. Pinning and unpinning do not change either behavior.
 
-- keep this subtree available offline;
-- identify content promptly;
-- generate previews for supported file kinds;
-- protect a minimum number of verified copies;
-- watch this path while the rest of the source is scanned periodically.
+Future features may attach explicit policies to a location ID, such as keeping
+bytes offline or requiring verified copies. Those policies must be visible,
+independently removable, and evaluated by the source. The existence of a pin
+must never silently imply them.
 
-The effective policy is a union. If several locations overlap, the strongest
-requirement wins for the shared records. Removing one location removes only its
-contribution.
-
-For example, a Documents pin can request continuous watching while a Photos pin
-requests previews and two verified copies. Records covered by both receive the
-union of those requirements.
-
-Policy never creates a second record for the same source object.
+An explicit policy still cannot create a second record for the same source
+object.
 
 ## Nested sources
 
@@ -87,19 +81,17 @@ nested sources do not make ordinary browsing unstable.
 Deleting a location removes:
 
 - the sidebar pin;
-- its display name;
-- its requested attention policy.
+- its display name.
 
 It does not remove source records, delete files, or erase content identities.
-If the location supplied the last retention requirement for cached bytes, the
-normal policy engine may later reclaim that cache. The origin remains
-untouched.
+It does not stop the source watcher or discard the source store. The origin
+remains untouched.
 
 ## Moving or renaming a pin
 
-Renaming changes only the label. Moving a location changes its source-relative
-target after the destination has been resolved. Neither operation moves the
-underlying directory.
+Renaming changes only the label. A location target is not editable. Unpin the
+old path and pin the new one if the shortcut should point somewhere else.
+Neither operation moves the underlying directory.
 
 Use a file move operation when you intend to change bytes or paths at the
 origin.
@@ -114,8 +106,32 @@ Duplicates, Screenshots, or project-specific dashboards.
 This keeps the main interface simple:
 
 - **Sources** explain custody and availability.
-- **Locations** provide familiar entry points.
+- **Places** provide familiar entry points, including locations and computed
+  system folders.
 - **Views** explain what the user is trying to do.
+
+### Path status
+
+The control beside the Explorer path bar explains the current path instead of
+claiming that a location is indexed. It reports independent facts:
+
+- the innermost source retaining the path;
+- the mounted volume containing it, when one is known;
+- whether metadata is only in memory, in a machine-local restart cache, or in
+  a source store;
+- whether a watcher currently covers the path;
+- whether the volume map is unseen, indexing, detailed, or summarised;
+- whether the path is a computed Place, an exact pin, or inside a pin;
+- availability and permission failures.
+
+The daemon resolves these facts through `paths.context`. Clients must not infer
+them from path string prefixes or from the existence of a location row. On
+macOS, the query resolves APFS data-volume aliases before matching sources and
+pins.
+
+From this control, **Add to Places** creates a location only when the path is
+already inside a source. **Add to Spacedrive** opens source setup when no source
+owns the path. Removing a pin changes navigation only.
 
 ## For extension authors
 

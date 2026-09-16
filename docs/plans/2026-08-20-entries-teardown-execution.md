@@ -46,8 +46,8 @@ rather than inferring it from a diff.
 | T3.1b Native reader | done | — | `native/src/source/pvcache.rs:325` builds at the content extent |
 | T3.1c Producers return true extent | done | — | `ScaleMode::Fit` in `bake/src/raster.rs:48` |
 | T3.1d Producer in the daemon | landed | — | `core/src/service/thumbs/service.rs` — `BakePool` + `dirs.thumbs_file(source_id)`; not exercised end to end here |
-| T3.1e `/hot-thumb` route | **not started** | — | no route registered in Rust; `mounts/webdav.rs` has only `/dav*` |
-| T3.1f `Thumb.tsx` prefers hot tier | **partial — client ahead of server** | — | `ServerContext.tsx:182` builds `/hot-thumb/:source/:uuid/:version`, which 404s until T3.1e |
+| T3.1e `/hot-thumb` route | done | — | `apps/tauri/src-tauri/src/server.rs` serves versioned pvcache tiles with immutable caching |
+| T3.1f `Thumb.tsx` prefers hot tier | **implemented, uncommitted; live recheck pending** | current session | hot-tier completion epochs survive virtualized cell unmounts; current-source load and error state cannot hide the fallback permanently |
 | T4.1–T4.9 | not started | — | |
 | T4.10 Global search router | not started | — | gates the drop; decided it must exist first |
 | T5.1–T5.3 | not started | — | |

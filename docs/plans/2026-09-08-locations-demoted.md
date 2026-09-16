@@ -1,14 +1,21 @@
 # Locations demoted
 
+> **Superseded in part on 2026-09-15:** L0's small source-relative pin row
+> landed. Known folders are now computed Places rather than default location
+> rows. L1 and L2 are cancelled: filesystem sources retain their configured
+> roots and watch them after a successful walk. A location is navigation intent
+> and a stable target for future explicit policy, not an implicit retention or
+> watcher switch.
+
 Amends `P4` of `2026-08-22-source-convergence.md`. That phase is titled "Delete
 entries" and its unwritten second half assumed locations went with them. They
 do not. They lose everything that made them an indexing boundary and keep the
 one thing they were always good at, which is naming a folder a person cares
 about.
 
-## The rule
+## The original rule
 
-**A location is a policy over a path, never an owner of records.**
+**A location is a pin over a path, never an owner of records.**
 
 Everything below follows from that sentence. If a location owns rows, deleting
 one has to decide what happens to them, which means it needs its own store,
@@ -30,14 +37,13 @@ structure near the root and counts below `SUMMARY_DEPTH`. `/Applications` is in
 the arena whether or not anyone asked for it. So the question a location used
 to answer, *do we know about this path*, has no askers left.
 
-The question it answers now is different and still real: **what do we keep in
-full, and what do we watch.** A drive is mapped at low fidelity because keeping
-2.1M records per drive in memory is what the LOD exists to avoid. A home
-directory should be kept whole and should react to a file appearing in it
-within the second. That is a per-subtree policy, it has a cost, and it needs
-somewhere to live.
+The question it answers now is different and still real: **which path did this
+person choose as a durable shortcut.** A drive can be mapped at low fidelity,
+but a configured source retains and watches its root. Hiding either behavior
+behind the existence of a navigation pin makes the runtime harder to explain
+and makes unpinning look destructive.
 
-`Retention` already has the parameter and is currently guessing at the answer:
+`Retention` has a covered-path parameter:
 
 ```rust
 pub struct Retention {
@@ -47,10 +53,9 @@ pub struct Retention {
 }
 ```
 
-`map_attached_volumes` fills `covered` from `cache.sources()` roots filtered to
-the mount point. That stands in for "paths another walk owns" because there is
-nothing better to ask. Locations are the better thing to ask. This phase does
-not build a mechanism; it gives an existing parameter its proper owner.
+`map_attached_volumes` fills `covered` from source roots because those roots are
+the retained scopes. Locations do not replace that input. A future policy can
+target a location ID, but it must be explicit and evaluated by the source.
 
 ## What the row becomes
 
@@ -114,17 +119,9 @@ row is a folder in the map like any other.
 
 ## What the row is for
 
-Two jobs, both mechanical, both currently done by guesswork.
-
-**Retention.** `map_attached_volumes` fills `covered` from location paths on
-the volume instead of from source roots. Overlapping locations are a union: a
-path is kept in full if any location covers it, so two pins cannot fight and
-neither can a pin inside a pin.
-
-**Watching.** The background map is `Notify::Silent` at `LOW`. A location is
-watched and runs above that. The row is what decides whether a watcher is
-attached to a subtree, which is the job that earns it a table. A bookmark would
-not.
+One job: preserve a named, source-relative navigation target across remounts
+and devices. Source-relative identity is why this remains a row instead of a
+raw client bookmark.
 
 ## The policy taxonomy
 
@@ -135,7 +132,7 @@ three different kinds of policy that want different owners:
 | policy | question it answers | owner | mechanism |
 |---|---|---|---|
 | capture | what gets recorded durably | the source | `SourceConfig` in the source row's config column; the walk and the watcher both read it |
-| attention | what is kept in full and watched live | the location | `Retention.covered` and `Notify::Each` (L1, L2) |
+| navigation | which path a person pinned | the location | a source-relative row projected under Places |
 | display | what a person sees | the lens | rules applied at view time over a store that captured everything |
 
 Two rules keep the boundaries honest. Nothing filters at write time
@@ -163,26 +160,18 @@ where both `/Volumes/Work` and `/Volumes/Work/Media` are sources belongs to
 `/Volumes/Work/Media`, and `relative_path` is relative to that. One owner, no
 ambiguity about which store holds the records.
 
-**Retention is a union, never a maximum.** Locations do not carry a fidelity
-level to compare. A covered path is kept in full; everything else follows the
-volume's map policy.
+**Policy is explicit.** A future retention, protection, or offline policy may
+refer to a location ID. The location row alone cannot enable it.
 
 ## The UX this buys
 
-There is no "Add Location" anywhere in the client. The five default rows are
-written at library creation from the list `locations/suggested/query.rs`
-already computes (`Desktop`, `Documents`, `Downloads`, `Pictures`, plus home),
-so a person opening Spacedrive for the first time sees their folders already
-there with nothing to configure.
+There is no "Add Location" in the primary client vocabulary. Known folders are
+computed under Places, so a person opening Spacedrive for the first time sees
+their folders with nothing to configure and no rows to clean up later.
 
-Beyond that, any folder in the map can be pinned, and pinning is what makes it
-a location. The person never meets a new concept; they star a folder, and the
-retention upgrade rides along without being named.
-
-Defaults are persisted as rows rather than derived each launch. Deriving is
-tidier until someone removes Downloads and it returns the next morning, at
-which point it needs tombstones, and a tombstone costs more than the row it
-saves.
+Beyond that, a folder inside a source can be pinned, and pinning is what makes
+it a location. The person meets Places, not the internal object name. Ordering
+and hidden-state preferences belong to the client contribution model.
 
 ## Phases
 
@@ -191,27 +180,20 @@ saves.
 1. Migration: the new `location` shape. No data carries over. Existing rows
    point at `entry_id` values in a table this plan deletes, so preserving them
    would preserve exactly the link being removed.
-2. Write the five defaults at library creation, `origin = "default"`, against
-   whichever source contains each path. A default whose path does not exist on
-   this machine is not written.
-3. `locations/suggested` becomes the default set rather than a list of things
-   to prompt about.
+2. Keep explicit user pins as rows. Compute known folders in the client as
+   Places instead of writing default rows.
+3. Keep `locations/suggested` as compatibility input for setup surfaces until
+   those callers converge on the Places contribution model.
 
 ### L1 — Retention reads locations
 
-1. `map_attached_volumes` fills `Retention.covered` from the location rows on
-   the volume, replacing the `cache.sources()` roots stand-in.
-2. A location added or removed at runtime re-derives `covered`. The walk in
-   flight is not restarted; the next one sees it.
-3. Union semantics and the innermost-source rule, with tests for a location
-   inside a location and a location inside a nested source.
+Cancelled. `map_attached_volumes` continues to derive retained coverage from
+source roots. Adding or removing a navigation pin cannot change map fidelity.
 
 ### L2 — Watching reads locations
 
-1. Watcher attachment is driven by location rows. A subtree with a location is
-   watched with `Notify::Each`; everything else stays `Notify::Silent`.
-2. `DatabaseAdapter` and `ops/indexing/responder.rs` go. `ArenaWriter` is the
-   only change handler, which is what P4 set up and this finishes.
+Cancelled. A successful filesystem source walk watches that source root.
+Adding or removing a navigation pin cannot change freshness.
 
 ### L3 — Delete entries
 
@@ -263,5 +245,5 @@ ported.
 
 More surface survives, so L4 is real work rather than eleven deletions. What
 it buys is that the sidebar keeps working, the first-run experience gets better
-instead of getting a hole in it, and the retention parameter stops guessing.
-L3 is the same size either way, and L3 is the phase that matters.
+instead of getting a hole in it, and pins remain stable across remounts. L3 is
+the same size either way, and L3 is the phase that matters.
