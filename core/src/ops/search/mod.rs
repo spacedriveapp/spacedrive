@@ -4,20 +4,17 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 
 pub mod ephemeral_search;
-pub mod facets;
 pub mod input;
 pub mod output;
+pub mod pipeline;
 pub mod query;
-pub mod sorting;
 
 #[cfg(test)]
 mod tests;
 
-pub use facets::*;
 pub use input::*;
 pub use output::*;
 pub use query::*;
-pub use sorting::*;
 
 /// Indicates which index type was used for a search query
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq)]

@@ -94,9 +94,15 @@ These are settled here so the phases stay mechanical.
 
 ## Preserve these boundaries
 
-- The ephemeral volume index remains the search substrate for files. No new
-  durable state, no new columns on legacy tables, no `entry` FTS revival. A
-  future file FTS belongs beside the record table, after the entries drop.
+- The ephemeral volume index is the search substrate for this plan's phases,
+  and R6 of `2026-09-15-source-runtime-reliability.md` supersedes that as the
+  final architecture: one primary backend per source per request, arena when
+  suitable, direct store reads otherwise. Phase 1 therefore builds its
+  filter, sort, dedup, and pagination stage as a module the arena path calls,
+  not as arena internals, so R6 routes both backends through the same
+  pipeline. No new durable state, no new columns on legacy tables, no `entry`
+  FTS revival; a file candidate index belongs with the record store and is
+  R6's decision to benchmark.
 - `sources.search` remains the archive-record search. It is a model for a
   later content stage, never a dependency of this work.
 - Filters must fail closed on the advertised set: a filter the daemon cannot
@@ -118,6 +124,9 @@ All in `core/src/ops/search/`.
 - Apply `pagination` after sorting. `total_found` becomes the pre-pagination
   count. The library-scope merge collects per-partition candidates before a
   single global sort, truncating partitions only above the requested window.
+  The filter/sort/paginate stage lives in its own module with a
+  backend-neutral candidate type, because R6 later feeds it store-read
+  candidates through the same pipeline.
 - Case-fold `file_types` comparison and document that the daemon compares
   lowercase extensions.
 - Wire `include_hidden` to the `is_hidden` the index already computes.

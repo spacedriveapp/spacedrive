@@ -147,9 +147,12 @@ impl FileSearchOutput {
 		total_found: u64,
 		search_id: Uuid,
 		execution_time_ms: u64,
+		pagination: &crate::ops::search::input::PaginationOptions,
 	) -> Self {
 		let facets = SearchFacets::from_results(&results);
-		let pagination = PaginationInfo::new(0, 200, total_found);
+		// The page actually served: the caller's window over the true match
+		// count, not a synthetic constant.
+		let pagination = PaginationInfo::new(pagination.offset, pagination.limit, total_found);
 		let files = results.iter().map(|r| r.file.clone()).collect();
 
 		Self {
@@ -167,6 +170,7 @@ impl FileSearchOutput {
 				FilterKind::DateRange,
 				FilterKind::SizeRange,
 				FilterKind::ContentTypes,
+				FilterKind::Hidden,
 			]),
 		}
 	}
