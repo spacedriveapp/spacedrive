@@ -1,4 +1,4 @@
-import { useExplorer } from '../../context';
+import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from '../../context';
 import { GridView } from '../GridView';
 import { ListView } from '../ListView';
 import { MediaView } from '../MediaView';
@@ -30,11 +30,11 @@ export function SearchView() {
 	}
 
 	// Show minimum character hint
-	if (mode.query.length < 2) {
+	if (mode.query.length < MIN_SEARCH_QUERY_LENGTH) {
 		return (
 			<div className="flex h-full flex-col items-center justify-center p-8 text-center">
 				<p className="text-ink-dull text-sm">
-					Type at least 2 characters to search
+					Type at least {MIN_SEARCH_QUERY_LENGTH} characters to search
 				</p>
 			</div>
 		);

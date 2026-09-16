@@ -12,6 +12,7 @@ import {
 	useEffect,
 	useLayoutEffect,
 	useMemo,
+	useRef,
 	useState
 } from 'react';
 import {useLocation} from 'react-router-dom';
@@ -19,7 +20,13 @@ import {TopBarItem, TopBarPortal} from '../../TopBar';
 import {ExpandableSearchButton} from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
-import {getSpaceItemKeyFromRoute, useExplorer, type ViewMode} from './context';
+import {
+	getSpaceItemKeyFromRoute,
+	MIN_SEARCH_QUERY_LENGTH,
+	useExplorer,
+	type ViewMode
+} from './context';
+import {useKeybind} from '../../hooks/useKeybind';
 import {useVirtualListing} from './hooks/useVirtualListing';
 import {SearchToolbar} from './SearchToolbar';
 import {SortMenu, SortMenuPanel} from './SortMenu';
@@ -96,21 +103,36 @@ export function ExplorerView({
 
 	const [searchValue, setSearchValue] = useState('');
 
-	const handleSearchChange = useCallback(
-		(value: string) => {
-			setSearchValue(value);
+	// The current mode, readable from the debounce effect without making it
+	// a dependency: a dispatch that changes the mode must not reschedule the
+	// timer for an unchanged input value.
+	const modeRef = useRef(mode);
+	modeRef.current = mode;
 
-			if (value.length >= 2) {
-				const timeoutId = setTimeout(() => {
-					enterSearchMode(value);
-				}, 300);
-				return () => clearTimeout(timeoutId);
-			} else if (value.length === 0 && mode.type === 'search') {
-				exitSearchMode();
-			}
-		},
-		[enterSearchMode, exitSearchMode, mode.type]
-	);
+	// One search per settled query. The effect owns the timer, so every
+	// keystroke cancels the previous one, and entering search mode carries
+	// the scope the user already picked instead of resetting it. Dropping
+	// under the minimum length exits deterministically, including the
+	// two-to-one-character backspace.
+	useEffect(() => {
+		if (searchValue.length >= MIN_SEARCH_QUERY_LENGTH) {
+			const timeoutId = setTimeout(() => {
+				const current = modeRef.current;
+				enterSearchMode(
+					searchValue,
+					current.type === 'search' ? current.scope : undefined
+				);
+			}, 300);
+			return () => clearTimeout(timeoutId);
+		}
+		if (modeRef.current.type === 'search') {
+			exitSearchMode();
+		}
+	}, [searchValue, enterSearchMode, exitSearchMode]);
+
+	const handleSearchChange = useCallback((value: string) => {
+		setSearchValue(value);
+	}, []);
 
 	const handleSearchClear = useCallback(() => {
 		setSearchValue('');
@@ -122,6 +144,11 @@ export function ExplorerView({
 			setSearchValue('');
 		}
 	}, [mode.type]);
+
+	const searchInputRef = useRef<{focus: () => void}>(null);
+	useKeybind('global.focusSearchBar', () => searchInputRef.current?.focus(), {
+		ignoreWhenInputFocused: false
+	});
 
 	// When leaving column view, navigate to the deepest column so the
 	// new view shows the directory the user was actually looking at.
@@ -254,6 +281,7 @@ export function ExplorerView({
 								priority="high"
 							>
 								<ExpandableSearchButton
+									ref={searchInputRef}
 									placeholder={
 										currentPath
 											? 'Search in current folder...'

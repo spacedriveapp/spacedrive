@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
-import { useExplorer } from "../context";
+import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from "../context";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -177,7 +177,10 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			isSearchMode && mode.type === "search" && mode.scope === "folder" && currentPath
 				? (currentPath as any)
 				: undefined,
-		enabled: isSearchMode && !!searchQueryInput && searchQueryInput.query.length >= 2,
+		enabled:
+			isSearchMode &&
+			!!searchQueryInput &&
+			searchQueryInput.query.length >= MIN_SEARCH_QUERY_LENGTH,
 	});
 
 	// Recents query

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { CircleButton, SearchBar } from "@spacedrive/primitives";
@@ -10,15 +10,34 @@ interface ExpandableSearchButtonProps {
 	placeholder?: string;
 }
 
-export function ExpandableSearchButton({
-	value,
-	onChange,
-	onClear,
-	placeholder = "Search...",
-}: ExpandableSearchButtonProps) {
+export interface ExpandableSearchButtonHandle {
+	focus: () => void;
+}
+
+export const ExpandableSearchButton = forwardRef<
+	ExpandableSearchButtonHandle,
+	ExpandableSearchButtonProps
+>(function ExpandableSearchButton(
+	{ value, onChange, onClear, placeholder = "Search..." },
+	ref,
+) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLInputElement>(null);
+
+	// The keybind path: expand if collapsed, focus once the input exists.
+	// A collapsed bar has no input yet; the expand animation's completion
+	// handler takes over the focus in that case.
+	useImperativeHandle(
+		ref,
+		() => ({
+			focus: () => {
+				setIsExpanded(true);
+				inputRef.current?.focus();
+			},
+		}),
+		[],
+	);
 
 	// Expand if there's a value
 	useEffect(() => {
@@ -112,4 +131,4 @@ export function ExpandableSearchButton({
 			</motion.div>
 		</div>
 	);
-}
+});

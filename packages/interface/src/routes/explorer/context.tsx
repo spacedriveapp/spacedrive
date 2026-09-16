@@ -46,6 +46,10 @@ export interface ViewSettings {
 
 export type SearchScope = 'folder' | 'location' | 'library';
 
+/** The one place the minimum query length lives; the input handler, the
+ * query gate, and the results view all read it. */
+export const MIN_SEARCH_QUERY_LENGTH = 2;
+
 export interface SearchFilters {
 	fileTypes?: string[];
 	contentTypes?: string[];
