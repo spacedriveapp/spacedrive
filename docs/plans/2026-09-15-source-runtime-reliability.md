@@ -676,6 +676,53 @@ latency, descriptor count and cancellation. Proposed initial query working-set
 budget: 256 MiB above the idle fixture, excluding unrelated preloaded arenas;
 confirm or revise it from the benchmark before making a product promise.
 
+#### R6 results, 2026-09-16
+
+Landed as `51e4873d4` (read-only store path), `3d8c44394` (routing), and
+`475a6b0b3` (database delivery), verified live on the fleet.
+
+- `SourceManager::open_read_only` and `open_file_read_only` open without
+  DDL, migrations, ledger or writer; the unaddressable-generation refusal
+  still applies. `crates/store/src/read.rs` carries the entry projection,
+  children/by-path/by-uuid lookups, a paged full scan, and case-folded
+  substring search whose semantics match the arena's registry exactly —
+  folding happens in Rust over a keyset scan, since SQLite's `lower()` folds
+  ASCII only. Totals keep counting past the hydration cap and the search
+  output carries `total_is_exact`.
+- Routing: one backend per source per request. `arena_answers` (restored
+  partition or a walk covering the scope) selects the arena; otherwise the
+  store answers, and an empty result from the selected backend is final.
+  Library search enumerates the registry past the loaded partitions, scoped
+  search falls back the same way, and a detached source whose snapshot did
+  not cover a directory lists it from its store. The equivalence fixture
+  runs one capture through both backends and asserts identical matches,
+  filters and scores, accents included.
+- Database delivery: a nested source is advertised as such and its replica
+  travels as a `VACUUM INTO` export of exactly its records, with the same
+  header identity contract as snapshots (generation from the live database
+  and WAL, blake3, length). The receiver opens the artifact read-only and
+  rebuilds an arena from its rows before anything is replaced; restores
+  prefer a snapshot and fall back to the database; an owner too old to
+  export answers on the snapshot path. Verified live: dev-tools now ships
+  as an 11.3 MB database instead of the pool volume's arena snapshot, the
+  sibling leak is gone, the rebuilt replica lists and searches identically,
+  the stale snapshot artifact was removed, no export temp files linger, and
+  the generation held stable across twelve refresh intervals.
+- Scale: `crates/store/tests/scale.rs` at the plan's 100 stores and one
+  million aggregate records answers a cold sequential fan-out in 1.7 s,
+  slowest single store 21 ms, all hundred opens in 138 ms, no ledgers or
+  writers created. The 256 MiB working-set budget is met with room; the
+  trigram/candidate index stays deferred with these numbers as the bar it
+  must beat.
+
+Registered follow-ons, per this plan's own text: delta replication
+(optional once revision counters show transfer cost), per-request
+cancellation of obsolete store queries, database delivery for non-nested
+sources (their arena snapshots have the correct boundary already), and
+receiver-owned assertions on replica databases — whole-file replacement is
+safe today because replicas open read-only and assertions live with the
+owner, which is the constraint to revisit when FD2 moves them.
+
 ### R7: Repair this instance after the mechanisms pass
 
 Treat the live stores as evidence. No blanket delete-and-reindex recovery.
