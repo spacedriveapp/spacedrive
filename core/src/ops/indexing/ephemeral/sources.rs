@@ -177,6 +177,30 @@ impl SourceRecord {
 	pub fn is_locatable(&self) -> bool {
 		!self.root.as_os_str().is_empty()
 	}
+
+	/// The anchoring volume's mount point, recovered from the resolved root
+	/// by removing the source-relative part. `None` for an unanchored source
+	/// or one whose volume is not attached right now.
+	///
+	/// The root was produced by joining the mount with `relative_root`, so
+	/// stripping the same number of components inverts it exactly.
+	pub fn anchored_mount_point(&self) -> Option<PathBuf> {
+		self.volume_uuid?;
+		if !self.is_locatable() {
+			return None;
+		}
+		if self.relative_root.is_empty() {
+			return Some(self.root.clone());
+		}
+		let depth = self.relative_root.split('/').count();
+		let mut mount = self.root.clone();
+		for _ in 0..depth {
+			if !mount.pop() {
+				return None;
+			}
+		}
+		Some(mount)
+	}
 }
 
 fn join_relative(mount_point: &Path, relative: &str) -> PathBuf {
@@ -283,20 +307,26 @@ impl SourceRegistry {
 
 	/// The drive a source sits on, and where it begins.
 	///
-	/// A tracked volume answers this wherever one is anchored. Without one the
-	/// outermost registered root standing over this source is, which is what
-	/// makes a source inside a network share share the share's map rather than
-	/// starting a second one. Registration order does not matter: adding an
-	/// outer source later moves the inner one onto its drive, because this is
-	/// asked of the registry rather than remembered on the record.
+	/// An anchored source's volume begins at the anchor's mount point, full
+	/// stop. Deriving it from the shortest registered source root made the
+	/// answer depend on what happened to be registered: with only a nested
+	/// source on a drive, the partition root collapsed to that source, and
+	/// the snapshot written under it disagreed with the mount the tracked
+	/// volume resolved on the next restore. For unanchored sources the
+	/// outermost registered root still stands in, which is what makes a
+	/// source inside a network share join the share's map rather than start a
+	/// second one; registration order does not matter because this is asked
+	/// of the registry rather than remembered on the record.
 	pub fn volume_of(&self, record: &SourceRecord) -> (VolumeKey, PathBuf) {
 		if let Some(uuid) = record.volume_uuid {
-			let mount = self
-				.sources
-				.iter()
-				.filter(|source| source.volume_uuid == Some(uuid) && source.is_locatable())
-				.map(|source| source.root.clone())
-				.min_by_key(|root| root.as_os_str().len())
+			let mount = record
+				.anchored_mount_point()
+				.or_else(|| {
+					self.sources
+						.iter()
+						.filter(|source| source.volume_uuid == Some(uuid))
+						.find_map(SourceRecord::anchored_mount_point)
+				})
 				.unwrap_or_else(|| record.root.clone());
 			return (VolumeKey::Id(uuid), mount);
 		}
@@ -419,6 +449,39 @@ mod tests {
 
 		let config = SourceConfig { unfiltered: true };
 		assert!(SourceConfig::from_json(&config.to_json()).unfiltered);
+	}
+
+	/// An anchored source's volume begins at the anchor's mount, in every
+	/// registration order. When the shortest registered root stood in for the
+	/// mount, a machine whose only source was the home directory resolved the
+	/// whole data volume's root to the home directory, and the snapshot
+	/// written under that root disagreed with the mount on the next restore.
+	#[test]
+	fn a_nested_source_never_redefines_its_volume_root() {
+		let mut registry = SourceRegistry::default();
+		let drive = anchor("/System/Volumes/Data");
+
+		let nested = registry.register(
+			Path::new("/System/Volumes/Data/Users/someone"),
+			Some(&drive),
+		);
+		let (key, mount) = registry.volume_of(&nested);
+		assert_eq!(key, VolumeKey::Id(drive.uuid));
+		assert_eq!(
+			mount,
+			PathBuf::from("/System/Volumes/Data"),
+			"the anchor's mount decides the volume root, not the source"
+		);
+
+		// Registering a second, deeper source changes nothing.
+		let deeper = registry.register(
+			Path::new("/System/Volumes/Data/Users/someone/Downloads"),
+			Some(&drive),
+		);
+		let (_, mount) = registry.volume_of(&deeper);
+		assert_eq!(mount, PathBuf::from("/System/Volumes/Data"));
+		let (_, mount) = registry.volume_of(&nested);
+		assert_eq!(mount, PathBuf::from("/System/Volumes/Data"));
 	}
 
 	#[test]
