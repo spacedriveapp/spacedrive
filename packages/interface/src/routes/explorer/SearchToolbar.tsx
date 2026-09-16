@@ -84,6 +84,7 @@ export function SearchToolbar() {
 	return (
 		<div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-app-line/50">
 			<ToggleGroup
+				size="sm"
 				options={scopeOptions}
 				value={scope === 'source' && !source ? 'folder' : scope}
 				onChange={handleScopeChange}
