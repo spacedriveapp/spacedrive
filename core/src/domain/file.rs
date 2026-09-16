@@ -437,6 +437,62 @@ impl File {
 		}
 	}
 
+	/// Build a `File` from a store row: the cold twin of
+	/// [`Self::from_ephemeral`], with the same name/extension split and kind
+	/// mapping, timestamps from the store's millisecond fields, and the
+	/// content kind hashing recorded. A directory reports its own row's size,
+	/// since a store keeps no subtree rollups.
+	pub fn from_store_entry(entry: &sd_store::FsEntry, sd_path: SdPath) -> Self {
+		let is_local = sd_path.is_local();
+
+		let (name, extension) = if entry.kind == sd_store::FileKind::File {
+			let name = std::path::Path::new(&entry.name)
+				.file_stem()
+				.and_then(|s| s.to_str())
+				.unwrap_or(&entry.name)
+				.to_string();
+			(name, entry.extension.as_ref().map(|e| e.to_lowercase()))
+		} else {
+			(entry.name.clone(), None)
+		};
+
+		let kind = match entry.kind {
+			sd_store::FileKind::File => EntryKind::File,
+			sd_store::FileKind::Directory => EntryKind::Directory,
+			sd_store::FileKind::Symlink => EntryKind::Symlink,
+		};
+
+		let from_ms = |ms: Option<i64>| ms.and_then(DateTime::from_timestamp_millis);
+		let content_kind = entry
+			.content_kind
+			.and_then(|kind| i32::try_from(kind).ok())
+			.and_then(|kind| ContentKind::try_from(kind).ok())
+			.unwrap_or(ContentKind::Unknown);
+
+		Self {
+			id: entry.uuid,
+			sd_path,
+			name,
+			size: entry.size.unwrap_or(0).max(0) as u64,
+			content_identity: None,
+			alternate_paths: Vec::new(),
+			tags: Vec::new(),
+			sidecars: Vec::new(),
+			image_media_data: None,
+			video_media_data: None,
+			audio_media_data: None,
+			created_at: from_ms(entry.created_ms).unwrap_or_else(Utc::now),
+			modified_at: from_ms(entry.mtime_ms).unwrap_or_else(Utc::now),
+			accessed_at: from_ms(entry.atime_ms),
+			content_kind,
+			extension,
+			kind,
+			is_local,
+			duration_seconds: None,
+			thumbnail_path: None,
+		}
+	}
+
 	pub fn from_ephemeral(
 		id: Uuid,
 		metadata: &crate::ops::indexing::metadata::EntryMetadata,

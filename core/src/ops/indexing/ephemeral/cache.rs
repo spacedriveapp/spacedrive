@@ -184,6 +184,10 @@ pub struct EphemeralIndexCache {
 	/// Durable stores by source id. One drive can host several, since a source
 	/// nested inside another persists its own subtree.
 	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
+	/// Read-only store handles by source id. The write handle above exists to
+	/// ingest; these exist to answer when no arena covers a source, and they
+	/// open without DDL, ledger or writer task.
+	read_stores: RwLock<HashMap<Uuid, Arc<sd_store::SourceDb>>>,
 	/// One async gate per source, so concurrent first opens coalesce into a
 	/// single pool, ledger load, and writer task. See [`Self::store_for`].
 	store_open_gates: Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>,
@@ -241,6 +245,7 @@ impl EphemeralIndexCache {
 			scratch: VolumeIndex::new(VolumeKey::Scratch, None)?,
 			volumes: Mutex::new(Vec::new()),
 			stores: RwLock::new(HashMap::new()),
+			read_stores: RwLock::new(HashMap::new()),
 			store_open_gates: Mutex::new(HashMap::new()),
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
@@ -689,6 +694,69 @@ impl EphemeralIndexCache {
 
 		self.stores.write().insert(record.id, store.clone());
 		Some(store)
+	}
+
+	/// A read-only handle to a source's store, cached per source.
+	///
+	/// `None` means the source has no store on disk or it refused to open,
+	/// which includes a generation too old to address; nothing is created on
+	/// this path. The open shares the per-source gate with [`Self::store_for`]
+	/// so a read never races a writer's first open.
+	pub async fn read_store(&self, source_id: Uuid) -> Option<Arc<sd_store::SourceDb>> {
+		if let Some(db) = self.read_stores.read().get(&source_id) {
+			return Some(db.clone());
+		}
+		let dirs = self.dirs.as_ref()?;
+
+		let gate = {
+			let mut gates = self.store_open_gates.lock();
+			gates
+				.entry(source_id)
+				.or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+				.clone()
+		};
+		let _open = gate.lock().await;
+
+		if let Some(db) = self.read_stores.read().get(&source_id) {
+			return Some(db.clone());
+		}
+
+		let manager = sd_store::SourceManager::new(dirs.root().to_path_buf());
+		match manager
+			.open_read_only(&source_id.simple().to_string())
+			.await
+		{
+			Ok(db) => {
+				let db = Arc::new(db);
+				self.read_stores.write().insert(source_id, db.clone());
+				Some(db)
+			}
+			Err(error) => {
+				tracing::debug!(source = %source_id, %error, "no readable store for source");
+				None
+			}
+		}
+	}
+
+	/// Whether a loaded arena can answer a whole-scope query at this path:
+	/// its partition restored from a snapshot, or a walk this session covers
+	/// the path. A partition that merely exists is not an answer — an empty
+	/// result from it would read as an empty source rather than an unloaded
+	/// one, which is exactly the distinction the store fallback exists for.
+	pub fn arena_answers(&self, path: &Path) -> bool {
+		let Some(resolved) = self.locate(path) else {
+			return false;
+		};
+		let slots = self.slots.read();
+		let Some(slot) = slots.get(&resolved.volume) else {
+			return false;
+		};
+		slot.restored.load(Ordering::Acquire)
+			|| slot
+				.indexed_paths
+				.read()
+				.iter()
+				.any(|indexed| path.starts_with(indexed))
 	}
 
 	/// Every open store on this machine, one per source.
@@ -2480,8 +2548,16 @@ mod tests {
 		assert_eq!(cache.sources().len(), 1);
 
 		let child = unplugged_root.join("photo.jpg");
+		assert!(
+			!cache.arena_answers(&unplugged_root),
+			"before the restore, the arena cannot answer and reads route to the store"
+		);
 		assert!(cache.ensure_restored(&child).await);
 		assert!(cache.is_detached(&child));
+		assert!(
+			cache.arena_answers(&unplugged_root),
+			"a restored partition answers, so an empty result from it is final"
+		);
 
 		let index = cache
 			.get_for_search(&child)

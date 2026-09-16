@@ -31,6 +31,7 @@ pub struct FsEntry {
 	pub size: Option<i64>,
 	/// Unix milliseconds, as the walk writes them.
 	pub mtime_ms: Option<i64>,
+	pub atime_ms: Option<i64>,
 	pub created_ms: Option<i64>,
 	pub is_hidden: bool,
 	pub extension: Option<String>,
@@ -45,7 +46,7 @@ pub struct FsEntry {
 /// and a root-level entry from its title alone.
 const ENTRY_SELECT: &str = "SELECT r.uuid, r.type, COALESCE(r.title, '') AS title, \
 	 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
-	 f.size, f.mtime, r.created_at, COALESCE(f.is_hidden, 0) AS is_hidden, \
+	 f.size, f.mtime, f.atime, r.created_at, COALESCE(f.is_hidden, 0) AS is_hidden, \
 	 f.extension, f.link_target, f.content_error, c.uuid AS content_uuid, c.kind AS content_kind \
 	 FROM record r \
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
@@ -58,6 +59,7 @@ type EntryRow = (
 	String,
 	String,
 	String,
+	Option<i64>,
 	Option<i64>,
 	Option<i64>,
 	Option<i64>,
@@ -77,6 +79,7 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		relative_path,
 		size,
 		mtime_ms,
+		atime_ms,
 		created_ms,
 		is_hidden,
 		extension,
@@ -94,6 +97,7 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		relative_path,
 		size,
 		mtime_ms,
+		atime_ms,
 		created_ms,
 		is_hidden: is_hidden != 0,
 		extension,

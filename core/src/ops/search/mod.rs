@@ -8,6 +8,7 @@ pub mod input;
 pub mod output;
 pub mod pipeline;
 pub mod query;
+pub mod store_search;
 
 #[cfg(test)]
 mod tests;

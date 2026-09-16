@@ -1473,7 +1473,12 @@ files: File[];
 /**
  * Search results with scoring metadata - use for search-specific UI (scores, highlights)
  */
-results: FileSearchResult[]; total_found: number; search_id: string; facets: SearchFacets; suggestions: string[]; pagination: PaginationInfo; execution_time_ms: number; 
+results: FileSearchResult[]; total_found: number; 
+/**
+ * False when a participating backend capped its scan, making
+ * `total_found` a floor rather than an exact count.
+ */
+total_is_exact: boolean; search_id: string; facets: SearchFacets; suggestions: string[]; pagination: PaginationInfo; execution_time_ms: number; 
 /**
  * Which index type was used for this search
  */

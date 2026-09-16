@@ -1,10 +1,12 @@
-//! Search over the volume index.
+//! Search over the volume index, with the stores underneath it.
 //!
 //! Every drive this machine knows about has a partition in the arena, so a
 //! library-wide search is a fan-out over all of them and a scoped one resolves
-//! the partition that covers the path. Nothing here reads the durable store:
-//! names live in memory, which is what makes a search answer while someone is
-//! still typing.
+//! the partition that covers the path. The arena is the fast path, not the
+//! floor: a registered source whose arena cannot answer is searched in its
+//! SQLite store instead, through one backend per source per request. An
+//! empty result from whichever backend was selected is final; nothing
+//! retries the other one.
 
 use crate::domain::{File, SdPath};
 use crate::filetype::FileTypeRegistry;
@@ -25,6 +27,9 @@ pub struct SearchPage {
 	pub results: Vec<FileSearchResult>,
 	pub total: u64,
 	pub facets: SearchFacets,
+	/// True when any participating store capped its hydration, making the
+	/// total a floor rather than an exact count.
+	pub approximate: bool,
 }
 
 /// Search one partition of the volume index, scoped to a path within it.
@@ -91,6 +96,25 @@ pub async fn search_ephemeral_index(
 	// read-only.
 	cache.ensure_restored(&local_path).await;
 
+	// One backend for the scope: the arena when it can answer, the store
+	// when it cannot. A partition that merely exists does not answer — its
+	// emptiness would be indistinguishable from an empty source.
+	if !cache.arena_answers(&local_path) {
+		if let Some(page) = store_scoped_page(
+			&local_path,
+			query,
+			filters,
+			sort,
+			pagination,
+			cache,
+			file_type_registry,
+		)
+		.await?
+		{
+			return Ok(page);
+		}
+	}
+
 	let Some(index_arc) = cache.get_for_search(&local_path) else {
 		return Ok(SearchPage::empty());
 	};
@@ -112,12 +136,56 @@ pub async fn search_ephemeral_index(
 	Ok(SearchPage::single_partition(results, sort, pagination))
 }
 
+/// Serve a scoped search from the store of the source containing the scope.
+/// `None` when no registered source covers it or its store will not open,
+/// which sends the caller back to the arena path.
+async fn store_scoped_page(
+	scope: &PathBuf,
+	query: &str,
+	filters: &SearchFilters,
+	sort: &SortOptions,
+	pagination: &PaginationOptions,
+	cache: &EphemeralIndexCache,
+	file_type_registry: &FileTypeRegistry,
+) -> Result<Option<SearchPage>, QueryError> {
+	let Some(source) = cache
+		.sources()
+		.into_iter()
+		.filter(|source| scope.starts_with(&source.root))
+		.max_by_key(|source| source.root.as_os_str().len())
+	else {
+		return Ok(None);
+	};
+	let Some(db) = cache.read_store(source.id).await else {
+		return Ok(None);
+	};
+
+	let partition = crate::ops::search::store_search::search_source_store(
+		&db,
+		&source.root,
+		&crate::device::get_current_device_slug(),
+		query,
+		Some(scope),
+		filters,
+		file_type_registry,
+	)
+	.await?;
+
+	Ok(Some(SearchPage::single_partition_with(
+		partition.results,
+		sort,
+		pagination,
+		partition.truncated,
+	)))
+}
+
 impl SearchPage {
 	fn empty() -> Self {
 		Self {
 			results: Vec::new(),
 			total: 0,
 			facets: SearchFacets::default(),
+			approximate: false,
 		}
 	}
 
@@ -127,12 +195,22 @@ impl SearchPage {
 		sort: &SortOptions,
 		pagination: &PaginationOptions,
 	) -> Self {
+		Self::single_partition_with(results, sort, pagination, false)
+	}
+
+	fn single_partition_with(
+		results: Vec<FileSearchResult>,
+		sort: &SortOptions,
+		pagination: &PaginationOptions,
+		approximate: bool,
+	) -> Self {
 		let total = results.len() as u64;
 		let facets = SearchFacets::from_results(&results);
 		Self {
 			results: pipeline::page(results, sort, pagination),
 			total,
 			facets,
+			approximate,
 		}
 	}
 }
@@ -155,6 +233,7 @@ pub async fn search_every_index(
 	let mut candidates = Vec::new();
 	let mut total: u64 = 0;
 	let mut facets = SearchFacets::default();
+	let mut approximate = false;
 	let window = pipeline::window(pagination);
 	let local_slug = crate::device::get_current_device_slug();
 
@@ -211,10 +290,41 @@ pub async fn search_every_index(
 		candidates.extend(partition);
 	}
 
+	// Registered sources no arena answered for read from their stores, one
+	// backend per source. A source whose arena contributed above is not
+	// re-queried; an empty store answer is final the same way.
+	for source in cache.sources() {
+		if cache.arena_answers(&source.root) {
+			continue;
+		}
+		let Some(db) = cache.read_store(source.id).await else {
+			continue;
+		};
+
+		let store_partition = crate::ops::search::store_search::search_source_store(
+			&db,
+			&source.root,
+			&local_slug,
+			query,
+			None,
+			filters,
+			file_type_registry,
+		)
+		.await?;
+		let mut partition = store_partition.results;
+		approximate |= store_partition.truncated;
+
+		total += partition.len() as u64;
+		facets.absorb(&partition);
+		pipeline::narrow(&mut partition, sort, window);
+		candidates.extend(partition);
+	}
+
 	Ok(SearchPage {
 		results: pipeline::page(candidates, sort, pagination),
 		total,
 		facets,
+		approximate,
 	})
 }
 
@@ -397,8 +507,9 @@ fn passes_ephemeral_filters(
 	true
 }
 
-/// Score a match based on query relevance
-fn score_match(file: &File, query: &str) -> f32 {
+/// Score a match based on query relevance. Shared by the arena and store
+/// backends so a hit ranks identically whichever one served it.
+pub(super) fn score_match(file: &File, query: &str) -> f32 {
 	if query.is_empty() {
 		return 0.5; // Neutral score for empty queries
 	}
@@ -530,5 +641,170 @@ mod tests {
 			..Default::default()
 		};
 		assert!(passes(&file, &filters));
+	}
+
+	/// One capture, two backends, the same answer. The store must mirror the
+	/// arena's Unicode folding, hidden default, extension filter and scoring,
+	/// so routing a source to SQLite is invisible in what comes back.
+	#[tokio::test]
+	async fn the_store_backend_matches_the_arena_for_the_same_capture() {
+		use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+		use std::time::{Duration, UNIX_EPOCH};
+
+		let root = PathBuf::from("/vol/kept");
+		let fixture: &[(&str, u64, bool)] = &[
+			("Clip One.MOV", 10_000, false),
+			("ÉLITE.mov", 2_000, false),
+			(".secret.mov", 3_000, true),
+			("notes.txt", 100, false),
+		];
+		let mtime_secs = 1_700_000_000u64;
+
+		// The arena's copy.
+		let mut index = crate::ops::indexing::ephemeral::EphemeralIndex::new().expect("index");
+		for (name, size, hidden) in fixture {
+			let path = root.join(name);
+			index
+				.add_entry(
+					path.clone(),
+					Uuid::now_v7(),
+					EntryMetadata {
+						path,
+						kind: EntryKind::File,
+						size: *size,
+						modified: Some(UNIX_EPOCH + Duration::from_secs(mtime_secs)),
+						accessed: None,
+						created: None,
+						inode: None,
+						permissions: None,
+						uid: None,
+						gid: None,
+						link_target: None,
+						is_hidden: *hidden,
+					},
+				)
+				.expect("entry");
+		}
+		let index_arc = std::sync::Arc::new(tokio::sync::RwLock::new(index));
+
+		// The store's copy of the same capture.
+		let dir = tempfile::tempdir().expect("tempdir");
+		let manager = sd_store::SourceManager::new(dir.path().to_path_buf());
+		manager
+			.create("src-1", &sd_store::filesystem_schema())
+			.await
+			.expect("create");
+		let db = manager.open("src-1").await.expect("open");
+		db.begin_sync().await.expect("epoch");
+		let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+		let writes: Vec<FileWrite> = fixture
+			.iter()
+			.map(|(name, size, hidden)| {
+				let observation = Observation {
+					external_id: name.to_string(),
+					kind: FileKind::File,
+					name: name.to_string(),
+					size: *size as i64,
+					mtime: mtime_secs as i64 * 1000,
+					created: None,
+					accessed: None,
+					inode: None,
+					mode: Some(0o644),
+					uid: None,
+					gid: None,
+					link_target: None,
+					extension: name.rsplit_once('.').map(|(_, e)| e.to_string()),
+					is_hidden: *hidden,
+					identity: None,
+				};
+				let resolution = ledger.resolve(&observation);
+				FileWrite {
+					resolution,
+					parent_uuid: None,
+					observation,
+				}
+			})
+			.collect();
+		db.apply_files(&writes, &[], &[], None)
+			.await
+			.expect("apply");
+		drop(db);
+		let db = manager.open_read_only("src-1").await.expect("read-only");
+
+		let registry = FileTypeRegistry::new();
+		let compare = |arena: Vec<FileSearchResult>,
+		               store: Vec<crate::ops::search::output::FileSearchResult>| {
+			let mut arena: Vec<(String, u64, f32)> = arena
+				.into_iter()
+				.map(|r| (r.file.name.clone(), r.file.size, r.score))
+				.collect();
+			let mut store: Vec<(String, u64, f32)> = store
+				.into_iter()
+				.map(|r| (r.file.name.clone(), r.file.size, r.score))
+				.collect();
+			arena.sort_by(|a, b| a.0.cmp(&b.0));
+			store.sort_by(|a, b| a.0.cmp(&b.0));
+			assert_eq!(arena, store);
+			arena
+		};
+
+		let run = |query: &'static str, filters: SearchFilters| {
+			let index_arc = index_arc.clone();
+			let db = &db;
+			let root = root.clone();
+			let registry = &registry;
+			async move {
+				let matching = {
+					let index = index_arc.read().await;
+					matches_in(&index, query, None)
+				};
+				let arena = collect_results(&index_arc, matching, query, "dev", &filters, registry)
+					.await
+					.expect("arena results");
+
+				let store = crate::ops::search::store_search::search_source_store(
+					db, &root, "dev", query, None, &filters, registry,
+				)
+				.await
+				.expect("store results");
+				assert!(!store.truncated);
+				(arena, store.results)
+			}
+		};
+
+		// Folded matching, hidden excluded by default: both find the ASCII
+		// and the accented name and neither surfaces the dotfile.
+		let (arena, store) = run("mov", SearchFilters::default()).await;
+		let matched = compare(arena, store);
+		assert_eq!(
+			matched
+				.iter()
+				.map(|(name, ..)| name.as_str())
+				.collect::<Vec<_>>(),
+			vec!["Clip One", "ÉLITE"]
+		);
+
+		// Hidden included on request, on both backends alike.
+		let include_hidden = SearchFilters {
+			include_hidden: Some(true),
+			..Default::default()
+		};
+		let (arena, store) = run("mov", include_hidden).await;
+		assert_eq!(compare(arena, store).len(), 3);
+
+		// A size floor excludes the same entries from both.
+		let sized = SearchFilters {
+			size_range: Some(SizeRangeFilter {
+				min: Some(5_000),
+				max: None,
+			}),
+			..Default::default()
+		};
+		let (arena, store) = run("mov", sized).await;
+		assert_eq!(compare(arena, store).len(), 1);
+
+		// An empty answer from the selected backend is a real answer.
+		let (arena, store) = run("nothing-here", SearchFilters::default()).await;
+		assert!(compare(arena, store).is_empty());
 	}
 }

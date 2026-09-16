@@ -245,10 +245,18 @@ impl DirectoryListingQuery {
 			}
 		}
 
-		// A detached source has no filesystem underneath it; what the restored
-		// snapshot holds is all there is. Dispatching an indexer at a missing
-		// mount would only produce errors or, worse, an empty rescan.
+		// A detached source has no filesystem underneath it, and dispatching
+		// an indexer at a missing mount would only produce errors or, worse,
+		// an empty rescan. Its records are still true, though: when the
+		// snapshot did not cover this directory, the store answers.
 		if cache.is_detached(&local_path) {
+			if let Some(listing) = self.list_from_store(&context, &local_path).await {
+				tracing::debug!(
+					"Source for {} is detached; serving its store",
+					local_path.display()
+				);
+				return Ok(listing);
+			}
 			tracing::debug!(
 				"Source for {} is detached; serving snapshot contents only",
 				local_path.display()
@@ -342,6 +350,65 @@ impl DirectoryListingQuery {
 			total_count: 0,
 			has_more: false,
 		})
+	}
+
+	/// Serve a listing from the source's store when no arena can answer: a
+	/// detached drive whose snapshot did not cover this directory still lists
+	/// what it retains. `None` when no registered source covers the path or
+	/// the store holds no row for it, which falls back to the empty listing.
+	async fn list_from_store(
+		&self,
+		context: &Arc<CoreContext>,
+		local_path: &std::path::Path,
+	) -> Option<DirectoryListingOutput> {
+		let cache = context.ephemeral_cache();
+		let source = cache
+			.sources()
+			.into_iter()
+			.filter(|source| local_path.starts_with(&source.root))
+			.max_by_key(|source| source.root.as_os_str().len())?;
+		let db = cache.read_store(source.id).await?;
+
+		// Store paths are source-relative with forward slashes whatever the
+		// host writes; the strip below has to speak the same dialect.
+		let relative = local_path
+			.strip_prefix(&source.root)
+			.ok()?
+			.to_str()?
+			.replace(std::path::MAIN_SEPARATOR, "/");
+		let parent = if relative.is_empty() {
+			None
+		} else {
+			Some(
+				sd_store::read::resolve_path(db.pool(), &relative)
+					.await
+					.ok()??,
+			)
+		};
+
+		let include_hidden = self.input.include_hidden.unwrap_or(false);
+		let children = sd_store::read::children_of(db.pool(), parent, include_hidden)
+			.await
+			.ok()?;
+
+		let device_slug = crate::device::get_current_device_slug();
+		let files = children
+			.into_iter()
+			.filter_map(|entry| {
+				let absolute = source.root.join(&entry.relative_path);
+				// Bundle internals are lensed out with hidden files, exactly
+				// as the arena path lenses them.
+				if !include_hidden && crate::ops::indexing::lens::is_bundle_internal(&absolute) {
+					return None;
+				}
+				let sd_path = SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: absolute,
+				};
+				Some(File::from_store_entry(&entry, sd_path))
+			})
+			.collect();
+		Some(self.finalize_listing(files))
 	}
 
 	/// Sort files according to the input options

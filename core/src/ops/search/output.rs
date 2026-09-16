@@ -16,6 +16,9 @@ pub struct FileSearchOutput {
 	/// Search results with scoring metadata - use for search-specific UI (scores, highlights)
 	pub results: Vec<FileSearchResult>,
 	pub total_found: u64,
+	/// False when a participating backend capped its scan, making
+	/// `total_found` a floor rather than an exact count.
+	pub total_is_exact: bool,
 	pub search_id: Uuid,
 	pub facets: SearchFacets,
 	pub suggestions: Vec<String>,
@@ -126,6 +129,7 @@ impl FileSearchOutput {
 			files,
 			results,
 			total_found,
+			total_is_exact: true,
 			search_id,
 			facets,
 			suggestions: Vec::new(),
@@ -154,6 +158,7 @@ impl FileSearchOutput {
 			results,
 			total: total_found,
 			facets,
+			approximate,
 		} = page;
 		// The page actually served: the caller's window over the true match
 		// count, not a synthetic constant.
@@ -164,6 +169,7 @@ impl FileSearchOutput {
 			files,
 			results,
 			total_found,
+			total_is_exact: !approximate,
 			search_id,
 			facets,
 			suggestions: Vec::new(),
@@ -195,6 +201,7 @@ impl FileSearchOutput {
 			files,
 			results,
 			total_found,
+			total_is_exact: true,
 			search_id,
 			facets,
 			suggestions: Vec::new(),
@@ -218,6 +225,7 @@ impl FileSearchOutput {
 			files: Vec::new(),
 			results: Vec::new(),
 			total_found: 0,
+			total_is_exact: true,
 			search_id: Uuid::new_v4(),
 			facets: SearchFacets::default(),
 			suggestions: Self::generate_suggestions(query),
