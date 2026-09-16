@@ -1,4 +1,4 @@
-import { useState, memo, useEffect } from "react";
+import { useState, memo } from "react";
 import clsx from "clsx";
 import { getIcon, getBeardedIcon } from "@sd/assets/util";
 // @ts-expect-error - Vite glob import, resolved at build time
@@ -19,14 +19,6 @@ interface ThumbProps {
   squareMode?: boolean; // Whether thumbnail is cropped to square (media view) or maintains aspect ratio
 }
 
-// Global cache for thumbnail loaded states (survives component unmount/remount)
-const thumbLoadedCache = new Map<string, boolean>();
-/** The source that failed for a cell, not merely that one did: a cell whose
- * URL changes (a regenerated sidecar, a tile that has since baked) has to get
- * another chance, and remembering only a boolean denied it one for the rest of
- * the session. */
-const thumbErrorCache = new Map<string, string>();
-
 export const Thumb = memo(function Thumb({
   file,
   size = 100,
@@ -35,24 +27,7 @@ export const Thumb = memo(function Thumb({
   iconScale = 1,
   squareMode = false,
 }: ThumbProps) {
-  const cacheKey = `${file.id}-${size}`;
   const { buildSidecarUrl } = useServer();
-
-  const [thumbLoaded, setThumbLoaded] = useState(
-    () => thumbLoadedCache.get(cacheKey) || false,
-  );
-  const [failedSrc, setFailedSrc] = useState<string | null>(
-    () => thumbErrorCache.get(cacheKey) ?? null,
-  );
-
-  // Update cache when state changes
-  useEffect(() => {
-    if (thumbLoaded) thumbLoadedCache.set(cacheKey, true);
-  }, [thumbLoaded, cacheKey]);
-
-  useEffect(() => {
-    if (failedSrc) thumbErrorCache.set(cacheKey, failedSrc);
-  }, [failedSrc, cacheKey]);
 
   const iconSize = size * iconScale;
 
@@ -62,7 +37,6 @@ export const Thumb = memo(function Thumb({
 
   // Check if this is a video with thumbstrip sidecar
   const isVideo = getContentKind(file) === "video";
-  const hasThumbstrip = file.sidecars?.some((s) => s.kind === "thumbstrip");
 
   // Get appropriate thumbnail URL from sidecars based on size
   const getThumbnailUrl = (targetSize: number) => {
@@ -152,6 +126,12 @@ export const Thumb = memo(function Thumb({
     }
     return null;
   })();
+
+  // Loading belongs to this img source, not the virtualized cell. A remounted
+  // cell must prove its new DOM image loaded before hiding the fallback icon.
+  const [loadedSrc, setLoadedSrc] = useState<string | null>(null);
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const thumbLoaded = !!thumbnailSrc && loadedSrc === thumbnailSrc;
 
   // The error is against one source, so a later URL for the same cell is
   // rendered rather than suppressed.
@@ -245,8 +225,11 @@ export const Thumb = memo(function Thumb({
             !thumbLoaded && "opacity-0",
           )}
           style={frameClassName ? undefined : { borderRadius: `${borderRadius}px` }}
-          onLoad={() => setThumbLoaded(true)}
-          onError={() => setFailedSrc(thumbnailSrc)}
+          onLoad={() => setLoadedSrc(thumbnailSrc)}
+          onError={() => {
+            setLoadedSrc(null);
+            setFailedSrc(thumbnailSrc);
+          }}
         />
       )}
 
@@ -264,7 +247,7 @@ export const Thumb = memo(function Thumb({
       )}
 
       {/* Thumbstrip scrubber overlay (for videos with thumbstrips) */}
-      {isVideo && hasThumbstrip && thumbLoaded && (
+      {isVideo && thumbLoaded && (
         <ThumbstripScrubber file={file} size={size} squareMode={squareMode} />
       )}
     </div>

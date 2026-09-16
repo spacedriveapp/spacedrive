@@ -51,6 +51,12 @@ export interface ServerContextValue {
 		recordUuid: string,
 		version: number | string,
 	) => string | null;
+	/** Build the immutable URL returned by `thumbstrips.request`. */
+	buildHotThumbstripUrl: (
+		sourceId: string,
+		recordUuid: string,
+		version: number | string,
+	) => string | null;
 }
 
 export const ServerContext = createContext<ServerContextValue | null>(null);
@@ -182,12 +188,24 @@ export function ServerProvider({ children }: ServerProviderProps) {
 		return `${serverUrl}/hot-thumb/${sourceId}/${recordUuid}/${version}`;
 	};
 
+	const buildHotThumbstripUrl = (
+		sourceId: string,
+		recordUuid: string,
+		version: number | string,
+	): string | null => {
+		if (!serverUrl) {
+			return null;
+		}
+		return `${serverUrl}/hot-thumbstrip/${sourceId}/${recordUuid}/${version}`;
+	};
+
 	const value: ServerContextValue = {
 		serverUrl,
 		libraryId,
 		isReady: serverUrl !== null && libraryId !== null,
 		buildSidecarUrl,
 		buildHotThumbUrl,
+		buildHotThumbstripUrl,
 	};
 
 	return (

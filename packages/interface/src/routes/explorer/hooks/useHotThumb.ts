@@ -31,8 +31,10 @@ const waiting = new Map<string, Set<(tile: TileIdentity | null) => void>>();
  * it so a file on another device is rejected by the daemon rather than baked
  * from a path that happens to exist here. */
 const addresses = new Map<string, SdPath>();
-/** Cells waiting on a bake, by record uuid. */
-const baking = new Map<string, Set<() => void>>();
+/** The latest bake completion seen for each record survives cell unmounts. */
+const bakeEpochs = new Map<string, number>();
+/** Mounted cells waiting on a bake, by record uuid. */
+const baking = new Map<string, Set<(epoch: number) => void>>();
 let scheduled = false;
 let listening = false;
 
@@ -80,7 +82,9 @@ function listen(client: SpacedriveClient) {
 				(event?.ResourceChanged?.resource ? [event.ResourceChanged.resource] : []);
 			for (const row of rows) {
 				if (!row?.id) continue;
-				baking.get(row.id)?.forEach((notify) => notify());
+				const epoch = (bakeEpochs.get(row.id) ?? 0) + 1;
+				bakeEpochs.set(row.id, epoch);
+				baking.get(row.id)?.forEach((notify) => notify(epoch));
 			}
 		})
 		.catch(() => {
@@ -113,7 +117,10 @@ export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 	);
 	// Bumped when the daemon says this tile baked. The first load can land
 	// before the bake does, and a 404 does not retry itself.
-	const [baked, setBaked] = useState(0);
+	const [baked, setBaked] = useState(() => {
+		const cachedTile = key ? identities.get(key) : null;
+		return cachedTile ? (bakeEpochs.get(cachedTile.uuid) ?? 0) : 0;
+	});
 
 	useEffect(() => {
 		if (!enabled || !key) return;
@@ -144,7 +151,8 @@ export function useHotThumb(path: SdPath | null, enabled: boolean): HotThumb {
 	useEffect(() => {
 		if (!enabled || !tile) return;
 		listen(client);
-		const notify = () => setBaked((n) => n + 1);
+		setBaked(bakeEpochs.get(tile.uuid) ?? 0);
+		const notify = (epoch: number) => setBaked(epoch);
 		const cell = baking.get(tile.uuid) ?? new Set();
 		cell.add(notify);
 		baking.set(tile.uuid, cell);

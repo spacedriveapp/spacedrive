@@ -7,6 +7,7 @@ import {listen} from '@tauri-apps/api/event';
 import {getCurrentWebviewWindow} from '@tauri-apps/api/webviewWindow';
 import {ask, open, save} from '@tauri-apps/plugin-dialog';
 import {open as shellOpen} from '@tauri-apps/plugin-shell';
+import {normalizeAssetProtocolPath} from './lib/assetPath';
 import {
 	beginDrag,
 	onDragBegan,
@@ -76,7 +77,7 @@ export const platform: Platform = {
 	},
 
 	convertFileSrc(filePath: string) {
-		return tauriConvertFileSrc(filePath);
+		return tauriConvertFileSrc(normalizeAssetProtocolPath(filePath));
 	},
 
 	async revealFile(filePath: string) {
