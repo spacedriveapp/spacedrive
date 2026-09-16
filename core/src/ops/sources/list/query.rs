@@ -117,6 +117,19 @@ impl LibraryQuery for ListSourcesQuery {
 			for share in crate::service::mounts::peer::remote_shares().await {
 				sources.push(SourceInfo::from_remote_share(&share));
 			}
+
+			// Replicas known from persisted manifests whose arenas did not
+			// load stay visible as unavailable: the owner's counts are still
+			// true, and vanishing from the list would read as deletion.
+			for (device_id, device_label, entry) in
+				crate::service::mounts::peer::known_unloaded().await
+			{
+				sources.push(SourceInfo::from_replica_manifest(
+					device_id,
+					&device_label,
+					&entry,
+				));
+			}
 		}
 
 		Ok(sources)

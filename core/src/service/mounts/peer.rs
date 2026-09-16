@@ -50,6 +50,165 @@ pub async fn remote_share(source_id: Uuid) -> Option<Arc<RemoteShare>> {
 	shares_map().read().await.get(&source_id).cloned()
 }
 
+/// A device's replica inventory as last synced, written beside the artifacts
+/// it describes so the inventory survives a restart without the owner. A
+/// replica has an owner and a validated generation even when no arena is
+/// loaded; losing the list because the owner is unreachable would make a
+/// drive's departure erase the knowledge that its copies exist.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReplicaManifest {
+	pub device_id: Uuid,
+	pub device_label: String,
+	pub sources: Vec<ReplicaEntry>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ReplicaEntry {
+	pub info: RemoteSourceInfo,
+	pub generation: u64,
+	pub synced_at_secs: u64,
+}
+
+/// Every manifest read this session, kept current with every write so a
+/// listing can name known-but-unloaded replicas without touching the disk.
+static KNOWN_REPLICAS: OnceLock<TokioRwLock<HashMap<Uuid, ReplicaManifest>>> = OnceLock::new();
+
+fn known_map() -> &'static TokioRwLock<HashMap<Uuid, ReplicaManifest>> {
+	KNOWN_REPLICAS.get_or_init(|| TokioRwLock::new(HashMap::new()))
+}
+
+/// Replicas known from persisted manifests whose arenas are not loaded right
+/// now: the artifact is missing or unreadable. They stay visible as
+/// unavailable rather than vanishing from the inventory.
+pub async fn known_unloaded() -> Vec<(Uuid, String, ReplicaEntry)> {
+	let loaded: std::collections::HashSet<Uuid> =
+		shares_map().read().await.keys().copied().collect();
+	known_map()
+		.read()
+		.await
+		.values()
+		.flat_map(|manifest| {
+			manifest.sources.iter().filter_map(|entry| {
+				(!loaded.contains(&entry.info.id)).then(|| {
+					(
+						manifest.device_id,
+						manifest.device_label.clone(),
+						entry.clone(),
+					)
+				})
+			})
+		})
+		.collect()
+}
+
+fn manifest_path(replica_dir: &std::path::Path) -> PathBuf {
+	replica_dir.join("manifest.json")
+}
+
+async fn write_manifest(replica_dir: &std::path::Path, manifest: &ReplicaManifest) {
+	match serde_json::to_vec_pretty(manifest) {
+		Ok(bytes) => {
+			if let Err(err) = tokio::fs::write(manifest_path(replica_dir), bytes).await {
+				tracing::warn!(
+					device = %manifest.device_id,
+					%err,
+					"replica manifest failed to persist; inventory will not survive a restart"
+				);
+				return;
+			}
+			known_map()
+				.write()
+				.await
+				.insert(manifest.device_id, manifest.clone());
+		}
+		Err(err) => {
+			tracing::warn!(device = %manifest.device_id, %err, "replica manifest failed to serialize");
+		}
+	}
+}
+
+/// Restore the known peer inventory from disk without contacting any owner.
+///
+/// Every manifest is read into the known set; every artifact that loads
+/// becomes a live share exactly as a sync would have built it. An artifact
+/// that is missing or unreadable leaves its source listed as unavailable,
+/// and stays on disk for diagnosis. Returns `(loaded, known)`.
+pub async fn restore_known_replicas(context: &Arc<CoreContext>) -> (usize, usize) {
+	restore_from(&context.data_dir.join("mounts-remote")).await
+}
+
+async fn restore_from(base: &std::path::Path) -> (usize, usize) {
+	let mut loaded = 0usize;
+	let mut known = 0usize;
+
+	let Ok(mut dirs) = tokio::fs::read_dir(base).await else {
+		return (0, 0);
+	};
+
+	while let Ok(Some(dir)) = dirs.next_entry().await {
+		let replica_dir = dir.path();
+		let manifest = match tokio::fs::read(manifest_path(&replica_dir)).await {
+			Ok(bytes) => match serde_json::from_slice::<ReplicaManifest>(&bytes) {
+				Ok(manifest) => manifest,
+				Err(err) => {
+					tracing::warn!(path = %replica_dir.display(), %err, "unreadable replica manifest");
+					continue;
+				}
+			},
+			Err(_) => continue,
+		};
+
+		for entry in &manifest.sources {
+			known += 1;
+			if shares_map().read().await.contains_key(&entry.info.id) {
+				loaded += 1;
+				continue;
+			}
+
+			let snapshot_path = replica_dir.join(format!("{}.snapshot", entry.info.id.simple()));
+			let restored = {
+				let path = snapshot_path.clone();
+				tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await
+			};
+			let index = match restored {
+				Ok(Ok(Some((index, _meta)))) => index,
+				Ok(Ok(None)) | Ok(Err(_)) | Err(_) => {
+					tracing::warn!(
+						source = %entry.info.id,
+						path = %snapshot_path.display(),
+						"replica artifact missing or unreadable; source stays listed as unavailable"
+					);
+					continue;
+				}
+			};
+
+			let share = Arc::new(RemoteShare {
+				device_id: manifest.device_id,
+				device_label: manifest.device_label.clone(),
+				generation: entry.generation,
+				info: entry.info.clone(),
+				index: Arc::new(TokioRwLock::new(index)),
+				synced_at_secs: entry.synced_at_secs,
+			});
+
+			// A sync may have raced this restore with a fresher replica;
+			// the restore never replaces what a sync installed.
+			let mut shares = shares_map().write().await;
+			if !shares.contains_key(&entry.info.id) {
+				shares.insert(entry.info.id, share);
+			}
+			loaded += 1;
+		}
+
+		known_map()
+			.write()
+			.await
+			.insert(manifest.device_id, manifest);
+	}
+
+	(loaded, known)
+}
+
 /// Each paired device's own library statistics, refreshed with every sync.
 /// This is what lets every device report the same fleet-wide totals: each
 /// machine computes its own numbers and the others add them verbatim.
@@ -262,7 +421,7 @@ pub async fn sync_device(
 	tokio::fs::create_dir_all(&replica_dir).await?;
 
 	let mut synced = 0usize;
-	for info in sources {
+	for info in &sources {
 		// A replica built from the same snapshot the owner still holds is
 		// current. Only a moved generation, or unsaved changes on the
 		// owner's side, are worth a transfer.
@@ -341,6 +500,151 @@ pub async fn sync_device(
 		synced += 1;
 	}
 
+	// Persist the inventory beside its artifacts. A source whose fetch
+	// failed this round keeps its previous entry while an older artifact
+	// still exists, so one failed transfer does not erase a replica from
+	// the known set; a source the owner's listing no longer carries is
+	// dropped, since a successful enumeration is removal evidence.
+	let previous = known_map().read().await.get(&device_id).cloned();
+	let mut entries = Vec::new();
+	for info in &sources {
+		if let Some(share) = remote_share(info.id).await {
+			entries.push(ReplicaEntry {
+				info: share.info.clone(),
+				generation: share.generation,
+				synced_at_secs: share.synced_at_secs,
+			});
+		} else if let Some(prior) = previous
+			.as_ref()
+			.and_then(|manifest| manifest.sources.iter().find(|e| e.info.id == info.id))
+		{
+			if replica_dir
+				.join(format!("{}.snapshot", info.id.simple()))
+				.exists()
+			{
+				entries.push(prior.clone());
+			}
+		}
+	}
+	write_manifest(
+		&replica_dir,
+		&ReplicaManifest {
+			device_id,
+			device_label: device_label.clone(),
+			sources: entries,
+		},
+	)
+	.await;
+
 	tracing::info!("peer mounts: {synced} source(s) replicated from {device_label} ({device_id})");
 	Ok(synced)
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::ops::indexing::metadata::EntryMetadata;
+	use crate::ops::indexing::state::EntryKind;
+
+	fn info(id: Uuid, root: &str, count: u64) -> RemoteSourceInfo {
+		RemoteSourceInfo {
+			id,
+			root: PathBuf::from(root),
+			volume_uuid: None,
+			attached: true,
+			entry_count: Some(count),
+			total_bytes: Some(count * 10),
+			generation: 7,
+			dirty: false,
+		}
+	}
+
+	/// A restart with every owner offline restores the inventory from disk:
+	/// artifacts that load become live shares, and a source whose artifact is
+	/// gone stays known and listed as unavailable instead of vanishing.
+	#[tokio::test]
+	async fn a_cold_restore_rebuilds_the_inventory_without_the_owner() {
+		let base = tempfile::tempdir().expect("dir");
+		let device_id = Uuid::now_v7();
+		let replica_dir = base.path().join(device_id.simple().to_string());
+		std::fs::create_dir_all(&replica_dir).expect("replica dir");
+
+		// One source with a real artifact on disk.
+		let cached = Uuid::now_v7();
+		let mut index = EphemeralIndex::new().expect("index");
+		let file = PathBuf::from("/mnt/pool/kept/file.txt");
+		index
+			.add_entry(
+				file.clone(),
+				Uuid::now_v7(),
+				EntryMetadata {
+					path: file,
+					kind: EntryKind::File,
+					size: 4,
+					modified: None,
+					accessed: None,
+					created: None,
+					inode: None,
+					permissions: None,
+					uid: None,
+					gid: None,
+					link_target: None,
+					is_hidden: false,
+				},
+			)
+			.expect("entry");
+		index
+			.save_snapshot(
+				&replica_dir.join(format!("{}.snapshot", cached.simple())),
+				cached,
+				&PathBuf::from("/mnt/pool/kept"),
+			)
+			.expect("artifact");
+
+		// One source whose artifact never made it here.
+		let missing = Uuid::now_v7();
+
+		let manifest = ReplicaManifest {
+			device_id,
+			device_label: "away-drive".to_string(),
+			sources: vec![
+				ReplicaEntry {
+					info: info(cached, "/mnt/pool/kept", 2),
+					generation: 7,
+					synced_at_secs: 1,
+				},
+				ReplicaEntry {
+					info: info(missing, "/mnt/pool/lost", 9),
+					generation: 3,
+					synced_at_secs: 1,
+				},
+			],
+		};
+		std::fs::write(
+			manifest_path(&replica_dir),
+			serde_json::to_vec(&manifest).expect("serialize"),
+		)
+		.expect("manifest");
+
+		let (loaded, known) = restore_from(base.path()).await;
+		assert_eq!((loaded, known), (1, 2));
+
+		let share = remote_share(cached).await.expect("cached share restored");
+		assert_eq!(share.device_label, "away-drive");
+		assert_eq!(share.generation, 7);
+		assert_eq!(
+			share.index.read().await.find_by_name("file.txt").len(),
+			1,
+			"the restored arena answers by content, not just by existing"
+		);
+
+		assert!(remote_share(missing).await.is_none());
+		let unloaded = known_unloaded().await;
+		assert!(
+			unloaded.iter().any(|(device, label, entry)| {
+				*device == device_id && label == "away-drive" && entry.info.id == missing
+			}),
+			"the missing artifact's source stays known and unavailable"
+		);
+	}
 }

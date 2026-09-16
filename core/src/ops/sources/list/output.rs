@@ -91,6 +91,41 @@ impl SourceInfo {
 		}
 	}
 
+	/// A replica known from a persisted manifest whose arena is not loaded.
+	/// The owner's last-synced counts still describe it; what is missing is
+	/// a local artifact to browse, which `status` says plainly.
+	pub fn from_replica_manifest(
+		device_id: Uuid,
+		device_label: &str,
+		entry: &crate::service::mounts::peer::ReplicaEntry,
+	) -> Self {
+		let root = &entry.info.root;
+		let name = root
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_else(|| entry.info.id.to_string());
+		let synced_at =
+			chrono::DateTime::<chrono::Utc>::from_timestamp(entry.synced_at_secs as i64, 0)
+				.map(|at| at.to_rfc3339());
+
+		Self {
+			id: entry.info.id,
+			name,
+			data_type: "filesystem".to_string(),
+			adapter_id: None,
+			item_count: entry.info.entry_count.unwrap_or(0) as i64,
+			last_synced: synced_at.clone(),
+			status: "replica_unavailable".to_string(),
+			root: Some(root.to_string_lossy().into_owned()),
+			volume_uuid: entry.info.volume_uuid,
+			attached: false,
+			total_bytes: entry.info.total_bytes.map(|bytes| bytes as i64),
+			last_seen_at: synced_at,
+			device_id: Some(device_id),
+			device_label: Some(device_label.to_string()),
+		}
+	}
+
 	/// A paired device's source, replicated through the peer-mount plane.
 	/// The metadata is the replica's own: counts and bytes from the owner's
 	/// listing, `last_synced` from when the snapshot arrived here.

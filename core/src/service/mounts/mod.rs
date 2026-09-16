@@ -75,6 +75,22 @@ pub async fn start(context: Arc<CoreContext>, cache_max_bytes: u64) -> anyhow::R
 		tracing::error!("Failed to start mounts SMB server: {err}");
 	}
 
+	// Known replicas come back from disk before anyone connects, so a
+	// restart with every owner offline still lists and serves the inventory.
+	// Runs ahead of the watchers: a reconnect sync only replaces a restored
+	// share when the owner's generation moved.
+	{
+		let context = context.clone();
+		tokio::spawn(async move {
+			let (loaded, known) = peer::restore_known_replicas(&context).await;
+			if known > 0 {
+				tracing::info!(
+					"peer mounts: restored {loaded} of {known} known replica(s) from disk"
+				);
+			}
+		});
+	}
+
 	tokio::spawn(watch_peers(context.clone()));
 	tokio::spawn(refresh_peers(context));
 	Ok(addr)
