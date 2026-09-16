@@ -169,7 +169,7 @@ impl EphemeralIndex {
 		self.content_kinds.remove(&id);
 		self.collection_flags.remove(&id);
 		if let Some(name) = path.file_name().and_then(|name| name.to_str()) {
-			self.registry.remove(name, id);
+			self.registry.remove(&name.to_lowercase(), id);
 		}
 		self.arena.vacate(id);
 		self.stubs.remove(&id);
@@ -245,10 +245,23 @@ impl EphemeralIndex {
 
 		self.path_index.insert(path.to_path_buf(), id);
 		self.id_to_path.insert(id, path.to_path_buf());
-		self.registry.insert(name, id);
+		let search_key = Self::search_key(&self.cache, name);
+		self.registry.insert(search_key, id);
 
 		self.mark_dirty();
 		Ok(id)
+	}
+
+	/// The registry key for a name: Unicode lowercase, interned. Search
+	/// lowercases its query, so candidate selection stays case-insensitive
+	/// while arena nodes keep the original name for display.
+	fn search_key<'cache>(cache: &'cache NameCache, name: &'cache str) -> &'cache str {
+		let folded = name.to_lowercase();
+		if folded == name {
+			name
+		} else {
+			cache.intern(&folded)
+		}
 	}
 
 	/// Adds an entry to the index, returning its content kind if successful.
@@ -381,7 +394,8 @@ impl EphemeralIndex {
 
 		self.path_index.insert(path.clone(), id);
 		self.id_to_path.insert(id, path.clone());
-		self.registry.insert(name, id);
+		let search_key = Self::search_key(&self.cache, name);
+		self.registry.insert(search_key, id);
 
 		// Non-directories contribute their size, and themselves, to every
 		// ancestor's rollups.
@@ -1499,6 +1513,40 @@ mod rollup_tests {
 		assert!(
 			index.find_by_name("only.bin").is_empty(),
 			"a deleted name must not survive in the search registry, which is serialized into the snapshot"
+		);
+	}
+
+	/// Search lowercases its query before hitting the registry, so a name with
+	/// uppercase letters is only findable if registry keys are folded too. The
+	/// arena node keeps the original casing for display.
+	#[test]
+	fn mixed_case_names_match_lowercase_queries() {
+		let mut index = EphemeralIndex::new().unwrap();
+		let root = PathBuf::from("/vol");
+		let file = root.join("Dangerous Woman.mp3");
+
+		index
+			.add_entry(
+				file.clone(),
+				Uuid::now_v7(),
+				meta(&file, EntryKind::File, 1),
+			)
+			.unwrap();
+
+		assert_eq!(
+			index.find_by_name("dangerous woman.mp3"),
+			vec![file.clone()]
+		);
+		assert_eq!(index.find_by_prefix("danger"), vec![file.clone()]);
+		assert_eq!(index.find_containing("woman"), vec![file.clone()]);
+
+		// The reported path preserves the on-disk casing.
+		assert!(index.get_entry(&file).is_some());
+
+		index.remove_entry(&file);
+		assert!(
+			index.find_by_prefix("danger").is_empty(),
+			"removal folds the name the same way insertion did"
 		);
 	}
 

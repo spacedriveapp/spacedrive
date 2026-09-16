@@ -181,6 +181,16 @@ impl DirectoryListingQuery {
 			}
 		};
 
+		// The volume decides how the path is written. A folder browsed as
+		// /Users/me is the same directory as /System/Volumes/Data/Users/me,
+		// and only the volume's spelling lands in the partition the volume
+		// map owns; taking the caller's spelling would grow a second tree of
+		// files the map already holds.
+		let local_path = match context.volume_manager.locate_path(&local_path).await {
+			Some((_, spelled)) => spelled,
+			None => local_path,
+		};
+
 		let cache = context.ephemeral_cache();
 
 		// A registered source that hasn't been touched this session restores
@@ -281,9 +291,14 @@ impl DirectoryListingQuery {
 				);
 			}
 
-			// Create ephemeral indexer job for this directory (shallow, current scope only)
+			// Create ephemeral indexer job for this directory (shallow, current
+			// scope only). The job walks the volume's spelling of the path so
+			// every entry it inserts lands in the partition resolved above.
 			let mut config = IndexerJobConfig::ephemeral_browse(
-				self.input.path.clone(),
+				SdPath::Physical {
+					device_slug: crate::device::get_current_device_slug(),
+					path: local_path.clone(),
+				},
 				IndexScope::Current, // Only current directory, not recursive
 				false,               // Directory browsing, not volume indexing
 			);

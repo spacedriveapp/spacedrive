@@ -144,6 +144,13 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 		if volume.parse_cloud_identity().is_some() {
 			continue;
 		}
+		// Volumes the platform hides from users either alias what a visible
+		// volume already covers or hold no user files. On macOS the sealed
+		// system volume mounts at `/`, and walking it would map the firmlinked
+		// data-volume tree a second time under its short spelling.
+		if !volume.is_user_visible {
+			continue;
+		}
 
 		let cache = context.ephemeral_cache();
 		cache.track_volume(volume.id, volume.mount_point.clone());

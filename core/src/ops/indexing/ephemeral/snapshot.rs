@@ -280,10 +280,11 @@ pub(super) fn load_snapshot_impl(
 		cache.intern(name);
 	}
 
-	// Rebuild name registry
+	// Rebuild name registry. Keys are folded on insert so snapshots written
+	// before registry keys were lowercased come back searchable.
 	let mut registry = NameRegistry::new();
 	for (name, ids) in &snapshot.name_registry_map {
-		let interned = cache.intern(name);
+		let interned = cache.intern(&name.to_lowercase());
 		for &id in ids {
 			registry.insert(interned, id);
 		}

@@ -63,18 +63,27 @@ pub async fn search_ephemeral_index(
 		.await;
 	}
 
+	// The volume decides how the scope is written: the index holds the
+	// volume's spelling, so a scope reached through an alias such as
+	// /Users/me has to be rewritten before it can select a partition or
+	// filter its paths.
+	let local_path = match context.volume_manager.locate_path(local_path).await {
+		Some((_, spelled)) => spelled,
+		None => local_path.clone(),
+	};
+
 	// A registered source that has not been touched this session restores from
 	// its snapshot here, including detached drives, whose indexes serve
 	// read-only.
-	cache.ensure_restored(local_path).await;
+	cache.ensure_restored(&local_path).await;
 
-	let Some(index_arc) = cache.get_for_search(local_path) else {
+	let Some(index_arc) = cache.get_for_search(&local_path) else {
 		return Ok(Vec::new());
 	};
 
 	let matching_paths = {
 		let index = index_arc.read().await;
-		matches_in(&index, query, Some(local_path))
+		matches_in(&index, query, Some(&local_path))
 	};
 
 	collect_results(
@@ -154,10 +163,12 @@ pub async fn search_every_index(
 	Ok(results)
 }
 
-/// Paths in one partition whose name matches, narrowed to a scope if given.
+/// Paths in one partition whose name contains the query, narrowed to a scope
+/// if given.
 ///
-/// Exact, then prefix, then substring: the first tier that answers wins, so a
-/// query that names a file exactly is not buried under everything containing it.
+/// Substring matching subsumes exact and prefix hits, and scoring already
+/// ranks them above it, so an exact query surfaces its file first without
+/// hiding everything else that contains the term.
 fn matches_in(
 	index: &crate::ops::indexing::ephemeral::EphemeralIndex,
 	query: &str,
@@ -171,13 +182,7 @@ fn matches_in(
 	}
 
 	let query = query.to_lowercase();
-	let mut paths = index.find_by_name(&query);
-	if paths.is_empty() {
-		paths = index.find_by_prefix(&query);
-	}
-	if paths.is_empty() {
-		paths = index.find_containing(&query);
-	}
+	let paths = index.find_containing(&query);
 
 	match scope {
 		Some(root) => paths
