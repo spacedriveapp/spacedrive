@@ -103,7 +103,10 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		DeviceWithConnection[]
 	>({
 		query: 'devices.list',
-		input: {include_offline: true, include_details: false},
+		// Paired devices live in the network registry, not this library's
+		// device table; without show_paired a peer only appeared when a
+		// connection event happened to announce it.
+		input: {include_offline: true, include_details: false, show_paired: true},
 		resourceType: 'device'
 	});
 

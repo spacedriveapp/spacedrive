@@ -1,457 +1,242 @@
-import {useDndContext, useDroppable} from '@dnd-kit/core';
 import {
-	SortableContext,
-	useSortable,
-	verticalListSortingStrategy
-} from '@dnd-kit/sortable';
-import {CSS} from '@dnd-kit/utilities';
-import {
-	ArrowsClockwise,
-	ArrowsOut,
+	Camera,
 	CircleNotch,
-	FunnelSimple,
+	Clock,
+	Database,
 	GearSix,
+	HardDrive,
+	HardDrives,
+	House,
+	Images,
 	ListBullets,
-	Palette,
+	ShieldCheck
 } from '@phosphor-icons/react';
-import {useSidebarStore} from '@sd/ts-client';
+import FolderIcon from '@sd/assets/icons/Folder.webp';
+import HomeIcon from '@sd/assets/icons/Home.webp';
 import type {
-	Space,
-	SpaceGroup as SpaceGroupType,
+	Device,
+	Location,
+	LocationsListOutput,
+	LocationsListQueryInput,
+	SourceInfo,
+	SpaceGroup,
 	SpaceItem as SpaceItemType
 } from '@sd/ts-client';
-import {CircleButton, Popover, usePopover} from '@spacedrive/primitives';
+import {useSidebarStore} from '@sd/ts-client';
 import clsx from 'clsx';
-import {motion} from 'framer-motion';
-import {memo, useEffect, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {usePlatform} from '../../contexts/PlatformContext';
-import {useSpacedriveClient} from '../../contexts/SpacedriveContext';
+import {
+	useLibraryMutation,
+	useLibraryQuery,
+	useNormalizedQuery,
+	useSpacedriveClient
+} from '../../contexts/SpacedriveContext';
 import {useLibraries} from '../../hooks/useLibraries';
-import {JobList} from '../JobManager/components/JobList';
+import {
+	getSpaceItemKeyFromRoute,
+	useExplorer
+} from '../../routes/explorer/context';
+import {Thumb} from '../../routes/explorer/File/Thumb';
 import {useJobsContext} from '../JobManager/hooks/JobsContext';
-import {CARD_HEIGHT} from '../JobManager/types';
-import {ActivityFeed} from '../SyncMonitor/components/ActivityFeed';
-import {PeerList} from '../SyncMonitor/components/PeerList';
+import {PairingModal} from '../modals/PairingModal';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
-import {useSyncMonitor} from '../SyncMonitor/hooks/useSyncMonitor';
-import {AddGroupButton} from './AddGroupButton';
-import {ImportGroup} from './ImportGroup';
+import {resolveItemMetadata} from './hooks/spaceItemUtils';
+import {useSpaceItemContextMenu} from './hooks/useSpaceItemContextMenu';
 import {useSpaceLayout, useSpaces} from './hooks/useSpaces';
-import {SpaceCustomizationPanel} from './SpaceCustomizationPanel';
-import {SpaceGroup} from './SpaceGroup';
-import {SpaceItem} from './SpaceItem';
-import {SpaceSwitcher} from './SpaceSwitcher';
-
-// Wrapper that adds a space-level drop zone before each group and makes it sortable
-function SpaceGroupWithDropZone({
-	group,
-	items,
-	spaceId,
-	isFirst: _isFirst
-}: {
-	group: SpaceGroupType;
-	items: SpaceItemType[];
-	spaceId?: string;
-	isFirst: boolean;
-}) {
-	const {active} = useDndContext();
-
-	// Disable drop zone when dragging groups or space items (they have 'label' in their data)
-	// This allows sortable collision detection to work for reordering
-	const isDraggingSortableItem = active?.data?.current?.label != null;
-
-	const {setNodeRef: setDropRef, isOver} = useDroppable({
-		id: `space-root-before-${group.id}`,
-		disabled: !spaceId || isDraggingSortableItem,
-		data: {
-			action: 'add-to-space',
-			spaceId,
-			groupId: null
-		}
-	});
-
-	// Sortable for group reordering
-	const {
-		attributes,
-		listeners,
-		setNodeRef: setSortableRef,
-		transform,
-		transition,
-		isDragging,
-		setActivatorNodeRef: _setActivatorNodeRef
-	} = useSortable({
-		id: group.id,
-		data: {
-			label: group.name
-		}
-	});
-
-	const style = {
-		transform: CSS.Transform.toString(transform),
-		transition
-	};
-
-	return (
-		<div
-			ref={setSortableRef}
-			style={style}
-			className={clsx('relative', isDragging && 'z-50 opacity-50')}
-		>
-			{/* Drop zone before this group (for adding root-level items) */}
-			<div
-				ref={setDropRef}
-				className="absolute -top-2.5 left-0 right-0 z-10 h-5"
-			>
-				{isOver && !isDragging && !isDraggingSortableItem && (
-					<div className="bg-accent absolute left-2 right-2 top-1/2 h-[2px] -translate-y-1/2 rounded-full" />
-				)}
-			</div>
-			<SpaceGroup
-				group={group}
-				items={items}
-				spaceId={spaceId}
-				sortableAttributes={attributes}
-				sortableListeners={listeners}
-			/>
-		</div>
-	);
-}
-
-// Sync Monitor Button with Popover
-const SyncButton = memo(function SyncButton() {
-	const popover = usePopover();
-	const navigate = useNavigate();
-	const [showActivityFeed, setShowActivityFeed] = useState(false);
-	const {onlinePeerCount, isSyncing} = useSyncCount();
-	const sync = useSyncMonitor();
-
-	useEffect(() => {
-		if (popover.open) {
-			setShowActivityFeed(false);
-		}
-	}, [popover.open]);
-
-	const getStateColor = (state: string) => {
-		switch (state) {
-			case 'Ready':
-				return 'bg-green-500';
-			case 'Backfilling':
-				return 'bg-yellow-500';
-			case 'CatchingUp':
-				return 'bg-accent';
-			case 'Uninitialized':
-				return 'bg-ink-faint';
-			case 'Paused':
-				return 'bg-ink-dull';
-			default:
-				return 'bg-ink-faint';
-		}
-	};
-
-	return (
-		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
-			<Popover.Trigger asChild>
-				<CircleButton
-					icon={({className, ...props}) =>
-						isSyncing ? (
-							<CircleNotch
-								className={clsx(className, 'animate-spin')}
-								{...props}
-							/>
-						) : (
-							<ArrowsClockwise className={className} {...props} />
-						)
-					}
-					title="Sync Monitor"
-				/>
-			</Popover.Trigger>
-			<Popover.Content
-				side="top"
-				align="start"
-				sideOffset={8}
-				className="!bg-app z-50 max-h-[520px] w-[380px] !rounded-xl !p-0"
-			>
-				<div className="border-app-line flex items-center justify-between border-b px-4 py-3">
-					<h3 className="text-ink text-sm font-semibold">
-						Sync Monitor
-					</h3>
-
-					<div className="flex items-center gap-2">
-						{onlinePeerCount > 0 && (
-							<span className="text-ink-dull text-xs">
-								{onlinePeerCount}{' '}
-								{onlinePeerCount === 1 ? 'peer' : 'peers'}{' '}
-								online
-							</span>
-						)}
-
-						<CircleButton
-							icon={ArrowsOut}
-							onClick={() => navigate('/sync')}
-							title="Open full sync monitor"
-						/>
-
-						<CircleButton
-							icon={FunnelSimple}
-							active={showActivityFeed}
-							onClick={() =>
-								setShowActivityFeed(!showActivityFeed)
-							}
-							title={
-								showActivityFeed
-									? 'Show peers'
-									: 'Show activity feed'
-							}
-						/>
-					</div>
-				</div>
-
-				{popover.open && (
-					<>
-						<div className="border-app-line bg-app-box/50 border-b px-4 py-2">
-							<div className="flex items-center gap-2">
-								<div
-									className={`size-2 rounded-full ${getStateColor(sync.currentState)}`}
-								/>
-								<span className="text-ink-dull text-xs font-medium">
-									{sync.currentState}
-								</span>
-							</div>
-						</div>
-						<motion.div
-							className="no-scrollbar overflow-y-auto"
-							initial={false}
-							animate={{
-								height: showActivityFeed
-									? Math.min(
-											sync.recentActivity.length * 40 +
-												16,
-											400
-										)
-									: Math.min(sync.peers.length * 80 + 16, 400)
-							}}
-							transition={{
-								duration: 0.2,
-								ease: [0.25, 1, 0.5, 1]
-							}}
-						>
-							{showActivityFeed ? (
-								<ActivityFeed
-									activities={sync.recentActivity}
-								/>
-							) : (
-								<PeerList
-									peers={sync.peers}
-									currentState={sync.currentState}
-								/>
-							)}
-						</motion.div>
-					</>
-				)}
-			</Popover.Content>
-		</Popover.Root>
-	);
-});
-
-// Jobs Button with Popover
-const JobsButton = memo(
-	function JobsButton({
-		activeJobCount,
-		hasRunningJobs,
-		jobs,
-		pause,
-		resume,
-		cancel,
-		getSpeedHistory,
-		navigate
-	}: {
-		activeJobCount: number;
-		hasRunningJobs: boolean;
-		jobs: any[];
-		pause: (jobId: string) => Promise<void>;
-		resume: (jobId: string) => Promise<void>;
-		cancel: (jobId: string) => Promise<void>;
-		getSpeedHistory: (jobId: string) => any[];
-		navigate: any;
-	}) {
-		const popover = usePopover();
-		const [showOnlyRunning, setShowOnlyRunning] = useState(true);
-
-		useEffect(() => {
-			if (popover.open) {
-				setShowOnlyRunning(true);
-			}
-		}, [popover.open]);
-
-		const filteredJobs = showOnlyRunning
-			? jobs.filter(
-					(job) => job.status === 'running' || job.status === 'paused'
-				)
-			: jobs;
-
-		return (
-			<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
-				<Popover.Trigger asChild>
-					<CircleButton
-						icon={({className, ...props}) =>
-							hasRunningJobs ? (
-								<CircleNotch
-									className={clsx(className, 'animate-spin')}
-									{...props}
-								/>
-							) : (
-								<ListBullets className={className} {...props} />
-							)
-						}
-						title="Job Manager"
-					/>
-				</Popover.Trigger>
-				<Popover.Content
-					side="top"
-					align="start"
-					sideOffset={8}
-					className="!bg-app z-50 max-h-[480px] w-[360px] !rounded-xl !p-0"
-				>
-					<div className="border-app-line flex items-center justify-between border-b px-4 py-3">
-						<h3 className="text-ink text-sm font-semibold">
-							Job Manager
-						</h3>
-
-						<div className="flex items-center gap-2">
-							{activeJobCount > 0 && (
-								<span className="text-ink-dull text-xs">
-									{activeJobCount} active
-								</span>
-							)}
-
-							<CircleButton
-								icon={ArrowsOut}
-								onClick={() => navigate('/jobs')}
-								title="Open full jobs screen"
-							/>
-
-							<CircleButton
-								icon={FunnelSimple}
-								active={showOnlyRunning}
-								onClick={() =>
-									setShowOnlyRunning(!showOnlyRunning)
-								}
-								title={
-									showOnlyRunning
-										? 'Show all jobs'
-										: 'Show only active jobs'
-								}
-							/>
-						</div>
-					</div>
-
-					{popover.open && (
-						<motion.div
-							className="no-scrollbar overflow-y-auto"
-							initial={false}
-							animate={{
-								height:
-									filteredJobs.length === 0
-										? CARD_HEIGHT + 16
-										: Math.min(
-												filteredJobs.length *
-													(CARD_HEIGHT + 8) +
-													16,
-												400
-											)
-							}}
-							transition={{
-								duration: 0.2,
-								ease: [0.25, 1, 0.5, 1]
-							}}
-						>
-							<JobList
-								jobs={filteredJobs}
-								onPause={pause}
-								onResume={resume}
-								onCancel={cancel}
-								getSpeedHistory={getSpeedHistory}
-							/>
-						</motion.div>
-					)}
-				</Popover.Content>
-			</Popover.Root>
-		);
-	},
-	(prevProps, nextProps) => {
-		// Only re-render if these specific values change
-		return (
-			prevProps.activeJobCount === nextProps.activeJobCount &&
-			prevProps.hasRunningJobs === nextProps.hasRunningJobs
-		);
-	}
-);
+import {LibrarySwitcher} from './LibrarySwitcher';
+import {SidebarItem} from './SidebarItem';
+import {SidebarSection} from './SidebarSection';
 
 interface SpacesSidebarProps {
 	isPreviewActive?: boolean;
+}
+
+function routeForPath(path: Location['sd_path']): string {
+	return `/explorer?path=${encodeURIComponent(JSON.stringify(path))}`;
+}
+
+function sourceRoute(
+	source: SourceInfo,
+	deviceSlug: string | undefined,
+	deviceSlugById?: Record<string, string>
+): string {
+	// A replica's root lives on its owning device; navigating with that
+	// device's slug is what routes the listing to the replicated index.
+	const slug = source.device_id
+		? deviceSlugById?.[source.device_id]
+		: deviceSlug;
+	if (source.data_type === 'filesystem' && source.root && slug) {
+		return routeForPath({
+			Physical: {device_slug: slug, path: source.root}
+		});
+	}
+
+	return `/sources/${source.id}`;
+}
+
+function isSeededDestination(item: SpaceItemType): boolean {
+	const type = item.item_type;
+	if (typeof type === 'string') {
+		return [
+			'Overview',
+			'Recents',
+			'Favorites',
+			'FileKinds',
+			'Sources',
+			'Redundancy',
+			'Analyzer'
+		].includes(type);
+	}
+
+	return 'Collection' in type && type.Collection.slug === 'screenshots';
+}
+
+function StoredItem({item, spaceId}: {item: SpaceItemType; spaceId: string}) {
+	const {loadPreferencesForSpaceItem} = useExplorer();
+	const {icon, label, path} = resolveItemMetadata(item);
+	const contextMenu = useSpaceItemContextMenu({item, path, spaceId});
+	const iconNode = item.resolved_file ? (
+		<Thumb file={item.resolved_file} size={16} className="shrink-0" />
+	) : icon.type === 'image' ? (
+		<img src={icon.icon} alt="" className="size-4" />
+	) : undefined;
+
+	return (
+		<SidebarItem
+			id={item.id}
+			label={label}
+			icon={icon.type === 'component' ? icon.icon : undefined}
+			iconNode={iconNode}
+			href={path ?? undefined}
+			disabled={!path}
+			onSelect={() => {
+				if (!path) return;
+				const [pathname, query] = path.split('?');
+				loadPreferencesForSpaceItem(
+					getSpaceItemKeyFromRoute(
+						pathname,
+						query === undefined ? '' : `?${query}`
+					)
+				);
+			}}
+			onContextMenu={(event) => contextMenu.show(event)}
+		/>
+	);
+}
+
+function StoredGroup({
+	group,
+	items,
+	spaceId
+}: {
+	group: SpaceGroup;
+	items: SpaceItemType[];
+	spaceId: string;
+}) {
+	const [collapsed, setCollapsed] = useState(group.is_collapsed);
+	const updateGroup = useLibraryMutation('spaces.update_group');
+
+	useEffect(() => setCollapsed(group.is_collapsed), [group.is_collapsed]);
+
+	const toggle = () => {
+		const next = !collapsed;
+		setCollapsed(next);
+		updateGroup
+			.mutateAsync({group_id: group.id, name: null, is_collapsed: next})
+			.catch(() => setCollapsed(!next));
+	};
+
+	return (
+		<SidebarSection
+			title={group.name}
+			collapsed={collapsed}
+			onToggle={toggle}
+		>
+			{items.map((item) => (
+				<StoredItem key={item.id} item={item} spaceId={spaceId} />
+			))}
+		</SidebarSection>
+	);
 }
 
 export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 	const client = useSpacedriveClient();
 	const platform = usePlatform();
 	const navigate = useNavigate();
+	const {loadPreferencesForSpaceItem} = useExplorer();
 	const {data: libraries} = useLibraries();
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
 		() => client.getCurrentLibraryId()
 	);
-	const [customizePanelOpen, setCustomizePanelOpen] = useState(false);
-
-	// Get sync and job status for icons
-	useSyncCount();
-	const {
-		activeJobCount,
-		hasRunningJobs,
-		jobs,
-		pause,
-		resume,
-		cancel,
-		getSpeedHistory
-	} = useJobsContext();
-
+	const [isPairingOpen, setIsPairingOpen] = useState(false);
+	const {activeJobCount, hasRunningJobs} = useJobsContext();
+	const {isSyncing} = useSyncCount();
 	const {currentSpaceId, setCurrentSpace} = useSidebarStore();
 	const {data: spacesData} = useSpaces();
-	const spaces = (spacesData as any)?.spaces as Space[] | undefined;
+	const spaces = spacesData?.spaces;
+	const currentSpace =
+		spaces?.find((space) => space.id === currentSpaceId) ?? spaces?.[0];
+	const {data: layout} = useSpaceLayout(currentSpace?.id ?? null);
 
-	// Listen for library changes from client and update local state
+	const {data: locationsData} = useNormalizedQuery<
+		LocationsListQueryInput,
+		LocationsListOutput
+	>({
+		query: 'locations.list',
+		input: null,
+		resourceType: 'location'
+	});
+	const locations = locationsData?.locations ?? [];
+	const {data: suggestedLocationsData} = useLibraryQuery({
+		type: 'locations.suggested',
+		input: null
+	});
+	const systemFolders = suggestedLocationsData?.locations ?? [];
+
+	const {data: sourcesData} = useLibraryQuery({
+		type: 'sources.list',
+		input: {data_type: null}
+	});
+	const sources: SourceInfo[] = sourcesData ? [...sourcesData] : [];
+
+	const {data: devicesData} = useNormalizedQuery<
+		{include_offline: boolean; include_details: boolean; show_paired: boolean},
+		Device[]
+	>({
+		query: 'devices.list',
+		// Paired devices come from the network registry, and replica source
+		// rows need their owning device's slug to route into the explorer.
+		input: {include_offline: true, include_details: false, show_paired: true},
+		resourceType: 'device'
+	});
+	const deviceSlug = devicesData?.find((device) => device.is_current)?.slug;
+	const deviceSlugById = Object.fromEntries(
+		(devicesData ?? []).map((device) => [device.id, device.slug])
+	);
+
 	useEffect(() => {
-		const handleLibraryChange = (newLibraryId: string) => {
-			setCurrentLibraryId(newLibraryId);
-		};
-
+		const handleLibraryChange = (libraryId: string) =>
+			setCurrentLibraryId(libraryId);
 		client.on('library-changed', handleLibraryChange);
-		return () => {
-			client.off('library-changed', handleLibraryChange);
-		};
+		return () => client.off('library-changed', handleLibraryChange);
 	}, [client]);
 
-	// Auto-select first library on mount if none selected
 	useEffect(() => {
 		if (libraries && libraries.length > 0 && !currentLibraryId) {
-			const firstLib = libraries[0];
-
-			// Set library ID via platform (syncs to all windows on Tauri)
+			const libraryId = libraries[0].id;
 			if (platform.setCurrentLibraryId) {
 				platform
-					.setCurrentLibraryId(firstLib.id)
-					.catch((err) =>
-						console.error('Failed to set library ID:', err)
+					.setCurrentLibraryId(libraryId)
+					.catch((error) =>
+						console.error('Failed to select library:', error)
 					);
 			} else {
-				// Web fallback - just update client
-				client.setCurrentLibrary(firstLib.id);
+				client.setCurrentLibrary(libraryId);
 			}
 		}
-	}, [libraries, currentLibraryId, client, platform]);
-
-	// Auto-select first space if none selected
-	const currentSpace =
-		spaces?.find((s) => s.id === currentSpaceId) ?? spaces?.[0];
+	}, [client, currentLibraryId, libraries, platform]);
 
 	useEffect(() => {
 		if (currentSpace && currentSpace.id !== currentSpaceId) {
@@ -459,8 +244,58 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 		}
 	}, [currentSpace, currentSpaceId, setCurrentSpace]);
 
-	const {data: layoutData} = useSpaceLayout(currentSpace?.id ?? null);
-	const layout = layoutData as { space_items: SpaceItemType[]; groups: Array<{ group: SpaceGroupType; items: SpaceItemType[] }> } | undefined;
+	const switchLibrary = (libraryId: string) => {
+		if (platform.setCurrentLibraryId) {
+			platform
+				.setCurrentLibraryId(libraryId)
+				.catch((error) =>
+					console.error('Failed to switch library:', error)
+				);
+		} else {
+			client.setCurrentLibrary(libraryId);
+		}
+	};
+
+	const openSettings = (page: 'general' | 'library') => {
+		platform
+			.showWindow?.({type: 'Settings', page})
+			.catch((error) => console.error('Failed to open settings:', error));
+	};
+
+	const occupiedPlaceRoutes = useMemo(
+		() =>
+			new Set(
+				[
+					...locations.map((location) => location.sd_path),
+					...systemFolders.map((folder) => folder.sd_path)
+				].map((path) => routeForPath(path))
+			),
+		[locations, systemFolders]
+	);
+	const visibleSources = sources.filter(
+		(source) =>
+			!occupiedPlaceRoutes.has(
+				sourceRoute(source, deviceSlug, deviceSlugById)
+			)
+	);
+	const photoSource = sources.find((source) => source.data_type === 'photo');
+	const otherSources = visibleSources.filter(
+		(source) => source.id !== photoSource?.id
+	);
+	const customRootItems =
+		layout?.space_items.filter((item) => !isSeededDestination(item)) ?? [];
+	const customGroups =
+		layout?.groups.filter(
+			({group, items}) =>
+				(group.group_type === 'Custom' ||
+					group.group_type === 'QuickAccess') &&
+				items.length > 0
+		) ?? [];
+	const hasPlaces =
+		systemFolders.length > 0 ||
+		locations.length > 0 ||
+		otherSources.length > 0;
+	const activityCount = activeJobCount > 0 ? activeJobCount : undefined;
 
 	return (
 		<div className="flex h-full w-[220px] min-w-[176px] max-w-[300px] flex-col bg-transparent p-2">
@@ -473,127 +308,263 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 				)}
 			>
 				<nav
+					aria-label="Library"
 					className={clsx(
-						"relative z-[51] flex h-full flex-col gap-2.5 p-2.5 pb-2",
-						platform.platform === "tauri" && "pt-[43px]",
+						'relative z-[51] flex h-full flex-col p-2.5 pb-2',
+						platform.platform === 'tauri' && 'pt-[43px]'
 					)}
 				>
-					{/* Space Switcher */}
-					<SpaceSwitcher
+					<LibrarySwitcher
+						libraries={libraries}
+						currentLibraryId={currentLibraryId}
 						spaces={spaces}
 						currentSpace={currentSpace}
-						onSwitch={setCurrentSpace}
+						onLibrarySwitch={switchLibrary}
+						onSpaceSwitch={setCurrentSpace}
+						onManageStorage={() => navigate('/sources')}
+						onPairDevice={() => setIsPairingOpen(true)}
+						onOpenSettings={() => openSettings('library')}
 					/>
 
-					{/* Scrollable Content */}
-					<div className="no-scrollbar mask-fade-out mt-3 flex grow flex-col space-y-5 overflow-x-hidden overflow-y-scroll pb-10">
-						{/* Space-level items (pinned shortcuts) */}
-						{layout?.space_items &&
-							layout.space_items.length > 0 && (
-								<SortableContext
-									items={layout.space_items.map(
-										(item) => item.id
-									)}
-									strategy={verticalListSortingStrategy}
-								>
-									<div className="space-y-0.5">
-										{layout.space_items.map(
-											(item, index) => (
-												<SpaceItem
-													key={item.id}
-													item={item}
-													isLastItem={
-														index ===
-														layout.space_items
-															.length -
-															1
-													}
-													allowInsertion={true}
-													spaceId={currentSpace?.id}
-													groupId={null}
-													sortable={true}
-												/>
-											)
-										)}
-									</div>
-								</SortableContext>
+					<div className="no-scrollbar mask-fade-out mt-4 flex min-h-0 grow flex-col gap-4 overflow-y-auto overflow-x-hidden pb-8">
+						<SidebarSection>
+							<SidebarItem
+								id="home"
+								label="Home"
+								icon={House}
+								href="/"
+							/>
+							<SidebarItem
+								id="recents"
+								label="Recents"
+								icon={Clock}
+								href="/recents"
+							/>
+							{photoSource && (
+								<SidebarItem
+									id="photos"
+									label="Photos"
+									icon={Images}
+									href={`/sources/${photoSource.id}`}
+								/>
 							)}
+							<SidebarItem
+								id="screenshots"
+								label="Screenshots"
+								icon={Camera}
+								href="/collection/screenshots"
+							/>
+							<SidebarItem
+								id="storage"
+								label="Storage"
+								icon={HardDrives}
+								href="/sources"
+								activePathPrefixes={[
+									'/sources/adapters',
+									'/analyzer'
+								]}
+							/>
+							<SidebarItem
+								id="protection"
+								label="Protection"
+								icon={ShieldCheck}
+								href="/redundancy"
+								activePathPrefixes={['/redundancy']}
+							/>
+						</SidebarSection>
 
-						{/* Groups with space-level drop zones between them */}
-						{layout?.groups && (
-							<SortableContext
-								items={layout.groups.map(({group}) => group.id)}
-								strategy={verticalListSortingStrategy}
-							>
-								{layout.groups.map(({group, items}, index) => (
-									<SpaceGroupWithDropZone
-										key={group.id}
-										group={group}
-										items={items}
-										spaceId={currentSpace?.id}
-										isFirst={index === 0}
+						{hasPlaces && (
+							<SidebarSection title="Places">
+								{systemFolders.map((folder) => {
+									const href = routeForPath(folder.sd_path);
+									return (
+										<SidebarItem
+											key={href}
+											id={`system-folder-${folder.name.toLowerCase()}`}
+											label={folder.name}
+											iconNode={
+												<img
+													src={
+														folder.name === 'Home'
+															? HomeIcon
+															: FolderIcon
+													}
+													alt=""
+													className="size-[18px] max-w-none"
+												/>
+											}
+											href={href}
+											title={folder.path}
+											onSelect={() =>
+												loadPreferencesForSpaceItem(
+													getSpaceItemKeyFromRoute(
+														href.split('?')[0],
+														`?${href.split('?')[1]}`
+													)
+												)
+											}
+										/>
+									);
+								})}
+								{locations.map((location) => {
+									const href = routeForPath(location.sd_path);
+									return (
+										<SidebarItem
+											key={location.id}
+											id={`location-${location.id}`}
+											label={location.name}
+											iconNode={
+												<img
+													src={
+														location.name.toLowerCase() ===
+														'home'
+															? HomeIcon
+															: FolderIcon
+													}
+													alt=""
+													className="size-[18px] max-w-none"
+												/>
+											}
+											href={href}
+											tone={
+												location.is_available
+													? 'default'
+													: 'muted'
+											}
+											disabled={!location.is_available}
+											badge={
+												location.is_available
+													? undefined
+													: 'Offline'
+											}
+											title={location.name}
+											onSelect={() => {
+												const [pathname, query] =
+													href.split('?');
+												loadPreferencesForSpaceItem(
+													getSpaceItemKeyFromRoute(
+														pathname,
+														query === undefined
+															? ''
+															: `?${query}`
+													)
+												);
+											}}
+										/>
+									);
+								})}
+								{otherSources.map((source) => {
+									const href = sourceRoute(
+										source,
+										deviceSlug,
+										deviceSlugById
+									);
+									return (
+										<SidebarItem
+											key={source.id}
+											id={`source-${source.id}`}
+											label={source.name}
+											icon={
+												source.data_type ===
+												'filesystem'
+													? HardDrive
+													: Database
+											}
+											href={href}
+											tone={
+												source.attached
+													? 'default'
+													: 'muted'
+											}
+											badge={
+												source.attached
+													? undefined
+													: 'Offline'
+											}
+											badgeLabel={
+												source.attached
+													? undefined
+													: `${source.name} is offline`
+											}
+											title={source.root ?? source.name}
+											onSelect={() => {
+												const [pathname, query] =
+													href.split('?');
+												loadPreferencesForSpaceItem(
+													getSpaceItemKeyFromRoute(
+														pathname,
+														query === undefined
+															? ''
+															: `?${query}`
+													)
+												);
+											}}
+										/>
+									);
+								})}
+							</SidebarSection>
+						)}
+
+						{currentSpace && customRootItems.length > 0 && (
+							<SidebarSection title="Pinned">
+								{customRootItems.map((item) => (
+									<StoredItem
+										key={item.id}
+										item={item}
+										spaceId={currentSpace.id}
 									/>
 								))}
-							</SortableContext>
+							</SidebarSection>
 						)}
 
-						{/* macOS import affordances, visible before any data exists */}
-						<ImportGroup />
-
-						{/* Add Group Button */}
-						{currentSpace && (
-							<AddGroupButton spaceId={currentSpace.id} />
-						)}
+						{currentSpace &&
+							customGroups.map(({group, items}) => (
+								<StoredGroup
+									key={group.id}
+									group={group}
+									items={items}
+									spaceId={currentSpace.id}
+								/>
+							))}
 					</div>
 
-					{/* Sync Monitor, Job Manager, Customize & Settings (pinned to bottom) */}
-					<div className="flex items-center justify-between">
-						<div className="flex items-center gap-2">
-							<SyncButton />
-							<JobsButton
-								activeJobCount={activeJobCount}
-								hasRunningJobs={hasRunningJobs}
-								jobs={jobs}
-								pause={pause}
-								resume={resume}
-								cancel={cancel}
-								getSpeedHistory={getSpeedHistory}
-								navigate={navigate}
-							/>
-							<CircleButton
-								icon={Palette}
-								title="Customize"
-								onClick={() => setCustomizePanelOpen(true)}
-							/>
-						</div>
-						<CircleButton
+					<div className="border-sidebar-line/50 space-y-0.5 border-t pt-2">
+						<SidebarItem
+							id="activity"
+							label="Activity"
+							iconNode={
+								hasRunningJobs || isSyncing ? (
+									<CircleNotch
+										size={16}
+										weight="bold"
+										className="animate-spin"
+									/>
+								) : (
+									<ListBullets size={16} weight="bold" />
+								)
+							}
+							href="/activity"
+							activePaths={['/activity', '/jobs']}
+							badge={activityCount}
+							badgeLabel={
+								activityCount === undefined
+									? undefined
+									: `${activityCount} active jobs`
+							}
+						/>
+						<SidebarItem
+							id="settings"
+							label="Settings"
 							icon={GearSix}
-							title="Settings"
-							onClick={() => {
-								if (platform.showWindow) {
-									platform
-										.showWindow({
-											type: 'Settings',
-											page: 'general'
-										})
-										.catch((err) =>
-											console.error(
-												'Failed to open settings:',
-												err
-											)
-										);
-								}
-							}}
+							onSelect={() => openSettings('general')}
 						/>
 					</div>
 				</nav>
 			</div>
 
-			{/* Customization Panel */}
-			<SpaceCustomizationPanel
-				isOpen={customizePanelOpen}
-				onClose={() => setCustomizePanelOpen(false)}
-				spaceId={currentSpace?.id ?? null}
+			<PairingModal
+				isOpen={isPairingOpen}
+				onClose={() => setIsPairingOpen(false)}
 			/>
 		</div>
 	);
