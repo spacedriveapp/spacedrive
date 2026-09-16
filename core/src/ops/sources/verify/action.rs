@@ -64,7 +64,10 @@ impl LibraryAction for VerifySourceAction {
 			})?;
 
 		let outstanding = match context.ephemeral_cache().store_for(&root).await {
-			Some(store) => store.files_needing_verification_count().await,
+			Some(store) => store
+				.files_needing_verification_count()
+				.await
+				.map_err(|e| ActionError::Internal(e.to_string()))?,
 			None => 0,
 		};
 

@@ -96,9 +96,12 @@ impl JobHandler for VerifyContentJob {
 		};
 
 		// The sampled tier may still be landing; verify what has landed.
-		store.flush().await;
+		store.flush().await.map_err(|e| e.to_string())?;
 
-		let outstanding = store.files_needing_verification_count().await;
+		let outstanding = store
+			.files_needing_verification_count()
+			.await
+			.map_err(|e| e.to_string())?;
 		ctx.log(format!("{outstanding} shared-content files to verify"));
 
 		let mut verified = 0u64;
@@ -108,7 +111,10 @@ impl JobHandler for VerifyContentJob {
 		loop {
 			ctx.check_interrupt().await?;
 
-			let batch = store.files_needing_verification(BATCH_SIZE).await;
+			let batch = store
+				.files_needing_verification(BATCH_SIZE)
+				.await
+				.map_err(|e| e.to_string())?;
 			if batch.is_empty() {
 				break;
 			}
@@ -122,7 +128,7 @@ impl JobHandler for VerifyContentJob {
 			store.content_unreadable(failures).await;
 			// Wait for this batch to land before claiming the next, so the
 			// pending query sees it and the loop always advances.
-			store.flush().await;
+			store.flush().await.map_err(|e| e.to_string())?;
 
 			ctx.progress(Progress::generic(GenericProgress::new(
 				if outstanding > 0 {
@@ -138,7 +144,9 @@ impl JobHandler for VerifyContentJob {
 			)));
 		}
 
-		store.flush().await;
+		// Verification results are queued behind the same writer as everything
+		// else; the job succeeds only once they have durably landed.
+		store.flush().await.map_err(|e| e.to_string())?;
 
 		ctx.log(format!(
 			"Verified {verified} files ({bytes_read} bytes read), {unreadable} unreadable"

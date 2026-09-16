@@ -127,9 +127,12 @@ impl JobHandler for ContentIdentityJob {
 		};
 
 		// The walk that found these files may still be committing them.
-		store.flush().await;
+		store.flush().await.map_err(|e| e.to_string())?;
 
-		let outstanding = store.files_needing_content_count().await;
+		let outstanding = store
+			.files_needing_content_count()
+			.await
+			.map_err(|e| e.to_string())?;
 		ctx.log(format!("{outstanding} files to identify"));
 
 		let mut identified = 0u64;
@@ -138,7 +141,10 @@ impl JobHandler for ContentIdentityJob {
 		loop {
 			ctx.check_interrupt().await?;
 
-			let batch = store.files_needing_content(BATCH_SIZE).await;
+			let batch = store
+				.files_needing_content(BATCH_SIZE)
+				.await
+				.map_err(|e| e.to_string())?;
 			if batch.is_empty() {
 				break;
 			}
@@ -155,7 +161,7 @@ impl JobHandler for ContentIdentityJob {
 			// Wait for this batch to land before claiming the next. The
 			// pending query reads the database, and a query that outraces the
 			// writer hands back the same files forever.
-			store.flush().await;
+			store.flush().await.map_err(|e| e.to_string())?;
 
 			ctx.progress(Progress::generic(GenericProgress::new(
 				if outstanding > 0 {
@@ -173,7 +179,7 @@ impl JobHandler for ContentIdentityJob {
 
 		// Content identities are queued behind the same writer as everything
 		// else, so the job is not done until they have landed.
-		store.flush().await;
+		store.flush().await.map_err(|e| e.to_string())?;
 
 		ctx.log(format!(
 			"Identified {identified} files, {unreadable} unreadable"

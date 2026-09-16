@@ -68,8 +68,9 @@ enum Ingest {
 	Identified(Vec<(Uuid, ContentIdentity)>),
 	/// The bytes behind some records could not be read, and why.
 	Unreadable(Vec<(Uuid, String)>),
-	/// Commit what is pending and answer.
-	Flush(oneshot::Sender<()>),
+	/// Commit what is pending and answer with how many writes have failed to
+	/// land since the previous flush barrier. Zero is the only success.
+	Flush(oneshot::Sender<u64>),
 }
 
 /// What a source's store holds, as the store counts it.
@@ -270,23 +271,25 @@ impl SourceStore {
 	/// Absolute paths, because the caller is going to open them. The store
 	/// addresses everything relative to the root so that a drive remounting
 	/// somewhere else does not invalidate the queue.
-	pub async fn files_needing_content(&self, batch_size: usize) -> Vec<(Uuid, PathBuf, u64)> {
-		match sd_store::files_needing_content(self.db.pool(), batch_size).await {
-			Ok(pending) => pending
-				.into_iter()
-				.map(|file| {
-					(
-						file.uuid,
-						self.root.join(&file.external_id),
-						file.size.max(0) as u64,
-					)
-				})
-				.collect(),
-			Err(error) => {
-				tracing::warn!(source = %self.id, %error, "could not list files needing content");
-				Vec::new()
-			}
-		}
+	pub async fn files_needing_content(
+		&self,
+		batch_size: usize,
+	) -> Result<Vec<(Uuid, PathBuf, u64)>> {
+		// A failed read is an error, never an empty vector: a hashing job
+		// reads emptiness as a drained queue and reports success.
+		let pending = sd_store::files_needing_content(self.db.pool(), batch_size)
+			.await
+			.with_context(|| format!("list files needing content in source {}", self.id))?;
+		Ok(pending
+			.into_iter()
+			.map(|file| {
+				(
+					file.uuid,
+					self.root.join(&file.external_id),
+					file.size.max(0) as u64,
+				)
+			})
+			.collect())
 	}
 
 	/// Files this source holds more than one copy of, largest first.
@@ -345,40 +348,39 @@ impl SourceStore {
 	pub async fn files_needing_verification(
 		&self,
 		batch_size: usize,
-	) -> Vec<(Uuid, PathBuf, u64, Option<String>)> {
-		match sd_store::files_needing_verification(self.db.pool(), batch_size).await {
-			Ok(pending) => pending
-				.into_iter()
-				.map(|file| {
-					(
-						file.uuid,
-						self.root.join(&file.external_id),
-						file.size.max(0) as u64,
-						file.sampled_hash,
-					)
-				})
-				.collect(),
-			Err(error) => {
-				tracing::warn!(source = %self.id, %error, "could not list files needing verification");
-				Vec::new()
-			}
-		}
+	) -> Result<Vec<(Uuid, PathBuf, u64, Option<String>)>> {
+		// A failed read is an error, never an empty vector: a verification
+		// job reads emptiness as a drained queue and reports success.
+		let pending = sd_store::files_needing_verification(self.db.pool(), batch_size)
+			.await
+			.with_context(|| format!("list files needing verification in source {}", self.id))?;
+		Ok(pending
+			.into_iter()
+			.map(|file| {
+				(
+					file.uuid,
+					self.root.join(&file.external_id),
+					file.size.max(0) as u64,
+					file.sampled_hash,
+				)
+			})
+			.collect())
 	}
 
 	/// How many shared-content copies still carry only a sampled hash.
-	pub async fn files_needing_verification_count(&self) -> u64 {
-		sd_store::count_files_needing_verification(self.db.pool())
+	pub async fn files_needing_verification_count(&self) -> Result<u64> {
+		let count = sd_store::count_files_needing_verification(self.db.pool())
 			.await
-			.map(|count| count.max(0) as u64)
-			.unwrap_or(0)
+			.with_context(|| format!("count files needing verification in source {}", self.id))?;
+		Ok(count.max(0) as u64)
 	}
 
 	/// How many files are still waiting to be identified.
-	pub async fn files_needing_content_count(&self) -> u64 {
-		sd_store::count_files_needing_content(self.db.pool())
+	pub async fn files_needing_content_count(&self) -> Result<u64> {
+		let count = sd_store::count_files_needing_content(self.db.pool())
 			.await
-			.unwrap_or(0)
-			.max(0) as u64
+			.with_context(|| format!("count files needing content in source {}", self.id))?;
+		Ok(count.max(0) as u64)
 	}
 
 	/// Record what the bytes behind these records turned out to be.
@@ -410,7 +412,11 @@ impl SourceStore {
 	/// reorganised: the live store follows the disk, and the next sweep
 	/// forgets whatever a cleanup deleted. The frozen copy does not.
 	pub async fn freeze_into(&self, dir: &Path) -> Result<PathBuf> {
-		self.flush().await;
+		// A freeze that proceeds past a failed flush certifies a store that
+		// silently lost writes; the archival copy must refuse instead.
+		self.flush()
+			.await
+			.context("source store did not commit cleanly; refusing to freeze")?;
 
 		std::fs::create_dir_all(dir)
 			.with_context(|| format!("create freeze directory {}", dir.display()))?;
@@ -440,7 +446,11 @@ impl SourceStore {
 	/// maps the whole drive and a source is a scope over part of it. Asking the
 	/// partition would report a nested source as owning everything around it.
 	pub async fn counts(&self) -> Option<SourceCounts> {
-		self.flush().await;
+		// Committed rows still answer honestly when the writer is unhealthy;
+		// the failure is logged rather than hiding the counts that did land.
+		if let Err(error) = self.flush().await {
+			tracing::warn!(source = %self.id, %error, "counts read without a clean flush");
+		}
 		let row: (i64, i64, Option<i64>, i64, Option<i64>, Option<i64>) = sqlx::query_as(
 			"SELECT (SELECT COUNT(*) FROM record),
 			        (SELECT COUNT(*) FROM record WHERE type = 'directory'),
@@ -466,10 +476,25 @@ impl SourceStore {
 	}
 
 	/// Commit everything queued so far and wait for it to land.
-	pub async fn flush(&self) {
+	///
+	/// This is the durability barrier: success means every write accepted
+	/// before it committed. A dead writer or a failed commit is an error,
+	/// never silence, because a job that flushes and hears nothing would
+	/// report queue drainage as durable success.
+	pub async fn flush(&self) -> Result<()> {
 		let (done, wait) = oneshot::channel();
 		self.send(Ingest::Flush(done)).await;
-		let _ = wait.await;
+		match wait.await {
+			Ok(0) => Ok(()),
+			Ok(failed) => anyhow::bail!(
+				"{failed} write(s) failed to commit in source store {}",
+				self.id
+			),
+			Err(_) => anyhow::bail!(
+				"source store {} writer is gone; queued writes are not durable",
+				self.id
+			),
+		}
 	}
 
 	async fn send(&self, ingest: Ingest) {
@@ -564,6 +589,9 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 	let mut writes: Vec<FileWrite> = Vec::with_capacity(BATCH_SIZE);
 	let mut removals: Vec<Uuid> = Vec::new();
 	let mut renames: Vec<SubtreeRename> = Vec::new();
+	// Writes that failed to land since the last flush barrier. The next
+	// flush reports them so no job can mistake drainage for durability.
+	let mut failed_since_flush: u64 = 0;
 
 	loop {
 		// A partial batch waits out the linger; an empty one waits forever, so
@@ -574,14 +602,22 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			match tokio::time::timeout(BATCH_LINGER, rx.recv()).await {
 				Ok(next) => next,
 				Err(_) => {
-					commit(&db, &mut writes, &mut removals, &mut renames).await;
+					failed_since_flush +=
+						commit(&db, &mut writes, &mut removals, &mut renames).await;
 					continue;
 				}
 			}
 		};
 
 		let Some(ingest) = next else {
-			commit(&db, &mut writes, &mut removals, &mut renames).await;
+			let failed =
+				failed_since_flush + commit(&db, &mut writes, &mut removals, &mut renames).await;
+			if failed > 0 {
+				tracing::error!(
+					failed,
+					"source store writer exited with writes that never landed"
+				);
+			}
 			return;
 		};
 
@@ -651,41 +687,45 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 			Ingest::BeginSweep => {
 				// A sweep's verdict is "everything this walk did not see", so
 				// anything still pending has to count as seen before it opens.
-				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
 				ledger.begin_sweep();
 			}
 			Ingest::FinishSweep { unreachable } => {
 				removals.extend(ledger.finish_sweep(&unreachable));
-				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
 			}
 			Ingest::Identified(identities) => {
 				// Ordered behind whatever is staged: a record has to exist
 				// before its content can point at it, and the batch that
 				// created it may still be sitting here.
-				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
 				if let Err(error) = db.set_content_identities(&identities).await {
 					tracing::error!(%error, "content identities failed to land");
+					failed_since_flush += identities.len() as u64;
 				}
 			}
 			Ingest::Unreadable(failures) => {
-				commit(&db, &mut writes, &mut removals, &mut renames).await;
+				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
 				if let Err(error) = sd_store::mark_content_unreadable(db.pool(), &failures).await {
 					tracing::error!(%error, "content errors failed to land");
+					failed_since_flush += failures.len() as u64;
 				}
 			}
 			Ingest::Flush(done) => {
-				commit(&db, &mut writes, &mut removals, &mut renames).await;
-				let _ = done.send(());
+				failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
+				let _ = done.send(failed_since_flush);
+				failed_since_flush = 0;
 			}
 		}
 
 		if writes.len() >= BATCH_SIZE {
-			commit(&db, &mut writes, &mut removals, &mut renames).await;
+			failed_since_flush += commit(&db, &mut writes, &mut removals, &mut renames).await;
 		}
 	}
 }
 
-/// Commit a batch, and drain it either way.
+/// Commit a batch, and drain it either way. Returns how many writes failed
+/// to land, so the flush barrier can refuse to call the pass durable.
 ///
 /// A failed batch is dropped rather than retried: the ledger has already bound
 /// what it held, so replaying it would write rows the next walk resolves as
@@ -696,11 +736,12 @@ async fn commit(
 	writes: &mut Vec<FileWrite>,
 	removals: &mut Vec<Uuid>,
 	renames: &mut Vec<SubtreeRename>,
-) {
+) -> u64 {
 	if writes.is_empty() && removals.is_empty() && renames.is_empty() {
-		return;
+		return 0;
 	}
 
+	let mut failed: u64 = 0;
 	match db.apply_files(writes, removals, renames, None).await {
 		Ok(applied) => tracing::trace!(applied, removed = removals.len(), "source store batch"),
 		Err(error) => {
@@ -712,6 +753,7 @@ async fn commit(
 			tracing::error!(%error, rows = writes.len(), "source store batch failed; salvaging row by row");
 			if let Err(error) = db.apply_files(&[], removals, renames, None).await {
 				tracing::error!(%error, "removals and renames failed to land");
+				failed += (removals.len() + renames.len()) as u64;
 			}
 			for write in writes.iter() {
 				if let Err(error) = db
@@ -726,6 +768,7 @@ async fn commit(
 						%error,
 						"row failed to land"
 					);
+					failed += 1;
 				}
 			}
 		}
@@ -734,6 +777,7 @@ async fn commit(
 	writes.clear();
 	removals.clear();
 	renames.clear();
+	failed
 }
 
 #[cfg(test)]
@@ -835,7 +879,7 @@ mod tests {
 		/// Every record's path. Only directories store one, so a file's is
 		/// rebuilt from its parent's the way anything reading this store has to.
 		async fn paths(&self) -> Vec<String> {
-			self.store.flush().await;
+			self.store.flush().await.expect("flush");
 			sqlx::query_scalar(&format!("SELECT {PATH_OF_RECORD} ORDER BY 1"))
 				.fetch_all(self.store.db().pool())
 				.await
@@ -843,7 +887,7 @@ mod tests {
 		}
 
 		async fn uuid_at(&self, path: &str) -> Option<Uuid> {
-			self.store.flush().await;
+			self.store.flush().await.expect("flush");
 			self.store.db().resolve_path(path).await.expect("query")
 		}
 	}
@@ -923,7 +967,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.expect("identified");
 		assert_eq!(identified, mapped, "the store minted a second identity");
 
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 		let stored = fixture
 			.store
 			.db()
@@ -932,6 +976,36 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.expect("query")
 			.expect("record");
 		assert_eq!(stored, mapped, "the record and the map name it differently");
+	}
+
+	/// The flush barrier is only a barrier if it can say no. A commit that
+	/// fails after the ledger already bound its rows must surface at the next
+	/// flush, or a hashing job reads the drained queue as durable success.
+	#[tokio::test]
+	async fn a_failed_commit_surfaces_at_the_flush_barrier() {
+		let mut fixture = Fixture::new().await;
+		fixture.create("fine.txt", b"lands").await;
+		fixture.store.flush().await.expect("healthy flush");
+
+		// The storage gives out from under the writer.
+		sqlx::raw_sql("DROP TABLE facet_file; DROP TABLE record;")
+			.execute(fixture.store.db().pool())
+			.await
+			.expect("break the store");
+
+		fixture.create("lost.txt", b"cannot land").await;
+		assert!(
+			fixture.store.flush().await.is_err(),
+			"a flush over a failed commit must not report success"
+		);
+
+		// The barrier resets: a flush with nothing new pending is clean again,
+		// so one historical failure does not poison every later job.
+		assert!(fixture.store.flush().await.is_ok());
+
+		// And the pending queries refuse rather than answering with emptiness.
+		assert!(fixture.store.files_needing_content(10).await.is_err());
+		assert!(fixture.store.files_needing_content_count().await.is_err());
 	}
 
 	/// A walk hands a batch over in whatever order discovery produced it, and
@@ -962,7 +1036,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			identities.iter().all(Option::is_some),
 			"every observation resolves to a record"
 		);
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		let db = fixture.store.db();
 		let pool = db.pool();
@@ -1011,9 +1085,13 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let mut fixture = Fixture::new().await;
 		let deep = fixture.create("photos/holiday/one.jpg", b"jpeg").await;
 		let shallow = fixture.create("notes.txt", b"hello").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let mut pending = fixture.store.files_needing_content(10).await;
+		let mut pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		pending.sort_by(|a, b| a.1.cmp(&b.1));
 
 		// Directories have no bytes to identify, so only the two files are
@@ -1025,16 +1103,27 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				.collect::<Vec<_>>(),
 			vec![shallow, deep]
 		);
-		assert_eq!(fixture.store.files_needing_content_count().await, 2);
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			2
+		);
 	}
 
 	#[tokio::test]
 	async fn an_identified_file_leaves_the_queue() {
 		let mut fixture = Fixture::new().await;
 		fixture.create("notes.txt", b"hello").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		assert_eq!(pending.len(), 1);
 
 		fixture
@@ -1049,10 +1138,22 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				},
 			)])
 			.await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		assert!(fixture.store.files_needing_content(10).await.is_empty());
-		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+		assert!(fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending")
+			.is_empty());
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			0
+		);
 	}
 
 	/// An unreadable file leaves the queue with its reason recorded, so a
@@ -1063,9 +1164,13 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let mut fixture = Fixture::new().await;
 		fixture.create("locked.bin", b"secret").await;
 		fixture.create("open.bin", b"public").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		assert_eq!(pending.len(), 2);
 		let locked = pending
 			.iter()
@@ -1077,12 +1182,23 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.store
 			.content_unreadable(vec![(locked, "permission denied".to_string())])
 			.await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		assert_eq!(pending.len(), 1, "the readable file is still waiting");
 		assert!(pending[0].1.ends_with("open.bin"));
-		assert_eq!(fixture.store.files_needing_content_count().await, 1);
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			1
+		);
 
 		let error: Option<String> = sqlx::query_scalar(
 			"SELECT content_error FROM facet_file f
@@ -1101,21 +1217,36 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 	async fn a_changed_file_returns_to_the_queue_after_being_unreadable() {
 		let mut fixture = Fixture::new().await;
 		fixture.create("flaky.bin", b"v1").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		fixture
 			.store
 			.content_unreadable(vec![(pending[0].0, "io error".to_string())])
 			.await;
-		fixture.store.flush().await;
-		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+		fixture.store.flush().await.expect("flush");
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			0
+		);
 
 		fixture.change("flaky.bin", b"v2 with more bytes").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		assert_eq!(
-			fixture.store.files_needing_content_count().await,
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
 			1,
 			"new bytes deserve a fresh attempt at reading them"
 		);
@@ -1134,14 +1265,22 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				.create(&format!("files/f{i:04}.bin"), format!("{i}").as_bytes())
 				.await;
 		}
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let outstanding = fixture.store.files_needing_content_count().await;
+		let outstanding = fixture
+			.store
+			.files_needing_content_count()
+			.await
+			.expect("count");
 		assert_eq!(outstanding, 700);
 
 		let mut passes = 0;
 		loop {
-			let batch = fixture.store.files_needing_content(256).await;
+			let batch = fixture
+				.store
+				.files_needing_content(256)
+				.await
+				.expect("pending");
 			if batch.is_empty() {
 				break;
 			}
@@ -1165,11 +1304,18 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				})
 				.collect();
 			fixture.store.identified(identities).await;
-			fixture.store.flush().await;
+			fixture.store.flush().await.expect("flush");
 		}
 
 		assert!(passes <= 4, "700 files at 256 a batch is three claims");
-		assert_eq!(fixture.store.files_needing_content_count().await, 0);
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_content_count()
+				.await
+				.expect("count"),
+			0
+		);
 	}
 
 	/// Verification claims exactly the shared-content files, and landing an
@@ -1182,10 +1328,14 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		fixture.create("a/copy1.bin", b"same bytes").await;
 		fixture.create("b/copy2.bin", b"same bytes").await;
 		fixture.create("unique.bin", b"one of a kind").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		// The sampled tier lands first, as indexing would leave it.
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		let identified = pending
 			.iter()
 			.map(|(uuid, path, size)| {
@@ -1206,7 +1356,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			})
 			.collect();
 		fixture.store.identified(identified).await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		let candidate_uuid: Uuid =
 			sqlx::query_scalar("SELECT uuid FROM content WHERE sampled_hash = 'shared-hash'")
@@ -1216,8 +1366,19 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		assert_eq!(candidate_uuid, sd_store::uuid_for("shared-hash"));
 
 		// Only the two copies are claimed; the unique file is not.
-		let claims = fixture.store.files_needing_verification(10).await;
-		assert_eq!(fixture.store.files_needing_verification_count().await, 2);
+		let claims = fixture
+			.store
+			.files_needing_verification(10)
+			.await
+			.expect("pending");
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_verification_count()
+				.await
+				.expect("count"),
+			2
+		);
 		assert_eq!(claims.len(), 2);
 		assert!(claims.iter().all(|(_, path, _, sampled)| {
 			!path.ends_with("unique.bin") && sampled.as_deref() == Some("shared-hash")
@@ -1239,9 +1400,16 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			})
 			.collect();
 		fixture.store.identified(verdicts).await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		assert_eq!(fixture.store.files_needing_verification_count().await, 0);
+		assert_eq!(
+			fixture
+				.store
+				.files_needing_verification_count()
+				.await
+				.expect("count"),
+			0
+		);
 		let (confirmed_uuid, rows): (Uuid, i64) = sqlx::query_as(
 			"SELECT uuid, (SELECT COUNT(*) FROM content) FROM content WHERE sampled_hash = 'shared-hash'",
 		)
@@ -1312,9 +1480,13 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let one = fixture.create("photos/holiday.jpg", b"same").await;
 		let two = fixture.create("backup/renamed.jpg", b"same").await;
 		fixture.create("notes.txt", b"different").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		let identity = |hash: &str, size| ContentIdentity {
 			sampled_hash: Some(hash.to_string()),
 			integrity_hash: None,
@@ -1333,7 +1505,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			})
 			.collect();
 		fixture.store.identified(identified).await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		let duplicates = fixture.store.duplicates(0, 10).await;
 		let mut paths: Vec<_> = duplicates.iter().map(|copy| copy.path.clone()).collect();
@@ -1353,9 +1525,13 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let mut fixture = Fixture::new().await;
 		fixture.create("one.bin", b"same").await;
 		fixture.create("two.bin", b"same").await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
-		let pending = fixture.store.files_needing_content(10).await;
+		let pending = fixture
+			.store
+			.files_needing_content(10)
+			.await
+			.expect("pending");
 		assert_eq!(pending.len(), 2);
 
 		let identity = |uuid| {
@@ -1373,7 +1549,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 			.store
 			.identified(vec![identity(pending[0].0), identity(pending[1].0)])
 			.await;
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 
 		let rows: (i64, i64) = sqlx::query_as(
 			"SELECT (SELECT COUNT(*) FROM content),
@@ -1404,7 +1580,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		let mut fixture = Fixture::new().await;
 		let old = fixture.create("draft.txt", b"hello").await;
 		let uuid: Uuid = {
-			fixture.store.flush().await;
+			fixture.store.flush().await.expect("flush");
 			sqlx::query_scalar("SELECT uuid FROM record")
 				.fetch_one(fixture.store.db().pool())
 				.await
@@ -1487,7 +1663,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				.expect("the arena identified it")
 		};
 
-		fixture.store.flush().await;
+		fixture.store.flush().await.expect("flush");
 		let in_store: Uuid = sqlx::query_scalar(&format!(
 			"SELECT r.uuid FROM record r
 			   LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid
