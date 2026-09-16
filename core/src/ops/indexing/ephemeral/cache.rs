@@ -738,6 +738,14 @@ impl EphemeralIndexCache {
 		}
 	}
 
+	/// The mount point of the volume a path resolves to. A source whose root
+	/// differs from this is nested inside its volume, which is what decides
+	/// whether its replica travels as its own database or as the volume's
+	/// arena snapshot.
+	pub fn volume_root_of(&self, path: &Path) -> Option<PathBuf> {
+		self.locate(path).map(|resolved| resolved.volume_root)
+	}
+
 	/// Whether a loaded arena can answer a whole-scope query at this path:
 	/// its partition restored from a snapshot, or a walk this session covers
 	/// the path. A partition that merely exists is not an answer — an empty

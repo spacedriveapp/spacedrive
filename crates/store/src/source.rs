@@ -182,12 +182,18 @@ impl SourceManager {
 	/// applies: an unaddressable store is refused intact rather than read
 	/// through a shape it does not have.
 	pub async fn open_read_only(&self, source_id: &str) -> Result<SourceDb> {
-		let db_path = self.sources_dir.join(source_id).join("data.db");
+		Self::open_file_read_only(&self.sources_dir.join(source_id).join("data.db")).await
+	}
+
+	/// The same read-only open against a database file wherever it lives.
+	/// This is how a delivered replica database is read: it sits beside the
+	/// other replica artifacts rather than in this machine's source layout.
+	pub async fn open_file_read_only(db_path: &Path) -> Result<SourceDb> {
 		if !db_path.exists() {
-			return Err(Error::SourceNotFound(source_id.to_string()));
+			return Err(Error::SourceNotFound(db_path.display().to_string()));
 		}
 
-		let pool = open_pool_read_only(&db_path).await?;
+		let pool = open_pool_read_only(db_path).await?;
 		Self::refuse_unaddressable_generation(&pool).await?;
 		let schema = Self::load_schema(&pool).await?;
 

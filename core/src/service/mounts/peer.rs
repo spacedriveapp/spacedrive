@@ -168,17 +168,12 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 				continue;
 			}
 
-			let snapshot_path = replica_dir.join(format!("{}.snapshot", entry.info.id.simple()));
-			let restored = {
-				let path = snapshot_path.clone();
-				tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await
-			};
-			let index = match restored {
-				Ok(Ok(Some((index, _meta)))) => index,
-				Ok(Ok(None)) | Ok(Err(_)) | Err(_) => {
+			let index = match restore_artifact(&replica_dir, &entry.info).await {
+				Some(index) => index,
+				None => {
 					tracing::warn!(
 						source = %entry.info.id,
-						path = %snapshot_path.display(),
+						dir = %replica_dir.display(),
 						"replica artifact missing or unreadable; source stays listed as unavailable"
 					);
 					continue;
@@ -210,6 +205,40 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 	}
 
 	(loaded, known)
+}
+
+/// Load a replica's artifact into an arena: the snapshot when one exists,
+/// else a delivered database rebuilt entry by entry. Either way the share
+/// serves identically; the artifact kind is a transport detail.
+async fn restore_artifact(
+	replica_dir: &std::path::Path,
+	info: &RemoteSourceInfo,
+) -> Option<EphemeralIndex> {
+	let snapshot_path = replica_dir.join(format!("{}.snapshot", info.id.simple()));
+	if snapshot_path.exists() {
+		let restored = {
+			let path = snapshot_path.clone();
+			tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await
+		};
+		if let Ok(Ok(Some((index, _meta)))) = restored {
+			return Some(index);
+		}
+	}
+
+	let db_path = replica_dir.join(format!("{}.db", info.id.simple()));
+	if db_path.exists() {
+		if let Ok(db) = sd_store::SourceManager::open_file_read_only(&db_path).await {
+			let built = arena_from_database(&db, &info.root).await;
+			db.pool().close().await;
+			match built {
+				Ok(index) => return Some(index),
+				Err(err) => {
+					tracing::warn!(source = %info.id, %err, "replica database would not rebuild");
+				}
+			}
+		}
+	}
+	None
 }
 
 /// Forget a revoked device's replicas: unload its shares, drop its manifest
@@ -592,6 +621,143 @@ async fn validate_and_publish(
 	Ok(())
 }
 
+/// Build a replica arena from a delivered database: every filesystem row
+/// becomes an entry at the share root, ancestors synthesized by the arena
+/// itself, content kinds derived from extensions the way a fresh walk
+/// derives them. This is what makes a database artifact browsable and
+/// searchable through the same paths an arena snapshot is.
+async fn arena_from_database(
+	db: &sd_store::SourceDb,
+	share_root: &std::path::Path,
+) -> anyhow::Result<EphemeralIndex> {
+	use crate::ops::indexing::metadata::EntryMetadata;
+	use crate::ops::indexing::state::EntryKind;
+
+	let mut index = EphemeralIndex::new()?;
+	let mut after_rowid = 0i64;
+	loop {
+		let (entries, last) = sd_store::read::all_entries_page(db.pool(), after_rowid, 2_000)
+			.await
+			.map_err(|e| anyhow::anyhow!("database page failed: {e}"))?;
+		let done = entries.len() < 2_000;
+		after_rowid = last;
+
+		for entry in entries {
+			let path = share_root.join(&entry.relative_path);
+			let from_ms = |ms: Option<i64>| {
+				ms.and_then(|ms| u64::try_from(ms).ok())
+					.map(|ms| UNIX_EPOCH + Duration::from_millis(ms))
+			};
+			let metadata = EntryMetadata {
+				path: path.clone(),
+				kind: match entry.kind {
+					sd_store::FileKind::File => EntryKind::File,
+					sd_store::FileKind::Directory => EntryKind::Directory,
+					sd_store::FileKind::Symlink => EntryKind::Symlink,
+				},
+				size: entry.size.unwrap_or(0).max(0) as u64,
+				modified: from_ms(entry.mtime_ms),
+				accessed: from_ms(entry.atime_ms),
+				created: from_ms(entry.created_ms),
+				inode: entry.inode.and_then(|inode| u64::try_from(inode).ok()),
+				permissions: entry.mode.and_then(|mode| u32::try_from(mode).ok()),
+				uid: entry.uid.and_then(|uid| u32::try_from(uid).ok()),
+				gid: entry.gid.and_then(|gid| u32::try_from(gid).ok()),
+				link_target: entry.link_target.clone(),
+				is_hidden: entry.is_hidden,
+			};
+			index.add_entry(path, entry.uuid, metadata)?;
+		}
+
+		if done {
+			break;
+		}
+	}
+	Ok(index)
+}
+
+/// Fetch one source's database into the device's replica directory, rebuild
+/// its arena from it, and publish the share. The artifact carries exactly
+/// the source's own records — a nested source no longer ships its volume
+/// siblings' metadata inside an arena snapshot.
+async fn fetch_database_and_publish(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	device_label: &str,
+	replica_dir: &std::path::Path,
+	info: &RemoteSourceInfo,
+) -> anyhow::Result<()> {
+	let started = std::time::Instant::now();
+	let (response, mut body) = request(
+		context,
+		device_id,
+		&ByteRangeRequest::FetchDatabase { source_id: info.id },
+	)
+	.await?;
+	let (len, delivered, checksum) = match response {
+		ByteRangeResponse::DatabaseHeader {
+			len,
+			generation,
+			checksum,
+		} => (len, generation, checksum),
+		other => anyhow::bail!("unexpected response: {other:?}"),
+	};
+	if len > MAX_SNAPSHOT_LEN {
+		anyhow::bail!("declared artifact of {len} bytes exceeds the transfer bound");
+	}
+
+	let tmp_path = replica_dir.join(format!("{}.tmp", Uuid::now_v7().simple()));
+	if let Err(err) = receive_artifact(&mut body, &tmp_path, len, checksum).await {
+		let _ = tokio::fs::remove_file(&tmp_path).await;
+		return Err(err);
+	}
+
+	// The parse-and-rebuild is the gate: the temporary database must open
+	// read-only and yield an arena before it may replace anything.
+	let opened = sd_store::SourceManager::open_file_read_only(&tmp_path).await;
+	let db = match opened {
+		Ok(db) => db,
+		Err(err) => {
+			let _ = tokio::fs::remove_file(&tmp_path).await;
+			anyhow::bail!("delivered database refused to open: {err}");
+		}
+	};
+	let index = match arena_from_database(&db, &info.root).await {
+		Ok(index) => index,
+		Err(err) => {
+			let _ = tokio::fs::remove_file(&tmp_path).await;
+			return Err(err);
+		}
+	};
+	// The pool must release its handle before the file moves.
+	db.pool().close().await;
+
+	let db_path = replica_dir.join(format!("{}.db", info.id.simple()));
+	tokio::fs::rename(&tmp_path, &db_path).await?;
+	// A database replica supersedes any arena-snapshot artifact the source
+	// had before it was delivered this way.
+	let _ =
+		tokio::fs::remove_file(replica_dir.join(format!("{}.snapshot", info.id.simple()))).await;
+
+	let share = Arc::new(RemoteShare {
+		device_id,
+		device_label: device_label.to_string(),
+		generation: delivered,
+		info: info.clone(),
+		index: Arc::new(TokioRwLock::new(index)),
+		synced_at_secs: now_secs(),
+	});
+	shares_map().write().await.insert(info.id, share);
+	tracing::info!(
+		source = %info.id,
+		generation = delivered,
+		bytes = len,
+		elapsed_ms = started.elapsed().as_millis() as u64,
+		"replica database received and published"
+	);
+	Ok(())
+}
+
 /// Fetch one source's snapshot into the device's replica directory and
 /// publish it. Every failure path removes its temporary file and leaves the
 /// previously published artifact and share untouched.
@@ -711,7 +877,27 @@ pub async fn sync_device(
 			continue;
 		}
 
-		match fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await {
+		let fetched = if info.nested {
+			// A nested source travels as its own database, which carries
+			// exactly its records. An owner too old to export one still
+			// answers on the snapshot path.
+			match fetch_database_and_publish(context, device_id, &device_label, &replica_dir, info)
+				.await
+			{
+				Ok(()) => Ok(()),
+				Err(err) => {
+					tracing::debug!(
+						source = %info.id,
+						%err,
+						"database fetch unavailable; falling back to the arena snapshot"
+					);
+					fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await
+				}
+			}
+		} else {
+			fetch_and_publish(context, device_id, &device_label, &replica_dir, info).await
+		};
+		match fetched {
 			Ok(()) => {
 				note_fetch_outcome(info.id, true);
 				synced += 1;
@@ -721,7 +907,7 @@ pub async fn sync_device(
 				tracing::warn!(
 					source = %info.id,
 					%err,
-					"snapshot fetch failed; the previous replica, if any, stays published"
+					"artifact fetch failed; the previous replica, if any, stays published"
 				);
 			}
 		}
@@ -783,6 +969,7 @@ mod tests {
 			total_bytes: Some(count * 10),
 			generation: 7,
 			dirty: false,
+			nested: false,
 		}
 	}
 
@@ -961,6 +1148,114 @@ mod tests {
 		let artifact = base.path().join(format!("{}.snapshot", source_id.simple()));
 		let reloaded = EphemeralIndex::load_snapshot(&artifact).expect("readable");
 		assert!(reloaded.is_some(), "the good artifact is untouched");
+	}
+
+	/// A delivered database restores into a replica exactly as an arena
+	/// snapshot does: the tree browses, names answer search, and record
+	/// identities survive the trip. The artifact kind is a transport detail.
+	#[tokio::test]
+	async fn a_database_artifact_restores_into_a_browsable_replica() {
+		use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+
+		let store_dir = tempfile::tempdir().expect("store dir");
+		let manager = sd_store::SourceManager::new(store_dir.path().to_path_buf());
+		let source_id = Uuid::now_v7();
+		let id_str = source_id.simple().to_string();
+		manager
+			.create(&id_str, &sd_store::filesystem_schema())
+			.await
+			.expect("create");
+		let db = manager.open(&id_str).await.expect("open");
+		db.begin_sync().await.expect("epoch");
+		let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
+		let mut writes = Vec::new();
+		for (path, kind) in [
+			("tools", FileKind::Directory),
+			("tools/zig.bin", FileKind::File),
+			("readme.txt", FileKind::File),
+		] {
+			let observation = Observation {
+				external_id: path.to_string(),
+				kind,
+				name: path.rsplit('/').next().unwrap_or(path).to_string(),
+				size: 7,
+				mtime: 1_700_000_000_000,
+				created: None,
+				accessed: None,
+				inode: None,
+				mode: Some(0o644),
+				uid: None,
+				gid: None,
+				link_target: None,
+				extension: path.rsplit_once('.').map(|(_, e)| e.to_string()),
+				is_hidden: false,
+				identity: None,
+			};
+			let resolution = ledger.resolve(&observation);
+			let parent_uuid = path
+				.rsplit_once('/')
+				.and_then(|(parent, _)| ledger.uuid_of(parent));
+			writes.push(FileWrite {
+				resolution,
+				parent_uuid,
+				observation,
+			});
+		}
+		db.apply_files(&writes, &[], &[], None)
+			.await
+			.expect("apply");
+		let stored_uuid = db
+			.resolve_path("tools/zig.bin")
+			.await
+			.expect("resolve")
+			.expect("row exists");
+		db.pool().close().await;
+
+		// Deliver: the database file becomes the replica artifact.
+		let base = tempfile::tempdir().expect("base");
+		let device_id = Uuid::now_v7();
+		let replica_dir = base.path().join(device_id.simple().to_string());
+		std::fs::create_dir_all(&replica_dir).expect("replica dir");
+		std::fs::copy(
+			store_dir.path().join(&id_str).join("data.db"),
+			replica_dir.join(format!("{}.db", source_id.simple())),
+		)
+		.expect("artifact");
+
+		let root = PathBuf::from("/mnt/pool/kept");
+		let mut source_info = info(source_id, "/mnt/pool/kept", 3);
+		source_info.nested = true;
+		let manifest = ReplicaManifest {
+			device_id,
+			device_label: "owner".to_string(),
+			sources: vec![ReplicaEntry {
+				info: source_info,
+				generation: 11,
+				synced_at_secs: 1,
+			}],
+		};
+		std::fs::write(
+			manifest_path(&replica_dir),
+			serde_json::to_vec(&manifest).expect("serialize"),
+		)
+		.expect("manifest");
+
+		let (loaded, known) = restore_from(base.path()).await;
+		assert_eq!((loaded, known), (1, 1));
+
+		let share = remote_share(source_id).await.expect("share restored");
+		assert_eq!(share.generation, 11);
+		let index = share.index.read().await;
+		let children = index
+			.list_directory(&root.join("tools"))
+			.expect("directory covered");
+		assert_eq!(children, vec![root.join("tools/zig.bin")]);
+		assert_eq!(index.find_by_name("zig.bin").len(), 1);
+		assert_eq!(
+			index.get_entry_uuid(&root.join("tools/zig.bin")),
+			Some(stored_uuid),
+			"record identity survives the database trip"
+		);
 	}
 
 	/// A moved generation always transfers. Dirtiness over the same artifact

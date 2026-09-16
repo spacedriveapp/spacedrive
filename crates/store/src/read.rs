@@ -14,7 +14,7 @@
 
 use crate::error::Result;
 use crate::file::FileKind;
-use sqlx::SqlitePool;
+use sqlx::{FromRow, SqlitePool};
 use uuid::Uuid;
 
 /// One filesystem entry as the store retains it: identity, kind, name, its
@@ -36,6 +36,10 @@ pub struct FsEntry {
 	pub is_hidden: bool,
 	pub extension: Option<String>,
 	pub link_target: Option<String>,
+	pub inode: Option<i64>,
+	pub mode: Option<i64>,
+	pub uid: Option<i64>,
+	pub gid: Option<i64>,
 	pub content_uuid: Option<Uuid>,
 	pub content_kind: Option<i64>,
 	pub content_error: Option<String>,
@@ -44,67 +48,64 @@ pub struct FsEntry {
 /// Every column [`FsEntry`] is built from. A directory's path comes from its
 /// own `directory_path` row; a file's from its parent's row plus its title,
 /// and a root-level entry from its title alone.
-const ENTRY_SELECT: &str = "SELECT r.uuid, r.type, COALESCE(r.title, '') AS title, \
+const ENTRY_SELECT: &str = "SELECT r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, \
+	 COALESCE(r.title, '') AS title, \
 	 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
-	 f.size, f.mtime, f.atime, r.created_at, COALESCE(f.is_hidden, 0) AS is_hidden, \
-	 f.extension, f.link_target, f.content_error, c.uuid AS content_uuid, c.kind AS content_kind \
+	 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
+	 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
+	 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
+	 f.content_error AS content_error, c.uuid AS content_uuid, c.kind AS content_kind \
 	 FROM record r \
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
 	 LEFT JOIN content c ON c.id = r.content_id";
 
-type EntryRow = (
-	Uuid,
-	String,
-	String,
-	String,
-	Option<i64>,
-	Option<i64>,
-	Option<i64>,
-	Option<i64>,
-	i64,
-	Option<String>,
-	Option<String>,
-	Option<String>,
-	Option<Uuid>,
-	Option<i64>,
-);
+#[derive(FromRow)]
+struct EntryRow {
+	rowid: i64,
+	uuid: Uuid,
+	kind: String,
+	title: String,
+	rel_path: String,
+	size: Option<i64>,
+	mtime_ms: Option<i64>,
+	atime_ms: Option<i64>,
+	created_ms: Option<i64>,
+	is_hidden: i64,
+	extension: Option<String>,
+	link_target: Option<String>,
+	inode: Option<i64>,
+	mode: Option<i64>,
+	uid: Option<i64>,
+	gid: Option<i64>,
+	content_error: Option<String>,
+	content_uuid: Option<Uuid>,
+	content_kind: Option<i64>,
+}
 
 fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
-	let (
-		uuid,
-		type_,
-		title,
-		relative_path,
-		size,
-		mtime_ms,
-		atime_ms,
-		created_ms,
-		is_hidden,
-		extension,
-		link_target,
-		content_error,
-		content_uuid,
-		content_kind,
-	) = row;
 	// A row of another type in a filesystem store has no entry shape to give.
-	let kind = FileKind::parse(&type_)?;
+	let kind = FileKind::parse(&row.kind)?;
 	Some(FsEntry {
-		uuid,
+		uuid: row.uuid,
 		kind,
-		name: title,
-		relative_path,
-		size,
-		mtime_ms,
-		atime_ms,
-		created_ms,
-		is_hidden: is_hidden != 0,
-		extension,
-		link_target,
-		content_uuid,
-		content_kind,
-		content_error,
+		name: row.title,
+		relative_path: row.rel_path,
+		size: row.size,
+		mtime_ms: row.mtime_ms,
+		atime_ms: row.atime_ms,
+		created_ms: row.created_ms,
+		is_hidden: row.is_hidden != 0,
+		extension: row.extension,
+		link_target: row.link_target,
+		inode: row.inode,
+		mode: row.mode,
+		uid: row.uid,
+		gid: row.gid,
+		content_uuid: row.content_uuid,
+		content_kind: row.content_kind,
+		content_error: row.content_error,
 	})
 }
 
@@ -217,6 +218,25 @@ pub struct TitleMatches {
 /// How many rows one scan batch carries. Large enough that a millions-row
 /// store is a few hundred round trips, small enough that a batch is cheap.
 const SCAN_BATCH: i64 = 10_000;
+
+/// One page of every filesystem entry in the store, ordered by rowid.
+/// Feed the returned high-water mark back in to continue; fewer rows than
+/// `limit` means the scan is done. This is what rebuilding an arena from a
+/// delivered database walks.
+pub async fn all_entries_page(
+	pool: &SqlitePool,
+	after_rowid: i64,
+	limit: usize,
+) -> Result<(Vec<FsEntry>, i64)> {
+	let sql = format!("{ENTRY_SELECT} WHERE r.rowid > ? ORDER BY r.rowid LIMIT ?");
+	let rows: Vec<EntryRow> = sqlx::query_as(&sql)
+		.bind(after_rowid)
+		.bind(limit as i64)
+		.fetch_all(pool)
+		.await?;
+	let last = rows.last().map(|row| row.rowid).unwrap_or(after_rowid);
+	Ok((rows.into_iter().filter_map(entry_from_row).collect(), last))
+}
 
 /// Case-folded substring search over record titles.
 ///

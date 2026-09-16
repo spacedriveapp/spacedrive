@@ -53,6 +53,10 @@ pub enum ByteRangeRequest {
 	/// The serving device's own library statistics, so peers report the
 	/// same fleet-wide totals it does.
 	DeviceSummary,
+	/// A consistent single-file export of one source's database, for sources
+	/// whose replica must carry exactly the source's own records. Appended
+	/// after the original variants so their wire indices hold.
+	FetchDatabase { source_id: Uuid },
 }
 
 /// One device's own accounting of what it holds, computed by the same
@@ -87,6 +91,11 @@ pub struct RemoteSourceInfo {
 	/// this is reported rather than saving on every listing.
 	#[serde(default)]
 	pub dirty: bool,
+	/// The source's root sits inside its volume rather than at its mount
+	/// point, so its arena snapshot would carry sibling paths that are not
+	/// the source's to share. Replicate it as its own database instead.
+	#[serde(default)]
+	pub nested: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -118,6 +127,14 @@ pub enum ByteRangeResponse {
 		checksum: [u8; 32],
 	},
 	Error(String),
+	/// Followed by exactly `len` raw bytes: one source's database export.
+	/// Identity semantics match `SnapshotHeader`. Appended after `Error` so
+	/// the original variants keep their wire indices.
+	DatabaseHeader {
+		len: u64,
+		generation: u64,
+		checksum: [u8; 32],
+	},
 }
 
 pub async fn write_frame<W, T>(stream: &mut W, msg: &T) -> anyhow::Result<()>
@@ -246,19 +263,34 @@ impl ByteRangeProtocolHandler {
 				let cache = self.context.ephemeral_cache();
 				let mut sources = Vec::new();
 				for s in cache.sources() {
-					let generation = cache
-						.source_snapshot_path(s.id)
-						.and_then(|path| std::fs::metadata(path).ok())
-						.and_then(|meta| {
-							Some(crate::infra::source_version::source_version(
-								meta.len(),
-								meta.modified().ok()?,
-							))
-						})
-						.unwrap_or(0);
+					// A source at its volume's mount point travels as the
+					// volume's arena snapshot; one nested inside travels as
+					// its own database, whose generation is the live database
+					// file's rather than any snapshot's.
+					let nested = cache
+						.volume_root_of(&s.root)
+						.is_some_and(|volume_root| volume_root != s.root);
+					let generation = if nested {
+						cache
+							.source_dirs()
+							.map(|dirs| database_generation(&dirs.source_dir(s.id)))
+							.unwrap_or(0)
+					} else {
+						cache
+							.source_snapshot_path(s.id)
+							.and_then(|path| std::fs::metadata(path).ok())
+							.and_then(|meta| {
+								Some(crate::infra::source_version::source_version(
+									meta.len(),
+									meta.modified().ok()?,
+								))
+							})
+							.unwrap_or(0)
+					};
 					// Only an attached source can have live changes; a
-					// detached one is already only its snapshot.
-					let dirty = if s.attached {
+					// detached one is already only its snapshot. A database
+					// generation already moves with every committed write.
+					let dirty = if s.attached && !nested {
 						cache.resolve_index(&s.root).read().await.is_dirty()
 					} else {
 						false
@@ -272,6 +304,7 @@ impl ByteRangeProtocolHandler {
 						total_bytes: s.total_bytes,
 						generation,
 						dirty,
+						nested,
 					});
 				}
 				write_frame(send, &ByteRangeResponse::Sources(sources)).await
@@ -341,77 +374,167 @@ impl ByteRangeProtocolHandler {
 						.await;
 					}
 				};
-
-				// Identity comes from the open handle, not the path: a save
-				// racing this response renames a new file into place, while
-				// the opened inode keeps serving exactly the bytes measured
-				// and hashed here. The header must name what the stream
-				// carries, and the listing that prompted this fetch is
-				// already behind it.
-				let meta = file.metadata().await?;
-				let len = meta.len();
-				if len > MAX_SNAPSHOT_LEN {
+				serve_file_with_identity(send, file, None, false).await
+			}
+			ByteRangeRequest::FetchDatabase { source_id } => {
+				let cache = self.context.ephemeral_cache();
+				if !cache.sources().into_iter().any(|s| s.id == source_id) {
+					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
+						.await;
+				}
+				let Some(db) = cache.read_store(source_id).await else {
 					return write_frame(
 						send,
-						&ByteRangeResponse::Error(format!(
-							"snapshot of {len} bytes exceeds the transfer bound"
-						)),
+						&ByteRangeResponse::Error("source has no readable store".into()),
+					)
+					.await;
+				};
+				let Some(dirs) = cache.source_dirs() else {
+					return write_frame(
+						send,
+						&ByteRangeResponse::Error("no persistent source layout".into()),
+					)
+					.await;
+				};
+				let source_dir = dirs.source_dir(source_id);
+
+				// The generation names the live database this export reads,
+				// WAL included, taken before the export runs: a write landing
+				// mid-export moves the next listing instead of mislabeling
+				// this delivery as current.
+				let generation = database_generation(&source_dir);
+
+				// VACUUM INTO produces a consistent, compact single-file copy
+				// from one read transaction; walkers keep writing meanwhile.
+				let export_path = source_dir.join(format!("export-{}.db", Uuid::now_v7().simple()));
+				let exported = sqlx::query("VACUUM INTO ?")
+					.bind(export_path.to_string_lossy().into_owned())
+					.execute(db.pool())
+					.await;
+				if let Err(err) = exported {
+					let _ = tokio::fs::remove_file(&export_path).await;
+					return write_frame(
+						send,
+						&ByteRangeResponse::Error(format!("export failed: {err}")),
 					)
 					.await;
 				}
-				let generation = meta
-					.modified()
-					.map(|mtime| crate::infra::source_version::source_version(len, mtime))
-					.unwrap_or(0);
 
-				let std_file = file.into_std().await;
-				let hashed = tokio::task::spawn_blocking(
-					move || -> std::io::Result<(std::fs::File, [u8; 32])> {
-						use std::io::{Seek, SeekFrom};
-						let mut hasher = blake3::Hasher::new();
-						std::io::copy(&mut &std_file, &mut hasher)?;
-						(&std_file).seek(SeekFrom::Start(0))?;
-						Ok((std_file, *hasher.finalize().as_bytes()))
-					},
-				)
-				.await?;
-				let (std_file, checksum) = match hashed {
-					Ok(pair) => pair,
+				let served = match tokio::fs::File::open(&export_path).await {
+					Ok(file) => serve_file_with_identity(send, file, Some(generation), true).await,
 					Err(err) => {
-						return write_frame(
+						write_frame(
 							send,
-							&ByteRangeResponse::Error(format!("snapshot unreadable: {err}")),
+							&ByteRangeResponse::Error(format!("export unavailable: {err}")),
 						)
-						.await;
+						.await
 					}
 				};
-				let mut file = tokio::fs::File::from_std(std_file);
-
-				write_frame(
-					send,
-					&ByteRangeResponse::SnapshotHeader {
-						len,
-						generation,
-						checksum,
-					},
-				)
-				.await?;
-				let mut buf = vec![0u8; 256 * 1024];
-				let mut sent = 0u64;
-				while sent < len {
-					let want = (len - sent).min(buf.len() as u64) as usize;
-					let n = file.read(&mut buf[..want]).await?;
-					if n == 0 {
-						// Short reads leave a short stream; the client's
-						// declared-length accounting fails the transfer.
-						break;
-					}
-					send.write_all(&buf[..n]).await?;
-					sent += n as u64;
-				}
-				Ok(())
+				let _ = tokio::fs::remove_file(&export_path).await;
+				served
 			}
 		}
+	}
+}
+
+/// Hash an open file, emit its identity header, and stream exactly the bytes
+/// measured. Identity comes from the open handle, not the path: a writer
+/// renaming a new file into place cannot change what this stream carries,
+/// and the header must name what the stream holds rather than what the
+/// listing that prompted the fetch believed.
+async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
+	send: &mut W,
+	file: tokio::fs::File,
+	generation: Option<u64>,
+	database: bool,
+) -> anyhow::Result<()> {
+	let meta = file.metadata().await?;
+	let len = meta.len();
+	if len > MAX_SNAPSHOT_LEN {
+		return write_frame(
+			send,
+			&ByteRangeResponse::Error(format!(
+				"artifact of {len} bytes exceeds the transfer bound"
+			)),
+		)
+		.await;
+	}
+	let generation = generation.unwrap_or_else(|| {
+		meta.modified()
+			.map(|mtime| crate::infra::source_version::source_version(len, mtime))
+			.unwrap_or(0)
+	});
+
+	let std_file = file.into_std().await;
+	let hashed =
+		tokio::task::spawn_blocking(move || -> std::io::Result<(std::fs::File, [u8; 32])> {
+			use std::io::{Seek, SeekFrom};
+			let mut hasher = blake3::Hasher::new();
+			std::io::copy(&mut &std_file, &mut hasher)?;
+			(&std_file).seek(SeekFrom::Start(0))?;
+			Ok((std_file, *hasher.finalize().as_bytes()))
+		})
+		.await?;
+	let (std_file, checksum) = match hashed {
+		Ok(pair) => pair,
+		Err(err) => {
+			return write_frame(
+				send,
+				&ByteRangeResponse::Error(format!("artifact unreadable: {err}")),
+			)
+			.await;
+		}
+	};
+	let mut file = tokio::fs::File::from_std(std_file);
+
+	let header = if database {
+		ByteRangeResponse::DatabaseHeader {
+			len,
+			generation,
+			checksum,
+		}
+	} else {
+		ByteRangeResponse::SnapshotHeader {
+			len,
+			generation,
+			checksum,
+		}
+	};
+	write_frame(send, &header).await?;
+
+	let mut buf = vec![0u8; 256 * 1024];
+	let mut sent = 0u64;
+	while sent < len {
+		let want = (len - sent).min(buf.len() as u64) as usize;
+		let n = file.read(&mut buf[..want]).await?;
+		if n == 0 {
+			// Short reads leave a short stream; the client's declared-length
+			// accounting fails the transfer.
+			break;
+		}
+		send.write_all(&buf[..n]).await?;
+		sent += n as u64;
+	}
+	Ok(())
+}
+
+/// Version of a source's live database: size and mtime folded over the main
+/// file and its WAL, so any committed write moves it and a quiet store holds
+/// steady. Zero when no database exists.
+fn database_generation(source_dir: &Path) -> u64 {
+	let mut len = 0u64;
+	let mut latest: Option<std::time::SystemTime> = None;
+	for name in ["data.db", "data.db-wal"] {
+		if let Ok(meta) = std::fs::metadata(source_dir.join(name)) {
+			len = len.saturating_add(meta.len());
+			if let Ok(modified) = meta.modified() {
+				latest = Some(latest.map_or(modified, |current| current.max(modified)));
+			}
+		}
+	}
+	match latest {
+		Some(mtime) if len > 0 => crate::infra::source_version::source_version(len, mtime),
+		_ => 0,
 	}
 }
 
