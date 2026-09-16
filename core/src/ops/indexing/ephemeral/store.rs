@@ -608,6 +608,62 @@ fn parent_of(external_id: &str) -> Option<&str> {
 	external_id.rsplit_once('/').map(|(parent, _)| parent)
 }
 
+/// Commit every missing ancestor of `external_id` before its own write, so
+/// `parent_uuid = NULL` keeps meaning "child of the source root" and never
+/// "parent had not arrived yet".
+///
+/// Discovery hands a directory to another worker before sending that
+/// directory's own observation, so a child can reach the writer a batch
+/// ahead of its parent. The child's path is filesystem evidence the
+/// ancestors exist: they are synthesized as directory records here, and the
+/// real observation later resolves to the same uuid through the path binding
+/// and repairs the timestamps. A synthesized directory mints its identity,
+/// so a directory the arena already mapped can end up with a second uuid in
+/// the store until the volume remaps; the trade is deliberate, since a
+/// misparented file is a permanent ledger hole while a split directory
+/// identity converges.
+fn ensure_ancestors(ledger: &mut Ledger, external_id: &str, writes: &mut Vec<FileWrite>) {
+	let mut missing: Vec<&str> = Vec::new();
+	let mut cursor = external_id;
+	while let Some(ancestor) = parent_of(cursor) {
+		if ledger.uuid_of(ancestor).is_some() {
+			break;
+		}
+		missing.push(ancestor);
+		cursor = ancestor;
+	}
+
+	for ancestor in missing.into_iter().rev() {
+		let name = ancestor.rsplit('/').next().unwrap_or(ancestor).to_string();
+		let observation = Observation {
+			external_id: ancestor.to_string(),
+			kind: FileKind::Directory,
+			is_hidden: name.starts_with('.'),
+			name,
+			size: 0,
+			mtime: 0,
+			created: None,
+			accessed: None,
+			inode: None,
+			mode: None,
+			uid: None,
+			gid: None,
+			link_target: None,
+			extension: None,
+			identity: None,
+		};
+		let parent_uuid = parent_of(ancestor).and_then(|parent| ledger.uuid_of(parent));
+		let resolution = ledger.resolve(&observation);
+		if resolution.is_dirty() {
+			writes.push(FileWrite {
+				resolution,
+				parent_uuid,
+				observation,
+			});
+		}
+	}
+}
+
 /// Resolve, batch and commit, until the last sender goes away.
 async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receiver<Ingest>) {
 	let mut writes: Vec<FileWrite> = Vec::with_capacity(BATCH_SIZE);
@@ -654,6 +710,7 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 
 				for index in shallowest_first(&observations) {
 					let observation = observations[index].clone();
+					ensure_ancestors(&mut ledger, &observation.external_id, &mut writes);
 					let resolution = ledger.resolve(&observation);
 					resolved[index] = Some(resolution.uuid());
 					if resolution.is_dirty() {
@@ -686,6 +743,7 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 					});
 				}
 
+				ensure_ancestors(&mut ledger, &observation.external_id, &mut writes);
 				let resolution = ledger
 					.rebind(&from, &observation)
 					.unwrap_or_else(|| ledger.resolve(&observation));
@@ -1045,6 +1103,72 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 				.store
 				.contains_path(&fixture.root.path().join("missing.txt"))
 				.await
+		);
+	}
+
+	/// A child can reach the writer a whole batch ahead of its parent, not
+	/// just out of order within one: discovery queues a directory for another
+	/// worker before sending the directory's own observation. The child's
+	/// ancestors must be synthesized and the child parented under them, never
+	/// filed at the root.
+	#[tokio::test]
+	async fn a_child_arriving_before_its_parent_batch_gets_real_ancestry() {
+		let fixture = Fixture::new().await;
+		let root = fixture.root.path();
+
+		std::fs::create_dir_all(root.join("docs/nested")).expect("dirs");
+		std::fs::write(root.join("docs/nested/orphan.txt"), b"early").expect("file");
+
+		// One batch holding only the file; its directories are still queued
+		// on another worker.
+		let metadata = EntryMetadata::from(dir_entry(&root.join("docs/nested/orphan.txt")));
+		let file_uuid = fixture
+			.store
+			.identify_one(&metadata, None)
+			.await
+			.expect("identified");
+		fixture.store.flush().await.expect("flush");
+
+		let db = fixture.store.db();
+		let docs = db.resolve_path("docs").await.expect("query").expect("docs");
+		let nested = db
+			.resolve_path("docs/nested")
+			.await
+			.expect("query")
+			.expect("docs/nested");
+
+		let stored_parent: Option<Uuid> =
+			sqlx::query_scalar("SELECT parent_uuid FROM record WHERE uuid = ?")
+				.bind(file_uuid)
+				.fetch_one(db.pool())
+				.await
+				.expect("query");
+		assert_eq!(
+			stored_parent,
+			Some(nested),
+			"the child sits under its synthesized parent, not at the root"
+		);
+		assert!(
+			fixture
+				.paths()
+				.await
+				.contains(&"docs/nested/orphan.txt".to_string()),
+			"the file's full address reconstructs through the synthesized chain"
+		);
+
+		// The directory's own observation arrives later, carrying real
+		// timestamps and the arena's identity for it. The path binding wins,
+		// so the synthesized uuid holds and the metadata is repaired.
+		let dir_metadata = EntryMetadata::from(dir_entry(&root.join("docs")));
+		let resolved = fixture
+			.store
+			.identify_one(&dir_metadata, Some(Uuid::now_v7()))
+			.await
+			.expect("identified");
+		fixture.store.flush().await.expect("flush");
+		assert_eq!(
+			resolved, docs,
+			"the real observation converges on the synthesized record"
 		);
 	}
 

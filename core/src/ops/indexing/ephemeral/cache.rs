@@ -184,6 +184,9 @@ pub struct EphemeralIndexCache {
 	/// Durable stores by source id. One drive can host several, since a source
 	/// nested inside another persists its own subtree.
 	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
+	/// One async gate per source, so concurrent first opens coalesce into a
+	/// single pool, ledger load, and writer task. See [`Self::store_for`].
+	store_open_gates: Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>,
 	/// Fallback partition for paths on no tracked drive.
 	scratch: Arc<VolumeIndex>,
 	/// Drives this machine maps, whether or not anything is kept off them.
@@ -238,6 +241,7 @@ impl EphemeralIndexCache {
 			scratch: VolumeIndex::new(VolumeKey::Scratch, None)?,
 			volumes: Mutex::new(Vec::new()),
 			stores: RwLock::new(HashMap::new()),
+			store_open_gates: Mutex::new(HashMap::new()),
 			restored_roots: RwLock::new(None),
 			dirty_stubs: Mutex::new(HashSet::new()),
 			created_at: Instant::now(),
@@ -658,6 +662,23 @@ impl EphemeralIndexCache {
 			return Some(store.clone());
 		}
 
+		// One open per source, even for concurrent first callers. Without the
+		// gate, simultaneous callers each open the pool, load the ledger, and
+		// spawn a writer task before one wins the map insertion; the losers'
+		// writers run until their queues drop.
+		let gate = {
+			let mut gates = self.store_open_gates.lock();
+			gates
+				.entry(record.id)
+				.or_insert_with(|| Arc::new(tokio::sync::Mutex::new(())))
+				.clone()
+		};
+		let _open = gate.lock().await;
+
+		if let Some(store) = self.stores.read().get(&record.id) {
+			return Some(store.clone());
+		}
+
 		let store = match SourceStore::open(dirs, record.id, record.root.clone()).await {
 			Ok(store) => store,
 			Err(error) => {
@@ -666,13 +687,8 @@ impl EphemeralIndexCache {
 			}
 		};
 
-		Some(
-			self.stores
-				.write()
-				.entry(record.id)
-				.or_insert(store)
-				.clone(),
-		)
+		self.stores.write().insert(record.id, store.clone());
+		Some(store)
 	}
 
 	/// Every open store on this machine, one per source.
