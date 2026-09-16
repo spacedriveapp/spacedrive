@@ -44,7 +44,7 @@ export interface ViewSettings {
 	sizeViewItemLimit: number;
 }
 
-export type SearchScope = 'folder' | 'location' | 'library';
+export type SearchScope = 'folder' | 'source' | 'library';
 
 /** The one place the minimum query length lives; the input handler, the
  * query gate, and the results view all read it. */

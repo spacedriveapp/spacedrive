@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
+import { useLibraryQuery } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from "../context";
 import { useVirtualListing } from "./useVirtualListing";
@@ -40,6 +41,27 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	// Check mode types
 	const isSearchMode = mode.type === "search";
+
+	// The containing source for Source scope, resolved on the daemon with
+	// alias normalization. Only fetched while that scope is active.
+	const wantsSourceScope = isSearchMode && mode.scope === "source";
+	const { data: pathContext } = useLibraryQuery(
+		{
+			type: "paths.context",
+			input: { path: currentPath! },
+		},
+		{ enabled: wantsSourceScope && !!currentPath },
+	);
+	const sourceScopePath = useMemo(() => {
+		if (!wantsSourceScope || !pathContext?.source) return null;
+		if (!currentPath || !("Physical" in currentPath)) return null;
+		return {
+			Physical: {
+				device_slug: currentPath.Physical.device_slug,
+				path: pathContext.source.root,
+			},
+		};
+	}, [wantsSourceScope, pathContext, currentPath]);
 	const isRecentsMode = mode.type === "recents";
 	const isFilteredMode = mode.type === "filtered";
 	const isTagMode = mode.type === "tag";
@@ -54,6 +76,10 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		if (searchMode.type !== "search") return null;
 
 		const { query, scope } = searchMode;
+
+		// Source scope without a resolved source sends nothing rather than
+		// silently widening to the library.
+		if (scope === "source" && !sourceScopePath) return null;
 
 		// Map explorer sortBy to search SortField
 		const searchSortField = (() => {
@@ -72,7 +98,9 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			scope:
 				scope === "folder" && currentPath
 					? { Path: { path: currentPath } }
-					: "Library",
+					: scope === "source" && sourceScopePath
+						? { Path: { path: sourceScopePath } }
+						: "Library",
 			filters: {
 				file_types: null,
 				tags: null,
@@ -98,7 +126,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				offset: 0,
 			},
 		};
-	}, [isSearchMode, mode, currentPath, sortBy]);
+	}, [isSearchMode, mode, currentPath, sortBy, sourceScopePath]);
 
 	// Build filtered query input (pre-applied SearchFilters, e.g. redundancy views)
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
