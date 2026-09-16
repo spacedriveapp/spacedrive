@@ -13,10 +13,19 @@ use crate::ops::indexing::ephemeral::EphemeralIndexCache;
 use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
 use crate::ops::search::input::{DateField, PaginationOptions, SearchFilters, SortOptions};
-use crate::ops::search::output::{FileSearchResult, ScoreBreakdown};
+use crate::ops::search::output::{FileSearchResult, ScoreBreakdown, SearchFacets};
 use crate::ops::search::pipeline;
 use std::path::PathBuf;
 use uuid::Uuid;
+
+/// One page of search results with the whole match set's accounting: the
+/// true pre-pagination total and facets folded over every filtered match,
+/// not only the page served.
+pub struct SearchPage {
+	pub results: Vec<FileSearchResult>,
+	pub total: u64,
+	pub facets: SearchFacets,
+}
 
 /// Search one partition of the volume index, scoped to a path within it.
 /// A scope on another device is served from that device's replica.
@@ -31,13 +40,13 @@ pub async fn search_ephemeral_index(
 	context: &std::sync::Arc<crate::context::CoreContext>,
 	cache: &EphemeralIndexCache,
 	file_type_registry: &FileTypeRegistry,
-) -> Result<(Vec<FileSearchResult>, u64), QueryError> {
+) -> Result<SearchPage, QueryError> {
 	let SdPath::Physical {
 		path: local_path,
 		device_slug,
 	} = path_scope
 	else {
-		return Ok((Vec::new(), 0));
+		return Ok(SearchPage::empty());
 	};
 
 	if *device_slug != crate::device::get_current_device_slug() {
@@ -49,7 +58,7 @@ pub async fn search_ephemeral_index(
 					.get_device_slug(share.device_id)
 					.is_some_and(|slug| slug == *device_slug)
 		}) else {
-			return Ok((Vec::new(), 0));
+			return Ok(SearchPage::empty());
 		};
 
 		let matching_paths = {
@@ -65,8 +74,7 @@ pub async fn search_ephemeral_index(
 			file_type_registry,
 		)
 		.await?;
-		let total = results.len() as u64;
-		return Ok((pipeline::page(results, sort, pagination), total));
+		return Ok(SearchPage::single_partition(results, sort, pagination));
 	}
 
 	// The volume decides how the scope is written: the index holds the
@@ -84,7 +92,7 @@ pub async fn search_ephemeral_index(
 	cache.ensure_restored(&local_path).await;
 
 	let Some(index_arc) = cache.get_for_search(&local_path) else {
-		return Ok((Vec::new(), 0));
+		return Ok(SearchPage::empty());
 	};
 
 	let matching_paths = {
@@ -101,8 +109,32 @@ pub async fn search_ephemeral_index(
 		file_type_registry,
 	)
 	.await?;
-	let total = results.len() as u64;
-	Ok((pipeline::page(results, sort, pagination), total))
+	Ok(SearchPage::single_partition(results, sort, pagination))
+}
+
+impl SearchPage {
+	fn empty() -> Self {
+		Self {
+			results: Vec::new(),
+			total: 0,
+			facets: SearchFacets::default(),
+		}
+	}
+
+	/// Page one partition's full filtered match set.
+	fn single_partition(
+		results: Vec<FileSearchResult>,
+		sort: &SortOptions,
+		pagination: &PaginationOptions,
+	) -> Self {
+		let total = results.len() as u64;
+		let facets = SearchFacets::from_results(&results);
+		Self {
+			results: pipeline::page(results, sort, pagination),
+			total,
+			facets,
+		}
+	}
 }
 
 /// Search every partition, which is what a library-wide search is now that
@@ -119,9 +151,10 @@ pub async fn search_every_index(
 	context: &std::sync::Arc<crate::context::CoreContext>,
 	cache: &EphemeralIndexCache,
 	file_type_registry: &FileTypeRegistry,
-) -> Result<(Vec<FileSearchResult>, u64), QueryError> {
+) -> Result<SearchPage, QueryError> {
 	let mut candidates = Vec::new();
 	let mut total: u64 = 0;
+	let mut facets = SearchFacets::default();
 	let window = pipeline::window(pagination);
 	let local_slug = crate::device::get_current_device_slug();
 
@@ -141,6 +174,7 @@ pub async fn search_every_index(
 		)
 		.await?;
 		total += partition.len() as u64;
+		facets.absorb(&partition);
 		pipeline::narrow(&mut partition, sort, window);
 		candidates.extend(partition);
 	}
@@ -172,11 +206,16 @@ pub async fn search_every_index(
 		)
 		.await?;
 		total += partition.len() as u64;
+		facets.absorb(&partition);
 		pipeline::narrow(&mut partition, sort, window);
 		candidates.extend(partition);
 	}
 
-	Ok((pipeline::page(candidates, sort, pagination), total))
+	Ok(SearchPage {
+		results: pipeline::page(candidates, sort, pagination),
+		total,
+		facets,
+	})
 }
 
 /// Paths in one partition whose name contains the query, narrowed to a scope

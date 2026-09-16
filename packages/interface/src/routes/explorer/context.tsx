@@ -50,15 +50,23 @@ export type SearchScope = 'folder' | 'source' | 'library';
  * query gate, and the results view all read it. */
 export const MIN_SEARCH_QUERY_LENGTH = 2;
 
-export interface SearchFilters {
-	fileTypes?: string[];
-	contentTypes?: string[];
-	sizeMin?: number;
-	sizeMax?: number;
-	dateModifiedStart?: Date;
-	dateModifiedEnd?: Date;
-	tags?: string[];
-}
+/** Search filters are stored in wire shape: one type from the generated
+ * client, no parallel UI shape to map or drift. */
+export const EMPTY_SEARCH_FILTERS: ApiSearchFilters = {
+	file_types: null,
+	tags: null,
+	date_range: null,
+	size_range: null,
+	locations: null,
+	content_types: null,
+	include_hidden: null,
+	include_archived: null,
+	at_risk: null,
+	on_volumes: null,
+	not_on_volumes: null,
+	min_volume_count: null,
+	max_volume_count: null
+};
 
 export type ExplorerMode =
 	| {type: 'browse'}
@@ -183,7 +191,7 @@ interface UIState {
 	quickPreviewFileId: string | null;
 	tagModeActive: boolean;
 	mode: ExplorerMode;
-	searchFilters: SearchFilters;
+	searchFilters: ApiSearchFilters;
 }
 
 type UIAction =
@@ -205,7 +213,7 @@ type UIAction =
 	| {type: 'ENTER_SOURCE_MODE'; sourceId: string}
 	| {type: 'EXIT_SOURCE_MODE'}
 	| {type: 'EXIT_TAG_MODE'}
-	| {type: 'SET_SEARCH_FILTERS'; filters: SearchFilters}
+	| {type: 'SET_SEARCH_FILTERS'; filters: ApiSearchFilters}
 	| {
 			type: 'LOAD_PREFERENCES';
 			viewSettings?: Partial<ViewSettings>;
@@ -253,7 +261,7 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 			return {
 				...state,
 				mode: {type: 'browse'},
-				searchFilters: {}
+				searchFilters: EMPTY_SEARCH_FILTERS
 			};
 
 		case 'ENTER_RECENTS_MODE':
@@ -347,7 +355,7 @@ const initialUIState: UIState = {
 	quickPreviewFileId: null,
 	tagModeActive: false,
 	mode: {type: 'browse'},
-	searchFilters: {}
+	searchFilters: EMPTY_SEARCH_FILTERS
 };
 
 export function targetToUrl(target: NavigationTarget): string {
@@ -482,8 +490,8 @@ interface ExplorerContextValue {
 	enterSourceMode: (sourceId: string) => void;
 	exitSourceMode: () => void;
 	exitTagMode: () => void;
-	searchFilters: SearchFilters;
-	setSearchFilters: (filters: SearchFilters) => void;
+	searchFilters: ApiSearchFilters;
+	setSearchFilters: (filters: ApiSearchFilters) => void;
 
 	devices: Map<string, Device>;
 
@@ -853,7 +861,7 @@ export function ExplorerProvider({
 		uiDispatch({type: 'EXIT_TAG_MODE'});
 	}, []);
 
-	const setSearchFilters = useCallback((filters: SearchFilters) => {
+	const setSearchFilters = useCallback((filters: ApiSearchFilters) => {
 		uiDispatch({type: 'SET_SEARCH_FILTERS', filters});
 	}, []);
 

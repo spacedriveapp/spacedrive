@@ -71,7 +71,7 @@ impl FileSearchQuery {
 		let cache = context.ephemeral_cache();
 		let registry = context.file_type_registry();
 
-		let (results, total_found) = match &self.input.scope {
+		let page = match &self.input.scope {
 			SearchScope::Path { path } => {
 				search_ephemeral_index(
 					&self.input.query,
@@ -102,8 +102,7 @@ impl FileSearchQuery {
 		let execution_time = start_time.elapsed().as_millis() as u64;
 
 		Ok(FileSearchOutput::new_ephemeral(
-			results,
-			total_found,
+			page,
 			search_id,
 			execution_time,
 			&self.input.pagination,

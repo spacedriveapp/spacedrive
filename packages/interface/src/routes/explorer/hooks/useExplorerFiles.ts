@@ -19,6 +19,10 @@ export interface ExplorerFilesResult {
 	files: File[];
 	isLoading: boolean;
 	source: FileSource;
+	/** True match count for a search, before pagination. */
+	totalFound?: number;
+	/** Facets over the whole match set, for the filter panel's counts. */
+	facets?: FileSearchOutput['facets'];
 }
 
 /**
@@ -34,7 +38,7 @@ export interface ExplorerFilesResult {
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings } = explorer;
+	const { mode, currentPath, sortBy, viewSettings, searchFilters } = explorer;
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -101,21 +105,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 					: scope === "source" && sourceScopePath
 						? { Path: { path: sourceScopePath } }
 						: "Library",
-			filters: {
-				file_types: null,
-				tags: null,
-				date_range: null,
-				size_range: null,
-				locations: null,
-				content_types: null,
-				include_hidden: null,
-				include_archived: null,
-				at_risk: null,
-				on_volumes: null,
-				not_on_volumes: null,
-				min_volume_count: null,
-				max_volume_count: null,
-			},
+			filters: searchFilters,
 			mode: "Normal",
 			sort: {
 				field: searchSortField,
@@ -126,7 +116,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				offset: 0,
 			},
 		};
-	}, [isSearchMode, mode, currentPath, sortBy, sourceScopePath]);
+	}, [isSearchMode, mode, currentPath, sortBy, sourceScopePath, searchFilters]);
 
 	// Build filtered query input (pre-applied SearchFilters, e.g. redundancy views)
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -375,5 +365,18 @@ export function useExplorerFiles(): ExplorerFilesResult {
 						? false
 						: directoryQuery.isLoading;
 
-	return { files, isLoading, source };
+	const searchOutput = isSearchMode
+		? (searchQuery.data as FileSearchOutput | undefined)
+		: undefined;
+
+	return {
+		files,
+		isLoading,
+		source,
+		totalFound:
+			searchOutput?.total_found != null
+				? Number(searchOutput.total_found)
+				: undefined,
+		facets: searchOutput?.facets,
+	};
 }

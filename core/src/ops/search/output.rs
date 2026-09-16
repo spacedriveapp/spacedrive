@@ -61,6 +61,8 @@ pub struct TextHighlight {
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Type)]
 pub struct SearchFacets {
 	pub file_types: HashMap<String, u64>,
+	/// Content kinds by their wire name, for the filter panel's kind options.
+	pub kinds: HashMap<String, u64>,
 	pub tags: HashMap<Uuid, u64>,
 	pub locations: HashMap<Uuid, u64>,
 	pub date_ranges: HashMap<String, u64>,
@@ -143,13 +145,16 @@ impl FileSearchOutput {
 
 	/// Create search output for ephemeral index results
 	pub fn new_ephemeral(
-		results: Vec<FileSearchResult>,
-		total_found: u64,
+		page: crate::ops::search::ephemeral_search::SearchPage,
 		search_id: Uuid,
 		execution_time_ms: u64,
 		pagination: &crate::ops::search::input::PaginationOptions,
 	) -> Self {
-		let facets = SearchFacets::from_results(&results);
+		let crate::ops::search::ephemeral_search::SearchPage {
+			results,
+			total: total_found,
+			facets,
+		} = page;
 		// The page actually served: the caller's window over the true match
 		// count, not a synthetic constant.
 		let pagination = PaginationInfo::new(pagination.offset, pagination.limit, total_found);
@@ -271,37 +276,35 @@ impl FileSearchOutput {
 impl SearchFacets {
 	/// Generate facets from search results
 	pub fn from_results(results: &[FileSearchResult]) -> Self {
-		let mut file_types = HashMap::new();
-		let mut tags = HashMap::new();
-		let mut locations = HashMap::new();
-		let mut date_ranges = HashMap::new();
-		let mut size_ranges = HashMap::new();
+		let mut facets = Self::default();
+		facets.absorb(results);
+		facets
+	}
 
+	/// Fold one result set into the counts. Called per partition over the
+	/// full filtered matches before any narrowing, so a facet count is a
+	/// property of the whole match set rather than of one page.
+	pub fn absorb(&mut self, results: &[FileSearchResult]) {
 		for result in results {
 			let file = &result.file;
 
-			// Count file types
 			if let Some(ref extension) = file.extension {
-				*file_types.entry(extension.clone()).or_insert(0) += 1;
+				*self.file_types.entry(extension.clone()).or_insert(0) += 1;
 			}
 
-			// Count date ranges
-			let modified_at = file.modified_at;
-			let date_range = Self::categorize_date(modified_at);
-			*date_ranges.entry(date_range).or_insert(0) += 1;
+			// Keyed by the wire spelling, so the filter panel can echo a
+			// facet key straight back as a content_types filter value.
+			let kind = serde_json::to_value(file.content_kind)
+				.ok()
+				.and_then(|value| value.as_str().map(str::to_owned))
+				.unwrap_or_else(|| "unknown".to_string());
+			*self.kinds.entry(kind).or_insert(0) += 1;
 
-			// Count size ranges
-			let size = file.size;
-			let size_range = Self::categorize_size(size);
-			*size_ranges.entry(size_range).or_insert(0) += 1;
-		}
+			let date_range = Self::categorize_date(file.modified_at);
+			*self.date_ranges.entry(date_range).or_insert(0) += 1;
 
-		Self {
-			file_types,
-			tags,
-			locations,
-			date_ranges,
-			size_ranges,
+			let size_range = Self::categorize_size(file.size);
+			*self.size_ranges.entry(size_range).or_insert(0) += 1;
 		}
 	}
 

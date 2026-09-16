@@ -3518,7 +3518,11 @@ export type SdPathBatch = { paths: SdPath[] };
 /**
  * Search facets for filtering UI
  */
-export type SearchFacets = { file_types: { [key in string]: number }; tags: { [key in string]: number }; locations: { [key in string]: number }; date_ranges: { [key in string]: number }; size_ranges: { [key in string]: number } };
+export type SearchFacets = { file_types: { [key in string]: number }; 
+/**
+ * Content kinds by their wire name, for the filter panel's kind options.
+ */
+kinds: { [key in string]: number }; tags: { [key in string]: number }; locations: { [key in string]: number }; date_ranges: { [key in string]: number }; size_ranges: { [key in string]: number } };
 
 /**
  * Container for all structured filters
