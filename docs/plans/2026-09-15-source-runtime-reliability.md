@@ -66,6 +66,13 @@ require consolidation or automatic source creation.
 
 ## What the code establishes
 
+The [September 16 volume audit](2026-09-16-volume-discovery-research.md) updates
+the Untitled observation above: the current daemon sees it mounted but has no
+active map or watcher, despite an older file at its expected snapshot path.
+Startup and hot-plug use different paths. R2 and R5 must distinguish artifact
+existence from active registration and restore state. An arena snapshot does
+not require source registration.
+
 ### 1. A source root can change the meaning of a volume snapshot
 
 [`SourceRegistry::volume_of`](../../core/src/ops/indexing/ephemeral/sources.rs)
@@ -700,6 +707,62 @@ Treat the live stores as evidence. No blanket delete-and-reindex recovery.
 The deployment/recovery step is a later task after review. Record results
 against each source ID and generation. Do not mark the NAS archive itself
 complete again from the number of visible source cards.
+
+#### R7 results, 2026-09-16
+
+Both machines run build `b57cb2857` (Mac debug daemon; titan
+`x86_64-unknown-linux-musl` release at `~/spacedrive/bin/sd-daemon`, previous
+binary kept as `.prev`). Checks against the stores used read-only SQLite over
+each `data.db`.
+
+Titan's nine stores validated directly. Every store: zero records whose
+`parent_uuid` points at a missing row, zero directories without a
+`directory_path` row, and the parentless rows are exactly the source root's
+own top-level children (dev-tools: 14, matching its listing). Totals:
+jamie-nas 217,890 (+2: the deploy staged `sd-daemon.new`/`sd-server.new`
+into `~jamie/spacedrive/bin`, which lives inside the source; the rows went
+stale when the swap happened while the daemon was down and will sweep on the
+next walk — they are also the only pending-identification rows in the fleet),
+calvin-nas 1,525, cctv 49,263 (748 accepted root-owned `content_error` rows),
+footage 1,380, dev-tools 28,079, jamie-public 2, jamvm/vm-data/windows-vm 1
+each. dev-tools' missing owner snapshot was the explicit-discovery gap plus
+the empty-partition fuse; `fd40a5b87`'s heal walked it and its first complete
+snapshot now serves.
+
+The Mac home store validated the same way: 1,759,739 records (1,507,147
+files, 221,511 directories), zero dangling parents, zero directories without
+paths, zero pending identification, 3 `content_error` rows. Its 217
+parentless rows are the home directory's top-level children. No surgical
+repair was needed; R1's rebinds plus the re-walk resolved the malformed
+ancestry entirely, so steps 4-6 close with no unresolved rows.
+
+Live fleet proofs on this build:
+
+- Startup restores all nine arenas on titan in about a second and arms all
+  nine watchers, dev-tools included (`88f496891`, `1d8d23962`, `0e605105b`).
+  The pool volume watch still fails on the root-owned
+  `ix-applications/docker` directory, and the per-source fallback covers
+  every registered source under it.
+- Cold restart with titan stopped: the Mac lists all nine replicas from disk
+  and searches them (dev-tools answered `zig-linux` in 121 ms while the owner
+  was down). Titan relaunched and reconverged with zero transfers.
+- Byte read: streamed `jamie-public/.spacedrive-volume-id` bytes through the
+  local WebDAV share, served from titan's disk. Remote operation:
+  `sd --device 3cee5a0b… sources list` executed on titan; remote log stream
+  connected.
+- Generations recorded per source in
+  `~/.spacedrive/mounts-remote/3cee…/manifest.json` name the delivered
+  artifacts (`0650e0acb`); the restart settle after both daemons moved to
+  this build transferred nothing on either side.
+- Refresh economics: a dirty listing over an unchanged artifact paces at
+  five minutes (`b57cb2857`), which ended titan re-pulling the Mac's 116 MB
+  home artifact once a minute during builds. Memory for R4's ledger: Mac
+  daemon 2.70 GB RSS (own 1.76 M-entry arena plus nine replicas), titan
+  2.14 GB RSS (nine own arenas plus the Mac home replica).
+- Untitled: mounted, unregistered, and its files answer search through the
+  data-volume spelling of `/Volumes`. Its own partition is not active this
+  session; the hot-plug mapping gap is recorded in
+  `2026-09-16-volume-discovery-research.md`.
 
 ### R8: Acceptance, release and documentation
 
