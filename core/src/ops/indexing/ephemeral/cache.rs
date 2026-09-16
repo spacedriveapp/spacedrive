@@ -988,15 +988,30 @@ impl EphemeralIndexCache {
 
 		// A drive that came back at a different mount point has absolute
 		// paths from the old mount baked into the snapshot. Reindexing the
-		// present drive is cheaper than being subtly wrong; the stale
-		// snapshot goes so the next save is clean.
+		// present drive is cheaper than being subtly wrong, but a root
+		// disagreement can also mean this resolver picked a different root
+		// than the one that wrote the snapshot. The artifact moves aside
+		// rather than being deleted, so a resolution bug cannot destroy the
+		// only copy; the next save still lands clean at the original path.
 		if volume_root.exists() && meta.root_path != volume_root {
-			tracing::info!(
-				"Snapshot for {} was taken at {}; discarding for reindex",
+			let aside = snapshot_path.with_extension("mismatched-root");
+			tracing::warn!(
+				"Snapshot for {} was taken at {}; moving aside to {} for reindex",
 				volume_root.display(),
-				meta.root_path.display()
+				meta.root_path.display(),
+				aside.display()
 			);
-			let _ = std::fs::remove_file(&snapshot_path);
+			if aside.exists() {
+				// A repeating mismatch keeps regenerating snapshots; the one
+				// already aside is the oldest and stays. This copy was written
+				// after the disagreement began and adds nothing.
+				let _ = std::fs::remove_file(&snapshot_path);
+			} else if let Err(e) = std::fs::rename(&snapshot_path, &aside) {
+				tracing::warn!(
+					"Could not move mismatched snapshot {} aside: {e}",
+					snapshot_path.display()
+				);
+			}
 			return false;
 		}
 
@@ -1720,6 +1735,67 @@ mod tests {
 				assert_eq!(loaded.get_stats().total_entries, saved, "{count} entries");
 				assert_eq!(meta.source_id, source_id);
 			}
+		}
+
+		/// A snapshot whose saved root disagrees with the resolved root is
+		/// evidence, and evidence moves aside instead of being deleted. The
+		/// disagreement can mean a genuine remount, but it can also mean the
+		/// root resolver changed its answer, and a resolution bug must not be
+		/// able to destroy the only artifact.
+		#[tokio::test]
+		async fn a_root_mismatched_snapshot_moves_aside_instead_of_deleting() {
+			use sea_orm::{
+				ActiveModelTrait, ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter,
+			};
+
+			use crate::infra::db::entities::volume;
+
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let old_dir = tempfile::tempdir().unwrap();
+			let new_dir = tempfile::tempdir().unwrap();
+
+			// Session one indexes the drive at its original mount.
+			let anchor = {
+				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+					.expect("cache");
+				cache.attach_library(library.clone()).await.expect("attach");
+				let anchor = tracked_volume(&library, old_dir.path()).await;
+				indexed_source(&cache, old_dir.path(), anchor.clone(), 4).await;
+				anchor
+			};
+
+			// The drive comes back mounted somewhere else.
+			let row = volume::Entity::find()
+				.filter(volume::Column::Uuid.eq(anchor.uuid))
+				.one(library.conn())
+				.await
+				.expect("query")
+				.expect("volume row");
+			let mut remounted: volume::ActiveModel = row.into();
+			remounted.mount_point = Set(Some(new_dir.path().to_string_lossy().into_owned()));
+			remounted.update(library.conn()).await.expect("remount");
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library).await.expect("attach");
+
+			let snapshot_path = cache
+				.snapshot_path_for(new_dir.path())
+				.expect("snapshot path");
+
+			assert!(
+				!cache.ensure_restored(new_dir.path()).await,
+				"a mismatched snapshot must not restore"
+			);
+			assert!(
+				!snapshot_path.exists(),
+				"the mismatched snapshot must leave its slot for the next save"
+			);
+			assert!(
+				snapshot_path.with_extension("mismatched-root").exists(),
+				"the mismatched snapshot must survive as an aside artifact"
+			);
 		}
 
 		/// A restored index has to announce itself so something can watch it.

@@ -746,15 +746,18 @@ async fn a_reloaded_ledger_rebuilds_the_paths_it_was_not_given() {
 	}
 }
 
-/// An index built before a record could be addressed by its parent has to be
-/// discarded rather than layered over.
+/// An index built before a record could be addressed by its parent is refused
+/// rather than layered over or discarded.
 ///
 /// `RECORD_SCHEMA` is `IF NOT EXISTS` throughout, so the old `external_id NOT
 /// NULL` column would survive and `directory_path` would never appear, and the
-/// first walk into it would fail on every file it tried to write without a key.
-/// Assertions are the one thing a walk cannot rebuild, so they stay.
+/// first walk into it would fail on every file it tried to write without a
+/// key. A rebuild-by-walk assumes the origin is reproducible, which source
+/// durability forbids: content evidence cannot be recomputed once the drive is
+/// gone. The store stays intact and unopenable until a data-preserving
+/// migration converts it.
 #[tokio::test]
-async fn an_index_that_predates_parent_addressing_is_rebuilt() {
+async fn an_index_that_predates_parent_addressing_is_refused_intact() {
 	let dir = tempfile::tempdir().expect("tempdir");
 	let manager = SourceManager::new(dir.path().join("sources"));
 	manager
@@ -806,32 +809,33 @@ async fn an_index_that_predates_parent_addressing_is_rebuilt() {
 		.expect("rate it");
 	}
 
-	let db = manager.open("drive-1").await.expect("reopen");
+	match manager.open("drive-1").await {
+		Err(sd_store::Error::UnsupportedGeneration(_)) => {}
+		Err(other) => panic!("expected UnsupportedGeneration, got {other}"),
+		Ok(_) => panic!("an unaddressable generation must refuse to open"),
+	}
 
-	let keyless: i64 = sqlx::query_scalar(
-		"SELECT COUNT(*) FROM pragma_table_info('record')
-		  WHERE name = 'external_id' AND \"notnull\" = 0",
-	)
-	.fetch_one(db.pool())
-	.await
-	.expect("shape");
-	assert_eq!(keyless, 1, "external_id is nullable again");
+	// Refusal must leave every table exactly as it was: the rows are the
+	// evidence the future migration converts.
+	let pool = sqlx::sqlite::SqlitePoolOptions::new()
+		.connect(&format!(
+			"sqlite:{}",
+			manager.source_dir("drive-1").join("data.db").display()
+		))
+		.await
+		.expect("raw open");
 
-	assert!(paths(&db).await.is_empty(), "the generation was dropped");
+	let records: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record")
+		.fetch_one(&pool)
+		.await
+		.expect("records survive");
+	assert_eq!(records, 1, "old-generation rows stay intact");
 
 	let assertions: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM record_overlay")
-		.fetch_one(db.pool())
+		.fetch_one(&pool)
 		.await
 		.expect("count");
-	assert_eq!(assertions, 1, "assertions outlive the generation");
-
-	// And it takes a walk, which is what the discard is for.
-	let mut ledger = Ledger::load(db.pool()).await.expect("ledger");
-	let writes = walk(&mut ledger, &[("notes/a.txt", 10, Some(1))]);
-	db.apply_files(&writes, &[], &[], None).await.expect("walk");
-	assert_eq!(paths(&db).await, vec!["notes", "notes/a.txt"]);
-
-	assert_eq!(db.rebind_overlays().await.expect("rebind"), 1);
+	assert_eq!(assertions, 1, "assertions outlive the refusal");
 }
 
 /// A ledger with no binding for a path adopts the identity the path already

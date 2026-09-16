@@ -12,6 +12,9 @@ pub enum Error {
 	#[error("source not found: {0}")]
 	SourceNotFound(String),
 
+	#[error("source index uses an unsupported generation: {0}")]
+	UnsupportedGeneration(String),
+
 	#[error("io error: {0}")]
 	Io(#[from] std::io::Error),
 

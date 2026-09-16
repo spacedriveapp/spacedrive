@@ -40,18 +40,24 @@ impl SourceManager {
 		Self { sources_dir }
 	}
 
-	/// Drop a generation written before a record could be addressed by its
-	/// parent, so the DDL below builds the current shape rather than layering
-	/// it over the old one.
+	/// Refuse a generation written before a record could be addressed by its
+	/// parent, so the DDL below cannot layer the current shape over the old
+	/// one.
 	///
 	/// `RECORD_SCHEMA` is `IF NOT EXISTS` throughout, which makes it idempotent
 	/// and also makes it silent: an index created when `external_id` was `NOT
 	/// NULL` would keep that column and never gain `directory_path`, and the
 	/// first walk into it would fail on every file it tried to write with no
-	/// key. Everything dropped here is rebuilt by a walk. `record_overlay` is
-	/// not, and does not have a foreign key to `record` for exactly this
-	/// reason, so the assertions stand and `rebind_overlays` rehomes them.
-	async fn discard_unaddressable_generation(pool: &SqlitePool) -> Result<()> {
+	/// key.
+	///
+	/// An earlier version of this check dropped the record, content, edge, and
+	/// facet tables so a walk could rebuild them. That assumed the origin is
+	/// reproducible, which source durability forbids: content rows carry
+	/// integrity evidence that cannot be recomputed once the drive is in a
+	/// drawer. The store stays intact and unopenable until a data-preserving
+	/// migration converts it; the old full-path rows hold the evidence that
+	/// migration needs.
+	async fn refuse_unaddressable_generation(pool: &SqlitePool) -> Result<()> {
 		let columns: Vec<(i64, String, String, i64)> =
 			sqlx::query_as("SELECT cid, name, type, \"notnull\" FROM pragma_table_info('record')")
 				.fetch_all(pool)
@@ -60,27 +66,12 @@ impl SourceManager {
 		let stale = columns
 			.iter()
 			.any(|(_, name, _, notnull)| name == "external_id" && *notnull == 1);
-		if !stale {
-			return Ok(());
-		}
-
-		tracing::info!("source index predates parent addressing; dropping its records to rebuild");
-
-		let facets: Vec<(String,)> = sqlx::query_as(
-			"SELECT name FROM sqlite_master WHERE type = 'table' AND name LIKE 'facet_%'",
-		)
-		.fetch_all(pool)
-		.await?;
-
-		for (table,) in facets {
-			sqlx::query(&format!("DROP TABLE IF EXISTS \"{table}\""))
-				.execute(pool)
-				.await?;
-		}
-		for table in ["directory_path", "edge", "record", "content"] {
-			sqlx::query(&format!("DROP TABLE IF EXISTS {table}"))
-				.execute(pool)
-				.await?;
+		if stale {
+			return Err(Error::UnsupportedGeneration(
+				"records predate parent addressing; a data-preserving migration is required \
+				 before this store can be opened"
+					.to_string(),
+			));
 		}
 
 		Ok(())
@@ -88,7 +79,7 @@ impl SourceManager {
 
 	/// Apply the record table and the data type's facet DDL. Idempotent.
 	async fn apply_schema(pool: &SqlitePool, schema: &DataTypeSchema) -> Result<()> {
-		Self::discard_unaddressable_generation(pool).await?;
+		Self::refuse_unaddressable_generation(pool).await?;
 		sqlx::raw_sql(RECORD_SCHEMA).execute(pool).await?;
 		for sql in &generate_ddl(schema) {
 			sqlx::query(sql).execute(pool).await?;
