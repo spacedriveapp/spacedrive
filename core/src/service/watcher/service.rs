@@ -137,6 +137,7 @@ impl FsWatcherService {
 						for source in self.context.ephemeral_cache().sources() {
 							if !source.attached
 								|| source.root == root || !source.root.starts_with(&root)
+								|| self.context.ephemeral_cache().is_watched(&source.root)
 							{
 								continue;
 							}

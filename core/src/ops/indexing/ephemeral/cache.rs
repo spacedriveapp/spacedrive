@@ -1327,7 +1327,24 @@ impl EphemeralIndexCache {
 	/// indexed in its partition; detached partitions refuse.
 	pub fn register_for_watching(&self, path: PathBuf) -> bool {
 		let slot = self.resolve(&path);
-		if slot.is_detached() || !slot.indexed_paths.read().contains(&path) {
+		if slot.is_detached() {
+			return false;
+		}
+		// A walked-to-completion root and a registered source root are both
+		// watchable. `indexed_paths` is session state: a source nested inside
+		// its volume's partition is not re-listed there by the partition's
+		// restore, so after a restart the registration is the only durable
+		// evidence the root deserves a watch. Events over a sparser arena
+		// still file correctly; the writer synthesizes missing ancestors.
+		let indexed = slot.indexed_paths.read().contains(&path);
+		let registered = {
+			let registry = self.registry.lock();
+			registry
+				.all()
+				.iter()
+				.any(|record| record.root == path && record.root.exists())
+		};
+		if !indexed && !registered {
 			return false;
 		}
 		slot.watched_paths.write().insert(path);
@@ -1551,6 +1568,35 @@ mod tests {
 			uuid,
 			mount_point: mount_point.to_path_buf(),
 		}
+	}
+
+	/// A registered source root is watchable after a restart even though no
+	/// walk has run this session: the partition restore does not re-list a
+	/// nested source in `indexed_paths`, and the registration is the durable
+	/// evidence the root deserves a watch. A path with neither evidence stays
+	/// refused.
+	#[tokio::test]
+	async fn a_registered_root_is_watchable_without_a_walk_this_session() {
+		let cache = isolated_cache();
+		let volume = tempfile::tempdir().expect("volume");
+		let nested = volume.path().join("kept");
+		std::fs::create_dir(&nested).expect("nested source dir");
+
+		cache.track_volume(Uuid::now_v7(), volume.path().to_path_buf());
+		cache
+			.register_source(&nested, None)
+			.await
+			.expect("register");
+
+		assert!(
+			cache.register_for_watching(nested.clone()),
+			"the registration alone earns the watch"
+		);
+		assert!(cache.is_watched(&nested));
+		assert!(
+			!cache.register_for_watching(volume.path().join("stray")),
+			"an unregistered, unwalked path is still refused"
+		);
 	}
 
 	#[tokio::test]
