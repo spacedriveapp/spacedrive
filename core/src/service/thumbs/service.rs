@@ -15,6 +15,16 @@ use crate::infra::event::{Event, EventBus, ResourceMetadata};
 use crate::infra::source_dirs::SourceDirs;
 use crate::infra::source_version::source_version;
 use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::service::external_tools::ExternalTools;
+
+use super::ffmpeg::HostFfmpegProducer;
+use super::{
+	ffmpeg::is_video,
+	thumbstrip::{self, COLUMNS as THUMBSTRIP_COLUMNS, ROWS as THUMBSTRIP_ROWS},
+};
+
+#[cfg(target_os = "macos")]
+use super::platform::PlatformProducer;
 
 /// Envelope edge in physical pixels: the largest frame a slot can hold, on
 /// either axis. One geometry per cache file; the reader rejects a file baked
@@ -72,6 +82,36 @@ impl Thumbnail {
 
 crate::register_resource!(Thumbnail);
 
+/// Completion event for an on-demand video scrub sheet.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct Thumbstrip {
+	pub id: Uuid,
+	pub source_id: Uuid,
+	#[serde(with = "crate::infra::wire::u64_string")]
+	#[specta(type = String)]
+	pub version: u64,
+	pub ok: bool,
+}
+
+impl Identifiable for Thumbstrip {
+	fn id(&self) -> Uuid {
+		self.id
+	}
+
+	fn resource_type() -> &'static str
+	where
+		Self: Sized,
+	{
+		Self::RESOURCE_TYPE
+	}
+}
+
+impl Thumbstrip {
+	pub const RESOURCE_TYPE: &'static str = "thumbstrip";
+}
+
+crate::register_resource!(Thumbstrip);
+
 /// What a path resolves to in the cache: which file holds its tile, under
 /// which key, at which version.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
@@ -85,12 +125,33 @@ pub struct TileIdentity {
 	pub version: u64,
 }
 
+/// Address and state for one volume-scoped video scrub sheet.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
+pub struct ThumbstripIdentity {
+	pub source_id: Uuid,
+	pub uuid: Uuid,
+	#[serde(with = "crate::infra::wire::u64_string")]
+	#[specta(type = String)]
+	pub version: u64,
+	pub columns: u8,
+	pub rows: u8,
+	pub ready: bool,
+	pub pending: bool,
+	pub available: bool,
+}
+
 /// The key the pool echoes back on a finished bake.
 #[derive(Debug, Clone, Copy)]
 struct TileKey {
 	source_id: Uuid,
 	uuid: Uuid,
 	version: u64,
+}
+
+struct ThumbstripWork {
+	path: PathBuf,
+	output: PathBuf,
+	identity: TileIdentity,
 }
 
 pub struct ThumbService {
@@ -104,6 +165,9 @@ pub struct ThumbService {
 	/// not resubmit work already on the queue.
 	pending: Arc<Mutex<HashSet<(Uuid, Uuid)>>>,
 	pool: BakePool<TileKey>,
+	external_tools: Arc<ExternalTools>,
+	thumbstrip_pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
+	thumbstrip_tx: async_channel::Sender<ThumbstripWork>,
 }
 
 impl ThumbService {
@@ -112,9 +176,13 @@ impl ThumbService {
 		dirs: Option<SourceDirs>,
 		ephemeral: Arc<EphemeralIndexCache>,
 		events: Arc<EventBus>,
+		external_tools: Arc<ExternalTools>,
 	) -> Arc<Self> {
-		let (pool, baked) = BakePool::<TileKey>::new(producer_chain(), TILE, bake_workers());
+		let (pool, baked) =
+			BakePool::<TileKey>::new(producer_chain(external_tools.clone()), TILE, bake_workers());
 		let pending: Arc<Mutex<HashSet<(Uuid, Uuid)>>> = Arc::new(Mutex::new(HashSet::new()));
+		let thumbstrip_pending = Arc::new(Mutex::new(HashSet::new()));
+		let (thumbstrip_tx, thumbstrip_rx) = async_channel::bounded(128);
 
 		let service = Arc::new(Self {
 			dirs,
@@ -122,13 +190,28 @@ impl ThumbService {
 			writers: Mutex::new(HashMap::new()),
 			pending: pending.clone(),
 			pool,
+			external_tools: external_tools.clone(),
+			thumbstrip_pending: thumbstrip_pending.clone(),
+			thumbstrip_tx,
 		});
 
 		let drain = service.clone();
+		let drain_events = events.clone();
 		std::thread::Builder::new()
 			.name("thumb-drain".into())
-			.spawn(move || drain.run_drain(baked, events, pending))
+			.spawn(move || drain.run_drain(baked, drain_events, pending))
 			.expect("failed to spawn thumbnail drain thread");
+
+		for worker in 0..thumbstrip_workers() {
+			let receiver = thumbstrip_rx.clone();
+			let tools = external_tools.clone();
+			let events = events.clone();
+			let pending = thumbstrip_pending.clone();
+			std::thread::Builder::new()
+				.name(format!("thumbstrip-{worker}"))
+				.spawn(move || run_thumbstrip_worker(receiver, tools, events, pending))
+				.expect("failed to spawn thumbstrip worker");
+		}
 
 		service
 	}
@@ -151,16 +234,96 @@ impl ThumbService {
 	}
 
 	async fn request_one(&self, path: &PathBuf, priority: u32) -> Option<TileIdentity> {
+		let identity = self.resolve_identity(path).await?;
+		let dirs = self.dirs.as_ref()?;
+
+		let writer = self.writer_for(identity.source_id, dirs)?;
+		let fresh = {
+			let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
+			matches!(
+				writer.lookup(identity.uuid, identity.version),
+				TileState::Fresh { .. }
+			)
+		};
+		if fresh {
+			return Some(identity);
+		}
+
+		{
+			let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
+			if !pending.insert((identity.source_id, identity.uuid)) {
+				return Some(identity);
+			}
+		}
+
+		self.pool.submit(BakeRequest {
+			key: TileKey {
+				source_id: identity.source_id,
+				uuid: identity.uuid,
+				version: identity.version,
+			},
+			item: WorkItem::file(path),
+			priority,
+		});
+		Some(identity)
+	}
+
+	/// Resolve and queue one video thumbstrip. Generation starts only after a
+	/// client asks, normally on hover, and a fresh artifact is returned without
+	/// requiring FFmpeg to remain installed.
+	pub async fn request_thumbstrip(&self, path: &PathBuf) -> Option<ThumbstripIdentity> {
+		if !is_video(path) {
+			return None;
+		}
+		let identity = self.resolve_identity(path).await?;
+		let output = self.dirs.as_ref()?.thumbstrip_file(
+			identity.source_id,
+			identity.uuid,
+			identity.version,
+		);
+		if output.is_file() {
+			return Some(thumbstrip_identity(identity, true, false, true));
+		}
+
+		let available = self.external_tools.ffmpeg_path().is_some()
+			&& self.external_tools.ffprobe_path().is_some();
+		if !available {
+			return Some(thumbstrip_identity(identity, false, false, false));
+		}
+
+		let key = (identity.source_id, identity.uuid, identity.version);
+		let inserted = self
+			.thumbstrip_pending
+			.lock()
+			.unwrap_or_else(|e| e.into_inner())
+			.insert(key);
+		if inserted
+			&& self
+				.thumbstrip_tx
+				.try_send(ThumbstripWork {
+					path: path.clone(),
+					output,
+					identity,
+				})
+				.is_err()
+		{
+			self.thumbstrip_pending
+				.lock()
+				.unwrap_or_else(|e| e.into_inner())
+				.remove(&key);
+			return Some(thumbstrip_identity(identity, false, false, true));
+		}
+
+		Some(thumbstrip_identity(identity, false, true, true))
+	}
+
+	async fn resolve_identity(&self, path: &PathBuf) -> Option<TileIdentity> {
 		let slot = self.ephemeral.resolve(path);
 		// The hot tier follows the arena, so it is keyed by the drive rather
 		// than by whatever is persisted off it.
 		let source_id = slot.id()?;
-		let dirs = self.dirs.as_ref()?;
-
-		// The uuid has to come from the index rather than be derived here, so
-		// it is the same identity the directory listing already handed the
-		// client, and the version has to come from the file so a client's
-		// timestamp rounding can never disagree with the writer's.
+		// Identity comes from the same index that produced the listing, while
+		// the version comes from full filesystem precision.
 		let (uuid, version) = {
 			let index = slot.index();
 			let mut index = index.write().await;
@@ -169,39 +332,11 @@ impl ThumbService {
 			let mtime = metadata.modified().ok()?;
 			(uuid, source_version(metadata.len(), mtime))
 		};
-
-		let identity = TileIdentity {
+		Some(TileIdentity {
 			source_id,
 			uuid,
 			version,
-		};
-
-		let writer = self.writer_for(source_id, dirs)?;
-		let fresh = {
-			let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
-			matches!(writer.lookup(uuid, version), TileState::Fresh { .. })
-		};
-		if fresh {
-			return Some(identity);
-		}
-
-		{
-			let mut pending = self.pending.lock().unwrap_or_else(|e| e.into_inner());
-			if !pending.insert((source_id, uuid)) {
-				return Some(identity);
-			}
-		}
-
-		self.pool.submit(BakeRequest {
-			key: TileKey {
-				source_id,
-				uuid,
-				version,
-			},
-			item: WorkItem::file(path),
-			priority,
-		});
-		Some(identity)
+		})
 	}
 
 	/// The cache file for a source, or `None` when persistence is off.
@@ -318,6 +453,61 @@ impl ThumbService {
 	}
 }
 
+fn thumbstrip_identity(
+	identity: TileIdentity,
+	ready: bool,
+	pending: bool,
+	available: bool,
+) -> ThumbstripIdentity {
+	ThumbstripIdentity {
+		source_id: identity.source_id,
+		uuid: identity.uuid,
+		version: identity.version,
+		columns: THUMBSTRIP_COLUMNS,
+		rows: THUMBSTRIP_ROWS,
+		ready,
+		pending,
+		available,
+	}
+}
+
+fn run_thumbstrip_worker(
+	receiver: async_channel::Receiver<ThumbstripWork>,
+	tools: Arc<ExternalTools>,
+	events: Arc<EventBus>,
+	pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
+) {
+	while let Ok(work) = receiver.recv_blocking() {
+		let result = thumbstrip::generate(&tools, &work.path, &work.output);
+		let ok = result.is_ok();
+		if let Err(error) = result {
+			warn!(path = %work.path.display(), "thumbstrip generation failed: {error}");
+		}
+		pending.lock().unwrap_or_else(|e| e.into_inner()).remove(&(
+			work.identity.source_id,
+			work.identity.uuid,
+			work.identity.version,
+		));
+		let resource = Thumbstrip {
+			id: work.identity.uuid,
+			source_id: work.identity.source_id,
+			version: work.identity.version,
+			ok,
+		};
+		if let Ok(resource) = serde_json::to_value(resource) {
+			events.emit(Event::ResourceChanged {
+				resource_type: Thumbstrip::RESOURCE_TYPE.to_string(),
+				resource,
+				metadata: Some(ResourceMetadata {
+					no_merge_fields: Vec::new(),
+					alternate_ids: Vec::new(),
+					affected_paths: Vec::new(),
+				}),
+			});
+		}
+	}
+}
+
 fn flush(batch: &mut Vec<Thumbnail>, events: &EventBus) {
 	let resources: Vec<serde_json::Value> = batch
 		.drain(..)
@@ -350,8 +540,11 @@ fn priority_for(rank: usize, total: usize) -> u32 {
 /// proportions, and a square view crops back out of that. Baking the crop
 /// instead would throw away the shape and leave the grid nothing to recover it
 /// from. Icon tiles are square by nature and unaffected.
-fn producer_chain() -> Vec<Box<dyn Producer>> {
+fn producer_chain(external_tools: Arc<ExternalTools>) -> Vec<Box<dyn Producer>> {
 	let mut chain: Vec<Box<dyn Producer>> = vec![Box::new(ImageProducer::new(ScaleMode::Fit))];
+	#[cfg(target_os = "macos")]
+	chain.push(Box::new(PlatformProducer));
+	chain.push(Box::new(HostFfmpegProducer::new(external_tools)));
 	#[cfg(target_os = "macos")]
 	chain.push(Box::new(sd_bake::IconProducer::new()));
 	chain
@@ -365,6 +558,14 @@ fn bake_workers() -> usize {
 		.unwrap_or(4)
 		.saturating_sub(2)
 		.clamp(2, 8)
+}
+
+fn thumbstrip_workers() -> usize {
+	std::thread::available_parallelism()
+		.map(|n| n.get())
+		.unwrap_or(2)
+		.saturating_sub(2)
+		.clamp(1, 2)
 }
 
 #[cfg(test)]

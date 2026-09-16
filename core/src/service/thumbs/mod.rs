@@ -16,6 +16,10 @@
 //! costs a lookup. Completions are announced as batched `thumbnail` resource
 //! events, so a client that is showing a placeholder knows when to re-read.
 
+mod ffmpeg;
+#[cfg(target_os = "macos")]
+mod platform;
 mod service;
+mod thumbstrip;
 
-pub use service::{ThumbService, Thumbnail, TileIdentity, TILE};
+pub use service::{ThumbService, Thumbnail, Thumbstrip, ThumbstripIdentity, TileIdentity, TILE};

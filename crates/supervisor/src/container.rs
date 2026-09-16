@@ -94,9 +94,7 @@ pub async fn probe_container_runtime(runtime: &ContainerRuntime) -> RuntimeStatu
 /// used as found and never restarted. Only a colima profile the supervisor was
 /// told to manage is started, and it is never stopped — the machine's
 /// container runtime is not taken down on the way out.
-pub async fn ensure_container_runtime(
-	runtime: &ContainerRuntime,
-) -> Result<RuntimeStatus, String> {
+pub async fn ensure_container_runtime(runtime: &ContainerRuntime) -> Result<RuntimeStatus, String> {
 	let probe = probe_container_runtime(runtime).await;
 	if probe.reachable || runtime.provider != ContainerProvider::Colima {
 		return Ok(probe);

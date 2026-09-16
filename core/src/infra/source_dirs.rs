@@ -27,6 +27,7 @@ const SOURCES_DIR: &str = "sources";
 const VOLUMES_DIR: &str = "volumes";
 const SNAPSHOT_FILE: &str = "ephemeral.snapshot";
 const THUMBS_FILE: &str = "thumbs.pvcache";
+const THUMBSTRIPS_DIR: &str = "thumbstrips";
 const BLOCKS_DIR: &str = "blocks";
 
 /// Resolves the on-disk layout for per-source storage.
@@ -101,6 +102,16 @@ impl SourceDirs {
 	/// over one drive should not each decode it.
 	pub fn thumbs_file(&self, id: Uuid) -> PathBuf {
 		self.volume_dir(id).join(THUMBS_FILE)
+	}
+
+	/// On-demand video scrub sheets keyed by record and content version. They
+	/// follow the volume index because the record identity and invalidation
+	/// evidence come from that map, just like hot thumbnail tiles.
+	pub fn thumbstrip_file(&self, id: Uuid, record_id: Uuid, version: u64) -> PathBuf {
+		self.volume_dir(id)
+			.join(THUMBSTRIPS_DIR)
+			.join(record_id.simple().to_string())
+			.join(format!("{version}.png"))
 	}
 
 	/// A source's streamed block cache. Inside the source's directory so
@@ -204,6 +215,13 @@ mod tests {
 			volume_dir.join("ephemeral.snapshot")
 		);
 		assert_eq!(dirs.thumbs_file(id), volume_dir.join("thumbs.pvcache"));
+		assert_eq!(
+			dirs.thumbstrip_file(id, Uuid::from_u128(7), 42),
+			volume_dir
+				.join("thumbstrips")
+				.join(Uuid::from_u128(7).simple().to_string())
+				.join("42.png")
+		);
 
 		// Resolution creates nothing; creation is explicit.
 		assert!(!source_dir.exists());

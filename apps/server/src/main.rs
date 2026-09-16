@@ -180,9 +180,14 @@ async fn serve_sidecar(
 		return plain_status(StatusCode::NOT_FOUND, "unknown library");
 	};
 
-	let path = library_folder.join("sidecars").join(
-		sd_sidecar_path::relative_path(&content_uuid, kind_dir, variant, ext),
-	);
+	let path = library_folder
+		.join("sidecars")
+		.join(sd_sidecar_path::relative_path(
+			&content_uuid,
+			kind_dir,
+			variant,
+			ext,
+		));
 
 	let Ok(file) = tokio::fs::File::open(&path).await else {
 		return plain_status(StatusCode::NOT_FOUND, "sidecar not found");
@@ -213,6 +218,106 @@ async fn serve_sidecar(
 	builder
 		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
 		.expect("sidecar response is well-formed")
+}
+
+/// Serve one immutable tile from the volume-scoped thumbnail cache.
+async fn serve_hot_thumb(
+	State(state): State<AppState>,
+	axum::extract::Path((source_id, record_uuid, version)): axum::extract::Path<(
+		String,
+		String,
+		String,
+	)>,
+) -> Response {
+	let Ok(source_id) = uuid::Uuid::parse_str(&source_id) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid source id");
+	};
+	let Ok(record_uuid) = uuid::Uuid::parse_str(&record_uuid) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid record id");
+	};
+	let Ok(version) = version.parse::<u64>() else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid content version");
+	};
+	let path = state
+		.data_dir
+		.join("volumes")
+		.join(source_id.simple().to_string())
+		.join("thumbs.pvcache");
+	let png = tokio::task::spawn_blocking(move || read_tile_png(&path, record_uuid, version))
+		.await
+		.ok()
+		.flatten();
+	let Some(png) = png else {
+		return plain_status(StatusCode::NOT_FOUND, "thumbnail not found");
+	};
+	Response::builder()
+		.status(StatusCode::OK)
+		.header(header::CONTENT_TYPE, "image/png")
+		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+		.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*")
+		.body(Body::from(png))
+		.expect("hot thumbnail response is well-formed")
+}
+
+fn read_tile_png(path: &std::path::Path, uuid: uuid::Uuid, version: u64) -> Option<Vec<u8>> {
+	let mut reader = sd_pvcache::PvcacheReader::open(path).ok()?;
+	let mut bgra = vec![0u8; reader.tile_len()];
+	let Ok(sd_pvcache::TileState::Fresh { frame }) = reader.get(uuid, version, &mut bgra) else {
+		return None;
+	};
+	bgra.truncate(frame.len());
+	for pixel in bgra.chunks_exact_mut(4) {
+		pixel.swap(0, 2);
+	}
+	let buffer = image::RgbaImage::from_raw(frame.content_width, frame.content_height, bgra)?;
+	let mut png = std::io::Cursor::new(Vec::new());
+	image::DynamicImage::ImageRgba8(buffer)
+		.write_to(&mut png, image::ImageFormat::Png)
+		.ok()?;
+	Some(png.into_inner())
+}
+
+/// Serve an on-demand timeline sprite after every path component has been
+/// parsed into a fixed-width identity.
+async fn serve_hot_thumbstrip(
+	State(state): State<AppState>,
+	axum::extract::Path((source_id, record_uuid, version)): axum::extract::Path<(
+		String,
+		String,
+		String,
+	)>,
+) -> Response {
+	let Ok(source_id) = uuid::Uuid::parse_str(&source_id) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid source id");
+	};
+	let Ok(record_uuid) = uuid::Uuid::parse_str(&record_uuid) else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid record id");
+	};
+	let Ok(version) = version.parse::<u64>() else {
+		return plain_status(StatusCode::BAD_REQUEST, "invalid content version");
+	};
+	let path = state
+		.data_dir
+		.join("volumes")
+		.join(source_id.simple().to_string())
+		.join("thumbstrips")
+		.join(record_uuid.simple().to_string())
+		.join(format!("{version}.png"));
+	let Ok(file) = tokio::fs::File::open(&path).await else {
+		return plain_status(StatusCode::NOT_FOUND, "thumbstrip not found");
+	};
+	let content_length = file.metadata().await.ok().map(|metadata| metadata.len());
+	let mut response = Response::builder()
+		.status(StatusCode::OK)
+		.header(header::CONTENT_TYPE, "image/png")
+		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
+		.header(header::ACCESS_CONTROL_ALLOW_ORIGIN, "*");
+	if let Some(content_length) = content_length {
+		response = response.header(header::CONTENT_LENGTH, content_length);
+	}
+	response
+		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
+		.expect("hot thumbstrip response is well-formed")
 }
 
 /// Bridge the daemon's event stream to a browser SSE connection.
@@ -411,11 +516,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 			// home directory can't be resolved.
 			std::env::var("DATA_DIR")
 				.map(PathBuf::from)
-				.or_else(|_| {
-					dirs::home_dir()
-						.map(|h| h.join(".spacedrive"))
-						.ok_or(())
-				})
+				.or_else(|_| dirs::home_dir().map(|h| h.join(".spacedrive")).ok_or(()))
 				.unwrap_or_else(|_| {
 					warn!("Could not resolve home directory; falling back to tempdir");
 					let temp = tempfile::tempdir().expect("Failed to create temp dir");
@@ -426,10 +527,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Calculate instance-specific paths
 	let (data_dir, socket_addr) = if let Some(instance) = &args.instance {
-		let instance_data_dir = sd_core::infra::daemon::addr::instance_data_dir(
-			base_data_dir.clone(),
-			Some(instance),
-		);
+		let instance_data_dir =
+			sd_core::infra::daemon::addr::instance_data_dir(base_data_dir.clone(), Some(instance));
 		let socket_addr =
 			sd_core::infra::daemon::addr::daemon_socket_addr(Some(instance)).to_string();
 		(instance_data_dir, socket_addr)
@@ -471,6 +570,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.route(
 			"/sidecar/:library_id/:content_uuid/:kind/*variant",
 			get(serve_sidecar),
+		)
+		.route(
+			"/hot-thumb/:source_id/:record_uuid/:version",
+			get(serve_hot_thumb),
+		)
+		.route(
+			"/hot-thumbstrip/:source_id/:record_uuid/:version",
+			get(serve_hot_thumbstrip),
 		)
 		.fallback(serve_web)
 		.layer(middleware::from_fn_with_state(state.clone(), basic_auth))

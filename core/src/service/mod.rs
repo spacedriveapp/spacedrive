@@ -10,6 +10,7 @@ use tokio::sync::RwLock;
 use tracing::info;
 
 pub mod device;
+pub mod external_tools;
 pub mod file_sharing;
 pub mod mounts;
 pub mod network;

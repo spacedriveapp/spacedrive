@@ -23,7 +23,10 @@ async fn compose(
 
 fn must(result: ExecResult, action: &str) -> Result<ExecResult, String> {
 	if result.code != 0 {
-		return Err(format!("docker compose {action} failed: {}", result.reason()));
+		return Err(format!(
+			"docker compose {action} failed: {}",
+			result.reason()
+		));
 	}
 	Ok(result)
 }
@@ -43,7 +46,10 @@ pub async fn compose_up(
 
 /// Stop, never `down`: containers stay defined and data dirs are never touched.
 pub async fn compose_stop(dir: &Path, runtime: &ContainerRuntime) -> Result<(), String> {
-	must(compose(dir, runtime, &["stop"], &BTreeMap::new()).await?, "stop")?;
+	must(
+		compose(dir, runtime, &["stop"], &BTreeMap::new()).await?,
+		"stop",
+	)?;
 	Ok(())
 }
 

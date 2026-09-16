@@ -200,6 +200,40 @@ async fn serve_hot_thumb(
 		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
+/// Serve an on-demand video scrub sheet. Every path component is parsed as a
+/// typed identity before it reaches the filesystem, and the content version is
+/// part of the URL, so the response can be cached immutably.
+async fn serve_hot_thumbstrip(
+	State(state): State<ServerState>,
+	Path((source_id, record_uuid, version)): Path<(String, String, String)>,
+) -> Result<Response<Body>, StatusCode> {
+	let source_id = Uuid::parse_str(&source_id).map_err(|_| StatusCode::BAD_REQUEST)?;
+	let record_uuid = Uuid::parse_str(&record_uuid).map_err(|_| StatusCode::BAD_REQUEST)?;
+	let version: u64 = version.parse().map_err(|_| StatusCode::BAD_REQUEST)?;
+	let path = state
+		.data_dir
+		.join("volumes")
+		.join(source_id.simple().to_string())
+		.join("thumbstrips")
+		.join(record_uuid.simple().to_string())
+		.join(format!("{version}.png"));
+
+	let file = tokio::fs::File::open(&path)
+		.await
+		.map_err(|_| StatusCode::NOT_FOUND)?;
+	let content_length = file.metadata().await.ok().map(|metadata| metadata.len());
+	let mut response = Response::builder()
+		.status(StatusCode::OK)
+		.header(header::CONTENT_TYPE, "image/png")
+		.header(header::CACHE_CONTROL, "public, max-age=31536000, immutable");
+	if let Some(content_length) = content_length {
+		response = response.header(header::CONTENT_LENGTH, content_length);
+	}
+	response
+		.body(Body::from_stream(tokio_util::io::ReaderStream::new(file)))
+		.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+}
+
 /// Copy a tile out of the cache and encode it as PNG. `None` when the slot is
 /// empty, holds another version, or the file is not a cache.
 ///
@@ -239,6 +273,10 @@ fn create_router(data_dir: PathBuf) -> Router {
 		.route(
 			"/hot-thumb/:source_id/:record_uuid/:version",
 			get(serve_hot_thumb),
+		)
+		.route(
+			"/hot-thumbstrip/:source_id/:record_uuid/:version",
+			get(serve_hot_thumbstrip),
 		)
 		.layer(middleware::from_fn(add_cors_headers))
 		.with_state(state)

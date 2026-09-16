@@ -62,7 +62,8 @@ fn parse_http_url(url: &str) -> Result<HttpTarget, String> {
 	let (host, port) = match authority.rsplit_once(':') {
 		Some((host, port)) => (
 			host.to_string(),
-			port.parse::<u16>().map_err(|_| format!("invalid port in {url}"))?,
+			port.parse::<u16>()
+				.map_err(|_| format!("invalid port in {url}"))?,
 		),
 		None => (authority.to_string(), 80),
 	};

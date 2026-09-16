@@ -6,3 +6,4 @@
 //! completion arrives as a `thumbnail` resource event.
 
 pub mod request;
+pub mod thumbstrip;

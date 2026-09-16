@@ -11,7 +11,7 @@ The plan said "port native's two-tier bake + pvcache." The code audit says the t
 - **Native's two-tier `_g.jpg`/`_d.jpg` deriver no longer exists.** It was the historical `crates/deriver`, deleted; `docs/design.md` describes it aspirationally. What native actually ships is `pvcache` — a fixed-layout mmap slab of raw 128px BGRA cells, filled lazily by a worker pool as you browse, uploaded straight into a `texture_2d_array` with zero decode on the render path — plus `bake` as the in-process cell producer (decode → aspect-fill crop → BGRA swap, visible-range-first scheduling, one thread per core).
 - **Spacedrive already has the durable tier, and it's better than the dead deriver.** The sidecar system (`core/src/ops/sidecar/path.rs`) stores content-addressed WebP variants — `sidecars/content/{h0}/{h1}/{content_uuid}/thumbs/{variant}.webp`, keyed by UUIDv5-of-BLAKE3 so duplicate files share one thumbnail set automatically — with six defined variants (`icon/grid/detail` × `@1x/@2x`), served over an axum route in both shells with immutable cache headers, recorded in the `sidecar` table, chosen by the frontend from actual sidecar rows rather than guessed.
 
-So the port is: **keep sidecars as the durable/serving tier, bring pvcache in as the hot tier**, and make the producer chain platform-first so the whole system is the default — FFmpeg becomes just one optional producer at the end of the chain, not a dependency of the system.
+So the port is: **keep sidecars as the durable/serving tier, bring pvcache in as the hot tier**, and make the producer chain platform-first so the whole system is the default. FFmpeg becomes just one optional producer at the end of the chain, not a dependency of the system.
 
 ## Why a hot tier at all
 
@@ -31,27 +31,37 @@ Concurrency and durability carry over as-is: the lock-free EMPTY→WRITING→REA
 
 ## Placement and keying
 
-- **One pvcache per source**, living in the source's store: `sources/<source_id>/thumbs.pvcache` — beside `index.db`, covered by the same disposability rule, and **traveling with on-drive indexes**. Unplug-and-browse gets thumbnails for free: the drive in a drawer shows its photo grid from its own carried cache. (The catalog apps charge $40–80 and don't do this.)
+- **One pvcache per volume index**, at `volumes/<volume-id>/thumbs.pvcache`. Two nested sources over one drive share the same filesystem identities and decoded cells instead of paying twice. The cache is machine-local and rebuildable.
 - **Keyed by record uuid** (uuid v7, 16 bytes — `SlotRec.uuid` fits unchanged). Works for durable records and for ephemeral records (`entry_uuids` already exist in the ephemeral index), which is what turns thumbnails on for un-indexed browsing: no DB row required, the hot tier is self-sufficient.
-- **Content thumbnails only.** Generic file-type icons never occupy cells — they render from a shared pre-rasterized tile set (native's `producer_icon_tiles` approach). Capacity is sized to thumbnail-able records (media, documents), not the whole source. Sizing reality: 128px BGRA = 64KB/cell; native's 118,910 photos → ~7.6GB file, sparse until browsed. A per-source cache plus view-driven fill keeps the resident set proportional to what's actually looked at — which also retires native's honest "resident-everything banks on 192GB" risk: unloading a source unloads its cache and its atlas layers, aligned with the living index's load/unload lifecycle.
+- **Content thumbnails only.** Generic file-type icons never occupy cells. They render from a shared pre-rasterized tile set (`producer_icon_tiles`). Capacity is sized to thumbnail-able records (media, documents), not the whole volume. At 128px, one BGRA cell is 64KB. A per-volume cache plus view-driven fill keeps the resident set proportional to what is actually viewed.
 
 ## The producer chain
 
-One chain, ordered by cost, replacing the current `is_ffmpeg_available` branching. Each producer either yields a BGRA cell or passes:
+One chain, ordered by cost. Each producer either yields a BGRA cell or passes:
 
-1. **Sidecar decode** — if a `grid@1x` WebP exists for the content, decode and crop it (~256px WebP → cell; cheapest real producer, and it means the hot tier warms from the durable tier without touching originals).
-2. **Platform decode** — `sd-imageio`: ImageIO for images/RAW, QuickLook for video posters, PDFs, documents. On macOS this is full coverage with zero bundled codecs.
-3. **FFmpeg** — only if the `ffmpeg` feature is compiled; covers video on Linux/Windows. (Windows later gets a WIC/Media Foundation producer in slot 2's role.)
-4. **Type tile** — the shared icon tile, always succeeds.
+1. **Raster decode** decodes supported image files directly.
+2. **Platform decode** uses ImageIO and QuickLook for video posters, PDFs, and documents on macOS.
+3. **Host FFmpeg** uses the executable found by the external-tool registry. It covers video without changing the Spacedrive build.
+4. **Type tile** uses the platform file icon when no content producer succeeds.
 
-This is the "adjacent system, default when FFmpeg is not present" — stated more strongly: it is the default *always*, and FFmpeg is demoted from a system dependency to one optional producer. A default macOS build loses nothing; a default Linux build degrades video to tiles instead of erroring (today it errors: `generator.rs` returns "requires FFmpeg feature" for video).
+The linked `ffmpeg` feature remains optional for in-process consumers. A default
+build uses host FFmpeg when installed and degrades to a type tile when it is
+absent. Installing FFmpeg while the daemon runs makes the producer available on
+the next request.
 
 Write-through goes both directions: a cell produced from an original (producer 2/3) can optionally enqueue durable variant generation for the sidecar tier, so browsing warms both tiers; batch jobs (indexer deep mode) keep filling sidecars directly as today.
 
 ## Serving
 
-- **GPU-native views** mmap the per-source pvcache directly — native's atlas consumption model carries over (texture array, per-frame upload budget, placeholder-cleared layers), with layers allocated per source instead of globally.
+- **GPU-native views** mmap the per-volume pvcache directly. Native's atlas consumption model carries over with a texture array, per-frame upload budget, and placeholder-cleared layers.
 - **Web/DOM views keep the sidecar HTTP route** — it exists, it's cached-immutable, don't touch it. One addition: a `/hot-thumb/:source_id/:record_uuid` route that encodes a pvcache cell to WebP on demand (64KB BGRA → WebP is sub-millisecond work), giving web views thumbnails for **ephemeral-only** files that have no sidecar row. Grid parity across renderers without forcing the web onto mmap.
+
+The DOM client may request a hot-tier URL before its asynchronous bake has
+finished and receive a temporary 404. Its completion epoch is therefore
+view-session state keyed by record identity, not component state. It must
+survive virtualized cell unmounts so a remounted cell uses the successful retry
+URL. Image loaded and failed state belongs to the exact URL in the current DOM
+element. A cell hides its fallback only after that element loads.
 
 ## Inherited fixes (do them inside this work, not before it)
 

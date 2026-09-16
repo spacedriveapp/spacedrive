@@ -40,6 +40,8 @@ impl Timing {
 	/// count, capped.
 	pub fn backoff(&self, fast_exits: u32) -> Duration {
 		let factor = 2u32.saturating_pow(fast_exits);
-		self.backoff_base.saturating_mul(factor).min(self.backoff_cap)
+		self.backoff_base
+			.saturating_mul(factor)
+			.min(self.backoff_cap)
 	}
 }

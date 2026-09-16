@@ -5,19 +5,13 @@ use crate::{
 	logs::ServiceLogs,
 	probe::{probe_http, ProbeResult},
 	spec::{
-		HealthState, Ownership, ServiceDefinition, ServiceKind, ProcessState, ProcessStatus,
+		HealthState, Ownership, ProcessState, ProcessStatus, ServiceDefinition, ServiceKind,
 		SpawnSpec,
 	},
 	timing::Timing,
 };
 use chrono::{DateTime, SecondsFormat, Utc};
-use std::{
-	collections::BTreeMap,
-	path::PathBuf,
-	process::Stdio,
-	sync::Arc,
-	time::Instant,
-};
+use std::{collections::BTreeMap, path::PathBuf, process::Stdio, sync::Arc, time::Instant};
 use tokio::{
 	process::Command,
 	sync::{broadcast, mpsc, watch, Mutex},
@@ -235,11 +229,9 @@ impl Supervisor {
 				.ok_or_else(|| SupervisorError::UnknownService(name.to_string()))?
 		};
 		match kind {
-			ServiceKind::Compose { dir, .. } => {
-				compose_logs(&dir, &self.inner.containers, lines)
-					.await
-					.map_err(SupervisorError::Runtime)
-			}
+			ServiceKind::Compose { dir, .. } => compose_logs(&dir, &self.inner.containers, lines)
+				.await
+				.map_err(SupervisorError::Runtime),
 			_ => self
 				.inner
 				.logs
@@ -381,8 +373,7 @@ impl Supervisor {
 				if has_child {
 					Inner::stop_owned(&self.inner, name).await;
 				}
-				let spec = daemon_spawn_spec(&kind)
-					.map_err(SupervisorError::Runtime)?;
+				let spec = daemon_spawn_spec(&kind).map_err(SupervisorError::Runtime)?;
 				Inner::spawn_owned(&self.inner, name, spec).await;
 			}
 		}
@@ -471,9 +462,11 @@ impl Inner {
 			ServiceKind::Daemon { ref health, .. } => {
 				let probe = probe_http(health, None).await;
 				if probe.ok {
-					info!("[{name}] adopted already-running service ({})", probe.detail);
-					Inner::update(inner, name, |cell| cell.adopt(None, probe.detail.clone()))
-						.await;
+					info!(
+						"[{name}] adopted already-running service ({})",
+						probe.detail
+					);
+					Inner::update(inner, name, |cell| cell.adopt(None, probe.detail.clone())).await;
 				} else {
 					let spec = daemon_spawn_spec(&kind).map_err(SupervisorError::Runtime)?;
 					Inner::spawn_owned(inner, name, spec).await;
@@ -636,10 +629,7 @@ impl Inner {
 				info!("[{name}] {}", cell.detail);
 				return Next::Done;
 			}
-			let ran = cell
-				.spawned_at
-				.map(|at| at.elapsed())
-				.unwrap_or_default();
+			let ran = cell.spawned_at.map(|at| at.elapsed()).unwrap_or_default();
 			cell.fast_exits = if ran < timing.fast_exit {
 				cell.fast_exits + 1
 			} else {

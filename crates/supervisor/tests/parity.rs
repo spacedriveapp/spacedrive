@@ -1,12 +1,12 @@
 #![cfg(unix)]
 
-use sd_supervisor::{
-	probe_http, resolve_port_assignments, ContainerRuntime, PortLedger, PortLedgerStore,
-	PortRange, PortRequest, PortResolution, ServiceDefinition, ServiceKind, ServiceLogs,
-	ProcessState, Supervisor, SupervisorConfig, SupervisorError, Timing,
-};
 use sd_supervisor::ledger::{LeaseSource, PortLease, PortLeaseHolder, PortPolicy};
 use sd_supervisor::spec::{HealthState, Ownership};
+use sd_supervisor::{
+	probe_http, resolve_port_assignments, ContainerRuntime, PortLedger, PortLedgerStore, PortRange,
+	PortRequest, PortResolution, ProcessState, ServiceDefinition, ServiceKind, ServiceLogs,
+	Supervisor, SupervisorConfig, SupervisorError, Timing,
+};
 use std::{collections::BTreeMap, path::PathBuf, time::Duration};
 use tokio::{
 	io::{AsyncReadExt, AsyncWriteExt},
@@ -310,7 +310,11 @@ async fn stop_during_restart_backoff_cancels_the_respawn() {
 	assert_eq!(status.state, ProcessState::Stopped);
 	sleep(Duration::from_millis(200)).await;
 	let after = supervisor.status_of("svc").await.unwrap();
-	assert_eq!(after.state, ProcessState::Stopped, "the respawn was cancelled");
+	assert_eq!(
+		after.state,
+		ProcessState::Stopped,
+		"the respawn was cancelled"
+	);
 	assert_eq!(after.pid, None);
 }
 
@@ -393,11 +397,7 @@ fn log_tail_reads_only_the_end_of_the_file() {
 	let dir = tempfile::tempdir().unwrap();
 	let logs = ServiceLogs::new(dir.path());
 	logs.init().unwrap();
-	std::fs::write(
-		logs.path("svc"),
-		"one\ntwo\nthree\nfour\n",
-	)
-	.unwrap();
+	std::fs::write(logs.path("svc"), "one\ntwo\nthree\nfour\n").unwrap();
 	assert_eq!(logs.tail("svc", 2).unwrap(), vec!["three", "four"]);
 	assert_eq!(logs.tail("missing", 2).unwrap(), Vec::<String>::new());
 }
@@ -413,7 +413,10 @@ fn log_rotation_copies_aside_and_truncates_in_place() {
 
 	assert!(logs.rotate("svc").unwrap());
 	let rotated = dir.path().join("svc.log.1");
-	assert_eq!(std::fs::metadata(&rotated).unwrap().len(), body.len() as u64);
+	assert_eq!(
+		std::fs::metadata(&rotated).unwrap().len(),
+		body.len() as u64
+	);
 	assert_eq!(std::fs::metadata(logs.path("svc")).unwrap().len(), 0);
 	assert!(!logs.rotate("svc").unwrap());
 }
@@ -513,7 +516,10 @@ fn a_blocked_fixed_request_refuses_the_whole_batch() {
 	let PortResolution::Conflict(conflicts) = resolution else {
 		panic!("a taken fixed port must refuse");
 	};
-	assert!(conflicts[0].contains("leased to other/web"), "{conflicts:?}");
+	assert!(
+		conflicts[0].contains("leased to other/web"),
+		"{conflicts:?}"
+	);
 }
 
 #[test]

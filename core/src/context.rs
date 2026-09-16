@@ -11,8 +11,10 @@ use crate::{
 	infra::sync::TransactionManager,
 	library::LibraryManager,
 	ops::indexing::ephemeral::EphemeralIndexCache,
+	ops::indexing::startup::StartupIndexingGate,
 	ops::navigation::FocusRegistry,
 	ops::processes::ProcessManager,
+	service::external_tools::ExternalTools,
 	service::network::{NetworkingService, RemoteJobCache},
 	service::session::SessionStateService,
 	service::thumbs::ThumbService,
@@ -20,7 +22,7 @@ use crate::{
 	volume::VolumeManager,
 };
 use std::{path::PathBuf, sync::Arc};
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::RwLock;
 
 #[derive(Clone)]
 pub struct CoreContext {
@@ -40,8 +42,12 @@ pub struct CoreContext {
 	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
 	// Where each client window is looking; in-memory, never persisted
 	pub navigation_focus: Arc<FocusRegistry>,
+	// One automatic discovery pass per library and daemon session
+	pub startup_indexing: Arc<StartupIndexingGate>,
 	// The thumbnail hot tier; owns every tile cache writer on this machine
 	pub thumbs: Arc<ThumbService>,
+	// Optional software discovered on this machine, shared by every consumer
+	pub external_tools: Arc<ExternalTools>,
 	// Remote job cache for cross-device job visibility
 	pub remote_job_cache: Arc<RemoteJobCache>,
 	// File type registry (loaded once at startup, never changes)
@@ -73,12 +79,14 @@ impl CoreContext {
 			EphemeralIndexCache::with_sources_dir(Some(sources_dir.clone()))
 				.expect("Failed to create ephemeral index cache"),
 		);
+		let external_tools = Arc::new(ExternalTools::new());
 		// The hot tier reads the same per-source layout the index writes into,
 		// so a source's tiles sit beside its snapshot and its store.
 		let thumbs = ThumbService::new(
 			SourceDirs::new(sources_dir).ok(),
 			ephemeral_index_cache.clone(),
 			events.clone(),
+			external_tools.clone(),
 		);
 
 		Self {
@@ -95,7 +103,9 @@ impl CoreContext {
 			process_manager: Arc::new(RwLock::new(None)),
 			ephemeral_index_cache,
 			navigation_focus: Arc::new(FocusRegistry::new()),
+			startup_indexing: Arc::new(StartupIndexingGate::default()),
 			thumbs,
+			external_tools,
 			remote_job_cache: Arc::new(RemoteJobCache::new()),
 			file_type_registry: Arc::new(FileTypeRegistry::new()),
 			job_logging_config: None,

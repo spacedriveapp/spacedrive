@@ -14,7 +14,9 @@ ai = ["sd-core/ai"]
 [dependencies]
 # Spacedrive core
 sd-sidecar-path = { path = "../../crates/sidecar-path" }
+sd-pvcache = { path = "../../crates/pvcache" }
 sd-core = { path = "../../core" }
+image = { workspace = true }
 
 # HTTP server
 axum       = "0.7"

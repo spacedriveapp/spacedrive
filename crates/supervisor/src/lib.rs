@@ -17,13 +17,13 @@ pub mod timing;
 
 pub use container::{ContainerProvider, ContainerRuntime, RuntimeStatus};
 pub use ledger::{
-	resolve_port_assignments, LeaseSource, PortAssignment, PortLease, PortLeaseHolder,
-	PortLedger, PortLedgerStore, PortPolicy, PortRange, PortRequest, PortResolution,
+	resolve_port_assignments, LeaseSource, PortAssignment, PortLease, PortLeaseHolder, PortLedger,
+	PortLedgerStore, PortPolicy, PortRange, PortRequest, PortResolution,
 };
 pub use logs::ServiceLogs;
 pub use probe::{probe_http, process_alive, ProbeResult};
 pub use spec::{
-	HealthState, Ownership, ServiceDefinition, ServiceKind, ProcessState, ProcessStatus, SpawnSpec,
+	HealthState, Ownership, ProcessState, ProcessStatus, ServiceDefinition, ServiceKind, SpawnSpec,
 };
 pub use supervisor::{Supervisor, SupervisorConfig, SupervisorError};
 pub use timing::Timing;

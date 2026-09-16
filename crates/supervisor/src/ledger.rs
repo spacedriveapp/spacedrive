@@ -17,9 +17,18 @@ use tokio::sync::Mutex;
 /// written into the file where the operator can change it; nothing else in
 /// the system assumes these numbers.
 const DEFAULT_ALLOCATABLE: [PortRange; 4] = [
-	PortRange { from: 3000, to: 3999 },
-	PortRange { from: 5000, to: 5999 },
-	PortRange { from: 8000, to: 8999 },
+	PortRange {
+		from: 3000,
+		to: 3999,
+	},
+	PortRange {
+		from: 5000,
+		to: 5999,
+	},
+	PortRange {
+		from: 8000,
+		to: 8999,
+	},
 	PortRange {
 		from: 42000,
 		to: 42099,
@@ -135,8 +144,11 @@ pub fn resolve_port_assignments(ledger: &PortLedger, requests: &[PortRequest]) -
 	use std::collections::HashMap;
 
 	let mut conflicts: Vec<String> = Vec::new();
-	let taken: HashMap<u16, &PortLease> =
-		ledger.leases.iter().map(|lease| (lease.port, lease)).collect();
+	let taken: HashMap<u16, &PortLease> = ledger
+		.leases
+		.iter()
+		.map(|lease| (lease.port, lease))
+		.collect();
 	let by_holder: HashMap<String, &PortLease> = ledger
 		.leases
 		.iter()
