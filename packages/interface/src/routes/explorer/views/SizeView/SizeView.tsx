@@ -9,6 +9,7 @@ import {CircleButton, CircleButtonGroup} from '@spacedrive/primitives';
 import * as d3 from 'd3';
 import {useEffect, useMemo, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
+import {useShellGeometry} from '../../../../contexts/ShellGeometryContext';
 import {useNormalizedQuery} from '../../../../contexts/SpacedriveContext';
 import {useExplorer} from '../../context';
 import {Thumb} from '../../File/Thumb';
@@ -312,8 +313,6 @@ export function SizeView() {
 		sortBy,
 		navigateToPath,
 		viewSettings,
-		sidebarVisible,
-		inspectorVisible,
 		activeTabId,
 		sizeViewTransform,
 		setSizeViewTransform,
@@ -327,15 +326,14 @@ export function SizeView() {
 
 	const {selectedFiles, selectFile, restoreSelectionFromFiles} = useSelection();
 
-	// Calculate sidebar and inspector widths
-	const sidebarWidth = sidebarVisible ? 220 : 0;
-	const inspectorWidth = inspectorVisible ? 280 : 0;
+	const {overlayLeft: sidebarWidth, overlayRight: inspectorWidth} =
+		useShellGeometry();
 
-	// Find portal target (re-lookup when tab changes to ensure it's always found)
-	const portalTarget = useMemo(
-		() => document.getElementById(SIZE_VIEW_LAYER_ID),
-		[activeTabId]
-	);
+	// Resolve after commit so a restored Size tab can find the shell host.
+	const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+	useEffect(() => {
+		setPortalTarget(document.getElementById(SIZE_VIEW_LAYER_ID));
+	}, []);
 
 	// Track which path+tab the current data belongs to
 	const [dataSource, setDataSource] = useState<{
@@ -401,6 +399,24 @@ export function SizeView() {
 	}, [files, restoreSelectionFromFiles]);
 
 	const svgRef = useRef<SVGSVGElement>(null);
+	const [viewportSize, setViewportSize] = useState({width: 0, height: 0});
+
+	// Repack when the sheet or panels resize without resetting the camera.
+	useEffect(() => {
+		const svg = svgRef.current;
+		if (!svg) return;
+		const observer = new ResizeObserver(([entry]) => {
+			if (!entry) return;
+			const {width, height} = entry.contentRect;
+			setViewportSize((previous) =>
+				previous.width === width && previous.height === height
+					? previous
+					: {width, height}
+			);
+		});
+		observer.observe(svg);
+		return () => observer.disconnect();
+	}, [portalTarget]);
 	const zoomBehaviorRef = useRef<d3.ZoomBehavior<
 		SVGSVGElement,
 		unknown
@@ -456,6 +472,9 @@ export function SizeView() {
 		if (!svgRef.current || !gRef.current) return;
 
 		const svgRect = svgRef.current.getBoundingClientRect();
+		const containerRect =
+			svgRef.current.parentElement?.getBoundingClientRect();
+		if (!containerRect) return;
 
 		const overlays: Array<{
 			id: string;
@@ -472,11 +491,13 @@ export function SizeView() {
 
 				// Show thumbnails when effective screen radius > 40px
 				if (screenRadius > 40) {
-					// Convert SVG coordinates to absolute screen coordinates
+					// Thumbnails share the SVG container, which can be inset from the window.
 					const screenX =
-						d.x * transform.k + transform.x + svgRect.left;
+						d.x * transform.k + transform.x +
+						svgRect.left - containerRect.left;
 					const screenY =
-						d.y * transform.k + transform.y + svgRect.top;
+						d.y * transform.k + transform.y +
+						svgRect.top - containerRect.top;
 
 					overlays.push({
 						id: d.data.id,
@@ -964,7 +985,7 @@ export function SizeView() {
 				}
 			});
 		}
-	}, [bubbleData]);
+	}, [bubbleData, viewportSize]);
 
 	// Apply stored transform when tab changes or bubbles first render
 	useEffect(() => {

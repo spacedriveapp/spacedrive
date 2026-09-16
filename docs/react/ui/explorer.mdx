@@ -5,6 +5,29 @@ sidebarTitle: Explorer
 
 The Explorer is Spacedrive's primary file browsing interface. It displays files, locations, volumes, and devices using a unified system that treats all entities as navigable directories. The architecture centers on a single source of truth for navigation: URL query parameters.
 
+## Window layout
+
+Choose your window layout in Settings > Appearance > Layout. Inset content is
+the default. Navigation sits on the window background, and the explorer and
+inspector share a bordered sheet. Floating panels places navigation and the
+inspector in separate rounded panels over the window background.
+
+The preference is independent of the color theme. It is stored in this client's
+local storage and updates other windows on the same origin, including the
+desktop Settings window. It does not change library or daemon configuration.
+
+`ShellLayout` uses one mounted component tree for both modes. The workspace
+wrapper changes its surface, spacing, and containing block without replacing
+the routed explorer or portal hosts. Keep providers and component keys stable
+when extending these modes so layout changes do not reset local view state.
+
+Quick Preview and Size view use the shared insets from `ShellGeometryContext`.
+Their portal hosts cover the window in Floating panels mode and the sheet in
+Inset content mode. The embedded inspector remains above these layers. Size
+view measures its SVG viewport and positions thumbnails relative to its
+container. Video timeline previews use the controls' width instead of the
+window width. Popout inspectors keep their separate window framing.
+
 ## Navigation System
 
 The Explorer uses URL query parameters instead of route paths to manage navigation state. This design allows the sidebar, path bar, and Explorer view to stay synchronized without prop drilling or complex state management.
@@ -207,4 +230,3 @@ if (isVolume) {
 ```
 
 This adds visual information without requiring volume-specific components or branching logic in the core Explorer.
-

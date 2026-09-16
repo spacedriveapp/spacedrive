@@ -1,30 +1,34 @@
-import { memo, useMemo } from "react";
-import { TopBarSection } from "./Section";
-import { useOverflowCalculation } from "./useOverflowCalculation";
+import {memo} from 'react';
+import {usePlatform} from '../contexts/PlatformContext';
+import {TopBarSection} from './Section';
+import {useOverflowCalculation} from './useOverflowCalculation';
 
 interface TopBarProps {
 	sidebarWidth?: number;
 	inspectorWidth?: number;
-	isPreviewActive?: boolean;
+	reserveWindowControls?: boolean;
 }
 
 // Traffic lights on macOS are ~80px from left edge when sidebar is collapsed
 const MACOS_TRAFFIC_LIGHT_WIDTH = 90;
 
 // Detect macOS once
-const isMacOS = typeof navigator !== 'undefined' &&
-	(navigator.platform.toLowerCase().includes('mac') || navigator.userAgent.includes('Mac'));
+const isMacOS =
+	typeof navigator !== 'undefined' &&
+	(navigator.platform.toLowerCase().includes('mac') ||
+		navigator.userAgent.includes('Mac'));
 
-export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 0 }: TopBarProps) {
+export const TopBar = memo(function TopBar({
+	sidebarWidth = 0,
+	inspectorWidth = 0,
+	reserveWindowControls = false
+}: TopBarProps) {
 	const containerRef = useOverflowCalculation();
-
-	const isSidebarCollapsed = sidebarWidth === 0;
-
-	// Add padding for macOS traffic lights when sidebar is collapsed
-	const leftPadding = useMemo(
-		() => (isMacOS && isSidebarCollapsed ? MACOS_TRAFFIC_LIGHT_WIDTH : 0),
-		[isSidebarCollapsed]
-	);
+	const platform = usePlatform();
+	const leftPadding =
+		platform.platform === 'tauri' && isMacOS && reserveWindowControls
+			? MACOS_TRAFFIC_LIGHT_WIDTH
+			: 0;
 
 	return (
 		<div
@@ -32,15 +36,15 @@ export const TopBar = memo(function TopBar({ sidebarWidth = 0, inspectorWidth = 
 			data-tauri-drag-region
 			style={{
 				left: sidebarWidth,
-				right: inspectorWidth,
+				right: inspectorWidth
 			}}
 		>
 			<div
 				ref={containerRef}
-				className="relative flex items-center h-full px-3 gap-3 overflow-hidden"
+				className="relative flex h-full items-center gap-3 overflow-hidden px-3"
 				data-tauri-drag-region
 				style={{
-					paddingLeft: leftPadding ? `${leftPadding}px` : undefined,
+					paddingLeft: leftPadding ? `${leftPadding}px` : undefined
 				}}
 			>
 				<TopBarSection position="left" />

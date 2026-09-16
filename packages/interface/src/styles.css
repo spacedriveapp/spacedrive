@@ -1,5 +1,18 @@
 /* Tailwind, tokens, themes, plugins, and @utility blocks are loaded via apps/tauri/src/index.css */
 
+/* Inspector variants inherit content colors when they live inside the sheet. */
+.inspector-content-plane {
+	--color-sidebar: var(--color-app);
+	--color-sidebar-box: var(--color-app-box);
+	--color-sidebar-line: var(--color-app-line);
+	--color-sidebar-divider: var(--color-app-line);
+	--color-sidebar-button: var(--color-app-button);
+	--color-sidebar-selected: var(--color-app-selected);
+	--color-sidebar-ink: var(--color-ink);
+	--color-sidebar-ink-dull: var(--color-ink-dull);
+	--color-sidebar-ink-faint: var(--color-ink-faint);
+}
+
 /* Prevent overscroll/rubber-band effect on macOS */
 html,
 body {
@@ -44,7 +57,7 @@ body.overlay-window,
 }
 
 .audio-gradient::before {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	background: linear-gradient(-45deg, #ee7752, #e73c7e, #23a6d5, #23d5ab);
@@ -54,7 +67,7 @@ body.overlay-window,
 }
 
 .audio-gradient::after {
-	content: "";
+	content: '';
 	position: absolute;
 	inset: 0;
 	background: radial-gradient(
@@ -107,7 +120,7 @@ body.overlay-window,
 	overflow: hidden !important;
 }
 
-.tsqd-open-btn-container > [aria-hidden="true"] {
+.tsqd-open-btn-container > [aria-hidden='true'] {
 	display: none !important;
 }
 

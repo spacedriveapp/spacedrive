@@ -17,18 +17,27 @@ import {
 	TabNavigationSync
 } from './components/TabManager';
 import {usePlatform} from './contexts/PlatformContext';
+import {
+	SHELL_INSPECTOR_WIDTH,
+	SHELL_SIDEBAR_WIDTH,
+	SHELL_TOOLBAR_HEIGHT,
+	ShellGeometryContext
+} from './contexts/ShellGeometryContext';
 import {useNormalizedQuery} from './contexts/SpacedriveContext';
 import {WebContextMenuProvider} from './contexts/WebContextMenuContext';
 import {ExplorerProvider, useExplorer} from './routes/explorer';
 import {KeyboardHandler} from './routes/explorer/KeyboardHandler';
 import {SelectionProvider} from './routes/explorer/SelectionContext';
 import {TagAssignmentMode} from './routes/explorer/TagAssignmentMode';
+import {useShellLayout} from './stores/shellLayoutStore';
 import {TopBar, TopBarProvider} from './TopBar';
 
 function ShellLayoutContent() {
 	const location = useLocation();
 	const params = useParams();
 	const platform = usePlatform();
+	const layoutMode = useShellLayout();
+	const isInset = layoutMode === 'inset';
 	const {
 		sidebarVisible,
 		inspectorVisible,
@@ -132,147 +141,161 @@ function ShellLayoutContent() {
 
 	const isPreviewActive = !!quickPreviewFileId;
 	const isSizeViewActive = viewMode === 'size';
+	const showInspector = inspectorVisible && !isOverview && !isKnowledgeView;
+	const geometry = useMemo(
+		() => ({
+			mode: layoutMode,
+			overlayLeft: !isInset && sidebarVisible ? SHELL_SIDEBAR_WIDTH : 0,
+			overlayRight: showInspector ? SHELL_INSPECTOR_WIDTH : 0
+		}),
+		[layoutMode, isInset, sidebarVisible, showInspector]
+	);
 
 	return (
-		<div
-			className={clsx(
-				'text-sidebar-ink bg-app relative flex h-screen select-none flex-col overflow-hidden border border-transparent',
-				platform.platform === 'tauri' && 'rounded-[10px]',
-			)}
-		>
-			{/* Preview layer - portal target for fullscreen preview, sits between content and sidebar/inspector */}
+		<ShellGeometryContext.Provider value={geometry}>
 			<div
-				id={PREVIEW_LAYER_ID}
-				className="pointer-events-none absolute inset-0 z-40 [&>*]:pointer-events-auto"
-			/>
-
-			{/* Size view layer - portal target for fullscreen size view, sits below preview */}
-			<div
-				id="size-view-layer"
-				className="pointer-events-none absolute inset-0 z-[35] [&>*]:pointer-events-auto"
-			/>
-
-			{/* Top fade mask - spans full width beyond sidebar/inspector */}
-			<div
-				className="pointer-events-none absolute left-0 right-0 top-0 z-[37] h-32 bg-gradient-to-b from-app to-transparent"
-			/>
-
-			<TopBar
-				sidebarWidth={sidebarVisible ? 224 : 0}
-				inspectorWidth={
-					inspectorVisible && !isOverview && !isKnowledgeView
-						? 284
-						: 0
-				}
-				isPreviewActive={isPreviewActive || isSizeViewActive}
-			/>
-
-			{/* Tab Bar floated above size view when active */}
-			{isSizeViewActive && (
-				<div
-					className="pointer-events-none absolute left-0 right-0 z-[45] [&>*]:pointer-events-auto"
-					style={{
-						top: 48, // TopBar height
-						paddingLeft: sidebarVisible ? 220 : 0,
-						paddingRight:
-							inspectorVisible && !isOverview && !isKnowledgeView
-								? 280
-								: 0,
-						transition: 'padding 0.3s ease-out'
-					}}
-				>
-					<TabBar />
-				</div>
-			)}
-
-			{/* Main content area with sidebar and content */}
-			<div className="flex flex-1 overflow-hidden">
-				<AnimatePresence initial={false} mode="popLayout">
-					{sidebarVisible && (
-						<motion.div
-							initial={{x: -220, width: 0}}
-							animate={{x: 0, width: 220}}
-							exit={{x: -220, width: 0}}
-							transition={{
-								duration: 0.3,
-								ease: [0.25, 1, 0.5, 1]
-							}}
-							className="relative z-[65] overflow-hidden"
-						>
-							<SpacesSidebar
-								isPreviewActive={
-									isPreviewActive || isSizeViewActive
-								}
-							/>
-						</motion.div>
-					)}
-				</AnimatePresence>
-
-				{/* Content area with tabs - positioned between sidebar and inspector */}
-				<div
-					className={clsx(
-						'relative flex flex-1 flex-col overflow-hidden pt-12',
-						isSizeViewActive ? 'z-[30]' : 'z-[38]'
-					)}
-				>
-					{/* Tab Bar - nested inside content area like Finder (hidden in size view) */}
-					{!isSizeViewActive && <TabBar />}
-
-					{/* Router content renders here */}
-					<div className="relative flex-1 overflow-hidden">
-						<Outlet />
-
-						{/* Tag Assignment Mode - positioned at bottom of main content area */}
-						<TagAssignmentMode
-							isActive={tagModeActive}
-							onExit={() => setTagModeActive(false)}
-						/>
-					</div>
-				</div>
-
-				{/* Keyboard handler (invisible, doesn't cause parent rerenders) */}
-				<KeyboardHandler />
-
-				{/* Syncs selection to QuickPreview - isolated to prevent frame rerenders */}
-				<QuickPreviewSyncer />
-
-				<AnimatePresence initial={false}>
-					{/* Hide inspector on Overview screen and Knowledge view (has its own) */}
-					{inspectorVisible && !isOverview && !isKnowledgeView && (
-						<motion.div
-							initial={{width: 0}}
-							animate={{width: 280}}
-							exit={{width: 0}}
-							transition={{
-								duration: 0.3,
-								ease: [0.25, 1, 0.5, 1]
-							}}
-							className="relative z-[65] overflow-hidden"
-						>
-							<div className="flex h-full w-[280px] min-w-[280px] flex-col bg-transparent p-2">
-								<Inspector
-									currentLocation={currentLocation}
-									onPopOut={handlePopOutInspector}
+				data-shell-layout={layoutMode}
+				className={clsx(
+					'text-sidebar-ink relative flex h-screen select-none flex-col overflow-hidden border border-transparent',
+					isInset ? 'bg-sidebar' : 'bg-app',
+					platform.platform === 'tauri' && 'rounded-[10px]'
+				)}
+			>
+				<div className="flex min-h-0 flex-1 overflow-hidden">
+					<AnimatePresence initial={false} mode="popLayout">
+						{sidebarVisible && (
+							<motion.div
+								initial={{x: -SHELL_SIDEBAR_WIDTH, width: 0}}
+								animate={{x: 0, width: SHELL_SIDEBAR_WIDTH}}
+								exit={{x: -SHELL_SIDEBAR_WIDTH, width: 0}}
+								transition={{
+									duration: 0.3,
+									ease: [0.25, 1, 0.5, 1]
+								}}
+								className="relative z-[65] shrink-0 overflow-hidden"
+							>
+								<SpacesSidebar
+									presentation={isInset ? 'flat' : 'floating'}
 									isPreviewActive={
 										isPreviewActive || isSizeViewActive
 									}
 								/>
-							</div>
-						</motion.div>
-					)}
-				</AnimatePresence>
-			</div>
+							</motion.div>
+						)}
+					</AnimatePresence>
 
-			{/* Quick Preview - isolated component to prevent frame rerenders on selection change */}
-			<QuickPreviewController
-				sidebarWidth={sidebarVisible ? 220 : 0}
-				inspectorWidth={
-					inspectorVisible && !isOverview && !isKnowledgeView
-						? 280
-						: 0
-				}
-			/>
-		</div>
+					{/* Changing the containing block keeps routes and portal children mounted. */}
+					<div
+						data-shell-workspace
+						className={clsx(
+							'flex min-h-0 min-w-0 flex-1',
+							isInset &&
+								'border-app-line bg-app relative my-[10px] mr-[10px] overflow-hidden rounded-2xl border',
+							isInset && !sidebarVisible && 'ml-[10px]'
+						)}
+					>
+						<div
+							id={PREVIEW_LAYER_ID}
+							className="pointer-events-none absolute inset-0 z-40 [&>*]:pointer-events-auto"
+						/>
+						<div
+							id="size-view-layer"
+							className="pointer-events-none absolute inset-0 z-[35] [&>*]:pointer-events-auto"
+						/>
+						<div className="from-app pointer-events-none absolute left-0 right-0 top-0 z-[37] h-32 bg-gradient-to-b to-transparent" />
+
+						<TopBar
+							sidebarWidth={
+								geometry.overlayLeft +
+								(!isInset && sidebarVisible ? 4 : 0)
+							}
+							inspectorWidth={
+								geometry.overlayRight +
+								(!isInset && showInspector ? 4 : 0)
+							}
+							reserveWindowControls={!sidebarVisible}
+						/>
+
+						{isSizeViewActive && (
+							<div
+								className="pointer-events-none absolute left-0 right-0 z-[45] [&>*]:pointer-events-auto"
+								style={{
+									top: SHELL_TOOLBAR_HEIGHT,
+									paddingLeft: geometry.overlayLeft,
+									paddingRight: geometry.overlayRight,
+									transition: 'padding 0.3s ease-out'
+								}}
+							>
+								<TabBar />
+							</div>
+						)}
+
+						<div
+							className={clsx(
+								'relative flex min-w-0 flex-1 flex-col overflow-hidden pt-12',
+								isSizeViewActive ? 'z-[30]' : 'z-[38]'
+							)}
+						>
+							{/* Tab Bar - nested inside content area like Finder (hidden in size view) */}
+							{!isSizeViewActive && <TabBar />}
+
+							{/* Router content renders here */}
+							<div className="relative flex-1 overflow-hidden">
+								<Outlet />
+
+								{/* Tag Assignment Mode - positioned at bottom of main content area */}
+								<TagAssignmentMode
+									isActive={tagModeActive}
+									onExit={() => setTagModeActive(false)}
+								/>
+							</div>
+						</div>
+
+						<AnimatePresence initial={false}>
+							{showInspector && (
+								<motion.div
+									initial={{width: 0}}
+									animate={{width: SHELL_INSPECTOR_WIDTH}}
+									exit={{width: 0}}
+									transition={{
+										duration: 0.3,
+										ease: [0.25, 1, 0.5, 1]
+									}}
+									className="relative z-[65] shrink-0 overflow-hidden"
+								>
+									<div
+										className={clsx(
+											'flex h-full flex-col',
+											!isInset && 'p-2'
+										)}
+										style={{width: SHELL_INSPECTOR_WIDTH}}
+									>
+										<Inspector
+											presentation={
+												isInset ? 'inset' : 'floating'
+											}
+											currentLocation={currentLocation}
+											onPopOut={handlePopOutInspector}
+											isPreviewActive={
+												isPreviewActive ||
+												isSizeViewActive
+											}
+										/>
+									</div>
+								</motion.div>
+							)}
+						</AnimatePresence>
+					</div>
+				</div>
+
+				<KeyboardHandler />
+				<QuickPreviewSyncer />
+				<QuickPreviewController
+					sidebarWidth={geometry.overlayLeft}
+					inspectorWidth={geometry.overlayRight}
+				/>
+			</div>
+		</ShellGeometryContext.Provider>
 	);
 }
 

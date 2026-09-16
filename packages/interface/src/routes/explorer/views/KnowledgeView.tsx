@@ -13,6 +13,7 @@ import {
 } from "@phosphor-icons/react";
 import { KnowledgeInspector } from "../../../components/Inspector/variants/KnowledgeInspector";
 import { useExplorer } from "../context";
+import { useShellGeometry } from "../../../contexts/ShellGeometryContext";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import type { File, ContentKind } from "@sd/ts-client";
 import { getContentKind } from "@sd/ts-client";
@@ -81,6 +82,7 @@ const CONTENT_KIND_LABELS: Record<ContentKind, string> = {
 };
 
 export function KnowledgeView() {
+	const {mode: layoutMode} = useShellGeometry();
 	const { inspectorVisible, currentPath, sortBy, viewSettings } =
 		useExplorer();
 
@@ -282,8 +284,10 @@ export function KnowledgeView() {
 
 			{/* Dedicated Knowledge Inspector */}
 			{inspectorVisible && (
-				<div className="w-96 h-full shrink-0 pr-2 pb-2">
-					<div className="h-full rounded-lg overflow-hidden bg-sidebar/65">
+				<div className={clsx('w-96 h-full shrink-0', layoutMode === 'floating' && 'pr-2 pb-2')}>
+					<div className={clsx('h-full overflow-hidden', layoutMode === 'inset'
+						? 'inspector-content-plane border-l border-app-line bg-app'
+						: 'rounded-lg bg-sidebar/65')}>
 						<KnowledgeInspector />
 					</div>
 				</div>

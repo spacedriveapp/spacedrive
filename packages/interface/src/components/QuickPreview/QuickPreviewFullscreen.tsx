@@ -261,7 +261,7 @@ export function QuickPreviewFullscreen({
 								)}
 
 							{/* Footer with keyboard hints */}
-							<div className="absolute bottom-0 left-0 right-0 z-10 px-6 py-3">
+							<div className="absolute bottom-0 z-10 px-6 py-3" style={{left: sidebarWidth, right: inspectorWidth}}>
 								<div className="text-center text-xs text-white/50">
 									<span className="text-white/70">ESC</span>{" "}
 									or{" "}

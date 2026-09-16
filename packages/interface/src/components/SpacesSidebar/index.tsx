@@ -23,10 +23,12 @@ import type {
 	SpaceItem as SpaceItemType
 } from '@sd/ts-client';
 import {useSidebarStore} from '@sd/ts-client';
+import {CircleButton} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {useEffect, useMemo, useState} from 'react';
-import {useNavigate} from 'react-router-dom';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {usePlatform} from '../../contexts/PlatformContext';
+import {SHELL_SIDEBAR_WIDTH} from '../../contexts/ShellGeometryContext';
 import {
 	useLibraryMutation,
 	useLibraryQuery,
@@ -51,6 +53,7 @@ import {SidebarSection} from './SidebarSection';
 
 interface SpacesSidebarProps {
 	isPreviewActive?: boolean;
+	presentation?: 'floating' | 'flat';
 }
 
 function routeForPath(path: Location['sd_path']): string {
@@ -161,10 +164,14 @@ function StoredGroup({
 	);
 }
 
-export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
+export function SpacesSidebar({
+	isPreviewActive = false,
+	presentation = 'floating'
+}: SpacesSidebarProps) {
 	const client = useSpacedriveClient();
 	const platform = usePlatform();
 	const navigate = useNavigate();
+	const location = useLocation();
 	const {loadPreferencesForSpaceItem} = useExplorer();
 	const {data: libraries} = useLibraries();
 	const [currentLibraryId, setCurrentLibraryId] = useState<string | null>(
@@ -202,13 +209,21 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 	const sources: SourceInfo[] = sourcesData ? [...sourcesData] : [];
 
 	const {data: devicesData} = useNormalizedQuery<
-		{include_offline: boolean; include_details: boolean; show_paired: boolean},
+		{
+			include_offline: boolean;
+			include_details: boolean;
+			show_paired: boolean;
+		},
 		Device[]
 	>({
 		query: 'devices.list',
 		// Paired devices come from the network registry, and replica source
 		// rows need their owning device's slug to route into the explorer.
-		input: {include_offline: true, include_details: false, show_paired: true},
+		input: {
+			include_offline: true,
+			include_details: false,
+			show_paired: true
+		},
 		resourceType: 'device'
 	});
 	const deviceSlug = devicesData?.find((device) => device.is_current)?.slug;
@@ -296,15 +311,28 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 		locations.length > 0 ||
 		otherSources.length > 0;
 	const activityCount = activeJobCount > 0 ? activeJobCount : undefined;
+	const isActivityActive = ['/activity', '/jobs'].includes(location.pathname);
+	const activityLabel =
+		activityCount === undefined
+			? 'Activity'
+			: `Activity (${activityCount} active ${activityCount === 1 ? 'job' : 'jobs'})`;
 
 	return (
-		<div className="flex h-full w-[220px] min-w-[176px] max-w-[300px] flex-col bg-transparent p-2">
+		<div
+			className="flex h-full flex-col p-2"
+			style={{width: SHELL_SIDEBAR_WIDTH}}
+		>
 			<div
 				className={clsx(
-					'flex h-full flex-col overflow-hidden rounded-2xl',
-					isPreviewActive
-						? 'bg-sidebar/80 backdrop-blur-2xl'
-						: 'bg-sidebar/65'
+					'flex h-full flex-col overflow-hidden',
+					presentation === 'flat'
+						? 'bg-sidebar'
+						: [
+								'rounded-2xl',
+								isPreviewActive
+									? 'bg-sidebar/80 backdrop-blur-2xl'
+									: 'bg-sidebar/65'
+							]
 				)}
 			>
 				<nav
@@ -528,35 +556,50 @@ export function SpacesSidebar({isPreviewActive = false}: SpacesSidebarProps) {
 							))}
 					</div>
 
-					<div className="border-sidebar-line/50 space-y-0.5 border-t pt-2">
-						<SidebarItem
-							id="activity"
-							label="Activity"
-							iconNode={
-								hasRunningJobs || isSyncing ? (
-									<CircleNotch
-										size={16}
-										weight="bold"
-										className="animate-spin"
-									/>
-								) : (
-									<ListBullets size={16} weight="bold" />
-								)
-							}
-							href="/activity"
-							activePaths={['/activity', '/jobs']}
-							badge={activityCount}
-							badgeLabel={
-								activityCount === undefined
-									? undefined
-									: `${activityCount} active jobs`
-							}
-						/>
-						<SidebarItem
-							id="settings"
-							label="Settings"
+					<div className="flex shrink-0 items-center justify-between pt-2">
+						<div className="relative">
+							<CircleButton
+								id="sidebar-item-activity"
+								type="button"
+								size="lg"
+								icon={
+									hasRunningJobs || isSyncing
+										? CircleNotch
+										: ListBullets
+								}
+								variant={
+									isActivityActive ? 'accent' : 'default'
+								}
+								title={activityLabel}
+								aria-label={activityLabel}
+								aria-current={
+									isActivityActive ? 'page' : undefined
+								}
+								onClick={() => navigate('/activity')}
+								className={clsx(
+									'focus-visible:ring-accent/70 outline-none focus-visible:ring-2',
+									(hasRunningJobs || isSyncing) &&
+										'[&>svg]:animate-spin'
+								)}
+							/>
+							{activityCount !== undefined && (
+								<span
+									aria-hidden="true"
+									className="bg-accent pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold text-white"
+								>
+									{activityCount}
+								</span>
+							)}
+						</div>
+						<CircleButton
+							id="sidebar-item-settings"
+							type="button"
+							size="lg"
 							icon={GearSix}
-							onSelect={() => openSettings('general')}
+							title="Settings"
+							aria-label="Settings"
+							onClick={() => openSettings('general')}
+							className="focus-visible:ring-accent/70 outline-none focus-visible:ring-2"
 						/>
 					</div>
 				</nav>
