@@ -144,6 +144,17 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 		if volume.parse_cloud_identity().is_some() {
 			continue;
 		}
+
+		let cache = context.ephemeral_cache();
+		cache.track_volume(volume.id, volume.mount_point.clone());
+		if cache.ensure_restored(&volume.mount_point).await {
+			debug!(
+				"{} restored from its snapshot; not walking it again",
+				volume.mount_point.display()
+			);
+			continue;
+		}
+
 		// A drive already being walked is either a source that spans it or a
 		// map from earlier in this session, and either one covers this.
 		if context.ephemeral_cache().is_indexing(&volume.mount_point) {

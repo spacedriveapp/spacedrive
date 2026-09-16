@@ -4,11 +4,17 @@
 > **Captured:** 2026-08-17
 > **Companions:** `docs/plans/2026-08-17-record-table-transplant.md`
 
+Implementation began on 2026-09-15. Library loading no longer starts a new
+filesystem discovery pass. The desktop requests one idempotent pass after its
+connected shell renders, and `sd index start --defaults` exposes the same pass
+to headless clients. Startup profiles, typed permission coverage, and the
+complete macOS affordance remain open.
+
 ## The promise
 
 Open Spacedrive and it is already working. No onboarding, no library wizard, no "add your first location," no scan button. First launch: the app opens into a working file manager and starts building the living index immediately — the whole filesystem hot, the home folders durable. Every later launch: the index restores from snapshots before the window finishes appearing, and reconciliation happens behind it. The only "setup" a user ever sees is the OS asking for permission, in context, when a view first needs it.
 
-Native already proved the shape: on a clean database it indexes discovered defaults (Photos, Notes, Desktop, Documents, Downloads, Pictures, Movies) with no ceremony. This design makes that Spacedrive's default behavior, at filesystem scale.
+Native already proved the shape: on a clean database it indexes discovered defaults (Photos, Notes, Desktop, Documents, Downloads, Pictures, Movies) with no ceremony. Clients present these known folders as Places while the source model owns their indexing and durability. This design makes that Spacedrive's default behavior, at filesystem scale.
 
 ## Startup profiles
 
@@ -88,7 +94,7 @@ Mapped against the transplant plan's workstreams; items 1–4 are new scope.
 
 ## What this replaces
 
-Any onboarding flow, library-creation gate, or "add a location to begin" empty state on the desktop app's first run. Locations-as-a-concept survives for explicit user intent (network mounts, unusual roots, servers); the default experience simply never requires expressing intent to get a working product.
+Any onboarding flow, library-creation gate, or "add a location to begin" empty state on the desktop app's first run. A person can later retain or pin an unusual root. The client presents that destination as a Place while source and location semantics remain below the default experience. First launch never requires that vocabulary to get a working product.
 
 ## Open questions
 

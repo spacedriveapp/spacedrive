@@ -352,9 +352,6 @@ impl LibraryManager {
 		// Now open the library (which will call ensure_device_registered for current device)
 		let library = self.open_library(&library_path, context).await?;
 
-		// Create default space with Quick Access group
-		self.create_default_space(&library).await?;
-
 		// Emit event - this is a synced library from another device
 		self.event_bus.emit(Event::LibraryCreated {
 			id: library.id(),
@@ -416,9 +413,6 @@ impl LibraryManager {
 
 		// Open the newly created library
 		let library = self.open_library(&library_path, context.clone()).await?;
-
-		// Create default space with Quick Access group
-		self.create_default_space(&library).await?;
 
 		// Emit event
 		self.event_bus.emit(Event::LibraryCreated {
@@ -555,6 +549,10 @@ impl LibraryManager {
 			}
 		}
 
+		// This is both the creation path and the migration path. Running it on
+		// every open keeps older libraries on the current sidebar contract.
+		self.create_default_space(&library).await?;
+
 		// Adopt this library's source registrations. Absolute roots resolve
 		// against wherever each anchoring volume is mounted now, so a drive
 		// that came back at a different mount point needs no repair.
@@ -624,33 +622,6 @@ impl LibraryManager {
 			info!(
 				"NetworkingService not available, sync service will be initialized later when networking is ready"
 			);
-		}
-
-		// Auto-track user-relevant volumes for this library
-		info!(
-			"Auto-tracking user-relevant volumes for library {}",
-			config.name
-		);
-		if let Err(e) = self.volume_manager.auto_track_user_volumes(&library).await {
-			warn!("Failed to auto-track user-relevant volumes: {}", e);
-		}
-
-		add_home_to_library(&library, &context).await;
-
-		// Then the rest of the machine, behind it, and the bytes behind that.
-		// The library's own walk is what someone chose to keep, so it goes
-		// first and its file count is the one that climbs while they watch.
-		// Everything else on the drive still has to be walked for search and
-		// for the analyser's totals, and nothing else asks for it. Hashing
-		// comes last because nothing on screen is waiting for it.
-		{
-			let library = library.clone();
-			let context = context.clone();
-			tokio::spawn(async move {
-				crate::ops::volumes::index::map_attached_volumes(&library, &context).await;
-				crate::ops::indexing::content_identity::identify_every_source(&library, &context)
-					.await;
-			});
 		}
 
 		// Emit event
@@ -1164,12 +1135,12 @@ impl LibraryManager {
 		Ok(())
 	}
 
-	/// Create default space with Quick Access group for new libraries
+	/// Create the compatible backing space for the default sidebar.
 	///
 	/// Uses deterministic UUIDs so all devices create the same default space,
 	/// preventing duplicates during sync.
 	async fn create_default_space(&self, library: &Arc<Library>) -> Result<()> {
-		use crate::domain::{GroupType, ItemType, Space, SpaceGroup, SpaceItem};
+		use crate::domain::ItemType;
 		use crate::infra::sync::deterministic_library_default_uuid;
 		use chrono::Utc;
 		use sea_orm::{ActiveModelTrait, NotSet, Set};
@@ -1184,7 +1155,7 @@ impl LibraryManager {
 		let space_model = crate::infra::db::entities::space::ActiveModel {
 			id: NotSet,
 			uuid: Set(space_id),
-			name: Set("All Devices".to_string()),
+			name: Set("Default".to_string()),
 			icon: Set("Planet".to_string()),
 			color: Set("#3B82F6".to_string()),
 			order: Set(0),
@@ -1221,22 +1192,20 @@ impl LibraryManager {
 
 		info!("Created default space for library {}", library.id());
 
-		// Create space-level items (Overview, Recents, Favorites,
-		// Screenshots, Sources, Redundancy) - these appear outside groups
+		// Keep stable item keys while the UI gives these destinations plain
+		// product names such as Home, Storage, and Protection.
 		let space_items = vec![
 			(ItemType::Overview, "Overview", 0),
 			(ItemType::Recents, "Recents", 1),
-			(ItemType::Favorites, "Favorites", 2),
 			(
 				ItemType::Collection {
 					slug: "screenshots".to_string(),
 				},
 				"Screenshots",
-				3,
+				2,
 			),
-			(ItemType::Analyzer, "Analyzer", 4),
-			(ItemType::Sources, "Sources", 5),
-			(ItemType::Redundancy, "Redundancy", 6),
+			(ItemType::Sources, "Sources", 3),
+			(ItemType::Redundancy, "Redundancy", 4),
 		];
 
 		use crate::infra::db::entities::space_item::{Column as ItemColumn, Entity as ItemEntity};
@@ -1277,13 +1246,15 @@ impl LibraryManager {
 
 		// Retired defaults are removed so existing libraries converge on the
 		// current seed set; deterministic uuids make the deletion precise.
-		let retired_uuid =
-			deterministic_library_default_uuid(library_id, "space_item", "File Kinds");
-		ItemEntity::delete_many()
-			.filter(ItemColumn::Uuid.eq(retired_uuid))
-			.exec(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
+		for retired_name in ["File Kinds", "Favorites", "Analyzer"] {
+			let retired_uuid =
+				deterministic_library_default_uuid(library_id, "space_item", retired_name);
+			ItemEntity::delete_many()
+				.filter(ItemColumn::Uuid.eq(retired_uuid))
+				.exec(db)
+				.await
+				.map_err(LibraryError::DatabaseError)?;
+		}
 
 		info!(
 			"Created default space-level items for library {}",
@@ -1294,181 +1265,37 @@ impl LibraryManager {
 			Column as GroupColumn, Entity as GroupEntity,
 		};
 
-		// Create Devices group
-		let devices_group_id =
-			deterministic_library_default_uuid(library_id, "space_group", "Devices");
-		let devices_type_json = serde_json::to_string(&GroupType::Devices)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let devices_group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(devices_group_id),
-			space_id: Set(space_result.id),
-			name: Set("Devices".to_string()),
-			group_type: Set(devices_type_json),
-			is_collapsed: Set(false),
-			order: Set(0),
-			created_at: Set(now.into()),
-		};
-
-		// Use atomic upsert to handle race conditions with sync
-		GroupEntity::insert(devices_group_model)
-			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
-					.update_columns([
-						GroupColumn::SpaceId,
-						GroupColumn::Name,
-						GroupColumn::GroupType,
-						GroupColumn::IsCollapsed,
-						GroupColumn::Order,
-					])
-					.to_owned(),
-			)
-			.exec(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		info!("Created default Devices group for library {}", library.id());
-
-		// The Locations group is retired: sources own subtree policy, so
-		// existing libraries converge by deleting the seeded group and any
-		// items that lived inside it.
-		let retired_locations_group =
-			deterministic_library_default_uuid(library_id, "space_group", "Locations");
-		if let Some(group) = GroupEntity::find()
-			.filter(GroupColumn::Uuid.eq(retired_locations_group))
-			.one(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?
-		{
-			ItemEntity::delete_many()
-				.filter(ItemColumn::GroupId.eq(group.id))
-				.exec(db)
+		// System topology is data on the Storage surface, not persisted
+		// navigation. Delete only the deterministic groups. Pins a person placed
+		// inside one are lifted to the workspace root before its container goes.
+		for retired_name in ["Devices", "Locations", "Volumes", "Tags", "Sources"] {
+			let retired_uuid =
+				deterministic_library_default_uuid(library_id, "space_group", retired_name);
+			if let Some(group) = GroupEntity::find()
+				.filter(GroupColumn::Uuid.eq(retired_uuid))
+				.one(db)
 				.await
-				.map_err(LibraryError::DatabaseError)?;
-			GroupEntity::delete_many()
-				.filter(GroupColumn::Uuid.eq(retired_locations_group))
-				.exec(db)
-				.await
-				.map_err(LibraryError::DatabaseError)?;
+				.map_err(LibraryError::DatabaseError)?
+			{
+				let items = ItemEntity::find()
+					.filter(ItemColumn::GroupId.eq(group.id))
+					.all(db)
+					.await
+					.map_err(LibraryError::DatabaseError)?;
+				for item in items {
+					let mut item: crate::infra::db::entities::space_item::ActiveModel = item.into();
+					item.group_id = Set(None);
+					item.update(db).await.map_err(LibraryError::DatabaseError)?;
+				}
+				GroupEntity::delete_many()
+					.filter(GroupColumn::Uuid.eq(retired_uuid))
+					.exec(db)
+					.await
+					.map_err(LibraryError::DatabaseError)?;
+			}
 		}
 
-		// Create Volumes group
-		let volumes_group_id =
-			deterministic_library_default_uuid(library_id, "space_group", "Volumes");
-		let volumes_type_json = serde_json::to_string(&GroupType::Volumes)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let volumes_group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(volumes_group_id),
-			space_id: Set(space_result.id),
-			name: Set("Volumes".to_string()),
-			group_type: Set(volumes_type_json),
-			is_collapsed: Set(false),
-			order: Set(2),
-			created_at: Set(now.into()),
-		};
-
-		// Use atomic upsert to handle race conditions with sync
-		GroupEntity::insert(volumes_group_model)
-			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
-					.update_columns([
-						GroupColumn::SpaceId,
-						GroupColumn::Name,
-						GroupColumn::GroupType,
-						GroupColumn::IsCollapsed,
-						GroupColumn::Order,
-					])
-					.to_owned(),
-			)
-			.exec(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		info!("Created default Volumes group for library {}", library.id());
-
-		// Create Tags group
-		let tags_group_id = deterministic_library_default_uuid(library_id, "space_group", "Tags");
-		let tags_type_json = serde_json::to_string(&GroupType::Tags)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let tags_group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(tags_group_id),
-			space_id: Set(space_result.id),
-			name: Set("Tags".to_string()),
-			group_type: Set(tags_type_json),
-			is_collapsed: Set(false),
-			order: Set(3),
-			created_at: Set(now.into()),
-		};
-
-		// Use atomic upsert to handle race conditions with sync
-		GroupEntity::insert(tags_group_model)
-			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
-					.update_columns([
-						GroupColumn::SpaceId,
-						GroupColumn::Name,
-						GroupColumn::GroupType,
-						GroupColumn::IsCollapsed,
-						GroupColumn::Order,
-					])
-					.to_owned(),
-			)
-			.exec(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		info!("Created default Tags group for library {}", library.id());
-
-		// Create Sources group
-		let sources_group_id =
-			deterministic_library_default_uuid(library_id, "space_group", "Sources");
-		let sources_type_json = serde_json::to_string(&GroupType::Sources)
-			.map_err(|e| LibraryError::Other(format!("Failed to serialize group_type: {}", e)))?;
-
-		let sources_group_model = crate::infra::db::entities::space_group::ActiveModel {
-			id: NotSet,
-			uuid: Set(sources_group_id),
-			space_id: Set(space_result.id),
-			name: Set("Sources".to_string()),
-			group_type: Set(sources_type_json),
-			is_collapsed: Set(true),
-			order: Set(4),
-			created_at: Set(now.into()),
-		};
-
-		// Use atomic upsert to handle race conditions with sync
-		GroupEntity::insert(sources_group_model)
-			.on_conflict(
-				sea_orm::sea_query::OnConflict::column(GroupColumn::Uuid)
-					.update_columns([
-						GroupColumn::SpaceId,
-						GroupColumn::Name,
-						GroupColumn::GroupType,
-						GroupColumn::IsCollapsed,
-						GroupColumn::Order,
-					])
-					.to_owned(),
-			)
-			.exec(db)
-			.await
-			.map_err(LibraryError::DatabaseError)?;
-
-		info!("Created default Sources group for library {}", library.id());
-
 		Ok(())
-	}
-
-	/// Pin the folders a person recognises, once, when the library is made.
-	///
-	/// There is no "add a location" gesture, so this is what puts Home,
-	/// Desktop, Documents, Downloads and Pictures in the sidebar on first run.
-	async fn create_default_locations(&self, context: Arc<CoreContext>, library: Arc<Library>) {
-		crate::location::write_defaults(&library, &context).await;
 	}
 
 	/// Check if this device created the library (is the only device)
@@ -1851,41 +1678,5 @@ mod tests {
 		)));
 		assert!(!is_library_directory(Path::new("/path/to/My Library")));
 		assert!(!is_library_directory(Path::new("/path/to/My Library.txt")));
-	}
-}
-
-/// Put the person's home directory in the library the first time one opens.
-///
-/// Every drive on the machine is mapped, so everything is already searchable
-/// before anyone chooses anything. What being in the library adds is the part a
-/// walk cannot rebuild: tags and notes that stay put, files that are still
-/// listed when the drive is unplugged, and sync to another device. Home is the
-/// answer almost everyone would give if asked which folder that should be, so
-/// asking is a worse experience than doing it.
-///
-/// Once only. A source removed on purpose must not come back on the next
-/// launch, so the presence of any registered source is taken as the person
-/// having made their own arrangements.
-async fn add_home_to_library(library: &Arc<Library>, context: &Arc<CoreContext>) {
-	if !context.ephemeral_cache().sources().is_empty() {
-		return;
-	}
-
-	let Some(home) = dirs::home_dir() else {
-		debug!("No home directory on this platform; nothing added to the library");
-		return;
-	};
-	if !home.is_dir() {
-		return;
-	}
-
-	match crate::ops::sources::track::track_and_index(library, context, home.clone(), false).await {
-		Ok(output) => info!(
-			"Added {} to library {} as source {}",
-			output.root.display(),
-			library.id(),
-			output.id
-		),
-		Err(e) => warn!("Could not add {} to the library: {e}", home.display()),
 	}
 }

@@ -7,7 +7,15 @@ use comfy_table::{presets::UTF8_BORDERS_ONLY, Attribute, Cell, Table};
 use crate::util::prelude::*;
 
 use crate::{context::Context, util::error::CliError};
-use sd_core::{infra::job::types::JobId, ops::libraries::list::query::ListLibrariesQuery};
+use sd_core::{
+	infra::job::types::JobId,
+	ops::{
+		indexing::startup::{
+			StartupIndexingDisposition, StartupIndexingInput, StartupIndexingOutput,
+		},
+		libraries::list::query::ListLibrariesQuery,
+	},
+};
 
 use self::args::*;
 
@@ -44,15 +52,38 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				}
 			};
 
-			let input = args.to_input(library_id)?;
-			if let Err(errors) = input.validate() {
-				anyhow::bail!(errors.join("; "));
-			}
+			let action_ctx = ctx.clone().with_library_id(library_id);
+			if args.defaults {
+				if !args.paths.is_empty() {
+					anyhow::bail!("--defaults cannot be combined with paths");
+				}
 
-			let out: JobId = execute_action!(ctx, input);
-			print_output!(ctx, out, |_| {
-				println!("Indexing request submitted");
-			});
+				let out: StartupIndexingOutput =
+					execute_action!(&action_ctx, StartupIndexingInput { force: true });
+				print_output!(ctx, &out, |output: &StartupIndexingOutput| {
+					match output.disposition {
+						StartupIndexingDisposition::Started => {
+							println!("Default filesystem discovery started")
+						}
+						StartupIndexingDisposition::AlreadyStarted => {
+							println!("Default filesystem discovery is already running")
+						}
+						StartupIndexingDisposition::Disabled => {
+							println!("Default filesystem discovery is disabled")
+						}
+					}
+				});
+			} else {
+				let input = args.to_input(library_id)?;
+				if let Err(errors) = input.validate() {
+					anyhow::bail!(errors.join("; "));
+				}
+
+				let out: JobId = execute_action!(&action_ctx, input);
+				print_output!(ctx, out, |_| {
+					println!("Indexing request submitted");
+				});
+			}
 		}
 		IndexCmd::QuickScan(args) => {
 			let libs: Vec<sd_core::ops::libraries::list::output::LibraryInfo> = execute_core_query!(

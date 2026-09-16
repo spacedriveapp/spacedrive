@@ -449,6 +449,17 @@ impl EphemeralIndexCache {
 		Some(dirs.snapshot_file(volume.id()))
 	}
 
+	/// Where the restart cache covering `path` lives, when the path belongs to
+	/// a mapped drive. Scratch paths deliberately have no on-disk copy.
+	pub fn snapshot_path_for(&self, path: &Path) -> Option<PathBuf> {
+		let dirs = self.dirs.as_ref()?;
+		let resolved = self.locate(path)?;
+		match resolved.volume {
+			VolumeKey::Scratch => None,
+			_ => Some(dirs.snapshot_file(resolved.volume.id())),
+		}
+	}
+
 	/// Start mapping a drive. Idempotent; a remount moves its mount point.
 	///
 	/// Tracking is not registration: nothing appears in the sources list and

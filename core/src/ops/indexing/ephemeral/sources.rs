@@ -32,11 +32,11 @@ use crate::infra::db::entities::source;
 
 /// A source's capture policy: what its walk and its watcher record.
 ///
-/// This is the write-time policy and the only one: attention (retention,
-/// watching) belongs to locations, and display filtering belongs to lenses
-/// over a store that captured everything. Serde defaults keep every field
-/// optional in the stored JSON, so rows written before a field existed parse
-/// as the default.
+/// This is the write-time policy and the only one. A filesystem source applies
+/// it to both its walk and watcher. Locations are navigation pins, and display
+/// filtering belongs to lenses over a store that captured everything. Serde
+/// defaults keep every field optional in the stored JSON, so rows written
+/// before a field existed parse as the default.
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct SourceConfig {
 	/// Record everything readable, skipping the default rules. The walk and

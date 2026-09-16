@@ -28,6 +28,10 @@ pub struct IndexStartArgs {
 	/// Addresses to index (SdPath URIs or local paths)
 	pub paths: Vec<String>,
 
+	/// Start the default home and attached-volume discovery pass
+	#[arg(long, default_value_t = false)]
+	pub defaults: bool,
+
 	/// Library ID to run indexing in (defaults to the only library if just one exists)
 	#[arg(long)]
 	pub library: Option<Uuid>,

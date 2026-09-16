@@ -34,6 +34,7 @@ pub mod path_resolver;
 pub mod phases;
 pub mod progress;
 pub mod rules;
+pub mod startup;
 pub mod state;
 pub mod summary;
 pub mod verify_content;
