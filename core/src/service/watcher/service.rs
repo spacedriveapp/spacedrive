@@ -126,7 +126,32 @@ impl FsWatcherService {
 			while let Some(root) = restored.recv().await {
 				match self.watch_ephemeral(root.clone()).await {
 					Ok(()) => info!("Watching restored source: {}", root.display()),
-					Err(e) => warn!("Failed to watch restored source {}: {}", root.display(), e),
+					Err(e) => {
+						warn!("Failed to watch restored source {}: {}", root.display(), e);
+						// A restore announces its volume root, and one
+						// unreadable directory anywhere under it fails the
+						// whole recursive watch. The registered sources on
+						// that volume are narrower and still watchable; a
+						// nested source must not lose its watch to a sibling
+						// it does not contain.
+						for source in self.context.ephemeral_cache().sources() {
+							if !source.attached
+								|| source.root == root || !source.root.starts_with(&root)
+							{
+								continue;
+							}
+							match self.watch_ephemeral(source.root.clone()).await {
+								Ok(()) => {
+									info!("Watching restored source: {}", source.root.display())
+								}
+								Err(e) => warn!(
+									"Failed to watch restored source {}: {}",
+									source.root.display(),
+									e
+								),
+							}
+						}
+					}
 				}
 			}
 		});
