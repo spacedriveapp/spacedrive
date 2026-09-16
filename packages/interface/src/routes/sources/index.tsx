@@ -3,6 +3,7 @@ import type {Device} from '@sd/ts-client';
 import {CircleButton, SearchBar} from '@spacedrive/primitives';
 import {useNavigate} from 'react-router-dom';
 import {DriveSourceCard} from '../../components/Sources/DriveSourceCard';
+import {ReplicaSourceCard} from '../../components/Sources/ReplicaSourceCard';
 import {SourceCard} from '../../components/Sources/SourceCard';
 import {useTabManager} from '../../components/TabManager/useTabManager';
 import {
@@ -26,6 +27,12 @@ export function SourcesHome() {
 	const sources = sourcesRaw?.filter(
 		(source) => source.data_type !== 'filesystem'
 	);
+	// Paired devices' filesystem sources ride along in sources.list; local
+	// ones are served by the ephemeral registry below instead.
+	const replicaSources =
+		sourcesRaw?.filter(
+			(source) => source.data_type === 'filesystem' && source.device_id
+		) ?? [];
 
 	// Filesystem sources — drives are sources too; the registries converge
 	// storage-side, the surface converges here.
@@ -36,12 +43,16 @@ export function SourcesHome() {
 	const driveSources = ephemeralStatus?.sources ?? [];
 	const {data: devicesData} = useNormalizedQuery({
 		query: 'devices.list',
-		input: {include_offline: true, include_details: false},
+		input: {include_offline: true, include_details: false, show_paired: true},
 		resourceType: 'device'
 	});
 	const devices: Device[] = devicesData ?? [];
 	const deviceSlug = devices.find((device) => device.is_current)?.slug;
-	const totalCount = (sources?.length ?? 0) + driveSources.length;
+	const deviceSlugById = Object.fromEntries(
+		devices.map((device) => [device.id, device.slug])
+	);
+	const totalCount =
+		(sources?.length ?? 0) + driveSources.length + replicaSources.length;
 
 	return (
 		<>
@@ -139,6 +150,17 @@ export function SourcesHome() {
 								key={source.id}
 								source={source}
 								deviceSlug={deviceSlug}
+							/>
+						))}
+						{replicaSources.map((source) => (
+							<ReplicaSourceCard
+								key={source.id}
+								source={source}
+								deviceSlug={
+									source.device_id
+										? deviceSlugById[source.device_id]
+										: undefined
+								}
 							/>
 						))}
 						{(sources ?? []).map((source) => (
