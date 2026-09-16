@@ -106,7 +106,11 @@ impl FsWatcherService {
 	/// Must be called after the service is wrapped in Arc.
 	pub async fn init_handlers(self: &Arc<Self>) {
 		self.ephemeral_handler.connect(self.clone()).await;
+		// Subscription precedes the restore pass: arm_restored_sources
+		// installs the announcement channel synchronously, so no restore
+		// announced below can be missed.
 		self.clone().arm_restored_sources();
+		self.clone().restore_registered_sources();
 	}
 
 	/// Watch every source whose index arrives from a snapshot.
@@ -124,6 +128,33 @@ impl FsWatcherService {
 					Ok(()) => info!("Watching restored source: {}", root.display()),
 					Err(e) => warn!("Failed to watch restored source {}: {}", root.display(), e),
 				}
+			}
+		});
+	}
+
+	/// Restore every attached registered source's arena at startup.
+	///
+	/// A restore announces its root, and the announcement is what arms the
+	/// source's watch. Nothing else drives a restore on a daemon nobody is
+	/// reading from: a peer's snapshot fetch used to, incidentally, until
+	/// generation convergence removed that churn — which left registered
+	/// sources unwatched until the first local read, with live changes
+	/// falling into unwatched trees in the meantime. Detached sources stay
+	/// lazy; there is no filesystem to watch until they return.
+	fn restore_registered_sources(self: Arc<Self>) {
+		tokio::spawn(async move {
+			let cache = self.context.ephemeral_cache();
+			let mut restored = 0usize;
+			for source in cache.sources() {
+				if !source.attached {
+					continue;
+				}
+				if cache.ensure_restored(&source.root).await {
+					restored += 1;
+				}
+			}
+			if restored > 0 {
+				info!("Restored {restored} registered source arena(s) at startup");
 			}
 		});
 	}
