@@ -12,6 +12,8 @@
 //! content         the identity of the bytes a record points at
 //! edge            relationships between records in this source
 //! record_overlay  what no ingest produced: a person's assertions
+//! tag_definition  the tags this source uses, named, colored, hierarchical
+//! tag_assertion   which tags apply to which records and content
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
@@ -24,8 +26,9 @@
 //!
 //! **A store has two halves, and only one of them can ever be rebuilt.** The
 //! generation (`record`, `facet_*`, `content`, `edge`, `search_index`) can be
-//! rebuilt for as long as its origin still answers. `record_overlay` holds what
-//! no ingest produced, so nothing rebuilds it on any day, for any source.
+//! rebuilt for as long as its origin still answers. `record_overlay` and the
+//! tag tables hold what no ingest produced, so nothing rebuilds them on any
+//! day, for any source.
 //!
 //! Whether the origin still answers varies per source, varies over time, and
 //! changes without an event: a detached drive, a revoked token, a closed
@@ -46,6 +49,7 @@ pub mod read;
 pub mod record;
 pub mod schema;
 pub mod source;
+pub mod tags;
 
 use serde::{Deserialize, Serialize};
 
@@ -62,6 +66,9 @@ pub use read::{FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
+pub use tags::{
+	normalize_tag_path, slug_for_path, AppliedTag, TagAssertion, TagDefinition, TAG_NAMESPACE,
+};
 
 /// How much a source's content is trusted. Adapter manifests declare it and it
 /// is stored on the source row; screening policy keys on it once screening

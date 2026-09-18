@@ -114,6 +114,30 @@ CREATE TABLE IF NOT EXISTS record_overlay (
 CREATE INDEX IF NOT EXISTS idx_overlay_external ON record_overlay(type, external_id);
 CREATE INDEX IF NOT EXISTS idx_overlay_content ON record_overlay(content_uuid);
 
+CREATE TABLE IF NOT EXISTS tag_definition (
+    uuid BLOB PRIMARY KEY,
+    slug_id BLOB NOT NULL,
+    path TEXT NOT NULL,
+    color TEXT,
+    icon TEXT,
+    updated_hlc TEXT NOT NULL,
+    origin_device BLOB NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_tag_definition_slug ON tag_definition(slug_id);
+
+CREATE TABLE IF NOT EXISTS tag_assertion (
+    tag_uuid BLOB NOT NULL,
+    record_uuid BLOB NOT NULL,
+    external_id TEXT,
+    content_uuid BLOB,
+    asserted INTEGER NOT NULL,
+    hlc TEXT NOT NULL,
+    device_uuid BLOB NOT NULL,
+    PRIMARY KEY (tag_uuid, record_uuid, hlc, device_uuid)
+);
+CREATE INDEX IF NOT EXISTS idx_tag_assertion_record ON tag_assertion(record_uuid);
+CREATE INDEX IF NOT EXISTS idx_tag_assertion_content ON tag_assertion(content_uuid);
+
 CREATE TABLE IF NOT EXISTS _schema (
     id INTEGER PRIMARY KEY CHECK (id = 1),
     data_type_id TEXT NOT NULL,

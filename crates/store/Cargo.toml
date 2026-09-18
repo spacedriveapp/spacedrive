@@ -15,6 +15,7 @@ toml        = { workspace = true }
 thiserror   = { workspace = true }
 tracing     = { workspace = true }
 indexmap    = { workspace = true, features = ["serde"] }
+unicode-normalization = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

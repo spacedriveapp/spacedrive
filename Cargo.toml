@@ -109,6 +109,7 @@ fastembed           = "4"
 arrow-array         = "53.3"
 arrow-schema        = "53.3"
 indexmap            = "2.7"
+unicode-normalization = "0.1"
 dashmap             = "6.1"
 toml                = "0.8"
 ort                 = { version = "2.0.0-rc.9", default-features = false, features = ["download-binaries", "tls-native"] }

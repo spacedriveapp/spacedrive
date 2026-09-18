@@ -744,6 +744,11 @@ impl SourceDb {
 		crate::read::resolve_path(&self.pool, path).await
 	}
 
+	/// One entry by record uuid. See [`crate::read::entry_by_uuid`].
+	pub async fn entry_by_uuid(&self, uuid: Uuid) -> Result<Option<crate::read::FsEntry>> {
+		crate::read::entry_by_uuid(&self.pool, uuid).await
+	}
+
 	/// Bind orphaned assertions back onto records, matching on the evidence each
 	/// row carries. Content uuid first, since it is derived from the bytes and so
 	/// holds across a rename and across a machine; the source's own key second.
