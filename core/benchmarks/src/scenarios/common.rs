@@ -1,4 +1,6 @@
 //! Common utilities and structures for benchmark scenarios
+use crate::core_boot::CoreBoot;
+use crate::recipe::Recipe;
 use anyhow::{anyhow, Result};
 use sd_core::infra::event::{Event, EventSubscriber};
 use sd_core::infra::job::output::JobOutput;
@@ -15,6 +17,42 @@ pub struct ScenarioBase {
 	pub job_ids: Vec<Uuid>,
 	pub library: Option<Arc<Library>>,
 	pub hardware_hint: Option<String>,
+}
+
+impl ScenarioBase {
+	/// Create the benchmark library and track each recipe root as a source,
+	/// keeping the walk each one dispatches. Tracking also queues a content
+	/// identification pass behind every walk.
+	pub async fn track_recipe_sources(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()> {
+		use sd_core::infra::action::LibraryAction;
+		use sd_core::ops::sources::track::{TrackSourceAction, TrackSourceInput};
+
+		let context = boot.core.context.clone();
+		let library = boot
+			.core
+			.libraries
+			.create_library("Benchmarks", None, context.clone())
+			.await?;
+		self.library = Some(library.clone());
+
+		for loc in &recipe.locations {
+			let out = TrackSourceAction::from_input(TrackSourceInput {
+				// A source root is resolved against a mount point, so a
+				// recipe's relative path has to be made absolute first
+				path: std::path::absolute(&loc.path)?,
+				name: Some(format!("bench:{}", recipe.name)),
+				unfiltered: false,
+			})
+			.map_err(|e| anyhow!(e))?
+			.execute(library.clone(), context.clone())
+			.await
+			.map_err(|e| anyhow!(e.to_string()))?;
+			if let Some(job_id) = out.job_id {
+				self.job_ids.push(job_id);
+			}
+		}
+		Ok(())
+	}
 }
 
 /// Waits for jobs to complete and collects their output via the event bus.

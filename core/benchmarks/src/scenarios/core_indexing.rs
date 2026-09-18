@@ -24,33 +24,7 @@ impl Scenario for CoreIndexingScenario {
 	}
 
 	async fn prepare(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<()> {
-		use sd_core::infra::action::LibraryAction;
-		let core = &boot.core;
-		let context = core.context.clone();
-		let library = core
-			.libraries
-			.create_library("Benchmarks", None, context.clone())
-			.await?;
-		self.base.library = Some(library.clone());
-
-		for loc in &recipe.locations {
-			let input = sd_core::ops::locations::add::action::LocationAddInput {
-				path: sd_core::domain::addressing::SdPath::local(loc.path.clone()),
-				name: Some(format!("bench:{}", recipe.name)),
-				mode: sd_core::ops::indexing::IndexMode::Shallow,
-				job_policies: None,
-			};
-			let action = sd_core::ops::locations::add::action::LocationAddAction::from_input(input)
-				.map_err(|e| anyhow::anyhow!(e))?;
-			let out = action
-				.execute(library.clone(), context.clone())
-				.await
-				.map_err(|e| anyhow::anyhow!(e.to_string()))?;
-			if let Some(job_id) = out.job_id {
-				self.base.job_ids.push(job_id);
-			}
-		}
-		Ok(())
+		self.base.track_recipe_sources(boot, recipe).await
 	}
 
 	async fn run(&mut self, boot: &CoreBoot, recipe: &Recipe) -> Result<Vec<BenchmarkRun>> {
