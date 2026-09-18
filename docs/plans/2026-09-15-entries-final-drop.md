@@ -58,16 +58,19 @@ transport by association.
 
 ### Durable data without its final home
 
-Tag definitions and applications still live in the library database. Tag
-applications use `user_metadata.entry_uuid` or
-`user_metadata.content_identity_uuid`, and tag operations still write through
-`UserMetadataManager`.
+Tag operations still write to the library database through
+`UserMetadataManager`, but the tables are empty: zero rows across every tag
+and metadata table, verified read-only on the Mac on 2026-09-16. Titan holds
+its own library and remains unverified; check it with
+`sd-cli --device titan tag search ""` before FD4 drops schema. There is no tag
+data to migrate.
 
 `record_overlay` is ready for scalar assertions: it carries record identity,
 portable rebind evidence, HLC, and device identity. The source store does not
 yet have the `tag_definition` and `tag_assertion` tables specified by
-`docs/core/design/tags-and-assertions.md`. Those tables and a verified migration
-must land before the legacy tag tables can be removed.
+`docs/core/design/tags-and-assertions.md`. Building them is a clean build,
+owned by `2026-09-17-tags-on-source-stores.md`, and must land before the
+legacy tag tables can be removed.
 
 ### Runtime reads and helpers
 
@@ -109,7 +112,7 @@ commit when ownership or status changes.
 |---|---|---|---|
 | FD0 Baseline and ownership | ready | unowned | Current references and tables recorded; fixtures and build baseline pass |
 | FD1 Remove runtime entry reads | ready | unowned | No production query or helper reads `entries`, `entry_closure`, or `directory_paths` |
-| FD2 Move tags and assertions | ready after FD0 | unowned | Source stores are self-describing; legacy tag fixture migrates without loss |
+| FD2 Build tags on source stores | implemented through P5 (2026-09-17, uncommitted) | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
 | FD3 Remove legacy row sync | blocked on FD2 | unowned | No entry model registration or entry-specific replication remains; peer source capabilities pass |
 | FD4 Replace the library schema | blocked on FD2 and FD3 | unowned | Fresh and upgraded libraries contain no retired tables |
 | FD5 Retire compatibility surface | blocked on FD4 | unowned | Tests, examples, generated types, docs, and names describe one index model |
@@ -122,17 +125,18 @@ commit when ownership or status changes.
 2. Record the current tables in a fresh library and in a fixture created by the
    last pre-drop build.
 3. Create a legacy fixture with:
-   - a file-scoped tag;
-   - a content-scoped tag with two copies;
-   - a tag definition applied nowhere;
-   - an unapplied tag whose removal must not resurrect;
    - a Space item using the current navigation contract;
    - two paired devices with source replicas.
+
+   The fixture carries no tag rows. No tag data exists to preserve, and the
+   tag semantics once listed here (removal must not resurrect, content
+   collapse, unbound definitions) are tests of the new model, owned by
+   `2026-09-17-tags-on-source-stores.md`.
 4. Run the repository baseline before edits. Keep failures that predate the
    slice separate from regressions.
 
-Do not start with a schema deletion. The fixture is the proof that makes the
-later deletion safe.
+Do not start with a schema deletion. The fixture and the reference inventory
+are the proof that makes the later deletion safe.
 
 ## FD1: Remove runtime entry reads
 
@@ -151,28 +155,19 @@ later deletion safe.
 Keep the schema during this slice. The compiler and focused tests should prove
 that no production path needs it before FD4 removes it.
 
-## FD2: Move tags and assertions
+## FD2: Build tags on source stores
 
-1. Add `tag_definition` and `tag_assertion` to the assertion half of every
-   source store, using the schema and merge rules in
-   `docs/core/design/tags-and-assertions.md`.
-2. Keep both record UUID and convergent content UUID on an assertion. Carry the
-   source-relative external ID as rebind evidence. Order apply and remove rows
-   by HLC with device UUID as the tiebreak.
-3. Rewrite tag apply, unapply, delete, and listing operations against source
-   stores. Applying a definition copies it into every source receiving an
-   assertion.
-4. Keep unapplied definitions in a small library-level staging table until a
-   source adopts them. Keep only client-local pinning, ordering, and color
-   overrides beside it.
-5. Migrate legacy rows idempotently:
-   - find record-scoped targets by record UUID across source stores;
-   - find content-scoped targets by convergent content UUID;
-   - copy each used definition into every target source;
-   - write assertions with stable HLC and device identity;
-   - retain unresolved rows and report them instead of dropping them.
-6. Compare definitions, applications, removals, and unresolved rows before and
-   after migration. Only a zero-loss report unlocks FD4.
+`2026-09-17-tags-on-source-stores.md` owns this slice. It adds
+`tag_definition` and `tag_assertion` to the assertion half of every source
+store, rewrites the tag operations against source stores, routes favorite and
+notes scalars through `record_overlay`, and adds a library-level staging table
+for definitions applied nowhere plus an assertion outbox for writes against
+remote-owned sources.
+
+There is no data migration. The legacy tables are empty (see Current residue),
+so this slice is a clean build. Its exit proof for the drop: no production
+code reads or writes the legacy tag tables outside the row-sync registrations
+that FD3 removes.
 
 Scalar fields such as favorite, rating, and corrected title use
 `record_overlay`. Do not put enumerable tags in its JSON fields.
@@ -203,9 +198,10 @@ correct sync path survived.
 1. Define the final `library.db` baseline from the entities that still have a
    current owner. Do not copy the old migration list and subtract names by
    intuition.
-2. Provide an upgrade migration that runs FD2's assertion transfer before it
-   drops any source data. Make the migration transactional where SQLite allows
-   it and resumable where it crosses source-store files.
+2. Provide an upgrade migration that drops the retired tables directly. There
+   is no assertion transfer; the legacy tag tables are empty, and titan's
+   library gets the same emptiness check before its tables drop. Make the
+   migration transactional where SQLite allows it.
 3. Drop the entry hierarchy, location tables, old content/media/sidecar tables,
    entry-bound collections and conduits, old tag applications, FTS tables,
    triggers, and indexes after their production callers and sync registrations
@@ -254,8 +250,8 @@ A fresh `library.db` has no retired tables, indexes, FTS tables, or triggers.
 
 ### Data safety
 
-- The legacy fixture preserves tag definitions, applications, removals, HLCs,
-  device identities, and unresolved-row diagnostics.
+- Tag definitions, applications, removals, HLCs, and device identities live in
+  source stores under the new model, proven by the tags plan's acceptance.
 - Reindexing or evicting a source leaves its assertion tables unchanged.
 - A source store moved to a clean library remains self-describing.
 - Frozen copies are byte-for-byte untouched. Live source stores change only
@@ -289,8 +285,10 @@ Space item and policy-target tests in addition to the repository baseline.
 
 ## Handoff
 
-Start with FD0, then FD1. FD2 is the durable-data gate. FD3 and FD4 must not run
-ahead of it. FD5 is mechanical only after the schema is physically gone.
+Start with FD0, then FD1. FD2 has its own plan and can run in parallel. FD3
+and FD4 still follow it, because the new tag system must exist before the old
+tables and registrations go. FD5 is mechanical only after the schema is
+physically gone.
 
 Update this file and `PROJECT_STATUS.md` together whenever a slice starts,
 lands, becomes blocked, or changes owner.
