@@ -22,7 +22,8 @@ import type {Device, SdPath} from '@sd/ts-client';
 import {
 	getDeviceIcon,
 	useLibraryMutation,
-	useLibraryQuery
+	useLibraryQuery,
+	useSidebarStore
 } from '@sd/ts-client';
 import {
 	CircleButton,
@@ -30,11 +31,11 @@ import {
 	Tooltip,
 	usePopover
 } from '@spacedrive/primitives';
-import {useQueryClient} from '@tanstack/react-query';
 import clsx from 'clsx';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
+import {isPathItem, useSpaceLayout, useSpaces} from '../../../components/SpacesSidebar/hooks';
 import {useExplorer} from '../context';
 import {sdPathToUri} from '../utils';
 import {useAddStorageDialog} from './AddStorageModal';
@@ -181,7 +182,6 @@ function PathStatusButton({path}: {path: SdPath}) {
 	const popover = usePopover();
 	const [showDetails, setShowDetails] = useState(false);
 	const navigate = useNavigate();
-	const queryClient = useQueryClient();
 	const {
 		data: context,
 		isLoading,
@@ -200,24 +200,29 @@ function PathStatusButton({path}: {path: SdPath}) {
 	);
 	const refresh = () => {
 		void refetch();
-		void queryClient.invalidateQueries({
-			predicate: (query) => {
-				const key = query.queryKey[0];
-				return (
-					key === 'locations.list' || key === 'query:locations.list'
-				);
-			}
-		});
 	};
-	const addLocation = useLibraryMutation('locations.add', {
-		onSuccess: refresh
-	});
-	const removeLocation = useLibraryMutation('locations.remove', {
-		onSuccess: refresh
-	});
 	const reindexSource = useLibraryMutation('sources.track', {
 		onSuccess: refresh
 	});
+
+	// Pinning is navigation: a space-level Path item in the current space,
+	// which the sidebar lists under Pinned. It never indexes anything.
+	const {currentSpaceId} = useSidebarStore();
+	const {data: spacesData} = useSpaces();
+	const currentSpace =
+		spacesData?.spaces.find((space) => space.id === currentSpaceId) ??
+		spacesData?.spaces[0];
+	const {data: layout} = useSpaceLayout(currentSpace?.id ?? null);
+	const addSpaceItem = useLibraryMutation('spaces.add_item');
+	const deleteSpaceItem = useLibraryMutation('spaces.delete_item');
+	const pinnedItem = context
+		? layout?.space_items.find(
+				(item) =>
+					isPathItem(item.item_type) &&
+					sdPathToUri(item.item_type.Path.sd_path) ===
+						sdPathToUri(context.canonical_path)
+			)
+		: undefined;
 
 	const hasWarning =
 		context?.availability === 'permission_denied' ||
@@ -235,12 +240,12 @@ function PathStatusButton({path}: {path: SdPath}) {
 			: hasWarning
 				? WarningCircle
 				: Stack;
-	const exactLocation = context?.location?.exact ? context.location : null;
 	const pathLabel = getCurrentDirectoryName(path);
 	const pathDetail =
 		'Physical' in path ? path.Physical.path : sdPathToUri(path);
-	const canAddLocation = Boolean(
-		context?.source &&
+	const canPin = Boolean(
+		currentSpace &&
+		context &&
 		!context.system_place &&
 		context.availability === 'available'
 	);
@@ -315,12 +320,12 @@ function PathStatusButton({path}: {path: SdPath}) {
 						: 'Spacedrive has not indexed this path.';
 	const placeLabel = context?.system_place
 		? `${context.system_place} is a system Place`
-		: exactLocation
-			? `Remove ${exactLocation.name} from Places`
-			: canAddLocation
-				? 'Add this folder to Places'
-				: 'Add a source before pinning this folder';
-	const canChangePlace = Boolean(exactLocation || canAddLocation);
+		: pinnedItem
+			? `Unpin ${pathLabel}`
+			: canPin
+				? 'Pin this folder'
+				: 'This folder is unavailable';
+	const canChangePlace = Boolean(pinnedItem || canPin);
 	const sourceRoot = context?.source?.root;
 	const canReindex = Boolean(
 		sourceRoot &&
@@ -477,8 +482,7 @@ function PathStatusButton({path}: {path: SdPath}) {
 										}
 										size="lg"
 										active={Boolean(
-											context.system_place ||
-											exactLocation
+											context.system_place || pinnedItem
 										)}
 										title={placeLabel}
 										aria-disabled={
@@ -492,15 +496,20 @@ function PathStatusButton({path}: {path: SdPath}) {
 										)}
 										onClick={() => {
 											if (context.system_place) return;
-											if (exactLocation) {
-												removeLocation.mutate({
-													location_id:
-														exactLocation.id
+											if (pinnedItem) {
+												deleteSpaceItem.mutate({
+													item_id: pinnedItem.id
 												});
-											} else if (canAddLocation) {
-												addLocation.mutate({
-													path: context.canonical_path,
-													name: null
+											} else if (canPin && currentSpace) {
+												addSpaceItem.mutate({
+													space_id: currentSpace.id,
+													group_id: null,
+													item_type: {
+														Path: {
+															sd_path:
+																context.canonical_path
+														}
+													}
 												});
 											}
 										}}

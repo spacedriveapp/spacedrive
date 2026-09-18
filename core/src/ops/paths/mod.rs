@@ -1,8 +1,9 @@
 //! # Path Context
 //!
-//! A path bar needs to explain what Spacedrive knows about the path without
-//! turning locations back into indexing switches. This query joins the live
-//! volume map, source store, watcher, and navigation pins into one typed read.
+//! A path bar needs to explain what Spacedrive knows about a path. This query
+//! joins the live volume map, source store, and watcher into one typed read.
+//! `paths.system_folders` answers the other question clients ask about paths:
+//! which folders a person expects a file manager to already know.
 
 use std::{
 	path::{Path, PathBuf},
@@ -17,10 +18,7 @@ use uuid::Uuid;
 use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
-	infra::{
-		db::entities::location,
-		query::{LibraryQuery, QueryError, QueryResult},
-	},
+	infra::query::{LibraryQuery, QueryError, QueryResult},
 	ops::indexing::ephemeral::cache::SourceStatus,
 };
 
@@ -74,15 +72,6 @@ pub struct PathSourceContext {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct PathLocationContext {
-	pub id: Uuid,
-	pub name: String,
-	pub root: SdPath,
-	pub origin: location::Origin,
-	pub exact: bool,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct PathStorageContext {
 	/// The active volume arena can answer reads about this path.
 	pub memory: bool,
@@ -106,8 +95,6 @@ pub struct PathContextOutput {
 	pub watcher_root: Option<PathBuf>,
 	pub volume: Option<PathVolumeContext>,
 	pub source: Option<PathSourceContext>,
-	/// The closest explicit pin containing this path, if one exists.
-	pub location: Option<PathLocationContext>,
 	/// A computed system Place at this exact path, such as Desktop.
 	pub system_place: Option<String>,
 	pub storage: PathStorageContext,
@@ -220,16 +207,6 @@ impl LibraryQuery for PathContextQuery {
 			false
 		};
 
-		let location = match source_status.as_ref() {
-			Some(status) => {
-				let rows = location::Entity::find()
-					.filter(location::Column::SourceUuid.eq(status.id))
-					.all(library.db().conn())
-					.await?;
-				closest_location(rows, &status.root, &canonical)
-			}
-			None => None,
-		};
 		let system_place = system_place_for(&context, &canonical).await;
 
 		Ok(PathContextOutput {
@@ -246,7 +223,6 @@ impl LibraryQuery for PathContextQuery {
 				tracked: volume.is_tracked,
 			}),
 			source,
-			location,
 			system_place,
 			storage: PathStorageContext {
 				memory: map_state != PathMapState::Unseen,
@@ -279,7 +255,6 @@ fn empty_context(path: SdPath, availability: PathAvailability) -> PathContextOut
 		watcher_root: None,
 		volume: None,
 		source: None,
-		location: None,
 		system_place: None,
 		storage: PathStorageContext {
 			memory: false,
@@ -304,50 +279,99 @@ fn longest_ancestor(paths: Vec<PathBuf>, path: &Path) -> Option<PathBuf> {
 		.max_by_key(|root| root.as_os_str().len())
 }
 
-fn closest_location(
-	rows: Vec<location::Model>,
-	source_root: &Path,
-	path: &Path,
-) -> Option<PathLocationContext> {
-	rows.into_iter()
-		.filter_map(|row| {
-			if !row.relative_path.is_empty()
-				&& Path::new(&row.relative_path)
-					.components()
-					.any(|component| !matches!(component, std::path::Component::Normal(_)))
-			{
-				return None;
-			}
-			let root = if row.relative_path.is_empty() {
-				source_root.to_path_buf()
-			} else {
-				source_root.join(&row.relative_path)
-			};
-			path.starts_with(&root).then_some((row, root))
-		})
-		.max_by_key(|(_, root)| root.as_os_str().len())
-		.map(|(row, root)| PathLocationContext {
-			id: row.uuid,
-			name: row.name,
-			origin: location::Origin::from(row.origin.as_str()),
-			exact: path == root,
-			root: SdPath::local(root),
-		})
+/// The system folders a person expects a file manager to already know:
+/// home, desktop, documents, downloads, pictures, movies, music. A path that
+/// does not exist on this machine is not offered.
+fn known_paths() -> Vec<(String, std::path::PathBuf)> {
+	let Some(home) = dirs::home_dir() else {
+		return Vec::new();
+	};
+
+	let candidates = [
+		("Home", Some(home)),
+		("Desktop", dirs::desktop_dir()),
+		("Documents", dirs::document_dir()),
+		("Downloads", dirs::download_dir()),
+		("Pictures", dirs::picture_dir()),
+		("Movies", dirs::video_dir()),
+		("Music", dirs::audio_dir()),
+	];
+	let mut seen = std::collections::HashSet::new();
+	candidates
+		.into_iter()
+		.filter_map(|(name, path)| path.map(|path| (name.to_string(), path)))
+		.filter(|(_, path)| path.exists() && seen.insert(path.clone()))
+		.collect()
 }
 
 async fn system_place_for(context: &Arc<CoreContext>, path: &Path) -> Option<String> {
-	for (name, known_path) in crate::location::known_paths() {
-		let canonical = context
-			.volume_manager
-			.locate_path(&known_path)
-			.await
-			.map(|(_, path)| path)
-			.unwrap_or_else(|| known_path.canonicalize().unwrap_or(known_path));
-		if path == canonical {
+	for (name, known_path) in known_paths() {
+		if path == canonical_spelling(context, &known_path).await {
 			return Some(name);
 		}
 	}
 	None
+}
+
+/// A path as its owning volume spells it. On macOS this keeps Home from
+/// existing twice, once under `/Users` and once under `/System/Volumes/Data`.
+async fn canonical_spelling(context: &Arc<CoreContext>, path: &Path) -> PathBuf {
+	context
+		.volume_manager
+		.locate_path(path)
+		.await
+		.map(|(_, spelled)| spelled)
+		.unwrap_or_else(|| path.canonicalize().unwrap_or_else(|_| path.to_path_buf()))
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SystemFoldersInput;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SystemFolder {
+	pub name: String,
+	/// As the operating system names it, for display.
+	pub path: PathBuf,
+	/// The volume's spelling on this device, for navigation and containment.
+	pub sd_path: SdPath,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct SystemFoldersOutput {
+	pub folders: Vec<SystemFolder>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SystemFoldersQuery;
+
+impl LibraryQuery for SystemFoldersQuery {
+	type Input = SystemFoldersInput;
+	type Output = SystemFoldersOutput;
+
+	fn from_input(_input: Self::Input) -> QueryResult<Self> {
+		Ok(Self)
+	}
+
+	async fn execute(
+		self,
+		context: Arc<CoreContext>,
+		_session: crate::infra::api::SessionContext,
+	) -> QueryResult<Self::Output> {
+		let device_slug = crate::device::get_current_device_slug();
+		let mut folders = Vec::new();
+		for (name, path) in known_paths() {
+			let spelled = canonical_spelling(&context, &path).await;
+			folders.push(SystemFolder {
+				name,
+				sd_path: SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: spelled,
+				},
+				path,
+			});
+		}
+		Ok(SystemFoldersOutput { folders })
+	}
 }
 
 fn display_name(path: &Path) -> String {
@@ -357,23 +381,11 @@ fn display_name(path: &Path) -> String {
 }
 
 crate::register_library_query!(PathContextQuery, "paths.context");
+crate::register_library_query!(SystemFoldersQuery, "paths.system_folders");
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use chrono::Utc;
-
-	fn location(relative_path: &str, name: &str) -> location::Model {
-		location::Model {
-			id: 1,
-			uuid: Uuid::now_v7(),
-			source_uuid: Uuid::now_v7(),
-			relative_path: relative_path.to_string(),
-			name: name.to_string(),
-			origin: "user".to_string(),
-			created_at: Utc::now(),
-		}
-	}
 
 	fn source(root: &str) -> SourceStatus {
 		SourceStatus {
@@ -412,42 +424,5 @@ mod tests {
 		.expect("matching source");
 
 		assert_eq!(result.root, Path::new("/data/projects"));
-	}
-
-	#[test]
-	fn closest_pin_is_source_relative_and_component_safe() {
-		let root = Path::new("/data");
-		let result = closest_location(
-			vec![location("projects", "Projects"), location("pro", "Pro")],
-			root,
-			Path::new("/data/projects/spacedrive"),
-		)
-		.expect("matching pin");
-
-		assert_eq!(result.name, "Projects");
-		assert!(!result.exact);
-	}
-
-	#[test]
-	fn parent_components_cannot_escape_a_source() {
-		assert!(closest_location(
-			vec![location("../private", "Bad")],
-			Path::new("/data"),
-			Path::new("/private"),
-		)
-		.is_none());
-		assert!(closest_location(
-			vec![location("/private", "Also bad")],
-			Path::new("/data"),
-			Path::new("/private"),
-		)
-		.is_none());
-		assert!(crate::domain::Location::from_row(
-			location("/private", "Also bad"),
-			"/data".to_string(),
-			true,
-			None,
-		)
-		.is_none());
 	}
 }

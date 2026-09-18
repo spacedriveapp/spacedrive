@@ -10,7 +10,7 @@ import {
 	Database,
 	ShieldCheck,
 } from "@phosphor-icons/react";
-import { Location } from "@sd/assets/icons";
+import { Folder } from "@sd/assets/icons";
 import type {
 	SpaceItem as SpaceItemType,
 	ItemType,
@@ -46,12 +46,6 @@ export function isFavoritesItem(t: ItemType): t is "Favorites" {
 
 export function isFileKindsItem(t: ItemType): t is "FileKinds" {
 	return t === "FileKinds";
-}
-
-export function isLocationItem(
-	t: ItemType,
-): t is { Location: { location_id: string } } {
-	return typeof t === "object" && "Location" in t;
 }
 
 export function isVolumeItem(
@@ -92,13 +86,6 @@ export function isSourceItem(
 	return typeof t === "object" && "Source" in t;
 }
 
-// Check if item is a "raw" location (legacy format with name/sd_path but no item_type)
-export function isRawLocation(
-	item: SpaceItemType | Record<string, unknown>,
-): boolean {
-	return "name" in item && "sd_path" in item && !("item_type" in item);
-}
-
 // Get icon data for an item type
 function getItemIcon(itemType: ItemType): IconData {
 	if (isOverviewItem(itemType)) return { type: "component", icon: House };
@@ -109,12 +96,11 @@ function getItemIcon(itemType: ItemType): IconData {
 	if (isRedundancyItem(itemType)) return { type: "component", icon: ShieldCheck };
 	if (isCollectionItem(itemType)) return { type: "component", icon: CameraIcon };
 	if (isAnalyzerItem(itemType)) return { type: "component", icon: ChartPieSlice };
-	if (isLocationItem(itemType)) return { type: "image", icon: Location };
 	if (isVolumeItem(itemType)) return { type: "component", icon: HardDrive };
 	if (isTagItem(itemType)) return { type: "component", icon: TagIcon };
-	if (isPathItem(itemType)) return { type: "image", icon: Location };
+	if (isPathItem(itemType)) return { type: "image", icon: Folder };
 	if (isSourceItem(itemType)) return { type: "component", icon: Database };
-	return { type: "image", icon: Location };
+	return { type: "image", icon: Folder };
 }
 
 // Get label for an item type
@@ -133,7 +119,6 @@ function getItemLabel(itemType: ItemType, resolvedFile?: File | null): string {
 			.map((w) => w.charAt(0).toUpperCase() + w.slice(1))
 			.join(" ");
 	}
-	if (isLocationItem(itemType)) return resolvedFile?.name || "Unnamed Location";
 	if (isVolumeItem(itemType)) return resolvedFile?.name || (itemType as { Volume: { volume_id: string; name?: string } }).Volume.name || "Unnamed Volume";
 	if (isTagItem(itemType)) return resolvedFile?.name || "Unnamed Tag";
 	if (isPathItem(itemType)) {
@@ -156,7 +141,6 @@ function getItemLabel(itemType: ItemType, resolvedFile?: File | null): string {
 function getItemPath(
 	itemType: ItemType,
 	volumeData?: { device_slug: string; mount_path: string },
-	itemSdPath?: SdPath,
 ): string | null {
 	if (isOverviewItem(itemType)) return "/";
 	if (isRecentsItem(itemType)) return "/collection/recent";
@@ -167,14 +151,6 @@ function getItemPath(
 	if (isCollectionItem(itemType))
 		return `/collection/${itemType.Collection.slug}`;
 	if (isAnalyzerItem(itemType)) return "/analyzer";
-
-	if (isLocationItem(itemType)) {
-		// Use explorer route with location's SD path (passed from item.sd_path)
-		if (itemSdPath) {
-			return `/explorer?path=${encodeURIComponent(JSON.stringify(itemSdPath))}`;
-		}
-		return null;
-	}
 
 	if (isVolumeItem(itemType)) {
 		// Navigate to explorer with volume's root path
@@ -215,115 +191,22 @@ export interface ResolveMetadataOptions {
 
 // Resolve all metadata for a space item in one call
 export function resolveItemMetadata(
-	item: SpaceItemType | Record<string, unknown>,
+	item: SpaceItemType,
 	options: ResolveMetadataOptions = {},
 ): ItemMetadata {
 	const { volumeData, customIcon, customLabel } = options;
-
-	// Handle raw location object (legacy format)
-	if (isRawLocation(item)) {
-		const rawItem = item as { name?: string; sd_path?: SdPath };
-		const label = customLabel || rawItem.name || "Unnamed Location";
-		const path = rawItem.sd_path
-			? `/explorer?path=${encodeURIComponent(JSON.stringify(rawItem.sd_path))}`
-			: null;
-
-		return {
-			icon: customIcon
-				? { type: "image", icon: customIcon }
-				: { type: "image", icon: Location },
-			label,
-			path,
-		};
-	}
-
-	// Handle proper SpaceItem
-	const spaceItem = item as SpaceItemType;
-	const resolvedFile = spaceItem.resolved_file;
-	const itemSdPath = (spaceItem as SpaceItemType & { sd_path?: SdPath })
-		.sd_path;
+	const resolvedFile = item.resolved_file;
 
 	const icon: IconData = customIcon
 		? { type: "image", icon: customIcon }
-		: getItemIcon(spaceItem.item_type);
+		: getItemIcon(item.item_type);
 
 	const label =
 		customLabel ||
 		resolvedFile?.name ||
-		getItemLabel(spaceItem.item_type, resolvedFile);
+		getItemLabel(item.item_type, resolvedFile);
 
-	const path = getItemPath(spaceItem.item_type, volumeData, itemSdPath);
+	const path = getItemPath(item.item_type, volumeData);
 
 	return { icon, label, path };
-}
-
-// Determine if an item can be a drop target (for files to be moved into)
-export function isDropTargetItem(
-	item: SpaceItemType | Record<string, unknown>,
-): boolean {
-	if (isRawLocation(item)) return true;
-
-	const spaceItem = item as SpaceItemType;
-	const itemType = spaceItem.item_type;
-	const resolvedFile = spaceItem.resolved_file;
-
-	return (
-		isLocationItem(itemType) ||
-		isVolumeItem(itemType) ||
-		(isPathItem(itemType) && resolvedFile?.kind === "Directory")
-	);
-}
-
-// Get the target type for drop operations
-export type DropTargetType = "location" | "volume" | "folder" | "other";
-
-export function getDropTargetType(
-	item: SpaceItemType | Record<string, unknown>,
-): DropTargetType {
-	if (isRawLocation(item)) return "location";
-
-	const spaceItem = item as SpaceItemType;
-	const itemType = spaceItem.item_type;
-	const resolvedFile = spaceItem.resolved_file;
-
-	if (isLocationItem(itemType)) return "location";
-	if (isVolumeItem(itemType)) return "volume";
-	if (isPathItem(itemType) && resolvedFile?.kind === "Directory")
-		return "folder";
-
-	return "other";
-}
-
-// Build target path for drop operations
-export function buildDropTargetPath(
-	item: SpaceItemType | Record<string, unknown>,
-	volumeData?: { device_slug: string; mount_path: string },
-): SdPath | undefined {
-	if (isRawLocation(item)) {
-		return (item as { sd_path?: SdPath }).sd_path;
-	}
-
-	const spaceItem = item as SpaceItemType;
-	const itemType = spaceItem.item_type;
-	const itemSdPath = (spaceItem as SpaceItemType & { sd_path?: SdPath })
-		.sd_path;
-
-	if (isPathItem(itemType)) {
-		return itemType.Path.sd_path;
-	}
-
-	if (isVolumeItem(itemType) && volumeData) {
-		return {
-			Physical: {
-				device_slug: volumeData.device_slug,
-				path: volumeData.mount_path || "/",
-			},
-		};
-	}
-
-	if (isLocationItem(itemType) && itemSdPath) {
-		return itemSdPath;
-	}
-
-	return undefined;
 }

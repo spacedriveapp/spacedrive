@@ -4,7 +4,6 @@ import type { SpaceGroup, SpaceItem } from "@sd/ts-client";
 import { SettingsGroup } from "../../../components/primitive";
 import { SpaceItem as SpaceItemComponent } from "./SpaceItem";
 import { DevicesGroup } from "./DevicesGroup";
-import { LocationsGroup } from "./LocationsGroup";
 import { VolumesGroup } from "./VolumesGroup";
 import { CaretDown, CaretRight } from "phosphor-react-native";
 
@@ -23,10 +22,6 @@ export function SpaceGroupComponent({ group, items }: SpaceGroupProps) {
 	// System groups - use existing components
 	if (group.group_type === "Devices") {
 		return <DevicesGroup />;
-	}
-
-	if (group.group_type === "Locations") {
-		return <LocationsGroup />;
 	}
 
 	if (group.group_type === "Volumes") {

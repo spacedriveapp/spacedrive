@@ -59,7 +59,7 @@ impl LibraryQuery for LibraryInfoQuery {
 		// Check if cached statistics are empty/stale (never calculated or all zeros)
 		let cached_stats = config.statistics.clone();
 		let is_stale = cached_stats.total_files == 0
-			&& cached_stats.location_count == 0
+			&& cached_stats.source_count == 0
 			&& cached_stats.tag_count == 0;
 
 		let statistics = if is_stale {
@@ -120,7 +120,7 @@ impl LibraryQuery for LibraryInfoQuery {
 			library_name = %config.name,
 			total_files = statistics.total_files,
 			total_size = statistics.total_size,
-			location_count = statistics.location_count,
+			source_count = statistics.source_count,
 			tag_count = statistics.tag_count,
 			device_count = statistics.device_count,
 			unique_content_count = statistics.unique_content_count,

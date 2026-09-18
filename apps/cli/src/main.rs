@@ -58,7 +58,6 @@ use crate::domains::{
 	index::{self, IndexCmd},
 	job::{self, JobCmd},
 	library::{self, LibraryCmd},
-	location::{self, LocationCmd},
 	logs::{self, LogsCmd},
 	network::{self, NetworkCmd},
 	redundancy::{self, RedundancyCmd},
@@ -212,9 +211,6 @@ enum Commands {
 	/// Source operations (track, list, freeze)
 	#[command(subcommand)]
 	Sources(SourceCmd),
-	/// Location operations
-	#[command(subcommand)]
-	Location(LocationCmd),
 	/// Networking and pairing
 	#[command(subcommand)]
 	Network(NetworkCmd),
@@ -649,7 +645,7 @@ async fn run_client_command(
 									"".to_string(),
 								]);
 								libraries_table.add_row(vec![
-									format!("  Locations: {}", stats.location_count),
+									format!("  Sources: {}", stats.source_count),
 									"".to_string(),
 								]);
 							}
@@ -751,7 +747,6 @@ async fn run_client_command(
 		Commands::File(cmd) => file::run(&ctx, cmd).await?,
 		Commands::Index(cmd) => index::run(&ctx, cmd).await?,
 		Commands::Thumbs(cmd) => thumbs::run(&ctx, cmd).await?,
-		Commands::Location(cmd) => location::run(&ctx, cmd).await?,
 		Commands::Sources(cmd) => source::run(&ctx, cmd).await?,
 		Commands::Network(cmd) => network::run(&ctx, cmd).await?,
 		Commands::Job(cmd) => job::run(&ctx, cmd).await?,

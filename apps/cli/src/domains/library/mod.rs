@@ -127,7 +127,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 				println!("Total files: {}", info.statistics.total_files);
 				println!("Unique content: {}", info.statistics.unique_content_count);
 				println!("Total size: {} bytes", info.statistics.total_size);
-				println!("Locations: {}", info.statistics.location_count);
+				println!("Sources: {}", info.statistics.source_count);
 				println!("Tags: {}", info.statistics.tag_count);
 				println!("Devices: {}", info.statistics.device_count);
 				println!("Total capacity: {} bytes", info.statistics.total_capacity);
@@ -213,7 +213,7 @@ pub async fn run(ctx: &Context, cmd: LibraryCmd) -> Result<()> {
 							}
 							println!("  Created: {}", lib.created_at.format("%Y-%m-%d %H:%M:%S"));
 							println!("  Files: {}", lib.statistics.total_files);
-							println!("  Locations: {}", lib.statistics.location_count);
+							println!("  Sources: {}", lib.statistics.source_count);
 							println!("  Sidecars: {}", lib.statistics.sidecar_count);
 							if lib.statistics.total_size > 0 {
 								println!("  Size: {} bytes", lib.statistics.total_size);
@@ -381,8 +381,8 @@ async fn run_interactive_sync_setup(ctx: &Context) -> Result<LibrarySyncSetupInp
 				.iter()
 				.map(|lib| {
 					format!(
-						"{} ({} entries, {} locations)",
-						lib.name, lib.statistics.total_files, lib.statistics.location_count
+						"{} ({} files, {} sources)",
+						lib.name, lib.statistics.total_files, lib.statistics.source_count
 					)
 				})
 				.collect();

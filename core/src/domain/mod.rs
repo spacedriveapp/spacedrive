@@ -10,7 +10,6 @@ pub mod content_identity;
 pub mod device;
 pub mod file;
 pub mod library;
-pub mod location;
 pub mod media_data;
 pub mod resource;
 pub mod resource_manager;
@@ -26,7 +25,6 @@ pub use content_identity::{ContentHashError, ContentHashGenerator, ContentIdenti
 pub use device::{ConnectionMethod, Device, OperatingSystem};
 pub use file::{EntryKind, File, Sidecar};
 pub use library::Library;
-pub use location::Location;
 pub use media_data::{AudioMediaData, ImageMediaData, VideoMediaData};
 pub use resource::{EventEmitter, Identifiable};
 pub use resource_manager::ResourceManager;

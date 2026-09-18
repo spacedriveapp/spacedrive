@@ -46,6 +46,7 @@ mod m20260909_000001_add_content_count_to_sources;
 mod m20260910_000001_locations_are_pins;
 mod m20260917_000001_create_tag_staging;
 mod m20260917_000002_create_assertion_outbox;
+mod m20260918_000001_drop_entries_world;
 
 pub struct Migrator;
 
@@ -97,6 +98,7 @@ impl MigratorTrait for Migrator {
 			Box::new(m20260910_000001_locations_are_pins::Migration),
 			Box::new(m20260917_000001_create_tag_staging::Migration),
 			Box::new(m20260917_000002_create_assertion_outbox::Migration),
+			Box::new(m20260918_000001_drop_entries_world::Migration),
 		]
 	}
 }

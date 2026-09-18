@@ -1,17 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Image, ScrollView, Pressable, Modal } from "react-native";
+import { View, Text, Image, Pressable, Modal } from "react-native";
 import DatabaseIcon from "@sd/assets/icons/Database.webp";
 import DriveAmazonS3Icon from "@sd/assets/icons/Drive-AmazonS3.webp";
 import DriveDropboxIcon from "@sd/assets/icons/Drive-Dropbox.webp";
 import DriveGoogleDriveIcon from "@sd/assets/icons/Drive-GoogleDrive.webp";
 import DriveIcon from "@sd/assets/icons/Drive.webp";
 import HDDIcon from "@sd/assets/icons/HDD.webp";
-import LocationIcon from "@sd/assets/icons/Location.webp";
 import ServerIcon from "@sd/assets/icons/Server.webp";
 import type {
 	Device,
 	JobListItem,
-	Location,
 	Volume,
 } from "@sd/ts-client";
 import { getDeviceIcon } from "@sd/ts-client";
@@ -51,14 +49,7 @@ function getDiskTypeLabel(diskType: string): string {
 	return diskType === "SSD" ? "SSD" : diskType === "HDD" ? "HDD" : diskType;
 }
 
-interface DevicePanelProps {
-	onLocationSelect?: (location: Location | null) => void;
-}
-
-export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
-	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-		null
-	);
+export function DevicePanel() {
 
 	// Fetch all volumes
 	const { data: volumesData, isLoading: volumesLoading } = useNormalizedQuery<
@@ -80,18 +71,10 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 		resourceType: "device",
 	});
 
-	// Fetch all locations
-	const { data: locationsData, isLoading: locationsLoading } =
-		useNormalizedQuery<any, any>({
-			query: "locations.list",
-			input: null,
-			resourceType: "location",
-		});
-
 	// TODO: Get jobs when mobile supports it
 	const allJobs: JobListItem[] = [];
 
-	if (volumesLoading || devicesLoading || locationsLoading) {
+	if (volumesLoading || devicesLoading) {
 		return (
 			<View className="bg-app-box border border-app-line rounded-xl overflow-hidden mb-6">
 				<View className="px-6 py-4 border-b border-app-line">
@@ -108,7 +91,6 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 
 	const volumes = volumesData?.volumes || [];
 	const devices = devicesData || [];
-	const locations = locationsData?.locations || [];
 
 	// Filter to only show user-visible volumes
 	const userVisibleVolumes = volumes.filter(
@@ -124,21 +106,6 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 		acc[deviceId].push(volume);
 		return acc;
 	}, {} as Record<string, Volume[]>);
-
-	// Group locations by device slug
-	const locationsByDeviceSlug = locations.reduce((acc: any, location: Location) => {
-		if (
-			typeof location.sd_path === "object" &&
-			"Physical" in location.sd_path
-		) {
-			const deviceSlug = (location.sd_path as any).Physical.device_slug;
-			if (!acc[deviceSlug]) {
-				acc[deviceSlug] = [];
-			}
-			acc[deviceSlug].push(location);
-		}
-		return acc;
-	}, {} as Record<string, Location[]>);
 
 	// Group jobs by device_id
 	const jobsByDevice = allJobs.reduce((acc: any, job: JobListItem) => {
@@ -156,7 +123,6 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 			{devices.map((device: DeviceWithConnection) => {
 				const deviceVolumes = volumesByDevice[device.id] || [];
 				const deviceJobs = jobsByDevice[device.id] || [];
-				const deviceLocations = locationsByDeviceSlug[device.slug] || [];
 
 				return (
 					<DeviceCard
@@ -164,16 +130,6 @@ export function DevicePanel({ onLocationSelect }: DevicePanelProps = {}) {
 						device={device}
 						volumes={deviceVolumes}
 						jobs={deviceJobs}
-						locations={deviceLocations}
-						selectedLocationId={selectedLocationId}
-						onLocationSelect={(location) => {
-							if (location) {
-								setSelectedLocationId(location.id);
-							} else {
-								setSelectedLocationId(null);
-							}
-							onLocationSelect?.(location);
-						}}
 					/>
 				);
 			})}
@@ -216,18 +172,12 @@ interface DeviceCardProps {
 	device?: DeviceWithConnection;
 	volumes: Volume[];
 	jobs: JobListItem[];
-	locations: Location[];
-	selectedLocationId: string | null;
-	onLocationSelect?: (location: Location | null) => void;
 }
 
 function DeviceCard({
 	device,
 	volumes,
 	jobs,
-	locations,
-	selectedLocationId,
-	onLocationSelect,
 }: DeviceCardProps) {
 	const deviceName = device?.name || "Unknown Device";
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
@@ -313,15 +263,6 @@ function DeviceCard({
 				</View>
 			)}
 
-			{/* Locations for this device */}
-			{locations.length > 0 && (
-				<LocationsScroller
-					locations={locations}
-					selectedLocationId={selectedLocationId}
-					onLocationSelect={onLocationSelect}
-				/>
-			)}
-
 			{/* Volumes for this device */}
 			<View className="px-3 py-3 gap-3">
 				{volumes.length > 0 ? (
@@ -334,71 +275,6 @@ function DeviceCard({
 					</View>
 				)}
 			</View>
-		</View>
-	);
-}
-
-interface LocationsScrollerProps {
-	locations: Location[];
-	selectedLocationId: string | null;
-	onLocationSelect?: (location: Location | null) => void;
-}
-
-function LocationsScroller({
-	locations,
-	selectedLocationId,
-	onLocationSelect,
-}: LocationsScrollerProps) {
-	return (
-		<View className="border-b border-app-line/30 px-3 py-3">
-			<ScrollView horizontal showsHorizontalScrollIndicator={false} className="gap-2">
-				{locations.map((location) => {
-					const isSelected = selectedLocationId === location.id;
-					return (
-						<Pressable
-							key={location.id}
-							onPress={() => {
-								if (isSelected) {
-									onLocationSelect?.(null);
-								} else {
-									onLocationSelect?.(location);
-								}
-							}}
-							className="min-w-[80px] items-center gap-2 p-1"
-						>
-							<View
-								className={`rounded-lg p-2 ${
-									isSelected ? "bg-app-box" : "bg-transparent"
-								}`}
-							>
-								<Image
-									source={LocationIcon}
-									className="w-12 h-12 opacity-80"
-									style={{ resizeMode: "contain" }}
-								/>
-							</View>
-							<View className="w-full items-center">
-								<View
-									className={`px-2 py-0.5 rounded-md ${
-										isSelected
-											? "bg-accent"
-											: "bg-transparent"
-									}`}
-								>
-									<Text
-										className={`text-xs ${
-											isSelected ? "text-white" : "text-ink"
-										}`}
-										numberOfLines={1}
-									>
-										{location.name}
-									</Text>
-								</View>
-							</View>
-						</Pressable>
-					);
-				})}
-			</ScrollView>
 		</View>
 	);
 }

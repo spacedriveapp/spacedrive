@@ -114,7 +114,7 @@ commit when ownership or status changes.
 | FD1 Remove runtime entry reads | done 2026-09-18 | Fable | Production readers gone: File's dependency router deleted (only legacy row sync fed it), the ancestor entry-ID cache and SQL path resolver removed, discovery totals read source rows, indexing docs describe one writer |
 | FD2 Build tags on source stores | landed; delivery verified live 2026-09-18 | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
 | FD3 Remove legacy row sync | done 2026-09-18 | Fable | Fourteen retired models unregistered with their Syncable impls and apply paths deleted; entry hierarchy sorting, self-referential FK resolution, closure and directory-path rebuilds, and the directory-path sync payloads are gone; survivors are device, volume, space, space_group, space_item, audit_log, and a registry test now refuses any retired model re-registering; live audit passed: replicas listed, remote ops answered, replica listings served, remote jobs endpoint responsive |
-| FD4 Replace the library schema | blocked on FD2 and FD3 | unowned | Fresh and upgraded libraries contain no retired tables |
+| FD4 Replace the library schema | done 2026-09-18 | Fable | Fresh, legacy, and live libraries all converge on the same 14-table schema; the Mac library upgraded live with a pre-drop backup; titan's library upgrades when it next runs this build |
 | FD5 Retire compatibility surface | blocked on FD4 | unowned | Tests, examples, generated types, docs, and names describe one index model |
 | FDA Acceptance | blocked on FD1-FD5 | unowned | Full matrix below passes |
 
@@ -242,6 +242,44 @@ The exit proof is behavioral. A smaller directory tree is not proof that the
 correct sync path survived.
 
 ## FD4: Replace the library schema
+
+> Done 2026-09-18. `m20260918_000001_drop_entries_world` drops 29 tables in
+> one transaction, children before parents: with foreign keys enforced,
+> dropping a parent makes SQLite parse every child's constraints, and the
+> first attempt failed on `sidecar`, whose other parent `entries` was
+> already gone. That attempt also proved `Migrator::up` does not wrap SQLite
+> migrations in transactions, so the migration opens its own. Dropped: the
+> entry hierarchy, content identities and kinds, mime types, media data,
+> sidecars, collections, locations, every semantic tag and user-metadata
+> table, conduits and their generations, search analytics, indexer rules,
+> and the FTS `search_index` family. Location Space items and Locations
+> groups are deleted rather than migrated. A library now holds 14 tables:
+> `assertion_outbox`, `audit_log`, `cloud_credentials`,
+> `device_state_tombstones`, `devices`, `seaql_migrations`, `sources`,
+> `space_groups`, `space_items`, `spaces`, `sqlite_sequence`,
+> `sync_checkpoints`, `tag_staging`, `volumes`.
+>
+> Proof: the statement sequence replayed on a copy of the live library with
+> foreign keys on (clean `foreign_key_check`, integrity ok, Space items
+> intact); a library created by the pre-drop build, left half-migrated by the
+> failed first attempt, completed on restart; a brand-new library converges
+> on the same schema; the live Mac library upgraded after a backup to
+> `~/.spacedrive/backup/pre-entries-drop/library.db`, where every dropped
+> table held zero rows apart from the 25-row seeded kind lookup. Tags,
+> tag-filtered search, sources, replicas, and remote ops verified after.
+>
+> Locations left the product with the schema: the ops, domain type, entity,
+> CLI domain, and every client consumer. Their callers moved to sources and
+> Space items: PathBar pins are space-level Path items shown under Pinned,
+> the sidebar's Places come from the new `paths.system_folders` query, Add
+> Storage tracks sources and validates through `sources.validate_path`, the
+> device views list sources, and library statistics count sources as
+> `source_count`. Historical migrations are not squashed; the upgrade
+> boundary stays the full chain.
+>
+> Known gap, pre-existing: store `content.kind` is never written by the
+> hashing pass, so kind statistics read zero, as the retired table did.
+
 
 1. Define the final `library.db` baseline from the entities that still have a
    current owner. Do not copy the old migration list and subtract names by

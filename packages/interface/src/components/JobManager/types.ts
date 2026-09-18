@@ -38,12 +38,12 @@ export function getJobDisplayName(job: JobListItem): string {
 
   try {
     switch (action_type) {
-      case "locations.add": {
+      case "sources.track": {
         const path = extractPath(action_input);
         if (path) {
           // Show full path with ~ for home directory
           const homePath = path.replace(/^\/Users\/[^/]+/, "~");
-          return `Added location ${homePath}`;
+          return `Adding ${homePath}`;
         }
         break;
       }
@@ -72,7 +72,7 @@ export function getJobDisplayName(job: JobListItem): string {
         break;
       }
       case "indexing.start":
-        return "Indexing Location";
+        return "Indexing";
       case "volumes.index": {
         const context = job.action_context?.context as Record<string, unknown> | null;
         const volumeName = context?.volume_name;

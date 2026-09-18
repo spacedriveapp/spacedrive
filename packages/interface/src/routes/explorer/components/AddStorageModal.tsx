@@ -20,14 +20,15 @@ import {
 	TabsContent,
 } from "@spacedrive/primitives";
 import type {
-	LocationAddInput,
 	VolumeAddCloudInput,
 	CloudServiceType,
 	CloudStorageConfig,
-	ValidateLocationPathInput,
+	SdPath,
+	ValidateSourcePathInput,
+	ValidateSourcePathOutput,
 	RiskLevel,
 	ValidationWarning as PathValidationWarning,
-	VolumeIndexingSuggestion,
+	WholeVolumeSuggestion,
 } from "@sd/ts-client";
 import { useLibraryMutation, useLibraryQuery, useSpacedriveClient } from "../../../contexts/SpacedriveContext";
 import { usePlatform } from "../../../contexts/PlatformContext";
@@ -363,19 +364,35 @@ function AddStorageDialog(props: {
 	const [validationResult, setValidationResult] = useState<{
 		riskLevel: RiskLevel;
 		warnings: PathValidationWarning[];
-		suggestion: VolumeIndexingSuggestion | null;
+		suggestion: WholeVolumeSuggestion | null;
 	} | null>(null);
 
 	console.log("AddStorageDialog render:", { validationResult, step });
 
 	const client = useSpacedriveClient();
-	const addLocation = useLibraryMutation("locations.add");
+	const trackSource = useLibraryMutation("sources.track");
 	const addCloudVolume = useLibraryMutation("volumes.add_cloud");
 	const trackVolume = useLibraryMutation("volumes.track");
 	const indexVolume = useLibraryMutation("volumes.index");
-	const { data: suggestedLocations } = useLibraryQuery({
-		type: "locations.suggested",
+	const { data: systemFolders } = useLibraryQuery({
+		type: "paths.system_folders",
 		input: null,
+	});
+	const { data: sourcesData } = useLibraryQuery({
+		type: "sources.list",
+		input: { data_type: null },
+	});
+	// A folder already inside a local source is kept; suggesting it would
+	// only nest a second source under the first.
+	const trackedRoots = (sourcesData ? [...sourcesData] : [])
+		.filter((source) => !source.device_id && source.root)
+		.map((source) => source.root as string);
+	const suggestedFolders = (systemFolders?.folders ?? []).filter((folder) => {
+		if (!("Physical" in folder.sd_path)) return true;
+		const path = folder.sd_path.Physical.path;
+		return !trackedRoots.some(
+			(root) => path === root || path.startsWith(`${root}/`),
+		);
 	});
 	const { data: volumesData } = useLibraryQuery({
 		type: "volumes.list",
@@ -485,7 +502,7 @@ function AddStorageDialog(props: {
 
 	const onSubmitLocal = localForm.handleSubmit(async (data) => {
 		// Validate path first
-		const validateInput: ValidateLocationPathInput = {
+		const validateInput: ValidateSourcePathInput = {
 			path: {
 				Physical: {
 					device_slug: "local",
@@ -494,10 +511,12 @@ function AddStorageDialog(props: {
 			},
 		};
 
-		let validation: { risk_level: RiskLevel; warnings: PathValidationWarning[]; suggested_alternative: VolumeIndexingSuggestion | null } | undefined;
+		let validation: ValidateSourcePathOutput | undefined;
 		try {
-			validation = await client.execute("query:locations.validate_path", validateInput) as any;
-			console.log("Validation result:", validation);
+			validation = await client.execute<
+				ValidateSourcePathInput,
+				ValidateSourcePathOutput
+			>("query:sources.validate_path", validateInput);
 		} catch (error) {
 			console.error("Failed to validate path:", error);
 			// Continue anyway if validation fails
@@ -515,36 +534,33 @@ function AddStorageDialog(props: {
 			return;
 		}
 
-		// Path is safe or user proceeding anyway - clear validation and add location
+		// Path is safe or user proceeding anyway - clear validation and add the source
 		if (validationResult) {
 			setValidationResult(null);
 		}
 
-		const input: LocationAddInput = {
-			path: {
-				Physical: {
-					device_slug: "local",
-					path: data.path,
-				},
-			},
-			name: data.name || null,
-		};
-
 		try {
-			const result = await addLocation.mutateAsync(input);
+			const result = await trackSource.mutateAsync({
+				path: data.path,
+				name: data.name || null,
+				unfiltered: false,
+			});
 			dialog.state.open = false;
 
-			if (result?.path && props.onStorageAdded) {
-				props.onStorageAdded(result.path);
+			if (props.onStorageAdded) {
+				const root: SdPath = {
+					Physical: { device_slug: "local", path: result.root },
+				};
+				props.onStorageAdded(root);
 			}
 		} catch (error) {
-			console.error("Failed to add location:", error);
+			console.error("Failed to add source:", error);
 			localForm.setError("root", {
 				type: "manual",
 				message:
 					error instanceof Error
 						? error.message
-						: "Failed to add location",
+						: "Failed to add source",
 			});
 		}
 	});
@@ -642,23 +658,17 @@ function AddStorageDialog(props: {
 				cloudIdentifier = "root";
 			}
 
-			// Step 2: Create a location for the cloud volume so it gets indexed
-			const locationInput: LocationAddInput = {
-				path: {
+			dialog.state.open = false;
+
+			if (props.onStorageAdded) {
+				const root: SdPath = {
 					Cloud: {
 						service: provider.cloudServiceType,
 						identifier: cloudIdentifier,
 						path: "",
 					},
-				},
-				name: data.display_name,
-			};
-
-			const locationResult = await addLocation.mutateAsync(locationInput);
-			dialog.state.open = false;
-
-			if (locationResult?.path && props.onStorageAdded) {
-				props.onStorageAdded(locationResult.path);
+				};
+				props.onStorageAdded(root);
 			}
 		} catch (error) {
 			console.error("Failed to add cloud storage:", error);
@@ -939,19 +949,18 @@ function AddStorageDialog(props: {
 						</div>
 					</div>
 
-					{suggestedLocations &&
-						suggestedLocations.locations.length > 0 && (
+					{suggestedFolders.length > 0 && (
 							<div className="space-y-2">
-								<Label>Suggested Locations</Label>
+								<Label>Suggested Folders</Label>
 								<div className="grid grid-cols-2 gap-2 max-h-[280px] overflow-y-auto pr-1">
-									{suggestedLocations.locations.map((loc) => (
+									{suggestedFolders.map((folder) => (
 										<button
-											key={loc.path}
+											key={folder.path}
 											type="button"
 											onClick={() =>
 												handleSelectSuggested(
-													loc.path,
-													loc.name,
+													folder.path,
+													folder.name,
 												)
 											}
 											className="flex items-center gap-3 rounded-lg border border-app-line bg-app-box p-3 text-left transition-all hover:bg-app-hover hover:border-accent/50 h-fit"
@@ -962,10 +971,10 @@ function AddStorageDialog(props: {
 											/>
 											<div className="min-w-0 flex-1">
 												<div className="text-sm font-medium text-ink truncate">
-													{loc.name}
+													{folder.name}
 												</div>
 												<div className="text-xs text-ink-faint truncate">
-													{loc.path}
+													{folder.path}
 												</div>
 											</div>
 										</button>
@@ -985,12 +994,12 @@ function AddStorageDialog(props: {
 				dialog={dialog}
 				form={localForm}
 				onSubmit={onSubmitLocal}
-				title="Configure Location"
+				title="Add to Library"
 				icon={<Folder size={20} weight="fill" />}
 				description={localForm.watch("path")}
-				ctaLabel={validationResult ? "Proceed Anyway" : "Add Location"}
+				ctaLabel={validationResult ? "Proceed Anyway" : "Add to Library"}
 				ctaDanger={!!validationResult}
-				loading={addLocation.isPending}
+				loading={trackSource.isPending}
 				showBackButton={true}
 				onBack={handleBack}
 			>

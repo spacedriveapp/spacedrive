@@ -15,9 +15,7 @@ import FolderIcon from '@sd/assets/icons/Folder.webp';
 import HomeIcon from '@sd/assets/icons/Home.webp';
 import type {
 	Device,
-	Location,
-	LocationsListOutput,
-	LocationsListQueryInput,
+	SdPath,
 	SourceInfo,
 	SpaceGroup,
 	SpaceItem as SpaceItemType
@@ -56,7 +54,7 @@ interface SpacesSidebarProps {
 	presentation?: 'floating' | 'flat';
 }
 
-function routeForPath(path: Location['sd_path']): string {
+function routeForPath(path: SdPath): string {
 	return `/explorer?path=${encodeURIComponent(JSON.stringify(path))}`;
 }
 
@@ -187,20 +185,11 @@ export function SpacesSidebar({
 		spaces?.find((space) => space.id === currentSpaceId) ?? spaces?.[0];
 	const {data: layout} = useSpaceLayout(currentSpace?.id ?? null);
 
-	const {data: locationsData} = useNormalizedQuery<
-		LocationsListQueryInput,
-		LocationsListOutput
-	>({
-		query: 'locations.list',
-		input: null,
-		resourceType: 'location'
-	});
-	const locations = locationsData?.locations ?? [];
-	const {data: suggestedLocationsData} = useLibraryQuery({
-		type: 'locations.suggested',
+	const {data: systemFoldersData} = useLibraryQuery({
+		type: 'paths.system_folders',
 		input: null
 	});
-	const systemFolders = suggestedLocationsData?.locations ?? [];
+	const systemFolders = systemFoldersData?.folders ?? [];
 
 	const {data: sourcesData} = useLibraryQuery({
 		type: 'sources.list',
@@ -278,14 +267,8 @@ export function SpacesSidebar({
 	};
 
 	const occupiedPlaceRoutes = useMemo(
-		() =>
-			new Set(
-				[
-					...locations.map((location) => location.sd_path),
-					...systemFolders.map((folder) => folder.sd_path)
-				].map((path) => routeForPath(path))
-			),
-		[locations, systemFolders]
+		() => new Set(systemFolders.map((folder) => routeForPath(folder.sd_path))),
+		[systemFolders]
 	);
 	const visibleSources = sources.filter(
 		(source) =>
@@ -306,10 +289,7 @@ export function SpacesSidebar({
 					group.group_type === 'QuickAccess') &&
 				items.length > 0
 		) ?? [];
-	const hasPlaces =
-		systemFolders.length > 0 ||
-		locations.length > 0 ||
-		otherSources.length > 0;
+	const hasPlaces = systemFolders.length > 0 || otherSources.length > 0;
 	const activityCount = activeJobCount > 0 ? activeJobCount : undefined;
 	const isActivityActive = ['/activity', '/jobs'].includes(location.pathname);
 	const activityLabel =
@@ -431,53 +411,6 @@ export function SpacesSidebar({
 													)
 												)
 											}
-										/>
-									);
-								})}
-								{locations.map((location) => {
-									const href = routeForPath(location.sd_path);
-									return (
-										<SidebarItem
-											key={location.id}
-											id={`location-${location.id}`}
-											label={location.name}
-											iconNode={
-												<img
-													src={
-														location.name.toLowerCase() ===
-														'home'
-															? HomeIcon
-															: FolderIcon
-													}
-													alt=""
-													className="size-[18px] max-w-none"
-												/>
-											}
-											href={href}
-											tone={
-												location.is_available
-													? 'default'
-													: 'muted'
-											}
-											disabled={!location.is_available}
-											badge={
-												location.is_available
-													? undefined
-													: 'Offline'
-											}
-											title={location.name}
-											onSelect={() => {
-												const [pathname, query] =
-													href.split('?');
-												loadPreferencesForSpaceItem(
-													getSpaceItemKeyFromRoute(
-														pathname,
-														query === undefined
-															? ''
-															: `?${query}`
-													)
-												);
-											}}
 										/>
 									);
 								})}

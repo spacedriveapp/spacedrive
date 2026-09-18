@@ -152,7 +152,7 @@ This enables:
 			"created_at": "2025-01-01T00:00:00Z",
 			"statistics": {
 				"total_entries": 1000,
-				"total_locations": 5,
+				"total_sources": 5,
 				"total_size_bytes": 1000000,
 				"device_count": 2
 			}

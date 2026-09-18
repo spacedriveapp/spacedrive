@@ -7,7 +7,6 @@ pub mod file;
 pub mod index;
 pub mod job;
 pub mod library;
-pub mod location;
 pub mod logs;
 pub mod network;
 pub mod redundancy;

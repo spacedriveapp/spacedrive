@@ -114,7 +114,7 @@ impl CoreQuery for DiscoverRemoteLibrariesQuery {
 						statistics: LibraryStatistics {
 							total_files: lib.total_entries,
 							total_size: lib.total_size_bytes,
-							location_count: lib.total_locations as u32,
+							source_count: lib.total_sources as u32,
 							tag_count: 0,                   // Not available from network protocol
 							device_count: 0,                // Not available from network protocol
 							unique_content_count: 0,        // Not available from network protocol

@@ -386,8 +386,8 @@ function ChooseActionStep({
                     <h4 className="font-medium text-ink">{library.name}</h4>
                     <p className="mt-1 text-sm text-ink-dull">
                       {library.statistics.total_files.toLocaleString()} files •{" "}
-                      {library.statistics.location_count.toLocaleString()}{" "}
-                      locations
+                      {(library.statistics.source_count ?? 0).toLocaleString()}{" "}
+                      sources
                     </p>
                     <p className="text-xs text-ink-faint">
                       Created:{" "}

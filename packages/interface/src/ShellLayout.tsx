@@ -1,8 +1,7 @@
-import type {Location} from '@sd/ts-client';
 import clsx from 'clsx';
 import {AnimatePresence, motion} from 'framer-motion';
 import {useEffect, useMemo} from 'react';
-import {Outlet, useLocation, useParams} from 'react-router-dom';
+import {Outlet, useLocation} from 'react-router-dom';
 import {Inspector} from './components/Inspector/Inspector';
 import {JobsProvider} from './components/JobManager/hooks/JobsContext';
 import {
@@ -23,7 +22,6 @@ import {
 	SHELL_TOOLBAR_HEIGHT,
 	ShellGeometryContext
 } from './contexts/ShellGeometryContext';
-import {useNormalizedQuery} from './contexts/SpacedriveContext';
 import {WebContextMenuProvider} from './contexts/WebContextMenuContext';
 import {ExplorerProvider, useExplorer} from './routes/explorer';
 import {KeyboardHandler} from './routes/explorer/KeyboardHandler';
@@ -34,7 +32,6 @@ import {TopBar, TopBarProvider} from './TopBar';
 
 function ShellLayoutContent() {
 	const location = useLocation();
-	const params = useParams();
 	const platform = usePlatform();
 	const layoutMode = useShellLayout();
 	const isInset = layoutMode === 'inset';
@@ -45,59 +42,13 @@ function ShellLayoutContent() {
 		quickPreviewFileId,
 		tagModeActive,
 		setTagModeActive,
-		viewMode,
-		currentPath
+		viewMode
 	} = useExplorer();
 
 	// Check if we're on Overview (hide inspector) or in Knowledge view (has its own inspector)
 	const isOverview = location.pathname === '/';
 	const isKnowledgeView = viewMode === 'knowledge';
 
-	// Fetch locations to get current location info
-	const locationsQuery = useNormalizedQuery<null, {locations: Location[]}>({
-		query: 'locations.list',
-		input: null,
-		resourceType: 'location'
-	});
-
-	// Get current location if we're on a location route or browsing within a location
-	const currentLocation = useMemo(() => {
-		const locations = locationsQuery.data?.locations || [];
-
-		// First try to match by route param (for /location/:id routes)
-		if (params.locationId) {
-			const loc = locations.find((loc) => loc.id === params.locationId);
-			if (loc) return loc;
-		}
-
-		// If no route match, try to find location by matching current path
-		if (currentPath && 'Physical' in currentPath) {
-			const pathStr = currentPath.Physical.path;
-			// Find location with longest matching prefix
-			return (
-				locations
-					.filter((loc) => {
-						if (!loc.sd_path || !('Physical' in loc.sd_path))
-							return false;
-						const locPath = loc.sd_path.Physical.path;
-						return pathStr.startsWith(locPath);
-					})
-					.sort((a, b) => {
-						const aPath =
-							'Physical' in a.sd_path!
-								? a.sd_path!.Physical.path
-								: '';
-						const bPath =
-							'Physical' in b.sd_path!
-								? b.sd_path!.Physical.path
-								: '';
-						return bPath.length - aPath.length;
-					})[0] || null
-			);
-		}
-
-		return null;
-	}, [params.locationId, locationsQuery.data, currentPath]);
 
 	useEffect(() => {
 		// Listen for inspector window close events
@@ -274,7 +225,6 @@ function ShellLayoutContent() {
 											presentation={
 												isInset ? 'inset' : 'floating'
 											}
-											currentLocation={currentLocation}
 											onPopOut={handlePopOutInspector}
 											isPreviewActive={
 												isPreviewActive ||

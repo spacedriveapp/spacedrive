@@ -1,14 +1,19 @@
 import { useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useNormalizedQuery, getDeviceIcon } from "../../../contexts/SpacedriveContext";
+import {
+	useLibraryQuery,
+	useNormalizedQuery,
+	getDeviceIcon,
+} from "../../../contexts/SpacedriveContext";
 import {
 	getVolumeIcon,
-	mapLocationToFile,
+	mapSourceToFile,
 	mapVolumeToFile,
 	mapDeviceToFile,
 	type File,
+	type SourceInfo,
 } from "@sd/ts-client";
-import { Location } from "@sd/assets/icons";
+import { Folder } from "@sd/assets/icons";
 
 export type VirtualViewType = "device" | "devices" | null;
 
@@ -24,7 +29,7 @@ export interface VirtualListingResult {
  *
  * Detects virtual view types from URL params and provides mapped File[] data.
  * Supports:
- * - ?view=device&id=device-123  → Locations + Volumes for that device
+ * - ?view=device&id=device-123  → Sources + Volumes for that device
  * - ?view=devices               → All devices in library
  */
 export function useVirtualListing(): VirtualListingResult {
@@ -34,14 +39,12 @@ export function useVirtualListing(): VirtualListingResult {
 
 	const isVirtualView = view !== null;
 
-	// Fetch locations
-	const { data: locationsData, isLoading: locationsLoading } =
-		useNormalizedQuery({
-			query: "locations.list",
-			input: null,
-			resourceType: "location",
-			enabled: view === "device",
-		});
+	// Sources, including paired devices' replicas, which carry their owning
+	// device's id.
+	const { data: sourcesData, isLoading: sourcesLoading } = useLibraryQuery(
+		{ type: "sources.list", input: { data_type: null } },
+		{ enabled: view === "device" },
+	);
 
 	// Fetch volumes
 	const { data: volumesData, isLoading: volumesLoading } = useNormalizedQuery(
@@ -74,9 +77,9 @@ export function useVirtualListing(): VirtualListingResult {
 			);
 		}
 
-		// View: Single Device (Locations + Volumes)
+		// View: Single Device (Sources + Volumes)
 		if (view === "device" && deviceId) {
-			const locations = (locationsData as any)?.locations || [];
+			const sources: SourceInfo[] = sourcesData ? [...sourcesData] : [];
 			const volumes = (volumesData as any)?.volumes || [];
 			const devices = (devicesData as any[]) || [];
 
@@ -85,16 +88,20 @@ export function useVirtualListing(): VirtualListingResult {
 
 			const virtualFiles: File[] = [];
 
-			// Add locations for this device
-			// Filter locations that belong to this device (match by device in sd_path)
-			const deviceLocations = locations.filter((loc: any) => {
-				if (!loc.sd_path || !("Physical" in loc.sd_path)) return false;
-				return loc.sd_path.Physical.device_slug === device.slug;
-			});
+			// A local source carries no device id; a replica carries its
+			// owner's.
+			const deviceSources = sources.filter(
+				(source) =>
+					source.data_type === "filesystem" &&
+					source.root &&
+					(source.device_id
+						? source.device_id === device.id
+						: device.is_current),
+			);
 
 			virtualFiles.push(
-				...deviceLocations.map((loc: any) =>
-					mapLocationToFile(loc, Location),
+				...deviceSources.map((source) =>
+					mapSourceToFile(source, device.slug, Folder),
 				),
 			);
 
@@ -116,7 +123,7 @@ export function useVirtualListing(): VirtualListingResult {
 	}, [
 		view,
 		deviceId,
-		locationsData,
+		sourcesData,
 		volumesData,
 		devicesData,
 		isVirtualView,
@@ -124,7 +131,7 @@ export function useVirtualListing(): VirtualListingResult {
 
 	const isLoading =
 		(view === "device" &&
-			(locationsLoading || volumesLoading || devicesLoading)) ||
+			(sourcesLoading || volumesLoading || devicesLoading)) ||
 		(view === "devices" && devicesLoading);
 
 	return {

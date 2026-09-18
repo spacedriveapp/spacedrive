@@ -109,6 +109,17 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 	})
 }
 
+/// File counts per content kind, from the content rows records point at.
+/// Kinds are the store's integers; the caller owns the enum mapping.
+pub async fn content_kind_counts(pool: &SqlitePool) -> Result<Vec<(i64, i64)>> {
+	Ok(sqlx::query_as(
+		"SELECT c.kind, COUNT(*) FROM record r JOIN content c ON c.id = r.content_id
+			 WHERE c.kind IS NOT NULL GROUP BY c.kind",
+	)
+	.fetch_all(pool)
+	.await?)
+}
+
 /// The record at a source-relative path.
 ///
 /// Two probes and no tree walk, which is what keeping paths on directories

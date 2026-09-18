@@ -10,9 +10,7 @@ use uuid::Uuid;
 use crate::{
 	context::CoreContext,
 	domain::addressing::{PathResolutionError, SdPath},
-	infra::db::entities::{
-		content_identity, device, entry, location, ContentIdentity, Device, Entry, Location,
-	},
+	infra::db::entities::{device, Device},
 };
 
 /// The PathResolver service handles resolution of SdPath instances

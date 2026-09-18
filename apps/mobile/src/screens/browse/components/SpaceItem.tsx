@@ -23,10 +23,6 @@ function isFileKindsItem(t: ItemType): t is "FileKinds" {
 	return t === "FileKinds";
 }
 
-function isLocationItem(t: ItemType): t is { Location: { location_id: string } } {
-	return typeof t === "object" && "Location" in t;
-}
-
 function isVolumeItem(t: ItemType): t is { Volume: { volume_id: string } } {
 	return typeof t === "object" && "Volume" in t;
 }
@@ -37,10 +33,6 @@ function isTagItem(t: ItemType): t is { Tag: { tag_id: string } } {
 
 function isPathItem(t: ItemType): t is { Path: { sd_path: SdPath } } {
 	return typeof t === "object" && "Path" in t;
-}
-
-function isRawLocation(item: SpaceItemType | Record<string, unknown>): boolean {
-	return "name" in item && "sd_path" in item && !("item_type" in item);
 }
 
 // Get icon for item type
@@ -57,7 +49,7 @@ function getItemIcon(itemType: ItemType): React.ReactNode {
 	if (isFileKindsItem(itemType)) {
 		return <Folders size={20} color="hsl(235, 10%, 55%)" weight="bold" />;
 	}
-	if (isLocationItem(itemType) || isPathItem(itemType)) {
+	if (isPathItem(itemType)) {
 		return (
 			<Image
 				source={FolderIcon}
@@ -87,7 +79,6 @@ function getItemLabel(itemType: ItemType, resolvedFile?: any): string {
 	if (isRecentsItem(itemType)) return "Recents";
 	if (isFavoritesItem(itemType)) return "Favorites";
 	if (isFileKindsItem(itemType)) return "File Kinds";
-	if (isLocationItem(itemType)) return itemType.Location.name || "Unnamed Location";
 	if (isVolumeItem(itemType)) return itemType.Volume.name || "Unnamed Volume";
 	if (isTagItem(itemType)) return itemType.Tag.name || "Unnamed Tag";
 	if (isPathItem(itemType)) {
@@ -103,7 +94,7 @@ function getItemLabel(itemType: ItemType, resolvedFile?: any): string {
 }
 
 // Get navigation params for item (mobile uses different format)
-function getItemNavigation(itemType: ItemType, itemSdPath?: SdPath): { pathname: string; params?: any } | null {
+function getItemNavigation(itemType: ItemType): { pathname: string; params?: any } | null {
 	if (isOverviewItem(itemType)) {
 		return { pathname: "/" };
 	}
@@ -115,19 +106,6 @@ function getItemNavigation(itemType: ItemType, itemSdPath?: SdPath): { pathname:
 	}
 	if (isFileKindsItem(itemType)) {
 		return { pathname: "/file-kinds" };
-	}
-
-	if (isLocationItem(itemType)) {
-		if (itemSdPath) {
-			return {
-				pathname: "/explorer",
-				params: {
-					type: "path",
-					path: JSON.stringify(itemSdPath),
-				},
-			};
-		}
-		return null;
 	}
 
 	if (isVolumeItem(itemType)) {
@@ -166,41 +144,11 @@ interface SpaceItemProps {
 export function SpaceItem({ item }: SpaceItemProps) {
 	const router = useRouter();
 
-	// Handle raw location (legacy format)
-	if (isRawLocation(item)) {
-		const rawItem = item as { name?: string; sd_path?: SdPath };
-		const label = rawItem.name || "Unnamed Location";
-
-		return (
-			<SettingsLink
-				icon={
-					<Image
-						source={FolderIcon}
-						className="w-5 h-5"
-						style={{ resizeMode: "contain" }}
-					/>
-				}
-				label={label}
-				onPress={() => {
-					if (rawItem.sd_path) {
-						router.push({
-							pathname: "/explorer",
-							params: {
-								type: "path",
-								path: JSON.stringify(rawItem.sd_path),
-							},
-						});
-					}
-				}}
-			/>
-		);
-	}
-
 	// Normal space item
 	const itemType = item.item_type;
 	const icon = getItemIcon(itemType);
 	const label = getItemLabel(itemType, item.resolved_file);
-	const navigation = getItemNavigation(itemType, item.sd_path);
+	const navigation = getItemNavigation(itemType);
 
 	// Handle volume items specially
 	if (isVolumeItem(itemType)) {

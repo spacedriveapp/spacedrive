@@ -7,10 +7,6 @@ use crate::infra::query::{QueryError, QueryResult};
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, tag::Tag},
-	infra::db::entities::{
-		content_identity, directory_paths, entry, sidecar, tag, user_metadata, user_metadata_tag,
-		video_media_data,
-	},
 	infra::query::LibraryQuery,
 };
 use sea_orm::{

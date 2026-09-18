@@ -1,6 +1,4 @@
 import {
-	CaretLeft,
-	CaretRight,
 	Cpu,
 	HardDrive,
 	Memory,
@@ -13,23 +11,18 @@ import DriveDropboxIcon from '@sd/assets/icons/Drive-Dropbox.webp';
 import DriveGoogleDriveIcon from '@sd/assets/icons/Drive-GoogleDrive.webp';
 import DriveIcon from '@sd/assets/icons/Drive.webp';
 import HDDIcon from '@sd/assets/icons/HDD.webp';
-import LocationIcon from '@sd/assets/icons/Location.webp';
 import ServerIcon from '@sd/assets/icons/Server.webp';
 import type {
 	Device,
 	JobListItem,
 	ListLibraryDevicesInput,
-	Location,
-	LocationsListOutput,
-	LocationsListQueryInput,
 	SourceInfo,
 	Volume,
 	VolumeListOutput,
 	VolumeListQueryInput
 } from '@sd/ts-client';
-import {Tooltip, CircleButton} from '@spacedrive/primitives';
+import {Tooltip} from '@spacedrive/primitives';
 import clsx from 'clsx';
-import {useEffect, useRef, useState} from 'react';
 import Masonry from 'react-masonry-css';
 import {JobCard} from '../../components/JobManager/components/JobCard';
 import {useJobsContext} from '../../components/JobManager/hooks/JobsContext';
@@ -78,15 +71,7 @@ export function getVolumeIcon(volumeType: any, name?: string): string {
 	return HDDIcon;
 }
 
-interface DevicePanelProps {
-	onLocationSelect?: (location: Location | null) => void;
-}
-
-export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
-	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-		null
-	);
-
+export function DevicePanel() {
 	// Fetch all volumes using normalized cache
 	const {data: volumesData, isLoading: volumesLoading} = useNormalizedQuery<
 		VolumeListQueryInput,
@@ -110,14 +95,6 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		resourceType: 'device'
 	});
 
-	// Fetch all locations using normalized cache
-	const {data: locationsData, isLoading: locationsLoading} =
-		useNormalizedQuery<LocationsListQueryInput, LocationsListOutput>({
-			query: 'locations.list',
-			input: null,
-			resourceType: 'location'
-		});
-
 	// Get all jobs with real-time updates (local jobs)
 	const {jobs: localJobs} = useJobsContext();
 
@@ -129,7 +106,8 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 	});
 
 	// Sources, including paired devices' replicas. A replica carries its
-	// owning device's id, which is how it lands on that device's card.
+	// owning device's id, which is how it lands on that device's card; a
+	// local source carries none and lands on this device's.
 	const {data: sourcesData} = useLibraryQuery({
 		type: 'sources.list',
 		input: {data_type: null}
@@ -154,7 +132,7 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 	] as JobListItem[];
 
 	// Only block on devices loading (foundation data)
-	// Volumes and locations can load progressively within each device card
+	// Volumes and sources can load progressively within each device card
 	if (devicesLoading) {
 		return (
 			<div className="bg-app-box border-app-line overflow-hidden rounded-xl border">
@@ -168,7 +146,6 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 
 	const volumes = volumesData?.volumes || [];
 	const devices = devicesData || [];
-	const locations = locationsData?.locations || [];
 
 	// Filter to only show user-visible volumes
 	const userVisibleVolumes = volumes.filter(
@@ -188,33 +165,16 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 		{} as Record<string, Volume[]>
 	);
 
-	// Group locations by device slug
-	const locationsByDeviceSlug = locations.reduce(
-		(acc, location) => {
-			// Extract device_slug from sd_path
-			if (
-				typeof location.sd_path === 'object' &&
-				'Physical' in location.sd_path
-			) {
-				const deviceSlug = location.sd_path.Physical.device_slug;
-				if (!acc[deviceSlug]) {
-					acc[deviceSlug] = [];
-				}
-				acc[deviceSlug].push(location);
-			}
-			return acc;
-		},
-		{} as Record<string, Location[]>
-	);
-
-	// Group replicated sources by their owning device
-	const remoteSourcesByDevice = ([...(sourcesData ?? [])] as SourceInfo[]).reduce(
+	// Group sources by the device that owns them
+	const currentDeviceId = devices.find((device) => device.is_current)?.id;
+	const sourcesByDevice = ([...(sourcesData ?? [])] as SourceInfo[]).reduce(
 		(acc, source) => {
-			if (!source.device_id) return acc;
-			if (!acc[source.device_id]) {
-				acc[source.device_id] = [];
+			const owner = source.device_id ?? currentDeviceId;
+			if (!owner) return acc;
+			if (!acc[owner]) {
+				acc[owner] = [];
 			}
-			acc[source.device_id].push(source);
+			acc[owner].push(source);
 			return acc;
 		},
 		{} as Record<string, SourceInfo[]>
@@ -249,30 +209,16 @@ export function DevicePanel({onLocationSelect}: DevicePanelProps = {}) {
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
-					const deviceLocations =
-						locationsByDeviceSlug[device.slug] || [];
-					const deviceRemoteSources =
-						remoteSourcesByDevice[device.id] || [];
+					const deviceSources = sourcesByDevice[device.id] || [];
 
 					return (
 						<DeviceCard
 							key={device.id}
 							device={device}
 							volumes={deviceVolumes}
-							remoteSources={deviceRemoteSources}
+							sources={deviceSources}
 							jobs={deviceJobs}
-							locations={deviceLocations}
-							selectedLocationId={selectedLocationId}
 							volumesLoading={volumesLoading}
-							locationsLoading={locationsLoading}
-							onLocationSelect={(location) => {
-								if (location) {
-									setSelectedLocationId(location.id);
-								} else {
-									setSelectedLocationId(null);
-								}
-								onLocationSelect?.(location);
-							}}
 						/>
 					);
 				})}
@@ -367,25 +313,17 @@ function ConnectionBadge({method, online, current, icon: customIcon, color: cust
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
 	volumes: Volume[];
-	remoteSources: SourceInfo[];
+	sources: SourceInfo[];
 	jobs: JobListItem[];
-	locations: Location[];
-	selectedLocationId: string | null;
 	volumesLoading: boolean;
-	locationsLoading: boolean;
-	onLocationSelect?: (location: Location | null) => void;
 }
 
 function DeviceCard({
 	device,
 	volumes,
-	remoteSources,
+	sources,
 	jobs,
-	locations,
-	selectedLocationId,
-	volumesLoading,
-	locationsLoading,
-	onLocationSelect
+	volumesLoading
 }: DeviceCardProps) {
 	const deviceName = device?.name || 'Unknown Device';
 	const deviceIconSrc = device ? getDeviceIcon(device) : null;
@@ -518,23 +456,6 @@ function DeviceCard({
 					</div>
 				)}
 
-				{/* Locations for this device */}
-				{locationsLoading ? (
-					<div className="border-app-line bg-app/50 border-b px-3 py-3">
-						<div className="text-ink-dull text-center text-xs">
-							Loading locations...
-						</div>
-					</div>
-				) : (
-					locations.length > 0 && (
-						<LocationsScroller
-							locations={locations}
-							selectedLocationId={selectedLocationId}
-							onLocationSelect={onLocationSelect}
-						/>
-					)
-				)}
-
 				{/* Volumes for this device */}
 				<div className="space-y-3 px-3 py-3">
 					{volumesLoading ? (
@@ -549,7 +470,7 @@ function DeviceCard({
 								index={idx}
 							/>
 						))
-					) : remoteSources.length > 0 ? null : (
+					) : sources.length > 0 ? null : (
 						<div className="flex flex-col items-center justify-center py-8 text-center">
 							<div className="text-ink-faint">
 								<HardDrive className="mx-auto mb-2 size-8 opacity-20" />
@@ -557,8 +478,8 @@ function DeviceCard({
 							</div>
 						</div>
 					)}
-					{remoteSources.map((source) => (
-						<RemoteSourceRow key={source.id} source={source} />
+					{sources.map((source) => (
+						<SourceRow key={source.id} source={source} />
 					))}
 				</div>
 			</div>
@@ -569,7 +490,7 @@ function DeviceCard({
 // A paired device's source, replicated locally through the peer-mount
 // plane. There is no capacity bar because the replica knows the source's
 // contents, not the drive underneath it.
-function RemoteSourceRow({source}: {source: SourceInfo}) {
+function SourceRow({source}: {source: SourceInfo}) {
 	return (
 		<div className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border">
 			<div className="flex h-[64px] items-center gap-3 px-3">
@@ -586,7 +507,7 @@ function RemoteSourceRow({source}: {source: SourceInfo}) {
 					</div>
 					<div className="text-ink-dull flex h-[18px] items-center gap-1.5 text-[10px]">
 						<span className="bg-app-box border-app-line rounded border px-1.5 py-0.5">
-							Replica
+							{source.device_id ? 'Replica' : 'Source'}
 						</span>
 						{source.item_count > 0 && (
 							<span className="bg-accent/20 border-accent/30 text-accent rounded border px-1.5 py-0.5 font-medium">
@@ -613,124 +534,3 @@ function RemoteSourceRow({source}: {source: SourceInfo}) {
 	);
 }
 
-interface LocationsScrollerProps {
-	locations: Location[];
-	selectedLocationId: string | null;
-	onLocationSelect?: (location: Location | null) => void;
-}
-
-function LocationsScroller({
-	locations,
-	selectedLocationId,
-	onLocationSelect
-}: LocationsScrollerProps) {
-	const scrollRef = useRef<HTMLDivElement>(null);
-	const [canScrollLeft, setCanScrollLeft] = useState(false);
-	const [canScrollRight, setCanScrollRight] = useState(false);
-
-	const updateScrollState = () => {
-		if (!scrollRef.current) return;
-		const {scrollLeft, scrollWidth, clientWidth} = scrollRef.current;
-		setCanScrollLeft(scrollLeft > 0);
-		setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
-	};
-
-	useEffect(() => {
-		updateScrollState();
-		window.addEventListener('resize', updateScrollState);
-		return () => window.removeEventListener('resize', updateScrollState);
-	}, [locations]);
-
-	const scroll = (direction: 'left' | 'right') => {
-		if (!scrollRef.current) return;
-		const scrollAmount = 200;
-		scrollRef.current.scrollBy({
-			left: direction === 'left' ? -scrollAmount : scrollAmount,
-			behavior: 'smooth'
-		});
-	};
-
-	return (
-		<div className="border-app-line border-b px-3 py-3">
-			<div className="relative">
-				{/* Left fade and button */}
-				{canScrollLeft && (
-					<>
-						<div className="from-app-darkBox pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-12 bg-gradient-to-r to-transparent" />
-						<div className="absolute left-1 top-1/2 z-20 -translate-y-1/2">
-							<CircleButton
-								icon={CaretLeft}
-								onClick={() => scroll('left')}
-							/>
-						</div>
-					</>
-				)}
-
-				{/* Scrollable container */}
-				<div
-					ref={scrollRef}
-					onScroll={updateScrollState}
-					className="scrollbar-hide flex gap-2 overflow-x-auto"
-					style={{scrollbarWidth: 'none'}}
-				>
-					{locations.map((location) => {
-						const isSelected = selectedLocationId === location.id;
-						return (
-							<button
-								key={location.id}
-								onClick={() => {
-									if (isSelected) {
-										onLocationSelect?.(null);
-									} else {
-										onLocationSelect?.(location);
-									}
-								}}
-								className="flex min-w-[80px] flex-shrink-0 flex-col items-center gap-2 rounded-lg p-1 transition-all"
-							>
-								<div
-									className={clsx(
-										'rounded-lg p-2',
-										isSelected
-											? 'bg-app-box'
-											: 'bg-transparent'
-									)}
-								>
-									<img
-										src={LocationIcon}
-										alt={location.name}
-										className="size-12 opacity-80"
-									/>
-								</div>
-								<div className="flex w-full flex-col items-center">
-									<div
-										className={clsx(
-											'inline-block max-w-full truncate rounded-md px-2 py-0.5 text-xs',
-											isSelected
-												? 'bg-accent text-white'
-												: 'text-ink'
-										)}
-									>
-										{location.name}
-									</div>
-								</div>
-							</button>
-						);
-					})}
-				</div>
-
-				{/* Right fade and button */}
-				{canScrollRight && (
-					<>
-						<div className="from-app-darkBox pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-12 bg-gradient-to-l to-transparent" />
-						<div className="absolute right-1 top-1/2 z-20 -translate-y-1/2">
-							<CircleButton
-								icon={CaretRight}
-								onClick={() => scroll('right')}
-							/>
-						</div>
-					</>
-				)}
-			</div>
-		</div>
-	);
-}

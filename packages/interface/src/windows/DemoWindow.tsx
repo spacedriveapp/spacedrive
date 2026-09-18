@@ -15,7 +15,7 @@ interface LibraryInfo {
 	stats?: {
 		total_files?: number;
 		total_size?: number;
-		location_count?: number;
+		source_count?: number;
 	};
 }
 

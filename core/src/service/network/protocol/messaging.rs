@@ -208,7 +208,7 @@ impl MessagingProtocolHandler {
 						description: config_guard.description.clone(),
 						created_at: config_guard.created_at,
 						total_entries: file_count,
-						total_locations: source_count,
+						total_sources: source_count,
 						total_size_bytes,
 						device_count,
 					});

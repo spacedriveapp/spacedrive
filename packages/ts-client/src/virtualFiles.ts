@@ -1,19 +1,19 @@
-import type { File } from "./generated/types";
+import type { File, SourceInfo } from "./generated/types";
 
 /**
  * Virtual File System
  *
- * Maps non-file entities (locations, volumes, devices) to the File interface
+ * Maps non-file entities (sources, volumes, devices) to the File interface
  * so they can be displayed in standard Explorer views (grid, list, column).
  * This allows reusing all existing Explorer functionality without backend changes.
  *
  * IMPORTANT: Virtual files should NOT be passed to file operations like copy/move/delete.
  * Always check `isVirtualFile()` before performing file operations that interact with the backend.
- * Virtual files are for display purposes only - they represent entities like locations and volumes,
+ * Virtual files are for display purposes only - they represent entities like sources and volumes,
  * not actual filesystem entries.
  */
 
-export type VirtualFileType = "location" | "volume" | "device";
+export type VirtualFileType = "source" | "volume" | "device";
 
 export interface VirtualMetadata {
 	type: VirtualFileType;
@@ -22,16 +22,27 @@ export interface VirtualMetadata {
 }
 
 /**
- * Maps a Location to a File-like object for Explorer display
+ * Maps a filesystem source to a File-like object for Explorer display. The
+ * root lives on the device named by `deviceSlug`, which for a replica is its
+ * owning device, so opening it routes through the replicated index.
  */
-export function mapLocationToFile(location: any, iconUrl?: string): File {
+export function mapSourceToFile(
+	source: SourceInfo,
+	deviceSlug: string,
+	iconUrl?: string,
+): File {
 	return {
-		id: `virtual:location:${location.id}`,
+		id: `virtual:source:${source.id}`,
 		kind: "Directory",
-		name: location.name,
-		sd_path: location.sd_path,
+		name: source.name,
+		sd_path: {
+			Physical: {
+				device_slug: deviceSlug,
+				path: source.root ?? "/",
+			},
+		},
 		extension: null,
-		size: 0,
+		size: source.total_bytes ?? 0,
 		content_identity: null,
 		alternate_paths: [],
 		tags: [],
@@ -43,11 +54,11 @@ export function mapLocationToFile(location: any, iconUrl?: string): File {
 		modified_at: new Date().toISOString(),
 		accessed_at: null,
 		content_kind: "unknown",
-		is_local: true,
+		is_local: !source.device_id,
 		duration_seconds: null,
 		_virtual: {
-			type: "location",
-			data: location,
+			type: "source",
+			data: source,
 			iconUrl,
 		} as any,
 	} as unknown as File;

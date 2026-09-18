@@ -63,22 +63,6 @@ pub enum ContentKind {
 }
 
 // Translate database entity into domain model
-impl From<content_identity::Model> for ContentIdentity {
-	fn from(model: content_identity::Model) -> Self {
-		Self {
-			uuid: model.uuid.unwrap_or_else(Uuid::new_v4),
-			kind: ContentKind::try_from(model.kind_id).unwrap_or(ContentKind::Unknown),
-			content_hash: model.content_hash,
-			integrity_hash: model.integrity_hash,
-			mime_type_id: model.mime_type_id,
-			text_content: model.text_content,
-			total_size: model.total_size,
-			entry_count: model.entry_count,
-			first_seen_at: model.first_seen_at,
-			last_verified_at: model.last_verified_at,
-		}
-	}
-}
 
 impl ContentKind {
 	/// Get content kind from file type

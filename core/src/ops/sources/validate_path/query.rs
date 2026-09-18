@@ -1,4 +1,4 @@
-//! Query to validate location paths before adding them
+//! Query to validate a path before adding it as a source
 
 use super::output::*;
 use crate::{
@@ -11,21 +11,21 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{path::PathBuf, sync::Arc};
 
-/// Input for location path validation
+/// Input for source path validation
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ValidateLocationPathInput {
+pub struct ValidateSourcePathInput {
 	pub path: SdPath,
 }
 
-/// Query to validate if a path is suitable for use as a location
+/// Query to validate whether a path is a sensible source root
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ValidateLocationPathQuery {
-	input: ValidateLocationPathInput,
+pub struct ValidateSourcePathQuery {
+	input: ValidateSourcePathInput,
 }
 
-impl LibraryQuery for ValidateLocationPathQuery {
-	type Input = ValidateLocationPathInput;
-	type Output = ValidateLocationPathOutput;
+impl LibraryQuery for ValidateSourcePathQuery {
+	type Input = ValidateSourcePathInput;
+	type Output = ValidateSourcePathOutput;
 
 	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
@@ -40,7 +40,7 @@ impl LibraryQuery for ValidateLocationPathQuery {
 		let path = match &self.input.path {
 			SdPath::Physical { path, .. } => path,
 			SdPath::Cloud { .. } => {
-				return Ok(ValidateLocationPathOutput {
+				return Ok(ValidateSourcePathOutput {
 					is_recommended: true,
 					risk_level: RiskLevel::Low,
 					warnings: vec![],
@@ -51,7 +51,7 @@ impl LibraryQuery for ValidateLocationPathQuery {
 			}
 			SdPath::Content { .. } | SdPath::Sidecar { .. } => {
 				return Err(QueryError::Internal(
-					"Content and Sidecar paths cannot be validated as locations".to_string(),
+					"Content and Sidecar paths cannot be source roots".to_string(),
 				))
 			}
 		};
@@ -63,16 +63,6 @@ impl LibraryQuery for ValidateLocationPathQuery {
 		let volume_manager = &context.volume_manager;
 		let volume_opt = volume_manager.volume_for_path(path).await;
 
-		tracing::info!(
-			"Volume lookup for path {}: {:?}",
-			path.display(),
-			volume_opt.as_ref().map(|v| (
-				v.name.as_str(),
-				&v.volume_type,
-				v.fingerprint.0.as_str()
-			))
-		);
-
 		let is_primary = volume_opt
 			.as_ref()
 			.map(|v| v.volume_type == VolumeType::Primary)
@@ -80,8 +70,6 @@ impl LibraryQuery for ValidateLocationPathQuery {
 
 		// Check if path matches known system directories
 		let system_dirs = get_system_directories();
-		tracing::info!("Validating path: {} (depth: {})", path.display(), depth);
-		tracing::info!("System directories: {:?}", system_dirs);
 		let is_system_dir = system_dirs.iter().any(|d| {
 			// Root paths (Unix "/" or Windows "C:\") must match exactly.
 			// Using starts_with() on a root dir would flag every child path as a
@@ -92,16 +80,9 @@ impl LibraryQuery for ValidateLocationPathQuery {
 			} else {
 				path.starts_with(d)
 			};
-			if matches {
-				tracing::info!("Path {} matches system dir {}", path.display(), d.display());
-			}
 			matches
 		});
-		tracing::info!(
-			"is_system_dir: {}, is_primary: {}",
-			is_system_dir,
-			is_primary
-		);
+		tracing::debug!(path = %path.display(), depth, is_system_dir, is_primary, "validated source path");
 
 		// Determine risk level using hybrid approach (depth + system directory check)
 		let risk_level = if is_system_dir || depth <= 1 {
@@ -139,13 +120,10 @@ impl LibraryQuery for ValidateLocationPathQuery {
 				// Suggest volume indexing for external volumes (not primary)
 				if !is_primary {
 					if let Some(vol) = volume_opt.as_ref() {
-						suggested_alternative = Some(VolumeIndexingSuggestion {
+						suggested_alternative = Some(WholeVolumeSuggestion {
 							volume_fingerprint: vol.fingerprint.0.clone(),
 							volume_name: vol.name.clone(),
-							message: format!(
-								"Consider using Volume Indexing for '{}' instead of adding it as a location",
-								vol.name
-							),
+							message: format!("Consider tracking all of '{}' instead", vol.name),
 						});
 					}
 				}
@@ -162,13 +140,10 @@ impl LibraryQuery for ValidateLocationPathQuery {
 				// Suggest volume indexing for external volumes
 				if !is_primary {
 					if let Some(vol) = volume_opt.as_ref() {
-						suggested_alternative = Some(VolumeIndexingSuggestion {
+						suggested_alternative = Some(WholeVolumeSuggestion {
 							volume_fingerprint: vol.fingerprint.0.clone(),
 							volume_name: vol.name.clone(),
-							message: format!(
-								"Or use Volume Indexing for '{}' to browse without adding a location",
-								vol.name
-							),
+							message: format!("Or track all of '{}' as one source", vol.name),
 						});
 					}
 				}
@@ -178,7 +153,7 @@ impl LibraryQuery for ValidateLocationPathQuery {
 			}
 		}
 
-		Ok(ValidateLocationPathOutput {
+		Ok(ValidateSourcePathOutput {
 			is_recommended: risk_level == RiskLevel::Low,
 			risk_level,
 			warnings,
@@ -189,7 +164,7 @@ impl LibraryQuery for ValidateLocationPathQuery {
 	}
 }
 
-/// Get platform-specific system directories that should not be added as locations
+/// Platform system directories that should not become source roots
 fn get_system_directories() -> Vec<PathBuf> {
 	#[cfg(target_os = "macos")]
 	{
@@ -246,3 +221,5 @@ fn get_system_directories() -> Vec<PathBuf> {
 		vec![]
 	}
 }
+
+crate::register_library_query!(ValidateSourcePathQuery, "sources.validate_path");

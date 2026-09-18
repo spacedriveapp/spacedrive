@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
@@ -39,9 +39,6 @@ export function OverviewScreen() {
 	const expandedOffsetY = useSharedValue(0);
 	const [showPairing, setShowPairing] = useState(false);
 	const [showLibrarySwitcher, setShowLibrarySwitcher] = useState(false);
-	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-		null
-	);
 	const { enterSearchMode } = useSearchStore();
 	const { activeJobCount, hasRunningJobs } = useJobs();
 
@@ -82,23 +79,6 @@ export function OverviewScreen() {
 		input: null,
 		resourceType: "library",
 	});
-
-	// Fetch locations list to get the selected location reactively
-	const { data: locationsData } = useNormalizedQuery<any, any>({
-		query: "locations.list",
-		input: null,
-		resourceType: "location",
-	});
-
-	// Find the selected location from the list reactively
-	const selectedLocation = useMemo(() => {
-		if (!selectedLocationId || !locationsData?.locations) return null;
-		return (
-			locationsData.locations.find(
-				(loc: any) => loc.id === selectedLocationId
-			) || null
-		);
-	}, [selectedLocationId, locationsData]);
 
 	const openDrawer = () => {
 		navigation.dispatch(DrawerActions.openDrawer());
@@ -397,7 +377,7 @@ export function OverviewScreen() {
 							totalStorage={stats.total_capacity}
 							usedStorage={stats.total_capacity - stats.available_capacity}
 							totalFiles={Number(stats.total_files)}
-							locationCount={stats.location_count}
+							sourceCount={stats.source_count ?? 0}
 							tagCount={stats.tag_count}
 							deviceCount={stats.device_count}
 							uniqueContentCount={Number(stats.unique_content_count)}
@@ -544,11 +524,7 @@ export function OverviewScreen() {
 				<View className="px-4 pt-4" pointerEvents="auto">
 
 				{/* Device Panel */}
-				<DevicePanel
-					onLocationSelect={(location) =>
-						setSelectedLocationId(location?.id || null)
-					}
-				/>
+				<DevicePanel />
 
 				{/* Job Manager Panel */}
 				<JobManagerPanel />

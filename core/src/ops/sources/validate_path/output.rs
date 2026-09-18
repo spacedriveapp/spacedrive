@@ -1,9 +1,9 @@
-//! Output types for location path validation
+//! Output types for source path validation
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-/// Risk level for adding a path as a location
+/// Risk level for adding a path as a source
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskLevel {
@@ -22,25 +22,25 @@ pub struct ValidationWarning {
 	pub suggestion: Option<String>,
 }
 
-/// Suggestion to use volume indexing instead
+/// Suggestion to track the whole drive instead
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct VolumeIndexingSuggestion {
+pub struct WholeVolumeSuggestion {
 	pub volume_fingerprint: String,
 	pub volume_name: String,
 	pub message: String,
 }
 
-/// Output from location path validation
+/// Output from source path validation
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct ValidateLocationPathOutput {
-	/// Whether this path is recommended for use as a location
+pub struct ValidateSourcePathOutput {
+	/// Whether this path is recommended as a source root
 	pub is_recommended: bool,
 	/// Risk level assessment
 	pub risk_level: RiskLevel,
 	/// List of warnings (empty if no issues)
 	pub warnings: Vec<ValidationWarning>,
-	/// Alternative suggestion to use volume indexing
-	pub suggested_alternative: Option<VolumeIndexingSuggestion>,
+	/// Alternative suggestion to track the whole drive
+	pub suggested_alternative: Option<WholeVolumeSuggestion>,
 	/// Path depth from root (number of components)
 	pub path_depth: u32,
 	/// Whether path is on the primary system volume

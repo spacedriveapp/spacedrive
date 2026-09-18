@@ -1,13 +1,11 @@
 import {ArrowSquareOut} from '@phosphor-icons/react';
-import type {File, Location} from '@sd/ts-client';
-import {isVirtualFile} from '@sd/ts-client';
+import type {File} from '@sd/ts-client';
 import clsx from 'clsx';
 import {useEffect, useMemo, useState} from 'react';
 import {usePlatform} from '../../contexts/PlatformContext';
 import {useLibraryQuery} from '../../contexts/SpacedriveContext';
 import {useSelection} from '../../routes/explorer/SelectionContext';
 import {FileInspector} from './variants/FileInspector';
-import {LocationInspector} from './variants/LocationInspector';
 import {MultiFileInspector} from './variants/MultiFileInspector';
 
 // Re-export primitives for convenience
@@ -16,14 +14,12 @@ export {InfoRow, Tag, Section, Divider, Tabs, TabContent} from './primitives';
 export type InspectorVariant =
 	| {type: 'file'; file: File}
 	| {type: 'multi-file'; files: File[]}
-	| {type: 'location'; location: Location}
 	| {type: 'empty'}
 	| null;
 
 interface InspectorProps {
 	onPopOut?: () => void;
 	showPopOutButton?: boolean;
-	currentLocation?: Location | null;
 	isPreviewActive?: boolean;
 	presentation?: 'floating' | 'inset';
 }
@@ -31,7 +27,6 @@ interface InspectorProps {
 export function Inspector({
 	onPopOut,
 	showPopOutButton = true,
-	currentLocation,
 	isPreviewActive = false,
 	presentation = 'floating'
 }: InspectorProps) {
@@ -44,26 +39,10 @@ export function Inspector({
 			return {type: 'multi-file', files: selectedFiles};
 		}
 		if (selectedFiles.length > 0 && selectedFiles[0]) {
-			const file = selectedFiles[0];
-
-			// Check if this is a virtual location file
-			if (
-				isVirtualFile(file) &&
-				(file as any)._virtual?.type === 'location'
-			) {
-				// Show LocationInspector for virtual locations
-				const locationData = (file as any)._virtual.data as Location;
-				return {type: 'location', location: locationData};
-			}
-
-			// Regular file
-			return {type: 'file', file};
-		}
-		if (currentLocation) {
-			return {type: 'location', location: currentLocation};
+			return {type: 'file', file: selectedFiles[0]};
 		}
 		return {type: 'empty'};
-	}, [selectedFiles, currentLocation]);
+	}, [selectedFiles]);
 
 	return (
 		<InspectorView
@@ -123,8 +102,6 @@ function InspectorView({
 					<FileInspector file={variant.file} />
 				) : variant.type === 'multi-file' ? (
 					<MultiFileInspector files={variant.files} />
-				) : variant.type === 'location' ? (
-					<LocationInspector location={variant.location} />
 				) : null}
 
 				{/* Footer with pop-out button */}

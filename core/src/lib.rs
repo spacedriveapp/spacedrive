@@ -13,7 +13,6 @@ pub mod domain;
 pub mod filetype;
 pub mod infra;
 pub mod library;
-pub mod location;
 pub mod ops;
 pub mod service;
 pub mod testing;

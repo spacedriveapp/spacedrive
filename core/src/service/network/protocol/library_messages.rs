@@ -107,7 +107,7 @@ pub struct LibraryDiscoveryInfo {
 	pub description: Option<String>,
 	pub created_at: DateTime<Utc>,
 	pub total_entries: u64,
-	pub total_locations: u64,
+	pub total_sources: u64,
 	pub total_size_bytes: u64,
 	pub device_count: u64,
 }

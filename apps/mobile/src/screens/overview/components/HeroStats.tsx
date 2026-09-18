@@ -10,7 +10,6 @@ import {
 } from "react-native";
 import DevicesIcon from "@sd/assets/icons/Devices.webp";
 import IndexedIcon from "@sd/assets/icons/Indexed.webp";
-import LocationIcon from "@sd/assets/icons/Location.webp";
 import MobileIcon from "@sd/assets/icons/Mobile.webp";
 import ComputeIcon from "@sd/assets/icons/Compute.webp";
 import TagsIcon from "@sd/assets/icons/Tags.webp";
@@ -24,7 +23,7 @@ interface HeroStatsProps {
 	totalStorage: number; // bytes
 	usedStorage: number; // bytes
 	totalFiles: number;
-	locationCount: number;
+	sourceCount: number;
 	tagCount: number;
 	deviceCount: number;
 	uniqueContentCount: number;
@@ -56,7 +55,7 @@ export function HeroStats({
 	totalStorage,
 	usedStorage,
 	totalFiles,
-	locationCount,
+	sourceCount,
 	tagCount,
 	deviceCount,
 	uniqueContentCount,
@@ -171,10 +170,10 @@ export function HeroStats({
 			subtitle: `${sidecarCount.toLocaleString()} files generated`,
 		},
 		{
-			icon: LocationIcon,
-			label: "Locations",
-			value: locationCount,
-			subtitle: "indexed folders",
+			icon: DatabaseIcon,
+			label: "Sources",
+			value: sourceCount,
+			subtitle: "kept in this library",
 		},
 		{
 			icon: TagsIcon,

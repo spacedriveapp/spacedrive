@@ -2,7 +2,6 @@ import {CaretLeft, CaretRight} from '@phosphor-icons/react';
 import DatabaseIcon from '@sd/assets/icons/Database.webp';
 import DevicesIcon from '@sd/assets/icons/Devices.webp';
 import IndexedIcon from '@sd/assets/icons/Indexed.webp';
-import LocationIcon from '@sd/assets/icons/Location.webp';
 import MobileIcon from '@sd/assets/icons/Mobile.webp';
 import StorageIcon from '@sd/assets/icons/Storage.webp';
 import TagsIcon from '@sd/assets/icons/Tags.webp';
@@ -14,7 +13,7 @@ interface HeroStatsProps {
 	totalStorage: number; // bytes
 	usedStorage: number; // bytes
 	totalFiles: number;
-	locationCount: number;
+	sourceCount: number;
 	tagCount: number;
 	deviceCount: number;
 	uniqueContentCount: number;
@@ -38,7 +37,7 @@ export function HeroStats({
 	totalStorage,
 	usedStorage,
 	totalFiles,
-	locationCount,
+	sourceCount,
 	tagCount,
 	deviceCount,
 	uniqueContentCount,
@@ -219,18 +218,18 @@ export function HeroStats({
 					color="from-orange-500 to-red-500"
 				/>
 
-				{/* Locations */}
+				{/* Sources */}
 				<StatCard
 					icon={
 						<img
-							src={LocationIcon}
-							alt="Locations"
+							src={DatabaseIcon}
+							alt="Sources"
 							className="size-10 opacity-80"
 						/>
 					}
-					label="Locations"
-					value={locationCount}
-					subtitle="indexed folders"
+					label="Sources"
+					value={sourceCount}
+					subtitle="kept in this library"
 					color="from-teal-500 to-green-500"
 				/>
 

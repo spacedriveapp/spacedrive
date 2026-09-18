@@ -6,7 +6,6 @@ use crate::{
 		error::{ActionError, ActionResult},
 		LibraryAction,
 	},
-	infra::db::entities::{directory_paths, entry},
 };
 use chrono::Utc;
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, NotSet, QueryFilter, QueryOrder, Set};

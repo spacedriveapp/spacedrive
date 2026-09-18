@@ -147,8 +147,10 @@ pub struct LibraryStatistics {
 	/// Total size of all files in bytes
 	pub total_size: u64,
 
-	/// Number of locations in this library
-	pub location_count: u32,
+	/// Number of sources registered in this library. Recomputed by every
+	/// statistics pass, so a config without it starts from zero.
+	#[serde(default)]
+	pub source_count: u32,
 
 	/// Number of tags created
 	pub tag_count: u32,
@@ -192,7 +194,7 @@ impl Default for LibraryStatistics {
 		Self {
 			total_files: 0,
 			total_size: 0,
-			location_count: 0,
+			source_count: 0,
 			tag_count: 0,
 			device_count: 0,
 			unique_content_count: 0,

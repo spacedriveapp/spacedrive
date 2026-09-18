@@ -4,19 +4,13 @@ export {
 	isRecentsItem,
 	isFavoritesItem,
 	isFileKindsItem,
-	isLocationItem,
 	isVolumeItem,
 	isTagItem,
 	isPathItem,
-	isRawLocation,
-	isDropTargetItem,
-	getDropTargetType,
-	buildDropTargetPath,
 	resolveItemMetadata,
 	type IconData,
 	type ItemMetadata,
-	type ResolveMetadataOptions,
-	type DropTargetType
+	type ResolveMetadataOptions
 } from './spaceItemUtils';
 
 export {useSpaceItemContextMenu} from './useSpaceItemContextMenu';

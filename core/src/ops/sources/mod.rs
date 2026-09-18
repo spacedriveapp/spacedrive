@@ -16,6 +16,7 @@ pub mod search;
 pub mod sync;
 pub mod track;
 pub mod update;
+pub mod validate_path;
 pub mod verify;
 
 pub use create::*;

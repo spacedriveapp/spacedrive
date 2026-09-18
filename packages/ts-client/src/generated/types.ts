@@ -1660,9 +1660,6 @@ export type GroupType =
 "Devices" | 
 /**
  * All locations across all devices
- */
-"Locations" | 
-/**
  * All volumes across all devices
  */
 "Volumes" | 
@@ -1861,10 +1858,6 @@ export type ItemType =
  * File kinds (images, videos, audio, etc.)
  */
 "FileKinds" | 
-/**
- * Indexed location
- */
-{ Location: { location_id: string } } | 
 /**
  * Storage volume (with locations as children)
  */
@@ -2325,9 +2318,10 @@ total_files: number;
  */
 total_size: number; 
 /**
- * Number of locations in this library
+ * Number of sources registered in this library. Recomputed by every
+ * statistics pass, so a config without it starts from zero.
  */
-location_count: number; 
+source_count?: number; 
 /**
  * Number of tags created
  */
@@ -2520,72 +2514,6 @@ data_type: string | null };
 export type ListWhisperModelsInput = Record<string, never>;
 
 export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_size: number };
-
-/**
- * A pinned subtree of a source.
- */
-export type Location = { id: string; 
-/**
- * The source holding this subtree's records.
- */
-source_id: string; 
-/**
- * Absolute, rebuilt from the source root and the stored relative path, so
- * it follows a drive that mounts somewhere else.
- */
-sd_path: SdPath; name: string; 
-/**
- * Whether someone pinned this or it came with the library.
- */
-origin: Origin; 
-/**
- * Rolled up by the volume index rather than stored, so they are current
- * rather than as of the last scan. `None` while the drive is detached and
- * the index has not been restored.
- */
-total_size: number | null; file_count: number | null; 
-/**
- * Whether the drive holding it is here right now.
- */
-is_available: boolean; created_at: string };
-
-export type LocationAddInput = { path: SdPath; name: string | null };
-
-/**
- * Output from location add action dispatch
- */
-export type LocationAddOutput = { location_id: string; path: SdPath; name: string | null };
-
-export type LocationRemoveInput = { location_id: string };
-
-/**
- * Output from location remove action dispatch
- */
-export type LocationRemoveOutput = { location_id: string; path: string | null };
-
-export type LocationUpdateInput = { 
-/**
- * UUID of the location to update
- */
-id: string; 
-/**
- * A new name. The path is not editable: a pin somewhere else is a
- * different pin.
- */
-name: string | null };
-
-export type LocationUpdateOutput = { 
-/**
- * UUID of the updated location
- */
-id: string };
-
-/**
- * Output for location list queries
- */
-export type LocationsListOutput = { locations: Location[] };
-
-export type LocationsListQueryInput = null;
 
 /**
  * Logging configuration output
@@ -2919,19 +2847,6 @@ export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" 
  */
 export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadcast: number; shared_changes_broadcast: number; broadcast_batches_sent: number; failed_broadcasts: number; changes_received: number; changes_applied: number; changes_rejected: number; buffer_queue_depth: number; active_backfill_sessions: number; backfill_sessions_completed: number; backfill_pagination_rounds: number; retry_queue_depth: number; retry_attempts: number; retry_successes: number };
 
-/**
- * Where a location row came from.
- */
-export type Origin = 
-/**
- * Written by an older library initializer from the platform's known folders.
- */
-"default" | 
-/**
- * Pinned by someone.
- */
-"user";
-
 export type Ownership = 
 /**
  * Spawned by this supervisor; exits are crashes to converge on.
@@ -3043,15 +2958,9 @@ export type PathContextOutput = {
  */
 canonical_path: SdPath; availability: PathAvailability; map_state: PathMapState; indexing_root: string | null; watcher_state: PathWatcherState; watcher_root: string | null; volume: PathVolumeContext | null; source: PathSourceContext | null; 
 /**
- * The closest explicit pin containing this path, if one exists.
- */
-location: PathLocationContext | null; 
-/**
  * A computed system Place at this exact path, such as Desktop.
  */
 system_place: string | null; storage: PathStorageContext };
-
-export type PathLocationContext = { id: string; name: string; root: SdPath; origin: Origin; exact: boolean };
 
 export type PathMapState = "unseen" | "indexing" | "detailed" | "summarised";
 
@@ -3341,7 +3250,7 @@ alternate_ids: string[];
 affected_paths?: SdPath[] };
 
 /**
- * Risk level for adding a path as a location
+ * Risk level for adding a path as a source
  */
 export type RiskLevel = 
 /**
@@ -3903,12 +3812,6 @@ export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
 
-export type SuggestedLocation = { name: string; path: string; sd_path: SdPath };
-
-export type SuggestedLocationsOutput = { locations: SuggestedLocation[] };
-
-export type SuggestedLocationsQueryInput = null;
-
 /**
  * Sync activity types for detailed sync monitoring
  */
@@ -4015,6 +3918,20 @@ export type SyncSourceInput = { source_id: string };
  * State metrics snapshot
  */
 export type SyncStateSnapshot = { current_state: DeviceSyncState; state_entered_at: string; uptime_seconds: number; state_history: StateTransition[]; total_time_in_state: ([DeviceSyncState, number])[]; transition_count: ([[DeviceSyncState, DeviceSyncState], number])[] };
+
+export type SystemFolder = { name: string; 
+/**
+ * As the operating system names it, for display.
+ */
+path: string; 
+/**
+ * The volume's spelling on this device, for navigation and containment.
+ */
+sd_path: SdPath };
+
+export type SystemFoldersInput = null;
+
+export type SystemFoldersOutput = { folders: SystemFolder[] };
 
 export type SystemInfo = { uptime: number | null; data_directory: string; instance_name: string | null; current_library: string | null };
 
@@ -4486,16 +4403,16 @@ export type UpdateSourceOutput = { name: string; unfiltered: boolean;
 rewalk_job: string | null };
 
 /**
- * Input for location path validation
+ * Input for source path validation
  */
-export type ValidateLocationPathInput = { path: SdPath };
+export type ValidateSourcePathInput = { path: SdPath };
 
 /**
- * Output from location path validation
+ * Output from source path validation
  */
-export type ValidateLocationPathOutput = { 
+export type ValidateSourcePathOutput = { 
 /**
- * Whether this path is recommended for use as a location
+ * Whether this path is recommended as a source root
  */
 is_recommended: boolean; 
 /**
@@ -4507,9 +4424,9 @@ risk_level: RiskLevel;
  */
 warnings: ValidationWarning[]; 
 /**
- * Alternative suggestion to use volume indexing
+ * Alternative suggestion to track the whole drive
  */
-suggested_alternative: VolumeIndexingSuggestion | null; 
+suggested_alternative: WholeVolumeSuggestion | null; 
 /**
  * Path depth from root (number of components)
  */
@@ -4730,11 +4647,6 @@ export type VolumeFilter =
 export type VolumeFingerprint = string;
 
 /**
- * Suggestion to use volume indexing instead
- */
-export type VolumeIndexingSuggestion = { volume_fingerprint: string; volume_name: string; message: string };
-
-/**
  * Summary information about a volume (for updates and caching)
  */
 export type VolumeInfo = { is_mounted: boolean; total_bytes_available: number; read_speed_mbps: number | null; write_speed_mbps: number | null; error_status: string | null };
@@ -4920,6 +4832,11 @@ export type VouchingSessionOutput = { session: VouchingSession | null };
 
 export type VouchingSessionState = "Pending" | "InProgress" | "Completed";
 
+/**
+ * Suggestion to track the whole drive instead
+ */
+export type WholeVolumeSuggestion = { volume_fingerprint: string; volume_name: string; message: string };
+
 export type WireAssertion = { tag_uuid: string; record_uuid: string; external_id: string | null; content_uuid: string | null; asserted: boolean; hlc: string; device_uuid: string };
 
 export type WireDefinition = { uuid: string; slug_id: string; path: string; color: string | null; icon: string | null; updated_hlc: string; origin_device: string };
@@ -4971,9 +4888,6 @@ export type LibraryAction =
   |  { type: 'jobs.resume'; input: JobResumeInput; output: JobResumeOutput }
   |  { type: 'libraries.export'; input: LibraryExportInput; output: LibraryExportOutput }
   |  { type: 'libraries.rename'; input: LibraryRenameInput; output: LibraryRenameOutput }
-  |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
-  |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
-  |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
   |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
@@ -5051,10 +4965,8 @@ export type LibraryQuery =
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
   |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
-  |  { type: 'locations.list'; input: LocationsListQueryInput; output: LocationsListOutput }
-  |  { type: 'locations.suggested'; input: SuggestedLocationsQueryInput; output: SuggestedLocationsOutput }
-  |  { type: 'locations.validate_path'; input: ValidateLocationPathInput; output: ValidateLocationPathOutput }
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
+  |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
@@ -5063,6 +4975,7 @@ export type LibraryQuery =
   |  { type: 'sources.list_records'; input: ListSourceRecordsInput; output: [JsonValue] }
   |  { type: 'sources.media_listing'; input: SourceMediaListingInput; output: SourceMediaListingOutput }
   |  { type: 'sources.search'; input: SourceSearchInput; output: [SourceSearchResult] }
+  |  { type: 'sources.validate_path'; input: ValidateSourcePathInput; output: ValidateSourcePathOutput }
   |  { type: 'spaces.get'; input: SpaceGetQueryInput; output: SpaceGetOutput }
   |  { type: 'spaces.get_layout'; input: SpaceLayoutQueryInput; output: SpaceLayout }
   |  { type: 'spaces.list'; input: SpacesListQueryInput; output: SpacesListOutput }
@@ -5127,9 +5040,6 @@ export const WIRE_METHODS = {
     'jobs.resume': 'action:jobs.resume.input',
     'libraries.export': 'action:libraries.export.input',
     'libraries.rename': 'action:libraries.rename.input',
-    'locations.add': 'action:locations.add.input',
-    'locations.remove': 'action:locations.remove.input',
-    'locations.update': 'action:locations.update.input',
     'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
@@ -5207,10 +5117,8 @@ export const WIRE_METHODS = {
     'jobs.info': 'query:jobs.info',
     'jobs.list': 'query:jobs.list',
     'libraries.info': 'query:libraries.info',
-    'locations.list': 'query:locations.list',
-    'locations.suggested': 'query:locations.suggested',
-    'locations.validate_path': 'query:locations.validate_path',
     'paths.context': 'query:paths.context',
+    'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',
     'search.files': 'query:search.files',
     'sources.get': 'query:sources.get',
@@ -5219,6 +5127,7 @@ export const WIRE_METHODS = {
     'sources.list_records': 'query:sources.list_records',
     'sources.media_listing': 'query:sources.media_listing',
     'sources.search': 'query:sources.search',
+    'sources.validate_path': 'query:sources.validate_path',
     'spaces.get': 'query:spaces.get',
     'spaces.get_layout': 'query:spaces.get_layout',
     'spaces.list': 'query:spaces.list',

@@ -584,7 +584,7 @@ impl Library {
 			library_name = %library_name,
 			total_files = stats.total_files,
 			total_size = stats.total_size,
-			location_count = stats.location_count,
+			source_count = stats.source_count,
 			tag_count = stats.tag_count,
 			device_count = stats.device_count,
 			total_capacity = stats.total_capacity,
@@ -693,7 +693,7 @@ impl Library {
 			library_name = %config.name,
 			total_files = stats.total_files,
 			total_size = stats.total_size,
-			location_count = stats.location_count,
+			source_count = stats.source_count,
 			tag_count = stats.tag_count,
 			device_count = stats.device_count,
 			total_capacity = stats.total_capacity,
@@ -780,7 +780,7 @@ impl Library {
 			library_name = %library_name,
 			total_files = stats.total_files,
 			total_size = stats.total_size,
-			location_count = stats.location_count,
+			source_count = stats.source_count,
 			tag_count = stats.tag_count,
 			device_count = stats.device_count,
 			total_capacity = stats.total_capacity,
@@ -856,9 +856,9 @@ impl Library {
 
 		debug!("Starting location count calculation");
 		// Calculate location count
-		let location_count = Self::calculate_location_count_static(&db_conn).await?;
+		let source_count = Self::calculate_source_count_static(&db_conn).await?;
 		debug!(
-			location_count = location_count,
+			source_count = source_count,
 			"Completed location count calculation"
 		);
 
@@ -924,7 +924,7 @@ impl Library {
 		Ok(LibraryStatistics {
 			total_files,
 			total_size,
-			location_count,
+			source_count,
 			tag_count,
 			device_count,
 			unique_content_count,
@@ -946,7 +946,7 @@ impl Library {
 		let (total_files, total_size) = self.calculate_file_statistics(db).await?;
 
 		// Calculate location count
-		let location_count = self.calculate_location_count(db).await?;
+		let source_count = self.calculate_source_count(db).await?;
 
 		// Calculate tag count
 		let tag_count = self.calculate_tag_count(db).await?;
@@ -969,7 +969,7 @@ impl Library {
 		Ok(LibraryStatistics {
 			total_files,
 			total_size,
-			location_count,
+			source_count,
 			tag_count,
 			device_count,
 			unique_content_count,
@@ -997,19 +997,14 @@ impl Library {
 		Self::calculate_file_statistics_static(db).await
 	}
 
-	/// Calculate location count
-	async fn calculate_location_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::location;
-		use sea_orm::{EntityTrait, QueryTrait};
+	/// Count the sources registered in this library.
+	async fn calculate_source_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		use crate::infra::db::entities::source;
+		use sea_orm::{EntityTrait, PaginatorTrait};
 
-		debug!("Starting location count calculation");
-		let locations = location::Entity::find().all(db).await?;
-		let count = locations.len() as u32;
+		let count = source::Entity::find().count(db).await? as u32;
 
-		debug!(
-			location_count = count,
-			"Completed location count calculation"
-		);
+		debug!(source_count = count, "Completed location count calculation");
 
 		Ok(count)
 	}
@@ -1170,15 +1165,14 @@ impl Library {
 		Ok((file_count, total_size))
 	}
 
-	/// Calculate location count (static version)
-	async fn calculate_location_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::location;
-		use sea_orm::{EntityTrait, PaginatorTrait, QuerySelect, QueryTrait, Select};
+	/// Count the sources registered in this library (static version).
+	async fn calculate_source_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		use crate::infra::db::entities::source;
+		use sea_orm::{EntityTrait, PaginatorTrait};
 
-		debug!("Executing location count query");
-		let count = location::Entity::find().count(db).await?;
+		let count = source::Entity::find().count(db).await?;
 		debug!(
-			location_count = count,
+			source_count = count,
 			"Location count query completed successfully"
 		);
 		Ok(count as u32)

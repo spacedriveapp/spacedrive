@@ -4,23 +4,13 @@
  * Now using real data from the backend!
  */
 
-import { useState, useMemo } from "react";
 import { HeroStats } from "./HeroStats";
 import { DevicePanel } from "./DevicePanel";
 import { OverviewTopBar } from "./OverviewTopBar";
 import { useNormalizedQuery } from "../../contexts/SpacedriveContext";
-import type {
-	Library,
-	LocationsListOutput,
-	LocationsListQueryInput,
-} from "@sd/ts-client";
-import { Inspector } from "../../components/Inspector/Inspector";
+import type { Library } from "@sd/ts-client";
 
 export function Overview() {
-	const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
-		null,
-	);
-
 	// Fetch library info with statistics using normalizedCache
 	// This returns cached stats immediately and updates via ResourceChanged events
 	const {
@@ -31,26 +21,6 @@ export function Overview() {
 		input: null,
 		resourceType: "library",
 	});
-
-	// Fetch locations list to get the selected location reactively
-	const { data: locationsData } = useNormalizedQuery<
-		LocationsListQueryInput,
-		LocationsListOutput
-	>({
-		query: "locations.list",
-		input: null,
-		resourceType: "location",
-	});
-
-	// Find the selected location from the list reactively
-	const selectedLocation = useMemo(() => {
-		if (!selectedLocationId || !locationsData?.locations) return null;
-		return (
-			locationsData.locations.find(
-				(loc) => loc.id === selectedLocationId,
-			) || null
-		);
-	}, [selectedLocationId, locationsData]);
 
 	if (isLoading || !libraryInfo) {
 		return (
@@ -84,7 +54,7 @@ export function Overview() {
 								(stats.total_capacity ?? 0) - (stats.available_capacity ?? 0)
 							}
 							totalFiles={Number(stats.total_files)}
-							locationCount={stats.location_count}
+							sourceCount={stats.source_count ?? 0}
 							tagCount={stats.tag_count}
 							deviceCount={stats.device_count ?? 0}
 							uniqueContentCount={Number(
@@ -96,24 +66,11 @@ export function Overview() {
 						/>
 
 						{/* Device Panel */}
-						<DevicePanel
-							onLocationSelect={(location) =>
-								setSelectedLocationId(location?.id || null)
-							}
-						/>
+						<DevicePanel />
 
 						{/* <ContentBreakdown totalFiles={Number(stats.total_files)} /> */}
 					</div>
 
-					{/* Inspector Sidebar */}
-					{selectedLocation && (
-						<div className="w-[300px] flex-shrink-0 pr-2 py-2">
-							<Inspector
-								currentLocation={selectedLocation as any}
-								showPopOutButton={false}
-							/>
-						</div>
-					)}
 				</div>
 			</div>
 		</>

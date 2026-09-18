@@ -1,15 +1,11 @@
 //! Query to get content kind statistics
 //!
-//! This query returns file counts grouped by content kind (image, video, audio, etc.).
-//! The counts are pre-calculated and stored in the content_kinds table by the statistics
-//! recalculation system, making this query very efficient.
+//! File counts grouped by content kind, summed across every local source
+//! store. Kinds live on content rows, so the count covers hashed files; a
+//! file whose bytes are not identified yet has no kind to count.
 
 use crate::infra::query::{QueryError, QueryResult};
-use crate::{
-	context::CoreContext, domain::ContentKind, infra::db::entities::content_kind,
-	infra::query::LibraryQuery,
-};
-use sea_orm::{EntityTrait, Order, QueryOrder};
+use crate::{context::CoreContext, domain::ContentKind, infra::query::LibraryQuery};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -64,45 +60,40 @@ impl LibraryQuery for ContentKindStatsQuery {
 	async fn execute(
 		self,
 		context: Arc<CoreContext>,
-		session: crate::infra::api::SessionContext,
+		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let library_id = session
-			.current_library_id
-			.ok_or_else(|| QueryError::Internal("No library in session".to_string()))?;
+		let cache = context.ephemeral_cache();
 
-		let library = context
-			.libraries()
-			.await
-			.get_library(library_id)
-			.await
-			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
-
-		let db = library.db();
-
-		// Fetch all content kinds with their file counts
-		let content_kinds = content_kind::Entity::find()
-			.order_by(content_kind::Column::Id, Order::Asc)
-			.all(db.conn())
-			.await?;
-
-		let mut stats = Vec::new();
-		let mut total_files = 0i64;
-
-		for ck in content_kinds {
-			let kind = ContentKind::from_id(ck.id);
-			let file_count = ck.file_count;
-			total_files += file_count;
-
-			stats.push(ContentKindStat {
-				kind,
-				name: ck.name,
-				file_count,
-			});
+		let mut by_kind: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
+		for store in cache.stores().await {
+			match sd_store::read::content_kind_counts(store.db().pool()).await {
+				Ok(counts) => {
+					for (kind, count) in counts {
+						*by_kind.entry(kind).or_default() += count;
+					}
+				}
+				Err(error) => {
+					tracing::warn!(source = %store.id(), %error, "content kind counts unavailable")
+				}
+			}
 		}
+
+		let mut stats: Vec<ContentKindStat> = by_kind
+			.into_iter()
+			.filter_map(|(kind, count)| {
+				let kind = ContentKind::try_from(kind as i32).ok()?;
+				Some(ContentKindStat {
+					name: format!("{kind:?}"),
+					kind,
+					file_count: count,
+				})
+			})
+			.collect();
+		stats.sort_by(|a, b| b.file_count.cmp(&a.file_count));
+		let total_files = stats.iter().map(|s| s.file_count).sum();
 
 		Ok(ContentKindStatsOutput { stats, total_files })
 	}
 }
 
-// Register the query
 crate::register_library_query!(ContentKindStatsQuery, "files.content_kind_stats");

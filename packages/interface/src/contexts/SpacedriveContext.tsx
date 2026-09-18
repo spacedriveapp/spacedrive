@@ -21,11 +21,7 @@ export {
 export type { SpacedriveClient } from "@sd/ts-client";
 
 // Export commonly used types for convenience
-export type {
-	Location,
-	LocationsListOutput,
-	LibraryInfo,
-} from "@sd/ts-client";
+export type { LibraryInfo } from "@sd/ts-client";
 
 // Export icon utilities
 export { getDeviceIcon, getVolumeIcon } from "@sd/ts-client";

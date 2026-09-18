@@ -223,7 +223,6 @@ pub enum GroupType {
 	Devices,
 
 	/// All locations across all devices
-	Locations,
 
 	/// All volumes across all devices
 	Volumes,
@@ -309,11 +308,6 @@ impl SpaceItem {
 		Self::new(space_id, group_id, ItemType::Favorites)
 	}
 
-	/// Create a Location item
-	pub fn create_location(space_id: Uuid, group_id: Uuid, location_id: Uuid) -> Self {
-		Self::new(space_id, group_id, ItemType::Location { location_id })
-	}
-
 	/// Create a Path item (arbitrary SdPath)
 	pub fn create_path(space_id: Uuid, group_id: Uuid, sd_path: SdPath) -> Self {
 		Self::new(space_id, group_id, ItemType::Path { sd_path })
@@ -345,7 +339,7 @@ impl Identifiable for SpaceItem {
 	where
 		Self: Sized,
 	{
-		use crate::infra::db::entities::{entry, space, space_group, space_item};
+		use crate::infra::db::entities::{space, space_group, space_item};
 		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 
 		let item_models = space_item::Entity::find()
@@ -414,9 +408,6 @@ pub enum ItemType {
 
 	/// File kinds (images, videos, audio, etc.)
 	FileKinds,
-
-	/// Indexed location
-	Location { location_id: Uuid },
 
 	/// Storage volume (with locations as children)
 	Volume { volume_id: Uuid },

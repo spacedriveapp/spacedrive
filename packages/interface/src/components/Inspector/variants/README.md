@@ -7,7 +7,7 @@ The Inspector has been refactored to support multiple resource types using compo
 ```
 Inspector.tsx                  # Generic container
 ├── FileInspector.tsx         # File variant
-├── LocationInspector.tsx     # Location variant
+├── MultiFileInspector.tsx    # Multi-selection variant
 ├── DeviceInspector.tsx       # Device variant (future)
 ├── VolumeInspector.tsx       # Volume variant (future)
 └── shared/                   # Shared tab components
@@ -28,11 +28,6 @@ function MyComponent() {
   // When a file is selected
   function handleFileSelect(file: File) {
     setVariant({ type: 'file', file });
-  }
-
-  // When a location is viewed (no file selected)
-  function handleLocationView(location: LocationInfo) {
-    setVariant({ type: 'location', location });
   }
 
   // Clear selection
@@ -63,7 +58,7 @@ function MyComponent() {
 ```typescript
 type InspectorVariant =
   | { type: 'file'; file: File }
-  | { type: 'location'; location: LocationInfo }
+  | { type: 'multi-file'; files: File[] }
   | { type: 'device'; device: DeviceInfo }      // Future
   | { type: 'volume'; volume: VolumeInfo }      // Future
   | { type: 'empty' }
@@ -78,15 +73,6 @@ type InspectorVariant =
 - **Chat**: Collaboration (demo)
 - **Activity**: File history
 - **Details**: Technical metadata
-
-## Location Inspector Tabs
-
-- **Overview**: Location stats, quick actions
-- **Indexing**: Index mode, ignore rules
-- **Jobs**: Configure automatic processing jobs
-- **Activity**: Scan history, job logs
-- **Devices**: Devices with access to location
-- **More**: Advanced settings, danger zone
 
 ## Adding New Variants
 
@@ -135,7 +121,7 @@ import { DeviceInspector } from './inspectors/DeviceInspector';
 
 export type InspectorVariant =
   | { type: 'file'; file: File }
-  | { type: 'location'; location: LocationInfo }
+  | { type: 'multi-file'; files: File[] }
   | { type: 'device'; device: DeviceInfo }  // Add this
   | { type: 'empty' }
   | null;
