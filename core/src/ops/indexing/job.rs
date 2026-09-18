@@ -378,7 +378,6 @@ impl IndexerJob {
 			processing_rate: 0.0,
 			estimated_remaining: None,
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity,
 		};
@@ -725,7 +724,6 @@ impl IndexerJob {
 				processing_rate: state.calculate_rate(),
 				estimated_remaining: state.estimate_remaining(),
 				scope: None,
-				is_ephemeral: false,
 				action_context: None,
 				volume_total_capacity: state.volume_total_capacity,
 			};

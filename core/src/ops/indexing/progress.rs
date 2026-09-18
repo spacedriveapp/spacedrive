@@ -129,7 +129,6 @@ mod tests {
 			processing_rate: 0.0,
 			estimated_remaining: None,
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity: None,
 		};
@@ -159,7 +158,6 @@ mod tests {
 			processing_rate: 25.5,
 			estimated_remaining: Some(Duration::from_secs(120)),
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity: None,
 		};
@@ -191,7 +189,6 @@ mod tests {
 			processing_rate: 12.0,
 			estimated_remaining: Some(Duration::from_secs(30)),
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity: None,
 		};
@@ -217,7 +214,6 @@ mod tests {
 			processing_rate: 0.0,
 			estimated_remaining: Some(Duration::from_secs(5)),
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity: None,
 		};

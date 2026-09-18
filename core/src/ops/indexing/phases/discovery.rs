@@ -209,7 +209,6 @@ async fn run_parallel_discovery(
 					processing_rate: state.calculate_rate(),
 					estimated_remaining: state.estimate_remaining(),
 					scope: None,
-					is_ephemeral: false,
 					action_context: None,
 					volume_total_capacity: state.volume_total_capacity,
 				};
@@ -513,7 +512,6 @@ async fn run_discovery_phase_sequential(
 			processing_rate: state.calculate_rate(),
 			estimated_remaining: state.estimate_remaining(),
 			scope: None,
-			is_ephemeral: false,
 			action_context: None,
 			volume_total_capacity: state.volume_total_capacity,
 		};

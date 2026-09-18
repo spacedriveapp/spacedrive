@@ -26,7 +26,6 @@ pub struct IndexerProgress {
 	pub estimated_remaining: Option<Duration>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub scope: Option<super::job::IndexScope>,
-	pub is_ephemeral: bool,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	pub action_context: Option<crate::infra::action::context::ActionContext>,
 	/// Total volume capacity in bytes (for calculating accurate progress percentage)
@@ -130,14 +129,6 @@ pub struct IndexerState {
 	/// binds a parent before it can link a child, so consuming these back to
 	/// front leaves almost every record unparented.
 	pub(crate) entry_batches: VecDeque<Vec<DirEntry>>,
-	// UUIDs from ephemeral indexing preserved when creating persistent entries.
-	// This ensures files browsed before enabling indexing keep the same UUID,
-	// preventing orphaned tags and flashing Quick Look previews when a browsed
-	// folder is later added as a managed location.
-	#[serde(skip, default)]
-	pub(crate) ephemeral_uuids: HashMap<PathBuf, Uuid>,
-	pub(crate) existing_entries:
-		HashMap<PathBuf, (i32, Option<u64>, Option<std::time::SystemTime>)>,
 	pub(crate) stats: IndexerStats,
 	pub(crate) errors: Vec<IndexError>,
 	/// A sweep is open on the durable store, so this walk's absences become
@@ -182,8 +173,6 @@ impl IndexerState {
 			pending_entries: Vec::new(),
 			seen_paths: HashSet::new(),
 			entry_batches: VecDeque::new(),
-			ephemeral_uuids: HashMap::new(),
-			existing_entries: HashMap::new(),
 			stats: Default::default(),
 			errors: Vec::new(),
 			sweep_open: false,
@@ -196,46 +185,6 @@ impl IndexerState {
 			volume_total_capacity: None,
 			summaries: Vec::new(),
 		}
-	}
-
-	/// Extracts UUIDs from the ephemeral cache for reuse during persistent indexing.
-	///
-	/// When a directory is browsed before being added as a managed location, ephemeral
-	/// indexing assigns UUIDs to each entry. This method preserves those UUIDs so that
-	/// user metadata (tags, notes) attached during browsing remains valid after the
-	/// directory is promoted to a managed location. Without preservation, adding a
-	/// browsed folder as a location would orphan all existing tags and cause Quick Look
-	/// previews to flash as UUIDs change.
-	pub async fn populate_ephemeral_uuids(
-		&mut self,
-		ephemeral_cache: &super::ephemeral::EphemeralIndexCache,
-		root_path: &std::path::Path,
-	) -> usize {
-		if let Some(index) = ephemeral_cache.get_for_path(root_path) {
-			let index_read = index.read().await;
-
-			let entries = index_read.entries();
-			for path in entries.keys() {
-				if let Some(entry_uuid) = index_read.get_entry_uuid(path) {
-					self.ephemeral_uuids.insert(path.clone(), entry_uuid);
-				}
-			}
-
-			let count = self.ephemeral_uuids.len();
-			tracing::info!(
-				"Populated {} ephemeral UUIDs for preservation from cache covering {}",
-				count,
-				root_path.display()
-			);
-			count
-		} else {
-			tracing::debug!("No ephemeral index found for path: {}", root_path.display());
-			0
-		}
-	}
-
-	pub fn get_ephemeral_uuid(&self, path: &std::path::Path) -> Option<Uuid> {
-		self.ephemeral_uuids.get(path).copied()
 	}
 
 	pub fn calculate_rate(&mut self) -> f32 {
@@ -279,74 +228,5 @@ impl IndexerState {
 
 	pub fn create_batch(&mut self) -> Vec<DirEntry> {
 		std::mem::take(&mut self.pending_entries)
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	use crate::domain::addressing::SdPath;
-
-	#[test]
-	fn test_ephemeral_uuid_lookup() {
-		let sd_path = SdPath::Physical {
-			device_slug: "local".to_string(),
-			path: PathBuf::from("/test"),
-		};
-		let mut state = IndexerState::new(&sd_path);
-
-		// Initially no ephemeral UUIDs
-		assert!(state
-			.get_ephemeral_uuid(std::path::Path::new("/test/file.txt"))
-			.is_none());
-
-		// Add an ephemeral UUID
-		let test_uuid = Uuid::new_v4();
-		state
-			.ephemeral_uuids
-			.insert(PathBuf::from("/test/file.txt"), test_uuid);
-
-		// Now we can retrieve it
-		assert_eq!(
-			state.get_ephemeral_uuid(std::path::Path::new("/test/file.txt")),
-			Some(test_uuid)
-		);
-
-		// Non-existent path still returns None
-		assert!(state
-			.get_ephemeral_uuid(std::path::Path::new("/test/other.txt"))
-			.is_none());
-	}
-
-	#[test]
-	fn test_ephemeral_uuid_preservation_concept() {
-		// This test demonstrates the UUID preservation concept:
-		// When ephemeral_uuids is populated, the same UUID should be used
-		// instead of generating a new one
-
-		let sd_path = SdPath::Physical {
-			device_slug: "local".to_string(),
-			path: PathBuf::from("/test"),
-		};
-		let mut state = IndexerState::new(&sd_path);
-
-		// Simulate an ephemeral UUID from previous browsing
-		let preserved_uuid = Uuid::new_v4();
-		let test_path = PathBuf::from("/test/document.pdf");
-		state
-			.ephemeral_uuids
-			.insert(test_path.clone(), preserved_uuid);
-
-		// When creating an entry, the code should check get_ephemeral_uuid first
-		let entry_uuid = if let Some(ephemeral_uuid) = state.get_ephemeral_uuid(&test_path) {
-			// Preserve the ephemeral UUID
-			ephemeral_uuid
-		} else {
-			// Generate a new UUID
-			Uuid::new_v4()
-		};
-
-		// The preserved UUID should be used
-		assert_eq!(entry_uuid, preserved_uuid);
 	}
 }

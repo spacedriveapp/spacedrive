@@ -25,33 +25,6 @@ use std::sync::Arc;
 
 use super::{ArenaWriter, Seen};
 
-/// Check if a path falls under an ephemeral watched directory.
-///
-/// Returns the watched root path if found.
-pub fn find_ephemeral_root(path: &Path, context: &CoreContext) -> Option<PathBuf> {
-	context.ephemeral_cache().find_watched_root(path)
-}
-
-/// Check if any path in a batch of events falls under an ephemeral watched directory.
-pub fn find_ephemeral_root_for_events(
-	events: &[FsEvent],
-	context: &CoreContext,
-) -> Option<PathBuf> {
-	let paths: Vec<&Path> = events
-		.iter()
-		.flat_map(|e| match &e.kind {
-			FsEventKind::Create => vec![e.path.as_path()],
-			FsEventKind::Modify => vec![e.path.as_path()],
-			FsEventKind::Remove => vec![e.path.as_path()],
-			FsEventKind::Rename { from, to } => vec![from.as_path(), to.as_path()],
-		})
-		.collect();
-
-	context
-		.ephemeral_cache()
-		.find_watched_root_for_any(paths.into_iter())
-}
-
 /// Process a batch of filesystem events against the ephemeral index.
 ///
 /// Creates an `ArenaWriter` and processes the events using shared handler

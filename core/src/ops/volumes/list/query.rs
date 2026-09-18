@@ -43,42 +43,6 @@ pub struct VolumeListQuery {
 	filter: VolumeFilter,
 }
 
-impl VolumeListQuery {
-	/// Get file count from ephemeral index if this volume's mount point has been indexed
-	///
-	/// Returns the total number of entries under this mount point (recursive count).
-	/// Only returns counts for volumes on the current device (where the ephemeral index lives).
-	/// If a snapshot exists on disk but isn't loaded yet, returns None (lazy loading happens
-	/// when user explicitly indexes the volume).
-	fn get_ephemeral_file_count(
-		index: &crate::ops::indexing::ephemeral::EphemeralIndex,
-		indexed_paths: &[std::path::PathBuf],
-		mount_point: &Option<String>,
-		volume_device_id: Uuid,
-		current_device_id: Uuid,
-	) -> Option<usize> {
-		// Only return file count if this volume belongs to the current device
-		// (ephemeral index only exists on the local device)
-		if volume_device_id != current_device_id {
-			return None;
-		}
-
-		let mount_path = mount_point.as_ref()?;
-		let mount_pathbuf = std::path::PathBuf::from(mount_path);
-
-		// Check if this exact mount point is indexed in memory
-		if indexed_paths.contains(&mount_pathbuf) {
-			// Use efficient method to count entries under this mount point
-			let count = index.count_entries_under_path(&mount_pathbuf);
-			return Some(count);
-		}
-
-		// Note: Snapshots exist on disk but aren't auto-loaded to avoid blocking startup.
-		// They'll be loaded when the user explicitly clicks "Index" on a volume.
-		None
-	}
-}
-
 impl LibraryQuery for VolumeListQuery {
 	type Input = VolumeListQueryInput;
 	type Output = VolumeListOutput;
