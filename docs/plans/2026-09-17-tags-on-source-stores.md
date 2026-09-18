@@ -1,7 +1,7 @@
 # Tags on Source Stores
 
-> Status: implemented through P5 in the worktree; P4 delivery awaits a titan
-> redeploy; P6 partially done
+> Status: complete. Landed, delivery verified live against titan, P6 done,
+> search phase 4 riding on it. Remaining tag work belongs to later stretches.
 > Captured: 2026-09-17
 > Executed: 2026-09-17 (Fable), results below
 > Owns: FD2 in `2026-09-15-entries-final-drop.md`
@@ -59,8 +59,30 @@ nothing is committed yet.
   durability, and direct SQL confirming definitions and HLC-stamped
   assertions in the `jamespine` store.
 
-P6 remains: reconcile `tags-and-assertions.md` to decision 4, sweep
-`/docs/core` pages, and run the rg caller proofs before FD3 starts.
+Stretch 1 completed 2026-09-18 (Fable):
+
+- The delivery roundtrip is proven on real hardware. Two caller-side bugs
+  surfaced and were fixed: the outbox named the merge by its bare name while
+  the registry keys actions by their full wire method (now taken from the
+  Wire const), and backoff could outvote presence, so a device connecting now
+  forces delivery of its rows through `drain_for`. Ten batches authored
+  against titan while its old server was wedged, nine of them from James's
+  UI testing, delivered on reconnect, acked, and retired; titan's stores
+  answer `files.by_tag` with the tagged files and `tags.search` names the
+  definitions.
+- Titan was redeployed per the runbook. Its `sd-server` had made no library
+  writes since 2026-09-16 05:21 and was replaced by this build's `sd-daemon`
+  (binaries rotated to `.prev`); the web server relaunch stays with James
+  and now needs both `DATA_DIR=/mnt/pool/jamie-nas/spacedrive/data` and his
+  `SD_AUTH`, after which it attaches to the running daemon.
+- FD4's preconditions are banked: both libraries' legacy tag tables are
+  verified empty, titan's checked read-only over SSH.
+- P6 is done: `tagging.mdx` rewritten to the built system, `library.mdx`
+  corrected, the design doc carries its reconciliations, the library tag
+  count reads definitions instead of the legacy table, and the rg proofs
+  leave only the FD3/FD4 residue (entities, migrations, row-sync
+  registrations, and `route_from_dependency`).
+- Search phase 4 landed on these primitives; results in the search plan.
 
 ## Outcome
 

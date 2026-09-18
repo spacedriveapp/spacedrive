@@ -112,7 +112,7 @@ commit when ownership or status changes.
 |---|---|---|---|
 | FD0 Baseline and ownership | ready | unowned | Current references and tables recorded; fixtures and build baseline pass |
 | FD1 Remove runtime entry reads | ready | unowned | No production query or helper reads `entries`, `entry_closure`, or `directory_paths` |
-| FD2 Build tags on source stores | implemented through P5 (2026-09-17, uncommitted) | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
+| FD2 Build tags on source stores | landed; delivery verified live 2026-09-18 | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
 | FD3 Remove legacy row sync | blocked on FD2 | unowned | No entry model registration or entry-specific replication remains; peer source capabilities pass |
 | FD4 Replace the library schema | blocked on FD2 and FD3 | unowned | Fresh and upgraded libraries contain no retired tables |
 | FD5 Retire compatibility surface | blocked on FD4 | unowned | Tests, examples, generated types, docs, and names describe one index model |

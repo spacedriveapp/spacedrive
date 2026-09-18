@@ -1,6 +1,11 @@
 # Tags and Assertions
 
-> **Status:** Design — resolves the assertion-ownership question left open in the architecture previs
+> **Status:** Executed 2026-09-17 by `docs/plans/2026-09-17-tags-on-source-stores.md`,
+> with three reconciliations noted inline: assertions carry `content_uuid BLOB`
+> following `record_overlay` rather than `content_id TEXT`; definition merge is
+> row-level last-writer-wins on the single `updated_hlc` the schema defines
+> rather than per field; and `record_uuid` is NOT NULL, leaving content-keyed-only
+> applications an open question. The slug folds case and composes to NFC.
 > **Captured:** 2026-08-21, from James's direction that tags are a source primitive
 > **Companions:** `docs/plans/2026-08-20-architecture-previs.md` (the identity model this extends), `docs/plans/2026-08-18-storage-consolidation.md` (contracts 1–2, artifact classes), `docs/plans/2026-08-20-entries-teardown.md` (phase 2, where tags re-anchor), `docs/core/design/file-backed-sources.md` (late binding of assertions)
 
@@ -228,6 +233,10 @@ in that table is deleted rather than ported, and returns later as a facet or an
 assertion if it earns its way back.
 
 ## Consequences for the plan
+
+> Executed. The phases below described the entries-teardown sequencing this
+> design originally targeted; `2026-09-17-tags-on-source-stores.md` carried
+> the build and its execution record. The paragraphs stay as rationale.
 
 **Phase 1** owns this. The durable substrate is where these two tables get their
 shape, and `record_overlay` is re-keyed to match `tag_assertion` on the way in

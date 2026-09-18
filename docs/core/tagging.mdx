@@ -1,105 +1,90 @@
 ---
 title: Tags and Assertions
-description: Durable organization attached to stable record or content identity
+description: Durable organization that lives in each source store and travels with it
 sidebarTitle: Tagging
 ---
 
-Tags are user assertions. They are not filesystem metadata and cannot be
-recreated by scanning an origin, so they live in the durable assertion layer.
+Tags are user assertions. They cannot be recreated by scanning an origin, so
+they live in the assertion half of each source store, beside the records they
+describe. A drive or a delivered replica arrives carrying named, colored,
+hierarchical tags rather than foreign keys into a database that stayed home.
 
-## Tag identity
+## Definitions and applications
 
-A tag has a stable UUID, display name, optional color, and library scope.
-Renaming a tag changes its label without rewriting every attachment.
+Two different things wear the word tag.
 
-Tag names are not global identity. Two libraries can use the same name for
-different concepts.
+A definition is the tag itself: a stable UUID, a full path such as
+`Work/Clients/Acme`, a color, an icon. Hierarchy is derived from the path, so
+a definition travels whole. Renaming changes the label without rewriting any
+attachment.
 
-## Attachment scope
+An application is the claim that a definition applies to something. It is an
+append-only `tag_assertion` row carrying the record UUID, the source-relative
+path as rebind evidence, the convergent content UUID once hashing has reached
+the file, an apply or remove flag, an HLC, and the device that wrote it.
 
-A tag can attach to:
+A definition is copied into every store that applies it, reconciled by
+last-writer-wins on its stamp. A definition applied nowhere waits in the
+library's staging table until a source adopts it on first use.
 
-- a source record, when it describes one observed instance;
-- confirmed content, when it should follow identical bytes across sources;
-- a standalone extension model, when it describes a domain object.
+## Identity and convergence
 
-The scope is explicit. Spacedrive does not silently move a record tag to every
-candidate duplicate.
+The definition's UUID is assigned and stable. Its slug, a v5 UUID over the
+case-folded, NFC-composed path, is a merge key only: a store arriving at a
+foreign library finds that library's existing `Work` instead of silently
+creating a second one. Same slug under different UUIDs stays parked as two
+tags; merging concepts is a user decision, never automatic.
 
-## Why content confirmation matters
+Content UUIDs are convergent, so the same bytes tagged independently on two
+machines produce the same claim twice. Those rows collapse at read time
+rather than needing reconciliation.
 
-A sampled hash creates candidate content identity. It is useful for finding
-likely duplicates but is not strong enough to merge durable user organization.
+## State is ordered, never edited
 
-Attaching a tag to content requires confirmed identity or explicit approval.
-Record-scoped tags remain safe even before hashing.
+The state of a tag on a record is the latest assertion by HLC, device UUID
+breaking ties. Removal appends an `asserted = 0` row, so a drive that spent a
+month in a drawer cannot resurrect a tag that was removed while it was away.
+The assertion primary key doubles as the merge dedupe key: replaying a
+delivery batch inserts nothing.
 
-## Reindexing
+A tag applied before hashing reaches the file is record-keyed; the content
+key binds as soon as the hash lands, and from then on the claim reaches every
+copy of the bytes the store holds.
 
-Record overlays survive source generation replacement. When a fresh ingest sees
-the same stable object, its tags remain attached. When identity cannot be
-proven, the old assertion is preserved as unresolved rather than reassigned to
-a similar path.
+## Remote-owned sources
 
-Paths are hints, not attachment keys.
+Tagging a file on a source another device owns writes the finished rows into
+the library's assertion outbox, attempts delivery now, and retires them on
+the owner's ack. `sources.assertions.merge` commits before replying, so the
+reply is the ack, and redelivery is harmless. Reads union pending rows, so
+the claim shows immediately; reachability changes latency, never behavior.
 
-## Sync
+## Reindexing and rebuilds
 
-Authorized devices can edit tags while offline. Each attachment records
-provenance and logical time.
+Assertion tables belong to the half of a store no ingest can rebuild. Walks,
+sweeps, and eviction leave them alone. When a rebuild mints fresh record
+UUIDs, orphaned assertions rebind through their evidence: content first,
+since it is derived from the bytes, then the source-relative path.
 
-Independent adds merge. A remove records intent against the observed
-attachment, so a delayed packet does not blindly erase a later add. Permission
-changes can require explicit confirmation instead of ordinary merge.
+## Operations
 
-Filesystem modification time never orders tag changes.
-
-## Search and views
-
-Tag queries join through stable source, record, or content identity. Results
-report source availability and can include offline records.
-
-Views can combine tags with file kind, path, dates, people, or extension fields.
-The tag system remains a small organization primitive rather than becoming a
-separate file tree.
-
-## Permissions
-
-Grants can restrict:
-
-- reading tag names;
-- seeing attachments;
-- creating or renaming tags;
-- attaching tags to a source scope;
-- removing another actor's assertion.
-
-An extension or agent receives the same checks as a graphical client.
-
-## Deletion
-
-Deleting a tag previews the number and scopes of affected attachments. It never
-deletes file bytes.
-
-For audit-sensitive libraries, deletion can tombstone the tag while preserving
-provenance and historical views.
-
-## Extension use
-
-Extensions should use tags for user-facing labels and lightweight
-classification. Rich domain facts belong in typed extension models.
-
-A Photos extension may expose a person name as a view backed by a person model,
-then let a user add ordinary tags such as Favorites or Print. It should not
-encode an entire face graph into tag strings.
+`tags.create` stages a definition by path. `tags.apply` and `tags.unapply`
+take Content or File targets; a File target still reaches every copy once the
+content key is known. `tags.delete` removes the definition from stores it can
+write now and asserts removals for live applications there. `tags.search`,
+`tags.by_id`, `tags.ancestors`, `tags.children`, and `files.by_tag` read
+across staging and every open store, replicas included, with no loaded arena
+required. The CLI mirrors these under `sd tag`.
 
 ## Core rules
 
-- Tags are assertions, not generated source data.
-- Stable IDs outlive names and paths.
-- Record and content attachments are distinct.
-- Candidate hashes do not merge durable organization.
-- Reindexing preserves assertions.
-- Sync carries provenance and explicit remove intent.
+- A source carries everything needed to read its own tags.
+- Stable IDs outlive names and paths; the slug is never a foreign key.
+- Record and content keys ride one row; neither substitutes for the other.
+- Removal is an assertion, never a delete.
+- Reindexing preserves assertions; rebind is evidence-driven.
+- Delivery is an idempotent merge; the ack is the owner's commit.
 - Tag deletion never implies file deletion.
 
-See [Data Model](/core/data-model) for generation and assertion ownership.
+See [Data Model](/core/data-model) for generation and assertion ownership,
+and `docs/core/design/tags-and-assertions.md` for the design rationale.

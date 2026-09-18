@@ -1014,17 +1014,12 @@ impl Library {
 		Ok(count)
 	}
 
-	/// Calculate tag count
-	async fn calculate_tag_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::tag;
-		use sea_orm::{EntityTrait, QueryTrait};
-
-		debug!("Starting tag count calculation");
-		let tags = tag::Entity::find().all(db).await?;
-		let count = tags.len() as u32;
-
+	/// Calculate tag count: every definition this machine can name, staged
+	/// ones included, deduplicated across the stores that carry them.
+	async fn calculate_tag_count(&self, _db: &sea_orm::DatabaseConnection) -> Result<u32> {
+		let cache = self.core_context.ephemeral_cache();
+		let count = crate::ops::tags::definitions::all(self, cache).await.len() as u32;
 		debug!(tag_count = count, "Completed tag count calculation");
-
 		Ok(count)
 	}
 
@@ -1189,13 +1184,15 @@ impl Library {
 		Ok(count as u32)
 	}
 
-	/// Calculate tag count (static version)
+	/// Calculate tag count (static version). Definitions live in source
+	/// stores, which need the cache the instance path has; before a library
+	/// is constructed only the staging table is reachable, and the instance
+	/// recount replaces this number once the library is open.
 	async fn calculate_tag_count_static(db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::tag;
-		use sea_orm::{EntityTrait, PaginatorTrait, QuerySelect, QueryTrait, Select};
+		use crate::infra::db::entities::tag_staging;
+		use sea_orm::{EntityTrait, PaginatorTrait};
 
-		debug!("Executing tag count query");
-		let count = tag::Entity::find().count(db).await?;
+		let count = tag_staging::Entity::find().count(db).await?;
 		debug!(tag_count = count, "Tag count query completed successfully");
 		Ok(count as u32)
 	}

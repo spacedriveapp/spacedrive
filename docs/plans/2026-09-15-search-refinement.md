@@ -179,6 +179,17 @@ All in `packages/interface`.
 
 ### Phase 4: tag filtering
 
+> Executed 2026-09-18 (Fable). `TagFilter` resolves once per query in
+> `ops/search/tag_scope.rs`: include tags intersect, exclude tags union,
+> paths absolute in store-root spelling, checked at collection in both the
+> scoped and library-wide paths and in the store fallback. Replica
+> partitions drop while a tag filter is active. Proven live by CLI:
+> a seven-hit query narrowed to exactly the one tagged file on include,
+> six with the tagged file absent on exclude, and an A74 query fell from
+> 1396 hits to zero under the filter because every hit was replica-side.
+> `available_filters` advertises Tags and the refinement bar gained a
+> tag picker pill driven by `tags.search`.
+
 - The daemon resolves `TagFilter.include`/`exclude` to a path set once per
   query through the existing tag scopes join (`files_by_tag` primitives) and
   intersects during collection. Applies to local partitions; replicas are
