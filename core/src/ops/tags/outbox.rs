@@ -74,9 +74,19 @@ pub async fn pending_for_source(library: &Library, source_uuid: Uuid) -> Vec<Mer
 	inputs
 }
 
-/// Deliver every due row once, across all open libraries. Returns how many
-/// batches were acked and retired.
+/// Deliver every due row once, across all open libraries, respecting
+/// backoff. Returns how many batches were acked and retired.
 pub async fn drain(context: &Arc<CoreContext>) -> u64 {
+	drain_where(context, None).await
+}
+
+/// A connection is fresh information: rows for that device deliver now,
+/// whatever their backoff says, because the backoff was measuring absence.
+pub async fn drain_for(context: &Arc<CoreContext>, device: Uuid) -> u64 {
+	drain_where(context, Some(device)).await
+}
+
+async fn drain_where(context: &Arc<CoreContext>, force_device: Option<Uuid>) -> u64 {
 	let libraries = context.libraries().await.get_open_libraries().await;
 	let mut delivered = 0u64;
 
@@ -97,7 +107,8 @@ pub async fn drain(context: &Arc<CoreContext>) -> u64 {
 		}
 		let now = Utc::now();
 		for row in rows {
-			if row.next_attempt_at.is_some_and(|next| next > now) {
+			let due = row.next_attempt_at.is_none_or(|next| next <= now);
+			if !due && force_device != Some(row.device_uuid) {
 				continue;
 			}
 			let payload: serde_json::Value = match serde_json::from_str(&row.payload) {
@@ -117,7 +128,8 @@ pub async fn drain(context: &Arc<CoreContext>) -> u64 {
 				crate::service::network::protocol::remote_ops::call(
 					context,
 					row.device_uuid,
-					"sources.assertions.merge",
+					// The registry keys actions by their full wire method.
+					<MergeAssertionsInput as crate::infra::wire::Wire>::METHOD,
 					None,
 					payload,
 				),
@@ -179,8 +191,8 @@ pub fn start(context: Arc<CoreContext>) {
 			tokio::select! {
 				event = events.recv() => {
 					match event {
-						Ok(Event::DeviceConnected { .. }) => {
-							drain(&context).await;
+						Ok(Event::DeviceConnected { device_id, .. }) => {
+							drain_for(&context, device_id).await;
 						}
 						Ok(_) => {}
 						Err(tokio::sync::broadcast::error::RecvError::Lagged(_)) => {}

@@ -101,9 +101,13 @@ impl LibraryAction for ApplyTagsAction {
 			.map_err(|e| ActionError::Internal(format!("outbox write failed: {e}")))?;
 		}
 		if !resolved.remote.is_empty() {
+			let devices: std::collections::HashSet<uuid::Uuid> =
+				resolved.remote.iter().map(|b| b.device_uuid).collect();
 			let drain_context = context.clone();
 			tokio::spawn(async move {
-				outbox::drain(&drain_context).await;
+				for device in devices {
+					outbox::drain_for(&drain_context, device).await;
+				}
 			});
 		}
 
