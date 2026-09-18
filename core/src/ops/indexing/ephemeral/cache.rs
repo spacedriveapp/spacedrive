@@ -868,8 +868,12 @@ impl EphemeralIndexCache {
 		// dropping it would leave the drive's totals quietly wrong for as long
 		// as the session lasts. Climbing to the nearest ancestor the index does
 		// hold is what finds the directory standing in for it.
+		//
+		// The watched root is held by definition: it was walked to completion.
+		// A walk that found nothing under it wrote no entry for it, and the
+		// writer creates that entry with the first change to land there.
 		for ancestor in parent.ancestors() {
-			if index.get_entry_ref(&ancestor.to_path_buf()).is_none() {
+			if ancestor != root && index.get_entry_ref(&ancestor.to_path_buf()).is_none() {
 				continue;
 			}
 			if index.is_summarised(ancestor) {
@@ -2293,6 +2297,47 @@ mod tests {
 					.await,
 				None,
 				"but nothing walked it, so the change has nowhere to land"
+			);
+		}
+
+		/// A walk of an empty directory writes no entry for it, since nothing
+		/// under it synthesizes it as an ancestor. The first file dropped into
+		/// it still has to land.
+		#[tokio::test]
+		async fn a_change_under_an_empty_walked_root_lands() {
+			let data = tempfile::tempdir().unwrap();
+			let library = test_library(data.path()).await;
+			let root_dir = tempfile::tempdir().unwrap();
+			let root = root_dir.path().to_path_buf();
+
+			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
+				.expect("cache");
+			cache.attach_library(library.clone()).await.expect("attach");
+
+			let anchor = tracked_volume(&library, &root).await;
+			cache
+				.register_source(&root, Some(anchor))
+				.await
+				.expect("register");
+
+			// The walk found nothing, so the index holds nothing, the root included.
+			let _index = cache.create_for_indexing(root.clone());
+			cache.mark_indexing_complete(&root);
+			assert!(cache.register_for_watching(root.clone()));
+
+			assert_eq!(
+				cache
+					.watched_root_for_change(&root.join("dropped-in.txt"))
+					.await,
+				Some(root.clone()),
+				"a file dropped into the empty root belongs to it"
+			);
+			assert_eq!(
+				cache
+					.watched_root_for_change(&root.join("Deep").join("file.txt"))
+					.await,
+				None,
+				"while a change deeper down still has nowhere to land"
 			);
 		}
 
