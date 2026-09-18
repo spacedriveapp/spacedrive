@@ -248,7 +248,7 @@ The fastest way to start developing is with the CLI:
 ```bash
 # Using the cargo alias
 cargo cli library create "Dev Library"
-cargo cli location add ~/Documents
+cargo cli sources track ~/Documents
 cargo cli search .
 
 # Or use the long form
@@ -278,7 +278,7 @@ Then reload your shell (`source ~/.zshrc`) and you can use:
 
 ```bash
 sd library create "Dev Library"
-sd location add ~/Documents
+sd sources track ~/Documents
 sd search .
 ```
 
@@ -317,8 +317,8 @@ cargo fmt && cargo clippy && cargo test
 The `core/examples/` directory contains working demonstrations of core features:
 
 ```bash
-# Run the indexing demo
-cargo run --example indexing_demo
+# Track a throwaway source and pause and resume its walk
+cargo run --example pause_resume_demo
 
 # Run the file type detection demo
 cargo run --example file_type_demo
@@ -992,7 +992,7 @@ Read the full analysis in [docs/overview/history.mdx](docs/overview/history.mdx)
 | **Desktop**         | Tauri + React (in repo)           | Swift (native macOS submodule) / Tauri + React (cross platform submodule, coming soon) |
 | **Mobile**          | React Native                      | Native Swift (iOS/macOS submodules)                                                    |
 | **P2P Networking**  | libp2p                            | Iroh (QUIC-based)                                                                      |
-| **File Model**      | Dual system (indexed + ephemeral) | Unified Entry + SdPath                                                                 |
+| **File Model**      | Dual system (indexed + ephemeral) | Records in per-source stores + SdPath                                                  |
 | **RPC**             | rspc procedures                   | Specta-generated types                                                                 |
 | **Extensibility**   | None                              | WASM SDK                                                                               |
 | **CLI**             | Planned                           | Production-ready (`sd-cli`)                                                            |
@@ -1132,15 +1132,15 @@ packages/
   ```rust
   // V2
   #[derive(Job)]
-  pub struct IndexerJob {
-      location_id: Uuid,
+  pub struct ContentIdentityJob {
+      root: PathBuf,
   }
   ```
 
 #### File Operations
 
 - **V1:** Dual system (indexed `FilePath` vs ephemeral)
-- **V2:** Unified `Entry` model with `SdPath` addressing
+- **V2:** Records in per-source stores, addressed by `SdPath`
 - **Learn:** Read `core/src/domain/addressing.rs` for SdPath and `docs/core/addressing.mdx`
 
 ### Where Should V1 Contributors Focus?

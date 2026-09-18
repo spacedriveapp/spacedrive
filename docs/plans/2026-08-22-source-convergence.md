@@ -5,6 +5,11 @@
 > old world; this is the register for making the new one one thing instead of
 > three.
 >
+> **Status (2026-09-18).** The old world is gone. The final drop
+> (`2026-09-15-entries-final-drop.md`) removed the entry schema, its row sync,
+> locations, and the `ephemeral` qualifier; what remains here is convergence
+> work inside the new one.
+>
 > **Related.** `2026-08-20-architecture-previs.md` is the destination.
 > `2026-08-21-filesystem-source-store.md` designs the filesystem writer.
 > `docs/core/design/file-backed-sources.md` sets the rule that adapters enrich

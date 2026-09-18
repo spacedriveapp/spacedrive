@@ -8,7 +8,7 @@ Spacedrive separates the data you retain from the shortcuts you use to reach
 it:
 
 - A **source** captures an origin into a portable store.
-- A **location** pins one source-relative path in the interface.
+- A **pin** keeps a folder in the sidebar so you can return to it.
 
 Track a folder, drive, NAS dataset, or provider as a source. Add pins afterward
 without creating another index.
@@ -66,19 +66,17 @@ Opening or changing a file still requires a live origin or cached copy.
 
 ## Add a pin
 
-Open a folder inside a source and choose **Add to Places**. Give it a name that
-makes sense in the sidebar. The API stores this source-relative pin as a
-location.
+Open a folder and choose **Pin this folder** in the path bar. The pin is an
+item in the current space, listed under **Pinned** in the sidebar.
 
 A pin does not change what Spacedrive indexes or watches. The containing source
-already owns capture and freshness. Future protection or offline policies may
-target a pin, but enabling one will be a separate explicit action.
+already owns capture and freshness.
 
 ## Known Places
 
 Clients show Home, Desktop, Documents, Downloads, Pictures, Movies, and Music
 when those folders exist on the current device. These are computed Places, not
-location rows. They require no setup and do not start overlapping scans.
+stored items. They require no setup and do not start overlapping scans.
 
 ## Verify and freeze
 
@@ -108,10 +106,9 @@ a separate operation with its own preview and verification.
 | Goal | Use |
 | --- | --- |
 | Retain a drive or folder in the library | Source |
-| Put another folder in Places | Location pin |
+| Keep a folder in the sidebar | Pin |
 | Show all screenshots or duplicates | Lens or extension view |
 | Copy bytes to another storage system | File operation or file sync |
 | Preserve the index before a cleanup | Source freeze |
 
-Read [Indexing](/core/indexing) for capture behavior and
-[Locations](/core/locations) for the full pin model.
+Read [Indexing](/core/indexing) for capture behavior.

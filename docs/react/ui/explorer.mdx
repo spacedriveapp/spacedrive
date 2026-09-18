@@ -3,7 +3,7 @@ title: Explorer Architecture
 sidebarTitle: Explorer
 ---
 
-The Explorer is Spacedrive's primary file browsing interface. It displays files, locations, volumes, and devices using a unified system that treats all entities as navigable directories. The architecture centers on a single source of truth for navigation: URL query parameters.
+The Explorer is Spacedrive's primary file browsing interface. It displays files, sources, volumes, and devices using a unified system that treats all entities as navigable directories. The architecture centers on a single source of truth for navigation: URL query parameters.
 
 ## Window layout
 
@@ -40,7 +40,7 @@ The Explorer uses URL query parameters instead of route paths to manage navigati
 /explorer?view=device&id=abc123
 ```
 
-When you navigate to a location from the sidebar, the URL updates with the new path. The Explorer reads this URL parameter and displays the corresponding directory. The sidebar highlights the active item by comparing its own path to the URL parameter.
+When you navigate to a folder from the sidebar, the URL updates with the new path. The Explorer reads this URL parameter and displays the corresponding directory. The sidebar highlights the active item by comparing its own path to the URL parameter.
 
 <Callout>The URL is the single source of truth. All navigation actions update the URL first, then components react to URL changes.</Callout>
 
@@ -58,23 +58,27 @@ The `ExplorerContext` maintains a history stack and current position. When you c
 
 ## Virtual Listings
 
-Virtual listings display non-file entities (devices, locations, volumes) as if they were files in a directory. This allows the Explorer to reuse all existing view components (grid, list, column) without special cases.
+Virtual listings display non-file entities (devices, sources, volumes) as if they were files in a directory. This allows the Explorer to reuse all existing view components (grid, list, column) without special cases.
 
 ### Mapping to Files
 
 The `virtualFiles.ts` module converts backend entities into `File` objects with a special `_virtual` metadata field:
 
 ```typescript
-export function mapLocationToFile(location: Location, iconUrl?: string): File {
+export function mapSourceToFile(
+  source: SourceInfo,
+  deviceSlug: string,
+  iconUrl?: string,
+): File {
   return {
-    id: `virtual:location:${location.id}`,
+    id: `virtual:source:${source.id}`,
     kind: "Directory",
-    name: location.name,
-    sd_path: location.sd_path,
+    name: source.name,
+    sd_path: { Physical: { device_slug: deviceSlug, path: source.root ?? "/" } },
     // ... standard File fields
     _virtual: {
-      type: "location",
-      data: location,
+      type: "source",
+      data: source,
       iconUrl,
     }
   };
@@ -90,17 +94,15 @@ The `useVirtualListing` hook detects virtual view parameters in the URL and fetc
 ```typescript
 // Example: Device view
 if (view === "device" && id) {
-  // Fetch locations and volumes for this device
-  const locations = locationsData?.locations.filter(
-    loc => loc.sd_path.Physical?.device_slug === device.slug
-  );
+  // Fetch sources and volumes for this device
+  const sources = sourcesByDevice.get(id) ?? [];
   
   const volumes = volumesData?.volumes.filter(
     vol => vol.device_id === id
   );
   
   // Map to virtual files
-  return locations.map(mapLocationToFile)
+  return sources.map(source => mapSourceToFile(source, device.slug))
     .concat(volumes.map(mapVolumeToFile));
 }
 ```
@@ -109,7 +111,7 @@ This returns an array of virtual files that the Explorer views consume like regu
 
 ### Column View Integration
 
-Column view presents a unique challenge for virtual listings. When you select a virtual location, the next column should show that location's real contents. The system handles this by conditionally rendering columns:
+Column view presents a unique challenge for virtual listings. When you select a virtual source, the next column should show that source's real contents. The system handles this by conditionally rendering columns:
 
 ```typescript
 if (isVirtualView && virtualFiles) {
@@ -163,7 +165,7 @@ const handleDeviceClick = () => {
 };
 ```
 
-This creates a seamless transition from browsing a file system path to viewing all locations and volumes on that device.
+This creates a seamless transition from browsing a file system path to viewing all sources and volumes on that device.
 
 For virtual views, a separate `VirtualPathBar` component renders appropriate breadcrumbs like "Devices → My Device".
 
@@ -201,20 +203,13 @@ The sidebar calculates `isActive` by comparing its item's path or view parameter
 
 ## Inspector Integration
 
-The Inspector sidebar detects virtual files and renders appropriate content:
-
-```typescript
-if (isVirtualFile(file) && file._virtual?.type === "location") {
-  const locationData = file._virtual.data;
-  return <LocationInspector location={locationData} />;
-}
-```
-
-This allows clicking a virtual location in the device view to show the `LocationInspector` rather than the generic `FileInspector`.
+The Inspector treats a virtual file like any other selection and renders the
+`FileInspector` for it. A virtual source or volume carries its root as its
+`sd_path`, so the inspector describes that directory.
 
 ## View Modes
 
-All three view modes (grid, list, column) consume the same file array. When `useVirtualListing` returns virtual files, the views render them using the same components as real files. Icon overrides in `Thumb.tsx` check for `_virtual.iconUrl` and display custom icons for locations and volumes.
+All three view modes (grid, list, column) consume the same file array. When `useVirtualListing` returns virtual files, the views render them using the same components as real files. Icon overrides in `Thumb.tsx` check for `_virtual.iconUrl` and display custom icons for sources and volumes.
 
 The grid view conditionally renders a volume capacity bar when displaying virtual volumes:
 

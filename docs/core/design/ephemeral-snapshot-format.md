@@ -1,6 +1,6 @@
-# Ephemeral Snapshot Format (v2)
+# Arena Snapshot Format (v2)
 
-> **Status:** Documents the shipped format (`core/src/ops/indexing/ephemeral/snapshot.rs`)
+> **Status:** Documents the shipped format (`core/src/ops/indexing/snapshot.rs`)
 > **Captured:** 2026-08-17
 > **Scope:** The internal session-restore format — one file per source, named `<source_id>.snapshot` in the volume-index cache dir. This is *not* the portable snapshot artifact (mtree export, Merkle roots) designed in `cross-location-content.md`; that format is deliberately stable and other-tools-readable, while this one is internal, version-gated, and optimized for "the app opens populated in under two seconds."
 

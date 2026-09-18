@@ -50,6 +50,6 @@ Use `tracing` macros, never `println!`; inside jobs use `ctx.log()` so entries g
 
 ## Current direction
 
-The entries schema (`entry`, `location`) is being torn down in favor of the record table in `crates/store`. Do not add columns to `entry`/`location` or grow the persistent indexing path; new durable state belongs in the record table. The status table at the top of `docs/plans/2026-08-20-entries-teardown-execution.md` is the only task register and gets updated in the same commit as the work (`/.tasks/` is frozen). See "Current direction" in AGENTS.md for the full constraints.
+The entries schema (`entry`, `location`) is gone; durable file state lives in the record table in `crates/store`, and new durable state belongs in a source store rather than `library.db`. The status table at the top of `docs/plans/2026-08-20-entries-teardown-execution.md` is the only task register and gets updated in the same commit as the work (`/.tasks/` is frozen). See "Current direction" in AGENTS.md for the full constraints.
 
 Docs are kept current: `.mdx` files under `/docs` (core architecture in `/docs/core/`, design docs in `/docs/core/design/`, active plans in `/docs/plans/`).

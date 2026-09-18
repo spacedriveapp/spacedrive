@@ -17,7 +17,7 @@ A library stores:
 
 - source registrations and attachment hints;
 - paired devices and grants;
-- locations and saved views;
+- pins, spaces, and saved views;
 - tags, notes, permissions, and policies;
 - durable job and sync state.
 
@@ -36,8 +36,7 @@ sd-cli library info
 ~~~
 
 Clients show common user folders as computed Places when they exist on the
-current device. Creating a library does not persist a location row for each
-one.
+current device. Creating a library does not store an item for each one.
 
 ## Add storage
 
@@ -104,11 +103,11 @@ Use separate libraries when:
 - work and personal assertions require independent encryption or retention;
 - you need a clean exportable environment for a client or project.
 
-Use sources, locations, tags, and views inside one library when the distinction
+Use sources, pins, tags, and views inside one library when the distinction
 is only organizational.
 
 ## Related guides
 
-- [Add Sources and Pins](/overview/add-index-locations)
+- [Add Sources and Pins](/overview/add-sources-and-pins)
 - [Library Sync](/core/library-sync)
 - [Self-Hosting](/overview/self-hosting)

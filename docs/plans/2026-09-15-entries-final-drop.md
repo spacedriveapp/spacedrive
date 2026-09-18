@@ -115,8 +115,8 @@ commit when ownership or status changes.
 | FD2 Build tags on source stores | landed; delivery verified live 2026-09-18 | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
 | FD3 Remove legacy row sync | done 2026-09-18 | Fable | Fourteen retired models unregistered with their Syncable impls and apply paths deleted; entry hierarchy sorting, self-referential FK resolution, closure and directory-path rebuilds, and the directory-path sync payloads are gone; survivors are device, volume, space, space_group, space_item, audit_log, and a registry test now refuses any retired model re-registering; live audit passed: replicas listed, remote ops answered, replica listings served, remote jobs endpoint responsive |
 | FD4 Replace the library schema | done 2026-09-18 | Fable | Fresh, legacy, and live libraries all converge on the same 14-table schema; the Mac library upgraded live with a pre-drop backup; titan's library upgrades when it next runs this build |
-| FD5 Retire compatibility surface | blocked on FD4 | unowned | Tests, examples, generated types, docs, and names describe one index model |
-| FDA Acceptance | blocked on FD1-FD5 | unowned | Full matrix below passes |
+| FD5 Retire compatibility surface | done 2026-09-18 | Opus | Tests, examples, generated types, docs, and names describe one index model: the ephemeral qualifier is retired, entry-era tests and examples are deleted or repointed, and the persistent-era search, event, status, and error surface is gone; recorded below with what still fails and why |
+| FDA Acceptance | ready | unowned | Full matrix below passes |
 
 ## FD0: Baseline and ownership
 
@@ -304,6 +304,45 @@ supported upgrade boundary is explicit. A clean baseline is not permission to
 forget durable assertions.
 
 ## FD5: Retire the compatibility surface
+
+> Done 2026-09-18. Fifteen entry-era integration tests and `indexing_demo`
+> are deleted. The rest track a source or browse the way production does,
+> through two harness steps: `track()`, which waits on the walk tracking
+> dispatched, and `index_dir()`, which walks the volume's spelling of a path.
+> Reviving them exposed decay unrelated to the drop, all fixed: the harness
+> kept the core's data directory above its test files, so the watcher ignored
+> every change as the daemon's own data; hand-built walks indexed `/Users`
+> while search scoped to `/System/Volumes/Data/Users`; and the TypeScript
+> bridge suites wrapped `createSubscription` with a stale signature and
+> guessed the device slug from the hostname. A product bug surfaced as well:
+> a browse of an empty folder ignored the first file dropped into it.
+>
+> Two raw-SQL readers of dropped tables survived FD4 because the compiler
+> cannot see a table name in a string: the `content_kinds` statistics refresh,
+> now removed, and `redundancy.summary`, which now says redundancy is not
+> computed over source stores instead of failing or reporting zeros.
+> `sd-bench` had not built since FD4; its scenarios track sources, and the
+> content scenario times the identification pass tracking queues.
+>
+> Naming: `ops/indexing/ephemeral` folds into `ops/indexing`.
+> `EphemeralIndexCache` is `VolumeIndex`, a drive's slot is `Partition`,
+> `EphemeralIndex` is `Arena`, `IndexerJobConfig::ephemeral_browse` is `new`,
+> and `core.ephemeral_status`/`core.ephemeral_reset` are
+> `core.index_status`/`core.index_reset`. The on-disk `ephemeral.snapshot`
+> keeps its name, since renaming it orphans every snapshot and re-walks every
+> drive. Surface: `IndexType`, the location filter and facet, fifteen events
+> nothing emitted, the legacy status fields, `LocationNotFound`, the stubbed
+> pre-HLC transaction methods, and indexer state kept for promoting a browsed
+> folder into a location are gone.
+>
+> Known failing, not caused by the drop: `watcher_test` and the TypeScript
+> move and rename bridge suites (unpaired FSEvents renames, diagnosed in the
+> pre-teardown brief); `sync_backfill_test`'s volume cases (two cores on one
+> host collide on `devices.slug`); `sync_metrics_test::test_metrics_initial_state`
+> (startup backfill exchanges devices and default spaces). Follow-ups:
+> `indexing.start` walks the caller's spelling of a path without an arena
+> handle, so CLI `index` walks do not reach search; redundancy needs rebuilding
+> over source stores, and its search filters are accepted but not applied.
 
 1. Remove or repoint entry-era integration tests, helpers, and examples.
 2. Rename the `ephemeral` index module and Rust types around their actual role as

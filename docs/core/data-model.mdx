@@ -21,7 +21,7 @@ assertions. Libraries connect those stores into one user experience.
 | Content | Evidence about bytes | Candidate or confirmed content identity |
 | Edge | Relationship between records | Hierarchy and other typed links |
 | Overlay | Durable assertion | Tags, notes, policy, review state, and provenance |
-| Location | Pin inside a source | Name and source-relative path |
+| Pin | Space item for a path | Name and path |
 
 These objects have different lifetimes. Keeping those lifetimes explicit is the
 main defense against accidental data loss.
@@ -33,7 +33,7 @@ small durable state that users expect to follow them:
 
 - source registrations and attachment hints;
 - paired device membership;
-- locations and presentation policy;
+- spaces, pins, and presentation policy;
 - tags, permissions, and other assertions;
 - sync and operation state.
 
@@ -150,14 +150,14 @@ reindexing and carry provenance.
 This split means “rebuild the index” never means “discard everything in the
 store.”
 
-## Locations
+## Pins
 
-A location is a named pin over a source-relative path. It answers where the user
-wants quick access. It does not own records, content identity, another index,
-or watcher state.
+A pin is a Space item that keeps a path in the sidebar. It answers where the
+user wants quick access. It does not own records, content identity, another
+index, or watcher state.
 
-Deleting a location removes the pin. It does not delete source records, stop
-source indexing, or change file bytes. See [Locations](/core/locations).
+Removing a pin deletes the Space item. It does not delete source records, stop
+source indexing, or change file bytes.
 
 ## Cross-source catalog
 
@@ -187,6 +187,6 @@ underlying file bytes unless a separate backup or sync policy does so.
 - Reindexing may replace generation rows but must preserve assertions.
 - Separate sources use the same record shape.
 - Candidate content identity never authorizes destructive cleanup.
-- Locations never create a second record namespace.
+- Pins never create a second record namespace.
 - File bytes move only through an explicit file operation, cache, or sync
   policy.

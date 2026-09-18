@@ -60,7 +60,7 @@ rather than inferring it from a diff.
 | T4.4 Enrichment policy follow-up | addressing and compatibility boundary agreed; implementation pending | Codex research | Accept `SdPath`, persist a separate source-relative policy target, and resolve execution addresses through the source layer. No source variant in `SdPath`. Space items own navigation. Remove locations without row migration, ID preservation or API compatibility. See `2026-09-15-locations-research.md`. Reuse source change delivery and the job executor. |
 | T4.10 Global search router | done | — | `1044e0977` searches every local and paired source |
 | T5.1–T5.3 | superseded | — | content hashing writes source stores; the old media pipeline was deleted; current source-scoped media work follows the product sequence |
-| T6.1–T6.7 | ready, not started | — | execute `2026-09-15-entries-final-drop.md`; FD2 is the durable-data gate |
+| T6.1–T6.7 | done through FD5; FDA ready | Opus | executed as `2026-09-15-entries-final-drop.md` FD0–FD5; its acceptance matrix (FDA) is next |
 | P7 Catalog | blocked | — | unblocked by P6 |
 
 **Not in this register, tracked elsewhere:** the byte plane, block cache and

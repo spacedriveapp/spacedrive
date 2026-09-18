@@ -40,27 +40,24 @@ cargo run --bin sd-cli -- <command>      # Run CLI (binary is sd-cli, not spaced
 `docs/core/product-direction.mdx` defines the product boundary. Use it to decide
 whether work belongs in Spacedrive before extending a subsystem.
 
-The durable entries schema (`entry`, `location`, and everything hanging off
-them) is being replaced by the record table in `crates/store`, tracked by
-`docs/plans/2026-08-20-entries-teardown-execution.md`.
-`docs/plans/2026-08-22-source-convergence.md` runs ahead of it and is the
-register for making the new world one thing: one store shape, one registry,
-one set of claims that match the code. Until both land:
+The entries world is gone. The `entry` and `location` tables and everything
+hanging off them were dropped, and durable file state lives in the record table
+in `crates/store`; `docs/plans/2026-09-15-entries-final-drop.md` records how.
+`docs/plans/2026-08-22-source-convergence.md` is the register for making the
+new world one thing: one store shape, one registry, one set of claims that
+match the code.
 
 - Spacedrive is a set of sources. A source has an origin, an ingest, and a
   store; filesystem and adapter sources differ only in ingest. Anything that
   makes those two diverge further is wrong.
-- Do not deepen the entries world. New durable state belongs in the record table.
-  Do not add columns to `entry` or `location`, and do not grow the persistent
-  indexing path.
+- New durable state belongs in a source store: the record table, or the
+  assertion half for anything no ingest can rebuild. `library.db` keeps only
+  the source registry, devices, volumes, spaces, and small shared state.
 - A source store has two halves. The generation is rebuildable for as long as
   its origin answers; the assertion layer never is. Since the origin can stop
   answering silently, no code path may assume a store can be thrown away and
   rebuilt. `docs/core/design/source-durability.md` has the rest, including what
   the assertion tables have to reserve for sync.
-- The `ephemeral` qualifier is load-bearing while both substrates exist. It
-  is what tells a reader which world a call site belongs to, so leave the
-  naming alone until the convergence plan's P3 retires it.
 - The `.tasks/` tree predates this work and is not its register. The status
   table at the top of the execution plan remains the entries-teardown register.
   Use `PROJECT_STATUS.md` as the short-term project-wide working context and
@@ -501,14 +498,14 @@ let ext = path.extension().map(|e| e.to_lowercase());
 let ext = path.extension().map(|e| e.to_lowercase());
 
 // Good: explains consequence
-// Preserve ephemeral UUIDs so tags attached during browsing survive promotion to managed location.
-let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+// Keep the arena's UUID so a file keeps its identity when a source adopts it.
+let uuid = arena.get_entry_uuid(path).unwrap_or_else(Uuid::now_v7);
 
 // Bad: verbose explanation of obvious behavior
 // UUID assignment strategy:
-// 1. First check if there's an ephemeral UUID
+// 1. First check if the arena has a UUID
 // 2. If not, generate a new one
-let uuid = ephemeral_cache.get(path).unwrap_or_else(|| Uuid::new_v4());
+let uuid = arena.get_entry_uuid(path).unwrap_or_else(Uuid::now_v7);
 ```
 
 **Error handling comments:**
