@@ -13,7 +13,7 @@ pub struct FileSearchInput {
 	/// Primary search query (filename, content, or natural language)
 	pub query: String,
 
-	/// Search scope (library, location, or specific path)
+	/// Search scope (library or a specific path)
 	pub scope: SearchScope,
 
 	/// Search mode (fast, normal, full)

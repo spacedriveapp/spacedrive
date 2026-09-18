@@ -34,7 +34,7 @@ use super::{
 /// Whether to index just one directory level or recurse through subdirectories.
 ///
 /// Current scope is used for UI navigation where users expand folders on-demand,
-/// while Recursive scope is used for full location indexing. Current scope with
+/// while Recursive scope is used for a full source walk. Current scope with
 /// persistent storage enables progressive indexing where the UI drives which
 /// directories get indexed based on user interaction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Type)]

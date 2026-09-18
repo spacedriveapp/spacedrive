@@ -1,7 +1,7 @@
 //! Device state tombstone entity
 //!
-//! Tracks deletions of device-owned data (locations, entries, volumes) for sync.
-//! Uses cascading tombstones - only root UUIDs are stored, receivers cascade using entry_closure.
+//! Tracks deletions of device-owned data (such as volumes) for sync.
+//! Only root UUIDs are stored; a receiver removes whatever the root owned.
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
 	#[sea_orm(primary_key)]
 	pub id: i32,
-	pub model_type: String, // "location", "entry", "volume"
+	pub model_type: String, // e.g. "volume"
 	pub record_uuid: Uuid,  // UUID of deleted record (root only for cascading)
 	pub device_id: i32,
 	pub deleted_at: DateTimeUtc,

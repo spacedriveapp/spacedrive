@@ -149,7 +149,7 @@ impl ApiDispatcher {
 	/// Execute a library query with session context
 	///
 	/// This is for library-scoped read operations like file search,
-	/// job listing, location listing, etc.
+	/// job listing, source listing, etc.
 	pub async fn execute_library_query<Q>(
 		&self,
 		query_input: Q::Input,

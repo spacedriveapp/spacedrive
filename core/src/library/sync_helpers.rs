@@ -11,8 +11,8 @@
 //! library.sync_model(&tag, ChangeType::Insert).await?;
 //!
 //! // Model with FK relationships
-//! let location = location::ActiveModel { ... }.insert(db).await?;
-//! library.sync_model_with_db(&location, ChangeType::Insert, db).await?;
+//! let volume = volume::ActiveModel { ... }.insert(db).await?;
+//! library.sync_model_with_db(&volume, ChangeType::Insert, db).await?;
 //!
 //! // Bulk operations (1000+ records)
 //! library.sync_models_batch(&entries, ChangeType::Insert, db).await?;

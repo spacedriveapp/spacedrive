@@ -119,17 +119,6 @@ export function SidebarContent({ navigation }: DrawerContentComponentProps) {
 				</Pressable>
 			</SidebarSection>
 
-			{/* Locations Section */}
-			<SidebarSection
-				title="Locations"
-				isCollapsed={isGroupCollapsed("locations")}
-				onToggle={() => toggleGroup("locations")}
-			>
-				<Text className="text-ink-faint text-sm py-2">
-					Select a library to view locations
-				</Text>
-			</SidebarSection>
-
 			{/* Tags Section */}
 			<SidebarSection
 				title="Tags"

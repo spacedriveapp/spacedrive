@@ -7,8 +7,6 @@ pub enum CliError {
 	NoActiveLibrary,
 	/// Library not found
 	LibraryNotFound(uuid::Uuid),
-	/// Location not found
-	LocationNotFound(uuid::Uuid),
 	/// Multiple libraries exist but no specific one selected
 	MultipleLibraries,
 	/// Daemon is not running
@@ -26,7 +24,6 @@ impl fmt::Display for CliError {
 		match self {
             Self::NoActiveLibrary => write!(f, "No active library selected"),
             Self::LibraryNotFound(id) => write!(f, "Library not found: {}", id),
-            Self::LocationNotFound(id) => write!(f, "Location not found: {}", id),
             Self::MultipleLibraries => write!(
                 f,
                 "Multiple libraries exist. Please specify one with --library or switch to it with 'library switch'"

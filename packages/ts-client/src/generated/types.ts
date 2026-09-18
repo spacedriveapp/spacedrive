@@ -1185,7 +1185,7 @@ export type FileSearchInput = {
  */
 query: string; 
 /**
- * Search scope (library, location, or specific path)
+ * Search scope (library or a specific path)
  */
 scope: SearchScope; 
 /**
@@ -1481,7 +1481,7 @@ export type GroupType =
  */
 "QuickAccess" | 
 /**
- * Device with its volumes and locations as children
+ * Device with its volumes as children
  */
 { Device: { device_id: string } } | 
 /**
@@ -1489,7 +1489,6 @@ export type GroupType =
  */
 "Devices" | 
 /**
- * All locations across all devices
  * All volumes across all devices
  */
 "Volumes" | 
@@ -1564,7 +1563,7 @@ message: string };
  * Whether to index just one directory level or recurse through subdirectories.
  * 
  * Current scope is used for UI navigation where users expand folders on-demand,
- * while Recursive scope is used for full location indexing. Current scope with
+ * while Recursive scope is used for a full source walk. Current scope with
  * persistent storage enables progressive indexing where the UI drives which
  * directories get indexed based on user interaction.
  */
@@ -1779,7 +1778,7 @@ export type ItemType =
  */
 "FileKinds" | 
 /**
- * Storage volume (with locations as children)
+ * Storage volume
  */
 { Volume: { volume_id: string } } | 
 /**

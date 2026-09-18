@@ -55,12 +55,6 @@ export function SearchToolbar({ viewMode, setViewMode }: SearchToolbarProps = {}
 						This Folder
 					</ScopeButton>
 					<ScopeButton
-						active={scope === "location"}
-						onPress={() => handleScopeChange("location")}
-					>
-						Location
-					</ScopeButton>
-					<ScopeButton
 						active={scope === "library"}
 						onPress={() => handleScopeChange("library")}
 					>

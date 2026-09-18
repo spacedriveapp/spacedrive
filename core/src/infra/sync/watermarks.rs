@@ -1,6 +1,6 @@
 //! Per-resource watermark tracking for incremental sync
 //!
-//! Instead of global watermarks (one per device), each resource type (location, entry, volume)
+//! Instead of global watermarks (one per device), each resource type (space, device, volume)
 //! maintains independent sync progress per peer. This prevents the watermark advancing for one
 //! resource type from filtering out other resource types with earlier timestamps.
 
@@ -306,35 +306,35 @@ mod tests {
 		// Insert initial watermark
 		let timestamp1 = Utc::now();
 		store
-			.upsert(&conn, peer_uuid, "location", timestamp1)
+			.upsert(&conn, peer_uuid, "space", timestamp1)
 			.await
 			.unwrap();
 
 		// Verify retrieval
-		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
+		let retrieved = store.get(&conn, peer_uuid, "space").await.unwrap();
 		assert!(retrieved.is_some());
 		assert_eq!(retrieved.unwrap().timestamp(), timestamp1.timestamp());
 
 		// Update with newer timestamp
 		let timestamp2 = timestamp1 + chrono::Duration::seconds(10);
 		store
-			.upsert(&conn, peer_uuid, "location", timestamp2)
+			.upsert(&conn, peer_uuid, "space", timestamp2)
 			.await
 			.unwrap();
 
 		// Verify update
-		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
+		let retrieved = store.get(&conn, peer_uuid, "space").await.unwrap();
 		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
 
 		// Attempt update with older timestamp (should be ignored)
 		let timestamp0 = timestamp1 - chrono::Duration::seconds(10);
 		store
-			.upsert(&conn, peer_uuid, "location", timestamp0)
+			.upsert(&conn, peer_uuid, "space", timestamp0)
 			.await
 			.unwrap();
 
 		// Verify still has timestamp2 (newer)
-		let retrieved = store.get(&conn, peer_uuid, "location").await.unwrap();
+		let retrieved = store.get(&conn, peer_uuid, "space").await.unwrap();
 		assert_eq!(retrieved.unwrap().timestamp(), timestamp2.timestamp());
 	}
 
@@ -350,7 +350,7 @@ mod tests {
 
 		// Store different watermarks for different resource types
 		store
-			.upsert(&conn, peer_uuid, "location", base_time)
+			.upsert(&conn, peer_uuid, "space", base_time)
 			.await
 			.unwrap();
 
@@ -358,7 +358,7 @@ mod tests {
 			.upsert(
 				&conn,
 				peer_uuid,
-				"entry",
+				"device",
 				base_time + chrono::Duration::seconds(100),
 			)
 			.await
@@ -375,17 +375,17 @@ mod tests {
 			.unwrap();
 
 		// Verify each is stored independently
-		let loc_wm = store.get(&conn, peer_uuid, "location").await.unwrap();
-		let entry_wm = store.get(&conn, peer_uuid, "entry").await.unwrap();
+		let space_wm = store.get(&conn, peer_uuid, "space").await.unwrap();
+		let device_wm = store.get(&conn, peer_uuid, "device").await.unwrap();
 		let vol_wm = store.get(&conn, peer_uuid, "volume").await.unwrap();
 
-		assert!(loc_wm.is_some());
-		assert!(entry_wm.is_some());
+		assert!(space_wm.is_some());
+		assert!(device_wm.is_some());
 		assert!(vol_wm.is_some());
 
 		// Verify they're different
-		assert_ne!(loc_wm.unwrap(), entry_wm.unwrap());
-		assert_ne!(entry_wm.unwrap(), vol_wm.unwrap());
+		assert_ne!(space_wm.unwrap(), device_wm.unwrap());
+		assert_ne!(device_wm.unwrap(), vol_wm.unwrap());
 
 		// Get all for peer
 		let all = store.get_all_for_peer(&conn, peer_uuid).await.unwrap();
@@ -404,11 +404,11 @@ mod tests {
 
 		// Store multiple resource types
 		store
-			.upsert(&conn, peer_uuid, "location", base_time)
+			.upsert(&conn, peer_uuid, "space", base_time)
 			.await
 			.unwrap();
 		store
-			.upsert(&conn, peer_uuid, "entry", base_time)
+			.upsert(&conn, peer_uuid, "device", base_time)
 			.await
 			.unwrap();
 

@@ -533,7 +533,7 @@ export function OverviewScreen() {
 				<ActionButtons
 					onPairDevice={() => setShowPairing(true)}
 					onSetupSync={() => {/* TODO: Open sync setup */}}
-					onAddStorage={() => {/* TODO: Open location picker */}}
+					onAddStorage={() => {/* TODO: Open source picker */}}
 				/>
 				</View>
 			</Animated.ScrollView>

@@ -44,7 +44,7 @@ pub async fn apply_batch(
 
 	let config = ChangeConfig {
 		rule_toggles,
-		location_root: root_path,
+		root: root_path,
 		volume_backend: None,
 	};
 

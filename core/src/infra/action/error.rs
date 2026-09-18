@@ -31,10 +31,6 @@ pub enum ActionError {
 	#[error("Library {0} not found")]
 	LibraryNotFound(Uuid),
 
-	/// Location not found
-	#[error("Location {0} not found")]
-	LocationNotFound(Uuid),
-
 	/// Device not found
 	#[error("Device {0} not found")]
 	DeviceNotFound(Uuid),

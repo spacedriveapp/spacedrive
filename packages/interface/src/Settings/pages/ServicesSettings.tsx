@@ -263,7 +263,7 @@ export function ServicesSettings() {
 					/>
 					<ToggleSettingItem
 						label="Filesystem Watcher"
-						description="Keep indexed locations in sync as files change on disk"
+						description="Keep indexed sources in sync as files change on disk"
 						value={services.fs_watcher_enabled}
 						onChange={(fs_watcher_enabled) => toggle({ fs_watcher_enabled })}
 					/>

@@ -10,7 +10,7 @@ use specta::Type;
 /// Context information about the action that spawned a job
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActionContext {
-	/// The action type that spawned this job (e.g., "locations.add", "indexing.scan")
+	/// The action type that spawned this job (e.g., "sources.track", "indexing.scan")
 	pub action_type: String,
 
 	/// When the action was initiated
@@ -60,7 +60,7 @@ pub trait ActionContextProvider {
 	/// Create action context for this action instance
 	fn create_action_context(&self) -> ActionContext;
 
-	/// Get the action type name (e.g., "locations.add")
+	/// Get the action type name (e.g., "sources.track")
 	fn action_type_name() -> &'static str
 	where
 		Self: Sized;

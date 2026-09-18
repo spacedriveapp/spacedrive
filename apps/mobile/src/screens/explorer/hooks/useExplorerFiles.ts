@@ -15,7 +15,7 @@ export interface ExplorerFilesResult {
  * Centralized hook for fetching files in the mobile explorer.
  *
  * Handles two file sources with priority:
- * 1. Virtual listings (devices/volumes/locations)
+ * 1. Virtual listings (devices/volumes/sources)
  * 2. Directory listings (normal file browsing)
  */
 export function useExplorerFiles(

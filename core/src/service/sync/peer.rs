@@ -7,9 +7,9 @@
 //! This service implements a leaderless peer-to-peer synchronization system where all devices
 //! are equal participants. It uses a hybrid approach:
 //!
-//! - **State-based sync**: For device-owned data (locations, file entries). Each device owns
+//! - **State-based sync**: For device-owned data (volumes). Each device owns
 //!   its data and broadcasts changes via timestamps.
-//! - **Log-based sync with HLC**: For shared resources (tags, albums). Uses Hybrid Logical Clocks
+//! - **Log-based sync with HLC**: For shared resources (spaces, devices). Uses Hybrid Logical Clocks
 //!   for causal ordering and conflict resolution.
 //!
 //! ## Core Responsibilities
@@ -275,7 +275,7 @@ impl PeerSync {
 	/// Get per-resource watermark for a specific peer and resource type
 	///
 	/// Returns the watermark from sync.db tracking this peer's sync progress
-	/// for the given resource type (location, entry, volume, etc.)
+	/// for the given resource type (volume, space, device, etc.)
 	pub async fn get_resource_watermark(
 		&self,
 		peer_device_id: Uuid,
@@ -2236,7 +2236,7 @@ impl PeerSync {
 		if change.device_id != self.device_id {
 			self.update_resource_watermark(
 				change.device_id,
-				&change.model_type, // Resource type (location, entry, volume, etc.)
+				&change.model_type, // Resource type (volume, space, device, etc.)
 				change.timestamp,
 			)
 			.await?;
@@ -2289,7 +2289,7 @@ impl PeerSync {
 		}
 
 		// Emit resource event for UI reactivity using ResourceManager
-		// This ensures proper resource format (Location, etc.) instead of raw DB model
+		// This ensures proper resource format (Volume, Space, etc.) instead of raw DB model
 		if let Some(uuid_value) = change.data.get("uuid") {
 			if let Some(uuid_str) = uuid_value.as_str() {
 				if let Ok(uuid) = Uuid::parse_str(uuid_str) {
@@ -2483,7 +2483,7 @@ impl PeerSync {
 		}
 
 		// Emit resource event for UI reactivity using ResourceManager
-		// This ensures proper resource format (Location, etc.) instead of raw DB model
+		// This ensures proper resource format (Volume, Space, etc.) instead of raw DB model
 		use crate::infra::sync::peer_log::ChangeType;
 		match entry.change_type {
 			ChangeType::Delete => {

@@ -9,7 +9,7 @@
 //! - Platform-specific quirk handling
 //!
 //! Platform handlers are storage-agnostic - they return raw events without
-//! any knowledge of locations, libraries, or databases.
+//! any knowledge of sources, libraries, or databases.
 
 use crate::event::{FsEvent, RawNotifyEvent};
 use crate::Result;

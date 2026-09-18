@@ -15,10 +15,9 @@ use uuid::Uuid;
 ///
 /// Generic design: maps any UUID to updates waiting for it, regardless of type.
 /// Works for:
-/// - parent_id (entry → entry)
-/// - content_id (entry → content_identity)
-/// - location_id (entry → location)
-/// - metadata_id (entry → user_metadata)
+/// - device_id (volume → device)
+/// - space_id (space_group → space)
+/// - group_id (space_item → space_group)
 /// - Any other FK constraint
 pub struct DependencyTracker {
 	/// Maps dependency UUID → updates waiting for it
@@ -161,8 +160,8 @@ mod tests {
 	use chrono::Utc;
 
 	#[test]
-	fn test_extract_uuid_from_parent_id_error() {
-		let error = "FK mapping failed: Sync dependency missing: parent_id -> entries (uuid=082653bb-d55b-45ea-ac0a-18205197981b): Entry with uuid=082653bb-d55b-45ea-ac0a-18205197981b not found";
+	fn test_extract_uuid_from_space_id_error() {
+		let error = "FK mapping failed: Sync dependency missing: space_id -> spaces (uuid=082653bb-d55b-45ea-ac0a-18205197981b): Space with uuid=082653bb-d55b-45ea-ac0a-18205197981b not found";
 
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
@@ -173,8 +172,8 @@ mod tests {
 	}
 
 	#[test]
-	fn test_extract_uuid_from_content_id_error() {
-		let error = "FK mapping failed: Sync dependency missing: content_id -> content_identities (uuid=d9d3a478-ecf6-4cb4-8711-ddf776037dbb)";
+	fn test_extract_uuid_from_group_id_error() {
+		let error = "FK mapping failed: Sync dependency missing: group_id -> space_groups (uuid=d9d3a478-ecf6-4cb4-8711-ddf776037dbb)";
 
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());
@@ -185,8 +184,8 @@ mod tests {
 	}
 
 	#[test]
-	fn test_extract_uuid_from_location_id_error() {
-		let error = "FK mapping failed: Sync dependency missing: location_id -> locations (uuid=a1b2c3d4-e5f6-7890-abcd-ef1234567890)";
+	fn test_extract_uuid_from_device_id_error() {
+		let error = "FK mapping failed: Sync dependency missing: device_id -> devices (uuid=a1b2c3d4-e5f6-7890-abcd-ef1234567890)";
 
 		let uuid = extract_missing_dependency_uuid(error);
 		assert!(uuid.is_some());

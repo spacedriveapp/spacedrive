@@ -54,7 +54,7 @@ pub trait Syncable: Serialize + Clone {
 	/// Stable model identifier used in sync logs
 	///
 	/// This must be unique across all syncable models and should never change.
-	/// Examples: "album", "tag", "entry", "location"
+	/// Examples: "space", "volume", "device"
 	const SYNC_MODEL: &'static str;
 
 	/// Get the globally unique ID for this resource
@@ -98,7 +98,7 @@ pub trait Syncable: Serialize + Clone {
 	///
 	/// ```rust,ignore
 	/// fn sync_depends_on() -> &'static [&'static str] {
-	///     &["device", "location"]  // Entry depends on device and location
+	///     &["device"]  // A volume depends on its device
 	/// }
 	/// ```
 	fn sync_depends_on() -> &'static [&'static str] {
@@ -240,8 +240,6 @@ pub trait Syncable: Serialize + Clone {
 	/// - `db`: Database connection
 	///
 	/// # Note
-	/// For entries, this triggers cascading deletion via delete_subtree_internal.
-	/// For locations, this deletes the location and its root entry tree.
 	/// For volumes, this simply deletes the volume record.
 	fn apply_deletion(
 		uuid: Uuid,

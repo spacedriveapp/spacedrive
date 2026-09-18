@@ -56,7 +56,7 @@ pub struct EventFilter {
 	pub job_id: Option<String>,
 	/// Filter by device ID
 	pub device_id: Option<uuid::Uuid>,
-	/// Filter by resource type (e.g., "file", "location")
+	/// Filter by resource type (e.g., "file", "volume")
 	pub resource_type: Option<String>,
 	/// Filter by path scope (only for resource events)
 	pub path_scope: Option<crate::domain::SdPath>,

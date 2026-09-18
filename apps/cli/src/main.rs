@@ -668,7 +668,7 @@ async fn run_client_command(
 					} else {
 						"○ Stopped"
 					};
-					services_table.add_row(vec!["Location Watcher", watcher_status]);
+					services_table.add_row(vec!["Watcher", watcher_status]);
 
 					let net_status = if services.networking.running {
 						"● Running"

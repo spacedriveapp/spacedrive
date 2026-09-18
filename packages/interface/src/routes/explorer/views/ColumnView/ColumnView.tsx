@@ -428,7 +428,7 @@ export function ColumnView() {
 	if (!currentPath && !isVirtualView) {
 		return (
 			<div className="flex items-center justify-center h-full">
-				<div className="text-ink-dull">No location selected</div>
+				<div className="text-ink-dull">No folder selected</div>
 			</div>
 		);
 	}

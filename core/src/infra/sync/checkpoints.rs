@@ -350,7 +350,7 @@ mod tests {
 		let checkpoint = BackfillCheckpoint {
 			device_uuid,
 			peer_device_uuid: peer_uuid,
-			resource_type: "location".to_string(),
+			resource_type: "space".to_string(),
 			resume_token: Some("token123".to_string()),
 			last_watermark: Some(Utc::now()),
 			records_synced: 500,
@@ -363,7 +363,7 @@ mod tests {
 			.unwrap();
 
 		// Load checkpoint
-		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "location")
+		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "space")
 			.await
 			.unwrap();
 
@@ -371,7 +371,7 @@ mod tests {
 		let loaded = loaded.unwrap();
 		assert_eq!(loaded.device_uuid, device_uuid);
 		assert_eq!(loaded.peer_device_uuid, peer_uuid);
-		assert_eq!(loaded.resource_type, "location");
+		assert_eq!(loaded.resource_type, "space");
 		assert_eq!(loaded.resume_token, Some("token123".to_string()));
 		assert_eq!(loaded.records_synced, 500);
 	}
@@ -387,7 +387,7 @@ mod tests {
 		let checkpoint1 = BackfillCheckpoint {
 			device_uuid,
 			peer_device_uuid: peer_uuid,
-			resource_type: "entry".to_string(),
+			resource_type: "device".to_string(),
 			resume_token: Some("token1".to_string()),
 			last_watermark: Some(Utc::now()),
 			records_synced: 100,
@@ -402,7 +402,7 @@ mod tests {
 		let checkpoint2 = BackfillCheckpoint {
 			device_uuid,
 			peer_device_uuid: peer_uuid,
-			resource_type: "entry".to_string(),
+			resource_type: "device".to_string(),
 			resume_token: Some("token2".to_string()),
 			last_watermark: Some(Utc::now() + chrono::Duration::seconds(10)),
 			records_synced: 250,
@@ -414,7 +414,7 @@ mod tests {
 			.unwrap();
 
 		// Load and verify update
-		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "entry")
+		let loaded = BackfillCheckpointStore::load(&conn, device_uuid, peer_uuid, "device")
 			.await
 			.unwrap()
 			.unwrap();
@@ -470,7 +470,7 @@ mod tests {
 		let peer_uuid = Uuid::new_v4();
 
 		// Save multiple checkpoints for the same peer
-		for resource_type in &["location", "entry", "volume"] {
+		for resource_type in &["space", "device", "volume"] {
 			let checkpoint = BackfillCheckpoint {
 				device_uuid,
 				peer_device_uuid: peer_uuid,

@@ -52,7 +52,7 @@ export function ActionButtons({
 						/>
 					}
 					label="Add Storage"
-					description="Add a new location to index"
+					description="Track a folder or drive as a source"
 					onPress={onAddStorage}
 				/>
 			</SettingsGroup>

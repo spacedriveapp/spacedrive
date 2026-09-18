@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type SearchScope = "folder" | "location" | "library";
+export type SearchScope = "folder" | "library";
 
 export interface SearchFilters {
 	fileTypes?: string[];

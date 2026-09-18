@@ -38,7 +38,7 @@ export type UseNormalizedQueryOptions<I, O = any, TSelected = O> = Simplify<{
 	query: string;
 	/** Input for the query */
 	input: I;
-	/** Resource type for event filtering (e.g., "file", "location") */
+	/** Resource type for event filtering (e.g., "file", "volume") */
 	resourceType: string;
 	/** Whether query is enabled (default: true) */
 	enabled?: boolean;
@@ -718,7 +718,7 @@ function updateArrayCache(
 }
 
 /**
- * Update wrapped cache ({ files: [...], locations: [...], etc. })
+ * Update wrapped cache ({ files: [...], sources: [...], etc. })
  */
 function updateWrappedCache(
 	oldData: any,

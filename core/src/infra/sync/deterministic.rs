@@ -149,7 +149,7 @@ pub fn deterministic_system_album_uuid(name: &str) -> Uuid {
 /// let space_id = deterministic_library_default_uuid(library_id, "space", "All Devices");
 ///
 /// // Default group within that space
-/// let group_id = deterministic_library_default_uuid(library_id, "space_group", "Locations");
+/// let group_id = deterministic_library_default_uuid(library_id, "space_group", "Volumes");
 ///
 /// // Default item
 /// let item_id = deterministic_library_default_uuid(library_id, "space_item", "Overview");

@@ -51,8 +51,8 @@ export function SearchToolbar() {
 	const {totalFound, isLoading, facets} = useExplorerFiles();
 
 	// The containing source, resolved the same way the path bar resolves it.
-	// A location is a pin and pins do not define search domains; a source
-	// does, and paths.context reports it alias-normalized.
+	// Pins do not define search domains; a source does, and paths.context
+	// reports it alias-normalized.
 	const {data: pathContext} = useLibraryQuery(
 		{
 			type: 'paths.context',

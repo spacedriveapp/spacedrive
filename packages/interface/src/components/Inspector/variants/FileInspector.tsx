@@ -1161,7 +1161,7 @@ function InstancesTab({file}: {file: File}) {
 	return (
 		<div className="no-scrollbar mask-fade-out flex flex-col space-y-5 overflow-x-hidden overflow-y-scroll px-2 pb-10 pt-2">
 			<p className="text-sidebar-inkDull text-xs">
-				All copies of this file across your devices and locations
+				All copies of this file across your devices and sources
 			</p>
 
 			{instances.length === 0 || instances.length === 1 ? (

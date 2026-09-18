@@ -33,7 +33,7 @@ pub struct SyncEventBus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum SyncEvent {
-	/// Device-owned state change (locations, entries, volumes, audit logs)
+	/// Device-owned state change (volumes and other data one device owns)
 	///
 	/// Simple state broadcast without log-based conflict resolution.
 	/// Each device owns its data and broadcasts updates to peers.

@@ -71,7 +71,7 @@ export const TableRow = memo(
 		);
 
 		const handleDoubleClick = useCallback(async () => {
-			// Virtual files (locations, volumes, devices) always navigate to their sd_path
+			// Virtual files (sources, volumes, devices) always navigate to their sd_path
 			if (isVirtualFile(file) && file.sd_path) {
 				navigateToPath(file.sd_path);
 				return;

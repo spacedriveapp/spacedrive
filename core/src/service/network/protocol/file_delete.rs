@@ -117,17 +117,17 @@ impl FileDeleteProtocolHandler {
 				.as_local_path()
 				.ok_or_else(|| anyhow::anyhow!("Path is not local"))?;
 
-			// Validate path is within allowed locations
+			// Validate path is within allowed roots
 			if !self.is_path_allowed(local_path) {
 				tracing::warn!(
 					path = %local_path.display(),
-					"Delete request rejected: path outside allowed locations"
+					"Delete request rejected: path outside allowed roots"
 				);
 				results.push(crate::ops::files::delete::strategy::DeleteResult {
 					path: path.clone(),
 					success: false,
 					bytes_freed: 0,
-					error: Some("Path not within allowed locations".to_string()),
+					error: Some("Path not within allowed roots".to_string()),
 				});
 				continue;
 			}
@@ -162,7 +162,7 @@ impl FileDeleteProtocolHandler {
 		Ok(results)
 	}
 
-	/// Check if a path is within allowed locations (registered Locations from all libraries).
+	/// Check if a path is within the allowed roots (every registered source root).
 	/// Uses canonicalization to prevent traversal attacks.
 	fn is_path_allowed(&self, path: &std::path::Path) -> bool {
 		// Canonicalize the target path to resolve symlinks and `..`
@@ -191,7 +191,7 @@ impl FileDeleteProtocolHandler {
 		false
 	}
 
-	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
+	/// Get all allowed paths by combining static allowed_paths with every source root.
 	fn get_all_allowed_paths(&self) -> Vec<std::path::PathBuf> {
 		let mut paths = Vec::new();
 
@@ -330,14 +330,14 @@ mod tests {
 	use std::path::PathBuf;
 
 	#[test]
-	fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+	fn test_is_path_allowed_rejects_paths_outside_allowed_roots() {
 		let handler = FileDeleteProtocolHandler::new();
 
 		// Without context, no paths are allowed (fail-safe)
 		let outside_path = std::path::Path::new("/etc/passwd");
 		assert!(
 			!handler.is_path_allowed(outside_path),
-			"Paths outside allowed locations must be rejected"
+			"Paths outside allowed roots must be rejected"
 		);
 
 		#[cfg(windows)]
@@ -373,10 +373,10 @@ mod tests {
 	}
 
 	#[test]
-	fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+	fn test_is_path_allowed_accepts_paths_inside_allowed_roots() {
 		let handler = FileDeleteProtocolHandler::new();
 
-		// Create a temp directory as the allowed location
+		// Create a temp directory as the allowed root
 		let temp_dir = std::env::temp_dir().join("spacedrive_delete_test_allowed");
 		let inner_path = temp_dir.join("subdir").join("file.txt");
 		std::fs::create_dir_all(inner_path.parent().unwrap()).ok();
@@ -384,10 +384,10 @@ mod tests {
 
 		handler.set_allowed_paths(vec![temp_dir.clone()]);
 
-		// Test: Path inside allowed location should be ACCEPTED
+		// Test: Path inside allowed root should be ACCEPTED
 		assert!(
 			handler.is_path_allowed(&inner_path),
-			"Paths inside allowed locations should be accepted"
+			"Paths inside allowed roots should be accepted"
 		);
 
 		// Clean up

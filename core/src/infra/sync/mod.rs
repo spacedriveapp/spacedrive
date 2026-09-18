@@ -56,6 +56,6 @@ pub use registry::{
 };
 pub use syncable::Syncable;
 pub use time_source::{FakeTimeSource, SystemTimeSource, TimeSource};
-pub use transaction::{BulkOperation, BulkOperationMetadata, TransactionManager, TxError};
+pub use transaction::{TransactionManager, TxError};
 pub use transport::NetworkTransport;
 pub use watermarks::{ResourceWatermarkStore, WatermarkError};

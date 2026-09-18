@@ -111,10 +111,10 @@ pub async fn path_exists_safe(
 pub async fn should_filter_path(
 	path: &Path,
 	rule_toggles: RuleToggles,
-	location_root: &Path,
+	root: &Path,
 	backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 ) -> Result<bool> {
-	let ruler = build_default_ruler(rule_toggles, location_root, path).await;
+	let ruler = build_default_ruler(rule_toggles, root, path).await;
 
 	let metadata = if let Some(backend) = backend {
 		backend
@@ -297,7 +297,7 @@ pub async fn handle_create<H: ChangeHandler>(
 	if should_filter_path(
 		path,
 		config.rule_toggles,
-		config.location_root,
+		config.root,
 		config.volume_backend,
 	)
 	.await?
@@ -384,7 +384,7 @@ pub async fn handle_modify<H: ChangeHandler>(
 	if should_filter_path(
 		path,
 		config.rule_toggles,
-		config.location_root,
+		config.root,
 		config.volume_backend,
 	)
 	.await?
@@ -488,14 +488,7 @@ pub async fn handle_rename<H: ChangeHandler>(
 		}
 	}
 
-	if should_filter_path(
-		to,
-		config.rule_toggles,
-		config.location_root,
-		config.volume_backend,
-	)
-	.await?
-	{
+	if should_filter_path(to, config.rule_toggles, config.root, config.volume_backend).await? {
 		tracing::debug!(
 			"Destination path is filtered, removing entry: {}",
 			to.display()

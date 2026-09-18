@@ -31,11 +31,11 @@ import { useTabManager } from "./TabManager/useTabManager";
  *    - Data: { action, itemId }
  *
  * 2. move-into
- *    - Moves a file into a location/volume/folder
+ *    - Moves a file into a volume/folder
  *    - Shows a blue ring around the target
  *    - Data: { action, targetType, targetId, targetPath? }
- *    - targetType: "location" | "volume" | "folder"
- *    - targetPath: SdPath (for locations, directly usable)
+ *    - targetType: "volume" | "folder"
+ *    - targetPath: SdPath, directly usable
  *
  * 3. type: "space" | "group"
  *    - Legacy: Drops on the space root or group area (no specific item)
@@ -328,7 +328,7 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 			return;
 		}
 
-		// Move file into location/volume/folder
+		// Move file into volume/folder
 		if (dropData?.action === "move-into") {
 			console.log("[DnD] Move-into action:", {
 				targetType: dropData.targetType,

@@ -150,13 +150,13 @@ mod tests {
 
 		let order = compute_sync_order(models.into_iter()).unwrap();
 
-		// Device must come before location
+		// Device must come before space
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let location_idx = order.iter().position(|m| m == "space").unwrap();
-		let entry_idx = order.iter().position(|m| m == "space_item").unwrap();
+		let space_idx = order.iter().position(|m| m == "space").unwrap();
+		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
 
-		assert!(device_idx < location_idx);
-		assert!(location_idx < entry_idx);
+		assert!(device_idx < space_idx);
+		assert!(space_idx < item_idx);
 	}
 
 	#[test]
@@ -191,7 +191,7 @@ mod tests {
 			("space", &["device"][..]),
 			("device", &[][..]),
 			("audit_log", &[][..]),
-			("tag_relationship", &["audit_log"][..]),
+			("audit_dependent", &["audit_log"][..]),
 		];
 
 		let order = compute_sync_order(models.into_iter()).unwrap();
@@ -199,19 +199,19 @@ mod tests {
 		// Verify all models are present
 		assert_eq!(order.len(), 5);
 
-		// Device must come before location
+		// Device must come before space
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let location_idx = order.iter().position(|m| m == "space").unwrap();
-		assert!(device_idx < location_idx);
+		let space_idx = order.iter().position(|m| m == "space").unwrap();
+		assert!(device_idx < space_idx);
 
-		// Location must come before entry
-		let entry_idx = order.iter().position(|m| m == "space_item").unwrap();
-		assert!(location_idx < entry_idx);
+		// Space must come before its items
+		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
+		assert!(space_idx < item_idx);
 
-		// Tag must come before tag_relationship
-		let tag_idx = order.iter().position(|m| m == "audit_log").unwrap();
-		let tag_rel_idx = order.iter().position(|m| m == "tag_relationship").unwrap();
-		assert!(tag_idx < tag_rel_idx);
+		// A dependency outside the device chain still orders first
+		let audit_idx = order.iter().position(|m| m == "audit_log").unwrap();
+		let dependent_idx = order.iter().position(|m| m == "audit_dependent").unwrap();
+		assert!(audit_idx < dependent_idx);
 	}
 
 	#[test]

@@ -712,13 +712,10 @@ pub struct GitIgnoreRules {
 }
 
 impl GitIgnoreRules {
-	pub async fn get_rules_if_in_git_repo(location_root: &Path, current: &Path) -> Option<Self> {
+	pub async fn get_rules_if_in_git_repo(root: &Path, current: &Path) -> Option<Self> {
 		let mut git_repo: Option<PathBuf> = None;
 		let mut ignores: Vec<PathBuf> = Vec::new();
-		for ancestor in current
-			.ancestors()
-			.take_while(|p| p.starts_with(location_root))
-		{
+		for ancestor in current.ancestors().take_while(|p| p.starts_with(root)) {
 			let gi = ancestor.join(".gitignore");
 			if tokio::fs::try_exists(&gi).await.ok()? {
 				ignores.push(gi);
@@ -789,7 +786,7 @@ impl GitIgnoreRules {
 
 pub async fn build_default_ruler(
 	toggles: RuleToggles,
-	location_root: &Path,
+	root: &Path,
 	current: &Path,
 ) -> IndexerRuler {
 	let mut base: Vec<IndexerRule> = Vec::new();
@@ -809,7 +806,7 @@ pub async fn build_default_ruler(
 		base.push((&*ONLY_IMAGES).into());
 	}
 	if toggles.gitignore {
-		if let Some(gi) = GitIgnoreRules::get_rules_if_in_git_repo(location_root, current).await {
+		if let Some(gi) = GitIgnoreRules::get_rules_if_in_git_repo(root, current).await {
 			let rule = IndexerRule {
 				id: None,
 				name: "Gitignore".to_string(),

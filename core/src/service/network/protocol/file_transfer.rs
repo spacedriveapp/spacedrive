@@ -40,10 +40,10 @@ pub struct FileTransferProtocolHandler {
 		Option<Arc<tokio::sync::RwLock<crate::service::network::device::DeviceRegistry>>>,
 	/// Logger for protocol operations
 	logger: Arc<dyn NetworkLogger>,
-	/// Allowed paths for file transfers (indexed locations).
+	/// Allowed paths for file transfers (source roots).
 	/// File writes are restricted to these directories for security.
 	allowed_paths: Arc<RwLock<Vec<PathBuf>>>,
-	/// Core context for dynamic location lookup (if available).
+	/// Core context for source root lookup (if available).
 	core_context: Option<std::sync::Arc<crate::context::CoreContext>>,
 }
 
@@ -358,14 +358,14 @@ impl FileTransferProtocolHandler {
 		}
 	}
 
-	/// Set the core context for dynamic location lookup.
-	/// This enables the handler to query registered locations from all libraries.
+	/// Set the core context for source root lookup.
+	/// This enables the handler to allow every registered source root.
 	pub fn set_context(&mut self, context: std::sync::Arc<crate::context::CoreContext>) {
 		self.core_context = Some(context);
 	}
 
-	/// Get all allowed paths by combining static allowed_paths with dynamic locations.
-	/// This queries all libraries for their registered locations asynchronously.
+	/// Get all allowed paths by combining static allowed_paths with every
+	/// registered source root.
 	async fn get_all_allowed_paths(&self) -> Vec<PathBuf> {
 		let mut paths = Vec::new();
 
@@ -377,9 +377,8 @@ impl FileTransferProtocolHandler {
 
 		paths.extend(static_paths);
 
-		// Every source root on this machine. A location is a subtree of one, so
-		// listing sources reaches at least as far and costs no database round
-		// trip.
+		// Every source root on this machine, read from the volume index with
+		// no database round trip.
 		if let Some(ctx) = &self.core_context {
 			paths.extend(
 				ctx.volume_index()
@@ -422,7 +421,7 @@ impl FileTransferProtocolHandler {
 			}
 		};
 
-		// Get all allowed paths (static + dynamic from locations)
+		// Get all allowed paths (static + source roots)
 		let allowed_paths = self.get_all_allowed_paths().await;
 
 		// If no allowed paths are configured and no context, deny all (fail-safe)
@@ -447,7 +446,7 @@ impl FileTransferProtocolHandler {
 		tracing::warn!(
 			path = ?path,
 			allowed_paths = ?allowed_paths.iter().take(5).collect::<Vec<_>>(),
-			"File transfer denied: path is not within any allowed location"
+			"File transfer denied: path is not within any allowed root"
 		);
 		false
 	}
@@ -669,18 +668,18 @@ impl FileTransferProtocolHandler {
 			..
 		} = request
 		{
-			// SECURITY: Validate destination path is within allowed locations
+			// SECURITY: Validate destination path is within allowed roots
 			let dest_path = std::path::Path::new(&destination_path);
 			if !self.is_path_allowed(dest_path).await {
 				tracing::warn!(
 					path = %destination_path,
 					from_device = %from_device,
-					"Transfer request rejected: destination path outside allowed locations"
+					"Transfer request rejected: destination path outside allowed roots"
 				);
 				return Ok(FileTransferMessage::TransferResponse {
 					transfer_id,
 					accepted: false,
-					reason: Some("Destination path not within allowed locations".to_string()),
+					reason: Some("Destination path not within allowed roots".to_string()),
 					supported_resume: false,
 				});
 			}
@@ -984,13 +983,13 @@ impl FileTransferProtocolHandler {
 			))
 			.await;
 
-		// Validate destination path is within allowed locations
+		// Validate destination path is within allowed roots
 		// This prevents arbitrary file write attacks from malicious peers.
 		let dest_path_buf = PathBuf::from(&destination_path);
 		if !self.is_path_allowed(&dest_path_buf).await {
 			self.logger
 				.warn(&format!(
-					"Transfer {} rejected: destination path {:?} is not within allowed locations",
+					"Transfer {} rejected: destination path {:?} is not within allowed roots",
 					transfer_id, destination_path
 				))
 				.await;
@@ -1153,7 +1152,7 @@ impl FileTransferProtocolHandler {
 
 	/// Validate that a path is safe to access for PULL requests.
 	/// Prevents directory traversal attacks and enforces access boundaries.
-	/// SECURITY: Only allows access to files within registered locations.
+	/// SECURITY: Only allows access to files within registered source roots.
 	async fn validate_path_access(&self, path: &std::path::Path, _requested_by: Uuid) -> bool {
 		// Normalize path to prevent directory traversal.
 		// canonicalize() resolves all symlinks and `..` components.
@@ -1167,13 +1166,10 @@ impl FileTransferProtocolHandler {
 			return false;
 		}
 
-		// Validate path is within allowed locations
+		// Validate path is within allowed roots
 		// This prevents arbitrary file read attacks from malicious peers.
 		if !self.is_path_allowed(&normalized).await {
-			tracing::warn!(
-				"Path access denied: {:?} is not within allowed locations",
-				path
-			);
+			tracing::warn!("Path access denied: {:?} is not within allowed roots", path);
 			return false;
 		}
 
@@ -1892,20 +1888,20 @@ mod tests {
 	// Path validation security tests
 
 	#[tokio::test]
-	async fn test_is_path_allowed_rejects_paths_outside_allowed_locations() {
+	async fn test_is_path_allowed_rejects_paths_outside_allowed_roots() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
-		// Create a temp directory as the only allowed location
+		// Create a temp directory as the only allowed root
 		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed");
 		std::fs::create_dir_all(&temp_dir).ok();
 		handler.set_allowed_paths(vec![temp_dir.clone()]);
 
-		// Test: Path outside allowed location should be REJECTED
+		// Test: Path outside allowed root should be REJECTED
 		let outside_path = std::path::Path::new("/etc/passwd");
 		assert!(
 			!handler.is_path_allowed(outside_path).await,
-			"Paths outside allowed locations must be rejected"
+			"Paths outside allowed roots must be rejected"
 		);
 
 		// Test: Windows system path should be REJECTED
@@ -1923,11 +1919,11 @@ mod tests {
 	}
 
 	#[tokio::test]
-	async fn test_is_path_allowed_accepts_paths_inside_allowed_locations() {
+	async fn test_is_path_allowed_accepts_paths_inside_allowed_roots() {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
-		// Create a temp directory as the allowed location
+		// Create a temp directory as the allowed root
 		let temp_dir = std::env::temp_dir().join("spacedrive_test_allowed_inner");
 		let inner_path = temp_dir.join("subdir").join("file.txt");
 		std::fs::create_dir_all(inner_path.parent().unwrap()).ok();
@@ -1935,10 +1931,10 @@ mod tests {
 
 		handler.set_allowed_paths(vec![temp_dir.clone()]);
 
-		// Test: Path inside allowed location should be ACCEPTED
+		// Test: Path inside allowed root should be ACCEPTED
 		assert!(
 			handler.is_path_allowed(&inner_path).await,
-			"Paths inside allowed locations should be accepted"
+			"Paths inside allowed roots should be accepted"
 		);
 
 		// Clean up
@@ -1950,7 +1946,7 @@ mod tests {
 		let logger = Arc::new(SilentLogger);
 		let handler = FileTransferProtocolHandler::new_default(logger);
 
-		// Create a temp directory as the only allowed location
+		// Create a temp directory as the only allowed root
 		let temp_dir = std::env::temp_dir().join("spacedrive_test_traversal");
 		std::fs::create_dir_all(&temp_dir).ok();
 		handler.set_allowed_paths(vec![temp_dir.clone()]);

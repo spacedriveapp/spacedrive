@@ -146,7 +146,7 @@ function CreateSpaceScreen() {
 				Create New Space
 			</Text>
 			<Text className="text-ink-dull text-center max-w-xs">
-				Organize your files, devices, and locations into separate spaces
+				Organize your files, devices, and sources into separate spaces
 			</Text>
 		</View>
 	);

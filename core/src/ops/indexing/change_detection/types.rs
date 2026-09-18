@@ -125,6 +125,6 @@ impl EntryRef {
 /// Configuration for change handling operations.
 pub struct ChangeConfig<'a> {
 	pub rule_toggles: crate::ops::indexing::rules::RuleToggles,
-	pub location_root: &'a std::path::Path,
+	pub root: &'a std::path::Path,
 	pub volume_backend: Option<&'a std::sync::Arc<dyn crate::volume::VolumeBackend>>,
 }

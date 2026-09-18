@@ -94,7 +94,7 @@ pub trait CoreAction: Send + Sync + 'static {
 
 /// Library-scoped action that operates within a specific library context.
 ///
-/// These actions work on files, locations, indexing, etc. within a library.
+/// These actions work on files, sources, indexing, etc. within a library.
 /// The ActionManager validates library existence and provides the Library object directly.
 pub trait LibraryAction: Send + Sync + 'static {
 	/// The output type for this action - can be domain objects, job handles, etc.

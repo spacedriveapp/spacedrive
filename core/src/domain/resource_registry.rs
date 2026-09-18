@@ -60,7 +60,7 @@ inventory::collect!(ResourceInventoryEntry);
 
 /// Registration information for a resource
 pub struct ResourceRegistration {
-	/// Resource type identifier (e.g., "file", "space", "location")
+	/// Resource type identifier (e.g., "file", "space", "device")
 	pub resource_type: &'static str,
 
 	/// List of dependency resource types (for virtual resources)

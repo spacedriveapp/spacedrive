@@ -1,7 +1,7 @@
-//! Library - a Spacedrive library (collection of indexed locations)
+//! Library - a Spacedrive library (a collection of sources)
 //!
 //! Libraries are the top-level organizational unit in Spacedrive.
-//! Each library has its own database, settings, and set of locations.
+//! Each library has its own database, settings, and set of sources.
 
 use crate::domain::resource::Identifiable;
 use crate::library::config::{LibrarySettings, LibraryStatistics};

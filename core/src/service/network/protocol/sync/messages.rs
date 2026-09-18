@@ -13,7 +13,7 @@ use uuid::Uuid;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SyncMessage {
 	// === STATE-BASED MESSAGES (Device-Owned Data) ===
-	/// Broadcast single state change (location, entry, volume)
+	/// Broadcast single state change (e.g. a volume)
 	StateChange {
 		library_id: Uuid,
 		model_type: String,
@@ -34,7 +34,7 @@ pub enum SyncMessage {
 	/// Request state from peer
 	StateRequest {
 		library_id: Uuid,
-		model_types: Vec<String>,     // e.g., ["location", "entry"]
+		model_types: Vec<String>,     // e.g., ["volume", "device"]
 		device_id: Option<Uuid>,      // Specific device or all
 		since: Option<DateTime<Utc>>, // Incremental sync
 		checkpoint: Option<String>,   // For resumability
@@ -202,7 +202,7 @@ mod tests {
 
 		let msg = SyncMessage::StateChange {
 			library_id,
-			model_type: "location".to_string(),
+			model_type: "volume".to_string(),
 			record_uuid: Uuid::new_v4(),
 			device_id: Uuid::new_v4(),
 			data: serde_json::json!({}),
@@ -218,7 +218,7 @@ mod tests {
 
 		let request = SyncMessage::StateRequest {
 			library_id,
-			model_types: vec!["location".to_string()],
+			model_types: vec!["volume".to_string()],
 			device_id: None,
 			since: None,
 			checkpoint: None,
@@ -229,7 +229,7 @@ mod tests {
 
 		let change = SyncMessage::StateChange {
 			library_id,
-			model_type: "location".to_string(),
+			model_type: "volume".to_string(),
 			record_uuid: Uuid::new_v4(),
 			device_id: Uuid::new_v4(),
 			data: serde_json::json!({}),

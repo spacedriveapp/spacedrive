@@ -33,7 +33,7 @@ use crate::infra::db::entities::source;
 /// A source's capture policy: what its walk and its watcher record.
 ///
 /// This is the write-time policy and the only one. A filesystem source applies
-/// it to both its walk and watcher. Locations are navigation pins, and display
+/// it to both its walk and watcher. Navigation lives in Space items, and display
 /// filtering belongs to lenses over a store that captured everything. Serde
 /// defaults keep every field optional in the stored JSON, so rows written
 /// before a field existed parse as the default.

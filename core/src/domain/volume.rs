@@ -735,7 +735,7 @@ impl Volume {
 		Self {
 			// Derived from the fingerprint, so the same drive gets the same id
 			// on every launch. Anything that stores a volume uuid (a source's
-			// anchor, a location's row) depends on this surviving a restart;
+			// anchor, a replica's volume) depends on this surviving a restart;
 			// a random id here made every anchor dangle the next morning.
 			id: Uuid::new_v5(&Uuid::NAMESPACE_OID, fingerprint.0.as_bytes()),
 			library_id: None,

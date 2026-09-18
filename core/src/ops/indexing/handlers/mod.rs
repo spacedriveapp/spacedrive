@@ -12,7 +12,7 @@ use std::path::Path;
 
 /// Whether a watched root still exists on disk.
 ///
-/// A vanished location root means the volume unmounted (or the root was
+/// A vanished watched root means the volume unmounted (or the root was
 /// removed wholesale); the flood of Remove events that follows must not be
 /// applied, or every record under the root would be deleted because a drive
 /// was unplugged. Errors other than NotFound (e.g. permission changes) are

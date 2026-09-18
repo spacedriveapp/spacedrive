@@ -2,7 +2,7 @@
 //!
 //! `FsWatcher` is the primary interface for watching filesystem changes.
 //! It's storage-agnostic - it only knows about paths and events, not
-//! about locations, libraries, or databases.
+//! about sources, libraries, or databases.
 
 use crate::config::{WatchConfig, WatcherConfig};
 use crate::error::{Result, WatcherError};

@@ -306,7 +306,7 @@ pub struct SyncableModelRegistration {
 	/// Model type identifier (e.g., "space")
 	pub model_type: &'static str,
 
-	/// Table name in database (e.g., "locations")
+	/// Table name in database (e.g., "volumes")
 	pub table_name: &'static str,
 
 	/// Whether this is device-owned (state-based) or shared (log-based)

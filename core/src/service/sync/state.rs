@@ -344,7 +344,7 @@ mod tests {
 		let queue = BufferQueue::new();
 
 		let update = BufferedUpdate::StateChange(StateChangeMessage {
-			model_type: "location".to_string(),
+			model_type: "volume".to_string(),
 			record_uuid: Uuid::new_v4(),
 			device_id: Uuid::new_v4(),
 			data: serde_json::json!({"path": "/test"}),

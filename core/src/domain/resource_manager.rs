@@ -23,7 +23,7 @@
 //!
 //! ```ignore
 //! // Emit events for a resource change
-//! resource_manager.emit_resource_events("location", vec![location_id]).await?;
+//! resource_manager.emit_resource_events("volume", vec![volume_id]).await?;
 //!
 //! // Or use EventEmitter trait directly on domain models
 //! use crate::domain::resource::EventEmitter;

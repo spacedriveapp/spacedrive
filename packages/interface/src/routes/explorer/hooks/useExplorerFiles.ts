@@ -33,7 +33,7 @@ export interface ExplorerFilesResult {
  * 2. Tag mode (when viewing files by tag)
  * 3. Search results (when in search mode)
  * 4. Recents (when in recents mode)
- * 5. Virtual listings (devices/volumes/locations)
+ * 5. Virtual listings (devices/volumes/sources)
  * 6. Directory listings (normal file browsing)
  */
 export function useExplorerFiles(): ExplorerFilesResult {

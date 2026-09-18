@@ -216,13 +216,11 @@ pub enum GroupType {
 	/// Fixed quick navigation (Overview, Recents, Favorites)
 	QuickAccess,
 
-	/// Device with its volumes and locations as children
+	/// Device with its volumes as children
 	Device { device_id: Uuid },
 
 	/// All devices (library and paired) across the system
 	Devices,
-
-	/// All locations across all devices
 
 	/// All volumes across all devices
 	Volumes,
@@ -409,7 +407,7 @@ pub enum ItemType {
 	/// File kinds (images, videos, audio, etc.)
 	FileKinds,
 
-	/// Storage volume (with locations as children)
+	/// Storage volume
 	Volume { volume_id: Uuid },
 
 	/// Tag filter
@@ -641,9 +639,9 @@ impl Identifiable for SpaceLayout {
 				}
 			}
 
-			// When location/volume/tag/device changes, invalidate all spaces
+			// When a volume, tag, or device changes, invalidate all spaces
 			// (they will be re-queried with fresh JOINed data)
-			"location" | "volume" | "tag" | "device" => {
+			"volume" | "tag" | "device" => {
 				// Return all space IDs to invalidate all layouts
 				let all_spaces = space::Entity::find().all(db).await?;
 				return Ok(all_spaces.into_iter().map(|s| s.uuid).collect());

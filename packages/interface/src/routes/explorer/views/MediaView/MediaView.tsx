@@ -345,9 +345,9 @@ export function MediaView() {
 	if (!currentPath && !usesExplorerFiles) {
 		return (
 			<div className="flex flex-col items-center justify-center h-full text-ink-dull gap-2">
-				<div className="text-lg">No location selected</div>
+				<div className="text-lg">No folder selected</div>
 				<div className="text-sm">
-					Select a location from the sidebar to view media
+					Select a place from the sidebar to view media
 				</div>
 			</div>
 		);
@@ -360,7 +360,7 @@ export function MediaView() {
 				<div className="text-sm">
 					{isSearchMode
 						? "No images or videos match your search"
-						: "No images or videos in this location"}
+						: "No images or videos in this folder"}
 				</div>
 			</div>
 		);

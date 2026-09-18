@@ -27,7 +27,7 @@ pub const SUMMARY_DEPTH: usize = 7;
 /// What a walk keeps of what it visits.
 ///
 /// Every field is off by default, which is the walk that keeps what it accepts
-/// and drops the rest: a browse, or a location index.
+/// and drops the rest: a browse, or a walk under a source.
 #[derive(Debug, Clone, Default, Serialize, Deserialize, Type)]
 pub struct Retention {
 	/// Keep a directory the rules turn back at, with a count standing in for
