@@ -1,24 +1,12 @@
 //! # Spacedrive's File Indexing System
 //!
-//! `core::ops::indexing` provides a multi-phase indexing pipeline that turns
-//! raw filesystem paths into searchable database entries. The system handles
-//! both persistent locations (managed directories) and ephemeral browsing sessions
-//! (external drives, network shares), ensuring every file gets a stable UUID for
-//! sync and user data attachment.
-//!
-//! ## Example
-//! ```rust,no_run
-//! use spacedrive_core::ops::indexing::{IndexerJob, IndexerJobConfig, IndexMode};
-//! use spacedrive_core::domain::addressing::SdPath;
-//! use uuid::Uuid;
-//!
-//! # async fn example(library: &spacedrive_core::library::Library, location_id: Uuid, path: SdPath) -> Result<(), Box<dyn std::error::Error>> {
-//! let config = IndexerJobConfig::new(location_id, path, IndexMode::Content);
-//! let job = IndexerJob::new(config);
-//! library.jobs().dispatch(job).await?;
-//! # Ok(())
-//! # }
-//! ```
+//! `core::ops::indexing` owns the volume index: one walker maps every
+//! attached drive into an in-memory arena, record identity is assigned by
+//! each source's store so a file keeps its UUID across walks, and watchers
+//! keep the map current. A source is a retained scope over that map; its
+//! store holds the durable generation beside the assertions no ingest can
+//! rebuild. There is one writer and one read map. The old persistent
+//! location pipeline and its database entries are gone.
 
 pub mod action;
 pub mod change_detection;
@@ -30,7 +18,6 @@ pub mod job;
 pub mod lens;
 pub mod metadata;
 pub mod metrics;
-pub mod path_resolver;
 pub mod phases;
 pub mod progress;
 pub mod rules;
@@ -49,7 +36,6 @@ pub use input::IndexInput;
 pub use job::{IndexScope, IndexerJob, IndexerJobConfig, IndexerOutput};
 pub use metadata::{extract_metadata, get_inode, is_hidden_path, EntryMetadata};
 pub use metrics::IndexerMetrics;
-pub use path_resolver::PathResolver;
 
 pub use rules::{
 	build_default_ruler, IndexerRule, IndexerRuler, RuleKind, RulePerKind, RuleToggles,

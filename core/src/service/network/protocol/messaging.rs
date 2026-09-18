@@ -179,21 +179,22 @@ impl MessagingProtocolHandler {
 					let name = library.name().await;
 					let config_guard = library.config().await;
 
-					// Get library statistics from database
+					// Library totals come from the source rows the stores keep
+					// current; the retired entry table would count nothing.
 					let db = library.db();
 					use crate::infra::db::entities;
 					use sea_orm::{EntityTrait, PaginatorTrait};
 
-					let entry_count = match entities::entry::Entity::find().count(db.conn()).await {
+					let (file_count, total_size_bytes) =
+						crate::library::Library::calculate_file_statistics_static(db.conn())
+							.await
+							.unwrap_or((0, 0));
+
+					let source_count = match entities::source::Entity::find().count(db.conn()).await
+					{
 						Ok(count) => count,
 						Err(_) => 0,
 					};
-
-					let location_count =
-						match entities::location::Entity::find().count(db.conn()).await {
-							Ok(count) => count,
-							Err(_) => 0,
-						};
 
 					let device_count = match entities::device::Entity::find().count(db.conn()).await
 					{
@@ -206,9 +207,9 @@ impl MessagingProtocolHandler {
 						name,
 						description: config_guard.description.clone(),
 						created_at: config_guard.created_at,
-						total_entries: entry_count,
-						total_locations: location_count,
-						total_size_bytes: 0, // TODO: Calculate from entries
+						total_entries: file_count,
+						total_locations: source_count,
+						total_size_bytes,
 						device_count,
 					});
 				}

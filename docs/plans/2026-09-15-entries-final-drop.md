@@ -110,8 +110,8 @@ commit when ownership or status changes.
 
 | Slice | Status | Owner | Exit proof |
 |---|---|---|---|
-| FD0 Baseline and ownership | ready | unowned | Current references and tables recorded; fixtures and build baseline pass |
-| FD1 Remove runtime entry reads | ready | unowned | No production query or helper reads `entries`, `entry_closure`, or `directory_paths` |
+| FD0 Baseline and ownership | done 2026-09-18 | Fable | Recorded below: reference inventory, fresh-library tables, live fixture, baseline |
+| FD1 Remove runtime entry reads | done 2026-09-18 | Fable | Production readers gone: File's dependency router deleted (only legacy row sync fed it), the ancestor entry-ID cache and SQL path resolver removed, discovery totals read source rows, indexing docs describe one writer |
 | FD2 Build tags on source stores | landed; delivery verified live 2026-09-18 | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
 | FD3 Remove legacy row sync | blocked on FD2 | unowned | No entry model registration or entry-specific replication remains; peer source capabilities pass |
 | FD4 Replace the library schema | blocked on FD2 and FD3 | unowned | Fresh and upgraded libraries contain no retired tables |
@@ -119,6 +119,27 @@ commit when ownership or status changes.
 | FDA Acceptance | blocked on FD1-FD5 | unowned | Full matrix below passes |
 
 ## FD0: Baseline and ownership
+
+> Done 2026-09-18. Reference inventory: production entry readers were
+> `library/sync_helpers.rs`, `ops/indexing/path_resolver.rs`,
+> `ops/indexing/state.rs` (ancestor cache), `domain/file.rs`
+> (`route_from_dependency`), and `service/network/protocol/messaging.rs`
+> (discovery counts); everything else sits in entities, migrations, legacy
+> row sync, tests, and examples. Registered sync models at the baseline:
+> entry, content_identity, sidecar, mime_type, the three media_data tables,
+> collection, collection_entry, location, tag, tag_relationship,
+> user_metadata, user_metadata_tag, audit_log, device, volume, space,
+> space_group, space_item. A fresh library creates 43 tables including the
+> whole retired substrate (entries, entry_closure, directory_paths,
+> content_identities, mime_types, sidecar tables, semantic tag tables,
+> user_metadata tables, collections, location, the FTS search_index family,
+> sync_checkpoints/conduit/generation). The live fleet is the fixture: Mac
+> and titan paired with replicas, a Space item present. Build baseline:
+> `cargo check` and the store and core lib suites pass; `--all-targets`
+> fails only in pre-existing entry-era tests and examples
+> (`library_demo`, `entry_move_integrity_test`,
+> `location_export_import_test`, `event_system_test`, `fs_watcher_test`).
+
 
 1. Re-run the reference inventory. Classify every hit as production,
    migration, test, example, generated client, or historical documentation.
@@ -139,6 +160,17 @@ Do not start with a schema deletion. The fixture and the reference inventory
 are the proof that makes the later deletion safe.
 
 ## FD1: Remove runtime entry reads
+
+> Done 2026-09-18. `File::route_from_dependency` and its dependency list are
+> gone; the only emitters were legacy row-sync applies, and file payloads
+> announce directly from the volume index. The `seed_ancestor_cache`
+> entry-ID machinery and the dead `entries_for_content` field left the
+> indexer state, the SQL `path_resolver` module is deleted, library
+> discovery totals in the pairing protocol read source rows through
+> `calculate_file_statistics_static` with sources standing in for the
+> retired location count, and the indexing module docs describe one writer
+> and one read map.
+
 
 1. Derive library discovery counts and bytes from source rows and source-store
    ledgers. Do not fall back to an empty entry table.

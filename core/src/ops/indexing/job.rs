@@ -29,7 +29,6 @@ use super::{
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
 	summary::Retention,
-	PathResolver,
 };
 
 /// Whether to index just one directory level or recurse through subdirectories.
@@ -208,10 +207,9 @@ impl IndexerJob {
 		} else {
 			ctx.log("Resuming indexer from saved state");
 			ctx.log_debug(format!(
-				"Job resuming with saved state - phase: {:?}, entry_batches: {}, entries_for_content: {}, seen_paths: {}",
+				"Job resuming with saved state - phase: {:?}, entry_batches: {}, seen_paths: {}",
 				self.state.as_ref().unwrap().phase,
 				self.state.as_ref().unwrap().entry_batches.len(),
-				self.state.as_ref().unwrap().entries_for_content.len(),
 				self.state.as_ref().unwrap().seen_paths.len()
 			));
 		}

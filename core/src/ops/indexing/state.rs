@@ -130,8 +130,6 @@ pub struct IndexerState {
 	/// binds a parent before it can link a child, so consuming these back to
 	/// front leaves almost every record unparented.
 	pub(crate) entry_batches: VecDeque<Vec<DirEntry>>,
-	pub(crate) entries_for_content: Vec<(i32, PathBuf)>,
-	pub(crate) entry_id_cache: HashMap<PathBuf, i32>,
 	// UUIDs from ephemeral indexing preserved when creating persistent entries.
 	// This ensures files browsed before enabling indexing keep the same UUID,
 	// preventing orphaned tags and flashing Quick Look previews when a browsed
@@ -184,8 +182,6 @@ impl IndexerState {
 			pending_entries: Vec::new(),
 			seen_paths: HashSet::new(),
 			entry_batches: VecDeque::new(),
-			entries_for_content: Vec::new(),
-			entry_id_cache: HashMap::new(),
 			ephemeral_uuids: HashMap::new(),
 			existing_entries: HashMap::new(),
 			stats: Default::default(),
@@ -283,48 +279,6 @@ impl IndexerState {
 
 	pub fn create_batch(&mut self) -> Vec<DirEntry> {
 		std::mem::take(&mut self.pending_entries)
-	}
-
-	/// Seeds the entry ID cache with all ancestor directories from location root to target path.
-	///
-	/// This prevents the ghost folder bug where subpath reindexing creates entries with the
-	/// wrong parent_id. When indexing a subdirectory, parent lookups must find the existing
-	/// ancestor entries rather than creating duplicates. Seeding ensures the cache is warm
-	/// before processing begins.
-	pub async fn seed_ancestor_cache<'a>(
-		&mut self,
-		db: &sea_orm::DatabaseConnection,
-		location_root_path: &std::path::Path,
-		location_entry_id: i32,
-		target_path: &std::path::Path,
-	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-		use crate::infra::db::entities::directory_paths;
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-
-		self.entry_id_cache
-			.insert(location_root_path.to_path_buf(), location_entry_id);
-
-		if let Ok(relative_path) = target_path.strip_prefix(location_root_path) {
-			let mut current_path = location_root_path.to_path_buf();
-
-			for component in relative_path.components() {
-				current_path.push(component);
-
-				if let Ok(Some(dir_record)) = directory_paths::Entity::find()
-					.filter(
-						directory_paths::Column::Path
-							.eq(current_path.to_string_lossy().to_string()),
-					)
-					.one(db)
-					.await
-				{
-					self.entry_id_cache
-						.insert(current_path.clone(), dir_record.entry_id);
-				}
-			}
-		}
-
-		Ok(())
 	}
 }
 
