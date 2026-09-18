@@ -164,7 +164,6 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				tags: null,
 				date_range: null,
 				size_range: null,
-				locations: null,
 				content_types: null,
 				include_hidden: null,
 				include_archived: null,

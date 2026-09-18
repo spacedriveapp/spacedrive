@@ -23,7 +23,7 @@ use tokio::sync::RwLock;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Default event subscription list - mirrors packages/ts-client/src/event-filter.ts
-/// Excludes noisy events: LogMessage, JobProgress, IndexingProgress
+/// Excludes LogMessage, which turns every log line into an event
 fn get_default_event_subscription() -> Vec<&'static str> {
 	vec![
 		// Core lifecycle
@@ -35,13 +35,6 @@ fn get_default_event_subscription() -> Vec<&'static str> {
 		"LibraryClosed",
 		"LibraryDeleted",
 		"LibraryStatisticsUpdated",
-		// Entry events
-		"EntryCreated",
-		"EntryModified",
-		"EntryDeleted",
-		"EntryMoved",
-		// Raw filesystem changes
-		"FsRawChange",
 		// Volume events
 		"VolumeAdded",
 		"VolumeRemoved",
@@ -58,10 +51,6 @@ fn get_default_event_subscription() -> Vec<&'static str> {
 		"JobCancelled",
 		"JobPaused",
 		"JobResumed",
-		// Indexing lifecycle (no progress spam)
-		"IndexingStarted",
-		"IndexingCompleted",
-		"IndexingFailed",
 		// Device events
 		"DeviceConnected",
 		"DeviceDisconnected",
@@ -69,13 +58,6 @@ fn get_default_event_subscription() -> Vec<&'static str> {
 		"ResourceChanged",
 		"ResourceChangedBatch",
 		"ResourceDeleted",
-		// Legacy compatibility
-		"LocationAdded",
-		"LocationRemoved",
-		"FilesIndexed",
-		"ThumbnailsGenerated",
-		"FileOperationCompleted",
-		"FilesModified",
 	]
 }
 

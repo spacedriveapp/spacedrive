@@ -1077,9 +1077,9 @@ error_type: string } } | { LibraryStatisticsUpdated: { library_id: string; stati
  * Refresh event - signals that all frontend caches should be invalidated
  * Emitted after major data recalculations (e.g., volume unique_bytes refresh)
  */
-"Refresh" | { ProxyPairingConfirmationRequired: { session_id: string; vouchee_device_name: string; vouchee_device_os: string; voucher_device_name: string; voucher_device_id: string; expires_at: string } } | { ProxyPairingVouchingReady: { session_id: string; vouchee_device_id: string } } | { EntryCreated: { library_id: string; entry_id: string } } | { EntryModified: { library_id: string; entry_id: string } } | { EntryDeleted: { library_id: string; entry_id: string } } | { EntryMoved: { library_id: string; entry_id: string; old_path: string; new_path: string } } | { FsRawChange: { library_id: string; kind: FsRawEventKind } } | { VolumeAdded: Volume } | { VolumeRemoved: { fingerprint: VolumeFingerprint } } | { VolumeUpdated: { fingerprint: VolumeFingerprint; old_info: VolumeInfo; new_info: VolumeInfo } } | { VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed_mbps: number; write_speed_mbps: number } } | { VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string; device_id: string } } | { JobStarted: { job_id: string; job_type: string; device_id: string } } | { JobProgress: { job_id: string; job_type: string; device_id: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; device_id: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; device_id: string; error: string } } | { JobCancelled: { job_id: string; job_type: string; device_id: string } } | { JobPaused: { job_id: string; device_id: string } } | { JobResumed: { job_id: string; device_id: string } } | { IndexingStarted: { location_id: string } } | { IndexingProgress: { location_id: string; processed: number; total: number | null } } | { IndexingCompleted: { location_id: string; total_files: number; total_dirs: number } } | { IndexingFailed: { location_id: string; error: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | { SyncStateChanged: { library_id: string; previous_state: string; new_state: string; timestamp: string } } | { SyncActivity: { library_id: string; peer_device_id: string; activity_type: SyncActivityType; model_type: string | null; count: number; timestamp: string } } | { SyncConnectionChanged: { library_id: string; peer_device_id: string; peer_name: string; connected: boolean; timestamp: string } } | { SyncError: { library_id: string; peer_device_id: string | null; error_type: string; message: string; timestamp: string } } | { ResourceChanged: { 
+"Refresh" | { ProxyPairingConfirmationRequired: { session_id: string; vouchee_device_name: string; vouchee_device_os: string; voucher_device_name: string; voucher_device_id: string; expires_at: string } } | { ProxyPairingVouchingReady: { session_id: string; vouchee_device_id: string } } | { VolumeAdded: Volume } | { VolumeRemoved: { fingerprint: VolumeFingerprint } } | { VolumeUpdated: { fingerprint: VolumeFingerprint; old_info: VolumeInfo; new_info: VolumeInfo } } | { VolumeSpeedTested: { fingerprint: VolumeFingerprint; read_speed_mbps: number; write_speed_mbps: number } } | { VolumeMountChanged: { fingerprint: VolumeFingerprint; is_mounted: boolean } } | { VolumeError: { fingerprint: VolumeFingerprint; error: string } } | { JobQueued: { job_id: string; job_type: string; device_id: string } } | { JobStarted: { job_id: string; job_type: string; device_id: string } } | { JobProgress: { job_id: string; job_type: string; device_id: string; progress: number; message: string | null; generic_progress: GenericProgress | null } } | { JobCompleted: { job_id: string; job_type: string; device_id: string; output: JobOutput } } | { JobFailed: { job_id: string; job_type: string; device_id: string; error: string } } | { JobCancelled: { job_id: string; job_type: string; device_id: string } } | { JobPaused: { job_id: string; device_id: string } } | { JobResumed: { job_id: string; device_id: string } } | { DeviceConnected: { device_id: string; device_name: string } } | { DeviceDisconnected: { device_id: string } } | { SyncStateChanged: { library_id: string; previous_state: string; new_state: string; timestamp: string } } | { SyncActivity: { library_id: string; peer_device_id: string; activity_type: SyncActivityType; model_type: string | null; count: number; timestamp: string } } | { SyncConnectionChanged: { library_id: string; peer_device_id: string; peer_name: string; connected: boolean; timestamp: string } } | { SyncError: { library_id: string; peer_device_id: string | null; error_type: string; message: string; timestamp: string } } | { ResourceChanged: { 
 /**
- * Resource type identifier (e.g., "location", "tag", "album")
+ * Resource type identifier (e.g., "file", "space", "device")
  */
 resource_type: string; 
 /**
@@ -1110,7 +1110,7 @@ resource_type: string;
 /**
  * The deleted resource's ID
  */
-resource_id: string } } | { LocationAdded: { library_id: string; location_id: string; path: string } } | { LocationRemoved: { library_id: string; location_id: string } } | { FilesIndexed: { library_id: string; location_id: string; count: number } } | { ThumbnailsGenerated: { library_id: string; count: number } } | { FileOperationCompleted: { library_id: string; operation: FileOperation; affected_files: number } } | { FilesModified: { library_id: string; paths: string[] } } | { ConfigChanged: { field: string } } | { Custom: { event_type: string } };
+resource_id: string } } | { ConfigChanged: { field: string } } | { Custom: { event_type: string } };
 
 /**
  * Event category for grouping related events
@@ -1320,11 +1320,6 @@ permanent: boolean;
 recursive: boolean };
 
 /**
- * Types of file operations
- */
-export type FileOperation = "Copy" | "Move" | "Delete" | "Rename";
-
-/**
  * Input for renaming a file or directory
  */
 export type FileRenameInput = { 
@@ -1383,10 +1378,6 @@ results: FileSearchResult[]; total_found: number;
  * `total_found` a floor rather than an exact count.
  */
 total_is_exact: boolean; search_id: string; facets: SearchFacets; suggestions: string[]; pagination: PaginationInfo; execution_time_ms: number; 
-/**
- * Which index type was used for this search
- */
-index_type: IndexType; 
 /**
  * Which filters are available for this search type
  */
@@ -1453,7 +1444,7 @@ export type FileSystem =
 /**
  * Indicates which filters are available for a given search type
  */
-export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Locations" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
+export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
 
 export type FreezeSourceInput = { source_id: string };
 
@@ -1469,11 +1460,6 @@ path: string;
 records: number };
 
 export type FrontendReads = { frontend: string; reads: number };
-
-/**
- * Raw filesystem event kinds emitted by the watcher without DB resolution
- */
-export type FsRawEventKind = { Create: { path: string } } | { Modify: { path: string } } | { Remove: { path: string } } | { Rename: { from: string; to: string } };
 
 /**
  * Generic progress information that all job types can convert into
@@ -1725,23 +1711,6 @@ export type IndexScope =
  * Index recursively through all subdirectories
  */
 "Recursive";
-
-/**
- * Indicates which index type was used for a search query
- */
-export type IndexType = 
-/**
- * Database FTS5 search (persistent index)
- */
-"Persistent" | 
-/**
- * In-memory ephemeral search
- */
-"Ephemeral" | 
-/**
- * Mix of both (future: hybrid searches)
- */
-"Hybrid";
 
 /**
  * Input for volume indexing action
@@ -3354,12 +3323,12 @@ export type SearchFacets = { file_types: { [key in string]: number };
 /**
  * Content kinds by their wire name, for the filter panel's kind options.
  */
-kinds: { [key in string]: number }; tags: { [key in string]: number }; locations: { [key in string]: number }; date_ranges: { [key in string]: number }; size_ranges: { [key in string]: number } };
+kinds: { [key in string]: number }; tags: { [key in string]: number }; date_ranges: { [key in string]: number }; size_ranges: { [key in string]: number } };
 
 /**
  * Container for all structured filters
  */
-export type SearchFilters = { file_types: string[] | null; tags: TagFilter | null; date_range: DateRangeFilter | null; size_range: SizeRangeFilter | null; locations: string[] | null; content_types: ContentKind[] | null; include_hidden: boolean | null; include_archived: boolean | null; 
+export type SearchFilters = { file_types: string[] | null; tags: TagFilter | null; date_range: DateRangeFilter | null; size_range: SizeRangeFilter | null; content_types: ContentKind[] | null; include_hidden: boolean | null; include_archived: boolean | null; 
 /**
  * Only return files that are at risk (true) or redundant (false).
  * At risk = content exists on exactly one volume.

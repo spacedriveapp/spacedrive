@@ -168,42 +168,6 @@ fn summarize_event(event: &Event) -> String {
 			format!("Statistics updated for library {}", library_id)
 		}
 
-		// Entry events
-		Event::EntryCreated {
-			entry_id,
-			library_id,
-		} => {
-			format!("Entry {} created in library {}", entry_id, library_id)
-		}
-		Event::EntryModified {
-			entry_id,
-			library_id,
-		} => {
-			format!("Entry {} modified in library {}", entry_id, library_id)
-		}
-		Event::EntryDeleted {
-			entry_id,
-			library_id,
-		} => {
-			format!("Entry {} deleted in library {}", entry_id, library_id)
-		}
-		Event::EntryMoved {
-			entry_id,
-			old_path,
-			new_path,
-			..
-		} => {
-			format!(
-				"Entry {} moved from '{}' to '{}'",
-				entry_id, old_path, new_path
-			)
-		}
-
-		// Filesystem events
-		Event::FsRawChange { library_id, kind } => {
-			format!("Filesystem change in library {}: {:?}", library_id, kind)
-		}
-
 		// Volume events
 		Event::VolumeAdded(vol) => {
 			format!("Volume added: {} ({})", vol.name, vol.fingerprint.0)
@@ -301,35 +265,6 @@ fn summarize_event(event: &Event) -> String {
 			format!("Job resumed: {}", &job_id[..8])
 		}
 
-		// Indexing events
-		Event::IndexingStarted { location_id } => {
-			format!("Indexing started for location {}", location_id)
-		}
-		Event::IndexingProgress {
-			location_id,
-			processed,
-			total,
-		} => {
-			let total_str = total.map(|t| format!("/{}", t)).unwrap_or_default();
-			format!(
-				"Indexing location {}: {}{} processed",
-				location_id, processed, total_str
-			)
-		}
-		Event::IndexingCompleted {
-			location_id,
-			total_files,
-			total_dirs,
-		} => {
-			format!(
-				"Indexing completed for location {}: {} files, {} dirs",
-				location_id, total_files, total_dirs
-			)
-		}
-		Event::IndexingFailed { location_id, error } => {
-			format!("Indexing failed for location {}: {}", location_id, error)
-		}
-
 		// Device events
 		Event::DeviceConnected {
 			device_id,
@@ -369,37 +304,6 @@ fn summarize_event(event: &Event) -> String {
 			resource_id,
 		} => {
 			format!("Resource deleted: {} ({})", resource_type, resource_id)
-		}
-
-		// Legacy location events
-		Event::LocationAdded {
-			location_id, path, ..
-		} => {
-			format!("Location added: {} at {}", location_id, path.display())
-		}
-		Event::LocationRemoved { location_id, .. } => {
-			format!("Location removed: {}", location_id)
-		}
-		Event::FilesIndexed {
-			location_id, count, ..
-		} => {
-			format!("Files indexed: {} files at location {}", count, location_id)
-		}
-		Event::ThumbnailsGenerated { count, .. } => {
-			format!("Thumbnails generated: {}", count)
-		}
-		Event::FileOperationCompleted {
-			operation,
-			affected_files,
-			..
-		} => {
-			format!(
-				"File operation completed: {:?} ({} files)",
-				operation, affected_files
-			)
-		}
-		Event::FilesModified { paths, .. } => {
-			format!("Files modified: {} files", paths.len())
 		}
 
 		// Sync events

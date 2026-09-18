@@ -56,7 +56,6 @@ pub struct SearchFilters {
 	pub tags: Option<TagFilter>,
 	pub date_range: Option<DateRangeFilter>,
 	pub size_range: Option<SizeRangeFilter>,
-	pub locations: Option<Vec<Uuid>>,
 	pub content_types: Option<Vec<ContentKind>>,
 	pub include_hidden: Option<bool>,
 	pub include_archived: Option<bool>,

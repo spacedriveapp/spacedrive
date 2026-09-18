@@ -61,9 +61,6 @@ impl EventCollector {
 									batch_event_count, resource_type, count
 								);
 							}
-							Event::IndexingCompleted { .. } => {
-								eprintln!("Indexing completed");
-							}
 							Event::JobCompleted { job_type, .. } => {
 								eprintln!("Job completed: {}", job_type);
 							}
@@ -123,12 +120,6 @@ impl EventCollector {
 						.entry(resource_type.clone())
 						.or_insert(0) += count;
 				}
-				Event::IndexingStarted { .. } => {
-					stats.indexing_started += 1;
-				}
-				Event::IndexingCompleted { .. } => {
-					stats.indexing_completed += 1;
-				}
 				Event::JobStarted { job_type, .. } => {
 					*stats.jobs_started.entry(job_type.clone()).or_insert(0) += 1;
 				}
@@ -147,8 +138,6 @@ impl EventCollector {
 struct EventStats {
 	resource_changed: HashMap<String, usize>,
 	resource_changed_batch: HashMap<String, usize>,
-	indexing_started: usize,
-	indexing_completed: usize,
 	jobs_started: HashMap<String, usize>,
 	jobs_completed: HashMap<String, usize>,
 }
@@ -173,10 +162,6 @@ impl EventStats {
 		for (resource_type, count) in &self.resource_changed_batch {
 			eprintln!("  {} → {} resources", resource_type, count);
 		}
-
-		eprintln!("\nIndexing events:");
-		eprintln!("  Started: {}", self.indexing_started);
-		eprintln!("  Completed: {}", self.indexing_completed);
 
 		eprintln!("\n️  Job events:");
 		eprintln!("  Started:");

@@ -26,10 +26,8 @@ export type EventVariant = ExtractEventVariant<Event>;
 /**
  * Default event subscription list - excludes noisy events
  *
- * Subscribes to all lifecycle events but filters out:
- * - LogMessage: Too spammy (every INFO log becomes an event)
- * - JobProgress: Too frequent (use polling for job progress instead)
- * - IndexingProgress: Too frequent (use polling for indexing status)
+ * Subscribes to all lifecycle events but filters out LogMessage, which is
+ * too spammy: every INFO log becomes an event.
  */
 export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	// Core lifecycle
@@ -41,13 +39,6 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	"LibraryClosed",
 	"LibraryDeleted",
 	"LibraryStatisticsUpdated",
-	// Entry events
-	"EntryCreated",
-	"EntryModified",
-	"EntryDeleted",
-	"EntryMoved",
-	// Raw filesystem changes
-	"FsRawChange",
 	// Volume events
 	"VolumeAdded",
 	"VolumeRemoved",
@@ -64,10 +55,6 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	"JobCancelled",
 	"JobPaused",
 	"JobResumed",
-	// Indexing lifecycle (no progress spam)
-	"IndexingStarted",
-	"IndexingCompleted",
-	"IndexingFailed",
 	// Device events
 	"DeviceConnected",
 	"DeviceDisconnected",
@@ -75,18 +62,4 @@ export const DEFAULT_EVENT_SUBSCRIPTION: EventVariant[] = [
 	"ResourceChanged",
 	"ResourceChangedBatch",
 	"ResourceDeleted",
-	// Legacy compatibility events
-	"LocationAdded",
-	"LocationRemoved",
-	"FilesIndexed",
-	"ThumbnailsGenerated",
-	"FileOperationCompleted",
-	"FilesModified",
-];
-
-/**
- * Noisy events that are excluded from the default subscription
- */
-export const NOISY_EVENTS: EventVariant[] = [
-	"IndexingProgress",
 ];

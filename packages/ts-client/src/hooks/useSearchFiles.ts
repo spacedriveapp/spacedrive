@@ -34,7 +34,6 @@ export interface UseSearchFilesOptions {
 			end?: string | null;
 		} | null;
 		size_range?: { min?: number | null; max?: number | null } | null;
-		locations?: string[] | null;
 		content_types?: ContentKind[] | null;
 		include_hidden?: boolean | null;
 		include_archived?: boolean | null;
@@ -112,7 +111,6 @@ export function useSearchFiles(
 						max: filters.size_range.max ?? null,
 					}
 				: null,
-				locations: filters?.locations ?? null,
 				content_types: filters?.content_types ?? null,
 				include_hidden: filters?.include_hidden ?? null,
 				include_archived: filters?.include_archived ?? null,

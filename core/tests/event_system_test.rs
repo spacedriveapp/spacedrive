@@ -132,21 +132,14 @@ async fn test_source_and_job_events() -> Result<(), Box<dyn std::error::Error + 
 		.create_library("Test Source Events", None, core.context.clone())
 		.await?;
 
-	// Set up filtered event collection - only job and indexing events
+	// Set up filtered event collection - only job events
 	let job_events = Arc::new(Mutex::new(Vec::new()));
 	let job_events_clone = job_events.clone();
 
 	let mut event_subscriber = core.events.subscribe();
 	let event_collector = tokio::spawn(async move {
 		while let Ok(event) = event_subscriber.recv().await {
-			if event.is_job_event()
-				|| matches!(
-					event,
-					Event::IndexingStarted { .. }
-						| Event::IndexingProgress { .. }
-						| Event::IndexingCompleted { .. }
-						| Event::IndexingFailed { .. }
-				) {
+			if event.is_job_event() {
 				job_events_clone.lock().await.push(event);
 			}
 		}
@@ -179,9 +172,6 @@ async fn test_source_and_job_events() -> Result<(), Box<dyn std::error::Error + 
 			Event::JobStarted { .. } => "JobStarted".to_string(),
 			Event::JobProgress { .. } => "JobProgress".to_string(),
 			Event::JobCompleted { .. } => "JobCompleted".to_string(),
-			Event::IndexingStarted { .. } => "IndexingStarted".to_string(),
-			Event::IndexingProgress { .. } => "IndexingProgress".to_string(),
-			Event::IndexingCompleted { .. } => "IndexingCompleted".to_string(),
 			_ => format!("Other({:?})", e),
 		})
 		.collect();

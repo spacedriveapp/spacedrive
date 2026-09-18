@@ -53,7 +53,6 @@ export { SubscriptionManager } from "./subscriptionManager";
 // Event filtering utilities
 export {
 	DEFAULT_EVENT_SUBSCRIPTION,
-	NOISY_EVENTS,
 	type EventVariant,
 } from "./event-filter";
 

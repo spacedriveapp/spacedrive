@@ -82,7 +82,7 @@ pub enum SyncActivityType {
 }
 
 /// A central event type that represents all events that can be emitted throughout the system
-#[derive(Debug, Clone, Serialize, Deserialize, Type, strum::AsRefStr)]
+#[derive(Debug, Clone, Serialize, Deserialize, Type, strum::AsRefStr, strum::VariantNames)]
 #[serde(rename_all_fields = "snake_case")]
 pub enum Event {
 	// Core lifecycle events
@@ -144,33 +144,6 @@ pub enum Event {
 	ProxyPairingVouchingReady {
 		session_id: Uuid,
 		vouchee_device_id: Uuid,
-	},
-
-	// Entry events (file/directory operations)
-	// DEPRECATED: Use ResourceChanged instead
-	EntryCreated {
-		library_id: Uuid,
-		entry_id: Uuid,
-	},
-	EntryModified {
-		library_id: Uuid,
-		entry_id: Uuid,
-	},
-	EntryDeleted {
-		library_id: Uuid,
-		entry_id: Uuid,
-	},
-	EntryMoved {
-		library_id: Uuid,
-		entry_id: Uuid,
-		old_path: String,
-		new_path: String,
-	},
-
-	// Raw filesystem change events (no database IDs) - consumed by responder
-	FsRawChange {
-		library_id: Uuid,
-		kind: FsRawEventKind,
 	},
 
 	// Volume events
@@ -243,25 +216,6 @@ pub enum Event {
 		device_id: uuid::Uuid,
 	},
 
-	// Indexing events
-	IndexingStarted {
-		location_id: Uuid,
-	},
-	IndexingProgress {
-		location_id: Uuid,
-		processed: u64,
-		total: Option<u64>,
-	},
-	IndexingCompleted {
-		location_id: Uuid,
-		total_files: u64,
-		total_dirs: u64,
-	},
-	IndexingFailed {
-		location_id: Uuid,
-		error: String,
-	},
-
 	// Device events
 	DeviceConnected {
 		device_id: Uuid,
@@ -302,9 +256,9 @@ pub enum Event {
 	},
 
 	// Generic resource events (normalized cache)
-	// Works for ALL resources: Location, Tag, Album, File, etc.
+	// Works for every resource: File, Space, Device, Volume, etc.
 	ResourceChanged {
-		/// Resource type identifier (e.g., "location", "tag", "album")
+		/// Resource type identifier (e.g., "file", "space", "device")
 		resource_type: String,
 		/// The full resource data as JSON
 		resource: serde_json::Value,
@@ -327,35 +281,6 @@ pub enum Event {
 		resource_type: String,
 		/// The deleted resource's ID
 		resource_id: Uuid,
-	},
-
-	// Legacy events (for compatibility)
-	LocationAdded {
-		library_id: Uuid,
-		location_id: Uuid,
-		path: PathBuf,
-	},
-	LocationRemoved {
-		library_id: Uuid,
-		location_id: Uuid,
-	},
-	FilesIndexed {
-		library_id: Uuid,
-		location_id: Uuid,
-		count: usize,
-	},
-	ThumbnailsGenerated {
-		library_id: Uuid,
-		count: usize,
-	},
-	FileOperationCompleted {
-		library_id: Uuid,
-		operation: FileOperation,
-		affected_files: usize,
-	},
-	FilesModified {
-		library_id: Uuid,
-		paths: Vec<PathBuf>,
 	},
 
 	// Config events
@@ -407,7 +332,7 @@ impl Event {
 		};
 
 		if paths.is_empty() {
-			// Empty affected_paths means this is a global resource (location, space, etc.)
+			// Empty affected_paths means this is a global resource (space, device, etc.)
 			tracing::debug!("Empty affected_paths (global resource), including");
 			return true;
 		}
@@ -559,7 +484,7 @@ impl Event {
 
 	/// Check if alternate_paths in the resource match the Physical scope
 	///
-	/// For Content/Sidecar events, alternate_paths contains all Physical locations
+	/// For Content/Sidecar events, alternate_paths contains all Physical paths
 	/// where that content exists. This allows filtering to only forward events
 	/// when the content has a physical presence in the subscribed path scope.
 	fn check_alternate_paths(&self, scope: &SdPath, include_descendants: bool) -> bool {
@@ -674,24 +599,6 @@ impl Event {
 
 		false
 	}
-}
-
-/// Raw filesystem event kinds emitted by the watcher without DB resolution
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub enum FsRawEventKind {
-	Create { path: PathBuf },
-	Modify { path: PathBuf },
-	Remove { path: PathBuf },
-	Rename { from: PathBuf, to: PathBuf },
-}
-
-/// Types of file operations
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub enum FileOperation {
-	Copy,
-	Move,
-	Delete,
-	Rename,
 }
 
 /// A filtered subscriber with its own broadcast channel
@@ -901,10 +808,6 @@ impl EventFilter for Event {
 				| Event::LibraryClosed { .. }
 				| Event::LibraryDeleted { .. }
 				| Event::LibraryLoadFailed { .. }
-				| Event::EntryCreated { .. }
-				| Event::EntryModified { .. }
-				| Event::EntryDeleted { .. }
-				| Event::EntryMoved { .. }
 		)
 	}
 
@@ -949,36 +852,6 @@ impl EventFilter for Event {
 			| Event::LibraryOpened { id, .. }
 			| Event::LibraryClosed { id, .. }
 			| Event::LibraryDeleted { id, .. } => *id == library_id,
-			Event::EntryCreated {
-				library_id: lid, ..
-			}
-			| Event::EntryModified {
-				library_id: lid, ..
-			}
-			| Event::EntryDeleted {
-				library_id: lid, ..
-			}
-			| Event::EntryMoved {
-				library_id: lid, ..
-			} => *lid == library_id,
-			Event::LocationAdded {
-				library_id: lid, ..
-			}
-			| Event::LocationRemoved {
-				library_id: lid, ..
-			}
-			| Event::FilesIndexed {
-				library_id: lid, ..
-			}
-			| Event::ThumbnailsGenerated {
-				library_id: lid, ..
-			}
-			| Event::FileOperationCompleted {
-				library_id: lid, ..
-			}
-			| Event::FilesModified {
-				library_id: lid, ..
-			} => *lid == library_id,
 			Event::SyncStateChanged {
 				library_id: lid, ..
 			}

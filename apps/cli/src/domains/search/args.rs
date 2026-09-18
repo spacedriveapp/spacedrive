@@ -187,7 +187,6 @@ impl From<FileSearchArgs> for FileSearchInput {
 			} else {
 				None
 			},
-			locations: None, // Not used in CLI for now
 			content_types: args.content_type.map(|types| {
 				types
 					.into_iter()

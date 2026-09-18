@@ -189,8 +189,6 @@ pub fn generate_spacedrive_api() -> (Vec<OperationMetadata>, Vec<QueryMetadata>,
 
 	// Register event types in the same collection to avoid duplicates
 	collection.register_mut::<crate::infra::event::Event>();
-	collection.register_mut::<crate::infra::event::FsRawEventKind>();
-	collection.register_mut::<crate::infra::event::FileOperation>();
 
 	(operations, queries, collection)
 }

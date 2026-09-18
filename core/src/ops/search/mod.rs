@@ -18,17 +18,6 @@ pub use input::*;
 pub use output::*;
 pub use query::*;
 
-/// Indicates which index type was used for a search query
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, PartialEq, Eq)]
-pub enum IndexType {
-	/// Database FTS5 search (persistent index)
-	Persistent,
-	/// In-memory ephemeral search
-	Ephemeral,
-	/// Mix of both (future: hybrid searches)
-	Hybrid,
-}
-
 /// Indicates which filters are available for a given search type
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type, Hash, PartialEq, Eq)]
 pub enum FilterKind {
@@ -36,9 +25,8 @@ pub enum FilterKind {
 	DateRange,
 	SizeRange,
 	ContentTypes,
-	Tags,         // Persistent only
-	Locations,    // Persistent only
-	Hidden,       // Not implemented yet
+	Tags,
+	Hidden,
 	Archived,     // Not implemented yet
 	AtRisk,       // Redundancy: content on exactly one volume
 	OnVolumes,    // Redundancy: content present on specific volumes

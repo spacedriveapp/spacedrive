@@ -100,29 +100,11 @@ impl EventCollector {
 						.entry(resource_type.clone())
 						.or_insert(0) += count;
 				}
-				Event::IndexingStarted { .. } => {
-					stats.indexing_started += 1;
-				}
-				Event::IndexingCompleted { .. } => {
-					stats.indexing_completed += 1;
-				}
 				Event::JobStarted { job_type, .. } => {
 					*stats.jobs_started.entry(job_type.clone()).or_insert(0) += 1;
 				}
 				Event::JobCompleted { job_type, .. } => {
 					*stats.jobs_completed.entry(job_type.clone()).or_insert(0) += 1;
-				}
-				Event::EntryCreated { .. } => {
-					stats.entries_created += 1;
-				}
-				Event::EntryModified { .. } => {
-					stats.entries_modified += 1;
-				}
-				Event::EntryDeleted { .. } => {
-					stats.entries_deleted += 1;
-				}
-				Event::EntryMoved { .. } => {
-					stats.entries_moved += 1;
 				}
 				_ => {}
 			}
@@ -176,17 +158,6 @@ impl EventCollector {
 						eprintln!("  Paths: {} affected", meta.affected_paths.len());
 					}
 				}
-				Event::IndexingStarted { location_id } => {
-					eprintln!("  Location: {}", location_id);
-				}
-				Event::IndexingCompleted {
-					location_id,
-					total_files,
-					total_dirs,
-				} => {
-					eprintln!("  Location: {}", location_id);
-					eprintln!("  Files: {}, Dirs: {}", total_files, total_dirs);
-				}
 				Event::JobStarted {
 					job_id, job_type, ..
 				} => {
@@ -200,20 +171,6 @@ impl EventCollector {
 				} => {
 					eprintln!("  Job: {} ({})", job_type, job_id);
 					eprintln!("  Output: {:?}", output);
-				}
-				Event::EntryCreated {
-					library_id,
-					entry_id,
-				} => {
-					eprintln!("  Library: {}", library_id);
-					eprintln!("  Entry: {}", entry_id);
-				}
-				Event::EntryModified {
-					library_id,
-					entry_id,
-				} => {
-					eprintln!("  Library: {}", library_id);
-					eprintln!("  Entry: {}", entry_id);
 				}
 				_ => {
 					eprintln!("  {:?}", event);
@@ -251,14 +208,8 @@ impl EventCollector {
 pub struct EventStats {
 	pub resource_changed: HashMap<String, usize>,
 	pub resource_changed_batch: HashMap<String, usize>,
-	pub indexing_started: usize,
-	pub indexing_completed: usize,
 	pub jobs_started: HashMap<String, usize>,
 	pub jobs_completed: HashMap<String, usize>,
-	pub entries_created: usize,
-	pub entries_modified: usize,
-	pub entries_deleted: usize,
-	pub entries_moved: usize,
 }
 
 impl EventStats {
@@ -282,16 +233,6 @@ impl EventStats {
 		for (resource_type, count) in &self.resource_changed_batch {
 			eprintln!("  {} → {} resources", resource_type, count);
 		}
-
-		eprintln!("\nIndexing events:");
-		eprintln!("  Started: {}", self.indexing_started);
-		eprintln!("  Completed: {}", self.indexing_completed);
-
-		eprintln!("\nEntry events:");
-		eprintln!("  Created: {}", self.entries_created);
-		eprintln!("  Modified: {}", self.entries_modified);
-		eprintln!("  Deleted: {}", self.entries_deleted);
-		eprintln!("  Moved: {}", self.entries_moved);
 
 		eprintln!("\nJob events:");
 		eprintln!("  Started:");

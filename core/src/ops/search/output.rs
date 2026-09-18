@@ -1,7 +1,7 @@
 //! Output for file search operations
 
 use crate::domain::File;
-use crate::ops::search::{FilterKind, IndexType};
+use crate::ops::search::FilterKind;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -24,8 +24,6 @@ pub struct FileSearchOutput {
 	pub suggestions: Vec<String>,
 	pub pagination: PaginationInfo,
 	pub execution_time_ms: u64,
-	/// Which index type was used for this search
-	pub index_type: IndexType,
 	/// Which filters are available for this search type
 	pub available_filters: HashSet<FilterKind>,
 }
@@ -67,7 +65,6 @@ pub struct SearchFacets {
 	/// Content kinds by their wire name, for the filter panel's kind options.
 	pub kinds: HashMap<String, u64>,
 	pub tags: HashMap<Uuid, u64>,
-	pub locations: HashMap<Uuid, u64>,
 	pub date_ranges: HashMap<String, u64>,
 	pub size_ranges: HashMap<String, u64>,
 }
@@ -91,14 +88,6 @@ pub struct TagFacetCount {
 	pub count: u64,
 }
 
-/// Location facet with count
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct LocationFacetCount {
-	pub location_id: Uuid,
-	pub location_name: String,
-	pub count: u64,
-}
-
 /// Date range facet with count
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct DateRangeFacetCount {
@@ -114,39 +103,6 @@ pub struct SizeRangeFacetCount {
 }
 
 impl FileSearchOutput {
-	/// Create a successful search output (defaults to persistent index)
-	pub fn success(
-		results: Vec<FileSearchResult>,
-		total_found: u64,
-		search_id: Uuid,
-		execution_time_ms: u64,
-	) -> Self {
-		let facets = SearchFacets::from_results(&results);
-		let pagination = PaginationInfo::new(0, 50, total_found);
-		let files = results.iter().map(|r| r.file.clone()).collect();
-
-		Self {
-			files,
-			results,
-			total_found,
-			total_is_exact: true,
-			search_id,
-			facets,
-			suggestions: Vec::new(),
-			pagination,
-			execution_time_ms,
-			index_type: IndexType::Persistent,
-			available_filters: HashSet::from([
-				FilterKind::FileTypes,
-				FilterKind::DateRange,
-				FilterKind::SizeRange,
-				FilterKind::ContentTypes,
-				FilterKind::Tags,
-				FilterKind::Locations,
-			]),
-		}
-	}
-
 	/// Create search output for ephemeral index results
 	pub fn new_ephemeral(
 		page: crate::ops::search::ephemeral_search::SearchPage,
@@ -175,7 +131,6 @@ impl FileSearchOutput {
 			suggestions: Vec::new(),
 			pagination,
 			execution_time_ms,
-			index_type: IndexType::Ephemeral,
 			available_filters: HashSet::from([
 				FilterKind::FileTypes,
 				FilterKind::DateRange,
@@ -185,80 +140,6 @@ impl FileSearchOutput {
 				FilterKind::Tags,
 			]),
 		}
-	}
-
-	/// Create search output for persistent index results
-	pub fn new_persistent(
-		results: Vec<FileSearchResult>,
-		total_found: u64,
-		search_id: Uuid,
-		execution_time_ms: u64,
-	) -> Self {
-		let facets = SearchFacets::from_results(&results);
-		let pagination = PaginationInfo::new(0, 1000, total_found);
-		let files = results.iter().map(|r| r.file.clone()).collect();
-
-		Self {
-			files,
-			results,
-			total_found,
-			total_is_exact: true,
-			search_id,
-			facets,
-			suggestions: Vec::new(),
-			pagination,
-			execution_time_ms,
-			index_type: IndexType::Persistent,
-			available_filters: HashSet::from([
-				FilterKind::FileTypes,
-				FilterKind::DateRange,
-				FilterKind::SizeRange,
-				FilterKind::ContentTypes,
-				FilterKind::Tags,
-				FilterKind::Locations,
-			]),
-		}
-	}
-
-	/// Create an empty search output
-	pub fn empty(query: &str) -> Self {
-		Self {
-			files: Vec::new(),
-			results: Vec::new(),
-			total_found: 0,
-			total_is_exact: true,
-			search_id: Uuid::new_v4(),
-			facets: SearchFacets::default(),
-			suggestions: Self::generate_suggestions(query),
-			pagination: PaginationInfo::new(0, 50, 0),
-			execution_time_ms: 0,
-			index_type: IndexType::Persistent,
-			available_filters: HashSet::new(),
-		}
-	}
-
-	/// Generate search suggestions based on query
-	fn generate_suggestions(query: &str) -> Vec<String> {
-		let mut suggestions = Vec::new();
-
-		// Add common file extensions if query doesn't have one
-		if !query.contains('.') {
-			suggestions.extend([
-				format!("{} .pdf", query),
-				format!("{} .jpg", query),
-				format!("{} .mp4", query),
-				format!("{} .txt", query),
-			]);
-		}
-
-		// Add common search patterns
-		suggestions.extend([
-			format!("{} recent", query),
-			format!("{} large", query),
-			format!("{} small", query),
-		]);
-
-		suggestions
 	}
 
 	/// Add highlights to results
@@ -391,108 +272,5 @@ impl ScoreBreakdown {
 			user_preference_boost,
 			final_score,
 		}
-	}
-}
-
-// ============================================================================
-// File-based search output (new enhanced version)
-// ============================================================================
-
-/// Enhanced search output that returns File objects instead of Entry objects
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct EnhancedFileSearchOutput {
-	pub results: Vec<EnhancedFileSearchResult>,
-	pub total_found: u64,
-	pub search_id: Uuid,
-	pub facets: SearchFacets,
-	pub suggestions: Vec<String>,
-	pub pagination: PaginationInfo,
-	pub execution_time_ms: u64,
-	pub index_type: IndexType,
-	pub available_filters: HashSet<FilterKind>,
-}
-
-/// Enhanced search result with File object
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct EnhancedFileSearchResult {
-	pub file: File,
-	pub score: f32,
-	pub score_breakdown: ScoreBreakdown,
-	pub highlights: Vec<TextHighlight>,
-	pub matched_content: Option<String>,
-}
-
-impl EnhancedFileSearchOutput {
-	/// Create a successful search output
-	pub fn success(
-		results: Vec<EnhancedFileSearchResult>,
-		total_found: u64,
-		search_id: Uuid,
-		execution_time_ms: u64,
-	) -> Self {
-		Self {
-			results,
-			total_found,
-			search_id,
-			facets: SearchFacets::default(),
-			suggestions: Vec::new(),
-			pagination: PaginationInfo {
-				current_page: 1,
-				total_pages: 1,
-				has_next: false,
-				has_previous: false,
-				limit: 50,
-				offset: 0,
-			},
-			execution_time_ms,
-			index_type: IndexType::Persistent,
-			available_filters: HashSet::from([
-				FilterKind::FileTypes,
-				FilterKind::DateRange,
-				FilterKind::SizeRange,
-				FilterKind::ContentTypes,
-				FilterKind::Tags,
-				FilterKind::Locations,
-			]),
-		}
-	}
-
-	/// Convert from the legacy Entry-based output
-	pub fn from_legacy_output(
-		legacy_output: FileSearchOutput,
-		files: Vec<File>,
-	) -> Result<Self, String> {
-		if legacy_output.results.len() != files.len() {
-			return Err(format!(
-				"Mismatch between search results ({}) and files ({})",
-				legacy_output.results.len(),
-				files.len()
-			));
-		}
-
-		let enhanced_results = legacy_output
-			.results
-			.into_iter()
-			.zip(files.into_iter())
-			.map(|(legacy_result, file)| EnhancedFileSearchResult {
-				file,
-				score: legacy_result.score,
-				score_breakdown: legacy_result.score_breakdown,
-				highlights: legacy_result.highlights,
-				matched_content: legacy_result.matched_content,
-			})
-			.collect();
-
-		Ok(Self {
-			results: enhanced_results,
-			total_found: legacy_output.total_found,
-			search_id: legacy_output.search_id,
-			facets: legacy_output.facets,
-			suggestions: legacy_output.suggestions,
-			pagination: legacy_output.pagination,
-			execution_time_ms: legacy_output.execution_time_ms,
-			index_type: legacy_output.index_type,
-			available_filters: legacy_output.available_filters,
-		})
 	}
 }

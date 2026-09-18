@@ -1,7 +1,11 @@
-use crate::infra::query::{CoreQuery, QueryResult};
+use crate::infra::{
+	event::Event,
+	query::{CoreQuery, QueryResult},
+};
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
+use strum::VariantNames;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ListEventsInput {}
@@ -41,73 +45,19 @@ impl CoreQuery for ListEventsQuery {
 		_context: Arc<crate::context::CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		// Define all available event types
-		// This list should match the Event enum in core/src/infra/event/mod.rs
-		let all_events = vec![
-			// Core lifecycle
-			"CoreStarted",
-			"CoreShutdown",
-			// Library events
-			"LibraryCreated",
-			"LibraryOpened",
-			"LibraryClosed",
-			"LibraryDeleted",
-			"LibraryStatisticsUpdated",
-			// Entry events
-			"EntryCreated",
-			"EntryModified",
-			"EntryDeleted",
-			"EntryMoved",
-			// Raw filesystem changes
-			"FsRawChange",
-			// Volume events
-			"VolumeAdded",
-			"VolumeRemoved",
-			"VolumeUpdated",
-			"VolumeSpeedTested",
-			"VolumeMountChanged",
-			"VolumeError",
-			// Job events
-			"JobQueued",
-			"JobStarted",
-			"JobProgress",
-			"JobCompleted",
-			"JobFailed",
-			"JobCancelled",
-			"JobPaused",
-			"JobResumed",
-			// Indexing events
-			"IndexingStarted",
-			"IndexingProgress",
-			"IndexingCompleted",
-			"IndexingFailed",
-			// Device events
-			"DeviceConnected",
-			"DeviceDisconnected",
-			// Resource events
-			"ResourceChanged",
-			"ResourceDeleted",
-			// Legacy compatibility
-			"LocationAdded",
-			"LocationRemoved",
-			"FilesIndexed",
-			"ThumbnailsGenerated",
-			"FileOperationCompleted",
-			"FilesModified",
-			// Log events
-			"LogMessage",
-			// Custom events
-			"Custom",
-		]
-		.into_iter()
-		.map(String::from)
-		.collect();
+		// Every Event variant, plus log lines, which share the subscription
+		// stream without being events
+		let all_events = Event::VARIANTS
+			.iter()
+			.copied()
+			.chain(["LogMessage"])
+			.map(String::from)
+			.collect();
 
 		// Define noisy events (high-frequency, excluded by default)
 		let noisy_events = vec![
-			"LogMessage",       // Every log becomes an event
-			"JobProgress",      // Sent frequently during job execution
-			"IndexingProgress", // Sent frequently during indexing
+			"LogMessage",  // Every log becomes an event
+			"JobProgress", // Sent frequently during job execution
 		]
 		.into_iter()
 		.map(String::from)
@@ -119,11 +69,6 @@ impl CoreQuery for ListEventsQuery {
 				variant: "JobProgress".into(),
 				is_noisy: true,
 				description: "Sent frequently during job execution with progress updates".into(),
-			},
-			EventInfo {
-				variant: "IndexingProgress".into(),
-				is_noisy: true,
-				description: "Sent frequently during location indexing".into(),
 			},
 			EventInfo {
 				variant: "LogMessage".into(),
