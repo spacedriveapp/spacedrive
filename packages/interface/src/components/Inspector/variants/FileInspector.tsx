@@ -547,7 +547,6 @@ function OverviewTab({file}: {file: File}) {
 	const isVideo = getContentKind(file) === 'video';
 	const isAudio = getContentKind(file) === 'audio';
 	const hasText = file?.content_identity?.text_content;
-	const isEphemeral = !file.content_identity;
 
 	const contentKind = getContentKind(file);
 	const fileKind =
@@ -791,12 +790,7 @@ function OverviewTab({file}: {file: File}) {
 
 			{/* Tags */}
 			<Section title="Tags" icon={TagIcon}>
-				{isEphemeral ? (
-					<p className="text-sidebar-inkDull text-xs italic">
-						Tags are available after indexing this location
-					</p>
-				) : (
-					<div className="flex flex-wrap gap-1.5">
+				<div className="flex flex-wrap gap-1.5">
 						{file.tags &&
 							file.tags.length > 0 &&
 							file.tags.map((tag) => (
@@ -807,7 +801,10 @@ function OverviewTab({file}: {file: File}) {
 									onRemove={async () => {
 										try {
 									await unapplyTag.mutateAsync({
-											entry_ids: [file.id],
+											// Removing from this file's pill means this copy;
+											// a record-scoped removal leaves other copies of
+											// the bytes tagged.
+											targets: { type: 'File', ids: [file.id] },
 											tag_ids: [tag.id],
 										});
 									} catch (err) {
@@ -816,7 +813,7 @@ function OverviewTab({file}: {file: File}) {
 									}
 									}}
 								>
-									{tag.canonical_name}
+									{tag.name}
 								</Tag>
 							))}
 
@@ -833,11 +830,7 @@ function OverviewTab({file}: {file: File}) {
 												type: 'File',
 												ids: [file.id]
 											},
-									tag_ids: [tag.id],
-									source: 'User',
-									confidence: 1.0,
-									applied_context: null,
-									instance_attributes: null
+									tag_ids: [tag.id]
 								});
 							}}
 							contextTags={file.tags || []}
@@ -849,8 +842,7 @@ function OverviewTab({file}: {file: File}) {
 								</button>
 							}
 						/>
-					</div>
-				)}
+				</div>
 			</Section>
 
 			{/* Extracted text, when something has produced it */}
@@ -1264,7 +1256,7 @@ function InstanceRow({instance}: {instance: File}) {
 					<div
 						className="flex items-center gap-0.5"
 						title={instance.tags
-							.map((t) => t.canonical_name)
+							.map((t) => t.name)
 							.join(', ')}
 					>
 						{instance.tags.slice(0, 3).map((tag) => (

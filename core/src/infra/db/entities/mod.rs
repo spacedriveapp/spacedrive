@@ -20,9 +20,11 @@ pub mod user_metadata;
 pub mod tag;
 pub mod tag_closure;
 pub mod tag_relationship;
+pub mod tag_staging;
 pub mod tag_usage_pattern;
 pub mod user_metadata_tag;
 
+pub mod assertion_outbox;
 pub mod audit_log;
 pub mod collection;
 pub mod collection_entry;

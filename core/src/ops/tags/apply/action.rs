@@ -1,30 +1,23 @@
-//! Apply semantic tags action
+//! Apply tags: append assertions into the stores that own the targets.
+//!
+//! A tag write is a row, stamped and device-attributed, so applying is
+//! resolving targets to their stores, copying the definitions in, and
+//! appending. Content-scoped changes reach every copy of the bytes, so every
+//! copy is announced.
 
-use super::{
-	input::{ApplyTagsInput, TagTargets},
-	output::ApplyTagsOutput,
-};
+use super::{input::ApplyTagsInput, output::ApplyTagsOutput};
 use crate::{
 	context::CoreContext,
-	domain::tag::{TagApplication, TagSource},
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::metadata::manager::UserMetadataManager,
+	ops::tags::{definitions, merge, outbox, stamp, targets},
 };
-use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApplyTagsAction {
 	input: ApplyTagsInput,
-}
-
-impl ApplyTagsAction {
-	pub fn new(input: ApplyTagsInput) -> Self {
-		Self { input }
-	}
 }
 
 impl LibraryAction for ApplyTagsAction {
@@ -33,167 +26,98 @@ impl LibraryAction for ApplyTagsAction {
 
 	fn from_input(input: ApplyTagsInput) -> Result<Self, String> {
 		input.validate()?;
-		Ok(ApplyTagsAction::new(input))
+		Ok(Self { input })
 	}
 
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let db = library.db();
-		let cache = _context.ephemeral_cache();
-		let metadata_manager = UserMetadataManager::new(Arc::new(db.conn().clone()));
-		let device_id = library.id(); // Use library ID as device ID
+		let cache = context.ephemeral_cache();
+		let device = context
+			.device_manager
+			.device_id()
+			.map_err(|e| ActionError::Internal(format!("no device identity: {e}")))?;
+		let stamp = stamp::assertion_stamp(device);
 
-		let mut warnings = Vec::new();
-		let mut successfully_tagged_count = 0;
-		let mut missing_target_count = 0;
-
-		// Create tag applications from input
-		let tag_applications: Vec<TagApplication> = self
-			.input
-			.tag_ids
-			.iter()
-			.map(|&tag_id| {
-				let source = self.input.source.clone().unwrap_or(TagSource::User);
-				let confidence = self.input.confidence.unwrap_or(1.0);
-				let instance_attributes =
-					self.input.instance_attributes.clone().unwrap_or_default();
-
-				TagApplication {
-					tag_id,
-					applied_context: self.input.applied_context.clone(),
-					applied_variant: None,
-					confidence,
-					source,
-					instance_attributes,
-					created_at: Utc::now(),
-					device_uuid: device_id,
-				}
-			})
-			.collect();
-
-		// Collect affected entry UUIDs for resource events
-		let mut affected_entry_uuids = Vec::new();
-
-		// Both forms end up on a user_metadata row: one keyed by content, one by
-		// the record the volume index minted. The difference is reach, not
-		// mechanism.
-		match &self.input.targets {
-			TagTargets::Content(content_ids) => {
-				for &content_id in content_ids {
-					match metadata_manager
-						.apply_semantic_tags_to_content(
-							content_id,
-							tag_applications.clone(),
-							device_id,
-						)
-						.await
-					{
-						Ok(models) => {
-							successfully_tagged_count += 1;
-							for model in models {
-								library
-									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
-									.await
-									.map_err(|e| {
-										ActionError::Internal(format!(
-											"Failed to sync tag association: {}",
-											e
-										))
-									})?;
-							}
-
-							// Every copy of these bytes is now tagged, so every
-							// copy has to be told.
-							affected_entry_uuids.extend(
-								cache
-									.copies_of_content(content_id)
-									.await
-									.into_iter()
-									.map(|copy| copy.record_uuid),
-							);
-						}
-						Err(e) => {
-							warnings.push(format!("Failed to tag content {}: {}", content_id, e));
-						}
-					}
-				}
-			}
-			TagTargets::File(record_uuids) => {
-				for &record_uuid in record_uuids {
-					// A uuid no partition knows is a file that was never walked,
-					// which is a different problem from a tag that failed.
-					if cache.path_of_record(record_uuid).await.is_none() {
-						missing_target_count += 1;
-						warnings.push(format!("File {} is not indexed, skipping", record_uuid));
-						continue;
-					}
-
-					match metadata_manager
-						.apply_semantic_tags_to_entry(
-							record_uuid,
-							tag_applications.clone(),
-							device_id,
-						)
-						.await
-					{
-						Ok(models) => {
-							successfully_tagged_count += 1;
-							for model in models {
-								library
-									.sync_model(&model, crate::infra::sync::ChangeType::Insert)
-									.await
-									.map_err(|e| {
-										ActionError::Internal(format!(
-											"Failed to sync tag association: {}",
-											e
-										))
-									})?;
-							}
-							affected_entry_uuids.push(record_uuid);
-						}
-						Err(e) => {
-							warnings.push(format!("Failed to tag file {}: {}", record_uuid, e));
-						}
-					}
-				}
-			}
-		}
-
-		// Fail-fast: if NO entries were successfully tagged, return appropriate error.
-		if successfully_tagged_count == 0 && !warnings.is_empty() {
-			// All failures were missing/unindexed targets (ephemeral files).
-			if missing_target_count == warnings.len() {
-				return Err(ActionError::InvalidInput(
-					"These files need to be indexed before they can be tagged".to_string(),
-				));
-			}
-			// Some or all failures were real execution errors (DB, integrity, etc.).
-			return Err(ActionError::Internal(format!(
-				"All tag operations failed: {}",
-				warnings.join("; ")
+		let (definitions, missing) = definitions::find(&library, &cache, &self.input.tag_ids).await;
+		if !missing.is_empty() {
+			return Err(ActionError::InvalidInput(format!(
+				"unknown tags: {missing:?}"
 			)));
 		}
 
-		// Emit resource events for affected files (frontend reactivity)
-		if !affected_entry_uuids.is_empty() {
-			crate::domain::File::announce(&_context, affected_entry_uuids).await;
+		let resolved = targets::resolve(
+			&context,
+			&self.input.targets,
+			&self.input.tag_ids,
+			true,
+			&stamp,
+		)
+		.await;
+		if resolved.resolved == 0 && resolved.pending == 0 {
+			return Err(ActionError::InvalidInput(if resolved.warnings.is_empty() {
+				"nothing to tag".to_string()
+			} else {
+				resolved.warnings.join("; ")
+			}));
 		}
 
-		let output = ApplyTagsOutput::success(
-			successfully_tagged_count,
-			self.input.tag_ids.len(),
-			self.input.tag_ids.clone(),
-			vec![], // TODO: Return target IDs if needed
-		);
-
-		if !warnings.is_empty() {
-			Ok(output.with_warnings(warnings))
-		} else {
-			Ok(output)
+		// The definition travels with its first assertion, so a store is
+		// always able to name the tags it carries.
+		for batch in &resolved.batches {
+			batch
+				.store
+				.db()
+				.upsert_tag_definitions(&definitions)
+				.await
+				.map_err(|e| ActionError::Internal(format!("definition write failed: {e}")))?;
+			batch
+				.store
+				.db()
+				.append_tag_assertions(&batch.rows)
+				.await
+				.map_err(|e| ActionError::Internal(format!("assertion write failed: {e}")))?;
 		}
+
+		// Remote-owned sources: author the rows durably and deliver when the
+		// owner answers. Reachability changes latency, never behavior.
+		for batch in &resolved.remote {
+			let input = merge::MergeAssertionsInput {
+				source_uuid: batch.source_uuid,
+				definitions: definitions.iter().map(Into::into).collect(),
+				assertions: batch.rows.iter().map(Into::into).collect(),
+			};
+			outbox::enqueue(
+				&library,
+				&outbox::RemoteTarget {
+					device_uuid: batch.device_uuid,
+					source_uuid: batch.source_uuid,
+				},
+				&input,
+			)
+			.await
+			.map_err(|e| ActionError::Internal(format!("outbox write failed: {e}")))?;
+		}
+		if !resolved.remote.is_empty() {
+			let drain_context = context.clone();
+			tokio::spawn(async move {
+				outbox::drain(&drain_context).await;
+			});
+		}
+
+		if let Err(error) = definitions::unstage(&library, &self.input.tag_ids).await {
+			tracing::warn!(%error, "applied definitions were not retired from staging");
+		}
+
+		crate::domain::File::announce(&context, resolved.affected.clone()).await;
+
+		Ok(ApplyTagsOutput {
+			targets_tagged: resolved.resolved,
+			targets_pending: resolved.pending,
+			warnings: resolved.warnings,
+		})
 	}
 
 	fn action_kind(&self) -> &'static str {
@@ -201,5 +125,4 @@ impl LibraryAction for ApplyTagsAction {
 	}
 }
 
-// Register library action
 crate::register_library_action!(ApplyTagsAction, "tags.apply");

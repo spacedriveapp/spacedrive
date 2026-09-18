@@ -1,23 +1,14 @@
 //! Query to get a single file by local path with all related data
 
-use crate::infra::query::{QueryError, QueryResult};
+use crate::infra::query::QueryResult;
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, File},
-	infra::db::entities::{
-		audio_media_data, content_identity, entry, image_media_data, sidecar, tag,
-		user_metadata_tag, video_media_data,
-	},
 	infra::query::LibraryQuery,
-};
-use sea_orm::{
-	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
-	QuerySelect, RelationTrait,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{path::PathBuf, sync::Arc};
-use uuid::Uuid;
 
 /// Query to get a file by its local path with all related data
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -60,6 +51,11 @@ impl LibraryQuery for FileByPathQuery {
 
 				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
 				file.content_kind = content_kind;
+				drop(index_read);
+
+				let mut files = [file];
+				crate::ops::tags::decorate::decorate_files(&ephemeral_cache, &mut files).await;
+				let [file] = files;
 
 				return Ok(Some(file));
 			}

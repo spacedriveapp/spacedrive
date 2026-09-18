@@ -18,7 +18,6 @@ pub mod resource_registry;
 pub mod sidecar;
 pub mod space;
 pub mod tag;
-pub mod user_metadata;
 pub mod volume;
 
 // Re-export commonly used types
@@ -35,11 +34,7 @@ pub use sidecar::{SidecarFormat, SidecarKind, SidecarStatus, SidecarVariant};
 pub use space::{
 	GroupType, ItemType, Space, SpaceGroup, SpaceGroupWithItems, SpaceItem, SpaceLayout,
 };
-pub use tag::{
-	OrganizationalPattern, PatternType, PrivacyLevel, RelationshipType, Tag, TagApplication,
-	TagError, TagRelationship, TagSource, TagType,
-};
-pub use user_metadata::UserMetadata;
+pub use tag::{Tag, TagError};
 pub use volume::{
 	DiskType as DomainDiskType, FileSystem as DomainFileSystem, MountType as DomainMountType,
 	Volume, VolumeType,

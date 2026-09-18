@@ -135,7 +135,7 @@ export function KnowledgeView() {
 				} else {
 					tagMap.set(tag.id, {
 						id: tag.id,
-						name: tag.canonical_name,
+						name: tag.name,
 						color: tag.color || "#3B82F6",
 						count: 1,
 					});

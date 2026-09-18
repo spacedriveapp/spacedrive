@@ -1,16 +1,16 @@
-//! Remove tags from entries
+//! Remove tags: append removal assertions.
+//!
+//! Removal is a row with `asserted = 0`, never a delete, so a store that was
+//! away when the removal happened cannot resurrect the tag when it returns.
 
-use super::input::UnapplyTagsInput;
-use super::output::UnapplyTagsOutput;
+use super::{input::UnapplyTagsInput, output::UnapplyTagsOutput};
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
-	infra::db::entities::{content_identity, entry, tag, user_metadata, user_metadata_tag},
 	library::Library,
+	ops::tags::{definitions, merge, outbox, stamp, targets},
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,120 +30,82 @@ impl LibraryAction for UnapplyTagsAction {
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let db = library.db();
-		let conn = db.conn();
+		let cache = context.ephemeral_cache();
+		let device = context
+			.device_manager
+			.device_id()
+			.map_err(|e| ActionError::Internal(format!("no device identity: {e}")))?;
+		let stamp = stamp::assertion_stamp(device);
 
-		// Resolve tag UUIDs to database IDs
-		let tag_models = tag::Entity::find()
-			.filter(tag::Column::Uuid.is_in(self.input.tag_ids.clone()))
-			.all(conn)
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to find tags: {}", e)))?;
-
-		let tag_db_ids: Vec<i32> = tag_models.iter().map(|t| t.id).collect();
-		if tag_db_ids.is_empty() {
-			return Ok(UnapplyTagsOutput {
-				entries_affected: 0,
-				tags_removed: 0,
-				warnings: vec!["No matching tags found".to_string()],
-			});
+		// Validate the names, though a removal row does not need the
+		// definition present to be correct.
+		let (_, missing) = definitions::find(&library, &cache, &self.input.tag_ids).await;
+		if !missing.is_empty() {
+			return Err(ActionError::InvalidInput(format!(
+				"unknown tags: {missing:?}"
+			)));
 		}
 
-		// Find user_metadata IDs via BOTH entry_uuid and content_identity_uuid
-		// (tags can be applied to either, depending on the apply method used)
-		let mut um_ids: HashSet<i32> = HashSet::new();
-
-		// 1. Direct match: user_metadata.entry_uuid IN entry_ids
-		let um_by_entry = user_metadata::Entity::find()
-			.filter(user_metadata::Column::EntryUuid.is_in(self.input.entry_ids.clone()))
-			.all(conn)
-			.await
-			.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-		um_ids.extend(um_by_entry.iter().map(|um| um.id));
-
-		// 2. Indirect match: the same tag may have been applied to the bytes
-		// rather than to this copy of them, so ask each file what its content is.
-		let cache = _context.ephemeral_cache();
-		let mut content_uuids = Vec::new();
-		for &record_uuid in &self.input.entry_ids {
-			if let Some(content) = cache.content_of(record_uuid).await {
-				content_uuids.push(content);
-			}
+		let resolved = targets::resolve(
+			&context,
+			&self.input.targets,
+			&self.input.tag_ids,
+			false,
+			&stamp,
+		)
+		.await;
+		if resolved.resolved == 0 && resolved.pending == 0 {
+			return Err(ActionError::InvalidInput(if resolved.warnings.is_empty() {
+				"nothing to untag".to_string()
+			} else {
+				resolved.warnings.join("; ")
+			}));
 		}
 
-		if !content_uuids.is_empty() {
-			let um_by_content = user_metadata::Entity::find()
-				.filter(user_metadata::Column::ContentIdentityUuid.is_in(content_uuids.clone()))
-				.all(conn)
+		for batch in &resolved.batches {
+			batch
+				.store
+				.db()
+				.append_tag_assertions(&batch.rows)
 				.await
-				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-			um_ids.extend(um_by_content.iter().map(|um| um.id));
+				.map_err(|e| ActionError::Internal(format!("assertion write failed: {e}")))?;
 		}
 
-		if um_ids.is_empty() {
-			return Ok(UnapplyTagsOutput {
-				entries_affected: 0,
-				tags_removed: 0,
-				warnings: vec!["No metadata records found for entries".to_string()],
+		// A removal for a remote-owned source rides the same outbox; the
+		// definitions list stays empty because a removal needs no name.
+		for batch in &resolved.remote {
+			let input = merge::MergeAssertionsInput {
+				source_uuid: batch.source_uuid,
+				definitions: Vec::new(),
+				assertions: batch.rows.iter().map(Into::into).collect(),
+			};
+			outbox::enqueue(
+				&library,
+				&outbox::RemoteTarget {
+					device_uuid: batch.device_uuid,
+					source_uuid: batch.source_uuid,
+				},
+				&input,
+			)
+			.await
+			.map_err(|e| ActionError::Internal(format!("outbox write failed: {e}")))?;
+		}
+		if !resolved.remote.is_empty() {
+			let drain_context = context.clone();
+			tokio::spawn(async move {
+				outbox::drain(&drain_context).await;
 			});
 		}
 
-		// Delete user_metadata_tag records
-		let result = user_metadata_tag::Entity::delete_many()
-			.filter(
-				user_metadata_tag::Column::UserMetadataId
-					.is_in(um_ids.into_iter().collect::<Vec<_>>()),
-			)
-			.filter(user_metadata_tag::Column::TagId.is_in(tag_db_ids))
-			.exec(conn)
-			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to remove tags: {}", e)))?;
+		crate::domain::File::announce(&context, resolved.affected.clone()).await;
 
-		let total_removed = result.rows_affected as usize;
-
-		// TODO(sync): Tag unapply is not synced to other devices.
-		// The sync infrastructure supports ChangeType::Delete but tag removal
-		// does not yet call library.sync_model(). This means removed tags will
-		// reappear on other devices after sync. Tracked for a dedicated
-		// sync-deletion PR. See also delete/action.rs.
-
-		// Only collect and notify if rows were actually deleted
-		if total_removed > 0 {
-			// Collect ALL affected entry UUIDs — both directly specified entries
-			// and entries that share content with them (content-scoped tags)
-			let mut all_affected_uuids: HashSet<uuid::Uuid> =
-				self.input.entry_ids.iter().cloned().collect();
-
-			// A content-scoped removal reaches every copy of the bytes, so every
-			// copy has to be told, not just the one that was named.
-			for content in content_uuids {
-				all_affected_uuids.extend(
-					cache
-						.copies_of_content(content)
-						.await
-						.into_iter()
-						.map(|copy| copy.record_uuid),
-				);
-			}
-
-			let affected: Vec<uuid::Uuid> = all_affected_uuids.iter().copied().collect();
-			let affected_count = affected.len();
-			crate::domain::File::announce(&_context, affected).await;
-
-			Ok(UnapplyTagsOutput {
-				entries_affected: affected_count,
-				tags_removed: total_removed,
-				warnings: Vec::new(),
-			})
-		} else {
-			Ok(UnapplyTagsOutput {
-				entries_affected: 0,
-				tags_removed: 0,
-				warnings: vec!["No matching tag applications found".to_string()],
-			})
-		}
+		Ok(UnapplyTagsOutput {
+			targets_untagged: resolved.resolved,
+			targets_pending: resolved.pending,
+			warnings: resolved.warnings,
+		})
 	}
 
 	fn action_kind(&self) -> &'static str {

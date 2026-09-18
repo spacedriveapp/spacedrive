@@ -216,14 +216,14 @@ export const FileCard = memo(
 							<div
 								className="flex items-center gap-1 mt-1"
 								title={file.tags
-									.map((t) => t.canonical_name)
+									.map((t) => t.name)
 									.join(", ")}
 							>
 								{file.tags.slice(0, 3).map((tag) => (
 									<TagDot
 										key={tag.id}
 										color={tag.color || "#3B82F6"}
-										tooltip={tag.canonical_name}
+										tooltip={tag.name}
 									/>
 								))}
 								{file.tags.length > 3 && (

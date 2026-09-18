@@ -20,7 +20,6 @@ pub mod indexing;
 pub mod jobs;
 pub mod libraries;
 pub mod locations;
-pub mod metadata;
 pub mod models;
 pub mod mounts;
 pub mod navigation;

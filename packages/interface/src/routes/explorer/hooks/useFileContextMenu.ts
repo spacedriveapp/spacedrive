@@ -440,7 +440,7 @@ export function useFileContextMenu({
 					if (targets.length === 0) return;
 					try {
 						await unapplyTags.mutateAsync({
-							entry_ids: targets.map((f) => f.id),
+							targets: { type: 'File', ids: targets.map((f) => f.id) },
 							tag_ids: [mode.tagId]
 						});
 					} catch (err) {

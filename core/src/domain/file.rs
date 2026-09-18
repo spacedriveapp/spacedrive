@@ -413,10 +413,17 @@ impl File {
 		use crate::infra::event::{Event, ResourceMetadata};
 
 		let cache = context.ephemeral_cache();
+		let mut files = Vec::with_capacity(records.len());
 		for record in records {
-			let Some(file) = Self::for_record(cache, record).await else {
-				continue;
-			};
+			if let Some(file) = Self::for_record(cache, record).await {
+				files.push(file);
+			}
+		}
+		// Clients merge this payload into what they render, so it has to
+		// carry the tag state the change was usually about.
+		crate::ops::tags::decorate::decorate_files(cache, &mut files).await;
+
+		for file in files {
 			let Ok(resource) = serde_json::to_value(&file) else {
 				continue;
 			};

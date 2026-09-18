@@ -53,6 +53,31 @@ pub async fn remote_share(source_id: Uuid) -> Option<Arc<RemoteShare>> {
 	shares_map().read().await.get(&source_id).cloned()
 }
 
+/// Open a replica's delivered database read-only, when one is on disk. The
+/// caller closes the pool when done; a replica artifact is opened on demand
+/// rather than held, since the next delivery replaces the file wholesale.
+pub async fn open_replica_db(
+	context: &Arc<crate::context::CoreContext>,
+	device_id: Uuid,
+	source_id: Uuid,
+) -> Option<sd_store::SourceDb> {
+	let db_path = context
+		.data_dir
+		.join("mounts-remote")
+		.join(device_id.simple().to_string())
+		.join(format!("{}.db", source_id.simple()));
+	if !db_path.exists() {
+		return None;
+	}
+	match sd_store::SourceManager::open_file_read_only(&db_path).await {
+		Ok(db) => Some(db),
+		Err(error) => {
+			tracing::warn!(source = %source_id, %error, "replica database would not open");
+			None
+		}
+	}
+}
+
 /// A device's replica inventory as last synced, written beside the artifacts
 /// it describes so the inventory survives a restart without the owner. A
 /// replica has an owner and a validated generation even when no arena is

@@ -1,4 +1,4 @@
-//! Input for delete tag action
+//! Input for deleting a tag definition.
 
 use serde::{Deserialize, Serialize};
 use specta::Type;

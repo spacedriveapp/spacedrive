@@ -1,10 +1,15 @@
-//! Get tag ancestors query
+//! A tag's ancestors, derived from its path.
+//!
+//! Hierarchy travels as a path rather than as parent pointers, so ancestry
+//! is the chain of path prefixes. Only prefixes that exist as definitions
+//! are returned: a bare intermediate path is implicit structure, and there
+//! is nothing to render for it beyond the segments the child already shows.
 
 use crate::{
 	context::CoreContext,
-	domain::tag::Tag,
+	domain::Tag,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::tags::manager::TagManager,
+	ops::tags::definitions,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -18,12 +23,13 @@ pub struct GetTagAncestorsInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GetTagAncestorsOutput {
-	pub ancestors: Vec<Tag>,
+	/// Root first, immediate parent last.
+	pub tags: Vec<Tag>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetTagAncestorsQuery {
-	pub input: GetTagAncestorsInput,
+	input: GetTagAncestorsInput,
 }
 
 impl LibraryQuery for GetTagAncestorsQuery {
@@ -48,16 +54,23 @@ impl LibraryQuery for GetTagAncestorsQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
+		let cache = context.ephemeral_cache();
 
-		let db = library.db();
-		let manager = TagManager::new(Arc::new(db.conn().clone()));
+		let all = definitions::all(&library, &cache).await;
+		let Some(target) = all.iter().find(|d| d.uuid == self.input.tag_id) else {
+			return Ok(GetTagAncestorsOutput { tags: Vec::new() });
+		};
 
-		let ancestors = manager
-			.get_ancestors(self.input.tag_id)
-			.await
-			.map_err(|e| QueryError::Internal(format!("Ancestor lookup failed: {}", e)))?;
+		let segments: Vec<&str> = target.path.split('/').collect();
+		let mut tags = Vec::new();
+		for depth in 1..segments.len() {
+			let prefix = segments[..depth].join("/");
+			if let Some(ancestor) = all.iter().find(|d| d.path == prefix) {
+				tags.push(Tag::from_definition(ancestor));
+			}
+		}
 
-		Ok(GetTagAncestorsOutput { ancestors })
+		Ok(GetTagAncestorsOutput { tags })
 	}
 }
 

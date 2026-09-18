@@ -1,10 +1,10 @@
-//! Get tag children query
+//! A tag's direct children, derived from paths.
 
 use crate::{
 	context::CoreContext,
-	domain::tag::Tag,
+	domain::Tag,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::tags::manager::TagManager,
+	ops::tags::definitions,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -13,17 +13,19 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GetTagChildrenInput {
-	pub tag_id: Uuid,
+	/// The parent tag. `None` lists root tags: definitions whose path has a
+	/// single segment.
+	pub tag_id: Option<Uuid>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct GetTagChildrenOutput {
-	pub children: Vec<Tag>,
+	pub tags: Vec<Tag>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetTagChildrenQuery {
-	pub input: GetTagChildrenInput,
+	input: GetTagChildrenInput,
 }
 
 impl LibraryQuery for GetTagChildrenQuery {
@@ -48,21 +50,33 @@ impl LibraryQuery for GetTagChildrenQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
+		let cache = context.ephemeral_cache();
 
-		let db = library.db();
-		let manager = TagManager::new(Arc::new(db.conn().clone()));
+		let all = definitions::all(&library, &cache).await;
 
-		let child_uuids: Vec<uuid::Uuid> = manager
-			.get_direct_children(self.input.tag_id)
-			.await
-			.map_err(|e| QueryError::Internal(format!("Children lookup failed: {}", e)))?;
+		let tags = match self.input.tag_id {
+			None => all
+				.iter()
+				.filter(|d| !d.path.contains('/'))
+				.map(Tag::from_definition)
+				.collect(),
+			Some(parent_id) => {
+				let Some(parent) = all.iter().find(|d| d.uuid == parent_id) else {
+					return Ok(GetTagChildrenOutput { tags: Vec::new() });
+				};
+				let prefix = format!("{}/", parent.path);
+				all.iter()
+					.filter(|d| {
+						d.path
+							.strip_prefix(&prefix)
+							.is_some_and(|rest| !rest.is_empty() && !rest.contains('/'))
+					})
+					.map(Tag::from_definition)
+					.collect()
+			}
+		};
 
-		let children = manager
-			.get_tags_by_ids(&child_uuids)
-			.await
-			.map_err(|e| QueryError::Internal(format!("Tag lookup failed: {}", e)))?;
-
-		Ok(GetTagChildrenOutput { children })
+		Ok(GetTagChildrenOutput { tags })
 	}
 }
 

@@ -150,7 +150,10 @@ impl DirectoryListingQuery {
 		// no dispatch fall-through: what the replica holds is the answer.
 		if let SdPath::Physical { device_slug, path } = &self.input.path {
 			if *device_slug != crate::device::get_current_device_slug() {
-				if let Some(output) = self.list_remote_replica(&context, device_slug, path).await {
+				if let Some(output) = self
+					.list_remote_replica(&context, library_id, device_slug, path)
+					.await
+				{
 					return Ok(output);
 				}
 				tracing::debug!(
@@ -234,7 +237,11 @@ impl DirectoryListingQuery {
 						_ => String::new(),
 					};
 					let files = self.files_from_index(&index, children, &device_slug).await;
-					return Ok(self.finalize_listing(files));
+					// Decorate after the cap: assertions live only in
+					// SQLite, so the arena's page still reads the store.
+					let mut listing = self.finalize_listing(files);
+					crate::ops::tags::decorate::decorate_files(&cache, &mut listing.files).await;
+					return Ok(listing);
 				}
 			} else {
 				// Index exists but doesn't have this directory yet
@@ -408,7 +415,9 @@ impl DirectoryListingQuery {
 				Some(File::from_store_entry(&entry, sd_path))
 			})
 			.collect();
-		Some(self.finalize_listing(files))
+		let mut listing = self.finalize_listing(files);
+		crate::ops::tags::decorate::decorate_from_store(&db, &mut listing.files).await;
+		Some(listing)
 	}
 
 	/// Sort files according to the input options
@@ -418,6 +427,7 @@ impl DirectoryListingQuery {
 	async fn list_remote_replica(
 		&self,
 		context: &Arc<CoreContext>,
+		library_id: Uuid,
 		device_slug: &str,
 		path: &std::path::Path,
 	) -> Option<DirectoryListingOutput> {
@@ -434,7 +444,27 @@ impl DirectoryListingQuery {
 		let files = self
 			.files_from_index(&share.index, children, device_slug)
 			.await;
-		Some(self.finalize_listing(files))
+		let mut listing = self.finalize_listing(files);
+
+		// The replica database carries the owner's tags as of its delivered
+		// generation; locally authored claims ride on top until their acks.
+		if let Some(db) =
+			crate::service::mounts::peer::open_replica_db(context, share.device_id, share.info.id)
+				.await
+		{
+			crate::ops::tags::decorate::decorate_from_store(&db, &mut listing.files).await;
+			db.pool().close().await;
+		}
+		if let Some(library) = context.libraries().await.get_library(library_id).await {
+			crate::ops::tags::decorate::overlay_pending(
+				&library,
+				share.info.id,
+				&mut listing.files,
+			)
+			.await;
+		}
+
+		Some(listing)
 	}
 
 	/// Convert one directory's children in an in-memory index to `File`s,

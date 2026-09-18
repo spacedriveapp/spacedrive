@@ -144,6 +144,11 @@ impl SourceStore {
 		self.id
 	}
 
+	/// The absolute root the store's relative paths resolve against.
+	pub fn root(&self) -> &Path {
+		&self.root
+	}
+
 	/// The store, for readers. Writers go through the queue.
 	pub fn db(&self) -> &SourceDb {
 		&self.db
@@ -530,7 +535,7 @@ impl SourceStore {
 	/// A path's key in this source: relative to the root, so a drive that
 	/// remounts elsewhere does not invalidate every row, and separated by `/`
 	/// whatever wrote it, so a drive indexed on one platform reads on another.
-	fn external_id(&self, path: &Path) -> Option<String> {
+	pub(crate) fn external_id(&self, path: &Path) -> Option<String> {
 		let relative = path.strip_prefix(&self.root).ok()?;
 		let key = relative.to_string_lossy();
 		if key.is_empty() {
@@ -784,6 +789,13 @@ async fn write_loop(db: Arc<SourceDb>, mut ledger: Ledger, mut rx: mpsc::Receive
 				if let Err(error) = db.set_content_identities(&identities).await {
 					tracing::error!(%error, "content identities failed to land");
 					failed_since_flush += identities.len() as u64;
+				} else {
+					// A tag applied before hashing reached the file is
+					// record-keyed only; the content key is what reaches the
+					// other copies, so it binds as soon as the hash lands.
+					if let Err(error) = db.bind_assertion_content().await {
+						tracing::warn!(%error, "assertion content binding failed");
+					}
 				}
 			}
 			Ingest::Unreadable(failures) => {

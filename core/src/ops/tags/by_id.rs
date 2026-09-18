@@ -1,10 +1,10 @@
-//! Get tag by ID query
+//! One tag by uuid.
 
 use crate::{
 	context::CoreContext,
-	domain::tag::Tag,
+	domain::Tag,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::tags::manager::TagManager,
+	ops::tags::definitions,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -21,9 +21,9 @@ pub struct GetTagByIdOutput {
 	pub tag: Option<Tag>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetTagByIdQuery {
-	pub input: GetTagByIdInput,
+	input: GetTagByIdInput,
 }
 
 impl LibraryQuery for GetTagByIdQuery {
@@ -48,18 +48,13 @@ impl LibraryQuery for GetTagByIdQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
+		let cache = context.ephemeral_cache();
 
-		let db = library.db();
-		let manager = TagManager::new(Arc::new(db.conn().clone()));
-
-		let tags = manager
-			.get_tags_by_ids(&[self.input.tag_id])
+		let tag = definitions::find_one(&library, &cache, self.input.tag_id)
 			.await
-			.map_err(|e| QueryError::Internal(format!("Tag lookup failed: {}", e)))?;
+			.map(|definition| Tag::from_definition(&definition));
 
-		Ok(GetTagByIdOutput {
-			tag: tags.into_iter().next(),
-		})
+		Ok(GetTagByIdOutput { tag })
 	}
 }
 

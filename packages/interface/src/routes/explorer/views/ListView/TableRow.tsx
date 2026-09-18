@@ -233,7 +233,7 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 							color={tag.color || "#3B82F6"}
 							size="xs"
 						>
-							{tag.canonical_name}
+							{tag.name}
 						</TagPill>
 					))}
 					{file.tags.length > 2 && (

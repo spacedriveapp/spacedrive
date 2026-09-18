@@ -1,15 +1,20 @@
-//! Delete a tag and all its relationships
+//! Delete a tag definition.
+//!
+//! Deletion touches every local home of the tag: live applications get a
+//! removal assertion first, so the state change survives on its own terms,
+//! then the definition row goes. Assertion history stays; deleting a name is
+//! never deleting the claims made under it. A store this daemon cannot write
+//! right now keeps its copy, and the definition can return through the
+//! adoption path; the tombstone question is recorded in the plan as open.
 
-use super::input::DeleteTagInput;
-use super::output::DeleteTagOutput;
+use super::{input::DeleteTagInput, output::DeleteTagOutput};
 use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
-	infra::db::entities::{entry, tag, user_metadata, user_metadata_tag},
 	library::Library,
-	ops::tags::TagManager,
+	ops::tags::{definitions, stamp},
 };
-use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+use sd_store::TagAssertion;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
@@ -30,83 +35,79 @@ impl LibraryAction for DeleteTagAction {
 	async fn execute(
 		self,
 		library: Arc<Library>,
-		_context: Arc<CoreContext>,
+		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let db = library.db();
-		let conn = db.conn();
+		let cache = context.ephemeral_cache();
+		let tag_id = self.input.tag_id;
 
-		// Collect affected entry UUIDs BEFORE deleting (same pattern as unapply/action.rs)
-		let affected_entry_uuids = {
-			let tag_model = tag::Entity::find()
-				.filter(tag::Column::Uuid.eq(self.input.tag_id))
-				.one(conn)
-				.await
-				.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-
-			let mut uuids = Vec::new();
-			if let Some(tag_model) = tag_model {
-				let umt_records = user_metadata_tag::Entity::find()
-					.filter(user_metadata_tag::Column::TagId.eq(tag_model.id))
-					.all(conn)
-					.await
-					.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-
-				let um_ids: Vec<i32> = umt_records.iter().map(|r| r.user_metadata_id).collect();
-				if !um_ids.is_empty() {
-					let um_records = user_metadata::Entity::find()
-						.filter(user_metadata::Column::Id.is_in(um_ids))
-						.all(conn)
-						.await
-						.map_err(|e| ActionError::Internal(format!("DB error: {}", e)))?;
-
-					// Entry-scoped metadata → direct entry UUIDs
-					uuids.extend(um_records.iter().filter_map(|um| um.entry_uuid));
-
-					// Content-scoped metadata reaches every copy of the bytes,
-					// so every copy has to be told the tag is gone.
-					let cache = _context.ephemeral_cache();
-					for content in um_records.iter().filter_map(|um| um.content_identity_uuid) {
-						uuids.extend(
-							cache
-								.copies_of_content(content)
-								.await
-								.into_iter()
-								.map(|copy| copy.record_uuid),
-						);
-					}
-				}
-			}
-			uuids
-		};
-
-		// Delete the tag and all its relationships (atomic transaction)
-		let manager = TagManager::new(Arc::new(conn.clone()));
-		manager
-			.delete_tag(self.input.tag_id)
+		if definitions::find_one(&library, &cache, tag_id)
 			.await
-			.map_err(|e| ActionError::Internal(format!("Failed to delete tag: {}", e)))?;
-
-		// TODO(sync): Tag deletion is not synced to other devices.
-		// The sync infrastructure supports ChangeType::Delete but the tag deletion
-		// path does not yet call library.sync_model() with it. This means deleted
-		// tags will reappear on other devices after sync. Tracked for a dedicated
-		// sync-deletion PR.
-
-		let resource_manager =
-			crate::domain::ResourceManager::new(Arc::new(conn.clone()), _context.events.clone());
-
-		// Emit "tag" event so sidebar refreshes
-		if let Err(e) = resource_manager
-			.emit_resource_events("tag", vec![self.input.tag_id])
-			.await
+			.is_none()
 		{
-			tracing::warn!("Failed to emit tag resource event after deletion: {}", e);
+			return Err(ActionError::InvalidInput(format!("unknown tag: {tag_id}")));
 		}
 
-		// The explorer draws a dot per tag, so every copy has to redraw.
-		crate::domain::File::announce(&_context, affected_entry_uuids).await;
+		let device = context
+			.device_manager
+			.device_id()
+			.map_err(|e| ActionError::Internal(format!("no device identity: {e}")))?;
+		let stamp = stamp::assertion_stamp(device);
 
-		Ok(DeleteTagOutput { deleted: true })
+		let mut applications_removed = 0u64;
+		let mut sources_updated = 0u32;
+		let mut affected = Vec::new();
+
+		for store in cache.stores().await {
+			let records = store
+				.db()
+				.records_with_tag(tag_id)
+				.await
+				.map_err(|e| ActionError::Internal(format!("store read failed: {e}")))?;
+
+			let mut rows = Vec::with_capacity(records.len());
+			for &record in &records {
+				let external_id = match cache.path_of_record(record).await {
+					Some(path) => store.external_id(&path),
+					None => None,
+				};
+				rows.push(TagAssertion {
+					tag_uuid: tag_id,
+					record_uuid: record,
+					external_id,
+					content_uuid: None,
+					asserted: false,
+					stamp: stamp.clone(),
+				});
+			}
+
+			applications_removed += store
+				.db()
+				.append_tag_assertions(&rows)
+				.await
+				.map_err(|e| ActionError::Internal(format!("assertion write failed: {e}")))?;
+
+			let removed = store
+				.db()
+				.remove_tag_definition(tag_id)
+				.await
+				.map_err(|e| ActionError::Internal(format!("definition delete failed: {e}")))?;
+			if removed {
+				sources_updated += 1;
+			}
+
+			affected.extend(records);
+		}
+
+		if let Err(error) = definitions::unstage(&library, &[tag_id]).await {
+			tracing::warn!(%error, "deleted tag was not removed from staging");
+		}
+
+		crate::domain::File::announce(&context, affected).await;
+
+		Ok(DeleteTagOutput {
+			applications_removed,
+			sources_updated,
+		})
 	}
 
 	fn action_kind(&self) -> &'static str {

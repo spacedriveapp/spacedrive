@@ -24,25 +24,20 @@ interface TagAssignmentModeProps {
 export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) {
 	const { selectedFiles } = useSelection();
 	const applyTag = useLibraryMutation('tags.apply');
+	const unapplyTag = useLibraryMutation('tags.unapply');
 
 	// Fetch all tags (for now, we'll use the first 10 as the default palette)
 	// TODO: Implement user-defined palettes
 	const { data: tagsData } = useNormalizedQuery<
-		{ query: string },
-		{ tags: Array<{ tag: Tag } | Tag> }
+		{ query: string; limit: number | null },
+		{ tags: Tag[] }
 	>({
 		query: 'tags.search',
-		input: { query: '' },
+		input: { query: '', limit: null },
 		resourceType: 'tag'
 	});
 
-	// Extract tags from search results
-	// Handle both wrapped format ({ tag, relevance }) from initial query
-	// and raw Tag objects from real-time ResourceChanged events
-	const allTags = tagsData?.tags?.map((result) =>
-		'tag' in result ? result.tag : result
-	) ?? [];
-	const paletteTags = allTags.slice(0, 10) as Tag[];
+	const paletteTags = (tagsData?.tags ?? []).slice(0, 10);
 
 	// Keyboard shortcuts using keybind registry
 	useKeybind('explorer.exitTagMode', onExit, { enabled: isActive });
@@ -61,28 +56,28 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 		const tag = paletteTags[index];
 		if (!tag || selectedFiles.length === 0) return;
 
-		// Get content IDs from selected files (filter out files without content identity)
-		const contentIds = selectedFiles
-			.map(f => f.content_identity?.uuid)
-			.filter((id): id is string => id != null);
-
-		if (contentIds.length === 0) {
-			toast.error('These files need to be indexed before they can be tagged');
-			return;
-		}
+		// Tag the records. The daemon attaches the content key where hashing
+		// has reached the file and binds it later where it has not, so
+		// nothing here waits on identification.
+		const targets = {
+			type: 'File' as const,
+			ids: selectedFiles.map((f) => f.id)
+		};
 
 		try {
-			await applyTag.mutateAsync({
-				targets: { type: 'Content', ids: contentIds },
-				tag_ids: [tag.id],
-				source: null,
-				confidence: null,
-				applied_context: null,
-				instance_attributes: null
-			});
+			if (isTagActive(tag)) {
+				await unapplyTag.mutateAsync({ targets, tag_ids: [tag.id] });
+			} else {
+				await applyTag.mutateAsync({ targets, tag_ids: [tag.id] });
+			}
 		} catch (err) {
-			console.error('Failed to apply tag:', err);
-			toast.error(`Failed to apply tag: ${err}`);
+			console.error('Failed to toggle tag:', err);
+			// The one honest refusal left: a tag has to live in a source
+			// store, and a path outside every tracked source has none.
+			const message = String(err).includes('no tracked source')
+				? 'Tags live in a source. Add this folder to your library first.'
+				: `Failed to toggle tag: ${err}`;
+			toast.error(message);
 		}
 	};
 
@@ -145,7 +140,7 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 										</kbd>
 
 										{/* Tag Name */}
-										<span className="truncate max-w-[120px]">{tag.canonical_name}</span>
+										<span className="truncate max-w-[120px]">{tag.name}</span>
 
 										{/* Active Checkmark */}
 										{active && (

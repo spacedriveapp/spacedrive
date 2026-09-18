@@ -1,22 +1,14 @@
 //! Query to get a single file by ID with all related data
 
-use crate::infra::query::{QueryError, QueryResult};
+use crate::infra::query::QueryResult;
 use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, File},
-	infra::db::entities::{
-		audio_media_data, content_identity, device, directory_paths, entry, image_media_data,
-		location, sidecar, tag, user_metadata, user_metadata_tag, video_media_data,
-	},
 	infra::query::LibraryQuery,
-};
-use sea_orm::{
-	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
-	QuerySelect, RelationTrait,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use uuid::Uuid;
 
 /// Query to get a file by its ID with all related data
@@ -61,6 +53,10 @@ impl LibraryQuery for FileByIdQuery {
 
 		let mut file = File::from_ephemeral(self.file_id, &metadata, SdPath::local(path));
 		file.content_kind = content_kind;
+
+		let mut files = [file];
+		crate::ops::tags::decorate::decorate_files(&cache, &mut files).await;
+		let [file] = files;
 
 		Ok(Some(file))
 	}

@@ -1,27 +1,29 @@
-//! Tag operations module
+//! Tag operations.
 //!
-//! This module contains business logic for managing semantic tags,
-//! including creation, application, search, and hierarchy management.
+//! Definitions and assertions live in each source store
+//! (`sd_store::tags`); the library holds only definitions applied nowhere
+//! yet. These operations resolve targets through the volume index, write
+//! through store handles, and stamp every claim with an HLC and the device
+//! that made it. `docs/plans/2026-09-17-tags-on-source-stores.md` is the
+//! execution plan.
 
 pub mod ancestors;
 pub mod apply;
 pub mod by_id;
 pub mod children;
 pub mod create;
+pub mod decorate;
+pub mod definitions;
 pub mod delete;
-pub mod facade;
 pub mod files_by_tag;
-pub mod manager;
+pub mod merge;
+pub mod outbox;
 pub mod search;
+pub mod stamp;
+pub mod targets;
 pub mod unapply;
-pub mod validation;
 
-pub use facade::TaggingFacade;
-pub use manager::TagManager;
-pub use validation::TagValidator;
-
-// Re-export commonly used types
-pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput};
+pub use apply::{ApplyTagsAction, ApplyTagsInput, ApplyTagsOutput, TagTargets};
 pub use create::{CreateTagAction, CreateTagInput, CreateTagOutput};
 pub use delete::{DeleteTagAction, DeleteTagInput, DeleteTagOutput};
 pub use search::{SearchTagsInput, SearchTagsOutput, SearchTagsQuery};

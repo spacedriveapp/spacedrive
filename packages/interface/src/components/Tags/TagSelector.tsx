@@ -1,5 +1,5 @@
 import {MagnifyingGlass, Plus} from '@phosphor-icons/react';
-import type {Tag} from '@sd/ts-client';
+import type {SearchTagsOutput, Tag} from '@sd/ts-client';
 import {Popover, usePopover} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {useEffect, useState} from 'react';
@@ -41,39 +41,29 @@ export function TagSelector({
 	const createTag = useLibraryMutation('tags.create', {
 		onSuccess: refetchTagQueries,
 	});
-
-	// Fetch all tags using search with empty query
-	// Using select to normalize TagSearchResult[] to Tag[] for consistent cache structure
-	const {data: allTags = []} = useNormalizedQuery<{query: string}, any, Tag[]>({
-		query: 'tags.search',
-		input: {query: ''},
-		resourceType: 'tag',
-		// TODO: replace `any` with proper generated types when available
-		select: (data: any) =>
-			data?.tags
-				?.map((result: any) => result.tag || result)
-				.filter(Boolean) ?? []
+	const applyTags = useLibraryMutation('tags.apply', {
+		onSuccess: refetchTagQueries,
 	});
 
-	// Check if query matches an existing tag
+	const {data: searchData} = useNormalizedQuery<
+		{query: string; limit: number | null},
+		SearchTagsOutput
+	>({
+		query: 'tags.search',
+		input: {query: '', limit: null},
+		resourceType: 'tag'
+	});
+	const allTags = searchData?.tags ?? [];
+
+	// A tag's path is its identity, so the exact match is on the full path.
 	const exactMatch = allTags.find(
-		(tag) => tag.canonical_name.toLowerCase() === query.toLowerCase()
+		(tag) => tag.path.toLowerCase() === query.toLowerCase()
 	);
 
-	// Filter tags based on search query
 	const filteredTags =
 		query.length > 0
-			? allTags.filter(
-					(tag) =>
-						tag.canonical_name
-							.toLowerCase()
-							.includes(query.toLowerCase()) ||
-						tag.aliases?.some((alias) =>
-							alias.toLowerCase().includes(query.toLowerCase())
-						) ||
-						tag.abbreviation
-							?.toLowerCase()
-							.includes(query.toLowerCase())
+			? allTags.filter((tag) =>
+					tag.path.toLowerCase().includes(query.toLowerCase())
 				)
 			: allTags;
 
@@ -122,52 +112,26 @@ export function TagSelector({
 				.toString(16)
 				.padStart(6, '0')}`;
 			const result = await createTag.mutateAsync({
-				canonical_name: query.trim(),
-				display_name: null,
-				formal_name: null,
-				abbreviation: null,
-				aliases: [],
-				namespace: null,
-				tag_type: null,
+				path: query.trim(),
 				color,
-				icon: null,
-				description: null,
-				is_organizational_anchor: null,
-				privacy_level: null,
-				search_weight: null,
-				attributes: null,
-				apply_to: contentId
-					? {type: 'Content', ids: [contentId]}
-					: fileId
-						? {type: 'File', ids: [fileId]}
-						: null
+				icon: null
 			});
 
-			// Construct a Tag object from the result to pass to onSelect
-			// The full tag will be available in the cache shortly via resource events
-			const newTag: Tag = {
-				id: result.tag_id,
-				canonical_name: result.canonical_name,
-				display_name: null,
-				formal_name: null,
-				abbreviation: null,
-				aliases: [],
-				namespace: result.namespace || null,
-				tag_type: 'Standard',
-				color,
-				icon: null,
-				description: null,
-				is_organizational_anchor: false,
-				privacy_level: 'Normal',
-				search_weight: 0,
-				attributes: {},
-				composition_rules: [],
-				created_at: new Date().toISOString(),
-				updated_at: new Date().toISOString(),
-				created_by_device: result.tag_id // Placeholder
-			};
+			// Creation stages the definition; applying is what lands it in a
+			// source, so the two are separate calls now.
+			const target = contentId
+				? {type: 'Content' as const, ids: [contentId]}
+				: fileId
+					? {type: 'File' as const, ids: [fileId]}
+					: null;
+			if (target) {
+				await applyTags.mutateAsync({
+					targets: target,
+					tag_ids: [result.tag.id]
+				});
+			}
 
-			onSelect(newTag);
+			onSelect(result.tag);
 			setQuery('');
 			onClose?.();
 		} catch (err) {
@@ -249,13 +213,13 @@ export function TagSelector({
 
 							{/* Tag name */}
 							<span className="flex-1 truncate text-left">
-								{tag.canonical_name}
+								{tag.name}
 							</span>
 
-							{/* Namespace badge */}
-							{tag.namespace && (
+							{/* Parent path badge, for tags nested in a hierarchy */}
+							{tag.path !== tag.name && (
 								<span className="text-ink-faint bg-app-line rounded px-1.5 py-0.5 text-xs">
-									{tag.namespace}
+									{tag.path.slice(0, -(tag.name.length + 1))}
 								</span>
 							)}
 						</button>

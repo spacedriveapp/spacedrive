@@ -263,6 +263,9 @@ impl Core {
 			error!("Failed to start mounts share: {}", e);
 		}
 
+		// Deliver tag assertions authored while their owners were away.
+		crate::ops::tags::outbox::start(context.clone());
+
 		// Initialize networking if enabled in config
 		let service_config = config.read().await.services.clone();
 		if service_config.networking_enabled {

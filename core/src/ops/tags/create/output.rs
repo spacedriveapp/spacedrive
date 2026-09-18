@@ -1,77 +1,13 @@
-//! Output for create semantic tag action
+//! Output for creating a tag.
 
-use crate::{domain::tag::Tag, infra::db::entities::tag};
+use crate::domain::Tag;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CreateTagOutput {
-	/// The created tag's UUID
-	pub tag_id: Uuid,
-
-	/// The canonical name of the created tag
-	pub canonical_name: String,
-
-	/// The namespace if specified
-	pub namespace: Option<String>,
-
-	/// Success message
-	pub message: String,
-}
-
-impl CreateTagOutput {
-	/// Create output from a semantic tag (domain model)
-	pub fn from_tag(tag: &Tag) -> Self {
-		let message = match &tag.namespace {
-			Some(namespace) => format!(
-				"Created tag '{}' in namespace '{}'",
-				tag.canonical_name, namespace
-			),
-			None => format!("Created tag '{}'", tag.canonical_name),
-		};
-
-		Self {
-			tag_id: tag.id,
-			canonical_name: tag.canonical_name.clone(),
-			namespace: tag.namespace.clone(),
-			message,
-		}
-	}
-
-	/// Create output from entity Model (database model)
-	pub fn from_entity(entity: &tag::Model) -> Self {
-		let message = match &entity.namespace {
-			Some(namespace) => format!(
-				"Created tag '{}' in namespace '{}'",
-				entity.canonical_name, namespace
-			),
-			None => format!("Created tag '{}'", entity.canonical_name),
-		};
-
-		Self {
-			tag_id: entity.uuid,
-			canonical_name: entity.canonical_name.clone(),
-			namespace: entity.namespace.clone(),
-			message,
-		}
-	}
-
-	/// Create a simple success output
-	pub fn success(tag_id: Uuid, canonical_name: String, namespace: Option<String>) -> Self {
-		let message = match &namespace {
-			Some(ns) => format!(
-				"Successfully created semantic tag '{}' in namespace '{}'",
-				canonical_name, ns
-			),
-			None => format!("Successfully created semantic tag '{}'", canonical_name),
-		};
-
-		Self {
-			tag_id,
-			canonical_name,
-			namespace,
-			message,
-		}
-	}
+	pub tag: Tag,
+	/// `false` when the path already named a tag, which the caller gets back
+	/// instead of a duplicate.
+	pub created: bool,
 }

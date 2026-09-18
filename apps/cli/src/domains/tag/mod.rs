@@ -8,18 +8,23 @@ use crate::util::prelude::*;
 
 use sd_core::ops::tags::{
 	apply::output::ApplyTagsOutput, create::output::CreateTagOutput,
-	search::output::SearchTagsOutput, search::query::SearchTagsQuery,
+	delete::output::DeleteTagOutput, search::output::SearchTagsOutput,
+	unapply::output::UnapplyTagsOutput,
 };
 
 use self::args::*;
 
 #[derive(Subcommand, Debug)]
 pub enum TagCmd {
-	/// Create a new tag
+	/// Create a tag by path, like "Work/Clients/Acme"
 	Create(TagCreateArgs),
-	/// Apply one or more tags to entries
+	/// Apply one or more tags to files
 	Apply(TagApplyArgs),
-	/// Search for tags
+	/// Remove one or more tags from files
+	Unapply(TagUnapplyArgs),
+	/// Delete a tag definition everywhere this daemon can write
+	Delete(TagDeleteArgs),
+	/// Search tags; an empty query lists all of them
 	Search(TagSearchArgs),
 }
 
@@ -29,16 +34,53 @@ pub async fn run(ctx: &Context, cmd: TagCmd) -> Result<()> {
 			let input: sd_core::ops::tags::create::input::CreateTagInput = args.into();
 			let out: CreateTagOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &CreateTagOutput| {
-				println!("{} (id: {})", o.canonical_name, o.tag_id);
+				let verb = if o.created {
+					"Created"
+				} else {
+					"Already exists:"
+				};
+				println!("{} {} (id: {})", verb, o.tag.path, o.tag.id);
 			});
 		}
 		TagCmd::Apply(args) => {
 			let input: sd_core::ops::tags::apply::input::ApplyTagsInput = args.into();
 			let out: ApplyTagsOutput = execute_action!(ctx, input);
 			print_output!(ctx, &out, |o: &ApplyTagsOutput| {
+				println!("Tagged {} target(s)", o.targets_tagged);
+				if o.targets_pending > 0 {
+					println!(
+						"{} target(s) pending delivery to their owner",
+						o.targets_pending
+					);
+				}
+				for warning in &o.warnings {
+					println!("warning: {warning}");
+				}
+			});
+		}
+		TagCmd::Unapply(args) => {
+			let input: sd_core::ops::tags::unapply::input::UnapplyTagsInput = args.into();
+			let out: UnapplyTagsOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &UnapplyTagsOutput| {
+				println!("Untagged {} target(s)", o.targets_untagged);
+				if o.targets_pending > 0 {
+					println!(
+						"{} removal(s) pending delivery to their owner",
+						o.targets_pending
+					);
+				}
+				for warning in &o.warnings {
+					println!("warning: {warning}");
+				}
+			});
+		}
+		TagCmd::Delete(args) => {
+			let input: sd_core::ops::tags::delete::input::DeleteTagInput = args.into();
+			let out: DeleteTagOutput = execute_action!(ctx, input);
+			print_output!(ctx, &out, |o: &DeleteTagOutput| {
 				println!(
-					"Applied {} tag(s) to {} entries",
-					o.tags_applied, o.entries_affected
+					"Removed {} application(s) across {} source(s)",
+					o.applications_removed, o.sources_updated
 				);
 			});
 		}
@@ -50,8 +92,8 @@ pub async fn run(ctx: &Context, cmd: TagCmd) -> Result<()> {
 					println!("No tags found");
 					return;
 				}
-				for r in &o.tags {
-					println!("{} {}", r.tag.id, r.tag.canonical_name);
+				for tag in &o.tags {
+					println!("{} {}", tag.id, tag.path);
 				}
 			});
 		}

@@ -112,57 +112,18 @@ proxy_pairing: ProxyPairingConfigOutput;
  */
 spacebot: SpacebotConfigOutput };
 
-export type ApplyTagsInput = { 
-/**
- * What to tag: content identities or specific entries
- */
-targets: TagTargets; 
-/**
- * Tag IDs to apply
- */
-tag_ids: string[]; 
-/**
- * Source of the tag application
- */
-source: TagSource | null; 
-/**
- * Confidence score (for AI-applied tags)
- */
-confidence: number | null; 
-/**
- * Context when applying (e.g., "image_analysis", "user_input")
- */
-applied_context: string | null; 
-/**
- * Instance-specific attributes for this application
- */
-instance_attributes: { [key in string]: JsonValue } | null };
+export type ApplyTagsInput = { targets: TagTargets; tag_ids: string[] };
 
 export type ApplyTagsOutput = { 
 /**
- * Number of entries that had tags applied
+ * Targets whose stores now durably carry the assertions.
  */
-entries_affected: number; 
+targets_tagged: number; 
 /**
- * Number of tags that were applied
+ * Targets on remote-owned sources: authored durably here, delivered to
+ * the owner when it next answers.
  */
-tags_applied: number; 
-/**
- * Tag IDs that were successfully applied
- */
-applied_tag_ids: string[]; 
-/**
- * Entry IDs that were successfully tagged
- */
-tagged_entry_ids: number[]; 
-/**
- * Any warnings or notes about the operation
- */
-warnings: string[]; 
-/**
- * Success message
- */
-message: string };
+targets_pending: number; warnings: string[] };
 
 /**
  * Audio metadata extracted from FFmpeg
@@ -203,32 +164,6 @@ slug: string;
 limit?: number | null };
 
 export type CollectionListingOutput = { display_name: string; files: File[]; total_count: number };
-
-/**
- * Operators for combining tag attributes
- */
-export type CompositionOperator = 
-/**
- * All conditions must be true
- */
-"And" | 
-/**
- * Any condition must be true
- */
-"Or" | 
-/**
- * Must have this property
- */
-"With" | 
-/**
- * Must not have this property
- */
-"Without";
-
-/**
- * Rules for composing attributes from multiple tags
- */
-export type CompositionRule = { operator: CompositionOperator; operands: string[]; result_attribute: string };
 
 /**
  * Network connection method for a device
@@ -528,55 +463,16 @@ status: string };
 
 export type CreateTagInput = { 
 /**
- * The canonical name for this tag
+ * Full path, `Work/Clients/Acme`. A single segment is a root tag.
  */
-canonical_name: string; 
-/**
- * Optional display name (if different from canonical)
- */
-display_name: string | null; 
-/**
- * Semantic variants
- */
-formal_name: string | null; abbreviation: string | null; aliases: string[]; 
-/**
- * Context and categorization
- */
-namespace: string | null; tag_type: TagType | null; 
-/**
- * Visual properties
- */
-color: string | null; icon: string | null; description: string | null; 
-/**
- * Advanced capabilities
- */
-is_organizational_anchor: boolean | null; privacy_level: PrivacyLevel | null; search_weight: number | null; 
-/**
- * Initial attributes
- */
-attributes: { [key in string]: JsonValue } | null; 
-/**
- * Optional: Targets to immediately apply this tag to after creation
- */
-apply_to: TagTargets | null };
+path: string; color: string | null; icon: string | null };
 
-export type CreateTagOutput = { 
+export type CreateTagOutput = { tag: Tag; 
 /**
- * The created tag's UUID
+ * `false` when the path already named a tag, which the caller gets back
+ * instead of a duplicate.
  */
-tag_id: string; 
-/**
- * The canonical name of the created tag
- */
-canonical_name: string; 
-/**
- * The namespace if specified
- */
-namespace: string | null; 
-/**
- * Success message
- */
-message: string };
+created: boolean };
 
 /**
  * Data volume metrics snapshot
@@ -607,7 +503,15 @@ export type DeleteSourceOutput = { deleted: boolean };
 
 export type DeleteTagInput = { tag_id: string };
 
-export type DeleteTagOutput = { deleted: boolean };
+export type DeleteTagOutput = { 
+/**
+ * Removal assertions written for records that carried the tag.
+ */
+applications_removed: number; 
+/**
+ * Stores the definition was removed from.
+ */
+sources_updated: number };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -1607,7 +1511,12 @@ export type GetAdapterConfigInput = { adapter_id: string };
  */
 export type GetAppConfigQueryInput = null;
 
-export type GetFilesByTagInput = { tag_id: string; include_children: boolean; min_confidence: number };
+export type GetFilesByTagInput = { tag_id: string; 
+/**
+ * Tagging something `Camera` should find what was tagged
+ * `Camera/Leica`, so children are included by default in clients.
+ */
+include_children: boolean };
 
 export type GetFilesByTagOutput = { files: File[] };
 
@@ -1714,15 +1623,24 @@ export type GetSyncPartnersOutput = { partners: SyncPartnerInfo[]; debug_info: S
 
 export type GetTagAncestorsInput = { tag_id: string };
 
-export type GetTagAncestorsOutput = { ancestors: Tag[] };
+export type GetTagAncestorsOutput = { 
+/**
+ * Root first, immediate parent last.
+ */
+tags: Tag[] };
 
 export type GetTagByIdInput = { tag_id: string };
 
 export type GetTagByIdOutput = { tag: Tag | null };
 
-export type GetTagChildrenInput = { tag_id: string };
+export type GetTagChildrenInput = { 
+/**
+ * The parent tag. `None` lists root tags: definitions whose path has a
+ * single segment.
+ */
+tag_id: string | null };
 
-export type GetTagChildrenOutput = { children: Tag[] };
+export type GetTagChildrenOutput = { tags: Tag[] };
 
 /**
  * Types of groups that can appear in a space
@@ -2746,6 +2664,23 @@ export type MediaSortBy =
  */
 export type MemoryBreakdownStats = { arena: number; cache: number; registry: number; path_index_overhead: number; path_index_entries: number; entry_uuids_overhead: number; entry_uuids_entries: number; content_kinds_overhead: number; content_kinds_entries: number };
 
+export type MergeAssertionsInput = { 
+/**
+ * A source this device owns; the merge refuses anything else.
+ */
+source_uuid: string; 
+/**
+ * Every definition the assertions reference, so the store can always
+ * name the tags it carries.
+ */
+definitions: WireDefinition[]; assertions: WireAssertion[] };
+
+export type MergeAssertionsOutput = { definitions_received: number; 
+/**
+ * Rows that were actually new; a replayed batch reports zero.
+ */
+assertions_appended: number };
+
 /**
  * Information about a model
  */
@@ -3224,23 +3159,6 @@ export type PortRange = { from: number; to: number };
  */
 export type PreferencesOutput = { theme: string; language: string };
 
-/**
- * Privacy levels for tag visibility control
- */
-export type PrivacyLevel = 
-/**
- * Standard visibility in all contexts
- */
-"Normal" | 
-/**
- * Hidden from normal searches but accessible via direct query
- */
-"Archive" | 
-/**
- * Completely hidden from standard UI
- */
-"Hidden";
-
 export type Process = (ProcessStatus) & { id: string };
 
 export type ProcessLeasesInput = Record<string, never>;
@@ -3587,55 +3505,11 @@ export type SearchScope =
 
 export type SearchTagsInput = { 
 /**
- * Search query (searches across all name variants)
+ * Case-insensitive substring over the full path. Empty lists every tag.
  */
-query: string; 
-/**
- * Optional namespace filter
- */
-namespace: string | null; 
-/**
- * Optional tag type filter
- */
-tag_type: TagType | null; 
-/**
- * Whether to include archived/hidden tags
- */
-include_archived: boolean | null; 
-/**
- * Maximum number of results to return
- */
-limit: number | null; 
-/**
- * Whether to resolve ambiguous results using context
- */
-resolve_ambiguous: boolean | null; 
-/**
- * Context tags for disambiguation (UUIDs)
- */
-context_tag_ids: string[] | null };
+query: string; limit: number | null };
 
-export type SearchTagsOutput = { 
-/**
- * Tags found by the search
- */
-tags: TagSearchResult[]; 
-/**
- * Total number of results found (may be more than returned if limited)
- */
-total_found: number; 
-/**
- * Whether results were disambiguated using context
- */
-disambiguated: boolean; 
-/**
- * Search query that was executed
- */
-query: string; 
-/**
- * Applied filters
- */
-filters: TagSearchFilters };
+export type SearchTagsOutput = { tags: Tag[] };
 
 export type SerializablePairingState = "Idle" | "GeneratingCode" | "Broadcasting" | "Scanning" | "WaitingForConnection" | "Connecting" | "Authenticating" | "ExchangingKeys" | "AwaitingConfirmation" | "EstablishingSession" | "ChallengeReceived" | "ResponsePending" | "ResponseSent" | "Completed" | { Failed: { reason: string } };
 
@@ -4145,41 +4019,22 @@ export type SyncStateSnapshot = { current_state: DeviceSyncState; state_entered_
 export type SystemInfo = { uptime: number | null; data_directory: string; instance_name: string | null; current_library: string | null };
 
 /**
- * A tag with advanced capabilities for contextual organization
+ * A tag as clients see it.
  */
 export type Tag = { 
 /**
- * Unique identifier
+ * Stable through rename; what assertions reference.
  */
 id: string; 
 /**
- * Core identity
+ * Full ancestor chain, `Work/Clients/Acme`. Hierarchy is derived from
+ * it, so a tag travels whole.
  */
-canonical_name: string; display_name: string | null; 
+path: string; 
 /**
- * Semantic variants for flexible access
+ * The leaf segment, for display.
  */
-formal_name: string | null; abbreviation: string | null; aliases: string[]; 
-/**
- * Context and categorization
- */
-namespace: string | null; tag_type: TagType; 
-/**
- * Visual and behavioral properties
- */
-color: string | null; icon: string | null; description: string | null; 
-/**
- * Advanced capabilities
- */
-is_organizational_anchor: boolean; privacy_level: PrivacyLevel; search_weight: number; 
-/**
- * Compositional attributes
- */
-attributes: { [key in string]: JsonValue }; composition_rules: CompositionRule[]; 
-/**
- * Metadata
- */
-created_at: string; updated_at: string; created_by_device: string };
+name: string; color: string | null; icon: string | null };
 
 /**
  * Filter for tags, supporting complex boolean logic
@@ -4194,55 +4049,14 @@ include: string[];
  */
 exclude: string[] };
 
-export type TagSearchFilters = { namespace: string | null; tag_type: string | null; include_archived: boolean; limit: number | null };
-
-export type TagSearchResult = { 
 /**
- * The semantic tag
- */
-tag: Tag; 
-/**
- * Relevance score (0.0-1.0)
- */
-relevance: number; 
-/**
- * Which name variant matched the search
- */
-matched_variant: string | null; 
-/**
- * Context score if disambiguation was used
- */
-context_score: number | null };
-
-/**
- * Source of tag application
- */
-export type TagSource = 
-/**
- * Manually applied by user
- */
-"User" | 
-/**
- * Applied by AI analysis
- */
-"AI" | 
-/**
- * Imported from external source
- */
-"Import" | 
-/**
- * Synchronized from another device
- */
-"Sync";
-
-/**
- * Specifies what to tag: content (all instances) or specific entries
+ * What to tag: the bytes, or one copy of them.
  */
 export type TagTargets = 
 /**
  * Tag the bytes, which reaches every copy of them on every drive. The
- * preferred form, and what a caller should use whenever the file has been
- * identified.
+ * preferred form, and what a caller should use whenever the file has
+ * been identified.
  */
 { type: "Content"; ids: string[] } | 
 /**
@@ -4251,27 +4065,6 @@ export type TagTargets =
  * this copy rather than all of them.
  */
 { type: "File"; ids: string[] };
-
-/**
- * Types of semantic tags with different behaviors
- */
-export type TagType = 
-/**
- * Standard user-created tag
- */
-"Standard" | 
-/**
- * Creates visual hierarchies in the interface
- */
-"Organizational" | 
-/**
- * Controls search and display visibility
- */
-"Privacy" | 
-/**
- * System-generated tag (AI, import, etc.)
- */
-"System";
 
 /**
  * Text highlighting information
@@ -4407,20 +4200,18 @@ volume_uuid: string | null;
  */
 whole_volume: boolean; job_id: string | null };
 
-/**
- * What to untag — uses entry UUIDs (matching the File.id exposed to frontend)
- */
-export type UnapplyTagsInput = { 
-/**
- * Entry UUIDs (File.id) to remove tags from
- */
-entry_ids: string[]; 
-/**
- * Tag UUIDs to remove
- */
-tag_ids: string[] };
+export type UnapplyTagsInput = { targets: TagTargets; tag_ids: string[] };
 
-export type UnapplyTagsOutput = { entries_affected: number; tags_removed: number; warnings: string[] };
+export type UnapplyTagsOutput = { 
+/**
+ * Targets whose stores now durably carry the removal.
+ */
+targets_untagged: number; 
+/**
+ * Targets on remote-owned sources: the removal delivers to the owner
+ * when it next answers.
+ */
+targets_pending: number; warnings: string[] };
 
 /**
  * Statistics for the unified ephemeral index
@@ -5128,6 +4919,10 @@ export type VouchingSessionInput = { session_id: string };
 export type VouchingSessionOutput = { session: VouchingSession | null };
 
 export type VouchingSessionState = "Pending" | "InProgress" | "Completed";
+
+export type WireAssertion = { tag_uuid: string; record_uuid: string; external_id: string | null; content_uuid: string | null; asserted: boolean; hlc: string; device_uuid: string };
+
+export type WireDefinition = { uuid: string; slug_id: string; path: string; color: string | null; icon: string | null; updated_hlc: string; origin_device: string };
 // ===== API Type Unions =====
 
 export type CoreAction =
@@ -5179,6 +4974,7 @@ export type LibraryAction =
   |  { type: 'locations.add'; input: LocationAddInput; output: LocationAddOutput }
   |  { type: 'locations.remove'; input: LocationRemoveInput; output: LocationRemoveOutput }
   |  { type: 'locations.update'; input: LocationUpdateInput; output: LocationUpdateOutput }
+  |  { type: 'sources.assertions.merge'; input: MergeAssertionsInput; output: MergeAssertionsOutput }
   |  { type: 'sources.create'; input: CreateSourceInput; output: CreateSourceOutput }
   |  { type: 'sources.delete'; input: DeleteSourceInput; output: DeleteSourceOutput }
   |  { type: 'sources.freeze'; input: FreezeSourceInput; output: FreezeSourceOutput }
@@ -5334,6 +5130,7 @@ export const WIRE_METHODS = {
     'locations.add': 'action:locations.add.input',
     'locations.remove': 'action:locations.remove.input',
     'locations.update': 'action:locations.update.input',
+    'sources.assertions.merge': 'action:sources.assertions.merge.input',
     'sources.create': 'action:sources.create.input',
     'sources.delete': 'action:sources.delete.input',
     'sources.freeze': 'action:sources.freeze.input',

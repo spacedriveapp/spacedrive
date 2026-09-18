@@ -4,23 +4,30 @@ use uuid::Uuid;
 use sd_core::ops::tags::{
 	apply::input::{ApplyTagsInput, TagTargets},
 	create::input::CreateTagInput,
+	delete::input::DeleteTagInput,
 	search::input::SearchTagsInput,
+	unapply::input::UnapplyTagsInput,
 };
 
 #[derive(Args, Debug)]
 pub struct TagCreateArgs {
-	/// Canonical name for the tag
-	pub name: String,
-	/// Optional namespace
+	/// Full tag path, like "Work/Clients/Acme"
+	pub path: String,
+	/// Hex color, like "#ff5500"
 	#[arg(long)]
-	pub namespace: Option<String>,
+	pub color: Option<String>,
+	/// Icon name
+	#[arg(long)]
+	pub icon: Option<String>,
 }
 
 impl From<TagCreateArgs> for CreateTagInput {
 	fn from(args: TagCreateArgs) -> Self {
-		let mut input = CreateTagInput::simple(args.name);
-		input.namespace = args.namespace;
-		input
+		CreateTagInput {
+			path: args.path,
+			color: args.color,
+			icon: args.icon,
+		}
 	}
 }
 
@@ -32,39 +39,78 @@ pub struct TagApplyArgs {
 	/// Tag IDs to apply (space-separated UUIDs)
 	#[arg(long, required = true)]
 	pub tags: Vec<Uuid>,
+	/// Tag the bytes instead: the file UUIDs are content UUIDs, and the tag
+	/// reaches every copy
+	#[arg(long)]
+	pub content: bool,
 }
 
 impl From<TagApplyArgs> for ApplyTagsInput {
 	fn from(args: TagApplyArgs) -> Self {
-		ApplyTagsInput::user_tags_file(args.files, args.tags)
+		ApplyTagsInput {
+			targets: if args.content {
+				TagTargets::Content(args.files)
+			} else {
+				TagTargets::File(args.files)
+			},
+			tag_ids: args.tags,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct TagUnapplyArgs {
+	/// File UUIDs to untag (space-separated)
+	#[arg(required = true)]
+	pub files: Vec<Uuid>,
+	/// Tag IDs to remove (space-separated UUIDs)
+	#[arg(long, required = true)]
+	pub tags: Vec<Uuid>,
+	/// Untag the bytes instead: the file UUIDs are content UUIDs
+	#[arg(long)]
+	pub content: bool,
+}
+
+impl From<TagUnapplyArgs> for UnapplyTagsInput {
+	fn from(args: TagUnapplyArgs) -> Self {
+		UnapplyTagsInput {
+			targets: if args.content {
+				TagTargets::Content(args.files)
+			} else {
+				TagTargets::File(args.files)
+			},
+			tag_ids: args.tags,
+		}
+	}
+}
+
+#[derive(Args, Debug)]
+pub struct TagDeleteArgs {
+	/// The tag's UUID
+	pub tag: Uuid,
+}
+
+impl From<TagDeleteArgs> for DeleteTagInput {
+	fn from(args: TagDeleteArgs) -> Self {
+		DeleteTagInput { tag_id: args.tag }
 	}
 }
 
 #[derive(Args, Debug)]
 pub struct TagSearchArgs {
-	/// Query text
+	/// Query text; empty lists every tag
+	#[arg(default_value = "")]
 	pub query: String,
-	/// Optional namespace
-	#[arg(long)]
-	pub namespace: Option<String>,
-	/// Include archived tags
-	#[arg(long)]
-	pub include_archived: bool,
 	/// Limit number of results
 	#[arg(long)]
-	pub limit: Option<usize>,
+	pub limit: Option<u32>,
 }
 
 impl From<TagSearchArgs> for SearchTagsInput {
 	fn from(args: TagSearchArgs) -> Self {
 		SearchTagsInput {
 			query: args.query,
-			namespace: args.namespace,
-			tag_type: None,
-			include_archived: Some(args.include_archived),
-			limit: args.limit.or(Some(50)),
-			resolve_ambiguous: Some(false),
-			context_tag_ids: None,
+			limit: args.limit,
 		}
 	}
 }
