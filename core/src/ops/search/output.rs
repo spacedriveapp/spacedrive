@@ -182,6 +182,7 @@ impl FileSearchOutput {
 				FilterKind::SizeRange,
 				FilterKind::ContentTypes,
 				FilterKind::Hidden,
+				FilterKind::Tags,
 			]),
 		}
 	}

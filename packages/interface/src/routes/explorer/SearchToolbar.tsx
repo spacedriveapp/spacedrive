@@ -103,6 +103,7 @@ export function SearchToolbar() {
 				filters={filters}
 				onChange={explorer.setSearchFilters}
 			/>
+			<TagsPill filters={filters} onChange={explorer.setSearchFilters} />
 
 			<label className="ml-1 flex items-center gap-1.5 text-xs text-ink-dull cursor-pointer">
 				<Switch
@@ -207,6 +208,75 @@ function KindPill({
 								<span className="text-ink-faint tabular-nums">
 									{count.toLocaleString()}
 								</span>
+							</span>
+						</OptionListItem>
+					))}
+				</OptionList>
+			</Popover.Content>
+		</Popover.Root>
+	);
+}
+
+function TagsPill({filters, onChange}: PillProps) {
+	const popover = usePopover();
+	const selected = filters.tags?.include ?? [];
+
+	const {data: tagsData} = useLibraryQuery(
+		{type: 'tags.search', input: {query: '', limit: null}},
+		{enabled: popover.open || selected.length > 0}
+	);
+	const tags = tagsData?.tags ?? [];
+
+	const first = tags.find((tag) => tag.id === selected[0])?.name ?? 'Tag';
+	const label =
+		selected.length === 0
+			? 'Tags'
+			: selected.length === 1
+				? first
+				: `${first} +${selected.length - 1}`;
+
+	const toggle = (id: string) => {
+		const next = selected.includes(id)
+			? selected.filter((tag) => tag !== id)
+			: [...selected, id];
+		onChange({
+			...filters,
+			tags: next.length > 0 ? {include: next, exclude: []} : null
+		});
+	};
+
+	return (
+		<Popover.Root open={popover.open} onOpenChange={popover.setOpen}>
+			<Popover.Trigger asChild>
+				<SelectPill size="sm" className={pillClass(selected.length > 0)}>
+					{label}
+				</SelectPill>
+			</Popover.Trigger>
+			<Popover.Content align="start" sideOffset={8}>
+				<OptionList>
+					<OptionListItem
+						selected={selected.length === 0}
+						onClick={() => {
+							onChange({...filters, tags: null});
+							popover.setOpen(false);
+						}}
+					>
+						Any tag
+					</OptionListItem>
+					{tags.map((tag) => (
+						<OptionListItem
+							key={tag.id}
+							selected={selected.includes(tag.id)}
+							onClick={() => toggle(tag.id)}
+						>
+							<span className="flex w-full items-center gap-2">
+								<span
+									className="size-2 rounded-full"
+									style={{
+										backgroundColor: tag.color || '#3B82F6'
+									}}
+								/>
+								{tag.path}
 							</span>
 						</OptionListItem>
 					))}

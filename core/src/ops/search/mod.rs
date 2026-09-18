@@ -9,6 +9,7 @@ pub mod output;
 pub mod pipeline;
 pub mod query;
 pub mod store_search;
+pub mod tag_scope;
 
 #[cfg(test)]
 mod tests;

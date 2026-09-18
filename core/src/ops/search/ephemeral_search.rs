@@ -54,7 +54,16 @@ pub async fn search_ephemeral_index(
 		return Ok(SearchPage::empty());
 	};
 
+	let tag_scope =
+		crate::ops::search::tag_scope::TagScope::resolve_if_active(cache, filters.tags.as_ref())
+			.await;
+
 	if *device_slug != crate::device::get_current_device_slug() {
+		// A replica's assertion state lives with its owner, so a tag filter
+		// removes replica hits rather than passing them through unfiltered.
+		if tag_scope.is_some() {
+			return Ok(SearchPage::empty());
+		}
 		let shares = crate::service::mounts::peer::remote_shares().await;
 		let Some(share) = shares.iter().find(|share| {
 			local_path.starts_with(&share.info.root)
@@ -104,6 +113,7 @@ pub async fn search_ephemeral_index(
 			&local_path,
 			query,
 			filters,
+			tag_scope.as_ref(),
 			sort,
 			pagination,
 			cache,
@@ -119,10 +129,13 @@ pub async fn search_ephemeral_index(
 		return Ok(SearchPage::empty());
 	};
 
-	let matching_paths = {
+	let mut matching_paths = {
 		let index = index_arc.read().await;
 		matches_in(&index, query, Some(&local_path))
 	};
+	if let Some(scope) = &tag_scope {
+		matching_paths.retain(|path| scope.admits(path));
+	}
 
 	let results = collect_results(
 		&index_arc,
@@ -143,6 +156,7 @@ async fn store_scoped_page(
 	scope: &PathBuf,
 	query: &str,
 	filters: &SearchFilters,
+	tag_scope: Option<&crate::ops::search::tag_scope::TagScope>,
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
 	cache: &EphemeralIndexCache,
@@ -160,7 +174,7 @@ async fn store_scoped_page(
 		return Ok(None);
 	};
 
-	let partition = crate::ops::search::store_search::search_source_store(
+	let mut partition = crate::ops::search::store_search::search_source_store(
 		&db,
 		&source.root,
 		&crate::device::get_current_device_slug(),
@@ -170,6 +184,7 @@ async fn store_scoped_page(
 		file_type_registry,
 	)
 	.await?;
+	retain_tagged(&mut partition.results, tag_scope);
 
 	Ok(Some(SearchPage::single_partition_with(
 		partition.results,
@@ -236,12 +251,18 @@ pub async fn search_every_index(
 	let mut approximate = false;
 	let window = pipeline::window(pagination);
 	let local_slug = crate::device::get_current_device_slug();
+	let tag_scope =
+		crate::ops::search::tag_scope::TagScope::resolve_if_active(cache, filters.tags.as_ref())
+			.await;
 
 	for index_arc in cache.all_indexes() {
-		let matching_paths = {
+		let mut matching_paths = {
 			let index = index_arc.read().await;
 			matches_in(&index, query, None)
 		};
+		if let Some(scope) = &tag_scope {
+			matching_paths.retain(|path| scope.admits(path));
+		}
 
 		let mut partition = collect_results(
 			&index_arc,
@@ -259,6 +280,11 @@ pub async fn search_every_index(
 	}
 
 	for share in crate::service::mounts::peer::remote_shares().await {
+		// A replica's assertion state lives with its owner; under a tag
+		// filter its hits are removed rather than passed through unfiltered.
+		if tag_scope.is_some() {
+			break;
+		}
 		// A hit is addressed by its owning device's slug, which is what
 		// routes a listing or preview of it back through the replica.
 		let Some(slug) = context.device_manager.get_device_slug(share.device_id) else {
@@ -312,6 +338,7 @@ pub async fn search_every_index(
 		)
 		.await?;
 		let mut partition = store_partition.results;
+		retain_tagged(&mut partition, tag_scope.as_ref());
 		approximate |= store_partition.truncated;
 
 		total += partition.len() as u64;
@@ -326,6 +353,22 @@ pub async fn search_every_index(
 		facets,
 		approximate,
 	})
+}
+
+/// Keep the results a tag scope admits, matched by their local path.
+fn retain_tagged(
+	results: &mut Vec<FileSearchResult>,
+	tag_scope: Option<&crate::ops::search::tag_scope::TagScope>,
+) {
+	if let Some(scope) = tag_scope {
+		results.retain(|result| {
+			result
+				.file
+				.sd_path
+				.as_local_path()
+				.is_none_or(|path| scope.admits(path))
+		});
+	}
 }
 
 /// Paths in one partition whose name contains the query, narrowed to a scope
