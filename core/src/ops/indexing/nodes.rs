@@ -1,4 +1,4 @@
-//! # Memory-Mapped Arena for Ephemeral File Nodes
+//! # Memory-Mapped Storage for Arena File Nodes
 //!
 //! `NodeArena` stores file nodes in memory-mapped temporary files, allowing the OS
 //! to page data in and out as needed. This prevents out-of-memory errors when browsing
@@ -261,9 +261,7 @@ impl Drop for NodeArena {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::ops::indexing::ephemeral::types::{
-		FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata,
-	};
+	use crate::ops::indexing::types::{FileType, MaybeEntryId, NameRef, NodeState, PackedMetadata};
 
 	fn make_test_node(name: &'static str) -> FileNode {
 		let meta = PackedMetadata::new(NodeState::Accessible, FileType::File, 100);

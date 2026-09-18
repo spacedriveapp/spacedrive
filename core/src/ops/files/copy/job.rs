@@ -1137,7 +1137,7 @@ impl FileCopyJob {
 			};
 
 			let owned = local_path.to_path_buf();
-			let cache = ctx.library.core_context().ephemeral_cache();
+			let cache = ctx.library.core_context().volume_index();
 			let entry_id = match cache.get_for_search(&owned) {
 				Some(index) => index.read().await.get_entry_uuid(&owned),
 				None => None,

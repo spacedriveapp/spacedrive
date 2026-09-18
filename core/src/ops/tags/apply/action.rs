@@ -34,7 +34,7 @@ impl LibraryAction for ApplyTagsAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let device = context
 			.device_manager
 			.device_id()

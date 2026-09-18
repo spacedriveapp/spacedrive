@@ -184,7 +184,7 @@ impl ByteRangeProtocolHandler {
 		}
 		let allowed = self
 			.context
-			.ephemeral_cache()
+			.volume_index()
 			.sources()
 			.into_iter()
 			.any(|s| s.attached && path.starts_with(&s.root));
@@ -260,7 +260,7 @@ impl ByteRangeProtocolHandler {
 				Ok(())
 			}
 			ByteRangeRequest::ListSources => {
-				let cache = self.context.ephemeral_cache();
+				let cache = self.context.volume_index();
 				let mut sources = Vec::new();
 				for s in cache.sources() {
 					// A source at its volume's mount point travels as the
@@ -345,7 +345,7 @@ impl ByteRangeProtocolHandler {
 				.await
 			}
 			ByteRangeRequest::FetchSnapshot { source_id } => {
-				let cache = self.context.ephemeral_cache();
+				let cache = self.context.volume_index();
 				let Some(source) = cache.sources().into_iter().find(|s| s.id == source_id) else {
 					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
 						.await;
@@ -377,7 +377,7 @@ impl ByteRangeProtocolHandler {
 				serve_file_with_identity(send, file, None, false).await
 			}
 			ByteRangeRequest::FetchDatabase { source_id } => {
-				let cache = self.context.ephemeral_cache();
+				let cache = self.context.volume_index();
 				if !cache.sources().into_iter().any(|s| s.id == source_id) {
 					return write_frame(send, &ByteRangeResponse::Error("unknown source".into()))
 						.await;

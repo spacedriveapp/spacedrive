@@ -1,5 +1,5 @@
 import {ArrowLeft, HardDrive, Plugs} from '@phosphor-icons/react';
-import type {EphemeralSourceInfo, SizeTreeOutput} from '@sd/ts-client';
+import type {IndexSourceInfo, SizeTreeOutput} from '@sd/ts-client';
 import {useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {useCoreQuery} from '../../contexts/SpacedriveContext';
@@ -30,10 +30,10 @@ export function AnalyzerView() {
 function AnalyzerGrid({onOpen}: {onOpen: (path: string) => void}) {
 	const navigate = useNavigate();
 	const {data: status} = useCoreQuery({
-		type: 'core.ephemeral_status',
+		type: 'core.index_status',
 		input: {}
 	});
-	const sources = (status?.sources ?? []) as EphemeralSourceInfo[];
+	const sources = (status?.sources ?? []) as IndexSourceInfo[];
 
 	return (
 		<div className="h-full overflow-y-auto p-8 pt-[52px]">
@@ -76,7 +76,7 @@ function SourceCard({
 	source,
 	onOpen
 }: {
-	source: EphemeralSourceInfo;
+	source: IndexSourceInfo;
 	onOpen: () => void;
 }) {
 	const {data} = useCoreQuery({

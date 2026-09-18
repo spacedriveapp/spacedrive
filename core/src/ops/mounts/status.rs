@@ -70,7 +70,7 @@ impl CoreQuery for MountsStatusQuery {
 			None => Vec::new(),
 			Some(base) => {
 				let mut shares: Vec<MountShare> = context
-					.ephemeral_cache()
+					.volume_index()
 					.sources()
 					.into_iter()
 					.map(|s| {

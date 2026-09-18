@@ -62,7 +62,7 @@ impl LibraryQuery for ContentKindStatsQuery {
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		let mut by_kind: std::collections::HashMap<i64, i64> = std::collections::HashMap::new();
 		for store in cache.stores().await {

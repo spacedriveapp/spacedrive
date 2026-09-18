@@ -210,7 +210,7 @@ async fn pinned_file(
 		return None;
 	};
 
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	cache.ensure_restored(path).await;
 
 	let index = cache.resolve_index(path);
@@ -219,7 +219,7 @@ async fn pinned_file(
 	let kind = index.get_content_kind(path);
 	drop(index);
 
-	let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path.clone());
+	let mut file = File::from_arena(entry_uuid, &metadata, sd_path.clone());
 	file.content_kind = kind;
 	Some(file)
 }

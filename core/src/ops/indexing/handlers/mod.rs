@@ -3,9 +3,9 @@
 //! These handlers subscribe to `FsWatcher` events and route them to the
 //! arena.
 
-mod ephemeral;
+mod fs_events;
 
-pub use ephemeral::EphemeralEventHandler;
+pub use fs_events::FsEventHandler;
 
 use std::io::ErrorKind;
 use std::path::Path;

@@ -120,7 +120,7 @@ impl LibraryQuery for MediaListingQuery {
 			.clone()
 			.unwrap_or_else(|| vec![ContentKind::Image, ContentKind::Video]);
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		cache.ensure_restored(path).await;
 
 		let Some(index) = cache.get_for_search(path) else {
@@ -167,7 +167,7 @@ impl LibraryQuery for MediaListingQuery {
 					path: child.clone(),
 				};
 
-				let mut file = File::from_ephemeral(uuid, &metadata, sd_path);
+				let mut file = File::from_arena(uuid, &metadata, sd_path);
 				file.content_kind = kind;
 				files.push(file);
 			}

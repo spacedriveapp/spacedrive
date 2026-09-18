@@ -38,7 +38,7 @@ impl LibraryAction for MergeAssertionsAction {
 		_library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		// Ownership is the trust decision: only a source registered on this
 		// machine takes writes here, so a replica can never be altered by a

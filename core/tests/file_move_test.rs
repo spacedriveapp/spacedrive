@@ -17,9 +17,9 @@ use sd_core::ops::indexing::IndexScope;
 use tokio::time::Duration;
 
 #[tokio::test]
-async fn test_ephemeral_file_move_via_reindex() -> anyhow::Result<()> {
-	// Tests ephemeral batch change detection during manual reindex (watcher disabled)
-	let harness = IndexingHarnessBuilder::new("ephemeral_move_reindex")
+async fn test_file_move_via_reindex() -> anyhow::Result<()> {
+	// Tests batch change detection during manual reindex (watcher disabled)
+	let harness = IndexingHarnessBuilder::new("move_reindex")
 		.disable_watcher()
 		.build()
 		.await?;
@@ -80,9 +80,9 @@ async fn test_ephemeral_file_move_via_reindex() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_file_move_via_watcher() -> anyhow::Result<()> {
-	// Tests ephemeral real-time watcher change handling (no manual reindex)
-	let harness = IndexingHarnessBuilder::new("ephemeral_move_watcher")
+async fn test_file_move_via_watcher() -> anyhow::Result<()> {
+	// Tests real-time watcher change handling (no manual reindex)
+	let harness = IndexingHarnessBuilder::new("move_watcher")
 		.build() // Watcher enabled
 		.await?;
 
@@ -145,13 +145,13 @@ async fn test_ephemeral_file_move_via_watcher() -> anyhow::Result<()> {
 		"File content should be preserved"
 	);
 
-	// Verify watcher emitted events (ephemeral uses individual ResourceChanged events)
+	// Verify watcher emitted events (the watcher emits individual ResourceChanged events)
 	let collector = collection_handle.await.unwrap();
 	let stats = collector.analyze().await;
 
 	let event_count = stats.resource_changed.values().sum::<usize>();
 	if event_count == 0 {
-		tracing::warn!("No ResourceChanged events emitted - ephemeral watcher may not emit events for file moves in test environment (works in prod)");
+		tracing::warn!("No ResourceChanged events emitted - the watcher may not emit events for file moves in test environment (works in prod)");
 	}
 
 	harness.shutdown().await?;

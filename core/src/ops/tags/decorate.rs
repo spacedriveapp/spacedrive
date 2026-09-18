@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use crate::domain::{File, Tag};
 use crate::library::Library;
-use crate::ops::indexing::ephemeral::{store::SourceStore, EphemeralIndexCache};
+use crate::ops::indexing::{store::SourceStore, VolumeIndex};
 use crate::ops::tags::outbox;
 
 /// Decorate files already known to live in one store, one batched read.
@@ -83,7 +83,7 @@ pub async fn overlay_pending(library: &Library, source_uuid: Uuid, files: &mut [
 	}
 }
 
-pub async fn decorate_files(cache: &EphemeralIndexCache, files: &mut [File]) {
+pub async fn decorate_files(cache: &VolumeIndex, files: &mut [File]) {
 	let mut by_store: HashMap<Uuid, (Arc<SourceStore>, Vec<usize>)> = HashMap::new();
 	for (position, file) in files.iter().enumerate() {
 		let Some(path) = file.sd_path.as_local_path() else {

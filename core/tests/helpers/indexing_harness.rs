@@ -186,7 +186,7 @@ impl IndexingHarness {
 	/// marks the directory indexed and, with the watcher enabled, watches it.
 	pub async fn index_dir(&self, path: &Path, scope: IndexScope) -> anyhow::Result<()> {
 		let context = &self.core.context;
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let path = match context.volume_manager.locate_path(path).await {
 			Some((_, spelled)) => spelled,
 			None => path.to_path_buf(),
@@ -195,12 +195,8 @@ impl IndexingHarness {
 		let index = cache.create_for_indexing(path.clone());
 		cache.clear_for_reindex(&path).await;
 
-		let mut walk = IndexerJob::new(IndexerJobConfig::ephemeral_browse(
-			SdPath::local(path),
-			scope,
-			false,
-		));
-		walk.set_ephemeral_index(index);
+		let mut walk = IndexerJob::new(IndexerJobConfig::new(SdPath::local(path), scope, false));
+		walk.set_arena(index);
 		self.library.jobs().dispatch(walk).await?.wait().await?;
 		Ok(())
 	}

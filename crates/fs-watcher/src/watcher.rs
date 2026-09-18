@@ -552,7 +552,7 @@ mod tests {
 	///
 	/// This is the regression that mattered: on macOS a `NonRecursive`
 	/// subscription is accepted, reports no error, and silently delivers
-	/// nothing, so every ephemeral browse watch was registered and dead. The
+	/// nothing, so every browse watch was registered and dead. The
 	/// assertion is deliberately about arrival rather than about the mode we
 	/// hand notify, since the mode is the workaround and arrival is the
 	/// contract.

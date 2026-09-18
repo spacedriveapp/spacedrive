@@ -5,7 +5,7 @@
 //! - Speed testing volume performance
 //! - Adding/removing cloud volumes
 //! - Listing volumes
-//! - Ephemeral indexing entire volumes
+//! - Indexing entire volumes
 //! - Ejecting removable volumes
 
 pub mod add_cloud;

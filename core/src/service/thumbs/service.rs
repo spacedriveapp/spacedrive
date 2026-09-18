@@ -15,7 +15,7 @@ use crate::domain::resource::Identifiable;
 use crate::infra::event::{Event, EventBus, ResourceMetadata};
 use crate::infra::source_dirs::SourceDirs;
 use crate::infra::source_version::source_version;
-use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::ops::indexing::VolumeIndex;
 use crate::service::external_tools::ExternalTools;
 
 use super::ffmpeg::HostFfmpegProducer;
@@ -200,7 +200,7 @@ struct ThumbstripWork {
 pub struct ThumbService {
 	/// Per-source directory layout; `None` means no persistence, so no cache.
 	dirs: Option<SourceDirs>,
-	ephemeral: Arc<EphemeralIndexCache>,
+	volume_index: Arc<VolumeIndex>,
 	/// One writer per source, opened on first use and held for the process
 	/// lifetime. This map is the single-writer guarantee.
 	writers: Mutex<HashMap<Uuid, Arc<Mutex<Pvcache>>>>,
@@ -217,17 +217,17 @@ impl ThumbService {
 	/// Build the service and start its completion drain.
 	pub fn new(
 		dirs: Option<SourceDirs>,
-		ephemeral: Arc<EphemeralIndexCache>,
+		volume_index: Arc<VolumeIndex>,
 		events: Arc<EventBus>,
 		external_tools: Arc<ExternalTools>,
 	) -> Arc<Self> {
 		let chain = producer_chain(external_tools.clone());
-		Self::with_producers(dirs, ephemeral, events, external_tools, chain)
+		Self::with_producers(dirs, volume_index, events, external_tools, chain)
 	}
 
 	fn with_producers(
 		dirs: Option<SourceDirs>,
-		ephemeral: Arc<EphemeralIndexCache>,
+		volume_index: Arc<VolumeIndex>,
 		events: Arc<EventBus>,
 		external_tools: Arc<ExternalTools>,
 		chain: Vec<Box<dyn Producer>>,
@@ -239,7 +239,7 @@ impl ThumbService {
 
 		let service = Arc::new(Self {
 			dirs,
-			ephemeral,
+			volume_index,
 			writers: Mutex::new(HashMap::new()),
 			pending: pending.clone(),
 			pool,
@@ -462,7 +462,7 @@ impl ThumbService {
 	}
 
 	async fn resolve_identity(&self, path: &PathBuf) -> Option<TileIdentity> {
-		let slot = self.ephemeral.resolve(path);
+		let slot = self.volume_index.resolve(path);
 		// The hot tier follows the arena, so it is keyed by the drive rather
 		// than by whatever is persisted off it.
 		let source_id = slot.id()?;
@@ -777,7 +777,7 @@ mod tests {
 		let temp = tempfile::tempdir().unwrap();
 		let path = temp.path().join("file.png");
 		tokio::fs::write(&path, b"test input").await.unwrap();
-		let cache = Arc::new(EphemeralIndexCache::with_sources_dir(None).unwrap());
+		let cache = Arc::new(VolumeIndex::with_sources_dir(None).unwrap());
 		cache.track_volume(Uuid::new_v4(), temp.path().to_path_buf());
 		cache
 			.resolve_index(&path)

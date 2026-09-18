@@ -39,9 +39,9 @@ impl LibraryQuery for FileByPathQuery {
 
 		// The arena is the index for every drive; the store is its durable
 		// half rather than a second answer.
-		let ephemeral_cache = context.ephemeral_cache();
-		ephemeral_cache.ensure_restored(&self.path).await;
-		let index = ephemeral_cache.resolve_index(&self.path);
+		let volume_index = context.volume_index();
+		volume_index.ensure_restored(&self.path).await;
+		let index = volume_index.resolve_index(&self.path);
 		let index_read = index.read().await;
 
 		if let Some(entry_uuid) = index_read.get_entry_uuid(&self.path) {
@@ -49,12 +49,12 @@ impl LibraryQuery for FileByPathQuery {
 				let content_kind = index_read.get_content_kind(&self.path);
 				let sd_path = SdPath::local(self.path.clone());
 
-				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+				let mut file = File::from_arena(entry_uuid, &metadata, sd_path);
 				file.content_kind = content_kind;
 				drop(index_read);
 
 				let mut files = [file];
-				crate::ops::tags::decorate::decorate_files(&ephemeral_cache, &mut files).await;
+				crate::ops::tags::decorate::decorate_files(&volume_index, &mut files).await;
 				let [file] = files;
 
 				return Ok(Some(file));

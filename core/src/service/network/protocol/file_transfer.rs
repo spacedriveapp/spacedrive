@@ -382,7 +382,7 @@ impl FileTransferProtocolHandler {
 		// trip.
 		if let Some(ctx) = &self.core_context {
 			paths.extend(
-				ctx.ephemeral_cache()
+				ctx.volume_index()
 					.sources()
 					.into_iter()
 					.map(|source| source.root),

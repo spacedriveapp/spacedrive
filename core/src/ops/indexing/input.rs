@@ -27,7 +27,7 @@ pub struct IndexInput {
 }
 
 impl IndexInput {
-	/// Creates an input with defaults: recursive deep indexing of ephemeral entries, excluding hidden files.
+	/// Creates an input with defaults: recursive indexing, excluding hidden files.
 	pub fn new<P: IntoIterator<Item = PathBuf>>(library_id: uuid::Uuid, paths: P) -> Self {
 		Self {
 			library_id,

@@ -23,14 +23,14 @@ use self::args::*;
 pub enum IndexCmd {
 	/// Start indexing for one or more paths
 	Start(IndexStartArgs),
-	/// Quick scan of a path (ephemeral)
+	/// Quick scan of a path
 	QuickScan(QuickScanArgs),
-	/// Browse a path without adding as location
+	/// Browse a path without tracking it as a source
 	Browse(BrowseArgs),
-	/// Show ephemeral index cache status
-	EphemeralCache(EphemeralCacheArgs),
-	/// Reset the ephemeral index cache
-	ResetCache,
+	/// Show volume index status
+	Status(IndexStatusArgs),
+	/// Reset the volume index
+	Reset,
 }
 
 pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
@@ -123,18 +123,18 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				println!("Browse request submitted");
 			});
 		}
-		IndexCmd::EphemeralCache(args) => {
+		IndexCmd::Status(args) => {
 			let input = args.to_input();
-			let out: sd_core::ops::core::ephemeral_status::EphemeralCacheStatus =
+			let out: sd_core::ops::core::index_status::IndexStatus =
 				execute_core_query!(ctx, input);
 
 			print_output!(
 				ctx,
 				&out,
-				|status: &sd_core::ops::core::ephemeral_status::EphemeralCacheStatus| {
+				|status: &sd_core::ops::core::index_status::IndexStatus| {
 					println!();
 					println!("╔══════════════════════════════════════════════════════════════╗");
-					println!("║           UNIFIED EPHEMERAL INDEX CACHE                      ║");
+					println!("║           VOLUME INDEX                                       ║");
 					println!("╠══════════════════════════════════════════════════════════════╣");
 					println!(
 						"║ Indexed Paths: {:3}    In Progress: {:3}                       ║",
@@ -321,19 +321,18 @@ pub async fn run(ctx: &Context, cmd: IndexCmd) -> Result<()> {
 				}
 			);
 		}
-		IndexCmd::ResetCache => {
-			let input =
-				sd_core::ops::core::ephemeral_status::EphemeralCacheResetInput { confirm: true };
-			let out: sd_core::ops::core::ephemeral_status::EphemeralCacheResetOutput =
+		IndexCmd::Reset => {
+			let input = sd_core::ops::core::index_status::IndexResetInput { confirm: true };
+			let out: sd_core::ops::core::index_status::IndexResetOutput =
 				execute_action!(ctx, input);
 
 			print_output!(
 				ctx,
 				&out,
-				|result: &sd_core::ops::core::ephemeral_status::EphemeralCacheResetOutput| {
+				|result: &sd_core::ops::core::index_status::IndexResetOutput| {
 					println!();
 					println!("╔══════════════════════════════════════════════════════════════╗");
-					println!("║           EPHEMERAL CACHE RESET                              ║");
+					println!("║           VOLUME INDEX RESET                                 ║");
 					println!("╠══════════════════════════════════════════════════════════════╣");
 					println!("║ Cleared {} paths {:45} ║", result.cleared_paths, "");
 					println!("╚══════════════════════════════════════════════════════════════╝");

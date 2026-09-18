@@ -1,6 +1,6 @@
-//! Ephemeral index cache status query
+//! Volume index status query
 //!
-//! Provides a snapshot of the unified ephemeral index for debugging.
+//! Provides a snapshot of the volume index for debugging.
 
 use super::output::*;
 use crate::{
@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
 
-/// Input for the ephemeral cache status query
+/// Input for the volume index status query
 #[derive(Debug, Clone, Serialize, Deserialize, Type, Default)]
-pub struct EphemeralCacheStatusInput {
+pub struct IndexStatusInput {
 	/// Optional: only include indexed paths containing this substring
 	#[serde(default)]
 	pub path_filter: Option<String>,
@@ -22,21 +22,21 @@ pub struct EphemeralCacheStatusInput {
 	pub detailed: bool,
 }
 
-/// Input for resetting the ephemeral cache
+/// Input for resetting the volume index
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct EphemeralCacheResetInput {
-	/// Confirmation flag to prevent accidental cache clearing
+pub struct IndexResetInput {
+	/// Confirmation flag to prevent accidentally clearing the index
 	pub confirm: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct EphemeralCacheStatusQuery {
-	input: EphemeralCacheStatusInput,
+pub struct IndexStatusQuery {
+	input: IndexStatusInput,
 }
 
-impl CoreQuery for EphemeralCacheStatusQuery {
-	type Input = EphemeralCacheStatusInput;
-	type Output = EphemeralCacheStatus;
+impl CoreQuery for IndexStatusQuery {
+	type Input = IndexStatusInput;
+	type Output = IndexStatus;
 
 	fn from_input(input: Self::Input) -> QueryResult<Self> {
 		Ok(Self { input })
@@ -47,7 +47,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		// Get cache stats
 		let cache_stats = cache.stats();
@@ -157,7 +157,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 		let sources = cache
 			.sources()
 			.into_iter()
-			.map(|s| super::output::EphemeralSourceInfo {
+			.map(|s| super::output::IndexSourceInfo {
 				id: s.id,
 				root: s.root,
 				volume_uuid: s.volume_uuid,
@@ -171,7 +171,7 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			})
 			.collect();
 
-		Ok(EphemeralCacheStatus {
+		Ok(IndexStatus {
 			indexed_paths_count: cache_stats.indexed_paths,
 			indexing_in_progress_count: cache_stats.indexing_in_progress,
 			index_stats,
@@ -179,12 +179,8 @@ impl CoreQuery for EphemeralCacheStatusQuery {
 			paths_in_progress: filtered_in_progress,
 			watched_paths,
 			sources,
-			// Legacy fields
-			total_indexes: None,
-			indexing_in_progress: None,
-			indexes: Vec::new(),
 		})
 	}
 }
 
-crate::register_core_query!(EphemeralCacheStatusQuery, "core.ephemeral_status");
+crate::register_core_query!(IndexStatusQuery, "core.index_status");

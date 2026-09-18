@@ -1,8 +1,8 @@
-//! Ephemeral Watcher Integration Test
+//! Watcher Integration Test
 //!
-//! Tests the real-time file system monitoring functionality for ephemeral indexing
+//! Tests the real-time file system monitoring that keeps the volume index current
 //! through a comprehensive "story" of file operations, verifying that the watcher
-//! correctly detects and updates the in-memory ephemeral index for all filesystem changes.
+//! correctly detects and updates the arena for all filesystem changes.
 
 use sd_core::{
 	context::CoreContext,
@@ -357,7 +357,7 @@ impl CoreEventCollector {
 // Test Harness
 // ============================================================================
 
-/// Test harness for ephemeral watcher testing with reusable operations
+/// Test harness for watcher testing with reusable operations
 struct TestHarness {
 	_core_data_dir: TempDir,
 	core: Arc<Core>,
@@ -370,11 +370,11 @@ struct TestHarness {
 }
 
 impl TestHarness {
-	/// Setup the test environment with core and ephemeral watching
+	/// Setup the test environment with core and watching
 	async fn setup() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
 		// Setup logging
 		let _ = tracing_subscriber::fmt()
-			.with_env_filter("sd_core=debug,ephemeral_watcher_test=debug")
+			.with_env_filter("sd_core=debug,watcher_test=debug")
 			.try_init();
 
 		// Create core
@@ -386,7 +386,7 @@ impl TestHarness {
 		// Create library
 		let library = core
 			.libraries
-			.create_library("Ephemeral Test", None, core.context.clone())
+			.create_library("Watcher Test", None, core.context.clone())
 			.await?;
 
 		println!("✓ Created library: {}", library.id());
@@ -406,7 +406,7 @@ impl TestHarness {
 			std::env::var("HOME").expect("HOME environment variable not set")
 		};
 
-		let test_dir = PathBuf::from(home_dir).join("SD_EPHEMERAL_TEST_DIR");
+		let test_dir = PathBuf::from(home_dir).join("SD_WATCHER_TEST_DIR");
 
 		// Clear and recreate test directory
 		if test_dir.exists() {
@@ -435,30 +435,30 @@ impl TestHarness {
 		core_event_collector.start_collecting(&core);
 		println!("✓ Started Core event collector");
 
-		// Run ephemeral indexing job
+		// Run the indexing walk
 		let sd_path = sd_core::domain::addressing::SdPath::local(test_dir.clone());
-		let config = IndexerJobConfig::ephemeral_browse(sd_path, IndexScope::Current, false);
+		let config = IndexerJobConfig::new(sd_path, IndexScope::Current, false);
 		let mut indexer_job = IndexerJob::new(config);
 
-		// Get the global ephemeral index to share with the job
-		let ephemeral_index = core.context.ephemeral_cache().resolve_index(&test_dir);
-		indexer_job.set_ephemeral_index(ephemeral_index);
+		// Get the partition's arena to share with the job
+		let arena = core.context.volume_index().resolve_index(&test_dir);
+		indexer_job.set_arena(arena);
 
 		// Dispatch job
 		let job_handle = library.jobs().dispatch(indexer_job).await?;
 
 		// Wait for indexing to complete
 		timeout(Duration::from_secs(60), job_handle.wait()).await??;
-		println!("✓ Ephemeral index completed");
+		println!("✓ Indexing completed");
 
 		// Mark indexing complete and register for watching
 		core.context
-			.ephemeral_cache()
+			.volume_index()
 			.mark_indexing_complete(&test_dir);
 
-		// Add ephemeral watch
-		watcher.watch_ephemeral(test_dir.clone()).await?;
-		println!("✓ Added ephemeral watch for: {}", test_dir.display());
+		// Add watch
+		watcher.watch_root(test_dir.clone()).await?;
+		println!("✓ Added watch for: {}", test_dir.display());
 
 		// Give the watcher a moment to settle
 		tokio::time::sleep(Duration::from_millis(500)).await;
@@ -596,7 +596,7 @@ impl TestHarness {
 		Ok(())
 	}
 
-	/// Verify entry exists in ephemeral index
+	/// Verify entry exists in the arena
 	async fn verify_entry_exists(
 		&self,
 		name: &str,
@@ -608,24 +608,20 @@ impl TestHarness {
 		let timeout_duration = Duration::from_secs(10);
 
 		while start.elapsed() < timeout_duration {
-			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+			let index = self.context.volume_index().resolve_index(&self.test_dir);
 			let mut index_lock = index.write().await;
 			if index_lock.get_entry(&path).is_some() {
-				println!("✓ Entry exists in ephemeral index: {}", name);
+				println!("✓ Entry exists in the arena: {}", name);
 				return Ok(());
 			}
 			drop(index_lock);
 			tokio::time::sleep(Duration::from_millis(50)).await;
 		}
 
-		Err(format!(
-			"Entry '{}' not found in ephemeral index after timeout",
-			name
-		)
-		.into())
+		Err(format!("Entry '{}' not found in the arena after timeout", name).into())
 	}
 
-	/// Verify entry does NOT exist in ephemeral index
+	/// Verify entry does NOT exist in the arena
 	async fn verify_entry_not_exists(
 		&self,
 		name: &str,
@@ -637,10 +633,10 @@ impl TestHarness {
 		let timeout_duration = Duration::from_secs(5);
 
 		while start.elapsed() < timeout_duration {
-			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+			let index = self.context.volume_index().resolve_index(&self.test_dir);
 			let mut index_lock = index.write().await;
 			if index_lock.get_entry(&path).is_none() {
-				println!("✓ Entry does not exist in ephemeral index: {}", name);
+				println!("✓ Entry does not exist in the arena: {}", name);
 				return Ok(());
 			}
 			drop(index_lock);
@@ -648,7 +644,7 @@ impl TestHarness {
 		}
 
 		Err(format!(
-			"Entry '{}' should not exist but was found in ephemeral index after timeout",
+			"Entry '{}' should not exist but was found in the arena after timeout",
 			name
 		)
 		.into())
@@ -660,7 +656,7 @@ impl TestHarness {
 		name: &str,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
-		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+		let index = self.context.volume_index().resolve_index(&self.test_dir);
 		let mut index_lock = index.write().await;
 
 		if let Some(entry) = index_lock.get_entry(&path) {
@@ -684,7 +680,7 @@ impl TestHarness {
 		name: &str,
 	) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		let path = self.path(name);
-		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+		let index = self.context.volume_index().resolve_index(&self.test_dir);
 		let mut index_lock = index.write().await;
 
 		if let Some(entry) = index_lock.get_entry(&path) {
@@ -704,7 +700,7 @@ impl TestHarness {
 
 	/// Get current entry count in index for this test directory
 	async fn get_entry_count(&self) -> usize {
-		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+		let index = self.context.volume_index().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 		index_lock
 			.entries()
@@ -716,7 +712,7 @@ impl TestHarness {
 	/// Get children count using list_directory (like the UI does)
 	/// This is the critical check - it uses the arena's children list
 	async fn get_children_count(&self) -> usize {
-		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+		let index = self.context.volume_index().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 		index_lock
 			.list_directory(&self.test_dir)
@@ -753,7 +749,7 @@ impl TestHarness {
 			Ok(())
 		} else {
 			// List actual entries for debugging
-			let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+			let index = self.context.volume_index().resolve_index(&self.test_dir);
 			let index_lock = index.read().await;
 			let entries: Vec<_> = index_lock
 				.entries()
@@ -785,10 +781,10 @@ impl TestHarness {
 
 	/// Print current index state (for debugging)
 	async fn dump_index_state(&self) {
-		let index = self.context.ephemeral_cache().resolve_index(&self.test_dir);
+		let index = self.context.volume_index().resolve_index(&self.test_dir);
 		let index_lock = index.read().await;
 
-		println!("\n=== Ephemeral Index State ===");
+		println!("\n=== Arena State ===");
 		let mut count = 0;
 		for (path, entry) in index_lock.entries().iter() {
 			if path.starts_with(&self.test_dir) {
@@ -815,7 +811,7 @@ impl TestHarness {
 		self.core_event_collector.print_summary().await;
 
 		// Write FsWatcher events to file
-		let fs_log_path = std::env::temp_dir().join("ephemeral_watcher_fs_events.log");
+		let fs_log_path = std::env::temp_dir().join("watcher_fs_events.log");
 		if let Err(e) = self.fs_event_collector.dump_to_file(&fs_log_path).await {
 			eprintln!("Failed to write FsEvent log: {}", e);
 		} else {
@@ -823,7 +819,7 @@ impl TestHarness {
 		}
 
 		// Write Core events to file
-		let core_log_path = std::env::temp_dir().join("ephemeral_watcher_core_events.log");
+		let core_log_path = std::env::temp_dir().join("watcher_core_events.log");
 		if let Err(e) = self.core_event_collector.dump_to_file(&core_log_path).await {
 			eprintln!("Failed to write Core event log: {}", e);
 		} else {
@@ -1234,10 +1230,10 @@ async fn run_test_scenarios(
 	Ok(())
 }
 
-/// Comprehensive "story" test demonstrating ephemeral watcher functionality
+/// Comprehensive "story" test demonstrating watcher functionality
 #[tokio::test]
-async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	println!("\n=== Ephemeral Watcher Full Story Test ===\n");
+async fn test_watcher() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+	println!("\n=== Watcher Full Story Test ===\n");
 
 	let harness = TestHarness::setup().await?;
 
@@ -1260,18 +1256,18 @@ async fn test_ephemeral_watcher() -> Result<(), Box<dyn std::error::Error + Send
 	println!("\n--- Test Summary ---");
 	println!("✓ All tested scenarios passed!");
 	println!("\nScenarios successfully tested:");
-	println!("  ✓ Initial ephemeral indexing");
+	println!("  ✓ Initial indexing");
 	println!("  ✓ File creation (immediate detection)");
 	println!("  ✓ File modification (in-memory index update)");
-	println!("  ✓ File renaming (ephemeral index updated)");
-	println!("  ✓ File deletion (removed from ephemeral index)");
+	println!("  ✓ File renaming (arena updated)");
+	println!("  ✓ File deletion (removed from the arena)");
 	println!("  ✓ Directory creation (shallow watch)");
 	println!("  ✓ Batch file/directory creation");
 	println!("  ✓ Batch file/directory deletion");
 
 	harness.cleanup().await?;
 
-	println!("\n=== Ephemeral Watcher Test Passed ===\n");
+	println!("\n=== Watcher Test Passed ===\n");
 
 	Ok(())
 }

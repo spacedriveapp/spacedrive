@@ -1,24 +1,22 @@
-//! # Ephemeral Index Cache
+//! # Volume Index
 //!
-//! Partition manager for ephemeral indexes. Each registered **source** (a
-//! volume, an external drive, an explicitly indexed root) owns its own
-//! `EphemeralIndex` arena and its own snapshot, so restoring or clearing one
-//! source never touches another, and a detached drive's index can be restored
-//! read-only while the drive is in a drawer.
+//! Every attached drive mapped into memory, one [`Partition`] per drive. A
+//! partition holds the drive's arena and the path state that belongs to the
+//! map, and every source registered over the drive shares it; what each source
+//! keeps durably lives in its own store. Restoring or clearing one drive never
+//! touches another, and a detached drive's arena is restored read-only from its
+//! snapshot while the drive is in a drawer.
 //!
-//! Paths that fall under no registered source land in the **scratch**
-//! partition — ad-hoc directory browsing behaves exactly as the old global
-//! index did, minus persistence. Scratch never snapshots.
-//!
-//! Path → partition resolution is longest-root-prefix over registered sources.
+//! Paths on no tracked drive land in the **scratch** partition, which serves
+//! ad-hoc browsing and never snapshots.
 
 use super::sources::{SourceRecord, SourceRegistry, VolumeAnchor, VolumeKey};
 use super::store::{DuplicateCopy, SourceStore};
-use super::EphemeralIndex;
+use super::Arena;
 use crate::infra::db::entities::source;
 use crate::infra::db::Database;
 use crate::infra::source_dirs::SourceDirs;
-use crate::ops::indexing::ephemeral::sources::SourceConfig;
+use crate::ops::indexing::sources::SourceConfig;
 use parking_lot::{Mutex, RwLock};
 use sea_orm::{ActiveValue::Set, ColumnTrait, EntityTrait, QueryFilter};
 use std::{
@@ -39,12 +37,12 @@ use uuid::Uuid;
 ///
 /// Keyed by the drive and not by the source, so a source nested inside another shares
 /// this rather than forking it. See [`VolumeKey`].
-pub struct VolumeIndex {
+pub struct Partition {
 	/// Which drive this maps. `Scratch` for paths under no registered source.
 	pub volume: VolumeKey,
 	/// Where the drive begins. Scratch has no root.
 	root: RwLock<Option<PathBuf>>,
-	index: Arc<TokioRwLock<EphemeralIndex>>,
+	index: Arc<TokioRwLock<Arena>>,
 	indexed_paths: RwLock<HashSet<PathBuf>>,
 	indexing_in_progress: RwLock<HashSet<PathBuf>>,
 	watched_paths: RwLock<HashSet<PathBuf>>,
@@ -63,12 +61,12 @@ pub struct VolumeIndex {
 	last_saved_entries: std::sync::atomic::AtomicU64,
 }
 
-impl VolumeIndex {
+impl Partition {
 	fn new(volume: VolumeKey, root: Option<PathBuf>) -> std::io::Result<Arc<Self>> {
 		Ok(Arc::new(Self {
 			volume,
 			root: RwLock::new(root),
-			index: Arc::new(TokioRwLock::new(EphemeralIndex::new()?)),
+			index: Arc::new(TokioRwLock::new(Arena::new()?)),
 			indexed_paths: RwLock::new(HashSet::new()),
 			indexing_in_progress: RwLock::new(HashSet::new()),
 			watched_paths: RwLock::new(HashSet::new()),
@@ -92,7 +90,7 @@ impl VolumeIndex {
 		self.root.read().clone()
 	}
 
-	pub fn index(&self) -> Arc<TokioRwLock<EphemeralIndex>> {
+	pub fn index(&self) -> Arc<TokioRwLock<Arena>> {
 		self.index.clone()
 	}
 
@@ -162,7 +160,7 @@ const COLLAPSE_FLOOR: u64 = 1_000;
 /// as a collapse rather than a deletion someone actually performed.
 const COLLAPSE_FACTOR: u64 = 10;
 
-pub struct EphemeralIndexCache {
+pub struct VolumeIndex {
 	/// Registered sources, in memory. The durable copy is the `sources` table
 	/// in the open library.
 	registry: Mutex<SourceRegistry>,
@@ -180,7 +178,7 @@ pub struct EphemeralIndexCache {
 	/// Live partitions by source id.
 	/// Live indexes by drive. One drive, one arena, however many sources
 	/// are registered over it.
-	slots: RwLock<HashMap<VolumeKey, Arc<VolumeIndex>>>,
+	slots: RwLock<HashMap<VolumeKey, Arc<Partition>>>,
 	/// Durable stores by source id. One drive can host several, since a source
 	/// nested inside another persists its own subtree.
 	stores: RwLock<HashMap<Uuid, Arc<SourceStore>>>,
@@ -192,7 +190,7 @@ pub struct EphemeralIndexCache {
 	/// single pool, ledger load, and writer task. See [`Self::store_for`].
 	store_open_gates: Mutex<HashMap<Uuid, Arc<tokio::sync::Mutex<()>>>>,
 	/// Fallback partition for paths on no tracked drive.
-	scratch: Arc<VolumeIndex>,
+	scratch: Arc<Partition>,
 	/// Drives this machine maps, whether or not anything is kept off them.
 	///
 	/// A drive is mapped by tracking it and persisted by registering a source
@@ -219,7 +217,7 @@ pub struct EphemeralIndexCache {
 	created_at: Instant,
 }
 
-impl EphemeralIndexCache {
+impl VolumeIndex {
 	pub fn new() -> std::io::Result<Self> {
 		Self::with_sources_dir(
 			SourceDirs::from_default_data_dir()
@@ -242,7 +240,7 @@ impl EphemeralIndexCache {
 			db: RwLock::new(None),
 			dirs,
 			slots: RwLock::new(HashMap::new()),
-			scratch: VolumeIndex::new(VolumeKey::Scratch, None)?,
+			scratch: Partition::new(VolumeKey::Scratch, None)?,
 			volumes: Mutex::new(Vec::new()),
 			stores: RwLock::new(HashMap::new()),
 			read_stores: RwLock::new(HashMap::new()),
@@ -520,7 +518,7 @@ impl EphemeralIndexCache {
 
 	/// Get (or lazily create) the live index for a drive. Two sources on
 	/// one drive get the same one, and so does a path with no source at all.
-	fn slot_for(&self, resolved: &Resolved) -> Arc<VolumeIndex> {
+	fn slot_for(&self, resolved: &Resolved) -> Arc<Partition> {
 		if let Some(slot) = self.slots.read().get(&resolved.volume) {
 			return slot.clone();
 		}
@@ -529,8 +527,8 @@ impl EphemeralIndexCache {
 			.entry(resolved.volume.clone())
 			.or_insert_with(|| {
 				let slot =
-					VolumeIndex::new(resolved.volume.clone(), Some(resolved.volume_root.clone()))
-						.expect("create ephemeral index for drive");
+					Partition::new(resolved.volume.clone(), Some(resolved.volume_root.clone()))
+						.expect("create arena for drive");
 				slot.set_detached(!resolved.volume_root.exists());
 				slot
 			})
@@ -538,7 +536,7 @@ impl EphemeralIndexCache {
 	}
 
 	/// Resolve the partition owning `path`: the drive it sits on, else scratch.
-	pub fn resolve(&self, path: &Path) -> Arc<VolumeIndex> {
+	pub fn resolve(&self, path: &Path) -> Arc<Partition> {
 		match self.locate(path) {
 			Some(resolved) => self.slot_for(&resolved),
 			None => self.scratch.clone(),
@@ -839,7 +837,7 @@ impl EphemeralIndexCache {
 	}
 
 	/// The index owning `path`, unconditionally (scratch fallback).
-	pub fn resolve_index(&self, path: &Path) -> Arc<TokioRwLock<EphemeralIndex>> {
+	pub fn resolve_index(&self, path: &Path) -> Arc<TokioRwLock<Arena>> {
 		self.resolve(path).index()
 	}
 
@@ -899,7 +897,7 @@ impl EphemeralIndexCache {
 
 	/// Every live index, scratch included. For global lookups (uuid → entry)
 	/// and aggregate stats.
-	pub fn all_indexes(&self) -> Vec<Arc<TokioRwLock<EphemeralIndex>>> {
+	pub fn all_indexes(&self) -> Vec<Arc<TokioRwLock<Arena>>> {
 		let mut indexes: Vec<_> = self
 			.slots
 			.read()
@@ -914,7 +912,7 @@ impl EphemeralIndexCache {
 	///
 	/// Exact-match only (for directory listing); `get_for_search` also accepts
 	/// descendants of indexed roots.
-	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
+	pub fn get_for_path(&self, path: &Path) -> Option<Arc<TokioRwLock<Arena>>> {
 		let slot = self.resolve(path);
 		if slot.indexed_paths.read().contains(path) {
 			Some(slot.index())
@@ -927,7 +925,7 @@ impl EphemeralIndexCache {
 	///
 	/// Accepts the path itself or any indexed ancestor, resolving symlinks
 	/// (e.g. /Users → /System/Volumes/Data/Users).
-	pub fn get_for_search(&self, path: &Path) -> Option<Arc<TokioRwLock<EphemeralIndex>>> {
+	pub fn get_for_search(&self, path: &Path) -> Option<Arc<TokioRwLock<Arena>>> {
 		let slot = self.resolve(path);
 		let indexed = slot.indexed_paths.read();
 
@@ -1061,7 +1059,7 @@ impl EphemeralIndexCache {
 
 	/// The single restore attempt for a slot. Returns whether the snapshot
 	/// was loaded; the result is cached by `restore_once` for the session.
-	async fn attempt_restore(dirs: Option<SourceDirs>, slot: Arc<VolumeIndex>) -> bool {
+	async fn attempt_restore(dirs: Option<SourceDirs>, slot: Arc<Partition>) -> bool {
 		let Some(dirs) = dirs else {
 			return false;
 		};
@@ -1072,7 +1070,7 @@ impl EphemeralIndexCache {
 			return false;
 		};
 		let snapshot_path = dirs.snapshot_file(volume_index_id);
-		let loaded = match EphemeralIndex::load_snapshot(&snapshot_path) {
+		let loaded = match Arena::load_snapshot(&snapshot_path) {
 			Ok(Some((index, meta))) => Some((index, meta)),
 			Ok(None) => None,
 			Err(err) => {
@@ -1293,7 +1291,7 @@ impl EphemeralIndexCache {
 			Some(store) => store.counts().await.filter(|counts| counts.records > 0),
 			None => None,
 		}
-		.unwrap_or(crate::ops::indexing::ephemeral::SourceCounts {
+		.unwrap_or(crate::ops::indexing::SourceCounts {
 			records: entry_count,
 			bytes: total_bytes,
 			..Default::default()
@@ -1320,7 +1318,7 @@ impl EphemeralIndexCache {
 	}
 
 	/// Prepare the owning partition for indexing a new path.
-	pub fn create_for_indexing(&self, path: PathBuf) -> Arc<TokioRwLock<EphemeralIndex>> {
+	pub fn create_for_indexing(&self, path: PathBuf) -> Arc<TokioRwLock<Arena>> {
 		let slot = self.resolve(&path);
 		let mut in_progress = slot.indexing_in_progress.write();
 		let mut indexed = slot.indexed_paths.write();
@@ -1367,7 +1365,7 @@ impl EphemeralIndexCache {
 		self.resolve(path).indexed_paths.write().remove(path);
 	}
 
-	fn fold_slots<T>(&self, mut f: impl FnMut(&VolumeIndex) -> T) -> Vec<T> {
+	fn fold_slots<T>(&self, mut f: impl FnMut(&Partition) -> T) -> Vec<T> {
 		let mut out: Vec<T> = self.slots.read().values().map(|s| f(s)).collect();
 		out.push(f(&self.scratch));
 		out
@@ -1481,7 +1479,7 @@ impl EphemeralIndexCache {
 	/// restore gate: the next touch re-restores from its snapshot instead of
 	/// carrying a spent gate over an empty arena.
 	pub async fn clear_all(&self) -> usize {
-		let old_slots: Vec<Arc<VolumeIndex>> = {
+		let old_slots: Vec<Arc<Partition>> = {
 			let mut slots = self.slots.write();
 			let old: Vec<_> = slots.values().cloned().collect();
 			slots.clear();
@@ -1504,14 +1502,14 @@ impl EphemeralIndexCache {
 		}
 		{
 			let mut index = self.scratch.index.write().await;
-			*index = EphemeralIndex::new().expect("Failed to create new ephemeral index");
+			*index = Arena::new().expect("Failed to create new arena");
 		}
 
 		cleared
 	}
 
-	pub fn stats(&self) -> EphemeralIndexCacheStats {
-		EphemeralIndexCacheStats {
+	pub fn stats(&self) -> VolumeIndexStats {
+		VolumeIndexStats {
 			indexed_paths: self.len(),
 			indexing_in_progress: self
 				.fold_slots(|s| s.indexing_in_progress.read().len())
@@ -1534,22 +1532,22 @@ impl EphemeralIndexCache {
 	}
 }
 
-impl Default for EphemeralIndexCache {
+impl Default for VolumeIndex {
 	fn default() -> Self {
-		Self::new().expect("Failed to create default EphemeralIndexCache")
+		Self::new().expect("Failed to create default VolumeIndex")
 	}
 }
 
-/// Statistics about the ephemeral index cache
+/// Statistics about the volume index
 #[derive(Debug, Clone)]
-pub struct EphemeralIndexCacheStats {
+pub struct VolumeIndexStats {
 	pub indexed_paths: usize,
 	pub indexing_in_progress: usize,
 	pub watched_paths: usize,
 	pub sources: usize,
 }
 
-impl EphemeralIndexCacheStats {
+impl VolumeIndexStats {
 	pub fn total_entries(&self) -> usize {
 		self.indexed_paths
 	}
@@ -1563,8 +1561,8 @@ impl EphemeralIndexCacheStats {
 mod tests {
 	use super::*;
 
-	fn isolated_cache() -> EphemeralIndexCache {
-		EphemeralIndexCache::with_sources_dir(None).expect("failed to create cache")
+	fn isolated_cache() -> VolumeIndex {
+		VolumeIndex::with_sources_dir(None).expect("failed to create cache")
 	}
 
 	#[test]
@@ -1815,7 +1813,7 @@ mod tests {
 		/// A source whose partition holds `count` files, indexed and saved the
 		/// way a completed walk leaves it.
 		async fn indexed_source(
-			cache: &EphemeralIndexCache,
+			cache: &VolumeIndex,
 			root: &Path,
 			anchor: VolumeAnchor,
 			count: u64,
@@ -1842,7 +1840,7 @@ mod tests {
 		/// What `directory_listing` does when someone opens a folder: take the
 		/// partition, clear the folder's stale children, index what is there
 		/// now, and save.
-		async fn browse(cache: &EphemeralIndexCache, dir: &Path, names: &[&str]) {
+		async fn browse(cache: &VolumeIndex, dir: &Path, names: &[&str]) {
 			let index = cache.create_for_indexing(dir.to_path_buf());
 			cache.clear_for_reindex(dir).await;
 			{
@@ -1858,7 +1856,7 @@ mod tests {
 			cache.save_snapshot(dir).await.expect("save");
 		}
 
-		fn counted(cache: &EphemeralIndexCache, id: Uuid) -> u64 {
+		fn counted(cache: &VolumeIndex, id: Uuid) -> u64 {
 			cache
 				.sources()
 				.into_iter()
@@ -1878,7 +1876,7 @@ mod tests {
 				let file = root.join("snap.bin");
 				let source_id = Uuid::now_v7();
 
-				let mut index = EphemeralIndex::new().unwrap();
+				let mut index = Arena::new().unwrap();
 				for i in 0..count {
 					let path = root.join(format!("file-{i}"));
 					index
@@ -1888,7 +1886,7 @@ mod tests {
 				let saved = index.get_stats().total_entries;
 				index.save_snapshot(&file, source_id, &root).unwrap();
 
-				let loaded = EphemeralIndex::load_snapshot(&file)
+				let loaded = Arena::load_snapshot(&file)
 					.unwrap_or_else(|e| panic!("{count} entries: load errored: {e}"));
 				let (loaded, meta) =
 					loaded.unwrap_or_else(|| panic!("{count} entries: snapshot did not read back"));
@@ -1918,8 +1916,8 @@ mod tests {
 
 			// Session one indexes the drive at its original mount.
 			let anchor = {
-				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-					.expect("cache");
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache.attach_library(library.clone()).await.expect("attach");
 				let anchor = tracked_volume(&library, old_dir.path()).await;
 				indexed_source(&cache, old_dir.path(), anchor.clone(), 4).await;
@@ -1937,8 +1935,8 @@ mod tests {
 			remounted.mount_point = Set(Some(new_dir.path().to_string_lossy().into_owned()));
 			remounted.update(library.conn()).await.expect("remount");
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 
 			let snapshot_path = cache
@@ -1976,16 +1974,16 @@ mod tests {
 			let root = root_dir.path().to_path_buf();
 
 			{
-				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-					.expect("cache");
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache.attach_library(library.clone()).await.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				indexed_source(&cache, &root, anchor, 8).await;
 			}
 
 			// A new session, as a restarted daemon sees it.
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 			let mut restored_roots = cache.subscribe_restored_roots();
 
@@ -2025,8 +2023,8 @@ mod tests {
 			let volume = Uuid::now_v7();
 
 			let count = {
-				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-					.expect("cache");
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache.attach_library(library.clone()).await.expect("attach");
 				cache.track_volume(volume, root.clone());
 
@@ -2056,8 +2054,8 @@ mod tests {
 			};
 
 			// And it comes back, because the snapshot belongs to the drive.
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 			cache.track_volume(volume, root.clone());
 			assert!(
@@ -2093,8 +2091,8 @@ mod tests {
 			let inner = root.join("Photos");
 			std::fs::create_dir_all(&inner).unwrap();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2149,8 +2147,8 @@ mod tests {
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2204,8 +2202,8 @@ mod tests {
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2227,7 +2225,7 @@ mod tests {
 					.expect("add");
 				index.summarise(
 					&summarised,
-					crate::ops::indexing::ephemeral::Rollup {
+					crate::ops::indexing::Rollup {
 						bytes: 4_096,
 						files: 9,
 					},
@@ -2264,8 +2262,8 @@ mod tests {
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2310,8 +2308,8 @@ mod tests {
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2351,8 +2349,8 @@ mod tests {
 			let root_dir = tempfile::tempdir().unwrap();
 			let root = root_dir.path().to_path_buf();
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 
 			let anchor = tracked_volume(&library, &root).await;
@@ -2384,8 +2382,8 @@ mod tests {
 			let root = root_dir.path().to_path_buf();
 
 			let (id, before) = {
-				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-					.expect("cache");
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache.attach_library(library.clone()).await.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 2).await;
@@ -2394,8 +2392,8 @@ mod tests {
 			};
 
 			// A new session, as a restarted daemon sees it.
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 			assert!(
 				cache.ensure_restored(&root).await,
@@ -2428,8 +2426,8 @@ mod tests {
 			std::fs::create_dir_all(&folder).unwrap();
 
 			let (id, full) = {
-				let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-					.expect("cache");
+				let cache =
+					VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 				cache.attach_library(library.clone()).await.expect("attach");
 				let anchor = tracked_volume(&library, &root).await;
 				let id = indexed_source(&cache, &root, anchor, COLLAPSE_FLOOR * 3).await;
@@ -2437,8 +2435,8 @@ mod tests {
 				(id, full)
 			};
 
-			let cache = EphemeralIndexCache::with_sources_dir(Some(data.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(data.path().to_path_buf())).expect("cache");
 			cache.attach_library(library).await.expect("attach");
 			cache.ensure_restored(&root).await;
 			browse(&cache, &folder, &["one.txt"]).await;
@@ -2465,8 +2463,8 @@ mod tests {
 		let root = tempfile::tempdir().unwrap();
 		let root = root.path().to_path_buf();
 
-		let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-			.expect("cache");
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache.attach_library(library.clone()).await.expect("attach");
 		let source_id = cache
 			.register_source(&root, Some(tracked_volume(&library, &root).await))
@@ -2515,7 +2513,7 @@ mod tests {
 		// Something empties the partition and asks to save the remains.
 		{
 			let mut index = index.write().await;
-			*index = EphemeralIndex::new().unwrap();
+			*index = Arena::new().unwrap();
 			let path = root.join("only-this");
 			index
 				.add_entry(path.clone(), Uuid::now_v7(), meta(&path))
@@ -2563,8 +2561,8 @@ mod tests {
 		// Session one: register the drive, index some entries, snapshot.
 		let saved_uuid;
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
@@ -2595,8 +2593,8 @@ mod tests {
 
 		// Session two: fresh cache, same registry dir. The source is known,
 		// restores from its snapshot, and serves read-only as detached.
-		let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-			.expect("cache");
+		let cache =
+			VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 		cache.attach_library(library.clone()).await.expect("attach");
 		assert_eq!(cache.sources().len(), 1);
 
@@ -2649,8 +2647,8 @@ mod tests {
 		// second save must replace the first — the existing file is this
 		// session's own artifact, not a prior session's index.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
@@ -2682,8 +2680,8 @@ mod tests {
 
 		// A fresh session restores everything the scan found.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
@@ -2724,8 +2722,8 @@ mod tests {
 
 		// Session one: a full index of three entries, snapshotted.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
@@ -2749,8 +2747,8 @@ mod tests {
 		// save_snapshot, seeding the partition first, so the save merges the
 		// snapshot's three entries with the new one instead of replacing them.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			let index = cache.create_for_indexing(root.clone());
 			{
@@ -2766,8 +2764,8 @@ mod tests {
 
 		// Session three: the snapshot holds the union, not the last writer.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&root.join("a.txt")).await);
 			let index = cache.resolve_index(&root);
@@ -2815,8 +2813,8 @@ mod tests {
 
 		// Session one: index one file, snapshot it.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			source_id = cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))
@@ -2836,8 +2834,8 @@ mod tests {
 		// Session two: rename it. The entry count is identical either side, so
 		// only a real change signal gets this to disk.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			cache.ensure_restored(&root).await;
 			let index = cache.resolve_index(&root);
@@ -2854,8 +2852,8 @@ mod tests {
 
 		// Session three: the rename survived, under the same identity.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			assert!(cache.ensure_restored(&after).await);
 			let index = cache.resolve_index(&root);
@@ -2867,8 +2865,8 @@ mod tests {
 		// A different drive mounted where that one lives is a different source,
 		// so it can never be served the first drive's snapshot.
 		{
-			let cache = EphemeralIndexCache::with_sources_dir(Some(cache_dir.path().to_path_buf()))
-				.expect("cache");
+			let cache =
+				VolumeIndex::with_sources_dir(Some(cache_dir.path().to_path_buf())).expect("cache");
 			cache.attach_library(library.clone()).await.expect("attach");
 			let other = cache
 				.register_source(&root, Some(tracked_volume(&library, &root).await))

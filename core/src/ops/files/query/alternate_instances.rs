@@ -61,7 +61,7 @@ impl LibraryQuery for AlternateInstancesQuery {
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		let Some(content) = cache.content_of(self.input.entry_uuid).await else {
 			return Ok(AlternateInstancesOutput {
@@ -80,7 +80,7 @@ impl LibraryQuery for AlternateInstancesQuery {
 			let kind = index.get_content_kind(&copy.path);
 			drop(index);
 
-			let mut file = File::from_ephemeral(
+			let mut file = File::from_arena(
 				copy.record_uuid,
 				&metadata,
 				SdPath::local(copy.path.clone()),

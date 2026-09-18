@@ -1,4 +1,4 @@
-//! Volume indexing action - ephemeral index entire volumes
+//! Volume indexing action - map an entire volume into the volume index
 
 use super::{map::MapOptions, map_volume, IndexVolumeInput, IndexVolumeOutput};
 use crate::ops::indexing::summary::Retention;
@@ -50,7 +50,7 @@ impl LibraryAction for IndexVolumeAction {
 			.ok_or_else(|| ActionError::Internal(format!("Volume not found: {}", fingerprint.0)))?;
 
 		info!(
-			"Starting ephemeral indexing for volume: {} ({})",
+			"Starting indexing for volume: {} ({})",
 			volume.name, fingerprint.0
 		);
 
@@ -89,7 +89,7 @@ impl LibraryAction for IndexVolumeAction {
 		.await?;
 
 		info!(
-			"Dispatched ephemeral indexing job {} for volume {}",
+			"Dispatched indexing job {} for volume {}",
 			job_id, volume.name
 		);
 
@@ -134,10 +134,10 @@ impl LibraryAction for IndexVolumeAction {
 								}
 
 								// Mark as indexed and register for watching
-								let ephemeral_cache = context_clone.ephemeral_cache();
-								ephemeral_cache.mark_indexing_complete(&mount_point_clone);
-								let _ = ephemeral_cache
-									.register_for_watching(mount_point_clone.clone());
+								let volume_index = context_clone.volume_index();
+								volume_index.mark_indexing_complete(&mount_point_clone);
+								let _ =
+									volume_index.register_for_watching(mount_point_clone.clone());
 
 								// Emit Refresh so frontend invalidates directory listing cache
 								context_clone

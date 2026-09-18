@@ -90,7 +90,7 @@ impl LibraryQuery for CopyMetadataQuery {
 
 		// A file the volume index no longer knows is one the copy job outlived,
 		// so it is left out rather than failing the query.
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		for uuid in entry_uuids {
 			if let Some(file) = crate::domain::File::for_record(cache, uuid).await {
 				metadata.file_objects.push(file);

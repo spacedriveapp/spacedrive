@@ -1,6 +1,6 @@
 //! Source listing output
 
-use crate::ops::indexing::ephemeral::SourceRecord;
+use crate::ops::indexing::SourceRecord;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::Path;

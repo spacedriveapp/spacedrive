@@ -16,9 +16,9 @@ use sd_core::ops::indexing::IndexScope;
 use tokio::time::Duration;
 
 #[tokio::test]
-async fn test_ephemeral_folder_rename_via_reindex() -> anyhow::Result<()> {
-	// Tests ephemeral batch change detection during manual reindex (watcher disabled)
-	let harness = IndexingHarnessBuilder::new("ephemeral_rename_reindex")
+async fn test_folder_rename_via_reindex() -> anyhow::Result<()> {
+	// Tests batch change detection during manual reindex (watcher disabled)
+	let harness = IndexingHarnessBuilder::new("rename_reindex")
 		.disable_watcher()
 		.build()
 		.await?;
@@ -70,9 +70,9 @@ async fn test_ephemeral_folder_rename_via_reindex() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_folder_rename_via_watcher() -> anyhow::Result<()> {
-	// Tests ephemeral real-time watcher change handling (no manual reindex)
-	let harness = IndexingHarnessBuilder::new("ephemeral_rename_watcher")
+async fn test_folder_rename_via_watcher() -> anyhow::Result<()> {
+	// Tests real-time watcher change handling (no manual reindex)
+	let harness = IndexingHarnessBuilder::new("rename_watcher")
 		.build() // Watcher enabled
 		.await?;
 
@@ -134,7 +134,7 @@ async fn test_ephemeral_folder_rename_via_watcher() -> anyhow::Result<()> {
 		"File content should be preserved"
 	);
 
-	// Verify watcher emitted events (ephemeral uses individual ResourceChanged events)
+	// Verify watcher emitted events (the watcher emits individual ResourceChanged events)
 	let collector = collection_handle.await.unwrap();
 	let stats = collector.analyze().await;
 

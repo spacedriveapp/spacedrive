@@ -4,7 +4,7 @@ use uuid::Uuid;
 
 use sd_core::{
 	domain::addressing::SdPath,
-	ops::core::ephemeral_status::EphemeralCacheStatusInput,
+	ops::core::index_status::IndexStatusInput,
 	ops::indexing::{input::IndexInput, job::IndexScope},
 };
 
@@ -105,9 +105,9 @@ impl BrowseArgs {
 	}
 }
 
-/// Arguments for ephemeral cache status
+/// Arguments for volume index status
 #[derive(Args, Debug, Clone)]
-pub struct EphemeralCacheArgs {
+pub struct IndexStatusArgs {
 	/// Filter by path substring
 	#[arg(long)]
 	pub filter: Option<String>,
@@ -117,9 +117,9 @@ pub struct EphemeralCacheArgs {
 	pub detailed: bool,
 }
 
-impl EphemeralCacheArgs {
-	pub fn to_input(&self) -> EphemeralCacheStatusInput {
-		EphemeralCacheStatusInput {
+impl IndexStatusArgs {
+	pub fn to_input(&self) -> IndexStatusInput {
+		IndexStatusInput {
 			path_filter: self.filter.clone(),
 			detailed: self.detailed,
 		}

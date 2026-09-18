@@ -100,7 +100,7 @@ mod tests {
 			link_target: None,
 			is_hidden: name.starts_with('.'),
 		};
-		let file = File::from_ephemeral(
+		let file = File::from_arena(
 			Uuid::now_v7(),
 			&metadata,
 			SdPath::Physical {

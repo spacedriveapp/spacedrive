@@ -648,9 +648,8 @@ async fn run_discovery_phase_sequential(
 /// Reads a directory through a volume backend, falling back to LocalBackend if none provided.
 ///
 /// Volume backends abstract local filesystems and cloud storage (S3, Dropbox) behind a
-/// unified interface. When indexing managed locations, the backend is provided upfront from
-/// volume registration. For ephemeral browsing or untracked paths, this creates a temporary
-/// LocalBackend on demand.
+/// unified interface. A walk on a registered volume passes its backend upfront; for a
+/// browse or an untracked path, this creates a temporary LocalBackend on demand.
 async fn read_directory(
 	path: &Path,
 	volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,

@@ -120,7 +120,7 @@ async fn bind_to_filesystem(
 	root: &Path,
 	device_slug: &str,
 ) -> Vec<File> {
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	// The partition covering the root restores from its snapshot if this
 	// session hasn't loaded it; without it every assertion stays unbound.
 	cache.ensure_restored(root).await;

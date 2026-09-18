@@ -54,7 +54,7 @@ impl LibraryAction for FreezeSourceAction {
 
 		// The registry holds the source's absolute root; the library row only
 		// stores it relative to its volume.
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let root = cache.source_root(source_id).ok_or_else(|| {
 			ActionError::Internal(format!(
 				"source {source_id} is not registered on this machine"

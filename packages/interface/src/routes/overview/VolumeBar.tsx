@@ -36,12 +36,12 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 
 	// The count recorded at last snapshot, matched by fingerprint — this is
 	// what keeps the files badge after the indexing job's live progress ends.
-	const {data: ephemeralStatus} = useCoreQuery({
-		type: 'core.ephemeral_status',
+	const {data: indexStatus} = useCoreQuery({
+		type: 'core.index_status',
 		input: {}
 	});
 	const indexedCount =
-		ephemeralStatus?.sources?.find(
+		indexStatus?.sources?.find(
 			(source) => source.volume_uuid === volume.id
 		)?.entry_count ?? null;
 

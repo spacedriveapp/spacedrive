@@ -17,7 +17,7 @@
 use crate::{
 	domain::content_identity::ContentHashGenerator,
 	infra::job::{generic_progress::GenericProgress, prelude::*, types::JobPriority},
-	ops::indexing::ephemeral::SourceStore,
+	ops::indexing::SourceStore,
 };
 use futures::StreamExt;
 use sd_store::ContentIdentity;
@@ -109,7 +109,7 @@ impl JobHandler for ContentIdentityJob {
 		let Some(store) = ctx
 			.library()
 			.core_context()
-			.ephemeral_cache()
+			.volume_index()
 			.store_for(&self.root)
 			.await
 		else {
@@ -273,7 +273,7 @@ pub async fn identify_every_source(
 	library: &Arc<crate::library::Library>,
 	context: &Arc<crate::context::CoreContext>,
 ) {
-	for source in context.ephemeral_cache().sources() {
+	for source in context.volume_index().sources() {
 		if !source.attached {
 			continue;
 		}

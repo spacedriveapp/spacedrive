@@ -96,7 +96,7 @@ impl LibraryAction for StartupIndexingAction {
 				warn!(%error, "Could not track the system volume");
 			}
 
-			context.ephemeral_cache().restore_everything().await;
+			context.volume_index().restore_everything().await;
 			add_home_to_library(&library, &context).await;
 			crate::ops::volumes::index::map_attached_volumes(&library, &context).await;
 			crate::ops::indexing::content_identity::identify_every_source(&library, &context).await;
@@ -122,7 +122,7 @@ crate::register_library_action!(StartupIndexingAction, "indexing.startup");
 /// alone.
 async fn add_home_to_library(library: &Arc<Library>, context: &Arc<CoreContext>) {
 	if context
-		.ephemeral_cache()
+		.volume_index()
 		.sources()
 		.iter()
 		.any(|source| source.attached)

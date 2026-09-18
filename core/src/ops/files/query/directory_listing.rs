@@ -126,14 +126,13 @@ impl LibraryQuery for DirectoryListingQuery {
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
-		self.query_ephemeral_directory_impl(context, library_id)
-			.await
+		self.query_arena_directory_impl(context, library_id).await
 	}
 }
 
 impl DirectoryListingQuery {
-	/// Query ephemeral directory (not indexed) - check cache first, then trigger on-demand indexing
-	async fn query_ephemeral_directory_impl(
+	/// List a directory from the volume index, walking it on demand when no partition covers it yet
+	async fn query_arena_directory_impl(
 		&self,
 		context: Arc<CoreContext>,
 		library_id: Uuid,
@@ -169,7 +168,7 @@ impl DirectoryListingQuery {
 			SdPath::Physical { path, .. } => path.clone(),
 			_ => {
 				tracing::warn!(
-					"Ephemeral indexing only supported for physical paths: {:?}",
+					"Browsing is only supported for physical paths: {:?}",
 					self.input.path
 				);
 				return Ok(DirectoryListingOutput {
@@ -190,7 +189,7 @@ impl DirectoryListingQuery {
 			None => local_path,
 		};
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		// A registered source that hasn't been touched this session restores
 		// from its snapshot here — including detached drives, whose indexes
@@ -199,10 +198,7 @@ impl DirectoryListingQuery {
 
 		// Check if we have a cached index that covers this path (or a parent path)
 		if let Some(index) = cache.get_for_search(&local_path) {
-			tracing::debug!(
-				"Found cached ephemeral index for path: {}",
-				local_path.display()
-			);
+			tracing::debug!("Found an arena covering path: {}", local_path.display());
 
 			// Try to get directory listing from cached index
 			let children = {
@@ -274,10 +270,7 @@ impl DirectoryListingQuery {
 		// No cached index or index doesn't cover this path
 		// Check if indexing is already in progress
 		if cache.is_indexing(&local_path) {
-			tracing::debug!(
-				"Ephemeral indexing already in progress for {}",
-				local_path.display()
-			);
+			tracing::debug!("Indexing already in progress for {}", local_path.display());
 			return Ok(DirectoryListingOutput {
 				files: Vec::new(),
 				total_count: 0,
@@ -290,7 +283,7 @@ impl DirectoryListingQuery {
 		// Get library to dispatch indexer job
 		if let Some(library) = context.get_library(library_id).await {
 			// Create cache entry and get the index to share with the job
-			let ephemeral_index = cache.create_for_indexing(local_path.clone());
+			let arena = cache.create_for_indexing(local_path.clone());
 
 			// Clear any stale entries from previous indexing (prevents ghost files)
 			let cleared = cache.clear_for_reindex(&local_path).await;
@@ -302,10 +295,10 @@ impl DirectoryListingQuery {
 				);
 			}
 
-			// Create ephemeral indexer job for this directory (shallow, current
-			// scope only). The job walks the volume's spelling of the path so
-			// every entry it inserts lands in the partition resolved above.
-			let mut config = IndexerJobConfig::ephemeral_browse(
+			// Walk this directory (current scope only). The job walks the
+			// volume's spelling of the path so every entry it inserts lands in
+			// the partition resolved above.
+			let mut config = IndexerJobConfig::new(
 				SdPath::Physical {
 					device_slug: crate::device::get_current_device_slug(),
 					path: local_path.clone(),
@@ -322,7 +315,7 @@ impl DirectoryListingQuery {
 			let mut indexer_job = IndexerJob::new(config);
 
 			// Share the cached index with the job
-			indexer_job.set_ephemeral_index(ephemeral_index);
+			indexer_job.set_arena(arena);
 			if let Some(store) = cache.store_for(&local_path).await {
 				indexer_job.set_source_store(store);
 			}
@@ -331,11 +324,11 @@ impl DirectoryListingQuery {
 			// The job will emit ResourceChanged events as files are discovered
 			match library.jobs().dispatch(indexer_job).await {
 				Ok(_) => {
-					tracing::info!("Dispatched ephemeral indexer for {:?}", self.input.path);
+					tracing::info!("Dispatched a browse walk for {:?}", self.input.path);
 				}
 				Err(e) => {
 					tracing::warn!(
-						"Failed to dispatch ephemeral indexer for {:?}: {}",
+						"Failed to dispatch a browse walk for {:?}: {}",
 						self.input.path,
 						e
 					);
@@ -364,7 +357,7 @@ impl DirectoryListingQuery {
 		context: &Arc<CoreContext>,
 		local_path: &std::path::Path,
 	) -> Option<DirectoryListingOutput> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let source = cache
 			.sources()
 			.into_iter()
@@ -468,7 +461,7 @@ impl DirectoryListingQuery {
 	/// peer replicas.
 	async fn files_from_index(
 		&self,
-		index: &Arc<tokio::sync::RwLock<crate::ops::indexing::ephemeral::EphemeralIndex>>,
+		index: &Arc<tokio::sync::RwLock<crate::ops::indexing::Arena>>,
 		children: Vec<std::path::PathBuf>,
 		device_slug: &str,
 	) -> Vec<File> {
@@ -493,7 +486,7 @@ impl DirectoryListingQuery {
 				};
 				let content_kind = index_write.get_content_kind(&child_path);
 
-				let mut file = File::from_ephemeral(entry_uuid, &metadata, entry_sd_path);
+				let mut file = File::from_arena(entry_uuid, &metadata, entry_sd_path);
 				file.content_kind = content_kind;
 				// Directories report their subtree rollup rather
 				// than the directory entry's own on-disk size.

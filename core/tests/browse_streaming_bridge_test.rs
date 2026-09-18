@@ -1,6 +1,6 @@
-//! Ephemeral Directory Event Streaming Bridge Test
+//! Browse Event Streaming Bridge Test
 //!
-//! Tests the core ephemeral browsing flow end-to-end:
+//! Tests the browsing flow end-to-end:
 //! 1. TS client subscribes to events for a directory path scope
 //! 2. TS client queries the directory listing (backend returns empty, dispatches indexer)
 //! 3. Indexer emits ResourceChangedBatch events
@@ -8,7 +8,7 @@
 //! 5. TS client receives events and verifies files arrive
 //!
 //! This test exists to catch regressions in the event delivery pipeline
-//! for ephemeral (non-indexed) directory browsing.
+//! for browsing a directory no source tracks.
 
 mod helpers;
 
@@ -19,41 +19,41 @@ use std::path::PathBuf;
 
 /// Connection info passed from Rust test harness to TypeScript tests
 #[derive(Debug, Serialize, Deserialize)]
-struct EphemeralBridgeConfig {
+struct BrowseBridgeConfig {
 	/// TCP socket address for daemon connection
 	socket_addr: String,
 	/// Library UUID
 	library_id: String,
 	/// Device slug used by this daemon (must match path_scope in subscriptions)
 	device_slug: String,
-	/// Physical path to the ephemeral directory (not a managed location)
-	ephemeral_dir_path: PathBuf,
+	/// Physical path to the browsed directory, tracked by no source
+	browsed_dir_path: PathBuf,
 	/// Test data directory
 	test_data_path: PathBuf,
 }
 
 #[tokio::test]
-async fn test_ephemeral_directory_event_streaming() -> anyhow::Result<()> {
-	let harness = IndexingHarnessBuilder::new("ephemeral_event_streaming")
+async fn test_directory_event_streaming() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("browse_event_streaming")
 		.enable_daemon()
 		.build()
 		.await?;
 
-	// Create an ephemeral directory with files (NOT a managed location)
+	// Create a directory no source tracks, with files
 	let test_root = harness.temp_path();
-	let ephemeral_dir = test_root.join("ephemeral_browse");
-	tokio::fs::create_dir_all(&ephemeral_dir).await?;
+	let browsed_dir = test_root.join("browsed");
+	tokio::fs::create_dir_all(&browsed_dir).await?;
 
 	// Create files the indexer will discover
-	tokio::fs::write(ephemeral_dir.join("document.txt"), "Hello world").await?;
-	tokio::fs::write(ephemeral_dir.join("photo.jpg"), "fake jpeg data").await?;
-	tokio::fs::write(ephemeral_dir.join("notes.md"), "# Notes").await?;
-	tokio::fs::write(ephemeral_dir.join("script.rs"), "fn main() {}").await?;
-	tokio::fs::write(ephemeral_dir.join("data.json"), r#"{"key": "value"}"#).await?;
+	tokio::fs::write(browsed_dir.join("document.txt"), "Hello world").await?;
+	tokio::fs::write(browsed_dir.join("photo.jpg"), "fake jpeg data").await?;
+	tokio::fs::write(browsed_dir.join("notes.md"), "# Notes").await?;
+	tokio::fs::write(browsed_dir.join("script.rs"), "fn main() {}").await?;
+	tokio::fs::write(browsed_dir.join("data.json"), r#"{"key": "value"}"#).await?;
 
 	// Create a subdirectory too
-	tokio::fs::create_dir_all(ephemeral_dir.join("subfolder")).await?;
-	tokio::fs::write(ephemeral_dir.join("subfolder/nested.txt"), "nested").await?;
+	tokio::fs::create_dir_all(browsed_dir.join("subfolder")).await?;
+	tokio::fs::write(browsed_dir.join("subfolder/nested.txt"), "nested").await?;
 
 	let socket_addr = harness
 		.daemon_socket_addr()
@@ -63,35 +63,35 @@ async fn test_ephemeral_directory_event_streaming() -> anyhow::Result<()> {
 	let device_slug = get_current_device_slug();
 	eprintln!("[Rust] Device slug: {}", device_slug);
 
-	let bridge_config = EphemeralBridgeConfig {
+	let bridge_config = BrowseBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
 		device_slug: device_slug.clone(),
-		ephemeral_dir_path: ephemeral_dir.clone(),
+		browsed_dir_path: browsed_dir.clone(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 
-	let config_path = harness.temp_path().join("ephemeral_bridge_config.json");
+	let config_path = harness.temp_path().join("browse_bridge_config.json");
 	let config_json = serde_json::to_string_pretty(&bridge_config)?;
 	tokio::fs::write(&config_path, config_json).await?;
 
 	tracing::info!("Bridge config written to: {}", config_path.display());
 	tracing::info!("Socket address: {}", socket_addr);
 	tracing::info!("Library ID: {}", bridge_config.library_id);
-	tracing::info!("Ephemeral dir: {}", ephemeral_dir.display());
+	tracing::info!("Browsed dir: {}", browsed_dir.display());
 
-	let ts_test_file = "packages/ts-client/tests/integration/ephemeral-streaming.test.ts";
+	let ts_test_file = "packages/ts-client/tests/integration/browse-streaming.test.ts";
 	let workspace_root = std::env::current_dir()?.parent().unwrap().to_path_buf();
 	let ts_test_path = workspace_root.join(ts_test_file);
 	let bun_config = workspace_root.join("packages/ts-client/tests/integration/bunfig.toml");
 
-	eprintln!("\n=== Ephemeral Event Streaming Bridge Test ===");
+	eprintln!("\n=== Browse Event Streaming Bridge Test ===");
 	eprintln!("Workspace root: {}", workspace_root.display());
 	eprintln!("Test file: {}", ts_test_path.display());
 	eprintln!("Config path: {}", config_path.display());
 	eprintln!("Socket address: {}", socket_addr);
 	eprintln!("Library ID: {}", bridge_config.library_id);
-	eprintln!("Ephemeral dir: {}", ephemeral_dir.display());
+	eprintln!("Browsed dir: {}", browsed_dir.display());
 	eprintln!("=============================================\n");
 
 	if !ts_test_path.exists() {
@@ -126,7 +126,7 @@ async fn test_ephemeral_directory_event_streaming() -> anyhow::Result<()> {
 		);
 	}
 
-	tracing::info!("Ephemeral event streaming test passed!");
+	tracing::info!("Browse event streaming test passed!");
 
 	harness.shutdown().await?;
 	Ok(())

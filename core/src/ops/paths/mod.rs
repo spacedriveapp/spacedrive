@@ -19,7 +19,7 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::indexing::ephemeral::cache::SourceStatus,
+	ops::indexing::volume_index::SourceStatus,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -143,7 +143,7 @@ impl LibraryQuery for PathContextQuery {
 		let canonical_path = SdPath::local(canonical.clone());
 
 		let availability = availability(&canonical).await;
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let source_status = longest_source(cache.sources(), &canonical);
 		let source = source_status.as_ref().map(|status| PathSourceContext {
 			id: status.id,

@@ -12,7 +12,7 @@
 
 use crate::context::CoreContext;
 use crate::domain::volume::VolumeFingerprint;
-use crate::ops::indexing::ephemeral::cache::SourceStatus;
+use crate::ops::indexing::volume_index::SourceStatus;
 use crate::volume::VolumeBackend;
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -360,7 +360,7 @@ pub async fn resolve_target(context: &Arc<CoreContext>, rel: &str) -> Option<Mou
 		return None;
 	}
 
-	if let Some((source, abs)) = resolve(&context.ephemeral_cache().sources(), rel) {
+	if let Some((source, abs)) = resolve(&context.volume_index().sources(), rel) {
 		return Some(MountTarget::Local(source, abs));
 	}
 
@@ -426,7 +426,7 @@ pub async fn provider_for(
 			if is_uri_root(&source.root) {
 				return Ok(cached(cloud_provider(context, source, abs).await?));
 			}
-			if !source.attached || context.ephemeral_cache().is_detached(abs) {
+			if !source.attached || context.volume_index().is_detached(abs) {
 				return Err(ByteError::Detached {
 					source: source.root.clone(),
 				});

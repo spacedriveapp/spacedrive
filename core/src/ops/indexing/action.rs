@@ -88,7 +88,7 @@ impl LibraryAction for IndexingAction {
 		for path in &self.input.paths {
 			let sd_path = crate::domain::addressing::SdPath::local(path.clone());
 
-			let mut config = IndexerJobConfig::ephemeral_browse(sd_path, self.input.scope, false);
+			let mut config = IndexerJobConfig::new(sd_path, self.input.scope, false);
 			config.announce = true;
 
 			// TODO: Apply include_hidden via rule_toggles when available

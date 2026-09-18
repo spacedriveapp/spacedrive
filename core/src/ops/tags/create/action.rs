@@ -37,7 +37,7 @@ impl LibraryAction for CreateTagAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let path = normalize_tag_path(&self.input.path)
 			.map_err(|e| ActionError::InvalidInput(e.to_string()))?;
 		let slug = slug_for_path(&path);

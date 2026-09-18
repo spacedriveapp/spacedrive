@@ -884,162 +884,6 @@ export type EntryKind =
 "Symlink";
 
 /**
- * Input for resetting the ephemeral cache
- */
-export type EphemeralCacheResetInput = { 
-/**
- * Confirmation flag to prevent accidental cache clearing
- */
-confirm: boolean };
-
-/**
- * Output from resetting the ephemeral cache
- */
-export type EphemeralCacheResetOutput = { 
-/**
- * Number of paths that were cleared from the cache
- */
-cleared_paths: number; 
-/**
- * Message describing the result
- */
-message: string };
-
-/**
- * Status of the unified ephemeral index cache
- */
-export type EphemeralCacheStatus = { 
-/**
- * Number of paths that have been indexed
- */
-indexed_paths_count: number; 
-/**
- * Number of paths currently being indexed
- */
-indexing_in_progress_count: number; 
-/**
- * Unified index statistics (shared arena and string interning)
- */
-index_stats: UnifiedIndexStats; 
-/**
- * List of indexed paths (directories whose contents are ready)
- */
-indexed_paths: IndexedPathInfo[]; 
-/**
- * List of paths currently being indexed
- */
-paths_in_progress: string[]; 
-/**
- * Roots armed for filesystem watching.
- * 
- * Separate from `indexed_paths` because the two come apart: an index
- * restored from a snapshot is browsable without anything watching it, and
- * that reads from the outside exactly like a watcher that is running and a
- * UI that never updates.
- */
-watched_paths?: string[]; 
-/**
- * Registered sources (volumes, drives, explicit roots) with their
- * attachment state — detached sources remain browsable from snapshots
- */
-sources?: EphemeralSourceInfo[]; total_indexes?: number | null; indexing_in_progress?: number | null; indexes?: EphemeralIndexInfo[] };
-
-/**
- * Input for the ephemeral cache status query
- */
-export type EphemeralCacheStatusInput = { 
-/**
- * Optional: only include indexed paths containing this substring
- */
-path_filter?: string | null; 
-/**
- * Include detailed memory breakdown (more expensive to compute)
- */
-detailed?: boolean };
-
-/**
- * Legacy: Information about a single ephemeral index (for backward compatibility)
- */
-export type EphemeralIndexInfo = { 
-/**
- * Root path this index covers
- */
-root_path: string; 
-/**
- * Whether indexing is currently in progress
- */
-indexing_in_progress: boolean; 
-/**
- * Total entries in the arena
- */
-total_entries: number; 
-/**
- * Number of entries indexed by path
- */
-path_index_count: number; 
-/**
- * Number of unique interned names
- */
-unique_names: number; 
-/**
- * Number of interned strings in cache
- */
-interned_strings: number; 
-/**
- * Number of content kinds stored
- */
-content_kinds: number; 
-/**
- * Estimated memory usage in bytes
- */
-memory_bytes: number; 
-/**
- * Age of the index in seconds
- */
-age_seconds: number; 
-/**
- * Seconds since last access
- */
-idle_seconds: number; 
-/**
- * Indexer job statistics (files/dirs/bytes counted)
- */
-job_stats: JobStats };
-
-/**
- * A registered ephemeral source and its live state
- */
-export type EphemeralSourceInfo = { id: string; root: string; 
-/**
- * The volume this source sits on, when it sits on one Spacedrive tracks.
- */
-volume_uuid: string | null; 
-/**
- * The root exists on disk right now
- */
-attached: boolean; 
-/**
- * A snapshot restore has populated this source's index this session
- */
-restored: boolean; last_seen_secs: number; 
-/**
- * Entry count at last snapshot — present without restoring the source
- */
-entry_count: number | null; 
-/**
- * Total file bytes at last snapshot
- */
-total_bytes: number | null; 
-/**
- * The source's directory in the daemon's per-source layout
- */
-directory: string | null; 
-/**
- * The source's thumbnail cache file within that directory
- */
-thumbs_path: string | null };
-
-/**
  * Error event for tracking recent errors
  */
 export type ErrorEvent = { timestamp: string; error_type: string; message: string; model_type: string | null; device_id: string | null };
@@ -1695,6 +1539,28 @@ scope: IndexScope;
 include_hidden: boolean };
 
 /**
+ * Input for resetting the volume index
+ */
+export type IndexResetInput = { 
+/**
+ * Confirmation flag to prevent accidentally clearing the index
+ */
+confirm: boolean };
+
+/**
+ * Output from resetting the volume index
+ */
+export type IndexResetOutput = { 
+/**
+ * Number of paths that were cleared from the index
+ */
+cleared_paths: number; 
+/**
+ * Message describing the result
+ */
+message: string };
+
+/**
  * Whether to index just one directory level or recurse through subdirectories.
  * 
  * Current scope is used for UI navigation where users expand folders on-demand,
@@ -1711,6 +1577,91 @@ export type IndexScope =
  * Index recursively through all subdirectories
  */
 "Recursive";
+
+/**
+ * A registered source and its live state
+ */
+export type IndexSourceInfo = { id: string; root: string; 
+/**
+ * The volume this source sits on, when it sits on one Spacedrive tracks.
+ */
+volume_uuid: string | null; 
+/**
+ * The root exists on disk right now
+ */
+attached: boolean; 
+/**
+ * A snapshot restore has populated this source's index this session
+ */
+restored: boolean; last_seen_secs: number; 
+/**
+ * Entry count at last snapshot — present without restoring the source
+ */
+entry_count: number | null; 
+/**
+ * Total file bytes at last snapshot
+ */
+total_bytes: number | null; 
+/**
+ * The source's directory in the daemon's per-source layout
+ */
+directory: string | null; 
+/**
+ * The source's thumbnail cache file within that directory
+ */
+thumbs_path: string | null };
+
+/**
+ * Status of the volume index
+ */
+export type IndexStatus = { 
+/**
+ * Number of paths that have been indexed
+ */
+indexed_paths_count: number; 
+/**
+ * Number of paths currently being indexed
+ */
+indexing_in_progress_count: number; 
+/**
+ * Unified index statistics (shared arena and string interning)
+ */
+index_stats: UnifiedIndexStats; 
+/**
+ * List of indexed paths (directories whose contents are ready)
+ */
+indexed_paths: IndexedPathInfo[]; 
+/**
+ * List of paths currently being indexed
+ */
+paths_in_progress: string[]; 
+/**
+ * Roots armed for filesystem watching.
+ * 
+ * Separate from `indexed_paths` because the two come apart: an index
+ * restored from a snapshot is browsable without anything watching it, and
+ * that reads from the outside exactly like a watcher that is running and a
+ * UI that never updates.
+ */
+watched_paths?: string[]; 
+/**
+ * Registered sources (volumes, drives, explicit roots) with their
+ * attachment state — detached sources remain browsable from snapshots
+ */
+sources?: IndexSourceInfo[] };
+
+/**
+ * Input for the volume index status query
+ */
+export type IndexStatusInput = { 
+/**
+ * Optional: only include indexed paths containing this substring
+ */
+path_filter?: string | null; 
+/**
+ * Include detailed memory breakdown (more expensive to compute)
+ */
+detailed?: boolean };
 
 /**
  * Input for volume indexing action
@@ -1949,27 +1900,6 @@ export type JobReceipt = { id: JobId; job_name: string };
 export type JobResumeInput = { job_id: string };
 
 export type JobResumeOutput = { job_id: string; success: boolean };
-
-/**
- * Statistics from the indexer job
- */
-export type JobStats = { 
-/**
- * Number of files indexed
- */
-files: number; 
-/**
- * Number of directories indexed
- */
-dirs: number; 
-/**
- * Number of symlinks indexed
- */
-symlinks: number; 
-/**
- * Total bytes indexed
- */
-bytes: number };
 
 /**
  * Current status of a job
@@ -4100,7 +4030,7 @@ targets_untagged: number;
 targets_pending: number; warnings: string[] };
 
 /**
- * Statistics for the unified ephemeral index
+ * Statistics across every partition of the volume index
  */
 export type UnifiedIndexStats = { 
 /**
@@ -4813,7 +4743,7 @@ export type WireDefinition = { uuid: string; slug_id: string; path: string; colo
 
 export type CoreAction =
      { type: 'config.app.update'; input: UpdateAppConfigInput; output: UpdateAppConfigOutput }
-  |  { type: 'core.ephemeral_reset'; input: EphemeralCacheResetInput; output: EphemeralCacheResetOutput }
+  |  { type: 'core.index_reset'; input: IndexResetInput; output: IndexResetOutput }
   |  { type: 'core.reset'; input: ResetDataInput; output: ResetDataOutput }
   |  { type: 'device.update'; input: UpdateDeviceInput; output: UpdateDeviceOutput }
   |  { type: 'libraries.create'; input: LibraryCreateInput; output: LibraryCreateOutput }
@@ -4892,8 +4822,8 @@ export type LibraryAction =
 
 export type CoreQuery =
      { type: 'config.app.get'; input: GetAppConfigQueryInput; output: AppConfigOutput }
-  |  { type: 'core.ephemeral_status'; input: EphemeralCacheStatusInput; output: EphemeralCacheStatus }
   |  { type: 'core.events.list'; input: ListEventsInput; output: ListEventsOutput }
+  |  { type: 'core.index_status'; input: IndexStatusInput; output: IndexStatus }
   |  { type: 'core.status'; input: Empty; output: CoreStatus }
   |  { type: 'files.collection_listing'; input: CollectionListingInput; output: CollectionListingOutput }
   |  { type: 'files.duplicates'; input: DuplicatesInput; output: DuplicatesOutput }
@@ -4965,7 +4895,7 @@ export type LibraryQuery =
 export const WIRE_METHODS = {
   coreActions: {
     'config.app.update': 'action:config.app.update.input',
-    'core.ephemeral_reset': 'action:core.ephemeral_reset.input',
+    'core.index_reset': 'action:core.index_reset.input',
     'core.reset': 'action:core.reset.input',
     'device.update': 'action:device.update.input',
     'libraries.create': 'action:libraries.create.input',
@@ -5044,8 +4974,8 @@ export const WIRE_METHODS = {
 
   coreQueries: {
     'config.app.get': 'query:config.app.get',
-    'core.ephemeral_status': 'query:core.ephemeral_status',
     'core.events.list': 'query:core.events.list',
+    'core.index_status': 'query:core.index_status',
     'core.status': 'query:core.status',
     'files.collection_listing': 'query:files.collection_listing',
     'files.duplicates': 'query:files.duplicates',

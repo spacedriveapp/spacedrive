@@ -78,7 +78,7 @@ impl CoreQuery for SizeTreeQuery {
 		let top = self.input.top.unwrap_or(12).min(MAX_TOP) as usize;
 		let path = self.input.path;
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		cache.ensure_restored(&path).await;
 		let attached = !cache.is_detached(&path);
 
@@ -86,7 +86,7 @@ impl CoreQuery for SizeTreeQuery {
 		let index = index.read().await;
 
 		fn build(
-			index: &crate::ops::indexing::ephemeral::index::EphemeralIndex,
+			index: &crate::ops::indexing::arena::Arena,
 			path: PathBuf,
 			depth: u8,
 			top: usize,

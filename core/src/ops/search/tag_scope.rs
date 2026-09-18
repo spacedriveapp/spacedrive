@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 use uuid::Uuid;
 
 use super::input::TagFilter;
-use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::ops::indexing::VolumeIndex;
 
 pub struct TagScope {
 	/// Paths carrying every include tag; `None` when nothing was included.
@@ -28,7 +28,7 @@ impl TagScope {
 	/// Resolve when the filter names any tag; a present-but-empty filter is
 	/// no filter.
 	pub async fn resolve_if_active(
-		cache: &EphemeralIndexCache,
+		cache: &VolumeIndex,
 		filter: Option<&TagFilter>,
 	) -> Option<Self> {
 		let filter = filter?;
@@ -66,7 +66,7 @@ impl TagScope {
 
 /// Every path currently carrying the tag, across all local stores, content
 /// collapse included.
-async fn paths_with_tag(cache: &EphemeralIndexCache, tag: Uuid) -> HashSet<PathBuf> {
+async fn paths_with_tag(cache: &VolumeIndex, tag: Uuid) -> HashSet<PathBuf> {
 	let mut paths = HashSet::new();
 	for store in cache.stores().await {
 		let records = match store.db().records_with_tag(tag).await {

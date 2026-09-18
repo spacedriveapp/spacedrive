@@ -11,9 +11,9 @@
 use crate::domain::{File, SdPath};
 use crate::filetype::FileTypeRegistry;
 use crate::infra::query::QueryError;
-use crate::ops::indexing::ephemeral::EphemeralIndexCache;
 use crate::ops::indexing::metadata::EntryMetadata;
 use crate::ops::indexing::state::EntryKind;
+use crate::ops::indexing::VolumeIndex;
 use crate::ops::search::input::{DateField, PaginationOptions, SearchFilters, SortOptions};
 use crate::ops::search::output::{FileSearchResult, ScoreBreakdown, SearchFacets};
 use crate::ops::search::pipeline;
@@ -36,14 +36,14 @@ pub struct SearchPage {
 /// A scope on another device is served from that device's replica.
 ///
 /// Returns the requested page and the true pre-pagination match count.
-pub async fn search_ephemeral_index(
+pub async fn search_arena(
 	query: &str,
 	path_scope: &SdPath,
 	filters: &SearchFilters,
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
 	context: &std::sync::Arc<crate::context::CoreContext>,
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<SearchPage, QueryError> {
 	let SdPath::Physical {
@@ -159,7 +159,7 @@ async fn store_scoped_page(
 	tag_scope: Option<&crate::ops::search::tag_scope::TagScope>,
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<Option<SearchPage>, QueryError> {
 	let Some(source) = cache
@@ -242,7 +242,7 @@ pub async fn search_every_index(
 	sort: &SortOptions,
 	pagination: &PaginationOptions,
 	context: &std::sync::Arc<crate::context::CoreContext>,
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<SearchPage, QueryError> {
 	let mut candidates = Vec::new();
@@ -378,7 +378,7 @@ fn retain_tagged(
 /// ranks them above it, so an exact query surfaces its file first without
 /// hiding everything else that contains the term.
 fn matches_in(
-	index: &crate::ops::indexing::ephemeral::EphemeralIndex,
+	index: &crate::ops::indexing::Arena,
 	query: &str,
 	scope: Option<&PathBuf>,
 ) -> Vec<PathBuf> {
@@ -402,9 +402,7 @@ fn matches_in(
 }
 
 async fn collect_results(
-	index_arc: &std::sync::Arc<
-		tokio::sync::RwLock<crate::ops::indexing::ephemeral::EphemeralIndex>,
-	>,
+	index_arc: &std::sync::Arc<tokio::sync::RwLock<crate::ops::indexing::Arena>>,
 	matching_paths: Vec<PathBuf>,
 	query: &str,
 	device_slug: &str,
@@ -425,7 +423,7 @@ async fn collect_results(
 			}
 
 			// Apply filters
-			if !passes_ephemeral_filters(&metadata, filters, file_type_registry) {
+			if !passes_arena_filters(&metadata, filters, file_type_registry) {
 				continue;
 			}
 
@@ -440,7 +438,7 @@ async fn collect_results(
 			let content_kind = index.get_content_kind(&path);
 
 			// Convert to File
-			let mut file = File::from_ephemeral(uuid, &metadata, sd_path);
+			let mut file = File::from_arena(uuid, &metadata, sd_path);
 			file.content_kind = content_kind;
 
 			// Score by relevance
@@ -459,8 +457,8 @@ async fn collect_results(
 	Ok(results)
 }
 
-/// Check if metadata passes ephemeral filters
-fn passes_ephemeral_filters(
+/// Check if arena metadata passes the search filters
+fn passes_arena_filters(
 	metadata: &EntryMetadata,
 	filters: &SearchFilters,
 	file_type_registry: &FileTypeRegistry,
@@ -615,7 +613,7 @@ mod tests {
 
 	fn passes(metadata: &EntryMetadata, filters: &SearchFilters) -> bool {
 		let registry = FileTypeRegistry::new();
-		passes_ephemeral_filters(metadata, filters, &registry)
+		passes_arena_filters(metadata, filters, &registry)
 	}
 
 	/// Hidden entries are excluded by default and included on request; the
@@ -704,7 +702,7 @@ mod tests {
 		let mtime_secs = 1_700_000_000u64;
 
 		// The arena's copy.
-		let mut index = crate::ops::indexing::ephemeral::EphemeralIndex::new().expect("index");
+		let mut index = crate::ops::indexing::Arena::new().expect("index");
 		for (name, size, hidden) in fixture {
 			let path = root.join(name);
 			index

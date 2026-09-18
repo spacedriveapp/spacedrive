@@ -557,7 +557,7 @@ impl LibraryManager {
 		// against wherever each anchoring volume is mounted now, so a drive
 		// that came back at a different mount point needs no repair.
 		match context
-			.ephemeral_cache()
+			.volume_index()
 			.attach_library(library.db().clone())
 			.await
 		{

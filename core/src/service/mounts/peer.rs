@@ -8,7 +8,7 @@
 //! byterange protocol.
 
 use crate::context::CoreContext;
-use crate::ops::indexing::ephemeral::index::EphemeralIndex;
+use crate::ops::indexing::arena::Arena;
 use crate::service::network::core::BYTERANGE_ALPN;
 use crate::service::network::protocol::{
 	byterange::{
@@ -31,7 +31,7 @@ pub struct RemoteShare {
 	pub device_id: Uuid,
 	pub device_label: String,
 	pub info: RemoteSourceInfo,
-	pub index: Arc<TokioRwLock<EphemeralIndex>>,
+	pub index: Arc<TokioRwLock<Arena>>,
 	pub synced_at_secs: u64,
 	/// Snapshot generation this replica was built from. Compared against
 	/// the owner's on every listing so an unchanged source is not
@@ -235,15 +235,12 @@ async fn restore_from(base: &std::path::Path) -> (usize, usize) {
 /// Load a replica's artifact into an arena: the snapshot when one exists,
 /// else a delivered database rebuilt entry by entry. Either way the share
 /// serves identically; the artifact kind is a transport detail.
-async fn restore_artifact(
-	replica_dir: &std::path::Path,
-	info: &RemoteSourceInfo,
-) -> Option<EphemeralIndex> {
+async fn restore_artifact(replica_dir: &std::path::Path, info: &RemoteSourceInfo) -> Option<Arena> {
 	let snapshot_path = replica_dir.join(format!("{}.snapshot", info.id.simple()));
 	if snapshot_path.exists() {
 		let restored = {
 			let path = snapshot_path.clone();
-			tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await
+			tokio::task::spawn_blocking(move || Arena::load_snapshot(&path)).await
 		};
 		if let Ok(Ok(Some((index, _meta)))) = restored {
 			return Some(index);
@@ -619,7 +616,7 @@ async fn validate_and_publish(
 ) -> anyhow::Result<()> {
 	let loaded = {
 		let path = tmp_path.to_path_buf();
-		tokio::task::spawn_blocking(move || EphemeralIndex::load_snapshot(&path)).await?
+		tokio::task::spawn_blocking(move || Arena::load_snapshot(&path)).await?
 	};
 	let index = match loaded {
 		Ok(Some((index, _meta))) => index,
@@ -654,11 +651,11 @@ async fn validate_and_publish(
 async fn arena_from_database(
 	db: &sd_store::SourceDb,
 	share_root: &std::path::Path,
-) -> anyhow::Result<EphemeralIndex> {
+) -> anyhow::Result<Arena> {
 	use crate::ops::indexing::metadata::EntryMetadata;
 	use crate::ops::indexing::state::EntryKind;
 
-	let mut index = EphemeralIndex::new()?;
+	let mut index = Arena::new()?;
 	let mut after_rowid = 0i64;
 	loop {
 		let (entries, last) = sd_store::read::all_entries_page(db.pool(), after_rowid, 2_000)
@@ -1010,7 +1007,7 @@ mod tests {
 
 		// One source with a real artifact on disk.
 		let cached = Uuid::now_v7();
-		let mut index = EphemeralIndex::new().expect("index");
+		let mut index = Arena::new().expect("index");
 		let file = PathBuf::from("/mnt/pool/kept/file.txt");
 		index
 			.add_entry(
@@ -1088,7 +1085,7 @@ mod tests {
 	}
 
 	fn snapshot_bytes_for(source_id: Uuid, root: &str, at: &std::path::Path) {
-		let mut index = EphemeralIndex::new().expect("index");
+		let mut index = Arena::new().expect("index");
 		let file = PathBuf::from(root).join("file.txt");
 		index
 			.add_entry(
@@ -1171,7 +1168,7 @@ mod tests {
 		let share = remote_share(source_id).await.expect("share survives");
 		assert_eq!(share.generation, 7, "the good generation stays published");
 		let artifact = base.path().join(format!("{}.snapshot", source_id.simple()));
-		let reloaded = EphemeralIndex::load_snapshot(&artifact).expect("readable");
+		let reloaded = Arena::load_snapshot(&artifact).expect("readable");
 		assert!(reloaded.is_some(), "the good artifact is untouched");
 	}
 
@@ -1293,7 +1290,7 @@ mod tests {
 			device_id: Uuid::now_v7(),
 			device_label: "owner".to_string(),
 			info: info(source_id, "/mnt/pool/kept", 2),
-			index: Arc::new(TokioRwLock::new(EphemeralIndex::new().expect("index"))),
+			index: Arc::new(TokioRwLock::new(Arena::new().expect("index"))),
 			synced_at_secs: 1_000,
 			generation: 7,
 		};
@@ -1338,7 +1335,7 @@ mod tests {
 			device_id: Uuid::now_v7(),
 			device_label: "old-name".to_string(),
 			info: info(source_id, "/mnt/pool/kept", 2),
-			index: Arc::new(TokioRwLock::new(EphemeralIndex::new().expect("index"))),
+			index: Arc::new(TokioRwLock::new(Arena::new().expect("index"))),
 			synced_at_secs: 5,
 			generation: 7,
 		});

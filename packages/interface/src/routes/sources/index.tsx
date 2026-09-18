@@ -28,7 +28,7 @@ export function SourcesHome() {
 		(source) => source.data_type !== 'filesystem'
 	);
 	// Paired devices' filesystem sources ride along in sources.list; local
-	// ones are served by the ephemeral registry below instead.
+	// ones come from the volume index's registry below instead.
 	const replicaSources =
 		sourcesRaw?.filter(
 			(source) => source.data_type === 'filesystem' && source.device_id
@@ -36,11 +36,11 @@ export function SourcesHome() {
 
 	// Filesystem sources — drives are sources too; the registries converge
 	// storage-side, the surface converges here.
-	const {data: ephemeralStatus} = useCoreQuery({
-		type: 'core.ephemeral_status',
+	const {data: indexStatus} = useCoreQuery({
+		type: 'core.index_status',
 		input: {}
 	});
-	const driveSources = ephemeralStatus?.sources ?? [];
+	const driveSources = indexStatus?.sources ?? [];
 	const {data: devicesData} = useNormalizedQuery({
 		query: 'devices.list',
 		input: {include_offline: true, include_details: false, show_paired: true},

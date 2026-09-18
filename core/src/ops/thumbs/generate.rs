@@ -80,7 +80,7 @@ impl LibraryAction for ThumbnailGenerateAction {
 				"Select a regular file or directory".into(),
 			));
 		}
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		cache.ensure_restored(&path).await;
 		let slot = cache.resolve(&path);
 		let volume_id = slot.id().ok_or_else(|| {
@@ -165,7 +165,7 @@ impl JobHandler for ThumbnailGenerateJob {
 			*self = saved;
 		}
 		let core = ctx.library().core_context();
-		let cache = core.ephemeral_cache();
+		let cache = core.volume_index();
 		let root = cache
 			.volume_index_root(self.volume_id)
 			.ok_or_else(|| JobError::execution("Thumbnail volume is unavailable"))?;
@@ -288,13 +288,11 @@ impl JobHandler for ThumbnailGenerateJob {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::ops::indexing::{
-		ephemeral::EphemeralIndex, metadata::EntryMetadata, state::EntryKind,
-	};
+	use crate::ops::indexing::{metadata::EntryMetadata, state::EntryKind, Arena};
 
 	#[test]
 	fn thumbnail_scope_selects_file_children_or_descendants_only() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		for name in [
 			"/photos/a.png",
 			"/photos/child/b.png",
@@ -413,7 +411,7 @@ mod tests {
 			.create_library("Thumbnail test", None, core.context.clone())
 			.await
 			.unwrap();
-		let cache = core.context.ephemeral_cache();
+		let cache = core.context.volume_index();
 		cache.track_volume(Uuid::new_v4(), root.clone());
 		for path in [&first, &second] {
 			let metadata = crate::ops::indexing::metadata::extract_metadata(path, None)

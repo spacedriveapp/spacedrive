@@ -993,7 +993,7 @@ impl Library {
 	/// Calculate tag count: every definition this machine can name, staged
 	/// ones included, deduplicated across the stores that carry them.
 	async fn calculate_tag_count(&self, _db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		let cache = self.core_context.ephemeral_cache();
+		let cache = self.core_context.volume_index();
 		let count = crate::ops::tags::definitions::all(self, cache).await.len() as u32;
 		debug!(tag_count = count, "Completed tag count calculation");
 		Ok(count)

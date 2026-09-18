@@ -25,7 +25,7 @@ impl CopyDatabaseQuery {
 	/// unindexed, which is what `confidence` reports: the caller falls back to
 	/// walking the filesystem when the answer is partial.
 	pub async fn get_estimates_for_paths(&self, sources: &[SdPath]) -> Result<PathEstimates> {
-		let cache = self.context.ephemeral_cache();
+		let cache = self.context.volume_index();
 		let mut estimates = PathEstimates {
 			file_count: 0,
 			total_size: 0,

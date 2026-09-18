@@ -1,6 +1,6 @@
-//! Snapshot persistence for ephemeral indexes
+//! Snapshot persistence for arenas
 //!
-//! Saves ephemeral indexes to disk for fast restoration between sessions.
+//! Saves each drive's arena to disk for fast restoration between sessions.
 //! Instead of re-indexing millions of files every time (10+ minutes), indexes
 //! load from snapshots in 1-2 seconds.
 //!
@@ -15,7 +15,7 @@
 //!
 //! Files are written to `.tmp` first, then atomically renamed to prevent corruption.
 
-use super::{EntryId, EphemeralIndex, NameCache, NameRegistry};
+use super::{Arena, EntryId, NameCache, NameRegistry};
 use crate::domain::ContentKind;
 use crate::ops::indexing::state::IndexerStats;
 use anyhow::{Context, Result};
@@ -47,7 +47,7 @@ pub struct SnapshotMeta {
 	pub created_at_secs: u64,
 }
 
-/// Serializable snapshot of an ephemeral index
+/// Serializable snapshot of an arena
 #[derive(Serialize, Deserialize)]
 pub struct IndexSnapshot {
 	/// Format version for compatibility checking
@@ -93,7 +93,7 @@ struct SerializableFileNode {
 
 /// Internal implementation for saving snapshots (called from index.rs)
 pub(super) fn save_snapshot_impl(
-	index: &super::EphemeralIndex,
+	index: &super::Arena,
 	snapshot_path: &Path,
 	source_id: Uuid,
 	root_path: &Path,
@@ -206,7 +206,7 @@ pub(super) fn save_snapshot_impl(
 /// Internal implementation for loading snapshots (called from index.rs)
 pub(super) fn load_snapshot_impl(
 	snapshot_path: &Path,
-) -> Result<Option<(super::EphemeralIndex, SnapshotMeta)>> {
+) -> Result<Option<(super::Arena, SnapshotMeta)>> {
 	if !snapshot_path.exists() {
 		return Ok(None);
 	}
@@ -333,7 +333,7 @@ pub(super) fn load_snapshot_impl(
 	}
 
 	// Reconstruct index using constructor
-	let index = super::EphemeralIndex::from_snapshot_parts(
+	let index = super::Arena::from_snapshot_parts(
 		arena,
 		cache,
 		registry,

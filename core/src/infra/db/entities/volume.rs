@@ -25,11 +25,11 @@ pub struct Model {
 	pub read_speed_mbps: Option<i32>,
 	pub write_speed_mbps: Option<i32>,
 	pub last_speed_test_at: Option<DateTimeUtc>,
-	/// Total file count from ephemeral indexing (synced across devices)
+	/// Total file count from indexing (synced across devices)
 	pub total_file_count: Option<i64>,
-	/// Total directory count from ephemeral indexing (synced across devices)
+	/// Total directory count from indexing (synced across devices)
 	pub total_directory_count: Option<i64>,
-	/// Last time volume was ephemeral indexed
+	/// Last time the volume was indexed
 	pub last_indexed_at: Option<DateTimeUtc>,
 	pub file_system: Option<String>,
 	pub mount_point: Option<String>,

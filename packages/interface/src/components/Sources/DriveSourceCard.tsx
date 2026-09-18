@@ -1,6 +1,6 @@
 import { HardDrive } from "@phosphor-icons/react";
 import { useNavigate } from "react-router-dom";
-import type { EphemeralSourceInfo } from "@sd/ts-client";
+import type { IndexSourceInfo } from "@sd/ts-client";
 import { formatBytes } from "../../routes/explorer/utils";
 
 /**
@@ -24,7 +24,7 @@ export function DriveSourceCard({
 	source,
 	deviceSlug,
 }: {
-	source: EphemeralSourceInfo;
+	source: IndexSourceInfo;
 	deviceSlug: string | undefined;
 }) {
 	const navigate = useNavigate();

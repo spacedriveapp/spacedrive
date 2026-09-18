@@ -1,4 +1,4 @@
-//! Core types for efficient ephemeral index storage
+//! Core types for efficient arena storage
 //!
 //! This module provides compact data structures for storing file system entries
 //! with minimal memory overhead. Key optimizations:
@@ -139,24 +139,24 @@ impl FileType {
 }
 
 /// Convert from state::EntryKind to FileType
-impl From<super::super::state::EntryKind> for FileType {
-	fn from(kind: super::super::state::EntryKind) -> Self {
+impl From<super::state::EntryKind> for FileType {
+	fn from(kind: super::state::EntryKind) -> Self {
 		match kind {
-			super::super::state::EntryKind::File => FileType::File,
-			super::super::state::EntryKind::Directory => FileType::Directory,
-			super::super::state::EntryKind::Symlink => FileType::Symlink,
+			super::state::EntryKind::File => FileType::File,
+			super::state::EntryKind::Directory => FileType::Directory,
+			super::state::EntryKind::Symlink => FileType::Symlink,
 		}
 	}
 }
 
 /// Convert from FileType to state::EntryKind
-impl From<FileType> for super::super::state::EntryKind {
+impl From<FileType> for super::state::EntryKind {
 	fn from(ft: FileType) -> Self {
 		match ft {
-			FileType::File => super::super::state::EntryKind::File,
-			FileType::Directory => super::super::state::EntryKind::Directory,
-			FileType::Symlink => super::super::state::EntryKind::Symlink,
-			FileType::Unknown => super::super::state::EntryKind::File, // Default to file
+			FileType::File => super::state::EntryKind::File,
+			FileType::Directory => super::state::EntryKind::Directory,
+			FileType::Symlink => super::state::EntryKind::Symlink,
+			FileType::Unknown => super::state::EntryKind::File, // Default to file
 		}
 	}
 }
@@ -283,7 +283,7 @@ pub struct NameRef {
 }
 
 // SAFETY: NameRef contains a raw pointer to an interned string that lives
-// as long as the NameCache. The NameCache is owned by EphemeralIndex and
+// as long as the NameCache. The NameCache is owned by Arena and
 // never deallocates strings. This makes NameRef safe to send between threads.
 unsafe impl Send for NameRef {}
 unsafe impl Sync for NameRef {}

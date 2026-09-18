@@ -204,7 +204,7 @@ impl FileDeleteProtocolHandler {
 		// Source roots, for the reason the transfer handler gives.
 		if let Some(ctx) = &self.context {
 			paths.extend(
-				ctx.ephemeral_cache()
+				ctx.volume_index()
 					.sources()
 					.into_iter()
 					.map(|source| source.root),

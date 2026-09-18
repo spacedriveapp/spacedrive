@@ -78,7 +78,7 @@ pub struct File {
 	pub accessed_at: Option<DateTime<Utc>>,
 
 	/// Additional computed fields
-	pub content_kind: ContentKind, // Populated by the ephemeral indexer, for when a File does not have a ContentIdentity
+	pub content_kind: ContentKind, // Populated by the indexer, for when a File does not have a ContentIdentity
 	pub is_local: bool, // this is redundant with SdPath
 
 	/// Video duration (for grid display optimization)
@@ -144,7 +144,7 @@ impl File {
 	/// entry, take the content kind. Everything that used to build one from an
 	/// entry row goes through here.
 	pub async fn at_path(
-		cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
+		cache: &crate::ops::indexing::VolumeIndex,
 		path: &std::path::Path,
 		uuid: Uuid,
 	) -> Option<Self> {
@@ -155,16 +155,13 @@ impl File {
 		let content_kind = index.get_content_kind(&owned);
 		drop(index);
 
-		let mut file = Self::from_ephemeral(uuid, &metadata, SdPath::local(path.to_path_buf()));
+		let mut file = Self::from_arena(uuid, &metadata, SdPath::local(path.to_path_buf()));
 		file.content_kind = content_kind;
 		Some(file)
 	}
 
 	/// The file a record uuid names, wherever it lives.
-	pub async fn for_record(
-		cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
-		uuid: Uuid,
-	) -> Option<Self> {
+	pub async fn for_record(cache: &crate::ops::indexing::VolumeIndex, uuid: Uuid) -> Option<Self> {
 		let path = cache.path_of_record(uuid).await?;
 		Self::at_path(cache, &path, uuid).await
 	}
@@ -180,7 +177,7 @@ impl File {
 	) {
 		use crate::infra::event::{Event, ResourceMetadata};
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let mut files = Vec::with_capacity(records.len());
 		for record in records {
 			if let Some(file) = Self::for_record(cache, record).await {
@@ -213,7 +210,7 @@ impl File {
 	}
 
 	/// Build a `File` from a store row: the cold twin of
-	/// [`Self::from_ephemeral`], with the same name/extension split and kind
+	/// [`Self::from_arena`], with the same name/extension split and kind
 	/// mapping, timestamps from the store's millisecond fields, and the
 	/// content kind hashing recorded. A directory reports its own row's size,
 	/// since a store keeps no subtree rollups.
@@ -268,7 +265,7 @@ impl File {
 		}
 	}
 
-	pub fn from_ephemeral(
+	pub fn from_arena(
 		id: Uuid,
 		metadata: &crate::ops::indexing::metadata::EntryMetadata,
 		sd_path: SdPath,

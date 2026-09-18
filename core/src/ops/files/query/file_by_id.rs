@@ -38,7 +38,7 @@ impl LibraryQuery for FileByIdQuery {
 	) -> QueryResult<Self::Output> {
 		let _ = &session;
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let Some(path) = cache.path_of_record(self.file_id).await else {
 			return Ok(None);
 		};
@@ -51,7 +51,7 @@ impl LibraryQuery for FileByIdQuery {
 		let content_kind = index.get_content_kind(&path);
 		drop(index);
 
-		let mut file = File::from_ephemeral(self.file_id, &metadata, SdPath::local(path));
+		let mut file = File::from_arena(self.file_id, &metadata, SdPath::local(path));
 		file.content_kind = content_kind;
 
 		let mut files = [file];

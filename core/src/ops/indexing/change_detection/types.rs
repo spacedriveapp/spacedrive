@@ -105,14 +105,9 @@ pub enum ChangeType {
 	Deleted,
 }
 
-/// Reference to an entry in either persistent or ephemeral storage.
-///
-/// Provides a uniform way to refer to entries regardless of storage backend.
-/// Persistent entries have database IDs; ephemeral entries have synthetic IDs.
+/// Reference to an entry in the arena.
 #[derive(Debug, Clone)]
 pub struct EntryRef {
-	/// For persistent: database entry ID. For ephemeral: synthetic ID.
-	pub id: i32,
 	/// UUID for sync and event emission.
 	pub uuid: Option<Uuid>,
 	/// Full filesystem path.

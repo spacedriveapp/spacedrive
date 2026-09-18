@@ -2,7 +2,7 @@ import type { ContentKind, File } from "./generated/types";
 
 /**
  * Get the content kind for a file, preferring content_identity.kind if available,
- * falling back to content_kind (identified by extension during ephemeral indexing).
+ * falling back to content_kind (identified by extension during indexing).
  */
 export function getContentKind(file: File | null | undefined): ContentKind {
 	return file?.content_identity?.kind ?? file?.content_kind ?? "unknown";

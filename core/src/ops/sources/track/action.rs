@@ -27,9 +27,9 @@ use crate::{
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
 	ops::indexing::{
-		ephemeral::VolumeAnchor,
 		job::{IndexScope, IndexerJob},
 		rules::RuleToggles,
+		VolumeAnchor,
 	},
 };
 use serde::{Deserialize, Serialize};
@@ -151,7 +151,7 @@ pub async fn track_and_index(
 	}
 
 	let id = context
-		.ephemeral_cache()
+		.volume_index()
 		.register_source(&root, anchor)
 		.await
 		.map_err(|e| ActionError::Internal(format!("Failed to register source: {e}")))?;
@@ -163,14 +163,14 @@ pub async fn track_and_index(
 	// `sources.update`'s explicit job.
 	let unfiltered = unfiltered
 		|| context
-			.ephemeral_cache()
+			.volume_index()
 			.source_config(id)
 			.is_some_and(|config| config.unfiltered);
 	context
-		.ephemeral_cache()
+		.volume_index()
 		.set_source_config(
 			id,
-			crate::ops::indexing::ephemeral::sources::SourceConfig { unfiltered },
+			crate::ops::indexing::sources::SourceConfig { unfiltered },
 		)
 		.await;
 
@@ -201,20 +201,20 @@ pub(crate) async fn dispatch_source_walk(
 	announce: bool,
 ) -> Option<uuid::Uuid> {
 	let unfiltered = context
-		.ephemeral_cache()
+		.volume_index()
 		.source_config(id)
 		.is_some_and(|config| config.unfiltered);
 
 	// Seed the partition from its snapshot before walking over it. A partition
 	// that skipped restore is barred from saving over an existing snapshot, so
 	// tracking a root that already has one would index and then fail to persist.
-	context.ephemeral_cache().ensure_restored(&root).await;
+	context.volume_index().ensure_restored(&root).await;
 
-	let index = context.ephemeral_cache().create_for_indexing(root.clone());
+	let index = context.volume_index().create_for_indexing(root.clone());
 
 	// Entries from a previous pass that this one will not revisit would
 	// otherwise linger in the arena as files that no longer exist.
-	let cleared = context.ephemeral_cache().clear_for_reindex(&root).await;
+	let cleared = context.volume_index().clear_for_reindex(&root).await;
 	if cleared > 0 {
 		tracing::debug!(source = %id, cleared, "cleared stale entries before re-indexing");
 	}
@@ -224,7 +224,7 @@ pub(crate) async fn dispatch_source_walk(
 		path: root.clone(),
 	};
 
-	let mut config = crate::ops::indexing::job::IndexerJobConfig::ephemeral_browse(
+	let mut config = crate::ops::indexing::job::IndexerJobConfig::new(
 		sd_path,
 		IndexScope::Recursive,
 		whole_volume,
@@ -238,8 +238,8 @@ pub(crate) async fn dispatch_source_walk(
 	config.retention = crate::ops::indexing::summary::Retention::source();
 
 	let mut job = IndexerJob::new(config);
-	job.set_ephemeral_index(index);
-	if let Some(store) = context.ephemeral_cache().store_for(&root).await {
+	job.set_arena(index);
+	if let Some(store) = context.volume_index().store_for(&root).await {
 		job.set_source_store(store);
 	}
 

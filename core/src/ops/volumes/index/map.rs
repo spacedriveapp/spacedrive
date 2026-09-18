@@ -87,7 +87,7 @@ pub async fn map_volume(
 		}
 	};
 
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	cache.track_volume(volume.id, volume.mount_point.clone());
 
 	// Seed the partition from its snapshot before walking over it: duplicate
@@ -96,7 +96,7 @@ pub async fn map_volume(
 	cache.ensure_restored(&volume.mount_point).await;
 	let index = cache.create_for_indexing(volume.mount_point.clone());
 
-	let mut config = IndexerJobConfig::ephemeral_browse(sd_path, options.scope, true);
+	let mut config = IndexerJobConfig::new(sd_path, options.scope, true);
 	config.retention = options.retention;
 	config.announce = options.announce;
 	if volume.mount_type == MountType::External {
@@ -106,7 +106,7 @@ pub async fn map_volume(
 	}
 
 	let mut job = IndexerJob::new(config);
-	job.set_ephemeral_index(index);
+	job.set_arena(index);
 	if let Some(store) = cache.store_for(&volume.mount_point).await {
 		job.set_source_store(store);
 	}
@@ -143,7 +143,7 @@ async fn heal_uncovered_sources(
 	context: &Arc<CoreContext>,
 	volume: &crate::domain::Volume,
 ) {
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	for source in cache.sources() {
 		if !source.root.starts_with(&volume.mount_point)
 			|| !source.attached
@@ -207,7 +207,7 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 			continue;
 		}
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		cache.track_volume(volume.id, volume.mount_point.clone());
 		let restored = cache.ensure_restored(&volume.mount_point).await;
 
@@ -226,7 +226,7 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 
 		// A drive already being walked is either a source that spans it or a
 		// map from earlier in this session, and either one covers this.
-		if context.ephemeral_cache().is_indexing(&volume.mount_point) {
+		if context.volume_index().is_indexing(&volume.mount_point) {
 			debug!(
 				"{} is already being walked; not mapping it again",
 				volume.mount_point.display()
@@ -235,7 +235,7 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 		}
 
 		let covered = context
-			.ephemeral_cache()
+			.volume_index()
 			.sources()
 			.into_iter()
 			.map(|source| source.root)

@@ -1,4 +1,4 @@
-//! Read-only WebDAV over the ephemeral source arenas.
+//! Read-only WebDAV over the volume index's arenas.
 //!
 //! One share exposes every registered source as a top-level collection, so a
 //! single mount shows the whole library-visible world — attached volumes,
@@ -8,8 +8,8 @@
 
 use super::provider::{self, remote_share_name, share_name, ByteError, MountTarget};
 use crate::context::CoreContext;
-use crate::ops::indexing::ephemeral::cache::SourceStatus;
 use crate::ops::indexing::state::EntryKind;
+use crate::ops::indexing::volume_index::SourceStatus;
 use axum::{
 	body::Body,
 	extract::State,
@@ -79,7 +79,7 @@ async fn propfind(context: &Arc<CoreContext>, rel: &str, headers: &HeaderMap) ->
 		.map(|d| d.trim() != "0")
 		.unwrap_or(true);
 
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	let sources = cache.sources();
 
 	let mut responses = String::new();
@@ -268,7 +268,7 @@ async fn get(
 	headers: &HeaderMap,
 	head_only: bool,
 ) -> Response {
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 
 	let Some(target) = provider::resolve_target(context, rel).await else {
 		return (StatusCode::NOT_FOUND, "").into_response();

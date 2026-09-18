@@ -1,7 +1,7 @@
 //! Search a source's SQLite store when no arena covers it.
 //!
 //! One backend answers per source per request: the router in
-//! [`super::ephemeral_search`] sends a source here only when its arena
+//! [`super::arena_search`] sends a source here only when its arena
 //! cannot answer, and an empty store result is final — nothing retries the
 //! other backend. Matching, filters and scoring mirror the arena path so the
 //! two backends return the same hits for the same capture.
@@ -72,7 +72,7 @@ pub async fn search_source_store(
 			path: absolute,
 		};
 		let file = File::from_store_entry(entry, sd_path);
-		let score = super::ephemeral_search::score_match(&file, query);
+		let score = super::arena_search::score_match(&file, query);
 		results.push(FileSearchResult {
 			file,
 			score,
@@ -89,7 +89,7 @@ pub async fn search_source_store(
 }
 
 /// The arena filter set, judged from a store row. Semantics match
-/// `passes_ephemeral_filters` field for field, including failing closed on
+/// `passes_arena_filters` field for field, including failing closed on
 /// timestamps the row cannot prove.
 fn passes_store_filters(
 	entry: &sd_store::FsEntry,

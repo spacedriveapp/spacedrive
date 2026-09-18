@@ -1,17 +1,12 @@
-//! Ephemeral event handler
+//! Filesystem event handler for the volume index
 //!
-//! Subscribes to filesystem events and routes them to the ephemeral responder
-//! for in-memory index updates. Used for browsing external drives, network shares,
-//! and other non-persistent locations.
-//!
-//! ## Characteristics
-//!
-//! - **Shallow watching**: Only processes events for immediate children of watched directories
-//! - **No batching**: Memory writes are fast, events processed immediately
-//! - **Session-based**: Events only processed for active browsing sessions
+//! Subscribes to filesystem events and routes each one under a watched root to
+//! the responder, which applies it to the arena and the source store. A change
+//! under a summarised directory marks that directory for a debounced recount
+//! instead.
 
 use crate::context::CoreContext;
-use crate::ops::indexing::ephemeral::responder;
+use crate::ops::indexing::responder;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::watcher::FsWatcherService;
 use anyhow::Result;
@@ -25,12 +20,12 @@ use tracing::{debug, error, trace, warn};
 /// directories are recounted.
 const RECOUNT_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
 
-/// Handler for ephemeral (in-memory) filesystem events
+/// Handler for filesystem events under watched roots
 ///
 /// Subscribes to `FsWatcher` events and routes matching events to the
-/// ephemeral responder for immediate in-memory updates.
-pub struct EphemeralEventHandler {
-	/// Core context (contains ephemeral_cache)
+/// responder.
+pub struct FsEventHandler {
+	/// Core context (contains volume_index)
 	context: Arc<CoreContext>,
 	/// Reference to the filesystem watcher service (set via connect())
 	fs_watcher: RwLock<Option<Arc<FsWatcherService>>>,
@@ -40,8 +35,8 @@ pub struct EphemeralEventHandler {
 	rule_toggles: RuleToggles,
 }
 
-impl EphemeralEventHandler {
-	/// Create a new ephemeral event handler (unconnected)
+impl FsEventHandler {
+	/// Create a new handler (unconnected)
 	///
 	/// Call `connect()` to attach to a FsWatcherService before starting.
 	pub fn new_unconnected(context: Arc<CoreContext>) -> Self {
@@ -53,7 +48,7 @@ impl EphemeralEventHandler {
 		}
 	}
 
-	/// Create a new ephemeral event handler (connected)
+	/// Create a new handler (connected)
 	pub fn new(context: Arc<CoreContext>, fs_watcher: Arc<FsWatcherService>) -> Self {
 		Self {
 			context,
@@ -71,21 +66,21 @@ impl EphemeralEventHandler {
 	/// Start the event handler
 	///
 	/// Spawns a task that subscribes to filesystem events and routes
-	/// matching events to the ephemeral responder.
+	/// matching events to the responder.
 	pub async fn start(&self) -> Result<()> {
 		if self.is_running.swap(true, Ordering::SeqCst) {
-			warn!("EphemeralEventHandler is already running");
+			warn!("FsEventHandler is already running");
 			return Ok(());
 		}
 
 		let fs_watcher = self.fs_watcher.read().await.clone();
 		let Some(fs_watcher) = fs_watcher else {
 			return Err(anyhow::anyhow!(
-				"EphemeralEventHandler not connected to FsWatcherService"
+				"FsEventHandler not connected to FsWatcherService"
 			));
 		};
 
-		debug!("Starting EphemeralEventHandler");
+		debug!("Starting FsEventHandler");
 
 		let mut rx = fs_watcher.subscribe();
 		let context = self.context.clone();
@@ -140,7 +135,7 @@ impl EphemeralEventHandler {
 						// vanishes. A count that fails still dispatches, so
 						// the job surfaces the store error instead of the
 						// nudge swallowing it.
-						let pending = match context.ephemeral_cache().store_for(&root).await {
+						let pending = match context.volume_index().store_for(&root).await {
 							Some(store) => store.files_needing_content_count().await.unwrap_or(1),
 							None => 0,
 						};
@@ -169,7 +164,7 @@ impl EphemeralEventHandler {
 
 		let dirty_for_events = dirty_roots.clone();
 		tokio::spawn(async move {
-			debug!("EphemeralEventHandler task started");
+			debug!("FsEventHandler task started");
 
 			while is_running.load(Ordering::SeqCst) {
 				match rx.recv().await {
@@ -182,25 +177,25 @@ impl EphemeralEventHandler {
 							continue;
 						}
 						if let Err(e) = Self::handle_event(&context, &event, rule_toggles).await {
-							error!("Error handling ephemeral event: {}", e);
+							error!("Error handling filesystem event: {}", e);
 						} else if let Some(root) =
-							context.ephemeral_cache().source_root_for(&event.path)
+							context.volume_index().source_root_for(&event.path)
 						{
 							dirty_for_events.lock().unwrap().insert(root);
 						}
 					}
 					Err(broadcast::error::RecvError::Lagged(n)) => {
-						warn!("EphemeralEventHandler lagged by {} events", n);
+						warn!("FsEventHandler lagged by {} events", n);
 						// Continue processing - we'll catch up
 					}
 					Err(broadcast::error::RecvError::Closed) => {
-						debug!("FsWatcher channel closed, stopping EphemeralEventHandler");
+						debug!("FsWatcher channel closed, stopping FsEventHandler");
 						break;
 					}
 				}
 			}
 
-			debug!("EphemeralEventHandler task stopped");
+			debug!("FsEventHandler task stopped");
 		});
 
 		Ok(())
@@ -208,7 +203,7 @@ impl EphemeralEventHandler {
 
 	/// Stop the event handler
 	pub fn stop(&self) {
-		debug!("Stopping EphemeralEventHandler");
+		debug!("Stopping FsEventHandler");
 		self.is_running.store(false, Ordering::SeqCst);
 	}
 
@@ -224,17 +219,17 @@ impl EphemeralEventHandler {
 		rule_toggles: RuleToggles,
 	) -> Result<()> {
 		let Some(root_path) = context
-			.ephemeral_cache()
+			.volume_index()
 			.watched_root_for_change(&event.path)
 			.await
 		else {
-			trace!("Event not under ephemeral watch: {}", event.path.display());
+			trace!("Event not under a watched root: {}", event.path.display());
 			return Ok(());
 		};
 		let root_path = &root_path;
 
 		debug!(
-			"Ephemeral event matched: {} (root: {})",
+			"Event matched: {} (root: {})",
 			event.path.display(),
 			root_path.display()
 		);
@@ -254,7 +249,7 @@ impl EphemeralEventHandler {
 		// The source's own capture policy, not the handler's default: an
 		// archival source keeps everything its walk keeps, live changes
 		// included.
-		let rule_toggles = context.ephemeral_cache().rule_toggles_for(root_path);
+		let rule_toggles = context.volume_index().rule_toggles_for(root_path);
 		responder::apply(context, root_path, event.clone(), rule_toggles).await
 	}
 }

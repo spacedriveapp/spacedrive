@@ -124,7 +124,7 @@ impl LibraryShare {
 	async fn source_names(&self) -> Vec<(String, Option<SystemTime>)> {
 		let mut names: Vec<(String, Option<SystemTime>)> = self
 			.context
-			.ephemeral_cache()
+			.volume_index()
 			.sources()
 			.into_iter()
 			.map(|source| (share_name(&source.root, source.id), None))
@@ -167,7 +167,7 @@ impl ShareBackend for LibraryShare {
 
 		let (index, meta) = match &target {
 			MountTarget::Local(source, _) => {
-				let cache = self.context.ephemeral_cache();
+				let cache = self.context.volume_index();
 				cache.ensure_restored(&source.root).await;
 				let index = cache.resolve_index(&abs);
 				let meta = index.read().await.get_entry_ref(&abs);
@@ -313,7 +313,7 @@ impl Handle for RootHandle {
 }
 
 struct DirHandle {
-	index: Arc<tokio::sync::RwLock<crate::ops::indexing::ephemeral::index::EphemeralIndex>>,
+	index: Arc<tokio::sync::RwLock<crate::ops::indexing::arena::Arena>>,
 	abs: PathBuf,
 	info: FileInfo,
 }

@@ -80,7 +80,7 @@ impl JobHandler for VerifyContentJob {
 		let Some(store) = ctx
 			.library()
 			.core_context()
-			.ephemeral_cache()
+			.volume_index()
 			.store_for(&self.root)
 			.await
 		else {

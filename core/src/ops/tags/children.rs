@@ -50,7 +50,7 @@ impl LibraryQuery for GetTagChildrenQuery {
 			.get_library(library_id)
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		let all = definitions::all(&library, &cache).await;
 

@@ -10,7 +10,7 @@
 //! per directory, so the numbers have to be counted whatever the policy is;
 //! what a summary saves is the retention, which is where the memory goes.
 
-use crate::ops::indexing::ephemeral::Rollup;
+use crate::ops::indexing::Rollup;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::path::{Path, PathBuf};

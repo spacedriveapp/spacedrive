@@ -2,11 +2,11 @@
 //!
 //! This service manages the lifecycle of the filesystem watcher and provides
 //! the event stream that handlers subscribe to. It owns and starts the
-//! `EphemeralEventHandler`.
+//! `FsEventHandler`.
 
 use crate::context::CoreContext;
 use crate::library::Library;
-use crate::ops::indexing::handlers::EphemeralEventHandler;
+use crate::ops::indexing::handlers::FsEventHandler;
 use crate::ops::indexing::rules::RuleToggles;
 use crate::service::Service;
 use anyhow::Result;
@@ -52,7 +52,7 @@ impl From<FsWatcherServiceConfig> for WatcherConfig {
 ///
 /// This service:
 /// - Manages the lifecycle of the underlying FsWatcher
-/// - Owns and starts the event handler (EphemeralEventHandler)
+/// - Owns and starts the event handler (FsEventHandler)
 /// - Handles watch registration for paths
 ///
 /// ## Usage
@@ -64,19 +64,16 @@ impl From<FsWatcherServiceConfig> for WatcherConfig {
 /// // Start the service (also starts handlers)
 /// service.start().await?;
 ///
-/// // Watch a location (persistent, recursive)
-///
-/// // Watch an ephemeral path (shallow, in-memory)
-/// service.watch_ephemeral("/path/to/browse").await?;
+/// // Watch a walked root
+/// service.watch_root("/path/to/browse").await?;
 /// ```
 pub struct FsWatcherService {
-	/// Core context for ephemeral cache access
+	/// Core context for volume index access
 	context: Arc<CoreContext>,
 	/// The underlying filesystem watcher
 	watcher: FsWatcher,
-	/// Handler for persistent (database) events
-	/// Handler for ephemeral (in-memory) events
-	ephemeral_handler: EphemeralEventHandler,
+	/// Routes events under watched roots to the volume index
+	fs_event_handler: FsEventHandler,
 	/// Whether the service is running
 	is_running: AtomicBool,
 	/// Configuration
@@ -95,7 +92,7 @@ impl FsWatcherService {
 		Self {
 			context: context.clone(),
 			watcher,
-			ephemeral_handler: EphemeralEventHandler::new_unconnected(context),
+			fs_event_handler: FsEventHandler::new_unconnected(context),
 			is_running: AtomicBool::new(false),
 			config,
 		}
@@ -105,7 +102,7 @@ impl FsWatcherService {
 	///
 	/// Must be called after the service is wrapped in Arc.
 	pub async fn init_handlers(self: &Arc<Self>) {
-		self.ephemeral_handler.connect(self.clone()).await;
+		self.fs_event_handler.connect(self.clone()).await;
 		// Subscription precedes the restore pass: arm_restored_sources
 		// installs the announcement channel synchronously, so no restore
 		// announced below can be missed.
@@ -120,11 +117,11 @@ impl FsWatcherService {
 	/// rebuilds the same index from a snapshot and watched nothing, so a drive
 	/// that browsed perfectly reported no changes until it was indexed again.
 	fn arm_restored_sources(self: Arc<Self>) {
-		let mut restored = self.context.ephemeral_cache().subscribe_restored_roots();
+		let mut restored = self.context.volume_index().subscribe_restored_roots();
 
 		tokio::spawn(async move {
 			while let Some(root) = restored.recv().await {
-				match self.watch_ephemeral(root.clone()).await {
+				match self.watch_root(root.clone()).await {
 					Ok(()) => info!("Watching restored source: {}", root.display()),
 					Err(e) => {
 						warn!("Failed to watch restored source {}: {}", root.display(), e);
@@ -134,14 +131,14 @@ impl FsWatcherService {
 						// that volume are narrower and still watchable; a
 						// nested source must not lose its watch to a sibling
 						// it does not contain.
-						for source in self.context.ephemeral_cache().sources() {
+						for source in self.context.volume_index().sources() {
 							if !source.attached
 								|| source.root == root || !source.root.starts_with(&root)
-								|| self.context.ephemeral_cache().is_watched(&source.root)
+								|| self.context.volume_index().is_watched(&source.root)
 							{
 								continue;
 							}
-							match self.watch_ephemeral(source.root.clone()).await {
+							match self.watch_root(source.root.clone()).await {
 								Ok(()) => {
 									info!("Watching restored source: {}", source.root.display())
 								}
@@ -169,7 +166,7 @@ impl FsWatcherService {
 	/// lazy; there is no filesystem to watch until they return.
 	fn restore_registered_sources(self: Arc<Self>) {
 		tokio::spawn(async move {
-			let cache = self.context.ephemeral_cache();
+			let cache = self.context.volume_index();
 			let mut restored = 0usize;
 			for source in cache.sources() {
 				if !source.attached {
@@ -194,9 +191,6 @@ impl FsWatcherService {
 	}
 
 	/// Watch a path with the given configuration
-	///
-	/// For persistent locations, use `WatchConfig::recursive()`.
-	/// For ephemeral browsing, use `WatchConfig::shallow()`.
 	pub async fn watch_path(&self, path: impl Into<PathBuf>, config: WatchConfig) -> Result<()> {
 		let path = path.into();
 		debug!("Watching path: {}", path.display());
@@ -235,25 +229,24 @@ impl FsWatcherService {
 		&self.watcher
 	}
 
-	/// Watch an ephemeral path (shallow, in-memory only)
+	/// Watch a root the volume index has walked
 	///
-	/// Used for browsing external drives, network shares, etc.
-	/// Registers with ephemeral cache and starts OS-level watching.
-	pub async fn watch_ephemeral(&self, path: impl Into<PathBuf>) -> Result<()> {
+	/// Registers the root with the volume index and starts OS-level watching.
+	pub async fn watch_root(&self, path: impl Into<PathBuf>) -> Result<()> {
 		let path = path.into();
-		debug!("Watching ephemeral path: {}", path.display());
+		debug!("Watching root: {}", path.display());
 
-		if self.context.ephemeral_cache().is_watched(&path) {
+		if self.context.volume_index().is_watched(&path) {
 			return Ok(());
 		}
 
-		// Register with ephemeral cache so handler knows to process events.
-		// Without this the OS watch still fires and `EphemeralEventHandler`
+		// Register with the volume index so the handler knows to process events.
+		// Without this the OS watch still fires and `FsEventHandler`
 		// drops every event as unmatched, which looks exactly like a watcher
 		// that is running and a UI that never updates.
 		if !self
 			.context
-			.ephemeral_cache()
+			.volume_index()
 			.register_for_watching(path.clone())
 		{
 			return Err(anyhow::anyhow!(
@@ -275,14 +268,12 @@ impl FsWatcherService {
 		Ok(())
 	}
 
-	/// Stop watching an ephemeral path
-	pub async fn unwatch_ephemeral(&self, path: &Path) -> Result<()> {
-		debug!("Unwatching ephemeral path: {}", path.display());
+	/// Stop watching a root
+	pub async fn unwatch_root(&self, path: &Path) -> Result<()> {
+		debug!("Unwatching root: {}", path.display());
 
-		// Unregister from ephemeral cache
-		self.context
-			.ephemeral_cache()
-			.unregister_from_watching(path);
+		// Unregister from the volume index
+		self.context.volume_index().unregister_from_watching(path);
 
 		// Stop OS-level watching
 		self.watcher.unwatch(path).await?;
@@ -292,9 +283,9 @@ impl FsWatcherService {
 
 	// ==================== Handler Access ====================
 
-	/// Get reference to ephemeral handler
-	pub fn ephemeral_handler(&self) -> &EphemeralEventHandler {
-		&self.ephemeral_handler
+	/// Get reference to the filesystem event handler
+	pub fn fs_event_handler(&self) -> &FsEventHandler {
+		&self.fs_event_handler
 	}
 }
 
@@ -311,7 +302,7 @@ impl Service for FsWatcherService {
 		// Start the underlying watcher first
 		self.watcher.start().await?;
 
-		self.ephemeral_handler.start().await?;
+		self.fs_event_handler.start().await?;
 
 		info!("FsWatcher service started");
 
@@ -325,7 +316,7 @@ impl Service for FsWatcherService {
 
 		info!("Stopping FsWatcher service");
 
-		self.ephemeral_handler.stop();
+		self.fs_event_handler.stop();
 
 		// Then stop the watcher
 		self.watcher.stop().await?;

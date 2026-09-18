@@ -84,7 +84,7 @@ impl LibraryAction for AddItemAction {
 
 		let entry_uuid = match &self.input.item_type {
 			ItemType::Path { sd_path } => {
-				resolve_sd_path_to_entry_uuid(sd_path, context.ephemeral_cache()).await
+				resolve_sd_path_to_entry_uuid(sd_path, context.volume_index()).await
 			}
 			_ => None,
 		};
@@ -156,7 +156,7 @@ crate::register_library_action!(AddItemAction, "spaces.add_item");
 /// directory. `None` for a path outside every source, which pins the path alone.
 async fn resolve_sd_path_to_entry_uuid(
 	sd_path: &SdPath,
-	cache: &crate::ops::indexing::ephemeral::EphemeralIndexCache,
+	cache: &crate::ops::indexing::VolumeIndex,
 ) -> Option<uuid::Uuid> {
 	let SdPath::Physical { path, .. } = sd_path else {
 		return None;

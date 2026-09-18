@@ -25,10 +25,8 @@ async fn create_test_file(path: &std::path::Path, content: &str) -> Result<(), s
 }
 
 #[tokio::test]
-async fn test_copy_with_ephemeral_index() -> anyhow::Result<()> {
-	let harness = IndexingHarnessBuilder::new("copy_ephemeral")
-		.build()
-		.await?;
+async fn test_copy_into_indexed_directory() -> anyhow::Result<()> {
+	let harness = IndexingHarnessBuilder::new("copy_indexed").build().await?;
 
 	// Create test directories in the harness test root
 	let test_root = harness.temp_path();
@@ -37,8 +35,8 @@ async fn test_copy_with_ephemeral_index() -> anyhow::Result<()> {
 	tokio::fs::create_dir_all(&source_dir).await?;
 	tokio::fs::create_dir_all(&dest_dir).await?;
 
-	create_test_file(&source_dir.join("file1.txt"), "Ephemeral content 1").await?;
-	create_test_file(&source_dir.join("file2.txt"), "Ephemeral content 2").await?;
+	create_test_file(&source_dir.join("file1.txt"), "Copied content 1").await?;
+	create_test_file(&source_dir.join("file2.txt"), "Copied content 2").await?;
 
 	// Browse the destination; the finished walk arms its watch
 	tracing::info!("Indexing destination directory");
@@ -78,7 +76,7 @@ async fn test_copy_with_ephemeral_index() -> anyhow::Result<()> {
 		move_mode: None,
 	});
 
-	tracing::info!("Dispatching ephemeral copy job");
+	tracing::info!("Dispatching copy job");
 	let handle = harness.library.jobs().dispatch(copy_job).await?;
 
 	handle.wait().await?;

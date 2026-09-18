@@ -1,7 +1,7 @@
 /**
- * Ephemeral Directory Event Streaming Test
+ * Browse Event Streaming Test
  *
- * Tests the core ephemeral browsing flow without React:
+ * Tests the browsing flow without React:
  * 1. Subscribe to events for a directory path scope
  * 2. Query the directory listing (backend returns empty, dispatches indexer)
  * 3. Verify ResourceChangedBatch events arrive through the subscription
@@ -23,7 +23,7 @@ interface BridgeConfig {
 	socket_addr: string;
 	library_id: string;
 	device_slug: string;
-	ephemeral_dir_path: string;
+	browsed_dir_path: string;
 	test_data_path: string;
 }
 
@@ -51,7 +51,7 @@ beforeAll(async () => {
 	console.log(`[TS] Hostname for comparison: ${hostname().toLowerCase().replace(/\s+/g, "-")}`);
 });
 
-describe("Ephemeral Directory Event Streaming", () => {
+describe("Browse Event Streaming", () => {
 	/**
 	 * Test 1: Raw transport-level event delivery
 	 *
@@ -60,18 +60,18 @@ describe("Ephemeral Directory Event Streaming", () => {
 	 * to test the daemon -> TCP -> event pipeline in isolation.
 	 */
 	test("events arrive via TCP subscription after directory listing query", async () => {
-		const ephemeralPath = bridgeConfig.ephemeral_dir_path;
+		const browsedPath = bridgeConfig.browsed_dir_path;
 		const pathScope = {
 			Physical: {
 				device_slug: deviceSlug,
-				path: ephemeralPath,
+				path: browsedPath,
 			},
 		};
 
 		const receivedEvents: any[] = [];
 
 		// Step 1: Subscribe FIRST
-		console.log(`[TS] Subscribing to events for: ${ephemeralPath}`);
+		console.log(`[TS] Subscribing to events for: ${browsedPath}`);
 		const transport = new TcpSocketTransport(bridgeConfig.socket_addr);
 		const unsubscribe = await transport.subscribe(
 			(event: any) => {
@@ -99,8 +99,8 @@ describe("Ephemeral Directory Event Streaming", () => {
 		// Small delay to ensure subscription is fully registered on daemon
 		await new Promise((r) => setTimeout(r, 100));
 
-		// Step 2: Query the directory listing (triggers ephemeral indexing)
-		console.log(`[TS] Querying directory listing for: ${ephemeralPath}`);
+		// Step 2: Query the directory listing (triggers the browse walk)
+		console.log(`[TS] Querying directory listing for: ${browsedPath}`);
 		const queryResult = await client.execute(
 			"query:files.directory_listing",
 			{
@@ -122,7 +122,7 @@ describe("Ephemeral Directory Event Streaming", () => {
 		// Either way, events should arrive.
 
 		// Step 3: Wait for events to arrive
-		// Ephemeral indexing is fast (<500ms), give generous timeout
+		// A browse walk is fast (<500ms), give generous timeout
 		const deadline = Date.now() + 10_000;
 		while (Date.now() < deadline) {
 			if (receivedEvents.length > 0) {
@@ -196,7 +196,7 @@ describe("Ephemeral Directory Event Streaming", () => {
 	 */
 	test("EventBuffer replays events to late subscriber", async () => {
 		// Use a subdirectory so it hasn't been indexed yet
-		const subPath = bridgeConfig.ephemeral_dir_path + "/subfolder";
+		const subPath = bridgeConfig.browsed_dir_path + "/subfolder";
 		const pathScope = {
 			Physical: {
 				device_slug: deviceSlug,

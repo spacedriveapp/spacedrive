@@ -66,14 +66,14 @@ impl FileSearchQuery {
 		search_id: Uuid,
 		start_time: std::time::Instant,
 	) -> QueryResult<FileSearchOutput> {
-		use crate::ops::search::ephemeral_search::{search_ephemeral_index, search_every_index};
+		use crate::ops::search::arena_search::{search_arena, search_every_index};
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let registry = context.file_type_registry();
 
 		let page = match &self.input.scope {
 			SearchScope::Path { path } => {
-				search_ephemeral_index(
+				search_arena(
 					&self.input.query,
 					path,
 					&self.input.filters,
@@ -101,7 +101,7 @@ impl FileSearchQuery {
 
 		let execution_time = start_time.elapsed().as_millis() as u64;
 
-		Ok(FileSearchOutput::new_ephemeral(
+		Ok(FileSearchOutput::from_page(
 			page,
 			search_id,
 			execution_time,

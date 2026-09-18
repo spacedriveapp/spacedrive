@@ -10,7 +10,7 @@ use crate::{
 	context::CoreContext,
 	infra::action::{error::ActionError, LibraryAction},
 	library::Library,
-	ops::indexing::ephemeral::SourceConfig,
+	ops::indexing::SourceConfig,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -68,7 +68,7 @@ impl LibraryAction for UpdateSourceAction {
 		let source_id = uuid::Uuid::parse_str(&self.input.source_id)
 			.map_err(|e| ActionError::Internal(format!("Invalid source ID: {e}")))?;
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let previous = cache.source_config(source_id).ok_or_else(|| {
 			ActionError::Internal(format!(
 				"source {source_id} is not registered on this machine"

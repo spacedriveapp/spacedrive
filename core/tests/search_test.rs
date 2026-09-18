@@ -15,7 +15,7 @@ use sd_core::{
 	domain::{addressing::SdPath, ContentKind},
 	infra::{api::SessionContext, query::LibraryQuery},
 	ops::{
-		indexing::{IndexScope, IndexerJob, IndexerJobConfig},
+		indexing::IndexScope,
 		search::{
 			input::{
 				DateField, DateRangeFilter, FileSearchInput, PaginationOptions, SearchFilters,
@@ -25,7 +25,6 @@ use sd_core::{
 		},
 	},
 };
-use std::path::PathBuf;
 use tokio::time::Duration;
 
 // Helper function to execute search queries
@@ -44,48 +43,27 @@ async fn execute_search(
 }
 
 #[tokio::test]
-async fn test_ephemeral_search_basic() -> anyhow::Result<()> {
-	// Tests basic search in ephemeral (non-indexed) directory
-	let harness = IndexingHarnessBuilder::new("ephemeral_search_basic")
+async fn test_search_basic() -> anyhow::Result<()> {
+	// Tests basic search in a browsed directory
+	let harness = IndexingHarnessBuilder::new("search_basic")
 		.disable_watcher()
 		.build()
 		.await?;
 
 	let test_root = harness.temp_path();
-	let search_dir = test_root.join("ephemeral_files");
+	let search_dir = test_root.join("files");
 
 	tokio::fs::create_dir_all(&search_dir).await?;
 	tokio::fs::write(search_dir.join("document.txt"), "Important document").await?;
 	tokio::fs::write(search_dir.join("notes.md"), "Meeting notes").await?;
 	tokio::fs::write(search_dir.join("code.rs"), "fn main() {}").await?;
 
-	// Index in ephemeral mode
+	// Browse the directory into the volume index
 	harness
 		.index_dir(&search_dir, IndexScope::Recursive)
 		.await?;
 
 	tokio::time::sleep(Duration::from_millis(500)).await;
-
-	// Debug: Check if files exist in ephemeral cache
-	if let Some(index_arc) = harness
-		.core
-		.context
-		.ephemeral_cache()
-		.get_for_path(&search_dir)
-	{
-		let index = index_arc.read().await;
-		let all_paths = index.list_directory(&search_dir).unwrap_or_default();
-		eprintln!(
-			"Ephemeral cache has {} entries for {:?}",
-			all_paths.len(),
-			search_dir
-		);
-		for path in all_paths.iter().take(10) {
-			eprintln!("  - {:?}", path);
-		}
-	} else {
-		eprintln!("No ephemeral cache found for {:?}", search_dir);
-	}
 
 	// Search for "document"
 	let search_input = FileSearchInput {
@@ -127,15 +105,15 @@ async fn test_ephemeral_search_basic() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_search_with_filters() -> anyhow::Result<()> {
-	// Tests ephemeral search with file type and size filters
-	let harness = IndexingHarnessBuilder::new("ephemeral_search_filters")
+async fn test_search_with_filters() -> anyhow::Result<()> {
+	// Tests search with file type and size filters
+	let harness = IndexingHarnessBuilder::new("search_filters")
 		.disable_watcher()
 		.build()
 		.await?;
 
 	let test_root = harness.temp_path();
-	let search_dir = test_root.join("ephemeral_mixed");
+	let search_dir = test_root.join("mixed");
 
 	tokio::fs::create_dir_all(&search_dir).await?;
 
@@ -150,7 +128,7 @@ async fn test_ephemeral_search_with_filters() -> anyhow::Result<()> {
 	let large_content = "x".repeat(10000);
 	tokio::fs::write(search_dir.join("sample_large.txt"), &large_content).await?;
 
-	// Ephemeral index
+	// Browse the directory into the volume index
 	harness
 		.index_dir(&search_dir, IndexScope::Recursive)
 		.await?;
@@ -252,15 +230,15 @@ async fn test_ephemeral_search_with_filters() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_search_date_filter() -> anyhow::Result<()> {
-	// Tests ephemeral search with date range filtering
-	let harness = IndexingHarnessBuilder::new("ephemeral_search_dates")
+async fn test_search_date_filter() -> anyhow::Result<()> {
+	// Tests search with date range filtering
+	let harness = IndexingHarnessBuilder::new("search_dates")
 		.disable_watcher()
 		.build()
 		.await?;
 
 	let test_root = harness.temp_path();
-	let search_dir = test_root.join("ephemeral_dated");
+	let search_dir = test_root.join("dated");
 
 	tokio::fs::create_dir_all(&search_dir).await?;
 
@@ -268,7 +246,7 @@ async fn test_ephemeral_search_date_filter() -> anyhow::Result<()> {
 	tokio::fs::write(search_dir.join("recent1.txt"), "Content 1").await?;
 	tokio::fs::write(search_dir.join("recent2.txt"), "Content 2").await?;
 
-	// Ephemeral index
+	// Browse the directory into the volume index
 	harness
 		.index_dir(&search_dir, IndexScope::Recursive)
 		.await?;
@@ -313,15 +291,15 @@ async fn test_ephemeral_search_date_filter() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_search_substring_matching() -> anyhow::Result<()> {
-	// Tests ephemeral search substring and prefix matching
-	let harness = IndexingHarnessBuilder::new("ephemeral_search_substring")
+async fn test_search_substring_matching() -> anyhow::Result<()> {
+	// Tests search substring and prefix matching
+	let harness = IndexingHarnessBuilder::new("search_substring")
 		.disable_watcher()
 		.build()
 		.await?;
 
 	let test_root = harness.temp_path();
-	let search_dir = test_root.join("ephemeral_names");
+	let search_dir = test_root.join("names");
 
 	tokio::fs::create_dir_all(&search_dir).await?;
 
@@ -331,7 +309,7 @@ async fn test_ephemeral_search_substring_matching() -> anyhow::Result<()> {
 	tokio::fs::write(search_dir.join("testcase.txt"), "Content").await?;
 	tokio::fs::write(search_dir.join("my_test_data.txt"), "Content").await?;
 
-	// Ephemeral index
+	// Browse the directory into the volume index
 	harness
 		.index_dir(&search_dir, IndexScope::Recursive)
 		.await?;
@@ -375,9 +353,9 @@ async fn test_ephemeral_search_substring_matching() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ephemeral_search_result_limit() -> anyhow::Result<()> {
+async fn test_search_result_limit() -> anyhow::Result<()> {
 	// Tests that search serves the requested window over the full match count
-	let harness = IndexingHarnessBuilder::new("ephemeral_search_limit")
+	let harness = IndexingHarnessBuilder::new("search_limit")
 		.disable_watcher()
 		.build()
 		.await?;
@@ -392,7 +370,7 @@ async fn test_ephemeral_search_result_limit() -> anyhow::Result<()> {
 		tokio::fs::write(search_dir.join(format!("file_{:03}.txt", i)), "Content").await?;
 	}
 
-	// Ephemeral index
+	// Browse the directory into the volume index
 	harness
 		.index_dir(&search_dir, IndexScope::Recursive)
 		.await?;

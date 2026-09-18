@@ -694,7 +694,7 @@ impl SdPath {
 				// The bytes may sit in several places; the first copy this
 				// machine can actually open is as good as any, since they are
 				// the same bytes by definition.
-				let cache = job_ctx.library().core_context().ephemeral_cache();
+				let cache = job_ctx.library().core_context().volume_index();
 				let copy = cache
 					.copies_of_content(*content_id)
 					.await

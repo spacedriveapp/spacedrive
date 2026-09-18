@@ -15,7 +15,7 @@ use uuid::Uuid;
 
 use super::apply::input::TagTargets;
 use crate::context::CoreContext;
-use crate::ops::indexing::ephemeral::{store::SourceStore, EphemeralIndexCache};
+use crate::ops::indexing::{store::SourceStore, VolumeIndex};
 
 /// One store's slice of an application: the handle and the rows headed there.
 pub struct StoreBatch {
@@ -50,7 +50,7 @@ pub async fn resolve(
 	asserted: bool,
 	stamp: &Stamp,
 ) -> ResolvedTargets {
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	let mut batches: HashMap<Uuid, StoreBatch> = HashMap::new();
 	let mut remote: HashMap<Uuid, RemoteBatch> = HashMap::new();
 	let mut affected = Vec::new();
@@ -273,7 +273,7 @@ async fn locate_replica(
 /// arena answers fast when loaded; the stores are the floor when it is not,
 /// so tagging works on a cold daemon and on a detached source.
 async fn locate(
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	record: Uuid,
 ) -> Option<(Arc<SourceStore>, Option<String>, Option<Uuid>)> {
 	if let Some(path) = cache.path_of_record(record).await {

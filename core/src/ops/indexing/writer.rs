@@ -27,7 +27,7 @@ use crate::ops::indexing::state::{DirEntry, EntryKind};
 
 use super::store::SourceStore;
 use super::types::Rollup;
-use super::EphemeralIndex;
+use super::Arena;
 
 use anyhow::Result;
 use std::path::{Path, PathBuf};
@@ -155,7 +155,7 @@ pub enum Notify {
 /// directory to write to) keeps the identity the arena has and skips the second
 /// write.
 pub struct ArenaWriter {
-	index: Arc<RwLock<EphemeralIndex>>,
+	index: Arc<RwLock<Arena>>,
 	event_bus: Arc<EventBus>,
 	store: Option<Arc<SourceStore>>,
 	notify: Notify,
@@ -164,7 +164,7 @@ pub struct ArenaWriter {
 impl ArenaWriter {
 	/// A writer for the watcher: one change at a time, each one announced.
 	pub fn new(
-		index: Arc<RwLock<EphemeralIndex>>,
+		index: Arc<RwLock<Arena>>,
 		event_bus: Arc<EventBus>,
 		store: Option<Arc<SourceStore>>,
 	) -> Self {
@@ -479,7 +479,7 @@ impl ArenaWriter {
 			device_slug: crate::device::get_current_device_slug(),
 			path: change.path.clone(),
 		};
-		let mut file = File::from_ephemeral(change.uuid, metadata, sd_path);
+		let mut file = File::from_arena(change.uuid, metadata, sd_path);
 		file.content_kind = change.content_kind;
 		Some(file)
 	}
@@ -508,7 +508,6 @@ impl ChangeHandler for ArenaWriter {
 		let key = path.to_path_buf();
 
 		Ok(index.get_entry_ref(&key).map(|metadata| EntryRef {
-			id: 0,
 			uuid: index.get_entry_uuid(&key),
 			path: key,
 			kind: metadata.kind,
@@ -530,7 +529,6 @@ impl ChangeHandler for ArenaWriter {
 			.map(|change| change.uuid);
 
 		Ok(EntryRef {
-			id: 0,
 			uuid,
 			path: metadata.path.clone(),
 			kind,
@@ -569,7 +567,7 @@ impl ChangeHandler for ArenaWriter {
 	}
 
 	async fn run_processors(&self, _entry: &EntryRef, _is_new: bool) -> Result<()> {
-		// File processors (thumbnails, content hash) are disabled to ensure responsive, low-overhead browsing.
+		// Thumbnails and hashing run as their own jobs, so a watcher event stays cheap.
 		Ok(())
 	}
 
@@ -588,7 +586,7 @@ impl ChangeHandler for ArenaWriter {
 			Ok(entries) => entries,
 			Err(e) => {
 				tracing::warn!(
-					"Failed to read directory {} for ephemeral indexing: {}",
+					"Failed to read directory {} to index it: {}",
 					path.display(),
 					e
 				);
@@ -654,7 +652,7 @@ mod tests {
 	}
 
 	fn writer(root: &Path, notify: Notify) -> (ArenaWriter, Arc<EventBus>) {
-		let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
+		let index = Arc::new(RwLock::new(Arena::new().expect("arena")));
 		let event_bus = Arc::new(EventBus::new(1024));
 		let writer = ArenaWriter::new(index, event_bus.clone(), None).notifying(notify);
 		(writer, event_bus)
@@ -929,7 +927,7 @@ mod move_tests {
 		}
 		std::fs::write(&old, b"hello").expect("write");
 
-		let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
+		let index = Arc::new(RwLock::new(Arena::new().expect("arena")));
 		let event_bus = Arc::new(EventBus::new(1024));
 		let mut subscriber = event_bus.subscribe();
 		let mut writer = ArenaWriter::new(index, event_bus, None);

@@ -1,14 +1,14 @@
 //! Listing for built-in collections (screenshots, screen recordings, …).
 //!
 //! Collections are identified at index time and stored as flags in each
-//! source's ephemeral index; this query fans out across every partition and
+//! drive's arena; this query fans out across every partition and
 //! assembles the flagged entries. No pattern matching happens here.
 
 use crate::{
 	context::CoreContext,
 	domain::file::File,
 	infra::query::{CoreQuery, QueryError, QueryResult},
-	ops::indexing::ephemeral::collections,
+	ops::indexing::collections,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -66,7 +66,7 @@ impl CoreQuery for CollectionListingQuery {
 		let limit = self.input.limit.unwrap_or(2000) as usize;
 		let device_slug = crate::device::get_current_device_slug();
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 
 		// Partitions that haven't been touched this session restore from their
 		// snapshots here. Every mapped drive, not only what is registered over
@@ -99,7 +99,7 @@ impl CoreQuery for CollectionListingQuery {
 					device_slug: device_slug.clone(),
 					path: path.clone(),
 				};
-				let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+				let mut file = File::from_arena(entry_uuid, &metadata, sd_path);
 				file.content_kind = content_kind;
 				files.push(file);
 			}
@@ -122,7 +122,7 @@ async fn recent_listing(
 	limit: usize,
 ) -> QueryResult<CollectionListingOutput> {
 	let device_slug = crate::device::get_current_device_slug();
-	let cache = context.ephemeral_cache();
+	let cache = context.volume_index();
 	cache.restore_everything().await;
 
 	let mut files: Vec<File> = Vec::new();
@@ -141,7 +141,7 @@ async fn recent_listing(
 				device_slug: device_slug.clone(),
 				path,
 			};
-			let mut file = File::from_ephemeral(entry_uuid, &metadata, sd_path);
+			let mut file = File::from_arena(entry_uuid, &metadata, sd_path);
 			file.content_kind = content_kind;
 			files.push(file);
 		}

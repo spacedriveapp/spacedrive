@@ -879,8 +879,8 @@ mod tests {
 	use super::*;
 	use crate::infra::event::EventBus;
 	use crate::ops::indexing::change_detection::handler::ChangeHandler;
-	use crate::ops::indexing::ephemeral::{ArenaWriter, EphemeralIndex};
 	use crate::ops::indexing::state::DirEntry;
+	use crate::ops::indexing::{Arena, ArenaWriter};
 	use tempfile::TempDir;
 	use tokio::sync::RwLock;
 
@@ -890,7 +890,7 @@ mod tests {
 		_data: TempDir,
 		root: TempDir,
 		store: Arc<SourceStore>,
-		index: Arc<RwLock<EphemeralIndex>>,
+		index: Arc<RwLock<Arena>>,
 		adapter: ArenaWriter,
 	}
 
@@ -904,7 +904,7 @@ mod tests {
 				.await
 				.expect("store opens");
 
-			let index = Arc::new(RwLock::new(EphemeralIndex::new().expect("arena")));
+			let index = Arc::new(RwLock::new(Arena::new().expect("arena")));
 			let adapter = ArenaWriter::new(
 				index.clone(),
 				Arc::new(EventBus::new(1024)),
@@ -920,7 +920,7 @@ mod tests {
 			}
 		}
 
-		fn adapter_index(&self) -> &Arc<RwLock<EphemeralIndex>> {
+		fn adapter_index(&self) -> &Arc<RwLock<Arena>> {
 			&self.index
 		}
 
@@ -1937,7 +1937,7 @@ COALESCE(own.path, parent.path || '/' || r.title, r.title)
 		std::fs::write(&path, b"hello").expect("write");
 
 		let mut adapter = ArenaWriter::new(
-			Arc::new(RwLock::new(EphemeralIndex::new().expect("arena"))),
+			Arc::new(RwLock::new(Arena::new().expect("arena"))),
 			Arc::new(EventBus::new(1024)),
 			None,
 		);

@@ -14,7 +14,7 @@ use uuid::Uuid;
 
 use crate::infra::db::entities::tag_staging;
 use crate::library::Library;
-use crate::ops::indexing::ephemeral::EphemeralIndexCache;
+use crate::ops::indexing::VolumeIndex;
 
 fn from_staging(model: tag_staging::Model) -> TagDefinition {
 	TagDefinition {
@@ -40,7 +40,7 @@ fn keep_later(map: &mut HashMap<Uuid, TagDefinition>, definition: TagDefinition)
 /// Every definition this machine can name, staged ones included, ordered by
 /// path. A store that fails to answer is skipped with a warning: a listing
 /// is best effort, and the store's own open path reports its failure.
-pub async fn all(library: &Library, cache: &EphemeralIndexCache) -> Vec<TagDefinition> {
+pub async fn all(library: &Library, cache: &VolumeIndex) -> Vec<TagDefinition> {
 	let mut by_uuid: HashMap<Uuid, TagDefinition> = HashMap::new();
 
 	match tag_staging::Entity::find().all(library.db().conn()).await {
@@ -73,7 +73,7 @@ pub async fn all(library: &Library, cache: &EphemeralIndexCache) -> Vec<TagDefin
 /// The named definitions, and the ids nothing on this machine can name.
 pub async fn find(
 	library: &Library,
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	ids: &[Uuid],
 ) -> (Vec<TagDefinition>, Vec<Uuid>) {
 	let known: HashMap<Uuid, TagDefinition> = all(library, cache)
@@ -94,11 +94,7 @@ pub async fn find(
 }
 
 /// One definition by uuid.
-pub async fn find_one(
-	library: &Library,
-	cache: &EphemeralIndexCache,
-	id: Uuid,
-) -> Option<TagDefinition> {
+pub async fn find_one(library: &Library, cache: &VolumeIndex, id: Uuid) -> Option<TagDefinition> {
 	let (found, _) = find(library, cache, &[id]).await;
 	found.into_iter().next()
 }
@@ -107,7 +103,7 @@ pub async fn find_one(
 /// `tags.create` idempotent: the same path names the same tag.
 pub async fn find_by_slug(
 	library: &Library,
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	slug: Uuid,
 ) -> Option<TagDefinition> {
 	all(library, cache)
@@ -148,9 +144,9 @@ pub async fn unstage(library: &Library, ids: &[Uuid]) -> Result<u64, sea_orm::Db
 /// The stores that currently carry a definition, for operations that must
 /// touch every home of a tag.
 pub async fn stores_carrying(
-	cache: &EphemeralIndexCache,
+	cache: &VolumeIndex,
 	id: Uuid,
-) -> Vec<Arc<crate::ops::indexing::ephemeral::store::SourceStore>> {
+) -> Vec<Arc<crate::ops::indexing::store::SourceStore>> {
 	let mut carrying = Vec::new();
 	for store in cache.stores().await {
 		match store.db().tag_definitions().await {

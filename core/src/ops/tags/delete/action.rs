@@ -37,7 +37,7 @@ impl LibraryAction for DeleteTagAction {
 		library: Arc<Library>,
 		context: Arc<CoreContext>,
 	) -> Result<Self::Output, ActionError> {
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let tag_id = self.input.tag_id;
 
 		if definitions::find_one(&library, &cache, tag_id)

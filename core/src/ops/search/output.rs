@@ -103,14 +103,14 @@ pub struct SizeRangeFacetCount {
 }
 
 impl FileSearchOutput {
-	/// Create search output for ephemeral index results
-	pub fn new_ephemeral(
-		page: crate::ops::search::ephemeral_search::SearchPage,
+	/// Create search output from a page of results
+	pub fn from_page(
+		page: crate::ops::search::arena_search::SearchPage,
 		search_id: Uuid,
 		execution_time_ms: u64,
 		pagination: &crate::ops::search::input::PaginationOptions,
 	) -> Self {
-		let crate::ops::search::ephemeral_search::SearchPage {
+		let crate::ops::search::arena_search::SearchPage {
 			results,
 			total: total_found,
 			facets,

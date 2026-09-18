@@ -1,9 +1,8 @@
-//! Memory-efficient index for browsing paths outside managed locations.
+//! The arena: one drive's map, held in memory.
 //!
-//! Ephemeral indexing lets users navigate unmanaged directories (network shares,
-//! external drives) without adding them as permanent locations. Instead of writing
-//! to the database, entries live in this memory-only structure until the session
-//! ends or the path is promoted to a managed location.
+//! Every walk and watcher change lands here, and listings and search read from
+//! here while it answers. It is rebuildable from the filesystem and restored from
+//! a snapshot across launches; what outlives it belongs to the source stores.
 //!
 //! Memory usage is ~50 bytes per entry vs ~200 bytes with a naive `HashMap<PathBuf, Entry>`
 //! approach. The optimization comes from:
@@ -11,9 +10,21 @@
 //! - **NameCache:** String interning (one copy of "index.js" for thousands of node_modules files)
 //! - **NameRegistry:** Trie-based prefix search without full-text indexing overhead
 //!
-//! Multiple directory trees can coexist in the same index (e.g., browsing both
+//! Multiple directory trees can coexist in the same arena (e.g., browsing both
 //! `/mnt/nas` and `/media/usb` simultaneously), sharing the string interning pool
 //! for maximum deduplication.
+//!
+//! The design is heavily inspired by Cardinal's search-cache implementation,
+//! particularly the memory-mapped arena storage, string interning, and snapshot
+//! persistence patterns. See: https://github.com/cardisoft/cardinal
+//!
+//! ```text
+//! Arena
+//! ├── NodeArena: Vec<FileNode>        - Contiguous node storage
+//! ├── NameCache: BTreeSet<Box<str>>   - String interning pool
+//! ├── NameRegistry: BTreeMap          - Fast name lookups
+//! └── path_index: HashMap<PathBuf, EntryId>  - Path to node mapping
+//! ```
 
 use crate::domain::ContentKind;
 use crate::filetype::FileTypeRegistry;
@@ -32,7 +43,7 @@ use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 /// Memory-efficient index for browsing unmanaged paths.
-pub struct EphemeralIndex {
+pub struct Arena {
 	arena: NodeArena,
 	cache: Arc<NameCache>,
 	registry: NameRegistry,
@@ -105,9 +116,9 @@ impl MemoryBreakdown {
 	}
 }
 
-impl std::fmt::Debug for EphemeralIndex {
+impl std::fmt::Debug for Arena {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("EphemeralIndex")
+		f.debug_struct("Arena")
 			.field("entry_count", &self.arena.len())
 			.field("interned_names", &self.cache.len())
 			.field("path_count", &self.path_index.len())
@@ -115,7 +126,7 @@ impl std::fmt::Debug for EphemeralIndex {
 	}
 }
 
-impl EphemeralIndex {
+impl Arena {
 	pub fn new() -> std::io::Result<Self> {
 		let cache = Arc::new(NameCache::new());
 		let arena = NodeArena::new()?;
@@ -267,7 +278,7 @@ impl EphemeralIndex {
 	/// Adds an entry to the index, returning its content kind if successful.
 	///
 	/// Content kind is identified by file extension (no I/O needed), which is
-	/// sufficient for ephemeral browsing where speed is critical. Returns Ok(None)
+	/// sufficient for a walk where speed is critical. Returns Ok(None)
 	/// if the entry already exists (prevents duplicate entries when re-indexing
 	/// a directory).
 	/// Returns the content kind for newly inserted entries (None for a
@@ -592,9 +603,9 @@ impl EphemeralIndex {
 
 	/// Clears entries before re-indexing, preserving explicitly browsed subdirectories.
 	///
-	/// Since ephemeral indexing is shallow, subdirectories that were explicitly
-	/// navigated to (in `indexed_paths`) should be preserved as separate index
-	/// branches. Unbrowsed subdirectories are refreshed with the parent.
+	/// A browse walks one level, so subdirectories that were explicitly
+	/// navigated to (in `indexed_paths`) are preserved as separate branches.
+	/// Unbrowsed subdirectories are refreshed with the parent.
 	///
 	/// Returns (cleared_count, deleted_browsed_dirs) where deleted_browsed_dirs
 	/// contains paths that were in indexed_paths but no longer exist on disk.
@@ -996,8 +1007,8 @@ impl EphemeralIndex {
 			.count()
 	}
 
-	pub fn get_stats(&self) -> EphemeralIndexStats {
-		EphemeralIndexStats {
+	pub fn get_stats(&self) -> ArenaStats {
+		ArenaStats {
 			total_entries: self.arena.len(),
 			unique_names: self.registry.unique_names(),
 			interned_strings: self.cache.len(),
@@ -1218,15 +1229,15 @@ impl EphemeralIndex {
 	}
 }
 
-impl Default for EphemeralIndex {
+impl Default for Arena {
 	fn default() -> Self {
-		Self::new().expect("Failed to create default EphemeralIndex")
+		Self::new().expect("Failed to create default Arena")
 	}
 }
 
-/// Statistics about an ephemeral index
+/// Statistics about an arena
 #[derive(Debug, Clone)]
-pub struct EphemeralIndexStats {
+pub struct ArenaStats {
 	pub total_entries: usize,
 	pub unique_names: usize,
 	pub interned_strings: usize,
@@ -1258,7 +1269,7 @@ mod rollup_tests {
 
 	#[test]
 	fn rollups_track_adds_and_removes_up_the_chain() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let a = root.join("a");
 		let f1 = a.join("one.bin");
@@ -1297,7 +1308,7 @@ mod rollup_tests {
 
 	#[test]
 	fn file_counts_ride_alongside_bytes() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let a = root.join("a");
 		let f1 = a.join("one.bin");
@@ -1328,7 +1339,7 @@ mod rollup_tests {
 
 	#[test]
 	fn a_summarised_directory_reports_a_subtree_it_does_not_hold() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let library = root.join("Library");
 		let kept = root.join("keep.bin");
@@ -1369,7 +1380,7 @@ mod rollup_tests {
 
 	#[test]
 	fn enumerating_a_summarised_directory_replaces_its_count() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let dir = root.join("Applications");
 		let app = dir.join("Thing.app");
@@ -1407,7 +1418,7 @@ mod rollup_tests {
 
 	#[test]
 	fn recounting_a_summary_settles_ancestors_once() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let dir = root.join("Library");
 
@@ -1439,7 +1450,7 @@ mod rollup_tests {
 
 	#[test]
 	fn repeat_add_adopts_new_size_and_times() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let file = root.join("clip.mov");
 
@@ -1473,7 +1484,7 @@ mod rollup_tests {
 
 	#[test]
 	fn clearing_a_directory_takes_its_whole_subtree() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let branch = root.join("branch");
 		let deep = branch.join("inner").join("leaf.bin");
@@ -1522,7 +1533,7 @@ mod rollup_tests {
 
 	#[test]
 	fn removal_clears_the_name_registry() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let file = root.join("only.bin");
 
@@ -1547,7 +1558,7 @@ mod rollup_tests {
 	/// arena node keeps the original casing for display.
 	#[test]
 	fn mixed_case_names_match_lowercase_queries() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let file = root.join("Dangerous Woman.mp3");
 
@@ -1578,7 +1589,7 @@ mod rollup_tests {
 
 	#[test]
 	fn mutations_mark_the_index_dirty() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		let before = root.join("before.bin");
 		let after = root.join("after.bin");
@@ -1606,7 +1617,7 @@ mod rollup_tests {
 
 	#[test]
 	fn recompute_matches_incremental() {
-		let mut index = EphemeralIndex::new().unwrap();
+		let mut index = Arena::new().unwrap();
 		let root = PathBuf::from("/vol");
 		for i in 0..20u64 {
 			let p = root.join(format!("d{}", i % 4)).join(format!("f{i}.bin"));

@@ -13,7 +13,7 @@
 //!
 //! These are machine-local artifacts; the registration itself is library
 //! metadata and lives in the `sources` table. Clients never assume this
-//! layout — per-source paths surface through the `core.ephemeral_status`
+//! layout — per-source paths surface through the `core.index_status`
 //! query.
 
 use anyhow::{Context, Result};

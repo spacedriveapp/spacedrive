@@ -392,7 +392,7 @@ impl SourceRegistry {
 	pub fn update_stats(
 		&mut self,
 		id: Uuid,
-		counts: crate::ops::indexing::ephemeral::SourceCounts,
+		counts: crate::ops::indexing::SourceCounts,
 	) -> Option<SourceRecord> {
 		let record = self.sources.iter_mut().find(|source| source.id == id)?;
 		record.record_count = Some(counts.records);

@@ -10,8 +10,8 @@ use crate::{
 	infra::source_dirs::SourceDirs,
 	infra::sync::TransactionManager,
 	library::LibraryManager,
-	ops::indexing::ephemeral::EphemeralIndexCache,
 	ops::indexing::startup::StartupIndexingGate,
+	ops::indexing::VolumeIndex,
 	ops::navigation::FocusRegistry,
 	ops::processes::ProcessManager,
 	service::external_tools::ExternalTools,
@@ -38,8 +38,8 @@ pub struct CoreContext {
 	pub plugin_manager: Arc<RwLock<Option<Arc<RwLock<crate::infra::extension::PluginManager>>>>>,
 	pub fs_watcher: Arc<RwLock<Option<Arc<FsWatcherService>>>>,
 	pub process_manager: Arc<RwLock<Option<Arc<ProcessManager>>>>,
-	// Ephemeral index cache for unmanaged paths
-	pub ephemeral_index_cache: Arc<EphemeralIndexCache>,
+	// Every attached drive mapped in memory, plus the source registry and stores
+	pub volume_index: Arc<VolumeIndex>,
 	// Where each client window is looking; in-memory, never persisted
 	pub navigation_focus: Arc<FocusRegistry>,
 	// One automatic discovery pass per library and daemon session
@@ -75,16 +75,16 @@ impl CoreContext {
 		// --data-dir/--instance daemons never read or write the default
 		// installation's source registry and snapshots.
 		let sources_dir = data_dir.join("sources");
-		let ephemeral_index_cache = Arc::new(
-			EphemeralIndexCache::with_sources_dir(Some(sources_dir.clone()))
-				.expect("Failed to create ephemeral index cache"),
+		let volume_index = Arc::new(
+			VolumeIndex::with_sources_dir(Some(sources_dir.clone()))
+				.expect("Failed to create the volume index"),
 		);
 		let external_tools = Arc::new(ExternalTools::new());
 		// The hot tier reads the same per-source layout the index writes into,
 		// so a source's tiles sit beside its snapshot and its store.
 		let thumbs = ThumbService::new(
 			SourceDirs::new(sources_dir).ok(),
-			ephemeral_index_cache.clone(),
+			volume_index.clone(),
 			events.clone(),
 			external_tools.clone(),
 		);
@@ -101,7 +101,7 @@ impl CoreContext {
 			plugin_manager: Arc::new(RwLock::new(None)),
 			fs_watcher: Arc::new(RwLock::new(None)),
 			process_manager: Arc::new(RwLock::new(None)),
-			ephemeral_index_cache,
+			volume_index,
 			navigation_focus: Arc::new(FocusRegistry::new()),
 			startup_indexing: Arc::new(StartupIndexingGate::default()),
 			thumbs,
@@ -114,9 +114,9 @@ impl CoreContext {
 		}
 	}
 
-	/// Get the ephemeral index cache
-	pub fn ephemeral_cache(&self) -> &Arc<EphemeralIndexCache> {
-		&self.ephemeral_index_cache
+	/// Get the volume index
+	pub fn volume_index(&self) -> &Arc<VolumeIndex> {
+		&self.volume_index
 	}
 
 	/// Get the file type registry

@@ -13,7 +13,7 @@
 use crate::{
 	context::CoreContext,
 	infra::query::{CoreQuery, QueryResult},
-	ops::indexing::ephemeral::DuplicateCopy,
+	ops::indexing::DuplicateCopy,
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -90,7 +90,7 @@ impl CoreQuery for DuplicatesQuery {
 		let min_size = self.input.min_size.unwrap_or(0);
 		let limit = self.input.limit.unwrap_or(50).min(MAX_GROUPS) as usize;
 
-		let cache = context.ephemeral_cache();
+		let cache = context.volume_index();
 		let mut groups: HashMap<Uuid, DuplicateGroup> = HashMap::new();
 		let mut sources_queried = 0;
 

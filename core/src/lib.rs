@@ -181,7 +181,7 @@ impl Core {
 		// Initialize services first, passing them the context
 		let mut services = Services::new(context.clone());
 
-		// Set filesystem watcher in context so it can be accessed by jobs (for ephemeral watch registration)
+		// Set filesystem watcher in context so it can be accessed by jobs (for watch registration)
 		context.set_fs_watcher(services.fs_watcher.clone()).await;
 
 		// The host's process manager: one supervisor per machine, driven

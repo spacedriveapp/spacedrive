@@ -282,7 +282,7 @@ pub struct TrackedVolume {
 	pub volume_type: String,
 	pub is_user_visible: Option<bool>,
 	pub auto_track_eligible: Option<bool>,
-	/// Ephemeral indexing statistics
+	/// Indexing statistics
 	pub total_files: Option<u64>,
 	pub total_directories: Option<u64>,
 	pub last_stats_update: Option<DateTime<Utc>>,

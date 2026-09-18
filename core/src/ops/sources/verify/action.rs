@@ -55,7 +55,7 @@ impl LibraryAction for VerifySourceAction {
 		// The registry holds the source's absolute root; the library row only
 		// stores it relative to its volume.
 		let root = context
-			.ephemeral_cache()
+			.volume_index()
 			.source_root(source_id)
 			.ok_or_else(|| {
 				ActionError::Internal(format!(
@@ -63,7 +63,7 @@ impl LibraryAction for VerifySourceAction {
 				))
 			})?;
 
-		let outstanding = match context.ephemeral_cache().store_for(&root).await {
+		let outstanding = match context.volume_index().store_for(&root).await {
 			Some(store) => store
 				.files_needing_verification_count()
 				.await

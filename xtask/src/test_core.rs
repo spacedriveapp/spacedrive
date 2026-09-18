@@ -49,8 +49,8 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		test_args: &["--test", "indexing_rules_test"],
 	},
 	TestSuite {
-		name: "Ephemeral watcher test",
-		test_args: &["--test", "ephemeral_watcher_test"],
+		name: "Watcher test",
+		test_args: &["--test", "watcher_test"],
 	},
 	TestSuite {
 		name: "File move test",

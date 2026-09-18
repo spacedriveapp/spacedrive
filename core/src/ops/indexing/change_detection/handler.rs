@@ -1,8 +1,8 @@
 //! Change handler for responding to filesystem events.
 //!
 //! This module provides the `ChangeHandler` trait and shared logic for
-//! processing filesystem changes. Both persistent (database) and ephemeral
-//! (in-memory) handlers implement this trait.
+//! processing filesystem changes. `ArenaWriter` implements it, applying each
+//! change to the arena and the source store.
 
 use super::types::{ChangeConfig, ChangeType, EntryRef};
 use crate::ops::indexing::rules::{build_default_ruler, RuleToggles, RulerDecision};
@@ -11,11 +11,8 @@ use anyhow::Result;
 use std::path::Path;
 use std::sync::Arc;
 
-/// Abstracts storage operations for filesystem change handling.
-///
-/// Both persistent (database) and ephemeral (in-memory) handlers implement
-/// this trait, allowing the same change processing logic to work with both
-/// storage backends.
+/// Abstracts storage operations for filesystem change handling, so the change
+/// processing logic stays independent of the writer that applies it.
 #[async_trait::async_trait]
 pub trait ChangeHandler: Send + Sync {
 	/// Find an entry by its full filesystem path.
@@ -43,14 +40,13 @@ pub trait ChangeHandler: Send + Sync {
 	async fn delete(&mut self, entry: &EntryRef) -> Result<()>;
 
 	/// Run post-create/modify processors (thumbnails, content hash).
-	/// No-op for ephemeral handlers.
 	async fn run_processors(&self, entry: &EntryRef, is_new: bool) -> Result<()>;
 
 	/// Emit appropriate events for UI updates.
 	async fn emit_change_event(&self, entry: &EntryRef, change_type: ChangeType) -> Result<()>;
 
-	/// Handle directory recursion after creation.
-	/// Persistent: spawns indexer job. Ephemeral: inline shallow index.
+	/// Handle directory recursion after creation: index the new directory's
+	/// contents inline, one level deep.
 	async fn handle_new_directory(&self, path: &Path) -> Result<()>;
 }
 

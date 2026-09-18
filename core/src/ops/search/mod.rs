@@ -3,7 +3,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
 
-pub mod ephemeral_search;
+pub mod arena_search;
 pub mod input;
 pub mod output;
 pub mod pipeline;

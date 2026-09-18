@@ -1,8 +1,8 @@
 //! Indexer job implementation.
 //!
 //! This module contains the main `IndexerJob` struct that orchestrates the multi-phase
-//! indexing pipeline. The job supports both persistent indexing (for managed locations)
-//! and ephemeral indexing (for external drives, network shares, and temporary browsing).
+//! walk: discovery, then processing into the volume index's arena and, when the walk
+//! runs under a source, into that source's store.
 //!
 
 use crate::{
@@ -24,11 +24,11 @@ use tracing::info;
 use uuid::Uuid;
 
 use super::{
-	ephemeral::{ArenaWriter, EphemeralIndex, Notify, Rollup, Seen},
 	metrics::{IndexerMetrics, PhaseTimer},
 	phases,
 	state::{IndexError, IndexPhase, IndexerProgress, IndexerState, IndexerStats, Phase},
 	summary::Retention,
+	Arena, ArenaWriter, Notify, Rollup, Seen,
 };
 
 /// Whether to index just one directory level or recurse through subdirectories.
@@ -101,7 +101,7 @@ pub struct IndexerJobConfig {
 }
 
 impl IndexerJobConfig {
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
+	pub fn new(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
 		Self {
 			path,
 			scope,
@@ -151,9 +151,9 @@ pub struct IndexerJob {
 	pub config: IndexerJobConfig,
 	state: Option<IndexerState>,
 	#[serde(skip)]
-	ephemeral_index: Option<Arc<RwLock<EphemeralIndex>>>,
+	arena: Option<Arc<RwLock<Arena>>>,
 	#[serde(skip)]
-	source_store: Option<Arc<crate::ops::indexing::ephemeral::SourceStore>>,
+	source_store: Option<Arc<crate::ops::indexing::SourceStore>>,
 	#[serde(skip)]
 	timer: Option<PhaseTimer>,
 	#[serde(skip)]
@@ -327,7 +327,7 @@ impl IndexerJob {
 				}
 
 				Phase::Processing => {
-					let ephemeral_index = self.ephemeral_index.clone().ok_or_else(|| {
+					let arena = self.arena.clone().ok_or_else(|| {
 						JobError::execution("Volume index not initialized".to_string())
 					})?;
 
@@ -340,10 +340,10 @@ impl IndexerJob {
 						}
 					}
 
-					Self::run_ephemeral_processing_static(
+					Self::run_arena_processing_static(
 						state,
 						&ctx,
-						ephemeral_index,
+						arena,
 						self.source_store.clone(),
 						root_path,
 						volume_backend.as_ref(),
@@ -396,7 +396,6 @@ impl IndexerJob {
 			duration: state.started_at.elapsed(),
 			errors: state.errors.clone(),
 			metrics: Some(metrics),
-			ephemeral_results: self.ephemeral_index.clone(),
 		})
 	}
 }
@@ -411,14 +410,14 @@ impl JobHandler for IndexerJob {
 			self.timer = Some(PhaseTimer::new());
 		}
 
-		if self.ephemeral_index.is_none() {
+		if self.arena.is_none() {
 			// Try to load from snapshot first
-			let cache = ctx.library().core_context().ephemeral_cache();
+			let cache = ctx.library().core_context().volume_index();
 			let snapshot_loaded = if let Some(local_path) = self.config.path.as_local_path() {
 				match cache.try_load_snapshot_or_create(local_path).await {
 					Ok(true) => {
 						ctx.log(format!(
-							"Loaded ephemeral index from snapshot for: {}",
+							"Loaded arena from snapshot for: {}",
 							local_path.display()
 						));
 						true
@@ -441,22 +440,21 @@ impl JobHandler for IndexerJob {
 
 			// If snapshot not loaded, create new index for indexing
 			if !snapshot_loaded {
-				let index = EphemeralIndex::new().map_err(|e| {
-					JobError::Other(format!("Failed to create ephemeral index: {}", e))
-				})?;
-				self.ephemeral_index = Some(Arc::new(RwLock::new(index)));
-				ctx.log("Initialized ephemeral index for non-persistent job");
+				let index = Arena::new()
+					.map_err(|e| JobError::Other(format!("Failed to create arena: {}", e)))?;
+				self.arena = Some(Arc::new(RwLock::new(index)));
+				ctx.log("Initialized an arena for this walk");
 			}
 		}
 
 		let result = self.run_job_phases(&ctx).await;
 
-		// Settle the ephemeral flags either way: leaving a path in progress
+		// Settle the indexing flags either way: leaving a path in progress
 		// blocks every future attempt at it, and recording a failed run as
 		// indexed serves a partial arena as if it were complete.
 		{
 			if let Some(local_path) = self.config.path.as_local_path() {
-				let cache = ctx.library().core_context().ephemeral_cache();
+				let cache = ctx.library().core_context().volume_index();
 				match &result {
 					Ok(_) => cache.mark_indexing_complete(local_path),
 					Err(_) => cache.mark_indexing_failed(local_path),
@@ -464,7 +462,7 @@ impl JobHandler for IndexerJob {
 				match &result {
 					Ok(_) => {
 						ctx.log(format!(
-							"Marked ephemeral indexing complete for: {}",
+							"Marked indexing complete for: {}",
 							local_path.display()
 						));
 
@@ -472,7 +470,7 @@ impl JobHandler for IndexerJob {
 						if let Err(e) = ctx
 							.library()
 							.core_context()
-							.ephemeral_cache()
+							.volume_index()
 							.save_snapshot(local_path)
 							.await
 						{
@@ -485,26 +483,21 @@ impl JobHandler for IndexerJob {
 							ctx.log(format!("Saved snapshot for: {}", local_path.display()));
 						}
 
-						// Automatically add filesystem watch for successfully indexed ephemeral paths
-						// This enables real-time updates when files change in browsed directories
+						// Watch what was walked, so changes reach the index as they happen
 						if let Some(watcher) = ctx.library().core_context().get_fs_watcher().await {
-							if let Err(e) = watcher.watch_ephemeral(local_path.to_path_buf()).await
-							{
+							if let Err(e) = watcher.watch_root(local_path.to_path_buf()).await {
 								ctx.add_warning(format!(
-									"Failed to add ephemeral watch for {}: {}",
+									"Failed to add watch for {}: {}",
 									local_path.display(),
 									e
 								));
 							} else {
-								ctx.log(format!(
-									"Added ephemeral watch for: {}",
-									local_path.display()
-								));
+								ctx.log(format!("Added watch for: {}", local_path.display()));
 							}
 						}
 					}
 					Err(e) => ctx.log(format!(
-						"Ephemeral indexing failed ({}) for {}; cleared so the next \
+						"Indexing failed ({}) for {}; cleared so the next \
 						 browse re-dispatches",
 						e,
 						local_path.display()
@@ -557,7 +550,7 @@ impl IndexerJob {
 		Self {
 			config,
 			state: None,
-			ephemeral_index: None,
+			arena: None,
 			source_store: None,
 			timer: None,
 			db_operations: (0, 0),
@@ -565,26 +558,20 @@ impl IndexerJob {
 		}
 	}
 
-	/// Sets the ephemeral index storage that the job will use.
+	/// Sets the arena the walk writes into.
 	///
-	/// This must be called before dispatching ephemeral jobs. It allows external code
-	/// (like the ephemeral cache manager) to maintain a reference to the same storage
-	/// the job uses, enabling direct access to indexing results without job-to-caller
-	/// communication overhead.
-	pub fn set_ephemeral_index(&mut self, index: Arc<RwLock<EphemeralIndex>>) {
-		self.ephemeral_index = Some(index);
+	/// The caller passes the partition's own arena, so the volume index serves what
+	/// the walk finds as it finds it, without the job handing results back.
+	pub fn set_arena(&mut self, index: Arc<RwLock<Arena>>) {
+		self.arena = Some(index);
 	}
 
 	/// Sets the durable store the walk writes alongside the arena.
 	///
 	/// Absent for a partition with no identity to key a store on, in which
 	/// case the walk fills the arena and nothing outlives the session.
-	pub fn set_source_store(&mut self, store: Arc<crate::ops::indexing::ephemeral::SourceStore>) {
+	pub fn set_source_store(&mut self, store: Arc<crate::ops::indexing::SourceStore>) {
 		self.source_store = Some(store);
-	}
-
-	pub fn ephemeral_browse(path: SdPath, scope: IndexScope, is_volume: bool) -> Self {
-		Self::new(IndexerJobConfig::ephemeral_browse(path, scope, is_volume))
 	}
 
 	async fn run_current_scope_discovery_static(
@@ -678,24 +665,24 @@ impl IndexerJob {
 		Ok(())
 	}
 
-	async fn run_ephemeral_processing_static(
+	async fn run_arena_processing_static(
 		state: &mut IndexerState,
 		ctx: &JobContext<'_>,
-		ephemeral_index: Arc<RwLock<EphemeralIndex>>,
-		source_store: Option<Arc<crate::ops::indexing::ephemeral::SourceStore>>,
+		arena: Arc<RwLock<Arena>>,
+		source_store: Option<Arc<crate::ops::indexing::SourceStore>>,
 		root_path: &Path,
 		_volume_backend: Option<&Arc<dyn crate::volume::VolumeBackend>>,
 		is_volume_indexing: bool,
 	) -> JobResult<()> {
 		use super::metadata::EntryMetadata;
 
-		ctx.log("Starting ephemeral processing");
+		ctx.log("Starting arena processing");
 
 		// Mapping a drive is not something anyone asked to watch happen, and
 		// eleven million notices would be its own denial of service. A walk of
 		// a folder someone opened answers with one event per batch.
 		let writer = ArenaWriter::new(
-			ephemeral_index.clone(),
+			arena.clone(),
 			ctx.library().event_bus().clone(),
 			source_store.clone(),
 		)
@@ -762,7 +749,7 @@ impl IndexerJob {
 
 		state.phase = Phase::Complete;
 
-		ctx.log("Ephemeral processing complete");
+		ctx.log("Arena processing complete");
 		Ok(())
 	}
 }
@@ -774,8 +761,6 @@ pub struct IndexerOutput {
 	pub duration: Duration,
 	pub errors: Vec<IndexError>,
 	pub metrics: Option<IndexerMetrics>,
-	#[serde(skip)]
-	pub ephemeral_results: Option<Arc<RwLock<EphemeralIndex>>>,
 }
 
 impl From<IndexerOutput> for JobOutput {
@@ -793,7 +778,7 @@ mod tests {
 	use crate::ops::indexing::rules::RuleToggles;
 
 	fn archival_walk() -> IndexerJobConfig {
-		let mut config = IndexerJobConfig::ephemeral_browse(
+		let mut config = IndexerJobConfig::new(
 			SdPath::local(std::path::PathBuf::from("/Volumes/Archive")),
 			IndexScope::Recursive,
 			true,
@@ -811,7 +796,7 @@ mod tests {
 	fn a_browse_may_not_sweep() {
 		// Every directory listing dispatches one of these. A sweep after one
 		// would read the rest of the source as deleted.
-		let config = IndexerJobConfig::ephemeral_browse(
+		let config = IndexerJobConfig::new(
 			SdPath::local(std::path::PathBuf::from("/Volumes/Archive/photos")),
 			IndexScope::Current,
 			false,
