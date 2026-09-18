@@ -854,12 +854,11 @@ impl Library {
 			"Completed file statistics calculation"
 		);
 
-		debug!("Starting location count calculation");
-		// Calculate location count
+		debug!("Starting source count calculation");
 		let source_count = Self::calculate_source_count_static(&db_conn).await?;
 		debug!(
 			source_count = source_count,
-			"Completed location count calculation"
+			"Completed source count calculation"
 		);
 
 		debug!("Starting tag count calculation");
@@ -882,17 +881,6 @@ impl Library {
 			unique_content_count = unique_content_count,
 			"Completed unique content count calculation"
 		);
-
-		debug!("Starting content kind counts update");
-		// Update content kind counts
-		if let Err(e) = Self::update_content_kind_counts_static(&db_conn).await {
-			warn!(
-				error = %e,
-				"Failed to update content kind counts"
-			);
-		} else {
-			debug!("Completed content kind counts update");
-		}
 
 		debug!("Starting volume capacity calculation");
 		// Calculate volume capacity
@@ -945,7 +933,7 @@ impl Library {
 		// Calculate file count and total size
 		let (total_files, total_size) = self.calculate_file_statistics(db).await?;
 
-		// Calculate location count
+		// Calculate source count
 		let source_count = self.calculate_source_count(db).await?;
 
 		// Calculate tag count
@@ -999,14 +987,7 @@ impl Library {
 
 	/// Count the sources registered in this library.
 	async fn calculate_source_count(&self, db: &sea_orm::DatabaseConnection) -> Result<u32> {
-		use crate::infra::db::entities::source;
-		use sea_orm::{EntityTrait, PaginatorTrait};
-
-		let count = source::Entity::find().count(db).await? as u32;
-
-		debug!(source_count = count, "Completed location count calculation");
-
-		Ok(count)
+		Self::calculate_source_count_static(db).await
 	}
 
 	/// Calculate tag count: every definition this machine can name, staged
@@ -1173,7 +1154,7 @@ impl Library {
 		let count = source::Entity::find().count(db).await?;
 		debug!(
 			source_count = count,
-			"Location count query completed successfully"
+			"Source count query completed successfully"
 		);
 		Ok(count as u32)
 	}
@@ -1220,47 +1201,6 @@ impl Library {
 
 		debug!(unique_content_count = count, "Counted unique content");
 		Ok(count)
-	}
-
-	/// Update file counts for each content kind in the content_kinds table (static version)
-	async fn update_content_kind_counts_static(db: &sea_orm::DatabaseConnection) -> Result<()> {
-		use sea_orm::Statement;
-
-		debug!("Starting content kind counts update");
-
-		// Reset all counts to 0 first, then update with actual counts in a single query.
-		// This handles both updates and resets efficiently.
-		db.execute(Statement::from_string(
-			sea_orm::DbBackend::Sqlite,
-			"UPDATE content_kinds SET file_count = 0".to_owned(),
-		))
-		.await?;
-
-		// Use raw SQL with GROUP BY to count efficiently in the database.
-		// This avoids loading all content_identity records into memory.
-		let rows_affected = db
-			.execute(Statement::from_string(
-				sea_orm::DbBackend::Sqlite,
-				r#"
-					UPDATE content_kinds
-					SET file_count = (
-						SELECT COUNT(*)
-						FROM content_identities
-						WHERE content_identities.kind_id = content_kinds.id
-					)
-				"#
-				.to_owned(),
-			))
-			.await?
-			.rows_affected();
-
-		debug!(
-			rows_affected = rows_affected,
-			"Updated content kind file counts"
-		);
-
-		debug!("Content kind counts update completed");
-		Ok(())
 	}
 
 	/// Calculate volume capacity (total and available) across all volumes (static version)
