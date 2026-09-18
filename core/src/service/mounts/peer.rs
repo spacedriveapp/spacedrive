@@ -1231,18 +1231,24 @@ mod tests {
 			.await
 			.expect("resolve")
 			.expect("row exists");
-		db.pool().close().await;
 
-		// Deliver: the database file becomes the replica artifact.
+		// Deliver the way the owner does. VACUUM INTO writes one consistent
+		// file; copying data.db would miss whatever the WAL still holds.
 		let base = tempfile::tempdir().expect("base");
 		let device_id = Uuid::now_v7();
 		let replica_dir = base.path().join(device_id.simple().to_string());
 		std::fs::create_dir_all(&replica_dir).expect("replica dir");
-		std::fs::copy(
-			store_dir.path().join(&id_str).join("data.db"),
-			replica_dir.join(format!("{}.db", source_id.simple())),
-		)
-		.expect("artifact");
+		sqlx::query("VACUUM INTO ?")
+			.bind(
+				replica_dir
+					.join(format!("{}.db", source_id.simple()))
+					.to_string_lossy()
+					.into_owned(),
+			)
+			.execute(db.pool())
+			.await
+			.expect("artifact");
+		db.pool().close().await;
 
 		let root = PathBuf::from("/mnt/pool/kept");
 		let mut source_info = info(source_id, "/mnt/pool/kept", 3);
