@@ -1,20 +1,15 @@
 //! TypeScript Search Integration Test Bridge
 //!
-//! This test sets up a real Spacedrive daemon with indexed locations and ephemeral directories,
-//! then spawns TypeScript tests that perform search operations via the ts-client.
+//! This test sets up a real Spacedrive daemon with a tracked source and a directory indexed by
+//! browsing alone, then spawns TypeScript tests that perform search operations via the ts-client.
 //! This enables true end-to-end testing of the search functionality.
 
 mod helpers;
 
 use helpers::*;
-use sd_core::{
-	domain::addressing::SdPath,
-	location::IndexMode,
-	ops::indexing::{IndexScope, IndexerJob, IndexerJobConfig},
-};
+use sd_core::ops::indexing::IndexScope;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tokio::time::Duration;
 
 /// Connection info passed from Rust test harness to TypeScript tests
 #[derive(Debug, Serialize, Deserialize)]
@@ -23,84 +18,75 @@ struct SearchBridgeConfig {
 	socket_addr: String,
 	/// Library UUID
 	library_id: String,
-	/// Persistent location UUID
-	persistent_location_uuid: String,
-	/// Persistent location database ID
-	persistent_location_db_id: i32,
-	/// Physical path to the persistent test location root
-	persistent_location_path: PathBuf,
-	/// Physical path to the ephemeral directory (not in a location)
-	ephemeral_dir_path: PathBuf,
+	/// The daemon's device slug, which physical paths are addressed by
+	device_slug: String,
+	/// Physical path to the tracked source root
+	source_path: PathBuf,
+	/// Physical path to the directory indexed by browsing, not tracked
+	browsed_dir_path: PathBuf,
 	/// Test data directory
 	test_data_path: PathBuf,
 }
 
 #[tokio::test]
-async fn test_typescript_search_persistent_and_ephemeral() -> anyhow::Result<()> {
-	// Setup: Create daemon with both indexed location and ephemeral directory
+async fn test_typescript_search_tracked_and_browsed() -> anyhow::Result<()> {
+	// Setup: Create daemon with a tracked source and a browsed directory
 	let harness = IndexingHarnessBuilder::new("typescript_search_bridge")
 		.enable_daemon() // Start RPC server for TypeScript client
 		.build()
 		.await?;
 
-	// === PERSISTENT LOCATION SETUP ===
-	let persistent_location = harness.create_test_location("search_persistent").await?;
+	// === TRACKED SOURCE SETUP ===
+	let source = harness.create_test_dir("search_source").await?;
 
-	// Create diverse files for persistent search testing
-	persistent_location.create_dir("documents").await?;
-	persistent_location.create_dir("images").await?;
-	persistent_location.create_dir("code").await?;
+	// Create diverse files for library-wide search testing
+	source.create_dir("documents").await?;
+	source.create_dir("images").await?;
+	source.create_dir("code").await?;
 
-	persistent_location
+	source
 		.write_file("documents/report.txt", "Annual report content")
 		.await?;
-	persistent_location
+	source
 		.write_file("documents/notes.md", "Meeting notes about the project")
 		.await?;
-	persistent_location
+	source
 		.write_file("images/photo.jpg", "fake jpg data")
 		.await?;
-	persistent_location
+	source
 		.write_file("images/screenshot.png", "fake png data")
 		.await?;
-	persistent_location
+	source
 		.write_file("code/main.rs", "fn main() { println!(\"test\"); }")
 		.await?;
-	persistent_location
-		.write_file("code/lib.rs", "pub fn test() {}")
-		.await?;
+	source.write_file("code/lib.rs", "pub fn test() {}").await?;
 
-	// Index the persistent location
-	tracing::info!("Indexing persistent location...");
-	let location = persistent_location
-		.index("Search Test Location", IndexMode::Shallow)
-		.await?;
+	tracing::info!("Tracking the source...");
+	source.track().await?;
 
-	tokio::time::sleep(Duration::from_secs(1)).await;
-
-	// === EPHEMERAL DIRECTORY SETUP ===
+	// === BROWSED DIRECTORY SETUP ===
 	let test_root = harness.temp_path();
-	let ephemeral_dir = test_root.join("search_ephemeral");
+	let browsed_dir = test_root.join("search_browsed");
 
-	tokio::fs::create_dir_all(&ephemeral_dir).await?;
+	tokio::fs::create_dir_all(&browsed_dir).await?;
 
 	// Create files in root directory (avoid subdirectories for now due to recursive indexing bug)
-	tokio::fs::write(ephemeral_dir.join("tutorial_video.mp4"), "fake video data").await?;
-	tokio::fs::write(ephemeral_dir.join("demo_presentation.mov"), "fake mov data").await?;
-	tokio::fs::write(ephemeral_dir.join("song_audio.mp3"), "fake audio data").await?;
+	tokio::fs::write(browsed_dir.join("tutorial_video.mp4"), "fake video data").await?;
+	tokio::fs::write(browsed_dir.join("demo_presentation.mov"), "fake mov data").await?;
+	tokio::fs::write(browsed_dir.join("song_audio.mp3"), "fake audio data").await?;
 	tokio::fs::write(
-		ephemeral_dir.join("readme_text.txt"),
-		"This is the ephemeral test directory",
+		browsed_dir.join("readme_text.txt"),
+		"This is the browsed test directory",
 	)
 	.await?;
 
 	// Verify files exist before indexing
-	eprintln!("\n[Rust] Verifying ephemeral files exist:");
+	eprintln!("\n[Rust] Verifying browsed files exist:");
 	let files_to_check = vec![
-		ephemeral_dir.join("tutorial_video.mp4"),
-		ephemeral_dir.join("demo_presentation.mov"),
-		ephemeral_dir.join("song_audio.mp3"),
-		ephemeral_dir.join("readme_text.txt"),
+		browsed_dir.join("tutorial_video.mp4"),
+		browsed_dir.join("demo_presentation.mov"),
+		browsed_dir.join("song_audio.mp3"),
+		browsed_dir.join("readme_text.txt"),
 	];
 	for file_path in &files_to_check {
 		let exists = tokio::fs::try_exists(file_path).await?;
@@ -110,63 +96,10 @@ async fn test_typescript_search_persistent_and_ephemeral() -> anyhow::Result<()>
 		}
 	}
 
-	// Index ephemeral directory using global cache
-	tracing::info!("Indexing ephemeral directory...");
-	let ephemeral_sd = SdPath::local(ephemeral_dir.clone());
-	let global_index = harness
-		.core
-		.context
-		.ephemeral_cache()
-		.resolve_index(&ephemeral_dir);
-
-	let indexer_config =
-		IndexerJobConfig::ephemeral_browse(ephemeral_sd.clone(), IndexScope::Recursive, false);
-	eprintln!(
-		"[Rust] Indexer config: path={:?}, scope={:?}, persistence={:?}",
-		ephemeral_sd, indexer_config.scope, indexer_config.persistence
-	);
-
-	let mut indexer_job = IndexerJob::new(indexer_config);
-	indexer_job.set_ephemeral_index(global_index);
-
-	eprintln!("[Rust] Dispatching ephemeral indexer job...");
-	let index_handle = harness.library.jobs().dispatch(indexer_job).await?;
-	index_handle.wait().await?;
-	eprintln!("[Rust] Ephemeral indexer job completed");
-
+	tracing::info!("Indexing the browsed directory...");
 	harness
-		.core
-		.context
-		.ephemeral_cache()
-		.mark_indexing_complete(&ephemeral_dir);
-	eprintln!("[Rust] Marked ephemeral indexing as complete");
-
-	tokio::time::sleep(Duration::from_secs(1)).await;
-
-	// Verify ephemeral cache has entries
-	if let Some(index_arc) = harness
-		.core
-		.context
-		.ephemeral_cache()
-		.get_for_path(&ephemeral_dir)
-	{
-		let index = index_arc.read().await;
-		let all_paths = index.list_directory(&ephemeral_dir).unwrap_or_default();
-		eprintln!(
-			"[Rust] Ephemeral cache has {} entries for {:?}",
-			all_paths.len(),
-			ephemeral_dir
-		);
-		for (i, path) in all_paths.iter().take(10).enumerate() {
-			eprintln!("  {}. {:?}", i + 1, path);
-		}
-
-		if all_paths.is_empty() {
-			anyhow::bail!("Ephemeral cache is empty after indexing!");
-		}
-	} else {
-		anyhow::bail!("Ephemeral cache not found for path!");
-	}
+		.index_dir(&browsed_dir, IndexScope::Recursive)
+		.await?;
 
 	// Get daemon socket address
 	let socket_addr = harness
@@ -178,10 +111,9 @@ async fn test_typescript_search_persistent_and_ephemeral() -> anyhow::Result<()>
 	let bridge_config = SearchBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
-		persistent_location_uuid: location.uuid.to_string(),
-		persistent_location_db_id: location.db_id,
-		persistent_location_path: persistent_location.path().to_path_buf(),
-		ephemeral_dir_path: ephemeral_dir.clone(),
+		device_slug: sd_core::device::get_current_device_slug(),
+		source_path: source.path().to_path_buf(),
+		browsed_dir_path: browsed_dir.clone(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 
@@ -209,11 +141,8 @@ async fn test_typescript_search_persistent_and_ephemeral() -> anyhow::Result<()>
 	eprintln!("Config path: {}", config_path.display());
 	eprintln!("Socket address: {}", socket_addr);
 	eprintln!("Library ID: {}", bridge_config.library_id);
-	eprintln!(
-		"Persistent location: {}",
-		persistent_location.path().display()
-	);
-	eprintln!("Ephemeral directory: {}", ephemeral_dir.display());
+	eprintln!("Tracked source: {}", source.path().display());
+	eprintln!("Browsed directory: {}", browsed_dir.display());
 	eprintln!("==============================\n");
 
 	// Check if test file exists

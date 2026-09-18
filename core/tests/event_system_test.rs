@@ -4,7 +4,7 @@
 //! and verifying that the correct events are emitted. This includes:
 //! - Core lifecycle events (CoreShutdown)
 //! - Library management events (LibraryCreated, LibraryOpened, LibraryClosed)
-//! - Location and indexing events (LocationAdded, IndexingStarted)
+//! - Source tracking and the indexing jobs it dispatches
 //! - Job system events (JobProgress, JobCompleted)
 //! - Event filtering capabilities (library-specific filtering)
 //! - Multiple concurrent subscribers
@@ -14,8 +14,9 @@
 //! potential conflicts between tests
 
 use sd_core::{
+	infra::action::LibraryAction,
 	infra::event::{Event, EventFilter},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
 use std::collections::HashSet;
@@ -122,14 +123,13 @@ async fn test_core_and_library_events() -> Result<(), Box<dyn std::error::Error 
 }
 
 #[tokio::test]
-async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_source_and_job_events() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	let temp_dir = TempDir::new()?;
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
-	// Create library
 	let library = core
 		.libraries
-		.create_library("Test Location Events", None, core.context.clone())
+		.create_library("Test Source Events", None, core.context.clone())
 		.await?;
 
 	// Set up filtered event collection - only job and indexing events
@@ -146,50 +146,23 @@ async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error 
 						| Event::IndexingProgress { .. }
 						| Event::IndexingCompleted { .. }
 						| Event::IndexingFailed { .. }
-						| Event::LocationAdded { .. }
 				) {
 				job_events_clone.lock().await.push(event);
 			}
 		}
 	});
 
-	// Create test location
-	let test_location_dir = temp_dir.path().join("test_location");
-	tokio::fs::create_dir_all(&test_location_dir).await?;
-	tokio::fs::write(test_location_dir.join("test.txt"), "Hello World").await?;
+	let source_dir = temp_dir.path().join("test_source");
+	tokio::fs::create_dir_all(&source_dir).await?;
+	tokio::fs::write(source_dir.join("test.txt"), "Hello World").await?;
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
-
-	use sd_core::infra::db::entities;
-	use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
-
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
-
-	// Add location (triggers indexing job)
-	let location_args = LocationCreateArgs {
-		path: test_location_dir.clone(),
-		name: Some("Test Location".to_string()),
-		index_mode: IndexMode::Shallow,
-	};
-
-	let _location_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+	// Tracking the directory dispatches its walk
+	TrackSourceAction::from_input(TrackSourceInput {
+		path: source_dir.clone(),
+		name: Some("Test Source".to_string()),
+		unfiltered: false,
+	})?
+	.execute(library.clone(), core.context.clone())
 	.await?;
 
 	// Wait for indexing to complete
@@ -209,7 +182,6 @@ async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error 
 			Event::IndexingStarted { .. } => "IndexingStarted".to_string(),
 			Event::IndexingProgress { .. } => "IndexingProgress".to_string(),
 			Event::IndexingCompleted { .. } => "IndexingCompleted".to_string(),
-			Event::LocationAdded { .. } => "LocationAdded".to_string(),
 			_ => format!("Other({:?})", e),
 		})
 		.collect();
@@ -223,12 +195,6 @@ async fn test_location_and_job_events() -> Result<(), Box<dyn std::error::Error 
 			|| event_types.contains(&"JobProgress".to_string())
 			|| event_types.contains(&"JobCompleted".to_string()),
 		"Should emit at least one job event"
-	);
-
-	// Verify location event
-	assert!(
-		event_types.contains(&"LocationAdded".to_string()),
-		"Should emit LocationAdded event"
 	);
 
 	// Cleanup

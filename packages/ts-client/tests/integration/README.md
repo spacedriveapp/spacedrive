@@ -8,7 +8,7 @@ The testing bridge works as follows:
 
 1. **Rust Test Harness** (`core/tests/typescript_bridge_test.rs`)
    - Sets up a real Spacedrive daemon with RPC server
-   - Indexes a test location with files
+   - Tracks a test directory as a source and waits for its walk
    - Writes connection config to JSON file
    - Spawns `bun test` to run TypeScript tests
    - Validates TypeScript test exit code
@@ -16,8 +16,7 @@ The testing bridge works as follows:
 2. **Bridge Configuration** (JSON passed via `BRIDGE_CONFIG_PATH`)
    - `socket_addr`: TCP address of daemon (e.g., "127.0.0.1:41234")
    - `library_id`: UUID of test library
-   - `location_db_id`: Database ID of indexed location
-   - `location_path`: Physical filesystem path to test location
+   - `source_path`: Physical filesystem path to the tracked source
    - `test_data_path`: Temporary directory for test data
 
 3. **TypeScript Test** (e.g., `useNormalizedQuery.test.ts`)
@@ -199,10 +198,10 @@ async fn test_typescript_my_new_feature() -> anyhow::Result<()> {
         .await?;
 
     // Set up test data
-    let test_location = harness.create_test_location("test").await?;
-    test_location.write_file("test.txt", "content").await?;
+    let source = harness.create_test_dir("test").await?;
+    source.write_file("test.txt", "content").await?;
 
-    let location = test_location.index("Test", IndexMode::Shallow).await?;
+    source.track().await?;
 
     // Write bridge config (see other tests for example)
     let bridge_config = TestBridgeConfig { /* ... */ };
@@ -265,7 +264,7 @@ const query = useNormalizedQuery({
 **"Cache not updating"**: Check:
 
 - Event subscription filter matches query scope
-- Resource type matches ("file", "location", etc.)
+- Resource type matches ("file", "volume", etc.)
 - pathScope is set correctly for file queries
 
 ## Future Enhancements

@@ -1,12 +1,12 @@
 //! Test for job pausing during shutdown
 
 use sd_core::{
-	infra::db::entities,
+	infra::action::LibraryAction,
+	infra::event::Event,
 	infra::job::types::{JobId, JobStatus},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
-use sea_orm::ActiveModelTrait;
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::time::sleep;
@@ -26,78 +26,57 @@ async fn test_jobs_paused_on_shutdown() -> Result<(), Box<dyn std::error::Error 
 		.create_library("Test Shutdown Library", None, core.context.clone())
 		.await?;
 
-	// Create test location with many files to ensure job runs long enough
-	let test_location_dir = temp_dir.path().join("test_location");
-	tokio::fs::create_dir_all(&test_location_dir).await?;
-
-	// Create enough files to ensure indexing takes some time
-	for i in 0..200 {
-		let file_path = test_location_dir.join(format!("test_file_{}.txt", i));
-		tokio::fs::write(&file_path, format!("Test content {}", i)).await?;
-
-		// Create some subdirectories with files
-		if i % 20 == 0 {
-			let subdir = test_location_dir.join(format!("subdir_{}", i));
-			tokio::fs::create_dir_all(&subdir).await?;
-			for j in 0..10 {
-				let subfile = subdir.join(format!("subfile_{}.txt", j));
-				tokio::fs::write(&subfile, format!("Subcontent {} {}", i, j)).await?;
-			}
+	// A source with many files, so its walk is still running at shutdown
+	let source_dir = temp_dir.path().join("test_source");
+	for dir in 0..100 {
+		let subdir = source_dir.join(format!("subdir_{}", dir));
+		tokio::fs::create_dir_all(&subdir).await?;
+		for file in 0..20 {
+			let file_path = subdir.join(format!("test_file_{}.txt", file));
+			tokio::fs::write(&file_path, format!("Test content {} {}", dir, file)).await?;
 		}
 	}
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
-	let device_model: entities::device::ActiveModel = device.into();
-	let device_record = device_model.insert(db.conn()).await?;
-
-	// Create location to trigger indexing
-	let location_args = LocationCreateArgs {
-		path: test_location_dir.clone(),
-		name: Some("Test Location".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+	// Tracking the directory dispatches its walk
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
+		path: source_dir.clone(),
+		name: Some("Test Source".to_string()),
+		unfiltered: false,
+	})?
+	.execute(library.clone(), core.context.clone())
 	.await?;
+	let walk_id = JobId(tracked.job_id.ok_or("tracking dispatched no walk")?);
 
-	// Wait for indexing to start
-	sleep(Duration::from_millis(500)).await;
-
-	// Verify we have running jobs
+	// Shut down the moment the walk is running, with most of the tree to go.
+	// Shutdown pauses running jobs only, so a walk still queued proves nothing
 	let job_manager = library.jobs();
-	let running_jobs = job_manager.list_jobs(Some(JobStatus::Running)).await?;
-	assert!(
-		!running_jobs.is_empty(),
-		"Should have at least one running job"
-	);
+	let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+	loop {
+		let running = job_manager.list_jobs(Some(JobStatus::Running)).await?;
+		if running.iter().any(|job| job.id == walk_id.0) {
+			break;
+		}
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"The walk never started running"
+		);
+		sleep(Duration::from_millis(5)).await;
+	}
 
-	let job_ids: Vec<JobId> = running_jobs.iter().map(|j| JobId(j.id)).collect();
-	println!("Found {} running jobs before shutdown", job_ids.len());
-
-	// Shutdown the core, which should pause all jobs
+	// The job database closes with the core, so the pause is read off the bus
+	let mut events = core.events.subscribe();
 	println!("Shutting down core...");
 	core.shutdown().await?;
 
-	// Check that jobs were paused
-	for job_id in &job_ids {
-		let job_info = job_manager.get_job_info(job_id.0).await?;
-		if let Some(info) = job_info {
-			assert_eq!(
-				info.status,
-				JobStatus::Paused,
-				"Job {} should be paused after shutdown",
-				job_id.0
-			);
-			println!("✓ Job {} was paused during shutdown", job_id.0);
+	let walk_id = walk_id.0.to_string();
+	let mut paused = false;
+	while let Ok(event) = events.try_recv() {
+		if matches!(&event, Event::JobPaused { job_id, .. } if *job_id == walk_id) {
+			paused = true;
 		}
 	}
+	assert!(paused, "The walk should be paused during shutdown");
+	println!("✓ Walk {} was paused during shutdown", walk_id);
 
 	Ok(())
 }

@@ -3,7 +3,7 @@
  *
  * This test is spawned by a Rust test harness that provides:
  * - Real Spacedrive daemon running on Unix socket
- * - Indexed location with test files
+ * - Tracked source with test files
  * - Connection configuration via BRIDGE_CONFIG_PATH env var
  *
  * Test flow:
@@ -26,7 +26,6 @@ import {
 } from "bun:test";
 import { readFile, unlink } from "fs/promises";
 import { join } from "path";
-import { hostname } from "os";
 import { SpacedriveClient } from "../../src/client";
 import { renderHook, waitFor, cleanup } from "@testing-library/react";
 import { SpacedriveProvider } from "../../src/hooks/useClient";
@@ -37,8 +36,8 @@ import React from "react";
 interface BridgeConfig {
 	socket_addr: string;
 	library_id: string;
-	location_db_id: number;
-	location_path: string;
+	device_slug: string;
+	source_path: string;
 	test_data_path: string;
 }
 
@@ -72,6 +71,7 @@ beforeAll(async () => {
 	const originalCreateSubscription = (client as any).subscriptionManager
 		.createSubscription;
 	(client as any).subscriptionManager.createSubscription = function (
+		key: string,
 		filter: any,
 		callback: any,
 	) {
@@ -87,7 +87,7 @@ beforeAll(async () => {
 			);
 			callback(event);
 		};
-		return originalCreateSubscription.call(this, filter, wrappedCallback);
+		return originalCreateSubscription.call(this, key, filter, wrappedCallback);
 	};
 });
 
@@ -112,11 +112,10 @@ afterEach(() => {
 
 describe("useNormalizedQuery - File Deletion Integration", () => {
 	test("should update cache when files are deleted", async () => {
-		const locationPath = bridgeConfig.location_path;
-		const deleteTestPath = join(locationPath, "delete_test");
+		const sourcePath = bridgeConfig.source_path;
+		const deleteTestPath = join(sourcePath, "delete_test");
 
-		// Get device slug from hostname
-		const deviceSlug = hostname().toLowerCase().replace(/\s+/g, "-");
+		const deviceSlug = bridgeConfig.device_slug;
 
 		// Create wrapper for React hooks with SpacedriveProvider
 		const wrapper = ({ children }: { children: React.ReactNode }) =>

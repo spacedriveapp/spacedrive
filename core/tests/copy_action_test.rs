@@ -1,14 +1,13 @@
 //! Integration tests for file copy operations with event bus monitoring
 //!
 //! This test verifies that copy actions properly emit resource change events
-//! and work correctly with both ephemeral and persistent indexing.
+//! and are observed by the watcher over an indexed destination.
 
 mod helpers;
 
 use helpers::*;
 use sd_core::{
 	domain::addressing::{SdPath, SdPathBatch},
-	location::IndexMode,
 	ops::files::copy::{
 		input::CopyMethod,
 		job::{CopyOptions, FileCopyJob, MoveMode},
@@ -23,101 +22,6 @@ async fn create_test_file(path: &std::path::Path, content: &str) -> Result<(), s
 		fs::create_dir_all(parent).await?;
 	}
 	fs::write(path, content).await
-}
-
-#[tokio::test]
-async fn test_copy_with_persistent_index() -> anyhow::Result<()> {
-	let harness = IndexingHarnessBuilder::new("copy_persistent")
-		.build()
-		.await?;
-
-	let test_location = harness.create_test_location("test_copy").await?;
-	let source_dir = test_location.path().join("source");
-	let dest_dir = test_location.path().join("destination");
-
-	tokio::fs::create_dir_all(&source_dir).await?;
-	tokio::fs::create_dir_all(&dest_dir).await?;
-
-	test_location
-		.write_file("source/file1.txt", "Content 1")
-		.await?;
-	test_location
-		.write_file("source/file2.txt", "Content 2")
-		.await?;
-
-	let _location = test_location
-		.index("Test Copy Location", IndexMode::Shallow)
-		.await?;
-
-	// Wait for initial library setup to complete
-	tokio::time::sleep(Duration::from_millis(500)).await;
-
-	// Start collecting events AFTER setup, BEFORE copy
-	let mut collector = EventCollector::new(&harness.core.events);
-	let collection_handle = {
-		tokio::spawn(async move {
-			collector.collect_events(Duration::from_secs(5)).await;
-			collector
-		})
-	};
-
-	tokio::time::sleep(Duration::from_millis(100)).await;
-
-	let copy_job = FileCopyJob::new(
-		SdPathBatch::new(vec![
-			SdPath::local(source_dir.join("file1.txt")),
-			SdPath::local(source_dir.join("file2.txt")),
-		]),
-		SdPath::local(dest_dir.clone()),
-	)
-	.with_options(CopyOptions {
-		conflict_resolution: None,
-		overwrite: false,
-		copy_method: CopyMethod::Auto,
-		verify_checksum: false,
-		preserve_timestamps: true,
-		delete_after_copy: false,
-		move_mode: None,
-	});
-
-	tracing::info!("Dispatching copy job");
-	let handle = harness.library.jobs().dispatch(copy_job).await?;
-
-	handle.wait().await?;
-
-	// Wait for watcher to detect the copied files
-	tokio::time::sleep(Duration::from_secs(3)).await;
-
-	let collector = collection_handle.await.unwrap();
-	let stats = collector.analyze().await;
-
-	// Assert watcher detected the copied files via ResourceChangedBatch
-	let file_batch_count = stats
-		.resource_changed_batch
-		.get("file")
-		.copied()
-		.unwrap_or(0);
-	assert!(
-		file_batch_count >= 2,
-		"Expected at least 2 file resources in ResourceChangedBatch from watcher, got {}",
-		file_batch_count
-	);
-
-	assert!(
-		tokio::fs::try_exists(dest_dir.join("file1.txt"))
-			.await
-			.unwrap_or(false),
-		"Destination file1.txt should exist"
-	);
-	assert!(
-		tokio::fs::try_exists(dest_dir.join("file2.txt"))
-			.await
-			.unwrap_or(false),
-		"Destination file2.txt should exist"
-	);
-
-	harness.shutdown().await?;
-	Ok(())
 }
 
 #[tokio::test]
@@ -136,33 +40,12 @@ async fn test_copy_with_ephemeral_index() -> anyhow::Result<()> {
 	create_test_file(&source_dir.join("file1.txt"), "Ephemeral content 1").await?;
 	create_test_file(&source_dir.join("file2.txt"), "Ephemeral content 2").await?;
 
-	// Index the destination directory in ephemeral mode first
-	use sd_core::{
-		domain::addressing::SdPath,
-		ops::indexing::{IndexScope, IndexerJob, IndexerJobConfig},
-	};
-
-	let dest_sd_path = SdPath::local(dest_dir.clone());
-	let indexer_config =
-		IndexerJobConfig::ephemeral_browse(dest_sd_path, IndexScope::Current, false);
-	let indexer_job = IndexerJob::new(indexer_config);
-
-	tracing::info!("Indexing destination directory (ephemeral)");
-	let index_handle = harness.library.jobs().dispatch(indexer_job).await?;
-	index_handle.wait().await?;
-
-	// Mark indexing complete and register for watching
+	// Browse the destination; the finished walk arms its watch
+	tracing::info!("Indexing destination directory");
 	harness
-		.core
-		.context
-		.ephemeral_cache()
-		.mark_indexing_complete(&dest_dir);
-
-	if let Some(watcher) = harness.core.context.get_fs_watcher().await {
-		watcher.watch_ephemeral(dest_dir.clone()).await?;
-		// Give the watcher time to settle
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
+		.index_dir(&dest_dir, sd_core::ops::indexing::IndexScope::Current)
+		.await?;
+	tokio::time::sleep(Duration::from_millis(500)).await;
 
 	// Wait for initial library setup to complete
 	tokio::time::sleep(Duration::from_millis(500)).await;

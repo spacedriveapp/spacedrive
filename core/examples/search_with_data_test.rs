@@ -2,21 +2,21 @@
 //!
 //! This test demonstrates the complete search workflow:
 //! 1. Initialize core and create library
-//! 2. Add desktop as a location
-//! 3. Index files from desktop
+//! 2. Track the desktop as a source
+//! 3. Wait for its walk
 //! 4. Search for "screenshot" files
 //! 5. Display results with highlights and facets
 
 use anyhow::Result;
 use sd_core::{
-	infra::db::entities,
-	infra::db::migration::Migrator,
-	location::{create_location, IndexMode, LocationCreateArgs},
-	ops::search::{FileSearchInput, FileSearchQuery, SearchMode, SearchScope},
+	domain::addressing::SdPath,
+	infra::{action::LibraryAction, job::types::JobId},
+	ops::{
+		search::{FileSearchInput, FileSearchQuery, SearchMode, SearchScope},
+		sources::track::{TrackSourceAction, TrackSourceInput},
+	},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
-use sea_orm_migration::MigratorTrait;
 use std::path::PathBuf;
 
 #[tokio::main]
@@ -44,60 +44,28 @@ async fn main() -> Result<()> {
 	};
 	println!("✓ Library ready");
 
-	// Run migrations to set up FTS5
-	let db = library.db();
-	Migrator::up(db.conn(), None)
-		.await
-		.map_err(|e| anyhow::anyhow!("Failed to run migrations: {}", e))?;
-	println!("✓ FTS5 migration completed");
-
-	// Add desktop as a location
-	println!("\nAdding Desktop as a location...");
+	// Track the desktop as a source
+	println!("\nTracking Desktop as a source...");
 	let desktop_path =
 		dirs::desktop_dir().ok_or_else(|| anyhow::anyhow!("Could not find desktop directory"))?;
 	println!("   Desktop path: {}", desktop_path.display());
 
-	// Register device first
-	let device = core.device.to_device()?;
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => {
-			println!("   ✓ Device already registered");
-			existing
-		}
-		None => {
-			println!("   Registering device...");
-			let device_model: entities::device::ActiveModel = device.into();
-			let inserted = device_model.insert(db.conn()).await?;
-			println!("   ✓ Device registered with ID: {}", inserted.id);
-			inserted
-		}
-	};
-
-	// Create location using the production location management
-	let location_args = LocationCreateArgs {
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: desktop_path.clone(),
 		name: Some("Desktop".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	let location_db_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+		unfiltered: false,
+	})
+	.map_err(|e| anyhow::anyhow!(e))?
+	.execute(library.clone(), core.context.clone())
 	.await?;
+	println!("   Source tracked: {}", tracked.id);
 
-	println!("   Location created with DB ID: {}", location_db_id);
-	println!("   Indexer job dispatched!");
-
-	// Wait a bit for indexing to start
-	println!("\nWaiting for indexing to process some files...");
-	tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+	println!("\nWaiting for the walk to finish...");
+	if let Some(job_id) = tracked.job_id {
+		if let Some(walk) = library.jobs().get_job(JobId(job_id)).await {
+			walk.wait().await?;
+		}
+	}
 
 	// Now let's search for "screenshot" files
 	println!("\nSearching for 'screenshot' files...");
@@ -195,14 +163,12 @@ async fn main() -> Result<()> {
 	// Test with different search scopes
 	println!("\nTesting different search scopes...");
 
-	// Test location-specific search
-	// Note: We need to get the UUID from the database record
-	// For now, let's skip location-specific search and just test library search
-	let location_scope = SearchScope::Library;
-
-	let location_search_input = FileSearchInput {
+	// Scope the search to the Desktop subtree
+	let path_search_input = FileSearchInput {
 		query: "screenshot".to_string(),
-		scope: location_scope,
+		scope: SearchScope::Path {
+			path: SdPath::local(desktop_path.clone()),
+		},
 		mode: SearchMode::Normal,
 		filters: sd_core::ops::search::input::SearchFilters::default(),
 		sort: sd_core::ops::search::input::SortOptions::default(),
@@ -219,17 +185,14 @@ async fn main() -> Result<()> {
 	session.current_library_id = Some(library.id());
 	match core
 		.api()
-		.execute_library_query::<FileSearchQuery>(location_search_input, session)
+		.execute_library_query::<FileSearchQuery>(path_search_input, session)
 		.await
 	{
 		Ok(output) => {
-			println!(
-				"   ✓ Location-specific search: {} results",
-				output.results.len()
-			);
+			println!("   ✓ Path-scoped search: {} results", output.results.len());
 		}
 		Err(e) => {
-			println!("   Location-specific search failed: {}", e);
+			println!("   Path-scoped search failed: {}", e);
 		}
 	}
 
@@ -278,7 +241,6 @@ async fn main() -> Result<()> {
 
 	println!("\nEnd-to-end search test completed!");
 	println!("Search module is fully functional with real data");
-	println!("FTS5 integration working with actual file indexing");
 	println!("Multiple search modes and scopes tested");
 	println!("Filtering and faceting working correctly");
 

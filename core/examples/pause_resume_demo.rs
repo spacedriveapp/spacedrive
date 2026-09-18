@@ -2,13 +2,12 @@
 
 use sd_core::{
 	infra::{
-		db::entities,
+		action::LibraryAction,
 		job::types::{JobId, JobStatus},
 	},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, EntityTrait};
 use std::time::Duration;
 use tempfile::TempDir;
 use tokio::time::sleep;
@@ -31,51 +30,37 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		.create_library("Demo Library", None, core.context.clone())
 		.await?;
 
-	// Create test location with files
-	let test_location = temp_dir.path().join("test_location");
-	tokio::fs::create_dir_all(&test_location).await?;
+	// Create a test source with files
+	let test_source = temp_dir.path().join("test_source");
+	tokio::fs::create_dir_all(&test_source).await?;
 
 	println!("2. Creating test files...");
 	for i in 0..50 {
-		let file_path = test_location.join(format!("test_file_{}.txt", i));
+		let file_path = test_source.join(format!("test_file_{}.txt", i));
 		tokio::fs::write(&file_path, format!("Test content {}", i)).await?;
 	}
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
-	let device_model: entities::device::ActiveModel = device.into();
-	let device_record = device_model.insert(db.conn()).await?;
-
-	// Create location to trigger indexing
-	println!("3. Creating location and starting indexing job...");
-	let location_args = LocationCreateArgs {
-		path: test_location.clone(),
-		name: Some("Demo Location".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+	// Tracking the directory dispatches its walk
+	println!("3. Tracking the source and starting its walk...");
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
+		path: test_source.clone(),
+		name: Some("Demo Source".to_string()),
+		unfiltered: false,
+	})?
+	.execute(library.clone(), core.context.clone())
 	.await?;
 
-	// Get the indexing job
 	let job_manager = library.jobs();
-	sleep(Duration::from_millis(200)).await;
-
-	let running_jobs = job_manager.list_jobs(Some(JobStatus::Running)).await?;
-	if running_jobs.is_empty() {
-		println!("No running jobs found!");
+	let Some(job_id) = tracked.job_id.map(JobId) else {
+		println!("Tracking dispatched no walk!");
 		return Ok(());
-	}
-
-	let job_info = &running_jobs[0];
-	let job_id = JobId(job_info.id);
-	println!("   Found indexing job: {} ({})", job_info.name, job_id.0);
+	};
+	// Held from the start, so the output survives the job leaving the running set
+	let Some(walk) = job_manager.get_job(job_id).await else {
+		println!("The walk finished before it could be paused");
+		return Ok(());
+	};
+	println!("   Found walk job: {}", job_id.0);
 
 	// Let it run for a bit
 	println!("\n4. Letting job run for 1 second...");
@@ -138,11 +123,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	}
 
 	// Check results
-	use sea_orm::PaginatorTrait;
-	let indexed_count = entities::entry::Entity::find().count(db.conn()).await?;
+	let indexed = walk.wait().await?.as_indexed();
 
 	println!("\n9. Results:");
-	println!("   Files indexed: {}", indexed_count);
+	println!(
+		"   Files indexed: {}",
+		indexed.map_or(0, |output| output.total_files)
+	);
 	println!("   Expected: 50");
 
 	println!("\nDemo completed successfully!");

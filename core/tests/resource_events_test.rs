@@ -5,13 +5,12 @@
 
 use sd_core::{
 	infra::{
-		db::entities,
+		action::LibraryAction,
 		event::{Event, EventSubscriber},
 	},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::{collections::HashMap, sync::Arc, time::Duration};
 use tempfile::TempDir;
 use tokio::time::timeout;
@@ -214,21 +213,6 @@ async fn test_resource_events_during_indexing(
 
 	eprintln!("Using Desktop directory: {:?}", desktop_path);
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
-
 	// Start event collection
 	let event_bus = core.events.clone();
 	let collection_handle = {
@@ -241,21 +225,15 @@ async fn test_resource_events_during_indexing(
 
 	tokio::time::sleep(Duration::from_millis(100)).await;
 
-	// Create location and start indexing with Content mode
-	eprintln!("Starting Content mode indexing on Desktop...");
+	// Tracking dispatches the walk, then the hashing pass behind it
+	eprintln!("Tracking Desktop as a source...");
 
-	let location_args = LocationCreateArgs {
+	TrackSourceAction::from_input(TrackSourceInput {
 		path: desktop_path.clone(),
-		name: Some("Desktop Test Location".to_string()),
-		index_mode: IndexMode::Content, // Content mode with hashing
-	};
-
-	let _location_db_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+		name: Some("Desktop Test Source".to_string()),
+		unfiltered: false,
+	})?
+	.execute(library.clone(), core.context.clone())
 	.await?;
 
 	eprintln!("Waiting for indexing to complete (up to 2 minutes)...");

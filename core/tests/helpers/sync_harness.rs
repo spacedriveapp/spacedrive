@@ -15,7 +15,7 @@ use sd_core::{
 };
 use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter, Set};
 use std::{path::PathBuf, sync::Arc};
-use tokio::{fs, io::AsyncWriteExt, sync::Mutex, time::Duration};
+use tokio::{fs, sync::Mutex, time::Duration};
 use uuid::Uuid;
 
 /// Builder for creating common test configurations
@@ -33,9 +33,8 @@ impl TestConfigBuilder {
 				sd_core::infra::sync=trace,\
 				sd_core::service::sync::peer=trace,\
 				sd_core::service::sync::backfill=trace,\
-				sd_core::infra::db::entities::entry=debug,\
 				sd_core::infra::db::entities::device=debug,\
-				sd_core::infra::db::entities::location=debug"
+				sd_core::infra::db::entities::space=debug"
 				.to_string(),
 		}
 	}
@@ -213,355 +212,6 @@ pub async fn create_test_volume(
 	Ok(volume_uuid)
 }
 
-/// Set all devices in a library to "synced" state (prevents auto-backfill)
-///
-/// NOTE: This function is now a no-op for the legacy last_sync_at column.
-/// The Ready state logic now uses per-peer watermarks in sync.db instead.
-/// For tests that need to prevent auto-backfill, set sync state directly to Ready
-/// via `peer_sync.set_state_for_test(DeviceSyncState::Ready)` and create
-/// watermark entries using the ResourceWatermarkStore.
-#[deprecated(
-	note = "last_sync_at is no longer used for sync decisions. Use set_peer_watermarks_for_test instead."
-)]
-pub async fn set_all_devices_synced(_library: &Arc<Library>) -> anyhow::Result<()> {
-	// No-op: last_sync_at is no longer written or read.
-	// Per-peer watermarks in sync.db are now the source of truth.
-	// Tests should use set_peer_watermarks_for_test() to create watermarks.
-	tracing::warn!(
-		"set_all_devices_synced is deprecated - last_sync_at is no longer used for sync decisions"
-	);
-	Ok(())
-}
-
-/// Wait for indexing to complete by monitoring job status
-pub async fn wait_for_indexing(
-	library: &Arc<Library>,
-	_location_id: i32,
-	timeout: Duration,
-) -> anyhow::Result<()> {
-	use sd_core::infra::job::JobStatus;
-
-	let start_time = tokio::time::Instant::now();
-	let mut job_seen = false;
-	let mut last_entry_count = 0;
-	let mut stable_iterations = 0;
-
-	loop {
-		let running_jobs = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
-
-		if !running_jobs.is_empty() {
-			job_seen = true;
-			tracing::debug!(
-				running_count = running_jobs.len(),
-				"Indexing jobs still running"
-			);
-		}
-
-		let current_entries = entities::entry::Entity::find()
-			.count(library.db().conn())
-			.await?;
-
-		let completed_jobs = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
-
-		if !completed_jobs.is_empty() {
-			job_seen = true;
-		}
-
-		if job_seen && !completed_jobs.is_empty() && running_jobs.is_empty() && current_entries > 0
-		{
-			if current_entries == last_entry_count {
-				stable_iterations += 1;
-				if stable_iterations >= 3 {
-					tracing::info!(
-						total_entries = current_entries,
-						"Indexing completed and stabilized"
-					);
-					return Ok(());
-				}
-			} else {
-				stable_iterations = 0;
-			}
-			last_entry_count = current_entries;
-		}
-
-		let failed_jobs = library.jobs().list_jobs(Some(JobStatus::Failed)).await?;
-		if !failed_jobs.is_empty() {
-			anyhow::bail!("Indexing job failed");
-		}
-
-		if start_time.elapsed() > timeout {
-			anyhow::bail!(
-				"Indexing timeout after {:?} (entries: {})",
-				timeout,
-				current_entries
-			);
-		}
-
-		tokio::time::sleep(Duration::from_millis(500)).await;
-	}
-}
-
-/// Wait for sync to complete between two devices using the sophisticated stability algorithm
-///
-/// This waits for Alice to stabilize first (no new entries/content), then checks if Bob caught up.
-/// This prevents false positives where counts match at intermediate states.
-pub async fn wait_for_sync(
-	library_alice: &Arc<Library>,
-	library_bob: &Arc<Library>,
-	max_duration: Duration,
-) -> anyhow::Result<()> {
-	let start = tokio::time::Instant::now();
-	let mut last_alice_entries = 0;
-	let mut last_alice_content = 0;
-	let mut last_bob_entries = 0;
-	let mut last_bob_closure = 0;
-	let mut stable_iterations = 0;
-	let mut no_progress_iterations = 0;
-	let mut alice_stable_iterations = 0;
-	let mut closure_stable_iterations = 0;
-
-	while start.elapsed() < max_duration {
-		let alice_entries = entities::entry::Entity::find()
-			.count(library_alice.db().conn())
-			.await?;
-		let bob_entries = entities::entry::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		let alice_content = entities::content_identity::Entity::find()
-			.count(library_alice.db().conn())
-			.await?;
-		let bob_content = entities::content_identity::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		// Check if Alice has stabilized
-		if alice_entries == last_alice_entries && alice_content == last_alice_content {
-			alice_stable_iterations += 1;
-		} else {
-			alice_stable_iterations = 0;
-		}
-
-		// Check if Bob is making progress
-		if bob_entries == last_bob_entries {
-			no_progress_iterations += 1;
-			if no_progress_iterations >= 10 {
-				tracing::warn!(
-					bob_entries = bob_entries,
-					alice_entries = alice_entries,
-					"No progress for 10 iterations - likely stuck in dependency loop or slow processing"
-				);
-			}
-		} else {
-			no_progress_iterations = 0;
-		}
-
-		// Check Bob's entry_closure table stability
-		// The rebuild runs in multiple iterations, we need to wait for it to finish
-		let bob_closure_count = entities::entry_closure::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		if bob_closure_count == last_bob_closure {
-			closure_stable_iterations += 1;
-		} else {
-			closure_stable_iterations = 0;
-		}
-
-		// Only check sync completion if Alice has stabilized first
-		if alice_stable_iterations >= 5 {
-			if alice_entries == bob_entries && alice_content == bob_content {
-				// Also check that Bob's entry_closure table has stabilized
-				// This prevents race condition where we check integrity before rebuild completes
-				// The rebuild runs many iterations, so we need several stable checks
-				if closure_stable_iterations >= 3 {
-					stable_iterations += 1;
-					if stable_iterations >= 5 {
-						tracing::info!(
-							duration_ms = start.elapsed().as_millis(),
-							alice_entries = alice_entries,
-							bob_entries = bob_entries,
-							alice_content = alice_content,
-							bob_content = bob_content,
-							bob_closure_count = bob_closure_count,
-							"Sync completed - Alice stable, Bob caught up, and closure table rebuilt"
-						);
-						return Ok(());
-					}
-				} else {
-					stable_iterations = 0;
-					tracing::debug!(
-						bob_closure_count = bob_closure_count,
-						last_bob_closure = last_bob_closure,
-						closure_stable_iters = closure_stable_iterations,
-						"Waiting for entry_closure rebuild to stabilize"
-					);
-				}
-			} else {
-				stable_iterations = 0;
-			}
-		} else {
-			stable_iterations = 0;
-			tracing::debug!(
-				alice_stable_iters = alice_stable_iterations,
-				alice_entries = alice_entries,
-				alice_content = alice_content,
-				"Waiting for Alice to stabilize before checking sync"
-			);
-		}
-
-		// If we're very close and making very slow/no progress, consider it good enough
-		let entry_diff = (alice_entries as i64 - bob_entries as i64).abs();
-		let content_diff = (alice_content as i64 - bob_content as i64).abs();
-
-		if entry_diff <= 5 && content_diff <= 5 {
-			if no_progress_iterations >= 10 {
-				tracing::warn!(
-					alice_entries = alice_entries,
-					bob_entries = bob_entries,
-					alice_content = alice_content,
-					bob_content = bob_content,
-					entry_diff = entry_diff,
-					content_diff = content_diff,
-					no_progress_iters = no_progress_iterations,
-					"Stopping sync - within tolerance and minimal progress"
-				);
-				return Ok(());
-			} else if start.elapsed() > Duration::from_secs(90) {
-				tracing::warn!(
-					alice_entries = alice_entries,
-					bob_entries = bob_entries,
-					entry_diff = entry_diff,
-					content_diff = content_diff,
-					elapsed_secs = start.elapsed().as_secs(),
-					"Stopping sync - within tolerance after 90+ seconds"
-				);
-				return Ok(());
-			}
-		}
-
-		last_alice_entries = alice_entries;
-		last_alice_content = alice_content;
-		last_bob_entries = bob_entries;
-		last_bob_closure = bob_closure_count;
-
-		tokio::time::sleep(Duration::from_millis(100)).await;
-	}
-
-	let alice_entries = entities::entry::Entity::find()
-		.count(library_alice.db().conn())
-		.await?;
-	let bob_entries = entities::entry::Entity::find()
-		.count(library_bob.db().conn())
-		.await?;
-
-	anyhow::bail!(
-		"Sync timeout after {:?}. Alice: {} entries, Bob: {} entries",
-		max_duration,
-		alice_entries,
-		bob_entries
-	);
-}
-
-/// Add a location and wait for indexing to complete
-pub async fn add_and_index_location(
-	library: &Arc<Library>,
-	volume_manager: &Arc<sd_core::volume::VolumeManager>,
-	path: &str,
-	name: &str,
-) -> anyhow::Result<Uuid> {
-	use sd_core::location::{
-		create_location, manager::update_location_volume_id, IndexMode, LocationCreateArgs,
-	};
-
-	tracing::info!(path = %path, name = %name, "Creating location and indexing");
-
-	let device_record = entities::device::Entity::find()
-		.one(library.db().conn())
-		.await?
-		.ok_or_else(|| anyhow::anyhow!("Device not found"))?;
-
-	let location_args = LocationCreateArgs {
-		path: std::path::PathBuf::from(path),
-		name: Some(name.to_string()),
-		index_mode: IndexMode::Content,
-	};
-
-	let location_db_id = create_location(
-		library.clone(),
-		library.event_bus(),
-		location_args,
-		device_record.id,
-	)
-	.await?;
-
-	let location_record = entities::location::Entity::find_by_id(location_db_id)
-		.one(library.db().conn())
-		.await?
-		.ok_or_else(|| anyhow::anyhow!("Location not found"))?;
-
-	let location_uuid = location_record.uuid;
-	let entry_id = location_record.entry_id;
-
-	// Detect volume for the location path before indexing
-	let location_path = std::path::PathBuf::from(path);
-	if let Some(volume) = volume_manager.volume_for_path(&location_path).await {
-		tracing::info!(
-			location_uuid = %location_uuid,
-			volume_name = %volume.name,
-			volume_fingerprint = ?volume.fingerprint,
-			volume_uuid = ?volume.id,
-			"Detected volume for location"
-		);
-
-		// Check if volume already exists by UUID (for test environments where multiple
-		// "devices" share the same physical machine/volumes)
-		use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
-		let volume_id = if let Some(existing) = entities::volume::Entity::find()
-			.filter(entities::volume::Column::Uuid.eq(volume.id))
-			.one(library.db().conn())
-			.await?
-		{
-			tracing::info!(
-				volume_uuid = %volume.id,
-				volume_id = existing.id,
-				"Volume already exists in database (shared between test devices)"
-			);
-			existing.id
-		} else {
-			// Ensure volume is in the database
-			let id = volume_manager.ensure_volume_in_db(&volume, library).await?;
-			tracing::info!(
-				volume_uuid = %volume.id,
-				volume_id = id,
-				"Inserted new volume into database"
-			);
-			id
-		};
-
-		// Update location and root entry with volume_id
-		update_location_volume_id(library.db().conn(), location_db_id, entry_id, volume_id).await?;
-
-		tracing::info!(
-			location_uuid = %location_uuid,
-			volume_id = volume_id,
-			"Updated location with volume_id"
-		);
-	} else {
-		anyhow::bail!(
-			"No volume detected for path '{}' - volume must be mounted for testing",
-			path
-		);
-	}
-
-	// Wait for indexing with 120s timeout
-	wait_for_indexing(library, location_db_id, Duration::from_secs(120)).await?;
-
-	tracing::info!(location_uuid = %location_uuid, "Location indexed");
-
-	Ok(location_uuid)
-}
-
 /// Create a timestamped snapshot directory
 pub async fn create_snapshot_dir(test_name: &str) -> anyhow::Result<PathBuf> {
 	let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".to_string());
@@ -575,228 +225,6 @@ pub async fn create_snapshot_dir(test_name: &str) -> anyhow::Result<PathBuf> {
 	fs::create_dir_all(&snapshot_dir).await?;
 
 	Ok(snapshot_dir)
-}
-
-/// Snapshot utilities for capturing test state
-#[allow(dead_code)]
-pub struct SnapshotCapture {
-	snapshot_dir: PathBuf,
-}
-
-#[allow(dead_code)]
-impl SnapshotCapture {
-	pub fn new(snapshot_dir: PathBuf) -> Self {
-		Self { snapshot_dir }
-	}
-
-	/// Copy a database file to the snapshot
-	pub async fn copy_database(
-		&self,
-		library: &Arc<Library>,
-		dest_subdir: &str,
-		filename: &str,
-	) -> anyhow::Result<()> {
-		let src = library.path().join(filename);
-		let dest_dir = self.snapshot_dir.join(dest_subdir);
-		fs::create_dir_all(&dest_dir).await?;
-		let dest = dest_dir.join(filename);
-
-		if src.exists() {
-			fs::copy(&src, &dest).await?;
-		}
-
-		Ok(())
-	}
-
-	/// Copy all log files from a library
-	pub async fn copy_logs(&self, library: &Arc<Library>, dest_subdir: &str) -> anyhow::Result<()> {
-		let logs_dir = library.path().join("logs");
-		if !logs_dir.exists() {
-			return Ok(());
-		}
-
-		let dest_logs_dir = self.snapshot_dir.join(dest_subdir).join("logs");
-		fs::create_dir_all(&dest_logs_dir).await?;
-
-		let mut entries = fs::read_dir(&logs_dir).await?;
-		while let Some(entry) = entries.next_entry().await? {
-			let path = entry.path();
-			if path.is_file() {
-				let filename = path.file_name().unwrap();
-				let dest_path = dest_logs_dir.join(filename);
-				fs::copy(&path, &dest_path).await?;
-			}
-		}
-
-		Ok(())
-	}
-
-	/// Write event log to JSON lines format
-	pub async fn write_event_log(
-		&self,
-		events: &[Event],
-		dest_subdir: &str,
-		filename: &str,
-	) -> anyhow::Result<()> {
-		let dest_dir = self.snapshot_dir.join(dest_subdir);
-		fs::create_dir_all(&dest_dir).await?;
-		let dest = dest_dir.join(filename);
-
-		let mut file = fs::File::create(&dest).await?;
-
-		for event in events {
-			let line = format!("{}\n", serde_json::to_string(event)?);
-			file.write_all(line.as_bytes()).await?;
-		}
-
-		Ok(())
-	}
-
-	/// Write sync event log to JSON lines format
-	pub async fn write_sync_event_log(
-		&self,
-		events: &[SyncEvent],
-		dest_subdir: &str,
-		filename: &str,
-	) -> anyhow::Result<()> {
-		let dest_dir = self.snapshot_dir.join(dest_subdir);
-		fs::create_dir_all(&dest_dir).await?;
-		let dest = dest_dir.join(filename);
-
-		let mut file = fs::File::create(&dest).await?;
-
-		for event in events {
-			let line = format!("{}\n", serde_json::to_string(event)?);
-			file.write_all(line.as_bytes()).await?;
-		}
-
-		Ok(())
-	}
-
-	/// Write a comprehensive summary markdown
-	pub async fn write_summary(
-		&self,
-		test_name: &str,
-		library_alice: &Arc<Library>,
-		library_bob: &Arc<Library>,
-		device_alice_id: Uuid,
-		device_bob_id: Uuid,
-		alice_events: usize,
-		bob_events: usize,
-		alice_sync_events: usize,
-		bob_sync_events: usize,
-	) -> anyhow::Result<()> {
-		let summary_path = self.snapshot_dir.join("summary.md");
-		let mut file = fs::File::create(&summary_path).await?;
-
-		let entries_alice = entities::entry::Entity::find()
-			.count(library_alice.db().conn())
-			.await?;
-		let entries_bob = entities::entry::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		let content_ids_alice = entities::content_identity::Entity::find()
-			.count(library_alice.db().conn())
-			.await?;
-		let content_ids_bob = entities::content_identity::Entity::find()
-			.count(library_bob.db().conn())
-			.await?;
-
-		let alice_files_linked = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Kind.eq(0))
-			.filter(entities::entry::Column::ContentId.is_not_null())
-			.count(library_alice.db().conn())
-			.await?;
-		let bob_files_linked = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Kind.eq(0))
-			.filter(entities::entry::Column::ContentId.is_not_null())
-			.count(library_bob.db().conn())
-			.await?;
-		let alice_total_files = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Kind.eq(0))
-			.count(library_alice.db().conn())
-			.await?;
-		let bob_total_files = entities::entry::Entity::find()
-			.filter(entities::entry::Column::Kind.eq(0))
-			.count(library_bob.db().conn())
-			.await?;
-
-		let alice_linkage_pct = if alice_total_files > 0 {
-			(alice_files_linked * 100) / alice_total_files
-		} else {
-			0
-		};
-		let bob_linkage_pct = if bob_total_files > 0 {
-			(bob_files_linked * 100) / bob_total_files
-		} else {
-			0
-		};
-
-		let summary = format!(
-			r#"# Sync Test Snapshot: {}
-
-**Timestamp**: {}
-**Test**: {}
-
-## Alice (Device {})
-- Entries: {}
-- Content Identities: {}
-- Files with content_id: {}/{} ({}%)
-- Events Captured: {}
-- Sync Events Captured: {}
-
-## Bob (Device {})
-- Entries: {}
-- Content Identities: {}
-- Files with content_id: {}/{} ({}%)
-- Events Captured: {}
-- Sync Events Captured: {}
-
-## Diff
-- Entry difference: {}
-- Content identity difference: {}
-
-## Files
-- `test.log` - Complete test execution log
-- `alice/database.db` - Alice's main database
-- `alice/sync.db` - Alice's sync coordination database
-- `alice/events.log` - Alice's event bus events (JSON lines)
-- `alice/sync_events.log` - Alice's sync event bus events (JSON lines)
-- `alice/logs/` - Alice's library logs
-- `bob/database.db` - Bob's main database
-- `bob/sync.db` - Bob's sync coordination database
-- `bob/events.log` - Bob's event bus events (JSON lines)
-- `bob/sync_events.log` - Bob's sync event bus events (JSON lines)
-- `bob/logs/` - Bob's library logs
-"#,
-			test_name,
-			chrono::Utc::now().to_rfc3339(),
-			test_name,
-			device_alice_id,
-			entries_alice,
-			content_ids_alice,
-			alice_files_linked,
-			alice_total_files,
-			alice_linkage_pct,
-			alice_events,
-			alice_sync_events,
-			device_bob_id,
-			entries_bob,
-			content_ids_bob,
-			bob_files_linked,
-			bob_total_files,
-			bob_linkage_pct,
-			bob_events,
-			bob_sync_events,
-			entries_alice as i64 - entries_bob as i64,
-			content_ids_alice as i64 - content_ids_bob as i64,
-		);
-
-		file.write_all(summary.as_bytes()).await?;
-
-		Ok(())
-	}
 }
 
 /// Builder for creating a two-device sync test harness
@@ -915,13 +343,6 @@ impl TwoDeviceHarnessBuilder {
 		// Register devices in each other's libraries
 		register_device(&library_alice, device_bob_id, "Bob").await?;
 		register_device(&library_bob, device_alice_id, "Alice").await?;
-
-		// NOTE: set_all_devices_synced is deprecated - auto-backfill is now controlled
-		// by per-peer watermarks in sync.db, not last_sync_at
-		#[allow(deprecated)]
-		set_all_devices_synced(&library_alice).await?;
-		#[allow(deprecated)]
-		set_all_devices_synced(&library_bob).await?;
 
 		tracing::info!(
 			alice_device = %device_alice_id,
@@ -1074,23 +495,56 @@ impl TwoDeviceHarness {
 		Ok(())
 	}
 
-	/// Wait for sync to complete using the sophisticated algorithm
-	pub async fn wait_for_sync(&self, max_duration: Duration) -> anyhow::Result<()> {
-		wait_for_sync(&self.library_alice, &self.library_bob, max_duration).await
+	/// Create spaces on Alice through the sync path. Spaces are a shared model,
+	/// so they give the engine real traffic to carry now that indexing writes
+	/// nothing the library syncs.
+	pub async fn create_spaces_alice(&self, count: usize) -> anyhow::Result<Vec<Uuid>> {
+		let mut created = Vec::with_capacity(count);
+		for index in 0..count {
+			let now = chrono::Utc::now();
+			let model = entities::space::ActiveModel {
+				id: sea_orm::NotSet,
+				uuid: Set(Uuid::new_v4()),
+				name: Set(format!("Space {index}")),
+				icon: Set("Folder".to_string()),
+				color: Set("#3B82F6".to_string()),
+				order: Set(index as i32),
+				created_at: Set(now.into()),
+				updated_at: Set(now.into()),
+			}
+			.insert(self.library_alice.db().conn())
+			.await?;
+			self.library_alice
+				.sync_model(&model, sd_core::infra::sync::ChangeType::Insert)
+				.await?;
+			created.push(model.uuid);
+		}
+		Ok(created)
 	}
 
-	/// Add and index a location on Alice
-	pub async fn add_and_index_location_alice(
+	/// Wait until Bob holds every given space.
+	pub async fn wait_for_spaces_on_bob(
 		&self,
-		path: &str,
-		name: &str,
-	) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_alice, &self.core_alice.volumes, path, name).await
-	}
-
-	/// Add and index a location on Bob
-	pub async fn add_and_index_location_bob(&self, path: &str, name: &str) -> anyhow::Result<Uuid> {
-		add_and_index_location(&self.library_bob, &self.core_bob.volumes, path, name).await
+		uuids: &[Uuid],
+		max_duration: Duration,
+	) -> anyhow::Result<()> {
+		let deadline = tokio::time::Instant::now() + max_duration;
+		loop {
+			let present = entities::space::Entity::find()
+				.filter(entities::space::Column::Uuid.is_in(uuids.to_vec()))
+				.count(self.library_bob.db().conn())
+				.await? as usize;
+			if present == uuids.len() {
+				return Ok(());
+			}
+			if tokio::time::Instant::now() >= deadline {
+				anyhow::bail!(
+					"Bob holds {present} of {} spaces after {max_duration:?}",
+					uuids.len()
+				);
+			}
+			tokio::time::sleep(Duration::from_millis(100)).await;
+		}
 	}
 }
 
@@ -1106,7 +560,7 @@ fn start_event_collector(library: &Arc<Library>, event_log: Arc<Mutex<Vec<Event>
 				| Event::ResourceChangedBatch { resource_type, .. }
 					if matches!(
 						resource_type.as_str(),
-						"entry" | "location" | "content_identity" | "device"
+						"space" | "space_group" | "space_item" | "volume" | "device"
 					) =>
 				{
 					event_log.lock().await.push(event);
@@ -1114,7 +568,7 @@ fn start_event_collector(library: &Arc<Library>, event_log: Arc<Mutex<Vec<Event>
 				Event::ResourceDeleted { resource_type, .. }
 					if matches!(
 						resource_type.as_str(),
-						"entry" | "location" | "content_identity"
+						"space" | "space_group" | "space_item" | "volume"
 					) =>
 				{
 					event_log.lock().await.push(event);

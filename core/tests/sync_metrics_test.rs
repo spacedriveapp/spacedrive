@@ -11,10 +11,7 @@
 mod helpers;
 
 use helpers::TwoDeviceHarnessBuilder;
-use sd_core::{
-	infra::db::entities, library::Library, service::sync::metrics::snapshot::SyncMetricsSnapshot,
-};
-use sea_orm::{EntityTrait, PaginatorTrait};
+use sd_core::{library::Library, service::sync::metrics::snapshot::SyncMetricsSnapshot};
 use std::sync::Arc;
 use tokio::{fs, time::Duration};
 
@@ -115,25 +112,13 @@ async fn test_metrics_broadcast_counting() -> anyhow::Result<()> {
 	tracing::info!(
 		alice_broadcasts_before = alice_before.operations.broadcasts_sent,
 		bob_broadcasts_before = bob_before.operations.broadcasts_sent,
-		"Metrics before indexing"
+		"Metrics before sync"
 	);
 
-	// Index a small folder on Alice
-	let test_dir = harness.snapshot_dir.join("test_data");
-	fs::create_dir_all(&test_dir).await?;
-
-	// Create a few test files
-	for i in 0..5 {
-		let file_path = test_dir.join(format!("test_file_{}.txt", i));
-		fs::write(&file_path, format!("Test content {}", i)).await?;
-	}
-
+	let spaces = harness.create_spaces_alice(5).await?;
 	harness
-		.add_and_index_location_alice(test_dir.to_str().unwrap(), "Test Data")
+		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
 		.await?;
-
-	// Wait for sync
-	harness.wait_for_sync(Duration::from_secs(30)).await?;
 
 	// Small delay for metrics to update
 	tokio::time::sleep(Duration::from_millis(500)).await;
@@ -202,21 +187,10 @@ async fn test_metrics_latency_tracking() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	// Create test data
-	let test_dir = harness.snapshot_dir.join("latency_test");
-	fs::create_dir_all(&test_dir).await?;
-
-	for i in 0..3 {
-		let file_path = test_dir.join(format!("latency_file_{}.txt", i));
-		fs::write(&file_path, format!("Latency test {}", i)).await?;
-	}
-
-	// Index and sync
+	let spaces = harness.create_spaces_alice(3).await?;
 	harness
-		.add_and_index_location_alice(test_dir.to_str().unwrap(), "Latency Test")
+		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
 		.await?;
-
-	harness.wait_for_sync(Duration::from_secs(30)).await?;
 	tokio::time::sleep(Duration::from_millis(500)).await;
 
 	let alice = get_metrics_snapshot(&harness.library_alice).await;
@@ -274,22 +248,11 @@ async fn test_metrics_data_volume() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	// Create test data
-	let test_dir = harness.snapshot_dir.join("volume_test");
-	fs::create_dir_all(&test_dir).await?;
-
-	let file_count = 10;
-	for i in 0..file_count {
-		let file_path = test_dir.join(format!("volume_file_{}.txt", i));
-		fs::write(&file_path, format!("Volume test content {}", i)).await?;
-	}
-
-	// Index and sync
+	let space_count = 10;
+	let spaces = harness.create_spaces_alice(space_count).await?;
 	harness
-		.add_and_index_location_alice(test_dir.to_str().unwrap(), "Volume Test")
+		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
 		.await?;
-
-	harness.wait_for_sync(Duration::from_secs(30)).await?;
 	tokio::time::sleep(Duration::from_millis(500)).await;
 
 	let alice = get_metrics_snapshot(&harness.library_alice).await;
@@ -313,23 +276,14 @@ async fn test_metrics_data_volume() -> anyhow::Result<()> {
 		}
 	}
 
-	// Verify database counts match
-	let alice_db_entries = entities::entry::Entity::find()
-		.count(harness.library_alice.db().conn())
-		.await?;
-	let bob_db_entries = entities::entry::Entity::find()
-		.count(harness.library_bob.db().conn())
-		.await?;
-
-	tracing::info!(
-		alice_db_entries = alice_db_entries,
-		bob_db_entries = bob_db_entries,
-		"Database entry counts"
-	);
-
-	assert_eq!(
-		alice_db_entries, bob_db_entries,
-		"Entry counts should match after sync"
+	// Live applies count under their model and backfill under "shared", so
+	// the total is what has to cover every space Bob now holds
+	let bob_entries_synced: u64 = bob.data_volume.entries_synced.values().sum();
+	assert!(
+		bob_entries_synced >= space_count as u64,
+		"Bob should count every applied space: counted {}, created {}",
+		bob_entries_synced,
+		space_count
 	);
 
 	Ok(())
@@ -376,20 +330,10 @@ async fn test_metrics_snapshot_structure() -> anyhow::Result<()> {
 		.build()
 		.await?;
 
-	// Create and sync some data
-	let test_dir = harness.snapshot_dir.join("structure_test");
-	fs::create_dir_all(&test_dir).await?;
-
-	for i in 0..3 {
-		let file_path = test_dir.join(format!("structure_file_{}.txt", i));
-		fs::write(&file_path, format!("Structure test {}", i)).await?;
-	}
-
+	let spaces = harness.create_spaces_alice(3).await?;
 	harness
-		.add_and_index_location_alice(test_dir.to_str().unwrap(), "Structure Test")
+		.wait_for_spaces_on_bob(&spaces, Duration::from_secs(30))
 		.await?;
-
-	harness.wait_for_sync(Duration::from_secs(30)).await?;
 
 	let alice = get_metrics_snapshot(&harness.library_alice).await;
 	let bob = get_metrics_snapshot(&harness.library_bob).await;

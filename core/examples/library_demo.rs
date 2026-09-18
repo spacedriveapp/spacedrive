@@ -1,9 +1,12 @@
 //! Library demo using full core lifecycle
 
-use sd_core::{infra::db::entities, Core};
-use sea_orm::{ActiveModelTrait, ActiveValue::NotSet, EntityTrait, PaginatorTrait, Set};
+use sd_core::{
+	infra::{action::LibraryAction, db::entities},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
+	Core,
+};
+use sea_orm::{EntityTrait, PaginatorTrait};
 use std::path::PathBuf;
-use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -60,96 +63,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 		println!("   ✓ ID: {}", library.id());
 		println!("   ✓ Path: {}", library.path().display());
 
-		// 6. Add some test data
-		println!("\n6. Adding test data...");
-		let db = library.db();
-		let device = core.device.to_device()?;
-
-		// Register device
-		let device_model = entities::device::ActiveModel {
-			id: NotSet,
-			uuid: Set(device.id),
-			name: Set(device.name.clone()),
-			slug: Set(device.name.clone()),
-			os: Set(device.os.to_string()),
-			os_version: Set(None),
-			hardware_model: Set(device.hardware_model),
-			cpu_model: Set(None),
-			cpu_architecture: Set(None),
-			cpu_cores_physical: Set(None),
-			cpu_cores_logical: Set(None),
-			cpu_frequency_mhz: Set(None),
-			memory_total_bytes: Set(None),
-			form_factor: Set(None),
-			manufacturer: Set(None),
-			gpu_models: Set(None),
-			boot_disk_type: Set(None),
-			boot_disk_capacity_bytes: Set(None),
-			swap_total_bytes: Set(None),
-			network_addresses: Set(serde_json::json!([])),
-			is_online: Set(true),
-			last_seen_at: Set(chrono::Utc::now()),
-			capabilities: Set(serde_json::json!({
-				"indexing": true,
-				"p2p": true,
-				"cloud": false
-			})),
-			created_at: Set(device.created_at),
-			updated_at: Set(device.updated_at),
-			sync_enabled: Set(false),
-		};
-		let inserted_device = device_model.insert(db.conn()).await?;
-		println!("   ✓ Device registered");
-
-		// Create entry for location root
-		let current_path = std::env::current_dir()?;
-		let entry = entities::entry::ActiveModel {
-			id: NotSet,
-			uuid: Set(Some(Uuid::new_v4())),
-			parent_id: Set(None), // Location root has no parent
-			name: Set(current_path
-				.file_name()
-				.and_then(|n| n.to_str())
-				.unwrap_or("Current Directory")
-				.to_string()),
-			kind: Set(1), // 1 = Directory
-			extension: Set(None),
-			metadata_id: Set(None),
-			content_id: Set(None),
-			size: Set(0),
-			aggregate_size: Set(0),
-			child_count: Set(0),
-			file_count: Set(0),
-			created_at: Set(chrono::Utc::now()),
-			modified_at: Set(chrono::Utc::now()),
-			accessed_at: Set(None),
-			indexed_at: Set(None),
-			permissions: Set(None),
-			inode: Set(None),
-			volume_id: Set(None),
-		};
-		let entry_record = entry.insert(db.conn()).await?;
-
-		// Add location
-		let location = entities::location::ActiveModel {
-			id: NotSet,
-			uuid: Set(Uuid::new_v4()),
-			device_id: Set(inserted_device.id),
-			entry_id: Set(Some(entry_record.id)),
-			name: Set(Some("Current Directory".to_string())),
-			index_mode: Set("shallow".to_string()),
-			scan_state: Set("pending".to_string()),
-			last_scan_at: Set(None),
-			error_message: Set(None),
-			total_file_count: Set(0),
-			total_byte_size: Set(0),
-			volume_id: Set(None),
-			job_policies: Set(None),
-			created_at: Set(chrono::Utc::now()),
-			updated_at: Set(chrono::Utc::now()),
-		};
-		location.insert(db.conn()).await?;
-		println!("   ✓ Location added");
+		// 6. Track the current directory as a source
+		println!("\n6. Tracking the current directory as a source...");
+		let tracked = TrackSourceAction::from_input(TrackSourceInput {
+			path: std::env::current_dir()?,
+			name: Some("Current Directory".to_string()),
+			unfiltered: false,
+		})?
+		.execute(library.clone(), core.context.clone())
+		.await?;
+		println!("   ✓ Source tracked: {}", tracked.id);
 	} else {
 		// Show existing libraries
 		println!("\n5. Existing libraries:");
@@ -157,13 +80,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 			println!("   - {} ({})", library.name().await, library.id());
 
 			// Show some stats
-			let db = library.db();
-			let entry_count = entities::entry::Entity::find().count(db.conn()).await?;
-			let location_count = entities::location::Entity::find().count(db.conn()).await?;
-			println!(
-				"     Entries: {}, Locations: {}",
-				entry_count, location_count
-			);
+			let source_count = entities::source::Entity::find()
+				.count(library.db().conn())
+				.await?;
+			println!("     Sources: {}", source_count);
 		}
 	}
 

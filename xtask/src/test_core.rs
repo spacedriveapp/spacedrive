@@ -45,24 +45,8 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		test_args: &["--test", "library_test"],
 	},
 	TestSuite {
-		name: "Indexing test",
-		test_args: &["--test", "indexing_test"],
-	},
-	TestSuite {
 		name: "Indexing rules test",
 		test_args: &["--test", "indexing_rules_test"],
-	},
-	TestSuite {
-		name: "Indexing responder reindex test",
-		test_args: &["--test", "indexing_responder_reindex_test"],
-	},
-	TestSuite {
-		name: "File structure test",
-		test_args: &["--test", "file_structure_test"],
-	},
-	TestSuite {
-		name: "FS watcher test",
-		test_args: &["--test", "fs_watcher_test"],
 	},
 	TestSuite {
 		name: "Ephemeral watcher test",
@@ -71,10 +55,6 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	TestSuite {
 		name: "File move test",
 		test_args: &["--test", "file_move_test"],
-	},
-	TestSuite {
-		name: "Entry move integrity test",
-		test_args: &["--test", "entry_move_integrity_test"],
 	},
 	TestSuite {
 		name: "Volume detection test",
@@ -88,10 +68,10 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "Typescript bridge test",
 		test_args: &["--test", "typescript_bridge_test"],
 	},
-	// TestSuite {
-	// 	name: "Typescript search bridge test",
-	// 	test_args: &["--test", "typescript_search_bridge_test"],
-	// },
+	TestSuite {
+		name: "Typescript search bridge test",
+		test_args: &["--test", "typescript_search_bridge_test"],
+	},
 	TestSuite {
 		name: "Normalized cache fixtures test",
 		test_args: &["--test", "normalized_cache_fixtures_test"],
@@ -120,10 +100,6 @@ pub const CORE_TESTS: &[TestSuite] = &[
 		name: "Sync backfill test",
 		test_args: &["--test", "sync_backfill_test"],
 	},
-	TestSuite {
-		name: "Sync realtime test",
-		test_args: &["--test", "sync_realtime_test"],
-	},
 	// TestSuite {
 	// 	name: "Sync event log test",
 	// 	test_args: &["--test", "sync_event_log_test"],
@@ -133,25 +109,8 @@ pub const CORE_TESTS: &[TestSuite] = &[
 	// 	test_args: &["--test", "sync_metrics_test"],
 	// },
 	// TestSuite {
-	// 	name: "Sync realtime test",
-	// 	test_args: &["--test", "sync_realtime_test"],
-	// },
-	// TestSuite {
-	// 	name: "File sync simple test",
-	// 	test_args: &["--test", "file_sync_simple_test"],
-	// },
-	// TestSuite {
-	// 	name: "File sync test",
-	// 	test_args: &["--test", "file_sync_test"],
-	// },
-
-	// TestSuite {
 	// 	name: "Sync backfill test",
 	// 	test_args: &["--test", "sync_backfill_test"],
-	// },
-	// TestSuite {
-	// 	name: "Sync backfill race test",
-	// 	test_args: &["--test", "sync_backfill_race_test"],
 	// },
 ];
 

@@ -10,7 +10,6 @@ import {
 import { readFile } from "fs/promises";
 import { rename } from "fs/promises";
 import { join } from "path";
-import { hostname } from "os";
 import { SpacedriveClient } from "../../src/client";
 import { SpacedriveProvider } from "../../src/hooks/useClient";
 import { useNormalizedQuery } from "../../src/hooks/useNormalizedQuery";
@@ -21,8 +20,8 @@ import React from "react";
 interface BridgeConfig {
 	socket_addr: string;
 	library_id: string;
-	location_db_id: number;
-	location_path: string;
+	device_slug: string;
+	source_path: string;
 	test_data_path: string;
 }
 
@@ -57,6 +56,7 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 		const originalCreateSubscription = (client as any).subscriptionManager
 			.createSubscription;
 		(client as any).subscriptionManager.createSubscription = function (
+			key: string,
 			filter: any,
 			callback: any,
 		) {
@@ -74,6 +74,7 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 			};
 			return originalCreateSubscription.call(
 				this,
+				key,
 				filter,
 				wrappedCallback,
 			);
@@ -97,11 +98,10 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 	afterEach(cleanup); // Clean up React Testing Library after each test
 
 	test("should update cache when moving 20 files from subfolder to root", async () => {
-		const rootPath = bridgeConfig.location_path;
+		const rootPath = bridgeConfig.source_path;
 		const subfolderPath = join(rootPath, "bulk_test");
 
-		// Get device slug from hostname
-		const deviceSlug = hostname().toLowerCase().replace(/\s+/g, "-");
+		const deviceSlug = bridgeConfig.device_slug;
 
 		// Create wrapper for React hooks with SpacedriveProvider
 		const wrapper = ({ children }: { children: React.ReactNode }) =>
@@ -396,7 +396,7 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 			);
 		}
 
-		// 4. Verify no duplicates - files should not appear in both locations
+		// 4. Verify no duplicates - files should not appear in both folders
 		const rootFileNames = new Set(
 			finalRootData.files
 				.filter((f: any) => f.kind === "File")
@@ -416,7 +416,7 @@ describe("useNormalizedQuery - Bulk Moves Integration", () => {
 				subfolderFileNames.has(nameWithoutExt)
 			) {
 				console.error(
-					`[TS] ❌ Duplicate found: ${fileName} appears in both locations!`,
+					`[TS] ❌ Duplicate found: ${fileName} appears in both folders!`,
 				);
 				duplicateCount++;
 			}

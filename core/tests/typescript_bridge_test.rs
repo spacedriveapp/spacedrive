@@ -1,12 +1,12 @@
 //! TypeScript Integration Test Bridge
 //!
-//! This test harness sets up a real Spacedrive daemon with indexed locations,
+//! This test harness sets up a real Spacedrive daemon with a tracked source,
 //! then spawns TypeScript tests that interact with it via the ts-client.
 //! This enables true end-to-end testing across the Rust backend and TypeScript frontend.
 //!
 //! ## Architecture
 //!
-//! 1. Rust test creates daemon + indexed location using IndexingHarnessBuilder
+//! 1. Rust test creates daemon + tracked source using IndexingHarnessBuilder
 //! 2. Connection info (socket path, library ID) written to JSON file
 //! 3. Rust spawns `bun test` with specific TypeScript test file
 //! 4. TypeScript test reads connection info, connects to daemon via ts-client
@@ -22,7 +22,6 @@
 mod helpers;
 
 use helpers::*;
-use sd_core::location::IndexMode;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::time::Duration;
@@ -34,44 +33,35 @@ struct TestBridgeConfig {
 	socket_addr: String,
 	/// Library UUID
 	library_id: String,
-	/// Location database ID
-	location_db_id: i32,
-	/// Physical path to the test location root
-	location_path: PathBuf,
+	/// The daemon's device slug, which physical paths are addressed by
+	device_slug: String,
+	/// Physical path to the tracked source root
+	source_path: PathBuf,
 	/// Test data directory (for file operations)
 	test_data_path: PathBuf,
 }
 
 #[tokio::test]
 async fn test_typescript_use_normalized_query_with_file_moves() -> anyhow::Result<()> {
-	// Setup: Create daemon with indexed location
+	// Setup: Create daemon with a tracked source
 	let harness = IndexingHarnessBuilder::new("typescript_bridge_file_moves")
 		.enable_daemon() // Start RPC server for TypeScript client
 		.build()
 		.await?;
 
-	let test_location = harness.create_test_location("test_moves").await?;
+	let source = harness.create_test_dir("test_moves").await?;
 
 	// Create initial folder structure
-	test_location.create_dir("folder_a").await?;
-	test_location.create_dir("folder_b").await?;
-	test_location
-		.write_file("folder_a/file1.txt", "Content 1")
-		.await?;
-	test_location
+	source.create_dir("folder_a").await?;
+	source.create_dir("folder_b").await?;
+	source.write_file("folder_a/file1.txt", "Content 1").await?;
+	source
 		.write_file("folder_a/file2.rs", "fn main() {}")
 		.await?;
-	test_location
-		.write_file("folder_b/file3.md", "# Docs")
-		.await?;
+	source.write_file("folder_b/file3.md", "# Docs").await?;
 
-	// Index the location
-	let location = test_location
-		.index("TypeScript Test Location", IndexMode::Shallow)
-		.await?;
-
-	// Wait for indexing to complete
-	tokio::time::sleep(Duration::from_secs(1)).await;
+	// Tracking returns once the walk has finished
+	source.track().await?;
 
 	// Get daemon socket address
 	let socket_addr = harness
@@ -83,8 +73,8 @@ async fn test_typescript_use_normalized_query_with_file_moves() -> anyhow::Resul
 	let bridge_config = TestBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
-		location_db_id: location.db_id,
-		location_path: test_location.path().to_path_buf(),
+		device_slug: sd_core::device::get_current_device_slug(),
+		source_path: source.path().to_path_buf(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 
@@ -156,33 +146,28 @@ async fn test_typescript_use_normalized_query_with_file_moves() -> anyhow::Resul
 
 #[tokio::test]
 async fn test_typescript_use_normalized_query_with_folder_renames() -> anyhow::Result<()> {
-	// Setup: Create daemon with indexed location
+	// Setup: Create daemon with a tracked source
 	let harness = IndexingHarnessBuilder::new("typescript_bridge_folder_renames")
 		.enable_daemon() // Start RPC server for TypeScript client
 		.build()
 		.await?;
 
-	let test_location = harness.create_test_location("test_renames").await?;
+	let source = harness.create_test_dir("test_renames").await?;
 
 	// Create initial folder structure
-	test_location.create_dir("original_folder").await?;
-	test_location
+	source.create_dir("original_folder").await?;
+	source
 		.write_file("original_folder/file1.txt", "Content 1")
 		.await?;
-	test_location
+	source
 		.write_file("original_folder/file2.rs", "fn main() {}")
 		.await?;
-	test_location
+	source
 		.write_file("original_folder/nested/file3.md", "# Docs")
 		.await?;
 
-	// Index the location
-	let location = test_location
-		.index("TypeScript Test Location", IndexMode::Shallow)
-		.await?;
-
-	// Wait for indexing to complete
-	tokio::time::sleep(Duration::from_secs(1)).await;
+	// Tracking returns once the walk has finished
+	source.track().await?;
 
 	// Get daemon socket address
 	let socket_addr = harness
@@ -194,8 +179,8 @@ async fn test_typescript_use_normalized_query_with_folder_renames() -> anyhow::R
 	let bridge_config = TestBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
-		location_db_id: location.db_id,
-		location_path: test_location.path().to_path_buf(),
+		device_slug: sd_core::device::get_current_device_slug(),
+		source_path: source.path().to_path_buf(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 
@@ -265,21 +250,21 @@ async fn test_typescript_use_normalized_query_with_folder_renames() -> anyhow::R
 
 #[tokio::test]
 async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Result<()> {
-	// Setup: Create daemon with indexed location
+	// Setup: Create daemon with a tracked source
 	let harness = IndexingHarnessBuilder::new("typescript_bridge_bulk_moves")
 		.enable_daemon() // Start RPC server for TypeScript client
 		.build()
 		.await?;
 
-	let test_location = harness.create_test_location("test_bulk").await?;
+	let source = harness.create_test_dir("test_bulk").await?;
 
 	// Create subfolder with 20 files
 	// Mix of text files and files that will get content identity
-	test_location.create_dir("bulk_test").await?;
+	source.create_dir("bulk_test").await?;
 	for i in 1..=20 {
 		if i <= 10 {
 			// First 10: simple text files (likely Physical paths)
-			test_location
+			source
 				.write_file(
 					&format!("bulk_test/file{:02}.txt", i),
 					&format!("Content of file {}", i),
@@ -293,30 +278,22 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 				i,
 				"Lorem ipsum dolor sit amet. ".repeat(100)
 			);
-			test_location
+			source
 				.write_file(&format!("bulk_test/file{:02}.md", i), &content)
 				.await?;
 		}
 	}
 
 	// Also create a couple files in root to verify they're not affected
-	test_location
-		.write_file("root_file1.md", "# Root file")
-		.await?;
-	test_location
-		.write_file("root_file2.rs", "fn main() {}")
-		.await?;
+	source.write_file("root_file1.md", "# Root file").await?;
+	source.write_file("root_file2.rs", "fn main() {}").await?;
 
-	// Index the location with Content mode to enable content identification
-	// Shallow mode only indexes metadata; Content mode computes hashes and creates content identity
-	// This is critical for testing the cache update bug with content-addressed files
-	tracing::info!("Starting indexing with Content mode (includes content identification)...");
-	let location = test_location
-		.index("TypeScript Bulk Test Location", IndexMode::Content)
-		.await?;
+	// Tracking queues content identification behind the walk, which is what
+	// gives files the content identity the cache update bug depends on
+	tracing::info!("Tracking the source (walk, then content identification)...");
+	source.track().await?;
 
-	tracing::info!("Indexing completed, waiting for content identification to settle...");
-	// Wait extra time for content identification and event processing
+	tracing::info!("Walk completed, waiting for content identification to settle...");
 	tokio::time::sleep(Duration::from_secs(5)).await;
 
 	tracing::info!("Ready to start TypeScript test");
@@ -331,8 +308,8 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 	let bridge_config = TestBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
-		location_db_id: location.db_id,
-		location_path: test_location.path().to_path_buf(),
+		device_slug: sd_core::device::get_current_device_slug(),
+		source_path: source.path().to_path_buf(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 
@@ -401,39 +378,32 @@ async fn test_typescript_use_normalized_query_with_bulk_moves() -> anyhow::Resul
 
 #[tokio::test]
 async fn test_typescript_use_normalized_query_with_file_deletes() -> anyhow::Result<()> {
-	// Setup: Create daemon with indexed location
+	// Setup: Create daemon with a tracked source
 	let harness = IndexingHarnessBuilder::new("typescript_bridge_file_deletes")
 		.enable_daemon() // Start RPC server for TypeScript client
 		.build()
 		.await?;
 
-	let test_location = harness.create_test_location("test_deletes").await?;
+	let source = harness.create_test_dir("test_deletes").await?;
 
 	// Create delete_test folder with files to delete
-	test_location.create_dir("delete_test").await?;
-	test_location
+	source.create_dir("delete_test").await?;
+	source
 		.write_file("delete_test/file1.txt", "Content 1")
 		.await?;
-	test_location
+	source
 		.write_file("delete_test/file2.rs", "fn main() {}")
 		.await?;
-	test_location
-		.write_file("delete_test/file3.md", "# Docs")
-		.await?;
-	test_location
+	source.write_file("delete_test/file3.md", "# Docs").await?;
+	source
 		.write_file("delete_test/file4.json", r#"{"data": "test"}"#)
 		.await?;
-	test_location
+	source
 		.write_file("delete_test/file5.txt", "Extra file")
 		.await?;
 
-	// Index the location
-	let location = test_location
-		.index("TypeScript Test Location", IndexMode::Shallow)
-		.await?;
-
-	// Wait for indexing to complete
-	tokio::time::sleep(Duration::from_secs(1)).await;
+	// Tracking returns once the walk has finished
+	source.track().await?;
 
 	// Get daemon socket address
 	let socket_addr = harness
@@ -445,8 +415,8 @@ async fn test_typescript_use_normalized_query_with_file_deletes() -> anyhow::Res
 	let bridge_config = TestBridgeConfig {
 		socket_addr: socket_addr.clone(),
 		library_id: harness.library.id().to_string(),
-		location_db_id: location.db_id,
-		location_path: test_location.path().to_path_buf(),
+		device_slug: sd_core::device::get_current_device_slug(),
+		source_path: source.path().to_path_buf(),
 		test_data_path: harness.temp_path().to_path_buf(),
 	};
 

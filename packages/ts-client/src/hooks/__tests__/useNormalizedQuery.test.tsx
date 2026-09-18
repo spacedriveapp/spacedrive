@@ -143,37 +143,6 @@ describe("useNormalizedQuery - Event Replay Tests", () => {
 		// All files should pass through (no filtering for recursive mode)
 		expect(filteredResources.length).toBe(resources.length);
 	});
-
-	it("should handle location events (no path filtering)", () => {
-		const testCase = fixtures.test_cases.find(
-			(t) => t.name === "location_updates",
-		)!;
-
-		expect(testCase).toBeDefined();
-		expect(testCase.events).toHaveLength(1); // Should have captured location created event
-
-		const locationEvent = testCase.events[0];
-
-		// Verify it's a location ResourceChanged event
-		expect((locationEvent as any).ResourceChanged).toBeDefined();
-		expect((locationEvent as any).ResourceChanged.resource_type).toBe(
-			"location",
-		);
-
-		// Location events have no affected_paths (global resources)
-		const metadata = (locationEvent as any).ResourceChanged.metadata;
-		if (metadata) {
-			expect(metadata.affected_paths).toEqual([]);
-		}
-
-		// Verify the location resource is complete
-		const location = (locationEvent as any).ResourceChanged.resource;
-		expect(location.id).toBeDefined();
-		expect(location.name).toBe("Test Location");
-
-		// This validates that non-path-filtered resources work correctly
-		// Locations, tags, albums, etc. use simpler event handling without path complexity
-	});
 });
 
 describe("useNormalizedQuery - Client-Side Filtering", () => {

@@ -13,11 +13,11 @@
 //! ```
 
 use sd_core::{
-	infra::{db::entities, event::Event, job::types::JobStatus},
+	infra::{action::LibraryAction, event::Event, job::types::JobId},
 	library::Library,
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter};
 use serde_json::json;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use tempfile::TempDir;
@@ -42,14 +42,14 @@ impl EventCollector {
 
 		tokio::spawn(async move {
 			while let Ok(event) = subscriber.recv().await {
-				// Collect ResourceChanged/Batch events for both FILE and LOCATION resources
+				// Collect ResourceChanged/Batch events for FILE resources
 				match &event {
 					Event::ResourceChanged {
 						resource_type,
 						metadata,
 						..
 					} => {
-						if resource_type == "file" || resource_type == "location" {
+						if resource_type == "file" {
 							tracing::info!(
 								"Collected ResourceChanged event for {}, has_metadata={}",
 								resource_type,
@@ -63,7 +63,7 @@ impl EventCollector {
 						metadata,
 						..
 					} => {
-						if resource_type == "file" || resource_type == "location" {
+						if resource_type == "file" {
 							let has_paths = metadata
 								.as_ref()
 								.map(|m| !m.affected_paths.is_empty())
@@ -77,7 +77,7 @@ impl EventCollector {
 						}
 					}
 					Event::ResourceDeleted { resource_type, .. } => {
-						if resource_type == "file" || resource_type == "location" {
+						if resource_type == "file" {
 							events.lock().await.push(event);
 						}
 					}
@@ -97,59 +97,6 @@ impl EventCollector {
 	}
 }
 
-/// Wait for indexing job to complete
-async fn wait_for_indexing_completion(
-	library: &Arc<Library>,
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-	let mut job_seen = false;
-	let timeout = Duration::from_secs(30);
-	let start = tokio::time::Instant::now();
-	let mut last_entry_count = 0;
-	let mut stable_iterations = 0;
-
-	while start.elapsed() < timeout {
-		let running = library.jobs().list_jobs(Some(JobStatus::Running)).await?;
-		let completed = library.jobs().list_jobs(Some(JobStatus::Completed)).await?;
-
-		if !running.is_empty() {
-			job_seen = true;
-		}
-
-		let current_entries = entities::entry::Entity::find()
-			.count(library.db().conn())
-			.await?;
-
-		// If job finished and entries are stable
-		if job_seen && running.is_empty() && !completed.is_empty() && current_entries > 0 {
-			if current_entries == last_entry_count {
-				stable_iterations += 1;
-				if stable_iterations >= 3 {
-					tracing::info!(
-						total_entries = current_entries,
-						"Indexing completed and stabilized"
-					);
-					return Ok(());
-				}
-			} else {
-				stable_iterations = 0;
-			}
-			last_entry_count = current_entries;
-		}
-
-		if start.elapsed() > timeout {
-			return Err(format!(
-				"Indexing timeout after {:?} (entries: {})",
-				timeout, current_entries
-			)
-			.into());
-		}
-
-		tokio::time::sleep(Duration::from_millis(100)).await;
-	}
-
-	Ok(())
-}
-
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn capture_event_fixtures_for_typescript(
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -165,7 +112,7 @@ async fn capture_event_fixtures_for_typescript(
 	let core = Core::new(temp_dir.path().to_path_buf()).await?;
 
 	// Create test directory structure
-	let test_dir = temp_dir.path().join("test_location");
+	let test_dir = temp_dir.path().join("test_source");
 	std::fs::create_dir_all(&test_dir)?;
 
 	// Create direct children (root level files)
@@ -201,73 +148,47 @@ async fn capture_event_fixtures_for_typescript(
 		.create_library("Fixture Test", None, core.context.clone())
 		.await?;
 
-	// Set up event collection FIRST (before creating location)
+	// Set up event collection FIRST (before tracking the source)
 	let collector = EventCollector::new();
 	collector.start(&library);
 
 	// Give event collector a moment to subscribe
 	tokio::time::sleep(Duration::from_millis(100)).await;
 
-	// Register device in database
 	let device = core.device.to_device()?;
 	let device_id = device.id;
 	let device_name = device.name.clone();
 	let device_slug = device.slug.clone();
 
-	let _device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(library.db().conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(library.db().conn()).await?
-		}
-	};
-
-	tracing::info!("Device registered, creating location via LocationAddAction");
-
-	// Build the path scope (using device_slug from above)
-	let test_location_path = sd_core::domain::SdPath::Physical {
+	let source_path = sd_core::domain::SdPath::Physical {
 		device_slug: device_slug.clone(),
 		path: test_dir.clone().into(),
 	};
 
-	// Use the actual production LocationAddAction to get real ResourceChanged events
-	use sd_core::{
-		infra::action::LibraryAction,
-		ops::locations::add::action::{LocationAddAction, LocationAddInput},
-	};
-
-	let location_input = LocationAddInput {
-		path: test_location_path.clone(),
-		name: Some("Test Location".to_string()),
-		mode: sd_core::ops::indexing::IndexMode::Deep,
-		job_policies: None,
-	};
-
-	let action = LocationAddAction::from_input(location_input)
-		.map_err(|e| format!("Failed to create action: {}", e))?;
-
-	let location_output = action
-		.execute(library.clone(), core.context.clone())
-		.await
-		.map_err(|e| format!("Failed to execute action: {:?}", e))?;
-
-	let location_id = location_output.location_id;
+	// The production action, so the events are the ones the frontend receives
+	let track_output = TrackSourceAction::from_input(TrackSourceInput {
+		path: test_dir.clone(),
+		name: Some("Test Source".to_string()),
+		unfiltered: false,
+	})
+	.map_err(|e| format!("Failed to create action: {}", e))?
+	.execute(library.clone(), core.context.clone())
+	.await
+	.map_err(|e| format!("Failed to execute action: {:?}", e))?;
 
 	tracing::info!(
-		location_id = %location_id,
-		"Location created via action, waiting for indexing to complete"
+		source_id = %track_output.id,
+		"Source tracked, waiting for its walk to complete"
 	);
 
-	// Wait for indexing to complete
-	wait_for_indexing_completion(&library).await?;
+	// A walk that already finished has left the running set
+	let walk_id = track_output.job_id.ok_or("tracking dispatched no walk")?;
+	if let Some(walk) = library.jobs().get_job(JobId(walk_id)).await {
+		walk.wait().await?;
+	}
 
-	// Give events time to settle and for entry->file mapping to complete
-	// The resource manager maps entry events to file events asynchronously
-	tracing::info!("Waiting for entry->file event mapping to complete...");
+	// Content identification runs behind the walk and announces the files it
+	// hashes; give it and the event bus time to settle
 	tokio::time::sleep(Duration::from_secs(2)).await;
 
 	// Get collected events
@@ -326,7 +247,7 @@ async fn capture_event_fixtures_for_typescript(
 
 	// Execute the actual directory listing query (same as frontend)
 	let query_input = DirectoryListingInput {
-		path: test_location_path.clone(),
+		path: source_path.clone(),
 		folders_first: Some(false),
 		limit: None,
 		include_hidden: Some(false),
@@ -369,36 +290,9 @@ async fn capture_event_fixtures_for_typescript(
 		"metadata": {
 			"generated_at": chrono::Utc::now().to_rfc3339(),
 			"device_slug": device_slug,
-			"test_location_path": test_dir.to_string_lossy(),
+			"source_path": test_dir.to_string_lossy(),
 		}
 	});
-
-	// Query locations list for location event test case
-	use sd_core::ops::locations::list::{LocationsListQuery, LocationsListQueryInput};
-
-	let locations_query = LocationsListQuery::from_input(LocationsListQueryInput)?;
-	let locations_response = locations_query
-		.execute(core.context.clone(), session.clone())
-		.await?;
-
-	tracing::info!(
-		locations_count = locations_response.locations.len(),
-		"Locations query response"
-	);
-
-	// Extract location events
-	let location_events: Vec<_> = events
-		.iter()
-		.filter(
-			|e| matches!(e, Event::ResourceChanged { resource_type, .. } if resource_type == "location"),
-		)
-		.filter_map(|e| serde_json::to_value(e).ok())
-		.collect();
-
-	tracing::info!(
-		location_events_count = location_events.len(),
-		"Location events captured"
-	);
 
 	// Create test cases with initial state, events, and expected outcomes
 
@@ -409,13 +303,13 @@ async fn capture_event_fixtures_for_typescript(
 		"query": {
 			"query": "files.directory_listing",
 			"input": {
-				"path": test_location_path,
+				"path": source_path,
 				"limit": null,
 				"include_hidden": false,
 				"sort_by": "name"
 			},
 			"resourceType": "file",
-			"pathScope": test_location_path,
+			"pathScope": source_path,
 			"includeDescendants": false
 		},
 		"initial_state": {
@@ -442,14 +336,14 @@ async fn capture_event_fixtures_for_typescript(
 		"query": {
 			"query": "files.media_listing",
 			"input": {
-				"path": test_location_path,
+				"path": source_path,
 				"include_descendants": true,
 				"media_types": null,
 				"limit": 10000,
 				"sort_by": "name"
 			},
 			"resourceType": "file",
-			"pathScope": test_location_path,
+			"pathScope": source_path,
 			"includeDescendants": true
 		},
 		"initial_state": {
@@ -469,29 +363,7 @@ async fn capture_event_fixtures_for_typescript(
 		"expected_file_names": directory_response.files.iter().map(|f| &f.name).collect::<Vec<_>>()
 	});
 
-	// Test Case 3: Location events (no path filtering)
-	let test_case_location = json!({
-		"name": "location_updates",
-		"description": "Location list should update when locations are created or modified",
-		"query": {
-			"query": "locations.list",
-			"input": null,
-			"resourceType": "location",
-			"pathScope": null,
-			"includeDescendants": false
-		},
-		"initial_state": {
-			"locations": []
-		},
-		"events": location_events,
-		"expected_final_state": {
-			"locations": locations_response.locations
-		},
-		"expected_location_count": locations_response.locations.len(),
-		"expected_location_names": locations_response.locations.iter().map(|l| &l.name).collect::<Vec<_>>()
-	});
-
-	fixtures["test_cases"] = json!([test_case_exact, test_case_recursive, test_case_location]);
+	fixtures["test_cases"] = json!([test_case_exact, test_case_recursive]);
 
 	// Write fixtures to temp directory (follows testing conventions)
 	let temp_fixtures_path = temp_dir.path().join("backend_events.json");
@@ -526,10 +398,9 @@ async fn capture_event_fixtures_for_typescript(
 		println!("To update source fixtures, run with: SD_REGENERATE_FIXTURES=1");
 	}
 
-	println!("\nTest cases generated: 3");
+	println!("\nTest cases generated: 2");
 	println!("  - directory_view_exact_mode (direct children only)");
 	println!("  - media_view_recursive_mode (all descendants)");
-	println!("  - location_updates (location resource events)");
 	println!("Total events captured: {}", events.len());
 	println!(
 		"  - File events: {}",
@@ -540,7 +411,6 @@ async fn capture_event_fixtures_for_typescript(
 			)
 			.count()
 	);
-	println!("  - Location events: {}", location_events.len());
 	println!("Direct children: {}", direct_children.len());
 	println!("Subdirectory files: {}", subdirectory_files.len());
 	println!("Temp fixtures: {}", temp_fixtures_path.display());

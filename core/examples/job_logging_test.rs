@@ -2,11 +2,10 @@
 
 use sd_core::{
 	config::{AppConfig, JobLoggingConfig},
-	infra::{db::entities, event::Event},
-	location::{create_location, IndexMode, LocationCreateArgs},
+	infra::{action::LibraryAction, event::Event},
+	ops::sources::track::{TrackSourceAction, TrackSourceInput},
 	Core,
 };
-use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter};
 use std::path::PathBuf;
 use tokio::time::{sleep, Duration};
 
@@ -55,45 +54,27 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	};
 	println!("   Library ready");
 
-	// 3. Create a small test location
-	println!("\n3. Creating test location...");
-	let test_path = PathBuf::from("./test-data");
+	// 3. Track a small test source
+	println!("\n3. Tracking test source...");
+	let test_path = std::env::current_dir()?.join("test-data");
+	tokio::fs::create_dir_all(&test_path).await?;
 
-	// Register device
-	let db = library.db();
-	let device = core.device.to_device()?;
-	let device_record = match entities::device::Entity::find()
-		.filter(entities::device::Column::Uuid.eq(device.id))
-		.one(db.conn())
-		.await?
-	{
-		Some(existing) => existing,
-		None => {
-			let device_model: entities::device::ActiveModel = device.into();
-			device_model.insert(db.conn()).await?
-		}
-	};
+	// Subscribe before tracking so the walk's events are all seen
+	let mut event_rx = core.events.subscribe();
 
-	// Create location
-	let location_args = LocationCreateArgs {
+	let tracked = TrackSourceAction::from_input(TrackSourceInput {
 		path: test_path.clone(),
 		name: Some("Test Data".to_string()),
-		index_mode: IndexMode::Deep,
-	};
-
-	let _location_db_id = create_location(
-		library.clone(),
-		&core.events,
-		location_args,
-		device_record.id,
-	)
+		unfiltered: false,
+	})?
+	.execute(library.clone(), core.context.clone())
 	.await?;
+	let walk_id = tracked.job_id.map(|id| id.to_string());
 
-	println!("   Location created, job dispatched");
+	println!("   Source tracked, walk dispatched");
 
 	// 4. Monitor for a short time
 	println!("\n4. Monitoring job progress...");
-	let mut event_rx = core.events.subscribe();
 	let start = std::time::Instant::now();
 	let timeout = Duration::from_secs(10);
 
@@ -106,8 +87,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 							println!("   Job {}: {}", job_id, msg);
 						}
 					}
-					Event::IndexingCompleted { .. } => {
-						println!("   Indexing completed!");
+					Event::JobCompleted { job_id, .. } if Some(&job_id) == walk_id.as_ref() => {
+						println!("   Walk completed!");
 						break;
 					}
 					_ => {}
