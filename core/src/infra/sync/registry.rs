@@ -35,11 +35,11 @@ inventory::collect!(SyncableInventoryEntry);
 ///
 /// Usage in entity file:
 /// ```ignore
-/// register_syncable_device_owned!(Model, "location", "locations");
+/// register_syncable_device_owned!(Model, "volume", "volumes");
 /// // With deletion support:
-/// register_syncable_device_owned!(Model, "location", "locations", with_deletion);
+/// register_syncable_device_owned!(Model, "volume", "volumes", with_deletion);
 /// // With post-backfill rebuild:
-/// register_syncable_device_owned!(Model, "entry", "entries", with_deletion, with_rebuild);
+/// register_syncable_device_owned!(Model, "volume", "volumes", with_deletion, with_rebuild);
 /// ```
 #[macro_export]
 macro_rules! register_syncable_device_owned {
@@ -142,7 +142,7 @@ macro_rules! register_syncable_device_owned {
 ///
 /// Usage in entity file:
 /// ```ignore
-/// register_syncable_shared!(Model, "tag", "tag");
+/// register_syncable_shared!(Model, "space", "space");
 /// ```
 #[macro_export]
 macro_rules! register_syncable_shared {
@@ -294,7 +294,7 @@ pub type SyncDependsOnFn = fn() -> &'static [&'static str];
 
 /// Registry of syncable models
 ///
-/// Maps model_type strings (e.g., "album", "tag") to their registration info.
+/// Maps model_type strings (e.g., "space", "device") to their registration info.
 pub static SYNCABLE_REGISTRY: Lazy<RwLock<HashMap<String, SyncableModelRegistration>>> =
 	Lazy::new(|| {
 		// Initialize registry with all models
@@ -303,7 +303,7 @@ pub static SYNCABLE_REGISTRY: Lazy<RwLock<HashMap<String, SyncableModelRegistrat
 
 /// Registration information for a syncable model
 pub struct SyncableModelRegistration {
-	/// Model type identifier (e.g., "location")
+	/// Model type identifier (e.g., "space")
 	pub model_type: &'static str,
 
 	/// Table name in database (e.g., "locations")
@@ -931,35 +931,40 @@ mod tests {
 			println!("  - {} ({})", model, sync_type);
 		}
 
-		// Verify location is registered as device-owned
-		assert!(registry.contains_key("location"));
-		let location_reg = registry.get("location").unwrap();
-		assert_eq!(location_reg.model_type, "location");
-		assert_eq!(location_reg.table_name, "locations");
-		assert!(location_reg.is_device_owned);
-		assert!(location_reg.state_apply_fn.is_some());
-		assert!(location_reg.shared_apply_fn.is_none());
+		// Verify volume is registered as device-owned
+		assert!(registry.contains_key("volume"));
+		let volume_reg = registry.get("volume").unwrap();
+		assert_eq!(volume_reg.model_type, "volume");
+		assert_eq!(volume_reg.table_name, "volumes");
+		assert!(volume_reg.is_device_owned);
+		assert!(volume_reg.state_apply_fn.is_some());
+		assert!(volume_reg.shared_apply_fn.is_none());
 
-		// Verify tag is registered as shared
-		assert!(registry.contains_key("tag"));
-		let tag_reg = registry.get("tag").unwrap();
-		assert_eq!(tag_reg.model_type, "tag");
-		assert_eq!(tag_reg.table_name, "tag");
-		assert!(!tag_reg.is_device_owned);
-		assert!(tag_reg.state_apply_fn.is_none());
-		assert!(tag_reg.shared_apply_fn.is_some());
+		// Verify space is registered as shared
+		assert!(registry.contains_key("space"));
+		let space_reg = registry.get("space").unwrap();
+		assert_eq!(space_reg.model_type, "space");
+		assert_eq!(space_reg.table_name, "spaces");
+		assert!(!space_reg.is_device_owned);
+		assert!(space_reg.state_apply_fn.is_none());
+		assert!(space_reg.shared_apply_fn.is_some());
 
-		// Verify mime_type is registered as shared
-		assert!(
-			registry.contains_key("mime_type"),
-			"mime_type should be registered but was not found. Registered models: {:?}",
-			models
-		);
-		let mime_type_reg = registry.get("mime_type").unwrap();
-		assert_eq!(mime_type_reg.model_type, "mime_type");
-		assert_eq!(mime_type_reg.table_name, "mime_types");
-		assert!(!mime_type_reg.is_device_owned);
-		assert!(mime_type_reg.shared_apply_fn.is_some());
+		// The retired entry-era models must never register again.
+		for gone in [
+			"entry",
+			"content_identity",
+			"sidecar",
+			"mime_type",
+			"location",
+			"tag",
+			"user_metadata",
+			"collection",
+		] {
+			assert!(
+				!registry.contains_key(gone),
+				"{gone} is registered but was retired with the entries drop"
+			);
+		}
 	}
 
 	#[tokio::test]
@@ -967,12 +972,12 @@ mod tests {
 		// Trigger initialization
 		let _ = SYNCABLE_REGISTRY.read().await;
 
-		assert_eq!(get_table_name("location").await, Some("locations"));
-		assert_eq!(get_table_name("tag").await, Some("tag"));
+		assert_eq!(get_table_name("volume").await, Some("volumes"));
+		assert_eq!(get_table_name("space").await, Some("spaces"));
 		assert_eq!(get_table_name("nonexistent").await, None);
 
-		assert!(is_device_owned("location").await);
-		assert!(!is_device_owned("tag").await);
+		assert!(is_device_owned("volume").await);
+		assert!(!is_device_owned("space").await);
 		assert!(!is_device_owned("nonexistent").await); // Returns false for unknown
 	}
 
@@ -980,51 +985,17 @@ mod tests {
 	async fn test_sync_order_computation() {
 		let order = compute_registry_sync_order().await.unwrap();
 
-		// Verify key models are present
-		assert!(order.contains(&"device".to_string()));
-		assert!(order.contains(&"location".to_string()));
-		assert!(order.contains(&"entry".to_string()));
-		assert!(order.contains(&"tag".to_string()));
-		assert!(order.contains(&"collection".to_string()));
-		assert!(order.contains(&"space".to_string()));
+		// Every survivor is present, and nothing retired came back.
+		for model in ["device", "volume", "space", "space_group", "space_item"] {
+			assert!(order.contains(&model.to_string()), "{model} missing");
+		}
+		assert!(!order.contains(&"entry".to_string()));
 
-		// Verify dependency ordering
-		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let location_idx = order.iter().position(|m| m == "location").unwrap();
-		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
-		let collection_idx = order.iter().position(|m| m == "collection").unwrap();
-		let collection_entry_idx = order.iter().position(|m| m == "collection_entry").unwrap();
+		// Space items depend on their space and group.
 		let space_idx = order.iter().position(|m| m == "space").unwrap();
-		let space_group_idx = order.iter().position(|m| m == "space_group").unwrap();
-		let space_item_idx = order.iter().position(|m| m == "space_item").unwrap();
-
-		// Device must come before location
-		assert!(
-			device_idx < location_idx,
-			"device must sync before location"
-		);
-
-		// Note: location and entry have a circular relationship (location.entry_id → entry, entries belong to locations)
-		// This is handled by making location.entry_id nullable during sync, so no ordering constraint is enforced
-
-		// M2M dependencies
-		assert!(
-			collection_idx < collection_entry_idx,
-			"collection must sync before collection_entry"
-		);
-		assert!(
-			entry_idx < collection_entry_idx,
-			"entry must sync before collection_entry"
-		);
-
-		// Space hierarchy
-		assert!(
-			space_idx < space_group_idx,
-			"space must sync before space_group"
-		);
-		assert!(
-			space_group_idx < space_item_idx,
-			"space_group must sync before space_item"
-		);
+		let group_idx = order.iter().position(|m| m == "space_group").unwrap();
+		let item_idx = order.iter().position(|m| m == "space_item").unwrap();
+		assert!(space_idx < item_idx);
+		assert!(group_idx < item_idx);
 	}
 }

@@ -83,28 +83,3 @@ impl From<&str> for Origin {
 		}
 	}
 }
-
-/// A pin is a claim about this machine, so it travels with the library the way
-/// every other device-owned row does. It carries no integer foreign keys, so
-/// there is nothing to map on the way out or back.
-impl Syncable for Model {
-	const SYNC_MODEL: &'static str = "location";
-
-	fn sync_id(&self) -> Uuid {
-		self.uuid
-	}
-
-	fn version(&self) -> i64 {
-		0
-	}
-
-	fn exclude_fields() -> Option<&'static [&'static str]> {
-		Some(&["id"])
-	}
-
-	fn sync_depends_on() -> &'static [&'static str] {
-		&["source"]
-	}
-}
-
-crate::register_syncable_device_owned!(Model, "location", "locations", with_deletion);

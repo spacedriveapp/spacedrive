@@ -113,7 +113,7 @@ commit when ownership or status changes.
 | FD0 Baseline and ownership | done 2026-09-18 | Fable | Recorded below: reference inventory, fresh-library tables, live fixture, baseline |
 | FD1 Remove runtime entry reads | done 2026-09-18 | Fable | Production readers gone: File's dependency router deleted (only legacy row sync fed it), the ancestor entry-ID cache and SQL path resolver removed, discovery totals read source rows, indexing docs describe one writer |
 | FD2 Build tags on source stores | landed; delivery verified live 2026-09-18 | Fable | Source stores are self-describing and live-verified; new-model tag tests pass; production tag and metadata callers of the legacy tables are gone, leaving the entity modules, migrations, and row-sync registrations for FD3/FD4 (`2026-09-17-tags-on-source-stores.md`) |
-| FD3 Remove legacy row sync | blocked on FD2 | unowned | No entry model registration or entry-specific replication remains; peer source capabilities pass |
+| FD3 Remove legacy row sync | done 2026-09-18 | Fable | Fourteen retired models unregistered with their Syncable impls and apply paths deleted; entry hierarchy sorting, self-referential FK resolution, closure and directory-path rebuilds, and the directory-path sync payloads are gone; survivors are device, volume, space, space_group, space_item, audit_log, and a registry test now refuses any retired model re-registering; live audit passed: replicas listed, remote ops answered, replica listings served, remote jobs endpoint responsive |
 | FD4 Replace the library schema | blocked on FD2 and FD3 | unowned | Fresh and upgraded libraries contain no retired tables |
 | FD5 Retire compatibility surface | blocked on FD4 | unowned | Tests, examples, generated types, docs, and names describe one index model |
 | FDA Acceptance | blocked on FD1-FD5 | unowned | Full matrix below passes |
@@ -205,6 +205,22 @@ Scalar fields such as favorite, rating, and corrected title use
 `record_overlay`. Do not put enumerable tags in its JSON fields.
 
 ## FD3: Remove legacy row sync
+
+> Done 2026-09-18. `entry`, `content_identity`, `sidecar`, `mime_type`, the
+> three media_data models, `collection`, `collection_entry`, `location`,
+> `tag`, `tag_relationship`, `user_metadata`, and `user_metadata_tag` lost
+> their registrations and `Syncable` impls. Entry's `apply_state_change`,
+> tombstone gating, closure and directory-path rebuilds went with them, as
+> did backfill's entry hierarchy sort and per-record self-referential FK
+> resolution, and the sync helpers' directory-path payload materialization.
+> The generic engine, transport, HLC, watermarks, and dependency tracking
+> stay for the six survivors, matching the library-sync research's plan to
+> evolve rather than replace the framework. Retired-model test fixtures were
+> repointed at survivors, and the registry test asserts the retired names
+> never register again. Capability audit on the live fleet: replica sources
+> listed, remote ops answered by titan, replica listings served, remote job
+> reporting responsive.
+
 
 1. Unregister `entry`, old content/media rows, sidecars, and entry-bound
    junctions from the generic row-sync registry once their durable replacements

@@ -529,10 +529,10 @@ mod tests {
 		let fk = FKMapping::new("device_id", "devices");
 		assert_eq!(fk.uuid_field_name(), "device_uuid");
 
-		let fk = FKMapping::new("parent_id", "entries");
-		assert_eq!(fk.uuid_field_name(), "parent_uuid");
+		let fk = FKMapping::new("space_id", "spaces");
+		assert_eq!(fk.uuid_field_name(), "space_uuid");
 
-		let fk = FKMapping::new("entry_id", "entries");
-		assert_eq!(fk.uuid_field_name(), "entry_uuid");
+		let fk = FKMapping::new("group_id", "space_groups");
+		assert_eq!(fk.uuid_field_name(), "group_uuid");
 	}
 }

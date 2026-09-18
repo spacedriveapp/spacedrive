@@ -208,7 +208,7 @@ mod tests {
 
 		let parent_uuid = Uuid::new_v4();
 		let child_change = StateChangeMessage {
-			model_type: "entry".to_string(),
+			model_type: "space_item".to_string(),
 			record_uuid: Uuid::new_v4(),
 			device_id: Uuid::new_v4(),
 			data: serde_json::json!({}),
@@ -245,7 +245,7 @@ mod tests {
 		// Three children waiting for same parent
 		for _ in 0..3 {
 			let child = StateChangeMessage {
-				model_type: "entry".to_string(),
+				model_type: "space_item".to_string(),
 				record_uuid: Uuid::new_v4(),
 				device_id: Uuid::new_v4(),
 				data: serde_json::json!({}),
@@ -277,7 +277,7 @@ mod tests {
 			.add_dependency(
 				parent1,
 				BufferedUpdate::StateChange(StateChangeMessage {
-					model_type: "entry".to_string(),
+					model_type: "space_item".to_string(),
 					record_uuid: Uuid::new_v4(),
 					device_id: Uuid::new_v4(),
 					data: serde_json::json!({}),
@@ -291,7 +291,7 @@ mod tests {
 			.add_dependency(
 				parent2,
 				BufferedUpdate::StateChange(StateChangeMessage {
-					model_type: "entry".to_string(),
+					model_type: "space_item".to_string(),
 					record_uuid: Uuid::new_v4(),
 					device_id: Uuid::new_v4(),
 					data: serde_json::json!({}),

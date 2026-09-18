@@ -29,14 +29,14 @@ pub enum DependencyError {
 /// # Example
 /// ```ignore
 /// let models = vec![
-///     ("entry", &["location"][..]),
-///     ("location", &["device"][..]),
+///     ("space_item", &["space"][..]),
+///     ("space", &["device"][..]),
 ///     ("device", &[][..]),
-///     ("tag", &[][..]),
+///     ("audit_log", &[][..]),
 /// ];
 /// let order = compute_sync_order(models.into_iter())?;
-/// // order = ["device", "location", "entry", "tag"]
-/// // or    = ["device", "tag", "location", "entry"]
+/// // order = ["device", "space", "space_item", "audit_log"]
+/// // or    = ["device", "audit_log", "space", "space_item"]
 /// // (tag and device are independent, so order between them doesn't matter)
 /// ```
 pub fn compute_sync_order<'a>(
@@ -143,8 +143,8 @@ mod tests {
 	#[test]
 	fn test_simple_dependency_chain() {
 		let models = vec![
-			("entry", &["location"][..]),
-			("location", &["device"][..]),
+			("space_item", &["space"][..]),
+			("space", &["device"][..]),
 			("device", &[][..]),
 		];
 
@@ -152,8 +152,8 @@ mod tests {
 
 		// Device must come before location
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let location_idx = order.iter().position(|m| m == "location").unwrap();
-		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
+		let location_idx = order.iter().position(|m| m == "space").unwrap();
+		let entry_idx = order.iter().position(|m| m == "space_item").unwrap();
 
 		assert!(device_idx < location_idx);
 		assert!(location_idx < entry_idx);
@@ -161,14 +161,14 @@ mod tests {
 
 	#[test]
 	fn test_independent_models() {
-		let models = vec![("device", &[][..]), ("tag", &[][..])];
+		let models = vec![("device", &[][..]), ("audit_log", &[][..])];
 
 		let order = compute_sync_order(models.into_iter()).unwrap();
 
 		// Both models should be present
 		assert_eq!(order.len(), 2);
 		assert!(order.contains(&"device".to_string()));
-		assert!(order.contains(&"tag".to_string()));
+		assert!(order.contains(&"audit_log".to_string()));
 		// Order between them doesn't matter
 	}
 
@@ -187,11 +187,11 @@ mod tests {
 	fn test_complex_graph() {
 		// More realistic dependency graph
 		let models = vec![
-			("entry", &["location"][..]),
-			("location", &["device"][..]),
+			("space_item", &["space"][..]),
+			("space", &["device"][..]),
 			("device", &[][..]),
-			("tag", &[][..]),
-			("tag_relationship", &["tag"][..]),
+			("audit_log", &[][..]),
+			("tag_relationship", &["audit_log"][..]),
 		];
 
 		let order = compute_sync_order(models.into_iter()).unwrap();
@@ -201,15 +201,15 @@ mod tests {
 
 		// Device must come before location
 		let device_idx = order.iter().position(|m| m == "device").unwrap();
-		let location_idx = order.iter().position(|m| m == "location").unwrap();
+		let location_idx = order.iter().position(|m| m == "space").unwrap();
 		assert!(device_idx < location_idx);
 
 		// Location must come before entry
-		let entry_idx = order.iter().position(|m| m == "entry").unwrap();
+		let entry_idx = order.iter().position(|m| m == "space_item").unwrap();
 		assert!(location_idx < entry_idx);
 
 		// Tag must come before tag_relationship
-		let tag_idx = order.iter().position(|m| m == "tag").unwrap();
+		let tag_idx = order.iter().position(|m| m == "audit_log").unwrap();
 		let tag_rel_idx = order.iter().position(|m| m == "tag_relationship").unwrap();
 		assert!(tag_idx < tag_rel_idx);
 	}
