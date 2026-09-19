@@ -486,8 +486,22 @@ new source identities.
 Proof: restart offline with nine known sources and eight fresh artifacts;
 all nine remain visible and the older ninth is usable if valid. A listing/fetch
 race publishes the generation actually received. With the owner unchanged,
-ten refresh intervals transfer zero additional payload and reconstruct zero
-additional arenas. Inject a real mutation to prove it still propagates.
+30 minutes of refreshes, past the store pool's idle timeout, transfer zero
+additional payload and reconstruct zero additional arenas. Inject a real
+mutation to prove it still propagates.
+
+#### R3 results, 2026-09-19
+
+A nested source's generation is now its store's revision instead of the size
+and mtime of `data.db` and its WAL. Those files move whenever the store's pool
+drains: sqlx closes idle connections after 10 minutes, SQLite deletes the WAL
+when the last one closes, and the next read recreates it. That re-copied the
+Mac's unchanged home store to titan four times in one night, each round a
+736 MB transfer and a 57-minute arena rebuild. The R6 stability check watched
+twelve intervals, six minutes, which ends inside the idle timeout. The
+evidence, the revision design and its measured write cost are in
+`2026-09-19-incremental-replication.md`, which also carries this slice's
+temporary-file cleanup and the delta replication R6 registered.
 
 ### R4: Compact arenas and expose memory honestly
 

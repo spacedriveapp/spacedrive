@@ -111,6 +111,11 @@ impl SourceDb {
 		&self.schema
 	}
 
+	/// The store's revision; see [`crate::revision`].
+	pub async fn revision(&self) -> Result<crate::revision::Revision> {
+		crate::revision::read(&self.pool).await
+	}
+
 	/// Open a new sync run: advance the scan epoch that subsequent writes carry.
 	pub async fn begin_sync(&self) -> Result<i64> {
 		let epoch = crate::record::next_scan_epoch(&self.pool).await?;

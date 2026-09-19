@@ -226,10 +226,11 @@ pub struct RemoteSourceInfo {
 	pub attached: bool,
 	pub entry_count: Option<u64>,
 	pub total_bytes: Option<u64>,
-	/// Version of the snapshot a peer would receive, from its size and
-	/// mtime. A replica holding the same generation is already current, so
-	/// this is what lets a reconnect skip re-downloading an unchanged index.
-	/// Zero means the owner has no snapshot on disk yet.
+	/// Version of the artifact a peer would receive: the snapshot's size and
+	/// mtime, or for a nested source its store's revision. A replica holding
+	/// the same generation is already current, so this is what lets a
+	/// reconnect skip re-downloading an unchanged index. Zero means the owner
+	/// has nothing it can describe yet.
 	#[serde(default)]
 	pub generation: u64,
 	/// The owner's arena has moved since its last save, so the snapshot on
@@ -412,16 +413,13 @@ impl ByteRangeProtocolHandler {
 				for s in cache.sources() {
 					// A source at its volume's mount point travels as the
 					// volume's arena snapshot; one nested inside travels as
-					// its own database, whose generation is the live database
-					// file's rather than any snapshot's.
+					// its own database, whose generation is its store's
+					// revision rather than any snapshot's.
 					let nested = cache
 						.volume_root_of(&s.root)
 						.is_some_and(|volume_root| volume_root != s.root);
 					let generation = if nested {
-						cache
-							.source_dirs()
-							.map(|dirs| database_generation(&dirs.source_dir(s.id)))
-							.unwrap_or(0)
+						store_generation(cache, s.id).await
 					} else {
 						cache
 							.source_snapshot_path(s.id)
@@ -545,11 +543,20 @@ impl ByteRangeProtocolHandler {
 				};
 				let source_dir = dirs.source_dir(source_id);
 
-				// The generation names the live database this export reads,
-				// WAL included, taken before the export runs: a write landing
-				// mid-export moves the next listing instead of mislabeling
-				// this delivery as current.
-				let generation = database_generation(&source_dir);
+				// The generation names the store revision this export starts
+				// from, read before the export runs: a write landing mid-export
+				// moves the next listing instead of mislabeling this delivery
+				// as current.
+				let generation = match db.revision().await {
+					Ok(revision) => revision_generation(revision),
+					Err(err) => {
+						return write_frame(
+							send,
+							&ByteRangeResponse::Error(format!("store revision unreadable: {err}")),
+						)
+						.await;
+					}
+				};
 
 				// VACUUM INTO produces a consistent, compact single-file copy
 				// from one read transaction; walkers keep writing meanwhile.
@@ -683,24 +690,34 @@ async fn serve_file_with_identity<W: AsyncWrite + Send + Unpin>(
 	Ok(())
 }
 
-/// Version of a source's live database: size and mtime folded over the main
-/// file and its WAL, so any committed write moves it and a quiet store holds
-/// steady. Zero when no database exists.
-fn database_generation(source_dir: &Path) -> u64 {
-	let mut len = 0u64;
-	let mut latest: Option<std::time::SystemTime> = None;
-	for name in ["data.db", "data.db-wal"] {
-		if let Ok(meta) = std::fs::metadata(source_dir.join(name)) {
-			len = len.saturating_add(meta.len());
-			if let Ok(modified) = meta.modified() {
-				latest = Some(latest.map_or(modified, |current| current.max(modified)));
-			}
+/// A nested source's generation, from its store's revision. Zero, which
+/// always transfers, when the store cannot be read.
+async fn store_generation(
+	cache: &crate::ops::indexing::volume_index::VolumeIndex,
+	source_id: Uuid,
+) -> u64 {
+	let Some(db) = cache.read_store(source_id).await else {
+		return 0;
+	};
+	match db.revision().await {
+		Ok(revision) => revision_generation(revision),
+		Err(err) => {
+			tracing::debug!(source = %source_id, %err, "store revision unreadable");
+			0
 		}
 	}
-	match latest {
-		Some(mtime) if len > 0 => crate::infra::source_version::source_version(len, mtime),
-		_ => 0,
-	}
+}
+
+/// Fold a store revision into a generation word. The store id takes part so
+/// a store recreated from scratch never matches a copy of its predecessor.
+/// Zero is reserved for "nothing to describe", which always transfers.
+fn revision_generation(revision: sd_store::Revision) -> u64 {
+	let mut hasher = blake3::Hasher::new();
+	hasher.update(revision.store_id.as_bytes());
+	hasher.update(&revision.value.to_le_bytes());
+	let mut word = [0u8; 8];
+	word.copy_from_slice(&hasher.finalize().as_bytes()[..8]);
+	u64::from_le_bytes(word).max(1)
 }
 
 #[async_trait]
@@ -816,6 +833,32 @@ mod tests {
 			}
 			other => panic!("decoded to the wrong variant: {other:?}"),
 		}
+	}
+
+	#[test]
+	fn a_revision_generation_follows_the_store_and_its_count() {
+		let revision = sd_store::Revision {
+			store_id: Uuid::now_v7(),
+			value: 7,
+		};
+		let generation = revision_generation(revision);
+		assert_eq!(generation, revision_generation(revision));
+		assert_ne!(
+			generation,
+			revision_generation(sd_store::Revision {
+				value: 8,
+				..revision
+			})
+		);
+		assert_ne!(
+			generation,
+			revision_generation(sd_store::Revision {
+				store_id: Uuid::now_v7(),
+				..revision
+			}),
+			"a recreated store never matches its predecessor"
+		);
+		assert_ne!(revision_generation(sd_store::Revision::UNTRACKED), 0);
 	}
 
 	fn volume(name: &str, visible: bool, mounted: bool) -> Volume {

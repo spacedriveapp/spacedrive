@@ -170,6 +170,7 @@ impl SourceManager {
 		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
 		let db = SourceDb::new(pool, schema, epoch.max(0));
 		db.ensure_facet_columns().await?;
+		crate::revision::install(db.pool(), db.schema()).await?;
 
 		Ok(db)
 	}
@@ -226,6 +227,7 @@ impl SourceManager {
 		let epoch = crate::record::next_scan_epoch(&pool).await? - 1;
 		let db = SourceDb::new(pool, current_schema.clone(), epoch.max(0));
 		db.ensure_facet_columns().await?;
+		crate::revision::install(db.pool(), db.schema()).await?;
 
 		// A widened search contract changes what the index should hold.
 		if migration_result.search_fields_changed {

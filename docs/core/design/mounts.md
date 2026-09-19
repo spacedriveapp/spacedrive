@@ -470,6 +470,18 @@ library boundaries the way replicas and device summaries already do; scoping
 them belongs to library membership. An owner that cannot answer the request
 leaves its card listing replicas as rows.
 
+## Implementation status (2026-09-19)
+
+**Database generations.** A nested source travels as its own database, and
+its generation is its store's revision (`crates/store/src/revision.rs`): a
+store id and a count that triggers advance on every committed change to a
+tracked row. Rewrites that change nothing and bookkeeping columns leave it
+where it was. File size and mtime cannot stand in for it, because SQLite
+deletes the WAL when a pool's last connection closes and recreates it on the
+next read, so the files move while no row does. A refresh still transfers the
+whole database; `docs/plans/2026-09-19-incremental-replication.md` replaces
+that with the changes since the replica's revision.
+
 ## Open questions
 
 - One OS volume per mount target, or one Spacedrive volume with targets as

@@ -47,6 +47,7 @@ pub mod file;
 pub mod fts;
 pub mod read;
 pub mod record;
+pub mod revision;
 pub mod schema;
 pub mod source;
 pub mod tags;
@@ -64,6 +65,7 @@ pub use file::{
 };
 pub use read::{FsEntry, TitleMatches};
 pub use record::{ContentIdentity, Record, RECORD_SCHEMA};
+pub use revision::Revision;
 pub use schema::{DataTypeSchema, FieldType, ModelDef};
 pub use source::SourceManager;
 pub use tags::{
