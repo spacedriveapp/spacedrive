@@ -1,13 +1,10 @@
 import {ArrowDown, ArrowUp, DotsThree, EyeSlash} from '@phosphor-icons/react';
-import type {Volume} from '@sd/ts-client';
+import type {SourceInfo, Volume} from '@sd/ts-client';
 import {CircleButton} from '@spacedrive/primitives';
 import {motion} from 'framer-motion';
 import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
-import {
-	useCoreQuery,
-	useSpacedriveClient
-} from '../../contexts/SpacedriveContext';
+import {useSpacedriveClient} from '../../contexts/SpacedriveContext';
 import {useVolumeIndexingStore} from '../../stores/volumeIndexingStore';
 import {formatBytes, getVolumeIcon} from './DevicePanel';
 
@@ -17,6 +14,8 @@ function getDiskTypeLabel(diskType: string): string {
 
 interface VolumeBarProps {
 	volume: Volume;
+	/** The library's sources on this volume. */
+	sources: SourceInfo[];
 	index: number;
 }
 
@@ -27,23 +26,21 @@ interface IndexingProgress {
 	rate: number;
 }
 
-export function VolumeBar({volume, index}: VolumeBarProps) {
+export function VolumeBar({volume, sources, index}: VolumeBarProps) {
 	const [indexingProgress, setIndexingProgress] =
 		useState<IndexingProgress | null>(null);
 	const client = useSpacedriveClient();
 
 	const contextMenu = useVolumeContextMenu({volume: volume as any});
 
-	// The count recorded at last snapshot, matched by fingerprint — this is
-	// what keeps the files badge after the indexing job's live progress ends.
-	const {data: indexStatus} = useCoreQuery({
-		type: 'core.index_status',
-		input: {}
-	});
+	// What the volume's sources held at their last completed pass, which is
+	// what keeps the files badge after an indexing job's live progress ends.
+	const sourceItemCount = sources.reduce(
+		(total, source) => total + source.item_count,
+		0
+	);
 	const indexedCount =
-		indexStatus?.sources?.find(
-			(source) => source.volume_uuid === volume.id
-		)?.entry_count ?? null;
+		volume.total_files ?? (sourceItemCount > 0 ? sourceItemCount : null);
 
 	// Subscribe to job events for this volume
 	useEffect(() => {
@@ -251,12 +248,9 @@ export function VolumeBar({volume, index}: VolumeBarProps) {
 								)}
 							</span>
 						) : (
-							(volume.total_files ?? indexedCount) != null && (
+							indexedCount != null && (
 								<span className="bg-accent/10 border-accent/20 text-accent rounded border px-1.5 py-0.5">
-									{(
-										volume.total_files ?? indexedCount ?? 0
-									).toLocaleString()}{' '}
-									files
+									{indexedCount.toLocaleString()} files
 								</span>
 							)
 						)}

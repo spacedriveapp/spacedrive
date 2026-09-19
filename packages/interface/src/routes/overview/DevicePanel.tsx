@@ -105,9 +105,7 @@ export function DevicePanel() {
 		input: {}
 	});
 
-	// Sources, including paired devices' replicas. A replica carries its
-	// owning device's id, which is how it lands on that device's card; a
-	// local source carries none and lands on this device's.
+	// Sources, including paired devices' replicas
 	const {data: sourcesData} = useLibraryQuery({
 		type: 'sources.list',
 		input: {data_type: null}
@@ -165,20 +163,29 @@ export function DevicePanel() {
 		{} as Record<string, Volume[]>
 	);
 
-	// Group sources by the device that owns them
+	// A local source on a listed volume is part of that volume's bar. Any
+	// other filesystem source gets its own row on the owning device's card: a
+	// paired device's replica, which carries its owner's id, or a local source
+	// on a volume the card doesn't list. Adapter sources live on no device.
 	const currentDeviceId = devices.find((device) => device.is_current)?.id;
-	const sourcesByDevice = ([...(sourcesData ?? [])] as SourceInfo[]).reduce(
-		(acc, source) => {
-			const owner = source.device_id ?? currentDeviceId;
-			if (!owner) return acc;
-			if (!acc[owner]) {
-				acc[owner] = [];
-			}
-			acc[owner].push(source);
-			return acc;
-		},
-		{} as Record<string, SourceInfo[]>
+	const listedVolumeIds = new Set(
+		userVisibleVolumes.map((volume) => volume.id)
 	);
+	const sourcesByVolume: Record<string, SourceInfo[]> = {};
+	const sourceRowsByDevice: Record<string, SourceInfo[]> = {};
+	for (const source of sourcesData ?? []) {
+		if (source.data_type !== 'filesystem') continue;
+		if (
+			!source.device_id &&
+			source.volume_uuid &&
+			listedVolumeIds.has(source.volume_uuid)
+		) {
+			(sourcesByVolume[source.volume_uuid] ??= []).push(source);
+			continue;
+		}
+		const owner = source.device_id ?? currentDeviceId;
+		if (owner) (sourceRowsByDevice[owner] ??= []).push(source);
+	}
 
 	// Group jobs by device_id
 	const jobsByDevice = allJobs.reduce(
@@ -209,14 +216,16 @@ export function DevicePanel() {
 				{devices.map((device) => {
 					const deviceVolumes = volumesByDevice[device.id] || [];
 					const deviceJobs = jobsByDevice[device.id] || [];
-					const deviceSources = sourcesByDevice[device.id] || [];
+					const deviceSourceRows =
+						sourceRowsByDevice[device.id] || [];
 
 					return (
 						<DeviceCard
 							key={device.id}
 							device={device}
 							volumes={deviceVolumes}
-							sources={deviceSources}
+							sourcesByVolume={sourcesByVolume}
+							sourceRows={deviceSourceRows}
 							jobs={deviceJobs}
 							volumesLoading={volumesLoading}
 						/>
@@ -313,7 +322,8 @@ function ConnectionBadge({method, online, current, icon: customIcon, color: cust
 interface DeviceCardProps {
 	device?: DeviceWithConnection;
 	volumes: Volume[];
-	sources: SourceInfo[];
+	sourcesByVolume: Record<string, SourceInfo[]>;
+	sourceRows: SourceInfo[];
 	jobs: JobListItem[];
 	volumesLoading: boolean;
 }
@@ -321,7 +331,8 @@ interface DeviceCardProps {
 function DeviceCard({
 	device,
 	volumes,
-	sources,
+	sourcesByVolume,
+	sourceRows,
 	jobs,
 	volumesLoading
 }: DeviceCardProps) {
@@ -467,10 +478,11 @@ function DeviceCard({
 							<VolumeBar
 								key={volume.id}
 								volume={volume}
+								sources={sourcesByVolume[volume.id] || []}
 								index={idx}
 							/>
 						))
-					) : sources.length > 0 ? null : (
+					) : sourceRows.length > 0 ? null : (
 						<div className="flex flex-col items-center justify-center py-8 text-center">
 							<div className="text-ink-faint">
 								<HardDrive className="mx-auto mb-2 size-8 opacity-20" />
@@ -478,7 +490,7 @@ function DeviceCard({
 							</div>
 						</div>
 					)}
-					{sources.map((source) => (
+					{sourceRows.map((source) => (
 						<SourceRow key={source.id} source={source} />
 					))}
 				</div>
@@ -487,8 +499,9 @@ function DeviceCard({
 	);
 }
 
-// A paired device's source, replicated locally through the peer-mount
-// plane. There is no capacity bar because the replica knows the source's
+// A source no volume bar on the card covers: a paired device's source
+// replicated through the peer-mount plane, or a local source on an unlisted
+// volume. There is no capacity bar because the row knows the source's
 // contents, not the drive underneath it.
 function SourceRow({source}: {source: SourceInfo}) {
 	return (
