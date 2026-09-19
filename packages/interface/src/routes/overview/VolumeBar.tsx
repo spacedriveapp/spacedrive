@@ -6,6 +6,7 @@ import {useEffect, useState} from 'react';
 import {useVolumeContextMenu} from '../../components/SpacesSidebar/hooks/useVolumeContextMenu';
 import {useSpacedriveClient} from '../../contexts/SpacedriveContext';
 import {useVolumeIndexingStore} from '../../stores/volumeIndexingStore';
+import {formatRelativeTime} from '../explorer/utils';
 import {formatBytes, getVolumeIcon} from './DevicePanel';
 
 function getDiskTypeLabel(diskType: string): string {
@@ -16,6 +17,8 @@ interface VolumeBarProps {
 	volume: Volume;
 	/** The library's sources on this volume. */
 	sources: SourceInfo[];
+	/** Whether the volume is on this device, where its actions run. */
+	isLocal: boolean;
 	index: number;
 }
 
@@ -26,7 +29,7 @@ interface IndexingProgress {
 	rate: number;
 }
 
-export function VolumeBar({volume, sources, index}: VolumeBarProps) {
+export function VolumeBar({volume, sources, isLocal, index}: VolumeBarProps) {
 	const [indexingProgress, setIndexingProgress] =
 		useState<IndexingProgress | null>(null);
 	const client = useSpacedriveClient();
@@ -194,7 +197,7 @@ export function VolumeBar({volume, sources, index}: VolumeBarProps) {
 			animate={{opacity: 1, y: 0}}
 			transition={{delay: index * 0.05}}
 			className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border"
-			onContextMenu={contextMenu.show}
+			onContextMenu={isLocal ? contextMenu.show : undefined}
 		>
 			{/* Top row: Info - fixed height */}
 			<div className="flex h-[64px] items-center gap-3 px-3">
@@ -266,30 +269,40 @@ export function VolumeBar({volume, sources, index}: VolumeBarProps) {
 						{formatBytes(availableBytes)} free
 					</div>
 					<div className="text-ink-faint flex h-3.5 items-center justify-end gap-1.5 text-[10px]">
-						{volume.read_speed_mbps && (
-							<span className="flex items-center gap-0.5">
-								<ArrowDown size={10} weight="bold" />
-								{volume.read_speed_mbps}MB/s
+						{!volume.is_mounted ? (
+							<span>
+								seen {formatRelativeTime(volume.last_seen_at)}
 							</span>
-						)}
-						{volume.write_speed_mbps && (
-							<span className="flex items-center gap-0.5">
-								<ArrowUp size={10} weight="bold" />
-								{volume.write_speed_mbps}MB/s
-							</span>
+						) : (
+							<>
+								{volume.read_speed_mbps && (
+									<span className="flex items-center gap-0.5">
+										<ArrowDown size={10} weight="bold" />
+										{volume.read_speed_mbps}MB/s
+									</span>
+								)}
+								{volume.write_speed_mbps && (
+									<span className="flex items-center gap-0.5">
+										<ArrowUp size={10} weight="bold" />
+										{volume.write_speed_mbps}MB/s
+									</span>
+								)}
+							</>
 						)}
 					</div>
 				</div>
 
 				{/* Three dots button - far right */}
-				<CircleButton
-					icon={DotsThree}
-					onClick={(e) => {
-						e.stopPropagation();
-						contextMenu.show(e);
-					}}
-					title="Volume actions"
-				/>
+				{isLocal && (
+					<CircleButton
+						icon={DotsThree}
+						onClick={(e) => {
+							e.stopPropagation();
+							contextMenu.show(e);
+						}}
+						title="Volume actions"
+					/>
+				)}
 			</div>
 
 			{/* Bottom: Full-width capacity bar with padding */}

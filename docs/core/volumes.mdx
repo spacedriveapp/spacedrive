@@ -31,6 +31,14 @@ Each daemon observes mounted local and network filesystems. It records:
 The observation updates current reachability. It does not overwrite historical
 evidence about the hardware.
 
+## Volumes on paired devices
+
+A paired device publishes the volumes it has mounted, along with its hardware.
+Peers keep the latest copy with the time they received it and list those
+volumes under the device that owns them. While the owner is offline its volumes
+still appear, unmounted, as they were last seen. A replica of one of the
+owner's sources appears on the volume its anchor names.
+
 ## The volume arena
 
 Mounted filesystems enter a machine-level in-memory arena. The arena provides a

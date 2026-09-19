@@ -167,6 +167,19 @@ impl LibraryQuery for VolumeListQuery {
 			}
 		}
 
+		// Paired devices' volumes, as each owner last published them. They are
+		// never candidates for tracking here. A volume already listed keeps
+		// its entry: this device's own observation of a drive outranks a
+		// peer's report of it.
+		if !matches!(self.filter, VolumeFilter::UntrackedOnly) {
+			for volume in crate::service::mounts::peer::published_volumes(&context).await {
+				let wanted = matches!(self.filter, VolumeFilter::All) || volume.is_tracked;
+				if wanted && !volumes.iter().any(|listed| listed.id == volume.id) {
+					volumes.push(volume);
+				}
+			}
+		}
+
 		// Unique bytes come from the source stores' distinct content sizes,
 		// rolled up onto the source rows as hashing lands. A whole-volume
 		// source is the volume's own figure; without one, subtree sources sum,

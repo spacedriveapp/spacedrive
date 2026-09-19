@@ -449,6 +449,27 @@ not have. Worth measuring the staleness before forking a crate over it.
 **Not built yet**: drop takeover (phase 3), the native FSKit module
 (phase 4), pinning (phase 5), renditions (phase 6), writes (phase 7).
 
+## Implementation status (2026-09-18)
+
+**Device facts.** `DeviceFacts` is a byterange request answered with what
+the serving device publishes about itself: the hardware its startup
+detection recorded, and every mounted, user-visible volume under the id its
+sources anchor to. A peer fetches it on every sync pass beside
+`DeviceSummary`, stamps it with its own receipt time, and keeps it in the
+device's replica manifest, so an offline device still describes itself as it
+last did. `volumes.list` lists a paired device's volumes from those facts,
+mounted only while the owner is connected, and `devices.list` fills in a
+paired device's hardware from them. The overview folds each replica into its
+owner's volume bar by `volume_uuid`, the same way a local source folds into
+its own.
+
+Only the owner writes its facts, so nothing merges and library sync is not
+involved. Volume classifications travel as names, so one a peer's build does
+not know reads as unknown instead of failing the response. The facts cross
+library boundaries the way replicas and device summaries already do; scoping
+them belongs to library membership. An owner that cannot answer the request
+leaves its card listing replicas as rows.
+
 ## Open questions
 
 - One OS volume per mount target, or one Spacedrive volume with targets as

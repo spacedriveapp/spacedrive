@@ -12,8 +12,8 @@ use crate::ops::indexing::arena::Arena;
 use crate::service::network::core::BYTERANGE_ALPN;
 use crate::service::network::protocol::{
 	byterange::{
-		read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, MAX_READ_LEN,
-		MAX_SNAPSHOT_LEN,
+		read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, RemoteDeviceFacts,
+		MAX_READ_LEN, MAX_SNAPSHOT_LEN,
 	},
 	RemoteSourceInfo,
 };
@@ -78,16 +78,28 @@ pub async fn open_replica_db(
 	}
 }
 
-/// A device's replica inventory as last synced, written beside the artifacts
-/// it describes so the inventory survives a restart without the owner. A
+/// A device's replica inventory and published facts as last synced, written
+/// beside the artifacts so both survive a restart without the owner. A
 /// replica has an owner and a validated generation even when no arena is
 /// loaded; losing the list because the owner is unreachable would make a
-/// drive's departure erase the knowledge that its copies exist.
+/// drive's departure erase the knowledge that its copies exist. The facts
+/// persist for the same reason: an offline device still owns its drives.
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ReplicaManifest {
 	pub device_id: Uuid,
 	pub device_label: String,
 	pub sources: Vec<ReplicaEntry>,
+	/// Absent until the owner has answered with facts.
+	#[serde(default)]
+	pub facts: Option<ObservedFacts>,
+}
+
+/// What a device published about itself, stamped with when this device
+/// received it. The owner's clock never enters the stamp.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ObservedFacts {
+	pub facts: RemoteDeviceFacts,
+	pub observed_at_secs: u64,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -125,6 +137,52 @@ pub async fn known_unloaded() -> Vec<(Uuid, String, ReplicaEntry)> {
 					)
 				})
 			})
+		})
+		.collect()
+}
+
+/// What every paired device last published about itself. Read from the
+/// manifests, so a device that is offline still describes itself as it
+/// last did.
+pub async fn published_facts() -> HashMap<Uuid, ObservedFacts> {
+	known_map()
+		.read()
+		.await
+		.iter()
+		.filter_map(|(device_id, manifest)| Some((*device_id, manifest.facts.clone()?)))
+		.collect()
+}
+
+/// Paired devices' volumes as this device lists them.
+pub async fn published_volumes(context: &Arc<CoreContext>) -> Vec<crate::domain::volume::Volume> {
+	let connected = match context.networking.read().await.clone() {
+		Some(networking) => super::connected_devices(&networking)
+			.await
+			.into_iter()
+			.map(|(device_id, _)| device_id)
+			.collect(),
+		None => std::collections::HashSet::new(),
+	};
+	volumes_from(&published_facts().await, &connected)
+}
+
+/// A volume reads as mounted only while its owner is connected. Otherwise
+/// it stands as the owner last reported it, stamped with when that was.
+fn volumes_from(
+	facts: &HashMap<Uuid, ObservedFacts>,
+	connected: &std::collections::HashSet<Uuid>,
+) -> Vec<crate::domain::volume::Volume> {
+	facts
+		.iter()
+		.flat_map(|(device_id, observed)| {
+			let reachable = connected.contains(device_id);
+			let observed_at = chrono::DateTime::from_timestamp(observed.observed_at_secs as i64, 0)
+				.unwrap_or_default();
+			observed
+				.facts
+				.volumes
+				.iter()
+				.map(move |volume| volume.to_volume(*device_id, reachable, observed_at))
 		})
 		.collect()
 }
@@ -873,6 +931,23 @@ pub async fn sync_device(
 		}
 	}
 
+	// What the owner publishes about itself refreshes on the same pass. An
+	// owner that does not answer leaves whatever an earlier pass recorded.
+	let facts = match request(context, device_id, &ByteRangeRequest::DeviceFacts).await {
+		Ok((ByteRangeResponse::DeviceFacts(facts), _)) => Some(ObservedFacts {
+			facts,
+			observed_at_secs: now_secs(),
+		}),
+		Ok((other, _)) => {
+			tracing::debug!("device facts from {device_label}: unexpected {other:?}");
+			None
+		}
+		Err(err) => {
+			tracing::debug!("device facts from {device_label} failed: {err}");
+			None
+		}
+	};
+
 	let replica_dir = context
 		.data_dir
 		.join("mounts-remote")
@@ -967,6 +1042,7 @@ pub async fn sync_device(
 			device_id,
 			device_label: device_label.clone(),
 			sources: entries,
+			facts: facts.or_else(|| previous.and_then(|manifest| manifest.facts)),
 		},
 	)
 	.await;
@@ -1055,6 +1131,7 @@ mod tests {
 					synced_at_secs: 1,
 				},
 			],
+			facts: None,
 		};
 		std::fs::write(
 			manifest_path(&replica_dir),
@@ -1261,6 +1338,7 @@ mod tests {
 				generation: 11,
 				synced_at_secs: 1,
 			}],
+			facts: None,
 		};
 		std::fs::write(
 			manifest_path(&replica_dir),
@@ -1370,5 +1448,97 @@ mod tests {
 			refresh_share_facts(&refreshed, &fresh, "new-name").is_none(),
 			"identical facts rebuild nothing"
 		);
+	}
+
+	/// What an owner published persists with its manifest. After a restart
+	/// with the owner offline its volumes still list under it, unmounted and
+	/// stamped with when they were observed, and mount again on reconnect.
+	#[tokio::test]
+	async fn published_facts_outlive_the_owners_connection() {
+		use crate::service::network::protocol::byterange::{RemoteHardware, RemoteVolumeInfo};
+
+		let base = tempfile::tempdir().expect("dir");
+		let device_id = Uuid::now_v7();
+		let replica_dir = base.path().join(device_id.simple().to_string());
+		std::fs::create_dir_all(&replica_dir).expect("replica dir");
+
+		let volume_id = Uuid::now_v7();
+		let observed = ObservedFacts {
+			facts: RemoteDeviceFacts {
+				hardware: RemoteHardware {
+					cpu_model: Some("AMD EPYC 4464P".to_string()),
+					..Default::default()
+				},
+				volumes: vec![RemoteVolumeInfo {
+					id: volume_id,
+					fingerprint: "pool-fingerprint".to_string(),
+					name: "pool".to_string(),
+					display_name: Some("jamie-nas".to_string()),
+					mount_point: PathBuf::from("/mnt/pool/jamie-nas"),
+					volume_type: "External".to_string(),
+					disk_type: "HDD".to_string(),
+					file_system: "ZFS".to_string(),
+					total_capacity: 40 << 40,
+					available_space: 4 << 40,
+					is_read_only: false,
+					is_tracked: true,
+					read_speed_mbps: None,
+					write_speed_mbps: None,
+				}],
+			},
+			observed_at_secs: 1_789_700_000,
+		};
+		let manifest = ReplicaManifest {
+			device_id,
+			device_label: "titan".to_string(),
+			sources: Vec::new(),
+			facts: Some(observed.clone()),
+		};
+		std::fs::write(
+			manifest_path(&replica_dir),
+			serde_json::to_vec(&manifest).expect("serialize"),
+		)
+		.expect("manifest");
+
+		restore_from(base.path()).await;
+		let published = published_facts().await;
+		assert_eq!(published.get(&device_id), Some(&observed));
+
+		let offline = volumes_from(&published, &std::collections::HashSet::new());
+		let pool = offline
+			.iter()
+			.find(|volume| volume.id == volume_id)
+			.expect("the volume lists while its owner is away");
+		assert_eq!(pool.device_id, device_id);
+		assert!(!pool.is_mounted);
+		assert_eq!(pool.last_seen_at.timestamp(), 1_789_700_000);
+
+		let online = volumes_from(&published, &std::collections::HashSet::from([device_id]));
+		assert!(
+			online
+				.iter()
+				.any(|volume| volume.id == volume_id && volume.is_mounted),
+			"a connected owner's volume reads as mounted"
+		);
+	}
+
+	/// A manifest without facts restores; the device has none until its
+	/// owner answers.
+	#[tokio::test]
+	async fn a_manifest_without_facts_still_restores() {
+		let base = tempfile::tempdir().expect("dir");
+		let device_id = Uuid::now_v7();
+		let replica_dir = base.path().join(device_id.simple().to_string());
+		std::fs::create_dir_all(&replica_dir).expect("replica dir");
+		std::fs::write(
+			manifest_path(&replica_dir),
+			serde_json::json!({ "device_id": device_id, "device_label": "titan", "sources": [] })
+				.to_string(),
+		)
+		.expect("manifest");
+
+		restore_from(base.path()).await;
+		assert!(known_map().read().await.contains_key(&device_id));
+		assert!(!published_facts().await.contains_key(&device_id));
 	}
 }

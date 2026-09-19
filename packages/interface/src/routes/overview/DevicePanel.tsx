@@ -163,28 +163,28 @@ export function DevicePanel() {
 		{} as Record<string, Volume[]>
 	);
 
-	// A local source on a listed volume is part of that volume's bar. Any
-	// other filesystem source gets its own row on the owning device's card: a
-	// paired device's replica, which carries its owner's id, or a local source
-	// on a volume the card doesn't list. Adapter sources live on no device.
+	// A source is part of its volume's bar when that volume is listed under
+	// the device that owns the source. A replica carries its owner's id; a
+	// local source carries none. Any other filesystem source gets its own row
+	// on its owner's card. Adapter sources live on no device.
 	const currentDeviceId = devices.find((device) => device.is_current)?.id;
-	const listedVolumeIds = new Set(
-		userVisibleVolumes.map((volume) => volume.id)
+	const volumeOwners = new Map(
+		userVisibleVolumes.map((volume) => [volume.id, volume.device_id])
 	);
 	const sourcesByVolume: Record<string, SourceInfo[]> = {};
 	const sourceRowsByDevice: Record<string, SourceInfo[]> = {};
 	for (const source of sourcesData ?? []) {
 		if (source.data_type !== 'filesystem') continue;
+		const owner = source.device_id ?? currentDeviceId;
+		if (!owner) continue;
 		if (
-			!source.device_id &&
 			source.volume_uuid &&
-			listedVolumeIds.has(source.volume_uuid)
+			volumeOwners.get(source.volume_uuid) === owner
 		) {
 			(sourcesByVolume[source.volume_uuid] ??= []).push(source);
-			continue;
+		} else {
+			(sourceRowsByDevice[owner] ??= []).push(source);
 		}
-		const owner = source.device_id ?? currentDeviceId;
-		if (owner) (sourceRowsByDevice[owner] ??= []).push(source);
 	}
 
 	// Group jobs by device_id
@@ -479,6 +479,7 @@ function DeviceCard({
 								key={volume.id}
 								volume={volume}
 								sources={sourcesByVolume[volume.id] || []}
+								isLocal={device?.is_current ?? false}
 								index={idx}
 							/>
 						))
@@ -499,10 +500,8 @@ function DeviceCard({
 	);
 }
 
-// A source no volume bar on the card covers: a paired device's source
-// replicated through the peer-mount plane, or a local source on an unlisted
-// volume. There is no capacity bar because the row knows the source's
-// contents, not the drive underneath it.
+// A source whose volume the card doesn't list. There is no capacity bar
+// because the row knows the source's contents, not the drive underneath it.
 function SourceRow({source}: {source: SourceInfo}) {
 	return (
 		<div className="bg-app-box border-app-line/50 overflow-hidden rounded-lg border">

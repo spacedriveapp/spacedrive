@@ -141,6 +141,10 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 		// Always check network registry to update connection status for database devices
 		// and optionally add paired-only devices
 		if let Some(networking) = context.get_networking().await {
+			// Hardware each paired device published about itself, which the
+			// pairing handshake does not carry.
+			let published = crate::service::mounts::peer::published_facts().await;
+
 			let device_registry = networking.device_registry();
 			let registry = device_registry.read().await;
 			let all_devices = registry.get_all_devices();
@@ -203,6 +207,9 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 					existing.is_connected = is_actually_connected;
 					existing.is_online = is_actually_connected;
 					existing.connection_method = connection_method;
+					if let Some(observed) = published.get(&device_id) {
+						observed.facts.hardware.apply_to(existing);
+					}
 
 					continue;
 				}
@@ -226,8 +233,11 @@ impl LibraryQuery for ListLibraryDevicesQuery {
 					}
 
 					// Convert network DeviceInfo to domain Device
-					let device =
+					let mut device =
 						Device::from_network_info(&info, is_actually_connected, connection_method);
+					if let Some(observed) = published.get(&device_id) {
+						observed.facts.hardware.apply_to(&mut device);
+					}
 					result.push(device);
 				}
 			}

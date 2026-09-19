@@ -267,7 +267,12 @@ function DeviceCard({
 			<View className="px-3 py-3 gap-3">
 				{volumes.length > 0 ? (
 					volumes.map((volume, idx) => (
-						<VolumeBar key={volume.id} volume={volume} index={idx} />
+						<VolumeBar
+							key={volume.id}
+							volume={volume}
+							isLocal={device?.is_current ?? false}
+							index={idx}
+						/>
 					))
 				) : (
 					<View className="py-8 items-center justify-center">
@@ -483,6 +488,8 @@ function VolumeMenu({ volume, visible, onClose }: VolumeMenuProps) {
 
 interface VolumeBarProps {
 	volume: Volume;
+	/** Whether the volume is on this device, where its actions run. */
+	isLocal: boolean;
 	index: number;
 }
 
@@ -493,7 +500,7 @@ interface IndexingProgress {
 	rate: number;
 }
 
-function VolumeBar({ volume, index }: VolumeBarProps) {
+function VolumeBar({ volume, isLocal, index }: VolumeBarProps) {
 	const [indexingProgress, setIndexingProgress] = useState<IndexingProgress | null>(null);
 	const [menuVisible, setMenuVisible] = useState(false);
 	const client = useSpacedriveClient();
@@ -639,11 +646,13 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 
 	return (
 		<>
-			<VolumeMenu
-				volume={volume}
-				visible={menuVisible}
-				onClose={() => setMenuVisible(false)}
-			/>
+			{isLocal && (
+				<VolumeMenu
+					volume={volume}
+					visible={menuVisible}
+					onClose={() => setMenuVisible(false)}
+				/>
+			)}
 
 			<View className="bg-app-box border border-app-line/50 rounded-lg overflow-hidden">
 				{/* Top row: Info */}
@@ -711,12 +720,14 @@ function VolumeBar({ volume, index }: VolumeBarProps) {
 						</Text>
 					</View>
 
-					<Pressable
-						onPress={() => setMenuVisible(true)}
-						className="px-1.5 py-1 active:bg-app-hover rounded self-start"
-					>
-						<Text className="text-ink-dull text-xl leading-none">⋮</Text>
-					</Pressable>
+					{isLocal && (
+						<Pressable
+							onPress={() => setMenuVisible(true)}
+							className="px-1.5 py-1 active:bg-app-hover rounded self-start"
+						>
+							<Text className="text-ink-dull text-xl leading-none">⋮</Text>
+						</Pressable>
+					)}
 				</View>
 
 			{/* Bottom: Capacity bar */}

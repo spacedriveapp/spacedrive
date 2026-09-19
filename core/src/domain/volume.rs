@@ -515,6 +515,21 @@ impl VolumeType {
 		!matches!(self, VolumeType::System | VolumeType::Unknown)
 	}
 
+	/// Parse the name `Display` writes; anything else is `Unknown`.
+	pub fn from_string(volume_type: &str) -> Self {
+		match volume_type {
+			"Primary" => VolumeType::Primary,
+			"UserData" => VolumeType::UserData,
+			"External" => VolumeType::External,
+			"Secondary" => VolumeType::Secondary,
+			"System" => VolumeType::System,
+			"Network" => VolumeType::Network,
+			"Cloud" => VolumeType::Cloud,
+			"Virtual" => VolumeType::Virtual,
+			_ => VolumeType::Unknown,
+		}
+	}
+
 	/// User-friendly display name for the volume type
 	pub fn display_name(&self) -> &'static str {
 		match self {
@@ -1001,17 +1016,7 @@ impl TrackedVolume {
 					.unwrap_or_else(|| "Not connected".to_string()),
 			),
 			mount_points: Vec::new(),
-			volume_type: match self.volume_type.as_str() {
-				"Primary" => VolumeType::Primary,
-				"UserData" => VolumeType::UserData,
-				"External" => VolumeType::External,
-				"Secondary" => VolumeType::Secondary,
-				"System" => VolumeType::System,
-				"Network" => VolumeType::Network,
-				"Cloud" => VolumeType::Cloud,
-				"Virtual" => VolumeType::Virtual,
-				_ => VolumeType::Unknown,
-			},
+			volume_type: VolumeType::from_string(&self.volume_type),
 			mount_type: MountType::External,
 			disk_type: DiskType::Unknown,
 			file_system: FileSystem::from_string(

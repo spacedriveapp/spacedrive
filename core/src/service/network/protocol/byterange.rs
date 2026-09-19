@@ -11,8 +11,12 @@
 //! same stream so payloads are never re-encoded through msgpack.
 
 use crate::context::CoreContext;
+use crate::device::DeviceConfig;
+use crate::domain::device::{parse_device_form_factor_from_string, Device};
+use crate::domain::volume::{DiskType, FileSystem, Volume, VolumeFingerprint, VolumeType};
 use crate::service::network::device::registry::DeviceRegistry;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 use iroh::EndpointId;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
@@ -57,6 +61,9 @@ pub enum ByteRangeRequest {
 	/// whose replica must carry exactly the source's own records. Appended
 	/// after the original variants so their wire indices hold.
 	FetchDatabase { source_id: Uuid },
+	/// What the serving device publishes about itself: its hardware and the
+	/// volumes it has mounted.
+	DeviceFacts,
 }
 
 /// One device's own accounting of what it holds, computed by the same
@@ -70,6 +77,145 @@ pub struct RemoteDeviceSummary {
 	pub unique_content_count: u64,
 	pub total_capacity: u64,
 	pub available_capacity: u64,
+}
+
+/// What a device publishes about itself. Only that device writes these
+/// facts, so a peer keeps the latest copy it received and never merges it
+/// into records of its own.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RemoteDeviceFacts {
+	pub hardware: RemoteHardware,
+	/// Volumes the device has mounted and shows a person.
+	pub volumes: Vec<RemoteVolumeInfo>,
+}
+
+impl RemoteDeviceFacts {
+	/// Describe this device from its configuration and its volume manager's
+	/// live volumes. Hidden and unmounted volumes stay out, as they do from
+	/// the device's own volume list.
+	pub fn describe(config: &DeviceConfig, volumes: &[Volume]) -> Self {
+		Self {
+			hardware: RemoteHardware {
+				hardware_model: config.hardware_model.clone(),
+				cpu_model: config.cpu_model.clone(),
+				cpu_cores_physical: config.cpu_cores_physical,
+				cpu_cores_logical: config.cpu_cores_logical,
+				memory_total_bytes: config.memory_total_bytes,
+				form_factor: config.form_factor.clone(),
+				manufacturer: config.manufacturer.clone(),
+			},
+			volumes: volumes
+				.iter()
+				.filter(|volume| volume.is_user_visible && volume.is_mounted)
+				.map(RemoteVolumeInfo::from)
+				.collect(),
+		}
+	}
+}
+
+/// The hardware a device's own detection recorded, limited to what clients
+/// read to describe a device.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct RemoteHardware {
+	pub hardware_model: Option<String>,
+	pub cpu_model: Option<String>,
+	pub cpu_cores_physical: Option<u32>,
+	pub cpu_cores_logical: Option<u32>,
+	pub memory_total_bytes: Option<i64>,
+	pub form_factor: Option<String>,
+	pub manufacturer: Option<String>,
+}
+
+impl RemoteHardware {
+	/// Describe `device` with what its owner published, keeping any field
+	/// the owner left unreported.
+	pub fn apply_to(&self, device: &mut Device) {
+		device.hardware_model = self.hardware_model.clone().or(device.hardware_model.take());
+		device.cpu_model = self.cpu_model.clone().or(device.cpu_model.take());
+		device.cpu_cores_physical = self.cpu_cores_physical.or(device.cpu_cores_physical);
+		device.cpu_cores_logical = self.cpu_cores_logical.or(device.cpu_cores_logical);
+		device.memory_total_bytes = self.memory_total_bytes.or(device.memory_total_bytes);
+		device.form_factor = self
+			.form_factor
+			.as_deref()
+			.map(parse_device_form_factor_from_string)
+			.or(device.form_factor);
+		device.manufacturer = self.manufacturer.clone().or(device.manufacturer.take());
+	}
+}
+
+/// One volume as the device that mounts it sees it. `id` is the id that
+/// device's sources anchor to, which is how a replica finds the drive it
+/// lives on. Classifications travel as names and are parsed on receipt, so
+/// one a peer's build does not know reads as unknown instead of failing the
+/// whole response.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct RemoteVolumeInfo {
+	pub id: Uuid,
+	pub fingerprint: String,
+	pub name: String,
+	pub display_name: Option<String>,
+	pub mount_point: PathBuf,
+	pub volume_type: String,
+	pub disk_type: String,
+	pub file_system: String,
+	pub total_capacity: u64,
+	pub available_space: u64,
+	pub is_read_only: bool,
+	pub is_tracked: bool,
+	pub read_speed_mbps: Option<u64>,
+	pub write_speed_mbps: Option<u64>,
+}
+
+impl From<&Volume> for RemoteVolumeInfo {
+	fn from(volume: &Volume) -> Self {
+		Self {
+			id: volume.id,
+			fingerprint: volume.fingerprint.0.clone(),
+			name: volume.name.clone(),
+			display_name: volume.display_name.clone(),
+			mount_point: volume.mount_point.clone(),
+			volume_type: volume.volume_type.to_string(),
+			disk_type: volume.disk_type.to_string(),
+			file_system: volume.file_system.to_string(),
+			total_capacity: volume.total_capacity,
+			available_space: volume.available_space,
+			is_read_only: volume.is_read_only,
+			is_tracked: volume.is_tracked,
+			read_speed_mbps: volume.read_speed_mbps,
+			write_speed_mbps: volume.write_speed_mbps,
+		}
+	}
+}
+
+impl RemoteVolumeInfo {
+	/// The volume as this device lists it: owned by `owner`, mounted only
+	/// while the owner is reachable, and last seen when its facts arrived.
+	pub fn to_volume(&self, owner: Uuid, reachable: bool, observed_at: DateTime<Utc>) -> Volume {
+		let mut volume = Volume::new(
+			owner,
+			VolumeFingerprint(self.fingerprint.clone()),
+			self.name.clone(),
+			self.mount_point.clone(),
+		);
+		volume.id = self.id;
+		volume.display_name = self.display_name.clone();
+		volume.volume_type = VolumeType::from_string(&self.volume_type);
+		volume.disk_type = DiskType::from_string(&self.disk_type);
+		volume.file_system = FileSystem::from_string(&self.file_system);
+		volume.total_capacity = self.total_capacity;
+		volume.available_space = self.available_space;
+		volume.is_read_only = self.is_read_only;
+		volume.is_tracked = self.is_tracked;
+		volume.is_mounted = reachable;
+		volume.auto_track_eligible = false;
+		volume.read_speed_mbps = self.read_speed_mbps;
+		volume.write_speed_mbps = self.write_speed_mbps;
+		volume.created_at = observed_at;
+		volume.updated_at = observed_at;
+		volume.last_seen_at = observed_at;
+		volume
+	}
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -135,6 +281,7 @@ pub enum ByteRangeResponse {
 		generation: u64,
 		checksum: [u8; 32],
 	},
+	DeviceFacts(RemoteDeviceFacts),
 }
 
 pub async fn write_frame<W, T>(stream: &mut W, msg: &T) -> anyhow::Result<()>
@@ -433,6 +580,24 @@ impl ByteRangeProtocolHandler {
 				let _ = tokio::fs::remove_file(&export_path).await;
 				served
 			}
+			ByteRangeRequest::DeviceFacts => {
+				let config = match self.context.device_manager.config() {
+					Ok(config) => config,
+					Err(err) => {
+						return write_frame(
+							send,
+							&ByteRangeResponse::Error(format!("device config unavailable: {err}")),
+						)
+						.await;
+					}
+				};
+				let volumes = self.context.volume_manager.get_all_volumes().await;
+				write_frame(
+					send,
+					&ByteRangeResponse::DeviceFacts(RemoteDeviceFacts::describe(&config, &volumes)),
+				)
+				.await
+			}
 		}
 	}
 }
@@ -648,6 +813,103 @@ mod tests {
 				assert_eq!(len, 9);
 				assert_eq!(generation, 0, "an absent generation reads as zero");
 				assert_eq!(checksum, [0u8; 32], "an absent checksum reads as zero");
+			}
+			other => panic!("decoded to the wrong variant: {other:?}"),
+		}
+	}
+
+	fn volume(name: &str, visible: bool, mounted: bool) -> Volume {
+		let mut volume = Volume::new(
+			Uuid::now_v7(),
+			VolumeFingerprint(format!("fingerprint-{name}")),
+			name.to_string(),
+			PathBuf::from(format!("/mnt/{name}")),
+		);
+		volume.is_user_visible = visible;
+		volume.is_mounted = mounted;
+		volume
+	}
+
+	/// A device describes the volumes it shows a person, under the ids its
+	/// sources anchor to, with its hardware alongside.
+	#[test]
+	fn facts_describe_what_the_device_shows() {
+		let mut config = DeviceConfig::new("titan".to_string(), "Linux".to_string());
+		config.cpu_model = Some("AMD EPYC 4464P".to_string());
+		config.memory_total_bytes = Some(128 << 30);
+
+		let shown = volume("pool", true, true);
+		let facts = RemoteDeviceFacts::describe(
+			&config,
+			&[
+				shown.clone(),
+				volume("boot", false, true),
+				volume("usb", true, false),
+			],
+		);
+
+		assert_eq!(
+			facts.volumes.iter().map(|v| v.id).collect::<Vec<_>>(),
+			vec![shown.id],
+			"hidden and unmounted volumes stay out"
+		);
+		assert_eq!(facts.hardware.cpu_model.as_deref(), Some("AMD EPYC 4464P"));
+		assert_eq!(facts.hardware.memory_total_bytes, Some(128 << 30));
+	}
+
+	/// A published volume lists on a peer as its owner's, classified the way
+	/// the owner classified it, and mounted only while the owner is reachable.
+	#[test]
+	fn a_published_volume_lists_as_its_owners() {
+		let mut original = volume("pool", true, true);
+		original.display_name = Some("jamie-nas".to_string());
+		original.volume_type = VolumeType::External;
+		original.disk_type = DiskType::HDD;
+		original.file_system = FileSystem::ZFS;
+		original.total_capacity = 40 << 40;
+		original.available_space = 4 << 40;
+
+		let owner = Uuid::now_v7();
+		let observed_at = DateTime::from_timestamp(1_789_700_000, 0).expect("time");
+		let listed = RemoteVolumeInfo::from(&original).to_volume(owner, false, observed_at);
+
+		assert_eq!(listed.id, original.id, "the anchor id survives the trip");
+		assert_eq!(listed.device_id, owner);
+		assert_eq!(listed.display_name.as_deref(), Some("jamie-nas"));
+		assert_eq!(listed.volume_type, VolumeType::External);
+		assert_eq!(listed.disk_type, DiskType::HDD);
+		assert_eq!(listed.file_system, FileSystem::ZFS);
+		assert_eq!(
+			(listed.total_capacity, listed.available_space),
+			(40 << 40, 4 << 40)
+		);
+		assert!(
+			!listed.is_mounted,
+			"an unreachable owner's volume is not mounted here"
+		);
+		assert_eq!(listed.last_seen_at, observed_at);
+	}
+
+	/// Facts cross the frame codec intact, and a classification this build
+	/// does not know arrives as unknown instead of failing the response.
+	#[tokio::test]
+	async fn device_facts_survive_the_frame_codec() {
+		let mut info = RemoteVolumeInfo::from(&volume("pool", true, true));
+		info.volume_type = "Holographic".to_string();
+		let facts = RemoteDeviceFacts {
+			hardware: RemoteHardware::default(),
+			volumes: vec![info],
+		};
+
+		let mut wire = Vec::new();
+		write_frame(&mut wire, &ByteRangeResponse::DeviceFacts(facts.clone()))
+			.await
+			.expect("encode");
+		match read_frame(&mut wire.as_slice()).await.expect("decode") {
+			ByteRangeResponse::DeviceFacts(received) => {
+				assert_eq!(received, facts);
+				let listed = received.volumes[0].to_volume(Uuid::now_v7(), true, Utc::now());
+				assert_eq!(listed.volume_type, VolumeType::Unknown);
 			}
 			other => panic!("decoded to the wrong variant: {other:?}"),
 		}
