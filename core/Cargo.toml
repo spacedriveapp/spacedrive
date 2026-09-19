@@ -235,6 +235,10 @@ libc = "0.2"
 # system openssl headers.
 openssl-sys = { version = "0.9", features = ["vendored"] }
 
+[target.'cfg(target_env = "musl")'.dependencies]
+# The daemon's global allocator on static musl builds; see src/bin/daemon.rs.
+mimalloc = { workspace = true }
+
 [target.'cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))'.dependencies]
 trash = "3.3" # Native trash/recycle bin support on desktop platforms
 

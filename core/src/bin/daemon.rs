@@ -3,6 +3,13 @@ use sd_core::infra::daemon::addr::daemon_socket_addr;
 use std::path::PathBuf;
 use tokio::signal;
 
+// musl's allocator gives each allocation group its own memory mapping, and a
+// daemon holding replicas and hashing for hours runs into the kernel's
+// per-process map limit, where an allocation fails and the process aborts.
+#[cfg(target_env = "musl")]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 /// Validate instance name to prevent path traversal attacks
 fn validate_instance_name(instance: &str) -> Result<(), String> {
 	if instance.is_empty() {
