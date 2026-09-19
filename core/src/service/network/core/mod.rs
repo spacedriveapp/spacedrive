@@ -538,18 +538,24 @@ impl NetworkingService {
 							}
 						}
 
-						// Check if device is currently disconnected in registry
-						let is_disconnected =
-							{
-								let registry = device_registry.read().await;
-								if let Some(device_state) = registry.get_device_state(device_id) {
-									matches!(device_state, crate::service::network::device::DeviceState::Disconnected { .. })
-								} else {
-									true // Not in registry, try to reconnect
-								}
-							};
+						// Every paired device loads as Paired and only becomes
+						// Disconnected after a session drops, so a peer that was
+						// unreachable when this device started is still Paired and
+						// needs dialing just the same.
+						let is_unconnected = {
+							let registry = device_registry.read().await;
+							if let Some(device_state) = registry.get_device_state(device_id) {
+								matches!(
+									device_state,
+									crate::service::network::device::DeviceState::Paired { .. }
+										| crate::service::network::device::DeviceState::Disconnected { .. }
+								)
+							} else {
+								true // Not in registry, try to reconnect
+							}
+						};
 
-						if is_disconnected {
+						if is_unconnected {
 							logger
 								.info(&format!(
 									"Attempting periodic reconnection to device: {}",
