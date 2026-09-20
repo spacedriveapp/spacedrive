@@ -6,8 +6,12 @@
 //!
 //! Entries are stored contiguously at stable u32 indices (EntryIds), providing O(1)
 //! lookup while keeping memory usage bounded. When RAM is tight, the OS pages cold
-//! entries to disk automatically. The backing file is anonymous and cleaned up on drop,
-//! so no manual file management is needed.
+//! entries out to the backing file, which lives in the system temp directory: on
+//! disk on most hosts, in RAM where that directory is a tmpfs.
+//!
+//! The backing file has no name in the filesystem, so the kernel reclaims it when
+//! the process exits, however it exits. A named file would be removed only by
+//! `Drop`, which a killed daemon never runs.
 //!
 //! The arena doubles capacity (1024 → 2048 → 4096 → ...) when full, minimizing
 //! expensive remap operations while staying within Vec-like amortized O(1) insertion.
@@ -15,12 +19,12 @@
 use super::types::{EntryId, FileNode};
 use memmap2::{MmapMut, MmapOptions};
 use std::{
+	fs::File,
 	io,
 	mem::{self, MaybeUninit},
 	num::NonZeroUsize,
 	slice,
 };
-use tempfile::NamedTempFile;
 
 const CAPACITY: usize = 1024;
 
@@ -30,7 +34,7 @@ const CAPACITY: usize = 1024;
 /// pressure without crashing. EntryIds remain stable across capacity growth,
 /// enabling parent-child relationships to persist through remaps.
 pub struct NodeArena {
-	file: NamedTempFile,
+	file: File,
 	mmap: MmapMut,
 	capacity: NonZeroUsize,
 	len: usize,
@@ -43,8 +47,8 @@ impl NodeArena {
 
 	pub fn with_capacity(capacity: usize) -> io::Result<Self> {
 		let capacity = NonZeroUsize::new(capacity.max(1)).unwrap();
-		let mut file = NamedTempFile::new()?;
-		let mmap = Self::map_file(&mut file, capacity)?;
+		let file = tempfile::tempfile()?;
+		let mmap = Self::map_file(&file, capacity)?;
 
 		Ok(Self {
 			file,
@@ -54,10 +58,10 @@ impl NodeArena {
 		})
 	}
 
-	fn map_file(file: &mut NamedTempFile, slots: NonZeroUsize) -> io::Result<MmapMut> {
+	fn map_file(file: &File, slots: NonZeroUsize) -> io::Result<MmapMut> {
 		let bytes = (slots.get() as u64).saturating_mul(mem::size_of::<FileNode>() as u64);
-		file.as_file_mut().set_len(bytes)?;
-		unsafe { MmapOptions::new().map_mut(file.as_file()) }
+		file.set_len(bytes)?;
+		unsafe { MmapOptions::new().map_mut(file) }
 	}
 
 	/// Doubles capacity until min_capacity is reached.
@@ -78,7 +82,7 @@ impl NodeArena {
 	fn remap(&mut self, new_capacity: NonZeroUsize) -> io::Result<()> {
 		assert!(new_capacity.get() >= self.len);
 		self.mmap.flush()?;
-		self.mmap = Self::map_file(&mut self.file, new_capacity)?;
+		self.mmap = Self::map_file(&self.file, new_capacity)?;
 		self.capacity = new_capacity;
 		Ok(())
 	}
@@ -282,6 +286,20 @@ mod tests {
 		assert_eq!(arena.len(), 2);
 		assert_eq!(arena.get(id1).unwrap().name(), "file1.txt");
 		assert_eq!(arena.get(id2).unwrap().name(), "file2.txt");
+	}
+
+	#[cfg(unix)]
+	#[test]
+	fn test_backing_file_has_no_name() {
+		use std::os::unix::fs::MetadataExt;
+
+		let arena = NodeArena::new().expect("failed to create arena");
+		let links = arena
+			.file
+			.metadata()
+			.expect("backing file metadata")
+			.nlink();
+		assert_eq!(links, 0, "a named backing file outlives a killed daemon");
 	}
 
 	#[test]
