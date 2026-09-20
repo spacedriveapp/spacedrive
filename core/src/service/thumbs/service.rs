@@ -47,7 +47,7 @@ const COMPLETION_FLUSH: Duration = Duration::from_millis(100);
 const COMPLETION_BATCH: usize = 256;
 
 /// Bump when the tile recipe changes, independently of the source file.
-const THUMBNAIL_RECIPE: u64 = 1;
+const THUMBNAIL_RECIPE: u64 = 2;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
 #[serde(rename_all = "snake_case")]

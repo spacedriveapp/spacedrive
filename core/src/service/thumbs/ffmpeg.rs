@@ -28,14 +28,23 @@ impl Producer for HostFfmpegProducer {
 			return Err(Decline::Unavailable);
 		}
 
+		// Scale before selecting. `thumbnail` holds a window of frames to pick a
+		// representative one from, and at source resolution that window is the
+		// whole cost of the run: 4264x2408 ProRes peaks at 1,290 MB, against
+		// 233 MB for the same frame chosen from scaled input.
 		let filter = format!(
-			"thumbnail=30,scale={tile_size}:{tile_size}:force_original_aspect_ratio=decrease"
+			"scale={tile_size}:{tile_size}:force_original_aspect_ratio=decrease,thumbnail=30"
 		);
 		let args = vec![
 			"-hide_banner".into(),
 			"-loglevel".into(),
 			"error".into(),
 			"-nostdin".into(),
+			// One frame is wanted, and the caller already runs a batch of these
+			// at once, so parallelism belongs across files rather than inside a
+			// single decode.
+			"-threads".into(),
+			"1".into(),
 			"-i".into(),
 			item.path.as_os_str().to_owned(),
 			"-map".into(),
