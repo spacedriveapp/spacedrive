@@ -47,8 +47,9 @@ started, and its WAL stayed empty. Times are America/Vancouver.
   by 00:49, while `data.db` stayed untouched.
 - Cost per round. The owner runs `VACUUM INTO` over the 766 MB store and
   streams the 736 MB result at about 1.5 MB/s, 6 to 9 minutes. Titan then
-  rebuilds a 1.88M-entry arena from it in about 57 minutes on one core. A
-  round ran about 64 minutes end to end.
+  rebuilt a 1.76M-entry arena from it in about 57 minutes on one core, which
+  was a file type registry rebuilt per row and is fixed below. A round ran
+  about 64 minutes end to end.
 - Loop. The generation is stamped when the export starts. A pool drain
   anywhere in that hour made the replica stale on arrival, and the next
   30-second pass started another round.
@@ -189,8 +190,14 @@ that point is told to take a full copy.
 
 ### Bootstrap
 
-Profile `arena_from_database` before relying on it: 57 minutes on one core for
-1.88M entries is far more than paging 2,000 rows at a time should cost.
+`arena_from_database` was the hour, and none of it was the database.
+`Arena::add_entry` built a `FileTypeRegistry` per call, and building one
+parses every built-in definition: 92 KB of TOML, 15 files, 349 types, about
+3 ms. The SQL underneath costs 3 seconds for all 1.76M rows, and one 2,000
+row page is 7 ms against an optimal plan. Fixed 2026-09-19 by building the
+registry once for the process: 20,000 inserts went from 60 s to 143 ms, so
+the whole rebuild lands near 13 s in a debug build.
+`core/tests/arena_insert_cost.rs` holds the budget.
 
 Remove the snapshot fallback for nested sources. Both sides run this protocol,
 and a snapshot replica's generation can never match a database listing.

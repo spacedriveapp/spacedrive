@@ -60,6 +60,16 @@ pub struct FileTypeRegistry {
 
 impl FileTypeRegistry {
 	/// Create a new registry with built-in types
+	/// The built-in registry, built once for the process.
+	///
+	/// Building one parses every built-in definition. That is affordable once
+	/// and not once per entry: an arena rebuilt from a delivered database adds
+	/// more than a million rows one at a time.
+	pub fn builtin() -> &'static Self {
+		static BUILTIN: std::sync::OnceLock<FileTypeRegistry> = std::sync::OnceLock::new();
+		BUILTIN.get_or_init(Self::new)
+	}
+
 	pub fn new() -> Self {
 		let mut registry = Self {
 			types: HashMap::new(),

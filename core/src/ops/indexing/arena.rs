@@ -291,8 +291,7 @@ impl Arena {
 		uuid: Uuid,
 		metadata: EntryMetadata,
 	) -> std::io::Result<(Option<ContentKind>, Uuid)> {
-		let registry = FileTypeRegistry::default();
-		self.add_entry_with_registry(path, Some(uuid), metadata, &registry)
+		self.add_entry_with_registry(path, Some(uuid), metadata, FileTypeRegistry::builtin())
 	}
 
 	fn add_entry_with_registry(
@@ -453,11 +452,13 @@ impl Arena {
 	) -> std::io::Result<Vec<(Option<ContentKind>, Uuid)>> {
 		let mut results = Vec::with_capacity(entries.len());
 
-		// Create registry once for entire batch instead of per-file
-		let registry = FileTypeRegistry::default();
-
 		for (path, uuid, metadata) in entries {
-			results.push(self.add_entry_with_registry(path, uuid, metadata, &registry)?);
+			results.push(self.add_entry_with_registry(
+				path,
+				uuid,
+				metadata,
+				FileTypeRegistry::builtin(),
+			)?);
 		}
 
 		Ok(results)
