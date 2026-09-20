@@ -728,14 +728,35 @@ fn producer_chain(external_tools: Arc<ExternalTools>) -> Vec<Box<dyn Producer>> 
 	chain
 }
 
+/// What one worker may need while a decode is in flight. A 4K video frame and
+/// the decoder's reference frames fit inside this; an image is far smaller.
+const DECODE_BUDGET: u64 = 1024 * 1024 * 1024;
+
 /// Decode workers: leave headroom for the daemon's own work and the client's
 /// frame loop.
+///
+/// Cores alone are the wrong bound on a host whose memory is already spoken
+/// for. A NAS running ZFS gives its ARC nearly all of RAM and frees it only
+/// under pressure, so a twelve thread box can hold under two gigabytes free;
+/// eight decodes bursting at once there get the daemon killed rather than
+/// slowed. Whichever of the two bounds is smaller wins.
 fn bake_workers() -> usize {
-	std::thread::available_parallelism()
+	let cores = std::thread::available_parallelism()
 		.map(|n| n.get())
 		.unwrap_or(4)
-		.saturating_sub(2)
-		.clamp(2, 8)
+		.saturating_sub(2);
+	cores.min(available_decode_workers()).clamp(2, 8)
+}
+
+/// How many concurrent decodes the memory free right now would cover.
+fn available_decode_workers() -> usize {
+	use sysinfo::{MemoryRefreshKind, RefreshKind, System};
+
+	let mut system = System::new_with_specifics(
+		RefreshKind::new().with_memory(MemoryRefreshKind::new().with_ram()),
+	);
+	system.refresh_memory();
+	usize::try_from(system.available_memory() / DECODE_BUDGET).unwrap_or(usize::MAX)
 }
 
 fn thumbstrip_workers() -> usize {
