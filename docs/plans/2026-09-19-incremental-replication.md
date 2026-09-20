@@ -195,9 +195,19 @@ that point is told to take a full copy.
 parses every built-in definition: 92 KB of TOML, 15 files, 349 types, about
 3 ms. The SQL underneath costs 3 seconds for all 1.76M rows, and one 2,000
 row page is 7 ms against an optimal plan. Fixed 2026-09-19 by building the
-registry once for the process: 20,000 inserts went from 60 s to 143 ms, so
-the whole rebuild lands near 13 s in a debug build.
+registry once for the process: 20,000 inserts went from 60 s to 143 ms.
 `core/tests/arena_insert_cost.rs` holds the budget.
+
+Measured on titan, restoring the same 1,759,768-record replica from disk at
+startup:
+
+| build | restore | fetch of the same file |
+|---|---|---|
+| before | 56 min 2 s | 60 min 15 s, of which 3 min 41 s was the download |
+| after | 19.3 s | 8 min 10 s, of which 20 s was the rebuild |
+
+The two rebuilds ran concurrently in the before column and shared one core,
+so each figure covers the other's contention.
 
 Remove the snapshot fallback for nested sources. Both sides run this protocol,
 and a snapshot replica's generation can never match a database listing.
@@ -213,6 +223,12 @@ arena, which for a database replica is the same rebuild that takes about an
 hour at this size. It also inserts the manifest into the known set only after
 that loop. The first sync pass runs 30 seconds after the peer connects, finds
 no share for the source, and never reaches `transfer_due`, so it fetches.
+
+A faster rebuild narrows the window without closing it. Restarting titan again
+at 07:12:46 on 2026-09-20, with the registry fix deployed, the restore
+finished at 07:13:06 and the fetch had already started at 07:12:56: ten
+seconds short. The sync pass fires about ten seconds after the peer connects,
+and the restore cannot beat that at any size worth replicating.
 
 The persisted generation has to be visible to the transfer decision before the
 artifact finishes loading: read manifests into the known set first, and let a
