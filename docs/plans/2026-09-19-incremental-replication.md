@@ -104,11 +104,20 @@ That trade is decision 1 below.
 Live: the Mac restarted on this build at 00:49, and its home store was
 tracked at 00:50 with store id `01a0b8a5…` and revision 0. Round 5 was the
 one-time switch from file generations to revision generations, published at
-01:55. In the twelve minutes after it titan made no transfer, across a
-checkpoint that moved `data.db`'s mtime at 01:55 and a restart of the Mac's
-daemon at 02:02 that closed every pool. Titan's sync passes kept finding the
-replica current. Two probe files created in the home folder did not reach its
-store within a minute, which matches `data.db` going unwritten since 20:22.
+01:55. In the 19.5 hours after it, to 21:26, titan transferred nothing at all:
+no database copies and no snapshot copies, across a checkpoint that moved
+`data.db`'s mtime at 01:55 and a restart of the Mac's daemon at 02:02 that
+closed every pool. Its manifest kept refreshing the owner's facts without a
+transfer. The same window on the old scheme would have cost about 18 rounds.
+Two probe files created in the home folder did not reach its store within a
+minute, which matches `data.db` going unwritten since 20:22.
+
+Titan was deployed onto this build at 21:34 the same day, with `bin/ffmpeg`
+and `bin/ffprobe` (n8.1.2, from the CCTV remux tools) and the two path
+variables in its start command, so video tiles bake there: a forced tile on a
+CCTV clip spawned `bin/ffmpeg` with the 384px thumbnail filter and reported
+one generated. Its stores read as untracked until a writer opens them, which
+is stable and costs nothing.
 
 ## Target shape
 
@@ -186,6 +195,26 @@ Profile `arena_from_database` before relying on it: 57 minutes on one core for
 Remove the snapshot fallback for nested sources. Both sides run this protocol,
 and a snapshot replica's generation can never match a database listing.
 
+### A restart must not re-copy what the replica already has
+
+Restarting titan at 21:34 on 2026-09-19 cost a full 736 MB copy of the Mac's
+unchanged home source, finishing at 21:38, followed by the hour-long rebuild.
+The manifest held the right generation the whole time.
+
+`restore_from` publishes a share only after `restore_artifact` rebuilds its
+arena, which for a database replica is the same rebuild that takes about an
+hour at this size. It also inserts the manifest into the known set only after
+that loop. The first sync pass runs 30 seconds after the peer connects, finds
+no share for the source, and never reaches `transfer_due`, so it fetches.
+
+The persisted generation has to be visible to the transfer decision before the
+artifact finishes loading: read manifests into the known set first, and let a
+source with a known generation and an unfinished restore report itself as
+current-but-loading rather than as absent. R3 already asks for this in
+`2026-09-15-source-runtime-reliability.md` ("offline restart preserves
+inventory; unchanged generations do not reload"), and the proof there needs a
+case that restarts a replica holding a large database.
+
 ### Cleanup
 
 This executes R3's "clean up failed temporary transfers".
@@ -209,7 +238,7 @@ pacing.
 | Phase | Scope | Exit proof |
 |---|---|---|
 | P0 | Store revision; nested generations from it | Landed. An unchanged source transfers nothing across a pool drain; see Acceptance |
-| P1 | Transfer cleanup | Killing either daemon mid-transfer leaves no export or temporary file after restart |
+| P1 | Transfer cleanup, and a restart that keeps what it has | Killing either daemon mid-transfer leaves no export or temporary file after restart. Restarting a replica with an unchanged owner transfers nothing |
 | P2 | Row stamps, tombstones and `changes_since` in the store | Property test: after random walker batches, adapter upserts, renames, removals and tag writes, applying `changes_since(n)` to a copy taken at `n` equals a fresh copy. Identical re-puts produce no changes. Write cost reported against the scale test |
 | P3 | `FetchChanges` and replica database apply | A one-file change on the Mac reaches titan's replica database within one refresh interval, with bytes proportional to the change. An owner restart transfers nothing. A recreated store and a replica behind compaction each take exactly one full copy |
 | P4 | Arena apply and bootstrap profiling | A delta updates titan's arena in time proportional to the delta, and the result matches an arena rebuilt from the replica database. Bootstrap time measured and bounded |
