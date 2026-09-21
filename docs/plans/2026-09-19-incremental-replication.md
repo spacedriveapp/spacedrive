@@ -2,13 +2,14 @@
 
 > Status: proposal. P0 landed 2026-09-19.
 > Captured: 2026-09-19
-> Owns: delta replication, registered as a follow-on of R6 in
-> `2026-09-15-source-runtime-reliability.md`
+> Owns: delta replication and tiles for a replica, registered as a follow-on
+> of R6 in `2026-09-15-source-runtime-reliability.md`
 > Register: `PROJECT_STATUS.md`
 > Companions: `docs/core/design/mounts.md` (replication by generation),
 > `2026-09-15-source-runtime-reliability.md` (R3 generations, R6 database
 > delivery), `docs/core/design/source-durability.md` (what sync needs from
-> stores), `crates/store/src/revision.rs` (the store revision)
+> stores), `crates/store/src/revision.rs` (the store revision),
+> `2026-09-08-locations-demoted.md` (L5, the durable sidecar tier)
 
 ## Outcome
 
@@ -17,6 +18,9 @@ replica's revision. It copies a whole store only to start, or when it has
 fallen further behind than the owner keeps changes for. A one-file change
 costs a one-file transfer and a one-file update to the replica's arena. An
 unchanged source costs one listing request.
+
+The same replica draws thumbnails for files it has never read, from tiles its
+owner already baked.
 
 ## Why
 
@@ -256,6 +260,67 @@ store replication as well. That is R6's registered follow-on "database
 delivery for non-nested sources", and it retires snapshot replication and its
 pacing.
 
+### Tiles a replica did not bake
+
+A replica carries the index alone. Titan holds 99,137 tiles for its own
+sources; the Mac's copy of titan is eight arena snapshots and one database,
+and the Mac's own caches cover only the Mac's volumes. Browsing titan from the
+Mac draws no thumbnails, and generating more on titan never changes that.
+
+The cache is machine-local by construction. `ThumbRequestAction` answers with
+a `cache_path` the client maps read-only and copies pixels out of, and a local
+path is the whole reason tiles stay where they were baked. That contract does
+not have to change: if the daemon fills a local cache file for the remote
+volume, the same `cache_path` and `TileIdentity` answer works and the client
+is none the wiser.
+
+**Where a remote tile lands.** Caches are keyed by volume, and a volume id is
+derived from the volume rather than from the host that mounted it, so it names
+the same volume on every device. `RemoteSourceInfo.volume_uuid` already
+carries it. A receiver writes remote tiles to `volumes/<owner's volume
+id>/thumbs.pvcache`, beside its own, under the existing layout.
+
+**Identity already lines up.** A tile is keyed by record uuid and a content
+version, and a replica holds the owner's uuids because it is a copy of the
+owner's database. Both sides name a tile the same way with nothing new to
+agree on.
+
+The version is the one thing to get right. `thumbnail_version` folds in
+whether the baking host had FFmpeg, so a receiver that computes its own
+version for a file it cannot read disagrees with the owner and reads every
+remote tile as stale. The owner's version travels with the tile and the
+replica stores it as given. A replica never derives a version for a file it
+cannot open.
+
+**Protocol.** `FetchTile { source_id, uuid, version }`, appended after the
+existing variants so their wire indices hold. The owner answers from its own
+cache through `PvcacheReader::get`: a header carrying the frame and the
+version it actually holds, then pixels. `TileState::Absent` answers absent,
+and the owner may bake on demand before answering.
+
+Raw pixels are the wrong wire format. A 384 px slot is 576 KB of BGRA, against
+tens of KB encoded. Send WebP, which `core` already depends on, and decode on
+receipt; the receiver writes BGRA into its cache, so the client's mmap path is
+untouched.
+
+**Requesting.** `ThumbRequestInput` takes `SdPath`, which can already name
+another device. A path under a replica resolves through `remote_share` to the
+owning device, and the request enqueues a fetch rather than a bake. Completion
+is the `Thumbnail` event clients already listen for. Draw order is request
+order, so a viewport is served before its prefetch margin, and an owner that
+is offline answers absent rather than stalling the batch.
+
+**What it does not give you.** All of this is cache. Tiles vanish with a cache
+wipe, and nothing is available while the owner is asleep. L5 in
+`2026-09-08-locations-demoted.md` is the durable tier: content-addressed files
+scoped to the source, which replicate with the source and serve every
+duplicate of a file from one tile. That is what a library holding thumbnails
+for a whole NAS actually rests on.
+
+Fetch comes first because it needs no durable tier and answers the case in
+front of us. When sidecars land, the fetch becomes the fallback for what no
+sidecar covers.
+
 ## Phases
 
 | Phase | Scope | Exit proof |
@@ -266,6 +331,8 @@ pacing.
 | P3 | `FetchChanges` and replica database apply | A one-file change on the Mac reaches titan's replica database within one refresh interval, with bytes proportional to the change. An owner restart transfers nothing. A recreated store and a replica behind compaction each take exactly one full copy |
 | P4 | Arena apply and bootstrap profiling | A delta updates titan's arena in time proportional to the delta, and the result matches an arena rebuilt from the replica database. Bootstrap time measured and bounded |
 | P5 | Volume-root sources onto store replication | No replication path reads file metadata as a version |
+| P6 | `FetchTile`, and remote tiles into a local cache | Browsing titan from the Mac draws thumbnails for files the Mac has never read. An offline owner draws no tile and blocks nothing. Fetched tiles survive a restart on both sides |
+| P7 | Sidecars carry tiles with the source, after L5 | A replica draws tiles for an owner that is asleep, and a cache wipe on either side costs no rebake |
 
 ## Acceptance
 
@@ -283,6 +350,9 @@ copies and apply time, the counters R3 asks for.
    every known replica acknowledges a revision.
 3. Whether adapter sources replicate to peers. Today only filesystem sources
    are listed.
+4. Whether a remote volume's tile cache is capped and evicted, or left to
+   grow. Titan's own tiles are 21 GB across 99,137 slots, and a replica that
+   fetches everything it ever drew converges on the same order.
 
 ## Relationship to sync
 
