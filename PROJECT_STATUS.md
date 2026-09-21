@@ -44,6 +44,37 @@ Physical-drive identity remains separate from product recognition and visuals.
 
 ## Immediate register
 
+File System Intelligence is a flagship priority identified by James (Codex,
+September 18). The product boundary now names persistent file and folder
+understanding as a first-class user benefit, with optional cloud acceleration.
+The adjacent website's `RELEASE_DIRECTION.md` records a positioning and demo
+proposal: understand an unfamiliar drive, find by meaning, retain user context
+and keep the saved understanding when disconnected. James chose the name
+File System Intelligence and asked to retain the original website hero. Final
+copy and supported release scope remain for review. Website presentation is
+implemented on the adjacent `beta-release-direction` branch: `/intelligence`, a homepage
+section and an interactive sample-drive walkthrough. TypeScript, the production
+build and browser interaction checks pass, including mobile layouts and the
+restored original hero. No intelligence runtime changed.
+
+Website release direction is captured in the adjacent `spacedrive-web`
+repo (Codex, September 17). James's existing rebuild is committed as `74ebe73`
+on the new `beta-release-direction` branch. A stand-in 2.0 Beta blog post and
+`RELEASE_DIRECTION.md` carry the agreed model commitment into the planned
+redesign. The production build passes; HTTP checks verify local draft rendering
+and a production 404, with no draft in the blog index or static routes. The
+site's false stable-v1 label is corrected. This work does not publish the site
+or change core runtime code.
+
+Release identity agreed with James (Codex, September 17): the target is
+Spacedrive 2.0 Beta. The alpha period established the direction; beta commits
+to the source/library data model and preserving supported beta libraries as
+schemas evolve. Keep the 2.0 generation and explain the skipped stable 1.0 and
+the rewrite honestly in the launch post. The README and release policy now
+name the beta target; `docs/plans/2026-09-17-beta-launch.md` records the rationale
+and draft launch wording. This is a release goal, not a claim that the gates
+have passed. No package versions, tags, builds or published releases changed.
+
 Alternate shell composition is implemented (Codex, 2026-09-15, uncommitted).
 Inset content is the default; Settings > Appearance > Layout retains Floating
 panels. The sidebar footer restores circular Activity and Settings controls,
@@ -80,6 +111,11 @@ chooses whether the source store lives in the Spacedrive data folder or on the
 source under `.spacedrive`. `docs/plans/2026-09-16-add-to-library.md` records the
 decision and proposed offline-copy, storage-resolution and setup behavior.
 Implementation and the proposed defaults remain for review.
+
+Remote catalog access is agreed: the source's Spacedrive instance opens the
+store and serves or replicates it through Spacedrive. A client opens only its
+local replica, never the remote live SQLite file through a network mount.
+Store placement does not change this access contract.
 
 Add to Library implementation research is recorded in that plan (Codex,
 September 16), through `3d8c44394` plus identified uncommitted database-export

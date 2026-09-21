@@ -1,11 +1,11 @@
 ---
 title: Releases
-description: Versioning, build artifacts, and the stable release gate
+description: The 2.0 beta commitment, versioning, build artifacts, and release gates
 sidebarTitle: Releases
 ---
 
 <Callout>
-  **Spacedrive 2.0 releases October 1, 2026.**
+  **Spacedrive 2.0 Beta is planned for October 1, 2026.**
 
   Release artifacts remain drafts until the cross-platform and destructive
   operation gates on this page pass.
@@ -14,10 +14,24 @@ sidebarTitle: Releases
 Spacedrive uses semantic versions and signed GitHub release artifacts.
 
 ~~~text
+2.0.0-beta.1   first beta
+2.0.0-beta.2   subsequent beta
 2.0.0          stable
-2.1.0-beta.1   prerelease
-2.1.0          next stable minor
 ~~~
+
+## What beta means
+
+Spacedrive 2.0 Beta is the next public milestone. It marks a commitment to the
+source and library data model after the alpha period established the product's
+direction. Supported beta data must survive later upgrades through tested
+migrations. The schema can evolve while preserving the libraries people build.
+The current alpha transition remains a breaking release; beta does not require
+backwards compatibility with retired location models.
+
+The launch post must explain this commitment and the version history. See the
+[beta launch brief](../plans/2026-09-17-beta-launch.md) for the agreed narrative
+and proposed announcement text. Passing the gates below earns the beta label;
+the target date alone does not.
 
 ## Release principle
 
@@ -31,15 +45,15 @@ The repository task updates package versions, creates the version commit, and
 tags it:
 
 ~~~bash
-cargo xtask bump 2.0.0
+cargo xtask bump 2.0.0-beta.1
 ~~~
 
 Inspect the resulting diff and tag before pushing:
 
 ~~~bash
-git show --stat v2.0.0
+git show --stat v2.0.0-beta.1
 git push origin main
-git push origin v2.0.0
+git push origin v2.0.0-beta.1
 ~~~
 
 Pushing the tag starts release builds. It does not by itself publish a stable
@@ -94,7 +108,7 @@ explicit version tag.
 
 ### Product
 
-- A new user can create a library and track a source.
+- A new user can create a library and include content through Add to Library.
 - Two devices can pair without a hosted account.
 - A client can query, stream, mount, and operate an authorized remote source.
 - Source and library state remain understandable while an origin is offline.
@@ -106,7 +120,7 @@ explicit version tag.
 Before publishing:
 
 1. Install clean artifacts on every platform.
-2. Upgrade a copy of real prior-version state.
+2. Exercise each supported upgrade path on copies of real prior-version state.
 3. Index and verify a real large source.
 4. Interrupt jobs and daemons during writes.
 5. Pair devices across local and relayed paths.

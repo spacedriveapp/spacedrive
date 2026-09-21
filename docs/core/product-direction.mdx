@@ -95,9 +95,17 @@ A source has an origin, an ingest, and a store. A local directory, NAS dataset,
 S3 bucket, photo library, and remote node differ in how observations arrive.
 They write one record shape and use one operation surface.
 
-The source store travels when the source travels. Its generated index can be
-refreshed while the origin answers. Human and software assertions cannot be
-reconstructed, so they remain durable.
+The user chooses whether the source store lives in the Spacedrive data folder
+or on the source itself under `.spacedrive`. An on-source store travels with
+that source. Its generated index can be refreshed while the origin answers.
+Human and software assertions cannot be reconstructed, so they remain durable.
+
+Add to Library is the common inclusion flow. Adding a filesystem folder also
+tracks its containing volume in the library; adding the whole volume uses the
+same flow with a larger scope. The setup modal shows configurable defaults and
+allows overrides, including store placement. See the
+[Add to Library plan](../plans/2026-09-16-add-to-library.md) for the agreed UX
+and proposed implementation details.
 
 ### A living and historical index
 
@@ -144,6 +152,24 @@ and change history are filesystem primitives. They work across providers and
 offline records. Physical topology matters. Two paths on one pool are not two
 independent copies.
 
+### File System Intelligence
+
+File System Intelligence is a flagship product direction. It helps a person make
+sense of what they have collected across drives, devices and clouds. File
+extraction, directory summaries and user-authored context contribute to an
+understanding that persists with the library. The file manager should expose
+that value through browsing, search and inspection, alongside the API used by
+authorized tools.
+
+Keep the provenance of an observation, model interpretation or user correction
+visible. Preserve useful context when a drive disconnects, while showing that
+the original is unavailable and when it was last observed. Understanding a
+folder does not authorize reorganizing it. Suggested changes follow the same
+preview, permission and verification contract as other file operations.
+
+Local execution is part of this capability. Cloud can add processing capacity,
+and returned results remain useful after a subscription ends.
+
 ## One API for people and agents
 
 AI has two distinct roles here. External AI makes automated attack and data
@@ -185,6 +211,24 @@ another through the same API.
 Small library state and irreplaceable assertions synchronize between authorized
 peers. Source generations follow their ingest authority. File sync remains an
 explicit policy because moving bytes changes storage cost and protection.
+
+## Optional cloud services
+
+Cloud services are optional and extend the same operation model. Local backups
+stay central to the experience. Encrypted cloud backup adds offsite recovery,
+and a cloud copy is not permission to remove local copies.
+
+Cloud jobs run supported work, such as encoding, classification, OCR and
+transcription, on provisioned workers with explicit input scope, output
+destinations, data-access permission and spending limits. Provisioning a worker
+does not grant it access to the whole library. External agents request that
+work through the same API.
+
+Results and derivatives belong in the user's stores and remain usable after a
+subscription ends. Client-encrypted backup and cloud processing have different
+access requirements: a processing worker must read the inputs it handles, so
+that choice stays visible. Backup, sharing and jobs do not require a dedicated
+hosted instance.
 
 ## Extensions carry the long tail
 
@@ -259,6 +303,12 @@ This gives the interface one plain-language rule: **Places are where you go.
 Sources are how Spacedrive knows about the data.**
 
 ## The release standard
+
+The next public milestone is Spacedrive 2.0 Beta. Beta commits to the data model
+and product direction established during alpha. Future schema changes must
+preserve supported beta libraries through tested upgrades. The launch should
+make this commitment explicit; see the [release policy](releases.mdx) and
+[launch brief](../plans/2026-09-17-beta-launch.md).
 
 The stable release favors a smaller system that works over a wide system held
 together by hidden assumptions.

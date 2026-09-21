@@ -21,6 +21,12 @@ location rows, preserve location IDs, recover old location job settings, or add
 compatibility wrappers for location APIs. Remove the location model and update
 current callers directly to Space items, sources and policies.
 
+The September 16 [Add to Library decision](2026-09-16-add-to-library.md) owns
+source setup UX. Use one modal with configurable defaults and overrides,
+including storage in the Spacedrive data folder or on the source itself.
+Adding a filesystem scope also tracks its containing volume. Processing can be
+configured during this flow without requiring a second source or a location.
+
 ## Current code and documented direction
 
 Locations survive as named, source-relative navigation pins in the library
@@ -353,8 +359,9 @@ dispatch and retains completed output unless deletion is explicitly requested.
   cannot grant access through another library's source registration.
 - Configuring a NAS scope from the Mac converges through the library agreement
   and runs only on the selected executor. Unknown job kinds stay unavailable.
-- Source setup creates sources; processing configuration and navigation are
-  independent follow-up actions. No policy creates another watcher or index.
+- Add to Library creates or reuses sources and tracks the containing volume.
+  Processing can be configured in its modal or later; navigation remains
+  independent. No policy creates another watcher or index.
 - The current clients work without location entities, operation registrations,
   generated types or Space item variants. No location migration or compatibility
   layer is introduced. New bookmarks and policies use their own contracts.

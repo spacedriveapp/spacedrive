@@ -30,12 +30,13 @@
 ---
 
 > [!IMPORTANT]
-> **Spacedrive 2.0 arrives October 1, 2026.**
+> **Spacedrive 2.0 Beta is planned for October 1, 2026.**
 >
-> The new release makes self-owned storage practical across your devices. It
-> brings portable source indexes, private remote access, mounts, history,
+> Beta marks our commitment to Spacedrive's data model and to preserving your
+> library as it evolves. The release makes self-owned storage practical across
+> your devices. It brings portable source indexes, private remote access, mounts, history,
 > extensions, and one API for people and software.
-> [Download Spacedrive 2.0](https://github.com/spacedriveapp/spacedrive/releases).
+> [Current builds](https://github.com/spacedriveapp/spacedrive/releases).
 
 Spacedrive is open personal data infrastructure. It turns the storage you
 control into one private filesystem across your devices, drives, servers, and
