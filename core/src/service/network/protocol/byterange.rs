@@ -8,7 +8,9 @@
 //! carry no session state, and cancelling an in-flight read is dropping the
 //! stream. Framing is `[u32 BE length][rmp_serde message]`; `Read` and
 //! `FetchSnapshot` responses are followed by exactly `len` raw bytes on the
-//! same stream so payloads are never re-encoded through msgpack.
+//! same stream so payloads are never re-encoded through msgpack. `FetchTiles`
+//! is the one request answered by many frames: one `Tile` per ask, each with
+//! its bytes behind it, in the order the owner finishes them.
 
 use crate::context::CoreContext;
 use crate::device::DeviceConfig;
@@ -17,6 +19,7 @@ use crate::domain::volume::{DiskType, FileSystem, Volume, VolumeFingerprint, Vol
 use crate::service::network::device::registry::DeviceRegistry;
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use futures::stream::{FuturesUnordered, StreamExt};
 use iroh::EndpointId;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
@@ -34,7 +37,12 @@ pub const MAX_READ_LEN: u64 = 8 * 1024 * 1024;
 pub const MAX_SNAPSHOT_LEN: u64 = 8 * 1024 * 1024 * 1024;
 /// Cap on the encoded request frame — requests are tiny; anything larger is
 /// malformed or hostile.
-const MAX_REQUEST_FRAME: u32 = 64 * 1024;
+pub const MAX_REQUEST_FRAME: u32 = 64 * 1024;
+/// Largest encoded tile either side will transfer. No encoding of a tile
+/// outgrows its raw envelope, so a length past this is a corrupt header or a
+/// hostile peer.
+pub const MAX_TILE_LEN: u64 =
+	crate::service::thumbs::TILE as u64 * crate::service::thumbs::TILE as u64 * 4;
 
 pub const BYTERANGE_PROTOCOL_NAME: &str = "byterange";
 
@@ -64,6 +72,39 @@ pub enum ByteRangeRequest {
 	/// What the serving device publishes about itself: its hardware and the
 	/// volumes it has mounted.
 	DeviceFacts,
+	/// Thumbnail tiles for files under the serving device's sources, for a
+	/// replica that lists those files but cannot read them to bake its own.
+	FetchTiles { tiles: Vec<TileAsk> },
+}
+
+/// One file whose tile a replica wants.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TileAsk {
+	pub path: PathBuf,
+	/// The tile version the asker already holds, or zero when it holds none,
+	/// so an unchanged tile costs a header instead of its pixels.
+	pub held: u64,
+}
+
+/// What the serving device has for one [`TileAsk`].
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum TileAnswer {
+	/// The asker's version is the current one.
+	Current,
+	/// A newer tile: `len` bytes of WebP follow the frame, a
+	/// `content_width` by `content_height` image baked from a `source_width`
+	/// by `source_height` file.
+	Tile {
+		version: u64,
+		content_width: u32,
+		content_height: u32,
+		source_width: u32,
+		source_height: u32,
+		len: u64,
+	},
+	/// No tile: the path is outside every attached source, or nothing on the
+	/// serving device can decode the file.
+	Missing,
 }
 
 /// One device's own accounting of what it holds, computed by the same
@@ -283,6 +324,11 @@ pub enum ByteRangeResponse {
 		checksum: [u8; 32],
 	},
 	DeviceFacts(RemoteDeviceFacts),
+	/// The answer to `FetchTiles` ask number `index`.
+	Tile {
+		index: u32,
+		answer: TileAnswer,
+	},
 }
 
 pub async fn write_frame<W, T>(stream: &mut W, msg: &T) -> anyhow::Result<()>
@@ -341,6 +387,47 @@ impl ByteRangeProtocolHandler {
 		} else {
 			Err("path is not under an attached registered source".into())
 		}
+	}
+
+	/// Answer every ask on one stream, each as soon as its tile is ready
+	/// rather than in the order asked, so a slow video bake holds back only
+	/// its own answer. An ask outside the attached sources is answered
+	/// `Missing` like any file without a tile, so one bad path cannot fail
+	/// the rest.
+	async fn serve_tiles<W: AsyncWrite + Send + Unpin>(
+		&self,
+		asks: Vec<TileAsk>,
+		send: &mut W,
+	) -> anyhow::Result<()> {
+		let total = asks.len();
+		let mut answers: FuturesUnordered<_> = asks
+			.into_iter()
+			.enumerate()
+			.map(|(index, ask)| {
+				let authorized = self.authorize_path(&ask.path).is_ok();
+				let thumbs = self.context.thumbs.clone();
+				async move {
+					let answer = if authorized {
+						crate::service::thumbs::remote::answer(&thumbs, ask, index, total).await
+					} else {
+						(TileAnswer::Missing, Vec::new())
+					};
+					(index, answer)
+				}
+			})
+			.collect();
+		while let Some((index, (answer, bytes))) = answers.next().await {
+			write_frame(
+				send,
+				&ByteRangeResponse::Tile {
+					index: index as u32,
+					answer,
+				},
+			)
+			.await?;
+			send.write_all(&bytes).await?;
+		}
+		Ok(())
 	}
 
 	async fn respond<W: AsyncWrite + Send + Unpin>(
@@ -407,6 +494,7 @@ impl ByteRangeProtocolHandler {
 				}
 				Ok(())
 			}
+			ByteRangeRequest::FetchTiles { tiles } => self.serve_tiles(tiles, send).await,
 			ByteRangeRequest::ListSources => {
 				let cache = self.context.volume_index();
 				let mut sources = Vec::new();

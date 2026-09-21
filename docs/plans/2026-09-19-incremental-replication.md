@@ -1,6 +1,6 @@
 # Incremental Replication
 
-> Status: proposal. P0 landed 2026-09-19.
+> Status: proposal. P0 landed 2026-09-19, P6 on 2026-09-21.
 > Captured: 2026-09-19
 > Owns: delta replication and tiles for a replica, registered as a follow-on
 > of R6 in `2026-09-15-source-runtime-reliability.md`
@@ -280,10 +280,11 @@ the same volume on every device. `RemoteSourceInfo.volume_uuid` already
 carries it. A receiver writes remote tiles to `volumes/<owner's volume
 id>/thumbs.pvcache`, beside its own, under the existing layout.
 
-**Identity already lines up.** A tile is keyed by record uuid and a content
-version, and a replica holds the owner's uuids because it is a copy of the
-owner's database. Both sides name a tile the same way with nothing new to
-agree on.
+**Identity.** The owner resolves each ask by path, the way `Stat` and `Read`
+do, so the two sides never have to agree on a uuid. The receiver keys its copy
+by the uuid its replica knows the file by. For a store-backed source that is
+the owner's record uuid, because a walk takes uuids from the store and a
+snapshot carries them, so it survives a replica rebuild.
 
 The version is the one thing to get right. `thumbnail_version` folds in
 whether the baking host had FFmpeg, so a receiver that computes its own
@@ -292,23 +293,35 @@ remote tile as stale. The owner's version travels with the tile and the
 replica stores it as given. A replica never derives a version for a file it
 cannot open.
 
-**Protocol.** `FetchTile { source_id, uuid, version }`, appended after the
-existing variants so their wire indices hold. The owner answers from its own
-cache through `PvcacheReader::get`: a header carrying the frame and the
-version it actually holds, then pixels. `TileState::Absent` answers absent,
-and the owner may bake on demand before answering.
+**Protocol.** `FetchTiles { tiles: Vec<TileAsk { path, held }> }`, appended
+after the existing variants so their wire indices hold. `held` is the version
+the asker already has, zero for none. The owner authorizes each path like
+`Read` and answers every ask with one `Tile { index, answer }` frame, in the
+order it finishes them, so a slow video bake holds back only its own answer:
 
-Raw pixels are the wrong wire format. A 384 px slot is 576 KB of BGRA, against
-tens of KB encoded. Send WebP, which `core` already depends on, and decode on
-receipt; the receiver writes BGRA into its cache, so the client's mmap path is
-untouched.
+- `Current` when `held` is the owner's version, which costs a header.
+- `Tile { version, frame, len }` followed by `len` bytes of WebP. The owner
+  bakes the file first when its cache has no fresh tile.
+- `Missing` when the path is outside every attached source or nothing on the
+  owner decodes it.
 
-**Requesting.** `ThumbRequestInput` takes `SdPath`, which can already name
-another device. A path under a replica resolves through `remote_share` to the
-owning device, and the request enqueues a fetch rather than a bake. Completion
-is the `Thumbnail` event clients already listen for. Draw order is request
-order, so a viewport is served before its prefetch margin, and an owner that
-is offline answers absent rather than stalling the batch.
+A request carries at most 64 asks and stays under half the frame limit
+whatever the paths' lengths.
+
+Raw pixels are the wrong wire format. A 384 px slot is up to 576 KB of BGRA;
+real tiles measured 324 to 384 KB raw against 5 to 15 KB as WebP at quality
+80. The receiver decodes back to BGRA before writing, so the client's mmap
+path is untouched, and refuses a tile whose size disagrees with its header.
+
+**Requesting.** `thumbs.request` accepts a physical path on a paired device
+and resolves it through `peer::share_for`, the lookup directory listings now
+share. It answers at once with the version the receiver holds, zero when none,
+and fetches in the background. A fetched tile is announced as the `thumbnail`
+event clients already handle, carrying the owner's version, which the web
+client adopts before it re-reads. A tile asked of an owner is not asked again
+for ten minutes, because clients request every cell each time it mounts; an
+ask that fails is released at once. An owner that is offline fails fast, and
+the cell keeps whatever it had.
 
 **What it does not give you.** All of this is cache. Tiles vanish with a cache
 wipe, and nothing is available while the owner is asleep. L5 in
@@ -321,6 +334,27 @@ Fetch comes first because it needs no durable tier and answers the case in
 front of us. When sidecars land, the fetch becomes the fallback for what no
 sidecar covers.
 
+#### P6 results, 2026-09-21
+
+Titan and the Mac ran the P6 build, and the Mac asked for titan files through
+`thumbs.request` exactly as a client does.
+
+- Every ask resolved from the Mac's replicas, and the answer came back at
+  once, versions zero.
+- Steady state: eight jamie-nas photos, eight CCTV clips and two calvin-nas
+  screenshots all landed within the first one-second poll. Titan had never
+  baked calvin-nas, so those two were baked on demand inside the request.
+- The tiles are real: a 7008x4672 photo arrives as a 384x256 tile and a 4K
+  CCTV clip as a 384x216 frame, colors intact. A screenshot that arrived solid
+  black was checked against its original, which is black in every pixel.
+- A `.ubv` clip answers `Missing` and a directory resolves to nothing.
+- After a restart of the Mac's daemon, all eight CCTV asks answered at once
+  with titan's versions from the Mac's own cache.
+- The first request after both daemons restarted was slower. The six jamie-nas
+  photos landed within 20 seconds and the CCTV and calvin-nas tiles after that,
+  all correctly. Neither side logged an error, no job was running on titan,
+  and it did not recur. Watch for it on the next restart.
+
 ## Phases
 
 | Phase | Scope | Exit proof |
@@ -331,7 +365,7 @@ sidecar covers.
 | P3 | `FetchChanges` and replica database apply | A one-file change on the Mac reaches titan's replica database within one refresh interval, with bytes proportional to the change. An owner restart transfers nothing. A recreated store and a replica behind compaction each take exactly one full copy |
 | P4 | Arena apply and bootstrap profiling | A delta updates titan's arena in time proportional to the delta, and the result matches an arena rebuilt from the replica database. Bootstrap time measured and bounded |
 | P5 | Volume-root sources onto store replication | No replication path reads file metadata as a version |
-| P6 | `FetchTile`, and remote tiles into a local cache | Browsing titan from the Mac draws thumbnails for files the Mac has never read. An offline owner draws no tile and blocks nothing. Fetched tiles survive a restart on both sides |
+| P6 | `FetchTiles`, and remote tiles into a local cache | Landed; see Results. Browsing titan from the Mac draws thumbnails for files the Mac has never read. An offline owner draws no tile and blocks nothing. Fetched tiles survive a restart on both sides |
 | P7 | Sidecars carry tiles with the source, after L5 | A replica draws tiles for an owner that is asleep, and a cache wipe on either side costs no rebake |
 
 ## Acceptance

@@ -17,10 +17,15 @@
 //! file's size and mtime, the recipe revision, and video decoder availability.
 //! Completions are announced as batched `thumbnail` resource
 //! events, so a client that is showing a placeholder knows when to re-read.
+//!
+//! A file on a paired device is listed from its replica and cannot be read
+//! here, so its tile comes from the device that owns it ([`remote`]) and lands
+//! in a cache of its own beside the local ones.
 
 mod ffmpeg;
 #[cfg(target_os = "macos")]
 mod platform;
+pub mod remote;
 mod service;
 mod thumbstrip;
 

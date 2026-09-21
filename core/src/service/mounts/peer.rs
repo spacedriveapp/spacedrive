@@ -13,13 +13,14 @@ use crate::service::network::core::BYTERANGE_ALPN;
 use crate::service::network::protocol::{
 	byterange::{
 		read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, RemoteDeviceFacts,
-		MAX_READ_LEN, MAX_SNAPSHOT_LEN,
+		TileAnswer, TileAsk, MAX_READ_LEN, MAX_SNAPSHOT_LEN, MAX_TILE_LEN,
 	},
 	RemoteSourceInfo,
 };
 use bytes::Bytes;
+use futures::Stream;
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::io::AsyncReadExt;
@@ -51,6 +52,27 @@ pub async fn remote_shares() -> Vec<Arc<RemoteShare>> {
 
 pub async fn remote_share(source_id: Uuid) -> Option<Arc<RemoteShare>> {
 	shares_map().read().await.get(&source_id).cloned()
+}
+
+/// The replica that holds `path` on the device `device_slug` names. The
+/// deepest root wins, since a share at a volume's mount point also lists the
+/// files of sources nested beneath it.
+pub async fn share_for(
+	context: &Arc<CoreContext>,
+	device_slug: &str,
+	path: &Path,
+) -> Option<Arc<RemoteShare>> {
+	remote_shares()
+		.await
+		.into_iter()
+		.filter(|share| {
+			path.starts_with(&share.info.root)
+				&& context
+					.device_manager
+					.get_device_slug(share.device_id)
+					.is_some_and(|slug| slug == device_slug)
+		})
+		.max_by_key(|share| share.info.root.components().count())
 }
 
 /// Open a replica's delivered database read-only, when one is on disk. The
@@ -491,6 +513,48 @@ pub async fn read_range(
 	let mut buf = vec![0u8; expected as usize];
 	body.read_exact(&mut buf).await?;
 	Ok(Bytes::from(buf))
+}
+
+/// Ask a peer for thumbnail tiles of files under its sources. The owner
+/// answers each ask once, in the order it finishes them, so the stream yields
+/// `(ask index, answer, WebP bytes)` as they land and ends after the last.
+pub async fn fetch_tiles(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	tiles: Vec<TileAsk>,
+) -> anyhow::Result<impl Stream<Item = anyhow::Result<(usize, TileAnswer, Vec<u8>)>>> {
+	let remaining = tiles.len();
+	anyhow::ensure!(remaining > 0, "no tiles asked for");
+	let (first, body) =
+		request(context, device_id, &ByteRangeRequest::FetchTiles { tiles }).await?;
+	Ok(futures::stream::try_unfold(
+		(Some(first), body, remaining),
+		|(first, mut body, remaining)| async move {
+			if remaining == 0 {
+				return Ok(None);
+			}
+			let response = match first {
+				Some(response) => response,
+				None => read_frame(&mut body).await?,
+			};
+			let ByteRangeResponse::Tile { index, answer } = response else {
+				anyhow::bail!("unexpected response: {response:?}");
+			};
+			let bytes = match &answer {
+				TileAnswer::Tile { len, .. } => {
+					anyhow::ensure!(*len <= MAX_TILE_LEN, "tile of {len} bytes exceeds limit");
+					let mut bytes = vec![0; *len as usize];
+					body.read_exact(&mut bytes).await?;
+					bytes
+				}
+				TileAnswer::Current | TileAnswer::Missing => Vec::new(),
+			};
+			Ok(Some((
+				(index as usize, answer, bytes),
+				(None, body, remaining - 1),
+			)))
+		},
+	))
 }
 
 /// Reconnection storms and the startup sweep can request the same device

@@ -12,7 +12,7 @@ use crate::{
 	context::CoreContext,
 	domain::SdPath,
 	infra::action::{error::ActionError, CoreAction},
-	service::thumbs::{TileIdentity, TILE},
+	service::thumbs::{self, TileIdentity, TILE},
 };
 
 /// Paths in draw order. The first is the most urgent, so a client sends its
@@ -43,7 +43,16 @@ pub struct ThumbSource {
 }
 
 pub struct ThumbRequestAction {
-	paths: Vec<PathBuf>,
+	paths: Vec<TilePath>,
+}
+
+/// Where a requested tile comes from.
+enum TilePath {
+	/// A file on this device, baked here.
+	Local(PathBuf),
+	/// A file on a paired device, listed from its replica and fetched from
+	/// the device that owns it.
+	Remote { device_slug: String, path: PathBuf },
 }
 
 impl CoreAction for ThumbRequestAction {
@@ -51,22 +60,55 @@ impl CoreAction for ThumbRequestAction {
 	type Output = ThumbRequestOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
-		// A tile is baked from bytes on this machine, so only a physical path
-		// can name one. Anything else has no local file to decode.
+		// Only a physical path names a file. One on this device bakes here;
+		// one on a paired device names a file its replica lists.
 		let paths = input
 			.paths
 			.into_iter()
 			.map(|path| {
-				path.as_local_path()
-					.map(PathBuf::from)
-					.ok_or_else(|| format!("{path:?} does not name a local file"))
+				if let Some(local) = path.as_local_path() {
+					return Ok(TilePath::Local(local.to_path_buf()));
+				}
+				match path {
+					SdPath::Physical { device_slug, path } => {
+						Ok(TilePath::Remote { device_slug, path })
+					}
+					other => Err(format!("{other:?} does not name a file")),
+				}
 			})
 			.collect::<Result<Vec<_>, _>>()?;
 		Ok(Self { paths })
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {
-		let tiles = context.thumbs.request(&self.paths).await;
+		let mut local = Vec::new();
+		let mut remote = Vec::new();
+		let order: Vec<bool> = self
+			.paths
+			.into_iter()
+			.map(|path| match path {
+				TilePath::Local(path) => {
+					local.push(path);
+					true
+				}
+				TilePath::Remote { device_slug, path } => {
+					remote.push((device_slug, path));
+					false
+				}
+			})
+			.collect();
+		let mut local = context.thumbs.request(&local).await.into_iter();
+		let mut remote = thumbs::remote::request(&context, &remote).await.into_iter();
+		let tiles: Vec<Option<TileIdentity>> = order
+			.into_iter()
+			.map(|is_local| {
+				if is_local {
+					local.next().flatten()
+				} else {
+					remote.next().flatten()
+				}
+			})
+			.collect();
 
 		let mut seen = HashSet::new();
 		let sources = tiles

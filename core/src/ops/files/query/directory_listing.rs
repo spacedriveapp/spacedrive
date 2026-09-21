@@ -420,14 +420,7 @@ impl DirectoryListingQuery {
 		device_slug: &str,
 		path: &std::path::Path,
 	) -> Option<DirectoryListingOutput> {
-		let shares = crate::service::mounts::peer::remote_shares().await;
-		let share = shares.iter().find(|share| {
-			path.starts_with(&share.info.root)
-				&& context
-					.device_manager
-					.get_device_slug(share.device_id)
-					.is_some_and(|slug| slug == device_slug)
-		})?;
+		let share = crate::service::mounts::peer::share_for(context, device_slug, path).await?;
 
 		let children = { share.index.read().await.list_directory(path) }?;
 		let files = self

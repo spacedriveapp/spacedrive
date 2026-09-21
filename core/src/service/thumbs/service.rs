@@ -41,10 +41,19 @@ pub const TILE: u32 = 384;
 /// How long completions collect before they go out as one event. A folder
 /// filling at a few hundred tiles a second would otherwise put a few hundred
 /// events a second on the bus, and every client wakes for each one.
-const COMPLETION_FLUSH: Duration = Duration::from_millis(100);
+pub(super) const COMPLETION_FLUSH: Duration = Duration::from_millis(100);
 
 /// Completions per event, so a large fill still lands in bounded batches.
-const COMPLETION_BATCH: usize = 256;
+pub(super) const COMPLETION_BATCH: usize = 256;
+
+/// How long a tile asked of a peer goes unasked again. Clients request every
+/// cell each time it mounts, and without this each scroll would cost the
+/// owner a stat per file; a file changed on the owner shows its new tile
+/// within this window.
+const REMOTE_REASK: Duration = Duration::from_secs(10 * 60);
+
+/// Claims kept before expired ones are swept.
+const REMOTE_CLAIMS_RETAINED: usize = 65_536;
 
 /// Bump when the tile recipe changes, independently of the source file.
 const THUMBNAIL_RECIPE: u64 = 2;
@@ -167,6 +176,14 @@ pub struct TileIdentity {
 	pub version: u64,
 }
 
+/// A tile's pixels as a cache holds them: BGRA8 rows packed at
+/// `frame.content_width * 4` bytes, `frame.len()` bytes in all.
+pub(crate) struct TilePixels {
+	pub version: u64,
+	pub frame: Frame,
+	pub bgra: Vec<u8>,
+}
+
 /// Address and state for one volume-scoped video scrub sheet.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Type)]
 pub struct ThumbstripIdentity {
@@ -211,6 +228,12 @@ pub struct ThumbService {
 	external_tools: Arc<ExternalTools>,
 	thumbstrip_pending: Arc<Mutex<HashSet<(Uuid, Uuid, u64)>>>,
 	thumbstrip_tx: async_channel::Sender<ThumbstripWork>,
+	/// Where tiles fetched from a peer are announced, as bakes are by the
+	/// drain.
+	events: Arc<EventBus>,
+	/// When each `(cache, uuid)` was last asked of a peer. See
+	/// [`REMOTE_REASK`].
+	remote_asked: Mutex<HashMap<(Uuid, Uuid), Instant>>,
 }
 
 impl ThumbService {
@@ -246,6 +269,8 @@ impl ThumbService {
 			external_tools: external_tools.clone(),
 			thumbstrip_pending: thumbstrip_pending.clone(),
 			thumbstrip_tx,
+			events: events.clone(),
+			remote_asked: Mutex::new(HashMap::new()),
 		});
 
 		let drain = service.clone();
@@ -307,10 +332,138 @@ impl ThumbService {
 		let Some(identity) = self.thumbnail_identity(path).await else {
 			return GenerationOutcome::Failed;
 		};
+		self.bake(path, identity, 0, mode).await
+	}
+
+	/// `path`'s tile at `identity`, baked first when the cache holds none, for
+	/// a peer that cannot read the file to bake its own.
+	pub(super) async fn fresh_tile(
+		self: &Arc<Self>,
+		path: &PathBuf,
+		identity: TileIdentity,
+		priority: u32,
+	) -> Option<TilePixels> {
+		if self
+			.bake(path, identity, priority, ThumbnailGenerationMode::Stale)
+			.await == GenerationOutcome::Failed
+		{
+			return None;
+		}
+		let service = self.clone();
+		tokio::task::spawn_blocking(move || service.read_fresh(identity))
+			.await
+			.ok()?
+	}
+
+	fn read_fresh(&self, identity: TileIdentity) -> Option<TilePixels> {
+		let writer = self.writer_for(identity.source_id, self.dirs.as_ref()?)?;
+		let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
+		let mut bgra = vec![0; writer.tile_len()];
+		let Ok(TileState::Fresh { frame }) = writer.get(identity.uuid, identity.version, &mut bgra)
+		else {
+			return None;
+		};
+		bgra.truncate(frame.len());
+		Some(TilePixels {
+			version: identity.version,
+			frame,
+			bgra,
+		})
+	}
+
+	/// The version of each tile a cache holds, `None` where it holds none.
+	/// Blocks on the writers, so call it from the blocking pool.
+	pub(super) fn held_versions(&self, tiles: &[(Uuid, Uuid)]) -> Vec<Option<u64>> {
+		tiles
+			.iter()
+			.map(|&(cache_id, uuid)| {
+				let writer = self.writer_for(cache_id, self.dirs.as_ref()?)?;
+				let writer = writer.lock().unwrap_or_else(|e| e.into_inner());
+				// A lookup reports the stored version whenever it differs from
+				// the expected one, and matching it means the two are equal.
+				match writer.lookup(uuid, 0) {
+					TileState::Fresh { .. } => Some(0),
+					TileState::Stale { version, .. } => Some(version),
+					TileState::Absent => None,
+				}
+			})
+			.collect()
+	}
+
+	/// Write tiles a peer sent and announce them. Each entry is `(cache,
+	/// uuid, pixels)`. Blocks on the writers, so call it from the blocking
+	/// pool.
+	pub(super) fn store_fetched(&self, tiles: Vec<(Uuid, Uuid, TilePixels)>) {
+		let Some(dirs) = self.dirs.as_ref() else {
+			return;
+		};
+		let mut batch = Vec::with_capacity(tiles.len());
+		for (cache_id, uuid, tile) in tiles {
+			let Some(writer) = self.writer_for(cache_id, dirs) else {
+				continue;
+			};
+			let written = writer.lock().unwrap_or_else(|e| e.into_inner()).write(
+				uuid,
+				tile.version,
+				tile.frame,
+				&tile.bgra,
+			);
+			match written {
+				Ok(()) => batch.push(Thumbnail {
+					id: uuid,
+					source_id: cache_id,
+					version: tile.version,
+					ok: true,
+				}),
+				Err(error) => warn!("fetched thumbnail write for {uuid}: {error}"),
+			}
+		}
+		flush(&mut batch, &self.events);
+	}
+
+	/// Claim the right to ask a peer about `(cache, uuid)`, refused while an
+	/// earlier ask is within [`REMOTE_REASK`].
+	pub(super) fn claim_remote(&self, cache_id: Uuid, uuid: Uuid) -> bool {
+		let mut asked = self.remote_asked.lock().unwrap_or_else(|e| e.into_inner());
+		let now = Instant::now();
+		if asked
+			.get(&(cache_id, uuid))
+			.is_some_and(|at| now.duration_since(*at) < REMOTE_REASK)
+		{
+			return false;
+		}
+		// Browsing a large share visits more tiles than stay worth
+		// remembering, so expired claims go before the map grows further.
+		if asked.len() >= REMOTE_CLAIMS_RETAINED {
+			asked.retain(|_, at| now.duration_since(*at) < REMOTE_REASK);
+		}
+		asked.insert((cache_id, uuid), now);
+		true
+	}
+
+	/// Drop claims whose ask never got an answer, so the next request asks
+	/// again instead of waiting out [`REMOTE_REASK`].
+	pub(super) fn release_remote(&self, tiles: &[(Uuid, Uuid)]) {
+		let mut asked = self.remote_asked.lock().unwrap_or_else(|e| e.into_inner());
+		for tile in tiles {
+			asked.remove(tile);
+		}
+	}
+
+	/// Queue a bake and wait until its pixels have reached the cache, rather
+	/// than merely the queue.
+	async fn bake(
+		self: &Arc<Self>,
+		path: &PathBuf,
+		identity: TileIdentity,
+		priority: u32,
+		mode: ThumbnailGenerationMode,
+	) -> GenerationOutcome {
 		let service = self.clone();
 		let path = path.clone();
 		let submission =
-			tokio::task::spawn_blocking(move || service.enqueue(path, identity, 0, mode)).await;
+			tokio::task::spawn_blocking(move || service.enqueue(path, identity, priority, mode))
+				.await;
 		let Ok(Some(submission)) = submission else {
 			return GenerationOutcome::Failed;
 		};
@@ -374,7 +527,7 @@ impl ThumbService {
 		Some(BakeSubmission::Pending(receiver))
 	}
 
-	async fn thumbnail_identity(&self, path: &PathBuf) -> Option<TileIdentity> {
+	pub(super) async fn thumbnail_identity(&self, path: &PathBuf) -> Option<TileIdentity> {
 		let mut identity = self.resolve_identity(path).await?;
 		let video = is_video(path);
 		let tools = self.external_tools.clone();
@@ -707,7 +860,7 @@ fn flush(batch: &mut Vec<Thumbnail>, events: &EventBus) {
 
 /// Bake priority from a request's ordering: the first path is the most
 /// urgent, and every path in one request outranks a later request's tail.
-fn priority_for(rank: usize, total: usize) -> u32 {
+pub(super) fn priority_for(rank: usize, total: usize) -> u32 {
 	(total.saturating_sub(rank)) as u32
 }
 
@@ -768,7 +921,7 @@ fn thumbstrip_workers() -> usize {
 }
 
 #[cfg(test)]
-mod tests {
+pub(super) mod tests {
 	use super::*;
 	use crate::ops::indexing::{metadata::EntryMetadata, state::EntryKind};
 	use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -788,7 +941,7 @@ mod tests {
 		}
 	}
 
-	async fn fixture() -> (
+	pub(crate) async fn fixture() -> (
 		tempfile::TempDir,
 		Arc<ThumbService>,
 		PathBuf,
@@ -895,6 +1048,69 @@ mod tests {
 			reopened.lookup(identity.uuid, identity.version).unwrap(),
 			TileState::Fresh { .. }
 		));
+	}
+
+	#[tokio::test]
+	async fn fetched_tiles_are_stored_under_the_owners_version_and_announced() {
+		let (_temp, service, _, _, _) = fixture().await;
+		let mut events = service.events.subscribe();
+		let (cache, uuid) = (Uuid::new_v4(), Uuid::new_v4());
+		assert_eq!(service.held_versions(&[(cache, uuid)]), [None]);
+
+		let frame = Frame {
+			content_width: 1,
+			content_height: 1,
+			source_width: 4,
+			source_height: 4,
+		};
+		service.store_fetched(vec![(
+			cache,
+			uuid,
+			TilePixels {
+				version: 42,
+				frame,
+				bgra: vec![1, 2, 3, 255],
+			},
+		)]);
+		assert_eq!(service.held_versions(&[(cache, uuid)]), [Some(42)]);
+
+		let Ok(Event::ResourceChangedBatch { resources, .. }) = events.try_recv() else {
+			panic!("the fetched tile was not announced");
+		};
+		let announced: Vec<Thumbnail> = serde_json::from_value(resources).unwrap();
+		assert_eq!(announced.len(), 1);
+		assert_eq!(
+			(
+				announced[0].id,
+				announced[0].source_id,
+				announced[0].version,
+				announced[0].ok
+			),
+			(uuid, cache, 42, true)
+		);
+	}
+
+	#[tokio::test]
+	async fn a_remote_tile_is_asked_again_only_after_its_window_or_a_failure() {
+		let (_temp, service, _, _, _) = fixture().await;
+		let (cache, uuid) = (Uuid::new_v4(), Uuid::new_v4());
+		assert!(service.claim_remote(cache, uuid));
+		assert!(
+			!service.claim_remote(cache, uuid),
+			"asked within the window"
+		);
+
+		service.release_remote(&[(cache, uuid)]);
+		assert!(service.claim_remote(cache, uuid), "a failed ask goes again");
+
+		if let Some(expired) = Instant::now().checked_sub(REMOTE_REASK) {
+			service
+				.remote_asked
+				.lock()
+				.unwrap()
+				.insert((cache, uuid), expired);
+			assert!(service.claim_remote(cache, uuid), "the window has passed");
+		}
 	}
 
 	#[tokio::test]
