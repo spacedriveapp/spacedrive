@@ -2419,6 +2419,16 @@ export type ListWhisperModelsOutput = { models: ModelInfo[]; total_downloaded_si
 export type LoggingConfigOutput = { main_filter: string };
 
 /**
+ * A place in the order pages are served in: source by source, by root, then
+ * by directory path and name within a source.
+ */
+export type MediaCursor = { source: string; 
+/**
+ * Source-relative directory of the last file served; "" for the root.
+ */
+directory: string; name: string };
+
+/**
  * Input for media listing
  */
 export type MediaListingInput = { 
@@ -2459,6 +2469,36 @@ total_count: number;
  * Whether there are more results than returned
  */
 has_more: boolean };
+
+export type MediaSearchInput = { 
+/**
+ * Part of a file name, case-folded; empty matches every name.
+ */
+query: string; scope: SearchScope; filters: SearchFilters; 
+/**
+ * Where the previous page ended; `None` for the first page.
+ */
+after: MediaCursor | null; 
+/**
+ * Files per page.
+ */
+limit: number };
+
+export type MediaSearchOutput = { 
+/**
+ * Images and videos, in page order.
+ */
+files: File[]; 
+/**
+ * Where the next page starts; `None` after the last.
+ */
+next: MediaCursor | null; 
+/**
+ * Whether any source reaches the scope. A folder outside every source
+ * has nothing to page through, which is not the same as a source that
+ * holds no media.
+ */
+covered: boolean };
 
 /**
  * Sort options for media listing
@@ -2706,9 +2746,15 @@ export type MountsTraceSetOutput = { recording: boolean; message: string };
 export type NavigationFocus = { id: string; group: string; 
 /**
  * The directory in view, or `None` when the publisher is showing
- * something that has no path (a search, a tag, an empty window).
+ * something that has no path (a tag, a collection, an empty window).
  */
-path: SdPath | null; library_id: string | null; 
+path: SdPath | null; 
+/**
+ * The search the publisher is running, exactly as it sends it, when it
+ * is running one. A follower shows the results rather than the directory,
+ * which stays the search's context.
+ */
+search: FileSearchInput | null; library_id: string | null; 
 /**
  * Free-form label naming the window that published this, so a client can
  * recognize and ignore its own echo.
@@ -3363,7 +3409,11 @@ group?: string | null;
  * Where the window is looking, or `None` when it is showing something
  * without a path.
  */
-path: SdPath | null; library_id?: string | null; 
+path: SdPath | null; 
+/**
+ * The search the window is running, as it sends it, when it is running one.
+ */
+search?: FileSearchInput | null; library_id?: string | null; 
 /**
  * Label naming the publishing window, echoed back to followers.
  */
@@ -4867,6 +4917,7 @@ export type LibraryQuery =
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
   |  { type: 'search.files'; input: FileSearchInput; output: FileSearchOutput }
+  |  { type: 'search.media'; input: MediaSearchInput; output: MediaSearchOutput }
   |  { type: 'sources.get'; input: GetSourceInput; output: SourceInfo }
   |  { type: 'sources.list'; input: ListSourcesInput; output: [SourceInfo] }
   |  { type: 'sources.list_items'; input: ListSourceItemsInput; output: [SourceItem] }
@@ -5019,6 +5070,7 @@ export const WIRE_METHODS = {
     'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',
     'search.files': 'query:search.files',
+    'search.media': 'query:search.media',
     'sources.get': 'query:sources.get',
     'sources.list': 'query:sources.list',
     'sources.list_items': 'query:sources.list_items',

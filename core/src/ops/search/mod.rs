@@ -5,6 +5,7 @@ use specta::Type;
 
 pub mod arena_search;
 pub mod input;
+pub mod media;
 pub mod output;
 pub mod pipeline;
 pub mod query;

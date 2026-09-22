@@ -277,10 +277,18 @@ count at frame rate. This is go/no-go for everything visual that follows.
 core (`core/src/ops/navigation/`): an in-memory, group-keyed row holding an
 `SdPath`, published by `navigation.set_focus` and read by `navigation.focus`,
 emitted as a `navigation_focus` resource so followers read the new position
-straight off the event. The explorer publishes from `ExplorerProvider`; the
-grid retargets and the previous fill is cancelled. `apps/native` lost its
-sidebar and list pane and is one grid with a Follow toggle; the Apps menu in
-Tauri launches it.
+straight off the event. The explorer publishes from `NavigationFocusPublisher`
+inside its provider; the grid retargets and the previous fill is cancelled.
+`apps/native` lost its sidebar and list pane and is one grid with a Follow
+toggle; the Apps menu in Tauri launches it.
+
+Since 2026-09-22 the row also carries the search the explorer is running, as
+the `FileSearchInput` it sends, and Photos lists that search's images and
+videos in place of the folder. A folder lists everything beneath it rather
+than its direct children. Both come from `search.media`, which pages the
+source stores in directory-path order behind a cursor, so the grid draws the
+first page while the rest lands. Each tile identity names its drive's cache,
+since a library-wide search spans drives.
 
 **B6' — Photos becomes an app.** Pinch zoom (`MIN_CELL`/`MAX_CELL`, an
 NSEvent magnify monitor as in the reference app), the photo view adapter,

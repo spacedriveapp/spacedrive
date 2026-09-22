@@ -24,6 +24,7 @@ import {
 } from './contexts/ShellGeometryContext';
 import {WebContextMenuProvider} from './contexts/WebContextMenuContext';
 import {ExplorerProvider, useExplorer} from './routes/explorer';
+import {NavigationFocusPublisher} from './routes/explorer/hooks/useNavigationFocus';
 import {KeyboardHandler} from './routes/explorer/KeyboardHandler';
 import {SelectionProvider} from './routes/explorer/SelectionContext';
 import {TagAssignmentMode} from './routes/explorer/TagAssignmentMode';
@@ -259,6 +260,7 @@ export function ShellLayout() {
 							{/* Sync tab navigation and defaults with router */}
 							<TabNavigationSync />
 							<TabDefaultsSync />
+							<NavigationFocusPublisher />
 							<ShellLayoutContent />
 						</WebContextMenuProvider>
 					</ExplorerProvider>

@@ -12,13 +12,17 @@
 //! costs no round trip; a refetch on reconnect covers changes that happened
 //! while the socket was down.
 //!
-//! When focus lands on a folder the plane lists it, then feeds the grid from
-//! the daemon's thumbnail hot tier. Nothing is baked here: `thumbs.request`
-//! names the cells about to be drawn, in draw order, and the daemon bakes what
-//! is missing into the cache file this process maps read-only. Completions
-//! arrive as `thumbnail` events. Identity windows follow the viewport, so a
-//! folder of twenty thousand photos costs twenty thousand bakes only if
-//! someone scrolls through all of them.
+//! When focus lands on a folder the plane lists every image and video beneath
+//! it, and while the followed window searches, the images and videos its
+//! search finds. Listings come from the source stores through `search.media` a
+//! page at a time, so the grid draws the first page while the rest lands.
+//!
+//! The grid is fed from the daemon's thumbnail hot tier. Nothing is baked
+//! here: `thumbs.request` names the cells about to be drawn, in draw order,
+//! and the daemon bakes what is missing into the cache files this process maps
+//! read-only, one per drive. Completions arrive as `thumbnail` events.
+//! Identity windows follow the viewport, so a folder of twenty thousand photos
+//! costs twenty thousand bakes only if someone scrolls through all of them.
 //!
 //! Tagging runs through the plane too. The listing carries each cell's record
 //! and the tags it carries, requests go out as `tags.apply` and
@@ -44,23 +48,21 @@ use sd_client::{
 	daemon_socket_addr, is_daemon_running, BrokerSubscription, CoreClient, Event, EventFilter,
 	SubscriptionBroker,
 };
-use sd_core::domain::content_identity::ContentKind;
-use sd_core::domain::file::EntryKind;
 use sd_core::domain::{File, SdPath, Tag};
 use sd_core::ops::core::status::output::CoreStatus;
-use sd_core::ops::files::query::{
-	DirectoryListingInput, DirectoryListingOutput, DirectorySortBy, FileByIdQuery,
-};
+use sd_core::ops::files::query::FileByIdQuery;
 use sd_core::ops::navigation::focus::DEFAULT_GROUP;
 use sd_core::ops::navigation::get::{NavigationFocusInput, NavigationFocusOutput};
 use sd_core::ops::navigation::NavigationFocus;
+use sd_core::ops::search::media::{MediaCursor, MediaSearchInput, MediaSearchOutput};
+use sd_core::ops::search::{FileSearchInput, SearchFilters, SearchScope};
 use sd_core::ops::tags::{
 	ApplyTagsInput, SearchTagsInput, SearchTagsOutput, TagTargets, UnapplyTagsInput,
 };
 use sd_core::ops::thumbs::request::{ThumbRequestInput, ThumbRequestOutput};
 use sd_core::service::thumbs::Thumbnail;
 
-use crate::source::{Completion, Entry, VisibleRange};
+use crate::source::{Completion, Entry, Feed, VisibleRange};
 
 /// How often the plane pings the daemon for liveness.
 const PING_INTERVAL: Duration = Duration::from_secs(3);
@@ -74,6 +76,10 @@ const VIEWPORT_INTERVAL: Duration = Duration::from_millis(100);
 /// Cells requested beyond the viewport on each side, so a scroll lands on
 /// identities that are already in hand.
 const WINDOW_MARGIN: u32 = 256;
+
+/// Files per listing page: the first screenful and well past it, so a folder
+/// draws while the rest of it lands.
+const PAGE: u32 = 2000;
 
 /// Records one tag request may name. The daemon refuses a longer list.
 const MAX_TAG_TARGETS: usize = 1000;
@@ -97,41 +103,44 @@ enum Command {
 	RefreshTags,
 }
 
-/// A folder ready to render: everything the UI needs to build a tile source
-/// over the daemon's cache file. Sent once per folder, over its own queue
-/// because the channel ends it carries cannot be cloned into a snapshot.
+/// A listing ready to render: its first page, and everything the UI needs to
+/// build a tile source over the daemon's cache files. Sent once per listing,
+/// over its own queue because the channel ends it carries cannot be cloned
+/// into a snapshot.
 pub struct FolderOpen {
-	pub path: PathBuf,
-	/// The daemon's cache file for this folder's source, mapped read-only.
-	pub cache_path: PathBuf,
-	/// Identity windows, as the daemon answers them.
-	pub entries_rx: std::sync::mpsc::Receiver<Vec<(u32, Entry)>>,
-	/// Bake completions for cells in this folder.
+	/// What the toolbar calls the listing: the folder's name, or the search.
+	pub title: String,
+	/// Growth and identity windows, as pages land and the daemon answers.
+	pub feed_rx: std::sync::mpsc::Receiver<Feed>,
+	/// Bake completions for cells in this listing.
 	pub completions_rx: std::sync::mpsc::Receiver<Completion>,
 	/// The viewport the plane reads to decide which identities to ask for.
 	pub visible: VisibleRange,
-	/// The record each cell shows, in listing order. Its length is the cell
-	/// count.
+	/// The record each cell of the first page shows, in listing order.
 	pub records: Vec<Uuid>,
 	/// Each cell's file, in listing order.
 	pub paths: Vec<PathBuf>,
 	/// The tags each cell's record carries, in listing order.
 	pub tags: Vec<Vec<Uuid>>,
-	/// Tag changes for this folder's records, queued from the moment it was
-	/// listed, so none are lost before the UI takes the folder. Ends with the
-	/// folder.
-	pub tag_changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+	/// What changes about the listing once it is open, queued from the moment
+	/// it was listed so none is lost before the UI takes it. Ends with the
+	/// listing.
+	pub changes: mpsc::UnboundedReceiver<FolderChange>,
 }
 
-/// The UI's half of a folder, held until the daemon names its cache file.
-struct Handoff {
-	entries_rx: std::sync::mpsc::Receiver<Vec<(u32, Entry)>>,
-	completions_rx: std::sync::mpsc::Receiver<Completion>,
-	visible: VisibleRange,
-	records: Vec<Uuid>,
-	paths: Vec<PathBuf>,
-	tags: Vec<Vec<Uuid>>,
-	tag_changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+/// A change to the listing in view. Pages and tag changes share one queue, so
+/// a tag change for a record on a later page reaches the UI after the page
+/// that holds it.
+#[derive(Debug, PartialEq, Eq)]
+pub enum FolderChange {
+	/// A later page's cells, after every cell before them.
+	Appended {
+		records: Vec<Uuid>,
+		paths: Vec<PathBuf>,
+		tags: Vec<Vec<Uuid>>,
+	},
+	/// What these records carry now.
+	Tags(Vec<RecordTags>),
 }
 
 /// The color of a tag that has none of its own: the explorer's default blue.
@@ -193,6 +202,9 @@ pub struct FocusSnapshot {
 	pub group: String,
 	/// Where the group is looking, when that is a directory on this device.
 	pub path: Option<PathBuf>,
+	/// Whether the group is searching, which makes the listing the search's
+	/// rather than the folder's.
+	pub searching: bool,
 	/// How the folder in view is coming along.
 	pub folder: FolderState,
 }
@@ -208,7 +220,7 @@ pub enum FolderState {
 	Ready(u32),
 	/// The folder holds no media.
 	Empty,
-	/// The folder has no registered source, so it has nowhere to cache tiles.
+	/// No source reaches the folder, so it has nothing listed to show.
 	NoSource,
 	/// The publisher named no library, so there is nothing to list through.
 	NoLibrary,
@@ -222,6 +234,7 @@ impl FocusSnapshot {
 			following: true,
 			group,
 			path: None,
+			searching: false,
 			folder: FolderState::Idle,
 		}
 	}
@@ -352,10 +365,12 @@ enum TaskResult {
 	SlugFetched(anyhow::Result<String>),
 	FocusFetched(anyhow::Result<NavigationFocus>),
 	FocusEvent(NavigationFocus),
-	/// A directory listing landed for the folder at `generation`.
+	/// A page of the listing at `generation` landed, with the request that
+	/// asked for it, which the page after it repeats from a cursor.
 	Listed {
 		generation: u64,
-		result: anyhow::Result<Vec<Media>>,
+		request: MediaSearchInput,
+		result: anyhow::Result<MediaPage>,
 	},
 	/// Identities for one window landed, in the order they were asked for.
 	Identified {
@@ -438,6 +453,7 @@ async fn run(
 		following: true,
 		device_slug: None,
 		path: None,
+		search: None,
 		library_id: None,
 		slug_fetch: Fetch::default(),
 		focus_fetch: Fetch::default(),
@@ -609,13 +625,12 @@ fn read_row(current: &[Uuid], announced: &[Tag], expected: bool) -> Reading {
 	}
 }
 
-/// One folder being rendered, and the wiring feeding it.
+/// One listing being rendered, and the wiring feeding it.
 struct Folder {
-	path: PathBuf,
-	/// Every media path in the folder, in listing order. Index is grid index.
+	/// Every media path listed so far, in listing order. Index is grid index.
 	paths: Vec<PathBuf>,
-	/// Identity windows out to the grid.
-	entries_tx: std::sync::mpsc::Sender<Vec<(u32, Entry)>>,
+	/// Growth and identity windows out to the grid.
+	feed_tx: std::sync::mpsc::Sender<Feed>,
 	/// Completions out to the grid.
 	completions_tx: std::sync::mpsc::Sender<Completion>,
 	/// The viewport, written by the grid and read here.
@@ -627,10 +642,10 @@ struct Folder {
 	requested: Option<(u32, u32)>,
 	/// One identity request in flight at a time.
 	identifying: bool,
-	/// The tags of every record in the folder, as the UI was last told.
+	/// The tags of every record listed, as the UI was last told.
 	tags: HashMap<Uuid, Vec<Uuid>>,
-	/// Tag changes out to the UI.
-	tag_changes_tx: mpsc::UnboundedSender<Vec<RecordTags>>,
+	/// Later pages and tag changes out to the UI.
+	changes_tx: mpsc::UnboundedSender<FolderChange>,
 }
 
 impl Folder {
@@ -663,6 +678,9 @@ struct Plane {
 	/// what makes a published position usable.
 	device_slug: Option<String>,
 	path: Option<PathBuf>,
+	/// The search the followed window is running, which is listed in place
+	/// of its folder.
+	search: Option<FileSearchInput>,
 	/// The library the followed window is in; listings route through it.
 	library_id: Option<Uuid>,
 
@@ -723,7 +741,11 @@ impl Plane {
 				}
 			}
 			TaskResult::FocusEvent(focus) => self.apply_focus(focus),
-			TaskResult::Listed { generation, result } => self.handle_listed(generation, result),
+			TaskResult::Listed {
+				generation,
+				request,
+				result,
+			} => self.handle_listed(generation, request, result),
 			TaskResult::Identified {
 				generation,
 				first,
@@ -741,87 +763,125 @@ impl Plane {
 		}
 	}
 
-	/// A directory listing landed: hand the folder to the UI and ask for the
-	/// identities of the first screenful.
-	fn handle_listed(&mut self, generation: u64, result: anyhow::Result<Vec<Media>>) {
+	/// A page landed. The first opens the listing in the UI and asks for the
+	/// identities of the first screenful; a later one grows it. Either asks for
+	/// the page after it, so a listing fills in while its first cells draw.
+	fn handle_listed(
+		&mut self,
+		generation: u64,
+		request: MediaSearchInput,
+		result: anyhow::Result<MediaPage>,
+	) {
 		if generation != self.generation {
 			return;
 		}
-		let Some(path) = self.path.clone() else {
-			return;
-		};
-		let media = match result {
-			Ok(media) => media,
+		let page = match result {
+			Ok(page) => page,
 			Err(error) => {
 				self.folder_state = FolderState::Error(format!("{error:#}"));
 				self.publish();
 				return;
 			}
 		};
-		if media.is_empty() {
-			self.folder = None;
+		let next = page.next.clone();
+		if self.folder.is_some() {
+			self.grow_listing(page.media);
+		} else if !page.covered {
+			self.folder_state = FolderState::NoSource;
+			self.publish();
+			return;
+		} else if page.media.is_empty() {
 			self.folder_state = FolderState::Empty;
 			self.publish();
 			return;
+		} else {
+			self.open_listing(page.media);
 		}
+		if let (Some(library_id), Some(after)) = (self.library_id, next) {
+			self.request_page(
+				library_id,
+				MediaSearchInput {
+					after: Some(after),
+					..request
+				},
+			);
+		}
+	}
 
-		let (entries_tx, entries_rx) = std::sync::mpsc::channel();
+	/// Hand a listing's first page to the UI and ask for the identities of the
+	/// first screenful.
+	fn open_listing(&mut self, media: Vec<Media>) {
+		let (feed_tx, feed_rx) = std::sync::mpsc::channel();
 		let (completions_tx, completions_rx) = std::sync::mpsc::channel();
-		let (tag_changes_tx, tag_changes) = mpsc::unbounded_channel();
+		let (changes_tx, changes) = mpsc::unbounded_channel();
 		let visible = VisibleRange::new(0, WINDOW_MARGIN);
-		let len = media.len() as u32;
-
-		let mut paths = Vec::with_capacity(media.len());
-		let mut records = Vec::with_capacity(media.len());
-		let mut cell_tags = Vec::with_capacity(media.len());
-		for item in media {
-			paths.push(item.path);
-			records.push(item.record);
-			cell_tags.push(item.tags);
-		}
-		if cell_tags
+		let (records, paths, tags) = cells_of(media);
+		if tags
 			.iter()
 			.any(|tags| names_unknown(&self.library_tags, tags))
 		{
 			self.request_tags();
 		}
+		let len = paths.len() as u32;
 
 		self.folder = Some(Folder {
-			path: path.clone(),
 			paths: paths.clone(),
-			entries_tx,
+			feed_tx,
 			completions_tx,
 			visible: visible.clone(),
 			index_by_uuid: HashMap::new(),
 			requested: None,
 			identifying: false,
-			tags: records
-				.iter()
-				.copied()
-				.zip(cell_tags.iter().cloned())
-				.collect(),
-			tag_changes_tx,
+			tags: records.iter().copied().zip(tags.iter().cloned()).collect(),
+			changes_tx,
 		});
-
-		// The cache file is not known until the daemon answers the first
-		// identity request, so the folder reaches the UI from there.
-		self.request_window(
-			0,
-			WINDOW_MARGIN.min(len),
-			Some(Handoff {
-				entries_rx,
-				completions_rx,
-				visible,
-				records,
-				paths,
-				tags: cell_tags,
-				tag_changes,
-			}),
-		);
+		let _ = self.folders_tx.send(FolderOpen {
+			title: self.title(),
+			feed_rx,
+			completions_rx,
+			visible,
+			records,
+			paths,
+			tags,
+			changes,
+		});
+		self.folder_state = FolderState::Ready(len);
+		self.publish();
+		self.request_window(0, WINDOW_MARGIN.min(len));
 	}
 
-	/// Identities for one window landed. The first window also carries the
-	/// cache file, which is what lets the UI open its reader.
+	/// Take a later page onto the end of the listing in view.
+	fn grow_listing(&mut self, media: Vec<Media>) {
+		if media.is_empty() {
+			return;
+		}
+		let (records, paths, tags) = cells_of(media);
+		if tags
+			.iter()
+			.any(|tags| names_unknown(&self.library_tags, tags))
+		{
+			self.request_tags();
+		}
+		let Some(folder) = self.folder.as_mut() else {
+			return;
+		};
+		folder.paths.extend(paths.iter().cloned());
+		folder
+			.tags
+			.extend(records.iter().copied().zip(tags.iter().cloned()));
+		let len = folder.paths.len() as u32;
+		let _ = folder.feed_tx.send(Feed::Grew(len));
+		let _ = folder.changes_tx.send(FolderChange::Appended {
+			records,
+			paths,
+			tags,
+		});
+		self.folder_state = FolderState::Ready(len);
+		self.publish();
+	}
+
+	/// Identities for one window landed, each naming the cache its tile lives
+	/// in, with the files behind those caches.
 	fn handle_identified(
 		&mut self,
 		generation: u64,
@@ -843,23 +903,8 @@ impl Plane {
 				return;
 			}
 		};
-		if output.sources.is_empty() {
-			// Nothing in the window resolved to a source, so there is nowhere
-			// to cache these tiles.
-			self.folder_state = FolderState::NoSource;
-			self.publish();
-			return;
-		}
-		let len = folder.paths.len() as u32;
-		if self.folder_state != FolderState::Ready(len) {
-			self.folder_state = FolderState::Ready(len);
-			self.publish();
-		}
-		let Some(folder) = self.folder.as_mut() else {
-			return;
-		};
 
-		let window: Vec<(u32, Entry)> = output
+		let entries: Vec<(u32, Entry)> = output
 			.tiles
 			.iter()
 			.enumerate()
@@ -868,17 +913,22 @@ impl Plane {
 				Some((
 					first + offset as u32,
 					Entry {
+						cache: tile.source_id,
 						uuid: tile.uuid,
 						version: tile.version,
 					},
 				))
 			})
 			.collect();
-
-		for (index, entry) in &window {
+		for (index, entry) in &entries {
 			folder.index_by_uuid.insert(entry.uuid, *index);
 		}
-		let _ = folder.entries_tx.send(window);
+		let caches = output
+			.sources
+			.into_iter()
+			.map(|source| (source.id, source.cache_path))
+			.collect();
+		let _ = folder.feed_tx.send(Feed::Window { caches, entries });
 	}
 
 	/// Bake completions: wake the cells showing them.
@@ -912,13 +962,11 @@ impl Plane {
 		if first >= last || folder.requested == Some((first, last)) {
 			return;
 		}
-		self.request_window(first, last, None);
+		self.request_window(first, last);
 	}
 
-	/// Send one identity request for `[first, last)`. `handoff` is present
-	/// only for a folder's first window, which is what carries the folder to
-	/// the UI once the daemon names the cache file.
-	fn request_window(&mut self, first: u32, last: u32, handoff: Option<Handoff>) {
+	/// Send one identity request for `[first, last)`.
+	fn request_window(&mut self, first: u32, last: u32) {
 		let Some(folder) = self.folder.as_mut() else {
 			return;
 		};
@@ -940,8 +988,6 @@ impl Plane {
 		let results = self.results_tx.clone();
 		let generation = self.generation;
 		let library_id = self.library_id;
-		let folders_tx = self.folders_tx.clone();
-		let folder_path = folder.path.clone();
 		tokio::spawn(async move {
 			let result = client
 				.action(&ThumbRequestInput { paths }, library_id)
@@ -949,21 +995,6 @@ impl Plane {
 				.and_then(|value| {
 					serde_json::from_value::<ThumbRequestOutput>(value).map_err(Into::into)
 				});
-			if let (Ok(output), Some(handoff)) = (&result, handoff) {
-				if let Some(source) = output.sources.first() {
-					let _ = folders_tx.send(FolderOpen {
-						path: folder_path,
-						cache_path: source.cache_path.clone(),
-						entries_rx: handoff.entries_rx,
-						completions_rx: handoff.completions_rx,
-						visible: handoff.visible,
-						records: handoff.records,
-						paths: handoff.paths,
-						tags: handoff.tags,
-						tag_changes: handoff.tag_changes,
-					});
-				}
-			}
 			let _ = results.send(TaskResult::Identified {
 				generation,
 				first,
@@ -996,7 +1027,7 @@ impl Plane {
 				if learned {
 					// Focus rows could not be resolved to a local path before.
 					self.request_focus();
-					if self.folder.is_none() && self.path.is_some() {
+					if self.folder.is_none() && (self.path.is_some() || self.search.is_some()) {
 						self.open_folder();
 					}
 				}
@@ -1013,19 +1044,21 @@ impl Plane {
 		}
 	}
 
-	/// Take a published position if it belongs to this window's group and
-	/// names a directory on this device.
+	/// Take a published position if it belongs to this window's group: a
+	/// directory on this device, a search, or both.
 	fn apply_focus(&mut self, focus: NavigationFocus) {
 		if focus.group != self.group {
 			return;
 		}
 		let library_id = focus.library_id;
 		let path = focus.path.and_then(|path| self.local_path(path));
-		if self.path == path && self.library_id == library_id {
+		let search = focus.search;
+		if self.path == path && self.search == search && self.library_id == library_id {
 			return;
 		}
 		let library_changed = self.library_id != library_id;
 		self.path = path;
+		self.search = search;
 		self.library_id = library_id;
 		if library_changed {
 			// Tags belong to a library, so another library's are not these.
@@ -1036,28 +1069,33 @@ impl Plane {
 		self.open_folder();
 	}
 
-	/// List the folder in focus and start rendering it. A folder change
-	/// abandons the previous one: its results carry an older generation and
-	/// are dropped, and dropping its `Folder` closes the channels feeding the
-	/// grid, which is how the old tile source learns it is finished.
+	/// List what the followed window is looking at and start rendering it. A
+	/// change abandons the previous listing: its results carry an older
+	/// generation and are dropped, and dropping its `Folder` closes the
+	/// channels feeding the grid, which is how the old tile source learns it
+	/// is finished.
 	fn open_folder(&mut self) {
 		self.generation += 1;
 		self.folder = None;
 		self.rereads.clear();
 
-		let Some(path) = self.path.clone() else {
+		if self.path.is_none() && self.search.is_none() {
 			self.folder_state = FolderState::Idle;
 			self.publish();
 			return;
-		};
+		}
 		let Some(library_id) = self.library_id else {
 			self.folder_state = FolderState::NoLibrary;
 			self.publish();
 			return;
 		};
-		let Some(device_slug) = self.device_slug.clone() else {
-			// The listing cannot be addressed yet; the slug fetch marks this
-			// folder for another attempt when it lands.
+		// The listing's cells cannot be addressed yet; the slug fetch marks
+		// this listing for another attempt when it lands.
+		let Some(request) = self
+			.device_slug
+			.as_deref()
+			.and_then(|slug| self.first_page(slug))
+		else {
 			self.folder_state = FolderState::Loading;
 			self.publish();
 			return;
@@ -1065,14 +1103,65 @@ impl Plane {
 
 		self.folder_state = FolderState::Loading;
 		self.publish();
+		self.request_page(library_id, request);
+	}
 
+	/// The first page of what the followed window shows: the media its search
+	/// finds while it searches, and otherwise the media beneath its folder.
+	fn first_page(&self, device_slug: &str) -> Option<MediaSearchInput> {
+		let (query, scope, filters) = match (&self.search, &self.path) {
+			(Some(search), _) => (
+				search.query.clone(),
+				search.scope.clone(),
+				search.filters.clone(),
+			),
+			(None, Some(path)) => (
+				String::new(),
+				SearchScope::Path {
+					path: SdPath::Physical {
+						device_slug: device_slug.to_string(),
+						path: path.clone(),
+					},
+				},
+				SearchFilters::default(),
+			),
+			(None, None) => return None,
+		};
+		Some(MediaSearchInput {
+			query,
+			scope,
+			filters,
+			after: None,
+			limit: PAGE,
+		})
+	}
+
+	/// Ask for one page of the listing in view.
+	fn request_page(&self, library_id: Uuid, request: MediaSearchInput) {
 		let client = self.client.clone();
 		let results = self.results_tx.clone();
 		let generation = self.generation;
 		tokio::spawn(async move {
-			let result = list_media(&client, library_id, device_slug, path).await;
-			let _ = results.send(TaskResult::Listed { generation, result });
+			let result = list_page(&client, library_id, &request).await;
+			let _ = results.send(TaskResult::Listed {
+				generation,
+				request,
+				result,
+			});
 		});
+	}
+
+	/// What the toolbar calls the listing in view.
+	fn title(&self) -> String {
+		match (&self.search, &self.path) {
+			(Some(search), _) if !search.query.is_empty() => format!("“{}”", search.query),
+			(Some(_), _) => "Search".to_string(),
+			(None, Some(path)) => path
+				.file_name()
+				.map(|name| name.to_string_lossy().into_owned())
+				.unwrap_or_else(|| path.display().to_string()),
+			(None, None) => String::new(),
+		}
 	}
 
 	/// The local directory an `SdPath` names, or `None` when it belongs to
@@ -1138,6 +1227,7 @@ impl Plane {
 			following: self.following,
 			group: self.group.clone(),
 			path: self.path.clone(),
+			searching: self.search.is_some(),
 			folder: self.folder_state.clone(),
 		}));
 	}
@@ -1169,7 +1259,7 @@ impl Plane {
 			}
 		}
 		if !changes.is_empty() {
-			let _ = folder.tag_changes_tx.send(changes);
+			let _ = folder.changes_tx.send(FolderChange::Tags(changes));
 		}
 		if unknown {
 			self.request_tags();
@@ -1193,7 +1283,7 @@ impl Plane {
 					}
 					if let Some(folder) = self.folder.as_mut() {
 						if let Some(change) = folder.set_tags(record, tags) {
-							let _ = folder.tag_changes_tx.send(vec![change]);
+							let _ = folder.changes_tx.send(FolderChange::Tags(vec![change]));
 						}
 					}
 				}
@@ -1374,37 +1464,53 @@ struct Media {
 	tags: Vec<Uuid>,
 }
 
-/// List the media in `path`, in the order the grid will draw it. Directories
-/// and non-media files are left out: this is a photo grid, and a folder's
-/// subfolders belong to the window being followed, not to this one.
-async fn list_media(
+/// One page of a listing, as the grid draws it.
+struct MediaPage {
+	media: Vec<Media>,
+	/// Where the next page starts; `None` after the last.
+	next: Option<MediaCursor>,
+	/// Whether any source reaches what was listed.
+	covered: bool,
+}
+
+/// Fetch one page of a listing. The daemon keeps only images and videos, in
+/// the order the grid draws them.
+async fn list_page(
 	client: &CoreClient,
 	library_id: Uuid,
-	device_slug: String,
-	path: PathBuf,
-) -> anyhow::Result<Vec<Media>> {
-	let input = DirectoryListingInput {
-		path: SdPath::Physical { device_slug, path },
-		limit: None,
-		include_hidden: Some(false),
-		sort_by: DirectorySortBy::Name,
-		folders_first: Some(false),
-	};
-	let output: DirectoryListingOutput = client.query(&input, Some(library_id)).await?;
-	Ok(output
-		.files
-		.into_iter()
-		.filter(|file| !matches!(file.kind, EntryKind::Directory))
-		.filter(|file| matches!(file.content_kind, ContentKind::Image | ContentKind::Video))
-		.filter_map(|file| match file.sd_path {
-			SdPath::Physical { path, .. } => Some(Media {
-				path,
-				record: file.id,
-				tags: file.tags.iter().map(|tag| tag.id).collect(),
-			}),
-			_ => None,
-		})
-		.collect())
+	request: &MediaSearchInput,
+) -> anyhow::Result<MediaPage> {
+	let output: MediaSearchOutput = client.query(request, Some(library_id)).await?;
+	Ok(MediaPage {
+		media: output
+			.files
+			.into_iter()
+			.filter_map(|file| match file.sd_path {
+				SdPath::Physical { path, .. } => Some(Media {
+					path,
+					record: file.id,
+					tags: file.tags.iter().map(|tag| tag.id).collect(),
+				}),
+				_ => None,
+			})
+			.collect(),
+		next: output.next,
+		covered: output.covered,
+	})
+}
+
+/// A page's cells as the grid keeps them: records, files and tags, each in
+/// listing order.
+fn cells_of(media: Vec<Media>) -> (Vec<Uuid>, Vec<PathBuf>, Vec<Vec<Uuid>>) {
+	let mut records = Vec::with_capacity(media.len());
+	let mut paths = Vec::with_capacity(media.len());
+	let mut tags = Vec::with_capacity(media.len());
+	for item in media {
+		records.push(item.record);
+		paths.push(item.path);
+		tags.push(item.tags);
+	}
+	(records, paths, tags)
 }
 
 /// One outstanding daemon fetch at a time, with at most one queued rerun.
@@ -1459,6 +1565,7 @@ mod tests {
 			following: true,
 			device_slug: slug.map(String::from),
 			path: None,
+			search: None,
 			library_id: None,
 			slug_fetch: Fetch::default(),
 			focus_fetch: Fetch::default(),
@@ -1474,29 +1581,32 @@ mod tests {
 		}
 	}
 
-	/// A plane showing a folder whose records carry `tags`, and the receiving
-	/// end of the tag changes it sends the UI. No library is set, so nothing
-	/// here reaches for a daemon.
+	/// A plane showing a listing whose records carry `tags`, and the receiving
+	/// ends of the changes and the feed it sends the UI. No library is set, so
+	/// nothing here reaches for a daemon.
 	fn plane_showing(
 		tags: &[(Uuid, Vec<Uuid>)],
-	) -> (Plane, mpsc::UnboundedReceiver<Vec<RecordTags>>) {
+	) -> (
+		Plane,
+		mpsc::UnboundedReceiver<FolderChange>,
+		std::sync::mpsc::Receiver<Feed>,
+	) {
 		let mut plane = plane_at(Some("laptop"));
-		let (entries_tx, _) = std::sync::mpsc::channel();
+		let (feed_tx, feed) = std::sync::mpsc::channel();
 		let (completions_tx, _) = std::sync::mpsc::channel();
-		let (tag_changes_tx, tag_changes) = mpsc::unbounded_channel();
+		let (changes_tx, changes) = mpsc::unbounded_channel();
 		plane.folder = Some(Folder {
-			path: PathBuf::from("/photos"),
-			paths: Vec::new(),
-			entries_tx,
+			paths: vec![PathBuf::from("/photos/a.jpg")],
+			feed_tx,
 			completions_tx,
 			visible: VisibleRange::new(0, 0),
 			index_by_uuid: HashMap::new(),
 			requested: None,
 			identifying: false,
 			tags: tags.iter().cloned().collect(),
-			tag_changes_tx,
+			changes_tx,
 		});
-		(plane, tag_changes)
+		(plane, changes, feed)
 	}
 
 	fn tag(id: Uuid, name: &str) -> Tag {
@@ -1521,6 +1631,7 @@ mod tests {
 				device_slug: device_slug.to_string(),
 				path: PathBuf::from(path),
 			}),
+			search: None,
 			library_id: None,
 			origin: Some("test".into()),
 			updated_at: Utc::now(),
@@ -1641,15 +1752,15 @@ mod tests {
 	fn announced_tags_reach_the_ui_once() {
 		let record = Uuid::new_v4();
 		let beach = tag(Uuid::new_v4(), "Beach");
-		let (mut plane, mut changes) = plane_showing(&[(record, Vec::new())]);
+		let (mut plane, mut changes, _feed) = plane_showing(&[(record, Vec::new())]);
 
 		plane.handle_files_changed(vec![(record, vec![beach.clone()])]);
 		assert_eq!(
 			changes.try_recv().expect("a change is sent"),
-			vec![RecordTags {
+			FolderChange::Tags(vec![RecordTags {
 				record,
 				tags: vec![beach.id],
-			}]
+			}])
 		);
 
 		// The same row again changes nothing the UI does not already have.
@@ -1660,7 +1771,7 @@ mod tests {
 	#[test]
 	fn an_indexing_row_does_not_untag_a_record() {
 		let record = Uuid::new_v4();
-		let (mut plane, mut changes) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
+		let (mut plane, mut changes, _feed) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
 
 		plane.handle_files_changed(vec![(record, Vec::new())]);
 		assert!(changes.try_recv().is_err());
@@ -1674,16 +1785,16 @@ mod tests {
 	#[test]
 	fn this_windows_own_untagging_is_believed() {
 		let record = Uuid::new_v4();
-		let (mut plane, mut changes) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
+		let (mut plane, mut changes, _feed) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
 		plane.expecting.insert(record);
 
 		plane.handle_files_changed(vec![(record, Vec::new())]);
 		assert_eq!(
 			changes.try_recv().expect("a change is sent"),
-			vec![RecordTags {
+			FolderChange::Tags(vec![RecordTags {
 				record,
 				tags: Vec::new(),
-			}]
+			}])
 		);
 		assert!(plane.rereads.is_empty());
 		assert!(plane.expecting.is_empty());
@@ -1691,7 +1802,7 @@ mod tests {
 
 	#[test]
 	fn rows_for_records_outside_the_folder_are_ignored() {
-		let (mut plane, mut changes) = plane_showing(&[(Uuid::new_v4(), Vec::new())]);
+		let (mut plane, mut changes, _feed) = plane_showing(&[(Uuid::new_v4(), Vec::new())]);
 		plane.handle_files_changed(vec![(Uuid::new_v4(), vec![tag(Uuid::new_v4(), "Beach")])]);
 		assert!(changes.try_recv().is_err());
 		assert!(plane.rereads.is_empty());
@@ -1714,6 +1825,82 @@ mod tests {
 		assert_eq!(
 			tag_failure_message("unknown tags"),
 			"Failed to toggle tag: unknown tags"
+		);
+	}
+
+	/// A search started in the followed folder is listed in place of the
+	/// folder, though the path has not moved.
+	#[test]
+	fn a_search_is_followed_in_place_of_the_folder() {
+		let mut plane = plane_at(Some("laptop"));
+		plane.apply_focus(focus("default", "laptop", "/photos"));
+		let folder = plane
+			.first_page("laptop")
+			.expect("a folder has a first page");
+		assert_eq!(
+			folder.scope,
+			SearchScope::Path {
+				path: SdPath::Physical {
+					device_slug: "laptop".to_string(),
+					path: PathBuf::from("/photos"),
+				},
+			}
+		);
+		assert_eq!(plane.title(), "photos");
+
+		let search = FileSearchInput::simple("beach".to_string());
+		plane.apply_focus(NavigationFocus {
+			search: Some(search.clone()),
+			..focus("default", "laptop", "/photos")
+		});
+		assert_eq!(plane.search.as_ref(), Some(&search));
+		let page = plane
+			.first_page("laptop")
+			.expect("a search has a first page");
+		assert_eq!(
+			(page.query, page.scope, page.filters, page.after, page.limit),
+			(search.query, search.scope, search.filters, None, PAGE)
+		);
+		assert_eq!(plane.title(), "“beach”");
+
+		plane.apply_focus(NavigationFocus {
+			search: Some(FileSearchInput::simple(String::new())),
+			..focus("default", "laptop", "/photos")
+		});
+		assert_eq!(plane.title(), "Search");
+	}
+
+	/// A later page lands on the end of the listing: the grid learns the new
+	/// length and the cells, and a record on the new page takes tag changes.
+	#[test]
+	fn a_later_page_grows_the_listing() {
+		let (mut plane, mut changes, feed) = plane_showing(&[(Uuid::new_v4(), Vec::new())]);
+		let later = Uuid::new_v4();
+		let beach = tag(Uuid::new_v4(), "Beach");
+
+		plane.grow_listing(vec![Media {
+			path: PathBuf::from("/photos/b.jpg"),
+			record: later,
+			tags: Vec::new(),
+		}]);
+		assert!(matches!(feed.try_recv(), Ok(Feed::Grew(2))));
+		assert_eq!(
+			changes.try_recv().expect("the page is sent"),
+			FolderChange::Appended {
+				records: vec![later],
+				paths: vec![PathBuf::from("/photos/b.jpg")],
+				tags: vec![Vec::new()],
+			}
+		);
+		assert_eq!(plane.folder_state, FolderState::Ready(2));
+
+		plane.handle_files_changed(vec![(later, vec![beach.clone()])]);
+		assert_eq!(
+			changes.try_recv().expect("a change is sent"),
+			FolderChange::Tags(vec![RecordTags {
+				record: later,
+				tags: vec![beach.id],
+			}])
 		);
 	}
 }

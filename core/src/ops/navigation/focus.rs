@@ -8,6 +8,7 @@ use specta::Type;
 use uuid::Uuid;
 
 use crate::domain::{resource::Identifiable, SdPath};
+use crate::ops::search::FileSearchInput;
 
 /// The group a window joins when it names none.
 pub const DEFAULT_GROUP: &str = "default";
@@ -24,8 +25,12 @@ pub struct NavigationFocus {
 	pub id: Uuid,
 	pub group: String,
 	/// The directory in view, or `None` when the publisher is showing
-	/// something that has no path (a search, a tag, an empty window).
+	/// something that has no path (a tag, a collection, an empty window).
 	pub path: Option<SdPath>,
+	/// The search the publisher is running, exactly as it sends it, when it
+	/// is running one. A follower shows the results rather than the directory,
+	/// which stays the search's context.
+	pub search: Option<FileSearchInput>,
 	pub library_id: Option<Uuid>,
 	/// Free-form label naming the window that published this, so a client can
 	/// recognize and ignore its own echo.
@@ -48,6 +53,7 @@ impl NavigationFocus {
 			id: Self::id_for_group(&group),
 			group,
 			path: None,
+			search: None,
 			library_id: None,
 			origin: None,
 			updated_at: Utc::now(),
@@ -72,9 +78,9 @@ impl Identifiable for NavigationFocus {
 		Self: Sized,
 	{
 		// A focus row is replaced wholesale: merging a new path into an old
-		// one would resurrect the library or origin of a window that has
-		// since navigated away.
-		&["path", "library_id", "origin"]
+		// one would resurrect the library, origin or search of a window that
+		// has since navigated away.
+		&["path", "search", "library_id", "origin"]
 	}
 }
 
@@ -101,16 +107,19 @@ impl FocusRegistry {
 	}
 
 	/// Record `focus` as the group's current position, returning it when the
-	/// position actually moved. A republish of the same path returns `None` so
-	/// callers can skip the event: an explorer that refetches a listing must
-	/// not wake every follower.
+	/// position actually moved. A republish of the same path and search
+	/// returns `None` so callers can skip the event: an explorer that
+	/// refetches a listing must not wake every follower.
 	pub fn set(&self, focus: NavigationFocus) -> Option<NavigationFocus> {
 		let mut groups = self
 			.groups
 			.write()
 			.unwrap_or_else(|poisoned| poisoned.into_inner());
 		if let Some(current) = groups.get(&focus.group) {
-			if current.path == focus.path && current.library_id == focus.library_id {
+			if current.path == focus.path
+				&& current.search == focus.search
+				&& current.library_id == focus.library_id
+			{
 				return None;
 			}
 		}
@@ -152,6 +161,22 @@ mod tests {
 		assert!(registry.set(focus("default", "/photos")).is_some());
 		assert!(registry.set(focus("default", "/photos")).is_none());
 		assert!(registry.set(focus("default", "/photos/2026")).is_some());
+	}
+
+	/// A search started in the same folder moves the group: the folder is
+	/// only the search's context, and a follower shows the results.
+	#[test]
+	fn a_search_in_the_same_folder_is_a_move() {
+		let registry = FocusRegistry::new();
+		assert!(registry.set(focus("default", "/photos")).is_some());
+
+		let searching = NavigationFocus {
+			search: Some(FileSearchInput::simple("beach".to_string())),
+			..focus("default", "/photos")
+		};
+		assert!(registry.set(searching.clone()).is_some());
+		assert!(registry.set(searching).is_none());
+		assert!(registry.set(focus("default", "/photos")).is_some());
 	}
 
 	#[test]

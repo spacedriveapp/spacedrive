@@ -12,7 +12,7 @@ mod pvcache;
 mod synthetic;
 
 pub use empty::EmptySource;
-pub use pvcache::{Completion, Entry, PvcacheSource};
+pub use pvcache::{Completion, Entry, Feed, PvcacheSource};
 pub use synthetic::SyntheticSource;
 
 use std::sync::atomic::{AtomicU64, Ordering};

@@ -1,18 +1,21 @@
 import { useEffect, useRef } from "react";
-import { useCoreMutation, type SdPath } from "@sd/ts-client";
+import { useCoreMutation } from "@sd/ts-client";
 import { useServer } from "../../../contexts/ServerContext";
+import { useExplorer } from "../context";
+import { useSearchInput } from "./useExplorerFiles";
 
 /** Label identifying this window in the focus rows it publishes. */
 const ORIGIN = "spacedrive-explorer";
 
 /**
- * Publish the directory this window is browsing so other windows can follow
- * it. The Photos app is the first subscriber: navigating here re-renders it as
- * the media view of the same folder.
+ * Publish where this window is looking so other windows can follow it: the
+ * directory it is browsing, and the search it is running when it runs one,
+ * exactly as it sends it. The Photos app is the first subscriber: it renders
+ * the media in the folder, or in the search's results.
  *
- * A view with no path (search, tags, a collection) publishes null, which tells
- * followers there is nothing to follow rather than leaving them on a stale
- * folder.
+ * A view with no path (tags, a collection) publishes a null path, which tells
+ * followers there is no folder to follow rather than leaving them on a stale
+ * one.
  *
  * Focus is presence, so a failed publish is not retried: the next navigation
  * supersedes it, and a follower re-reads the position when it reconnects. It
@@ -20,7 +23,9 @@ const ORIGIN = "spacedrive-explorer";
  * old to know the op, and silence there looks exactly like a follower that is
  * simply not listening.
  */
-export function usePublishNavigationFocus(currentPath: SdPath | null): void {
+function usePublishNavigationFocus(): void {
+	const { currentPath } = useExplorer();
+	const search = useSearchInput();
 	const { libraryId } = useServer();
 	const reported = useRef(false);
 	const { mutate } = useCoreMutation("navigation.set_focus", {
@@ -34,8 +39,8 @@ export function usePublishNavigationFocus(currentPath: SdPath | null): void {
 		},
 	});
 
-	// Held in a ref so only a navigation republishes, never an unrelated
-	// render of the provider.
+	// Held in a ref so only a navigation or a search republishes, never an
+	// unrelated render.
 	const publish = useRef(mutate);
 	publish.current = mutate;
 
@@ -43,8 +48,16 @@ export function usePublishNavigationFocus(currentPath: SdPath | null): void {
 		publish.current({
 			group: null,
 			path: currentPath,
+			search,
 			library_id: libraryId,
 			origin: ORIGIN,
 		});
-	}, [currentPath, libraryId]);
+	}, [currentPath, search, libraryId]);
+}
+
+/** Publishes the explorer's navigation focus. Renders nothing; it sits inside
+ * the explorer's provider, which is where what it publishes is read from. */
+export function NavigationFocusPublisher(): null {
+	usePublishNavigationFocus();
+	return null;
 }

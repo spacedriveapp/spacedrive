@@ -92,7 +92,7 @@ pub async fn search_source_store(
 /// The arena filter set, judged from a store row. Semantics match
 /// `passes_arena_filters` field for field, including failing closed on
 /// timestamps the row cannot prove.
-fn passes_store_filters(
+pub(super) fn passes_store_filters(
 	entry: &sd_store::FsEntry,
 	filters: &SearchFilters,
 	absolute: &Path,

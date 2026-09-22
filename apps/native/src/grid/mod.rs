@@ -113,17 +113,23 @@ pub struct Cells {
 
 impl Cells {
 	pub fn new(records: Vec<Uuid>, paths: Vec<PathBuf>, tags: Vec<Vec<Uuid>>) -> Self {
-		let index_by_record = records
-			.iter()
-			.enumerate()
-			.map(|(index, record)| (*record, index as u32))
-			.collect();
-		Cells {
-			records,
-			paths,
-			tags,
-			index_by_record,
-		}
+		let mut cells = Cells::default();
+		cells.extend(records, paths, tags);
+		cells
+	}
+
+	/// Take cells onto the end, in listing order.
+	fn extend(&mut self, records: Vec<Uuid>, paths: Vec<PathBuf>, tags: Vec<Vec<Uuid>>) {
+		let start = self.records.len() as u32;
+		self.index_by_record.extend(
+			records
+				.iter()
+				.enumerate()
+				.map(|(offset, record)| (*record, start + offset as u32)),
+		);
+		self.records.extend(records);
+		self.paths.extend(paths);
+		self.tags.extend(tags);
 	}
 
 	/// Take `tags` as what `record` carries, when it is one of these cells.
@@ -316,6 +322,23 @@ impl GridView {
 		cx: &mut Context<Self>,
 	) {
 		self.next = Some((source, cells));
+		cx.notify();
+	}
+
+	/// Take a later page's cells onto the end of the listing. While a swap is
+	/// waiting they go to the cells it brings, which is the listing they
+	/// belong to.
+	pub fn append_cells(
+		&mut self,
+		records: Vec<Uuid>,
+		paths: Vec<PathBuf>,
+		tags: Vec<Vec<Uuid>>,
+		cx: &mut Context<Self>,
+	) {
+		match self.next.as_mut() {
+			Some((_, cells)) => cells.extend(records, paths, tags),
+			None => self.cells.extend(records, paths, tags),
+		}
 		cx.notify();
 	}
 

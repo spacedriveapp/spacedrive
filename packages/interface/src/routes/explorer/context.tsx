@@ -24,7 +24,6 @@ import type {
 } from '../../components/TabManager/TabManagerContext';
 import {useTabManager} from '../../components/TabManager/useTabManager';
 import {useNormalizedQuery} from '../../contexts/SpacedriveContext';
-import {usePublishNavigationFocus} from './hooks/useNavigationFocus';
 
 export type SortBy = DirectorySortBy | MediaSortBy;
 export type ViewMode =
@@ -682,10 +681,6 @@ export function ExplorerProvider({
 		if (currentTarget?.type === 'path') return currentTarget.path;
 		return null;
 	}, [currentTarget]);
-
-	// Other windows follow this one through the daemon; the Photos app renders
-	// the media in whichever folder the explorer is showing.
-	usePublishNavigationFocus(currentPath);
 
 	const currentView = useMemo(() => {
 		if (currentTarget?.type === 'view') {

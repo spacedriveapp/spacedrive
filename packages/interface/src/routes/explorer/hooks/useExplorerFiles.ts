@@ -32,30 +32,18 @@ export interface ExplorerFilesResult {
 }
 
 /**
- * Centralized hook for fetching files in the explorer.
- *
- * Handles file sources with priority:
- * 1. Filtered mode (e.g. redundancy views with pre-applied SearchFilters)
- * 2. Tag mode (when viewing files by tag)
- * 3. Search results (when in search mode)
- * 4. Recents (when in recents mode)
- * 5. Virtual listings (devices/volumes/sources)
- * 6. Directory listings (normal file browsing)
+ * The search the explorer is running, exactly as it goes to the daemon, or
+ * null outside search mode. Search mode means there is something to send: a
+ * query long enough, or a filter that narrows the scope without one. Other
+ * windows follow the same input through the navigation focus.
  */
-export function useExplorerFiles(): ExplorerFilesResult {
-	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings, searchFilters, searchScope } =
-		explorer;
-
-	// Check for virtual listing first
-	const { files: virtualFiles, isVirtualView } = useVirtualListing();
-
-	// Check mode types
-	const isSearchMode = mode.type === "search";
+export function useSearchInput(): FileSearchInput | null {
+	const { mode, currentPath, sortBy, searchFilters, searchScope } =
+		useExplorer();
 
 	// The containing source for Source scope, resolved on the daemon with
 	// alias normalization. Only fetched while that scope is active.
-	const wantsSourceScope = isSearchMode && searchScope === "source";
+	const wantsSourceScope = mode.type === "search" && searchScope === "source";
 	const { data: pathContext } = useLibraryQuery(
 		{
 			type: "paths.context",
@@ -73,15 +61,8 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			},
 		};
 	}, [wantsSourceScope, pathContext, currentPath]);
-	const isRecentsMode = mode.type === "recents";
-	const isFilteredMode = mode.type === "filtered";
-	const isTagMode = mode.type === "tag";
-	const isCollectionMode = mode.type === "collection";
-	const isSourceMode = mode.type === "source";
 
-	// Build search query input. Search mode means there is something to send:
-	// a query long enough, or a filter that narrows the scope without one.
-	const searchQueryInput = useMemo<FileSearchInput | null>(() => {
+	return useMemo<FileSearchInput | null>(() => {
 		if (mode.type !== "search") return null;
 
 		const { query } = mode;
@@ -123,6 +104,35 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			},
 		};
 	}, [mode, searchScope, currentPath, sortBy, sourceScopePath, searchFilters]);
+}
+
+/**
+ * Centralized hook for fetching files in the explorer.
+ *
+ * Handles file sources with priority:
+ * 1. Filtered mode (e.g. redundancy views with pre-applied SearchFilters)
+ * 2. Tag mode (when viewing files by tag)
+ * 3. Search results (when in search mode)
+ * 4. Recents (when in recents mode)
+ * 5. Virtual listings (devices/volumes/sources)
+ * 6. Directory listings (normal file browsing)
+ */
+export function useExplorerFiles(): ExplorerFilesResult {
+	const explorer = useExplorer();
+	const { mode, currentPath, sortBy, viewSettings, searchScope } = explorer;
+
+	// Check for virtual listing first
+	const { files: virtualFiles, isVirtualView } = useVirtualListing();
+
+	// Check mode types
+	const isSearchMode = mode.type === "search";
+	const isRecentsMode = mode.type === "recents";
+	const isFilteredMode = mode.type === "filtered";
+	const isTagMode = mode.type === "tag";
+	const isCollectionMode = mode.type === "collection";
+	const isSourceMode = mode.type === "source";
+
+	const searchQueryInput = useSearchInput();
 
 	// Build filtered query input (pre-applied SearchFilters, e.g. redundancy views)
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {

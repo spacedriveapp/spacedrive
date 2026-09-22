@@ -8,7 +8,7 @@ use std::collections::HashMap;
 use uuid::Uuid;
 
 /// Main input structure for file search operations
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct FileSearchInput {
 	/// Primary search query (filename, content, or natural language)
 	pub query: String,
@@ -30,7 +30,7 @@ pub struct FileSearchInput {
 }
 
 /// Defines the scope of the filesystem to search within
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum SearchScope {
 	/// Search the entire library (default)
 	Library,
@@ -39,7 +39,7 @@ pub enum SearchScope {
 }
 
 /// Defines the search mode and performance characteristics
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum SearchMode {
 	/// Fast, metadata-only search (<10ms)
 	Fast,
@@ -50,7 +50,7 @@ pub enum SearchMode {
 }
 
 /// Container for all structured filters
-#[derive(Debug, Clone, Serialize, Deserialize, Default, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default, Type)]
 pub struct SearchFilters {
 	pub file_types: Option<Vec<String>>,
 	pub tags: Option<TagFilter>,
@@ -91,7 +91,7 @@ impl SearchFilters {
 }
 
 /// Filter for tags, supporting complex boolean logic
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct TagFilter {
 	/// Must have all of these tag IDs
 	pub include: Vec<Uuid>,
@@ -100,7 +100,7 @@ pub struct TagFilter {
 }
 
 /// Filter for a time-based field
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct DateRangeFilter {
 	pub field: DateField,
 	pub start: Option<DateTime<Utc>>,
@@ -108,7 +108,7 @@ pub struct DateRangeFilter {
 }
 
 /// Time-based fields that can be filtered
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum DateField {
 	CreatedAt,
 	ModifiedAt,
@@ -117,21 +117,21 @@ pub enum DateField {
 }
 
 /// Filter for file size in bytes
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct SizeRangeFilter {
 	pub min: Option<u64>,
 	pub max: Option<u64>,
 }
 
 /// Sorting options for search results
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct SortOptions {
 	pub field: SortField,
 	pub direction: SortDirection,
 }
 
 /// Fields that can be used for sorting
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum SortField {
 	Relevance,
 	Name,
@@ -142,14 +142,14 @@ pub enum SortField {
 }
 
 /// Sort direction
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub enum SortDirection {
 	Asc,
 	Desc,
 }
 
 /// Pagination options
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
 pub struct PaginationOptions {
 	pub limit: u32,
 	pub offset: u32,

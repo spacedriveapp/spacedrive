@@ -216,3 +216,104 @@ async fn a_read_only_handle_cannot_write() {
 		"a store that does not exist is not silently created"
 	);
 }
+
+/// Files beneath a directory come out in path order, root-level files first,
+/// and a scope takes its own subtree and not a sibling sharing its prefix.
+/// Paged on the last row's directory and name, any page size gives the order
+/// one read does.
+#[tokio::test]
+async fn files_beneath_a_directory_page_in_path_order() {
+	let fixture = Fixture::new().await;
+	populate(
+		&fixture,
+		&[
+			("2019", FileKind::Directory, false),
+			("2019/trip", FileKind::Directory, false),
+			("2019/trip/b.jpg", FileKind::File, false),
+			("2019/trip/a.MOV", FileKind::File, false),
+			("2019/cover.jpg", FileKind::File, false),
+			("2019/notes.txt", FileKind::File, false),
+			("2019/.hidden.jpg", FileKind::File, true),
+			("2019-extra", FileKind::Directory, false),
+			("2019-extra/c.jpg", FileKind::File, false),
+			("top.jpg", FileKind::File, false),
+		],
+	)
+	.await;
+	let db = fixture
+		.manager
+		.open_read_only("drive-1")
+		.await
+		.expect("read-only open");
+	let media = vec!["jpg".to_string(), "mov".to_string()];
+	let paths = |entries: &[read::FsEntry]| {
+		entries
+			.iter()
+			.map(|entry| entry.relative_path.clone())
+			.collect::<Vec<_>>()
+	};
+
+	// Byte order: "2019-extra" sorts before "2019/trip", since '-' is below '/'.
+	let whole = [
+		"top.jpg",
+		"2019/cover.jpg",
+		"2019-extra/c.jpg",
+		"2019/trip/a.MOV",
+		"2019/trip/b.jpg",
+	];
+	let everything = read::files_beneath(db.pool(), "", None, Some(&media), false, 100)
+		.await
+		.expect("whole source");
+	assert_eq!(paths(&everything), whole);
+
+	let scoped = read::files_beneath(db.pool(), "2019", None, Some(&media), false, 100)
+		.await
+		.expect("one directory");
+	assert_eq!(
+		paths(&scoped),
+		["2019/cover.jpg", "2019/trip/a.MOV", "2019/trip/b.jpg"]
+	);
+
+	let with_hidden = read::files_beneath(db.pool(), "2019", None, None, true, 100)
+		.await
+		.expect("every file");
+	assert_eq!(
+		paths(&with_hidden),
+		[
+			"2019/.hidden.jpg",
+			"2019/cover.jpg",
+			"2019/notes.txt",
+			"2019/trip/a.MOV",
+			"2019/trip/b.jpg"
+		]
+	);
+
+	for limit in 1..=3 {
+		let mut paged = Vec::new();
+		let mut after: Option<(String, String)> = None;
+		loop {
+			let page = read::files_beneath(
+				db.pool(),
+				"",
+				after
+					.as_ref()
+					.map(|(directory, name)| (directory.as_str(), name.as_str())),
+				Some(&media),
+				false,
+				limit,
+			)
+			.await
+			.expect("page");
+			paged.extend(paths(&page));
+			let Some(last) = page.last().filter(|_| page.len() == limit) else {
+				break;
+			};
+			let directory = last
+				.relative_path
+				.rsplit_once('/')
+				.map_or("", |(directory, _)| directory);
+			after = Some((directory.to_string(), last.name.clone()));
+		}
+		assert_eq!(paged, whole, "pages of {limit}");
+	}
+}

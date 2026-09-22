@@ -12,6 +12,7 @@ use crate::{
 	context::CoreContext,
 	domain::{resource::EventEmitter, SdPath},
 	infra::action::{error::ActionError, CoreAction},
+	ops::search::FileSearchInput,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -22,6 +23,9 @@ pub struct SetNavigationFocusInput {
 	/// Where the window is looking, or `None` when it is showing something
 	/// without a path.
 	pub path: Option<SdPath>,
+	/// The search the window is running, as it sends it, when it is running one.
+	#[serde(default)]
+	pub search: Option<FileSearchInput>,
 	#[serde(default)]
 	pub library_id: Option<Uuid>,
 	/// Label naming the publishing window, echoed back to followers.
@@ -54,6 +58,7 @@ impl CoreAction for SetNavigationFocusAction {
 				id: NavigationFocus::id_for_group(&group),
 				group,
 				path: input.path,
+				search: input.search,
 				library_id: input.library_id,
 				origin: input.origin,
 				updated_at: Utc::now(),

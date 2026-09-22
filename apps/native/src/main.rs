@@ -30,7 +30,6 @@ mod tag_mode;
 mod theme;
 mod ui;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -45,7 +44,7 @@ use gpui_component::Root;
 use gpui_platform::application;
 use tokio::sync::mpsc;
 
-use crate::data::{DataHandle, FocusSnapshot, FolderState, RecordTags, TagSnapshot};
+use crate::data::{DataHandle, FocusSnapshot, FolderChange, FolderState, TagSnapshot};
 use crate::grid::{Cells, Direction, GridView};
 use crate::quick_look::QuickLook;
 use crate::source::{EmptySource, PvcacheSource, SyntheticSource, TileSource};
@@ -161,11 +160,12 @@ struct Photos {
 	data: DataHandle,
 	focus: Arc<FocusSnapshot>,
 	focus_handle: FocusHandle,
-	/// The folder the grid is showing, which lags the focus by one retarget.
-	folder: Option<PathBuf>,
-	/// Applies the shown folder's tag changes to the grid. Replacing it ends
-	/// the previous folder's.
-	folder_tags: Option<Task<()>>,
+	/// What the toolbar calls the listing the grid is showing, which lags the
+	/// focus by one retarget.
+	title: Option<String>,
+	/// Applies the shown listing's later pages and tag changes to the grid.
+	/// Replacing it ends the previous listing's.
+	folder_changes: Option<Task<()>>,
 	/// The benchmark owns the grid's source; adopting a folder would pull it
 	/// away mid-run, so the window ignores focus for the duration.
 	bench: bool,
@@ -201,8 +201,8 @@ impl Photos {
 			focus_handle: cx.focus_handle(),
 			tags: data.tags(),
 			data,
-			folder: None,
-			folder_tags: None,
+			title: None,
+			folder_changes: None,
 			bench,
 			tag_mode: false,
 			notice: None,
@@ -241,7 +241,7 @@ impl Photos {
 		photos
 	}
 
-	/// Take whatever folders the plane has opened. The last one wins: a fast
+	/// Take whatever listings the plane has opened. The last one wins: a fast
 	/// walk through several directories leaves only the one now in focus.
 	fn adopt_folders(&mut self, cx: &mut Context<Self>) {
 		if self.bench {
@@ -249,9 +249,8 @@ impl Photos {
 		}
 		while let Some(open) = self.data.take_folder() {
 			let source = PvcacheSource::new(
-				open.cache_path,
 				open.records.len() as u32,
-				open.entries_rx,
+				open.feed_rx,
 				open.completions_rx,
 				open.visible,
 			);
@@ -259,26 +258,38 @@ impl Photos {
 			self.grid.update(cx, |grid, cx| {
 				grid.set_source(Box::new(source) as Box<dyn TileSource>, cells, cx);
 			});
-			self.folder_tags = Some(Self::follow_tag_changes(open.tag_changes, cx));
-			self.folder = Some(open.path);
+			self.folder_changes = Some(Self::follow_changes(open.changes, cx));
+			self.title = Some(open.title);
 		}
 	}
 
-	/// Apply a folder's tag changes to the grid as they arrive, a burst at a
-	/// time.
-	fn follow_tag_changes(
-		mut changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+	/// Apply a listing's later pages and tag changes to the grid as they
+	/// arrive, a burst at a time and in the order they happened.
+	fn follow_changes(
+		mut changes: mpsc::UnboundedReceiver<FolderChange>,
 		cx: &mut Context<Self>,
 	) -> Task<()> {
 		cx.spawn(async move |this, cx| {
-			while let Some(mut batch) = changes.recv().await {
+			while let Some(first) = changes.recv().await {
+				let mut batch = vec![first];
 				while let Ok(more) = changes.try_recv() {
-					batch.extend(more);
+					batch.push(more);
 				}
 				let applied = this.update(cx, |photos, cx| {
 					photos.grid.update(cx, |grid, cx| {
-						for change in &batch {
-							grid.set_record_tags(change.record, &change.tags);
+						for change in batch {
+							match change {
+								FolderChange::Appended {
+									records,
+									paths,
+									tags,
+								} => grid.append_cells(records, paths, tags, cx),
+								FolderChange::Tags(changes) => {
+									for change in &changes {
+										grid.set_record_tags(change.record, &change.tags);
+									}
+								}
+							}
 						}
 						cx.notify();
 					});
@@ -454,12 +465,7 @@ impl Photos {
 		let theme = cx.theme();
 		let photos = cx.entity();
 		let following = self.focus.following;
-		let title = self
-			.folder
-			.as_ref()
-			.and_then(|folder| folder.file_name())
-			.map(|name| name.to_string_lossy().into_owned())
-			.or_else(|| self.folder.as_ref().map(|f| f.display().to_string()));
+		let title = self.title.clone();
 		div()
 			.h(px(TOOLBAR_HEIGHT))
 			.flex_shrink_0()
@@ -522,8 +528,9 @@ impl Photos {
 		let theme = cx.theme();
 		let message = match &self.focus.folder {
 			FolderState::Loading => "Loading".to_string(),
+			FolderState::Empty if self.focus.searching => "No photos match the search".to_string(),
 			FolderState::Empty => "No photos in this folder".to_string(),
-			FolderState::NoSource => "This folder is not on an indexed drive".to_string(),
+			FolderState::NoSource => "This folder is not in a tracked source".to_string(),
 			FolderState::NoLibrary => "No library open in Spacedrive".to_string(),
 			FolderState::Error(error) => error.clone(),
 			FolderState::Idle | FolderState::Ready(_) if !self.focus.following => {
@@ -582,7 +589,7 @@ impl Photos {
 impl Render for Photos {
 	fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
-		let showing = self.folder.is_some() || self.bench;
+		let showing = self.title.is_some() || self.bench;
 		div()
 			.size_full()
 			.flex()

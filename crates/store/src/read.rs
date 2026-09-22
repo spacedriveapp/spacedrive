@@ -45,21 +45,44 @@ pub struct FsEntry {
 	pub content_error: Option<String>,
 }
 
-/// Every column [`FsEntry`] is built from. A directory's path comes from its
-/// own `directory_path` row; a file's from its parent's row plus its title,
-/// and a root-level entry from its title alone.
-const ENTRY_SELECT: &str = "SELECT r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, \
-	 COALESCE(r.title, '') AS title, \
-	 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
-	 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
-	 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
-	 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
-	 f.content_error AS content_error, c.uuid AS content_uuid, c.kind AS content_kind \
-	 FROM record r \
+/// Every column [`FsEntry`] is built from, over the aliases `r` (the record),
+/// `own` and `parent` (its own and its parent's `directory_path` rows), `f`
+/// and `c`. A directory's path comes from its own row; a file's from its
+/// parent's row plus its title, and a root-level entry from its title alone.
+macro_rules! entry_columns {
+	() => {
+		"r.rowid AS rowid, r.uuid AS uuid, r.type AS kind, \
+		 COALESCE(r.title, '') AS title, \
+		 COALESCE(own.path, parent.path || '/' || r.title, COALESCE(r.title, '')) AS rel_path, \
+		 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
+		 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
+		 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
+		 f.content_error AS content_error, c.uuid AS content_uuid, c.kind AS content_kind"
+	};
+}
+
+const ENTRY_SELECT: &str = concat!(
+	"SELECT ",
+	entry_columns!(),
+	" FROM record r \
 	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
 	 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
 	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
-	 LEFT JOIN content c ON c.id = r.content_id";
+	 LEFT JOIN content c ON c.id = r.content_id"
+);
+
+/// The same columns, driven from the directories: `CROSS JOIN` holds
+/// `directory_path` as the outer loop, so rows arrive in its path index's
+/// order and, within a directory, in the sibling index's title order.
+const BENEATH_SELECT: &str = concat!(
+	"SELECT ",
+	entry_columns!(),
+	" FROM directory_path parent \
+	 CROSS JOIN record r ON r.parent_uuid = parent.record_uuid \
+	 LEFT JOIN directory_path own ON own.record_uuid = r.uuid \
+	 LEFT JOIN facet_file f ON f.record_uuid = r.uuid \
+	 LEFT JOIN content c ON c.id = r.content_id"
+);
 
 #[derive(FromRow)]
 struct EntryRow {
@@ -216,6 +239,139 @@ pub async fn children_of(
 	Ok(rows.into_iter().filter_map(entry_from_row).collect())
 }
 
+/// Up to `limit` files beneath the directory at `scope` (source-relative, ""
+/// for the source root) at any depth, in the order of their directory's path
+/// and then their name, starting after `after` as `(directory, name)`.
+/// Files directly under the source root have no directory row and come
+/// first, as directory "".
+///
+/// The order is the one the `directory_path` path index and each directory's
+/// sibling index already keep, so a page reads its own rows and stops rather
+/// than sorting the subtree, and the next page resumes from the last row.
+/// Only files with an extension in `extensions` are read when it is given,
+/// compared lowercase, and hidden files only when asked for.
+pub async fn files_beneath(
+	pool: &SqlitePool,
+	scope: &str,
+	after: Option<(&str, &str)>,
+	extensions: Option<&[String]>,
+	include_hidden: bool,
+	limit: usize,
+) -> Result<Vec<FsEntry>> {
+	if limit == 0 || extensions.is_some_and(<[String]>::is_empty) {
+		return Ok(Vec::new());
+	}
+	let mut entries = Vec::new();
+	for statement in beneath_statements(scope, after, extensions, include_hidden) {
+		let mut query = sqlx::query_as::<_, EntryRow>(&statement.sql);
+		for value in &statement.binds {
+			query = query.bind(value);
+		}
+		let rows = query
+			.bind((limit - entries.len()) as i64)
+			.fetch_all(pool)
+			.await?;
+		entries.extend(rows.into_iter().filter_map(entry_from_row));
+		if entries.len() >= limit {
+			break;
+		}
+	}
+	Ok(entries)
+}
+
+/// One statement of a [`files_beneath`] page: its SQL, ending in `LIMIT ?`,
+/// and the text it binds before the limit, in order.
+struct Statement {
+	sql: String,
+	binds: Vec<String>,
+}
+
+/// The statements a page runs in turn: the files directly under the source
+/// root, when the scope is the root and the page has not moved past them,
+/// then the files in directories.
+fn beneath_statements(
+	scope: &str,
+	after: Option<(&str, &str)>,
+	extensions: Option<&[String]>,
+	include_hidden: bool,
+) -> Vec<Statement> {
+	// `+` keeps the type term off `idx_record_type`, which would drive the
+	// scan from every file in the store and sort them.
+	let mut shared = vec!["+r.type = 'file'".to_string()];
+	let mut shared_binds = Vec::new();
+	if !include_hidden {
+		shared.push("COALESCE(f.is_hidden, 0) != 1".to_string());
+	}
+	if let Some(extensions) = extensions {
+		shared.push(format!(
+			"lower(f.extension) IN ({})",
+			vec!["?"; extensions.len()].join(", ")
+		));
+		shared_binds.extend(extensions.iter().cloned());
+	}
+
+	let mut statements = Vec::new();
+
+	let after_directory = after.map(|(directory, _)| directory);
+	if scope.is_empty() && after_directory.is_none_or(str::is_empty) {
+		let mut conditions = vec!["r.parent_uuid IS NULL".to_string()];
+		conditions.extend(shared.iter().cloned());
+		let mut binds = shared_binds.clone();
+		if let Some((_, name)) = after {
+			conditions.push("r.title > ?".to_string());
+			binds.push(name.to_string());
+		}
+		statements.push(Statement {
+			sql: format!(
+				"{ENTRY_SELECT} WHERE {} ORDER BY r.title LIMIT ?",
+				conditions.join(" AND ")
+			),
+			binds,
+		});
+	}
+
+	let mut conditions = Vec::new();
+	let mut binds = Vec::new();
+	if !scope.is_empty() {
+		// `[scope, scope + "0")` holds the scope and everything beneath it,
+		// since '0' is the byte after '/'. It also holds siblings that only
+		// share the prefix, like "scope-2", which the second term drops.
+		conditions.push("parent.path < ?".to_string());
+		binds.push(format!("{scope}0"));
+		conditions.push("(parent.path = ? OR parent.path >= ?)".to_string());
+		binds.push(scope.to_string());
+		binds.push(format!("{scope}/"));
+	}
+	match after.filter(|(directory, _)| !directory.is_empty()) {
+		Some((directory, name)) => {
+			conditions.push("parent.path >= ?".to_string());
+			binds.push(directory.to_string());
+			// With the path at or past the cursor's directory, a later
+			// directory passes whatever the name, and the cursor's own
+			// directory needs a later name.
+			conditions.push("(parent.path > ? OR r.title > ?)".to_string());
+			binds.push(directory.to_string());
+			binds.push(name.to_string());
+		}
+		None if !scope.is_empty() => {
+			conditions.push("parent.path >= ?".to_string());
+			binds.push(scope.to_string());
+		}
+		None => {}
+	}
+	conditions.extend(shared);
+	binds.extend(shared_binds);
+	statements.push(Statement {
+		sql: format!(
+			"{BENEATH_SELECT} WHERE {} ORDER BY parent.path, r.title LIMIT ?",
+			conditions.join(" AND ")
+		),
+		binds,
+	});
+
+	statements
+}
+
 /// What a title search returns: the hydrated matches up to the cap, and the
 /// exact total past it. The total keeps counting after hydration stops, so a
 /// capped page still reports how much it stands for.
@@ -296,4 +452,55 @@ pub async fn search_titles(pool: &SqlitePool, needle: &str, cap: usize) -> Resul
 		total,
 		truncated,
 	})
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+	use crate::file::filesystem_schema;
+	use crate::source::SourceManager;
+
+	/// Neither statement of a page sorts. A plan that did would read the whole
+	/// subtree for every page, which is the cost the cursor exists to avoid.
+	/// Plans depend on the schema alone, so an empty store answers.
+	#[tokio::test]
+	async fn a_page_beneath_a_directory_follows_the_indexes() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let manager = SourceManager::new(dir.path().to_path_buf());
+		manager
+			.create("plan", &filesystem_schema())
+			.await
+			.expect("source created");
+		let db = manager.open("plan").await.expect("open");
+		let extensions = vec!["jpg".to_string(), "mov".to_string()];
+
+		let pages = [
+			("", None),
+			("", Some(("", "a.jpg"))),
+			("", Some(("2019/trip", "b.jpg"))),
+			("2019", None),
+			("2019", Some(("2019/trip", "b.jpg"))),
+		];
+		for (scope, after) in pages {
+			for statement in beneath_statements(scope, after, Some(&extensions), false) {
+				let sql = format!("EXPLAIN QUERY PLAN {}", statement.sql);
+				let mut query = sqlx::query_as::<_, (i64, i64, i64, String)>(&sql);
+				for value in &statement.binds {
+					query = query.bind(value);
+				}
+				let plan: Vec<String> = query
+					.bind(100_i64)
+					.fetch_all(db.pool())
+					.await
+					.expect("plan")
+					.into_iter()
+					.map(|(_, _, _, detail)| detail)
+					.collect();
+				assert!(
+					!plan.iter().any(|step| step.contains("TEMP B-TREE")),
+					"scope {scope:?} after {after:?} sorts: {plan:?}"
+				);
+			}
+		}
+	}
 }

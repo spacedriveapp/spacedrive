@@ -1,12 +1,13 @@
 //! The pvcache-backed tile source — the grid's half of the cross-process
 //! thumbnail contract.
 //!
-//! The source opens `thumbs.pvcache` with [`PvcacheReader`] (read-only mmap)
-//! and never touches the writer handle: the daemon owns the writer, because
-//! the format is single-writer by contract. Grid index → record uuid arrives
-//! from the daemon in windows as the viewport moves, and bake completions
-//! arrive as daemon events to re-read slots the grid is showing placeholders
-//! or stale pixels for.
+//! The source opens each drive's `thumbs.pvcache` with [`PvcacheReader`]
+//! (read-only mmap) and never touches a writer handle: the daemon owns the
+//! writers, because the format is single-writer by contract. Grid index →
+//! record uuid arrives from the daemon in windows as the viewport moves, each
+//! identity naming the cache its tile lives in, since a listing can span
+//! drives. Bake completions arrive as daemon events to re-read slots the grid
+//! is showing placeholders or stale pixels for.
 //!
 //! Identities are sparse on purpose. A cell with no identity yet has nothing
 //! to read, so it holds its placeholder until the window covering it lands.
@@ -19,8 +20,9 @@
 //! true 0% CPU.
 
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender, TryRecvError};
+use std::sync::Arc;
 use std::thread;
 
 use sd_pvcache::{PvcacheReader, TileState};
@@ -32,12 +34,25 @@ use super::{Bitmap, TileSource, VisibleRange, TILE};
 /// background fill finishing while the grid sits still.
 const COMPLETIONS_PER_POLL: usize = 4096;
 
-/// One grid cell's identity in the cache: the record uuid and the content
-/// version its tile must match to be fresh.
+/// One grid cell's identity: the cache its tile lives in, the record uuid,
+/// and the content version the tile must match to be fresh.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Entry {
+	pub cache: Uuid,
 	pub uuid: Uuid,
 	pub version: u64,
+}
+
+/// What the data plane tells the source about the listing it shows.
+pub enum Feed {
+	/// A later page landed; the listing now has this many cells.
+	Grew(u32),
+	/// Identities for a window of cells, with the file behind each cache
+	/// they name.
+	Window {
+		caches: Vec<(Uuid, PathBuf)>,
+		entries: Vec<(u32, Entry)>,
+	},
 }
 
 /// A bake finishing for a cell, reported by whoever owns the writer. `ok` is
@@ -50,6 +65,7 @@ pub struct Completion {
 
 struct ReadRequest {
 	index: u32,
+	cache: Arc<Path>,
 	uuid: Uuid,
 	version: u64,
 }
@@ -66,12 +82,14 @@ enum ReadOutcome {
 }
 
 pub struct PvcacheSource {
-	/// Cell count, from the directory listing that opened this folder.
+	/// Cell count, from the pages of the listing landed so far.
 	len: u32,
 	/// Identities for the cells the daemon has answered for, by grid index.
 	entries: HashMap<u32, Entry>,
-	/// Identity windows as the daemon answers them.
-	entries_rx: Receiver<Vec<(u32, Entry)>>,
+	/// The file behind every cache an identity has named.
+	caches: HashMap<Uuid, Arc<Path>>,
+	/// Growth and identity windows, as the plane learns them.
+	feed_rx: Receiver<Feed>,
 	completions_rx: Receiver<Completion>,
 	/// The completion channel disconnected: the data plane is done and no
 	/// further slots will be published for this folder.
@@ -93,13 +111,12 @@ pub struct PvcacheSource {
 }
 
 impl PvcacheSource {
-	/// Open a source over the cache file at `path`, for a folder of `len`
-	/// cells. `entries_rx` delivers index → `(uuid, version)` in windows as
-	/// the viewport moves; `completions_rx` streams bake completions.
+	/// Open a source for a listing of `len` cells. `feed_rx` delivers growth
+	/// and index → identity windows as pages land and the viewport moves;
+	/// `completions_rx` streams bake completions.
 	pub fn new(
-		path: PathBuf,
 		len: u32,
-		entries_rx: Receiver<Vec<(u32, Entry)>>,
+		feed_rx: Receiver<Feed>,
 		completions_rx: Receiver<Completion>,
 		visible: VisibleRange,
 	) -> Self {
@@ -107,12 +124,13 @@ impl PvcacheSource {
 		let (delivery_tx, delivery_rx) = channel();
 		thread::Builder::new()
 			.name("pvcache-read".into())
-			.spawn(move || run_reader(&path, &read_rx, &delivery_tx))
+			.spawn(move || run_reader(&read_rx, &delivery_tx))
 			.expect("failed to spawn pvcache read thread");
 		Self {
 			len,
 			entries: HashMap::new(),
-			entries_rx,
+			caches: HashMap::new(),
+			feed_rx,
 			completions_rx,
 			filler_done: false,
 			visible,
@@ -125,10 +143,18 @@ impl PvcacheSource {
 		}
 	}
 
+	/// The cache file behind the cell at `index`, once its identity and the
+	/// cache it names are both known.
+	fn cache_of(&self, index: u32) -> Option<(&Entry, &Arc<Path>)> {
+		let entry = self.entries.get(&index)?;
+		Some((entry, self.caches.get(&entry.cache)?))
+	}
+
 	fn send_read(&self, index: u32) {
-		if let Some(entry) = self.entries.get(&index) {
+		if let Some((entry, cache)) = self.cache_of(index) {
 			let _ = self.read_tx.send(ReadRequest {
 				index,
+				cache: cache.clone(),
 				uuid: entry.uuid,
 				version: entry.version,
 			});
@@ -139,9 +165,13 @@ impl PvcacheSource {
 impl TileSource for PvcacheSource {
 	fn poll(&mut self) {
 		loop {
-			match self.entries_rx.try_recv() {
-				Ok(window) => {
-					for (index, entry) in window {
+			match self.feed_rx.try_recv() {
+				Ok(Feed::Grew(len)) => self.len = len,
+				Ok(Feed::Window { caches, entries }) => {
+					for (id, path) in caches {
+						self.caches.entry(id).or_insert_with(|| Arc::from(path));
+					}
+					for (index, entry) in entries {
 						// A cell whose identity changed under it (the file was
 						// rewritten) drops any wait so the new version is read.
 						if self.entries.insert(index, entry) != Some(entry) {
@@ -206,7 +236,7 @@ impl TileSource for PvcacheSource {
 	fn request(&mut self, idx: u32) {
 		// A cell the daemon has not answered for yet has nothing to read; the
 		// window covering it delivers its identity and the grid asks again.
-		if !self.entries.contains_key(&idx)
+		if self.cache_of(idx).is_none()
 			|| self.waiting.contains(&idx)
 			|| self.stale_wait.contains(&idx)
 			|| self.dead.contains(&idx)
@@ -265,12 +295,14 @@ impl TileSource for PvcacheSource {
 }
 
 /// The read thread: turns `(uuid, version)` requests into pixel copies out of
-/// the read-only mapping. Exits when the source (and its request sender) drop.
-fn run_reader(path: &std::path::Path, rx: &Receiver<ReadRequest>, tx: &Sender<Delivery>) {
+/// each cache's read-only mapping, opened the first time a request names it.
+/// Exits when the source (and its request sender) drop.
+fn run_reader(rx: &Receiver<ReadRequest>, tx: &Sender<Delivery>) {
 	let tile_len = (TILE * TILE * 4) as usize;
-	let mut reader: Option<PvcacheReader> = None;
+	let mut readers: HashMap<Arc<Path>, Option<PvcacheReader>> = HashMap::new();
 	while let Ok(request) = rx.recv() {
-		let outcome = read_slot(path, &mut reader, tile_len, &request);
+		let reader = readers.entry(request.cache.clone()).or_default();
+		let outcome = read_slot(&request.cache, reader, tile_len, &request);
 		if tx
 			.send(Delivery {
 				index: request.index,
@@ -284,7 +316,7 @@ fn run_reader(path: &std::path::Path, rx: &Receiver<ReadRequest>, tx: &Sender<De
 }
 
 fn read_slot(
-	path: &std::path::Path,
+	path: &Path,
 	reader: &mut Option<PvcacheReader>,
 	tile_len: usize,
 	request: &ReadRequest,
@@ -332,7 +364,6 @@ fn crop(mut pixels: Vec<u8>, frame: sd_pvcache::Frame) -> Bitmap {
 mod tests {
 	use super::*;
 	use sd_pvcache::Pvcache;
-	use std::path::Path;
 	use std::time::{Duration, Instant};
 
 	/// A landscape frame inside the envelope, so the tests exercise the same
@@ -349,28 +380,39 @@ mod tests {
 		vec![b; (TILE * FRAME_H * 4) as usize]
 	}
 
-	/// Cell count for the test folder; the tests only ever address cell 0.
+	/// Cell count for the test folder; most tests only ever address cell 0.
 	const TEST_CELLS: u32 = 1;
 
-	fn make_source(
-		dir: &Path,
-	) -> (
-		PvcacheSource,
-		Sender<Vec<(u32, Entry)>>,
-		Sender<Completion>,
-		PathBuf,
-	) {
+	/// The cache the test folder's tiles live in.
+	const CACHE: Uuid = Uuid::from_u128(0xCAC4E);
+
+	fn make_source(dir: &Path) -> (PvcacheSource, Sender<Feed>, Sender<Completion>, PathBuf) {
 		let path = dir.join("thumbs.pvcache");
-		let (entries_tx, entries_rx) = channel();
+		let (feed_tx, feed_rx) = channel();
 		let (completions_tx, completions_rx) = channel();
 		let source = PvcacheSource::new(
-			path.clone(),
 			TEST_CELLS,
-			entries_rx,
+			feed_rx,
 			completions_rx,
 			VisibleRange::new(0, 64),
 		);
-		(source, entries_tx, completions_tx, path)
+		(source, feed_tx, completions_tx, path)
+	}
+
+	/// The identity window naming cell `index` as `uuid` at `version`, in the
+	/// cache file at `path`.
+	fn window(path: &Path, index: u32, uuid: Uuid, version: u64) -> Feed {
+		Feed::Window {
+			caches: vec![(CACHE, path.to_path_buf())],
+			entries: vec![(
+				index,
+				Entry {
+					cache: CACHE,
+					uuid,
+					version,
+				},
+			)],
+		}
 	}
 
 	/// Poll and drain until one tile arrives or the deadline passes.
@@ -407,7 +449,7 @@ mod tests {
 	#[test]
 	fn fresh_tile_is_read_through_the_reader() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let (mut source, entries_tx, _completions_tx, path) = make_source(dir.path());
+		let (mut source, feed_tx, _completions_tx, path) = make_source(dir.path());
 		let uuid = Uuid::from_u128(1);
 
 		let mut writer = Pvcache::open_or_create(&path, TILE, TILE).expect("create cache");
@@ -415,9 +457,9 @@ mod tests {
 			.write(uuid, 7, FRAME, &tile_bytes(0xAB))
 			.expect("write");
 
-		entries_tx
-			.send(vec![(0, Entry { uuid, version: 7 })])
-			.expect("send entries");
+		feed_tx
+			.send(window(&path, 0, uuid, 7))
+			.expect("send window");
 		source.poll();
 		assert_eq!(source.len(), 1);
 
@@ -433,7 +475,7 @@ mod tests {
 	#[test]
 	fn stale_pixels_show_then_refresh_on_completion() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let (mut source, entries_tx, completions_tx, path) = make_source(dir.path());
+		let (mut source, feed_tx, completions_tx, path) = make_source(dir.path());
 		let uuid = Uuid::from_u128(2);
 
 		let mut writer = Pvcache::open_or_create(&path, TILE, TILE).expect("create cache");
@@ -441,9 +483,9 @@ mod tests {
 			.write(uuid, 1, FRAME, &tile_bytes(0x11))
 			.expect("write v1");
 
-		entries_tx
-			.send(vec![(0, Entry { uuid, version: 2 })])
-			.expect("send entries");
+		feed_tx
+			.send(window(&path, 0, uuid, 2))
+			.expect("send window");
 		source.poll();
 		source.request(0);
 
@@ -474,13 +516,13 @@ mod tests {
 	#[test]
 	fn absent_slot_fills_after_the_bake_publishes() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let (mut source, entries_tx, completions_tx, path) = make_source(dir.path());
+		let (mut source, feed_tx, completions_tx, path) = make_source(dir.path());
 		let uuid = Uuid::from_u128(3);
 
 		// Request before the cache file even exists: the placeholder stays up.
-		entries_tx
-			.send(vec![(0, Entry { uuid, version: 9 })])
-			.expect("send entries");
+		feed_tx
+			.send(window(&path, 0, uuid, 9))
+			.expect("send window");
 		source.poll();
 		source.request(0);
 		assert!(
@@ -508,17 +550,11 @@ mod tests {
 	#[test]
 	fn failed_bake_retires_the_cell_to_idle() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let (mut source, entries_tx, completions_tx, _path) = make_source(dir.path());
+		let (mut source, feed_tx, completions_tx, path) = make_source(dir.path());
 
-		entries_tx
-			.send(vec![(
-				0,
-				Entry {
-					uuid: Uuid::from_u128(4),
-					version: 1,
-				},
-			)])
-			.expect("send entries");
+		feed_tx
+			.send(window(&path, 0, Uuid::from_u128(4), 1))
+			.expect("send window");
 		source.poll();
 		source.request(0);
 		completions_tx
@@ -540,17 +576,11 @@ mod tests {
 	#[test]
 	fn filler_exit_retires_missing_tiles() {
 		let dir = tempfile::tempdir().expect("tempdir");
-		let (mut source, entries_tx, completions_tx, _path) = make_source(dir.path());
+		let (mut source, feed_tx, completions_tx, path) = make_source(dir.path());
 
-		entries_tx
-			.send(vec![(
-				0,
-				Entry {
-					uuid: Uuid::from_u128(5),
-					version: 1,
-				},
-			)])
-			.expect("send entries");
+		feed_tx
+			.send(window(&path, 0, Uuid::from_u128(5), 1))
+			.expect("send window");
 		drop(completions_tx);
 		source.poll();
 		source.request(0);
@@ -559,5 +589,71 @@ mod tests {
 			settle(&mut source, Duration::from_secs(10)),
 			"cells settle once the writer side is gone"
 		);
+	}
+
+	/// Cells read from the cache their identity names, so a listing that
+	/// spans drives fills from each drive's file.
+	#[test]
+	fn each_cell_reads_from_the_cache_its_identity_names() {
+		let dir = tempfile::tempdir().expect("tempdir");
+		let (mut source, feed_tx, _completions_tx, first_path) = make_source(dir.path());
+		let second_path = dir.path().join("second.pvcache");
+		let second_cache = Uuid::from_u128(0x5EC0D);
+		let (first, second) = (Uuid::from_u128(6), Uuid::from_u128(7));
+
+		let mut first_writer =
+			Pvcache::open_or_create(&first_path, TILE, TILE).expect("first cache");
+		first_writer
+			.write(first, 1, FRAME, &tile_bytes(0x0A))
+			.expect("write first");
+		let mut second_writer =
+			Pvcache::open_or_create(&second_path, TILE, TILE).expect("second cache");
+		second_writer
+			.write(second, 1, FRAME, &tile_bytes(0x0B))
+			.expect("write second");
+
+		feed_tx.send(Feed::Grew(2)).expect("send growth");
+		feed_tx
+			.send(Feed::Window {
+				caches: vec![(CACHE, first_path), (second_cache, second_path)],
+				entries: vec![
+					(
+						0,
+						Entry {
+							cache: CACHE,
+							uuid: first,
+							version: 1,
+						},
+					),
+					(
+						1,
+						Entry {
+							cache: second_cache,
+							uuid: second,
+							version: 1,
+						},
+					),
+				],
+			})
+			.expect("send window");
+		source.poll();
+		assert_eq!(source.len(), 2, "the growth landed");
+
+		source.request(0);
+		source.request(1);
+		let deadline = Instant::now() + Duration::from_secs(10);
+		let mut delivered = Vec::new();
+		while delivered.len() < 2 && Instant::now() < deadline {
+			source.poll();
+			delivered.extend(
+				source
+					.drain(usize::MAX)
+					.into_iter()
+					.map(|(index, bitmap)| (index, bitmap.bgra[0])),
+			);
+			thread::sleep(Duration::from_millis(5));
+		}
+		delivered.sort_unstable();
+		assert_eq!(delivered, [(0, 0x0A), (1, 0x0B)]);
 	}
 }
