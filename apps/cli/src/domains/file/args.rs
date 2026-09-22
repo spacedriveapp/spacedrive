@@ -5,7 +5,7 @@ use sd_core::{
 	domain::addressing::{SdPath, SdPathBatch},
 	ops::{
 		files::copy::input::{CopyMethod, FileCopyInput},
-		paths::compare::{CompareBy, CompareCursor, CompareSet, PathCompareInput},
+		paths::compare::{CompareBy, CompareSet, PathCompareInput, MAX_PAGE},
 	},
 };
 
@@ -105,14 +105,9 @@ pub struct FileCompareArgs {
 	#[arg(long, default_value_t = false)]
 	pub include_hidden: bool,
 
-	/// Continue after this path, relative to the listed folder, as a previous
-	/// page ended
-	#[arg(long)]
-	pub after: Option<String>,
-
-	/// Files per page, at most 5000
-	#[arg(long, default_value_t = 100)]
-	pub limit: u32,
+	/// Stop after this many files; every file by default
+	#[arg(long, value_parser = clap::value_parser!(u32).range(1..))]
+	pub limit: Option<u32>,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
@@ -152,7 +147,8 @@ impl From<CompareSetArg> for CompareSet {
 impl FileCompareArgs {
 	/// Both folders as this device spells them, so a relative path or a
 	/// symlink means what it does in the shell. "local" names whichever device
-	/// answers, which is the one the folders were resolved on.
+	/// answers, which is the one the folders were resolved on. The input asks
+	/// for the first page; walking the rest sets each page's limit and cursor.
 	pub fn into_input(self) -> anyhow::Result<PathCompareInput> {
 		let folder = |path: &PathBuf| {
 			path.canonicalize()
@@ -168,14 +164,8 @@ impl FileCompareArgs {
 			by: self.by.into(),
 			show: self.show.into(),
 			include_hidden: self.include_hidden,
-			after: self.after.map(|path| {
-				let (directory, name) = path.rsplit_once('/').unwrap_or(("", &path));
-				CompareCursor {
-					directory: directory.to_string(),
-					name: name.to_string(),
-				}
-			}),
-			limit: self.limit,
+			after: None,
+			limit: MAX_PAGE,
 		})
 	}
 }

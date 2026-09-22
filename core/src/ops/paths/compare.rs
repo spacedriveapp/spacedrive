@@ -38,7 +38,7 @@ use crate::ops::indexing::VolumeIndex;
 use sd_store::read::Start;
 
 /// The most entries one page may ask for.
-const MAX_PAGE: u32 = 5000;
+pub const MAX_PAGE: u32 = 5000;
 
 /// Files a stream reads from its store at a time, and files a content
 /// comparison asks the other side about at once.
@@ -374,6 +374,16 @@ fn same_bytes(left: &sd_store::FsEntry, right: &sd_store::FsEntry) -> bool {
 }
 
 impl CompareTotals {
+	/// How many files a set holds.
+	pub fn count(&self, set: CompareSet) -> u32 {
+		match set {
+			CompareSet::OnlyLeft => self.only_left,
+			CompareSet::OnlyRight => self.only_right,
+			CompareSet::Changed => self.changed,
+			CompareSet::Same => self.same,
+		}
+	}
+
 	fn add(&mut self, set: CompareSet) {
 		*match set {
 			CompareSet::OnlyLeft => &mut self.only_left,

@@ -165,9 +165,13 @@ must sit inside tracked sources on mounted drives.
   folder, whatever the file is called: `--show only-left` is what a backup is
   missing. `changed` is refused. Files with no content id are counted as "Not
   hashed yet" and listed in no set, so hash both sides first.
-- The first page prints every set's count. `--limit` sizes a page (100, at most
-  5000) and `More follow: --after '<path>'` continues it. A full page always
-  offers `--after`, so the page after the last can come back empty.
+- It prints every set's count, then the set's files, one per line, as each
+  page of 5000 arrives. `--limit` stops after that many files, printing
+  `N of M listed` when that cuts the set short. Piping into `head` ends it
+  cleanly.
+- `--format json` prints one document with `totals` and every entry. Under
+  `--limit`, fewer entries than the set's count in `totals` means it stopped
+  early.
 - `--include-hidden` brings in hidden files.
 
 ## Jobs and logs

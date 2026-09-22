@@ -7,10 +7,14 @@ use comfy_table::presets::UTF8_BORDERS_ONLY;
 use crate::format_bytes;
 use crate::util::prelude::*;
 
-use crate::context::Context;
+use std::io::Write;
+
+use crate::context::{Context, OutputFormat};
 use sd_core::infra::job::types::JobId;
 use sd_core::infra::query::LibraryQuery;
-use sd_core::ops::paths::compare::{CompareBy, PathCompareOutput};
+use sd_core::ops::paths::compare::{
+	CompareBy, CompareEntry, CompareTotals, PathCompareInput, PathCompareOutput, MAX_PAGE,
+};
 
 use self::args::*;
 
@@ -106,64 +110,132 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			);
 		}
 		FileCmd::Compare(args) => {
-			let input = args.into_input()?;
-			let by = input.by;
-			let out: PathCompareOutput = execute_query!(ctx, input);
-			print_output!(ctx, &out, |o: &PathCompareOutput| print_comparison(by, o));
+			let cap = args.limit;
+			compare_folders(ctx, args.into_input()?, cap).await?;
 		}
 	}
 	Ok(())
 }
 
-/// The counts, on a first page, then the page's files with each side's copy.
-fn print_comparison(by: CompareBy, out: &PathCompareOutput) {
-	if let Some(totals) = &out.totals {
-		println!("Only on the left:   {}", totals.only_left);
-		println!("Only on the right:  {}", totals.only_right);
-		if by == CompareBy::Location {
-			println!("Changed:            {}", totals.changed);
+/// Every page of a comparison, up to `cap` files. Human output prints each
+/// page as it arrives, one line per file; JSON output is one document holding
+/// every entry. A reader that closes the pipe early, like `head`, ends the
+/// listing quietly.
+async fn compare_folders(ctx: &Context, input: PathCompareInput, cap: Option<u32>) -> Result<()> {
+	match walk_comparison(ctx, input, cap).await {
+		Err(error)
+			if error
+				.downcast_ref::<std::io::Error>()
+				.is_some_and(|error| error.kind() == std::io::ErrorKind::BrokenPipe) =>
+		{
+			Ok(())
 		}
-		println!("Same:               {}", totals.same);
-		if totals.unhashed_left + totals.unhashed_right > 0 {
-			println!(
-				"Not hashed yet:     {} left, {} right",
-				totals.unhashed_left, totals.unhashed_right
-			);
-		}
-		println!();
+		result => result,
 	}
-	if out.entries.is_empty() {
-		println!("No files in this set");
-		return;
-	}
+}
 
-	let side = |file: &Option<sd_core::domain::File>| match file {
-		Some(file) => format!(
-			"{}  {}",
-			format_bytes(file.size),
-			file.modified_at.format("%Y-%m-%d %H:%M")
-		),
-		None => "-".to_string(),
+async fn walk_comparison(
+	ctx: &Context,
+	mut input: PathCompareInput,
+	cap: Option<u32>,
+) -> Result<()> {
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	let mut totals = None;
+	let mut entries = Vec::new();
+	let mut listed = 0;
+	let next = loop {
+		input.limit = cap.map_or(MAX_PAGE, |cap| (cap - listed).min(MAX_PAGE));
+		let page: PathCompareOutput = execute_query!(ctx, input.clone());
+		if let Some(first) = page.totals {
+			if human {
+				print_totals(&mut out, input.by, &first)?;
+			}
+			totals = Some(first);
+		}
+		for entry in page.entries {
+			if human {
+				print_entry(&mut out, &entry, listed == 0)?;
+			} else {
+				entries.push(entry);
+			}
+			listed += 1;
+		}
+		match page.next {
+			Some(cursor) if cap.is_none_or(|cap| listed < cap) => input.after = Some(cursor),
+			next => break next,
+		}
 	};
-	let mut table = comfy_table::Table::new();
-	table.load_preset(UTF8_BORDERS_ONLY);
-	table.set_header(vec!["Path", "Left", "Right"]);
-	for entry in &out.entries {
-		table.add_row(vec![
-			entry.path.clone(),
-			side(&entry.left),
-			side(&entry.right),
-		]);
-	}
-	println!("{table}");
 
-	if let Some(next) = &out.next {
-		let after = match next.directory.as_str() {
-			"" => next.name.clone(),
-			directory => format!("{directory}/{}", next.name),
+	if !human {
+		let output = PathCompareOutput {
+			entries,
+			next,
+			totals,
 		};
-		println!("More follow: --after '{after}'");
+		writeln!(out, "{}", serde_json::to_string_pretty(&output)?)?;
+		return Ok(());
 	}
+	if listed == 0 {
+		writeln!(out, "No files in this set")?;
+	} else if let Some(total) = totals
+		.map(|totals| totals.count(input.show))
+		.filter(|&total| listed < total)
+	{
+		writeln!(out, "\n{listed} of {total} listed")?;
+	}
+	Ok(())
+}
+
+/// Every set's count, which a comparison's first page carries.
+fn print_totals(
+	out: &mut impl Write,
+	by: CompareBy,
+	totals: &CompareTotals,
+) -> std::io::Result<()> {
+	writeln!(out, "Only on the left:   {}", totals.only_left)?;
+	writeln!(out, "Only on the right:  {}", totals.only_right)?;
+	if by == CompareBy::Location {
+		writeln!(out, "Changed:            {}", totals.changed)?;
+	}
+	writeln!(out, "Same:               {}", totals.same)?;
+	if totals.unhashed_left + totals.unhashed_right > 0 {
+		writeln!(
+			out,
+			"Not hashed yet:     {} left, {} right",
+			totals.unhashed_left, totals.unhashed_right
+		)?;
+	}
+	writeln!(out)
+}
+
+/// One file per line: each side's size and modification time in fixed
+/// columns, then the path, so a long path never pushes the columns out of
+/// line. The first file brings a header naming the sides it has.
+fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std::io::Result<()> {
+	let sides: Vec<(&str, &sd_core::domain::File)> =
+		[("Left", &entry.left), ("Right", &entry.right)]
+			.into_iter()
+			.filter_map(|(label, file)| file.as_ref().map(|file| (label, file)))
+			.collect();
+	if header {
+		let labels: Vec<String> = sides
+			.iter()
+			.map(|(label, _)| format!("{label:<27}"))
+			.collect();
+		writeln!(out, "{}   Path", labels.join("   "))?;
+	}
+	let cells: Vec<String> = sides
+		.iter()
+		.map(|(_, file)| {
+			format!(
+				"{:>9}  {}",
+				format_bytes(file.size),
+				file.modified_at.format("%Y-%m-%d %H:%M")
+			)
+		})
+		.collect();
+	writeln!(out, "{}   {}", cells.join("   "), entry.path)
 }
 
 /// Run file copy with confirmation handling
