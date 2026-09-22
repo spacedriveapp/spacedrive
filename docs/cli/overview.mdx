@@ -138,6 +138,13 @@ sd-cli file compare ~/Photos /Volumes/Backup/Photos --show different
 sd-cli file compare ~/Photos /Volumes/Backup/Photos --by content --show only-a
 ~~~
 
+Delete from a folder what a comparison names, here the files the backup
+already holds. The job reads both copies in full before it removes one:
+
+~~~bash
+sd-cli file delete ~/Photos --against /Volumes/Backup/Photos --by content --show both
+~~~
+
 ## Structured output
 
 Pass **--format json** before the command to receive structured output:

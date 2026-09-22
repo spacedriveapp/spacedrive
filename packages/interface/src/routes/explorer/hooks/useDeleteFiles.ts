@@ -26,7 +26,7 @@ export function useDeleteFiles() {
 
 			try {
 				await mutation.mutateAsync({
-					targets: { paths: files.map((f) => f.sd_path) },
+					targets: { kind: "paths", paths: files.map((f) => f.sd_path) },
 					permanent,
 					recursive: true,
 				});

@@ -11,11 +11,13 @@ use std::io::Write;
 
 use crate::context::{Context, OutputFormat};
 use sd_core::domain::SdPath;
+use sd_core::infra::job::handle::JobReceipt;
 use sd_core::infra::job::types::JobId;
 use sd_core::infra::query::LibraryQuery;
+use sd_core::ops::files::delete::{DeleteTargets, FileDeleteInput};
 use sd_core::ops::paths::compare::{
-	CompareBy, CompareEntry, CompareSet, CompareTotals, PathCompareInput, PathCompareOutput,
-	MAX_PAGE,
+	CompareBy, CompareEntry, CompareSet, CompareTotals, Comparison, PathCompareInput,
+	PathCompareOutput, MAX_PAGE,
 };
 
 use self::args::*;
@@ -30,6 +32,8 @@ pub enum FileCmd {
 	List(FileListArgs),
 	/// Compare what two indexed folders hold
 	Compare(FileCompareArgs),
+	/// Delete files, or from a folder what a comparison names
+	Delete(FileDeleteArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
@@ -115,7 +119,54 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			let cap = args.limit;
 			compare_folders(ctx, args.into_input()?, cap).await?;
 		}
+		FileCmd::Delete(args) => {
+			let yes = args.yes;
+			delete_files(ctx, args.into_input()?, yes).await?;
+		}
 	}
+	Ok(())
+}
+
+/// Say what will go, then delete it behind a y/N prompt unless `yes`. For a
+/// comparison that is its counts and the set, as `file compare` prints them,
+/// from a first page of it; the job derives the set again as it runs.
+async fn delete_files(ctx: &Context, input: FileDeleteInput, yes: bool) -> Result<()> {
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	let (count, from) = match &input.targets {
+		DeleteTargets::Comparison { comparison } => {
+			let page: PathCompareOutput = execute_query!(
+				ctx,
+				PathCompareInput {
+					comparison: comparison.clone(),
+					after: None,
+					limit: 1,
+				}
+			);
+			let totals = page.totals.unwrap_or_default();
+			if human {
+				print_summary(&mut out, comparison, &totals)?;
+				writeln!(out)?;
+			}
+			(totals.count(comparison.show) as usize, " from A")
+		}
+		DeleteTargets::Paths { paths } => (paths.len(), ""),
+	};
+	if count == 0 {
+		writeln!(out, "Nothing to delete")?;
+		return Ok(());
+	}
+	let destination = if input.permanent {
+		"permanently"
+	} else {
+		"to the trash"
+	};
+	confirm_or_abort(&format!("Delete {count} files{from} {destination}?"), yes)?;
+
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	print_output!(ctx, &receipt, |receipt: &JobReceipt| {
+		println!("Dispatched delete job {}", receipt.id);
+	});
 	Ok(())
 }
 
@@ -151,7 +202,7 @@ async fn walk_comparison(
 		let page: PathCompareOutput = execute_query!(ctx, input.clone());
 		if let Some(first) = page.totals {
 			if human {
-				print_summary(&mut out, &input, &first)?;
+				print_summary(&mut out, &input.comparison, &first)?;
 			}
 			totals = Some(first);
 		}
@@ -181,7 +232,7 @@ async fn walk_comparison(
 	if listed == 0 {
 		writeln!(out, "None")?;
 	} else if let Some(total) = totals
-		.map(|totals| totals.count(input.show))
+		.map(|totals| totals.count(input.comparison.show))
 		.filter(|&total| listed < total)
 	{
 		writeln!(out, "\n{listed} of {total} listed")?;
@@ -193,16 +244,16 @@ async fn walk_comparison(
 /// from the comparison's first page, then the title of the listing below.
 fn print_summary(
 	out: &mut impl Write,
-	input: &PathCompareInput,
+	comparison: &Comparison,
 	totals: &CompareTotals,
 ) -> std::io::Result<()> {
 	let folder = |path: &SdPath| {
 		path.path()
 			.map_or_else(|| path.to_string(), |path| path.display().to_string())
 	};
-	writeln!(out, "A  {}", folder(&input.a))?;
-	writeln!(out, "B  {}", folder(&input.b))?;
-	let (by, sets): (&str, &[CompareSet]) = match input.by {
+	writeln!(out, "A  {}", folder(&comparison.a))?;
+	writeln!(out, "B  {}", folder(&comparison.b))?;
+	let (by, sets): (&str, &[CompareSet]) = match comparison.by {
 		CompareBy::Path => (
 			"path",
 			&[
@@ -244,7 +295,7 @@ fn print_summary(
 			totals.unhashed_a, totals.unhashed_b
 		)?;
 	}
-	writeln!(out, "\n{}", set_label(input.show))
+	writeln!(out, "\n{}", set_label(comparison.show))
 }
 
 /// How a set is named in the counts and over its listing.

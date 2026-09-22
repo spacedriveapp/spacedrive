@@ -51,6 +51,8 @@ pub enum JobOutput {
 	FileDelete {
 		deleted_count: usize,
 		failed_count: usize,
+		/// Files a comparison named that were left in place.
+		skipped_count: usize,
 		total_bytes: u64,
 	},
 
@@ -224,12 +226,13 @@ impl fmt::Display for JobOutput {
 			Self::FileDelete {
 				deleted_count,
 				failed_count,
+				skipped_count,
 				total_bytes,
 			} => {
 				write!(
 					f,
-					"Deleted {} files ({} failed, {} bytes)",
-					deleted_count, failed_count, total_bytes
+					"Deleted {} files ({} skipped, {} failed, {} bytes)",
+					deleted_count, skipped_count, failed_count, total_bytes
 				)
 			}
 			Self::DuplicateDetection {

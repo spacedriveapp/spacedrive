@@ -1,7 +1,7 @@
 //! Delete job implementation
 
 use crate::{
-	domain::addressing::SdPathBatch,
+	domain::addressing::SdPath,
 	infra::job::{generic_progress::GenericProgress, prelude::*},
 };
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,10 @@ use std::{
 };
 use tokio::fs;
 
+use super::compared;
+use super::input::DeleteTargets;
 use super::routing::DeleteStrategyRouter;
+use super::strategy::DeleteResult;
 
 /// Delete operation modes
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +25,16 @@ pub enum DeleteMode {
 	Permanent,
 	/// Secure deletion (overwrite data)
 	Secure,
+}
+
+impl DeleteMode {
+	pub(super) fn label(&self) -> &'static str {
+		match self {
+			Self::Trash => "trash",
+			Self::Permanent => "permanent",
+			Self::Secure => "secure",
+		}
+	}
 }
 
 /// Options for file delete operations
@@ -43,13 +56,9 @@ impl Default for DeleteOptions {
 /// Delete job for removing files and directories
 #[derive(Debug, Serialize, Deserialize, Job)]
 pub struct DeleteJob {
-	pub targets: SdPathBatch,
+	pub targets: DeleteTargets,
 	pub mode: DeleteMode,
-	pub confirm_permanent: bool,
 
-	// Internal state for resumption
-	#[serde(skip)]
-	completed_deletions: Vec<usize>,
 	#[serde(skip, default = "Instant::now")]
 	started_at: Instant,
 }
@@ -73,163 +82,166 @@ impl JobHandler for DeleteJob {
 	type Output = DeleteOutput;
 
 	async fn run(&mut self, ctx: JobContext<'_>) -> JobResult<Self::Output> {
-		let total_files = self.targets.paths.len();
-		let mode_str = match self.mode {
-			DeleteMode::Trash => "trash",
-			DeleteMode::Permanent => "permanent",
-			DeleteMode::Secure => "secure",
-		};
-
-		ctx.log(format!(
-			"Starting {} deletion of {} files",
-			mode_str, total_files
-		));
-
-		// Phase: Preparing
-		ctx.progress(Progress::Indeterminate(format!(
-			"Validating {} targets",
-			total_files
-		)));
-
-		// Safety check for permanent deletion
-		if matches!(self.mode, DeleteMode::Permanent | DeleteMode::Secure)
-			&& !self.confirm_permanent
-		{
-			return Err(JobError::execution(
-				"Permanent deletion requires explicit confirmation",
-			));
+		match &self.targets {
+			DeleteTargets::Paths { paths } => {
+				delete_paths(&ctx, paths.clone(), self.mode.clone(), self.started_at).await
+			}
+			DeleteTargets::Comparison { comparison } => {
+				compared::delete(&ctx, comparison, self.mode.clone(), self.started_at).await
+			}
 		}
-
-		// Validate targets exist (only for local paths)
-		self.validate_targets(&ctx).await?;
-
-		// Phase: Resolving paths
-		ctx.progress(Progress::Indeterminate("Resolving paths".to_string()));
-
-		// Resolve Content paths to Physical paths before strategy selection
-		let mut resolved = Vec::with_capacity(self.targets.paths.len());
-		for path in &self.targets.paths {
-			resolved.push(
-				path.resolve_in_job(&ctx)
-					.await
-					.map_err(|e| JobError::execution(format!("Failed to resolve path: {e}")))?,
-			);
-		}
-		self.targets = SdPathBatch::new(resolved);
-
-		// Select strategy based on path topology
-		let volume_manager = ctx.volume_manager();
-		let strategy =
-			DeleteStrategyRouter::select_strategy(&self.targets.paths, volume_manager.as_deref())
-				.await;
-
-		let strategy_description =
-			DeleteStrategyRouter::describe_strategy(&self.targets.paths).await;
-		ctx.log(format!("Using strategy: {}", strategy_description));
-
-		// Phase: Deleting
-		ctx.progress(Progress::Indeterminate(format!(
-			"Deleting {} files ({})",
-			total_files, mode_str
-		)));
-
-		// Execute deletion using selected strategy
-		let results = strategy
-			.execute(&ctx, &self.targets.paths, self.mode.clone())
-			.await
-			.map_err(|e| JobError::execution(format!("Strategy execution failed: {}", e)))?;
-
-		// Aggregate results
-		let deleted_count = results.iter().filter(|r| r.success).count();
-		let failed_count = results.len() - deleted_count;
-		let total_bytes: u64 = results.iter().map(|r| r.bytes_freed).sum();
-
-		let failed_deletions = results
-			.into_iter()
-			.filter(|r| !r.success)
-			.map(|r| DeleteError {
-				path: r
-					.path
-					.as_local_path()
-					.map(|p| p.to_path_buf())
-					.unwrap_or_default(),
-				error: r.error.unwrap_or_default(),
-			})
-			.collect();
-
-		// Phase: Complete
-		ctx.progress(Progress::Generic(
-			GenericProgress::new(
-				1.0,
-				"Complete",
-				format!("{} deleted, {} failed", deleted_count, failed_count),
-			)
-			.with_completion(total_files as u64, total_files as u64)
-			.with_bytes(total_bytes, total_bytes)
-			.with_performance(0.0, None, Some(self.started_at.elapsed()))
-			.with_errors(failed_count as u64, 0),
-		));
-
-		ctx.log(format!(
-			"Delete operation completed: {} deleted, {} failed",
-			deleted_count, failed_count
-		));
-
-		Ok(DeleteOutput {
-			deleted_count,
-			failed_count,
-			total_bytes,
-			duration: self.started_at.elapsed(),
-			failed_deletions,
-			mode: self.mode.clone(),
-		})
 	}
 }
 
 impl DeleteJob {
 	/// Create a new delete job
-	pub fn new(targets: SdPathBatch, mode: DeleteMode) -> Self {
+	pub fn new(targets: DeleteTargets, mode: DeleteMode) -> Self {
 		Self {
 			targets,
 			mode,
-			confirm_permanent: false,
-			completed_deletions: Vec::new(),
 			started_at: Instant::now(),
 		}
 	}
+}
 
-	/// Create a trash operation
-	pub fn trash(targets: SdPathBatch) -> Self {
-		Self::new(targets, DeleteMode::Trash)
+/// Delete files named one by one.
+async fn delete_paths(
+	ctx: &JobContext<'_>,
+	paths: Vec<SdPath>,
+	mode: DeleteMode,
+	started_at: Instant,
+) -> JobResult<DeleteOutput> {
+	let total_files = paths.len();
+	ctx.log(format!(
+		"Starting {} deletion of {} files",
+		mode.label(),
+		total_files
+	));
+
+	// Phase: Preparing
+	ctx.progress(Progress::Indeterminate(format!(
+		"Validating {} targets",
+		total_files
+	)));
+	validate_targets(&paths).await?;
+
+	// Phase: Resolving paths
+	ctx.progress(Progress::Indeterminate("Resolving paths".to_string()));
+
+	// Resolve Content paths to Physical paths before strategy selection
+	let mut resolved = Vec::with_capacity(paths.len());
+	for path in &paths {
+		resolved.push(
+			path.resolve_in_job(ctx)
+				.await
+				.map_err(|e| JobError::execution(format!("Failed to resolve path: {e}")))?,
+		);
 	}
 
-	/// Create a permanent delete operation (requires confirmation)
-	pub fn permanent(targets: SdPathBatch, confirmed: bool) -> Self {
-		let mut job = Self::new(targets, DeleteMode::Permanent);
-		job.confirm_permanent = confirmed;
-		job
-	}
+	// Select strategy based on path topology
+	let volume_manager = ctx.volume_manager();
+	let strategy =
+		DeleteStrategyRouter::select_strategy(&resolved, volume_manager.as_deref()).await;
+	ctx.log(format!(
+		"Using strategy: {}",
+		DeleteStrategyRouter::describe_strategy(&resolved).await
+	));
 
-	/// Create a secure delete operation (requires confirmation)
-	pub fn secure(targets: SdPathBatch, confirmed: bool) -> Self {
-		let mut job = Self::new(targets, DeleteMode::Secure);
-		job.confirm_permanent = confirmed;
-		job
-	}
+	// Phase: Deleting
+	ctx.progress(Progress::Indeterminate(format!(
+		"Deleting {} files ({})",
+		total_files,
+		mode.label()
+	)));
 
-	/// Validate that all targets exist (only for local paths)
-	async fn validate_targets(&self, _ctx: &JobContext<'_>) -> JobResult<()> {
-		for target in &self.targets.paths {
-			if let Some(local_path) = target.as_local_path() {
-				if !fs::try_exists(local_path).await.unwrap_or(false) {
-					return Err(JobError::execution(format!(
-						"Target does not exist: {}",
-						local_path.display()
-					)));
-				}
+	let results = strategy
+		.execute(ctx, &resolved, mode.clone())
+		.await
+		.map_err(|e| JobError::execution(format!("Strategy execution failed: {}", e)))?;
+
+	let mut tally = Tally::default();
+	tally.record(results);
+
+	// Phase: Complete
+	ctx.progress(Progress::Generic(
+		GenericProgress::new(
+			1.0,
+			"Complete",
+			format!("{} deleted, {} failed", tally.deleted, tally.failed.len()),
+		)
+		.with_completion(total_files as u64, total_files as u64)
+		.with_bytes(tally.bytes, tally.bytes)
+		.with_performance(0.0, None, Some(started_at.elapsed()))
+		.with_errors(tally.failed.len() as u64, 0),
+	));
+
+	ctx.log(format!(
+		"Delete operation completed: {} deleted, {} failed",
+		tally.deleted,
+		tally.failed.len()
+	));
+
+	Ok(tally.into_output(mode, started_at))
+}
+
+/// Validate that all targets exist (only for local paths)
+async fn validate_targets(targets: &[SdPath]) -> JobResult<()> {
+	for target in targets {
+		if let Some(local_path) = target.as_local_path() {
+			if !fs::try_exists(local_path).await.unwrap_or(false) {
+				return Err(JobError::execution(format!(
+					"Target does not exist: {}",
+					local_path.display()
+				)));
 			}
 		}
-		Ok(())
+	}
+	Ok(())
+}
+
+/// What a deletion has done so far.
+#[derive(Default)]
+pub(super) struct Tally {
+	pub(super) deleted: usize,
+	pub(super) bytes: u64,
+	pub(super) failed: Vec<DeleteError>,
+	pub(super) skipped: Vec<DeleteSkip>,
+}
+
+impl Tally {
+	pub(super) fn record(&mut self, results: Vec<DeleteResult>) {
+		for result in results {
+			if result.success {
+				self.deleted += 1;
+				self.bytes += result.bytes_freed;
+			} else {
+				self.failed.push(DeleteError {
+					path: result
+						.path
+						.as_local_path()
+						.map(|p| p.to_path_buf())
+						.unwrap_or_default(),
+					error: result.error.unwrap_or_default(),
+				});
+			}
+		}
+	}
+
+	pub(super) fn skip(&mut self, path: PathBuf, reason: SkipReason) {
+		self.skipped.push(DeleteSkip { path, reason });
+	}
+
+	pub(super) fn into_output(self, mode: DeleteMode, started_at: Instant) -> DeleteOutput {
+		DeleteOutput {
+			deleted_count: self.deleted,
+			failed_count: self.failed.len(),
+			skipped_count: self.skipped.len(),
+			total_bytes: self.bytes,
+			duration: started_at.elapsed(),
+			failed_deletions: self.failed,
+			skipped: self.skipped,
+			mode,
+		}
 	}
 }
 
@@ -240,14 +252,44 @@ pub struct DeleteError {
 	pub error: String,
 }
 
+/// A file a comparison named that the job left in place.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeleteSkip {
+	pub path: PathBuf,
+	pub reason: SkipReason,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum SkipReason {
+	/// Read in full, the file and the copy that was to stand in for it hold
+	/// different bytes.
+	Differs,
+	/// No copy was there to read by the time the file's turn came.
+	NoCopy,
+	/// The file or its copy could not be read.
+	Unreadable(String),
+}
+
+impl std::fmt::Display for SkipReason {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::Differs => write!(f, "its copy in B holds different bytes"),
+			Self::NoCopy => write!(f, "its copy in B is gone"),
+			Self::Unreadable(error) => write!(f, "could not be read: {error}"),
+		}
+	}
+}
+
 /// Job output for delete operations
 #[derive(Debug, Serialize, Deserialize)]
 pub struct DeleteOutput {
 	pub deleted_count: usize,
 	pub failed_count: usize,
+	pub skipped_count: usize,
 	pub total_bytes: u64,
 	pub duration: Duration,
 	pub failed_deletions: Vec<DeleteError>,
+	pub skipped: Vec<DeleteSkip>,
 	pub mode: DeleteMode,
 }
 
@@ -256,6 +298,7 @@ impl From<DeleteOutput> for JobOutput {
 		JobOutput::FileDelete {
 			deleted_count: output.deleted_count,
 			failed_count: output.failed_count,
+			skipped_count: output.skipped_count,
 			total_bytes: output.total_bytes,
 		}
 	}

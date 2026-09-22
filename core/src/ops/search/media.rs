@@ -314,6 +314,8 @@ mod tests {
 			uid: None,
 			gid: None,
 			content_uuid: None,
+			sampled_hash: None,
+			integrity_hash: None,
 			content_kind: None,
 			content_error: None,
 		}

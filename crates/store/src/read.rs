@@ -12,7 +12,7 @@
 //! SQLite's own `lower()` and `LIKE` fold ASCII only and would silently miss
 //! case pairs outside it.
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 
 use crate::error::Result;
 use crate::file::FileKind;
@@ -43,6 +43,13 @@ pub struct FsEntry {
 	pub uid: Option<i64>,
 	pub gid: Option<i64>,
 	pub content_uuid: Option<Uuid>,
+	/// The two rungs of the content's hash ladder: the sampled hash every
+	/// store keys the content by, and the integrity hash once every byte has
+	/// been read. Two stores agree on the sampled hash for the same bytes
+	/// whatever rung each has reached, which the uuid does not promise, as it
+	/// re-derives from the integrity hash when that lands.
+	pub sampled_hash: Option<String>,
+	pub integrity_hash: Option<String>,
 	pub content_kind: Option<i64>,
 	pub content_error: Option<String>,
 }
@@ -70,7 +77,8 @@ macro_rules! entry_columns {
 		 f.size AS size, f.mtime AS mtime_ms, f.atime AS atime_ms, r.created_at AS created_ms, \
 		 COALESCE(f.is_hidden, 0) AS is_hidden, f.extension AS extension, \
 		 f.link_target AS link_target, f.inode AS inode, f.mode AS mode, f.uid AS uid, f.gid AS gid, \
-		 f.content_error AS content_error, c.uuid AS content_uuid, c.kind AS content_kind"
+		 f.content_error AS content_error, c.uuid AS content_uuid, \
+		 c.sampled_hash AS sampled_hash, c.integrity_hash AS integrity_hash, c.kind AS content_kind"
 	};
 }
 
@@ -117,6 +125,8 @@ struct EntryRow {
 	gid: Option<i64>,
 	content_error: Option<String>,
 	content_uuid: Option<Uuid>,
+	sampled_hash: Option<String>,
+	integrity_hash: Option<String>,
 	content_kind: Option<i64>,
 }
 
@@ -140,6 +150,8 @@ fn entry_from_row(row: EntryRow) -> Option<FsEntry> {
 		uid: row.uid,
 		gid: row.gid,
 		content_uuid: row.content_uuid,
+		sampled_hash: row.sampled_hash,
+		integrity_hash: row.integrity_hash,
 		content_kind: row.content_kind,
 		content_error: row.content_error,
 	})
@@ -304,37 +316,103 @@ pub async fn files_beneath(
 	Ok(entries)
 }
 
-/// Which of `contents` some file beneath the directory at `scope` holds, ""
-/// for the whole source. Answered from the content and record indexes a chunk
-/// at a time, so asking about a page of files costs a page of lookups rather
-/// than a read of the store.
+/// Which of `contents`, by sampled hash, some file beneath the directory at
+/// `scope` holds, "" for the whole source, each with the integrity hash its
+/// content row carries once every byte has been read. Answered from the
+/// content and record indexes a chunk at a time, so asking about a page of
+/// files costs a page of lookups rather than a read of the store.
 pub async fn contents_beneath(
 	pool: &SqlitePool,
-	contents: &[Uuid],
+	contents: &[String],
 	scope: &str,
-) -> Result<HashSet<Uuid>> {
-	let (scope_terms, scope_binds) = beneath_scope(scope);
-	let mut present = HashSet::new();
-	for chunk in contents.chunks(400) {
-		let mut conditions = vec![format!("c.uuid IN ({})", vec!["?"; chunk.len()].join(", "))];
-		conditions.extend(scope_terms.iter().cloned());
-		let sql = format!(
-			"SELECT DISTINCT c.uuid FROM content c \
-			 JOIN record r ON r.content_id = c.id \
-			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
-			 WHERE {}",
-			conditions.join(" AND ")
-		);
-		let mut query = sqlx::query_scalar::<_, Uuid>(&sql);
+) -> Result<HashMap<String, Option<String>>> {
+	let mut present = HashMap::new();
+	for chunk in contents.chunks(LOOKUP_CHUNK) {
+		let statement = contents_statement(chunk.len(), scope);
+		let mut query = sqlx::query_as::<_, (String, Option<String>)>(&statement.sql);
 		for content in chunk {
 			query = query.bind(content);
 		}
-		for value in &scope_binds {
+		for value in &statement.binds {
 			query = query.bind(value);
 		}
 		present.extend(query.fetch_all(pool).await?);
 	}
 	Ok(present)
+}
+
+/// One file beneath the directory at `scope` for each of `contents`, by
+/// sampled hash, that some file there holds. A store keys a content by its
+/// sampled hash, so every file holding one is believed to hold the same
+/// bytes, and reading one of them in full settles the content for all.
+pub async fn holders_beneath(
+	pool: &SqlitePool,
+	contents: &[String],
+	scope: &str,
+) -> Result<Vec<FsEntry>> {
+	let mut holders = Vec::new();
+	for chunk in contents.chunks(LOOKUP_CHUNK) {
+		let statement = holders_statement(chunk.len(), scope);
+		let mut query = sqlx::query_as::<_, EntryRow>(&statement.sql);
+		for content in chunk {
+			query = query.bind(content);
+		}
+		for value in &statement.binds {
+			query = query.bind(value);
+		}
+		holders.extend(
+			query
+				.fetch_all(pool)
+				.await?
+				.into_iter()
+				.filter_map(entry_from_row),
+		);
+	}
+	Ok(holders)
+}
+
+/// Sampled hashes one content lookup asks about, under SQLite's bind limit.
+const LOOKUP_CHUNK: usize = 400;
+
+/// The content rows among `count` sampled hashes that a file beneath `scope`
+/// points at, with their integrity hashes.
+fn contents_statement(count: usize, scope: &str) -> Statement {
+	let (mut conditions, binds) = beneath_scope(scope);
+	conditions.insert(
+		0,
+		format!("c.sampled_hash IN ({})", vec!["?"; count].join(", ")),
+	);
+	Statement {
+		sql: format!(
+			"SELECT DISTINCT c.sampled_hash, c.integrity_hash FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+			 WHERE {}",
+			conditions.join(" AND ")
+		),
+		binds,
+	}
+}
+
+/// The first file beneath `scope` pointing at each content row among `count`
+/// sampled hashes, as an entry.
+fn holders_statement(count: usize, scope: &str) -> Statement {
+	let (mut conditions, binds) = beneath_scope(scope);
+	conditions.insert(
+		0,
+		format!("c.sampled_hash IN ({})", vec!["?"; count].join(", ")),
+	);
+	Statement {
+		sql: format!(
+			"{ENTRY_SELECT} WHERE r.rowid IN (\
+			 SELECT MIN(r.rowid) FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+			 WHERE {} GROUP BY c.id)",
+			conditions.join(" AND ")
+		),
+		binds,
+	}
 }
 
 /// One statement of a [`files_beneath`] page: its SQL, ending in `LIMIT ?`,
@@ -607,24 +685,18 @@ mod tests {
 			}
 		}
 
-		let (terms, binds) = beneath_scope("2019");
-		let lookup = format!(
-			"SELECT DISTINCT c.uuid FROM content c \
-			 JOIN record r ON r.content_id = c.id \
-			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
-			 WHERE c.uuid IN (?) AND {}",
-			terms.join(" AND ")
-		);
-		let mut lookup_binds = vec![Uuid::nil().to_string()];
-		lookup_binds.extend(binds);
-		let steps = plan(db.pool(), &lookup, &lookup_binds, None).await;
-		assert!(
-			steps.iter().any(|step| step.contains("idx_content_uuid")),
-			"a content lookup starts from the content index: {steps:?}"
-		);
-		assert!(
-			!steps.iter().any(|step| step.starts_with("SCAN r")),
-			"a content lookup never scans the records: {steps:?}"
-		);
+		for statement in [contents_statement(1, "2019"), holders_statement(1, "2019")] {
+			let mut binds = vec!["hash".to_string()];
+			binds.extend(statement.binds);
+			let steps = plan(db.pool(), &statement.sql, &binds, None).await;
+			assert!(
+				steps.iter().any(|step| step.contains("sampled_hash=?")),
+				"a content lookup starts from the sampled hash index: {steps:?}"
+			);
+			assert!(
+				!steps.iter().any(|step| step.starts_with("SCAN r")),
+				"a content lookup never scans the records: {steps:?}"
+			);
+		}
 	}
 }

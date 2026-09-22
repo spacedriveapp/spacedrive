@@ -93,6 +93,18 @@ GridView. The clipboard is a zustand store holding `operation`, `files:
 SdPath[]`, and `sourcePath` (`hooks/useClipboard.ts`), and Paste always
 targets the current directory rather than a right-clicked folder.
 
+One operation already takes a selection rather than a list. `files.delete`
+accepts `DeleteTargets::Comparison`, the same `Comparison` that
+`paths.compare` pages, and the job derives the set from the index as it runs
+(`core/src/ops/files/delete/compared.rs`): it drains the compare `Matcher` in
+key order, checkpoints the cursor after each batch, and for `both` reads
+whichever side lacks an integrity hash before removing a file, writing what it
+learned back to the stores. Pairs whose bytes differ or whose copy in B is gone
+by then are skipped and reported. `sd file delete A --against B --show both`
+is the CLI. Compare itself matches on the sampled hash, the rung every store
+keys a content by, with integrity hashes deciding where both sides have them,
+so a copy verified on one side still matches its unread twin.
+
 ## Design
 
 ### Two questions, two rails
@@ -311,7 +323,10 @@ future operations that land on these rails as separate work.
   "3 of these files are the last copy of their content anywhere in your
   library."
 - Preview: the tree without them, freed bytes, and per-row `last_copy` flags
-  so the user sees which three before committing.
+  so the user sees which three before committing. For comparison targets the
+  preview also streams the set for its count, bytes, and how many pairs rest
+  on a sampled match; that check costs a full stream, so it lives here rather
+  than in validate, and the job enforces it per leaf regardless.
 
 **Batch rename** (future, pattern-based)
 

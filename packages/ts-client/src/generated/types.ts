@@ -215,10 +215,21 @@ export type CompareSet =
 
 export type CompareTotals = { only_a: number; only_b: number; both: number; different: number; 
 /**
- * Files with no content id yet: a content comparison cannot match them,
- * and a path comparison judges them by size and modification time.
+ * Files not hashed yet: a content comparison cannot match them, and a
+ * path comparison judges them by size and modification time.
  */
 unhashed_a: number; unhashed_b: number };
+
+/**
+ * What a comparison is over: two folders, how their files match, and the set
+ * in question. An operation names its targets with one too, so it stands
+ * apart from how a page of it is read.
+ */
+export type Comparison = { a: SdPath; b: SdPath; by: CompareBy; show: CompareSet; 
+/**
+ * Whether hidden files take part.
+ */
+include_hidden?: boolean };
 
 /**
  * Network connection method for a device
@@ -567,6 +578,15 @@ applications_removed: number;
  * Stores the definition was removed from.
  */
 sources_updated: number };
+
+/**
+ * What a deletion removes: files named one by one, or folder A's files in
+ * one set of its comparison with folder B. A comparison is evaluated by the
+ * job as it runs, so the set is derived from the index at that moment and a
+ * copy in B is read in full before the file in A goes. To delete from B,
+ * compare the other way round.
+ */
+export type DeleteTargets = { kind: "paths"; paths: SdPath[] } | { kind: "comparison"; comparison: Comparison };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -1204,11 +1224,7 @@ on_conflict: FileConflictResolution | null };
 /**
  * Input for deleting files
  */
-export type FileDeleteInput = { 
-/**
- * Files or directories to delete
- */
-targets: SdPathBatch; 
+export type FileDeleteInput = { targets: DeleteTargets; 
 /**
  * Whether to permanently delete (true) or move to trash (false)
  */
@@ -1923,7 +1939,11 @@ export type JobOutput =
 /**
  * File delete operation output
  */
-{ type: "FileDelete"; data: { deleted_count: number; failed_count: number; total_bytes: number } } | 
+{ type: "FileDelete"; data: { deleted_count: number; failed_count: number; 
+/**
+ * Files a comparison named that were left in place.
+ */
+skipped_count: number; total_bytes: number } } | 
 /**
  * Duplicate detection output
  */
@@ -2948,11 +2968,7 @@ export type PairingSessionSummary = { id: string; state: SerializablePairingStat
 
 export type PathAvailability = "available" | "permission_denied" | "missing" | "unavailable" | "remote" | "unsupported";
 
-export type PathCompareInput = { a: SdPath; b: SdPath; by: CompareBy; show: CompareSet; 
-/**
- * Whether hidden files take part.
- */
-include_hidden?: boolean; 
+export type PathCompareInput = (Comparison) & { 
 /**
  * Where the previous page ended; `None` for the first page, which also
  * counts every set.

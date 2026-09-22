@@ -176,6 +176,29 @@ must sit inside tracked sources on mounted drives.
   early.
 - `--include-hidden` brings in hidden files.
 
+## Delete files
+
+`file delete <paths>...` moves files to the trash, or removes them with
+`--permanent`, after a y/N prompt that `--yes` skips. Paths are canonicalized
+locally.
+
+`file delete <A> --against <B> --show <set>` deletes from A the files in one
+set of `file compare A B`, with the same `--by` and `--include-hidden`. It
+prints the comparison's counts and asks before dispatching. `--show` is
+required: `both` removes what B already holds, `only-a` what B lacks, and
+`different` A's version where B's differs. To delete from B, swap the folders;
+`only-b` is refused.
+
+- The client sends the comparison, never a list. The job derives the set from
+  the index as it runs and checkpoints its cursor after each batch, so a
+  paused or interrupted job resumes where it stopped.
+- For `both`, a file goes only once its copy in B is proven. Where either
+  side has no integrity hash the job reads both files in full and compares,
+  and writes what it learned to the stores so the read is paid once. A pair
+  whose bytes differ, or whose copy in B is gone by then, stays in A and is
+  counted as skipped in the job's output, with its reason.
+- Deleting leaves empty directories behind.
+
 ## Jobs and logs
 
 - `job list --status` takes `queued`, `running`, `paused`, `completed`,

@@ -9,24 +9,32 @@
 //! By content, the question is what one side holds that exists nowhere in the
 //! other, whatever it is called and wherever it sits: whether everything in a
 //! folder made it onto a backup. A page streams one side and asks the other
-//! side's stores which of those files' content ids they hold beneath their
+//! side's stores which of those files' contents they hold beneath their
 //! folder, a batch at a time, so no page reads the other side whole.
 //!
-//! Content ids come from hashing, which runs after a source is walked. A file
-//! not hashed yet has no identity to match by content, so a content comparison
-//! lists it nowhere, and a path comparison judges it by size and modification
-//! time. Either way it is counted as unhashed, so a page says how much of its
-//! answer rests on that. Hidden files take part only when asked for, and
-//! bundle internals never do, as they are lensed out of search and listings.
+//! Files match on the hash ladder. Every store keys a content by its sampled
+//! hash, so that is what two files are matched by, whichever rung each store
+//! has reached; where both have read the bytes in full, the integrity hashes
+//! decide. A sampled match is a candidate, which is what a comparison lists.
+//! Removing a copy on the strength of one is the job of an operation that
+//! reads the bytes first. Hashing runs after a source is walked, so a file not
+//! hashed yet has nothing to match by: a content comparison lists it nowhere,
+//! and a path comparison judges it by size and modification time. Either way
+//! it is counted as unhashed, so a page says how much of its answer rests on
+//! that. Hidden files take part only when asked for, and bundle internals
+//! never do, as they are lensed out of search and listings.
+//!
+//! The query pages a comparison. [`Matcher`] is the comparison itself, which
+//! an operation over one set of files, like deleting from A what B holds,
+//! drains in the same order and resumes from the same cursor.
 
 use std::cmp::Ordering;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{HashMap, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use uuid::Uuid;
 
 use super::reach::{stores_beneath, Reach};
 use crate::context::CoreContext;
@@ -34,6 +42,7 @@ use crate::domain::{File, SdPath};
 use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
 use crate::ops::indexing::VolumeIndex;
 use sd_store::read::Start;
+use sd_store::FsEntry;
 
 /// The most entries one page may ask for.
 pub const MAX_PAGE: u32 = 5000;
@@ -42,8 +51,11 @@ pub const MAX_PAGE: u32 = 5000;
 /// comparison asks the other side about at once.
 const BATCH: usize = 1000;
 
+/// What a comparison is over: two folders, how their files match, and the set
+/// in question. An operation names its targets with one too, so it stands
+/// apart from how a page of it is read.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct PathCompareInput {
+pub struct Comparison {
 	pub a: SdPath,
 	pub b: SdPath,
 	pub by: CompareBy,
@@ -51,6 +63,12 @@ pub struct PathCompareInput {
 	/// Whether hidden files take part.
 	#[serde(default)]
 	pub include_hidden: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct PathCompareInput {
+	#[serde(flatten)]
+	pub comparison: Comparison,
 	/// Where the previous page ended; `None` for the first page, which also
 	/// counts every set.
 	pub after: Option<CompareCursor>,
@@ -108,8 +126,8 @@ pub struct CompareTotals {
 	pub only_b: u32,
 	pub both: u32,
 	pub different: u32,
-	/// Files with no content id yet: a content comparison cannot match them,
-	/// and a path comparison judges them by size and modification time.
+	/// Files not hashed yet: a content comparison cannot match them, and a
+	/// path comparison judges them by size and modification time.
 	pub unhashed_a: u32,
 	pub unhashed_b: u32,
 }
@@ -138,7 +156,9 @@ impl LibraryQuery for PathCompareQuery {
 				"limit must be between 1 and {MAX_PAGE}"
 			)));
 		}
-		if input.by == CompareBy::Content && input.show == CompareSet::Different {
+		if input.comparison.by == CompareBy::Content
+			&& input.comparison.show == CompareSet::Different
+		{
 			return Err(QueryError::InvalidInput(
 				"different files are found by path".to_string(),
 			));
@@ -151,32 +171,47 @@ impl LibraryQuery for PathCompareQuery {
 		context: Arc<CoreContext>,
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
-		let input = self.input;
-		let a = stores_beneath(&context, &input.a).await;
-		let b = stores_beneath(&context, &input.b).await;
-		for (reached, path) in [(&a, &input.a), (&b, &input.b)] {
-			if reached.is_empty() {
-				return Err(QueryError::InvalidInput(format!(
-					"{path} is not in a tracked source"
-				)));
-			}
-		}
-
-		let (a_after, b_after) = resumes(input.by, input.show, input.after.as_ref());
-		let cache = context.volume_index();
-		let a = Folder::open(cache, a, input.include_hidden, a_after).await?;
-		let b = Folder::open(cache, b, input.include_hidden, b_after).await?;
+		let PathCompareInput {
+			comparison,
+			after,
+			limit,
+		} = self.input;
+		let (a, b) = open_folders(&context, &comparison, after.as_ref()).await?;
 		let page = Page {
-			show: input.show,
-			limit: input.limit as usize,
-			count: input.after.is_none(),
+			show: comparison.show,
+			limit: limit as usize,
+			count: after.is_none(),
 			device_slug: crate::device::get_current_device_slug(),
 		};
-		compare(input.by, a, b, &page).await
+		compare(comparison.by, a, b, &page).await
 	}
 }
 
 crate::register_library_query!(PathCompareQuery, "paths.compare");
+
+/// Both folders of a comparison, open to read on from `after`. A folder
+/// outside every tracked source has no store to read.
+pub(crate) async fn open_folders(
+	context: &CoreContext,
+	comparison: &Comparison,
+	after: Option<&CompareCursor>,
+) -> QueryResult<(Folder, Folder)> {
+	let a = stores_beneath(context, &comparison.a).await;
+	let b = stores_beneath(context, &comparison.b).await;
+	for (reached, path) in [(&a, &comparison.a), (&b, &comparison.b)] {
+		if reached.is_empty() {
+			return Err(QueryError::InvalidInput(format!(
+				"{path} is not in a tracked source"
+			)));
+		}
+	}
+	let (a_after, b_after) = resumes(comparison.by, comparison.show, after);
+	let cache = context.volume_index();
+	Ok((
+		Folder::open(cache, a, comparison.include_hidden, a_after).await?,
+		Folder::open(cache, b, comparison.include_hidden, b_after).await?,
+	))
+}
 
 /// Where each side resumes. By path both sides walk the same keys, so both
 /// resume from the cursor. By content only the listed side streams, and the
@@ -193,24 +228,62 @@ fn resumes(
 	}
 }
 
+/// One page: the listed set's files as the matcher sorts them, and every
+/// set's count when the page counts. By content only the listed side's sets
+/// come out of its matcher, so a counted page streams the other side too.
 async fn compare(
 	by: CompareBy,
-	a: Folder,
-	b: Folder,
+	mut a: Folder,
+	mut b: Folder,
 	page: &Page,
 ) -> QueryResult<PathCompareOutput> {
-	match by {
-		CompareBy::Path => by_path(a, b, page).await,
-		CompareBy::Content => by_content(a, b, page).await,
-	}
+	let mut listing = Listing::new(page);
+	let totals = match by {
+		CompareBy::Path => {
+			let mut matcher = Matcher::by_path(&mut a, &mut b);
+			while let Some(sorted) = matcher.next().await? {
+				if listing.offer(sorted) {
+					break;
+				}
+			}
+			matcher.totals
+		}
+		CompareBy::Content => {
+			let listed = if page.show == CompareSet::OnlyB {
+				Side::B
+			} else {
+				Side::A
+			};
+			let mut matcher = match listed {
+				Side::A => Matcher::by_content(&mut a, &b, Side::A),
+				Side::B => Matcher::by_content(&mut b, &a, Side::B),
+			};
+			while let Some(sorted) = matcher.next().await? {
+				if listing.offer(sorted) {
+					break;
+				}
+			}
+			let mut totals = matcher.totals;
+			if page.count {
+				let mut other = match listed {
+					Side::A => Matcher::by_content(&mut b, &a, Side::B),
+					Side::B => Matcher::by_content(&mut a, &b, Side::A),
+				};
+				while other.next().await?.is_some() {}
+				totals.merge(other.totals);
+			}
+			totals
+		}
+	};
+	Ok(listing.finish(page.count.then_some(totals)))
 }
 
 /// Where a file sits relative to its side's folder: directory, then name.
-type Key = (String, String);
+pub(crate) type Key = (String, String);
 
 /// Which side of a comparison.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Side {
+pub(crate) enum Side {
 	A,
 	B,
 }
@@ -224,129 +297,215 @@ struct Page {
 	device_slug: String,
 }
 
-/// Merge both sides in key order, sorting each file into its set.
-async fn by_path(mut a: Folder, mut b: Folder, page: &Page) -> QueryResult<PathCompareOutput> {
-	let mut totals = CompareTotals::default();
-	let mut listing = Listing::new(page);
-	loop {
-		let order = match (a.peek().await?, b.peek().await?) {
-			(None, None) => break,
-			(Some(_), None) => Ordering::Less,
-			(None, Some(_)) => Ordering::Greater,
-			(Some(key_a), Some(key_b)) => key_a.cmp(&key_b),
-		};
-		let (set, file_a, file_b) = match order {
-			Ordering::Less => (CompareSet::OnlyA, a.next().await?, None),
-			Ordering::Greater => (CompareSet::OnlyB, None, b.next().await?),
-			Ordering::Equal => {
-				let (file_a, file_b) = (a.next().await?, b.next().await?);
-				let same = matches!((&file_a, &file_b), (Some(x), Some(y)) if same_bytes(&x.entry, &y.entry));
-				let set = if same {
-					CompareSet::Both
-				} else {
-					CompareSet::Different
-				};
-				(set, file_a, file_b)
-			}
-		};
-		for (side, file) in [(Side::A, &file_a), (Side::B, &file_b)] {
-			if file
-				.as_ref()
-				.is_some_and(|file| file.entry.content_uuid.is_none())
-			{
-				totals.unhashed(side);
-			}
-		}
-		totals.add(set);
-		if listing.offer(set, file_a, file_b) {
-			break;
-		}
-	}
-	Ok(listing.finish(page.count.then_some(totals)))
+/// One file a comparison sorted, and the file at its path on the other side
+/// when the comparison is by path.
+pub(crate) struct Sorted {
+	pub(crate) set: CompareSet,
+	pub(crate) a: Option<Keyed>,
+	pub(crate) b: Option<Keyed>,
 }
 
-/// Stream the side the page lists and ask the other which of its files' bytes
-/// it holds. A counted page also streams the other side, for its counts.
-async fn by_content(mut a: Folder, mut b: Folder, page: &Page) -> QueryResult<PathCompareOutput> {
-	let mut totals = CompareTotals::default();
-	let mut listing = Listing::new(page);
-	if page.show == CompareSet::OnlyB {
-		if page.count {
-			against(&mut a, &b, Side::A, &mut totals, None).await?;
-		}
-		against(&mut b, &a, Side::B, &mut totals, Some(&mut listing)).await?;
-	} else {
-		against(&mut a, &b, Side::A, &mut totals, Some(&mut listing)).await?;
-		if page.count {
-			against(&mut b, &a, Side::B, &mut totals, None).await?;
-		}
+impl Sorted {
+	/// Where the sorted file sits, which a cursor names.
+	pub(crate) fn key(&self) -> Option<&Key> {
+		self.a.as_ref().or(self.b.as_ref()).map(|file| &file.key)
 	}
-	Ok(listing.finish(page.count.then_some(totals)))
 }
 
-/// Stream `streamed` and ask `other`, a batch at a time, which of its files'
-/// bytes it holds, counting each file's set and offering it to the listing
-/// when there is one. A file in B whose bytes A holds is in no set: the same
-/// bytes are counted once, from A.
-async fn against(
+/// A comparison: two folders' files sorted into sets, in key order, each
+/// counted as it is sorted.
+///
+/// By path both folders stream and merge. By content one side streams and
+/// the other is asked, a batch at a time, which of the batch's contents it
+/// holds, so only the streamed side's sets come out, and a file in B whose
+/// bytes A holds is in no set: the same bytes are counted once, from A.
+pub(crate) struct Matcher<'f> {
+	matching: Matching<'f>,
+	pub(crate) totals: CompareTotals,
+}
+
+enum Matching<'f> {
+	Path {
+		a: &'f mut Folder,
+		b: &'f mut Folder,
+	},
+	Content {
+		streamed: &'f mut Folder,
+		other: &'f Folder,
+		side: Side,
+		sorted: VecDeque<Sorted>,
+	},
+}
+
+impl<'f> Matcher<'f> {
+	pub(crate) fn by_path(a: &'f mut Folder, b: &'f mut Folder) -> Self {
+		Self {
+			matching: Matching::Path { a, b },
+			totals: CompareTotals::default(),
+		}
+	}
+
+	/// Streams `streamed`, the folder of `side`, against `other`.
+	pub(crate) fn by_content(streamed: &'f mut Folder, other: &'f Folder, side: Side) -> Self {
+		Self {
+			matching: Matching::Content {
+				streamed,
+				other,
+				side,
+				sorted: VecDeque::new(),
+			},
+			totals: CompareTotals::default(),
+		}
+	}
+
+	/// One file in the other folder for each of `contents`, by sampled hash,
+	/// that it holds: B by path, and by content the folder being asked.
+	pub(crate) async fn holders(&self, contents: &[String]) -> QueryResult<Vec<Keyed>> {
+		match &self.matching {
+			Matching::Path { b, .. } => b.holders(contents).await,
+			Matching::Content { other, .. } => other.holders(contents).await,
+		}
+	}
+
+	/// The next file in key order, sorted.
+	pub(crate) async fn next(&mut self) -> QueryResult<Option<Sorted>> {
+		match &mut self.matching {
+			Matching::Path { a, b } => merge(a, b, &mut self.totals).await,
+			Matching::Content {
+				streamed,
+				other,
+				side,
+				sorted,
+			} => {
+				while sorted.is_empty() {
+					if !ask(streamed, other, *side, sorted, &mut self.totals).await? {
+						return Ok(None);
+					}
+				}
+				Ok(sorted.pop_front())
+			}
+		}
+	}
+}
+
+/// One step of the merge of both sides in key order.
+async fn merge(
+	a: &mut Folder,
+	b: &mut Folder,
+	totals: &mut CompareTotals,
+) -> QueryResult<Option<Sorted>> {
+	let order = match (a.peek().await?, b.peek().await?) {
+		(None, None) => return Ok(None),
+		(Some(_), None) => Ordering::Less,
+		(None, Some(_)) => Ordering::Greater,
+		(Some(key_a), Some(key_b)) => key_a.cmp(&key_b),
+	};
+	let (set, file_a, file_b) = match order {
+		Ordering::Less => (CompareSet::OnlyA, a.next().await?, None),
+		Ordering::Greater => (CompareSet::OnlyB, None, b.next().await?),
+		Ordering::Equal => {
+			let (file_a, file_b) = (a.next().await?, b.next().await?);
+			let same =
+				matches!((&file_a, &file_b), (Some(x), Some(y)) if same_bytes(&x.entry, &y.entry));
+			let set = if same {
+				CompareSet::Both
+			} else {
+				CompareSet::Different
+			};
+			(set, file_a, file_b)
+		}
+	};
+	for (side, file) in [(Side::A, &file_a), (Side::B, &file_b)] {
+		if file.as_ref().is_some_and(|file| !hashed(&file.entry)) {
+			totals.unhashed(side);
+		}
+	}
+	totals.add(set);
+	Ok(Some(Sorted {
+		set,
+		a: file_a,
+		b: file_b,
+	}))
+}
+
+/// Read a batch of `side`'s files from `streamed` and ask `other` which of
+/// their contents it holds, sorting each. Whether anything was read.
+async fn ask(
 	streamed: &mut Folder,
 	other: &Folder,
 	side: Side,
+	sorted: &mut VecDeque<Sorted>,
 	totals: &mut CompareTotals,
-	mut listing: Option<&mut Listing<'_>>,
-) -> QueryResult<()> {
-	loop {
-		let mut batch = Vec::with_capacity(BATCH);
-		while batch.len() < BATCH {
-			match streamed.next().await? {
-				Some(file) => batch.push(file),
-				None => break,
-			}
+) -> QueryResult<bool> {
+	let mut batch = Vec::with_capacity(BATCH);
+	while batch.len() < BATCH {
+		match streamed.next().await? {
+			Some(file) => batch.push(file),
+			None => break,
 		}
-		if batch.is_empty() {
-			return Ok(());
-		}
-		let contents: Vec<Uuid> = batch
-			.iter()
-			.filter_map(|file| file.entry.content_uuid)
-			.collect();
-		let held = other.holding(&contents).await?;
+	}
+	if batch.is_empty() {
+		return Ok(false);
+	}
+	let contents: Vec<String> = batch
+		.iter()
+		.filter_map(|file| file.entry.sampled_hash.clone())
+		.collect();
+	let held = other.holding(&contents).await?;
 
-		for file in batch {
-			let Some(content) = file.entry.content_uuid else {
+	for file in batch {
+		let set = match (side, holds(&held, &file.entry)) {
+			(_, None) => {
 				totals.unhashed(side);
 				continue;
-			};
-			let set = match (side, held.contains(&content)) {
-				(Side::A, true) => CompareSet::Both,
-				(Side::A, false) => CompareSet::OnlyA,
-				(Side::B, false) => CompareSet::OnlyB,
-				(Side::B, true) => continue,
-			};
-			totals.add(set);
-			if let Some(listing) = listing.as_deref_mut() {
-				let (file_a, file_b) = match side {
-					Side::A => (Some(file), None),
-					Side::B => (None, Some(file)),
-				};
-				if listing.offer(set, file_a, file_b) {
-					return Ok(());
-				}
 			}
-		}
+			(Side::A, Some(true)) => CompareSet::Both,
+			(Side::A, Some(false)) => CompareSet::OnlyA,
+			(Side::B, Some(false)) => CompareSet::OnlyB,
+			(Side::B, Some(true)) => continue,
+		};
+		totals.add(set);
+		let (a, b) = match side {
+			Side::A => (Some(file), None),
+			Side::B => (None, Some(file)),
+		};
+		sorted.push_back(Sorted { set, a, b });
+	}
+	Ok(true)
+}
+
+/// Whether two files at the same path hold the same bytes: by integrity hash
+/// where both have been read in full, else by sampled hash where both have
+/// one. Where either has neither, by size and modification time, the check
+/// rsync makes before reading a file, since two versions of a file often
+/// share a size and a copy that only looks the same is the answer a
+/// comparison must not give.
+fn same_bytes(a: &FsEntry, b: &FsEntry) -> bool {
+	let integrity = (a.integrity_hash.as_deref(), b.integrity_hash.as_deref());
+	let sampled = (a.sampled_hash.as_deref(), b.sampled_hash.as_deref());
+	match (integrity, sampled) {
+		((Some(x), Some(y)), _) => x == y,
+		(_, (Some(x), Some(y))) => x == y,
+		_ => a.size == b.size && a.mtime_ms == b.mtime_ms,
 	}
 }
 
-/// Whether two files at the same path hold the same bytes: by content id
-/// where both are hashed. Where either is not, by size and modification time,
-/// the check rsync makes before reading a file, since two versions of a file
-/// often share a size and a copy that only looks the same is the answer a
-/// comparison must not give.
-fn same_bytes(a: &sd_store::FsEntry, b: &sd_store::FsEntry) -> bool {
-	match (a.content_uuid, b.content_uuid) {
-		(Some(a), Some(b)) => a == b,
-		_ => a.size == b.size && a.mtime_ms == b.mtime_ms,
-	}
+/// Whether the other side holds a file's bytes, from what it answered about
+/// the file's batch: `None` for a file with nothing to ask by. Where both
+/// sides have read the bytes in full the integrity hashes decide; otherwise
+/// the sampled match stands.
+fn holds(held: &HashMap<String, Option<String>>, entry: &FsEntry) -> Option<bool> {
+	let sampled = entry.sampled_hash.as_deref()?;
+	Some(match (held.get(sampled), entry.integrity_hash.as_deref()) {
+		(None, _) => false,
+		(Some(Some(theirs)), Some(ours)) => theirs == ours,
+		(Some(_), None) | (Some(None), _) => true,
+	})
+}
+
+/// Whether a file has a hash to be matched by.
+fn hashed(entry: &FsEntry) -> bool {
+	entry.sampled_hash.is_some()
 }
 
 impl CompareTotals {
@@ -375,6 +534,17 @@ impl CompareTotals {
 			Side::B => &mut self.unhashed_b,
 		} += 1;
 	}
+
+	/// Take in the other side's counts from a content comparison, whose sets
+	/// are disjoint from this side's.
+	fn merge(&mut self, other: CompareTotals) {
+		self.only_a += other.only_a;
+		self.only_b += other.only_b;
+		self.both += other.both;
+		self.different += other.different;
+		self.unhashed_a += other.unhashed_a;
+		self.unhashed_b += other.unhashed_b;
+	}
 }
 
 /// A page's entries, as the comparison finds them.
@@ -397,25 +567,25 @@ impl<'a> Listing<'a> {
 		}
 	}
 
-	/// Take a pair the comparison sorted into `set`, if that is the set the
-	/// page lists. Returns whether the comparison can stop: the page is full
-	/// and nothing is being counted.
-	fn offer(&mut self, set: CompareSet, a: Option<Keyed>, b: Option<Keyed>) -> bool {
-		if set != self.page.show {
+	/// Take a sorted file, if its set is the one the page lists. Returns
+	/// whether the comparison can stop: the page is full and nothing is being
+	/// counted.
+	fn offer(&mut self, sorted: Sorted) -> bool {
+		if sorted.set != self.page.show {
 			return false;
 		}
 		if self.entries.len() == self.page.limit {
 			self.more = true;
 			return !self.page.count;
 		}
-		let Some(key) = a.as_ref().or(b.as_ref()).map(|file| file.key.clone()) else {
+		let Some(key) = sorted.key().cloned() else {
 			return false;
 		};
 		let slug = &self.page.device_slug;
 		self.entries.push(CompareEntry {
 			path: join(&key.0, &key.1),
-			a: a.map(|file| file.into_file(slug)),
-			b: b.map(|file| file.into_file(slug)),
+			a: sorted.a.map(|file| file.into_file(slug)),
+			b: sorted.b.map(|file| file.into_file(slug)),
 		});
 		self.last = Some(key);
 		self.entries.len() == self.page.limit && !self.page.count
@@ -439,10 +609,13 @@ impl<'a> Listing<'a> {
 }
 
 /// A file on one side, keyed by where it sits relative to the side's folder.
-struct Keyed {
-	key: Key,
-	entry: sd_store::FsEntry,
-	path: PathBuf,
+pub(crate) struct Keyed {
+	pub(crate) key: Key,
+	pub(crate) entry: FsEntry,
+	/// Where the file is on disk.
+	pub(crate) path: PathBuf,
+	/// The root of the source whose store holds it.
+	pub(crate) root: Arc<PathBuf>,
 }
 
 impl Keyed {
@@ -459,7 +632,7 @@ impl Keyed {
 
 /// One side's folder: the stores beneath it, merged into one stream of its
 /// files in key order.
-struct Folder {
+pub(crate) struct Folder {
 	streams: Vec<Stream>,
 	include_hidden: bool,
 }
@@ -467,7 +640,7 @@ struct Folder {
 impl Folder {
 	/// A store that cannot be read fails the comparison rather than reading as
 	/// empty, which would report its files missing.
-	async fn open(
+	pub(crate) async fn open(
 		cache: &VolumeIndex,
 		reached: Vec<Reach>,
 		include_hidden: bool,
@@ -498,7 +671,7 @@ impl Folder {
 					resume(&reach.scope, &reach.prefix, cursor)
 				}),
 				db,
-				root: reach.source.root,
+				root: Arc::new(reach.source.root),
 				scope: reach.scope,
 				prefix: reach.prefix,
 				buffer: VecDeque::new(),
@@ -543,24 +716,46 @@ impl Folder {
 		Ok(first.and_then(|index| self.streams[index].buffer.pop_front()))
 	}
 
-	/// Which of `contents` some file beneath this side's folder holds.
-	async fn holding(&self, contents: &[Uuid]) -> QueryResult<HashSet<Uuid>> {
-		let mut held = HashSet::new();
+	/// Which of `contents`, by sampled hash, some file beneath this side's
+	/// folder holds, with the content's integrity hash where the store
+	/// holding it has read the bytes in full.
+	async fn holding(&self, contents: &[String]) -> QueryResult<HashMap<String, Option<String>>> {
+		let mut held: HashMap<String, Option<String>> = HashMap::new();
 		for stream in &self.streams {
-			held.extend(
-				sd_store::read::contents_beneath(stream.db.pool(), contents, &stream.scope)
-					.await
-					.map_err(read_failed)?,
-			);
+			let found = sd_store::read::contents_beneath(stream.db.pool(), contents, &stream.scope)
+				.await
+				.map_err(read_failed)?;
+			// Of the stores holding a content, one that has read it in full
+			// answers for it.
+			for (sampled, integrity) in found {
+				let known = held.entry(sampled).or_insert(None);
+				if known.is_none() {
+					*known = integrity;
+				}
+			}
 		}
 		Ok(held)
+	}
+
+	/// One file beneath this side's folder for each of `contents`, by sampled
+	/// hash, that some file there holds: the file an operation reads in full
+	/// to settle the content.
+	pub(crate) async fn holders(&self, contents: &[String]) -> QueryResult<Vec<Keyed>> {
+		let mut holders = Vec::new();
+		for stream in &self.streams {
+			let found = sd_store::read::holders_beneath(stream.db.pool(), contents, &stream.scope)
+				.await
+				.map_err(read_failed)?;
+			holders.extend(found.into_iter().filter_map(|entry| stream.keyed(entry)));
+		}
+		Ok(holders)
 	}
 }
 
 /// One store's files beneath a side's folder, read a batch at a time.
 struct Stream {
 	db: Arc<sd_store::SourceDb>,
-	root: PathBuf,
+	root: Arc<PathBuf>,
 	/// Where the store is read from, relative to its source root.
 	scope: String,
 	/// Where its files sit relative to the side's folder.
@@ -613,17 +808,28 @@ impl Stream {
 			}
 		}
 		for entry in batch {
-			let path = self.root.join(&entry.relative_path);
-			// Bundle internals surface through the source that describes them,
-			// as they do in search.
-			if crate::ops::indexing::lens::is_bundle_internal(&path) {
-				continue;
+			if let Some(keyed) = self.keyed(entry) {
+				self.buffer.push_back(keyed);
 			}
-			let directory = join(&self.prefix, beneath(&self.scope, entry.directory()));
-			let key = (directory, entry.name.clone());
-			self.buffer.push_back(Keyed { key, entry, path });
 		}
 		Ok(())
+	}
+
+	/// A store row as a file beneath the side's folder; none for a bundle
+	/// internal, which surfaces through the source describing it, as in
+	/// search.
+	fn keyed(&self, entry: FsEntry) -> Option<Keyed> {
+		let path = self.root.join(&entry.relative_path);
+		if crate::ops::indexing::lens::is_bundle_internal(&path) {
+			return None;
+		}
+		let directory = join(&self.prefix, beneath(&self.scope, entry.directory()));
+		Some(Keyed {
+			key: (directory, entry.name.clone()),
+			entry,
+			path,
+			root: self.root.clone(),
+		})
 	}
 }
 
@@ -690,6 +896,7 @@ mod tests {
 	use crate::ops::paths::reach::source;
 	use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
 	use sd_store::record::ContentIdentity;
+	use std::collections::HashSet;
 
 	/// When every fixture file was last modified, unless it says otherwise.
 	const T: i64 = 1_700_000_000_000;
@@ -697,6 +904,10 @@ mod tests {
 	/// Folder A on a volume at /vol, holding a source nested at A/m, against
 	/// folder B beside it on the same volume. A-2 shares A's prefix and holds
 	/// bytes that exist in B only, so reading past A's edge would show.
+	/// m/verified.txt has been read in full in A and not in B, and the sides
+	/// of m/twin.txt share a sampled hash with different bytes, which only
+	/// their integrity hashes tell apart. Each of those pairs spans two
+	/// stores, as a store keys one content per sampled hash.
 	struct Fixture {
 		_dir: tempfile::TempDir,
 		outer: Arc<sd_store::SourceDb>,
@@ -710,22 +921,24 @@ mod tests {
 				&dir,
 				"outer",
 				&[
-					("A/a.txt", 42, T, Some("a")),
-					("A/b.txt", 42, T, Some("b")),
-					("A/moved.txt", 42, T, Some("moved")),
-					("A/raw.bin", 42, T, None),
-					("A/m-2/f.txt", 42, T, Some("a")),
-					("A/sub/c.txt", 42, T, Some("c")),
-					("A/sub/edited.txt", 42, T, Some("e1")),
-					("A/sub/log.txt", 42, T, None),
-					("A-2/stray.txt", 42, T, Some("x")),
-					("B/a.txt", 42, T, Some("a")),
-					("B/b.txt", 42, T, Some("b2")),
-					("B/raw.bin", 42, T, None),
-					("B/elsewhere/moved.txt", 42, T, Some("moved")),
-					("B/sub/edited.txt", 42, T, Some("e2")),
-					("B/sub/extra.txt", 42, T, Some("x")),
-					("B/sub/log.txt", 42, T + 1000, None),
+					("A/a.txt", 42, T, Some("a"), None),
+					("A/b.txt", 42, T, Some("b"), None),
+					("A/moved.txt", 42, T, Some("moved"), None),
+					("A/raw.bin", 42, T, None, None),
+					("A/m-2/f.txt", 42, T, Some("a"), None),
+					("A/sub/c.txt", 42, T, Some("c"), None),
+					("A/sub/edited.txt", 42, T, Some("e1"), None),
+					("A/sub/log.txt", 42, T, None, None),
+					("A-2/stray.txt", 42, T, Some("x"), None),
+					("B/a.txt", 42, T, Some("a"), None),
+					("B/b.txt", 42, T, Some("b2"), None),
+					("B/raw.bin", 42, T, None, None),
+					("B/elsewhere/moved.txt", 42, T, Some("moved"), None),
+					("B/m/twin.txt", 42, T, Some("t"), Some("T2")),
+					("B/m/verified.txt", 42, T, Some("v"), None),
+					("B/sub/edited.txt", 42, T, Some("e2"), None),
+					("B/sub/extra.txt", 42, T, Some("x"), None),
+					("B/sub/log.txt", 42, T + 1000, None, None),
 				],
 			)
 			.await;
@@ -733,8 +946,10 @@ mod tests {
 				&dir,
 				"nested",
 				&[
-					("n.txt", 42, T, Some("n")),
-					("deep/d.txt", 42, T, Some("d")),
+					("n.txt", 42, T, Some("n"), None),
+					("twin.txt", 42, T, Some("t"), Some("T1")),
+					("verified.txt", 42, T, Some("v"), Some("V")),
+					("deep/d.txt", 42, T, Some("d"), None),
 				],
 			)
 			.await;
@@ -774,12 +989,12 @@ mod tests {
 	}
 
 	/// A store holding `files` and the directories above them, each file with
-	/// its size, modification time and the sampled hash its content id
-	/// derives from.
+	/// its size, modification time, the sampled hash its content is keyed by
+	/// and the integrity hash of a file read in full.
 	async fn store(
 		dir: &tempfile::TempDir,
 		name: &str,
-		files: &[(&str, i64, i64, Option<&str>)],
+		files: &[(&str, i64, i64, Option<&str>, Option<&str>)],
 	) -> Arc<sd_store::SourceDb> {
 		let manager = sd_store::SourceManager::new(dir.path().to_path_buf());
 		manager
@@ -794,7 +1009,7 @@ mod tests {
 		// knows the parent it hangs from.
 		let mut writes = Vec::new();
 		let mut directories = HashSet::new();
-		for (path, size, mtime, _) in files {
+		for (path, size, mtime, _, _) in files {
 			for (end, _) in path.match_indices('/') {
 				let directory = &path[..end];
 				if directories.insert(directory) {
@@ -807,8 +1022,8 @@ mod tests {
 			.await
 			.expect("apply");
 
-		for (path, size, _, hash) in files {
-			let Some(hash) = hash else {
+		for (path, size, _, sampled, integrity) in files {
+			let Some(sampled) = sampled else {
 				continue;
 			};
 			let record = sd_store::read::entry_by_path(db.pool(), path)
@@ -819,7 +1034,8 @@ mod tests {
 			db.set_content_identity(
 				record,
 				&ContentIdentity {
-					sampled_hash: Some(hash.to_string()),
+					sampled_hash: Some(sampled.to_string()),
+					integrity_hash: integrity.map(str::to_string),
 					size: Some(*size),
 					..Default::default()
 				},
@@ -976,8 +1192,10 @@ mod tests {
 
 	/// By path a file's set is decided at its relative path: missing from one
 	/// side, or present in both with the same or different bytes. Bytes
-	/// compare by content id where both sides are hashed, and by size and
-	/// modification time where either is not.
+	/// compare by integrity hash where both sides have one, by sampled hash
+	/// where both are hashed, and by size and modification time where either
+	/// is not, so a file read in full on one side still matches its unread
+	/// copy, and a sampled collision is told apart once both sides are read.
 	#[tokio::test]
 	async fn by_path_sorts_each_file_into_its_set() {
 		let fixture = Fixture::new().await;
@@ -1010,8 +1228,8 @@ mod tests {
 			Some(CompareTotals {
 				only_a: 5,
 				only_b: 2,
-				both: 2,
-				different: 3,
+				both: 3,
+				different: 4,
 				unhashed_a: 2,
 				unhashed_b: 2,
 			})
@@ -1025,19 +1243,25 @@ mod tests {
 			listed(&first(CompareSet::Different).await),
 			[
 				"A/b.txt B/b.txt",
+				"A/m/twin.txt B/m/twin.txt",
 				"A/sub/edited.txt B/sub/edited.txt",
 				"A/sub/log.txt B/sub/log.txt",
 			]
 		);
 		assert_eq!(
 			listed(&first(CompareSet::Both).await),
-			["A/a.txt B/a.txt", "A/raw.bin B/raw.bin"]
+			[
+				"A/a.txt B/a.txt",
+				"A/raw.bin B/raw.bin",
+				"A/m/verified.txt B/m/verified.txt",
+			]
 		);
 	}
 
 	/// By content a file's set is decided by whether its bytes sit anywhere
-	/// beneath the other folder. A file in B whose bytes A holds is counted
-	/// once, from A, and an unhashed file is counted apart.
+	/// beneath the other folder, matched by sampled hash with the integrity
+	/// hashes deciding where both sides have them. A file in B whose bytes A
+	/// holds is counted once, from A, and an unhashed file is counted apart.
 	#[tokio::test]
 	async fn by_content_finds_bytes_wherever_they_sit() {
 		let fixture = Fixture::new().await;
@@ -1049,6 +1273,7 @@ mod tests {
 			[
 				"A/b.txt",
 				"A/m/n.txt",
+				"A/m/twin.txt",
 				"A/m/deep/d.txt",
 				"A/sub/c.txt",
 				"A/sub/edited.txt",
@@ -1057,9 +1282,9 @@ mod tests {
 		assert_eq!(
 			only_a.totals,
 			Some(CompareTotals {
-				only_a: 5,
-				only_b: 3,
-				both: 3,
+				only_a: 6,
+				only_b: 4,
+				both: 4,
 				different: 0,
 				unhashed_a: 2,
 				unhashed_b: 2,
@@ -1069,12 +1294,20 @@ mod tests {
 		let only_b = first(CompareSet::OnlyB).await;
 		assert_eq!(
 			listed(&only_b),
-			["B/b.txt", "B/sub/edited.txt", "B/sub/extra.txt"]
+			[
+				"B/b.txt",
+				"B/m/twin.txt",
+				"B/sub/edited.txt",
+				"B/sub/extra.txt"
+			]
 		);
-		assert_eq!(paths(&only_b), ["b.txt", "sub/edited.txt", "sub/extra.txt"]);
+		assert_eq!(
+			paths(&only_b),
+			["b.txt", "m/twin.txt", "sub/edited.txt", "sub/extra.txt"]
+		);
 		assert_eq!(
 			listed(&first(CompareSet::Both).await),
-			["A/a.txt", "A/moved.txt", "A/m-2/f.txt"]
+			["A/a.txt", "A/moved.txt", "A/m/verified.txt", "A/m-2/f.txt"]
 		);
 	}
 
@@ -1105,14 +1338,36 @@ mod tests {
 		}
 	}
 
+	/// A page's input is the comparison's fields and its own, flat on the
+	/// wire, so a client that pages spells the comparison as an operation
+	/// over one does.
+	#[test]
+	fn a_page_input_is_flat_on_the_wire() {
+		let input: PathCompareInput = serde_json::from_value(serde_json::json!({
+			"a": {"Physical": {"device_slug": "local", "path": "/a"}},
+			"b": {"Physical": {"device_slug": "local", "path": "/b"}},
+			"by": "content",
+			"show": "both",
+			"after": null,
+			"limit": 10
+		}))
+		.expect("flat input");
+		assert_eq!(input.comparison.by, CompareBy::Content);
+		assert_eq!(input.comparison.show, CompareSet::Both);
+		assert!(!input.comparison.include_hidden);
+		assert_eq!(input.limit, 10);
+	}
+
 	#[test]
 	fn a_page_asks_only_what_a_comparison_answers() {
 		let input = |by, show, limit| PathCompareInput {
-			a: SdPath::local("/a"),
-			b: SdPath::local("/b"),
-			by,
-			show,
-			include_hidden: false,
+			comparison: Comparison {
+				a: SdPath::local("/a"),
+				b: SdPath::local("/b"),
+				by,
+				show,
+				include_hidden: false,
+			},
 			after: None,
 			limit,
 		};

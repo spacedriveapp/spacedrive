@@ -4,8 +4,11 @@ use std::path::PathBuf;
 use sd_core::{
 	domain::addressing::{SdPath, SdPathBatch},
 	ops::{
-		files::copy::input::{CopyMethod, FileCopyInput},
-		paths::compare::{CompareBy, CompareSet, PathCompareInput, MAX_PAGE},
+		files::{
+			copy::input::{CopyMethod, FileCopyInput},
+			delete::{DeleteTargets, FileDeleteInput},
+		},
+		paths::compare::{CompareBy, CompareSet, Comparison, PathCompareInput, MAX_PAGE},
 	},
 };
 
@@ -150,27 +153,101 @@ impl From<CompareSetArg> for CompareSet {
 }
 
 impl FileCompareArgs {
-	/// Both folders as this device spells them, so a relative path or a
-	/// symlink means what it does in the shell. "local" names whichever device
-	/// answers, which is the one the folders were resolved on. The input asks
-	/// for the first page; walking the rest sets each page's limit and cursor.
+	/// The input asks for the first page; walking the rest sets each page's
+	/// limit and cursor.
 	pub fn into_input(self) -> anyhow::Result<PathCompareInput> {
-		let folder = |path: &PathBuf| {
-			path.canonicalize()
-				.map(|path| SdPath::Physical {
-					device_slug: "local".into(),
-					path,
-				})
-				.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
-		};
 		Ok(PathCompareInput {
-			a: folder(&self.a)?,
-			b: folder(&self.b)?,
-			by: self.by.into(),
-			show: self.show.into(),
-			include_hidden: self.include_hidden,
+			comparison: Comparison {
+				a: local_path(&self.a)?,
+				b: local_path(&self.b)?,
+				by: self.by.into(),
+				show: self.show.into(),
+				include_hidden: self.include_hidden,
+			},
 			after: None,
 			limit: MAX_PAGE,
 		})
 	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileDeleteArgs {
+	/// Files to delete; with --against, the one folder, A, to delete from
+	#[arg(required = true)]
+	pub paths: Vec<PathBuf>,
+
+	/// Delete from A the files in one set of its comparison with this
+	/// folder, B, as `file compare A B` lists them
+	#[arg(long, value_name = "B")]
+	pub against: Option<PathBuf>,
+
+	/// How files match across the two folders
+	#[arg(long, value_enum, default_value = "path", requires = "against")]
+	pub by: CompareByArg,
+
+	/// Which set to delete; both is what B already holds
+	#[arg(long, value_enum, requires = "against")]
+	pub show: Option<CompareSetArg>,
+
+	/// Include hidden files in the comparison
+	#[arg(long, default_value_t = false, requires = "against")]
+	pub include_hidden: bool,
+
+	/// Delete permanently instead of moving to the trash
+	#[arg(long, default_value_t = false)]
+	pub permanent: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileDeleteArgs {
+	pub fn into_input(self) -> anyhow::Result<FileDeleteInput> {
+		let targets = match self.against {
+			Some(b) => {
+				let [a] = self.paths.as_slice() else {
+					anyhow::bail!("--against compares one folder; name the folder to delete from");
+				};
+				let Some(show) = self.show else {
+					anyhow::bail!(
+						"--against needs --show to say which set to delete: both, only-a or different"
+					);
+				};
+				DeleteTargets::Comparison {
+					comparison: Comparison {
+						a: local_path(a)?,
+						b: local_path(&b)?,
+						by: self.by.into(),
+						show: show.into(),
+						include_hidden: self.include_hidden,
+					},
+				}
+			}
+			None => DeleteTargets::Paths {
+				paths: self
+					.paths
+					.iter()
+					.map(local_path)
+					.collect::<anyhow::Result<_>>()?,
+			},
+		};
+		Ok(FileDeleteInput {
+			targets,
+			permanent: self.permanent,
+			recursive: true,
+		})
+	}
+}
+
+/// A path as this device spells it, so a relative path or a symlink means
+/// what it does in the shell. "local" names whichever device answers, which
+/// is the one the path was resolved on.
+fn local_path(path: &PathBuf) -> anyhow::Result<SdPath> {
+	path.canonicalize()
+		.map(|path| SdPath::Physical {
+			device_slug: "local".into(),
+			path,
+		})
+		.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
 }
