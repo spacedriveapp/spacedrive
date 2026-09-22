@@ -372,7 +372,7 @@ impl Photos {
 
 	fn cancel(&mut self, _: &Cancel, _: &mut Window, cx: &mut Context<Self>) {
 		if let Some(quick_look) = self.open_preview() {
-			quick_look.close();
+			quick_look.close(cx);
 		} else if self.tag_mode {
 			self.set_tag_mode(false, cx);
 		} else {
@@ -396,9 +396,9 @@ impl Photos {
 			return;
 		};
 		if quick_look.is_open() {
-			quick_look.close();
+			quick_look.close(cx);
 		} else if let Some(path) = self.grid.read(cx).cursor_path() {
-			quick_look.show(path);
+			quick_look.show(path, cx);
 		}
 	}
 
@@ -409,8 +409,8 @@ impl Photos {
 			return;
 		};
 		match self.grid.read(cx).cursor_path() {
-			Some(path) => quick_look.show(path),
-			None => quick_look.close(),
+			Some(path) => quick_look.show(path, cx),
+			None => quick_look.close(cx),
 		}
 	}
 

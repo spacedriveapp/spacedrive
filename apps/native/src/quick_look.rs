@@ -19,8 +19,9 @@ pub use unsupported::QuickLook;
 mod macos {
 	use std::cell::RefCell;
 	use std::path::{Path, PathBuf};
+	use std::rc::Rc;
 
-	use gpui::Window;
+	use gpui::{App, Window};
 	use objc2::rc::Retained;
 	use objc2::runtime::{AnyObject, ProtocolObject};
 	use objc2::{
@@ -127,11 +128,23 @@ mod macos {
 	);
 
 	/// A window's hold on the shared preview panel.
-	pub struct QuickLook {
+	///
+	/// Opening the panel or giving it another file loads the file before the
+	/// call returns, and the panel runs the event loop while it waits. That
+	/// lets gpui's other tasks run, and inside an action they would find the
+	/// app still borrowed by it. So a request only records what the panel
+	/// should show, and the panel is brought in line on a later turn of the
+	/// main thread, where nothing of gpui's is held.
+	pub struct QuickLook(Rc<Inner>);
+
+	struct Inner {
 		controller: Retained<Controller>,
 		window: Retained<NSWindow>,
-		/// The file on show, so a cursor that has not moved costs nothing.
-		shown: RefCell<Option<PathBuf>>,
+		/// The file the panel should show, or `None` for the panel put away.
+		wanted: RefCell<Option<PathBuf>>,
+		/// The file the panel was last given, so a request that changes
+		/// nothing costs nothing.
+		given: RefCell<Option<PathBuf>>,
 		mtm: MainThreadMarker,
 	}
 
@@ -157,46 +170,86 @@ mod macos {
 			// SAFETY: NSResponder's designated initializer.
 			let controller: Retained<Controller> = unsafe { msg_send![super(controller), init] };
 			// SAFETY: a responder's next responder is not retained. The
-			// controller lives in this struct, which unlinks it on drop.
+			// controller lives as long as `Inner`, which unlinks it on drop.
 			unsafe {
 				controller.setNextResponder(ns_window.nextResponder().as_deref());
 				ns_window.setNextResponder(Some(controller.as_super()));
 			}
-			Some(QuickLook {
+			Some(QuickLook(Rc::new(Inner {
 				controller,
 				window: ns_window,
-				shown: RefCell::new(None),
+				wanted: RefCell::new(None),
+				given: RefCell::new(None),
 				mtm,
-			})
+			})))
 		}
 
+		pub fn is_open(&self) -> bool {
+			self.0.is_open()
+		}
+
+		/// Show the file at `path`, opening the panel if it is closed.
+		pub fn show(&self, path: &Path, cx: &App) {
+			if self.0.wanted.borrow().as_deref() == Some(path) && self.is_open() {
+				return;
+			}
+			self.0.wanted.replace(Some(path.to_path_buf()));
+			self.apply_later(cx);
+		}
+
+		pub fn close(&self, cx: &App) {
+			self.0.wanted.replace(None);
+			self.apply_later(cx);
+		}
+
+		fn apply_later(&self, cx: &App) {
+			let inner = self.0.clone();
+			cx.foreground_executor()
+				.spawn(async move { inner.apply() })
+				.detach();
+		}
+	}
+
+	impl Inner {
 		fn panel(&self) -> Option<Retained<QLPreviewPanel>> {
 			// SAFETY: called on the main thread, as the marker proves.
 			unsafe { QLPreviewPanel::sharedPreviewPanel(self.mtm) }
 		}
 
-		pub fn is_open(&self) -> bool {
+		fn is_open(&self) -> bool {
 			// SAFETY: as in [`Self::panel`]. Asking first keeps a window that
 			// never previewed from creating the panel.
 			let exists = unsafe { QLPreviewPanel::sharedPreviewPanelExists(self.mtm) };
 			exists && self.panel().is_some_and(|panel| panel.isVisible())
 		}
 
-		/// Show the file at `path`, opening the panel if it is closed.
-		pub fn show(&self, path: &Path) {
+		/// Bring the panel in line with what is wanted. No borrow is held
+		/// across a call into the panel: its event loop can run Photos again,
+		/// and a request from there changes what is wanted.
+		fn apply(&self) {
+			let wanted = self.wanted.borrow().clone();
+			let Some(path) = wanted else {
+				if self.is_open() {
+					if let Some(panel) = self.panel() {
+						panel.orderOut(None);
+					}
+				}
+				self.given.replace(None);
+				return;
+			};
 			let Some(panel) = self.panel() else {
 				return;
 			};
 			let open = panel.isVisible();
-			if open && self.shown.borrow().as_deref() == Some(path) {
+			if open && self.given.borrow().as_deref() == Some(path.as_path()) {
 				return;
 			}
 			let Some(path_str) = path.to_str() else {
 				return;
 			};
 			let url = NSURL::fileURLWithPath(&NSString::from_str(path_str));
-			*self.controller.ivars().item.borrow_mut() = Some(url);
-			*self.shown.borrow_mut() = Some(path.to_path_buf());
+			self.controller.ivars().item.replace(Some(url));
+			self.given.replace(Some(path));
 			if open {
 				// SAFETY: this window's controller is the one in control.
 				unsafe { panel.reloadData() };
@@ -204,19 +257,15 @@ mod macos {
 				panel.makeKeyAndOrderFront(None);
 			}
 		}
+	}
 
-		pub fn close(&self) {
+	impl Drop for Inner {
+		fn drop(&mut self) {
 			if self.is_open() {
 				if let Some(panel) = self.panel() {
 					panel.orderOut(None);
 				}
 			}
-		}
-	}
-
-	impl Drop for QuickLook {
-		fn drop(&mut self) {
-			self.close();
 			// SAFETY: the window goes back to answering through whatever
 			// followed it before the controller was put in.
 			unsafe {
@@ -240,7 +289,7 @@ mod macos {
 mod unsupported {
 	use std::path::Path;
 
-	use gpui::Window;
+	use gpui::{App, Window};
 
 	/// Where the platform has no preview panel, there is nothing to hold.
 	pub struct QuickLook;
@@ -254,8 +303,8 @@ mod unsupported {
 			false
 		}
 
-		pub fn show(&self, _path: &Path) {}
+		pub fn show(&self, _path: &Path, _cx: &App) {}
 
-		pub fn close(&self) {}
+		pub fn close(&self, _cx: &App) {}
 	}
 }
