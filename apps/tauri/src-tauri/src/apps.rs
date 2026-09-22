@@ -59,8 +59,8 @@ pub fn bundled_binary(stem: &str) -> Result<PathBuf, String> {
 pub struct RunningApps(Mutex<HashMap<&'static str, Child>>);
 
 impl RunningApps {
-	/// Start `app` unless it is already running. Returns whether a process was
-	/// spawned.
+	/// Start `app`, or bring it to the front if it is already running. Returns
+	/// whether a process was spawned.
 	pub fn launch(&self, app: &'static AppEntry) -> Result<bool, String> {
 		let mut running = self
 			.0
@@ -74,7 +74,10 @@ impl RunningApps {
 				Ok(Some(_)) => {
 					running.remove(app.id);
 				}
-				Ok(None) => return Ok(false),
+				Ok(None) => {
+					raise(child.id());
+					return Ok(false);
+				}
 				Err(e) => return Err(format!("Failed to check {}: {e}", app.title)),
 			}
 		}
@@ -87,3 +90,17 @@ impl RunningApps {
 		Ok(true)
 	}
 }
+
+/// Bring a running app's window to the front. The menu asking belongs to this
+/// app, which is active while its menu is in use, so macOS lets it hand
+/// activation over.
+#[cfg(target_os = "macos")]
+fn raise(pid: u32) {
+	if !sd_desktop_macos::activate_process(pid) {
+		tracing::warn!("[Apps] No application runs under pid {pid}");
+	}
+}
+
+/// Other platforms leave the running window where it is.
+#[cfg(not(target_os = "macos"))]
+fn raise(_pid: u32) {}

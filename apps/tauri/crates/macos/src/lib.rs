@@ -1,6 +1,6 @@
 #![cfg(target_os = "macos")]
 
-use swift_rs::{swift, Bool, Int, SRData, SRObjectArray, SRString};
+use swift_rs::{swift, Bool, Int, Int32, SRData, SRObjectArray, SRString};
 
 pub type NSObject = *mut std::ffi::c_void;
 
@@ -15,6 +15,14 @@ swift!(pub fn lock_app_theme(theme_type: Int));
 swift!(pub fn set_titlebar_style(window: &NSObject, is_fullscreen: Bool));
 swift!(pub fn reload_webview(webview: &NSObject));
 swift!(pub fn share_items(paths: &SRString) -> Bool);
+swift!(fn activate_application(pid: Int32) -> Bool);
+
+/// Bring another process's windows to the front. macOS honours this while
+/// the calling app is the active one. Returns false when no application runs
+/// under `pid`.
+pub fn activate_process(pid: u32) -> bool {
+	unsafe { activate_application(pid as Int32) }
+}
 
 #[repr(C)]
 pub struct OpenWithApplication {

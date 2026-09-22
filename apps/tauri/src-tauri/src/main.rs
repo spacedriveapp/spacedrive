@@ -1881,7 +1881,17 @@ fn setup_menu(app: &AppHandle) -> Result<(), Box<dyn std::error::Error>> {
 				match running.launch(app) {
 					Ok(true) => tracing::info!("[Apps] Launched {}", app.title),
 					Ok(false) => tracing::info!("[Apps] {} is already running", app.title),
-					Err(e) => tracing::error!("[Apps] {}", e),
+					Err(e) => {
+						use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+
+						tracing::error!("[Apps] {}", e);
+						app_handle
+							.dialog()
+							.message(e)
+							.kind(MessageDialogKind::Error)
+							.title(format!("Could not open {}", app.title))
+							.show(|_| {});
+					}
 				}
 			}
 		}

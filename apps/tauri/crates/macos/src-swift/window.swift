@@ -58,6 +58,14 @@ public func lockAppTheme(themeType: AppThemeType) {
     NSApp.appearance = theme
 }
 
+@_cdecl("activate_application")
+public func activateApplication(pid: Int32) -> Bool {
+    guard let app = NSRunningApplication(processIdentifier: pid) else {
+        return false
+    }
+    return app.activate(options: .activateAllWindows)
+}
+
 @_cdecl("set_titlebar_style")
 public func setTitlebarStyle(window: NSWindow, fullScreen: Bool) {
   // this results in far less visual artifacts if we just manage it ourselves (the native taskbar re-appears when fullscreening/un-fullscreening)

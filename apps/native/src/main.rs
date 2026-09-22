@@ -55,6 +55,16 @@ fn main() {
 		gpui_component::init(cx);
 		Theme::init(cx);
 
+		// The window is the whole app. Closing it quits, so the next launch
+		// from the Apps menu opens a window instead of finding a process
+		// with none.
+		cx.on_window_closed(|cx, _| {
+			if cx.windows().is_empty() {
+				cx.quit();
+			}
+		})
+		.detach();
+
 		let bounds = Bounds::centered(None, size(px(1280.0), px(860.0)), cx);
 		let options = WindowOptions {
 			window_bounds: Some(WindowBounds::Windowed(bounds)),

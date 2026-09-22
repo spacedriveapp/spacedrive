@@ -365,13 +365,15 @@ it goes.
 
 ## Distribution
 
-Two GPUI binaries plus the Tauri shell is three apps for one product. The
-current arrangement bundles `spacedrive-native` as a Tauri `externalBin`, which
-works while Photos is a thing the explorer launches. Once the GPUI explorer is
-its own front door that inverts, and the question is one bundle with helper
-binaries against separate bundles that each find the daemon. The daemon already
-makes either work, since no client is handed anything at launch. Settle it when
-the explorer is worth shipping, not now.
+Two GPUI binaries plus the Tauri shell is three apps for one product. Today
+the explorer launches `spacedrive-native` from beside its own binary, where
+`just dev-desktop` builds it, and release bundles do not carry it yet.
+Bundling it as a Tauri `externalBin` works while Photos is a thing the explorer
+launches. Once the GPUI explorer is its own front door that inverts, and the
+question is one bundle with helper binaries against separate bundles that each
+find the daemon. The daemon already makes either work, since no client is
+handed anything at launch. Settle it when the explorer is worth shipping, not
+now.
 
 ## Phases
 

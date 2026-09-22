@@ -15,12 +15,18 @@ dev-daemon *ARGS:
 	cargo run --bin sd-daemon {{ARGS}}
 
 # Run the desktop app in dev mode
-dev-desktop:
+dev-desktop: build-apps
     cd apps/tauri && bun run tauri:dev:no-watch
 
 # Run the desktop app in dev mode, rebuilding on Rust changes
-dev-desktop-watch:
+dev-desktop-watch: build-apps
     cd apps/tauri && bun run tauri:dev
+
+# Build the apps the desktop Apps menu launches, beside the desktop binary.
+# sd-native is not a default member and can lag behind core, so a failed
+# build warns instead of stopping the desktop app.
+build-apps:
+    cargo build -p sd-native || echo "warning: sd-native did not build; Apps > Photos runs the previous build, if there is one"
 
 # Run the docs site in dev mode (Fumadocs, standalone install in docs/)
 dev-docs:
