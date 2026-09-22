@@ -12,7 +12,12 @@
 //! The scripted flywheel benchmark from the spike is kept behind
 //! `SD_GRID_BENCH=1` (synthetic cell count via `SD_GRID_CELLS`); it prints
 //! frame stats to stderr and quits when the script completes.
+//!
+//! Beyond pixels the grid knows each cell's record and the tags it carries
+//! ([`Cells`]), and which cells are selected. Selected cells are tinted,
+//! ringed, and badged; tagged cells carry colored dots in their corner.
 
+mod selection;
 mod stats;
 
 use std::collections::HashMap;
@@ -20,16 +25,21 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use gpui::{
-	fill, point, px, relative, size, App, Bounds, ContentMask, Context, Corners, DispatchPhase,
-	Element, ElementId, Entity, GlobalElementId, Hitbox, HitboxBehavior, InspectorElementId,
-	IntoElement, LayoutId, PinchEvent, Pixels, Point, Render, RenderImage, ScrollDelta,
-	ScrollWheelEvent, Style, TouchPhase, Window,
+	fill, point, px, quad, relative, rgb, size, transparent_black, App, BorderStyle, Bounds,
+	ContentMask, Context, Corners, DispatchPhase, Edges, Element, ElementId, Entity,
+	GlobalElementId, Hitbox, HitboxBehavior, Hsla, InspectorElementId, IntoElement, LayoutId,
+	MouseButton, MouseDownEvent, PathBuilder, PinchEvent, Pixels, Point, Render, RenderImage,
+	ScrollDelta, ScrollWheelEvent, SharedString, Style, TextAlign, TextRun, TouchPhase, Window,
 };
 use image::Frame;
 use smallvec::smallvec;
+use uuid::Uuid;
 
+use crate::data::DEFAULT_TAG_COLOR;
 use crate::source::TileSource;
 use crate::theme::ActiveTheme as _;
+pub use selection::Direction;
+use selection::{step, Selection};
 use stats::{resident_mb, FrameStats};
 
 /// The largest rectangle of `aspect` (width / height) that fits inside `cell`,
@@ -72,6 +82,66 @@ const DRAIN_PER_FRAME: usize = 1024;
 
 /// Default synthetic cell count, matching the reference renderer's proven scale.
 const DEFAULT_CELLS: u32 = 129_000;
+
+/// Selection chrome, in logical points: the inset ring's width, the tint's
+/// opacity, and the check badge in the top-left corner.
+const RING: f32 = 2.0;
+const TINT: f32 = 0.1;
+const BADGE: f32 = 16.0;
+const BADGE_INSET: f32 = 4.0;
+
+/// Tag dots, in logical points: dot size and spacing, how many show before the
+/// rest become a count, and the dark pill they sit on so they read over any
+/// photo.
+const DOT: f32 = 7.0;
+const DOT_GAP: f32 = 3.0;
+const DOTS_SHOWN: usize = 3;
+const PILL_PAD: f32 = 4.0;
+const PILL_INSET: f32 = 5.0;
+const COUNT_TEXT: f32 = 10.0;
+
+/// What the grid knows of each cell beyond its pixels: the record it shows and
+/// the tags that record carries, both by grid index.
+#[derive(Default)]
+pub struct Cells {
+	records: Vec<Uuid>,
+	tags: Vec<Vec<Uuid>>,
+	index_by_record: HashMap<Uuid, u32>,
+}
+
+impl Cells {
+	pub fn new(records: Vec<Uuid>, tags: Vec<Vec<Uuid>>) -> Self {
+		let index_by_record = records
+			.iter()
+			.enumerate()
+			.map(|(index, record)| (*record, index as u32))
+			.collect();
+		Cells {
+			records,
+			tags,
+			index_by_record,
+		}
+	}
+
+	/// Take `tags` as what `record` carries, when it is one of these cells.
+	fn set_tags(&mut self, record: Uuid, tags: &[Uuid]) {
+		let Some(&index) = self.index_by_record.get(&record) else {
+			return;
+		};
+		if let Some(cell) = self.tags.get_mut(index as usize) {
+			cell.clear();
+			cell.extend_from_slice(tags);
+		}
+	}
+
+	fn tags(&self, index: u32) -> &[Uuid] {
+		self.tags.get(index as usize).map_or(&[], Vec::as_slice)
+	}
+
+	fn record(&self, index: u32) -> Option<Uuid> {
+		self.records.get(index as usize).copied()
+	}
+}
 
 /// Benchmark configuration from the environment: the synthetic cell count
 /// when one is asked for, and whether the scripted benchmark runs.
@@ -154,9 +224,18 @@ struct PinchState {
 
 pub struct GridView {
 	source: Box<dyn TileSource>,
-	/// A source handed over between frames. The swap happens inside paint,
-	/// where the window handle needed to release the old atlas tiles exists.
-	next_source: Option<Box<dyn TileSource>>,
+	/// The record and tags behind each of the source's cells.
+	cells: Cells,
+	/// A source and its cells handed over between frames. The swap happens
+	/// inside paint, where the window handle needed to release the old atlas
+	/// tiles exists.
+	next: Option<(Box<dyn TileSource>, Cells)>,
+	selection: Selection,
+	/// Tag colors by tag id, for the dots on tagged cells.
+	tag_colors: HashMap<Uuid, Hsla>,
+	/// Width and height at the last paint, which keyboard movement lays out
+	/// against.
+	viewport: Option<(f32, f32)>,
 	scroll_y: f32,
 	/// Horizontal offset, nonzero only mid-pinch: the column count is held for
 	/// the gesture, so the grid overflows sideways as its tiles grow.
@@ -202,7 +281,11 @@ impl GridView {
 
 		GridView {
 			source,
-			next_source: None,
+			cells: Cells::default(),
+			next: None,
+			selection: Selection::default(),
+			tag_colors: HashMap::new(),
+			viewport: None,
 			scroll_y: 0.0,
 			scroll_x: 0.0,
 			target_cell: TARGET_CELL,
@@ -217,10 +300,131 @@ impl GridView {
 	}
 
 	/// Point the grid at a different set of cells. The swap lands on the next
-	/// frame, which is where the old tiles can be released.
-	pub fn set_source(&mut self, source: Box<dyn TileSource>, cx: &mut Context<Self>) {
-		self.next_source = Some(source);
+	/// frame, which is where the old tiles can be released, and the selection
+	/// goes with the old cells.
+	pub fn set_source(
+		&mut self,
+		source: Box<dyn TileSource>,
+		cells: Cells,
+		cx: &mut Context<Self>,
+	) {
+		self.next = Some((source, cells));
 		cx.notify();
+	}
+
+	/// Take `tags` as what `record` carries, in the cells shown and in any
+	/// waiting to be.
+	pub fn set_record_tags(&mut self, record: Uuid, tags: &[Uuid]) {
+		self.cells.set_tags(record, tags);
+		if let Some((_, cells)) = self.next.as_mut() {
+			cells.set_tags(record, tags);
+		}
+	}
+
+	pub fn set_tag_colors(&mut self, colors: HashMap<Uuid, Hsla>, cx: &mut Context<Self>) {
+		self.tag_colors = colors;
+		cx.notify();
+	}
+
+	pub fn selection_len(&self) -> usize {
+		self.selection.len()
+	}
+
+	/// The records of the selected cells, in grid order.
+	pub fn selected_records(&self) -> Vec<Uuid> {
+		self.selection
+			.iter()
+			.filter_map(|index| self.cells.record(index))
+			.collect()
+	}
+
+	/// Whether every selected cell's record carries `tag`. An empty selection
+	/// carries nothing.
+	pub fn selection_carries(&self, tag: Uuid) -> bool {
+		!self.selection.is_empty()
+			&& self
+				.selection
+				.iter()
+				.all(|index| self.cells.tags(index).contains(&tag))
+	}
+
+	pub fn select_all(&mut self, cx: &mut Context<Self>) {
+		self.selection.select_all(self.source.len());
+		cx.notify();
+	}
+
+	/// Drop the selection. Returns whether there was one to drop.
+	pub fn clear_selection(&mut self, cx: &mut Context<Self>) -> bool {
+		if self.selection.is_empty() {
+			return false;
+		}
+		self.selection.clear();
+		cx.notify();
+		true
+	}
+
+	/// Move a single selection one cell, scrolling it into view. With nothing
+	/// selected yet, the first cell on screen is where it starts.
+	pub fn move_selection(&mut self, direction: Direction, cx: &mut Context<Self>) {
+		let len = self.source.len();
+		let Some((width, height)) = self.viewport else {
+			return;
+		};
+		if len == 0 {
+			return;
+		}
+		let (cols, cell) = self.layout(width);
+		let target = match self.selection.focus() {
+			Some(focus) => step(focus.min(len - 1), direction, cols, len),
+			None => ((self.scroll_y / (cell + GAP)).floor() as u32 * cols).min(len - 1),
+		};
+		self.selection.select_only(target);
+		self.reveal(target, width, height);
+		cx.notify();
+	}
+
+	/// Scroll the least distance that shows all of cell `index`.
+	fn reveal(&mut self, index: u32, width: f32, height: f32) {
+		let (cols, cell) = self.layout(width);
+		let top = (index / cols) as f32 * (cell + GAP);
+		let bottom = top + cell;
+		if top < self.scroll_y {
+			self.scroll_y = top;
+		} else if bottom > self.scroll_y + height {
+			self.scroll_y = bottom - height;
+		}
+		self.scroll_y = self.scroll_y.clamp(0.0, self.max_scroll(width, height));
+	}
+
+	/// The cell under `position`, a window point, for a grid painted at
+	/// `bounds`. A point in the gap between cells is on none.
+	fn cell_at(&self, position: Point<Pixels>, bounds: Bounds<Pixels>) -> Option<u32> {
+		let (cols, cell) = self.layout(f32::from(bounds.size.width));
+		let pitch = cell + GAP;
+		let x = f32::from(position.x - bounds.origin.x) + self.scroll_x;
+		let y = f32::from(position.y - bounds.origin.y) + self.scroll_y;
+		if x < 0.0 || y < 0.0 {
+			return None;
+		}
+		let (col, row) = ((x / pitch) as u32, (y / pitch) as u32);
+		if col >= cols || x - col as f32 * pitch > cell || y - row as f32 * pitch > cell {
+			return None;
+		}
+		let index = row * cols + col;
+		(index < self.source.len()).then_some(index)
+	}
+
+	/// A left click on the grid: select by the explorer's rules. A plain click
+	/// on empty space clears the selection, as it does in Finder.
+	fn on_click(&mut self, event: &MouseDownEvent, bounds: Bounds<Pixels>) -> bool {
+		let toggle = event.modifiers.secondary();
+		let extend = event.modifiers.shift;
+		match self.cell_at(event.position, bounds) {
+			Some(index) => self.selection.click(index, toggle, extend),
+			None if !toggle && !extend && !self.selection.is_empty() => self.selection.clear(),
+			None => return false,
+		}
+		true
 	}
 
 	/// How many cells the current source is offering.
@@ -369,20 +573,31 @@ impl GridView {
 		window: &mut Window,
 		cx: &mut Context<GridView>,
 	) {
-		let (background, placeholder) = {
+		let (background, placeholder, chrome) = {
 			let theme = cx.theme();
-			(theme.app, theme.app_box)
+			(
+				theme.app,
+				theme.app_box,
+				Chrome {
+					accent: theme.accent,
+					white: theme.white,
+					shade: theme.black,
+				},
+			)
 		};
 		let t0 = self.stats.begin_frame();
 		self.frame_index += 1;
 		let width = f32::from(bounds.size.width);
 		let height = f32::from(bounds.size.height);
+		self.viewport = Some((width, height));
 
 		// A retarget queued since the last frame: the old cells are gone, so
-		// their CPU copies and atlas tiles go with them and the view returns
-		// to the top of the new set.
-		if let Some(source) = self.next_source.take() {
+		// their CPU copies and atlas tiles go with them, the selection made
+		// among them is dropped, and the view returns to the top of the new set.
+		if let Some((source, cells)) = self.next.take() {
 			self.source = source;
+			self.cells = cells;
+			self.selection.clear();
 			self.scroll_y = 0.0;
 			self.scroll_x = 0.0;
 			self.pinch = None;
@@ -457,6 +672,15 @@ impl GridView {
 					self.source.request(idx);
 				}
 			}
+			if self.selection.contains(idx) {
+				paint_selected(window, cell_bounds, &chrome);
+			} else if self.selection.focus() == Some(idx) {
+				paint_ring(window, cell_bounds, chrome.accent.opacity(0.5));
+			}
+			let tags = self.cells.tags(idx);
+			if !tags.is_empty() {
+				paint_tag_dots(window, cx, cell_bounds, tags, &self.tag_colors, &chrome);
+			}
 		}
 
 		// LRU eviction: drop both our CPU copy and gpui's atlas tile.
@@ -486,6 +710,23 @@ impl GridView {
 			entity.update(cx, |view, cx| {
 				view.scroll_by(dy, width, height);
 				cx.notify();
+			});
+		});
+
+		// Clicks select.
+		let entity = cx.entity();
+		let click_hitbox = hitbox.clone();
+		window.on_mouse_event(move |event: &MouseDownEvent, phase, window, cx| {
+			if phase != DispatchPhase::Bubble
+				|| event.button != MouseButton::Left
+				|| !click_hitbox.is_hovered(window)
+			{
+				return;
+			}
+			entity.update(cx, |view, cx| {
+				if view.on_click(event, bounds) {
+					cx.notify();
+				}
 			});
 		});
 
@@ -544,6 +785,128 @@ fn resolve_velocity(vel: &PhaseVel, duration: f32, max_scroll: f32) -> f32 {
 	match vel {
 		PhaseVel::Fixed(v) => *v,
 		PhaseVel::Traverse(fraction) => max_scroll * fraction / duration,
+	}
+}
+
+/// The theme colors cell chrome is drawn in, read once per frame.
+struct Chrome {
+	accent: Hsla,
+	white: Hsla,
+	shade: Hsla,
+}
+
+/// A selected cell: tinted, ringed, and badged with a check.
+fn paint_selected(window: &mut Window, cell: Bounds<Pixels>, chrome: &Chrome) {
+	window.paint_quad(fill(cell, chrome.accent.opacity(TINT)));
+	paint_ring(window, cell, chrome.accent);
+
+	let badge = Bounds::new(
+		cell.origin + point(px(BADGE_INSET), px(BADGE_INSET)),
+		size(px(BADGE), px(BADGE)),
+	);
+	window.paint_quad(quad(
+		badge,
+		Corners::all(px(BADGE / 2.0)),
+		chrome.accent,
+		Edges::default(),
+		transparent_black(),
+		BorderStyle::Solid,
+	));
+	let at = |x: f32, y: f32| badge.origin + point(px(BADGE * x), px(BADGE * y));
+	let mut check = PathBuilder::stroke(px(1.75));
+	check.move_to(at(0.28, 0.52));
+	check.line_to(at(0.44, 0.68));
+	check.line_to(at(0.74, 0.34));
+	if let Ok(path) = check.build() {
+		window.paint_path(path, chrome.white);
+	}
+}
+
+/// A ring inset along a cell's edges.
+fn paint_ring(window: &mut Window, cell: Bounds<Pixels>, color: Hsla) {
+	window.paint_quad(quad(
+		cell,
+		Corners::default(),
+		transparent_black(),
+		Edges::all(px(RING)),
+		color,
+		BorderStyle::Solid,
+	));
+}
+
+/// Dots for a cell's tags on a dark pill in its bottom-left corner: the first
+/// few in their colors, then a count of the rest, as the explorer's cards show
+/// them.
+fn paint_tag_dots(
+	window: &mut Window,
+	cx: &mut App,
+	cell: Bounds<Pixels>,
+	tags: &[Uuid],
+	colors: &HashMap<Uuid, Hsla>,
+	chrome: &Chrome,
+) {
+	let shown = tags.len().min(DOTS_SHOWN);
+	let rest = tags.len() - shown;
+	let count = (rest > 0).then(|| {
+		let text = SharedString::from(format!("+{rest}"));
+		let run = TextRun {
+			len: text.len(),
+			font: window.text_style().font(),
+			color: chrome.white.opacity(0.9),
+			background_color: None,
+			underline: None,
+			strikethrough: None,
+		};
+		window
+			.text_system()
+			.shape_line(text, px(COUNT_TEXT), &[run], None)
+	});
+
+	let dots_width = shown as f32 * DOT + shown.saturating_sub(1) as f32 * DOT_GAP;
+	let count_width = count
+		.as_ref()
+		.map_or(0.0, |line| DOT_GAP + f32::from(line.width));
+	let height = DOT + 2.0 * PILL_PAD;
+	let pill = Bounds::new(
+		point(
+			cell.origin.x + px(PILL_INSET),
+			cell.origin.y + cell.size.height - px(PILL_INSET + height),
+		),
+		size(px(dots_width + count_width + 2.0 * PILL_PAD), px(height)),
+	);
+	window.paint_quad(quad(
+		pill,
+		Corners::all(px(height / 2.0)),
+		chrome.shade.opacity(0.55),
+		Edges::default(),
+		transparent_black(),
+		BorderStyle::Solid,
+	));
+
+	for (slot, tag) in tags.iter().take(shown).enumerate() {
+		// A tag made since the library's tags were last read has no color
+		// here yet, and draws in the default until they are read again.
+		let color = colors
+			.get(tag)
+			.copied()
+			.unwrap_or_else(|| rgb(DEFAULT_TAG_COLOR).into());
+		let dot = Bounds::new(
+			pill.origin + point(px(PILL_PAD + slot as f32 * (DOT + DOT_GAP)), px(PILL_PAD)),
+			size(px(DOT), px(DOT)),
+		);
+		window.paint_quad(quad(
+			dot,
+			Corners::all(px(DOT / 2.0)),
+			color,
+			Edges::default(),
+			transparent_black(),
+			BorderStyle::Solid,
+		));
+	}
+
+	if let Some(line) = count {
+		let origin = pill.origin + point(px(PILL_PAD + dots_width + DOT_GAP), px(0.0));
+		let _ = line.paint(origin, px(height), TextAlign::Left, None, window, cx);
 	}
 }
 

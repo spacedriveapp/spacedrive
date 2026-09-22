@@ -20,10 +20,18 @@
 //! folder of twenty thousand photos costs twenty thousand bakes only if
 //! someone scrolls through all of them.
 //!
+//! Tagging runs through the plane too. The listing carries each cell's record
+//! and the tags it carries, requests go out as `tags.apply` and
+//! `tags.unapply`, and the file rows the daemon announces afterwards say what
+//! each record carries now, for this window's requests and every other
+//! client's. Indexing announces rows without reading their tags, so a row
+//! naming no tags is believed only for a record this window is changing, and
+//! read back otherwise.
+//!
 //! Daemon liveness is a ping on an interval. The plane never spawns the
 //! daemon; offline it simply publishes offline snapshots and keeps retrying.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
@@ -38,12 +46,17 @@ use sd_client::{
 };
 use sd_core::domain::content_identity::ContentKind;
 use sd_core::domain::file::EntryKind;
-use sd_core::domain::SdPath;
+use sd_core::domain::{File, SdPath, Tag};
 use sd_core::ops::core::status::output::CoreStatus;
-use sd_core::ops::files::query::{DirectoryListingInput, DirectoryListingOutput, DirectorySortBy};
+use sd_core::ops::files::query::{
+	DirectoryListingInput, DirectoryListingOutput, DirectorySortBy, FileByIdQuery,
+};
 use sd_core::ops::navigation::focus::DEFAULT_GROUP;
 use sd_core::ops::navigation::get::{NavigationFocusInput, NavigationFocusOutput};
 use sd_core::ops::navigation::NavigationFocus;
+use sd_core::ops::tags::{
+	ApplyTagsInput, SearchTagsInput, SearchTagsOutput, TagTargets, UnapplyTagsInput,
+};
 use sd_core::ops::thumbs::request::{ThumbRequestInput, ThumbRequestOutput};
 use sd_core::service::thumbs::Thumbnail;
 
@@ -62,9 +75,26 @@ const VIEWPORT_INTERVAL: Duration = Duration::from_millis(100);
 /// identities that are already in hand.
 const WINDOW_MARGIN: u32 = 256;
 
+/// Records one tag request may name. The daemon refuses a longer list.
+const MAX_TAG_TARGETS: usize = 1000;
+
+/// Records read back at once, when rows announced for them cannot be believed.
+const REREADS_IN_FLIGHT: usize = 8;
+
+/// The resource type file rows are announced under.
+const FILE_RESOURCE: &str = "file";
+
 /// Commands the UI sends into the plane. All fire-and-forget.
 enum Command {
 	SetFollowing(bool),
+	/// Put `tag` on `records`, or take it off them.
+	Tag {
+		tag: Uuid,
+		records: Vec<Uuid>,
+		apply: bool,
+	},
+	/// Read the library's tags again.
+	RefreshTags,
 }
 
 /// A folder ready to render: everything the UI needs to build a tile source
@@ -72,8 +102,6 @@ enum Command {
 /// because the channel ends it carries cannot be cloned into a snapshot.
 pub struct FolderOpen {
 	pub path: PathBuf,
-	/// Cells in listing order.
-	pub len: u32,
 	/// The daemon's cache file for this folder's source, mapped read-only.
 	pub cache_path: PathBuf,
 	/// Identity windows, as the daemon answers them.
@@ -82,6 +110,74 @@ pub struct FolderOpen {
 	pub completions_rx: std::sync::mpsc::Receiver<Completion>,
 	/// The viewport the plane reads to decide which identities to ask for.
 	pub visible: VisibleRange,
+	/// The record each cell shows, in listing order. Its length is the cell
+	/// count.
+	pub records: Vec<Uuid>,
+	/// The tags each cell's record carries, in listing order.
+	pub tags: Vec<Vec<Uuid>>,
+	/// Tag changes for this folder's records, queued from the moment it was
+	/// listed, so none are lost before the UI takes the folder. Ends with the
+	/// folder.
+	pub tag_changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+}
+
+/// The UI's half of a folder, held until the daemon names its cache file.
+struct Handoff {
+	entries_rx: std::sync::mpsc::Receiver<Vec<(u32, Entry)>>,
+	completions_rx: std::sync::mpsc::Receiver<Completion>,
+	visible: VisibleRange,
+	records: Vec<Uuid>,
+	tags: Vec<Vec<Uuid>>,
+	tag_changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+}
+
+/// The color of a tag that has none of its own: the explorer's default blue.
+pub const DEFAULT_TAG_COLOR: u32 = 0x3b82f6;
+
+/// A tag as this window shows it: a palette entry, and a dot on every cell
+/// whose record carries it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TagInfo {
+	pub id: Uuid,
+	pub name: String,
+	/// `0xRRGGBB`.
+	pub color: u32,
+}
+
+impl TagInfo {
+	fn from_tag(tag: &Tag) -> Self {
+		TagInfo {
+			id: tag.id,
+			name: tag.name.clone(),
+			color: tag
+				.color
+				.as_deref()
+				.and_then(parse_hex_color)
+				.unwrap_or(DEFAULT_TAG_COLOR),
+		}
+	}
+}
+
+/// The library's tags, and the latest tag request that failed.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TagSnapshot {
+	/// Every tag in the library, ordered by path.
+	pub tags: Vec<TagInfo>,
+	pub notice: Option<Notice>,
+}
+
+/// A failure to report, numbered so the window reports each one once.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Notice {
+	pub seq: u64,
+	pub message: String,
+}
+
+/// Every tag a record carries now.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RecordTags {
+	pub record: Uuid,
+	pub tags: Vec<Uuid>,
 }
 
 /// What the plane knows about the window Photos is following.
@@ -135,6 +231,7 @@ pub struct DataHandle {
 	socket_addr: String,
 	commands: mpsc::UnboundedSender<Command>,
 	focus: watch::Receiver<Arc<FocusSnapshot>>,
+	tags: watch::Receiver<Arc<TagSnapshot>>,
 	/// Folders the plane has opened and the UI has not picked up. Drained on
 	/// the UI thread; the focus watch is what wakes it.
 	folders: Arc<std::sync::Mutex<mpsc::UnboundedReceiver<FolderOpen>>>,
@@ -162,6 +259,33 @@ impl DataHandle {
 		let _ = self.commands.send(Command::SetFollowing(following));
 	}
 
+	/// The library's tags and the latest tagging failure. Non-blocking; safe
+	/// from the frame loop.
+	pub fn tags(&self) -> Arc<TagSnapshot> {
+		self.tags.borrow().clone()
+	}
+
+	/// Watch the tag snapshot, as [`Self::watch_focus`] watches the focus.
+	pub fn watch_tags(&self) -> watch::Receiver<Arc<TagSnapshot>> {
+		self.tags.clone()
+	}
+
+	/// Put `tag` on `records`, or take it off them. Cells change when the
+	/// daemon announces the rows, not before.
+	pub fn tag(&self, tag: Uuid, records: Vec<Uuid>, apply: bool) {
+		let _ = self.commands.send(Command::Tag {
+			tag,
+			records,
+			apply,
+		});
+	}
+
+	/// Read the library's tags again. Creating a tag announces nothing, so a
+	/// tag made in another window arrives this way.
+	pub fn refresh_tags(&self) {
+		let _ = self.commands.send(Command::RefreshTags);
+	}
+
 	/// The next folder the plane has opened, if any. Non-blocking; safe from
 	/// the frame loop.
 	pub fn take_folder(&self) -> Option<FolderOpen> {
@@ -182,6 +306,7 @@ pub fn spawn(instance: Option<String>, group: String) -> DataHandle {
 	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
 	let (commands_tx, commands_rx) = mpsc::unbounded_channel();
 	let (focus_tx, focus_rx) = watch::channel(Arc::new(FocusSnapshot::new(group.clone())));
+	let (tags_tx, tags_rx) = watch::channel(Arc::new(TagSnapshot::default()));
 	let (folders_tx, folders_rx) = mpsc::unbounded_channel();
 
 	let addr = socket_addr.clone();
@@ -194,7 +319,7 @@ pub fn spawn(instance: Option<String>, group: String) -> DataHandle {
 				.enable_all()
 				.build()
 				.expect("failed to build data-plane runtime");
-			runtime.block_on(run(addr, group, commands_rx, focus_tx, folders_tx));
+			runtime.block_on(run(addr, group, commands_rx, focus_tx, tags_tx, folders_tx));
 		})
 		.expect("failed to spawn data-plane thread");
 
@@ -202,6 +327,7 @@ pub fn spawn(instance: Option<String>, group: String) -> DataHandle {
 		socket_addr,
 		commands: commands_tx,
 		focus: focus_rx,
+		tags: tags_rx,
 		folders: Arc::new(std::sync::Mutex::new(folders_rx)),
 	}
 }
@@ -226,7 +352,7 @@ enum TaskResult {
 	/// A directory listing landed for the folder at `generation`.
 	Listed {
 		generation: u64,
-		result: anyhow::Result<Vec<PathBuf>>,
+		result: anyhow::Result<Vec<Media>>,
 	},
 	/// Identities for one window landed, in the order they were asked for.
 	Identified {
@@ -236,6 +362,23 @@ enum TaskResult {
 	},
 	/// Tiles finished baking.
 	Baked(Vec<Thumbnail>),
+	/// File rows announced, reduced to the record each names and the tags it
+	/// says that record carries.
+	FilesChanged(Vec<(Uuid, Vec<Tag>)>),
+	/// A record's tags read back, because the row announced for it could not
+	/// be believed. `None` when the record is gone.
+	Reread {
+		generation: u64,
+		record: Uuid,
+		result: anyhow::Result<Option<Vec<Uuid>>>,
+	},
+	/// The library's tags landed.
+	TagsFetched(anyhow::Result<Vec<Tag>>),
+	/// A tag request finished.
+	Tagged {
+		records: Vec<Uuid>,
+		result: anyhow::Result<()>,
+	},
 }
 
 async fn run(
@@ -243,6 +386,7 @@ async fn run(
 	group: String,
 	mut commands: mpsc::UnboundedReceiver<Command>,
 	focus_tx: watch::Sender<Arc<FocusSnapshot>>,
+	tags_tx: watch::Sender<Arc<TagSnapshot>>,
 	folders_tx: mpsc::UnboundedSender<FolderOpen>,
 ) {
 	let client = CoreClient::new(socket_addr.clone());
@@ -271,10 +415,20 @@ async fn run(
 		(!baked.is_empty()).then(|| TaskResult::Baked(baked))
 	});
 
+	// File rows, for what they say about tags. This window's tag requests come
+	// back this way, and so does every other client's.
+	let file_events =
+		broker.subscribe(resource_event_types(), Some(resource_filter(FILE_RESOURCE)));
+	pump(file_events, results_tx.clone(), |event| {
+		let rows = file_rows_from_event(event);
+		(!rows.is_empty()).then(|| TaskResult::FilesChanged(rows))
+	});
+
 	let mut plane = Plane {
 		client,
 		results_tx,
 		focus_tx,
+		tags_tx,
 		folders_tx,
 		group,
 		online: false,
@@ -287,6 +441,12 @@ async fn run(
 		folder: None,
 		folder_state: FolderState::Idle,
 		generation: 0,
+		library_tags: Vec::new(),
+		tags_fetch: Fetch::default(),
+		expecting: HashSet::new(),
+		rereads: VecDeque::new(),
+		rereading: 0,
+		notice: None,
 	};
 	plane.request_slug();
 
@@ -389,6 +549,63 @@ fn focus_from_event(event: &Event) -> Option<NavigationFocus> {
 	}
 }
 
+/// The record and tags of every file row an event carries. Only those two
+/// fields are read: indexing announces rows by the thousand, and tagging
+/// needs nothing else from them.
+fn file_rows_from_event(event: &Event) -> Vec<(Uuid, Vec<Tag>)> {
+	match event {
+		Event::ResourceChanged {
+			resource_type,
+			resource,
+			..
+		} if resource_type == FILE_RESOURCE => file_row(resource).into_iter().collect(),
+		Event::ResourceChangedBatch {
+			resource_type,
+			resources,
+			..
+		} if resource_type == FILE_RESOURCE => resources
+			.as_array()
+			.map(|rows| rows.iter().filter_map(file_row).collect())
+			.unwrap_or_default(),
+		_ => Vec::new(),
+	}
+}
+
+fn file_row(row: &serde_json::Value) -> Option<(Uuid, Vec<Tag>)> {
+	let record = serde_json::from_value(row.get("id")?.clone()).ok()?;
+	let tags = serde_json::from_value(row.get("tags")?.clone()).ok()?;
+	Some((record, tags))
+}
+
+/// What an announced row means for the tags a record in view carries.
+#[derive(Debug, PartialEq, Eq)]
+enum Reading {
+	/// The record carries these tags now.
+	Set(Vec<Uuid>),
+	/// The row cannot say; the record has to be read back.
+	Reread,
+	/// Nothing changes.
+	Keep,
+}
+
+/// Read a row announced for a record that carries `current`. `expected` is
+/// whether a tag request from this window is changing the record.
+///
+/// Rows from a tag change are read with their tags, and a row naming a tag
+/// can only be one of those. Indexing announces rows without reading tags,
+/// so a row naming none is believed only when this window's own request
+/// explains it. Otherwise it says nothing about a record that has none, and
+/// for one that has some, only the daemon can settle it.
+fn read_row(current: &[Uuid], announced: &[Tag], expected: bool) -> Reading {
+	if !announced.is_empty() || expected {
+		Reading::Set(announced.iter().map(|tag| tag.id).collect())
+	} else if current.is_empty() {
+		Reading::Keep
+	} else {
+		Reading::Reread
+	}
+}
+
 /// One folder being rendered, and the wiring feeding it.
 struct Folder {
 	path: PathBuf,
@@ -407,6 +624,23 @@ struct Folder {
 	requested: Option<(u32, u32)>,
 	/// One identity request in flight at a time.
 	identifying: bool,
+	/// The tags of every record in the folder, as the UI was last told.
+	tags: HashMap<Uuid, Vec<Uuid>>,
+	/// Tag changes out to the UI.
+	tag_changes_tx: mpsc::UnboundedSender<Vec<RecordTags>>,
+}
+
+impl Folder {
+	/// Take `tags` as what `record` carries. Returns the change the UI needs,
+	/// or `None` when it already has it or the record is not in this folder.
+	fn set_tags(&mut self, record: Uuid, tags: Vec<Uuid>) -> Option<RecordTags> {
+		let current = self.tags.get_mut(&record)?;
+		if *current == tags {
+			return None;
+		}
+		current.clone_from(&tags);
+		Some(RecordTags { record, tags })
+	}
 }
 
 /// The single-threaded state machine behind the select loop.
@@ -414,6 +648,7 @@ struct Plane {
 	client: CoreClient,
 	results_tx: mpsc::UnboundedSender<TaskResult>,
 	focus_tx: watch::Sender<Arc<FocusSnapshot>>,
+	tags_tx: watch::Sender<Arc<TagSnapshot>>,
 	folders_tx: mpsc::UnboundedSender<FolderOpen>,
 
 	/// The focus group this window follows.
@@ -435,6 +670,17 @@ struct Plane {
 	folder_state: FolderState,
 	/// Bumped on every folder change; results for an older folder are dropped.
 	generation: u64,
+
+	/// Every tag in the followed window's library, ordered by path.
+	library_tags: Vec<TagInfo>,
+	tags_fetch: Fetch,
+	/// Records a tag request from this window is changing. The next row
+	/// announced for each is believed even when it names no tags.
+	expecting: HashSet<Uuid>,
+	/// Records to read back, and how many reads are out.
+	rereads: VecDeque<Uuid>,
+	rereading: usize,
+	notice: Option<Notice>,
 }
 
 impl Plane {
@@ -451,6 +697,12 @@ impl Plane {
 				}
 				self.publish();
 			}
+			Command::Tag {
+				tag,
+				records,
+				apply,
+			} => self.tag(tag, records, apply),
+			Command::RefreshTags => self.request_tags(),
 		}
 	}
 
@@ -475,27 +727,35 @@ impl Plane {
 				result,
 			} => self.handle_identified(generation, first, result),
 			TaskResult::Baked(tiles) => self.handle_baked(tiles),
+			TaskResult::FilesChanged(rows) => self.handle_files_changed(rows),
+			TaskResult::Reread {
+				generation,
+				record,
+				result,
+			} => self.handle_reread(generation, record, result),
+			TaskResult::TagsFetched(result) => self.handle_tags_fetched(result),
+			TaskResult::Tagged { records, result } => self.handle_tagged(records, result),
 		}
 	}
 
 	/// A directory listing landed: hand the folder to the UI and ask for the
 	/// identities of the first screenful.
-	fn handle_listed(&mut self, generation: u64, result: anyhow::Result<Vec<PathBuf>>) {
+	fn handle_listed(&mut self, generation: u64, result: anyhow::Result<Vec<Media>>) {
 		if generation != self.generation {
 			return;
 		}
 		let Some(path) = self.path.clone() else {
 			return;
 		};
-		let paths = match result {
-			Ok(paths) => paths,
+		let media = match result {
+			Ok(media) => media,
 			Err(error) => {
 				self.folder_state = FolderState::Error(format!("{error:#}"));
 				self.publish();
 				return;
 			}
 		};
-		if paths.is_empty() {
+		if media.is_empty() {
 			self.folder = None;
 			self.folder_state = FolderState::Empty;
 			self.publish();
@@ -504,8 +764,24 @@ impl Plane {
 
 		let (entries_tx, entries_rx) = std::sync::mpsc::channel();
 		let (completions_tx, completions_rx) = std::sync::mpsc::channel();
+		let (tag_changes_tx, tag_changes) = mpsc::unbounded_channel();
 		let visible = VisibleRange::new(0, WINDOW_MARGIN);
-		let len = paths.len() as u32;
+		let len = media.len() as u32;
+
+		let mut paths = Vec::with_capacity(media.len());
+		let mut records = Vec::with_capacity(media.len());
+		let mut cell_tags = Vec::with_capacity(media.len());
+		for item in media {
+			paths.push(item.path);
+			records.push(item.record);
+			cell_tags.push(item.tags);
+		}
+		if cell_tags
+			.iter()
+			.any(|tags| names_unknown(&self.library_tags, tags))
+		{
+			self.request_tags();
+		}
 
 		self.folder = Some(Folder {
 			path: path.clone(),
@@ -516,6 +792,12 @@ impl Plane {
 			index_by_uuid: HashMap::new(),
 			requested: None,
 			identifying: false,
+			tags: records
+				.iter()
+				.copied()
+				.zip(cell_tags.iter().cloned())
+				.collect(),
+			tag_changes_tx,
 		});
 
 		// The cache file is not known until the daemon answers the first
@@ -523,7 +805,14 @@ impl Plane {
 		self.request_window(
 			0,
 			WINDOW_MARGIN.min(len),
-			Some((entries_rx, completions_rx, visible, len)),
+			Some(Handoff {
+				entries_rx,
+				completions_rx,
+				visible,
+				records,
+				tags: cell_tags,
+				tag_changes,
+			}),
 		);
 	}
 
@@ -625,18 +914,7 @@ impl Plane {
 	/// Send one identity request for `[first, last)`. `handoff` is present
 	/// only for a folder's first window, which is what carries the folder to
 	/// the UI once the daemon names the cache file.
-	#[allow(clippy::type_complexity)]
-	fn request_window(
-		&mut self,
-		first: u32,
-		last: u32,
-		handoff: Option<(
-			std::sync::mpsc::Receiver<Vec<(u32, Entry)>>,
-			std::sync::mpsc::Receiver<Completion>,
-			VisibleRange,
-			u32,
-		)>,
-	) {
+	fn request_window(&mut self, first: u32, last: u32, handoff: Option<Handoff>) {
 		let Some(folder) = self.folder.as_mut() else {
 			return;
 		};
@@ -667,17 +945,17 @@ impl Plane {
 				.and_then(|value| {
 					serde_json::from_value::<ThumbRequestOutput>(value).map_err(Into::into)
 				});
-			if let (Ok(output), Some((entries_rx, completions_rx, visible, len))) =
-				(&result, handoff)
-			{
+			if let (Ok(output), Some(handoff)) = (&result, handoff) {
 				if let Some(source) = output.sources.first() {
 					let _ = folders_tx.send(FolderOpen {
 						path: folder_path,
-						len,
 						cache_path: source.cache_path.clone(),
-						entries_rx,
-						completions_rx,
-						visible,
+						entries_rx: handoff.entries_rx,
+						completions_rx: handoff.completions_rx,
+						visible: handoff.visible,
+						records: handoff.records,
+						tags: handoff.tags,
+						tag_changes: handoff.tag_changes,
 					});
 				}
 			}
@@ -699,6 +977,7 @@ impl Plane {
 			// re-read rather than waited for.
 			self.request_slug();
 			self.request_focus();
+			self.request_tags();
 		}
 		self.publish();
 	}
@@ -740,8 +1019,15 @@ impl Plane {
 		if self.path == path && self.library_id == library_id {
 			return;
 		}
+		let library_changed = self.library_id != library_id;
 		self.path = path;
 		self.library_id = library_id;
+		if library_changed {
+			// Tags belong to a library, so another library's are not these.
+			self.library_tags.clear();
+			self.publish_tags();
+			self.request_tags();
+		}
 		self.open_folder();
 	}
 
@@ -752,6 +1038,7 @@ impl Plane {
 	fn open_folder(&mut self) {
 		self.generation += 1;
 		self.folder = None;
+		self.rereads.clear();
 
 		let Some(path) = self.path.clone() else {
 			self.folder_state = FolderState::Idle;
@@ -849,6 +1136,237 @@ impl Plane {
 			folder: self.folder_state.clone(),
 		}));
 	}
+
+	/// Rows the daemon announced: pass on what they say about the tags of
+	/// records in view, where it can be believed.
+	fn handle_files_changed(&mut self, rows: Vec<(Uuid, Vec<Tag>)>) {
+		let Some(folder) = self.folder.as_mut() else {
+			return;
+		};
+		let mut changes = Vec::new();
+		let mut unknown = false;
+		for (record, announced) in rows {
+			let Some(current) = folder.tags.get(&record) else {
+				continue;
+			};
+			let expected = self.expecting.remove(&record);
+			match read_row(current, &announced, expected) {
+				Reading::Set(tags) => {
+					unknown |= names_unknown(&self.library_tags, &tags);
+					changes.extend(folder.set_tags(record, tags));
+				}
+				Reading::Reread => {
+					if !self.rereads.contains(&record) {
+						self.rereads.push_back(record);
+					}
+				}
+				Reading::Keep => {}
+			}
+		}
+		if !changes.is_empty() {
+			let _ = folder.tag_changes_tx.send(changes);
+		}
+		if unknown {
+			self.request_tags();
+		}
+		self.pump_rereads();
+	}
+
+	/// A record's tags read back: what it carries now, from the daemon itself.
+	fn handle_reread(
+		&mut self,
+		generation: u64,
+		record: Uuid,
+		result: anyhow::Result<Option<Vec<Uuid>>>,
+	) {
+		self.rereading -= 1;
+		if generation == self.generation {
+			match result {
+				Ok(Some(tags)) => {
+					if names_unknown(&self.library_tags, &tags) {
+						self.request_tags();
+					}
+					if let Some(folder) = self.folder.as_mut() {
+						if let Some(change) = folder.set_tags(record, tags) {
+							let _ = folder.tag_changes_tx.send(vec![change]);
+						}
+					}
+				}
+				// The record is gone. Its cell keeps what it showed until the
+				// folder is listed again.
+				Ok(None) => {}
+				Err(error) => eprintln!("spacedrive-native: tag read-back failed: {error:#}"),
+			}
+		}
+		self.pump_rereads();
+	}
+
+	/// Start read-backs up to the limit.
+	fn pump_rereads(&mut self) {
+		let Some(library_id) = self.library_id else {
+			return;
+		};
+		while self.rereading < REREADS_IN_FLIGHT {
+			let Some(record) = self.rereads.pop_front() else {
+				break;
+			};
+			self.rereading += 1;
+			let client = self.client.clone();
+			let results = self.results_tx.clone();
+			let generation = self.generation;
+			tokio::spawn(async move {
+				let result = client
+					.query::<_, Option<File>>(&FileByIdQuery::new(record), Some(library_id))
+					.await
+					.map(|file| file.map(|file| file.tags.iter().map(|tag| tag.id).collect()));
+				let _ = results.send(TaskResult::Reread {
+					generation,
+					record,
+					result,
+				});
+			});
+		}
+	}
+
+	/// Put `tag` on `records` or take it off. Nothing changes here until the
+	/// daemon announces the rows.
+	fn tag(&mut self, tag: Uuid, records: Vec<Uuid>, apply: bool) {
+		let Some(library_id) = self.library_id else {
+			return;
+		};
+		if records.is_empty() {
+			return;
+		}
+		self.expecting.extend(records.iter().copied());
+		let client = self.client.clone();
+		let results = self.results_tx.clone();
+		tokio::spawn(async move {
+			let result = send_tag(&client, library_id, tag, &records, apply).await;
+			let _ = results.send(TaskResult::Tagged { records, result });
+		});
+	}
+
+	fn handle_tagged(&mut self, records: Vec<Uuid>, result: anyhow::Result<()>) {
+		// A row that arrives after this is read like any other: believed when
+		// it names tags, read back when it names none.
+		for record in &records {
+			self.expecting.remove(record);
+		}
+		if let Err(error) = result {
+			self.report(tag_failure_message(&format!("{error:#}")));
+		}
+	}
+
+	fn report(&mut self, message: String) {
+		let seq = self.notice.as_ref().map_or(1, |notice| notice.seq + 1);
+		self.notice = Some(Notice { seq, message });
+		self.publish_tags();
+	}
+
+	fn request_tags(&mut self) {
+		let Some(library_id) = self.library_id else {
+			return;
+		};
+		if !self.tags_fetch.request() {
+			return;
+		}
+		let client = self.client.clone();
+		let results = self.results_tx.clone();
+		tokio::spawn(async move {
+			let input = SearchTagsInput {
+				query: String::new(),
+				limit: None,
+			};
+			let result = client
+				.query::<_, SearchTagsOutput>(&input, Some(library_id))
+				.await
+				.map(|output| output.tags);
+			let _ = results.send(TaskResult::TagsFetched(result));
+		});
+	}
+
+	fn handle_tags_fetched(&mut self, result: anyhow::Result<Vec<Tag>>) {
+		match result {
+			Ok(tags) => {
+				let tags: Vec<TagInfo> = tags.iter().map(TagInfo::from_tag).collect();
+				if tags != self.library_tags {
+					self.library_tags = tags;
+					self.publish_tags();
+				}
+			}
+			Err(error) => eprintln!("spacedrive-native: tag listing failed: {error:#}"),
+		}
+		if self.tags_fetch.complete() {
+			self.request_tags();
+		}
+	}
+
+	fn publish_tags(&self) {
+		let _ = self.tags_tx.send(Arc::new(TagSnapshot {
+			tags: self.library_tags.clone(),
+			notice: self.notice.clone(),
+		}));
+	}
+}
+
+/// Whether `tags` names any tag missing from `library`, which means the
+/// library's tags were read before that one was made.
+fn names_unknown(library: &[TagInfo], tags: &[Uuid]) -> bool {
+	tags.iter()
+		.any(|id| !library.iter().any(|tag| tag.id == *id))
+}
+
+/// Put `tag` on `records` or take it off, a batch the daemon accepts at a
+/// time.
+async fn send_tag(
+	client: &CoreClient,
+	library_id: Uuid,
+	tag: Uuid,
+	records: &[Uuid],
+	apply: bool,
+) -> anyhow::Result<()> {
+	for batch in records.chunks(MAX_TAG_TARGETS) {
+		let targets = TagTargets::File(batch.to_vec());
+		let tag_ids = vec![tag];
+		if apply {
+			client
+				.action(&ApplyTagsInput { targets, tag_ids }, Some(library_id))
+				.await?;
+		} else {
+			client
+				.action(&UnapplyTagsInput { targets, tag_ids }, Some(library_id))
+				.await?;
+		}
+	}
+	Ok(())
+}
+
+/// What the window says when a tag request fails. A file outside every
+/// tracked source is the one refusal a person can act on, so it gets words of
+/// its own.
+fn tag_failure_message(error: &str) -> String {
+	if error.contains("no tracked source") {
+		"Tags live in a source. Add this folder to your library first.".to_string()
+	} else {
+		format!("Failed to toggle tag: {error}")
+	}
+}
+
+/// `#rrggbb` as `0xRRGGBB`, the form tag colors are stored in.
+fn parse_hex_color(color: &str) -> Option<u32> {
+	let hex = color.strip_prefix('#').unwrap_or(color);
+	if hex.len() != 6 {
+		return None;
+	}
+	u32::from_str_radix(hex, 16).ok()
+}
+
+/// One cell of a listing: the file, the record it is, and the tags that
+/// record carries.
+struct Media {
+	path: PathBuf,
+	record: Uuid,
+	tags: Vec<Uuid>,
 }
 
 /// List the media in `path`, in the order the grid will draw it. Directories
@@ -859,7 +1377,7 @@ async fn list_media(
 	library_id: Uuid,
 	device_slug: String,
 	path: PathBuf,
-) -> anyhow::Result<Vec<PathBuf>> {
+) -> anyhow::Result<Vec<Media>> {
 	let input = DirectoryListingInput {
 		path: SdPath::Physical { device_slug, path },
 		limit: None,
@@ -870,11 +1388,15 @@ async fn list_media(
 	let output: DirectoryListingOutput = client.query(&input, Some(library_id)).await?;
 	Ok(output
 		.files
-		.iter()
+		.into_iter()
 		.filter(|file| !matches!(file.kind, EntryKind::Directory))
 		.filter(|file| matches!(file.content_kind, ContentKind::Image | ContentKind::Video))
-		.filter_map(|file| match &file.sd_path {
-			SdPath::Physical { path, .. } => Some(path.clone()),
+		.filter_map(|file| match file.sd_path {
+			SdPath::Physical { path, .. } => Some(Media {
+				path,
+				record: file.id,
+				tags: file.tags.iter().map(|tag| tag.id).collect(),
+			}),
 			_ => None,
 		})
 		.collect())
@@ -919,11 +1441,13 @@ mod tests {
 	fn plane_at(slug: Option<&str>) -> Plane {
 		let (results_tx, _results_rx) = mpsc::unbounded_channel();
 		let (focus_tx, _focus_rx) = watch::channel(Arc::new(FocusSnapshot::new("default".into())));
+		let (tags_tx, _tags_rx) = watch::channel(Arc::new(TagSnapshot::default()));
 		let (folders_tx, _folders_rx) = mpsc::unbounded_channel();
 		Plane {
 			client: CoreClient::new("127.0.0.1:0".to_string()),
 			results_tx,
 			focus_tx,
+			tags_tx,
 			folders_tx,
 			group: "default".to_string(),
 			online: true,
@@ -936,7 +1460,52 @@ mod tests {
 			folder: None,
 			folder_state: FolderState::Idle,
 			generation: 0,
+			library_tags: Vec::new(),
+			tags_fetch: Fetch::default(),
+			expecting: HashSet::new(),
+			rereads: VecDeque::new(),
+			rereading: 0,
+			notice: None,
 		}
+	}
+
+	/// A plane showing a folder whose records carry `tags`, and the receiving
+	/// end of the tag changes it sends the UI. No library is set, so nothing
+	/// here reaches for a daemon.
+	fn plane_showing(
+		tags: &[(Uuid, Vec<Uuid>)],
+	) -> (Plane, mpsc::UnboundedReceiver<Vec<RecordTags>>) {
+		let mut plane = plane_at(Some("laptop"));
+		let (entries_tx, _) = std::sync::mpsc::channel();
+		let (completions_tx, _) = std::sync::mpsc::channel();
+		let (tag_changes_tx, tag_changes) = mpsc::unbounded_channel();
+		plane.folder = Some(Folder {
+			path: PathBuf::from("/photos"),
+			paths: Vec::new(),
+			entries_tx,
+			completions_tx,
+			visible: VisibleRange::new(0, 0),
+			index_by_uuid: HashMap::new(),
+			requested: None,
+			identifying: false,
+			tags: tags.iter().cloned().collect(),
+			tag_changes_tx,
+		});
+		(plane, tag_changes)
+	}
+
+	fn tag(id: Uuid, name: &str) -> Tag {
+		Tag {
+			id,
+			path: format!("Places/{name}"),
+			name: name.to_string(),
+			color: Some("#3b82f6".to_string()),
+			icon: None,
+		}
+	}
+
+	fn file_json(record: Uuid, tags: &[Tag]) -> serde_json::Value {
+		serde_json::json!({ "id": record, "name": "IMG_0001", "tags": tags, "size": 42 })
 	}
 
 	fn focus(group: &str, device_slug: &str, path: &str) -> NavigationFocus {
@@ -1011,5 +1580,135 @@ mod tests {
 		let mut plane = plane_at(None);
 		plane.apply_focus(focus("default", "desktop", "/photos"));
 		assert_eq!(plane.path, Some(PathBuf::from("/photos")));
+	}
+
+	#[test]
+	fn file_rows_are_read_from_single_and_batched_events() {
+		let (first, second) = (Uuid::new_v4(), Uuid::new_v4());
+		let beach = tag(Uuid::new_v4(), "Beach");
+
+		let single = Event::ResourceChanged {
+			resource_type: FILE_RESOURCE.to_string(),
+			resource: file_json(first, std::slice::from_ref(&beach)),
+			metadata: None,
+		};
+		assert_eq!(
+			file_rows_from_event(&single),
+			vec![(first, vec![beach.clone()])]
+		);
+
+		let batch = Event::ResourceChangedBatch {
+			resource_type: FILE_RESOURCE.to_string(),
+			resources: serde_json::json!([file_json(first, &[]), file_json(second, &[beach])]),
+			metadata: None,
+		};
+		let rows = file_rows_from_event(&batch);
+		assert_eq!(rows.len(), 2);
+		assert_eq!(rows[0], (first, Vec::new()));
+		assert_eq!(rows[1].0, second);
+
+		let other = Event::ResourceChanged {
+			resource_type: "tag".to_string(),
+			resource: file_json(first, &[]),
+			metadata: None,
+		};
+		assert!(file_rows_from_event(&other).is_empty());
+	}
+
+	#[test]
+	fn a_row_naming_tags_is_believed() {
+		let beach = tag(Uuid::new_v4(), "Beach");
+		assert_eq!(
+			read_row(&[], std::slice::from_ref(&beach), false),
+			Reading::Set(vec![beach.id])
+		);
+	}
+
+	#[test]
+	fn a_row_naming_no_tags_is_believed_only_for_this_windows_own_change() {
+		let tagged = [Uuid::new_v4()];
+		assert_eq!(read_row(&tagged, &[], true), Reading::Set(Vec::new()));
+		assert_eq!(read_row(&tagged, &[], false), Reading::Reread);
+		assert_eq!(read_row(&[], &[], false), Reading::Keep);
+	}
+
+	#[test]
+	fn announced_tags_reach_the_ui_once() {
+		let record = Uuid::new_v4();
+		let beach = tag(Uuid::new_v4(), "Beach");
+		let (mut plane, mut changes) = plane_showing(&[(record, Vec::new())]);
+
+		plane.handle_files_changed(vec![(record, vec![beach.clone()])]);
+		assert_eq!(
+			changes.try_recv().expect("a change is sent"),
+			vec![RecordTags {
+				record,
+				tags: vec![beach.id],
+			}]
+		);
+
+		// The same row again changes nothing the UI does not already have.
+		plane.handle_files_changed(vec![(record, vec![beach])]);
+		assert!(changes.try_recv().is_err());
+	}
+
+	#[test]
+	fn an_indexing_row_does_not_untag_a_record() {
+		let record = Uuid::new_v4();
+		let (mut plane, mut changes) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
+
+		plane.handle_files_changed(vec![(record, Vec::new())]);
+		assert!(changes.try_recv().is_err());
+		assert_eq!(plane.rereads, VecDeque::from([record]));
+
+		// A second row for the same record does not queue a second read.
+		plane.handle_files_changed(vec![(record, Vec::new())]);
+		assert_eq!(plane.rereads.len(), 1);
+	}
+
+	#[test]
+	fn this_windows_own_untagging_is_believed() {
+		let record = Uuid::new_v4();
+		let (mut plane, mut changes) = plane_showing(&[(record, vec![Uuid::new_v4()])]);
+		plane.expecting.insert(record);
+
+		plane.handle_files_changed(vec![(record, Vec::new())]);
+		assert_eq!(
+			changes.try_recv().expect("a change is sent"),
+			vec![RecordTags {
+				record,
+				tags: Vec::new(),
+			}]
+		);
+		assert!(plane.rereads.is_empty());
+		assert!(plane.expecting.is_empty());
+	}
+
+	#[test]
+	fn rows_for_records_outside_the_folder_are_ignored() {
+		let (mut plane, mut changes) = plane_showing(&[(Uuid::new_v4(), Vec::new())]);
+		plane.handle_files_changed(vec![(Uuid::new_v4(), vec![tag(Uuid::new_v4(), "Beach")])]);
+		assert!(changes.try_recv().is_err());
+		assert!(plane.rereads.is_empty());
+	}
+
+	#[test]
+	fn tag_colors_parse_from_hex() {
+		assert_eq!(parse_hex_color("#3b82f6"), Some(0x3b82f6));
+		assert_eq!(parse_hex_color("7A3CE8"), Some(0x7a3ce8));
+		assert_eq!(parse_hex_color("#fff"), None);
+		assert_eq!(parse_hex_color("blue"), None);
+	}
+
+	#[test]
+	fn a_file_outside_every_source_gets_its_own_words() {
+		assert_eq!(
+			tag_failure_message("no tracked source holds file 0190"),
+			"Tags live in a source. Add this folder to your library first."
+		);
+		assert_eq!(
+			tag_failure_message("unknown tags"),
+			"Failed to toggle tag: unknown tags"
+		);
 	}
 }

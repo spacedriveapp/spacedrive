@@ -16,33 +16,87 @@
 //! never writes to it. `SD_GRID_BENCH=1` runs the scripted flywheel benchmark
 //! over synthetic tiles (stats to stderr, quits when done); `SD_GRID_CELLS`
 //! overrides the synthetic cell count.
+//!
+//! Photos selects the way the explorer does, and tags what is selected in
+//! [`tag_mode`]: T enters it, the number keys toggle the palette's tags, and
+//! Esc leaves it.
 
 mod data;
 mod grid;
 mod source;
+mod tag_mode;
 mod theme;
 mod ui;
 
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Duration;
 
 use gpui::prelude::FluentBuilder as _;
 use gpui::{
-	div, point, px, size, App, AppContext as _, Bounds, Context, Entity, InteractiveElement as _,
-	IntoElement, ParentElement as _, Render, Styled as _, TitlebarOptions, Window, WindowBounds,
-	WindowControlArea, WindowOptions,
+	actions, div, point, px, rgb, size, Action, App, AppContext as _, Bounds, Context, Entity,
+	FocusHandle, InteractiveElement as _, IntoElement, KeyBinding, ParentElement as _, Render,
+	SharedString, Styled as _, Task, TitlebarOptions, Window, WindowBounds, WindowControlArea,
+	WindowOptions,
 };
 use gpui_component::Root;
 use gpui_platform::application;
+use tokio::sync::mpsc;
 
-use crate::data::{DataHandle, FocusSnapshot, FolderState};
-use crate::grid::GridView;
+use crate::data::{DataHandle, FocusSnapshot, FolderState, RecordTags, TagSnapshot};
+use crate::grid::{Cells, Direction, GridView};
 use crate::source::{EmptySource, PvcacheSource, SyntheticSource, TileSource};
+use crate::tag_mode::{Slot, TagBar, PALETTE_SIZE};
 use crate::theme::{ActiveTheme as _, Theme};
 use crate::ui::{Button, ButtonVariant};
 
 const TOOLBAR_HEIGHT: f32 = 44.0;
 const STATUS_BAR_HEIGHT: f32 = 26.0;
+
+/// How long a failed tag request stays reported on the bar.
+const NOTICE_DURATION: Duration = Duration::from_secs(5);
+
+/// The key context the window's bindings live in.
+const KEY_CONTEXT: &str = "Photos";
+
+actions!(
+	photos,
+	[
+		/// Enter tag mode.
+		EnterTagMode,
+		/// Leave tag mode, or drop the selection when not in it.
+		Cancel,
+		SelectAll,
+		MoveLeft,
+		MoveRight,
+		MoveUp,
+		MoveDown,
+	]
+);
+
+/// Toggle palette slot `slot`'s tag on the selection.
+#[derive(Clone, Debug, PartialEq, Action)]
+#[action(namespace = photos, no_json)]
+struct ToggleTag {
+	slot: usize,
+}
+
+fn bind_keys(cx: &mut App) {
+	let context = Some(KEY_CONTEXT);
+	cx.bind_keys([
+		KeyBinding::new("t", EnterTagMode, context),
+		KeyBinding::new("escape", Cancel, context),
+		KeyBinding::new("secondary-a", SelectAll, context),
+		KeyBinding::new("left", MoveLeft, context),
+		KeyBinding::new("right", MoveRight, context),
+		KeyBinding::new("up", MoveUp, context),
+		KeyBinding::new("down", MoveDown, context),
+	]);
+	cx.bind_keys(
+		(0..PALETTE_SIZE)
+			.map(|slot| KeyBinding::new(tag_mode::slot_key(slot), ToggleTag { slot }, context)),
+	);
+}
 
 fn main() {
 	let (cells, bench) = grid::config_from_env();
@@ -54,6 +108,7 @@ fn main() {
 	application().run(move |cx: &mut App| {
 		gpui_component::init(cx);
 		Theme::init(cx);
+		bind_keys(cx);
 
 		// The window is the whole app. Closing it quits, so the next launch
 		// from the Apps menu opens a window instead of finding a process
@@ -83,6 +138,10 @@ fn main() {
 			};
 			let grid = cx.new(|cx| GridView::new(source, bench, cx));
 			let photos = cx.new(|cx| Photos::new(grid, data.clone(), bench, cx));
+			// Keys reach the window through the focused view, and nothing
+			// else in it takes focus.
+			let focus = photos.read(cx).focus_handle.clone();
+			window.focus(&focus, cx);
 			cx.new(|cx| Root::new(photos, window, cx))
 		})
 		.expect("failed to open window");
@@ -94,21 +153,40 @@ struct Photos {
 	grid: Entity<GridView>,
 	data: DataHandle,
 	focus: Arc<FocusSnapshot>,
+	focus_handle: FocusHandle,
 	/// The folder the grid is showing, which lags the focus by one retarget.
 	folder: Option<PathBuf>,
+	/// Applies the shown folder's tag changes to the grid. Replacing it ends
+	/// the previous folder's.
+	folder_tags: Option<Task<()>>,
 	/// The benchmark owns the grid's source; adopting a folder would pull it
 	/// away mid-run, so the window ignores focus for the duration.
 	bench: bool,
+	tag_mode: bool,
+	tags: Arc<TagSnapshot>,
+	/// The failure on show, and the number of the latest one taken from the
+	/// plane, so each is shown once.
+	notice: Option<SharedString>,
+	notice_seen: u64,
 }
 
 impl Photos {
 	fn new(grid: Entity<GridView>, data: DataHandle, bench: bool, cx: &mut Context<Self>) -> Self {
+		// The tag bar and status bar read the grid's selection.
+		cx.observe(&grid, |_, _, cx| cx.notify()).detach();
+
 		let photos = Photos {
 			grid,
 			focus: data.focus(),
+			focus_handle: cx.focus_handle(),
+			tags: data.tags(),
 			data,
 			folder: None,
+			folder_tags: None,
 			bench,
+			tag_mode: false,
+			notice: None,
+			notice_seen: 0,
 		};
 
 		// Wake on data-plane snapshot changes; the channel is a tokio watch,
@@ -129,6 +207,16 @@ impl Photos {
 		})
 		.detach();
 
+		let mut tags = photos.data.watch_tags();
+		cx.spawn(async move |this, cx| {
+			while tags.changed().await.is_ok() {
+				if this.update(cx, |photos, cx| photos.adopt_tags(cx)).is_err() {
+					break;
+				}
+			}
+		})
+		.detach();
+
 		photos
 	}
 
@@ -141,21 +229,170 @@ impl Photos {
 		while let Some(open) = self.data.take_folder() {
 			let source = PvcacheSource::new(
 				open.cache_path,
-				open.len,
+				open.records.len() as u32,
 				open.entries_rx,
 				open.completions_rx,
 				open.visible,
 			);
+			let cells = Cells::new(open.records, open.tags);
 			self.grid.update(cx, |grid, cx| {
-				grid.set_source(Box::new(source) as Box<dyn TileSource>, cx);
+				grid.set_source(Box::new(source) as Box<dyn TileSource>, cells, cx);
 			});
+			self.folder_tags = Some(Self::follow_tag_changes(open.tag_changes, cx));
 			self.folder = Some(open.path);
 		}
+	}
+
+	/// Apply a folder's tag changes to the grid as they arrive, a burst at a
+	/// time.
+	fn follow_tag_changes(
+		mut changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
+		cx: &mut Context<Self>,
+	) -> Task<()> {
+		cx.spawn(async move |this, cx| {
+			while let Some(mut batch) = changes.recv().await {
+				while let Ok(more) = changes.try_recv() {
+					batch.extend(more);
+				}
+				let applied = this.update(cx, |photos, cx| {
+					photos.grid.update(cx, |grid, cx| {
+						for change in &batch {
+							grid.set_record_tags(change.record, &change.tags);
+						}
+						cx.notify();
+					});
+				});
+				if applied.is_err() {
+					break;
+				}
+			}
+		})
+	}
+
+	/// A new tag snapshot: tag colors to the grid, and a new failure to the bar.
+	fn adopt_tags(&mut self, cx: &mut Context<Self>) {
+		let snapshot = self.data.tags();
+		let colors = snapshot
+			.tags
+			.iter()
+			.map(|tag| (tag.id, rgb(tag.color).into()))
+			.collect();
+		self.grid
+			.update(cx, |grid, cx| grid.set_tag_colors(colors, cx));
+		if let Some(notice) = snapshot
+			.notice
+			.as_ref()
+			.filter(|notice| notice.seq > self.notice_seen)
+		{
+			self.notice_seen = notice.seq;
+			self.show_notice(notice.message.clone().into(), cx);
+		}
+		self.tags = snapshot;
+		cx.notify();
+	}
+
+	fn show_notice(&mut self, message: SharedString, cx: &mut Context<Self>) {
+		self.notice = Some(message);
+		let seq = self.notice_seen;
+		cx.spawn(async move |this, cx| {
+			cx.background_executor().timer(NOTICE_DURATION).await;
+			let _ = this.update(cx, |photos, cx| {
+				if photos.notice_seen == seq {
+					photos.notice = None;
+					cx.notify();
+				}
+			});
+		})
+		.detach();
 	}
 
 	fn toggle_following(&mut self, cx: &mut Context<Self>) {
 		self.data.set_following(!self.focus.following);
 		cx.notify();
+	}
+
+	fn set_tag_mode(&mut self, on: bool, cx: &mut Context<Self>) {
+		self.tag_mode = on;
+		self.notice = None;
+		if on {
+			self.data.refresh_tags();
+		}
+		cx.notify();
+	}
+
+	/// The tags number keys toggle, in key order.
+	fn palette(&self) -> &[data::TagInfo] {
+		let tags = &self.tags.tags;
+		&tags[..tags.len().min(PALETTE_SIZE)]
+	}
+
+	/// Toggle palette slot `slot`'s tag on the selection: off every selected
+	/// photo when all of them carry it, onto all of them otherwise.
+	fn toggle_slot(&mut self, slot: usize, cx: &mut Context<Self>) {
+		let Some(tag) = self.palette().get(slot) else {
+			return;
+		};
+		let grid = self.grid.read(cx);
+		let records = grid.selected_records();
+		if records.is_empty() {
+			return;
+		}
+		let apply = !grid.selection_carries(tag.id);
+		self.data.tag(tag.id, records, apply);
+		self.notice = None;
+		cx.notify();
+	}
+
+	fn enter_tag_mode(&mut self, _: &EnterTagMode, _: &mut Window, cx: &mut Context<Self>) {
+		if !self.tag_mode {
+			self.set_tag_mode(true, cx);
+		}
+	}
+
+	fn cancel(&mut self, _: &Cancel, _: &mut Window, cx: &mut Context<Self>) {
+		if self.tag_mode {
+			self.set_tag_mode(false, cx);
+		} else {
+			self.grid.update(cx, |grid, cx| {
+				grid.clear_selection(cx);
+			});
+		}
+	}
+
+	fn select_all(&mut self, _: &SelectAll, _: &mut Window, cx: &mut Context<Self>) {
+		self.grid.update(cx, |grid, cx| grid.select_all(cx));
+	}
+
+	fn toggle_tag(&mut self, action: &ToggleTag, _: &mut Window, cx: &mut Context<Self>) {
+		if self.tag_mode {
+			self.toggle_slot(action.slot, cx);
+		}
+	}
+
+	fn move_selection(&mut self, direction: Direction, cx: &mut Context<Self>) {
+		self.grid
+			.update(cx, |grid, cx| grid.move_selection(direction, cx));
+	}
+
+	fn render_tag_bar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+		let grid = self.grid.read(cx);
+		let slots = self
+			.palette()
+			.iter()
+			.map(|tag| Slot {
+				active: grid.selection_carries(tag.id),
+				tag: tag.clone(),
+			})
+			.collect();
+		let photos = cx.entity();
+		let done = photos.clone();
+		TagBar::new(
+			slots,
+			grid.selection_len(),
+			self.notice.clone(),
+			move |slot, _, cx| photos.update(cx, |photos, cx| photos.toggle_slot(slot, cx)),
+			move |_, cx| done.update(cx, |photos, cx| photos.set_tag_mode(false, cx)),
+		)
 	}
 
 	fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -191,6 +428,23 @@ impl Photos {
 					.text_color(theme.ink)
 					.when_some(title, |element, title| {
 						element.child(div().truncate().child(title))
+					}),
+			)
+			.child(
+				Button::new("tag-mode", "Tags")
+					.variant(if self.tag_mode {
+						ButtonVariant::Accent
+					} else {
+						ButtonVariant::Default
+					})
+					.on_click({
+						let photos = photos.clone();
+						move |_, _, cx| {
+							photos.update(cx, |photos, cx| {
+								let on = !photos.tag_mode;
+								photos.set_tag_mode(on, cx);
+							});
+						}
 					}),
 			)
 			.child(
@@ -243,6 +497,7 @@ impl Photos {
 			FolderState::Ready(count) => count,
 			_ => 0,
 		};
+		let selected = self.grid.read(cx).selection_len();
 		div()
 			.h(px(STATUS_BAR_HEIGHT))
 			.flex_shrink_0()
@@ -261,6 +516,9 @@ impl Photos {
 				1 => "1 photo".to_string(),
 				count => format!("{count} photos"),
 			})
+			.when(selected > 0, |bar| {
+				bar.child(format!("{selected} selected"))
+			})
 			.child(div().flex_1())
 			.child(self.data.socket_addr().to_string())
 	}
@@ -269,6 +527,7 @@ impl Photos {
 impl Render for Photos {
 	fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
 		let theme = cx.theme();
+		let showing = self.folder.is_some() || self.bench;
 		div()
 			.size_full()
 			.flex()
@@ -276,16 +535,40 @@ impl Render for Photos {
 			.bg(theme.app)
 			.text_color(theme.ink)
 			.text_size(theme.text_sm)
+			.track_focus(&self.focus_handle)
+			.key_context(KEY_CONTEXT)
+			.on_action(cx.listener(Self::enter_tag_mode))
+			.on_action(cx.listener(Self::cancel))
+			.on_action(cx.listener(Self::select_all))
+			.on_action(cx.listener(Self::toggle_tag))
+			.on_action(
+				cx.listener(|photos, _: &MoveLeft, _, cx| {
+					photos.move_selection(Direction::Left, cx)
+				}),
+			)
+			.on_action(cx.listener(|photos, _: &MoveRight, _, cx| {
+				photos.move_selection(Direction::Right, cx)
+			}))
+			.on_action(
+				cx.listener(|photos, _: &MoveUp, _, cx| photos.move_selection(Direction::Up, cx)),
+			)
+			.on_action(
+				cx.listener(|photos, _: &MoveDown, _, cx| {
+					photos.move_selection(Direction::Down, cx)
+				}),
+			)
 			.child(self.render_toolbar(cx))
 			.child(
 				div()
+					.relative()
 					.flex_1()
 					.min_h(px(0.0))
-					.child(if self.folder.is_some() || self.bench {
+					.child(if showing {
 						self.grid.clone().into_any_element()
 					} else {
 						self.render_empty_state(cx).into_any_element()
-					}),
+					})
+					.when(self.tag_mode, |area| area.child(self.render_tag_bar(cx))),
 			)
 			.child(self.render_status_bar(cx))
 	}
