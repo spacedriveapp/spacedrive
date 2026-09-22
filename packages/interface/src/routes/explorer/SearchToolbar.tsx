@@ -13,7 +13,7 @@ import {
 	usePopover
 } from '@spacedrive/primitives';
 import clsx from 'clsx';
-import {useState} from 'react';
+import {useState, type Ref} from 'react';
 import {useExplorer} from './context';
 import type {SearchScope} from './context';
 import {useExplorerFiles} from './hooks/useExplorerFiles';
@@ -38,17 +38,31 @@ const DATE_PRESETS: Array<{label: string; days: number | null}> = [
 	{label: 'This year', days: 365}
 ];
 
-/** How many kind options the pill offers, most common first. */
+/** Kinds the pill always offers, so a search can start from a kind before
+ * there are results to count. */
+const COMMON_KINDS: ContentKind[] = [
+	'image',
+	'video',
+	'audio',
+	'document',
+	'text',
+	'code',
+	'archive',
+	'book'
+];
+
+/** How many kinds beyond the common ones the pill offers, most common first. */
 const KIND_OPTION_LIMIT = 10;
 
 /**
  * The search refinement bar: scope, filter pills, hidden toggle, and the
  * true result count, in one row of primitives. A pill carries its own state
  * in its label, so an active filter is legible without opening anything.
+ * It shows while the search is open, before there is anything to search,
+ * so filters alone can start one.
  */
-export function SearchToolbar() {
+export function SearchToolbar({ref}: {ref: Ref<HTMLDivElement>}) {
 	const explorer = useExplorer();
-	const isSearching = explorer.mode.type === 'search';
 	const {totalFound, isLoading, facets} = useExplorerFiles();
 
 	// The containing source, resolved the same way the path bar resolves it.
@@ -59,14 +73,10 @@ export function SearchToolbar() {
 			type: 'paths.context',
 			input: {path: explorer.currentPath!}
 		},
-		{enabled: isSearching && !!explorer.currentPath}
+		{enabled: !!explorer.currentPath}
 	);
 
-	if (explorer.mode.type !== 'search') {
-		return null;
-	}
-
-	const {scope} = explorer.mode;
+	const scope = explorer.searchScope;
 	const source = pathContext?.source ?? null;
 	const filters = explorer.searchFilters;
 
@@ -76,19 +86,24 @@ export function SearchToolbar() {
 		{value: 'library', label: 'Library'}
 	];
 
-	const handleScopeChange = (value: string) => {
-		if (explorer.mode.type === 'search') {
-			explorer.enterSearchMode(explorer.mode.query, value as SearchScope);
-		}
-	};
-
 	return (
-		<div className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-app-line/50">
+		<div
+			ref={ref}
+			onKeyDown={(event) => {
+				// An open popover takes its own Escape.
+				if (event.key === 'Escape' && !event.defaultPrevented) {
+					explorer.exitSearchMode();
+				}
+			}}
+			className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-app-line/50"
+		>
 			<ToggleGroup
 				size="sm"
 				options={scopeOptions}
 				value={scope === 'source' && !source ? 'folder' : scope}
-				onChange={handleScopeChange}
+				onChange={(value) =>
+					explorer.setSearchScope(value as SearchScope)
+				}
 			/>
 
 			<div className="mx-1 h-4 w-px bg-app-line/60" />
@@ -135,7 +150,7 @@ export function SearchToolbar() {
 				onClick={explorer.exitSearchMode}
 			>
 				<X className="size-3" weight="bold" />
-				Clear
+				Close
 			</Button>
 		</div>
 	);
@@ -158,12 +173,18 @@ function KindPill({
 }: PillProps & {facets?: SearchFacets}) {
 	const popover = usePopover();
 	const selected = filters.content_types ?? [];
+	const counts = facets?.kinds ?? {};
 
-	const options: Array<[string, number]> = Object.entries(
-		facets?.kinds ?? {}
-	)
+	// The common kinds hold their places; kinds the results hold beyond them
+	// follow, most common first, and a selected kind always stays listed.
+	const found = Object.entries(counts)
+		.filter(([kind]) => !COMMON_KINDS.includes(kind as ContentKind))
 		.sort((a, b) => b[1] - a[1])
-		.slice(0, KIND_OPTION_LIMIT);
+		.slice(0, KIND_OPTION_LIMIT)
+		.map(([kind]) => kind as ContentKind);
+	const options = Array.from(
+		new Set([...COMMON_KINDS, ...found, ...selected])
+	);
 
 	const label =
 		selected.length === 0
@@ -172,11 +193,10 @@ function KindPill({
 				? selected[0]
 				: `${selected[0]} +${selected.length - 1}`;
 
-	const toggle = (kind: string) => {
-		const wire = kind as ContentKind;
-		const next = selected.includes(wire)
-			? selected.filter((k) => k !== wire)
-			: [...selected, wire];
+	const toggle = (kind: ContentKind) => {
+		const next = selected.includes(kind)
+			? selected.filter((k) => k !== kind)
+			: [...selected, kind];
 		onChange({...filters, content_types: next.length > 0 ? next : null});
 	};
 
@@ -198,20 +218,25 @@ function KindPill({
 					>
 						Any kind
 					</OptionListItem>
-					{options.map(([kind, count]) => (
-						<OptionListItem
-							key={kind}
-							selected={selected.includes(kind as ContentKind)}
-							onClick={() => toggle(kind)}
-						>
-							<span className="flex w-full items-center justify-between gap-4">
-								{kind}
-								<span className="text-ink-faint tabular-nums">
-									{count.toLocaleString()}
+					{options.map((kind) => {
+						const count: number | undefined = counts[kind];
+						return (
+							<OptionListItem
+								key={kind}
+								selected={selected.includes(kind)}
+								onClick={() => toggle(kind)}
+							>
+								<span className="flex w-full items-center justify-between gap-4">
+									{kind}
+									{count !== undefined && (
+										<span className="text-ink-faint tabular-nums">
+											{count.toLocaleString()}
+										</span>
+									)}
 								</span>
-							</span>
-						</OptionListItem>
-					))}
+							</OptionListItem>
+						);
+					})}
 				</OptionList>
 			</Popover.Content>
 		</Popover.Root>

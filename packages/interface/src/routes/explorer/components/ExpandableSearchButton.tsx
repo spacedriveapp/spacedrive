@@ -1,7 +1,113 @@
-import { useState, useRef, useEffect, forwardRef, useImperativeHandle } from "react";
+import {
+	useState,
+	useRef,
+	useEffect,
+	forwardRef,
+	useImperativeHandle,
+	type KeyboardEvent,
+} from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { MagnifyingGlass } from "@phosphor-icons/react";
 import { CircleButton, SearchBar } from "@spacedrive/primitives";
+
+interface ExpandableSearchFieldProps {
+	expanded: boolean;
+	onExpand: () => void;
+	value: string;
+	onChange: (value: string) => void;
+	onClear?: () => void;
+	onBlur?: () => void;
+	onKeyDown?: (event: KeyboardEvent<HTMLInputElement>) => void;
+	placeholder?: string;
+}
+
+export interface ExpandableSearchFieldHandle {
+	focus: () => void;
+}
+
+/**
+ * A search button that widens into a field. Whoever renders it decides when
+ * it is expanded. A collapsed field has no input yet, so focusing one that
+ * is still expanding is left to the animation's completion handler.
+ */
+export const ExpandableSearchField = forwardRef<
+	ExpandableSearchFieldHandle,
+	ExpandableSearchFieldProps
+>(function ExpandableSearchField(
+	{
+		expanded,
+		onExpand,
+		value,
+		onChange,
+		onClear,
+		onBlur,
+		onKeyDown,
+		placeholder = "Search...",
+	},
+	ref,
+) {
+	const inputRef = useRef<HTMLInputElement>(null);
+
+	useImperativeHandle(
+		ref,
+		() => ({
+			focus: () => inputRef.current?.focus(),
+		}),
+		[],
+	);
+
+	// Focus input after animation completes
+	const handleAnimationComplete = () => {
+		if (expanded && inputRef.current) {
+			inputRef.current.focus();
+		}
+	};
+
+	return (
+		<motion.div
+			animate={{
+				width: expanded ? 256 : 32, // w-64 = 256px, button = 32px
+			}}
+			transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
+			className="overflow-hidden"
+			onAnimationComplete={handleAnimationComplete}
+		>
+			<AnimatePresence mode="wait" initial={false}>
+				{!expanded ? (
+					<motion.div
+						key="button"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.15 }}
+					>
+						<CircleButton icon={MagnifyingGlass} onClick={onExpand} />
+					</motion.div>
+				) : (
+					<motion.div
+						key="searchbar"
+						initial={{ opacity: 0 }}
+						animate={{ opacity: 1 }}
+						exit={{ opacity: 0 }}
+						transition={{ duration: 0.15 }}
+					>
+						<SearchBar
+							ref={inputRef}
+							value={value}
+							onChange={onChange}
+							onClear={onClear}
+							placeholder={placeholder}
+							className="w-64"
+							onBlur={onBlur}
+							onKeyDown={onKeyDown}
+							autoFocus
+						/>
+					</motion.div>
+				)}
+			</AnimatePresence>
+		</motion.div>
+	);
+});
 
 interface ExpandableSearchButtonProps {
 	value: string;
@@ -10,34 +116,18 @@ interface ExpandableSearchButtonProps {
 	placeholder?: string;
 }
 
-export interface ExpandableSearchButtonHandle {
-	focus: () => void;
-}
-
-export const ExpandableSearchButton = forwardRef<
-	ExpandableSearchButtonHandle,
-	ExpandableSearchButtonProps
->(function ExpandableSearchButton(
-	{ value, onChange, onClear, placeholder = "Search..." },
-	ref,
-) {
+/**
+ * A field for filtering a page's own list: it expands on click and collapses
+ * when it loses focus, or a click lands outside it, while empty.
+ */
+export function ExpandableSearchButton({
+	value,
+	onChange,
+	onClear,
+	placeholder,
+}: ExpandableSearchButtonProps) {
 	const [isExpanded, setIsExpanded] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
-	const inputRef = useRef<HTMLInputElement>(null);
-
-	// The keybind path: expand if collapsed, focus once the input exists.
-	// A collapsed bar has no input yet; the expand animation's completion
-	// handler takes over the focus in that case.
-	useImperativeHandle(
-		ref,
-		() => ({
-			focus: () => {
-				setIsExpanded(true);
-				inputRef.current?.focus();
-			},
-		}),
-		[],
-	);
 
 	// Expand if there's a value
 	useEffect(() => {
@@ -67,18 +157,6 @@ export const ExpandableSearchButton = forwardRef<
 		}
 	}, [isExpanded, value]);
 
-	// Handle button click
-	const handleButtonClick = () => {
-		setIsExpanded(true);
-	};
-
-	// Focus input after animation completes
-	const handleAnimationComplete = () => {
-		if (isExpanded && inputRef.current) {
-			inputRef.current.focus();
-		}
-	};
-
 	// Handle input blur - collapse if empty
 	const handleBlur = () => {
 		if (!value) {
@@ -88,47 +166,15 @@ export const ExpandableSearchButton = forwardRef<
 
 	return (
 		<div ref={containerRef}>
-			<motion.div
-				animate={{
-					width: isExpanded ? 256 : 32, // w-64 = 256px, button = 32px
-				}}
-				transition={{ duration: 0.2, ease: [0.25, 1, 0.5, 1] }}
-				className="overflow-hidden"
-				onAnimationComplete={handleAnimationComplete}
-			>
-				<AnimatePresence mode="wait" initial={false}>
-					{!isExpanded ? (
-						<motion.div
-							key="button"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							transition={{ duration: 0.15 }}
-						>
-							<CircleButton icon={MagnifyingGlass} onClick={handleButtonClick} />
-						</motion.div>
-					) : (
-						<motion.div
-							key="searchbar"
-							initial={{ opacity: 0 }}
-							animate={{ opacity: 1 }}
-							exit={{ opacity: 0 }}
-							transition={{ duration: 0.15 }}
-						>
-							<SearchBar
-								ref={inputRef}
-								value={value}
-								onChange={onChange}
-								onClear={onClear}
-								placeholder={placeholder}
-								className="w-64"
-								onBlur={handleBlur}
-								autoFocus
-							/>
-						</motion.div>
-					)}
-				</AnimatePresence>
-			</motion.div>
+			<ExpandableSearchField
+				expanded={isExpanded}
+				onExpand={() => setIsExpanded(true)}
+				value={value}
+				onChange={onChange}
+				onClear={onClear}
+				onBlur={handleBlur}
+				placeholder={placeholder}
+			/>
 		</div>
 	);
-});
+}

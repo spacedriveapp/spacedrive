@@ -13,16 +13,21 @@ import {
 	useLayoutEffect,
 	useMemo,
 	useRef,
-	useState
+	useState,
+	type KeyboardEvent
 } from 'react';
 import {useLocation} from 'react-router-dom';
 import {TopBarItem, TopBarPortal} from '../../TopBar';
-import {ExpandableSearchButton} from './components/ExpandableSearchButton';
+import {
+	ExpandableSearchField,
+	type ExpandableSearchFieldHandle
+} from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
 import {VirtualPathBar} from './components/VirtualPathBar';
 import {
 	getSpaceItemKeyFromRoute,
 	MIN_SEARCH_QUERY_LENGTH,
+	searchFiltersNarrow,
 	useExplorer,
 	type ViewMode
 } from './context';
@@ -71,7 +76,11 @@ export function ExplorerView({
 		devices,
 		quickPreviewFileId,
 		mode,
-		enterSearchMode,
+		searchBar,
+		searchFilters,
+		openSearch,
+		pinSearch,
+		setSearchQuery,
 		exitSearchMode,
 		currentFiles,
 		columnStack,
@@ -103,52 +112,88 @@ export function ExplorerView({
 
 	const [searchValue, setSearchValue] = useState('');
 
-	// The current mode, readable from the debounce effect without making it
-	// a dependency: a dispatch that changes the mode must not reschedule the
-	// timer for an unchanged input value.
-	const modeRef = useRef(mode);
-	modeRef.current = mode;
-
 	// One search per settled query. The effect owns the timer, so every
-	// keystroke cancels the previous one, and entering search mode carries
-	// the scope the user already picked instead of resetting it. Dropping
-	// under the minimum length exits deterministically, including the
-	// two-to-one-character backspace.
+	// keystroke cancels the previous one. Dropping under the minimum length
+	// clears the query at once, including the two-to-one-character
+	// backspace, which ends the search unless a filter carries it.
 	useEffect(() => {
-		if (searchValue.length >= MIN_SEARCH_QUERY_LENGTH) {
-			const timeoutId = setTimeout(() => {
-				const current = modeRef.current;
-				enterSearchMode(
-					searchValue,
-					current.type === 'search' ? current.scope : undefined
-				);
-			}, 300);
-			return () => clearTimeout(timeoutId);
+		if (searchValue.length < MIN_SEARCH_QUERY_LENGTH) {
+			setSearchQuery('');
+			return;
 		}
-		if (modeRef.current.type === 'search') {
-			exitSearchMode();
-		}
-	}, [searchValue, enterSearchMode, exitSearchMode]);
+		const timeoutId = setTimeout(() => setSearchQuery(searchValue), 300);
+		return () => clearTimeout(timeoutId);
+	}, [searchValue, setSearchQuery]);
 
 	const handleSearchChange = useCallback((value: string) => {
 		setSearchValue(value);
 	}, []);
 
-	const handleSearchClear = useCallback(() => {
-		setSearchValue('');
-		exitSearchMode();
-	}, [exitSearchMode]);
-
+	// A closed search forgets its text however it closed: Escape, the close
+	// button, a click away, or navigation.
 	useEffect(() => {
-		if (mode.type !== 'search') {
+		if (searchBar === 'closed') {
 			setSearchValue('');
 		}
-	}, [mode.type]);
+	}, [searchBar]);
 
-	const searchInputRef = useRef<{focus: () => void}>(null);
-	useKeybind('global.focusSearchBar', () => searchInputRef.current?.focus(), {
-		ignoreWhenInputFocused: false
-	});
+	const searchInputRef = useRef<ExpandableSearchFieldHandle>(null);
+	useKeybind(
+		'global.focusSearchBar',
+		() => {
+			openSearch();
+			searchInputRef.current?.focus();
+		},
+		{ignoreWhenInputFocused: false}
+	);
+
+	const searchFieldRef = useRef<HTMLDivElement>(null);
+	const searchBarRef = useRef<HTMLDivElement>(null);
+	const searchHeld = searchValue !== '' || searchFiltersNarrow(searchFilters);
+
+	// An open search closes on the first click outside it, unless that click
+	// lands on the filter bar, which pins the bar until Escape or its close
+	// button. Text or a filter holds the search open through any click.
+	useEffect(() => {
+		if (searchBar !== 'open') return;
+
+		const handlePointerDown = (event: PointerEvent) => {
+			const target = event.target as Node;
+			if (searchFieldRef.current?.contains(target)) return;
+			if (searchBarRef.current?.contains(target)) {
+				pinSearch();
+			} else if (!searchHeld) {
+				exitSearchMode();
+			}
+		};
+		// Reaching the bar from the keyboard engages it the same way.
+		const handleFocusIn = (event: FocusEvent) => {
+			if (searchBarRef.current?.contains(event.target as Node)) {
+				pinSearch();
+			}
+		};
+
+		document.addEventListener('pointerdown', handlePointerDown, true);
+		document.addEventListener('focusin', handleFocusIn);
+		return () => {
+			document.removeEventListener(
+				'pointerdown',
+				handlePointerDown,
+				true
+			);
+			document.removeEventListener('focusin', handleFocusIn);
+		};
+	}, [searchBar, searchHeld, pinSearch, exitSearchMode]);
+
+	const handleSearchKeyDown = useCallback(
+		(event: KeyboardEvent<HTMLInputElement>) => {
+			if (event.key === 'Escape') {
+				event.currentTarget.blur();
+				exitSearchMode();
+			}
+		},
+		[exitSearchMode]
+	);
 
 	// When leaving column view, navigate to the deepest column so the
 	// new view shows the directory the user was actually looking at.
@@ -280,17 +325,26 @@ export function ExplorerView({
 								label="Search"
 								priority="high"
 							>
-								<ExpandableSearchButton
-									ref={searchInputRef}
-									placeholder={
-										currentPath
-											? 'Search in current folder...'
-											: 'Search...'
-									}
-									value={searchValue}
-									onChange={handleSearchChange}
-									onClear={handleSearchClear}
-								/>
+								<div ref={searchFieldRef}>
+									<ExpandableSearchField
+										ref={searchInputRef}
+										expanded={searchBar !== 'closed'}
+										onExpand={openSearch}
+										placeholder={
+											currentPath
+												? 'Search in current folder...'
+												: 'Search...'
+										}
+										value={searchValue}
+										onChange={handleSearchChange}
+										// Clearing keeps the field in use: the search stays
+										// open for the next query or its filters.
+										onClear={() =>
+											searchInputRef.current?.focus()
+										}
+										onKeyDown={handleSearchKeyDown}
+									/>
+								</div>
 							</TopBarItem>
 							<TopBarItem
 								id="tag-mode"
@@ -366,7 +420,7 @@ export function ExplorerView({
 					viewMode === 'size' ? 'bg-transparent' : 'bg-app/80'
 				)}
 			>
-				{mode.type === 'search' && <SearchToolbar />}
+				{searchBar !== 'closed' && <SearchToolbar ref={searchBarRef} />}
 				<div
 					className={clsx(
 						'flex-1',

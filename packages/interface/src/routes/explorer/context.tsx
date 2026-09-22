@@ -46,8 +46,12 @@ export interface ViewSettings {
 
 export type SearchScope = 'folder' | 'source' | 'library';
 
-/** The one place the minimum query length lives; the input handler, the
- * query gate, and the results view all read it. */
+/** The filter bar: hidden, showing since the search was focused, or pinned
+ * by a click on it, after which a click elsewhere no longer closes it. */
+export type SearchBarState = 'closed' | 'open' | 'pinned';
+
+/** The one place the minimum query length lives; the input handler reads
+ * it, and a shorter query is not sent. */
 export const MIN_SEARCH_QUERY_LENGTH = 2;
 
 /** Search filters are stored in wire shape: one type from the generated
@@ -67,9 +71,24 @@ export const EMPTY_SEARCH_FILTERS: ApiSearchFilters = {
 	max_volume_count: null
 };
 
+/** Whether the filters narrow the scope by themselves, so a search runs
+ * without a query. Hidden and archived only widen what a search shows. The
+ * daemon accepts an empty query on the same rule. */
+export function searchFiltersNarrow(filters: ApiSearchFilters): boolean {
+	return (
+		filters.file_types !== null ||
+		filters.content_types !== null ||
+		filters.size_range !== null ||
+		filters.date_range !== null ||
+		(filters.tags !== null &&
+			(filters.tags.include.length > 0 ||
+				filters.tags.exclude.length > 0))
+	);
+}
+
 export type ExplorerMode =
 	| {type: 'browse'}
-	| {type: 'search'; query: string; scope: SearchScope}
+	| {type: 'search'; query: string}
 	| {type: 'recents'}
 	| {type: 'tag'; tagId: string}
 	| {type: 'collection'; slug: string}
@@ -190,6 +209,8 @@ interface UIState {
 	quickPreviewFileId: string | null;
 	tagModeActive: boolean;
 	mode: ExplorerMode;
+	searchBar: SearchBarState;
+	searchScope: SearchScope;
 	searchFilters: ApiSearchFilters;
 }
 
@@ -200,7 +221,10 @@ type UIAction =
 	| {type: 'SET_INSPECTOR_VISIBLE'; visible: boolean}
 	| {type: 'SET_QUICK_PREVIEW'; fileId: string | null}
 	| {type: 'SET_TAG_MODE'; active: boolean}
-	| {type: 'ENTER_SEARCH_MODE'; query: string; scope: SearchScope}
+	| {type: 'OPEN_SEARCH'}
+	| {type: 'PIN_SEARCH'}
+	| {type: 'SET_SEARCH_QUERY'; query: string}
+	| {type: 'SET_SEARCH_SCOPE'; scope: SearchScope}
 	| {type: 'EXIT_SEARCH_MODE'}
 	| {type: 'ENTER_RECENTS_MODE'}
 	| {type: 'EXIT_RECENTS_MODE'}
@@ -227,6 +251,36 @@ const defaultViewSettings: ViewSettings = {
 	sizeViewItemLimit: 500
 };
 
+/** What a closed search leaves behind. Leaving for another view closes the
+ * search the same way Escape does. */
+const CLOSED_SEARCH: Pick<
+	UIState,
+	'searchBar' | 'searchScope' | 'searchFilters'
+> = {
+	searchBar: 'closed',
+	searchScope: 'folder',
+	searchFilters: EMPTY_SEARCH_FILTERS
+};
+
+/**
+ * Search mode follows the search's criteria: a query long enough to send,
+ * or a filter that narrows the scope by itself. Losing both returns the
+ * explorer to browsing while the bar stays as it is, open and waiting.
+ * A closed search starts nothing, so a query that settles after its search
+ * closed arrives too late to reopen it.
+ */
+function settleSearch(state: UIState, query: string): UIState {
+	if (state.searchBar === 'closed') return state;
+	if (query !== '' || searchFiltersNarrow(state.searchFilters)) {
+		return state.mode.type === 'search' && state.mode.query === query
+			? state
+			: {...state, mode: {type: 'search', query}};
+	}
+	return state.mode.type === 'search'
+		? {...state, mode: {type: 'browse'}}
+		: state;
+}
+
 function uiReducer(state: UIState, action: UIAction): UIState {
 	switch (action.type) {
 		case 'SET_SORT_BY':
@@ -250,34 +304,54 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 		case 'SET_TAG_MODE':
 			return {...state, tagModeActive: action.active};
 
-		case 'ENTER_SEARCH_MODE':
-			return {
-				...state,
-				mode: {type: 'search', query: action.query, scope: action.scope}
-			};
+		case 'OPEN_SEARCH':
+			return state.searchBar === 'closed'
+				? {...state, searchBar: 'open'}
+				: state;
+
+		case 'PIN_SEARCH':
+			return state.searchBar === 'open'
+				? {...state, searchBar: 'pinned'}
+				: state;
+
+		case 'SET_SEARCH_QUERY':
+			return settleSearch(state, action.query);
+
+		case 'SET_SEARCH_SCOPE':
+			return {...state, searchScope: action.scope};
+
+		case 'SET_SEARCH_FILTERS':
+			return settleSearch(
+				{...state, searchFilters: action.filters},
+				state.mode.type === 'search' ? state.mode.query : ''
+			);
 
 		case 'EXIT_SEARCH_MODE':
 			return {
 				...state,
-				mode: {type: 'browse'},
-				searchFilters: EMPTY_SEARCH_FILTERS
+				...CLOSED_SEARCH,
+				mode:
+					state.mode.type === 'search' ? {type: 'browse'} : state.mode
 			};
 
 		case 'ENTER_RECENTS_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'recents'}
 			};
 
 		case 'EXIT_RECENTS_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'browse'}
 			};
 
 		case 'ENTER_FILTERED_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {
 					type: 'filtered',
 					filters: action.filters,
@@ -288,49 +362,50 @@ function uiReducer(state: UIState, action: UIAction): UIState {
 		case 'EXIT_FILTERED_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'browse'}
 			};
 
 		case 'ENTER_SOURCE_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'source', sourceId: action.sourceId}
 			};
 
 		case 'EXIT_SOURCE_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'browse'}
 			};
 
 		case 'ENTER_COLLECTION_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'collection', slug: action.slug}
 			};
 
 		case 'EXIT_COLLECTION_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'browse'}
 			};
 
 		case 'ENTER_TAG_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'tag', tagId: action.tagId}
 			};
 
 		case 'EXIT_TAG_MODE':
 			return {
 				...state,
+				...CLOSED_SEARCH,
 				mode: {type: 'browse'}
-			};
-
-		case 'SET_SEARCH_FILTERS':
-			return {
-				...state,
-				searchFilters: action.filters
 			};
 
 		case 'LOAD_PREFERENCES':
@@ -354,7 +429,7 @@ const initialUIState: UIState = {
 	quickPreviewFileId: null,
 	tagModeActive: false,
 	mode: {type: 'browse'},
-	searchFilters: EMPTY_SEARCH_FILTERS
+	...CLOSED_SEARCH
 };
 
 export function targetToUrl(target: NavigationTarget): string {
@@ -477,8 +552,13 @@ interface ExplorerContextValue {
 	setTagModeActive: (active: boolean) => void;
 
 	mode: ExplorerMode;
-	enterSearchMode: (query: string, scope?: SearchScope) => void;
+	searchBar: SearchBarState;
+	openSearch: () => void;
+	pinSearch: () => void;
+	setSearchQuery: (query: string) => void;
 	exitSearchMode: () => void;
+	searchScope: SearchScope;
+	setSearchScope: (scope: SearchScope) => void;
 	enterRecentsMode: () => void;
 	exitRecentsMode: () => void;
 	enterFilteredMode: (filters: ApiSearchFilters, label: string) => void;
@@ -806,15 +886,24 @@ export function ExplorerProvider({
 		uiDispatch({type: 'SET_TAG_MODE', active});
 	}, []);
 
-	const enterSearchMode = useCallback(
-		(query: string, scope: SearchScope = 'folder') => {
-			uiDispatch({type: 'ENTER_SEARCH_MODE', query, scope});
-		},
-		[]
-	);
+	const openSearch = useCallback(() => {
+		uiDispatch({type: 'OPEN_SEARCH'});
+	}, []);
+
+	const pinSearch = useCallback(() => {
+		uiDispatch({type: 'PIN_SEARCH'});
+	}, []);
+
+	const setSearchQuery = useCallback((query: string) => {
+		uiDispatch({type: 'SET_SEARCH_QUERY', query});
+	}, []);
 
 	const exitSearchMode = useCallback(() => {
 		uiDispatch({type: 'EXIT_SEARCH_MODE'});
+	}, []);
+
+	const setSearchScope = useCallback((scope: SearchScope) => {
+		uiDispatch({type: 'SET_SEARCH_SCOPE', scope});
 	}, []);
 
 	const enterRecentsMode = useCallback(() => {
@@ -922,8 +1011,13 @@ export function ExplorerProvider({
 			tagModeActive: uiState.tagModeActive,
 			setTagModeActive,
 			mode: uiState.mode,
-			enterSearchMode,
+			searchBar: uiState.searchBar,
+			openSearch,
+			pinSearch,
+			setSearchQuery,
 			exitSearchMode,
+			searchScope: uiState.searchScope,
+			setSearchScope,
 			enterRecentsMode,
 			exitRecentsMode,
 			enterFilteredMode,
@@ -973,8 +1067,13 @@ export function ExplorerProvider({
 			uiState.tagModeActive,
 			setTagModeActive,
 			uiState.mode,
-			enterSearchMode,
+			uiState.searchBar,
+			openSearch,
+			pinSearch,
+			setSearchQuery,
 			exitSearchMode,
+			uiState.searchScope,
+			setSearchScope,
 			enterRecentsMode,
 			exitRecentsMode,
 			enterFilteredMode,

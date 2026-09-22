@@ -37,9 +37,10 @@ pub async fn search_source_store(
 	filters: &SearchFilters,
 	file_type_registry: &FileTypeRegistry,
 ) -> Result<StorePartition, QueryError> {
-	// The arena path returns nothing for an empty library-wide query; the
-	// store does the same rather than dumping a source.
-	if query.is_empty() {
+	// An empty query matches every record only when a filter narrows it,
+	// as it does on the arena path; without one the store returns nothing
+	// rather than dumping a source.
+	if query.is_empty() && !filters.narrows() {
 		return Ok(StorePartition {
 			results: Vec::new(),
 			truncated: false,

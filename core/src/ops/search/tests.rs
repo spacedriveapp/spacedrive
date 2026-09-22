@@ -27,6 +27,23 @@ mod tests {
 	}
 
 	#[test]
+	fn an_empty_query_needs_a_filter_that_narrows() {
+		let mut input = FileSearchInput::simple(String::new());
+
+		input.filters.include_hidden = Some(true);
+		assert!(input.validate().is_err());
+
+		input.filters.tags = Some(TagFilter {
+			include: Vec::new(),
+			exclude: Vec::new(),
+		});
+		assert!(input.validate().is_err());
+
+		input.filters.content_types = Some(vec![crate::domain::ContentKind::Image]);
+		assert!(input.validate().is_ok());
+	}
+
+	#[test]
 	fn test_search_mode_creation() {
 		let fast_search = FileSearchInput::fast("test".to_string());
 		assert!(matches!(fast_search.mode, SearchMode::Fast));

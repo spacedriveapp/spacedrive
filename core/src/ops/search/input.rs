@@ -74,6 +74,22 @@ pub struct SearchFilters {
 	pub max_volume_count: Option<u32>,
 }
 
+impl SearchFilters {
+	/// Whether a filter the index judges per entry is set, which is what gives
+	/// a search without a query something to match: every entry in scope that
+	/// passes it. Hidden and archived only widen what a search shows.
+	pub fn narrows(&self) -> bool {
+		self.file_types.is_some()
+			|| self.content_types.is_some()
+			|| self.size_range.is_some()
+			|| self.date_range.is_some()
+			|| self
+				.tags
+				.as_ref()
+				.is_some_and(|tags| !tags.include.is_empty() || !tags.exclude.is_empty())
+	}
+}
+
 /// Filter for tags, supporting complex boolean logic
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct TagFilter {
@@ -207,7 +223,11 @@ impl FileSearchInput {
 			|| self.filters.min_volume_count.is_some()
 			|| self.filters.max_volume_count.is_some();
 
-		if self.query.trim().is_empty() && !is_recents_query && !has_redundancy_filters {
+		if self.query.trim().is_empty()
+			&& !is_recents_query
+			&& !has_redundancy_filters
+			&& !self.filters.narrows()
+		{
 			return Err("Query cannot be empty".to_string());
 		}
 

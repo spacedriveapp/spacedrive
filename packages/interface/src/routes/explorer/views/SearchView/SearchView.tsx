@@ -1,4 +1,4 @@
-import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from '../../context';
+import { useExplorer } from '../../context';
 import { GridView } from '../GridView';
 import { ListView } from '../ListView';
 import { MediaView } from '../MediaView';
@@ -27,17 +27,6 @@ export function SearchView() {
 	// Only render if we're in search mode
 	if (mode.type !== 'search') {
 		return null;
-	}
-
-	// Show minimum character hint
-	if (mode.query.length < MIN_SEARCH_QUERY_LENGTH) {
-		return (
-			<div className="flex h-full flex-col items-center justify-center p-8 text-center">
-				<p className="text-ink-dull text-sm">
-					Type at least {MIN_SEARCH_QUERY_LENGTH} characters to search
-				</p>
-			</div>
-		);
 	}
 
 	// Route to the appropriate view based on viewMode

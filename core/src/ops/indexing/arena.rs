@@ -602,6 +602,28 @@ impl Arena {
 		Some(files)
 	}
 
+	/// Every known entry beneath a directory at any depth, files and
+	/// directories alike, without reading the filesystem.
+	pub fn entries_beneath(&self, root: &Path) -> Vec<PathBuf> {
+		let Some(&root_id) = self.path_index.get(root) else {
+			return Vec::new();
+		};
+		let mut pending = vec![root_id];
+		let mut entries = Vec::new();
+		while let Some(id) = pending.pop() {
+			let Some(node) = self.arena.get(id) else {
+				continue;
+			};
+			if id != root_id {
+				if let Some(path) = self.reconstruct_path(id) {
+					entries.push(path);
+				}
+			}
+			pending.extend(node.children.iter().copied());
+		}
+		entries
+	}
+
 	/// Clears entries before re-indexing, preserving explicitly browsed subdirectories.
 	///
 	/// A browse walks one level, so subdirectories that were explicitly

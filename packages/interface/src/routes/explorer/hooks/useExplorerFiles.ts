@@ -8,7 +8,7 @@ import type {
 } from "@sd/ts-client";
 import { useLibraryQuery } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
-import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from "../context";
+import { useExplorer } from "../context";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -44,7 +44,8 @@ export interface ExplorerFilesResult {
  */
 export function useExplorerFiles(): ExplorerFilesResult {
 	const explorer = useExplorer();
-	const { mode, currentPath, sortBy, viewSettings, searchFilters } = explorer;
+	const { mode, currentPath, sortBy, viewSettings, searchFilters, searchScope } =
+		explorer;
 
 	// Check for virtual listing first
 	const { files: virtualFiles, isVirtualView } = useVirtualListing();
@@ -54,7 +55,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 
 	// The containing source for Source scope, resolved on the daemon with
 	// alias normalization. Only fetched while that scope is active.
-	const wantsSourceScope = isSearchMode && mode.scope === "source";
+	const wantsSourceScope = isSearchMode && searchScope === "source";
 	const { data: pathContext } = useLibraryQuery(
 		{
 			type: "paths.context",
@@ -78,14 +79,13 @@ export function useExplorerFiles(): ExplorerFilesResult {
 	const isCollectionMode = mode.type === "collection";
 	const isSourceMode = mode.type === "source";
 
-	// Build search query input
+	// Build search query input. Search mode means there is something to send:
+	// a query long enough, or a filter that narrows the scope without one.
 	const searchQueryInput = useMemo<FileSearchInput | null>(() => {
-		if (!isSearchMode) return null;
+		if (mode.type !== "search") return null;
 
-		const searchMode = mode;
-		if (searchMode.type !== "search") return null;
-
-		const { query, scope } = searchMode;
+		const { query } = mode;
+		const scope = searchScope;
 
 		// Source scope without a resolved source sends nothing rather than
 		// silently widening to the library.
@@ -122,7 +122,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 				offset: 0,
 			},
 		};
-	}, [isSearchMode, mode, currentPath, sortBy, sourceScopePath, searchFilters]);
+	}, [mode, searchScope, currentPath, sortBy, sourceScopePath, searchFilters]);
 
 	// Build filtered query input (pre-applied SearchFilters, e.g. redundancy views)
 	const filteredQueryInput = useMemo<FileSearchInput | null>(() => {
@@ -197,13 +197,10 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		input: searchQueryInput!,
 		resourceType: "file",
 		pathScope:
-			isSearchMode && mode.type === "search" && mode.scope === "folder" && currentPath
+			isSearchMode && searchScope === "folder" && currentPath
 				? (currentPath as any)
 				: undefined,
-		enabled:
-			isSearchMode &&
-			!!searchQueryInput &&
-			searchQueryInput.query.length >= MIN_SEARCH_QUERY_LENGTH,
+		enabled: !!searchQueryInput,
 	});
 
 	// Recents query

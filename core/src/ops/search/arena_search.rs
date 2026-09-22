@@ -77,7 +77,7 @@ pub async fn search_arena(
 
 		let matching_paths = {
 			let index = share.index.read().await;
-			matches_in(&index, query, Some(local_path))
+			matches_in(&index, query, Some(local_path), filters)
 		};
 		let results = collect_results(
 			&share.index,
@@ -131,7 +131,7 @@ pub async fn search_arena(
 
 	let mut matching_paths = {
 		let index = index_arc.read().await;
-		matches_in(&index, query, Some(&local_path))
+		matches_in(&index, query, Some(&local_path), filters)
 	};
 	if let Some(scope) = &tag_scope {
 		matching_paths.retain(|path| scope.admits(path));
@@ -258,7 +258,7 @@ pub async fn search_every_index(
 	for index_arc in cache.all_indexes() {
 		let mut matching_paths = {
 			let index = index_arc.read().await;
-			matches_in(&index, query, None)
+			matches_in(&index, query, None, filters)
 		};
 		if let Some(scope) = &tag_scope {
 			matching_paths.retain(|path| scope.admits(path));
@@ -298,7 +298,7 @@ pub async fn search_every_index(
 
 		let matching_paths = {
 			let index = share.index.read().await;
-			matches_in(&index, query, None)
+			matches_in(&index, query, None, filters)
 		};
 
 		let mut partition = collect_results(
@@ -376,13 +376,23 @@ fn retain_tagged(
 ///
 /// Substring matching subsumes exact and prefix hits, and scoring already
 /// ranks them above it, so an exact query surfaces its file first without
-/// hiding everything else that contains the term.
+/// hiding everything else that contains the term. Every name contains the
+/// empty query, so when a filter narrows it the whole scope is a candidate;
+/// without one it yields the scope's direct children, and nothing
+/// library-wide.
 fn matches_in(
 	index: &crate::ops::indexing::Arena,
 	query: &str,
 	scope: Option<&PathBuf>,
+	filters: &SearchFilters,
 ) -> Vec<PathBuf> {
 	if query.is_empty() {
+		if filters.narrows() {
+			return match scope {
+				Some(root) => index.entries_beneath(root),
+				None => index.find_containing(""),
+			};
+		}
 		return match scope {
 			Some(path) => index.list_directory(path).unwrap_or_default(),
 			None => Vec::new(),
@@ -797,7 +807,7 @@ mod tests {
 			async move {
 				let matching = {
 					let index = index_arc.read().await;
-					matches_in(&index, query, None)
+					matches_in(&index, query, None, &filters)
 				};
 				let arena = collect_results(&index_arc, matching, query, "dev", &filters, registry)
 					.await
@@ -847,5 +857,56 @@ mod tests {
 		// An empty answer from the selected backend is a real answer.
 		let (arena, store) = run("nothing-here", SearchFilters::default()).await;
 		assert!(compare(arena, store).is_empty());
+
+		// A filter carries an empty query on both backends alike.
+		let movies = SearchFilters {
+			file_types: Some(vec!["mov".to_string()]),
+			..Default::default()
+		};
+		let (arena, store) = run("", movies).await;
+		assert_eq!(compare(arena, store).len(), 2);
+
+		// Without one, an empty query matches nothing on either.
+		let (arena, store) = run("", SearchFilters::default()).await;
+		assert!(compare(arena, store).is_empty());
+	}
+
+	/// A filter-only search in a folder reaches every entry beneath it, and
+	/// nothing in a sibling that shares its name as a prefix.
+	#[test]
+	fn an_empty_query_with_a_filter_matches_the_whole_scope() {
+		let mut index = crate::ops::indexing::Arena::new().expect("index");
+		for name in ["photos/a.png", "photos/trip/b.png", "photos-other/c.png"] {
+			let entry = metadata(name, 1, None);
+			index
+				.add_entry(entry.path.clone(), Uuid::now_v7(), entry)
+				.expect("entry");
+		}
+		let scope = PathBuf::from("/vol/photos");
+		let images = SearchFilters {
+			file_types: Some(vec!["png".to_string()]),
+			..Default::default()
+		};
+
+		let mut matched = matches_in(&index, "", Some(&scope), &images);
+		matched.sort();
+		assert_eq!(
+			matched,
+			vec![
+				PathBuf::from("/vol/photos/a.png"),
+				PathBuf::from("/vol/photos/trip"),
+				PathBuf::from("/vol/photos/trip/b.png"),
+			]
+		);
+
+		let mut listed = matches_in(&index, "", Some(&scope), &SearchFilters::default());
+		listed.sort();
+		assert_eq!(
+			listed,
+			vec![
+				PathBuf::from("/vol/photos/a.png"),
+				PathBuf::from("/vol/photos/trip"),
+			]
+		);
 	}
 }
