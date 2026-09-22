@@ -211,9 +211,10 @@ impl File {
 
 	/// Build a `File` from a store row: the cold twin of
 	/// [`Self::from_arena`], with the same name/extension split and kind
-	/// mapping, timestamps from the store's millisecond fields, and the
-	/// content kind hashing recorded. A directory reports its own row's size,
-	/// since a store keeps no subtree rollups.
+	/// mapping, and timestamps from the store's millisecond fields. The
+	/// content kind is the one hashing recorded, and where there is none, the
+	/// one the extension gives, as for an index entry. A directory reports its
+	/// own row's size, since a store keeps no subtree rollups.
 	pub fn from_store_entry(entry: &sd_store::FsEntry, sd_path: SdPath) -> Self {
 		let is_local = sd_path.is_local();
 
@@ -239,7 +240,15 @@ impl File {
 			.content_kind
 			.and_then(|kind| i32::try_from(kind).ok())
 			.and_then(|kind| ContentKind::try_from(kind).ok())
-			.unwrap_or(ContentKind::Unknown);
+			.filter(|kind| *kind != ContentKind::Unknown)
+			.unwrap_or_else(|| {
+				if entry.kind == sd_store::FileKind::File {
+					crate::filetype::FileTypeRegistry::builtin()
+						.identify_by_extension(std::path::Path::new(&entry.name))
+				} else {
+					ContentKind::Unknown
+				}
+			});
 
 		Self {
 			id: entry.uuid,
@@ -427,3 +436,71 @@ impl File {
 
 // Register File as a virtual resource (has dependencies on entry, content_identity, etc.)
 crate::register_resource!(File, virtual);
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn store_entry(
+		name: &str,
+		kind: sd_store::FileKind,
+		content_kind: Option<i64>,
+	) -> sd_store::FsEntry {
+		sd_store::FsEntry {
+			uuid: Uuid::now_v7(),
+			kind,
+			name: name.to_string(),
+			relative_path: name.to_string(),
+			size: Some(1),
+			mtime_ms: None,
+			atime_ms: None,
+			created_ms: None,
+			is_hidden: false,
+			extension: std::path::Path::new(name)
+				.extension()
+				.and_then(|extension| extension.to_str())
+				.map(String::from),
+			link_target: None,
+			inode: None,
+			mode: None,
+			uid: None,
+			gid: None,
+			content_uuid: None,
+			content_kind,
+			content_error: None,
+		}
+	}
+
+	fn content_kind_of(entry: &sd_store::FsEntry) -> ContentKind {
+		File::from_store_entry(entry, SdPath::local(format!("/photos/{}", entry.name))).content_kind
+	}
+
+	#[test]
+	fn a_store_row_without_a_recorded_kind_takes_its_extensions() {
+		let photo = store_entry("beach.jpg", sd_store::FileKind::File, None);
+		assert_eq!(content_kind_of(&photo), ContentKind::Image);
+
+		let clip = store_entry(
+			"surf.mov",
+			sd_store::FileKind::File,
+			Some(ContentKind::Unknown as i64),
+		);
+		assert_eq!(content_kind_of(&clip), ContentKind::Video);
+	}
+
+	#[test]
+	fn a_recorded_kind_wins_over_the_extension() {
+		let entry = store_entry(
+			"notes.jpg",
+			sd_store::FileKind::File,
+			Some(ContentKind::Text as i64),
+		);
+		assert_eq!(content_kind_of(&entry), ContentKind::Text);
+	}
+
+	#[test]
+	fn a_directory_row_takes_no_kind_from_its_name() {
+		let folder = store_entry("Trip.jpg", sd_store::FileKind::Directory, None);
+		assert_eq!(content_kind_of(&folder), ContentKind::Unknown);
+	}
+}
