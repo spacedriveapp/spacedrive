@@ -10,10 +10,12 @@ use crate::util::prelude::*;
 use std::io::Write;
 
 use crate::context::{Context, OutputFormat};
+use sd_core::domain::SdPath;
 use sd_core::infra::job::types::JobId;
 use sd_core::infra::query::LibraryQuery;
 use sd_core::ops::paths::compare::{
-	CompareBy, CompareEntry, CompareTotals, PathCompareInput, PathCompareOutput, MAX_PAGE,
+	CompareBy, CompareEntry, CompareSet, CompareTotals, PathCompareInput, PathCompareOutput,
+	MAX_PAGE,
 };
 
 use self::args::*;
@@ -149,7 +151,7 @@ async fn walk_comparison(
 		let page: PathCompareOutput = execute_query!(ctx, input.clone());
 		if let Some(first) = page.totals {
 			if human {
-				print_totals(&mut out, input.by, &first)?;
+				print_summary(&mut out, &input, &first)?;
 			}
 			totals = Some(first);
 		}
@@ -177,7 +179,7 @@ async fn walk_comparison(
 		return Ok(());
 	}
 	if listed == 0 {
-		writeln!(out, "No files in this set")?;
+		writeln!(out, "None")?;
 	} else if let Some(total) = totals
 		.map(|totals| totals.count(input.show))
 		.filter(|&total| listed < total)
@@ -187,49 +189,105 @@ async fn walk_comparison(
 	Ok(())
 }
 
-/// Every set's count, which a comparison's first page carries.
-fn print_totals(
+/// Name A and B, say how their files matched, and print every set's count
+/// from the comparison's first page, then the title of the listing below.
+fn print_summary(
 	out: &mut impl Write,
-	by: CompareBy,
+	input: &PathCompareInput,
 	totals: &CompareTotals,
 ) -> std::io::Result<()> {
-	writeln!(out, "Only on the left:   {}", totals.only_left)?;
-	writeln!(out, "Only on the right:  {}", totals.only_right)?;
-	if by == CompareBy::Location {
-		writeln!(out, "Changed:            {}", totals.changed)?;
-	}
-	writeln!(out, "Same:               {}", totals.same)?;
-	if totals.unhashed_left + totals.unhashed_right > 0 {
+	let folder = |path: &SdPath| {
+		path.path()
+			.map_or_else(|| path.to_string(), |path| path.display().to_string())
+	};
+	writeln!(out, "A  {}", folder(&input.a))?;
+	writeln!(out, "B  {}", folder(&input.b))?;
+	let (by, sets): (&str, &[CompareSet]) = match input.by {
+		CompareBy::Path => (
+			"path",
+			&[
+				CompareSet::OnlyA,
+				CompareSet::OnlyB,
+				CompareSet::Both,
+				CompareSet::Different,
+			],
+		),
+		CompareBy::Content => (
+			"content",
+			&[CompareSet::OnlyA, CompareSet::OnlyB, CompareSet::Both],
+		),
+	};
+	writeln!(out, "Matched by {by}\n")?;
+
+	let label_width = sets
+		.iter()
+		.map(|&set| set_label(set).len())
+		.max()
+		.unwrap_or(0);
+	let count_width = sets
+		.iter()
+		.map(|&set| totals.count(set).to_string().len())
+		.max()
+		.unwrap_or(0);
+	for &set in sets {
 		writeln!(
 			out,
-			"Not hashed yet:     {} left, {} right",
-			totals.unhashed_left, totals.unhashed_right
+			"{:<label_width$}    {:>count_width$}",
+			set_label(set),
+			totals.count(set)
 		)?;
 	}
-	writeln!(out)
+	if totals.unhashed_a + totals.unhashed_b > 0 {
+		writeln!(
+			out,
+			"Not hashed yet: {} in A, {} in B",
+			totals.unhashed_a, totals.unhashed_b
+		)?;
+	}
+	writeln!(out, "\n{}", set_label(input.show))
+}
+
+/// How a set is named in the counts and over its listing.
+fn set_label(set: CompareSet) -> &'static str {
+	match set {
+		CompareSet::OnlyA => "Only in A",
+		CompareSet::OnlyB => "Only in B",
+		CompareSet::Both => "In both",
+		CompareSet::Different => "Different",
+	}
 }
 
 /// One file per line: each side's size and modification time in fixed
 /// columns, then the path, so a long path never pushes the columns out of
-/// line. The first file brings a header naming the sides it has.
+/// line. The first file brings a header: column names when files have one
+/// side, since the listing's title already names the folder, and A and B when
+/// they have both.
 fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std::io::Result<()> {
-	let sides: Vec<(&str, &sd_core::domain::File)> =
-		[("Left", &entry.left), ("Right", &entry.right)]
-			.into_iter()
-			.filter_map(|(label, file)| file.as_ref().map(|file| (label, file)))
-			.collect();
+	// Sizes right-align so their units line up; a time prints as 16
+	// characters of `%Y-%m-%d %H:%M`.
+	const SIZE: usize = 9;
+	const MODIFIED: usize = 16;
+	const SIDE: usize = SIZE + 2 + MODIFIED;
+
+	let sides: Vec<(&str, &sd_core::domain::File)> = [("A", &entry.a), ("B", &entry.b)]
+		.into_iter()
+		.filter_map(|(label, file)| file.as_ref().map(|file| (label, file)))
+		.collect();
 	if header {
-		let labels: Vec<String> = sides
-			.iter()
-			.map(|(label, _)| format!("{label:<27}"))
-			.collect();
-		writeln!(out, "{}   Path", labels.join("   "))?;
+		let columns: Vec<String> = match sides.as_slice() {
+			[_] => vec![format!("{:>SIZE$}  {:<MODIFIED$}", "Size", "Modified")],
+			_ => sides
+				.iter()
+				.map(|(label, _)| format!("{label:<SIDE$}"))
+				.collect(),
+		};
+		writeln!(out, "{}   Path", columns.join("   "))?;
 	}
 	let cells: Vec<String> = sides
 		.iter()
 		.map(|(_, file)| {
 			format!(
-				"{:>9}  {}",
+				"{:>SIZE$}  {}",
 				format_bytes(file.size),
 				file.modified_at.format("%Y-%m-%d %H:%M")
 			)

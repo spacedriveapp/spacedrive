@@ -109,7 +109,7 @@ a model's claim is distinguishable from a person's.
 SQLite file, so a question spanning drives reads every store and merges the
 answers, with no second copy to keep current. Global search reads every store,
 detached ones included (T4.10). `files.alternate_instances` finds every copy of
-one file's content. `paths.compare` compares two folders by location or by
+one file's content. `paths.compare` compares two folders by path or by
 content, streaming both sides in index order.
 
 **Content identity is already tiered.** `crates/store/src/content.rs` splits

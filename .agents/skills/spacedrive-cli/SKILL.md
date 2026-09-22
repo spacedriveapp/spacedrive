@@ -153,18 +153,20 @@ whatever `--format` says.
 
 ## Compare folders
 
-`file compare <left> <right>` compares two indexed folders from their source
-stores, without reading either drive. Both paths are canonicalized locally and
+`file compare <a> <b>` compares two indexed folders from their source stores,
+without reading either drive. The output calls the first folder A and the
+second B, and names both at the top. Both paths are canonicalized locally and
 must sit inside tracked sources on mounted drives.
 
-- `--by location`, the default, pairs files by their path relative to each
-  folder. `--show` picks `only-left` (the default), `only-right`, `changed` or
-  `same`. A pair is the same when its content ids match or, where either side
-  is unhashed, when size and modification time match.
+- `--by path`, the default, pairs files by their path relative to each folder.
+  `--show` picks `only-a` (the default), `only-b`, `both` or `different`. A
+  pair is in both when its content ids match or, where either side is
+  unhashed, when size and modification time match; otherwise it is different.
 - `--by content` asks whether a file's bytes exist anywhere under the other
-  folder, whatever the file is called: `--show only-left` is what a backup is
-  missing. `changed` is refused. Files with no content id are counted as "Not
-  hashed yet" and listed in no set, so hash both sides first.
+  folder, whatever the file is called: `--show only-a` is what a backup in B
+  is missing. `both` counts A's files, so a B file whose bytes A holds is in
+  no count. `different` is refused. Files with no content id are counted as
+  "Not hashed yet" and listed in no set, so hash both sides first.
 - It prints every set's count, then the set's files, one per line, as each
   page of 5000 arrives. `--limit` stops after that many files, printing
   `N of M listed` when that cuts the set short. Piping into `head` ends it

@@ -128,13 +128,14 @@ sd-cli volume --help
 Use Spacedrive paths when a command needs an address. The same operation can
 route to local files, remote sources, provider objects, or content identity.
 
-Compare two indexed folders without reading either drive. By location, files
-pair by their path within each folder. By content, a file matches wherever its
-bytes sit on the other side, which is how to check a backup:
+Compare two indexed folders without reading either drive. The first folder is
+A and the second is B. By path, files pair by their path within each folder. By
+content, a file matches wherever its bytes sit in the other folder, which is
+how to check a backup:
 
 ~~~bash
-sd-cli file compare ~/Photos /Volumes/Backup/Photos --show changed
-sd-cli file compare ~/Photos /Volumes/Backup/Photos --by content --show only-left
+sd-cli file compare ~/Photos /Volumes/Backup/Photos --show different
+sd-cli file compare ~/Photos /Volumes/Backup/Photos --by content --show only-a
 ~~~
 
 ## Structured output

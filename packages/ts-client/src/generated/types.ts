@@ -169,7 +169,7 @@ export type CompareBy =
 /**
  * Files match when they sit at the same path relative to their folder.
  */
-"location" | 
+"path" | 
 /**
  * Files match when they hold the same bytes, wherever they sit.
  */
@@ -182,9 +182,9 @@ export type CompareBy =
 export type CompareCursor = { directory: string; name: string };
 
 /**
- * One listed file, on the side its set names. A location comparison's changed
- * and same files have both sides, the files at the same place; a content
- * comparison lists one side only, as its bytes can sit in many places on the
+ * One listed file, in the folder its set names. A path comparison's both and
+ * different files have both sides, the files at the same path; a content
+ * comparison lists one side only, as its bytes can sit in many places in the
  * other.
  */
 export type CompareEntry = { 
@@ -192,33 +192,33 @@ export type CompareEntry = {
  * Where the listed file sits relative to its side's folder, with forward
  * slashes.
  */
-path: string; left: File | null; right: File | null };
+path: string; a: File | null; b: File | null };
 
 export type CompareSet = 
 /**
- * On the left and not the right.
+ * In A and not in B.
  */
-"only_left" | 
+"only_a" | 
 /**
- * On the right and not the left.
+ * In B and not in A.
  */
-"only_right" | 
+"only_b" | 
 /**
- * At the same place on both sides with different bytes; by location only.
+ * The same file in both: at the same path with the same bytes by path,
+ * and the same bytes anywhere in B by content.
  */
-"changed" | 
+"both" | 
 /**
- * On both sides: at the same place with the same bytes by location, and
- * the same bytes anywhere on the right by content.
+ * At the same path in both with different bytes; by path only.
  */
-"same";
+"different";
 
-export type CompareTotals = { only_left: number; only_right: number; changed: number; same: number; 
+export type CompareTotals = { only_a: number; only_b: number; both: number; different: number; 
 /**
  * Files with no content id yet: a content comparison cannot match them,
- * and a location comparison judges them by size and modification time.
+ * and a path comparison judges them by size and modification time.
  */
-unhashed_left: number; unhashed_right: number };
+unhashed_a: number; unhashed_b: number };
 
 /**
  * Network connection method for a device
@@ -2948,7 +2948,7 @@ export type PairingSessionSummary = { id: string; state: SerializablePairingStat
 
 export type PathAvailability = "available" | "permission_denied" | "missing" | "unavailable" | "remote" | "unsupported";
 
-export type PathCompareInput = { left: SdPath; right: SdPath; by: CompareBy; show: CompareSet; 
+export type PathCompareInput = { a: SdPath; b: SdPath; by: CompareBy; show: CompareSet; 
 /**
  * Whether hidden files take part.
  */

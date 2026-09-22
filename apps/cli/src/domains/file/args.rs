@@ -86,19 +86,18 @@ pub struct FileListArgs {
 
 #[derive(Args, Debug, Clone)]
 pub struct FileCompareArgs {
-	/// The folder to compare
-	pub left: PathBuf,
+	/// The folder to compare, called A in the output
+	pub a: PathBuf,
 
-	/// The folder to compare it against
-	pub right: PathBuf,
+	/// The folder to compare it against, called B
+	pub b: PathBuf,
 
-	/// Match files by where they sit in their folder, or by their bytes
-	/// wherever they sit
-	#[arg(long, value_enum, default_value = "location")]
+	/// How files match across the two folders
+	#[arg(long, value_enum, default_value = "path")]
 	pub by: CompareByArg,
 
 	/// Which files to list
-	#[arg(long, value_enum, default_value = "only-left")]
+	#[arg(long, value_enum, default_value = "only-a")]
 	pub show: CompareSetArg,
 
 	/// Include hidden files
@@ -112,22 +111,28 @@ pub struct FileCompareArgs {
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 pub enum CompareByArg {
-	Location,
+	/// Files match when they sit at the same path in each folder
+	Path,
+	/// Files match when they hold the same bytes, wherever they sit
 	Content,
 }
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 pub enum CompareSetArg {
-	OnlyLeft,
-	OnlyRight,
-	Changed,
-	Same,
+	/// Files in A and not in B
+	OnlyA,
+	/// Files in B and not in A
+	OnlyB,
+	/// Files in both folders
+	Both,
+	/// Files at the same path in both with different bytes, by path only
+	Different,
 }
 
 impl From<CompareByArg> for CompareBy {
 	fn from(by: CompareByArg) -> Self {
 		match by {
-			CompareByArg::Location => Self::Location,
+			CompareByArg::Path => Self::Path,
 			CompareByArg::Content => Self::Content,
 		}
 	}
@@ -136,10 +141,10 @@ impl From<CompareByArg> for CompareBy {
 impl From<CompareSetArg> for CompareSet {
 	fn from(set: CompareSetArg) -> Self {
 		match set {
-			CompareSetArg::OnlyLeft => Self::OnlyLeft,
-			CompareSetArg::OnlyRight => Self::OnlyRight,
-			CompareSetArg::Changed => Self::Changed,
-			CompareSetArg::Same => Self::Same,
+			CompareSetArg::OnlyA => Self::OnlyA,
+			CompareSetArg::OnlyB => Self::OnlyB,
+			CompareSetArg::Both => Self::Both,
+			CompareSetArg::Different => Self::Different,
 		}
 	}
 }
@@ -159,8 +164,8 @@ impl FileCompareArgs {
 				.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
 		};
 		Ok(PathCompareInput {
-			left: folder(&self.left)?,
-			right: folder(&self.right)?,
+			a: folder(&self.a)?,
+			b: folder(&self.b)?,
 			by: self.by.into(),
 			show: self.show.into(),
 			include_hidden: self.include_hidden,
