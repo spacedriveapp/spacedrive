@@ -17,6 +17,9 @@ pub struct DaemonLaunchConfig {
 	pub data_dir: PathBuf,
 	/// Instance name passed via `--instance`, if any.
 	pub instance: Option<String>,
+	/// Passed as `--no-default-sources`: index only the sources added to the
+	/// daemon's libraries.
+	pub no_default_sources: bool,
 }
 
 impl DaemonLaunchConfig {
@@ -27,6 +30,9 @@ impl DaemonLaunchConfig {
 		command.arg("--data-dir").arg(&self.data_dir);
 		if let Some(instance) = &self.instance {
 			command.arg("--instance").arg(instance);
+		}
+		if self.no_default_sources {
+			command.arg("--no-default-sources");
 		}
 		command.current_dir(std::env::current_dir()?);
 		Ok(command)

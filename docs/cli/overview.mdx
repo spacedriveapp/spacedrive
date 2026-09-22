@@ -31,6 +31,18 @@ Run the daemon in the foreground while diagnosing startup:
 sd-cli start --foreground
 ~~~
 
+The first client to connect starts automatic discovery, which tracks the
+system volume, adds the home folder as a source and maps every attached drive.
+For a library that should hold only what you add to it, such as one whose data
+directory lives on an external drive, start the daemon without those defaults.
+Sources you add are still restored, healed and hashed at each launch:
+
+~~~bash
+sd-cli --data-dir "/Volumes/Archive/.spacedrive" start --no-default-sources
+~~~
+
+`restart` takes the same flag.
+
 ## Select a library
 
 ~~~bash

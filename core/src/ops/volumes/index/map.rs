@@ -191,7 +191,14 @@ async fn heal_uncovered_sources(
 /// the analyser both need the whole drive, and nothing else asks for it: a
 /// source covers the part someone kept, and a directory listing covers the one
 /// folder in front of them.
-pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreContext>) {
+///
+/// Without `whole_drives`, each drive is restored and its sources' coverage
+/// healed, and nothing else on it is walked.
+pub async fn map_attached_volumes(
+	library: &Arc<Library>,
+	context: &Arc<CoreContext>,
+	whole_drives: bool,
+) {
 	for volume in context.volume_manager.get_all_volumes().await {
 		if !volume.is_mounted || volume.mount_type == MountType::Network {
 			continue;
@@ -216,6 +223,9 @@ pub async fn map_attached_volumes(library: &Arc<Library>, context: &Arc<CoreCont
 		// this repairs.
 		heal_uncovered_sources(library, context, &volume).await;
 
+		if !whole_drives {
+			continue;
+		}
 		if restored {
 			debug!(
 				"{} restored from its snapshot; not walking it again",

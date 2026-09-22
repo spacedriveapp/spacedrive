@@ -4,10 +4,18 @@
 //! launched. A desktop client starts discovery after its window is visible, and
 //! a headless client can request the same defaults explicitly. This keeps macOS
 //! permission prompts attached to an interface a person can see.
+//!
+//! The defaults are the system volume, the home folder and a map of every
+//! attached drive. A daemon started with `--no-default-sources` leaves them
+//! out, for a library that should hold only what was added to it, and still
+//! restores, heals and hashes the sources it has.
 
 use std::{
 	collections::HashSet,
-	sync::{Arc, Mutex},
+	sync::{
+		atomic::{AtomicBool, Ordering},
+		Arc, Mutex,
+	},
 };
 
 use serde::{Deserialize, Serialize};
@@ -21,10 +29,12 @@ use crate::{
 	library::Library,
 };
 
-/// Prevents several clients from starting the same launch pass.
+/// Prevents several clients from starting the same launch pass, and holds
+/// whether this daemon's passes include the default places.
 #[derive(Default)]
 pub struct StartupIndexingGate {
 	started: Mutex<HashSet<Uuid>>,
+	skip_default_sources: AtomicBool,
 }
 
 impl StartupIndexingGate {
@@ -33,6 +43,15 @@ impl StartupIndexingGate {
 			.lock()
 			.unwrap_or_else(|poisoned| poisoned.into_inner())
 			.insert(library_id)
+	}
+
+	/// Leave the default places out of every launch pass from now on.
+	pub fn skip_default_sources(&self) {
+		self.skip_default_sources.store(true, Ordering::Relaxed);
+	}
+
+	fn includes_default_sources(&self) -> bool {
+		!self.skip_default_sources.load(Ordering::Relaxed)
 	}
 }
 
@@ -85,20 +104,29 @@ impl LibraryAction for StartupIndexingAction {
 			});
 		}
 
+		let defaults = context.startup_indexing.includes_default_sources();
 		tokio::spawn(async move {
-			info!(library = %library.id(), "Starting automatic filesystem discovery");
+			info!(
+				library = %library.id(),
+				defaults,
+				"Starting automatic filesystem discovery"
+			);
 
-			if let Err(error) = context
-				.volume_manager
-				.auto_track_user_volumes(&library)
-				.await
-			{
-				warn!(%error, "Could not track the system volume");
+			if defaults {
+				if let Err(error) = context
+					.volume_manager
+					.auto_track_user_volumes(&library)
+					.await
+				{
+					warn!(%error, "Could not track the system volume");
+				}
 			}
 
 			context.volume_index().restore_everything().await;
-			add_home_to_library(&library, &context).await;
-			crate::ops::volumes::index::map_attached_volumes(&library, &context).await;
+			if defaults {
+				add_home_to_library(&library, &context).await;
+			}
+			crate::ops::volumes::index::map_attached_volumes(&library, &context, defaults).await;
 			crate::ops::indexing::content_identity::identify_every_source(&library, &context).await;
 		});
 

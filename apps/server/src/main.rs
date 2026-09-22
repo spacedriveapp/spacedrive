@@ -659,6 +659,7 @@ async fn start_daemon_if_needed(
 			socket_addr_clone,
 			data_dir_clone,
 			enable_p2p,
+			true, // Index the default places, as the desktop app does
 		)
 		.await
 		{

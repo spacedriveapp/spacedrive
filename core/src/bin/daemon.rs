@@ -37,6 +37,11 @@ struct Args {
 	/// Daemon instance name
 	#[arg(long)]
 	instance: Option<String>,
+
+	/// Index only the sources added to this daemon's libraries, leaving out
+	/// the system volume, the home folder and whole-drive maps
+	#[arg(long)]
+	no_default_sources: bool,
 }
 
 #[tokio::main]
@@ -83,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 			socket_addr,
 			data_dir,
 			true, // Always enable networking
+			!args.no_default_sources,
 		) => {
 			result
 		}

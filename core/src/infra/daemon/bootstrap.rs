@@ -5,11 +5,14 @@ use tracing::{info, warn};
 use crate::infra::daemon::rpc::RpcServer;
 use crate::Core;
 
-/// Start a daemon server with a single Core instance
+/// Start a daemon server with a single Core instance. Without
+/// `default_sources`, the launch pass a client starts leaves out the system
+/// volume, the home folder and whole-drive maps.
 pub async fn start_default_server(
 	socket_addr: String,
 	data_dir: PathBuf,
 	enable_networking: bool,
+	default_sources: bool,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 	// Initialize basic tracing with file logging first
 	initialize_tracing_with_file_logging(&data_dir)?;
@@ -18,6 +21,9 @@ pub async fn start_default_server(
 	let mut core = Core::new(data_dir.clone())
 		.await
 		.map_err(|e| format!("Failed to create core: {}", e))?;
+	if !default_sources {
+		core.context.startup_indexing.skip_default_sources();
+	}
 
 	// Initialize networking if enabled
 	if enable_networking {

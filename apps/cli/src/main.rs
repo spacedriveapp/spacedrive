@@ -166,6 +166,10 @@ enum Commands {
 		/// Run daemon in foreground (show logs)
 		#[arg(long)]
 		foreground: bool,
+		/// Index only the sources you add, leaving out the system volume, the
+		/// home folder and whole-drive maps
+		#[arg(long)]
+		no_default_sources: bool,
 	},
 	/// Stop the Spacedrive daemon
 	Stop {
@@ -181,6 +185,10 @@ enum Commands {
 		/// Reset all data before restart (requires confirmation)
 		#[arg(long)]
 		reset: bool,
+		/// Index only the sources you add, leaving out the system volume, the
+		/// home folder and whole-drive maps
+		#[arg(long)]
+		no_default_sources: bool,
 	},
 	/// Core info
 	Status,
@@ -278,7 +286,10 @@ async fn main() -> Result<()> {
 	let socket_addr = daemon_socket_addr(instance.as_deref()).to_string();
 
 	match cli.command {
-		Commands::Start { foreground } => {
+		Commands::Start {
+			foreground,
+			no_default_sources,
+		} => {
 			crate::ui::print_compact_logo();
 			println!("Starting daemon...");
 
@@ -288,6 +299,7 @@ async fn main() -> Result<()> {
 				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
 				data_dir: data_dir.clone(),
 				instance: instance.clone(),
+				no_default_sources,
 			};
 
 			if foreground {
@@ -371,7 +383,11 @@ async fn main() -> Result<()> {
 				reset_spacedrive_v2_data(&data_dir)?;
 			}
 		}
-		Commands::Restart { foreground, reset } => {
+		Commands::Restart {
+			foreground,
+			reset,
+			no_default_sources,
+		} => {
 			if reset {
 				use crate::util::confirm::confirm_or_abort;
 				confirm_or_abort(
@@ -413,6 +429,7 @@ async fn main() -> Result<()> {
 				daemon_path: current_exe.parent().unwrap().join("sd-daemon"),
 				data_dir: data_dir.clone(),
 				instance: instance.clone(),
+				no_default_sources,
 			};
 			let mut cmd = launch.command()?;
 
