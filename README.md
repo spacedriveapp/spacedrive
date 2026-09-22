@@ -32,8 +32,8 @@
 > [!IMPORTANT]
 > **Spacedrive 2.0 Beta is planned for October 1, 2026.**
 >
-> Beta marks our commitment to Spacedrive's data model and to preserving your
-> library as it evolves. The release makes self-owned storage practical across
+> Beta commits to Spacedrive's data model and to preserving your library as
+> it evolves. The release makes self-owned storage practical across
 > your devices. It brings portable source indexes, private remote access, mounts, history,
 > extensions, and one API for people and software.
 > [Current builds](https://github.com/spacedriveapp/spacedrive/releases).
@@ -43,8 +43,8 @@ control into one private filesystem across your devices, drives, servers, and
 the clouds you choose.
 
 Bring your data home without giving up search, protection, intelligence,
-sharing, or access from anywhere. Spacedrive requires no hosted account,
-vendor-controlled control plane, or telemetry.
+sharing, or access from anywhere. No hosted account, no vendor control plane,
+no telemetry.
 
 <p align="center">
   <img src="docs/public/SDGridView.webp" alt="Spacedrive browsing files across devices and locations" />
@@ -52,18 +52,19 @@ vendor-controlled control plane, or telemetry.
 
 ## Own where your data lives
 
-Cloud services made custody feel like the price of convenience. Personal files
-and behavioral data became concentrated on infrastructure whose security,
-policies, and future remain outside your control. Automated attacks increase
+Cloud services made it feel normal for your files to live on someone else's
+computer. Personal files
+and behavioral data piled up on infrastructure whose security, policies, and
+future you do not control. Automated attacks increase
 the scale of that exposure. AI increases the value of accumulated data for
 training, inference, and profiling.
 
-A hard drive at home is only part of the answer. You still need to find files,
-reach them from another device, understand what is backed up, recover earlier
-states, share selected data, and know when something changed.
+Owning the drive is the easy part. You still need to find files, reach them
+from another device, know what is backed up, recover earlier states, share on
+your terms, and notice when something changes.
 
-Spacedrive provides those capabilities while you decide where the bytes and
-metadata live. Local disks, removable media, NAS datasets, private servers, and
+Spacedrive does all of that while you decide where the bytes and metadata
+live. Local disks, removable media, NAS datasets, private servers, and
 offline archives are first-class homes. Cloud services remain optional sources
 and destinations.
 
@@ -82,14 +83,13 @@ that cannot be reconstructed from the files alone. Disconnect a drive and its
 catalog remains searchable. Move a source to another machine and its metadata
 can travel with it.
 
-- **A live index.** Watchers keep names, sizes, timestamps, ownership, links,
-  and content state current without walking the filesystem when you open a
-  folder.
-- **Search across boundaries.** FTS5 routes queries across local, remote, cloud,
-  and adapter sources through one interface.
+- **A live index.** Watchers keep names, sizes, timestamps, and content state
+  current, so opening a folder never rescans the disk.
+- **Search across boundaries.** One search runs across local, remote, cloud,
+  and adapter sources.
 - **Stable identity.** Records survive moves. BLAKE3 content identities connect
   copies of the same bytes across sources and devices.
-- **Honest duplicate detection.** Sampled hashes find candidates. Full-byte
+- **Fast duplicate detection.** Sampled hashes find candidates quickly. Full-byte
   verification confirms equality before destructive cleanup.
 - **History that stays useful.** Freeze a source at a point in time, browse an
   offline snapshot, and inspect which operation changed it.
@@ -98,22 +98,47 @@ can travel with it.
 
 ## Protection is part of the filesystem
 
-Spacedrive treats data hygiene as a core filesystem responsibility.
+Keeping files safe is filesystem work.
 
 - Track integrity, redundancy, backup state, capacity, and unexpected changes.
 - Distinguish independent copies using physical drives, pools, and failure
   domains.
 - Keep an inventory of drives that are offline, archived, lost, or retired.
-- Preserve unreadable records with their error instead of silently omitting
-  them.
+- Preserve unreadable records with their error instead of omitting them.
 - Run indexing, metadata extraction, previews, and search on infrastructure you
   control by default.
-- Identify every external recipient before sending file content or derived
-  metadata away from your devices.
+- Name every external recipient before file content or derived metadata
+  leaves your devices.
 
 An index snapshot preserves evidence about the filesystem. Provider versions
 and backups preserve the bytes. Spacedrive connects the two so you can
 understand what existed, where it lived, and how to recover it.
+
+## See every change before it happens
+
+The everyday threat to your files is an operation: a copy that overwrites the
+wrong folder, a cleanup that deletes the last copy, a merge that lands
+somewhere unintended. A durable filesystem protects your files from its own
+operations.
+
+Every operation that changes files answers two questions before it runs.
+Validation answers whether it may run and how: permissions, capacity, safety
+rules, and the exact strategy, enforced by the daemon rather than the dialog.
+Preview answers what will exist afterward, projected from the index without
+touching a file.
+
+- **Browse the result before it exists.** A preview serves the same listings
+  as the present filesystem, so you walk the outcome folder by folder before
+  a byte moves.
+- **Plan against offline storage.** The index answers for a drive sitting in
+  a drawer, so you can prepare a merge before you plug anything in.
+- **Get warnings only an indexed filesystem can give.** Three of these files
+  are the last copy of their content anywhere in your library.
+- **Skip duplicates on proof.** A file is treated as a copy only after
+  full-byte verification, never on a sampled hash.
+- **Trust the execution.** The daemon re-validates at dispatch, applies the
+  same policy against the live filesystem, and reports any divergence from
+  the plan.
 
 ## Access anything from anywhere
 
@@ -133,7 +158,7 @@ plane. Range reads power mounts, transfers, previews, media playback, and video
 scrubbing without copying the whole file first.
 
 Peer connections use Iroh and QUIC with end-to-end encryption. Devices connect
-directly when possible and use relays when network conditions require them.
+directly when they can and fall back to relays when they must.
 
 ## One API for people and software
 
@@ -143,7 +168,8 @@ progress, conflicts, and result whether a person clicks it or software invokes
 it.
 
 - Operations return structured data and stable identifiers.
-- Risky changes support preview, commit, and verification.
+- Validate, preview, and execute are the same three verbs for every
+  operation and every client.
 - Long-running work becomes a durable job with progress, cancellation, restart
   recovery, and logs.
 - Remote clients can inspect the same job state through an authorized session.
@@ -151,7 +177,9 @@ it.
 
 Spacedrive does not bundle an agent or choose a model for you. Use the CLI,
 skill, SDK, or MCP server with the agent you trust. Your agent gains a consistent
-filesystem interface without becoming the owner of your data.
+filesystem interface without becoming the owner of your data. An agent
+validates first, shows you the plan, and commits the exact input it
+previewed. That is what makes destructive file operations safe to delegate.
 
 ## Extend the filesystem
 
