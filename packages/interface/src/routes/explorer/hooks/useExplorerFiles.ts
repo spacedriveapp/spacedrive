@@ -1,5 +1,11 @@
 import { useMemo } from "react";
-import type { DirectorySortBy, File, FileSearchInput, FileSearchOutput } from "@sd/ts-client";
+import type {
+	DirectorySortBy,
+	File,
+	FileSearchInput,
+	FileSearchOutput,
+	GetFilesByTagInput,
+} from "@sd/ts-client";
 import { useLibraryQuery } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
 import { MIN_SEARCH_QUERY_LENGTH, useExplorer } from "../context";
@@ -216,13 +222,13 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isFilteredMode && !!filteredQueryInput,
 	});
 
-	// Tag query — fetches files tagged with a specific tag
-	const tagQueryInput = useMemo(() => {
+	// Tag query: files carrying the tag or any tag beneath it, so opening
+	// `Camera` also shows what was tagged `Camera/Leica`
+	const tagQueryInput = useMemo((): GetFilesByTagInput | null => {
 		if (!isTagMode || mode.type !== "tag") return null;
 		return {
 			tag_id: mode.tagId,
-			include_children: false,
-			min_confidence: 0.0,
+			include_children: true,
 		};
 	}, [isTagMode, mode]);
 

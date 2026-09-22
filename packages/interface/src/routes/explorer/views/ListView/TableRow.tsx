@@ -7,7 +7,7 @@ import type { File } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
-import { TagPill } from "../../../../components/Tags";
+import { TagPill, tagColor } from "../../../../components/Tags";
 import { ROW_HEIGHT, TABLE_PADDING_X } from "./useTable";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from '@sd/ts-client';
@@ -230,7 +230,7 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 					{file.tags.slice(0, 2).map((tag) => (
 						<TagPill
 							key={tag.id}
-							color={tag.color || "#3B82F6"}
+							color={tagColor(tag)}
 							size="xs"
 						>
 							{tag.name}

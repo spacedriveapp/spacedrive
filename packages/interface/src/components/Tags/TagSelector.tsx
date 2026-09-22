@@ -9,6 +9,7 @@ import {
 } from '../../contexts/SpacedriveContext';
 import { useRefetchTagQueries } from '../../hooks/useRefetchTagQueries';
 
+import { tagColor } from './TagDot';
 interface TagSelectorProps {
 	onSelect: (tag: Tag) => void;
 	onClose?: () => void;
@@ -207,7 +208,7 @@ export function TagSelector({
 							<span
 								className="size-2 flex-shrink-0 rounded-full"
 								style={{
-									backgroundColor: tag.color || '#3B82F6'
+									backgroundColor: tagColor(tag)
 								}}
 							/>
 

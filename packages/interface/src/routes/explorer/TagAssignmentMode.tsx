@@ -7,6 +7,7 @@ import { useSelection } from './SelectionContext';
 import { useKeybind } from '../../hooks/useKeybind';
 import type { Tag } from '@sd/ts-client';
 
+import { tagColor } from '../../components/Tags';
 interface TagAssignmentModeProps {
 	isActive: boolean;
 	onExit: () => void;
@@ -130,8 +131,8 @@ export function TagAssignmentMode({ isActive, onExit }: TagAssignmentModeProps) 
 												: 'hover:scale-105'
 										)}
 										style={{
-											backgroundColor: active ? `${tag.color || '#3B82F6'}40` : `${tag.color || '#3B82F6'}20`,
-											color: tag.color || '#3B82F6'
+											backgroundColor: active ? `${tagColor(tag)}40` : `${tagColor(tag)}20`,
+											color: tagColor(tag)
 										}}
 									>
 										{/* Keyboard Number */}

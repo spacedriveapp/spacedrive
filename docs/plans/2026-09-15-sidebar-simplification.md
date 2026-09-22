@@ -30,6 +30,10 @@ surface. Extensions may contribute one removable home for a repeated activity.
   once.
 - Places contains known system folders, browsable source roots, pinned
   source-relative paths, and relevant extension contributions.
+- Tags has one row per tag in the library, each opening the files that carry
+  it or a tag beneath it. Tags are destinations a person made, so the section
+  is computed from them rather than seeded, and it does not render while the
+  library has none.
 - Detected devices and volumes never appear just because they exist.
 - Empty groups and unavailable setup placeholders do not render.
 - Jobs and sync share one Activity entry.
@@ -79,7 +83,8 @@ Activity/Settings footer. Move imports and setup recommendations out of the
 sidebar. Hide workspace switching until more than one space exists.
 
 Acceptance: there is no duplicate Sources destination, no empty group, and no
-automatic Devices, Volumes, Tags, or import section.
+automatic Devices, Volumes, or import section. Tags list the library's own
+tags, per the contract above.
 
 ### S2. Seed convergence
 

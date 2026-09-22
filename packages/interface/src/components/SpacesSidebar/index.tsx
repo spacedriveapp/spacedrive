@@ -16,6 +16,8 @@ import HomeIcon from '@sd/assets/icons/Home.webp';
 import type {
 	Device,
 	SdPath,
+	SearchTagsInput,
+	SearchTagsOutput,
 	SourceInfo,
 	SpaceGroup,
 	SpaceItem as SpaceItemType
@@ -42,6 +44,7 @@ import {Thumb} from '../../routes/explorer/File/Thumb';
 import {useJobsContext} from '../JobManager/hooks/JobsContext';
 import {PairingModal} from '../modals/PairingModal';
 import {useSyncCount} from '../SyncMonitor/hooks/useSyncCount';
+import {TagDot, tagColor} from '../Tags';
 import {resolveItemMetadata} from './hooks/spaceItemUtils';
 import {useSpaceItemContextMenu} from './hooks/useSpaceItemContextMenu';
 import {useSpaceLayout, useSpaces} from './hooks/useSpaces';
@@ -215,6 +218,18 @@ export function SpacesSidebar({
 		},
 		resourceType: 'device'
 	});
+	// Every tag in the library, ordered by path. Tag mode reads the same
+	// list, and tag edits refetch it.
+	const {data: tagsData} = useNormalizedQuery<
+		SearchTagsInput,
+		SearchTagsOutput
+	>({
+		query: 'tags.search',
+		input: {query: '', limit: null},
+		resourceType: 'tag'
+	});
+	const tags = tagsData?.tags ?? [];
+
 	const deviceSlug = devicesData?.find((device) => device.is_current)?.slug;
 	const deviceSlugById = Object.fromEntries(
 		(devicesData ?? []).map((device) => [device.id, device.slug])
@@ -460,6 +475,37 @@ export function SpacesSidebar({
 													)
 												);
 											}}
+										/>
+									);
+								})}
+							</SidebarSection>
+						)}
+
+						{tags.length > 0 && (
+							<SidebarSection title="Tags">
+								{tags.map((tag) => {
+									const href = `/tag/${tag.id}`;
+									return (
+										<SidebarItem
+											key={tag.id}
+											id={`tag-${tag.id}`}
+											label={tag.name}
+											iconNode={
+												<TagDot
+													color={tagColor(tag)}
+													size="md"
+												/>
+											}
+											href={href}
+											title={tag.path}
+											onSelect={() =>
+												loadPreferencesForSpaceItem(
+													getSpaceItemKeyFromRoute(
+														href,
+														''
+													)
+												)
+											}
 										/>
 									);
 								})}

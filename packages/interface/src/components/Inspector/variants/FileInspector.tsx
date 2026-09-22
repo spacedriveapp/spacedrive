@@ -32,7 +32,7 @@ import {toast} from '@spacedrive/primitives';
 import clsx from 'clsx';
 import {LocationMap} from '../LocationMap';
 import {useState} from 'react';
-import {TagSelectorButton} from '../../../components/Tags';
+import {TagSelectorButton, tagColor} from '../../../components/Tags';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useServer} from '../../../contexts/ServerContext';
 import {useOptionalExplorer} from '../../../routes/explorer';
@@ -796,7 +796,7 @@ function OverviewTab({file}: {file: File}) {
 							file.tags.map((tag) => (
 								<Tag
 									key={tag.id}
-									color={tag.color || '#3B82F6'}
+									color={tagColor(tag)}
 									size="sm"
 									onRemove={async () => {
 										try {
@@ -1264,7 +1264,7 @@ function InstanceRow({instance}: {instance: File}) {
 								key={tag.id}
 								className="size-1.5 rounded-full"
 								style={{
-									backgroundColor: tag.color || '#3B82F6'
+									backgroundColor: tagColor(tag)
 								}}
 							/>
 						))}

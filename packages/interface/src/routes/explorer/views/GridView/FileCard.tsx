@@ -5,7 +5,7 @@ import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { formatBytes } from "../../utils";
-import { TagDot } from "../../../../components/Tags";
+import { TagDot, tagColor } from "../../../../components/Tags";
 import { useDroppable } from "@dnd-kit/core";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
@@ -222,7 +222,7 @@ export const FileCard = memo(
 								{file.tags.slice(0, 3).map((tag) => (
 									<TagDot
 										key={tag.id}
-										color={tag.color || "#3B82F6"}
+										color={tagColor(tag)}
 										tooltip={tag.name}
 									/>
 								))}

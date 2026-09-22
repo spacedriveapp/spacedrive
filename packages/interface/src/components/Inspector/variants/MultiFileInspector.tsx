@@ -12,6 +12,7 @@ import { getContentKind } from "@sd/ts-client";
 import { formatBytes } from "../../../routes/explorer/utils";
 import { File as FileComponent } from "../../../routes/explorer/File";
 
+import { tagColor } from "../../Tags";
 interface MultiFileInspectorProps {
 	files: File[];
 }
@@ -46,7 +47,7 @@ export function MultiFileInspector({ files }: MultiFileInspectorProps) {
 					tagMap.set(tag.id, {
 						id: tag.id,
 						name: tag.name,
-						color: tag.color || "#3B82F6",
+						color: tagColor(tag),
 						count: 1,
 					});
 				}

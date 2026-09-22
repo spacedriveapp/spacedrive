@@ -18,6 +18,7 @@ import {useExplorer} from './context';
 import type {SearchScope} from './context';
 import {useExplorerFiles} from './hooks/useExplorerFiles';
 
+import {tagColor} from '../../components/Tags';
 const SIZE_PRESETS: Array<{
 	label: string;
 	min: number | null;
@@ -273,7 +274,7 @@ function TagsPill({filters, onChange}: PillProps) {
 								<span
 									className="size-2 rounded-full"
 									style={{
-										backgroundColor: tag.color || '#3B82F6'
+										backgroundColor: tagColor(tag)
 									}}
 								/>
 								{tag.path}

@@ -21,6 +21,7 @@ import { useMemo } from "react";
 import clsx from "clsx";
 import { File as FileComponent } from "../File";
 
+import { tagColor } from "../../../components/Tags";
 const CONTENT_KIND_ICONS: Record<ContentKind, PhosphorIcon> = {
 	image: Image,
 	video: FilmStrip,
@@ -136,7 +137,7 @@ export function KnowledgeView() {
 					tagMap.set(tag.id, {
 						id: tag.id,
 						name: tag.name,
-						color: tag.color || "#3B82F6",
+						color: tagColor(tag),
 						count: 1,
 					});
 				}
