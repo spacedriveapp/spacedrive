@@ -4,8 +4,8 @@
 //! index* is a drive's map: `volumes/<id>/` holds its session-restore snapshot
 //! and its thumbnail cache, both of which describe the whole drive whatever is
 //! registered over it. A *source* is a scope over one: `sources/<id>/` holds
-//! its durable store (whose file name belongs to `sd_store::SourceManager`)
-//! and its streamed block cache.
+//! its durable store (whose file name belongs to `sd_store::SourceManager`),
+//! its thumbnail sidecars and its streamed block cache.
 //!
 //! Keeping them apart is what lets a source nest inside another. Both would
 //! otherwise want the same directory for the same drive's map, and the inner
@@ -28,6 +28,7 @@ const VOLUMES_DIR: &str = "volumes";
 const SNAPSHOT_FILE: &str = "ephemeral.snapshot";
 const THUMBS_FILE: &str = "thumbs.pvcache";
 const THUMBSTRIPS_DIR: &str = "thumbstrips";
+const SIDECARS_FILE: &str = "sidecars.db";
 const BLOCKS_DIR: &str = "blocks";
 
 /// Resolves the on-disk layout for per-source storage.
@@ -112,6 +113,13 @@ impl SourceDirs {
 			.join(THUMBSTRIPS_DIR)
 			.join(record_id.simple().to_string())
 			.join(format!("{version}.png"))
+	}
+
+	/// A source's thumbnail sidecars: every tile it has baked, kept durably.
+	/// Per source rather than per drive, unlike the hot cache, because they
+	/// are what a peer replicating the source copies.
+	pub fn sidecars_file(&self, id: Uuid) -> PathBuf {
+		self.source_dir(id).join(SIDECARS_FILE)
 	}
 
 	/// A source's streamed block cache. Inside the source's directory so

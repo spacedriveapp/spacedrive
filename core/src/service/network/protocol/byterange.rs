@@ -38,6 +38,8 @@ pub const MAX_SNAPSHOT_LEN: u64 = 8 * 1024 * 1024 * 1024;
 /// Cap on the encoded request frame — requests are tiny; anything larger is
 /// malformed or hostile.
 pub const MAX_REQUEST_FRAME: u32 = 64 * 1024;
+/// Most sidecars one `FetchSidecars` answer carries, about 2.5 MB of WebP.
+pub const MAX_SIDECAR_PAGE: u32 = 256;
 /// Largest encoded tile either side will transfer. No encoding of a tile
 /// outgrows its raw envelope, so a length past this is a corrupt header or a
 /// hostile peer.
@@ -75,6 +77,13 @@ pub enum ByteRangeRequest {
 	/// Thumbnail tiles for files under the serving device's sources, for a
 	/// replica that lists those files but cannot read them to bake its own.
 	FetchTiles { tiles: Vec<TileAsk> },
+	/// One source's thumbnail sidecars written after `after`, oldest first,
+	/// at most `limit` of them, for a replica keeping a copy.
+	FetchSidecars {
+		source_id: Uuid,
+		after: u64,
+		limit: u32,
+	},
 }
 
 /// One file whose tile a replica wants.
@@ -284,6 +293,12 @@ pub struct RemoteSourceInfo {
 	/// the source's to share. Replicate it as its own database instead.
 	#[serde(default)]
 	pub nested: bool,
+	/// The source's thumbnail sidecar store and how far it has written, so a
+	/// replica copies only what it lacks. Nil and zero while it has none.
+	#[serde(default)]
+	pub sidecar_store: Uuid,
+	#[serde(default)]
+	pub sidecar_cursor: u64,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -328,6 +343,23 @@ pub enum ByteRangeResponse {
 	Tile {
 		index: u32,
 		answer: TileAnswer,
+	},
+	/// Opens the answer to `FetchSidecars`: the store the rows come from and
+	/// how many `Sidecar` frames follow.
+	SidecarPage {
+		store: Uuid,
+		rows: u32,
+	},
+	/// One sidecar, written at `seq`, followed by `len` bytes of WebP.
+	Sidecar {
+		seq: u64,
+		uuid: Uuid,
+		version: u64,
+		content_width: u32,
+		content_height: u32,
+		source_width: u32,
+		source_height: u32,
+		len: u64,
 	},
 }
 
@@ -430,6 +462,63 @@ impl ByteRangeProtocolHandler {
 		Ok(())
 	}
 
+	/// One page of a registered source's sidecars, as its WebP is stored.
+	async fn serve_sidecars<W: AsyncWrite + Send + Unpin>(
+		&self,
+		source_id: Uuid,
+		after: u64,
+		limit: u32,
+		send: &mut W,
+	) -> anyhow::Result<()> {
+		let registered = self
+			.context
+			.volume_index()
+			.sources()
+			.iter()
+			.any(|source| source.id == source_id);
+		if !registered {
+			return write_frame(send, &ByteRangeResponse::Error("no such source".into())).await;
+		}
+		let (store, rows) = match self
+			.context
+			.thumbs
+			.sidecar_rows(source_id, after, limit.min(MAX_SIDECAR_PAGE))
+			.await
+		{
+			Ok(page) => page,
+			Err(err) => {
+				return write_frame(send, &ByteRangeResponse::Error(err.to_string())).await;
+			}
+		};
+		write_frame(
+			send,
+			&ByteRangeResponse::SidecarPage {
+				store,
+				rows: rows.len() as u32,
+			},
+		)
+		.await?;
+		for row in rows {
+			let frame = row.tile.frame;
+			write_frame(
+				send,
+				&ByteRangeResponse::Sidecar {
+					seq: row.seq,
+					uuid: row.uuid,
+					version: row.tile.version,
+					content_width: frame.content_width,
+					content_height: frame.content_height,
+					source_width: frame.source_width,
+					source_height: frame.source_height,
+					len: row.tile.webp.len() as u64,
+				},
+			)
+			.await?;
+			send.write_all(&row.tile.webp).await?;
+		}
+		Ok(())
+	}
+
 	async fn respond<W: AsyncWrite + Send + Unpin>(
 		&self,
 		request: ByteRangeRequest,
@@ -495,6 +584,11 @@ impl ByteRangeProtocolHandler {
 				Ok(())
 			}
 			ByteRangeRequest::FetchTiles { tiles } => self.serve_tiles(tiles, send).await,
+			ByteRangeRequest::FetchSidecars {
+				source_id,
+				after,
+				limit,
+			} => self.serve_sidecars(source_id, after, limit, send).await,
 			ByteRangeRequest::ListSources => {
 				let cache = self.context.volume_index();
 				let mut sources = Vec::new();
@@ -528,6 +622,8 @@ impl ByteRangeProtocolHandler {
 					} else {
 						false
 					};
+					let (sidecar_store, sidecar_cursor) =
+						self.context.thumbs.sidecar_mark(s.id).await;
 					sources.push(RemoteSourceInfo {
 						id: s.id,
 						root: s.root,
@@ -538,6 +634,8 @@ impl ByteRangeProtocolHandler {
 						generation,
 						dirty,
 						nested,
+						sidecar_store,
+						sidecar_cursor,
 					});
 				}
 				write_frame(send, &ByteRangeResponse::Sources(sources)).await

@@ -8,6 +8,16 @@ Sidecars are data derived from a file or supplied beside it. They let Spacedrive
 add thumbnails, previews, transcripts, proxies, embeddings, and other useful
 representations without modifying the original bytes.
 
+## What exists today
+
+Thumbnail tiles are the first managed sidecar kind in the source world, and the
+only one so far. They are record-scoped: every file has a record from its first
+walk, while a content id arrives later and is re-derived when a full hash
+lands. They are retained as persistent sidecars of their source, and peers
+replicate them by reading everything a source has written after their cursor.
+[Thumbnail Generation](./thumbnail-generation.mdx) describes how they are made
+and used. The rest of this page is the model the remaining kinds follow.
+
 ## Sidecar classes
 
 ### Managed sidecars

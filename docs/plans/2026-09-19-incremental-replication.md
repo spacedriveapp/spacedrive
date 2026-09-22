@@ -1,6 +1,6 @@
 # Incremental Replication
 
-> Status: proposal. P0 landed 2026-09-19, P6 on 2026-09-21.
+> Status: proposal. P0 landed 2026-09-19, P6 and P7 on 2026-09-21.
 > Captured: 2026-09-19
 > Owns: delta replication and tiles for a replica, registered as a follow-on
 > of R6 in `2026-09-15-source-runtime-reliability.md`
@@ -323,16 +323,33 @@ for ten minutes, because clients request every cell each time it mounts; an
 ask that fails is released at once. An owner that is offline fails fast, and
 the cell keeps whatever it had.
 
-**What it does not give you.** All of this is cache. Tiles vanish with a cache
-wipe, and nothing is available while the owner is asleep. L5 in
-`2026-09-08-locations-demoted.md` is the durable tier: content-addressed files
-scoped to the source, which replicate with the source and serve every
-duplicate of a file from one tile. That is what a library holding thumbnails
-for a whole NAS actually rests on.
+**Sidecars, the durable tier (P7).** The fetch alone is cache: tiles vanish
+with a cache wipe, and nothing is available while the owner is asleep. P7
+keeps every tile as WebP in its source's `sources/<id>/sidecars.db`, and a
+replica keeps a copy of each owner's in `mounts-remote/<device>/<source>.sidecars.db`.
 
-Fetch comes first because it needs no durable tier and answers the case in
-front of us. When sidecars land, the fetch becomes the fallback for what no
-sidecar covers.
+- Keyed by record uuid and tile version, not by content hash. Every file has a
+  uuid from its first walk, while a content id arrives later and is re-derived
+  when a full hash lands, which would strand anything keyed by it. A duplicate
+  costs one tile per copy, 5 to 15 KB.
+- Written by every bake, off the drain thread. `thumbs generate` also encodes
+  a sidecar from the hot cache for any cached tile that lacks one, so an
+  existing cache converts without decoding a single original.
+- The hot cache refills from a sidecar at the current version instead of
+  baking, on both the owner and a replica. A forced bake always reads the file.
+- A store counts its writes and stamps each tile with the count, paired with
+  an id drawn when the file is created. The listing advertises both
+  (`sidecar_store`, `sidecar_cursor`), and a replica whose copy is behind asks
+  `FetchSidecars { source_id, after, limit }` page by page. A recreated store
+  has a new id, so the copy starts over instead of reading from the middle.
+  This is the change feed the store itself does not have yet, applied to the
+  one table where losing a write only costs a rebake.
+- An owner answering `FetchTiles` sends the stored WebP as it is when its
+  sidecar is current, with no decode or encode. A tile fetched on demand lands
+  in the replica's copy too.
+- Commits skip the fsync (`synchronous = NORMAL` under WAL): every row can be
+  made again, and on titan's spinning pool a per-tile fsync would have made
+  the backfill crawl.
 
 #### P6 results, 2026-09-21
 
@@ -355,6 +372,24 @@ Titan and the Mac ran the P6 build, and the Mac asked for titan files through
   all correctly. Neither side logged an error, no job was running on titan,
   and it did not recur. Watch for it on the next restart.
 
+#### P7 results, 2026-09-21
+
+- Titan converted its cache with `thumbs generate --mode missing` over each
+  source, encoding from the cache: 97,728 sidecars in 1.05 GB (jamie-nas
+  51,194 in 423 MB, cctv 45,849 in 627 MB, footage 685 in 3 MB) against 21 GB
+  of hot cache. CCTV ran at about 150 files a second. Tiles `--mode missing`
+  had left stale since the recipe bump, 724 in jamie-nas and 84 in footage,
+  got no sidecar; a `--mode stale` pass rebakes them.
+- The Mac copied every one within minutes of its restart, keeping pace with
+  titan's backfill as it ran: 1.1 GB on disk.
+- With titan's daemon stopped, the Mac drew eleven titan tiles within 0.6 s,
+  nine of which it had never fetched, from its own copies. A CCTV frame and a
+  portrait from a 7008x4672 original came back intact.
+- During the backfill, titan's daemon read 12 GB of hot cache through its
+  mapping, and its RSS rose from 1.7 to 9 GB. All of the rise was clean file
+  pages (`RssFile`); anonymous memory held at 1.7 GB, and the pages were gone
+  after a restart.
+
 ## Phases
 
 | Phase | Scope | Exit proof |
@@ -366,7 +401,7 @@ Titan and the Mac ran the P6 build, and the Mac asked for titan files through
 | P4 | Arena apply and bootstrap profiling | A delta updates titan's arena in time proportional to the delta, and the result matches an arena rebuilt from the replica database. Bootstrap time measured and bounded |
 | P5 | Volume-root sources onto store replication | No replication path reads file metadata as a version |
 | P6 | `FetchTiles`, and remote tiles into a local cache | Landed; see Results. Browsing titan from the Mac draws thumbnails for files the Mac has never read. An offline owner draws no tile and blocks nothing. Fetched tiles survive a restart on both sides |
-| P7 | Sidecars carry tiles with the source, after L5 | A replica draws tiles for an owner that is asleep, and a cache wipe on either side costs no rebake |
+| P7 | Sidecars carry tiles with the source | Landed; see P7 results. A replica draws tiles for an owner that is asleep, and a cache wipe on either side costs no rebake |
 
 ## Acceptance
 
@@ -384,9 +419,10 @@ copies and apply time, the counters R3 asks for.
    every known replica acknowledges a revision.
 3. Whether adapter sources replicate to peers. Today only filesystem sources
    are listed.
-4. Whether a remote volume's tile cache is capped and evicted, or left to
-   grow. Titan's own tiles are 21 GB across 99,137 slots, and a replica that
-   fetches everything it ever drew converges on the same order.
+4. Whether a remote volume's hot cache is capped and evicted, or left to
+   grow. It now fills only with what is drawn, since the replica holds every
+   tile durably as a sidecar (1.1 GB for all of titan), but a replica that
+   draws everything still converges on the owner's 21 GB.
 
 ## Relationship to sync
 

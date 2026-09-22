@@ -60,5 +60,27 @@ generation keeps the prior tile. Completion events update mounted clients,
 and HTTP responses revalidate so browser caches cannot hide a replacement.
 
 This operation generates preview tiles. On-demand thumbstrips keep their own
-request path. Persistent source sidecars remain a separate retention feature
-described in [Virtual Sidecars](./virtual-sidecars.mdx).
+request path.
+
+## Sidecars
+
+Every tile baked for a file under a registered source is also kept as WebP in
+that source's `sources/<source-id>/sidecars.db`, keyed by the file's record and
+tile version. A sidecar is 5 to 15 KB where the hot tile is around 300 KB, so a
+source's whole set costs about a thirtieth of its cache. When the cache lacks a
+tile that a sidecar holds at the current version, the tile is restored from the
+sidecar instead of decoding the file again. A forced bake always reads the file.
+
+Generation also gives a sidecar to any tile that is already cached without one,
+by encoding it from the cache. Running `thumbs generate <folder> --recursive
+--mode missing` over a source therefore fills its sidecars from its cache
+without decoding any originals.
+
+## Files on another device
+
+A paired device's files, listed from its replica, get thumbnails too. The
+device showing them keeps a copy of the owner's sidecars for each replicated
+source, under `mounts-remote/<device-id>/<source-id>.sidecars.db`, and copies
+new ones after every replication pass. A tile is restored from that copy first,
+so thumbnails keep showing while the owner is offline. Anything the copy lacks
+is fetched from the owner, which bakes it if it has to.

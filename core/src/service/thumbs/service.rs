@@ -1,5 +1,5 @@
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -7,7 +7,7 @@ use sd_bake::{BakePool, BakeRequest, ImageProducer, Producer, ScaleMode, Tile, W
 use sd_pvcache::{Frame, Pvcache, TileState, DEFAULT_INITIAL_CAPACITY};
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tracing::{debug, warn};
 use uuid::Uuid;
 
@@ -19,6 +19,7 @@ use crate::ops::indexing::VolumeIndex;
 use crate::service::external_tools::ExternalTools;
 
 use super::ffmpeg::HostFfmpegProducer;
+use super::sidecars::{self, SidecarRow, SidecarStore, StoredTile};
 use super::{
 	ffmpeg::is_video,
 	thumbstrip::{self, COLUMNS as THUMBSTRIP_COLUMNS, ROWS as THUMBSTRIP_ROWS},
@@ -206,6 +207,23 @@ struct TileKey {
 	uuid: Uuid,
 	version: u64,
 	attempt: Uuid,
+	/// The registered source whose sidecars keep the tile, when one owns the
+	/// file.
+	sidecar: Option<Uuid>,
+}
+
+/// A tile baked here, on its way to its source's sidecars.
+struct SidecarWrite {
+	source: Uuid,
+	uuid: Uuid,
+	tile: TilePixels,
+}
+
+/// A tile to put back in the hot cache from its source's sidecars.
+struct Refill {
+	path: PathBuf,
+	identity: TileIdentity,
+	store: Arc<SidecarStore>,
 }
 
 struct ThumbstripWork {
@@ -234,6 +252,12 @@ pub struct ThumbService {
 	/// When each `(cache, uuid)` was last asked of a peer. See
 	/// [`REMOTE_REASK`].
 	remote_asked: Mutex<HashMap<(Uuid, Uuid), Instant>>,
+	/// Open sidecar files by path: this device's, one per source, and its
+	/// copies of peers'.
+	sidecars: tokio::sync::Mutex<HashMap<PathBuf, Arc<SidecarStore>>>,
+	/// Tiles baked here, queued for their sources' sidecars. `None` for a
+	/// service built outside a runtime, which leaves nothing to write them on.
+	sidecar_tx: Option<mpsc::UnboundedSender<SidecarWrite>>,
 }
 
 impl ThumbService {
@@ -259,6 +283,8 @@ impl ThumbService {
 		let pending = Arc::new(Mutex::new(HashMap::new()));
 		let thumbstrip_pending = Arc::new(Mutex::new(HashSet::new()));
 		let (thumbstrip_tx, thumbstrip_rx) = async_channel::bounded(128);
+		let runtime = tokio::runtime::Handle::try_current().ok();
+		let (sidecar_tx, sidecar_rx) = mpsc::unbounded_channel();
 
 		let service = Arc::new(Self {
 			dirs,
@@ -271,7 +297,12 @@ impl ThumbService {
 			thumbstrip_tx,
 			events: events.clone(),
 			remote_asked: Mutex::new(HashMap::new()),
+			sidecars: tokio::sync::Mutex::new(HashMap::new()),
+			sidecar_tx: runtime.is_some().then_some(sidecar_tx),
 		});
+		if let Some(runtime) = runtime {
+			runtime.spawn(service.clone().run_sidecar_writer(sidecar_rx));
+		}
 
 		let drain = service.clone();
 		let drain_events = events.clone();
@@ -302,17 +333,41 @@ impl ThumbService {
 	/// no identity and is reported as `None` in place.
 	pub async fn request(self: &Arc<Self>, paths: &[PathBuf]) -> Vec<Option<TileIdentity>> {
 		let mut out = Vec::with_capacity(paths.len());
+		let mut refills = Vec::new();
 		for (rank, path) in paths.iter().enumerate() {
 			out.push(
-				self.request_one(path, priority_for(rank, paths.len()))
+				self.request_one(path, priority_for(rank, paths.len()), &mut refills)
 					.await,
 			);
+		}
+		if !refills.is_empty() {
+			tokio::spawn(self.clone().refill(refills, priority_for(0, paths.len())));
 		}
 		out
 	}
 
-	async fn request_one(self: &Arc<Self>, path: &PathBuf, priority: u32) -> Option<TileIdentity> {
+	/// Queue a bake for one path, or set it aside to refill from its sidecar
+	/// when that holds the tile at the version the cache lacks.
+	async fn request_one(
+		self: &Arc<Self>,
+		path: &PathBuf,
+		priority: u32,
+		refills: &mut Vec<Refill>,
+	) -> Option<TileIdentity> {
 		let identity = self.thumbnail_identity(path).await?;
+		if let Some(store) = self.sidecar_holding(path, identity).await {
+			if !matches!(
+				self.cache_state(identity).await,
+				Some(TileState::Fresh { .. })
+			) {
+				refills.push(Refill {
+					path: path.clone(),
+					identity,
+					store,
+				});
+			}
+			return Some(identity);
+		}
 		let service = self.clone();
 		let path = path.clone();
 		tokio::task::spawn_blocking(move || {
@@ -321,6 +376,46 @@ impl ThumbService {
 		.await
 		.ok()??;
 		Some(identity)
+	}
+
+	/// Put tiles back in the hot cache from their sidecars, announcing them
+	/// as one batch. A tile whose sidecar has gone or will not decode is baked
+	/// from its file instead.
+	async fn refill(self: Arc<Self>, refills: Vec<Refill>, priority: u32) {
+		let mut stored = Vec::with_capacity(refills.len());
+		for refill in refills {
+			let tile = refill.store.read(refill.identity.uuid).await.ok().flatten();
+			stored.push((refill, tile));
+		}
+		let service = self.clone();
+		let unfilled = tokio::task::spawn_blocking(move || {
+			let mut tiles = Vec::new();
+			let mut unfilled = Vec::new();
+			for (refill, stored) in stored {
+				match stored.and_then(|stored| restored(stored, refill.identity.version)) {
+					Some(pixels) => {
+						tiles.push((refill.identity.source_id, refill.identity.uuid, pixels))
+					}
+					None => unfilled.push(refill),
+				}
+			}
+			service.write_tiles(tiles);
+			unfilled
+		})
+		.await
+		.unwrap_or_default();
+		for refill in unfilled {
+			let service = self.clone();
+			let _ = tokio::task::spawn_blocking(move || {
+				service.enqueue(
+					refill.path,
+					refill.identity,
+					priority,
+					ThumbnailGenerationMode::Stale,
+				)
+			})
+			.await;
+		}
 	}
 
 	/// Wait until pixels have reached the cache, rather than merely the queue.
@@ -332,7 +427,41 @@ impl ThumbService {
 		let Some(identity) = self.thumbnail_identity(path).await else {
 			return GenerationOutcome::Failed;
 		};
-		self.bake(path, identity, 0, mode).await
+		let outcome = self.bake(path, identity, 0, mode).await;
+		if outcome == GenerationOutcome::Skipped {
+			self.keep_sidecar(path, identity).await;
+		}
+		outcome
+	}
+
+	/// Give a tile the hot cache already holds a sidecar, when its source has
+	/// none at this version. Tiles baked before sidecars existed only have
+	/// this way in, and encoding one from the cache is far cheaper than
+	/// decoding its file again.
+	async fn keep_sidecar(self: &Arc<Self>, path: &Path, identity: TileIdentity) {
+		let Some(store) = self.local_sidecar(path).await else {
+			return;
+		};
+		if store.version_of(identity.uuid) == Some(identity.version) {
+			return;
+		}
+		let service = self.clone();
+		let encoded = tokio::task::spawn_blocking(move || {
+			let tile = service.read_fresh(identity)?;
+			Some(StoredTile {
+				version: tile.version,
+				webp: sidecars::encode(&tile)?,
+				frame: tile.frame,
+			})
+		})
+		.await
+		.ok()
+		.flatten();
+		if let Some(stored) = encoded {
+			if let Err(error) = store.record(vec![(identity.uuid, stored)]).await {
+				warn!("thumbnail sidecar for {}: {error:#}", identity.uuid);
+			}
+		}
 	}
 
 	/// `path`'s tile at `identity`, baked first when the cache holds none, for
@@ -390,10 +519,10 @@ impl ThumbService {
 			.collect()
 	}
 
-	/// Write tiles a peer sent and announce them. Each entry is `(cache,
-	/// uuid, pixels)`. Blocks on the writers, so call it from the blocking
-	/// pool.
-	pub(super) fn store_fetched(&self, tiles: Vec<(Uuid, Uuid, TilePixels)>) {
+	/// Write tiles that did not come from a bake here, from a peer or a
+	/// sidecar, and announce them. Each entry is `(cache, uuid, pixels)`.
+	/// Blocks on the writers, so call it from the blocking pool.
+	pub(super) fn write_tiles(&self, tiles: Vec<(Uuid, Uuid, TilePixels)>) {
 		let Some(dirs) = self.dirs.as_ref() else {
 			return;
 		};
@@ -451,7 +580,8 @@ impl ThumbService {
 	}
 
 	/// Queue a bake and wait until its pixels have reached the cache, rather
-	/// than merely the queue.
+	/// than merely the queue. A tile its source's sidecars hold at this
+	/// version is restored from there instead, unless a bake is forced.
 	async fn bake(
 		self: &Arc<Self>,
 		path: &PathBuf,
@@ -459,6 +589,19 @@ impl ThumbService {
 		priority: u32,
 		mode: ThumbnailGenerationMode,
 	) -> GenerationOutcome {
+		if mode != ThumbnailGenerationMode::Force {
+			if let Some(store) = self.sidecar_holding(path, identity).await {
+				let Some(state) = self.cache_state(identity).await else {
+					return GenerationOutcome::Failed;
+				};
+				if !mode.should_bake(state) {
+					return GenerationOutcome::Skipped;
+				}
+				if self.refill_one(identity, &store).await {
+					return GenerationOutcome::Generated;
+				}
+			}
+		}
 		let service = self.clone();
 		let path = path.clone();
 		let submission =
@@ -481,6 +624,164 @@ impl ThumbService {
 					return GenerationOutcome::Failed;
 				}
 			},
+		}
+	}
+
+	/// Restore one tile from its sidecar. `false` when it will not decode.
+	async fn refill_one(self: &Arc<Self>, identity: TileIdentity, store: &SidecarStore) -> bool {
+		let Ok(Some(stored)) = store.read(identity.uuid).await else {
+			return false;
+		};
+		let service = self.clone();
+		tokio::task::spawn_blocking(move || {
+			let Some(pixels) = restored(stored, identity.version) else {
+				return false;
+			};
+			service.write_tiles(vec![(identity.source_id, identity.uuid, pixels)]);
+			true
+		})
+		.await
+		.unwrap_or(false)
+	}
+
+	/// `path`'s tile as its source's sidecars hold it, when they hold it at
+	/// `identity`'s version.
+	pub(super) async fn stored_tile(
+		&self,
+		path: &Path,
+		identity: TileIdentity,
+	) -> Option<StoredTile> {
+		let store = self.sidecar_holding(path, identity).await?;
+		store.read(identity.uuid).await.ok().flatten()
+	}
+
+	/// The hot cache's state for `identity`, `None` when there is no cache.
+	async fn cache_state(self: &Arc<Self>, identity: TileIdentity) -> Option<TileState> {
+		let service = self.clone();
+		tokio::task::spawn_blocking(move || {
+			let writer = service.writer_for(identity.source_id, service.dirs.as_ref()?)?;
+			let state = writer
+				.lock()
+				.unwrap_or_else(|e| e.into_inner())
+				.lookup(identity.uuid, identity.version);
+			Some(state)
+		})
+		.await
+		.ok()
+		.flatten()
+	}
+
+	/// The sidecars of `path`'s source, when they hold its tile at
+	/// `identity`'s version.
+	async fn sidecar_holding(
+		&self,
+		path: &Path,
+		identity: TileIdentity,
+	) -> Option<Arc<SidecarStore>> {
+		let store = self.local_sidecar(path).await?;
+		(store.version_of(identity.uuid) == Some(identity.version)).then_some(store)
+	}
+
+	/// The sidecars of the registered source that owns `path` here.
+	async fn local_sidecar(&self, path: &Path) -> Option<Arc<SidecarStore>> {
+		self.source_sidecars(self.volume_index.source_id_for(path)?)
+			.await
+	}
+
+	/// A source's sidecars on this device, created on first use.
+	async fn source_sidecars(&self, source: Uuid) -> Option<Arc<SidecarStore>> {
+		let file = self.dirs.as_ref()?.sidecars_file(source);
+		self.sidecar_store(&file).await
+	}
+
+	/// A sidecar file, opened on first use and kept open: one of this
+	/// device's, or its copy of a peer's.
+	pub(crate) async fn sidecar_store(&self, file: &Path) -> Option<Arc<SidecarStore>> {
+		let mut open = self.sidecars.lock().await;
+		if let Some(store) = open.get(file) {
+			return Some(store.clone());
+		}
+		match SidecarStore::open(file).await {
+			Ok(store) => {
+				let store = Arc::new(store);
+				open.insert(file.to_path_buf(), store.clone());
+				Some(store)
+			}
+			Err(error) => {
+				warn!("thumbnail sidecars {}: {error:#}", file.display());
+				None
+			}
+		}
+	}
+
+	/// A source's sidecar store and how far it has written, as its listing
+	/// advertises them. Nil and zero while it has none; a listing never
+	/// creates one.
+	pub async fn sidecar_mark(&self, source: Uuid) -> (Uuid, u64) {
+		let Some(store) = self.existing_sidecars(source).await else {
+			return (Uuid::nil(), 0);
+		};
+		store.mark().await.unwrap_or((Uuid::nil(), 0))
+	}
+
+	/// A source's sidecars written after `after`, oldest first, for a peer
+	/// copying them, with the id of the store they come from.
+	pub async fn sidecar_rows(
+		&self,
+		source: Uuid,
+		after: u64,
+		limit: u32,
+	) -> anyhow::Result<(Uuid, Vec<SidecarRow>)> {
+		let Some(store) = self.existing_sidecars(source).await else {
+			return Ok((Uuid::nil(), Vec::new()));
+		};
+		let (id, _) = store.mark().await?;
+		Ok((id, store.rows_after(after, limit).await?))
+	}
+
+	async fn existing_sidecars(&self, source: Uuid) -> Option<Arc<SidecarStore>> {
+		let file = self.dirs.as_ref()?.sidecars_file(source);
+		if !tokio::fs::try_exists(&file).await.unwrap_or(false) {
+			return None;
+		}
+		self.sidecar_store(&file).await
+	}
+
+	/// Encode baked tiles and keep them in their sources' sidecars, a batch
+	/// at a time.
+	async fn run_sidecar_writer(
+		self: Arc<Self>,
+		mut queued: mpsc::UnboundedReceiver<SidecarWrite>,
+	) {
+		let mut batch = Vec::with_capacity(COMPLETION_BATCH);
+		while queued.recv_many(&mut batch, COMPLETION_BATCH).await > 0 {
+			let writes = std::mem::take(&mut batch);
+			let encoded = tokio::task::spawn_blocking(move || {
+				let mut by_source: HashMap<Uuid, Vec<(Uuid, StoredTile)>> = HashMap::new();
+				for write in writes {
+					if let Some(webp) = sidecars::encode(&write.tile) {
+						by_source.entry(write.source).or_default().push((
+							write.uuid,
+							StoredTile {
+								version: write.tile.version,
+								frame: write.tile.frame,
+								webp,
+							},
+						));
+					}
+				}
+				by_source
+			})
+			.await
+			.unwrap_or_default();
+			for (source, tiles) in encoded {
+				let Some(store) = self.source_sidecars(source).await else {
+					continue;
+				};
+				if let Err(error) = store.record(tiles).await {
+					warn!(%source, "thumbnail sidecars: {error:#}");
+				}
+			}
 		}
 	}
 
@@ -514,6 +815,7 @@ impl ThumbService {
 			uuid: identity.uuid,
 			version: identity.version,
 			attempt: Uuid::new_v4(),
+			sidecar: self.volume_index.source_id_for(&path),
 		};
 		let (completion, receiver) = watch::channel(None);
 		if let Some(obsolete) = pending.insert(address, PendingBake { key, completion }) {
@@ -758,14 +1060,31 @@ impl ThumbService {
 					source_width: tile.source_width(),
 					source_height: tile.source_height(),
 				};
-				let mut writer = writer.lock().unwrap_or_else(|e| e.into_inner());
-				match writer.write(key.uuid, key.version, frame, tile.bgra()) {
-					Ok(()) => true,
-					Err(error) => {
-						warn!("thumbnail write for {}: {error}", key.uuid);
-						false
-					}
+				let written = writer.lock().unwrap_or_else(|e| e.into_inner()).write(
+					key.uuid,
+					key.version,
+					frame,
+					tile.bgra(),
+				);
+				if let Err(error) = written {
+					warn!("thumbnail write for {}: {error}", key.uuid);
+					return false;
 				}
+				// Every tile baked here is kept in its source's sidecars too.
+				// The writer encodes off this thread, which holds up
+				// publication for as long as it runs.
+				if let (Some(source), Some(queue)) = (key.sidecar, &self.sidecar_tx) {
+					let _ = queue.send(SidecarWrite {
+						source,
+						uuid: key.uuid,
+						tile: TilePixels {
+							version: key.version,
+							frame,
+							bgra: tile.into_bgra(),
+						},
+					});
+				}
+				true
 			}
 			Err(declines) => {
 				debug!("no producer for {}: {declines:?}", key.uuid);
@@ -773,6 +1092,20 @@ impl ThumbService {
 			}
 		}
 	}
+}
+
+/// A sidecar's tile as cache pixels, when it is the version wanted and
+/// decodes.
+fn restored(stored: StoredTile, version: u64) -> Option<TilePixels> {
+	if stored.version != version {
+		return None;
+	}
+	let bgra = sidecars::decode(&stored.webp, stored.frame)?;
+	Some(TilePixels {
+		version: stored.version,
+		frame: stored.frame,
+		bgra,
+	})
 }
 
 fn thumbnail_version(source: u64, recipe: u64, ffmpeg: bool) -> u64 {
@@ -941,18 +1274,33 @@ pub(super) mod tests {
 		}
 	}
 
-	pub(crate) async fn fixture() -> (
+	pub(crate) type Fixture = (
 		tempfile::TempDir,
 		Arc<ThumbService>,
 		PathBuf,
 		Arc<AtomicUsize>,
 		Arc<AtomicBool>,
-	) {
+	);
+
+	pub(crate) async fn fixture() -> Fixture {
+		fixture_with(false).await
+	}
+
+	/// The fixture with its directory registered as a source, which is what
+	/// gives its tiles somewhere to keep sidecars.
+	pub(crate) async fn source_fixture() -> Fixture {
+		fixture_with(true).await
+	}
+
+	async fn fixture_with(registered: bool) -> Fixture {
 		let temp = tempfile::tempdir().unwrap();
 		let path = temp.path().join("file.png");
 		tokio::fs::write(&path, b"test input").await.unwrap();
 		let cache = Arc::new(VolumeIndex::with_sources_dir(None).unwrap());
 		cache.track_volume(Uuid::new_v4(), temp.path().to_path_buf());
+		if registered {
+			cache.register_source(temp.path(), None).await.unwrap();
+		}
 		cache
 			.resolve_index(&path)
 			.write()
@@ -1050,6 +1398,149 @@ pub(super) mod tests {
 		));
 	}
 
+	/// The sidecars of the fixture's source, once they hold `identity`.
+	async fn sidecar_for(
+		service: &Arc<ThumbService>,
+		path: &PathBuf,
+		identity: TileIdentity,
+	) -> Arc<SidecarStore> {
+		tokio::time::timeout(Duration::from_secs(5), async {
+			loop {
+				if let Some(store) = service.sidecar_holding(path, identity).await {
+					return store;
+				}
+				tokio::time::sleep(Duration::from_millis(20)).await;
+			}
+		})
+		.await
+		.expect("the sidecar lands")
+	}
+
+	/// Replace the cached tile with an older version, as a changed recipe or
+	/// a lost cache would leave it.
+	fn stale(service: &Arc<ThumbService>, identity: TileIdentity) {
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		writer
+			.lock()
+			.unwrap()
+			.write(
+				identity.uuid,
+				identity.version.wrapping_sub(1),
+				Frame {
+					content_width: 1,
+					content_height: 1,
+					source_width: 1,
+					source_height: 1,
+				},
+				&[0, 0, 0, 255],
+			)
+			.unwrap();
+	}
+
+	#[tokio::test]
+	async fn a_baked_tile_is_kept_and_refills_the_cache_without_baking_again() {
+		let (_temp, service, path, calls, _) = source_fixture().await;
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Missing).await,
+			GenerationOutcome::Generated
+		);
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let store = sidecar_for(&service, &path, identity).await;
+		assert_eq!(store.version_of(identity.uuid), Some(identity.version));
+		assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+		stale(&service, identity);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Stale).await,
+			GenerationOutcome::Generated
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 1, "restored, not baked");
+		let mut pixels = vec![0; TILE as usize * TILE as usize * 4];
+		let state = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap()
+			.lock()
+			.unwrap()
+			.get(identity.uuid, identity.version, &mut pixels)
+			.unwrap();
+		let TileState::Fresh { frame } = state else {
+			panic!("the cache holds the current version again, got {state:?}");
+		};
+		assert_eq!((frame.content_width, frame.content_height), (2, 2));
+		assert!(pixels[0].abs_diff(1) < 8, "the baked pixels came back");
+
+		stale(&service, identity);
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Force).await,
+			GenerationOutcome::Generated
+		);
+		assert_eq!(
+			calls.load(Ordering::SeqCst),
+			2,
+			"a forced bake reads the file"
+		);
+	}
+
+	#[tokio::test]
+	async fn a_viewport_request_refills_from_the_sidecar() {
+		let (_temp, service, path, calls, _) = source_fixture().await;
+		generate(&service, &path, ThumbnailGenerationMode::Missing).await;
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		sidecar_for(&service, &path, identity).await;
+		stale(&service, identity);
+
+		let mut events = service.events.subscribe();
+		assert_eq!(service.request(&[path.clone()]).await.len(), 1);
+		let announced = tokio::time::timeout(Duration::from_secs(5), events.recv())
+			.await
+			.expect("the refill is announced")
+			.unwrap();
+		let Event::ResourceChangedBatch { resources, .. } = announced else {
+			panic!("expected a thumbnail batch, got {announced:?}");
+		};
+		let announced: Vec<Thumbnail> = serde_json::from_value(resources).unwrap();
+		assert_eq!(announced[0].version, identity.version);
+		assert_eq!(calls.load(Ordering::SeqCst), 1, "restored, not baked");
+	}
+
+	#[tokio::test]
+	async fn a_tile_cached_before_sidecars_gets_one_from_the_cache() {
+		let (_temp, service, path, calls, _) = source_fixture().await;
+		let identity = service.thumbnail_identity(&path).await.unwrap();
+		let writer = service
+			.writer_for(identity.source_id, service.dirs.as_ref().unwrap())
+			.unwrap();
+		let frame = Frame {
+			content_width: 2,
+			content_height: 2,
+			source_width: 2,
+			source_height: 2,
+		};
+		writer
+			.lock()
+			.unwrap()
+			.write(
+				identity.uuid,
+				identity.version,
+				frame,
+				&[9, 9, 9, 255].repeat(4),
+			)
+			.unwrap();
+
+		assert_eq!(
+			generate(&service, &path, ThumbnailGenerationMode::Missing).await,
+			GenerationOutcome::Skipped
+		);
+		assert_eq!(calls.load(Ordering::SeqCst), 0);
+		let stored = service
+			.stored_tile(&path, identity)
+			.await
+			.expect("the cached tile was kept");
+		assert_eq!(stored.frame, frame);
+	}
+
 	#[tokio::test]
 	async fn fetched_tiles_are_stored_under_the_owners_version_and_announced() {
 		let (_temp, service, _, _, _) = fixture().await;
@@ -1063,7 +1554,7 @@ pub(super) mod tests {
 			source_width: 4,
 			source_height: 4,
 		};
-		service.store_fetched(vec![(
+		service.write_tiles(vec![(
 			cache,
 			uuid,
 			TilePixels {
@@ -1199,6 +1690,7 @@ pub(super) mod tests {
 			uuid: identity.uuid,
 			version: identity.version,
 			attempt: Uuid::new_v4(),
+			sidecar: None,
 		};
 		let new = TileKey {
 			attempt: Uuid::new_v4(),

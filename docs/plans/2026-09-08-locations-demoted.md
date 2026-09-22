@@ -246,6 +246,11 @@ tier is built against the source store the way `ThumbService` already is over
 `sources/<id>/thumbs.pvcache`. The 853-line entries-era `SidecarManager` is not
 ported.
 
+Thumbnail tiles landed on 2026-09-21 as the first kind, record-scoped, in
+`sources/<id>/sidecars.db`, and peers replicate them; P7 of
+`2026-09-19-incremental-replication.md` records how. The other kinds are
+still to come.
+
 ## What this costs against deleting locations outright
 
 More surface survives, so L4 is real work rather than eleven deletions. What

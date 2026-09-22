@@ -27,6 +27,7 @@ mod ffmpeg;
 mod platform;
 pub mod remote;
 mod service;
+pub mod sidecars;
 mod thumbstrip;
 
 pub use service::{

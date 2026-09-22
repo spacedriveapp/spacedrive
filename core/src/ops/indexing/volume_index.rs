@@ -635,6 +635,12 @@ impl VolumeIndex {
 			.map(|record| record.root.clone())
 	}
 
+	/// The id of the source owning `path`, when one does. The innermost
+	/// registered source wins, as it does for [`Self::store_for`].
+	pub fn source_id_for(&self, path: &Path) -> Option<Uuid> {
+		self.registry.lock().resolve(path).map(|record| record.id)
+	}
+
 	/// A registered source's current absolute root, by id.
 	///
 	/// The registry is the authority: the library row stores the root

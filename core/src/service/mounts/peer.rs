@@ -13,13 +13,15 @@ use crate::service::network::core::BYTERANGE_ALPN;
 use crate::service::network::protocol::{
 	byterange::{
 		read_frame, write_frame, ByteRangeRequest, ByteRangeResponse, RemoteDeviceFacts,
-		TileAnswer, TileAsk, MAX_READ_LEN, MAX_SNAPSHOT_LEN, MAX_TILE_LEN,
+		TileAnswer, TileAsk, MAX_READ_LEN, MAX_SIDECAR_PAGE, MAX_SNAPSHOT_LEN, MAX_TILE_LEN,
 	},
 	RemoteSourceInfo,
 };
+use crate::service::thumbs::sidecars::{SidecarRow, StoredTile};
 use bytes::Bytes;
 use futures::Stream;
-use std::collections::HashMap;
+use sd_pvcache::Frame;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -75,6 +77,19 @@ pub async fn share_for(
 		.max_by_key(|share| share.info.root.components().count())
 }
 
+/// Where this device keeps what it replicates from `device_id`.
+fn replica_dir(context: &CoreContext, device_id: Uuid) -> PathBuf {
+	context
+		.data_dir
+		.join("mounts-remote")
+		.join(device_id.simple().to_string())
+}
+
+/// This device's copy of a peer source's thumbnail sidecars.
+pub fn sidecar_copy_file(context: &CoreContext, device_id: Uuid, source_id: Uuid) -> PathBuf {
+	replica_dir(context, device_id).join(format!("{}.sidecars.db", source_id.simple()))
+}
+
 /// Open a replica's delivered database read-only, when one is on disk. The
 /// caller closes the pool when done; a replica artifact is opened on demand
 /// rather than held, since the next delivery replaces the file wholesale.
@@ -83,11 +98,7 @@ pub async fn open_replica_db(
 	device_id: Uuid,
 	source_id: Uuid,
 ) -> Option<sd_store::SourceDb> {
-	let db_path = context
-		.data_dir
-		.join("mounts-remote")
-		.join(device_id.simple().to_string())
-		.join(format!("{}.db", source_id.simple()));
+	let db_path = replica_dir(context, device_id).join(format!("{}.db", source_id.simple()));
 	if !db_path.exists() {
 		return None;
 	}
@@ -367,10 +378,7 @@ pub async fn drop_device_replicas(context: &Arc<CoreContext>, device_id: Uuid) -
 	// Fleet totals must stop counting a device the library no longer trusts.
 	summaries_map().write().await.remove(&device_id);
 
-	let replica_dir = context
-		.data_dir
-		.join("mounts-remote")
-		.join(device_id.simple().to_string());
+	let replica_dir = replica_dir(context, device_id);
 	if tokio::fs::metadata(&replica_dir).await.is_ok() {
 		let holding = context.data_dir.join("mounts-revoked");
 		let _ = tokio::fs::create_dir_all(&holding).await;
@@ -555,6 +563,131 @@ pub async fn fetch_tiles(
 			)))
 		},
 	))
+}
+
+/// One page of a source's thumbnail sidecars from its owner: the id of the
+/// store they come from, and the rows written after `after`.
+pub async fn fetch_sidecars(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	source_id: Uuid,
+	after: u64,
+	limit: u32,
+) -> anyhow::Result<(Uuid, Vec<SidecarRow>)> {
+	let (response, mut body) = request(
+		context,
+		device_id,
+		&ByteRangeRequest::FetchSidecars {
+			source_id,
+			after,
+			limit,
+		},
+	)
+	.await?;
+	let ByteRangeResponse::SidecarPage { store, rows } = response else {
+		anyhow::bail!("unexpected response: {response:?}");
+	};
+	anyhow::ensure!(rows <= limit, "{rows} sidecars for a page of {limit}");
+	let mut page = Vec::with_capacity(rows as usize);
+	for _ in 0..rows {
+		let ByteRangeResponse::Sidecar {
+			seq,
+			uuid,
+			version,
+			content_width,
+			content_height,
+			source_width,
+			source_height,
+			len,
+		} = read_frame(&mut body).await?
+		else {
+			anyhow::bail!("expected a sidecar");
+		};
+		anyhow::ensure!(len <= MAX_TILE_LEN, "sidecar of {len} bytes exceeds limit");
+		let mut webp = vec![0; len as usize];
+		body.read_exact(&mut webp).await?;
+		page.push(SidecarRow {
+			seq,
+			uuid,
+			tile: StoredTile {
+				version,
+				frame: Frame {
+					content_width,
+					content_height,
+					source_width,
+					source_height,
+				},
+				webp,
+			},
+		});
+	}
+	Ok((store, page))
+}
+
+/// Sources whose sidecars are being copied right now.
+static SIDECAR_PULLS: OnceLock<std::sync::Mutex<HashSet<Uuid>>> = OnceLock::new();
+
+/// Start copying a source's thumbnail sidecars from its owner when the owner
+/// has written past what this device holds. One copy per source at a time,
+/// run beside the replication pass rather than inside it, since the first one
+/// can be a gigabyte.
+fn copy_sidecars(context: &Arc<CoreContext>, device_id: Uuid, info: &RemoteSourceInfo) {
+	if info.sidecar_cursor == 0 {
+		return;
+	}
+	let pulls = SIDECAR_PULLS.get_or_init(|| std::sync::Mutex::new(HashSet::new()));
+	if !pulls.lock().unwrap().insert(info.id) {
+		return;
+	}
+	let context = context.clone();
+	let info = info.clone();
+	tokio::spawn(async move {
+		match pull_sidecars(&context, device_id, &info).await {
+			Ok(0) => {}
+			Ok(copied) => {
+				tracing::info!(source = %info.id, copied, "copied thumbnail sidecars from peer")
+			}
+			Err(err) => tracing::debug!(source = %info.id, %err, "sidecar copy stopped"),
+		}
+		pulls.lock().unwrap().remove(&info.id);
+	});
+}
+
+/// Copy a source's sidecars page by page until this device holds everything
+/// its owner has written. Returns how many were copied.
+async fn pull_sidecars(
+	context: &Arc<CoreContext>,
+	device_id: Uuid,
+	info: &RemoteSourceInfo,
+) -> anyhow::Result<usize> {
+	let file = sidecar_copy_file(context, device_id, info.id);
+	let copy = context
+		.thumbs
+		.sidecar_store(&file)
+		.await
+		.ok_or_else(|| anyhow::anyhow!("cannot open {}", file.display()))?;
+	let (held, cursor) = copy.mark().await?;
+	if held == info.sidecar_store && cursor >= info.sidecar_cursor {
+		return Ok(0);
+	}
+	// A copy of some other store starts over from the beginning of this one.
+	let mut after = if held == info.sidecar_store {
+		cursor
+	} else {
+		0
+	};
+	let mut copied = 0;
+	loop {
+		let (store, rows) =
+			fetch_sidecars(context, device_id, info.id, after, MAX_SIDECAR_PAGE).await?;
+		let count = rows.len();
+		after = rows.last().map_or(after, |row| row.seq);
+		copy.apply(store, rows).await?;
+		copied += count;
+		if count < MAX_SIDECAR_PAGE as usize {
+			return Ok(copied);
+		}
+	}
 }
 
 /// Reconnection storms and the startup sweep can request the same device
@@ -1012,10 +1145,7 @@ pub async fn sync_device(
 		}
 	};
 
-	let replica_dir = context
-		.data_dir
-		.join("mounts-remote")
-		.join(device_id.simple().to_string());
+	let replica_dir = replica_dir(context, device_id);
 	tokio::fs::create_dir_all(&replica_dir).await?;
 
 	let mut synced = 0usize;
@@ -1072,6 +1202,10 @@ pub async fn sync_device(
 				);
 			}
 		}
+	}
+
+	for info in &sources {
+		copy_sidecars(context, device_id, info);
 	}
 
 	// Persist the inventory beside its artifacts. A source whose fetch
@@ -1132,6 +1266,8 @@ mod tests {
 			generation: 7,
 			dirty: false,
 			nested: false,
+			sidecar_store: Uuid::nil(),
+			sidecar_cursor: 0,
 		}
 	}
 
