@@ -8623,6 +8623,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-quick-look-ui"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ef5bce23577f7bcbb88339d4f4fcba83bcc376ca6a7f556d1707e49e7986d329"
+dependencies = [
+ "objc2 0.6.3",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+]
+
+[[package]]
 name = "objc2-security"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11719,6 +11730,11 @@ dependencies = [
  "gpui-component",
  "gpui_platform",
  "image",
+ "objc2 0.6.3",
+ "objc2-app-kit 0.3.2",
+ "objc2-foundation 0.3.2",
+ "objc2-quick-look-ui",
+ "raw-window-handle",
  "sd-bake",
  "sd-client",
  "sd-core",

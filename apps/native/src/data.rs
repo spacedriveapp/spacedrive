@@ -113,6 +113,8 @@ pub struct FolderOpen {
 	/// The record each cell shows, in listing order. Its length is the cell
 	/// count.
 	pub records: Vec<Uuid>,
+	/// Each cell's file, in listing order.
+	pub paths: Vec<PathBuf>,
 	/// The tags each cell's record carries, in listing order.
 	pub tags: Vec<Vec<Uuid>>,
 	/// Tag changes for this folder's records, queued from the moment it was
@@ -127,6 +129,7 @@ struct Handoff {
 	completions_rx: std::sync::mpsc::Receiver<Completion>,
 	visible: VisibleRange,
 	records: Vec<Uuid>,
+	paths: Vec<PathBuf>,
 	tags: Vec<Vec<Uuid>>,
 	tag_changes: mpsc::UnboundedReceiver<Vec<RecordTags>>,
 }
@@ -785,7 +788,7 @@ impl Plane {
 
 		self.folder = Some(Folder {
 			path: path.clone(),
-			paths,
+			paths: paths.clone(),
 			entries_tx,
 			completions_tx,
 			visible: visible.clone(),
@@ -810,6 +813,7 @@ impl Plane {
 				completions_rx,
 				visible,
 				records,
+				paths,
 				tags: cell_tags,
 				tag_changes,
 			}),
@@ -954,6 +958,7 @@ impl Plane {
 						completions_rx: handoff.completions_rx,
 						visible: handoff.visible,
 						records: handoff.records,
+						paths: handoff.paths,
 						tags: handoff.tags,
 						tag_changes: handoff.tag_changes,
 					});

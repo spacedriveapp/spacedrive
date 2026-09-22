@@ -21,6 +21,7 @@ mod selection;
 mod stats;
 
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -100,17 +101,18 @@ const PILL_PAD: f32 = 4.0;
 const PILL_INSET: f32 = 5.0;
 const COUNT_TEXT: f32 = 10.0;
 
-/// What the grid knows of each cell beyond its pixels: the record it shows and
-/// the tags that record carries, both by grid index.
+/// What the grid knows of each cell beyond its pixels: the record it shows, the
+/// file behind it, and the tags the record carries, all by grid index.
 #[derive(Default)]
 pub struct Cells {
 	records: Vec<Uuid>,
+	paths: Vec<PathBuf>,
 	tags: Vec<Vec<Uuid>>,
 	index_by_record: HashMap<Uuid, u32>,
 }
 
 impl Cells {
-	pub fn new(records: Vec<Uuid>, tags: Vec<Vec<Uuid>>) -> Self {
+	pub fn new(records: Vec<Uuid>, paths: Vec<PathBuf>, tags: Vec<Vec<Uuid>>) -> Self {
 		let index_by_record = records
 			.iter()
 			.enumerate()
@@ -118,6 +120,7 @@ impl Cells {
 			.collect();
 		Cells {
 			records,
+			paths,
 			tags,
 			index_by_record,
 		}
@@ -140,6 +143,10 @@ impl Cells {
 
 	fn record(&self, index: u32) -> Option<Uuid> {
 		self.records.get(index as usize).copied()
+	}
+
+	fn path(&self, index: u32) -> Option<&Path> {
+		self.paths.get(index as usize).map(PathBuf::as_path)
 	}
 }
 
@@ -336,6 +343,17 @@ impl GridView {
 			.iter()
 			.filter_map(|index| self.cells.record(index))
 			.collect()
+	}
+
+	/// The file under the keyboard cursor when the cursor is on the selection,
+	/// or else the first selected. `None` with nothing selected.
+	pub fn cursor_path(&self) -> Option<&Path> {
+		let index = self
+			.selection
+			.focus()
+			.filter(|focus| self.selection.contains(*focus))
+			.or_else(|| self.selection.iter().next())?;
+		self.cells.path(index)
 	}
 
 	/// Whether every selected cell's record carries `tag`. An empty selection

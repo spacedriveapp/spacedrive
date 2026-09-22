@@ -19,10 +19,12 @@
 //!
 //! Photos selects the way the explorer does, and tags what is selected in
 //! [`tag_mode`]: T enters it, the number keys toggle the palette's tags, and
-//! Esc leaves it.
+//! Esc leaves it. Space shows the original under the cursor in
+//! [`quick_look`], and the preview follows the cursor while it is open.
 
 mod data;
 mod grid;
+mod quick_look;
 mod source;
 mod tag_mode;
 mod theme;
@@ -45,6 +47,7 @@ use tokio::sync::mpsc;
 
 use crate::data::{DataHandle, FocusSnapshot, FolderState, RecordTags, TagSnapshot};
 use crate::grid::{Cells, Direction, GridView};
+use crate::quick_look::QuickLook;
 use crate::source::{EmptySource, PvcacheSource, SyntheticSource, TileSource};
 use crate::tag_mode::{Slot, TagBar, PALETTE_SIZE};
 use crate::theme::{ActiveTheme as _, Theme};
@@ -64,8 +67,10 @@ actions!(
 	[
 		/// Enter tag mode.
 		EnterTagMode,
-		/// Leave tag mode, or drop the selection when not in it.
+		/// Close the preview, else leave tag mode, else drop the selection.
 		Cancel,
+		/// Show the original under the cursor, or close the preview.
+		TogglePreview,
 		SelectAll,
 		MoveLeft,
 		MoveRight,
@@ -86,6 +91,7 @@ fn bind_keys(cx: &mut App) {
 	cx.bind_keys([
 		KeyBinding::new("t", EnterTagMode, context),
 		KeyBinding::new("escape", Cancel, context),
+		KeyBinding::new("space", TogglePreview, context),
 		KeyBinding::new("secondary-a", SelectAll, context),
 		KeyBinding::new("left", MoveLeft, context),
 		KeyBinding::new("right", MoveRight, context),
@@ -137,7 +143,8 @@ fn main() {
 				None => Box::new(EmptySource),
 			};
 			let grid = cx.new(|cx| GridView::new(source, bench, cx));
-			let photos = cx.new(|cx| Photos::new(grid, data.clone(), bench, cx));
+			let quick_look = QuickLook::attach(window);
+			let photos = cx.new(|cx| Photos::new(grid, data.clone(), quick_look, bench, cx));
 			// Keys reach the window through the focused view, and nothing
 			// else in it takes focus.
 			let focus = photos.read(cx).focus_handle.clone();
@@ -168,12 +175,25 @@ struct Photos {
 	/// plane, so each is shown once.
 	notice: Option<SharedString>,
 	notice_seen: u64,
+	/// The window's hold on the system preview panel, where there is one.
+	quick_look: Option<QuickLook>,
 }
 
 impl Photos {
-	fn new(grid: Entity<GridView>, data: DataHandle, bench: bool, cx: &mut Context<Self>) -> Self {
-		// The tag bar and status bar read the grid's selection.
-		cx.observe(&grid, |_, _, cx| cx.notify()).detach();
+	fn new(
+		grid: Entity<GridView>,
+		data: DataHandle,
+		quick_look: Option<QuickLook>,
+		bench: bool,
+		cx: &mut Context<Self>,
+	) -> Self {
+		// The tag bar, the status bar, and an open preview all follow the
+		// grid's selection.
+		cx.observe(&grid, |photos, _, cx| {
+			photos.follow_preview(cx);
+			cx.notify();
+		})
+		.detach();
 
 		let photos = Photos {
 			grid,
@@ -187,6 +207,7 @@ impl Photos {
 			tag_mode: false,
 			notice: None,
 			notice_seen: 0,
+			quick_look,
 		};
 
 		// Wake on data-plane snapshot changes; the channel is a tokio watch,
@@ -234,7 +255,7 @@ impl Photos {
 				open.completions_rx,
 				open.visible,
 			);
-			let cells = Cells::new(open.records, open.tags);
+			let cells = Cells::new(open.records, open.paths, open.tags);
 			self.grid.update(cx, |grid, cx| {
 				grid.set_source(Box::new(source) as Box<dyn TileSource>, cells, cx);
 			});
@@ -350,12 +371,46 @@ impl Photos {
 	}
 
 	fn cancel(&mut self, _: &Cancel, _: &mut Window, cx: &mut Context<Self>) {
-		if self.tag_mode {
+		if let Some(quick_look) = self.open_preview() {
+			quick_look.close();
+		} else if self.tag_mode {
 			self.set_tag_mode(false, cx);
 		} else {
 			self.grid.update(cx, |grid, cx| {
 				grid.clear_selection(cx);
 			});
+		}
+	}
+
+	/// The preview panel, when it is open.
+	fn open_preview(&self) -> Option<&QuickLook> {
+		self.quick_look
+			.as_ref()
+			.filter(|quick_look| quick_look.is_open())
+	}
+
+	/// Space: show the original of the photo under the cursor, or put the
+	/// preview away.
+	fn toggle_preview(&mut self, _: &TogglePreview, _: &mut Window, cx: &mut Context<Self>) {
+		let Some(quick_look) = &self.quick_look else {
+			return;
+		};
+		if quick_look.is_open() {
+			quick_look.close();
+		} else if let Some(path) = self.grid.read(cx).cursor_path() {
+			quick_look.show(path);
+		}
+	}
+
+	/// Keep an open preview on the photo under the cursor as it moves, and put
+	/// it away once nothing is selected.
+	fn follow_preview(&self, cx: &App) {
+		let Some(quick_look) = self.open_preview() else {
+			return;
+		};
+		match self.grid.read(cx).cursor_path() {
+			Some(path) => quick_look.show(path),
+			None => quick_look.close(),
 		}
 	}
 
@@ -539,6 +594,7 @@ impl Render for Photos {
 			.key_context(KEY_CONTEXT)
 			.on_action(cx.listener(Self::enter_tag_mode))
 			.on_action(cx.listener(Self::cancel))
+			.on_action(cx.listener(Self::toggle_preview))
 			.on_action(cx.listener(Self::select_all))
 			.on_action(cx.listener(Self::toggle_tag))
 			.on_action(

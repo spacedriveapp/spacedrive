@@ -26,5 +26,13 @@ tokio          = { workspace = true, features = ["rt", "rt-multi-thread", "sync"
 # v5: demo record uuids are derived deterministically from file paths.
 uuid           = { workspace = true, features = ["v5"] }
 
+# Quick Look: the system preview panel, and the AppKit around it.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2               = "0.6"
+objc2-app-kit       = { version = "0.3", default-features = false, features = ["std", "NSEvent", "NSResponder", "NSView", "NSWindow"] }
+objc2-foundation    = { version = "0.3", default-features = false, features = ["std", "NSObject", "NSString", "NSURL"] }
+objc2-quick-look-ui = { version = "0.3", default-features = false, features = ["std", "objc2-app-kit", "QLPreviewItem", "QLPreviewPanel"] }
+raw-window-handle   = "0.6"
+
 [dev-dependencies]
 tempfile = { workspace = true }

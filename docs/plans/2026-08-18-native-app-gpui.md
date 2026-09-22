@@ -285,9 +285,11 @@ Tauri launches it.
 **B6' — Photos becomes an app.** Pinch zoom (`MIN_CELL`/`MAX_CELL`, an
 NSEvent magnify monitor as in the reference app), the photo view adapter,
 selection, glass toolbar, QuickLook and native menus. The bar is the reference
-app side by side on the same folder. Selection and tag mode landed 2026-09-21:
-the explorer's selection rules, T for the explorer's tag mode with the number
-keys toggling the library's first ten tags, and tag dots on tagged tiles.
+app side by side on the same folder. Selection, tag mode, and QuickLook landed
+2026-09-21: the explorer's selection rules, T for the explorer's tag mode with
+the number keys toggling the library's first ten tags, tag dots on tagged
+tiles, and Space showing the original under the cursor in the system preview
+panel, which follows the cursor while it is open.
 
 **Deferred with the native explorer:** the sidebar, list view, and inspector
 (B5 as written), and the parity audit against the web app (B6 as written).
