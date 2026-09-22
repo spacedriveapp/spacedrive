@@ -3,7 +3,10 @@ use std::path::PathBuf;
 
 use sd_core::{
 	domain::addressing::{SdPath, SdPathBatch},
-	ops::files::copy::input::{CopyMethod, FileCopyInput},
+	ops::{
+		files::copy::input::{CopyMethod, FileCopyInput},
+		paths::compare::{CompareBy, CompareCursor, CompareSet, PathCompareInput},
+	},
 };
 
 #[derive(Args, Debug, Clone)]
@@ -79,4 +82,100 @@ pub struct FileListArgs {
 	/// Sort order for the results (name, modified, size, type)
 	#[arg(long, default_value = "name")]
 	pub sort_by: String,
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileCompareArgs {
+	/// The folder to compare
+	pub left: PathBuf,
+
+	/// The folder to compare it against
+	pub right: PathBuf,
+
+	/// Match files by where they sit in their folder, or by their bytes
+	/// wherever they sit
+	#[arg(long, value_enum, default_value = "location")]
+	pub by: CompareByArg,
+
+	/// Which files to list
+	#[arg(long, value_enum, default_value = "only-left")]
+	pub show: CompareSetArg,
+
+	/// Include hidden files
+	#[arg(long, default_value_t = false)]
+	pub include_hidden: bool,
+
+	/// Continue after this path, relative to the listed folder, as a previous
+	/// page ended
+	#[arg(long)]
+	pub after: Option<String>,
+
+	/// Files per page, at most 5000
+	#[arg(long, default_value_t = 100)]
+	pub limit: u32,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+pub enum CompareByArg {
+	Location,
+	Content,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+pub enum CompareSetArg {
+	OnlyLeft,
+	OnlyRight,
+	Changed,
+	Same,
+}
+
+impl From<CompareByArg> for CompareBy {
+	fn from(by: CompareByArg) -> Self {
+		match by {
+			CompareByArg::Location => Self::Location,
+			CompareByArg::Content => Self::Content,
+		}
+	}
+}
+
+impl From<CompareSetArg> for CompareSet {
+	fn from(set: CompareSetArg) -> Self {
+		match set {
+			CompareSetArg::OnlyLeft => Self::OnlyLeft,
+			CompareSetArg::OnlyRight => Self::OnlyRight,
+			CompareSetArg::Changed => Self::Changed,
+			CompareSetArg::Same => Self::Same,
+		}
+	}
+}
+
+impl FileCompareArgs {
+	/// Both folders as this device spells them, so a relative path or a
+	/// symlink means what it does in the shell. "local" names whichever device
+	/// answers, which is the one the folders were resolved on.
+	pub fn into_input(self) -> anyhow::Result<PathCompareInput> {
+		let folder = |path: &PathBuf| {
+			path.canonicalize()
+				.map(|path| SdPath::Physical {
+					device_slug: "local".into(),
+					path,
+				})
+				.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
+		};
+		Ok(PathCompareInput {
+			left: folder(&self.left)?,
+			right: folder(&self.right)?,
+			by: self.by.into(),
+			show: self.show.into(),
+			include_hidden: self.include_hidden,
+			after: self.after.map(|path| {
+				let (directory, name) = path.rsplit_once('/').unwrap_or(("", &path));
+				CompareCursor {
+					directory: directory.to_string(),
+					name: name.to_string(),
+				}
+			}),
+			limit: self.limit,
+		})
+	}
 }

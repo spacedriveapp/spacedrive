@@ -17,12 +17,13 @@
 //! search_index    FTS5 over the fields the search contract names
 //! ```
 //!
-//! One shape is the point. Cross-source search and the catalog both join on
-//! it; two shapes would mean two of everything downstream. [`TrustTier`]
-//! travels with a source rather than with its ingest for the same reason.
+//! One shape is the point. Every question across sources reads each store and
+//! joins on it; two shapes would mean two of everything downstream.
+//! [`TrustTier`] travels with a source rather than with its ingest for the same
+//! reason.
 //!
-//! `edge` relates records within one source. Nothing here spans sources —
-//! that arrives with the catalog.
+//! `edge` relates records within one source. Nothing here spans sources: a
+//! question across them asks each store and merges the answers.
 //!
 //! **A store has two halves, and only one of them can ever be rebuilt.** The
 //! generation (`record`, `facet_*`, `content`, `edge`, `search_index`) can be

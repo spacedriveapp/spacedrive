@@ -61,7 +61,7 @@ rather than inferring it from a diff.
 | T4.10 Global search router | done | — | `1044e0977` searches every local and paired source |
 | T5.1–T5.3 | superseded | — | content hashing writes source stores; the old media pipeline was deleted; current source-scoped media work follows the product sequence |
 | T6.1–T6.7 | done through FD5; FDA ready | Opus | executed as `2026-09-15-entries-final-drop.md` FD0–FD5; its acceptance matrix (FDA) is next |
-| P7 Catalog | blocked | — | unblocked by P6 |
+| P7 Cross-source queries | compare landed; duplicates and at-risk next | — | no `catalog.db`: asked of the source stores at query time. Search, alternates and content tags already read every store; `paths.compare` compares two folders by location or content |
 
 **Not in this register, tracked elsewhere:** the byte plane, block cache and
 mount frontends, in `2026-08-20-byte-plane-and-block-cache.md` and the
@@ -898,12 +898,18 @@ or breaks clients, and each is free if bundled with a change already doing that:
 fresh-start daemon reaches the full coherent-startup experience;
 `grep entities::entry` returns nothing.
 
-## P7 — Catalog
+## P7 — Cross-source queries
 
-`catalog.db`: global enumeration and placement rows swept from source stores.
-Restores alternates, redundancy, detached-drive global search, content-attached
-tag projection. Unblocked after P6. Trust-level rules apply from day one: never a
-destructive decision from a projection row.
+No `catalog.db`. Every source store stays readable while its drive is
+detached, so the questions a swept projection was to answer are asked of the
+stores at query time, and there is no second copy to keep current. Detached-drive
+search (T4.10), alternates (`files.alternate_instances`) and content-attached
+tags already read every store this way. `paths.compare` compares two folders by
+location or by content, streaming both sides in index order. Duplicates across
+stores and at-risk content are next, as queries over the same stores. A store
+kept on its source rather than in the library answers offline only through a
+retained library copy, which `2026-09-16-add-to-library.md` owns. The trust
+rule is unchanged: never a destructive decision from an index row alone.
 
 ## Ordering
 

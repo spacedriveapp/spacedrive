@@ -46,8 +46,8 @@ would mean two of everything downstream.
 
 There is no shared durable file. `registry.db` holds `sources` and
 `data_types` and nothing else; everything about a source, including what a
-person said about it, is in that source's own file. Cross-source assertions
-arrive with `catalog.db` — see the convergence plan.
+person said about it, is in that source's own file. A question across
+sources reads each source's file at query time and joins the answers.
 
 ## The adapter protocol
 

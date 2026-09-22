@@ -12,7 +12,7 @@
 //! judges them, so a search and the media in it answer the same question. Names
 //! match in Rust for the Unicode folding SQLite does not do.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
@@ -26,7 +26,8 @@ use crate::context::CoreContext;
 use crate::domain::{ContentKind, File, SdPath};
 use crate::filetype::FileTypeRegistry;
 use crate::infra::query::{LibraryQuery, QueryError, QueryResult};
-use crate::ops::indexing::volume_index::SourceStatus;
+use crate::ops::paths::reach::{every_store, stores_beneath};
+use sd_store::read::Start;
 
 /// The most files one page may ask for.
 const MAX_PAGE: u32 = 5000;
@@ -88,7 +89,10 @@ impl LibraryQuery for MediaSearchQuery {
 		_session: crate::infra::api::SessionContext,
 	) -> QueryResult<Self::Output> {
 		let input = self.input;
-		let reached = stores_reaching(&context, &input.scope).await;
+		let reached = match &input.scope {
+			SearchScope::Library => every_store(&context),
+			SearchScope::Path { path } => stores_beneath(&context, path).await,
+		};
 		if reached.is_empty() {
 			return Ok(MediaSearchOutput {
 				files: Vec::new(),
@@ -113,7 +117,7 @@ impl LibraryQuery for MediaSearchQuery {
 			None => 0,
 			Some(cursor) => match reached
 				.iter()
-				.position(|(source, _)| source.id == cursor.source)
+				.position(|reach| reach.source.id == cursor.source)
 			{
 				Some(index) => index,
 				None => return Ok(finished),
@@ -133,7 +137,8 @@ impl LibraryQuery for MediaSearchQuery {
 		let limit = input.limit as usize;
 		let mut files = Vec::new();
 
-		for (index, (source, scope)) in reached.iter().enumerate().skip(start) {
+		for (index, reach) in reached.iter().enumerate().skip(start) {
+			let source = &reach.source;
 			let Some(db) = cache.read_store(source.id).await else {
 				continue;
 			};
@@ -149,10 +154,13 @@ impl LibraryQuery for MediaSearchQuery {
 				let wanted = limit - files.len() - found.len();
 				let batch = sd_store::read::files_beneath(
 					db.pool(),
-					scope,
+					&reach.scope,
 					after
 						.as_ref()
-						.map(|(directory, name)| (directory.as_str(), name.as_str())),
+						.map_or(Start::First, |(directory, name)| Start::After {
+							directory,
+							name,
+						}),
 					Some(&extensions),
 					include_hidden,
 					wanted,
@@ -162,7 +170,7 @@ impl LibraryQuery for MediaSearchQuery {
 				let exhausted = batch.len() < wanted;
 
 				for entry in &batch {
-					after = Some(key_of(entry));
+					after = Some((entry.directory().to_string(), entry.name.clone()));
 					if let Some(file) = judge.admit(entry, &source.root) {
 						found.push(file);
 						if files.len() + found.len() == limit {
@@ -229,15 +237,6 @@ impl Judge<'_> {
 	}
 }
 
-/// Where a row sits in its store's order: its directory and its name.
-fn key_of(entry: &sd_store::FsEntry) -> (String, String) {
-	let directory = entry
-		.relative_path
-		.rsplit_once('/')
-		.map_or("", |(directory, _)| directory);
-	(directory.to_string(), entry.name.clone())
-}
-
 /// The extensions a page reads: those of images and videos, narrowed to the
 /// kinds and extensions the filters name. Lowercase, which is how the store
 /// compares them.
@@ -264,118 +263,10 @@ fn media_extensions(registry: &FileTypeRegistry, filters: &SearchFilters) -> Vec
 	extensions
 }
 
-/// The stores a scope reaches, each with the directory it is read from, in
-/// root order so pages run source by source.
-async fn stores_reaching(
-	context: &CoreContext,
-	scope: &SearchScope,
-) -> Vec<(SourceStatus, String)> {
-	// A source whose drive is not mounted has no root to build paths from.
-	let mut sources: Vec<SourceStatus> = context
-		.volume_index()
-		.sources()
-		.into_iter()
-		.filter(|source| !source.root.as_os_str().is_empty())
-		.collect();
-	sources.sort_by(|a, b| a.root.cmp(&b.root).then(a.id.cmp(&b.id)));
-
-	let path = match scope {
-		SearchScope::Library => {
-			return sources
-				.into_iter()
-				.map(|source| (source, String::new()))
-				.collect()
-		}
-		SearchScope::Path {
-			path: SdPath::Physical { device_slug, path },
-		} if *device_slug == crate::device::get_current_device_slug() => path,
-		SearchScope::Path { .. } => return Vec::new(),
-	};
-	// The volume decides how a path is spelled, so a scope reached through an
-	// alias such as /Users/me is rewritten before it meets any root.
-	let path = match context.volume_manager.locate_path(path).await {
-		Some((_, spelled)) => spelled,
-		None => path.clone(),
-	};
-	reach_path(sources, &path)
-}
-
-/// The sources that hold what is beneath `path`: the innermost one holding
-/// the path, read from the path down, and every one nested beneath the path,
-/// read whole. The innermost registered source keeps a path's records, so a
-/// nested source's files live in its own store rather than the outer one's.
-fn reach_path(sources: Vec<SourceStatus>, path: &Path) -> Vec<(SourceStatus, String)> {
-	let innermost = sources
-		.iter()
-		.filter(|source| path.starts_with(&source.root))
-		.max_by_key(|source| source.root.as_os_str().len())
-		.map(|source| source.id);
-	sources
-		.into_iter()
-		.filter_map(|source| {
-			if Some(source.id) == innermost {
-				// Store paths are relative with forward slashes whatever the
-				// host writes.
-				let relative = path
-					.strip_prefix(&source.root)
-					.ok()?
-					.to_str()?
-					.replace(std::path::MAIN_SEPARATOR, "/");
-				Some((source, relative))
-			} else if source.root.starts_with(path) {
-				Some((source, String::new()))
-			} else {
-				None
-			}
-		})
-		.collect()
-}
-
 #[cfg(test)]
 mod tests {
 	use super::*;
-
-	fn source(root: &str) -> SourceStatus {
-		SourceStatus {
-			id: Uuid::new_v4(),
-			root: PathBuf::from(root),
-			volume_uuid: None,
-			attached: true,
-			restored: true,
-			last_seen_secs: 0,
-			entry_count: None,
-			total_bytes: None,
-			directory: None,
-			thumbs_path: None,
-		}
-	}
-
-	fn reached(sources: &[SourceStatus], path: &str) -> Vec<(String, String)> {
-		reach_path(sources.to_vec(), &PathBuf::from(path))
-			.into_iter()
-			.map(|(source, scope)| (source.root.display().to_string(), scope))
-			.collect()
-	}
-
-	/// A folder is read from the innermost source holding it, and a source
-	/// nested beneath the folder is read whole, since its files are in its own
-	/// store. A folder above every source reaches each one beneath it.
-	#[test]
-	fn a_path_reaches_the_source_holding_it_and_those_nested_beneath() {
-		let sources = [source("/A"), source("/A/m"), source("/B")];
-
-		assert_eq!(reached(&sources, "/A/x"), [("/A".into(), "x".into())]);
-		assert_eq!(
-			reached(&sources, "/A"),
-			[("/A".into(), String::new()), ("/A/m".into(), String::new())]
-		);
-		assert_eq!(
-			reached(&sources, "/A/m/deep"),
-			[("/A/m".into(), "deep".into())]
-		);
-		assert_eq!(reached(&sources, "/").len(), 3);
-		assert!(reached(&sources, "/C").is_empty());
-	}
+	use std::path::PathBuf;
 
 	#[test]
 	fn media_extensions_narrow_to_the_kinds_and_types_asked_for() {

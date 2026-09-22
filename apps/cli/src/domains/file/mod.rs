@@ -10,6 +10,7 @@ use crate::util::prelude::*;
 use crate::context::Context;
 use sd_core::infra::job::types::JobId;
 use sd_core::infra::query::LibraryQuery;
+use sd_core::ops::paths::compare::{CompareBy, PathCompareOutput};
 
 use self::args::*;
 
@@ -21,6 +22,8 @@ pub enum FileCmd {
 	Info(FileInfoArgs),
 	/// List directory contents
 	List(FileListArgs),
+	/// Compare what two indexed folders hold
+	Compare(FileCompareArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
@@ -102,8 +105,65 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 				}
 			);
 		}
+		FileCmd::Compare(args) => {
+			let input = args.into_input()?;
+			let by = input.by;
+			let out: PathCompareOutput = execute_query!(ctx, input);
+			print_output!(ctx, &out, |o: &PathCompareOutput| print_comparison(by, o));
+		}
 	}
 	Ok(())
+}
+
+/// The counts, on a first page, then the page's files with each side's copy.
+fn print_comparison(by: CompareBy, out: &PathCompareOutput) {
+	if let Some(totals) = &out.totals {
+		println!("Only on the left:   {}", totals.only_left);
+		println!("Only on the right:  {}", totals.only_right);
+		if by == CompareBy::Location {
+			println!("Changed:            {}", totals.changed);
+		}
+		println!("Same:               {}", totals.same);
+		if totals.unhashed_left + totals.unhashed_right > 0 {
+			println!(
+				"Not hashed yet:     {} left, {} right",
+				totals.unhashed_left, totals.unhashed_right
+			);
+		}
+		println!();
+	}
+	if out.entries.is_empty() {
+		println!("No files in this set");
+		return;
+	}
+
+	let side = |file: &Option<sd_core::domain::File>| match file {
+		Some(file) => format!(
+			"{}  {}",
+			format_bytes(file.size),
+			file.modified_at.format("%Y-%m-%d %H:%M")
+		),
+		None => "-".to_string(),
+	};
+	let mut table = comfy_table::Table::new();
+	table.load_preset(UTF8_BORDERS_ONLY);
+	table.set_header(vec!["Path", "Left", "Right"]);
+	for entry in &out.entries {
+		table.add_row(vec![
+			entry.path.clone(),
+			side(&entry.left),
+			side(&entry.right),
+		]);
+	}
+	println!("{table}");
+
+	if let Some(next) = &out.next {
+		let after = match next.directory.as_str() {
+			"" => next.name.clone(),
+			directory => format!("{directory}/{}", next.name),
+		};
+		println!("More follow: --after '{after}'");
+	}
 }
 
 /// Run file copy with confirmation handling

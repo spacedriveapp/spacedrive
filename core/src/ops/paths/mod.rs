@@ -5,6 +5,9 @@
 //! `paths.system_folders` answers the other question clients ask about paths:
 //! which folders a person expects a file manager to already know.
 
+pub mod compare;
+pub mod reach;
+
 use std::{
 	path::{Path, PathBuf},
 	sync::Arc,
@@ -19,7 +22,6 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::query::{LibraryQuery, QueryError, QueryResult},
-	ops::indexing::volume_index::SourceStatus,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -144,7 +146,8 @@ impl LibraryQuery for PathContextQuery {
 
 		let availability = availability(&canonical).await;
 		let cache = context.volume_index();
-		let source_status = longest_source(cache.sources(), &canonical);
+		let sources = cache.sources();
+		let source_status = reach::innermost_source(&sources, &canonical).cloned();
 		let source = source_status.as_ref().map(|status| PathSourceContext {
 			id: status.id,
 			name: cache
@@ -265,13 +268,6 @@ fn empty_context(path: SdPath, availability: PathAvailability) -> PathContextOut
 	}
 }
 
-fn longest_source(sources: Vec<SourceStatus>, path: &Path) -> Option<SourceStatus> {
-	sources
-		.into_iter()
-		.filter(|source| !source.root.as_os_str().is_empty() && path.starts_with(&source.root))
-		.max_by_key(|source| source.root.as_os_str().len())
-}
-
 fn longest_ancestor(paths: Vec<PathBuf>, path: &Path) -> Option<PathBuf> {
 	paths
 		.into_iter()
@@ -387,21 +383,6 @@ crate::register_library_query!(SystemFoldersQuery, "paths.system_folders");
 mod tests {
 	use super::*;
 
-	fn source(root: &str) -> SourceStatus {
-		SourceStatus {
-			id: Uuid::now_v7(),
-			root: PathBuf::from(root),
-			volume_uuid: None,
-			attached: true,
-			restored: false,
-			last_seen_secs: 0,
-			entry_count: None,
-			total_bytes: None,
-			directory: None,
-			thumbs_path: None,
-		}
-	}
-
 	#[test]
 	fn path_components_choose_the_nearest_ancestor() {
 		let path = Path::new("/data/projects/spacedrive/docs");
@@ -413,16 +394,5 @@ mod tests {
 			Some(PathBuf::from("/data/projects"))
 		);
 		assert!(longest_ancestor(vec![PathBuf::from("/database")], path).is_none());
-	}
-
-	#[test]
-	fn nested_source_owns_the_path() {
-		let result = longest_source(
-			vec![source("/data"), source("/data/projects")],
-			Path::new("/data/projects/spacedrive"),
-		)
-		.expect("matching source");
-
-		assert_eq!(result.root, Path::new("/data/projects"));
 	}
 }

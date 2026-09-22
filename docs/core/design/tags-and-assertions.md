@@ -14,7 +14,8 @@
 **A source carries everything needed to read its own tags.** Definitions and
 applications both live in `source.db`, so a drive that arrives at a library that
 has never seen it presents named, colored, hierarchical tags rather than opaque
-uuids. `library.db` holds no tag definitions. `catalog.db` projects the union.
+uuids. `library.db` holds no tag definitions. The library's tag view is the
+union, read from every store at query time.
 
 This is what makes detaching a source a real operation instead of a partial one.
 Unplug the drive and the knowledge goes with it, because the knowledge was never
@@ -201,17 +202,15 @@ third is the only case with a decision in it, and it must stay a decision: my
 `Work` and a stranger's `Work` may not be the same concept, and a silent union is
 unrecoverable.
 
-## Projection and trust
+## The global view and trust
 
-`catalog.db` sweeps source stores into the global tag view: which tags exist
-anywhere, what they are applied to, across attached and detached sources alike. A
-detached source's tag rows in the catalog are **availability-bearing replicas**
-under the consolidation doc's artifact classes, so they are retained rather than
-evicted when the previous-good generation is all there is.
+The global tag view is read from the source stores at query time: which tags
+exist anywhere and what they are applied to, across attached and detached
+sources alike, since a detached source's store stays readable in the library.
 
-The trust rule applies unchanged. A catalog row is enough to browse by tag or
-render a badge. It is not enough to make a destructive decision, and a missing
-row is never proof a tag was removed.
+The trust rule applies unchanged. A tag row read from a store is enough to
+browse by tag or render a badge. It is not enough to make a destructive
+decision, and a missing row is never proof a tag was removed.
 
 ## What the definition may hold
 
@@ -256,8 +255,8 @@ definitions in `library.db`.
 
 - **Whether an application should ever be content-keyed only.** Today every
   application starts record-keyed. A tag applied to content the library knows
-  about but has no local record for has nowhere to live. The catalog is the
-  obvious home and is the wrong one, because it is authoritative about nothing.
+  about but has no local record for has nowhere to live, since every store
+  holds assertions about its own records only.
 - **Tag deletion across detached sources.** Deleting a definition while a drive
   is away leaves applications on that drive pointing at a tag the library no
   longer has. It reads as the foreign-library adoption case on return, which

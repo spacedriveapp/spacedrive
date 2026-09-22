@@ -1,8 +1,11 @@
 //! The read-only path against a real store: a cold SQLite file answering
 //! listings, lookups and folded name search with no writer and no arena.
 
-use sd_store::file::{FileKind, FileWrite, Ledger, Observation, Resolution};
-use sd_store::{filesystem_schema, read, SourceManager};
+use std::collections::HashSet;
+
+use sd_store::file::{FileKind, FileWrite, Ledger, Observation};
+use sd_store::record::ContentIdentity;
+use sd_store::{filesystem_schema, read, uuid_for, SourceManager};
 
 struct Fixture {
 	_dir: tempfile::TempDir,
@@ -261,20 +264,28 @@ async fn files_beneath_a_directory_page_in_path_order() {
 		"2019/trip/a.MOV",
 		"2019/trip/b.jpg",
 	];
-	let everything = read::files_beneath(db.pool(), "", None, Some(&media), false, 100)
-		.await
-		.expect("whole source");
+	let everything =
+		read::files_beneath(db.pool(), "", read::Start::First, Some(&media), false, 100)
+			.await
+			.expect("whole source");
 	assert_eq!(paths(&everything), whole);
 
-	let scoped = read::files_beneath(db.pool(), "2019", None, Some(&media), false, 100)
-		.await
-		.expect("one directory");
+	let scoped = read::files_beneath(
+		db.pool(),
+		"2019",
+		read::Start::First,
+		Some(&media),
+		false,
+		100,
+	)
+	.await
+	.expect("one directory");
 	assert_eq!(
 		paths(&scoped),
 		["2019/cover.jpg", "2019/trip/a.MOV", "2019/trip/b.jpg"]
 	);
 
-	let with_hidden = read::files_beneath(db.pool(), "2019", None, None, true, 100)
+	let with_hidden = read::files_beneath(db.pool(), "2019", read::Start::First, None, true, 100)
 		.await
 		.expect("every file");
 	assert_eq!(
@@ -297,7 +308,10 @@ async fn files_beneath_a_directory_page_in_path_order() {
 				"",
 				after
 					.as_ref()
-					.map(|(directory, name)| (directory.as_str(), name.as_str())),
+					.map_or(read::Start::First, |(directory, name)| read::Start::After {
+						directory,
+						name,
+					}),
 				Some(&media),
 				false,
 				limit,
@@ -316,4 +330,74 @@ async fn files_beneath_a_directory_page_in_path_order() {
 		}
 		assert_eq!(paged, whole, "pages of {limit}");
 	}
+
+	// Past the root-level files, a read starts at the first directory.
+	let directories = read::files_beneath(
+		db.pool(),
+		"",
+		read::Start::Directories,
+		Some(&media),
+		false,
+		100,
+	)
+	.await
+	.expect("from the first directory");
+	assert_eq!(paths(&directories), &whole[1..]);
+}
+
+/// A content lookup finds the bytes a scope holds wherever beneath it they
+/// sit, and nothing outside it, a sibling sharing its prefix included.
+#[tokio::test]
+async fn contents_beneath_a_directory_answer_by_scope() {
+	let fixture = Fixture::new().await;
+	populate(
+		&fixture,
+		&[
+			("2019", FileKind::Directory, false),
+			("2019/trip", FileKind::Directory, false),
+			("2019/trip/a.jpg", FileKind::File, false),
+			("2019/b.jpg", FileKind::File, false),
+			("2019-extra", FileKind::Directory, false),
+			("2019-extra/c.jpg", FileKind::File, false),
+			("top.jpg", FileKind::File, false),
+		],
+	)
+	.await;
+	let db = fixture.manager.open("drive-1").await.expect("open");
+	for (path, hash) in [
+		("2019/trip/a.jpg", "a"),
+		("2019/b.jpg", "b"),
+		("2019-extra/c.jpg", "c"),
+		("top.jpg", "top"),
+	] {
+		let record = read::entry_by_path(db.pool(), path)
+			.await
+			.expect("lookup")
+			.expect("file exists")
+			.uuid;
+		db.set_content_identity(
+			record,
+			&ContentIdentity {
+				sampled_hash: Some(hash.to_string()),
+				size: Some(42),
+				..Default::default()
+			},
+		)
+		.await
+		.expect("identity");
+	}
+
+	let asked = ["a", "b", "c", "top", "elsewhere"].map(uuid_for);
+	let in_2019 = read::contents_beneath(db.pool(), &asked, "2019")
+		.await
+		.expect("one directory");
+	assert_eq!(in_2019, HashSet::from([uuid_for("a"), uuid_for("b")]));
+
+	let everywhere = read::contents_beneath(db.pool(), &asked, "")
+		.await
+		.expect("whole source");
+	assert_eq!(
+		everywhere,
+		HashSet::from(["a", "b", "c", "top"].map(uuid_for))
+	);
 }

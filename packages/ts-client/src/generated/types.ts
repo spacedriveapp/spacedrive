@@ -165,6 +165,61 @@ limit?: number | null };
 
 export type CollectionListingOutput = { display_name: string; files: File[]; total_count: number };
 
+export type CompareBy = 
+/**
+ * Files match when they sit at the same path relative to their folder.
+ */
+"location" | 
+/**
+ * Files match when they hold the same bytes, wherever they sit.
+ */
+"content";
+
+/**
+ * Where a page ended: its last file's directory, relative to the folder it
+ * was listed from, and its name.
+ */
+export type CompareCursor = { directory: string; name: string };
+
+/**
+ * One listed file, on the side its set names. A location comparison's changed
+ * and same files have both sides, the files at the same place; a content
+ * comparison lists one side only, as its bytes can sit in many places on the
+ * other.
+ */
+export type CompareEntry = { 
+/**
+ * Where the listed file sits relative to its side's folder, with forward
+ * slashes.
+ */
+path: string; left: File | null; right: File | null };
+
+export type CompareSet = 
+/**
+ * On the left and not the right.
+ */
+"only_left" | 
+/**
+ * On the right and not the left.
+ */
+"only_right" | 
+/**
+ * At the same place on both sides with different bytes; by location only.
+ */
+"changed" | 
+/**
+ * On both sides: at the same place with the same bytes by location, and
+ * the same bytes anywhere on the right by content.
+ */
+"same";
+
+export type CompareTotals = { only_left: number; only_right: number; changed: number; same: number; 
+/**
+ * Files with no content id yet: a content comparison cannot match them,
+ * and a location comparison judges them by size and modification time.
+ */
+unhashed_left: number; unhashed_right: number };
+
 /**
  * Network connection method for a device
  */
@@ -2893,6 +2948,32 @@ export type PairingSessionSummary = { id: string; state: SerializablePairingStat
 
 export type PathAvailability = "available" | "permission_denied" | "missing" | "unavailable" | "remote" | "unsupported";
 
+export type PathCompareInput = { left: SdPath; right: SdPath; by: CompareBy; show: CompareSet; 
+/**
+ * Whether hidden files take part.
+ */
+include_hidden?: boolean; 
+/**
+ * Where the previous page ended; `None` for the first page, which also
+ * counts every set.
+ */
+after: CompareCursor | null; 
+/**
+ * Entries per page.
+ */
+limit: number };
+
+export type PathCompareOutput = { entries: CompareEntry[]; 
+/**
+ * Where the next page starts; `None` after the last.
+ */
+next: CompareCursor | null; 
+/**
+ * Every set's count, on the first page only, since counting reads both
+ * sides whole.
+ */
+totals: CompareTotals | null };
+
 export type PathContextInput = { path: SdPath };
 
 export type PathContextOutput = { 
@@ -4913,6 +4994,7 @@ export type LibraryQuery =
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
   |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
+  |  { type: 'paths.compare'; input: PathCompareInput; output: PathCompareOutput }
   |  { type: 'paths.context'; input: PathContextInput; output: PathContextOutput }
   |  { type: 'paths.system_folders'; input: SystemFoldersInput; output: SystemFoldersOutput }
   |  { type: 'redundancy.summary'; input: RedundancySummaryInput; output: RedundancySummaryOutput }
@@ -5066,6 +5148,7 @@ export const WIRE_METHODS = {
     'jobs.info': 'query:jobs.info',
     'jobs.list': 'query:jobs.list',
     'libraries.info': 'query:libraries.info',
+    'paths.compare': 'query:paths.compare',
     'paths.context': 'query:paths.context',
     'paths.system_folders': 'query:paths.system_folders',
     'redundancy.summary': 'query:redundancy.summary',

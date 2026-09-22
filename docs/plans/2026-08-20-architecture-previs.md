@@ -15,7 +15,7 @@ unix socket or websocket and speak JSON-RPC against a registry of ops. Nothing
 below the daemon is reachable from a client, and the daemon holds no file rows
 of its own.
 
-Storage is five tiers, three durable and two rebuildable:
+Storage is four tiers, two durable and two rebuildable:
 
 ```mermaid
 flowchart TB
@@ -24,14 +24,12 @@ flowchart TB
         SRC["source.db × N<br/><i>one per source</i><br/>records · facets · content · edges<br/>identity ledger · assertions"]
     end
     subgraph derived["Rebuildable"]
-        CAT["catalog.db<br/><i>placement projection</i>"]
         ARENA["arena<br/><i>in-memory, per source</i>"]
         PV["thumbs.pvcache × N<br/><i>mmap tile cache</i>"]
     end
     FS[("filesystem<br/>+ adapters")] --> OBS["observation stream"]
     OBS --> ARENA
     OBS --> SRC
-    SRC --> CAT
     SRC --> PV
     LIB -.->|registry| SRC
 ```
@@ -82,7 +80,7 @@ lets attachment stop being guessed: a source is attached when its volume is
 online and its root resolves under that volume's current mount point. Nothing
 stats a path to find out whether a drive is present.
 
-## The five tiers
+## The four tiers
 
 **`library.db`** — small, durable, one per library. Source registry, settings,
 devices, volumes, space definitions, spaces, jobs, audit log, cloud credentials,
@@ -97,12 +95,6 @@ content hashes.
 facets, FTS, content, edges) and the durable layer (identity ledger, assertions)
 in one file, so a batch of observations and the watermark that records them
 commit or fail together. **[decision]** — see the end.
-
-**`catalog.db`** — a projection, swept from source stores. Global enumeration
-and placement rows: which content lives on which source, at what path, last seen
-when. It answers the questions no single source can — alternates, redundancy,
-at-risk, search across a drive that is currently in a drawer. It is authoritative
-about nothing. Delete it and it rebuilds.
 
 **The arena** — in-memory, per source, the hot read tier. A packed node arena
 with a name trie, size rollups maintained incrementally, and snapshot
@@ -120,6 +112,16 @@ time it is browsed. Frames are stored packed at their true aspect with their
 dimensions in the slot header, never letterboxed: square presentations are a
 crop at render time, so one bake serves every surface and no background color is
 ever baked into a tile.
+
+**No tier spans sources.** Which content lives on which source, at what path,
+last seen when: each store answers for its own records, detached ones included,
+since a detached drive's store is a file on this machine, and convergent content
+ids let the answers join. Alternates, redundancy, at-risk and search across a
+drive that is currently in a drawer are queries of that shape, asked of the
+stores at query time, so there is no projection to rebuild or to fall behind
+the stores it was swept from. A store kept on its source rather than in the
+library answers offline only through a retained library copy
+(`2026-09-16-add-to-library.md`).
 
 ## Identity
 
@@ -228,14 +230,13 @@ improve is free and needs no schema change.
 
 ## Trust
 
-The catalog is a projection, and projections lie. A drive that has been
+An index records what was true when it was written. A drive that has been
 unplugged for a month reports placements that may no longer exist.
 
-The rule is absolute and applies from the day the catalog first ships: **no
-destructive decision is ever made from a projection row.** "You have this on two
-drives, delete one" requires both drives present and both content ids confirmed
-from integrity hashes, not sampled ones. The catalog can *suggest* — it is the
-only tier that can see across sources, so suggestion is its whole job — but the
+The rule is absolute: **no destructive decision is ever made from an index row
+alone.** "You have this on two drives, delete one" requires both drives present
+and both content ids confirmed from integrity hashes, not sampled ones. A
+cross-source query can *suggest*, and that is its whole job, while the
 confirmation path always goes back to the source that actually holds the bytes.
 
 The candidate/confirmed distinction in the content id type is what enforces
@@ -248,7 +249,7 @@ coerce into one.
 |---|---|
 | `entry`, `entry_closure`, `directory_paths` | records in `source.db`; arena for hot reads |
 | `location` + `ops/locations/*` | sources, discovered by mount, identified by fingerprint |
-| `content_identity` (library-wide table) | `content` per source, convergent ids, catalog for cross-source |
+| `content_identity` (library-wide table) | `content` per source, convergent ids, joined across stores at query time |
 | `user_metadata` + `user_metadata_tag` | durable assertions in `source.db`; tag definitions replicated into every source that uses them |
 | `sidecar`, `sidecar_availability`, media data tables | derivatives as assertions, content-keyed per source |
 | `collection` / `collection_entry` | index-time classification flags |
@@ -295,8 +296,10 @@ Each of these could go the other way. They are the things to push on.
    is no production install base, and it stops being defensible the moment there
    is one.
 
-5. **Cross-source answers are absent until the catalog exists,** rather than
-   keeping `content_identity` alive to serve them during the transition.
+5. **Cross-source answers read the source stores at query time,** rather than a
+   library-wide table. `content_identity` was not kept alive to serve them
+   during the transition, and no projection replaces it: each store answers for
+   its own records and convergent content ids join the answers.
 
 6. **A store's rebuildability is a property of its origin, tracked per source
    and over time.** The alternative is the flat rule this document originally
@@ -322,9 +325,9 @@ Each of these could go the other way. They are the things to push on.
 
 - **[open] Global search latency at scale.** Fan-out over N sources with
   per-source FTS and a merge is fine for a handful of drives. The shape of the
-  answer at fifty sources, most of them detached, is not worked out. The catalog
-  is the obvious place to hold a global index, but that makes it authoritative
-  for search results, which sits uneasily beside "authoritative about nothing."
+  answer at fifty sources, most of them detached, is not worked out. A global
+  index would answer it, at the cost of a second copy of every store to keep
+  current, which is what answering at query time avoids.
 
 - **[open] What happens to a source whose fingerprint is unavailable.** Network
   mounts and some cloud volumes have no stable fingerprint. Falling back to path

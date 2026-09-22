@@ -110,8 +110,10 @@ sources come back watched and hashing resumes.
 ## Sources
 
 - `sources track <path>` canonicalizes the path on the machine running the
-  CLI, registers the source and queues a walk, with a low-priority hashing job
-  behind it. Tracking a mount point covers the whole drive.
+  CLI, registers the source and queues a walk and a low-priority hashing job.
+  The hashing job can start before the walk writes anything and finish having
+  hashed nothing; `index start --defaults` after the walk hashes what it found.
+  Tracking a mount point covers the whole drive.
 - `--unfiltered` also records system files, `.git` and dev directories, which
   archival drives want. `sources update <id> --unfiltered true` widens an
   existing source and walks for what was skipped; `false` narrows future
@@ -148,6 +150,25 @@ whatever `--format` says.
 - One call takes at most 1000 targets.
 - `tag delete <id>` removes the tag and every application of it in every
   source this daemon can write.
+
+## Compare folders
+
+`file compare <left> <right>` compares two indexed folders from their source
+stores, without reading either drive. Both paths are canonicalized locally and
+must sit inside tracked sources on mounted drives.
+
+- `--by location`, the default, pairs files by their path relative to each
+  folder. `--show` picks `only-left` (the default), `only-right`, `changed` or
+  `same`. A pair is the same when its content ids match or, where either side
+  is unhashed, when size and modification time match.
+- `--by content` asks whether a file's bytes exist anywhere under the other
+  folder, whatever the file is called: `--show only-left` is what a backup is
+  missing. `changed` is refused. Files with no content id are counted as "Not
+  hashed yet" and listed in no set, so hash both sides first.
+- The first page prints every set's count. `--limit` sizes a page (100, at most
+  5000) and `More follow: --after '<path>'` continues it. A full page always
+  offers `--after`, so the page after the last can come back empty.
+- `--include-hidden` brings in hidden files.
 
 ## Jobs and logs
 

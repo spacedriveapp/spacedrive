@@ -12,6 +12,8 @@
 //! SQLite's own `lower()` and `LIKE` fold ASCII only and would silently miss
 //! case pairs outside it.
 
+use std::collections::HashSet;
+
 use crate::error::Result;
 use crate::file::FileKind;
 use sqlx::{FromRow, SqlitePool};
@@ -43,6 +45,17 @@ pub struct FsEntry {
 	pub content_uuid: Option<Uuid>,
 	pub content_kind: Option<i64>,
 	pub content_error: Option<String>,
+}
+
+impl FsEntry {
+	/// The directory the entry sits in, relative to the source root; "" at
+	/// the root. With the name, it is the entry's place in the order
+	/// [`files_beneath`] reads in.
+	pub fn directory(&self) -> &str {
+		self.relative_path
+			.rsplit_once('/')
+			.map_or("", |(directory, _)| directory)
+	}
 }
 
 /// Every column [`FsEntry`] is built from, over the aliases `r` (the record),
@@ -239,11 +252,23 @@ pub async fn children_of(
 	Ok(rows.into_iter().filter_map(entry_from_row).collect())
 }
 
+/// Where a page of [`files_beneath`] starts, in its order.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Start<'a> {
+	/// At the first file.
+	First,
+	/// After the file named `name` in `directory`, "" for the source root.
+	After { directory: &'a str, name: &'a str },
+	/// Past the files directly under the source root, at the first directory.
+	/// A reader merging stores lands here when its position falls between a
+	/// store's root-level files and its directories.
+	Directories,
+}
+
 /// Up to `limit` files beneath the directory at `scope` (source-relative, ""
 /// for the source root) at any depth, in the order of their directory's path
-/// and then their name, starting after `after` as `(directory, name)`.
-/// Files directly under the source root have no directory row and come
-/// first, as directory "".
+/// and then their name, from `start`. Files directly under the source root
+/// have no directory row and come first, as directory "".
 ///
 /// The order is the one the `directory_path` path index and each directory's
 /// sibling index already keep, so a page reads its own rows and stops rather
@@ -253,7 +278,7 @@ pub async fn children_of(
 pub async fn files_beneath(
 	pool: &SqlitePool,
 	scope: &str,
-	after: Option<(&str, &str)>,
+	start: Start<'_>,
 	extensions: Option<&[String]>,
 	include_hidden: bool,
 	limit: usize,
@@ -262,7 +287,7 @@ pub async fn files_beneath(
 		return Ok(Vec::new());
 	}
 	let mut entries = Vec::new();
-	for statement in beneath_statements(scope, after, extensions, include_hidden) {
+	for statement in beneath_statements(scope, start, extensions, include_hidden) {
 		let mut query = sqlx::query_as::<_, EntryRow>(&statement.sql);
 		for value in &statement.binds {
 			query = query.bind(value);
@@ -279,6 +304,39 @@ pub async fn files_beneath(
 	Ok(entries)
 }
 
+/// Which of `contents` some file beneath the directory at `scope` holds, ""
+/// for the whole source. Answered from the content and record indexes a chunk
+/// at a time, so asking about a page of files costs a page of lookups rather
+/// than a read of the store.
+pub async fn contents_beneath(
+	pool: &SqlitePool,
+	contents: &[Uuid],
+	scope: &str,
+) -> Result<HashSet<Uuid>> {
+	let (scope_terms, scope_binds) = beneath_scope(scope);
+	let mut present = HashSet::new();
+	for chunk in contents.chunks(400) {
+		let mut conditions = vec![format!("c.uuid IN ({})", vec!["?"; chunk.len()].join(", "))];
+		conditions.extend(scope_terms.iter().cloned());
+		let sql = format!(
+			"SELECT DISTINCT c.uuid FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+			 WHERE {}",
+			conditions.join(" AND ")
+		);
+		let mut query = sqlx::query_scalar::<_, Uuid>(&sql);
+		for content in chunk {
+			query = query.bind(content);
+		}
+		for value in &scope_binds {
+			query = query.bind(value);
+		}
+		present.extend(query.fetch_all(pool).await?);
+	}
+	Ok(present)
+}
+
 /// One statement of a [`files_beneath`] page: its SQL, ending in `LIMIT ?`,
 /// and the text it binds before the limit, in order.
 struct Statement {
@@ -286,12 +344,30 @@ struct Statement {
 	binds: Vec<String>,
 }
 
+/// The terms over `parent.path` that hold a query to the directory at `scope`
+/// and everything beneath it, with their binds; none for the whole source.
+/// `[scope, scope + "0")` holds the scope and its descendants, since '0' is
+/// the byte after '/'. It also holds siblings that only share the prefix,
+/// like "scope-2", which the second term drops.
+fn beneath_scope(scope: &str) -> (Vec<String>, Vec<String>) {
+	if scope.is_empty() {
+		return (Vec::new(), Vec::new());
+	}
+	(
+		vec![
+			"parent.path < ?".to_string(),
+			"(parent.path = ? OR parent.path >= ?)".to_string(),
+		],
+		vec![format!("{scope}0"), scope.to_string(), format!("{scope}/")],
+	)
+}
+
 /// The statements a page runs in turn: the files directly under the source
 /// root, when the scope is the root and the page has not moved past them,
 /// then the files in directories.
 fn beneath_statements(
 	scope: &str,
-	after: Option<(&str, &str)>,
+	start: Start<'_>,
 	extensions: Option<&[String]>,
 	include_hidden: bool,
 ) -> Vec<Statement> {
@@ -312,12 +388,19 @@ fn beneath_statements(
 
 	let mut statements = Vec::new();
 
-	let after_directory = after.map(|(directory, _)| directory);
-	if scope.is_empty() && after_directory.is_none_or(str::is_empty) {
+	let root_files = match start {
+		Start::First => Some(None),
+		Start::After {
+			directory: "",
+			name,
+		} => Some(Some(name)),
+		Start::After { .. } | Start::Directories => None,
+	};
+	if let (true, Some(after_name)) = (scope.is_empty(), root_files) {
 		let mut conditions = vec!["r.parent_uuid IS NULL".to_string()];
 		conditions.extend(shared.iter().cloned());
 		let mut binds = shared_binds.clone();
-		if let Some((_, name)) = after {
+		if let Some(name) = after_name {
 			conditions.push("r.title > ?".to_string());
 			binds.push(name.to_string());
 		}
@@ -330,20 +413,9 @@ fn beneath_statements(
 		});
 	}
 
-	let mut conditions = Vec::new();
-	let mut binds = Vec::new();
-	if !scope.is_empty() {
-		// `[scope, scope + "0")` holds the scope and everything beneath it,
-		// since '0' is the byte after '/'. It also holds siblings that only
-		// share the prefix, like "scope-2", which the second term drops.
-		conditions.push("parent.path < ?".to_string());
-		binds.push(format!("{scope}0"));
-		conditions.push("(parent.path = ? OR parent.path >= ?)".to_string());
-		binds.push(scope.to_string());
-		binds.push(format!("{scope}/"));
-	}
-	match after.filter(|(directory, _)| !directory.is_empty()) {
-		Some((directory, name)) => {
+	let (mut conditions, mut binds) = beneath_scope(scope);
+	match start {
+		Start::After { directory, name } if !directory.is_empty() => {
 			conditions.push("parent.path >= ?".to_string());
 			binds.push(directory.to_string());
 			// With the path at or past the cursor's directory, a later
@@ -353,11 +425,11 @@ fn beneath_statements(
 			binds.push(directory.to_string());
 			binds.push(name.to_string());
 		}
-		None if !scope.is_empty() => {
+		_ if !scope.is_empty() => {
 			conditions.push("parent.path >= ?".to_string());
 			binds.push(scope.to_string());
 		}
-		None => {}
+		_ => {}
 	}
 	conditions.extend(shared);
 	binds.extend(shared_binds);
@@ -460,11 +532,36 @@ mod tests {
 	use crate::file::filesystem_schema;
 	use crate::source::SourceManager;
 
-	/// Neither statement of a page sorts. A plan that did would read the whole
-	/// subtree for every page, which is the cost the cursor exists to avoid.
-	/// Plans depend on the schema alone, so an empty store answers.
+	/// The steps of a query's plan, as SQLite describes them.
+	async fn plan(
+		pool: &SqlitePool,
+		sql: &str,
+		binds: &[String],
+		limit: Option<i64>,
+	) -> Vec<String> {
+		let sql = format!("EXPLAIN QUERY PLAN {sql}");
+		let mut query = sqlx::query_as::<_, (i64, i64, i64, String)>(&sql);
+		for value in binds {
+			query = query.bind(value);
+		}
+		if let Some(limit) = limit {
+			query = query.bind(limit);
+		}
+		query
+			.fetch_all(pool)
+			.await
+			.expect("plan")
+			.into_iter()
+			.map(|(_, _, _, detail)| detail)
+			.collect()
+	}
+
+	/// Neither statement of a page sorts, and a content lookup never scans the
+	/// records. A plan that sorted would read the whole subtree for every page,
+	/// which is the cost the cursor exists to avoid. Plans depend on the schema
+	/// alone, so an empty store answers.
 	#[tokio::test]
-	async fn a_page_beneath_a_directory_follows_the_indexes() {
+	async fn reads_beneath_a_directory_follow_the_indexes() {
 		let dir = tempfile::tempdir().expect("tempdir");
 		let manager = SourceManager::new(dir.path().to_path_buf());
 		manager
@@ -475,32 +572,59 @@ mod tests {
 		let extensions = vec!["jpg".to_string(), "mov".to_string()];
 
 		let pages = [
-			("", None),
-			("", Some(("", "a.jpg"))),
-			("", Some(("2019/trip", "b.jpg"))),
-			("2019", None),
-			("2019", Some(("2019/trip", "b.jpg"))),
+			("", Start::First),
+			(
+				"",
+				Start::After {
+					directory: "",
+					name: "a.jpg",
+				},
+			),
+			(
+				"",
+				Start::After {
+					directory: "2019/trip",
+					name: "b.jpg",
+				},
+			),
+			("", Start::Directories),
+			("2019", Start::First),
+			(
+				"2019",
+				Start::After {
+					directory: "2019/trip",
+					name: "b.jpg",
+				},
+			),
 		];
-		for (scope, after) in pages {
-			for statement in beneath_statements(scope, after, Some(&extensions), false) {
-				let sql = format!("EXPLAIN QUERY PLAN {}", statement.sql);
-				let mut query = sqlx::query_as::<_, (i64, i64, i64, String)>(&sql);
-				for value in &statement.binds {
-					query = query.bind(value);
-				}
-				let plan: Vec<String> = query
-					.bind(100_i64)
-					.fetch_all(db.pool())
-					.await
-					.expect("plan")
-					.into_iter()
-					.map(|(_, _, _, detail)| detail)
-					.collect();
+		for (scope, start) in pages {
+			for statement in beneath_statements(scope, start, Some(&extensions), false) {
+				let steps = plan(db.pool(), &statement.sql, &statement.binds, Some(100)).await;
 				assert!(
-					!plan.iter().any(|step| step.contains("TEMP B-TREE")),
-					"scope {scope:?} after {after:?} sorts: {plan:?}"
+					!steps.iter().any(|step| step.contains("TEMP B-TREE")),
+					"scope {scope:?} from {start:?} sorts: {steps:?}"
 				);
 			}
 		}
+
+		let (terms, binds) = beneath_scope("2019");
+		let lookup = format!(
+			"SELECT DISTINCT c.uuid FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+			 WHERE c.uuid IN (?) AND {}",
+			terms.join(" AND ")
+		);
+		let mut lookup_binds = vec![Uuid::nil().to_string()];
+		lookup_binds.extend(binds);
+		let steps = plan(db.pool(), &lookup, &lookup_binds, None).await;
+		assert!(
+			steps.iter().any(|step| step.contains("idx_content_uuid")),
+			"a content lookup starts from the content index: {steps:?}"
+		);
+		assert!(
+			!steps.iter().any(|step| step.starts_with("SCAN r")),
+			"a content lookup never scans the records: {steps:?}"
+		);
 	}
 }

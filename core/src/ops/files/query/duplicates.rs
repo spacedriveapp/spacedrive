@@ -8,7 +8,7 @@
 //! What this cannot see yet is the file that exists exactly once here and once
 //! on another drive. Each store answers about its own records, so a group has to
 //! be duplicated *somewhere* before it can be noticed at all. Finding the rest
-//! means an index of content uuids across every source, which is the catalog.
+//! means asking each store which of the other stores' content ids it holds.
 
 use crate::{
 	context::CoreContext,

@@ -1018,8 +1018,7 @@ impl Library {
 	///
 	/// Each store counts its own `content` rows, which are one per identity, so
 	/// a file held twice inside a source counts once. Two *sources* holding the
-	/// same file still count twice, because no store can see another; folding
-	/// those together is what the catalog is for.
+	/// same file still count twice, because each store counts on its own.
 	async fn calculate_unique_content_count(
 		&self,
 		db: &sea_orm::DatabaseConnection,

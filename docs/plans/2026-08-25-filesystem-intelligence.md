@@ -4,10 +4,12 @@
 > (`2026-08-22-source-convergence.md`), which is what makes any of this
 > reachable.
 >
-> **Related.** `2026-08-20-entries-teardown.md` phase 5 already names
-> `catalog.db` as "global enumeration + placement rows swept from source
-> stores". That sentence turns out to be the whole feature, and this document
-> is the argument for pulling it forward.
+> **Related.** `2026-08-20-entries-teardown.md` phase 5 named `catalog.db` as
+> "global enumeration + placement rows swept from source stores". Those rows
+> turn out to be the whole feature, and the separate database is unnecessary:
+> a source store stays readable while its drive is detached, so placement is
+> asked of the stores at query time. This document is the argument for
+> building those queries now.
 > `2026-08-20-architecture-previs.md` is the destination.
 > `docs/core/design/source-durability.md` settles what a store owes when its
 > origin stops answering, which is the case a detached drive lives in.
@@ -51,16 +53,16 @@ NAS, run in place, to build a throwaway map that answers one question once.
 ## The primitive
 
 The open question was what the planning primitive should be. It falls out of
-the catalog, which is already designed.
+placement, which the source stores already hold.
 
-**The catalog holds actual placement. A plan is a desired placement. The
+**The source stores hold actual placement. A plan is a desired placement. The
 workflow is the diff.**
 
 That is the whole model:
 
 | | Rows | Written by | Meaning |
 |---|---|---|---|
-| Catalog | `(content_uuid, source_id, external_id)` | swept from source stores | where bytes are now |
+| Placement | `(content_uuid, source_id, external_id)` | read from source stores at query time | where bytes are now |
 | Plan | `(content_uuid, target_source_id, reason)` | a person, or their agent | where bytes should be |
 | Workflow | the diff, ordered | derived | how to get from one to the other |
 
@@ -103,6 +105,13 @@ notes about a directory is exactly this table, and directories are records, so
 attaching to a subtree needs nothing new. What it needs is an author field, so
 a model's claim is distinguishable from a person's.
 
+**Questions across drives are answered at query time.** Each store is its own
+SQLite file, so a question spanning drives reads every store and merges the
+answers, with no second copy to keep current. Global search reads every store,
+detached ones included (T4.10). `files.alternate_instances` finds every copy of
+one file's content. `paths.compare` compares two folders by location or by
+content, streaming both sides in index order.
+
 **Content identity is already tiered.** `crates/store/src/content.rs` splits
 `ContentId` into `Candidate` (sampled hash) and `Confirmed` (integrity hash),
 with the rule that a destructive decision requires the confirmed tier. That
@@ -110,10 +119,11 @@ distinction is load-bearing for this feature and is examined below.
 
 ## What does not exist
 
-- **Cross-source anything.** `sd-store` says it outright: "Nothing here spans
-  sources. That arrives with the catalog." Duplicates across drives, at-risk
-  filters, and global search are all catalog work, and the catalog is currently
-  scheduled last.
+- **Duplicates across drives, and at-risk content.** Both are queries over the
+  stores, the same shape as alternates and compare. `files.duplicates` groups
+  within each store and merges the groups, so a file held once on each of two
+  drives is invisible to it, and the redundancy views have no query behind
+  them.
 - **MCP.** Nothing in the tree.
 - **Any model runtime.** `crates/sdk/src/ai.rs` is extension stubs with no
   inference behind them, so the local provider client, the agent loop, and its
@@ -142,13 +152,11 @@ the specific pairs a person is about to act on. `ContentId::confirmed()`
 already encodes that gate; the planner has to respect it rather than treat a
 candidate as an answer.
 
-**Nothing climbs the ladder yet.** `SourceDb::set_content_identity` and
-`records_needing_content_identity` are written and tested with no production
-caller, and the walk skips content identification outright
-(`job.rs`, `Phase::ContentIdentification`). So there are no content ids in the
-sources path at all, which means no duplicate detection, which is the headline
-question. A sampled-hash job over `records_needing_content_identity` is the
-missing piece and it is bounded by file count rather than bytes.
+**The sampled tier is its own job.** `ContentIdentityJob` hashes the records
+`records_needing_content_identity` returns, bounded by file count rather than
+bytes. `sources track` dispatches it with the walk and the startup pass runs it
+for every source. `sources verify` climbs a source's duplicate files to the
+confirmed tier by reading every byte.
 
 **The planner's objective is bytes not moved.** Moving data is bounded by the
 same physics as reading it, so a good plan is mostly a plan to leave things
@@ -332,23 +340,23 @@ second into the first is the rest of convergence P3.
 
 **Content ids stay out of the walk.** They are their own job, deliberately: the
 walk is fast and worth keeping fast, and `records_needing_content_identity` is
-already the query a separate pass would drive. Nothing generates them yet, which
-is the gap noted below.
+the query that job drives.
 
-**P2. Catalog.** Pull `catalog.db` forward from teardown phase 5. Global
-enumeration plus placement rows swept from source stores. This is the keystone:
-duplicates, at-risk, and global search over detached drives all appear the
-moment it exists. It reads from source stores, which now exist, so it does not
-depend on the entries teardown finishing.
+**P2. Cross-source queries.** Duplicates, at-risk and compare, asked of the
+source stores at query time with no `catalog.db`. A detached drive's store is
+still on this machine, so reading the stores answers everything a swept
+projection would, and nothing goes stale when a drive changes. Search over
+detached drives, alternates and content tags already work this way, and
+`paths.compare` has landed. Duplicates across stores and at-risk are next.
 
-**P3. MCP.** Expose inventory, map queries, and catalog answers as tools. Small
+**P3. MCP.** Expose inventory, map queries, and cross-source answers as tools. Small
 surface, and the point at which the use case becomes real for an outside agent
 even with no planning primitive at all. Complete by rule: anything the app can
 do, an outside agent can do. Also the tool surface P5 runs on, so it lands
 first.
 
-**P4. Plan and workflow.** Desired placement rows, the diff against catalog
-placement, capacity and time projection from volume speed, per-step reasoning,
+**P4. Plan and workflow.** Desired placement rows, the diff against the
+placement the stores hold, capacity and time projection from volume speed, per-step reasoning,
 and an executor with resume. Redundancy expressed as a placement constraint.
 
 The workflow row is the same shape as a job preset
@@ -378,8 +386,8 @@ Worth stating separately from the product, because the two are not the same
 scope and confusing them would cost the deadline.
 
 An actual 160TB migration needs P1, P2 and P3, and nothing else. Register every
-drive once, let each one index while attached, sweep placement into the
-catalog, expose it over MCP, and plan by conversation. Moves get executed by
+drive once, let each one index and hash while attached, expose placement over
+MCP, and plan by conversation. Moves get executed by
 whatever tool is already trusted for moving bytes, and verification is a
 re-index and a placement diff.
 
@@ -397,10 +405,10 @@ should, because that clock runs whether or not the rest is written.
   filesystem source look like the same concept wearing two names. Leaning
   toward the source absorbing it, which would fold the question into the
   teardown rather than answering it separately.
-- **Where does the catalog live?** Library-scoped is the obvious answer, but
-  the migration case involves a person carrying drives between machines, so
-  whether a catalog can be handed to another device is worth settling before
-  the schema sets.
+- **Carrying the map between machines.** Placement lives in the source
+  stores, so handing the map to another device means handing it the stores.
+  The migration case, a person carrying drives between machines, is worth
+  checking against the sync design before it sets.
 - **Sampled hash cost on a NAS.** The sampled tier is IOPS-bound, and a spinning
   array over a network is exactly where IOPS is scarce. Worth measuring on real
   hardware before promising that the candidate map is cheap.
