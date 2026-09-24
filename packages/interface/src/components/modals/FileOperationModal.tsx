@@ -1,23 +1,39 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
 	Files,
 	FolderOpen,
-	Warning,
-	CircleNotch,
 	ArrowRight,
 	Copy as CopyIcon,
 	ArrowsLeftRight,
+	FolderSimplePlus,
+	Eye,
 } from "@phosphor-icons/react";
 import {
+	Button,
 	Dialog,
 	dialogManager,
+	toast,
 	useDialog,
 	type UseDialogProps,
 } from "@spacedrive/primitives";
-import type { SdPath, File as FileType } from "@sd/ts-client";
-import { useLibraryMutation, useLibraryQuery } from "../../contexts/SpacedriveContext";
+import type {
+	FileConflictResolution,
+	FileCopyInput,
+	SdPath,
+	File as FileType,
+} from "@sd/ts-client";
+import { RefusedError } from "@sd/ts-client";
+import {
+	useLibraryMutation,
+	useLibraryPreview,
+	useLibraryQuery,
+	useLibraryValidate,
+} from "../../contexts/SpacedriveContext";
 import { File, FileStack } from "../../routes/explorer/File";
+import { usePlanPreviewStore } from "../../routes/explorer/hooks/usePlanPreview";
+import { useMergeFoldersDialog } from "./MergeFoldersModal";
+import { hasErrors, pathName, PreflightPanel } from "./PreflightPanel";
 
 interface FileOperationDialogProps {
 	id: number;
@@ -27,13 +43,15 @@ interface FileOperationDialogProps {
 	onComplete?: () => void;
 }
 
-type ConflictResolution = "Overwrite" | "AutoModifyName" | "Skip" | "Abort";
+/** The code copy validation gives a folder copied onto a folder of its name. */
+const FOLDER_COLLISION = "copy.folder_collision";
 
-type DialogPhase =
-	| { type: "form" }
-	| { type: "executing" }
-	| { type: "error"; message: string };
-
+/**
+ * The copy and move dialog, with preflight: the daemon validates and previews
+ * the exact input the dialog would dispatch, as its options change, and an
+ * error finding gates the confirm button. A folder dropped on a same-name
+ * folder is offered a merge beside copy and move.
+ */
 export function useFileOperationDialog() {
 	return (options: Omit<FileOperationDialogProps, "id">) => {
 		return dialogManager.create((props: UseDialogProps) => (
@@ -45,126 +63,138 @@ export function useFileOperationDialog() {
 function FileOperationDialog(props: FileOperationDialogProps) {
 	const dialog = useDialog(props);
 	const form = useForm();
-	const [phase, setPhase] = useState<DialogPhase>({ type: "form" });
 	const [operation, setOperation] = useState<"copy" | "move">(props.operation);
-	const [conflictResolution, setConflictResolution] = useState<ConflictResolution>("Skip");
+	const [conflictResolution, setConflictResolution] =
+		useState<FileConflictResolution>("Skip");
+	const [failure, setFailure] = useState<string | null>(null);
 
+	const input = useMemo<FileCopyInput>(
+		() => ({
+			sources: { paths: props.sources },
+			destination: props.destination,
+			overwrite: conflictResolution === "Overwrite",
+			verify_checksum: false,
+			preserve_timestamps: true,
+			move_files: operation === "move",
+			copy_method: "Auto",
+			on_conflict: conflictResolution,
+		}),
+		[props.sources, props.destination, operation, conflictResolution],
+	);
+
+	const validation = useLibraryValidate({ type: "files.copy", input });
+	const preview = useLibraryPreview({ type: "files.copy", input });
 	const copyFiles = useLibraryMutation("files.copy");
+	const openMergeFolders = useMergeFoldersDialog();
+	const enterPreview = usePlanPreviewStore((state) => state.enter);
 
 	// Fetch file info for sources (up to 3 for FileStack)
-	const sourcePaths = props.sources.slice(0, 3).map(s =>
-		"Physical" in s ? s.Physical.path : null
-	).filter((p): p is string => p !== null);
+	const sourcePaths = props.sources
+		.slice(0, 3)
+		.map((s) => ("Physical" in s ? s.Physical.path : null))
+		.filter((p): p is string => p !== null);
 
-	const sourceFileQueries = sourcePaths.map(path =>
-		useLibraryQuery(
-			{ type: "files.by_path", input: { path } },
-			{ enabled: !!path }
-		)
+	const sourceFileQueries = sourcePaths.map((path) =>
+		useLibraryQuery({ type: "files.by_path", input: { path } }, { enabled: !!path }),
 	);
 
 	const sourceFiles = sourceFileQueries
-		.map(q => q.data)
+		.map((q) => q.data)
 		.filter((f): f is FileType => f !== undefined && f !== null);
 
-	// Fetch destination folder info
-	const destPath: string | null = "Physical" in props.destination
-		? props.destination.Physical.path
-		: null;
+	const destPath: string | null =
+		"Physical" in props.destination ? props.destination.Physical.path : null;
 
 	const { data: destFile } = useLibraryQuery(
 		{ type: "files.by_path", input: { path: destPath! } },
-		{ enabled: !!destPath }
+		{ enabled: !!destPath },
 	);
 
-	// Check if any source is the same as destination
-	const hasSameSourceDest = props.sources.some((source) => {
-		if ("Physical" in source && "Physical" in props.destination) {
-			return source.Physical.path === props.destination.Physical.path;
-		}
-		return false;
-	});
+	// A single folder copied onto a folder of its name can merge instead.
+	const collision = validation.data?.findings.find(
+		(finding) => finding.code === FOLDER_COLLISION,
+	);
+	const mergeInto = props.sources.length === 1 ? (collision?.path ?? null) : null;
 
-	// Auto-close if invalid operation (must be in useEffect to avoid render loop)
-	useEffect(() => {
-		if (hasSameSourceDest) {
-			dialogManager.setState(props.id, { open: false });
-		}
-	}, [hasSameSourceDest, props.id]);
-
-	if (hasSameSourceDest) {
-		return null;
-	}
+	const refused = hasErrors(validation.data);
+	const close = () => dialogManager.setState(props.id, { open: false });
 
 	const handleSubmit = async () => {
+		setFailure(null);
 		try {
-			setPhase({ type: "executing" });
-
-			// Execute with the user's chosen operation and conflict resolution
-			await copyFiles.mutateAsync({
-				sources: { paths: props.sources },
-				destination: props.destination,
-				overwrite: conflictResolution === "Overwrite",
-				verify_checksum: false,
-				preserve_timestamps: true,
-				move_files: operation === "move",
-				copy_method: "Auto",
-				on_conflict: conflictResolution,
-			});
-
-			// Close immediately on success
-			dialogManager.setState(props.id, { open: false });
+			await copyFiles.mutateAsync(input);
+			close();
 			props.onComplete?.();
 		} catch (error) {
-			setPhase({
-				type: "error",
-				message: error instanceof Error ? error.message : "Operation failed",
-			});
+			if (error instanceof RefusedError) {
+				setFailure(
+					error.validation.findings.map((finding) => finding.message).join("; "),
+				);
+			} else {
+				setFailure(error instanceof Error ? error.message : "Operation failed");
+			}
 		}
 	};
 
-	const handleCancel = () => {
-		dialogManager.setState(props.id, { open: false });
+	const handleMerge = () => {
+		if (!mergeInto) return;
+		close();
+		openMergeFolders({
+			sources: props.sources,
+			destination: mergeInto,
+			consume: operation === "move",
+			onComplete: props.onComplete,
+		});
+	};
+
+	const browse = () => {
+		if (!preview.data) return;
+		enterPreview({
+			source: { type: "files.copy", input },
+			plan: preview.data,
+			label: `${operation === "copy" ? "Copy" : "Move"} ${props.sources.length} ${
+				props.sources.length === 1 ? "item" : "items"
+			} to ${pathName(props.destination)}`,
+		});
+		toast.info("Browsing the result; exit the preview from the bar above the files");
+		close();
 	};
 
 	// Keyboard shortcuts
 	useEffect(() => {
-		if (phase.type !== "form") return;
-
 		const handleKeyDown = (e: KeyboardEvent) => {
-			// Enter - Submit
 			if (e.key === "Enter" && !e.shiftKey) {
 				e.preventDefault();
-				handleSubmit();
+				if (!refused && !copyFiles.isPending) void handleSubmit();
 				return;
 			}
 
 			// Only handle other shortcuts if not typing in an input
 			if ((e.target as HTMLElement)?.tagName === "INPUT") return;
 
-			// ⌘1 / Ctrl+1 - Copy mode
 			if ((e.metaKey || e.ctrlKey) && e.key === "1") {
 				e.preventDefault();
 				e.stopPropagation();
 				setOperation("copy");
 			}
-			// ⌘2 / Ctrl+2 - Move mode
 			if ((e.metaKey || e.ctrlKey) && e.key === "2") {
 				e.preventDefault();
 				e.stopPropagation();
 				setOperation("move");
 			}
-			// S - Skip
+			if ((e.metaKey || e.ctrlKey) && e.key === "3" && mergeInto) {
+				e.preventDefault();
+				e.stopPropagation();
+				handleMerge();
+			}
 			if (e.key === "s" && !e.metaKey && !e.ctrlKey) {
 				e.preventDefault();
 				setConflictResolution("Skip");
 			}
-			// K - Keep both
 			if (e.key === "k" && !e.metaKey && !e.ctrlKey) {
 				e.preventDefault();
 				setConflictResolution("AutoModifyName");
 			}
-			// O - Overwrite
 			if (e.key === "o" && !e.metaKey && !e.ctrlKey) {
 				e.preventDefault();
 				setConflictResolution("Overwrite");
@@ -173,73 +203,32 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 
 		window.addEventListener("keydown", handleKeyDown);
 		return () => window.removeEventListener("keydown", handleKeyDown);
-	}, [phase.type, operation, conflictResolution]);
-
-	// Executing state
-	if (phase.type === "executing") {
-		return (
-			<Dialog
-				dialog={dialog}
-				form={form}
-				title={operation === "copy" ? "Copying Files" : "Moving Files"}
-				icon={<Files size={20} weight="bold" />}
-				hideButtons
-			>
-				<div className="space-y-3 py-6">
-					<div className="flex items-center justify-center gap-3">
-						<CircleNotch className="size-6 text-accent animate-spin" weight="bold" />
-						<span className="text-sm text-ink">
-							{operation === "copy" ? "Copying files..." : "Moving files..."}
-						</span>
-					</div>
-				</div>
-			</Dialog>
-		);
-	}
-
-	// Error state
-	if (phase.type === "error") {
-		return (
-			<Dialog
-				dialog={dialog}
-				form={form}
-				title="Operation Failed"
-				icon={<Warning size={20} weight="fill" className="text-red-500" />}
-				ctaLabel="Close"
-				onSubmit={form.handleSubmit(handleCancel)}
-			>
-				<div className="flex flex-col gap-4 py-4">
-					<div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/20 rounded-md">
-						<Warning className="size-5 text-red-500 mt-0.5" weight="fill" />
-						<div className="flex-1">
-							<div className="text-sm font-medium text-ink mb-1">Error</div>
-							<div className="text-xs text-ink-dull">{phase.message}</div>
-						</div>
-					</div>
-				</div>
-			</Dialog>
-		);
-	}
+	});
 
 	const sourceCount = props.sources.length;
 	const pluralItems = sourceCount === 1 ? "item" : "items";
+	const summary = preview.data?.summary;
+	const verb = operation === "copy" ? "Copy" : "Move";
+	const ctaLabel = summary
+		? `${verb} ${summary.creates.files + summary.replaces.files + summary.moves.files} files`
+		: verb;
 
-	// Form state - let user choose operation and conflict resolution
 	return (
 		<Dialog
 			dialog={dialog}
 			form={form}
 			title="File Operation"
 			icon={<Files size={20} weight="bold" />}
-			ctaLabel={operation === "copy" ? "Copy" : "Move"}
+			ctaLabel={ctaLabel}
+			submitDisabled={refused || validation.isLoading || copyFiles.isPending}
+			loading={copyFiles.isPending}
 			onSubmit={form.handleSubmit(handleSubmit)}
-			onCancelled={handleCancel}
-			formClassName="!min-w-[400px] !max-w-[400px]"
+			onCancelled={close}
+			formClassName="!min-w-[480px] !max-w-[480px]"
 		>
 			<div className="space-y-5 py-2">
 				{/* Source → Destination visual */}
 				<div className="flex items-center gap-4">
-					{/* Source */}
 					<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
 						{sourceFiles.length > 0 ? (
 							<>
@@ -274,12 +263,10 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 						)}
 					</div>
 
-					{/* Arrow */}
 					<div className="flex-shrink-0">
 						<ArrowRight className="size-6 text-accent" weight="bold" />
 					</div>
 
-					{/* Destination */}
 					<div className="flex-1 flex flex-col items-center gap-2 min-w-0">
 						{destFile ? (
 							<>
@@ -297,7 +284,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 								<div className="text-center">
 									<div className="text-xs text-ink-dull mb-0.5">To</div>
 									<div className="text-sm font-medium text-ink truncate max-w-full">
-										{getFileName(props.destination)}
+										{pathName(props.destination)}
 									</div>
 								</div>
 							</>
@@ -307,37 +294,38 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 
 				{/* Operation type selection */}
 				<div className="space-y-2">
-					<div className="text-xs font-medium text-ink-dull mb-2">
-						Operation:
-					</div>
+					<div className="text-xs font-medium text-ink-dull mb-2">Operation:</div>
 					<div className="flex gap-2">
-						<button
-							type="button"
+						<OperationButton
+							active={operation === "copy"}
 							onClick={() => setOperation("copy")}
-							className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-								operation === "copy"
-									? "bg-accent text-white"
-									: "bg-app-box text-ink hover:bg-app-hover"
-							}`}
-						>
-							<CopyIcon className="size-4" weight="bold" />
-							Copy
-							<span className="text-xs opacity-60">⌘1</span>
-						</button>
-						<button
-							type="button"
+							icon={<CopyIcon className="size-4" weight="bold" />}
+							label="Copy"
+							shortcut="⌘1"
+						/>
+						<OperationButton
+							active={operation === "move"}
 							onClick={() => setOperation("move")}
-							className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-								operation === "move"
-									? "bg-accent text-white"
-									: "bg-app-box text-ink hover:bg-app-hover"
-							}`}
-						>
-							<ArrowsLeftRight className="size-4" weight="bold" />
-							Move
-							<span className="text-xs opacity-60">⌘2</span>
-						</button>
+							icon={<ArrowsLeftRight className="size-4" weight="bold" />}
+							label="Move"
+							shortcut="⌘2"
+						/>
+						{mergeInto && (
+							<OperationButton
+								active={false}
+								onClick={handleMerge}
+								icon={<FolderSimplePlus className="size-4" weight="bold" />}
+								label="Merge"
+								shortcut="⌘3"
+							/>
+						)}
 					</div>
+					{mergeInto && (
+						<div className="text-[11px] text-ink-dull">
+							A folder named {pathName(mergeInto)} is already there. Merge combines this
+							one with it, file by file, after showing the plan.
+						</div>
+					)}
 				</div>
 
 				{/* Conflict resolution options */}
@@ -346,11 +334,13 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 						If files already exist:
 					</div>
 					<div className="space-y-1">
-						{[
-							{ value: "Skip", label: "Skip existing files", key: "S" },
-							{ value: "AutoModifyName", label: "Keep both (rename new files)", key: "K" },
-							{ value: "Overwrite", label: "Overwrite existing files", key: "O" },
-						].map((option) => (
+						{(
+							[
+								{ value: "Skip", label: "Skip existing files", key: "S" },
+								{ value: "AutoModifyName", label: "Keep both (rename new files)", key: "K" },
+								{ value: "Overwrite", label: "Overwrite existing files", key: "O" },
+							] as { value: FileConflictResolution; label: string; key: string }[]
+						).map((option) => (
 							<label
 								key={option.value}
 								className="flex items-center justify-between gap-2 px-2 py-2 rounded-md hover:bg-app-hover cursor-pointer transition-colors"
@@ -361,7 +351,7 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 										name="conflict-resolution"
 										value={option.value}
 										checked={conflictResolution === option.value}
-										onChange={() => setConflictResolution(option.value as ConflictResolution)}
+										onChange={() => setConflictResolution(option.value)}
 										className="size-4 accent-accent cursor-pointer"
 									/>
 									<span className="text-sm text-ink">{option.label}</span>
@@ -371,29 +361,62 @@ function FileOperationDialog(props: FileOperationDialogProps) {
 						))}
 					</div>
 				</div>
+
+				<PreflightPanel
+					validation={validation.data}
+					validating={validation.isFetching}
+					plan={preview.data}
+					planning={preview.isFetching}
+					planError={preview.error}
+				/>
+
+				{failure && (
+					<div className="rounded-md border border-red-500/20 bg-red-500/10 px-2.5 py-2 text-xs text-red-500">
+						{failure}
+					</div>
+				)}
+
+				<div className="flex justify-end">
+					<Button
+						type="button"
+						variant="outline"
+						size="sm"
+						disabled={!preview.data}
+						onClick={browse}
+					>
+						<Eye className="mr-1.5 size-4" weight="bold" />
+						Browse the result
+					</Button>
+				</div>
 			</div>
 		</Dialog>
 	);
 }
 
-// Utility functions
-function getFileName(path: SdPath): string {
-	if (!path || typeof path !== "object") {
-		return "Unknown";
-	}
-
-	if ("Physical" in path && path.Physical) {
-		const pathStr = path.Physical.path || "";
-		const parts = pathStr.split("/");
-		return parts[parts.length - 1] || pathStr;
-	}
-
-	if ("Cloud" in path && path.Cloud) {
-		const pathStr = path.Cloud.path || "";
-		const parts = pathStr.split("/");
-		return parts[parts.length - 1] || pathStr;
-	}
-
-	return "Unknown";
+function OperationButton({
+	active,
+	onClick,
+	icon,
+	label,
+	shortcut,
+}: {
+	active: boolean;
+	onClick: () => void;
+	icon: React.ReactNode;
+	label: string;
+	shortcut: string;
+}) {
+	return (
+		<button
+			type="button"
+			onClick={onClick}
+			className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+				active ? "bg-accent text-white" : "bg-app-box text-ink hover:bg-app-hover"
+			}`}
+		>
+			{icon}
+			{label}
+			<span className="text-xs opacity-60">{shortcut}</span>
+		</button>
+	);
 }
-

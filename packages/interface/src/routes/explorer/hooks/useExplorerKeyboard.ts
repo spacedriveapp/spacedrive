@@ -75,7 +75,11 @@ export function useExplorerKeyboard() {
 		() => {
 			if (selectedFiles.length === 0) return;
 			const sdPaths = selectedFiles.map((f) => f.sd_path);
-			clipboard.copyFiles(sdPaths, currentPath);
+			clipboard.copyFiles(
+				sdPaths,
+				currentPath,
+				selectedFiles.every((f) => f.kind === "Directory"),
+			);
 		},
 		{ enabled: selectedFiles.length > 0 },
 	);
@@ -86,7 +90,11 @@ export function useExplorerKeyboard() {
 		() => {
 			if (selectedFiles.length === 0) return;
 			const sdPaths = selectedFiles.map((f) => f.sd_path);
-			clipboard.cutFiles(sdPaths, currentPath);
+			clipboard.cutFiles(
+				sdPaths,
+				currentPath,
+				selectedFiles.every((f) => f.kind === "Directory"),
+			);
 		},
 		{ enabled: selectedFiles.length > 0 },
 	);

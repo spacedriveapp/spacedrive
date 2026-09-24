@@ -23,6 +23,7 @@ import {
 	type ExpandableSearchFieldHandle
 } from './components/ExpandableSearchButton';
 import {PathBar} from './components/PathBar';
+import {PlanPreviewBanner} from './components/PlanPreviewBanner';
 import {VirtualPathBar} from './components/VirtualPathBar';
 import {
 	getSpaceItemKeyFromRoute,
@@ -421,6 +422,7 @@ export function ExplorerView({
 				)}
 			>
 				{searchBar !== 'closed' && <SearchToolbar ref={searchBarRef} />}
+				<PlanPreviewBanner />
 				<div
 					className={clsx(
 						'flex-1',

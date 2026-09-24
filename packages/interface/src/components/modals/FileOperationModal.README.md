@@ -1,248 +1,87 @@
-# File Operation Modal - Usage Guide
+# File operation dialogs
 
-## Overview
+Two dialogs run file operations through the daemon's preflight checks: `FileOperationModal`
+for copy and move, `MergeFoldersModal` for merging folders. Both ask the
+daemon the two questions before an execution, over the exact input they
+would dispatch, and render the answers through the shared `PreflightPanel`:
 
-The File Operation Modal provides a clean, interactive UI for copying and moving files with validation-based confirmations. It's designed to work with the core validation system and can be extended to show simulation previews in the future.
+- **Validate** says whether and how the operation would run: findings with a
+  stable code and a severity, and the facts of the execution (where it runs,
+  the strategy, estimated files and bytes, free space after). It re-runs as
+  options change and an error finding disables the confirm button. The daemon
+  runs the same validation again at dispatch, so a refused action surfaces as
+  a `RefusedError` with the findings.
+- **Preview** says what would exist afterward, as an `FsPlan` read from the
+  index: counts per kind of change, the conflicts and replacements as rows,
+  and the store revisions it read. It is advisory; the job applies the same
+  decisions leaf by leaf against the live filesystem.
 
-## Features
+Neither dialog does conflict math of its own.
 
-### Phase 1: Validation & Confirmation (Current)
-- ✅ Interactive conflict resolution (overwrite/rename/skip)
-- ✅ Real-time validation feedback
-- ✅ Progress tracking during execution
-- ✅ Error handling with clear messages
-- ✅ Drag-and-drop support
-
-### Phase 2: Simulation (Future)
-- 🔜 Detailed operation preview (file count, size, time estimate)
-- 🔜 Deduplication analysis (bytes saved)
-- 🔜 Space availability checking
-- 🔜 Network transfer estimates for cross-device operations
-
-## Basic Usage
-
-### Programmatic
+## Copy and move
 
 ```tsx
-import { useFileOperationDialog } from '@sd/interface';
+const openFileOperation = useFileOperationDialog();
 
-function MyComponent() {
-  const openFileOperation = useFileOperationDialog();
-
-  const handleCopyFiles = () => {
-    openFileOperation({
-      operation: "copy",
-      sources: [
-        { Physical: { device_slug: "", path: "/source/file1.txt" } },
-        { Physical: { device_slug: "", path: "/source/file2.txt" } },
-      ],
-      destination: { Physical: { device_slug: "", path: "/destination/" } },
-      onComplete: () => {
-        console.log("Operation completed!");
-      },
-    });
-  };
-
-  return <button onClick={handleCopyFiles}>Copy Files</button>;
-}
-```
-
-### Drag and Drop
-
-#### In Sidebar Locations
-
-The `LocationsSection` component already has drag-drop enabled:
-
-```tsx
-// Just drop files onto a location in the sidebar
-// The modal will automatically open with validation
-```
-
-#### In Explorer Folders
-
-Use `DropZoneFile` for folders that can receive drops:
-
-```tsx
-import { DropZoneFile, useFileOperationDialog } from '@sd/interface';
-
-function FolderGrid({ folders, selectedFiles }) {
-  const openFileOperation = useFileOperationDialog();
-
-  const handleFilesDropped = (
-    sources: SdPath[],
-    destination: SdPath,
-    operation: "copy" | "move"
-  ) => {
-    openFileOperation({
-      operation,
-      sources,
-      destination,
-    });
-  };
-
-  return (
-    <div className="grid grid-cols-4 gap-4">
-      {folders.map((folder) => (
-        <DropZoneFile
-          key={folder.id}
-          file={folder}
-          selectedFiles={selectedFiles}
-          onFilesDropped={handleFilesDropped}
-        >
-          <File.Thumb file={folder} />
-          <File.Title file={folder} />
-        </DropZoneFile>
-      ))}
-    </div>
-  );
-}
-```
-
-#### Making Files Draggable
-
-The `File` component is already draggable by default:
-
-```tsx
-import { File } from '@sd/interface';
-
-// Files are draggable by default
-<File file={file} selectedFiles={allSelectedFiles}>
-  <File.Thumb file={file} />
-  <File.Title file={file} />
-</File>
-
-// Disable dragging if needed
-<File file={file} draggable={false}>
-  ...
-</File>
-```
-
-**Drag behavior:**
-- Default: Copy operation
-- Hold Alt/Option: Move operation
-- Dragging single file: Just that file
-- Dragging selected file when multiple selected: All selected files
-
-## Modal Phases
-
-### 1. Validating
-Shows a spinner while checking for conflicts and validating the operation.
-
-### 2. Requires Confirmation
-Displays conflict resolution options when destination files exist:
-- Overwrite existing files
-- Keep both (auto-rename with counter)
-- Skip conflicting files
-
-### 3. Ready (with optional Simulation)
-When simulation is implemented, this phase will show:
-- File/folder counts
-- Total size and bytes to transfer
-- Deduplication savings
-- Space availability
-- Time estimate
-
-### 4. Executing
-Shows progress bar and current operation status.
-
-### 5. Completed
-Brief success message before auto-closing.
-
-### 6. Error
-Displays error message with option to close.
-
-## Validation System Integration
-
-The modal integrates with the core validation system:
-
-1. **Modal opens** → Shows validating state
-2. **Core validates** → Returns `ValidationResult`
-3. **If conflicts** → Shows confirmation choices
-4. **User selects** → Calls `resolve_confirmation(choice_index)`
-5. **Execute** → Runs the operation with resolved conflicts
-
-## Future: Simulation Integration
-
-When simulation is added, the flow will be:
-
-1. **Validate** (fast, required)
-2. **Simulate** (optional, for large operations)
-3. **Show preview** with detailed stats
-4. **Execute** on user confirmation
-
-The modal is designed to smoothly add simulation data without breaking the current flow.
-
-## Styling
-
-The modal uses semantic Tailwind classes:
-- `bg-app-box` / `bg-app` for backgrounds
-- `text-ink` / `text-ink-dull` / `text-ink-faint` for text hierarchy
-- `border-app-line` for borders
-- `bg-accent` / `text-accent` for primary actions
-- Status colors: `bg-yellow-500/10`, `bg-green-500`, `bg-red-500/10`
-
-## Accessibility
-
-- Keyboard navigation supported
-- Focus management with Radix Dialog
-- Clear visual states (hover, active, dragging)
-- Screen reader friendly labels
-
-## Examples
-
-### Copy to Location
-```tsx
-// Drag files from explorer onto a location in sidebar
-// Modal opens automatically with validation
-```
-
-### Move to Folder
-```tsx
-// Hold Alt/Option and drag files onto a folder
-// Modal opens with move operation
-```
-
-### Programmatic Copy
-```tsx
-const openFileOp = useFileOperationDialog();
-
-openFileOp({
+openFileOperation({
   operation: "copy",
-  sources: selectedFiles.map(f => f.sd_path),
+  sources: selectedFiles.map((f) => f.sd_path),
   destination: folderPath,
+  onComplete: () => clipboard.clearClipboard(),
 });
 ```
 
-## Architecture
+The dialog offers Copy and Move (⌘1, ⌘2) and a policy for files that already
+exist: skip (S), keep both (K), overwrite (O). When a single folder is copied onto
+a folder of its name, copy validation names the collision (`copy.folder_collision`)
+and the dialog offers **Merge** (⌘3) as a third choice, which closes it and
+opens the merge dialog with that folder as the destination. A move is a
+consuming plan: the source tree ends gone and the destination tree grown.
 
-```
-FileOperationModal
-├── Uses: useLibraryMutation('files.copy')
-├── State: DialogPhase (validating → confirmation → ready → executing → completed)
-├── Validation: Integrates with core ValidationResult
-└── Future: Will display SimulationResult when available
+## Merge
 
-DropZoneFile (for folders)
-├── Uses: useGlobalFileDrag hook
-├── Detects: Folder kind only
-├── Visual: Ring/border on drag over
-└── Triggers: FileOperationModal on drop
+```tsx
+const openMergeFolders = useMergeFoldersDialog();
 
-DropZoneSidebarItem (for locations)
-├── Uses: useGlobalFileDrag hook
-├── Accepts: Any file drops
-├── Visual: Ring/border on drag over
-└── Triggers: FileOperationModal on drop
-
-File (base component)
-├── Draggable: By default
-├── Multi-select: Drags all selected files
-└── Operation: Copy (default) or Move (Alt/Option)
+openMergeFolders({
+  sources: [folderA, folderB],
+  destination: existingFolder,
+  policy: "skip",      // skip | overwrite | keep_both | keep_newer
+  consume: false,      // remove settled leaves from the sources
+});
 ```
 
-## Notes
+Three ways in:
 
-- The modal currently simulates validation with a timeout - replace with actual daemon `validate` endpoint when available
-- Conflict detection is currently random (50%) - will use real validation once daemon protocol is updated
-- Progress tracking will connect to job system events in future
-- Simulation preview UI is ready but needs backend data
+- **Context menu.** With only folders on the clipboard, a folder's context
+  menu shows "Merge into '<name>'". Its destination is the right-clicked
+  folder, unlike Paste, which targets the current directory. After a cut the
+  merge consumes the sources.
+- **Drag with Option held.** dnd-kit delivers no modifier state, so
+  `hooks/useModifierKeys.ts` tracks the keys at the window; `DndProvider`
+  reads them at drop time and opens the merge dialog when every dragged item
+  is a folder and the target is a folder.
+- **A plain drop that collides.** The operation modal offers Merge as above.
+
+While a drag hovers a folder in the grid, the folder validates the drop and
+badges the first error or warning, such as a folder copied into itself.
+
+## Browsing the result
+
+Both dialogs have "Browse the result". A preview's plan is retained by the
+daemon under a handle, and the explorer's preview mode
+(`routes/explorer/hooks/usePlanPreview.ts`) passes that handle as `overlay`
+with every directory listing. Listings then come back as the directory would
+look after the operation: rows the plan would create appear ghosted, rows it
+would delete are struck, rows it skips are dimmed, and every touched row
+carries a badge naming the change. Beneath a source a merge consumes, what
+the merge settles is marked as removed and what it does not stays with its reason.
+The banner above the files names the operation and exits the mode. A handle
+the daemon let lapse is rebuilt from the same input.
+
+## Styling
+
+Semantic Tailwind classes only: `bg-app-box` and `bg-app` for surfaces,
+`text-ink`, `text-ink-dull`, `text-ink-faint` for the text hierarchy,
+`bg-accent` for the primary action, and `red-500` and `amber-500` tints for
+error and warning findings.

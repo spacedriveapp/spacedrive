@@ -5,6 +5,7 @@ import type { File, SdPath } from "@sd/ts-client";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import { ColumnItem } from "./ColumnItem";
 import { useExplorer } from "../../context";
+import { usePlanPreviewStore } from "../../hooks/usePlanPreview";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useSelection } from "../../SelectionContext";
 
@@ -128,6 +129,7 @@ export const Column = memo(function Column({
 	const parentRef = useRef<HTMLDivElement>(null);
 	const { viewSettings, sortBy } = useExplorer();
 	const { selectedFiles } = useSelection();
+	const overlay = usePlanPreviewStore((state) => state.preview?.plan.handle ?? null);
 
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
@@ -137,6 +139,7 @@ export const Column = memo(function Column({
 			include_hidden: false,
 			sort_by: sortBy as any,
 			folders_first: viewSettings.foldersFirst,
+			overlay,
 		},
 		resourceType: "file",
 		pathScope: path ?? undefined,

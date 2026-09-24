@@ -11,6 +11,7 @@ import {
 	FilmStrip,
 	FolderOpen,
 	FolderPlus,
+	FolderSimplePlus,
 	Image,
 	MagnifyingGlass,
 	Microphone,
@@ -29,6 +30,7 @@ import type {File} from '@sd/ts-client';
 import {getContentKind, isVirtualFile} from '@sd/ts-client';
 import { toast } from '@spacedrive/primitives';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
+import {useMergeFoldersDialog} from '../../../components/modals/MergeFoldersModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
@@ -79,6 +81,7 @@ export function useFileContextMenu({
 	};
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
+	const openMergeFolders = useMergeFoldersDialog();
 	const {startRename} = useSelection();
 
 	// Get physical paths for file opening
@@ -355,7 +358,11 @@ export function useFileContextMenu({
 						return;
 					}
 					const sdPaths = targets.map((f) => f.sd_path);
-					clipboard.copyFiles(sdPaths, currentPath);
+					clipboard.copyFiles(
+						sdPaths,
+						currentPath,
+						targets.every((f) => f.kind === 'Directory')
+					);
 				},
 				keybindId: 'explorer.copy',
 				condition: () => !hasVirtualFiles
@@ -373,7 +380,11 @@ export function useFileContextMenu({
 						return;
 					}
 					const sdPaths = targets.map((f) => f.sd_path);
-					clipboard.cutFiles(sdPaths, currentPath);
+					clipboard.cutFiles(
+						sdPaths,
+						currentPath,
+						targets.every((f) => f.kind === 'Directory')
+					);
 				},
 				keybindId: 'explorer.cut',
 				condition: () => !hasVirtualFiles
@@ -427,6 +438,31 @@ export function useFileContextMenu({
 				},
 				keybindId: 'explorer.paste',
 				condition: () => clipboard.hasClipboard()
+			},
+			{
+				icon: FolderSimplePlus,
+				label: `Merge into '${file?.name ?? ''}'`,
+				// Paste lands the clipboard in the current directory; this
+				// folds the held folders into the folder under the pointer,
+				// after showing what that would do. A cut consumes them.
+				onClick: () => {
+					if (!file || !clipboard.hasClipboard()) return;
+					const consume = clipboard.operation === 'cut';
+					openMergeFolders({
+						sources: clipboard.files,
+						destination: file.sd_path,
+						consume,
+						onComplete: () => {
+							if (consume) clipboard.clearClipboard();
+						}
+					});
+				},
+				condition: () =>
+					clipboard.hasClipboard() &&
+					clipboard.foldersOnly &&
+					!!file &&
+					file.kind === 'Directory' &&
+					!hasVirtualFiles
 			},
 			{
 				icon: TagIconComponent,

@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useMemo, useRef } from "react";
 import type { SdPath, File } from "@sd/ts-client";
 import { useExplorer } from "../../context";
+import { usePlanPreviewStore } from "../../hooks/usePlanPreview";
 import { useSelection } from "../../SelectionContext";
 import { useNormalizedQuery } from "../../../../contexts/SpacedriveContext";
 import type { DirectorySortBy } from "@sd/ts-client";
@@ -181,6 +182,7 @@ export function ColumnView() {
 	}, [selectedFiles, columnStack, isVirtualView]);
 
 	const activeColumnPath = columnStack[activeColumnIndex];
+	const overlay = usePlanPreviewStore((state) => state.preview?.plan.handle ?? null);
 
 	// Query files for the active column (for keyboard navigation)
 	const activeColumnQuery = useNormalizedQuery({
@@ -192,6 +194,7 @@ export function ColumnView() {
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
 					folders_first: viewSettings.foldersFirst,
+					overlay,
 				}
 			: null!,
 		resourceType: "file",

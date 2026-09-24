@@ -15,8 +15,10 @@ import { useSidebarStore } from "@sd/ts-client";
 import type { File, SdPath } from "@sd/ts-client";
 import { useSpaces } from "./SpacesSidebar/hooks/useSpaces";
 import { useFileOperationDialog } from "./modals/FileOperationModal";
+import { useMergeFoldersDialog } from "./modals/MergeFoldersModal";
 import { File as FileComponent } from "../routes/explorer/File";
 import { useTabManager } from "./TabManager/useTabManager";
+import { modifierKeysNow, useModifierKeyTracker } from "../hooks/useModifierKeys";
 
 /**
  * DndProvider - Global drag-and-drop coordinator
@@ -36,6 +38,8 @@ import { useTabManager } from "./TabManager/useTabManager";
  *    - Data: { action, targetType, targetId, targetPath? }
  *    - targetType: "volume" | "folder"
  *    - targetPath: SdPath, directly usable
+ *    - Folders dropped on a folder with Option held open the merge dialog;
+ *      dnd-kit carries no modifier state, so the window tracker answers
  *
  * 3. type: "space" | "group"
  *    - Legacy: Drops on the space root or group area (no specific item)
@@ -54,6 +58,8 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 	const reorderItems = useLibraryMutation("spaces.reorder_items");
 	const reorderGroups = useLibraryMutation("spaces.reorder_groups");
 	const openFileOperation = useFileOperationDialog();
+	const openMergeFolders = useMergeFoldersDialog();
+	useModifierKeyTracker();
 	const [activeItem, setActiveItem] = useState<any>(null);
 	const client = useSpacedriveClient();
 	const queryClient = useQueryClient();
@@ -349,12 +355,19 @@ export function DndProvider({ children }: { children: React.ReactNode }) {
 				return;
 			}
 
-			// Determine operation based on modifier keys
-			// For now default to copy (user can choose in modal)
-			const operation = "copy";
+			// Folders dropped on a folder with Option held merge into it.
+			// Without the key the operation modal decides, and offers a
+			// merge itself when the drop collides with a same-name folder.
+			const dragged: File[] = dragData.selectedFiles ?? [dragData.file];
+			const folders =
+				dragged.length > 0 && dragged.every((f) => f?.kind === "Directory");
+			if (modifierKeysNow().alt && folders && dropData.targetType === "folder") {
+				openMergeFolders({ sources, destination });
+				return;
+			}
 
 			openFileOperation({
-				operation,
+				operation: "copy",
 				sources,
 				destination,
 			});

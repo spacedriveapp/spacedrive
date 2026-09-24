@@ -14,6 +14,8 @@ export {
 	useLibraryQuery,
 	useCoreMutation,
 	useLibraryMutation,
+	useLibraryValidate,
+	useLibraryPreview,
 	useNormalizedQuery,
 } from "@sd/ts-client/hooks";
 

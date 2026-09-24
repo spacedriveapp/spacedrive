@@ -2,7 +2,7 @@ import { memo, useCallback } from "react";
 import { flexRender, type Row } from "@tanstack/react-table";
 import clsx from "clsx";
 
-import type { File } from "@sd/ts-client";
+import type { ChangeKind, File } from "@sd/ts-client";
 
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
@@ -13,6 +13,8 @@ import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { isVirtualFile } from '@sd/ts-client';
 import { InlineNameEdit } from "../../components/InlineNameEdit";
 import { useOpenWith } from "../../../../hooks/useOpenWith";
+import { useOverlaidChange } from "../../hooks/usePlanPreview";
+import { PlanBadge, planRowClass } from "../../components/PlanMark";
 
 interface TableRowProps {
 	row: Row<File>;
@@ -106,6 +108,9 @@ export const TableRow = memo(
 
 		const cells = row.getVisibleCells();
 
+		// The change a browsed plan makes to this row, in preview mode.
+		const planned = useOverlaidChange(file);
+
 		return (
 			<div
 				ref={measureRef}
@@ -113,7 +118,7 @@ export const TableRow = memo(
 				data-file-id={file.id}
 				data-selectable="true"
 				tabIndex={-1}
-				className="relative outline-none focus:outline-none"
+				className={clsx("relative outline-none focus:outline-none", planRowClass(planned))}
 				style={{ height: ROW_HEIGHT }}
 				onClick={handleClick}
 				onDoubleClick={handleDoubleClick}
@@ -171,7 +176,7 @@ export const TableRow = memo(
 								style={{ width: cell.column.getSize() }}
 							>
 								{isNameColumn ? (
-									<NameCell file={file} />
+									<NameCell file={file} planned={planned} />
 								) : (
 									<span className="truncate">
 										{flexRender(
@@ -201,7 +206,13 @@ export const TableRow = memo(
 );
 
 // Name cell with icon and tags
-const NameCell = memo(function NameCell({ file }: { file: File }) {
+const NameCell = memo(function NameCell({
+	file,
+	planned,
+}: {
+	file: File;
+	planned?: ChangeKind;
+}) {
 	const { renamingFileId, saveRename, cancelRename } = useSelection();
 	const isRenaming = renamingFileId === file.id;
 
@@ -223,6 +234,8 @@ const NameCell = memo(function NameCell({ file }: { file: File }) {
 			) : (
 				<span className="truncate text-sm text-ink">{file.name}{file.extension && `.${file.extension}`}</span>
 			)}
+
+			{planned && <PlanBadge change={planned} className="flex-shrink-0" />}
 
 			{/* Tags (inline, compact) - hide when renaming */}
 			{!isRenaming && file.tags && file.tags.length > 0 && (

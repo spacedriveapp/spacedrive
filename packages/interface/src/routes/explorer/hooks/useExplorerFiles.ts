@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type {
+	DirectoryListingOutput,
 	DirectorySortBy,
 	File,
 	FileSearchInput,
@@ -7,8 +8,12 @@ import type {
 	GetFilesByTagInput,
 } from "@sd/ts-client";
 import { useLibraryQuery } from "@sd/ts-client";
-import { useNormalizedQuery } from "../../../contexts/SpacedriveContext";
+import {
+	useNormalizedQuery,
+	useSpacedriveClient,
+} from "../../../contexts/SpacedriveContext";
 import { useExplorer } from "../context";
+import { isLapsedHandle, usePlanPreviewStore } from "./usePlanPreview";
 import { useVirtualListing } from "./useVirtualListing";
 
 export type FileSource =
@@ -272,6 +277,12 @@ export function useExplorerFiles(): ExplorerFilesResult {
 		enabled: isSourceMode && !!sourceQueryInput,
 	});
 
+	// In preview mode the listing is the directory after the browsed plan.
+	const overlay = usePlanPreviewStore((state) => state.preview?.plan.handle ?? null);
+	const setOverlayRows = usePlanPreviewStore((state) => state.setRows);
+	const rebuildPreview = usePlanPreviewStore((state) => state.rebuild);
+	const client = useSpacedriveClient();
+
 	// Directory query
 	const directoryQuery = useNormalizedQuery({
 		query: "files.directory_listing",
@@ -282,6 +293,7 @@ export function useExplorerFiles(): ExplorerFilesResult {
 					include_hidden: false,
 					sort_by: sortBy as DirectorySortBy,
 					folders_first: viewSettings.foldersFirst,
+					overlay,
 				}
 			: null!,
 		resourceType: "file",
@@ -296,6 +308,21 @@ export function useExplorerFiles(): ExplorerFilesResult {
 			!isSourceMode,
 		pathScope: currentPath ?? undefined,
 	});
+
+	// The rows the plan touches in this directory, for the views to mark.
+	const overlayRows = (directoryQuery.data as DirectoryListingOutput | undefined)?.overlay;
+	useEffect(() => {
+		if (overlay) setOverlayRows(overlayRows ?? []);
+	}, [overlay, overlayRows, setOverlayRows]);
+
+	// A handle the daemon let lapse is rebuilt from the same input, and the
+	// listing then re-runs with the new one.
+	const listingError = directoryQuery.error;
+	useEffect(() => {
+		if (overlay && isLapsedHandle(listingError)) {
+			void rebuildPreview(client);
+		}
+	}, [overlay, listingError, rebuildPreview, client]);
 
 	// Priority: filtered > tag > recents > search > virtual > directory
 	const source: FileSource = isFilteredMode

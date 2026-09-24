@@ -1,12 +1,15 @@
 import { memo } from "react";
 import clsx from "clsx";
-import type { File } from "@sd/ts-client";
+import type { File, SdPath } from "@sd/ts-client";
 import { File as FileComponent } from "../../File";
 import { useExplorer } from "../../context";
 import { useSelection } from "../../SelectionContext";
 import { formatBytes } from "../../utils";
 import { TagDot, tagColor } from "../../../../components/Tags";
-import { useDroppable } from "@dnd-kit/core";
+import { useDndContext, useDroppable } from "@dnd-kit/core";
+import { useLibraryValidate } from "../../../../contexts/SpacedriveContext";
+import { useOverlaidChange } from "../../hooks/usePlanPreview";
+import { PlanBadge, planRowClass } from "../../components/PlanMark";
 import { useFileContextMenu } from "../../hooks/useFileContextMenu";
 import { useDraggableFile } from "../../hooks/useDraggableFile";
 import { isVirtualFile } from '@sd/ts-client';
@@ -125,6 +128,39 @@ export const FileCard = memo(
 			if (isFolder) setDropNodeRef(node);
 		};
 
+		// While a drag hovers this folder, copy validation says whether the
+		// drop could run, so the target badges an error before the drop.
+		const { active: dragActive } = useDndContext();
+		const hovering = isFolder && isDropOver && dragActive?.data.current?.type === "explorer-file";
+		const hoverSources: SdPath[] = hovering
+			? (dragActive?.data.current?.selectedFiles as File[] | undefined)?.map((f) => f.sd_path) ??
+				[dragActive?.data.current?.sdPath]
+			: [];
+		const hoverValidation = useLibraryValidate(
+			{
+				type: "files.copy",
+				input: {
+					sources: { paths: hoverSources },
+					destination: file.sd_path,
+					overwrite: false,
+					verify_checksum: false,
+					preserve_timestamps: true,
+					move_files: false,
+					copy_method: "Auto",
+					on_conflict: "Skip",
+				},
+			},
+			{ enabled: hovering && hoverSources.length > 0, staleTime: 5_000 },
+		);
+		const hoverFinding = hovering
+			? hoverValidation.data?.findings.find((finding) => finding.severity === "error") ??
+				hoverValidation.data?.findings.find((finding) => finding.severity === "warning")
+			: undefined;
+
+		// The change a browsed plan makes to this row, if the explorer is in
+		// preview mode.
+		const planned = useOverlaidChange(file);
+
 		const thumbSize = Math.max(gridSize * 0.6, 60);
 
 		// Check if this is a virtual volume file
@@ -153,7 +189,28 @@ export const FileCard = memo(
 			>
 				{/* Drop indicator for folders */}
 				{isFolder && isDropOver && (
-					<div className="absolute inset-0 rounded-lg ring-2 ring-accent ring-inset pointer-events-none z-10" />
+					<div
+						className={clsx(
+							"absolute inset-0 rounded-lg ring-2 ring-inset pointer-events-none z-10",
+							hoverFinding?.severity === "error" ? "ring-red-500" : "ring-accent",
+						)}
+					/>
+				)}
+				{hoverFinding && (
+					<div
+						className={clsx(
+							"absolute left-1 right-1 top-1 z-20 rounded px-1.5 py-0.5 text-[10px] font-medium leading-tight pointer-events-none truncate",
+							hoverFinding.severity === "error"
+								? "bg-red-500 text-white"
+								: "bg-amber-500 text-white",
+						)}
+						title={hoverFinding.message}
+					>
+						{hoverFinding.message}
+					</div>
+				)}
+				{planned && (
+					<PlanBadge change={planned} className="absolute right-1 top-1 z-20" />
 				)}
 				<FileComponent
 					file={file}
@@ -166,6 +223,11 @@ export const FileCard = memo(
 						"flex flex-col items-center gap-2 p-1 rounded-lg transition-all",
 						dndIsDragging && "opacity-40",
 						isFolder && isDropOver && "bg-accent/10",
+						planRowClass(planned),
+						(planned?.type === "create" ||
+							planned?.type === "create_directory" ||
+							planned?.type === "move") &&
+							"outline-dashed outline-1 outline-accent/50",
 					)}
 				>
 					<div

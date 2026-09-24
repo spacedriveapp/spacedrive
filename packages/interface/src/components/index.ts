@@ -5,3 +5,4 @@ export * from "../routes/explorer/File";
 export * from "./Inspector/Inspector";
 export { useCreateLibraryDialog } from "./modals/CreateLibraryModal";
 export { useFileOperationDialog } from "./modals/FileOperationModal";
+export { useMergeFoldersDialog } from "./modals/MergeFoldersModal";
