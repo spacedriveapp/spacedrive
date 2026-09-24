@@ -31,6 +31,7 @@ import {getContentKind, isVirtualFile} from '@sd/ts-client';
 import { toast } from '@spacedrive/primitives';
 import {useFileOperationDialog} from '../../../components/modals/FileOperationModal';
 import {useMergeFoldersDialog} from '../../../components/modals/MergeFoldersModal';
+import {useDedupeDialog} from '../../../components/modals/DedupeModal';
 import {usePlatform} from '../../../contexts/PlatformContext';
 import {useLibraryMutation} from '../../../contexts/SpacedriveContext';
 import {useClipboard} from '../../../hooks/useClipboard';
@@ -82,6 +83,7 @@ export function useFileContextMenu({
 	const clipboard = useClipboard();
 	const openFileOperation = useFileOperationDialog();
 	const openMergeFolders = useMergeFoldersDialog();
+	const openDedupe = useDedupeDialog();
 	const {startRename} = useSelection();
 
 	// Get physical paths for file opening
@@ -94,6 +96,14 @@ export function useFileContextMenu({
 	};
 
 	const physicalPaths = getPhysicalPaths();
+
+	// The folder on the clipboard, by name, for the comparison delete's label.
+	const clipboardFolderName = (() => {
+		const held = clipboard.files[0];
+		if (!held || !('Physical' in held)) return '';
+		const parts = held.Physical.path.split('/').filter(Boolean);
+		return parts[parts.length - 1] ?? held.Physical.path;
+	})();
 	const {apps, openWithDefault, openWithApp, openMultipleWithApp} =
 		useOpenWith(physicalPaths);
 
@@ -487,6 +497,90 @@ export function useFileContextMenu({
 				condition: () => mode.type === 'tag' && !hasVirtualFiles
 			},
 			{type: 'separator'},
+			{
+				icon: Stack,
+				label: 'Remove duplicates inside',
+				// Of each content held more than once under this folder, the
+				// first copy in walk order stays; the plan shows both before
+				// anything goes.
+				onClick: () => {
+					if (!file) return;
+					openDedupe({
+						title: `Remove duplicate copies inside '${file.name}'`,
+						targets: {
+							kind: 'duplicates',
+							duplicates: {
+								scope: file.sd_path,
+								keep: {kind: 'first'},
+								min_size: null
+							}
+						}
+					});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'Directory' &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
+			},
+			{
+				icon: Stack,
+				label: 'Remove other copies',
+				// This file stays; every other copy of its content, anywhere
+				// attached, goes.
+				onClick: () => {
+					if (!file) return;
+					openDedupe({
+						title: `Remove the other copies of '${file.name}'`,
+						targets: {
+							kind: 'duplicates',
+							duplicates: {
+								scope: null,
+								keep: {kind: 'these', paths: [file.sd_path]},
+								min_size: null
+							}
+						}
+					});
+				},
+				condition: () =>
+					!!file &&
+					file.kind === 'File' &&
+					selectedFiles.length <= 1 &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles
+			},
+			{
+				icon: Trash,
+				label: `Delete what '${clipboardFolderName}' already holds`,
+				// Removes from this folder the files whose bytes the folder on
+				// the clipboard already holds, wherever they sit in it.
+				onClick: () => {
+					if (!file || clipboard.files.length !== 1) return;
+					openDedupe({
+						title: `Delete from '${file.name}' what '${clipboardFolderName}' already holds`,
+						targets: {
+							kind: 'comparison',
+							comparison: {
+								a: file.sd_path,
+								b: clipboard.files[0],
+								by: 'content',
+								show: 'both',
+								include_hidden: false
+							}
+						}
+					});
+				},
+				condition: () =>
+					clipboard.hasClipboard() &&
+					clipboard.foldersOnly &&
+					clipboard.files.length === 1 &&
+					!!file &&
+					file.kind === 'Directory' &&
+					'Physical' in file.sd_path &&
+					!hasVirtualFiles &&
+					JSON.stringify(clipboard.files[0]) !== JSON.stringify(file.sd_path)
+			},
 			{
 				icon: Trash,
 				label:

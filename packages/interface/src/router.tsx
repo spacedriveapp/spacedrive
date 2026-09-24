@@ -10,6 +10,7 @@ import {Overview} from './routes/overview';
 import {RedundancyDashboard} from './routes/redundancy';
 import {AtRiskFiles} from './routes/redundancy/at-risk';
 import {CompareVolumes} from './routes/redundancy/compare';
+import {DuplicatesView} from './routes/redundancy/duplicates';
 import {SourcesHome} from './routes/sources';
 import {AdaptersScreen} from './routes/sources/Adapters';
 import {SourceDetail} from './routes/sources/SourceDetail';

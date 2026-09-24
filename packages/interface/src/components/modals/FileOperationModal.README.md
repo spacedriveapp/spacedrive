@@ -66,6 +66,36 @@ Three ways in:
 While a drag hovers a folder in the grid, the folder validates the drop and
 badges the first error or warning, such as a folder copied into itself.
 
+## Removing duplicate copies
+
+`DedupeModal` runs `files.delete` through the same preflight for its three
+kinds of target, and is what every duplicate-removal entry point opens:
+
+```tsx
+const openDedupe = useDedupeDialog();
+
+openDedupe({
+  title: "Remove duplicate copies inside 'Photos'",
+  targets: {
+    kind: "duplicates",
+    duplicates: { scope: folderPath, keep: { kind: "first" }, min_size: null },
+  },
+});
+```
+
+- **A folder's context menu** has "Remove duplicates inside": of each content
+  held more than once under it, the first copy in walk order stays.
+- **A file's context menu** has "Remove other copies": that file stays and
+  every other copy of its content, anywhere attached, goes.
+- **With one folder on the clipboard**, a folder's menu has "Delete what
+  '<B>' already holds": the comparison delete by content.
+- **Protection, Duplicates** lists the groups the `files.duplicates` query
+  finds, with a keeper chosen per group and one dialog for the rest.
+
+The plan lists each kept copy beside the copies that go, confirm is disabled
+when nothing would go, and the job reads each pair in full before removing
+one.
+
 ## Browsing the result
 
 Both dialogs have "Browse the result". A preview's plan is retained by the

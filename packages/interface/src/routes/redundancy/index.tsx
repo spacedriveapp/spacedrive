@@ -213,6 +213,12 @@ export function RedundancyDashboard() {
 						>
 							View At-Risk Files
 						</button>
+						<button
+							onClick={() => navigate('/redundancy/duplicates')}
+							className="border-app-line bg-app-box/50 text-ink hover:bg-app-hover rounded-lg border px-4 py-2 text-sm transition-colors"
+						>
+							Find Duplicates
+						</button>
 					</div>
 				</div>
 			</div>
