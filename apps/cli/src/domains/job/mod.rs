@@ -38,6 +38,8 @@ pub enum JobCmd {
 	Cancel(JobControlArgs),
 	/// List jobs running on paired devices
 	Remote(JobRemoteArgs),
+	/// What a job did to the filesystem, effect by effect
+	Journal(JobJournalArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
@@ -96,6 +98,49 @@ pub async fn run(ctx: &Context, cmd: JobCmd) -> Result<()> {
 		}
 		JobCmd::Monitor(args) => {
 			run_job_monitor(ctx, args).await?;
+		}
+		JobCmd::Journal(args) => {
+			let out: sd_core::ops::jobs::journal::JobJournalOutput =
+				execute_query!(ctx, args.to_input());
+			print_output!(
+				ctx,
+				&out,
+				|o: &sd_core::ops::jobs::journal::JobJournalOutput| {
+					use sd_core::infra::job::journal::Effect;
+					if o.effects.is_empty() {
+						println!("No effects recorded");
+					}
+					for recorded in &o.effects {
+						let line = match &recorded.effect {
+							Effect::Created { path, .. } => format!("created   {}", path.display()),
+							Effect::Moved { from, to, .. } => {
+								format!("moved     {}  ->  {}", from.display(), to.display())
+							}
+							Effect::Trashed { from, to, .. } => match to {
+								Some(to) => {
+									format!("trashed   {}  ->  {}", from.display(), to.display())
+								}
+								None => format!("trashed   {}  (location unknown)", from.display()),
+							},
+							Effect::Replaced { path, previous, .. } => match previous {
+								Some(previous) => format!(
+									"replaced  {}  (previous at {})",
+									path.display(),
+									previous.display()
+								),
+								None => {
+									format!("replaced  {}  (previous not kept)", path.display())
+								}
+							},
+							Effect::Removed { path } => format!("removed   {}", path.display()),
+							Effect::Attributes { path, .. } => {
+								format!("attributes {}", path.display())
+							}
+						};
+						println!("{:>4}  {line}", recorded.sequence);
+					}
+				}
+			);
 		}
 		JobCmd::Pause(args) => {
 			let input = JobPauseInput::new(args.job_id);

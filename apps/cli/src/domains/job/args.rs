@@ -3,7 +3,9 @@ use uuid::Uuid;
 
 use sd_core::{
 	infra::job::types::JobStatus,
-	ops::jobs::{info::query::JobInfoQueryInput, list::query::JobListInput},
+	ops::jobs::{
+		info::query::JobInfoQueryInput, journal::query::JobJournalInput, list::query::JobListInput,
+	},
 };
 
 #[derive(Args, Debug)]
@@ -66,4 +68,18 @@ pub struct JobRemoteArgs {
 	/// Redraw every two seconds until interrupted
 	#[arg(long)]
 	pub watch: bool,
+}
+
+#[derive(Args, Debug)]
+pub struct JobJournalArgs {
+	/// The job whose journal to print
+	pub job_id: Uuid,
+}
+
+impl JobJournalArgs {
+	pub fn to_input(&self) -> JobJournalInput {
+		JobJournalInput {
+			job_id: self.job_id,
+		}
+	}
 }

@@ -18,6 +18,7 @@ use sd_core::ops::files::copy::input::FileCopyInput;
 use sd_core::ops::files::delete::{DeleteTargets, FileDeleteInput};
 use sd_core::ops::files::merge::FileMergeInput;
 use sd_core::ops::files::plan::{ChangeKind, FsPlan, PlanBasis, SkipReason};
+use sd_core::ops::files::rename::{FileRenameBatchInput, FileRenameInput};
 use sd_core::ops::paths::compare::{
 	CompareBy, CompareEntry, CompareSet, CompareTotals, Comparison, PathCompareInput,
 	PathCompareOutput, MAX_PAGE,
@@ -41,6 +42,25 @@ pub enum FileCmd {
 	Dedupe(FileDedupeArgs),
 	/// Merge folders into an existing folder, after seeing the plan
 	Merge(FileMergeArgs),
+	/// Rename one path, or many by rules, after seeing each new name
+	Rename(FileRenameArgs),
+	/// Undo what a job did, from its journal, after seeing the plan
+	Undo(FileUndoArgs),
+	/// Move a folder's files into subfolders by date, kind or extension
+	Organize(FileOrganizeArgs),
+	/// Move every file beneath a folder up to the folder itself
+	Flatten(FileFlattenArgs),
+	/// Write a zip or tar.zst archive holding files and folders
+	Archive(FileArchiveArgs),
+	/// Extract an archive into a folder, after seeing each entry's fate
+	Extract(FileExtractArgs),
+	/// Set the mode, modification time or hidden flag of files
+	Attributes(FileAttributesArgs),
+	/// Make a symlink or a hard link
+	Link(FileLinkArgs),
+	/// The trash: what the journals put there, restoring, and emptying
+	#[command(subcommand)]
+	Trash(TrashCmd),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
@@ -134,6 +154,258 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			let (dry_run, yes) = (args.dry_run, args.yes);
 			merge_folders(ctx, args.into_input()?, dry_run, yes).await?;
 		}
+		FileCmd::Rename(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			match args.into_request()? {
+				RenameRequest::One(input) => rename_files(ctx, input, dry_run, yes).await?,
+				RenameRequest::Rules(input) => rename_files(ctx, input, dry_run, yes).await?,
+			}
+		}
+		FileCmd::Undo(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			undo_job(ctx, args.into_input(), dry_run, yes).await?;
+		}
+		FileCmd::Organize(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Organize", dry_run, yes).await?;
+		}
+		FileCmd::Flatten(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Flatten", dry_run, yes).await?;
+		}
+		FileCmd::Archive(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Archive", dry_run, yes).await?;
+		}
+		FileCmd::Extract(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Extract", dry_run, yes).await?;
+		}
+		FileCmd::Attributes(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Set attributes on", dry_run, yes).await?;
+		}
+		FileCmd::Link(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			run_with_preflight(ctx, args.into_input()?, "Link", dry_run, yes).await?;
+		}
+		FileCmd::Trash(cmd) => trash(ctx, cmd).await?,
+	}
+	Ok(())
+}
+
+/// The trash: list what the journals put there, restore one item through
+/// undo, or empty it.
+async fn trash(ctx: &Context, cmd: TrashCmd) -> Result<()> {
+	use sd_core::ops::files::trash_view::{TrashEmptyOutput, TrashListInput, TrashListOutput};
+	let human = matches!(ctx.format, OutputFormat::Human);
+	match cmd {
+		TrashCmd::List { limit } => {
+			let out: TrashListOutput = execute_query!(ctx, TrashListInput { limit });
+			print_output!(ctx, &out, |o: &TrashListOutput| {
+				if o.items.is_empty() {
+					println!("Nothing in the trash from Spacedrive");
+				}
+				for item in &o.items {
+					println!(
+						"{}  {} {:>4}  {}{}  {}",
+						item.trashed_at.format("%Y-%m-%d %H:%M"),
+						item.job,
+						item.sequence,
+						item.from.display(),
+						if item.present { "" } else { "  (gone)" },
+						if item.spacedrive_trash {
+							"spacedrive trash"
+						} else {
+							"os trash"
+						}
+					);
+				}
+			});
+		}
+		TrashCmd::Restore { job, sequence, yes } => {
+			undo_job(
+				ctx,
+				sd_core::ops::files::undo::FileUndoInput {
+					job,
+					effects: Some(vec![sequence]),
+				},
+				false,
+				yes,
+			)
+			.await?;
+		}
+		TrashCmd::Empty { os, yes } => {
+			confirm_or_abort(
+				if os {
+					"Remove for good everything Spacedrive trashed, and empty the platform's trash?"
+				} else {
+					"Remove for good everything Spacedrive trashed?"
+				},
+				yes,
+			)?;
+			let out: TrashEmptyOutput = execute_action!(ctx, TrashCmd::empty_input(os));
+			if human {
+				println!(
+					"{} items removed, {} more from Spacedrive trash directories{}",
+					out.purged,
+					out.spacedrive_trash,
+					if out.os_trash_emptied {
+						", platform trash emptied"
+					} else {
+						""
+					}
+				);
+				for failure in &out.failed {
+					println!("  {failure}");
+				}
+			} else {
+				crate::util::output::print_json(&out);
+			}
+		}
+	}
+	Ok(())
+}
+
+/// Undo with preflight: what cannot be reversed and what changed since,
+/// the reverse as a plan, then a y/N prompt.
+async fn undo_job(
+	ctx: &Context,
+	input: sd_core::ops::files::undo::FileUndoInput,
+	dry_run: bool,
+	yes: bool,
+) -> Result<()> {
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	let validation: Validation = execute_validate!(ctx, input.clone());
+	let plan: FsPlan = execute_preview!(ctx, input.clone());
+	if human {
+		writeln!(out, "Undo job {}\n", input.job)?;
+		print_validation(&mut out, &validation)?;
+		print_plan(&mut out, &plan)?;
+		let moves: Vec<_> = plan
+			.changes
+			.iter()
+			.filter_map(|change| match &change.change {
+				ChangeKind::Move { from } => Some((from, &change.path)),
+				_ => None,
+			})
+			.collect();
+		if !moves.is_empty() {
+			writeln!(out, "Put back:")?;
+			for (from, to) in moves.iter().take(REMOVED_LISTED) {
+				writeln!(out, "  {}  ->  {}", folder_name(from), folder_name(to))?;
+			}
+			if moves.len() > REMOVED_LISTED {
+				writeln!(out, "  and {} more", moves.len() - REMOVED_LISTED)?;
+			}
+			writeln!(out)?;
+		}
+	}
+	if let Some(stop) = stop_before_dispatch(human, &validation, &plan, dry_run)? {
+		return stop;
+	}
+	let summary = &plan.summary;
+	let count =
+		summary.moves.files + summary.deletes.files + summary.replaces.files + summary.attributes;
+	confirm_or_abort(
+		&format!(
+			"Reverse {count} {}?",
+			if count == 1 { "effect" } else { "effects" }
+		),
+		yes,
+	)?;
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	if human {
+		writeln!(out, "Dispatched undo job {}", receipt.id)?;
+	} else {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+			"job": receipt,
+		}));
+	}
+	Ok(())
+}
+
+/// Rename with preflight: every new name the rules give, the conflicts,
+/// then a y/N prompt. Both actions render the same way.
+async fn rename_files<I>(ctx: &Context, input: I, dry_run: bool, yes: bool) -> Result<()>
+where
+	I: Clone + serde::Serialize + sd_core::infra::wire::Wire,
+{
+	run_with_preflight(ctx, input, "Rename", dry_run, yes).await
+}
+
+/// Validate, show the plan with each move as old and new name, and dispatch
+/// the same input behind a y/N prompt. An error finding stops here;
+/// `--dry-run` stops after the plan.
+async fn run_with_preflight<I>(
+	ctx: &Context,
+	input: I,
+	verb: &str,
+	dry_run: bool,
+	yes: bool,
+) -> Result<()>
+where
+	I: Clone + serde::Serialize + sd_core::infra::wire::Wire,
+{
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	let validation: Validation = execute_validate!(ctx, input.clone());
+	let plan: FsPlan = execute_preview!(ctx, input.clone());
+	if human {
+		print_validation(&mut out, &validation)?;
+		print_plan(&mut out, &plan)?;
+		let moves: Vec<_> = plan
+			.changes
+			.iter()
+			.filter_map(|change| match &change.change {
+				ChangeKind::Move { from } => Some((from, &change.path)),
+				_ => None,
+			})
+			.collect();
+		if !moves.is_empty() {
+			writeln!(out, "Moved:")?;
+			for (from, to) in moves.iter().take(REMOVED_LISTED) {
+				writeln!(out, "  {}  ->  {}", folder_name(from), folder_name(to))?;
+			}
+			if moves.len() > REMOVED_LISTED {
+				writeln!(out, "  and {} more", moves.len() - REMOVED_LISTED)?;
+			}
+			writeln!(out)?;
+		}
+	}
+	if let Some(stop) = stop_before_dispatch(human, &validation, &plan, dry_run)? {
+		return stop;
+	}
+	let summary = &plan.summary;
+	let count = summary.moves.files
+		+ summary.creates.files
+		+ summary.replaces.files
+		+ summary.deletes.files
+		+ summary.attributes
+		+ summary.directories_created;
+	if count == 0 {
+		writeln!(out, "Nothing to do")?;
+		return Ok(());
+	}
+	confirm_or_abort(
+		&format!(
+			"{verb} {count} {}?",
+			if count == 1 { "change" } else { "changes" }
+		),
+		yes,
+	)?;
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	if human {
+		writeln!(out, "Dispatched job {}", receipt.id)?;
+	} else {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+			"job": receipt,
+		}));
 	}
 	Ok(())
 }
@@ -166,10 +438,11 @@ async fn merge_folders(
 				sd_core::ops::files::merge::MergeConflictPolicy::KeepBoth => "keep both",
 				sd_core::ops::files::merge::MergeConflictPolicy::KeepNewer => "keep newer",
 			},
-			if input.consume_sources {
-				"; consuming the sources"
-			} else {
-				""
+			match (input.consume_sources, input.remove_extras) {
+				(true, true) => "; consuming the sources; removing what no source holds",
+				(true, false) => "; consuming the sources",
+				(false, true) => "; removing what no source holds",
+				(false, false) => "",
 			}
 		)?;
 		print_validation(&mut out, &validation)?;
@@ -182,7 +455,7 @@ async fn merge_folders(
 	let summary = &plan.summary;
 	confirm_or_abort(
 		&format!(
-			"Merge {} files ({}) into {}{}?",
+			"Merge {} files ({}) into {}{}{}?",
 			summary.creates.files + summary.replaces.files,
 			format_bytes(summary.bytes_needed()),
 			folder_name(&input.destination),
@@ -190,6 +463,11 @@ async fn merge_folders(
 				", consuming the sources"
 			} else {
 				""
+			},
+			if input.remove_extras {
+				format!(", removing {} files no source holds", summary.deletes.files)
+			} else {
+				String::new()
 			}
 		),
 		yes,
@@ -335,8 +613,16 @@ fn print_validation(out: &mut impl Write, validation: &Validation) -> std::io::R
 /// The plan's counts, then the conflicts and every collision the policy
 /// resolved, since those are what a person reads a plan for.
 fn print_plan(out: &mut impl Write, plan: &FsPlan) -> std::io::Result<()> {
-	let PlanBasis::Index { revisions } = &plan.basis;
-	writeln!(out, "Plan, from the index of {} stores:", revisions.len())?;
+	match &plan.basis {
+		PlanBasis::Index { revisions } => {
+			writeln!(out, "Plan, from the index of {} stores:", revisions.len())?
+		}
+		PlanBasis::Journal { job } => writeln!(out, "Plan, from the journal of job {job}:")?,
+		PlanBasis::Archive { entries, .. } => writeln!(
+			out,
+			"Plan, from the archive's directory of {entries} entries:"
+		)?,
+	}
 	let summary = &plan.summary;
 	let tally = |files: u64, bytes: u64| format!("{files:>7} files  {:>9}", format_bytes(bytes));
 	writeln!(
@@ -378,6 +664,9 @@ fn print_plan(out: &mut impl Write, plan: &FsPlan) -> std::io::Result<()> {
 	writeln!(out, "  Junk            {:>7}", summary.skips.junk)?;
 	writeln!(out, "  Collisions      {:>7}", summary.collisions)?;
 	writeln!(out, "  Conflicts       {:>7}", summary.conflicts)?;
+	if summary.attributes > 0 {
+		writeln!(out, "  Attributes      {:>7}", summary.attributes)?;
+	}
 
 	let notable: Vec<_> = plan
 		.changes

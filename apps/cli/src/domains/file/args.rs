@@ -3,11 +3,22 @@ use std::path::PathBuf;
 
 use sd_core::{
 	domain::addressing::{SdPath, SdPathBatch},
+	infra::job::journal::Attributes,
 	ops::{
 		files::{
+			archive::{ArchiveFormat, FileArchiveInput, FileExtractInput},
+			attributes_action::FileSetAttributesInput,
 			copy::input::{CopyMethod, FileCopyInput},
 			delete::{DeleteTargets, Duplicates, FileDeleteInput, Keep},
+			link::{FileLinkInput, LinkKind},
 			merge::{FileMergeInput, MergeConflictPolicy},
+			organize::{
+				FileFlattenInput, FileOrganizeInput, FlattenPolicy, Granularity, OrganizeDateField,
+				OrganizeRule,
+			},
+			rename::{CaseRule, ExtensionCase, FileRenameBatchInput, FileRenameInput, RenameRule},
+			trash_view::FileTrashEmptyInput,
+			undo::FileUndoInput,
 		},
 		paths::compare::{CompareBy, CompareSet, Comparison, PathCompareInput, MAX_PAGE},
 	},
@@ -272,6 +283,11 @@ pub struct FileMergeArgs {
 	#[arg(long, default_value_t = false)]
 	pub consume: bool,
 
+	/// Remove from the destination what no source holds, so it ends up
+	/// matching the sources: a mirror. The extras go to the trash
+	#[arg(long, default_value_t = false)]
+	pub remove_extras: bool,
+
 	/// Validate and show the plan, then stop
 	#[arg(long, default_value_t = false)]
 	pub dry_run: bool,
@@ -294,6 +310,7 @@ impl FileMergeArgs {
 			destination: local_path(&self.into)?,
 			on_conflict: self.on_conflict,
 			consume_sources: self.consume,
+			remove_extras: self.remove_extras,
 		})
 	}
 }
@@ -391,5 +408,476 @@ impl FileDedupeArgs {
 			permanent: self.permanent,
 			recursive: true,
 		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileRenameArgs {
+	/// The files or folders to rename (one or more)
+	pub paths: Vec<PathBuf>,
+
+	/// The new name, for one path
+	#[arg(long, conflicts_with_all = ["replace", "case", "prefix", "suffix", "sequence", "template"])]
+	pub to: Option<String>,
+
+	/// Replace text in the stem: FIND WITH
+	#[arg(long, num_args = 2, value_names = ["FIND", "WITH"])]
+	pub replace: Option<Vec<String>>,
+
+	/// Treat FIND as a regular expression, with $1 captures in WITH
+	#[arg(long, default_value_t = false, requires = "replace")]
+	pub regex: bool,
+
+	/// Replace in the whole name rather than the stem
+	#[arg(long, default_value_t = false, requires = "replace")]
+	pub whole_name: bool,
+
+	/// Change the stem's case
+	#[arg(long, value_enum)]
+	pub case: Option<CaseArg>,
+
+	/// Lowercase the extension
+	#[arg(long, default_value_t = false)]
+	pub lower_extension: bool,
+
+	/// Text before the stem
+	#[arg(long)]
+	pub prefix: Option<String>,
+
+	/// Text after the stem, before the extension
+	#[arg(long)]
+	pub suffix: Option<String>,
+
+	/// The stem from a pattern holding {n}, such as "IMG_{n:04}", counted over the paths in order
+	#[arg(long)]
+	pub sequence: Option<String>,
+
+	/// Where the counter starts
+	#[arg(long, default_value_t = 1)]
+	pub start: u64,
+
+	/// How much the counter grows by
+	#[arg(long, default_value_t = 1)]
+	pub step: u64,
+
+	/// The whole name from a pattern: {name}, {ext}, {n}, {parent}, {date:%Y-%m-%d}, {captured:%Y-%m-%d}
+	#[arg(long)]
+	pub template: Option<String>,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+pub enum CaseArg {
+	Lower,
+	Upper,
+	Title,
+}
+
+/// What a rename command dispatches: one name, or rules over several paths.
+pub enum RenameRequest {
+	One(FileRenameInput),
+	Rules(FileRenameBatchInput),
+}
+
+impl FileRenameArgs {
+	/// One rename with `--to`, else the rules in a fixed order: replace,
+	/// case, affix, sequence, template.
+	pub fn into_request(self) -> anyhow::Result<RenameRequest> {
+		if self.paths.is_empty() {
+			anyhow::bail!("name at least one path");
+		}
+		if let Some(to) = self.to {
+			if self.paths.len() != 1 {
+				anyhow::bail!("--to renames one path; give rules to rename several");
+			}
+			return Ok(RenameRequest::One(FileRenameInput::new(
+				local_path(&self.paths[0])?,
+				to,
+			)));
+		}
+		let mut rules = Vec::new();
+		if let Some(replace) = self.replace {
+			rules.push(RenameRule::Replace {
+				find: replace[0].clone(),
+				with: replace[1].clone(),
+				regex: self.regex,
+				whole_name: self.whole_name,
+			});
+		}
+		if self.case.is_some() || self.lower_extension {
+			rules.push(RenameRule::Case {
+				stem: match self.case {
+					Some(CaseArg::Lower) => CaseRule::Lower,
+					Some(CaseArg::Upper) => CaseRule::Upper,
+					Some(CaseArg::Title) => CaseRule::Title,
+					None => CaseRule::Keep,
+				},
+				extension: if self.lower_extension {
+					ExtensionCase::Lower
+				} else {
+					ExtensionCase::Keep
+				},
+			});
+		}
+		if self.prefix.is_some() || self.suffix.is_some() {
+			rules.push(RenameRule::Affix {
+				prefix: self.prefix.unwrap_or_default(),
+				suffix: self.suffix.unwrap_or_default(),
+			});
+		}
+		if let Some(pattern) = self.sequence {
+			rules.push(RenameRule::Sequence {
+				pattern,
+				start: self.start,
+				step: self.step,
+			});
+		}
+		if let Some(pattern) = self.template {
+			rules.push(RenameRule::Template { pattern });
+		}
+		if rules.is_empty() {
+			anyhow::bail!("give --to for one path, or at least one rule");
+		}
+		Ok(RenameRequest::Rules(FileRenameBatchInput {
+			targets: self
+				.paths
+				.iter()
+				.map(local_path)
+				.collect::<anyhow::Result<_>>()?,
+			rules,
+		}))
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileUndoArgs {
+	/// The job to undo, by id
+	pub job: uuid::Uuid,
+
+	/// Reverse only these effects, by their sequence in the job's journal
+	#[arg(long, value_delimiter = ',')]
+	pub effects: Option<Vec<i64>>,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileUndoArgs {
+	pub fn into_input(self) -> FileUndoInput {
+		FileUndoInput {
+			job: self.job,
+			effects: self.effects,
+		}
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileOrganizeArgs {
+	/// The folder whose files move into subfolders
+	pub path: PathBuf,
+
+	/// What names the subfolders
+	#[arg(long, value_enum)]
+	pub by: OrganizeBy,
+
+	/// The date the folders are named by, with --by date
+	#[arg(long, value_enum, default_value = "modified")]
+	pub field: OrganizeDateField,
+
+	/// How fine the date folders are, with --by date
+	#[arg(long, value_enum, default_value = "year-month")]
+	pub granularity: Granularity,
+
+	/// Take the files beneath the folder at any depth
+	#[arg(long, default_value_t = false)]
+	pub recursive: bool,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+pub enum OrganizeBy {
+	Date,
+	Kind,
+	Extension,
+}
+
+impl FileOrganizeArgs {
+	pub fn into_input(self) -> anyhow::Result<FileOrganizeInput> {
+		Ok(FileOrganizeInput {
+			scope: local_path(&self.path)?,
+			rule: match self.by {
+				OrganizeBy::Date => OrganizeRule::ByDate {
+					field: self.field,
+					granularity: self.granularity,
+				},
+				OrganizeBy::Kind => OrganizeRule::ByKind,
+				OrganizeBy::Extension => OrganizeRule::ByExtension,
+			},
+			recursive: self.recursive,
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileFlattenArgs {
+	/// The folder every file beneath it moves up to
+	pub path: PathBuf,
+
+	/// What to do with a file whose name is taken at the root
+	#[arg(long, value_enum, default_value = "keep-both")]
+	pub on_conflict: FlattenPolicy,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileFlattenArgs {
+	pub fn into_input(self) -> anyhow::Result<FileFlattenInput> {
+		Ok(FileFlattenInput {
+			scope: local_path(&self.path)?,
+			on_conflict: self.on_conflict,
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileArchiveArgs {
+	/// Files and folders to put in the archive
+	#[arg(required = true)]
+	pub sources: Vec<PathBuf>,
+
+	/// The archive to write; its name decides the format unless --format says
+	#[arg(long, value_name = "ARCHIVE")]
+	pub to: PathBuf,
+
+	#[arg(long, value_enum)]
+	pub format: Option<ArchiveFormat>,
+
+	/// Trash the sources once the archive is complete
+	#[arg(long, default_value_t = false)]
+	pub remove_sources: bool,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileArchiveArgs {
+	pub fn into_input(self) -> anyhow::Result<FileArchiveInput> {
+		let name = self
+			.to
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_default();
+		let format = match (self.format, ArchiveFormat::of_name(&name)) {
+			(Some(format), _) => format,
+			(None, Some(format)) => format,
+			(None, None) => anyhow::bail!("name the archive .zip or .tar.zst, or give --format"),
+		};
+		Ok(FileArchiveInput {
+			sources: self
+				.sources
+				.iter()
+				.map(local_path)
+				.collect::<anyhow::Result<_>>()?,
+			destination: local_path(&self.to)?,
+			format,
+			remove_sources: self.remove_sources,
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileExtractArgs {
+	/// The archive to extract
+	pub archive: PathBuf,
+
+	/// The existing folder to extract into
+	#[arg(long, value_name = "DIR")]
+	pub to: PathBuf,
+
+	/// What to do with an entry whose file is already there
+	#[arg(long, value_enum, default_value = "skip")]
+	pub on_conflict: MergeConflictPolicy,
+
+	/// Leading path components to drop from every entry
+	#[arg(long, default_value_t = 0)]
+	pub strip_components: u32,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileExtractArgs {
+	pub fn into_input(self) -> anyhow::Result<FileExtractInput> {
+		Ok(FileExtractInput {
+			archive: local_path(&self.archive)?,
+			destination: local_path(&self.to)?,
+			on_conflict: self.on_conflict,
+			strip_components: self.strip_components,
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileAttributesArgs {
+	/// The files to change
+	#[arg(required = true)]
+	pub paths: Vec<PathBuf>,
+
+	/// The permission mode, in octal, such as 644
+	#[arg(long)]
+	pub mode: Option<String>,
+
+	/// The modification time, as RFC 3339
+	#[arg(long)]
+	pub modified: Option<String>,
+
+	/// Whether the files are hidden
+	#[arg(long)]
+	pub hidden: Option<bool>,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileAttributesArgs {
+	pub fn into_input(self) -> anyhow::Result<FileSetAttributesInput> {
+		let mode = match &self.mode {
+			Some(mode) => Some(
+				u32::from_str_radix(mode, 8)
+					.map_err(|_| anyhow::anyhow!("--mode takes octal digits, such as 644"))?,
+			),
+			None => None,
+		};
+		let modified_ms = match &self.modified {
+			Some(when) => Some(
+				chrono::DateTime::parse_from_rfc3339(when)
+					.map_err(|error| anyhow::anyhow!("--modified takes RFC 3339: {error}"))?
+					.timestamp_millis(),
+			),
+			None => None,
+		};
+		Ok(FileSetAttributesInput {
+			paths: self
+				.paths
+				.iter()
+				.map(local_path)
+				.collect::<anyhow::Result<_>>()?,
+			attributes: Attributes {
+				mode,
+				modified_ms,
+				hidden: self.hidden,
+			},
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileLinkArgs {
+	/// Where the link goes
+	pub at: PathBuf,
+
+	/// What the link points at
+	#[arg(long)]
+	pub target: PathBuf,
+
+	/// A hard link rather than a symlink; one volume, files only
+	#[arg(long, default_value_t = false)]
+	pub hard: bool,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileLinkArgs {
+	pub fn into_input(self) -> anyhow::Result<FileLinkInput> {
+		Ok(FileLinkInput {
+			at: local_path(&self.at)?,
+			target: local_path(&self.target)?,
+			kind: if self.hard {
+				LinkKind::Hardlink
+			} else {
+				LinkKind::Symlink
+			},
+		})
+	}
+}
+
+#[derive(clap::Subcommand, Debug, Clone)]
+pub enum TrashCmd {
+	/// What the journals put in the trash, newest first
+	List {
+		/// Stop after this many items
+		#[arg(long)]
+		limit: Option<u32>,
+	},
+	/// Put an item back where it was
+	Restore {
+		/// The job that trashed it
+		job: uuid::Uuid,
+		/// The effect's sequence in that job's journal, as `trash list` shows
+		sequence: i64,
+		/// Skip the confirmation prompt
+		#[arg(long, short = 'y', default_value_t = false)]
+		yes: bool,
+	},
+	/// Remove for good what the journals put in the trash and the Spacedrive trash directories
+	Empty {
+		/// Empty the platform's own trash as well
+		#[arg(long, default_value_t = false)]
+		os: bool,
+		/// Skip the confirmation prompt
+		#[arg(long, short = 'y', default_value_t = false)]
+		yes: bool,
+	},
+}
+
+impl TrashCmd {
+	pub fn empty_input(os: bool) -> FileTrashEmptyInput {
+		FileTrashEmptyInput { os_trash: os }
 	}
 }
