@@ -75,7 +75,10 @@ fn generate_type_union<T: TypeScriptUnionMember + Clone>(
 	type_name: &str,
 	items: &[T],
 ) {
+	// A union with no members is still a type a hook can name; it admits
+	// nothing until a member registers.
 	if items.is_empty() {
+		code.push_str(&format!("export type {} = never;\n\n", type_name));
 		return;
 	}
 
@@ -103,6 +106,7 @@ fn generate_wire_methods<T: WireMethodMember + Clone>(
 	items: &[T],
 ) {
 	if items.is_empty() {
+		code.push_str(&format!("  {}: {{}},\n\n", section_name));
 		return;
 	}
 
@@ -146,7 +150,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	// Use our automatic type extraction system to discover all operations and queries
 	// This is the SAME system used for Swift generation!
-	let (operations, queries, types) = generate_spacedrive_api();
+	let (operations, queries, preflights, types) = generate_spacedrive_api();
 
 	println!(
 		"Discovered {} operations and {} queries",
@@ -155,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Create the API structure
-	let api_structure = create_spacedrive_api_structure(&operations, &queries);
+	let api_structure = create_spacedrive_api_structure(&operations, &queries, &preflights);
 
 	println!("API Structure Summary:");
 	println!("  • Core Actions: {}", api_structure.core_actions.len());
@@ -249,6 +253,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		"LibraryQuery",
 		&api_structure.library_queries,
 	);
+	generate_type_union(
+		&mut typescript_code,
+		"LibraryValidate",
+		&api_structure.library_validates,
+	);
+	generate_type_union(
+		&mut typescript_code,
+		"LibraryPreview",
+		&api_structure.library_previews,
+	);
 
 	// Wire method mapping (for client implementation)
 	typescript_code.push_str("// ===== Wire Method Mappings =====\n\n");
@@ -273,6 +287,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		&mut typescript_code,
 		"libraryQueries",
 		&api_structure.library_queries,
+	);
+	generate_wire_methods(
+		&mut typescript_code,
+		"libraryValidates",
+		&api_structure.library_validates,
+	);
+	generate_wire_methods(
+		&mut typescript_code,
+		"libraryPreviews",
+		&api_structure.library_previews,
 	);
 
 	typescript_code.push_str("} as const;\n");

@@ -7,6 +7,7 @@ use sd_core::{
 		files::{
 			copy::input::{CopyMethod, FileCopyInput},
 			delete::{DeleteTargets, FileDeleteInput},
+			merge::{FileMergeInput, MergeConflictPolicy},
 		},
 		paths::compare::{CompareBy, CompareSet, Comparison, PathCompareInput, MAX_PAGE},
 	},
@@ -40,26 +41,34 @@ pub struct FileCopyArgs {
 	/// Copy method to use
 	#[arg(long, default_value_t = CopyMethod::Auto)]
 	pub method: CopyMethod,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
 }
 
-impl From<FileCopyArgs> for FileCopyInput {
-	fn from(args: FileCopyArgs) -> Self {
-		let sources = args
-			.sources
-			.iter()
-			.map(|p| SdPath::local(p.clone()))
-			.collect::<Vec<_>>();
-		let destination = SdPath::local(args.destination);
-		Self {
-			sources: SdPathBatch { paths: sources },
-			destination,
-			overwrite: args.overwrite,
-			verify_checksum: args.verify_checksum,
-			preserve_timestamps: args.preserve_timestamps,
-			move_files: args.move_files,
-			copy_method: args.method,
+impl FileCopyArgs {
+	pub fn into_input(self) -> anyhow::Result<FileCopyInput> {
+		Ok(FileCopyInput {
+			sources: SdPathBatch {
+				paths: self
+					.sources
+					.iter()
+					.map(local_path)
+					.collect::<anyhow::Result<_>>()?,
+			},
+			destination: local_path(&self.destination)?,
+			overwrite: self.overwrite,
+			verify_checksum: self.verify_checksum,
+			preserve_timestamps: self.preserve_timestamps,
+			move_files: self.move_files,
+			copy_method: self.method,
 			on_conflict: None,
-		}
+		})
 	}
 }
 
@@ -197,6 +206,10 @@ pub struct FileDeleteArgs {
 	#[arg(long, default_value_t = false)]
 	pub permanent: bool,
 
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
 	/// Skip the confirmation prompt
 	#[arg(long, short = 'y', default_value_t = false)]
 	pub yes: bool,
@@ -236,6 +249,51 @@ impl FileDeleteArgs {
 			targets,
 			permanent: self.permanent,
 			recursive: true,
+		})
+	}
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileMergeArgs {
+	/// Folders to merge, in order
+	#[arg(required = true)]
+	pub sources: Vec<PathBuf>,
+
+	/// The existing folder to merge into
+	#[arg(long, value_name = "DIR")]
+	pub into: PathBuf,
+
+	/// What to do with a file at the same path whose bytes differ
+	#[arg(long, value_enum, default_value = "skip")]
+	pub on_conflict: MergeConflictPolicy,
+
+	/// Remove each source leaf once it is merged, and prune emptied folders;
+	/// what the merge does not settle stays
+	#[arg(long, default_value_t = false)]
+	pub consume: bool,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileMergeArgs {
+	pub fn into_input(self) -> anyhow::Result<FileMergeInput> {
+		Ok(FileMergeInput {
+			sources: SdPathBatch {
+				paths: self
+					.sources
+					.iter()
+					.map(local_path)
+					.collect::<anyhow::Result<_>>()?,
+			},
+			destination: local_path(&self.into)?,
+			on_conflict: self.on_conflict,
+			consume_sources: self.consume,
 		})
 	}
 }

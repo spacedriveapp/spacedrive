@@ -310,6 +310,12 @@ impl Sorted {
 	pub(crate) fn key(&self) -> Option<&Key> {
 		self.a.as_ref().or(self.b.as_ref()).map(|file| &file.key)
 	}
+
+	/// Where the sorted file sits relative to its side's folder, with forward
+	/// slashes.
+	pub(crate) fn path(&self) -> Option<String> {
+		self.key().map(|(directory, name)| join(directory, name))
+	}
 }
 
 /// A comparison: two folders' files sorted into sets, in key order, each
@@ -635,6 +641,9 @@ impl Keyed {
 pub(crate) struct Folder {
 	streams: Vec<Stream>,
 	include_hidden: bool,
+	/// Whether directories and symlinks stream too, each in its place, for a
+	/// reader that has to know what a path is on each side.
+	directories: bool,
 }
 
 impl Folder {
@@ -671,6 +680,7 @@ impl Folder {
 					resume(&reach.scope, &reach.prefix, cursor)
 				}),
 				db,
+				source: reach.source.id,
 				root: Arc::new(reach.source.root),
 				scope: reach.scope,
 				prefix: reach.prefix,
@@ -680,13 +690,32 @@ impl Folder {
 		Self {
 			streams,
 			include_hidden,
+			directories: false,
 		}
+	}
+
+	/// Stream directories and symlinks as well as files. Set before the
+	/// first read.
+	pub(crate) fn with_directories(mut self) -> Self {
+		self.directories = true;
+		self
+	}
+
+	/// The revision of every store this folder reads, by source, so a plan
+	/// read from them can say what it was read against.
+	pub(crate) async fn revisions(&self) -> QueryResult<Vec<(uuid::Uuid, i64)>> {
+		let mut revisions = Vec::with_capacity(self.streams.len());
+		for stream in &self.streams {
+			let revision = stream.db.revision().await.map_err(read_failed)?;
+			revisions.push((stream.source, revision.value));
+		}
+		Ok(revisions)
 	}
 
 	/// Read ahead wherever a stream has run dry.
 	async fn ready(&mut self) -> QueryResult<()> {
 		for stream in &mut self.streams {
-			stream.ready(self.include_hidden).await?;
+			stream.ready(self.include_hidden, self.directories).await?;
 		}
 		Ok(())
 	}
@@ -755,6 +784,7 @@ impl Folder {
 /// One store's files beneath a side's folder, read a batch at a time.
 struct Stream {
 	db: Arc<sd_store::SourceDb>,
+	source: uuid::Uuid,
 	root: Arc<PathBuf>,
 	/// Where the store is read from, relative to its source root.
 	scope: String,
@@ -776,14 +806,14 @@ enum Next {
 impl Stream {
 	/// Read until the stream has a file in hand or has none left. A batch can
 	/// come back with nothing to hold when every row in it was lensed out.
-	async fn ready(&mut self, include_hidden: bool) -> QueryResult<()> {
+	async fn ready(&mut self, include_hidden: bool, directories: bool) -> QueryResult<()> {
 		while self.buffer.is_empty() && self.next != Next::Done {
-			self.read(include_hidden).await?;
+			self.read(include_hidden, directories).await?;
 		}
 		Ok(())
 	}
 
-	async fn read(&mut self, include_hidden: bool) -> QueryResult<()> {
+	async fn read(&mut self, include_hidden: bool, directories: bool) -> QueryResult<()> {
 		let next = std::mem::replace(&mut self.next, Next::Done);
 		let start = match &next {
 			Next::First => Start::First,
@@ -791,15 +821,13 @@ impl Stream {
 			Next::After(directory, name) => Start::After { directory, name },
 			Next::Done => return Ok(()),
 		};
-		let batch = sd_store::read::files_beneath(
-			self.db.pool(),
-			&self.scope,
-			start,
-			None,
-			include_hidden,
-			BATCH,
-		)
-		.await
+		let pool = self.db.pool();
+		let batch = if directories {
+			sd_store::read::entries_beneath(pool, &self.scope, start, include_hidden, BATCH).await
+		} else {
+			sd_store::read::files_beneath(pool, &self.scope, start, None, include_hidden, BATCH)
+				.await
+		}
 		.map_err(read_failed)?;
 
 		if batch.len() == BATCH {

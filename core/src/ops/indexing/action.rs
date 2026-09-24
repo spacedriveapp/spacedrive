@@ -61,21 +61,8 @@ impl LibraryAction for IndexingAction {
 	type Output = crate::infra::job::handle::JobReceipt;
 
 	fn from_input(input: IndexInput) -> Result<Self, String> {
+		input.validate().map_err(|errors| errors.join("; "))?;
 		Ok(IndexingAction::new(input))
-	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		if let Err(errors) = self.input.validate() {
-			return Err(ActionError::Validation {
-				field: "paths".to_string(),
-				message: errors.join("; "),
-			});
-		}
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

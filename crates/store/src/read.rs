@@ -277,6 +277,16 @@ pub enum Start<'a> {
 	Directories,
 }
 
+/// Which record kinds a read beneath a directory takes in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kinds {
+	/// Files alone, which is what a listing of what a folder holds wants.
+	Files,
+	/// Files, directories and symlinks, each in its place in the same order,
+	/// for a reader that has to know what a path is as well as that it is.
+	All,
+}
+
 /// Up to `limit` files beneath the directory at `scope` (source-relative, ""
 /// for the source root) at any depth, in the order of their directory's path
 /// and then their name, from `start`. Files directly under the source root
@@ -295,11 +305,48 @@ pub async fn files_beneath(
 	include_hidden: bool,
 	limit: usize,
 ) -> Result<Vec<FsEntry>> {
-	if limit == 0 || extensions.is_some_and(<[String]>::is_empty) {
+	if extensions.is_some_and(<[String]>::is_empty) {
+		return Ok(Vec::new());
+	}
+	beneath(
+		pool,
+		scope,
+		start,
+		extensions,
+		include_hidden,
+		Kinds::Files,
+		limit,
+	)
+	.await
+}
+
+/// [`files_beneath`] for every kind of record: directories and symlinks come
+/// out in their place among the files, so a reader walking two trees against
+/// each other meets a directory on one side where the other has a file.
+pub async fn entries_beneath(
+	pool: &SqlitePool,
+	scope: &str,
+	start: Start<'_>,
+	include_hidden: bool,
+	limit: usize,
+) -> Result<Vec<FsEntry>> {
+	beneath(pool, scope, start, None, include_hidden, Kinds::All, limit).await
+}
+
+async fn beneath(
+	pool: &SqlitePool,
+	scope: &str,
+	start: Start<'_>,
+	extensions: Option<&[String]>,
+	include_hidden: bool,
+	kinds: Kinds,
+	limit: usize,
+) -> Result<Vec<FsEntry>> {
+	if limit == 0 {
 		return Ok(Vec::new());
 	}
 	let mut entries = Vec::new();
-	for statement in beneath_statements(scope, start, extensions, include_hidden) {
+	for statement in beneath_statements(scope, start, extensions, include_hidden, kinds) {
 		let mut query = sqlx::query_as::<_, EntryRow>(&statement.sql);
 		for value in &statement.binds {
 			query = query.bind(value);
@@ -369,6 +416,50 @@ pub async fn holders_beneath(
 		);
 	}
 	Ok(holders)
+}
+
+/// How many records in the store hold each of `contents`, by sampled hash.
+/// Summed across every store, one holder means a file is the last copy of
+/// its bytes anywhere.
+pub async fn content_holders(
+	pool: &SqlitePool,
+	contents: &[String],
+) -> Result<HashMap<String, i64>> {
+	let mut holders = HashMap::new();
+	for chunk in contents.chunks(LOOKUP_CHUNK) {
+		let sql = format!(
+			"SELECT c.sampled_hash, COUNT(*) FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 WHERE c.sampled_hash IN ({}) GROUP BY c.sampled_hash",
+			vec!["?"; chunk.len()].join(", ")
+		);
+		let mut query = sqlx::query_as::<_, (String, i64)>(&sql);
+		for content in chunk {
+			query = query.bind(content);
+		}
+		holders.extend(query.fetch_all(pool).await?);
+	}
+	Ok(holders)
+}
+
+/// How many tag assertions stand on records beneath the directory at
+/// `scope`, "" for the whole source. What a move off the volume would leave
+/// behind, since assertions belong to the records of the store they are in.
+pub async fn assertions_beneath(pool: &SqlitePool, scope: &str) -> Result<i64> {
+	let (mut conditions, binds) = beneath_scope(scope);
+	conditions.insert(0, "t.asserted = 1".to_string());
+	let sql = format!(
+		"SELECT COUNT(*) FROM tag_assertion t \
+		 JOIN record r ON r.uuid = t.record_uuid \
+		 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+		 WHERE {}",
+		conditions.join(" AND ")
+	);
+	let mut query = sqlx::query_scalar::<_, i64>(&sql);
+	for value in &binds {
+		query = query.bind(value);
+	}
+	Ok(query.fetch_one(pool).await?)
 }
 
 /// Sampled hashes one content lookup asks about, under SQLite's bind limit.
@@ -448,10 +539,14 @@ fn beneath_statements(
 	start: Start<'_>,
 	extensions: Option<&[String]>,
 	include_hidden: bool,
+	kinds: Kinds,
 ) -> Vec<Statement> {
 	// `+` keeps the type term off `idx_record_type`, which would drive the
 	// scan from every file in the store and sort them.
-	let mut shared = vec!["+r.type = 'file'".to_string()];
+	let mut shared = vec![match kinds {
+		Kinds::Files => "+r.type = 'file'".to_string(),
+		Kinds::All => "+r.type IN ('file', 'directory', 'symlink')".to_string(),
+	}];
 	let mut shared_binds = Vec::new();
 	if !include_hidden {
 		shared.push("COALESCE(f.is_hidden, 0) != 1".to_string());
@@ -676,7 +771,11 @@ mod tests {
 			),
 		];
 		for (scope, start) in pages {
-			for statement in beneath_statements(scope, start, Some(&extensions), false) {
+			for statement in
+				beneath_statements(scope, start, Some(&extensions), false, Kinds::Files)
+					.into_iter()
+					.chain(beneath_statements(scope, start, None, true, Kinds::All))
+			{
 				let steps = plan(db.pool(), &statement.sql, &statement.binds, Some(100)).await;
 				assert!(
 					!steps.iter().any(|step| step.contains("TEMP B-TREE")),

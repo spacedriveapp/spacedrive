@@ -130,6 +130,16 @@ targets_pending: number; warnings: string[] };
  */
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
 
+export type ChangeKind = { type: "create"; size: number } | { type: "create_directory" } | { type: "replace"; existing_size: number; incoming_size: number; reason: ReplaceReason } | 
+/**
+ * A directory on both sides; the plan continues inside it.
+ */
+{ type: "merge_into" } | { type: "skip"; reason: SkipReason } | { type: "move"; from: SdPath } | { type: "delete"; last_copy: boolean } | 
+/**
+ * Nothing the policy resolves. Reported and left alone.
+ */
+{ type: "conflict"; kind: ConflictKind };
+
 /**
  * Cloud service type identifier
  */
@@ -230,6 +240,20 @@ export type Comparison = { a: SdPath; b: SdPath; by: CompareBy; show: CompareSet
  * Whether hidden files take part.
  */
 include_hidden?: boolean };
+
+export type ConflictKind = 
+/**
+ * A file on one side where the other has a directory.
+ */
+"file_vs_directory" | 
+/**
+ * A symlink on one side where the other has a regular file.
+ */
+"link_vs_file" | 
+/**
+ * Two sources of one operation want the same place.
+ */
+"sources";
 
 /**
  * Network connection method for a device
@@ -791,7 +815,12 @@ sort_by: DirectorySortBy;
 /**
  * Whether to show folders before files (default: false)
  */
-folders_first: boolean | null };
+folders_first: boolean | null; 
+/**
+ * The handle of a previewed plan. Through it the listing is the
+ * directory as it would look after that operation
+ */
+overlay?: string | null };
 
 /**
  * Output containing directory contents
@@ -808,7 +837,12 @@ total_count: number;
 /**
  * Whether this directory has more children than returned
  */
-has_more: boolean };
+has_more: boolean; 
+/**
+ * What the overlaid plan does to rows of this directory, by the row's
+ * full name. Empty without an overlay
+ */
+overlay?: OverlaidRow[] };
 
 /**
  * Sort options for directory listing
@@ -1088,6 +1122,20 @@ export type EventSeverity =
 "error";
 
 /**
+ * How the execution would run.
+ */
+export type ExecutionFacts = { 
+/**
+ * The device slug the work runs on.
+ */
+executes_on: string; 
+/**
+ * The strategy the router would pick: reflink, atomic rename, stream,
+ * remote.
+ */
+strategy: string | null; estimated_files: number | null; estimated_bytes: number | null; free_space_after: number | null };
+
+/**
  * A dependency Spacedrive knows how to discover and use.
  */
 export type ExternalToolId = "ffmpeg";
@@ -1235,6 +1283,25 @@ permanent: boolean;
 recursive: boolean };
 
 /**
+ * Merge one or more folders into an existing directory: recurse into
+ * matching subfolders, skip files whose bytes are proven identical, and
+ * resolve name collisions by a policy chosen after seeing the plan.
+ */
+export type FileMergeInput = { sources: SdPathBatch; 
+/**
+ * An existing directory. A destination that is missing or is a file is
+ * a validation error; merge never guesses whether a path means a folder
+ * or a new name.
+ */
+destination: SdPath; on_conflict: MergeConflictPolicy; 
+/**
+ * Remove each source leaf once its copy has landed or its bytes are
+ * confirmed identical to the destination's, and prune emptied source
+ * directories. What the merge did not settle stays where it was.
+ */
+consume_sources: boolean };
+
+/**
  * Input for renaming a file or directory
  */
 export type FileRenameInput = { 
@@ -1361,6 +1428,16 @@ export type FileSystem =
  */
 export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
 
+/**
+ * One thing validation has to say, with a stable code a client or an agent
+ * can branch on rather than parsing the message.
+ */
+export type Finding = { severity: Severity; code: string; message: string; 
+/**
+ * The path the finding is about, when it is about one.
+ */
+path: SdPath | null };
+
 export type FreezeSourceInput = { source_id: string };
 
 export type FreezeSourceOutput = { 
@@ -1375,6 +1452,33 @@ path: string;
 records: number };
 
 export type FrontendReads = { frontend: string; reads: number };
+
+export type FsPlan = { 
+/**
+ * The handle the daemon keeps the plan under, for browsing it as an
+ * overlay on listings. Set by the preview that retained it.
+ */
+handle: string | null; basis: PlanBasis; 
+/**
+ * Each folder the plan reads landing in another, so a listing under a
+ * consumed source can show what leaves it.
+ */
+roots: PlanRoot[]; summary: FsPlanSummary; changes: PlannedChange[]; 
+/**
+ * Whether changes were dropped from the list to keep it under the cap.
+ */
+truncated: boolean };
+
+/**
+ * Complete counts and bytes per change kind, whether or not a change made
+ * the list.
+ */
+export type FsPlanSummary = { creates: Tally; directories_created: number; replaces: Tally; merged_into: number; skips: Skips; moves: Tally; deletes: Tally; conflicts: number; 
+/**
+ * Files at the same path on both sides with different bytes, which the
+ * policy resolved one way or another.
+ */
+collisions: number };
 
 /**
  * Generic progress information that all job types can convert into
@@ -2623,6 +2727,28 @@ export type MergeAssertionsOutput = { definitions_received: number;
 assertions_appended: number };
 
 /**
+ * What to do with a file at the same path on both sides whose bytes differ.
+ */
+export type MergeConflictPolicy = 
+/**
+ * Leave the existing file as it is.
+ */
+"skip" | 
+/**
+ * Replace the existing file with the incoming one.
+ */
+"overwrite" | 
+/**
+ * Keep both: the incoming file lands under a numbered name.
+ */
+"keep_both" | 
+/**
+ * Replace the existing file when the incoming one was modified later,
+ * which is a claim the filesystem makes rather than proof.
+ */
+"keep_newer";
+
+/**
  * Information about a model
  */
 export type ModelInfo = { 
@@ -2866,6 +2992,11 @@ export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" 
  */
 export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadcast: number; shared_changes_broadcast: number; broadcast_batches_sent: number; failed_broadcasts: number; changes_received: number; changes_applied: number; changes_rejected: number; buffer_queue_depth: number; active_backfill_sessions: number; backfill_sessions_completed: number; backfill_pagination_rounds: number; retry_queue_depth: number; retry_attempts: number; retry_successes: number };
 
+/**
+ * One row of a listing as the overlaid plan changes it.
+ */
+export type OverlaidRow = { name: string; change: ChangeKind };
+
 export type Ownership = 
 /**
  * Spawned by this supervisor; exits are crashes to converge on.
@@ -3073,6 +3204,29 @@ export type PingInput = { message: string; count?: number | null };
 
 export type PingOutput = { echo: string; count: number; extension_works: boolean };
 
+/**
+ * What a plan was read from.
+ */
+export type PlanBasis = 
+/**
+ * The stores the plan read, at the revisions it read them.
+ */
+{ kind: "index"; revisions: StoreRevision[] };
+
+/**
+ * One folder of the plan landing in another.
+ */
+export type PlanRoot = { source: SdPath; destination: SdPath; 
+/**
+ * Whether settled leaves leave the source.
+ */
+consumes: boolean };
+
+/**
+ * One path the plan touches, at its place in the destination.
+ */
+export type PlannedChange = { path: SdPath; change: ChangeKind };
+
 export type PortLease = { port: number; holder: PortLeaseHolder; policy: PortPolicy; source: LeaseSource };
 
 export type PortLeaseHolder = { installationId: string; endpointId: string };
@@ -3256,6 +3410,17 @@ export type ReorderGroupsInput = { space_id: string; group_ids: string[] };
 export type ReorderItemsInput = { group_id: string | null; item_ids: string[] };
 
 export type ReorderOutput = { success: boolean };
+
+export type ReplaceReason = 
+/**
+ * The policy replaces whatever differs.
+ */
+"overwrite" | 
+/**
+ * The incoming file's modification time is later, which is a claim the
+ * filesystem makes rather than proof about the bytes.
+ */
+"newer";
 
 export type ResetDataInput = { 
 /**
@@ -3522,6 +3687,16 @@ export type SetNavigationFocusOutput = { focus: NavigationFocus;
  */
 moved: boolean };
 
+export type Severity = 
+/**
+ * Refuses the execution.
+ */
+"error" | 
+/**
+ * Worth showing; never blocks.
+ */
+"warning" | "info";
+
 /**
  * Domain representation of a sidecar
  */
@@ -3598,6 +3773,28 @@ depth?: number | null;
 top?: number | null };
 
 export type SizeTreeOutput = { root: SizeNode; attached: boolean };
+
+export type SkipReason = 
+/**
+ * The same bytes by sampled hash, or by size and modification time
+ * where a side is unhashed. A job reads both in full before it acts on
+ * this.
+ */
+"duplicate_candidate" | 
+/**
+ * The same bytes by integrity hash on both sides.
+ */
+"duplicate_confirmed" | 
+/**
+ * A file no one wants copied: `.DS_Store`, `Thumbs.db`, `desktop.ini`.
+ */
+"junk" | 
+/**
+ * The policy leaves the existing file as it is.
+ */
+"policy";
+
+export type Skips = { duplicate_candidates: Tally; duplicates_confirmed: Tally; junk: number; policy: Tally };
 
 /**
  * Sort direction
@@ -3857,6 +4054,8 @@ export type StartupIndexingOutput = { disposition: StartupIndexingDisposition };
  */
 export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; timestamp: string; reason: string | null };
 
+export type StoreRevision = { source: string; revision: number };
+
 /**
  * Sync activity types for detailed sync monitoring
  */
@@ -4027,6 +4226,8 @@ export type TagTargets =
  * this copy rather than all of them.
  */
 { type: "File"; ids: string[] };
+
+export type Tally = { files: number; bytes: number };
 
 /**
  * Text highlighting information
@@ -4482,6 +4683,11 @@ path_depth: number;
 is_on_primary_volume: boolean };
 
 /**
+ * Whether and how an action would run.
+ */
+export type Validation = { findings: Finding[]; facts: ExecutionFacts };
+
+/**
  * A validation warning message
  */
 export type ValidationWarning = { message: string; suggestion: string | null };
@@ -4925,6 +5131,7 @@ export type LibraryAction =
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
+  |  { type: 'files.merge'; input: FileMergeInput; output: JobReceipt }
   |  { type: 'files.rename'; input: FileRenameInput; output: JobReceipt }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
   |  { type: 'indexing.startup'; input: StartupIndexingInput; output: StartupIndexingOutput }
@@ -5038,6 +5245,18 @@ export type LibraryQuery =
   |  { type: 'volumes.list'; input: VolumeListQueryInput; output: VolumeListOutput }
 ;
 
+export type LibraryValidate =
+     { type: 'files.copy'; input: FileCopyInput; output: Validation }
+  |  { type: 'files.delete'; input: FileDeleteInput; output: Validation }
+  |  { type: 'files.merge'; input: FileMergeInput; output: Validation }
+;
+
+export type LibraryPreview =
+     { type: 'files.copy'; input: FileCopyInput; output: FsPlan }
+  |  { type: 'files.delete'; input: FileDeleteInput; output: FsPlan }
+  |  { type: 'files.merge'; input: FileMergeInput; output: FsPlan }
+;
+
 // ===== Wire Method Mappings =====
 
 export const WIRE_METHODS = {
@@ -5079,6 +5298,7 @@ export const WIRE_METHODS = {
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
     'files.delete': 'action:files.delete.input',
+    'files.merge': 'action:files.merge.input',
     'files.rename': 'action:files.rename.input',
     'indexing.start': 'action:indexing.start.input',
     'indexing.startup': 'action:indexing.startup.input',
@@ -5190,6 +5410,18 @@ export const WIRE_METHODS = {
     'tags.search': 'query:tags.search',
     'test.ping': 'query:test.ping',
     'volumes.list': 'query:volumes.list',
+  },
+
+  libraryValidates: {
+    'files.copy': 'validate:files.copy',
+    'files.delete': 'validate:files.delete',
+    'files.merge': 'validate:files.merge',
+  },
+
+  libraryPreviews: {
+    'files.copy': 'preview:files.copy',
+    'files.delete': 'preview:files.delete',
+    'files.merge': 'preview:files.merge',
   },
 
 } as const;

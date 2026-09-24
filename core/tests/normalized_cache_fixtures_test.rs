@@ -252,6 +252,7 @@ async fn capture_event_fixtures_for_typescript(
 		limit: None,
 		include_hidden: Some(false),
 		sort_by: DirectorySortBy::Name,
+		overlay: None,
 	};
 
 	let query = DirectoryListingQuery::from_input(query_input)?;

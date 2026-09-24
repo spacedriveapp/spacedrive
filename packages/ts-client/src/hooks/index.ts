@@ -4,6 +4,7 @@
 export { SpacedriveProvider, useSpacedriveClient, useClient, queryClient } from "./useClient";
 export { useCoreQuery, useLibraryQuery } from "./useQuery";
 export { useCoreMutation, useLibraryMutation } from "./useMutation";
+export { useLibraryValidate, useLibraryPreview } from "./usePreflight";
 export { useNormalizedQuery } from "./useNormalizedQuery";
 // Alias for backwards compatibility
 export { useNormalizedQuery as useNormalizedCache } from "./useNormalizedQuery";

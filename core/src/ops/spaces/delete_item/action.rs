@@ -62,14 +62,6 @@ impl LibraryAction for DeleteItemAction {
 	fn action_kind(&self) -> &'static str {
 		"spaces.delete_item"
 	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
-	}
 }
 
 crate::register_library_action!(DeleteItemAction, "spaces.delete_item");

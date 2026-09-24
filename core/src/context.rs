@@ -57,6 +57,8 @@ pub struct CoreContext {
 	pub job_logs_dir: Option<PathBuf>,
 	// Data directory path (for reset and cleanup operations)
 	pub data_dir: PathBuf,
+	// Previewed plans kept under handles for browsing; in-memory, never persisted
+	pub plans: Arc<crate::ops::files::plan::PlanHandles>,
 }
 
 impl CoreContext {
@@ -111,6 +113,7 @@ impl CoreContext {
 			job_logging_config: None,
 			job_logs_dir: None,
 			data_dir,
+			plans: Arc::new(crate::ops::files::plan::PlanHandles::default()),
 		}
 	}
 

@@ -549,6 +549,19 @@ pub async fn execute_json_operation_with_context(
 	let base_session =
 		crate::infra::api::SessionContext::device_session(device_id, "Core Device".to_string());
 
+	// Preflight: reads over an action's input, answered for a library
+	for handlers in [
+		&*crate::infra::wire::registry::LIBRARY_VALIDATES,
+		&*crate::infra::wire::registry::LIBRARY_PREVIEWS,
+	] {
+		if let Some(handler) = handlers.get(method) {
+			let library_id =
+				library_id.ok_or_else(|| "Library ID required for preflight".to_string())?;
+			let session = base_session.clone().with_library(library_id);
+			return handler(context.clone(), session, json_payload).await;
+		}
+	}
+
 	// Try library queries first
 	if let Some(handler) = crate::infra::wire::registry::LIBRARY_QUERIES.get(method) {
 		let library_id =

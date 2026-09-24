@@ -11,10 +11,13 @@ use std::io::Write;
 
 use crate::context::{Context, OutputFormat};
 use sd_core::domain::SdPath;
+use sd_core::infra::action::preflight::{Severity, Validation};
 use sd_core::infra::job::handle::JobReceipt;
-use sd_core::infra::job::types::JobId;
 use sd_core::infra::query::LibraryQuery;
+use sd_core::ops::files::copy::input::FileCopyInput;
 use sd_core::ops::files::delete::{DeleteTargets, FileDeleteInput};
+use sd_core::ops::files::merge::FileMergeInput;
+use sd_core::ops::files::plan::{ChangeKind, FsPlan, PlanBasis, SkipReason};
 use sd_core::ops::paths::compare::{
 	CompareBy, CompareEntry, CompareSet, CompareTotals, Comparison, PathCompareInput,
 	PathCompareOutput, MAX_PAGE,
@@ -34,21 +37,19 @@ pub enum FileCmd {
 	Compare(FileCompareArgs),
 	/// Delete files, or from a folder what a comparison names
 	Delete(FileDeleteArgs),
+	/// Merge folders into an existing folder, after seeing the plan
+	Merge(FileMergeArgs),
 }
 
 pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 	match cmd {
 		FileCmd::Copy(args) => {
-			let input: sd_core::ops::files::copy::input::FileCopyInput = args.into();
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			let input = args.into_input()?;
 			if let Err(errors) = input.validate() {
 				anyhow::bail!(errors.join("; "))
 			}
-
-			// Handle confirmation for file copy operations
-			let job_id: JobId = run_copy_with_confirmation(ctx, input).await?;
-			print_output!(ctx, &job_id, |id: &JobId| {
-				println!("Dispatched copy job {}", id);
-			});
+			copy_files(ctx, input, dry_run, yes).await?;
 		}
 		FileCmd::Info(args) => {
 			let file_info = get_file_info(ctx, &args.path).await?;
@@ -120,53 +121,360 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			compare_folders(ctx, args.into_input()?, cap).await?;
 		}
 		FileCmd::Delete(args) => {
-			let yes = args.yes;
-			delete_files(ctx, args.into_input()?, yes).await?;
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			delete_files(ctx, args.into_input()?, dry_run, yes).await?;
+		}
+		FileCmd::Merge(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			merge_folders(ctx, args.into_input()?, dry_run, yes).await?;
 		}
 	}
 	Ok(())
 }
 
-/// Say what will go, then delete it behind a y/N prompt unless `yes`. For a
-/// comparison that is its counts and the set, as `file compare` prints them,
-/// from a first page of it; the job derives the set again as it runs.
-async fn delete_files(ctx: &Context, input: FileDeleteInput, yes: bool) -> Result<()> {
+/// Validate, show the plan, and dispatch the same input behind a y/N prompt.
+/// An error finding stops here, as the daemon would refuse it anyway;
+/// `--dry-run` stops after the plan.
+async fn merge_folders(
+	ctx: &Context,
+	input: FileMergeInput,
+	dry_run: bool,
+	yes: bool,
+) -> Result<()> {
 	let human = matches!(ctx.format, OutputFormat::Human);
 	let mut out = std::io::stdout();
-	let (count, from) = match &input.targets {
-		DeleteTargets::Comparison { comparison } => {
-			let page: PathCompareOutput = execute_query!(
-				ctx,
-				PathCompareInput {
-					comparison: comparison.clone(),
-					after: None,
-					limit: 1,
-				}
-			);
-			let totals = page.totals.unwrap_or_default();
-			if human {
-				print_summary(&mut out, comparison, &totals)?;
-				writeln!(out)?;
-			}
-			(totals.count(comparison.show) as usize, " from A")
+	let validation: Validation = execute_validate!(ctx, input.clone());
+	let plan: FsPlan = execute_preview!(ctx, input.clone());
+
+	if human {
+		for source in &input.sources.paths {
+			writeln!(out, "Merge {}", folder_name(source))?;
 		}
-		DeleteTargets::Paths { paths } => (paths.len(), ""),
-	};
+		writeln!(out, "Into  {}", folder_name(&input.destination))?;
+		writeln!(
+			out,
+			"On conflict: {}{}\n",
+			match input.on_conflict {
+				sd_core::ops::files::merge::MergeConflictPolicy::Skip => "skip",
+				sd_core::ops::files::merge::MergeConflictPolicy::Overwrite => "overwrite",
+				sd_core::ops::files::merge::MergeConflictPolicy::KeepBoth => "keep both",
+				sd_core::ops::files::merge::MergeConflictPolicy::KeepNewer => "keep newer",
+			},
+			if input.consume_sources {
+				"; consuming the sources"
+			} else {
+				""
+			}
+		)?;
+		print_validation(&mut out, &validation)?;
+		print_plan(&mut out, &plan)?;
+	}
+	if let Some(stop) = stop_before_dispatch(human, &validation, &plan, dry_run)? {
+		return stop;
+	}
+
+	let summary = &plan.summary;
+	confirm_or_abort(
+		&format!(
+			"Merge {} files ({}) into {}{}?",
+			summary.creates.files + summary.replaces.files,
+			format_bytes(summary.bytes_needed()),
+			folder_name(&input.destination),
+			if input.consume_sources {
+				", consuming the sources"
+			} else {
+				""
+			}
+		),
+		yes,
+	)?;
+
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	if human {
+		writeln!(out, "Dispatched merge job {}", receipt.id)?;
+	} else {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+			"job": receipt,
+		}));
+	}
+	Ok(())
+}
+
+fn folder_name(path: &SdPath) -> String {
+	path.path()
+		.map_or_else(|| path.to_string(), |path| path.display().to_string())
+}
+
+fn refusal_summary(validation: &Validation) -> String {
+	validation
+		.errors()
+		.map(|finding| format!("{} ({})", finding.message, finding.code))
+		.collect::<Vec<_>>()
+		.join("; ")
+}
+
+/// Copy or move with preflight: validate, show the plan, dispatch the same
+/// input behind a y/N prompt. An error finding stops here; `--dry-run`
+/// stops after the plan.
+async fn copy_files(ctx: &Context, input: FileCopyInput, dry_run: bool, yes: bool) -> Result<()> {
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	let verb = if input.move_files { "Move" } else { "Copy" };
+	let validation: Validation = execute_validate!(ctx, input.clone());
+	let plan: FsPlan = execute_preview!(ctx, input.clone());
+
+	if human {
+		for source in &input.sources.paths {
+			writeln!(out, "{verb} {}", folder_name(source))?;
+		}
+		writeln!(out, "To   {}\n", folder_name(&input.destination))?;
+		print_validation(&mut out, &validation)?;
+		print_plan(&mut out, &plan)?;
+	}
+	if let Some(stop) = stop_before_dispatch(human, &validation, &plan, dry_run)? {
+		return stop;
+	}
+
+	let summary = &plan.summary;
+	confirm_or_abort(
+		&format!(
+			"{verb} {} files ({}) to {}?",
+			summary.creates.files + summary.replaces.files + summary.moves.files,
+			format_bytes(summary.bytes_needed()),
+			folder_name(&input.destination),
+		),
+		yes,
+	)?;
+
+	let receipt: JobReceipt = execute_action!(ctx, input);
+	if human {
+		writeln!(out, "Dispatched {} job {}", verb.to_lowercase(), receipt.id)?;
+	} else {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+			"job": receipt,
+		}));
+	}
+	Ok(())
+}
+
+/// Whether a preflight command stops after showing the plan: on a
+/// refusal, with the findings as the error, or at `--dry-run`. JSON output
+/// carries both answers either way.
+fn stop_before_dispatch(
+	human: bool,
+	validation: &Validation,
+	plan: &FsPlan,
+	dry_run: bool,
+) -> Result<Option<Result<()>>> {
+	if !validation.refuses() && !dry_run {
+		return Ok(None);
+	}
+	if !human {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+		}));
+	}
+	if validation.refuses() {
+		anyhow::bail!("refused: {}", refusal_summary(validation));
+	}
+	Ok(Some(Ok(())))
+}
+
+/// The findings, each with its severity and code, and the facts of the
+/// execution.
+fn print_validation(out: &mut impl Write, validation: &Validation) -> std::io::Result<()> {
+	for finding in &validation.findings {
+		let severity = match finding.severity {
+			Severity::Error => "error",
+			Severity::Warning => "warning",
+			Severity::Info => "info",
+		};
+		let at = finding
+			.path
+			.as_ref()
+			.map(|path| format!("  ({})", folder_name(path)))
+			.unwrap_or_default();
+		writeln!(
+			out,
+			"{severity:<8} {}: {}{at}",
+			finding.code, finding.message
+		)?;
+	}
+	let facts = &validation.facts;
+	let mut about = vec![format!("runs on {}", facts.executes_on)];
+	if let Some(strategy) = &facts.strategy {
+		about.push(format!("via {strategy}"));
+	}
+	if let (Some(files), Some(bytes)) = (facts.estimated_files, facts.estimated_bytes) {
+		about.push(format!("{files} files, {} estimated", format_bytes(bytes)));
+	}
+	if let Some(after) = facts.free_space_after {
+		about.push(format!(
+			"{} free after",
+			if after < 0 {
+				format!("-{}", format_bytes(after.unsigned_abs()))
+			} else {
+				format_bytes(after as u64)
+			}
+		));
+	}
+	writeln!(out, "Facts: {}\n", about.join("; "))
+}
+
+/// The plan's counts, then the conflicts and every collision the policy
+/// resolved, since those are what a person reads a plan for.
+fn print_plan(out: &mut impl Write, plan: &FsPlan) -> std::io::Result<()> {
+	let PlanBasis::Index { revisions } = &plan.basis;
+	writeln!(out, "Plan, from the index of {} stores:", revisions.len())?;
+	let summary = &plan.summary;
+	let tally = |files: u64, bytes: u64| format!("{files:>7} files  {:>9}", format_bytes(bytes));
+	writeln!(
+		out,
+		"  Create          {}",
+		tally(summary.creates.files, summary.creates.bytes)
+	)?;
+	writeln!(
+		out,
+		"  Replace         {}",
+		tally(summary.replaces.files, summary.replaces.bytes)
+	)?;
+	writeln!(
+		out,
+		"  Skip duplicates {}  ({} confirmed)",
+		tally(
+			summary.skips.duplicate_candidates.files + summary.skips.duplicates_confirmed.files,
+			summary.skips.duplicate_candidates.bytes + summary.skips.duplicates_confirmed.bytes
+		),
+		summary.skips.duplicates_confirmed.files
+	)?;
+	writeln!(
+		out,
+		"  Skip by policy  {}",
+		tally(summary.skips.policy.files, summary.skips.policy.bytes)
+	)?;
+	writeln!(
+		out,
+		"  Move            {}",
+		tally(summary.moves.files, summary.moves.bytes)
+	)?;
+	writeln!(
+		out,
+		"  Delete          {}",
+		tally(summary.deletes.files, summary.deletes.bytes)
+	)?;
+	writeln!(out, "  New folders     {:>7}", summary.directories_created)?;
+	writeln!(out, "  Merged folders  {:>7}", summary.merged_into)?;
+	writeln!(out, "  Junk            {:>7}", summary.skips.junk)?;
+	writeln!(out, "  Collisions      {:>7}", summary.collisions)?;
+	writeln!(out, "  Conflicts       {:>7}", summary.conflicts)?;
+
+	let notable: Vec<_> = plan
+		.changes
+		.iter()
+		.filter(|change| {
+			matches!(
+				change.change,
+				ChangeKind::Conflict { .. }
+					| ChangeKind::Replace { .. }
+					| ChangeKind::Skip {
+						reason: SkipReason::Policy
+					} | ChangeKind::Delete { last_copy: true }
+			)
+		})
+		.collect();
+	if !notable.is_empty() {
+		writeln!(out, "\nConflicts, collisions and last copies:")?;
+		for change in notable {
+			let what = match &change.change {
+				ChangeKind::Conflict { kind } => format!("conflict {kind:?}"),
+				ChangeKind::Replace { reason, .. } => format!("replace ({reason:?})"),
+				ChangeKind::Skip { .. } => "skip by policy".to_string(),
+				ChangeKind::Delete { .. } => "delete, last copy anywhere".to_string(),
+				_ => unreachable!(),
+			};
+			writeln!(out, "  {what:<28} {}", folder_name(&change.path))?;
+		}
+	}
+	if plan.truncated {
+		writeln!(
+			out,
+			"  (the list stops at the cap; the counts above are complete)"
+		)?;
+	}
+	writeln!(out)
+}
+
+/// Delete with preflight: the findings, with the warning only an index can
+/// give of which files are the last copy of their bytes, then the plan, then
+/// a y/N prompt. A comparison target prints the comparison's counts first.
+async fn delete_files(
+	ctx: &Context,
+	input: FileDeleteInput,
+	dry_run: bool,
+	yes: bool,
+) -> Result<()> {
+	let human = matches!(ctx.format, OutputFormat::Human);
+	let mut out = std::io::stdout();
+	if let (true, DeleteTargets::Comparison { comparison }) = (human, &input.targets) {
+		let page: PathCompareOutput = execute_query!(
+			ctx,
+			PathCompareInput {
+				comparison: comparison.clone(),
+				after: None,
+				limit: 1,
+			}
+		);
+		print_summary(&mut out, comparison, &page.totals.unwrap_or_default())?;
+		writeln!(out)?;
+	}
+
+	let validation: Validation = execute_validate!(ctx, input.clone());
+	let plan: FsPlan = execute_preview!(ctx, input.clone());
+	if human {
+		print_validation(&mut out, &validation)?;
+		print_plan(&mut out, &plan)?;
+	}
+	if let Some(stop) = stop_before_dispatch(human, &validation, &plan, dry_run)? {
+		return stop;
+	}
+
+	let count = plan.summary.deletes.files;
 	if count == 0 {
 		writeln!(out, "Nothing to delete")?;
 		return Ok(());
 	}
+	let from = match &input.targets {
+		DeleteTargets::Comparison { .. } => " from A",
+		DeleteTargets::Paths { .. } => "",
+	};
 	let destination = if input.permanent {
 		"permanently"
 	} else {
 		"to the trash"
 	};
-	confirm_or_abort(&format!("Delete {count} files{from} {destination}?"), yes)?;
+	confirm_or_abort(
+		&format!(
+			"Delete {count} files ({}){from} {destination}?",
+			format_bytes(plan.summary.deletes.bytes)
+		),
+		yes,
+	)?;
 
 	let receipt: JobReceipt = execute_action!(ctx, input);
-	print_output!(ctx, &receipt, |receipt: &JobReceipt| {
-		println!("Dispatched delete job {}", receipt.id);
-	});
+	if human {
+		writeln!(out, "Dispatched delete job {}", receipt.id)?;
+	} else {
+		crate::util::output::print_json(&serde_json::json!({
+			"validation": validation,
+			"plan": plan,
+			"job": receipt,
+		}));
+	}
 	Ok(())
 }
 
@@ -347,145 +655,6 @@ fn print_entry(out: &mut impl Write, entry: &CompareEntry, header: bool) -> std:
 	writeln!(out, "{}   {}", cells.join("   "), entry.path)
 }
 
-/// Run file copy with confirmation handling
-async fn run_copy_with_confirmation(
-	ctx: &Context,
-	mut input: sd_core::ops::files::copy::input::FileCopyInput,
-) -> Result<JobId> {
-	use crate::util::confirm::prompt_for_choice;
-	use sd_core::infra::action::LibraryAction;
-	use sd_core::ops::files::copy::action::FileCopyAction;
-
-	// Build the action from input for validation purposes
-	let action = FileCopyAction::from_input(input.clone())
-		.map_err(|e| anyhow::anyhow!("Failed to build action: {}", e))?;
-
-	// Use the action's validation method to check for conflicts
-	// For CLI validation, we'll use a simplified approach since we don't have full library context
-	// In a production system, you'd want to pass the actual library context
-
-	// Simple conflict detection - check if destination exists and overwrite is not enabled
-	if !input.overwrite {
-		let has_conflict = check_for_simple_conflicts(&action).await?;
-		if has_conflict {
-			use sd_core::infra::action::ConfirmationRequest;
-
-			let request = ConfirmationRequest {
-				message: "Destination file(s) already exist. What would you like to do?"
-					.to_string(),
-				choices: vec![
-					"Overwrite the existing file(s)".to_string(),
-					"Rename the new file(s) (e.g., file.txt -> file (1).txt)".to_string(),
-					"Abort this copy operation".to_string(),
-				],
-				metadata: None,
-			};
-
-			let choice_index = prompt_for_choice(request)?;
-
-			// Apply the user's choice to the input
-			match choice_index {
-				0 => {
-					// Overwrite: set conflict resolution in input
-					use sd_core::ops::files::copy::action::FileConflictResolution;
-					input.on_conflict = Some(FileConflictResolution::Overwrite);
-				}
-				1 => {
-					// Auto-rename: set conflict resolution in input
-					use sd_core::ops::files::copy::action::FileConflictResolution;
-					input.on_conflict = Some(FileConflictResolution::AutoModifyName);
-				}
-				2 => {
-					// Abort
-					anyhow::bail!("Operation aborted by user");
-				}
-				_ => {
-					anyhow::bail!("Invalid choice selected");
-				}
-			}
-		}
-	}
-
-	// Execute the action using the input
-	let job_id: JobId = execute_action!(ctx, input);
-	Ok(job_id)
-}
-
-/// Simple conflict detection for CLI
-async fn check_for_simple_conflicts(
-	action: &sd_core::ops::files::copy::action::FileCopyAction,
-) -> Result<bool> {
-	use sd_core::domain::addressing::SdPath;
-
-	// Extract the physical path from the destination SdPath
-	let dest_path = match &action.destination {
-		SdPath::Physical { path, .. } => path,
-		SdPath::Cloud { .. } => {
-			// Cloud paths are not yet supported for copy operations
-			return Ok(false);
-		}
-		SdPath::Content { .. } => {
-			// Content paths cannot be destinations for copy operations
-			return Ok(false);
-		}
-		SdPath::Sidecar { .. } => {
-			// Sidecar paths cannot be destinations for copy operations
-			return Ok(false);
-		}
-	};
-
-	// Resolve the actual destination file path using the same logic as the core copy job
-	let final_dest_path = resolve_final_destination_path(action, dest_path)?;
-
-	// Check if the resolved destination file exists
-	Ok(tokio::fs::metadata(&final_dest_path).await.is_ok())
-}
-
-/// Resolve the final destination path using the same logic as the core copy job
-/// This handles the case where destination is a directory vs a file path
-fn resolve_final_destination_path(
-	action: &sd_core::ops::files::copy::action::FileCopyAction,
-	dest_path: &std::path::PathBuf,
-) -> Result<std::path::PathBuf> {
-	use sd_core::domain::addressing::SdPath;
-
-	if action.sources.paths.len() > 1 {
-		// Multiple sources: destination must be a directory
-		if let Some(first_source) = action.sources.paths.first() {
-			if let SdPath::Physical {
-				path: source_path, ..
-			} = first_source
-			{
-				if let Some(filename) = source_path.file_name() {
-					return Ok(dest_path.join(filename));
-				}
-			}
-		}
-		// Fallback
-		return Ok(dest_path.clone());
-	} else {
-		// Single source: check if destination is a directory
-		if dest_path.is_dir() {
-			// Destination is a directory, join with source filename
-			if let Some(source) = action.sources.paths.first() {
-				if let SdPath::Physical {
-					path: source_path, ..
-				} = source
-				{
-					if let Some(filename) = source_path.file_name() {
-						return Ok(dest_path.join(filename));
-					}
-				}
-			}
-			// Fallback
-			return Ok(dest_path.clone());
-		} else {
-			// Destination is a file path, use as-is
-			return Ok(dest_path.clone());
-		}
-	}
-}
-
 /// Get file information using the FileByPathQuery
 async fn get_file_info(
 	ctx: &Context,
@@ -524,6 +693,7 @@ async fn list_directory(
 		include_hidden: Some(include_hidden),
 		sort_by,
 		folders_first: None,
+		overlay: None,
 	};
 
 	// Execute the query using the core client

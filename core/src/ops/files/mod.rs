@@ -3,6 +3,11 @@
 pub mod copy;
 pub mod create_folder;
 pub mod delete;
+#[cfg(test)]
+pub(crate) mod fixture;
+pub mod merge;
+pub mod plan;
+pub(crate) mod planner;
 pub mod query;
 pub mod rename;
 

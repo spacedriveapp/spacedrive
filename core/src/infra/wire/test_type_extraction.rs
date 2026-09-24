@@ -8,7 +8,7 @@ mod tests {
 
 	#[test]
 	fn test_working_operations() {
-		let (operations, queries, collection) = generate_spacedrive_api();
+		let (operations, queries, preflights, collection) = generate_spacedrive_api();
 
 		println!(
 			"RSPC Magic: Discovered {} operations and {} queries",
@@ -24,6 +24,13 @@ mod tests {
 
 		for query in queries.iter() {
 			println!("   Query: {} -> {}", query.identifier, query.wire_method);
+		}
+
+		for check in preflights.iter() {
+			println!(
+				"   Preflight: {} -> {}",
+				check.identifier, check.wire_method
+			);
 		}
 
 		if !operations.is_empty() {

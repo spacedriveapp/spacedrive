@@ -6,6 +6,8 @@
 use serde::{de::DeserializeOwned, Serialize};
 use specta::{DataType, Type, TypeCollection};
 
+use super::Preflight;
+
 /// Operation scope - automatically determined by registration macro
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OperationScope {
@@ -162,18 +164,67 @@ pub struct QueryExtractorEntry {
 	pub identifier: &'static str,
 }
 
+/// The types a preflight method answers with, for a client: the action's input
+/// and the method's output, a validation or the action's plan.
+pub struct PreflightTypes {
+	pub input_type: DataType,
+	pub output_type: DataType,
+	pub input_type_name: String,
+	pub output_type_name: String,
+}
+
+/// Register a preflight method's input and output with Specta. The registration
+/// macros instantiate this for each method, so a plan without a `Type` derive fails
+/// there rather than in a client.
+pub fn rail_types<I: Type + 'static, O: Type + 'static>(
+	collection: &mut TypeCollection,
+) -> PreflightTypes {
+	PreflightTypes {
+		input_type: I::definition(collection),
+		output_type: O::definition(collection),
+		input_type_name: extract_type_name(std::any::type_name::<I>()),
+		output_type_name: extract_type_name(std::any::type_name::<O>()),
+	}
+}
+
+/// Entry for collecting a preflight method's type extractor via inventory
+pub struct PreflightExtractorEntry {
+	pub preflight: Preflight,
+	pub identifier: &'static str,
+	pub extractor: fn(&mut TypeCollection) -> PreflightTypes,
+}
+
+/// Metadata extracted from a preflight method
+#[derive(Debug, Clone)]
+pub struct PreflightMetadata {
+	pub preflight: Preflight,
+	pub identifier: &'static str,
+	pub wire_method: String,
+	pub input_type: DataType,
+	pub output_type: DataType,
+	pub input_type_name: String,
+	pub output_type_name: String,
+}
+
 // Collect type extractors via inventory - this enables compile-time discovery
 inventory::collect!(TypeExtractorEntry);
 inventory::collect!(QueryExtractorEntry);
+inventory::collect!(PreflightExtractorEntry);
 
 /// Generate complete API metadata by running all collected type extractors
 ///
 /// This is the rspc-inspired magic: we iterate over compile-time registered
 /// extractors rather than runtime data, solving the timeline problem.
-pub fn generate_spacedrive_api() -> (Vec<OperationMetadata>, Vec<QueryMetadata>, TypeCollection) {
+pub fn generate_spacedrive_api() -> (
+	Vec<OperationMetadata>,
+	Vec<QueryMetadata>,
+	Vec<PreflightMetadata>,
+	TypeCollection,
+) {
 	let mut collection = TypeCollection::default();
 	let mut operations = Vec::new();
 	let mut queries = Vec::new();
+	let mut preflights = Vec::new();
 
 	// Extract all operations - this works because extractors are registered at compile-time
 	for entry in inventory::iter::<TypeExtractorEntry>() {
@@ -187,10 +238,27 @@ pub fn generate_spacedrive_api() -> (Vec<OperationMetadata>, Vec<QueryMetadata>,
 		queries.push(metadata);
 	}
 
+	// Extract every preflight method, addressed by its action's name
+	for entry in inventory::iter::<PreflightExtractorEntry>() {
+		let types = (entry.extractor)(&mut collection);
+		preflights.push(PreflightMetadata {
+			preflight: entry.preflight,
+			identifier: entry.identifier,
+			wire_method: format!("{}:{}", entry.preflight.prefix(), entry.identifier),
+			input_type: types.input_type,
+			output_type: types.output_type,
+			input_type_name: types.input_type_name,
+			output_type_name: types.output_type_name,
+		});
+	}
+
 	// Register event types in the same collection to avoid duplicates
 	collection.register_mut::<crate::infra::event::Event>();
+	// Every validate method answers with a Validation, and a refusal carries
+	// one, so clients need the type before any is registered.
+	collection.register_mut::<crate::infra::action::preflight::Validation>();
 
-	(operations, queries, collection)
+	(operations, queries, preflights, collection)
 }
 
 /// Generate the complete Spacedrive API structure as a Specta-compatible type
@@ -200,11 +268,31 @@ pub fn generate_spacedrive_api() -> (Vec<OperationMetadata>, Vec<QueryMetadata>,
 pub fn create_spacedrive_api_structure(
 	operations: &[OperationMetadata],
 	queries: &[QueryMetadata],
+	preflights: &[PreflightMetadata],
 ) -> SpacedriveApiStructure {
 	let mut core_actions = Vec::new();
 	let mut library_actions = Vec::new();
 	let mut core_queries = Vec::new();
 	let mut library_queries = Vec::new();
+	let mut library_validates = Vec::new();
+	let mut library_previews = Vec::new();
+
+	// A preflight method is addressed like a query: a method over an input, answered
+	// with an output.
+	for check in preflights {
+		let entry = ApiQueryType {
+			identifier: check.identifier.to_string(),
+			wire_method: check.wire_method.clone(),
+			input_type: check.input_type.clone(),
+			output_type: check.output_type.clone(),
+			input_type_name: check.input_type_name.clone(),
+			output_type_name: check.output_type_name.clone(),
+		};
+		match check.preflight {
+			Preflight::Validate => library_validates.push(entry),
+			Preflight::Preview => library_previews.push(entry),
+		}
+	}
 
 	// Group operations by scope - preserve the actual DataType objects!
 	for op in operations {
@@ -263,6 +351,8 @@ pub fn create_spacedrive_api_structure(
 		library_actions,
 		core_queries,
 		library_queries,
+		library_validates,
+		library_previews,
 	}
 }
 
@@ -272,6 +362,10 @@ pub struct SpacedriveApiStructure {
 	pub library_actions: Vec<ApiOperationType>,
 	pub core_queries: Vec<ApiQueryType>,
 	pub library_queries: Vec<ApiQueryType>,
+	/// Validate methods, each over its action's input, answering a `Validation`.
+	pub library_validates: Vec<ApiQueryType>,
+	/// Preview methods, each over its action's input, answering its plan.
+	pub library_previews: Vec<ApiQueryType>,
 }
 
 /// Represents a single API operation with actual type information
@@ -596,7 +690,7 @@ mod tests {
 
 	#[test]
 	fn test_type_extraction_system() {
-		let (operations, queries, collection) = generate_spacedrive_api();
+		let (operations, queries, _rails, collection) = generate_spacedrive_api();
 
 		println!(
 			"Discovered {} operations and {} queries",
@@ -630,7 +724,7 @@ mod tests {
 
 	#[test]
 	fn test_api_functions_extraction() {
-		let (operations, queries, _collection) = generate_spacedrive_api();
+		let (operations, queries, _rails, _collection) = generate_spacedrive_api();
 		let functions = extract_api_functions(&operations, &queries);
 
 		println!("Extracted {} API functions", functions.len());
@@ -673,7 +767,7 @@ mod tests {
 
 	#[test]
 	fn test_swift_code_generation() {
-		let (operations, queries, _collection) = generate_spacedrive_api();
+		let (operations, queries, _rails, _collection) = generate_spacedrive_api();
 		let functions = extract_api_functions(&operations, &queries);
 		let swift_code = generate_swift_api_code(&functions);
 

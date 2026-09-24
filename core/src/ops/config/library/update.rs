@@ -2,7 +2,7 @@
 
 use crate::{
 	context::CoreContext,
-	infra::action::{error::ActionError, LibraryAction, ValidationResult},
+	infra::action::{error::ActionError, LibraryAction},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -90,25 +90,13 @@ impl LibraryAction for UpdateLibraryConfigAction {
 	type Output = UpdateLibraryConfigOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
-		Ok(Self { input })
-	}
-
-	async fn validate(
-		&self,
-		_library: &Arc<crate::library::Library>,
-		_context: Arc<CoreContext>,
-	) -> Result<ValidationResult, ActionError> {
-		// Validate thumbnail quality
-		if let Some(quality) = self.input.thumbnail_quality {
-			if quality == 0 || quality > 100 {
-				return Err(ActionError::Validation {
-					field: "thumbnail_quality".to_string(),
-					message: "Thumbnail quality must be between 1 and 100".to_string(),
-				});
-			}
+		if input
+			.thumbnail_quality
+			.is_some_and(|quality| quality == 0 || quality > 100)
+		{
+			return Err("Thumbnail quality must be between 1 and 100".to_string());
 		}
-
-		Ok(ValidationResult::Success { metadata: None })
+		Ok(Self { input })
 	}
 
 	async fn execute(

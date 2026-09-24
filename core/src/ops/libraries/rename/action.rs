@@ -38,6 +38,9 @@ impl LibraryAction for LibraryRenameAction {
 	type Output = LibraryRenameOutput;
 
 	fn from_input(input: LibraryRenameInput) -> Result<Self, String> {
+		if input.new_name.trim().is_empty() {
+			return Err("Library name cannot be empty".to_string());
+		}
 		Ok(LibraryRenameAction::new(input))
 	}
 
@@ -70,24 +73,6 @@ impl LibraryAction for LibraryRenameAction {
 
 	fn action_kind(&self) -> &'static str {
 		"library.rename"
-	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		// Library existence already validated by ActionManager - no boilerplate!
-
-		// Validate new name
-		if self.input.new_name.trim().is_empty() {
-			return Err(ActionError::Validation {
-				field: "new_name".to_string(),
-				message: "Library name cannot be empty".to_string(),
-			});
-		}
-
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

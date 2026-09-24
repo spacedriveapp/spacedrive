@@ -138,14 +138,6 @@ impl LibraryAction for AddItemAction {
 	fn action_kind(&self) -> &'static str {
 		"spaces.add_item"
 	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		context: std::sync::Arc<CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
-	}
 }
 
 crate::register_library_action!(AddItemAction, "spaces.add_item");

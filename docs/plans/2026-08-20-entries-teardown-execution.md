@@ -61,7 +61,7 @@ rather than inferring it from a diff.
 | T4.10 Global search router | done | — | `1044e0977` searches every local and paired source |
 | T5.1–T5.3 | superseded | — | content hashing writes source stores; the old media pipeline was deleted; current source-scoped media work follows the product sequence |
 | T6.1–T6.7 | done through FD5; FDA ready | Opus | executed as `2026-09-15-entries-final-drop.md` FD0–FD5; its acceptance matrix (FDA) is next |
-| P7 Cross-source queries | compare landed; duplicates and at-risk next | — | no `catalog.db`: asked of the source stores at query time. Search, alternates and content tags already read every store; `paths.compare` compares two folders by path or content, and `files.delete` takes a comparison as its targets, removing from A what the set names after reading both copies in full |
+| P7 Cross-source queries | compare landed; duplicates and at-risk next | — | no `catalog.db`: asked of the source stores at query time. Search, alternates and content tags already read every store; `paths.compare` compares two folders by path or content, `files.delete` takes a comparison as its targets, removing from A what the set names after reading both copies in full, and its validation counts across every store which files are the last copy of their content |
 
 **Not in this register, tracked elsewhere:** the byte plane, block cache and
 mount frontends, in `2026-08-20-byte-plane-and-block-cache.md` and the

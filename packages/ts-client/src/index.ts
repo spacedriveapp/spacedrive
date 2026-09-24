@@ -41,7 +41,7 @@
  */
 
 // Core client
-export { SpacedriveClient } from "./client";
+export { SpacedriveClient, RefusedError } from "./client";
 export type { Transport } from "./transport";
 export {
 	UnixSocketTransport,

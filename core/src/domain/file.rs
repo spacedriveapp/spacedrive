@@ -215,6 +215,56 @@ impl File {
 	/// content kind is the one hashing recorded, and where there is none, the
 	/// one the extension gives, as for an index entry. A directory reports its
 	/// own row's size, since a store keeps no subtree rollups.
+	/// A file a plan would create, for a listing browsed through that plan:
+	/// enough of a row to stand in the folder before it exists.
+	pub fn planned(sd_path: SdPath, size: u64, is_directory: bool) -> Self {
+		let name = sd_path
+			.path()
+			.and_then(|path| path.file_name())
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_default();
+		let (name, extension, kind, content_kind) = if is_directory {
+			(name, None, EntryKind::Directory, ContentKind::Unknown)
+		} else {
+			let path = std::path::Path::new(&name);
+			let stem = path
+				.file_stem()
+				.and_then(|stem| stem.to_str())
+				.unwrap_or(&name)
+				.to_string();
+			let extension = path
+				.extension()
+				.and_then(|extension| extension.to_str())
+				.map(|extension| extension.to_lowercase());
+			let content_kind =
+				crate::filetype::FileTypeRegistry::builtin().identify_by_extension(path);
+			(stem, extension, EntryKind::File, content_kind)
+		};
+		let now = Utc::now();
+		Self {
+			id: Uuid::new_v5(&Uuid::NAMESPACE_URL, sd_path.to_string().as_bytes()),
+			is_local: sd_path.is_local(),
+			sd_path,
+			kind,
+			name,
+			extension,
+			size,
+			content_identity: None,
+			alternate_paths: Vec::new(),
+			tags: Vec::new(),
+			sidecars: Vec::new(),
+			image_media_data: None,
+			video_media_data: None,
+			audio_media_data: None,
+			created_at: now,
+			modified_at: now,
+			accessed_at: None,
+			content_kind,
+			duration_seconds: None,
+			thumbnail_path: None,
+		}
+	}
+
 	pub fn from_store_entry(entry: &sd_store::FsEntry, sd_path: SdPath) -> Self {
 		let is_local = sd_path.is_local();
 

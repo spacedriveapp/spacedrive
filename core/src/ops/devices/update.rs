@@ -3,7 +3,7 @@
 use crate::{
 	context::CoreContext,
 	device::DeviceConfig,
-	infra::action::{error::ActionError, CoreAction, ValidationResult},
+	infra::action::{error::ActionError, CoreAction},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -102,11 +102,6 @@ impl CoreAction for UpdateDeviceAction {
 			name: device_config.name,
 			slug: device_config.slug,
 		})
-	}
-
-	async fn validate(&self, _context: Arc<CoreContext>) -> Result<ValidationResult, ActionError> {
-		// Basic validation is done in from_input
-		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	fn action_kind(&self) -> &'static str {

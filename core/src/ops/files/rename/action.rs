@@ -6,7 +6,7 @@ use crate::{
 	context::CoreContext,
 	domain::addressing::SdPath,
 	infra::{
-		action::{error::ActionError, LibraryAction, ValidationResult},
+		action::{error::ActionError, LibraryAction},
 		job::handle::JobReceipt,
 	},
 	ops::files::copy::job::FileCopyJob,
@@ -38,41 +38,20 @@ impl LibraryAction for FileRenameAction {
 	type Output = JobReceipt;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
+		validate_filename(&input.new_name).map_err(|e| e.to_string())?;
+		match &input.target {
+			SdPath::Content { .. } => {
+				return Err("Cannot rename content-addressed files directly".to_string());
+			}
+			SdPath::Sidecar { .. } => {
+				return Err("Cannot rename sidecar files directly".to_string());
+			}
+			_ => {}
+		}
 		Ok(FileRenameAction {
 			target: input.target,
 			new_name: input.new_name,
 		})
-	}
-
-	async fn validate(
-		&self,
-		_library: &Arc<crate::library::Library>,
-		_context: Arc<CoreContext>,
-	) -> Result<ValidationResult, ActionError> {
-		// Validate the new filename
-		validate_filename(&self.new_name).map_err(|e| ActionError::Validation {
-			field: "new_name".to_string(),
-			message: e.to_string(),
-		})?;
-
-		// Validate target is not a Content or Sidecar path (these cannot be renamed directly)
-		match &self.target {
-			SdPath::Content { .. } => {
-				return Err(ActionError::Validation {
-					field: "target".to_string(),
-					message: "Cannot rename content-addressed files directly".to_string(),
-				});
-			}
-			SdPath::Sidecar { .. } => {
-				return Err(ActionError::Validation {
-					field: "target".to_string(),
-					message: "Cannot rename sidecar files directly".to_string(),
-				});
-			}
-			_ => {}
-		}
-
-		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

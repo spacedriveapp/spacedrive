@@ -53,14 +53,6 @@ impl LibraryAction for ReorderGroupsAction {
 	fn action_kind(&self) -> &'static str {
 		"spaces.reorder_groups"
 	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
-	}
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -103,14 +95,6 @@ impl LibraryAction for ReorderItemsAction {
 
 	fn action_kind(&self) -> &'static str {
 		"spaces.reorder_items"
-	}
-
-	async fn validate(
-		&self,
-		_library: &std::sync::Arc<crate::library::Library>,
-		_context: std::sync::Arc<CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

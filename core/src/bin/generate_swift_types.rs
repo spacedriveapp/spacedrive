@@ -14,7 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	println!("️Generating Swift types using Specta + rspc-inspired type extraction...");
 
 	// Use our automatic type extraction system to discover all operations and queries
-	let (operations, queries, types) = generate_spacedrive_api();
+	let (operations, queries, preflights, types) = generate_spacedrive_api();
 
 	println!(
 		"Discovered {} operations and {} queries",
@@ -23,7 +23,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	);
 
 	// Create the API structure
-	let api_structure = create_spacedrive_api_structure(&operations, &queries);
+	let api_structure = create_spacedrive_api_structure(&operations, &queries, &preflights);
 
 	println!("API Structure Summary:");
 	println!("  • Core Actions: {}", api_structure.core_actions.len());

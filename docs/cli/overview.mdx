@@ -145,6 +145,21 @@ already holds. The job reads both copies in full before it removes one:
 sd-cli file delete ~/Photos --against /Volumes/Backup/Photos --by content --show both
 ~~~
 
+Copy, move, merge and delete all show their findings and their plan before
+asking. Validation says whether the operation may run and how, the plan says
+what would exist afterward, and the job applies the same decisions leaf by
+leaf against the live filesystem. `--dry-run` stops after the plan:
+
+~~~bash
+sd-cli file copy ~/Photos/2024 --destination /Volumes/Backup/Photos --dry-run
+sd-cli file copy ~/Photos/2024 --destination /Volumes/Backup/Photos --move-files
+sd-cli file merge /Volumes/Expansion/Photos --into /Volumes/NAS/Photos --dry-run
+sd-cli file merge /Volumes/Expansion/Photos --into /Volumes/NAS/Photos --on-conflict keep-both --consume
+~~~
+
+A delete's plan says which of the files are the last copy of their content
+anywhere in the library, before anything is removed.
+
 ## Structured output
 
 Pass **--format json** before the command to receive structured output:

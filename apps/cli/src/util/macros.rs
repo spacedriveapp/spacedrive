@@ -75,6 +75,39 @@ macro_rules! execute_query {
 	}};
 }
 
+/// Ask whether and how a library action would run, over the input it takes.
+#[macro_export]
+macro_rules! execute_validate {
+	($ctx:expr, $input:expr) => {{
+		let input = $input;
+		let library_id = match $ctx.core.device() {
+			Some(_) => None,
+			None => Some(get_current_library!($ctx)),
+		};
+		$ctx.core
+			.validate(&input, library_id)
+			.await
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?
+	}};
+}
+
+/// Ask what would exist after a library action, over the input it takes.
+/// The plan type comes from the binding.
+#[macro_export]
+macro_rules! execute_preview {
+	($ctx:expr, $input:expr) => {{
+		let input = $input;
+		let library_id = match $ctx.core.device() {
+			Some(_) => None,
+			None => Some(get_current_library!($ctx)),
+		};
+		$ctx.core
+			.preview(&input, library_id)
+			.await
+			.map_err(|e| $crate::util::error::improve_core_error(e.to_string()))?
+	}};
+}
+
 /// Execute a core query (no library ID required) and handle serialization/deserialization
 #[macro_export]
 macro_rules! execute_core_query {
@@ -117,37 +150,5 @@ macro_rules! get_current_library {
 	($ctx:expr) => {{
 		$ctx.library_id
 			.ok_or($crate::util::error::CliError::NoActiveLibrary)?
-	}};
-}
-
-/// Execute an action with confirmation support
-/// This macro handles the validation and confirmation flow before executing the action
-#[macro_export]
-macro_rules! execute_action_with_confirmation {
-	($ctx:expr, $input:expr) => {{
-		use sd_core::infra::action::{LibraryAction, ValidationResult};
-		use $crate::util::confirm::prompt_for_choice;
-
-		// Build the action from input
-		let mut action = match <_ as LibraryAction>::from_input($input) {
-			Ok(action) => action,
-			Err(e) => anyhow::bail!("Failed to build action: {}", e),
-		};
-
-		// Get current library for validation
-		let library_id = get_current_library!($ctx);
-
-		// For validation, we need to create a mock library context
-		// In a full implementation, this would use the actual library from daemon
-		// For now, we'll skip library-specific validation and focus on the confirmation flow
-
-		// Note: This is a simplified implementation that assumes the action
-		// can be validated without full library context
-		// In production, you'd need to implement a way to validate actions on the CLI side
-		// or extend the daemon protocol to support validation requests
-
-		// Execute the action directly for now
-		let job_id = execute_action!($ctx, action);
-		job_id
 	}};
 }

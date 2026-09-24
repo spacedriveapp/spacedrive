@@ -8,6 +8,7 @@ use crate::{
 	context::CoreContext,
 	domain::{addressing::SdPath, content_identity::ContentIdentity, file::File, tag::Tag},
 	infra::query::LibraryQuery,
+	ops::files::plan::{ChangeKind, FsPlan, SkipReason},
 };
 use sea_orm::{
 	ColumnTrait, ConnectionTrait, DatabaseConnection, EntityTrait, JoinType, QueryFilter,
@@ -15,7 +16,11 @@ use sea_orm::{
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{collections::HashMap, sync::Arc};
+use std::{
+	collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+	path::{Path, PathBuf},
+	sync::Arc,
+};
 use tracing;
 use uuid::Uuid;
 
@@ -32,6 +37,10 @@ pub struct DirectoryListingInput {
 	pub sort_by: DirectorySortBy,
 	/// Whether to show folders before files (default: false)
 	pub folders_first: Option<bool>,
+	/// The handle of a previewed plan. Through it the listing is the
+	/// directory as it would look after that operation
+	#[serde(default)]
+	pub overlay: Option<Uuid>,
 }
 
 /// Sort options for directory listing
@@ -57,6 +66,17 @@ pub struct DirectoryListingOutput {
 	pub total_count: u32,
 	/// Whether this directory has more children than returned
 	pub has_more: bool,
+	/// What the overlaid plan does to rows of this directory, by the row's
+	/// full name. Empty without an overlay
+	#[serde(default)]
+	pub overlay: Vec<OverlaidRow>,
+}
+
+/// One row of a listing as the overlaid plan changes it.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct OverlaidRow {
+	pub name: String,
+	pub change: ChangeKind,
 }
 
 /// Query to list directory contents
@@ -74,6 +94,7 @@ impl DirectoryListingQuery {
 				include_hidden: Some(false),
 				sort_by: DirectorySortBy::Type,
 				folders_first: Some(false),
+				overlay: None,
 			},
 		}
 	}
@@ -91,6 +112,7 @@ impl DirectoryListingQuery {
 				include_hidden,
 				sort_by,
 				folders_first: Some(false),
+				overlay: None,
 			},
 		}
 	}
@@ -126,7 +148,18 @@ impl LibraryQuery for DirectoryListingQuery {
 			.await
 			.ok_or_else(|| QueryError::Internal("Library not found".to_string()))?;
 
-		self.query_arena_directory_impl(context, library_id).await
+		let mut listing = self
+			.query_arena_directory_impl(context.clone(), library_id)
+			.await?;
+		if let Some(handle) = self.input.overlay {
+			let plan = context.plans.get(handle).ok_or_else(|| {
+				QueryError::InvalidInput(
+					"the plan under that handle has lapsed; preview again".to_string(),
+				)
+			})?;
+			self.overlay(&context, &plan, &mut listing).await;
+		}
+		Ok(listing)
 	}
 }
 
@@ -159,6 +192,7 @@ impl DirectoryListingQuery {
 					files: Vec::new(),
 					total_count: 0,
 					has_more: false,
+					overlay: Vec::new(),
 				});
 			}
 		}
@@ -175,6 +209,7 @@ impl DirectoryListingQuery {
 					files: Vec::new(),
 					total_count: 0,
 					has_more: false,
+					overlay: Vec::new(),
 				});
 			}
 		};
@@ -264,6 +299,7 @@ impl DirectoryListingQuery {
 				files: Vec::new(),
 				total_count: 0,
 				has_more: false,
+				overlay: Vec::new(),
 			});
 		}
 
@@ -275,6 +311,7 @@ impl DirectoryListingQuery {
 				files: Vec::new(),
 				total_count: 0,
 				has_more: false,
+				overlay: Vec::new(),
 			});
 		}
 
@@ -345,6 +382,7 @@ impl DirectoryListingQuery {
 			files: Vec::new(),
 			total_count: 0,
 			has_more: false,
+			overlay: Vec::new(),
 		})
 	}
 
@@ -515,7 +553,146 @@ impl DirectoryListingQuery {
 			files,
 			total_count,
 			has_more,
+			overlay: Vec::new(),
 		}
+	}
+
+	/// The listing as it would look after `plan`: what the plan creates
+	/// appears as a row, every row it touches is named with its change, and
+	/// a folder it changes inside is marked as merged into. Beneath a source
+	/// the plan consumes, what the operation settles is marked as removed and
+	/// what it does not stays with its reason. A plan carries paths as its
+	/// caller spelled them, so the listed directory matches under both of
+	/// its spellings.
+	async fn overlay(
+		&self,
+		context: &CoreContext,
+		plan: &FsPlan,
+		listing: &mut DirectoryListingOutput,
+	) {
+		let Some(here) = self.input.path.as_local_path() else {
+			return;
+		};
+		let mut spellings = vec![here.to_path_buf()];
+		if let Some((_, spelled)) = context.volume_manager.locate_path(here).await {
+			if spelled != here {
+				spellings.push(spelled);
+			}
+		}
+		let device_slug = match &self.input.path {
+			SdPath::Physical { device_slug, .. } => device_slug.clone(),
+			_ => String::new(),
+		};
+
+		let mut rows: BTreeMap<String, ChangeKind> = BTreeMap::new();
+		let mut inside: BTreeSet<String> = BTreeSet::new();
+		for planned in &plan.changes {
+			if let Some((name, direct)) = planned
+				.path
+				.as_local_path()
+				.and_then(|path| beneath(&spellings, path))
+			{
+				if direct {
+					rows.insert(name, planned.change.clone());
+				} else {
+					inside.insert(name);
+				}
+			}
+			if let ChangeKind::Move { from } = &planned.change {
+				if let Some((name, direct)) = from
+					.as_local_path()
+					.and_then(|path| beneath(&spellings, path))
+				{
+					if direct {
+						rows.insert(name, ChangeKind::Delete { last_copy: false });
+					} else {
+						inside.insert(name);
+					}
+				}
+			}
+		}
+		for root in plan.roots.iter().filter(|root| root.consumes) {
+			let (Some(source), Some(destination)) = (
+				root.source.as_local_path(),
+				root.destination.as_local_path(),
+			) else {
+				continue;
+			};
+			let Some(relative) = spellings
+				.iter()
+				.find_map(|dir| dir.strip_prefix(source).ok())
+			else {
+				continue;
+			};
+			let counterpart = [destination.join(relative)];
+			for planned in &plan.changes {
+				let Some((name, direct)) = planned
+					.path
+					.as_local_path()
+					.and_then(|path| beneath(&counterpart, path))
+				else {
+					continue;
+				};
+				if !direct {
+					inside.insert(name);
+					continue;
+				}
+				let after = match &planned.change {
+					ChangeKind::Create { .. }
+					| ChangeKind::Replace { .. }
+					| ChangeKind::Move { .. }
+					| ChangeKind::Skip {
+						reason:
+							SkipReason::DuplicateCandidate
+							| SkipReason::DuplicateConfirmed
+							| SkipReason::Junk,
+					} => ChangeKind::Delete { last_copy: false },
+					ChangeKind::CreateDirectory | ChangeKind::MergeInto => ChangeKind::MergeInto,
+					stays => stays.clone(),
+				};
+				rows.insert(name, after);
+			}
+		}
+		for name in inside {
+			rows.entry(name).or_insert(ChangeKind::MergeInto);
+		}
+
+		let present: HashSet<String> = listing
+			.files
+			.iter()
+			.map(|file| match &file.extension {
+				Some(extension) => format!("{}.{extension}", file.name).to_lowercase(),
+				None => file.name.to_lowercase(),
+			})
+			.collect();
+		let ghosts: Vec<File> = rows
+			.iter()
+			.filter_map(|(name, change)| {
+				let (size, directory) = match change {
+					ChangeKind::Create { size } => (*size, false),
+					ChangeKind::CreateDirectory => (0, true),
+					ChangeKind::Move { .. } => (0, false),
+					_ => return None,
+				};
+				if present.contains(&name.to_lowercase()) {
+					return None;
+				}
+				let sd_path = SdPath::Physical {
+					device_slug: device_slug.clone(),
+					path: here.join(name),
+				};
+				Some(File::planned(sd_path, size, directory))
+			})
+			.collect();
+		if !ghosts.is_empty() {
+			listing.total_count += ghosts.len() as u32;
+			listing.files.extend(ghosts);
+			self.sort_files(&mut listing.files);
+		}
+		listing.overlay = rows
+			.into_iter()
+			.map(|(name, change)| OverlaidRow { name, change })
+			.collect();
 	}
 
 	fn sort_files(&self, files: &mut Vec<File>) {
@@ -555,3 +732,132 @@ impl DirectoryListingQuery {
 }
 
 crate::register_library_query!(DirectoryListingQuery, "files.directory_listing");
+
+/// The first name of `path` beneath any of `dirs`, and whether that name is
+/// all that remains of it.
+fn beneath(dirs: &[PathBuf], path: &Path) -> Option<(String, bool)> {
+	dirs.iter().find_map(|dir| {
+		let mut parts = path.strip_prefix(dir).ok()?.components();
+		let first = parts.next()?;
+		Some((
+			first.as_os_str().to_string_lossy().into_owned(),
+			parts.next().is_none(),
+		))
+	})
+}
+
+#[cfg(test)]
+mod tests {
+	use sd_store::file::FileKind;
+
+	use super::*;
+	use crate::{
+		domain::SdPathBatch,
+		infra::action::preflight::PreviewableAction,
+		ops::files::{
+			fixture::{Fixture, T},
+			merge::{action::FileMergeAction, FileMergeInput, MergeConflictPolicy},
+			plan::SkipReason,
+		},
+	};
+
+	async fn list(
+		fixture: &Fixture,
+		path: &std::path::Path,
+		overlay: Uuid,
+	) -> DirectoryListingOutput {
+		let mut query = DirectoryListingQuery::new(SdPath::local(path));
+		query.input.overlay = Some(overlay);
+		query
+			.execute(fixture.core.context.clone(), fixture.session())
+			.await
+			.expect("listed")
+	}
+
+	fn row<'a>(listing: &'a DirectoryListingOutput, name: &str) -> Option<&'a ChangeKind> {
+		listing
+			.overlay
+			.iter()
+			.find(|row| row.name == name)
+			.map(|row| &row.change)
+	}
+
+	/// Through a plan's handle a listing is the directory after the
+	/// operation: the destination grows what the plan creates, a folder the
+	/// plan continues into is marked, and a consumed source shows what
+	/// leaves it and what stays with its reason.
+	#[tokio::test]
+	async fn an_overlaid_listing_is_the_directory_after_the_plan() {
+		let fixture = Fixture::new().await;
+		let file = FileKind::File;
+		let source = [
+			("new.txt", file, 7, T, Some("n"), None, None),
+			("diff.txt", file, 3, T, Some("d1"), None, None),
+			("sub/inner.txt", file, 2, T, Some("i"), None, None),
+		];
+		let destination = [
+			("diff.txt", file, 5, T, Some("d2"), None, None),
+			("sub", FileKind::Directory, 0, T, None, None, None),
+		];
+		fixture.materialize(&fixture.source, &source);
+		fixture.index(&fixture.source, &source).await;
+		fixture.materialize(&fixture.destination, &destination);
+		fixture.index(&fixture.destination, &destination).await;
+
+		let input = FileMergeInput {
+			sources: SdPathBatch {
+				paths: vec![SdPath::local(&fixture.source)],
+			},
+			destination: SdPath::local(&fixture.destination),
+			on_conflict: MergeConflictPolicy::Skip,
+			consume_sources: true,
+		};
+		let plan = FileMergeAction::preview(input, &fixture.preview())
+			.await
+			.expect("planned");
+		let handle = plan.handle.expect("retained");
+
+		let after = list(&fixture, &fixture.destination, handle).await;
+		assert_eq!(
+			row(&after, "new.txt"),
+			Some(&ChangeKind::Create { size: 7 })
+		);
+		assert_eq!(
+			row(&after, "diff.txt"),
+			Some(&ChangeKind::Skip {
+				reason: SkipReason::Policy
+			})
+		);
+		assert_eq!(row(&after, "sub"), Some(&ChangeKind::MergeInto));
+		let ghost = after
+			.files
+			.iter()
+			.find(|file| file.name == "new" && file.extension.as_deref() == Some("txt"))
+			.expect("a planned create is a row");
+		assert_eq!(ghost.size, 7);
+		assert_eq!(
+			ghost.sd_path,
+			SdPath::local(fixture.destination.join("new.txt"))
+		);
+
+		let source_after = list(&fixture, &fixture.source, handle).await;
+		assert_eq!(
+			row(&source_after, "new.txt"),
+			Some(&ChangeKind::Delete { last_copy: false })
+		);
+		assert_eq!(
+			row(&source_after, "diff.txt"),
+			Some(&ChangeKind::Skip {
+				reason: SkipReason::Policy
+			})
+		);
+		assert_eq!(row(&source_after, "sub"), Some(&ChangeKind::MergeInto));
+
+		let mut lapsed = DirectoryListingQuery::new(SdPath::local(&fixture.destination));
+		lapsed.input.overlay = Some(Uuid::new_v4());
+		let lapsed = lapsed
+			.execute(fixture.core.context.clone(), fixture.session())
+			.await;
+		assert!(matches!(lapsed, Err(QueryError::InvalidInput(_))));
+	}
+}

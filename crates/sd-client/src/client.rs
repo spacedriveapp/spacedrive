@@ -2,11 +2,18 @@ use anyhow::Result;
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::sync::mpsc;
 
+use sd_core::infra::action::preflight::Validation;
 use sd_core::infra::daemon::client::DaemonClient;
 use sd_core::infra::daemon::types::{DaemonRequest, DaemonResponse, EventFilter, LogFilter};
 use sd_core::infra::event::log_emitter::LogMessage;
 use sd_core::infra::event::Event;
-use sd_core::infra::wire::Wire;
+use sd_core::infra::wire::{preflight_method, Preflight, Wire};
+
+/// The wire method of a preflight check over an action's input type.
+fn preflight(action_method: &str, kind: Preflight) -> Result<String> {
+	preflight_method(action_method, kind)
+		.ok_or_else(|| anyhow::anyhow!("{action_method} is not an action"))
+}
 
 #[derive(Clone)]
 pub struct CoreClient {
@@ -66,25 +73,67 @@ impl CoreClient {
 		Q: Wire + Serialize,
 		O: DeserializeOwned,
 	{
-		let payload = serde_json::to_value(query)?;
+		let json = self
+			.read(Q::METHOD.into(), serde_json::to_value(query)?, library_id)
+			.await?;
+		Ok(serde_json::from_value(json)?)
+	}
+
+	/// Whether and how an action would run, over the input it takes.
+	pub async fn validate<A>(
+		&self,
+		action: &A,
+		library_id: Option<uuid::Uuid>,
+	) -> Result<Validation>
+	where
+		A: Wire + Serialize,
+	{
+		let json = self
+			.read(
+				preflight(A::METHOD, Preflight::Validate)?,
+				serde_json::to_value(action)?,
+				library_id,
+			)
+			.await?;
+		Ok(serde_json::from_value(json)?)
+	}
+
+	/// What would exist after an action, over the input it takes: its plan.
+	pub async fn preview<A, P>(&self, action: &A, library_id: Option<uuid::Uuid>) -> Result<P>
+	where
+		A: Wire + Serialize,
+		P: DeserializeOwned,
+	{
+		let json = self
+			.read(
+				preflight(A::METHOD, Preflight::Preview)?,
+				serde_json::to_value(action)?,
+				library_id,
+			)
+			.await?;
+		Ok(serde_json::from_value(json)?)
+	}
+
+	/// One read, a query or a preflight method, answered as JSON.
+	async fn read(
+		&self,
+		method: String,
+		payload: serde_json::Value,
+		library_id: Option<uuid::Uuid>,
+	) -> Result<serde_json::Value> {
 		let resp = self
 			.daemon
 			.send(&DaemonRequest::Query {
-				method: Q::METHOD.into(),
+				method,
 				library_id,
 				payload,
 				device: self.device.clone(),
 			})
 			.await;
 		match resp {
-			Ok(r) => match r {
-				DaemonResponse::JsonOk(json) => {
-					let result = serde_json::from_value(json)?;
-					Ok(result)
-				}
-				DaemonResponse::Error(e) => Err(anyhow::anyhow!(e.to_string())),
-				other => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
-			},
+			Ok(DaemonResponse::JsonOk(json)) => Ok(json),
+			Ok(DaemonResponse::Error(e)) => Err(anyhow::anyhow!(e.to_string())),
+			Ok(other) => Err(anyhow::anyhow!(format!("unexpected response: {:?}", other))),
 			Err(e) => Err(anyhow::anyhow!(e.to_string())),
 		}
 	}

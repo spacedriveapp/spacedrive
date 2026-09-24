@@ -1,8 +1,44 @@
 import type { Transport } from "./transport";
 import { UnixSocketTransport, TcpSocketTransport, TauriTransport } from "./transport";
-import type { Event } from "./generated/types";
+import type { Event, Validation } from "./generated/types";
 
 import { SubscriptionManager } from "./subscriptionManager";
+
+/** What a refused dispatch's error starts with; the validation follows as JSON. */
+const REFUSED = "refused:";
+
+/**
+ * A dispatch the daemon refused on an error finding. The validation it
+ * refused on is what asking first would have shown.
+ */
+export class RefusedError extends Error {
+	constructor(public readonly validation: Validation) {
+		super(
+			validation.findings
+				.filter((finding) => finding.severity === "error")
+				.map((finding) => finding.message)
+				.join("; ") || "refused",
+		);
+		this.name = "RefusedError";
+	}
+}
+
+function refusalOf(error: unknown): Validation | null {
+	const message =
+		typeof error === "string"
+			? error
+			: error && typeof error === "object" && "OperationFailed" in error
+				? (error as { OperationFailed: unknown }).OperationFailed
+				: null;
+	if (typeof message !== "string" || !message.startsWith(REFUSED)) {
+		return null;
+	}
+	try {
+		return JSON.parse(message.slice(REFUSED.length)) as Validation;
+	} catch {
+		return null;
+	}
+}
 
 /**
  * Simple event emitter for browser compatibility
@@ -182,24 +218,27 @@ export class SpacedriveClient extends SimpleEventEmitter {
 	 * This is the low-level method used by TanStack Query hooks
 	 */
 	async execute<I, O>(wireMethod: string, input: I): Promise<O> {
-		// Determine if this is a query or action based on wire method prefix
-		const isQuery = wireMethod.startsWith("query:");
+		// An action executes; everything else, a query or a preflight call over an
+		// action's input, is a read and travels as one.
 		const isAction = wireMethod.startsWith("action:");
+		const isRead = ["query:", "validate:", "preview:"].some((prefix) =>
+			wireMethod.startsWith(prefix),
+		);
 
-		if (!isQuery && !isAction) {
+		if (!isRead && !isAction) {
 			throw new Error(`Invalid wire method: ${wireMethod}`);
 		}
 
-		const request = isQuery
+		const request = isAction
 			? {
-					Query: {
+					Action: {
 						method: wireMethod,
 						library_id: this.currentLibraryId, // ← Sibling field!
 						payload: input,
 					},
 				}
 			: {
-					Action: {
+					Query: {
 						method: wireMethod,
 						library_id: this.currentLibraryId, // ← Sibling field!
 						payload: input,
@@ -216,8 +255,12 @@ export class SpacedriveClient extends SimpleEventEmitter {
 			return response.json;
 		} else if ("Error" in response || "error" in response) {
 			const error = response.Error || response.error;
+			const refusal = refusalOf(error);
+			if (refusal) {
+				throw new RefusedError(refusal);
+			}
 			throw new Error(
-				`${isQuery ? "Query" : "Action"} failed: ${JSON.stringify(error)}`,
+				`${isAction ? "Action" : "Query"} failed: ${JSON.stringify(error)}`,
 			);
 		} else {
 			throw new Error(`Unexpected response: ${JSON.stringify(response)}`);

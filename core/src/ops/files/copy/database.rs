@@ -5,18 +5,17 @@
 //! already computed. Reading them costs a lookup rather than the walk the
 //! filesystem would charge for the same answer.
 
-use crate::{context::CoreContext, domain::addressing::SdPath};
+use crate::{domain::addressing::SdPath, ops::indexing::VolumeIndex};
 use anyhow::Result;
-use std::sync::Arc;
 
 /// Estimate engine over the volume index.
-pub struct CopyDatabaseQuery {
-	context: Arc<CoreContext>,
+pub struct CopyDatabaseQuery<'a> {
+	index: &'a VolumeIndex,
 }
 
-impl CopyDatabaseQuery {
-	pub fn new(context: Arc<CoreContext>) -> Self {
-		Self { context }
+impl<'a> CopyDatabaseQuery<'a> {
+	pub fn new(index: &'a VolumeIndex) -> Self {
+		Self { index }
 	}
 
 	/// Estimates for several source paths at once.
@@ -25,7 +24,7 @@ impl CopyDatabaseQuery {
 	/// unindexed, which is what `confidence` reports: the caller falls back to
 	/// walking the filesystem when the answer is partial.
 	pub async fn get_estimates_for_paths(&self, sources: &[SdPath]) -> Result<PathEstimates> {
-		let cache = self.context.volume_index();
+		let cache = self.index;
 		let mut estimates = PathEstimates {
 			file_count: 0,
 			total_size: 0,

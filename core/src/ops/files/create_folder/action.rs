@@ -5,7 +5,7 @@ use super::output::CreateFolderOutput;
 use crate::{
 	context::CoreContext,
 	domain::addressing::{SdPath, SdPathBatch},
-	infra::action::{error::ActionError, LibraryAction, ValidationResult},
+	infra::action::{error::ActionError, LibraryAction},
 	ops::files::{
 		copy::job::{FileCopyJob, MoveMode},
 		rename::validation::validate_filename,
@@ -52,42 +52,21 @@ impl LibraryAction for CreateFolderAction {
 	type Output = CreateFolderOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
+		validate_filename(&input.name).map_err(|e| e.to_string())?;
+		match &input.parent {
+			SdPath::Physical { .. } | SdPath::Cloud { .. } => {}
+			SdPath::Content { .. } => {
+				return Err("Cannot create folders in content-addressed storage".to_string());
+			}
+			SdPath::Sidecar { .. } => {
+				return Err("Cannot create folders in sidecar storage".to_string());
+			}
+		}
 		Ok(CreateFolderAction {
 			parent: input.parent,
 			name: input.name,
 			items: input.items,
 		})
-	}
-
-	async fn validate(
-		&self,
-		_library: &Arc<crate::library::Library>,
-		_context: Arc<CoreContext>,
-	) -> Result<ValidationResult, ActionError> {
-		// Validate folder name
-		validate_filename(&self.name).map_err(|e| ActionError::Validation {
-			field: "name".to_string(),
-			message: e.to_string(),
-		})?;
-
-		// Validate parent is a physical or cloud path (not Content/Sidecar)
-		match &self.parent {
-			SdPath::Physical { .. } | SdPath::Cloud { .. } => {}
-			SdPath::Content { .. } => {
-				return Err(ActionError::Validation {
-					field: "parent".to_string(),
-					message: "Cannot create folders in content-addressed storage".to_string(),
-				});
-			}
-			SdPath::Sidecar { .. } => {
-				return Err(ActionError::Validation {
-					field: "parent".to_string(),
-					message: "Cannot create folders in sidecar storage".to_string(),
-				});
-			}
-		}
-
-		Ok(ValidationResult::Success { metadata: None })
 	}
 
 	async fn execute(

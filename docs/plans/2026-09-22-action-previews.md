@@ -2,7 +2,7 @@
 
 > Status: proposal.
 > Captured: 2026-09-22
-> Owns: the validate and preview rails for actions, the shared plan vocabulary
+> Owns: validate and preview (preflight) for actions, the shared plan vocabulary
 > for filesystem mutations, plan handles and overlay listings, and the
 > recursive folder merge operation
 > Register: `PROJECT_STATUS.md`
@@ -20,7 +20,7 @@ continuously. Preview answers "what will exist afterward": a projection of
 filesystem state computed from the index, browsable as a virtual tree through
 the same listing query the present tree uses. Both take the action's exact
 input, both forward to paired devices, and execution re-runs validation on the
-server and refuses on errors. The first operation built on both rails is
+server and refuses on errors. The first operation built on both is
 folder merge: merge one folder into another, recursing into matching
 subfolders, skipping files whose bytes are proven identical, and resolving
 name collisions by a policy chosen after seeing the plan.
@@ -29,11 +29,11 @@ name collisions by a policy chosen after seeing the plan.
 
 The action or query is the unit of Spacedrive behavior. Clients render and
 dispatch; they do not compute. The CLI abstracts registered operations and the
-two rails, and nothing else: its local conflict detection
+two preflight methods, and nothing else: its local conflict detection
 (`check_for_simple_conflicts`, `apps/cli/src/domains/file/mod.rs:109-188`) and
 its confirmation plumbing are deleted, replaced by rendering validation
 findings and plans. The interface follows the same rule:
-`FileOperationModal`'s client-side conflict math is replaced by the rails.
+`FileOperationModal`'s client-side conflict math is replaced by preflight.
 This is also the agent contract. A skill or MCP client gets the same three
 verbs, validate, preview, execute, which is what makes handing an agent
 destructive file operations sane: it validates, shows the plan, then commits
@@ -43,7 +43,7 @@ the identical input.
 
 The preview promise exists in the product documents and half-exists in the
 code. `LibraryAction` has a `validate()` hook returning `ValidationResult` and
-`ConfirmationRequest` (`core/src/infra/action/mod.rs:21-44`), but the rail was
+`ConfirmationRequest` (`core/src/infra/action/mod.rs:21-44`), but it was
 never finished:
 
 - `ActionManager::validate_library` (`core/src/infra/action/manager.rs:126`)
@@ -105,9 +105,80 @@ is the CLI. Compare itself matches on the sampled hash, the rung every store
 keys a content by, with integrity hashes deciding where both sides have them,
 so a copy verified on one side still matches its unread twin.
 
+V1 has landed: `ValidatedAction` and `PreviewableAction` live in
+`core/src/infra/action/preflight.rs` with `Validation`, `Finding`, `Severity`,
+`ExecutionFacts` and the read-only `PreviewContext`; `register_validate!` and
+`register_preview!` put `validate:<name>` and `preview:<name>` on the wire
+through their own inventory registries, the daemon routes them beside
+queries, and `handle_library_action` runs a registered validator again over
+the payload as sent, refusing on an error finding with the findings as JSON
+behind a `refused:` prefix (`Validation::from_refusal`, `RefusedError` in the
+TypeScript client). The generator emits `LibraryValidate` and
+`LibraryPreview` unions and `WIRE_METHODS.libraryValidates` and
+`.libraryPreviews`, with `useLibraryValidate` and `useLibraryPreview` hooks
+and `CoreClient::validate` and `preview` in the Rust client. A probe action
+in the preflight tests answers both methods over the wire, is refused on an
+error finding before it runs, and reads a store without moving its revision.
+
+V2, V3 and V4 have landed as `core/src/ops/files/merge/` and
+`core/src/ops/files/plan.rs`. `files.merge` answers both methods: validation
+stats the roots, estimates from the arena, checks free space, and counts the
+assertions a cross-volume consuming merge would strand; the preview streams
+source against destination through the compare engine, directories and
+symlinks included, into an `FsPlan` whose basis names the store revisions it
+read. The `FolderMergeJob` walks the live tree in one deterministic order,
+proves duplicates by reading both sides, applies the policy, leaves conflicts,
+prunes consumed sources, checkpoints its cursor, and marks each outcome that
+differs from the plan it re-read at start. `sd file merge <sources> --into
+<dir>` renders findings, facts and the plan, stops at `--dry-run`, and
+dispatches the same input. Remote execution (V5) needs nothing of its own:
+preflight and the action forward with `--device` like every other method.
+The plan reads the index only; a source outside every tracked source warns
+and executes without a plan to diverge from, so `PlanBasis::Filesystem` has
+no implementation yet.
+
+V8 has landed. Copy, move, and delete answer both methods
+(`core/src/ops/files/copy/preflight.rs`, `core/src/ops/files/delete/preflight.rs`):
+copy validates sources, the destination, the cycle, free space, and names a
+folder collision; a move says whether it is a rename in place
+(`move.atomic`, decided by the filesystem the OS reports) or a copy across
+volumes with a count of the assertions that stay behind
+(`move.identity_loss`); delete refuses what it cannot reach and warns how
+many of the files are the last copy of their content anywhere in the
+library (`delete.last_copy`), counted across every store by sampled hash.
+Copy's plan reuses the merge planner, so a folder landing beside a folder of
+its name shows file by file what it would replace, and a move plans as a
+consumed pair. The old hook is gone: `ValidationResult`,
+`ConfirmationRequest`, `validate`, `resolve_confirmation`, and
+`validate_library` no longer exist; the actions that used `validate` for
+structural checks do them in `from_input`. The CLI's `file copy` and `file
+delete` render preflight like `file merge`, with `--dry-run`, and its local
+conflict detection is deleted. In the interface, `FileOperationModal`
+validates and previews the exact input it dispatches, gates confirm on an
+error finding, and offers Merge as a third choice when a folder lands on a
+same-name folder.
+
+V6 and V7 have landed: `MergeFoldersModal` renders findings, facts, the
+plan, the policy picker, and the consume switch, re-validating as they
+change; "Merge into '<name>'" appears on a folder when the clipboard holds
+only folders, consuming them after a cut; a window-level modifier tracker
+(`hooks/useModifierKeys.ts`) lets an Option-drop of folders onto a folder
+open the merge dialog directly; and a grid drop target validates the drop
+while a drag hovers it and badges an error or warning.
+
+V9 has landed. A preview retains its plan under a handle in memory
+(`PlanHandles` on `CoreContext`, ten minutes past last use);
+`files.directory_listing` takes `overlay` and answers the directory after
+the plan, with ghost rows for what it creates and an `overlay` list of the
+change per row, and shows a consumed source's files leaving. The explorer's
+preview mode (`hooks/usePlanPreview.ts`, entered from either dialog's
+"Browse the result") passes the handle with every listing, marks rows
+ghosted, badged, dimmed, or struck, and rebuilds the preview from the same
+input when the handle lapses.
+
 ## Design
 
-### Two questions, two rails
+### Two questions, two methods
 
 Validate and preview are different questions and stay separate.
 
@@ -129,7 +200,7 @@ Both take the action's exact input type. A client builds one input, validates
 it, previews it, and dispatches the identical payload. Nothing drifts between
 what was shown and what runs.
 
-### The validation rail
+### Validation
 
 ```rust
 pub trait ValidatedAction: LibraryAction {
@@ -175,7 +246,7 @@ other registries. The rules:
 - **Findings carry stable codes** so clients and agents can branch on them
   rather than parsing messages.
 
-### The preview rail
+### Preview
 
 ```rust
 pub trait PreviewableAction: LibraryAction {
@@ -186,7 +257,7 @@ pub trait PreviewableAction: LibraryAction {
 ```
 
 `register_preview!(FileMergeAction, "files.merge")` adds `preview:files.merge`
-next to `action:files.merge.input`. The dispatcher gains one arm per rail; the
+next to `action:files.merge.input`. The dispatcher gains one arm per method; the
 TypeScript client gains `validates` and `previews` method maps with hooks.
 
 Plans are typed per action. Filesystem-mutating actions share `FsPlan`;
@@ -199,7 +270,7 @@ can opt in with their own plan types. The contract:
   be stale at execution. No token or lease pretends otherwise. The job applies
   the same policy per leaf at execution time and reports divergence from the
   plan in its output.
-- **Opt-in only.** Both rails are separate traits. Actions without a
+- **Opt-in only.** Both methods are separate traits. Actions without a
   meaningful plan or validation simply have no method registered.
 
 ### The plan vocabulary
@@ -277,11 +348,11 @@ primitive. The mechanic:
 - Execute never takes a handle. The handle is a lens; the action's input is
   the contract.
 
-### The rails across operations
+### Preflight across operations
 
 What validate and preview each mean, operation by operation. Copy, move,
 merge, and delete are current or in this plan; batch rename and dedupe are
-future operations that land on these rails as separate work.
+future operations that adopt preflight as separate work.
 
 **Copy**
 
@@ -347,7 +418,7 @@ future operations that land on these rails as separate work.
 ### The merge operation
 
 `files.merge` is a library action dispatching a `FolderMergeJob`, implementing
-both rails with an `FsPlan`.
+both methods with an `FsPlan`.
 
 Input:
 
@@ -440,27 +511,27 @@ modifier held opens the merge dialog directly. Without the modifier, the drop
 opens `FileOperationModal` as today, and when the drop would collide with an
 existing same-name folder the modal offers Merge as a third choice next to
 Copy and Move. The feature is discoverable without knowing the key; the key
-just preselects it. Hover validation comes with the rail: a drop target can
+just preselects it. Hover validation comes with the validate method: a drop target can
 badge "read-only replica" or "not enough space" from a validate call while
 the drag is still in flight. Folder drop targets currently exist only in
 GridView, and widening drop support to the other views stays out of this
 plan.
 
-### Replacing the dead rail
+### Replacing the dead validation hook
 
-The two rails replace validation as it exists today. `ValidationResult`,
+Preflight replaces validation as it exists today. `ValidationResult`,
 `ConfirmationRequest`, `validate`, `resolve_confirmation`, and
 `validate_library` are removed. `FileCopyAction::validate`'s metadata moves
 into copy's `ValidatedAction` and `PreviewableAction` impls when copy adopts
-the rails. The CLI's local conflict detection and confirm plumbing are
-deleted in favor of rendering the rails, per the principle above. No
+preflight. The CLI's local conflict detection and confirm plumbing are
+deleted in favor of rendering preflight, per the principle above. No
 compatibility layer remains.
 
 ### Out of scope
 
 - Merges whose roots span two devices.
-- Batch rename and dedupe as operations. They are specified here as rail
-  tenants and land as their own work.
+- Batch rename and dedupe as operations. They are specified here as future
+  preflight actions and land as their own work.
 - Carrying assertions across a cross-volume consuming merge (registered
   follow-on).
 - Drop targets outside GridView.
@@ -470,19 +541,19 @@ compatibility layer remains.
 
 | Phase | Scope | Exit proof |
 |---|---|---|
-| V1 | The two rails | `ValidatedAction`, `PreviewableAction`, both registration macros, the dispatcher arms, and the generated `validates` and `previews` maps exist. A test action answers both methods over the wire with the same input its action takes. Dispatching it with a forced `Error` finding refuses server-side and returns the findings structured. Rail calls perform no writes, proven by a store revision check before and after |
-| V2 | `FsPlan` and merge on the rails | `validate:files.merge` returns findings and facts for the good, nested, detached, and full-disk cases. `preview:files.merge` answers from the index for a warm source and names its basis and revisions. On a tree with known duplicates, conflicts, and junk, the summary counts match a hand count. Preview of a detached source's replica works without the drive, and the same input's validation carries the detached execution error |
+| V1 | Preflight | `ValidatedAction`, `PreviewableAction`, both registration macros, the dispatcher arms, and the generated `validates` and `previews` maps exist. A test action answers both methods over the wire with the same input its action takes. Dispatching it with a forced `Error` finding refuses server-side and returns the findings structured. Preflight calls perform no writes, proven by a store revision check before and after |
+| V2 | `FsPlan` and merge with preflight | `validate:files.merge` returns findings and facts for the good, nested, detached, and full-disk cases. `preview:files.merge` answers from the index for a warm source and names its basis and revisions. On a tree with known duplicates, conflicts, and junk, the summary counts match a hand count. Preview of a detached source's replica works without the drive, and the same input's validation carries the detached execution error |
 | V3 | The merge job and CLI | `sd files merge <src> <dst>` renders validation and the plan before dispatch and `--dry-run` stops there; the job merges, skips only integrity-confirmed duplicates, applies the policy, and its persisted per-entry outcome matches the plan or reports divergence. Interrupting mid-merge and restarting the daemon resumes past completed leaves. A second dispatch during the run returns the live job |
 | V4 | Consuming merge | With `consume_sources`, the source ends holding exactly the unsettled entries and empty directories are pruned. A conflict is never removed from the source. The output counts assertions left behind |
 | V5 | Remote execution | `sd files merge --device titan` validates, previews, and merges two folders on titan without streaming file bytes to the client. The job is visible through remote job activity |
 | V6 | Dialog and context menu | Copying a folder and right-clicking another shows "Merge into", the dialog renders real findings and the real plan, validation re-runs as options change and gates confirm on errors, and confirming dispatches the previewed input unchanged. The executed job appears in Activity |
 | V7 | Drag | The modifier-drop opens the merge dialog. An unmodified folder drop onto a same-name collision offers Merge in `FileOperationModal`. A drop target with a validation error badges it during hover. Modifier state is read from the tracker, verified on macOS and web |
-| V8 | Adoption and teardown | Copy, move, and delete implement both rails, including the cycle check, the identity-loss warning, and the last-copy warning. `FileOperationModal` and the CLI render the rails instead of local conflict math, `check_for_simple_conflicts` is deleted, and the old validation rail is gone from `core/src/infra/action` |
+| V8 | Adoption and teardown | Copy, move, and delete implement both methods, including the cycle check, the identity-loss warning, and the last-copy warning. `FileOperationModal` and the CLI render preflight instead of local conflict math, `check_for_simple_conflicts` is deleted, and the old validation hook is gone from `core/src/infra/action` |
 | V9 | Plan handles and overlay listings | A merge preview returns a handle, `files.directory_listing` with `overlay` serves the projected directory, and the explorer's preview mode browses the destination-after and source-after trees with ghosted, badged, dimmed, and struck rows. A lapsed handle rebuilds by re-previewing |
 
-V1 and V2 land together or in sequence; nothing else starts before the rail
+V1 and V2 land together or in sequence; nothing else starts before the preflight
 shapes are real. V3 before any UI because the CLI path is the immediate need
-and proves the job. V8 after two real tenants run on the new rails so the old
+and proves the job. V8 after two real actions use preflight so the old
 one is removed against working replacements. V9 last: the dialog renders
 plans directly, so overlay browsing is an addition rather than a dependency.
 
@@ -496,7 +567,7 @@ policy `Skip`, and verify that the drive retains exactly the reported
 conflicts and policy skips, that no destination file changed without a
 `Replace` or `KeepBoth` entry saying so, and that skipped duplicates all carry
 confirmed integrity hashes. Measure preview time from the index on the largest
-source available and confirm neither rail made a filesystem write.
+source available and confirm neither method made a filesystem write.
 
 ## Decisions for James
 

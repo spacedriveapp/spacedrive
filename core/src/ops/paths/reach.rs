@@ -11,7 +11,8 @@ use std::path::Path;
 
 use crate::context::CoreContext;
 use crate::domain::SdPath;
-use crate::ops::indexing::volume_index::SourceStatus;
+use crate::ops::indexing::{volume_index::SourceStatus, VolumeIndex};
+use crate::volume::VolumeManager;
 
 /// One store a path reaches, and how its files sit beneath the path.
 #[derive(Debug, Clone)]
@@ -37,21 +38,36 @@ pub fn innermost_source<'a>(sources: &'a [SourceStatus], path: &Path) -> Option<
 /// The stores beneath a path on this device, in root order. A path on another
 /// device reaches none.
 pub async fn stores_beneath(context: &CoreContext, path: &SdPath) -> Vec<Reach> {
+	stores_beneath_in(&context.volume_manager, context.volume_index(), path).await
+}
+
+/// [`stores_beneath`] from the volume registry and the index alone, which is
+/// all it reads, so a read-only context can ask.
+pub async fn stores_beneath_in(
+	volumes: &VolumeManager,
+	index: &VolumeIndex,
+	path: &SdPath,
+) -> Vec<Reach> {
 	let Some(path) = path.as_local_path() else {
 		return Vec::new();
 	};
 	// The volume decides how a path is spelled, so a path reached through an
 	// alias such as /Users/me is rewritten before it meets any root.
-	let path = match context.volume_manager.locate_path(path).await {
+	let path = match volumes.locate_path(path).await {
 		Some((_, spelled)) => spelled,
 		None => path.to_path_buf(),
 	};
-	reach(mounted_sources(context), &path)
+	reach(mounted_sources(index), &path)
 }
 
 /// Every store with a root on this machine, each read whole, in root order.
 pub fn every_store(context: &CoreContext) -> Vec<Reach> {
-	mounted_sources(context)
+	every_store_in(context.volume_index())
+}
+
+/// [`every_store`] from the index alone.
+pub fn every_store_in(index: &VolumeIndex) -> Vec<Reach> {
+	mounted_sources(index)
 		.into_iter()
 		.map(|source| Reach {
 			source,
@@ -63,9 +79,8 @@ pub fn every_store(context: &CoreContext) -> Vec<Reach> {
 
 /// Sources with a root on this machine, ordered by it. A source whose drive
 /// is not mounted has no root to build paths from.
-fn mounted_sources(context: &CoreContext) -> Vec<SourceStatus> {
-	let mut sources: Vec<SourceStatus> = context
-		.volume_index()
+fn mounted_sources(index: &VolumeIndex) -> Vec<SourceStatus> {
+	let mut sources: Vec<SourceStatus> = index
 		.sources()
 		.into_iter()
 		.filter(|source| !source.root.as_os_str().is_empty())

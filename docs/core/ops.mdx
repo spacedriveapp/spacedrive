@@ -94,6 +94,68 @@ Risky mutations follow:
 Not every action needs a preview. Creating a tag can commit directly. Deleting
 the last verified copy cannot.
 
+## Validate and preview
+
+Two opt-in preflight methods answer the questions before an execution, both over the
+action's exact input, so a client validates, previews, and dispatches one
+payload. Validation says whether and how the action would run, as findings
+with stable codes and the facts of the execution; it reads registries and
+rollups, so a dialog re-asks as options change. Preview says what would exist
+afterward, projected from the index; it costs what the action touches and is
+advisory, since the filesystem is live.
+
+~~~rust
+impl ValidatedAction for FileMergeAction {
+    async fn validate(
+        input: &Self::Input,
+        ctx: &PreviewContext,
+    ) -> Result<Validation, ActionError> {
+        // Findings with stable codes, and facts: strategy, estimated bytes.
+    }
+}
+
+impl PreviewableAction for FileMergeAction {
+    type Plan = FsPlan;
+
+    async fn preview(input: Self::Input, ctx: &PreviewContext) -> Result<FsPlan, ActionError> {
+        // The projected changes, read from the index.
+    }
+}
+
+crate::register_validate!(FileMergeAction, "files.merge");
+crate::register_preview!(FileMergeAction, "files.merge");
+~~~
+
+Registration puts `validate:files.merge` and `preview:files.merge` on the wire
+beside `action:files.merge.input`. `PreviewContext` hands out the index, the
+stores, the volume registry, the library, and the plan handles, and nothing
+that writes. Errors refuse and warnings inform: the daemon runs a registered
+validator again when the action is dispatched and refuses on an error
+finding, answering with the findings as JSON behind a `refused:` prefix. A
+warning never blocks, since dispatching anyway is the confirmation. Clients
+get `useLibraryValidate` and `useLibraryPreview`, `CoreClient::validate` and
+`preview`, and `RefusedError`. This is the only validation path: an action
+with a cheap structural check does it in `from_input`, and everything that
+needs the index or the filesystem is a finding.
+
+`files.copy`, `files.merge`, and `files.delete` answer both methods, and their
+plans share one shape, `FsPlan` in `core/src/ops/files/plan.rs`: a summary
+of counts and bytes per kind of change, the changes themselves up to a cap
+that conflicts always survive, the roots the plan pairs, and the store
+revisions it read. Copy and merge build theirs through one planner,
+`core/src/ops/files/planner.rs`, which streams a source folder against its
+destination through the compare engine.
+
+A plan is browsable. Every preview whose plan is an `FsPlan` is retained in
+memory under a handle for a while after its last use, and
+`files.directory_listing` takes that handle as `overlay`: the listing then
+comes back as the directory would look after the operation, with what the
+plan creates added as rows, and an `overlay` list naming the change at each
+row it touches. Beneath a source the plan consumes, what the operation
+settles is marked as removed. A lapsed handle is an `InvalidInput` error and the
+client previews again. Execution never takes a handle, only the action's
+input.
+
 ## Context and authorization
 
 Handlers receive a context that identifies:

@@ -83,10 +83,21 @@ pub fn handle_library_action<A>(
 >
 where
 	A: crate::infra::action::LibraryAction + 'static,
-	A::Input: serde::de::DeserializeOwned + std::fmt::Debug + 'static,
+	A::Input: serde::de::DeserializeOwned + std::fmt::Debug + crate::infra::wire::Wire + 'static,
 	A::Output: serde::Serialize + std::fmt::Debug + 'static,
 {
 	Box::pin(async move {
+		// An action that registered a validator is validated again here,
+		// over the payload as sent, and an error finding refuses it before
+		// it runs.
+		refuse_on_error_findings(
+			<A::Input as crate::infra::wire::Wire>::METHOD,
+			&context,
+			&session,
+			&payload,
+		)
+		.await?;
+
 		// Create dispatcher
 		let dispatcher = crate::infra::api::dispatcher::ApiDispatcher::new(context.clone());
 
@@ -137,6 +148,82 @@ where
 		// Serialize output
 		serde_json::to_value(output).map_err(|e| e.to_string())
 	})
+}
+
+/// Registry handler for an action's validate method: whether and how the
+/// action would run, over its input.
+pub fn handle_library_validate<A>(
+	context: Arc<crate::context::CoreContext>,
+	session: crate::infra::api::SessionContext,
+	payload: serde_json::Value,
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
+>
+where
+	A: crate::infra::action::preflight::ValidatedAction + 'static,
+	A::Input: serde::de::DeserializeOwned + 'static,
+{
+	Box::pin(async move {
+		let dispatcher = crate::infra::api::dispatcher::ApiDispatcher::new(context.clone());
+		let input: A::Input = serde_json::from_value(payload).map_err(|e| e.to_string())?;
+		let validation = dispatcher
+			.validate_library_action::<A>(&input, session)
+			.await
+			.map_err(|e| e.to_string())?;
+		serde_json::to_value(validation).map_err(|e| e.to_string())
+	})
+}
+
+/// Registry handler for an action's preview method: what would exist after
+/// the action, over its input.
+pub fn handle_library_preview<A>(
+	context: Arc<crate::context::CoreContext>,
+	session: crate::infra::api::SessionContext,
+	payload: serde_json::Value,
+) -> std::pin::Pin<
+	Box<dyn std::future::Future<Output = Result<serde_json::Value, String>> + Send + 'static>,
+>
+where
+	A: crate::infra::action::preflight::PreviewableAction + 'static,
+	A::Input: serde::de::DeserializeOwned + 'static,
+{
+	Box::pin(async move {
+		let dispatcher = crate::infra::api::dispatcher::ApiDispatcher::new(context.clone());
+		let input: A::Input = serde_json::from_value(payload).map_err(|e| e.to_string())?;
+		let plan = dispatcher
+			.preview_library_action::<A>(input, session)
+			.await
+			.map_err(|e| e.to_string())?;
+		serde_json::to_value(plan).map_err(|e| e.to_string())
+	})
+}
+
+/// Run the validator an action registered, if it has one, and refuse the
+/// dispatch on an error finding. The validator sees the payload as the
+/// client sent it, which is what the client validated, so nothing drifts
+/// between the two answers. Warnings never refuse: the client had them.
+async fn refuse_on_error_findings(
+	action_method: &str,
+	context: &Arc<crate::context::CoreContext>,
+	session: &crate::infra::api::SessionContext,
+	payload: &serde_json::Value,
+) -> Result<(), String> {
+	let Some(method) = crate::infra::wire::preflight_method(
+		action_method,
+		crate::infra::wire::Preflight::Validate,
+	) else {
+		return Ok(());
+	};
+	let Some(handler) = LIBRARY_VALIDATES.get(method.as_str()) else {
+		return Ok(());
+	};
+	let answer = handler(context.clone(), session.clone(), payload.clone()).await?;
+	let validation: crate::infra::action::preflight::Validation =
+		serde_json::from_value(answer).map_err(|e| e.to_string())?;
+	if validation.refuses() {
+		return Err(validation.refusal());
+	}
+	Ok(())
 }
 
 /// Handler function signature for library queries.
@@ -198,10 +285,26 @@ pub struct CoreActionEntry {
 	pub handler: CoreActionHandlerFn,
 }
 
+/// Registry entry for a library action's validate method. Its handler takes
+/// what an action handler takes: the method answers for a library, over the
+/// action's input.
+pub struct LibraryValidateEntry {
+	pub method: &'static str,
+	pub handler: LibraryActionHandlerFn,
+}
+
+/// Registry entry for a library action's preview method.
+pub struct LibraryPreviewEntry {
+	pub method: &'static str,
+	pub handler: LibraryActionHandlerFn,
+}
+
 inventory::collect!(LibraryQueryEntry);
 inventory::collect!(CoreQueryEntry);
 inventory::collect!(LibraryActionEntry);
 inventory::collect!(CoreActionEntry);
+inventory::collect!(LibraryValidateEntry);
+inventory::collect!(LibraryPreviewEntry);
 
 pub static LIBRARY_QUERIES: Lazy<HashMap<&'static str, LibraryQueryHandlerFn>> = Lazy::new(|| {
 	let mut map = HashMap::new();
@@ -234,6 +337,24 @@ pub static CORE_ACTIONS: Lazy<HashMap<&'static str, CoreActionHandlerFn>> = Lazy
 	}
 	map
 });
+
+pub static LIBRARY_VALIDATES: Lazy<HashMap<&'static str, LibraryActionHandlerFn>> =
+	Lazy::new(|| {
+		let mut map = HashMap::new();
+		for entry in inventory::iter::<LibraryValidateEntry>() {
+			map.insert(entry.method, entry.handler);
+		}
+		map
+	});
+
+pub static LIBRARY_PREVIEWS: Lazy<HashMap<&'static str, LibraryActionHandlerFn>> =
+	Lazy::new(|| {
+		let mut map = HashMap::new();
+		for entry in inventory::iter::<LibraryPreviewEntry>() {
+			map.insert(entry.method, entry.handler);
+		}
+		map
+	});
 
 #[cfg(test)]
 mod tests {
@@ -313,6 +434,71 @@ macro_rules! action_method {
 macro_rules! query_method {
 	($name:literal) => {
 		concat!("query:", $name, "")
+	};
+}
+
+/// Helper: construct the validate method string from a short name like "files.merge"
+#[macro_export]
+macro_rules! validate_method {
+	($name:literal) => {
+		concat!("validate:", $name)
+	};
+}
+
+/// Helper: construct the preview method string from a short name like "files.merge"
+#[macro_export]
+macro_rules! preview_method {
+	($name:literal) => {
+		concat!("preview:", $name)
+	};
+}
+
+/// Put a library action's validator on the wire as `validate:<name>`, over
+/// the action's input. The dispatcher runs it again before the action
+/// executes and refuses on an error finding.
+#[macro_export]
+macro_rules! register_validate {
+	($action:ty, $name:literal) => {
+		inventory::submit! {
+			$crate::infra::wire::registry::LibraryValidateEntry {
+				method: $crate::validate_method!($name),
+				handler: $crate::infra::wire::registry::handle_library_validate::<$action>,
+			}
+		}
+		inventory::submit! {
+			$crate::infra::wire::type_extraction::PreflightExtractorEntry {
+				preflight: $crate::infra::wire::Preflight::Validate,
+				identifier: $name,
+				extractor: $crate::infra::wire::type_extraction::rail_types::<
+					<$action as $crate::infra::action::LibraryAction>::Input,
+					$crate::infra::action::preflight::Validation,
+				>,
+			}
+		}
+	};
+}
+
+/// Put a library action's preview on the wire as `preview:<name>`, over the
+/// action's input, answering with its plan.
+#[macro_export]
+macro_rules! register_preview {
+	($action:ty, $name:literal) => {
+		inventory::submit! {
+			$crate::infra::wire::registry::LibraryPreviewEntry {
+				method: $crate::preview_method!($name),
+				handler: $crate::infra::wire::registry::handle_library_preview::<$action>,
+			}
+		}
+		inventory::submit! {
+			$crate::infra::wire::type_extraction::PreflightExtractorEntry {
+				preflight: $crate::infra::wire::Preflight::Preview,
+				identifier: $name,
+				extractor: $crate::infra::wire::type_extraction::rail_types::<
+					<$action as $crate::infra::action::LibraryAction>::Input,
+					<$action as $crate::infra::action::preflight::PreviewableAction>::Plan,
+				>,
+			}
+		}
 	};
 }
 

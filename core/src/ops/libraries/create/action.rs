@@ -27,6 +27,9 @@ impl CoreAction for LibraryCreateAction {
 	type Output = LibraryCreateOutput;
 
 	fn from_input(input: LibraryCreateInput) -> Result<Self, String> {
+		if input.name.trim().is_empty() {
+			return Err("Library name cannot be empty".to_string());
+		}
 		Ok(LibraryCreateAction::new(input))
 	}
 
@@ -50,19 +53,6 @@ impl CoreAction for LibraryCreateAction {
 
 	fn action_kind(&self) -> &'static str {
 		"library.create"
-	}
-
-	async fn validate(
-		&self,
-		_context: std::sync::Arc<crate::context::CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		if self.input.name.trim().is_empty() {
-			return Err(ActionError::Validation {
-				field: "name".to_string(),
-				message: "Library name cannot be empty".to_string(),
-			});
-		}
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

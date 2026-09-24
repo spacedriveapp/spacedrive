@@ -176,11 +176,36 @@ must sit inside tracked sources on mounted drives.
   early.
 - `--include-hidden` brings in hidden files.
 
+## Copy and move files
+
+`file copy <sources>... --destination <path>` copies files or folders, or
+moves them with `--move-files`. Like merge, it validates and previews first:
+the findings, the facts, and the plan's counts print before a y/N prompt;
+`--dry-run` stops after the plan and `-y` skips the prompt. Each source lands
+at its own name in the destination, or at the destination itself for one
+source given a new name.
+
+- A folder landing beside a folder of its name is planned like a merge into
+  it, file by file, so the plan shows what would be replaced instead of a
+  silent overwrite. `--overwrite` replaces what differs; without it a
+  colliding file is skipped.
+- An error finding refuses: a source that is not there, a folder copied into
+  itself (`copy.cycle`), or a destination folder that does not exist when
+  several sources need one. Free space on the destination volume is a
+  warning with numbers.
+- A move on one volume is a rename that keeps the records' identity, which
+  validation says (`move.atomic`). Across volumes the plan consumes the
+  source, and tag assertions on its records stay behind; validation counts
+  them (`move.identity_loss`).
+
 ## Delete files
 
 `file delete <paths>...` moves files to the trash, or removes them with
 `--permanent`, after a y/N prompt that `--yes` skips. Paths are canonicalized
-locally.
+locally. It validates and previews first: the warning only an index can
+give is `delete.last_copy`, how many of the files are the last copy of
+their content anywhere in the library, and the plan flags each such row.
+`--dry-run` stops after the plan.
 
 `file delete <A> --against <B> --show <set>` deletes from A the files in one
 set of `file compare A B`, with the same `--by` and `--include-hidden`. It
@@ -189,15 +214,48 @@ required: `both` removes what B already holds, `only-a` what B lacks, and
 `different` A's version where B's differs. To delete from B, swap the folders;
 `only-b` is refused.
 
-- The client sends the comparison, never a list. The job derives the set from
-  the index as it runs and checkpoints its cursor after each batch, so a
-  paused or interrupted job resumes where it stopped.
+- The client sends the comparison, never a list. The preview streams the set
+  from the index for its count and bytes, with the last-copy flag per row;
+  the job derives the set again as it runs and checkpoints its cursor after
+  each batch, so a paused or interrupted job resumes where it stopped.
 - For `both`, a file goes only once its copy in B is proven. Where either
   side has no integrity hash the job reads both files in full and compares,
   and writes what it learned to the stores so the read is paid once. A pair
   whose bytes differ, or whose copy in B is gone by then, stays in A and is
   counted as skipped in the job's output, with its reason.
 - Deleting leaves empty directories behind.
+
+## Merge folders
+
+`file merge <sources>... --into <dir>` merges folders into an existing
+folder: it recurses into folders both sides have, copies what the destination
+lacks, skips files whose bytes are proven identical, and resolves a file at
+the same path with different bytes by `--on-conflict skip` (the default),
+`overwrite`, `keep-both` (a numbered name beside the existing file) or
+`keep-newer` (by modification time, which is a claim rather than proof). A
+file against a folder, a link against a file, and two sources wanting one
+place are conflicts nothing resolves; they are reported and left alone.
+`.DS_Store`, `Thumbs.db` and `desktop.ini` are never copied.
+
+- It validates and previews first, printing the findings (`error`,
+  `warning`, `info` with a stable code), the facts of the execution, and
+  the plan's counts with every conflict and collision, then asks before
+  dispatching. `--dry-run` stops after the plan; `-y` skips the prompt.
+- An error finding refuses: the destination must be an existing folder, the
+  roots must not contain one another, a source must be on this device and
+  present. A detached source still previews from its store, so a merge can
+  be planned against a drive that is unplugged. Both folders must sit in
+  tracked sources for the preview; an untracked source is a warning and the
+  job still runs.
+- `--consume` removes each source leaf once its copy has landed or its bytes
+  are confirmed identical, and prunes emptied folders, so the source ends
+  holding exactly what the merge did not settle. Across volumes, tag
+  assertions on the source's records stay behind; validation says how many.
+- The job re-reads the plan as it starts and marks each leaf whose outcome
+  differs from it. `--format json job info <id>` has no output field yet;
+  the job log holds the outcomes. Dispatching the same merge while it runs
+  returns the live job.
+- With `--device`, the whole thing runs on that device, bytes and all.
 
 ## Jobs and logs
 

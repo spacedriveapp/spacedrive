@@ -132,6 +132,28 @@ impl LibraryContext {
 		self.inner.client.action(action, self.current()).await
 	}
 
+	/// Ask whether and how an action would run, with the current library id
+	/// injected.
+	pub async fn validate<A>(
+		&self,
+		action: &A,
+	) -> Result<sd_core::infra::action::preflight::Validation>
+	where
+		A: Wire + Serialize,
+	{
+		self.inner.client.validate(action, self.current()).await
+	}
+
+	/// Ask what would exist after an action, with the current library id
+	/// injected.
+	pub async fn preview<A, P>(&self, action: &A) -> Result<P>
+	where
+		A: Wire + Serialize,
+		P: DeserializeOwned,
+	{
+		self.inner.client.preview(action, self.current()).await
+	}
+
 	/// Write the selection to the state file via a temp-file rename so a
 	/// crash mid-write cannot leave a truncated file behind.
 	async fn persist(&self, library_id: Option<Uuid>) -> Result<()> {

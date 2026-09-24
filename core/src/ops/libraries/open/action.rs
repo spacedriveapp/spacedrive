@@ -28,6 +28,28 @@ impl CoreAction for LibraryOpenAction {
 	type Output = LibraryOpenOutput;
 
 	fn from_input(input: LibraryOpenInput) -> Result<Self, String> {
+		if !input.path.exists() {
+			return Err(format!("Path {:?} does not exist", input.path));
+		}
+		if input
+			.path
+			.extension()
+			.and_then(|e| e.to_str())
+			.map(|e| e == "sdlibrary")
+			!= Some(true)
+		{
+			return Err(format!(
+				"Path {:?} is not a library directory (.sdlibrary)",
+				input.path
+			));
+		}
+		let config_path = input.path.join("library.json");
+		if !config_path.exists() {
+			return Err(format!(
+				"Library configuration not found at {:?}",
+				config_path
+			));
+		}
 		Ok(LibraryOpenAction::new(input))
 	}
 
@@ -62,48 +84,6 @@ impl CoreAction for LibraryOpenAction {
 
 	fn action_kind(&self) -> &'static str {
 		"library.open"
-	}
-
-	async fn validate(
-		&self,
-		_context: Arc<CoreContext>,
-	) -> Result<crate::infra::action::ValidationResult, ActionError> {
-		// Check if the path exists
-		if !self.input.path.exists() {
-			return Err(ActionError::Validation {
-				field: "path".to_string(),
-				message: format!("Path {:?} does not exist", self.input.path),
-			});
-		}
-
-		// Check if it's a valid library directory
-		if !self
-			.input
-			.path
-			.extension()
-			.and_then(|e| e.to_str())
-			.map(|e| e == "sdlibrary")
-			.unwrap_or(false)
-		{
-			return Err(ActionError::Validation {
-				field: "path".to_string(),
-				message: format!(
-					"Path {:?} is not a library directory (.sdlibrary)",
-					self.input.path
-				),
-			});
-		}
-
-		// Check if library.json exists
-		let config_path = self.input.path.join("library.json");
-		if !config_path.exists() {
-			return Err(ActionError::Validation {
-				field: "path".to_string(),
-				message: format!("Library configuration not found at {:?}", config_path),
-			});
-		}
-
-		Ok(crate::infra::action::ValidationResult::Success { metadata: None })
 	}
 }
 

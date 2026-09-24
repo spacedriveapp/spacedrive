@@ -9,7 +9,7 @@ use tracing::info;
 use crate::{
 	config::AppConfig,
 	context::CoreContext,
-	infra::action::{error::ActionError, CoreAction, ValidationResult},
+	infra::action::{error::ActionError, CoreAction},
 };
 
 /// Input for updating app configuration
@@ -126,108 +126,60 @@ impl CoreAction for UpdateAppConfigAction {
 	type Output = UpdateAppConfigOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
-		Ok(Self { input })
-	}
-
-	async fn validate(&self, _context: Arc<CoreContext>) -> Result<ValidationResult, ActionError> {
-		// Validate log level
-		if let Some(ref level) = self.input.log_level {
+		if let Some(level) = &input.log_level {
 			let valid_levels = ["trace", "debug", "info", "warn", "error"];
 			if !valid_levels.contains(&level.to_lowercase().as_str()) {
-				return Err(ActionError::Validation {
-					field: "log_level".to_string(),
-					message: format!(
-						"Invalid log level '{}'. Must be one of: {}",
-						level,
-						valid_levels.join(", ")
-					),
-				});
+				return Err(format!(
+					"Invalid log level '{}'. Must be one of: {}",
+					level,
+					valid_levels.join(", ")
+				));
 			}
 		}
 
-		// Validate theme
-		if let Some(ref theme) = self.input.theme {
+		if let Some(theme) = &input.theme {
 			let valid_themes = [
 				"system", "light", "dark", "midnight", "noir", "slate", "nord", "mocha",
 			];
 			if !valid_themes.contains(&theme.to_lowercase().as_str()) {
-				return Err(ActionError::Validation {
-					field: "theme".to_string(),
-					message: format!(
-						"Invalid theme '{}'. Must be one of: {}",
-						theme,
-						valid_themes.join(", ")
-					),
-				});
+				return Err(format!(
+					"Invalid theme '{}'. Must be one of: {}",
+					theme,
+					valid_themes.join(", ")
+				));
 			}
 		}
 
-		// Validate language (basic ISO 639-1 check)
-		if let Some(ref lang) = self.input.language {
+		// A basic ISO 639-1 check
+		if let Some(lang) = &input.language {
 			if lang.len() != 2 || !lang.chars().all(|c| c.is_ascii_lowercase()) {
-				return Err(ActionError::Validation {
-					field: "language".to_string(),
-					message: "Language must be a 2-letter ISO 639-1 code (e.g., 'en', 'de')"
-						.to_string(),
-				});
+				return Err(
+					"Language must be a 2-letter ISO 639-1 code (e.g., 'en', 'de')".to_string(),
+				);
 			}
 		}
 
-		if let Some(max_age) = self.input.proxy_pairing_vouch_signature_max_age {
-			if max_age == 0 {
-				return Err(ActionError::Validation {
-					field: "proxy_pairing_vouch_signature_max_age".to_string(),
-					message: "Signature max age must be greater than 0".to_string(),
-				});
+		if input.proxy_pairing_vouch_signature_max_age == Some(0) {
+			return Err("Signature max age must be greater than 0".to_string());
+		}
+		if input.proxy_pairing_vouch_response_timeout == Some(0) {
+			return Err("Response timeout must be greater than 0".to_string());
+		}
+		if input.proxy_pairing_vouch_queue_retry_limit == Some(0) {
+			return Err("Retry limit must be greater than 0".to_string());
+		}
+
+		for (field, value) in [
+			("Spacebot base URL", &input.spacebot_base_url),
+			("Default agent ID", &input.spacebot_default_agent_id),
+			("Default sender name", &input.spacebot_default_sender_name),
+		] {
+			if value.as_ref().is_some_and(|value| value.trim().is_empty()) {
+				return Err(format!("{field} cannot be empty"));
 			}
 		}
 
-		if let Some(timeout) = self.input.proxy_pairing_vouch_response_timeout {
-			if timeout == 0 {
-				return Err(ActionError::Validation {
-					field: "proxy_pairing_vouch_response_timeout".to_string(),
-					message: "Response timeout must be greater than 0".to_string(),
-				});
-			}
-		}
-
-		if let Some(retry_limit) = self.input.proxy_pairing_vouch_queue_retry_limit {
-			if retry_limit == 0 {
-				return Err(ActionError::Validation {
-					field: "proxy_pairing_vouch_queue_retry_limit".to_string(),
-					message: "Retry limit must be greater than 0".to_string(),
-				});
-			}
-		}
-
-		if let Some(ref base_url) = self.input.spacebot_base_url {
-			if base_url.trim().is_empty() {
-				return Err(ActionError::Validation {
-					field: "spacebot_base_url".to_string(),
-					message: "Spacebot base URL cannot be empty".to_string(),
-				});
-			}
-		}
-
-		if let Some(ref agent_id) = self.input.spacebot_default_agent_id {
-			if agent_id.trim().is_empty() {
-				return Err(ActionError::Validation {
-					field: "spacebot_default_agent_id".to_string(),
-					message: "Default agent ID cannot be empty".to_string(),
-				});
-			}
-		}
-
-		if let Some(ref sender_name) = self.input.spacebot_default_sender_name {
-			if sender_name.trim().is_empty() {
-				return Err(ActionError::Validation {
-					field: "spacebot_default_sender_name".to_string(),
-					message: "Default sender name cannot be empty".to_string(),
-				});
-			}
-		}
-
-		Ok(ValidationResult::Success { metadata: None })
+		Ok(Self { input })
 	}
 
 	async fn execute(self, context: Arc<CoreContext>) -> Result<Self::Output, ActionError> {

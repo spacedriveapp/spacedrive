@@ -6,6 +6,7 @@ pub mod input;
 pub mod job;
 pub mod metadata;
 pub mod output;
+pub mod preflight;
 pub mod routing;
 pub mod strategy;
 

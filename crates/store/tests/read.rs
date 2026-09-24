@@ -387,17 +387,35 @@ async fn contents_beneath_a_directory_answer_by_scope() {
 		.expect("identity");
 	}
 
-	let asked = ["a", "b", "c", "top", "elsewhere"].map(uuid_for);
+	let asked = ["a", "b", "c", "top", "elsewhere"].map(String::from);
 	let in_2019 = read::contents_beneath(db.pool(), &asked, "2019")
 		.await
 		.expect("one directory");
-	assert_eq!(in_2019, HashSet::from([uuid_for("a"), uuid_for("b")]));
+	assert_eq!(
+		in_2019.keys().cloned().collect::<HashSet<_>>(),
+		HashSet::from(["a".to_string(), "b".to_string()])
+	);
+	assert!(
+		in_2019.values().all(Option::is_none),
+		"nothing has been read in full"
+	);
 
 	let everywhere = read::contents_beneath(db.pool(), &asked, "")
 		.await
 		.expect("whole source");
 	assert_eq!(
-		everywhere,
-		HashSet::from(["a", "b", "c", "top"].map(uuid_for))
+		everywhere.keys().cloned().collect::<HashSet<_>>(),
+		HashSet::from(["a", "b", "c", "top"].map(String::from))
 	);
+
+	// One holder per content beneath the scope, for a reader that settles
+	// the content by reading that file.
+	let mut holders: Vec<String> = read::holders_beneath(db.pool(), &asked, "2019")
+		.await
+		.expect("holders")
+		.into_iter()
+		.map(|entry| entry.relative_path)
+		.collect();
+	holders.sort();
+	assert_eq!(holders, ["2019/b.jpg", "2019/trip/a.jpg"]);
 }

@@ -11,7 +11,11 @@ use super::{
 };
 use crate::{
 	context::CoreContext,
-	infra::action::{manager::ActionManager, CoreAction, LibraryAction},
+	infra::action::{
+		manager::ActionManager,
+		preflight::{PreviewContext, PreviewableAction, ValidatedAction, Validation},
+		CoreAction, LibraryAction,
+	},
 	infra::query::{manager::QueryManager, CoreQuery, LibraryQuery},
 };
 use bincode::config::standard;
@@ -228,6 +232,56 @@ impl ApiDispatcher {
 			.map_err(ApiError::from)?;
 
 		Ok(result)
+	}
+
+	/// Whether and how a library action would run, from its exact input.
+	/// Permissioned as the action is, since it reads on the action's behalf.
+	pub async fn validate_library_action<A>(
+		&self,
+		input: &A::Input,
+		session: SessionContext,
+	) -> ApiResult<Validation>
+	where
+		A: ValidatedAction + 'static,
+	{
+		self.permission_layer
+			.check_library_action::<A>(&session, PhantomData)
+			.await?;
+		let context = self.preview_context(session).await?;
+		<A as ValidatedAction>::validate(input, &context)
+			.await
+			.map_err(ApiError::from)
+	}
+
+	/// What would exist after a library action, from its exact input.
+	pub async fn preview_library_action<A>(
+		&self,
+		input: A::Input,
+		session: SessionContext,
+	) -> ApiResult<A::Plan>
+	where
+		A: PreviewableAction + 'static,
+	{
+		self.permission_layer
+			.check_library_action::<A>(&session, PhantomData)
+			.await?;
+		let context = self.preview_context(session).await?;
+		A::preview(input, &context).await.map_err(ApiError::from)
+	}
+
+	/// What preflight reads from, for the session's library.
+	async fn preview_context(&self, session: SessionContext) -> ApiResult<PreviewContext> {
+		let library_id = session
+			.current_library_id
+			.ok_or(ApiError::NoLibrarySelected)?;
+		let library = self
+			.core_context
+			.get_library(library_id)
+			.await
+			.ok_or_else(|| ApiError::LibraryNotFound {
+				library_id: library_id.to_string(),
+			})?;
+		Ok(PreviewContext::new(&self.core_context, library, session))
 	}
 
 	/// Get a reference to the core context (for advanced usage)
