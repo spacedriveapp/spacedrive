@@ -16,7 +16,10 @@
 //! than repeating a half-merged tree. With `consume_sources` a settled leaf
 //! is removed from its source and emptied directories are pruned from the
 //! bottom up, so the source ends holding exactly what the merge left
-//! unsettled. The job writes no records; the watcher observes the results.
+//! unsettled; on one volume a consumed leaf is renamed into place rather
+//! than copied and removed. A replaced file's previous bytes go to the
+//! trash, and every effect is journaled. The job writes no records; the
+//! watcher observes the results.
 
 use std::{
 	collections::HashMap,
@@ -33,13 +36,14 @@ use crate::{
 	infra::{
 		action::preflight::PreviewContext,
 		api::SessionContext,
-		job::{generic_progress::GenericProgress, prelude::*},
+		job::{generic_progress::GenericProgress, journal::Effect, prelude::*},
 	},
 	ops::{
 		files::{
 			copy::{input::CopyMethod, routing::CopyStrategyRouter},
 			plan::{ChangeKind, ConflictKind, SkipReason},
 			planner::{is_junk, Planner},
+			trash,
 		},
 		paths::reach::stores_beneath,
 	},
@@ -107,6 +111,8 @@ pub struct MergeOutput {
 	/// Leaves removed from their source.
 	pub consumed: u64,
 	pub pruned_directories: u64,
+	/// Files the destination held that no source did, trashed by a mirror.
+	pub removed_extras: u64,
 	/// Tag assertions still standing on records under the sources, which a
 	/// consuming merge across volumes leaves behind.
 	pub assertions_left: i64,
@@ -193,20 +199,6 @@ impl JobHandler for FolderMergeJob {
 		let total = plan.len() as u64;
 		ctx.log(format!("{total} planned changes from the index"));
 
-		let mut merge = Merge {
-			ctx: &ctx,
-			policy: self.input.on_conflict,
-			consume: self.input.consume_sources,
-			plan,
-			total,
-			resuming: self.cursor.clone(),
-			cursor: self.cursor.take(),
-			outcomes: std::mem::take(&mut self.outcomes),
-			since_checkpoint: 0,
-			pruned: 0,
-			bytes: 0,
-		};
-
 		let sources: Vec<PathBuf> = self
 			.input
 			.sources
@@ -214,12 +206,46 @@ impl JobHandler for FolderMergeJob {
 			.iter()
 			.filter_map(|source| source.as_local_path().map(Path::to_path_buf))
 			.collect();
+		// A consuming merge on one volume renames each leaf into place.
+		let moving = self.input.consume_sources
+			&& match ctx.volume_manager() {
+				Some(volumes) => {
+					let mut same = true;
+					for source in &sources {
+						same &= volumes.same_volume(source, &destination).await;
+					}
+					same
+				}
+				None => false,
+			};
+
+		let mut merge = Merge::new(
+			&ctx,
+			self.input.on_conflict,
+			self.input.consume_sources,
+			moving,
+			plan,
+		);
+		merge.resuming = self.cursor.clone();
+		merge.cursor = self.cursor.take();
+		merge.outcomes = std::mem::take(&mut self.outcomes);
+		merge.total = total;
+
 		for (index, source) in sources.iter().enumerate() {
 			merge
 				.directory(index, source, source, &destination, "")
 				.await?;
 		}
-		merge.checkpoint().await?;
+		let run = merge.finish().await?;
+
+		let removed_extras = if self.input.remove_extras {
+			ctx.progress(Progress::Indeterminate(
+				"Removing what no source holds".to_string(),
+			));
+			remove_extras(&ctx, &sources, &destination).await?
+		} else {
+			0
+		};
 
 		let assertions_left = if self.input.consume_sources {
 			assertions_left(&ctx, &self.input.sources.paths).await
@@ -228,12 +254,13 @@ impl JobHandler for FolderMergeJob {
 		};
 
 		let mut output = MergeOutput {
-			pruned_directories: merge.pruned,
+			pruned_directories: run.pruned,
+			removed_extras,
 			assertions_left,
-			bytes: merge.bytes,
+			bytes: run.bytes,
 			..Default::default()
 		};
-		for outcome in &merge.outcomes {
+		for outcome in &run.outcomes {
 			match &outcome.result {
 				MergeResult::Copied { .. } => output.copied += 1,
 				MergeResult::CreatedDirectory => output.created_directories += 1,
@@ -255,9 +282,9 @@ impl JobHandler for FolderMergeJob {
 				output.diverged += 1;
 			}
 		}
-		output.consumed = merge.consumed();
-		self.cursor = merge.cursor;
-		self.outcomes = merge.outcomes;
+		output.consumed = run.consumed;
+		self.cursor = run.cursor;
+		self.outcomes = run.outcomes;
 		output.outcomes = self.outcomes.clone();
 
 		ctx.progress(Progress::generic(
@@ -310,11 +337,26 @@ impl FolderMergeJob {
 	}
 }
 
-/// One run of the merge over the live filesystem.
-struct Merge<'a, 'c> {
+/// What a run of the merge amounts to.
+pub(crate) struct MergeRun {
+	pub(crate) outcomes: Vec<MergeOutcome>,
+	pub(crate) cursor: Option<Cursor>,
+	pub(crate) pruned: u64,
+	pub(crate) bytes: u64,
+	/// Leaves removed from their source: everything settled while
+	/// consuming.
+	pub(crate) consumed: u64,
+}
+
+/// One run of the merge over the live filesystem. The copy job runs one too,
+/// for a folder copied onto a folder that is already there.
+pub(crate) struct Merge<'a, 'c> {
 	ctx: &'a JobContext<'c>,
 	policy: MergeConflictPolicy,
 	consume: bool,
+	/// Rename each leaf into place rather than copy and remove it; only on
+	/// one volume.
+	moving: bool,
 	plan: HashMap<String, ChangeKind>,
 	total: u64,
 	/// The cursor a resumed job walks up to; leaves before it are done.
@@ -324,13 +366,77 @@ struct Merge<'a, 'c> {
 	since_checkpoint: usize,
 	pruned: u64,
 	bytes: u64,
+	consumed: u64,
+	/// Effects not yet written to the journal.
+	effects: Vec<Effect>,
 }
 
-impl Merge<'_, '_> {
+/// What settling one leaf came to.
+struct Settled {
+	result: MergeResult,
+	/// Where a leaf kept beside the existing file was written.
+	written: Option<PathBuf>,
+	/// Where a replaced file's previous bytes went.
+	previous: Option<PathBuf>,
+	/// Whether the leaf was renamed into place, so nothing is left to
+	/// remove from the source.
+	moved: bool,
+}
+
+impl Settled {
+	fn of(result: MergeResult) -> Self {
+		Self {
+			result,
+			written: None,
+			previous: None,
+			moved: false,
+		}
+	}
+}
+
+impl<'a, 'c> Merge<'a, 'c> {
+	pub(crate) fn new(
+		ctx: &'a JobContext<'c>,
+		policy: MergeConflictPolicy,
+		consume: bool,
+		moving: bool,
+		plan: HashMap<String, ChangeKind>,
+	) -> Self {
+		Self {
+			ctx,
+			policy,
+			consume,
+			moving,
+			total: plan.len() as u64,
+			plan,
+			resuming: None,
+			cursor: None,
+			outcomes: Vec::new(),
+			since_checkpoint: 0,
+			pruned: 0,
+			bytes: 0,
+			consumed: 0,
+			effects: Vec::new(),
+		}
+	}
+
+	/// Write what is pending to the journal and checkpoint, then hand back
+	/// the run.
+	pub(crate) async fn finish(mut self) -> JobResult<MergeRun> {
+		self.checkpoint().await?;
+		Ok(MergeRun {
+			outcomes: self.outcomes,
+			cursor: self.cursor,
+			pruned: self.pruned,
+			bytes: self.bytes,
+			consumed: self.consumed,
+		})
+	}
+
 	/// Settle every entry of one source directory, children of a directory
 	/// before its next sibling, and prune the directory afterward when the
 	/// merge consumes.
-	fn directory<'s>(
+	pub(crate) fn directory<'s>(
 		&'s mut self,
 		source: usize,
 		root: &'s Path,
@@ -374,6 +480,11 @@ impl Merge<'_, '_> {
 					};
 					let descend = !matches!(result, Some(MergeResult::Conflict { .. }));
 					if let Some(result) = result {
+						if result == MergeResult::CreatedDirectory {
+							let subject = tokio::fs::symlink_metadata(&to).await.ok();
+							self.effects
+								.push(Effect::created(to.clone(), subject.as_ref()));
+						}
 						self.record(source, relative.clone(), result).await?;
 					}
 					if descend {
@@ -381,6 +492,7 @@ impl Merge<'_, '_> {
 							.await?;
 						if self.consume && tokio::fs::remove_dir(&from).await.is_ok() {
 							self.pruned += 1;
+							self.effects.push(Effect::removed(from.clone()));
 						}
 					}
 					continue;
@@ -389,28 +501,39 @@ impl Merge<'_, '_> {
 				if self.done(source, &relative) {
 					continue;
 				}
-				let (result, written) = if meta.file_type().is_symlink() {
+				let settled = if meta.file_type().is_symlink() {
 					self.settle_link(&from, &to).await
 				} else {
 					self.settle_file(&from, &to, meta.len()).await
 				};
-				let settled = matches!(
-					result,
-					MergeResult::Copied { .. }
-						| MergeResult::Replaced { .. }
-						| MergeResult::Skipped {
-							reason: SkipReason::DuplicateConfirmed | SkipReason::Junk
-						}
-				);
-				if self.consume && settled {
-					if let Err(error) = tokio::fs::remove_file(&from).await {
-						self.ctx
-							.log(format!("Could not remove {}: {error}", from.display()));
+				let landed = settled.written.clone().unwrap_or_else(|| to.clone());
+				let consumed = self.consume
+					&& matches!(
+						settled.result,
+						MergeResult::Copied { .. }
+							| MergeResult::Replaced { .. }
+							| MergeResult::Skipped {
+								reason: SkipReason::DuplicateConfirmed | SkipReason::Junk
+							}
+					);
+				let mut removed = settled.moved;
+				if consumed && !settled.moved {
+					match tokio::fs::remove_file(&from).await {
+						Ok(()) => removed = true,
+						Err(error) => self
+							.ctx
+							.log(format!("Could not remove {}: {error}", from.display())),
 					}
 				}
+				if consumed && removed {
+					self.consumed += 1;
+				}
+				self.journal_leaf(&from, &landed, &settled, removed).await;
+
 				// A leaf kept beside the existing file is recorded where it
 				// was written, which is where the plan put it too.
-				let written = written
+				let written = settled
+					.written
 					.as_deref()
 					.and_then(|path| path.strip_prefix(destination).ok())
 					.map(|path| {
@@ -418,10 +541,47 @@ impl Merge<'_, '_> {
 							.replace(std::path::MAIN_SEPARATOR, "/")
 					})
 					.unwrap_or(relative);
-				self.record(source, written, result).await?;
+				self.record(source, written, settled.result).await?;
 			}
 			Ok(())
 		})
+	}
+
+	/// The effects one settled leaf had, for the journal.
+	async fn journal_leaf(&mut self, from: &Path, landed: &Path, settled: &Settled, removed: bool) {
+		let subject = tokio::fs::symlink_metadata(landed).await.ok();
+		match &settled.result {
+			MergeResult::Copied { .. } => {
+				if removed {
+					self.effects.push(Effect::moved(
+						from.to_path_buf(),
+						landed.to_path_buf(),
+						subject.as_ref(),
+					));
+				} else {
+					self.effects
+						.push(Effect::created(landed.to_path_buf(), subject.as_ref()));
+				}
+			}
+			MergeResult::Replaced { .. } => {
+				self.effects.push(Effect::replaced(
+					landed.to_path_buf(),
+					settled.previous.clone(),
+					subject.as_ref(),
+				));
+				if removed {
+					self.effects.push(Effect::moved(
+						from.to_path_buf(),
+						landed.to_path_buf(),
+						subject.as_ref(),
+					));
+				}
+			}
+			MergeResult::Skipped { .. } if removed => {
+				self.effects.push(Effect::removed(from.to_path_buf()));
+			}
+			_ => {}
+		}
 	}
 
 	/// Whether a resumed job has already settled this leaf. The cursor is
@@ -451,132 +611,166 @@ impl Merge<'_, '_> {
 		}
 	}
 
-	/// Settle a symlink, as the result and, for one kept beside the existing
-	/// link, where it was written.
-	async fn settle_link(&mut self, from: &Path, to: &Path) -> (MergeResult, Option<PathBuf>) {
+	/// Settle a symlink.
+	async fn settle_link(&mut self, from: &Path, to: &Path) -> Settled {
 		let target = match tokio::fs::read_link(from).await {
 			Ok(target) => target,
 			Err(error) => {
-				return (
-					MergeResult::Failed {
-						error: error.to_string(),
-					},
-					None,
-				)
+				return Settled::of(MergeResult::Failed {
+					error: error.to_string(),
+				})
 			}
 		};
-		let result = match tokio::fs::symlink_metadata(to).await {
-			Err(_) => link(&target, to).await,
+		match tokio::fs::symlink_metadata(to).await {
+			Err(_) => self.place_link(from, &target, to).await,
 			Ok(meta) if meta.file_type().is_symlink() => {
 				if tokio::fs::read_link(to).await.ok().as_deref() == Some(target.as_path()) {
-					return (
-						MergeResult::Skipped {
-							reason: SkipReason::DuplicateConfirmed,
-						},
-						None,
-					);
+					return Settled::of(MergeResult::Skipped {
+						reason: SkipReason::DuplicateConfirmed,
+					});
 				}
 				match self.resolve(from, to, None).await {
 					Resolution::Replace => {
-						if let Err(error) = tokio::fs::remove_file(to).await {
-							return (
-								MergeResult::Failed {
+						let previous = match self.stash(to).await {
+							Ok(previous) => previous,
+							Err(error) => {
+								return Settled::of(MergeResult::Failed {
 									error: error.to_string(),
-								},
-								None,
-							);
+								})
+							}
+						};
+						let mut settled = self.place_link(from, &target, to).await;
+						if let MergeResult::Copied { bytes } = settled.result {
+							settled.result = MergeResult::Replaced { bytes };
 						}
-						match link(&target, to).await {
-							MergeResult::Copied { bytes } => MergeResult::Replaced { bytes },
-							other => other,
-						}
+						settled.previous = previous;
+						settled
 					}
 					Resolution::KeepBoth(renamed) => {
-						return (link(&target, &renamed).await, Some(renamed));
+						let mut settled = self.place_link(from, &target, &renamed).await;
+						settled.written = Some(renamed);
+						settled
 					}
-					Resolution::Skip => MergeResult::Skipped {
+					Resolution::Skip => Settled::of(MergeResult::Skipped {
 						reason: SkipReason::Policy,
-					},
+					}),
 				}
 			}
-			Ok(meta) if meta.is_dir() => MergeResult::Conflict {
+			Ok(meta) if meta.is_dir() => Settled::of(MergeResult::Conflict {
 				kind: ConflictKind::FileVsDirectory,
-			},
-			Ok(_) => MergeResult::Conflict {
+			}),
+			Ok(_) => Settled::of(MergeResult::Conflict {
 				kind: ConflictKind::LinkVsFile,
-			},
-		};
-		(result, None)
+			}),
+		}
 	}
 
-	/// Settle a file, as the result and, for one kept beside the existing
-	/// file, where it was written.
-	async fn settle_file(
-		&mut self,
-		from: &Path,
-		to: &Path,
-		size: u64,
-	) -> (MergeResult, Option<PathBuf>) {
+	/// A link at `at`: renamed from the source when moving, else made anew.
+	async fn place_link(&self, from: &Path, target: &Path, at: &Path) -> Settled {
+		if self.moving {
+			return match tokio::fs::rename(from, at).await {
+				Ok(()) => Settled {
+					result: MergeResult::Copied { bytes: 0 },
+					written: None,
+					previous: None,
+					moved: true,
+				},
+				Err(error) => Settled::of(MergeResult::Failed {
+					error: error.to_string(),
+				}),
+			};
+		}
+		Settled::of(link(target, at).await)
+	}
+
+	/// Settle a file.
+	async fn settle_file(&mut self, from: &Path, to: &Path, size: u64) -> Settled {
 		let name = from
 			.file_name()
 			.map(|name| name.to_string_lossy().into_owned())
 			.unwrap_or_default();
 		if is_junk(&name) {
-			return (
-				MergeResult::Skipped {
-					reason: SkipReason::Junk,
-				},
-				None,
-			);
+			return Settled::of(MergeResult::Skipped {
+				reason: SkipReason::Junk,
+			});
 		}
-		let result = match tokio::fs::symlink_metadata(to).await {
-			Err(_) => self.copy(from, to).await,
-			Ok(meta) if meta.is_dir() => MergeResult::Conflict {
+		match tokio::fs::symlink_metadata(to).await {
+			Err(_) => self.place(from, to).await,
+			Ok(meta) if meta.is_dir() => Settled::of(MergeResult::Conflict {
 				kind: ConflictKind::FileVsDirectory,
-			},
-			Ok(meta) if meta.file_type().is_symlink() => MergeResult::Conflict {
+			}),
+			Ok(meta) if meta.file_type().is_symlink() => Settled::of(MergeResult::Conflict {
 				kind: ConflictKind::LinkVsFile,
-			},
+			}),
 			Ok(meta) => {
 				if meta.len() == size {
 					match identical(from, to).await {
 						Ok(true) => {
-							return (
-								MergeResult::Skipped {
-									reason: SkipReason::DuplicateConfirmed,
-								},
-								None,
-							)
+							return Settled::of(MergeResult::Skipped {
+								reason: SkipReason::DuplicateConfirmed,
+							})
 						}
 						Ok(false) => {}
-						Err(error) => return (MergeResult::Failed { error }, None),
+						Err(error) => return Settled::of(MergeResult::Failed { error }),
 					}
 				}
 				match self.resolve(from, to, Some(&meta)).await {
 					Resolution::Replace => {
-						if let Err(error) = tokio::fs::remove_file(to).await {
-							return (
-								MergeResult::Failed {
+						let previous = match self.stash(to).await {
+							Ok(previous) => previous,
+							Err(error) => {
+								return Settled::of(MergeResult::Failed {
 									error: error.to_string(),
-								},
-								None,
-							);
+								})
+							}
+						};
+						let mut settled = self.place(from, to).await;
+						if let MergeResult::Copied { bytes } = settled.result {
+							settled.result = MergeResult::Replaced { bytes };
 						}
-						match self.copy(from, to).await {
-							MergeResult::Copied { bytes } => MergeResult::Replaced { bytes },
-							other => other,
-						}
+						settled.previous = previous;
+						settled
 					}
 					Resolution::KeepBoth(renamed) => {
-						return (self.copy(from, &renamed).await, Some(renamed));
+						let mut settled = self.place(from, &renamed).await;
+						settled.written = Some(renamed);
+						settled
 					}
-					Resolution::Skip => MergeResult::Skipped {
+					Resolution::Skip => Settled::of(MergeResult::Skipped {
 						reason: SkipReason::Policy,
-					},
+					}),
 				}
 			}
-		};
-		(result, None)
+		}
+	}
+
+	/// The previous bytes at `to`, moved to the trash with their location
+	/// recorded, so the replacement can be undone.
+	async fn stash(&self, to: &Path) -> std::io::Result<Option<PathBuf>> {
+		trash::trash(to, self.ctx.volume_manager().as_deref(), self.ctx.id()).await
+	}
+
+	/// A file at `to`: renamed from the source when moving, else copied
+	/// with the strategy the router picks.
+	async fn place(&self, from: &Path, to: &Path) -> Settled {
+		if self.moving {
+			let size = tokio::fs::symlink_metadata(from)
+				.await
+				.map(|meta| meta.len())
+				.unwrap_or(0);
+			return match tokio::fs::rename(from, to).await {
+				Ok(()) => Settled {
+					result: MergeResult::Copied { bytes: size },
+					written: None,
+					previous: None,
+					moved: true,
+				},
+				Err(error) => Settled::of(MergeResult::Failed {
+					error: error.to_string(),
+				}),
+			};
+		}
+		Settled::of(self.copy(from, to).await)
 	}
 
 	/// What the policy makes of a collision at execution.
@@ -677,34 +871,17 @@ impl Merge<'_, '_> {
 		Ok(())
 	}
 
+	/// The journal first, so a checkpoint never claims a leaf whose effects
+	/// are not written.
 	async fn checkpoint(&mut self) -> JobResult<()> {
 		self.since_checkpoint = 0;
+		self.ctx.record(std::mem::take(&mut self.effects)).await;
 		self.ctx
 			.checkpoint_with_state(&Resume {
 				cursor: self.cursor.clone(),
 				outcomes: self.outcomes.clone(),
 			})
 			.await
-	}
-
-	/// Leaves removed from their source: everything settled while consuming.
-	fn consumed(&self) -> u64 {
-		if !self.consume {
-			return 0;
-		}
-		self.outcomes
-			.iter()
-			.filter(|outcome| {
-				matches!(
-					outcome.result,
-					MergeResult::Copied { .. }
-						| MergeResult::Replaced { .. }
-						| MergeResult::Skipped {
-							reason: SkipReason::DuplicateConfirmed | SkipReason::Junk
-						}
-				)
-			})
-			.count() as u64
 	}
 }
 
@@ -727,7 +904,7 @@ async fn identical(a: &Path, b: &Path) -> Result<bool, String> {
 
 /// A numbered name beside `path` that nothing holds, in the convention copy
 /// uses.
-async fn unique_name(path: &Path) -> PathBuf {
+pub(crate) async fn unique_name(path: &Path) -> PathBuf {
 	let parent = path.parent().unwrap_or(Path::new(""));
 	let name = path
 		.file_name()
@@ -775,6 +952,83 @@ fn agrees(planned: &ChangeKind, result: &MergeResult) -> bool {
 		(ChangeKind::Conflict { kind: planned }, MergeResult::Conflict { kind }) => planned == kind,
 		_ => false,
 	}
+}
+
+/// Trash every file beneath the destination that no source holds at the
+/// same relative path, then prune the directories no source has, bottom
+/// up. Junk is left alone, as it is never copied. Answers with how many
+/// files went.
+async fn remove_extras(
+	ctx: &JobContext<'_>,
+	sources: &[PathBuf],
+	destination: &Path,
+) -> JobResult<u64> {
+	let mut removed = 0;
+	let mut directories: Vec<PathBuf> = Vec::new();
+	let mut stack = vec![destination.to_path_buf()];
+	while let Some(directory) = stack.pop() {
+		let mut entries = match tokio::fs::read_dir(&directory).await {
+			Ok(entries) => entries,
+			Err(error) => {
+				ctx.log(format!("Could not read {}: {error}", directory.display()));
+				continue;
+			}
+		};
+		while let Ok(Some(entry)) = entries.next_entry().await {
+			ctx.check_interrupt().await?;
+			let path = entry.path();
+			let Ok(relative) = path.strip_prefix(destination) else {
+				continue;
+			};
+			let name = entry.file_name().to_string_lossy().into_owned();
+			if relative.components().count() == 1 && name == ".spacedrive" {
+				continue;
+			}
+			let Ok(meta) = tokio::fs::symlink_metadata(&path).await else {
+				continue;
+			};
+			let mut held = false;
+			for source in sources {
+				if tokio::fs::symlink_metadata(source.join(relative))
+					.await
+					.is_ok()
+				{
+					held = true;
+					break;
+				}
+			}
+			if meta.is_dir() {
+				stack.push(path.clone());
+				if !held {
+					directories.push(path);
+				}
+				continue;
+			}
+			if held || is_junk(&name) {
+				continue;
+			}
+			match trash::trash(&path, ctx.volume_manager().as_deref(), ctx.id()).await {
+				Ok(location) => {
+					let subject = match &location {
+						Some(location) => tokio::fs::symlink_metadata(location).await.ok(),
+						None => None,
+					};
+					ctx.record(vec![Effect::trashed(path, location, subject.as_ref())])
+						.await;
+					removed += 1;
+				}
+				Err(error) => ctx.log(format!("Could not remove {}: {error}", path.display())),
+			}
+		}
+	}
+	// Deepest first, so a directory is empty by the time its turn comes.
+	directories.sort_by(|a, b| b.components().count().cmp(&a.components().count()));
+	for directory in directories {
+		if tokio::fs::remove_dir(&directory).await.is_ok() {
+			ctx.record(vec![Effect::removed(directory)]).await;
+		}
+	}
+	Ok(removed)
 }
 
 /// Tag assertions still standing on records under the sources.

@@ -8,7 +8,7 @@ use crate::{
 	infra::action::{error::ActionError, LibraryAction},
 	ops::files::{
 		copy::job::{FileCopyJob, MoveMode},
-		rename::validation::validate_filename,
+		rename::naming::check_portable,
 	},
 	volume::{LocalBackend, VolumeBackend},
 };
@@ -52,7 +52,7 @@ impl LibraryAction for CreateFolderAction {
 	type Output = CreateFolderOutput;
 
 	fn from_input(input: Self::Input) -> Result<Self, String> {
-		validate_filename(&input.name).map_err(|e| e.to_string())?;
+		check_portable(&input.name).map_err(|e| e.to_string())?;
 		match &input.parent {
 			SdPath::Physical { .. } | SdPath::Cloud { .. } => {}
 			SdPath::Content { .. } => {

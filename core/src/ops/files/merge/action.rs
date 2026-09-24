@@ -59,10 +59,16 @@ impl PreviewableAction for FileMergeAction {
 
 	async fn preview(input: FileMergeInput, ctx: &PreviewContext) -> Result<FsPlan, ActionError> {
 		let mut planner = Planner::new(ctx, input.on_conflict, false);
+		if input.remove_extras {
+			planner = planner.removing_extras();
+		}
 		for source in &input.sources.paths {
 			planner
 				.pair(source, &input.destination, input.consume_sources)
 				.await?;
+		}
+		if let Some(destination) = input.destination.as_local_path() {
+			planner.remove_extras(destination).await;
 		}
 		Ok(ctx.plans().retain(planner.finish()))
 	}

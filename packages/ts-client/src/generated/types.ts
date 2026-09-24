@@ -125,10 +125,27 @@ targets_tagged: number;
  */
 targets_pending: number; warnings: string[] };
 
+export type ArchiveFormat = "zip" | "tar_zstd";
+
+/**
+ * What an attribute change sets.
+ */
+export type Attributes = { 
+/**
+ * Unix permission bits.
+ */
+mode: number | null; 
+/**
+ * Modification time, unix milliseconds.
+ */
+modified_ms: number | null; hidden: boolean | null };
+
 /**
  * Audio metadata extracted from FFmpeg
  */
 export type AudioMediaData = { uuid: string; duration_seconds: number | null; bit_rate: number | null; sample_rate: number | null; channels: string | null; codec: string | null; title: string | null; artist: string | null; album: string | null; album_artist: string | null; genre: string | null; year: number | null; track_number: number | null; disc_number: number | null; composer: string | null; publisher: string | null; copyright: string | null };
+
+export type CaseRule = "lower" | "upper" | "title" | "keep";
 
 export type ChangeKind = { type: "create"; size: number } | { type: "create_directory" } | { type: "replace"; existing_size: number; incoming_size: number; reason: ReplaceReason } | 
 /**
@@ -138,7 +155,11 @@ export type ChangeKind = { type: "create"; size: number } | { type: "create_dire
 /**
  * Nothing the policy resolves. Reported and left alone.
  */
-{ type: "conflict"; kind: ConflictKind };
+{ type: "conflict"; kind: ConflictKind } | 
+/**
+ * The filesystem attributes that change, each absent where it stays.
+ */
+{ type: "set_attributes"; attributes: Attributes };
 
 /**
  * Cloud service type identifier
@@ -995,6 +1016,25 @@ reclaimable: number;
  */
 sources_queried: number };
 
+export type Effect = { kind: "created"; path: string; subject: Subject | null } | { kind: "moved"; from: string; to: string; subject: Subject | null } | 
+/**
+ * `to` is where the item went, where the platform reports it.
+ */
+{ kind: "trashed"; from: string; to: string | null; subject: Subject | null } | 
+/**
+ * `previous` is where the bytes that were at `path` went, where they
+ * were kept.
+ */
+{ kind: "replaced"; path: string; previous: string | null; subject: Subject | null } | 
+/**
+ * Gone for good.
+ */
+{ kind: "removed"; path: string } | 
+/**
+ * The filesystem attributes of a path, before and after.
+ */
+{ kind: "attributes"; path: string; from: Attributes; to: Attributes };
+
 /**
  * Type of filesystem entry
  */
@@ -1155,6 +1195,8 @@ executes_on: string;
  */
 strategy: string | null; estimated_files: number | null; estimated_bytes: number | null; free_space_after: number | null };
 
+export type ExtensionCase = "lower" | "keep";
+
 /**
  * A dependency Spacedrive knows how to discover and use.
  */
@@ -1237,6 +1279,19 @@ duration_seconds: number | null;
 thumbnail_path?: string | null };
 
 /**
+ * Write one archive holding the sources.
+ */
+export type FileArchiveInput = { sources: SdPath[]; 
+/**
+ * The archive file to write. It must not exist.
+ */
+destination: SdPath; format: ArchiveFormat; 
+/**
+ * Trash the sources once the archive is complete.
+ */
+remove_sources?: boolean };
+
+/**
  * Query to get a file by its ID with all related data
  */
 export type FileByIdQuery = { file_id: string };
@@ -1303,6 +1358,29 @@ permanent: boolean;
 recursive: boolean };
 
 /**
+ * Extract an archive into a folder.
+ */
+export type FileExtractInput = { archive: SdPath; 
+/**
+ * An existing folder the entries are written into.
+ */
+destination: SdPath; on_conflict: MergeConflictPolicy; 
+/**
+ * Leading path components to drop from every entry.
+ */
+strip_components?: number };
+
+/**
+ * Move every file beneath a folder to the folder itself.
+ */
+export type FileFlattenInput = { scope: SdPath; on_conflict: FlattenPolicy };
+
+/**
+ * Make a link at `at` to `target`.
+ */
+export type FileLinkInput = { at: SdPath; target: SdPath; kind: LinkKind };
+
+/**
  * Merge one or more folders into an existing directory: recurse into
  * matching subfolders, skip files whose bytes are proven identical, and
  * resolve name collisions by a policy chosen after seeing the plan.
@@ -1319,10 +1397,31 @@ destination: SdPath; on_conflict: MergeConflictPolicy;
  * confirmed identical to the destination's, and prune emptied source
  * directories. What the merge did not settle stays where it was.
  */
-consume_sources: boolean };
+consume_sources: boolean; 
+/**
+ * Remove from the destination what no source holds, so it ends up
+ * matching the sources: a mirror. The extras go to the trash.
+ */
+remove_extras?: boolean };
 
 /**
- * Input for renaming a file or directory
+ * Move the files under a folder into subfolders named by a rule.
+ */
+export type FileOrganizeInput = { scope: SdPath; rule: OrganizeRule; 
+/**
+ * Take the files beneath the folder at any depth, not only those
+ * directly under it. Every file ends up directly under its new
+ * subfolder.
+ */
+recursive?: boolean };
+
+/**
+ * Rename several files by rules applied to each name in order.
+ */
+export type FileRenameBatchInput = { targets: SdPath[]; rules: RenameRule[] };
+
+/**
+ * Rename one file or directory.
  */
 export type FileRenameInput = { 
 /**
@@ -1391,6 +1490,11 @@ available_filters: FilterKind[] };
 export type FileSearchResult = { file: File; score: number; score_breakdown: ScoreBreakdown; highlights: TextHighlight[]; matched_content: string | null };
 
 /**
+ * Set attributes on files; each absent attribute stays as it is.
+ */
+export type FileSetAttributesInput = { paths: SdPath[]; attributes: Attributes };
+
+/**
  * Filesystem type
  */
 export type FileSystem = 
@@ -1444,6 +1548,26 @@ export type FileSystem =
 { Other: string };
 
 /**
+ * Remove for good what the journals put in the trash, the Spacedrive
+ * trash directories, and the platform's trash when asked.
+ */
+export type FileTrashEmptyInput = { 
+/**
+ * Empty the platform's own trash as well, everything in it.
+ */
+os_trash?: boolean };
+
+/**
+ * Reverse what a job did, from its journal.
+ */
+export type FileUndoInput = { job: string; 
+/**
+ * The effects to reverse, by sequence; every effect when absent. The
+ * trash view restores one item this way.
+ */
+effects?: number[] | null };
+
+/**
  * Indicates which filters are available for a given search type
  */
 export type FilterKind = "FileTypes" | "DateRange" | "SizeRange" | "ContentTypes" | "Tags" | "Hidden" | "Archived" | "AtRisk" | "OnVolumes" | "NotOnVolumes" | "VolumeCount";
@@ -1457,6 +1581,19 @@ export type Finding = { severity: Severity; code: string; message: string;
  * The path the finding is about, when it is about one.
  */
 path: SdPath | null };
+
+/**
+ * What to do with a file whose name is already taken at the root.
+ */
+export type FlattenPolicy = 
+/**
+ * The deeper file is written under a numbered name.
+ */
+"keep_both" | 
+/**
+ * The deeper file stays where it is.
+ */
+"skip";
 
 export type FreezeSourceInput = { source_id: string };
 
@@ -1498,7 +1635,7 @@ export type FsPlanSummary = { creates: Tally; directories_created: number; repla
  * Files at the same path on both sides with different bytes, which the
  * policy resolved one way or another.
  */
-collisions: number };
+collisions: number; attributes: number };
 
 /**
  * Generic progress information that all job types can convert into
@@ -1666,6 +1803,20 @@ export type GetTagChildrenInput = {
 tag_id: string | null };
 
 export type GetTagChildrenOutput = { tags: Tag[] };
+
+export type Granularity = 
+/**
+ * `2024`
+ */
+"year" | 
+/**
+ * `2024-05`
+ */
+"year_month" | 
+/**
+ * `2024-05-06`
+ */
+"year_month_day";
 
 /**
  * Types of groups that can appear in a space
@@ -2021,9 +2172,18 @@ export type JobInfoOutput = { id: string; name: string; status: JobStatus; progr
 
 export type JobInfoQueryInput = { job_id: string };
 
+export type JobJournalInput = { job_id: string };
+
+export type JobJournalOutput = { effects: Recorded[] };
+
 export type JobListInput = { status: JobStatus | null };
 
-export type JobListItem = { id: string; name: string; device_id: string; status: JobStatus; progress: number; action_type: string | null; action_context: ActionContextInfo | null; created_at: string; started_at: string | null; completed_at: string | null };
+export type JobListItem = { id: string; name: string; device_id: string; status: JobStatus; progress: number; action_type: string | null; action_context: ActionContextInfo | null; created_at: string; started_at: string | null; completed_at: string | null; 
+/**
+ * What the job's journal amounts to, for jobs that changed the
+ * filesystem.
+ */
+journal: JournalSummary | null };
 
 export type JobListOutput = { jobs: JobListItem[] };
 
@@ -2127,6 +2287,11 @@ export type JobStatus =
  * Job was cancelled
  */
 "cancelled";
+
+/**
+ * What a journal amounts to, for a list of jobs.
+ */
+export type JournalSummary = { effects: number; reversible: number };
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue };
 
@@ -2548,6 +2713,8 @@ devicesRegistered: boolean;
  * Message describing the result
  */
 message: string };
+
+export type LinkKind = "symlink" | "hardlink";
 
 export type ListAdaptersInput = Record<string, never>;
 
@@ -3027,6 +3194,23 @@ export type OperatingSystem = "MacOS" | "Windows" | "Linux" | "IOs" | "Android" 
  */
 export type OperationSnapshot = { broadcasts_sent: number; state_changes_broadcast: number; shared_changes_broadcast: number; broadcast_batches_sent: number; failed_broadcasts: number; changes_received: number; changes_applied: number; changes_rejected: number; buffer_queue_depth: number; active_backfill_sessions: number; backfill_sessions_completed: number; backfill_pagination_rounds: number; retry_queue_depth: number; retry_attempts: number; retry_successes: number };
 
+export type OrganizeDateField = "modified" | "created" | 
+/**
+ * The capture time the store holds for a photo or video, or the
+ * modification time where it holds none.
+ */
+"captured";
+
+export type OrganizeRule = { kind: "by_date"; field: OrganizeDateField; granularity: Granularity } | 
+/**
+ * The content kind the indexer assigned: Images, Videos, Documents.
+ */
+{ kind: "by_kind" } | 
+/**
+ * The extension, lowercased; files without one go under "No extension".
+ */
+{ kind: "by_extension" };
+
 /**
  * One row of a listing as the overlaid plan changes it.
  */
@@ -3246,7 +3430,15 @@ export type PlanBasis =
 /**
  * The stores the plan read, at the revisions it read them.
  */
-{ kind: "index"; revisions: StoreRevision[] };
+{ kind: "index"; revisions: StoreRevision[] } | 
+/**
+ * A job's journal, for an undo.
+ */
+{ kind: "journal"; job: string } | 
+/**
+ * An archive's own directory, for an extract.
+ */
+{ kind: "archive"; path: SdPath; entries: number };
 
 /**
  * One source folder of the plan and the folder it is written into.
@@ -3369,6 +3561,11 @@ export type ProxyPairingConfigOutput = { auto_accept_vouched: boolean; auto_vouc
 export type ReadSizeBucket = { range: string; reads: number };
 
 /**
+ * One effect as the journal holds it.
+ */
+export type Recorded = { sequence: number; effect: Effect; recorded_at: string };
+
+/**
  * Input for the redundancy summary query
  */
 export type RedundancySummaryInput = { 
@@ -3439,6 +3636,21 @@ createdAt: string;
  * Statistics about the library
  */
 statistics: LibraryStatistics };
+
+export type RenameRule = 
+/**
+ * Replace `find` with `with`, in the stem or the whole name.
+ */
+{ kind: "replace"; find: string; with: string; regex?: boolean; whole_name?: boolean } | { kind: "case"; stem: CaseRule; extension?: ExtensionCase } | { kind: "affix"; prefix?: string; suffix?: string } | 
+/**
+ * The stem from a pattern holding `{n}`, counted from `start` in
+ * steps of `step` over the targets in order.
+ */
+{ kind: "sequence"; pattern: string; start?: number; step?: number } | 
+/**
+ * The whole name from a pattern.
+ */
+{ kind: "template"; pattern: string };
 
 export type ReorderGroupsInput = { space_id: string; group_ids: string[] };
 
@@ -4092,6 +4304,12 @@ export type StateTransition = { from: DeviceSyncState; to: DeviceSyncState; time
 export type StoreRevision = { source: string; revision: number };
 
 /**
+ * The state of an effect's result when it was recorded: what undo checks
+ * against before touching it.
+ */
+export type Subject = { size: number; mtime_ms: number; is_dir: boolean };
+
+/**
  * Sync activity types for detailed sync monitoring
  */
 export type SyncActivityType = { type: "BroadcastSent"; data: { changes: number } } | { type: "ChangesReceived"; data: { changes: number } } | { type: "ChangesApplied"; data: { changes: number } } | { type: "BackfillStarted" } | { type: "BackfillCompleted"; data: { records: number } } | { type: "CatchUpStarted" } | { type: "CatchUpCompleted" };
@@ -4397,6 +4615,46 @@ volume_uuid: string | null;
  * Whether this root is the whole volume rather than a subtree of one.
  */
 whole_volume: boolean; job_id: string | null };
+
+export type TrashEmptyOutput = { 
+/**
+ * Items the journals named that were removed.
+ */
+purged: number; 
+/**
+ * Items removed from Spacedrive trash directories beyond those.
+ */
+spacedrive_trash: number; os_trash_emptied: boolean; failed: string[] };
+
+export type TrashListInput = { 
+/**
+ * The most items to list; every item when absent.
+ */
+limit: number | null };
+
+export type TrashListOutput = { items: TrashedItem[] };
+
+/**
+ * One item a job put in the trash.
+ */
+export type TrashedItem = { job: string; sequence: number; 
+/**
+ * Where it was.
+ */
+from: string; 
+/**
+ * Where it is.
+ */
+location: string; trashed_at: string; size: number; is_dir: boolean; 
+/**
+ * Whether the item is still at its location.
+ */
+present: boolean; 
+/**
+ * Whether it sits in a Spacedrive trash directory rather than the
+ * platform's trash.
+ */
+spacedrive_trash: boolean };
 
 export type UnapplyTagsInput = { targets: TagTargets; tag_ids: string[] };
 
@@ -5163,11 +5421,20 @@ export type CoreAction =
 export type LibraryAction =
      { type: 'adapters.update'; input: UpdateAdapterInput; output: UpdateAdapterOutput }
   |  { type: 'config.library.update'; input: UpdateLibraryConfigInput; output: UpdateLibraryConfigOutput }
+  |  { type: 'files.archive'; input: FileArchiveInput; output: JobReceipt }
   |  { type: 'files.copy'; input: FileCopyInput; output: JobReceipt }
   |  { type: 'files.createFolder'; input: CreateFolderInput; output: CreateFolderOutput }
   |  { type: 'files.delete'; input: FileDeleteInput; output: JobReceipt }
+  |  { type: 'files.extract'; input: FileExtractInput; output: JobReceipt }
+  |  { type: 'files.flatten'; input: FileFlattenInput; output: JobReceipt }
+  |  { type: 'files.link'; input: FileLinkInput; output: JobReceipt }
   |  { type: 'files.merge'; input: FileMergeInput; output: JobReceipt }
+  |  { type: 'files.organize'; input: FileOrganizeInput; output: JobReceipt }
   |  { type: 'files.rename'; input: FileRenameInput; output: JobReceipt }
+  |  { type: 'files.rename_batch'; input: FileRenameBatchInput; output: JobReceipt }
+  |  { type: 'files.set_attributes'; input: FileSetAttributesInput; output: JobReceipt }
+  |  { type: 'files.trash_empty'; input: FileTrashEmptyInput; output: TrashEmptyOutput }
+  |  { type: 'files.undo'; input: FileUndoInput; output: JobReceipt }
   |  { type: 'indexing.start'; input: IndexInput; output: JobReceipt }
   |  { type: 'indexing.startup'; input: StartupIndexingInput; output: StartupIndexingOutput }
   |  { type: 'jobs.cancel'; input: JobCancelInput; output: JobCancelOutput }
@@ -5247,9 +5514,11 @@ export type LibraryQuery =
   |  { type: 'files.content_kind_stats'; input: ContentKindStatsInput; output: ContentKindStatsOutput }
   |  { type: 'files.directory_listing'; input: DirectoryListingInput; output: DirectoryListingOutput }
   |  { type: 'files.media_listing'; input: MediaListingInput; output: MediaListingOutput }
+  |  { type: 'files.trash_list'; input: TrashListInput; output: TrashListOutput }
   |  { type: 'jobs.active'; input: ActiveJobsInput; output: ActiveJobsOutput }
   |  { type: 'jobs.get_copy_metadata'; input: CopyMetadataQueryInput; output: CopyMetadataOutput }
   |  { type: 'jobs.info'; input: JobInfoQueryInput; output: JobInfoOutput }
+  |  { type: 'jobs.journal'; input: JobJournalInput; output: JobJournalOutput }
   |  { type: 'jobs.list'; input: JobListInput; output: JobListOutput }
   |  { type: 'libraries.info'; input: LibraryInfoQueryInput; output: Library }
   |  { type: 'paths.compare'; input: PathCompareInput; output: PathCompareOutput }
@@ -5281,15 +5550,33 @@ export type LibraryQuery =
 ;
 
 export type LibraryValidate =
-     { type: 'files.copy'; input: FileCopyInput; output: Validation }
+     { type: 'files.archive'; input: FileArchiveInput; output: Validation }
+  |  { type: 'files.copy'; input: FileCopyInput; output: Validation }
   |  { type: 'files.delete'; input: FileDeleteInput; output: Validation }
+  |  { type: 'files.extract'; input: FileExtractInput; output: Validation }
+  |  { type: 'files.flatten'; input: FileFlattenInput; output: Validation }
+  |  { type: 'files.link'; input: FileLinkInput; output: Validation }
   |  { type: 'files.merge'; input: FileMergeInput; output: Validation }
+  |  { type: 'files.organize'; input: FileOrganizeInput; output: Validation }
+  |  { type: 'files.rename'; input: FileRenameInput; output: Validation }
+  |  { type: 'files.rename_batch'; input: FileRenameBatchInput; output: Validation }
+  |  { type: 'files.set_attributes'; input: FileSetAttributesInput; output: Validation }
+  |  { type: 'files.undo'; input: FileUndoInput; output: Validation }
 ;
 
 export type LibraryPreview =
-     { type: 'files.copy'; input: FileCopyInput; output: FsPlan }
+     { type: 'files.archive'; input: FileArchiveInput; output: FsPlan }
+  |  { type: 'files.copy'; input: FileCopyInput; output: FsPlan }
   |  { type: 'files.delete'; input: FileDeleteInput; output: FsPlan }
+  |  { type: 'files.extract'; input: FileExtractInput; output: FsPlan }
+  |  { type: 'files.flatten'; input: FileFlattenInput; output: FsPlan }
+  |  { type: 'files.link'; input: FileLinkInput; output: FsPlan }
   |  { type: 'files.merge'; input: FileMergeInput; output: FsPlan }
+  |  { type: 'files.organize'; input: FileOrganizeInput; output: FsPlan }
+  |  { type: 'files.rename'; input: FileRenameInput; output: FsPlan }
+  |  { type: 'files.rename_batch'; input: FileRenameBatchInput; output: FsPlan }
+  |  { type: 'files.set_attributes'; input: FileSetAttributesInput; output: FsPlan }
+  |  { type: 'files.undo'; input: FileUndoInput; output: FsPlan }
 ;
 
 // ===== Wire Method Mappings =====
@@ -5330,11 +5617,20 @@ export const WIRE_METHODS = {
   libraryActions: {
     'adapters.update': 'action:adapters.update.input',
     'config.library.update': 'action:config.library.update.input',
+    'files.archive': 'action:files.archive.input',
     'files.copy': 'action:files.copy.input',
     'files.createFolder': 'action:files.createFolder.input',
     'files.delete': 'action:files.delete.input',
+    'files.extract': 'action:files.extract.input',
+    'files.flatten': 'action:files.flatten.input',
+    'files.link': 'action:files.link.input',
     'files.merge': 'action:files.merge.input',
+    'files.organize': 'action:files.organize.input',
     'files.rename': 'action:files.rename.input',
+    'files.rename_batch': 'action:files.rename_batch.input',
+    'files.set_attributes': 'action:files.set_attributes.input',
+    'files.trash_empty': 'action:files.trash_empty.input',
+    'files.undo': 'action:files.undo.input',
     'indexing.start': 'action:indexing.start.input',
     'indexing.startup': 'action:indexing.startup.input',
     'jobs.cancel': 'action:jobs.cancel.input',
@@ -5414,9 +5710,11 @@ export const WIRE_METHODS = {
     'files.content_kind_stats': 'query:files.content_kind_stats',
     'files.directory_listing': 'query:files.directory_listing',
     'files.media_listing': 'query:files.media_listing',
+    'files.trash_list': 'query:files.trash_list',
     'jobs.active': 'query:jobs.active',
     'jobs.get_copy_metadata': 'query:jobs.get_copy_metadata',
     'jobs.info': 'query:jobs.info',
+    'jobs.journal': 'query:jobs.journal',
     'jobs.list': 'query:jobs.list',
     'libraries.info': 'query:libraries.info',
     'paths.compare': 'query:paths.compare',
@@ -5448,15 +5746,33 @@ export const WIRE_METHODS = {
   },
 
   libraryValidates: {
+    'files.archive': 'validate:files.archive',
     'files.copy': 'validate:files.copy',
     'files.delete': 'validate:files.delete',
+    'files.extract': 'validate:files.extract',
+    'files.flatten': 'validate:files.flatten',
+    'files.link': 'validate:files.link',
     'files.merge': 'validate:files.merge',
+    'files.organize': 'validate:files.organize',
+    'files.rename': 'validate:files.rename',
+    'files.rename_batch': 'validate:files.rename_batch',
+    'files.set_attributes': 'validate:files.set_attributes',
+    'files.undo': 'validate:files.undo',
   },
 
   libraryPreviews: {
+    'files.archive': 'preview:files.archive',
     'files.copy': 'preview:files.copy',
     'files.delete': 'preview:files.delete',
+    'files.extract': 'preview:files.extract',
+    'files.flatten': 'preview:files.flatten',
+    'files.link': 'preview:files.link',
     'files.merge': 'preview:files.merge',
+    'files.organize': 'preview:files.organize',
+    'files.rename': 'preview:files.rename',
+    'files.rename_batch': 'preview:files.rename_batch',
+    'files.set_attributes': 'preview:files.set_attributes',
+    'files.undo': 'preview:files.undo',
   },
 
 } as const;

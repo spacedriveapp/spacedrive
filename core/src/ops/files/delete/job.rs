@@ -2,7 +2,7 @@
 
 use crate::{
 	domain::addressing::SdPath,
-	infra::job::{generic_progress::GenericProgress, prelude::*},
+	infra::job::{generic_progress::GenericProgress, journal::Effect, prelude::*},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -164,7 +164,8 @@ async fn delete_paths(
 		.map_err(|e| JobError::execution(format!("Strategy execution failed: {}", e)))?;
 
 	let mut tally = Tally::default();
-	tally.record(results);
+	let effects = tally.record(results);
+	ctx.record(effects).await;
 
 	// Phase: Complete
 	ctx.progress(Progress::Generic(
@@ -213,11 +214,15 @@ pub(super) struct Tally {
 }
 
 impl Tally {
-	pub(super) fn record(&mut self, results: Vec<DeleteResult>) {
+	/// Count the results, and answer with what the successful ones did, for
+	/// the journal.
+	pub(super) fn record(&mut self, results: Vec<DeleteResult>) -> Vec<Effect> {
+		let mut effects = Vec::new();
 		for result in results {
 			if result.success {
 				self.deleted += 1;
 				self.bytes += result.bytes_freed;
+				effects.extend(result.effect);
 			} else {
 				self.failed.push(DeleteError {
 					path: result
@@ -229,6 +234,7 @@ impl Tally {
 				});
 			}
 		}
+		effects
 	}
 
 	pub(super) fn skip(&mut self, path: PathBuf, reason: SkipReason) {

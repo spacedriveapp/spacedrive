@@ -1,6 +1,6 @@
 # File Operations on Preflight: Rename, Undo, Mirror, Organize, Archive
 
-> Status: proposal.
+> Status: landed 2026-09-23; live acceptance on the Expansion drive next.
 > Captured: 2026-09-23
 > Owns: the file operations a file manager is expected to have that
 > Spacedrive lacks or has without preflight: delete and duplicate in the
@@ -254,13 +254,13 @@ have one.
 
 | Phase | Scope | Exit proof |
 |---|---|---|
-| F1 | Delete and duplicate in the explorer | ⌘⌫, ⌥⌘⌫ and the menu open the delete dialog on preflight with the last-copy warning and the removed rows; `useDeleteFiles` and its `confirm()` are gone. ⌘D and "Duplicate" write a numbered copy beside the file after preflight |
-| F2 | Rename on preflight, batch rename | `validate:files.rename` answers every code above against a case-insensitive and an NTFS fixture; `files.rename_batch` previews new names and collisions for each rule, the job renames a chain like `1→2→3` without overwriting, and the dialog re-previews as rules change |
-| F3 | Journal, undo, restore | Every mutating job writes effects. Undoing a move, a copy, a rename, a trash on each platform, and a merge with replacements restores the tree byte for byte; undo refuses a file changed since with `undo.changed`; ⌘Z and the job list both reach it |
-| F4 | Mirror | `files.merge` with `remove_extras` previews the extras as flagged deletes, the job removes only what no source holds, and `sd file merge --remove-extras` renders it |
-| F5 | Organize and flatten | Organizing a folder by month previews the new folders and moves and leaves records with their identity; flattening a tree with collisions numbers them under `KeepBoth` and prunes the emptied folders |
-| F6 | Archive and extract | Archiving and extracting a tree with a folder collision and a path escape previews both, refuses the escape, resumes an interrupted extract at its entry, and leaves no temporary file behind |
-| F7 | Attributes, links, trash | Attribute and link plans preview, exFAT refuses a mode, a hard link across volumes is refused, and the trash view restores and empties on macOS, Windows and Linux |
+| F1 | Delete and duplicate in the explorer | Landed 2026-09-23. ⌘⌫, ⌥⌘⌫ and the menu open `DeleteModal` on preflight with the last-copy warning and the removed rows; `useDeleteFiles` and its `confirm()` are gone. ⌘D and "Duplicate" write a numbered copy beside the file after validation, and the copy preview plans a keep-both copy at its numbered name |
+| F2 | Rename on preflight, batch rename | Landed 2026-09-23. `validate:files.rename` answers every code against the live directory, probing case sensitivity rather than trusting the filesystem's name, with NTFS rules on those volumes and SMB shares; `files.rename_batch` previews new names and collisions per rule, the job renames a chain and a swap without overwriting, and `RenameModal` re-previews as rules change |
+| F3 | Journal, undo, restore | Landed 2026-09-23. Every mutating job writes effects; the trash reports locations on macOS through `NSFileManager` and on Windows and Linux through the `trash` crate's listing, with a Spacedrive trash directory on volumes without one; overwrites stash the previous file. Undoing a rename, a copy, a trash and a merge with replacements is tested; a file changed since is `undo.changed` and left; ⌘Z, the job list and the trash view reach it. Trash restore on Windows and Linux is written against the crate and not yet run there |
+| F4 | Mirror | Landed 2026-09-23. `files.merge` with `remove_extras` previews the extras as flagged deletes, validation counts the last copies (`merge.last_copies`), the job trashes only what no source holds and prunes the emptied folders, and `sd file merge --remove-extras` and the merge dialog's switch render it |
+| F5 | Organize and flatten | Landed 2026-09-23. Organizing by month previews the new folders and moves and each move is a rename, so the inode survives; flattening numbers collisions under keep both, leaves them under skip, and prunes the emptied folders. `sd file organize`, `sd file flatten`, and the two dialogs |
+| F6 | Archive and extract | Landed 2026-09-23. Zip and tar.zst round trip with a folder collision and a replacement, an escaping entry refuses the extract, an interrupted extract resumes at its entry, and no temporary file is left behind. `sd file archive`, `sd file extract`, and the two dialogs |
+| F7 | Attributes, links, trash | Landed 2026-09-23. Attribute and link plans preview and undo, exFAT refuses a mode, a hard link across volumes or to a directory is refused, and the trash view at `/trash` restores through undo and empties; emptying the platform's trash and restoring from it are written for Windows and Linux and run so far on macOS |
 
 F1 first since it is the one gap in the explorer that skips preflight today.
 F2 before F3 because batch rename produces the chains the journal has to
@@ -278,6 +278,16 @@ collisions; trash a file on the Mac, on titan, and on a network mount, and
 restore each from the trash view. Measure preview time for a batch rename
 over the largest folder available, and confirm no operation left a file the
 journal does not account for.
+
+## Decisions taken
+
+The seven decisions below were taken as proposed, since the phases were
+built in one pass: the OS trash with recorded locations and a Spacedrive
+trash directory only where a volume has none; stashing on replace, on; the
+five rename rules with regex inside replace; captured dates from the store
+with the modification time as the fallback; mirror as a merge option; undo
+on both the job list and ⌘Z, plus the trash view; zip and tar with zstd.
+Each is a switch of code rather than of design if reversed.
 
 ## Decisions for James
 

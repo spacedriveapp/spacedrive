@@ -117,7 +117,8 @@ pub(super) async fn delete(
 				.execute(ctx, &paths, mode.clone())
 				.await
 				.map_err(|e| JobError::execution(format!("Strategy execution failed: {e}")))?;
-			tally.record(results);
+			let effects = tally.record(results);
+			ctx.record(effects).await;
 		}
 		record_learned(ctx, &context, learned).await;
 

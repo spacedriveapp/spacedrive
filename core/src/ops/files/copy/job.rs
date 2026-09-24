@@ -3,17 +3,25 @@
 //! Implements file copy and move operations using the Strategy Pattern with real-time
 //! progress tracking and transfer speed calculation. Supports resume on interruption.
 
-use super::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter};
+use super::{
+	action::FileConflictResolution, database::CopyDatabaseQuery, input::CopyMethod,
+	routing::CopyStrategyRouter,
+};
 use crate::{
 	domain::addressing::{SdPath, SdPathBatch},
 	infra::job::generic_progress::{GenericProgress, ToGenericProgress},
+	infra::job::journal::Effect,
 	infra::job::prelude::*,
+	ops::files::{
+		merge::{job::Merge, MergeConflictPolicy},
+		trash,
+	},
 };
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::{
 	collections::HashMap,
-	path::PathBuf,
+	path::{Path, PathBuf},
 	sync::{Arc, Mutex},
 	time::{Duration, Instant},
 };
@@ -498,60 +506,149 @@ impl JobHandler for FileCopyJob {
 				final_destination.display()
 			);
 
-			// Handle conflict resolution before copying
-			let final_destination = if let Some(resolution) = self.options.conflict_resolution {
-				match resolution {
-					super::action::FileConflictResolution::Skip => {
-						// Check if destination exists
-						if let Some(dest_path) = final_destination.as_local_path() {
-							if dest_path.exists() {
-								ctx.log(format!("Skipping existing file: {}", dest_path.display()));
+			// The policy for what is already at the destination: what the
+			// caller chose, else overwrite or skip as the option says.
+			let resolution =
+				self.options
+					.conflict_resolution
+					.unwrap_or(if self.options.overwrite {
+						FileConflictResolution::Overwrite
+					} else {
+						FileConflictResolution::Skip
+					});
+			if resolution == FileConflictResolution::Abort {
+				return Err(JobError::execution("Operation aborted by user"));
+			}
+			let source_path = resolved_source.as_local_path().map(Path::to_path_buf);
+			let dest_path = final_destination.as_local_path().map(Path::to_path_buf);
+			let existing = match &dest_path {
+				Some(dest_path) => tokio::fs::symlink_metadata(dest_path).await.ok(),
+				None => None,
+			};
+			let source_is_dir = match &source_path {
+				Some(source_path) => tokio::fs::symlink_metadata(source_path)
+					.await
+					.is_ok_and(|meta| meta.is_dir()),
+				None => false,
+			};
 
-								// Mark as skipped in metadata
-								self.job_metadata.update_status(
-									&resolved_source,
-									super::metadata::CopyFileStatus::Skipped,
-								);
+			if let (Some(there), Some(source_path), Some(dest_path)) =
+				(existing.as_ref(), &source_path, &dest_path)
+			{
+				// A folder onto a folder already there merges leaf by leaf,
+				// as the plan said it would, unless both are to be kept.
+				if source_is_dir
+					&& there.is_dir()
+					&& resolution != FileConflictResolution::AutoModifyName
+				{
+					let policy = match resolution {
+						FileConflictResolution::Overwrite => MergeConflictPolicy::Overwrite,
+						_ => MergeConflictPolicy::Skip,
+					};
+					let moving = is_move
+						&& match volume_manager.as_deref() {
+							Some(vm) => vm.same_volume(source_path, dest_path).await,
+							None => false,
+						};
+					let mut merge = Merge::new(&ctx, policy, is_move, moving, HashMap::new());
+					merge
+						.directory(index, source_path, source_path, dest_path, "")
+						.await?;
+					let run = merge.finish().await?;
+					if is_move && tokio::fs::remove_dir(source_path).await.is_ok() {
+						ctx.record(vec![Effect::removed(source_path.clone())]).await;
+					}
+					for outcome in &run.outcomes {
+						match &outcome.result {
+							crate::ops::files::merge::MergeResult::Copied { .. }
+							| crate::ops::files::merge::MergeResult::Replaced { .. } => {
+								copied_count += 1;
+							}
+							crate::ops::files::merge::MergeResult::Failed { error } => {
+								failed_copies.push(CopyError {
+									source: source_path.join(&outcome.path),
+									destination: dest_path.join(&outcome.path),
+									error: error.clone(),
+								});
+							}
+							_ => {}
+						}
+					}
+					total_bytes += run.bytes;
+					progress_aggregator.complete_source();
+					self.completed_indices.push(index);
+					self.job_metadata.update_status(
+						&resolved_source,
+						super::metadata::CopyFileStatus::Completed,
+					);
+					self.persist_job_state_to_db(&ctx).await?;
+					continue;
+				}
+				// A file where a folder goes, or a folder where a file goes,
+				// is a conflict nothing resolves.
+				if source_is_dir != there.is_dir() {
+					let error = if source_is_dir {
+						"a file is in the way of the folder"
+					} else {
+						"a folder is in the way of the file"
+					};
+					failed_copies.push(CopyError {
+						source: source_path.clone(),
+						destination: dest_path.clone(),
+						error: error.to_string(),
+					});
+					ctx.add_non_critical_error(format!("{}: {error}", dest_path.display()));
+					self.job_metadata
+						.set_error(&resolved_source, error.to_string());
+					self.persist_job_state_to_db(&ctx).await?;
+					continue;
+				}
+			}
 
-								// Skip this file
-								progress_aggregator.complete_source();
-								copied_count += files_in_source;
-								self.completed_indices.push(index);
-								continue;
-							}
-						}
-						final_destination
-					}
-					super::action::FileConflictResolution::AutoModifyName => {
-						// Generate unique name if destination exists
-						if let Some(dest_path) = final_destination.as_local_path() {
-							if dest_path.exists() {
-								let unique_dest = self.generate_unique_name(&dest_path).await?;
-								SdPath::Physical {
-									device_slug: final_destination
-										.device_slug()
-										.unwrap_or_default()
-										.to_string(),
-									path: unique_dest,
-								}
-							} else {
-								final_destination
-							}
-						} else {
-							final_destination
-						}
-					}
-					super::action::FileConflictResolution::Overwrite => {
-						// Overwrite is already handled via options.overwrite
-						final_destination
-					}
-					super::action::FileConflictResolution::Abort => {
-						// Should have been caught earlier
-						return Err(JobError::execution("Operation aborted by user"));
+			// A file already at the destination: skipped, written beside
+			// under a numbered name, or replaced with its previous bytes
+			// kept in the trash so the replacement can be undone.
+			let mut previous: Option<PathBuf> = None;
+			let final_destination = match (existing.as_ref(), &dest_path, resolution) {
+				(Some(_), Some(dest_path), FileConflictResolution::Skip) => {
+					ctx.log(format!("Skipping existing file: {}", dest_path.display()));
+					self.job_metadata
+						.update_status(&resolved_source, super::metadata::CopyFileStatus::Skipped);
+					progress_aggregator.complete_source();
+					copied_count += files_in_source;
+					self.completed_indices.push(index);
+					self.persist_job_state_to_db(&ctx).await?;
+					continue;
+				}
+				(Some(_), Some(dest_path), FileConflictResolution::AutoModifyName) => {
+					let unique_dest = self.generate_unique_name(dest_path).await?;
+					SdPath::Physical {
+						device_slug: final_destination
+							.device_slug()
+							.unwrap_or_default()
+							.to_string(),
+						path: unique_dest,
 					}
 				}
-			} else {
-				final_destination
+				(Some(_), Some(dest_path), FileConflictResolution::Overwrite) => {
+					match trash::trash(dest_path, volume_manager.as_deref(), ctx.id()).await {
+						Ok(location) => previous = location,
+						Err(error) => {
+							let error = format!("could not set the previous file aside: {error}");
+							failed_copies.push(CopyError {
+								source: source_path.clone().unwrap_or_default(),
+								destination: dest_path.clone(),
+								error: error.clone(),
+							});
+							ctx.add_non_critical_error(format!("{}: {error}", dest_path.display()));
+							self.job_metadata.set_error(&resolved_source, error);
+							self.persist_job_state_to_db(&ctx).await?;
+							continue;
+						}
+					}
+					final_destination
+				}
+				_ => final_destination,
 			};
 
 			// 2. Execute the strategy with progress callback
@@ -619,6 +716,34 @@ impl JobHandler for FileCopyJob {
 							}
 						}
 					}
+
+					// The journal: what now sits at the destination, and
+					// where it came from.
+					if let (Some(source_path), Some(landed)) = (
+						resolved_source.as_local_path(),
+						final_destination.as_local_path(),
+					) {
+						let subject = tokio::fs::symlink_metadata(landed).await.ok();
+						let source_gone = tokio::fs::symlink_metadata(source_path).await.is_err();
+						let mut effects = Vec::new();
+						if previous.is_some() {
+							effects.push(Effect::replaced(
+								landed.to_path_buf(),
+								previous.take(),
+								subject.as_ref(),
+							));
+						}
+						if is_move && source_gone {
+							effects.push(Effect::moved(
+								source_path.to_path_buf(),
+								landed.to_path_buf(),
+								subject.as_ref(),
+							));
+						} else if effects.is_empty() {
+							effects.push(Effect::created(landed.to_path_buf(), subject.as_ref()));
+						}
+						ctx.record(effects).await;
+					}
 				}
 				Err(e) => {
 					failed_copies.push(CopyError {
@@ -635,6 +760,16 @@ impl JobHandler for FileCopyJob {
 
 					// Mark as failed in metadata
 					self.job_metadata.set_error(&resolved_source, e.to_string());
+
+					// The previous file comes back where it was.
+					if let (Some(previous), Some(dest_path)) = (previous.take(), &dest_path) {
+						if let Err(error) = trash::restore(&previous, dest_path).await {
+							ctx.add_non_critical_error(format!(
+								"Could not put {} back after the copy failed: {error}",
+								dest_path.display()
+							));
+						}
+					}
 				}
 			}
 

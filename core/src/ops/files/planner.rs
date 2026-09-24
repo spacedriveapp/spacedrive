@@ -62,6 +62,13 @@ pub(crate) struct Planner<'a> {
 	/// Every decision by destination-relative path, kept for a job that
 	/// checks its own decisions against the plan's.
 	decisions: Option<HashMap<String, ChangeKind>>,
+	/// The files only the destination holds, by destination-relative path,
+	/// after every pair so far: what a mirror removes. `None` until asked
+	/// for.
+	extras: Option<HashMap<String, FsEntry>>,
+	/// Whether a pair has been planned, so the first pair's extras are the
+	/// starting set rather than an intersection with nothing.
+	paired: bool,
 }
 
 impl<'a> Planner<'a> {
@@ -80,11 +87,52 @@ impl<'a> Planner<'a> {
 			revisions: Vec::new(),
 			roots: Vec::new(),
 			decisions: keep_decisions.then(HashMap::new),
+			extras: None,
+			paired: false,
 		}
+	}
+
+	/// Plan the removal of what no source holds, after the pairs.
+	pub(crate) fn removing_extras(mut self) -> Self {
+		self.extras = Some(HashMap::new());
+		self
 	}
 
 	pub(crate) fn summary(&self) -> &FsPlanSummary {
 		&self.summary
+	}
+
+	/// A `Delete` row for each file the destination holds that no source
+	/// does, flagged where it is the last copy of its bytes in the library.
+	/// Called once, after every pair.
+	pub(crate) async fn remove_extras(&mut self, dest_root: &Path) -> u64 {
+		let Some(extras) = self.extras.take() else {
+			return 0;
+		};
+		let hashes: Vec<String> = extras
+			.values()
+			.filter_map(|entry| entry.sampled_hash.clone())
+			.collect();
+		let last = crate::ops::files::delete::last_copies(self.ctx, hashes).await;
+		let mut last_copies = 0;
+		let mut paths: Vec<(String, FsEntry)> = extras.into_iter().collect();
+		paths.sort_by(|a, b| a.0.cmp(&b.0));
+		for (relative, entry) in paths {
+			let last_copy = entry
+				.sampled_hash
+				.as_ref()
+				.is_some_and(|hash| last.contains(hash));
+			if last_copy {
+				last_copies += 1;
+			}
+			let size = bytes(&entry);
+			self.note(
+				dest_root.join(&relative),
+				ChangeKind::Delete { last_copy },
+				size,
+			);
+		}
+		last_copies
 	}
 
 	/// The plan so far, as a whole.
@@ -175,10 +223,18 @@ impl<'a> Planner<'a> {
 		}
 
 		let mut matcher = Matcher::by_path(&mut a, &mut b);
+		let mut only_here: HashMap<String, FsEntry> = HashMap::new();
 		while let Some(sorted) = matcher.next().await.map_err(read_failed)? {
 			let Some(relative) = sorted.path() else {
 				continue;
 			};
+			if self.extras.is_some() && sorted.a.is_none() {
+				if let Some(existing) = &sorted.b {
+					if existing.entry.kind == FileKind::File && !is_junk(&existing.entry.name) {
+						only_here.insert(relative.clone(), existing.entry.clone());
+					}
+				}
+			}
 			let Some((relative, change, bytes)) = self.decide(&dest_root, relative, sorted).await
 			else {
 				continue;
@@ -195,6 +251,16 @@ impl<'a> Planner<'a> {
 				change,
 			});
 		}
+		// A file is an extra only if no source holds it: the first pair's
+		// set, narrowed by each pair after.
+		if let Some(extras) = &mut self.extras {
+			if self.paired {
+				extras.retain(|relative, _| only_here.contains_key(relative));
+			} else {
+				*extras = only_here;
+			}
+		}
+		self.paired = true;
 		Ok(())
 	}
 
@@ -316,6 +382,17 @@ impl<'a> Planner<'a> {
 				)
 			}
 		}
+	}
+
+	/// A numbered name beside `path`, in the convention copy uses, that
+	/// neither the index nor this plan holds.
+	pub(crate) async fn unique_name(&self, path: &Path) -> PathBuf {
+		let parent = path.parent().unwrap_or(Path::new(""));
+		let name = path
+			.file_name()
+			.map(|name| name.to_string_lossy().into_owned())
+			.unwrap_or_default();
+		parent.join(self.unique(parent, &name).await)
 	}
 
 	/// A numbered name beside `relative`, in the convention copy uses, that

@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use specta::Type;
 use uuid::Uuid;
 
-use crate::domain::SdPath;
+use crate::{domain::SdPath, infra::job::journal::Attributes};
 
 /// The most changes a plan lists. The summary counts past it.
 pub const CHANGE_CAP: usize = 5000;
@@ -105,6 +105,10 @@ impl PlanHandles {
 pub enum PlanBasis {
 	/// The stores the plan read, at the revisions it read them.
 	Index { revisions: Vec<StoreRevision> },
+	/// A job's journal, for an undo.
+	Journal { job: Uuid },
+	/// An archive's own directory, for an extract.
+	Archive { path: SdPath, entries: u64 },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -146,6 +150,10 @@ pub enum ChangeKind {
 	/// Nothing the policy resolves. Reported and left alone.
 	Conflict {
 		kind: ConflictKind,
+	},
+	/// The filesystem attributes that change, each absent where it stays.
+	SetAttributes {
+		attributes: Attributes,
 	},
 }
 
@@ -200,6 +208,7 @@ pub struct FsPlanSummary {
 	/// Files at the same path on both sides with different bytes, which the
 	/// policy resolved one way or another.
 	pub collisions: u64,
+	pub attributes: u64,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Type)]
@@ -240,6 +249,7 @@ impl FsPlanSummary {
 			ChangeKind::Move { .. } => self.moves.add(bytes),
 			ChangeKind::Delete { .. } => self.deletes.add(bytes),
 			ChangeKind::Conflict { .. } => self.conflicts += 1,
+			ChangeKind::SetAttributes { .. } => self.attributes += 1,
 		}
 	}
 

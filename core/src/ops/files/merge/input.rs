@@ -19,6 +19,10 @@ pub struct FileMergeInput {
 	/// confirmed identical to the destination's, and prune emptied source
 	/// directories. What the merge did not settle stays where it was.
 	pub consume_sources: bool,
+	/// Remove from the destination what no source holds, so it ends up
+	/// matching the sources: a mirror. The extras go to the trash.
+	#[serde(default)]
+	pub remove_extras: bool,
 }
 
 /// What to do with a file at the same path on both sides whose bytes differ.

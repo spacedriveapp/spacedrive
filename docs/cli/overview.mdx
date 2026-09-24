@@ -168,6 +168,48 @@ sd-cli file dedupe --keep ~/Photos/2024/IMG_0041.JPG
 sd-cli file dedupe ~/Downloads --keep-under /Volumes/NAS/Photos
 ~~~
 
+Rename one path, or many by rules applied to each name in order. Validation
+resolves every new name against the directory and the volume's filesystem, so
+a name NTFS refuses, a name already there, or two files wanting one name is a
+finding before anything moves, and the plan lists each old name beside its
+new one:
+
+~~~bash
+sd-cli file rename ~/Photos/2024/IMG_0041.JPG --to "beach.jpg"
+sd-cli file rename ~/Photos/2024/*.JPG --sequence "Trip_{n:03}" --lower-extension --dry-run
+sd-cli file rename ~/Photos/2024/*.JPG --template "{captured:%Y-%m-%d} {name}{ext}"
+~~~
+
+Every job that changes the filesystem writes a journal of what it did, and
+undo reverses it from the journal, newest effect first, after showing the
+plan and refusing whatever changed since. A merge with `--remove-extras` is
+a mirror: the destination ends up matching the sources, with the files it
+alone held moved to the trash. The trash lists what Spacedrive put there
+and puts it back through undo:
+
+~~~bash
+sd-cli job journal 4f2c…
+sd-cli file undo 4f2c… --dry-run
+sd-cli file merge ~/Projects --into /Volumes/NAS/Projects --on-conflict keep-newer --remove-extras
+sd-cli file trash list
+sd-cli file trash restore 4f2c… 3
+sd-cli file trash empty
+~~~
+
+Organize a folder into subfolders by date, kind or extension, or flatten
+one; write an archive or extract one; set attributes; make a link. Each
+shows its plan first:
+
+~~~bash
+sd-cli file organize ~/Downloads --by kind --dry-run
+sd-cli file organize ~/Photos/2024 --by date --field captured --granularity year-month --recursive
+sd-cli file flatten ~/Downloads/unpacked --on-conflict keep-both
+sd-cli file archive ~/Projects/site --to ~/Archive/site.tar.zst --remove-sources
+sd-cli file extract ~/Downloads/kit.zip --to ~/Downloads/kit --strip-components 1
+sd-cli file attributes ~/Scripts/*.sh --mode 755
+sd-cli file link ~/Desktop/Photos --target ~/Pictures/Photos
+~~~
+
 ## Structured output
 
 Pass **--format json** before the command to receive structured output:

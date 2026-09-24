@@ -7,6 +7,7 @@ pub mod input;
 pub mod job;
 pub mod output;
 mod preflight;
+pub(crate) use preflight::last_copies;
 pub mod routing;
 pub mod strategy;
 

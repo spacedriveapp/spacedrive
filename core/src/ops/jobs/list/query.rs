@@ -46,9 +46,16 @@ impl LibraryQuery for JobListQuery {
 			.list_jobs(self.input.status)
 			.await
 			.map_err(|e| QueryError::Internal(e.to_string()))?;
+		let journals = library
+			.jobs()
+			.database()
+			.journal_summaries()
+			.await
+			.map_err(|e| QueryError::Internal(e.to_string()))?;
 		let items = jobs
 			.into_iter()
 			.map(|j| JobListItem {
+				journal: journals.get(&j.id.to_string()).copied(),
 				id: j.id,
 				name: j.name,
 				device_id: j.device_id,

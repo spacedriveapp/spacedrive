@@ -13,8 +13,9 @@ use crate::{
 		error::ActionError,
 		preflight::{ExecutionFacts, Finding, PreviewContext, Validation},
 	},
-	ops::files::copy::{
-		database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter,
+	ops::files::{
+		copy::{database::CopyDatabaseQuery, input::CopyMethod, routing::CopyStrategyRouter},
+		planner::Planner,
 	},
 };
 
@@ -27,6 +28,7 @@ pub const SOURCE_NOT_DIRECTORY: &str = "merge.source_not_directory";
 pub const UNTRACKED: &str = "merge.untracked";
 pub const SPACE: &str = "merge.space";
 pub const ASSERTIONS_STRANDED: &str = "merge.assertions_stranded";
+pub const LAST_COPIES: &str = "merge.last_copies";
 
 pub(super) async fn validate(
 	input: &FileMergeInput,
@@ -154,6 +156,40 @@ pub(super) async fn validate(
 						.at((*source).clone()),
 					);
 				}
+			}
+		}
+	}
+
+	// A mirror removes what no source holds; the last copies among those
+	// are the warning only an index can give.
+	if input.remove_extras && !findings.iter().any(|finding| finding.code == UNTRACKED) {
+		let mut planner = Planner::new(ctx, input.on_conflict, false).removing_extras();
+		let mut planned = true;
+		for (source, _) in &sources {
+			if planner
+				.pair(source, &input.destination, input.consume_sources)
+				.await
+				.is_err()
+			{
+				planned = false;
+				break;
+			}
+		}
+		if planned {
+			let last_copies = planner.remove_extras(destination).await;
+			let extras = planner.summary().deletes.files;
+			if last_copies > 0 {
+				findings.push(Finding::warning(
+					LAST_COPIES,
+					format!(
+						"{last_copies} of the {extras} files the mirror removes are the last copy of their content anywhere in your library"
+					),
+				));
+			} else if extras > 0 {
+				findings.push(Finding::info(
+					LAST_COPIES,
+					format!("the mirror removes {extras} files no source holds; every one has another copy"),
+				));
 			}
 		}
 	}

@@ -509,7 +509,7 @@ async fn indexed(ctx: &PreviewContext, paths: &[SdPath]) -> Vec<Indexed> {
 
 /// Which of `hashes` one record in the whole library holds: the contents a
 /// deletion would remove the last copy of.
-async fn last_copies(ctx: &PreviewContext, hashes: Vec<String>) -> HashSet<String> {
+pub(crate) async fn last_copies(ctx: &PreviewContext, hashes: Vec<String>) -> HashSet<String> {
 	if hashes.is_empty() {
 		return HashSet::new();
 	}
@@ -878,7 +878,9 @@ mod tests {
 			plan.changes[0].change,
 			ChangeKind::Delete { last_copy: false }
 		);
-		let PlanBasis::Index { revisions } = &plan.basis;
+		let PlanBasis::Index { revisions } = &plan.basis else {
+			panic!("not read from the index: {:?}", plan.basis);
+		};
 		assert_eq!(revisions.len(), 2, "both stores are named");
 
 		let untracked = delete(DeleteTargets::Comparison {

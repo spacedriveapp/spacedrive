@@ -80,6 +80,9 @@ regex = "1.11"
 
 # File operations
 blake3 = "1.5"  # Content addressing
+# Archives: zip with deflate, and tar wrapped in the zstd already used for snapshots
+zip = { version = "4", default-features = false, features = ["deflate", "time"] }
+tar = "0.4"
 # Loopback SMB2 mount frontend. The `ixr-` fork is upstream plus the
 # re-exports a backend needs to be implementable from outside the crate.
 smb-server = { package = "ixr-smb-server", version = "0.5", default-features = false }
@@ -249,6 +252,15 @@ windows-sys = { version = "0.52", features = ["Win32_Storage_FileSystem", "Win32
 # System codecs via ImageIO and QuickLook, so the default macOS build needs no
 # bundled FFmpeg, libheif or pdfium.
 sd-imageio = { path = "../crates/imageio" }
+# NSFileManager's trash call, which reports where the item went; the trash
+# crate's does not.
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = [
+	"NSFileManager",
+	"NSURL",
+	"NSString",
+	"NSError",
+] }
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 whisper-rs = { version = "0.15.1", features = ["metal"], optional = true }

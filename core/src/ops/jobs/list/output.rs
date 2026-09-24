@@ -1,4 +1,4 @@
-use crate::infra::job::types::ActionContextInfo;
+use crate::infra::job::{journal::JournalSummary, types::ActionContextInfo};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use specta::Type;
@@ -16,6 +16,9 @@ pub struct JobListItem {
 	pub created_at: DateTime<Utc>,
 	pub started_at: Option<DateTime<Utc>>,
 	pub completed_at: Option<DateTime<Utc>>,
+	/// What the job's journal amounts to, for jobs that changed the
+	/// filesystem.
+	pub journal: Option<JournalSummary>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]

@@ -138,7 +138,10 @@ get `useLibraryValidate` and `useLibraryPreview`, `CoreClient::validate` and
 with a cheap structural check does it in `from_input`, and everything that
 needs the index or the filesystem is a finding.
 
-`files.copy`, `files.merge`, and `files.delete` answer both methods, and their
+Every filesystem-mutating action answers both methods: `files.copy`,
+`files.merge`, `files.delete`, `files.rename`, `files.rename_batch`,
+`files.undo`, `files.organize`, `files.flatten`, `files.archive`,
+`files.extract`, `files.set_attributes`, and `files.link`. Their
 plans share one shape, `FsPlan` in `core/src/ops/files/plan.rs`: a summary
 of counts and bytes per kind of change, the changes themselves up to a cap
 that conflicts always survive, the roots the plan pairs, and the store
@@ -152,6 +155,54 @@ of its comparison with folder B, and the surplus copies of duplicated content,
 keeping either the first copy in walk order beneath a folder or the copies the
 caller names. A copy and the copy that stands for it are read in full before
 it goes, and what the reads learn is written back to the stores.
+
+`files.rename` and `files.rename_batch` resolve their new names the way their
+job does (`core/src/ops/files/rename/resolve.rs`): against the live
+directory, read once per parent, and the target volume's filesystem, whose
+name rules live in `rename/naming.rs`. Whether a directory matches names
+without regard to case is probed rather than assumed from the filesystem's
+name. Batch rename applies an ordered list of rules to each name
+(`rename/rules.rs`): replace, case, affix, sequence, and template, with
+tokens for the stem, the extension, a counter, the parent, and dates. The
+plan is one `Move` per changed name and a `Conflict` where two targets want
+one, and the job renames in an order that never overwrites.
+
+## The journal and undo
+
+Every job that changes the filesystem records what it did as effects
+(`core/src/infra/job/journal.rs`), in order, against its own id, in the
+`job_journal` table of the library's job database: `Created`, `Moved`,
+`Trashed` with where the item went, `Replaced` with where the previous
+bytes went, `Removed`, and `Attributes` before and after. Each carries the
+state of its result, size and modification time, so undo can tell whether
+the subject changed since. A job records through `JobContext::record`, and
+a failure to write the journal is logged rather than failing the operation
+that already happened.
+
+The trash reports locations (`core/src/ops/files/trash.rs`): `NSFileManager`
+on macOS, the `trash` crate's listing on Windows and Linux, and on a volume
+with no trash of its own a Spacedrive trash directory at the volume's
+root, `.spacedrive/trash/<job>/`, reached by a rename. An overwrite goes
+through the same door, so a replacement is undoable until the trash is
+emptied. `files.undo` (`core/src/ops/files/undo/`) previews the reverse as
+an `FsPlan` whose basis is the journal, refuses a job still running or with
+nothing to reverse, warns of each subject changed or place taken, and its
+job applies the reverse newest effect first, writing its own journal.
+`jobs.list` carries each job's journal summary and `jobs.journal` the
+effects; `files.trash_list` lists the trashed effects with a location and
+`files.trash_empty` purges them.
+
+The other operations follow the same two rules, one plan shape and one
+journal. Mirror is `remove_extras` on `files.merge`: the planner keeps the
+files only the destination holds across every pair and adds a flagged
+`Delete` for each, and the job trashes them after the merge.
+`files.organize` and `files.flatten` (`core/src/ops/files/organize/`) plan
+moves into new folders from the index and rename in place. `files.archive`
+and `files.extract` (`core/src/ops/files/archive/`) write zip or tar.zst to
+a temporary name and rename it into place, and plan an extract from the
+archive's own directory, refusing an entry that would escape.
+`files.set_attributes` and `files.link` plan one row per file and journal
+enough to reverse.
 
 A plan is browsable. Every preview whose plan is an `FsPlan` is retained in
 memory under a handle for a while after its last use, and

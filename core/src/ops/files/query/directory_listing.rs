@@ -811,6 +811,7 @@ mod tests {
 			destination: SdPath::local(&fixture.destination),
 			on_conflict: MergeConflictPolicy::Skip,
 			consume_sources: true,
+			remove_extras: false,
 		};
 		let plan = FileMergeAction::preview(input, &fixture.preview())
 			.await

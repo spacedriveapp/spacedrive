@@ -12,7 +12,7 @@ use super::{
 use crate::{
 	domain::{SdPath, SdPathBatch},
 	infra::{
-		action::preflight::{PreviewContext, Severity},
+		action::preflight::{PreviewContext, PreviewableAction, Severity},
 		job::output::JobOutput,
 	},
 	ops::files::{
@@ -43,6 +43,7 @@ impl Fixture {
 			destination: SdPath::local(&self.destination),
 			on_conflict: policy,
 			consume_sources: false,
+			remove_extras: false,
 		}
 	}
 
@@ -186,7 +187,9 @@ async fn a_plan_sorts_every_kind_of_leaf() {
 		.iter()
 		.any(|change| change.path.path() == Some(&dst.join("keep.txt"))));
 
-	let PlanBasis::Index { revisions } = &plan.basis;
+	let PlanBasis::Index { revisions } = &plan.basis else {
+		panic!("not read from the index: {:?}", plan.basis);
+	};
 	assert_eq!(revisions.len(), 2, "one revision per store read");
 	assert!(revisions.iter().all(|revision| revision.revision > 0));
 }
@@ -537,4 +540,106 @@ async fn an_outcome_reports_divergence_from_the_plan() {
 	);
 	assert!(outcome.diverged);
 	assert!(output.diverged >= 1);
+}
+
+/// A mirror plans a delete for each file only the destination holds, flags
+/// the last copies, and the job removes those files and nothing else.
+#[tokio::test]
+async fn a_mirror_removes_what_no_source_holds() {
+	let fixture = Fixture::new().await;
+	let file = FileKind::File;
+	let source = [
+		("same.txt", file, 4, T, Some("s"), None, None),
+		("new.txt", file, 3, T, Some("n"), None, None),
+	];
+	let destination = [
+		("same.txt", file, 4, T, Some("s"), None, None),
+		("extra.txt", file, 5, T, Some("e"), None, None),
+		("held.txt", file, 2, T, Some("h"), None, None),
+		("old/gone.txt", file, 1, T, Some("g"), None, None),
+	];
+	// held.txt's bytes exist elsewhere in the library; extra.txt's do not.
+	let elsewhere = [("copy.txt", file, 2, T, Some("h"), None, None)];
+	fixture.materialize(&fixture.source, &source);
+	fixture.index(&fixture.source, &source).await;
+	fixture.materialize(&fixture.destination, &destination);
+	fixture.index(&fixture.destination, &destination).await;
+	fixture.index(&fixture.other, &elsewhere).await;
+
+	let mut input = fixture.input(MergeConflictPolicy::Overwrite);
+	input.remove_extras = true;
+	let validation = validate::validate(&input, &fixture.preview())
+		.await
+		.expect("validated");
+	let warning = validation
+		.findings
+		.iter()
+		.find(|finding| finding.code == validate::LAST_COPIES)
+		.expect("the last copies are counted");
+	assert_eq!(warning.severity, Severity::Warning);
+	assert!(
+		warning.message.starts_with("2 of the 3 files"),
+		"{}",
+		warning.message
+	);
+
+	let plan = super::action::FileMergeAction::preview(input.clone(), &fixture.preview())
+		.await
+		.expect("planned");
+	let delete_at = |name: &str| {
+		plan.changes
+			.iter()
+			.find(|change| {
+				change.path.path().map(std::path::PathBuf::as_path)
+					== Some(fixture.destination.join(name).as_path())
+			})
+			.map(|change| change.change.clone())
+	};
+	assert_eq!(
+		delete_at("extra.txt"),
+		Some(ChangeKind::Delete { last_copy: true })
+	);
+	assert_eq!(
+		delete_at("held.txt"),
+		Some(ChangeKind::Delete { last_copy: false })
+	);
+	assert_eq!(
+		delete_at("old/gone.txt"),
+		Some(ChangeKind::Delete { last_copy: true })
+	);
+	assert_eq!(
+		delete_at("same.txt"),
+		Some(ChangeKind::Skip {
+			reason: SkipReason::DuplicateCandidate
+		})
+	);
+	assert_eq!(plan.summary.deletes.files, 3);
+	assert_eq!(plan.summary.creates.files, 1);
+
+	let handle = fixture
+		.library
+		.jobs()
+		.dispatch(FolderMergeJob::new(input))
+		.await
+		.expect("dispatched");
+	let output = tokio::time::timeout(Duration::from_secs(30), handle.wait())
+		.await
+		.expect("in time")
+		.expect("completed");
+	let JobOutput::Custom(value) = output else {
+		panic!("not a merge output: {output:?}");
+	};
+	assert_eq!(value["removed_extras"], 3);
+	assert!(fixture.destination.join("same.txt").exists());
+	assert!(fixture.destination.join("new.txt").exists());
+	assert!(!fixture.destination.join("extra.txt").exists());
+	assert!(!fixture.destination.join("held.txt").exists());
+	assert!(
+		!fixture.destination.join("old").exists(),
+		"the emptied folder is pruned"
+	);
+	assert!(
+		fixture.source.join("new.txt").exists(),
+		"the source is untouched"
+	);
 }

@@ -15,8 +15,8 @@ use sea_orm::{
 	sea_query::{Expr, Query},
 	ActiveModelTrait,
 	ActiveValue::Set,
-	ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait, QueryFilter, Schema,
-	TransactionTrait,
+	ColumnTrait, ConnectionTrait, DatabaseConnection, DbBackend, DbErr, EntityTrait, QueryFilter,
+	QueryOrder, QuerySelect, Schema, TransactionTrait,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
@@ -114,6 +114,28 @@ pub mod checkpoint {
 	impl ActiveModelBehavior for ActiveModel {}
 }
 
+pub mod journal {
+	use super::*;
+
+	/// One effect a job had on the filesystem, in the order it happened.
+	#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Serialize, Deserialize)]
+	#[sea_orm(table_name = "job_journal")]
+	pub struct Model {
+		#[sea_orm(primary_key, auto_increment = false)]
+		pub job_id: String,
+		#[sea_orm(primary_key, auto_increment = false)]
+		pub sequence: i64,
+		/// The effect, as MessagePack.
+		pub effect: Vec<u8>,
+		pub recorded_at: DateTime<Utc>,
+	}
+
+	#[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
+	pub enum Relation {}
+
+	impl ActiveModelBehavior for ActiveModel {}
+}
+
 /// Initialize job database
 pub async fn init_database(db_file_path: &Path) -> JobResult<DatabaseConnection> {
 	// Ensure the parent directory exists
@@ -151,6 +173,11 @@ async fn create_tables(db: &DatabaseConnection) -> JobResult<()> {
 	let mut checkpoint_statement = schema.create_table_from_entity(checkpoint::Entity);
 	checkpoint_statement.if_not_exists();
 	db.execute(db.get_database_backend().build(&checkpoint_statement))
+		.await?;
+
+	let mut journal_statement = schema.create_table_from_entity(journal::Entity);
+	journal_statement.if_not_exists();
+	db.execute(db.get_database_backend().build(&journal_statement))
 		.await?;
 
 	Ok(())
@@ -288,6 +315,129 @@ impl JobDb {
 			)));
 		}
 
+		Ok(())
+	}
+
+	/// Append effects to a job's journal, in order after what it holds.
+	pub async fn append_journal(
+		&self,
+		job_id: JobId,
+		effects: &[super::journal::Effect],
+	) -> JobResult<()> {
+		if effects.is_empty() {
+			return Ok(());
+		}
+		let transaction = self.conn.begin().await?;
+		let last: Option<i64> = journal::Entity::find()
+			.filter(journal::Column::JobId.eq(job_id.to_string()))
+			.select_only()
+			.column_as(journal::Column::Sequence.max(), "last")
+			.into_tuple()
+			.one(&transaction)
+			.await?
+			.flatten();
+		let mut sequence = last.unwrap_or(0);
+		let now = Utc::now();
+		let rows: Vec<journal::ActiveModel> = effects
+			.iter()
+			.map(|effect| {
+				sequence += 1;
+				Ok(journal::ActiveModel {
+					job_id: Set(job_id.to_string()),
+					sequence: Set(sequence),
+					effect: Set(
+						rmp_serde::to_vec_named(effect).map_err(|e| JobError::serialization(e))?
+					),
+					recorded_at: Set(now),
+				})
+			})
+			.collect::<JobResult<_>>()?;
+		journal::Entity::insert_many(rows)
+			.exec(&transaction)
+			.await?;
+		transaction.commit().await?;
+		Ok(())
+	}
+
+	/// A job's journal, in the order it was written.
+	pub async fn journal(&self, job_id: JobId) -> JobResult<Vec<super::journal::Recorded>> {
+		let rows = journal::Entity::find()
+			.filter(journal::Column::JobId.eq(job_id.to_string()))
+			.order_by_asc(journal::Column::Sequence)
+			.all(&self.conn)
+			.await?;
+		rows.into_iter()
+			.map(|row| {
+				Ok(super::journal::Recorded {
+					sequence: row.sequence,
+					effect: rmp_serde::from_slice(&row.effect)
+						.map_err(|e| JobError::serialization(e))?,
+					recorded_at: row.recorded_at,
+				})
+			})
+			.collect()
+	}
+
+	/// What each job's journal amounts to, for the jobs that have one.
+	pub async fn journal_summaries(
+		&self,
+	) -> JobResult<std::collections::HashMap<String, super::journal::JournalSummary>> {
+		let rows = journal::Entity::find().all(&self.conn).await?;
+		let mut summaries: std::collections::HashMap<String, super::journal::JournalSummary> =
+			std::collections::HashMap::new();
+		for row in rows {
+			let effect: super::journal::Effect = match rmp_serde::from_slice(&row.effect) {
+				Ok(effect) => effect,
+				Err(_) => continue,
+			};
+			let summary = summaries.entry(row.job_id).or_default();
+			summary.effects += 1;
+			if effect.reversible() {
+				summary.reversible += 1;
+			}
+		}
+		Ok(summaries)
+	}
+
+	/// Every trashed effect with a known location, newest first, with the
+	/// job it belongs to.
+	pub async fn trashed(&self) -> JobResult<Vec<(String, super::journal::Recorded)>> {
+		let rows = journal::Entity::find()
+			.order_by_desc(journal::Column::RecordedAt)
+			.order_by_desc(journal::Column::Sequence)
+			.all(&self.conn)
+			.await?;
+		let mut trashed = Vec::new();
+		for row in rows {
+			let effect: super::journal::Effect = match rmp_serde::from_slice(&row.effect) {
+				Ok(effect) => effect,
+				Err(_) => continue,
+			};
+			if matches!(effect, super::journal::Effect::Trashed { to: Some(_), .. }) {
+				trashed.push((
+					row.job_id,
+					super::journal::Recorded {
+						sequence: row.sequence,
+						effect,
+						recorded_at: row.recorded_at,
+					},
+				));
+			}
+		}
+		Ok(trashed)
+	}
+
+	/// Drop the trashed effects whose items are gone, after the trash was
+	/// emptied.
+	pub async fn forget_trashed(&self, job_id: JobId, sequences: &[i64]) -> JobResult<()> {
+		if sequences.is_empty() {
+			return Ok(());
+		}
+		journal::Entity::delete_many()
+			.filter(journal::Column::JobId.eq(job_id.to_string()))
+			.filter(journal::Column::Sequence.is_in(sequences.iter().copied()))
+			.exec(&self.conn)
+			.await?;
 		Ok(())
 	}
 

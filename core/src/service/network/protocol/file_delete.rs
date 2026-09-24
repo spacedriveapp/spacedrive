@@ -72,7 +72,7 @@ impl FileDeleteProtocolHandler {
 			// Note: We're creating a minimal job context for this operation
 			// In a full implementation, this might integrate with the job system
 			let results = match self
-				.execute_deletion_with_strategy(&strategy, &paths, mode.clone())
+				.execute_deletion_with_strategy(&strategy, &paths, mode.clone(), context)
 				.await
 			{
 				Ok(results) => results,
@@ -86,6 +86,7 @@ impl FileDeleteProtocolHandler {
 								success: false,
 								bytes_freed: 0,
 								error: Some(format!("Strategy execution failed: {}", e)),
+								effect: None,
 							})
 							.collect(),
 					});
@@ -109,7 +110,9 @@ impl FileDeleteProtocolHandler {
 		strategy: &LocalDeleteStrategy,
 		paths: &[crate::domain::addressing::SdPath],
 		mode: DeleteMode,
+		context: &crate::context::CoreContext,
 	) -> anyhow::Result<Vec<crate::ops::files::delete::strategy::DeleteResult>> {
+		let _ = strategy;
 		let mut results = Vec::new();
 
 		for path in paths {
@@ -128,6 +131,7 @@ impl FileDeleteProtocolHandler {
 					success: false,
 					bytes_freed: 0,
 					error: Some("Path not within allowed roots".to_string()),
+					effect: None,
 				});
 				continue;
 			}
@@ -144,18 +148,49 @@ impl FileDeleteProtocolHandler {
 				})
 				.unwrap_or(0);
 
-			// Perform deletion based on mode
+			// Perform deletion based on mode. A remote request runs outside
+			// any job, so what it did is answered rather than journaled here.
 			let result = match mode {
-				DeleteMode::Trash => LocalDeleteStrategy.move_to_trash(local_path).await,
-				DeleteMode::Permanent => LocalDeleteStrategy.permanent_delete(local_path).await,
-				DeleteMode::Secure => LocalDeleteStrategy.secure_delete(local_path).await,
+				DeleteMode::Trash => crate::ops::files::trash::trash(
+					local_path,
+					Some(&context.volume_manager),
+					crate::infra::job::types::JobId::new(),
+				)
+				.await
+				.map(|to| {
+					crate::infra::job::journal::Effect::trashed(local_path.to_path_buf(), to, None)
+				}),
+				DeleteMode::Permanent => LocalDeleteStrategy
+					.permanent_delete(local_path)
+					.await
+					.map(|()| {
+						crate::infra::job::journal::Effect::removed(local_path.to_path_buf())
+					}),
+				DeleteMode::Secure => {
+					LocalDeleteStrategy
+						.secure_delete(local_path)
+						.await
+						.map(|()| {
+							crate::infra::job::journal::Effect::removed(local_path.to_path_buf())
+						})
+				}
 			};
 
-			results.push(crate::ops::files::delete::strategy::DeleteResult {
-				path: path.clone(),
-				success: result.is_ok(),
-				bytes_freed: if result.is_ok() { size } else { 0 },
-				error: result.err().map(|e| e.to_string()),
+			results.push(match result {
+				Ok(effect) => crate::ops::files::delete::strategy::DeleteResult {
+					path: path.clone(),
+					success: true,
+					bytes_freed: size,
+					error: None,
+					effect: Some(effect),
+				},
+				Err(error) => crate::ops::files::delete::strategy::DeleteResult {
+					path: path.clone(),
+					success: false,
+					bytes_freed: 0,
+					error: Some(error.to_string()),
+					effect: None,
+				},
 			});
 		}
 

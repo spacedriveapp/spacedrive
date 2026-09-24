@@ -193,6 +193,27 @@ impl<'a> JobContext<'a> {
 		Ok(())
 	}
 
+	/// Record what the job did to the filesystem, in order. The journal is
+	/// what undo reads, so a failure to write it is logged and never fails
+	/// the operation that already happened.
+	pub async fn record(&self, effects: Vec<super::journal::Effect>) {
+		if effects.is_empty() {
+			return;
+		}
+		if let Err(error) = self
+			.library
+			.jobs()
+			.database()
+			.append_journal(self.id, &effects)
+			.await
+		{
+			warn!(job_id = %self.id, "Could not record {} effects: {error}", effects.len());
+			if let Some(logger) = &self.file_logger {
+				let _ = logger.log("WARN", &format!("Could not record effects: {error}"));
+			}
+		}
+	}
+
 	/// Log a message
 	pub fn log(&self, message: impl Into<String>) {
 		let msg = message.into();

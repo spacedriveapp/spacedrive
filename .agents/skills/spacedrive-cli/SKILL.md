@@ -246,6 +246,117 @@ leaves small contents alone.
   compares integrity hashes; a pair whose bytes differ stays and is reported.
   What the reads learn is written to the stores.
 
+## Rename files
+
+`file rename <path> --to <name>` renames one path; `file rename <paths>...`
+with rules renames many, applying the rules to each name in a fixed order:
+`--replace FIND WITH` (`--regex` for captures, `--whole-name` to include the
+extension), `--case lower|upper|title` and `--lower-extension`, `--prefix`
+and `--suffix`, `--sequence "IMG_{n:04}"` (`--start`, `--step`) for the stem
+from a counter, and `--template "{date:%Y-%m-%d} {name}{ext}"` for the whole
+name. Tokens: `{name}`, `{ext}` (with its dot), `{n}` or `{n:04}`, `{parent}`,
+`{date:FORMAT}` from the modification time, `{captured:FORMAT}` from the
+capture time the store holds, or the modification time where it holds none.
+
+- It validates and previews first: each old name beside its new one, then a
+  y/N prompt; `--dry-run` stops after the plan. An error finding refuses:
+  a name the target filesystem does not write (`rename.illegal_name`, NTFS
+  and exFAT rules on those volumes and on SMB shares), a file already at the
+  new name (`rename.exists`), a name the directory cannot tell from an
+  existing one on a case-insensitive volume (`rename.case_collision`), and
+  two files wanting one name (`rename.collision`). A change of case alone is
+  `rename.case_only`, an info.
+- The job renames in an order that never overwrites: a chain like
+  `1 -> 2 -> 3` waits for each name to free, and a swap parks one file under
+  a temporary name. Each rename is one `rename` call, so records keep their
+  identity, and each is journaled for undo.
+
+## Undo, the journal, and the trash
+
+Every job that changes the filesystem records what it did as effects with
+enough to reverse them: created, moved from and to, trashed with where it
+went, replaced with where the previous bytes went, removed for good, and
+attributes before and after. `job journal <id>` prints them in order.
+
+`file undo <job-id>` reverses a job from its journal, newest effect first,
+on preflight: validation refuses a job still running or with no journal
+(`undo.no_journal`), warns of each file that changed since the job ran
+(`undo.changed`) or whose place is now taken (`undo.occupied`), both left as
+they are, and counts what cannot be reversed (`undo.irreversible`: permanent
+removals, and replacements or trashings whose previous bytes were not kept).
+The plan is the reverse: a delete for each creation, a move back for each
+move and trashing, a replace for each replacement. `--effects 3,4` reverses
+only those sequences. An undo writes its own journal, so undoing an undo is
+the same command over it.
+
+- A deletion to the trash records where the item went: `NSFileManager` on
+  macOS reports the location, and on Windows and Linux the item is found in
+  the trash by its original path. A volume with no trash of its own, a
+  network mount among them, gets a Spacedrive trash directory at its root,
+  `.spacedrive/trash/<job>/`, reached by a rename.
+- An overwrite, by copy, merge or extract, moves the previous file to the
+  trash the same way, so a replacement is undoable until the trash is
+  emptied and costs a rename rather than a copy.
+
+`file trash list` prints what Spacedrive trashed with a known location,
+newest first, with the job and sequence to restore by; `file trash restore
+<job> <sequence>` is `file undo` over that one effect; `file trash empty`
+removes those items for good along with the Spacedrive trash directories,
+and `--os` empties the platform's own trash as well.
+
+## Mirror a folder
+
+`file merge <source> --into <dir> --remove-extras` makes the destination
+match the source: the merge as above, then every file the destination holds
+that no source does goes to the trash, and the folders left empty are
+pruned. The plan lists those files as deletes flagged where they are the
+last copy of their content anywhere in the library, and validation counts
+them (`merge.last_copies`). With `--on-conflict keep-newer` it is the one
+way sync of a working folder to a backup, previewed. Junk is left alone.
+
+## Organize and flatten
+
+`file organize <dir> --by date|kind|extension` moves the folder's files
+into subfolders: by date (`--field modified|created|captured`,
+`--granularity year|year-month|year-month-day`), by the content kind the
+indexer assigned (Images, Videos, Documents), or by extension. `--recursive`
+takes the files beneath the folder at any depth. Every move is a rename
+inside the folder, so records keep their identity; two files wanting one
+place are a conflict left alone (`organize.conflicts`).
+
+`file flatten <dir>` moves every file beneath a folder up to the folder
+itself and prunes the emptied folders. `--on-conflict keep-both` numbers a
+file whose name is taken at the root; `skip` leaves it where it is.
+
+## Archive and extract
+
+`file archive <sources>... --to <archive>` writes a zip or a tar.zst, by the
+name's extension or `--format`, to a temporary name beside the destination
+and renames it into place when complete. Validation refuses a name already
+taken (`archive.exists`) and warns of free space and, with
+`--remove-sources`, of the last copies among the sources; the sources go to
+the trash once the archive is complete. A zip does not carry symlinks; they
+are left out with a warning.
+
+`file extract <archive> --to <dir>` plans from the archive's own directory:
+a create, replace or skip per entry against the folder, `--on-conflict`
+taking the merge policies, `--strip-components N` dropping leading folders.
+An entry that would land outside the folder refuses the extract
+(`extract.escape`). The job checkpoints the entry it reached and resumes
+there; a replaced file's previous bytes go to the trash.
+
+## Attributes and links
+
+`file attributes <paths>... --mode 644 --modified <rfc3339> --hidden true`
+sets what the filesystem lets a file carry; each flag left out stays as it
+is. Validation refuses a mode on FAT32 and exFAT and hidden where it is a
+leading dot rather than a flag (`attributes.unsupported`). The job journals
+the attributes before and after, so undo sets them back.
+
+`file link <at> --target <path>` makes a symlink, or a hard link with
+`--hard`, which validation refuses across volumes (`link.cross_volume`) and
+to a directory (`link.directory`).
+
 ## Merge folders
 
 `file merge <sources>... --into <dir>` merges folders into an existing

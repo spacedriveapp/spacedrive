@@ -153,6 +153,7 @@ async fn validate(input: &FileCopyInput, ctx: &PreviewContext) -> Result<Validat
 		}
 	}
 
+	let keeps_both = input.on_conflict == Some(FileConflictResolution::AutoModifyName);
 	for (source, target) in targets(input, destination).await {
 		let is_dir = local
 			.iter()
@@ -165,7 +166,11 @@ async fn validate(input: &FileCopyInput, ctx: &PreviewContext) -> Result<Validat
 			findings.push(
 				Finding::info(
 					FOLDER_COLLISION,
-					"a folder of that name is already there; the plan merges this one into it",
+					if keeps_both {
+						"a folder of that name is already there; this one is written beside it under a numbered name"
+					} else {
+						"a folder of that name is already there; the plan merges this one into it"
+					},
 				)
 				.at(SdPath::local(target)),
 			);
@@ -257,6 +262,13 @@ async fn preview(input: &FileCopyInput, ctx: &PreviewContext) -> Result<FsPlan, 
 			ActionError::InvalidInput(format!("{source} is not on this device right now"))
 		})?;
 		let existing = tokio::fs::symlink_metadata(&target).await.ok();
+		// Keeping both writes the source beside whatever holds its name, so
+		// the plan is a create at the numbered name, as the job writes it.
+		let (target, existing) = if existing.is_some() && policy == MergeConflictPolicy::KeepBoth {
+			(planner.unique_name(&target).await, None)
+		} else {
+			(target, existing)
+		};
 
 		if meta.is_dir() {
 			match existing {
@@ -295,7 +307,6 @@ async fn preview(input: &FileCopyInput, ctx: &PreviewContext) -> Result<FsPlan, 
 					incoming_size: size,
 					reason: ReplaceReason::Overwrite,
 				},
-				MergeConflictPolicy::KeepBoth => ChangeKind::Create { size },
 				_ => ChangeKind::Skip {
 					reason: SkipReason::Policy,
 				},
@@ -508,6 +519,61 @@ mod tests {
 		let plan = preview(&moving, &fixture.preview()).await.expect("planned");
 		assert!(plan.roots.iter().all(|root| root.consumes));
 		assert_eq!(plan.summary.creates.files, 1);
+	}
+
+	/// A file or folder copied into its own directory with keep both is
+	/// written beside the original under a numbered name, which is what a
+	/// duplicate is.
+	#[tokio::test]
+	async fn a_duplicate_is_a_numbered_create_beside_the_original() {
+		let fixture = Fixture::new().await;
+		let file = FileKind::File;
+		let tree = [
+			("a.txt", file, 4, T, Some("a"), None, None),
+			("sub/b.txt", file, 3, T, Some("b"), None, None),
+		];
+		fixture.materialize(&fixture.source, &tree);
+		fixture.index(&fixture.source, &tree).await;
+
+		let mut duplicate = input(&[&fixture.source.join("a.txt")], &fixture.source);
+		duplicate.on_conflict = Some(FileConflictResolution::AutoModifyName);
+		let plan = preview(&duplicate, &fixture.preview())
+			.await
+			.expect("planned");
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("a (1).txt")),
+			Some(&ChangeKind::Create { size: 4 })
+		);
+		assert_eq!(plan.summary.creates.files, 1);
+		assert_eq!(plan.summary.skips.policy.files, 0);
+
+		let mut folder = input(&[&fixture.source.join("sub")], &fixture.source);
+		folder.on_conflict = Some(FileConflictResolution::AutoModifyName);
+		let validation = validate(&folder, &fixture.preview())
+			.await
+			.expect("validated");
+		let collision = validation
+			.findings
+			.iter()
+			.find(|finding| finding.code == FOLDER_COLLISION)
+			.expect("the collision is named");
+		assert!(
+			collision.message.contains("numbered name"),
+			"{}",
+			collision.message
+		);
+		let plan = preview(&folder, &fixture.preview()).await.expect("planned");
+		let beside = fixture.source.join("sub (1)");
+		assert_eq!(
+			change_at(&plan, &beside),
+			Some(&ChangeKind::CreateDirectory)
+		);
+		assert_eq!(
+			change_at(&plan, &beside.join("b.txt")),
+			Some(&ChangeKind::Create { size: 3 })
+		);
+		assert_eq!(plan.summary.creates.files, 1);
+		assert_eq!(plan.summary.directories_created, 1);
 	}
 
 	/// A single file moved to a new name is one move in the plan, and a

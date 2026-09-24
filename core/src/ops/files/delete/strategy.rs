@@ -4,12 +4,16 @@
 //! 1. **LocalDeleteStrategy** - Local file deletion (trash, permanent, secure)
 //! 2. **RemoteDeleteStrategy** - Cross-device deletion via network
 
-use crate::{domain::addressing::SdPath, infra::job::prelude::*};
+use crate::{
+	domain::addressing::SdPath,
+	infra::job::{journal::Effect, prelude::*},
+	ops::files::trash,
+};
 use anyhow::Result;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::fs;
 use uuid::Uuid;
 
@@ -22,6 +26,9 @@ pub struct DeleteResult {
 	pub success: bool,
 	pub bytes_freed: u64,
 	pub error: Option<String>,
+	/// What the deletion did, for the journal: trashed with where it went,
+	/// or removed for good. Absent where it happened on another device.
+	pub effect: Option<Effect>,
 }
 
 /// Strategy for executing delete operations
@@ -60,16 +67,49 @@ impl DeleteStrategy for LocalDeleteStrategy {
 					let size = self.get_path_size(local_path).await.unwrap_or(0);
 
 					let deletion_result = match mode {
-						DeleteMode::Trash => self.move_to_trash(local_path).await,
-						DeleteMode::Permanent => self.permanent_delete(local_path).await,
-						DeleteMode::Secure => self.secure_delete(local_path).await,
+						DeleteMode::Trash => {
+							self.move_to_trash(local_path, ctx).await.map(|location| {
+								Effect::Trashed {
+									from: local_path.to_path_buf(),
+									to: location,
+									subject: None,
+								}
+							})
+						}
+						DeleteMode::Permanent => self
+							.permanent_delete(local_path)
+							.await
+							.map(|()| Effect::removed(local_path.to_path_buf())),
+						DeleteMode::Secure => self
+							.secure_delete(local_path)
+							.await
+							.map(|()| Effect::removed(local_path.to_path_buf())),
+					};
+					let deletion_result = match deletion_result {
+						Ok(Effect::Trashed {
+							from, to: Some(to), ..
+						}) => {
+							let subject = fs::symlink_metadata(&to).await.ok();
+							Ok(Effect::trashed(from, Some(to), subject.as_ref()))
+						}
+						other => other,
 					};
 
-					DeleteResult {
-						path: path.clone(),
-						success: deletion_result.is_ok(),
-						bytes_freed: if deletion_result.is_ok() { size } else { 0 },
-						error: deletion_result.err().map(|e| e.to_string()),
+					match deletion_result {
+						Ok(effect) => DeleteResult {
+							path: path.clone(),
+							success: true,
+							bytes_freed: size,
+							error: None,
+							effect: Some(effect),
+						},
+						Err(error) => DeleteResult {
+							path: path.clone(),
+							success: false,
+							bytes_freed: 0,
+							error: Some(error.to_string()),
+							effect: None,
+						},
 					}
 				}
 
@@ -82,6 +122,7 @@ impl DeleteStrategy for LocalDeleteStrategy {
 					success: false,
 					bytes_freed: 0,
 					error: Some("Path is remote or unsupported".to_string()),
+					effect: None,
 				},
 			};
 
@@ -110,6 +151,7 @@ impl LocalDeleteStrategy {
 					"Delete mode {:?} not supported for cloud paths (only Permanent)",
 					mode
 				)),
+				effect: None,
 			};
 		}
 
@@ -122,6 +164,7 @@ impl LocalDeleteStrategy {
 					success: false,
 					bytes_freed: 0,
 					error: Some("Volume manager not available".to_string()),
+					effect: None,
 				}
 			}
 		};
@@ -135,6 +178,7 @@ impl LocalDeleteStrategy {
 					success: false,
 					bytes_freed: 0,
 					error: Some("Path is not a cloud path".to_string()),
+					effect: None,
 				}
 			}
 		};
@@ -152,6 +196,7 @@ impl LocalDeleteStrategy {
 						service.scheme(),
 						identifier
 					)),
+					effect: None,
 				}
 			}
 		};
@@ -165,6 +210,7 @@ impl LocalDeleteStrategy {
 					success: false,
 					bytes_freed: 0,
 					error: Some("Volume backend not available".to_string()),
+					effect: None,
 				}
 			}
 		};
@@ -182,12 +228,14 @@ impl LocalDeleteStrategy {
 				success: true,
 				bytes_freed: size,
 				error: None,
+				effect: Some(Effect::removed(PathBuf::from(cloud_path))),
 			},
 			Err(e) => DeleteResult {
 				path: path.clone(),
 				success: false,
 				bytes_freed: 0,
 				error: Some(format!("Cloud deletion failed: {}", e)),
+				effect: None,
 			},
 		}
 	}
@@ -213,35 +261,15 @@ impl LocalDeleteStrategy {
 		Ok(total)
 	}
 
-	/// Move file to the system trash/recycle bin.
-	///
-	/// Uses the `trash` crate for native platform support:
-	/// - Windows: SHFileOperation → Recycle Bin
-	/// - macOS: NSFileManager → Trash
-	/// - Linux: XDG trash spec
-	#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-	pub async fn move_to_trash(&self, path: &Path) -> Result<(), std::io::Error> {
-		let path = path.to_path_buf();
-		tokio::task::spawn_blocking(move || {
-			trash::delete(&path).map_err(|e| {
-				std::io::Error::new(
-					std::io::ErrorKind::Other,
-					format!("Failed to move to trash: {}", e),
-				)
-			})
-		})
-		.await
-		.map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e.to_string()))??;
-
-		Ok(())
-	}
-
-	#[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-	pub async fn move_to_trash(&self, _path: &Path) -> Result<(), std::io::Error> {
-		Err(std::io::Error::new(
-			std::io::ErrorKind::Unsupported,
-			"move to trash is not supported on this platform",
-		))
+	/// Move a file to the trash, answering with where it went. A volume
+	/// with no trash of its own gets a Spacedrive trash directory at its
+	/// root.
+	pub async fn move_to_trash(
+		&self,
+		path: &Path,
+		ctx: &JobContext<'_>,
+	) -> Result<Option<PathBuf>, std::io::Error> {
+		trash::trash(path, ctx.volume_manager().as_deref(), ctx.id()).await
 	}
 
 	/// Permanently delete file or directory
@@ -414,6 +442,7 @@ impl RemoteDeleteStrategy {
 				success: true,
 				bytes_freed: 0,
 				error: None,
+				effect: None,
 			})
 			.collect();
 
