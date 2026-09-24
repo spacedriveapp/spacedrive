@@ -37,6 +37,8 @@ pub enum FileCmd {
 	Compare(FileCompareArgs),
 	/// Delete files, or from a folder what a comparison names
 	Delete(FileDeleteArgs),
+	/// Remove surplus copies of duplicated files, after seeing the plan
+	Dedupe(FileDedupeArgs),
 	/// Merge folders into an existing folder, after seeing the plan
 	Merge(FileMergeArgs),
 }
@@ -121,6 +123,10 @@ pub async fn run(ctx: &Context, cmd: FileCmd) -> Result<()> {
 			compare_folders(ctx, args.into_input()?, cap).await?;
 		}
 		FileCmd::Delete(args) => {
+			let (dry_run, yes) = (args.dry_run, args.yes);
+			delete_files(ctx, args.into_input()?, dry_run, yes).await?;
+		}
+		FileCmd::Dedupe(args) => {
 			let (dry_run, yes) = (args.dry_run, args.yes);
 			delete_files(ctx, args.into_input()?, dry_run, yes).await?;
 		}
@@ -388,16 +394,32 @@ fn print_plan(out: &mut impl Write, plan: &FsPlan) -> std::io::Result<()> {
 		})
 		.collect();
 	if !notable.is_empty() {
-		writeln!(out, "\nConflicts, collisions and last copies:")?;
+		writeln!(out, "\nConflicts, collisions, kept copies and last copies:")?;
 		for change in notable {
 			let what = match &change.change {
 				ChangeKind::Conflict { kind } => format!("conflict {kind:?}"),
 				ChangeKind::Replace { reason, .. } => format!("replace ({reason:?})"),
-				ChangeKind::Skip { .. } => "skip by policy".to_string(),
+				ChangeKind::Skip { .. } => "kept by policy".to_string(),
 				ChangeKind::Delete { .. } => "delete, last copy anywhere".to_string(),
 				_ => unreachable!(),
 			};
 			writeln!(out, "  {what:<28} {}", folder_name(&change.path))?;
+		}
+	}
+	// What a deletion removes is listed in full up to a cap, since a person
+	// reads a delete plan for exactly that.
+	let removed: Vec<_> = plan
+		.changes
+		.iter()
+		.filter(|change| matches!(change.change, ChangeKind::Delete { .. }))
+		.collect();
+	if !removed.is_empty() {
+		writeln!(out, "\nRemoved:")?;
+		for change in removed.iter().take(REMOVED_LISTED) {
+			writeln!(out, "  {}", folder_name(&change.path))?;
+		}
+		if removed.len() > REMOVED_LISTED {
+			writeln!(out, "  and {} more", removed.len() - REMOVED_LISTED)?;
 		}
 	}
 	if plan.truncated {
@@ -408,6 +430,9 @@ fn print_plan(out: &mut impl Write, plan: &FsPlan) -> std::io::Result<()> {
 	}
 	writeln!(out)
 }
+
+/// How many removed files a plan lists before summing the rest.
+const REMOVED_LISTED: usize = 40;
 
 /// Delete with preflight: the findings, with the warning only an index can
 /// give of which files are the last copy of their bytes, then the plan, then
@@ -450,6 +475,7 @@ async fn delete_files(
 	}
 	let from = match &input.targets {
 		DeleteTargets::Comparison { .. } => " from A",
+		DeleteTargets::Duplicates { .. } => ", surplus copies,",
 		DeleteTargets::Paths { .. } => "",
 	};
 	let destination = if input.permanent {

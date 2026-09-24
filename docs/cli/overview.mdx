@@ -158,7 +158,15 @@ sd-cli file merge /Volumes/Expansion/Photos --into /Volumes/NAS/Photos --on-conf
 ~~~
 
 A delete's plan says which of the files are the last copy of their content
-anywhere in the library, before anything is removed.
+anywhere in the library, before anything is removed. Dedupe keeps one copy of
+each duplicated content and removes the rest, or the copies you name, after
+reading each pair in full:
+
+~~~bash
+sd-cli file dedupe ~/Photos --dry-run
+sd-cli file dedupe --keep ~/Photos/2024/IMG_0041.JPG
+sd-cli file dedupe ~/Downloads --keep-under /Volumes/NAS/Photos
+~~~
 
 ## Structured output
 

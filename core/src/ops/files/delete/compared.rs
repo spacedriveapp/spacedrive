@@ -41,7 +41,7 @@ const BATCH: usize = 256;
 
 /// Files read in full at once. Full reads want the drive to themselves; two
 /// keeps a spindle busy without turning throughput into seeks.
-const READS: usize = 2;
+pub(super) const READS: usize = 2;
 
 pub(super) async fn delete(
 	ctx: &JobContext<'_>,
@@ -273,7 +273,7 @@ async fn settle(
 
 /// A file's integrity hash: the store's where it has read the file in full,
 /// else read now, with the identity the store should learn.
-async fn integrity(file: &Keyed) -> (Result<String, String>, Option<Learned>) {
+pub(super) async fn integrity(file: &Keyed) -> (Result<String, String>, Option<Learned>) {
 	if let Some(hash) = &file.entry.integrity_hash {
 		return (Ok(hash.clone()), None);
 	}
@@ -304,7 +304,7 @@ async fn integrity(file: &Keyed) -> (Result<String, String>, Option<Learned>) {
 }
 
 /// What a read in full learned about a file, for its source's store.
-struct Learned {
+pub(super) struct Learned {
 	root: Arc<PathBuf>,
 	uuid: Uuid,
 	identity: ContentIdentity,
@@ -312,7 +312,11 @@ struct Learned {
 
 /// Write what the batch's reads learned to each source's store, so the next
 /// operation over these files reads nothing.
-async fn record_learned(ctx: &JobContext<'_>, context: &CoreContext, learned: Vec<Learned>) {
+pub(super) async fn record_learned(
+	ctx: &JobContext<'_>,
+	context: &CoreContext,
+	learned: Vec<Learned>,
+) {
 	let mut by_root: HashMap<Arc<PathBuf>, Vec<(Uuid, ContentIdentity)>> = HashMap::new();
 	for learnt in learned {
 		by_root

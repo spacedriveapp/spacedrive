@@ -442,6 +442,67 @@ pub async fn content_holders(
 	Ok(holders)
 }
 
+/// The sampled hashes of contents that more than one file beneath the
+/// directory at `scope` holds, "" for the whole source, of at least
+/// `min_size` bytes. One pass over the content and record indexes.
+pub async fn duplicated_contents_beneath(
+	pool: &SqlitePool,
+	scope: &str,
+	min_size: i64,
+) -> Result<Vec<String>> {
+	let (mut conditions, binds) = beneath_scope(scope);
+	conditions.insert(0, "c.sampled_hash IS NOT NULL".to_string());
+	conditions.insert(1, "COALESCE(c.size, 0) >= ?".to_string());
+	let sql = format!(
+		"SELECT c.sampled_hash FROM content c \
+		 JOIN record r ON r.content_id = c.id \
+		 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+		 WHERE {} GROUP BY c.id HAVING COUNT(*) > 1",
+		conditions.join(" AND ")
+	);
+	let mut query = sqlx::query_scalar::<_, String>(&sql).bind(min_size);
+	for value in &binds {
+		query = query.bind(value);
+	}
+	Ok(query.fetch_all(pool).await?)
+}
+
+/// Every file beneath the directory at `scope` holding one of `contents`,
+/// by sampled hash, as entries. [`holders_beneath`] answers with one file
+/// per content; this answers with all of them.
+pub async fn copies_beneath(
+	pool: &SqlitePool,
+	contents: &[String],
+	scope: &str,
+) -> Result<Vec<FsEntry>> {
+	let mut copies = Vec::new();
+	for chunk in contents.chunks(LOOKUP_CHUNK) {
+		let (mut conditions, binds) = beneath_scope(scope);
+		conditions.insert(
+			0,
+			format!("c.sampled_hash IN ({})", vec!["?"; chunk.len()].join(", ")),
+		);
+		let sql = format!(
+			"{ENTRY_SELECT} WHERE r.rowid IN (\
+			 SELECT r.rowid FROM content c \
+			 JOIN record r ON r.content_id = c.id \
+			 LEFT JOIN directory_path parent ON parent.record_uuid = r.parent_uuid \
+			 WHERE {})",
+			conditions.join(" AND ")
+		);
+		let mut query = sqlx::query_as::<_, EntryRow>(&sql);
+		for content in chunk {
+			query = query.bind(content);
+		}
+		for value in &binds {
+			query = query.bind(value);
+		}
+		let rows = query.fetch_all(pool).await?;
+		copies.extend(rows.into_iter().filter_map(entry_from_row));
+	}
+	Ok(copies)
+}
+
 /// How many tag assertions stand on records beneath the directory at
 /// `scope`, "" for the whole source. What a move off the volume would leave
 /// behind, since assertions belong to the records of the store they are in.

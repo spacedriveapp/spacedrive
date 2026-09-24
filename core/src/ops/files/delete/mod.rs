@@ -2,6 +2,7 @@
 
 pub mod action;
 mod compared;
+mod duplicates;
 pub mod input;
 pub mod job;
 pub mod output;
@@ -10,7 +11,7 @@ pub mod routing;
 pub mod strategy;
 
 pub use action::FileDeleteAction;
-pub use input::{DeleteTargets, FileDeleteInput};
+pub use input::{DeleteTargets, Duplicates, FileDeleteInput, Keep};
 pub use job::*;
 pub use output::FileDeleteOutput;
 pub use routing::DeleteStrategyRouter;

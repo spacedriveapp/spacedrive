@@ -625,6 +625,17 @@ pub(crate) struct Keyed {
 }
 
 impl Keyed {
+	/// A store row as a file of the source at `root`, keyed by its place in
+	/// that source.
+	pub(crate) fn in_source(entry: FsEntry, root: Arc<PathBuf>) -> Self {
+		Self {
+			key: (entry.directory().to_string(), entry.name.clone()),
+			path: root.join(&entry.relative_path),
+			entry,
+			root,
+		}
+	}
+
 	fn into_file(self, device_slug: &str) -> File {
 		File::from_store_entry(
 			&self.entry,
@@ -733,7 +744,7 @@ impl Folder {
 	}
 
 	/// Take the next file in order.
-	async fn next(&mut self) -> QueryResult<Option<Keyed>> {
+	pub(crate) async fn next(&mut self) -> QueryResult<Option<Keyed>> {
 		self.ready().await?;
 		let first = self
 			.streams

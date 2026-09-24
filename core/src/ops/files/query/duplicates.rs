@@ -12,6 +12,7 @@
 
 use crate::{
 	context::CoreContext,
+	domain::SdPath,
 	infra::query::{CoreQuery, QueryResult},
 	ops::indexing::DuplicateCopy,
 };
@@ -45,6 +46,8 @@ pub struct DuplicateCopyInfo {
 	pub source: Uuid,
 	pub record: Uuid,
 	pub path: PathBuf,
+	/// The same place, addressed on this device, for an action to take.
+	pub sd_path: SdPath,
 }
 
 /// Bytes that exist in more than one place.
@@ -151,6 +154,7 @@ fn merge(groups: &mut HashMap<Uuid, DuplicateGroup>, source: Uuid, copy: Duplica
 	group.copies.push(DuplicateCopyInfo {
 		source,
 		record: copy.record_uuid,
+		sd_path: SdPath::local(&copy.path),
 		path: copy.path,
 	});
 }

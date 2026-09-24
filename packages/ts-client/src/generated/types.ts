@@ -604,13 +604,14 @@ applications_removed: number;
 sources_updated: number };
 
 /**
- * What a deletion removes: files named one by one, or folder A's files in
- * one set of its comparison with folder B. A comparison is evaluated by the
- * job as it runs, so the set is derived from the index at that moment and a
- * copy in B is read in full before the file in A goes. To delete from B,
- * compare the other way round.
+ * What a deletion removes: files named one by one, folder A's files in one
+ * set of its comparison with folder B, or the surplus copies of content
+ * that exists more than once. A comparison and a set of duplicates are
+ * evaluated by the job as it runs, so the files are derived from the index
+ * at that moment and a copy is read in full, alongside the copy that stands
+ * for it, before it goes. To delete from B, compare the other way round.
  */
-export type DeleteTargets = { kind: "paths"; paths: SdPath[] } | { kind: "comparison"; comparison: Comparison };
+export type DeleteTargets = { kind: "paths"; paths: SdPath[] } | { kind: "comparison"; comparison: Comparison } | { kind: "duplicates"; duplicates: Duplicates };
 
 export type DeleteWhisperModelInput = { model: string };
 
@@ -932,7 +933,11 @@ job_id: string };
 /**
  * One copy of some bytes.
  */
-export type DuplicateCopyInfo = { source: string; record: string; path: string };
+export type DuplicateCopyInfo = { source: string; record: string; path: string; 
+/**
+ * The same place, addressed on this device, for an action to take.
+ */
+sd_path: SdPath };
 
 /**
  * Bytes that exist in more than one place.
@@ -947,6 +952,21 @@ content: string; size: number; copies: DuplicateCopyInfo[];
  * What keeping one copy instead of all of them would give back.
  */
 reclaimable: number };
+
+/**
+ * The surplus copies of duplicated content, and the rule for the copy that
+ * stays.
+ */
+export type Duplicates = { 
+/**
+ * Where copies are removed from. Required to keep the first copy; for
+ * chosen copies, every attached source when absent.
+ */
+scope?: SdPath | null; keep: Keep; 
+/**
+ * Contents smaller than this, in bytes, are left alone.
+ */
+min_size?: number | null };
 
 export type DuplicatesInput = { 
 /**
@@ -1295,7 +1315,7 @@ export type FileMergeInput = { sources: SdPathBatch;
  */
 destination: SdPath; on_conflict: MergeConflictPolicy; 
 /**
- * Remove each source leaf once its copy has landed or its bytes are
+ * Remove each source leaf once its copy has been written or its bytes are
  * confirmed identical to the destination's, and prune emptied source
  * directories. What the merge did not settle stays where it was.
  */
@@ -1460,7 +1480,7 @@ export type FsPlan = {
  */
 handle: string | null; basis: PlanBasis; 
 /**
- * Each folder the plan reads landing in another, so a listing under a
+ * Each source folder the plan reads and where it is written, so a listing under a
  * consumed source can show what leaves it.
  */
 roots: PlanRoot[]; summary: FsPlanSummary; changes: PlannedChange[]; 
@@ -2111,6 +2131,21 @@ export type JobStatus =
 export type JsonValue = null | boolean | number | string | JsonValue[] | { [key in string]: JsonValue };
 
 /**
+ * Which copy of a duplicated content stays.
+ */
+export type Keep = 
+/**
+ * Of each content's copies in the scope, the first in the scope's walk
+ * order stays. Copies are found within one source at a time.
+ */
+{ kind: "first" } | 
+/**
+ * These files stay, and every other copy of their content in the scope
+ * goes.
+ */
+{ kind: "these"; paths: SdPath[] };
+
+/**
  * Latency metrics snapshot
  */
 export type LatencySnapshot = { count: number; avg_ms: number; min_ms: number; max_ms: number };
@@ -2739,7 +2774,7 @@ export type MergeConflictPolicy =
  */
 "overwrite" | 
 /**
- * Keep both: the incoming file lands under a numbered name.
+ * Keep both: the incoming file is written under a numbered name.
  */
 "keep_both" | 
 /**
@@ -3214,11 +3249,11 @@ export type PlanBasis =
 { kind: "index"; revisions: StoreRevision[] };
 
 /**
- * One folder of the plan landing in another.
+ * One source folder of the plan and the folder it is written into.
  */
 export type PlanRoot = { source: SdPath; destination: SdPath; 
 /**
- * Whether settled leaves leave the source.
+ * Whether settled leaves are removed from the source.
  */
 consumes: boolean };
 

@@ -6,13 +6,16 @@
 //! hash across every store, and one holder in all of them means nothing else
 //! has those bytes. For named files that count is cheap enough for
 //! validation; for a comparison it is the preview's, which streams the set
-//! and puts the flag on each row.
+//! and puts the flag on each row. A set of duplicates previews as the copies
+//! that go beside the copy of each content that stays.
 
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 
 use super::{
 	action::FileDeleteAction,
-	input::{DeleteTargets, FileDeleteInput},
+	duplicates::{duplicated_in, keeper_at, other_copies, size_of, surplus},
+	input::{DeleteTargets, Duplicates, FileDeleteInput, Keep},
 };
 use crate::{
 	domain::SdPath,
@@ -28,7 +31,8 @@ use crate::{
 	},
 	ops::{
 		files::plan::{
-			ChangeKind, FsPlan, FsPlanSummary, PlanBasis, PlanChanges, PlannedChange, StoreRevision,
+			ChangeKind, FsPlan, FsPlanSummary, PlanBasis, PlanChanges, PlannedChange, SkipReason,
+			StoreRevision,
 		},
 		paths::{
 			compare::{CompareBy, Folder, Keyed, Matcher, Side},
@@ -42,6 +46,9 @@ pub const MISSING: &str = "delete.missing";
 pub const TRASH_UNSUPPORTED: &str = "delete.trash_unsupported";
 pub const UNTRACKED: &str = "delete.untracked";
 pub const LAST_COPY: &str = "delete.last_copy";
+pub const NO_SCOPE: &str = "delete.no_scope";
+pub const UNHASHED: &str = "delete.unhashed";
+pub const UNVERIFIED: &str = "delete.unverified";
 
 /// How many files a comparison preview records per last-copy lookup.
 const BATCH: usize = 1000;
@@ -165,9 +172,117 @@ async fn validate(
 				}
 			}
 		}
+		DeleteTargets::Duplicates { duplicates } => {
+			validate_duplicates(duplicates, ctx, &mut findings, &mut facts).await?;
+		}
 	}
 
 	Ok(Validation { findings, facts })
+}
+
+/// A scope that is tracked, chosen copies that are there and hashed, and
+/// for chosen copies the count of what would go and how many pairs rest
+/// on a sampled hash alone.
+async fn validate_duplicates(
+	duplicates: &Duplicates,
+	ctx: &PreviewContext,
+	findings: &mut Vec<Finding>,
+	facts: &mut ExecutionFacts,
+) -> Result<(), ActionError> {
+	if let Some(scope) = &duplicates.scope {
+		if scope.as_local_path().is_none() {
+			findings.push(
+				Finding::error(
+					REMOTE_ROOT,
+					"the folder is on another device; delete there with --device",
+				)
+				.at(scope.clone()),
+			);
+		} else if ctx.reach(scope).await.is_empty() {
+			findings.push(
+				Finding::error(
+					UNTRACKED,
+					"the folder is outside every tracked source; finding copies needs its index",
+				)
+				.at(scope.clone()),
+			);
+		}
+	}
+	match &duplicates.keep {
+		Keep::First => {
+			if duplicates.scope.is_none() {
+				findings.push(Finding::error(
+					NO_SCOPE,
+					"keeping the first copy needs a folder to look in",
+				));
+			}
+		}
+		Keep::These { paths } => {
+			let mut kept = Vec::new();
+			for path in paths {
+				let Some(local) = path.as_local_path() else {
+					findings.push(
+						Finding::error(
+							REMOTE_ROOT,
+							"a file to keep is on another device; delete there with --device",
+						)
+						.at(path.clone()),
+					);
+					continue;
+				};
+				if tokio::fs::symlink_metadata(local).await.is_err() {
+					findings.push(
+						Finding::error(MISSING, "a file to keep is not there").at(path.clone()),
+					);
+					continue;
+				}
+				match keeper_at(ctx.volumes(), ctx.index(), path).await {
+					Some(file) if file.entry.sampled_hash.is_some() => kept.push(file),
+					_ => findings.push(
+						Finding::error(
+							UNHASHED,
+							"a file to keep has not been hashed yet, so its copies cannot be found",
+						)
+						.at(path.clone()),
+					),
+				}
+			}
+			let reaches = match &duplicates.scope {
+				Some(scope) => ctx.reach(scope).await,
+				None => every_store_in(ctx.index()),
+			};
+			let hashes: Vec<String> = kept
+				.iter()
+				.filter_map(|file| file.entry.sampled_hash.clone())
+				.collect();
+			let kept_paths: HashSet<PathBuf> = kept.iter().map(|file| file.path.clone()).collect();
+			let copies = other_copies(
+				ctx.index(),
+				&reaches,
+				&hashes,
+				&kept_paths,
+				duplicates.min_size.unwrap_or(0),
+			)
+			.await
+			.map_err(read_failed)?;
+			facts.estimated_files = Some(copies.len() as u64);
+			facts.estimated_bytes = Some(copies.iter().map(|copy| size_of(&copy.entry)).sum());
+			let unverified = copies
+				.iter()
+				.chain(kept.iter())
+				.filter(|file| file.entry.integrity_hash.is_none())
+				.count();
+			if unverified > 0 {
+				findings.push(Finding::info(
+					UNVERIFIED,
+					format!(
+						"{unverified} of these copies match on a sampled hash alone; the job reads each in full before removing it"
+					),
+				));
+			}
+		}
+	}
+	Ok(())
 }
 
 async fn preview(input: &FileDeleteInput, ctx: &PreviewContext) -> Result<FsPlan, ActionError> {
@@ -245,6 +360,90 @@ async fn preview(input: &FileDeleteInput, ctx: &PreviewContext) -> Result<FsPlan
 				}
 				if drained {
 					break;
+				}
+			}
+		}
+		DeleteTargets::Duplicates { duplicates } => {
+			let reaches = match &duplicates.scope {
+				Some(scope) => ctx.reach(scope).await,
+				None => every_store_in(ctx.index()),
+			};
+			if reaches.is_empty() {
+				return Err(ActionError::InvalidInput(
+					"the folder is not in a tracked source".to_string(),
+				));
+			}
+			for reach in &reaches {
+				let Some(db) = ctx.index().read_store(reach.source.id).await else {
+					continue;
+				};
+				let revision = db.revision().await.map_err(store_failed)?;
+				if !revisions
+					.iter()
+					.any(|known| known.source == reach.source.id)
+				{
+					revisions.push(StoreRevision {
+						source: reach.source.id,
+						revision: revision.value,
+					});
+				}
+			}
+			let min_size = duplicates.min_size.unwrap_or(0);
+			let mut note = |file: Keyed, keeper: bool| {
+				let size = size_of(&file.entry);
+				let change = if keeper {
+					ChangeKind::Skip {
+						reason: SkipReason::Policy,
+					}
+				} else {
+					ChangeKind::Delete { last_copy: false }
+				};
+				summary.count(&change, size);
+				changes.push(PlannedChange {
+					path: SdPath::Physical {
+						device_slug: device.clone(),
+						path: file.path,
+					},
+					change,
+				});
+			};
+			match &duplicates.keep {
+				Keep::First => {
+					let duplicated = duplicated_in(ctx.index(), &reaches, min_size)
+						.await
+						.map_err(read_failed)?;
+					for (file, keeper) in surplus(ctx.index(), &reaches, &duplicated)
+						.await
+						.map_err(read_failed)?
+					{
+						note(file, keeper);
+					}
+				}
+				Keep::These { paths } => {
+					let mut kept = Vec::new();
+					for path in paths {
+						if let Some(file) = keeper_at(ctx.volumes(), ctx.index(), path).await {
+							if file.entry.sampled_hash.is_some() {
+								kept.push(file);
+							}
+						}
+					}
+					let hashes: Vec<String> = kept
+						.iter()
+						.filter_map(|file| file.entry.sampled_hash.clone())
+						.collect();
+					let kept_paths: HashSet<PathBuf> =
+						kept.iter().map(|file| file.path.clone()).collect();
+					let copies =
+						other_copies(ctx.index(), &reaches, &hashes, &kept_paths, min_size)
+							.await
+							.map_err(read_failed)?;
+					for file in kept {
+						note(file, true);
+					}
+					for file in copies {
+						note(file, false);
+					}
 				}
 			}
 		}
@@ -386,15 +585,193 @@ fn read_failed(error: QueryError) -> ActionError {
 	ActionError::Internal(error.to_string())
 }
 
+fn store_failed(error: sd_store::Error) -> ActionError {
+	ActionError::Internal(error.to_string())
+}
+
 #[cfg(test)]
 mod tests {
+	use std::time::Duration;
+
 	use sd_store::file::FileKind;
 
 	use super::*;
-	use crate::ops::{
-		files::fixture::{Fixture, T},
-		paths::compare::{CompareSet, Comparison},
+	use crate::{
+		infra::job::output::JobOutput,
+		ops::{
+			files::{
+				delete::job::{DeleteJob, DeleteMode},
+				fixture::{Entry, Fixture, T},
+			},
+			paths::compare::{CompareSet, Comparison},
+		},
 	};
+
+	/// Four files of three contents: `x.jpg` twice, `y.jpg` twice under one
+	/// folder, and one file nothing else holds.
+	fn duplicated_tree() -> [Entry<'static>; 5] {
+		let file = FileKind::File;
+		[
+			("a/x.jpg", file, 4, T, Some("h1"), None, None),
+			("b/x.jpg", file, 4, T, Some("h1"), None, None),
+			("c/y.jpg", file, 3, T, Some("h2"), None, None),
+			("c/z.jpg", file, 3, T, Some("h2"), None, None),
+			("d/only.jpg", file, 5, T, Some("u"), None, None),
+		]
+	}
+
+	fn change_at(plan: &FsPlan, path: &std::path::Path) -> Option<ChangeKind> {
+		plan.changes
+			.iter()
+			.find(|change| change.path.path().map(PathBuf::as_path) == Some(path))
+			.map(|change| change.change.clone())
+	}
+
+	async fn run(fixture: &Fixture, targets: DeleteTargets) -> usize {
+		let handle = fixture
+			.library
+			.jobs()
+			.dispatch(DeleteJob::new(targets, DeleteMode::Permanent))
+			.await
+			.expect("dispatched");
+		let output = tokio::time::timeout(Duration::from_secs(30), handle.wait())
+			.await
+			.expect("in time")
+			.expect("completed");
+		match output {
+			JobOutput::FileDelete { deleted_count, .. } => deleted_count,
+			other => panic!("not a delete output: {other:?}"),
+		}
+	}
+
+	/// Of each duplicated content beneath the folder the first copy in walk
+	/// order stays, previewed as kept, and the job removes the rest after
+	/// reading them.
+	#[tokio::test]
+	async fn the_first_copy_stays_and_the_others_go() {
+		let fixture = Fixture::new().await;
+		let tree = duplicated_tree();
+		fixture.materialize(&fixture.source, &tree);
+		fixture.index(&fixture.source, &tree).await;
+
+		let targets = DeleteTargets::Duplicates {
+			duplicates: Duplicates {
+				scope: Some(SdPath::local(&fixture.source)),
+				keep: Keep::First,
+				min_size: None,
+			},
+		};
+		let input = delete(targets.clone());
+		let validation = validate(&input, &fixture.preview())
+			.await
+			.expect("validated");
+		assert!(!validation.refuses(), "{:?}", validation.findings);
+
+		let plan = preview(&input, &fixture.preview()).await.expect("planned");
+		let kept = ChangeKind::Skip {
+			reason: SkipReason::Policy,
+		};
+		let gone = ChangeKind::Delete { last_copy: false };
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("a/x.jpg")),
+			Some(kept.clone())
+		);
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("b/x.jpg")),
+			Some(gone.clone())
+		);
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("c/y.jpg")),
+			Some(kept)
+		);
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("c/z.jpg")),
+			Some(gone)
+		);
+		assert_eq!(change_at(&plan, &fixture.source.join("d/only.jpg")), None);
+		assert_eq!(plan.summary.deletes.files, 2);
+		assert_eq!(plan.summary.deletes.bytes, 7);
+		assert_eq!(plan.summary.skips.policy.files, 2);
+
+		assert_eq!(run(&fixture, targets).await, 2);
+		for (path, present) in [
+			("a/x.jpg", true),
+			("b/x.jpg", false),
+			("c/y.jpg", true),
+			("c/z.jpg", false),
+			("d/only.jpg", true),
+		] {
+			assert_eq!(fixture.source.join(path).exists(), present, "{path}");
+		}
+	}
+
+	/// Chosen copies stay wherever they are, every other copy of their
+	/// content goes, and a copy that is not hashed cannot be chosen.
+	#[tokio::test]
+	async fn chosen_copies_stay() {
+		let fixture = Fixture::new().await;
+		let tree = duplicated_tree();
+		fixture.materialize(&fixture.source, &tree);
+		fixture.index(&fixture.source, &tree).await;
+
+		let keep = SdPath::local(fixture.source.join("b/x.jpg"));
+		let targets = DeleteTargets::Duplicates {
+			duplicates: Duplicates {
+				scope: None,
+				keep: Keep::These {
+					paths: vec![keep.clone()],
+				},
+				min_size: None,
+			},
+		};
+		let input = delete(targets.clone());
+		let validation = validate(&input, &fixture.preview())
+			.await
+			.expect("validated");
+		assert!(!validation.refuses(), "{:?}", validation.findings);
+		assert_eq!(validation.facts.estimated_files, Some(1));
+		assert_eq!(validation.facts.estimated_bytes, Some(4));
+		assert!(validation
+			.findings
+			.iter()
+			.any(|finding| finding.code == UNVERIFIED));
+
+		let plan = preview(&input, &fixture.preview()).await.expect("planned");
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("b/x.jpg")),
+			Some(ChangeKind::Skip {
+				reason: SkipReason::Policy
+			})
+		);
+		assert_eq!(
+			change_at(&plan, &fixture.source.join("a/x.jpg")),
+			Some(ChangeKind::Delete { last_copy: false })
+		);
+		assert_eq!(plan.changes.len(), 2);
+
+		assert_eq!(run(&fixture, targets).await, 1);
+		assert!(!fixture.source.join("a/x.jpg").exists());
+		assert!(fixture.source.join("b/x.jpg").exists());
+		assert!(
+			fixture.source.join("c/z.jpg").exists(),
+			"untouched content stays"
+		);
+
+		std::fs::write(fixture.source.join("d/fresh.jpg"), b"fresh").expect("file");
+		let unhashed = delete(DeleteTargets::Duplicates {
+			duplicates: Duplicates {
+				scope: None,
+				keep: Keep::These {
+					paths: vec![SdPath::local(fixture.source.join("d/fresh.jpg"))],
+				},
+				min_size: None,
+			},
+		});
+		let validation = validate(&unhashed, &fixture.preview())
+			.await
+			.expect("validated");
+		assert!(validation.errors().any(|finding| finding.code == UNHASHED));
+	}
 
 	fn delete(targets: DeleteTargets) -> FileDeleteInput {
 		FileDeleteInput {

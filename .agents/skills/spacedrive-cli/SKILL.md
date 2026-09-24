@@ -225,6 +225,27 @@ required: `both` removes what B already holds, `only-a` what B lacks, and
   counted as skipped in the job's output, with its reason.
 - Deleting leaves empty directories behind.
 
+## Remove duplicate copies
+
+`file dedupe <folder>` removes the surplus copies of content that exists more
+than once beneath the folder: of each duplicated content, the first copy in
+the folder's walk order stays. Copies are found within one source at a time,
+from the index, so hash first. It validates and previews like `file delete`,
+listing each kept copy and each copy that goes, and asks before dispatching;
+`--dry-run` stops after the plan, `--permanent` skips the trash, `--min-size`
+leaves small contents alone.
+
+- `--keep <file>...` chooses the copies that stay instead: every other copy
+  of their content goes, anywhere in the library, or beneath the folder when
+  one is given. A file the index has not hashed cannot be chosen; validation
+  says so (`delete.unhashed`).
+- `--keep-under <dir>` removes from the folder what that directory already
+  holds, matched by content wherever it sits. It is `file delete <folder>
+  --against <dir> --by content --show both` under another name.
+- Before removing a copy the job reads it and the copy that stays in full and
+  compares integrity hashes; a pair whose bytes differ stays and is reported.
+  What the reads learn is written to the stores.
+
 ## Merge folders
 
 `file merge <sources>... --into <dir>` merges folders into an existing

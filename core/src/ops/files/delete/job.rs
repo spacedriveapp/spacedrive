@@ -12,6 +12,7 @@ use std::{
 use tokio::fs;
 
 use super::compared;
+use super::duplicates;
 use super::input::DeleteTargets;
 use super::routing::DeleteStrategyRouter;
 use super::strategy::DeleteResult;
@@ -88,6 +89,9 @@ impl JobHandler for DeleteJob {
 			}
 			DeleteTargets::Comparison { comparison } => {
 				compared::delete(&ctx, comparison, self.mode.clone(), self.started_at).await
+			}
+			DeleteTargets::Duplicates { duplicates } => {
+				duplicates::delete(&ctx, duplicates, self.mode.clone(), self.started_at).await
 			}
 		}
 	}
@@ -252,7 +256,8 @@ pub struct DeleteError {
 	pub error: String,
 }
 
-/// A file a comparison named that the job left in place.
+/// A file a comparison or a set of duplicates named that the job left in
+/// place.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeleteSkip {
 	pub path: PathBuf,
@@ -268,14 +273,18 @@ pub enum SkipReason {
 	NoCopy,
 	/// The file or its copy could not be read.
 	Unreadable(String),
+	/// The index holds no content hash for the file, so its copies cannot
+	/// be found.
+	Unhashed,
 }
 
 impl std::fmt::Display for SkipReason {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Differs => write!(f, "its copy in B holds different bytes"),
-			Self::NoCopy => write!(f, "its copy in B is gone"),
+			Self::Differs => write!(f, "the copy that stays holds different bytes"),
+			Self::NoCopy => write!(f, "the copy that was to stay is gone"),
 			Self::Unreadable(error) => write!(f, "could not be read: {error}"),
+			Self::Unhashed => write!(f, "has not been hashed yet"),
 		}
 	}
 }

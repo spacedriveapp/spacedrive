@@ -166,6 +166,22 @@ only folders, consuming them after a cut; a window-level modifier tracker
 open the merge dialog directly; and a grid drop target validates the drop
 while a drag hovers it and badges an error or warning.
 
+Dedupe has landed as the third kind of `files.delete` target
+(`DeleteTargets::Duplicates`, `core/src/ops/files/delete/duplicates.rs`):
+keep the first copy in walk order of each duplicated content beneath a
+folder, found within one source at a time from a single index query, or keep
+the copies the caller names and remove every other copy of their content.
+The job streams the scope with a checkpointed cursor, reads each surplus copy
+and its keeper in full before removing it, and writes what it learned to the
+stores; the preflight previews kept and removed rows and counts the pairs
+that rest on a sampled hash alone. `sd file dedupe` is the CLI, with
+`--keep`, `--keep-under` (the comparison delete by content) and `--min-size`.
+The `files.duplicates` query is on the wire, and the interface has a
+Duplicates screen under Protection with per-group keeper choice, a folder's
+"Remove duplicates inside", a file's "Remove other copies", and "Delete what
+'B' already holds" on a folder while the clipboard holds one folder, all
+through one dialog on delete's preflight.
+
 V9 has landed. A preview retains its plan under a handle in memory
 (`PlanHandles` on `CoreContext`, ten minutes past last use);
 `files.directory_listing` takes `overlay` and answers the directory after
@@ -407,13 +423,15 @@ future operations that adopt preflight as separate work.
 - Preview: the listing with new names applied, collisions marked on the
   exact rows.
 
-**Dedupe** (future, over `files.duplicates` groups)
+**Dedupe** (a target of `files.delete`)
 
-- Validate: every group it would act on has confirmed integrity hashes;
-  where only candidates exist, the finding says verification must run first,
-  or the action chains a verify job. Keep-policy coherence.
-- Preview: per group, which copy stays and which go, reclaimable bytes,
-  browsable after-state.
+- Validate: the folder is tracked; a chosen copy is present and hashed, or
+  the finding says so (`delete.unhashed`); how many pairs rest on a sampled
+  hash alone is an info finding, since the job reads each pair in full
+  before removing anything rather than requiring verification first.
+- Preview: per content, the copy that stays as a kept row and the copies
+  that go as delete rows, with reclaimable bytes in the summary, browsable
+  through the same overlay as every other plan.
 
 ### The merge operation
 

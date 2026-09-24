@@ -6,7 +6,7 @@ use sd_core::{
 	ops::{
 		files::{
 			copy::input::{CopyMethod, FileCopyInput},
-			delete::{DeleteTargets, FileDeleteInput},
+			delete::{DeleteTargets, Duplicates, FileDeleteInput, Keep},
 			merge::{FileMergeInput, MergeConflictPolicy},
 		},
 		paths::compare::{CompareBy, CompareSet, Comparison, PathCompareInput, MAX_PAGE},
@@ -308,4 +308,88 @@ fn local_path(path: &PathBuf) -> anyhow::Result<SdPath> {
 			path,
 		})
 		.map_err(|e| anyhow::anyhow!("{}: {e}", path.display()))
+}
+
+#[derive(Args, Debug, Clone)]
+pub struct FileDedupeArgs {
+	/// The folder whose surplus copies go. Optional with --keep, where it
+	/// limits where the other copies are removed from
+	pub scope: Option<PathBuf>,
+
+	/// These files stay; every other copy of their content goes
+	#[arg(long, value_name = "FILE", num_args = 1.., conflicts_with = "keep_under")]
+	pub keep: Vec<PathBuf>,
+
+	/// Remove from the folder what this folder already holds, matched by
+	/// content wherever it sits
+	#[arg(long, value_name = "DIR", conflicts_with = "keep")]
+	pub keep_under: Option<PathBuf>,
+
+	/// Leave contents smaller than this many bytes alone
+	#[arg(long, value_name = "BYTES")]
+	pub min_size: Option<u64>,
+
+	/// Include hidden files when matching against --keep-under
+	#[arg(long, default_value_t = false, requires = "keep_under")]
+	pub include_hidden: bool,
+
+	/// Delete permanently instead of moving to the trash
+	#[arg(long, default_value_t = false)]
+	pub permanent: bool,
+
+	/// Validate and show the plan, then stop
+	#[arg(long, default_value_t = false)]
+	pub dry_run: bool,
+
+	/// Skip the confirmation prompt
+	#[arg(long, short = 'y', default_value_t = false)]
+	pub yes: bool,
+}
+
+impl FileDedupeArgs {
+	pub fn into_input(self) -> anyhow::Result<FileDeleteInput> {
+		let scope = self.scope.as_ref().map(local_path).transpose()?;
+		let targets = if let Some(under) = &self.keep_under {
+			let a = scope
+				.ok_or_else(|| anyhow::anyhow!("--keep-under needs the folder to delete from"))?;
+			DeleteTargets::Comparison {
+				comparison: Comparison {
+					a,
+					b: local_path(under)?,
+					by: CompareBy::Content,
+					show: CompareSet::Both,
+					include_hidden: self.include_hidden,
+				},
+			}
+		} else if !self.keep.is_empty() {
+			DeleteTargets::Duplicates {
+				duplicates: Duplicates {
+					scope,
+					keep: Keep::These {
+						paths: self
+							.keep
+							.iter()
+							.map(local_path)
+							.collect::<anyhow::Result<_>>()?,
+					},
+					min_size: self.min_size,
+				},
+			}
+		} else {
+			let scope =
+				scope.ok_or_else(|| anyhow::anyhow!("name the folder to look for copies in"))?;
+			DeleteTargets::Duplicates {
+				duplicates: Duplicates {
+					scope: Some(scope),
+					keep: Keep::First,
+					min_size: self.min_size,
+				},
+			}
+		};
+		Ok(FileDeleteInput {
+			targets,
+			permanent: self.permanent,
+			recursive: true,
+		})
+	}
 }

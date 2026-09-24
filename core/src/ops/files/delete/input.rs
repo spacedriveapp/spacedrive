@@ -17,16 +17,44 @@ pub struct FileDeleteInput {
 	pub recursive: bool,
 }
 
-/// What a deletion removes: files named one by one, or folder A's files in
-/// one set of its comparison with folder B. A comparison is evaluated by the
-/// job as it runs, so the set is derived from the index at that moment and a
-/// copy in B is read in full before the file in A goes. To delete from B,
-/// compare the other way round.
+/// What a deletion removes: files named one by one, folder A's files in one
+/// set of its comparison with folder B, or the surplus copies of content
+/// that exists more than once. A comparison and a set of duplicates are
+/// evaluated by the job as it runs, so the files are derived from the index
+/// at that moment and a copy is read in full, alongside the copy that stands
+/// for it, before it goes. To delete from B, compare the other way round.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum DeleteTargets {
 	Paths { paths: Vec<SdPath> },
 	Comparison { comparison: Comparison },
+	Duplicates { duplicates: Duplicates },
+}
+
+/// The surplus copies of duplicated content, and the rule for the copy that
+/// stays.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct Duplicates {
+	/// Where copies are removed from. Required to keep the first copy; for
+	/// chosen copies, every attached source when absent.
+	#[serde(default)]
+	pub scope: Option<SdPath>,
+	pub keep: Keep,
+	/// Contents smaller than this, in bytes, are left alone.
+	#[serde(default)]
+	pub min_size: Option<u64>,
+}
+
+/// Which copy of a duplicated content stays.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Keep {
+	/// Of each content's copies in the scope, the first in the scope's walk
+	/// order stays. Copies are found within one source at a time.
+	First,
+	/// These files stay, and every other copy of their content in the scope
+	/// goes.
+	These { paths: Vec<SdPath> },
 }
 
 impl FileDeleteInput {
@@ -50,6 +78,15 @@ impl FileDeleteInput {
 			{
 				errors.push("different files are found by path".to_string());
 			}
+			DeleteTargets::Duplicates { duplicates } => match &duplicates.keep {
+				Keep::First if duplicates.scope.is_none() => {
+					errors.push("keeping the first copy needs a folder to look in".to_string());
+				}
+				Keep::These { paths } if paths.is_empty() => {
+					errors.push("name at least one copy to keep".to_string());
+				}
+				_ => {}
+			},
 			_ => {}
 		}
 

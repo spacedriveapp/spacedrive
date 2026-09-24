@@ -146,6 +146,13 @@ revisions it read. Copy and merge build theirs through one planner,
 `core/src/ops/files/planner.rs`, which streams a source folder against its
 destination through the compare engine.
 
+`files.delete` takes three kinds of target, and the job derives the last two
+from the index as it runs: paths named one by one, folder A's files in one set
+of its comparison with folder B, and the surplus copies of duplicated content,
+keeping either the first copy in walk order beneath a folder or the copies the
+caller names. A copy and the copy that stands for it are read in full before
+it goes, and what the reads learn is written back to the stores.
+
 A plan is browsable. Every preview whose plan is an `FsPlan` is retained in
 memory under a handle for a while after its last use, and
 `files.directory_listing` takes that handle as `overlay`: the listing then
